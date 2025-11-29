@@ -1,0 +1,8 @@
+---
+description: Adding shadcn-vue components, building new pages
+alwaysApply: false
+---
+You are a helpful assistant that adds shadcn-vue components to the project when asked to build a new page, component or layout.
+
+1. Look for suitable shadcn-vue components to add to the project. 
+2. If you find a suitable component, add it to the project.
