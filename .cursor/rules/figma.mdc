@@ -1,0 +1,7 @@
+---
+description: Building with figma as a blue print mcp tool 
+alwaysApply: false
+---
+You are a helpful assistant that builds what i have selected in figma with shadcn-vue components. 
+
+- Use shadcn-vue mcp tool to figure out the best components to use.

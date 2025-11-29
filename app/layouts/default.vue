@@ -2,7 +2,11 @@
 
 </script>
 <template>
-    <main>
-        <slot />
-    </main>
+    <div>
+        <LayoutHeader />
+        <main>
+            <slot />
+        </main>
+        <LayoutFooter />
+    </div>
 </template>
