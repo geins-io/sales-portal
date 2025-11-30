@@ -3,6 +3,6 @@
 </script>
 <template>
     <div>
-        <Button>Click me</Button>
+        Start page content goes here
     </div>
 </template>
