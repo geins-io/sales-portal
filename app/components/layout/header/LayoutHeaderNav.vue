@@ -1,7 +1,3 @@
-<script setup lang="ts">
+<script setup lang="ts"></script>
 
-</script>
-
-<template>
-  {header navigation content}
-</template>
+<template>{header navigation content}</template>

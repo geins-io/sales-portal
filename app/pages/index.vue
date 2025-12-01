@@ -1,8 +1,4 @@
-<script setup lang="ts">
-
-</script>
+<script setup lang="ts"></script>
 <template>
-    <div>
-        {start page content}
-    </div>
+  <div>{start page content}</div>
 </template>

@@ -2,10 +2,7 @@
   "mcpServers": {
     "shadcnVue": {
       "command": "npx",
-      "args": [
-        "shadcn-vue@latest",
-        "mcp"
-      ]
+      "args": ["shadcn-vue@latest", "mcp"]
     },
     "Figma": {
       "url": "http://127.0.0.1:3845/mcp",

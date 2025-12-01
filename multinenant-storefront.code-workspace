@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "path": ".",
+    },
+  ],
+  "settings": {
+    "prettier.configPath": ".prettierrc",
+    "editor.formatOnPaste": false,
+    "editor.formatOnType": false,
+    "editor.formatOnSave": true,
+    "scss.lint.unknownAtRules": "ignore",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "eslint.format.enable": true,
+    "prettier.useEditorConfig": false,
+    "typescript.tsdk": "node_modules\\typescript\\lib",
+  },
+}

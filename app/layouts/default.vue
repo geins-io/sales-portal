@@ -1,12 +1,10 @@
-<script setup lang="ts">
-
-</script>
+<script setup lang="ts"></script>
 <template>
-    <div>
-        <LayoutHeader />
-        <main>
-            <slot />
-        </main>
-        <LayoutFooter />
-    </div>
+  <div>
+    <LayoutHeader />
+    <main>
+      <slot />
+    </main>
+    <LayoutFooter />
+  </div>
 </template>

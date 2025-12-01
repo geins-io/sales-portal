@@ -1,0 +1,10 @@
+{
+    "plugins": [
+        "prettier-plugin-vue",
+        "prettier-plugin-tailwindcss"
+    ],
+    "tabWidth": 2,
+    "useTabs": false,
+    "endOfLine": "auto",
+    "singleQuote": true
+}

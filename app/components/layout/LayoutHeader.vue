@@ -1,11 +1,9 @@
-<script setup lang="ts">
-
-</script>
+<script setup lang="ts"></script>
 
 <template>
-    <header>
-        <LayoutHeaderTopbar />
-        <LayoutHeaderMain />
-        <LayoutHeaderNav />
-    </header>
+  <header>
+    <LayoutHeaderTopbar />
+    <LayoutHeaderMain />
+    <LayoutHeaderNav />
+  </header>
 </template>

@@ -1,8 +1,4 @@
-<script setup lang="ts">
-
-</script>
+<script setup lang="ts"></script>
 <template>
-    <div>
-        {action buttons}
-    </div>
+  <div>{action buttons}</div>
 </template>

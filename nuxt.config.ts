@@ -12,11 +12,11 @@ export default defineNuxtConfig({
     '@nuxtjs/tailwindcss',
     '@nuxt/scripts',
     '@nuxt/test-utils',
-    'shadcn-nuxt'
+    'shadcn-nuxt',
   ],
 
   shadcn: {
     prefix: '',
     componentDir: './app/components/ui',
   },
-})
+});
