@@ -1,10 +1,13 @@
+# Project specific
+.prompts
+.temp
+
 # Nuxt dev/build outputs
 .output
 .data
 .nuxt
 .nitro
 .cache
-.prompts
 dist
 
 # Node dependencies
