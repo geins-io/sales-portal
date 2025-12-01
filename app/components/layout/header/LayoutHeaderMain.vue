@@ -4,6 +4,8 @@
 
 <template>
   <div>
-    {header main content}
+    <Logo />
+    <SearchBar />
+    <LayoutHeaderActionButtons />
   </div>
 </template>
