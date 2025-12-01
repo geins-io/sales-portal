@@ -1,8 +1,11 @@
 <script setup lang="ts">
 
 </script>
+
 <template>
     <header>
-        header content
+        <LayoutHeaderTopbar />
+        <LayoutHeaderMain />
+        <LayoutHeaderNav />
     </header>
 </template>

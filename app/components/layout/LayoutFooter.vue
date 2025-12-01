@@ -3,6 +3,6 @@
 </script>
 <template>
     <footer>
-        footer content
+        {footer content}
     </footer>
 </template>

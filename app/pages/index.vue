@@ -3,6 +3,6 @@
 </script>
 <template>
     <div>
-        Start page content goes here
+        {start page content}
     </div>
 </template>
