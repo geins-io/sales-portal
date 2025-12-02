@@ -7,6 +7,7 @@ export default defineNuxtPlugin({
   name: 'tenant-theme',
   async setup() {
     const { data: tenantConfig } = await useApi<TenantConfig>('/api/config');
+    console.log('tenant-theme -> tenantConfig', tenantConfig.value);
 
     useHead({
       // Add a `data-theme` attribute to the root <html> element

@@ -15,6 +15,15 @@ export default defineNuxtConfig({
     'shadcn-nuxt',
   ],
 
+  nitro: {
+    storage: {
+      kv: {
+        driver: 'fs',
+        base: './.data/db',
+      },
+    },
+  },
+
   shadcn: {
     prefix: '',
     componentDir: './app/components/ui',

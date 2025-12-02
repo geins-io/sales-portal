@@ -1,19 +1,32 @@
-import type { TenantConfig } from '@/shared/types/tenant-config';
-export default defineCachedEventHandler<TenantConfig>(
+import type { TenantConfig } from '#shared/types/tenant-config';
+import { createTenant } from '../utils/tenant';
+
+export default defineCachedEventHandler(
   async (event) => {
     const { id, hostname } = event.context.tenant;
+    console.log('defineCachedEventHandler -> id', id);
+    console.log('defineCachedEventHandler -> hostname', hostname);
+
+    // Validate that tenant ID exists
+
     // Retrieve tenant configuration from KV storage
     // using the tenant's ID as the key
+
     const config = await useStorage('kv').getItem<TenantConfig>(
       `tenant:config:${id}`,
     );
 
     if (!config) {
-      // Alternatively, you could fallback to fetching the config from an API
-      throw createError({
-        statusCode: 404,
-        statusMessage: `Tenant config not found for '${hostname}'`,
+      // Create tenant with default config if not found
+      // TODO: load config from API / REDIS etc
+      const newConfig = await createTenant({
+        hostname,
+        tenantId: hostname,
       });
+
+      // Alternatively, you could fallback to fetching the config from an API
+      // For now, we'll return the newly created config instead of throwing an error
+      return newConfig;
     }
     return config;
   },
