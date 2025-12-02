@@ -1,8 +1,16 @@
 import type { TenantConfig } from '#shared/types/tenant-config';
 
+// TESTING PURPOSES ONLY
 // generate a random color
 function generateRandomColor(): string {
   return `#${Math.floor(Math.random() * 16777215).toString(16)}`;
+}
+
+export function tenantIdKey(hostname: string): string {
+  return `tenant:id:${hostname}`;
+}
+export function tenantConfigKey(tenantId: string): string {
+  return `tenant:config:${tenantId}`;
 }
 
 export interface CreateTenantOptions {
@@ -29,6 +37,7 @@ export async function createTenant(
 
   // Create default config
   const defaultConfig: TenantConfig = {
+    css: '',
     theme: {
       name: finalTenantId,
       colors: {
@@ -40,6 +49,7 @@ export async function createTenant(
 
   // Merge with provided config
   const finalConfig: TenantConfig = {
+    css: '',
     theme: {
       ...defaultConfig.theme,
       ...(partialConfig?.theme || {}),
@@ -51,27 +61,28 @@ export async function createTenant(
   };
 
   // Check if tenant mapping already exists
-  const existingId = await storage.getItem<string>(`tenant:id:${hostname}`);
+  const existingId = await storage.getItem<string>(tenantIdKey(hostname));
 
   if (!existingId) {
     // Map hostname to tenant ID
-    await storage.setItem(`tenant:id:${hostname}`, finalTenantId);
+    await storage.setItem(tenantIdKey(hostname), finalTenantId);
   }
 
   // Check if tenant config exists
   const existingConfig = await storage.getItem<TenantConfig>(
-    `tenant:config:${finalTenantId}`,
+    tenantConfigKey(finalTenantId),
   );
 
   if (!existingConfig) {
     // Create new tenant config
-    await storage.setItem(`tenant:config:${finalTenantId}`, finalConfig);
+    await storage.setItem(tenantConfigKey(finalTenantId), finalConfig);
     return finalConfig;
   }
 
   // If config exists but we want to update it, merge and save
   if (partialConfig) {
     const updatedConfig: TenantConfig = {
+      css: '',
       theme: {
         ...existingConfig.theme,
         ...partialConfig.theme,
@@ -81,7 +92,7 @@ export async function createTenant(
         },
       },
     };
-    await storage.setItem(`tenant:config:${finalTenantId}`, updatedConfig);
+    await storage.setItem(tenantConfigKey(finalTenantId), updatedConfig);
     return updatedConfig;
   }
 

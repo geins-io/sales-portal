@@ -13,9 +13,9 @@ export default defineNitroPlugin((nitroApp) => {
     // without considering the `X-Forwarded-Host` header which could be spoofed.
     const rawHostname = getRequestHost(event, { xForwardedHost: false });
     const hostname = normalizeHostname(rawHostname ?? '');
-    const id = await useStorage('kv').getItem<string>(`tenant:id:${hostname}`);
-    console.log('01.tenant-context -> id', id);
-    console.log('01.tenant-context -> hostname', hostname);
+
+    // TODO: add other tenant data from the database here
+    // const id = await useStorage('kv').getItem<string>(`tenant:id:${hostname}`);
 
     // Attach tenant data to the event context to make it
     // available to all server routes and middleware.
