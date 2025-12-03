@@ -12,7 +12,6 @@ export default defineNuxtPlugin({
   name: 'tenant-theme',
   async setup() {
     const { data: tenantConfig } = await useApi<TenantConfig>('/api/config');
-
     useHead({
       titleTemplate: `%s - ${sanitizeTitle(tenantConfig.value?.tenantId)}`,
       htmlAttrs: { 'data-theme': tenantConfig.value?.theme?.name || 'default' },

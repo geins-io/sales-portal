@@ -13,6 +13,7 @@ export function tenantConfigKey(tenantId: string): string {
   return `tenant:config:${tenantId}`;
 }
 
+// TESTING PURPOSES ONLY
 export function tenantCustomCss(tenantId: string): string {
   return `
    [data-theme='${tenantId}'] {
@@ -43,8 +44,6 @@ export async function createTenant(
   const { hostname, tenantId, config: partialConfig } = options;
   const storage = useStorage('kv');
   const finalTenantId = tenantId || hostname;
-
-  console.log('createTenant', finalTenantId);
 
   // Create default config
   const defaultConfig: TenantConfig = {
