@@ -1,0 +1,134 @@
+{
+    "data": {
+        "widgetArea": {
+            "meta": {
+                "description": "Sacpro AB - Leading supplier of pipe relining equipment and solutions",
+                "title": "Sacpro - Pipe Relining Solutions",
+                "__typename": "MetadataType"
+            },
+            "name": "Sacpro Product Range",
+            "tags": [],
+            "containers": [
+                {
+                    "name": "New container",
+                    "layout": "full",
+                    "design": "full-width",
+                    "widgets": [
+                        {
+                            "name": "Image",
+                            "configuration": "{\"active\":true,\"classNames\":\"full\",\"image\":{\"altText\":\"\",\"href\":\"\",\"text\":null,\"title\":null,\"filename\":\"https://sacpro.se/wp-content/uploads/2025/11/store-1-1024x585.jpg\",\"filenameForMobileDevice\":\"https://sacpro.se/wp-content/uploads/2025/11/store-1-1024x585.jpg\"}}",
+                            "images": [
+                                {
+                                    "fileName": "https://sacpro.se/wp-content/uploads/2025/11/store-1-1024x585.jpg",
+                                    "largestSize": {
+                                        "imageWidth": 2720,
+                                        "imageHeight": 708,
+                                        "__typename": "PageWidgetImageSizeType"
+                                    },
+                                    "__typename": "PageWidgetImageType"
+                                },
+                                {
+                                    "fileName": "https://sacpro.se/wp-content/uploads/2025/11/store-1-1024x585.jpg",
+                                    "largestSize": {
+                                        "imageWidth": 2720,
+                                        "imageHeight": 1813,
+                                        "__typename": "PageWidgetImageSizeType"
+                                    },
+                                    "__typename": "PageWidgetImageType"
+                                }
+                            ],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n  \\u0022renderWidget\\u0022: \\u0022CaHeadlineBodyJsonWidgetRolex\\u0022,\\n  \\u0022data\\u0022: {\\n    \\u0022headline\\u0022: \\u0022Sacpro produkter\\u0022,\\n    \\u0022text1\\u0022: \\u0022I \\u00F6ver tv\\u00E5 decennier har Sacpro varit ledande inom tillverkning och f\\u00F6rs\\u00E4ljning av produkter f\\u00F6r relining av r\\u00F6r.\\u0022,\\n    \\u0022text2\\u0022: \\u0022 Vi levererar kompletta l\\u00F6sningar till reiningf\\u00F6retag \\u00F6ver hela v\\u00E4rlden, fr\\u00E5n Norden till USA, med fokus p\\u00E5 kvalitet och innovation.\\u0022,\\n    \\u0022mergeTextContent\\u0022: true\\n  }\\n}\",\"templateName\":\"Headline Body Rolex\",\"templateId\":\"headline-body-rolex\",\"templateIcon\":null,\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n  \\u0022renderWidget\\u0022: \\u0022CaPushComponentRolex\\u0022,\\n  \\u0022data\\u0022: {\\n    \\u0022topHeadline\\u0022: \\u0022\\u0022,\\n    \\u0022subHeadline\\u0022: \\u0022Publicerad den 3 december, 2025\\u0022,\\n    \\u0022headline\\u0022: \\u0022UV-h\\u00E4rdning f\\u00F6r snabb relining\\u0022,\\n    \\u0022text\\u0022: \\u0022V\\u00E5r UV-h\\u00E4rdningsteknik revolutionerar r\\u00F6rrelining. Snabb h\\u00E4rdning, h\\u00F6g kvalitet och minimal stillestandstid. Perfekt f\\u00F6r projekt som kr\\u00E4ver snabba resultat utan att kompromissa med h\\u00E5llbarhet. Komplett utbud av UV-lampor, liner och tillbeh\\u00F6r.\\u0022,\\n    \\u0022desktopImage\\u0022: \\u0022sacpro-uv-hardening-equipment-landscape.jpg\\u0022,\\n    \\u0022mobileImage\\u0022: \\u0022sacpro-uv-hardening-equipment-portrait.jpg\\u0022,\\n    \\u0022alt\\u0022: \\u0022\\u0022,\\n    \\u0022ctaText\\u0022: \\u0022Uppt\\u00E4ck mer\\u0022,\\n    \\u0022ctaLink\\u0022: \\u0022/products/uv-hardening\\u0022\\n  }\\n}\",\"templateName\":\"Push Component Rolex\",\"templateId\":\"push-component-rolex\",\"templateIcon\":\"ef39\",\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n    \\u0022renderWidget\\u0022: \\u0022CaSpacerRolex\\u0022,\\n    \\u0022data\\u0022: {\\n        \\u0022beige\\u0022: false\\n    }\\n}\",\"templateName\":\"Spacer Rolex\",\"templateId\":\"spacer-rolex\",\"templateIcon\":\"e258\",\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n    \\u0022renderWidget\\u0022: \\u0022CaPushBannerGridRolex\\u0022,\\n    \\u0022data\\u0022: {\\n        \\u0022gridItems\\u0022: [\\n            {\\n                \\u0022topHeadline\\u0022: \\u0022\\u0022,\\n                \\u0022subHeadline\\u0022: \\u0022Publicerad den 15 november, 2025\\u0022,\\n                \\u0022headline\\u0022: \\u0022Epoxy och liner\\u0022,\\n                \\u0022desktopImage\\u0022: \\u0022sacpro-epoxy-liner-products-landscape.jpg\\u0022,\\n                \\u0022mobileImage\\u0022: \\u0022sacpro-epoxy-liner-products-portrait.jpg\\u0022,\\n                \\u0022alt\\u0022: \\u0022\\u0022,\\n                \\u0022text\\u0022: \\u0022H\\u00F6gkvalitativa epoxysystem och liner f\\u00F6r alla typer av r\\u00F6rreining. V\\u00E5ra produkter \\u00E4r testade och godk\\u00E4nda f\\u00F6r l\\u00E5ngsiktig h\\u00E5llbarhet. Komplett sortiment f\\u00F6r b\\u00E5de sm\\u00E5 och stora reiningprojekt i avlopp, vatten och industrir\\u00F6r.\\u0022,\\n                \\u0022ctaText\\u0022: \\u0022Uppt\\u00E4ck mer\\u0022,\\n                \\u0022ctaLink\\u0022: \\u0022/products/epoxy-liner\\u0022\\n            },\\n            {\\n                \\u0022topHeadline\\u0022: \\u0022\\u0022,\\n                \\u0022subHeadline\\u0022: \\u0022Publicerad den 1 december, 2025\\u0022,\\n                \\u0022headline\\u0022: \\u0022Grenr\\u00F6r och verktyg\\u0022,\\n                \\u0022desktopImage\\u0022: \\u0022sacpro-branch-pipes-tools-landscape.jpg\\u0022,\\n                \\u0022mobileImage\\u0022: \\u0022sacpro-branch-pipes-tools-portrait.jpg\\u0022,\\n                \\u0022alt\\u0022: \\u0022\\u0022,\\n                \\u0022text\\u0022: \\u0022Kompletta l\\u00F6sningar f\\u00F6r grenr\\u00F6r med tillh\\u00F6rande specialverktyg. Precisionsutrustning f\\u00F6r professionell installation och s\\u00E4ker anslutning av grenledningar vid r\\u00F6rrelining.\\u0022,\\n                \\u0022ctaText\\u0022: \\u0022Uppt\\u00E4ck mer\\u0022,\\n                \\u0022ctaLink\\u0022: \\u0022/products/branch-pipes-tools\\u0022\\n            }\\n        ]\\n    }\\n}\",\"templateName\":\"Push Component Grid Rolex\",\"templateId\":\"push-component-grid-rolex\",\"templateIcon\":null,\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n    \\u0022renderWidget\\u0022: \\u0022CaSpacerRolex\\u0022,\\n    \\u0022data\\u0022: {\\n        \\u0022beige\\u0022: false\\n    }\\n}\",\"templateName\":\"Spacer Rolex\",\"templateId\":\"spacer-rolex\",\"templateIcon\":\"e258\",\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n    \\u0022renderWidget\\u0022: \\u0022CaPushBannerGridRolex\\u0022,\\n    \\u0022data\\u0022: {\\n        \\u0022gridItems\\u0022: [\\n            {\\n                \\u0022topHeadline\\u0022: \\u0022\\u0022,\\n                \\u0022subHeadline\\u0022: \\u0022Publicerad den 25 november, 2025\\u0022,\\n                \\u0022headline\\u0022: \\u0022R\\u00F6rst\\u00E4dningsutrustning\\u0022,\\n                \\u0022desktopImage\\u0022: \\u0022sacpro-pipe-cleaning-equipment-landscape.jpg\\u0022,\\n                \\u0022mobileImage\\u0022: \\u0022sacpro-pipe-cleaning-equipment-portrait.jpg\\u0022,\\n                \\u0022alt\\u0022: \\u0022\\u0022,\\n                \\u0022text\\u0022: \\u0022Professionell utrustning f\\u00F6r r\\u00F6rst\\u00E4dning innan relining. H\\u00F6gtrycksutrustning, robotar och specialverktyg f\\u00F6r effektiv reng\\u00F6ring av alla typer av r\\u00F6r. Grundl\\u00E4ggande f\\u00F6r ett lyckat reiningprojekt.\\u0022,\\n                \\u0022ctaText\\u0022: \\u0022Uppt\\u00E4ck mer\\u0022,\\n                \\u0022ctaLink\\u0022: \\u0022/products/pipe-cleaning\\u0022\\n            },\\n            {\\n                \\u0022topHeadline\\u0022: \\u0022\\u0022,\\n                \\u0022subHeadline\\u0022: \\u0022Publicerad den 20 november, 2025\\u0022,\\n                \\u0022headline\\u0022: \\u0022Inversionstrummor\\u0022,\\n                \\u0022desktopImage\\u0022: \\u0022sacpro-inversion-drums-landscape.jpg\\u0022,\\n                \\u0022mobileImage\\u0022: \\u0022sacpro-inversion-drums-portrait.jpg\\u0022,\\n                \\u0022alt\\u0022: \\u0022\\u0022,\\n                \\u0022text\\u0022: \\u0022Robusta inversionstrummor f\\u00F6r professionell r\\u00F6rrelining. Tillg\\u00E4ngliga i olika storlekar f\\u00F6r allt fr\\u00E5n sm\\u00E5 avloppsreparationer till stora infrastrukturprojekt. Tillverkade f\\u00F6r l\\u00E5ng livsl\\u00E4ngd och p\\u00E5litlig prestanda.\\u0022,\\n                \\u0022ctaText\\u0022: \\u0022Uppt\\u00E4ck mer\\u0022,\\n                \\u0022ctaLink\\u0022: \\u0022/products/inversion-drums\\u0022\\n            }\\n        ]\\n    }\\n}\",\"templateName\":\"Push Component Grid Rolex\",\"templateId\":\"push-component-grid-rolex\",\"templateIcon\":null,\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n    \\u0022renderWidget\\u0022: \\u0022CaSpacerRolex\\u0022,\\n    \\u0022data\\u0022: {\\n        \\u0022beige\\u0022: false\\n    }\\n}\",\"templateName\":\"Spacer Rolex\",\"templateId\":\"spacer-rolex\",\"templateIcon\":\"e258\",\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n    \\u0022renderWidget\\u0022: \\u0022CaPushBannerGridRolex\\u0022,\\n    \\u0022data\\u0022: {\\n        \\u0022gridItems\\u0022: [\\n            {\\n                \\u0022topHeadline\\u0022: \\u0022\\u0022,\\n                \\u0022subHeadline\\u0022: \\u0022Publicerad den 10 november, 2025\\u0022,\\n                \\u0022headline\\u0022: \\u0022Tryckluft och vakuumutrustning\\u0022,\\n                \\u0022desktopImage\\u0022: \\u0022sacpro-compressed-air-vacuum-landscape.jpg\\u0022,\\n                \\u0022mobileImage\\u0022: \\u0022sacpro-compressed-air-vacuum-portrait.jpg\\u0022,\\n                \\u0022alt\\u0022: \\u0022\\u0022,\\n                \\u0022text\\u0022: \\u0022Komplett sortiment av tryckluft- och vakuumutrustning f\\u00F6r r\\u00F6rrelining. P\\u00E5litliga system f\\u00F6r inversion och h\\u00E4rdning. Allt fr\\u00E5n kompressorer till vakuumpumpar och tillbeh\\u00F6r.\\u0022,\\n                \\u0022ctaText\\u0022: \\u0022Uppt\\u00E4ck mer\\u0022,\\n                \\u0022ctaLink\\u0022: \\u0022/products/air-vacuum\\u0022\\n            },\\n            {\\n                \\u0022topHeadline\\u0022: \\u0022\\u0022,\\n                \\u0022subHeadline\\u0022: \\u0022Publicerad den 5 november, 2025\\u0022,\\n                \\u0022headline\\u0022: \\u0022Robotsk\\u00E4rare\\u0022,\\n                \\u0022desktopImage\\u0022: \\u0022sacpro-robot-cutters-landscape.jpg\\u0022,\\n                \\u0022mobileImage\\u0022: \\u0022sacpro-robot-cutters-portrait.jpg\\u0022,\\n                \\u0022alt\\u0022: \\u0022\\u0022,\\n                \\u0022text\\u0022: \\u0022Avancerade robotsk\\u00E4rare f\\u00F6r precisionsk\\u00E4rning av grenr\\u00F6r och serviceledningar. Snabb, exakt och s\\u00E4ker \\u00F6ppning av renade r\\u00F6r. Minskar arbetstid och \\u00F6kar kvaliteten p\\u00E5 slutresultatet.\\u0022,\\n                \\u0022ctaText\\u0022: \\u0022Uppt\\u00E4ck mer\\u0022,\\n                \\u0022ctaLink\\u0022: \\u0022/products/robot-cutters\\u0022\\n            }\\n        ]\\n    }\\n}\",\"templateName\":\"Push Component Grid Rolex\",\"templateId\":\"push-component-grid-rolex\",\"templateIcon\":null,\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n    \\u0022renderWidget\\u0022: \\u0022CaSpacerRolex\\u0022,\\n    \\u0022data\\u0022: {\\n        \\u0022beige\\u0022: false\\n    }\\n}\",\"templateName\":\"Spacer Rolex\",\"templateId\":\"spacer-rolex\",\"templateIcon\":\"e258\",\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n    \\u0022renderWidget\\u0022: \\u0022CaPushBannerGridRolex\\u0022,\\n    \\u0022data\\u0022: {\\n        \\u0022gridItems\\u0022: [\\n            {\\n                \\u0022topHeadline\\u0022: \\u0022\\u0022,\\n                \\u0022subHeadline\\u0022: \\u0022Publicerad den 30 oktober, 2025\\u0022,\\n                \\u0022headline\\u0022: \\u0022F\\u00F6rbrukningsvaror\\u0022,\\n                \\u0022desktopImage\\u0022: \\u0022sacpro-consumables-landscape.jpg\\u0022,\\n                \\u0022mobileImage\\u0022: \\u0022sacpro-consumables-portrait.jpg\\u0022,\\n                \\u0022alt\\u0022: \\u0022\\u0022,\\n                \\u0022text\\u0022: \\u0022Allt du beh\\u00F6ver f\\u00F6r daglig drift: handskar, t\\u00E4tningar, packningar, reng\\u00F6ringsmedel och mycket mer. H\\u00F6g kvalitet till konkurrenskraftiga priser. Snabb leverans p\\u00E5 alla f\\u00F6rbrukningsvaror.\\u0022,\\n                \\u0022ctaText\\u0022: \\u0022Uppt\\u00E4ck mer\\u0022,\\n                \\u0022ctaLink\\u0022: \\u0022/products/consumables\\u0022\\n            },\\n            {\\n                \\u0022topHeadline\\u0022: \\u0022\\u0022,\\n                \\u0022subHeadline\\u0022: \\u0022Publicerad den 25 oktober, 2025\\u0022,\\n                \\u0022headline\\u0022: \\u0022Skyddsutrustning\\u0022,\\n                \\u0022desktopImage\\u0022: \\u0022sacpro-protective-equipment-landscape.jpg\\u0022,\\n                \\u0022mobileImage\\u0022: \\u0022sacpro-protective-equipment-portrait.jpg\\u0022,\\n                \\u0022alt\\u0022: \\u0022\\u0022,\\n                \\u0022text\\u0022: \\u0022S\\u00E4kerhet f\\u00F6rst. Komplett sortiment av skyddsutrustning f\\u00F6r r\\u00F6rreiningarbete. Andningsskydd, skyddskl\\u00E4der, handskar och \\u00F6gonskydd. Certifierad utrustning som uppfyller alla s\\u00E4kerhetskrav.\\u0022,\\n                \\u0022ctaText\\u0022: \\u0022Uppt\\u00E4ck mer\\u0022,\\n                \\u0022ctaLink\\u0022: \\u0022/products/protective-equipment\\u0022\\n            }\\n        ]\\n    }\\n}\",\"templateName\":\"Push Component Grid Rolex\",\"templateId\":\"push-component-grid-rolex\",\"templateIcon\":\"e9b0\",\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        },
+                        {
+                            "name": "JSON",
+                            "configuration": "{\"displayName\":\"\",\"active\":true,\"json\":\"{\\n    \\u0022renderWidget\\u0022: \\u0022CaSpacerRolex\\u0022,\\n    \\u0022data\\u0022: {\\n        \\u0022beige\\u0022: false\\n    }\\n}\",\"templateName\":\"Spacer Rolex\",\"templateId\":\"spacer-rolex\",\"templateIcon\":\"e258\",\"classNames\":\"full\"}",
+                            "images": [],
+                            "__typename": "PageWidgetType"
+                        }
+                    ],
+                    "__typename": "PageWidgetContainerType"
+                }
+            ],
+            "__typename": "PageWidgetCollectionType"
+        }
+    },
+    "extensions": {
+        "tracing": {
+            "Version": 1,
+            "StartTime": "2025-12-03T08:25:01.7582645Z",
+            "EndTime": "2025-12-03T08:25:01.7662645Z",
+            "Duration": 7568900,
+            "Parsing": {
+                "StartOffset": 300,
+                "Duration": 64700
+            },
+            "Validation": {
+                "StartOffset": 65500,
+                "Duration": 272500
+            },
+            "Execution": {
+                "Resolvers": []
+            }
+        }
+    }
+}
