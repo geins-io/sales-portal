@@ -15,6 +15,17 @@ export default defineNuxtConfig({
     'shadcn-nuxt',
   ],
 
+  css: ['~/assets/css/tailwind.css', '~/assets/css/themes.css'],
+
+  nitro: {
+    storage: {
+      kv: {
+        driver: 'fs',
+        base: './.data/db',
+      },
+    },
+  },
+
   shadcn: {
     prefix: '',
     componentDir: './app/components/ui',
