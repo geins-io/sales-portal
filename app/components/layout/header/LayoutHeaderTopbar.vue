@@ -1,3 +1,61 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { FileText, List, User } from 'lucide-vue-next';
+import type { HeaderAuthState } from '@/shared/types';
 
-<template>{header topbar content}</template>
+interface Props {
+  authState?: HeaderAuthState;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  authState: 'logged-out' as HeaderAuthState,
+});
+</script>
+
+<template>
+  <div
+    class="flex h-10 items-center justify-between bg-primary px-3 text-xs text-primary-foreground sm:px-4 sm:text-sm"
+  >
+    <!-- Left: contact + language -->
+    <div class="flex items-center gap-3">
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-primary-foreground/80 hover:text-primary-foreground sm:text-[0.875rem]"
+      >
+        <span>Contact us</span>
+      </button>
+
+      <span class="inline-flex items-center text-[0.8125rem] text-primary-foreground/70 sm:text-[0.875rem]">
+        Swedish
+      </span>
+    </div>
+
+    <!-- Right: quotes, lists, account/login -->
+    <nav class="flex items-center gap-4">
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-primary-foreground/80 hover:text-primary-foreground sm:text-[0.875rem]"
+      >
+        <FileText class="h-4 w-4" aria-hidden="true" />
+        <span>Quotes</span>
+      </button>
+
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-primary-foreground/80 hover:text-primary-foreground sm:text-[0.875rem]"
+      >
+        <List class="h-4 w-4" aria-hidden="true" />
+        <span>Quotes</span>
+      </button>
+
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-primary-foreground/80 hover:text-primary-foreground sm:text-[0.875rem]"
+      >
+        <User class="h-4 w-4" aria-hidden="true" />
+        <span>
+          {{ props.authState === 'logged-in' ? 'Your account' : 'Log in' }}
+        </span>
+      </button>
+    </nav>
+  </div>
+</template>
