@@ -13,49 +13,40 @@ const props = withDefaults(defineProps<Props>(), {
 
 <template>
   <div
-    class="flex h-10 items-center justify-between bg-primary px-3 text-xs text-primary-foreground sm:px-4 sm:text-sm"
-  >
+    class="bg-primary text-primary-foreground flex h-10 items-center justify-between px-3 text-xs sm:px-4 sm:text-sm">
     <!-- Left: contact + language -->
     <div class="flex items-center gap-3">
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-primary-foreground/80 hover:text-primary-foreground sm:text-[0.875rem]"
-      >
+      <Button type="button"
+        class="text-primary-foreground/80 hover:text-primary-foreground inline-flex items-center gap-1.5 text-[0.8125rem] font-medium sm:text-[0.875rem]">
         <span>Contact us</span>
-      </button>
+      </Button>
 
-      <span class="inline-flex items-center text-[0.8125rem] text-primary-foreground/70 sm:text-[0.875rem]">
+      <span class="text-primary-foreground/70 inline-flex items-center text-[0.8125rem] sm:text-[0.875rem]">
         Swedish
       </span>
     </div>
 
     <!-- Right: quotes, lists, account/login -->
     <nav class="flex items-center gap-4">
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-primary-foreground/80 hover:text-primary-foreground sm:text-[0.875rem]"
-      >
+      <Button type="button"
+        class="text-primary-foreground/80 hover:text-primary-foreground inline-flex items-center gap-1.5 text-[0.8125rem] font-medium sm:text-[0.875rem]">
         <FileText class="h-4 w-4" aria-hidden="true" />
         <span>Quotes</span>
-      </button>
+      </Button>
 
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-primary-foreground/80 hover:text-primary-foreground sm:text-[0.875rem]"
-      >
+      <Button type="button"
+        class="text-primary-foreground/80 hover:text-primary-foreground inline-flex items-center gap-1.5 text-[0.8125rem] font-medium sm:text-[0.875rem]">
         <List class="h-4 w-4" aria-hidden="true" />
         <span>Quotes</span>
-      </button>
+      </Button>
 
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-primary-foreground/80 hover:text-primary-foreground sm:text-[0.875rem]"
-      >
+      <Button type="button"
+        class="text-primary-foreground/80 hover:text-primary-foreground inline-flex items-center gap-1.5 text-[0.8125rem] font-medium sm:text-[0.875rem]">
         <User class="h-4 w-4" aria-hidden="true" />
         <span>
           {{ props.authState === 'logged-in' ? 'Your account' : 'Log in' }}
         </span>
-      </button>
+      </Button>
     </nav>
   </div>
 </template>

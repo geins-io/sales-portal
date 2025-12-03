@@ -13,6 +13,15 @@ export function tenantConfigKey(tenantId: string): string {
   return `tenant:config:${tenantId}`;
 }
 
+export function tenantCustomCss(tenantId: string): string {
+  return `
+   [data-theme='${tenantId}'] {
+    --primary: #00ec56;
+    --primary-foreground: #000;
+    }
+  `;
+}
+
 export interface CreateTenantOptions {
   hostname: string;
   tenantId?: string;
@@ -35,9 +44,13 @@ export async function createTenant(
   const storage = useStorage('kv');
   const finalTenantId = tenantId || hostname;
 
+  console.log('createTenant', finalTenantId);
+
   // Create default config
   const defaultConfig: TenantConfig = {
-    css: '',
+    tenantId: finalTenantId,
+    hostname: hostname,
+    css: tenantCustomCss(finalTenantId),
     theme: {
       name: finalTenantId,
       colors: {
@@ -49,7 +62,9 @@ export async function createTenant(
 
   // Merge with provided config
   const finalConfig: TenantConfig = {
-    css: '',
+    tenantId: finalTenantId,
+    hostname: hostname,
+    css: tenantCustomCss(finalTenantId),
     theme: {
       ...defaultConfig.theme,
       ...(partialConfig?.theme || {}),
@@ -82,6 +97,8 @@ export async function createTenant(
   // If config exists but we want to update it, merge and save
   if (partialConfig) {
     const updatedConfig: TenantConfig = {
+      tenantId: finalTenantId,
+      hostname: hostname,
       css: '',
       theme: {
         ...existingConfig.theme,
@@ -96,5 +113,6 @@ export async function createTenant(
     return updatedConfig;
   }
 
+  // If config exists but we don't want to update it, return the existing config
   return existingConfig;
 }
