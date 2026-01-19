@@ -60,30 +60,72 @@ check_az_login() {
     fi
 }
 
+get_default_image() {
+    local env="$1"
+    
+    # Try to get GitHub repository from git remote
+    local repo=""
+    if command -v git &> /dev/null && git rev-parse --git-dir &> /dev/null; then
+        repo=$(git remote get-url origin 2>/dev/null | sed -E 's#.*github\.com[:/]##' | sed 's/\.git$//')
+    fi
+    
+    # Fallback to default repository
+    if [[ -z "$repo" ]]; then
+        repo="geins-io/sales-portal"
+    fi
+    
+    # Determine tag based on environment
+    local tag=""
+    case "$env" in
+        dev)
+            # Use current branch name or 'dev'
+            if command -v git &> /dev/null && git rev-parse --git-dir &> /dev/null; then
+                tag=$(git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/[^a-zA-Z0-9._-]/-/g')
+            fi
+            tag="${tag:-dev}"
+            ;;
+        staging)
+            tag="main"
+            ;;
+        prod)
+            # Use latest tag or 'latest'
+            if command -v git &> /dev/null && git rev-parse --git-dir &> /dev/null; then
+                tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "latest")
+            else
+                tag="latest"
+            fi
+            ;;
+    esac
+    
+    echo "ghcr.io/${repo}:${tag}"
+}
+
 # -----------------------------------------------------------------------------
 # Main Functions
 # -----------------------------------------------------------------------------
 show_help() {
-    echo "Usage: $0 --env <environment> --image <container-image> [OPTIONS]"
+    echo "Usage: $0 --env <environment> [--image <container-image>] [OPTIONS]"
     echo ""
     echo "Deploys the Sales Portal infrastructure and application to Azure."
+    echo "If no image is specified, derives one from git context (branch/tag)."
     echo ""
     echo "Required Arguments:"
     echo "  --env, -e <env>         Environment (dev, staging, prod)"
-    echo "  --image, -i <image>     Container image (e.g., ghcr.io/geins-io/sales-portal:main)"
     echo ""
     echo "Optional Arguments:"
+    echo "  --image, -i <image>     Container image (default: derived from git context)"
     echo "  --ghcr-username <user>  GitHub username for GHCR (default: current user)"
     echo "  --ghcr-token <token>    GitHub PAT for GHCR (default: from GHCR_TOKEN env var)"
-    echo "  --geins-key <key>       Geins API key (default: from GEINS_API_KEY env var)"
     echo "  --redis-url <url>       Redis connection URL (default: from REDIS_URL env var)"
     echo "  --what-if               Preview changes without deploying"
     echo "  --help, -h              Show this help message"
     echo ""
     echo "Environment Variables:"
     echo "  GHCR_TOKEN              GitHub PAT with packages:read permission"
-    echo "  GEINS_API_KEY           Geins platform API key"
     echo "  REDIS_URL               Redis connection string"
+    echo ""
+    echo "Note: GEINS_API_KEY is NOT configured at deployment time. It is part of"
+    echo "      the tenant configuration when binding a domain to the application."
     echo ""
     echo "Examples:"
     echo "  $0 --env dev --image ghcr.io/geins-io/sales-portal:dev"
@@ -97,9 +139,8 @@ deploy() {
     local container_image="$2"
     local ghcr_username="$3"
     local ghcr_token="$4"
-    local geins_api_key="$5"
-    local redis_url="$6"
-    local what_if="$7"
+    local redis_url="$5"
+    local what_if="$6"
     
     local resource_group="rg-${APP_NAME}-${environment}"
     local parameters_file="${INFRA_DIR}/parameters/${environment}.bicepparam"
@@ -138,7 +179,6 @@ deploy() {
     local params="containerImage=$container_image"
     [[ -n "$ghcr_username" ]] && params+=" ghcrUsername=$ghcr_username"
     [[ -n "$ghcr_token" ]] && params+=" ghcrToken=$ghcr_token"
-    [[ -n "$geins_api_key" ]] && params+=" geinsApiKey=$geins_api_key"
     [[ -n "$redis_url" ]] && params+=" redisUrl=$redis_url"
     
     # Execute deployment
@@ -176,7 +216,6 @@ main() {
     local container_image=""
     local ghcr_username="${GHCR_USERNAME:-$(whoami)}"
     local ghcr_token="${GHCR_TOKEN:-}"
-    local geins_api_key="${GEINS_API_KEY:-}"
     local redis_url="${REDIS_URL:-}"
     local what_if=false
     
@@ -203,10 +242,6 @@ main() {
                 ghcr_token="$2"
                 shift 2
                 ;;
-            --geins-key)
-                geins_api_key="$2"
-                shift 2
-                ;;
             --redis-url)
                 redis_url="$2"
                 shift 2
@@ -230,8 +265,10 @@ main() {
         log_error "Invalid environment: $environment. Must be one of: dev, staging, prod"
     fi
     
+    # Derive container image if not provided
     if [[ -z "$container_image" ]]; then
-        log_error "Container image is required. Use --image <image-uri>"
+        container_image=$(get_default_image "$environment")
+        log_info "No image specified, using: $container_image"
     fi
     
     echo ""
@@ -245,7 +282,7 @@ main() {
     check_az_login
     
     # Run deployment
-    deploy "$environment" "$container_image" "$ghcr_username" "$ghcr_token" "$geins_api_key" "$redis_url" "$what_if"
+    deploy "$environment" "$container_image" "$ghcr_username" "$ghcr_token" "$redis_url" "$what_if"
 }
 
 main "$@"

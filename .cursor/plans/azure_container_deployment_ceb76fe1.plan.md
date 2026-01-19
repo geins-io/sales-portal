@@ -141,10 +141,11 @@ Create `.github/workflows/` directory:
 
 Environment variables will be passed to the container via App Service configuration:
 
-- `GEINS_API_KEY` - API key (stored as App Service secret)
 - `GEINS_API_ENDPOINT` - API endpoint URL
 - `NODE_ENV` - production/staging/development
 - `NUXT_PUBLIC_*` - Public runtime config values
+
+> **Note:** `GEINS_API_KEY` is **not** configured at deployment time. It is part of the tenant configuration (`GeinsSettings.apiKey`) and is set when a tenant binds their domain to the application. See `shared/types/tenant-config.ts`.
 
 ## Deployment Flow
 

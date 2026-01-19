@@ -166,18 +166,27 @@ assign_roles() {
 create_federated_credentials() {
     log_info "Creating federated credentials for GitHub Actions OIDC..."
     
-    # Define credentials to create
-    declare -A credentials=(
-        ["github-main"]="repo:${GITHUB_REPO}:ref:refs/heads/main"
-        ["github-tags"]="repo:${GITHUB_REPO}:ref:refs/tags/*"
-        ["github-env-dev"]="repo:${GITHUB_REPO}:environment:dev"
-        ["github-env-staging"]="repo:${GITHUB_REPO}:environment:staging"
-        ["github-env-prod"]="repo:${GITHUB_REPO}:environment:prod"
-        ["github-env-prod-swap"]="repo:${GITHUB_REPO}:environment:prod-swap"
+    # Define credentials to create (using parallel arrays for bash 3.x compatibility)
+    cred_names=(
+        "github-main"
+        "github-tags"
+        "github-env-dev"
+        "github-env-staging"
+        "github-env-prod"
+        "github-env-prod-swap"
     )
-    
-    for name in "${!credentials[@]}"; do
-        subject="${credentials[$name]}"
+    cred_subjects=(
+        "repo:${GITHUB_REPO}:ref:refs/heads/main"
+        "repo:${GITHUB_REPO}:ref:refs/tags/*"
+        "repo:${GITHUB_REPO}:environment:dev"
+        "repo:${GITHUB_REPO}:environment:staging"
+        "repo:${GITHUB_REPO}:environment:prod"
+        "repo:${GITHUB_REPO}:environment:prod-swap"
+    )
+
+    for i in "${!cred_names[@]}"; do
+        name="${cred_names[$i]}"
+        subject="${cred_subjects[$i]}"
         log_info "Creating federated credential: $name"
         
         # Check if credential already exists
@@ -214,15 +223,23 @@ print_github_secrets() {
     echo "(Settings → Secrets and variables → Actions → Secrets)"
     echo ""
     echo "┌─────────────────────────┬───────────────────────────────────────────────┐"
-    echo "│ Secret Name             │ Value                                         │"
+    echo "│ Repository Secret       │ Value                                         │"
     echo "├─────────────────────────┼───────────────────────────────────────────────┤"
     printf "│ %-23s │ %-45s │\n" "AZURE_CLIENT_ID" "$CLIENT_ID"
     printf "│ %-23s │ %-45s │\n" "AZURE_TENANT_ID" "$TENANT_ID"
     printf "│ %-23s │ %-45s │\n" "AZURE_SUBSCRIPTION_ID" "$SUBSCRIPTION_ID"
+    echo "└─────────────────────────┴───────────────────────────────────────────────┘"
+    echo ""
+    echo "Optional Environment Secrets (configure per GitHub Environment if needed):"
+    echo "┌─────────────────────────┬───────────────────────────────────────────────┐"
+    echo "│ Environment Secret      │ Value                                         │"
     echo "├─────────────────────────┼───────────────────────────────────────────────┤"
-    printf "│ %-23s │ %-45s │\n" "GEINS_API_KEY" "<your-geins-api-key>"
     printf "│ %-23s │ %-45s │\n" "REDIS_URL" "<your-redis-connection-string>"
     echo "└─────────────────────────┴───────────────────────────────────────────────┘"
+    echo ""
+    echo -e "${BLUE}Note: GEINS_API_KEY is NOT configured at deployment time.${NC}"
+    echo -e "${BLUE}It is part of the tenant configuration when binding a domain.${NC}"
+    echo -e "${BLUE}See shared/types/tenant-config.ts for GeinsSettings interface.${NC}"
     echo ""
     echo "Optional GitHub Variables (Settings → Secrets and variables → Actions → Variables):"
     echo "┌─────────────────────────┬───────────────────────────────────────────────┐"

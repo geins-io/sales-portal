@@ -128,7 +128,6 @@ jobs:
             containerImage=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}
             ghcrUsername=${{ github.actor }}
             ghcrToken=${{ secrets.GITHUB_TOKEN }}
-            geinsApiKey=${{ secrets.GEINS_API_KEY }}
             geinsApiEndpoint=${{ vars.GEINS_API_ENDPOINT || 'https://api.geins.io/graphql' }}
             storageDriver=${{ vars.STORAGE_DRIVER || 'fs' }}
             redisUrl=${{ secrets.REDIS_URL }}

@@ -16,7 +16,6 @@ param ghcrUsername = ''
 param ghcrToken = ''
 
 // Application settings - Development defaults
-param geinsApiKey = ''
 param geinsApiEndpoint = 'https://api.geins.io/graphql'
 param storageDriver = 'fs'
 param redisUrl = ''

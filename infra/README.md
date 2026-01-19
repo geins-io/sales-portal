@@ -73,18 +73,18 @@ infra/
 
 The following pnpm scripts are available for infrastructure management:
 
-| Script                     | Description                                    |
-| -------------------------- | ---------------------------------------------- |
-| `pnpm infra:setup`         | Full Azure setup (resource groups, SP, creds) |
-| `pnpm infra:setup:rg`      | Create resource groups only                   |
-| `pnpm infra:setup:sp`      | Create service principal only                 |
-| `pnpm infra:setup:creds`   | Create federated credentials only             |
-| `pnpm infra:deploy`        | Manual deployment (requires arguments)        |
-| `pnpm infra:deploy:dev`    | Deploy to development (requires --image)      |
-| `pnpm infra:deploy:staging`| Deploy to staging (requires --image)          |
-| `pnpm infra:deploy:prod`   | Deploy to production (requires --image)       |
-| `pnpm infra:validate`      | Validate Bicep syntax                         |
-| `pnpm infra:validate:build`| Build Bicep to ARM JSON                       |
+| Script                      | Description                                   |
+| --------------------------- | --------------------------------------------- |
+| `pnpm infra:setup`          | Full Azure setup (resource groups, SP, creds) |
+| `pnpm infra:setup:rg`       | Create resource groups only                   |
+| `pnpm infra:setup:sp`       | Create service principal only                 |
+| `pnpm infra:setup:creds`    | Create federated credentials only             |
+| `pnpm infra:deploy`         | Manual deployment (requires arguments)        |
+| `pnpm infra:deploy:dev`     | Deploy to development (requires --image)      |
+| `pnpm infra:deploy:staging` | Deploy to staging (requires --image)          |
+| `pnpm infra:deploy:prod`    | Deploy to production (requires --image)       |
+| `pnpm infra:validate`       | Validate Bicep syntax                         |
+| `pnpm infra:validate:build` | Build Bicep to ARM JSON                       |
 
 ## Prerequisites
 
@@ -119,6 +119,7 @@ pnpm infra:setup
 ```
 
 This script performs the following:
+
 1. Creates resource groups for dev, staging, and prod environments
 2. Creates an App Registration (Service Principal) for GitHub Actions
 3. Assigns Contributor role to all resource groups
@@ -157,23 +158,44 @@ After running the setup script, add the following secrets to your GitHub reposit
 
 **Navigate to:** Repository Settings → Secrets and variables → Actions → Secrets
 
-#### Required Secrets
+#### Required Repository Secrets
 
-| Secret                  | Description                                  | How to Get Value                    |
-| ----------------------- | -------------------------------------------- | ----------------------------------- |
-| `AZURE_CLIENT_ID`       | Service Principal App (Client) ID            | Output from setup script            |
-| `AZURE_TENANT_ID`       | Azure AD Tenant ID                           | Output from setup script            |
-| `AZURE_SUBSCRIPTION_ID` | Target Azure Subscription ID                 | Output from setup script            |
-| `GEINS_API_KEY`         | Geins platform API key                       | From Geins platform dashboard       |
-| `REDIS_URL`             | Redis connection URL (staging/prod)          | From your Redis provider            |
+These secrets are shared across all environments:
 
-**How to add a secret:**
+| Secret                  | Description                       | How to Get Value         |
+| ----------------------- | --------------------------------- | ------------------------ |
+| `AZURE_CLIENT_ID`       | Service Principal App (Client) ID | Output from setup script |
+| `AZURE_TENANT_ID`       | Azure AD Tenant ID                | Output from setup script |
+| `AZURE_SUBSCRIPTION_ID` | Target Azure Subscription ID      | Output from setup script |
+
+**How to add a repository secret:**
+
 1. Go to your GitHub repository
 2. Click **Settings** tab
 3. In the left sidebar, click **Secrets and variables** → **Actions**
 4. Click **New repository secret**
 5. Enter the secret name and value
 6. Click **Add secret**
+
+#### Optional Environment Secrets
+
+These secrets can be configured per GitHub Environment if needed:
+
+| Secret      | Description          | How to Get Value         |
+| ----------- | -------------------- | ------------------------ |
+| `REDIS_URL` | Redis connection URL | From your Redis provider |
+
+**How to add an environment secret:**
+
+1. Go to your GitHub repository
+2. Click **Settings** tab
+3. In the left sidebar, click **Environments**
+4. Select the environment (e.g., `dev`, `staging`, `prod`)
+5. Under **Environment secrets**, click **Add secret**
+6. Enter the secret name and value
+7. Click **Add secret**
+
+> **Note:** `GEINS_API_KEY` is **not** configured at deployment time. It is part of the tenant configuration and is set when a tenant binds their domain to the application. See `shared/types/tenant-config.ts` for the `GeinsSettings` interface.
 
 ### Step 3: Configure GitHub Variables (Optional)
 
@@ -192,14 +214,15 @@ After running the setup script, add the following secrets to your GitHub reposit
 
 Create the following environments:
 
-| Environment  | Purpose                        | Protection Rules               |
-| ------------ | ------------------------------ | ------------------------------ |
-| `dev`        | Development deployments        | None (optional)                |
-| `staging`    | Pre-production testing         | None (optional)                |
-| `prod`       | Production deployment          | Require reviewers              |
-| `prod-swap`  | Production slot swap approval  | Require reviewers              |
+| Environment | Purpose                       | Protection Rules  |
+| ----------- | ----------------------------- | ----------------- |
+| `dev`       | Development deployments       | None (optional)   |
+| `staging`   | Pre-production testing        | None (optional)   |
+| `prod`      | Production deployment         | Require reviewers |
+| `prod-swap` | Production slot swap approval | Require reviewers |
 
 **For `prod` and `prod-swap` environments, configure:**
+
 1. Click **Add rule** → **Require reviewers**
 2. Add designated team members as reviewers
 3. (Optional) Add deployment branch restrictions to `main` branch only
@@ -381,15 +404,16 @@ pnpm infra:validate -- --env dev
 
 All environments receive these settings via Bicep parameters:
 
-| Setting                        | Description                                        |
-| ------------------------------ | -------------------------------------------------- |
-| `NODE_ENV`                     | `development` (dev) / `production` (staging, prod) |
-| `GEINS_API_KEY`                | Geins platform API key                             |
-| `GEINS_API_ENDPOINT`           | Geins GraphQL endpoint                             |
-| `STORAGE_DRIVER`               | `fs` (dev) / `redis` (staging, prod)               |
-| `REDIS_URL`                    | Redis connection string                            |
-| `NUXT_PUBLIC_ENABLE_ANALYTICS` | Analytics flag                                     |
-| `LOG_LEVEL`                    | Logging verbosity                                  |
+| Setting                        | Description                                        | Scope           |
+| ------------------------------ | -------------------------------------------------- | --------------- |
+| `NODE_ENV`                     | `development` (dev) / `production` (staging, prod) | Per-environment |
+| `GEINS_API_ENDPOINT`           | Geins GraphQL endpoint                             | Shared          |
+| `STORAGE_DRIVER`               | `fs` (dev) / `redis` (staging, prod)               | Per-environment |
+| `REDIS_URL`                    | Redis connection string                            | Per-environment |
+| `NUXT_PUBLIC_ENABLE_ANALYTICS` | Analytics flag                                     | Shared          |
+| `LOG_LEVEL`                    | Logging verbosity                                  | Shared          |
+
+> **Note:** `GEINS_API_KEY` is **not** an application setting. It is configured per-tenant as part of the tenant configuration when binding a domain. See `shared/types/tenant-config.ts` for the `GeinsSettings` interface.
 
 ## Re-running Setup
 
@@ -401,7 +425,7 @@ pnpm infra:setup
 
 # Or run specific parts:
 pnpm infra:setup --skip-rg       # Skip resource group creation
-pnpm infra:setup --skip-sp       # Skip service principal creation  
+pnpm infra:setup --skip-sp       # Skip service principal creation
 pnpm infra:setup --skip-creds    # Skip federated credentials creation
 
 # Update GitHub repository reference
@@ -425,6 +449,7 @@ az login --service-principal -u <client-id> -p <client-secret> --tenant <tenant-
 #### 2. "Insufficient privileges to complete the operation"
 
 You need one of these Azure AD roles:
+
 - **Application Administrator** - to create App Registrations
 - **Global Administrator** - full access
 
@@ -488,13 +513,14 @@ az ad app federated-credential delete --id <app-id> --federated-credential-id gi
 
 ## Cost Optimization
 
-| Environment | Estimated Monthly Cost | Notes                              |
-| ----------- | ---------------------- | ---------------------------------- |
-| Dev         | ~$13/month             | B1 tier, no Always On              |
-| Staging     | ~$73/month             | S1 tier, Always On enabled         |
-| Production  | ~$120/month            | P1v3 tier, zone redundancy, slots  |
+| Environment | Estimated Monthly Cost | Notes                             |
+| ----------- | ---------------------- | --------------------------------- |
+| Dev         | ~$13/month             | B1 tier, no Always On             |
+| Staging     | ~$73/month             | S1 tier, Always On enabled        |
+| Production  | ~$120/month            | P1v3 tier, zone redundancy, slots |
 
 **Cost Saving Tips:**
+
 - Use Azure Reserved Instances for production workloads (up to 65% savings)
 - Shut down dev environment during non-working hours
 - Use Azure Cost Management to set budgets and alerts
