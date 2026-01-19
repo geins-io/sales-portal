@@ -1,351 +1,351 @@
 {
-    "data": {
-        "getMenuAtLocation": {
-            "id": "8b287fad-1a24-4ba7-be9e-bd5d4e4cc792",
-            "name": "Sacpro Main Menu",
-            "title": "Huvudmeny",
-            "menuItems": [
+  "data": {
+    "getMenuAtLocation": {
+      "id": "8b287fad-1a24-4ba7-be9e-bd5d4e4cc792",
+      "name": "Sacpro Main Menu",
+      "title": "Huvudmeny",
+      "menuItems": [
+        {
+          "id": "86fbca99-e2b8-4d3e-9198-3a7dd9e00a4a",
+          "label": "",
+          "title": "Reiningssystem",
+          "canonicalUrl": "/se/sv/l/reiningssystem",
+          "targetBlank": false,
+          "type": "category",
+          "order": 1,
+          "hidden": false,
+          "children": []
+        },
+        {
+          "id": "8eeea8c0-24e1-4205-9e3c-d60cad21960f",
+          "label": "",
+          "title": "Epoxy & Liner",
+          "canonicalUrl": "/se/sv/l/epoxy-liner",
+          "targetBlank": false,
+          "type": "category",
+          "order": 2,
+          "hidden": false,
+          "children": [
+            {
+              "id": "473e94c3-cd1a-4644-89e6-bd5dbc2628c9",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/epoxy-liner/epoxy",
+              "children": [
                 {
-                    "id": "86fbca99-e2b8-4d3e-9198-3a7dd9e00a4a",
-                    "label": "",
-                    "title": "Reiningssystem",
-                    "canonicalUrl": "/se/sv/l/reiningssystem",
-                    "targetBlank": false,
-                    "type": "category",
-                    "order": 1,
-                    "hidden": false,
-                    "children": []
+                  "id": "84e4f941-4f89-4786-b084-4017ffb29bd4",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/epoxy-liner/epoxy/tva-komponent"
                 },
                 {
-                    "id": "8eeea8c0-24e1-4205-9e3c-d60cad21960f",
-                    "label": "",
-                    "title": "Epoxy & Liner",
-                    "canonicalUrl": "/se/sv/l/epoxy-liner",
-                    "targetBlank": false,
-                    "type": "category",
-                    "order": 2,
-                    "hidden": false,
-                    "children": [
-                        {
-                            "id": "473e94c3-cd1a-4644-89e6-bd5dbc2628c9",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/epoxy-liner/epoxy",
-                            "children": [
-                                {
-                                    "id": "84e4f941-4f89-4786-b084-4017ffb29bd4",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/epoxy-liner/epoxy/tva-komponent"
-                                },
-                                {
-                                    "id": "0c5b3045-40b5-40a7-b042-ca6fe81dce98",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/epoxy-liner/epoxy/snabbhardande"
-                                },
-                                {
-                                    "id": "309b82b7-1aac-4bad-8771-9b4eb41cc4ec",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/epoxy-liner/epoxy/kallhardande"
-                                }
-                            ]
-                        },
-                        {
-                            "id": "7d8c8682-6f55-4380-9bc8-e225b52f6618",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/epoxy-liner/liner",
-                            "children": [
-                                {
-                                    "id": "c9eabe43-85f4-48c6-89fc-108742e3de36",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/epoxy-liner/liner/polyester-liner"
-                                },
-                                {
-                                    "id": "ab6c0b68-9dc8-4492-a223-427f65ec9bc1",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/epoxy-liner/liner/glasfiber-liner"
-                                }
-                            ]
-                        },
-                        {
-                            "id": "a465884e-d039-4456-accc-c5cee48d22f4",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/epoxy-liner/tillbehor",
-                            "children": [
-                                {
-                                    "id": "a7b9dc3a-6323-4d08-9f3c-bd846f279227",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/epoxy-liner/tillbehor/hardare"
-                                },
-                                {
-                                    "id": "fccb4157-502d-4b2d-b604-0aa0a1a157b9",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/epoxy-liner/tillbehor/blandningsutrustning"
-                                }
-                            ]
-                        }
-                    ]
+                  "id": "0c5b3045-40b5-40a7-b042-ca6fe81dce98",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/epoxy-liner/epoxy/snabbhardande"
                 },
                 {
-                    "id": "1c9291dd-73d3-4b84-86e1-b6e7ecf570aa",
-                    "label": "",
-                    "title": "Grenrör & Verktyg",
-                    "canonicalUrl": "/se/sv/l/grenror-verktyg",
-                    "targetBlank": false,
-                    "type": "category",
-                    "order": 3,
-                    "hidden": false,
-                    "children": [
-                        {
-                            "id": "92822108-d9aa-4953-90ce-f7e7c2db4adb",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/grenror-verktyg/grenror",
-                            "children": [
-                                {
-                                    "id": "6512499d-0169-4e49-bd25-b510057e706f",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/grenror-verktyg/grenror/45-grader"
-                                },
-                                {
-                                    "id": "fa5c7126-4d62-47a9-906e-0f1a859d693a",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/grenror-verktyg/grenror/90-grader"
-                                }
-                            ]
-                        },
-                        {
-                            "id": "6518f9a7-a8d1-42cc-b633-f9f7c5738238",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/grenror-verktyg/verktyg",
-                            "children": [
-                                {
-                                    "id": "7493ee0e-b50c-49f2-8448-ef253807e8f5",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/grenror-verktyg/verktyg/installationsverktyg"
-                                },
-                                {
-                                    "id": "1e38f2bd-57dd-4773-b7ae-272ee4c9d13d",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/grenror-verktyg/verktyg/tatningsverktyg"
-                                },
-                                {
-                                    "id": "5eaa725c-8ac5-416e-b275-de4422844cd2",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/grenror-verktyg/verktyg/specialverktyg"
-                                }
-                            ]
-                        }
-                    ]
-                },
-                {
-                    "id": "0ebf8245-a86d-41f6-be30-7170bbc352f1",
-                    "label": "",
-                    "title": "UV-härdning & Utrustning",
-                    "canonicalUrl": "/se/sv/l/uv-hardning-utrustning",
-                    "targetBlank": false,
-                    "type": "category",
-                    "order": 4,
-                    "hidden": false,
-                    "children": [
-                        {
-                            "id": "a2c7fdee-0647-4119-ac08-8286c00c3c76",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/uv-lampor",
-                            "children": [
-                                {
-                                    "id": "6384aeb0-275e-4fc8-aa1e-f1ca99d7c0b3",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/uv-lampor/led-lampor"
-                                },
-                                {
-                                    "id": "6e4674d0-6987-4b3e-bd7c-08ac5121a16e",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/uv-lampor/tradlosa-lampor"
-                                },
-                                {
-                                    "id": "4071d9b5-cd1a-4447-ab04-4675c289d9c5",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/uv-lampor/lampvagnar"
-                                },
-                                {
-                                    "id": "56c91774-f4aa-4534-97e5-533fbb82ca87",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/uv-lampor/tillbehor"
-                                }
-                            ]
-                        },
-                        {
-                            "id": "87442322-17b3-4406-b7af-8478b155ab52",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/rorstadning",
-                            "children": [
-                                {
-                                    "id": "4d520f6f-aab1-4a9f-bc65-19fd43cb14c5",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/rorstadning/hogtryck"
-                                },
-                                {
-                                    "id": "3a184417-26ec-438a-a53b-193299916ffd",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/rorstadning/fresutrustning"
-                                }
-                            ]
-                        },
-                        {
-                            "id": "af948708-8e97-401e-abb3-40fc67ec5e55",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/inversionstrummor",
-                            "children": []
-                        }
-                    ]
-                },
-                {
-                    "id": "10f5b7d7-2cc5-419b-9197-67985f10eccd",
-                    "label": "",
-                    "title": "Tryckluft & Vakuum",
-                    "canonicalUrl": "/se/sv/l/tryckluft-vakuum",
-                    "targetBlank": false,
-                    "type": "category",
-                    "order": 5,
-                    "hidden": false,
-                    "children": [
-                        {
-                            "id": "9f3e723b-a81b-4d15-aeec-374177762a67",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/tryckluft-vakuum/kompressorer",
-                            "children": [
-                                {
-                                    "id": "3621a806-4888-4a7b-b1ad-965c0539440c",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/tryckluft-vakuum/kompressorer/mobila"
-                                },
-                                {
-                                    "id": "b6785665-e7d5-4634-a4d0-52ba7c4c3977",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/tryckluft-vakuum/kompressorer/stationara"
-                                },
-                                {
-                                    "id": "1b4e40f7-5795-4e89-9999-65bcd4caa137",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/tryckluft-vakuum/kompressorer/tillbehor"
-                                }
-                            ]
-                        },
-                        {
-                            "id": "173d9b90-44bf-4a85-87c5-65f6598cceeb",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/tryckluft-vakuum/vakuumpumpar",
-                            "children": [
-                                {
-                                    "id": "c31ba442-e937-421f-9b9b-ac127f9cf9d9",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/tryckluft-vakuum/vakuumpumpar/roterande"
-                                },
-                                {
-                                    "id": "b768e607-c546-42b4-80c5-1caaf3b405dc",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/tryckluft-vakuum/vakuumpumpar/membran"
-                                },
-                                {
-                                    "id": "9744b7c6-eec0-4d25-a0d5-20ed9dd60f13",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/tryckluft-vakuum/vakuumpumpar/tillbehor"
-                                }
-                            ]
-                        }
-                    ]
-                },
-                {
-                    "id": "de5d39f4-8089-4a72-a90f-fd3ac22660c5",
-                    "label": "",
-                    "title": "Verktyg & Förbrukning",
-                    "canonicalUrl": "/se/sv/l/verktyg-forbrukning",
-                    "targetBlank": false,
-                    "type": "category",
-                    "order": 6,
-                    "hidden": false,
-                    "children": [
-                        {
-                            "id": "480b4cc7-9cc0-4b07-900b-72c181d9fac3",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/verktyg-forbrukning/robotskarare",
-                            "children": [
-                                {
-                                    "id": "7130033d-5c6d-430e-9559-608d890c5b91",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/verktyg-forbrukning/robotskarare/pneumatiska"
-                                },
-                                {
-                                    "id": "c6acf294-587c-489c-94b7-f6a9347804cc",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/verktyg-forbrukning/robotskarare/elektriska"
-                                },
-                                {
-                                    "id": "620c457a-7704-4040-8e3f-cbbbebebddb3",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/verktyg-forbrukning/robotskarare/tillbehor"
-                                }
-                            ]
-                        },
-                        {
-                            "id": "bbcc87f3-95cc-4a98-8231-041f711c01da",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/verktyg-forbrukning/forbrukningsvaror",
-                            "children": [
-                                {
-                                    "id": "45a5c9e5-ad9b-4296-a7fa-b8a1ebed7c1c",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/verktyg-forbrukning/forbrukningsvaror/tatningar"
-                                },
-                                {
-                                    "id": "1d4c0ab6-ad2a-4e01-94a5-14b7e37b8ee3",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/verktyg-forbrukning/forbrukningsvaror/rengoring"
-                                }
-                            ]
-                        },
-                        {
-                            "id": "ccd0d20d-e150-4ac1-8402-bb61c10df73a",
-                            "label": "",
-                            "canonicalUrl": "/se/sv/l/verktyg-forbrukning/skyddsutrustning",
-                            "children": [
-                                {
-                                    "id": "2ee3a7eb-e0cd-4abe-b55c-1d817b6e05f9",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/verktyg-forbrukning/skyddsutrustning/andningsskydd"
-                                },
-                                {
-                                    "id": "69f8be79-367b-41f3-9b0b-98db7c9af428",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/verktyg-forbrukning/skyddsutrustning/skyddsklader"
-                                },
-                                {
-                                    "id": "fc504f7d-cc16-4df4-995f-aab811a6c1fb",
-                                    "label": "",
-                                    "canonicalUrl": "/se/sv/l/verktyg-forbrukning/skyddsutrustning/handskar"
-                                }
-                            ]
-                        }
-                    ]
+                  "id": "309b82b7-1aac-4bad-8771-9b4eb41cc4ec",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/epoxy-liner/epoxy/kallhardande"
                 }
-            ]
-        }
-    },
-    "extensions": {
-        "tracing": {
-            "Version": 1,
-            "StartTime": "2025-12-03T08:38:24.2286444Z",
-            "EndTime": "2025-12-03T08:38:24.2516444Z",
-            "Duration": 22946800,
-            "Parsing": {
-                "StartOffset": 800,
-                "Duration": 38900
+              ]
             },
-            "Validation": {
-                "StartOffset": 40400,
-                "Duration": 198600
+            {
+              "id": "7d8c8682-6f55-4380-9bc8-e225b52f6618",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/epoxy-liner/liner",
+              "children": [
+                {
+                  "id": "c9eabe43-85f4-48c6-89fc-108742e3de36",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/epoxy-liner/liner/polyester-liner"
+                },
+                {
+                  "id": "ab6c0b68-9dc8-4492-a223-427f65ec9bc1",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/epoxy-liner/liner/glasfiber-liner"
+                }
+              ]
             },
-            "Execution": {
-                "Resolvers": []
+            {
+              "id": "a465884e-d039-4456-accc-c5cee48d22f4",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/epoxy-liner/tillbehor",
+              "children": [
+                {
+                  "id": "a7b9dc3a-6323-4d08-9f3c-bd846f279227",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/epoxy-liner/tillbehor/hardare"
+                },
+                {
+                  "id": "fccb4157-502d-4b2d-b604-0aa0a1a157b9",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/epoxy-liner/tillbehor/blandningsutrustning"
+                }
+              ]
             }
+          ]
+        },
+        {
+          "id": "1c9291dd-73d3-4b84-86e1-b6e7ecf570aa",
+          "label": "",
+          "title": "Grenrör & Verktyg",
+          "canonicalUrl": "/se/sv/l/grenror-verktyg",
+          "targetBlank": false,
+          "type": "category",
+          "order": 3,
+          "hidden": false,
+          "children": [
+            {
+              "id": "92822108-d9aa-4953-90ce-f7e7c2db4adb",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/grenror-verktyg/grenror",
+              "children": [
+                {
+                  "id": "6512499d-0169-4e49-bd25-b510057e706f",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/grenror-verktyg/grenror/45-grader"
+                },
+                {
+                  "id": "fa5c7126-4d62-47a9-906e-0f1a859d693a",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/grenror-verktyg/grenror/90-grader"
+                }
+              ]
+            },
+            {
+              "id": "6518f9a7-a8d1-42cc-b633-f9f7c5738238",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/grenror-verktyg/verktyg",
+              "children": [
+                {
+                  "id": "7493ee0e-b50c-49f2-8448-ef253807e8f5",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/grenror-verktyg/verktyg/installationsverktyg"
+                },
+                {
+                  "id": "1e38f2bd-57dd-4773-b7ae-272ee4c9d13d",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/grenror-verktyg/verktyg/tatningsverktyg"
+                },
+                {
+                  "id": "5eaa725c-8ac5-416e-b275-de4422844cd2",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/grenror-verktyg/verktyg/specialverktyg"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0ebf8245-a86d-41f6-be30-7170bbc352f1",
+          "label": "",
+          "title": "UV-härdning & Utrustning",
+          "canonicalUrl": "/se/sv/l/uv-hardning-utrustning",
+          "targetBlank": false,
+          "type": "category",
+          "order": 4,
+          "hidden": false,
+          "children": [
+            {
+              "id": "a2c7fdee-0647-4119-ac08-8286c00c3c76",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/uv-lampor",
+              "children": [
+                {
+                  "id": "6384aeb0-275e-4fc8-aa1e-f1ca99d7c0b3",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/uv-lampor/led-lampor"
+                },
+                {
+                  "id": "6e4674d0-6987-4b3e-bd7c-08ac5121a16e",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/uv-lampor/tradlosa-lampor"
+                },
+                {
+                  "id": "4071d9b5-cd1a-4447-ab04-4675c289d9c5",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/uv-lampor/lampvagnar"
+                },
+                {
+                  "id": "56c91774-f4aa-4534-97e5-533fbb82ca87",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/uv-lampor/tillbehor"
+                }
+              ]
+            },
+            {
+              "id": "87442322-17b3-4406-b7af-8478b155ab52",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/rorstadning",
+              "children": [
+                {
+                  "id": "4d520f6f-aab1-4a9f-bc65-19fd43cb14c5",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/rorstadning/hogtryck"
+                },
+                {
+                  "id": "3a184417-26ec-438a-a53b-193299916ffd",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/rorstadning/fresutrustning"
+                }
+              ]
+            },
+            {
+              "id": "af948708-8e97-401e-abb3-40fc67ec5e55",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/uv-hardning-utrustning/inversionstrummor",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "10f5b7d7-2cc5-419b-9197-67985f10eccd",
+          "label": "",
+          "title": "Tryckluft & Vakuum",
+          "canonicalUrl": "/se/sv/l/tryckluft-vakuum",
+          "targetBlank": false,
+          "type": "category",
+          "order": 5,
+          "hidden": false,
+          "children": [
+            {
+              "id": "9f3e723b-a81b-4d15-aeec-374177762a67",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/tryckluft-vakuum/kompressorer",
+              "children": [
+                {
+                  "id": "3621a806-4888-4a7b-b1ad-965c0539440c",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/tryckluft-vakuum/kompressorer/mobila"
+                },
+                {
+                  "id": "b6785665-e7d5-4634-a4d0-52ba7c4c3977",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/tryckluft-vakuum/kompressorer/stationara"
+                },
+                {
+                  "id": "1b4e40f7-5795-4e89-9999-65bcd4caa137",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/tryckluft-vakuum/kompressorer/tillbehor"
+                }
+              ]
+            },
+            {
+              "id": "173d9b90-44bf-4a85-87c5-65f6598cceeb",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/tryckluft-vakuum/vakuumpumpar",
+              "children": [
+                {
+                  "id": "c31ba442-e937-421f-9b9b-ac127f9cf9d9",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/tryckluft-vakuum/vakuumpumpar/roterande"
+                },
+                {
+                  "id": "b768e607-c546-42b4-80c5-1caaf3b405dc",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/tryckluft-vakuum/vakuumpumpar/membran"
+                },
+                {
+                  "id": "9744b7c6-eec0-4d25-a0d5-20ed9dd60f13",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/tryckluft-vakuum/vakuumpumpar/tillbehor"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "de5d39f4-8089-4a72-a90f-fd3ac22660c5",
+          "label": "",
+          "title": "Verktyg & Förbrukning",
+          "canonicalUrl": "/se/sv/l/verktyg-forbrukning",
+          "targetBlank": false,
+          "type": "category",
+          "order": 6,
+          "hidden": false,
+          "children": [
+            {
+              "id": "480b4cc7-9cc0-4b07-900b-72c181d9fac3",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/verktyg-forbrukning/robotskarare",
+              "children": [
+                {
+                  "id": "7130033d-5c6d-430e-9559-608d890c5b91",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/verktyg-forbrukning/robotskarare/pneumatiska"
+                },
+                {
+                  "id": "c6acf294-587c-489c-94b7-f6a9347804cc",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/verktyg-forbrukning/robotskarare/elektriska"
+                },
+                {
+                  "id": "620c457a-7704-4040-8e3f-cbbbebebddb3",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/verktyg-forbrukning/robotskarare/tillbehor"
+                }
+              ]
+            },
+            {
+              "id": "bbcc87f3-95cc-4a98-8231-041f711c01da",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/verktyg-forbrukning/forbrukningsvaror",
+              "children": [
+                {
+                  "id": "45a5c9e5-ad9b-4296-a7fa-b8a1ebed7c1c",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/verktyg-forbrukning/forbrukningsvaror/tatningar"
+                },
+                {
+                  "id": "1d4c0ab6-ad2a-4e01-94a5-14b7e37b8ee3",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/verktyg-forbrukning/forbrukningsvaror/rengoring"
+                }
+              ]
+            },
+            {
+              "id": "ccd0d20d-e150-4ac1-8402-bb61c10df73a",
+              "label": "",
+              "canonicalUrl": "/se/sv/l/verktyg-forbrukning/skyddsutrustning",
+              "children": [
+                {
+                  "id": "2ee3a7eb-e0cd-4abe-b55c-1d817b6e05f9",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/verktyg-forbrukning/skyddsutrustning/andningsskydd"
+                },
+                {
+                  "id": "69f8be79-367b-41f3-9b0b-98db7c9af428",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/verktyg-forbrukning/skyddsutrustning/skyddsklader"
+                },
+                {
+                  "id": "fc504f7d-cc16-4df4-995f-aab811a6c1fb",
+                  "label": "",
+                  "canonicalUrl": "/se/sv/l/verktyg-forbrukning/skyddsutrustning/handskar"
+                }
+              ]
+            }
+          ]
         }
+      ]
     }
+  },
+  "extensions": {
+    "tracing": {
+      "Version": 1,
+      "StartTime": "2025-12-03T08:38:24.2286444Z",
+      "EndTime": "2025-12-03T08:38:24.2516444Z",
+      "Duration": 22946800,
+      "Parsing": {
+        "StartOffset": 800,
+        "Duration": 38900
+      },
+      "Validation": {
+        "StartOffset": 40400,
+        "Duration": 198600
+      },
+      "Execution": {
+        "Resolvers": []
+      }
+    }
+  }
 }

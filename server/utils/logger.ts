@@ -170,6 +170,9 @@ export const logger = createLogger();
 /**
  * Create a tenant-scoped logger
  */
-export function createTenantLogger(tenantId: string, hostname?: string): Logger {
+export function createTenantLogger(
+  tenantId: string,
+  hostname?: string,
+): Logger {
   return createLogger({ tenantId, hostname });
 }
