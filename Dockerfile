@@ -55,7 +55,7 @@ ENV PORT=3000
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nuxt
+  adduser --system --uid 1001 nuxt
 
 # Copy built application from builder stage
 # Nuxt outputs to .output directory with the server and public assets
@@ -69,7 +69,7 @@ EXPOSE 3000
 
 # Health check for container orchestration
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/config || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # Start the Nuxt server
 CMD ["node", ".output/server/index.mjs"]
