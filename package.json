@@ -1,5 +1,5 @@
 {
-  "name": "multitenant-storefront",
+  "name": "sales-portal",
   "type": "module",
   "private": true,
   "scripts": {
