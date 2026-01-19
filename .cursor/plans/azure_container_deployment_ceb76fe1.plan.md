@@ -39,7 +39,7 @@ flowchart LR
         Actions[GitHub Actions]
         GHCR[Container Registry]
     end
-    
+
     subgraph azure [Azure]
         subgraph dev [Dev Environment]
             ASP_Dev[App Service Plan]
@@ -54,7 +54,7 @@ flowchart LR
             App_Prod[Web App]
         end
     end
-    
+
     Code --> Actions
     Actions --> GHCR
     GHCR --> App_Dev
