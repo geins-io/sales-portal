@@ -13,7 +13,12 @@ export default defineNuxtConfig({
     '@nuxt/scripts',
     '@nuxt/test-utils',
     'shadcn-nuxt',
+    '@pinia/nuxt',
   ],
+
+  pinia: {
+    storesDirs: ['./app/stores/**'],
+  },
 
   css: ['~/assets/css/tailwind.css', '~/assets/css/themes.css'],
 
