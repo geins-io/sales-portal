@@ -1,0 +1,193 @@
+import { H3Error, createError } from 'h3';
+import { logger } from './logger';
+
+/**
+ * Error codes for the Sales Portal
+ */
+export enum ErrorCode {
+  // Client errors (4xx)
+  BAD_REQUEST = 'BAD_REQUEST',
+  UNAUTHORIZED = 'UNAUTHORIZED',
+  FORBIDDEN = 'FORBIDDEN',
+  NOT_FOUND = 'NOT_FOUND',
+  VALIDATION_ERROR = 'VALIDATION_ERROR',
+  TENANT_NOT_FOUND = 'TENANT_NOT_FOUND',
+  TENANT_INACTIVE = 'TENANT_INACTIVE',
+
+  // Server errors (5xx)
+  INTERNAL_ERROR = 'INTERNAL_ERROR',
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+  EXTERNAL_API_ERROR = 'EXTERNAL_API_ERROR',
+  STORAGE_ERROR = 'STORAGE_ERROR',
+}
+
+/**
+ * HTTP status codes for error codes
+ */
+const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
+  [ErrorCode.BAD_REQUEST]: 400,
+  [ErrorCode.UNAUTHORIZED]: 401,
+  [ErrorCode.FORBIDDEN]: 403,
+  [ErrorCode.NOT_FOUND]: 404,
+  [ErrorCode.VALIDATION_ERROR]: 422,
+  [ErrorCode.TENANT_NOT_FOUND]: 404,
+  [ErrorCode.TENANT_INACTIVE]: 403,
+  [ErrorCode.INTERNAL_ERROR]: 500,
+  [ErrorCode.SERVICE_UNAVAILABLE]: 503,
+  [ErrorCode.EXTERNAL_API_ERROR]: 502,
+  [ErrorCode.STORAGE_ERROR]: 500,
+};
+
+/**
+ * Default error messages
+ */
+const ERROR_MESSAGES: Record<ErrorCode, string> = {
+  [ErrorCode.BAD_REQUEST]: 'Bad request',
+  [ErrorCode.UNAUTHORIZED]: 'Authentication required',
+  [ErrorCode.FORBIDDEN]: 'Access denied',
+  [ErrorCode.NOT_FOUND]: 'Resource not found',
+  [ErrorCode.VALIDATION_ERROR]: 'Validation failed',
+  [ErrorCode.TENANT_NOT_FOUND]: 'Tenant not found',
+  [ErrorCode.TENANT_INACTIVE]: 'Tenant is inactive',
+  [ErrorCode.INTERNAL_ERROR]: 'Internal server error',
+  [ErrorCode.SERVICE_UNAVAILABLE]: 'Service temporarily unavailable',
+  [ErrorCode.EXTERNAL_API_ERROR]: 'External API error',
+  [ErrorCode.STORAGE_ERROR]: 'Storage error',
+};
+
+/**
+ * Extended error data interface
+ */
+export interface ErrorData {
+  code: ErrorCode;
+  details?: Record<string, unknown>;
+  tenantId?: string;
+}
+
+/**
+ * Create an application error
+ */
+export function createAppError(
+  code: ErrorCode,
+  message?: string,
+  details?: Record<string, unknown>,
+): H3Error {
+  const statusCode = ERROR_STATUS_CODES[code];
+  const errorMessage = message || ERROR_MESSAGES[code];
+
+  // Log the error
+  if (statusCode >= 500) {
+    logger.error(`Server error: ${errorMessage}`, undefined, {
+      code,
+      ...details,
+    });
+  } else {
+    logger.warn(`Client error: ${errorMessage}`, { code, ...details });
+  }
+
+  return createError({
+    statusCode,
+    statusMessage: errorMessage,
+    message: errorMessage,
+    data: {
+      code,
+      details,
+    } as ErrorData,
+  });
+}
+
+/**
+ * Create a tenant not found error
+ */
+export function createTenantNotFoundError(hostname: string): H3Error {
+  return createAppError(
+    ErrorCode.TENANT_NOT_FOUND,
+    `No tenant configured for hostname: ${hostname}`,
+    { hostname },
+  );
+}
+
+/**
+ * Create a tenant inactive error
+ */
+export function createTenantInactiveError(tenantId: string): H3Error {
+  return createAppError(
+    ErrorCode.TENANT_INACTIVE,
+    `Tenant is inactive: ${tenantId}`,
+    { tenantId },
+  );
+}
+
+/**
+ * Create a validation error
+ */
+export function createValidationError(
+  message: string,
+  errors: Record<string, string[]>,
+): H3Error {
+  return createAppError(ErrorCode.VALIDATION_ERROR, message, {
+    validationErrors: errors,
+  });
+}
+
+/**
+ * Create an external API error
+ */
+export function createExternalApiError(
+  service: string,
+  originalError?: Error,
+): H3Error {
+  return createAppError(
+    ErrorCode.EXTERNAL_API_ERROR,
+    `Error communicating with ${service}`,
+    {
+      service,
+      originalMessage: originalError?.message,
+    },
+  );
+}
+
+/**
+ * Create a storage error
+ */
+export function createStorageError(
+  operation: string,
+  originalError?: Error,
+): H3Error {
+  return createAppError(
+    ErrorCode.STORAGE_ERROR,
+    `Storage ${operation} failed`,
+    {
+      operation,
+      originalMessage: originalError?.message,
+    },
+  );
+}
+
+/**
+ * Wrap an async handler with error handling
+ */
+export function withErrorHandling<T>(
+  handler: () => Promise<T>,
+  context?: { tenantId?: string; operation?: string },
+): Promise<T> {
+  return handler().catch((error) => {
+    // If it's already an H3Error, re-throw it
+    if (error instanceof H3Error) {
+      throw error;
+    }
+
+    // Log the unexpected error
+    logger.error(
+      `Unexpected error${context?.operation ? ` during ${context.operation}` : ''}`,
+      error instanceof Error ? error : new Error(String(error)),
+      context,
+    );
+
+    // Throw a generic internal error
+    throw createAppError(
+      ErrorCode.INTERNAL_ERROR,
+      'An unexpected error occurred',
+    );
+  });
+}

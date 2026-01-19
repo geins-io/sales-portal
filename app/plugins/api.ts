@@ -1,8 +1,8 @@
-export default defineNuxtPlugin((nuxtApp) => {
+export default defineNuxtPlugin(() => {
   const requestHeaders = useRequestHeaders();
 
   const api = $fetch.create({
-    onRequest({ request, options, error }) {
+    onRequest({ options }) {
       options.headers = {
         ...(options.headers || {}),
         // Always include the original client request headers
