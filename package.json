@@ -17,7 +17,17 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "typecheck": "nuxt typecheck",
-    "prepare": "husky"
+    "prepare": "husky",
+    "infra:setup": "./infra/scripts/setup.sh",
+    "infra:setup:rg": "./infra/scripts/setup.sh --rg-only",
+    "infra:setup:sp": "./infra/scripts/setup.sh --sp-only",
+    "infra:setup:creds": "./infra/scripts/setup.sh --creds-only",
+    "infra:deploy": "./infra/scripts/deploy.sh",
+    "infra:deploy:dev": "./infra/scripts/deploy.sh --env dev",
+    "infra:deploy:staging": "./infra/scripts/deploy.sh --env staging",
+    "infra:deploy:prod": "./infra/scripts/deploy.sh --env prod",
+    "infra:validate": "./infra/scripts/validate.sh",
+    "infra:validate:build": "./infra/scripts/validate.sh --build-only"
   },
   "dependencies": {
     "@nuxt/eslint": "1.11.0",
