@@ -5,19 +5,25 @@
 # latest container image.
 #
 # Triggers:
-# - Push to main → Staging deployment
-# - Version tags (v*) → Production deployment
-# - Manual workflow dispatch → Any environment
+# - Manual workflow dispatch → Dev environment only (during development phase)
+#
+# NOTE: Staging and production deployments are SUSPENDED during development.
+# To re-enable, uncomment the push triggers below and add staging/prod to options.
 # =============================================================================
 
 name: Deploy
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
+  # SUSPENDED: Automatic staging deployment on push to main
+  # push:
+  #   branches:
+  #     - main
+
+  # SUSPENDED: Automatic production deployment on version tags
+  # push:
+  #   tags:
+  #     - 'v*'
+
   workflow_dispatch:
     inputs:
       environment:
@@ -26,8 +32,9 @@ on:
         type: choice
         options:
           - dev
-          - staging
-          - prod
+          # SUSPENDED during development phase:
+          # - staging
+          # - prod
       image_tag:
         description: 'Docker image tag to deploy (defaults to branch/tag name)'
         required: false
