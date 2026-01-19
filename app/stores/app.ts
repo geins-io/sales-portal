@@ -50,7 +50,7 @@ export const useAppStore = defineStore('app', {
         'system',
       ];
       const currentIndex = themes.indexOf(this.theme);
-      this.theme = themes[(currentIndex + 1) % themes.length];
+      this.theme = themes[(currentIndex + 1) % themes.length] ?? 'system';
     },
   },
 });
