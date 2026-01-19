@@ -1,7 +1,3 @@
-<script setup lang="ts">
+<script setup lang="ts"></script>
 
-</script>
-
-<template>
-  {header topbar content}
-</template>
+<template>{header topbar content}</template>

@@ -37,16 +37,16 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 
 ## Tech Stack
 
-| Technology | Purpose |
-|------------|---------|
-| **Nuxt 4** | Vue 3 meta-framework with SSR, routing, and server middleware |
-| **Vue 3** | Reactive UI framework with Composition API |
-| **Tailwind CSS 4** | Utility-first CSS framework with design tokens |
-| **shadcn-vue** | Accessible UI component library (Reka UI based) |
-| **TypeScript** | Static typing and enhanced developer experience |
-| **Nitro** | Server engine with multi-platform deployment support |
-| **ESLint + Prettier** | Code quality and formatting |
-| **PNPM** | Fast, disk-efficient package manager |
+| Technology            | Purpose                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| **Nuxt 4**            | Vue 3 meta-framework with SSR, routing, and server middleware |
+| **Vue 3**             | Reactive UI framework with Composition API                    |
+| **Tailwind CSS 4**    | Utility-first CSS framework with design tokens                |
+| **shadcn-vue**        | Accessible UI component library (Reka UI based)               |
+| **TypeScript**        | Static typing and enhanced developer experience               |
+| **Nitro**             | Server engine with multi-platform deployment support          |
+| **ESLint + Prettier** | Code quality and formatting                                   |
+| **PNPM**              | Fast, disk-efficient package manager                          |
 
 ### External Integrations
 
@@ -203,9 +203,9 @@ Each tenant can define a complete theme in their configuration:
 
 ```typescript
 interface TenantTheme {
-  name: string;           // Theme identifier
-  displayName?: string;   // Human-readable name
-  colors: ThemeColors;    // Light mode colors
+  name: string; // Theme identifier
+  displayName?: string; // Human-readable name
+  colors: ThemeColors; // Light mode colors
   darkColors?: Partial<ThemeColors>; // Dark mode overrides
   typography?: ThemeTypography;
   borderRadius?: ThemeBorderRadius;
@@ -215,22 +215,22 @@ interface TenantTheme {
 
 ### Available Color Tokens
 
-| Token | Purpose |
-|-------|---------|
-| `primary` | Primary brand color |
+| Token               | Purpose                     |
+| ------------------- | --------------------------- |
+| `primary`           | Primary brand color         |
 | `primaryForeground` | Text on primary backgrounds |
-| `secondary` | Secondary brand color |
-| `background` | Page background |
-| `foreground` | Default text color |
-| `muted` | Muted background |
-| `mutedForeground` | Muted text |
-| `accent` | Accent color |
-| `destructive` | Error/danger states |
-| `border` | Default border color |
-| `input` | Input border color |
-| `ring` | Focus ring color |
-| `card` | Card backgrounds |
-| `popover` | Popover backgrounds |
+| `secondary`         | Secondary brand color       |
+| `background`        | Page background             |
+| `foreground`        | Default text color          |
+| `muted`             | Muted background            |
+| `mutedForeground`   | Muted text                  |
+| `accent`            | Accent color                |
+| `destructive`       | Error/danger states         |
+| `border`            | Default border color        |
+| `input`             | Input border color          |
+| `ring`              | Focus ring color            |
+| `card`              | Card backgrounds            |
+| `popover`           | Popover backgrounds         |
 
 ### Dynamic CSS Generation
 
@@ -252,6 +252,7 @@ const theme = {
 ### Dark Mode
 
 Dark mode is supported via:
+
 1. `darkColors` in tenant theme configuration
 2. `.dark` class on the HTML element
 3. Automatic CSS generation for dark variants
@@ -272,6 +273,7 @@ const { data, pending, error, refresh } = useApi<ResponseType>('/api/endpoint');
 ### Server API Routes
 
 API routes in `server/api/` automatically have access to:
+
 - Tenant context via `event.context.tenant`
 - KV storage via `useStorage('kv')`
 - Runtime config via `useRuntimeConfig()`
@@ -279,6 +281,7 @@ API routes in `server/api/` automatically have access to:
 ### Caching
 
 The config endpoint uses Nuxt's `defineCachedEventHandler` with:
+
 - SWR (stale-while-revalidate) enabled
 - 1-hour max age
 - Host-aware cache keys
@@ -300,20 +303,21 @@ The `server/api/external/[...].ts` handler proxies requests to external APIs wit
 
 See `.env.example` for all available environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NODE_ENV` | Environment mode | `development` |
-| `GEINS_API_KEY` | Geins platform API key | - |
+| Variable             | Description            | Default                        |
+| -------------------- | ---------------------- | ------------------------------ |
+| `NODE_ENV`           | Environment mode       | `development`                  |
+| `GEINS_API_KEY`      | Geins platform API key | -                              |
 | `GEINS_API_ENDPOINT` | Geins GraphQL endpoint | `https://api.geins.io/graphql` |
-| `STORAGE_DRIVER` | KV storage driver | `fs` |
-| `REDIS_URL` | Redis connection URL | - |
-| `LOG_LEVEL` | Logging verbosity | `info` |
+| `STORAGE_DRIVER`     | KV storage driver      | `fs`                           |
+| `REDIS_URL`          | Redis connection URL   | -                              |
+| `LOG_LEVEL`          | Logging verbosity      | `info`                         |
 
 ### Runtime Configuration
 
 Access runtime config in:
 
 **Server-side:**
+
 ```typescript
 const config = useRuntimeConfig();
 console.log(config.geins.apiKey); // Private
@@ -321,6 +325,7 @@ console.log(config.public.appName); // Public
 ```
 
 **Client-side:**
+
 ```typescript
 const config = useRuntimeConfig();
 console.log(config.public.appName); // Only public values
@@ -334,13 +339,13 @@ console.log(config.public.appName); // Only public values
 
 Standard error codes are defined in `server/utils/errors.ts`:
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `TENANT_NOT_FOUND` | 404 | No tenant for hostname |
-| `TENANT_INACTIVE` | 403 | Tenant is disabled |
-| `VALIDATION_ERROR` | 422 | Request validation failed |
-| `EXTERNAL_API_ERROR` | 502 | External service failure |
-| `STORAGE_ERROR` | 500 | KV storage failure |
+| Code                 | HTTP Status | Description               |
+| -------------------- | ----------- | ------------------------- |
+| `TENANT_NOT_FOUND`   | 404         | No tenant for hostname    |
+| `TENANT_INACTIVE`    | 403         | Tenant is disabled        |
+| `VALIDATION_ERROR`   | 422         | Request validation failed |
+| `EXTERNAL_API_ERROR` | 502         | External service failure  |
+| `STORAGE_ERROR`      | 500         | KV storage failure        |
 
 ### Creating Errors
 
@@ -352,7 +357,7 @@ throw createAppError(ErrorCode.NOT_FOUND, 'Product not found');
 
 // With details
 throw createAppError(ErrorCode.VALIDATION_ERROR, 'Invalid input', {
-  validationErrors: { email: ['Invalid format'] }
+  validationErrors: { email: ['Invalid format'] },
 });
 
 // Convenience functions
@@ -390,6 +395,7 @@ Log levels: `debug` < `info` < `warn` < `error`
 ### Creating Components
 
 1. Use shadcn-vue components when available:
+
    ```bash
    pnpm dlx shadcn-vue add button
    ```
@@ -408,6 +414,7 @@ Log levels: `debug` < `info` < `warn` < `error`
 ### Adding Pages
 
 1. Create file in `app/pages/`:
+
    ```
    app/pages/products/[id].vue → /products/:id
    ```
@@ -454,4 +461,4 @@ pnpm preview
 
 ---
 
-*Last updated: January 2026*
+_Last updated: January 2026_
