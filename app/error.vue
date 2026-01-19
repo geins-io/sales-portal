@@ -5,6 +5,8 @@ const props = defineProps<{
   error: NuxtError;
 }>();
 
+const isDev = import.meta.dev;
+
 const is404 = computed(() => props.error.statusCode === 404);
 const is500 = computed(
   () => props.error.statusCode >= 500 && props.error.statusCode < 600,
@@ -83,7 +85,7 @@ const handleBack = () => {
 
       <!-- Debug Info (Development Only) -->
       <div
-        v-if="error.stack && process.dev"
+        v-if="error.stack && isDev"
         class="border-border bg-muted mt-8 rounded-lg border p-4 text-left"
       >
         <p class="text-foreground mb-2 text-sm font-medium">Debug Info:</p>
