@@ -178,6 +178,7 @@ export async function createTenant(
   const defaultTheme = createDefaultTheme(finalTenantId);
 
   // Merge theme if partial config provided
+  // Deep merge all nested theme objects to preserve default values
   const mergedTheme: TenantTheme = {
     ...defaultTheme,
     ...partialConfig?.theme,
@@ -188,6 +189,18 @@ export async function createTenant(
     darkColors: {
       ...defaultTheme.darkColors,
       ...partialConfig?.theme?.darkColors,
+    },
+    borderRadius: {
+      ...defaultTheme.borderRadius,
+      ...partialConfig?.theme?.borderRadius,
+    },
+    typography: {
+      ...defaultTheme.typography,
+      ...partialConfig?.theme?.typography,
+    },
+    customProperties: {
+      ...defaultTheme.customProperties,
+      ...partialConfig?.theme?.customProperties,
     },
   };
 
@@ -245,6 +258,7 @@ export async function createTenant(
 
   // If config exists but we want to update it, merge and save
   if (partialConfig) {
+    // Deep merge all nested theme objects to preserve existing values
     const updatedTheme: TenantTheme = {
       ...existingConfig.theme,
       ...partialConfig.theme,
@@ -255,6 +269,18 @@ export async function createTenant(
       darkColors: {
         ...existingConfig.theme.darkColors,
         ...partialConfig.theme?.darkColors,
+      },
+      borderRadius: {
+        ...existingConfig.theme.borderRadius,
+        ...partialConfig.theme?.borderRadius,
+      },
+      typography: {
+        ...existingConfig.theme.typography,
+        ...partialConfig.theme?.typography,
+      },
+      customProperties: {
+        ...existingConfig.theme.customProperties,
+        ...partialConfig.theme?.customProperties,
       },
     };
 
@@ -316,7 +342,7 @@ export async function updateTenant(
     return null;
   }
 
-  // Merge theme updates
+  // Merge theme updates - deep merge all nested objects to preserve existing values
   const updatedTheme: TenantTheme = updates.theme
     ? {
         ...existing.theme,
@@ -328,6 +354,18 @@ export async function updateTenant(
         darkColors: {
           ...existing.theme.darkColors,
           ...updates.theme.darkColors,
+        },
+        borderRadius: {
+          ...existing.theme.borderRadius,
+          ...updates.theme.borderRadius,
+        },
+        typography: {
+          ...existing.theme.typography,
+          ...updates.theme.typography,
+        },
+        customProperties: {
+          ...existing.theme.customProperties,
+          ...updates.theme.customProperties,
         },
       }
     : existing.theme;
