@@ -1,4 +1,4 @@
-import { ref, watch, type Ref } from 'vue';
+import { ref, watch, onMounted, onUnmounted, type Ref } from 'vue';
 
 /**
  * Composable for reactive localStorage management
@@ -44,8 +44,8 @@ export function useLocalStorage<T>(key: string, defaultValue: T): Ref<T> {
       { deep: true },
     );
 
-    // Listen for storage events from other tabs
-    window.addEventListener('storage', (event) => {
+    // Handler for storage events from other tabs
+    const storageHandler = (event: StorageEvent) => {
       if (event.key === key && event.newValue !== null) {
         try {
           storedValue.value = JSON.parse(event.newValue);
@@ -53,6 +53,15 @@ export function useLocalStorage<T>(key: string, defaultValue: T): Ref<T> {
           storedValue.value = event.newValue as unknown as T;
         }
       }
+    };
+
+    // Add listener on mount, remove on unmount to prevent memory leaks
+    onMounted(() => {
+      window.addEventListener('storage', storageHandler);
+    });
+
+    onUnmounted(() => {
+      window.removeEventListener('storage', storageHandler);
     });
   }
 
