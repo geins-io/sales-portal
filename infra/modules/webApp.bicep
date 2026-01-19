@@ -37,10 +37,6 @@ param environment string
 param tags object = {}
 
 // Application settings
-@description('Geins API Key')
-@secure()
-param geinsApiKey string
-
 @description('Geins API Endpoint')
 param geinsApiEndpoint string
 
@@ -118,10 +114,6 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           value: nodeEnv
         }
         {
-          name: 'GEINS_API_KEY'
-          value: geinsApiKey
-        }
-        {
           name: 'GEINS_API_ENDPOINT'
           value: geinsApiEndpoint
         }
@@ -191,10 +183,6 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
         {
           name: 'NODE_ENV'
           value: 'production'
-        }
-        {
-          name: 'GEINS_API_KEY'
-          value: geinsApiKey
         }
         {
           name: 'GEINS_API_ENDPOINT'

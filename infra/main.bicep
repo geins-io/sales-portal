@@ -36,10 +36,6 @@ param ghcrUsername string = ''
 param ghcrToken string = ''
 
 // Application configuration
-@description('Geins API Key')
-@secure()
-param geinsApiKey string = ''
-
 @description('Geins API Endpoint')
 param geinsApiEndpoint string = 'https://api.geins.io/graphql'
 
@@ -124,7 +120,6 @@ module webApp 'modules/webApp.bicep' = {
     environment: environment
     tags: tags
     // Application settings
-    geinsApiKey: geinsApiKey
     geinsApiEndpoint: geinsApiEndpoint
     storageDriver: storageDriver
     redisUrl: redisUrl

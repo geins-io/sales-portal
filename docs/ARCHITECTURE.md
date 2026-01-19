@@ -306,11 +306,12 @@ See `.env.example` for all available environment variables:
 | Variable             | Description            | Default                        |
 | -------------------- | ---------------------- | ------------------------------ |
 | `NODE_ENV`           | Environment mode       | `development`                  |
-| `GEINS_API_KEY`      | Geins platform API key | -                              |
 | `GEINS_API_ENDPOINT` | Geins GraphQL endpoint | `https://api.geins.io/graphql` |
 | `STORAGE_DRIVER`     | KV storage driver      | `fs`                           |
 | `REDIS_URL`          | Redis connection URL   | -                              |
 | `LOG_LEVEL`          | Logging verbosity      | `info`                         |
+
+> **Note:** `GEINS_API_KEY` is **not** an environment variable. It is configured per-tenant as part of the tenant configuration (`GeinsSettings.apiKey`) when binding a domain. See `shared/types/tenant-config.ts`.
 
 ### Runtime Configuration
 

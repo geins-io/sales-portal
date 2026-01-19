@@ -2,6 +2,22 @@
 
 This directory contains the Infrastructure as Code (IaC) for deploying the Sales Portal application to Azure using Bicep templates.
 
+## Quick Start
+
+The fastest way to set up the infrastructure is to use the automated setup script:
+
+```bash
+# Full setup: resource groups, service principal, federated credentials
+pnpm infra:setup
+
+# Or run individual steps:
+pnpm infra:setup:rg      # Create resource groups only
+pnpm infra:setup:sp      # Create service principal only
+pnpm infra:setup:creds   # Create federated credentials only
+```
+
+After running the setup script, follow the output instructions to add the required secrets to your GitHub repository.
+
 ## Architecture Overview
 
 ```mermaid
@@ -46,111 +62,256 @@ infra/
 │   ├── dev.bicepparam            # Development parameters
 │   ├── staging.bicepparam        # Staging parameters
 │   └── prod.bicepparam           # Production parameters
+├── scripts/
+│   ├── setup.sh                  # Automated Azure setup script
+│   ├── deploy.sh                 # Manual deployment script
+│   └── validate.sh               # Template validation script
 └── README.md                     # This file
 ```
 
+## Available Scripts
+
+The following pnpm scripts are available for infrastructure management:
+
+| Script                      | Description                                   |
+| --------------------------- | --------------------------------------------- |
+| `pnpm infra:setup`          | Full Azure setup (resource groups, SP, creds) |
+| `pnpm infra:setup:rg`       | Create resource groups only                   |
+| `pnpm infra:setup:sp`       | Create service principal only                 |
+| `pnpm infra:setup:creds`    | Create federated credentials only             |
+| `pnpm infra:deploy`         | Manual deployment (requires arguments)        |
+| `pnpm infra:deploy:dev`     | Deploy to development (requires --image)      |
+| `pnpm infra:deploy:staging` | Deploy to staging (requires --image)          |
+| `pnpm infra:deploy:prod`    | Deploy to production (requires --image)       |
+| `pnpm infra:validate`       | Validate Bicep syntax                         |
+| `pnpm infra:validate:build` | Build Bicep to ARM JSON                       |
+
 ## Prerequisites
 
-### Azure Setup
+### Required Tools
 
-1. **Azure Subscription**: An active Azure subscription
-2. **Resource Groups**: Create resource groups for each environment:
+1. **Azure CLI**: Install from https://docs.microsoft.com/cli/azure/install-azure-cli
+2. **Azure Subscription**: An active Azure subscription with sufficient permissions
 
-   ```bash
-   az group create --name rg-sales-portal-dev --location westeurope
-   az group create --name rg-sales-portal-staging --location westeurope
-   az group create --name rg-sales-portal-prod --location westeurope
-   ```
+### Authentication
 
-3. **Service Principal with Federated Credentials** (recommended for OIDC):
+Before running any scripts, authenticate with Azure:
 
-   ```bash
-   # Create App Registration
-   az ad app create --display-name "sales-portal-github-actions"
+```bash
+# Login to Azure
+az login
 
-   # Get App ID
-   APP_ID=$(az ad app list --display-name "sales-portal-github-actions" --query "[0].appId" -o tsv)
+# Verify you're in the correct subscription
+az account show
 
-   # Create Service Principal
-   az ad sp create --id $APP_ID
+# (Optional) Switch subscription if needed
+az account set --subscription <subscription-id>
+```
 
-   # Get Object ID
-   OBJECT_ID=$(az ad sp list --filter "appId eq '$APP_ID'" --query "[0].id" -o tsv)
+## Step-by-Step Setup Guide
 
-   # Assign Contributor role to resource groups
-   az role assignment create --assignee $OBJECT_ID --role "Contributor" --scope "/subscriptions/{subscription-id}/resourceGroups/rg-sales-portal-dev"
-   az role assignment create --assignee $OBJECT_ID --role "Contributor" --scope "/subscriptions/{subscription-id}/resourceGroups/rg-sales-portal-staging"
-   az role assignment create --assignee $OBJECT_ID --role "Contributor" --scope "/subscriptions/{subscription-id}/resourceGroups/rg-sales-portal-prod"
-   ```
+### Step 1: Run the Automated Setup Script
 
-4. **Configure Federated Credentials** for GitHub Actions:
+The setup script will create all Azure resources needed for deployments:
 
-   ```bash
-   # For main branch (staging deployments)
-   az ad app federated-credential create --id $APP_ID --parameters '{
-     "name": "github-main",
-     "issuer": "https://token.actions.githubusercontent.com",
-     "subject": "repo:geins-io/sales-portal:ref:refs/heads/main",
-     "audiences": ["api://AzureADTokenExchange"]
-   }'
+```bash
+pnpm infra:setup
+```
 
-   # For tags (production deployments)
-   az ad app federated-credential create --id $APP_ID --parameters '{
-     "name": "github-tags",
-     "issuer": "https://token.actions.githubusercontent.com",
-     "subject": "repo:geins-io/sales-portal:ref:refs/tags/*",
-     "audiences": ["api://AzureADTokenExchange"]
-   }'
+This script performs the following:
 
-   # For environment approvals
-   az ad app federated-credential create --id $APP_ID --parameters '{
-     "name": "github-env-dev",
-     "issuer": "https://token.actions.githubusercontent.com",
-     "subject": "repo:geins-io/sales-portal:environment:dev",
-     "audiences": ["api://AzureADTokenExchange"]
-   }'
+1. Creates resource groups for dev, staging, and prod environments
+2. Creates an App Registration (Service Principal) for GitHub Actions
+3. Assigns Contributor role to all resource groups
+4. Creates federated credentials for OIDC authentication
 
-   az ad app federated-credential create --id $APP_ID --parameters '{
-     "name": "github-env-staging",
-     "issuer": "https://token.actions.githubusercontent.com",
-     "subject": "repo:geins-io/sales-portal:environment:staging",
-     "audiences": ["api://AzureADTokenExchange"]
-   }'
+**Expected Output:**
 
-   az ad app federated-credential create --id $APP_ID --parameters '{
-     "name": "github-env-prod",
-     "issuer": "https://token.actions.githubusercontent.com",
-     "subject": "repo:geins-io/sales-portal:environment:prod",
-     "audiences": ["api://AzureADTokenExchange"]
-   }'
-   ```
+```
+=============================================================================
+  Sales Portal - Azure Infrastructure Setup
+=============================================================================
 
-### GitHub Setup
+[INFO] Getting Azure subscription information...
 
-1. **Repository Secrets** (Settings → Secrets and variables → Actions → Secrets):
+Current Azure subscription:
+  Name: Your Subscription Name
+  ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  Tenant ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
-   | Secret                  | Description                                  |
-   | ----------------------- | -------------------------------------------- |
-   | `AZURE_CLIENT_ID`       | Service Principal/App Registration client ID |
-   | `AZURE_TENANT_ID`       | Azure AD tenant ID                           |
-   | `AZURE_SUBSCRIPTION_ID` | Target Azure subscription ID                 |
-   | `GEINS_API_KEY`         | Geins platform API key                       |
-   | `REDIS_URL`             | Redis connection URL (for staging/prod)      |
+[INFO] Creating resource groups for each environment...
+[SUCCESS] Resource group rg-sales-portal-dev ready
+[SUCCESS] Resource group rg-sales-portal-staging ready
+[SUCCESS] Resource group rg-sales-portal-prod ready
 
-2. **Repository Variables** (Settings → Secrets and variables → Actions → Variables):
+[INFO] Creating service principal for GitHub Actions...
+[SUCCESS] App Registration created with ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
-   | Variable             | Description                      | Default                        |
-   | -------------------- | -------------------------------- | ------------------------------ |
-   | `GEINS_API_ENDPOINT` | Geins API endpoint               | `https://api.geins.io/graphql` |
-   | `STORAGE_DRIVER`     | Storage driver (`fs` or `redis`) | `fs`                           |
-   | `ENABLE_ANALYTICS`   | Enable analytics                 | `false`                        |
-   | `LOG_LEVEL`          | Log level                        | `info`                         |
+[SUCCESS] Created federated credential: github-main
+[SUCCESS] Created federated credential: github-tags
+...
+```
 
-3. **Environments** (Settings → Environments):
-   - Create environments: `dev`, `staging`, `prod`, `prod-swap`
-   - Configure protection rules for `prod` and `prod-swap`:
-     - Require approval from designated reviewers
-     - Only allow deployments from `main` branch or tags
+### Step 2: Configure GitHub Secrets
+
+After running the setup script, add the following secrets to your GitHub repository:
+
+**Navigate to:** Repository Settings → Secrets and variables → Actions → Secrets
+
+#### Required Repository Secrets
+
+These secrets are shared across all environments:
+
+| Secret                  | Description                       | How to Get Value         |
+| ----------------------- | --------------------------------- | ------------------------ |
+| `AZURE_CLIENT_ID`       | Service Principal App (Client) ID | Output from setup script |
+| `AZURE_TENANT_ID`       | Azure AD Tenant ID                | Output from setup script |
+| `AZURE_SUBSCRIPTION_ID` | Target Azure Subscription ID      | Output from setup script |
+
+**How to add a repository secret:**
+
+1. Go to your GitHub repository
+2. Click **Settings** tab
+3. In the left sidebar, click **Secrets and variables** → **Actions**
+4. Click **New repository secret**
+5. Enter the secret name and value
+6. Click **Add secret**
+
+#### Optional Environment Secrets
+
+These secrets can be configured per GitHub Environment if needed:
+
+| Secret      | Description          | How to Get Value         |
+| ----------- | -------------------- | ------------------------ |
+| `REDIS_URL` | Redis connection URL | From your Redis provider |
+
+**How to add an environment secret:**
+
+1. Go to your GitHub repository
+2. Click **Settings** tab
+3. In the left sidebar, click **Environments**
+4. Select the environment (e.g., `dev`, `staging`, `prod`)
+5. Under **Environment secrets**, click **Add secret**
+6. Enter the secret name and value
+7. Click **Add secret**
+
+> **Note:** `GEINS_API_KEY` is **not** configured at deployment time. It is part of the tenant configuration and is set when a tenant binds their domain to the application. See `shared/types/tenant-config.ts` for the `GeinsSettings` interface.
+
+### Step 3: Configure GitHub Variables (Optional)
+
+**Navigate to:** Repository Settings → Secrets and variables → Actions → Variables
+
+| Variable             | Description                      | Default Value                  |
+| -------------------- | -------------------------------- | ------------------------------ |
+| `GEINS_API_ENDPOINT` | Geins GraphQL API endpoint       | `https://api.geins.io/graphql` |
+| `STORAGE_DRIVER`     | Storage driver (`fs` or `redis`) | `fs`                           |
+| `ENABLE_ANALYTICS`   | Enable analytics                 | `false`                        |
+| `LOG_LEVEL`          | Log level                        | `info`                         |
+
+### Step 4: Create GitHub Environments
+
+**Navigate to:** Repository Settings → Environments
+
+Create the following environments:
+
+| Environment | Purpose                       | Protection Rules  |
+| ----------- | ----------------------------- | ----------------- |
+| `dev`       | Development deployments       | None (optional)   |
+| `staging`   | Pre-production testing        | None (optional)   |
+| `prod`      | Production deployment         | Require reviewers |
+| `prod-swap` | Production slot swap approval | Require reviewers |
+
+**For `prod` and `prod-swap` environments, configure:**
+
+1. Click **Add rule** → **Require reviewers**
+2. Add designated team members as reviewers
+3. (Optional) Add deployment branch restrictions to `main` branch only
+
+### Step 5: Verify Setup
+
+Run the validation script to ensure templates are correct:
+
+```bash
+pnpm infra:validate
+```
+
+## Manual Azure Setup (Alternative)
+
+If you prefer to set up Azure resources manually instead of using the setup script:
+
+### 1. Create Resource Groups
+
+```bash
+az group create --name rg-sales-portal-dev --location westeurope
+az group create --name rg-sales-portal-staging --location westeurope
+az group create --name rg-sales-portal-prod --location westeurope
+```
+
+### 2. Create Service Principal with Federated Credentials
+
+```bash
+# Create App Registration
+az ad app create --display-name "sales-portal-github-actions"
+
+# Get App ID
+APP_ID=$(az ad app list --display-name "sales-portal-github-actions" --query "[0].appId" -o tsv)
+
+# Create Service Principal
+az ad sp create --id $APP_ID
+
+# Get Object ID
+OBJECT_ID=$(az ad sp list --filter "appId eq '$APP_ID'" --query "[0].id" -o tsv)
+
+# Assign Contributor role to resource groups
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+az role assignment create --assignee $OBJECT_ID --role "Contributor" \
+  --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/rg-sales-portal-dev"
+az role assignment create --assignee $OBJECT_ID --role "Contributor" \
+  --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/rg-sales-portal-staging"
+az role assignment create --assignee $OBJECT_ID --role "Contributor" \
+  --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/rg-sales-portal-prod"
+```
+
+### 3. Configure Federated Credentials
+
+Replace `geins-io/sales-portal` with your actual repository name:
+
+```bash
+# For main branch (staging deployments)
+az ad app federated-credential create --id $APP_ID --parameters '{
+  "name": "github-main",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:geins-io/sales-portal:ref:refs/heads/main",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
+
+# For tags (production deployments)
+az ad app federated-credential create --id $APP_ID --parameters '{
+  "name": "github-tags",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:geins-io/sales-portal:ref:refs/tags/*",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
+
+# For environment approvals
+for env in dev staging prod prod-swap; do
+  az ad app federated-credential create --id $APP_ID --parameters "{
+    \"name\": \"github-env-${env}\",
+    \"issuer\": \"https://token.actions.githubusercontent.com\",
+    \"subject\": \"repo:geins-io/sales-portal:environment:${env}\",
+    \"audiences\": [\"api://AzureADTokenExchange\"]
+  }"
+done
+```
+
+### 4. Get Values for GitHub Secrets
+
+```bash
+echo "AZURE_CLIENT_ID: $APP_ID"
+echo "AZURE_TENANT_ID: $(az account show --query tenantId -o tsv)"
+echo "AZURE_SUBSCRIPTION_ID: $(az account show --query id -o tsv)"
+```
 
 ## Deployment Flow
 
@@ -188,58 +349,45 @@ infra/
 
 ## Manual Deployment
 
-### Using Azure CLI
+### Using pnpm Scripts
 
-1. **Deploy to Development**:
+```bash
+# Deploy to development
+pnpm infra:deploy:dev -- --image ghcr.io/geins-io/sales-portal:dev
 
-   ```bash
-   az deployment group create \
-     --resource-group rg-sales-portal-dev \
-     --template-file infra/main.bicep \
-     --parameters infra/parameters/dev.bicepparam \
-     --parameters containerImage="ghcr.io/geins-io/sales-portal:dev" \
-                  ghcrUsername="<github-username>" \
-                  ghcrToken="<github-pat>"
-   ```
+# Deploy to staging
+pnpm infra:deploy:staging -- --image ghcr.io/geins-io/sales-portal:main
 
-2. **Deploy to Staging**:
+# Deploy to production
+pnpm infra:deploy:prod -- --image ghcr.io/geins-io/sales-portal:v1.0.0
 
-   ```bash
-   az deployment group create \
-     --resource-group rg-sales-portal-staging \
-     --template-file infra/main.bicep \
-     --parameters infra/parameters/staging.bicepparam \
-     --parameters containerImage="ghcr.io/geins-io/sales-portal:main" \
-                  ghcrUsername="<github-username>" \
-                  ghcrToken="<github-pat>" \
-                  geinsApiKey="<api-key>" \
-                  redisUrl="<redis-url>"
-   ```
+# Preview changes without deploying (what-if)
+pnpm infra:deploy -- --env dev --image ghcr.io/geins-io/sales-portal:dev --what-if
+```
 
-3. **Deploy to Production**:
-   ```bash
-   az deployment group create \
-     --resource-group rg-sales-portal-prod \
-     --template-file infra/main.bicep \
-     --parameters infra/parameters/prod.bicepparam \
-     --parameters containerImage="ghcr.io/geins-io/sales-portal:v1.0.0" \
-                  ghcrUsername="<github-username>" \
-                  ghcrToken="<github-pat>" \
-                  geinsApiKey="<api-key>" \
-                  redisUrl="<redis-url>"
-   ```
+### Using Azure CLI Directly
+
+```bash
+az deployment group create \
+  --resource-group rg-sales-portal-dev \
+  --template-file infra/main.bicep \
+  --parameters infra/parameters/dev.bicepparam \
+  --parameters containerImage="ghcr.io/geins-io/sales-portal:dev" \
+               ghcrUsername="<github-username>" \
+               ghcrToken="<github-pat>"
+```
 
 ### Validate Templates
 
 ```bash
-# Validate the Bicep template
-az bicep build --file infra/main.bicep
+# Validate Bicep syntax
+pnpm infra:validate
+
+# Build Bicep to ARM JSON
+pnpm infra:validate:build
 
 # What-if deployment (preview changes)
-az deployment group what-if \
-  --resource-group rg-sales-portal-dev \
-  --template-file infra/main.bicep \
-  --parameters infra/parameters/dev.bicepparam
+pnpm infra:validate -- --env dev
 ```
 
 ## Environment Configuration
@@ -256,34 +404,80 @@ az deployment group what-if \
 
 All environments receive these settings via Bicep parameters:
 
-| Setting                        | Description                                        |
-| ------------------------------ | -------------------------------------------------- |
-| `NODE_ENV`                     | `development` (dev) / `production` (staging, prod) |
-| `GEINS_API_KEY`                | Geins platform API key                             |
-| `GEINS_API_ENDPOINT`           | Geins GraphQL endpoint                             |
-| `STORAGE_DRIVER`               | `fs` (dev) / `redis` (staging, prod)               |
-| `REDIS_URL`                    | Redis connection string                            |
-| `NUXT_PUBLIC_ENABLE_ANALYTICS` | Analytics flag                                     |
-| `LOG_LEVEL`                    | Logging verbosity                                  |
+| Setting                        | Description                                        | Scope           |
+| ------------------------------ | -------------------------------------------------- | --------------- |
+| `NODE_ENV`                     | `development` (dev) / `production` (staging, prod) | Per-environment |
+| `GEINS_API_ENDPOINT`           | Geins GraphQL endpoint                             | Shared          |
+| `STORAGE_DRIVER`               | `fs` (dev) / `redis` (staging, prod)               | Per-environment |
+| `REDIS_URL`                    | Redis connection string                            | Per-environment |
+| `NUXT_PUBLIC_ENABLE_ANALYTICS` | Analytics flag                                     | Shared          |
+| `LOG_LEVEL`                    | Logging verbosity                                  | Shared          |
+
+> **Note:** `GEINS_API_KEY` is **not** an application setting. It is configured per-tenant as part of the tenant configuration when binding a domain. See `shared/types/tenant-config.ts` for the `GeinsSettings` interface.
+
+## Re-running Setup
+
+If you need to re-run the setup (e.g., after accidentally deleting resources or updating to a new repository):
+
+```bash
+# Full re-setup
+pnpm infra:setup
+
+# Or run specific parts:
+pnpm infra:setup --skip-rg       # Skip resource group creation
+pnpm infra:setup --skip-sp       # Skip service principal creation
+pnpm infra:setup --skip-creds    # Skip federated credentials creation
+
+# Update GitHub repository reference
+GITHUB_REPOSITORY=your-org/your-repo pnpm infra:setup --creds-only
+```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Container fails to start**:
+#### 1. "You are not logged in to Azure"
 
-   ```bash
-   # Check container logs
-   az webapp log tail --resource-group rg-sales-portal-dev --name sales-portal-dev-app
-   ```
+```bash
+# Login to Azure
+az login
 
-2. **Deployment fails with authentication error**:
-   - Verify federated credentials are configured correctly
-   - Check that the GitHub environment matches the credential subject
+# Or for service principal authentication:
+az login --service-principal -u <client-id> -p <client-secret> --tenant <tenant-id>
+```
 
-3. **GHCR pull fails**:
-   - Ensure `DOCKER_REGISTRY_SERVER_USERNAME` and `DOCKER_REGISTRY_SERVER_PASSWORD` are set
-   - Verify the GitHub token has `packages:read` permission
+#### 2. "Insufficient privileges to complete the operation"
+
+You need one of these Azure AD roles:
+
+- **Application Administrator** - to create App Registrations
+- **Global Administrator** - full access
+
+Or ask your Azure AD admin to run the setup script for you.
+
+#### 3. "Container fails to start"
+
+```bash
+# Check container logs
+az webapp log tail --resource-group rg-sales-portal-dev --name sales-portal-dev-app
+
+# View recent logs
+az webapp log download --resource-group rg-sales-portal-dev --name sales-portal-dev-app
+```
+
+#### 4. "Deployment fails with authentication error"
+
+- Verify federated credentials are configured correctly
+- Check that the GitHub environment matches the credential subject
+- Ensure the repository name in federated credentials matches your actual repository
+
+#### 5. "GHCR pull fails"
+
+- Ensure `GITHUB_TOKEN` has `packages:read` permission
+- Verify the image exists in the registry:
+  ```bash
+  docker manifest inspect ghcr.io/geins-io/sales-portal:main
+  ```
 
 ### Useful Commands
 
@@ -299,6 +493,12 @@ az webapp restart --resource-group rg-sales-portal-dev --name sales-portal-dev-a
 
 # View app settings
 az webapp config appsettings list --resource-group rg-sales-portal-dev --name sales-portal-dev-app
+
+# View federated credentials
+az ad app federated-credential list --id <app-id>
+
+# Delete and recreate a federated credential
+az ad app federated-credential delete --id <app-id> --federated-credential-id github-main
 ```
 
 ## Security Considerations
@@ -309,11 +509,18 @@ az webapp config appsettings list --resource-group rg-sales-portal-dev --name sa
 4. **FTPS Disabled**: FTP/FTPS is disabled for security
 5. **Non-root Container**: The Docker container runs as a non-root user
 6. **Secrets in Azure**: Sensitive values are stored as App Service application settings (encrypted at rest)
+7. **OIDC Authentication**: GitHub Actions use OIDC (federated credentials) - no secrets stored in GitHub
 
 ## Cost Optimization
 
-- **Dev environment**: Uses B1 tier (~$13/month) with no Always On
-- **Staging environment**: Uses S1 tier (~$73/month) with Always On
-- **Production environment**: Uses P1v3 tier (~$120/month) with zone redundancy and staging slot
+| Environment | Estimated Monthly Cost | Notes                             |
+| ----------- | ---------------------- | --------------------------------- |
+| Dev         | ~$13/month             | B1 tier, no Always On             |
+| Staging     | ~$73/month             | S1 tier, Always On enabled        |
+| Production  | ~$120/month            | P1v3 tier, zone redundancy, slots |
 
-Consider using Azure Reserved Instances for production workloads to reduce costs.
+**Cost Saving Tips:**
+
+- Use Azure Reserved Instances for production workloads (up to 65% savings)
+- Shut down dev environment during non-working hours
+- Use Azure Cost Management to set budgets and alerts
