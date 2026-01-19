@@ -85,7 +85,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true
-      healthCheckPath: '/api/config'
+      healthCheckPath: '/api/health'
       appSettings: [
         // Container Registry Configuration
         {
@@ -158,7 +158,7 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true
-      healthCheckPath: '/api/config'
+      healthCheckPath: '/api/health'
       appSettings: [
         {
           name: 'DOCKER_REGISTRY_SERVER_URL'
