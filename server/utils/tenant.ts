@@ -1,26 +1,155 @@
-import type { TenantConfig } from '#shared/types/tenant-config';
+import type {
+  TenantConfig,
+  TenantTheme,
+  ThemeColors,
+} from '#shared/types/tenant-config';
 
-// TESTING PURPOSES ONLY
-// generate a random color
-function generateRandomColor(): string {
-  return `#${Math.floor(Math.random() * 16777215).toString(16)}`;
-}
-
+/**
+ * Storage key generators for tenant data
+ */
 export function tenantIdKey(hostname: string): string {
   return `tenant:id:${hostname}`;
 }
+
 export function tenantConfigKey(tenantId: string): string {
   return `tenant:config:${tenantId}`;
 }
 
-// TESTING PURPOSES ONLY
-export function tenantCustomCss(tenantId: string): string {
-  return `
-   [data-theme='${tenantId}'] {
-    --primary: #00ec56;
-    --primary-foreground: #000;
+/**
+ * Default theme colors following shadcn/ui conventions
+ */
+const DEFAULT_LIGHT_COLORS: ThemeColors = {
+  primary: 'oklch(0.205 0 0)',
+  primaryForeground: 'oklch(0.985 0 0)',
+  secondary: 'oklch(0.97 0 0)',
+  secondaryForeground: 'oklch(0.205 0 0)',
+  background: 'oklch(1 0 0)',
+  foreground: 'oklch(0.145 0 0)',
+  muted: 'oklch(0.97 0 0)',
+  mutedForeground: 'oklch(0.556 0 0)',
+  accent: 'oklch(0.97 0 0)',
+  accentForeground: 'oklch(0.205 0 0)',
+  destructive: 'oklch(0.577 0.245 27.325)',
+  border: 'oklch(0.922 0 0)',
+  input: 'oklch(0.922 0 0)',
+  ring: 'oklch(0.708 0 0)',
+  card: 'oklch(1 0 0)',
+  cardForeground: 'oklch(0.145 0 0)',
+  popover: 'oklch(1 0 0)',
+  popoverForeground: 'oklch(0.145 0 0)',
+};
+
+const DEFAULT_DARK_COLORS: Partial<ThemeColors> = {
+  primary: 'oklch(0.922 0 0)',
+  primaryForeground: 'oklch(0.205 0 0)',
+  secondary: 'oklch(0.269 0 0)',
+  secondaryForeground: 'oklch(0.985 0 0)',
+  background: 'oklch(0.145 0 0)',
+  foreground: 'oklch(0.985 0 0)',
+  muted: 'oklch(0.269 0 0)',
+  mutedForeground: 'oklch(0.708 0 0)',
+  accent: 'oklch(0.269 0 0)',
+  accentForeground: 'oklch(0.985 0 0)',
+  destructive: 'oklch(0.704 0.191 22.216)',
+  border: 'oklch(1 0 0 / 10%)',
+  input: 'oklch(1 0 0 / 15%)',
+  ring: 'oklch(0.556 0 0)',
+  card: 'oklch(0.205 0 0)',
+  cardForeground: 'oklch(0.985 0 0)',
+  popover: 'oklch(0.205 0 0)',
+  popoverForeground: 'oklch(0.985 0 0)',
+};
+
+/**
+ * CSS property name mapping for theme colors
+ */
+const COLOR_CSS_MAP: Record<keyof ThemeColors, string> = {
+  primary: '--primary',
+  primaryForeground: '--primary-foreground',
+  secondary: '--secondary',
+  secondaryForeground: '--secondary-foreground',
+  background: '--background',
+  foreground: '--foreground',
+  muted: '--muted',
+  mutedForeground: '--muted-foreground',
+  accent: '--accent',
+  accentForeground: '--accent-foreground',
+  destructive: '--destructive',
+  border: '--border',
+  input: '--input',
+  ring: '--ring',
+  card: '--card',
+  cardForeground: '--card-foreground',
+  popover: '--popover',
+  popoverForeground: '--popover-foreground',
+};
+
+/**
+ * Generates CSS custom properties from theme colors
+ */
+function generateColorCss(
+  colors: Partial<ThemeColors>,
+  indent: string = '  ',
+): string {
+  const lines: string[] = [];
+  for (const [key, cssVar] of Object.entries(COLOR_CSS_MAP)) {
+    const value = colors[key as keyof ThemeColors];
+    if (value) {
+      lines.push(`${indent}${cssVar}: ${value};`);
     }
-  `;
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Generates complete CSS for a tenant theme
+ */
+export function generateTenantCss(theme: TenantTheme): string {
+  const { name, colors, darkColors, borderRadius, customProperties } = theme;
+  const lines: string[] = [];
+
+  // Light mode (default)
+  lines.push(`[data-theme='${name}'] {`);
+  lines.push(generateColorCss(colors));
+
+  // Border radius
+  if (borderRadius?.base) {
+    lines.push(`  --radius: ${borderRadius.base};`);
+  }
+
+  // Custom properties
+  if (customProperties) {
+    for (const [prop, value] of Object.entries(customProperties)) {
+      lines.push(`  ${prop}: ${value};`);
+    }
+  }
+
+  lines.push('}');
+
+  // Dark mode overrides
+  if (darkColors && Object.keys(darkColors).length > 0) {
+    lines.push('');
+    lines.push(`[data-theme='${name}'].dark, .dark [data-theme='${name}'] {`);
+    lines.push(generateColorCss(darkColors));
+    lines.push('}');
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Creates a default theme for a tenant
+ */
+export function createDefaultTheme(tenantId: string): TenantTheme {
+  return {
+    name: tenantId,
+    displayName: tenantId,
+    colors: { ...DEFAULT_LIGHT_COLORS },
+    darkColors: { ...DEFAULT_DARK_COLORS },
+    borderRadius: {
+      base: '0.625rem',
+    },
+  };
 }
 
 export interface CreateTenantOptions {
@@ -45,33 +174,54 @@ export async function createTenant(
   const storage = useStorage('kv');
   const finalTenantId = tenantId || hostname;
 
+  // Create default theme
+  const defaultTheme = createDefaultTheme(finalTenantId);
+
+  // Merge theme if partial config provided
+  const mergedTheme: TenantTheme = {
+    ...defaultTheme,
+    ...partialConfig?.theme,
+    colors: {
+      ...defaultTheme.colors,
+      ...partialConfig?.theme?.colors,
+    },
+    darkColors: {
+      ...defaultTheme.darkColors,
+      ...partialConfig?.theme?.darkColors,
+    },
+  };
+
+  // Generate CSS from theme
+  const css = generateTenantCss(mergedTheme);
+
   // Create default config
   const defaultConfig: TenantConfig = {
     tenantId: finalTenantId,
     hostname: hostname,
-    css: tenantCustomCss(finalTenantId),
-    theme: {
+    theme: mergedTheme,
+    css,
+    branding: {
       name: finalTenantId,
-      colors: {
-        primary: '#000000',
-        secondary: generateRandomColor(),
-      },
+      ...partialConfig?.branding,
     },
+    features: {
+      darkMode: true,
+      search: true,
+      authentication: true,
+      cart: true,
+      ...partialConfig?.features,
+    },
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 
   // Merge with provided config
   const finalConfig: TenantConfig = {
-    tenantId: finalTenantId,
-    hostname: hostname,
-    css: tenantCustomCss(finalTenantId),
-    theme: {
-      ...defaultConfig.theme,
-      ...(partialConfig?.theme || {}),
-      colors: {
-        ...defaultConfig.theme.colors,
-        ...(partialConfig?.theme?.colors || {}),
-      },
-    },
+    ...defaultConfig,
+    ...partialConfig,
+    theme: mergedTheme,
+    css,
   };
 
   // Check if tenant mapping already exists
@@ -95,23 +245,119 @@ export async function createTenant(
 
   // If config exists but we want to update it, merge and save
   if (partialConfig) {
-    const updatedConfig: TenantConfig = {
-      tenantId: finalTenantId,
-      hostname: hostname,
-      css: '',
-      theme: {
-        ...existingConfig.theme,
-        ...partialConfig.theme,
-        colors: {
-          ...existingConfig.theme.colors,
-          ...(partialConfig.theme?.colors || {}),
-        },
+    const updatedTheme: TenantTheme = {
+      ...existingConfig.theme,
+      ...partialConfig.theme,
+      colors: {
+        ...existingConfig.theme.colors,
+        ...partialConfig.theme?.colors,
+      },
+      darkColors: {
+        ...existingConfig.theme.darkColors,
+        ...partialConfig.theme?.darkColors,
       },
     };
+
+    const updatedConfig: TenantConfig = {
+      ...existingConfig,
+      ...partialConfig,
+      tenantId: finalTenantId,
+      hostname: hostname,
+      theme: updatedTheme,
+      css: generateTenantCss(updatedTheme),
+      updatedAt: new Date().toISOString(),
+    };
+
     await storage.setItem(tenantConfigKey(finalTenantId), updatedConfig);
     return updatedConfig;
   }
 
   // If config exists but we don't want to update it, return the existing config
   return existingConfig;
+}
+
+/**
+ * Retrieves a tenant configuration from KV storage
+ */
+export async function getTenant(
+  tenantId: string,
+): Promise<TenantConfig | null> {
+  const storage = useStorage('kv');
+  return storage.getItem<TenantConfig>(tenantConfigKey(tenantId));
+}
+
+/**
+ * Retrieves a tenant by hostname
+ */
+export async function getTenantByHostname(
+  hostname: string,
+): Promise<TenantConfig | null> {
+  const storage = useStorage('kv');
+  const tenantId = await storage.getItem<string>(tenantIdKey(hostname));
+
+  if (!tenantId) {
+    return null;
+  }
+
+  return getTenant(tenantId);
+}
+
+/**
+ * Updates an existing tenant configuration
+ */
+export async function updateTenant(
+  tenantId: string,
+  updates: Partial<TenantConfig>,
+): Promise<TenantConfig | null> {
+  const storage = useStorage('kv');
+  const existing = await getTenant(tenantId);
+
+  if (!existing) {
+    return null;
+  }
+
+  // Merge theme updates
+  const updatedTheme: TenantTheme = updates.theme
+    ? {
+        ...existing.theme,
+        ...updates.theme,
+        colors: {
+          ...existing.theme.colors,
+          ...updates.theme.colors,
+        },
+        darkColors: {
+          ...existing.theme.darkColors,
+          ...updates.theme.darkColors,
+        },
+      }
+    : existing.theme;
+
+  const updatedConfig: TenantConfig = {
+    ...existing,
+    ...updates,
+    theme: updatedTheme,
+    css: generateTenantCss(updatedTheme),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await storage.setItem(tenantConfigKey(tenantId), updatedConfig);
+  return updatedConfig;
+}
+
+/**
+ * Deletes a tenant configuration
+ */
+export async function deleteTenant(
+  tenantId: string,
+  hostname: string,
+): Promise<boolean> {
+  const storage = useStorage('kv');
+
+  try {
+    await storage.removeItem(tenantIdKey(hostname));
+    await storage.removeItem(tenantConfigKey(tenantId));
+    return true;
+  } catch {
+    return false;
+  }
 }

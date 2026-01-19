@@ -1,27 +1,51 @@
-import type { TenantConfig } from '#shared/types/tenant-config';
-import { createTenant, tenantConfigKey } from '../utils/tenant';
+import { createTenant, tenantConfigKey, getTenant } from '../utils/tenant';
+import { createTenantLogger } from '../utils/logger';
+import {
+  createTenantNotFoundError,
+  createTenantInactiveError,
+  withErrorHandling,
+} from '../utils/errors';
 
 export default defineCachedEventHandler(
   async (event) => {
     const { id, hostname } = event.context.tenant;
-    const config = await useStorage('kv').getItem<TenantConfig>(
-      tenantConfigKey(id),
+    const log = createTenantLogger(id, hostname);
+
+    return withErrorHandling(
+      async () => {
+        log.debug('Fetching tenant configuration');
+
+        const config = await getTenant(id);
+
+        if (!config) {
+          log.info('Tenant not found, creating default configuration');
+
+          // In development, auto-create tenants for easier testing
+          // In production, this should return a 404 or load from external source
+          if (process.env.NODE_ENV === 'development') {
+            const newConfig = await createTenant({
+              hostname,
+              tenantId: hostname,
+            });
+            log.info('Created new tenant configuration');
+            return newConfig;
+          }
+
+          // In production, throw a not found error
+          throw createTenantNotFoundError(hostname);
+        }
+
+        // Check if tenant is active
+        if (config.isActive === false) {
+          log.warn('Attempted to access inactive tenant');
+          throw createTenantInactiveError(id);
+        }
+
+        log.debug('Tenant configuration loaded successfully');
+        return config;
+      },
+      { tenantId: id, operation: 'config.get' },
     );
-
-    if (!config) {
-      // TODO: load config from API / REDIS etc
-      // IF NOT FOUND, DO 404
-      // THIS SHOULD BE REMOVED LATER
-      const newConfig = await createTenant({
-        hostname,
-        tenantId: hostname,
-      });
-
-      // Alternatively, you could fallback to fetching the config from an API
-      // For now, we'll return the newly created config instead of throwing an error
-      return newConfig;
-    }
-    return config;
   },
   {
     // Unique cache key
