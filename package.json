@@ -38,19 +38,16 @@
     "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
-    "@nuxt/eslint": "1.11.0",
     "@nuxt/fonts": "0.12.1",
     "@nuxt/hints": "1.0.0-alpha.2",
     "@nuxt/icon": "2.1.0",
     "@nuxt/image": "2.0.0",
     "@nuxt/scripts": "0.13.0",
-    "@nuxt/test-utils": "3.23.0",
     "@pinia/nuxt": "^0.11.3",
     "@sentry/nuxt": "^10.35.0",
     "@unhead/vue": "^2.0.19",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "eslint": "^9.39.1",
     "lucide-vue-next": "^0.555.0",
     "nuxt": "^4.2.1",
     "pinia": "^3.0.4",
@@ -61,8 +58,11 @@
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
+    "@nuxt/eslint": "1.11.0",
     "@nuxt/eslint-config": "^1.12.1",
+    "@nuxt/test-utils": "3.23.0",
     "@nuxtjs/tailwindcss": "7.0.0-beta.1",
+    "eslint": "^9.39.1",
     "@playwright/test": "^1.57.0",
     "@vitest/coverage-v8": "^3.2.4",
     "@vue/test-utils": "^2.4.6",
