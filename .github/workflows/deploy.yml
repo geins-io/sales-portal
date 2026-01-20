@@ -35,9 +35,10 @@ on:
           # SUSPENDED during development phase:
           # - staging
           # - prod
-      image_tag:
-        description: 'Docker image tag to deploy (defaults to branch/tag name)'
+      branch:
+        description: 'Branch to deploy (e.g. main, feat/new-logo)'
         required: false
+        default: 'main'
         type: string
 
 env:
@@ -62,22 +63,26 @@ jobs:
           # Determine environment
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             ENV="${{ github.event.inputs.environment }}"
-            TAG="${{ github.event.inputs.image_tag }}"
+            BRANCH="${{ github.event.inputs.branch }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             ENV="prod"
-            TAG="${{ github.ref_name }}"
+            BRANCH="${{ github.ref_name }}"
           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             ENV="staging"
-            TAG="main"
+            BRANCH="main"
           else
             ENV="dev"
-            TAG="${{ github.ref_name }}"
+            BRANCH="${{ github.ref_name }}"
           fi
 
-          # Use provided tag or default
-          if [[ -z "$TAG" ]]; then
-            TAG="${{ github.ref_name }}"
+          # Use provided branch or default to main
+          if [[ -z "$BRANCH" ]]; then
+            BRANCH="main"
           fi
+
+          # Convert branch name to Docker tag format (replace / with -)
+          # This matches docker/metadata-action's sanitization behavior
+          TAG="${BRANCH//\//-}"
 
           # Set resource group name
           RG="rg-sales-portal-${ENV}"
@@ -88,6 +93,7 @@ jobs:
 
           echo "### Deployment Parameters" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${ENV}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${BRANCH}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image Tag:** ${TAG}" >> $GITHUB_STEP_SUMMARY
           echo "- **Resource Group:** ${RG}" >> $GITHUB_STEP_SUMMARY
 
