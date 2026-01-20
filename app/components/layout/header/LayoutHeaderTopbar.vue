@@ -1,3 +1,5 @@
 <script setup lang="ts"></script>
 
-<template>{header topbar content}</template>
+<template>
+  <div>{header topbar content}</div>
+</template>

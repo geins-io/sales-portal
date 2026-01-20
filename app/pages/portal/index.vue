@@ -1,5 +1,4 @@
 <script setup lang="ts"></script>
-
 <template>
-  <div>{header navigation content}</div>
+  <div>{portal start page content}</div>
 </template>

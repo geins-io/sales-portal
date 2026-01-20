@@ -1,4 +1,11 @@
 <script setup lang="ts"></script>
 <template>
-  <footer>{footer content}</footer>
+  <footer>
+    &lt;footer&gt;
+    <br />
+    <LayoutFooterTop />
+    <LayoutFooterMain />
+    <LayoutFooterBottom />
+    &lt;footer /&gt;
+  </footer>
 </template>
