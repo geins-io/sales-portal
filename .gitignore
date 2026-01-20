@@ -45,3 +45,7 @@ playwright/.cache
 
 # Build artifacts
 *.tsbuildinfo
+
+# VitePress
+docs/.vitepress/dist
+docs/.vitepress/cache

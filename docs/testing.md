@@ -1,3 +1,7 @@
+---
+outline: deep
+---
+
 # Testing Guide
 
 This document describes the testing strategy and practices for the Sales Portal application.

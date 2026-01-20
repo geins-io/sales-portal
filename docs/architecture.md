@@ -1,3 +1,7 @@
+---
+outline: deep
+---
+
 # Sales Portal Architecture
 
 This document provides a comprehensive overview of the Sales Portal architecture, covering multi-tenant support, theming capabilities, and the overall system design.
