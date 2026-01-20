@@ -205,8 +205,7 @@ Each tenant can define a complete theme in their configuration:
 interface TenantTheme {
   name: string; // Theme identifier
   displayName?: string; // Human-readable name
-  colors: ThemeColors; // Light mode colors
-  darkColors?: Partial<ThemeColors>; // Dark mode overrides
+  colors: ThemeColors; // Theme colors
   typography?: ThemeTypography;
   borderRadius?: ThemeBorderRadius;
   customProperties?: Record<string, string>;
@@ -248,14 +247,6 @@ const theme = {
   --primary: #007bff;
 }
 ```
-
-### Dark Mode
-
-Dark mode is supported via:
-
-1. `darkColors` in tenant theme configuration
-2. `.dark` class on the HTML element
-3. Automatic CSS generation for dark variants
 
 ---
 
@@ -303,15 +294,14 @@ The `server/api/external/[...].ts` handler proxies requests to external APIs wit
 
 See `.env.example` for all available environment variables:
 
-| Variable             | Description            | Default                        |
-| -------------------- | ---------------------- | ------------------------------ |
-| `NODE_ENV`           | Environment mode       | `development`                  |
-| `GEINS_API_ENDPOINT` | Geins GraphQL endpoint | `https://api.geins.io/graphql` |
-| `STORAGE_DRIVER`     | KV storage driver      | `fs`                           |
-| `REDIS_URL`          | Redis connection URL   | -                              |
-| `LOG_LEVEL`          | Logging verbosity      | `info`                         |
-
-> **Note:** `GEINS_API_KEY` is **not** an environment variable. It is configured per-tenant as part of the tenant configuration (`GeinsSettings.apiKey`) when binding a domain. See `shared/types/tenant-config.ts`.
+| Variable              | Description                            | Default                        |
+| --------------------- | -------------------------------------- | ------------------------------ |
+| `NODE_ENV`            | Environment mode                       | `development`                  |
+| `GEINS_API_ENDPOINT`  | Geins GraphQL endpoint                 | `https://api.geins.io/graphql` |
+| `STORAGE_DRIVER`      | KV storage driver                      | `fs`                           |
+| `REDIS_URL`           | Redis connection URL                   | -                              |
+| `LOG_LEVEL`           | Logging verbosity                      | `info`                         |
+| `HEALTH_CHECK_SECRET` | Secret key for detailed health metrics | -                              |
 
 ### Runtime Configuration
 
@@ -321,7 +311,7 @@ Access runtime config in:
 
 ```typescript
 const config = useRuntimeConfig();
-console.log(config.geins.apiKey); // Private
+console.log(config.geins.apiEndpoint); // Private
 console.log(config.public.appName); // Public
 ```
 
@@ -371,7 +361,11 @@ throw createTenantInactiveError(tenantId);
 Use the structured logger for all server-side logging:
 
 ```typescript
-import { createTenantLogger, logger } from '../utils/logger';
+import {
+  createTenantLogger,
+  createRequestLogger,
+  logger,
+} from '../utils/logger';
 
 // Default logger
 logger.info('Application started');
@@ -380,9 +374,184 @@ logger.error('Operation failed', error, { context: 'details' });
 // Tenant-scoped logger
 const log = createTenantLogger(tenantId, hostname);
 log.info('Processing order', { orderId: '123' });
+
+// Request-scoped logger with correlation ID
+const requestLog = createRequestLogger(correlationId);
+requestLog.info('Processing request', { path: '/api/products' });
+
+// Track custom metrics
+logger.trackMetric({
+  name: 'order_value',
+  value: 99.99,
+  unit: 'count',
+  dimensions: { currency: 'USD' },
+});
+
+// Track external dependencies
+logger.trackDependency('Redis', 'cache.redis.io', 15, true);
 ```
 
 Log levels: `debug` < `info` < `warn` < `error`
+
+### Request Logging
+
+All HTTP requests are automatically logged with:
+
+- **Correlation ID**: Unique identifier for distributed tracing
+- **Request timing**: Duration in milliseconds
+- **Tenant context**: Tenant ID and hostname
+- **Status codes**: HTTP response status
+
+The correlation ID is automatically extracted from incoming headers or generated:
+
+- `X-Correlation-Id`
+- `X-Request-Id`
+- `traceparent` (W3C Trace Context)
+
+---
+
+## Monitoring & Observability
+
+### Overview
+
+The Sales Portal includes comprehensive monitoring through Azure Application Insights:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Monitoring Stack                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐          │
+│  │   Client     │    │   Server     │    │   Azure      │          │
+│  │   Errors     │───▶│   Logger     │───▶│ App Insights │          │
+│  └──────────────┘    └──────────────┘    └──────┬───────┘          │
+│                                                  │                   │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────▼───────┐          │
+│  │  Health      │    │   Request    │    │ Log Analytics│          │
+│  │  Checks      │───▶│   Logging    │───▶│  Workspace   │          │
+│  └──────────────┘    └──────────────┘    └──────┬───────┘          │
+│                                                  │                   │
+│                                           ┌──────▼───────┐          │
+│                                           │ Alert Rules  │          │
+│                                           │ (Email/SMS)  │          │
+│                                           └──────────────┘          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Client-Side Error Tracking
+
+Use the `useErrorTracking` composable for frontend error reporting:
+
+```typescript
+// In a component
+const { trackError, trackEvent, startTimer } = useErrorTracking();
+
+// Track an error
+try {
+  await fetchData();
+} catch (error) {
+  trackError(error, { component: 'ProductList', action: 'fetchData' });
+}
+
+// Track a custom event
+trackEvent('product_viewed', { productId: '123', category: 'electronics' });
+
+// Measure performance
+const timer = startTimer('api_call');
+await fetchData();
+const duration = timer.stop(); // Logs metric automatically
+```
+
+### Error Boundaries
+
+Use `useErrorBoundary` in parent components to catch and report child errors:
+
+```vue
+<script setup>
+const { error, clearError } = useErrorBoundary({ component: 'ProductSection' });
+</script>
+
+<template>
+  <div v-if="error" class="error-state">
+    <p>Something went wrong</p>
+    <button @click="clearError">Try Again</button>
+  </div>
+  <slot v-else />
+</template>
+```
+
+### Health Endpoint
+
+The `/api/health` endpoint provides health status with two response levels for security:
+
+#### Public Response (default)
+
+`GET /api/health`
+
+Returns minimal information suitable for load balancers and public monitoring:
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-01-20T10:30:00.000Z"
+}
+```
+
+#### Detailed Response (requires secret)
+
+`GET /api/health?key=YOUR_SECRET`
+
+When a valid `HEALTH_CHECK_SECRET` is provided, returns comprehensive metrics:
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-01-20T10:30:00.000Z",
+  "version": "1.0.0",
+  "environment": "production",
+  "uptime": 86400,
+  "checks": {
+    "storage": {
+      "status": "healthy",
+      "latency": 5
+    },
+    "memory": {
+      "status": "healthy",
+      "details": {
+        "heapUsedMB": 128,
+        "heapTotalMB": 256,
+        "heapUsedPercent": 50
+      }
+    }
+  }
+}
+```
+
+Configure the secret via environment variable:
+
+```bash
+HEALTH_CHECK_SECRET=your-secret-key
+```
+
+#### Status Codes
+
+- `200`: Healthy or degraded (still serving traffic)
+- `503`: Unhealthy (should not receive traffic)
+
+### Azure Integration
+
+In Azure environments, logs are automatically sent to Application Insights via:
+
+1. **Structured JSON logging**: Production logs are JSON-formatted for parsing
+2. **App Insights SDK**: Auto-configured via environment variables
+3. **Correlation IDs**: Distributed tracing across services
+
+Configure via environment variables:
+
+- `APPLICATIONINSIGHTS_CONNECTION_STRING`: Connection string from Azure
+- `APPINSIGHTS_INSTRUMENTATIONKEY`: Instrumentation key (legacy)
+- `LOG_LEVEL`: Minimum log level (debug, info, warn, error)
 
 ---
 

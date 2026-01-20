@@ -29,6 +29,11 @@ flowchart LR
     end
 
     subgraph azure [Azure]
+        subgraph monitoring [Monitoring]
+            AI[Application Insights]
+            LA[Log Analytics]
+            Alerts[Alert Rules]
+        end
         subgraph dev [Dev Environment]
             ASP_Dev[App Service Plan B1]
             App_Dev[Web App]
@@ -48,6 +53,11 @@ flowchart LR
     GHCR --> App_Dev
     GHCR --> App_Stg
     GHCR --> App_Prod
+    App_Dev --> AI
+    App_Stg --> AI
+    App_Prod --> AI
+    AI --> LA
+    AI --> Alerts
 ```
 
 ## Directory Structure
@@ -57,7 +67,9 @@ infra/
 ├── main.bicep                    # Main orchestration template
 ├── modules/
 │   ├── appServicePlan.bicep      # App Service Plan module
-│   └── webApp.bicep              # Web App module
+│   ├── webApp.bicep              # Web App module
+│   ├── applicationInsights.bicep # Application Insights & Log Analytics
+│   └── alertRules.bicep          # Azure Monitor alert rules
 ├── parameters/
 │   ├── dev.bicepparam            # Development parameters
 │   ├── staging.bicepparam        # Staging parameters
@@ -194,8 +206,6 @@ These secrets can be configured per GitHub Environment if needed:
 5. Under **Environment secrets**, click **Add secret**
 6. Enter the secret name and value
 7. Click **Add secret**
-
-> **Note:** `GEINS_API_KEY` is **not** configured at deployment time. It is part of the tenant configuration and is set when a tenant binds their domain to the application. See `shared/types/tenant-config.ts` for the `GeinsSettings` interface.
 
 ### Step 3: Configure GitHub Variables (Optional)
 
@@ -413,8 +423,6 @@ All environments receive these settings via Bicep parameters:
 | `NUXT_PUBLIC_ENABLE_ANALYTICS` | Analytics flag                                     | Shared          |
 | `LOG_LEVEL`                    | Logging verbosity                                  | Shared          |
 
-> **Note:** `GEINS_API_KEY` is **not** an application setting. It is configured per-tenant as part of the tenant configuration when binding a domain. See `shared/types/tenant-config.ts` for the `GeinsSettings` interface.
-
 ## Re-running Setup
 
 If you need to re-run the setup (e.g., after accidentally deleting resources or updating to a new repository):
@@ -499,6 +507,89 @@ az ad app federated-credential list --id <app-id>
 
 # Delete and recreate a federated credential
 az ad app federated-credential delete --id <app-id> --federated-credential-id github-main
+```
+
+## Monitoring & Alerting
+
+The infrastructure includes comprehensive monitoring through Azure Application Insights and Log Analytics.
+
+### Components
+
+| Component            | Description                                      | Environment  |
+| -------------------- | ------------------------------------------------ | ------------ |
+| Application Insights | APM, telemetry, and error tracking               | All          |
+| Log Analytics        | Centralized log storage and querying             | All          |
+| Availability Tests   | Health endpoint monitoring from multiple regions | Staging/Prod |
+| Alert Rules          | Proactive notifications for issues               | Staging/Prod |
+
+### Alert Rules
+
+The following alerts are configured for staging and production:
+
+| Alert               | Threshold                    | Severity | Description                  |
+| ------------------- | ---------------------------- | -------- | ---------------------------- |
+| High Response Time  | > 2s (prod) / 3s (staging)   | Warning  | Average server response time |
+| High Failure Rate   | > 5% (prod) / 10% (staging)  | Error    | Request failure percentage   |
+| Server Errors       | > 3 (prod) / 5 (staging)     | Critical | 5xx error count in 5 minutes |
+| High CPU            | > 80% (prod) / 85% (staging) | Warning  | CPU utilization              |
+| High Memory         | > 80% (prod) / 85% (staging) | Warning  | Memory utilization           |
+| Availability Failed | < 80%                        | Critical | Health check availability    |
+
+### Configuring Alert Notifications
+
+To receive alert notifications, provide email addresses via the `alertEmails` parameter:
+
+```bash
+# In deployment
+az deployment group create \
+  --resource-group rg-sales-portal-prod \
+  --template-file infra/main.bicep \
+  --parameters infra/parameters/prod.bicepparam \
+  --parameters alertEmails='["alerts@example.com", "oncall@example.com"]'
+```
+
+### Log Retention & Data Caps
+
+| Environment | Retention | Daily Cap | Purpose                        |
+| ----------- | --------- | --------- | ------------------------------ |
+| Dev         | 30 days   | 1 GB      | Cost-effective development     |
+| Staging     | 30 days   | 1 GB      | Pre-production testing         |
+| Prod        | 90 days   | 10 GB     | Compliance and troubleshooting |
+
+### Accessing Logs
+
+**Via Azure Portal:**
+
+1. Navigate to your Application Insights resource
+2. Click **Logs** to query using Kusto Query Language (KQL)
+
+**Common queries:**
+
+```kql
+// Recent errors
+exceptions
+| where timestamp > ago(1h)
+| order by timestamp desc
+
+// Request performance
+requests
+| where timestamp > ago(1h)
+| summarize avg(duration), percentile(duration, 95) by bin(timestamp, 5m)
+
+// Failed requests by endpoint
+requests
+| where success == false
+| summarize count() by name
+| order by count_ desc
+```
+
+### Disabling Monitoring
+
+To disable monitoring (e.g., for cost savings in dev), set `enableMonitoring` to `false`:
+
+```bash
+az deployment group create \
+  --parameters enableMonitoring=false
 ```
 
 ## Security Considerations

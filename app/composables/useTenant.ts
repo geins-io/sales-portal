@@ -113,7 +113,6 @@ export function useTenantTheme() {
   const { theme } = useTenant();
 
   const colors = computed(() => theme.value?.colors);
-  const darkColors = computed(() => theme.value?.darkColors);
   const typography = computed(() => theme.value?.typography);
   const borderRadius = computed(() => theme.value?.borderRadius);
 
@@ -153,7 +152,6 @@ export function useTenantTheme() {
 
   return {
     colors,
-    darkColors,
     typography,
     borderRadius,
     getColor,

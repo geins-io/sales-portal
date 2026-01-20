@@ -99,8 +99,6 @@ export interface TenantTheme {
   displayName?: string;
   /** Color palette */
   colors: ThemeColors;
-  /** Dark mode color overrides */
-  darkColors?: Partial<ThemeColors>;
   /** Typography settings */
   typography?: ThemeTypography;
   /** Border radius settings */
@@ -131,8 +129,6 @@ export interface TenantBranding {
  * Feature flags for tenant-specific functionality
  */
 export interface TenantFeatures {
-  /** Enable dark mode toggle */
-  darkMode?: boolean;
   /** Enable search functionality */
   search?: boolean;
   /** Enable user authentication */

@@ -53,6 +53,13 @@ param enableAnalytics bool
 @description('Log level')
 param logLevel string
 
+// Monitoring settings
+@description('Application Insights connection string')
+param appInsightsConnectionString string = ''
+
+@description('Application Insights instrumentation key')
+param appInsightsInstrumentationKey string = ''
+
 // -----------------------------------------------------------------------------
 // Variables
 // -----------------------------------------------------------------------------
@@ -133,6 +140,19 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'LOG_LEVEL'
           value: logLevel
         }
+        // Application Insights Configuration
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsightsConnectionString
+        }
+        {
+          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
+          value: appInsightsInstrumentationKey
+        }
+        {
+          name: 'ApplicationInsightsAgent_EXTENSION_VERSION'
+          value: '~3'
+        }
       ]
     }
   }
@@ -203,6 +223,19 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
         {
           name: 'LOG_LEVEL'
           value: logLevel
+        }
+        // Application Insights Configuration
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsightsConnectionString
+        }
+        {
+          name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
+          value: appInsightsInstrumentationKey
+        }
+        {
+          name: 'ApplicationInsightsAgent_EXTENSION_VERSION'
+          value: '~3'
         }
       ]
     }
