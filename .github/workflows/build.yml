@@ -2,7 +2,10 @@
 # SALES PORTAL - Build and Push Docker Image
 # =============================================================================
 # Builds the application container and pushes to GitHub Container Registry.
-# Triggered on push to any branch.
+# Triggered on:
+#   - Push to main branch (after merge)
+#   - Pull requests targeting main (feature branch CI)
+#   - Version tags (releases)
 # =============================================================================
 
 name: Build
@@ -10,16 +13,16 @@ name: Build
 on:
   push:
     branches:
-      - '**'
+      - main
     tags:
       - 'v*'
   pull_request:
     branches:
       - main
 
-# Cancel redundant runs (e.g., when both push and pull_request trigger)
+# Cancel in-progress runs for the same PR/branch
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
