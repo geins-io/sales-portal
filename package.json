@@ -32,7 +32,10 @@
     "infra:deploy:staging": "./infra/scripts/deploy.sh --env staging",
     "infra:deploy:prod": "./infra/scripts/deploy.sh --env prod",
     "infra:validate": "./infra/scripts/validate.sh",
-    "infra:validate:build": "./infra/scripts/validate.sh --build-only"
+    "infra:validate:build": "./infra/scripts/validate.sh --build-only",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
     "@nuxt/eslint": "1.11.0",
@@ -76,6 +79,7 @@
     "tailwindcss": "^4.1.17",
     "tw-animate-css": "^1.4.0",
     "typescript": "5.9.3",
+    "vitepress": "^1.6.4",
     "vitest": "^3.2.4"
   },
   "engines": {
