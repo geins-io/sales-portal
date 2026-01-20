@@ -41,12 +41,6 @@ describe('Tenant utilities', () => {
       expect(theme.colors.background).toBeDefined();
     });
 
-    it('should include dark mode colors', () => {
-      const theme = createDefaultTheme('test');
-      expect(theme.darkColors).toBeDefined();
-      expect(theme.darkColors?.primary).toBeDefined();
-    });
-
     it('should include border radius', () => {
       const theme = createDefaultTheme('test');
       expect(theme.borderRadius).toBeDefined();
@@ -65,12 +59,6 @@ describe('Tenant utilities', () => {
       const theme = createDefaultTheme('test');
       const css = generateTenantCss(theme);
       expect(css).toContain('--primary:');
-    });
-
-    it('should generate dark mode styles when darkColors provided', () => {
-      const theme = createDefaultTheme('test');
-      const css = generateTenantCss(theme);
-      expect(css).toContain('.dark');
     });
 
     it('should include custom border radius', () => {

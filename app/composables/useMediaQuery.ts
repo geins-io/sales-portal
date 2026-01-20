@@ -124,26 +124,6 @@ export function useBreakpoints() {
 }
 
 /**
- * Composable for dark mode detection
- *
- * @example
- * ```vue
- * <script setup>
- * const { prefersDark } = usePrefersDarkMode()
- * </script>
- * ```
- */
-export function usePrefersDarkMode() {
-  const { matches: prefersDark } = useMediaQuery(
-    '(prefers-color-scheme: dark)',
-  );
-
-  return {
-    prefersDark,
-  };
-}
-
-/**
  * Composable for reduced motion preference
  *
  * Use this to respect users who prefer reduced motion.

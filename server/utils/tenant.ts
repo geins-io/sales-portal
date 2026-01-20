@@ -39,27 +39,6 @@ const DEFAULT_LIGHT_COLORS: ThemeColors = {
   popoverForeground: 'oklch(0.145 0 0)',
 };
 
-const DEFAULT_DARK_COLORS: Partial<ThemeColors> = {
-  primary: 'oklch(0.922 0 0)',
-  primaryForeground: 'oklch(0.205 0 0)',
-  secondary: 'oklch(0.269 0 0)',
-  secondaryForeground: 'oklch(0.985 0 0)',
-  background: 'oklch(0.145 0 0)',
-  foreground: 'oklch(0.985 0 0)',
-  muted: 'oklch(0.269 0 0)',
-  mutedForeground: 'oklch(0.708 0 0)',
-  accent: 'oklch(0.269 0 0)',
-  accentForeground: 'oklch(0.985 0 0)',
-  destructive: 'oklch(0.704 0.191 22.216)',
-  border: 'oklch(1 0 0 / 10%)',
-  input: 'oklch(1 0 0 / 15%)',
-  ring: 'oklch(0.556 0 0)',
-  card: 'oklch(0.205 0 0)',
-  cardForeground: 'oklch(0.985 0 0)',
-  popover: 'oklch(0.205 0 0)',
-  popoverForeground: 'oklch(0.985 0 0)',
-};
-
 /**
  * CSS property name mapping for theme colors
  */
@@ -105,10 +84,9 @@ function generateColorCss(
  * Generates complete CSS for a tenant theme
  */
 export function generateTenantCss(theme: TenantTheme): string {
-  const { name, colors, darkColors, borderRadius, customProperties } = theme;
+  const { name, colors, borderRadius, customProperties } = theme;
   const lines: string[] = [];
 
-  // Light mode (default)
   lines.push(`[data-theme='${name}'] {`);
   lines.push(generateColorCss(colors));
 
@@ -126,14 +104,6 @@ export function generateTenantCss(theme: TenantTheme): string {
 
   lines.push('}');
 
-  // Dark mode overrides
-  if (darkColors && Object.keys(darkColors).length > 0) {
-    lines.push('');
-    lines.push(`[data-theme='${name}'].dark, .dark [data-theme='${name}'] {`);
-    lines.push(generateColorCss(darkColors));
-    lines.push('}');
-  }
-
   return lines.join('\n');
 }
 
@@ -145,7 +115,6 @@ export function createDefaultTheme(tenantId: string): TenantTheme {
     name: tenantId,
     displayName: tenantId,
     colors: { ...DEFAULT_LIGHT_COLORS },
-    darkColors: { ...DEFAULT_DARK_COLORS },
     borderRadius: {
       base: '0.625rem',
     },
@@ -186,10 +155,6 @@ export async function createTenant(
       ...defaultTheme.colors,
       ...partialConfig?.theme?.colors,
     },
-    darkColors: {
-      ...defaultTheme.darkColors,
-      ...partialConfig?.theme?.darkColors,
-    },
     borderRadius: {
       ...defaultTheme.borderRadius,
       ...partialConfig?.theme?.borderRadius,
@@ -218,7 +183,6 @@ export async function createTenant(
       ...partialConfig?.branding,
     },
     features: {
-      darkMode: true,
       search: true,
       authentication: true,
       cart: true,
@@ -265,10 +229,6 @@ export async function createTenant(
       colors: {
         ...existingConfig.theme.colors,
         ...partialConfig.theme?.colors,
-      },
-      darkColors: {
-        ...existingConfig.theme.darkColors,
-        ...partialConfig.theme?.darkColors,
       },
       borderRadius: {
         ...existingConfig.theme.borderRadius,
@@ -350,10 +310,6 @@ export async function updateTenant(
         colors: {
           ...existing.theme.colors,
           ...updates.theme.colors,
-        },
-        darkColors: {
-          ...existing.theme.darkColors,
-          ...updates.theme.darkColors,
         },
         borderRadius: {
           ...existing.theme.borderRadius,

@@ -205,8 +205,7 @@ Each tenant can define a complete theme in their configuration:
 interface TenantTheme {
   name: string; // Theme identifier
   displayName?: string; // Human-readable name
-  colors: ThemeColors; // Light mode colors
-  darkColors?: Partial<ThemeColors>; // Dark mode overrides
+  colors: ThemeColors; // Theme colors
   typography?: ThemeTypography;
   borderRadius?: ThemeBorderRadius;
   customProperties?: Record<string, string>;
@@ -248,14 +247,6 @@ const theme = {
   --primary: #007bff;
 }
 ```
-
-### Dark Mode
-
-Dark mode is supported via:
-
-1. `darkColors` in tenant theme configuration
-2. `.dark` class on the HTML element
-3. Automatic CSS generation for dark variants
 
 ---
 

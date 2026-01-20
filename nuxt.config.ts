@@ -53,7 +53,6 @@ export default defineNuxtConfig({
         'development',
       // Feature flags
       features: {
-        darkMode: true,
         analytics: process.env.NUXT_PUBLIC_ENABLE_ANALYTICS === 'true',
       },
       // API configuration
