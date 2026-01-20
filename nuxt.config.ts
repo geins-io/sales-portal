@@ -66,8 +66,7 @@ export default defineNuxtConfig({
   nitro: {
     storage: {
       kv: {
-        driver: 'fs',
-        base: './.data/db',
+        driver: 'memory',
       },
     },
     // Enable compression

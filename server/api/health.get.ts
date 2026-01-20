@@ -55,9 +55,15 @@ interface HealthResponseDetailed extends HealthResponseMinimal {
 
 /**
  * Check storage connectivity (KV store)
+ *
+ * Note: Storage check is optional - if using filesystem storage in production
+ * without a configured directory, we report as 'degraded' rather than 'unhealthy'
+ * since the app can function without KV storage for many use cases.
  */
 async function checkStorage(): Promise<ComponentHealth> {
   const timer = createTimer();
+  const config = useRuntimeConfig();
+  const storageDriver = config.storage?.driver || 'fs';
 
   try {
     const storage = useStorage('kv');
@@ -83,6 +89,9 @@ async function checkStorage(): Promise<ComponentHealth> {
     return {
       status: 'healthy',
       latency,
+      details: {
+        driver: storageDriver,
+      },
     };
   } catch (error) {
     const latency = timer.elapsed();
@@ -92,20 +101,44 @@ async function checkStorage(): Promise<ComponentHealth> {
     logger.warn('Storage health check failed', {
       error: errorMessage,
       latency,
+      driver: storageDriver,
     });
 
+    // If using filesystem storage and directory doesn't exist,
+    // treat as degraded rather than unhealthy since the app can
+    // still function without KV storage for most operations
+    const isFilesystemError =
+      storageDriver === 'fs' && errorMessage.includes('ENOENT');
+
     return {
-      status: 'unhealthy',
+      status: isFilesystemError ? 'degraded' : 'unhealthy',
       latency,
-      message: `Storage check failed: ${errorMessage}`,
+      message: isFilesystemError
+        ? 'KV storage unavailable (filesystem not configured)'
+        : `Storage check failed: ${errorMessage}`,
+      details: {
+        driver: storageDriver,
+      },
     };
   }
 }
 
 /**
  * Check memory usage
+ *
+ * Uses RSS (Resident Set Size) for health determination rather than heap percentage.
+ * Node.js heap starts small (~30MB) and grows dynamically up to ~1.5GB, so
+ * heapUsedPercent is misleading for fresh processes.
+ *
+ * Thresholds are based on typical container limits:
+ * - Degraded: RSS > 400MB (warning level)
+ * - Unhealthy: RSS > 900MB (approaching typical 1GB container limit)
  */
 function checkMemory(): ComponentHealth {
+  // Configurable thresholds (in MB) - could be moved to runtime config
+  const RSS_DEGRADED_MB = 400;
+  const RSS_UNHEALTHY_MB = 900;
+
   try {
     const memUsage = process.memoryUsage();
     const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
@@ -115,16 +148,16 @@ function checkMemory(): ComponentHealth {
       (memUsage.heapUsed / memUsage.heapTotal) * 100,
     );
 
-    // Consider memory degraded if heap usage > 85%, unhealthy if > 95%
+    // Use RSS for health determination - it reflects actual memory consumption
     let status: ComponentHealth['status'] = 'healthy';
     let message: string | undefined;
 
-    if (heapUsedPercent > 95) {
+    if (rssMB > RSS_UNHEALTHY_MB) {
       status = 'unhealthy';
-      message = 'Critical memory pressure';
-    } else if (heapUsedPercent > 85) {
+      message = `Critical memory pressure (RSS: ${rssMB}MB)`;
+    } else if (rssMB > RSS_DEGRADED_MB) {
       status = 'degraded';
-      message = 'High memory usage';
+      message = `High memory usage (RSS: ${rssMB}MB)`;
     }
 
     return {
