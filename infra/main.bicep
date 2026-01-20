@@ -2,7 +2,7 @@
 // SALES PORTAL - Main Infrastructure Template
 // =============================================================================
 // Orchestrates deployment of Azure resources for the Sales Portal application.
-// Uses modular Bicep templates for App Service Plan and Web App.
+// Uses modular Bicep templates for App Service Plan, Web App, and Monitoring.
 // =============================================================================
 
 // -----------------------------------------------------------------------------
@@ -52,6 +52,19 @@ param enableAnalytics bool = false
 @description('Log level')
 @allowed(['debug', 'info', 'warn', 'error'])
 param logLevel string = 'info'
+
+// Monitoring configuration
+@description('Enable Application Insights monitoring')
+param enableMonitoring bool = true
+
+@description('Email addresses for alert notifications (comma-separated)')
+param alertEmails array = []
+
+@description('Daily data cap for logging in GB (0 = no cap)')
+param logDataCapGb int = 0
+
+@description('Log retention period in days')
+param logRetentionDays int = 30
 
 // -----------------------------------------------------------------------------
 // Variables
@@ -107,6 +120,20 @@ module appServicePlan 'modules/appServicePlan.bicep' = {
   }
 }
 
+// Application Insights & Log Analytics (Monitoring)
+module monitoring 'modules/applicationInsights.bicep' = if (enableMonitoring) {
+  name: '${resourcePrefix}-monitoring-deployment'
+  params: {
+    name: '${resourcePrefix}-ai'
+    workspaceName: '${resourcePrefix}-logs'
+    location: location
+    environment: environment
+    tags: tags
+    dailyCapGb: logDataCapGb > 0 ? logDataCapGb : (environment == 'prod' ? 10 : 1)
+    retentionDays: logRetentionDays > 0 ? logRetentionDays : (environment == 'prod' ? 90 : 30)
+  }
+}
+
 // Web App
 module webApp 'modules/webApp.bicep' = {
   name: '${resourcePrefix}-app-deployment'
@@ -125,6 +152,23 @@ module webApp 'modules/webApp.bicep' = {
     redisUrl: redisUrl
     enableAnalytics: enableAnalytics
     logLevel: logLevel
+    // Application Insights connection
+    appInsightsConnectionString: enableMonitoring ? monitoring.outputs.connectionString : ''
+    appInsightsInstrumentationKey: enableMonitoring ? monitoring.outputs.instrumentationKey : ''
+  }
+}
+
+// Alert Rules (only for staging and prod with monitoring enabled)
+module alertRules 'modules/alertRules.bicep' = if (enableMonitoring && environment != 'dev') {
+  name: '${resourcePrefix}-alerts-deployment'
+  params: {
+    namePrefix: resourcePrefix
+    location: location
+    environment: environment
+    tags: tags
+    applicationInsightsId: monitoring.outputs.id
+    webAppId: webApp.outputs.id
+    alertEmails: alertEmails
   }
 }
 
@@ -152,3 +196,19 @@ output webAppUrl string = 'https://${webApp.outputs.defaultHostname}'
 
 @description('Web App Managed Identity Principal ID')
 output webAppPrincipalId string = webApp.outputs.principalId
+
+// Monitoring Outputs
+@description('Application Insights resource ID')
+output appInsightsId string = enableMonitoring ? monitoring.outputs.id : ''
+
+@description('Application Insights name')
+output appInsightsName string = enableMonitoring ? monitoring.outputs.name : ''
+
+@description('Application Insights connection string')
+output appInsightsConnectionString string = enableMonitoring ? monitoring.outputs.connectionString : ''
+
+@description('Log Analytics workspace ID')
+output logAnalyticsWorkspaceId string = enableMonitoring ? monitoring.outputs.workspaceId : ''
+
+@description('Log Analytics workspace name')
+output logAnalyticsWorkspaceName string = enableMonitoring ? monitoring.outputs.workspaceNameOutput : ''

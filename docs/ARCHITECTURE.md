@@ -371,7 +371,11 @@ throw createTenantInactiveError(tenantId);
 Use the structured logger for all server-side logging:
 
 ```typescript
-import { createTenantLogger, logger } from '../utils/logger';
+import {
+  createTenantLogger,
+  createRequestLogger,
+  logger,
+} from '../utils/logger';
 
 // Default logger
 logger.info('Application started');
@@ -380,9 +384,159 @@ logger.error('Operation failed', error, { context: 'details' });
 // Tenant-scoped logger
 const log = createTenantLogger(tenantId, hostname);
 log.info('Processing order', { orderId: '123' });
+
+// Request-scoped logger with correlation ID
+const requestLog = createRequestLogger(correlationId);
+requestLog.info('Processing request', { path: '/api/products' });
+
+// Track custom metrics
+logger.trackMetric({
+  name: 'order_value',
+  value: 99.99,
+  unit: 'count',
+  dimensions: { currency: 'USD' },
+});
+
+// Track external dependencies
+logger.trackDependency('Redis', 'cache.redis.io', 15, true);
 ```
 
 Log levels: `debug` < `info` < `warn` < `error`
+
+### Request Logging
+
+All HTTP requests are automatically logged with:
+
+- **Correlation ID**: Unique identifier for distributed tracing
+- **Request timing**: Duration in milliseconds
+- **Tenant context**: Tenant ID and hostname
+- **Status codes**: HTTP response status
+
+The correlation ID is automatically extracted from incoming headers or generated:
+
+- `X-Correlation-Id`
+- `X-Request-Id`
+- `traceparent` (W3C Trace Context)
+
+---
+
+## Monitoring & Observability
+
+### Overview
+
+The Sales Portal includes comprehensive monitoring through Azure Application Insights:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Monitoring Stack                             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐          │
+│  │   Client     │    │   Server     │    │   Azure      │          │
+│  │   Errors     │───▶│   Logger     │───▶│ App Insights │          │
+│  └──────────────┘    └──────────────┘    └──────┬───────┘          │
+│                                                  │                   │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────▼───────┐          │
+│  │  Health      │    │   Request    │    │ Log Analytics│          │
+│  │  Checks      │───▶│   Logging    │───▶│  Workspace   │          │
+│  └──────────────┘    └──────────────┘    └──────┬───────┘          │
+│                                                  │                   │
+│                                           ┌──────▼───────┐          │
+│                                           │ Alert Rules  │          │
+│                                           │ (Email/SMS)  │          │
+│                                           └──────────────┘          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Client-Side Error Tracking
+
+Use the `useErrorTracking` composable for frontend error reporting:
+
+```typescript
+// In a component
+const { trackError, trackEvent, startTimer } = useErrorTracking();
+
+// Track an error
+try {
+  await fetchData();
+} catch (error) {
+  trackError(error, { component: 'ProductList', action: 'fetchData' });
+}
+
+// Track a custom event
+trackEvent('product_viewed', { productId: '123', category: 'electronics' });
+
+// Measure performance
+const timer = startTimer('api_call');
+await fetchData();
+const duration = timer.stop(); // Logs metric automatically
+```
+
+### Error Boundaries
+
+Use `useErrorBoundary` in parent components to catch and report child errors:
+
+```vue
+<script setup>
+const { error, clearError } = useErrorBoundary({ component: 'ProductSection' });
+</script>
+
+<template>
+  <div v-if="error" class="error-state">
+    <p>Something went wrong</p>
+    <button @click="clearError">Try Again</button>
+  </div>
+  <slot v-else />
+</template>
+```
+
+### Health Endpoint
+
+The `/api/health` endpoint provides comprehensive health status:
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-01-20T10:30:00.000Z",
+  "version": "1.0.0",
+  "environment": "production",
+  "uptime": 86400,
+  "checks": {
+    "storage": {
+      "status": "healthy",
+      "latency": 5
+    },
+    "memory": {
+      "status": "healthy",
+      "details": {
+        "heapUsedMB": 128,
+        "heapTotalMB": 256,
+        "heapUsedPercent": 50
+      }
+    }
+  }
+}
+```
+
+Status codes:
+
+- `200`: Healthy or degraded (still serving traffic)
+- `503`: Unhealthy (should not receive traffic)
+
+### Azure Integration
+
+In Azure environments, logs are automatically sent to Application Insights via:
+
+1. **Structured JSON logging**: Production logs are JSON-formatted for parsing
+2. **App Insights SDK**: Auto-configured via environment variables
+3. **Correlation IDs**: Distributed tracing across services
+
+Configure via environment variables:
+
+- `APPLICATIONINSIGHTS_CONNECTION_STRING`: Connection string from Azure
+- `APPINSIGHTS_INSTRUMENTATIONKEY`: Instrumentation key (legacy)
+- `LOG_LEVEL`: Minimum log level (debug, info, warn, error)
 
 ---
 
