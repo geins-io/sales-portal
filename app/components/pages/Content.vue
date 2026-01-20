@@ -1,5 +1,4 @@
 <script setup lang="ts"></script>
-
 <template>
-  <div>{header navigation content}</div>
+  <div>{content page content}</div>
 </template>

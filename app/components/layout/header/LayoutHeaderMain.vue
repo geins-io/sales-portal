@@ -1,11 +1,4 @@
-<script setup lang="ts">
-interface Props {
-  variant?: 'default' | 'logged-in' | 'logged-in-light';
-  searchPlaceholder?: string;
-}
-
-defineProps<Props>();
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div>

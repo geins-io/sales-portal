@@ -3,7 +3,10 @@
   <div>
     <LayoutHeader />
     <main>
+      &lt;main&gt;
+      <br />
       <slot />
+      &lt;main /&gt;
     </main>
     <LayoutFooter />
   </div>

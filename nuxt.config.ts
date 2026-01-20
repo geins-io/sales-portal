@@ -75,6 +75,14 @@ export default defineNuxtConfig({
     minify: true,
   },
 
+  components: [
+    {
+      path: '~/components/shared',
+      pathPrefix: false, // Makes Logo available as <Logo /> instead of <SharedLogo />
+    },
+    '~/components', // Default component scanning
+  ],
+
   shadcn: {
     prefix: '',
     componentDir: './app/components/ui',
