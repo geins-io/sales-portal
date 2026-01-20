@@ -154,7 +154,8 @@ describe('Logger utilities', () => {
       const timer = createTimer();
 
       // Wait a small amount of time
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Note: setTimeout is not precise, can fire slightly early
+      await new Promise((resolve) => setTimeout(resolve, 15));
 
       const elapsed = timer.elapsed();
       expect(elapsed).toBeGreaterThanOrEqual(10);

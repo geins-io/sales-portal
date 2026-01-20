@@ -48,6 +48,7 @@ interface HealthResponseMinimal {
  */
 interface HealthResponseDetailed extends HealthResponseMinimal {
   version: string;
+  commitSha: string;
   environment: string;
   uptime: number;
   checks: {
@@ -269,6 +270,7 @@ export default defineEventHandler(
       status: overallStatus,
       timestamp,
       version: config.public.appVersion as string,
+      commitSha: config.public.commitSha as string,
       environment: config.public.environment as string,
       uptime: Math.round(process.uptime()),
       checks,

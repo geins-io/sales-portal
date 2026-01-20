@@ -26,6 +26,9 @@ RUN pnpm install --frozen-lockfile
 # -----------------------------------------------------------------------------
 FROM node:20-alpine AS builder
 
+# Build argument for commit SHA (injected at build time)
+ARG COMMIT_SHA=dev
+
 # Install pnpm globally
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
@@ -36,6 +39,9 @@ COPY --from=deps /app/node_modules ./node_modules
 
 # Copy source code
 COPY . .
+
+# Set commit SHA for Nuxt build
+ENV COMMIT_SHA=${COMMIT_SHA}
 
 # Build the Nuxt application
 # This creates the .output directory with the production build

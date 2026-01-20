@@ -216,6 +216,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
+          build-args: |
+            COMMIT_SHA=${{ github.sha }}
 
       - name: Generate artifact attestation
         if: github.event_name != 'pull_request'

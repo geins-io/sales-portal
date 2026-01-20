@@ -104,6 +104,8 @@ export interface HealthCheckResponse {
   status: 'healthy' | 'degraded' | 'unhealthy';
   /** Service version */
   version: string;
+  /** Git commit SHA */
+  commitSha?: string;
   /** Uptime in seconds */
   uptime: number;
   /** Individual service checks */
