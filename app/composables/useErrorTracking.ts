@@ -2,10 +2,12 @@
  * Client-side Error Tracking Composable
  *
  * Provides error tracking and reporting utilities for the Vue frontend.
+ * Integrates with Sentry for comprehensive error monitoring.
  * In development: logs to console with detailed information
- * In production: sends errors to server-side logging endpoint
+ * In production: sends errors to Sentry and server-side logging endpoint
  *
  * Features:
+ * - Sentry integration for error tracking
  * - Automatic error boundary integration
  * - User context tracking
  * - Custom error properties
@@ -13,6 +15,7 @@
  */
 
 import { ref, onErrorCaptured, type Ref } from 'vue';
+import * as Sentry from '@sentry/nuxt';
 
 /**
  * Error context for tracking
@@ -171,7 +174,33 @@ export function useErrorTracking() {
       logErrorToConsole(event);
     }
 
-    // Send to server in production
+    // Send to Sentry
+    const err = error instanceof Error ? error : new Error(String(error));
+    Sentry.withScope((scope) => {
+      // Set context tags
+      if (context.component) {
+        scope.setTag('component', context.component);
+      }
+      if (context.action) {
+        scope.setTag('action', context.action);
+      }
+      if (context.tenantId) {
+        scope.setTag('tenant_id', context.tenantId);
+      }
+      if (context.userId) {
+        scope.setUser({ id: context.userId });
+      }
+
+      // Set extra context
+      scope.setExtras({
+        route: route.path,
+        ...context,
+      });
+
+      Sentry.captureException(err);
+    });
+
+    // Send to server in production (legacy endpoint)
     sendErrorToServer(event);
   }
 
@@ -211,6 +240,14 @@ export function useErrorTracking() {
     if (import.meta.dev) {
       console.log('[ErrorTracking] Event:', name, properties);
     }
+
+    // Add breadcrumb to Sentry for event context
+    Sentry.addBreadcrumb({
+      category: 'user-action',
+      message: name,
+      level: 'info',
+      data: properties,
+    });
 
     // In production, this could be sent to analytics
     if (!import.meta.dev && config.public.features?.analytics) {
@@ -273,6 +310,33 @@ export function useErrorTracking() {
     return state.errors.value;
   }
 
+  /**
+   * Set user context for Sentry error tracking
+   * Call this when a user logs in to associate errors with the user
+   */
+  function setUser(user: {
+    id: string;
+    email?: string;
+    username?: string;
+    [key: string]: unknown;
+  } | null): void {
+    if (user) {
+      Sentry.setUser(user);
+    } else {
+      Sentry.setUser(null);
+    }
+  }
+
+  /**
+   * Set tenant context for multi-tenant error tracking
+   * Call this when tenant context is established
+   */
+  function setTenant(tenantId: string | null): void {
+    if (tenantId) {
+      Sentry.setTag('tenant_id', tenantId);
+    }
+  }
+
   return {
     trackError,
     trackWarning,
@@ -282,6 +346,8 @@ export function useErrorTracking() {
     setEnabled,
     clearErrors,
     getRecentErrors,
+    setUser,
+    setTenant,
     errors: state.errors,
     isEnabled: state.isEnabled,
   };
