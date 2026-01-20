@@ -162,37 +162,32 @@ jobs:
 
       - name: Wait for container to start
         run: |
-          echo "Waiting for container to start (this may take up to 5 minutes for cold starts)..."
-          
-          # Initial wait for container pull and initialization
-          sleep 60
+          echo "Waiting for container to start..."
+          sleep 30
           
           WEBAPP_URL="${{ steps.outputs.outputs.webapp_url }}"
           if [[ -n "$WEBAPP_URL" ]]; then
             echo "Checking health at ${WEBAPP_URL}/api/health"
-            MAX_ATTEMPTS=20
-            WAIT_SECONDS=15
             
-            for i in $(seq 1 $MAX_ATTEMPTS); do
+            for i in 1 2 3; do
               HTTP_CODE=$(curl -s -o /tmp/health_response.txt -w "%{http_code}" --max-time 30 "${WEBAPP_URL}/api/health" || echo "000")
               
               if [[ "$HTTP_CODE" == "200" ]]; then
                 echo "✅ Health check passed!"
                 cat /tmp/health_response.txt
-                break
-              elif [[ "$HTTP_CODE" == "000" ]]; then
-                echo "⏳ Attempt $i/$MAX_ATTEMPTS: Connection failed (container may still be starting)..."
-              else
-                echo "⏳ Attempt $i/$MAX_ATTEMPTS: HTTP $HTTP_CODE - container starting..."
+                exit 0
               fi
               
-              if [[ $i -eq $MAX_ATTEMPTS ]]; then
-                echo "⚠️ Health check did not pass after $MAX_ATTEMPTS attempts"
-                echo "Check Azure portal for container logs: az webapp log tail --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.outputs.outputs.webapp_name }}"
-              else
-                sleep $WAIT_SECONDS
+              echo "⏳ Attempt $i/3: HTTP $HTTP_CODE"
+              
+              if [[ $i -lt 3 ]]; then
+                sleep 30
               fi
             done
+            
+            echo "❌ Health check failed after 3 attempts"
+            echo "Check logs: az webapp log tail --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.outputs.outputs.webapp_name }}"
+            exit 1
           fi
 
       - name: Create deployment summary

@@ -270,6 +270,10 @@ export interface ProductRouteResolution extends BaseRouteResolution {
   type: 'product';
   /** Product identifier */
   productId: ID;
+  /** Product slug from URL */
+  productSlug?: string;
+  /** Category slug from URL (parent category) */
+  categorySlug?: string;
 }
 
 /**
@@ -279,6 +283,8 @@ export interface CategoryRouteResolution extends BaseRouteResolution {
   type: 'category';
   /** Category identifier */
   categoryId: ID;
+  /** Category slug from URL */
+  categorySlug?: string;
 }
 
 /**
@@ -288,6 +294,8 @@ export interface PageRouteResolution extends BaseRouteResolution {
   type: 'page';
   /** Page identifier */
   pageId: ID;
+  /** Page slug from URL */
+  pageSlug?: string;
 }
 
 /**

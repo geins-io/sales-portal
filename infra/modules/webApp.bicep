@@ -116,10 +116,10 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'WEBSITES_PORT'
           value: '3000'
         }
-        // Container startup timeout (in seconds) - allow more time for Nuxt cold starts
+        // Container startup timeout (in seconds) - B1 tier requires longer startup time
         {
           name: 'WEBSITES_CONTAINER_START_TIME_LIMIT'
-          value: '300'
+          value: '600'
         }
         // Nitro/Nuxt server binding - must bind to 0.0.0.0 for Azure
         {
@@ -163,9 +163,10 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
           value: appInsightsInstrumentationKey
         }
+        // Disable the auto-instrumentation agent for Linux containers - it can interfere with Node.js startup
         {
           name: 'ApplicationInsightsAgent_EXTENSION_VERSION'
-          value: '~3'
+          value: '~0'
         }
       ]
     }
@@ -214,10 +215,10 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
           name: 'WEBSITES_PORT'
           value: '3000'
         }
-        // Container startup timeout (in seconds) - allow more time for Nuxt cold starts
+        // Container startup timeout (in seconds) - B1 tier requires longer startup time
         {
           name: 'WEBSITES_CONTAINER_START_TIME_LIMIT'
-          value: '300'
+          value: '600'
         }
         // Nitro/Nuxt server binding - must bind to 0.0.0.0 for Azure
         {
@@ -261,9 +262,10 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
           value: appInsightsInstrumentationKey
         }
+        // Disable the auto-instrumentation agent for Linux containers - it can interfere with Node.js startup
         {
           name: 'ApplicationInsightsAgent_EXTENSION_VERSION'
-          value: '~3'
+          value: '~0'
         }
       ]
     }
