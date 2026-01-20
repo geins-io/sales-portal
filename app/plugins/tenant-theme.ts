@@ -1,3 +1,5 @@
+import type { TenantConfig } from '#shared/types/tenant-config';
+
 const sanitizeCustomCss = (css: string | undefined) => {
   if (!css) return '';
   return css.replace(/st<yle>|<\/style>/g, '').trim();
