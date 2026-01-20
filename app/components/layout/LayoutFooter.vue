@@ -6,6 +6,6 @@
     <LayoutFooterTop />
     <LayoutFooterMain />
     <LayoutFooterBottom />
-    &lt;footer /&gt;
+    &lt;/footer&gt;
   </footer>
 </template>

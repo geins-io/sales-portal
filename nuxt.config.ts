@@ -17,14 +17,16 @@ export default defineNuxtConfig({
     '@sentry/nuxt/module',
   ],
 
-  // Sentry build-time configuration for source maps
+  // Sentry build-time configuration for source maps (optional)
+  // If SENTRY_AUTH_TOKEN is not set, source maps won't be uploaded
+  // If SENTRY_DSN is not set, error tracking will be disabled at runtime
   sentry: {
     // Sentry organization and project slugs for source map uploads
-    // These can be overridden via environment variables
-    org: process.env.SENTRY_ORG || 'litium',
-    project: process.env.SENTRY_PROJECT || 'sales-portal',
-    // Auth token for source map uploads (should be set via environment variable)
-    authToken: process.env.SENTRY_AUTH_TOKEN,
+    // Only required if you want source map uploads
+    org: process.env.SENTRY_ORG || '',
+    project: process.env.SENTRY_PROJECT || '',
+    // Auth token for source map uploads (optional - if not set, source maps won't be uploaded)
+    authToken: process.env.SENTRY_AUTH_TOKEN || '',
   },
 
   // Enable client-side source maps for better error stack traces

@@ -6,7 +6,8 @@
       &lt;main&gt;
       <br />
       <slot />
-      &lt;main /&gt;
+      <br />
+      &lt;/main&gt;
     </main>
     <LayoutFooter />
   </div>

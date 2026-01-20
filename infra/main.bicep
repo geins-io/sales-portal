@@ -53,6 +53,21 @@ param enableAnalytics bool = false
 @allowed(['debug', 'info', 'warn', 'error'])
 param logLevel string = 'info'
 
+// Sentry configuration (optional)
+@description('Sentry DSN for error tracking (optional)')
+@secure()
+param sentryDsn string = ''
+
+@description('Sentry organization slug (optional)')
+param sentryOrg string = ''
+
+@description('Sentry project slug (optional)')
+param sentryProject string = ''
+
+@description('Sentry auth token for source maps (optional)')
+@secure()
+param sentryAuthToken string = ''
+
 // Monitoring configuration
 @description('Enable Application Insights monitoring')
 param enableMonitoring bool = true
@@ -152,6 +167,11 @@ module webApp 'modules/webApp.bicep' = {
     redisUrl: redisUrl
     enableAnalytics: enableAnalytics
     logLevel: logLevel
+    // Sentry configuration (optional)
+    sentryDsn: sentryDsn
+    sentryOrg: sentryOrg
+    sentryProject: sentryProject
+    sentryAuthToken: sentryAuthToken
     // Application Insights connection
     appInsightsConnectionString: enableMonitoring ? monitoring.outputs.connectionString : ''
     appInsightsInstrumentationKey: enableMonitoring ? monitoring.outputs.instrumentationKey : ''

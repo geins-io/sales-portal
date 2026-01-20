@@ -53,6 +53,21 @@ param enableAnalytics bool
 @description('Log level')
 param logLevel string
 
+// Sentry configuration (optional)
+@description('Sentry DSN for error tracking')
+@secure()
+param sentryDsn string = ''
+
+@description('Sentry organization slug')
+param sentryOrg string = ''
+
+@description('Sentry project slug')
+param sentryProject string = ''
+
+@description('Sentry auth token for source maps')
+@secure()
+param sentryAuthToken string = ''
+
 // Monitoring settings
 @description('Application Insights connection string')
 param appInsightsConnectionString string = ''
@@ -154,6 +169,23 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'LOG_LEVEL'
           value: logLevel
         }
+        // Sentry Configuration (optional - only set if DSN is provided)
+        {
+          name: 'NUXT_PUBLIC_SENTRY_DSN'
+          value: sentryDsn
+        }
+        {
+          name: 'SENTRY_ORG'
+          value: sentryOrg
+        }
+        {
+          name: 'SENTRY_PROJECT'
+          value: sentryProject
+        }
+        {
+          name: 'SENTRY_AUTH_TOKEN'
+          value: sentryAuthToken
+        }
         // Application Insights Configuration
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
@@ -252,6 +284,23 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
         {
           name: 'LOG_LEVEL'
           value: logLevel
+        }
+        // Sentry Configuration (optional - only set if DSN is provided)
+        {
+          name: 'NUXT_PUBLIC_SENTRY_DSN'
+          value: sentryDsn
+        }
+        {
+          name: 'SENTRY_ORG'
+          value: sentryOrg
+        }
+        {
+          name: 'SENTRY_PROJECT'
+          value: sentryProject
+        }
+        {
+          name: 'SENTRY_AUTH_TOKEN'
+          value: sentryAuthToken
         }
         // Application Insights Configuration
         {

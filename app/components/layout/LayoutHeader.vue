@@ -7,6 +7,6 @@
     <LayoutHeaderTopbar />
     <LayoutHeaderMain />
     <LayoutHeaderNav />
-    &lt;header /&gt;
+    &lt;/header&gt;
   </header>
 </template>

@@ -146,6 +146,10 @@ jobs:
             redisUrl=${{ secrets.REDIS_URL }}
             enableAnalytics=${{ vars.ENABLE_ANALYTICS || 'false' }}
             logLevel=${{ vars.LOG_LEVEL || 'info' }}
+            sentryDsn=${{ secrets.SENTRY_DSN }}
+            sentryOrg=${{ vars.SENTRY_ORG }}
+            sentryProject=${{ vars.SENTRY_PROJECT }}
+            sentryAuthToken=${{ secrets.SENTRY_AUTH_TOKEN }}
           failOnStdErr: false
 
       - name: Get deployment outputs

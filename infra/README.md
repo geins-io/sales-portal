@@ -193,9 +193,11 @@ These secrets are shared across all environments:
 
 These secrets can be configured per GitHub Environment if needed:
 
-| Secret      | Description          | How to Get Value         |
-| ----------- | -------------------- | ------------------------ |
-| `REDIS_URL` | Redis connection URL | From your Redis provider |
+| Secret              | Description                       | How to Get Value             |
+| ------------------- | --------------------------------- | ---------------------------- |
+| `REDIS_URL`         | Redis connection URL              | From your Redis provider     |
+| `SENTRY_DSN`        | Sentry DSN for error tracking     | From Sentry project settings |
+| `SENTRY_AUTH_TOKEN` | Sentry auth token for source maps | From Sentry auth tokens page |
 
 **How to add an environment secret:**
 
@@ -217,6 +219,8 @@ These secrets can be configured per GitHub Environment if needed:
 | `STORAGE_DRIVER`     | Storage driver (`fs` or `redis`) | `fs`                           |
 | `ENABLE_ANALYTICS`   | Enable analytics                 | `false`                        |
 | `LOG_LEVEL`          | Log level                        | `info`                         |
+| `SENTRY_ORG`         | Sentry organization slug         | (empty - Sentry disabled)      |
+| `SENTRY_PROJECT`     | Sentry project slug              | (empty - Sentry disabled)      |
 
 ### Step 4: Create GitHub Environments
 
