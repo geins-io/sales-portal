@@ -1,7 +1,10 @@
 /**
  * Health Check Endpoint
  *
- * Provides health status for the Sales Portal with two response levels:
+ * Provides health status for the Sales Portal with multiple response levels:
+ *
+ * **Quick mode (fastest response):** Skips storage checks for fast startup
+ * - GET /api/health?quick=true
  *
  * **Public (default):** Returns only status and timestamp
  * - GET /api/health
@@ -210,9 +213,15 @@ export default defineEventHandler(
       !!providedKey &&
       providedKey === config.healthCheckSecret;
 
-    // Perform health checks in parallel
+    // Quick mode: Skip storage check for faster response during startup/load balancer checks
+    // This is useful for Azure App Service health probes that need fast responses
+    const quickMode = query.quick === 'true' || query.quick === '1';
+
+    // Perform health checks in parallel (skip storage in quick mode for faster startup)
     const [storageHealth, memoryHealth] = await Promise.all([
-      checkStorage(),
+      quickMode
+        ? Promise.resolve({ status: 'healthy' as const })
+        : checkStorage(),
       Promise.resolve(checkMemory()),
     ]);
 

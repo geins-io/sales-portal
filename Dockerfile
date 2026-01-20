@@ -68,7 +68,10 @@ USER nuxt
 EXPOSE 3000
 
 # Health check for container orchestration
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# - start-period: Give Nuxt time to initialize before health checks begin
+# - timeout: Allow more time for response during cold starts
+# - retries: Be more tolerant of transient failures
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 # Start the Nuxt server
