@@ -145,8 +145,6 @@ Environment variables will be passed to the container via App Service configurat
 - `NODE_ENV` - production/staging/development
 - `NUXT_PUBLIC_*` - Public runtime config values
 
-> **Note:** `GEINS_API_KEY` is **not** configured at deployment time. It is part of the tenant configuration (`GeinsSettings.apiKey`) and is set when a tenant binds their domain to the application. See `shared/types/tenant-config.ts`.
-
 ## Deployment Flow
 
 1. **Build**: Push to any branch triggers image build and push to ghcr.io

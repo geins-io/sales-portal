@@ -69,6 +69,19 @@ docs/                     # Additional documentation (optional)
 - Add new shadcn-vue components via `pnpm dlx shadcn-vue add <component>`; generated files will live under `app/components/ui`.
 - Keep shared UX primitives inside `app/components/layout` and `app/components/ui` so that tenant overrides can be layered on top via Nuxt layouts or per-route components.
 
+## API Endpoints
+
+### Health Check
+
+The `/api/health` endpoint provides application health status:
+
+- **Public**: `GET /api/health` — Returns status and timestamp (for load balancers)
+- **Detailed**: `GET /api/health?key=YOUR_SECRET` — Returns full metrics including memory, storage, uptime
+
+Set `HEALTH_CHECK_SECRET` environment variable to enable detailed metrics.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for complete API documentation.
+
 ## Next Steps
 
 - Flesh out domain-specific pages under `app/pages` (e.g., catalog, product, cart).

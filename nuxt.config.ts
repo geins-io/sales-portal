@@ -31,15 +31,17 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Private server-side config (not exposed to client)
     geins: {
-      apiKey: process.env.GEINS_API_KEY || '',
       apiEndpoint:
-        process.env.GEINS_API_ENDPOINT || 'https://api.geins.io/graphql',
+        process.env.GEINS_API_ENDPOINT ||
+        'https://merchantapi.geins.io/graphql',
     },
     // Redis/KV configuration for production
     storage: {
       driver: process.env.STORAGE_DRIVER || 'fs',
       redisUrl: process.env.REDIS_URL || '',
     },
+    // Health check secret for detailed metrics
+    healthCheckSecret: process.env.HEALTH_CHECK_SECRET || 'health-check-secret',
     // Public config (exposed to client)
     public: {
       // App information

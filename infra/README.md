@@ -207,8 +207,6 @@ These secrets can be configured per GitHub Environment if needed:
 6. Enter the secret name and value
 7. Click **Add secret**
 
-> **Note:** `GEINS_API_KEY` is **not** configured at deployment time. It is part of the tenant configuration and is set when a tenant binds their domain to the application. See `shared/types/tenant-config.ts` for the `GeinsSettings` interface.
-
 ### Step 3: Configure GitHub Variables (Optional)
 
 **Navigate to:** Repository Settings → Secrets and variables → Actions → Variables
@@ -424,8 +422,6 @@ All environments receive these settings via Bicep parameters:
 | `REDIS_URL`                    | Redis connection string                            | Per-environment |
 | `NUXT_PUBLIC_ENABLE_ANALYTICS` | Analytics flag                                     | Shared          |
 | `LOG_LEVEL`                    | Logging verbosity                                  | Shared          |
-
-> **Note:** `GEINS_API_KEY` is **not** an application setting. It is configured per-tenant as part of the tenant configuration when binding a domain. See `shared/types/tenant-config.ts` for the `GeinsSettings` interface.
 
 ## Re-running Setup
 

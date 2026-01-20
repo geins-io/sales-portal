@@ -1,17 +1,23 @@
 /**
  * Health Check Endpoint
  *
- * Provides comprehensive health status for the Sales Portal including:
- * - Application status
+ * Provides health status for the Sales Portal with two response levels:
+ *
+ * **Public (default):** Returns only status and timestamp
+ * - GET /api/health
+ *
+ * **Detailed (requires secret):** Returns full metrics including:
+ * - Application version and environment
  * - Storage connectivity (KV/Redis)
- * - Memory usage
+ * - Memory usage details
  * - Uptime information
+ * - GET /api/health?key=YOUR_SECRET
  *
  * Used by:
- * - Azure App Service health probes
- * - Load balancers
- * - Monitoring systems
- * - Application Insights availability tests
+ * - Azure App Service health probes (public)
+ * - Load balancers (public)
+ * - Monitoring systems (detailed)
+ * - Application Insights availability tests (public or detailed)
  */
 
 import { createTimer, logger } from '../utils/logger';
@@ -27,11 +33,17 @@ interface ComponentHealth {
 }
 
 /**
- * Overall health response
+ * Minimal health response (public)
  */
-interface HealthResponse {
+interface HealthResponseMinimal {
   status: 'healthy' | 'degraded' | 'unhealthy';
   timestamp: string;
+}
+
+/**
+ * Detailed health response (requires authentication)
+ */
+interface HealthResponseDetailed extends HealthResponseMinimal {
   version: string;
   environment: string;
   uptime: number;
@@ -60,7 +72,7 @@ async function checkStorage(): Promise<ComponentHealth> {
 
     const latency = timer.elapsed();
 
-    if (readValue !== testValue) {
+    if (String(readValue) !== String(testValue)) {
       return {
         status: 'degraded',
         latency,
@@ -139,7 +151,7 @@ function checkMemory(): ComponentHealth {
  */
 function calculateOverallStatus(
   checks: Record<string, ComponentHealth | undefined>,
-): HealthResponse['status'] {
+): HealthResponseMinimal['status'] {
   const statuses = Object.values(checks)
     .filter((check): check is ComponentHealth => check !== undefined)
     .map((check) => check.status);
@@ -153,61 +165,75 @@ function calculateOverallStatus(
   return 'healthy';
 }
 
-// Track server start time for uptime calculation
-const serverStartTime = Date.now();
+export default defineEventHandler(
+  async (event): Promise<HealthResponseMinimal | HealthResponseDetailed> => {
+    const config = useRuntimeConfig();
+    const query = getQuery(event);
 
-export default defineEventHandler(async (event): Promise<HealthResponse> => {
-  const config = useRuntimeConfig();
+    // Check if authorized for detailed metrics (secret key provided)
+    const providedKey = query.key as string | undefined;
+    const isAuthorized =
+      !!config.healthCheckSecret &&
+      !!providedKey &&
+      providedKey === config.healthCheckSecret;
 
-  // Perform health checks in parallel
-  const [storageHealth, memoryHealth] = await Promise.all([
-    checkStorage(),
-    Promise.resolve(checkMemory()),
-  ]);
+    // Perform health checks in parallel
+    const [storageHealth, memoryHealth] = await Promise.all([
+      checkStorage(),
+      Promise.resolve(checkMemory()),
+    ]);
 
-  const checks = {
-    storage: storageHealth,
-    memory: memoryHealth,
-  };
+    const checks = {
+      storage: storageHealth,
+      memory: memoryHealth,
+    };
 
-  const overallStatus = calculateOverallStatus(checks);
-  const uptimeSeconds = Math.round((Date.now() - serverStartTime) / 1000);
+    const overallStatus = calculateOverallStatus(checks);
+    const timestamp = new Date().toISOString();
 
-  const response: HealthResponse = {
-    status: overallStatus,
-    timestamp: new Date().toISOString(),
-    version: config.public.appVersion as string,
-    environment: config.public.environment as string,
-    uptime: uptimeSeconds,
-    checks,
-  };
+    // Set appropriate status code based on health
+    if (overallStatus === 'unhealthy') {
+      setResponseStatus(event, 503); // Service Unavailable
+    } else if (overallStatus === 'degraded') {
+      setResponseStatus(event, 200); // Still return 200 for degraded to not trigger immediate restarts
+    }
 
-  // Set appropriate status code based on health
-  if (overallStatus === 'unhealthy') {
-    setResponseStatus(event, 503); // Service Unavailable
-  } else if (overallStatus === 'degraded') {
-    setResponseStatus(event, 200); // Still return 200 for degraded to not trigger immediate restarts
-  }
-
-  // Add cache control headers to prevent caching of health checks
-  setResponseHeaders(event, {
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    Pragma: 'no-cache',
-    Expires: '0',
-  });
-
-  // Log health check result (at debug level to avoid noise)
-  const requestLogger = event.context.logger;
-  if (requestLogger) {
-    requestLogger.trackMetric({
-      name: 'health_check',
-      value: overallStatus === 'healthy' ? 1 : 0,
-      unit: 'count',
-      dimensions: {
-        status: overallStatus,
-      },
+    // Add cache control headers to prevent caching of health checks
+    setResponseHeaders(event, {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      Pragma: 'no-cache',
+      Expires: '0',
     });
-  }
 
-  return response;
-});
+    // Log health check result (at debug level to avoid noise)
+    const requestLogger = event.context.logger;
+    if (requestLogger) {
+      requestLogger.trackMetric({
+        name: 'health_check',
+        value: overallStatus === 'healthy' ? 1 : 0,
+        unit: 'count',
+        dimensions: {
+          status: overallStatus,
+        },
+      });
+    }
+
+    // Return minimal response for public requests
+    if (!isAuthorized) {
+      return {
+        status: overallStatus,
+        timestamp,
+      };
+    }
+
+    // Return detailed response for authorized requests
+    return {
+      status: overallStatus,
+      timestamp,
+      version: config.public.appVersion as string,
+      environment: config.public.environment as string,
+      uptime: Math.round(process.uptime()),
+      checks,
+    };
+  },
+);

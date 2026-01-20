@@ -303,15 +303,14 @@ The `server/api/external/[...].ts` handler proxies requests to external APIs wit
 
 See `.env.example` for all available environment variables:
 
-| Variable             | Description            | Default                        |
-| -------------------- | ---------------------- | ------------------------------ |
-| `NODE_ENV`           | Environment mode       | `development`                  |
-| `GEINS_API_ENDPOINT` | Geins GraphQL endpoint | `https://api.geins.io/graphql` |
-| `STORAGE_DRIVER`     | KV storage driver      | `fs`                           |
-| `REDIS_URL`          | Redis connection URL   | -                              |
-| `LOG_LEVEL`          | Logging verbosity      | `info`                         |
-
-> **Note:** `GEINS_API_KEY` is **not** an environment variable. It is configured per-tenant as part of the tenant configuration (`GeinsSettings.apiKey`) when binding a domain. See `shared/types/tenant-config.ts`.
+| Variable              | Description                            | Default                        |
+| --------------------- | -------------------------------------- | ------------------------------ |
+| `NODE_ENV`            | Environment mode                       | `development`                  |
+| `GEINS_API_ENDPOINT`  | Geins GraphQL endpoint                 | `https://api.geins.io/graphql` |
+| `STORAGE_DRIVER`      | KV storage driver                      | `fs`                           |
+| `REDIS_URL`           | Redis connection URL                   | -                              |
+| `LOG_LEVEL`           | Logging verbosity                      | `info`                         |
+| `HEALTH_CHECK_SECRET` | Secret key for detailed health metrics | -                              |
 
 ### Runtime Configuration
 
@@ -321,7 +320,7 @@ Access runtime config in:
 
 ```typescript
 const config = useRuntimeConfig();
-console.log(config.geins.apiKey); // Private
+console.log(config.geins.apiEndpoint); // Private
 console.log(config.public.appName); // Public
 ```
 
@@ -493,7 +492,26 @@ const { error, clearError } = useErrorBoundary({ component: 'ProductSection' });
 
 ### Health Endpoint
 
-The `/api/health` endpoint provides comprehensive health status:
+The `/api/health` endpoint provides health status with two response levels for security:
+
+#### Public Response (default)
+
+`GET /api/health`
+
+Returns minimal information suitable for load balancers and public monitoring:
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-01-20T10:30:00.000Z"
+}
+```
+
+#### Detailed Response (requires secret)
+
+`GET /api/health?key=YOUR_SECRET`
+
+When a valid `HEALTH_CHECK_SECRET` is provided, returns comprehensive metrics:
 
 ```json
 {
@@ -519,7 +537,13 @@ The `/api/health` endpoint provides comprehensive health status:
 }
 ```
 
-Status codes:
+Configure the secret via environment variable:
+
+```bash
+HEALTH_CHECK_SECRET=your-secret-key
+```
+
+#### Status Codes
 
 - `200`: Healthy or degraded (still serving traffic)
 - `503`: Unhealthy (should not receive traffic)
