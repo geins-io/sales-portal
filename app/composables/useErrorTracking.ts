@@ -2,17 +2,21 @@
  * Client-side Error Tracking Composable
  *
  * Provides error tracking and reporting utilities for the Vue frontend.
+ * Integrates with Sentry for production error tracking.
  * In development: logs to console with detailed information
- * In production: sends errors to server-side logging endpoint
+ * In production: sends errors to Sentry and server-side logging endpoint
  *
  * Features:
+ * - Sentry integration for error tracking
  * - Automatic error boundary integration
  * - User context tracking
+ * - Tenant context tracking
  * - Custom error properties
  * - Performance tracking
  */
 
 import { ref, onErrorCaptured, type Ref } from 'vue';
+import * as Sentry from '@sentry/nuxt';
 
 /**
  * Error context for tracking
@@ -171,8 +175,64 @@ export function useErrorTracking() {
       logErrorToConsole(event);
     }
 
-    // Send to server in production
+    // Send to Sentry
+    const err = error instanceof Error ? error : new Error(String(error));
+    Sentry.captureException(err, {
+      tags: {
+        component: context.component,
+        action: context.action,
+      },
+      extra: context,
+    });
+
+    // Send to server in production (as backup/additional logging)
     sendErrorToServer(event);
+  }
+
+  /**
+   * Set user context for Sentry tracking
+   */
+  function setUser(user: { id: string; email?: string; username?: string } | null): void {
+    if (user) {
+      Sentry.setUser({
+        id: user.id,
+        email: user.email,
+        username: user.username,
+      });
+    } else {
+      Sentry.setUser(null);
+    }
+  }
+
+  /**
+   * Set tenant context for Sentry tracking
+   */
+  function setTenant(tenant: { id: string; name?: string } | null): void {
+    if (tenant) {
+      Sentry.setTag('tenant.id', tenant.id);
+      if (tenant.name) {
+        Sentry.setTag('tenant.name', tenant.name);
+      }
+    } else {
+      Sentry.setTag('tenant.id', undefined);
+      Sentry.setTag('tenant.name', undefined);
+    }
+  }
+
+  /**
+   * Add a breadcrumb for debugging context
+   */
+  function addBreadcrumb(
+    message: string,
+    category: string = 'app',
+    data?: Record<string, unknown>,
+  ): void {
+    Sentry.addBreadcrumb({
+      message,
+      category,
+      data,
+      level: 'info',
+    });
   }
 
   /**
@@ -282,6 +342,9 @@ export function useErrorTracking() {
     setEnabled,
     clearErrors,
     getRecentErrors,
+    setUser,
+    setTenant,
+    addBreadcrumb,
     errors: state.errors,
     isEnabled: state.isEnabled,
   };

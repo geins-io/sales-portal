@@ -14,7 +14,23 @@ export default defineNuxtConfig({
     '@nuxt/test-utils',
     'shadcn-nuxt',
     '@pinia/nuxt',
+    '@sentry/nuxt/module',
   ],
+
+  // Sentry build-time configuration for source maps
+  sentry: {
+    // Sentry organization and project slugs for source map uploads
+    // These can be overridden via environment variables
+    org: process.env.SENTRY_ORG || 'litium',
+    project: process.env.SENTRY_PROJECT || 'sales-portal',
+    // Auth token for source map uploads (should be set via environment variable)
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+  },
+
+  // Enable client-side source maps for better error stack traces
+  sourcemap: {
+    client: 'hidden',
+  },
 
   pinia: {
     storesDirs: ['./app/stores/**'],
@@ -59,6 +75,10 @@ export default defineNuxtConfig({
       api: {
         baseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '/api',
         timeout: parseInt(process.env.NUXT_PUBLIC_API_TIMEOUT || '30000', 10),
+      },
+      // Sentry configuration
+      sentry: {
+        dsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
       },
     },
   },

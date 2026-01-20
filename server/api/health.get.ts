@@ -107,18 +107,14 @@ async function checkStorage(): Promise<ComponentHealth> {
       driver: storageDriver,
     });
 
-    // If using filesystem storage and directory doesn't exist,
-    // treat as degraded rather than unhealthy since the app can
-    // still function without KV storage for most operations
-    const isFilesystemError =
-      storageDriver === 'fs' && errorMessage.includes('ENOENT');
-
+    // Storage is optional - the app can function without KV storage for most operations.
+    // Always return 'degraded' rather than 'unhealthy' for storage failures to avoid
+    // unnecessary restarts and failed health checks in environments where storage
+    // might not be configured (CI, development, etc.)
     return {
-      status: isFilesystemError ? 'degraded' : 'unhealthy',
+      status: 'degraded',
       latency,
-      message: isFilesystemError
-        ? 'KV storage unavailable (filesystem not configured)'
-        : `Storage check failed: ${errorMessage}`,
+      message: `KV storage unavailable: ${errorMessage}`,
       details: {
         driver: storageDriver,
       },
