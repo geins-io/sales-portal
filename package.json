@@ -33,7 +33,6 @@
     "infra:deploy:prod": "./infra/scripts/deploy.sh --env prod",
     "infra:validate": "./infra/scripts/validate.sh",
     "infra:validate:build": "./infra/scripts/validate.sh --build-only",
-    "docs": "vitepress dev docs",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
