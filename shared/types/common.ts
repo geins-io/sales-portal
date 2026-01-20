@@ -247,3 +247,61 @@ export interface ResponsiveImage {
   /** Image height */
   height?: number;
 }
+
+/**
+ * Route resolution types for dynamic routing
+ */
+export type RouteResolutionType = 'product' | 'category' | 'page' | 'not-found';
+
+/**
+ * Base route resolution interface
+ */
+interface BaseRouteResolution {
+  /** The type of route resolved */
+  type: RouteResolutionType;
+  /** Canonical URL for SEO */
+  canonical?: string;
+}
+
+/**
+ * Product route resolution
+ */
+export interface ProductRouteResolution extends BaseRouteResolution {
+  type: 'product';
+  /** Product identifier */
+  productId: ID;
+}
+
+/**
+ * Category route resolution
+ */
+export interface CategoryRouteResolution extends BaseRouteResolution {
+  type: 'category';
+  /** Category identifier */
+  categoryId: ID;
+}
+
+/**
+ * Content page route resolution
+ */
+export interface PageRouteResolution extends BaseRouteResolution {
+  type: 'page';
+  /** Page identifier */
+  pageId: ID;
+}
+
+/**
+ * Not found route resolution
+ */
+export interface NotFoundRouteResolution extends BaseRouteResolution {
+  type: 'not-found';
+}
+
+/**
+ * Union type for all route resolutions
+ */
+export type RouteResolution =
+  | ProductRouteResolution
+  | CategoryRouteResolution
+  | PageRouteResolution
+  | NotFoundRouteResolution;
