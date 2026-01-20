@@ -17,6 +17,11 @@ on:
     branches:
       - main
 
+# Cancel redundant runs (e.g., when both push and pull_request trigger)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
