@@ -19,9 +19,9 @@ export default defineVitestConfig({
         '**/.nuxt/**',
       ],
     },
-    // Include patterns
-    include: ['tests/**/*.{test,spec}.{ts,js}'],
-    // Exclude patterns
-    exclude: ['**/node_modules/**', '**/.nuxt/**', '**/dist/**'],
+    // Include patterns (unit and component tests)
+    include: ['tests/**/*.test.{ts,js}'],
+    // Exclude patterns (E2E tests use Playwright, not Vitest)
+    exclude: ['**/node_modules/**', '**/.nuxt/**', '**/dist/**', 'tests/e2e/**'],
   },
 });

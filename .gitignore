@@ -32,6 +32,12 @@ logs
 coverage
 .nyc_output
 
+# Playwright
+playwright-report
+test-results
+playwright/.cache
+/blob-report/
+
 # Editor directories
 *.swp
 *.swo
