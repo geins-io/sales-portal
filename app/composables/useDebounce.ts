@@ -1,4 +1,4 @@
-import { ref, watch, type Ref } from 'vue';
+import { ref, watch, onUnmounted, type Ref } from 'vue';
 
 /**
  * Composable for debounced reactive values
@@ -36,6 +36,13 @@ export function useDebounce<T>(value: Ref<T>, delay: number = 300): Ref<T> {
     },
     { immediate: false },
   );
+
+  // Cleanup timeout on component unmount to prevent memory leaks
+  onUnmounted(() => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  });
 
   return debouncedValue;
 }
@@ -89,6 +96,11 @@ export function useDebounceFn<T extends (...args: Parameters<T>) => unknown>(
       isPending.value = false;
     }
   };
+
+  // Cleanup timeout on component unmount to prevent memory leaks
+  onUnmounted(() => {
+    cancel();
+  });
 
   return {
     execute,
@@ -150,6 +162,11 @@ export function useThrottleFn<T extends (...args: Parameters<T>) => unknown>(
       isPending.value = false;
     }
   };
+
+  // Cleanup timeout on component unmount to prevent memory leaks
+  onUnmounted(() => {
+    cancel();
+  });
 
   return {
     execute,
