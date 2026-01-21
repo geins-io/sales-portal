@@ -2,7 +2,7 @@ import type { TenantConfig } from '#shared/types/tenant-config';
 
 const sanitizeCustomCss = (css: string | undefined) => {
   if (!css) return '';
-  return css.replace(/st<yle>|<\/style>/g, '').trim();
+  return css.replace(/<style>|<\/style>/gi, '').trim();
 };
 
 const sanitizeTitle = (title: string | undefined) => {
