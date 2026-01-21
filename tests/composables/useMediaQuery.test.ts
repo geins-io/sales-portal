@@ -166,7 +166,7 @@ describe('useBreakpoints', () => {
 
     // The composable should NOT call matchMedia (old implementation)
     // It uses window.addEventListener for resize instead
-    expect(window.matchMedia).toBeUndefined;
+    expect(window.matchMedia).toBeUndefined();
   });
 });
 
