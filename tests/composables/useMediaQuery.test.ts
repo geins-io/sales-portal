@@ -162,11 +162,16 @@ describe('useBreakpoints', () => {
   });
 
   it('should use a single resize listener (optimization test)', () => {
+    // Spy on matchMedia to verify it's not called by useBreakpoints
+    const matchMediaSpy = vi.spyOn(window, 'matchMedia');
+
     useBreakpoints();
 
     // The composable should NOT call matchMedia (old implementation)
     // It uses window.addEventListener for resize instead
-    expect(window.matchMedia).toBeUndefined();
+    expect(matchMediaSpy).not.toHaveBeenCalled();
+
+    matchMediaSpy.mockRestore();
   });
 });
 
