@@ -1,30 +1,21 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue';
-import type { RouteResolution } from '#shared/types';
+import {
+  normalizeSlugToPath,
+  useRouteResolution,
+} from '~/composables/useRouteResolution';
 
 const route = useRoute();
 
-const normalizedPath = computed(() => {
-  const param = route.params.slug as string | string[] | undefined;
-  const parts = Array.isArray(param) ? param : param ? [param] : [];
-  const clean = parts.filter((p) => typeof p === 'string' && p.length > 0);
-
-  // "/" should not happen for a catch-all unless you have custom routing, but keep it robust.
-  if (clean.length === 0) return '/';
-
-  // Ensure leading slash and no trailing slash
-  return `/${clean.join('/')}`;
-});
+const normalizedPath = computed(() =>
+  normalizeSlugToPath(route.params.slug as string | string[] | undefined),
+);
 
 const {
   data: resolution,
   pending,
   error,
-} = await useAsyncData<RouteResolution>(
-  () => `route-resolution:${normalizedPath.value}`,
-  () => $fetch('/api/resolve-route', { query: { path: normalizedPath.value } }),
-  { watch: [normalizedPath] },
-);
+} = await useRouteResolution(normalizedPath);
 
 // Throw SSR 404 if resolver says not-found
 watchEffect(() => {
