@@ -5,24 +5,25 @@ import {
   createDefaultTheme,
   generateTenantCss,
 } from '../../server/utils/tenant';
+import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
 
 describe('Tenant utilities', () => {
   describe('tenantIdKey', () => {
     it('should generate correct key for hostname', () => {
       const key = tenantIdKey('example.com');
-      expect(key).toBe('tenant:id:example.com');
+      expect(key).toBe(`${KV_STORAGE_KEYS.TENANT_ID_PREFIX}example.com`);
     });
 
     it('should handle localhost', () => {
       const key = tenantIdKey('localhost');
-      expect(key).toBe('tenant:id:localhost');
+      expect(key).toBe(`${KV_STORAGE_KEYS.TENANT_ID_PREFIX}localhost`);
     });
   });
 
   describe('tenantConfigKey', () => {
     it('should generate correct key for tenant ID', () => {
       const key = tenantConfigKey('tenant-123');
-      expect(key).toBe('tenant:config:tenant-123');
+      expect(key).toBe(`${KV_STORAGE_KEYS.TENANT_CONFIG_PREFIX}tenant-123`);
     });
   });
 
