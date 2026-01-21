@@ -5,6 +5,23 @@
  */
 
 /**
+ * Re-export API client types for convenience
+ */
+export type {
+  ApiClientConfig,
+  ApiClient,
+} from '../../app/utils/api-client';
+
+export {
+  DEFAULT_API_CLIENT_CONFIG,
+  createApiClient,
+  mergeHeaders,
+  getErrorMessage,
+  isTimeoutError,
+  isHttpError,
+} from '../../app/utils/api-client';
+
+/**
  * Base API response wrapper
  */
 export interface ApiResponse<T> {
