@@ -62,10 +62,42 @@ export function useMediaQuery(query: string) {
 }
 
 /**
+ * Debounce utility for internal use
+ * Creates a debounced version of a function that delays execution
+ */
+function createDebouncedFn<T extends (...args: unknown[]) => void>(
+  fn: T,
+  delay: number,
+): { execute: (...args: Parameters<T>) => void; cancel: () => void } {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  const execute = (...args: Parameters<T>) => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => {
+      fn(...args);
+    }, delay);
+  };
+
+  const cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+  };
+
+  return { execute, cancel };
+}
+
+/**
  * Composable for common responsive breakpoints
  *
  * Uses Tailwind CSS default breakpoints.
  * Returns an `isHydrated` flag to help avoid SSR hydration mismatches.
+ *
+ * Optimized to use a single resize listener with debouncing instead of
+ * multiple MediaQueryList listeners for better performance.
  *
  * @example
  * ```vue
@@ -83,17 +115,44 @@ export function useMediaQuery(query: string) {
  * ```
  */
 export function useBreakpoints() {
-  // Individual breakpoint matchers (min-width)
-  // Get isHydrated from the first media query (all will hydrate at the same time)
-  const { matches: isSm, isHydrated } = useMediaQuery(
-    `(min-width: ${BREAKPOINTS.SM}px)`,
-  );
-  const { matches: isMd } = useMediaQuery(`(min-width: ${BREAKPOINTS.MD}px)`);
-  const { matches: isLg } = useMediaQuery(`(min-width: ${BREAKPOINTS.LG}px)`);
-  const { matches: isXl } = useMediaQuery(`(min-width: ${BREAKPOINTS.XL}px)`);
-  const { matches: is2Xl } = useMediaQuery(
-    `(min-width: ${BREAKPOINTS['2XL']}px)`,
-  );
+  // Screen dimensions - the single source of truth
+  const width = ref(0);
+  const height = ref(0);
+  const isHydrated = ref(false);
+
+  // Single resize listener with debouncing
+  onMounted(() => {
+    if (typeof window !== 'undefined') {
+      const updateDimensions = () => {
+        width.value = window.innerWidth;
+        height.value = window.innerHeight;
+      };
+
+      // Create debounced version for resize events
+      const { execute: debouncedUpdate, cancel } = createDebouncedFn(
+        updateDimensions,
+        100,
+      );
+
+      // Set initial dimensions immediately (no debounce)
+      updateDimensions();
+      isHydrated.value = true;
+
+      window.addEventListener('resize', debouncedUpdate);
+
+      onUnmounted(() => {
+        window.removeEventListener('resize', debouncedUpdate);
+        cancel();
+      });
+    }
+  });
+
+  // Computed breakpoint flags based on width
+  const isSm = computed(() => width.value >= BREAKPOINTS.SM);
+  const isMd = computed(() => width.value >= BREAKPOINTS.MD);
+  const isLg = computed(() => width.value >= BREAKPOINTS.LG);
+  const isXl = computed(() => width.value >= BREAKPOINTS.XL);
+  const is2Xl = computed(() => width.value >= BREAKPOINTS['2XL']);
 
   // Semantic helpers
   const isMobile = computed(() => !isSm.value);
@@ -108,26 +167,6 @@ export function useBreakpoints() {
     if (isMd.value) return 'md';
     if (isSm.value) return 'sm';
     return 'xs';
-  });
-
-  // Screen width (for more complex logic)
-  const width = ref(0);
-  const height = ref(0);
-
-  onMounted(() => {
-    if (typeof window !== 'undefined') {
-      const updateDimensions = () => {
-        width.value = window.innerWidth;
-        height.value = window.innerHeight;
-      };
-
-      updateDimensions();
-      window.addEventListener('resize', updateDimensions);
-
-      onUnmounted(() => {
-        window.removeEventListener('resize', updateDimensions);
-      });
-    }
   });
 
   return {
