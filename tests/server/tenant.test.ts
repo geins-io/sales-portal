@@ -5,8 +5,10 @@ import {
   createDefaultTheme,
   generateTenantCss,
   generateThemeHash,
+  mergeThemes,
 } from '../../server/utils/tenant';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
+import type { TenantTheme } from '../../shared/types/tenant-config';
 
 describe('Tenant utilities', () => {
   describe('tenantIdKey', () => {
@@ -129,6 +131,119 @@ describe('Tenant utilities', () => {
       const hash = generateThemeHash(theme);
       expect(typeof hash).toBe('string');
       expect(hash.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('mergeThemes', () => {
+    it('should return base theme when updates is undefined', () => {
+      const base = createDefaultTheme('test');
+      const result = mergeThemes(base, undefined);
+      expect(result).toBe(base);
+    });
+
+    it('should merge top-level theme properties', () => {
+      const base = createDefaultTheme('test');
+      const updates: Partial<TenantTheme> = {
+        name: 'updated-name',
+        displayName: 'Updated Display Name',
+      };
+      const result = mergeThemes(base, updates);
+      expect(result.name).toBe('updated-name');
+      expect(result.displayName).toBe('Updated Display Name');
+    });
+
+    it('should deep merge colors', () => {
+      const base = createDefaultTheme('test');
+      const updates: Partial<TenantTheme> = {
+        colors: {
+          primary: 'oklch(0.5 0.2 200)',
+          secondary: 'oklch(0.6 0.1 100)',
+        },
+      };
+      const result = mergeThemes(base, updates);
+      expect(result.colors.primary).toBe('oklch(0.5 0.2 200)');
+      expect(result.colors.secondary).toBe('oklch(0.6 0.1 100)');
+      // Ensure other default colors are preserved
+      expect(result.colors.background).toBe(base.colors.background);
+      expect(result.colors.foreground).toBe(base.colors.foreground);
+    });
+
+    it('should deep merge borderRadius', () => {
+      const base = createDefaultTheme('test');
+      const updates: Partial<TenantTheme> = {
+        borderRadius: {
+          sm: '0.25rem',
+          lg: '1rem',
+        },
+      };
+      const result = mergeThemes(base, updates);
+      expect(result.borderRadius?.sm).toBe('0.25rem');
+      expect(result.borderRadius?.lg).toBe('1rem');
+      // Ensure base borderRadius is preserved
+      expect(result.borderRadius?.base).toBe('0.625rem');
+    });
+
+    it('should deep merge typography', () => {
+      const base: TenantTheme = {
+        ...createDefaultTheme('test'),
+        typography: {
+          fontFamily: 'Arial',
+          baseFontSize: '16px',
+        },
+      };
+      const updates: Partial<TenantTheme> = {
+        typography: {
+          headingFontFamily: 'Georgia',
+        },
+      };
+      const result = mergeThemes(base, updates);
+      expect(result.typography?.fontFamily).toBe('Arial');
+      expect(result.typography?.baseFontSize).toBe('16px');
+      expect(result.typography?.headingFontFamily).toBe('Georgia');
+    });
+
+    it('should deep merge customProperties', () => {
+      const base: TenantTheme = {
+        ...createDefaultTheme('test'),
+        customProperties: {
+          '--custom-spacing': '1rem',
+          '--custom-shadow': '0 2px 4px rgba(0,0,0,0.1)',
+        },
+      };
+      const updates: Partial<TenantTheme> = {
+        customProperties: {
+          '--custom-shadow': '0 4px 8px rgba(0,0,0,0.2)',
+          '--new-property': 'value',
+        },
+      };
+      const result = mergeThemes(base, updates);
+      expect(result.customProperties?.['--custom-spacing']).toBe('1rem');
+      expect(result.customProperties?.['--custom-shadow']).toBe(
+        '0 4px 8px rgba(0,0,0,0.2)',
+      );
+      expect(result.customProperties?.['--new-property']).toBe('value');
+    });
+
+    it('should handle empty updates object', () => {
+      const base = createDefaultTheme('test');
+      const updates: Partial<TenantTheme> = {};
+      const result = mergeThemes(base, updates);
+      // Should be a new object with same properties
+      expect(result).not.toBe(base);
+      expect(result.name).toBe(base.name);
+      expect(result.colors.primary).toBe(base.colors.primary);
+    });
+
+    it('should preserve base properties when not in updates', () => {
+      const base = createDefaultTheme('test');
+      const updates: Partial<TenantTheme> = {
+        displayName: 'New Display Name',
+      };
+      const result = mergeThemes(base, updates);
+      expect(result.name).toBe(base.name);
+      expect(result.displayName).toBe('New Display Name');
+      expect(result.colors).toEqual(base.colors);
+      expect(result.borderRadius).toEqual(base.borderRadius);
     });
   });
 });
