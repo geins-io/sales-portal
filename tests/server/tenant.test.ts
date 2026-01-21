@@ -4,6 +4,7 @@ import {
   tenantConfigKey,
   createDefaultTheme,
   generateTenantCss,
+  generateThemeHash,
 } from '../../server/utils/tenant';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
 
@@ -76,6 +77,58 @@ describe('Tenant utilities', () => {
       };
       const css = generateTenantCss(theme);
       expect(css).toContain('--custom-var: custom-value');
+    });
+  });
+
+  describe('generateThemeHash', () => {
+    it('should generate a consistent hash for the same theme', () => {
+      const theme = createDefaultTheme('test');
+      const hash1 = generateThemeHash(theme);
+      const hash2 = generateThemeHash(theme);
+      expect(hash1).toBe(hash2);
+    });
+
+    it('should generate different hashes for different themes', () => {
+      const theme1 = createDefaultTheme('test1');
+      const theme2 = createDefaultTheme('test2');
+      const hash1 = generateThemeHash(theme1);
+      const hash2 = generateThemeHash(theme2);
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it('should detect color changes', () => {
+      const theme1 = createDefaultTheme('test');
+      const theme2 = createDefaultTheme('test');
+      theme2.colors.primary = 'oklch(0.5 0.1 200)';
+      const hash1 = generateThemeHash(theme1);
+      const hash2 = generateThemeHash(theme2);
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it('should detect border radius changes', () => {
+      const theme1 = createDefaultTheme('test');
+      const theme2 = createDefaultTheme('test');
+      theme2.borderRadius = { base: '1rem' };
+      const hash1 = generateThemeHash(theme1);
+      const hash2 = generateThemeHash(theme2);
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it('should detect custom property changes', () => {
+      const theme1 = createDefaultTheme('test');
+      theme1.customProperties = { '--custom': 'value1' };
+      const theme2 = createDefaultTheme('test');
+      theme2.customProperties = { '--custom': 'value2' };
+      const hash1 = generateThemeHash(theme1);
+      const hash2 = generateThemeHash(theme2);
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it('should return a string hash', () => {
+      const theme = createDefaultTheme('test');
+      const hash = generateThemeHash(theme);
+      expect(typeof hash).toBe('string');
+      expect(hash.length).toBeGreaterThan(0);
     });
   });
 });

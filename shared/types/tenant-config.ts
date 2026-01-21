@@ -207,6 +207,8 @@ export interface TenantConfig {
   contact?: TenantContact;
   /** Custom CSS to inject */
   css: string;
+  /** Hash of the theme for memoization - used to skip CSS regeneration when theme hasn't changed */
+  themeHash?: string;
   /** Whether the tenant is active */
   isActive?: boolean;
   /** Tenant creation date */

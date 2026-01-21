@@ -82,6 +82,33 @@ function generateColorCss(
 }
 
 /**
+ * Generates a hash string from a theme object for comparison.
+ * Used to determine if CSS needs to be regenerated.
+ */
+export function generateThemeHash(theme: TenantTheme): string {
+  // Create a stable JSON string for hashing
+  // Use a replacer function to sort keys at all levels for consistent ordering
+  const sortedStringify = (obj: unknown): string => {
+    return JSON.stringify(obj, (_, value) => {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        // Sort object keys for consistent ordering
+        return Object.keys(value)
+          .sort()
+          .reduce(
+            (sorted, key) => {
+              sorted[key] = value[key];
+              return sorted;
+            },
+            {} as Record<string, unknown>,
+          );
+      }
+      return value;
+    });
+  };
+  return sortedStringify(theme);
+}
+
+/**
  * Generates complete CSS for a tenant theme
  */
 export function generateTenantCss(theme: TenantTheme): string {
@@ -170,7 +197,8 @@ export async function createTenant(
     },
   };
 
-  // Generate CSS from theme
+  // Generate theme hash and CSS
+  const themeHash = generateThemeHash(mergedTheme);
   const css = generateTenantCss(mergedTheme);
 
   // Create default config
@@ -179,6 +207,7 @@ export async function createTenant(
     hostname: hostname,
     theme: mergedTheme,
     css,
+    themeHash,
     branding: {
       name: finalTenantId,
       ...partialConfig?.branding,
@@ -200,6 +229,7 @@ export async function createTenant(
     ...partialConfig,
     theme: mergedTheme,
     css,
+    themeHash,
   };
 
   // Check if tenant mapping already exists
@@ -245,13 +275,19 @@ export async function createTenant(
       },
     };
 
+    // Only regenerate CSS if theme has changed (hash comparison)
+    const newThemeHash = generateThemeHash(updatedTheme);
+    const existingThemeHash = existingConfig.themeHash;
+    const themeChanged = newThemeHash !== existingThemeHash;
+
     const updatedConfig: TenantConfig = {
       ...existingConfig,
       ...partialConfig,
       tenantId: finalTenantId,
       hostname: hostname,
       theme: updatedTheme,
-      css: generateTenantCss(updatedTheme),
+      css: themeChanged ? generateTenantCss(updatedTheme) : existingConfig.css,
+      themeHash: newThemeHash,
       updatedAt: new Date().toISOString(),
     };
 
@@ -327,11 +363,17 @@ export async function updateTenant(
       }
     : existing.theme;
 
+  // Only regenerate CSS if theme has changed (hash comparison)
+  const newThemeHash = generateThemeHash(updatedTheme);
+  const existingThemeHash = existing.themeHash;
+  const themeChanged = newThemeHash !== existingThemeHash;
+
   const updatedConfig: TenantConfig = {
     ...existing,
     ...updates,
     theme: updatedTheme,
-    css: generateTenantCss(updatedTheme),
+    css: themeChanged ? generateTenantCss(updatedTheme) : existing.css,
+    themeHash: newThemeHash,
     updatedAt: new Date().toISOString(),
   };
 
