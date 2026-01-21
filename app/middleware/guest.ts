@@ -1,3 +1,5 @@
+import { useAuthStore } from '~/stores/auth';
+
 /**
  * Guest Middleware
  *
@@ -14,12 +16,15 @@
  * ```
  */
 export default defineNuxtRouteMiddleware(() => {
-  // TODO: Implement actual authentication check
-  // This is a placeholder that should be replaced with real auth logic
-  const isAuthenticated = false;
+  const authStore = useAuthStore();
 
-  if (isAuthenticated) {
-    // Redirect authenticated users to home or account page
-    return navigateTo('/account');
+  // Initialize auth from storage if not already done (client-side only)
+  if (import.meta.client && !authStore.token) {
+    authStore.initializeFromStorage();
+  }
+
+  if (authStore.isAuthenticated) {
+    // Redirect authenticated users to home or portal page
+    return navigateTo('/portal');
   }
 });
