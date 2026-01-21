@@ -361,6 +361,14 @@ export function createApiClient(config: ApiClientConfig = {}) {
           extendedOptions._retryCount = currentAttempt + 1;
           throw await $fetch(request, {
             ...options,
+            method: options.method as
+              | 'GET'
+              | 'POST'
+              | 'PUT'
+              | 'DELETE'
+              | 'PATCH'
+              | 'HEAD'
+              | 'OPTIONS',
             baseURL: baseUrl,
             timeout,
             credentials,
@@ -410,6 +418,14 @@ export function createApiClient(config: ApiClientConfig = {}) {
           extendedOptions._retryCount = currentAttempt + 1;
           throw await $fetch(request, {
             ...options,
+            method: options.method as
+              | 'GET'
+              | 'POST'
+              | 'PUT'
+              | 'DELETE'
+              | 'PATCH'
+              | 'HEAD'
+              | 'OPTIONS',
             baseURL: baseUrl,
             timeout,
             credentials,

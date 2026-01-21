@@ -34,11 +34,12 @@ export default defineNuxtPlugin(() => {
 
     // Request interceptor: merge headers
     onRequest({ options }) {
-      options.headers = mergeHeaders(
+      const merged = mergeHeaders(
         options.headers,
         // Always include the original client request headers for SSR
         requestHeaders,
       );
+      options.headers = new Headers(merged);
     },
 
     // Response error handler: log errors and handle specific cases
@@ -47,7 +48,9 @@ export default defineNuxtPlugin(() => {
       if (response?.status === 401) {
         // Emit an event or handle auth refresh
         // This could be expanded to use the auth store
-        console.warn('[API] Unauthorized request - authentication may be required');
+        console.warn(
+          '[API] Unauthorized request - authentication may be required',
+        );
       }
 
       // Handle 403 Forbidden
