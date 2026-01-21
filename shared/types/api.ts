@@ -2,6 +2,10 @@
  * API Response Types
  *
  * Standardized types for API responses across the application.
+ *
+ * For API client configuration and utilities, import from:
+ * - `~/utils/api-client` (in Nuxt components/pages)
+ * - `@/app/utils/api-client` (in tests)
  */
 
 /**
