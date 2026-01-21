@@ -24,7 +24,11 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (requiredFeature && !hasFeature(requiredFeature)) {
     // Feature not available for this tenant
-    console.warn(`Feature "${requiredFeature}" is not enabled for this tenant`);
+    if (import.meta.dev) {
+      console.warn(
+        `Feature "${requiredFeature}" is not enabled for this tenant`,
+      );
+    }
     return navigateTo('/');
   }
 });
