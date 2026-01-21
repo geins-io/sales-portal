@@ -28,6 +28,7 @@ export default defineNuxtRouteMiddleware((to) => {
       console.warn(
         `Feature "${requiredFeature}" is not enabled for this tenant`,
       );
+    }
     return navigateTo('/');
   }
 });
