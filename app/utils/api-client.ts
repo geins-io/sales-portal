@@ -228,7 +228,7 @@ function defaultShouldRetry(
     statusCode?: number;
   },
 ): boolean {
-  const { attempt, method, statusCode } = context;
+  const { method, statusCode } = context;
 
   // Only retry idempotent methods
   if (!isIdempotentMethod(method)) {
