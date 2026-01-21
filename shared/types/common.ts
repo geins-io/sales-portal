@@ -249,6 +249,54 @@ export interface ResponsiveImage {
 }
 
 /**
+ * User information
+ */
+export interface User {
+  /** Unique user identifier */
+  id: ID;
+  /** User email address */
+  email: string;
+  /** User display name */
+  name?: string;
+  /** User first name */
+  firstName?: string;
+  /** User last name */
+  lastName?: string;
+  /** User avatar URL */
+  avatar?: string;
+  /** User roles */
+  roles?: string[];
+  /** User metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Authentication credentials for login
+ */
+export interface LoginCredentials {
+  /** User email address */
+  email: string;
+  /** User password */
+  password: string;
+  /** Remember the user session */
+  rememberMe?: boolean;
+}
+
+/**
+ * Authentication response from API
+ */
+export interface AuthResponse {
+  /** User information */
+  user: User;
+  /** Authentication token (JWT or similar) */
+  token: string;
+  /** Token expiration timestamp (ISO 8601) */
+  expiresAt?: string;
+  /** Refresh token for token renewal */
+  refreshToken?: string;
+}
+
+/**
  * Route resolution types for dynamic routing
  */
 export type RouteResolutionType = 'product' | 'category' | 'page' | 'not-found';
