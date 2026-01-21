@@ -3,16 +3,17 @@ import type {
   TenantTheme,
   ThemeColors,
 } from '#shared/types/tenant-config';
+import { KV_STORAGE_KEYS } from '#shared/constants/storage';
 
 /**
  * Storage key generators for tenant data
  */
 export function tenantIdKey(hostname: string): string {
-  return `tenant:id:${hostname}`;
+  return `${KV_STORAGE_KEYS.TENANT_ID_PREFIX}${hostname}`;
 }
 
 export function tenantConfigKey(tenantId: string): string {
-  return `tenant:config:${tenantId}`;
+  return `${KV_STORAGE_KEYS.TENANT_CONFIG_PREFIX}${tenantId}`;
 }
 
 /**

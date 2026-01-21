@@ -1,3 +1,5 @@
+import type { FeatureName } from '#shared/types/tenant-config';
+
 /**
  * Feature Flag Middleware
  *
@@ -17,16 +19,15 @@
 export default defineNuxtRouteMiddleware((to) => {
   const { hasFeature } = useTenant();
 
-  // Get the required feature from route meta
-  const requiredFeature = to.meta.feature as string | undefined;
+  // Get the required feature from route meta (typed via PageMeta augmentation)
+  const requiredFeature = to.meta.feature as FeatureName | undefined;
 
-  if (requiredFeature && !hasFeature(requiredFeature as never)) {
-    // Feature not available for this tenant - only log in development
+  if (requiredFeature && !hasFeature(requiredFeature)) {
+    // Feature not available for this tenant
     if (import.meta.dev) {
       console.warn(
         `Feature "${requiredFeature}" is not enabled for this tenant`,
       );
-    }
     return navigateTo('/');
   }
 });

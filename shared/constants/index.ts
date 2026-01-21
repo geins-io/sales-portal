@@ -4,6 +4,9 @@
  * Centralized constants and configuration values used throughout the application.
  */
 
+// Re-export server-side storage constants
+export { KV_STORAGE_KEYS, type KvStorageKeys } from './storage';
+
 /**
  * Application metadata
  */

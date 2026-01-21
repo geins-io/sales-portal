@@ -229,3 +229,9 @@ export interface TenantContext {
  * Type alias for backward compatibility
  */
 export type TenantConfigType = TenantConfig;
+
+/**
+ * Type alias for feature names - keys of the TenantFeatures interface.
+ * Use this type when working with feature flags in middleware or components.
+ */
+export type FeatureName = keyof TenantFeatures;

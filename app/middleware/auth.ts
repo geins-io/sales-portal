@@ -1,3 +1,5 @@
+import { useAuthStore } from '~/stores/auth';
+
 /**
  * Authentication Middleware
  *
@@ -14,11 +16,14 @@
  * ```
  */
 export default defineNuxtRouteMiddleware((to) => {
-  // TODO: Implement actual authentication check
-  // This is a placeholder that should be replaced with real auth logic
-  const isAuthenticated = false;
+  const authStore = useAuthStore();
 
-  if (!isAuthenticated) {
+  // Initialize auth from storage if not already done (client-side only)
+  if (import.meta.client && !authStore.token) {
+    authStore.initializeFromStorage();
+  }
+
+  if (!authStore.isAuthenticated) {
     // Store the intended destination for redirect after login
     const redirectPath = to.fullPath;
 

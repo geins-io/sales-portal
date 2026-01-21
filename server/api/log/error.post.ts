@@ -8,9 +8,16 @@
  * - Centralized error logging
  * - Client error visibility in Azure Application Insights
  * - Correlation with server-side errors
+ *
+ * Rate limiting is applied to prevent DoS attacks via error flooding.
+ * Default limit: 10 requests per minute per IP address.
  */
 
 import { logger, type LogContext } from '../../utils/logger';
+import {
+  errorEndpointRateLimiter,
+  getClientIp,
+} from '../../utils/rate-limiter';
 
 interface ClientErrorBody {
   message: string;
@@ -24,6 +31,23 @@ interface ClientErrorBody {
 
 export default defineEventHandler(
   async (event): Promise<{ success: boolean }> => {
+    // Apply rate limiting
+    const clientIp = getClientIp(event);
+    const rateLimitResult = errorEndpointRateLimiter.check(clientIp);
+
+    if (!rateLimitResult.allowed) {
+      // Log the rate limit hit for monitoring
+      logger.warn('Rate limit exceeded for error endpoint', {
+        clientIp,
+        resetTime: new Date(rateLimitResult.resetTime).toISOString(),
+      });
+
+      throw createError({
+        statusCode: 429,
+        message: 'Too many requests. Please try again later.',
+      });
+    }
+
     try {
       const body = await readBody<ClientErrorBody>(event);
 

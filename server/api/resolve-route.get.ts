@@ -1,10 +1,6 @@
 import { defineEventHandler, getQuery, setResponseHeader } from 'h3';
+import { LRUCache } from 'lru-cache';
 import type { RouteResolution } from '#shared/types';
-
-interface CacheEntry {
-  expiresAt: number;
-  data: RouteResolution;
-}
 
 // =============================================================================
 // Cache Configuration
@@ -12,9 +8,18 @@ interface CacheEntry {
 
 const CACHE_TTL_FOUND_MS = 5 * 60 * 1000; // 5 minutes
 const CACHE_TTL_NOT_FOUND_MS = 1 * 60 * 1000; // 1 minute
+const CACHE_MAX_ENTRIES = 1000; // Maximum number of entries to prevent unbounded growth
 
-// Module-scoped in-memory cache
-const routeCache = new Map<string, CacheEntry>();
+// Module-scoped in-memory LRU cache with max size limit
+// This prevents memory leaks by automatically evicting least recently used entries
+export const routeCache = new LRUCache<string, RouteResolution>({
+  max: CACHE_MAX_ENTRIES,
+  // TTL is set per-item in setCachedResolution for different cache durations
+  // based on whether the route was found or not
+});
+
+// Export cache config constants for testing
+export { CACHE_MAX_ENTRIES, CACHE_TTL_FOUND_MS, CACHE_TTL_NOT_FOUND_MS };
 
 // =============================================================================
 // Lookup Stubs (TODO: Replace with real API calls)
@@ -27,9 +32,10 @@ const routeCache = new Map<string, CacheEntry>();
 async function lookupCategoryBySlug(
   _slug: string,
 ): Promise<{ id: string; canonical?: string } | null> {
-  // TODO: Implement real lookup
+  // TODO: Implement real lookup - this stub returns mock data for development
+  // When implementing, this should query the backend API or database
+  // and return null if no category is found with the given slug
   return { id: '1', canonical: 'https://example.com/category-slug' };
-  return null;
 }
 
 /**
@@ -39,9 +45,10 @@ async function lookupCategoryBySlug(
 async function lookupPageBySlug(
   _slug: string,
 ): Promise<{ id: string; canonical?: string } | null> {
-  // TODO: Implement real lookup
+  // TODO: Implement real lookup - this stub returns mock data for development
+  // When implementing, this should query the backend API or database
+  // and return null if no page is found with the given slug
   return { id: '1', canonical: 'https://example.com/page-slug' };
-  return null;
 }
 
 // =============================================================================
@@ -201,29 +208,20 @@ function buildCacheKey(hostname: string, normalizedPath: string): string {
 
 /**
  * Get a cached entry if it exists and is not expired.
+ * LRU cache automatically handles TTL expiration.
  */
 function getCachedResolution(key: string): RouteResolution | null {
-  const entry = routeCache.get(key);
-  if (entry && entry.expiresAt > Date.now()) {
-    return entry.data;
-  }
-  // Clean up expired entry
-  if (entry) {
-    routeCache.delete(key);
-  }
-  return null;
+  return routeCache.get(key) ?? null;
 }
 
 /**
  * Store a resolution in cache with appropriate TTL.
+ * Uses shorter TTL for not-found responses.
  */
 function setCachedResolution(key: string, data: RouteResolution): void {
   const ttl =
     data.type === 'not-found' ? CACHE_TTL_NOT_FOUND_MS : CACHE_TTL_FOUND_MS;
-  routeCache.set(key, {
-    expiresAt: Date.now() + ttl,
-    data,
-  });
+  routeCache.set(key, data, { ttl });
 }
 
 // =============================================================================
