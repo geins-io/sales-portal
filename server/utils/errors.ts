@@ -66,33 +66,37 @@ export interface ErrorData {
 
 /**
  * Create an application error
+ *
+ * In production, error messages and details are sanitized to prevent
+ * information leakage. The full details are always logged server-side.
  */
 export function createAppError(
   code: ErrorCode,
   message?: string,
   details?: Record<string, unknown>,
 ): H3Error {
+  const isDev = process.env.NODE_ENV === 'development';
   const statusCode = ERROR_STATUS_CODES[code];
-  const errorMessage = message || ERROR_MESSAGES[code];
+  const internalMessage = message || ERROR_MESSAGES[code];
+  // In production, always use generic messages to prevent information leakage
+  const publicMessage = isDev ? internalMessage : ERROR_MESSAGES[code];
 
-  // Log the error
+  // Always log the full error details server-side
   if (statusCode >= 500) {
-    logger.error(`Server error: ${errorMessage}`, undefined, {
+    logger.error(`Server error: ${internalMessage}`, undefined, {
       code,
       ...details,
     });
   } else {
-    logger.warn(`Client error: ${errorMessage}`, { code, ...details });
+    logger.warn(`Client error: ${internalMessage}`, { code, ...details });
   }
 
   return createError({
     statusCode,
-    statusMessage: errorMessage,
-    message: errorMessage,
-    data: {
-      code,
-      details,
-    } as ErrorData,
+    statusMessage: publicMessage,
+    message: publicMessage,
+    // In production, strip internal details from response
+    data: isDev ? { code, details } : { code },
   });
 }
 
