@@ -21,8 +21,12 @@ export default defineNuxtRouteMiddleware((to) => {
   const requiredFeature = to.meta.feature as string | undefined;
 
   if (requiredFeature && !hasFeature(requiredFeature as never)) {
-    // Feature not available for this tenant
-    console.warn(`Feature "${requiredFeature}" is not enabled for this tenant`);
+    // Feature not available for this tenant - only log in development
+    if (import.meta.dev) {
+      console.warn(
+        `Feature "${requiredFeature}" is not enabled for this tenant`,
+      );
+    }
     return navigateTo('/');
   }
 });
