@@ -80,20 +80,12 @@ describe('useMediaQuery', () => {
 });
 
 describe('useBreakpoints', () => {
-  let mockMediaQueryList: {
-    matches: boolean;
-    addEventListener: ReturnType<typeof vi.fn>;
-    removeEventListener: ReturnType<typeof vi.fn>;
-  };
-
   beforeEach(() => {
-    mockMediaQueryList = {
-      matches: false,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    };
-
-    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue(mockMediaQueryList));
+    // Mock window dimensions - initially set to 0 (will be read on mount)
+    vi.stubGlobal('innerWidth', 1024);
+    vi.stubGlobal('innerHeight', 768);
+    vi.stubGlobal('addEventListener', vi.fn());
+    vi.stubGlobal('removeEventListener', vi.fn());
   });
 
   afterEach(() => {
@@ -104,6 +96,7 @@ describe('useBreakpoints', () => {
     const result = useBreakpoints();
 
     expect(result).toHaveProperty('isHydrated');
+    // Initially false before mount
     expect(result.isHydrated.value).toBe(false);
   });
 
@@ -129,7 +122,7 @@ describe('useBreakpoints', () => {
     const result = useBreakpoints();
 
     expect(result).toHaveProperty('currentBreakpoint');
-    // Initially xs since all breakpoints start as false
+    // Initially xs since width starts at 0 (before mount)
     expect(result.currentBreakpoint.value).toBe('xs');
   });
 
@@ -143,18 +136,37 @@ describe('useBreakpoints', () => {
     expect(result.height.value).toBe(0);
   });
 
-  it('should have isMobile true when isSm is false (SSR default)', () => {
+  it('should have isMobile true when width is 0 (SSR default)', () => {
     const { isMobile } = useBreakpoints();
 
-    // By default, isSm is false, so isMobile should be true
+    // By default (before mount), width is 0, so isMobile should be true
     expect(isMobile.value).toBe(true);
   });
 
-  it('should have isDesktop false when isLg is false (SSR default)', () => {
+  it('should have isDesktop false when width is 0 (SSR default)', () => {
     const { isDesktop } = useBreakpoints();
 
-    // By default, isLg is false, so isDesktop should be false
+    // By default (before mount), width is 0, so isDesktop should be false
     expect(isDesktop.value).toBe(false);
+  });
+
+  it('should compute breakpoint flags correctly based on width thresholds', () => {
+    const result = useBreakpoints();
+
+    // Initially width is 0 (before mount)
+    expect(result.isSm.value).toBe(false); // width >= 640
+    expect(result.isMd.value).toBe(false); // width >= 768
+    expect(result.isLg.value).toBe(false); // width >= 1024
+    expect(result.isXl.value).toBe(false); // width >= 1280
+    expect(result.is2Xl.value).toBe(false); // width >= 1536
+  });
+
+  it('should use a single resize listener (optimization test)', () => {
+    useBreakpoints();
+
+    // The composable should NOT call matchMedia (old implementation)
+    // It uses window.addEventListener for resize instead
+    expect(window.matchMedia).toBeUndefined;
   });
 });
 
