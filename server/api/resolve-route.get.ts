@@ -27,9 +27,10 @@ const routeCache = new Map<string, CacheEntry>();
 async function lookupCategoryBySlug(
   _slug: string,
 ): Promise<{ id: string; canonical?: string } | null> {
-  // TODO: Implement real lookup
+  // TODO: Implement real lookup - this stub returns mock data for development
+  // When implementing, this should query the backend API or database
+  // and return null if no category is found with the given slug
   return { id: '1', canonical: 'https://example.com/category-slug' };
-  return null;
 }
 
 /**
@@ -39,9 +40,10 @@ async function lookupCategoryBySlug(
 async function lookupPageBySlug(
   _slug: string,
 ): Promise<{ id: string; canonical?: string } | null> {
-  // TODO: Implement real lookup
+  // TODO: Implement real lookup - this stub returns mock data for development
+  // When implementing, this should query the backend API or database
+  // and return null if no page is found with the given slug
   return { id: '1', canonical: 'https://example.com/page-slug' };
-  return null;
 }
 
 // =============================================================================
