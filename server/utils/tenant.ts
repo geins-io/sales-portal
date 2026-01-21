@@ -149,6 +149,30 @@ export function createDefaultTheme(tenantId: string): TenantTheme {
   };
 }
 
+/**
+ * Merges a base theme with partial theme updates.
+ * Deep merges all nested theme objects (colors, borderRadius, typography, customProperties)
+ * to preserve existing values while applying updates.
+ *
+ * @param base - The base theme to merge into
+ * @param updates - Optional partial theme updates to apply
+ * @returns The merged theme
+ */
+export function mergeThemes(
+  base: TenantTheme,
+  updates?: Partial<TenantTheme>,
+): TenantTheme {
+  if (!updates) return base;
+  return {
+    ...base,
+    ...updates,
+    colors: { ...base.colors, ...updates.colors },
+    borderRadius: { ...base.borderRadius, ...updates.borderRadius },
+    typography: { ...base.typography, ...updates.typography },
+    customProperties: { ...base.customProperties, ...updates.customProperties },
+  };
+}
+
 export interface CreateTenantOptions {
   hostname: string;
   tenantId?: string;
@@ -175,27 +199,7 @@ export async function createTenant(
   const defaultTheme = createDefaultTheme(finalTenantId);
 
   // Merge theme if partial config provided
-  // Deep merge all nested theme objects to preserve default values
-  const mergedTheme: TenantTheme = {
-    ...defaultTheme,
-    ...partialConfig?.theme,
-    colors: {
-      ...defaultTheme.colors,
-      ...partialConfig?.theme?.colors,
-    },
-    borderRadius: {
-      ...defaultTheme.borderRadius,
-      ...partialConfig?.theme?.borderRadius,
-    },
-    typography: {
-      ...defaultTheme.typography,
-      ...partialConfig?.theme?.typography,
-    },
-    customProperties: {
-      ...defaultTheme.customProperties,
-      ...partialConfig?.theme?.customProperties,
-    },
-  };
+  const mergedTheme = mergeThemes(defaultTheme, partialConfig?.theme);
 
   // Generate theme hash and CSS
   const themeHash = generateThemeHash(mergedTheme);
@@ -253,27 +257,7 @@ export async function createTenant(
 
   // If config exists but we want to update it, merge and save
   if (partialConfig) {
-    // Deep merge all nested theme objects to preserve existing values
-    const updatedTheme: TenantTheme = {
-      ...existingConfig.theme,
-      ...partialConfig.theme,
-      colors: {
-        ...existingConfig.theme.colors,
-        ...partialConfig.theme?.colors,
-      },
-      borderRadius: {
-        ...existingConfig.theme.borderRadius,
-        ...partialConfig.theme?.borderRadius,
-      },
-      typography: {
-        ...existingConfig.theme.typography,
-        ...partialConfig.theme?.typography,
-      },
-      customProperties: {
-        ...existingConfig.theme.customProperties,
-        ...partialConfig.theme?.customProperties,
-      },
-    };
+    const updatedTheme = mergeThemes(existingConfig.theme, partialConfig.theme);
 
     // Only regenerate CSS if theme has changed (hash comparison)
     const newThemeHash = generateThemeHash(updatedTheme);
@@ -339,29 +323,8 @@ export async function updateTenant(
     return null;
   }
 
-  // Merge theme updates - deep merge all nested objects to preserve existing values
-  const updatedTheme: TenantTheme = updates.theme
-    ? {
-        ...existing.theme,
-        ...updates.theme,
-        colors: {
-          ...existing.theme.colors,
-          ...updates.theme.colors,
-        },
-        borderRadius: {
-          ...existing.theme.borderRadius,
-          ...updates.theme.borderRadius,
-        },
-        typography: {
-          ...existing.theme.typography,
-          ...updates.theme.typography,
-        },
-        customProperties: {
-          ...existing.theme.customProperties,
-          ...updates.theme.customProperties,
-        },
-      }
-    : existing.theme;
+  // Merge theme updates using the utility function
+  const updatedTheme = mergeThemes(existing.theme, updates.theme);
 
   // Only regenerate CSS if theme has changed (hash comparison)
   const newThemeHash = generateThemeHash(updatedTheme);
