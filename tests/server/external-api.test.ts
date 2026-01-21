@@ -1,14 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { H3Event } from 'h3';
+import type { H3Event } from 'h3';
+import { createExternalApiError } from '../../server/utils/errors';
+
+// Create mock functions for h3 utilities
+const mockSendProxy = vi.fn();
+const mockReadRawBody = vi.fn();
 
 // Mock the errors module
 vi.mock('../../server/utils/errors', () => ({
   createExternalApiError: vi.fn((service: string, error?: Error) => {
     const h3Error = new Error(
       error?.message || `Error communicating with ${service}`,
-    );
-    (h3Error as any).statusCode = 502;
-    (h3Error as any).data = {
+    ) as Error & { statusCode: number; data: Record<string, unknown> };
+    h3Error.statusCode = 502;
+    h3Error.data = {
       code: 'EXTERNAL_API_ERROR',
       details: {
         service,
@@ -19,22 +24,13 @@ vi.mock('../../server/utils/errors', () => ({
   }),
 }));
 
-// Mock h3 functions
-const mockSendProxy = vi.fn();
-const mockReadRawBody = vi.fn();
-
-vi.mock('h3', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('h3')>();
-  return {
-    ...actual,
-    sendProxy: (...args: unknown[]) => mockSendProxy(...args),
-    readRawBody: (...args: unknown[]) => mockReadRawBody(...args),
-    defineEventHandler: (handler: (event: H3Event) => unknown) => handler,
-  };
-});
-
-// Import after mocks
-import { createExternalApiError } from '../../server/utils/errors';
+// Stub all Nuxt auto-imported globals
+vi.stubGlobal(
+  'defineEventHandler',
+  (handler: (event: H3Event) => unknown) => handler,
+);
+vi.stubGlobal('sendProxy', (...args: unknown[]) => mockSendProxy(...args));
+vi.stubGlobal('readRawBody', (...args: unknown[]) => mockReadRawBody(...args));
 
 describe('External API Proxy', () => {
   let handler: (event: H3Event) => Promise<unknown>;
