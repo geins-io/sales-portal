@@ -17,6 +17,8 @@ import * as Sentry from '@sentry/nuxt';
 const dsn = process.env.NUXT_PUBLIC_SENTRY_DSN || '';
 const environment = process.env.NODE_ENV || 'development';
 const isProduction = environment === 'production';
+// Disable console logging if SENTRY_SILENT is set to 'true'
+const silent = process.env.SENTRY_SILENT === 'true';
 
 // Only initialize Sentry if DSN is provided
 if (dsn) {
@@ -32,8 +34,8 @@ if (dsn) {
     // https://docs.sentry.io/platforms/javascript/configuration/options/#traces-sample-rate
     tracesSampleRate: isProduction ? 0.1 : 1.0,
 
-    // Only enable debug mode in development
-    debug: !isProduction,
+    // Only enable debug mode in development, unless silenced
+    debug: !silent && !isProduction,
 
     // Before sending events, filter out sensitive data
     beforeSend(event) {

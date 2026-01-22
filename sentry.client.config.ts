@@ -12,6 +12,8 @@ const config = useRuntimeConfig();
 const dsn = config.public.sentry?.dsn;
 const environment = config.public.environment || 'development';
 const isProduction = environment === 'production';
+// Disable console logging if SENTRY_SILENT is set to 'true'
+const silent = process.env.SENTRY_SILENT === 'true';
 
 // Only initialize Sentry if DSN is provided
 if (dsn) {
@@ -52,8 +54,8 @@ if (dsn) {
     replaysSessionSampleRate: isProduction ? 0.1 : 0,
     replaysOnErrorSampleRate: 1.0,
 
-    // Only enable debug mode in development
-    debug: !isProduction && import.meta.dev,
+    // Only enable debug mode in development, unless silenced
+    debug: !silent && !isProduction && import.meta.dev,
 
     // Ignore certain errors
     ignoreErrors: [
