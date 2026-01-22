@@ -58,8 +58,8 @@ export default defineNuxtConfig({
       driver: process.env.STORAGE_DRIVER || 'fs',
       redisUrl: process.env.REDIS_URL || '',
     },
-    // Health check secret for detailed metrics
-    healthCheckSecret: process.env.HEALTH_CHECK_SECRET || 'health-check-secret',
+    // Health check secret for detailed metrics (must be explicitly configured)
+    healthCheckSecret: process.env.HEALTH_CHECK_SECRET || '',
     // Public config (exposed to client)
     public: {
       // App information
