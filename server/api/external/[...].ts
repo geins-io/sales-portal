@@ -3,6 +3,9 @@ import { createExternalApiError } from '../../utils/errors';
 /** Default timeout for external API requests (30 seconds) */
 const EXTERNAL_API_TIMEOUT_MS = 30000;
 
+/** Headers that should be forwarded to the upstream API */
+const HEADERS_TO_FORWARD = ['content-type', 'accept', 'authorization'];
+
 export default defineEventHandler(async (event) => {
   // Remove the `/external/api` prefix from the path
   const targetPath = event.path.replace(/^\/api\/external\//, '');
@@ -15,15 +18,23 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Determine the request body when applicable
-    const requestBody = ['PATCH', 'POST', 'PUT', 'DELETE'].includes(event.method)
+    const requestBody = ['PATCH', 'POST', 'PUT', 'DELETE'].includes(
+      event.method,
+    )
       ? await readRawBody(event)
       : undefined;
 
+    // Build headers object by forwarding necessary headers from the incoming request
+    const proxyHeaders: Record<string, string> = {};
+    for (const header of HEADERS_TO_FORWARD) {
+      const value = getHeader(event, header);
+      if (value) {
+        proxyHeaders[header] = value;
+      }
+    }
+
     return await sendProxy(event, target, {
-      headers: {
-        // Add necessary request headers as needed
-        // e.g. `Cookie`, `Accept`, `Content-Type`, etc.
-      },
+      headers: proxyHeaders,
       fetchOptions: {
         method: event.method,
         body: requestBody,
