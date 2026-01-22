@@ -14,6 +14,14 @@ export default defineNuxtPlugin({
   name: 'tenant-theme',
   async setup() {
     const { data: tenantConfig } = await useApi<TenantConfig>('/api/config');
+    if (!tenantConfig.value?.isActive) {
+      throw showError({
+        statusCode: 404,
+        statusMessage: 'Page Not Found',
+        message: `The requested page could not be found. [${tenantConfig.value?.hostname}] , [${tenantConfig.value?.tenantId}]`,
+        fatal: true,
+      });
+    }
     useHead({
       titleTemplate: `%s - ${sanitizeTitle(tenantConfig.value?.tenantId)}`,
       htmlAttrs: { 'data-theme': tenantConfig.value?.theme?.name || 'default' },
