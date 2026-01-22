@@ -14,8 +14,6 @@ export default defineNuxtPlugin({
   name: 'tenant-theme',
   async setup() {
     const { data: tenantConfig } = await useApi<TenantConfig>('/api/config');
-    console.log('tenant-theme - tenantConfig', tenantConfig.value?.hostname);
-    console.log('tenant-theme - isActive', tenantConfig.value?.isActive);
     if (!tenantConfig.value?.isActive) {
       throw showError({
         statusCode: 404,

@@ -283,6 +283,16 @@ export async function createTenant(
   return existingConfig;
 }
 
+export async function createMockTenantConfig(tenantId: string): TenantConfig {
+  return await createTenant({
+    hostname: 'mock',
+    tenantId: tenantId,
+    config: {
+      isActive: true,
+    },
+  });
+}
+
 /**
  * Retrieves a tenant configuration from KV storage
  */
@@ -293,16 +303,23 @@ export async function getTenant(
   const autoCreate = useRuntimeConfig().autoCreateTenant;
   const storage = useStorage('kv');
   const config = await storage.getItem<TenantConfig>(tenantConfigKey(tenantId));
-  console.log('getTenant - config', tenantId, config);
 
   // development mode or auto-create tenant enabled, create a new tenant configuration
-  if (!config && (isDev || autoCreate)) {
-    const createdConfig = await createTenant({
-      hostname: tenantId,
+  if (!config) {
+    // get mock tenant config
+    if (isDev || autoCreate) {
+      return createMockTenantConfig(tenantId);
+    }
+    // create new tenant configuration
+    return await createTenant({
+      hostname: 'mock-inactive',
       tenantId: tenantId,
+      config: {
+        isActive: false,
+      },
     });
-    return createdConfig;
   }
+
   return config;
 }
 
