@@ -283,7 +283,9 @@ export async function createTenant(
   return existingConfig;
 }
 
-export async function createMockTenantConfig(tenantId: string): TenantConfig {
+export async function createMockTenantConfig(
+  tenantId: string,
+): Promise<TenantConfig> {
   return await createTenant({
     hostname: 'mock',
     tenantId: tenantId,
