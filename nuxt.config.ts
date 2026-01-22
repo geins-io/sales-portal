@@ -48,6 +48,9 @@ export default defineNuxtConfig({
    */
   runtimeConfig: {
     // Private server-side config (not exposed to client)
+    // Auto-create tenants for unknown hostnames (useful for local development)
+    // Override at runtime with NUXT_AUTO_CREATE_TENANT=true
+    autoCreateTenant: process.env.NUXT_AUTO_CREATE_TENANT === 'true',
     geins: {
       apiEndpoint:
         process.env.GEINS_API_ENDPOINT ||
