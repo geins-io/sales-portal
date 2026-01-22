@@ -5,6 +5,7 @@ import { createExternalApiError } from '../../server/utils/errors';
 // Create mock functions for h3 utilities
 const mockSendProxy = vi.fn();
 const mockReadRawBody = vi.fn();
+const mockGetHeader = vi.fn();
 
 // Mock the errors module
 vi.mock('../../server/utils/errors', () => ({
@@ -31,6 +32,7 @@ vi.stubGlobal(
 );
 vi.stubGlobal('sendProxy', (...args: unknown[]) => mockSendProxy(...args));
 vi.stubGlobal('readRawBody', (...args: unknown[]) => mockReadRawBody(...args));
+vi.stubGlobal('getHeader', (...args: unknown[]) => mockGetHeader(...args));
 
 describe('External API Proxy', () => {
   let handler: (event: H3Event) => Promise<unknown>;
@@ -40,8 +42,15 @@ describe('External API Proxy', () => {
       path: string;
       method: string;
       tenantId: string;
+      headers: Record<string, string>;
     }> = {},
   ): H3Event => {
+    const headers = overrides.headers || {};
+    // Set up mockGetHeader to return headers for this event
+    mockGetHeader.mockImplementation((_event: H3Event, headerName: string) => {
+      return headers[headerName.toLowerCase()] || undefined;
+    });
+
     return {
       path: overrides.path || '/api/external/products',
       method: overrides.method || 'GET',
@@ -275,6 +284,131 @@ describe('External API Proxy', () => {
         'https://api.app.com/test-tenant/search?q=test&page=1',
         expect.any(Object),
       );
+    });
+  });
+
+  describe('Header forwarding', () => {
+    it('should forward content-type header', async () => {
+      const event = createMockEvent({
+        path: '/api/external/products',
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+      });
+
+      await handler(event);
+
+      expect(mockSendProxy).toHaveBeenCalledWith(
+        event,
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'content-type': 'application/json',
+          }),
+        }),
+      );
+    });
+
+    it('should forward accept header', async () => {
+      const event = createMockEvent({
+        path: '/api/external/products',
+        headers: {
+          accept: 'application/json',
+        },
+      });
+
+      await handler(event);
+
+      expect(mockSendProxy).toHaveBeenCalledWith(
+        event,
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            accept: 'application/json',
+          }),
+        }),
+      );
+    });
+
+    it('should forward authorization header', async () => {
+      const event = createMockEvent({
+        path: '/api/external/products',
+        headers: {
+          authorization: 'Bearer test-token-123',
+        },
+      });
+
+      await handler(event);
+
+      expect(mockSendProxy).toHaveBeenCalledWith(
+        event,
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            authorization: 'Bearer test-token-123',
+          }),
+        }),
+      );
+    });
+
+    it('should forward multiple headers together', async () => {
+      const event = createMockEvent({
+        path: '/api/external/orders',
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json',
+          authorization: 'Bearer multi-header-token',
+        },
+      });
+
+      await handler(event);
+
+      expect(mockSendProxy).toHaveBeenCalledWith(
+        event,
+        expect.any(String),
+        expect.objectContaining({
+          headers: {
+            'content-type': 'application/json',
+            accept: 'application/json',
+            authorization: 'Bearer multi-header-token',
+          },
+        }),
+      );
+    });
+
+    it('should not include headers that are not present in the request', async () => {
+      const event = createMockEvent({
+        path: '/api/external/products',
+        headers: {
+          'content-type': 'application/json',
+          // No accept or authorization headers
+        },
+      });
+
+      await handler(event);
+
+      const callArgs = mockSendProxy.mock.calls[0];
+      const options = callArgs[2];
+      expect(options.headers).toEqual({
+        'content-type': 'application/json',
+      });
+      expect(options.headers).not.toHaveProperty('accept');
+      expect(options.headers).not.toHaveProperty('authorization');
+    });
+
+    it('should handle request with no headers to forward', async () => {
+      const event = createMockEvent({
+        path: '/api/external/products',
+        headers: {},
+      });
+
+      await handler(event);
+
+      const callArgs = mockSendProxy.mock.calls[0];
+      const options = callArgs[2];
+      expect(options.headers).toEqual({});
     });
   });
 });
