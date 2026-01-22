@@ -1,12 +1,20 @@
 {
   "mcpServers": {
-    "shadcnVue": {
-      "command": "npx",
-      "args": ["shadcn-vue@latest", "mcp"]
+    "Linear": {
+      "url": "https://mcp.linear.app/mcp",
+      "headers": {}
     },
     "Figma": {
       "url": "http://127.0.0.1:3845/mcp",
       "headers": {}
+    },
+    "Playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "shadcnVue": {
+      "command": "npx",
+      "args": ["shadcn-vue@latest", "mcp"]
     }
   }
 }

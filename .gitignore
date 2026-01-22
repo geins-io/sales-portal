@@ -2,6 +2,7 @@
 .prompts
 .temp
 .vscode
+.plans
 
 # Nuxt dev/build outputs
 .output
