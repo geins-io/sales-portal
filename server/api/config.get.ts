@@ -1,16 +1,11 @@
 import { createTenant, tenantConfigKey, getTenant } from '../utils/tenant';
 import { createTenantLogger } from '../utils/logger';
-import {
-  createTenantNotFoundError,
-  createTenantInactiveError,
-  withErrorHandling,
-} from '../utils/errors';
+import { createTenantInactiveError, withErrorHandling } from '../utils/errors';
 
 export default defineCachedEventHandler(
   async (event) => {
     const { id, hostname } = event.context.tenant;
     const log = createTenantLogger(id, hostname);
-    const runtimeConfig = useRuntimeConfig();
 
     return withErrorHandling(
       async () => {
@@ -20,10 +15,17 @@ export default defineCachedEventHandler(
 
         if (!config) {
           log.info('Tenant not found, creating default configuration');
-
+          const newConfig = await createTenant({
+            hostname: hostname,
+            tenantId: id,
+            config: {
+              isActive: false,
+            },
+          });
+          return newConfig;
           // Auto-create tenants in development OR when NUXT_AUTO_CREATE_TENANT=true
           // This allows local Docker testing without pre-configured tenants
-          const isDev = process.env.NODE_ENV === 'development';
+          /* const isDev = process.env.NODE_ENV === 'development';
           const autoCreate = runtimeConfig.autoCreateTenant;
 
           if (isDev || autoCreate) {
@@ -36,7 +38,7 @@ export default defineCachedEventHandler(
           }
 
           // In production without auto-create, throw a not found error
-          throw createTenantNotFoundError(hostname);
+          throw createTenantNotFoundError(hostname); */
         }
 
         // Check if tenant is active

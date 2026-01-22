@@ -289,8 +289,21 @@ export async function createTenant(
 export async function getTenant(
   tenantId: string,
 ): Promise<TenantConfig | null> {
+  const isDev = process.env.NODE_ENV === 'development';
+  const autoCreate = useRuntimeConfig().autoCreateTenant;
   const storage = useStorage('kv');
-  return storage.getItem<TenantConfig>(tenantConfigKey(tenantId));
+  const config = await storage.getItem<TenantConfig>(tenantConfigKey(tenantId));
+  console.log('getTenant - config', tenantId, config);
+
+  // development mode or auto-create tenant enabled, create a new tenant configuration
+  if (!config && (isDev || autoCreate)) {
+    const createdConfig = await createTenant({
+      hostname: tenantId,
+      tenantId: tenantId,
+    });
+    return createdConfig;
+  }
+  return config;
 }
 
 /**
