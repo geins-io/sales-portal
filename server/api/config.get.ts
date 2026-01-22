@@ -30,6 +30,9 @@ export default defineCachedEventHandler(
             const newConfig = await createTenant({
               hostname,
               tenantId: hostname,
+              config: {
+                isActive: false,
+              },
             });
             log.info('Created new tenant configuration');
             return newConfig;
