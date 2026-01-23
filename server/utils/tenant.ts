@@ -287,6 +287,12 @@ export async function fetchTenantConfig(
   tenantId: string,
 ): Promise<TenantConfig | null> {
   const config = useRuntimeConfig();
+
+  // Return null if tenant API is not configured
+  if (!config.geins.tenantApiUrl) {
+    return null;
+  }
+
   const response = await fetch(
     `${config.geins.tenantApiUrl}/tenant?tenantId=${tenantId}`,
     {
