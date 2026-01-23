@@ -55,6 +55,8 @@ export default defineNuxtConfig({
       apiEndpoint:
         process.env.GEINS_API_ENDPOINT ||
         'https://merchantapi.geins.io/graphql',
+      tenantApiUrl: process.env.GEINS_TENANT_API_URL || '',
+      tenantApiKey: process.env.GEINS_TENANT_API_KEY || '',
     },
     // Redis/KV configuration for production
     storage: {

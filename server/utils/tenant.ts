@@ -283,6 +283,25 @@ export async function createTenant(
   return existingConfig;
 }
 
+export async function fetchTenantConfig(
+  tenantId: string,
+): Promise<TenantConfig | null> {
+  const config = useRuntimeConfig();
+  const response = await fetch(
+    `${config.geins.tenantApiUrl}/tenant?tenantId=${tenantId}`,
+    {
+      headers: {
+        'x-api-key': config.geins.tenantApiKey,
+        'Content-Type': 'application/json',
+      },
+    },
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+  return response.json();
+}
 /**
  * Retrieves a tenant configuration from KV storage
  */
@@ -290,7 +309,23 @@ export async function getTenant(
   tenantId: string,
 ): Promise<TenantConfig | null> {
   const storage = useStorage('kv');
-  return storage.getItem<TenantConfig>(tenantConfigKey(tenantId));
+  const tenantConfig = await storage.getItem<TenantConfig>(
+    tenantConfigKey(tenantId),
+  );
+  if (!tenantConfig) {
+    const newTenantConfig = await fetchTenantConfig(tenantId);
+    if (!newTenantConfig) {
+      return null;
+    }
+    return {
+      ...newTenantConfig,
+      isActive: true,
+    };
+  }
+  if (!tenantConfig.isActive) {
+    return null;
+  }
+  return tenantConfig;
 }
 
 /**
