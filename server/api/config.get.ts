@@ -26,12 +26,12 @@ export default defineCachedEventHandler(
           const isDev = process.env.NODE_ENV === 'development';
           const autoCreate = runtimeConfig.autoCreateTenant;
 
-          if (isDev || autoCreate) {
+          if (isDev || autoCreate || hostname === 'localhost') {
             const newConfig = await createTenant({
               hostname,
               tenantId: hostname,
               config: {
-                isActive: false,
+                isActive: true,
               },
             });
             log.info('Created new tenant configuration');

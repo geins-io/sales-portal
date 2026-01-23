@@ -5,6 +5,8 @@
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
+    "clean": "rm -rf .nuxt .output .nitro node_modules/.cache",
+    "dev:clean": "pnpm clean && pnpm dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
