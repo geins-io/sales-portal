@@ -20,6 +20,12 @@ export default defineNuxtPlugin({
     useHead({
       titleTemplate: `%s - ${tenantConfig.value?.branding?.name}`,
       htmlAttrs: { 'data-theme': tenantConfig.value?.theme?.name || 'default' },
+      meta: [
+        {
+          name: 'version-x',
+          content: useRuntimeConfig().public.versionX as string,
+        },
+      ],
       style: [
         {
           innerHTML: () => sanitizeCustomCss(tenantConfig.value?.css),

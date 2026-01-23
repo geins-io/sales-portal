@@ -70,6 +70,7 @@ export default defineNuxtConfig({
       // App information
       appName: 'Sales Portal',
       appVersion: '1.0.0',
+      versionX: process.env.VERSION_X || 'n/a',
       commitSha: process.env.COMMIT_SHA || process.env.GITHUB_SHA || 'dev',
       // Environment
       environment:
