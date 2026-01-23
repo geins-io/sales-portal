@@ -35,11 +35,6 @@ on:
           # SUSPENDED during development phase:
           # - staging
           # - prod
-      branch:
-        description: 'Branch to deploy (e.g. main, feat/new-logo)'
-        required: false
-        default: 'main'
-        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -63,22 +58,16 @@ jobs:
           # Determine environment
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             ENV="${{ github.event.inputs.environment }}"
-            BRANCH="${{ github.event.inputs.branch }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             ENV="prod"
-            BRANCH="${{ github.ref_name }}"
           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             ENV="staging"
-            BRANCH="main"
           else
             ENV="dev"
-            BRANCH="${{ github.ref_name }}"
           fi
 
-          # Use provided branch or default to main
-          if [[ -z "$BRANCH" ]]; then
-            BRANCH="main"
-          fi
+          # Branch comes from "Use workflow from" dropdown
+          BRANCH="${{ github.ref_name }}"
 
           # Convert branch name to Docker tag format (replace / with -)
           # This matches docker/metadata-action's sanitization behavior
