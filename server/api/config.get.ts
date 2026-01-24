@@ -21,8 +21,6 @@ export default defineCachedEventHandler(
         if (!config) {
           log.info('Tenant not found, creating default configuration');
 
-          // Auto-create tenants in development OR when NUXT_AUTO_CREATE_TENANT=true
-          // This allows local Docker testing without pre-configured tenants
           const isDev = process.env.NODE_ENV === 'development';
           const autoCreate = runtimeConfig.autoCreateTenant;
 

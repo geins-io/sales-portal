@@ -102,6 +102,7 @@ export default defineNuxtConfig({
       // App metadata (typically not overridden)
       appName: 'Sales Portal',
       appVersion: '1.0.1',
+      versionX: 'n/a',
 
       // Build info - set by GitHub Actions during build, not in Azure
       commitSha: process.env.GITHUB_SHA || 'dev',
