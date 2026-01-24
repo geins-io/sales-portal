@@ -49,12 +49,30 @@ interface HealthResponseMinimal {
 interface HealthResponseDetailed extends HealthResponseMinimal {
   version: string;
   commitSha: string;
-  environment: string;
   uptime: number;
+  environment: string;
+  environmentVariables?: Record<string, unknown>;
   checks: {
     storage?: ComponentHealth;
     memory?: ComponentHealth;
   };
+}
+
+async function getEnvironment(): Promise<string> {
+  const config = useRuntimeConfig();
+  return config.public.environment as string;
+}
+
+async function getEnvironmentVariables(): Promise<Record<string, unknown>> {
+  const config = useRuntimeConfig();
+  // Return public runtime config and sanitized private config
+  // Note: config.public contains client-safe values, private values are directly on config
+  const environmentVariables: Record<string, unknown> = {
+    public: config.public,
+    // Include existence/type info for private config (not the values themselves for security)
+    privateConfigKeys: Object.keys(config).filter((key) => key !== 'public'),
+  };
+  return environmentVariables;
 }
 
 /**
@@ -90,11 +108,18 @@ async function checkStorage(): Promise<ComponentHealth> {
       };
     }
 
+    // get number of items in the storage
+    const storageKeys = await storage.keys();
+
+    const storageItems = storageKeys.length;
+
     return {
       status: 'healthy',
       latency,
       details: {
         driver: storageDriver,
+        storageItems: storageItems,
+        storageKeys,
       },
     };
   } catch (error) {
@@ -265,14 +290,18 @@ export default defineEventHandler(
       };
     }
 
+    const environment = await getEnvironment();
+    const environmentVariables = await getEnvironmentVariables();
+
     // Return detailed response for authorized requests
     return {
       status: overallStatus,
       timestamp,
       version: config.public.appVersion as string,
       commitSha: config.public.commitSha as string,
-      environment: config.public.environment as string,
       uptime: Math.round(process.uptime()),
+      environment: environment,
+      environmentVariables,
       checks,
     };
   },
