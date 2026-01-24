@@ -281,17 +281,18 @@ export default defineEventHandler(
         },
       });
     }
+    const environment = await getEnvironment();
+    const environmentVariables = await getEnvironmentVariables();
 
     // Return minimal response for public requests
     if (!isAuthorized) {
       return {
         status: overallStatus,
+        environment: environment,
+        environmentVariables: environmentVariables,
         timestamp,
       };
     }
-
-    const environment = await getEnvironment();
-    const environmentVariables = await getEnvironmentVariables();
 
     // Return detailed response for authorized requests
     return {
