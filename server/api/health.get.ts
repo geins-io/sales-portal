@@ -65,11 +65,12 @@ async function getEnvironment(): Promise<string> {
 
 async function getEnvironmentVariables(): Promise<Record<string, unknown>> {
   const config = useRuntimeConfig();
-  // add all environment variables form nuxt config to the record
-  const environmentVariables = {
-    ...config.public,
-    ...config.server,
-    ...config.runtime,
+  // Return public runtime config and sanitized private config
+  // Note: config.public contains client-safe values, private values are directly on config
+  const environmentVariables: Record<string, unknown> = {
+    public: config.public,
+    // Include existence/type info for private config (not the values themselves for security)
+    privateConfigKeys: Object.keys(config).filter((key) => key !== 'public'),
   };
   return environmentVariables;
 }
