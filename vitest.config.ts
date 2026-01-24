@@ -7,6 +7,8 @@ export default defineVitestConfig({
     pool: 'threads',
     // Global test settings
     globals: true,
+    // Setup file to mock API endpoints
+    setupFiles: ['./tests/setup.ts'],
     // Coverage configuration
     coverage: {
       provider: 'v8',
@@ -22,6 +24,11 @@ export default defineVitestConfig({
     // Include patterns (unit and component tests)
     include: ['tests/**/*.test.{ts,js}'],
     // Exclude patterns (E2E tests use Playwright, not Vitest)
-    exclude: ['**/node_modules/**', '**/.nuxt/**', '**/dist/**', 'tests/e2e/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/.nuxt/**',
+      '**/dist/**',
+      'tests/e2e/**',
+    ],
   },
 });

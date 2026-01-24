@@ -5,11 +5,6 @@ const sanitizeCustomCss = (css: string | undefined) => {
   return css.replace(/<style>|<\/style>/gi, '').trim();
 };
 
-const sanitizeTitle = (title: string | undefined) => {
-  if (!title) return '';
-  return title;
-};
-
 export default defineNuxtPlugin({
   name: 'tenant-theme',
   async setup() {
@@ -23,8 +18,14 @@ export default defineNuxtPlugin({
       });
     }
     useHead({
-      titleTemplate: `%s - ${sanitizeTitle(tenantConfig.value?.tenantId)}`,
+      titleTemplate: `%s - ${tenantConfig.value?.branding?.name}`,
       htmlAttrs: { 'data-theme': tenantConfig.value?.theme?.name || 'default' },
+      meta: [
+        {
+          name: 'version-x',
+          content: useRuntimeConfig().public.versionX as string,
+        },
+      ],
       style: [
         {
           innerHTML: () => sanitizeCustomCss(tenantConfig.value?.css),

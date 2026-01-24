@@ -55,6 +55,8 @@ export default defineNuxtConfig({
       apiEndpoint:
         process.env.GEINS_API_ENDPOINT ||
         'https://merchantapi.geins.io/graphql',
+      tenantApiUrl: process.env.GEINS_TENANT_API_URL || '',
+      tenantApiKey: process.env.GEINS_TENANT_API_KEY || '',
     },
     // Redis/KV configuration for production
     storage: {
@@ -68,6 +70,7 @@ export default defineNuxtConfig({
       // App information
       appName: 'Sales Portal',
       appVersion: '1.0.0',
+      versionX: process.env.VERSION_X || 'n/a',
       commitSha: process.env.COMMIT_SHA || process.env.GITHUB_SHA || 'dev',
       // Environment
       environment:
