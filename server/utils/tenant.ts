@@ -323,10 +323,13 @@ export async function getTenant(
     if (!newTenantConfig) {
       return null;
     }
-    return {
+    // Cache the fetched config in KV storage
+    const configToCache: TenantConfig = {
       ...newTenantConfig,
       isActive: true,
     };
+    await storage.setItem(tenantConfigKey(tenantId), configToCache);
+    return configToCache;
   }
   if (!tenantConfig.isActive) {
     return null;
