@@ -53,20 +53,12 @@ param enableAnalytics bool = false
 @allowed(['debug', 'info', 'warn', 'error'])
 param logLevel string = 'info'
 
-// Sentry configuration (optional)
-@description('Sentry DSN for error tracking (optional)')
+// Sentry configuration
+// NOTE: Only SENTRY_DSN is needed at runtime. SENTRY_ORG, SENTRY_PROJECT, and
+// SENTRY_AUTH_TOKEN are build-time only (for source map uploads in GitHub Actions).
+@description('Sentry DSN for error tracking (runtime)')
 @secure()
 param sentryDsn string = ''
-
-@description('Sentry organization slug (optional)')
-param sentryOrg string = ''
-
-@description('Sentry project slug (optional)')
-param sentryProject string = ''
-
-@description('Sentry auth token for source maps (optional)')
-@secure()
-param sentryAuthToken string = ''
 
 // Monitoring configuration
 @description('Enable Application Insights monitoring')
@@ -167,11 +159,8 @@ module webApp 'modules/webApp.bicep' = {
     redisUrl: redisUrl
     enableAnalytics: enableAnalytics
     logLevel: logLevel
-    // Sentry configuration (optional)
+    // Sentry (runtime only - build-time vars are in GitHub Actions)
     sentryDsn: sentryDsn
-    sentryOrg: sentryOrg
-    sentryProject: sentryProject
-    sentryAuthToken: sentryAuthToken
     // Application Insights connection
     appInsightsConnectionString: enableMonitoring ? monitoring.outputs.connectionString : ''
     appInsightsInstrumentationKey: enableMonitoring ? monitoring.outputs.instrumentationKey : ''

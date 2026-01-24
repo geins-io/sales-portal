@@ -53,20 +53,11 @@ param enableAnalytics bool
 @description('Log level')
 param logLevel string
 
-// Sentry configuration (optional)
-@description('Sentry DSN for error tracking')
+// Sentry configuration
+// NOTE: Only DSN is needed at runtime. Org/Project/AuthToken are build-time only.
+@description('Sentry DSN for error tracking (runtime)')
 @secure()
 param sentryDsn string = ''
-
-@description('Sentry organization slug')
-param sentryOrg string = ''
-
-@description('Sentry project slug')
-param sentryProject string = ''
-
-@description('Sentry auth token for source maps')
-@secure()
-param sentryAuthToken string = ''
 
 // Monitoring settings
 @description('Application Insights connection string')
@@ -149,42 +140,37 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'NODE_ENV'
           value: nodeEnv
         }
+        // ─────────────────────────────────────────────────────────────────────
+        // NUXT RUNTIME CONFIG OVERRIDES
+        // These MUST use NUXT_ prefix for Nuxt to pick them up at runtime.
+        // See: nuxt.config.ts runtimeConfig section for the full mapping.
+        // ─────────────────────────────────────────────────────────────────────
         {
-          name: 'GEINS_API_ENDPOINT'
+          name: 'NUXT_GEINS_API_ENDPOINT'
           value: geinsApiEndpoint
         }
         {
-          name: 'STORAGE_DRIVER'
+          name: 'NUXT_STORAGE_DRIVER'
           value: storageDriver
         }
         {
-          name: 'REDIS_URL'
+          name: 'NUXT_STORAGE_REDIS_URL'
           value: redisUrl
         }
         {
-          name: 'NUXT_PUBLIC_ENABLE_ANALYTICS'
+          name: 'NUXT_PUBLIC_FEATURES_ANALYTICS'
           value: string(enableAnalytics)
         }
         {
           name: 'LOG_LEVEL'
           value: logLevel
         }
-        // Sentry Configuration (optional - only set if DSN is provided)
+        // Sentry Configuration
+        // NUXT_PUBLIC_SENTRY_DSN = runtime (client error tracking)
+        // SENTRY_* = build-time only (source map uploads) - not needed in Azure
         {
           name: 'NUXT_PUBLIC_SENTRY_DSN'
           value: sentryDsn
-        }
-        {
-          name: 'SENTRY_ORG'
-          value: sentryOrg
-        }
-        {
-          name: 'SENTRY_PROJECT'
-          value: sentryProject
-        }
-        {
-          name: 'SENTRY_AUTH_TOKEN'
-          value: sentryAuthToken
         }
         // Application Insights Configuration
         {
@@ -265,42 +251,35 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
           name: 'NODE_ENV'
           value: 'production'
         }
+        // ─────────────────────────────────────────────────────────────────────
+        // NUXT RUNTIME CONFIG OVERRIDES
+        // These MUST use NUXT_ prefix for Nuxt to pick them up at runtime.
+        // See: nuxt.config.ts runtimeConfig section for the full mapping.
+        // ─────────────────────────────────────────────────────────────────────
         {
-          name: 'GEINS_API_ENDPOINT'
+          name: 'NUXT_GEINS_API_ENDPOINT'
           value: geinsApiEndpoint
         }
         {
-          name: 'STORAGE_DRIVER'
+          name: 'NUXT_STORAGE_DRIVER'
           value: storageDriver
         }
         {
-          name: 'REDIS_URL'
+          name: 'NUXT_STORAGE_REDIS_URL'
           value: redisUrl
         }
         {
-          name: 'NUXT_PUBLIC_ENABLE_ANALYTICS'
+          name: 'NUXT_PUBLIC_FEATURES_ANALYTICS'
           value: string(enableAnalytics)
         }
         {
           name: 'LOG_LEVEL'
           value: logLevel
         }
-        // Sentry Configuration (optional - only set if DSN is provided)
+        // Sentry Configuration
         {
           name: 'NUXT_PUBLIC_SENTRY_DSN'
           value: sentryDsn
-        }
-        {
-          name: 'SENTRY_ORG'
-          value: sentryOrg
-        }
-        {
-          name: 'SENTRY_PROJECT'
-          value: sentryProject
-        }
-        {
-          name: 'SENTRY_AUTH_TOKEN'
-          value: sentryAuthToken
         }
         // Application Insights Configuration
         {

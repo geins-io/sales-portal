@@ -41,53 +41,92 @@ export default defineNuxtConfig({
   css: ['~/assets/css/tailwind.css', '~/assets/css/themes.css'],
 
   /**
-   * Runtime configuration
-   * These values can be overridden using environment variables:
-   * - NUXT_PUBLIC_* for public config
-   * - NUXT_* for private server-side config
+   * ============================================================================
+   * RUNTIME CONFIGURATION
+   * ============================================================================
+   *
+   * All values below can be overridden at RUNTIME using environment variables.
+   * Nuxt automatically maps config keys to env vars:
+   *
+   *   runtimeConfig.someKey         → NUXT_SOME_KEY
+   *   runtimeConfig.nested.key      → NUXT_NESTED_KEY
+   *   runtimeConfig.public.someKey  → NUXT_PUBLIC_SOME_KEY
+   *
+   * ┌─────────────────────────────────────────────────────────────────────────┐
+   * │ WHERE TO SET ENVIRONMENT VARIABLES                                      │
+   * ├─────────────────────────────────────────────────────────────────────────┤
+   * │ AZURE APP SERVICE (runtime)     │ GITHUB SECRETS (build-time only)     │
+   * │ ─────────────────────────────── │ ──────────────────────────────────── │
+   * │ NUXT_AUTO_CREATE_TENANT         │ SENTRY_AUTH_TOKEN                    │
+   * │ NUXT_GEINS_API_ENDPOINT         │ SENTRY_ORG                           │
+   * │ NUXT_GEINS_TENANT_API_URL       │ SENTRY_PROJECT                       │
+   * │ NUXT_GEINS_TENANT_API_KEY       │                                      │
+   * │ NUXT_STORAGE_DRIVER             │                                      │
+   * │ NUXT_STORAGE_REDIS_URL          │                                      │
+   * │ NUXT_HEALTH_CHECK_SECRET        │                                      │
+   * │ NUXT_PUBLIC_SENTRY_DSN          │                                      │
+   * │ NUXT_PUBLIC_FEATURES_ANALYTICS  │                                      │
+   * └─────────────────────────────────────────────────────────────────────────┘
+   *
+   * NOTE: Values set here are defaults. Azure env vars override them at runtime.
+   * Do NOT use process.env here - let Nuxt handle the mapping automatically.
    */
   runtimeConfig: {
-    // Private server-side config (not exposed to client)
-    // Auto-create tenants for unknown hostnames (useful for local development)
-    // Override at runtime with NUXT_AUTO_CREATE_TENANT=true
-    autoCreateTenant: process.env.NUXT_AUTO_CREATE_TENANT === 'true',
+    // ── Private Config (server-side only, not exposed to client) ────────────
+
+    // Auto-create tenants for unknown hostnames
+    // Azure: NUXT_AUTO_CREATE_TENANT=true
+    autoCreateTenant: false,
+
+    // Geins API configuration
+    // Azure: NUXT_GEINS_API_ENDPOINT, NUXT_GEINS_TENANT_API_URL, NUXT_GEINS_TENANT_API_KEY
     geins: {
-      apiEndpoint:
-        process.env.GEINS_API_ENDPOINT ||
-        'https://merchantapi.geins.io/graphql',
-      tenantApiUrl: process.env.GEINS_TENANT_API_URL || '',
-      tenantApiKey: process.env.GEINS_TENANT_API_KEY || '',
+      apiEndpoint: 'https://merchantapi.geins.io/graphql',
+      tenantApiUrl: '',
+      tenantApiKey: '',
     },
-    // Redis/KV configuration for production
+
+    // Storage configuration (memory for dev, redis for production)
+    // Azure: NUXT_STORAGE_DRIVER=redis, NUXT_STORAGE_REDIS_URL=redis://...
     storage: {
-      driver: process.env.STORAGE_DRIVER || 'memory',
-      redisUrl: process.env.REDIS_URL || '',
+      driver: 'memory',
+      redisUrl: '',
     },
-    // Health check secret for detailed metrics (must be explicitly configured)
-    healthCheckSecret: process.env.HEALTH_CHECK_SECRET || '',
-    // Public config (exposed to client)
+
+    // Secret for accessing detailed health check metrics
+    // Azure: NUXT_HEALTH_CHECK_SECRET=your-secret-here
+    healthCheckSecret: '',
+
+    // ── Public Config (exposed to client) ───────────────────────────────────
     public: {
-      // App information
+      // App metadata (typically not overridden)
       appName: 'Sales Portal',
       appVersion: '1.0.1',
-      versionX: process.env.VERSION_X || 'n/a',
-      commitSha: process.env.COMMIT_SHA || process.env.GITHUB_SHA || 'dev',
-      // Environment
+
+      // Build info - set by GitHub Actions during build, not in Azure
+      commitSha: process.env.GITHUB_SHA || 'dev',
+
+      // Environment detection
       environment:
         (process.env.NODE_ENV as 'development' | 'production' | 'test') ||
         'development',
+
       // Feature flags
+      // Azure: NUXT_PUBLIC_FEATURES_ANALYTICS=true
       features: {
-        analytics: process.env.NUXT_PUBLIC_ENABLE_ANALYTICS === 'true',
+        analytics: false,
       },
-      // API configuration
+
+      // Client API configuration (usually no need to override)
       api: {
-        baseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '/api',
-        timeout: parseInt(process.env.NUXT_PUBLIC_API_TIMEOUT || '30000', 10),
+        baseUrl: '/api',
+        timeout: 30000,
       },
-      // Sentry configuration
+
+      // Sentry error tracking (client-side)
+      // Azure: NUXT_PUBLIC_SENTRY_DSN=https://xxx@sentry.io/xxx
       sentry: {
-        dsn: process.env.NUXT_PUBLIC_SENTRY_DSN || '',
+        dsn: '',
       },
     },
   },

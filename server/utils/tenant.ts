@@ -288,6 +288,27 @@ export async function fetchTenantConfig(
 ): Promise<TenantConfig | null> {
   const config = useRuntimeConfig();
 
+  // DEBUG: ALWAYS RETURN NULL FOR NOW
+  const mockConfig: TenantConfig = {
+    tenantId: tenantId,
+    hostname: tenantId,
+    theme: createDefaultTheme(tenantId),
+    css: '',
+    themeHash: '',
+    branding: {
+      name: tenantId,
+    },
+    features: {
+      search: true,
+      authentication: true,
+      cart: true,
+    },
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  return mockConfig;
+
   // Return null if tenant API is not configured
   if (!config.geins.tenantApiUrl) {
     return null;

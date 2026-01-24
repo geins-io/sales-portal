@@ -125,6 +125,13 @@ jobs:
         with:
           resourceGroupName: ${{ needs.prepare.outputs.resource_group }}
           template: ./infra/main.bicep
+          # ─────────────────────────────────────────────────────────────────────
+          # BICEP PARAMETERS
+          # These values become Azure App Settings via the webApp.bicep module.
+          # 
+          # GitHub Variables (vars.*) = non-sensitive, visible in repo settings
+          # GitHub Secrets (secrets.*) = sensitive, encrypted
+          # ─────────────────────────────────────────────────────────────────────
           parameters: >-
             environment=${{ needs.prepare.outputs.environment }}
             containerImage=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}
@@ -136,9 +143,6 @@ jobs:
             enableAnalytics=${{ vars.ENABLE_ANALYTICS || 'false' }}
             logLevel=${{ vars.LOG_LEVEL || 'info' }}
             sentryDsn=${{ secrets.SENTRY_DSN }}
-            sentryOrg=${{ vars.SENTRY_ORG }}
-            sentryProject=${{ vars.SENTRY_PROJECT }}
-            sentryAuthToken=${{ secrets.SENTRY_AUTH_TOKEN }}
           failOnStdErr: false
 
       - name: Get deployment outputs

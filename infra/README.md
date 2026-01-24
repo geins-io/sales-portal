@@ -414,18 +414,109 @@ pnpm infra:validate -- --env dev
 | Staging     | S1 (Standard)    | 1         | Production-like testing       |
 | Prod        | P1v3 (Premium)   | 2         | Zone redundancy, staging slot |
 
-### Application Settings
+## Environment Variables - Complete Reference
+
+This is the single source of truth for all environment variables. Understanding where to set each variable is critical for the application to work correctly.
+
+### The Two Places to Set Variables
+
+| Location                     | When Used          | What Goes Here                                  |
+| ---------------------------- | ------------------ | ----------------------------------------------- |
+| **GitHub Secrets/Variables** | During CI/CD build | Build-time secrets, deployment parameters       |
+| **Azure App Service**        | When app runs      | Set automatically by Bicep (don't set manually) |
+
+### Complete Variable Reference
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     ENVIRONMENT VARIABLES CHEAT SHEET                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  GITHUB SECRETS (Repository Settings → Secrets → Actions)                   │
+│  ─────────────────────────────────────────────────────────                  │
+│  These are sensitive values that should never be exposed:                   │
+│                                                                              │
+│    AZURE_CLIENT_ID ........... Service Principal App ID                     │
+│    AZURE_TENANT_ID ........... Azure AD Tenant ID                           │
+│    AZURE_SUBSCRIPTION_ID ..... Target subscription                          │
+│    REDIS_URL ................. Redis connection string (if using Redis)     │
+│    SENTRY_DSN ................ Sentry DSN for error tracking                │
+│    SENTRY_AUTH_TOKEN ......... Sentry token (BUILD-TIME ONLY, for sourcemaps)│
+│                                                                              │
+│  GITHUB VARIABLES (Repository Settings → Variables → Actions)               │
+│  ─────────────────────────────────────────────────────────                  │
+│  These are non-sensitive configuration values:                              │
+│                                                                              │
+│    GEINS_API_ENDPOINT ........ Default: https://api.geins.io/graphql        │
+│    STORAGE_DRIVER ............ Default: fs (options: fs, redis)             │
+│    ENABLE_ANALYTICS .......... Default: false                               │
+│    LOG_LEVEL ................. Default: info                                │
+│    SENTRY_ORG ................ Sentry org slug (BUILD-TIME ONLY)            │
+│    SENTRY_PROJECT ............ Sentry project slug (BUILD-TIME ONLY)        │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  AZURE APP SERVICE (Set automatically by Bicep - DO NOT set manually)       │
+│  ─────────────────────────────────────────────────────────────────────      │
+│  The deploy.yml workflow passes GitHub values to Bicep, which sets these    │
+│  in Azure with the correct NUXT_ prefix for Nuxt runtime override:          │
+│                                                                              │
+│    NUXT_GEINS_API_ENDPOINT         ← from GEINS_API_ENDPOINT                │
+│    NUXT_STORAGE_DRIVER             ← from STORAGE_DRIVER                    │
+│    NUXT_STORAGE_REDIS_URL          ← from REDIS_URL                         │
+│    NUXT_PUBLIC_FEATURES_ANALYTICS  ← from ENABLE_ANALYTICS                  │
+│    NUXT_PUBLIC_SENTRY_DSN          ← from SENTRY_DSN                        │
+│                                                                              │
+│  These are set directly by Bicep (not from GitHub):                         │
+│                                                                              │
+│    NODE_ENV .................. dev=development, staging/prod=production     │
+│    NITRO_HOST ................ 0.0.0.0 (required for Azure)                 │
+│    NITRO_PORT ................ 3000                                         │
+│    WEBSITES_PORT ............. 3000                                         │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Why NUXT\_ Prefix Matters
+
+Nuxt 3 uses a specific naming convention for runtime config overrides:
+
+```
+nuxt.config.ts                    Azure Environment Variable
+─────────────────────────────     ─────────────────────────────
+runtimeConfig.geins.apiEndpoint → NUXT_GEINS_API_ENDPOINT
+runtimeConfig.storage.driver    → NUXT_STORAGE_DRIVER
+runtimeConfig.storage.redisUrl  → NUXT_STORAGE_REDIS_URL
+runtimeConfig.public.sentry.dsn → NUXT_PUBLIC_SENTRY_DSN
+```
+
+**Without the `NUXT_` prefix, Nuxt ignores the variable at runtime!**
+
+This is handled automatically by the Bicep templates - you set `GEINS_API_ENDPOINT` in GitHub, and Bicep converts it to `NUXT_GEINS_API_ENDPOINT` in Azure.
+
+### Build-Time vs Runtime Variables
+
+| Variable             | Build-Time | Runtime | Notes                                                 |
+| -------------------- | :--------: | :-----: | ----------------------------------------------------- |
+| `SENTRY_AUTH_TOKEN`  |     ✅     |   ❌    | Only needed to upload source maps during Docker build |
+| `SENTRY_ORG`         |     ✅     |   ❌    | Only needed to upload source maps during Docker build |
+| `SENTRY_PROJECT`     |     ✅     |   ❌    | Only needed to upload source maps during Docker build |
+| `SENTRY_DSN`         |     ❌     |   ✅    | Needed at runtime for error tracking                  |
+| `GEINS_API_ENDPOINT` |     ❌     |   ✅    | API endpoint used when app runs                       |
+| `REDIS_URL`          |     ❌     |   ✅    | Database connection used when app runs                |
+
+### Application Settings (Legacy Reference)
 
 All environments receive these settings via Bicep parameters:
 
-| Setting                        | Description                                        | Scope           |
-| ------------------------------ | -------------------------------------------------- | --------------- |
-| `NODE_ENV`                     | `development` (dev) / `production` (staging, prod) | Per-environment |
-| `GEINS_API_ENDPOINT`           | Geins GraphQL endpoint                             | Shared          |
-| `STORAGE_DRIVER`               | `fs` (dev) / `redis` (staging, prod)               | Per-environment |
-| `REDIS_URL`                    | Redis connection string                            | Per-environment |
-| `NUXT_PUBLIC_ENABLE_ANALYTICS` | Analytics flag                                     | Shared          |
-| `LOG_LEVEL`                    | Logging verbosity                                  | Shared          |
+| Setting                          | Description                                        | Scope           |
+| -------------------------------- | -------------------------------------------------- | --------------- |
+| `NODE_ENV`                       | `development` (dev) / `production` (staging, prod) | Per-environment |
+| `NUXT_GEINS_API_ENDPOINT`        | Geins GraphQL endpoint                             | Shared          |
+| `NUXT_STORAGE_DRIVER`            | `fs` (dev) / `redis` (staging, prod)               | Per-environment |
+| `NUXT_STORAGE_REDIS_URL`         | Redis connection string                            | Per-environment |
+| `NUXT_PUBLIC_FEATURES_ANALYTICS` | Analytics flag                                     | Shared          |
+| `LOG_LEVEL`                      | Logging verbosity                                  | Shared          |
 
 ## Re-running Setup
 
