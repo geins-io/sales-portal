@@ -69,6 +69,7 @@ async function getEnvironmentVariables(): Promise<Record<string, unknown>> {
   // Note: config.public contains client-safe values, private values are directly on config
   const environmentVariables: Record<string, unknown> = {
     public: config.public,
+    private: config,
     // Include existence/type info for private config (not the values themselves for security)
     privateConfigKeys: Object.keys(config).filter((key) => key !== 'public'),
   };
