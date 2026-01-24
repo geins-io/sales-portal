@@ -60,7 +60,7 @@ export default defineNuxtConfig({
     },
     // Redis/KV configuration for production
     storage: {
-      driver: process.env.STORAGE_DRIVER || 'fs',
+      driver: process.env.STORAGE_DRIVER || 'memory',
       redisUrl: process.env.REDIS_URL || '',
     },
     // Health check secret for detailed metrics (must be explicitly configured)
