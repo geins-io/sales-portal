@@ -37,21 +37,34 @@ param ghcrToken string = ''
 
 // Application configuration
 @description('Geins API Endpoint')
-param geinsApiEndpoint string = 'https://api.geins.io/graphql'
+param geinsApiEndpoint string = ''
 
-@description('Storage driver (fs or redis)')
-param storageDriver string = 'fs'
+@description('Geins Tenant API URL')
+param geinsTenantApiUrl string = ''
+
+@description('Geins Tenant API Key')
+@secure()
+param geinsTenantApiKey string = ''
+
+@description('Health Check Secret')
+@secure()
+param healthCheckSecret string = ''
+
+@description('Storage driver (memory, fs, or redis)')
+param storageDriver string = ''
 
 @description('Redis URL for production storage')
 @secure()
 param redisUrl string = ''
 
 @description('Enable analytics')
-param enableAnalytics bool = false
+param enableAnalytics string = ''
 
 @description('Log level')
-@allowed(['debug', 'info', 'warn', 'error'])
 param logLevel string = 'info'
+
+@description('Version X code')
+param versionX string = ''
 
 // Sentry configuration
 // NOTE: Only SENTRY_DSN is needed at runtime. SENTRY_ORG, SENTRY_PROJECT, and
@@ -155,10 +168,14 @@ module webApp 'modules/webApp.bicep' = {
     tags: tags
     // Application settings
     geinsApiEndpoint: geinsApiEndpoint
+    geinsTenantApiUrl: geinsTenantApiUrl
+    geinsTenantApiKey: geinsTenantApiKey
+    healthCheckSecret: healthCheckSecret
     storageDriver: storageDriver
     redisUrl: redisUrl
     enableAnalytics: enableAnalytics
     logLevel: logLevel
+    versionX: versionX
     // Sentry (runtime only - build-time vars are in GitHub Actions)
     sentryDsn: sentryDsn
     // Application Insights connection

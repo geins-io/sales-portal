@@ -48,7 +48,7 @@ param storageDriver string
 param redisUrl string
 
 @description('Enable analytics')
-param enableAnalytics bool
+param enableAnalytics string
 
 @description('Log level')
 param logLevel string
@@ -189,7 +189,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         {
           name: 'NUXT_PUBLIC_FEATURES_ANALYTICS'
-          value: string(enableAnalytics)
+          value: enableAnalytics
         }
         {
           name: 'LOG_LEVEL'
@@ -300,7 +300,7 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
         }
         {
           name: 'NUXT_PUBLIC_FEATURES_ANALYTICS'
-          value: string(enableAnalytics)
+          value: enableAnalytics
         }
         {
           name: 'LOG_LEVEL'
