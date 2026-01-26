@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'crypto';
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 
 /**
  * Context information for log entries
@@ -71,6 +71,7 @@ const AI_SEVERITY_LEVELS: Record<LogLevel, number> = {
   info: 1, // Information
   warn: 2, // Warning
   error: 3, // Error (4 = Critical, but we use 3 for general errors)
+  silent: 4, // No logging
 };
 
 /**
@@ -78,7 +79,7 @@ const AI_SEVERITY_LEVELS: Record<LogLevel, number> = {
  */
 function getLogLevel(): LogLevel {
   const level = process.env.LOG_LEVEL?.toLowerCase();
-  if (level && ['debug', 'info', 'warn', 'error'].includes(level)) {
+  if (level && ['debug', 'info', 'warn', 'error', 'silent'].includes(level)) {
     return level as LogLevel;
   }
   return process.env.NODE_ENV === 'development' ? 'debug' : 'info';
@@ -89,6 +90,7 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   info: 1,
   warn: 2,
   error: 3,
+  silent: 4,
 };
 
 /**
@@ -110,6 +112,7 @@ function formatLogEntry(entry: LogEntry): string {
       info: '\x1b[32m', // Green
       warn: '\x1b[33m', // Yellow
       error: '\x1b[31m', // Red
+      silent: '\x1b[0m', // No color (never used)
     };
     const reset = '\x1b[0m';
     const color = levelColors[entry.level];

@@ -298,14 +298,16 @@ The `server/api/external/[...].ts` handler proxies requests to external APIs wit
 
 See `.env.example` for all available environment variables:
 
-| Variable              | Description                            | Default                        |
-| --------------------- | -------------------------------------- | ------------------------------ |
-| `NODE_ENV`            | Environment mode                       | `development`                  |
-| `GEINS_API_ENDPOINT`  | Geins GraphQL endpoint                 | `https://api.geins.io/graphql` |
-| `STORAGE_DRIVER`      | KV storage driver                      | `fs`                           |
-| `REDIS_URL`           | Redis connection URL                   | -                              |
-| `LOG_LEVEL`           | Logging verbosity                      | `info`                         |
-| `HEALTH_CHECK_SECRET` | Secret key for detailed health metrics | -                              |
+| Variable               | Description                                     | Default                        |
+| ---------------------- | ----------------------------------------------- | ------------------------------ |
+| `NODE_ENV`             | Environment mode                                | `development`                  |
+| `GEINS_API_ENDPOINT`   | Geins GraphQL endpoint                          | `https://api.geins.io/graphql` |
+| `GEINS_TENANT_API_URL` | Geins Tenant API URL (server-only)              | -                              |
+| `GEINS_TENANT_API_KEY` | Geins Tenant API key (server-only)              | -                              |
+| `STORAGE_DRIVER`       | KV storage driver                               | `fs`                           |
+| `REDIS_URL`            | Redis connection URL                            | -                              |
+| `LOG_LEVEL`            | Logging verbosity (`silent` to disable logging) | `info`                         |
+| `HEALTH_CHECK_SECRET`  | Secret key for detailed health metrics          | -                              |
 
 ### Runtime Configuration
 
@@ -395,7 +397,7 @@ logger.trackMetric({
 logger.trackDependency('Redis', 'cache.redis.io', 15, true);
 ```
 
-Log levels: `debug` < `info` < `warn` < `error`
+Log levels: `debug` < `info` < `warn` < `error` < `silent` (disables all logging)
 
 ### Request Logging
 
@@ -555,7 +557,7 @@ Configure via environment variables:
 
 - `APPLICATIONINSIGHTS_CONNECTION_STRING`: Connection string from Azure
 - `APPINSIGHTS_INSTRUMENTATIONKEY`: Instrumentation key (legacy)
-- `LOG_LEVEL`: Minimum log level (debug, info, warn, error)
+- `LOG_LEVEL`: Minimum log level (debug, info, warn, error, silent)
 
 ---
 

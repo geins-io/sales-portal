@@ -17,7 +17,8 @@ import type { TenantConfig } from '#shared/types/tenant-config';
  * ```
  */
 export function useTenant() {
-  const { data, pending, error, refresh } = useApi<TenantConfig>('/api/config');
+  const asyncData = useApi<TenantConfig>('/api/config');
+  const { data, pending, error, refresh } = asyncData;
 
   /**
    * The tenant configuration object
@@ -94,6 +95,11 @@ export function useTenant() {
     // Features
     features,
     hasFeature,
+    /**
+     * Awaitable promise for SSR - ensures data is loaded before accessing values.
+     * Use in plugins/middleware: `const { suspense, tenant } = useTenant(); await suspense();`
+     */
+    suspense: () => asyncData,
   };
 }
 

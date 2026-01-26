@@ -8,6 +8,7 @@ const props = defineProps<{
 const isDev = import.meta.dev;
 
 const is404 = computed(() => props.error.statusCode === 404);
+const is418 = computed(() => props.error.statusCode === 418);
 const is500 = computed(
   () => props.error.statusCode >= 500 && props.error.statusCode < 600,
 );
@@ -19,6 +20,9 @@ const errorTitle = computed(() => {
 });
 
 const errorDescription = computed(() => {
+  if (is418.value) {
+    return "I'm a teapot";
+  }
   if (is404.value) {
     return "Sorry, we couldn't find the page you're looking for. It might have been moved or deleted.";
   }
@@ -63,7 +67,10 @@ const handleBack = () => {
       </p>
 
       <!-- Action Buttons -->
-      <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+      <div
+        v-if="!is418"
+        class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center"
+      >
         <Button class="min-w-[140px]" @click="handleError">
           <Icon name="lucide:home" class="mr-2 size-4" />
           Go Home

@@ -1,5 +1,3 @@
-import type { TenantConfig } from '#shared/types/tenant-config';
-
 const sanitizeCustomCss = (css: string | undefined) => {
   if (!css) return '';
   return css.replace(/<style>|<\/style>/gi, '').trim();
@@ -8,27 +6,27 @@ const sanitizeCustomCss = (css: string | undefined) => {
 export default defineNuxtPlugin({
   name: 'tenant-theme',
   async setup() {
-    const { data: tenantConfig } = await useApi<TenantConfig>('/api/config');
-    if (!tenantConfig.value?.isActive) {
+    const { tenant, brandName, theme, hostname, tenantId, suspense } =
+      useTenant();
+
+    // Wait for tenant data to be loaded (important for SSR)
+    await suspense();
+
+    if (!tenant.value?.isActive) {
       throw showError({
-        statusCode: 404,
-        statusMessage: 'Page Not Found',
-        message: `The requested page could not be found. [${tenantConfig.value?.hostname}] , [${tenantConfig.value?.tenantId}]`,
+        statusCode: 418,
+        statusMessage: "I'm a teapot",
+        message: `The requested page could not be found. [${hostname.value}] , [${tenantId.value}]`,
         fatal: true,
       });
     }
+
     useHead({
-      titleTemplate: `%s - ${tenantConfig.value?.branding?.name}`,
-      htmlAttrs: { 'data-theme': tenantConfig.value?.theme?.name || 'default' },
-      meta: [
-        {
-          name: 'version-x',
-          content: useRuntimeConfig().public.versionX as string,
-        },
-      ],
+      titleTemplate: `%s - ${brandName.value}`,
+      htmlAttrs: { 'data-theme': theme.value?.name || 'default' },
       style: [
         {
-          innerHTML: () => sanitizeCustomCss(tenantConfig.value?.css),
+          innerHTML: () => sanitizeCustomCss(tenant.value?.css),
           tagPosition: 'bodyOpen',
         },
       ],

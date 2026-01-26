@@ -37,6 +37,7 @@ These are **sensitive values** that must be kept secret. They are encrypted by G
 | `AZURE_CLIENT_ID`       |    ✅    | Service Principal App (Client) ID   | Run `pnpm infra:setup`          |
 | `AZURE_TENANT_ID`       |    ✅    | Azure AD Tenant ID                  | Run `pnpm infra:setup`          |
 | `AZURE_SUBSCRIPTION_ID` |    ✅    | Target Azure Subscription ID        | Run `pnpm infra:setup`          |
+| `GEINS_TENANT_API_KEY`  |    ❌    | Geins Tenant API key (server-only)  | Geins admin portal              |
 | `REDIS_URL`             |    ❌    | Redis/Upstash connection string     | Your Redis provider             |
 | `SENTRY_DSN`            |    ❌    | Sentry DSN for error tracking       | Sentry → Project → Client Keys  |
 | `SENTRY_AUTH_TOKEN`     |    ❌    | Sentry token for source map uploads | Sentry → Settings → Auth Tokens |
@@ -55,14 +56,15 @@ These are **sensitive values** that must be kept secret. They are encrypted by G
 
 These are **non-sensitive configuration values** visible in the repository settings.
 
-| Variable             | Default                        | Description                       | Options                          |
-| -------------------- | ------------------------------ | --------------------------------- | -------------------------------- |
-| `GEINS_API_ENDPOINT` | `https://api.geins.io/graphql` | Geins GraphQL API URL             | Any valid URL                    |
-| `STORAGE_DRIVER`     | `fs`                           | Storage backend for tenant config | `memory`, `fs`, `redis`          |
-| `ENABLE_ANALYTICS`   | `false`                        | Enable client-side analytics      | `true`, `false`                  |
-| `LOG_LEVEL`          | `info`                         | Server log verbosity              | `debug`, `info`, `warn`, `error` |
-| `SENTRY_ORG`         | _(empty)_                      | Sentry organization slug          | Your Sentry org name             |
-| `SENTRY_PROJECT`     | _(empty)_                      | Sentry project slug               | Your Sentry project name         |
+| Variable               | Default                        | Description                        | Options                                    |
+| ---------------------- | ------------------------------ | ---------------------------------- | ------------------------------------------ |
+| `GEINS_API_ENDPOINT`   | `https://api.geins.io/graphql` | Geins GraphQL API URL              | Any valid URL                              |
+| `GEINS_TENANT_API_URL` | _(empty)_                      | Geins Tenant API URL (server-only) | Any valid URL                              |
+| `STORAGE_DRIVER`       | `fs`                           | Storage backend for tenant config  | `memory`, `fs`, `redis`                    |
+| `ENABLE_ANALYTICS`     | `false`                        | Enable client-side analytics       | `true`, `false`                            |
+| `LOG_LEVEL`            | `info`                         | Server log verbosity               | `debug`, `info`, `warn`, `error`, `silent` |
+| `SENTRY_ORG`           | _(empty)_                      | Sentry organization slug           | Your Sentry org name                       |
+| `SENTRY_PROJECT`       | _(empty)_                      | Sentry project slug                | Your Sentry project name                   |
 
 ### Notes on Variables
 
@@ -82,6 +84,8 @@ The `deploy.yml` workflow passes GitHub variables to Bicep, which sets these in 
 | -------------------------------- | --------------------------------- | ----------------------------------------- |
 | `NODE_ENV`                       | Set by Bicep based on environment | `process.env.NODE_ENV`                    |
 | `NUXT_GEINS_API_ENDPOINT`        | `vars.GEINS_API_ENDPOINT`         | `runtimeConfig.geins.apiEndpoint`         |
+| `NUXT_GEINS_TENANT_API_URL`      | `vars.GEINS_TENANT_API_URL`       | `runtimeConfig.geins.tenantApiUrl`        |
+| `NUXT_GEINS_TENANT_API_KEY`      | `secrets.GEINS_TENANT_API_KEY`    | `runtimeConfig.geins.tenantApiKey`        |
 | `NUXT_STORAGE_DRIVER`            | `vars.STORAGE_DRIVER`             | `runtimeConfig.storage.driver`            |
 | `NUXT_STORAGE_REDIS_URL`         | `secrets.REDIS_URL`               | `runtimeConfig.storage.redisUrl`          |
 | `NUXT_PUBLIC_FEATURES_ANALYTICS` | `vars.ENABLE_ANALYTICS`           | `runtimeConfig.public.features.analytics` |
@@ -163,6 +167,7 @@ Copy the output values for the next step.
 
 ### 3. GitHub Secrets (Optional)
 
+- [ ] `GEINS_TENANT_API_KEY` - Geins Tenant API key
 - [ ] `REDIS_URL` - If using Redis storage
 - [ ] `SENTRY_DSN` - If using Sentry error tracking
 - [ ] `SENTRY_AUTH_TOKEN` - If uploading source maps to Sentry
@@ -170,9 +175,10 @@ Copy the output values for the next step.
 ### 4. GitHub Variables (Optional)
 
 - [ ] `GEINS_API_ENDPOINT` - If different from default
+- [ ] `GEINS_TENANT_API_URL` - Geins Tenant API URL
 - [ ] `STORAGE_DRIVER` - Set to `redis` for production
 - [ ] `ENABLE_ANALYTICS` - Set to `true` if needed
-- [ ] `LOG_LEVEL` - Adjust as needed
+- [ ] `LOG_LEVEL` - Adjust as needed (`silent` to disable all logging)
 - [ ] `SENTRY_ORG` - If using Sentry
 - [ ] `SENTRY_PROJECT` - If using Sentry
 

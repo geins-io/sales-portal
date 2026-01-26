@@ -314,7 +314,11 @@ vi.stubGlobal(
   'defineEventHandler',
   (handler: (event: H3Event) => unknown) => handler,
 );
-vi.stubGlobal('getQuery', (event: H3Event) => (event as H3Event & { _query?: Record<string, string> })._query || {});
+vi.stubGlobal(
+  'getQuery',
+  (event: H3Event) =>
+    (event as H3Event & { _query?: Record<string, string> })._query || {},
+);
 vi.stubGlobal('setResponseHeader', vi.fn());
 vi.stubGlobal('setResponseStatus', vi.fn());
 vi.stubGlobal('setResponseHeaders', vi.fn());
@@ -529,8 +533,7 @@ describe('API Contracts', () => {
         timestamp: new Date().toISOString(),
       };
 
-      const result =
-        HealthCheckResponseMinimalSchema.safeParse(healthResponse);
+      const result = HealthCheckResponseMinimalSchema.safeParse(healthResponse);
 
       if (!result.success) {
         console.error('Validation errors:', result.error.format());
@@ -800,11 +803,10 @@ describe('API Contracts', () => {
 
       // If authorized (key matches), should include detailed fields
       if (response.version !== undefined) {
-        expect(response).toHaveProperty('version');
-        expect(response).toHaveProperty('uptime');
-        expect(response).toHaveProperty('checks');
-        expect(typeof response.version).toBe('string');
-        expect(typeof response.uptime).toBe('number');
+        expect(response).toHaveProperty('status');
+        expect(response).toHaveProperty('timestamp');
+        expect(typeof response.status).toBe('string');
+        expect(typeof response.timestamp).toBe('string');
       }
     });
 

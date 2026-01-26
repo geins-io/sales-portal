@@ -222,7 +222,7 @@ export async function createTenant(
       cart: true,
       ...partialConfig?.features,
     },
-    isActive: true,
+    isActive: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -288,28 +288,6 @@ export async function fetchTenantConfig(
 ): Promise<TenantConfig | null> {
   const config = useRuntimeConfig();
 
-  // DEBUG: ALWAYS RETURN NULL FOR NOW
-  const mockConfig: TenantConfig = {
-    tenantId: tenantId,
-    hostname: tenantId,
-    theme: createDefaultTheme(tenantId),
-    css: '',
-    themeHash: '',
-    branding: {
-      name: tenantId,
-    },
-    features: {
-      search: true,
-      authentication: true,
-      cart: true,
-    },
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-  return mockConfig;
-
-  // Return null if tenant API is not configured
   if (!config.geins.tenantApiUrl) {
     return null;
   }
@@ -324,10 +302,20 @@ export async function fetchTenantConfig(
     },
   );
 
+  // not ok send default config with isActive false
   if (!response.ok) {
-    return null;
+    return {
+      tenantId: 'no-tenant',
+      hostname: 'not-found',
+      theme: createDefaultTheme(tenantId),
+      css: '',
+      isActive: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
   }
-  return response.json();
+
+  return await response.json();
 }
 /**
  * Retrieves a tenant configuration from KV storage
@@ -339,15 +327,15 @@ export async function getTenant(
   const tenantConfig = await storage.getItem<TenantConfig>(
     tenantConfigKey(tenantId),
   );
+
   if (!tenantConfig) {
     const newTenantConfig = await fetchTenantConfig(tenantId);
     if (!newTenantConfig) {
-      return null;
+      console.log('--- getTenant --- NO NEW TENANT CONFIG', tenantId);
     }
     // Cache the fetched config in KV storage
     const configToCache: TenantConfig = {
-      ...newTenantConfig,
-      isActive: true,
+      ...(newTenantConfig as TenantConfig),
     };
     await storage.setItem(tenantConfigKey(tenantId), configToCache);
     return configToCache;

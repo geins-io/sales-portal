@@ -80,12 +80,12 @@ cp .env.example .env
 
 Key environment variables:
 
-| Variable              | Description                            | Default                        |
-| --------------------- | -------------------------------------- | ------------------------------ |
-| `NODE_ENV`            | Environment mode                       | `development`                  |
-| `GEINS_API_ENDPOINT`  | Geins GraphQL endpoint                 | `https://api.geins.io/graphql` |
-| `STORAGE_DRIVER`      | KV storage driver                      | `fs`                           |
-| `LOG_LEVEL`           | Logging verbosity                      | `info`                         |
+| Variable             | Description                                     | Default                        |
+| -------------------- | ----------------------------------------------- | ------------------------------ |
+| `NODE_ENV`           | Environment mode                                | `development`                  |
+| `GEINS_API_ENDPOINT` | Geins GraphQL endpoint                          | `https://api.geins.io/graphql` |
+| `STORAGE_DRIVER`     | KV storage driver                               | `fs`                           |
+| `LOG_LEVEL`          | Logging verbosity (`silent` to disable logging) | `info`                         |
 
 See [Environment Variables](/architecture#environment-variables) for the full list.
 
