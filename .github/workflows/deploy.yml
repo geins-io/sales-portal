@@ -66,12 +66,11 @@ jobs:
             ENV="dev"
           fi
 
-          # Branch comes from "Use workflow from" dropdown
-          BRANCH="${{ github.ref_name }}"
-
-          # Convert branch name to Docker tag format (replace / with -)
-          # This matches docker/metadata-action's sanitization behavior
-          TAG="${BRANCH//\//-}"
+          # Use immutable SHA-based tag for deployments
+          # This ensures Stop+Start in Azure Portal uses the exact deployed version
+          SHORT_SHA="${{ github.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          TAG="sha-${SHORT_SHA}"
 
           # Set resource group name
           RG="rg-sales-portal-${ENV}"
@@ -82,7 +81,8 @@ jobs:
 
           echo "### Deployment Parameters" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment:** ${ENV}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch:** ${BRANCH}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image Tag:** ${TAG}" >> $GITHUB_STEP_SUMMARY
           echo "- **Resource Group:** ${RG}" >> $GITHUB_STEP_SUMMARY
 
