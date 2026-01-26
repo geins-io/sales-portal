@@ -133,20 +133,20 @@ jobs:
           # GitHub Secrets (secrets.*) = sensitive, encrypted
           # ─────────────────────────────────────────────────────────────────────
           parameters: >-
-            environment=${{ needs.prepare.outputs.environment }}
-            containerImage=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}
-            ghcrUsername=${{ github.actor }}
-            ghcrToken=${{ secrets.GHCR_PAT }}
-            geinsApiEndpoint=${{ vars.GEINS_API_ENDPOINT }}
-            geinsTenantApiUrl=${{ vars.GEINS_TENANT_API_URL }}
-            geinsTenantApiKey=${{ secrets.GEINS_TENANT_API_KEY }}
-            healthCheckSecret=${{ secrets.HEALTH_CHECK_SECRET }}
-            storageDriver=${{ vars.STORAGE_DRIVER }}
-            redisUrl=${{ secrets.REDIS_URL }}
-            enableAnalytics=${{ vars.ENABLE_ANALYTICS }}
-            logLevel=${{ vars.LOG_LEVEL }}
-            sentryDsn=${{ secrets.SENTRY_DSN }}
-            versionX=${{ secrets.VERSION_X }}
+            environment="${{ needs.prepare.outputs.environment }}"
+            containerImage="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}"
+            ghcrUsername="${{ github.actor }}"
+            ghcrToken="${{ secrets.GHCR_PAT }}"
+            geinsApiEndpoint="${{ vars.GEINS_API_ENDPOINT }}"
+            geinsTenantApiUrl="${{ vars.GEINS_TENANT_API_URL }}"
+            geinsTenantApiKey="${{ secrets.GEINS_TENANT_API_KEY }}"
+            healthCheckSecret="${{ secrets.HEALTH_CHECK_SECRET }}"
+            storageDriver="${{ vars.STORAGE_DRIVER }}"
+            redisUrl="${{ secrets.REDIS_URL }}"
+            enableAnalytics="${{ vars.ENABLE_ANALYTICS }}"
+            logLevel="${{ vars.LOG_LEVEL }}"
+            sentryDsn="${{ secrets.SENTRY_DSN }}"
+            versionX="${{ secrets.VERSION_X }}"
           failOnStdErr: false
 
       - name: Get deployment outputs
