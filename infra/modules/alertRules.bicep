@@ -12,9 +12,6 @@
 @description('Base name for alert rules')
 param namePrefix string
 
-@description('Azure region for the resources')
-param location string
-
 @description('Environment name')
 @allowed(['dev', 'staging', 'prod'])
 param environment string

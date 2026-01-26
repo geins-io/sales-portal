@@ -178,20 +178,23 @@ module webApp 'modules/webApp.bicep' = {
     versionX: versionX
     // Sentry (runtime only - build-time vars are in GitHub Actions)
     sentryDsn: sentryDsn
-    // Application Insights connection
+    // Application Insights connection (suppress BCP318 - condition matches module condition)
+    #disable-next-line BCP318
     appInsightsConnectionString: enableMonitoring ? monitoring.outputs.connectionString : ''
+    #disable-next-line BCP318
     appInsightsInstrumentationKey: enableMonitoring ? monitoring.outputs.instrumentationKey : ''
   }
 }
 
 // Alert Rules (only for staging and prod with monitoring enabled)
+#disable-next-line BCP318
 module alertRules 'modules/alertRules.bicep' = if (enableMonitoring && environment != 'dev') {
   name: '${resourcePrefix}-alerts-deployment'
   params: {
     namePrefix: resourcePrefix
-    location: location
     environment: environment
     tags: tags
+    #disable-next-line BCP318
     applicationInsightsId: monitoring.outputs.id
     webAppId: webApp.outputs.id
     alertEmails: alertEmails
@@ -223,18 +226,23 @@ output webAppUrl string = 'https://${webApp.outputs.defaultHostname}'
 @description('Web App Managed Identity Principal ID')
 output webAppPrincipalId string = webApp.outputs.principalId
 
-// Monitoring Outputs
+// Monitoring Outputs (suppress BCP318 - condition matches module condition)
 @description('Application Insights resource ID')
+#disable-next-line BCP318
 output appInsightsId string = enableMonitoring ? monitoring.outputs.id : ''
 
 @description('Application Insights name')
+#disable-next-line BCP318
 output appInsightsName string = enableMonitoring ? monitoring.outputs.name : ''
 
 @description('Application Insights connection string')
+#disable-next-line BCP318
 output appInsightsConnectionString string = enableMonitoring ? monitoring.outputs.connectionString : ''
 
 @description('Log Analytics workspace ID')
+#disable-next-line BCP318
 output logAnalyticsWorkspaceId string = enableMonitoring ? monitoring.outputs.workspaceId : ''
 
 @description('Log Analytics workspace name')
+#disable-next-line BCP318
 output logAnalyticsWorkspaceName string = enableMonitoring ? monitoring.outputs.workspaceNameOutput : ''
