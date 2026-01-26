@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import type { Environment } from './shared/types/common';
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
@@ -105,12 +107,10 @@ export default defineNuxtConfig({
       versionX: 'n/a',
 
       // Build info - set by GitHub Actions during build, not in Azure
-      commitSha: process.env.GITHUB_SHA || 'dev',
+      commitSha: process.env.GITHUB_SHA || 'n/a',
 
       // Environment detection
-      environment:
-        (process.env.NODE_ENV as 'development' | 'production' | 'test') ||
-        'development',
+      environment: (process.env.NODE_ENV as Environment) || 'development',
 
       // Feature flags
       // Azure: NUXT_PUBLIC_FEATURES_ANALYTICS=true

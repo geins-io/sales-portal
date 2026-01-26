@@ -5,6 +5,11 @@
  */
 
 /**
+ * Environment type
+ */
+export type Environment = 'development' | 'production' | 'staging';
+
+/**
  * Generic ID type
  */
 export type ID = string | number;
