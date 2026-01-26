@@ -1,11 +1,4 @@
-[data-theme='localhost'] {
-  /* add the css from the tenant config */
+[data-theme='default'] {
   --primary: #00ec56;
   --primary-foreground: #fff;
 }
-/* [data-theme='tenant.localhost'] {
- 
-  --primary: #00ec56;
-  --primary-foreground: #000;
-}
- */

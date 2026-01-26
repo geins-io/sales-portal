@@ -85,7 +85,13 @@ export function createMockH3Event(options: {
   body?: unknown;
   query?: Record<string, string>;
 }) {
-  const { method = 'GET', path = '/', headers = {}, body, query = {} } = options;
+  const {
+    method = 'GET',
+    path = '/',
+    headers = {},
+    body,
+    query = {},
+  } = options;
 
   return {
     node: {
@@ -115,7 +121,9 @@ export function createMockH3Event(options: {
 /**
  * Create mock tenant configuration for tests
  */
-export function createMockTenantConfig(overrides: Record<string, unknown> = {}) {
+export function createMockTenantConfig(
+  overrides: Record<string, unknown> = {},
+) {
   return {
     id: 'test-tenant',
     name: 'Test Tenant',

@@ -1,51 +1,15 @@
-import { createTenant, tenantConfigKey, getTenant } from '../utils/tenant';
+import { tenantConfigKey, getTenant } from '../utils/tenant';
 import { createTenantLogger } from '../utils/logger';
-import {
-  createTenantNotFoundError,
-  createTenantInactiveError,
-  withErrorHandling,
-} from '../utils/errors';
 
 export default defineCachedEventHandler(
   async (event) => {
     const { id, hostname } = event.context.tenant;
     const log = createTenantLogger(id, hostname);
-    const runtimeConfig = useRuntimeConfig();
 
     return withErrorHandling(
       async () => {
         log.debug('Fetching tenant configuration');
-
         const config = await getTenant(id);
-
-        if (!config) {
-          log.info('Tenant not found, creating default configuration');
-
-          const isDev = process.env.NODE_ENV === 'development';
-          const autoCreate = runtimeConfig.autoCreateTenant;
-
-          if (isDev || autoCreate || hostname === 'localhost') {
-            const newConfig = await createTenant({
-              hostname,
-              tenantId: hostname,
-              config: {
-                isActive: true,
-              },
-            });
-            log.info('Created new tenant configuration');
-            return newConfig;
-          }
-
-          // In production without auto-create, throw a not found error
-          throw createTenantNotFoundError(hostname);
-        }
-
-        // Check if tenant is active
-        if (config.isActive === false) {
-          log.warn('Attempted to access inactive tenant');
-          throw createTenantInactiveError(id);
-        }
-
         log.debug('Tenant configuration loaded successfully');
         return config;
       },

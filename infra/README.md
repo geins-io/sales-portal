@@ -199,11 +199,12 @@ These secrets are shared across all environments:
 
 These secrets can be configured per GitHub Environment if needed:
 
-| Secret              | Description                       | How to Get Value             |
-| ------------------- | --------------------------------- | ---------------------------- |
-| `REDIS_URL`         | Redis connection URL              | From your Redis provider     |
-| `SENTRY_DSN`        | Sentry DSN for error tracking     | From Sentry project settings |
-| `SENTRY_AUTH_TOKEN` | Sentry auth token for source maps | From Sentry auth tokens page |
+| Secret                 | Description                        | How to Get Value             |
+| ---------------------- | ---------------------------------- | ---------------------------- |
+| `GEINS_TENANT_API_KEY` | Geins Tenant API key (server-only) | Geins admin portal           |
+| `REDIS_URL`            | Redis connection URL               | From your Redis provider     |
+| `SENTRY_DSN`           | Sentry DSN for error tracking      | From Sentry project settings |
+| `SENTRY_AUTH_TOKEN`    | Sentry auth token for source maps  | From Sentry auth tokens page |
 
 **How to add an environment secret:**
 
@@ -219,14 +220,15 @@ These secrets can be configured per GitHub Environment if needed:
 
 **Navigate to:** Repository Settings → Secrets and variables → Actions → Variables
 
-| Variable             | Description                      | Default Value                  |
-| -------------------- | -------------------------------- | ------------------------------ |
-| `GEINS_API_ENDPOINT` | Geins GraphQL API endpoint       | `https://api.geins.io/graphql` |
-| `STORAGE_DRIVER`     | Storage driver (`fs` or `redis`) | `fs`                           |
-| `ENABLE_ANALYTICS`   | Enable analytics                 | `false`                        |
-| `LOG_LEVEL`          | Log level                        | `info`                         |
-| `SENTRY_ORG`         | Sentry organization slug         | (empty - Sentry disabled)      |
-| `SENTRY_PROJECT`     | Sentry project slug              | (empty - Sentry disabled)      |
+| Variable               | Description                        | Default Value                  |
+| ---------------------- | ---------------------------------- | ------------------------------ |
+| `GEINS_API_ENDPOINT`   | Geins GraphQL API endpoint         | `https://api.geins.io/graphql` |
+| `GEINS_TENANT_API_URL` | Geins Tenant API URL (server-only) | (empty)                        |
+| `STORAGE_DRIVER`       | Storage driver (`fs` or `redis`)   | `fs`                           |
+| `ENABLE_ANALYTICS`     | Enable analytics                   | `false`                        |
+| `LOG_LEVEL`            | Log level (`silent` to disable)    | `info`                         |
+| `SENTRY_ORG`           | Sentry organization slug           | (empty - Sentry disabled)      |
+| `SENTRY_PROJECT`       | Sentry project slug                | (empty - Sentry disabled)      |
 
 ### Step 4: Create GitHub Environments
 
@@ -426,11 +428,11 @@ pnpm infra:validate -- --env dev
 
 ### Quick Summary
 
-| Where                 | What to Set                                                                                                   |
-| --------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **GitHub Secrets**    | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `REDIS_URL`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN` |
-| **GitHub Variables**  | `GEINS_API_ENDPOINT`, `STORAGE_DRIVER`, `ENABLE_ANALYTICS`, `LOG_LEVEL`, `SENTRY_ORG`, `SENTRY_PROJECT`       |
-| **Azure App Service** | ⚠️ Don't set manually - Bicep handles this automatically                                                      |
+| Where                 | What to Set                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub Secrets**    | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `GEINS_TENANT_API_KEY`, `REDIS_URL`, `SENTRY_DSN`, `SENTRY_AUTH_TOKEN` |
+| **GitHub Variables**  | `GEINS_API_ENDPOINT`, `GEINS_TENANT_API_URL`, `STORAGE_DRIVER`, `ENABLE_ANALYTICS`, `LOG_LEVEL`, `SENTRY_ORG`, `SENTRY_PROJECT`       |
+| **Azure App Service** | ⚠️ Don't set manually - Bicep handles this automatically                                                                              |
 
 ### How It Works
 
@@ -440,11 +442,13 @@ pnpm infra:validate -- --env dev
 4. **Nuxt** picks them up at runtime
 
 ```
-GitHub Variable          →  Bicep Parameter  →  Azure App Setting
-─────────────────────────────────────────────────────────────────
-GEINS_API_ENDPOINT       →  geinsApiEndpoint →  NUXT_GEINS_API_ENDPOINT
-STORAGE_DRIVER           →  storageDriver    →  NUXT_STORAGE_DRIVER
-REDIS_URL                →  redisUrl         →  NUXT_STORAGE_REDIS_URL
+GitHub Variable          →  Bicep Parameter    →  Azure App Setting
+───────────────────────────────────────────────────────────────────
+GEINS_API_ENDPOINT       →  geinsApiEndpoint   →  NUXT_GEINS_API_ENDPOINT
+GEINS_TENANT_API_URL     →  geinsTenantApiUrl  →  NUXT_GEINS_TENANT_API_URL
+GEINS_TENANT_API_KEY     →  geinsTenantApiKey  →  NUXT_GEINS_TENANT_API_KEY
+STORAGE_DRIVER           →  storageDriver      →  NUXT_STORAGE_DRIVER
+REDIS_URL                →  redisUrl           →  NUXT_STORAGE_REDIS_URL
 ```
 
 ## Re-running Setup
