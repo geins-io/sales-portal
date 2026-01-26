@@ -128,7 +128,7 @@ jobs:
           # ─────────────────────────────────────────────────────────────────────
           # BICEP PARAMETERS
           # These values become Azure App Settings via the webApp.bicep module.
-          # 
+          #
           # GitHub Variables (vars.*) = non-sensitive, visible in repo settings
           # GitHub Secrets (secrets.*) = sensitive, encrypted
           # ─────────────────────────────────────────────────────────────────────
@@ -136,9 +136,9 @@ jobs:
             environment=${{ needs.prepare.outputs.environment }}
             containerImage=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}
             ghcrUsername=${{ github.actor }}
-            ghcrToken=${{ secrets.GITHUB_TOKEN }}
-            geinsApiEndpoint=${{ vars.GEINS_API_ENDPOINT || 'https://api.geins.io/graphql' }}
-            storageDriver=${{ vars.STORAGE_DRIVER || 'fs' }}
+            ghcrToken=${{ secrets.GHCR_PAT }}
+            geinsApiEndpoint=${{ vars.GEINS_API_ENDPOINT }}
+            storageDriver=${{ vars.STORAGE_DRIVER || 'memory' }}
             redisUrl=${{ secrets.REDIS_URL }}
             enableAnalytics=${{ vars.ENABLE_ANALYTICS || 'false' }}
             logLevel=${{ vars.LOG_LEVEL || 'info' }}
@@ -153,13 +153,13 @@ jobs:
             --name main \
             --query properties.outputs.webAppUrl.value \
             --output tsv 2>/dev/null || echo "")
-          
+
           WEBAPP_NAME=$(az deployment group show \
             --resource-group ${{ needs.prepare.outputs.resource_group }} \
             --name main \
             --query properties.outputs.webAppName.value \
             --output tsv 2>/dev/null || echo "")
-          
+
           echo "webapp_url=${WEBAPP_URL}" >> $GITHUB_OUTPUT
           echo "webapp_name=${WEBAPP_NAME}" >> $GITHUB_OUTPUT
 
@@ -167,7 +167,7 @@ jobs:
         run: |
           echo "Waiting for container to start..."
           sleep 30
-          
+
           WEBAPP_URL="${{ steps.outputs.outputs.webapp_url }}"
           if [[ -n "$WEBAPP_URL" ]]; then
             echo "Checking health at ${WEBAPP_URL}/api/health"
@@ -245,9 +245,9 @@ jobs:
             --name ${{ steps.get-webapp.outputs.webapp_name }} \
             --slot staging \
             --target-slot production
-          
+
           WEBAPP_URL="https://${{ steps.get-webapp.outputs.webapp_name }}.azurewebsites.net"
           echo "production_url=${WEBAPP_URL}" >> $GITHUB_OUTPUT
-          
+
           echo "### Production Slot Swap Complete ✅" >> $GITHUB_STEP_SUMMARY
           echo "Production URL: ${WEBAPP_URL}" >> $GITHUB_STEP_SUMMARY
