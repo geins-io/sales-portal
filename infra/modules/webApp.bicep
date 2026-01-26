@@ -158,6 +158,10 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           value: redisUrl
         }
         {
+          name: 'NUXT_PUBLIC_VERSION_X'
+          value: 'bicep'
+        }
+        {
           name: 'NUXT_PUBLIC_FEATURES_ANALYTICS'
           value: string(enableAnalytics)
         }
