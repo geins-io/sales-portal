@@ -281,20 +281,17 @@ export default defineEventHandler(
           status: overallStatus,
         },
       });
+
+      // Return minimal response for public requests
+      if (!isAuthorized) {
+        return {
+          status: overallStatus,
+          timestamp,
+        };
+      }
     }
     const environment = await getEnvironment();
     const environmentVariables = await getEnvironmentVariables();
-
-    // Return minimal response for public requests
-    if (!isAuthorized) {
-      return {
-        status: overallStatus,
-        environment: environment,
-        environmentVariables: environmentVariables,
-        timestamp,
-      };
-    }
-
     // Return detailed response for authorized requests
     return {
       status: overallStatus,
@@ -302,9 +299,9 @@ export default defineEventHandler(
       version: config.public.appVersion as string,
       commitSha: config.public.commitSha as string,
       uptime: Math.round(process.uptime()),
+      checks,
       environment: environment,
       environmentVariables,
-      checks,
     };
   },
 );
