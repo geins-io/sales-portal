@@ -53,6 +53,16 @@ param enableAnalytics bool
 @description('Log level')
 param logLevel string
 
+@description('Version X code')
+param versionX string
+
+@description('Geins Tenant API URL')
+param geinsTenantApiUrl string
+
+@description('Geins Tenant API Key')
+@secure()
+param geinsTenantApiKey string
+
 // Sentry configuration
 // NOTE: Only DSN is needed at runtime. Org/Project/AuthToken are build-time only.
 @description('Sentry DSN for error tracking (runtime)')
@@ -150,6 +160,14 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           value: geinsApiEndpoint
         }
         {
+          name: 'NUXT_GEINS_TENANT_API_URL'
+          value: geinsTenantApiUrl
+        }
+        {
+          name: 'NUXT_GEINS_TENANT_API_KEY'
+          value: geinsTenantApiKey
+        }
+        {
           name: 'NUXT_STORAGE_DRIVER'
           value: storageDriver
         }
@@ -159,7 +177,7 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         {
           name: 'NUXT_PUBLIC_VERSION_X'
-          value: 'bicep'
+          value: versionX
         }
         {
           name: 'NUXT_PUBLIC_FEATURES_ANALYTICS'

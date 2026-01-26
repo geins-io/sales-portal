@@ -137,12 +137,15 @@ jobs:
             containerImage=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}
             ghcrUsername=${{ github.actor }}
             ghcrToken=${{ secrets.GHCR_PAT }}
-            geinsApiEndpoint=${{ vars.GEINS_API_ENDPOINT }}
+            geinsApiEndpoint=${{ vars.GEINS_API_ENDPOINT || '' }}
+            geinsTenantApiUrl=${{ vars.GEINS_TENANT_API_URL || '' }}
+            geinsTenantApiKey=${{ vars.GEINS_TENANT_API_KEY || '' }}
             storageDriver=${{ vars.STORAGE_DRIVER || 'memory' }}
             redisUrl=${{ secrets.REDIS_URL }}
             enableAnalytics=${{ vars.ENABLE_ANALYTICS || 'false' }}
             logLevel=${{ vars.LOG_LEVEL || 'info' }}
             sentryDsn=${{ secrets.SENTRY_DSN }}
+            versionX=${{ secrets.VERSION_X || 'yml' }}
           failOnStdErr: false
 
       - name: Get deployment outputs
