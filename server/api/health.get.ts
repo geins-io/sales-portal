@@ -287,6 +287,7 @@ export default defineEventHandler(
         return {
           status: overallStatus,
           timestamp,
+          shortResponse: true,
         };
       }
     }
