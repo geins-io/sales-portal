@@ -63,6 +63,10 @@ param geinsTenantApiUrl string
 @secure()
 param geinsTenantApiKey string
 
+@description('Health Check Secret')
+@secure()
+param healthCheckSecret string
+
 // Sentry configuration
 // NOTE: Only DSN is needed at runtime. Org/Project/AuthToken are build-time only.
 @description('Sentry DSN for error tracking (runtime)')
@@ -166,6 +170,10 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'NUXT_GEINS_TENANT_API_KEY'
           value: geinsTenantApiKey
+        }
+        {
+          name: 'NUXT_HEALTH_CHECK_SECRET'
+          value: healthCheckSecret
         }
         {
           name: 'NUXT_STORAGE_DRIVER'
