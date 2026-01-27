@@ -2,26 +2,33 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref } from 'vue';
 import type { TenantConfig } from '#shared/types/tenant-config';
 
-// Create mock useApi function
+// Create mock useFetch function
 const mockData = ref<TenantConfig | null>(null);
 const mockPending = ref(false);
 const mockError = ref<Error | null>(null);
 const mockRefresh = vi.fn();
 
-const mockUseApi = vi.fn(() => ({
+const mockApi = vi.fn();
+const mockUseFetch = vi.fn(() => ({
   data: mockData,
   pending: mockPending,
   error: mockError,
   refresh: mockRefresh,
 }));
 
-// Mock the useApi composable
-vi.mock('../../app/composables/useApi', () => ({
-  useApi: (...args: unknown[]) => mockUseApi(...args),
+// Mock the Nuxt auto-imports at the module level
+vi.mock('#app/composables/fetch', () => ({
+  useFetch: (...args: unknown[]) => mockUseFetch(...args),
 }));
 
-// Stub the global useApi for auto-import resolution
-vi.stubGlobal('useApi', (...args: unknown[]) => mockUseApi(...args));
+vi.mock('#app', () => ({
+  useNuxtApp: () => ({ $api: mockApi }),
+  useFetch: (...args: unknown[]) => mockUseFetch(...args),
+}));
+
+// Stub globals for direct access
+vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
 
 // Create mock tenant config for tests
 function createMockTenantConfig(
@@ -63,11 +70,12 @@ describe('useTenant', () => {
     mockPending.value = false;
     mockError.value = null;
     mockRefresh.mockClear();
-    mockUseApi.mockClear();
+    mockUseFetch.mockClear();
 
     // Reset modules and re-import
     vi.resetModules();
-    vi.stubGlobal('useApi', (...args: unknown[]) => mockUseApi(...args));
+    vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+    vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
 
     const module = await import('../../app/composables/useTenant');
     useTenant = module.useTenant;
@@ -78,10 +86,14 @@ describe('useTenant', () => {
   });
 
   describe('core functionality', () => {
-    it('should call useApi with /api/config endpoint', () => {
+    it('should call useFetch with /api/config endpoint and dedupe: defer', () => {
       useTenant();
 
-      expect(mockUseApi).toHaveBeenCalledWith('/api/config');
+      expect(mockUseFetch).toHaveBeenCalledTimes(1);
+      const [url, options] = mockUseFetch.mock.calls[0];
+      expect(url).toBe('/api/config');
+      expect(options.dedupe).toBe('defer');
+      expect(options.$fetch).toBeDefined();
     });
 
     it('should return tenant computed property', () => {
@@ -392,11 +404,12 @@ describe('useTenantTheme', () => {
     mockPending.value = false;
     mockError.value = null;
     mockRefresh.mockClear();
-    mockUseApi.mockClear();
+    mockUseFetch.mockClear();
 
     // Reset modules and re-import
     vi.resetModules();
-    vi.stubGlobal('useApi', (...args: unknown[]) => mockUseApi(...args));
+    vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+    vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
 
     const module = await import('../../app/composables/useTenant');
     useTenantTheme = module.useTenantTheme;

@@ -6,6 +6,11 @@ import type { TenantConfig } from '#shared/types/tenant-config';
  * This composable provides reactive access to the tenant config
  * which is automatically loaded based on the request hostname.
  *
+ * Uses Nuxt 4's built-in `useFetch` with `dedupe: 'defer'` for:
+ * - Automatic request deduplication
+ * - SSR payload transfer
+ * - Built-in caching
+ *
  * @example
  * ```vue
  * <script setup>
@@ -17,7 +22,12 @@ import type { TenantConfig } from '#shared/types/tenant-config';
  * ```
  */
 export function useTenant() {
-  const asyncData = useApi<TenantConfig>('/api/config');
+  // Use useFetch directly with dedupe: 'defer' for built-in deduplication
+  // This prevents multiple simultaneous requests and leverages Nuxt's SSR optimization
+  const asyncData = useFetch<TenantConfig>('/api/config', {
+    dedupe: 'defer',
+    $fetch: useNuxtApp().$api as typeof $fetch,
+  });
   const { data, pending, error, refresh } = asyncData;
 
   /**
