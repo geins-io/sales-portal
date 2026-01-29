@@ -87,6 +87,10 @@ export default defineNuxtConfig({
       tenantApiUrl: 'https://merchantapi.geins.io/store-settings',
     },
 
+    // External API base URL for proxied requests
+    // Azure: NUXT_EXTERNAL_API_BASE_URL
+    externalApiBaseUrl: 'https://api.app.com',
+
     // Storage configuration (memory for dev, redis for production)
     // Azure: NUXT_STORAGE_DRIVER=redis, NUXT_STORAGE_REDIS_URL=redis://...
     storage: {

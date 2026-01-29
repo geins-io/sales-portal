@@ -33,6 +33,9 @@ vi.stubGlobal(
 vi.stubGlobal('sendProxy', (...args: unknown[]) => mockSendProxy(...args));
 vi.stubGlobal('readRawBody', (...args: unknown[]) => mockReadRawBody(...args));
 vi.stubGlobal('getHeader', (...args: unknown[]) => mockGetHeader(...args));
+vi.stubGlobal('useRuntimeConfig', () => ({
+  externalApiBaseUrl: 'https://api.app.com',
+}));
 
 describe('External API Proxy', () => {
   let handler: (event: H3Event) => Promise<unknown>;
@@ -56,7 +59,7 @@ describe('External API Proxy', () => {
       method: overrides.method || 'GET',
       context: {
         tenant: {
-          id: overrides.tenantId || 'test-tenant',
+          hostname: overrides.tenantId || 'test-tenant',
         },
       },
     } as unknown as H3Event;

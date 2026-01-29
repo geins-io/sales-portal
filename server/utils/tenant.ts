@@ -1,3 +1,4 @@
+import type { H3Event } from 'h3';
 import type {
   TenantConfig,
   TenantTheme,
@@ -285,8 +286,9 @@ export async function createTenant(
 
 export async function fetchTenantConfig(
   hostname: string,
+  event?: H3Event,
 ): Promise<TenantConfig | null> {
-  const config = useRuntimeConfig();
+  const config = useRuntimeConfig(event);
 
   const response = await fetch(
     `${config.geins.tenantApiUrl}?hostname=${hostname}`,
@@ -317,6 +319,7 @@ export async function fetchTenantConfig(
  */
 export async function getTenant(
   hostname: string,
+  event?: H3Event,
 ): Promise<TenantConfig | null> {
   const storage = useStorage('kv');
   const tenantConfig = await storage.getItem<TenantConfig>(
@@ -324,7 +327,7 @@ export async function getTenant(
   );
 
   if (!tenantConfig) {
-    const newTenantConfig = await fetchTenantConfig(hostname);
+    const newTenantConfig = await fetchTenantConfig(hostname, event);
     // Cache the fetched config in KV storage
     const configToCache: TenantConfig = {
       ...(newTenantConfig as TenantConfig),
@@ -343,6 +346,7 @@ export async function getTenant(
  */
 export async function getTenantByHostname(
   hostname: string,
+  event?: H3Event,
 ): Promise<TenantConfig | null> {
   const storage = useStorage('kv');
   const tenantId = await storage.getItem<string>(tenantIdKey(hostname));
@@ -351,7 +355,7 @@ export async function getTenantByHostname(
     return null;
   }
 
-  return getTenant(tenantId);
+  return getTenant(tenantId, event);
 }
 
 /**
@@ -360,9 +364,10 @@ export async function getTenantByHostname(
 export async function updateTenant(
   hostname: string,
   updates: Partial<TenantConfig>,
+  event?: H3Event,
 ): Promise<TenantConfig | null> {
   const storage = useStorage('kv');
-  const existing = await getTenant(hostname);
+  const existing = await getTenant(hostname, event);
 
   if (!existing) {
     return null;
