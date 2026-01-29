@@ -24,6 +24,7 @@ const SAFE_HEADERS_ALLOWLIST = [
   'accept',
   'accept-language',
   'user-agent',
+  'host', // Required for multi-tenant SSR to forward the original request hostname
 ] as const;
 
 export default defineNuxtPlugin(() => {
