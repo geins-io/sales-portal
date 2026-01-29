@@ -48,6 +48,15 @@ function shouldExcludePath(path: string): boolean {
 }
 
 /**
+ * Check if headers should be logged
+ * Headers are only logged when LOG_HEADERS=true or in development mode
+ * This reduces log volume and costs in production environments
+ */
+function shouldLogHeaders(): boolean {
+  return process.env.LOG_HEADERS === 'true' || import.meta.dev;
+}
+
+/**
  * Sanitize headers for logging (remove sensitive data)
  */
 function sanitizeHeaders(
@@ -163,7 +172,9 @@ export default defineNitroPlugin((nitroApp) => {
     if (!shouldExcludePath(h3Event.path)) {
       requestLogger.info('Request started', {
         ...context,
-        headers: sanitizeHeaders(h3Event.node.req.headers),
+        ...(shouldLogHeaders()
+          ? { headers: sanitizeHeaders(h3Event.node.req.headers) }
+          : {}),
       });
     }
   });

@@ -63,6 +63,7 @@ These are **non-sensitive configuration values** visible in the repository setti
 | `STORAGE_DRIVER`       | `fs`                           | Storage backend for tenant config  | `memory`, `fs`, `redis`                    |
 | `ENABLE_ANALYTICS`     | `false`                        | Enable client-side analytics       | `true`, `false`                            |
 | `LOG_LEVEL`            | `info`                         | Server log verbosity               | `debug`, `info`, `warn`, `error`, `silent` |
+| `LOG_HEADERS`          | `false`                        | Log sanitized request headers      | `true`, `false`                            |
 | `SENTRY_ORG`           | _(empty)_                      | Sentry organization slug           | Your Sentry org name                       |
 | `SENTRY_PROJECT`       | _(empty)_                      | Sentry project slug                | Your Sentry project name                   |
 
