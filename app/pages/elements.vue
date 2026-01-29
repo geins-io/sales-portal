@@ -38,10 +38,10 @@ const dialogOpen = ref(false);
         Tenant: {{ tenant?.tenantId ?? 'No tenant' }}
       </p>
       <p class="text-muted-foreground">
-        Tenant Name: {{ tenant?.tenantName ?? 'No tenant name' }}
+        Tenant Name: {{ tenant?.branding?.name ?? 'No tenant name' }}
       </p>
       <p class="text-muted-foreground">
-        Tenant Logo: {{ tenant?.logoUrl ?? 'No logo' }}
+        Tenant Logo: {{ tenant?.branding?.logoUrl ?? 'No logo' }}
       </p>
       <p class="text-muted-foreground">
         Tenant Theme: {{ tenant?.theme?.name ?? 'No theme' }}
