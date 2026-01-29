@@ -1,13 +1,10 @@
 <script setup lang="ts"></script>
+
 <template>
-  <div>
+  <div class="bg-background flex min-h-screen flex-col">
     <LayoutHeader />
-    <main>
-      &lt;main&gt;
-      <br />
+    <main class="flex-1">
       <slot />
-      <br />
-      &lt;/main&gt;
     </main>
     <LayoutFooter />
   </div>
