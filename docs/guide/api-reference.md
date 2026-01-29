@@ -116,15 +116,17 @@ GET /api/external/{path}
 ```
 
 The proxy:
+
 - Extracts tenant context from the request
-- Forwards the request to the configured external API
-- Includes tenant ID in the proxied request path
+- Forwards the request to the configured external API (via `NUXT_EXTERNAL_API_BASE_URL`)
+- Includes tenant hostname in the proxied request path
 
 **Example:**
 
 ```
 GET /api/external/products
-→ Proxied to: https://api.app.com/{tenantId}/products
+→ Proxied to: {externalApiBaseUrl}/{tenantHostname}/products
+→ Default: https://api.app.com/{tenantHostname}/products
 ```
 
 ## Error Logging API
@@ -178,7 +180,7 @@ GET /api/resolve-route?path=/products/123
 Use the `useApi` composable for type-safe API calls:
 
 ```typescript
-const { data, pending, error, refresh } = useApi<ResponseType>('/api/endpoint')
+const { data, pending, error, refresh } = useApi<ResponseType>('/api/endpoint');
 ```
 
 **Options:**
@@ -187,9 +189,9 @@ const { data, pending, error, refresh } = useApi<ResponseType>('/api/endpoint')
 const { data } = useApi<ProductList>('/api/products', {
   method: 'GET',
   query: { category: 'electronics' },
-  immediate: true,   // Fetch immediately
+  immediate: true, // Fetch immediately
   watch: [category], // Re-fetch when reactive value changes
-})
+});
 ```
 
 ### $api Plugin

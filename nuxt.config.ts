@@ -66,6 +66,7 @@ export default defineNuxtConfig({
    * │ NUXT_STORAGE_DRIVER             │                                      │
    * │ NUXT_STORAGE_REDIS_URL          │                                      │
    * │ NUXT_HEALTH_CHECK_SECRET        │                                      │
+   * │ NUXT_EXTERNAL_API_BASE_URL      │                                      │
    * │ NUXT_PUBLIC_SENTRY_DSN          │                                      │
    * │ NUXT_PUBLIC_FEATURES_ANALYTICS  │                                      │
    * └─────────────────────────────────────────────────────────────────────────┘
@@ -97,6 +98,10 @@ export default defineNuxtConfig({
     // Secret for accessing detailed health check metrics
     // Azure: NUXT_HEALTH_CHECK_SECRET=your-secret-here
     healthCheckSecret: '',
+
+    // External API base URL for the proxy
+    // Azure: NUXT_EXTERNAL_API_BASE_URL=https://your-external-api.com
+    externalApiBaseUrl: 'https://api.app.com',
 
     // ── Public Config (exposed to client) ───────────────────────────────────
     public: {
