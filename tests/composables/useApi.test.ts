@@ -204,4 +204,63 @@ describe('useApi', () => {
       expect(mockUseFetch).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('memory management (SAL-75)', () => {
+    it('should delegate deduplication to Nuxt useFetch via dedupe option', () => {
+      // The implementation should NOT maintain its own pendingRequests Map
+      // Instead, it delegates to Nuxt's built-in dedupe mechanism
+      const mockResult = createMockAsyncData({ data: 'test' });
+      mockUseFetch.mockReturnValue(mockResult);
+
+      useApi('/api/test');
+
+      // Verify that dedupe option is passed to useFetch
+      const [, options] = mockUseFetch.mock.calls[0];
+      expect(options.dedupe).toBe('defer');
+
+      // The composable should not expose pendingRequests management functions
+      // (clearPendingRequests and getPendingRequestsCount were removed)
+    });
+
+    it('should not maintain internal request tracking state', async () => {
+      // Import the module and verify no exported state management functions
+      const module = await import('../../app/composables/useApi');
+
+      // Verify that old memory-leaking functions are not exported
+      expect(module).not.toHaveProperty('clearPendingRequests');
+      expect(module).not.toHaveProperty('getPendingRequestsCount');
+      expect(module).not.toHaveProperty('pendingRequests');
+
+      // Only useApi should be exported
+      expect(Object.keys(module)).toEqual(['useApi']);
+    });
+
+    it('should use Nuxt lifecycle-aware deduplication', () => {
+      // Nuxt's useFetch with dedupe option handles:
+      // - Automatic cleanup on component unmount
+      // - Request cancellation cleanup
+      // - SSR memory isolation
+      const mockResult = createMockAsyncData({ data: 'test' });
+      mockUseFetch.mockReturnValue(mockResult);
+
+      useApi('/api/test');
+
+      // The dedupe: 'defer' option tells Nuxt to return existing pending request
+      // for duplicate calls, while automatically managing the lifecycle
+      const [, options] = mockUseFetch.mock.calls[0];
+      expect(options.dedupe).toBe('defer');
+    });
+
+    it('should allow dedupe cancellation strategy when specified', () => {
+      // When dedupe: 'cancel' is used, Nuxt cancels previous pending requests
+      // This provides proper abort cleanup without memory leaks
+      const mockResult = createMockAsyncData({ data: 'test' });
+      mockUseFetch.mockReturnValue(mockResult);
+
+      useApi('/api/test', { dedupe: 'cancel' });
+
+      const [, options] = mockUseFetch.mock.calls[0];
+      expect(options.dedupe).toBe('cancel');
+    });
+  });
 });
