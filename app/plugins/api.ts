@@ -15,9 +15,21 @@ import { createApiClient, mergeHeaders } from '~/utils/api-client';
  * const data = await $api('/endpoint', { method: 'GET' });
  * ```
  */
+/**
+ * Allowlist of safe headers to forward during SSR.
+ * Only these headers will be passed to external API requests to prevent
+ * leaking sensitive internal headers or cookies.
+ */
+const SAFE_HEADERS_ALLOWLIST = [
+  'accept',
+  'accept-language',
+  'user-agent',
+] as const;
+
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig();
-  const requestHeaders = useRequestHeaders();
+  // Only forward safe headers to prevent leaking sensitive data to external services
+  const requestHeaders = useRequestHeaders([...SAFE_HEADERS_ALLOWLIST]);
 
   // Create configured API client with retry logic and interceptors
   const api = createApiClient({
