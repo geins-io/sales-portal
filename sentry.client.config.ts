@@ -4,12 +4,20 @@
  * This file initializes Sentry for browser-side error tracking,
  * performance monitoring, and session replay.
  *
+ * NOTE: Client-side Sentry is DISABLED by default for security hardening.
+ * The Sentry DSN is now stored in server-only runtime config (NUXT_SENTRY_DSN).
+ *
+ * If you need client-side error tracking, you can optionally set
+ * NUXT_PUBLIC_SENTRY_DSN to enable browser error reporting.
+ *
  * @see https://docs.sentry.io/platforms/javascript/guides/nuxt/
  */
 import * as Sentry from '@sentry/nuxt';
 
 const config = useRuntimeConfig();
-const dsn = config.public.sentry?.dsn;
+// Client-side DSN is optional and must be explicitly set via NUXT_PUBLIC_SENTRY_DSN
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const dsn = (config.public as any).sentry?.dsn;
 const environment = config.public.environment || 'development';
 const isProduction = environment === 'production';
 // Disable Sentry debug logging in the browser

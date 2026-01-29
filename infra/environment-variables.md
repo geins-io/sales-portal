@@ -32,15 +32,15 @@ This document is the **single source of truth** for all environment variables an
 
 These are **sensitive values** that must be kept secret. They are encrypted by GitHub.
 
-| Secret                  | Required | Description                         | How to Get                      |
-| ----------------------- | :------: | ----------------------------------- | ------------------------------- |
-| `AZURE_CLIENT_ID`       |    ✅    | Service Principal App (Client) ID   | Run `pnpm infra:setup`          |
-| `AZURE_TENANT_ID`       |    ✅    | Azure AD Tenant ID                  | Run `pnpm infra:setup`          |
-| `AZURE_SUBSCRIPTION_ID` |    ✅    | Target Azure Subscription ID        | Run `pnpm infra:setup`          |
-| `GEINS_TENANT_API_KEY`  |    ❌    | Geins Tenant API key (server-only)  | Geins admin portal              |
-| `REDIS_URL`             |    ❌    | Redis/Upstash connection string     | Your Redis provider             |
-| `SENTRY_DSN`            |    ❌    | Sentry DSN for error tracking       | Sentry → Project → Client Keys  |
-| `SENTRY_AUTH_TOKEN`     |    ❌    | Sentry token for source map uploads | Sentry → Settings → Auth Tokens |
+| Secret                  | Required | Description                                 | How to Get                      |
+| ----------------------- | :------: | ------------------------------------------- | ------------------------------- |
+| `AZURE_CLIENT_ID`       |    ✅    | Service Principal App (Client) ID           | Run `pnpm infra:setup`          |
+| `AZURE_TENANT_ID`       |    ✅    | Azure AD Tenant ID                          | Run `pnpm infra:setup`          |
+| `AZURE_SUBSCRIPTION_ID` |    ✅    | Target Azure Subscription ID                | Run `pnpm infra:setup`          |
+| `GEINS_TENANT_API_KEY`  |    ❌    | Geins Tenant API key (server-only)          | Geins admin portal              |
+| `REDIS_URL`             |    ❌    | Redis/Upstash connection string             | Your Redis provider             |
+| `SENTRY_DSN`            |    ❌    | Sentry DSN for error tracking (server-only) | Sentry → Project → Client Keys  |
+| `SENTRY_AUTH_TOKEN`     |    ❌    | Sentry token for source map uploads         | Sentry → Settings → Auth Tokens |
 
 ### Notes on Secrets
 
@@ -89,7 +89,7 @@ The `deploy.yml` workflow passes GitHub variables to Bicep, which sets these in 
 | `NUXT_STORAGE_DRIVER`            | `vars.STORAGE_DRIVER`             | `runtimeConfig.storage.driver`            |
 | `NUXT_STORAGE_REDIS_URL`         | `secrets.REDIS_URL`               | `runtimeConfig.storage.redisUrl`          |
 | `NUXT_PUBLIC_FEATURES_ANALYTICS` | `vars.ENABLE_ANALYTICS`           | `runtimeConfig.public.features.analytics` |
-| `NUXT_PUBLIC_SENTRY_DSN`         | `secrets.SENTRY_DSN`              | `runtimeConfig.public.sentry.dsn`         |
+| `NUXT_SENTRY_DSN`                | `secrets.SENTRY_DSN`              | `runtimeConfig.sentry.dsn` (server-only)  |
 | `NITRO_HOST`                     | Hardcoded `0.0.0.0`               | Required for Azure containers             |
 | `NITRO_PORT`                     | Hardcoded `3000`                  | Container port                            |
 | `WEBSITES_PORT`                  | Hardcoded `3000`                  | Azure port mapping                        |
@@ -104,7 +104,7 @@ Environment Variable              →  runtimeConfig path
 NUXT_API_SECRET                   →  apiSecret
 NUXT_GEINS_API_ENDPOINT           →  geins.apiEndpoint
 NUXT_STORAGE_REDIS_URL            →  storage.redisUrl
-NUXT_PUBLIC_SENTRY_DSN            →  public.sentry.dsn
+NUXT_SENTRY_DSN                   →  sentry.dsn (server-only)
 ```
 
 **Without the `NUXT_` prefix, Nuxt ignores the variable at runtime!**
@@ -117,15 +117,15 @@ This is why the Bicep templates convert `GEINS_API_ENDPOINT` (GitHub) to `NUXT_G
 
 Understanding when variables are used:
 
-| Variable             | Build-Time | Runtime | Where to Set             |
-| -------------------- | :--------: | :-----: | ------------------------ |
-| `SENTRY_AUTH_TOKEN`  |     ✅     |   ❌    | GitHub Secrets           |
-| `SENTRY_ORG`         |     ✅     |   ❌    | GitHub Variables         |
-| `SENTRY_PROJECT`     |     ✅     |   ❌    | GitHub Variables         |
-| `SENTRY_DSN`         |     ❌     |   ✅    | GitHub Secrets → Azure   |
-| `GEINS_API_ENDPOINT` |     ❌     |   ✅    | GitHub Variables → Azure |
-| `REDIS_URL`          |     ❌     |   ✅    | GitHub Secrets → Azure   |
-| `STORAGE_DRIVER`     |     ❌     |   ✅    | GitHub Variables → Azure |
+| Variable             | Build-Time | Runtime | Where to Set                         |
+| -------------------- | :--------: | :-----: | ------------------------------------ |
+| `SENTRY_AUTH_TOKEN`  |     ✅     |   ❌    | GitHub Secrets                       |
+| `SENTRY_ORG`         |     ✅     |   ❌    | GitHub Variables                     |
+| `SENTRY_PROJECT`     |     ✅     |   ❌    | GitHub Variables                     |
+| `SENTRY_DSN`         |     ❌     |   ✅    | GitHub Secrets → Azure (server-only) |
+| `GEINS_API_ENDPOINT` |     ❌     |   ✅    | GitHub Variables → Azure             |
+| `REDIS_URL`          |     ❌     |   ✅    | GitHub Secrets → Azure               |
+| `STORAGE_DRIVER`     |     ❌     |   ✅    | GitHub Variables → Azure             |
 
 **Build-time** = Used during `docker build` in GitHub Actions  
 **Runtime** = Used when the app runs in Azure
@@ -140,11 +140,11 @@ You can set different values per GitHub Environment (dev, staging, prod):
 
 ### Recommended Per-Environment Secrets
 
-| Environment | `REDIS_URL` | `SENTRY_DSN` | Notes                  |
-| ----------- | :---------: | :----------: | ---------------------- |
-| dev         |     ❌      |   Optional   | Uses memory/fs storage |
-| staging     |     ✅      |      ✅      | Production-like        |
-| prod        |     ✅      |      ✅      | Full monitoring        |
+| Environment | `REDIS_URL` | `SENTRY_DSN` | Notes                         |
+| ----------- | :---------: | :----------: | ----------------------------- |
+| dev         |     ❌      |   Optional   | Uses memory/fs storage        |
+| staging     |     ✅      |      ✅      | Production-like (server-only) |
+| prod        |     ✅      |      ✅      | Full monitoring (server-only) |
 
 ---
 
@@ -169,7 +169,7 @@ Copy the output values for the next step.
 
 - [ ] `GEINS_TENANT_API_KEY` - Geins Tenant API key
 - [ ] `REDIS_URL` - If using Redis storage
-- [ ] `SENTRY_DSN` - If using Sentry error tracking
+- [ ] `SENTRY_DSN` - If using Sentry error tracking (server-side only)
 - [ ] `SENTRY_AUTH_TOKEN` - If uploading source maps to Sentry
 
 ### 4. GitHub Variables (Optional)
