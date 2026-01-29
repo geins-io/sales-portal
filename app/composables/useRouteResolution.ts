@@ -50,7 +50,7 @@ export function normalizeSlugToPath(
  */
 export function useRouteResolution(path: MaybeRefOrGetter<string>) {
   return useAsyncData<RouteResolution>(
-    () => `route-resolution:${toValue(path)}`,
+    `route-resolution:${toValue(path)}`,
     () => $fetch('/api/resolve-route', { query: { path: toValue(path) } }),
     { watch: [() => toValue(path)] },
   );
