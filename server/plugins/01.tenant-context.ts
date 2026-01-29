@@ -22,6 +22,6 @@ export default defineNitroPlugin((nitroApp) => {
 
     // Attach tenant data to the event context to make it
     // available to all server routes and middleware.
-    event.context.tenant = { id: hostname, hostname };
+    event.context.tenant = { hostname };
   });
 });

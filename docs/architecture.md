@@ -378,7 +378,7 @@ logger.info('Application started');
 logger.error('Operation failed', error, { context: 'details' });
 
 // Tenant-scoped logger
-const log = createTenantLogger(tenantId, hostname);
+const log = createTenantLogger(hostname);
 log.info('Processing order', { orderId: '123' });
 
 // Request-scoped logger with correlation ID

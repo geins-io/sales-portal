@@ -23,7 +23,9 @@ export default defineNuxtPlugin({
 
     useHead({
       titleTemplate: `%s - ${brandName.value}`,
-      htmlAttrs: { 'data-theme': theme.value?.name || 'default' },
+      htmlAttrs: {
+        'data-theme': theme.value?.name?.toLowerCase() || 'default',
+      },
       style: [
         {
           innerHTML: () => sanitizeCustomCss(tenant.value?.css),

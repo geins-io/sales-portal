@@ -140,7 +140,7 @@ export function generateTenantCss(theme: TenantTheme): string {
  */
 export function createDefaultTheme(tenantId: string): TenantTheme {
   return {
-    name: tenantId,
+    name: tenantId.toLowerCase(),
     displayName: tenantId,
     colors: { ...DEFAULT_LIGHT_COLORS },
     borderRadius: {
@@ -284,19 +284,14 @@ export async function createTenant(
 }
 
 export async function fetchTenantConfig(
-  tenantId: string,
+  hostname: string,
 ): Promise<TenantConfig | null> {
   const config = useRuntimeConfig();
 
-  if (!config.geins.tenantApiUrl) {
-    return null;
-  }
-
   const response = await fetch(
-    `${config.geins.tenantApiUrl}/tenant?tenantId=${tenantId}`,
+    `${config.geins.tenantApiUrl}?hostname=${hostname}`,
     {
       headers: {
-        'x-api-key': config.geins.tenantApiKey,
         'Content-Type': 'application/json',
       },
     },
@@ -307,7 +302,7 @@ export async function fetchTenantConfig(
     return {
       tenantId: 'no-tenant',
       hostname: 'not-found',
-      theme: createDefaultTheme(tenantId),
+      theme: createDefaultTheme(hostname),
       css: '',
       isActive: false,
       createdAt: new Date().toISOString(),
@@ -321,23 +316,20 @@ export async function fetchTenantConfig(
  * Retrieves a tenant configuration from KV storage
  */
 export async function getTenant(
-  tenantId: string,
+  hostname: string,
 ): Promise<TenantConfig | null> {
   const storage = useStorage('kv');
   const tenantConfig = await storage.getItem<TenantConfig>(
-    tenantConfigKey(tenantId),
+    tenantConfigKey(hostname),
   );
 
   if (!tenantConfig) {
-    const newTenantConfig = await fetchTenantConfig(tenantId);
-    if (!newTenantConfig) {
-      console.log('--- getTenant --- NO NEW TENANT CONFIG', tenantId);
-    }
+    const newTenantConfig = await fetchTenantConfig(hostname);
     // Cache the fetched config in KV storage
     const configToCache: TenantConfig = {
       ...(newTenantConfig as TenantConfig),
     };
-    await storage.setItem(tenantConfigKey(tenantId), configToCache);
+    await storage.setItem(tenantConfigKey(hostname), configToCache);
     return configToCache;
   }
   if (!tenantConfig.isActive) {
@@ -366,11 +358,11 @@ export async function getTenantByHostname(
  * Updates an existing tenant configuration
  */
 export async function updateTenant(
-  tenantId: string,
+  hostname: string,
   updates: Partial<TenantConfig>,
 ): Promise<TenantConfig | null> {
   const storage = useStorage('kv');
-  const existing = await getTenant(tenantId);
+  const existing = await getTenant(hostname);
 
   if (!existing) {
     return null;
@@ -393,22 +385,19 @@ export async function updateTenant(
     updatedAt: new Date().toISOString(),
   };
 
-  await storage.setItem(tenantConfigKey(tenantId), updatedConfig);
+  await storage.setItem(tenantConfigKey(hostname), updatedConfig);
   return updatedConfig;
 }
 
 /**
  * Deletes a tenant configuration
  */
-export async function deleteTenant(
-  tenantId: string,
-  hostname: string,
-): Promise<boolean> {
+export async function deleteTenant(hostname: string): Promise<boolean> {
   const storage = useStorage('kv');
 
   try {
     await storage.removeItem(tenantIdKey(hostname));
-    await storage.removeItem(tenantConfigKey(tenantId));
+    await storage.removeItem(tenantConfigKey(hostname));
     return true;
   } catch {
     return false;

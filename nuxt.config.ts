@@ -84,8 +84,7 @@ export default defineNuxtConfig({
     // Azure: NUXT_GEINS_API_ENDPOINT, NUXT_GEINS_TENANT_API_URL, NUXT_GEINS_TENANT_API_KEY
     geins: {
       apiEndpoint: 'https://merchantapi.geins.io/graphql',
-      tenantApiUrl: '',
-      tenantApiKey: '',
+      tenantApiUrl: 'https://merchantapi.geins.io/store-settings',
     },
 
     // Storage configuration (memory for dev, redis for production)

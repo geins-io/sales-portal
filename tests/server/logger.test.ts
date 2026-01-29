@@ -36,7 +36,7 @@ describe('Logger utilities', () => {
     });
 
     it('should create child logger with merged context', () => {
-      const parentLogger = createLogger({ tenantId: 'tenant-1' });
+      const parentLogger = createLogger({ hostname: 'tenant-1.example.com' });
       const childLogger = parentLogger.child({ requestId: 'req-1' });
 
       expect(childLogger).toBeDefined();
@@ -55,8 +55,8 @@ describe('Logger utilities', () => {
   });
 
   describe('createTenantLogger', () => {
-    it('should create a logger with tenant context', () => {
-      const logger = createTenantLogger('tenant-123', 'example.com');
+    it('should create a logger with hostname context', () => {
+      const logger = createTenantLogger('tenant-123.example.com');
 
       expect(logger).toBeDefined();
       expect(logger).toHaveProperty('info');
@@ -79,7 +79,7 @@ describe('Logger utilities', () => {
 
     it('should include additional context', () => {
       const logger = createRequestLogger('cid', {
-        tenantId: 'tenant-1',
+        hostname: 'tenant-1.example.com',
         path: '/api/test',
       });
 

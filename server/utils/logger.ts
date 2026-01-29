@@ -17,7 +17,6 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
  * Context information for log entries
  */
 export interface LogContext {
-  tenantId?: string;
   hostname?: string;
   requestId?: string;
   correlationId?: string;
@@ -123,8 +122,8 @@ function formatLogEntry(entry: LogEntry): string {
     if (entry.correlationId) {
       contextParts.push(`cid=${entry.correlationId.slice(0, 8)}`);
     }
-    if (entry.context?.tenantId) {
-      contextParts.push(`tenant=${entry.context.tenantId}`);
+    if (entry.context?.hostname) {
+      contextParts.push(`host=${entry.context.hostname}`);
     }
     if (entry.context?.method && entry.context?.path) {
       contextParts.push(`${entry.context.method} ${entry.context.path}`);
@@ -167,8 +166,8 @@ function formatLogEntry(entry: LogEntry): string {
   if (entry.context) {
     output.properties = { ...entry.context };
     // Map to Application Insights custom dimensions
-    if (entry.context.tenantId) {
-      output['customDimensions'] = { tenantId: entry.context.tenantId };
+    if (entry.context.hostname) {
+      output['customDimensions'] = { hostname: entry.context.hostname };
     }
   }
 
@@ -378,11 +377,8 @@ export const logger = createLogger();
 /**
  * Create a tenant-scoped logger
  */
-export function createTenantLogger(
-  tenantId: string,
-  hostname?: string,
-): Logger {
-  return createLogger({ tenantId, hostname });
+export function createTenantLogger(hostname: string): Logger {
+  return createLogger({ hostname });
 }
 
 /**

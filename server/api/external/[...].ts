@@ -9,10 +9,10 @@ const HEADERS_TO_FORWARD = ['content-type', 'accept', 'authorization'];
 export default defineEventHandler(async (event) => {
   // Remove the `/external/api` prefix from the path
   const targetPath = event.path.replace(/^\/api\/external\//, '');
-  // Set the request target utilizing our external API's base URL and the tenant ID
-  const tenantId = event.context.tenant.id;
+  // Set the request target utilizing our external API's base URL and the hostname
+  const hostname = event.context.tenant.hostname;
   const target = new URL(
-    `/${tenantId}/${targetPath}`,
+    `/${hostname}/${targetPath}`,
     'https://api.app.com',
   ).toString();
 

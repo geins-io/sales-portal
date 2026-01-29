@@ -66,7 +66,6 @@ export default defineEventHandler(
       // Build log context
       const context: LogContext = {
         correlationId,
-        tenantId: tenant?.id,
         hostname: tenant?.hostname,
         source: 'client',
         errorUrl: body.url,
