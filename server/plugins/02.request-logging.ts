@@ -11,6 +11,7 @@
  * structured JSON logging when running in production.
  */
 
+import type { H3Event } from 'h3';
 import {
   createRequestLogger,
   generateCorrelationId,
@@ -20,6 +21,7 @@ import {
   type Logger,
   type LogContext,
 } from '../utils/logger';
+import { getClientIp } from '../utils/rate-limiter';
 
 // Extend H3 event context to include logger
 declare module 'h3' {
@@ -74,44 +76,6 @@ function sanitizeHeaders(
   return sanitized;
 }
 
-/**
- * Get client IP from request
- */
-function getClientIp(
-  event: Parameters<typeof defineNitroPlugin>[0] extends (app: infer A) => void
-    ? A extends {
-        hooks: {
-          hook: (name: 'request', cb: (event: infer E) => void) => void;
-        };
-      }
-      ? E
-      : never
-    : never,
-): string {
-  // Type workaround for H3 event
-  const h3Event = event as {
-    node: {
-      req: {
-        headers: Record<string, string | string[] | undefined>;
-        socket?: { remoteAddress?: string };
-      };
-    };
-  };
-
-  const forwarded = h3Event.node.req.headers['x-forwarded-for'];
-  if (forwarded) {
-    const ips = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-    return ips.split(',')[0].trim();
-  }
-
-  const realIp = h3Event.node.req.headers['x-real-ip'];
-  if (realIp) {
-    return Array.isArray(realIp) ? realIp[0] : realIp;
-  }
-
-  return h3Event.node.req.socket?.remoteAddress || 'unknown';
-}
-
 export default defineNitroPlugin((nitroApp) => {
   // Request start: Initialize logging context
   nitroApp.hooks.hook('request', (event) => {
@@ -147,7 +111,7 @@ export default defineNitroPlugin((nitroApp) => {
       path: h3Event.path,
       tenantId: h3Event.context.tenant?.id,
       hostname: h3Event.context.tenant?.hostname,
-      ip: getClientIp(event),
+      ip: getClientIp(event as unknown as H3Event),
       userAgent: h3Event.node.req.headers['user-agent'] as string | undefined,
     };
 
