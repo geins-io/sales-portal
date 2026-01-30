@@ -41,7 +41,9 @@ export class RateLimiter {
     this.windowMs = options.windowMs;
 
     // Periodically clean up expired entries to prevent memory leaks
+    // Use unref() to allow the process to exit cleanly (important for tests and serverless)
     this.cleanupInterval = setInterval(() => this.cleanup(), this.windowMs * 2);
+    this.cleanupInterval.unref();
   }
 
   /**
