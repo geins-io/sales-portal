@@ -75,28 +75,126 @@ function getGlobalState(): ErrorTrackingState {
 }
 
 /**
- * Send error to server for logging
+ * Error batching configuration
  */
-async function sendErrorToServer(error: ErrorEvent): Promise<void> {
+const BATCH_FLUSH_INTERVAL_MS = 5000; // Flush batch every 5 seconds
+const BATCH_MAX_SIZE = 50; // Maximum errors before forcing a flush
+
+/**
+ * Error queue for batching
+ */
+const errorQueue: ErrorEvent[] = [];
+let flushTimeout: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Send batched errors to server for logging
+ */
+async function sendBatchToServer(batch: ErrorEvent[]): Promise<void> {
   // Don't send in development or if window is not available
   if (import.meta.dev || typeof window === 'undefined') {
     return;
   }
 
+  if (batch.length === 0) {
+    return;
+  }
+
   try {
-    await fetch('/api/log/error', {
+    await fetch('/api/log/error-batch', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(error),
+      body: JSON.stringify({ errors: batch }),
       // Don't wait for response, fire and forget
       keepalive: true,
     });
   } catch {
     // Silently fail - we don't want error tracking to cause more errors
-    console.debug('[ErrorTracking] Failed to send error to server');
+    console.debug('[ErrorTracking] Failed to send error batch to server');
   }
+}
+
+/**
+ * Flush the error queue, sending all queued errors to the server
+ */
+function flushErrors(): void {
+  if (errorQueue.length === 0) {
+    flushTimeout = null;
+    return;
+  }
+
+  // Extract all errors from queue
+  const batch = errorQueue.splice(0, errorQueue.length);
+
+  // Clear timeout reference
+  flushTimeout = null;
+
+  // Send batch to server
+  sendBatchToServer(batch);
+}
+
+/**
+ * Queue an error for batched sending to the server
+ */
+function queueError(error: ErrorEvent): void {
+  // Don't queue in development or if window is not available
+  if (import.meta.dev || typeof window === 'undefined') {
+    return;
+  }
+
+  errorQueue.push(error);
+
+  // Force flush if batch is too large
+  if (errorQueue.length >= BATCH_MAX_SIZE) {
+    if (flushTimeout) {
+      clearTimeout(flushTimeout);
+      flushTimeout = null;
+    }
+    flushErrors();
+    return;
+  }
+
+  // Schedule flush if not already scheduled
+  if (!flushTimeout) {
+    flushTimeout = setTimeout(flushErrors, BATCH_FLUSH_INTERVAL_MS);
+  }
+}
+
+/**
+ * Send error to server for logging (legacy - kept for backwards compatibility)
+ * @deprecated Use queueError instead for batched sending
+ */
+async function sendErrorToServer(error: ErrorEvent): Promise<void> {
+  queueError(error);
+}
+
+/**
+ * Reset the error queue and clear any pending flush timeout
+ * Primarily used for testing purposes
+ */
+export function _resetErrorQueue(): void {
+  errorQueue.splice(0, errorQueue.length);
+  if (flushTimeout) {
+    clearTimeout(flushTimeout);
+    flushTimeout = null;
+  }
+}
+
+/**
+ * Get the current error queue for testing purposes
+ * @internal
+ */
+export function _getErrorQueue(): ErrorEvent[] {
+  return errorQueue;
+}
+
+/**
+ * Get the current flush timeout status for testing purposes
+ * @internal
+ */
+export function _hasFlushTimeout(): boolean {
+  return flushTimeout !== null;
 }
 
 /**
@@ -192,7 +290,9 @@ export function useErrorTracking() {
   /**
    * Set user context for Sentry tracking
    */
-  function setUser(user: { id: string; email?: string; username?: string } | null): void {
+  function setUser(
+    user: { id: string; email?: string; username?: string } | null,
+  ): void {
     if (user) {
       Sentry.setUser({
         id: user.id,
@@ -243,18 +343,19 @@ export function useErrorTracking() {
       return;
     }
 
-    // Format the warning (could be used for future logging)
-    const _warningContext = {
+    // Format the warning context for logging
+    const warningContext = {
       ...context,
-      severity: 'warning',
+      severity: 'warning' as const,
       route: route.path,
     };
 
     if (import.meta.dev) {
-      console.warn('[ErrorTracking] Warning:', message, _warningContext);
+      console.warn('[ErrorTracking] Warning:', message, warningContext);
     }
 
-    // Warnings are logged but not sent to server by default
+    // In production, warnings could be sent to monitoring (future enhancement)
+    // For now, warnings are only logged in development mode
   }
 
   /**
@@ -333,6 +434,22 @@ export function useErrorTracking() {
     return state.errors.value;
   }
 
+  /**
+   * Immediately flush any queued errors to the server
+   * Useful for page unload or critical error scenarios
+   */
+  function flushErrorQueue(): void {
+    flushErrors();
+  }
+
+  /**
+   * Get the current number of queued errors
+   * Useful for debugging and testing
+   */
+  function getQueuedErrorCount(): number {
+    return errorQueue.length;
+  }
+
   return {
     trackError,
     trackWarning,
@@ -345,6 +462,8 @@ export function useErrorTracking() {
     setUser,
     setTenant,
     addBreadcrumb,
+    flushErrorQueue,
+    getQueuedErrorCount,
     errors: state.errors,
     isEnabled: state.isEnabled,
   };

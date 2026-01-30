@@ -6,6 +6,17 @@ import type { UseFetchOptions } from 'nuxt/app';
  * This composable leverages Nuxt 4's built-in `useFetch` with the `dedupe` option
  * for automatic request deduplication, SSR payload transfer, and caching.
  *
+ * ## Memory Management
+ *
+ * The previous implementation used a manual `pendingRequests` Map for deduplication,
+ * which could leak memory if requests were aborted without triggering cleanup (SAL-75).
+ *
+ * The current implementation uses Nuxt's built-in `dedupe` option which:
+ * - Automatically manages request lifecycle tied to component scope
+ * - Handles cleanup on component unmount via Vue's effect scope disposal
+ * - Properly cleans up on request abort, cancellation, or error
+ * - Prevents SSR memory leaks by scoping requests to the request context
+ *
  * @param url - The URL to fetch (can be a string or a reactive getter function)
  * @param options - UseFetch options (dedupe defaults to 'defer' to prevent duplicate requests)
  * @returns AsyncData object from useFetch

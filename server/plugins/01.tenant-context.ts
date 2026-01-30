@@ -9,20 +9,13 @@ function normalizeHostname(hostname: string): string {
   return hostname.split(':')[0];
 }
 
-// temp development function to transform hostname
-function transformHostname(hostname: string): string {
-  // get first part of hostname before the first dot
-  const name = hostname.split('.')[0];
-
-  return `${name}.litium.portal`;
-}
-
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', async (event) => {
     // Get the request host for dynamic request routing
     // without considering the `X-Forwarded-Host` header which could be spoofed.
     const rawHostname = getRequestHost(event, { xForwardedHost: false });
-    const hostname = transformHostname(normalizeHostname(rawHostname ?? ''));
+
+    const hostname = normalizeHostname(rawHostname ?? '');
 
     // TODO: add other tenant data from the database here
     // import { KV_STORAGE_KEYS } from '#shared/constants/storage';

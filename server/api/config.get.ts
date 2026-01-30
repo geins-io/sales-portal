@@ -6,14 +6,10 @@ export default defineCachedEventHandler(
     const { hostname } = event.context.tenant;
     const log = createTenantLogger(hostname);
 
-    console.log('**** hostname', hostname);
-
     return withErrorHandling(
       async () => {
         log.debug('Fetching tenant configuration');
-
         const config = await getTenant(hostname);
-        console.log('**** config', config);
         log.debug('Tenant configuration loaded successfully');
         return config;
       },
