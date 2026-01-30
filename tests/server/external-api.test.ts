@@ -58,7 +58,8 @@ describe('External API Proxy', () => {
       method: overrides.method || 'GET',
       context: {
         tenant: {
-          hostname: overrides.tenantHostname || 'test-tenant',
+          id: overrides.tenantId || 'test-tenant',
+          hostname: overrides.tenantId || 'test-tenant',
         },
       },
     } as unknown as H3Event;

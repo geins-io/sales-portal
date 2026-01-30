@@ -21,7 +21,7 @@ export default defineNuxtConfig({
 
   // Sentry build-time configuration for source maps (optional)
   // If SENTRY_AUTH_TOKEN is not set, source maps won't be uploaded
-  // If SENTRY_DSN is not set, error tracking will be disabled at runtime
+  // If SENTRY_DSN (server) is not set, server-side error tracking will be disabled at runtime
   sentry: {
     // Sentry organization and project slugs for source map uploads
     // Only required if you want source map uploads
@@ -66,7 +66,7 @@ export default defineNuxtConfig({
    * │ NUXT_STORAGE_DRIVER             │                                      │
    * │ NUXT_STORAGE_REDIS_URL          │                                      │
    * │ NUXT_HEALTH_CHECK_SECRET        │                                      │
-   * │ NUXT_PUBLIC_SENTRY_DSN          │                                      │
+   * │ NUXT_SENTRY_DSN                 │                                      │
    * │ NUXT_PUBLIC_FEATURES_ANALYTICS  │                                      │
    * └─────────────────────────────────────────────────────────────────────────┘
    *
@@ -98,6 +98,14 @@ export default defineNuxtConfig({
     // Azure: NUXT_HEALTH_CHECK_SECRET=your-secret-here
     healthCheckSecret: '',
 
+    // Sentry error tracking (server-side only)
+    // Azure: NUXT_SENTRY_DSN=https://xxx@sentry.io/xxx
+    // Note: DSN is kept server-side only to avoid exposing configuration to clients.
+    // Client-side error tracking is disabled by default for security hardening.
+    sentry: {
+      dsn: '',
+    },
+
     // ── Public Config (exposed to client) ───────────────────────────────────
     public: {
       // App metadata (typically not overridden)
@@ -121,12 +129,6 @@ export default defineNuxtConfig({
       api: {
         baseUrl: '/api',
         timeout: 30000,
-      },
-
-      // Sentry error tracking (client-side)
-      // Azure: NUXT_PUBLIC_SENTRY_DSN=https://xxx@sentry.io/xxx
-      sentry: {
-        dsn: '',
       },
     },
   },

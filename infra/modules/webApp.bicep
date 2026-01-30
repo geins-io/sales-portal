@@ -69,7 +69,8 @@ param healthCheckSecret string
 
 // Sentry configuration
 // NOTE: Only DSN is needed at runtime. Org/Project/AuthToken are build-time only.
-@description('Sentry DSN for error tracking (runtime)')
+// DSN is now server-only (NUXT_SENTRY_DSN) for security hardening.
+@description('Sentry DSN for error tracking (server-side runtime)')
 @secure()
 param sentryDsn string = ''
 
@@ -196,10 +197,11 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
           value: logLevel
         }
         // Sentry Configuration
-        // NUXT_PUBLIC_SENTRY_DSN = runtime (client error tracking)
+        // NUXT_SENTRY_DSN = runtime (server-side error tracking only)
         // SENTRY_* = build-time only (source map uploads) - not needed in Azure
+        // Note: DSN is server-only for security hardening
         {
-          name: 'NUXT_PUBLIC_SENTRY_DSN'
+          name: 'NUXT_SENTRY_DSN'
           value: sentryDsn
         }
         // Application Insights Configuration
@@ -306,9 +308,9 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
           name: 'LOG_LEVEL'
           value: logLevel
         }
-        // Sentry Configuration
+        // Sentry Configuration (server-side only)
         {
-          name: 'NUXT_PUBLIC_SENTRY_DSN'
+          name: 'NUXT_SENTRY_DSN'
           value: sentryDsn
         }
         // Application Insights Configuration
