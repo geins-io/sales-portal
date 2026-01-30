@@ -14,7 +14,8 @@ import * as Sentry from '@sentry/nuxt';
 
 // Server-side Sentry must use process.env directly since
 // useRuntimeConfig() is not available at initialization time
-const dsn = process.env.NUXT_PUBLIC_SENTRY_DSN || '';
+// DSN is now server-only (NUXT_SENTRY_DSN) to avoid exposing configuration to clients
+const dsn = process.env.NUXT_SENTRY_DSN || '';
 const environment = process.env.NODE_ENV || 'development';
 const isProduction = environment === 'production';
 // Disable console logging if SENTRY_SILENT is set to 'true'
