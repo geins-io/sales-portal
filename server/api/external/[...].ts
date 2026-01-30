@@ -6,17 +6,17 @@ const EXTERNAL_API_TIMEOUT_MS = 30000;
 /** Headers that should be forwarded to the upstream API */
 const HEADERS_TO_FORWARD = ['content-type', 'accept', 'authorization'];
 
-export default defineEventHandler((event) =>
-  withErrorHandling(
-    async () => {
-      // Remove the `/external/api` prefix from the path
-      const targetPath = event.path.replace(/^\/api\/external\//, '');
-      // Set the request target utilizing our external API's base URL and the hostname
-      const hostname = event.context.tenant.hostname;
-      const target = new URL(
-        `/${hostname}/${targetPath}`,
-        'https://api.app.com',
-      ).toString();
+export default defineEventHandler(async (event) => {
+  // Remove the `/external/api` prefix from the path
+  const targetPath = event.path.replace(/^\/api\/external\//, '');
+  // Get the external API base URL from runtime config
+  const config = useRuntimeConfig(event);
+  // Set the request target utilizing our external API's base URL and the hostname
+  const hostname = event.context.tenant.hostname;
+  const target = new URL(
+    `/${hostname}/${targetPath}`,
+    config.externalApiBaseUrl,
+  ).toString();
 
       try {
         // Determine the request body when applicable
