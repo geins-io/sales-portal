@@ -290,29 +290,56 @@ export async function fetchTenantConfig(
 ): Promise<TenantConfig | null> {
   const config = useRuntimeConfig(event);
 
-  const response = await fetch(
-    `${config.geins.tenantApiUrl}?hostname=${hostname}`,
-    {
-      headers: {
-        'Content-Type': 'application/json',
+  try {
+    const response = await fetch(
+      `${config.geins.tenantApiUrl}?hostname=${hostname}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
       },
-    },
-  );
+    );
 
-  // not ok send default config with isActive false
-  if (!response.ok) {
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch {
+    // External API unavailable - fall through to default handling
+  }
+
+  // If autoCreateTenant is enabled, create an active tenant for development/testing
+  // This allows E2E tests and local development to work without a real tenant API
+  if (config.autoCreateTenant) {
+    const defaultTheme = createDefaultTheme(hostname);
     return {
-      tenantId: 'no-tenant',
-      hostname: 'not-found',
-      theme: createDefaultTheme(hostname),
-      css: '',
-      isActive: false,
+      tenantId: hostname,
+      hostname: hostname,
+      theme: defaultTheme,
+      css: generateTenantCss(defaultTheme),
+      branding: {
+        name: hostname,
+      },
+      features: {
+        search: true,
+        authentication: true,
+        cart: true,
+      },
+      isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
   }
 
-  return await response.json();
+  // Default: return inactive config
+  return {
+    tenantId: 'no-tenant',
+    hostname: 'not-found',
+    theme: createDefaultTheme(hostname),
+    css: '',
+    isActive: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 }
 /**
  * Retrieves a tenant configuration from KV storage

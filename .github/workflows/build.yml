@@ -143,6 +143,7 @@ jobs:
         run: pnpm test:e2e
         env:
           PLAYWRIGHT_BASE_URL: http://tenant-a.litium.portal:3000
+          NUXT_AUTO_CREATE_TENANT: true
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
