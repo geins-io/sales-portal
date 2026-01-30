@@ -11,6 +11,8 @@
  * structured JSON logging when running in production.
  */
 
+import type { H3Event } from 'h3';
+import { getHeader } from 'h3';
 import {
   createRequestLogger,
   generateCorrelationId,
@@ -28,6 +30,14 @@ declare module 'h3' {
     correlationId: string;
     requestTimer: { elapsed: () => number };
   }
+}
+
+/**
+ * Response object type for beforeResponse hook
+ */
+interface ResponseObject {
+  statusCode?: number;
+  body?: unknown;
 }
 
 /**
@@ -76,171 +86,139 @@ function sanitizeHeaders(
 
 /**
  * Get client IP from request
+ *
+ * Checks common proxy headers first, then falls back to the direct connection IP.
+ * The order of header checks follows common proxy/CDN conventions.
  */
-function getClientIp(
-  event: Parameters<typeof defineNitroPlugin>[0] extends (app: infer A) => void
-    ? A extends {
-        hooks: {
-          hook: (name: 'request', cb: (event: infer E) => void) => void;
-        };
-      }
-      ? E
-      : never
-    : never,
-): string {
-  // Type workaround for H3 event
-  const h3Event = event as {
-    node: {
-      req: {
-        headers: Record<string, string | string[] | undefined>;
-        socket?: { remoteAddress?: string };
-      };
-    };
-  };
-
-  const forwarded = h3Event.node.req.headers['x-forwarded-for'];
-  if (forwarded) {
-    const ips = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-    return ips.split(',')[0].trim();
+function getClientIp(event: H3Event): string {
+  // Check X-Forwarded-For header (most common proxy header)
+  const forwardedFor = getHeader(event, 'x-forwarded-for');
+  if (forwardedFor) {
+    // X-Forwarded-For can contain multiple IPs; the first is the client
+    const firstIp = forwardedFor.split(',')[0]?.trim();
+    if (firstIp) {
+      return firstIp;
+    }
   }
 
-  const realIp = h3Event.node.req.headers['x-real-ip'];
+  // Check X-Real-IP header (used by Nginx)
+  const realIp = getHeader(event, 'x-real-ip');
   if (realIp) {
-    return Array.isArray(realIp) ? realIp[0] : realIp;
+    return realIp.trim();
   }
 
-  return h3Event.node.req.socket?.remoteAddress || 'unknown';
+  // Fall back to the direct connection address
+  const nodeReq = event.node?.req;
+  if (nodeReq?.socket?.remoteAddress) {
+    return nodeReq.socket.remoteAddress;
+  }
+
+  return 'unknown';
 }
 
 export default defineNitroPlugin((nitroApp) => {
   // Request start: Initialize logging context
-  nitroApp.hooks.hook('request', (event) => {
-    const h3Event = event as unknown as {
-      path: string;
-      method: string;
-      node: {
-        req: {
-          headers: Record<string, string | string[] | undefined>;
-          socket?: { remoteAddress?: string };
-        };
-      };
-      context: {
-        tenant?: { id: string; hostname: string };
-        logger?: Logger;
-        correlationId?: string;
-        requestTimer?: { elapsed: () => number };
-      };
-    };
-
+  nitroApp.hooks.hook('request', (event: H3Event) => {
     // Start request timer
     const timer = createTimer();
 
+    // Build headers record for parsing correlation ID
+    const headers: Record<string, string | string[] | undefined> = {};
+    event.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+
     // Get or generate correlation ID
     const correlationId =
-      parseCorrelationIdFromHeaders(h3Event.node.req.headers) ||
-      generateCorrelationId();
+      parseCorrelationIdFromHeaders(headers) || generateCorrelationId();
 
     // Create request context
     const context: LogContext = {
       correlationId,
-      method: h3Event.method,
-      path: h3Event.path,
-      tenantId: h3Event.context.tenant?.id,
-      hostname: h3Event.context.tenant?.hostname,
+      method: event.method,
+      path: event.path,
+      tenantId: (event.context.tenant as { id?: string })?.id,
+      hostname: event.context.tenant?.hostname,
       ip: getClientIp(event),
-      userAgent: h3Event.node.req.headers['user-agent'] as string | undefined,
+      userAgent: getHeader(event, 'user-agent'),
     };
 
     // Create request-scoped logger
     const requestLogger = createRequestLogger(correlationId, context);
 
     // Attach to event context
-    h3Event.context.logger = requestLogger;
-    h3Event.context.correlationId = correlationId;
-    h3Event.context.requestTimer = timer;
+    event.context.logger = requestLogger;
+    event.context.correlationId = correlationId;
+    event.context.requestTimer = timer;
 
     // Log request start (skip excluded paths for reduced noise)
-    if (!shouldExcludePath(h3Event.path)) {
+    if (!shouldExcludePath(event.path)) {
       requestLogger.info('Request started', {
         ...context,
-        headers: sanitizeHeaders(h3Event.node.req.headers),
+        headers: sanitizeHeaders(headers),
       });
     }
   });
 
   // Before response: Log completion
-  nitroApp.hooks.hook('beforeResponse', (event, response) => {
-    const h3Event = event as unknown as {
-      path: string;
-      method: string;
-      context: {
-        logger?: Logger;
-        correlationId?: string;
-        requestTimer?: { elapsed: () => number };
-        tenant?: { id: string; hostname: string };
+  nitroApp.hooks.hook(
+    'beforeResponse',
+    (event: H3Event, response: ResponseObject) => {
+      // Skip excluded paths
+      if (shouldExcludePath(event.path)) {
+        return;
+      }
+
+      const requestLogger = event.context.logger;
+      const timer = event.context.requestTimer;
+
+      if (!requestLogger || !timer) {
+        return;
+      }
+
+      const duration = timer.elapsed();
+      const statusCode = response?.statusCode || 200;
+
+      const context: LogContext = {
+        correlationId: event.context.correlationId,
+        method: event.method,
+        path: event.path,
+        statusCode,
+        duration,
+        tenantId: (event.context.tenant as { id?: string })?.id,
       };
-    };
 
-    const responseObj = response as { statusCode?: number; body?: unknown };
+      // Log based on status code
+      if (statusCode >= 500) {
+        requestLogger.error(
+          `Request failed with ${statusCode}`,
+          undefined,
+          context,
+        );
+      } else if (statusCode >= 400) {
+        requestLogger.warn(`Request completed with ${statusCode}`, context);
+      } else {
+        requestLogger.info('Request completed', context);
+      }
 
-    // Skip excluded paths
-    if (shouldExcludePath(h3Event.path)) {
-      return;
-    }
-
-    const logger = h3Event.context.logger;
-    const timer = h3Event.context.requestTimer;
-
-    if (!logger || !timer) {
-      return;
-    }
-
-    const duration = timer.elapsed();
-    const statusCode = responseObj?.statusCode || 200;
-
-    const context: LogContext = {
-      correlationId: h3Event.context.correlationId,
-      method: h3Event.method,
-      path: h3Event.path,
-      statusCode,
-      duration,
-      tenantId: h3Event.context.tenant?.id,
-    };
-
-    // Log based on status code
-    if (statusCode >= 500) {
-      logger.error(`Request failed with ${statusCode}`, undefined, context);
-    } else if (statusCode >= 400) {
-      logger.warn(`Request completed with ${statusCode}`, context);
-    } else {
-      logger.info('Request completed', context);
-    }
-
-    // Track request duration metric
-    logger.trackMetric({
-      name: 'request_duration',
-      value: duration,
-      unit: 'ms',
-      dimensions: {
-        path: h3Event.path,
-        method: h3Event.method,
-        statusCode: String(statusCode),
-      },
-    });
-  });
+      // Track request duration metric
+      requestLogger.trackMetric({
+        name: 'request_duration',
+        value: duration,
+        unit: 'ms',
+        dimensions: {
+          path: event.path,
+          method: event.method,
+          statusCode: String(statusCode),
+        },
+      });
+    },
+  );
 
   // Error handling: Log errors
   nitroApp.hooks.hook('error', (error, { event }) => {
-    const h3Event = event as unknown as {
-      path?: string;
-      method?: string;
-      context?: {
-        logger?: Logger;
-        correlationId?: string;
-        requestTimer?: { elapsed: () => number };
-        tenant?: { id: string; hostname: string };
-      };
-    };
+    // Event may be undefined in some error scenarios
+    const h3Event = event as H3Event | undefined;
 
     const requestLogger = h3Event?.context?.logger;
     const timer = h3Event?.context?.requestTimer;
@@ -251,18 +229,22 @@ export default defineNitroPlugin((nitroApp) => {
       method: h3Event?.method,
       path: h3Event?.path,
       duration,
-      tenantId: h3Event?.context?.tenant?.id,
+      tenantId: (h3Event?.context?.tenant as { id?: string })?.id,
     };
 
     // Use request logger if available, otherwise use default module logger
     const errorLogger = requestLogger || logger;
 
-    const errorObj = error as Error & { statusCode?: number; data?: unknown };
+    // Type assertion for error with additional properties
+    const errorWithMeta = error as Error & {
+      statusCode?: number;
+      data?: unknown;
+    };
 
-    errorLogger.error('Request error', errorObj, {
+    errorLogger.error('Request error', errorWithMeta, {
       ...context,
-      statusCode: errorObj?.statusCode || 500,
-      errorData: errorObj?.data,
+      statusCode: errorWithMeta?.statusCode || 500,
+      errorData: errorWithMeta?.data,
     });
 
     // Track error metric
@@ -272,7 +254,7 @@ export default defineNitroPlugin((nitroApp) => {
       unit: 'count',
       dimensions: {
         path: h3Event?.path || 'unknown',
-        errorType: errorObj?.name || 'Error',
+        errorType: errorWithMeta?.name || 'Error',
       },
     });
   });

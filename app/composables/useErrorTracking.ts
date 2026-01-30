@@ -192,7 +192,9 @@ export function useErrorTracking() {
   /**
    * Set user context for Sentry tracking
    */
-  function setUser(user: { id: string; email?: string; username?: string } | null): void {
+  function setUser(
+    user: { id: string; email?: string; username?: string } | null,
+  ): void {
     if (user) {
       Sentry.setUser({
         id: user.id,
@@ -243,18 +245,19 @@ export function useErrorTracking() {
       return;
     }
 
-    // Format the warning (could be used for future logging)
-    const _warningContext = {
+    // Format the warning context for logging
+    const warningContext = {
       ...context,
-      severity: 'warning',
+      severity: 'warning' as const,
       route: route.path,
     };
 
     if (import.meta.dev) {
-      console.warn('[ErrorTracking] Warning:', message, _warningContext);
+      console.warn('[ErrorTracking] Warning:', message, warningContext);
     }
 
-    // Warnings are logged but not sent to server by default
+    // In production, warnings could be sent to monitoring (future enhancement)
+    // For now, warnings are only logged in development mode
   }
 
   /**
