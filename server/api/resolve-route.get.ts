@@ -1,6 +1,7 @@
 import { defineEventHandler, getQuery, setResponseHeader } from 'h3';
 import { LRUCache } from 'lru-cache';
 import type { RouteResolution } from '#shared/types';
+import { withErrorHandling } from '../utils/errors';
 
 // =============================================================================
 // Cache Configuration
@@ -256,34 +257,39 @@ function setCacheHeaders(
 // Event Handler
 // =============================================================================
 
-export default defineEventHandler(async (event) => {
-  const query = getQuery(event);
-  const rawPath = query.path;
+export default defineEventHandler((event) =>
+  withErrorHandling(
+    async () => {
+      const query = getQuery(event);
+      const rawPath = query.path;
 
-  // Get tenant hostname for cache isolation
-  const hostname = event.context.tenant?.hostname ?? 'default';
+      // Get tenant hostname for cache isolation
+      const hostname = event.context.tenant?.hostname ?? 'default';
 
-  // Normalize the input path
-  const { normalizedPath, segments } = normalizePath(rawPath);
+      // Normalize the input path
+      const { normalizedPath, segments } = normalizePath(rawPath);
 
-  // Build tenant-aware cache key
-  const cacheKey = buildCacheKey(hostname, normalizedPath);
+      // Build tenant-aware cache key
+      const cacheKey = buildCacheKey(hostname, normalizedPath);
 
-  // Check cache first
-  const cached = getCachedResolution(cacheKey);
-  if (cached) {
-    setCacheHeaders(event, cached);
-    return cached;
-  }
+      // Check cache first
+      const cached = getCachedResolution(cacheKey);
+      if (cached) {
+        setCacheHeaders(event, cached);
+        return cached;
+      }
 
-  // Resolve the route
-  const resolution = await resolveRoute(segments);
+      // Resolve the route
+      const resolution = await resolveRoute(segments);
 
-  // Cache the result
-  setCachedResolution(cacheKey, resolution);
+      // Cache the result
+      setCachedResolution(cacheKey, resolution);
 
-  // Set HTTP cache headers
-  setCacheHeaders(event, resolution);
+      // Set HTTP cache headers
+      setCacheHeaders(event, resolution);
 
-  return resolution;
-});
+      return resolution;
+    },
+    { operation: 'resolve-route' },
+  ),
+);
