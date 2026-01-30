@@ -47,6 +47,7 @@ describe('External API Proxy', () => {
     overrides: Partial<{
       path: string;
       method: string;
+      tenantId: string;
       tenantHostname: string;
       headers: Record<string, string>;
     }> = {},
@@ -57,13 +58,17 @@ describe('External API Proxy', () => {
       return headers[headerName.toLowerCase()] || undefined;
     });
 
+    const tenantId = overrides.tenantId || 'test-tenant';
+    const tenantHostname =
+      overrides.tenantHostname || overrides.tenantId || 'test-tenant';
+
     return {
       path: overrides.path || '/api/external/products',
       method: overrides.method || 'GET',
       context: {
         tenant: {
-          id: overrides.tenantId || 'test-tenant',
-          hostname: overrides.tenantId || 'test-tenant',
+          id: tenantId,
+          hostname: tenantHostname,
         },
       },
     } as unknown as H3Event;

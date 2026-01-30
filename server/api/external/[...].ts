@@ -18,23 +18,25 @@ export default defineEventHandler(async (event) => {
     config.externalApiBaseUrl,
   ).toString();
 
-      try {
-        // Determine the request body when applicable
-        const requestBody = ['PATCH', 'POST', 'PUT', 'DELETE'].includes(
-          event.method,
-        )
-          ? await readRawBody(event)
-          : undefined;
+  return withErrorHandling(
+    async () => {
+      // Determine the request body when applicable
+      const requestBody = ['PATCH', 'POST', 'PUT', 'DELETE'].includes(
+        event.method,
+      )
+        ? await readRawBody(event)
+        : undefined;
 
-        // Build headers object by forwarding necessary headers from the incoming request
-        const proxyHeaders: Record<string, string> = {};
-        for (const header of HEADERS_TO_FORWARD) {
-          const value = getHeader(event, header);
-          if (value) {
-            proxyHeaders[header] = value;
-          }
+      // Build headers object by forwarding necessary headers from the incoming request
+      const proxyHeaders: Record<string, string> = {};
+      for (const header of HEADERS_TO_FORWARD) {
+        const value = getHeader(event, header);
+        if (value) {
+          proxyHeaders[header] = value;
         }
+      }
 
+      try {
         return await sendProxy(event, target, {
           headers: proxyHeaders,
           fetchOptions: {
@@ -65,5 +67,5 @@ export default defineEventHandler(async (event) => {
       }
     },
     { operation: 'external-api-proxy' },
-  ),
-);
+  );
+});
