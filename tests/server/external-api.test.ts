@@ -23,6 +23,8 @@ vi.mock('../../server/utils/errors', () => ({
     };
     return h3Error;
   }),
+  // Pass through to the actual handler - withErrorHandling is a thin wrapper
+  withErrorHandling: vi.fn((handler: () => Promise<unknown>) => handler()),
 }));
 
 // Stub all Nuxt auto-imported globals
@@ -41,7 +43,7 @@ describe('External API Proxy', () => {
     overrides: Partial<{
       path: string;
       method: string;
-      tenantId: string;
+      tenantHostname: string;
       headers: Record<string, string>;
     }> = {},
   ): H3Event => {
@@ -168,7 +170,7 @@ describe('External API Proxy', () => {
     it('should construct target URL correctly with tenant ID', async () => {
       const event = createMockEvent({
         path: '/api/external/nested/path/resource',
-        tenantId: 'custom-tenant',
+        tenantHostname: 'custom-tenant',
       });
 
       await handler(event);
@@ -261,7 +263,7 @@ describe('External API Proxy', () => {
     it('should correctly strip /api/external/ prefix', async () => {
       const event = createMockEvent({
         path: '/api/external/some/deep/path',
-        tenantId: 'tenant-123',
+        tenantHostname: 'tenant-123',
       });
 
       await handler(event);
