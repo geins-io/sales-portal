@@ -283,11 +283,12 @@ The config endpoint uses Nuxt's `defineCachedEventHandler` with:
 
 ### External API Proxy
 
-The `server/api/external/[...].ts` handler proxies requests to external APIs with tenant context:
+The `server/api/external/[...].ts` handler proxies requests to external APIs with tenant context. The base URL is configurable via runtime config (`NUXT_EXTERNAL_API_BASE_URL`):
 
 ```typescript
 // Request: GET /api/external/products
-// Proxied to: https://api.app.com/{tenantId}/products
+// Proxied to: {externalApiBaseUrl}/{tenantHostname}/products
+// Default: https://api.app.com/{tenantHostname}/products
 ```
 
 ---

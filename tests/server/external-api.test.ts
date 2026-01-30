@@ -6,6 +6,7 @@ import { createExternalApiError } from '../../server/utils/errors';
 const mockSendProxy = vi.fn();
 const mockReadRawBody = vi.fn();
 const mockGetHeader = vi.fn();
+const mockUseRuntimeConfig = vi.fn();
 
 // Mock the errors module
 vi.mock('../../server/utils/errors', () => ({
@@ -35,6 +36,9 @@ vi.stubGlobal(
 vi.stubGlobal('sendProxy', (...args: unknown[]) => mockSendProxy(...args));
 vi.stubGlobal('readRawBody', (...args: unknown[]) => mockReadRawBody(...args));
 vi.stubGlobal('getHeader', (...args: unknown[]) => mockGetHeader(...args));
+vi.stubGlobal('useRuntimeConfig', (...args: unknown[]) =>
+  mockUseRuntimeConfig(...args),
+);
 
 describe('External API Proxy', () => {
   let handler: (event: H3Event) => Promise<unknown>;
@@ -69,6 +73,9 @@ describe('External API Proxy', () => {
     vi.clearAllMocks();
     mockSendProxy.mockResolvedValue({ status: 200 });
     mockReadRawBody.mockResolvedValue('{"data": "test"}');
+    mockUseRuntimeConfig.mockReturnValue({
+      externalApiBaseUrl: 'https://api.app.com',
+    });
 
     // Clear module cache and reimport
     vi.resetModules();
