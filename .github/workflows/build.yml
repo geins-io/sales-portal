@@ -135,10 +135,14 @@ jobs:
       - name: Build application
         run: pnpm build
 
+      - name: Configure tenant hostname
+        run: |
+          echo "127.0.0.1 tenant-a.litium.portal" | sudo tee -a /etc/hosts
+
       - name: Run E2E tests
         run: pnpm test:e2e
         env:
-          PLAYWRIGHT_BASE_URL: http://localhost:3000
+          PLAYWRIGHT_BASE_URL: http://tenant-a.litium.portal:3000
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

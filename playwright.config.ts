@@ -8,8 +8,20 @@ import { defineConfig, devices } from '@playwright/test';
  * - pnpm test:e2e:ui      - Open Playwright UI
  * - pnpm test:e2e:debug   - Debug tests
  *
+ * IMPORTANT: Requires /etc/hosts entry for tenant hostname resolution:
+ *   127.0.0.1 tenant-a.litium.portal
+ *
+ * This is automatically configured in CI (GitHub Actions).
+ * For local development, add the entry manually or run:
+ *   echo '127.0.0.1 tenant-a.litium.portal' | sudo tee -a /etc/hosts
+ *
  * @see https://playwright.dev/docs/test-configuration
  */
+
+// Default tenant hostname for E2E tests
+const TEST_TENANT_HOST = 'tenant-a.litium.portal';
+const TEST_PORT = 3000;
+
 export default defineConfig({
   // Test directory
   testDir: './tests/e2e',
@@ -41,8 +53,10 @@ export default defineConfig({
 
   // Shared settings for all tests
   use: {
-    // Base URL for navigation
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+    // Base URL for navigation - use tenant hostname for proper tenant resolution
+    baseURL:
+      process.env.PLAYWRIGHT_BASE_URL ||
+      `http://${TEST_TENANT_HOST}:${TEST_PORT}`,
 
     // Collect trace on failure
     trace: 'on-first-retry',
@@ -86,9 +100,11 @@ export default defineConfig({
   ],
 
   // Local development server
+  // Note: The server listens on localhost, but tests access it via the tenant hostname
+  // which resolves to 127.0.0.1 via /etc/hosts
   webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:3000',
+    command: process.env.CI ? 'pnpm preview' : 'pnpm dev',
+    url: `http://localhost:${TEST_PORT}`, // Check server readiness on localhost
     reuseExistingServer: !process.env.CI,
     timeout: 120000, // 2 minutes to start the dev server
     stdout: 'pipe',
