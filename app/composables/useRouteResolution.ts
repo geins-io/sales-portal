@@ -49,9 +49,13 @@ export function normalizeSlugToPath(
  * const { data, pending, error } = await useRouteResolution(() => `/products/${productId.value}`);
  */
 export function useRouteResolution(path: MaybeRefOrGetter<string>) {
+  const key = computed(() => `route-resolution:${toValue(path)}`);
   return useAsyncData<RouteResolution>(
-    () => `route-resolution:${toValue(path)}`,
-    () => $fetch('/api/resolve-route', { query: { path: toValue(path) } }),
+    key.value,
+    () =>
+      $fetch<RouteResolution>('/api/resolve-route', {
+        query: { path: toValue(path) },
+      }),
     { watch: [() => toValue(path)] },
   );
 }
