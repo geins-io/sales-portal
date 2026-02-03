@@ -23,6 +23,7 @@
  * - Application Insights availability tests (public or detailed)
  */
 
+import type { H3Event } from 'h3';
 import { createTimer, logger } from '../utils/logger';
 
 /**
@@ -58,13 +59,15 @@ interface HealthResponseDetailed extends HealthResponseMinimal {
   };
 }
 
-async function getEnvironment(): Promise<string> {
-  const config = useRuntimeConfig();
+async function getEnvironment(event: H3Event): Promise<string> {
+  const config = useRuntimeConfig(event);
   return config.public.environment as string;
 }
 
-async function getEnvironmentVariables(): Promise<Record<string, unknown>> {
-  const config = useRuntimeConfig();
+async function getEnvironmentVariables(
+  event: H3Event,
+): Promise<Record<string, unknown>> {
+  const config = useRuntimeConfig(event);
   // Return public runtime config and sanitized private config
   // Note: config.public contains client-safe values, private values are directly on config
   const environmentVariables: Record<string, unknown> = {
@@ -83,9 +86,9 @@ async function getEnvironmentVariables(): Promise<Record<string, unknown>> {
  * without a configured directory, we report as 'degraded' rather than 'unhealthy'
  * since the app can function without KV storage for many use cases.
  */
-async function checkStorage(): Promise<ComponentHealth> {
+async function checkStorage(event: H3Event): Promise<ComponentHealth> {
   const timer = createTimer();
-  const config = useRuntimeConfig();
+  const config = useRuntimeConfig(event);
   const storageDriver = config.storage?.driver || 'fs';
 
   try {
@@ -226,7 +229,7 @@ function calculateOverallStatus(
 
 export default defineEventHandler(
   async (event): Promise<HealthResponseMinimal | HealthResponseDetailed> => {
-    const config = useRuntimeConfig();
+    const config = useRuntimeConfig(event);
     const query = getQuery(event);
 
     // Check if authorized for detailed metrics (secret key provided)
@@ -244,7 +247,7 @@ export default defineEventHandler(
     const [storageHealth, memoryHealth] = await Promise.all([
       quickMode
         ? Promise.resolve({ status: 'healthy' as const })
-        : checkStorage(),
+        : checkStorage(event),
       Promise.resolve(checkMemory()),
     ]);
 
@@ -291,8 +294,8 @@ export default defineEventHandler(
         };
       }
     }
-    const environment = await getEnvironment();
-    const environmentVariables = await getEnvironmentVariables();
+    const environment = await getEnvironment(event);
+    const environmentVariables = await getEnvironmentVariables(event);
     // Return detailed response for authorized requests
     return {
       status: overallStatus,

@@ -17,6 +17,7 @@
 
 import { ref, onErrorCaptured, type Ref } from 'vue';
 import * as Sentry from '@sentry/nuxt';
+import { createLogger } from '~/utils/logger';
 
 /**
  * Error context for tracking
@@ -78,7 +79,7 @@ function getGlobalState(): ErrorTrackingState {
  * Error batching configuration
  */
 const BATCH_FLUSH_INTERVAL_MS = 5000; // Flush batch every 5 seconds
-const BATCH_MAX_SIZE = 50; // Maximum errors before forcing a flush
+const BATCH_MAX_SIZE = 100; // Maximum errors before forcing a flush
 
 /**
  * Error queue for batching
@@ -111,7 +112,7 @@ async function sendBatchToServer(batch: ErrorEvent[]): Promise<void> {
     });
   } catch {
     // Silently fail - we don't want error tracking to cause more errors
-    console.debug('[ErrorTracking] Failed to send error batch to server');
+    log.debug('Failed to send error batch to server');
   }
 }
 
@@ -221,25 +222,7 @@ function formatError(
   };
 }
 
-/**
- * Log error to console with formatting
- */
-function logErrorToConsole(event: ErrorEvent): void {
-  const style = 'color: #ff6b6b; font-weight: bold;';
-
-  console.group('%c[Error Tracking]', style);
-  console.error(`${event.name}: ${event.message}`);
-
-  if (Object.keys(event.context).length > 0) {
-    console.log('Context:', event.context);
-  }
-
-  if (event.stack) {
-    console.log('Stack:', event.stack);
-  }
-
-  console.groupEnd();
-}
+const log = createLogger('ErrorTracking');
 
 /**
  * Main error tracking composable
@@ -268,10 +251,11 @@ export function useErrorTracking() {
     // Add to local state (limited to last 50 errors)
     state.errors.value = [event, ...state.errors.value.slice(0, 49)];
 
-    // Log to console in development
-    if (import.meta.dev) {
-      logErrorToConsole(event);
-    }
+    // Log to console (logger silences debug/info in production)
+    log.error(`${event.name}: ${event.message}`, {
+      ...(Object.keys(event.context).length > 0 ? event.context : {}),
+      ...(event.stack ? { stack: event.stack } : {}),
+    });
 
     // Send to Sentry
     const err = error instanceof Error ? error : new Error(String(error));
@@ -350,12 +334,7 @@ export function useErrorTracking() {
       route: route.path,
     };
 
-    if (import.meta.dev) {
-      console.warn('[ErrorTracking] Warning:', message, warningContext);
-    }
-
-    // In production, warnings could be sent to monitoring (future enhancement)
-    // For now, warnings are only logged in development mode
+    log.warn(message, warningContext);
   }
 
   /**
@@ -369,9 +348,7 @@ export function useErrorTracking() {
       return;
     }
 
-    if (import.meta.dev) {
-      console.log('[ErrorTracking] Event:', name, properties);
-    }
+    log.debug(`Event: ${name}`, properties as Record<string, unknown>);
 
     // In production, this could be sent to analytics
     if (!import.meta.dev && config.public.features?.analytics) {
@@ -387,15 +364,7 @@ export function useErrorTracking() {
       return;
     }
 
-    if (import.meta.dev) {
-      console.log(
-        '[ErrorTracking] Metric:',
-        metric.name,
-        `${metric.value}${metric.unit}`,
-      );
-    }
-
-    // In production, metrics could be sent to monitoring
+    log.debug(`Metric: ${metric.name} ${metric.value}${metric.unit}`);
   }
 
   /**

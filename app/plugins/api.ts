@@ -1,4 +1,5 @@
 import { createApiClient, mergeHeaders } from '~/utils/api-client';
+import { logger } from '~/utils/logger';
 
 /**
  * API Plugin
@@ -59,27 +60,23 @@ export default defineNuxtPlugin(() => {
     onResponseError({ response }) {
       // Handle 401 Unauthorized - could trigger re-authentication
       if (response?.status === 401) {
-        // Emit an event or handle auth refresh
-        // This could be expanded to use the auth store
-        console.warn(
-          '[API] Unauthorized request - authentication may be required',
-        );
+        logger.warn('Unauthorized request - authentication may be required');
       }
 
       // Handle 403 Forbidden
       if (response?.status === 403) {
-        console.warn('[API] Forbidden - insufficient permissions');
+        logger.warn('Forbidden - insufficient permissions');
       }
 
       // Handle 429 Too Many Requests
       if (response?.status === 429) {
-        console.warn('[API] Rate limited - too many requests');
+        logger.warn('Rate limited - too many requests');
       }
     },
 
     // Request error handler: log network errors
     onRequestError({ error }) {
-      console.error('[API] Request error:', error.message);
+      logger.error('Request error', { message: error.message });
     },
   });
 

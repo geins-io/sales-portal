@@ -37,7 +37,14 @@ interface BatchErrorBody {
 const MAX_BATCH_SIZE = 100;
 
 export default defineEventHandler(
-  async (event): Promise<{ success: boolean; processed: number }> => {
+  async (
+    event,
+  ): Promise<{
+    success: boolean;
+    processed: number;
+    total: number;
+    truncated: boolean;
+  }> => {
     // Apply rate limiting
     const clientIp = getClientIp(event);
     const rateLimitResult = errorEndpointRateLimiter.check(clientIp);
@@ -67,10 +74,12 @@ export default defineEventHandler(
       }
 
       // Limit batch size to prevent oversized requests
+      const totalReceived = body.errors.length;
       const errors = body.errors.slice(0, MAX_BATCH_SIZE);
+      const truncated = totalReceived > MAX_BATCH_SIZE;
 
       if (errors.length === 0) {
-        return { success: true, processed: 0 };
+        return { success: true, processed: 0, total: 0, truncated: false };
       }
 
       // Get tenant and correlation context
@@ -113,8 +122,21 @@ export default defineEventHandler(
         processedCount++;
       }
 
-      // Return success with count of processed errors
-      return { success: true, processed: processedCount };
+      // Log warning if batch was truncated
+      if (truncated) {
+        logger.warn('Error batch truncated', {
+          received: totalReceived,
+          processed: processedCount,
+          limit: MAX_BATCH_SIZE,
+        });
+      }
+
+      return {
+        success: true,
+        processed: processedCount,
+        total: totalReceived,
+        truncated,
+      };
     } catch (error) {
       // Re-throw HTTP errors
       if (error && typeof error === 'object' && 'statusCode' in error) {
@@ -127,7 +149,7 @@ export default defineEventHandler(
       });
 
       // Return success anyway to prevent client retries
-      return { success: true, processed: 0 };
+      return { success: true, processed: 0, total: 0, truncated: false };
     }
   },
 );

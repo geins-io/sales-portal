@@ -9,7 +9,7 @@ export default defineCachedEventHandler(
     return withErrorHandling(
       async () => {
         log.debug('Fetching tenant configuration');
-        const config = await getTenant(hostname);
+        const config = await getTenant(hostname, event);
         log.debug('Tenant configuration loaded successfully');
         return config;
       },

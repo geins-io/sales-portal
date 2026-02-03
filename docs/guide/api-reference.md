@@ -175,21 +175,26 @@ GET /api/resolve-route?path=/products/123
 
 ## Client-Side API Usage
 
-### useApi Composable
+### useFetch
 
-Use the `useApi` composable for type-safe API calls:
+Use `useFetch` with `dedupe: 'defer'` for type-safe API calls:
 
 ```typescript
-const { data, pending, error, refresh } = useApi<ResponseType>('/api/endpoint');
+const { data, pending, error, refresh } = useFetch<ResponseType>(
+  '/api/endpoint',
+  {
+    dedupe: 'defer',
+  },
+);
 ```
 
 **Options:**
 
 ```typescript
-const { data } = useApi<ProductList>('/api/products', {
+const { data } = useFetch<ProductList>('/api/products', {
   method: 'GET',
   query: { category: 'electronics' },
-  immediate: true, // Fetch immediately
+  dedupe: 'defer',
   watch: [category], // Re-fetch when reactive value changes
 });
 ```
