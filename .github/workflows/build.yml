@@ -15,6 +15,18 @@ on:
       - main
     tags:
       - 'v*'
+    paths:
+      - 'app/**'
+      - 'server/**'
+      - 'shared/**'
+      - 'public/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'nuxt.config.ts'
+      - 'tsconfig.json'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '.github/workflows/build.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
