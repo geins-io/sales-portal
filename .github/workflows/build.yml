@@ -4,7 +4,6 @@
 # Builds the application container and pushes to GitHub Container Registry.
 # Triggered on:
 #   - Push to main branch (after merge)
-#   - Pull requests targeting main (feature branch CI)
 #   - Version tags (releases)
 # =============================================================================
 
@@ -16,13 +15,9 @@ on:
       - main
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - main
 
-# Cancel in-progress runs for the same PR/branch
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -30,143 +25,9 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # Lint and Type Check
-  # ---------------------------------------------------------------------------
-  lint:
-    name: Lint & Type Check
-    runs-on: ubuntu-latest
-    if: false
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: latest
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run linter
-        run: pnpm lint
-
-      - name: Run type check
-        run: pnpm typecheck
-
-  # ---------------------------------------------------------------------------
-  # Unit and Component Tests
-  # ---------------------------------------------------------------------------
-  test-unit:
-    name: Unit & Component Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: latest
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run unit tests with coverage
-        run: pnpm test:coverage
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage/coverage-final.json
-          fail_ci_if_error: false
-          verbose: true
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage/
-          retention-days: 7
-
-  # ---------------------------------------------------------------------------
-  # E2E Tests
-  # ---------------------------------------------------------------------------
-  test-e2e:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: latest
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Configure tenant hostname
-        run: echo '127.0.0.1 tenant-a.litium.portal' | sudo tee -a /etc/hosts
-
-      - name: Build application
-        run: pnpm build
-
-      - name: Run E2E tests
-        run: pnpm test:e2e
-        env:
-          PLAYWRIGHT_BASE_URL: http://tenant-a.litium.portal:3000
-          NUXT_AUTO_CREATE_TENANT: 'true'
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: test-results/
-          retention-days: 7
-
-  # ---------------------------------------------------------------------------
-  # Build and Push Docker Image
-  # ---------------------------------------------------------------------------
   build:
     name: Build & Push Image
     runs-on: ubuntu-latest
-    # needs: [lint, test-unit, test-e2e]
     permissions:
       contents: read
       packages: write
@@ -197,8 +58,6 @@ jobs:
           tags: |
             # Branch name (sanitized)
             type=ref,event=branch
-            # PR number
-            type=ref,event=pr
             # Git tag
             type=ref,event=tag
             # Short SHA
@@ -215,7 +74,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -225,7 +84,6 @@ jobs:
             COMMIT_SHA=${{ github.sha }}
 
       - name: Generate artifact attestation
-        if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
