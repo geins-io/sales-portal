@@ -43,6 +43,12 @@ pnpm test:ui
 
 ### E2E Tests
 
+E2E tests require a tenant hostname. Add to `/etc/hosts`:
+
+```
+127.0.0.1 tenant-a.litium.portal
+```
+
 ```bash
 # Run E2E tests headlessly
 pnpm test:e2e
@@ -71,19 +77,28 @@ tests/
 ├── components/         # Vue component tests
 │   └── Button.test.ts
 ├── composables/        # Composable function tests
-│   ├── useDebounce.test.ts
-│   └── useLocalStorage.test.ts
+│   ├── useErrorTracking.test.ts
+│   ├── useRouteResolution.test.ts
+│   └── useTenant.test.ts
 ├── e2e/               # Playwright E2E tests
 │   ├── app.spec.ts
 │   └── health.spec.ts
+├── middleware/         # Middleware tests
+│   └── feature.test.ts
 ├── server/            # Server-side unit tests
+│   ├── api-contracts.test.ts
 │   ├── errors.test.ts
+│   ├── external-api.test.ts
 │   ├── logger.test.ts
+│   ├── resolve-route.test.ts
 │   └── tenant.test.ts
+├── stores/            # Pinia store tests
+│   └── auth.test.ts
 ├── unit/              # General utility unit tests
 │   ├── constants.test.ts
 │   └── utils.test.ts
 └── utils/             # Test utilities and helpers
+    ├── api-client.test.ts
     ├── index.ts
     └── component.ts
 ```
@@ -122,15 +137,15 @@ describe('MyComponent', () => {
         title: 'Hello',
       },
     });
-    
+
     expect(wrapper.text()).toContain('Hello');
   });
 
   it('should emit event on click', async () => {
     const wrapper = mount(MyComponent);
-    
+
     await wrapper.find('button').trigger('click');
-    
+
     expect(wrapper.emitted('click')).toBeTruthy();
   });
 });
@@ -146,9 +161,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Feature', () => {
   test('should complete user flow', async ({ page }) => {
     await page.goto('/');
-    
+
     await page.click('button[data-testid="submit"]');
-    
+
     await expect(page.locator('.success-message')).toBeVisible();
   });
 });
@@ -212,13 +227,14 @@ Test coverage is tracked using V8 coverage provider. Coverage reports are genera
 We aim for the following coverage targets:
 
 | Metric     | Target |
-|------------|--------|
+| ---------- | ------ |
 | Lines      | 80%    |
 | Functions  | 80%    |
 | Branches   | 75%    |
 | Statements | 80%    |
 
 Coverage excludes:
+
 - `app/components/ui/**` - shadcn-vue components (pre-tested)
 - `**/*.d.ts` - TypeScript declaration files
 - `**/node_modules/**` - Dependencies
@@ -292,12 +308,12 @@ pnpm exec playwright test --trace on
 ```typescript
 import { vi } from 'vitest';
 
-// Mock a module
-vi.mock('../../app/composables/useApi', () => ({
-  useApi: () => ({
+// Mock useFetch
+vi.mock('#app', () => ({
+  useFetch: () => ({
     data: ref(null),
     error: ref(null),
-    loading: ref(false),
+    pending: ref(false),
   }),
 }));
 

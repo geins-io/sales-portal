@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import type { User, LoginCredentials, AuthResponse } from '#shared/types';
+import { logger } from '~/utils/logger';
 
 /**
  * Authentication state interface
@@ -15,6 +16,8 @@ interface AuthState {
   refreshToken: string | null;
   /** Loading state for async operations */
   isLoading: boolean;
+  /** Whether auth has been initialized from storage */
+  isInitialized: boolean;
   /** Error message from last failed operation */
   error: string | null;
 }
@@ -58,6 +61,7 @@ export const useAuthStore = defineStore('auth', {
     expiresAt: null,
     refreshToken: null,
     isLoading: false,
+    isInitialized: false,
     error: null,
   }),
 
@@ -144,9 +148,14 @@ export const useAuthStore = defineStore('auth', {
     /**
      * Initialize auth state from storage
      * Call this on app startup to restore session
+     *
+     * @returns Promise that resolves when initialization is complete
      */
-    initializeFromStorage() {
-      if (!import.meta.client) return;
+    async initializeFromStorage(): Promise<void> {
+      if (!import.meta.client) {
+        this.isInitialized = true;
+        return;
+      }
 
       try {
         const token = localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -174,10 +183,11 @@ export const useAuthStore = defineStore('auth', {
             if (expiresAtDate <= new Date()) {
               // Token expired, try to refresh or clear
               if (refreshToken) {
-                // Attempt to refresh token (fire and forget)
-                this.refreshAuthToken().catch(() => {
+                try {
+                  await this.refreshAuthToken();
+                } catch {
                   this.clearAuth();
-                });
+                }
               } else {
                 this.clearAuth();
               }
@@ -186,7 +196,9 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch {
         // Storage access failed, continue without stored auth
-        console.warn('Failed to initialize auth from storage');
+        logger.warn('Failed to initialize auth from storage');
+      } finally {
+        this.isInitialized = true;
       }
     },
 
@@ -221,7 +233,7 @@ export const useAuthStore = defineStore('auth', {
           localStorage.removeItem(USER_STORAGE_KEY);
         }
       } catch {
-        console.warn('Failed to persist auth to storage');
+        logger.warn('Failed to persist auth to storage');
       }
     },
 
@@ -237,7 +249,7 @@ export const useAuthStore = defineStore('auth', {
         localStorage.removeItem(EXPIRES_AT_STORAGE_KEY);
         localStorage.removeItem(USER_STORAGE_KEY);
       } catch {
-        console.warn('Failed to clear auth storage');
+        logger.warn('Failed to clear auth storage');
       }
     },
 
@@ -253,8 +265,7 @@ export const useAuthStore = defineStore('auth', {
       this.error = null;
 
       try {
-        // TODO: Replace with actual API call using useApi or $fetch
-        // This is a placeholder that should be replaced with real auth implementation
+        // TODO: Replace with actual auth API implementation
         const response = await $fetch<AuthResponse>('/api/auth/login', {
           method: 'POST',
           body: credentials,

@@ -11,15 +11,23 @@ function normalizeHostname(hostname: string): string {
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', async (event) => {
+    // Skip tenant context for health checks (allows direct IP access)
+    const path = event.path || '';
+    if (path.startsWith('/api/health')) {
+      event.context.tenant = { hostname: '' };
+      return;
+    }
+
     // Get the request host for dynamic request routing
     // without considering the `X-Forwarded-Host` header which could be spoofed.
     const rawHostname = getRequestHost(event, { xForwardedHost: false });
-
     const hostname = normalizeHostname(rawHostname ?? '');
 
-    // TODO: add other tenant data from the database here
-    // import { KV_STORAGE_KEYS } from '#shared/constants/storage';
-    // const id = await useStorage('kv').getItem<string>(`${KV_STORAGE_KEYS.TENANT_ID_PREFIX}${hostname}`);
+    // Validate hostname is present to prevent empty tenant IDs
+    // polluting cache keys and storage
+    if (!hostname) {
+      throw createError({ statusCode: 400, message: 'Missing host header' });
+    }
 
     // Attach tenant data to the event context to make it
     // available to all server routes and middleware.

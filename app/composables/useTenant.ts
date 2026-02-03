@@ -28,42 +28,32 @@ export function useTenant() {
     dedupe: 'defer',
     $fetch: useNuxtApp().$api as typeof $fetch,
   });
-  const { data, pending, error, refresh } = asyncData;
-
-  /**
-   * The tenant configuration object
-   */
-  const tenant = computed(() => data.value);
-
-  /**
-   * Whether the tenant config is currently loading
-   */
-  const isLoading = computed(() => pending.value);
+  const { data: tenant, pending: isLoading, error, refresh } = asyncData;
 
   /**
    * The tenant ID
    */
-  const tenantId = computed(() => data.value?.tenantId ?? '');
+  const tenantId = computed(() => tenant.value?.tenantId ?? '');
 
   /**
    * The hostname for this tenant
    */
-  const hostname = computed(() => data.value?.hostname ?? '');
+  const hostname = computed(() => tenant.value?.hostname ?? '');
 
   /**
    * The theme configuration
    */
-  const theme = computed(() => data.value?.theme);
+  const theme = computed(() => tenant.value?.theme);
 
   /**
    * The branding configuration
    */
-  const branding = computed(() => data.value?.branding);
+  const branding = computed(() => tenant.value?.branding);
 
   /**
    * The feature flags
    */
-  const features = computed(() => data.value?.features);
+  const features = computed(() => tenant.value?.features);
 
   /**
    * Check if a feature is enabled
@@ -71,21 +61,21 @@ export function useTenant() {
   const hasFeature = (
     featureName: keyof NonNullable<TenantConfig['features']>,
   ): boolean => {
-    return data.value?.features?.[featureName] ?? false;
+    return tenant.value?.features?.[featureName] ?? false;
   };
 
   /**
    * Get the logo URL (with fallback to dark version if needed)
    */
   const logoUrl = computed(() => {
-    return data.value?.branding?.logoUrl ?? '/logo.svg';
+    return tenant.value?.branding?.logoUrl ?? '/logo.svg';
   });
 
   /**
    * Get the brand name
    */
   const brandName = computed(() => {
-    return data.value?.branding?.name ?? data.value?.tenantId ?? 'Store';
+    return tenant.value?.branding?.name ?? tenant.value?.tenantId ?? 'Store';
   });
 
   return {
@@ -126,11 +116,12 @@ export function useTenant() {
  * ```
  */
 export function useTenantTheme() {
-  const { theme } = useTenant();
+  const { tenant } = useTenant();
 
-  const colors = computed(() => theme.value?.colors);
-  const typography = computed(() => theme.value?.typography);
-  const borderRadius = computed(() => theme.value?.borderRadius);
+  // Access theme properties directly to avoid computed chain overhead
+  const colors = computed(() => tenant.value?.theme?.colors);
+  const typography = computed(() => tenant.value?.theme?.typography);
+  const borderRadius = computed(() => tenant.value?.theme?.borderRadius);
 
   /**
    * Get a color value with fallback
@@ -139,31 +130,35 @@ export function useTenantTheme() {
     colorName: keyof NonNullable<TenantConfig['theme']['colors']>,
     fallback: string = '',
   ): string => {
-    return colors.value?.[colorName] ?? fallback;
+    return tenant.value?.theme?.colors?.[colorName] ?? fallback;
   };
 
   /**
    * Primary brand color
    */
-  const primaryColor = computed(() => colors.value?.primary ?? '#000000');
+  const primaryColor = computed(
+    () => tenant.value?.theme?.colors?.primary ?? '#000000',
+  );
 
   /**
    * Secondary brand color
    */
-  const secondaryColor = computed(() => colors.value?.secondary ?? '#ffffff');
+  const secondaryColor = computed(
+    () => tenant.value?.theme?.colors?.secondary ?? '#ffffff',
+  );
 
   /**
    * Background color
    */
   const backgroundColor = computed(
-    () => colors.value?.background ?? 'oklch(1 0 0)',
+    () => tenant.value?.theme?.colors?.background ?? 'oklch(1 0 0)',
   );
 
   /**
    * Foreground/text color
    */
   const foregroundColor = computed(
-    () => colors.value?.foreground ?? 'oklch(0.145 0 0)',
+    () => tenant.value?.theme?.colors?.foreground ?? 'oklch(0.145 0 0)',
   );
 
   return {

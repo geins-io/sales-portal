@@ -17,43 +17,39 @@ const {
   error,
 } = await useRouteResolution(normalizedPath);
 
-// Throw SSR 404 if resolver says not-found
-watchEffect(() => {
-  if (resolution.value?.type === 'not-found') {
-    throw createError({ statusCode: 404, statusMessage: 'Not Found' });
-  }
-});
+// Handle resolution side effects (404, canonical)
+watch(
+  () => resolution.value,
+  (res) => {
+    if (res?.type === 'not-found') {
+      throw createError({ statusCode: 404, statusMessage: 'Not Found' });
+    }
+    if (res && 'canonical' in res && res.canonical) {
+      useHead({
+        link: [{ rel: 'canonical', href: res.canonical }],
+      });
+    }
+  },
+  { immediate: true },
+);
 
-// Optional canonical support if your resolver returns it
-watchEffect(() => {
-  const canonical =
-    resolution.value && 'canonical' in resolution.value
-      ? resolution.value.canonical
-      : undefined;
-  if (canonical) {
-    useHead({
-      link: [{ rel: 'canonical', href: canonical }],
-    });
-  }
-});
+// Cache async component definitions to avoid recreating on each render
+const PageComponents = {
+  product: defineAsyncComponent(
+    () => import('~/components/pages/ProductDetails.vue'),
+  ),
+  category: defineAsyncComponent(
+    () => import('~/components/pages/ProductList.vue'),
+  ),
+  page: defineAsyncComponent(() => import('~/components/pages/Content.vue')),
+} as const;
 
 const ResolvedComponent = computed(() => {
-  switch (resolution.value?.type) {
-    case 'product':
-      return defineAsyncComponent(
-        () => import('~/components/pages/ProductDetails.vue'),
-      );
-    case 'category':
-      return defineAsyncComponent(
-        () => import('~/components/pages/ProductList.vue'),
-      );
-    case 'page':
-      return defineAsyncComponent(
-        () => import('~/components/pages/Content.vue'),
-      );
-    default:
-      return null;
+  const type = resolution.value?.type;
+  if (type && type in PageComponents) {
+    return PageComponents[type as keyof typeof PageComponents];
   }
+  return null;
 });
 </script>
 
@@ -69,6 +65,7 @@ const ResolvedComponent = computed(() => {
     <component
       :is="ResolvedComponent"
       v-else-if="ResolvedComponent && resolution"
+      :key="resolution.type"
       :resolution="resolution"
     />
 

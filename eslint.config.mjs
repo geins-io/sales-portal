@@ -1,6 +1,7 @@
 import { createConfigForNuxt } from '@nuxt/eslint-config/flat';
 import prettierPlugin from 'eslint-plugin-prettier/recommended';
 import tailwind from 'eslint-plugin-tailwindcss';
+import customRules from './eslint-rules/index.js';
 
 const { eslintPluginPrettierRecommended } = prettierPlugin;
 
@@ -31,5 +32,15 @@ export default createConfigForNuxt()
         },
       ],
       'tailwindcss/no-custom-classname': 'off',
+    },
+  })
+  .append({
+    // Custom rules for server code
+    files: ['server/**/*.ts'],
+    plugins: {
+      'sales-portal': customRules,
+    },
+    rules: {
+      'sales-portal/require-runtime-config-event': 'error',
     },
   });

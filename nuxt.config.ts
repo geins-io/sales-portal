@@ -68,6 +68,7 @@ export default defineNuxtConfig({
    * │ NUXT_HEALTH_CHECK_SECRET        │                                      │
    * │ NUXT_EXTERNAL_API_BASE_URL      │                                      │
    * │ NUXT_SENTRY_DSN                 │                                      │
+   * │ NUXT_LOGGING_VERBOSE_REQUESTS   │                                      │
    * │ NUXT_PUBLIC_FEATURES_ANALYTICS  │                                      │
    * └─────────────────────────────────────────────────────────────────────────┘
    *
@@ -108,6 +109,14 @@ export default defineNuxtConfig({
     // Client-side error tracking is disabled by default for security hardening.
     sentry: {
       dsn: '',
+    },
+
+    // Logging configuration
+    // Azure: NUXT_LOGGING_VERBOSE_REQUESTS=true
+    logging: {
+      // When true, request logs include full headers (sanitized).
+      // Useful for debugging but can be noisy in production.
+      verboseRequests: false,
     },
 
     // ── Public Config (exposed to client) ───────────────────────────────────
@@ -183,5 +192,12 @@ export default defineNuxtConfig({
   experimental: {
     // Enable payload extraction for better caching
     payloadExtraction: true,
+  },
+
+  // Vite configuration
+  vite: {
+    server: {
+      allowedHosts: ['.litium.portal'],
+    },
   },
 });

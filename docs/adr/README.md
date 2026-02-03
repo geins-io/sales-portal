@@ -1,0 +1,23 @@
+# Architecture Decision Records
+
+ADRs document significant architectural decisions with context and consequences.
+
+## Index
+
+| #   | Decision                                                                           | Status   | Date       |
+| --- | ---------------------------------------------------------------------------------- | -------- | ---------- |
+| 001 | [Use VueUse over custom composables](001-use-vueuse-over-custom.md)                | accepted | 2026-02-02 |
+| 002 | [State management: Pinia for client, useFetch for server](002-state-management.md) | accepted | 2026-02-02 |
+| 003 | [API patterns: useFetch client-side, $fetch server-side](003-api-patterns.md)      | accepted | 2026-02-02 |
+
+## Adding New ADRs
+
+1. Copy `_template.md`
+2. Name it `XXX-short-description.md` (next number in sequence)
+3. Fill in context, decision, consequences
+4. Add to index above
+5. Use your GitHub username for author: `"@username"`
+
+## Updating ADRs
+
+If a decision changes, update the existing ADR directly. Delete ADRs that are completely obsolete.

@@ -1,4 +1,5 @@
 import type { FeatureName } from '#shared/types/tenant-config';
+import { logger } from '~/utils/logger';
 
 /**
  * Feature Flag Middleware
@@ -38,12 +39,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!hasFeature(requiredFeature)) {
-    // Feature not available for this tenant
-    if (import.meta.dev) {
-      console.warn(
-        `Feature "${requiredFeature}" is not enabled for this tenant`,
-      );
-    }
+    // Feature not available for this tenant (debug - silenced in production)
+    logger.debug(`Feature "${requiredFeature}" is not enabled for this tenant`);
     return navigateTo('/');
   }
 });

@@ -1,4 +1,5 @@
 import type { FetchContext, FetchOptions, FetchResponse } from 'ofetch';
+import { logger } from '~/utils/logger';
 
 /**
  * HTTP methods that are safe to retry on failure
@@ -347,13 +348,11 @@ export function createApiClient(config: ApiClientConfig = {}) {
             maxRetryDelay,
           );
 
-          // Log retry attempt (useful for debugging)
-          if (process.env.NODE_ENV === 'development') {
-            console.warn(
-              `[API Client] Request error, retrying (${currentAttempt + 1}/${retry}) after ${delay}ms:`,
-              error.message,
-            );
-          }
+          // Log retry attempt (debug level - silenced in production)
+          logger.debug(
+            `Request error, retrying (${currentAttempt + 1}/${retry}) after ${delay}ms`,
+            { error: error.message },
+          );
 
           await sleep(delay);
 
@@ -405,12 +404,10 @@ export function createApiClient(config: ApiClientConfig = {}) {
             maxRetryDelay,
           );
 
-          // Log retry attempt
-          if (process.env.NODE_ENV === 'development') {
-            console.warn(
-              `[API Client] Response error ${statusCode}, retrying (${currentAttempt + 1}/${retry}) after ${delay}ms`,
-            );
-          }
+          // Log retry attempt (debug level - silenced in production)
+          logger.debug(
+            `Response error ${statusCode}, retrying (${currentAttempt + 1}/${retry}) after ${delay}ms`,
+          );
 
           await sleep(delay);
 

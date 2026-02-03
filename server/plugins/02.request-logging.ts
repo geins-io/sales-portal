@@ -22,6 +22,7 @@ import {
   type Logger,
   type LogContext,
 } from '../utils/logger';
+import { getClientIp } from '../utils/rate-limiter';
 
 // Extend H3 event context to include logger
 declare module 'h3' {
@@ -84,43 +85,15 @@ function sanitizeHeaders(
   return sanitized;
 }
 
-/**
- * Get client IP from request
- *
- * Checks common proxy headers first, then falls back to the direct connection IP.
- * The order of header checks follows common proxy/CDN conventions.
- */
-function getClientIp(event: H3Event): string {
-  // Check X-Forwarded-For header (most common proxy header)
-  const forwardedFor = getHeader(event, 'x-forwarded-for');
-  if (forwardedFor) {
-    // X-Forwarded-For can contain multiple IPs; the first is the client
-    const firstIp = forwardedFor.split(',')[0]?.trim();
-    if (firstIp) {
-      return firstIp;
-    }
-  }
-
-  // Check X-Real-IP header (used by Nginx)
-  const realIp = getHeader(event, 'x-real-ip');
-  if (realIp) {
-    return realIp.trim();
-  }
-
-  // Fall back to the direct connection address
-  const nodeReq = event.node?.req;
-  if (nodeReq?.socket?.remoteAddress) {
-    return nodeReq.socket.remoteAddress;
-  }
-
-  return 'unknown';
-}
-
 export default defineNitroPlugin((nitroApp) => {
   // Request start: Initialize logging context
   nitroApp.hooks.hook('request', (event: H3Event) => {
     // Start request timer
     const timer = createTimer();
+
+    // Get logging configuration
+    const config = useRuntimeConfig(event);
+    const verboseRequests = config.logging?.verboseRequests ?? false;
 
     // Build headers record for parsing correlation ID
     const headers: Record<string, string | string[] | undefined> = {};
@@ -152,11 +125,12 @@ export default defineNitroPlugin((nitroApp) => {
     event.context.requestTimer = timer;
 
     // Log request start (skip excluded paths for reduced noise)
+    // Only include headers when verbose logging is enabled
     if (!shouldExcludePath(event.path)) {
-      requestLogger.info('Request started', {
-        ...context,
-        headers: sanitizeHeaders(headers),
-      });
+      const logContext = verboseRequests
+        ? { ...context, headers: sanitizeHeaders(headers) }
+        : context;
+      requestLogger.info('Request started', logContext);
     }
   });
 

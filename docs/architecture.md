@@ -74,8 +74,9 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── layout/             # Header, Footer, Navigation components
 │   │   └── ui/                 # shadcn-vue UI primitives
 │   ├── composables/
-│   │   ├── useApi.ts           # API fetch wrapper
-│   │   └── useTenant.ts        # Tenant data access
+│   │   ├── useTenant.ts        # Tenant data access
+│   │   ├── useRouteResolution.ts # Dynamic route resolution
+│   │   └── useErrorTracking.ts # Error tracking & reporting
 │   ├── layouts/
 │   │   └── default.vue         # Default page layout
 │   ├── lib/
@@ -109,6 +110,10 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 ├── mockdata/                   # Mock API responses for development
 ├── public/                     # Static assets
 ├── docs/                       # Documentation
+│   ├── adr/                    # Architecture Decision Records
+│   ├── conventions/            # Coding standards
+│   ├── patterns/               # Implementation patterns
+│   └── guide/                  # VitePress user guide
 │
 ├── nuxt.config.ts              # Nuxt configuration
 ├── package.json                # Dependencies and scripts
@@ -258,11 +263,16 @@ const theme = {
 
 ### Client-Side API Access
 
-Use the `useApi` composable for type-safe API calls:
+Use `useFetch` with `dedupe: 'defer'` for API calls:
 
 ```typescript
 // In a component or composable
-const { data, pending, error, refresh } = useApi<ResponseType>('/api/endpoint');
+const { data, pending, error, refresh } = useFetch<ResponseType>(
+  '/api/endpoint',
+  {
+    dedupe: 'defer',
+  },
+);
 ```
 
 ### Server API Routes
@@ -271,7 +281,7 @@ API routes in `server/api/` automatically have access to:
 
 - Tenant context via `event.context.tenant`
 - KV storage via `useStorage('kv')`
-- Runtime config via `useRuntimeConfig()`
+- Runtime config via `useRuntimeConfig(event)` (always pass the event!)
 
 ### Caching
 
