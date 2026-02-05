@@ -1,0 +1,20 @@
+fragment ListInfo on PageInfoType {
+  alias
+  canonicalUrl
+  primaryImage
+  name
+  id
+  primaryDescription
+  secondaryDescription
+  hideTitle
+  hideDescription
+  logo
+  meta {
+    ...Meta
+  }
+  subCategories {
+    name
+    alias
+    canonicalUrl
+  }
+}

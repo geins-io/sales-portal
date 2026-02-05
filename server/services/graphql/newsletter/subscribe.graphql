@@ -1,0 +1,13 @@
+mutation subscribeToNewsletter(
+  $email: String!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  subscribeToNewsletter(
+    email: $email
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  )
+}

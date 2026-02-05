@@ -1,0 +1,39 @@
+query productPriceHistory(
+  $alias: String!
+  $channelId: String = null
+  $languageId: String = null
+  $marketId: String = null
+) {
+  product(
+    alias: $alias
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    unitPrice {
+      sellingPriceIncVat
+      sellingPriceIncVatFormatted
+      sellingPriceExVat
+      regularPriceIncVat
+      regularPriceExVat
+      discountIncVat
+      discountExVat
+      discountPercentage
+      vat
+      isDiscounted
+    }
+    priceLog {
+      sellingPriceIncVat
+      sellingPriceExVat
+      regularPriceIncVat
+      regularPriceExVat
+      sellingPriceIncVatFormatted
+      sellingPriceExVatFormatted
+      isDiscounted
+      discountIncVat
+      discountExVat
+      isLowest
+      date
+    }
+  }
+}

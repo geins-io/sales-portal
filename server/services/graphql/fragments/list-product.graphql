@@ -1,0 +1,28 @@
+fragment ListProduct on ProductType {
+  brand {
+    name
+  }
+  name
+  productId
+  articleNumber
+  alias
+  canonicalUrl
+  unitPrice {
+    ...Price
+  }
+  productImages {
+    fileName
+  }
+  discountCampaigns {
+    ...Campaign
+  }
+  primaryCategory {
+    name
+  }
+  totalStock {
+    ...Stock
+  }
+  skus {
+    ...Sku
+  }
+}

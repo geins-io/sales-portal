@@ -1,0 +1,20 @@
+query listPageInfo(
+  $alias: String!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  listPageInfo(
+    alias: $alias
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    subCategories {
+      name
+      alias
+      canonicalUrl
+    }
+    ...ListInfo
+  }
+}

@@ -45,6 +45,11 @@
     "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
+    "@geins/cms": "0.5.1",
+    "@geins/core": "0.5.1",
+    "@geins/crm": "0.5.1",
+    "@geins/oms": "0.5.1",
+    "@geins/types": "0.5.1",
     "@nuxt/fonts": "0.12.1",
     "@nuxt/hints": "1.0.0-alpha.2",
     "@nuxt/icon": "2.1.0",
@@ -76,6 +81,7 @@
     "@playwright/test": "^1.57.0",
     "@vitest/coverage-v8": "^3.2.4",
     "@vue/test-utils": "^2.4.6",
+    "dotenv": "^17.2.3",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",

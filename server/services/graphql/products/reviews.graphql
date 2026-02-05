@@ -1,0 +1,26 @@
+query queryReviews(
+  $alias: String
+  $skip: Int = null
+  $take: Int = null
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  reviews(
+    alias: $alias
+    skip: $skip
+    take: $take
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    count
+    reviews {
+      rating
+      comment
+      reviewDate
+      author
+    }
+    averageRating
+  }
+}

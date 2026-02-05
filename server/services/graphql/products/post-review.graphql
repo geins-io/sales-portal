@@ -1,0 +1,19 @@
+mutation postProductReview(
+  $alias: String!
+  $rating: Int!
+  $author: String!
+  $comment: String
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  postProductReview(
+    alias: $alias
+    rating: $rating
+    comment: $comment
+    author: $author
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  )
+}

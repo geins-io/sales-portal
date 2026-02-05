@@ -1,0 +1,8 @@
+query brands($channelId: String, $languageId: String, $marketId: String) {
+  brands(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+    alias
+    brandId
+    canonicalUrl
+    name
+  }
+}

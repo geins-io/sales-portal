@@ -1,0 +1,26 @@
+query channel($channelId: String) {
+  channel(channelId: $channelId) {
+    defaultMarketId
+    markets {
+      id
+      defaultLanguageId
+      alias
+      virtual
+      onlyDisplayInCheckout
+      groupKey
+      allowedLanguages {
+        id
+        name
+        code
+      }
+      country {
+        name
+        code
+      }
+      currency {
+        name
+        code
+      }
+    }
+  }
+}

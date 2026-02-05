@@ -92,6 +92,32 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── config.get.ts       # Tenant config endpoint
 │   │   └── external/
 │   │       └── [...].ts        # Proxy for external APIs
+│   ├── services/               # Geins SDK service layer (ADR-004)
+│   │   ├── _client.ts          # SDK factory (per-request, no singleton)
+│   │   ├── auth.ts             # CRM auth (login, logout, refresh)
+│   │   ├── user.ts             # CRM user (profile, register)
+│   │   ├── cms.ts              # CMS (menu, pages, areas)
+│   │   ├── cart.ts             # OMS cart operations
+│   │   ├── checkout.ts         # OMS checkout + orders
+│   │   ├── orders.ts           # OMS order lookup
+│   │   ├── products.ts         # Direct GraphQL (no SDK PIM yet)
+│   │   ├── product-lists.ts    # Listing, filtering, category/brand pages
+│   │   ├── search.ts           # Product search
+│   │   ├── brands.ts           # Brand listing
+│   │   ├── categories.ts       # Category listing
+│   │   ├── channels.ts         # Storefront config
+│   │   ├── newsletter.ts       # Newsletter subscribe
+│   │   ├── index.ts            # Re-exports all services
+│   │   └── graphql/            # .graphql query files + loader
+│   │       ├── loader.ts       # Reads .graphql files, resolves fragments
+│   │       ├── fragments/      # Shared GraphQL fragments
+│   │       ├── products/       # Product queries/mutations
+│   │       ├── product-lists/  # Listing + filter queries
+│   │       ├── search/         # Search queries
+│   │       ├── brands/         # Brand queries
+│   │       ├── categories/     # Category queries
+│   │       ├── channels/       # Channel queries
+│   │       └── newsletter/     # Newsletter mutations
 │   ├── plugins/
 │   │   ├── 00.tenant-init.ts   # Tenant initialization
 │   │   └── 01.tenant-context.ts # Request-level tenant context
@@ -640,7 +666,6 @@ pnpm preview
 
 ## Future Considerations
 
-- **Geins SDK Integration**: Full e-commerce functionality
 - **Admin Dashboard**: Self-service tenant management
 - **Analytics Integration**: Per-tenant analytics tracking
 - **CDN & Caching**: Edge caching for static assets

@@ -1,0 +1,30 @@
+query relatedProducts(
+  $alias: String!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  relatedProducts(
+    alias: $alias
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    alias
+    name
+    brand {
+      name
+    }
+    canonicalUrl
+    unitPrice {
+      ...Price
+    }
+    relation
+    productImages {
+      fileName
+    }
+    skus {
+      ...Sku
+    }
+  }
+}
