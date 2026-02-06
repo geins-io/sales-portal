@@ -1,0 +1,82 @@
+query product(
+  $alias: String!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  product(
+    alias: $alias
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    productId
+    articleNumber
+    canonicalUrl
+    name
+    brand {
+      name
+      alias
+      canonicalUrl
+    }
+    productImages {
+      fileName
+    }
+    primaryCategory {
+      name
+      alias
+      canonicalUrl
+    }
+    unitPrice {
+      ...Price
+    }
+    texts {
+      text1
+      text2
+      text3
+    }
+    parameterGroups {
+      name
+      parameterGroupId
+      parameters {
+        name
+        value
+        show
+        identifier
+      }
+    }
+    skus {
+      ...Sku
+    }
+    totalStock {
+      ...Stock
+    }
+    variantDimensions {
+      dimension
+      value
+      level
+      label
+    }
+    meta {
+      ...Meta
+    }
+    variantGroup {
+      variants {
+        variants {
+          variants {
+            ...Variant
+          }
+          ...Variant
+        }
+        ...Variant
+      }
+    }
+    discountCampaigns {
+      ...Campaign
+    }
+    rating {
+      score
+      voteCount
+    }
+  }
+}

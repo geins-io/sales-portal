@@ -1,0 +1,37 @@
+query products(
+  $filter: FilterInputType = null
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  products(
+    filter: $filter
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    products {
+      brand {
+        name
+        alias
+        canonicalUrl
+      }
+      categories {
+        name
+        alias
+        canonicalUrl
+      }
+      name
+      productId
+      alias
+      canonicalUrl
+      unitPrice {
+        ...Price
+      }
+      productImages {
+        fileName
+      }
+    }
+    count
+  }
+}

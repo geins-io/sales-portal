@@ -1,0 +1,15 @@
+mutation monitorProductAvailability(
+  $email: String!
+  $skuId: Int!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  monitorProductAvailability(
+    email: $email
+    skuId: $skuId
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  )
+}

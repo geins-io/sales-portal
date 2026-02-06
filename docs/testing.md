@@ -91,7 +91,13 @@ tests/
 │   ├── external-api.test.ts
 │   ├── logger.test.ts
 │   ├── resolve-route.test.ts
-│   └── tenant.test.ts
+│   ├── tenant.test.ts
+│   └── services/      # Geins service layer tests
+│       ├── _client.test.ts       # SDK factory unit tests
+│       ├── sdk-services.test.ts  # Service delegation unit tests
+│       ├── graphql-loader.test.ts # GraphQL file loader tests
+│       ├── integration.test.ts   # Integration tests (hits real Geins API)
+│       └── geins-settings.ts     # Test config (env vars)
 ├── stores/            # Pinia store tests
 │   └── auth.test.ts
 ├── unit/              # General utility unit tests
