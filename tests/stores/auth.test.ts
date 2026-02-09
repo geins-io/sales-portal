@@ -159,7 +159,7 @@ describe('useAuthStore', () => {
       });
     });
 
-    it('should set error on login failure', async () => {
+    it('should set error on login failure with Error message', async () => {
       const store = useAuthStore();
       mockFetchImpl.mockRejectedValueOnce(new Error('Invalid credentials'));
 
@@ -169,6 +169,17 @@ describe('useAuthStore', () => {
 
       expect(store.error).toBe('Invalid credentials');
       expect(store.isLoading).toBe(false);
+    });
+
+    it('should use i18n key as fallback for non-Error failures', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockRejectedValueOnce('not an Error object');
+
+      await expect(
+        store.login({ username: 'test@example.com', password: 'wrong' }),
+      ).rejects.toThrow('auth.login_failed');
+
+      expect(store.error).toBe('auth.login_failed');
     });
 
     it('should set loading state during login', async () => {
@@ -216,7 +227,7 @@ describe('useAuthStore', () => {
       });
     });
 
-    it('should set error on register failure', async () => {
+    it('should set error on register failure with Error message', async () => {
       const store = useAuthStore();
       mockFetchImpl.mockRejectedValueOnce(new Error('Email already exists'));
 
@@ -226,6 +237,17 @@ describe('useAuthStore', () => {
 
       expect(store.error).toBe('Email already exists');
       expect(store.isLoading).toBe(false);
+    });
+
+    it('should use i18n key as fallback for non-Error failures', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockRejectedValueOnce('not an Error object');
+
+      await expect(
+        store.register({ username: 'dup@example.com', password: 'pass' }),
+      ).rejects.toThrow('auth.register_failed');
+
+      expect(store.error).toBe('auth.register_failed');
     });
   });
 

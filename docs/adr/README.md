@@ -10,6 +10,7 @@ ADRs document significant architectural decisions with context and consequences.
 | 002 | [State management: Pinia for client, useFetch for server](002-state-management.md) | accepted | 2026-02-02 |
 | 003 | [API patterns: useFetch client-side, $fetch server-side](003-api-patterns.md)      | accepted | 2026-02-02 |
 | 004 | [Geins SDK integration via service layer](004-geins-sdk-service-layer.md)          | accepted | 2026-02-03 |
+| 005 | [Internationalization with @nuxtjs/i18n](005-internationalization.md)              | accepted | 2026-02-09 |
 
 ## Adding New ADRs
 

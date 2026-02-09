@@ -12,12 +12,24 @@ export default defineNuxtConfig({
     '@nuxt/icon',
     '@nuxt/image',
     '@nuxtjs/tailwindcss',
+    '@nuxtjs/i18n',
     '@nuxt/scripts',
     '@nuxt/test-utils',
     'shadcn-nuxt',
     '@pinia/nuxt',
     '@sentry/nuxt/module',
   ],
+
+  i18n: {
+    restructureDir: 'app',
+    defaultLocale: 'en',
+    locales: [
+      { code: 'en', name: 'English', file: 'en.json' },
+      { code: 'sv', name: 'Svenska', file: 'sv.json' },
+    ],
+    langDir: 'locales',
+    strategy: 'no_prefix',
+  },
 
   // Sentry build-time configuration for source maps (optional)
   // If SENTRY_AUTH_TOKEN is not set, source maps won't be uploaded
@@ -182,9 +194,7 @@ export default defineNuxtConfig({
     head: {
       charset: 'utf-8',
       viewport: 'width=device-width, initial-scale=1',
-      htmlAttrs: {
-        lang: 'en',
-      },
+      // lang attribute managed by @nuxtjs/i18n module
     },
   },
 

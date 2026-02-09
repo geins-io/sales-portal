@@ -61,9 +61,7 @@ export const useAuthStore = defineStore('auth', {
         return response.user!;
       } catch (err) {
         const message =
-          err instanceof Error
-            ? err.message
-            : 'Login failed. Please try again.';
+          err instanceof Error ? err.message : 'auth.login_failed';
         this.error = message;
         throw new Error(message);
       } finally {
@@ -89,9 +87,7 @@ export const useAuthStore = defineStore('auth', {
         return response.user!;
       } catch (err) {
         const message =
-          err instanceof Error
-            ? err.message
-            : 'Registration failed. Please try again.';
+          err instanceof Error ? err.message : 'auth.register_failed';
         this.error = message;
         throw new Error(message);
       } finally {

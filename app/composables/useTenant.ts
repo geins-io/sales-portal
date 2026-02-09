@@ -78,6 +78,21 @@ export function useTenant() {
     return tenant.value?.branding?.name ?? tenant.value?.tenantId ?? 'Store';
   });
 
+  /**
+   * Available locale codes for this tenant.
+   * Maps full Geins locales (e.g. 'sv-SE') to short i18n codes ('sv').
+   * The `availableLocales` field is added by the config API but not on the TenantConfig type,
+   * so we access it via a safe runtime check.
+   */
+  const availableLocales = computed(() => {
+    const raw = tenant.value;
+    if (!raw) return [];
+    const locales = (raw as unknown as Record<string, unknown>)
+      .availableLocales;
+    if (!Array.isArray(locales)) return [];
+    return (locales as string[]).map((l: string) => l.split('-')[0]);
+  });
+
   return {
     // Core data
     tenant,
@@ -92,6 +107,8 @@ export function useTenant() {
     branding,
     logoUrl,
     brandName,
+    // Locale
+    availableLocales,
     // Features
     features,
     hasFeature,
