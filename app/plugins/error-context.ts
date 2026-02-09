@@ -44,8 +44,8 @@ export default defineNuxtPlugin({
     // Set initial user context
     if (authStore.user) {
       setUser({
-        id: String(authStore.user.id),
-        email: authStore.user.email,
+        id: authStore.user.userId ?? 'unknown',
+        email: authStore.user.username,
       });
     }
 
@@ -55,11 +55,11 @@ export default defineNuxtPlugin({
       (newUser) => {
         if (newUser) {
           setUser({
-            id: String(newUser.id),
-            email: newUser.email,
+            id: newUser.userId ?? 'unknown',
+            email: newUser.username,
           });
           addBreadcrumb('User logged in', 'auth', {
-            userId: String(newUser.id),
+            userId: newUser.userId ?? 'unknown',
           });
         } else {
           setUser(null);

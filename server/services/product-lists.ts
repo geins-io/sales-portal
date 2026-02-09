@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3';
-import { getGeinsClient, getChannelVariables } from './_client';
+import { getTenantSDK, getChannelVariables } from './_sdk';
 import { loadQuery } from './graphql/loader';
 
 export interface ProductListOptions {
@@ -16,10 +16,10 @@ export async function getProducts(
   options: ProductListOptions,
   event: H3Event,
 ): Promise<unknown> {
-  const client = await getGeinsClient(event);
-  return client.core.graphql.query({
+  const sdk = await getTenantSDK(event);
+  return sdk.core.graphql.query({
     queryAsString: loadQuery('product-lists/products.graphql'),
-    variables: { ...options, ...getChannelVariables(client) },
+    variables: { ...options, ...getChannelVariables(sdk) },
   });
 }
 
@@ -27,10 +27,10 @@ export async function getFilters(
   options: ProductListOptions,
   event: H3Event,
 ): Promise<unknown> {
-  const client = await getGeinsClient(event);
-  return client.core.graphql.query({
+  const sdk = await getTenantSDK(event);
+  return sdk.core.graphql.query({
     queryAsString: loadQuery('product-lists/list-filters.graphql'),
-    variables: { ...options, ...getChannelVariables(client) },
+    variables: { ...options, ...getChannelVariables(sdk) },
   });
 }
 
@@ -38,10 +38,10 @@ export async function getCategoryPage(
   args: { alias: string },
   event: H3Event,
 ): Promise<unknown> {
-  const client = await getGeinsClient(event);
-  return client.core.graphql.query({
+  const sdk = await getTenantSDK(event);
+  return sdk.core.graphql.query({
     queryAsString: loadQuery('product-lists/category-page.graphql'),
-    variables: { alias: args.alias, ...getChannelVariables(client) },
+    variables: { alias: args.alias, ...getChannelVariables(sdk) },
   });
 }
 
@@ -49,10 +49,10 @@ export async function getBrandPage(
   args: { alias: string },
   event: H3Event,
 ): Promise<unknown> {
-  const client = await getGeinsClient(event);
-  return client.core.graphql.query({
+  const sdk = await getTenantSDK(event);
+  return sdk.core.graphql.query({
     queryAsString: loadQuery('product-lists/brand-page.graphql'),
-    variables: { alias: args.alias, ...getChannelVariables(client) },
+    variables: { alias: args.alias, ...getChannelVariables(sdk) },
   });
 }
 
@@ -60,9 +60,9 @@ export async function getDiscountCampaignPage(
   args: { alias: string },
   event: H3Event,
 ): Promise<unknown> {
-  const client = await getGeinsClient(event);
-  return client.core.graphql.query({
+  const sdk = await getTenantSDK(event);
+  return sdk.core.graphql.query({
     queryAsString: loadQuery('product-lists/discount-campaign-page.graphql'),
-    variables: { alias: args.alias, ...getChannelVariables(client) },
+    variables: { alias: args.alias, ...getChannelVariables(sdk) },
   });
 }

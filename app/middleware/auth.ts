@@ -15,12 +15,12 @@ import { useAuthStore } from '~/stores/auth';
  * </script>
  * ```
  */
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore();
 
-  // Initialize auth from storage if not already done (client-side only)
-  if (import.meta.client && !authStore.token) {
-    authStore.initializeFromStorage();
+  // On first load, check session via server (cookies are sent automatically)
+  if (!authStore.isInitialized) {
+    await authStore.fetchUser();
   }
 
   if (!authStore.isAuthenticated) {

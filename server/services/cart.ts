@@ -1,100 +1,125 @@
-import type { CartType, CartItemType } from '@geins/types';
+import type { CartType, CartItemInputType } from '@geins/types';
+import { CartError } from '@geins/core';
 import type { H3Event } from 'h3';
-import { getGeinsClient } from './_client';
-
-// Cart operations require loading the cart first to set the internal cart ID.
-// API routes should pass cartId from cookies/headers. If no cartId, a new cart
-// is created automatically by the SDK.
+import { getTenantSDK } from './_sdk';
 
 export async function getCart(
-  cartId: string | undefined,
+  cartId: string,
   event: H3Event,
-): Promise<CartType | undefined> {
-  const { oms } = await getGeinsClient(event);
-  return oms.cart.get(cartId);
+): Promise<CartType> {
+  const { oms } = await getTenantSDK(event);
+  try {
+    return await oms.cart.get(cartId);
+  } catch (error) {
+    if (error instanceof CartError) {
+      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
+    }
+    throw createAppError(ErrorCode.EXTERNAL_API_ERROR, 'Failed to get cart');
+  }
 }
 
-export async function createCart(
-  event: H3Event,
-): Promise<CartType | undefined> {
-  const { oms } = await getGeinsClient(event);
-  return oms.cart.create();
+export async function createCart(event: H3Event): Promise<CartType> {
+  const { oms } = await getTenantSDK(event);
+  try {
+    return await oms.cart.create();
+  } catch (error) {
+    if (error instanceof CartError) {
+      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
+    }
+    throw createAppError(ErrorCode.EXTERNAL_API_ERROR, 'Failed to create cart');
+  }
 }
 
 export async function addItem(
-  args: { cartId?: string; skuId?: number; quantity?: number },
+  cartId: string,
+  input: CartItemInputType,
   event: H3Event,
-): Promise<boolean> {
-  const { oms } = await getGeinsClient(event);
-  // Load cart first to set internal ID, then add item
-  if (args.cartId) {
-    await oms.cart.get(args.cartId);
+): Promise<CartType> {
+  const { oms } = await getTenantSDK(event);
+  try {
+    return await oms.cart.addItem(cartId, input);
+  } catch (error) {
+    if (error instanceof CartError) {
+      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
+    }
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      'Failed to add item to cart',
+    );
   }
-  return oms.cart.items.add({ skuId: args.skuId, quantity: args.quantity });
 }
 
 export async function updateItem(
-  args: { cartId?: string; item: CartItemType },
+  cartId: string,
+  input: CartItemInputType,
   event: H3Event,
-): Promise<boolean> {
-  const { oms } = await getGeinsClient(event);
-  if (args.cartId) {
-    await oms.cart.get(args.cartId);
+): Promise<CartType> {
+  const { oms } = await getTenantSDK(event);
+  try {
+    return await oms.cart.updateItem(cartId, input);
+  } catch (error) {
+    if (error instanceof CartError) {
+      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
+    }
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      'Failed to update cart item',
+    );
   }
-  return oms.cart.items.update({ item: args.item });
-}
-
-export async function removeItem(
-  args: { cartId?: string; skuId?: number; quantity?: number },
-  event: H3Event,
-): Promise<boolean> {
-  const { oms } = await getGeinsClient(event);
-  if (args.cartId) {
-    await oms.cart.get(args.cartId);
-  }
-  return oms.cart.items.remove({ skuId: args.skuId, quantity: args.quantity });
 }
 
 export async function deleteItem(
-  args: { cartId?: string; id?: string; skuId?: number },
+  cartId: string,
+  itemId: string,
   event: H3Event,
-): Promise<boolean> {
-  const { oms } = await getGeinsClient(event);
-  if (args.cartId) {
-    await oms.cart.get(args.cartId);
+): Promise<CartType> {
+  const { oms } = await getTenantSDK(event);
+  try {
+    return await oms.cart.deleteItem(cartId, itemId);
+  } catch (error) {
+    if (error instanceof CartError) {
+      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
+    }
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      'Failed to delete cart item',
+    );
   }
-  return oms.cart.items.delete({ id: args.id, skuId: args.skuId });
-}
-
-export async function clearCart(
-  cartId: string | undefined,
-  event: H3Event,
-): Promise<boolean> {
-  const { oms } = await getGeinsClient(event);
-  if (cartId) {
-    await oms.cart.get(cartId);
-  }
-  return oms.cart.items.clear();
 }
 
 export async function applyPromoCode(
-  args: { cartId?: string; promoCode: string },
+  cartId: string,
+  promoCode: string,
   event: H3Event,
-): Promise<boolean> {
-  const { oms } = await getGeinsClient(event);
-  if (args.cartId) {
-    await oms.cart.get(args.cartId);
+): Promise<CartType> {
+  const { oms } = await getTenantSDK(event);
+  try {
+    return await oms.cart.setPromotionCode(cartId, promoCode);
+  } catch (error) {
+    if (error instanceof CartError) {
+      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
+    }
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      'Failed to apply promotion code',
+    );
   }
-  return oms.cart.promotionCode.apply(args.promoCode);
 }
 
 export async function removePromoCode(
-  cartId: string | undefined,
+  cartId: string,
   event: H3Event,
-): Promise<boolean> {
-  const { oms } = await getGeinsClient(event);
-  if (cartId) {
-    await oms.cart.get(cartId);
+): Promise<CartType> {
+  const { oms } = await getTenantSDK(event);
+  try {
+    return await oms.cart.removePromotionCode(cartId);
+  } catch (error) {
+    if (error instanceof CartError) {
+      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
+    }
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      'Failed to remove promotion code',
+    );
   }
-  return oms.cart.promotionCode.remove();
 }
