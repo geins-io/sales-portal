@@ -33,7 +33,9 @@ const dialogOpen = ref(false);
   <div class="container mx-auto space-y-12 p-8">
     <!-- Tenant Info -->
     <section class="space-y-2">
-      <h1 class="text-3xl font-bold">Component Showcase</h1>
+      <h1 class="text-3xl font-bold">
+        {{ $t('elements.component_showcase') }}
+      </h1>
       <p class="text-muted-foreground">
         Tenant: {{ tenant?.tenantId ?? 'No tenant' }}
       </p>
@@ -58,7 +60,9 @@ const dialogOpen = ref(false);
           class="bg-muted max-h-64 overflow-auto rounded-md p-4 text-sm"
         ><code>{{ tenant?.css ?? 'No CSS' }}</code></pre>
       </div>
-      <p v-if="isLoading" class="text-muted-foreground">Loading...</p>
+      <p v-if="isLoading" class="text-muted-foreground">
+        {{ $t('common.loading') }}
+      </p>
       <p v-if="error" class="text-destructive">Error: {{ error?.message }}</p>
     </section>
 
@@ -104,15 +108,15 @@ const dialogOpen = ref(false);
       <div class="flex flex-wrap gap-4">
         <Button variant="default" size="lg">
           <ShoppingCart class="mr-2 h-4 w-4" />
-          Add to cart
+          {{ $t('cart.add_to_cart') }}
         </Button>
         <Button variant="outline" size="sm">
           <Download class="mr-2 h-4 w-4" />
-          Download
+          {{ $t('product.download') }}
         </Button>
         <Button variant="ghost" size="sm">
           <MailPlus class="mr-2 h-4 w-4" />
-          Add to quote
+          {{ $t('product.add_to_quote') }}
         </Button>
       </div>
     </section>
@@ -125,8 +129,10 @@ const dialogOpen = ref(false);
       <div class="grid max-w-2xl grid-cols-1 gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Product Card</CardTitle>
-            <CardDescription>A sample product card component</CardDescription>
+            <CardTitle>{{ $t('product.product_card') }}</CardTitle>
+            <CardDescription>{{
+              $t('product.product_card_description')
+            }}</CardDescription>
           </CardHeader>
           <CardContent>
             <p>
@@ -134,8 +140,8 @@ const dialogOpen = ref(false);
             </p>
           </CardContent>
           <CardFooter class="flex justify-between">
-            <Button variant="outline">Cancel</Button>
-            <Button>Save</Button>
+            <Button variant="outline">{{ $t('common.cancel') }}</Button>
+            <Button>{{ $t('common.save') }}</Button>
           </CardFooter>
         </Card>
       </div>
@@ -240,10 +246,14 @@ const dialogOpen = ref(false);
       <h2 class="text-2xl font-semibold">Tabs</h2>
       <Tabs default-value="details" class="w-full max-w-2xl">
         <TabsList>
-          <TabsTrigger value="details">Product details</TabsTrigger>
-          <TabsTrigger value="description">Description</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="related">Related products</TabsTrigger>
+          <TabsTrigger value="details">{{ $t('product.details') }}</TabsTrigger>
+          <TabsTrigger value="description">{{
+            $t('product.description')
+          }}</TabsTrigger>
+          <TabsTrigger value="documents">{{
+            $t('product.documents')
+          }}</TabsTrigger>
+          <TabsTrigger value="related">{{ $t('product.related') }}</TabsTrigger>
         </TabsList>
         <TabsContent value="details" class="rounded-b-md border p-4">
           <h3 class="mb-2 font-semibold">Product Details</h3>
@@ -278,11 +288,11 @@ const dialogOpen = ref(false);
     <section class="space-y-4">
       <h2 class="text-2xl font-semibold">Table (Product Attributes)</h2>
       <Table class="max-w-2xl">
-        <TableCaption>Product specifications</TableCaption>
+        <TableCaption>{{ $t('product.product_specifications') }}</TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead>Attribute</TableHead>
-            <TableHead>Value</TableHead>
+            <TableHead>{{ $t('product.attribute') }}</TableHead>
+            <TableHead>{{ $t('product.value') }}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -316,11 +326,11 @@ const dialogOpen = ref(false);
     <section class="space-y-4">
       <h2 class="text-2xl font-semibold">Label</h2>
       <div class="space-y-2">
-        <Label for="email">Email address</Label>
+        <Label for="email">{{ $t('elements.email_address') }}</Label>
         <input
           id="email"
           type="email"
-          placeholder="Enter your email"
+          :placeholder="$t('elements.enter_your_email')"
           class="border-input flex h-9 w-full max-w-sm rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm"
         />
       </div>
@@ -571,7 +581,9 @@ const dialogOpen = ref(false);
           <PaginationLast />
         </PaginationContent>
       </Pagination>
-      <p class="text-muted-foreground text-sm">Showing 16 of 96 products</p>
+      <p class="text-muted-foreground text-sm">
+        {{ $t('elements.showing_n_of_total', { n: 16, total: 96 }) }}
+      </p>
     </section>
 
     <Separator />
@@ -585,7 +597,7 @@ const dialogOpen = ref(false);
         <div class="flex items-center gap-2">
           <Button variant="outline" size="sm">
             <ListFilter class="mr-2 h-4 w-4" />
-            Filter
+            {{ $t('elements.filter') }}
           </Button>
           <div class="relative">
             <Search
@@ -597,7 +609,7 @@ const dialogOpen = ref(false);
         <div class="flex items-center gap-2">
           <Select>
             <SelectTrigger class="w-[150px]">
-              <SelectValue placeholder="Sort by" />
+              <SelectValue :placeholder="$t('product.sort_by')" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="name">Name</SelectItem>
@@ -814,9 +826,9 @@ const dialogOpen = ref(false);
         </DialogTrigger>
         <DialogContent class="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Share link</DialogTitle>
+            <DialogTitle>{{ $t('elements.share_link') }}</DialogTitle>
             <DialogDescription>
-              Anyone with the link can view this document.
+              {{ $t('elements.share_link_description') }}
             </DialogDescription>
           </DialogHeader>
           <div class="flex items-center gap-2">
@@ -825,11 +837,11 @@ const dialogOpen = ref(false);
               :default-value="'https://example.com/share/abc123'"
               class="flex-1"
             />
-            <Button type="submit" size="sm"> Copy </Button>
+            <Button type="submit" size="sm"> {{ $t('common.copy') }} </Button>
           </div>
           <DialogFooter class="sm:justify-start">
             <DialogClose as-child>
-              <Button variant="secondary"> Close </Button>
+              <Button variant="secondary"> {{ $t('common.close') }} </Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>

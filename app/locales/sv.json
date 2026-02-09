@@ -1,0 +1,84 @@
+{
+  "common": {
+    "loading": "Laddar…",
+    "error": "Fel",
+    "not_found": "Hittades inte",
+    "something_went_wrong": "Något gick fel.",
+    "unable_to_resolve_route": "Det gick inte att lösa sökvägen.",
+    "close": "Stäng",
+    "cancel": "Avbryt",
+    "save": "Spara",
+    "search": "Sök",
+    "back": "Tillbaka",
+    "copy": "Kopiera",
+    "open_menu": "Öppna meny",
+    "no_results_found": "Inga resultat hittades."
+  },
+  "auth": {
+    "login": "Logga in",
+    "logout": "Logga ut",
+    "register": "Registrera",
+    "login_failed": "Inloggningen misslyckades. Försök igen.",
+    "register_failed": "Registreringen misslyckades. Försök igen."
+  },
+  "nav": {
+    "home": "Hem",
+    "products": "Produkter",
+    "categories": "Kategorier",
+    "cart": "Varukorg",
+    "account": "Konto",
+    "search_products": "Sök produkter…",
+    "overview": "Översikt",
+    "orders": "Beställningar"
+  },
+  "cart": {
+    "add_to_cart": "Lägg i varukorg",
+    "add": "Lägg till",
+    "empty_cart": "Din varukorg är tom",
+    "remove_item": "Ta bort artikel",
+    "quantity": "Antal",
+    "subtotal": "Delsumma",
+    "checkout": "Gå till kassan"
+  },
+  "product": {
+    "details": "Produktdetaljer",
+    "description": "Beskrivning",
+    "documents": "Dokument",
+    "related": "Relaterade produkter",
+    "add_to_quote": "Lägg till offert",
+    "download": "Ladda ner",
+    "sort_by": "Sortera efter",
+    "select_variant": "Välj en variant",
+    "product_card": "Produktkort",
+    "product_card_description": "Ett exempel på produktkortskomponent",
+    "product_specifications": "Produktspecifikationer",
+    "attribute": "Attribut",
+    "value": "Värde"
+  },
+  "account": {
+    "my_account": "Mitt konto",
+    "profile": "Profil",
+    "settings": "Inställningar",
+    "orders": "Beställningar",
+    "favorites": "Favoriter",
+    "billing": "Fakturering",
+    "keyboard_shortcuts": "Kortkommandon"
+  },
+  "elements": {
+    "component_showcase": "Komponentvisning",
+    "share_link": "Dela länk",
+    "share_link_description": "Alla med länken kan se detta dokument.",
+    "showing_n_of_total": "Visar {n} av {total} produkter",
+    "filter": "Filter",
+    "notifications": "Aviseringar",
+    "pending": "Väntande",
+    "n_items": "{n} artiklar",
+    "status": "Status",
+    "active": "Aktiv",
+    "email_address": "E-postadress",
+    "enter_your_email": "Ange din e-postadress",
+    "with_image": "Med bild",
+    "fallback": "Reserv",
+    "icon": "Ikon"
+  }
+}

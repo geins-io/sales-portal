@@ -60,8 +60,16 @@ export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
 /**
  * Extracts channel context variables from a TenantSDK for raw GraphQL queries.
  * All Geins GraphQL queries accept optional channelId, languageId, marketId.
+ *
+ * @param sdk - The tenant SDK instance
+ * @param localeOverride - Optional locale to use instead of the SDK default.
+ *   Pass the user's i18n locale (from `getRequestLocale()`) to keep
+ *   GraphQL queries in sync with the UI language.
  */
-export function getChannelVariables(sdk: TenantSDK): {
+export function getChannelVariables(
+  sdk: TenantSDK,
+  localeOverride?: string,
+): {
   channelId: string;
   languageId: string;
   marketId: string;
@@ -69,7 +77,7 @@ export function getChannelVariables(sdk: TenantSDK): {
   const settings = sdk.core.geinsSettings;
   return {
     channelId: settings.channel,
-    languageId: settings.locale,
+    languageId: localeOverride ?? settings.locale,
     marketId: settings.market,
   };
 }

@@ -55,11 +55,11 @@ const ResolvedComponent = computed(() => {
 
 <template>
   <div>
-    <div v-if="pending">Loading...</div>
+    <div v-if="pending">{{ $t('common.loading') }}</div>
 
     <div v-else-if="error">
       <!-- Keep this minimal; Nuxt error boundary will handle thrown errors -->
-      <p>Something went wrong.</p>
+      <p>{{ $t('common.something_went_wrong') }}</p>
     </div>
 
     <component
@@ -71,7 +71,7 @@ const ResolvedComponent = computed(() => {
 
     <div v-else>
       <!-- Fallback for unexpected states -->
-      <p>Unable to resolve route.</p>
+      <p>{{ $t('common.unable_to_resolve_route') }}</p>
     </div>
   </div>
 </template>

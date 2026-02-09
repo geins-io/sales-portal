@@ -1,0 +1,84 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "error": "Error",
+    "not_found": "Not found",
+    "something_went_wrong": "Something went wrong.",
+    "unable_to_resolve_route": "Unable to resolve route.",
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save",
+    "search": "Search",
+    "back": "Back",
+    "copy": "Copy",
+    "open_menu": "Open Menu",
+    "no_results_found": "No results found."
+  },
+  "auth": {
+    "login": "Log in",
+    "logout": "Log out",
+    "register": "Register",
+    "login_failed": "Login failed. Please try again.",
+    "register_failed": "Registration failed. Please try again."
+  },
+  "nav": {
+    "home": "Home",
+    "products": "Products",
+    "categories": "Categories",
+    "cart": "Cart",
+    "account": "Account",
+    "search_products": "Search products…",
+    "overview": "Overview",
+    "orders": "Orders"
+  },
+  "cart": {
+    "add_to_cart": "Add to cart",
+    "add": "Add",
+    "empty_cart": "Your cart is empty",
+    "remove_item": "Remove item",
+    "quantity": "Quantity",
+    "subtotal": "Subtotal",
+    "checkout": "Checkout"
+  },
+  "product": {
+    "details": "Product details",
+    "description": "Description",
+    "documents": "Documents",
+    "related": "Related products",
+    "add_to_quote": "Add to quote",
+    "download": "Download",
+    "sort_by": "Sort by",
+    "select_variant": "Select a variant",
+    "product_card": "Product Card",
+    "product_card_description": "A sample product card component",
+    "product_specifications": "Product specifications",
+    "attribute": "Attribute",
+    "value": "Value"
+  },
+  "account": {
+    "my_account": "My Account",
+    "profile": "Profile",
+    "settings": "Settings",
+    "orders": "Orders",
+    "favorites": "Favorites",
+    "billing": "Billing",
+    "keyboard_shortcuts": "Keyboard shortcuts"
+  },
+  "elements": {
+    "component_showcase": "Component Showcase",
+    "share_link": "Share link",
+    "share_link_description": "Anyone with the link can view this document.",
+    "showing_n_of_total": "Showing {n} of {total} products",
+    "filter": "Filter",
+    "notifications": "Notifications",
+    "pending": "Pending",
+    "n_items": "{n} items",
+    "status": "Status",
+    "active": "Active",
+    "email_address": "Email address",
+    "enter_your_email": "Enter your email",
+    "with_image": "With image",
+    "fallback": "Fallback",
+    "icon": "Icon"
+  }
+}

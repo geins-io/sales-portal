@@ -15,8 +15,13 @@ export default defineCachedEventHandler(
         if (!config) return config;
 
         // Strip server-only secrets before sending to client
+        // Expose locale fields so the client can sync i18n and show language switcher
         const { geinsSettings, ...publicConfig } = config;
-        return publicConfig;
+        return {
+          ...publicConfig,
+          locale: geinsSettings?.locale,
+          availableLocales: geinsSettings?.locale ? [geinsSettings.locale] : [],
+        };
       },
       { tenantId: hostname, operation: 'config.get' },
     );
