@@ -15,9 +15,5 @@ export * as search from './search';
 export * as channels from './channels';
 export * as newsletter from './newsletter';
 
-// Client factory
-export {
-  getGeinsClient,
-  createGeinsClient,
-  getChannelVariables,
-} from './_client';
+// SDK factory
+export { getTenantSDK, createTenantSDK, getChannelVariables } from './_sdk';

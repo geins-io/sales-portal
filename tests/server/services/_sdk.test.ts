@@ -86,33 +86,33 @@ function createEvent(tenantHostname?: string): H3Event {
   } as unknown as H3Event;
 }
 
-describe('server/services/_client', () => {
-  let createGeinsClient: typeof import('../../../server/services/_client').createGeinsClient;
-  let getGeinsClient: typeof import('../../../server/services/_client').getGeinsClient;
-  let getChannelVariables: typeof import('../../../server/services/_client').getChannelVariables;
+describe('server/services/_sdk', () => {
+  let createTenantSDK: typeof import('../../../server/services/_sdk').createTenantSDK;
+  let getTenantSDK: typeof import('../../../server/services/_sdk').getTenantSDK;
+  let getChannelVariables: typeof import('../../../server/services/_sdk').getChannelVariables;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
 
-    const mod = await import('../../../server/services/_client');
-    createGeinsClient = mod.createGeinsClient;
-    getGeinsClient = mod.getGeinsClient;
+    const mod = await import('../../../server/services/_sdk');
+    createTenantSDK = mod.createTenantSDK;
+    getTenantSDK = mod.getTenantSDK;
     getChannelVariables = mod.getChannelVariables;
   });
 
-  describe('createGeinsClient', () => {
+  describe('createTenantSDK', () => {
     it('should create all four SDK instances', () => {
-      const client = createGeinsClient(MOCK_GEINS_SETTINGS);
+      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
 
-      expect(client).toHaveProperty('core');
-      expect(client).toHaveProperty('crm');
-      expect(client).toHaveProperty('cms');
-      expect(client).toHaveProperty('oms');
+      expect(sdk).toHaveProperty('core');
+      expect(sdk).toHaveProperty('crm');
+      expect(sdk).toHaveProperty('cms');
+      expect(sdk).toHaveProperty('oms');
     });
 
     it('should pass mapped settings to GeinsCore', () => {
-      createGeinsClient(MOCK_GEINS_SETTINGS);
+      createTenantSDK(MOCK_GEINS_SETTINGS);
 
       expect(mockGeinsCore).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -128,7 +128,7 @@ describe('server/services/_client', () => {
     });
 
     it('should map production environment to prod', () => {
-      createGeinsClient({ ...MOCK_GEINS_SETTINGS, environment: 'production' });
+      createTenantSDK({ ...MOCK_GEINS_SETTINGS, environment: 'production' });
 
       expect(mockGeinsCore).toHaveBeenCalledWith(
         expect.objectContaining({ environment: 'prod' }),
@@ -136,7 +136,7 @@ describe('server/services/_client', () => {
     });
 
     it('should map staging environment to qa', () => {
-      createGeinsClient({ ...MOCK_GEINS_SETTINGS, environment: 'staging' });
+      createTenantSDK({ ...MOCK_GEINS_SETTINGS, environment: 'staging' });
 
       expect(mockGeinsCore).toHaveBeenCalledWith(
         expect.objectContaining({ environment: 'qa' }),
@@ -146,7 +146,7 @@ describe('server/services/_client', () => {
     it('should default to prod when environment is undefined', () => {
       const settings = { ...MOCK_GEINS_SETTINGS };
       delete (settings as Partial<GeinsSettings>).environment;
-      createGeinsClient(settings);
+      createTenantSDK(settings);
 
       expect(mockGeinsCore).toHaveBeenCalledWith(
         expect.objectContaining({ environment: 'prod' }),
@@ -154,7 +154,7 @@ describe('server/services/_client', () => {
     });
 
     it('should initialize CRM with Direct connection mode', () => {
-      createGeinsClient(MOCK_GEINS_SETTINGS);
+      createTenantSDK(MOCK_GEINS_SETTINGS);
 
       expect(mockGeinsCRM).toHaveBeenCalledWith(
         expect.anything(),
@@ -163,7 +163,7 @@ describe('server/services/_client', () => {
     });
 
     it('should initialize OMS with server context', () => {
-      createGeinsClient(MOCK_GEINS_SETTINGS);
+      createTenantSDK(MOCK_GEINS_SETTINGS);
 
       expect(mockGeinsOMS).toHaveBeenCalledWith(
         expect.anything(),
@@ -174,19 +174,19 @@ describe('server/services/_client', () => {
     });
 
     it('should return fresh instances on each call', () => {
-      const client1 = createGeinsClient(MOCK_GEINS_SETTINGS);
-      const client2 = createGeinsClient(MOCK_GEINS_SETTINGS);
+      const sdk1 = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const sdk2 = createTenantSDK(MOCK_GEINS_SETTINGS);
 
-      expect(client1).not.toBe(client2);
-      expect(client1.core).not.toBe(client2.core);
+      expect(sdk1).not.toBe(sdk2);
+      expect(sdk1.core).not.toBe(sdk2.core);
     });
   });
 
-  describe('getGeinsClient', () => {
+  describe('getTenantSDK', () => {
     it('should throw when event has no tenant context', async () => {
       const event = { context: {} } as unknown as H3Event;
 
-      await expect(getGeinsClient(event)).rejects.toThrow(
+      await expect(getTenantSDK(event)).rejects.toThrow(
         'No tenant context on request',
       );
     });
@@ -195,7 +195,7 @@ describe('server/services/_client', () => {
       mockGetTenant.mockResolvedValue({ hostname: 'test.com' });
       const event = createEvent('test.com');
 
-      await expect(getGeinsClient(event)).rejects.toThrow(
+      await expect(getTenantSDK(event)).rejects.toThrow(
         'Tenant has no Geins SDK configuration',
       );
     });
@@ -204,41 +204,41 @@ describe('server/services/_client', () => {
       mockGetTenant.mockResolvedValue(null);
       const event = createEvent('test.com');
 
-      await expect(getGeinsClient(event)).rejects.toThrow(
+      await expect(getTenantSDK(event)).rejects.toThrow(
         'Tenant has no Geins SDK configuration',
       );
     });
 
-    it('should create client from tenant geinsSettings', async () => {
+    it('should create SDK from tenant geinsSettings', async () => {
       mockGetTenant.mockResolvedValue({
         hostname: 'test.com',
         geinsSettings: MOCK_GEINS_SETTINGS,
       });
       const event = createEvent('test.com');
 
-      const client = await getGeinsClient(event);
+      const sdk = await getTenantSDK(event);
 
       expect(mockGetTenant).toHaveBeenCalledWith('test.com', event);
-      expect(client).toHaveProperty('core');
-      expect(client).toHaveProperty('crm');
-      expect(client).toHaveProperty('cms');
-      expect(client).toHaveProperty('oms');
+      expect(sdk).toHaveProperty('core');
+      expect(sdk).toHaveProperty('crm');
+      expect(sdk).toHaveProperty('cms');
+      expect(sdk).toHaveProperty('oms');
     });
 
-    it('should return cached client for the same tenant', async () => {
+    it('should return cached SDK for the same tenant', async () => {
       mockGetTenant.mockResolvedValue({
         hostname: 'test.com',
         geinsSettings: MOCK_GEINS_SETTINGS,
       });
 
-      const client1 = await getGeinsClient(createEvent('test.com'));
-      const client2 = await getGeinsClient(createEvent('test.com'));
+      const sdk1 = await getTenantSDK(createEvent('test.com'));
+      const sdk2 = await getTenantSDK(createEvent('test.com'));
 
-      expect(client1).toBe(client2);
+      expect(sdk1).toBe(sdk2);
       expect(mockGeinsCore).toHaveBeenCalledTimes(1);
     });
 
-    it('should create separate clients for different tenants', async () => {
+    it('should create separate SDKs for different tenants', async () => {
       mockGetTenant.mockImplementation((hostname: string) =>
         Promise.resolve({
           hostname,
@@ -246,18 +246,18 @@ describe('server/services/_client', () => {
         }),
       );
 
-      const client1 = await getGeinsClient(createEvent('tenant-a.com'));
-      const client2 = await getGeinsClient(createEvent('tenant-b.com'));
+      const sdk1 = await getTenantSDK(createEvent('tenant-a.com'));
+      const sdk2 = await getTenantSDK(createEvent('tenant-b.com'));
 
-      expect(client1).not.toBe(client2);
+      expect(sdk1).not.toBe(sdk2);
       expect(mockGeinsCore).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('getChannelVariables', () => {
     it('should extract channel, locale, and market from SDK settings', () => {
-      const client = createGeinsClient(MOCK_GEINS_SETTINGS);
-      const vars = getChannelVariables(client);
+      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const vars = getChannelVariables(sdk);
 
       expect(vars).toEqual({
         channelId: '1',

@@ -7,7 +7,7 @@ import type { GeinsSettings as SdkGeinsSettings } from '@geins/types';
 import type { H3Event } from 'h3';
 import type { GeinsSettings as TenantGeinsSettings } from '#shared/types/tenant-config';
 
-export interface GeinsClient {
+export interface TenantSDK {
   core: GeinsCore;
   crm: GeinsCRM;
   cms: GeinsCMS;
@@ -30,15 +30,13 @@ function mapEnvironment(
   }
 }
 
-/** Per-tenant singleton cache. Same tenant reuses the same SDK client. */
-const clientCache = new Map<string, GeinsClient>();
+/** Per-tenant singleton cache. Same tenant reuses the same SDK instance. */
+const tenants = new Map<string, TenantSDK>();
 
 /**
- * Creates a Geins SDK client from tenant Geins settings.
+ * Creates a Geins SDK instance from tenant Geins settings.
  */
-export function createGeinsClient(
-  geinsSettings: TenantGeinsSettings,
-): GeinsClient {
+export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
   const sdkSettings: SdkGeinsSettings = {
     apiKey: geinsSettings.apiKey,
     accountName: geinsSettings.accountName,
@@ -60,15 +58,15 @@ export function createGeinsClient(
 }
 
 /**
- * Extracts channel context variables from a GeinsClient for raw GraphQL queries.
+ * Extracts channel context variables from a TenantSDK for raw GraphQL queries.
  * All Geins GraphQL queries accept optional channelId, languageId, marketId.
  */
-export function getChannelVariables(client: GeinsClient): {
+export function getChannelVariables(sdk: TenantSDK): {
   channelId: string;
   languageId: string;
   marketId: string;
 } {
-  const settings = client.core.geinsSettings;
+  const settings = sdk.core.geinsSettings;
   return {
     channelId: settings.channel,
     languageId: settings.locale,
@@ -77,18 +75,18 @@ export function getChannelVariables(client: GeinsClient): {
 }
 
 /**
- * Returns a per-tenant singleton Geins SDK client.
- * Same tenant reuses the same instance across requests — the hardened SDK
+ * Returns a per-tenant singleton Geins SDK instance.
+ * Same tenant reuses the same instance across requests — the stateless SDK
  * (NO_CACHE fetch policy, per-operation tokens) makes this safe.
  * Different tenants get different instances (isolated by hostname).
  */
-export async function getGeinsClient(event: H3Event): Promise<GeinsClient> {
+export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
   const hostname = event.context.tenant?.hostname;
   if (!hostname) {
     throw createAppError(ErrorCode.BAD_REQUEST, 'No tenant context on request');
   }
 
-  const cached = clientCache.get(hostname);
+  const cached = tenants.get(hostname);
   if (cached) {
     return cached;
   }
@@ -101,7 +99,7 @@ export async function getGeinsClient(event: H3Event): Promise<GeinsClient> {
     );
   }
 
-  const client = createGeinsClient(tenant.geinsSettings);
-  clientCache.set(hostname, client);
-  return client;
+  const sdk = createTenantSDK(tenant.geinsSettings);
+  tenants.set(hostname, sdk);
+  return sdk;
 }

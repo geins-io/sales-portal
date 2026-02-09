@@ -11,7 +11,12 @@ export default defineCachedEventHandler(
         log.debug('Fetching tenant configuration');
         const config = await getTenant(hostname, event);
         log.debug('Tenant configuration loaded successfully');
-        return config;
+
+        if (!config) return config;
+
+        // Strip server-only secrets before sending to client
+        const { geinsSettings, ...publicConfig } = config;
+        return publicConfig;
       },
       { tenantId: hostname, operation: 'config.get' },
     );

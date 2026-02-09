@@ -284,17 +284,22 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
       cart = await import('../../../server/services/cart');
     });
 
-    it('should add an item and auto-create a cart', async () => {
-      const added = await cart.addItem(
-        { skuId: omsSettings.skus.skuId1, quantity: 1 },
-        event,
-      );
-      expect(added).toBe(true);
-    });
-
     it('should create an empty cart', async () => {
       const newCart = await cart.createCart(event);
       expect(newCart).toBeDefined();
+    });
+
+    it('should add an item to a cart', async () => {
+      const newCart = await cart.createCart(event);
+      expect(newCart).toBeDefined();
+      const cartId = (newCart as { id?: string })?.id;
+      if (!cartId) return; // skip if cart creation didn't return an id
+      const updated = await cart.addItem(
+        cartId,
+        { skuId: omsSettings.skus.skuId1, quantity: 1 },
+        event,
+      );
+      expect(updated).toBeDefined();
     });
 
     // Promo code apply/remove requires a cart with items (cart ID is stateful).

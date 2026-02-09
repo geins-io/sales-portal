@@ -4,31 +4,39 @@ import type {
   GeinsUserType,
   GeinsUserInputTypeType,
 } from '@geins/types';
+import { AuthError } from '@geins/core';
 import type { H3Event } from 'h3';
-import { getGeinsClient } from './_client';
-
-// User operations require setAuthTokens() before each call because the SDK
-// user interface doesn't accept per-operation tokens (unlike auth.get/refresh).
-// Safe with per-tenant singletons: setAuthTokens + the SDK's synchronous token
-// read in the operation builder run in the same tick — no interleaving in Node.
+import { getTenantSDK } from './_sdk';
 
 export async function getUser(
-  refreshToken: string,
+  userToken: string,
   event: H3Event,
 ): Promise<GeinsUserType | undefined> {
-  const { crm } = await getGeinsClient(event);
-  crm.setAuthTokens({ refreshToken });
-  return crm.user.get();
+  const { crm } = await getTenantSDK(event);
+  try {
+    return await crm.user.get(userToken);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      throw createAppError(ErrorCode.UNAUTHORIZED, error.message);
+    }
+    throw createAppError(ErrorCode.EXTERNAL_API_ERROR, 'Failed to get user');
+  }
 }
 
 export async function updateUser(
   userData: GeinsUserInputTypeType,
-  refreshToken: string,
+  userToken: string,
   event: H3Event,
-): Promise<GeinsUserType> {
-  const { crm } = await getGeinsClient(event);
-  crm.setAuthTokens({ refreshToken });
-  return crm.user.update(userData);
+): Promise<GeinsUserType | undefined> {
+  const { crm } = await getTenantSDK(event);
+  try {
+    return await crm.user.update(userData, userToken);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      throw createAppError(ErrorCode.UNAUTHORIZED, error.message);
+    }
+    throw createAppError(ErrorCode.EXTERNAL_API_ERROR, 'Failed to update user');
+  }
 }
 
 export async function changePassword(
@@ -36,9 +44,18 @@ export async function changePassword(
   refreshToken: string,
   event: H3Event,
 ): Promise<AuthResponse | undefined> {
-  const { crm } = await getGeinsClient(event);
-  crm.setAuthTokens({ refreshToken });
-  return crm.user.password.change(credentials);
+  const { crm } = await getTenantSDK(event);
+  try {
+    return await crm.user.password.change(credentials, refreshToken);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      throw createAppError(ErrorCode.UNAUTHORIZED, error.message);
+    }
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      'Failed to change password',
+    );
+  }
 }
 
 export async function register(
@@ -46,6 +63,16 @@ export async function register(
   user: GeinsUserInputTypeType | undefined,
   event: H3Event,
 ): Promise<AuthResponse | undefined> {
-  const { crm } = await getGeinsClient(event);
-  return crm.user.create(credentials, user);
+  const { crm } = await getTenantSDK(event);
+  try {
+    return await crm.user.create(credentials, user);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      throw createAppError(ErrorCode.UNAUTHORIZED, error.message);
+    }
+    throw createAppError(
+      ErrorCode.EXTERNAL_API_ERROR,
+      'Failed to register user',
+    );
+  }
 }

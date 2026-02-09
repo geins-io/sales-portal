@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { H3Event } from 'h3';
 
-// --- Shared mock SDK methods ---
+// --- Shared mock SDK methods (0.6.0 stateless API) ---
 const mockAuthLogin = vi.fn();
 const mockAuthLogout = vi.fn();
 const mockAuthRefresh = vi.fn();
-const mockAuthGet = vi.fn();
-const mockSetAuthTokens = vi.fn();
+const mockAuthGetUser = vi.fn();
 
 const mockUserGet = vi.fn();
 const mockUserUpdate = vi.fn();
@@ -19,13 +18,11 @@ const mockAreaGet = vi.fn();
 
 const mockCartGet = vi.fn();
 const mockCartCreate = vi.fn();
-const mockCartItemsAdd = vi.fn();
-const mockCartItemsUpdate = vi.fn();
-const mockCartItemsRemove = vi.fn();
-const mockCartItemsDelete = vi.fn();
-const mockCartItemsClear = vi.fn();
-const mockPromoApply = vi.fn();
-const mockPromoRemove = vi.fn();
+const mockCartAddItem = vi.fn();
+const mockCartUpdateItem = vi.fn();
+const mockCartDeleteItem = vi.fn();
+const mockCartSetPromotionCode = vi.fn();
+const mockCartRemovePromotionCode = vi.fn();
 
 const mockCheckoutGet = vi.fn();
 const mockCheckoutValidate = vi.fn();
@@ -35,15 +32,15 @@ const mockCheckoutCreateToken = vi.fn();
 
 const mockOrderGet = vi.fn();
 
-// --- Mock getGeinsClient to return controlled mocks ---
-const mockClient = {
+// --- Mock getTenantSDK to return controlled mocks ---
+const mockSDK = {
   core: { geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' } },
   crm: {
     auth: {
       login: mockAuthLogin,
       logout: mockAuthLogout,
       refresh: mockAuthRefresh,
-      get: mockAuthGet,
+      getUser: mockAuthGetUser,
     },
     user: {
       get: mockUserGet,
@@ -51,7 +48,6 @@ const mockClient = {
       create: mockUserCreate,
       password: { change: mockPasswordChange },
     },
-    setAuthTokens: mockSetAuthTokens,
   },
   cms: {
     menu: { get: mockMenuGet },
@@ -62,17 +58,11 @@ const mockClient = {
     cart: {
       get: mockCartGet,
       create: mockCartCreate,
-      items: {
-        add: mockCartItemsAdd,
-        update: mockCartItemsUpdate,
-        remove: mockCartItemsRemove,
-        delete: mockCartItemsDelete,
-        clear: mockCartItemsClear,
-      },
-      promotionCode: {
-        apply: mockPromoApply,
-        remove: mockPromoRemove,
-      },
+      addItem: mockCartAddItem,
+      updateItem: mockCartUpdateItem,
+      deleteItem: mockCartDeleteItem,
+      setPromotionCode: mockCartSetPromotionCode,
+      removePromotionCode: mockCartRemovePromotionCode,
     },
     checkout: {
       get: mockCheckoutGet,
@@ -87,14 +77,29 @@ const mockClient = {
   },
 };
 
-vi.mock('../../../server/services/_client', () => ({
-  getGeinsClient: vi.fn().mockResolvedValue(mockClient),
+vi.mock('../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
   getChannelVariables: vi.fn(),
 }));
 
+// Mock Nitro auto-imports for error handling
+vi.stubGlobal(
+  'createAppError',
+  vi.fn((_code: string, message: string) => {
+    const err = new Error(message);
+    (err as Error & { statusCode: number }).statusCode = 400;
+    return err;
+  }),
+);
+vi.stubGlobal('ErrorCode', {
+  BAD_REQUEST: 'BAD_REQUEST',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  EXTERNAL_API_ERROR: 'EXTERNAL_API_ERROR',
+});
+
 const event = {} as H3Event;
 
-describe('SDK-backed services', () => {
+describe('SDK-backed services (0.6.0)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -117,15 +122,12 @@ describe('SDK-backed services', () => {
       expect(result).toBe(expected);
     });
 
-    it('logout should set auth tokens and delegate to crm.auth.logout', async () => {
+    it('logout should delegate to crm.auth.logout (no params)', async () => {
       mockAuthLogout.mockResolvedValue(undefined);
 
-      await auth.logout('refresh-token-123', event);
+      await auth.logout(event);
 
-      expect(mockSetAuthTokens).toHaveBeenCalledWith({
-        refreshToken: 'refresh-token-123',
-      });
-      expect(mockAuthLogout).toHaveBeenCalled();
+      expect(mockAuthLogout).toHaveBeenCalledWith();
     });
 
     it('refresh should delegate to crm.auth.refresh with token', async () => {
@@ -138,13 +140,13 @@ describe('SDK-backed services', () => {
       expect(result).toBe(expected);
     });
 
-    it('getUser should delegate to crm.auth.get with tokens', async () => {
+    it('getUser should delegate to crm.auth.getUser with tokens', async () => {
       const expected = { succeeded: true, user: { userId: '1' } };
-      mockAuthGet.mockResolvedValue(expected);
+      mockAuthGetUser.mockResolvedValue(expected);
 
       const result = await auth.getUser('refresh', 'user-token', event);
 
-      expect(mockAuthGet).toHaveBeenCalledWith('refresh', 'user-token');
+      expect(mockAuthGetUser).toHaveBeenCalledWith('refresh', 'user-token');
       expect(result).toBe(expected);
     });
   });
@@ -156,38 +158,32 @@ describe('SDK-backed services', () => {
       user = await import('../../../server/services/user');
     });
 
-    it('getUser should set tokens and delegate to crm.user.get', async () => {
+    it('getUser should pass userToken to crm.user.get', async () => {
       const expected = { email: 'user@test.com' };
       mockUserGet.mockResolvedValue(expected);
 
-      const result = await user.getUser('refresh-token', event);
+      const result = await user.getUser('user-token-123', event);
 
-      expect(mockSetAuthTokens).toHaveBeenCalledWith({
-        refreshToken: 'refresh-token',
-      });
-      expect(mockUserGet).toHaveBeenCalled();
+      expect(mockUserGet).toHaveBeenCalledWith('user-token-123');
       expect(result).toBe(expected);
     });
 
-    it('updateUser should set tokens and delegate to crm.user.update', async () => {
+    it('updateUser should pass data and userToken to crm.user.update', async () => {
       const userData = { address: { firstName: 'Test' } };
       const expected = { email: 'user@test.com' };
       mockUserUpdate.mockResolvedValue(expected);
 
       const result = await user.updateUser(
         userData as Parameters<typeof user.updateUser>[0],
-        'refresh-token',
+        'user-token-123',
         event,
       );
 
-      expect(mockSetAuthTokens).toHaveBeenCalledWith({
-        refreshToken: 'refresh-token',
-      });
-      expect(mockUserUpdate).toHaveBeenCalledWith(userData);
+      expect(mockUserUpdate).toHaveBeenCalledWith(userData, 'user-token-123');
       expect(result).toBe(expected);
     });
 
-    it('changePassword should set tokens and delegate to crm.user.password.change', async () => {
+    it('changePassword should pass credentials and refreshToken', async () => {
       const creds = {
         username: 'user@test.com',
         password: 'old',
@@ -198,10 +194,7 @@ describe('SDK-backed services', () => {
 
       const result = await user.changePassword(creds, 'refresh-token', event);
 
-      expect(mockSetAuthTokens).toHaveBeenCalledWith({
-        refreshToken: 'refresh-token',
-      });
-      expect(mockPasswordChange).toHaveBeenCalledWith(creds);
+      expect(mockPasswordChange).toHaveBeenCalledWith(creds, 'refresh-token');
       expect(result).toBe(expected);
     });
 
@@ -258,14 +251,14 @@ describe('SDK-backed services', () => {
     });
   });
 
-  describe('cart service', () => {
+  describe('cart service (flat API)', () => {
     let cart: typeof import('../../../server/services/cart');
 
     beforeEach(async () => {
       cart = await import('../../../server/services/cart');
     });
 
-    it('getCart should delegate to oms.cart.get', async () => {
+    it('getCart should delegate to oms.cart.get with cartId', async () => {
       const expected = { id: 'cart-1', items: [] };
       mockCartGet.mockResolvedValue(expected);
 
@@ -285,119 +278,68 @@ describe('SDK-backed services', () => {
       expect(result).toBe(expected);
     });
 
-    it('addItem should load cart and delegate to oms.cart.items.add', async () => {
-      mockCartGet.mockResolvedValue({ id: 'cart-1' });
-      mockCartItemsAdd.mockResolvedValue(true);
+    it('addItem should call oms.cart.addItem with cartId and input', async () => {
+      const expected = { id: 'cart-1', items: [{ skuId: 123, quantity: 2 }] };
+      mockCartAddItem.mockResolvedValue(expected);
 
       const result = await cart.addItem(
-        { cartId: 'cart-1', skuId: 123, quantity: 2 },
+        'cart-1',
+        { skuId: 123, quantity: 2 },
         event,
       );
 
-      expect(mockCartGet).toHaveBeenCalledWith('cart-1');
-      expect(mockCartItemsAdd).toHaveBeenCalledWith({
+      expect(mockCartAddItem).toHaveBeenCalledWith('cart-1', {
         skuId: 123,
         quantity: 2,
       });
-      expect(result).toBe(true);
+      expect(result).toBe(expected);
     });
 
-    it('addItem without cartId should skip cart load', async () => {
-      mockCartItemsAdd.mockResolvedValue(true);
-
-      const result = await cart.addItem({ skuId: 123, quantity: 2 }, event);
-
-      expect(mockCartGet).not.toHaveBeenCalled();
-      expect(mockCartItemsAdd).toHaveBeenCalledWith({
-        skuId: 123,
-        quantity: 2,
-      });
-      expect(result).toBe(true);
-    });
-
-    it('updateItem should load cart and delegate to oms.cart.items.update', async () => {
-      const item = { skuId: 123, quantity: 5 };
-      mockCartGet.mockResolvedValue({ id: 'cart-1' });
-      mockCartItemsUpdate.mockResolvedValue(true);
+    it('updateItem should call oms.cart.updateItem with cartId and input', async () => {
+      const expected = { id: 'cart-1', items: [{ skuId: 123, quantity: 5 }] };
+      mockCartUpdateItem.mockResolvedValue(expected);
 
       const result = await cart.updateItem(
-        { cartId: 'cart-1', item } as Parameters<typeof cart.updateItem>[0],
+        'cart-1',
+        { id: 'item-1', quantity: 5 },
         event,
       );
 
-      expect(mockCartGet).toHaveBeenCalledWith('cart-1');
-      expect(mockCartItemsUpdate).toHaveBeenCalledWith({ item });
-      expect(result).toBe(true);
-    });
-
-    it('removeItem should load cart and delegate to oms.cart.items.remove', async () => {
-      mockCartGet.mockResolvedValue({ id: 'cart-1' });
-      mockCartItemsRemove.mockResolvedValue(true);
-
-      const result = await cart.removeItem(
-        { cartId: 'cart-1', skuId: 123, quantity: 1 },
-        event,
-      );
-
-      expect(mockCartGet).toHaveBeenCalledWith('cart-1');
-      expect(mockCartItemsRemove).toHaveBeenCalledWith({
-        skuId: 123,
-        quantity: 1,
-      });
-      expect(result).toBe(true);
-    });
-
-    it('deleteItem should load cart and delegate to oms.cart.items.delete', async () => {
-      mockCartGet.mockResolvedValue({ id: 'cart-1' });
-      mockCartItemsDelete.mockResolvedValue(true);
-
-      const result = await cart.deleteItem(
-        { cartId: 'cart-1', id: 'item-1' },
-        event,
-      );
-
-      expect(mockCartGet).toHaveBeenCalledWith('cart-1');
-      expect(mockCartItemsDelete).toHaveBeenCalledWith({
+      expect(mockCartUpdateItem).toHaveBeenCalledWith('cart-1', {
         id: 'item-1',
-        skuId: undefined,
+        quantity: 5,
       });
-      expect(result).toBe(true);
+      expect(result).toBe(expected);
     });
 
-    it('clearCart should load cart and delegate to oms.cart.items.clear', async () => {
-      mockCartGet.mockResolvedValue({ id: 'cart-1' });
-      mockCartItemsClear.mockResolvedValue(true);
+    it('deleteItem should call oms.cart.deleteItem with cartId and itemId', async () => {
+      const expected = { id: 'cart-1', items: [] };
+      mockCartDeleteItem.mockResolvedValue(expected);
 
-      const result = await cart.clearCart('cart-1', event);
+      const result = await cart.deleteItem('cart-1', 'item-1', event);
 
-      expect(mockCartGet).toHaveBeenCalledWith('cart-1');
-      expect(mockCartItemsClear).toHaveBeenCalled();
-      expect(result).toBe(true);
+      expect(mockCartDeleteItem).toHaveBeenCalledWith('cart-1', 'item-1');
+      expect(result).toBe(expected);
     });
 
-    it('applyPromoCode should load cart and delegate to oms.cart.promotionCode.apply', async () => {
-      mockCartGet.mockResolvedValue({ id: 'cart-1' });
-      mockPromoApply.mockResolvedValue(true);
+    it('applyPromoCode should call oms.cart.setPromotionCode', async () => {
+      const expected = { id: 'cart-1', promoCode: 'SAVE10' };
+      mockCartSetPromotionCode.mockResolvedValue(expected);
 
-      const result = await cart.applyPromoCode(
-        { cartId: 'cart-1', promoCode: 'SAVE10' },
-        event,
-      );
+      const result = await cart.applyPromoCode('cart-1', 'SAVE10', event);
 
-      expect(mockCartGet).toHaveBeenCalledWith('cart-1');
-      expect(mockPromoApply).toHaveBeenCalledWith('SAVE10');
-      expect(result).toBe(true);
+      expect(mockCartSetPromotionCode).toHaveBeenCalledWith('cart-1', 'SAVE10');
+      expect(result).toBe(expected);
     });
 
-    it('removePromoCode should load cart and delegate to oms.cart.promotionCode.remove', async () => {
-      mockCartGet.mockResolvedValue({ id: 'cart-1' });
-      mockPromoRemove.mockResolvedValue(true);
+    it('removePromoCode should call oms.cart.removePromotionCode', async () => {
+      const expected = { id: 'cart-1', promoCode: undefined };
+      mockCartRemovePromotionCode.mockResolvedValue(expected);
 
       const result = await cart.removePromoCode('cart-1', event);
 
-      expect(mockCartGet).toHaveBeenCalledWith('cart-1');
-      expect(mockPromoRemove).toHaveBeenCalled();
-      expect(result).toBe(true);
+      expect(mockCartRemovePromotionCode).toHaveBeenCalledWith('cart-1');
+      expect(result).toBe(expected);
     });
   });
 
