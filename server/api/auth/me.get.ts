@@ -27,8 +27,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Failed — clear cookies
-  deleteCookie(event, 'auth_token', { path: '/' });
-  deleteCookie(event, 'refresh_token', { path: '/' });
+  clearAuthCookies(event);
 
   return { user: null };
 });

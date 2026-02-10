@@ -30,20 +30,10 @@ export default defineEventHandler(async (event) => {
 
   const { tokens, user } = result;
 
-  setCookie(event, 'auth_token', tokens.token!, {
-    httpOnly: true,
-    secure: !import.meta.dev,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: tokens.expiresIn ?? 3600,
-  });
-
-  setCookie(event, 'refresh_token', tokens.refreshToken!, {
-    httpOnly: true,
-    secure: !import.meta.dev,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 30 * 24 * 60 * 60,
+  setAuthCookies(event, {
+    token: tokens.token!,
+    refreshToken: tokens.refreshToken!,
+    expiresIn: tokens.expiresIn,
   });
 
   return {

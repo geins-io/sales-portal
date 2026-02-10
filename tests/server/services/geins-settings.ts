@@ -31,15 +31,6 @@ export const cmsSettings = {
   },
 };
 
-export const omsSettings = {
-  skus: {
-    skuId1: parseInt(process.env.GEINS_OMS_SKUID1 || '0', 10),
-    skuId2: parseInt(process.env.GEINS_OMS_SKUID2 || '0', 10),
-    skuId3: parseInt(process.env.GEINS_OMS_SKUID3 || '0', 10),
-  },
-  promoCode: process.env.GEINS_PROMO_CODE || '',
-};
-
 /**
  * Returns true if Geins API credentials are configured.
  * Integration tests should skip when credentials are not available.

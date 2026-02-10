@@ -109,6 +109,44 @@ const onInput = useDebounceFn((value: string) => {
 </template>
 ```
 
+## Cookie Handling
+
+All cookie operations go through `server/utils/cookies.ts` (see [ADR-006](../adr/006-cookie-utility-module.md)).
+
+### Setting auth cookies after login/register
+
+```typescript
+// server/api/auth/login.post.ts
+const { tokens, user } = result;
+
+setAuthCookies(event, {
+  token: tokens.token!,
+  refreshToken: tokens.refreshToken!,
+  expiresIn: tokens.expiresIn,
+});
+```
+
+### Reading auth cookies
+
+```typescript
+// server/utils/auth.ts
+const { authToken, refreshToken } = getAuthCookies(event);
+```
+
+### Clearing cookies on logout
+
+```typescript
+// server/api/auth/logout.post.ts
+clearAuthCookies(event);
+```
+
+### Cookie names as constants
+
+```typescript
+import { COOKIE_NAMES } from '#shared/constants/storage';
+// COOKIE_NAMES.AUTH_TOKEN, COOKIE_NAMES.REFRESH_TOKEN, etc.
+```
+
 ## Error Handling
 
 ### Page with Error Recovery
