@@ -24,8 +24,8 @@ export default defineNuxtConfig({
     restructureDir: 'app',
     defaultLocale: 'en',
     locales: [
-      { code: 'en', name: 'English', file: 'en.json' },
-      { code: 'sv', name: 'Svenska', file: 'sv.json' },
+      { code: 'en', language: 'en', name: 'English', file: 'en.json' },
+      { code: 'sv', language: 'sv-SE', name: 'Svenska', file: 'sv.json' },
     ],
     langDir: 'locales',
     strategy: 'no_prefix',
@@ -194,7 +194,7 @@ export default defineNuxtConfig({
     head: {
       charset: 'utf-8',
       viewport: 'width=device-width, initial-scale=1',
-      // lang attribute managed by @nuxtjs/i18n module
+      htmlAttrs: { lang: 'en' },
     },
   },
 

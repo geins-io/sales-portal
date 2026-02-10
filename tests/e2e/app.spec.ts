@@ -110,10 +110,7 @@ test.describe('Accessibility', () => {
     await page.goto('/');
 
     const html = page.locator('html');
-    const lang = await html.getAttribute('lang');
-
-    expect(lang).toBeTruthy();
-    expect(lang).toBe('en');
+    await expect(html).toHaveAttribute('lang', 'en');
   });
 
   test('should have proper meta viewport', async ({ page }) => {
