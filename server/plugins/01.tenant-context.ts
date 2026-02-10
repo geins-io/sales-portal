@@ -32,5 +32,11 @@ export default defineNitroPlugin((nitroApp) => {
     // Attach tenant data to the event context to make it
     // available to all server routes and middleware.
     event.context.tenant = { hostname };
+
+    // Set cookie for next request (future use: edge workers reading cookies before hitting origin)
+    const cachedTenant = getTenantCookie(event);
+    if (!cachedTenant || cachedTenant !== hostname) {
+      setTenantCookie(event, hostname);
+    }
   });
 });

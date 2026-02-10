@@ -8,16 +8,20 @@ const mockGeinsCRM = vi.fn();
 const mockGeinsCMS = vi.fn();
 const mockGeinsOMS = vi.fn();
 
-vi.mock('@geins/core', () => ({
-  GeinsCore: class {
-    geinsSettings: unknown;
-    graphql = { query: vi.fn(), mutation: vi.fn() };
-    constructor(...args: unknown[]) {
-      mockGeinsCore(...args);
-      this.geinsSettings = args[0];
-    }
-  },
-}));
+vi.mock('@geins/core', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@geins/core')>();
+  return {
+    ...original,
+    GeinsCore: class {
+      geinsSettings: unknown;
+      graphql = { query: vi.fn(), mutation: vi.fn() };
+      constructor(...args: unknown[]) {
+        mockGeinsCore(...args);
+        this.geinsSettings = args[0];
+      }
+    },
+  };
+});
 
 vi.mock('@geins/crm', () => ({
   GeinsCRM: class {

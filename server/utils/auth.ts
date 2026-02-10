@@ -19,8 +19,7 @@ export interface AuthTokens {
  * @throws 401 if no valid session exists
  */
 export async function requireAuth(event: H3Event): Promise<AuthTokens> {
-  const authToken = getCookie(event, 'auth_token');
-  const refreshToken = getCookie(event, 'refresh_token');
+  const { authToken, refreshToken } = getAuthCookies(event);
 
   // Have both tokens — return them (SDK will reject if auth token is truly expired)
   if (authToken && refreshToken) {
@@ -42,8 +41,7 @@ export async function requireAuth(event: H3Event): Promise<AuthTokens> {
  * Useful for routes that work for both authenticated and anonymous users.
  */
 export async function optionalAuth(event: H3Event): Promise<AuthTokens | null> {
-  const authToken = getCookie(event, 'auth_token');
-  const refreshToken = getCookie(event, 'refresh_token');
+  const { authToken, refreshToken } = getAuthCookies(event);
 
   if (authToken && refreshToken) {
     return { authToken, refreshToken };
@@ -79,20 +77,10 @@ async function refreshAndRotate(
 
     const { tokens } = result;
 
-    setCookie(event, 'auth_token', tokens.token!, {
-      httpOnly: true,
-      secure: !import.meta.dev,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: tokens.expiresIn ?? 3600,
-    });
-
-    setCookie(event, 'refresh_token', tokens.refreshToken!, {
-      httpOnly: true,
-      secure: !import.meta.dev,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 30 * 24 * 60 * 60,
+    setAuthCookies(event, {
+      token: tokens.token!,
+      refreshToken: tokens.refreshToken!,
+      expiresIn: tokens.expiresIn,
     });
 
     return {
@@ -106,9 +94,4 @@ async function refreshAndRotate(
     }
     throw createAppError(ErrorCode.UNAUTHORIZED, 'Session expired');
   }
-}
-
-function clearAuthCookies(event: H3Event) {
-  deleteCookie(event, 'auth_token', { path: '/' });
-  deleteCookie(event, 'refresh_token', { path: '/' });
 }

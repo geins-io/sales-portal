@@ -19,3 +19,14 @@ export const KV_STORAGE_KEYS = {
  * Type for the KV storage keys object
  */
 export type KvStorageKeys = typeof KV_STORAGE_KEYS;
+
+/**
+ * Cookie name constants used by both server and client
+ */
+export const COOKIE_NAMES = {
+  AUTH_TOKEN: 'auth_token',
+  REFRESH_TOKEN: 'refresh_token',
+  TENANT_ID: 'tenant_id',
+  LOCALE: 'i18n_redirected',
+  CART_ID: 'cart_id',
+} as const;
