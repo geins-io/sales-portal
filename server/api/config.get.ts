@@ -1,4 +1,5 @@
-import { tenantConfigKey, getTenant } from '../utils/tenant';
+import { tenantConfigKey } from '../utils/tenant';
+import { getPublicConfig } from '../services/tenant-config';
 import { createTenantLogger } from '../utils/logger';
 
 export default defineCachedEventHandler(
@@ -9,19 +10,10 @@ export default defineCachedEventHandler(
     return withErrorHandling(
       async () => {
         log.debug('Fetching tenant configuration');
-        const config = await getTenant(hostname, event);
+        const publicConfig = await getPublicConfig(event);
         log.debug('Tenant configuration loaded successfully');
 
-        if (!config) return config;
-
-        // Strip server-only secrets before sending to client
-        // Expose locale fields so the client can sync i18n and show language switcher
-        const { geinsSettings, ...publicConfig } = config;
-        return {
-          ...publicConfig,
-          locale: geinsSettings?.locale,
-          availableLocales: geinsSettings?.locale ? [geinsSettings.locale] : [],
-        };
+        return publicConfig;
       },
       { tenantId: hostname, operation: 'config.get' },
     );

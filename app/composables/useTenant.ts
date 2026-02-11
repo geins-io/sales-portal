@@ -1,4 +1,4 @@
-import type { TenantConfig } from '#shared/types/tenant-config';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 
 /**
  * Composable for accessing the current tenant configuration.
@@ -10,70 +10,36 @@ import type { TenantConfig } from '#shared/types/tenant-config';
  * - Automatic request deduplication
  * - SSR payload transfer
  * - Built-in caching
- *
- * @example
- * ```vue
- * <script setup>
- * const { tenant, isLoading, error } = useTenant()
- *
- * // Access tenant data
- * const brandName = computed(() => tenant.value?.branding?.name ?? tenant.value?.tenantId)
- * </script>
- * ```
  */
 export function useTenant() {
-  // Use useFetch directly with dedupe: 'defer' for built-in deduplication
-  // This prevents multiple simultaneous requests and leverages Nuxt's SSR optimization
-  const asyncData = useFetch<TenantConfig>('/api/config', {
+  const asyncData = useFetch<PublicTenantConfig>('/api/config', {
     dedupe: 'defer',
     $fetch: useNuxtApp().$api as typeof $fetch,
   });
   const { data: tenant, pending: isLoading, error, refresh } = asyncData;
 
-  /**
-   * The tenant ID
-   */
   const tenantId = computed(() => tenant.value?.tenantId ?? '');
-
-  /**
-   * The hostname for this tenant
-   */
   const hostname = computed(() => tenant.value?.hostname ?? '');
-
-  /**
-   * The theme configuration
-   */
   const theme = computed(() => tenant.value?.theme);
-
-  /**
-   * The branding configuration
-   */
   const branding = computed(() => tenant.value?.branding);
-
-  /**
-   * The feature flags
-   */
   const features = computed(() => tenant.value?.features);
+  const mode = computed(() => tenant.value?.mode ?? 'commerce');
+  const watermark = computed(() => tenant.value?.branding?.watermark ?? 'full');
 
   /**
-   * Check if a feature is enabled
+   * Check if a feature is enabled.
+   * Features are now Record<string, { enabled, access? }>.
    */
-  const hasFeature = (
-    featureName: keyof NonNullable<TenantConfig['features']>,
-  ): boolean => {
-    return tenant.value?.features?.[featureName] ?? false;
+  const hasFeature = (featureName: string): boolean => {
+    const feature = tenant.value?.features?.[featureName];
+    if (!feature) return false;
+    return feature.enabled;
   };
 
-  /**
-   * Get the logo URL (with fallback to dark version if needed)
-   */
   const logoUrl = computed(() => {
     return tenant.value?.branding?.logoUrl ?? '/logo.svg';
   });
 
-  /**
-   * Get the brand name
-   */
   const brandName = computed(() => {
     return tenant.value?.branding?.name ?? tenant.value?.tenantId ?? 'Store';
   });
@@ -81,107 +47,73 @@ export function useTenant() {
   /**
    * Available locale codes for this tenant.
    * Maps full Geins locales (e.g. 'sv-SE') to short i18n codes ('sv').
-   * The `availableLocales` field is added by the config API but not on the TenantConfig type,
-   * so we access it via a safe runtime check.
    */
   const availableLocales = computed(() => {
     const raw = tenant.value;
     if (!raw) return [];
-    const locales = (raw as unknown as Record<string, unknown>)
-      .availableLocales;
+    const locales = raw.availableLocales;
     if (!Array.isArray(locales)) return [];
-    return (locales as string[]).map((l: string) => l.split('-')[0]);
+    return locales.map((l: string) => l.split('-')[0]);
   });
 
   return {
-    // Core data
     tenant,
     tenantId,
     hostname,
     isLoading,
     error,
     refresh,
-    // Theme
     theme,
-    // Branding
     branding,
     logoUrl,
     brandName,
-    // Locale
+    mode,
+    watermark,
     availableLocales,
-    // Features
     features,
     hasFeature,
-    /**
-     * Awaitable promise for SSR - ensures data is loaded before accessing values.
-     * Use in plugins/middleware: `const { suspense, tenant } = useTenant(); await suspense();`
-     */
     suspense: () => asyncData,
   };
 }
 
 /**
  * Composable for accessing tenant theme colors.
- *
- * Provides easy access to theme colors with proper defaults.
- *
- * @example
- * ```vue
- * <script setup>
- * const { primaryColor, backgroundColor } = useTenantTheme()
- * </script>
- * ```
  */
 export function useTenantTheme() {
   const { tenant } = useTenant();
 
-  // Access theme properties directly to avoid computed chain overhead
   const colors = computed(() => tenant.value?.theme?.colors);
   const typography = computed(() => tenant.value?.theme?.typography);
-  const borderRadius = computed(() => tenant.value?.theme?.borderRadius);
+  const radius = computed(() => tenant.value?.theme?.radius);
 
-  /**
-   * Get a color value with fallback
-   */
-  const getColor = (
-    colorName: keyof NonNullable<TenantConfig['theme']['colors']>,
-    fallback: string = '',
-  ): string => {
-    return tenant.value?.theme?.colors?.[colorName] ?? fallback;
+  const getColor = (colorName: string, fallback: string = ''): string => {
+    const colorMap = tenant.value?.theme?.colors;
+    if (!colorMap) return fallback;
+    const value = colorMap[colorName];
+    return (typeof value === 'string' ? value : null) ?? fallback;
   };
 
-  /**
-   * Primary brand color
-   */
   const primaryColor = computed(
-    () => tenant.value?.theme?.colors?.primary ?? '#000000',
+    () => (tenant.value?.theme?.colors?.primary as string) ?? '#000000',
   );
 
-  /**
-   * Secondary brand color
-   */
   const secondaryColor = computed(
-    () => tenant.value?.theme?.colors?.secondary ?? '#ffffff',
+    () => (tenant.value?.theme?.colors?.secondary as string) ?? '#ffffff',
   );
 
-  /**
-   * Background color
-   */
   const backgroundColor = computed(
-    () => tenant.value?.theme?.colors?.background ?? 'oklch(1 0 0)',
+    () => (tenant.value?.theme?.colors?.background as string) ?? 'oklch(1 0 0)',
   );
 
-  /**
-   * Foreground/text color
-   */
   const foregroundColor = computed(
-    () => tenant.value?.theme?.colors?.foreground ?? 'oklch(0.145 0 0)',
+    () =>
+      (tenant.value?.theme?.colors?.foreground as string) ?? 'oklch(0.145 0 0)',
   );
 
   return {
     colors,
     typography,
-    borderRadius,
+    radius,
     getColor,
     primaryColor,
     secondaryColor,

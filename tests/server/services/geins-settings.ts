@@ -12,7 +12,7 @@ export const geinsSettings: GeinsSettings = {
   locale: process.env.GEINS_LOCALE!,
   market: process.env.GEINS_MARKET!,
   environment:
-    (process.env.GEINS_ENVIRONMENT as 'production' | 'staging') || undefined,
+    (process.env.GEINS_ENVIRONMENT as 'production' | 'staging') || 'production',
 };
 
 export const userCredentials = {

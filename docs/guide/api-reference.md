@@ -12,30 +12,43 @@ Retrieves the configuration for the current tenant based on the request hostname
 GET /api/config
 ```
 
-**Response:**
+**Response** (`PublicTenantConfig`):
 
 ```json
 {
-  "id": "tenant-a.localhost",
+  "tenantId": "tenant-a",
   "hostname": "tenant-a.localhost",
-  "name": "Tenant A",
+  "mode": "commerce",
   "isActive": true,
   "theme": {
     "name": "tenant-a",
     "colors": {
-      "primary": "#007bff"
-    }
+      "primary": "oklch(0.47 0.13 195.71)",
+      "primaryForeground": "oklch(0.985 0 0)",
+      "secondary": "oklch(0.97 0.001 286.38)",
+      "secondaryForeground": "oklch(0.21 0.006 285.88)",
+      "background": "oklch(1 0 0)",
+      "foreground": "oklch(0.145 0 0)"
+    },
+    "radius": "0.625rem"
   },
   "branding": {
-    "logoUrl": "/logo.svg",
-    "companyName": "Tenant A Inc"
+    "name": "Tenant A Inc",
+    "watermark": "full",
+    "logoUrl": "https://example.com/logo.svg"
   },
   "features": {
-    "enableSearch": true,
-    "enableCart": true
-  }
+    "search": { "enabled": true },
+    "cart": { "enabled": true, "access": "authenticated" },
+    "wishlist": { "enabled": false }
+  },
+  "css": "[data-theme='tenant-a'] { --primary: oklch(0.47 0.13 195.71); ... }",
+  "locale": "sv-SE",
+  "availableLocales": ["sv-SE"]
 }
 ```
+
+The response excludes server-only fields (`geinsSettings`, `overrides`, `themeHash`, `createdAt`, `updatedAt`).
 
 **Caching:**
 

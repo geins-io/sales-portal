@@ -92,7 +92,10 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── config.get.ts       # Tenant config endpoint
 │   │   └── external/
 │   │       └── [...].ts        # Proxy for external APIs
-│   ├── services/               # Geins SDK service layer (ADR-004)
+│   ├── schemas/
+│   │   └── store-settings.ts   # Zod schema + inferred types (ADR-007)
+│   ├── services/               # Service layers
+│   │   ├── tenant-config.ts    # Tenant config accessor (ADR-007)
 │   │   ├── _client.ts          # SDK factory (per-request, no singleton)
 │   │   ├── auth.ts             # CRM auth (login, logout, refresh)
 │   │   ├── user.ts             # CRM user (profile, register)
@@ -123,6 +126,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   └── 01.tenant-context.ts # Request-level tenant context
 │   ├── utils/
 │   │   ├── tenant.ts           # Tenant CRUD operations
+│   │   ├── theme.ts            # OKLCH color derivation
 │   │   ├── logger.ts           # Structured logging
 │   │   └── errors.ts           # Error handling utilities
 │   └── event-context.d.ts      # H3 context type extensions
@@ -234,52 +238,41 @@ The theming system uses CSS custom properties (variables) that map to Tailwind C
 
 ### Theme Configuration
 
-Each tenant can define a complete theme in their configuration:
+Each tenant defines a theme validated by a Zod schema (see [ADR-007](adr/007-tenant-config-schema-service-layer.md)):
 
 ```typescript
-interface TenantTheme {
+// From server/schemas/store-settings.ts
+interface ThemeConfig {
   name: string; // Theme identifier
-  displayName?: string; // Human-readable name
-  colors: ThemeColors; // Theme colors
-  typography?: ThemeTypography;
-  borderRadius?: ThemeBorderRadius;
-  customProperties?: Record<string, string>;
+  displayName?: string | null; // Human-readable name
+  colors: ThemeColors; // 6 required + 26 optional OKLCH colors
+  radius?: string | null; // Base border radius (e.g., "0.625rem")
+  typography?: ThemeTypography | null;
 }
 ```
 
-### Available Color Tokens
+The 6 required colors are: `primary`, `primaryForeground`, `secondary`, `secondaryForeground`, `background`, `foreground`. The remaining 26 optional colors (card, muted, accent, destructive, border, input, ring, chart1-5, sidebar\*, etc.) are derived server-side from the 6 core colors when null/omitted.
 
-| Token               | Purpose                     |
-| ------------------- | --------------------------- |
-| `primary`           | Primary brand color         |
-| `primaryForeground` | Text on primary backgrounds |
-| `secondary`         | Secondary brand color       |
-| `background`        | Page background             |
-| `foreground`        | Default text color          |
-| `muted`             | Muted background            |
-| `mutedForeground`   | Muted text                  |
-| `accent`            | Accent color                |
-| `destructive`       | Error/danger states         |
-| `border`            | Default border color        |
-| `input`             | Input border color          |
-| `ring`              | Focus ring color            |
-| `card`              | Card backgrounds            |
-| `popover`           | Popover backgrounds         |
+### Color Derivation
+
+The `deriveThemeColors()` function in `server/utils/theme.ts` fills in all 26 optional colors from the 6 core colors using OKLCH color space manipulation. API-provided non-null values are preserved.
 
 ### Dynamic CSS Generation
 
-The `generateTenantCss()` function in `server/utils/tenant.ts` creates CSS from theme configuration:
+The `generateTenantCss()` function in `server/utils/tenant.ts` creates CSS from derived colors, radius variants, and override CSS:
 
 ```typescript
-// Input
-const theme = {
-  name: 'acme',
-  colors: { primary: '#007bff' }
-};
-
-// Output
+// Input: 6 core OKLCH colors
+// Output: CSS with all 32 color variables + radius variants
 [data-theme='acme'] {
-  --primary: #007bff;
+  --primary: oklch(0.47 0.13 195.71);
+  --primary-foreground: oklch(0.985 0 0);
+  /* ... all 32 colors */
+  --radius: 0.625rem;
+  --radius-sm: calc(0.625rem - 4px);
+  --radius-md: calc(0.625rem - 2px);
+  --radius-lg: 0.625rem;
+  --radius-xl: calc(0.625rem + 4px);
 }
 ```
 
@@ -673,4 +666,4 @@ pnpm preview
 
 ---
 
-_Last updated: January 2026_
+_Last updated: February 2026_
