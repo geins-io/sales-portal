@@ -68,8 +68,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   ├── app.vue                 # Root Vue component
 │   ├── assets/
 │   │   └── css/
-│   │       ├── tailwind.css    # Tailwind config + design tokens
-│   │       └── themes.css      # Static theme overrides (development)
+│   │       └── tailwind.css    # Tailwind config + design tokens + fallback defaults
 │   ├── components/
 │   │   ├── layout/             # Header, Footer, Navigation components
 │   │   └── ui/                 # shadcn-vue UI primitives
@@ -263,17 +262,15 @@ The `generateTenantCss()` function in `server/utils/tenant.ts` creates CSS from 
 
 ```typescript
 // Input: 6 core OKLCH colors
-// Output: CSS with all 32 color variables + radius variants
+// Output: CSS with all 32 color variables + base radius
 [data-theme='acme'] {
   --primary: oklch(0.47 0.13 195.71);
   --primary-foreground: oklch(0.985 0 0);
   /* ... all 32 colors */
   --radius: 0.625rem;
-  --radius-sm: calc(0.625rem - 4px);
-  --radius-md: calc(0.625rem - 2px);
-  --radius-lg: 0.625rem;
-  --radius-xl: calc(0.625rem + 4px);
 }
+// Radius variants (sm/md/lg/xl) are defined in tailwind.css @theme inline
+// via calc(var(--radius) - Npx) — single source of truth.
 ```
 
 ---

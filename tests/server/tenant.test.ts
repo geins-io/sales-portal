@@ -89,13 +89,13 @@ describe('Tenant utilities', () => {
       expect(css).toContain('--sidebar-ring:');
     });
 
-    it('should generate radius variants from a single radius value', () => {
+    it('should generate only base radius variable', () => {
       const css = generateTenantCss('test', defaultDerivedColors(), '0.625rem');
       expect(css).toContain('--radius: 0.625rem;');
-      expect(css).toContain('--radius-sm:');
-      expect(css).toContain('--radius-md:');
-      expect(css).toContain('--radius-lg:');
-      expect(css).toContain('--radius-xl:');
+      expect(css).not.toContain('--radius-sm:');
+      expect(css).not.toContain('--radius-md:');
+      expect(css).not.toContain('--radius-lg:');
+      expect(css).not.toContain('--radius-xl:');
     });
 
     it('should include override CSS variables', () => {
