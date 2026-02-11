@@ -23,37 +23,47 @@ The Sales Portal uses a design token architecture based on CSS custom properties
 
 ## Theme Configuration
 
-Each tenant can define a complete theme in their configuration:
+Each tenant defines a theme validated by a Zod schema (`server/schemas/store-settings.ts`). Types are inferred from the schema:
 
 ```typescript
-interface TenantTheme {
-  name: string              // Theme identifier
-  displayName?: string      // Human-readable name
-  colors: ThemeColors       // Theme colors
-  typography?: ThemeTypography
-  borderRadius?: ThemeBorderRadius
-  customProperties?: Record<string, string>
+interface ThemeConfig {
+  name: string; // Theme identifier
+  displayName?: string | null; // Human-readable name
+  colors: ThemeColors; // 6 required + 26 optional OKLCH colors
+  radius?: string | null; // Base border radius (e.g., "0.625rem")
+  typography?: ThemeTypography | null; // Font families
 }
 ```
 
+All colors use OKLCH format (e.g., `oklch(0.47 0.13 195.71)`). Only 6 core colors are required; the remaining 26 are derived automatically server-side when null/omitted.
+
 ## Available Color Tokens
 
-| Token               | Purpose                     | CSS Variable           |
-| ------------------- | --------------------------- | ---------------------- |
-| `primary`           | Primary brand color         | `--primary`            |
-| `primaryForeground` | Text on primary backgrounds | `--primary-foreground` |
-| `secondary`         | Secondary brand color       | `--secondary`          |
-| `background`        | Page background             | `--background`         |
-| `foreground`        | Default text color          | `--foreground`         |
-| `muted`             | Muted background            | `--muted`              |
-| `mutedForeground`   | Muted text                  | `--muted-foreground`   |
-| `accent`            | Accent color                | `--accent`             |
-| `destructive`       | Error/danger states         | `--destructive`        |
-| `border`            | Default border color        | `--border`             |
-| `input`             | Input border color          | `--input`              |
-| `ring`              | Focus ring color            | `--ring`               |
-| `card`              | Card backgrounds            | `--card`               |
-| `popover`           | Popover backgrounds         | `--popover`            |
+### 6 Required Core Colors
+
+| Token                 | Purpose                     | CSS Variable             |
+| --------------------- | --------------------------- | ------------------------ |
+| `primary`             | Primary brand color         | `--primary`              |
+| `primaryForeground`   | Text on primary backgrounds | `--primary-foreground`   |
+| `secondary`           | Secondary brand color       | `--secondary`            |
+| `secondaryForeground` | Text on secondary           | `--secondary-foreground` |
+| `background`          | Page background             | `--background`           |
+| `foreground`          | Default text color          | `--foreground`           |
+
+### 26 Optional Colors (derived from core if omitted)
+
+| Token                                   | Derived From    | CSS Variable                                 |
+| --------------------------------------- | --------------- | -------------------------------------------- |
+| `card` / `cardForeground`               | background / fg | `--card` / `--card-foreground`               |
+| `popover` / `popoverForeground`         | background / fg | `--popover` / `--popover-foreground`         |
+| `muted` / `mutedForeground`             | dimmed bg / fg  | `--muted` / `--muted-foreground`             |
+| `accent` / `accentForeground`           | secondary       | `--accent` / `--accent-foreground`           |
+| `destructive` / `destructiveForeground` | red / white     | `--destructive` / `--destructive-foreground` |
+| `border`                                | muted variant   | `--border`                                   |
+| `input`                                 | border variant  | `--input`                                    |
+| `ring`                                  | primary variant | `--ring`                                     |
+| `chart1` through `chart5`               | hue rotations   | `--chart-1` through `--chart-5`              |
+| `sidebar*` (8 tokens)                   | primary / bg    | `--sidebar-*`                                |
 
 ## Using Theme Tokens
 
@@ -86,18 +96,23 @@ Access CSS variables directly when needed:
 
 ## Dynamic CSS Generation
 
-The `generateTenantCss()` function in `server/utils/tenant.ts` creates CSS from theme configuration:
+The `generateTenantCss()` function in `server/utils/tenant.ts` creates CSS from derived colors, radius variants, and optional override CSS:
 
 ```typescript
-// Input
-const theme = {
-  name: 'acme',
-  colors: { primary: '#007bff' }
-}
+// Input: 6 core OKLCH colors from API
+// Step 1: deriveThemeColors() fills all 32 colors
+// Step 2: generateTenantCss() produces CSS
 
-// Output CSS
+// Output
 [data-theme='acme'] {
-  --primary: #007bff;
+  --primary: oklch(0.47 0.13 195.71);
+  --primary-foreground: oklch(0.985 0 0);
+  /* ... all 32 color variables */
+  --radius: 0.625rem;
+  --radius-sm: calc(0.625rem - 4px);
+  --radius-md: calc(0.625rem - 2px);
+  --radius-lg: 0.625rem;
+  --radius-xl: calc(0.625rem + 4px);
 }
 ```
 
@@ -140,43 +155,42 @@ Tenant-specific themes override the base tokens:
 
 ```css
 [data-theme='tenant-a'] {
-  --primary: 142 76% 36%;  /* Green */
+  --primary: 142 76% 36%; /* Green */
   --primary-foreground: 0 0% 100%;
 }
 
 [data-theme='tenant-b'] {
-  --primary: 346 77% 50%;  /* Pink */
+  --primary: 346 77% 50%; /* Pink */
   --primary-foreground: 0 0% 100%;
 }
 ```
 
 ## Typography
 
-Typography tokens can also be customized per tenant:
+Typography tokens can be customized per tenant:
 
 ```typescript
 interface ThemeTypography {
-  fontFamily?: string
-  fontSize?: {
-    base?: string
-    sm?: string
-    lg?: string
-    xl?: string
-  }
+  fontFamily: string; // Main font family
+  headingFontFamily?: string | null; // Heading font (falls back to fontFamily)
+  monoFontFamily?: string | null; // Monospace font
 }
 ```
 
 ## Border Radius
 
-Control the roundedness of UI elements:
+The theme accepts a single `radius` string. Variants are derived automatically:
 
 ```typescript
-interface ThemeBorderRadius {
-  sm?: string   // Small elements
-  md?: string   // Medium elements (default)
-  lg?: string   // Large elements, cards
-  full?: string // Fully rounded (pills)
-}
+// In theme config
+radius: '0.625rem'
+
+// Generated CSS variables
+--radius: 0.625rem;
+--radius-sm: calc(0.625rem - 4px);   // Smaller elements
+--radius-md: calc(0.625rem - 2px);   // Medium elements
+--radius-lg: 0.625rem;               // Large elements (= base)
+--radius-xl: calc(0.625rem + 4px);   // Extra large elements
 ```
 
 ## Best Practices

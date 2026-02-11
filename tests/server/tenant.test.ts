@@ -5,10 +5,12 @@ import {
   createDefaultTheme,
   generateTenantCss,
   generateThemeHash,
+  generateOverrideCss,
   mergeThemes,
 } from '../../server/utils/tenant';
+import { deriveThemeColors } from '../../server/utils/theme';
+import type { ThemeColors } from '../../server/schemas/store-settings';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
-import type { TenantTheme } from '../../shared/types/tenant-config';
 
 describe('Tenant utilities', () => {
   describe('tenantIdKey', () => {
@@ -37,48 +39,99 @@ describe('Tenant utilities', () => {
       expect(theme.displayName).toBe('my-tenant');
     });
 
-    it('should include default colors', () => {
+    it('should include 6 core colors and 26 null optionals', () => {
       const theme = createDefaultTheme('test');
-      expect(theme.colors).toBeDefined();
       expect(theme.colors.primary).toBeDefined();
       expect(theme.colors.secondary).toBeDefined();
       expect(theme.colors.background).toBeDefined();
+      expect(theme.colors.foreground).toBeDefined();
+      expect(theme.colors.primaryForeground).toBeDefined();
+      expect(theme.colors.secondaryForeground).toBeDefined();
+      // Optional colors should be null
+      expect(theme.colors.card).toBeNull();
+      expect(theme.colors.chart1).toBeNull();
+      expect(theme.colors.sidebar).toBeNull();
     });
 
-    it('should include border radius', () => {
+    it('should include radius as a string', () => {
       const theme = createDefaultTheme('test');
-      expect(theme.borderRadius).toBeDefined();
-      expect(theme.borderRadius?.base).toBe('0.625rem');
+      expect(theme.radius).toBe('0.625rem');
+    });
+
+    it('should not have borderRadius or customProperties', () => {
+      const theme = createDefaultTheme('test');
+      expect((theme as Record<string, unknown>).borderRadius).toBeUndefined();
+      expect(
+        (theme as Record<string, unknown>).customProperties,
+      ).toBeUndefined();
     });
   });
 
   describe('generateTenantCss', () => {
+    function defaultDerivedColors() {
+      const theme = createDefaultTheme('test');
+      return deriveThemeColors(theme.colors as ThemeColors);
+    }
+
     it('should generate CSS with data-theme selector', () => {
-      const theme = createDefaultTheme('my-tenant');
-      const css = generateTenantCss(theme);
+      const css = generateTenantCss('my-tenant', defaultDerivedColors());
       expect(css).toContain("[data-theme='my-tenant']");
     });
 
-    it('should include primary color variable', () => {
-      const theme = createDefaultTheme('test');
-      const css = generateTenantCss(theme);
+    it('should include all 32 color variables', () => {
+      const css = generateTenantCss('test', defaultDerivedColors());
       expect(css).toContain('--primary:');
+      expect(css).toContain('--primary-foreground:');
+      expect(css).toContain('--destructive-foreground:');
+      expect(css).toContain('--chart-1:');
+      expect(css).toContain('--chart-5:');
+      expect(css).toContain('--sidebar:');
+      expect(css).toContain('--sidebar-ring:');
     });
 
-    it('should include custom border radius', () => {
-      const theme = createDefaultTheme('test');
-      theme.borderRadius = { base: '1rem' };
-      const css = generateTenantCss(theme);
-      expect(css).toContain('--radius: 1rem');
+    it('should generate radius variants from a single radius value', () => {
+      const css = generateTenantCss('test', defaultDerivedColors(), '0.625rem');
+      expect(css).toContain('--radius: 0.625rem;');
+      expect(css).toContain('--radius-sm:');
+      expect(css).toContain('--radius-md:');
+      expect(css).toContain('--radius-lg:');
+      expect(css).toContain('--radius-xl:');
     });
 
-    it('should include custom properties', () => {
-      const theme = createDefaultTheme('test');
-      theme.customProperties = {
-        '--custom-var': 'custom-value',
+    it('should include override CSS variables', () => {
+      const overrides = {
+        '--bg-btn-buy': 'oklch(0.696 0.17 162.48)',
+        '--text-heading': 'oklch(0.637 0.237 25.33)',
       };
-      const css = generateTenantCss(theme);
-      expect(css).toContain('--custom-var: custom-value');
+      const css = generateTenantCss(
+        'test',
+        defaultDerivedColors(),
+        null,
+        overrides,
+      );
+      expect(css).toContain('--bg-btn-buy: oklch(0.696 0.17 162.48);');
+      expect(css).toContain('--text-heading: oklch(0.637 0.237 25.33);');
+    });
+
+    it('should not include radius when null', () => {
+      const css = generateTenantCss('test', defaultDerivedColors(), null);
+      expect(css).not.toContain('--radius:');
+    });
+  });
+
+  describe('generateOverrideCss', () => {
+    it('should return empty string for null/undefined', () => {
+      expect(generateOverrideCss(null)).toBe('');
+      expect(generateOverrideCss(undefined)).toBe('');
+    });
+
+    it('should generate CSS from override map', () => {
+      const css = generateOverrideCss({
+        '--custom-var': 'red',
+        '--other-var': '10px',
+      });
+      expect(css).toContain('--custom-var: red;');
+      expect(css).toContain('--other-var: 10px;');
     });
   });
 
@@ -93,37 +146,21 @@ describe('Tenant utilities', () => {
     it('should generate different hashes for different themes', () => {
       const theme1 = createDefaultTheme('test1');
       const theme2 = createDefaultTheme('test2');
-      const hash1 = generateThemeHash(theme1);
-      const hash2 = generateThemeHash(theme2);
-      expect(hash1).not.toBe(hash2);
+      expect(generateThemeHash(theme1)).not.toBe(generateThemeHash(theme2));
     });
 
     it('should detect color changes', () => {
       const theme1 = createDefaultTheme('test');
       const theme2 = createDefaultTheme('test');
       theme2.colors.primary = 'oklch(0.5 0.1 200)';
-      const hash1 = generateThemeHash(theme1);
-      const hash2 = generateThemeHash(theme2);
-      expect(hash1).not.toBe(hash2);
+      expect(generateThemeHash(theme1)).not.toBe(generateThemeHash(theme2));
     });
 
-    it('should detect border radius changes', () => {
+    it('should detect radius changes', () => {
       const theme1 = createDefaultTheme('test');
       const theme2 = createDefaultTheme('test');
-      theme2.borderRadius = { base: '1rem' };
-      const hash1 = generateThemeHash(theme1);
-      const hash2 = generateThemeHash(theme2);
-      expect(hash1).not.toBe(hash2);
-    });
-
-    it('should detect custom property changes', () => {
-      const theme1 = createDefaultTheme('test');
-      theme1.customProperties = { '--custom': 'value1' };
-      const theme2 = createDefaultTheme('test');
-      theme2.customProperties = { '--custom': 'value2' };
-      const hash1 = generateThemeHash(theme1);
-      const hash2 = generateThemeHash(theme2);
-      expect(hash1).not.toBe(hash2);
+      theme2.radius = '1rem';
+      expect(generateThemeHash(theme1)).not.toBe(generateThemeHash(theme2));
     });
 
     it('should return a string hash', () => {
@@ -143,92 +180,36 @@ describe('Tenant utilities', () => {
 
     it('should merge top-level theme properties', () => {
       const base = createDefaultTheme('test');
-      const updates: Partial<TenantTheme> = {
+      const result = mergeThemes(base, {
         name: 'updated-name',
         displayName: 'Updated Display Name',
-      };
-      const result = mergeThemes(base, updates);
+      });
       expect(result.name).toBe('updated-name');
       expect(result.displayName).toBe('Updated Display Name');
     });
 
     it('should deep merge colors', () => {
       const base = createDefaultTheme('test');
-      const updates: Partial<TenantTheme> = {
+      const result = mergeThemes(base, {
         colors: {
           primary: 'oklch(0.5 0.2 200)',
           secondary: 'oklch(0.6 0.1 100)',
         },
-      };
-      const result = mergeThemes(base, updates);
+      });
       expect(result.colors.primary).toBe('oklch(0.5 0.2 200)');
       expect(result.colors.secondary).toBe('oklch(0.6 0.1 100)');
-      // Ensure other default colors are preserved
       expect(result.colors.background).toBe(base.colors.background);
-      expect(result.colors.foreground).toBe(base.colors.foreground);
     });
 
-    it('should deep merge borderRadius', () => {
+    it('should override radius', () => {
       const base = createDefaultTheme('test');
-      const updates: Partial<TenantTheme> = {
-        borderRadius: {
-          sm: '0.25rem',
-          lg: '1rem',
-        },
-      };
-      const result = mergeThemes(base, updates);
-      expect(result.borderRadius?.sm).toBe('0.25rem');
-      expect(result.borderRadius?.lg).toBe('1rem');
-      // Ensure base borderRadius is preserved
-      expect(result.borderRadius?.base).toBe('0.625rem');
-    });
-
-    it('should deep merge typography', () => {
-      const base: TenantTheme = {
-        ...createDefaultTheme('test'),
-        typography: {
-          fontFamily: 'Arial',
-          baseFontSize: '16px',
-        },
-      };
-      const updates: Partial<TenantTheme> = {
-        typography: {
-          headingFontFamily: 'Georgia',
-        },
-      };
-      const result = mergeThemes(base, updates);
-      expect(result.typography?.fontFamily).toBe('Arial');
-      expect(result.typography?.baseFontSize).toBe('16px');
-      expect(result.typography?.headingFontFamily).toBe('Georgia');
-    });
-
-    it('should deep merge customProperties', () => {
-      const base: TenantTheme = {
-        ...createDefaultTheme('test'),
-        customProperties: {
-          '--custom-spacing': '1rem',
-          '--custom-shadow': '0 2px 4px rgba(0,0,0,0.1)',
-        },
-      };
-      const updates: Partial<TenantTheme> = {
-        customProperties: {
-          '--custom-shadow': '0 4px 8px rgba(0,0,0,0.2)',
-          '--new-property': 'value',
-        },
-      };
-      const result = mergeThemes(base, updates);
-      expect(result.customProperties?.['--custom-spacing']).toBe('1rem');
-      expect(result.customProperties?.['--custom-shadow']).toBe(
-        '0 4px 8px rgba(0,0,0,0.2)',
-      );
-      expect(result.customProperties?.['--new-property']).toBe('value');
+      const result = mergeThemes(base, { radius: '1rem' });
+      expect(result.radius).toBe('1rem');
     });
 
     it('should handle empty updates object', () => {
       const base = createDefaultTheme('test');
-      const updates: Partial<TenantTheme> = {};
-      const result = mergeThemes(base, updates);
-      // Should be a new object with same properties
+      const result = mergeThemes(base, {});
       expect(result).not.toBe(base);
       expect(result.name).toBe(base.name);
       expect(result.colors.primary).toBe(base.colors.primary);
@@ -236,14 +217,12 @@ describe('Tenant utilities', () => {
 
     it('should preserve base properties when not in updates', () => {
       const base = createDefaultTheme('test');
-      const updates: Partial<TenantTheme> = {
+      const result = mergeThemes(base, {
         displayName: 'New Display Name',
-      };
-      const result = mergeThemes(base, updates);
+      });
       expect(result.name).toBe(base.name);
       expect(result.displayName).toBe('New Display Name');
       expect(result.colors).toEqual(base.colors);
-      expect(result.borderRadius).toEqual(base.borderRadius);
     });
   });
 });

@@ -54,6 +54,8 @@ export default defineEventHandler(
 
 ### Tenant-Aware Component
 
+Features are keyed by string name (e.g., `'search'`, `'cart'`, `'wishlist'`). Each feature is `{ enabled: boolean, access?: ... }` — `hasFeature()` checks `.enabled`.
+
 ```vue
 <script setup>
 const { tenant, hasFeature, brandName } = useTenant();

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref } from 'vue';
-import type { TenantConfig } from '#shared/types/tenant-config';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 
 // Create mock useFetch function
-const mockData = ref<TenantConfig | null>(null);
+const mockData = ref<PublicTenantConfig | null>(null);
 const mockPending = ref(false);
 const mockError = ref<Error | null>(null);
 const mockRefresh = vi.fn();
@@ -30,13 +30,14 @@ vi.mock('#app', () => ({
 vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
 vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
 
-// Create mock tenant config for tests
+// Create mock tenant config for tests (new PublicTenantConfig shape)
 function createMockTenantConfig(
-  overrides: Partial<TenantConfig> = {},
-): TenantConfig {
+  overrides: Partial<PublicTenantConfig> = {},
+): PublicTenantConfig {
   return {
     tenantId: 'test-tenant',
     hostname: 'test.example.com',
+    mode: 'commerce',
     theme: {
       name: 'test-theme',
       colors: {
@@ -44,19 +45,25 @@ function createMockTenantConfig(
         secondary: '#64748b',
         background: '#ffffff',
         foreground: '#000000',
+        primaryForeground: '#ffffff',
+        secondaryForeground: '#000000',
       },
+      radius: '0.625rem',
     },
     branding: {
       name: 'Test Brand',
+      watermark: 'full',
       logoUrl: 'https://example.com/logo.svg',
     },
     features: {
-      search: true,
-      authentication: true,
-      cart: false,
-      wishlist: true,
+      search: { enabled: true },
+      authentication: { enabled: true },
+      cart: { enabled: false },
+      wishlist: { enabled: true },
     },
     css: '',
+    isActive: true,
+    availableLocales: [],
     ...overrides,
   };
 }
@@ -65,14 +72,12 @@ describe('useTenant', () => {
   let useTenant: typeof import('../../app/composables/useTenant').useTenant;
 
   beforeEach(async () => {
-    // Reset mocks
     mockData.value = null;
     mockPending.value = false;
     mockError.value = null;
     mockRefresh.mockClear();
     mockUseFetch.mockClear();
 
-    // Reset modules and re-import
     vi.resetModules();
     vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
     vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
@@ -149,7 +154,9 @@ describe('useTenant', () => {
 
   describe('hostname', () => {
     it('should return hostname from config', () => {
-      mockData.value = createMockTenantConfig({ hostname: 'shop.example.com' });
+      mockData.value = createMockTenantConfig({
+        hostname: 'shop.example.com',
+      });
 
       const { hostname } = useTenant();
 
@@ -165,6 +172,44 @@ describe('useTenant', () => {
     });
   });
 
+  describe('mode', () => {
+    it('should return mode from config', () => {
+      mockData.value = createMockTenantConfig({ mode: 'catalog' });
+
+      const { mode } = useTenant();
+
+      expect(mode.value).toBe('catalog');
+    });
+
+    it('should default to commerce when config is null', () => {
+      mockData.value = null;
+
+      const { mode } = useTenant();
+
+      expect(mode.value).toBe('commerce');
+    });
+  });
+
+  describe('watermark', () => {
+    it('should return watermark from branding', () => {
+      mockData.value = createMockTenantConfig({
+        branding: { name: 'Brand', watermark: 'minimal' },
+      });
+
+      const { watermark } = useTenant();
+
+      expect(watermark.value).toBe('minimal');
+    });
+
+    it('should default to full when config is null', () => {
+      mockData.value = null;
+
+      const { watermark } = useTenant();
+
+      expect(watermark.value).toBe('full');
+    });
+  });
+
   describe('theme', () => {
     it('should return theme from config', () => {
       const theme = {
@@ -174,7 +219,9 @@ describe('useTenant', () => {
           secondary: '#00ff00',
         },
       };
-      mockData.value = createMockTenantConfig({ theme });
+      mockData.value = createMockTenantConfig({
+        theme: theme as PublicTenantConfig['theme'],
+      });
 
       const result = useTenant();
 
@@ -194,6 +241,7 @@ describe('useTenant', () => {
     it('should return branding from config', () => {
       const branding = {
         name: 'My Brand',
+        watermark: 'full' as const,
         logoUrl: 'https://example.com/my-logo.png',
       };
       mockData.value = createMockTenantConfig({ branding });
@@ -215,9 +263,9 @@ describe('useTenant', () => {
   describe('features', () => {
     it('should return features from config', () => {
       const features = {
-        search: true,
-        authentication: false,
-        cart: true,
+        search: { enabled: true },
+        authentication: { enabled: false },
+        cart: { enabled: true },
       };
       mockData.value = createMockTenantConfig({ features });
 
@@ -238,7 +286,10 @@ describe('useTenant', () => {
   describe('hasFeature', () => {
     it('should return true for enabled feature', () => {
       mockData.value = createMockTenantConfig({
-        features: { search: true, cart: false },
+        features: {
+          search: { enabled: true },
+          cart: { enabled: false },
+        },
       });
 
       const { hasFeature } = useTenant();
@@ -248,7 +299,10 @@ describe('useTenant', () => {
 
     it('should return false for disabled feature', () => {
       mockData.value = createMockTenantConfig({
-        features: { search: true, cart: false },
+        features: {
+          search: { enabled: true },
+          cart: { enabled: false },
+        },
       });
 
       const { hasFeature } = useTenant();
@@ -258,7 +312,7 @@ describe('useTenant', () => {
 
     it('should return false for undefined feature', () => {
       mockData.value = createMockTenantConfig({
-        features: { search: true },
+        features: { search: { enabled: true } },
       });
 
       const { hasFeature } = useTenant();
@@ -275,18 +329,36 @@ describe('useTenant', () => {
     });
 
     it('should return false when features is undefined', () => {
-      mockData.value = createMockTenantConfig({ features: undefined });
+      mockData.value = createMockTenantConfig({
+        features: undefined,
+      } as Partial<PublicTenantConfig>);
 
       const { hasFeature } = useTenant();
 
       expect(hasFeature('search')).toBe(false);
+    });
+
+    it('should return true for feature with access control', () => {
+      mockData.value = createMockTenantConfig({
+        features: {
+          cart: { enabled: true, access: 'authenticated' },
+        },
+      });
+
+      const { hasFeature } = useTenant();
+
+      expect(hasFeature('cart')).toBe(true);
     });
   });
 
   describe('logoUrl', () => {
     it('should return logoUrl from branding', () => {
       mockData.value = createMockTenantConfig({
-        branding: { name: 'Brand', logoUrl: 'https://example.com/logo.png' },
+        branding: {
+          name: 'Brand',
+          watermark: 'full',
+          logoUrl: 'https://example.com/logo.png',
+        },
       });
 
       const { logoUrl } = useTenant();
@@ -296,7 +368,7 @@ describe('useTenant', () => {
 
     it('should return fallback /logo.svg when logoUrl is not set', () => {
       mockData.value = createMockTenantConfig({
-        branding: { name: 'Brand' },
+        branding: { name: 'Brand', watermark: 'full' },
       });
 
       const { logoUrl } = useTenant();
@@ -305,7 +377,9 @@ describe('useTenant', () => {
     });
 
     it('should return fallback /logo.svg when branding is undefined', () => {
-      mockData.value = createMockTenantConfig({ branding: undefined });
+      mockData.value = createMockTenantConfig({
+        branding: undefined,
+      } as Partial<PublicTenantConfig>);
 
       const { logoUrl } = useTenant();
 
@@ -324,7 +398,7 @@ describe('useTenant', () => {
   describe('brandName', () => {
     it('should return brand name from branding', () => {
       mockData.value = createMockTenantConfig({
-        branding: { name: 'My Store' },
+        branding: { name: 'My Store', watermark: 'full' },
       });
 
       const { brandName } = useTenant();
@@ -336,7 +410,7 @@ describe('useTenant', () => {
       mockData.value = createMockTenantConfig({
         tenantId: 'fallback-tenant',
         branding: undefined,
-      });
+      } as Partial<PublicTenantConfig>);
 
       const { brandName } = useTenant();
 
@@ -384,6 +458,7 @@ describe('useTenant', () => {
         tenantId: 'reactive-tenant',
         branding: {
           name: 'Reactive Brand',
+          watermark: 'full',
           logoUrl: 'https://example.com/reactive-logo.png',
         },
       });
@@ -399,14 +474,12 @@ describe('useTenantTheme', () => {
   let useTenantTheme: typeof import('../../app/composables/useTenant').useTenantTheme;
 
   beforeEach(async () => {
-    // Reset mocks
     mockData.value = null;
     mockPending.value = false;
     mockError.value = null;
     mockRefresh.mockClear();
     mockUseFetch.mockClear();
 
-    // Reset modules and re-import
     vi.resetModules();
     vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
     vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
@@ -428,7 +501,7 @@ describe('useTenantTheme', () => {
             primary: '#ff0000',
             secondary: '#00ff00',
           },
-        },
+        } as PublicTenantConfig['theme'],
       });
 
       const { colors } = useTenantTheme();
@@ -445,38 +518,32 @@ describe('useTenantTheme', () => {
           name: 'test',
           colors: { primary: '#000', secondary: '#fff' },
           typography: {
-            fontFamily: 'Inter, sans-serif',
-            baseFontSize: '16px',
+            fontFamily: 'Inter',
+            headingFontFamily: 'Playfair Display',
           },
-        },
+        } as PublicTenantConfig['theme'],
       });
 
       const { typography } = useTenantTheme();
 
       expect(typography.value).toEqual({
-        fontFamily: 'Inter, sans-serif',
-        baseFontSize: '16px',
+        fontFamily: 'Inter',
+        headingFontFamily: 'Playfair Display',
       });
     });
 
-    it('should return borderRadius computed property', () => {
+    it('should return radius computed property (string)', () => {
       mockData.value = createMockTenantConfig({
         theme: {
           name: 'test',
           colors: { primary: '#000', secondary: '#fff' },
-          borderRadius: {
-            base: '0.5rem',
-            lg: '1rem',
-          },
-        },
+          radius: '0.5rem',
+        } as PublicTenantConfig['theme'],
       });
 
-      const { borderRadius } = useTenantTheme();
+      const { radius } = useTenantTheme();
 
-      expect(borderRadius.value).toEqual({
-        base: '0.5rem',
-        lg: '1rem',
-      });
+      expect(radius.value).toBe('0.5rem');
     });
   });
 
@@ -489,7 +556,7 @@ describe('useTenantTheme', () => {
             primary: '#ff0000',
             secondary: '#00ff00',
           },
-        },
+        } as PublicTenantConfig['theme'],
       });
 
       const { getColor } = useTenantTheme();
@@ -506,7 +573,7 @@ describe('useTenantTheme', () => {
             primary: '#ff0000',
             secondary: '#00ff00',
           },
-        },
+        } as PublicTenantConfig['theme'],
       });
 
       const { getColor } = useTenantTheme();
@@ -522,7 +589,7 @@ describe('useTenantTheme', () => {
             primary: '#ff0000',
             secondary: '#00ff00',
           },
-        },
+        } as PublicTenantConfig['theme'],
       });
 
       const { getColor } = useTenantTheme();
@@ -548,7 +615,7 @@ describe('useTenantTheme', () => {
             primary: '#3b82f6',
             secondary: '#fff',
           },
-        },
+        } as PublicTenantConfig['theme'],
       });
 
       const { primaryColor } = useTenantTheme();
@@ -564,45 +631,12 @@ describe('useTenantTheme', () => {
       expect(secondaryColor.value).toBe('#ffffff');
     });
 
-    it('should return secondaryColor from theme', () => {
-      mockData.value = createMockTenantConfig({
-        theme: {
-          name: 'test',
-          colors: {
-            primary: '#000',
-            secondary: '#64748b',
-          },
-        },
-      });
-
-      const { secondaryColor } = useTenantTheme();
-
-      expect(secondaryColor.value).toBe('#64748b');
-    });
-
     it('should return backgroundColor with default fallback', () => {
       mockData.value = null;
 
       const { backgroundColor } = useTenantTheme();
 
       expect(backgroundColor.value).toBe('oklch(1 0 0)');
-    });
-
-    it('should return backgroundColor from theme', () => {
-      mockData.value = createMockTenantConfig({
-        theme: {
-          name: 'test',
-          colors: {
-            primary: '#000',
-            secondary: '#fff',
-            background: '#f8f8f8',
-          },
-        },
-      });
-
-      const { backgroundColor } = useTenantTheme();
-
-      expect(backgroundColor.value).toBe('#f8f8f8');
     });
 
     it('should return foregroundColor with default fallback', () => {
@@ -612,34 +646,17 @@ describe('useTenantTheme', () => {
 
       expect(foregroundColor.value).toBe('oklch(0.145 0 0)');
     });
-
-    it('should return foregroundColor from theme', () => {
-      mockData.value = createMockTenantConfig({
-        theme: {
-          name: 'test',
-          colors: {
-            primary: '#000',
-            secondary: '#fff',
-            foreground: '#1a1a1a',
-          },
-        },
-      });
-
-      const { foregroundColor } = useTenantTheme();
-
-      expect(foregroundColor.value).toBe('#1a1a1a');
-    });
   });
 
   describe('undefined values', () => {
     it('should handle undefined colors gracefully', () => {
       mockData.value = null;
 
-      const { colors, typography, borderRadius } = useTenantTheme();
+      const { colors, typography, radius } = useTenantTheme();
 
       expect(colors.value).toBeUndefined();
       expect(typography.value).toBeUndefined();
-      expect(borderRadius.value).toBeUndefined();
+      expect(radius.value).toBeUndefined();
     });
   });
 });

@@ -21,8 +21,12 @@ export default defineNuxtPlugin({
       });
     }
 
+    // Use seo.titleTemplate if available, fall back to brand name
+    const titleTemplate =
+      tenant.value?.seo?.titleTemplate ?? `%s - ${brandName.value}`;
+
     useHead({
-      titleTemplate: `%s - ${brandName.value}`,
+      titleTemplate,
       htmlAttrs: {
         'data-theme': theme.value?.name?.toLowerCase() || 'default',
       },

@@ -7,123 +7,85 @@ import type { H3Event } from 'h3';
 // =============================================================================
 
 /**
- * Theme Colors Schema
- * Based on ThemeColors interface from shared/types/tenant-config.ts
+ * Theme Colors Schema (new: 6 required, rest optional/nullable strings)
+ * Based on ThemeColors from server/schemas/store-settings.ts
  */
-const ThemeColorsSchema = z.object({
-  primary: z.string(),
-  primaryForeground: z.string().optional(),
-  secondary: z.string(),
-  secondaryForeground: z.string().optional(),
-  background: z.string().optional(),
-  foreground: z.string().optional(),
-  muted: z.string().optional(),
-  mutedForeground: z.string().optional(),
-  accent: z.string().optional(),
-  accentForeground: z.string().optional(),
-  destructive: z.string().optional(),
-  border: z.string().optional(),
-  input: z.string().optional(),
-  ring: z.string().optional(),
-  card: z.string().optional(),
-  cardForeground: z.string().optional(),
-  popover: z.string().optional(),
-  popoverForeground: z.string().optional(),
-});
+const ThemeColorsSchema = z
+  .object({
+    primary: z.string(),
+    primaryForeground: z.string(),
+    secondary: z.string(),
+    secondaryForeground: z.string(),
+    background: z.string(),
+    foreground: z.string(),
+  })
+  .passthrough(); // Allow additional color keys (card, chart1, sidebar, etc.)
 
 /**
  * Theme Typography Schema
  */
 const ThemeTypographySchema = z
   .object({
-    fontFamily: z.string().optional(),
-    headingFontFamily: z.string().optional(),
-    baseFontSize: z.string().optional(),
+    fontFamily: z.string(),
+    headingFontFamily: z.string().nullable().optional(),
+    monoFontFamily: z.string().nullable().optional(),
   })
+  .nullable()
   .optional();
 
 /**
- * Theme Border Radius Schema
- */
-const ThemeBorderRadiusSchema = z
-  .object({
-    base: z.string().optional(),
-    sm: z.string().optional(),
-    md: z.string().optional(),
-    lg: z.string().optional(),
-    xl: z.string().optional(),
-  })
-  .optional();
-
-/**
- * Tenant Theme Schema
- * Based on TenantTheme interface from shared/types/tenant-config.ts
+ * Tenant Theme Schema (new shape: radius is a string, no borderRadius/customProperties)
  */
 const TenantThemeSchema = z.object({
   name: z.string(),
-  displayName: z.string().optional(),
+  displayName: z.string().nullable().optional(),
   colors: ThemeColorsSchema,
+  radius: z.string().nullable().optional(),
   typography: ThemeTypographySchema,
-  borderRadius: ThemeBorderRadiusSchema,
-  customProperties: z.record(z.string()).optional(),
 });
 
 /**
- * Geins Settings Schema
+ * Feature Config Schema (new: { enabled, access? } instead of boolean)
  */
-const GeinsSettingsSchema = z
-  .object({
-    apiKey: z.string(),
-    accountName: z.string(),
-    channel: z.string(),
-    tld: z.string(),
-    locale: z.string(),
-    market: z.string(),
-    environment: z.enum(['production', 'staging']).optional(),
-  })
-  .optional();
+const FeatureConfigSchema = z.object({
+  enabled: z.boolean(),
+  access: z.unknown().optional(),
+});
 
 /**
- * Tenant Branding Schema
+ * Branding Schema (new: includes watermark)
  */
-const TenantBrandingSchema = z
-  .object({
-    name: z.string(),
-    logoUrl: z.string().optional(),
-    logoDarkUrl: z.string().optional(),
-    logoSymbolUrl: z.string().optional(),
-    faviconUrl: z.string().optional(),
-    ogImageUrl: z.string().optional(),
-  })
-  .optional();
-
-/**
- * Tenant Features Schema
- */
-const TenantFeaturesSchema = z
-  .object({
-    search: z.boolean().optional(),
-    authentication: z.boolean().optional(),
-    cart: z.boolean().optional(),
-    wishlist: z.boolean().optional(),
-    productComparison: z.boolean().optional(),
-    multiLanguage: z.boolean().optional(),
-    newsletter: z.boolean().optional(),
-  })
-  .optional();
+const TenantBrandingSchema = z.object({
+  name: z.string(),
+  watermark: z.enum(['full', 'minimal', 'none']),
+  logoUrl: z.string().nullable().optional(),
+  logoDarkUrl: z.string().nullable().optional(),
+  logoSymbolUrl: z.string().nullable().optional(),
+  faviconUrl: z.string().nullable().optional(),
+  ogImageUrl: z.string().nullable().optional(),
+});
 
 /**
  * Tenant SEO Schema
  */
 const TenantSeoSchema = z
   .object({
-    defaultTitle: z.string().optional(),
-    titleTemplate: z.string().optional(),
-    defaultDescription: z.string().optional(),
-    defaultKeywords: z.array(z.string()).optional(),
-    googleAnalyticsId: z.string().optional(),
-    googleTagManagerId: z.string().optional(),
+    defaultTitle: z.string().nullable().optional(),
+    titleTemplate: z.string().nullable().optional(),
+    defaultDescription: z.string().nullable().optional(),
+    defaultKeywords: z.array(z.string()).nullable().optional(),
+    robots: z.string().nullable().optional(),
+    googleAnalyticsId: z.string().nullable().optional(),
+    googleTagManagerId: z.string().nullable().optional(),
+    verification: z
+      .object({
+        google: z.string().nullable().optional(),
+        bing: z.string().nullable().optional(),
+      })
+      .nullable()
+      .optional(),
   })
+  .nullable()
   .optional();
 
 /**
@@ -131,39 +93,49 @@ const TenantSeoSchema = z
  */
 const TenantContactSchema = z
   .object({
-    email: z.string().optional(),
-    phone: z.string().optional(),
-    address: z.string().optional(),
+    email: z.string().nullable().optional(),
+    phone: z.string().nullable().optional(),
+    address: z
+      .object({
+        street: z.string().nullable().optional(),
+        city: z.string().nullable().optional(),
+        postalCode: z.string().nullable().optional(),
+        country: z.string().nullable().optional(),
+      })
+      .nullable()
+      .optional(),
     social: z
       .object({
-        facebook: z.string().optional(),
-        instagram: z.string().optional(),
-        twitter: z.string().optional(),
-        linkedin: z.string().optional(),
-        youtube: z.string().optional(),
+        facebook: z.string().nullable().optional(),
+        instagram: z.string().nullable().optional(),
+        twitter: z.string().nullable().optional(),
+        linkedin: z.string().nullable().optional(),
+        youtube: z.string().nullable().optional(),
       })
+      .nullable()
       .optional(),
   })
+  .nullable()
   .optional();
 
 /**
- * Complete TenantConfig Schema
- * Based on TenantConfig interface from shared/types/tenant-config.ts
+ * Public TenantConfig Schema (what the client receives from /api/config)
+ * Based on PublicTenantConfig interface from shared/types/tenant-config.ts
  */
 const TenantConfigSchema = z.object({
   tenantId: z.string(),
   hostname: z.string(),
   aliases: z.array(z.string()).optional(),
-  geinsSettings: GeinsSettingsSchema,
+  mode: z.enum(['commerce', 'catalog']),
   theme: TenantThemeSchema,
   branding: TenantBrandingSchema,
-  features: TenantFeaturesSchema,
+  features: z.record(z.string(), FeatureConfigSchema),
   seo: TenantSeoSchema,
   contact: TenantContactSchema,
   css: z.string(),
-  isActive: z.boolean().optional(),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
+  isActive: z.boolean(),
+  locale: z.string().optional(),
+  availableLocales: z.array(z.string()),
 });
 
 /**
@@ -228,7 +200,7 @@ const ComponentHealthSchema = z.object({
   status: z.enum(['healthy', 'degraded', 'unhealthy']),
   latency: z.number().optional(),
   message: z.string().optional(),
-  details: z.record(z.unknown()).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
 });
 
 /**
@@ -342,31 +314,33 @@ describe('API Contracts', () => {
       const validConfig = {
         tenantId: 'test-tenant',
         hostname: 'test.example.com',
+        mode: 'commerce',
         theme: {
           name: 'test-theme',
           displayName: 'Test Theme',
           colors: {
             primary: '#000000',
+            primaryForeground: '#ffffff',
             secondary: '#ffffff',
+            secondaryForeground: '#000000',
             background: '#ffffff',
             foreground: '#000000',
           },
-          borderRadius: {
-            base: '0.5rem',
-          },
+          radius: '0.5rem',
         },
         css: '[data-theme="test-theme"] { --primary: #000; }',
         isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
         branding: {
           name: 'Test Brand',
+          watermark: 'full',
         },
         features: {
-          search: true,
-          authentication: true,
-          cart: true,
+          search: { enabled: true },
+          authentication: { enabled: true },
+          cart: { enabled: true },
         },
+        locale: 'sv-SE',
+        availableLocales: ['sv-SE'],
       };
 
       const result = TenantConfigSchema.safeParse(validConfig);
@@ -380,7 +354,7 @@ describe('API Contracts', () => {
 
     it('should reject TenantConfig missing required fields', () => {
       const invalidConfig = {
-        // Missing tenantId, hostname, theme, css
+        // Missing tenantId, hostname, theme, css, mode, branding, features
         branding: { name: 'Test' },
       };
 
@@ -392,14 +366,19 @@ describe('API Contracts', () => {
       const invalidConfig = {
         tenantId: 'test',
         hostname: 'test.com',
+        mode: 'commerce',
         theme: {
           name: 'test',
           colors: {
-            // Missing required primary and secondary
+            // Missing required primary, primaryForeground, secondary, etc.
             background: '#fff',
           },
         },
         css: '',
+        branding: { name: 'Test', watermark: 'full' },
+        features: {},
+        isActive: true,
+        availableLocales: [],
       };
 
       const result = TenantConfigSchema.safeParse(invalidConfig);
@@ -410,14 +389,23 @@ describe('API Contracts', () => {
       const minimalConfig = {
         tenantId: 'test-tenant',
         hostname: 'test.example.com',
+        mode: 'commerce',
         theme: {
           name: 'test-theme',
           colors: {
             primary: '#000000',
+            primaryForeground: '#ffffff',
             secondary: '#ffffff',
+            secondaryForeground: '#000000',
+            background: '#ffffff',
+            foreground: '#000000',
           },
         },
         css: '',
+        branding: { name: 'Test', watermark: 'full' },
+        features: {},
+        isActive: true,
+        availableLocales: [],
       };
 
       const result = TenantConfigSchema.safeParse(minimalConfig);
@@ -837,6 +825,7 @@ export {
   TenantConfigSchema,
   TenantThemeSchema,
   ThemeColorsSchema,
+  FeatureConfigSchema,
   RouteResolutionSchema,
   ProductRouteResolutionSchema,
   CategoryRouteResolutionSchema,

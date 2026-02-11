@@ -1,5 +1,3 @@
-import type { FeatureName } from '#shared/types/tenant-config';
-
 /**
  * Extends Nuxt's PageMeta interface to include custom route meta properties.
  *
@@ -23,7 +21,7 @@ declare module '#app' {
      * </script>
      * ```
      */
-    feature?: FeatureName;
+    feature?: string;
   }
 }
 
@@ -32,7 +30,7 @@ declare module 'vue-router' {
     /**
      * The required feature flag for accessing this route.
      */
-    feature?: FeatureName;
+    feature?: string;
   }
 }
 

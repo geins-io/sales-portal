@@ -1,9 +1,8 @@
 import type { H3Event } from 'h3';
-import type {
-  TenantConfig,
-  TenantTheme,
-  ThemeColors,
-} from '#shared/types/tenant-config';
+import type { TenantConfig } from '#shared/types/tenant-config';
+import type { StoreSettings, ThemeColors } from '../schemas/store-settings';
+import { StoreSettingsSchema } from '../schemas/store-settings';
+import { deriveThemeColors, type FullThemeColors } from './theme';
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
 
 /**
@@ -18,63 +17,73 @@ export function tenantConfigKey(tenantId: string): string {
 }
 
 /**
- * Default theme colors following shadcn/ui conventions
+ * Default 6 core colors (shadcn zinc theme)
  */
-const DEFAULT_LIGHT_COLORS: ThemeColors = {
+const DEFAULT_CORE_COLORS: Pick<
+  ThemeColors,
+  | 'primary'
+  | 'primaryForeground'
+  | 'secondary'
+  | 'secondaryForeground'
+  | 'background'
+  | 'foreground'
+> = {
   primary: 'oklch(0.205 0 0)',
   primaryForeground: 'oklch(0.985 0 0)',
   secondary: 'oklch(0.97 0 0)',
   secondaryForeground: 'oklch(0.205 0 0)',
   background: 'oklch(1 0 0)',
   foreground: 'oklch(0.145 0 0)',
-  muted: 'oklch(0.97 0 0)',
-  mutedForeground: 'oklch(0.556 0 0)',
-  accent: 'oklch(0.97 0 0)',
-  accentForeground: 'oklch(0.205 0 0)',
-  destructive: 'oklch(0.577 0.245 27.325)',
-  border: 'oklch(0.922 0 0)',
-  input: 'oklch(0.922 0 0)',
-  ring: 'oklch(0.708 0 0)',
-  card: 'oklch(1 0 0)',
-  cardForeground: 'oklch(0.145 0 0)',
-  popover: 'oklch(1 0 0)',
-  popoverForeground: 'oklch(0.145 0 0)',
 };
 
 /**
- * CSS property name mapping for theme colors
+ * CSS property name mapping for all 32 theme color keys
  */
-const COLOR_CSS_MAP: Record<keyof ThemeColors, string> = {
+const COLOR_CSS_MAP: Record<keyof FullThemeColors, string> = {
   primary: '--primary',
   primaryForeground: '--primary-foreground',
   secondary: '--secondary',
   secondaryForeground: '--secondary-foreground',
   background: '--background',
   foreground: '--foreground',
+  card: '--card',
+  cardForeground: '--card-foreground',
+  popover: '--popover',
+  popoverForeground: '--popover-foreground',
   muted: '--muted',
   mutedForeground: '--muted-foreground',
   accent: '--accent',
   accentForeground: '--accent-foreground',
   destructive: '--destructive',
+  destructiveForeground: '--destructive-foreground',
   border: '--border',
   input: '--input',
   ring: '--ring',
-  card: '--card',
-  cardForeground: '--card-foreground',
-  popover: '--popover',
-  popoverForeground: '--popover-foreground',
+  chart1: '--chart-1',
+  chart2: '--chart-2',
+  chart3: '--chart-3',
+  chart4: '--chart-4',
+  chart5: '--chart-5',
+  sidebar: '--sidebar',
+  sidebarForeground: '--sidebar-foreground',
+  sidebarPrimary: '--sidebar-primary',
+  sidebarPrimaryForeground: '--sidebar-primary-foreground',
+  sidebarAccent: '--sidebar-accent',
+  sidebarAccentForeground: '--sidebar-accent-foreground',
+  sidebarBorder: '--sidebar-border',
+  sidebarRing: '--sidebar-ring',
 };
 
 /**
- * Generates CSS custom properties from theme colors
+ * Generates CSS custom properties from a full set of derived colors
  */
 function generateColorCss(
-  colors: Partial<ThemeColors>,
+  colors: FullThemeColors,
   indent: string = '  ',
 ): string {
   const lines: string[] = [];
   for (const [key, cssVar] of Object.entries(COLOR_CSS_MAP)) {
-    const value = colors[key as keyof ThemeColors];
+    const value = colors[key as keyof FullThemeColors];
     if (value) {
       lines.push(`${indent}${cssVar}: ${value};`);
     }
@@ -83,16 +92,49 @@ function generateColorCss(
 }
 
 /**
+ * Generates radius CSS variables from a single base radius string.
+ * Derives sm/md/lg/xl from the base value.
+ */
+function generateRadiusCss(radius: string, indent: string = '  '): string {
+  // Parse the numeric value and unit from the radius string
+  const match = radius.match(/^([\d.]+)(.*)$/);
+  if (!match) {
+    return `${indent}--radius: ${radius};`;
+  }
+
+  const value = parseFloat(match[1]!);
+  const unit = match[2] || 'rem';
+
+  const lines: string[] = [];
+  lines.push(`${indent}--radius: ${radius};`);
+  lines.push(`${indent}--radius-sm: ${(value - 0.125).toFixed(3)}${unit};`);
+  lines.push(`${indent}--radius-md: ${(value - 0.0625).toFixed(3)}${unit};`);
+  lines.push(`${indent}--radius-lg: ${value.toFixed(3)}${unit};`);
+  lines.push(`${indent}--radius-xl: ${(value + 0.125).toFixed(3)}${unit};`);
+  return lines.join('\n');
+}
+
+/**
+ * Generates CSS custom properties from override CSS map
+ */
+export function generateOverrideCss(
+  css?: Record<string, string> | null,
+  indent: string = '  ',
+): string {
+  if (!css) return '';
+  return Object.entries(css)
+    .map(([prop, value]) => `${indent}${prop}: ${value};`)
+    .join('\n');
+}
+
+/**
  * Generates a hash string from a theme object for comparison.
  * Used to determine if CSS needs to be regenerated.
  */
-export function generateThemeHash(theme: TenantTheme): string {
-  // Create a stable JSON string for hashing
-  // Use a replacer function to sort keys at all levels for consistent ordering
+export function generateThemeHash(theme: TenantConfig['theme']): string {
   const sortedStringify = (obj: unknown): string => {
     return JSON.stringify(obj, (_, value) => {
       if (value && typeof value === 'object' && !Array.isArray(value)) {
-        // Sort object keys for consistent ordering
         return Object.keys(value)
           .sort()
           .reduce(
@@ -110,25 +152,28 @@ export function generateThemeHash(theme: TenantTheme): string {
 }
 
 /**
- * Generates complete CSS for a tenant theme
+ * Generates complete CSS for a tenant theme.
+ * Colors are the full 32-color set (already derived), radius generates variants,
+ * and override CSS vars are appended.
  */
-export function generateTenantCss(theme: TenantTheme): string {
-  const { name, colors, borderRadius, customProperties } = theme;
+export function generateTenantCss(
+  themeName: string,
+  derivedColors: FullThemeColors,
+  radius?: string | null,
+  overrideCss?: Record<string, string> | null,
+): string {
   const lines: string[] = [];
 
-  lines.push(`[data-theme='${name}'] {`);
-  lines.push(generateColorCss(colors));
+  lines.push(`[data-theme='${themeName}'] {`);
+  lines.push(generateColorCss(derivedColors));
 
-  // Border radius
-  if (borderRadius?.base) {
-    lines.push(`  --radius: ${borderRadius.base};`);
+  if (radius) {
+    lines.push(generateRadiusCss(radius));
   }
 
-  // Custom properties
-  if (customProperties) {
-    for (const [prop, value] of Object.entries(customProperties)) {
-      lines.push(`  ${prop}: ${value};`);
-    }
+  const overrides = generateOverrideCss(overrideCss);
+  if (overrides) {
+    lines.push(overrides);
   }
 
   lines.push('}');
@@ -137,40 +182,111 @@ export function generateTenantCss(theme: TenantTheme): string {
 }
 
 /**
- * Creates a default theme for a tenant
+ * Creates a default theme for development/auto-created tenants
  */
-export function createDefaultTheme(tenantId: string): TenantTheme {
+export function createDefaultTheme(tenantId: string): TenantConfig['theme'] {
   return {
     name: tenantId.toLowerCase(),
     displayName: tenantId,
-    colors: { ...DEFAULT_LIGHT_COLORS },
-    borderRadius: {
-      base: '0.625rem',
+    colors: {
+      ...DEFAULT_CORE_COLORS,
+      card: null,
+      cardForeground: null,
+      popover: null,
+      popoverForeground: null,
+      muted: null,
+      mutedForeground: null,
+      accent: null,
+      accentForeground: null,
+      destructive: null,
+      destructiveForeground: null,
+      border: null,
+      input: null,
+      ring: null,
+      chart1: null,
+      chart2: null,
+      chart3: null,
+      chart4: null,
+      chart5: null,
+      sidebar: null,
+      sidebarForeground: null,
+      sidebarPrimary: null,
+      sidebarPrimaryForeground: null,
+      sidebarAccent: null,
+      sidebarAccentForeground: null,
+      sidebarBorder: null,
+      sidebarRing: null,
     },
+    radius: '0.625rem',
   };
 }
 
 /**
  * Merges a base theme with partial theme updates.
- * Deep merges all nested theme objects (colors, borderRadius, typography, customProperties)
- * to preserve existing values while applying updates.
- *
- * @param base - The base theme to merge into
- * @param updates - Optional partial theme updates to apply
- * @returns The merged theme
  */
 export function mergeThemes(
-  base: TenantTheme,
-  updates?: Partial<TenantTheme>,
-): TenantTheme {
+  base: TenantConfig['theme'],
+  updates?: Partial<TenantConfig['theme']>,
+): TenantConfig['theme'] {
   if (!updates) return base;
   return {
     ...base,
     ...updates,
     colors: { ...base.colors, ...updates.colors },
-    borderRadius: { ...base.borderRadius, ...updates.borderRadius },
-    typography: { ...base.typography, ...updates.typography },
-    customProperties: { ...base.customProperties, ...updates.customProperties },
+    typography:
+      updates.typography !== undefined ? updates.typography : base.typography,
+  };
+}
+
+/**
+ * Builds a TenantConfig from validated StoreSettings.
+ * Derives colors, merges override features, generates CSS + hash.
+ */
+function buildTenantConfig(settings: StoreSettings): TenantConfig {
+  // Derive all 32 colors from the 6 core + any provided optional
+  const derivedColors = deriveThemeColors(settings.theme.colors);
+
+  // Merge override features into base features
+  const features = { ...settings.features };
+  if (settings.overrides?.features) {
+    for (const [key, value] of Object.entries(settings.overrides.features)) {
+      features[key] = value;
+    }
+  }
+
+  // Generate CSS with derived colors + override CSS vars
+  const css = generateTenantCss(
+    settings.theme.name,
+    derivedColors,
+    settings.theme.radius,
+    settings.overrides?.css,
+  );
+
+  // Build theme with derived colors replacing original
+  const theme: TenantConfig['theme'] = {
+    ...settings.theme,
+    colors: derivedColors,
+  };
+
+  const themeHash = generateThemeHash(theme);
+
+  return {
+    tenantId: settings.tenantId,
+    hostname: settings.hostname,
+    aliases: settings.aliases,
+    geinsSettings: settings.geinsSettings,
+    mode: settings.mode,
+    theme,
+    branding: settings.branding,
+    features,
+    seo: settings.seo,
+    contact: settings.contact,
+    overrides: settings.overrides,
+    css,
+    themeHash,
+    isActive: settings.isActive,
+    createdAt: settings.createdAt,
+    updatedAt: settings.updatedAt,
   };
 }
 
@@ -182,12 +298,6 @@ export interface CreateTenantOptions {
 
 /**
  * Creates or updates a tenant configuration in KV storage.
- *
- * @param options - Options for creating the tenant
- * @param options.hostname - The hostname for the tenant (e.g., 'tenant-a.localhost')
- * @param options.tenantId - Optional tenant ID. If not provided, uses hostname as ID
- * @param options.config - Optional partial config. Missing values will use defaults
- * @returns The created or existing tenant configuration
  */
 export async function createTenant(
   options: CreateTenantOptions,
@@ -196,82 +306,98 @@ export async function createTenant(
   const storage = useStorage('kv');
   const finalTenantId = tenantId || hostname;
 
-  // Create default theme
   const defaultTheme = createDefaultTheme(finalTenantId);
-
-  // Merge theme if partial config provided
   const mergedTheme = mergeThemes(defaultTheme, partialConfig?.theme);
 
-  // Generate theme hash and CSS
-  const themeHash = generateThemeHash(mergedTheme);
-  const css = generateTenantCss(mergedTheme);
+  // Derive colors and generate CSS
+  const derivedColors = deriveThemeColors(mergedTheme.colors as ThemeColors);
+  const css = generateTenantCss(
+    mergedTheme.name,
+    derivedColors,
+    mergedTheme.radius,
+  );
+  const themeWithDerived = {
+    ...mergedTheme,
+    colors: derivedColors as Record<string, string>,
+  };
+  const themeHash = generateThemeHash(themeWithDerived);
 
-  // Create default config
   const defaultConfig: TenantConfig = {
     tenantId: finalTenantId,
-    hostname: hostname,
-    theme: mergedTheme,
+    hostname,
+    geinsSettings: partialConfig?.geinsSettings ?? {
+      apiKey: '',
+      accountName: '',
+      channel: '1',
+      tld: 'se',
+      locale: 'sv-SE',
+      market: 'se',
+      environment: 'production',
+    },
+    mode: partialConfig?.mode ?? 'commerce',
+    theme: themeWithDerived,
     css,
     themeHash,
-    branding: {
+    branding: partialConfig?.branding ?? {
       name: finalTenantId,
-      ...partialConfig?.branding,
+      watermark: 'full',
     },
-    features: {
-      search: true,
-      authentication: true,
-      cart: true,
-      ...partialConfig?.features,
+    features: partialConfig?.features ?? {
+      search: { enabled: true },
+      cart: { enabled: true },
     },
     isActive: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
-  // Merge with provided config
   const finalConfig: TenantConfig = {
     ...defaultConfig,
     ...partialConfig,
-    theme: mergedTheme,
+    theme: themeWithDerived,
     css,
     themeHash,
   };
 
-  // Check if tenant mapping already exists
   const existingId = await storage.getItem<string>(tenantIdKey(hostname));
-
   if (!existingId) {
-    // Map hostname to tenant ID
     await storage.setItem(tenantIdKey(hostname), finalTenantId);
   }
 
-  // Check if tenant config exists
   const existingConfig = await storage.getItem<TenantConfig>(
     tenantConfigKey(finalTenantId),
   );
 
   if (!existingConfig) {
-    // Create new tenant config
     await storage.setItem(tenantConfigKey(finalTenantId), finalConfig);
     return finalConfig;
   }
 
-  // If config exists but we want to update it, merge and save
   if (partialConfig) {
     const updatedTheme = mergeThemes(existingConfig.theme, partialConfig.theme);
-
-    // Only regenerate CSS if theme has changed (hash comparison)
-    const newThemeHash = generateThemeHash(updatedTheme);
-    const existingThemeHash = existingConfig.themeHash;
-    const themeChanged = newThemeHash !== existingThemeHash;
+    const updatedDerived = deriveThemeColors(
+      updatedTheme.colors as ThemeColors,
+    );
+    const updatedThemeWithDerived = {
+      ...updatedTheme,
+      colors: updatedDerived as Record<string, string>,
+    };
+    const newThemeHash = generateThemeHash(updatedThemeWithDerived);
+    const themeChanged = newThemeHash !== existingConfig.themeHash;
 
     const updatedConfig: TenantConfig = {
       ...existingConfig,
       ...partialConfig,
       tenantId: finalTenantId,
-      hostname: hostname,
-      theme: updatedTheme,
-      css: themeChanged ? generateTenantCss(updatedTheme) : existingConfig.css,
+      hostname,
+      theme: updatedThemeWithDerived,
+      css: themeChanged
+        ? generateTenantCss(
+            updatedThemeWithDerived.name,
+            updatedDerived,
+            updatedThemeWithDerived.radius,
+          )
+        : existingConfig.css,
       themeHash: newThemeHash,
       updatedAt: new Date().toISOString(),
     };
@@ -280,7 +406,6 @@ export async function createTenant(
     return updatedConfig;
   }
 
-  // If config exists but we don't want to update it, return the existing config
   return existingConfig;
 }
 
@@ -301,28 +426,69 @@ export async function fetchTenantConfig(
     );
 
     if (response.ok) {
-      return await response.json();
+      const data = await response.json();
+
+      // TEMPORARY: The merchant API returns SDK params under `geinsApiSettings`
+      // while `geinsSettings` is auto-injected by the platform with a different shape.
+      // Remap until the API is updated to use `geinsSettings` directly.
+      if (data.geinsApiSettings && !data.geinsSettings?.channel) {
+        data.geinsSettings = data.geinsApiSettings;
+        delete data.geinsApiSettings;
+      }
+      delete data.id;
+
+      const parsed = StoreSettingsSchema.safeParse(data);
+
+      if (parsed.success) {
+        return buildTenantConfig(parsed.data);
+      }
+
+      // Validation failed — log and fall through
+      console.error(
+        `[tenant] Schema validation failed for ${hostname}:`,
+        parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
+      );
     }
   } catch {
-    // External API unavailable - fall through to default handling
+    // External API unavailable — fall through to default handling
   }
 
   // If autoCreateTenant is enabled, create an active tenant for development/testing
-  // This allows E2E tests and local development to work without a real tenant API
   if (config.autoCreateTenant) {
     const defaultTheme = createDefaultTheme(hostname);
+    const derivedColors = deriveThemeColors(defaultTheme.colors as ThemeColors);
+    const themeWithDerived = {
+      ...defaultTheme,
+      colors: derivedColors as Record<string, string>,
+    };
+
     return {
       tenantId: hostname,
-      hostname: hostname,
-      theme: defaultTheme,
-      css: generateTenantCss(defaultTheme),
+      hostname,
+      geinsSettings: {
+        apiKey: '',
+        accountName: '',
+        channel: '1',
+        tld: 'se',
+        locale: 'sv-SE',
+        market: 'se',
+        environment: 'production',
+      },
+      mode: 'commerce',
+      theme: themeWithDerived,
+      css: generateTenantCss(
+        themeWithDerived.name,
+        derivedColors,
+        themeWithDerived.radius,
+      ),
       branding: {
         name: hostname,
+        watermark: 'full',
       },
       features: {
-        search: true,
-        authentication: true,
-        cart: true,
+        search: { enabled: true },
+        authentication: { enabled: true },
+        cart: { enabled: true },
       },
       isActive: true,
       createdAt: new Date().toISOString(),
@@ -334,13 +500,29 @@ export async function fetchTenantConfig(
   return {
     tenantId: 'no-tenant',
     hostname: 'not-found',
+    geinsSettings: {
+      apiKey: '',
+      accountName: '',
+      channel: '1',
+      tld: 'se',
+      locale: 'sv-SE',
+      market: 'se',
+      environment: 'production',
+    },
+    mode: 'commerce',
     theme: createDefaultTheme(hostname),
     css: '',
+    branding: {
+      name: 'not-found',
+      watermark: 'none',
+    },
+    features: {},
     isActive: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 }
+
 /**
  * Retrieves a tenant configuration from KV storage
  */
@@ -358,7 +540,6 @@ export async function getTenant(
     if (!newTenantConfig) {
       return null;
     }
-    // Only cache active tenants to allow inactive ones to be re-fetched
     if (newTenantConfig.isActive) {
       await storage.setItem(tenantConfigKey(hostname), newTenantConfig);
     }
@@ -366,7 +547,6 @@ export async function getTenant(
   }
 
   if (!tenantConfig.isActive) {
-    // Remove stale inactive config so it can be re-fetched
     await storage.removeItem(tenantConfigKey(hostname));
     return null;
   }
@@ -406,19 +586,26 @@ export async function updateTenant(
     return null;
   }
 
-  // Merge theme updates using the utility function
   const updatedTheme = mergeThemes(existing.theme, updates.theme);
-
-  // Only regenerate CSS if theme has changed (hash comparison)
-  const newThemeHash = generateThemeHash(updatedTheme);
-  const existingThemeHash = existing.themeHash;
-  const themeChanged = newThemeHash !== existingThemeHash;
+  const updatedDerived = deriveThemeColors(updatedTheme.colors as ThemeColors);
+  const updatedThemeWithDerived = {
+    ...updatedTheme,
+    colors: updatedDerived as Record<string, string>,
+  };
+  const newThemeHash = generateThemeHash(updatedThemeWithDerived);
+  const themeChanged = newThemeHash !== existing.themeHash;
 
   const updatedConfig: TenantConfig = {
     ...existing,
     ...updates,
-    theme: updatedTheme,
-    css: themeChanged ? generateTenantCss(updatedTheme) : existing.css,
+    theme: updatedThemeWithDerived,
+    css: themeChanged
+      ? generateTenantCss(
+          updatedThemeWithDerived.name,
+          updatedDerived,
+          updatedThemeWithDerived.radius,
+        )
+      : existing.css,
     themeHash: newThemeHash,
     updatedAt: new Date().toISOString(),
   };

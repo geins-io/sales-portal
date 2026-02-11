@@ -7,6 +7,21 @@ import {
   createValidationError,
 } from '../../server/utils/errors';
 
+vi.mock('../../server/utils/logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+  createTenantLogger: () => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
+
 describe('Error utilities', () => {
   describe('ErrorCode enum', () => {
     it('should have all expected error codes', () => {
