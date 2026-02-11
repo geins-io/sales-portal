@@ -33,7 +33,7 @@ export default defineNuxtPlugin({
       style: [
         {
           innerHTML: () => sanitizeCustomCss(tenant.value?.css),
-          tagPosition: 'bodyOpen',
+          tagPosition: 'head',
         },
       ],
     });

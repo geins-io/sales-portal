@@ -52,7 +52,7 @@ export default defineNuxtConfig({
     storesDirs: ['./app/stores/**'],
   },
 
-  css: ['~/assets/css/tailwind.css', '~/assets/css/themes.css'],
+  css: ['~/assets/css/tailwind.css'],
 
   /**
    * ============================================================================

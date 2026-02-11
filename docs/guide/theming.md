@@ -109,12 +109,10 @@ The `generateTenantCss()` function in `server/utils/tenant.ts` creates CSS from 
   --primary-foreground: oklch(0.985 0 0);
   /* ... all 32 color variables */
   --radius: 0.625rem;
-  --radius-sm: calc(0.625rem - 4px);
-  --radius-md: calc(0.625rem - 2px);
-  --radius-lg: 0.625rem;
-  --radius-xl: calc(0.625rem + 4px);
 }
 ```
+
+Radius variants (`--radius-sm`, `--radius-md`, `--radius-lg`, `--radius-xl`) are defined in `tailwind.css` via `@theme inline` using `calc(var(--radius) - Npx)`, keeping a single source of truth.
 
 ## Applying Themes
 
@@ -129,39 +127,30 @@ Themes are applied automatically by the `tenant-theme.ts` plugin:
 
 ### Base Theme
 
-The base theme is defined in `app/assets/css/tailwind.css`:
+The base theme (zinc/neutral fallback) is defined in `app/assets/css/tailwind.css` inside `@layer base`. This is intentional — layered styles have lower cascade priority than unlayered styles, so dynamically injected tenant CSS always wins regardless of source order:
 
 ```css
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 224 71% 4%;
-    --primary: 220 90% 56%;
-    --primary-foreground: 0 0% 100%;
-    /* ... more tokens */
-  }
-
-  .dark {
-    --background: 224 71% 4%;
-    --foreground: 0 0% 100%;
-    /* ... dark mode overrides */
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    /* ... all 32 tokens as OKLCH fallback defaults */
   }
 }
 ```
 
 ### Tenant Overrides
 
-Tenant-specific themes override the base tokens:
+Tenant-specific CSS is generated dynamically by `generateTenantCss()` and injected as an unlayered `<style>` tag in `<head>` by the `tenant-theme.ts` plugin. Because it's unlayered, it always overrides the `@layer base` defaults:
 
 ```css
-[data-theme='tenant-a'] {
-  --primary: 142 76% 36%; /* Green */
-  --primary-foreground: 0 0% 100%;
-}
-
-[data-theme='tenant-b'] {
-  --primary: 346 77% 50%; /* Pink */
-  --primary-foreground: 0 0% 100%;
+/* Injected dynamically — unlayered, wins over @layer base */
+[data-theme='rose'] {
+  --primary: oklch(0.637 0.237 25.33);
+  --primary-foreground: oklch(0.985 0 0);
+  /* ... all 32 derived color variables + radius */
 }
 ```
 
@@ -179,18 +168,17 @@ interface ThemeTypography {
 
 ## Border Radius
 
-The theme accepts a single `radius` string. Variants are derived automatically:
+The theme accepts a single `radius` string. The dynamic CSS emits only `--radius`; Tailwind handles the variants via `@theme inline` in `tailwind.css`:
 
-```typescript
-// In theme config
-radius: '0.625rem'
-
-// Generated CSS variables
+```css
+/* Dynamic CSS (generated per tenant) */
 --radius: 0.625rem;
---radius-sm: calc(0.625rem - 4px);   // Smaller elements
---radius-md: calc(0.625rem - 2px);   // Medium elements
---radius-lg: 0.625rem;               // Large elements (= base)
---radius-xl: calc(0.625rem + 4px);   // Extra large elements
+
+/* tailwind.css @theme inline (static, single source of truth) */
+--radius-sm: calc(var(--radius) - 4px);
+--radius-md: calc(var(--radius) - 2px);
+--radius-lg: var(--radius);
+--radius-xl: calc(var(--radius) + 4px);
 ```
 
 ## Best Practices

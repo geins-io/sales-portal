@@ -41,7 +41,7 @@ export type FullThemeColors = Required<{
  * Derives all 26 optional colors from 6 core required colors.
  * API-provided non-null values are preserved; only null/undefined are derived.
  *
- * Derivation rules follow shadcn/ui conventions and our themes.css patterns.
+ * Derivation rules follow shadcn/ui conventions.
  */
 export function deriveThemeColors(colors: ThemeColors): FullThemeColors {
   const { l: bgL, c: bgC, h: bgH } = parseOklch(colors.background);

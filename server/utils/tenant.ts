@@ -92,26 +92,11 @@ function generateColorCss(
 }
 
 /**
- * Generates radius CSS variables from a single base radius string.
- * Derives sm/md/lg/xl from the base value.
+ * Generates the base radius CSS variable.
+ * Tailwind's @theme inline handles sm/md/lg/xl via calc(var(--radius) - Npx).
  */
 function generateRadiusCss(radius: string, indent: string = '  '): string {
-  // Parse the numeric value and unit from the radius string
-  const match = radius.match(/^([\d.]+)(.*)$/);
-  if (!match) {
-    return `${indent}--radius: ${radius};`;
-  }
-
-  const value = parseFloat(match[1]!);
-  const unit = match[2] || 'rem';
-
-  const lines: string[] = [];
-  lines.push(`${indent}--radius: ${radius};`);
-  lines.push(`${indent}--radius-sm: ${(value - 0.125).toFixed(3)}${unit};`);
-  lines.push(`${indent}--radius-md: ${(value - 0.0625).toFixed(3)}${unit};`);
-  lines.push(`${indent}--radius-lg: ${value.toFixed(3)}${unit};`);
-  lines.push(`${indent}--radius-xl: ${(value + 0.125).toFixed(3)}${unit};`);
-  return lines.join('\n');
+  return `${indent}--radius: ${radius};`;
 }
 
 /**
