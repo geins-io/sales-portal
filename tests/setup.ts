@@ -4,8 +4,16 @@
  * This file is executed before all tests to set up the test environment.
  */
 
+import { vi } from 'vitest';
 import { registerEndpoint } from '@nuxt/test-utils/runtime';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
+
+// Suppress console output globally for clean test runs.
+// Tests that need to assert on console calls can use mockConsole() from tests/utils.
+vi.spyOn(console, 'log').mockImplementation(() => {});
+vi.spyOn(console, 'warn').mockImplementation(() => {});
+vi.spyOn(console, 'error').mockImplementation(() => {});
+vi.spyOn(console, 'debug').mockImplementation(() => {});
 
 // Mock tenant configuration for tests (public shape — what the client receives)
 const mockTenantConfig: PublicTenantConfig = {

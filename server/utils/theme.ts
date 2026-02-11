@@ -9,9 +9,9 @@ export function parseOklch(color: string): { l: number; c: number; h: number } {
     return { l: 0.5, c: 0, h: 0 };
   }
   return {
-    l: parseFloat(match[1]),
-    c: parseFloat(match[2]),
-    h: parseFloat(match[3]),
+    l: parseFloat(match[1]!),
+    c: parseFloat(match[2]!),
+    h: parseFloat(match[3]!),
   };
 }
 

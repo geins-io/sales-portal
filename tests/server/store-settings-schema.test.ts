@@ -6,36 +6,244 @@ import {
   formatOklch,
 } from '../../server/utils/theme';
 import type { ThemeColors } from '../../server/schemas/store-settings';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 
-// Load mock JSON files for validation
-const mockDir = path.resolve(
-  __dirname,
-  '../../../local-docs/mock-store-settings',
-);
+// Full tenant mock configs inlined so tests are self-contained
+const TENANT_A_MOCK = {
+  tenantId: 'tenant-a',
+  hostname: 'tenant-a.litium.portal',
+  aliases: ['tenant-a.localhost'],
+  geinsSettings: {
+    apiKey: 'C10CF115-04D8-486F-9B16-593045AC3C32',
+    accountName: 'monitor',
+    channel: '1',
+    tld: 'se',
+    locale: 'sv-SE',
+    market: 'se',
+    environment: 'production',
+  },
+  mode: 'commerce',
+  theme: {
+    name: 'teal',
+    displayName: 'Teal — Default',
+    colors: {
+      primary: 'oklch(0.47 0.13 195.71)',
+      primaryForeground: 'oklch(0.985 0 0)',
+      secondary: 'oklch(0.97 0.001 286.38)',
+      secondaryForeground: 'oklch(0.21 0.006 285.88)',
+      background: 'oklch(1 0 0)',
+      foreground: 'oklch(0.145 0 0)',
+      card: null,
+      cardForeground: null,
+      popover: null,
+      popoverForeground: null,
+      muted: null,
+      mutedForeground: null,
+      accent: null,
+      accentForeground: null,
+      destructive: null,
+      destructiveForeground: null,
+      border: null,
+      input: null,
+      ring: null,
+      chart1: null,
+      chart2: null,
+      chart3: null,
+      chart4: null,
+      chart5: null,
+      sidebar: null,
+      sidebarForeground: null,
+      sidebarPrimary: null,
+      sidebarPrimaryForeground: null,
+      sidebarAccent: null,
+      sidebarAccentForeground: null,
+      sidebarBorder: null,
+      sidebarRing: null,
+    },
+    radius: '0.625rem',
+    typography: {
+      fontFamily: 'Inter',
+      headingFontFamily: 'Inter',
+      monoFontFamily: null,
+    },
+  },
+  branding: {
+    name: 'Tenant A Store',
+    watermark: 'minimal',
+    logoUrl: 'https://placehold.co/200x60/0d9488/white?text=Tenant+A',
+    logoDarkUrl: null,
+    logoSymbolUrl: null,
+    faviconUrl: 'https://placehold.co/32x32/0d9488/white?text=A',
+    ogImageUrl: null,
+  },
+  features: {
+    search: { enabled: true },
+    cart: { enabled: true, access: 'authenticated' },
+    checkout: { enabled: true, access: 'authenticated' },
+    wishlist: { enabled: true, access: 'authenticated' },
+    lists: { enabled: true, access: 'authenticated' },
+    reorder: { enabled: true, access: 'authenticated' },
+    newsletter: { enabled: true },
+    orderHistory: { enabled: true, access: 'authenticated' },
+    productComparison: { enabled: false },
+    quotes: { enabled: false },
+    mfa: { enabled: false },
+  },
+  seo: {
+    defaultTitle: 'Tenant A Store',
+    titleTemplate: '%s | Tenant A Store',
+    defaultDescription: 'B2B sales portal for Tenant A',
+    defaultKeywords: null,
+    robots: 'noindex, nofollow',
+    googleAnalyticsId: null,
+    googleTagManagerId: null,
+    verification: null,
+  },
+  contact: {
+    email: 'support@tenant-a.example.com',
+    phone: '+46 8 123 456',
+    address: {
+      street: 'Storgatan 1',
+      city: 'Stockholm',
+      postalCode: '111 22',
+      country: 'SE',
+    },
+    social: null,
+  },
+  overrides: null,
+  isActive: true,
+  createdAt: '2026-01-15T10:00:00.000Z',
+  updatedAt: '2026-02-10T12:00:00.000Z',
+};
+
+const TENANT_B_MOCK = {
+  tenantId: 'tenant-b',
+  hostname: 'tenant-b.litium.portal',
+  aliases: ['tenant-b.localhost'],
+  geinsSettings: {
+    apiKey: 'C10CF115-04D8-486F-9B16-593045AC3C32',
+    accountName: 'monitor',
+    channel: '1',
+    tld: 'se',
+    locale: 'sv-SE',
+    market: 'se',
+    environment: 'production',
+  },
+  mode: 'commerce',
+  theme: {
+    name: 'rose',
+    displayName: 'Rose — Custom',
+    colors: {
+      primary: 'oklch(0.637 0.237 25.33)',
+      primaryForeground: 'oklch(0.985 0 0)',
+      secondary: 'oklch(0.97 0.001 286.38)',
+      secondaryForeground: 'oklch(0.21 0.006 285.88)',
+      background: 'oklch(1 0 0)',
+      foreground: 'oklch(0.145 0 0)',
+      card: null,
+      cardForeground: null,
+      popover: null,
+      popoverForeground: null,
+      muted: null,
+      mutedForeground: null,
+      accent: null,
+      accentForeground: null,
+      destructive: 'oklch(0.577 0.245 27.33)',
+      destructiveForeground: null,
+      border: null,
+      input: null,
+      ring: null,
+      chart1: null,
+      chart2: null,
+      chart3: null,
+      chart4: null,
+      chart5: null,
+      sidebar: null,
+      sidebarForeground: null,
+      sidebarPrimary: null,
+      sidebarPrimaryForeground: null,
+      sidebarAccent: null,
+      sidebarAccentForeground: null,
+      sidebarBorder: null,
+      sidebarRing: null,
+    },
+    radius: '0.5rem',
+    typography: {
+      fontFamily: 'DM Sans',
+      headingFontFamily: 'Carter One',
+      monoFontFamily: null,
+    },
+  },
+  branding: {
+    name: 'Acme Corporation',
+    watermark: 'full',
+    logoUrl: 'https://placehold.co/200x60/e11d48/white?text=ACME',
+    logoDarkUrl: 'https://placehold.co/200x60/fda4af/1f2937?text=ACME',
+    logoSymbolUrl: null,
+    faviconUrl: 'https://placehold.co/32x32/e11d48/white?text=A',
+    ogImageUrl: 'https://placehold.co/1200x630/e11d48/white?text=Acme+Corp',
+  },
+  features: {
+    search: { enabled: true },
+    cart: { enabled: true, access: 'authenticated' },
+    checkout: { enabled: true, access: 'authenticated' },
+    wishlist: { enabled: false },
+    newsletter: { enabled: true },
+    orderHistory: { enabled: true, access: 'authenticated' },
+    productComparison: { enabled: false },
+    quotes: { enabled: true, access: { role: 'order_placer' } },
+    quoteApproval: { enabled: true, access: { role: 'order_approver' } },
+    mfa: { enabled: true, access: 'authenticated' },
+  },
+  seo: {
+    defaultTitle: 'Acme Corporation',
+    titleTemplate: '%s — Acme Corp',
+    defaultDescription: 'Acme Corporation sales portal',
+    defaultKeywords: null,
+    robots: 'noindex, nofollow',
+    googleAnalyticsId: null,
+    googleTagManagerId: null,
+    verification: null,
+  },
+  contact: {
+    email: 'orders@acme-corp.example.com',
+    phone: '+44 20 7946 0958',
+    address: {
+      street: '123 Commerce Street',
+      city: 'London',
+      postalCode: 'EC1A 1BB',
+      country: 'GB',
+    },
+    social: {
+      facebook: null,
+      instagram: null,
+      twitter: null,
+      linkedin: 'https://linkedin.com/company/acme-corp',
+      youtube: null,
+    },
+  },
+  overrides: {
+    css: {
+      '--bg-btn-buy': 'oklch(0.696 0.17 162.48)',
+      '--text-heading': 'oklch(0.637 0.237 25.33)',
+    },
+    features: {
+      staffPricing: { enabled: true, access: { group: 'staff' } },
+    },
+  },
+  isActive: true,
+  createdAt: '2026-02-01T08:00:00.000Z',
+  updatedAt: '2026-02-11T09:00:00.000Z',
+};
 
 describe('StoreSettingsSchema', () => {
   describe('valid input', () => {
-    it('should validate tenant-a.json mock', () => {
-      const raw = JSON.parse(
-        fs.readFileSync(path.join(mockDir, 'tenant-a.json'), 'utf-8'),
-      );
-      const result = StoreSettingsSchema.safeParse(raw);
-      if (!result.success) {
-        console.error(result.error.issues);
-      }
+    it('should validate tenant-a mock', () => {
+      const result = StoreSettingsSchema.safeParse(TENANT_A_MOCK);
       expect(result.success).toBe(true);
     });
 
-    it('should validate tenant-b.json mock', () => {
-      const raw = JSON.parse(
-        fs.readFileSync(path.join(mockDir, 'tenant-b.json'), 'utf-8'),
-      );
-      const result = StoreSettingsSchema.safeParse(raw);
-      if (!result.success) {
-        console.error(result.error.issues);
-      }
+    it('should validate tenant-b mock', () => {
+      const result = StoreSettingsSchema.safeParse(TENANT_B_MOCK);
       expect(result.success).toBe(true);
     });
 

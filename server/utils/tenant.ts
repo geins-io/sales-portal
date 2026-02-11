@@ -102,7 +102,7 @@ function generateRadiusCss(radius: string, indent: string = '  '): string {
     return `${indent}--radius: ${radius};`;
   }
 
-  const value = parseFloat(match[1]);
+  const value = parseFloat(match[1]!);
   const unit = match[2] || 'rem';
 
   const lines: string[] = [];
