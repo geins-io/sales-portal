@@ -40,6 +40,22 @@ export function useTenant() {
     return tenant.value?.branding?.logoUrl ?? '/logo.svg';
   });
 
+  const logoDarkUrl = computed(() => {
+    return tenant.value?.branding?.logoDarkUrl ?? null;
+  });
+
+  const logoSymbolUrl = computed(() => {
+    return tenant.value?.branding?.logoSymbolUrl ?? null;
+  });
+
+  const faviconUrl = computed(() => {
+    return tenant.value?.branding?.faviconUrl ?? '/favicon.ico';
+  });
+
+  const ogImageUrl = computed(() => {
+    return tenant.value?.branding?.ogImageUrl ?? null;
+  });
+
   const brandName = computed(() => {
     return tenant.value?.branding?.name ?? tenant.value?.tenantId ?? 'Store';
   });
@@ -66,6 +82,10 @@ export function useTenant() {
     theme,
     branding,
     logoUrl,
+    logoDarkUrl,
+    logoSymbolUrl,
+    faviconUrl,
+    ogImageUrl,
     brandName,
     mode,
     watermark,

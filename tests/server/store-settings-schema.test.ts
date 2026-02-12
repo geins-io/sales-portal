@@ -5,7 +5,12 @@ import {
   parseOklch,
   formatOklch,
 } from '../../server/utils/theme';
-import { transformGeinsSettings } from '../../server/utils/tenant';
+import {
+  transformGeinsSettings,
+  generateFontCss,
+  generateTenantCss,
+} from '../../server/utils/tenant';
+import { buildGoogleFontsUrl } from '#shared/utils/fonts';
 import type { ThemeColors } from '../../server/schemas/store-settings';
 
 // Full tenant mock configs inlined so tests are self-contained
@@ -684,6 +689,127 @@ describe('transformGeinsSettings', () => {
 
     expect(result.availableLocales).toEqual([]);
     expect(result.availableMarkets).toEqual([]);
+  });
+});
+
+describe('generateFontCss', () => {
+  it('should generate all three font vars for full typography', () => {
+    const css = generateFontCss({
+      fontFamily: 'DM Sans',
+      headingFontFamily: 'Carter One',
+      monoFontFamily: 'Fira Code',
+    });
+    expect(css).toContain("--font-family: 'DM Sans'");
+    expect(css).toContain("--heading-font-family: 'Carter One'");
+    expect(css).toContain("--mono-font-family: 'Fira Code'");
+  });
+
+  it('should fall back heading to fontFamily when headingFontFamily is null', () => {
+    const css = generateFontCss({
+      fontFamily: 'Inter',
+      headingFontFamily: null,
+      monoFontFamily: null,
+    });
+    expect(css).toContain("--font-family: 'Inter'");
+    expect(css).toContain("--heading-font-family: 'Inter'");
+    expect(css).not.toContain('--mono-font-family');
+  });
+
+  it('should return empty string for null typography', () => {
+    expect(generateFontCss(null)).toBe('');
+    expect(generateFontCss(undefined)).toBe('');
+  });
+
+  it('should include sans-serif fallback stack for body/heading fonts', () => {
+    const css = generateFontCss({
+      fontFamily: 'Roboto',
+    });
+    expect(css).toContain('ui-sans-serif, system-ui, sans-serif');
+  });
+
+  it('should include monospace fallback stack for mono font', () => {
+    const css = generateFontCss({
+      fontFamily: 'Inter',
+      monoFontFamily: 'JetBrains Mono',
+    });
+    expect(css).toContain(
+      "'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace",
+    );
+  });
+});
+
+describe('generateTenantCss with typography', () => {
+  const minimalColors = deriveThemeColors({
+    primary: 'oklch(0.5 0.1 200)',
+    primaryForeground: 'oklch(0.9 0 0)',
+    secondary: 'oklch(0.8 0 0)',
+    secondaryForeground: 'oklch(0.2 0 0)',
+    background: 'oklch(1 0 0)',
+    foreground: 'oklch(0.1 0 0)',
+  });
+
+  it('should include font vars when typography is provided', () => {
+    const css = generateTenantCss('test', minimalColors, '0.5rem', null, {
+      fontFamily: 'DM Sans',
+      headingFontFamily: 'Carter One',
+    });
+    expect(css).toContain("--font-family: 'DM Sans'");
+    expect(css).toContain("--heading-font-family: 'Carter One'");
+    expect(css).toContain("[data-theme='test']");
+  });
+
+  it('should not include font vars when typography is null', () => {
+    const css = generateTenantCss('test', minimalColors, '0.5rem', null, null);
+    expect(css).not.toContain('--font-family');
+    expect(css).not.toContain('--heading-font-family');
+  });
+});
+
+describe('buildGoogleFontsUrl', () => {
+  it('should build URL with single font family', () => {
+    const url = buildGoogleFontsUrl({ fontFamily: 'Inter' });
+    expect(url).toBe(
+      'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
+    );
+  });
+
+  it('should build URL with multiple font families', () => {
+    const url = buildGoogleFontsUrl({
+      fontFamily: 'DM Sans',
+      headingFontFamily: 'Carter One',
+    });
+    expect(url).toContain('family=DM+Sans:wght@300;400;500;600;700');
+    expect(url).toContain('family=Carter+One:wght@300;400;500;600;700');
+    expect(url).toContain('display=swap');
+  });
+
+  it('should deduplicate when heading equals body font', () => {
+    const url = buildGoogleFontsUrl({
+      fontFamily: 'Inter',
+      headingFontFamily: 'Inter',
+    });
+    // Should only have one "family=Inter" param
+    const matches = url!.match(/family=Inter/g);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('should include mono font in URL', () => {
+    const url = buildGoogleFontsUrl({
+      fontFamily: 'Inter',
+      monoFontFamily: 'Fira Code',
+    });
+    expect(url).toContain('family=Fira+Code:wght@300;400;500;600;700');
+  });
+
+  it('should return null for null/undefined typography', () => {
+    expect(buildGoogleFontsUrl(null)).toBeNull();
+    expect(buildGoogleFontsUrl(undefined)).toBeNull();
+  });
+
+  it('should encode spaces as + in font names', () => {
+    const url = buildGoogleFontsUrl({ fontFamily: 'Playfair Display' });
+    expect(url).toContain('family=Playfair+Display');
+    expect(url).not.toContain('family=Playfair Display');
   });
 });
 

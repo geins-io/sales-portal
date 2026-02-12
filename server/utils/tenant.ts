@@ -1,6 +1,10 @@
 import type { H3Event } from 'h3';
 import type { TenantConfig } from '#shared/types/tenant-config';
-import type { StoreSettings, ThemeColors } from '../schemas/store-settings';
+import type {
+  StoreSettings,
+  ThemeColors,
+  ThemeTypography,
+} from '../schemas/store-settings';
 import { StoreSettingsSchema } from '../schemas/store-settings';
 import { deriveThemeColors, type FullThemeColors } from './theme';
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
@@ -100,6 +104,40 @@ function generateRadiusCss(radius: string, indent: string = '  '): string {
 }
 
 /**
+ * Generates font-family CSS custom properties from typography config.
+ * Emits --font-family, --heading-font-family, --mono-font-family.
+ */
+export function generateFontCss(
+  typography?: ThemeTypography | null,
+  indent: string = '  ',
+): string {
+  if (!typography) return '';
+
+  const lines: string[] = [];
+
+  if (typography.fontFamily) {
+    lines.push(
+      `${indent}--font-family: '${typography.fontFamily}', ui-sans-serif, system-ui, sans-serif;`,
+    );
+  }
+
+  const headingFamily = typography.headingFontFamily ?? typography.fontFamily;
+  if (headingFamily) {
+    lines.push(
+      `${indent}--heading-font-family: '${headingFamily}', ui-sans-serif, system-ui, sans-serif;`,
+    );
+  }
+
+  if (typography.monoFontFamily) {
+    lines.push(
+      `${indent}--mono-font-family: '${typography.monoFontFamily}', ui-monospace, 'SFMono-Regular', monospace;`,
+    );
+  }
+
+  return lines.join('\n');
+}
+
+/**
  * Generates CSS custom properties from override CSS map
  */
 export function generateOverrideCss(
@@ -146,6 +184,7 @@ export function generateTenantCss(
   derivedColors: FullThemeColors,
   radius?: string | null,
   overrideCss?: Record<string, string> | null,
+  typography?: ThemeTypography | null,
 ): string {
   const lines: string[] = [];
 
@@ -154,6 +193,11 @@ export function generateTenantCss(
 
   if (radius) {
     lines.push(generateRadiusCss(radius));
+  }
+
+  const fontCss = generateFontCss(typography);
+  if (fontCss) {
+    lines.push(fontCss);
   }
 
   const overrides = generateOverrideCss(overrideCss);
@@ -239,12 +283,13 @@ function buildTenantConfig(settings: StoreSettings): TenantConfig {
     }
   }
 
-  // Generate CSS with derived colors + override CSS vars
+  // Generate CSS with derived colors + override CSS vars + typography
   const css = generateTenantCss(
     settings.theme.name,
     derivedColors,
     settings.theme.radius,
     settings.overrides?.css,
+    settings.theme.typography,
   );
 
   // Build theme with derived colors replacing original
@@ -300,6 +345,8 @@ export async function createTenant(
     mergedTheme.name,
     derivedColors,
     mergedTheme.radius,
+    undefined,
+    mergedTheme.typography,
   );
   const themeWithDerived = {
     ...mergedTheme,
@@ -383,6 +430,8 @@ export async function createTenant(
             updatedThemeWithDerived.name,
             updatedDerived,
             updatedThemeWithDerived.radius,
+            undefined,
+            updatedThemeWithDerived.typography,
           )
         : existingConfig.css,
       themeHash: newThemeHash,
@@ -494,6 +543,8 @@ export async function fetchTenantConfig(
         themeWithDerived.name,
         derivedColors,
         themeWithDerived.radius,
+        undefined,
+        themeWithDerived.typography,
       ),
       branding: {
         name: hostname,
@@ -620,6 +671,8 @@ export async function updateTenant(
           updatedThemeWithDerived.name,
           updatedDerived,
           updatedThemeWithDerived.radius,
+          undefined,
+          updatedThemeWithDerived.typography,
         )
       : existing.css,
     themeHash: newThemeHash,

@@ -156,14 +156,70 @@ Tenant-specific CSS is generated dynamically by `generateTenantCss()` and inject
 
 ## Typography
 
-Typography tokens can be customized per tenant:
+Typography tokens can be customized per tenant. **Values must be Google Fonts family names** (e.g. `"Inter"`, `"DM Sans"`, `"Playfair Display"`). Fonts are loaded via Google Fonts CSS2 API `<link>` tags injected during SSR by the `tenant-theme` plugin — no flash of unstyled text.
 
 ```typescript
 interface ThemeTypography {
-  fontFamily: string; // Main font family
+  fontFamily: string; // Google Fonts name (e.g. "Inter")
   headingFontFamily?: string | null; // Heading font (falls back to fontFamily)
   monoFontFamily?: string | null; // Monospace font
 }
+```
+
+### Font CSS Custom Properties
+
+The `generateFontCss()` function in `server/utils/tenant.ts` emits font-family CSS variables inside the `[data-theme]` block:
+
+| CSS Variable            | Tailwind Token   | Source                                                    |
+| ----------------------- | ---------------- | --------------------------------------------------------- |
+| `--font-family`         | `--font-sans`    | `typography.fontFamily`                                   |
+| `--heading-font-family` | `--font-heading` | `typography.headingFontFamily` (falls back to fontFamily) |
+| `--mono-font-family`    | `--font-mono`    | `typography.monoFontFamily`                               |
+
+Defaults (in `@layer base` of `tailwind.css`):
+
+```css
+--font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+--heading-font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+--mono-font-family: ui-monospace, 'SFMono-Regular', monospace;
+```
+
+Dynamic tenant CSS (generated per tenant, unlayered — wins over defaults):
+
+```css
+[data-theme='rose'] {
+  --font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  --heading-font-family: 'Carter One', ui-sans-serif, system-ui, sans-serif;
+  /* ... colors, radius ... */
+}
+```
+
+### Using Font Tokens
+
+```vue
+<template>
+  <h1 class="font-heading text-2xl">Heading in tenant heading font</h1>
+  <p class="font-sans">Body text in tenant body font</p>
+  <code class="font-mono">Monospace code</code>
+</template>
+```
+
+### Google Fonts Loading
+
+The `tenant-theme` plugin injects preconnect hints and the Google Fonts stylesheet `<link>` during SSR. The `buildGoogleFontsUrl()` utility (in `shared/utils/fonts.ts`) deduplicates font families and builds a CSS2 API URL with `display=swap`.
+
+## Branding Assets
+
+The tenant-theme plugin also injects:
+
+- **Favicon**: `<link rel="icon">` from `branding.faviconUrl` (fallback: `/favicon.ico`)
+- **OG Image**: `<meta property="og:image">` from `branding.ogImageUrl` (when set)
+
+Access branding URLs via the `useTenant()` composable:
+
+```typescript
+const { logoUrl, logoDarkUrl, logoSymbolUrl, faviconUrl, ogImageUrl } =
+  useTenant();
 ```
 
 ## Border Radius
