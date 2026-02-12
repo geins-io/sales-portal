@@ -3,6 +3,15 @@ import { defineVitestConfig } from '@nuxt/test-utils/config';
 export default defineVitestConfig({
   test: {
     environment: 'nuxt',
+    environmentOptions: {
+      nuxt: {
+        overrides: {
+          experimental: {
+            appManifest: false,
+          },
+        },
+      },
+    },
     // Run tests in parallel
     pool: 'threads',
     // Global test settings

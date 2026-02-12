@@ -8,7 +8,6 @@ import {
   Star,
   User,
   LogOut,
-  Home,
   Box,
   ListFilter,
   Grid2x2,
@@ -20,6 +19,10 @@ import {
   Calculator,
   Calendar,
   Smile,
+  FileText,
+  AlignLeft,
+  FileDown,
+  Link2,
 } from 'lucide-vue-next';
 
 const { tenant, isLoading, error } = useTenant();
@@ -42,18 +45,43 @@ const dialogOpen = ref(false);
       <p class="text-muted-foreground">
         Tenant Name: {{ tenant?.branding?.name ?? 'No tenant name' }}
       </p>
-      <p class="text-muted-foreground">
-        Tenant Logo: {{ tenant?.branding?.logoUrl ?? 'No logo' }}
-      </p>
+      <div class="text-muted-foreground flex items-center gap-2">
+        <span>Tenant Logo:</span>
+        <img
+          v-if="tenant?.branding?.logoUrl"
+          :src="tenant.branding.logoUrl"
+          alt="Tenant logo"
+          class="h-8 max-w-[200px] object-contain"
+        />
+        <span v-else>No logo</span>
+      </div>
       <p class="text-muted-foreground">
         Tenant Theme: {{ tenant?.theme?.name ?? 'No theme' }}
       </p>
-      <p class="text-muted-foreground">
-        Tenant Theme Colors: {{ tenant?.theme?.colors ?? 'No colors' }}
-      </p>
-      <p class="text-muted-foreground">
-        Tenant Theme Colors: {{ tenant?.theme?.colors ?? 'No colors' }}
-      </p>
+      <div class="space-y-2">
+        <p class="text-muted-foreground text-sm font-medium">
+          Tenant Theme Colors:
+        </p>
+        <div
+          v-if="
+            tenant?.theme?.colors && Object.keys(tenant.theme.colors).length
+          "
+          class="flex flex-wrap gap-3"
+        >
+          <div
+            v-for="(value, name) in tenant.theme.colors"
+            :key="name"
+            class="flex flex-col items-center gap-1"
+          >
+            <div
+              class="h-8 w-8 rounded-full border"
+              :style="{ backgroundColor: String(value) }"
+            />
+            <span class="text-muted-foreground text-xs">{{ name }}</span>
+          </div>
+        </div>
+        <p v-else class="text-muted-foreground text-sm">No colors</p>
+      </div>
       <div class="space-y-1">
         <p class="text-muted-foreground text-sm font-medium">CSS:</p>
         <pre
@@ -246,14 +274,22 @@ const dialogOpen = ref(false);
       <h2 class="text-2xl font-semibold">Tabs</h2>
       <Tabs default-value="details" class="w-full max-w-2xl">
         <TabsList>
-          <TabsTrigger value="details">{{ $t('product.details') }}</TabsTrigger>
-          <TabsTrigger value="description">{{
-            $t('product.description')
-          }}</TabsTrigger>
-          <TabsTrigger value="documents">{{
-            $t('product.documents')
-          }}</TabsTrigger>
-          <TabsTrigger value="related">{{ $t('product.related') }}</TabsTrigger>
+          <TabsTrigger value="details" class="gap-2">
+            <FileText class="h-4 w-4" />
+            {{ $t('product.details') }}
+          </TabsTrigger>
+          <TabsTrigger value="description" class="gap-2">
+            <AlignLeft class="h-4 w-4" />
+            {{ $t('product.description') }}
+          </TabsTrigger>
+          <TabsTrigger value="documents" class="gap-2">
+            <FileDown class="h-4 w-4" />
+            {{ $t('product.documents') }}
+          </TabsTrigger>
+          <TabsTrigger value="related" class="gap-2">
+            <Link2 class="h-4 w-4" />
+            {{ $t('product.related') }}
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="details" class="rounded-b-md border p-4">
           <h3 class="mb-2 font-semibold">Product Details</h3>
@@ -327,11 +363,11 @@ const dialogOpen = ref(false);
       <h2 class="text-2xl font-semibold">Label</h2>
       <div class="space-y-2">
         <Label for="email">{{ $t('elements.email_address') }}</Label>
-        <input
+        <Input
           id="email"
           type="email"
+          class="max-w-sm"
           :placeholder="$t('elements.enter_your_email')"
-          class="border-input flex h-9 w-full max-w-sm rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm"
         />
       </div>
     </section>
@@ -425,38 +461,6 @@ const dialogOpen = ref(false);
           </div>
         </CardContent>
       </Card>
-    </section>
-
-    <Separator />
-
-    <!-- Portal Tabs with Icons -->
-    <section class="space-y-4">
-      <h2 class="text-2xl font-semibold">Portal Tabs (with icons)</h2>
-      <Tabs default-value="overview" class="w-full max-w-2xl">
-        <TabsList>
-          <TabsTrigger value="overview" class="gap-2">
-            <Home class="h-4 w-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="orders" class="gap-2">
-            <ShoppingCart class="h-4 w-4" />
-            Orders
-          </TabsTrigger>
-          <TabsTrigger value="products" class="gap-2">
-            <Box class="h-4 w-4" />
-            Products
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="overview" class="rounded-b-md border p-4">
-          <p class="text-muted-foreground">Portal overview content</p>
-        </TabsContent>
-        <TabsContent value="orders" class="rounded-b-md border p-4">
-          <p class="text-muted-foreground">Your orders</p>
-        </TabsContent>
-        <TabsContent value="products" class="rounded-b-md border p-4">
-          <p class="text-muted-foreground">Browse products</p>
-        </TabsContent>
-      </Tabs>
     </section>
 
     <Separator />

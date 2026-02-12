@@ -1,13 +1,54 @@
+import { buildGoogleFontsUrl } from '#shared/utils/fonts';
+
 const sanitizeCustomCss = (css: string | undefined) => {
   if (!css) return '';
   return css.replace(/<style>|<\/style>/gi, '').trim();
 };
 
+/**
+ * Build head link entries for Google Fonts.
+ * Includes preconnect hints + stylesheet link for fast font loading (no FOUT).
+ */
+function buildFontLinks(
+  typography?: {
+    fontFamily: string;
+    headingFontFamily?: string | null;
+    monoFontFamily?: string | null;
+  } | null,
+): Array<Record<string, string>> {
+  const fontsUrl = buildGoogleFontsUrl(typography);
+  if (!fontsUrl) return [];
+
+  return [
+    {
+      rel: 'preconnect',
+      href: 'https://fonts.googleapis.com',
+    },
+    {
+      rel: 'preconnect',
+      href: 'https://fonts.gstatic.com',
+      crossorigin: 'anonymous',
+    },
+    {
+      rel: 'stylesheet',
+      href: fontsUrl,
+    },
+  ];
+}
+
 export default defineNuxtPlugin({
   name: 'tenant-theme',
   async setup() {
-    const { tenant, brandName, theme, hostname, tenantId, suspense } =
-      useTenant();
+    const {
+      tenant,
+      brandName,
+      theme,
+      hostname,
+      tenantId,
+      faviconUrl,
+      ogImageUrl,
+      suspense,
+    } = useTenant();
 
     // Wait for tenant data to be loaded (important for SSR)
     await suspense();
@@ -25,11 +66,25 @@ export default defineNuxtPlugin({
     const titleTemplate =
       tenant.value?.seo?.titleTemplate ?? `%s - ${brandName.value}`;
 
+    // Build link entries: favicon + Google Fonts (preconnect + stylesheet)
+    const links: Array<Record<string, string>> = [
+      { rel: 'icon', href: faviconUrl.value, type: 'image/x-icon' },
+      ...buildFontLinks(theme.value?.typography),
+    ];
+
+    // Build meta entries: og:image if configured
+    const meta: Array<Record<string, string>> = [];
+    if (ogImageUrl.value) {
+      meta.push({ property: 'og:image', content: ogImageUrl.value });
+    }
+
     useHead({
       titleTemplate,
       htmlAttrs: {
         'data-theme': theme.value?.name?.toLowerCase() || 'default',
       },
+      link: links,
+      meta,
       style: [
         {
           innerHTML: () => sanitizeCustomCss(tenant.value?.css),
