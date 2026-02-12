@@ -13,6 +13,7 @@ export default defineNuxtConfig({
     '@nuxt/image',
     '@nuxtjs/tailwindcss',
     '@nuxtjs/i18n',
+    '@nuxtjs/seo',
     '@nuxt/scripts',
     '@nuxt/test-utils',
     'shadcn-nuxt',
@@ -30,6 +31,22 @@ export default defineNuxtConfig({
     langDir: 'locales',
     strategy: 'no_prefix',
   },
+
+  // @nuxtjs/seo configuration — per-tenant values set at request time
+  // by server/plugins/03.seo-config.ts via the site-config:init hook
+  site: {
+    // Placeholder — overridden per-request by server/plugins/03.seo-config.ts
+    url: 'https://portal.litium.com',
+    name: 'Sales Portal',
+  },
+  robots: { enabled: true },
+  sitemap: {
+    enabled: true,
+    sources: ['/api/__sitemap__/urls'],
+  },
+  schemaOrg: { enabled: true },
+  ogImage: { enabled: false },
+  linkChecker: { enabled: false },
 
   // Sentry build-time configuration for source maps (optional)
   // If SENTRY_AUTH_TOKEN is not set, source maps won't be uploaded
@@ -194,7 +211,6 @@ export default defineNuxtConfig({
     head: {
       charset: 'utf-8',
       viewport: 'width=device-width, initial-scale=1',
-      htmlAttrs: { lang: 'en' },
     },
   },
 

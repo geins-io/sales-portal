@@ -39,16 +39,8 @@ function buildFontLinks(
 export default defineNuxtPlugin({
   name: 'tenant-theme',
   async setup() {
-    const {
-      tenant,
-      brandName,
-      theme,
-      hostname,
-      tenantId,
-      faviconUrl,
-      ogImageUrl,
-      suspense,
-    } = useTenant();
+    const { tenant, theme, hostname, tenantId, faviconUrl, suspense } =
+      useTenant();
 
     // Wait for tenant data to be loaded (important for SSR)
     await suspense();
@@ -62,29 +54,17 @@ export default defineNuxtPlugin({
       });
     }
 
-    // Use seo.titleTemplate if available, fall back to brand name
-    const titleTemplate =
-      tenant.value?.seo?.titleTemplate ?? `%s - ${brandName.value}`;
-
     // Build link entries: favicon + Google Fonts (preconnect + stylesheet)
     const links: Array<Record<string, string>> = [
       { rel: 'icon', href: faviconUrl.value, type: 'image/x-icon' },
       ...buildFontLinks(theme.value?.typography),
     ];
 
-    // Build meta entries: og:image if configured
-    const meta: Array<Record<string, string>> = [];
-    if (ogImageUrl.value) {
-      meta.push({ property: 'og:image', content: ogImageUrl.value });
-    }
-
     useHead({
-      titleTemplate,
       htmlAttrs: {
         'data-theme': theme.value?.name?.toLowerCase() || 'default',
       },
       link: links,
-      meta,
       style: [
         {
           innerHTML: () => sanitizeCustomCss(tenant.value?.css),

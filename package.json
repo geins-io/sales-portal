@@ -56,6 +56,7 @@
     "@nuxt/image": "2.0.0",
     "@nuxt/scripts": "0.13.0",
     "@nuxtjs/i18n": "^10.2.3",
+    "@nuxtjs/seo": "^3.4.0",
     "@pinia/nuxt": "^0.11.3",
     "@sentry/nuxt": "^10.35.0",
     "@tanstack/vue-table": "^8.21.3",
