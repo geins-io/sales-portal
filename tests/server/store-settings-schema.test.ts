@@ -5,6 +5,7 @@ import {
   parseOklch,
   formatOklch,
 } from '../../server/utils/theme';
+import { transformGeinsSettings } from '../../server/utils/tenant';
 import type { ThemeColors } from '../../server/schemas/store-settings';
 
 // Full tenant mock configs inlined so tests are self-contained
@@ -20,6 +21,8 @@ const TENANT_A_MOCK = {
     locale: 'sv-SE',
     market: 'se',
     environment: 'production',
+    availableLocales: ['sv-SE'],
+    availableMarkets: ['se'],
   },
   mode: 'commerce',
   theme: {
@@ -127,6 +130,8 @@ const TENANT_B_MOCK = {
     locale: 'sv-SE',
     market: 'se',
     environment: 'production',
+    availableLocales: ['sv-SE'],
+    availableMarkets: ['se'],
   },
   mode: 'commerce',
   theme: {
@@ -259,6 +264,8 @@ describe('StoreSettingsSchema', () => {
           locale: 'sv-SE',
           market: 'se',
           environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -299,6 +306,8 @@ describe('StoreSettingsSchema', () => {
           locale: 'sv-SE',
           market: 'se',
           environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -330,6 +339,8 @@ describe('StoreSettingsSchema', () => {
           locale: 'sv-SE',
           market: 'se',
           environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
         },
         theme: {
           name: 'default',
@@ -364,6 +375,8 @@ describe('StoreSettingsSchema', () => {
           locale: 'sv-SE',
           market: 'se',
           environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -401,6 +414,8 @@ describe('StoreSettingsSchema', () => {
           locale: 'sv-SE',
           market: 'se',
           environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -436,6 +451,8 @@ describe('StoreSettingsSchema', () => {
           locale: 'sv-SE',
           market: 'se',
           environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
         },
         mode: 'commerce',
         theme: {
@@ -611,6 +628,65 @@ describe('parseOklch / formatOklch', () => {
   });
 });
 
+describe('transformGeinsSettings', () => {
+  it('should transform platform shape to clean internal shape', () => {
+    const platformShape = {
+      defaultHostName: 'tenant-b.sales-portal.geins.dev',
+      additionalHostNames: ['tenant-b.litium.portal'],
+      apiKey: 'C10CF115-04D8-486F-9B16-593045AC3C32',
+      accountName: 'monitor',
+      channelId: '2|se',
+      defaultLocale: 'sv-SE',
+      defaultMarket: 'se',
+      locales: ['sv-SE'],
+      markets: ['se'],
+    };
+
+    const result = transformGeinsSettings(platformShape);
+
+    expect(result).toEqual({
+      apiKey: 'C10CF115-04D8-486F-9B16-593045AC3C32',
+      accountName: 'monitor',
+      channel: '2',
+      tld: 'se',
+      locale: 'sv-SE',
+      market: 'se',
+      availableLocales: ['sv-SE'],
+      availableMarkets: ['se'],
+    });
+  });
+
+  it('should split channelId into channel and tld', () => {
+    const result = transformGeinsSettings({
+      channelId: '5|dk',
+      apiKey: 'key',
+      accountName: 'acct',
+      defaultLocale: 'da-DK',
+      defaultMarket: 'dk',
+      locales: ['da-DK', 'en-US'],
+      markets: ['dk', 'se'],
+    });
+
+    expect(result.channel).toBe('5');
+    expect(result.tld).toBe('dk');
+    expect(result.availableLocales).toEqual(['da-DK', 'en-US']);
+    expect(result.availableMarkets).toEqual(['dk', 'se']);
+  });
+
+  it('should handle missing locales/markets arrays', () => {
+    const result = transformGeinsSettings({
+      channelId: '1|se',
+      apiKey: 'key',
+      accountName: 'acct',
+      defaultLocale: 'sv-SE',
+      defaultMarket: 'se',
+    });
+
+    expect(result.availableLocales).toEqual([]);
+    expect(result.availableMarkets).toEqual([]);
+  });
+});
+
 // Helper to create minimal valid config for testing
 function createMinimalConfig(overrides: Record<string, unknown> = {}) {
   return {
@@ -624,6 +700,8 @@ function createMinimalConfig(overrides: Record<string, unknown> = {}) {
       locale: 'sv-SE',
       market: 'se',
       environment: 'production',
+      availableLocales: ['sv-SE'],
+      availableMarkets: ['se'],
     },
     mode: 'commerce',
     theme: {

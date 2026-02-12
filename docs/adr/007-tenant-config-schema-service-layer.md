@@ -33,8 +33,8 @@ TypeScript types are inferred via `z.infer<typeof Schema>`, eliminating manual i
 
 ### Server vs. client config split
 
-- `TenantConfig` (server) — full config including `geinsSettings`, `overrides`, `themeHash`, timestamps
-- `PublicTenantConfig` (client) — strips secrets, adds `locale` and `availableLocales`
+- `TenantConfig` (server) — full config including `geinsSettings` (transformed from platform shape), `overrides`, `themeHash`, timestamps
+- `PublicTenantConfig` (client) — strips secrets, exposes `locale` and `availableLocales` derived from `geinsSettings`
 
 ### Service layer
 
@@ -53,6 +53,10 @@ getContact(event); // ContactConfig | undefined
 ```
 
 All accessors call `getTenant()` internally (cached via KV storage + SWR).
+
+### GeinsSettings transformation
+
+The Geins platform auto-injects `geinsSettings` into the store-settings API response in its own shape (`channelId: "2|se"`, `defaultLocale`, `locales[]`, etc.). `transformGeinsSettings()` in `server/utils/tenant.ts` normalizes this to our clean internal shape (`channel`, `tld`, `locale`, `availableLocales[]`, `availableMarkets[]`). Service layer consumers always see the internal shape.
 
 ### Color derivation
 

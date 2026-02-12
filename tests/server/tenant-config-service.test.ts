@@ -14,6 +14,8 @@ const mockTenantConfig: TenantConfig = {
     locale: 'sv-SE',
     market: 'se',
     environment: 'production',
+    availableLocales: ['sv-SE'],
+    availableMarkets: ['se'],
   },
   mode: 'commerce',
   theme: {
