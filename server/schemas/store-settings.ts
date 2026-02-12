@@ -74,7 +74,9 @@ export const GeinsSettingsSchema = z.object({
   tld: z.string(),
   locale: z.string(),
   market: z.string(),
-  environment: z.enum(['production', 'staging']),
+  environment: z.enum(['production', 'staging']).default('production'),
+  availableLocales: z.array(z.string()).default([]),
+  availableMarkets: z.array(z.string()).default([]),
 });
 
 export const BrandingConfigSchema = z.object({

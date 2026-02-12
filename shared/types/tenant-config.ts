@@ -22,7 +22,7 @@ export interface TenantConfig {
   hostname: string;
   aliases?: string[];
 
-  // SDK config (server-only)
+  // SDK config (server-only, transformed from platform shape)
   geinsSettings: {
     apiKey: string;
     accountName: string;
@@ -31,6 +31,8 @@ export interface TenantConfig {
     locale: string;
     market: string;
     environment: 'production' | 'staging';
+    availableLocales: string[];
+    availableMarkets: string[];
   };
 
   // Portal mode

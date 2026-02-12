@@ -10,7 +10,8 @@ const isDev = import.meta.dev;
 const is404 = computed(() => props.error.statusCode === 404);
 const is418 = computed(() => props.error.statusCode === 418);
 const is500 = computed(
-  () => props.error.statusCode >= 500 && props.error.statusCode < 600,
+  () =>
+    (props.error.statusCode ?? 0) >= 500 && (props.error.statusCode ?? 0) < 600,
 );
 
 const errorTitle = computed(() => {

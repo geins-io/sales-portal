@@ -6,7 +6,7 @@
  */
 function normalizeHostname(hostname: string): string {
   // Remove port if present (e.g., "tenant-a.localhost:3000" -> "tenant-a.localhost")
-  return hostname.split(':')[0];
+  return hostname.split(':')[0] ?? hostname;
 }
 
 export default defineNitroPlugin((nitroApp) => {

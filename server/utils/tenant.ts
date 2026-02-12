@@ -317,7 +317,9 @@ export async function createTenant(
       tld: 'se',
       locale: 'sv-SE',
       market: 'se',
-      environment: 'production',
+      environment: 'production' as const,
+      availableLocales: ['sv-SE'],
+      availableMarkets: ['se'],
     },
     mode: partialConfig?.mode ?? 'commerce',
     theme: themeWithDerived,
@@ -394,6 +396,29 @@ export async function createTenant(
   return existingConfig;
 }
 
+/**
+ * Transforms platform-injected geinsSettings into our clean internal shape.
+ * Platform: { channelId: "2|se", defaultLocale, defaultMarket, locales[], markets[] }
+ * Ours: { channel, tld, locale, market, availableLocales[], availableMarkets[] }
+ */
+export function transformGeinsSettings(
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  const channelId = String(raw.channelId ?? '');
+  const [channel, tld] = channelId.split('|');
+
+  return {
+    apiKey: raw.apiKey,
+    accountName: raw.accountName,
+    channel,
+    tld,
+    locale: raw.defaultLocale,
+    market: raw.defaultMarket,
+    availableLocales: raw.locales ?? [],
+    availableMarkets: raw.markets ?? [],
+  };
+}
+
 export async function fetchTenantConfig(
   hostname: string,
   event?: H3Event,
@@ -413,13 +438,15 @@ export async function fetchTenantConfig(
     if (response.ok) {
       const data = await response.json();
 
-      // TEMPORARY: The merchant API returns SDK params under `geinsApiSettings`
-      // while `geinsSettings` is auto-injected by the platform with a different shape.
-      // Remap until the API is updated to use `geinsSettings` directly.
-      if (data.geinsApiSettings && !data.geinsSettings?.channel) {
-        data.geinsSettings = data.geinsApiSettings;
-        delete data.geinsApiSettings;
+      // Transform platform-injected geinsSettings → our clean internal shape.
+      // Platform sends: channelId ("2|se"), defaultLocale, defaultMarket, locales[], markets[]
+      // We need: channel, tld, locale, market, availableLocales[], availableMarkets[]
+      if (data.geinsSettings) {
+        data.geinsSettings = transformGeinsSettings(
+          data.geinsSettings as Record<string, unknown>,
+        );
       }
+      delete data.geinsApiSettings;
       delete data.id;
 
       const parsed = StoreSettingsSchema.safeParse(data);
@@ -457,7 +484,9 @@ export async function fetchTenantConfig(
         tld: 'se',
         locale: 'sv-SE',
         market: 'se',
-        environment: 'production',
+        environment: 'production' as const,
+        availableLocales: ['sv-SE'],
+        availableMarkets: ['se'],
       },
       mode: 'commerce',
       theme: themeWithDerived,
@@ -492,7 +521,9 @@ export async function fetchTenantConfig(
       tld: 'se',
       locale: 'sv-SE',
       market: 'se',
-      environment: 'production',
+      environment: 'production' as const,
+      availableLocales: ['sv-SE'],
+      availableMarkets: ['se'],
     },
     mode: 'commerce',
     theme: createDefaultTheme(hostname),

@@ -48,7 +48,7 @@ function resolveFragments(query: string): string {
   const spreadRegex = /\.\.\.(\w+)/g;
   let match;
   while ((match = spreadRegex.exec(query)) !== null) {
-    const name = match[1];
+    const name = match[1] as string;
     if (fragmentCache.has(name)) {
       pending.add(name);
     }
@@ -67,7 +67,7 @@ function resolveFragments(query: string): string {
     let innerMatch;
     const innerRegex = /\.\.\.(\w+)/g;
     while ((innerMatch = innerRegex.exec(fragmentDef)) !== null) {
-      const dep = innerMatch[1];
+      const dep = innerMatch[1] as string;
       if (fragmentCache.has(dep) && !resolved.has(dep)) {
         pending.add(dep);
       }

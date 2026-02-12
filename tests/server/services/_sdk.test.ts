@@ -80,6 +80,9 @@ const MOCK_GEINS_SETTINGS: GeinsSettings = {
   tld: 'se',
   locale: 'sv-SE',
   market: 'se',
+  environment: 'production',
+  availableLocales: ['sv-SE'],
+  availableMarkets: ['se'],
 };
 
 function createEvent(tenantHostname?: string): H3Event {
