@@ -853,5 +853,131 @@ const dialogOpen = ref(false);
     </section>
 
     <Separator />
+
+    <!-- Branding -->
+    <section class="space-y-4">
+      <h2 class="text-2xl font-semibold">Branding</h2>
+
+      <!-- BrandLogo -->
+      <div class="space-y-3">
+        <h3 class="text-lg font-medium">BrandLogo</h3>
+        <div class="flex flex-wrap items-center gap-8">
+          <div class="space-y-1 text-center">
+            <BrandLogo />
+            <p class="text-muted-foreground text-xs">Default (linked)</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <BrandLogo :linked="false" />
+            <p class="text-muted-foreground text-xs">Unlinked</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <BrandLogo height="h-6" />
+            <p class="text-muted-foreground text-xs">h-6</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <BrandLogo height="h-12" />
+            <p class="text-muted-foreground text-xs">h-12</p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      <!-- LitiumLogo -->
+      <div class="space-y-3">
+        <h3 class="text-lg font-medium">LitiumLogo</h3>
+        <div class="flex flex-wrap items-center gap-8">
+          <div class="space-y-1 text-center">
+            <LitiumLogo variant="symbol" class="size-6" />
+            <p class="text-muted-foreground text-xs">Symbol (size-6)</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <LitiumLogo variant="symbol" class="size-8" />
+            <p class="text-muted-foreground text-xs">Symbol (size-8)</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <LitiumLogo variant="wordmark" class="h-6" />
+            <p class="text-muted-foreground text-xs">Wordmark (h-6)</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <LitiumLogo variant="wordmark" class="h-8" />
+            <p class="text-muted-foreground text-xs">Wordmark (h-8)</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <LitiumLogo variant="symbol" class="text-primary size-8" />
+            <p class="text-muted-foreground text-xs">Primary color</p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      <!-- PoweredBy -->
+      <div class="space-y-3">
+        <h3 class="text-lg font-medium">PoweredBy</h3>
+        <p class="text-muted-foreground text-sm">
+          Tenant watermark setting:
+          <code class="bg-muted rounded px-1">{{
+            tenant?.branding?.watermark ?? 'N/A'
+          }}</code>
+        </p>
+        <div class="flex flex-wrap items-center gap-8">
+          <div class="space-y-1 text-center">
+            <PoweredBy />
+            <p class="text-muted-foreground text-xs">Default (from tenant)</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <PoweredBy variant="full" />
+            <p class="text-muted-foreground text-xs">variant="full"</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <PoweredBy variant="minimal" />
+            <p class="text-muted-foreground text-xs">variant="minimal"</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <PoweredBy variant="none" />
+            <p class="text-muted-foreground text-xs">variant="none" (hidden)</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-8">
+          <div class="space-y-1 text-center">
+            <PoweredBy variant="full" label="Built with Litium" />
+            <p class="text-muted-foreground text-xs">Custom label</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <PoweredBy variant="full" href="https://example.com" />
+            <p class="text-muted-foreground text-xs">Custom href</p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      <!-- Copyright -->
+      <div class="space-y-3">
+        <h3 class="text-lg font-medium">Copyright</h3>
+        <div class="flex flex-wrap items-center gap-8">
+          <div class="space-y-1 text-center">
+            <Copyright />
+            <p class="text-muted-foreground text-xs">Default</p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      <!-- Footer combo example -->
+      <div class="space-y-3">
+        <h3 class="text-lg font-medium">Footer Example (preview)</h3>
+        <div
+          class="border-border flex flex-col items-center gap-2 rounded-md border px-4 py-4 text-xs sm:flex-row sm:justify-between"
+        >
+          <Copyright />
+          <PoweredBy />
+        </div>
+      </div>
+    </section>
+
+    <Separator />
   </div>
 </template>
