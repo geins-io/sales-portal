@@ -211,7 +211,7 @@ import { COOKIE_NAMES } from '#shared/constants/storage';
 
 ## Analytics & Consent
 
-Analytics requires two gates: the `NUXT_PUBLIC_FEATURES_ANALYTICS` feature flag AND user consent via `useAnalyticsConsent()`.
+Analytics requires three gates: the `NUXT_PUBLIC_FEATURES_ANALYTICS` runtime flag, the tenant `hasFeature('analytics')` check, AND user consent via `useAnalyticsConsent()`.
 
 ### Checking consent status
 
@@ -266,4 +266,83 @@ watch(error, (err) => {
     <!-- content -->
   </main>
 </template>
+```
+
+## Server-Side Patterns
+
+### Caching / SWR
+
+Use `defineCachedEventHandler` with stale-while-revalidate for expensive lookups:
+
+```typescript
+// server/api/config.get.ts
+export default defineCachedEventHandler(
+  async (event) => {
+    const { hostname } = event.context.tenant;
+    // ... fetch tenant config
+    return publicConfig;
+  },
+  {
+    getKey: (event) => tenantConfigKey(event.context.tenant.hostname),
+    swr: true, // Serve stale while revalidating
+    maxAge: 60 * 60, // 1-hour cache
+    varies: ['host', 'x-forwarded-host'], // Tenant-aware cache keys
+  },
+);
+```
+
+### Rate Limiting
+
+In-memory sliding-window rate limiter (`server/utils/rate-limiter.ts`):
+
+```typescript
+import { createRateLimiter } from '../utils/rate-limiter';
+
+const limiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
+
+export default defineEventHandler(async (event) => {
+  const result = limiter.check(event);
+  if (!result.allowed) {
+    throw createError({ statusCode: 429, message: 'Too many requests' });
+  }
+  // ... handle request
+});
+```
+
+### Structured Logging
+
+Always use `logger` from `server/utils/logger.ts` — never bare `console.*`:
+
+```typescript
+import {
+  logger,
+  createTenantLogger,
+  createRequestLogger,
+} from '../utils/logger';
+
+// Default logger
+logger.info('App started');
+logger.error('Operation failed', error, { context: 'details' });
+
+// Tenant-scoped (adds [tenant:hostname] prefix)
+const log = createTenantLogger(hostname);
+log.info('Processing order', { orderId: '123' });
+
+// Request-scoped (adds correlation ID)
+const reqLog = createRequestLogger(correlationId);
+reqLog.info('Handling request', { path: '/api/products' });
+```
+
+### SDK Singleton
+
+Per-tenant lazy singleton in `server/services/_sdk.ts`. Same tenant reuses the same SDK instance:
+
+```typescript
+import { getSDK } from '../services/_sdk';
+
+export default defineEventHandler(async (event) => {
+  const sdk = getSDK(event); // Returns cached TenantSDK for this tenant
+  const products = await sdk.core.products.list();
+  return products;
+});
 ```

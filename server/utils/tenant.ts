@@ -8,6 +8,7 @@ import type {
 import { StoreSettingsSchema } from '../schemas/store-settings';
 import { deriveThemeColors, type FullThemeColors } from './theme';
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
+import { logger } from './logger';
 
 /**
  * Storage key generators for tenant data
@@ -505,9 +506,8 @@ export async function fetchTenantConfig(
       }
 
       // Validation failed — log and fall through
-      console.error(
-        `[tenant] Schema validation failed for ${hostname}:`,
-        parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
+      logger.error(
+        `[tenant] Schema validation failed for ${hostname}: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`,
       );
     }
   } catch {

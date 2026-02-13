@@ -346,6 +346,96 @@ afterEach(() => {
 });
 ```
 
+## Established Patterns
+
+### Console Suppression
+
+Global console suppression is configured in `tests/setup.ts` to keep test output clean:
+
+```typescript
+// tests/setup.ts — runs before all tests
+vi.spyOn(console, 'log').mockImplementation(() => {});
+vi.spyOn(console, 'warn').mockImplementation(() => {});
+vi.spyOn(console, 'error').mockImplementation(() => {});
+vi.spyOn(console, 'debug').mockImplementation(() => {});
+```
+
+### Logger Mocking
+
+Server tests that import code using the structured logger must mock it to avoid side effects:
+
+```typescript
+vi.mock('../../server/utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+  createTenantLogger: () => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  }),
+  createRequestLogger: () => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  }),
+}));
+```
+
+### Asserting on Console Calls
+
+When tests need to verify console output, use `mockConsole()` from `tests/utils`:
+
+```typescript
+import { mockConsole } from '../utils';
+
+const { mocks, restore } = mockConsole();
+
+// ... trigger code that logs
+expect(mocks.error).toHaveBeenCalledWith(expect.stringContaining('failed'));
+
+restore(); // Restore original console
+```
+
+### Auto-Import Mocking
+
+Nuxt auto-imports (composables, utils) aren't available in unit tests. Use `vi.stubGlobal` or `vi.mock`:
+
+```typescript
+// Mock a Nuxt composable
+vi.stubGlobal(
+  'useFetch',
+  vi.fn(() => ({
+    data: ref(null),
+    error: ref(null),
+    pending: ref(false),
+  })),
+);
+
+// Mock useRuntimeConfig
+vi.stubGlobal(
+  'useRuntimeConfig',
+  vi.fn(() => ({
+    public: { appName: 'Test' },
+    geins: { apiEndpoint: 'https://test.api' },
+  })),
+);
+```
+
+### Service Layer Testing
+
+Service tests (`tests/server/services/`) follow two approaches:
+
+- **Unit tests** — mock SDK calls, test service logic in isolation (`_client.test.ts`, `sdk-services.test.ts`)
+- **Integration tests** — hit real Geins API with test credentials (`integration.test.ts`), gated by env vars
+
+Mock data is always inlined in test files — never read from external paths (they don't exist in CI).
+
 ## Resources
 
 - [Vitest Documentation](https://vitest.dev/)

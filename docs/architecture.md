@@ -77,6 +77,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── useTenant.ts        # Tenant data access
 │   │   ├── useRouteResolution.ts # Dynamic route resolution
 │   │   ├── useErrorTracking.ts # Error tracking & reporting
+│   │   ├── useFeatureAccess.ts # Feature access control (auth + role gating)
 │   │   └── useAnalyticsConsent.ts # Per-tenant analytics consent (GDPR)
 │   ├── layouts/
 │   │   └── default.vue         # Default page layout
@@ -132,6 +133,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── tenant.ts           # Tenant CRUD operations
 │   │   ├── theme.ts            # OKLCH color derivation
 │   │   ├── seo.ts              # SEO utilities (buildSiteUrl, isIndexable)
+│   │   ├── feature-access.ts   # Server-side feature gating (canAccessFeatureServer, assertFeatureAccess)
 │   │   ├── logger.ts           # Structured logging
 │   │   └── errors.ts           # Error handling utilities
 │   ├── routes/
@@ -141,6 +143,8 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 ├── shared/                     # Shared code (client + server)
 │   ├── constants/
 │   │   └── storage.ts          # KV_STORAGE_KEYS, LOCAL_STORAGE_KEYS, COOKIE_NAMES
+│   ├── utils/
+│   │   └── feature-access.ts   # Evaluator registry (evaluateAccess, canAccessFeature)
 │   └── types/
 │       ├── index.ts            # Type exports
 │       ├── tenant-config.ts    # Tenant configuration types
@@ -677,12 +681,44 @@ The `@nuxtjs/seo` meta-module provides dynamic `robots.txt`, `sitemap.xml`, and 
 
 ### Analytics & Consent (GDPR)
 
-Analytics scripts (GA/GTM) load through `@nuxt/scripts` registry composables in `app/plugins/tenant-analytics.ts`. Two gates must pass before scripts fire:
+Analytics scripts (GA/GTM) load through `@nuxt/scripts` registry composables in `app/plugins/tenant-analytics.ts`. Three gates must pass before scripts fire:
 
-1. **Feature flag** — `NUXT_PUBLIC_FEATURES_ANALYTICS=true`
-2. **User consent** — `useAnalyticsConsent().consent.value === true`
+1. **Runtime feature flag** — `NUXT_PUBLIC_FEATURES_ANALYTICS=true`
+2. **Tenant feature** — `hasFeature('analytics')` (tenant config)
+3. **User consent** — `useAnalyticsConsent().consent.value === true`
 
 The `useAnalyticsConsent()` composable stores consent per-tenant in localStorage (`analytics-consent-{tenantId}`) via VueUse `useStorage`. Default is `false`. The plugin uses `useScriptTriggerConsent({ consent })` to keep scripts dormant until consent is granted.
+
+---
+
+## Feature Access Control
+
+The feature access system provides two levels of checks across client and server:
+
+- **`hasFeature(name)`** — simple "is it enabled?" (checks `.enabled` only). Use in templates for UI visibility.
+- **`canAccess(name)` / `canAccessFeatureServer()`** — full evaluation (`.enabled` + `.access` rules: auth, role, group). Use when authorization matters.
+
+### Architecture
+
+```
+shared/utils/feature-access.ts    → Pure evaluator registry (strategy pattern)
+app/composables/useFeatureAccess.ts → canAccess() — combines useTenant() + useAuthStore()
+server/utils/feature-access.ts    → canAccessFeatureServer(), assertFeatureAccess() (throws 403)
+app/middleware/feature.ts         → Route guard using canAccess()
+```
+
+### Access Rules
+
+| Rule                     | Behavior                                   |
+| ------------------------ | ------------------------------------------ |
+| `'all'`                  | Everyone                                   |
+| `'authenticated'`        | Logged-in users only                       |
+| `{ role: 'wholesale' }`  | Matches `user.customerType` from Geins     |
+| `{ group: 'staff' }`     | Not yet available in Geins API (safe deny) |
+| `{ accountType: 'ent' }` | Not yet available in Geins API (safe deny) |
+| _(no access field)_      | Defaults to `'all'`                        |
+
+See [Patterns: Feature Access Control](patterns/README.md#feature-access-control) for implementation examples.
 
 ---
 
