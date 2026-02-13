@@ -65,10 +65,14 @@ export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
  * @param localeOverride - Optional locale to use instead of the SDK default.
  *   Pass the user's i18n locale (from `getRequestLocale()`) to keep
  *   GraphQL queries in sync with the UI language.
+ * @param marketOverride - Optional market to use instead of the SDK default.
+ *   Pass the user's market preference (from `getRequestMarket()`) to keep
+ *   GraphQL queries in sync with the selected market.
  */
 export function getChannelVariables(
   sdk: TenantSDK,
   localeOverride?: string,
+  marketOverride?: string,
 ): {
   channelId: string;
   languageId: string;
@@ -78,8 +82,28 @@ export function getChannelVariables(
   return {
     channelId: settings.channel,
     languageId: localeOverride ?? settings.locale,
-    marketId: settings.market,
+    marketId: marketOverride ?? settings.market,
   };
+}
+
+/**
+ * Composes getChannelVariables with request-level locale and market cookies.
+ * Use this in service functions to automatically pipe the user's preferences
+ * into GraphQL queries.
+ */
+export function getRequestChannelVariables(
+  sdk: TenantSDK,
+  event: H3Event,
+): {
+  channelId: string;
+  languageId: string;
+  marketId: string;
+} {
+  return getChannelVariables(
+    sdk,
+    getRequestLocale(event),
+    getRequestMarket(event),
+  );
 }
 
 /**

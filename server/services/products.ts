@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3';
-import { getTenantSDK, getChannelVariables } from './_sdk';
+import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 import { loadQuery } from './graphql/loader';
 
 /**
@@ -15,7 +15,7 @@ export async function getProduct(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.query({
     queryAsString: loadQuery('products/product.graphql'),
-    variables: { alias: args.alias, ...getChannelVariables(sdk) },
+    variables: { alias: args.alias, ...getRequestChannelVariables(sdk, event) },
   });
 }
 
@@ -26,7 +26,7 @@ export async function getRelatedProducts(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.query({
     queryAsString: loadQuery('products/related-products.graphql'),
-    variables: { alias: args.alias, ...getChannelVariables(sdk) },
+    variables: { alias: args.alias, ...getRequestChannelVariables(sdk, event) },
   });
 }
 
@@ -37,7 +37,7 @@ export async function getReviews(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.query({
     queryAsString: loadQuery('products/reviews.graphql'),
-    variables: { ...args, ...getChannelVariables(sdk) },
+    variables: { ...args, ...getRequestChannelVariables(sdk, event) },
   });
 }
 
@@ -48,7 +48,7 @@ export async function getPriceHistory(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.query({
     queryAsString: loadQuery('products/price-history.graphql'),
-    variables: { alias: args.alias, ...getChannelVariables(sdk) },
+    variables: { alias: args.alias, ...getRequestChannelVariables(sdk, event) },
   });
 }
 
@@ -59,7 +59,7 @@ export async function postReview(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.mutation({
     queryAsString: loadQuery('products/post-review.graphql'),
-    variables: { ...args, ...getChannelVariables(sdk) },
+    variables: { ...args, ...getRequestChannelVariables(sdk, event) },
   });
 }
 
@@ -70,6 +70,6 @@ export async function monitorAvailability(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.mutation({
     queryAsString: loadQuery('products/monitor-availability.graphql'),
-    variables: { ...args, ...getChannelVariables(sdk) },
+    variables: { ...args, ...getRequestChannelVariables(sdk, event) },
   });
 }

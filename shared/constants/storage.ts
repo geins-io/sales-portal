@@ -39,5 +39,6 @@ export const COOKIE_NAMES = {
   REFRESH_TOKEN: 'refresh_token',
   TENANT_ID: 'tenant_id',
   LOCALE: 'i18n_redirected',
+  MARKET: 'market',
   CART_ID: 'cart_id',
 } as const;

@@ -92,3 +92,8 @@ Tenant flows through: Server plugin → `event.context.tenant` → `/api/config`
 **Format:** See [ADR template](docs/adr/_template.md)
 
 **Don't over-document** - if it's obvious from the code, skip it.
+
+## Design Principles
+
+- **Modularity**: each concern (locale, market, theme, access) is independently replaceable. Single-purpose server utils that compose rather than inherit.
+- **Isolation test**: "If I ripped this out, what else would break?" — the answer should be "nothing outside its own directory."

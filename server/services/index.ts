@@ -16,4 +16,9 @@ export * as channels from './channels';
 export * as newsletter from './newsletter';
 
 // SDK factory
-export { getTenantSDK, createTenantSDK, getChannelVariables } from './_sdk';
+export {
+  getTenantSDK,
+  createTenantSDK,
+  getChannelVariables,
+  getRequestChannelVariables,
+} from './_sdk';

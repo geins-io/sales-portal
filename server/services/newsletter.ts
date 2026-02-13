@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3';
-import { getTenantSDK, getChannelVariables } from './_sdk';
+import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 import { loadQuery } from './graphql/loader';
 
 export async function subscribe(
@@ -9,6 +9,6 @@ export async function subscribe(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.mutation({
     queryAsString: loadQuery('newsletter/subscribe.graphql'),
-    variables: { email: args.email, ...getChannelVariables(sdk) },
+    variables: { email: args.email, ...getRequestChannelVariables(sdk, event) },
   });
 }

@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3';
 import { getTenant } from '../utils/tenant';
 import { buildSiteUrl, isIndexable } from '../utils/seo';
+import { getRequestLocale } from '../utils/locale';
 
 interface SiteConfigInitContext {
   event: H3Event;
@@ -30,6 +31,8 @@ export default defineNitroPlugin((nitroApp) => {
       const tenant = await getTenant(hostname, event);
       if (!tenant) return;
 
+      const requestLocale = getRequestLocale(event);
+
       siteConfig.push({
         _context: 'tenant-seo',
         _priority: 10,
@@ -37,7 +40,7 @@ export default defineNitroPlugin((nitroApp) => {
         name: tenant.branding.name,
         description: tenant.seo?.defaultDescription ?? '',
         defaultLocale: tenant.geinsSettings.locale,
-        currentLocale: tenant.geinsSettings.locale,
+        currentLocale: requestLocale ?? tenant.geinsSettings.locale,
         indexable: isIndexable(tenant.seo?.robots),
       });
     },

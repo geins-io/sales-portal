@@ -12,7 +12,11 @@
     "back": "Tillbaka",
     "copy": "Kopiera",
     "open_menu": "Öppna meny",
-    "no_results_found": "Inga resultat hittades."
+    "no_results_found": "Inga resultat hittades.",
+    "language": "Språk",
+    "change_language": "Byt språk",
+    "market": "Marknad",
+    "change_market": "Byt marknad"
   },
   "auth": {
     "login": "Logga in",

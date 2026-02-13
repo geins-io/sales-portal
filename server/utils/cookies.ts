@@ -93,3 +93,17 @@ export function setCartCookie(event: H3Event, cartId: string) {
 export function getCartCookie(event: H3Event) {
   return getCookie(event, COOKIE_NAMES.CART_ID);
 }
+
+// --- Market cookie ---
+
+export function setMarketCookie(event: H3Event, market: string) {
+  setCookie(event, COOKIE_NAMES.MARKET, market, {
+    ...cookieDefaults(),
+    httpOnly: false, // client needs to read for UI
+    maxAge: 365 * 24 * 60 * 60, // 1 year
+  });
+}
+
+export function getMarketCookie(event: H3Event) {
+  return getCookie(event, COOKIE_NAMES.MARKET);
+}

@@ -102,6 +102,8 @@ export async function getPublicConfig(
     css: config.css,
     isActive: config.isActive,
     locale: config.geinsSettings?.locale,
+    market: config.geinsSettings?.market,
     availableLocales: config.geinsSettings?.availableLocales ?? [],
+    availableMarkets: config.geinsSettings?.availableMarkets ?? [],
   };
 }

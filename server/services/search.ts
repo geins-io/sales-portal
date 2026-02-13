@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3';
-import { getTenantSDK, getChannelVariables } from './_sdk';
+import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 import { loadQuery } from './graphql/loader';
 
 export async function searchProducts(
@@ -9,6 +9,9 @@ export async function searchProducts(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.query({
     queryAsString: loadQuery('search/search.graphql'),
-    variables: { filter: args.filter, ...getChannelVariables(sdk) },
+    variables: {
+      filter: args.filter,
+      ...getRequestChannelVariables(sdk, event),
+    },
   });
 }
