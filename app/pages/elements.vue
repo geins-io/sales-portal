@@ -979,5 +979,59 @@ const dialogOpen = ref(false);
     </section>
 
     <Separator />
+
+    <!-- Locale & Market Switchers -->
+    <section class="space-y-4">
+      <h2 class="text-2xl font-semibold">Locale & Market Switchers</h2>
+      <p class="text-muted-foreground text-sm">
+        Hidden when only one option is available. Uses tenant's
+        <code class="bg-muted rounded px-1">availableLocales</code> and
+        <code class="bg-muted rounded px-1">availableMarkets</code>.
+      </p>
+
+      <div class="space-y-3">
+        <h3 class="text-lg font-medium">LocaleSwitcher</h3>
+        <div class="flex flex-wrap items-center gap-8">
+          <div class="space-y-1 text-center">
+            <LocaleSwitcher />
+            <p class="text-muted-foreground text-xs">
+              variant="icon" (default)
+            </p>
+          </div>
+          <div class="space-y-1 text-center">
+            <LocaleSwitcher variant="text" />
+            <p class="text-muted-foreground text-xs">variant="text"</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <LocaleSwitcher variant="inline" />
+            <p class="text-muted-foreground text-xs">variant="inline"</p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div class="space-y-3">
+        <h3 class="text-lg font-medium">MarketSwitcher</h3>
+        <div class="flex flex-wrap items-center gap-8">
+          <div class="space-y-1 text-center">
+            <MarketSwitcher />
+            <p class="text-muted-foreground text-xs">
+              variant="icon" (default)
+            </p>
+          </div>
+          <div class="space-y-1 text-center">
+            <MarketSwitcher variant="text" />
+            <p class="text-muted-foreground text-xs">variant="text"</p>
+          </div>
+          <div class="space-y-1 text-center">
+            <MarketSwitcher variant="inline" />
+            <p class="text-muted-foreground text-xs">variant="inline"</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <Separator />
   </div>
 </template>

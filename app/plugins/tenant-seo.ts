@@ -4,11 +4,14 @@
  *
  * Runs after tenant-theme (which handles visual theming: CSS, fonts, favicon).
  */
+import type { Composer } from 'vue-i18n';
+
 export default defineNuxtPlugin({
   name: 'tenant-seo',
   dependsOn: ['tenant-theme'],
-  async setup() {
+  async setup(nuxtApp) {
     const { tenant, brandName, hostname, ogImageUrl, suspense } = useTenant();
+    const i18n = nuxtApp.$i18n as Composer;
 
     await suspense();
 
@@ -16,7 +19,7 @@ export default defineNuxtPlugin({
 
     const seo = tenant.value.seo;
     const contact = tenant.value.contact;
-    const locale = tenant.value.locale ?? 'en';
+    const locale = i18n.locale.value || tenant.value.locale || 'en';
 
     // Build meta tags
     const meta: Array<Record<string, string>> = [];

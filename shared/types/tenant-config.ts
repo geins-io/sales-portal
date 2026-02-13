@@ -143,7 +143,9 @@ export interface PublicTenantConfig {
 
   // Derived from geinsSettings before stripping
   locale?: string;
+  market?: string;
   availableLocales: string[];
+  availableMarkets: string[];
 }
 
 /**

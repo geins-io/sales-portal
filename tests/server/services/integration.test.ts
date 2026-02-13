@@ -43,6 +43,9 @@ vi.stubGlobal('ErrorCode', {
   NOT_FOUND: 'NOT_FOUND',
   VALIDATION_ERROR: 'VALIDATION_ERROR',
 });
+// Locale/market cookie readers — return undefined to use SDK defaults
+vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
 
 const runIntegration = hasGeinsCredentials();
 const runCrm = hasCrmCredentials();

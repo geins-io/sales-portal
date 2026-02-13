@@ -49,9 +49,9 @@ URL prefix routing (`prefix_and_default`) can be added later if needed for multi
 
 ### SDK / API sync
 
-- `getChannelVariables()` accepts an optional `localeOverride` parameter
-- Server-side API routes read locale from `i18n_redirected` cookie via `getRequestLocale()`
-- This is opt-in per service — existing services keep working with the tenant default
+- `getChannelVariables()` accepts optional `localeOverride` and `marketOverride` parameters
+- `getRequestChannelVariables(sdk, event)` composes `getChannelVariables` with request-level locale and market cookies — all GraphQL services now use this to automatically pipe user preferences
+- Server-side API routes read locale from `i18n_redirected` cookie via `getRequestLocale()` and market from `market` cookie via `getRequestMarket()`
 
 ## Consequences
 

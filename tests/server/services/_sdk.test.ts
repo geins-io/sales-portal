@@ -67,11 +67,16 @@ const mockCreateAppError = vi.fn((_code: string, message: string) => {
   return err;
 });
 
+const mockGetRequestLocale = vi.fn();
+const mockGetRequestMarket = vi.fn();
+
 vi.stubGlobal('getTenant', mockGetTenant);
 vi.stubGlobal('createAppError', mockCreateAppError);
 vi.stubGlobal('ErrorCode', {
   BAD_REQUEST: 'BAD_REQUEST',
 });
+vi.stubGlobal('getRequestLocale', mockGetRequestLocale);
+vi.stubGlobal('getRequestMarket', mockGetRequestMarket);
 
 const MOCK_GEINS_SETTINGS: GeinsSettings = {
   apiKey: 'test-api-key',
@@ -97,6 +102,7 @@ describe('server/services/_sdk', () => {
   let createTenantSDK: typeof import('../../../server/services/_sdk').createTenantSDK;
   let getTenantSDK: typeof import('../../../server/services/_sdk').getTenantSDK;
   let getChannelVariables: typeof import('../../../server/services/_sdk').getChannelVariables;
+  let getRequestChannelVariables: typeof import('../../../server/services/_sdk').getRequestChannelVariables;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -106,6 +112,7 @@ describe('server/services/_sdk', () => {
     createTenantSDK = mod.createTenantSDK;
     getTenantSDK = mod.getTenantSDK;
     getChannelVariables = mod.getChannelVariables;
+    getRequestChannelVariables = mod.getRequestChannelVariables;
   });
 
   describe('createTenantSDK', () => {
@@ -265,6 +272,73 @@ describe('server/services/_sdk', () => {
     it('should extract channel, locale, and market from SDK settings', () => {
       const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
       const vars = getChannelVariables(sdk);
+
+      expect(vars).toEqual({
+        channelId: '1',
+        languageId: 'sv-SE',
+        marketId: 'se',
+      });
+    });
+
+    it('should use localeOverride when provided', () => {
+      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const vars = getChannelVariables(sdk, 'en');
+
+      expect(vars).toEqual({
+        channelId: '1',
+        languageId: 'en',
+        marketId: 'se',
+      });
+    });
+
+    it('should use marketOverride when provided', () => {
+      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const vars = getChannelVariables(sdk, undefined, 'no');
+
+      expect(vars).toEqual({
+        channelId: '1',
+        languageId: 'sv-SE',
+        marketId: 'no',
+      });
+    });
+
+    it('should use both overrides when provided', () => {
+      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const vars = getChannelVariables(sdk, 'en', 'no');
+
+      expect(vars).toEqual({
+        channelId: '1',
+        languageId: 'en',
+        marketId: 'no',
+      });
+    });
+  });
+
+  describe('getRequestChannelVariables', () => {
+    it('should use locale and market from request cookies', () => {
+      mockGetRequestLocale.mockReturnValue('en');
+      mockGetRequestMarket.mockReturnValue('no');
+
+      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const event = createEvent('test.com');
+      const vars = getRequestChannelVariables(sdk, event);
+
+      expect(vars).toEqual({
+        channelId: '1',
+        languageId: 'en',
+        marketId: 'no',
+      });
+      expect(mockGetRequestLocale).toHaveBeenCalledWith(event);
+      expect(mockGetRequestMarket).toHaveBeenCalledWith(event);
+    });
+
+    it('should fall back to SDK defaults when cookies are not set', () => {
+      mockGetRequestLocale.mockReturnValue(undefined);
+      mockGetRequestMarket.mockReturnValue(undefined);
+
+      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const event = createEvent('test.com');
+      const vars = getRequestChannelVariables(sdk, event);
 
       expect(vars).toEqual({
         channelId: '1',

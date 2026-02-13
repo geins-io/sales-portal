@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3';
-import { getTenantSDK, getChannelVariables } from './_sdk';
+import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 import { loadQuery } from './graphql/loader';
 
 export interface ProductListOptions {
@@ -19,7 +19,7 @@ export async function getProducts(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.query({
     queryAsString: loadQuery('product-lists/products.graphql'),
-    variables: { ...options, ...getChannelVariables(sdk) },
+    variables: { ...options, ...getRequestChannelVariables(sdk, event) },
   });
 }
 
@@ -30,7 +30,7 @@ export async function getFilters(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.query({
     queryAsString: loadQuery('product-lists/list-filters.graphql'),
-    variables: { ...options, ...getChannelVariables(sdk) },
+    variables: { ...options, ...getRequestChannelVariables(sdk, event) },
   });
 }
 
@@ -41,7 +41,7 @@ export async function getCategoryPage(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.query({
     queryAsString: loadQuery('product-lists/category-page.graphql'),
-    variables: { alias: args.alias, ...getChannelVariables(sdk) },
+    variables: { alias: args.alias, ...getRequestChannelVariables(sdk, event) },
   });
 }
 
@@ -52,7 +52,7 @@ export async function getBrandPage(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.query({
     queryAsString: loadQuery('product-lists/brand-page.graphql'),
-    variables: { alias: args.alias, ...getChannelVariables(sdk) },
+    variables: { alias: args.alias, ...getRequestChannelVariables(sdk, event) },
   });
 }
 
@@ -63,6 +63,6 @@ export async function getDiscountCampaignPage(
   const sdk = await getTenantSDK(event);
   return sdk.core.graphql.query({
     queryAsString: loadQuery('product-lists/discount-campaign-page.graphql'),
-    variables: { alias: args.alias, ...getChannelVariables(sdk) },
+    variables: { alias: args.alias, ...getRequestChannelVariables(sdk, event) },
   });
 }

@@ -80,6 +80,7 @@ const mockSDK = {
 vi.mock('../../../server/services/_sdk', () => ({
   getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
   getChannelVariables: vi.fn(),
+  getRequestChannelVariables: vi.fn(),
 }));
 
 // Mock Nitro auto-imports for error handling

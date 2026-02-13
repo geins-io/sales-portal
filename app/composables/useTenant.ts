@@ -72,6 +72,14 @@ export function useTenant() {
     return locales.map((l: string) => l.split('-')[0]);
   });
 
+  /** Available market codes for this tenant (e.g. ['se', 'no', 'dk']). */
+  const availableMarkets = computed(() => {
+    return tenant.value?.availableMarkets ?? [];
+  });
+
+  /** Default market code (e.g. 'se'). */
+  const market = computed(() => tenant.value?.market ?? '');
+
   return {
     tenant,
     tenantId,
@@ -90,6 +98,8 @@ export function useTenant() {
     mode,
     watermark,
     availableLocales,
+    availableMarkets,
+    market,
     features,
     hasFeature,
     suspense: () => asyncData,
