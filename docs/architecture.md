@@ -16,6 +16,7 @@ This document provides a comprehensive overview of the Sales Portal architecture
 - [API Layer](#api-layer)
 - [Configuration](#configuration)
 - [Error Handling & Logging](#error-handling--logging)
+- [SEO & Analytics](#seo--analytics)
 - [Development Guidelines](#development-guidelines)
 
 ---
@@ -75,7 +76,8 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   ├── composables/
 │   │   ├── useTenant.ts        # Tenant data access
 │   │   ├── useRouteResolution.ts # Dynamic route resolution
-│   │   └── useErrorTracking.ts # Error tracking & reporting
+│   │   ├── useErrorTracking.ts # Error tracking & reporting
+│   │   └── useAnalyticsConsent.ts # Per-tenant analytics consent (GDPR)
 │   ├── layouts/
 │   │   └── default.vue         # Default page layout
 │   ├── lib/
@@ -84,7 +86,9 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   └── index.vue           # Homepage
 │   └── plugins/
 │       ├── api.ts              # Custom $api fetch instance
-│       └── tenant-theme.ts     # Runtime theme injection
+│       ├── tenant-theme.ts     # Runtime theme injection (CSS, fonts, favicon)
+│       ├── tenant-seo.ts       # SEO meta tags, lang attr, schema.org
+│       └── tenant-analytics.ts # GA/GTM with consent gating (client-only)
 │
 ├── server/                     # Backend/server code
 │   ├── api/
@@ -122,15 +126,21 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │       └── newsletter/     # Newsletter mutations
 │   ├── plugins/
 │   │   ├── 00.tenant-init.ts   # Tenant initialization
-│   │   └── 01.tenant-context.ts # Request-level tenant context
+│   │   ├── 01.tenant-context.ts # Request-level tenant context
+│   │   └── 03.seo-config.ts    # Per-tenant site-config (URL, locale, indexability)
 │   ├── utils/
 │   │   ├── tenant.ts           # Tenant CRUD operations
 │   │   ├── theme.ts            # OKLCH color derivation
+│   │   ├── seo.ts              # SEO utilities (buildSiteUrl, isIndexable)
 │   │   ├── logger.ts           # Structured logging
 │   │   └── errors.ts           # Error handling utilities
+│   ├── routes/
+│   │   └── llms.txt.ts         # Per-tenant /llms.txt (cached 1h)
 │   └── event-context.d.ts      # H3 context type extensions
 │
 ├── shared/                     # Shared code (client + server)
+│   ├── constants/
+│   │   └── storage.ts          # KV_STORAGE_KEYS, LOCAL_STORAGE_KEYS, COOKIE_NAMES
 │   └── types/
 │       ├── index.ts            # Type exports
 │       ├── tenant-config.ts    # Tenant configuration types
@@ -654,10 +664,32 @@ pnpm preview
 
 ---
 
+## SEO & Analytics
+
+### SEO Foundation ([ADR-008](adr/008-seo-foundation.md))
+
+The `@nuxtjs/seo` meta-module provides dynamic `robots.txt`, `sitemap.xml`, and `schema.org` structured data. All config is per-tenant:
+
+- **Server plugin** (`server/plugins/03.seo-config.ts`) — overrides `site-config` per-request with tenant URL, name, locale, and indexability
+- **Client plugin** (`app/plugins/tenant-seo.ts`) — sets meta tags (`og:locale`, `og:image`, `twitter:card`, verification codes), `lang` attribute, `titleTemplate`, and Organization + WebSite JSON-LD
+- **Server utility** (`server/utils/seo.ts`) — `buildSiteUrl()` and `isIndexable()` helpers
+- **LLM route** (`server/routes/llms.txt.ts`) — per-tenant `/llms.txt` with 1-hour cache
+
+### Analytics & Consent (GDPR)
+
+Analytics scripts (GA/GTM) load through `@nuxt/scripts` registry composables in `app/plugins/tenant-analytics.ts`. Two gates must pass before scripts fire:
+
+1. **Feature flag** — `NUXT_PUBLIC_FEATURES_ANALYTICS=true`
+2. **User consent** — `useAnalyticsConsent().consent.value === true`
+
+The `useAnalyticsConsent()` composable stores consent per-tenant in localStorage (`analytics-consent-{tenantId}`) via VueUse `useStorage`. Default is `false`. The plugin uses `useScriptTriggerConsent({ consent })` to keep scripts dormant until consent is granted.
+
+---
+
 ## Future Considerations
 
 - **Admin Dashboard**: Self-service tenant management
-- **Analytics Integration**: Per-tenant analytics tracking
+- **Cookie Banner UI**: Component calling `useAnalyticsConsent().accept()`/`revoke()`
 - **CDN & Caching**: Edge caching for static assets
 - **A/B Testing**: Feature flagging per tenant
 

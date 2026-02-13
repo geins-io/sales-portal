@@ -149,6 +149,40 @@ import { COOKIE_NAMES } from '#shared/constants/storage';
 // COOKIE_NAMES.AUTH_TOKEN, COOKIE_NAMES.REFRESH_TOKEN, etc.
 ```
 
+## Analytics & Consent
+
+Analytics requires two gates: the `NUXT_PUBLIC_FEATURES_ANALYTICS` feature flag AND user consent via `useAnalyticsConsent()`.
+
+### Checking consent status
+
+```typescript
+const { consent } = useAnalyticsConsent();
+// consent.value is false until accept() is called
+```
+
+### Cookie banner (future component)
+
+```vue
+<script setup>
+const { consent, accept, revoke } = useAnalyticsConsent();
+</script>
+
+<template>
+  <div v-if="!consent">
+    <p>We use cookies for analytics.</p>
+    <button @click="accept">Accept</button>
+  </div>
+</template>
+```
+
+### Storage key constants
+
+```typescript
+import { LOCAL_STORAGE_KEYS } from '#shared/constants/storage';
+// LOCAL_STORAGE_KEYS.ANALYTICS_CONSENT_PREFIX → 'analytics-consent-'
+// Full key: 'analytics-consent-{tenantId}'
+```
+
 ## Error Handling
 
 ### Page with Error Recovery

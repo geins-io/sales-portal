@@ -13,6 +13,7 @@ ADRs document significant architectural decisions with context and consequences.
 | 005 | [Internationalization with @nuxtjs/i18n](005-internationalization.md)              | accepted | 2026-02-09 |
 | 006 | [Cookie utility module](006-cookie-utility-module.md)                              | accepted | 2026-02-10 |
 | 007 | [Tenant config schema & service layer](007-tenant-config-schema-service-layer.md)  | accepted | 2026-02-11 |
+| 008 | [SEO Foundation with @nuxtjs/seo](008-seo-foundation.md)                           | accepted | 2026-02-12 |
 
 ## Adding New ADRs
 

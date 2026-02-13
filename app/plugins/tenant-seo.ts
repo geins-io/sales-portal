@@ -25,10 +25,6 @@ export default defineNuxtPlugin({
       meta.push({ name: 'description', content: seo.defaultDescription });
     }
 
-    if (seo?.defaultKeywords?.length) {
-      meta.push({ name: 'keywords', content: seo.defaultKeywords.join(', ') });
-    }
-
     if (seo?.robots) {
       meta.push({ name: 'robots', content: seo.robots });
     }
@@ -36,9 +32,25 @@ export default defineNuxtPlugin({
     // Open Graph basics
     meta.push({ property: 'og:site_name', content: brandName.value });
     meta.push({ property: 'og:type', content: 'website' });
+    meta.push({
+      property: 'og:locale',
+      content: locale.replace('-', '_'),
+    });
 
     if (ogImageUrl.value) {
       meta.push({ property: 'og:image', content: ogImageUrl.value });
+    }
+
+    // Twitter Card
+    meta.push({ name: 'twitter:card', content: 'summary_large_image' });
+    if (ogImageUrl.value) {
+      meta.push({ name: 'twitter:image', content: ogImageUrl.value });
+    }
+
+    // Browser theme color (address bar, task switcher)
+    const primaryColor = tenant.value.theme?.colors?.primary;
+    if (primaryColor) {
+      meta.push({ name: 'theme-color', content: primaryColor as string });
     }
 
     // Search engine verification
@@ -56,6 +68,7 @@ export default defineNuxtPlugin({
     const titleTemplate = seo?.titleTemplate ?? `%s - ${brandName.value}`;
 
     useHead({
+      title: seo?.defaultTitle || undefined,
       titleTemplate,
       htmlAttrs: {
         lang: locale,
@@ -78,6 +91,7 @@ export default defineNuxtPlugin({
     if (contact?.email || contact?.phone) {
       orgSchema.contactPoint = {
         '@type': 'ContactPoint',
+        contactType: 'customer service',
         ...(contact.email && { email: contact.email }),
         ...(contact.phone && { telephone: contact.phone }),
       };
