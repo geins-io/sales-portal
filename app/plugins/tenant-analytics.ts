@@ -15,15 +15,18 @@ export default defineNuxtPlugin({
     // Analytics only makes sense on the client
     if (import.meta.server) return;
 
-    const { tenant, suspense } = useTenant();
+    const { tenant, hasFeature, suspense } = useTenant();
 
     await suspense();
 
     if (!tenant.value?.isActive) return;
 
-    // Check the feature flag
+    // Gate 1: global runtime config kill switch
     const config = useRuntimeConfig();
     if (!config.public.features.analytics) return;
+
+    // Gate 2: per-tenant feature flag
+    if (!hasFeature('analytics')) return;
 
     const gaId = tenant.value.seo?.googleAnalyticsId;
     const gtmId = tenant.value.seo?.googleTagManagerId;

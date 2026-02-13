@@ -84,6 +84,66 @@ export default defineEventHandler(async (event) => {
 });
 ```
 
+## Feature Access Control
+
+Two levels of feature checks:
+
+- **`hasFeature(name)`** — simple "is it enabled?" check (`.enabled` only). Use in templates for UI visibility.
+- **`canAccess(name)`** — full access evaluation (`.enabled` + `.access` rules: auth, role, group, etc.). Use when access control matters.
+
+### Client-side — template gating
+
+```vue
+<script setup>
+const { hasFeature } = useTenant();
+const { canAccess } = useFeatureAccess();
+</script>
+
+<template>
+  <!-- Simple: is feature on? -->
+  <SearchBar v-if="hasFeature('search')" />
+
+  <!-- Access-controlled: does the user have permission? -->
+  <QuoteButton v-if="canAccess('quotes')" />
+</template>
+```
+
+### Client-side — route middleware
+
+```vue
+<script setup>
+definePageMeta({
+  middleware: 'feature',
+  feature: 'quotes', // Evaluates canAccess() — checks both enabled + access rules
+});
+</script>
+```
+
+### Server-side — route handler
+
+```typescript
+export default defineEventHandler(async (event) => {
+  const tokens = await optionalAuth(event);
+  await assertFeatureAccess(event, 'quotes', {
+    authenticated: !!tokens,
+    customerType: tokens?.user?.customerType,
+  });
+
+  // Feature is accessible — proceed
+});
+```
+
+### Access rule types
+
+| Rule                     | Behavior                                   |
+| ------------------------ | ------------------------------------------ |
+| `'all'`                  | Everyone                                   |
+| `'authenticated'`        | Logged-in users only                       |
+| `{ role: 'wholesale' }`  | Matches `user.customerType` from Geins     |
+| `{ group: 'staff' }`     | Not yet available in Geins API (safe deny) |
+| `{ accountType: 'ent' }` | Not yet available in Geins API (safe deny) |
+| _(no access field)_      | Defaults to `'all'`                        |
+
 ## Forms
 
 ### Debounced Search

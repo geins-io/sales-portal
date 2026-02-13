@@ -58,6 +58,25 @@ All accessors call `getTenant()` internally (cached via KV storage + SWR).
 
 The Geins platform auto-injects `geinsSettings` into the store-settings API response in its own shape (`channelId: "2|se"`, `defaultLocale`, `locales[]`, etc.). `transformGeinsSettings()` in `server/utils/tenant.ts` normalizes this to our clean internal shape (`channel`, `tld`, `locale`, `availableLocales[]`, `availableMarkets[]`). Service layer consumers always see the internal shape.
 
+### Feature access evaluation
+
+`FeatureAccess` is defined as a standalone type in `shared/types/tenant-config.ts` (not Zod-inferred) so shared utilities can import it without pulling in server/schema code. The Zod schema still validates the same shape.
+
+A strategy-pattern evaluator registry in `shared/utils/feature-access.ts` evaluates access rules:
+
+- `'all'` → everyone
+- `'authenticated'` → logged-in users
+- `{ role }` → matches `user.customerType` from Geins
+- `{ group }` / `{ accountType }` → safe deny (not yet available in Geins API)
+
+Consumer API:
+
+- **Client:** `useFeatureAccess().canAccess('cart')` — combines `useTenant()` + auth store
+- **Server:** `canAccessFeatureServer(event, 'cart', user)` / `assertFeatureAccess(event, 'cart', user)` — reads features from tenant config service
+- **Simple check:** `useTenant().hasFeature('cart')` — `.enabled` only, no access rules
+
+Adding a new rule type = adding one evaluator function + extending `UserContext`. Consumer API unchanged.
+
 ### Color derivation
 
 `server/utils/theme.ts` provides `deriveThemeColors()` which fills all 26 optional colors from the 6 core colors using OKLCH color-space manipulation. This runs once when building the tenant config and the result is cached.
