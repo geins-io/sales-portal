@@ -1,6 +1,9 @@
 /**
- * Analytics plugin — conditionally loads GA/GTM based on tenant config
- * and the NUXT_PUBLIC_FEATURES_ANALYTICS feature flag.
+ * Analytics plugin — conditionally loads GA/GTM based on tenant config,
+ * the NUXT_PUBLIC_FEATURES_ANALYTICS feature flag, and user consent (GDPR).
+ *
+ * Scripts stay dormant until useAnalyticsConsent().accept() is called
+ * (e.g. from a future cookie banner component).
  *
  * Uses @nuxt/scripts registry composables for privacy-aware, performance-optimized loading.
  * Only runs client-side — analytics scripts serve no purpose during SSR.
@@ -25,12 +28,17 @@ export default defineNuxtPlugin({
     const gaId = tenant.value.seo?.googleAnalyticsId;
     const gtmId = tenant.value.seo?.googleTagManagerId;
 
+    if (!gaId && !gtmId) return;
+
+    const { consent } = useAnalyticsConsent();
+    const trigger = useScriptTriggerConsent({ consent });
+
     if (gaId) {
-      useScriptGoogleAnalytics({ id: gaId });
+      useScriptGoogleAnalytics({ id: gaId, scriptOptions: { trigger } });
     }
 
     if (gtmId) {
-      useScriptGoogleTagManager({ id: gtmId });
+      useScriptGoogleTagManager({ id: gtmId, scriptOptions: { trigger } });
     }
   },
 });

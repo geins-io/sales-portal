@@ -40,9 +40,22 @@ A Nitro plugin (`server/plugins/03.seo-config.ts`) hooks into `site-config:init`
 
 Analytics (GA/GTM) is handled by `@nuxt/scripts` registry composables (`useScriptGoogleAnalytics`, `useScriptGoogleTagManager`) rather than direct `<script>` injection. This provides privacy-aware loading with consent management hooks and performance optimization via deferred loading. A client-only plugin (`tenant-analytics.ts`) gated by the `NUXT_PUBLIC_FEATURES_ANALYTICS` feature flag loads scripts based on tenant config.
 
+### GDPR consent gating
+
+Analytics scripts require two gates before loading:
+
+1. **Feature flag** — `NUXT_PUBLIC_FEATURES_ANALYTICS` must be `true`
+2. **User consent** — `useAnalyticsConsent().consent` must be `true`
+
+The `useAnalyticsConsent()` composable stores per-tenant consent in localStorage (key: `analytics-consent-{tenantId}`) via VueUse's `useStorage`. Default is `false` — scripts stay dormant until `accept()` is called. The plugin passes `useScriptTriggerConsent({ consent })` as the `trigger` in `scriptOptions` for both GA and GTM.
+
+Consent revocation (`revoke()`) prevents scripts from loading on the next page load. Already-loaded scripts in the current session are not removed — this is standard GDPR practice.
+
+No cookie banner UI is included — just the plumbing. A future ticket will build the banner component that calls `accept()`/`revoke()`.
+
 ### Schema.org strategy
 
-- **Current:** Organization + WebSite schemas set globally in the `tenant-seo` plugin
+- **Current:** Organization + WebSite schemas built inline in the `tenant-seo` plugin (no separate builder utilities — single call site doesn't justify the abstraction)
 - **Future:** Product, BreadcrumbList, Review schemas on product/category pages once data retrieval is built
 
 ### llms.txt

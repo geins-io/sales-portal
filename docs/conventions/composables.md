@@ -52,12 +52,13 @@ export function useSomething() {
 
 ## Existing Composables
 
-| Composable             | Purpose                  | When to Use                     |
-| ---------------------- | ------------------------ | ------------------------------- |
-| `useTenant()`          | Tenant config access     | Any tenant-aware component      |
-| `useTenantTheme()`     | Theme colors/typography  | Styling that needs theme values |
-| `useRouteResolution()` | Dynamic route resolution | Catch-all route pages           |
-| `useErrorTracking()`   | Error reporting          | Error boundaries, try/catch     |
+| Composable              | Purpose                  | When to Use                     |
+| ----------------------- | ------------------------ | ------------------------------- |
+| `useTenant()`           | Tenant config access     | Any tenant-aware component      |
+| `useTenantTheme()`      | Theme colors/typography  | Styling that needs theme values |
+| `useRouteResolution()`  | Dynamic route resolution | Catch-all route pages           |
+| `useErrorTracking()`    | Error reporting          | Error boundaries, try/catch     |
+| `useAnalyticsConsent()` | Analytics consent state  | Cookie banner, analytics gating |
 
 ## API Data in Composables
 

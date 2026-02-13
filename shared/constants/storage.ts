@@ -23,6 +23,17 @@ export type KvStorageKeys = typeof KV_STORAGE_KEYS;
 /**
  * Cookie name constants used by both server and client
  */
+/**
+ * LocalStorage key prefixes used by client-side composables
+ */
+export const LOCAL_STORAGE_KEYS = {
+  /** Prefix for per-tenant analytics consent flag */
+  ANALYTICS_CONSENT_PREFIX: 'analytics-consent-',
+} as const;
+
+/**
+ * Cookie name constants used by both server and client
+ */
 export const COOKIE_NAMES = {
   AUTH_TOKEN: 'auth_token',
   REFRESH_TOKEN: 'refresh_token',
