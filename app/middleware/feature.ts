@@ -3,7 +3,8 @@ import { logger } from '~/utils/logger';
 /**
  * Feature Flag Middleware
  *
- * Checks if a required feature is enabled for the current tenant.
+ * Checks if a required feature is accessible for the current user and tenant.
+ * Evaluates both `.enabled` and `.access` rules (auth state, role, etc.).
  * Redirects to home if the feature is not available.
  *
  * This middleware waits for tenant data to be loaded before checking
@@ -26,15 +27,18 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return;
   }
 
-  const { hasFeature, tenant, suspense } = useTenant();
+  const { tenant, suspense } = useTenant();
+  const { canAccess } = useFeatureAccess();
 
   // Ensure tenant data is loaded before checking features
   if (!tenant.value) {
     await suspense();
   }
 
-  if (!hasFeature(requiredFeature)) {
-    logger.debug(`Feature "${requiredFeature}" is not enabled for this tenant`);
+  if (!canAccess(requiredFeature)) {
+    logger.debug(
+      `Feature "${requiredFeature}" is not accessible for this user/tenant`,
+    );
     return navigateTo('/');
   }
 });

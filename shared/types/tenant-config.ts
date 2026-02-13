@@ -5,12 +5,22 @@ export type {
   ThemeTypography,
   GeinsSettings,
   BrandingConfig,
-  FeatureAccess,
   FeatureConfig,
   SeoConfig,
   ContactConfig,
   OverrideConfig,
 } from '../../server/schemas/store-settings';
+
+/**
+ * Feature access control — who can access a feature.
+ * Standalone type so shared/ utilities don't depend on server/schemas/.
+ */
+export type FeatureAccess =
+  | 'all'
+  | 'authenticated'
+  | { group: string }
+  | { role: string }
+  | { accountType: string };
 
 /**
  * Full tenant configuration — StoreSettings from API + computed fields.
@@ -63,7 +73,7 @@ export interface TenantConfig {
   };
 
   // Features — keyed by feature name
-  features: Record<string, { enabled: boolean; access?: unknown }>;
+  features: Record<string, { enabled: boolean; access?: FeatureAccess }>;
 
   // Optional sections
   seo?: {
@@ -98,7 +108,10 @@ export interface TenantConfig {
   // Overrides
   overrides?: {
     css?: Record<string, string> | null;
-    features?: Record<string, { enabled: boolean; access?: unknown }> | null;
+    features?: Record<
+      string,
+      { enabled: boolean; access?: FeatureAccess }
+    > | null;
   } | null;
 
   // Computed fields (added by server during fetch)

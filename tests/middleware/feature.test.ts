@@ -1,10 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref, computed } from 'vue';
+import { canAccessFeature } from '../../shared/utils/feature-access';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import type { RouteLocationNormalized } from 'vue-router';
 
 // Create mock tenant data
 const mockTenantData = ref<PublicTenantConfig | null>(null);
+
+// Mock auth state
+let mockAuth: {
+  isAuthenticated: boolean;
+  user: { customerType?: string } | null;
+};
 
 // Track suspense calls
 let suspenseResolve: () => void;
@@ -22,12 +29,19 @@ resetSuspensePromise();
 // Create mock useTenant function (new features shape: Record<string, { enabled, access? }>)
 const mockUseTenant = vi.fn(() => ({
   tenant: computed(() => mockTenantData.value),
-  hasFeature: (featureName: string): boolean => {
-    const feature = mockTenantData.value?.features?.[featureName];
-    if (!feature) return false;
-    return feature.enabled;
-  },
+  features: computed(() => mockTenantData.value?.features),
   suspense: () => suspensePromise,
+}));
+
+// Create mock useFeatureAccess
+const mockUseFeatureAccess = vi.fn(() => ({
+  canAccess: (featureName: string) => {
+    const feature = mockTenantData.value?.features?.[featureName];
+    return canAccessFeature(feature, {
+      authenticated: mockAuth.isAuthenticated,
+      customerType: mockAuth.user?.customerType,
+    });
+  },
 }));
 
 // Mock navigateTo
@@ -43,11 +57,16 @@ vi.mock('#app', () => ({
 vi.mock('#imports', () => ({
   navigateTo: (path: string) => mockNavigateTo(path),
   useTenant: () => mockUseTenant(),
+  useFeatureAccess: () => mockUseFeatureAccess(),
 }));
 
-// Mock the composables module
+// Mock the composables modules
 vi.mock('../../app/composables/useTenant', () => ({
   useTenant: () => mockUseTenant(),
+}));
+
+vi.mock('../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => mockUseFeatureAccess(),
 }));
 
 // Create mock tenant config for tests
@@ -114,13 +133,14 @@ describe('feature middleware', () => {
         return;
       }
 
-      const { hasFeature, tenant, suspense } = mockUseTenant();
+      const { tenant, suspense } = mockUseTenant();
+      const { canAccess } = mockUseFeatureAccess();
 
       if (!tenant.value) {
         await suspense();
       }
 
-      if (!hasFeature(requiredFeature)) {
+      if (!canAccess(requiredFeature)) {
         return mockNavigateTo('/');
       }
     };
@@ -130,7 +150,9 @@ describe('feature middleware', () => {
 
   beforeEach(() => {
     mockTenantData.value = null;
+    mockAuth = { isAuthenticated: false, user: null };
     mockUseTenant.mockClear();
+    mockUseFeatureAccess.mockClear();
     mockNavigateTo.mockClear();
     resetSuspensePromise();
 
@@ -228,6 +250,68 @@ describe('feature middleware', () => {
       expect(result).toBeUndefined();
       expect(mockNavigateTo).not.toHaveBeenCalled();
       expect(mockUseTenant).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('access control', () => {
+    it('should redirect when feature requires auth and user is anonymous', async () => {
+      mockTenantData.value = createMockTenantConfig({
+        features: {
+          cart: { enabled: true, access: 'authenticated' },
+        },
+      });
+      const route = createMockRoute({ feature: 'cart' });
+
+      await featureMiddleware(route);
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/');
+    });
+
+    it('should allow access when feature requires auth and user is logged in', async () => {
+      mockAuth = { isAuthenticated: true, user: {} };
+      mockTenantData.value = createMockTenantConfig({
+        features: {
+          cart: { enabled: true, access: 'authenticated' },
+        },
+      });
+      const route = createMockRoute({ feature: 'cart' });
+
+      const result = await featureMiddleware(route);
+
+      expect(result).toBeUndefined();
+      expect(mockNavigateTo).not.toHaveBeenCalled();
+    });
+
+    it('should redirect when feature requires a role the user does not have', async () => {
+      mockAuth = { isAuthenticated: true, user: { customerType: 'retail' } };
+      mockTenantData.value = createMockTenantConfig({
+        features: {
+          quotes: { enabled: true, access: { role: 'wholesale' } },
+        },
+      });
+      const route = createMockRoute({ feature: 'quotes' });
+
+      await featureMiddleware(route);
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/');
+    });
+
+    it('should allow access when user has the required role', async () => {
+      mockAuth = {
+        isAuthenticated: true,
+        user: { customerType: 'wholesale' },
+      };
+      mockTenantData.value = createMockTenantConfig({
+        features: {
+          quotes: { enabled: true, access: { role: 'wholesale' } },
+        },
+      });
+      const route = createMockRoute({ feature: 'quotes' });
+
+      const result = await featureMiddleware(route);
+
+      expect(result).toBeUndefined();
+      expect(mockNavigateTo).not.toHaveBeenCalled();
     });
   });
 
