@@ -225,6 +225,17 @@ export default defineNuxtConfig({
     payloadExtraction: true,
   },
 
+  // Route-level caching for static pages
+  // SWR: serve stale response immediately, revalidate in background
+  // Nitro uses the full request URL (including host) as cache key,
+  // providing multi-tenant isolation automatically
+  routeRules: {
+    '/': { swr: 300 },
+    '/login': { swr: 300 },
+    '/portal': { swr: 300 },
+    '/portal/login': { swr: 300 },
+  },
+
   // Vite configuration
   vite: {
     server: {

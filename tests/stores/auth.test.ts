@@ -318,6 +318,38 @@ describe('useAuthStore', () => {
       expect(store.user).toBeNull();
       expect(store.isInitialized).toBe(true);
     });
+
+    it('should deduplicate concurrent fetchUser calls', async () => {
+      const store = useAuthStore();
+      let resolveCount = 0;
+      mockFetchImpl.mockImplementation(() => {
+        resolveCount++;
+        return Promise.resolve({ user: mockUser });
+      });
+
+      // Call fetchUser three times concurrently
+      await Promise.all([
+        store.fetchUser(),
+        store.fetchUser(),
+        store.fetchUser(),
+      ]);
+
+      // Should only have made ONE $fetch call
+      expect(resolveCount).toBe(1);
+      expect(store.user).toEqual(mockUser);
+      expect(store.isInitialized).toBe(true);
+    });
+
+    it('should allow a new fetchUser call after the first completes', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockResolvedValue({ user: mockUser });
+
+      await store.fetchUser();
+      expect(mockFetchImpl).toHaveBeenCalledTimes(1);
+
+      await store.fetchUser();
+      expect(mockFetchImpl).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('setUser action', () => {
