@@ -1,6 +1,11 @@
 import type { MaybeRefOrGetter } from 'vue';
 import type { RouteResolution } from '#shared/types';
 
+// Client-side route resolution cache (module-scoped, lives for the SPA session).
+// On the server this is a fresh Map per request (module re-evaluated per SSR request in prod,
+// shared in dev but harmless since server-side useAsyncData transfers via payload anyway).
+export const _routeCache = new Map<string, RouteResolution>();
+
 /**
  * Normalizes a route parameter (slug) into a consistent path format.
  *
@@ -51,10 +56,42 @@ export function normalizeSlugToPath(
 export function useRouteResolution(path: MaybeRefOrGetter<string>) {
   return useAsyncData<RouteResolution>(
     `route-resolution:${toValue(path)}`,
-    () =>
-      $fetch<RouteResolution>('/api/resolve-route', {
-        query: { path: toValue(path) },
-      }),
+    async () => {
+      const p = toValue(path);
+
+      // Check client-side cache first (populated by prefetch)
+      const cached = _routeCache.get(p);
+      if (cached) return cached;
+
+      const data = await $fetch<RouteResolution>('/api/resolve-route', {
+        query: { path: p },
+      });
+
+      // Cache for subsequent navigations
+      if (import.meta.client) {
+        _routeCache.set(p, data);
+      }
+
+      return data;
+    },
     { watch: [() => toValue(path)] },
   );
+}
+
+/**
+ * Prefetch a route resolution and store it in the client-side cache.
+ * Call on link hover/intersection to eliminate navigation delay.
+ * Best-effort — errors are silently ignored.
+ */
+export async function prefetchRouteResolution(path: string): Promise<void> {
+  if (_routeCache.has(path)) return;
+
+  try {
+    const data = await $fetch<RouteResolution>('/api/resolve-route', {
+      query: { path },
+    });
+    _routeCache.set(path, data);
+  } catch {
+    // Best-effort prefetch
+  }
 }

@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { normalizeSlugToPath } from '../../app/composables/useRouteResolution';
+import {
+  normalizeSlugToPath,
+  prefetchRouteResolution,
+  _routeCache,
+} from '../../app/composables/useRouteResolution';
+
+// Mock $fetch globally
+let mockFetchImpl: ReturnType<typeof vi.fn>;
+vi.stubGlobal('$fetch', (...args: unknown[]) => mockFetchImpl(...args));
 
 describe('normalizeSlugToPath', () => {
   beforeEach(() => {
@@ -102,5 +110,60 @@ describe('normalizeSlugToPath', () => {
         '/Category/PRODUCT',
       );
     });
+  });
+});
+
+describe('prefetchRouteResolution', () => {
+  beforeEach(() => {
+    mockFetchImpl = vi.fn();
+    _routeCache.clear();
+  });
+
+  it('should fetch and cache the route resolution', async () => {
+    const mockResolution = {
+      type: 'category',
+      categoryId: '1',
+      categorySlug: 'shoes',
+    };
+    mockFetchImpl.mockResolvedValueOnce(mockResolution);
+
+    await prefetchRouteResolution('/shoes');
+
+    expect(mockFetchImpl).toHaveBeenCalledWith('/api/resolve-route', {
+      query: { path: '/shoes' },
+    });
+    expect(_routeCache.get('/shoes')).toEqual(mockResolution);
+  });
+
+  it('should not refetch if path is already cached', async () => {
+    const mockResolution = {
+      type: 'page' as const,
+      pageId: '1',
+      pageSlug: 'about',
+    };
+    _routeCache.set('/about', mockResolution);
+
+    await prefetchRouteResolution('/about');
+
+    expect(mockFetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('should silently handle fetch errors', async () => {
+    mockFetchImpl.mockRejectedValueOnce(new Error('Network error'));
+
+    // Should not throw
+    await prefetchRouteResolution('/broken');
+
+    expect(_routeCache.has('/broken')).toBe(false);
+  });
+});
+
+describe('_routeCache', () => {
+  beforeEach(() => {
+    _routeCache.clear();
+  });
+
+  it('should be a Map', () => {
+    expect(_routeCache).toBeInstanceOf(Map);
   });
 });
