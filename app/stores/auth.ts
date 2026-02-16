@@ -13,6 +13,8 @@ interface AuthState {
   error: string | null;
 }
 
+let _fetchPromise: Promise<void> | null = null;
+
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     user: null,
@@ -110,15 +112,22 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async fetchUser(): Promise<void> {
-      try {
-        const response = await $fetch('/api/auth/me');
-        this.user = response.user ?? null;
-      } catch {
-        this.user = null;
-        logger.warn('Failed to fetch current user');
-      } finally {
-        this.isInitialized = true;
-      }
+      if (_fetchPromise) return _fetchPromise;
+
+      _fetchPromise = (async () => {
+        try {
+          const response = await $fetch('/api/auth/me');
+          this.user = response.user ?? null;
+        } catch {
+          this.user = null;
+          logger.warn('Failed to fetch current user');
+        } finally {
+          this.isInitialized = true;
+          _fetchPromise = null;
+        }
+      })();
+
+      return _fetchPromise;
     },
 
     setUser(user: AuthUser) {
