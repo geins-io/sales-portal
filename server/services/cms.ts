@@ -14,7 +14,8 @@ export async function getPage(
   event: H3Event,
 ): Promise<unknown> {
   const { cms } = await getTenantSDK(event);
-  return cms.page.get(args);
+  const preview = getPreviewCookie(event);
+  return cms.page.get({ ...args, ...(preview && { preview: true }) });
 }
 
 export async function getContentArea(
@@ -22,5 +23,6 @@ export async function getContentArea(
   event: H3Event,
 ): Promise<unknown> {
   const { cms } = await getTenantSDK(event);
-  return cms.area.get(args);
+  const preview = getPreviewCookie(event);
+  return cms.area.get({ ...args, ...(preview && { preview: true }) });
 }

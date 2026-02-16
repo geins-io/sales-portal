@@ -94,6 +94,40 @@ export function getCartCookie(event: H3Event) {
   return getCookie(event, COOKIE_NAMES.CART_ID);
 }
 
+// --- Preview cookies ---
+
+export function setPreviewAuthToken(
+  event: H3Event,
+  token: string,
+  maxAge: number = 3600,
+) {
+  setCookie(event, COOKIE_NAMES.AUTH_TOKEN, token, {
+    ...cookieDefaults(),
+    maxAge,
+  });
+}
+
+export function setPreviewCookie(event: H3Event) {
+  setCookie(event, COOKIE_NAMES.PREVIEW_MODE, 'true', {
+    ...cookieDefaults(),
+    httpOnly: false, // client needs to read for banner UI
+    maxAge: 3600,
+  });
+}
+
+export function getPreviewCookie(event: H3Event): boolean {
+  return getCookie(event, COOKIE_NAMES.PREVIEW_MODE) === 'true';
+}
+
+export function clearPreviewCookie(event: H3Event) {
+  deleteCookie(event, COOKIE_NAMES.PREVIEW_MODE, { path: '/' });
+}
+
+export function clearPreviewSession(event: H3Event) {
+  clearAuthCookies(event);
+  clearPreviewCookie(event);
+}
+
 // --- Market cookie ---
 
 export function setMarketCookie(event: H3Event, market: string) {

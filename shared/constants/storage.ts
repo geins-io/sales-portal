@@ -43,4 +43,5 @@ export const COOKIE_NAMES = {
   LOCALE: 'i18n_redirected',
   MARKET: 'market',
   CART_ID: 'cart_id',
+  PREVIEW_MODE: 'preview_mode',
 } as const;
