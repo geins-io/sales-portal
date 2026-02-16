@@ -98,6 +98,9 @@ vi.stubGlobal('ErrorCode', {
   EXTERNAL_API_ERROR: 'EXTERNAL_API_ERROR',
 });
 
+// Mock preview cookie helper (auto-imported in cms.ts)
+vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
+
 const event = {} as H3Event;
 
 describe('SDK-backed services (0.6.0)', () => {

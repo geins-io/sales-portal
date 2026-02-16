@@ -10,5 +10,6 @@
       &lt;/main&gt;
     </main>
     <LayoutFooter />
+    <PreviewBanner />
   </div>
 </template>
