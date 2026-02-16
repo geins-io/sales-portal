@@ -97,6 +97,7 @@ export default defineNuxtConfig({
    * │ NUXT_HEALTH_CHECK_SECRET        │                                      │
    * │ NUXT_EXTERNAL_API_BASE_URL      │                                      │
    * │ NUXT_SENTRY_DSN                 │                                      │
+   * │ NUXT_WEBHOOK_SECRET              │                                      │
    * │ NUXT_LOGGING_VERBOSE_REQUESTS   │                                      │
    * │ NUXT_PUBLIC_FEATURES_ANALYTICS  │                                      │
    * └─────────────────────────────────────────────────────────────────────────┘
@@ -139,6 +140,10 @@ export default defineNuxtConfig({
     sentry: {
       dsn: '',
     },
+
+    // Shared secret for webhook signature verification
+    // Azure: NUXT_WEBHOOK_SECRET=your-shared-secret-here
+    webhookSecret: '',
 
     // Logging configuration
     // Azure: NUXT_LOGGING_VERBOSE_REQUESTS=true

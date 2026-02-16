@@ -13,6 +13,8 @@ export const KV_STORAGE_KEYS = {
   TENANT_ID_PREFIX: 'tenant:id:',
   /** Prefix for tenant configuration storage */
   TENANT_CONFIG_PREFIX: 'tenant:config:',
+  /** Prefix for webhook delivery deduplication */
+  WEBHOOK_PROCESSED_PREFIX: 'webhook:processed:',
 } as const;
 
 /**
