@@ -87,6 +87,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   └── index.vue           # Homepage
 │   └── plugins/
 │       ├── api.ts              # Custom $api fetch instance
+│       ├── auth-init.client.ts # Early auth session check (parallel with tenant)
 │       ├── tenant-theme.ts     # Runtime theme injection (CSS, fonts, favicon)
 │       ├── tenant-seo.ts       # SEO meta tags, lang attr, schema.org
 │       └── tenant-analytics.ts # GA/GTM with consent gating (client-only)
@@ -719,6 +720,41 @@ app/middleware/feature.ts         → Route guard using canAccess()
 | _(no access field)_      | Defaults to `'all'`                        |
 
 See [Patterns: Feature Access Control](patterns/README.md#feature-access-control) for implementation examples.
+
+---
+
+## Performance Optimizations
+
+### Navigation Performance
+
+Client-side navigation latency is reduced through three techniques:
+
+1. **Parallel Auth Initialization** (`app/plugins/auth-init.client.ts`)
+   - Fires `fetchUser()` during plugin init (fire-and-forget, not awaited)
+   - Auth check runs in parallel with `tenant-theme` plugin instead of sequentially in middleware
+   - `fetchUser()` uses promise deduplication — concurrent calls share one in-flight request
+   - Middleware still calls `fetchUser()` but awaits the already-in-flight promise
+
+2. **Route Resolution Prefetching** (`app/composables/useRouteResolution.ts`)
+   - Client-side `Map` cache stores resolved routes for the SPA session
+   - `prefetchRouteResolution(path)` pre-warms the cache on link hover/intersection
+   - `useRouteResolution()` checks the cache before calling `/api/resolve-route`
+   - Server-side LRU cache (5 min TTL, 1000 entries) handles repeated requests
+
+3. **SWR Route Caching** (`nuxt.config.ts` `routeRules`)
+   - Static pages (`/`, `/login`, `/portal`, `/portal/login`) cached for 5 minutes
+   - Nitro serves stale response immediately, revalidates in background
+   - Cache key includes the full URL (host + path) for multi-tenant isolation
+
+### Caching Strategy Overview
+
+| Layer                      | Scope          | TTL                         | What                          |
+| -------------------------- | -------------- | --------------------------- | ----------------------------- |
+| Nitro `routeRules` SWR     | SSR output     | 5 min                       | Static page HTML              |
+| `defineCachedEventHandler` | Server handler | 1 hour                      | Tenant config (`/api/config`) |
+| LRU cache (resolve-route)  | Server memory  | 5 min (found) / 1 min (404) | Route resolution              |
+| Client `_routeCache` Map   | SPA session    | Session lifetime            | Route resolution              |
+| `useAsyncData` payload     | SSR → client   | Hydration                   | All `useAsyncData` calls      |
 
 ---
 

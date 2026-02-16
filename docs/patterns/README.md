@@ -268,6 +268,50 @@ watch(error, (err) => {
 </template>
 ```
 
+## Navigation Performance
+
+### Route Prefetching on Hover
+
+Use `prefetchRouteResolution()` on link hover to eliminate navigation delay for dynamic `[...slug]` pages:
+
+```vue
+<script setup>
+import { prefetchRouteResolution } from '~/composables/useRouteResolution';
+
+const props = defineProps<{ href: string }>();
+</script>
+
+<template>
+  <NuxtLink :to="href" @mouseenter="prefetchRouteResolution(href)">
+    <slot />
+  </NuxtLink>
+</template>
+```
+
+The prefetch function:
+
+- Checks the client-side `_routeCache` Map first (skips if already cached)
+- Calls `/api/resolve-route` and stores the result
+- Silently ignores errors (best-effort)
+- When the user navigates, `useRouteResolution()` finds the cached data and skips the API call
+
+### Promise Deduplication
+
+The auth store's `fetchUser()` deduplicates concurrent calls via a module-scoped promise:
+
+```typescript
+// Multiple callers share the same in-flight request
+await Promise.all([
+  authStore.fetchUser(), // Makes the $fetch call
+  authStore.fetchUser(), // Returns same promise — no extra request
+  authStore.fetchUser(), // Returns same promise — no extra request
+]);
+```
+
+This pattern is used by `auth-init.client.ts` (fires early) and auth/guest middleware (awaits the same promise later).
+
+---
+
 ## Server-Side Patterns
 
 ### Caching / SWR
