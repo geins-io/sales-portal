@@ -11,9 +11,9 @@ function normalizeHostname(hostname: string): string {
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', async (event) => {
-    // Skip tenant context for health checks (allows direct IP access)
+    // Skip tenant context for health checks and internal endpoints (webhooks)
     const path = event.path || '';
-    if (path.startsWith('/api/health')) {
+    if (path.startsWith('/api/health') || path.startsWith('/api/internal/')) {
       event.context.tenant = { hostname: '' };
       return;
     }
