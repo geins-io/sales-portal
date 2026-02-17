@@ -19,7 +19,45 @@ export default defineNuxtConfig({
     'shadcn-nuxt',
     '@pinia/nuxt',
     '@sentry/nuxt/module',
+    'nuxt-security',
   ],
+
+  security: {
+    headers: {
+      contentSecurityPolicy: {
+        'default-src': ["'self'"],
+        'script-src': [
+          "'self'",
+          'https://www.googletagmanager.com',
+          'https://www.google-analytics.com',
+        ],
+        'style-src': [
+          "'self'",
+          "'unsafe-inline'",
+          'https://fonts.googleapis.com',
+        ],
+        'font-src': ["'self'", 'https://fonts.gstatic.com'],
+        'img-src': ["'self'", 'data:', 'https:'],
+        'connect-src': [
+          "'self'",
+          'https://merchantapi.geins.io',
+          'https://*.sentry.io',
+          'https://www.google-analytics.com',
+        ],
+        'frame-ancestors': ["'none'"],
+        'base-uri': ["'self'"],
+        'form-action': ["'self'"],
+      },
+      xContentTypeOptions: 'nosniff',
+      xFrameOptions: 'DENY',
+      referrerPolicy: 'strict-origin-when-cross-origin',
+      crossOriginEmbedderPolicy: false,
+    },
+    rateLimiter: false,
+    requestSizeLimiter: false,
+    xssValidator: false,
+    corsHandler: false,
+  },
 
   i18n: {
     restructureDir: 'app',
@@ -30,6 +68,10 @@ export default defineNuxtConfig({
     ],
     langDir: 'locales',
     strategy: 'no_prefix',
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'locale',
+    },
   },
 
   // @nuxtjs/seo configuration — per-tenant values set at request time
@@ -225,15 +267,13 @@ export default defineNuxtConfig({
     payloadExtraction: true,
   },
 
-  // Route-level caching for static pages
-  // SWR: serve stale response immediately, revalidate in background
-  // headers.vary ensures each tenant gets its own cache entry
-  routeRules: {
-    '/': { swr: 300, headers: { vary: 'host' } },
-    '/login': { swr: 300, headers: { vary: 'host' } },
-    '/portal': { swr: 300, headers: { vary: 'host' } },
-    '/portal/login': { swr: 300, headers: { vary: 'host' } },
-  },
+  // Route-level caching — disabled for now.
+  // Nitro SWR cache keys by path only, not by host, which breaks
+  // multi-tenant (tenant-b gets tenant-a's cached HTML).
+  // Real caching should happen at CDN layer (Azure Front Door)
+  // which respects Vary: host. Re-enable with custom cache key
+  // when CDN is in place.
+  routeRules: {},
 
   // Vite configuration
   vite: {
