@@ -60,7 +60,7 @@ vi.mock('@geins/types', () => ({
 }));
 
 // Mock Nitro auto-imports
-const mockGetTenant = vi.fn();
+const mockResolveTenant = vi.fn();
 const mockCreateAppError = vi.fn((_code: string, message: string) => {
   const err = new Error(message);
   (err as Error & { statusCode: number }).statusCode = 400;
@@ -70,7 +70,7 @@ const mockCreateAppError = vi.fn((_code: string, message: string) => {
 const mockGetRequestLocale = vi.fn();
 const mockGetRequestMarket = vi.fn();
 
-vi.stubGlobal('getTenant', mockGetTenant);
+vi.stubGlobal('resolveTenant', mockResolveTenant);
 vi.stubGlobal('createAppError', mockCreateAppError);
 vi.stubGlobal('ErrorCode', {
   BAD_REQUEST: 'BAD_REQUEST',
@@ -206,7 +206,10 @@ describe('server/services/_sdk', () => {
     });
 
     it('should throw when tenant has no geinsSettings', async () => {
-      mockGetTenant.mockResolvedValue({ hostname: 'test.com' });
+      mockResolveTenant.mockResolvedValue({
+        tenantId: 'test',
+        hostname: 'test.com',
+      });
       const event = createEvent('test.com');
 
       await expect(getTenantSDK(event)).rejects.toThrow(
@@ -214,8 +217,8 @@ describe('server/services/_sdk', () => {
       );
     });
 
-    it('should throw when getTenant returns null', async () => {
-      mockGetTenant.mockResolvedValue(null);
+    it('should throw when resolveTenant returns null', async () => {
+      mockResolveTenant.mockResolvedValue(null);
       const event = createEvent('test.com');
 
       await expect(getTenantSDK(event)).rejects.toThrow(
@@ -224,7 +227,8 @@ describe('server/services/_sdk', () => {
     });
 
     it('should create SDK from tenant geinsSettings', async () => {
-      mockGetTenant.mockResolvedValue({
+      mockResolveTenant.mockResolvedValue({
+        tenantId: 'test-tenant',
         hostname: 'test.com',
         geinsSettings: MOCK_GEINS_SETTINGS,
       });
@@ -232,7 +236,7 @@ describe('server/services/_sdk', () => {
 
       const sdk = await getTenantSDK(event);
 
-      expect(mockGetTenant).toHaveBeenCalledWith('test.com', event);
+      expect(mockResolveTenant).toHaveBeenCalledWith('test.com', event);
       expect(sdk).toHaveProperty('core');
       expect(sdk).toHaveProperty('crm');
       expect(sdk).toHaveProperty('cms');
@@ -240,7 +244,8 @@ describe('server/services/_sdk', () => {
     });
 
     it('should return cached SDK for the same tenant', async () => {
-      mockGetTenant.mockResolvedValue({
+      mockResolveTenant.mockResolvedValue({
+        tenantId: 'test-tenant',
         hostname: 'test.com',
         geinsSettings: MOCK_GEINS_SETTINGS,
       });
@@ -253,8 +258,9 @@ describe('server/services/_sdk', () => {
     });
 
     it('should create separate SDKs for different tenants', async () => {
-      mockGetTenant.mockImplementation((hostname: string) =>
+      mockResolveTenant.mockImplementation((hostname: string) =>
         Promise.resolve({
+          tenantId: hostname.replace('.com', ''),
           hostname,
           geinsSettings: { ...MOCK_GEINS_SETTINGS, accountName: hostname },
         }),
@@ -265,6 +271,20 @@ describe('server/services/_sdk', () => {
 
       expect(sdk1).not.toBe(sdk2);
       expect(mockGeinsCore).toHaveBeenCalledTimes(2);
+    });
+
+    it('should share SDK when two hostnames resolve to same tenantId', async () => {
+      mockResolveTenant.mockResolvedValue({
+        tenantId: 'shared-tenant',
+        hostname: 'alias-a.com',
+        geinsSettings: MOCK_GEINS_SETTINGS,
+      });
+
+      const sdk1 = await getTenantSDK(createEvent('alias-a.com'));
+      const sdk2 = await getTenantSDK(createEvent('alias-b.com'));
+
+      expect(sdk1).toBe(sdk2);
+      expect(mockGeinsCore).toHaveBeenCalledTimes(1);
     });
   });
 

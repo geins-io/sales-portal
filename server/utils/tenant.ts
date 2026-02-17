@@ -12,6 +12,33 @@ import { escapeCssString } from './sanitize';
 import { logger } from './logger';
 
 /**
+ * Negative cache — hostnames that resolved to inactive/missing tenants.
+ * Prevents thundering herd of API calls for unknown hostnames (bots, scanners).
+ * Entries expire after NEGATIVE_CACHE_TTL_MS.
+ */
+const NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const negativeCache = new Map<string, number>();
+
+function isNegativelyCached(hostname: string): boolean {
+  const expiresAt = negativeCache.get(hostname);
+  if (!expiresAt) return false;
+  if (Date.now() > expiresAt) {
+    negativeCache.delete(hostname);
+    return false;
+  }
+  return true;
+}
+
+function addToNegativeCache(hostname: string): void {
+  negativeCache.set(hostname, Date.now() + NEGATIVE_CACHE_TTL_MS);
+}
+
+/** Clears negative cache entries for a hostname (called on webhook invalidation). */
+export function clearNegativeCache(hostname: string): void {
+  negativeCache.delete(hostname);
+}
+
+/**
  * Storage key generators for tenant data
  */
 export function tenantIdKey(hostname: string): string {
@@ -398,17 +425,13 @@ export async function createTenant(
     themeHash,
   };
 
-  const existingId = await storage.getItem<string>(tenantIdKey(hostname));
-  if (!existingId) {
-    await storage.setItem(tenantIdKey(hostname), finalTenantId);
-  }
-
   const existingConfig = await storage.getItem<TenantConfig>(
     tenantConfigKey(finalTenantId),
   );
 
   if (!existingConfig) {
     await storage.setItem(tenantConfigKey(finalTenantId), finalConfig);
+    await writeHostnameMappings(storage, finalConfig);
     return finalConfig;
   }
 
@@ -444,6 +467,7 @@ export async function createTenant(
     };
 
     await storage.setItem(tenantConfigKey(finalTenantId), updatedConfig);
+    await writeHostnameMappings(storage, updatedConfig);
     return updatedConfig;
   }
 
@@ -595,52 +619,114 @@ export async function fetchTenantConfig(
 }
 
 /**
- * Retrieves a tenant configuration from KV storage
+ * Collects all hostnames associated with a tenant config.
+ * Returns a Set of: hostname, aliases, and any other hostname fields.
  */
-export async function getTenant(
-  hostname: string,
-  event?: H3Event,
-): Promise<TenantConfig | null> {
-  const storage = useStorage('kv');
-  const tenantConfig = await storage.getItem<TenantConfig>(
-    tenantConfigKey(hostname),
-  );
-
-  if (!tenantConfig) {
-    const newTenantConfig = await fetchTenantConfig(hostname, event);
-    if (!newTenantConfig) {
-      return null;
+export function collectAllHostnames(config: TenantConfig): Set<string> {
+  const hostnames = new Set<string>();
+  if (config.hostname) hostnames.add(config.hostname);
+  if (config.aliases) {
+    for (const alias of config.aliases) {
+      if (alias) hostnames.add(alias);
     }
-    if (newTenantConfig.isActive) {
-      await storage.setItem(tenantConfigKey(hostname), newTenantConfig);
-    }
-    return newTenantConfig.isActive ? newTenantConfig : null;
   }
-
-  if (!tenantConfig.isActive) {
-    await storage.removeItem(tenantConfigKey(hostname));
-    return null;
-  }
-
-  return tenantConfig;
+  return hostnames;
 }
 
 /**
- * Retrieves a tenant by hostname
+ * Writes hostname → tenantId mappings for all hostnames in the config.
  */
-export async function getTenantByHostname(
+export async function writeHostnameMappings(
+  storage: ReturnType<typeof useStorage>,
+  config: TenantConfig,
+): Promise<void> {
+  const hostnames = collectAllHostnames(config);
+  const tid = config.tenantId;
+  await Promise.all(
+    [...hostnames].map((h) => storage.setItem(tenantIdKey(h), tid)),
+  );
+}
+
+/**
+ * Retrieves a tenant config directly by tenantId (no hostname lookup).
+ * Returns null for missing or inactive configs without side-effects —
+ * invalidation is handled exclusively by the webhook handler.
+ */
+export async function getTenantById(
+  tenantId: string,
+): Promise<TenantConfig | null> {
+  const storage = useStorage('kv');
+  const config = await storage.getItem<TenantConfig>(tenantConfigKey(tenantId));
+  if (!config || !config.isActive) return null;
+  return config;
+}
+
+/**
+ * Resolves a tenant config from a hostname using the 2-step KV model:
+ *   1. tenant:id:{hostname} → tenantId
+ *   2. tenant:config:{tenantId} → TenantConfig
+ *
+ * On cache miss, fetches from the API and writes both hostname mappings
+ * and the config keyed by tenantId.
+ *
+ * Backwards compat: checks for legacy tenant:config:{hostname} and migrates.
+ */
+export async function resolveTenant(
   hostname: string,
   event?: H3Event,
 ): Promise<TenantConfig | null> {
+  // Short-circuit for hostnames recently resolved as inactive/missing
+  if (isNegativelyCached(hostname)) return null;
+
   const storage = useStorage('kv');
+
+  // Step 1: hostname → tenantId
   const tenantId = await storage.getItem<string>(tenantIdKey(hostname));
 
-  if (!tenantId) {
+  if (tenantId) {
+    // Step 2: tenantId → config
+    const config = await getTenantById(tenantId);
+    if (config) return config;
+  }
+
+  // Backwards compat: check for legacy tenant:config:{hostname}
+  const legacyConfig = await storage.getItem<TenantConfig>(
+    tenantConfigKey(hostname),
+  );
+  if (legacyConfig && legacyConfig.isActive) {
+    // Migrate: write proper hostname mappings + config under tenantId
+    const tid = legacyConfig.tenantId || hostname;
+    if (tid !== hostname) {
+      // Config was stored under hostname key — move it to tenantId key
+      await storage.setItem(tenantConfigKey(tid), legacyConfig);
+      await storage.removeItem(tenantConfigKey(hostname));
+    }
+    await writeHostnameMappings(storage, legacyConfig);
+    return legacyConfig;
+  }
+
+  // Cache miss — fetch from API
+  const newConfig = await fetchTenantConfig(hostname, event);
+  if (!newConfig) {
+    addToNegativeCache(hostname);
     return null;
   }
 
-  return getTenant(tenantId, event);
+  if (newConfig.isActive) {
+    const tid = newConfig.tenantId || hostname;
+    await storage.setItem(tenantConfigKey(tid), newConfig);
+    await writeHostnameMappings(storage, newConfig);
+    return newConfig;
+  }
+
+  addToNegativeCache(hostname);
+  return null;
 }
+
+/**
+ * @deprecated Use `resolveTenant` instead. This alias exists for backwards compatibility.
+ */
+export const getTenant = resolveTenant;
 
 /**
  * Updates an existing tenant configuration
@@ -651,7 +737,7 @@ export async function updateTenant(
   event?: H3Event,
 ): Promise<TenantConfig | null> {
   const storage = useStorage('kv');
-  const existing = await getTenant(hostname, event);
+  const existing = await resolveTenant(hostname, event);
 
   if (!existing) {
     return null;
@@ -683,19 +769,43 @@ export async function updateTenant(
     updatedAt: new Date().toISOString(),
   };
 
-  await storage.setItem(tenantConfigKey(hostname), updatedConfig);
+  const tid = updatedConfig.tenantId || hostname;
+  await storage.setItem(tenantConfigKey(tid), updatedConfig);
+  await writeHostnameMappings(storage, updatedConfig);
   return updatedConfig;
 }
 
 /**
- * Deletes a tenant configuration
+ * Deletes a tenant configuration and all associated hostname mappings.
  */
 export async function deleteTenant(hostname: string): Promise<boolean> {
   const storage = useStorage('kv');
 
   try {
-    await storage.removeItem(tenantIdKey(hostname));
-    await storage.removeItem(tenantConfigKey(hostname));
+    // Look up tenantId first
+    const tenantId = await storage.getItem<string>(tenantIdKey(hostname));
+    const tid = tenantId || hostname;
+
+    // Load config to find all hostnames
+    const config = await storage.getItem<TenantConfig>(tenantConfigKey(tid));
+
+    if (config) {
+      // Remove all hostname → tenantId mappings
+      const hostnames = collectAllHostnames(config);
+      await Promise.all(
+        [...hostnames].map((h) => storage.removeItem(tenantIdKey(h))),
+      );
+    } else {
+      // No config found — at least remove the mapping for this hostname
+      await storage.removeItem(tenantIdKey(hostname));
+    }
+
+    // Remove config (try both tenantId and hostname keys for legacy cleanup)
+    await storage.removeItem(tenantConfigKey(tid));
+    if (tid !== hostname) {
+      await storage.removeItem(tenantConfigKey(hostname));
+    }
+
     return true;
   } catch {
     return false;

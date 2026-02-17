@@ -7,7 +7,9 @@ import {
   generateThemeHash,
   generateOverrideCss,
   mergeThemes,
+  collectAllHostnames,
 } from '../../server/utils/tenant';
+import type { TenantConfig } from '#shared/types/tenant-config';
 import { deriveThemeColors } from '../../server/utils/theme';
 import type { ThemeColors } from '../../server/schemas/store-settings';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
@@ -223,6 +225,79 @@ describe('Tenant utilities', () => {
       expect(result.name).toBe(base.name);
       expect(result.displayName).toBe('New Display Name');
       expect(result.colors).toEqual(base.colors);
+    });
+  });
+
+  describe('collectAllHostnames', () => {
+    function createMinimalConfig(
+      overrides?: Partial<TenantConfig>,
+    ): TenantConfig {
+      return {
+        tenantId: 'tenant-a',
+        hostname: 'tenant-a.litium.portal',
+        geinsSettings: {
+          apiKey: '',
+          accountName: '',
+          channel: '1',
+          tld: 'se',
+          locale: 'sv-SE',
+          market: 'se',
+          environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
+        },
+        mode: 'commerce',
+        theme: createDefaultTheme('tenant-a'),
+        branding: { name: 'Tenant A', watermark: 'full' },
+        features: {},
+        css: '',
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        ...overrides,
+      };
+    }
+
+    it('should return hostname when no aliases', () => {
+      const config = createMinimalConfig();
+      const hostnames = collectAllHostnames(config);
+      expect(hostnames.size).toBe(1);
+      expect(hostnames.has('tenant-a.litium.portal')).toBe(true);
+    });
+
+    it('should include hostname and all aliases', () => {
+      const config = createMinimalConfig({
+        aliases: ['tenant-a.localhost', 'tenant-a.sales-portal.geins.dev'],
+      });
+      const hostnames = collectAllHostnames(config);
+      expect(hostnames.size).toBe(3);
+      expect(hostnames.has('tenant-a.litium.portal')).toBe(true);
+      expect(hostnames.has('tenant-a.localhost')).toBe(true);
+      expect(hostnames.has('tenant-a.sales-portal.geins.dev')).toBe(true);
+    });
+
+    it('should deduplicate when hostname appears in aliases', () => {
+      const config = createMinimalConfig({
+        aliases: ['tenant-a.litium.portal', 'tenant-a.localhost'],
+      });
+      const hostnames = collectAllHostnames(config);
+      expect(hostnames.size).toBe(2);
+    });
+
+    it('should skip empty/falsy alias entries', () => {
+      const config = createMinimalConfig({
+        aliases: ['tenant-a.localhost', '', undefined as unknown as string],
+      });
+      const hostnames = collectAllHostnames(config);
+      expect(hostnames.size).toBe(2);
+      expect(hostnames.has('tenant-a.litium.portal')).toBe(true);
+      expect(hostnames.has('tenant-a.localhost')).toBe(true);
+    });
+
+    it('should return empty set when hostname is empty and no aliases', () => {
+      const config = createMinimalConfig({ hostname: '' });
+      const hostnames = collectAllHostnames(config);
+      expect(hostnames.size).toBe(0);
     });
   });
 });

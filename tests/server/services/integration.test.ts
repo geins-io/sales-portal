@@ -9,7 +9,7 @@
  * All test data (category aliases, brand aliases, SKU IDs) is discovered
  * dynamically from the API — no hardcoded values or env-var overrides needed.
  *
- * The H3Event + getTenant are stubbed so service functions resolve to the
+ * The H3Event + resolveTenant are stubbed so service functions resolve to the
  * monitor account's Geins settings — same as a real request from a configured tenant.
  *
  * Requires GEINS_* env vars (loaded from .env).
@@ -25,13 +25,11 @@ import {
 } from './geins-settings';
 
 // Stub Nitro auto-imports so getGeinsClient(event) resolves to monitor settings
-vi.stubGlobal(
-  'getTenant',
-  vi.fn().mockResolvedValue({
-    hostname: 'test-integration.local',
-    geinsSettings,
-  }),
-);
+const mockResolveTenant = vi.fn().mockResolvedValue({
+  hostname: 'test-integration.local',
+  geinsSettings,
+});
+vi.stubGlobal('resolveTenant', mockResolveTenant);
 vi.stubGlobal('createAppError', (_code: string, message: string) => {
   throw new Error(message);
 });

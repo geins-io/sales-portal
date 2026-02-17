@@ -101,7 +101,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   └── store-settings.ts   # Zod schema + inferred types (ADR-007)
 │   ├── services/               # Service layers
 │   │   ├── tenant-config.ts    # Tenant config accessor (ADR-007)
-│   │   ├── _client.ts          # SDK factory (per-request, no singleton)
+│   │   ├── _sdk.ts             # SDK factory (per-tenant singleton cache)
 │   │   ├── auth.ts             # CRM auth (login, logout, refresh)
 │   │   ├── user.ts             # CRM user (profile, register)
 │   │   ├── cms.ts              # CMS (menu, pages, areas)
@@ -128,11 +128,14 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │       └── newsletter/     # Newsletter mutations
 │   ├── plugins/
 │   │   ├── 00.tenant-init.ts   # Tenant initialization
-│   │   ├── 01.tenant-context.ts # Request-level tenant context
-│   │   └── 03.seo-config.ts    # Per-tenant site-config (URL, locale, indexability)
+│   │   ├── 01.tenant-context.ts # Request-level tenant context + tenantId resolution
+│   │   ├── 03.seo-config.ts    # Per-tenant site-config (URL, locale, indexability)
+│   │   └── 04.tenant-css.ts    # Tenant CSS + fonts + favicon injection into HTML
 │   ├── utils/
-│   │   ├── tenant.ts           # Tenant CRUD operations
+│   │   ├── tenant.ts           # Tenant resolution, CRUD, hostname mapping
 │   │   ├── theme.ts            # OKLCH color derivation
+│   │   ├── cookies.ts          # Cookie helpers (auth, tenant, cart, preview, locale)
+│   │   ├── webhook-handler.ts  # Webhook config invalidation (KV + SDK + Nitro cache)
 │   │   ├── seo.ts              # SEO utilities (buildSiteUrl, isIndexable)
 │   │   ├── feature-access.ts   # Server-side feature gating (canAccessFeatureServer, assertFeatureAccess)
 │   │   ├── logger.ts           # Structured logging
@@ -212,18 +215,20 @@ The tenant context is available in all server handlers via `event.context.tenant
 ```typescript
 // In any server route/middleware
 export default defineEventHandler((event) => {
-  const { id, hostname } = event.context.tenant;
-  // id: Tenant identifier (e.g., "tenant-a.localhost")
-  // hostname: Request hostname
+  const { hostname, tenantId } = event.context.tenant;
+  // hostname: Request hostname (e.g., "tenant-a.localhost")
+  // tenantId: Resolved tenant ID (e.g., "tenant-a") — set for page routes, optional for API routes
 });
 ```
 
 ### Storage Keys
 
-Tenant data is stored with the following key patterns:
+Tenant data uses a 2-step KV lookup model so a tenant with multiple hostnames (primary, aliases) stores its config only once:
 
-- `tenant:id:{hostname}` → Maps hostname to tenant ID
-- `tenant:config:{tenantId}` → Full tenant configuration
+- `tenant:id:{hostname}` → tenantId (string) — one entry per hostname
+- `tenant:config:{tenantId}` → Full tenant configuration (JSON) — stored once
+
+Lookup: `hostname` → `tenantId` → `TenantConfig`. On cache miss, `resolveTenant()` fetches from the API and writes all hostname mappings + config under the tenantId key.
 
 ---
 

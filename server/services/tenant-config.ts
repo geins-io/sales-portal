@@ -4,17 +4,17 @@ import type {
   PublicTenantConfig,
   FeatureConfig,
 } from '#shared/types/tenant-config';
-import { getTenant } from '../utils/tenant';
+import { resolveTenant } from '../utils/tenant';
 
 /**
  * Tenant Config Service — sectioned accessors over TenantConfig.
  * Insulates the app from schema changes. All methods resolve the tenant
- * from the request event using getTenant() (already KV-cached with SWR).
+ * from the request event using resolveTenant() (already KV-cached with SWR).
  */
 
 async function resolveConfig(event: H3Event): Promise<TenantConfig | null> {
   const { hostname } = event.context.tenant;
-  return getTenant(hostname, event);
+  return resolveTenant(hostname, event);
 }
 
 export async function getConfig(event: H3Event): Promise<TenantConfig | null> {

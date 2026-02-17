@@ -45,13 +45,13 @@ URL prefix routing (`prefix_and_default`) can be added later if needed for multi
 
 - Locale synced from tenant config via `app/plugins/i18n-locale.ts`
 - Available locales exposed from config API for language switcher UI
-- Locale preference stored in `i18n_redirected` cookie (works for anonymous + authenticated)
+- Locale preference stored in `locale` cookie (works for anonymous + authenticated)
 
 ### SDK / API sync
 
 - `getChannelVariables()` accepts optional `localeOverride` and `marketOverride` parameters
 - `getRequestChannelVariables(sdk, event)` composes `getChannelVariables` with request-level locale and market cookies — all GraphQL services now use this to automatically pipe user preferences
-- Server-side API routes read locale from `i18n_redirected` cookie via `getRequestLocale()` and market from `market` cookie via `getRequestMarket()`
+- Server-side API routes read locale from `locale` cookie via `getRequestLocale()` and market from `market` cookie via `getRequestMarket()`
 
 ## Consequences
 

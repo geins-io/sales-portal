@@ -61,7 +61,7 @@ const mockTenantConfig: TenantConfig = {
 };
 
 vi.mock('../../server/utils/tenant', () => ({
-  getTenant: vi.fn().mockResolvedValue(mockTenantConfig),
+  resolveTenant: vi.fn().mockResolvedValue(mockTenantConfig),
 }));
 
 const createMockEvent = (): H3Event =>

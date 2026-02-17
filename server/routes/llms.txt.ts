@@ -1,4 +1,4 @@
-import { getTenant } from '../utils/tenant';
+import { resolveTenant } from '../utils/tenant';
 
 /**
  * Serves /llms.txt — a machine-readable description of the site for LLMs.
@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     return 'Missing tenant context';
   }
 
-  const tenant = await getTenant(hostname, event);
+  const tenant = await resolveTenant(hostname, event);
   if (!tenant) {
     setResponseStatus(event, 404);
     return 'Tenant not found';

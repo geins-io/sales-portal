@@ -19,8 +19,12 @@ export default defineCachedEventHandler(
     );
   },
   {
-    // Unique cache key
-    getKey: (event) => tenantConfigKey(event.context.tenant.hostname),
+    // Cache key uses tenantId (from cookie/context) so multiple hostnames
+    // for the same tenant share one cache entry. Falls back to hostname.
+    getKey: (event) =>
+      tenantConfigKey(
+        event.context.tenant.tenantId || event.context.tenant.hostname,
+      ),
     // Serve a stale cached response while asynchronously revalidating it
     swr: true,
     // Cache for 1 hour

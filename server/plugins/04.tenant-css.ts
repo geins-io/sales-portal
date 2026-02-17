@@ -1,5 +1,5 @@
 import type { NitroApp } from 'nitropack/types';
-import { getTenant } from '../utils/tenant';
+import { resolveTenant } from '../utils/tenant';
 import {
   sanitizeTenantCss,
   sanitizeHtmlAttr,
@@ -23,7 +23,7 @@ export default defineNitroPlugin((nitroApp: NitroApp) => {
     const hostname = (event.context.tenant as { hostname?: string })?.hostname;
     if (!hostname) return;
 
-    const tenant = await getTenant(hostname, event);
+    const tenant = await resolveTenant(hostname, event);
     // Inactive/unknown tenants were already rejected in 01.tenant-context — this is a safety net.
     if (!tenant) return;
 
