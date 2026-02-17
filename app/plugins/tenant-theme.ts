@@ -60,14 +60,19 @@ export default defineNuxtPlugin({
       ...buildFontLinks(theme.value?.typography),
     ];
 
+    // Use static values (not reactive getters) to prevent hydration FOUC.
+    // suspense() guarantees tenant data is loaded before this runs.
+    const themeName = theme.value?.name?.toLowerCase() || 'default';
+    const tenantCss = sanitizeCustomCss(tenant.value?.css);
+
     useHead({
       htmlAttrs: {
-        'data-theme': theme.value?.name?.toLowerCase() || 'default',
+        'data-theme': themeName,
       },
       link: links,
       style: [
         {
-          innerHTML: () => sanitizeCustomCss(tenant.value?.css),
+          innerHTML: tenantCss,
           tagPosition: 'head',
         },
       ],

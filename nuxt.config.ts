@@ -227,13 +227,12 @@ export default defineNuxtConfig({
 
   // Route-level caching for static pages
   // SWR: serve stale response immediately, revalidate in background
-  // Nitro uses the full request URL (including host) as cache key,
-  // providing multi-tenant isolation automatically
+  // headers.vary ensures each tenant gets its own cache entry
   routeRules: {
-    '/': { swr: 300 },
-    '/login': { swr: 300 },
-    '/portal': { swr: 300 },
-    '/portal/login': { swr: 300 },
+    '/': { swr: 300, headers: { vary: 'host' } },
+    '/login': { swr: 300, headers: { vary: 'host' } },
+    '/portal': { swr: 300, headers: { vary: 'host' } },
+    '/portal/login': { swr: 300, headers: { vary: 'host' } },
   },
 
   // Vite configuration
