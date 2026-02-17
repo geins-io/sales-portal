@@ -78,6 +78,8 @@
     "subscribe_description": "Get the latest news and updates from our team.",
     "subscribe": "Subscribe",
     "enter_email": "Enter your email",
+    "subscribe_success": "Thanks for subscribing!",
+    "subscribe_error": "Something went wrong. Please try again.",
     "privacy_policy": "Privacy Policy",
     "terms_of_service": "Terms of Service",
     "cookies_settings": "Cookies Settings",

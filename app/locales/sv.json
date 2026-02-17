@@ -78,6 +78,8 @@
     "subscribe_description": "Få de senaste nyheterna och uppdateringarna från vårt team.",
     "subscribe": "Prenumerera",
     "enter_email": "Ange din e-post",
+    "subscribe_success": "Tack för din prenumeration!",
+    "subscribe_error": "Något gick fel. Försök igen.",
     "privacy_policy": "Integritetspolicy",
     "terms_of_service": "Användarvillkor",
     "cookies_settings": "Cookie-inställningar",
