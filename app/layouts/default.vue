@@ -13,7 +13,7 @@
       <slot />
     </main>
     <LayoutFooter />
-    <MobileNavPanel />
+    <LayoutMobileNavPanel />
     <PreviewBanner />
   </div>
 </template>
