@@ -15,5 +15,6 @@
     <LayoutFooter />
     <LayoutMobileNavPanel />
     <PreviewBanner />
+    <SharedCookieBanner />
   </div>
 </template>

@@ -104,6 +104,11 @@
     "linkedin": "LinkedIn",
     "instagram": "Instagram"
   },
+  "cookies": {
+    "banner_text": "Vi använder cookies för att analysera webbplatsens användning och förbättra din upplevelse.",
+    "accept": "Acceptera cookies",
+    "decline": "Avvisa"
+  },
   "elements": {
     "component_showcase": "Komponentvisning",
     "share_link": "Dela länk",

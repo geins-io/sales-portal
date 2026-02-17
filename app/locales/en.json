@@ -104,6 +104,11 @@
     "linkedin": "LinkedIn",
     "instagram": "Instagram"
   },
+  "cookies": {
+    "banner_text": "We use cookies to analyze site usage and improve your experience.",
+    "accept": "Accept cookies",
+    "decline": "Decline"
+  },
   "elements": {
     "component_showcase": "Component Showcase",
     "share_link": "Share link",
