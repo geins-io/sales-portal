@@ -1,4 +1,5 @@
 // import { KV_STORAGE_KEYS } from '#shared/constants/storage';
+import { getTenant } from '../utils/tenant';
 
 /**
  * Normalizes a hostname by removing the port number.
@@ -37,6 +38,24 @@ export default defineNitroPlugin((nitroApp) => {
     const cachedTenant = getTenantCookie(event);
     if (!cachedTenant || cachedTenant !== hostname) {
       setTenantCookie(event, hostname);
+    }
+
+    // For page routes, eagerly reject inactive/unknown tenants before rendering begins.
+    // getTenant() returns null for both missing and inactive tenants (inactive ones are
+    // filtered out inside getTenant). Static assets and API routes are excluded.
+    if (
+      !path.startsWith('/api/') &&
+      !path.startsWith('/_nuxt/') &&
+      !path.startsWith('/__nuxt')
+    ) {
+      const tenant = await getTenant(hostname, event);
+      if (!tenant) {
+        throw createError({
+          statusCode: 418,
+          statusMessage: "I'm a teapot",
+          message: `The requested page could not be found. [${hostname}]`,
+        });
+      }
     }
   });
 });

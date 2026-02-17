@@ -9,7 +9,6 @@ import { buildGoogleFontsUrl } from '#shared/utils/fonts';
 
 /**
  * Nitro plugin that injects ALL tenant visual assets directly into rendered HTML:
- * - Blocks inactive tenants (418)
  * - Tenant theme CSS (scoped to [data-theme='name'])
  * - data-theme attribute on <html>
  * - Favicon <link>
@@ -25,15 +24,8 @@ export default defineNitroPlugin((nitroApp: NitroApp) => {
     if (!hostname) return;
 
     const tenant = await getTenant(hostname, event);
+    // Inactive/unknown tenants were already rejected in 01.tenant-context — this is a safety net.
     if (!tenant) return;
-
-    // Block inactive tenants
-    if (!tenant.isActive) {
-      // Set error status — Nuxt error page will render
-      event.node.res.statusCode = 418;
-      event.node.res.statusMessage = "I'm a teapot";
-      return;
-    }
 
     const themeName = tenant.theme?.name?.toLowerCase() || 'default';
 
