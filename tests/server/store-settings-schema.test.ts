@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { StoreSettingsSchema } from '../../server/schemas/store-settings';
+import {
+  StoreSettingsSchema,
+  BrandingConfigSchema,
+} from '../../server/schemas/store-settings';
 import {
   deriveThemeColors,
   parseOklch,
@@ -516,6 +519,109 @@ describe('StoreSettingsSchema', () => {
       const result = StoreSettingsSchema.safeParse(config);
       expect(result.success).toBe(true);
     });
+  });
+});
+
+describe('BrandingConfigSchema URL validation', () => {
+  const basebranding = { name: 'Test Store', watermark: 'full' as const };
+
+  describe('logoUrl', () => {
+    it('accepts a valid https URL', () => {
+      const result = BrandingConfigSchema.safeParse({
+        ...basebranding,
+        logoUrl: 'https://cdn.example.com/logo.png',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts a valid http URL', () => {
+      const result = BrandingConfigSchema.safeParse({
+        ...basebranding,
+        logoUrl: 'http://cdn.example.com/logo.png',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts null', () => {
+      const result = BrandingConfigSchema.safeParse({
+        ...basebranding,
+        logoUrl: null,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts undefined (field omitted)', () => {
+      const result = BrandingConfigSchema.safeParse({ ...basebranding });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects javascript: protocol', () => {
+      const result = BrandingConfigSchema.safeParse({
+        ...basebranding,
+        logoUrl: 'javascript:alert(1)',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects empty string', () => {
+      const result = BrandingConfigSchema.safeParse({
+        ...basebranding,
+        logoUrl: '',
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('all five URL fields reject unsafe values', () => {
+    const urlFields = [
+      'logoUrl',
+      'logoDarkUrl',
+      'logoSymbolUrl',
+      'faviconUrl',
+      'ogImageUrl',
+    ] as const;
+
+    for (const field of urlFields) {
+      it(`${field}: rejects javascript: URL`, () => {
+        const result = BrandingConfigSchema.safeParse({
+          ...basebranding,
+          [field]: 'javascript:alert(1)',
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it(`${field}: rejects empty string`, () => {
+        const result = BrandingConfigSchema.safeParse({
+          ...basebranding,
+          [field]: '',
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it(`${field}: accepts https URL`, () => {
+        const result = BrandingConfigSchema.safeParse({
+          ...basebranding,
+          [field]: 'https://cdn.example.com/asset.png',
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it(`${field}: accepts null`, () => {
+        const result = BrandingConfigSchema.safeParse({
+          ...basebranding,
+          [field]: null,
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it(`${field}: accepts undefined`, () => {
+        const result = BrandingConfigSchema.safeParse({
+          ...basebranding,
+          [field]: undefined,
+        });
+        expect(result.success).toBe(true);
+      });
+    }
   });
 });
 
