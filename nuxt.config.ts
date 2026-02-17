@@ -272,14 +272,6 @@ export default defineNuxtConfig({
     payloadExtraction: true,
   },
 
-  // Route-level caching — disabled for now.
-  // Nitro SWR cache keys by path only, not by host, which breaks
-  // multi-tenant (tenant-b gets tenant-a's cached HTML).
-  // Real caching should happen at CDN layer (Azure Front Door)
-  // which respects Vary: host. Re-enable with custom cache key
-  // when CDN is in place.
-  routeRules: {},
-
   // Vite configuration
   vite: {
     server: {
