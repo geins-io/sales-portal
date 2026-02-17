@@ -17,7 +17,7 @@ const { default: nuxtConfig } =
 
 const security = nuxtConfig.security as Record<string, unknown>;
 const headers = security.headers as Record<string, unknown>;
-const csp = headers.contentSecurityPolicy as Record<string, string[]>;
+const csp = headers.contentSecurityPolicy as Record<string, string[] | boolean>;
 
 describe('nuxt-security configuration', () => {
   it('includes nuxt-security in modules', () => {
@@ -30,20 +30,32 @@ describe('nuxt-security configuration', () => {
     expect(typeof security).toBe('object');
   });
 
+  it('enables nonce support for SSR', () => {
+    expect(security.nonce).toBe(true);
+  });
+
+  it('enables SRI (Subresource Integrity)', () => {
+    expect(security.sri).toBe(true);
+  });
+
   describe('Content-Security-Policy directives', () => {
-    it('sets default-src to self', () => {
-      expect(csp['default-src']).toEqual(["'self'"]);
+    it('sets default-src to none (strict mode)', () => {
+      expect(csp['default-src']).toEqual(["'none'"]);
     });
 
-    it('allows Google Tag Manager and Analytics in script-src', () => {
-      expect(csp['script-src']).toContain("'self'");
-      expect(csp['script-src']).toContain('https://www.googletagmanager.com');
-      expect(csp['script-src']).toContain('https://www.google-analytics.com');
+    it('uses strict-dynamic with nonce for script-src', () => {
+      const scriptSrc = csp['script-src'] as string[];
+      expect(scriptSrc).toContain("'self'");
+      expect(scriptSrc).toContain("'strict-dynamic'");
+      expect(scriptSrc).toContain("'nonce-{{nonce}}'");
     });
 
-    it('allows unsafe-inline in style-src for tenant CSS injection', () => {
-      expect(csp['style-src']).toContain("'unsafe-inline'");
-      expect(csp['style-src']).toContain('https://fonts.googleapis.com');
+    it('uses nonce for style-src with Google Fonts', () => {
+      const styleSrc = csp['style-src'] as string[];
+      expect(styleSrc).toContain("'self'");
+      expect(styleSrc).toContain("'nonce-{{nonce}}'");
+      expect(styleSrc).toContain('https://fonts.googleapis.com');
+      expect(styleSrc).not.toContain("'unsafe-inline'");
     });
 
     it('allows Google Fonts in font-src', () => {
@@ -57,23 +69,41 @@ describe('nuxt-security configuration', () => {
       expect(csp['img-src']).toContain('https:');
     });
 
-    it('allows Geins API, Sentry, and GA in connect-src', () => {
-      expect(csp['connect-src']).toContain("'self'");
-      expect(csp['connect-src']).toContain('https://merchantapi.geins.io');
-      expect(csp['connect-src']).toContain('https://*.sentry.io');
-      expect(csp['connect-src']).toContain('https://www.google-analytics.com');
+    it('allows Geins API, Sentry, GTM, and GA in connect-src', () => {
+      const connectSrc = csp['connect-src'] as string[];
+      expect(connectSrc).toContain("'self'");
+      expect(connectSrc).toContain('https://merchantapi.geins.io');
+      expect(connectSrc).toContain('https://*.sentry.io');
+      expect(connectSrc).toContain('https://www.google-analytics.com');
+      expect(connectSrc).toContain('https://www.googletagmanager.com');
     });
 
     it('disallows framing with frame-ancestors none', () => {
       expect(csp['frame-ancestors']).toEqual(["'none'"]);
     });
 
-    it('restricts base-uri to self', () => {
-      expect(csp['base-uri']).toEqual(["'self'"]);
+    it('restricts base-uri to none', () => {
+      expect(csp['base-uri']).toEqual(["'none'"]);
     });
 
     it('restricts form-action to self', () => {
       expect(csp['form-action']).toEqual(["'self'"]);
+    });
+
+    it('blocks object embeds', () => {
+      expect(csp['object-src']).toEqual(["'none'"]);
+    });
+
+    it('blocks inline event handlers', () => {
+      expect(csp['script-src-attr']).toEqual(["'none'"]);
+    });
+
+    it('enables upgrade-insecure-requests', () => {
+      expect(csp['upgrade-insecure-requests']).toBe(true);
+    });
+
+    it('allows self for worker-src', () => {
+      expect(csp['worker-src']).toEqual(["'self'"]);
     });
   });
 

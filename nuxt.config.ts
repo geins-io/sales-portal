@@ -23,17 +23,15 @@ export default defineNuxtConfig({
   ],
 
   security: {
+    nonce: true,
+    sri: true,
     headers: {
       contentSecurityPolicy: {
-        'default-src': ["'self'"],
-        'script-src': [
-          "'self'",
-          'https://www.googletagmanager.com',
-          'https://www.google-analytics.com',
-        ],
+        'default-src': ["'none'"],
+        'script-src': ["'self'", "'strict-dynamic'", "'nonce-{{nonce}}'"],
         'style-src': [
           "'self'",
-          "'unsafe-inline'",
+          "'nonce-{{nonce}}'",
           'https://fonts.googleapis.com',
         ],
         'font-src': ["'self'", 'https://fonts.gstatic.com'],
@@ -43,10 +41,17 @@ export default defineNuxtConfig({
           'https://merchantapi.geins.io',
           'https://*.sentry.io',
           'https://www.google-analytics.com',
+          'https://www.googletagmanager.com',
         ],
         'frame-ancestors': ["'none'"],
-        'base-uri': ["'self'"],
+        'frame-src': ["'self'"],
+        'base-uri': ["'none'"],
         'form-action': ["'self'"],
+        'object-src': ["'none'"],
+        'script-src-attr': ["'none'"],
+        'manifest-src': ["'self'"],
+        'worker-src': ["'self'"],
+        'upgrade-insecure-requests': true,
       },
       xContentTypeOptions: 'nosniff',
       xFrameOptions: 'DENY',
