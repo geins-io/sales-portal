@@ -1,11 +1,9 @@
 <script setup lang="ts"></script>
+
 <template>
-  <footer>
-    &lt;footer&gt;
-    <br />
+  <footer class="bg-background border-t">
     <LayoutFooterTop />
     <LayoutFooterMain />
     <LayoutFooterBottom />
-    &lt;/footer&gt;
   </footer>
 </template>
