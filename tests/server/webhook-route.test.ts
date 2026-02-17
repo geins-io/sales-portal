@@ -19,6 +19,11 @@ vi.mock('../../server/utils/logger', () => ({
   },
 }));
 
+// Mock SDK cache clearing
+vi.mock('../../server/services/_sdk', () => ({
+  clearSdkCache: vi.fn(),
+}));
+
 function signStripe(body: string, secret: string, timestamp?: number): string {
   const ts = timestamp ?? Math.floor(Date.now() / 1000);
   const signedPayload = `${ts}.${body}`;
@@ -240,12 +245,19 @@ describe('processConfigRefresh', () => {
     });
   });
 
-  it('should invalidate both caches and return { invalidated: true }', async () => {
+  it('should invalidate all alias hostname mappings when config has aliases', async () => {
     const hostname = 'tenant-a.litium.portal';
     const secret = 'test-secret';
     const body = JSON.stringify({ hostname });
     const sig = signStripe(body, secret);
     const webhookId = 'wh_valid_123';
+
+    const tenantConfig = {
+      tenantId: 'tenant-a',
+      hostname: 'tenant-a.litium.portal',
+      aliases: ['tenant-a.localhost', 'tenant-a.sales-portal.geins.dev'],
+      isActive: true,
+    };
 
     const request = createRequest({
       secrets: [secret],
@@ -262,6 +274,7 @@ describe('processConfigRefresh', () => {
     } = createMockKvStorage({
       getItem: vi.fn().mockImplementation(async (key: string) => {
         if (key === `tenant:id:${hostname}`) return 'tenant-a';
+        if (key === 'tenant:config:tenant-a') return tenantConfig;
         return null;
       }),
     });
@@ -271,7 +284,15 @@ describe('processConfigRefresh', () => {
     const result = await processConfigRefresh(request, kv, cache);
     expect(result).toEqual({ invalidated: true });
 
-    expect(kvRemoveItem).toHaveBeenCalledWith(`tenant:id:${hostname}`);
+    // Should remove all hostname → tenantId mappings
+    expect(kvRemoveItem).toHaveBeenCalledWith(
+      'tenant:id:tenant-a.litium.portal',
+    );
+    expect(kvRemoveItem).toHaveBeenCalledWith('tenant:id:tenant-a.localhost');
+    expect(kvRemoveItem).toHaveBeenCalledWith(
+      'tenant:id:tenant-a.sales-portal.geins.dev',
+    );
+    // Should remove config under tenantId
     expect(kvRemoveItem).toHaveBeenCalledWith('tenant:config:tenant-a');
     expect(cacheRemoveItem).toHaveBeenCalledWith(
       'nitro:handlers:tenant:config:tenant-a',

@@ -1,4 +1,4 @@
-// import { KV_STORAGE_KEYS } from '#shared/constants/storage';
+import { resolveTenant } from '../utils/tenant';
 
 /**
  * Normalizes a hostname by removing the port number.
@@ -33,10 +33,37 @@ export default defineNitroPlugin((nitroApp) => {
     // available to all server routes and middleware.
     event.context.tenant = { hostname };
 
-    // Set cookie for next request (future use: edge workers reading cookies before hitting origin)
-    const cachedTenant = getTenantCookie(event);
-    if (!cachedTenant || cachedTenant !== hostname) {
-      setTenantCookie(event, hostname);
+    // For page routes, eagerly resolve the tenant and cache the tenantId in a cookie.
+    // resolveTenant() returns null for both missing and inactive tenants.
+    // Static assets and API routes are excluded.
+    if (
+      !path.startsWith('/api/') &&
+      !path.startsWith('/_nuxt/') &&
+      !path.startsWith('/__nuxt')
+    ) {
+      const tenant = await resolveTenant(hostname, event);
+      if (!tenant) {
+        throw createError({
+          statusCode: 418,
+          statusMessage: "I'm a teapot",
+          message: `The requested page could not be found. [${hostname}]`,
+        });
+      }
+
+      // Store the real tenantId in context and cookie
+      const tenantId = tenant.tenantId || hostname;
+      event.context.tenant.tenantId = tenantId;
+
+      const cachedTenantId = getTenantCookie(event);
+      if (!cachedTenantId || cachedTenantId !== tenantId) {
+        setTenantCookie(event, tenantId);
+      }
+    } else {
+      // For API/asset routes, set cookie from cached tenantId if available
+      const cachedTenantId = getTenantCookie(event);
+      if (cachedTenantId) {
+        event.context.tenant.tenantId = cachedTenantId;
+      }
     }
   });
 });

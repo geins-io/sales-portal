@@ -32,13 +32,15 @@ The `COOKIE_NAMES` constant lives in `shared/constants/storage.ts` (alongside `K
 
 ### Cookie inventory
 
-| Cookie            | `httpOnly` | `maxAge`             | Notes                          |
-| ----------------- | ---------- | -------------------- | ------------------------------ |
-| `auth_token`      | yes        | `expiresIn` or 3600s | Short-lived JWT                |
-| `refresh_token`   | yes        | 30 days              | Long-lived rotation token      |
-| `tenant_id`       | yes        | 1 day                | Hostname hint for edge workers |
-| `cart_id`         | **no**     | 30 days              | Client reads for optimistic UI |
-| `i18n_redirected` | —          | —                    | Reserved for future i18n use   |
+| Cookie          | `httpOnly` | `maxAge`             | Notes                                         |
+| --------------- | ---------- | -------------------- | --------------------------------------------- |
+| `auth_token`    | yes        | `expiresIn` or 3600s | Short-lived JWT                               |
+| `refresh_token` | yes        | 30 days              | Long-lived rotation token                     |
+| `tenant_id`     | yes        | 1 day                | Real tenantId (not hostname) for edge workers |
+| `cart_id`       | **no**     | 30 days              | Client reads for optimistic UI                |
+| `locale`        | —          | —                    | Managed by `@nuxtjs/i18n`                     |
+| `market`        | **no**     | 1 year               | Client reads for UI, server reads for GraphQL |
+| `preview_mode`  | **no**     | 1 hour               | Client reads for preview banner UI            |
 
 ## Consequences
 

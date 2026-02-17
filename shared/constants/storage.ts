@@ -40,7 +40,7 @@ export const COOKIE_NAMES = {
   AUTH_TOKEN: 'auth_token',
   REFRESH_TOKEN: 'refresh_token',
   TENANT_ID: 'tenant_id',
-  LOCALE: 'i18n_redirected',
+  LOCALE: 'locale',
   MARKET: 'market',
   CART_ID: 'cart_id',
   PREVIEW_MODE: 'preview_mode',

@@ -19,7 +19,50 @@ export default defineNuxtConfig({
     'shadcn-nuxt',
     '@pinia/nuxt',
     '@sentry/nuxt/module',
+    'nuxt-security',
   ],
+
+  security: {
+    nonce: true,
+    sri: true,
+    headers: {
+      contentSecurityPolicy: {
+        'default-src': ["'none'"],
+        'script-src': ["'self'", "'strict-dynamic'", "'nonce-{{nonce}}'"],
+        'style-src': [
+          "'self'",
+          "'nonce-{{nonce}}'",
+          'https://fonts.googleapis.com',
+        ],
+        'font-src': ["'self'", 'https://fonts.gstatic.com'],
+        'img-src': ["'self'", 'data:', 'https:'],
+        'connect-src': [
+          "'self'",
+          'https://merchantapi.geins.io',
+          'https://*.sentry.io',
+          'https://www.google-analytics.com',
+          'https://www.googletagmanager.com',
+        ],
+        'frame-ancestors': ["'none'"],
+        'frame-src': ["'self'"],
+        'base-uri': ["'none'"],
+        'form-action': ["'self'"],
+        'object-src': ["'none'"],
+        'script-src-attr': ["'none'"],
+        'manifest-src': ["'self'"],
+        'worker-src': ["'self'"],
+        'upgrade-insecure-requests': true,
+      },
+      xContentTypeOptions: 'nosniff',
+      xFrameOptions: 'DENY',
+      referrerPolicy: 'strict-origin-when-cross-origin',
+      crossOriginEmbedderPolicy: false,
+    },
+    rateLimiter: false,
+    requestSizeLimiter: false,
+    xssValidator: false,
+    corsHandler: false,
+  },
 
   i18n: {
     restructureDir: 'app',
@@ -30,6 +73,10 @@ export default defineNuxtConfig({
     ],
     langDir: 'locales',
     strategy: 'no_prefix',
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'locale',
+    },
   },
 
   // @nuxtjs/seo configuration — per-tenant values set at request time
@@ -223,17 +270,6 @@ export default defineNuxtConfig({
   experimental: {
     // Enable payload extraction for better caching
     payloadExtraction: true,
-  },
-
-  // Route-level caching for static pages
-  // SWR: serve stale response immediately, revalidate in background
-  // Nitro uses the full request URL (including host) as cache key,
-  // providing multi-tenant isolation automatically
-  routeRules: {
-    '/': { swr: 300 },
-    '/login': { swr: 300 },
-    '/portal': { swr: 300 },
-    '/portal/login': { swr: 300 },
   },
 
   // Vite configuration

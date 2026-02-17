@@ -6,7 +6,14 @@ import {
   verifyWithSecrets,
   validateTimestamp,
 } from './webhook';
-import { tenantIdKey, tenantConfigKey } from './tenant';
+import {
+  tenantIdKey,
+  tenantConfigKey,
+  collectAllHostnames,
+  clearNegativeCache,
+} from './tenant';
+import { clearSdkCache } from '../services/_sdk';
+import type { TenantConfig } from '#shared/types/tenant-config';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
 import { logger } from './logger';
 
@@ -117,24 +124,47 @@ export async function processConfigRefresh(
     throw createAppError(ErrorCode.CONFLICT);
   }
 
-  // 12. Invalidate KV storage
+  // 12. Invalidate KV storage — clean up all hostname aliases
   const hostname = body.hostname;
-  const idKey = tenantIdKey(hostname);
-  const tenantId = await kvStorage.getItem<string>(idKey);
-  const configKey = tenantConfigKey(tenantId || hostname);
+  const tenantId = await kvStorage.getItem<string>(tenantIdKey(hostname));
+  const tid = tenantId || hostname;
+  const configKey = tenantConfigKey(tid);
 
-  await kvStorage.removeItem(idKey);
+  // Load config to find all hostnames (primary + aliases)
+  const config = await kvStorage.getItem<TenantConfig>(configKey);
+
+  if (config) {
+    // Remove all hostname → tenantId mappings
+    const hostnames = collectAllHostnames(config);
+    await Promise.all(
+      [...hostnames].map((h) => kvStorage.removeItem(tenantIdKey(h))),
+    );
+  } else {
+    // No config found — at least remove the mapping for this hostname
+    await kvStorage.removeItem(tenantIdKey(hostname));
+  }
+
+  // Remove config under tenantId key
   await kvStorage.removeItem(configKey);
 
-  // 13. Invalidate Nitro handler cache
+  // Also remove legacy config under hostname key if different
+  if (tid !== hostname) {
+    await kvStorage.removeItem(tenantConfigKey(hostname));
+  }
+
+  // 13. Invalidate in-memory caches (SDK instances + negative tenant cache)
+  clearSdkCache(tid);
+  clearNegativeCache(hostname);
+
+  // 14. Invalidate Nitro handler cache
   const nitroCacheKey = `nitro:handlers:${configKey}`;
   await cacheStorage.removeItem(nitroCacheKey);
 
-  // 14. Store webhook ID for deduplication
+  // 15. Store webhook ID for deduplication
   await kvStorage.setItem(dedupKey, true);
 
   logger.info(
-    `[webhook] Config cache invalidated for ${hostname} (tenantId: ${tenantId || hostname})`,
+    `[webhook] Config cache invalidated for ${hostname} (tenantId: ${tid})`,
   );
 
   return { invalidated: true };

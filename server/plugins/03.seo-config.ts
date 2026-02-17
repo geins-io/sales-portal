@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3';
-import { getTenant } from '../utils/tenant';
+import { resolveTenant } from '../utils/tenant';
 import { buildSiteUrl, isIndexable } from '../utils/seo';
 import { getRequestLocale } from '../utils/locale';
 
@@ -28,7 +28,7 @@ export default defineNitroPlugin((nitroApp) => {
         ?.hostname;
       if (!hostname) return;
 
-      const tenant = await getTenant(hostname, event);
+      const tenant = await resolveTenant(hostname, event);
       if (!tenant) return;
 
       const requestLocale = getRequestLocale(event);

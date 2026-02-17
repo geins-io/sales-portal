@@ -10,7 +10,6 @@
  */
 export default defineNuxtPlugin({
   name: 'tenant-analytics',
-  dependsOn: ['tenant-theme'],
   async setup() {
     // Analytics only makes sense on the client
     if (import.meta.server) return;

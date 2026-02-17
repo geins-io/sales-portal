@@ -2,13 +2,13 @@
  * SEO plugin — sets meta tags, lang attribute, verification codes,
  * and schema.org structured data (Organization + WebSite) per tenant.
  *
- * Runs after tenant-theme (which handles visual theming: CSS, fonts, favicon).
+ * Visual theming (CSS, fonts, favicon) is handled server-side by
+ * server/plugins/04.tenant-css.ts to prevent FOUC.
  */
 import type { Composer } from 'vue-i18n';
 
 export default defineNuxtPlugin({
   name: 'tenant-seo',
-  dependsOn: ['tenant-theme'],
   async setup(nuxtApp) {
     const { tenant, brandName, hostname, ogImageUrl, suspense } = useTenant();
     const i18n = nuxtApp.$i18n as Composer;

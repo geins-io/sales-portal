@@ -34,6 +34,26 @@ function mapEnvironment(
 const tenants = new Map<string, TenantSDK>();
 
 /**
+ * Clears cached SDK instances for a tenant.
+ * Called by the webhook handler on config invalidation so the next request
+ * creates a fresh SDK with up-to-date geinsSettings.
+ */
+export function clearSdkCache(tenantId: string): void {
+  const target = tenants.get(tenantId);
+  if (!target) {
+    // Try direct delete in case only hostname key exists
+    tenants.delete(tenantId);
+    return;
+  }
+  // Remove all keys pointing to the same SDK instance (tenantId + hostname aliases)
+  const keysToDelete: string[] = [];
+  for (const [key, sdk] of tenants) {
+    if (sdk === target) keysToDelete.push(key);
+  }
+  for (const key of keysToDelete) tenants.delete(key);
+}
+
+/**
  * Creates a Geins SDK instance from tenant Geins settings.
  */
 export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
@@ -110,7 +130,8 @@ export function getRequestChannelVariables(
  * Returns a per-tenant singleton Geins SDK instance.
  * Same tenant reuses the same instance across requests — the stateless SDK
  * (NO_CACHE fetch policy, per-operation tokens) makes this safe.
- * Different tenants get different instances (isolated by hostname).
+ * Different tenants get different instances (isolated by tenantId).
+ * Multiple hostnames for the same tenant share one SDK instance.
  */
 export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
   const hostname = event.context.tenant?.hostname;
@@ -118,12 +139,16 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
     throw createAppError(ErrorCode.BAD_REQUEST, 'No tenant context on request');
   }
 
-  const cached = tenants.get(hostname);
+  // Use tenantId for cache key (falls back to hostname for API routes
+  // where tenantId may not be resolved yet)
+  const cacheKey = event.context.tenant.tenantId || hostname;
+
+  const cached = tenants.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const tenant = await getTenant(hostname, event);
+  const tenant = await resolveTenant(hostname, event);
   if (!tenant?.geinsSettings) {
     throw createAppError(
       ErrorCode.BAD_REQUEST,
@@ -131,7 +156,19 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
     );
   }
 
+  // Check again with the resolved tenantId — another hostname for
+  // the same tenant may have already created the SDK instance
+  const tid = tenant.tenantId || hostname;
+  const existing = tenants.get(tid);
+  if (existing) {
+    // Also cache under the current lookup key for fast path next time
+    if (cacheKey !== tid) tenants.set(cacheKey, existing);
+    return existing;
+  }
+
   const sdk = createTenantSDK(tenant.geinsSettings);
-  tenants.set(hostname, sdk);
+  // Cache under both tenantId and the lookup key (hostname or tenantId)
+  tenants.set(tid, sdk);
+  if (cacheKey !== tid) tenants.set(cacheKey, sdk);
   return sdk;
 }

@@ -8,7 +8,7 @@ vi.stubGlobal('getCookie', mockGetCookie);
 // Mock the constants import
 vi.mock('#shared/constants/storage', () => ({
   COOKIE_NAMES: {
-    LOCALE: 'i18n_redirected',
+    LOCALE: 'locale',
     MARKET: 'market',
   },
 }));
@@ -31,12 +31,12 @@ describe('server/utils/locale', () => {
   });
 
   describe('getRequestLocale', () => {
-    it('should return locale from i18n_redirected cookie', () => {
+    it('should return locale from locale cookie', () => {
       const event = createEvent();
       mockGetCookie.mockReturnValue('sv');
 
       expect(getRequestLocale(event)).toBe('sv');
-      expect(mockGetCookie).toHaveBeenCalledWith(event, 'i18n_redirected');
+      expect(mockGetCookie).toHaveBeenCalledWith(event, 'locale');
     });
 
     it('should return undefined when cookie is not set', () => {

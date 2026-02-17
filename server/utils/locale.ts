@@ -4,7 +4,7 @@ import { COOKIE_NAMES } from '#shared/constants/storage';
 /**
  * Reads the user's preferred locale from the i18n cookie on the request.
  *
- * @nuxtjs/i18n persists locale preference in the `i18n_redirected` cookie.
+ * @nuxtjs/i18n persists locale preference in the `locale` cookie.
  * Server-side API routes can read this to pass the correct languageId to
  * Geins GraphQL queries, keeping UI locale and API locale in sync.
  *

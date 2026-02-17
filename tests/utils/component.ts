@@ -31,6 +31,8 @@ export const defaultMountOptions: MountingOptions<unknown> = {
       },
     },
     mocks: {
+      // Mock i18n — return the key as-is for test assertions
+      $t: (key: string) => key,
       // Mock common Nuxt composables
       $router: {
         push: () => Promise.resolve(),
@@ -172,7 +174,12 @@ export async function triggerKeyboard(
   wrapper: ReturnType<typeof mount>,
   selector: string,
   key: string,
-  modifiers: { ctrl?: boolean; shift?: boolean; alt?: boolean; meta?: boolean } = {},
+  modifiers: {
+    ctrl?: boolean;
+    shift?: boolean;
+    alt?: boolean;
+    meta?: boolean;
+  } = {},
 ) {
   const element = wrapper.find(selector);
   await element.trigger('keydown', {
@@ -194,7 +201,9 @@ export async function waitForDom(wrapper: ReturnType<typeof mount>) {
 /**
  * Create a mock provide/inject context
  */
-export function createProvideContext(provides: Record<string | symbol, unknown>) {
+export function createProvideContext(
+  provides: Record<string | symbol, unknown>,
+) {
   return {
     global: {
       provide: provides,

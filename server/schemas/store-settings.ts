@@ -79,14 +79,30 @@ export const GeinsSettingsSchema = z.object({
   availableMarkets: z.array(z.string()).default([]),
 });
 
+/**
+ * URL validator that accepts only HTTP(S) URLs.
+ * Rejects javascript:, data:, and other non-HTTP protocols.
+ * Empty strings are also rejected (use .nullable().optional() on the field).
+ */
+const SafeUrlSchema = z.string().refine(
+  (val) => {
+    try {
+      return ['https:', 'http:'].includes(new URL(val).protocol);
+    } catch {
+      return false;
+    }
+  },
+  { message: 'Must be a valid HTTP(S) URL' },
+);
+
 export const BrandingConfigSchema = z.object({
   name: z.string(),
   watermark: z.enum(['full', 'minimal', 'none']),
-  logoUrl: z.string().nullable().optional(),
-  logoDarkUrl: z.string().nullable().optional(),
-  logoSymbolUrl: z.string().nullable().optional(),
-  faviconUrl: z.string().nullable().optional(),
-  ogImageUrl: z.string().nullable().optional(),
+  logoUrl: SafeUrlSchema.nullable().optional(),
+  logoDarkUrl: SafeUrlSchema.nullable().optional(),
+  logoSymbolUrl: SafeUrlSchema.nullable().optional(),
+  faviconUrl: SafeUrlSchema.nullable().optional(),
+  ogImageUrl: SafeUrlSchema.nullable().optional(),
 });
 
 /**

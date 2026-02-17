@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ref } from 'vue';
+import { ref, computed as vueComputed } from 'vue';
 
 // Track useStorage calls
-const useStorageSpy = vi.fn((_key: string, defaultValue: boolean) =>
-  ref(defaultValue),
+const useStorageSpy = vi.fn(
+  (_key: string, defaultValue: 'accepted' | 'declined' | null) =>
+    ref(defaultValue),
 );
 
 vi.mock('@vueuse/core', () => ({
-  useStorage: (...args: [string, boolean]) => useStorageSpy(...args),
+  useStorage: (...args: [string, 'accepted' | 'declined' | null]) =>
+    useStorageSpy(...args),
 }));
 
 // Mock useTenant — changeable per test via mockTenantId
@@ -19,6 +21,7 @@ const mockUseTenant = () => ({
 
 vi.mock('#imports', () => ({
   useTenant: () => mockUseTenant(),
+  computed: (fn: () => unknown) => vueComputed(fn),
 }));
 
 vi.mock('../../app/composables/useTenant', () => ({
@@ -38,31 +41,45 @@ describe('useAnalyticsConsent', () => {
     useAnalyticsConsent = mod.useAnalyticsConsent;
   });
 
-  it('defaults consent to false', () => {
+  it('defaults consent to false (no interaction yet)', () => {
     const { consent } = useAnalyticsConsent();
     expect(consent.value).toBe(false);
   });
 
-  it('uses tenant-scoped localStorage key', () => {
+  it('defaults hasInteracted to false', () => {
+    const { hasInteracted } = useAnalyticsConsent();
+    expect(hasInteracted.value).toBe(false);
+  });
+
+  it('uses tenant-scoped localStorage key with null default', () => {
     useAnalyticsConsent();
     expect(useStorageSpy).toHaveBeenCalledWith(
       'analytics-consent-test-tenant',
-      false,
+      null,
     );
   });
 
-  it('accept() sets consent to true', () => {
-    const { consent, accept } = useAnalyticsConsent();
+  it('accept() sets consent to true and hasInteracted to true', () => {
+    const { consent, hasInteracted, accept } = useAnalyticsConsent();
     accept();
     expect(consent.value).toBe(true);
+    expect(hasInteracted.value).toBe(true);
   });
 
-  it('revoke() sets consent to false', () => {
-    const { consent, accept, revoke } = useAnalyticsConsent();
+  it('revoke() sets consent to false and hasInteracted to true', () => {
+    const { consent, hasInteracted, revoke } = useAnalyticsConsent();
+    revoke();
+    expect(consent.value).toBe(false);
+    expect(hasInteracted.value).toBe(true);
+  });
+
+  it('accept then revoke sets consent false but hasInteracted stays true', () => {
+    const { consent, hasInteracted, accept, revoke } = useAnalyticsConsent();
     accept();
     expect(consent.value).toBe(true);
     revoke();
     expect(consent.value).toBe(false);
+    expect(hasInteracted.value).toBe(true);
   });
 
   it('uses different keys for different tenants', () => {
@@ -73,7 +90,7 @@ describe('useAnalyticsConsent', () => {
 
     expect(useStorageSpy).toHaveBeenCalledWith(
       'analytics-consent-other-tenant',
-      false,
+      null,
     );
   });
 });
