@@ -1,6 +1,10 @@
 import type { NitroApp } from 'nitropack/types';
 import { getTenant } from '../utils/tenant';
-import { sanitizeTenantCss, sanitizeHtmlAttr } from '../utils/sanitize';
+import {
+  sanitizeTenantCss,
+  sanitizeHtmlAttr,
+  sanitizeUrl,
+} from '../utils/sanitize';
 import { buildGoogleFontsUrl } from '#shared/utils/fonts';
 
 /**
@@ -46,21 +50,22 @@ export default defineNitroPlugin((nitroApp: NitroApp) => {
       );
     }
 
-    // 3. Inject favicon
-    const faviconUrl = tenant.branding?.faviconUrl;
-    if (faviconUrl) {
+    // 3. Inject favicon (sanitize URL to allow only https: and data:image/)
+    const safeFavicon = sanitizeUrl(tenant.branding?.faviconUrl ?? '');
+    if (safeFavicon) {
       html.head.push(
-        `<link rel="icon" href="${faviconUrl}" type="image/x-icon">`,
+        `<link rel="icon" href="${safeFavicon}" type="image/x-icon">`,
       );
     }
 
     // 4. Inject Google Fonts preconnect + stylesheet
     const fontsUrl = buildGoogleFontsUrl(tenant.theme?.typography);
     if (fontsUrl) {
+      const safeFontsUrl = sanitizeHtmlAttr(fontsUrl);
       html.head.push(
         '<link rel="preconnect" href="https://fonts.googleapis.com">',
         '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">',
-        `<link rel="stylesheet" href="${fontsUrl}">`,
+        `<link rel="stylesheet" href="${safeFontsUrl}">`,
       );
     }
   });

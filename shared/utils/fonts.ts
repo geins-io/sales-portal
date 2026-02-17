@@ -20,9 +20,10 @@ export function buildGoogleFontsUrl(
 
   if (families.size === 0) return null;
 
-  const params = [...families]
-    .map((f) => `family=${f.replace(/ /g, '+')}:wght@300;400;500;600;700`)
-    .join('&');
-
-  return `https://fonts.googleapis.com/css2?${params}&display=swap`;
+  const url = new URL('https://fonts.googleapis.com/css2');
+  families.forEach((f) =>
+    url.searchParams.append('family', `${f}:wght@300;400;500;600;700`),
+  );
+  url.searchParams.append('display', 'swap');
+  return url.toString();
 }

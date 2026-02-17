@@ -768,9 +768,14 @@ describe('generateTenantCss with typography', () => {
 describe('buildGoogleFontsUrl', () => {
   it('should build URL with single font family', () => {
     const url = buildGoogleFontsUrl({ fontFamily: 'Inter' });
-    expect(url).toBe(
-      'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
-    );
+    expect(url).not.toBeNull();
+    const parsed = new URL(url!);
+    expect(parsed.origin).toBe('https://fonts.googleapis.com');
+    expect(parsed.pathname).toBe('/css2');
+    expect(parsed.searchParams.getAll('family')).toEqual([
+      'Inter:wght@300;400;500;600;700',
+    ]);
+    expect(parsed.searchParams.get('display')).toBe('swap');
   });
 
   it('should build URL with multiple font families', () => {
@@ -778,9 +783,12 @@ describe('buildGoogleFontsUrl', () => {
       fontFamily: 'DM Sans',
       headingFontFamily: 'Carter One',
     });
-    expect(url).toContain('family=DM+Sans:wght@300;400;500;600;700');
-    expect(url).toContain('family=Carter+One:wght@300;400;500;600;700');
-    expect(url).toContain('display=swap');
+    expect(url).not.toBeNull();
+    const parsed = new URL(url!);
+    const families = parsed.searchParams.getAll('family');
+    expect(families).toContain('DM Sans:wght@300;400;500;600;700');
+    expect(families).toContain('Carter One:wght@300;400;500;600;700');
+    expect(parsed.searchParams.get('display')).toBe('swap');
   });
 
   it('should deduplicate when heading equals body font', () => {
@@ -798,7 +806,10 @@ describe('buildGoogleFontsUrl', () => {
       fontFamily: 'Inter',
       monoFontFamily: 'Fira Code',
     });
-    expect(url).toContain('family=Fira+Code:wght@300;400;500;600;700');
+    expect(url).not.toBeNull();
+    const parsed = new URL(url!);
+    const families = parsed.searchParams.getAll('family');
+    expect(families).toContain('Fira Code:wght@300;400;500;600;700');
   });
 
   it('should return null for null/undefined typography', () => {

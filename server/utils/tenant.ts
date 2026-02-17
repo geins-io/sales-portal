@@ -8,6 +8,7 @@ import type {
 import { StoreSettingsSchema } from '../schemas/store-settings';
 import { deriveThemeColors, type FullThemeColors } from './theme';
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
+import { escapeCssString } from './sanitize';
 import { logger } from './logger';
 
 /**
@@ -117,21 +118,24 @@ export function generateFontCss(
   const lines: string[] = [];
 
   if (typography.fontFamily) {
+    const safe = escapeCssString(typography.fontFamily);
     lines.push(
-      `${indent}--font-family: '${typography.fontFamily}', ui-sans-serif, system-ui, sans-serif;`,
+      `${indent}--font-family: '${safe}', ui-sans-serif, system-ui, sans-serif;`,
     );
   }
 
   const headingFamily = typography.headingFontFamily ?? typography.fontFamily;
   if (headingFamily) {
+    const safe = escapeCssString(headingFamily);
     lines.push(
-      `${indent}--heading-font-family: '${headingFamily}', ui-sans-serif, system-ui, sans-serif;`,
+      `${indent}--heading-font-family: '${safe}', ui-sans-serif, system-ui, sans-serif;`,
     );
   }
 
   if (typography.monoFontFamily) {
+    const safe = escapeCssString(typography.monoFontFamily);
     lines.push(
-      `${indent}--mono-font-family: '${typography.monoFontFamily}', ui-monospace, 'SFMono-Regular', monospace;`,
+      `${indent}--mono-font-family: '${safe}', ui-monospace, 'SFMono-Regular', monospace;`,
     );
   }
 
