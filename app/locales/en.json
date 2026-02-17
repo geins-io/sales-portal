@@ -109,6 +109,10 @@
     "accept": "Accept cookies",
     "decline": "Decline"
   },
+  "errors": {
+    "section_failed": "This section could not be loaded.",
+    "retry": "Try again"
+  },
   "elements": {
     "component_showcase": "Component Showcase",
     "share_link": "Share link",

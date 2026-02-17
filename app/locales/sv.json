@@ -109,6 +109,10 @@
     "accept": "Acceptera cookies",
     "decline": "Avvisa"
   },
+  "errors": {
+    "section_failed": "Det gick inte att läsa in det här avsnittet.",
+    "retry": "Försök igen"
+  },
   "elements": {
     "component_showcase": "Komponentvisning",
     "share_link": "Dela länk",
