@@ -36,9 +36,21 @@ describe('sanitizeTenantCss', () => {
     expect(sanitizeTenantCss(input)).toBe('body { color: red; }');
   });
 
+  it('strips @namespace', () => {
+    const input =
+      '@namespace url("http://www.w3.org/1999/xhtml"); body { color: red; }';
+    expect(sanitizeTenantCss(input)).toBe('body { color: red; }');
+  });
+
   it('strips expression()', () => {
     const input = 'div { width: expression(document.body.clientWidth); }';
     expect(sanitizeTenantCss(input)).toBe('div { width: ; }');
+  });
+
+  it('strips expression() with nested parens', () => {
+    const input = 'div { width: expression(alert(1)); }';
+    const result = sanitizeTenantCss(input);
+    expect(result).not.toContain('expression');
   });
 
   it('strips url(javascript:...)', () => {
@@ -77,6 +89,13 @@ describe('sanitizeTenantCss', () => {
   it('strips url() with relative paths', () => {
     const input = 'div { background: url(../evil.css); }';
     expect(sanitizeTenantCss(input)).toBe('div { background: ; }');
+  });
+
+  it('strips url() with http://', () => {
+    const input = 'div { background: url("http://evil.com/bg.png"); }';
+    const result = sanitizeTenantCss(input);
+    expect(result).not.toContain('url(');
+    expect(result).not.toContain('http://evil.com');
   });
 
   it('preserves valid oklch() values', () => {
@@ -122,8 +141,12 @@ describe('sanitizeHtmlAttr', () => {
     expect(sanitizeHtmlAttr('a&b')).toBe('a&amp;b');
   });
 
+  it('escapes single quotes', () => {
+    expect(sanitizeHtmlAttr("a'b")).toBe('a&#39;b');
+  });
+
   it('escapes all special characters together', () => {
-    expect(sanitizeHtmlAttr('"<>&')).toBe('&quot;&lt;&gt;&amp;');
+    expect(sanitizeHtmlAttr('"<>&\'')).toBe('&quot;&lt;&gt;&amp;&#39;');
   });
 
   it('passes through safe strings unchanged', () => {

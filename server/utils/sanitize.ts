@@ -2,7 +2,8 @@ const SCRIPT_BLOCK_RE = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
 const HTML_TAG_RE = /<\/?[a-z][^>]*>/gi;
 const AT_IMPORT_RE = /@import\b[^;]*;?/gi;
 const AT_CHARSET_RE = /@charset\b[^;]*;?/gi;
-const EXPRESSION_RE = /expression\s*\([^)]*\)/gi;
+const AT_NAMESPACE_RE = /@namespace\b[^;]*;?/gi;
+const EXPRESSION_RE = /expression\s*\([^;{]*/gi;
 const MOZ_BINDING_RE = /-moz-binding\s*:[^;]*(;|$)/gi;
 const BEHAVIOR_RE = /behavior\s*:[^;]*(;|$)/gi;
 const JAVASCRIPT_URI_RE = /javascript\s*:/gi;
@@ -52,6 +53,7 @@ export function sanitizeTenantCss(css: string): string {
   result = result.replace(HTML_TAG_RE, '');
   result = result.replace(AT_IMPORT_RE, '');
   result = result.replace(AT_CHARSET_RE, '');
+  result = result.replace(AT_NAMESPACE_RE, '');
   result = result.replace(EXPRESSION_RE, '');
   result = result.replace(MOZ_BINDING_RE, '');
   result = result.replace(BEHAVIOR_RE, '');
@@ -74,6 +76,7 @@ export function sanitizeHtmlAttr(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
