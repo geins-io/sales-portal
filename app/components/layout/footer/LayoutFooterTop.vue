@@ -1,6 +1,4 @@
-<script setup lang="ts">
-const { $t } = useNuxtApp();
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div data-slot="footer-top" class="border-b px-6 py-8 lg:px-8 lg:py-10">

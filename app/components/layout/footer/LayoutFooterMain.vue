@@ -1,7 +1,17 @@
 <script setup lang="ts">
-const { $t } = useNuxtApp();
+interface FooterLink {
+  label: string;
+  to?: string;
+  href?: string;
+  external?: boolean;
+}
 
-const columns = [
+interface FooterColumn {
+  title: string;
+  links: FooterLink[];
+}
+
+const columns: FooterColumn[] = [
   {
     title: 'layout.company',
     links: [
@@ -81,7 +91,7 @@ const columns = [
             </a>
             <NuxtLink
               v-else
-              :to="link.to"
+              :to="link.to ?? '/'"
               class="text-muted-foreground hover:text-foreground text-sm transition-colors"
             >
               {{ $t(link.label) }}
