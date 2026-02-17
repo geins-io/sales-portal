@@ -10,7 +10,15 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  await newsletterService.subscribe({ email: body.email }, event);
+  try {
+    await newsletterService.subscribe({ email: body.email }, event);
+  } catch (err) {
+    logger.error('Newsletter subscribe failed', { error: err });
+    throw createAppError(
+      ErrorCode.INTERNAL_ERROR,
+      'Unable to process newsletter subscription',
+    );
+  }
 
   return { ok: true };
 });
