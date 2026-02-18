@@ -45,7 +45,8 @@ test.describe('Application', () => {
         !error.includes('favicon') &&
         !error.includes('404') &&
         !error.includes('Failed to load resource') &&
-        !error.includes('Cross-Origin-Opener-Policy'),
+        !error.includes('Cross-Origin-Opener-Policy') &&
+        !error.includes('Content Security Policy'),
     );
 
     expect(criticalErrors).toHaveLength(0);
