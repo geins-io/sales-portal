@@ -17,7 +17,11 @@ import type { TenantConfig } from '#shared/types/tenant-config';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
 import { logger } from './logger';
 
-const rateLimiter = new RateLimiter({ limit: 10, windowMs: 60_000 });
+const rateLimiter = new RateLimiter({
+  limit: 10,
+  windowMs: 60_000,
+  prefix: 'webhook',
+});
 
 export interface WebhookRequest {
   clientIp: string;
@@ -48,7 +52,7 @@ export async function processConfigRefresh(
   cacheStorage: CacheStorage,
 ): Promise<{ invalidated: true }> {
   // 1. Rate limit
-  const rateResult = rateLimiter.check(request.clientIp);
+  const rateResult = await rateLimiter.check(request.clientIp);
   if (!rateResult.allowed) {
     throw createAppError(ErrorCode.RATE_LIMITED);
   }

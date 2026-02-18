@@ -20,6 +20,23 @@ vi.stubGlobal('setCookie', setCookieMock);
 vi.stubGlobal('getCookie', getCookieMock);
 vi.stubGlobal('deleteCookie', deleteCookieMock);
 vi.stubGlobal('readBody', readBodyMock);
+// readValidatedBody calls readBody then validates with the provided parser.
+// Mirrors H3 behavior: validation errors become 422 responses.
+vi.stubGlobal(
+  'readValidatedBody',
+  async (_event: unknown, parser: (data: unknown) => unknown) => {
+    const body = await readBodyMock(_event);
+    try {
+      return parser(body);
+    } catch (err) {
+      const error = new Error(
+        err instanceof Error ? err.message : 'Validation failed',
+      );
+      Object.assign(error, { statusCode: 422, data: err });
+      throw error;
+    }
+  },
+);
 
 vi.stubGlobal('createAppError', (code: string, message: string) => {
   const err = new Error(message);

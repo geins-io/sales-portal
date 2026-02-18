@@ -104,17 +104,6 @@ export function shallowMountComponent<T extends Component>(
 }
 
 /**
- * Create a wrapper component for testing slots
- */
-export function createSlotWrapper(slotContent: string | Component) {
-  return {
-    template: '<div class="slot-wrapper"><slot /></div>',
-    components:
-      typeof slotContent === 'string' ? {} : { SlotContent: slotContent },
-  };
-}
-
-/**
  * Create a test component with a slot
  */
 export function renderWithSlot(

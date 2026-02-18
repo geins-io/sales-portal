@@ -8,26 +8,12 @@ export async function getCart(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.cart.get(cartId);
-  } catch (error) {
-    if (error instanceof CartError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(ErrorCode.EXTERNAL_API_ERROR, 'Failed to get cart');
-  }
+  return wrapServiceCall(() => oms.cart.get(cartId), 'cart', CartError);
 }
 
 export async function createCart(event: H3Event): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.cart.create();
-  } catch (error) {
-    if (error instanceof CartError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(ErrorCode.EXTERNAL_API_ERROR, 'Failed to create cart');
-  }
+  return wrapServiceCall(() => oms.cart.create(), 'cart', CartError);
 }
 
 export async function addItem(
@@ -36,17 +22,11 @@ export async function addItem(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.cart.addItem(cartId, input);
-  } catch (error) {
-    if (error instanceof CartError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to add item to cart',
-    );
-  }
+  return wrapServiceCall(
+    () => oms.cart.addItem(cartId, input),
+    'cart',
+    CartError,
+  );
 }
 
 export async function updateItem(
@@ -55,17 +35,11 @@ export async function updateItem(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.cart.updateItem(cartId, input);
-  } catch (error) {
-    if (error instanceof CartError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to update cart item',
-    );
-  }
+  return wrapServiceCall(
+    () => oms.cart.updateItem(cartId, input),
+    'cart',
+    CartError,
+  );
 }
 
 export async function deleteItem(
@@ -74,17 +48,11 @@ export async function deleteItem(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.cart.deleteItem(cartId, itemId);
-  } catch (error) {
-    if (error instanceof CartError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to delete cart item',
-    );
-  }
+  return wrapServiceCall(
+    () => oms.cart.deleteItem(cartId, itemId),
+    'cart',
+    CartError,
+  );
 }
 
 export async function applyPromoCode(
@@ -93,17 +61,11 @@ export async function applyPromoCode(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.cart.setPromotionCode(cartId, promoCode);
-  } catch (error) {
-    if (error instanceof CartError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to apply promotion code',
-    );
-  }
+  return wrapServiceCall(
+    () => oms.cart.setPromotionCode(cartId, promoCode),
+    'cart',
+    CartError,
+  );
 }
 
 export async function removePromoCode(
@@ -111,15 +73,9 @@ export async function removePromoCode(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.cart.removePromotionCode(cartId);
-  } catch (error) {
-    if (error instanceof CartError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to remove promotion code',
-    );
-  }
+  return wrapServiceCall(
+    () => oms.cart.removePromotionCode(cartId),
+    'cart',
+    CartError,
+  );
 }

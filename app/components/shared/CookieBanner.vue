@@ -22,13 +22,13 @@ const visible = computed(() => !hasInteracted.value && hasFeature('analytics'));
           </p>
           <div class="flex shrink-0 gap-2">
             <button
-              class="bg-primary text-primary-foreground rounded px-4 py-2 text-sm font-medium"
+              class="bg-primary text-primary-foreground focus-visible:ring-ring rounded px-4 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
               @click="accept"
             >
               {{ $t('cookies.accept') }}
             </button>
             <button
-              class="bg-muted text-muted-foreground rounded px-4 py-2 text-sm font-medium"
+              class="bg-muted text-muted-foreground focus-visible:ring-ring rounded px-4 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
               @click="revoke"
             >
               {{ $t('cookies.decline') }}

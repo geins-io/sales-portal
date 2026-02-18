@@ -1,5 +1,4 @@
 import type { NitroApp } from 'nitropack/types';
-import { resolveTenant } from '../utils/tenant';
 import {
   sanitizeTenantCss,
   sanitizeHtmlAttr,
@@ -20,11 +19,8 @@ import { buildGoogleFontsUrl } from '#shared/utils/fonts';
  */
 export default defineNitroPlugin((nitroApp: NitroApp) => {
   nitroApp.hooks.hook('render:html', async (html, { event }) => {
-    const hostname = (event.context.tenant as { hostname?: string })?.hostname;
-    if (!hostname) return;
-
-    const tenant = await resolveTenant(hostname, event);
-    // Inactive/unknown tenants were already rejected in 01.tenant-context — this is a safety net.
+    // Tenant already resolved by 01.tenant-context — read from event context.
+    const tenant = event.context.tenant?.config;
     if (!tenant) return;
 
     const themeName = tenant.theme?.name?.toLowerCase() || 'default';

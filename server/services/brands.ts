@@ -4,8 +4,12 @@ import { loadQuery } from './graphql/loader';
 
 export async function getBrands(event: H3Event): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return sdk.core.graphql.query({
-    queryAsString: loadQuery('brands/brands.graphql'),
-    variables: getRequestChannelVariables(sdk, event),
-  });
+  return wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('brands/brands.graphql'),
+        variables: getRequestChannelVariables(sdk, event),
+      }),
+    'brands',
+  );
 }

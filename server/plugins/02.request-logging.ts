@@ -110,7 +110,7 @@ export default defineNitroPlugin((nitroApp) => {
       correlationId,
       method: event.method,
       path: event.path,
-      tenantId: (event.context.tenant as { id?: string })?.id,
+      tenantId: event.context.tenant?.tenantId,
       hostname: event.context.tenant?.hostname,
       ip: getClientIp(event),
       userAgent: getHeader(event, 'user-agent'),
@@ -159,7 +159,7 @@ export default defineNitroPlugin((nitroApp) => {
         path: event.path,
         statusCode,
         duration,
-        tenantId: (event.context.tenant as { id?: string })?.id,
+        tenantId: event.context.tenant?.tenantId,
       };
 
       // Log based on status code

@@ -41,6 +41,10 @@ vi.stubGlobal('ErrorCode', {
   NOT_FOUND: 'NOT_FOUND',
   VALIDATION_ERROR: 'VALIDATION_ERROR',
 });
+vi.stubGlobal('createExternalApiError', (service: string, err?: Error) => {
+  throw new Error(err?.message || `Error communicating with ${service}`);
+});
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 // Locale/market cookie readers — return undefined to use SDK defaults
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));

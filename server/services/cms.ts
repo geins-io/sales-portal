@@ -6,7 +6,7 @@ export async function getMenu(
   event: H3Event,
 ): Promise<unknown> {
   const { cms } = await getTenantSDK(event);
-  return cms.menu.get(args);
+  return wrapServiceCall(() => cms.menu.get(args), 'cms');
 }
 
 export async function getPage(
@@ -15,7 +15,10 @@ export async function getPage(
 ): Promise<unknown> {
   const { cms } = await getTenantSDK(event);
   const preview = getPreviewCookie(event);
-  return cms.page.get({ ...args, ...(preview && { preview: true }) });
+  return wrapServiceCall(
+    () => cms.page.get({ ...args, ...(preview && { preview: true }) }),
+    'cms',
+  );
 }
 
 export async function getContentArea(
@@ -24,5 +27,8 @@ export async function getContentArea(
 ): Promise<unknown> {
   const { cms } = await getTenantSDK(event);
   const preview = getPreviewCookie(event);
-  return cms.area.get({ ...args, ...(preview && { preview: true }) });
+  return wrapServiceCall(
+    () => cms.area.get({ ...args, ...(preview && { preview: true }) }),
+    'cms',
+  );
 }

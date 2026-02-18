@@ -48,13 +48,6 @@ export function createMockLocalStorage() {
 }
 
 /**
- * Mock sessionStorage for tests
- */
-export function createMockSessionStorage() {
-  return createMockLocalStorage();
-}
-
-/**
  * Wait for a specified amount of time
  */
 export function wait(ms: number): Promise<void> {

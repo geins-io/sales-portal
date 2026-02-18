@@ -1,9 +1,7 @@
-export default defineEventHandler(async (event) => {
-  const body = await readBody<{ loginToken: string }>(event);
+import { PreviewSchema } from '../../schemas/api-input';
 
-  if (!body?.loginToken || typeof body.loginToken !== 'string') {
-    throw createAppError(ErrorCode.VALIDATION_ERROR, 'loginToken is required');
-  }
+export default defineEventHandler(async (event) => {
+  const body = await readValidatedBody(event, PreviewSchema.parse);
 
   clearAuthCookies(event);
   setPreviewAuthToken(event, body.loginToken);

@@ -1,18 +1,19 @@
 import * as userService from '../../services/user';
+import { registerRateLimiter, getClientIp } from '../../utils/rate-limiter';
+import { RegisterSchema } from '../../schemas/api-input';
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{
-    username: string;
-    password: string;
-    user?: Record<string, unknown>;
-  }>(event);
+  const clientIp = getClientIp(event);
+  const rateLimit = await registerRateLimiter.check(clientIp);
 
-  if (!body?.username || !body?.password) {
+  if (!rateLimit.allowed) {
     throw createAppError(
-      ErrorCode.VALIDATION_ERROR,
-      'Username and password are required',
+      ErrorCode.RATE_LIMITED,
+      'Too many registration attempts',
     );
   }
+
+  const body = await readValidatedBody(event, RegisterSchema.parse);
 
   const result = await userService.register(
     { username: body.username, password: body.password },

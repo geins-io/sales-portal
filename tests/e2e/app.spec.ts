@@ -53,13 +53,13 @@ test.describe('Application', () => {
 });
 
 test.describe('Navigation', () => {
-  test('should navigate using links', async ({ page }) => {
+  test('should have navigable links in the header', async ({ page }) => {
     await page.goto('/');
 
-    // Test navigation by checking URL changes
-    // This is a basic test - expand based on actual navigation structure
-    const currentUrl = page.url();
-    expect(currentUrl).toContain('/');
+    // The header should contain at least one link
+    const headerLinks = page.locator('header a[href]');
+    const count = await headerLinks.count();
+    expect(count).toBeGreaterThan(0);
   });
 });
 
@@ -99,12 +99,10 @@ test.describe('Accessibility', () => {
   test('should have proper heading structure', async ({ page }) => {
     await page.goto('/');
 
-    // Check for at least one heading element
+    // Page should have at least one heading element
     const headings = page.locator('h1, h2, h3, h4, h5, h6');
     const count = await headings.count();
-
-    // Page should have at least one heading
-    expect(count).toBeGreaterThanOrEqual(0);
+    expect(count).toBeGreaterThan(0);
   });
 
   test('should have lang attribute on html element', async ({ page }) => {

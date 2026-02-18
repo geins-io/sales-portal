@@ -17,10 +17,14 @@ export async function getProducts(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return sdk.core.graphql.query({
-    queryAsString: loadQuery('product-lists/products.graphql'),
-    variables: { ...options, ...getRequestChannelVariables(sdk, event) },
-  });
+  return wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('product-lists/products.graphql'),
+        variables: { ...options, ...getRequestChannelVariables(sdk, event) },
+      }),
+    'product-lists',
+  );
 }
 
 export async function getFilters(
@@ -28,10 +32,14 @@ export async function getFilters(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return sdk.core.graphql.query({
-    queryAsString: loadQuery('product-lists/list-filters.graphql'),
-    variables: { ...options, ...getRequestChannelVariables(sdk, event) },
-  });
+  return wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('product-lists/list-filters.graphql'),
+        variables: { ...options, ...getRequestChannelVariables(sdk, event) },
+      }),
+    'product-lists',
+  );
 }
 
 export async function getCategoryPage(
@@ -39,10 +47,17 @@ export async function getCategoryPage(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return sdk.core.graphql.query({
-    queryAsString: loadQuery('product-lists/category-page.graphql'),
-    variables: { alias: args.alias, ...getRequestChannelVariables(sdk, event) },
-  });
+  return wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('product-lists/category-page.graphql'),
+        variables: {
+          alias: args.alias,
+          ...getRequestChannelVariables(sdk, event),
+        },
+      }),
+    'product-lists',
+  );
 }
 
 export async function getBrandPage(
@@ -50,10 +65,17 @@ export async function getBrandPage(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return sdk.core.graphql.query({
-    queryAsString: loadQuery('product-lists/brand-page.graphql'),
-    variables: { alias: args.alias, ...getRequestChannelVariables(sdk, event) },
-  });
+  return wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('product-lists/brand-page.graphql'),
+        variables: {
+          alias: args.alias,
+          ...getRequestChannelVariables(sdk, event),
+        },
+      }),
+    'product-lists',
+  );
 }
 
 export async function getDiscountCampaignPage(
@@ -61,8 +83,17 @@ export async function getDiscountCampaignPage(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return sdk.core.graphql.query({
-    queryAsString: loadQuery('product-lists/discount-campaign-page.graphql'),
-    variables: { alias: args.alias, ...getRequestChannelVariables(sdk, event) },
-  });
+  return wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery(
+          'product-lists/discount-campaign-page.graphql',
+        ),
+        variables: {
+          alias: args.alias,
+          ...getRequestChannelVariables(sdk, event),
+        },
+      }),
+    'product-lists',
+  );
 }

@@ -7,11 +7,15 @@ export async function searchProducts(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return sdk.core.graphql.query({
-    queryAsString: loadQuery('search/search.graphql'),
-    variables: {
-      filter: args.filter,
-      ...getRequestChannelVariables(sdk, event),
-    },
-  });
+  return wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('search/search.graphql'),
+        variables: {
+          filter: args.filter,
+          ...getRequestChannelVariables(sdk, event),
+        },
+      }),
+    'search',
+  );
 }

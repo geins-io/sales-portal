@@ -2,13 +2,15 @@ import { describe, it, expect } from 'vitest';
 import {
   tenantIdKey,
   tenantConfigKey,
+  collectAllHostnames,
+} from '../../server/utils/tenant';
+import {
   createDefaultTheme,
   generateTenantCss,
   generateThemeHash,
   generateOverrideCss,
   mergeThemes,
-  collectAllHostnames,
-} from '../../server/utils/tenant';
+} from '../../server/utils/tenant-css';
 import type { TenantConfig } from '#shared/types/tenant-config';
 import { deriveThemeColors } from '../../server/utils/theme';
 import type { ThemeColors } from '../../server/schemas/store-settings';

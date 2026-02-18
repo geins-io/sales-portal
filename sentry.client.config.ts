@@ -15,9 +15,12 @@
 import * as Sentry from '@sentry/nuxt';
 
 const config = useRuntimeConfig();
-// Client-side DSN is optional and must be explicitly set via NUXT_PUBLIC_SENTRY_DSN
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const dsn = (config.public as any).sentry?.dsn;
+// Client-side DSN is optional and must be explicitly set via NUXT_PUBLIC_SENTRY_DSN.
+// Not declared in runtimeConfig.public (server-only by default), so Nuxt auto-creates
+// the nested object from the env var. Access via index signature to avoid `as any`.
+const dsn = (
+  config.public as Record<string, Record<string, string> | undefined>
+).sentry?.dsn;
 const environment = config.public.environment || 'development';
 const isProduction = environment === 'production';
 // Disable Sentry debug logging in the browser
@@ -32,9 +35,8 @@ if (dsn) {
     // Environment and release information
     environment,
 
-    // Adds request headers and IP for users
-    // https://docs.sentry.io/platforms/javascript/guides/nuxt/configuration/options/#sendDefaultPii
-    sendDefaultPii: true,
+    // GDPR: do not send IP addresses or request headers to Sentry
+    sendDefaultPii: false,
 
     // Integrations for enhanced functionality
     integrations: [
@@ -43,10 +45,9 @@ if (dsn) {
 
       // Session replay for visual debugging
       Sentry.replayIntegration({
-        // Mask all text content for privacy
-        maskAllText: false,
-        // Block all media for performance
-        blockAllMedia: false,
+        // GDPR: mask text and block media in session replays
+        maskAllText: true,
+        blockAllMedia: true,
       }),
     ],
 

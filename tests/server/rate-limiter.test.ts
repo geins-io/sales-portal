@@ -1,147 +1,183 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RateLimiter, getClientIp } from '../../server/utils/rate-limiter';
 import type { H3Event } from 'h3';
+
+// Mock useStorage to provide an in-memory store for tests
+const mockStore = new Map<string, unknown>();
+vi.stubGlobal('useStorage', () => ({
+  getItem: async <T>(key: string): Promise<T | null> =>
+    (mockStore.get(key) as T) ?? null,
+  setItem: async (key: string, value: unknown) => {
+    mockStore.set(key, value);
+  },
+  removeItem: async (key: string) => {
+    mockStore.delete(key);
+  },
+  getKeys: async (prefix: string) =>
+    [...mockStore.keys()].filter((k) => k.startsWith(prefix)),
+}));
 
 describe('RateLimiter', () => {
   let rateLimiter: RateLimiter;
 
   beforeEach(() => {
     vi.useFakeTimers();
+    mockStore.clear();
     rateLimiter = new RateLimiter({
       limit: 3,
-      windowMs: 60000, // 1 minute
+      windowMs: 60000,
+      prefix: 'test',
     });
   });
 
   afterEach(() => {
-    rateLimiter.destroy();
     vi.useRealTimers();
   });
 
   describe('check', () => {
-    it('should allow requests under the limit', () => {
-      const result1 = rateLimiter.check('192.168.1.1');
+    it('should allow requests under the limit', async () => {
+      const result1 = await rateLimiter.check('192.168.1.1');
       expect(result1.allowed).toBe(true);
       expect(result1.remaining).toBe(2);
 
-      const result2 = rateLimiter.check('192.168.1.1');
+      const result2 = await rateLimiter.check('192.168.1.1');
       expect(result2.allowed).toBe(true);
       expect(result2.remaining).toBe(1);
 
-      const result3 = rateLimiter.check('192.168.1.1');
+      const result3 = await rateLimiter.check('192.168.1.1');
       expect(result3.allowed).toBe(true);
       expect(result3.remaining).toBe(0);
     });
 
-    it('should block requests over the limit', () => {
-      // Make 3 requests (the limit)
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
+    it('should block requests over the limit', async () => {
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
 
-      // 4th request should be blocked
-      const result = rateLimiter.check('192.168.1.1');
+      const result = await rateLimiter.check('192.168.1.1');
       expect(result.allowed).toBe(false);
       expect(result.remaining).toBe(0);
     });
 
-    it('should track different IPs separately', () => {
-      // Max out first IP
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
+    it('should track different IPs separately', async () => {
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
 
-      // Second IP should still be allowed
-      const result = rateLimiter.check('192.168.1.2');
+      const result = await rateLimiter.check('192.168.1.2');
       expect(result.allowed).toBe(true);
       expect(result.remaining).toBe(2);
     });
 
-    it('should reset after the time window', () => {
-      // Max out the limit
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
+    it('should reset after the time window', async () => {
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
 
-      // Verify blocked
-      const blockedResult = rateLimiter.check('192.168.1.1');
+      const blockedResult = await rateLimiter.check('192.168.1.1');
       expect(blockedResult.allowed).toBe(false);
 
-      // Advance time past the window
       vi.advanceTimersByTime(60001);
 
-      // Should be allowed again
-      const result = rateLimiter.check('192.168.1.1');
+      const result = await rateLimiter.check('192.168.1.1');
       expect(result.allowed).toBe(true);
       expect(result.remaining).toBe(2);
     });
 
-    it('should provide correct reset time', () => {
+    it('should provide correct reset time', async () => {
       const now = Date.now();
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
 
-      const result = rateLimiter.check('192.168.1.1');
+      const result = await rateLimiter.check('192.168.1.1');
       expect(result.resetTime).toBeGreaterThan(now);
       expect(result.resetTime).toBeLessThanOrEqual(now + 60000);
     });
 
-    it('should use sliding window correctly', () => {
-      // Make first request at t=0
-      rateLimiter.check('192.168.1.1');
+    it('should use sliding window correctly', async () => {
+      await rateLimiter.check('192.168.1.1');
 
-      // Advance 30 seconds
       vi.advanceTimersByTime(30000);
 
-      // Make 2 more requests at t=30s
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
 
-      // Should be blocked now (3 requests in last 60s)
-      const blockedResult = rateLimiter.check('192.168.1.1');
+      const blockedResult = await rateLimiter.check('192.168.1.1');
       expect(blockedResult.allowed).toBe(false);
 
-      // Advance 31 seconds (first request now outside window)
       vi.advanceTimersByTime(31000);
 
-      // Should be allowed again (only 2 requests in last 60s)
-      const allowedResult = rateLimiter.check('192.168.1.1');
+      const allowedResult = await rateLimiter.check('192.168.1.1');
       expect(allowedResult.allowed).toBe(true);
     });
   });
 
   describe('getRequestCount', () => {
-    it('should return current request count', () => {
-      expect(rateLimiter.getRequestCount('192.168.1.1')).toBe(0);
+    it('should return current request count', async () => {
+      expect(await rateLimiter.getRequestCount('192.168.1.1')).toBe(0);
 
-      rateLimiter.check('192.168.1.1');
-      expect(rateLimiter.getRequestCount('192.168.1.1')).toBe(1);
+      await rateLimiter.check('192.168.1.1');
+      expect(await rateLimiter.getRequestCount('192.168.1.1')).toBe(1);
 
-      rateLimiter.check('192.168.1.1');
-      expect(rateLimiter.getRequestCount('192.168.1.1')).toBe(2);
+      await rateLimiter.check('192.168.1.1');
+      expect(await rateLimiter.getRequestCount('192.168.1.1')).toBe(2);
     });
 
-    it('should not count expired requests', () => {
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
+    it('should not count expired requests', async () => {
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
 
       vi.advanceTimersByTime(60001);
 
-      expect(rateLimiter.getRequestCount('192.168.1.1')).toBe(0);
+      expect(await rateLimiter.getRequestCount('192.168.1.1')).toBe(0);
     });
   });
 
   describe('reset', () => {
-    it('should clear all tracked requests', () => {
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.1');
-      rateLimiter.check('192.168.1.2');
+    it('should clear tracked requests for a specific key', async () => {
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.2');
 
-      rateLimiter.reset();
+      await rateLimiter.reset('192.168.1.1');
 
-      expect(rateLimiter.getRequestCount('192.168.1.1')).toBe(0);
-      expect(rateLimiter.getRequestCount('192.168.1.2')).toBe(0);
+      expect(await rateLimiter.getRequestCount('192.168.1.1')).toBe(0);
+      expect(await rateLimiter.getRequestCount('192.168.1.2')).toBe(1);
+    });
+
+    it('should clear all tracked requests when no key given', async () => {
+      await rateLimiter.check('192.168.1.1');
+      await rateLimiter.check('192.168.1.2');
+
+      await rateLimiter.reset();
+
+      expect(await rateLimiter.getRequestCount('192.168.1.1')).toBe(0);
+      expect(await rateLimiter.getRequestCount('192.168.1.2')).toBe(0);
+    });
+  });
+
+  describe('prefix isolation', () => {
+    it('should isolate different limiter instances by prefix', async () => {
+      const limiterA = new RateLimiter({
+        limit: 1,
+        windowMs: 60000,
+        prefix: 'a',
+      });
+      const limiterB = new RateLimiter({
+        limit: 1,
+        windowMs: 60000,
+        prefix: 'b',
+      });
+
+      await limiterA.check('192.168.1.1');
+
+      // limiterA is exhausted, but limiterB should still allow
+      const resultA = await limiterA.check('192.168.1.1');
+      const resultB = await limiterB.check('192.168.1.1');
+
+      expect(resultA.allowed).toBe(false);
+      expect(resultB.allowed).toBe(true);
     });
   });
 });

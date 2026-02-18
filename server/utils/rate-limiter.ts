@@ -9,6 +9,8 @@ export interface RateLimiterOptions {
   limit: number;
   /** Time window in milliseconds (default: 60000 = 1 minute) */
   windowMs: number;
+  /** Storage key prefix for this limiter instance */
+  prefix: string;
 }
 
 /**
@@ -24,26 +26,27 @@ export interface RateLimitResult {
 }
 
 /**
- * In-memory rate limiter for protecting endpoints from abuse
+ * KV-backed rate limiter for protecting endpoints from abuse.
  *
  * Uses a sliding window approach to track requests per IP address.
- * Note: This is designed for single-instance deployments. For distributed
- * systems, consider using Redis or another shared store.
+ * Backed by Nitro's `useStorage('kv')` — uses in-memory storage in dev
+ * and automatically scales to Redis/Upstash when the KV driver is changed.
+ * This means rate limiting works across multiple instances when using
+ * a shared storage backend.
  */
 export class RateLimiter {
-  private requests: Map<string, number[]> = new Map();
   private readonly limit: number;
   private readonly windowMs: number;
-  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
+  private readonly prefix: string;
 
   constructor(options: RateLimiterOptions) {
     this.limit = options.limit;
     this.windowMs = options.windowMs;
+    this.prefix = options.prefix;
+  }
 
-    // Periodically clean up expired entries to prevent memory leaks
-    // Use unref() to allow the process to exit cleanly (important for tests and serverless)
-    this.cleanupInterval = setInterval(() => this.cleanup(), this.windowMs * 2);
-    this.cleanupInterval.unref();
+  private storageKey(key: string): string {
+    return `rate-limit:${this.prefix}:${key}`;
   }
 
   /**
@@ -51,15 +54,18 @@ export class RateLimiter {
    * @param key - The identifier for rate limiting (typically IP address)
    * @returns Rate limit result with allowed status and metadata
    */
-  check(key: string): RateLimitResult {
+  async check(key: string): Promise<RateLimitResult> {
+    const storage = useStorage('kv');
+    const storageKey = this.storageKey(key);
     const now = Date.now();
     const windowStart = now - this.windowMs;
 
-    // Get existing requests for this key
-    const existingRequests = this.requests.get(key) || [];
+    // Get existing timestamps from KV
+    const existingTimestamps =
+      (await storage.getItem<number[]>(storageKey)) || [];
 
     // Filter to only requests within the current window
-    const recentRequests = existingRequests.filter((t) => t > windowStart);
+    const recentRequests = existingTimestamps.filter((t) => t > windowStart);
 
     // Check if rate limit exceeded
     if (recentRequests.length >= this.limit) {
@@ -71,9 +77,9 @@ export class RateLimiter {
       };
     }
 
-    // Add current request timestamp
+    // Add current request timestamp and persist
     recentRequests.push(now);
-    this.requests.set(key, recentRequests);
+    await storage.setItem(storageKey, recentRequests);
 
     return {
       allowed: true,
@@ -83,48 +89,28 @@ export class RateLimiter {
   }
 
   /**
-   * Clean up expired entries from the rate limiter
+   * Reset the rate limiter for a specific key (useful for testing)
    */
-  private cleanup(): void {
-    const now = Date.now();
-    const windowStart = now - this.windowMs;
-
-    for (const [key, timestamps] of this.requests.entries()) {
-      const valid = timestamps.filter((t) => t > windowStart);
-      if (valid.length === 0) {
-        this.requests.delete(key);
-      } else {
-        this.requests.set(key, valid);
-      }
+  async reset(key?: string): Promise<void> {
+    const storage = useStorage('kv');
+    if (key) {
+      await storage.removeItem(this.storageKey(key));
+    } else {
+      // Clear all keys with this prefix
+      const keys = await storage.getKeys(`rate-limit:${this.prefix}`);
+      await Promise.all(keys.map((k) => storage.removeItem(k)));
     }
-  }
-
-  /**
-   * Stop the cleanup interval (for testing or shutdown)
-   */
-  destroy(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-      this.cleanupInterval = null;
-    }
-    this.requests.clear();
-  }
-
-  /**
-   * Reset the rate limiter (useful for testing)
-   */
-  reset(): void {
-    this.requests.clear();
   }
 
   /**
    * Get current request count for a key (useful for debugging)
    */
-  getRequestCount(key: string): number {
-    const now = Date.now();
-    const windowStart = now - this.windowMs;
-    const requests = this.requests.get(key) || [];
-    return requests.filter((t) => t > windowStart).length;
+  async getRequestCount(key: string): Promise<number> {
+    const storage = useStorage('kv');
+    const timestamps =
+      (await storage.getItem<number[]>(this.storageKey(key))) || [];
+    const windowStart = Date.now() - this.windowMs;
+    return timestamps.filter((t) => t > windowStart).length;
   }
 }
 
@@ -158,7 +144,6 @@ export function getClientIp(event: H3Event): string {
   }
 
   // Fall back to the direct connection address
-  // Note: In H3/Nitro, we need to access the node's socket
   const nodeReq = event.node?.req;
   if (nodeReq?.socket?.remoteAddress) {
     return nodeReq.socket.remoteAddress;
@@ -168,8 +153,28 @@ export function getClientIp(event: H3Event): string {
   return 'unknown';
 }
 
-// Default rate limiter for error endpoint: 10 requests per minute per IP
+// --- Pre-configured rate limiter instances ---
+
 export const errorEndpointRateLimiter = new RateLimiter({
   limit: 10,
-  windowMs: 60000, // 1 minute
+  windowMs: 60000,
+  prefix: 'error-batch',
+});
+
+export const loginRateLimiter = new RateLimiter({
+  limit: 5,
+  windowMs: 60000,
+  prefix: 'auth-login',
+});
+
+export const registerRateLimiter = new RateLimiter({
+  limit: 3,
+  windowMs: 60000,
+  prefix: 'auth-register',
+});
+
+export const refreshRateLimiter = new RateLimiter({
+  limit: 10,
+  windowMs: 60000,
+  prefix: 'auth-refresh',
 });

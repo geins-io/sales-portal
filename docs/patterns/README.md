@@ -337,21 +337,29 @@ export default defineCachedEventHandler(
 
 ### Rate Limiting
 
-In-memory sliding-window rate limiter (`server/utils/rate-limiter.ts`):
+KV-backed sliding-window rate limiter (`server/utils/rate-limiter.ts`).
+Uses `useStorage('kv')` — in-memory in dev, shared across instances when KV is backed by Redis.
 
 ```typescript
-import { createRateLimiter } from '../utils/rate-limiter';
+import { RateLimiter, getClientIp } from '../utils/rate-limiter';
 
-const limiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
+const limiter = new RateLimiter({
+  limit: 10,
+  windowMs: 60_000,
+  prefix: 'my-endpoint',
+});
 
 export default defineEventHandler(async (event) => {
-  const result = limiter.check(event);
+  const clientIp = getClientIp(event);
+  const result = await limiter.check(clientIp);
   if (!result.allowed) {
-    throw createError({ statusCode: 429, message: 'Too many requests' });
+    throw createAppError(ErrorCode.RATE_LIMITED, 'Too many requests');
   }
   // ... handle request
 });
 ```
+
+Pre-configured limiters: `loginRateLimiter` (5/min), `registerRateLimiter` (3/min), `refreshRateLimiter` (10/min), `errorEndpointRateLimiter` (10/min).
 
 ### Structured Logging
 
@@ -376,6 +384,41 @@ log.info('Processing order', { orderId: '123' });
 const reqLog = createRequestLogger(correlationId);
 reqLog.info('Handling request', { path: '/api/products' });
 ```
+
+### Service Error Handling — `wrapServiceCall`
+
+All service functions (`server/services/*.ts`) use `wrapServiceCall` for standardized error handling. It re-throws H3 errors, maps known SDK errors to specific error codes, and wraps anything else as `EXTERNAL_API_ERROR`.
+
+```typescript
+// SDK-backed service (cart, checkout, auth, user) — with known error class
+import { CartError } from '@geins/oms';
+
+export async function getCart(cartId: string, event: H3Event) {
+  const sdk = await getTenantSDK(event);
+  return wrapServiceCall(
+    () => sdk.oms.cart.get(cartId),
+    'cart',
+    CartError, // Known SDK error → maps to BAD_REQUEST
+  );
+}
+```
+
+```typescript
+// GraphQL service (products, search, cms, brands, etc.) — no known error class
+export async function getProducts(options: ProductListOptions, event: H3Event) {
+  const sdk = await getTenantSDK(event);
+  return wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('product-lists/products.graphql'),
+        variables: { ...options, ...getRequestChannelVariables(sdk, event) },
+      }),
+    'product-lists',
+  );
+}
+```
+
+The signature: `wrapServiceCall<T>(fn, service, knownError?, errorCode?)` — defined in `server/utils/errors.ts`.
 
 ### SDK Singleton
 

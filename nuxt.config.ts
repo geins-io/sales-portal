@@ -6,6 +6,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   modules: [
+    '~~/modules/graphql-loader',
     '@nuxt/eslint',
     '@nuxt/fonts',
     '@nuxt/hints',

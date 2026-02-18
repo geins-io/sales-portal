@@ -11,7 +11,7 @@
 FROM node:20-alpine AS deps
 
 # Install pnpm globally
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack install
 
 WORKDIR /app
 
@@ -30,7 +30,7 @@ FROM node:20-alpine AS builder
 ARG COMMIT_SHA=n/a
 
 # Install pnpm globally
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack install
 
 WORKDIR /app
 

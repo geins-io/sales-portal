@@ -148,7 +148,9 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
     return cached;
   }
 
-  const tenant = await resolveTenant(hostname, event);
+  // Prefer the config already resolved by 01.tenant-context plugin
+  const tenant =
+    event.context.tenant.config ?? (await resolveTenant(hostname, event));
   if (!tenant?.geinsSettings) {
     throw createAppError(
       ErrorCode.BAD_REQUEST,

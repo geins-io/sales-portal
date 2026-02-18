@@ -1,5 +1,3 @@
-import { resolveTenant } from '../utils/tenant';
-
 /**
  * Serves /llms.txt — a machine-readable description of the site for LLMs.
  * Content is generated per-tenant from branding, SEO, and contact config.
@@ -7,13 +5,7 @@ import { resolveTenant } from '../utils/tenant';
  * See: https://llmstxt.org
  */
 export default defineEventHandler(async (event) => {
-  const hostname = event.context.tenant?.hostname;
-  if (!hostname) {
-    setResponseStatus(event, 400);
-    return 'Missing tenant context';
-  }
-
-  const tenant = await resolveTenant(hostname, event);
+  const tenant = event.context.tenant?.config;
   if (!tenant) {
     setResponseStatus(event, 404);
     return 'Tenant not found';

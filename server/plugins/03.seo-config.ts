@@ -1,5 +1,4 @@
 import type { H3Event } from 'h3';
-import { resolveTenant } from '../utils/tenant';
 import { buildSiteUrl, isIndexable } from '../utils/seo';
 import { getRequestLocale } from '../utils/locale';
 
@@ -24,11 +23,7 @@ export default defineNitroPlugin((nitroApp) => {
       const path = event.path || '';
       if (path.startsWith('/api/health')) return;
 
-      const hostname = (event.context.tenant as { hostname?: string })
-        ?.hostname;
-      if (!hostname) return;
-
-      const tenant = await resolveTenant(hostname, event);
+      const tenant = event.context.tenant?.config;
       if (!tenant) return;
 
       const requestLocale = getRequestLocale(event);
@@ -36,7 +31,7 @@ export default defineNitroPlugin((nitroApp) => {
       siteConfig.push({
         _context: 'tenant-seo',
         _priority: 10,
-        url: buildSiteUrl(hostname),
+        url: buildSiteUrl(tenant.hostname),
         name: tenant.branding.name,
         description: tenant.seo?.defaultDescription ?? '',
         defaultLocale: tenant.geinsSettings.locale,

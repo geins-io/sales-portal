@@ -100,5 +100,5 @@ Body:
 
 - Requires coordination with Geins to configure the shared secret
 - Single shared secret (not per-tenant) — compromise means all tenants are affected
-- In-memory rate limiter doesn't work across multiple instances (acceptable for current single-instance deployment)
+- Rate limiter uses KV storage (`useStorage('kv')`) — works across instances when backed by Redis
 - Dedup storage grows over time (consider TTL-based cleanup in future)
