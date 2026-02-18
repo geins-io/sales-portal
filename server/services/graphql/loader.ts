@@ -1,8 +1,19 @@
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+/**
+ * GraphQL query loader.
+ *
+ * Uses Vite's `import.meta.glob` with `?raw` to inline all `.graphql` files
+ * at build time. Works in both dev and production (no filesystem access needed).
+ */
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// Eagerly import all .graphql files as raw strings at build time.
+// import.meta.glob is a Vite/Nitro build-time transform.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+const glob = (import.meta as unknown as { glob: Function }).glob;
+const graphqlFiles = glob('./**/*.graphql', {
+  query: '?raw',
+  eager: true,
+  import: 'default',
+}) as Record<string, string>;
 
 const cache = new Map<string, string>();
 
@@ -12,25 +23,27 @@ const cache = new Map<string, string>();
  */
 const fragmentCache = new Map<string, string>();
 
+const FRAGMENT_NAMES: Record<string, string> = {
+  Price: './fragments/price.graphql',
+  Stock: './fragments/stock.graphql',
+  Sku: './fragments/sku.graphql',
+  Variant: './fragments/variant.graphql',
+  Meta: './fragments/meta.graphql',
+  Campaign: './fragments/campaign.graphql',
+  Address: './fragments/address.graphql',
+  ListProduct: './fragments/list-product.graphql',
+  ListInfo: './fragments/list-info.graphql',
+  ListFilters: './fragments/list-filters.graphql',
+};
+
 function loadFragments(): void {
   if (fragmentCache.size > 0) return;
 
-  const fragmentDir = resolve(__dirname, 'fragments');
-  const fragments: Record<string, string> = {
-    Price: 'price.graphql',
-    Stock: 'stock.graphql',
-    Sku: 'sku.graphql',
-    Variant: 'variant.graphql',
-    Meta: 'meta.graphql',
-    Campaign: 'campaign.graphql',
-    Address: 'address.graphql',
-    ListProduct: 'list-product.graphql',
-    ListInfo: 'list-info.graphql',
-    ListFilters: 'list-filters.graphql',
-  };
-
-  for (const [name, file] of Object.entries(fragments)) {
-    fragmentCache.set(name, readFileSync(resolve(fragmentDir, file), 'utf-8'));
+  for (const [name, path] of Object.entries(FRAGMENT_NAMES)) {
+    const content = graphqlFiles[path];
+    if (content) {
+      fragmentCache.set(name, content);
+    }
   }
 }
 
@@ -86,6 +99,8 @@ function resolveFragments(query: string): string {
  * Loads a `.graphql` file by path relative to the graphql directory,
  * resolves fragment dependencies, and caches the result.
  *
+ * All `.graphql` files are inlined at build time via `import.meta.glob`.
+ *
  * @example
  * ```ts
  * const query = loadQuery('products/product.graphql');
@@ -95,10 +110,14 @@ export function loadQuery(relativePath: string): string {
   const cached = cache.get(relativePath);
   if (cached) return cached;
 
-  const fullPath = resolve(__dirname, relativePath);
-  const raw = readFileSync(fullPath, 'utf-8');
-  const resolved = resolveFragments(raw);
+  const key = `./${relativePath}`;
+  const raw = graphqlFiles[key];
 
+  if (!raw) {
+    throw new Error(`GraphQL file not found: ${relativePath}`);
+  }
+
+  const resolved = resolveFragments(raw);
   cache.set(relativePath, resolved);
   return resolved;
 }

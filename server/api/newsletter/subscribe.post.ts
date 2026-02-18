@@ -12,8 +12,8 @@ export default defineEventHandler(async (event) => {
 
   try {
     await newsletterService.subscribe({ email: body.email }, event);
-  } catch (err) {
-    logger.error('Newsletter subscribe failed', { error: err });
+  } catch {
+    logger.error('Newsletter subscribe failed');
     throw createAppError(
       ErrorCode.INTERNAL_ERROR,
       'Unable to process newsletter subscription',
