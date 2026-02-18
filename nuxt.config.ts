@@ -24,36 +24,45 @@ export default defineNuxtConfig({
   ],
 
   security: {
-    nonce: true,
-    sri: true,
+    // Nonce-based CSP requires a single SSR pass so header and tag nonces
+    // match. Vite dev mode renders in multiple passes, producing different
+    // nonces that the browser rejects. Enable nonce + SRI only in prod.
+    nonce: process.env.NODE_ENV === 'production',
+    sri: process.env.NODE_ENV === 'production',
     headers: {
-      contentSecurityPolicy: {
-        'default-src': ["'none'"],
-        'script-src': ["'self'", "'strict-dynamic'", "'nonce-{{nonce}}'"],
-        'style-src': [
-          "'self'",
-          "'nonce-{{nonce}}'",
-          'https://fonts.googleapis.com',
-        ],
-        'font-src': ["'self'", 'https://fonts.gstatic.com'],
-        'img-src': ["'self'", 'data:', 'https:'],
-        'connect-src': [
-          "'self'",
-          'https://merchantapi.geins.io',
-          'https://*.sentry.io',
-          'https://www.google-analytics.com',
-          'https://www.googletagmanager.com',
-        ],
-        'frame-ancestors': ["'none'"],
-        'frame-src': ["'self'"],
-        'base-uri': ["'none'"],
-        'form-action': ["'self'"],
-        'object-src': ["'none'"],
-        'script-src-attr': ["'none'"],
-        'manifest-src': ["'self'"],
-        'worker-src': ["'self'"],
-        'upgrade-insecure-requests': true,
-      },
+      // Strict CSP for production only. In dev, nuxt-security still sets
+      // other security headers (X-Content-Type-Options, etc.) but CSP is
+      // disabled to avoid blocking scripts/styles via nonce mismatches.
+      contentSecurityPolicy:
+        process.env.NODE_ENV === 'production'
+          ? {
+              'default-src': ["'none'"],
+              'script-src': ["'self'", "'strict-dynamic'", "'nonce-{{nonce}}'"],
+              'style-src': [
+                "'self'",
+                "'nonce-{{nonce}}'",
+                'https://fonts.googleapis.com',
+              ],
+              'font-src': ["'self'", 'https://fonts.gstatic.com'],
+              'img-src': ["'self'", 'data:', 'https:'],
+              'connect-src': [
+                "'self'",
+                'https://merchantapi.geins.io',
+                'https://*.sentry.io',
+                'https://www.google-analytics.com',
+                'https://www.googletagmanager.com',
+              ],
+              'frame-ancestors': ["'none'"],
+              'frame-src': ["'self'"],
+              'base-uri': ["'none'"],
+              'form-action': ["'self'"],
+              'object-src': ["'none'"],
+              'script-src-attr': ["'none'"],
+              'manifest-src': ["'self'"],
+              'worker-src': ["'self'"],
+              'upgrade-insecure-requests': true,
+            }
+          : false,
       xContentTypeOptions: 'nosniff',
       xFrameOptions: 'DENY',
       referrerPolicy: 'strict-origin-when-cross-origin',

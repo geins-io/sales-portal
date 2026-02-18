@@ -1,15 +1,27 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterAll } from 'vitest';
 
 /**
  * Verify that the nuxt-security module is correctly configured in nuxt.config.ts.
- * These are config-level tests that assert the security configuration shape
- * rather than making HTTP requests.
+ * These are config-level tests that assert the PRODUCTION security configuration
+ * shape rather than making HTTP requests.
+ *
+ * CSP, nonce, and SRI are only enabled in production (dev mode disables them
+ * to avoid nonce mismatches between Vite's multi-pass SSR and the CSP header).
  */
+
+// Set NODE_ENV to production BEFORE importing nuxt.config so the
+// conditional CSP/nonce/SRI branches evaluate to their prod values.
+const originalNodeEnv = process.env.NODE_ENV;
+process.env.NODE_ENV = 'production';
+
+afterAll(() => {
+  process.env.NODE_ENV = originalNodeEnv;
+});
 
 // Mock defineNuxtConfig to pass-through the config object
 vi.stubGlobal('defineNuxtConfig', (config: Record<string, unknown>) => config);
 
-// Dynamic import after the mock is in place
+// Dynamic import after env is set and mock is in place.
 const { default: nuxtConfig } =
   (await import('../../nuxt.config')) as unknown as {
     default: Record<string, unknown>;
@@ -30,11 +42,11 @@ describe('nuxt-security configuration', () => {
     expect(typeof security).toBe('object');
   });
 
-  it('enables nonce support for SSR', () => {
+  it('enables nonce support for SSR in production', () => {
     expect(security.nonce).toBe(true);
   });
 
-  it('enables SRI (Subresource Integrity)', () => {
+  it('enables SRI (Subresource Integrity) in production', () => {
     expect(security.sri).toBe(true);
   });
 

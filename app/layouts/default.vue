@@ -8,19 +8,19 @@
     >
       {{ $t('layout.skip_to_content') }}
     </a>
-    <SharedErrorBoundary section="header">
+    <ErrorBoundary section="header">
       <LayoutHeader />
-    </SharedErrorBoundary>
+    </ErrorBoundary>
     <main id="main-content" class="flex-1">
-      <SharedErrorBoundary section="content">
+      <ErrorBoundary section="content">
         <slot />
-      </SharedErrorBoundary>
+      </ErrorBoundary>
     </main>
-    <SharedErrorBoundary section="footer">
+    <ErrorBoundary section="footer">
       <LayoutFooter />
-    </SharedErrorBoundary>
+    </ErrorBoundary>
     <LayoutMobileNavPanel />
     <PreviewBanner />
-    <SharedCookieBanner />
+    <CookieBanner />
   </div>
 </template>
