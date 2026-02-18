@@ -16,17 +16,11 @@ export async function getCheckout(
   event: H3Event,
 ): Promise<CheckoutType | undefined> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.checkout.get(args);
-  } catch (error) {
-    if (error instanceof CheckoutError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to get checkout',
-    );
-  }
+  return wrapServiceCall(
+    () => oms.checkout.get(args),
+    'checkout',
+    CheckoutError,
+  );
 }
 
 export async function validateOrder(
@@ -34,17 +28,11 @@ export async function validateOrder(
   event: H3Event,
 ): Promise<ValidateOrderCreationResponseType | undefined> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.checkout.validate(args);
-  } catch (error) {
-    if (error instanceof CheckoutError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to validate order',
-    );
-  }
+  return wrapServiceCall(
+    () => oms.checkout.validate(args),
+    'checkout',
+    CheckoutError,
+  );
 }
 
 export async function createOrder(
@@ -52,17 +40,11 @@ export async function createOrder(
   event: H3Event,
 ): Promise<CreateOrderResponseType | undefined> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.checkout.createOrder(args);
-  } catch (error) {
-    if (error instanceof CheckoutError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to create order',
-    );
-  }
+  return wrapServiceCall(
+    () => oms.checkout.createOrder(args),
+    'checkout',
+    CheckoutError,
+  );
 }
 
 export async function getSummary(
@@ -70,17 +52,11 @@ export async function getSummary(
   event: H3Event,
 ): Promise<CheckoutSummaryType | undefined> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.checkout.summary(args);
-  } catch (error) {
-    if (error instanceof CheckoutError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to get checkout summary',
-    );
-  }
+  return wrapServiceCall(
+    () => oms.checkout.summary(args),
+    'checkout',
+    CheckoutError,
+  );
 }
 
 export async function createToken(
@@ -88,15 +64,9 @@ export async function createToken(
   event: H3Event,
 ): Promise<string | undefined> {
   const { oms } = await getTenantSDK(event);
-  try {
-    return await oms.checkout.createToken(args);
-  } catch (error) {
-    if (error instanceof CheckoutError) {
-      throw createAppError(ErrorCode.BAD_REQUEST, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to create checkout token',
-    );
-  }
+  return wrapServiceCall(
+    () => oms.checkout.createToken(args),
+    'checkout',
+    CheckoutError,
+  );
 }

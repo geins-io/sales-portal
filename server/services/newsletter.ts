@@ -7,8 +7,15 @@ export async function subscribe(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return sdk.core.graphql.mutation({
-    queryAsString: loadQuery('newsletter/subscribe.graphql'),
-    variables: { email: args.email, ...getRequestChannelVariables(sdk, event) },
-  });
+  return wrapServiceCall(
+    () =>
+      sdk.core.graphql.mutation({
+        queryAsString: loadQuery('newsletter/subscribe.graphql'),
+        variables: {
+          email: args.email,
+          ...getRequestChannelVariables(sdk, event),
+        },
+      }),
+    'newsletter',
+  );
 }

@@ -38,6 +38,7 @@ vi.stubGlobal(
   vi.fn((code: string, msg: string) => new Error(`${code}: ${msg}`)),
 );
 vi.stubGlobal('ErrorCode', { VALIDATION_ERROR: 'VALIDATION_ERROR' });
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
 const mockEvent = {
   context: {

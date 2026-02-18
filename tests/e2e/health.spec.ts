@@ -7,11 +7,12 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('Health Check API', () => {
-  test('should include basic health information', async ({ request }) => {
+  test('should return healthy status with timestamp', async ({ request }) => {
     const response = await request.get('/api/health');
-    const data = await response.json();
+    expect(response.status()).toBe(200);
 
-    // Should have timestamp
+    const data = await response.json();
+    expect(data.status).toBe('healthy');
     expect(data).toHaveProperty('timestamp');
 
     // Timestamp should be a valid ISO date

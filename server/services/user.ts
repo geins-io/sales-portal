@@ -7,20 +7,19 @@ import type {
 import { AuthError } from '@geins/core';
 import type { H3Event } from 'h3';
 import { getTenantSDK } from './_sdk';
+import { ErrorCode } from '../utils/errors';
 
 export async function getUser(
   userToken: string,
   event: H3Event,
 ): Promise<GeinsUserType | undefined> {
   const { crm } = await getTenantSDK(event);
-  try {
-    return await crm.user.get(userToken);
-  } catch (error) {
-    if (error instanceof AuthError) {
-      throw createAppError(ErrorCode.UNAUTHORIZED, error.message);
-    }
-    throw createAppError(ErrorCode.EXTERNAL_API_ERROR, 'Failed to get user');
-  }
+  return wrapServiceCall(
+    () => crm.user.get(userToken),
+    'user',
+    AuthError,
+    ErrorCode.UNAUTHORIZED,
+  );
 }
 
 export async function updateUser(
@@ -29,14 +28,12 @@ export async function updateUser(
   event: H3Event,
 ): Promise<GeinsUserType | undefined> {
   const { crm } = await getTenantSDK(event);
-  try {
-    return await crm.user.update(userData, userToken);
-  } catch (error) {
-    if (error instanceof AuthError) {
-      throw createAppError(ErrorCode.UNAUTHORIZED, error.message);
-    }
-    throw createAppError(ErrorCode.EXTERNAL_API_ERROR, 'Failed to update user');
-  }
+  return wrapServiceCall(
+    () => crm.user.update(userData, userToken),
+    'user',
+    AuthError,
+    ErrorCode.UNAUTHORIZED,
+  );
 }
 
 export async function changePassword(
@@ -45,17 +42,12 @@ export async function changePassword(
   event: H3Event,
 ): Promise<AuthResponse | undefined> {
   const { crm } = await getTenantSDK(event);
-  try {
-    return await crm.user.password.change(credentials, refreshToken);
-  } catch (error) {
-    if (error instanceof AuthError) {
-      throw createAppError(ErrorCode.UNAUTHORIZED, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to change password',
-    );
-  }
+  return wrapServiceCall(
+    () => crm.user.password.change(credentials, refreshToken),
+    'user',
+    AuthError,
+    ErrorCode.UNAUTHORIZED,
+  );
 }
 
 export async function register(
@@ -64,15 +56,10 @@ export async function register(
   event: H3Event,
 ): Promise<AuthResponse | undefined> {
   const { crm } = await getTenantSDK(event);
-  try {
-    return await crm.user.create(credentials, user);
-  } catch (error) {
-    if (error instanceof AuthError) {
-      throw createAppError(ErrorCode.UNAUTHORIZED, error.message);
-    }
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'Failed to register user',
-    );
-  }
+  return wrapServiceCall(
+    () => crm.user.create(credentials, user),
+    'user',
+    AuthError,
+    ErrorCode.UNAUTHORIZED,
+  );
 }

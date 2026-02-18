@@ -8,11 +8,11 @@ import {
   parseOklch,
   formatOklch,
 } from '../../server/utils/theme';
+import { transformGeinsSettings } from '../../server/utils/tenant';
 import {
-  transformGeinsSettings,
   generateFontCss,
   generateTenantCss,
-} from '../../server/utils/tenant';
+} from '../../server/utils/tenant-css';
 import { buildGoogleFontsUrl } from '#shared/utils/fonts';
 import type { ThemeColors } from '../../server/schemas/store-settings';
 

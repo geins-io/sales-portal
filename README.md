@@ -1,91 +1,108 @@
-## Multitenant Storefront
+## Sales Portal
 
-This repository is a Nuxt 4 starter for building multi-tenant storefront experiences. It wires up a reusable page shell (header, footer, layout slots), shadcn-vue powered UI primitives, and a Tailwind CSS token system that can be themed per tenant without rewriting components.
-
-## Highlights
-
-- Nuxt 4 app shell with a default layout (`app/layouts/default.vue`) that already renders the header, routed page content, and footer.
-- Tailwind CSS 4 configuration (`app/assets/css/tailwind.css`) with light/dark design tokens that can be mapped to per-tenant palettes.
-- shadcn-vue/Reka UI primitives mounted under `app/components/ui` plus utility helpers like `cn()` for class composition.
-- Opinionated folder structure (`app/components/layout`, `shared/types`) that keeps shared building blocks isolated from tenant-specific modules.
+Multi-tenant storefront application built on Nuxt 4. Serves multiple merchants/brands from a single codebase — each tenant gets their own branding, theme, features, and content via hostname-based routing.
 
 ## Tech Stack
 
-- Nuxt 4 + Vue 3
-- Tailwind CSS 4 with `@nuxtjs/tailwindcss`
-- shadcn-vue + Reka UI + Lucide icons
-- ESLint + Prettier for formatting and linting
-- PNPM for dependency management (see `pnpm-lock.yaml`)
+- **Nuxt 4** + Vue 3 (SSR, file-based routing)
+- **Tailwind CSS 4** with per-tenant CSS variable theming
+- **Pinia** for client state, **Geins SDK** for server-side e-commerce
+- **shadcn-vue** + Reka UI + Lucide icons
+- **Vitest** (875+ unit tests) + **Playwright** (E2E)
+- **TypeScript** (strict mode), ESLint + Prettier, PNPM
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 20 or newer (`"engines": { "node": ">=20" }`)
-- PNPM 9+ (recommended to match `pnpm-lock.yaml`)
+- Node.js 20+
+- PNPM 9+
 
-### Installation & Local Development
+### Setup
 
 ```bash
 pnpm install
-pnpm dev
+cp .env.example .env   # Configure environment variables
+pnpm dev               # http://localhost:3000
 ```
 
-Open the dev server URL Nuxt prints (defaults to http://localhost:3000) to preview the storefront shell.
+In development, tenants are auto-created for any hostname when `NUXT_AUTO_CREATE_TENANT=true`.
 
-### Common Scripts
+### Scripts
 
-| Command             | Description                             |
-| ------------------- | --------------------------------------- |
-| `pnpm dev`          | Start the Nuxt development server       |
-| `pnpm build`        | Build the production bundle             |
-| `pnpm generate`     | Pre-render static output (if desired)   |
-| `pnpm preview`      | Preview the production build locally    |
-| `pnpm lint`         | Run ESLint across the repo              |
-| `pnpm lint:fix`     | Auto-fix lint issues where possible     |
-| `pnpm format`       | Format supported files with Prettier    |
-| `pnpm format:check` | Verify formatting without writing files |
+| Command          | Description                        |
+| ---------------- | ---------------------------------- |
+| `pnpm dev`       | Start dev server                   |
+| `pnpm build`     | Build production bundle            |
+| `pnpm preview`   | Preview production build locally   |
+| `pnpm test`      | Run unit tests (Vitest)            |
+| `pnpm test:e2e`  | Run E2E tests (Playwright)         |
+| `pnpm typecheck` | Run `nuxt typecheck` (strict mode) |
+| `pnpm lint`      | Run ESLint                         |
+| `pnpm lint:fix`  | Auto-fix lint issues               |
+| `pnpm format`    | Format with Prettier               |
 
 ## Project Structure
 
 ```
 app/
-  app.vue                 # Root Nuxt component
-  assets/css/tailwind.css # Design tokens + Tailwind layer config
+  assets/css/tailwind.css   # Tailwind config + design tokens + fallback defaults
   components/
-    layout/               # Header/Footer building blocks
-    ui/                   # shadcn-vue components
-  layouts/default.vue     # Global layout wrapping every page
-  pages/index.vue         # Placeholder storefront landing page
+    layout/                 # Header, Footer, Navigation
+    shared/                 # Logo, ErrorBoundary, CookieBanner, Switchers
+    ui/                     # shadcn-vue primitives
+  composables/              # useTenant, useFeatureAccess, useErrorTracking, etc.
+  layouts/default.vue       # Default layout with error boundaries
+  pages/                    # File-based routing
+  plugins/                  # tenant-theme, tenant-seo, tenant-analytics, auth-init, api
+  stores/                   # Pinia stores (auth, ui)
+
+server/
+  api/                      # API routes (auth, config, products, cart, etc.)
+  middleware/                # CSRF guard, CDN cache headers
+  plugins/                  # Tenant context, request logging, SEO config, CSS injection
+  schemas/                  # Zod validation schemas (store-settings, API input)
+  services/                 # Service layer (auth, cart, checkout, CMS, products, etc.)
+    graphql/                # .graphql query files + fragment loader
+  utils/                    # Tenant resolution, errors, cookies, logger, auth, sanitize, etc.
+
 shared/
-  types/                  # Cross-tenant TypeScript contracts
-public/                   # Static assets (logos, favicons, robots.txt)
-docs/                     # Additional documentation (optional)
+  constants/                # Cookie names, KV keys, localStorage keys
+  types/                    # Cross-boundary TypeScript types
+  utils/                    # Feature access evaluator (pure functions)
+
+docs/
+  adr/                      # Architecture Decision Records
+  conventions/              # Coding standards
+  patterns/                 # Implementation patterns (wrapServiceCall, feature access, etc.)
 ```
 
-## Theming & UI Guidelines
+## Architecture
 
-- Update the CSS variables inside `app/assets/css/tailwind.css` to plug in tenant-specific palettes or radii without changing component code.
-- Add new shadcn-vue components via `pnpm dlx shadcn-vue add <component>`; generated files will live under `app/components/ui`.
-- Keep shared UX primitives inside `app/components/layout` and `app/components/ui` so that tenant overrides can be layered on top via Nuxt layouts or per-route components.
+See [docs/architecture.md](docs/architecture.md) for detailed documentation covering:
 
-## API Endpoints
+- Multi-tenant request flow (hostname detection, config loading, theme injection)
+- Theming system (CSS custom properties, OKLCH color derivation, per-tenant fonts)
+- Service layer with standardized error handling (`wrapServiceCall`)
+- SEO & analytics with GDPR consent gating
+- Feature access control (role-based, auth-gated)
+- Security hardening (CSP, CSRF, input validation, tenant CSS sanitization)
+- Monitoring & observability (structured logging, health checks, Sentry)
 
-### Health Check
+## Environment Variables
 
-The `/api/health` endpoint provides application health status:
+See [`.env.example`](.env.example) for all available configuration. Key variables:
 
-- **Public**: `GET /api/health` — Returns status and timestamp (for load balancers)
-- **Detailed**: `GET /api/health?key=YOUR_SECRET` — Returns full metrics including memory, storage, uptime
+| Variable                    | Description                        | Default    |
+| --------------------------- | ---------------------------------- | ---------- |
+| `NUXT_AUTO_CREATE_TENANT`   | Auto-create tenants in dev         | `false`    |
+| `NUXT_GEINS_API_ENDPOINT`   | Geins GraphQL endpoint             | (see file) |
+| `NUXT_GEINS_TENANT_API_URL` | Geins Tenant API URL               | (see file) |
+| `NUXT_STORAGE_DRIVER`       | KV storage (`memory`/`fs`/`redis`) | `memory`   |
+| `NUXT_HEALTH_CHECK_SECRET`  | Secret for detailed `/api/health`  | —          |
+| `LOG_LEVEL`                 | Logging verbosity                  | `info`     |
 
-Set `HEALTH_CHECK_SECRET` environment variable to enable detailed metrics.
+## Health Check
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for complete API documentation.
-
-## Next Steps
-
-- Flesh out domain-specific pages under `app/pages` (e.g., catalog, product, cart).
-- Introduce tenant configuration (domain, theme, content) and hydrate it via Nuxt server routes or runtime config.
-- Document any tenant-specific workflows in the `docs/` folder to keep operational knowledge close to the code.
-
-Happy building!
+- `GET /api/health` — Basic status (for load balancers)
+- `GET /api/health?key=SECRET` — Detailed metrics (memory, storage, uptime)

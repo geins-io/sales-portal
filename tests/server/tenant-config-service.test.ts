@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { H3Event } from 'h3';
 import type { TenantConfig } from '#shared/types/tenant-config';
 
-// Mock the tenant utility
 const mockTenantConfig: TenantConfig = {
   tenantId: 'test-tenant',
   hostname: 'test.example.com',
@@ -60,16 +59,13 @@ const mockTenantConfig: TenantConfig = {
   updatedAt: '2026-02-01T00:00:00.000Z',
 };
 
-vi.mock('../../server/utils/tenant', () => ({
-  resolveTenant: vi.fn().mockResolvedValue(mockTenantConfig),
-}));
-
 const createMockEvent = (): H3Event =>
   ({
     context: {
       tenant: {
-        id: 'test-tenant',
         hostname: 'test.example.com',
+        tenantId: 'test-tenant',
+        config: mockTenantConfig,
       },
     },
   }) as unknown as H3Event;

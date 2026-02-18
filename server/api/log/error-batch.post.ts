@@ -19,20 +19,7 @@ import {
   errorEndpointRateLimiter,
   getClientIp,
 } from '../../utils/rate-limiter';
-
-interface ClientErrorBody {
-  message: string;
-  name: string;
-  stack?: string;
-  context?: Record<string, unknown>;
-  timestamp: string;
-  url: string;
-  userAgent: string;
-}
-
-interface BatchErrorBody {
-  errors: ClientErrorBody[];
-}
+import { ErrorBatchSchema } from '../../schemas/api-input';
 
 const MAX_BATCH_SIZE = 100;
 
@@ -47,10 +34,9 @@ export default defineEventHandler(
   }> => {
     // Apply rate limiting
     const clientIp = getClientIp(event);
-    const rateLimitResult = errorEndpointRateLimiter.check(clientIp);
+    const rateLimitResult = await errorEndpointRateLimiter.check(clientIp);
 
     if (!rateLimitResult.allowed) {
-      // Log the rate limit hit for monitoring
       logger.warn('Rate limit exceeded for error batch endpoint', {
         clientIp,
         resetTime: new Date(rateLimitResult.resetTime).toISOString(),
@@ -63,15 +49,7 @@ export default defineEventHandler(
     }
 
     try {
-      const body = await readBody<BatchErrorBody>(event);
-
-      // Validate required fields
-      if (!body || !Array.isArray(body.errors)) {
-        throw createError({
-          statusCode: 400,
-          message: 'Invalid error batch: expected an array of errors',
-        });
-      }
+      const body = await readValidatedBody(event, ErrorBatchSchema.parse);
 
       // Limit batch size to prevent oversized requests
       const totalReceived = body.errors.length;
@@ -89,16 +67,6 @@ export default defineEventHandler(
       // Process each error in the batch
       let processedCount = 0;
       for (const errorData of errors) {
-        // Validate individual error fields
-        if (!errorData || !errorData.message || !errorData.name) {
-          // Skip invalid errors but continue processing the batch
-          logger.warn('Skipped invalid error in batch', {
-            correlationId,
-            reason: 'Missing required fields',
-          });
-          continue;
-        }
-
         // Build log context
         const context: LogContext = {
           correlationId,
@@ -138,7 +106,7 @@ export default defineEventHandler(
         truncated,
       };
     } catch (error) {
-      // Re-throw HTTP errors
+      // Re-throw HTTP errors (including validation errors from readValidatedBody)
       if (error && typeof error === 'object' && 'statusCode' in error) {
         throw error;
       }

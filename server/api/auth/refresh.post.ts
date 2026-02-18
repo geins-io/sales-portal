@@ -1,6 +1,14 @@
 import * as authService from '../../services/auth';
+import { refreshRateLimiter, getClientIp } from '../../utils/rate-limiter';
 
 export default defineEventHandler(async (event) => {
+  const clientIp = getClientIp(event);
+  const rateLimit = await refreshRateLimiter.check(clientIp);
+
+  if (!rateLimit.allowed) {
+    throw createAppError(ErrorCode.RATE_LIMITED, 'Too many refresh attempts');
+  }
+
   const { refreshToken } = getAuthCookies(event);
 
   if (!refreshToken) {

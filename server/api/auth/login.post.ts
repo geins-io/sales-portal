@@ -1,14 +1,16 @@
 import * as authService from '../../services/auth';
+import { loginRateLimiter, getClientIp } from '../../utils/rate-limiter';
+import { LoginSchema } from '../../schemas/api-input';
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ username: string; password: string }>(event);
+  const clientIp = getClientIp(event);
+  const rateLimit = await loginRateLimiter.check(clientIp);
 
-  if (!body?.username || !body?.password) {
-    throw createAppError(
-      ErrorCode.VALIDATION_ERROR,
-      'Username and password are required',
-    );
+  if (!rateLimit.allowed) {
+    throw createAppError(ErrorCode.RATE_LIMITED, 'Too many login attempts');
   }
+
+  const body = await readValidatedBody(event, LoginSchema.parse);
 
   const result = await authService.login(
     { username: body.username, password: body.password },

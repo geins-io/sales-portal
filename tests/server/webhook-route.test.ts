@@ -9,6 +9,21 @@ import {
 } from '../../server/utils/webhook-handler';
 import { MAX_WEBHOOK_BODY_SIZE } from '../../server/utils/webhook';
 
+// Mock useStorage for KV-backed rate limiter
+const mockRateLimitStore = new Map<string, unknown>();
+vi.stubGlobal('useStorage', () => ({
+  getItem: async <T>(key: string): Promise<T | null> =>
+    (mockRateLimitStore.get(key) as T) ?? null,
+  setItem: async (key: string, value: unknown) => {
+    mockRateLimitStore.set(key, value);
+  },
+  removeItem: async (key: string) => {
+    mockRateLimitStore.delete(key);
+  },
+  getKeys: async (prefix: string) =>
+    [...mockRateLimitStore.keys()].filter((k) => k.startsWith(prefix)),
+}));
+
 // Mock logger
 vi.mock('../../server/utils/logger', () => ({
   logger: {
@@ -79,6 +94,7 @@ function createRequest(overrides?: Partial<WebhookRequest>): WebhookRequest {
 describe('processConfigRefresh', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRateLimitStore.clear();
   });
 
   it('should return 500 when no secrets are configured', async () => {

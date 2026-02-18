@@ -97,8 +97,12 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── config.get.ts       # Tenant config endpoint
 │   │   └── external/
 │   │       └── [...].ts        # Proxy for external APIs
+│   ├── middleware/
+│   │   ├── cache-headers.ts    # CDN Vary + s-maxage + stale-while-revalidate
+│   │   └── csrf-guard.ts       # Rejects non-JSON content types on mutating requests (415)
 │   ├── schemas/
-│   │   └── store-settings.ts   # Zod schema + inferred types (ADR-007)
+│   │   ├── store-settings.ts   # Zod schema + inferred types (ADR-007)
+│   │   └── api-input.ts        # Zod schemas for POST route validation
 │   ├── services/               # Service layers
 │   │   ├── tenant-config.ts    # Tenant config accessor (ADR-007)
 │   │   ├── _sdk.ts             # SDK factory (per-tenant singleton cache)
@@ -127,19 +131,26 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │       ├── channels/       # Channel queries
 │   │       └── newsletter/     # Newsletter mutations
 │   ├── plugins/
-│   │   ├── 00.tenant-init.ts   # Tenant initialization
-│   │   ├── 01.tenant-context.ts # Request-level tenant context + tenantId resolution
+│   │   ├── 01.tenant-context.ts # Request-level tenant context + tenantId resolution + config caching
+│   │   ├── 02.request-logging.ts # Correlation ID, request timing, tenant-scoped logging
 │   │   ├── 03.seo-config.ts    # Per-tenant site-config (URL, locale, indexability)
 │   │   └── 04.tenant-css.ts    # Tenant CSS + fonts + favicon injection into HTML
 │   ├── utils/
-│   │   ├── tenant.ts           # Tenant resolution, CRUD, hostname mapping
+│   │   ├── tenant.ts           # Tenant resolution, fetching, hostname mapping, negative cache
+│   │   ├── tenant-css.ts       # CSS/theme generation (colors, radius, fonts, override CSS)
+│   │   ├── tenant-crud.ts      # Tenant CRUD operations (create, update, delete)
 │   │   ├── theme.ts            # OKLCH color derivation
 │   │   ├── cookies.ts          # Cookie helpers (auth, tenant, cart, preview, locale)
-│   │   ├── webhook-handler.ts  # Webhook config invalidation (KV + SDK + Nitro cache)
+│   │   ├── errors.ts           # Error codes, createAppError, wrapServiceCall
+│   │   ├── sanitize.ts         # CSS/HTML/URL sanitization (tenant CSS, HTML attrs)
+│   │   ├── rate-limiter.ts     # Per-endpoint rate limiters (login, register, refresh, error-batch)
+│   │   ├── auth.ts             # Auth token validation helpers
+│   │   ├── locale.ts           # getRequestLocale, getRequestMarket (cookie-based)
 │   │   ├── seo.ts              # SEO utilities (buildSiteUrl, isIndexable)
 │   │   ├── feature-access.ts   # Server-side feature gating (canAccessFeatureServer, assertFeatureAccess)
 │   │   ├── logger.ts           # Structured logging
-│   │   └── errors.ts           # Error handling utilities
+│   │   ├── webhook-handler.ts  # Webhook config invalidation (KV + SDK + Nitro cache)
+│   │   └── webhook.ts          # Webhook signature verification
 │   ├── routes/
 │   │   └── llms.txt.ts         # Per-tenant /llms.txt (cached 1h)
 │   └── event-context.d.ts      # H3 context type extensions
@@ -215,11 +226,14 @@ The tenant context is available in all server handlers via `event.context.tenant
 ```typescript
 // In any server route/middleware
 export default defineEventHandler((event) => {
-  const { hostname, tenantId } = event.context.tenant;
+  const { hostname, tenantId, config } = event.context.tenant;
   // hostname: Request hostname (e.g., "tenant-a.localhost")
   // tenantId: Resolved tenant ID (e.g., "tenant-a") — set for page routes, optional for API routes
+  // config: Full TenantConfig object (cached per-request, avoids redundant KV lookups)
 });
 ```
+
+Plugin `01.tenant-context.ts` resolves the tenant once per request and stores the full `TenantConfig` in `event.context.tenant.config`. Downstream plugins (03, 04), services, and routes read from context instead of re-resolving.
 
 ### Storage Keys
 
@@ -278,7 +292,7 @@ The `deriveThemeColors()` function in `server/utils/theme.ts` fills in all 26 op
 
 ### Dynamic CSS Generation
 
-The `generateTenantCss()` function in `server/utils/tenant.ts` creates CSS from derived colors, radius variants, and override CSS:
+The `generateTenantCss()` function in `server/utils/tenant-css.ts` creates CSS from derived colors, radius variants, and override CSS:
 
 ```typescript
 // Input: 6 core OKLCH colors
@@ -343,18 +357,20 @@ The `server/api/external/[...].ts` handler proxies requests to external APIs wit
 
 ### Environment Variables
 
-See `.env.example` for all available environment variables:
+See [`.env.example`](../.env.example) for the full list. Key variables:
 
-| Variable               | Description                                     | Default                        |
-| ---------------------- | ----------------------------------------------- | ------------------------------ |
-| `NODE_ENV`             | Environment mode                                | `development`                  |
-| `GEINS_API_ENDPOINT`   | Geins GraphQL endpoint                          | `https://api.geins.io/graphql` |
-| `GEINS_TENANT_API_URL` | Geins Tenant API URL (server-only)              | -                              |
-| `GEINS_TENANT_API_KEY` | Geins Tenant API key (server-only)              | -                              |
-| `STORAGE_DRIVER`       | KV storage driver                               | `fs`                           |
-| `REDIS_URL`            | Redis connection URL                            | -                              |
-| `LOG_LEVEL`            | Logging verbosity (`silent` to disable logging) | `info`                         |
-| `HEALTH_CHECK_SECRET`  | Secret key for detailed health metrics          | -                              |
+| Variable                         | Description                                                | Default                                |
+| -------------------------------- | ---------------------------------------------------------- | -------------------------------------- |
+| `NUXT_AUTO_CREATE_TENANT`        | Auto-create tenants for unknown hostnames                  | `false`                                |
+| `NUXT_GEINS_API_ENDPOINT`        | Geins GraphQL endpoint                                     | `https://merchantapi.geins.io/graphql` |
+| `NUXT_GEINS_TENANT_API_URL`      | Geins Tenant API URL (server-only)                         | —                                      |
+| `NUXT_STORAGE_DRIVER`            | KV storage driver (`memory`/`fs`/`redis`)                  | `memory`                               |
+| `NUXT_STORAGE_REDIS_URL`         | Redis connection URL                                       | —                                      |
+| `NUXT_HEALTH_CHECK_SECRET`       | Secret for detailed `/api/health` metrics                  | —                                      |
+| `NUXT_WEBHOOK_SECRET`            | Webhook signature verification secret                      | —                                      |
+| `NUXT_SENTRY_DSN`                | Sentry DSN (server-only)                                   | —                                      |
+| `LOG_LEVEL`                      | Logging verbosity (`debug`/`info`/`warn`/`error`/`silent`) | `info`                                 |
+| `NUXT_PUBLIC_FEATURES_ANALYTICS` | Enable analytics scripts                                   | `false`                                |
 
 ### Runtime Configuration
 
@@ -407,6 +423,40 @@ throw createAppError(ErrorCode.VALIDATION_ERROR, 'Invalid input', {
 // Convenience functions
 throw createTenantNotFoundError(hostname);
 throw createTenantInactiveError(tenantId);
+```
+
+### Service Error Handling (`wrapServiceCall`)
+
+All service functions use `wrapServiceCall` for standardized error handling. It catches errors, logs them with context, and re-throws typed application errors:
+
+```typescript
+// In a service file
+export async function getProducts(event: H3Event) {
+  return wrapServiceCall(
+    async () => {
+      const sdk = await getSdk(event);
+      return sdk.products.list();
+    },
+    'products', // service name for logging
+    GeinsError, // known error class to detect
+    ErrorCode.BAD_REQUEST, // error code for unknown errors
+  );
+}
+```
+
+See [Patterns: wrapServiceCall](patterns/README.md#wrapservicecall) for details.
+
+### Input Validation
+
+All POST routes use Zod schemas from `server/schemas/api-input.ts` with H3's `readValidatedBody`:
+
+```typescript
+import { LoginSchema } from '../../schemas/api-input';
+
+export default defineEventHandler(async (event) => {
+  const body = await readValidatedBody(event, LoginSchema.parse);
+  // body is typed and validated, invalid input returns 422
+});
 ```
 
 ### Logging
@@ -652,13 +702,20 @@ Configure via environment variables:
 ### Testing
 
 ```bash
-# Run linting
-pnpm lint
+# Unit tests (875+ tests, Vitest)
+pnpm test
 
-# Fix lint issues
+# E2E tests (Playwright)
+pnpm test:e2e
+
+# Type checking (strict mode)
+pnpm typecheck
+
+# Linting
+pnpm lint
 pnpm lint:fix
 
-# Format code
+# Format
 pnpm format
 ```
 
@@ -763,12 +820,39 @@ Client-side navigation latency is reduced through three techniques:
 
 ---
 
+## Security
+
+### Content Security Policy
+
+The `nuxt-security` module enforces strict CSP with nonce-based script/style loading, SRI, and `strict-dynamic`. See `nuxt.config.ts` `security` block for the full policy.
+
+### CSRF Protection
+
+`server/middleware/csrf-guard.ts` rejects non-JSON content types on mutating API requests (returns 415). Combined with `SameSite=Lax` cookies, this eliminates CSRF without tokens.
+
+### Rate Limiting
+
+Pre-configured rate limiters in `server/utils/rate-limiter.ts`:
+
+- Login: 5 requests/min per IP
+- Register: 3 requests/min per IP
+- Token refresh: 10 requests/min per IP
+- Error batch: 10 requests/min per IP
+
+Rate limiter uses `useStorage('kv')` — scales to Redis in production.
+
+### Tenant CSS Sanitization
+
+`server/utils/sanitize.ts` provides `sanitizeTenantCss()`, `sanitizeHtmlAttr()`, `sanitizeUrl()`, and `escapeCssString()` to prevent injection via tenant-provided content.
+
+---
+
 ## Future Considerations
 
 - **Admin Dashboard**: Self-service tenant management
-- **Cookie Banner UI**: Component calling `useAnalyticsConsent().accept()`/`revoke()`
-- **CDN & Caching**: Edge caching for static assets
+- **CDN & Caching**: Edge caching for static assets (see EDGE-TENANT-CONFIG design doc)
 - **A/B Testing**: Feature flagging per tenant
+- **GraphQL Codegen**: Type-safe query/mutation types (replacing `Promise<unknown>` returns)
 
 ---
 

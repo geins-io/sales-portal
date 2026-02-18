@@ -97,6 +97,15 @@ vi.stubGlobal('ErrorCode', {
   UNAUTHORIZED: 'UNAUTHORIZED',
   EXTERNAL_API_ERROR: 'EXTERNAL_API_ERROR',
 });
+vi.stubGlobal(
+  'createExternalApiError',
+  vi.fn((service: string, err?: Error) => {
+    const e = new Error(err?.message || `Error communicating with ${service}`);
+    (e as Error & { statusCode: number }).statusCode = 502;
+    return e;
+  }),
+);
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
 // Mock preview cookie helper (auto-imported in cms.ts)
 vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));

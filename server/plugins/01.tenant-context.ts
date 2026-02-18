@@ -44,25 +44,27 @@ export default defineNitroPlugin((nitroApp) => {
       const tenant = await resolveTenant(hostname, event);
       if (!tenant) {
         throw createError({
-          statusCode: 418,
-          statusMessage: "I'm a teapot",
-          message: `The requested page could not be found. [${hostname}]`,
+          statusCode: 404,
+          statusMessage: 'Not Found',
+          message: `This site is not available. If you believe this is an error, please contact support.`,
         });
       }
 
-      // Store the real tenantId in context and cookie
+      // Store the real tenantId and full config in context
       const tenantId = tenant.tenantId || hostname;
       event.context.tenant.tenantId = tenantId;
+      event.context.tenant.config = tenant;
 
       const cachedTenantId = getTenantCookie(event);
       if (!cachedTenantId || cachedTenantId !== tenantId) {
         setTenantCookie(event, tenantId);
       }
-    } else {
-      // For API/asset routes, set cookie from cached tenantId if available
-      const cachedTenantId = getTenantCookie(event);
-      if (cachedTenantId) {
-        event.context.tenant.tenantId = cachedTenantId;
+    } else if (path.startsWith('/api/')) {
+      // For API routes, always resolve from hostname (cookie is only a hint, never trusted)
+      const tenant = await resolveTenant(hostname, event);
+      if (tenant) {
+        event.context.tenant.tenantId = tenant.tenantId || hostname;
+        event.context.tenant.config = tenant;
       }
     }
   });

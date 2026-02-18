@@ -178,6 +178,34 @@ export function createStorageError(
 }
 
 /**
+ * Wrap a service call with standardized error handling.
+ * Re-throws H3Errors, maps known SDK errors to the given errorCode,
+ * and wraps anything else as EXTERNAL_API_ERROR.
+ */
+export async function wrapServiceCall<T>(
+  fn: () => Promise<T>,
+  service: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  knownError?: { new (...args: any[]): Error },
+  errorCode: ErrorCode = ErrorCode.BAD_REQUEST,
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (error instanceof H3Error) {
+      throw error;
+    }
+    if (knownError && error instanceof knownError) {
+      throw createAppError(errorCode, (error as Error).message);
+    }
+    throw createExternalApiError(
+      service,
+      error instanceof Error ? error : undefined,
+    );
+  }
+}
+
+/**
  * Wrap an async handler with error handling
  */
 export function withErrorHandling<T>(

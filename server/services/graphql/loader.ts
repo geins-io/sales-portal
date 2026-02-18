@@ -1,19 +1,12 @@
 /**
  * GraphQL query loader.
  *
- * Uses Vite's `import.meta.glob` with `?raw` to inline all `.graphql` files
- * at build time. Works in both dev and production (no filesystem access needed).
+ * All `.graphql` files are collected at build time by the graphql-loader Nuxt
+ * module (modules/graphql-loader.ts) using addTemplate. The module reads every
+ * `.graphql` file under this directory and exposes them as a Record<string, string>
+ * via the `#graphql-queries` alias.
  */
-
-// Eagerly import all .graphql files as raw strings at build time.
-// import.meta.glob is a Vite/Nitro build-time transform.
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const glob = (import.meta as unknown as { glob: Function }).glob;
-const graphqlFiles = glob('./**/*.graphql', {
-  query: '?raw',
-  eager: true,
-  import: 'default',
-}) as Record<string, string>;
+import graphqlFiles from '#graphql-queries';
 
 const cache = new Map<string, string>();
 
@@ -57,7 +50,6 @@ function resolveFragments(query: string): string {
   const resolved = new Set<string>();
   const pending = new Set<string>();
 
-  // Find all fragment spreads in the query
   const spreadRegex = /\.\.\.(\w+)/g;
   let match;
   while ((match = spreadRegex.exec(query)) !== null) {
@@ -67,7 +59,6 @@ function resolveFragments(query: string): string {
     }
   }
 
-  // Recursively resolve fragment dependencies
   while (pending.size > 0) {
     const name = pending.values().next().value!;
     pending.delete(name);
@@ -76,7 +67,6 @@ function resolveFragments(query: string): string {
     const fragmentDef = fragmentCache.get(name)!;
     resolved.add(name);
 
-    // Check this fragment for its own dependencies
     let innerMatch;
     const innerRegex = /\.\.\.(\w+)/g;
     while ((innerMatch = innerRegex.exec(fragmentDef)) !== null) {
@@ -87,7 +77,6 @@ function resolveFragments(query: string): string {
     }
   }
 
-  // Build full query with fragments appended (dependencies first)
   const fragmentDefs = [...resolved]
     .map((name) => fragmentCache.get(name)!)
     .join('\n');
@@ -98,8 +87,6 @@ function resolveFragments(query: string): string {
 /**
  * Loads a `.graphql` file by path relative to the graphql directory,
  * resolves fragment dependencies, and caches the result.
- *
- * All `.graphql` files are inlined at build time via `import.meta.glob`.
  *
  * @example
  * ```ts

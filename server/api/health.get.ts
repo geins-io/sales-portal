@@ -52,7 +52,6 @@ interface HealthResponseDetailed extends HealthResponseMinimal {
   commitSha: string;
   uptime: number;
   environment: string;
-  environmentVariables?: Record<string, unknown>;
   checks: {
     storage?: ComponentHealth;
     memory?: ComponentHealth;
@@ -62,21 +61,6 @@ interface HealthResponseDetailed extends HealthResponseMinimal {
 async function getEnvironment(event: H3Event): Promise<string> {
   const config = useRuntimeConfig(event);
   return config.public.environment as string;
-}
-
-async function getEnvironmentVariables(
-  event: H3Event,
-): Promise<Record<string, unknown>> {
-  const config = useRuntimeConfig(event);
-  // Return public runtime config and sanitized private config
-  // Note: config.public contains client-safe values, private values are directly on config
-  const environmentVariables: Record<string, unknown> = {
-    public: config.public,
-    private: config,
-    // Include existence/type info for private config (not the values themselves for security)
-    privateConfigKeys: Object.keys(config).filter((key) => key !== 'public'),
-  };
-  return environmentVariables;
 }
 
 /**
@@ -295,7 +279,6 @@ export default defineEventHandler(
       }
     }
     const environment = await getEnvironment(event);
-    const environmentVariables = await getEnvironmentVariables(event);
     // Return detailed response for authorized requests
     return {
       status: overallStatus,
@@ -304,8 +287,7 @@ export default defineEventHandler(
       commitSha: config.public.commitSha as string,
       uptime: Math.round(process.uptime()),
       checks,
-      environment: environment,
-      environmentVariables,
+      environment,
     };
   },
 );

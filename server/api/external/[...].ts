@@ -3,7 +3,12 @@ import { createExternalApiError, withErrorHandling } from '../../utils/errors';
 /** Default timeout for external API requests (30 seconds) */
 const EXTERNAL_API_TIMEOUT_MS = 30000;
 
-/** Headers that should be forwarded to the upstream API */
+/**
+ * Headers forwarded to the upstream API.
+ * TRUST BOUNDARY: `authorization` is forwarded as-is because the external API
+ * is a first-party service that shares the same auth domain. If this proxy is
+ * ever opened to third-party APIs, `authorization` MUST be removed from this list.
+ */
 const HEADERS_TO_FORWARD = ['content-type', 'accept', 'authorization'];
 
 export default defineEventHandler(async (event) => {

@@ -4,7 +4,18 @@ import type { RouteResolution } from '#shared/types';
 // Client-side route resolution cache (module-scoped, lives for the SPA session).
 // On the server this is a fresh Map per request (module re-evaluated per SSR request in prod,
 // shared in dev but harmless since server-side useAsyncData transfers via payload anyway).
+const MAX_ROUTE_CACHE_SIZE = 500;
 export const _routeCache = new Map<string, RouteResolution>();
+
+/** Evicts the oldest entry when cache exceeds MAX_ROUTE_CACHE_SIZE. */
+function cacheSet(key: string, value: RouteResolution) {
+  if (_routeCache.size >= MAX_ROUTE_CACHE_SIZE) {
+    // Map iterates in insertion order — delete the first (oldest) key
+    const oldest = _routeCache.keys().next().value;
+    if (oldest !== undefined) _routeCache.delete(oldest);
+  }
+  _routeCache.set(key, value);
+}
 
 /**
  * Normalizes a route parameter (slug) into a consistent path format.
@@ -69,7 +80,7 @@ export function useRouteResolution(path: MaybeRefOrGetter<string>) {
 
       // Cache for subsequent navigations
       if (import.meta.client) {
-        _routeCache.set(p, data);
+        cacheSet(p, data);
       }
 
       return data;
@@ -90,7 +101,7 @@ export async function prefetchRouteResolution(path: string): Promise<void> {
     const data = await $fetch<RouteResolution>('/api/resolve-route', {
       query: { path },
     });
-    _routeCache.set(path, data);
+    cacheSet(path, data);
   } catch {
     // Best-effort prefetch
   }
