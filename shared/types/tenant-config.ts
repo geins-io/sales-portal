@@ -146,6 +146,7 @@ export interface PublicTenantConfig {
   market?: string;
   availableLocales: string[];
   availableMarkets: string[];
+  imageBaseUrl: string;
 }
 
 /**

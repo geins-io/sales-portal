@@ -6,6 +6,7 @@
 
 // Re-export server-side storage constants
 export { KV_STORAGE_KEYS, type KvStorageKeys } from './storage';
+export { GEINS_IMAGE_FOLDER, type GeinsImageType } from './image';
 
 /**
  * Application metadata

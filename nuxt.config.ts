@@ -74,6 +74,10 @@ export default defineNuxtConfig({
     corsHandler: false,
   },
 
+  image: {
+    domains: ['commerce.services'],
+  },
+
   i18n: {
     restructureDir: 'app',
     defaultLocale: 'en',

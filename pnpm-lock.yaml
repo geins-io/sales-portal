@@ -20,20 +20,20 @@ importers:
   .:
     dependencies:
       '@geins/cms':
-        specifier: 0.6.0
-        version: 0.6.0(@geins/core@0.6.0(graphql@16.12.0))
+        specifier: 0.6.1
+        version: 0.6.1(@geins/core@0.6.1(graphql@16.12.0))
       '@geins/core':
-        specifier: 0.6.0
-        version: 0.6.0(graphql@16.12.0)
+        specifier: 0.6.1
+        version: 0.6.1(graphql@16.12.0)
       '@geins/crm':
-        specifier: 0.6.0
-        version: 0.6.0(@geins/core@0.6.0(graphql@16.12.0))
+        specifier: 0.6.1
+        version: 0.6.1(@geins/core@0.6.1(graphql@16.12.0))
       '@geins/oms':
-        specifier: 0.6.0
-        version: 0.6.0(@geins/core@0.6.0(graphql@16.12.0))
+        specifier: 0.6.1
+        version: 0.6.1(@geins/core@0.6.1(graphql@16.12.0))
       '@geins/types':
-        specifier: 0.6.0
-        version: 0.6.0
+        specifier: 0.6.1
+        version: 0.6.1
       '@nuxt/fonts':
         specifier: 0.12.1
         version: 0.12.1(db0@0.3.4)(ioredis@5.9.2)(magicast@0.5.2)(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1)(stylus@0.57.0)(terser@5.46.0)(yaml@2.8.2))
@@ -1146,26 +1146,26 @@ packages:
   '@floating-ui/vue@1.1.10':
     resolution: {integrity: sha512-vdf8f6rHnFPPLRsmL4p12wYl+Ux4mOJOkjzKEMYVnwdf7UFdvBtHlLvQyx8iKG5vhPRbDRgZxdtpmyigDPjzYg==}
 
-  '@geins/cms@0.6.0':
-    resolution: {integrity: sha512-epZ17BPDtEw4C1DxSLIQqKR7Szp8TnrtYGpSXAxTPDQvACa+K6GfXpH1Gnvcr1nEnGx6BY4vKsoFXkPvLKUq7A==}
+  '@geins/cms@0.6.1':
+    resolution: {integrity: sha512-Dsj3wuJzDHK21jG5dtieoufwbjAjuGa7qFpAb4XoFdYaHE+76POvaZ6qeQDuWljmR6qzbGS84rNZsPu4J5glNQ==}
     peerDependencies:
       '@geins/core': '*'
 
-  '@geins/core@0.6.0':
-    resolution: {integrity: sha512-C0vuktsrhFk2hZ9OH/zrFVteDjc6mcSbHSTSDa6qmPoagkSr3VWG1USncn9hVoB6X2rMpETp49XfT2My3Sn5ZQ==}
+  '@geins/core@0.6.1':
+    resolution: {integrity: sha512-3houqcLxyQjhwJ4n46kLqFt8/jjgWAS/4auO+qk6T85CXZcsru7Hz6nye42tF/njWkJZovkAukgN2HHDY+wHdQ==}
 
-  '@geins/crm@0.6.0':
-    resolution: {integrity: sha512-WXmQDFEKR9WFKeLNSIVllUDslf3jjabE028WBlwn+FdIIqA1ifTmXBoeN6rUAYidV5fD2GbrYkIT5JHGi3ZcjQ==}
+  '@geins/crm@0.6.1':
+    resolution: {integrity: sha512-sYquMxGXYAC6jr0yvf1HPjWSbafDKbH69h00Mi2AlnFwn4O6960M4JCQbwFR5SwNWxLZLfkr2oWuUiQ6sBquwg==}
     peerDependencies:
       '@geins/core': '*'
 
-  '@geins/oms@0.6.0':
-    resolution: {integrity: sha512-BuOji+rXfqGfCTN9PAdgCJr4zBOChmF7E2wDFj9Q02QhpdbDpf9EhKFMF1X98ORwy0E4zrWw4M7sC68KsGihPw==}
+  '@geins/oms@0.6.1':
+    resolution: {integrity: sha512-MlR81YhMigfDzNKq4glrPMTvGWBwdJisMI14QUNyxLPJEtH+YKE+BenxLXBYtpOcTyqKOHF3q5eHwv1GCveFTw==}
     peerDependencies:
       '@geins/core': '*'
 
-  '@geins/types@0.6.0':
-    resolution: {integrity: sha512-sQojngl4sSjrxYe1mBeheExfw1wPldqh08Akh1El7lAYojr7+bW0SJPw1JY152MZM37EbB6rllqHb07zSjoYxQ==}
+  '@geins/types@0.6.1':
+    resolution: {integrity: sha512-RuyF+HDho+LikBXP5imVHUzLHTDRavBw+ph7TBp0BalD5mZL/uXgJD/ak+XtV8iLhOJJW5KQoATMclY4QPp4eQ==}
 
   '@graphql-typed-document-node/core@3.2.0':
     resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
@@ -7418,6 +7418,11 @@ packages:
     engines: {node: '>=20.16.0'}
     hasBin: true
 
+  srvx@0.11.7:
+    resolution: {integrity: sha512-p9qj9wkv/MqG1VoJpOsqXv1QcaVcYRk7ifsC6i3TEwDXFyugdhJN4J3KzQPZq2IJJ2ZCt7ASOB++85pEK38jRw==}
+    engines: {node: '>=20.16.0'}
+    hasBin: true
+
   stable-hash-x@0.2.0:
     resolution: {integrity: sha512-o3yWv49B/o4QZk5ZcsALc6t0+eCelPc44zZsLtCQnZPDwFpDYSWcDnrv2TtMmMbQ7uKo3J0HTURCqckw23czNQ==}
     engines: {node: '>=12.0.0'}
@@ -7750,6 +7755,10 @@ packages:
 
   undici@7.21.0:
     resolution: {integrity: sha512-Hn2tCQpoDt1wv23a68Ctc8Cr/BHpUSfaPYrkajTXOS9IKpxVRx/X5m1K2YkbK2ipgZgxXSgsUinl3x+2YdSSfg==}
+    engines: {node: '>=20.18.1'}
+
+  undici@7.22.0:
+    resolution: {integrity: sha512-RqslV2Us5BrllB+JeiZnK4peryVTndy9Dnqq62S3yYRRTj0tFQCwEniUy2167skdGOy3vqRzEvl1Dm4sV2ReDg==}
     engines: {node: '>=20.18.1'}
 
   unenv@2.0.0-rc.24:
@@ -9282,11 +9291,11 @@ snapshots:
       - '@vue/composition-api'
       - vue
 
-  '@geins/cms@0.6.0(@geins/core@0.6.0(graphql@16.12.0))':
+  '@geins/cms@0.6.1(@geins/core@0.6.1(graphql@16.12.0))':
     dependencies:
-      '@geins/core': 0.6.0(graphql@16.12.0)
+      '@geins/core': 0.6.1(graphql@16.12.0)
 
-  '@geins/core@0.6.0(graphql@16.12.0)':
+  '@geins/core@0.6.1(graphql@16.12.0)':
     dependencies:
       '@apollo/client': 3.14.0(graphql@16.12.0)
       '@cacheable/node-cache': 1.7.6
@@ -9300,15 +9309,15 @@ snapshots:
       - react-dom
       - subscriptions-transport-ws
 
-  '@geins/crm@0.6.0(@geins/core@0.6.0(graphql@16.12.0))':
+  '@geins/crm@0.6.1(@geins/core@0.6.1(graphql@16.12.0))':
     dependencies:
-      '@geins/core': 0.6.0(graphql@16.12.0)
+      '@geins/core': 0.6.1(graphql@16.12.0)
 
-  '@geins/oms@0.6.0(@geins/core@0.6.0(graphql@16.12.0))':
+  '@geins/oms@0.6.1(@geins/core@0.6.1(graphql@16.12.0))':
     dependencies:
-      '@geins/core': 0.6.0(graphql@16.12.0)
+      '@geins/core': 0.6.1(graphql@16.12.0)
 
-  '@geins/types@0.6.0': {}
+  '@geins/types@0.6.1': {}
 
   '@graphql-typed-document-node/core@3.2.0(graphql@16.12.0)':
     dependencies:
@@ -14000,7 +14009,7 @@ snapshots:
   h3@2.0.1-rc.14:
     dependencies:
       rou3: 0.7.12
-      srvx: 0.11.4
+      srvx: 0.11.7
 
   happy-dom@20.6.1:
     dependencies:
@@ -14403,7 +14412,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.0
-      undici: 7.21.0
+      undici: 7.22.0
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -16472,6 +16481,8 @@ snapshots:
 
   srvx@0.11.4: {}
 
+  srvx@0.11.7: {}
+
   stable-hash-x@0.2.0: {}
 
   stackback@0.0.2: {}
@@ -16800,6 +16811,9 @@ snapshots:
   undici-types@7.16.0: {}
 
   undici@7.21.0: {}
+
+  undici@7.22.0:
+    optional: true
 
   unenv@2.0.0-rc.24:
     dependencies:

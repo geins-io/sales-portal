@@ -28,6 +28,7 @@ const componentTestFiles = [
   'tests/components/layout/LayoutHeaderActionButtons.test.ts',
   'tests/components/layout/LayoutHeaderNav.test.ts',
   'tests/components/layout/LayoutHeaderTopbar.test.ts',
+  'tests/components/GeinsImage.test.ts',
 ];
 
 // Get Nuxt's Vite config once (aliases, auto-imports, plugins)

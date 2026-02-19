@@ -80,6 +80,8 @@ export function useTenant() {
   /** Default market code (e.g. 'se'). */
   const market = computed(() => tenant.value?.market ?? '');
 
+  const imageBaseUrl = computed(() => tenant.value?.imageBaseUrl ?? '');
+
   return {
     tenant,
     tenantId,
@@ -100,6 +102,7 @@ export function useTenant() {
     availableLocales,
     availableMarkets,
     market,
+    imageBaseUrl,
     features,
     hasFeature,
     suspense: () => asyncData,
