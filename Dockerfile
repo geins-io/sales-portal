@@ -10,13 +10,13 @@
 # -----------------------------------------------------------------------------
 FROM node:20-alpine AS deps
 
-# Install pnpm globally
-RUN corepack enable && corepack install
-
 WORKDIR /app
 
-# Copy package files for dependency resolution
+# Copy package.json first so corepack can read the packageManager field
 COPY package.json pnpm-lock.yaml ./
+
+# Install pnpm via corepack (reads version from packageManager in package.json)
+RUN corepack enable && corepack install
 
 # Install all dependencies (including devDependencies for build)
 RUN pnpm install --frozen-lockfile
@@ -29,10 +29,13 @@ FROM node:20-alpine AS builder
 # Build argument for commit SHA (injected at build time)
 ARG COMMIT_SHA=n/a
 
-# Install pnpm globally
-RUN corepack enable && corepack install
-
 WORKDIR /app
+
+# Copy package.json so corepack can read the packageManager field
+COPY package.json ./
+
+# Install pnpm via corepack
+RUN corepack enable && corepack install
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
