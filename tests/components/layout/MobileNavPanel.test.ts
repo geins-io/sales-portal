@@ -13,14 +13,30 @@ vi.mock('~/stores/app', () => ({
   useAppStore: () => mockAppStore,
 }));
 
-// Stub shadcn-vue primitives so they render their slots
+// Mock auth store
+vi.mock('~/stores/auth', () => ({
+  useAuthStore: () => ({
+    isAuthenticated: false,
+    displayName: '',
+  }),
+}));
+
+// Stub shadcn-vue primitives so they render their slots.
+// Include both original and Nuxt-prefixed names (Nuxt resolves ui/sheet → UiSheet).
+const slotDiv = { template: '<div><slot /></div>' };
 const sheetStubs = {
   Sheet: { template: '<div><slot /></div>', props: ['open'] },
   SheetContent: { template: '<div><slot /></div>', props: ['side'] },
   Accordion: { template: '<div><slot /></div>', props: ['type'] },
   AccordionItem: { template: '<div><slot /></div>', props: ['value'] },
   AccordionTrigger: { template: '<button><slot /></button>' },
-  AccordionContent: { template: '<div><slot /></div>' },
+  AccordionContent: slotDiv,
+  UiSheet: { template: '<div><slot /></div>', props: ['open'] },
+  UiSheetContent: { template: '<div><slot /></div>', props: ['side'] },
+  UiAccordion: { template: '<div><slot /></div>', props: ['type'] },
+  UiAccordionItem: { template: '<div><slot /></div>', props: ['value'] },
+  UiAccordionTrigger: { template: '<button><slot /></button>' },
+  UiAccordionContent: slotDiv,
   User: { template: '<span />' },
 };
 
