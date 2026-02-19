@@ -4,41 +4,90 @@ outline: deep
 
 # Testing Guide
 
-This document describes the testing strategy and practices for the Sales Portal application.
+Testing strategy, architecture, and practices for the Sales Portal.
 
 ## Overview
 
-The Sales Portal uses a comprehensive testing approach with multiple levels:
+875 tests across 54 files, running in ~20s via a 3-tier Vitest workspace.
 
-1. **Unit Tests** - Test individual functions and utilities
-2. **Component Tests** - Test Vue components in isolation
-3. **Integration Tests** - Test server-side logic and API endpoints
-4. **E2E Tests** - Test complete user flows in a browser
+| Level       | Tool                    | What it tests                            |
+| ----------- | ----------------------- | ---------------------------------------- |
+| Unit        | Vitest                  | Functions, utilities, stores, middleware |
+| Component   | Vitest + Vue Test Utils | Vue components in isolation              |
+| Integration | Vitest                  | Server services hitting real Geins API   |
+| E2E         | Playwright              | Complete user flows in a browser         |
 
 ## Test Stack
 
-- **Vitest** - Fast unit test framework with Vue support
-- **@nuxt/test-utils** - Nuxt-specific testing utilities
-- **@vue/test-utils** - Vue component testing utilities
-- **Playwright** - E2E testing with real browsers
-- **happy-dom** - Fast DOM implementation for unit tests
+- **Vitest** with workspace projects (`vitest.workspace.ts`)
+- **@nuxt/test-utils** — Nuxt test environment + config extraction
+- **@vue/test-utils** — Vue component mounting
+- **happy-dom** — Fast DOM implementation for component tests
+- **Playwright** — E2E testing with Chromium
+
+## Workspace Architecture
+
+The test suite uses a **3-tier Vitest workspace** to minimize environment overhead. The full Nuxt test environment takes ~8s to boot per file, so we only use it where strictly necessary.
+
+```
+vitest.workspace.ts
+├── node (37 files)        — Server, stores, composables, utils, shared
+├── components (10 files)  — Vue component rendering with mocked useTenant
+└── nuxt (7 files)         — Tests needing full Nuxt runtime
+```
+
+### Tier 1: Node (`environment: 'node'`)
+
+The fastest tier. Uses `getVitestConfigFromNuxt()` to get Nuxt's Vite config (aliases, auto-import plugins, package resolution) **without** booting the Nuxt runtime. This means `#shared/...` aliases, `computed`, `ref`, and other auto-imports all work.
+
+- **Setup:** `tests/setup.ts` — console suppression only
+- **Flags:** `isolate: false`, `sequence.concurrent: true`
+- **Files:** `tests/server/`, `tests/stores/`, `tests/middleware/`, `tests/composables/` (except those needing Nuxt), `tests/unit/`, `tests/utils/`
+
+### Tier 2: Components (`environment: 'happy-dom'`)
+
+Component tests that need a DOM but not the full Nuxt runtime. The `useTenant` composable (which calls `useFetch` + `useNuxtApp`) is mocked in the setup file so components render with test tenant data.
+
+- **Setup:** `tests/setup-components.ts` — console suppression + Pinia init + `useTenant` mock
+- **Flags:** `isolate: false`, `sequence.concurrent: true`
+- **Files:** Most `tests/components/` files
+
+### Tier 3: Nuxt (`environment: 'nuxt'`)
+
+Tests that truly require the Nuxt runtime — those using `registerEndpoint`, `mockNuxtImport`, `useNuxtApp()`, `useRoute()`, or `useRouter()` from Nuxt internals.
+
+- **Setup:** `tests/setup-nuxt.ts` — console suppression + `registerEndpoint('/api/config', ...)`
+- **Flags:** `sequence.concurrent: true`
+- **Files:** `useCmsPreview`, `useTenant`, `useErrorTracking`, `LayoutHeaderMain`, `MobileNavPanel`, `api-contracts`, `external-api`
+
+### Deciding which tier for a new test
+
+1. Does the test need a DOM (component mount/render)? **No** → `node` tier
+2. Does the component call `useRoute()`, `useRouter()`, or other Nuxt runtime APIs directly? **Yes** → `nuxt` tier
+3. Does the component only need `useTenant`? → `components` tier (already mocked)
+4. Does the test use `registerEndpoint` or `mockNuxtImport`? → `nuxt` tier
+5. Default → `node` tier
+
+After creating a test, add its path to the appropriate list in `vitest.workspace.ts`. Files not in `nuxtTestFiles` or `componentTestFiles` are automatically picked up by the node tier.
+
+### Performance tuning
+
+| Setting                     | Where            | Why                                                         |
+| --------------------------- | ---------------- | ----------------------------------------------------------- |
+| `isolate: false`            | node, components | Reuses module cache across files — no per-file worker setup |
+| `sequence.concurrent: true` | all tiers        | Runs tests within a file concurrently                       |
+| `getVitestConfigFromNuxt()` | node, components | Shares Nuxt's Vite config without booting Nuxt              |
+| `happy-dom` over `jsdom`    | components       | ~3s faster for 10 component files                           |
 
 ## Running Tests
 
 ### Unit and Component Tests
 
 ```bash
-# Run all unit/component tests once
-pnpm test
-
-# Run tests in watch mode (development)
-pnpm test:watch
-
-# Run tests with coverage report
-pnpm test:coverage
-
-# Open Vitest UI (visual test runner)
-pnpm test:ui
+pnpm test              # Run all tests once
+pnpm test:watch        # Watch mode
+pnpm test:coverage     # With coverage report
+pnpm test:ui           # Vitest visual UI
 ```
 
 ### E2E Tests
@@ -50,328 +99,138 @@ E2E tests require a tenant hostname. Add to `/etc/hosts`:
 ```
 
 ```bash
-# Run E2E tests headlessly
-pnpm test:e2e
-
-# Open Playwright UI for debugging
-pnpm test:e2e:ui
-
-# Run E2E tests in debug mode
-pnpm test:e2e:debug
-
-# View the last test report
-pnpm test:e2e:report
+pnpm test:e2e          # Headless
+pnpm test:e2e:ui       # Playwright UI
+pnpm test:e2e:debug    # Debug mode
+pnpm test:e2e:report   # View last report
 ```
 
-### Run All Tests
+### Run a specific tier
 
 ```bash
-# Run both unit and E2E tests
-pnpm test:all
+pnpm vitest --project node          # Only node tests
+pnpm vitest --project components    # Only component tests
+pnpm vitest --project nuxt          # Only nuxt tests
 ```
 
 ## Test Directory Structure
 
 ```
 tests/
-├── components/         # Vue component tests
-│   └── Button.test.ts
-├── composables/        # Composable function tests
-│   ├── useErrorTracking.test.ts
+├── components/         # Vue component tests (tiers: components or nuxt)
+│   ├── Button.test.ts
+│   ├── Copyright.test.ts
+│   ├── Logo.test.ts
+│   └── layout/
+│       ├── LayoutFooter.test.ts
+│       ├── LayoutHeaderMain.test.ts      # nuxt tier (useRouter)
+│       └── MobileNavPanel.test.ts        # nuxt tier (useRoute)
+├── composables/        # Composable tests (tiers: node or nuxt)
+│   ├── useCmsPreview.test.ts             # nuxt tier (mockNuxtImport)
+│   ├── useErrorTracking.test.ts          # nuxt tier (useRuntimeConfig)
 │   ├── useRouteResolution.test.ts
-│   └── useTenant.test.ts
+│   └── useTenant.test.ts                 # nuxt tier (useFetch)
 ├── e2e/               # Playwright E2E tests
 │   ├── app.spec.ts
 │   └── health.spec.ts
-├── middleware/         # Middleware tests
+├── middleware/         # Middleware tests (node tier)
 │   └── feature.test.ts
-├── server/            # Server-side unit tests
-│   ├── api-contracts.test.ts
+├── server/            # Server tests (mostly node tier)
+│   ├── api-contracts.test.ts             # nuxt tier (useNuxtApp)
 │   ├── errors.test.ts
-│   ├── external-api.test.ts
-│   ├── logger.test.ts
-│   ├── resolve-route.test.ts
-│   ├── tenant.test.ts
-│   └── services/      # Geins service layer tests
-│       ├── _client.test.ts       # SDK factory unit tests
-│       ├── sdk-services.test.ts  # Service delegation unit tests
-│       ├── graphql-loader.test.ts # GraphQL file loader tests
-│       ├── integration.test.ts   # Integration tests (hits real Geins API)
-│       └── geins-settings.ts     # Test config (env vars)
-├── stores/            # Pinia store tests
+│   ├── external-api.test.ts              # nuxt tier (useRuntimeConfig)
+│   ├── services/
+│   │   ├── _client.test.ts
+│   │   ├── sdk-services.test.ts
+│   │   ├── integration.test.ts           # Hits real Geins API
+│   │   └── graphql-loader.test.ts
+│   └── ...
+├── stores/            # Pinia store tests (node tier)
 │   └── auth.test.ts
-├── unit/              # General utility unit tests
+├── unit/              # General utility tests (node tier)
 │   ├── constants.test.ts
 │   └── utils.test.ts
-└── utils/             # Test utilities and helpers
-    ├── api-client.test.ts
-    ├── index.ts
-    └── component.ts
+├── utils/             # Test utilities
+│   ├── component.ts   # mountComponent, shallowMountComponent helpers
+│   └── index.ts       # mockConsole, wait, flushPromises
+├── setup.ts           # Base setup: console suppression (all tiers)
+├── setup-components.ts # Component tier: + Pinia init + useTenant mock
+└── setup-nuxt.ts      # Nuxt tier: + registerEndpoint('/api/config')
 ```
 
-## Writing Tests
+## Setup Files
 
-### Unit Tests
+### `tests/setup.ts` — Base (all tiers)
 
-Unit tests should test individual functions in isolation:
+Console suppression only. Keeps test output clean.
 
 ```typescript
-import { describe, it, expect } from 'vitest';
-import { myFunction } from '../../app/lib/myModule';
-
-describe('myFunction', () => {
-  it('should return expected value', () => {
-    const result = myFunction('input');
-    expect(result).toBe('expected');
-  });
-});
-```
-
-### Component Tests
-
-Component tests use Vue Test Utils to mount and interact with components:
-
-```typescript
-import { describe, it, expect } from 'vitest';
-import { mount } from '@vue/test-utils';
-import MyComponent from '../../app/components/MyComponent.vue';
-
-describe('MyComponent', () => {
-  it('should render correctly', () => {
-    const wrapper = mount(MyComponent, {
-      props: {
-        title: 'Hello',
-      },
-    });
-
-    expect(wrapper.text()).toContain('Hello');
-  });
-
-  it('should emit event on click', async () => {
-    const wrapper = mount(MyComponent);
-
-    await wrapper.find('button').trigger('click');
-
-    expect(wrapper.emitted('click')).toBeTruthy();
-  });
-});
-```
-
-### E2E Tests
-
-E2E tests use Playwright to test complete user flows:
-
-```typescript
-import { test, expect } from '@playwright/test';
-
-test.describe('Feature', () => {
-  test('should complete user flow', async ({ page }) => {
-    await page.goto('/');
-
-    await page.click('button[data-testid="submit"]');
-
-    await expect(page.locator('.success-message')).toBeVisible();
-  });
-});
-```
-
-## Test Utilities
-
-### Common Helpers
-
-The `tests/utils/index.ts` file provides common test utilities:
-
-```typescript
-import {
-  createMockLocalStorage,
-  createMockTenantConfig,
-  wait,
-  flushPromises,
-} from '../utils';
-
-// Mock localStorage
-const mockStorage = createMockLocalStorage();
-
-// Create mock tenant config
-const tenantConfig = createMockTenantConfig({ id: 'test-tenant' });
-
-// Wait for async operations
-await wait(100);
-
-// Flush all pending promises
-await flushPromises();
-```
-
-### Component Test Helpers
-
-The `tests/utils/component.ts` file provides Vue component testing helpers:
-
-```typescript
-import {
-  mountComponent,
-  shallowMountComponent,
-  expectEmitted,
-} from '../utils/component';
-
-// Mount with default options
-const wrapper = mountComponent(MyComponent, { props: { ... } });
-
-// Check emitted events
-expectEmitted(wrapper, 'click');
-```
-
-## Coverage
-
-Test coverage is tracked using V8 coverage provider. Coverage reports are generated in:
-
-- **HTML Report**: `coverage/index.html`
-- **JSON Report**: `coverage/coverage-final.json`
-- **Text Summary**: Displayed in terminal
-
-### Coverage Thresholds
-
-We aim for the following coverage targets:
-
-| Metric     | Target |
-| ---------- | ------ |
-| Lines      | 80%    |
-| Functions  | 80%    |
-| Branches   | 75%    |
-| Statements | 80%    |
-
-Coverage excludes:
-
-- `app/components/ui/**` - shadcn-vue components (pre-tested)
-- `**/*.d.ts` - TypeScript declaration files
-- `**/node_modules/**` - Dependencies
-- `**/.nuxt/**` - Nuxt build artifacts
-
-## CI/CD Integration
-
-Tests run automatically on every push and pull request:
-
-1. **Lint & Type Check** - ESLint and TypeScript checks
-2. **Unit & Component Tests** - Vitest with coverage
-3. **E2E Tests** - Playwright with Chromium
-
-Coverage reports are uploaded to Codecov for tracking over time.
-
-## Best Practices
-
-### General
-
-1. **Test behavior, not implementation** - Focus on what the code does, not how
-2. **One assertion focus per test** - Each test should verify one specific behavior
-3. **Use descriptive names** - Test names should describe the expected behavior
-4. **Keep tests isolated** - Tests should not depend on each other
-
-### Component Tests
-
-1. **Test user interactions** - Click, type, focus, etc.
-2. **Test accessibility** - Keyboard navigation, ARIA attributes
-3. **Mock external dependencies** - API calls, router, store
-4. **Use data-testid for selectors** - More stable than CSS classes
-
-### E2E Tests
-
-1. **Test critical paths** - Focus on important user journeys
-2. **Use realistic data** - Test with data similar to production
-3. **Handle async properly** - Use proper waiting strategies
-4. **Run in CI** - Ensure tests pass in clean environments
-
-## Debugging Tests
-
-### Vitest
-
-```bash
-# Run specific test file
-pnpm vitest tests/unit/utils.test.ts
-
-# Run tests matching pattern
-pnpm vitest -t "should render"
-
-# Enable verbose output
-pnpm vitest --reporter=verbose
-```
-
-### Playwright
-
-```bash
-# Debug specific test file
-pnpm exec playwright test tests/e2e/app.spec.ts --debug
-
-# Run with headed browser
-pnpm exec playwright test --headed
-
-# Generate trace for debugging
-pnpm exec playwright test --trace on
-```
-
-## Mocking
-
-### Vitest Mocks
-
-```typescript
-import { vi } from 'vitest';
-
-// Mock useFetch
-vi.mock('#app', () => ({
-  useFetch: () => ({
-    data: ref(null),
-    error: ref(null),
-    pending: ref(false),
-  }),
-}));
-
-// Mock a function
-const mockFn = vi.fn().mockReturnValue('mocked');
-
-// Mock timers
-vi.useFakeTimers();
-vi.advanceTimersByTime(1000);
-vi.useRealTimers();
-```
-
-### Environment Variables
-
-```typescript
-import { vi } from 'vitest';
-
-beforeEach(() => {
-  vi.stubEnv('NODE_ENV', 'test');
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
-```
-
-## Established Patterns
-
-### Console Suppression
-
-Global console suppression is configured in `tests/setup.ts` to keep test output clean:
-
-```typescript
-// tests/setup.ts — runs before all tests
 vi.spyOn(console, 'log').mockImplementation(() => {});
 vi.spyOn(console, 'warn').mockImplementation(() => {});
 vi.spyOn(console, 'error').mockImplementation(() => {});
 vi.spyOn(console, 'debug').mockImplementation(() => {});
 ```
 
-### Logger Mocking
+### `tests/setup-components.ts` — Component tier
 
-Server tests that import code using the structured logger must mock it to avoid side effects:
+Extends base setup with:
+
+- `setActivePinia(createPinia())` — so Pinia stores work without Nuxt
+- `vi.mock('../app/composables/useTenant')` — returns test tenant data matching the Nuxt tier's `registerEndpoint` mock
+
+### `tests/setup-nuxt.ts` — Nuxt tier
+
+Extends base setup with:
+
+- `registerEndpoint('/api/config', () => mockTenantConfig)` — provides tenant config to `useFetch('/api/config')` in the Nuxt test environment
+
+## Writing Tests
+
+### Unit Tests (node tier)
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { myFunction } from '../../server/utils/myModule';
+
+describe('myFunction', () => {
+  it('should return expected value', () => {
+    expect(myFunction('input')).toBe('expected');
+  });
+});
+```
+
+### Component Tests (components tier)
+
+Use the `mountComponent` / `shallowMountComponent` helpers from `tests/utils/component.ts`. They provide default stubs for `NuxtLink`, `NuxtImg`, `Icon`, `ClientOnly` and mocks for `$t`, `$router`, `$route`.
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { mountComponent } from '../utils/component';
+import MyComponent from '../../app/components/MyComponent.vue';
+
+describe('MyComponent', () => {
+  it('should render correctly', () => {
+    const wrapper = mountComponent(MyComponent, {
+      props: { title: 'Hello' },
+    });
+    expect(wrapper.text()).toContain('Hello');
+  });
+
+  it('should emit event on click', async () => {
+    const wrapper = mountComponent(MyComponent);
+    await wrapper.find('button').trigger('click');
+    expect(wrapper.emitted('click')).toBeTruthy();
+  });
+});
+```
+
+### Server Tests with Logger
+
+Server tests importing code that uses the structured logger must mock it:
 
 ```typescript
 vi.mock('../../server/utils/logger', () => ({
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  },
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   createTenantLogger: () => ({
     info: vi.fn(),
     warn: vi.fn(),
@@ -389,8 +248,6 @@ vi.mock('../../server/utils/logger', () => ({
 
 ### Asserting on Console Calls
 
-When tests need to verify console output, use `mockConsole()` from `tests/utils`:
-
 ```typescript
 import { mockConsole } from '../utils';
 
@@ -399,25 +256,24 @@ const { mocks, restore } = mockConsole();
 // ... trigger code that logs
 expect(mocks.error).toHaveBeenCalledWith(expect.stringContaining('failed'));
 
-restore(); // Restore original console
+restore();
 ```
+
+### Service Layer Tests
+
+Two approaches in `tests/server/services/`:
+
+- **Unit tests** — mock SDK calls, test service logic in isolation
+- **Integration tests** — hit real Geins API with test credentials, gated by env vars
+
+Mock data is always inlined in test files — never read from external paths (they don't exist in CI).
 
 ### Auto-Import Mocking
 
-Nuxt auto-imports (composables, utils) aren't available in unit tests. Use `vi.stubGlobal` or `vi.mock`:
+Nuxt auto-imports work in the node tier thanks to `getVitestConfigFromNuxt()`. For server tests using Nitro globals:
 
 ```typescript
-// Mock a Nuxt composable
-vi.stubGlobal(
-  'useFetch',
-  vi.fn(() => ({
-    data: ref(null),
-    error: ref(null),
-    pending: ref(false),
-  })),
-);
-
-// Mock useRuntimeConfig
+vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 vi.stubGlobal(
   'useRuntimeConfig',
   vi.fn(() => ({
@@ -427,14 +283,85 @@ vi.stubGlobal(
 );
 ```
 
-### Service Layer Testing
+## E2E Tests
 
-Service tests (`tests/server/services/`) follow two approaches:
+```typescript
+import { test, expect } from '@playwright/test';
 
-- **Unit tests** — mock SDK calls, test service logic in isolation (`_client.test.ts`, `sdk-services.test.ts`)
-- **Integration tests** — hit real Geins API with test credentials (`integration.test.ts`), gated by env vars
+test.describe('Feature', () => {
+  test('should complete user flow', async ({ page }) => {
+    await page.goto('/');
+    await page.click('button[data-testid="submit"]');
+    await expect(page.locator('.success-message')).toBeVisible();
+  });
+});
+```
 
-Mock data is always inlined in test files — never read from external paths (they don't exist in CI).
+## Coverage
+
+V8 coverage provider. Reports: HTML (`coverage/index.html`), JSON, terminal text.
+
+| Metric     | Target |
+| ---------- | ------ |
+| Lines      | 80%    |
+| Functions  | 80%    |
+| Branches   | 75%    |
+| Statements | 80%    |
+
+Excludes: `app/components/ui/**` (shadcn-vue), `*.d.ts`, `node_modules`, `.nuxt`
+
+## CI/CD Integration
+
+Tests run on every push and PR:
+
+1. Lint + TypeScript checks
+2. Unit + component tests (Vitest with coverage)
+3. E2E tests (Playwright with Chromium)
+
+## Gotchas
+
+### Nuxt component name resolution
+
+Nuxt prefixes component names from `ui/` directory with `Ui` (e.g., `Sheet` becomes `UiSheet`). When stubbing in component tests, provide both names:
+
+```typescript
+const stubs = {
+  Sheet: { template: '<div><slot /></div>' },
+  UiSheet: { template: '<div><slot /></div>' }, // Nuxt-prefixed
+};
+```
+
+### CSP + COOP in E2E
+
+Filter CSP inline style violations and COOP header warnings in E2E console error assertions.
+
+### `destr` type coercion
+
+Nuxt's `useCookie` decodes `'true'` to boolean `true` via destr. Use `useCookie<boolean | string | null>` and check both types.
+
+### Preview cookie in server tests
+
+Server tests calling CMS/service functions need:
+
+```typescript
+vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
+```
+
+## Debugging
+
+```bash
+# Run specific test file
+pnpm vitest tests/unit/utils.test.ts
+
+# Run tests matching pattern
+pnpm vitest -t "should render"
+
+# Verbose output
+pnpm vitest --reporter=verbose
+
+# Debug Playwright
+pnpm exec playwright test tests/e2e/app.spec.ts --debug
+```
 
 ## Resources
 
