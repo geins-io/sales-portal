@@ -103,5 +103,8 @@ export async function getPublicConfig(
     market: config.geinsSettings?.market,
     availableLocales: config.geinsSettings?.availableLocales ?? [],
     availableMarkets: config.geinsSettings?.availableMarkets ?? [],
+    imageBaseUrl: config.geinsSettings?.accountName
+      ? `https://${config.geinsSettings.accountName}.commerce.services`
+      : '',
   };
 }

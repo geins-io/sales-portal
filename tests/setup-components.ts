@@ -76,6 +76,7 @@ vi.mock('../app/composables/useTenant', () => {
       availableLocales: computed(() => ['sv']),
       availableMarkets: computed(() => []),
       market: computed(() => ''),
+      imageBaseUrl: computed(() => 'https://monitor.commerce.services'),
       features: computed(() => tenant.value?.features),
       hasFeature: (name: string) => {
         const f = tenant.value?.features?.[name];
