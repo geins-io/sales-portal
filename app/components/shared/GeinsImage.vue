@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { GeinsImageType } from '#shared/constants/image';
-import { GEINS_IMAGE_SIZES } from '#shared/constants/image';
-import { buildGeinsImageUrl, buildGeinsImageSrcset } from '#shared/utils/image';
+import { buildGeinsRawUrl } from '#shared/utils/image';
 
 const props = withDefaults(
   defineProps<{
@@ -27,21 +26,7 @@ const { imageBaseUrl } = useTenant();
 const imgSrc = computed(() => {
   if (props.src) return props.src;
   if (!imageBaseUrl.value || !props.fileName) return '';
-  const sizes = GEINS_IMAGE_SIZES[props.type];
-  const largest = sizes?.[sizes.length - 1];
-  if (!largest) return '';
-  return buildGeinsImageUrl(
-    imageBaseUrl.value,
-    props.type,
-    largest.folder,
-    props.fileName,
-  );
-});
-
-const imgSrcset = computed(() => {
-  if (props.src) return undefined;
-  if (!imageBaseUrl.value || !props.fileName) return undefined;
-  return buildGeinsImageSrcset(imageBaseUrl.value, props.type, props.fileName);
+  return buildGeinsRawUrl(imageBaseUrl.value, props.type, props.fileName);
 });
 
 const loaded = ref(false);
@@ -87,13 +72,12 @@ watch(
     </div>
 
     <!-- Image -->
-    <img
+    <NuxtImg
       v-if="imgSrc && !errored"
       :src="imgSrc"
-      :srcset="imgSrcset"
-      :sizes="sizes"
       :alt="alt"
       :loading="loading"
+      :sizes="sizes"
       class="size-full object-cover"
       @load="onLoad"
       @error="onError"

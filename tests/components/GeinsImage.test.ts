@@ -9,47 +9,39 @@ const iconStub = {
   props: ['name'],
 };
 
+const nuxtImgStub = {
+  template:
+    '<img :src="src" :alt="alt" :loading="loading" :sizes="sizes" v-bind="$attrs" />',
+  props: ['src', 'alt', 'loading', 'sizes'],
+};
+
 const stubs = {
-  // @nuxt/icon can resolve as either name
   Icon: iconStub,
   NuxtIcon: iconStub,
+  NuxtImg: nuxtImgStub,
 };
 
 describe('GeinsImage Component', () => {
-  it('renders an img with correct src for product type', () => {
+  it('renders NuxtImg with raw CDN URL', () => {
     const wrapper = mountComponent(GeinsImage, {
       props: {
         fileName: 'shoe.jpg',
         type: 'product',
         alt: 'A shoe',
       },
+      global: { stubs },
     });
 
     const img = wrapper.find('img');
     expect(img.exists()).toBe(true);
-    expect(img.attributes('src')).toBe(`${BASE}/product/800x800/shoe.jpg`);
+    expect(img.attributes('src')).toBe(`${BASE}/product/raw/shoe.jpg`);
     expect(img.attributes('alt')).toBe('A shoe');
-  });
-
-  it('generates srcset from size registry', () => {
-    const wrapper = mountComponent(GeinsImage, {
-      props: {
-        fileName: 'shoe.jpg',
-        type: 'product',
-        alt: 'A shoe',
-      },
-    });
-
-    const srcset = wrapper.find('img').attributes('srcset');
-    expect(srcset).toContain('100x100/shoe.jpg 100w');
-    expect(srcset).toContain('250x250/shoe.jpg 250w');
-    expect(srcset).toContain('400x400/shoe.jpg 400w');
-    expect(srcset).toContain('800x800/shoe.jpg 800w');
   });
 
   it('applies loading="lazy" by default', () => {
     const wrapper = mountComponent(GeinsImage, {
       props: { fileName: 'img.jpg', type: 'cms', alt: 'test' },
+      global: { stubs },
     });
 
     expect(wrapper.find('img').attributes('loading')).toBe('lazy');
@@ -63,6 +55,7 @@ describe('GeinsImage Component', () => {
         alt: 'test',
         sizes: '(max-width: 768px) 100vw, 50vw',
       },
+      global: { stubs },
     });
 
     expect(wrapper.find('img').attributes('sizes')).toBe(
@@ -78,11 +71,10 @@ describe('GeinsImage Component', () => {
         alt: 'test',
         src: '/custom/path.jpg',
       },
+      global: { stubs },
     });
 
-    const img = wrapper.find('img');
-    expect(img.attributes('src')).toBe('/custom/path.jpg');
-    expect(img.attributes('srcset')).toBeUndefined();
+    expect(wrapper.find('img').attributes('src')).toBe('/custom/path.jpg');
   });
 
   it('applies aspect-ratio style when prop is set', () => {
@@ -93,6 +85,7 @@ describe('GeinsImage Component', () => {
         alt: 'test',
         aspectRatio: '1/1',
       },
+      global: { stubs },
     });
 
     const container = wrapper.find('div');
@@ -102,10 +95,10 @@ describe('GeinsImage Component', () => {
   it('shows skeleton placeholder initially', () => {
     const wrapper = mountComponent(GeinsImage, {
       props: { fileName: 'img.jpg', type: 'product', alt: 'test' },
+      global: { stubs },
     });
 
-    const skeleton = wrapper.find('.animate-pulse');
-    expect(skeleton.exists()).toBe(true);
+    expect(wrapper.find('.animate-pulse').exists()).toBe(true);
   });
 
   it('shows error fallback on image error', async () => {
@@ -116,7 +109,6 @@ describe('GeinsImage Component', () => {
 
     await wrapper.find('img').trigger('error');
 
-    // After error, img is removed and error container is shown
     expect(wrapper.find('img').exists()).toBe(false);
     expect(wrapper.find('.icon[data-name="lucide:image-off"]').exists()).toBe(
       true,
@@ -126,6 +118,7 @@ describe('GeinsImage Component', () => {
   it('hides skeleton after image loads', async () => {
     const wrapper = mountComponent(GeinsImage, {
       props: { fileName: 'img.jpg', type: 'product', alt: 'test' },
+      global: { stubs },
     });
 
     await wrapper.find('img').trigger('load');
