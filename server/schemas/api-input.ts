@@ -40,3 +40,15 @@ export type NewsletterSubscribeInput = z.infer<
   typeof NewsletterSubscribeSchema
 >;
 export type ErrorBatchInput = z.infer<typeof ErrorBatchSchema>;
+
+export const CmsPageSchema = z.object({
+  alias: z.string().min(1).max(200),
+});
+
+export const CmsAreaSchema = z.object({
+  family: z.string().min(1).max(100),
+  areaName: z.string().min(1).max(100),
+});
+
+export type CmsPageInput = z.infer<typeof CmsPageSchema>;
+export type CmsAreaInput = z.infer<typeof CmsAreaSchema>;

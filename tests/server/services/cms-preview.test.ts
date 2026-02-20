@@ -14,6 +14,8 @@ const mockAreaGet = vi.fn().mockResolvedValue({ widgets: [] });
 const mockPageGet = vi.fn().mockResolvedValue({ content: '' });
 const mockMenuGet = vi.fn().mockResolvedValue({ items: [] });
 
+const channelVars = { channelId: '1', languageId: 'sv-SE', marketId: 'se' };
+
 vi.mock('../../../server/services/_sdk', () => ({
   getTenantSDK: vi.fn().mockResolvedValue({
     cms: {
@@ -22,6 +24,7 @@ vi.mock('../../../server/services/_sdk', () => ({
       menu: { get: (...args: unknown[]) => mockMenuGet(...args) },
     },
   }),
+  getRequestChannelVariables: vi.fn().mockReturnValue(channelVars),
 }));
 
 const getPreviewCookieMock = vi.fn().mockReturnValue(false);
@@ -47,6 +50,7 @@ describe('CMS service preview injection', () => {
       expect(mockAreaGet).toHaveBeenCalledWith({
         family: 'StartPage',
         areaName: 'Hero',
+        ...channelVars,
         preview: true,
       });
     });
@@ -61,6 +65,7 @@ describe('CMS service preview injection', () => {
       expect(mockAreaGet).toHaveBeenCalledWith({
         family: 'StartPage',
         areaName: 'Hero',
+        ...channelVars,
       });
     });
   });
@@ -72,6 +77,7 @@ describe('CMS service preview injection', () => {
 
       expect(mockPageGet).toHaveBeenCalledWith({
         alias: '/about',
+        ...channelVars,
         preview: true,
       });
     });
@@ -80,7 +86,10 @@ describe('CMS service preview injection', () => {
       getPreviewCookieMock.mockReturnValue(false);
       await getPage({ alias: '/about' }, mockEvent);
 
-      expect(mockPageGet).toHaveBeenCalledWith({ alias: '/about' });
+      expect(mockPageGet).toHaveBeenCalledWith({
+        alias: '/about',
+        ...channelVars,
+      });
     });
   });
 
@@ -89,7 +98,10 @@ describe('CMS service preview injection', () => {
       getPreviewCookieMock.mockReturnValue(true);
       await getMenu({ menuLocationId: 'main' }, mockEvent);
 
-      expect(mockMenuGet).toHaveBeenCalledWith({ menuLocationId: 'main' });
+      expect(mockMenuGet).toHaveBeenCalledWith({
+        menuLocationId: 'main',
+        ...channelVars,
+      });
     });
   });
 });

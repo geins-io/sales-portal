@@ -29,6 +29,13 @@ const componentTestFiles = [
   'tests/components/layout/LayoutHeaderNav.test.ts',
   'tests/components/layout/LayoutHeaderTopbar.test.ts',
   'tests/components/GeinsImage.test.ts',
+  'tests/components/cms/CmsWidgetArea.test.ts',
+  'tests/components/cms/CmsContainer.test.ts',
+  'tests/components/cms/CmsWidget.test.ts',
+  'tests/components/cms/TextWidget.test.ts',
+  'tests/components/cms/ImageWidget.test.ts',
+  'tests/components/cms/BannerWidget.test.ts',
+  'tests/components/cms/ButtonsWidget.test.ts',
 ];
 
 // Get Nuxt's Vite config once (aliases, auto-imports, plugins)
