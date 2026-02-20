@@ -15,7 +15,7 @@ export const defaultMountOptions: MountingOptions<unknown> = {
     stubs: {
       // Stub common components
       NuxtLink: {
-        template: '<a><slot /></a>',
+        template: '<a :href="to"><slot /></a>',
         props: ['to'],
       },
       NuxtImg: {
