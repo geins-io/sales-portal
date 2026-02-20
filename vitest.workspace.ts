@@ -36,6 +36,7 @@ const componentTestFiles = [
   'tests/components/cms/ImageWidget.test.ts',
   'tests/components/cms/BannerWidget.test.ts',
   'tests/components/cms/ButtonsWidget.test.ts',
+  'tests/components/commerce/PriceDisplay.test.ts',
 ];
 
 // Get Nuxt's Vite config once (aliases, auto-imports, plugins)
