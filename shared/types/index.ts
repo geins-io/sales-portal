@@ -2,3 +2,4 @@
 export * from './tenant-config';
 export * from './layout';
 export * from './common';
+export * from './cms';

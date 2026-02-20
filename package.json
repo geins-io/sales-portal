@@ -65,6 +65,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "embla-carousel-vue": "^8.6.0",
+    "isomorphic-dompurify": "^2.36.0",
     "lru-cache": "^11.2.4",
     "lucide-vue-next": "^0.555.0",
     "nuxt": "^4.2.1",

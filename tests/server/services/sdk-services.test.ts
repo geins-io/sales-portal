@@ -80,7 +80,9 @@ const mockSDK = {
 vi.mock('../../../server/services/_sdk', () => ({
   getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
   getChannelVariables: vi.fn(),
-  getRequestChannelVariables: vi.fn(),
+  getRequestChannelVariables: vi
+    .fn()
+    .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
 }));
 
 // Mock Nitro auto-imports for error handling
@@ -230,36 +232,52 @@ describe('SDK-backed services (0.6.0)', () => {
       cms = await import('../../../server/services/cms');
     });
 
-    it('getMenu should delegate to cms.menu.get', async () => {
+    it('getMenu should delegate to cms.menu.get with channel vars', async () => {
       const args = { menuLocationId: 'header' };
       const expected = { id: '1', title: 'Main Menu', menuItems: [] };
       mockMenuGet.mockResolvedValue(expected);
 
       const result = await cms.getMenu(args, event);
 
-      expect(mockMenuGet).toHaveBeenCalledWith(args);
+      expect(mockMenuGet).toHaveBeenCalledWith({
+        menuLocationId: 'header',
+        channelId: '1',
+        languageId: 'sv-SE',
+        marketId: 'se',
+      });
       expect(result).toBe(expected);
     });
 
-    it('getPage should delegate to cms.page.get', async () => {
+    it('getPage should delegate to cms.page.get with channel vars (no preview)', async () => {
       const args = { alias: 'about-us' };
       const expected = { title: 'About Us' };
       mockPageGet.mockResolvedValue(expected);
 
       const result = await cms.getPage(args, event);
 
-      expect(mockPageGet).toHaveBeenCalledWith(args);
+      expect(mockPageGet).toHaveBeenCalledWith({
+        alias: 'about-us',
+        channelId: '1',
+        languageId: 'sv-SE',
+        marketId: 'se',
+      });
       expect(result).toBe(expected);
     });
 
-    it('getContentArea should delegate to cms.area.get', async () => {
+    it('getContentArea should delegate to cms.area.get with channel vars (no preview)', async () => {
       const args = { family: 'StartPage', areaName: 'Hero' };
       const expected = { containers: [] };
       mockAreaGet.mockResolvedValue(expected);
 
       const result = await cms.getContentArea(args, event);
 
-      expect(mockAreaGet).toHaveBeenCalledWith(args);
+      expect(mockAreaGet).toHaveBeenCalledWith({
+        family: 'StartPage',
+        areaName: 'Hero',
+        channelId: '1',
+        languageId: 'sv-SE',
+        marketId: 'se',
+      });
       expect(result).toBe(expected);
     });
   });
