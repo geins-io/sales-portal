@@ -5,6 +5,26 @@ const { tenant, isLoading, error } = useTenant();
 const quantityInputValue = ref(1);
 const showVat = ref(true);
 
+// Generate a <style> tag for color swatches so CSP nonce applies (inline :style is blocked in prod)
+const CSS_COLOR_RE =
+  /^(oklch|rgb|hsl|hwb|lab|lch)\([^;{}]+\)$|^#[0-9a-fA-F]{3,8}$/;
+const CSS_NAME_RE = /^[a-zA-Z][a-zA-Z0-9-]*$/;
+const colorSwatchCss = computed(() => {
+  const colors = tenant.value?.theme?.colors;
+  if (!colors || !Object.keys(colors).length) return '';
+  return Object.entries(colors)
+    .filter(
+      ([name, value]) =>
+        CSS_NAME_RE.test(name) && CSS_COLOR_RE.test(String(value)),
+    )
+    .map(
+      ([name, value]) =>
+        `.swatch-${name} { background-color: ${String(value)}; }`,
+    )
+    .join('\n');
+});
+useHead({ style: [{ innerHTML: colorSwatchCss }] });
+
 // Mock data for commerce components
 const mockPrice = {
   sellingPriceIncVat: 199.0,
@@ -156,7 +176,7 @@ const mockProductOutOfStock = {
               >
                 <div
                   class="h-8 w-8 rounded-full border"
-                  :style="{ backgroundColor: String(value) }"
+                  :class="`swatch-${name}`"
                 />
                 <span class="text-muted-foreground text-xs">{{ name }}</span>
               </div>
