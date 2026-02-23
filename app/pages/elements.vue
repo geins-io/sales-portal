@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { PackageOpen, Search } from 'lucide-vue-next';
+import { PackageOpen, Search, ChevronDown } from 'lucide-vue-next';
+import {
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuRoot,
+  NavigationMenuTrigger,
+  NavigationMenuViewport,
+} from 'reka-ui';
 
 const { tenant, isLoading, error } = useTenant();
 const quantityInputValue = ref(1);
@@ -70,6 +79,33 @@ const mockBreadcrumbs = [
   { label: 'MacBook Pro' },
 ];
 const shortBreadcrumbs = [{ label: 'Home', href: '/' }, { label: 'About Us' }];
+
+// Mock data for navigation menu demo
+const mockMenuItems = [
+  {
+    id: 1,
+    label: 'Products',
+    children: [
+      { id: 11, label: 'Brackets & Fasteners', href: '/category/brackets' },
+      { id: 12, label: 'Pipes & Fittings', href: '/category/pipes' },
+      { id: 13, label: 'Bolts & Screws', href: '/category/bolts' },
+      { id: 14, label: 'Tools & Equipment', href: '/category/tools' },
+      { id: 15, label: 'Safety Gear', href: '/category/safety' },
+      { id: 16, label: 'Adhesives & Sealants', href: '/category/adhesives' },
+    ],
+  },
+  {
+    id: 2,
+    label: 'Brands',
+    children: [
+      { id: 21, label: 'MetalWorks Pro', href: '/brands/metalworks' },
+      { id: 22, label: 'PipeCraft', href: '/brands/pipecraft' },
+      { id: 23, label: 'BoltMax', href: '/brands/boltmax' },
+    ],
+  },
+  { id: 3, label: 'New Arrivals', href: '/new', children: [] },
+  { id: 4, label: 'Sale', href: '/sale', children: [] },
+];
 
 const mockProduct = {
   productId: 1,
@@ -491,6 +527,80 @@ const mockProductOutOfStock = {
           </p>
           <AppBreadcrumbs :items="mockBreadcrumbs" />
         </div>
+      </div>
+    </section>
+
+    <Separator />
+
+    <!-- ============================================ -->
+    <!-- NAVIGATION MENU (Mega Menu)                  -->
+    <!-- ============================================ -->
+    <section class="space-y-4">
+      <h2 class="text-2xl font-semibold">Navigation Menu</h2>
+      <p class="text-muted-foreground text-sm">
+        Mega menu dropdown using reka-ui NavigationMenu. Demo uses mock data
+        since CMS menu items have no children configured.
+      </p>
+
+      <div class="bg-muted overflow-visible rounded-lg border">
+        <nav class="relative flex h-16 items-center px-4 lg:px-8">
+          <NavigationMenuRoot class="relative flex w-full justify-start">
+            <NavigationMenuList class="flex items-center gap-2">
+              <NavigationMenuItem v-for="item in mockMenuItems" :key="item.id">
+                <!-- Item with children: trigger + mega menu -->
+                <template v-if="item.children.length">
+                  <NavigationMenuTrigger
+                    class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground group inline-flex h-10 items-center gap-2 rounded-md px-3 py-1 text-sm font-medium transition-colors"
+                  >
+                    {{ item.label }}
+                    <ChevronDown
+                      class="size-4 shrink-0 opacity-50 transition-transform duration-200 group-data-[state=open]:rotate-180"
+                    />
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent
+                    class="bg-popover text-popover-foreground absolute top-full left-0 w-full rounded-b-lg border-x border-b p-6 shadow-lg"
+                  >
+                    <div class="grid grid-cols-3 gap-4">
+                      <NavigationMenuLink
+                        v-for="child in item.children"
+                        :key="child.id"
+                        as-child
+                      >
+                        <NuxtLink
+                          :to="child.href"
+                          class="hover:text-primary text-sm transition-colors"
+                        >
+                          {{ child.label }}
+                        </NuxtLink>
+                      </NavigationMenuLink>
+                    </div>
+                  </NavigationMenuContent>
+                </template>
+
+                <!-- Item without children: plain link -->
+                <template v-else>
+                  <NavigationMenuLink as-child>
+                    <NuxtLink
+                      :to="item.href!"
+                      class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground inline-flex h-10 items-center gap-2 rounded-md px-3 py-1 text-sm font-medium transition-colors"
+                    >
+                      {{ item.label }}
+                      <ChevronDown class="size-4 shrink-0 opacity-50" />
+                    </NuxtLink>
+                  </NavigationMenuLink>
+                </template>
+              </NavigationMenuItem>
+            </NavigationMenuList>
+
+            <div
+              class="absolute top-full left-0 flex w-full justify-center perspective-[2000px]"
+            >
+              <NavigationMenuViewport
+                class="data-[state=open]:animate-in data-[state=closed]:animate-out relative mt-0 h-[var(--reka-navigation-menu-viewport-height)] w-full origin-top overflow-hidden transition-all duration-200"
+              />
+            </div>
+          </NavigationMenuRoot>
+        </nav>
       </div>
     </section>
 
