@@ -51,7 +51,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
 <template>
   <nav
     v-if="visibleItems.length"
-    class="bg-muted/50 hidden border-b lg:flex"
+    class="hidden h-16 items-center border-b bg-[#F5F5F5] lg:flex"
     :aria-label="$t('layout.main_navigation')"
   >
     <div class="mx-auto w-full max-w-7xl px-4 lg:px-8">
@@ -61,11 +61,11 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
             <!-- Item with children: trigger + mega menu -->
             <template v-if="visibleChildren(item).length">
               <NavigationMenuTrigger
-                class="text-foreground/80 hover:text-foreground data-[state=open]:text-foreground group flex items-center gap-1 bg-transparent px-3 py-3 text-sm font-medium transition-colors"
+                class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground group inline-flex h-10 items-center gap-2 rounded-md px-3 py-1 text-sm font-medium transition-colors"
               >
                 {{ getMenuLabel(item) }}
                 <ChevronDown
-                  class="size-3.5 opacity-60 transition-transform duration-200 group-data-[state=open]:rotate-180"
+                  class="size-4 shrink-0 opacity-50 transition-transform duration-200 group-data-[state=open]:rotate-180"
                 />
               </NavigationMenuTrigger>
               <NavigationMenuContent
@@ -89,15 +89,16 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
               </NavigationMenuContent>
             </template>
 
-            <!-- Item without children: direct link -->
+            <!-- Item without children: link styled as ghost button with chevron -->
             <template v-else>
               <NavigationMenuLink as-child>
                 <component
                   :is="linkTag(item)"
                   v-bind="linkAttrs(item)"
-                  class="text-foreground/80 hover:text-foreground px-3 py-3 text-sm font-medium transition-colors"
+                  class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground inline-flex h-10 items-center gap-2 rounded-md px-3 py-1 text-sm font-medium transition-colors"
                 >
                   {{ getMenuLabel(item) }}
+                  <ChevronDown class="size-4 shrink-0 opacity-50" />
                 </component>
               </NavigationMenuLink>
             </template>
