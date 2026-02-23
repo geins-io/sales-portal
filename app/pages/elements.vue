@@ -62,6 +62,15 @@ const mockStockOnDemand = {
   oversellable: 0,
   static: 5,
 };
+// Mock data for breadcrumbs
+const mockBreadcrumbs = [
+  { label: 'Home', href: '/' },
+  { label: 'Electronics', href: '/category/electronics' },
+  { label: 'Laptops', href: '/category/electronics/laptops' },
+  { label: 'MacBook Pro' },
+];
+const shortBreadcrumbs = [{ label: 'Home', href: '/' }, { label: 'About Us' }];
+
 const mockProduct = {
   productId: 1,
   name: 'Stainless Steel Bracket 25mm',
@@ -460,6 +469,27 @@ const mockProductOutOfStock = {
               action-to="/products"
             />
           </div>
+        </div>
+      </div>
+    </section>
+
+    <Separator />
+
+    <!-- ============================================ -->
+    <!-- BREADCRUMBS                                  -->
+    <!-- ============================================ -->
+    <section class="space-y-4">
+      <h2 class="text-2xl font-semibold">Breadcrumbs</h2>
+      <div class="space-y-6">
+        <div>
+          <p class="text-muted-foreground mb-2 text-sm">Short (2 items)</p>
+          <AppBreadcrumbs :items="shortBreadcrumbs" />
+        </div>
+        <div>
+          <p class="text-muted-foreground mb-2 text-sm">
+            Long (4 items, collapses on mobile)
+          </p>
+          <AppBreadcrumbs :items="mockBreadcrumbs" />
         </div>
       </div>
     </section>

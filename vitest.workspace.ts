@@ -42,6 +42,7 @@ const componentTestFiles = [
   'tests/components/commerce/QuantityInput.test.ts',
   'tests/components/commerce/LoadingState.test.ts',
   'tests/components/commerce/EmptyState.test.ts',
+  'tests/components/AppBreadcrumbs.test.ts',
 ];
 
 // Get Nuxt's Vite config once (aliases, auto-imports, plugins)
