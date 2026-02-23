@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { PackageOpen, Search } from 'lucide-vue-next';
+import { PackageOpen, Search, ChevronDown } from 'lucide-vue-next';
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from '~/components/ui/navigation-menu';
 
 const { tenant, isLoading, error } = useTenant();
 const quantityInputValue = ref(1);
@@ -62,6 +70,42 @@ const mockStockOnDemand = {
   oversellable: 0,
   static: 5,
 };
+// Mock data for breadcrumbs
+const mockBreadcrumbs = [
+  { label: 'Home', href: '/' },
+  { label: 'Electronics', href: '/category/electronics' },
+  { label: 'Laptops', href: '/category/electronics/laptops' },
+  { label: 'MacBook Pro' },
+];
+const shortBreadcrumbs = [{ label: 'Home', href: '/' }, { label: 'About Us' }];
+
+// Mock data for navigation menu demo
+const mockMenuItems = [
+  {
+    id: 1,
+    label: 'Products',
+    children: [
+      { id: 11, label: 'Brackets & Fasteners', href: '/category/brackets' },
+      { id: 12, label: 'Pipes & Fittings', href: '/category/pipes' },
+      { id: 13, label: 'Bolts & Screws', href: '/category/bolts' },
+      { id: 14, label: 'Tools & Equipment', href: '/category/tools' },
+      { id: 15, label: 'Safety Gear', href: '/category/safety' },
+      { id: 16, label: 'Adhesives & Sealants', href: '/category/adhesives' },
+    ],
+  },
+  {
+    id: 2,
+    label: 'Brands',
+    children: [
+      { id: 21, label: 'MetalWorks Pro', href: '/brands/metalworks' },
+      { id: 22, label: 'PipeCraft', href: '/brands/pipecraft' },
+      { id: 23, label: 'BoltMax', href: '/brands/boltmax' },
+    ],
+  },
+  { id: 3, label: 'New Arrivals', href: '/new', children: [] },
+  { id: 4, label: 'Sale', href: '/sale', children: [] },
+];
+
 const mockProduct = {
   productId: 1,
   name: 'Stainless Steel Bracket 25mm',
@@ -461,6 +505,88 @@ const mockProductOutOfStock = {
             />
           </div>
         </div>
+      </div>
+    </section>
+
+    <Separator />
+
+    <!-- ============================================ -->
+    <!-- BREADCRUMBS                                  -->
+    <!-- ============================================ -->
+    <section class="space-y-4">
+      <h2 class="text-2xl font-semibold">Breadcrumbs</h2>
+      <div class="space-y-6">
+        <div>
+          <p class="text-muted-foreground mb-2 text-sm">Short (2 items)</p>
+          <AppBreadcrumbs :items="shortBreadcrumbs" />
+        </div>
+        <div>
+          <p class="text-muted-foreground mb-2 text-sm">
+            Long (4 items, collapses on mobile)
+          </p>
+          <AppBreadcrumbs :items="mockBreadcrumbs" />
+        </div>
+      </div>
+    </section>
+
+    <Separator />
+
+    <!-- ============================================ -->
+    <!-- NAVIGATION MENU (Mega Menu)                  -->
+    <!-- ============================================ -->
+    <section class="space-y-4">
+      <h2 class="text-2xl font-semibold">Navigation Menu</h2>
+      <p class="text-muted-foreground text-sm">
+        Mega menu dropdown using reka-ui NavigationMenu. Demo uses mock data
+        since CMS menu items have no children configured.
+      </p>
+
+      <div class="bg-muted rounded-lg border">
+        <nav class="flex h-16 items-center px-4 lg:px-8">
+          <NavigationMenu class="max-w-none justify-start">
+            <NavigationMenuList class="gap-2">
+              <NavigationMenuItem v-for="item in mockMenuItems" :key="item.id">
+                <!-- Item with children: trigger + dropdown -->
+                <template v-if="item.children.length">
+                  <NavigationMenuTrigger>
+                    {{ item.label }}
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent>
+                    <div
+                      class="grid w-[400px] grid-cols-2 gap-1 p-2 md:w-[500px]"
+                    >
+                      <NavigationMenuLink
+                        v-for="child in item.children"
+                        :key="child.id"
+                        as-child
+                      >
+                        <NuxtLink
+                          :to="child.href"
+                          class="hover:bg-accent hover:text-accent-foreground rounded-sm px-3 py-2 text-sm transition-colors"
+                        >
+                          {{ child.label }}
+                        </NuxtLink>
+                      </NavigationMenuLink>
+                    </div>
+                  </NavigationMenuContent>
+                </template>
+
+                <!-- Item without children: plain link -->
+                <template v-else>
+                  <NavigationMenuLink as-child>
+                    <NuxtLink
+                      :to="item.href!"
+                      class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground inline-flex h-9 items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors"
+                    >
+                      {{ item.label }}
+                      <ChevronDown class="size-3 opacity-50" />
+                    </NuxtLink>
+                  </NavigationMenuLink>
+                </template>
+              </NavigationMenuItem>
+            </NavigationMenuList>
+          </NavigationMenu>
+        </nav>
       </div>
     </section>
 

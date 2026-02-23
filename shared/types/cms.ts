@@ -5,6 +5,8 @@ export type {
   ContentType,
   ContentConfigType,
   ContentMetaType,
+  MenuType,
+  MenuItemType,
 } from '@geins/types';
 
 export interface WidgetImage {

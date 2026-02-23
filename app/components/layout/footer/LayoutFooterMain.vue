@@ -1,103 +1,83 @@
 <script setup lang="ts">
-interface FooterLink {
-  label: string;
-  to?: string;
-  href?: string;
-  external?: boolean;
+import { computed } from 'vue';
+import type { MenuItemType } from '#shared/types/cms';
+import { MENU_LOCATION } from '#shared/constants/cms';
+import {
+  normalizeMenuUrl,
+  getMenuLabel,
+  getVisibleItems,
+  isExternalUrl,
+} from '#shared/utils/menu';
+
+const { menu } = useMenuData(MENU_LOCATION.FOOTER);
+const currentHost = computed(() => useRequestURL().host);
+
+const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
+
+function visibleChildren(item: MenuItemType): MenuItemType[] {
+  return getVisibleItems(item.children);
 }
 
-interface FooterColumn {
-  title: string;
-  links: FooterLink[];
+function isExternal(item: MenuItemType): boolean {
+  const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
+  return isExternalUrl(url, currentHost.value) || !!item.targetBlank;
 }
 
-const columns: FooterColumn[] = [
-  {
-    title: 'layout.company',
-    links: [
-      { label: 'layout.about_us', to: '/about' },
-      { label: 'layout.blog', to: '/blog' },
-      { label: 'layout.careers', to: '/careers' },
-      { label: 'layout.partners', to: '/partners' },
-    ],
-  },
-  {
-    title: 'layout.resources',
-    links: [
-      { label: 'layout.guides', to: '/guides' },
-      { label: 'layout.tutorials', to: '/tutorials' },
-      { label: 'layout.faq', to: '/faq' },
-      { label: 'layout.downloads', to: '/downloads' },
-    ],
-  },
-  {
-    title: 'account.my_account',
-    links: [
-      { label: 'layout.your_account', to: '/account' },
-      { label: 'account.settings', to: '/account/settings' },
-    ],
-  },
-  {
-    title: 'layout.help_feedback',
-    links: [
-      { label: 'layout.contact_support', to: '/support' },
-      { label: 'layout.get_in_touch', to: '/contact' },
-      { label: 'layout.help_articles', to: '/help' },
-      { label: 'layout.feedback_form', to: '/feedback' },
-    ],
-  },
-  {
-    title: 'layout.social',
-    links: [
-      {
-        label: 'layout.facebook',
-        href: 'https://facebook.com',
-        external: true,
-      },
-      {
-        label: 'layout.linkedin',
-        href: 'https://linkedin.com',
-        external: true,
-      },
-      {
-        label: 'layout.instagram',
-        href: 'https://instagram.com',
-        external: true,
-      },
-    ],
-  },
-];
+function linkTag(item: MenuItemType): string {
+  return isExternal(item) ? 'a' : 'NuxtLink';
+}
+
+function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
+  const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
+  const ext = isExternal(item);
+  return {
+    [ext ? 'href' : 'to']: url || '/',
+    target: ext ? '_blank' : undefined,
+    rel: ext ? 'noopener' : undefined,
+  };
+}
 </script>
 
 <template>
-  <div data-slot="footer-main" class="px-6 py-8 lg:px-8 lg:py-10">
-    <div
-      class="mx-auto grid max-w-7xl grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
-    >
-      <div v-for="column in columns" :key="column.title">
-        <h3 class="mb-3 text-sm font-bold">
-          {{ $t(column.title) }}
-        </h3>
-        <ul class="flex flex-col gap-2">
-          <li v-for="link in column.links" :key="link.label">
-            <a
-              v-if="link.external"
-              :href="link.href"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-muted-foreground hover:text-foreground text-sm transition-colors"
-            >
-              {{ $t(link.label) }}
-            </a>
-            <NuxtLink
-              v-else
-              :to="link.to ?? '/'"
-              class="text-muted-foreground hover:text-foreground text-sm transition-colors"
-            >
-              {{ $t(link.label) }}
-            </NuxtLink>
-          </li>
-        </ul>
+  <div
+    v-if="visibleItems.length"
+    data-slot="footer-main"
+    class="px-6 py-8 lg:px-8 lg:py-10"
+  >
+    <div class="mx-auto max-w-7xl">
+      <h3 v-if="menu?.title" class="mb-4 text-sm font-bold">
+        {{ menu.title }}
+      </h3>
+      <div class="flex flex-col gap-6">
+        <template v-for="item in visibleItems" :key="item.id">
+          <!-- Item with children: render as a column group -->
+          <div v-if="visibleChildren(item).length">
+            <h4 class="mb-2 text-sm font-semibold">
+              {{ getMenuLabel(item) }}
+            </h4>
+            <ul class="flex flex-wrap gap-x-6 gap-y-1">
+              <li v-for="child in visibleChildren(item)" :key="child.id">
+                <component
+                  :is="linkTag(child)"
+                  v-bind="linkAttrs(child)"
+                  class="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                >
+                  {{ getMenuLabel(child) }}
+                </component>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Item without children: render as a flat link -->
+          <component
+            :is="linkTag(item)"
+            v-else
+            v-bind="linkAttrs(item)"
+            class="text-muted-foreground hover:text-foreground text-sm transition-colors"
+          >
+            {{ getMenuLabel(item) }}
+          </component>
+        </template>
       </div>
     </div>
   </div>

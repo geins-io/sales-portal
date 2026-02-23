@@ -1,17 +1,17 @@
-import type { ContentPageType, ContentAreaType } from '@geins/types';
+import type { ContentPageType, ContentAreaType, MenuType } from '@geins/types';
 import type { H3Event } from 'h3';
 import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 
 export async function getMenu(
   args: { menuLocationId: string },
   event: H3Event,
-): Promise<unknown> {
+): Promise<MenuType> {
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
   return wrapServiceCall(
     () => sdk.cms.menu.get({ ...args, ...channelVars }),
     'cms',
-  );
+  ) as Promise<MenuType>;
 }
 
 export async function getPage(
