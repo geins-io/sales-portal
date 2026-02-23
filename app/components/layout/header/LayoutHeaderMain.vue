@@ -9,7 +9,7 @@ function onSearch(query: string) {
 <template>
   <div class="bg-background border-b">
     <div
-      class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8"
+      class="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-4 lg:px-8"
     >
       <!-- Logo -->
       <BrandLogo class="shrink-0" />
