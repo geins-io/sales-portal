@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import { ChevronDown } from 'lucide-vue-next';
 import {
   NavigationMenuContent,
-  NavigationMenuIndicator,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
@@ -52,21 +51,21 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
 <template>
   <nav
     v-if="visibleItems.length"
-    class="bg-background hidden border-b lg:flex"
+    class="bg-muted/50 hidden border-b lg:flex"
     :aria-label="$t('layout.main_navigation')"
   >
     <div class="mx-auto w-full max-w-7xl px-4 lg:px-8">
       <NavigationMenuRoot class="relative flex w-full justify-start">
-        <NavigationMenuList class="flex items-center gap-1">
+        <NavigationMenuList class="flex items-center gap-2">
           <NavigationMenuItem v-for="item in visibleItems" :key="item.id">
             <!-- Item with children: trigger + mega menu -->
             <template v-if="visibleChildren(item).length">
               <NavigationMenuTrigger
-                class="text-foreground hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground group flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors"
+                class="text-foreground/80 hover:text-foreground data-[state=open]:text-foreground group flex items-center gap-1 bg-transparent px-3 py-3 text-sm font-medium transition-colors"
               >
                 {{ getMenuLabel(item) }}
                 <ChevronDown
-                  class="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180"
+                  class="size-3.5 opacity-60 transition-transform duration-200 group-data-[state=open]:rotate-180"
                 />
               </NavigationMenuTrigger>
               <NavigationMenuContent
@@ -96,7 +95,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
                 <component
                   :is="linkTag(item)"
                   v-bind="linkAttrs(item)"
-                  class="text-foreground hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-md px-3 py-2 text-sm font-medium transition-colors"
+                  class="text-foreground/80 hover:text-foreground px-3 py-3 text-sm font-medium transition-colors"
                 >
                   {{ getMenuLabel(item) }}
                 </component>
@@ -104,10 +103,6 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
             </template>
           </NavigationMenuItem>
         </NavigationMenuList>
-
-        <NavigationMenuIndicator
-          class="bg-primary z-10 flex h-[2px] items-end justify-center overflow-hidden transition-all duration-200"
-        />
 
         <div
           class="absolute top-full left-0 flex w-full justify-center perspective-[2000px]"
