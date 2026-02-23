@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { ChevronDown } from 'lucide-vue-next';
 import {
   NavigationMenuContent,
@@ -10,62 +11,60 @@ import {
   NavigationMenuTrigger,
   NavigationMenuViewport,
 } from 'reka-ui';
+import type { MenuItemType } from '#shared/types/cms';
+import { MENU_LOCATION } from '#shared/constants/cms';
+import {
+  normalizeMenuUrl,
+  getMenuLabel,
+  getVisibleItems,
+  isExternalUrl,
+} from '#shared/utils/menu';
 
-// Static placeholder data — will be replaced by CMS menu API in SAL-55
-interface MenuItem {
-  id: string;
-  label: string;
-  href?: string;
-  children?: { id: string; label: string; href: string }[];
+const { menu } = useMenuData(MENU_LOCATION.MAIN);
+const currentHost = computed(() => useRequestURL().host);
+
+const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
+
+function visibleChildren(item: MenuItemType): MenuItemType[] {
+  return getVisibleItems(item.children);
 }
 
-const menuItems: MenuItem[] = [
-  {
-    id: '1',
-    label: 'Product category',
-    children: [
-      { id: '1-1', label: 'Sub category', href: '/category/sub-1' },
-      { id: '1-2', label: 'Sub category', href: '/category/sub-2' },
-      { id: '1-3', label: 'Sub category', href: '/category/sub-3' },
-      { id: '1-4', label: 'Sub category', href: '/category/sub-4' },
-    ],
-  },
-  {
-    id: '2',
-    label: 'Product category',
-    children: [
-      { id: '2-1', label: 'Sub category', href: '/category/sub-5' },
-      { id: '2-2', label: 'Sub category', href: '/category/sub-6' },
-    ],
-  },
-  {
-    id: '3',
-    label: 'Product category',
-    children: [
-      { id: '3-1', label: 'Sub category', href: '/category/sub-7' },
-      { id: '3-2', label: 'Sub category', href: '/category/sub-8' },
-    ],
-  },
-  { id: '4', label: 'Product category', href: '/category/4' },
-  { id: '5', label: 'Product category', href: '/category/5' },
-];
+function isExternal(item: MenuItemType): boolean {
+  const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
+  return isExternalUrl(url, currentHost.value) || !!item.targetBlank;
+}
+
+function linkTag(item: MenuItemType): string {
+  return isExternal(item) ? 'a' : 'NuxtLink';
+}
+
+function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
+  const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
+  const ext = isExternal(item);
+  return {
+    [ext ? 'href' : 'to']: url || '/',
+    target: ext ? '_blank' : undefined,
+    rel: ext ? 'noopener' : undefined,
+  };
+}
 </script>
 
 <template>
   <nav
+    v-if="visibleItems.length"
     class="bg-background hidden border-b lg:flex"
     :aria-label="$t('layout.main_navigation')"
   >
     <div class="mx-auto w-full max-w-7xl px-4 lg:px-8">
       <NavigationMenuRoot class="relative flex w-full justify-start">
         <NavigationMenuList class="flex items-center gap-1">
-          <NavigationMenuItem v-for="item in menuItems" :key="item.id">
+          <NavigationMenuItem v-for="item in visibleItems" :key="item.id">
             <!-- Item with children: trigger + mega menu -->
-            <template v-if="item.children?.length">
+            <template v-if="visibleChildren(item).length">
               <NavigationMenuTrigger
                 class="text-foreground hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground group flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition-colors"
               >
-                {{ item.label }}
+                {{ getMenuLabel(item) }}
                 <ChevronDown
                   class="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180"
                 />
@@ -75,16 +74,17 @@ const menuItems: MenuItem[] = [
               >
                 <div class="grid grid-cols-4 gap-6">
                   <NavigationMenuLink
-                    v-for="child in item.children"
+                    v-for="child in visibleChildren(item)"
                     :key="child.id"
                     as-child
                   >
-                    <NuxtLink
-                      :to="child.href"
+                    <component
+                      :is="linkTag(child)"
+                      v-bind="linkAttrs(child)"
                       class="hover:text-primary text-sm transition-colors"
                     >
-                      {{ child.label }}
-                    </NuxtLink>
+                      {{ getMenuLabel(child) }}
+                    </component>
                   </NavigationMenuLink>
                 </div>
               </NavigationMenuContent>
@@ -93,12 +93,13 @@ const menuItems: MenuItem[] = [
             <!-- Item without children: direct link -->
             <template v-else>
               <NavigationMenuLink as-child>
-                <NuxtLink
-                  :to="item.href ?? '/'"
+                <component
+                  :is="linkTag(item)"
+                  v-bind="linkAttrs(item)"
                   class="text-foreground hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-md px-3 py-2 text-sm font-medium transition-colors"
                 >
-                  {{ item.label }}
-                </NuxtLink>
+                  {{ getMenuLabel(item) }}
+                </component>
               </NavigationMenuLink>
             </template>
           </NavigationMenuItem>
