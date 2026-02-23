@@ -25,7 +25,7 @@ const displayItems = computed((): DisplayItem[] => {
   if (!shouldCollapse.value) return props.items;
   // Show first, ellipsis, and last two
   return [
-    props.items[0],
+    props.items[0]!,
     { label: '...', _ellipsis: true },
     ...props.items.slice(-2),
   ];
