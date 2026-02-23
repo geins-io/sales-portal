@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { User } from 'lucide-vue-next';
 import { useAppStore } from '~/stores/app';
 import { useAuthStore } from '~/stores/auth';
@@ -9,48 +10,52 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from '~/components/ui/accordion';
+import type { MenuItemType } from '#shared/types/cms';
+import { MENU_LOCATION } from '#shared/constants/cms';
+import {
+  normalizeMenuUrl,
+  getMenuLabel,
+  getVisibleItems,
+  isExternalUrl,
+} from '#shared/utils/menu';
 
 const appStore = useAppStore();
 const authStore = useAuthStore();
 const route = useRoute();
+
+const { menu } = useMenuData(MENU_LOCATION.MAIN);
+const currentHost = computed(() => useRequestURL().host);
+
+const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
+
+function visibleChildren(item: MenuItemType): MenuItemType[] {
+  return getVisibleItems(item.children);
+}
+
+function isExternal(item: MenuItemType): boolean {
+  const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
+  return isExternalUrl(url, currentHost.value) || !!item.targetBlank;
+}
+
+function linkTag(item: MenuItemType): string {
+  return isExternal(item) ? 'a' : 'NuxtLink';
+}
+
+function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
+  const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
+  const ext = isExternal(item);
+  return {
+    [ext ? 'href' : 'to']: url || '/',
+    target: ext ? '_blank' : undefined,
+    rel: ext ? 'noopener' : undefined,
+  };
+}
 
 // Close on route change
 watch(
   () => route.fullPath,
   () => appStore.setSidebarOpen(false),
 );
-
-// Same static placeholder data as LayoutHeaderNav
-const menuItems = [
-  {
-    id: '1',
-    label: 'Product category',
-    children: [
-      { id: '1-1', label: 'Sub category', href: '/category/sub-1' },
-      { id: '1-2', label: 'Sub category', href: '/category/sub-2' },
-      { id: '1-3', label: 'Sub category', href: '/category/sub-3' },
-      { id: '1-4', label: 'Sub category', href: '/category/sub-4' },
-    ],
-  },
-  {
-    id: '2',
-    label: 'Product category',
-    children: [
-      { id: '2-1', label: 'Sub category', href: '/category/sub-5' },
-      { id: '2-2', label: 'Sub category', href: '/category/sub-6' },
-    ],
-  },
-  {
-    id: '3',
-    label: 'Product category',
-    children: [
-      { id: '3-1', label: 'Sub category', href: '/category/sub-7' },
-      { id: '3-2', label: 'Sub category', href: '/category/sub-8' },
-    ],
-  },
-  { id: '4', label: 'Product category', href: '/category/4' },
-  { id: '5', label: 'Product category', href: '/category/5' },
-];
 
 const isOpen = computed({
   get: () => appStore.sidebarOpen,
@@ -69,36 +74,63 @@ const isOpen = computed({
 
         <!-- Navigation -->
         <div class="flex-1 overflow-y-auto px-4 py-4">
-          <Accordion type="multiple" class="w-full">
-            <template v-for="item in menuItems" :key="item.id">
+          <Accordion v-if="visibleItems.length" type="multiple" class="w-full">
+            <template v-for="item in visibleItems" :key="item.id">
+              <!-- Item with children: accordion -->
               <AccordionItem
-                v-if="item.children?.length"
-                :value="item.id"
+                v-if="visibleChildren(item).length"
+                :value="item.id ?? ''"
                 class="border-b"
               >
                 <AccordionTrigger
                   class="flex w-full items-center justify-between py-3 text-sm font-medium"
                 >
-                  {{ item.label }}
+                  {{ getMenuLabel(item) }}
                 </AccordionTrigger>
                 <AccordionContent class="pb-3">
-                  <NuxtLink
-                    v-for="child in item.children"
+                  <template
+                    v-for="child in visibleChildren(item)"
                     :key="child.id"
-                    :to="child.href"
-                    class="text-muted-foreground hover:text-foreground block py-1.5 pl-4 text-sm"
                   >
-                    {{ child.label }}
-                  </NuxtLink>
+                    <!-- Child with grandchildren -->
+                    <template v-if="visibleChildren(child).length">
+                      <span
+                        class="text-muted-foreground block py-1.5 pl-4 text-sm font-medium"
+                      >
+                        {{ getMenuLabel(child) }}
+                      </span>
+                      <component
+                        :is="linkTag(grandchild)"
+                        v-for="grandchild in visibleChildren(child)"
+                        :key="grandchild.id"
+                        v-bind="linkAttrs(grandchild)"
+                        class="text-muted-foreground hover:text-foreground block py-1.5 pl-8 text-sm"
+                      >
+                        {{ getMenuLabel(grandchild) }}
+                      </component>
+                    </template>
+                    <!-- Child without grandchildren -->
+                    <component
+                      :is="linkTag(child)"
+                      v-else
+                      v-bind="linkAttrs(child)"
+                      class="text-muted-foreground hover:text-foreground block py-1.5 pl-4 text-sm"
+                    >
+                      {{ getMenuLabel(child) }}
+                    </component>
+                  </template>
                 </AccordionContent>
               </AccordionItem>
-              <NuxtLink
+
+              <!-- Item without children: direct link -->
+              <component
+                :is="linkTag(item)"
                 v-else
-                :to="item.href ?? '/'"
+                v-bind="linkAttrs(item)"
                 class="block border-b py-3 text-sm font-medium"
               >
-                {{ item.label }}
-              </NuxtLink>
+                {{ getMenuLabel(item) }}
+              </component>
             </template>
           </Accordion>
         </div>

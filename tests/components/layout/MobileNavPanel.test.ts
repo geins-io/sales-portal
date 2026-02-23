@@ -1,19 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import MobileNavPanel from '../../../app/components/layout/MobileNavPanel.vue';
+import type { MenuType } from '@geins/types';
 
-// Mock the app store
+const mockMenu = ref<MenuType | null>(null);
+vi.mock('~/composables/useMenuData', () => ({
+  useMenuData: () => ({
+    menu: mockMenu,
+    pending: ref(false),
+    error: ref(null),
+  }),
+}));
+
+vi.stubGlobal('useRequestURL', () => new URL('https://test.example.com'));
+
 const mockAppStore = {
   sidebarOpen: false,
   setSidebarOpen: vi.fn(),
   toggleSidebar: vi.fn(),
 };
-
 vi.mock('~/stores/app', () => ({
   useAppStore: () => mockAppStore,
 }));
 
-// Mock auth store
 vi.mock('~/stores/auth', () => ({
   useAuthStore: () => ({
     isAuthenticated: false,
@@ -21,8 +31,6 @@ vi.mock('~/stores/auth', () => ({
   }),
 }));
 
-// Stub shadcn-vue primitives so they render their slots.
-// Include both original and Nuxt-prefixed names (Nuxt resolves ui/sheet → UiSheet).
 const slotDiv = { template: '<div><slot /></div>' };
 const sheetStubs = {
   Sheet: { template: '<div><slot /></div>', props: ['open'] },
@@ -41,36 +49,69 @@ const sheetStubs = {
 };
 
 describe('MobileNavPanel', () => {
-  const mountOptions = {
-    global: {
-      stubs: sheetStubs,
-    },
-  };
+  const mountOptions = { global: { stubs: sheetStubs } };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockAppStore.sidebarOpen = false;
+    mockAppStore.sidebarOpen = true;
   });
 
   it('renders with data-slot="mobile-nav"', () => {
+    mockMenu.value = null;
     const wrapper = shallowMountComponent(MobileNavPanel, mountOptions);
     expect(wrapper.find('[data-slot="mobile-nav"]').exists()).toBe(true);
   });
 
-  it('contains a brand logo', () => {
-    mockAppStore.sidebarOpen = true;
+  it('renders CMS menu items', () => {
+    mockMenu.value = {
+      id: '1',
+      title: 'Main',
+      menuItems: [
+        { id: '1', label: 'Epoxi', canonicalUrl: '/epoxi', order: 1 },
+        { id: '2', label: 'Fixturer', canonicalUrl: '/fixturer', order: 2 },
+      ],
+    };
     const wrapper = shallowMountComponent(MobileNavPanel, mountOptions);
-    expect(wrapper.find('brand-logo-stub').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Epoxi');
+    expect(wrapper.text()).toContain('Fixturer');
   });
 
-  it('renders navigation menu items', () => {
-    mockAppStore.sidebarOpen = true;
+  it('renders children in accordion', () => {
+    mockMenu.value = {
+      id: '1',
+      title: 'Main',
+      menuItems: [
+        {
+          id: '1',
+          label: 'Category',
+          order: 1,
+          children: [
+            { id: '1-1', label: 'Sub A', canonicalUrl: '/sub-a', order: 1 },
+          ],
+        },
+      ],
+    };
     const wrapper = shallowMountComponent(MobileNavPanel, mountOptions);
-    expect(wrapper.text()).toContain('Product category');
+    expect(wrapper.text()).toContain('Category');
+    expect(wrapper.text()).toContain('Sub A');
   });
 
-  it('renders login link', () => {
-    mockAppStore.sidebarOpen = true;
+  it('filters hidden items', () => {
+    mockMenu.value = {
+      id: '1',
+      title: 'Main',
+      menuItems: [
+        { id: '1', label: 'Visible', order: 1 },
+        { id: '2', label: 'Hidden', hidden: true, order: 2 },
+      ],
+    };
+    const wrapper = shallowMountComponent(MobileNavPanel, mountOptions);
+    expect(wrapper.text()).toContain('Visible');
+    expect(wrapper.text()).not.toContain('Hidden');
+  });
+
+  it('renders login link when not authenticated', () => {
+    mockMenu.value = { id: '1', title: 'Main', menuItems: [] };
     const wrapper = shallowMountComponent(MobileNavPanel, mountOptions);
     expect(wrapper.text()).toContain('auth.login');
   });
