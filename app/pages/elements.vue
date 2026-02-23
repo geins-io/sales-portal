@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { PackageOpen, Search, ChevronDown } from 'lucide-vue-next';
 import {
+  NavigationMenu,
   NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuRoot,
   NavigationMenuTrigger,
-  NavigationMenuViewport,
-} from 'reka-ui';
+} from '~/components/ui/navigation-menu';
 
 const { tenant, isLoading, error } = useTenant();
 const quantityInputValue = ref(1);
@@ -542,25 +541,20 @@ const mockProductOutOfStock = {
         since CMS menu items have no children configured.
       </p>
 
-      <div class="bg-muted overflow-visible rounded-lg border">
-        <nav class="relative flex h-16 items-center px-4 lg:px-8">
-          <NavigationMenuRoot class="relative flex w-full justify-start">
-            <NavigationMenuList class="flex items-center gap-2">
+      <div class="bg-muted rounded-lg border">
+        <nav class="flex h-16 items-center px-4 lg:px-8">
+          <NavigationMenu class="max-w-none justify-start">
+            <NavigationMenuList class="gap-2">
               <NavigationMenuItem v-for="item in mockMenuItems" :key="item.id">
-                <!-- Item with children: trigger + mega menu -->
+                <!-- Item with children: trigger + dropdown -->
                 <template v-if="item.children.length">
-                  <NavigationMenuTrigger
-                    class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground group inline-flex h-10 items-center gap-2 rounded-md px-3 py-1 text-sm font-medium transition-colors"
-                  >
+                  <NavigationMenuTrigger>
                     {{ item.label }}
-                    <ChevronDown
-                      class="size-4 shrink-0 opacity-50 transition-transform duration-200 group-data-[state=open]:rotate-180"
-                    />
                   </NavigationMenuTrigger>
-                  <NavigationMenuContent
-                    class="bg-popover text-popover-foreground absolute top-full left-0 w-full rounded-b-lg border-x border-b p-6 shadow-lg"
-                  >
-                    <div class="grid grid-cols-3 gap-4">
+                  <NavigationMenuContent>
+                    <div
+                      class="grid w-[400px] grid-cols-2 gap-1 p-2 md:w-[500px]"
+                    >
                       <NavigationMenuLink
                         v-for="child in item.children"
                         :key="child.id"
@@ -568,7 +562,7 @@ const mockProductOutOfStock = {
                       >
                         <NuxtLink
                           :to="child.href"
-                          class="hover:text-primary text-sm transition-colors"
+                          class="hover:bg-accent hover:text-accent-foreground rounded-sm px-3 py-2 text-sm transition-colors"
                         >
                           {{ child.label }}
                         </NuxtLink>
@@ -582,24 +576,16 @@ const mockProductOutOfStock = {
                   <NavigationMenuLink as-child>
                     <NuxtLink
                       :to="item.href!"
-                      class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground inline-flex h-10 items-center gap-2 rounded-md px-3 py-1 text-sm font-medium transition-colors"
+                      class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground inline-flex h-9 items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors"
                     >
                       {{ item.label }}
-                      <ChevronDown class="size-4 shrink-0 opacity-50" />
+                      <ChevronDown class="size-3 opacity-50" />
                     </NuxtLink>
                   </NavigationMenuLink>
                 </template>
               </NavigationMenuItem>
             </NavigationMenuList>
-
-            <div
-              class="absolute top-full left-0 flex w-full justify-center perspective-[2000px]"
-            >
-              <NavigationMenuViewport
-                class="data-[state=open]:animate-in data-[state=closed]:animate-out relative mt-0 h-[var(--reka-navigation-menu-viewport-height)] w-full origin-top overflow-hidden transition-all duration-200"
-              />
-            </div>
-          </NavigationMenuRoot>
+          </NavigationMenu>
         </nav>
       </div>
     </section>

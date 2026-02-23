@@ -1,15 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { ChevronDown } from 'lucide-vue-next';
-import {
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuRoot,
-  NavigationMenuTrigger,
-  NavigationMenuViewport,
-} from 'reka-ui';
 import type { MenuItemType } from '#shared/types/cms';
 import { MENU_LOCATION } from '#shared/constants/cms';
 import {
@@ -18,6 +9,14 @@ import {
   getVisibleItems,
   isExternalUrl,
 } from '#shared/utils/menu';
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from '~/components/ui/navigation-menu';
 
 const { menu } = useMenuData(MENU_LOCATION.MAIN);
 const currentHost = computed(() => useRequestURL().host);
@@ -55,23 +54,16 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
     :aria-label="$t('layout.main_navigation')"
   >
     <div class="mx-auto w-full max-w-7xl px-4 lg:px-8">
-      <NavigationMenuRoot class="relative flex w-full justify-start">
-        <NavigationMenuList class="flex items-center gap-2">
+      <NavigationMenu class="max-w-none justify-start">
+        <NavigationMenuList class="gap-2">
           <NavigationMenuItem v-for="item in visibleItems" :key="item.id">
             <!-- Item with children: trigger + mega menu -->
             <template v-if="visibleChildren(item).length">
-              <NavigationMenuTrigger
-                class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground group inline-flex h-10 items-center gap-2 rounded-md px-3 py-1 text-sm font-medium transition-colors"
-              >
+              <NavigationMenuTrigger>
                 {{ getMenuLabel(item) }}
-                <ChevronDown
-                  class="size-4 shrink-0 opacity-50 transition-transform duration-200 group-data-[state=open]:rotate-180"
-                />
               </NavigationMenuTrigger>
-              <NavigationMenuContent
-                class="bg-popover text-popover-foreground absolute top-full left-0 w-full rounded-b-lg border-x border-b p-6 shadow-lg"
-              >
-                <div class="grid grid-cols-4 gap-6">
+              <NavigationMenuContent>
+                <div class="grid w-[400px] grid-cols-2 gap-1 p-2 md:w-[500px]">
                   <NavigationMenuLink
                     v-for="child in visibleChildren(item)"
                     :key="child.id"
@@ -80,7 +72,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
                     <component
                       :is="linkTag(child)"
                       v-bind="linkAttrs(child)"
-                      class="hover:text-primary text-sm transition-colors"
+                      class="hover:bg-accent hover:text-accent-foreground rounded-sm px-3 py-2 text-sm transition-colors"
                     >
                       {{ getMenuLabel(child) }}
                     </component>
@@ -95,24 +87,16 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
                 <component
                   :is="linkTag(item)"
                   v-bind="linkAttrs(item)"
-                  class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground inline-flex h-10 items-center gap-2 rounded-md px-3 py-1 text-sm font-medium transition-colors"
+                  class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground inline-flex h-9 items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors"
                 >
                   {{ getMenuLabel(item) }}
-                  <ChevronDown class="size-4 shrink-0 opacity-50" />
+                  <ChevronDown class="size-3 opacity-50" />
                 </component>
               </NavigationMenuLink>
             </template>
           </NavigationMenuItem>
         </NavigationMenuList>
-
-        <div
-          class="absolute top-full left-0 flex w-full justify-center perspective-[2000px]"
-        >
-          <NavigationMenuViewport
-            class="data-[state=open]:animate-in data-[state=closed]:animate-out relative mt-0 h-[var(--reka-navigation-menu-viewport-height)] w-full origin-top overflow-hidden transition-all duration-200"
-          />
-        </div>
-      </NavigationMenuRoot>
+      </NavigationMenu>
     </div>
   </nav>
 </template>

@@ -19,20 +19,28 @@ vi.mock('~/composables/useMenuData', () => ({
 // Mock useRequestURL
 vi.stubGlobal('useRequestURL', () => new URL('https://test.example.com'));
 
-const rekaStubs = {
-  NavigationMenuRoot: { template: '<div><slot /></div>' },
+// Stubs for shadcn-vue navigation-menu wrappers + Nuxt auto-resolved names
+const navStubs = {
+  // shadcn-vue component names (from explicit import)
+  NavigationMenu: { template: '<div><slot /></div>' },
   NavigationMenuList: { template: '<div><slot /></div>' },
   NavigationMenuItem: { template: '<div><slot /></div>' },
   NavigationMenuTrigger: { template: '<button><slot /></button>' },
   NavigationMenuContent: { template: '<div><slot /></div>' },
   NavigationMenuLink: { template: '<div><slot /></div>' },
-  NavigationMenuIndicator: { template: '<div />' },
-  NavigationMenuViewport: { template: '<div />' },
+  // Nuxt auto-resolved names (ui prefix)
+  UiNavigationMenu: { template: '<div><slot /></div>' },
+  UiNavigationMenuList: { template: '<div><slot /></div>' },
+  UiNavigationMenuItem: { template: '<div><slot /></div>' },
+  UiNavigationMenuTrigger: { template: '<button><slot /></button>' },
+  UiNavigationMenuContent: { template: '<div><slot /></div>' },
+  UiNavigationMenuLink: { template: '<div><slot /></div>' },
   ChevronDown: { template: '<span />' },
+  NuxtLink: { template: '<a><slot /></a>' },
 };
 
 describe('LayoutHeaderNav', () => {
-  const mountOptions = { global: { stubs: rekaStubs } };
+  const mountOptions = { global: { stubs: navStubs } };
 
   it('renders nothing when menu is null', () => {
     mockMenu.value = null;
