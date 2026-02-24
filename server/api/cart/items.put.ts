@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     async () => {
       return await updateItem(
         body.cartId,
-        { itemId: body.itemId, quantity: body.quantity },
+        { id: body.itemId, quantity: body.quantity },
         event,
       );
     },

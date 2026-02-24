@@ -158,7 +158,7 @@ describe('Cart API Routes', () => {
 
       expect(mockUpdateItem).toHaveBeenCalledWith(
         'cart-123',
-        { itemId: 'item-789', quantity: 5 },
+        { id: 'item-789', quantity: 5 },
         mockEvent,
       );
       expect(result).toEqual(mockCart);
