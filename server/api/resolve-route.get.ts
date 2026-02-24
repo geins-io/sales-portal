@@ -2,6 +2,7 @@ import { defineEventHandler, getQuery, setResponseHeader } from 'h3';
 import { LRUCache } from 'lru-cache';
 import type { RouteResolution } from '#shared/types';
 import { withErrorHandling } from '../utils/errors';
+import { resolveRoute } from '../services/routes';
 
 // =============================================================================
 // Cache Configuration
@@ -21,36 +22,6 @@ export const routeCache = new LRUCache<string, RouteResolution>({
 
 // Export cache config constants for testing
 export { CACHE_MAX_ENTRIES, CACHE_TTL_FOUND_MS, CACHE_TTL_NOT_FOUND_MS };
-
-// =============================================================================
-// Lookup Stubs (TODO: Replace with real API calls)
-// =============================================================================
-
-/**
- * Lookup a category by its slug.
- * TODO: Replace with actual API call to backend/database.
- */
-async function lookupCategoryBySlug(
-  _slug: string,
-): Promise<{ id: string; canonical?: string } | null> {
-  // TODO: Implement real lookup - this stub returns mock data for development
-  // When implementing, this should query the backend API or database
-  // and return null if no category is found with the given slug
-  return { id: '1', canonical: 'https://example.com/category-slug' };
-}
-
-/**
- * Lookup a page by its slug.
- * TODO: Replace with actual API call to backend/database.
- */
-async function lookupPageBySlug(
-  _slug: string,
-): Promise<{ id: string; canonical?: string } | null> {
-  // TODO: Implement real lookup - this stub returns mock data for development
-  // When implementing, this should query the backend API or database
-  // and return null if no page is found with the given slug
-  return { id: '1', canonical: 'https://example.com/page-slug' };
-}
 
 // =============================================================================
 // Path Normalization
@@ -102,93 +73,6 @@ function normalizePath(rawPath: unknown): {
   const normalizedPath = segments.length > 0 ? '/' + segments.join('/') : '/';
 
   return { normalizedPath, segments };
-}
-
-// =============================================================================
-// Route Resolution Logic
-// =============================================================================
-
-/**
- * Resolve a path to its route type and associated data.
- */
-const tempSegmentPath = [
-  { key: 'p', resolution: 'product' },
-  { key: 'l', resolution: 'category' },
-  { key: 'c', resolution: 'page' },
-];
-
-async function resolveRoute(segments: string[]): Promise<RouteResolution> {
-  // Handle empty segments (root path)
-  if (segments.length === 0) {
-    return { type: 'not-found' };
-  }
-
-  // todo : TEMP:check if we cant get a resolution from the tempSegmentPath
-  const resolution = tempSegmentPath.find((path) => path.key === segments[0]);
-
-  // Two segments: assume product (category/product pattern)
-  if (
-    segments.join('/') === 'category-slug/product-slug' ||
-    resolution?.resolution === 'product'
-  ) {
-    const [categorySlug, productSlug] = segments;
-    return {
-      type: 'product',
-      productId: '1', // TODO: Replace with actual product lookup
-      categorySlug,
-      productSlug,
-    };
-  }
-
-  if (
-    segments.join('/') === 'category-slug/subcategory-slug/product-slug' ||
-    resolution?.resolution === 'product'
-  ) {
-    const [_categorySlug, subcategorySlug, productSlug] = segments;
-    return {
-      type: 'product',
-      categorySlug: subcategorySlug,
-      productSlug,
-      productId: '1',
-      canonical:
-        'https://example.com/category-slug/subcategory-slug/product-slug',
-    };
-  }
-
-  // First segment is guaranteed to exist (early return for empty segments above)
-  const slug = segments[0]!;
-
-  // One segment: try category first, then page
-  if (
-    segments.join('/') === 'category-slug' ||
-    segments.join('/') === 'category-slug/subcategory-slug' ||
-    resolution?.resolution === 'category'
-  ) {
-    // Try category lookup
-    const categoryResult = await lookupCategoryBySlug(slug);
-    if (categoryResult) {
-      return {
-        type: 'category',
-        categorySlug: slug,
-        categoryId: categoryResult.id,
-        canonical: categoryResult.canonical,
-      };
-    }
-  }
-
-  // Try page lookup
-  const pageResult = await lookupPageBySlug(slug);
-  if (pageResult || resolution?.resolution === 'page') {
-    return {
-      type: 'page',
-      pageSlug: slug,
-      pageId: pageResult?.id ?? '1',
-      canonical: pageResult?.canonical ?? 'https://example.com/page-slug',
-    };
-  } else {
-    // Neither found
-    return { type: 'not-found' };
-  }
 }
 
 // =============================================================================
@@ -280,7 +164,7 @@ export default defineEventHandler((event) =>
       }
 
       // Resolve the route
-      const resolution = await resolveRoute(segments);
+      const resolution = await resolveRoute(segments, event);
 
       // Cache the result
       setCachedResolution(cacheKey, resolution);
