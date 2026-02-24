@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { H3Event } from 'h3';
 
 // ---------------------------------------------------------------------------
 // Mock the products service module
@@ -22,15 +23,12 @@ vi.mock('../../../server/services/products', () => ({
 // ---------------------------------------------------------------------------
 // Stub Nitro / h3 auto-imports
 // ---------------------------------------------------------------------------
-vi.stubGlobal(
-  'withErrorHandling',
-  async (fn: () => Promise<unknown>) => fn(),
-);
+vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal(
   'createAppError',
   vi.fn((_code: string, msg: string) => {
     const err = new Error(msg);
-    (err as any).statusCode = 404;
+    (err as Error & { statusCode: number }).statusCode = 404;
     return err;
   }),
 );
@@ -38,12 +36,13 @@ vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
 vi.stubGlobal('getRouterParam', vi.fn());
 vi.stubGlobal('getQuery', vi.fn());
 vi.stubGlobal('readBody', vi.fn());
-vi.stubGlobal('defineEventHandler', (fn: Function) => fn);
+vi.stubGlobal('defineEventHandler', (fn: (event: H3Event) => unknown) => fn);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const fakeEvent = {} as any;
+type Handler = (event: H3Event) => Promise<unknown>;
+const fakeEvent = {} as unknown as H3Event;
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -58,18 +57,16 @@ describe('Product API Routes', () => {
   // GET /api/products/[alias]
   // =======================================================================
   describe('GET /api/products/[alias]', () => {
-    let handler: (event: any) => Promise<unknown>;
+    let handler: Handler;
 
     beforeEach(async () => {
       vi.resetModules();
-      const mod = await import(
-        '../../../server/api/products/[alias].get.ts'
-      );
-      handler = mod.default as any;
+      const mod = await import('../../../server/api/products/[alias].get.ts');
+      handler = mod.default as Handler;
     });
 
     it('calls getProduct with validated alias', async () => {
-      (getRouterParam as any).mockReturnValue('my-product');
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
       mockGetProduct.mockResolvedValue({ id: 1, name: 'My Product' });
 
       const result = await handler(fakeEvent);
@@ -82,20 +79,20 @@ describe('Product API Routes', () => {
     });
 
     it('throws NOT_FOUND when service returns null', async () => {
-      (getRouterParam as any).mockReturnValue('missing');
+      vi.mocked(getRouterParam).mockReturnValue('missing');
       mockGetProduct.mockResolvedValue(null);
 
       await expect(handler(fakeEvent)).rejects.toThrow('Product not found');
     });
 
     it('throws ZodError for empty alias', async () => {
-      (getRouterParam as any).mockReturnValue('');
+      vi.mocked(getRouterParam).mockReturnValue('');
 
       await expect(handler(fakeEvent)).rejects.toThrow();
     });
 
     it('throws ZodError for missing alias', async () => {
-      (getRouterParam as any).mockReturnValue(undefined);
+      vi.mocked(getRouterParam).mockReturnValue(undefined);
 
       await expect(handler(fakeEvent)).rejects.toThrow();
     });
@@ -105,18 +102,17 @@ describe('Product API Routes', () => {
   // GET /api/products/[alias]/related
   // =======================================================================
   describe('GET /api/products/[alias]/related', () => {
-    let handler: (event: any) => Promise<unknown>;
+    let handler: Handler;
 
     beforeEach(async () => {
       vi.resetModules();
-      const mod = await import(
-        '../../../server/api/products/[alias]/related.get.ts'
-      );
-      handler = mod.default as any;
+      const mod =
+        await import('../../../server/api/products/[alias]/related.get.ts');
+      handler = mod.default as Handler;
     });
 
     it('calls getRelatedProducts with validated alias', async () => {
-      (getRouterParam as any).mockReturnValue('my-product');
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
       mockGetRelatedProducts.mockResolvedValue([{ id: 2 }]);
 
       const result = await handler(fakeEvent);
@@ -129,7 +125,7 @@ describe('Product API Routes', () => {
     });
 
     it('throws ZodError for empty alias', async () => {
-      (getRouterParam as any).mockReturnValue('');
+      vi.mocked(getRouterParam).mockReturnValue('');
 
       await expect(handler(fakeEvent)).rejects.toThrow();
     });
@@ -139,19 +135,18 @@ describe('Product API Routes', () => {
   // GET /api/products/[alias]/reviews
   // =======================================================================
   describe('GET /api/products/[alias]/reviews', () => {
-    let handler: (event: any) => Promise<unknown>;
+    let handler: Handler;
 
     beforeEach(async () => {
       vi.resetModules();
-      const mod = await import(
-        '../../../server/api/products/[alias]/reviews.get.ts'
-      );
-      handler = mod.default as any;
+      const mod =
+        await import('../../../server/api/products/[alias]/reviews.get.ts');
+      handler = mod.default as Handler;
     });
 
     it('calls getReviews with alias and pagination', async () => {
-      (getRouterParam as any).mockReturnValue('my-product');
-      (getQuery as any).mockReturnValue({ skip: '0', take: '10' });
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      vi.mocked(getQuery).mockReturnValue({ skip: '0', take: '10' });
       mockGetReviews.mockResolvedValue({ items: [] });
 
       const result = await handler(fakeEvent);
@@ -164,8 +159,8 @@ describe('Product API Routes', () => {
     });
 
     it('works without optional query params', async () => {
-      (getRouterParam as any).mockReturnValue('my-product');
-      (getQuery as any).mockReturnValue({});
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      vi.mocked(getQuery).mockReturnValue({});
       mockGetReviews.mockResolvedValue({ items: [] });
 
       await handler(fakeEvent);
@@ -177,8 +172,8 @@ describe('Product API Routes', () => {
     });
 
     it('throws ZodError for invalid take value', async () => {
-      (getRouterParam as any).mockReturnValue('my-product');
-      (getQuery as any).mockReturnValue({ take: '999' });
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      vi.mocked(getQuery).mockReturnValue({ take: '999' });
 
       await expect(handler(fakeEvent)).rejects.toThrow();
     });
@@ -188,19 +183,18 @@ describe('Product API Routes', () => {
   // POST /api/products/[alias]/reviews
   // =======================================================================
   describe('POST /api/products/[alias]/reviews', () => {
-    let handler: (event: any) => Promise<unknown>;
+    let handler: Handler;
 
     beforeEach(async () => {
       vi.resetModules();
-      const mod = await import(
-        '../../../server/api/products/[alias]/reviews.post.ts'
-      );
-      handler = mod.default as any;
+      const mod =
+        await import('../../../server/api/products/[alias]/reviews.post.ts');
+      handler = mod.default as Handler;
     });
 
     it('calls postReview with alias + body', async () => {
-      (getRouterParam as any).mockReturnValue('my-product');
-      (readBody as any).mockResolvedValue({
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      vi.mocked(readBody).mockResolvedValue({
         rating: 5,
         author: 'Alice',
         comment: 'Great!',
@@ -222,8 +216,8 @@ describe('Product API Routes', () => {
     });
 
     it('works without optional comment', async () => {
-      (getRouterParam as any).mockReturnValue('my-product');
-      (readBody as any).mockResolvedValue({
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      vi.mocked(readBody).mockResolvedValue({
         rating: 3,
         author: 'Bob',
       });
@@ -238,15 +232,15 @@ describe('Product API Routes', () => {
     });
 
     it('throws ZodError for missing rating', async () => {
-      (getRouterParam as any).mockReturnValue('my-product');
-      (readBody as any).mockResolvedValue({ author: 'Alice' });
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      vi.mocked(readBody).mockResolvedValue({ author: 'Alice' });
 
       await expect(handler(fakeEvent)).rejects.toThrow();
     });
 
     it('throws ZodError for rating out of range', async () => {
-      (getRouterParam as any).mockReturnValue('my-product');
-      (readBody as any).mockResolvedValue({
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      vi.mocked(readBody).mockResolvedValue({
         rating: 6,
         author: 'Alice',
       });
@@ -259,19 +253,20 @@ describe('Product API Routes', () => {
   // GET /api/products/[alias]/price-history
   // =======================================================================
   describe('GET /api/products/[alias]/price-history', () => {
-    let handler: (event: any) => Promise<unknown>;
+    let handler: Handler;
 
     beforeEach(async () => {
       vi.resetModules();
-      const mod = await import(
-        '../../../server/api/products/[alias]/price-history.get.ts'
-      );
-      handler = mod.default as any;
+      const mod =
+        await import('../../../server/api/products/[alias]/price-history.get.ts');
+      handler = mod.default as Handler;
     });
 
     it('calls getPriceHistory with validated alias', async () => {
-      (getRouterParam as any).mockReturnValue('my-product');
-      mockGetPriceHistory.mockResolvedValue([{ price: 100, date: '2026-01-01' }]);
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      mockGetPriceHistory.mockResolvedValue([
+        { price: 100, date: '2026-01-01' },
+      ]);
 
       const result = await handler(fakeEvent);
 
@@ -283,7 +278,7 @@ describe('Product API Routes', () => {
     });
 
     it('throws ZodError for empty alias', async () => {
-      (getRouterParam as any).mockReturnValue('');
+      vi.mocked(getRouterParam).mockReturnValue('');
 
       await expect(handler(fakeEvent)).rejects.toThrow();
     });
@@ -293,18 +288,17 @@ describe('Product API Routes', () => {
   // POST /api/products/monitor-availability
   // =======================================================================
   describe('POST /api/products/monitor-availability', () => {
-    let handler: (event: any) => Promise<unknown>;
+    let handler: Handler;
 
     beforeEach(async () => {
       vi.resetModules();
-      const mod = await import(
-        '../../../server/api/products/monitor-availability.post.ts'
-      );
-      handler = mod.default as any;
+      const mod =
+        await import('../../../server/api/products/monitor-availability.post.ts');
+      handler = mod.default as Handler;
     });
 
     it('calls monitorAvailability with validated body', async () => {
-      (readBody as any).mockResolvedValue({
+      vi.mocked(readBody).mockResolvedValue({
         email: 'user@example.com',
         skuId: 42,
       });
@@ -320,7 +314,7 @@ describe('Product API Routes', () => {
     });
 
     it('throws ZodError for invalid email', async () => {
-      (readBody as any).mockResolvedValue({
+      vi.mocked(readBody).mockResolvedValue({
         email: 'not-an-email',
         skuId: 42,
       });
@@ -329,7 +323,7 @@ describe('Product API Routes', () => {
     });
 
     it('throws ZodError for missing skuId', async () => {
-      (readBody as any).mockResolvedValue({
+      vi.mocked(readBody).mockResolvedValue({
         email: 'user@example.com',
       });
 
