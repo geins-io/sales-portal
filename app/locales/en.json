@@ -36,28 +36,47 @@
     "orders": "Orders"
   },
   "cart": {
+    "title": "Cart",
     "add_to_cart": "Add to cart",
     "add": "Add",
     "empty_cart": "Your cart is empty",
     "remove_item": "Remove item",
     "quantity": "Quantity",
     "subtotal": "Subtotal",
-    "checkout": "Checkout"
+    "total": "Total",
+    "checkout": "Checkout",
+    "item_count": "{count} item | {count} items",
+    "your_cart_description": "Your shopping cart"
   },
   "product": {
     "details": "Product details",
     "description": "Description",
+    "specifications": "Specifications",
+    "reviews": "Reviews",
+    "reviews_count": "({count} reviews)",
+    "loading_reviews": "Loading reviews...",
     "documents": "Documents",
     "related": "Related products",
+    "add_to_cart": "Add to Cart",
     "add_to_quote": "Add to quote",
     "download": "Download",
     "sort_by": "Sort by",
+    "sort_relevance": "Relevance",
+    "sort_price_asc": "Price: Low to High",
+    "sort_price_desc": "Price: High to Low",
+    "sort_newest": "Newest",
+    "sort_name_asc": "Name: A-Z",
+    "sort_name_desc": "Name: Z-A",
     "select_variant": "Select a variant",
     "product_card": "Product Card",
     "product_card_description": "A sample product card component",
     "product_specifications": "Product specifications",
     "attribute": "Attribute",
-    "value": "Value"
+    "value": "Value",
+    "no_products": "No products found.",
+    "filters": "Filters",
+    "clear_all": "Clear all",
+    "failed_to_load": "Failed to load product."
   },
   "account": {
     "my_account": "My Account",
@@ -114,6 +133,16 @@
   "errors": {
     "section_failed": "This section could not be loaded.",
     "retry": "Try again"
+  },
+  "search": {
+    "title": "Search",
+    "results_for": "Search results for \"{query}\"",
+    "result_count": "{count} results",
+    "no_results": "No results found",
+    "no_results_for": "No results found for \"{query}\"",
+    "try_different_terms": "Try different search terms or browse our categories.",
+    "enter_search_term": "Enter a search term to find products.",
+    "view_all_results": "View all {count} results"
   },
   "elements": {
     "component_showcase": "Component Showcase",

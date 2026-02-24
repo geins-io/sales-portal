@@ -95,7 +95,7 @@ describe('useCartStore', () => {
         query: { cartId: 'cart-123' },
       });
       expect(store.cart).toEqual(mockCart);
-      expect(store.itemCount).toBe(1);
+      expect(store.itemCount).toBe(2);
     });
 
     it('does nothing when no cartId', async () => {

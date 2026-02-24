@@ -52,7 +52,7 @@ function getSelected(facetId: string): string[] {
   <div v-else>
     <Button variant="outline" size="sm" @click="sheetOpen = true">
       <SlidersHorizontal class="mr-2 size-4" />
-      Filters
+      {{ $t('product.filters') }}
     </Button>
 
     <Sheet v-model:open="sheetOpen">

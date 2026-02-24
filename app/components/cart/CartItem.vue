@@ -12,7 +12,8 @@ const emit = defineEmits<{
 }>();
 
 function onQuantityUpdate(value: number) {
-  emit('update-quantity', props.item.id!, value);
+  if (!props.item.id) return;
+  emit('update-quantity', props.item.id, value);
 }
 
 const productUrl = computed(() =>
@@ -99,7 +100,7 @@ const imageFileName = computed(
           type="button"
           class="text-muted-foreground hover:text-destructive p-1 transition-colors"
           data-testid="cart-item-remove"
-          @click="emit('remove', item.id!)"
+          @click="item.id && emit('remove', item.id)"
         >
           <Trash2 class="size-4" />
         </button>

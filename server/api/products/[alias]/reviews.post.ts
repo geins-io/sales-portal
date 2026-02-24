@@ -3,8 +3,9 @@ import { postReview } from '../../../services/products';
 
 export default defineEventHandler(async (event) => {
   const alias = getRouterParam(event, 'alias');
-  const body = await readBody(event);
-  const validated = PostReviewSchema.parse({ alias, ...body });
+  const validated = await readValidatedBody(event, (raw) =>
+    PostReviewSchema.parse({ alias, ...(raw as Record<string, unknown>) }),
+  );
 
   return withErrorHandling(
     async () => {

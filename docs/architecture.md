@@ -702,7 +702,7 @@ Configure via environment variables:
 ### Testing
 
 ```bash
-# Unit tests (875+ tests, Vitest)
+# Unit tests (1219+ tests, Vitest)
 pnpm test
 
 # E2E tests (Playwright)

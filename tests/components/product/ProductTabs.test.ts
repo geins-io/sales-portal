@@ -124,9 +124,9 @@ describe('ProductTabs', () => {
     });
     const triggers = wrapper.findAll('.tabs-trigger');
     expect(triggers.length).toBe(3);
-    expect(triggers[0]!.text()).toBe('Description');
-    expect(triggers[1]!.text()).toBe('Specifications');
-    expect(triggers[2]!.text()).toBe('Reviews');
+    expect(triggers[0]!.text()).toBe('product.description');
+    expect(triggers[1]!.text()).toBe('product.specifications');
+    expect(triggers[2]!.text()).toBe('product.reviews');
   });
 
   it('renders description content with v-html', () => {
@@ -169,7 +169,7 @@ describe('ProductTabs', () => {
     });
     const triggers = wrapper.findAll('.tabs-trigger');
     const labels = triggers.map((t) => t.text());
-    expect(labels).not.toContain('Description');
+    expect(labels).not.toContain('product.description');
   });
 
   it('shows loading state when reviews loading', () => {
@@ -181,6 +181,6 @@ describe('ProductTabs', () => {
       },
       global: { stubs },
     });
-    expect(wrapper.text()).toContain('Loading reviews...');
+    expect(wrapper.text()).toContain('product.loading_reviews');
   });
 });

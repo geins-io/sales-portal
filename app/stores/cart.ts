@@ -12,7 +12,11 @@ export const useCartStore = defineStore('cart', () => {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
-  const itemCount = computed(() => cart.value?.items?.length ?? 0);
+  const itemCount = computed(
+    () =>
+      cart.value?.items?.reduce((sum, item) => sum + (item.quantity ?? 1), 0) ??
+      0,
+  );
   const isEmpty = computed(() => itemCount.value === 0);
 
   async function fetchCart() {

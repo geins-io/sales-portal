@@ -22,14 +22,15 @@ const skip = ref(0);
 const take = 24;
 const allProducts = ref<ListProduct[]>([]);
 
-const sortOptions = [
-  { label: 'Relevance', value: 'relevance' },
-  { label: 'Price: Low to High', value: 'price-asc' },
-  { label: 'Price: High to Low', value: 'price-desc' },
-  { label: 'Newest', value: 'newest' },
-  { label: 'Name: A-Z', value: 'name-asc' },
-  { label: 'Name: Z-A', value: 'name-desc' },
-];
+const { t } = useI18n();
+const sortOptions = computed(() => [
+  { label: t('product.sort_relevance'), value: 'relevance' },
+  { label: t('product.sort_price_asc'), value: 'price-asc' },
+  { label: t('product.sort_price_desc'), value: 'price-desc' },
+  { label: t('product.sort_newest'), value: 'newest' },
+  { label: t('product.sort_name_asc'), value: 'name-asc' },
+  { label: t('product.sort_name_desc'), value: 'name-desc' },
+]);
 
 // --- SEO ---
 useHead({
@@ -193,7 +194,7 @@ function clearAllFilters() {
           <ProductCard
             v-for="product in allProducts"
             :key="product.productId"
-            :product="product as any"
+            :product="product"
             :variant="viewMode"
           />
         </div>

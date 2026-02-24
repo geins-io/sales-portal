@@ -18,17 +18,16 @@ const isOpen = computed({
       <SheetHeader>
         <SheetTitle class="flex items-center gap-2">
           <ShoppingCart class="size-5" />
-          Cart
+          {{ $t('cart.title') }}
           <span
             v-if="cartStore.itemCount > 0"
             class="text-muted-foreground text-sm font-normal"
           >
-            ({{ cartStore.itemCount }}
-            {{ cartStore.itemCount === 1 ? 'item' : 'items' }})
+            ({{ $t('cart.item_count', { count: cartStore.itemCount }) }})
           </span>
         </SheetTitle>
         <SheetDescription class="sr-only">
-          Your shopping cart
+          {{ $t('cart.your_cart_description') }}
         </SheetDescription>
       </SheetHeader>
 
@@ -50,7 +49,7 @@ const isOpen = computed({
         data-testid="cart-empty"
       >
         <ShoppingCart class="text-muted-foreground size-12" />
-        <p class="text-muted-foreground text-sm">Your cart is empty</p>
+        <p class="text-muted-foreground text-sm">{{ $t('cart.empty_cart') }}</p>
       </div>
 
       <!-- Cart items -->
@@ -80,14 +79,14 @@ const isOpen = computed({
         <!-- Summary -->
         <div class="border-border space-y-2 border-t px-4 py-3">
           <div class="flex items-center justify-between text-sm">
-            <span class="text-muted-foreground">Subtotal</span>
+            <span class="text-muted-foreground">{{ $t('cart.subtotal') }}</span>
             <span>{{
               cartStore.cart?.summary?.subTotal?.sellingPriceIncVatFormatted ??
               ''
             }}</span>
           </div>
           <div class="flex items-center justify-between font-medium">
-            <span>Total</span>
+            <span>{{ $t('cart.total') }}</span>
             <span>{{
               cartStore.cart?.summary?.total?.sellingPriceIncVatFormatted ?? ''
             }}</span>
@@ -106,7 +105,7 @@ const isOpen = computed({
             class="bg-primary text-primary-foreground hover:bg-primary/90 w-full rounded-md px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
             disabled
           >
-            Checkout
+            {{ $t('cart.checkout') }}
           </button>
         </SheetFooter>
       </template>

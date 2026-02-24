@@ -62,7 +62,7 @@ const hasActiveFilters = computed(() => activeFilters.value.length > 0);
       </button>
     </Badge>
     <Button variant="ghost" size="sm" @click="emit('clear-all')">
-      Clear all
+      {{ $t('product.clear_all') }}
     </Button>
   </div>
 </template>

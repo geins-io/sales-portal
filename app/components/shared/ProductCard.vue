@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { ProductType } from '#shared/types/commerce';
+import type { ProductType, ListProduct } from '#shared/types/commerce';
 
 const props = withDefaults(
   defineProps<{
-    product: ProductType;
+    product: ProductType | ListProduct;
     variant?: 'grid' | 'list';
   }>(),
   { variant: 'grid' },

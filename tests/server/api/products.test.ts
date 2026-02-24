@@ -36,6 +36,13 @@ vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
 vi.stubGlobal('getRouterParam', vi.fn());
 vi.stubGlobal('getQuery', vi.fn());
 vi.stubGlobal('readBody', vi.fn());
+vi.stubGlobal(
+  'readValidatedBody',
+  vi.fn(async (_event: unknown, validator: (raw: unknown) => unknown) => {
+    const body = await (readBody as ReturnType<typeof vi.fn>)(_event);
+    return validator(body);
+  }),
+);
 vi.stubGlobal('defineEventHandler', (fn: (event: H3Event) => unknown) => fn);
 
 // ---------------------------------------------------------------------------

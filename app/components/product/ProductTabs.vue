@@ -61,12 +61,12 @@ function onAccordionChange(value: string | string[] | undefined) {
     >
       <TabsList>
         <TabsTrigger v-if="hasDescription" value="description">
-          Description
+          {{ $t('product.description') }}
         </TabsTrigger>
         <TabsTrigger v-if="hasSpecs" value="specifications">
-          Specifications
+          {{ $t('product.specifications') }}
         </TabsTrigger>
-        <TabsTrigger value="reviews"> Reviews </TabsTrigger>
+        <TabsTrigger value="reviews"> {{ $t('product.reviews') }}</TabsTrigger>
       </TabsList>
 
       <TabsContent v-if="hasDescription" value="description">
@@ -107,11 +107,11 @@ function onAccordionChange(value: string | string[] | undefined) {
               {{ reviews.averageRating.toFixed(1) }}
             </span>
             <span class="text-muted-foreground text-sm">
-              ({{ reviews.count }} reviews)
+              {{ $t('product.reviews_count', { count: reviews.count }) }}
             </span>
           </div>
           <div v-if="reviewsLoading" class="text-muted-foreground text-sm">
-            Loading reviews...
+            {{ $t('product.loading_reviews') }}
           </div>
           <template v-else-if="reviews">
             <ProductReviewCard
@@ -172,11 +172,11 @@ function onAccordionChange(value: string | string[] | undefined) {
                 {{ reviews.averageRating.toFixed(1) }}
               </span>
               <span class="text-muted-foreground text-sm">
-                ({{ reviews.count }} reviews)
+                {{ $t('product.reviews_count', { count: reviews.count }) }}
               </span>
             </div>
             <div v-if="reviewsLoading" class="text-muted-foreground text-sm">
-              Loading reviews...
+              {{ $t('product.loading_reviews') }}
             </div>
             <template v-else-if="reviews">
               <ProductReviewCard

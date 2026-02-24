@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ListProduct, ProductType } from '#shared/types/commerce';
+import type { ListProduct } from '#shared/types/commerce';
 
 const props = defineProps<{
   products: ListProduct[];
@@ -33,7 +33,7 @@ const hasProducts = computed(() => props.products.length > 0);
 <template>
   <section v-if="hasProducts" data-testid="related-products">
     <div class="mb-4 flex items-center justify-between">
-      <h2 class="text-lg font-semibold">Related Products</h2>
+      <h2 class="text-lg font-semibold">{{ $t('product.related') }}</h2>
       <div class="hidden gap-1 md:flex">
         <button
           v-show="canScrollLeft"
@@ -66,7 +66,7 @@ const hasProducts = computed(() => props.products.length > 0);
         :key="product.productId"
         class="w-56 shrink-0"
       >
-        <ProductCard :product="product as unknown as ProductType" />
+        <ProductCard :product="product" />
       </div>
     </div>
   </section>

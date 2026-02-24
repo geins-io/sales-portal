@@ -56,7 +56,7 @@ describe('RelatedProducts', () => {
       props: { products: [makeListProduct(1), makeListProduct(2)] },
       global: { stubs },
     });
-    expect(wrapper.find('h2').text()).toBe('Related Products');
+    expect(wrapper.find('h2').text()).toBe('product.related');
   });
 
   it('renders product cards for each product', () => {

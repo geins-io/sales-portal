@@ -36,28 +36,47 @@
     "orders": "Beställningar"
   },
   "cart": {
+    "title": "Varukorg",
     "add_to_cart": "Lägg i varukorg",
     "add": "Lägg till",
     "empty_cart": "Din varukorg är tom",
     "remove_item": "Ta bort artikel",
     "quantity": "Antal",
     "subtotal": "Delsumma",
-    "checkout": "Gå till kassan"
+    "total": "Totalt",
+    "checkout": "Gå till kassan",
+    "item_count": "{count} artikel | {count} artiklar",
+    "your_cart_description": "Din varukorg"
   },
   "product": {
     "details": "Produktdetaljer",
     "description": "Beskrivning",
+    "specifications": "Specifikationer",
+    "reviews": "Recensioner",
+    "reviews_count": "({count} recensioner)",
+    "loading_reviews": "Laddar recensioner...",
     "documents": "Dokument",
     "related": "Relaterade produkter",
+    "add_to_cart": "Lägg i varukorg",
     "add_to_quote": "Lägg till offert",
     "download": "Ladda ner",
     "sort_by": "Sortera efter",
+    "sort_relevance": "Relevans",
+    "sort_price_asc": "Pris: Lägst först",
+    "sort_price_desc": "Pris: Högst först",
+    "sort_newest": "Nyast",
+    "sort_name_asc": "Namn: A-Ö",
+    "sort_name_desc": "Namn: Ö-A",
     "select_variant": "Välj en variant",
     "product_card": "Produktkort",
     "product_card_description": "Ett exempel på produktkortskomponent",
     "product_specifications": "Produktspecifikationer",
     "attribute": "Attribut",
-    "value": "Värde"
+    "value": "Värde",
+    "no_products": "Inga produkter hittades.",
+    "filters": "Filter",
+    "clear_all": "Rensa alla",
+    "failed_to_load": "Kunde inte ladda produkt."
   },
   "account": {
     "my_account": "Mitt konto",
@@ -114,6 +133,16 @@
   "errors": {
     "section_failed": "Det gick inte att läsa in det här avsnittet.",
     "retry": "Försök igen"
+  },
+  "search": {
+    "title": "Sök",
+    "results_for": "Sökresultat för \"{query}\"",
+    "result_count": "{count} resultat",
+    "no_results": "Inga resultat hittades",
+    "no_results_for": "Inga resultat för \"{query}\"",
+    "try_different_terms": "Prova andra sökord eller bläddra bland våra kategorier.",
+    "enter_search_term": "Ange ett sökord för att hitta produkter.",
+    "view_all_results": "Visa alla {count} resultat"
   },
   "elements": {
     "component_showcase": "Komponentvisning",

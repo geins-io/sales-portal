@@ -91,7 +91,7 @@ useSeoMeta({
 
 <template>
   <div v-if="error" class="py-12 text-center">
-    <p class="text-muted-foreground">Failed to load product.</p>
+    <p class="text-muted-foreground">{{ $t('product.failed_to_load') }}</p>
   </div>
 
   <div v-else-if="product" class="flex flex-col gap-8">
@@ -149,7 +149,7 @@ useSeoMeta({
             class="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
             @click="addToCart"
           >
-            Add to Cart
+            {{ $t('product.add_to_cart') }}
           </button>
         </div>
 

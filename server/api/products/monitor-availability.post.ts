@@ -2,8 +2,9 @@ import { MonitorAvailabilitySchema } from '../../schemas/api-input';
 import { monitorAvailability } from '../../services/products';
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event);
-  const validated = MonitorAvailabilitySchema.parse(body);
+  const validated = await readValidatedBody(event, (raw) =>
+    MonitorAvailabilitySchema.parse(raw),
+  );
 
   return withErrorHandling(
     async () => {

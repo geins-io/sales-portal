@@ -23,7 +23,7 @@ const emit = defineEmits<{
     @update:model-value="emit('update:modelValue', String($event))"
   >
     <SelectTrigger class="w-[180px]" size="sm">
-      <SelectValue placeholder="Sort by" />
+      <SelectValue :placeholder="$t('product.sort_by')" />
     </SelectTrigger>
     <SelectContent>
       <SelectItem
