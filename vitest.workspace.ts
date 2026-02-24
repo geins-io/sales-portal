@@ -45,6 +45,11 @@ const componentTestFiles = [
   'tests/components/AppBreadcrumbs.test.ts',
   'tests/components/product/ProductFilters.test.ts',
   'tests/components/product/ProductListToolbar.test.ts',
+  'tests/components/product/ProductGallery.test.ts',
+  'tests/components/product/VariantSelector.test.ts',
+  'tests/components/product/ProductTabs.test.ts',
+  'tests/components/product/ReviewCard.test.ts',
+  'tests/components/product/RelatedProducts.test.ts',
 ];
 
 // Get Nuxt's Vite config once (aliases, auto-imports, plugins)

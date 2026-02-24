@@ -66,7 +66,7 @@ const ResolvedComponent = computed(() => {
       :is="ResolvedComponent"
       v-else-if="ResolvedComponent && resolution"
       :key="resolution.type"
-      :resolution="resolution"
+      :resolution="resolution as any"
     />
 
     <div v-else>
