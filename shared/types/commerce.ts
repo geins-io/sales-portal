@@ -70,6 +70,7 @@ export type {
   CartType,
   CartItemType,
   CartItemInputType,
+  CartItemProductType,
   CartSummaryType,
 } from '@geins/types';
 
