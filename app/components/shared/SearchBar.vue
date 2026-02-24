@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Search, X } from 'lucide-vue-next';
+import { useDebounceFn, onClickOutside } from '@vueuse/core';
+import type { ProductListResponse } from '#shared/types/commerce';
 
 const props = withDefaults(
   defineProps<{
@@ -16,7 +18,13 @@ const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
 
+const router = useRouter();
+
 const query = ref(props.modelValue);
+const autocompleteOpen = ref(false);
+const autocompleteResults = ref<ProductListResponse | null>(null);
+const autocompleteLoading = ref(false);
+const containerRef = ref<HTMLElement | null>(null);
 
 watch(
   () => props.modelValue,
@@ -25,21 +33,80 @@ watch(
   },
 );
 
+// Close autocomplete on click outside
+onClickOutside(containerRef, () => {
+  autocompleteOpen.value = false;
+});
+
+// Debounced autocomplete fetch
+const debouncedSearch = useDebounceFn(async (searchQuery: string) => {
+  if (searchQuery.length < 2) {
+    autocompleteResults.value = null;
+    autocompleteOpen.value = false;
+    return;
+  }
+
+  autocompleteLoading.value = true;
+  autocompleteOpen.value = true;
+
+  try {
+    const data = await $fetch<ProductListResponse>('/api/search/products', {
+      query: { query: searchQuery, take: 5 },
+    });
+    autocompleteResults.value = data;
+  } catch {
+    autocompleteResults.value = null;
+  } finally {
+    autocompleteLoading.value = false;
+  }
+}, 300);
+
+// Watch query changes for autocomplete
+watch(query, (val) => {
+  const trimmed = val.trim();
+  if (trimmed.length < 2) {
+    autocompleteOpen.value = false;
+    autocompleteResults.value = null;
+    return;
+  }
+  debouncedSearch(trimmed);
+});
+
 function onSubmit() {
   const trimmed = query.value.trim();
   if (trimmed) {
+    autocompleteOpen.value = false;
     emit('search', trimmed);
   }
 }
 
 function onClear() {
   query.value = '';
+  autocompleteOpen.value = false;
+  autocompleteResults.value = null;
   emit('update:modelValue', '');
+}
+
+function onSelectProduct(alias: string) {
+  autocompleteOpen.value = false;
+  router.push(`/p/${alias}`);
+}
+
+function onViewAll() {
+  autocompleteOpen.value = false;
+  const trimmed = query.value.trim();
+  if (trimmed) {
+    router.push({ path: '/search', query: { q: trimmed } });
+  }
+}
+
+function onCloseAutocomplete() {
+  autocompleteOpen.value = false;
 }
 </script>
 
 <template>
-  <div class="relative flex w-full max-w-md items-center">
+  <div ref="containerRef" class="relative flex w-full max-w-md items-center">
     <Search
       data-slot="search-icon"
       class="text-muted-foreground pointer-events-none absolute left-3 size-4"
@@ -60,5 +127,15 @@ function onClear() {
     >
       <X class="size-4" />
     </button>
+
+    <!-- Autocomplete dropdown -->
+    <SearchAutocomplete
+      :results="autocompleteResults"
+      :loading="autocompleteLoading"
+      :open="autocompleteOpen"
+      @select-product="onSelectProduct"
+      @view-all="onViewAll"
+      @close="onCloseAutocomplete"
+    />
   </div>
 </template>
