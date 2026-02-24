@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { ShoppingCart, Search, Menu } from 'lucide-vue-next';
 import { useAppStore } from '~/stores/app';
-
-defineProps<{
-  cartCount?: number;
-}>();
+import { useCartStore } from '~/stores/cart';
 
 const appStore = useAppStore();
+const cartStore = useCartStore();
 </script>
 
 <template>
@@ -21,14 +19,20 @@ const appStore = useAppStore();
     </NuxtLink>
 
     <!-- Cart -->
-    <NuxtLink
-      to="/cart"
+    <button
+      type="button"
       data-slot="cart-button"
-      class="text-muted-foreground hover:text-foreground flex items-center gap-1.5 p-2"
+      class="text-muted-foreground hover:text-foreground relative flex items-center gap-1.5 p-2"
+      @click="cartStore.isOpen = true"
     >
       <ShoppingCart class="size-5" />
-      <span class="text-sm font-medium">{{ cartCount ?? 0 }}</span>
-    </NuxtLink>
+      <span
+        v-if="cartStore.itemCount > 0"
+        class="bg-primary text-primary-foreground absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-bold"
+      >
+        {{ cartStore.itemCount }}
+      </span>
+    </button>
 
     <!-- Hamburger (mobile only) -->
     <button

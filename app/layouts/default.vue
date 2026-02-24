@@ -1,4 +1,11 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { useCartStore } from '~/stores/cart';
+
+const cartStore = useCartStore();
+onMounted(() => {
+  if (cartStore.cartId) cartStore.fetchCart();
+});
+</script>
 
 <template>
   <div class="flex min-h-screen flex-col">
@@ -22,5 +29,6 @@
     <LayoutMobileNavPanel />
     <PreviewBanner />
     <CookieBanner />
+    <CartDrawer />
   </div>
 </template>

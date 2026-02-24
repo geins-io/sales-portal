@@ -5,6 +5,7 @@ import type {
   ListProduct,
 } from '#shared/types/commerce';
 import type { ProductRouteResolution } from '#shared/types/common';
+import { useCartStore } from '~/stores/cart';
 
 const props = defineProps<{
   resolution: ProductRouteResolution;
@@ -58,13 +59,11 @@ const resolvedSku = computed(() => {
 
 const quantity = ref(1);
 
-function addToCart() {
-  console.log('Add to cart', {
-    productId: product.value?.productId,
-    skuId: resolvedSku.value?.skuId,
-    quantity: quantity.value,
-    selectedVariants: selectedVariants.value,
-  });
+const cartStore = useCartStore();
+
+async function addToCart() {
+  if (!resolvedSku.value?.skuId) return;
+  await cartStore.addItem(resolvedSku.value.skuId, quantity.value);
 }
 
 // Breadcrumbs
