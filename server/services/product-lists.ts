@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3';
 import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 import { loadQuery } from './graphql/loader';
+import { unwrapGraphQL } from './graphql/unwrap';
 
 export interface ProductListOptions {
   skip?: number;
@@ -17,7 +18,7 @@ export async function getProducts(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('product-lists/products.graphql'),
@@ -25,6 +26,7 @@ export async function getProducts(
       }),
     'product-lists',
   );
+  return unwrapGraphQL(result);
 }
 
 export async function getFilters(
@@ -32,7 +34,7 @@ export async function getFilters(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('product-lists/list-filters.graphql'),
@@ -40,6 +42,7 @@ export async function getFilters(
       }),
     'product-lists',
   );
+  return unwrapGraphQL(result);
 }
 
 export async function getCategoryPage(
@@ -47,7 +50,7 @@ export async function getCategoryPage(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('product-lists/category-page.graphql'),
@@ -58,6 +61,7 @@ export async function getCategoryPage(
       }),
     'product-lists',
   );
+  return unwrapGraphQL(result);
 }
 
 export async function getBrandPage(
@@ -65,7 +69,7 @@ export async function getBrandPage(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('product-lists/brand-page.graphql'),
@@ -76,6 +80,7 @@ export async function getBrandPage(
       }),
     'product-lists',
   );
+  return unwrapGraphQL(result);
 }
 
 export async function getDiscountCampaignPage(
@@ -83,7 +88,7 @@ export async function getDiscountCampaignPage(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery(
@@ -96,4 +101,5 @@ export async function getDiscountCampaignPage(
       }),
     'product-lists',
   );
+  return unwrapGraphQL(result);
 }

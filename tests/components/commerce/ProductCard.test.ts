@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import ProductCard from '../../../app/components/shared/ProductCard.vue';
 
@@ -6,6 +6,15 @@ const geinsImageStub = {
   template: '<div class="geins-image" />',
   props: ['fileName', 'type', 'alt', 'loading'],
 };
+
+const mockAddItem = vi.fn();
+
+vi.mock('~/stores/cart', () => ({
+  useCartStore: () => ({
+    addItem: mockAddItem,
+    isLoading: false,
+  }),
+}));
 
 const stubs = {
   GeinsImage: geinsImageStub,
@@ -20,11 +29,33 @@ const stubs = {
   },
   StockBadge: {
     template: '<span class="stock-badge" />',
-    props: ['stock'],
+    props: ['stock', 'size'],
   },
   SharedStockBadge: {
     template: '<span class="stock-badge" />',
-    props: ['stock'],
+    props: ['stock', 'size'],
+  },
+  QuantityInput: {
+    template: '<div class="quantity-input" />',
+    props: ['modelValue', 'min'],
+  },
+  SharedQuantityInput: {
+    template: '<div class="quantity-input" />',
+    props: ['modelValue', 'min'],
+  },
+  Button: {
+    template:
+      '<button :data-testid="$attrs[\'data-testid\']" :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+    props: ['disabled'],
+    emits: ['click'],
+    inheritAttrs: false,
+  },
+  UiButton: {
+    template:
+      '<button :data-testid="$attrs[\'data-testid\']" :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
+    props: ['disabled'],
+    emits: ['click'],
+    inheritAttrs: false,
   },
 };
 
@@ -46,11 +77,16 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
     },
     totalStock: { inStock: 10, oversellable: 0, totalStock: 10, static: 0 },
     productImages: [{ fileName: 'product-1.jpg', isPrimary: true, url: '' }],
+    skus: [{ skuId: 101, name: 'Default', stock: { totalStock: 10 } }],
     ...overrides,
   };
 }
 
 describe('ProductCard', () => {
+  beforeEach(() => {
+    mockAddItem.mockReset();
+  });
+
   it('renders product name', () => {
     const wrapper = mountComponent(ProductCard, {
       props: { product: makeProduct() },
@@ -59,12 +95,24 @@ describe('ProductCard', () => {
     expect(wrapper.text()).toContain('Test Product');
   });
 
-  it('renders brand name', () => {
+  it('renders article number', () => {
     const wrapper = mountComponent(ProductCard, {
       props: { product: makeProduct() },
       global: { stubs },
     });
-    expect(wrapper.text()).toContain('Test Brand');
+    expect(wrapper.find('[data-testid="article-number"]').exists()).toBe(true);
+    // $t mock returns the key, so check the key is rendered
+    expect(wrapper.find('[data-testid="article-number"]').text()).toContain(
+      'product.article_number',
+    );
+  });
+
+  it('renders stock badge below the title', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: makeProduct() },
+      global: { stubs },
+    });
+    expect(wrapper.find('.stock-badge').exists()).toBe(true);
   });
 
   it('renders GeinsImage with first product image', () => {
@@ -83,22 +131,75 @@ describe('ProductCard', () => {
     expect(wrapper.find('.price-display').exists()).toBe(true);
   });
 
-  it('renders StockBadge with totalStock', () => {
+  it('does not render stock badge when totalStock is missing', () => {
     const wrapper = mountComponent(ProductCard, {
-      props: { product: makeProduct() },
+      props: { product: makeProduct({ totalStock: undefined }) },
       global: { stubs },
     });
-    expect(wrapper.find('.stock-badge').exists()).toBe(true);
+    expect(wrapper.find('.stock-badge').exists()).toBe(false);
   });
 
-  it('wraps in NuxtLink to canonicalUrl', () => {
+  it('only wraps image and title in NuxtLink, not the entire card', () => {
     const wrapper = mountComponent(ProductCard, {
       props: { product: makeProduct() },
       global: { stubs },
     });
-    const link = wrapper.find('a');
-    expect(link.exists()).toBe(true);
-    expect(link.attributes('href')).toBe('/products/test-product');
+    // The root element should be a div, not a link
+    expect(wrapper.element.tagName).toBe('DIV');
+    // There should be links for image and title
+    const links = wrapper.findAll('a');
+    expect(links.length).toBe(2);
+    // Both should point to the product URL
+    links.forEach((link) => {
+      expect(link.attributes('href')).toBe('/products/test-product');
+    });
+  });
+
+  it('renders QuantityInput', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: makeProduct() },
+      global: { stubs },
+    });
+    expect(wrapper.find('.quantity-input').exists()).toBe(true);
+  });
+
+  it('renders add-to-cart button', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: makeProduct() },
+      global: { stubs },
+    });
+    const button = wrapper.find('[data-testid="add-to-cart-button"]');
+    expect(button.exists()).toBe(true);
+    expect(button.text()).toContain('cart.add_to_cart');
+  });
+
+  it('calls addItem on cart store when add-to-cart is clicked', async () => {
+    mockAddItem.mockResolvedValue(undefined);
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: makeProduct() },
+      global: { stubs },
+    });
+    const addToCartButton = wrapper.find('[data-testid="add-to-cart-button"]');
+    expect(addToCartButton.exists()).toBe(true);
+    await addToCartButton.trigger('click');
+    expect(mockAddItem).toHaveBeenCalledWith(101, 1);
+  });
+
+  it('disables add-to-cart button when no skus available', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: makeProduct({ skus: [] }) },
+      global: { stubs },
+    });
+    const addToCartButton = wrapper.find('[data-testid="add-to-cart-button"]');
+    expect(addToCartButton.attributes('disabled')).toBeDefined();
+  });
+
+  it('renders wishlist button', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: makeProduct() },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="wishlist-button"]').exists()).toBe(true);
   });
 
   it('applies grid variant by default', () => {
@@ -117,12 +218,20 @@ describe('ProductCard', () => {
     expect(wrapper.find('.flex-row').exists()).toBe(true);
   });
 
-  it('handles missing brand gracefully', () => {
+  it('handles missing totalStock gracefully', () => {
     const wrapper = mountComponent(ProductCard, {
-      props: { product: makeProduct({ brand: undefined }) },
+      props: { product: makeProduct({ totalStock: undefined }) },
       global: { stubs },
     });
-    expect(wrapper.text()).not.toContain('Test Brand');
+    expect(wrapper.find('.stock-badge').exists()).toBe(false);
+  });
+
+  it('handles missing article number gracefully', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: makeProduct({ articleNumber: undefined }) },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="article-number"]').exists()).toBe(false);
   });
 
   it('handles missing images gracefully', () => {

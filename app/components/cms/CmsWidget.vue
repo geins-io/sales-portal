@@ -25,6 +25,12 @@ const widgetRegistry: Record<
   ButtonsPageWidget: defineAsyncComponent(
     () => import('./widgets/ButtonsWidget.vue'),
   ),
+  JSONPageWidget: defineAsyncComponent(
+    () => import('./widgets/JsonWidget.vue'),
+  ),
+  'Product listPageWidget': defineAsyncComponent(
+    () => import('./widgets/ProductListWidget.vue'),
+  ),
 };
 
 const resolvedComponent = computed(() => {

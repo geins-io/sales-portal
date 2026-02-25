@@ -43,6 +43,18 @@ const componentTestFiles = [
   'tests/components/commerce/LoadingState.test.ts',
   'tests/components/commerce/EmptyState.test.ts',
   'tests/components/AppBreadcrumbs.test.ts',
+  'tests/components/product/ProductFilters.test.ts',
+  'tests/components/product/ProductListToolbar.test.ts',
+  'tests/components/product/ProductGallery.test.ts',
+  'tests/components/product/VariantSelector.test.ts',
+  'tests/components/product/ProductTabs.test.ts',
+  'tests/components/product/ReviewCard.test.ts',
+  'tests/components/product/RelatedProducts.test.ts',
+  'tests/components/search/SearchAutocomplete.test.ts',
+  'tests/components/cart/CartItem.test.ts',
+  'tests/components/cart/CartDrawer.test.ts',
+  'tests/components/cart/CartPage.test.ts',
+  'tests/components/shared/Pagination.test.ts',
 ];
 
 // Get Nuxt's Vite config once (aliases, auto-imports, plugins)

@@ -13,7 +13,7 @@ const year = new Date().getFullYear();
 <template>
   <span
     data-slot="copyright"
-    :class="cn('text-muted-foreground text-xs', props.class)"
+    :class="cn('text-xs text-neutral-400', props.class)"
   >
     &copy; {{ year }} {{ brandName }}. All rights reserved.
   </span>

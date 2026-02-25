@@ -13,6 +13,62 @@ import { createPinia, setActivePinia } from 'pinia';
 // Create a fresh Pinia instance for each test so stores work without Nuxt
 setActivePinia(createPinia());
 
+// Mock vue-i18n — useI18n requires app.use(createI18n()) which isn't available
+// in the component tier. Return a passthrough `t` function.
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) => {
+      if (params) {
+        let result = key;
+        for (const [k, v] of Object.entries(params)) {
+          result = result.replace(`{${k}}`, String(v));
+        }
+        return result;
+      }
+      return key;
+    },
+    locale: ref('en'),
+  }),
+}));
+
+// Mock useRouter / useRoute — Nuxt composables need useNuxtApp() which is unavailable
+// in the component tier. Provide a lightweight mock instead.
+const mockRouter = {
+  push: vi.fn(() => Promise.resolve()),
+  replace: vi.fn(() => Promise.resolve()),
+  go: vi.fn(),
+  back: vi.fn(),
+  forward: vi.fn(),
+  currentRoute: ref({
+    path: '/',
+    params: {},
+    query: {},
+    hash: '',
+    fullPath: '/',
+    name: 'index',
+    matched: [],
+    redirectedFrom: undefined,
+    meta: {},
+  }),
+};
+
+vi.stubGlobal('useRouter', () => mockRouter);
+vi.stubGlobal('useRoute', () => mockRouter.currentRoute.value);
+vi.stubGlobal(
+  '$fetch',
+  vi.fn(() => Promise.resolve(null)),
+);
+
+// Mock Nuxt's router composables — auto-imports resolve to #app/composables/router
+vi.mock('#app/composables/router', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    useRouter: () => mockRouter,
+    useRoute: () => mockRouter.currentRoute.value,
+  };
+});
+
 // Mock useTenant with the same data as setup-nuxt.ts registerEndpoint
 vi.mock('../app/composables/useTenant', () => {
   const tenant = ref({

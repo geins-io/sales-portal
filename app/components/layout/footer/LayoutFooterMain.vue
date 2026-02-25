@@ -45,22 +45,22 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
     class="px-6 py-8 lg:px-8 lg:py-10"
   >
     <div class="mx-auto max-w-7xl">
-      <h3 v-if="menu?.title" class="mb-4 text-sm font-bold">
+      <h3 v-if="menu?.title" class="mb-4 text-sm font-bold text-white">
         {{ menu.title }}
       </h3>
-      <div class="flex flex-col gap-6">
+      <div class="grid grid-cols-2 gap-8 md:grid-cols-4">
         <template v-for="item in visibleItems" :key="item.id">
-          <!-- Item with children: render as a column group -->
+          <!-- Item with children: render as a column -->
           <div v-if="visibleChildren(item).length">
-            <h4 class="mb-2 text-sm font-semibold">
+            <h4 class="mb-3 text-sm font-semibold text-white">
               {{ getMenuLabel(item) }}
             </h4>
-            <ul class="flex flex-wrap gap-x-6 gap-y-1">
+            <ul class="flex flex-col gap-2">
               <li v-for="child in visibleChildren(item)" :key="child.id">
                 <component
                   :is="linkTag(child)"
                   v-bind="linkAttrs(child)"
-                  class="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                  class="text-sm text-neutral-400 transition-colors hover:text-white"
                 >
                   {{ getMenuLabel(child) }}
                 </component>
@@ -73,7 +73,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
             :is="linkTag(item)"
             v-else
             v-bind="linkAttrs(item)"
-            class="text-muted-foreground hover:text-foreground text-sm transition-colors"
+            class="text-sm text-neutral-400 transition-colors hover:text-white"
           >
             {{ getMenuLabel(item) }}
           </component>

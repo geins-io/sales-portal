@@ -1,9 +1,36 @@
 import type { MenuItemType } from '../types/cms';
 
 /**
- * Normalize a CMS canonical URL to a relative path if it belongs to the current host.
+ * Strip Geins market/locale/type prefix from a path.
+ * Geins CMS canonical URLs include prefixes like:
+ *   /se/sv/l/epoxi       → /epoxi       (category)
+ *   /se/sv/p/cat/product  → /cat/product  (product)
+ *   /se/sv/about-us       → /about-us     (CMS page)
+ *
+ * Pattern: /{market}/{locale}[/{type}]/{slug...}
+ * where market = 2-char, locale = 2-4 char, type = single char (l, p, b, etc.)
+ */
+export function stripGeinsPrefix(path: string): string {
+  // Match: /xx/xx-yy/ or /xx/xx/ prefix (market + locale)
+  const prefixMatch = path.match(
+    /^\/[a-z]{2}\/[a-z]{2}(?:-[a-z]{2})?(?:\/([a-z]))?(\/.*)$/i,
+  );
+  if (!prefixMatch) return path;
+
+  const typeIndicator = prefixMatch[1]; // 'l', 'p', 'b', etc.
+  const remainder = prefixMatch[2]!; // '/epoxi' or '/cat/product'
+
+  // If there's a single-char type indicator, strip it (it's already consumed by the regex)
+  if (typeIndicator) return remainder;
+
+  // No type indicator — just market/locale prefix
+  return remainder;
+}
+
+/**
+ * Normalize a CMS canonical URL to a relative path for our app routing.
  * CMS stores absolute URLs like `https://tenant.example.com/se/sv/l/epoxi`.
- * We strip the host part for internal navigation so NuxtLink works.
+ * We strip the host and Geins market/locale/type prefixes so NuxtLink works.
  */
 export function normalizeMenuUrl(
   canonicalUrl: string | undefined | null,
@@ -11,19 +38,23 @@ export function normalizeMenuUrl(
 ): string {
   if (!canonicalUrl) return '';
 
-  // Already relative
-  if (canonicalUrl.startsWith('/')) return canonicalUrl;
+  let path = canonicalUrl;
 
-  try {
-    const parsed = new URL(canonicalUrl);
-    if (currentHost && parsed.host === currentHost) {
-      return parsed.pathname + parsed.search + parsed.hash;
+  // If absolute URL, extract pathname
+  if (!canonicalUrl.startsWith('/')) {
+    try {
+      const parsed = new URL(canonicalUrl);
+      if (currentHost && parsed.host !== currentHost) {
+        // External URL — return as-is
+        return canonicalUrl;
+      }
+      path = parsed.pathname + parsed.search + parsed.hash;
+    } catch {
+      return canonicalUrl;
     }
-  } catch {
-    // Not a valid URL — return as-is
   }
 
-  return canonicalUrl;
+  return stripGeinsPrefix(path);
 }
 
 /**

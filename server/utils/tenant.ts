@@ -17,15 +17,16 @@ import {
  * Single source of truth — used in fetchTenantConfig and createTenant.
  */
 export const DEFAULT_GEINS_SETTINGS: GeinsSettings = {
-  apiKey: '',
-  accountName: '',
-  channel: '1',
-  tld: 'se',
-  locale: 'sv-SE',
-  market: 'se',
-  environment: 'production' as const,
-  availableLocales: ['sv-SE'],
-  availableMarkets: ['se'],
+  apiKey: process.env.GEINS_API_KEY || '',
+  accountName: process.env.GEINS_ACCOUNT_NAME || '',
+  channel: process.env.GEINS_CHANNEL || '1',
+  tld: process.env.GEINS_TLD || 'se',
+  locale: process.env.GEINS_LOCALE || 'sv-SE',
+  market: process.env.GEINS_MARKET || 'se',
+  environment:
+    (process.env.GEINS_ENVIRONMENT as 'production' | 'staging') || 'production',
+  availableLocales: [process.env.GEINS_LOCALE || 'sv-SE'],
+  availableMarkets: [process.env.GEINS_MARKET || 'se'],
 };
 
 // ---------------------------------------------------------------------------

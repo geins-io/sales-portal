@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3';
 import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 import { loadQuery } from './graphql/loader';
+import { unwrapGraphQL } from './graphql/unwrap';
 
 /**
  * Product services — direct GraphQL via @geins/core.
@@ -13,7 +14,7 @@ export async function getProduct(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('products/product.graphql'),
@@ -24,6 +25,7 @@ export async function getProduct(
       }),
     'products',
   );
+  return unwrapGraphQL(result);
 }
 
 export async function getRelatedProducts(
@@ -31,7 +33,7 @@ export async function getRelatedProducts(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('products/related-products.graphql'),
@@ -42,6 +44,7 @@ export async function getRelatedProducts(
       }),
     'products',
   );
+  return unwrapGraphQL(result);
 }
 
 export async function getReviews(
@@ -49,7 +52,7 @@ export async function getReviews(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('products/reviews.graphql'),
@@ -57,6 +60,7 @@ export async function getReviews(
       }),
     'products',
   );
+  return unwrapGraphQL(result);
 }
 
 export async function getPriceHistory(
@@ -64,7 +68,7 @@ export async function getPriceHistory(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('products/price-history.graphql'),
@@ -75,6 +79,7 @@ export async function getPriceHistory(
       }),
     'products',
   );
+  return unwrapGraphQL(result);
 }
 
 export async function postReview(
@@ -82,7 +87,7 @@ export async function postReview(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.mutation({
         queryAsString: loadQuery('products/post-review.graphql'),
@@ -90,6 +95,7 @@ export async function postReview(
       }),
     'products',
   );
+  return unwrapGraphQL(result);
 }
 
 export async function monitorAvailability(
@@ -97,7 +103,7 @@ export async function monitorAvailability(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  return wrapServiceCall(
+  const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.mutation({
         queryAsString: loadQuery('products/monitor-availability.graphql'),
@@ -105,4 +111,5 @@ export async function monitorAvailability(
       }),
     'products',
   );
+  return unwrapGraphQL(result);
 }

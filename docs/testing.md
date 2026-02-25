@@ -8,7 +8,7 @@ Testing strategy, architecture, and practices for the Sales Portal.
 
 ## Overview
 
-875 tests across 54 files, running in ~20s via a 3-tier Vitest workspace.
+1219 tests across 90 files, running in ~30s via a 3-tier Vitest workspace.
 
 | Level       | Tool                    | What it tests                            |
 | ----------- | ----------------------- | ---------------------------------------- |

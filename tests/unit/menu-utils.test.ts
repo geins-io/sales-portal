@@ -1,24 +1,54 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeMenuUrl,
+  stripGeinsPrefix,
   getMenuLabel,
   getVisibleItems,
   isExternalUrl,
 } from '../../shared/utils/menu';
 import type { MenuItemType } from '../../shared/types/cms';
 
+describe('stripGeinsPrefix', () => {
+  it('strips market/locale/type prefix from category URL', () => {
+    expect(stripGeinsPrefix('/se/sv/l/epoxi')).toBe('/epoxi');
+  });
+
+  it('strips market/locale prefix from CMS page URL', () => {
+    expect(stripGeinsPrefix('/se/sv/about-us')).toBe('/about-us');
+  });
+
+  it('strips market/locale/type prefix from product URL', () => {
+    expect(stripGeinsPrefix('/se/sv/p/epoxi/my-product')).toBe(
+      '/epoxi/my-product',
+    );
+  });
+
+  it('handles locale with region code', () => {
+    expect(stripGeinsPrefix('/se/sv-se/l/epoxi')).toBe('/epoxi');
+  });
+
+  it('returns path as-is when no prefix matches', () => {
+    expect(stripGeinsPrefix('/about-us')).toBe('/about-us');
+    expect(stripGeinsPrefix('/epoxi')).toBe('/epoxi');
+  });
+});
+
 describe('normalizeMenuUrl', () => {
-  it('returns relative path as-is', () => {
+  it('returns stripped relative path', () => {
+    expect(normalizeMenuUrl('/se/sv/l/epoxi')).toBe('/epoxi');
+  });
+
+  it('returns simple relative path as-is', () => {
     expect(normalizeMenuUrl('/about-us')).toBe('/about-us');
   });
 
-  it('strips matching hostname from absolute URL', () => {
+  it('strips hostname and Geins prefix from absolute URL', () => {
     expect(
       normalizeMenuUrl(
         'https://monitor.example.com/se/sv/l/epoxi',
         'monitor.example.com',
       ),
-    ).toBe('/se/sv/l/epoxi');
+    ).toBe('/epoxi');
   });
 
   it('keeps full URL when hostname does not match', () => {
