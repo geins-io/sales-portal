@@ -20,7 +20,10 @@ async function handleSubscribe() {
 </script>
 
 <template>
-  <div data-slot="footer-top" class="border-b px-6 py-8 lg:px-8 lg:py-10">
+  <div
+    data-slot="footer-top"
+    class="bg-muted border-b px-6 py-8 lg:px-8 lg:py-10"
+  >
     <div
       class="mx-auto flex max-w-7xl flex-col gap-6 lg:flex-row lg:items-center lg:justify-between"
     >

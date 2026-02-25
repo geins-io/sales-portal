@@ -61,10 +61,13 @@ function onAccordionChange(value: string | string[] | undefined) {
     >
       <TabsList>
         <TabsTrigger v-if="hasDescription" value="description">
-          {{ $t('product.description') }}
+          {{ $t('product.details') }}
         </TabsTrigger>
         <TabsTrigger v-if="hasSpecs" value="specifications">
           {{ $t('product.specifications') }}
+        </TabsTrigger>
+        <TabsTrigger value="documents">
+          {{ $t('product.documents') }}
         </TabsTrigger>
         <TabsTrigger value="reviews"> {{ $t('product.reviews') }}</TabsTrigger>
       </TabsList>
@@ -75,13 +78,19 @@ function onAccordionChange(value: string | string[] | undefined) {
       </TabsContent>
 
       <TabsContent v-if="hasSpecs" value="specifications">
-        <div class="flex flex-col gap-4">
+        <div class="grid gap-6 md:grid-cols-2">
           <div
             v-for="group in product.parameterGroups"
             :key="group.groupName"
             class="flex flex-col gap-2"
           >
             <h4 class="text-sm font-semibold">{{ group.groupName }}</h4>
+            <p
+              v-if="group.parameters?.[0]?.description"
+              class="text-muted-foreground text-xs"
+            >
+              {{ group.parameters[0].description }}
+            </p>
             <table class="w-full text-sm" data-testid="spec-table">
               <tbody>
                 <tr
@@ -98,6 +107,12 @@ function onAccordionChange(value: string | string[] | undefined) {
             </table>
           </div>
         </div>
+      </TabsContent>
+
+      <TabsContent value="documents">
+        <p class="text-muted-foreground text-sm">
+          {{ $t('product.no_documents') }}
+        </p>
       </TabsContent>
 
       <TabsContent value="reviews">
@@ -127,7 +142,7 @@ function onAccordionChange(value: string | string[] | undefined) {
     <!-- Mobile: Accordion -->
     <Accordion v-else type="multiple" @update:model-value="onAccordionChange">
       <AccordionItem v-if="hasDescription" value="description">
-        <AccordionTrigger>Description</AccordionTrigger>
+        <AccordionTrigger>{{ $t('product.details') }}</AccordionTrigger>
         <AccordionContent>
           <!-- eslint-disable-next-line vue/no-v-html -->
           <div class="prose max-w-none" v-html="product.texts?.text1" />
@@ -135,7 +150,7 @@ function onAccordionChange(value: string | string[] | undefined) {
       </AccordionItem>
 
       <AccordionItem v-if="hasSpecs" value="specifications">
-        <AccordionTrigger>Specifications</AccordionTrigger>
+        <AccordionTrigger>{{ $t('product.specifications') }}</AccordionTrigger>
         <AccordionContent>
           <div class="flex flex-col gap-4">
             <div
@@ -163,8 +178,17 @@ function onAccordionChange(value: string | string[] | undefined) {
         </AccordionContent>
       </AccordionItem>
 
+      <AccordionItem value="documents">
+        <AccordionTrigger>{{ $t('product.documents') }}</AccordionTrigger>
+        <AccordionContent>
+          <p class="text-muted-foreground text-sm">
+            {{ $t('product.no_documents') }}
+          </p>
+        </AccordionContent>
+      </AccordionItem>
+
       <AccordionItem value="reviews">
-        <AccordionTrigger>Reviews</AccordionTrigger>
+        <AccordionTrigger>{{ $t('product.reviews') }}</AccordionTrigger>
         <AccordionContent>
           <div class="flex flex-col gap-4">
             <div v-if="reviews" class="flex items-center gap-2">

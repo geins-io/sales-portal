@@ -1,16 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import { shallowMount } from '@vue/test-utils';
+import { describe, it, expect } from 'vitest';
+import { mountComponent } from '../../utils/component';
 import ProductFilters from '../../../app/components/product/ProductFilters.vue';
-
-// Mock @vueuse/core useMediaQuery
-vi.mock('@vueuse/core', async () => {
-  const actual =
-    await vi.importActual<typeof import('@vueuse/core')>('@vueuse/core');
-  return {
-    ...actual,
-    useMediaQuery: vi.fn(() => ({ value: true })),
-  };
-});
 
 const mockFacets = [
   {
@@ -76,11 +66,46 @@ const defaultStubs = {
     template: '<div class="filter-group" :data-facet-id="facet.filterId" />',
     props: ['facet', 'selected'],
   },
+  Sheet: {
+    template: '<div><slot /></div>',
+    props: ['open'],
+  },
+  SheetContent: {
+    template: '<div><slot /></div>',
+  },
+  SheetHeader: {
+    template: '<div><slot /></div>',
+  },
+  SheetTitle: {
+    template: '<div><slot /></div>',
+  },
+  SlidersHorizontal: true,
 };
 
 describe('ProductFilters', () => {
-  it('renders a FilterGroup for each facet on desktop', () => {
-    const wrapper = shallowMount(ProductFilters, {
+  it('renders a filters button', () => {
+    const wrapper = mountComponent(ProductFilters, {
+      props: {
+        facets: mockFacets,
+        modelValue: {},
+      },
+      global: {
+        stubs: {
+          ...defaultStubs,
+          Button: {
+            template: '<button><slot /></button>',
+            props: ['size', 'variant'],
+          },
+        },
+      },
+    });
+    const button = wrapper.find('button');
+    expect(button.exists()).toBe(true);
+    expect(button.text()).toContain('product.filters');
+  });
+
+  it('renders FilterGroups inside the sheet', () => {
+    const wrapper = mountComponent(ProductFilters, {
       props: {
         facets: mockFacets,
         modelValue: {},
@@ -93,23 +118,6 @@ describe('ProductFilters', () => {
     expect(groups).toHaveLength(2);
   });
 
-  it('passes correct selected values to FilterGroup', () => {
-    const wrapper = shallowMount(ProductFilters, {
-      props: {
-        facets: mockFacets,
-        modelValue: { color: ['red'] },
-      },
-      global: {
-        stubs: defaultStubs,
-      },
-    });
-    const groups = wrapper.findAll('.filter-group');
-    const colorGroup = groups.find(
-      (g) => g.attributes('data-facet-id') === 'color',
-    );
-    expect(colorGroup).toBeTruthy();
-  });
-
   it('emits update:modelValue when a facet is updated', async () => {
     const FilterGroupStub = {
       template:
@@ -118,13 +126,14 @@ describe('ProductFilters', () => {
       emits: ['update:selected'],
     };
 
-    const wrapper = shallowMount(ProductFilters, {
+    const wrapper = mountComponent(ProductFilters, {
       props: {
         facets: mockFacets,
         modelValue: {},
       },
       global: {
         stubs: {
+          ...defaultStubs,
           FilterGroup: FilterGroupStub,
           ProductFilterGroup: FilterGroupStub,
         },
@@ -145,13 +154,14 @@ describe('ProductFilters', () => {
       emits: ['update:selected'],
     };
 
-    const wrapper = shallowMount(ProductFilters, {
+    const wrapper = mountComponent(ProductFilters, {
       props: {
         facets: mockFacets,
         modelValue: { color: ['red'] },
       },
       global: {
         stubs: {
+          ...defaultStubs,
           FilterGroup: FilterGroupStub,
           ProductFilterGroup: FilterGroupStub,
         },

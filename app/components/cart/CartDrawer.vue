@@ -10,6 +10,14 @@ const isOpen = computed({
     cartStore.isOpen = val;
   },
 });
+
+const shippingFee = computed(
+  () => cartStore.cart?.summary?.shipping?.feeIncVatFormatted ?? null,
+);
+
+const taxFormatted = computed(
+  () => cartStore.cart?.summary?.total?.vatFormatted ?? null,
+);
 </script>
 
 <template>
@@ -85,11 +93,30 @@ const isOpen = computed({
               ''
             }}</span>
           </div>
-          <div class="flex items-center justify-between font-medium">
-            <span>{{ $t('cart.total') }}</span>
-            <span>{{
-              cartStore.cart?.summary?.total?.sellingPriceIncVatFormatted ?? ''
+          <div
+            v-if="shippingFee"
+            class="flex items-center justify-between text-sm"
+          >
+            <span class="text-muted-foreground">{{ $t('cart.shipping') }}</span>
+            <span>{{ shippingFee }}</span>
+          </div>
+          <div
+            v-if="taxFormatted"
+            class="flex items-center justify-between text-sm"
+          >
+            <span class="text-muted-foreground">{{
+              $t('cart.tax_estimated')
             }}</span>
+            <span>{{ taxFormatted }}</span>
+          </div>
+          <div class="border-border border-t pt-2">
+            <div class="flex items-center justify-between font-medium">
+              <span>{{ $t('cart.total') }}</span>
+              <span>{{
+                cartStore.cart?.summary?.total?.sellingPriceIncVatFormatted ??
+                ''
+              }}</span>
+            </div>
           </div>
         </div>
 

@@ -113,7 +113,7 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ProductTabs', () => {
-  it('renders tab triggers for description, specifications, reviews', () => {
+  it('renders tab triggers for product details, specifications, documents, related', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: {
         product: makeProduct(),
@@ -123,10 +123,11 @@ describe('ProductTabs', () => {
       global: { stubs },
     });
     const triggers = wrapper.findAll('.tabs-trigger');
-    expect(triggers.length).toBe(3);
-    expect(triggers[0]!.text()).toBe('product.description');
+    expect(triggers.length).toBe(4);
+    expect(triggers[0]!.text()).toBe('product.details');
     expect(triggers[1]!.text()).toBe('product.specifications');
-    expect(triggers[2]!.text()).toBe('product.reviews');
+    expect(triggers[2]!.text()).toBe('product.documents');
+    expect(triggers[3]!.text()).toBe('product.reviews');
   });
 
   it('renders description content with v-html', () => {
@@ -169,7 +170,7 @@ describe('ProductTabs', () => {
     });
     const triggers = wrapper.findAll('.tabs-trigger');
     const labels = triggers.map((t) => t.text());
-    expect(labels).not.toContain('product.description');
+    expect(labels).not.toContain('product.details');
   });
 
   it('shows loading state when reviews loading', () => {

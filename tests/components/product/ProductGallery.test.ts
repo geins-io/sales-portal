@@ -80,4 +80,36 @@ describe('ProductGallery', () => {
     // After click, second thumbnail should have ring
     expect(thumbButtons[1]!.classes()).toContain('ring-primary');
   });
+
+  it('shows image counter for multiple images', () => {
+    const wrapper = mountComponent(ProductGallery, {
+      props: { images: makeImages(3), productName: 'Test Product' },
+      global: { stubs },
+    });
+    const counter = wrapper.find('[data-testid="image-counter"]');
+    expect(counter.exists()).toBe(true);
+    expect(counter.text()).toContain('Image 1 of 3');
+  });
+
+  it('hides image counter for single image', () => {
+    const wrapper = mountComponent(ProductGallery, {
+      props: { images: makeImages(1), productName: 'Test Product' },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="image-counter"]').exists()).toBe(false);
+  });
+
+  it('updates image counter on thumbnail click', async () => {
+    const wrapper = mountComponent(ProductGallery, {
+      props: { images: makeImages(3), productName: 'Test Product' },
+      global: { stubs },
+    });
+    const thumbnails = wrapper.find('[data-testid="thumbnails"]');
+    const thumbButtons = thumbnails.findAll('button');
+
+    await thumbButtons[1]!.trigger('click');
+
+    const counter = wrapper.find('[data-testid="image-counter"]');
+    expect(counter.text()).toContain('Image 2 of 3');
+  });
 });

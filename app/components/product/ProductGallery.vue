@@ -42,50 +42,62 @@ const showThumbnails = computed(() => props.images.length > 1);
 </script>
 
 <template>
-  <div class="flex flex-col gap-3">
-    <!-- Main image -->
-    <button
-      v-if="currentImage"
-      type="button"
-      class="bg-muted aspect-square w-full cursor-pointer overflow-hidden rounded-lg"
-      @click="openLightbox"
-    >
-      <GeinsImage
-        :file-name="currentImage.fileName ?? ''"
-        type="product"
-        :alt="productName"
-        loading="eager"
-        class="size-full object-cover"
-      />
-    </button>
+  <div class="flex flex-col gap-2">
+    <!-- Gallery: thumbnails left + main image right -->
+    <div class="flex gap-3">
+      <!-- Vertical thumbnail strip -->
+      <div
+        v-if="showThumbnails"
+        class="flex flex-col gap-2 overflow-y-auto"
+        data-testid="thumbnails"
+      >
+        <button
+          v-for="(image, index) in images"
+          :key="index"
+          type="button"
+          class="bg-muted size-16 shrink-0 overflow-hidden rounded-md transition-all"
+          :class="
+            index === selectedIndex
+              ? 'ring-primary ring-2 ring-offset-1'
+              : 'opacity-70 hover:opacity-100'
+          "
+          @click="selectImage(index)"
+        >
+          <GeinsImage
+            :file-name="image.fileName ?? ''"
+            type="product"
+            :alt="`${productName} thumbnail ${index + 1}`"
+            loading="lazy"
+            class="size-full object-cover"
+          />
+        </button>
+      </div>
 
-    <!-- Thumbnails -->
-    <div
-      v-if="showThumbnails"
-      class="flex gap-2 overflow-x-auto"
-      data-testid="thumbnails"
-    >
+      <!-- Main image -->
       <button
-        v-for="(image, index) in images"
-        :key="index"
+        v-if="currentImage"
         type="button"
-        class="bg-muted size-16 shrink-0 overflow-hidden rounded-md transition-all"
-        :class="
-          index === selectedIndex
-            ? 'ring-primary ring-2 ring-offset-2'
-            : 'opacity-70 hover:opacity-100'
-        "
-        @click="selectImage(index)"
+        class="bg-muted flex-1 cursor-pointer overflow-hidden rounded-lg"
+        @click="openLightbox"
       >
         <GeinsImage
-          :file-name="image.fileName ?? ''"
+          :file-name="currentImage.fileName ?? ''"
           type="product"
-          :alt="`${productName} thumbnail ${index + 1}`"
-          loading="lazy"
-          class="size-full object-cover"
+          :alt="productName"
+          loading="eager"
+          class="max-h-[500px] w-full object-contain"
         />
       </button>
     </div>
+
+    <!-- Image counter -->
+    <p
+      v-if="showThumbnails"
+      class="text-muted-foreground text-xs"
+      data-testid="image-counter"
+    >
+      Image {{ selectedIndex + 1 }} of {{ images.length }}
+    </p>
 
     <!-- Lightbox -->
     <Dialog v-model:open="lightboxOpen">

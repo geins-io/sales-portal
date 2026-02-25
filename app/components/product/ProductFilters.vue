@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { FilterFacet } from '#shared/types/commerce';
 import { SlidersHorizontal } from 'lucide-vue-next';
-import { useMediaQuery } from '@vueuse/core';
 import { Button } from '~/components/ui/button';
 import {
   Sheet,
@@ -19,7 +18,6 @@ const emit = defineEmits<{
   'update:modelValue': [value: Record<string, string[]>];
 }>();
 
-const isDesktop = useMediaQuery('(min-width: 768px)');
 const sheetOpen = ref(false);
 
 function updateFacet(facetId: string, selected: string[]) {
@@ -37,20 +35,8 @@ function getSelected(facetId: string): string[] {
 </script>
 
 <template>
-  <!-- Desktop: sticky sidebar -->
-  <aside v-if="isDesktop" class="sticky top-4 w-64 shrink-0 space-y-1">
-    <FilterGroup
-      v-for="facet in facets"
-      :key="facet.filterId"
-      :facet="facet"
-      :selected="getSelected(facet.filterId)"
-      @update:selected="updateFacet(facet.filterId, $event)"
-    />
-  </aside>
-
-  <!-- Mobile: button + sheet -->
-  <div v-else>
-    <Button variant="outline" size="sm" @click="sheetOpen = true">
+  <div>
+    <Button size="sm" @click="sheetOpen = true">
       <SlidersHorizontal class="mr-2 size-4" />
       {{ $t('product.filters') }}
     </Button>
@@ -58,7 +44,7 @@ function getSelected(facetId: string): string[] {
     <Sheet v-model:open="sheetOpen">
       <SheetContent side="left" class="overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Filters</SheetTitle>
+          <SheetTitle>{{ $t('product.filters') }}</SheetTitle>
         </SheetHeader>
         <div class="mt-4 space-y-1">
           <FilterGroup

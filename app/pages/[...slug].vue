@@ -34,13 +34,16 @@ watch(
 );
 
 // Cache async component definitions to avoid recreating on each render
+const ProductListComponent = defineAsyncComponent(
+  () => import('~/components/pages/ProductList.vue'),
+);
+
 const PageComponents = {
   product: defineAsyncComponent(
     () => import('~/components/pages/ProductDetails.vue'),
   ),
-  category: defineAsyncComponent(
-    () => import('~/components/pages/ProductList.vue'),
-  ),
+  category: ProductListComponent,
+  brand: ProductListComponent,
   page: defineAsyncComponent(() => import('~/components/pages/Content.vue')),
 } as const;
 

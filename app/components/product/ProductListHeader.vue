@@ -15,7 +15,7 @@ defineProps<{
     <div>
       <h1
         v-if="!pageInfo.hideTitle"
-        class="text-2xl font-bold tracking-tight md:text-3xl"
+        class="font-heading text-2xl font-bold tracking-tight"
       >
         {{ pageInfo.name }}
       </h1>

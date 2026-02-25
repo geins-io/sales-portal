@@ -4,7 +4,6 @@ import type {
   ProductListResponse,
   ProductFiltersResponse,
 } from '#shared/types/commerce';
-import { useStorage } from '@vueuse/core';
 
 const route = useRoute();
 const router = useRouter();
@@ -17,7 +16,9 @@ const searchTerm = computed(() => {
 
 const filterState = ref<Record<string, string[]>>({});
 const sortBy = ref('relevance');
-const viewMode = useStorage<'grid' | 'list'>('plp-view-mode', 'grid');
+const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
+  default: () => 'grid',
+});
 const skip = ref(0);
 const take = 24;
 const allProducts = ref<ListProduct[]>([]);
@@ -35,7 +36,9 @@ const sortOptions = computed(() => [
 // --- SEO ---
 useHead({
   title: computed(() =>
-    searchTerm.value ? `Search: ${searchTerm.value}` : 'Search',
+    searchTerm.value
+      ? t('search.results_for', { query: searchTerm.value })
+      : t('search.title'),
   ),
 });
 
@@ -156,7 +159,8 @@ function clearAllFilters() {
     </div>
 
     <!-- Active filters -->
-    <ActiveFilters
+    <ProductActiveFilters
+      v-if="facets.length > 0"
       :filters="filterState"
       :facets="facets"
       @remove="removeFilter"
@@ -171,69 +175,65 @@ function clearAllFilters() {
       :view-mode="viewMode"
       @update:sort-value="sortBy = $event"
       @update:view-mode="viewMode = $event"
-    />
-
-    <!-- Main content: filters sidebar + product grid -->
-    <div class="flex gap-8">
-      <!-- Filters -->
-      <ProductFilters
-        v-if="facets.length"
-        v-model="filterState"
-        :facets="facets"
-      />
-
-      <!-- Product grid/list -->
-      <div class="flex-1">
-        <div
-          :class="
-            viewMode === 'grid'
-              ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
-              : 'flex flex-col gap-4'
-          "
-        >
-          <ProductCard
-            v-for="product in allProducts"
-            :key="product.productId"
-            :product="product"
-            :variant="viewMode"
-          />
-        </div>
-
-        <!-- Empty state -->
-        <div
-          v-if="!isLoading && allProducts.length === 0 && searchTerm"
-          class="py-12 text-center"
-        >
-          <Icon
-            name="lucide:search-x"
-            class="text-muted-foreground mx-auto mb-4 size-12"
-          />
-          <p class="text-muted-foreground text-lg">
-            {{ $t('search.no_results_for', { query: searchTerm }) }}
-          </p>
-          <p class="text-muted-foreground mt-1 text-sm">
-            {{ $t('search.try_different_terms') }}
-          </p>
-        </div>
-
-        <!-- No search term -->
-        <div v-if="!searchTerm" class="py-12 text-center">
-          <Icon
-            name="lucide:search"
-            class="text-muted-foreground mx-auto mb-4 size-12"
-          />
-          <p class="text-muted-foreground text-lg">
-            {{ $t('search.enter_search_term') }}
-          </p>
-        </div>
-
-        <!-- Load more -->
-        <LoadMoreButton
-          :loading="isLoading"
-          :has-more="hasMore"
-          @load-more="loadMore"
+    >
+      <template #filters>
+        <ProductFilters
+          v-if="facets.length"
+          v-model="filterState"
+          :facets="facets"
         />
-      </div>
+      </template>
+    </ProductListToolbar>
+
+    <!-- Product grid/list -->
+    <div
+      :class="
+        viewMode === 'grid'
+          ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
+          : 'flex flex-col gap-4'
+      "
+    >
+      <ProductCard
+        v-for="product in allProducts"
+        :key="product.productId"
+        :product="product"
+        :variant="viewMode"
+      />
     </div>
+
+    <!-- Empty state -->
+    <div
+      v-if="!isLoading && allProducts.length === 0 && searchTerm"
+      class="py-12 text-center"
+    >
+      <Icon
+        name="lucide:search-x"
+        class="text-muted-foreground mx-auto mb-4 size-12"
+      />
+      <p class="text-muted-foreground text-lg">
+        {{ $t('search.no_results_for', { query: searchTerm }) }}
+      </p>
+      <p class="text-muted-foreground mt-1 text-sm">
+        {{ $t('search.try_different_terms') }}
+      </p>
+    </div>
+
+    <!-- No search term -->
+    <div v-if="!searchTerm" class="py-12 text-center">
+      <Icon
+        name="lucide:search"
+        class="text-muted-foreground mx-auto mb-4 size-12"
+      />
+      <p class="text-muted-foreground text-lg">
+        {{ $t('search.enter_search_term') }}
+      </p>
+    </div>
+
+    <!-- Load more -->
+    <LoadMoreButton
+      :loading="isLoading"
+      :has-more="hasMore"
+      @load-more="loadMore"
+    />
   </div>
 </template>

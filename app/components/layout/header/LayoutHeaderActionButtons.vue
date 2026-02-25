@@ -22,15 +22,15 @@ const cartStore = useCartStore();
     <button
       type="button"
       data-slot="cart-button"
-      class="text-muted-foreground hover:text-foreground relative flex items-center gap-1.5 p-2"
+      class="text-muted-foreground hover:text-foreground flex items-center gap-1.5 p-2"
       @click="cartStore.isOpen = true"
     >
       <ShoppingCart class="size-5" />
       <span
         v-if="cartStore.itemCount > 0"
-        class="bg-primary text-primary-foreground absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-bold"
+        class="text-foreground text-sm font-medium"
       >
-        {{ cartStore.itemCount }}
+        {{ cartStore.itemCount }} {{ $t('cart.items_short') }}
       </span>
     </button>
 

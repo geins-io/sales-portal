@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shallowMount } from '@vue/test-utils';
+import { mount } from '@vue/test-utils';
 import ProductListToolbar from '../../../app/components/product/ProductListToolbar.vue';
 
 const sortOptions = [
@@ -21,77 +21,55 @@ const ViewToggleStub = {
   emits: ['update:modelValue'],
 };
 
+const SearchStub = {
+  template: '<span class="search-icon" />',
+};
+
 const defaultStubs = {
   SortDropdown: SortDropdownStub,
   ProductSortDropdown: SortDropdownStub,
   ViewToggle: ViewToggleStub,
   ProductViewToggle: ViewToggleStub,
+  Search: SearchStub,
 };
 
-describe('ProductListToolbar', () => {
-  it('displays the result count', () => {
-    const wrapper = shallowMount(ProductListToolbar, {
-      props: {
-        resultCount: 42,
-        sortValue: 'relevance',
-        sortOptions,
-        viewMode: 'grid' as const,
-      },
-      global: { stubs: defaultStubs },
-    });
-    expect(wrapper.text()).toContain('42 products');
+function mountToolbar(overrides: Record<string, unknown> = {}) {
+  return mount(ProductListToolbar, {
+    props: {
+      resultCount: 42,
+      sortValue: 'relevance',
+      sortOptions,
+      viewMode: 'grid' as const,
+      filterText: '',
+      ...overrides,
+    },
+    global: { stubs: defaultStubs },
   });
+}
 
-  it('uses singular "product" when count is 1', () => {
-    const wrapper = shallowMount(ProductListToolbar, {
-      props: {
-        resultCount: 1,
-        sortValue: 'relevance',
-        sortOptions,
-        viewMode: 'grid' as const,
-      },
-      global: { stubs: defaultStubs },
-    });
-    expect(wrapper.text()).toContain('1 product');
-    expect(wrapper.text()).not.toContain('1 products');
+describe('ProductListToolbar', () => {
+  it('does not display the result count in the toolbar', () => {
+    const wrapper = mountToolbar();
+    expect(wrapper.text()).not.toContain('42 products');
   });
 
   it('renders SortDropdown', () => {
-    const wrapper = shallowMount(ProductListToolbar, {
-      props: {
-        resultCount: 10,
-        sortValue: 'relevance',
-        sortOptions,
-        viewMode: 'grid' as const,
-      },
-      global: { stubs: defaultStubs },
-    });
+    const wrapper = mountToolbar();
     expect(wrapper.find('.sort-dropdown').exists()).toBe(true);
   });
 
   it('renders ViewToggle', () => {
-    const wrapper = shallowMount(ProductListToolbar, {
-      props: {
-        resultCount: 10,
-        sortValue: 'relevance',
-        sortOptions,
-        viewMode: 'grid' as const,
-      },
-      global: { stubs: defaultStubs },
-    });
+    const wrapper = mountToolbar();
     expect(wrapper.find('.view-toggle').exists()).toBe(true);
   });
 
+  it('renders the quick filter input', () => {
+    const wrapper = mountToolbar();
+    expect(wrapper.find('input[data-slot="input"]').exists()).toBe(true);
+  });
+
   it('emits update:sortValue when SortDropdown changes', async () => {
-    const wrapper = shallowMount(ProductListToolbar, {
-      props: {
-        resultCount: 10,
-        sortValue: 'relevance',
-        sortOptions,
-        viewMode: 'grid' as const,
-      },
-      global: { stubs: defaultStubs },
-    });
+    const wrapper = mountToolbar();
 
     const select = wrapper.find('.sort-dropdown');
     await select.setValue('price-asc');
@@ -101,18 +79,20 @@ describe('ProductListToolbar', () => {
   });
 
   it('emits update:viewMode when ViewToggle is clicked', async () => {
-    const wrapper = shallowMount(ProductListToolbar, {
-      props: {
-        resultCount: 10,
-        sortValue: 'relevance',
-        sortOptions,
-        viewMode: 'grid' as const,
-      },
-      global: { stubs: defaultStubs },
-    });
+    const wrapper = mountToolbar();
 
     await wrapper.find('.view-toggle').trigger('click');
     const emitted = wrapper.emitted('update:viewMode');
     expect(emitted).toBeTruthy();
+  });
+
+  it('emits update:filterText when filter input changes', async () => {
+    const wrapper = mountToolbar();
+
+    const input = wrapper.find('input[data-slot="input"]');
+    await input.setValue('test query');
+    const emitted = wrapper.emitted('update:filterText');
+    expect(emitted).toBeTruthy();
+    expect(emitted![0]![0]).toBe('test query');
   });
 });

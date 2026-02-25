@@ -304,7 +304,12 @@ export interface AuthResponse {
 /**
  * Route resolution types for dynamic routing
  */
-export type RouteResolutionType = 'product' | 'category' | 'page' | 'not-found';
+export type RouteResolutionType =
+  | 'product'
+  | 'category'
+  | 'brand'
+  | 'page'
+  | 'not-found';
 
 /**
  * Base route resolution interface
@@ -341,6 +346,17 @@ export interface CategoryRouteResolution extends BaseRouteResolution {
 }
 
 /**
+ * Brand route resolution
+ */
+export interface BrandRouteResolution extends BaseRouteResolution {
+  type: 'brand';
+  /** Brand identifier */
+  brandId: ID;
+  /** Brand slug from URL */
+  brandSlug?: string;
+}
+
+/**
  * Content page route resolution
  */
 export interface PageRouteResolution extends BaseRouteResolution {
@@ -364,5 +380,6 @@ export interface NotFoundRouteResolution extends BaseRouteResolution {
 export type RouteResolution =
   | ProductRouteResolution
   | CategoryRouteResolution
+  | BrandRouteResolution
   | PageRouteResolution
   | NotFoundRouteResolution;

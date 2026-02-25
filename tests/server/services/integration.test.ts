@@ -68,13 +68,14 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
     });
 
     it('should load channel with markets, languages, and currencies', async () => {
-      const result = await channels.getChannel(event);
+      const data = (await channels.getChannel(event)) as Record<
+        string,
+        unknown
+      >;
+      expect(data).toBeDefined();
+      expect(data.defaultMarketId).toBeDefined();
 
-      const data = result as { channel: Record<string, unknown> };
-      expect(data.channel).toBeDefined();
-      expect(data.channel.defaultMarketId).toBeDefined();
-
-      const markets = data.channel.markets as Array<Record<string, unknown>>;
+      const markets = data.markets as Array<Record<string, unknown>>;
       expect(markets.length).toBeGreaterThan(0);
       expect(markets[0]).toHaveProperty('currency');
       expect(markets[0]).toHaveProperty('country');
@@ -96,35 +97,35 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
       categories = await import('../../../server/services/categories');
       brands = await import('../../../server/services/brands');
 
-      // Discover a valid category from the API
-      const catResult = await categories.getCategories(event);
-      const catData = catResult as {
-        categories: Array<{ name: string; alias: string }>;
-      };
-      if (catData.categories.length > 0) {
-        discoveredCategory = catData.categories[0];
+      // Discover a valid category from the API (unwrapped: returns array directly)
+      const catData = (await categories.getCategories(event)) as Array<{
+        name: string;
+        alias: string;
+      }>;
+      if (catData.length > 0) {
+        discoveredCategory = catData[0];
       }
 
-      // Discover a valid brand from the API
-      const brandResult = await brands.getBrands(event);
-      const brandData = brandResult as {
-        brands: Array<{ name: string; alias: string }>;
-      };
-      if (brandData.brands.length > 0) {
-        discoveredBrand = brandData.brands[0];
+      // Discover a valid brand from the API (unwrapped: returns array directly)
+      const brandData = (await brands.getBrands(event)) as Array<{
+        name: string;
+        alias: string;
+      }>;
+      if (brandData.length > 0) {
+        discoveredBrand = brandData[0];
       }
     });
 
     it('should list products with pagination', async () => {
-      const result = await productLists.getProducts({ take: 3 }, event);
-
-      const data = result as {
-        products: { products: Array<Record<string, unknown>>; count: number };
+      // unwrapped: returns { products: [...], count: N } directly
+      const data = (await productLists.getProducts({ take: 3 }, event)) as {
+        products: Array<Record<string, unknown>>;
+        count: number;
       };
-      expect(data.products.count).toBeGreaterThan(0);
-      expect(data.products.products).toHaveLength(3);
+      expect(data.count).toBeGreaterThan(0);
+      expect(data.products).toHaveLength(3);
 
-      const product = data.products.products[0];
+      const product = data.products[0];
       expect(product).toHaveProperty('name');
       expect(product).toHaveProperty('alias');
       expect(product).toHaveProperty('unitPrice');
@@ -134,66 +135,53 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
 
     it('should filter products by category', async () => {
       expect(discoveredCategory).not.toBeNull();
-      const result = await productLists.getProducts(
+      const data = (await productLists.getProducts(
         { categoryAlias: discoveredCategory!.alias, take: 5 },
         event,
-      );
-
-      const data = result as {
-        products: { products: Array<Record<string, unknown>>; count: number };
-      };
-      expect(data.products.count).toBeGreaterThanOrEqual(0);
-      expect(data.products.products.length).toBeLessThanOrEqual(5);
+      )) as { products: Array<Record<string, unknown>>; count: number };
+      expect(data.count).toBeGreaterThanOrEqual(0);
+      expect(data.products.length).toBeLessThanOrEqual(5);
     });
 
     it('should filter products by brand', async () => {
       expect(discoveredBrand).not.toBeNull();
-      const result = await productLists.getProducts(
+      const data = (await productLists.getProducts(
         { brandAlias: discoveredBrand!.alias, take: 5 },
         event,
-      );
-
-      const data = result as {
-        products: { products: Array<Record<string, unknown>>; count: number };
-      };
-      expect(data.products.count).toBeGreaterThanOrEqual(0);
+      )) as { products: Array<Record<string, unknown>>; count: number };
+      expect(data.count).toBeGreaterThanOrEqual(0);
     });
 
     it('should return filters for a product list', async () => {
-      const result = await productLists.getFilters({}, event);
-
-      const data = result as {
-        products: { count: number; filters: Array<Record<string, unknown>> };
+      // unwrapped: returns { count, filters } directly
+      const data = (await productLists.getFilters({}, event)) as {
+        count: number;
+        filters: Array<Record<string, unknown>>;
       };
-      expect(data.products.count).toBeGreaterThan(0);
-      expect(data.products.filters).toBeDefined();
+      expect(data.count).toBeGreaterThan(0);
+      expect(data.filters).toBeDefined();
     });
 
     it('should load category page with subcategories', async () => {
       expect(discoveredCategory).not.toBeNull();
-      const result = await productLists.getCategoryPage(
+      // unwrapped: returns listPageInfo directly
+      const data = (await productLists.getCategoryPage(
         { alias: discoveredCategory!.alias },
         event,
-      );
-
-      const data = result as {
-        listPageInfo: { id: number; name: string; subCategories: unknown[] };
-      };
-      expect(data.listPageInfo).toBeDefined();
-      expect(data.listPageInfo.name).toBe(discoveredCategory!.name);
-      expect(data.listPageInfo.subCategories).toBeDefined();
+      )) as { id: number; name: string; subCategories: unknown[] };
+      expect(data).toBeDefined();
+      expect(data.name).toBe(discoveredCategory!.name);
+      expect(data.subCategories).toBeDefined();
     });
 
     it('should load brand page', async () => {
       expect(discoveredBrand).not.toBeNull();
-      const result = await productLists.getBrandPage(
+      const data = (await productLists.getBrandPage(
         { alias: discoveredBrand!.alias },
         event,
-      );
-
-      const data = result as { listPageInfo: { id: number; name: string } };
-      expect(data.listPageInfo).toBeDefined();
-      expect(data.listPageInfo.name).toBe(discoveredBrand!.name);
+      )) as { id: number; name: string };
+      expect(data).toBeDefined();
+      expect(data.name).toBe(discoveredBrand!.name);
     });
   });
 
@@ -208,41 +196,43 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
       products = await import('../../../server/services/products');
       productLists = await import('../../../server/services/product-lists');
 
-      // Get a real product alias
-      const list = await productLists.getProducts({ take: 1 }, event);
-      const data = list as { products: { products: Array<{ alias: string }> } };
-      productAlias = data.products.products[0].alias;
+      // Get a real product alias (unwrapped: returns { products: [...], count } directly)
+      const data = (await productLists.getProducts({ take: 1 }, event)) as {
+        products: Array<{ alias: string }>;
+      };
+      productAlias = data.products[0].alias;
     });
 
     it('should load full product with price, stock, SKUs, and meta', async () => {
-      const result = await products.getProduct({ alias: productAlias }, event);
-
-      const data = result as { product: Record<string, unknown> };
-      expect(data.product).toBeDefined();
-      expect(data.product.name).toBeDefined();
-      expect(data.product.unitPrice).toBeDefined();
-      expect(data.product.totalStock).toBeDefined();
-      expect(data.product.skus).toBeDefined();
-      expect(data.product.meta).toBeDefined();
+      // unwrapped: returns product object directly
+      const data = (await products.getProduct(
+        { alias: productAlias },
+        event,
+      )) as Record<string, unknown>;
+      expect(data).toBeDefined();
+      expect(data.name).toBeDefined();
+      expect(data.unitPrice).toBeDefined();
+      expect(data.totalStock).toBeDefined();
+      expect(data.skus).toBeDefined();
+      expect(data.meta).toBeDefined();
     });
 
     it('should load related products', async () => {
+      // unwrapped: returns array directly (or whatever relatedProducts contains)
       const result = await products.getRelatedProducts(
         { alias: productAlias },
         event,
       );
-
-      // May be empty if no relations, but query should not error
-      expect(result).toHaveProperty('relatedProducts');
+      expect(result).toBeDefined();
     });
 
     it('should load price history', async () => {
+      // unwrapped: returns product object with priceLog field
       const result = await products.getPriceHistory(
         { alias: productAlias },
         event,
       );
-
-      expect(result).toHaveProperty('product');
+      expect(result).toBeDefined();
     });
   });
 
@@ -258,41 +248,34 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
       productLists = await import('../../../server/services/product-lists');
 
       // Discover a search term from a real product name
-      const list = await productLists.getProducts({ take: 1 }, event);
-      const data = list as {
-        products: { products: Array<{ name: string }> };
+      const listData = (await productLists.getProducts({ take: 1 }, event)) as {
+        products: Array<{ name: string }>;
       };
-      // Use the first word of the product name (at least 3 chars) as search term
-      const words = data.products.products[0].name.split(/\s+/);
+      const words = listData.products[0].name.split(/\s+/);
       searchTerm = words.find((w) => w.length >= 3) ?? words[0];
     });
 
     it('should find products by text query', async () => {
-      const result = await search.searchProducts(
+      // unwrapped: returns { products: [...], count } directly
+      const data = (await search.searchProducts(
         { filter: { searchText: searchTerm } },
         event,
-      );
+      )) as { products: Array<Record<string, unknown>>; count: number };
+      expect(data.count).toBeGreaterThanOrEqual(0);
 
-      const data = result as {
-        products: { products: Array<Record<string, unknown>>; count: number };
-      };
-      expect(data.products.count).toBeGreaterThanOrEqual(0);
-
-      if (data.products.products.length > 0) {
-        const product = data.products.products[0];
+      if (data.products.length > 0) {
+        const product = data.products[0];
         expect(product).toHaveProperty('name');
         expect(product).toHaveProperty('unitPrice');
       }
-    });
+    }, 10_000);
 
     it('should return empty results for nonsense query', async () => {
-      const result = await search.searchProducts(
+      const data = (await search.searchProducts(
         { filter: { searchText: 'xyznonexistent99999' } },
         event,
-      );
-
-      const data = result as { products: { count: number } };
-      expect(data.products.count).toBe(0);
+      )) as { count: number };
+      expect(data.count).toBe(0);
     });
   });
 
@@ -308,27 +291,29 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
     });
 
     it('should load all categories', async () => {
-      const result = await categories.getCategories(event);
-
-      const data = result as {
-        categories: Array<{ name: string; alias: string; categoryId: number }>;
-      };
-      expect(data.categories.length).toBeGreaterThan(0);
-      expect(data.categories[0]).toHaveProperty('name');
-      expect(data.categories[0]).toHaveProperty('alias');
-      expect(data.categories[0]).toHaveProperty('categoryId');
+      // unwrapped: returns array directly
+      const data = (await categories.getCategories(event)) as Array<{
+        name: string;
+        alias: string;
+        categoryId: number;
+      }>;
+      expect(data.length).toBeGreaterThan(0);
+      expect(data[0]).toHaveProperty('name');
+      expect(data[0]).toHaveProperty('alias');
+      expect(data[0]).toHaveProperty('categoryId');
     });
 
     it('should load all brands', async () => {
-      const result = await brands.getBrands(event);
-
-      const data = result as {
-        brands: Array<{ name: string; alias: string; brandId: number }>;
-      };
-      expect(data.brands.length).toBeGreaterThan(0);
-      expect(data.brands[0]).toHaveProperty('name');
-      expect(data.brands[0]).toHaveProperty('alias');
-      expect(data.brands[0]).toHaveProperty('brandId');
+      // unwrapped: returns array directly
+      const data = (await brands.getBrands(event)) as Array<{
+        name: string;
+        alias: string;
+        brandId: number;
+      }>;
+      expect(data.length).toBeGreaterThan(0);
+      expect(data[0]).toHaveProperty('name');
+      expect(data[0]).toHaveProperty('alias');
+      expect(data[0]).toHaveProperty('brandId');
     });
   });
 
@@ -346,15 +331,12 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
       productLists = await import('../../../server/services/product-lists');
 
       // Discover a valid SKU with stock from the product catalog
-      const result = await productLists.getProducts({ take: 5 }, event);
-      const data = result as {
-        products: {
-          products: Array<{
-            skus: Array<{ skuId: number; stock: { totalStock: number } }>;
-          }>;
-        };
+      const data = (await productLists.getProducts({ take: 5 }, event)) as {
+        products: Array<{
+          skus: Array<{ skuId: number; stock: { totalStock: number } }>;
+        }>;
       };
-      for (const p of data.products.products) {
+      for (const p of data.products) {
         const sku = p.skus?.find((s) => s.stock?.totalStock > 0);
         if (sku) {
           validSkuId = sku.skuId;

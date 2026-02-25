@@ -13,6 +13,24 @@ import { createPinia, setActivePinia } from 'pinia';
 // Create a fresh Pinia instance for each test so stores work without Nuxt
 setActivePinia(createPinia());
 
+// Mock vue-i18n — useI18n requires app.use(createI18n()) which isn't available
+// in the component tier. Return a passthrough `t` function.
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) => {
+      if (params) {
+        let result = key;
+        for (const [k, v] of Object.entries(params)) {
+          result = result.replace(`{${k}}`, String(v));
+        }
+        return result;
+      }
+      return key;
+    },
+    locale: ref('en'),
+  }),
+}));
+
 // Mock useRouter / useRoute — Nuxt composables need useNuxtApp() which is unavailable
 // in the component tier. Provide a lightweight mock instead.
 const mockRouter = {

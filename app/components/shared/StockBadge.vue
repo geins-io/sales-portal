@@ -6,8 +6,9 @@ const props = withDefaults(
   defineProps<{
     stock?: StockType;
     threshold?: number;
+    size?: 'default' | 'sm';
   }>(),
-  { threshold: 5 },
+  { threshold: 5, size: 'default' },
 );
 
 const status = computed<StockStatus | null>(() => {
@@ -44,10 +45,38 @@ const badgeClass = computed(() => {
       return '';
   }
 });
+
+const dotColor = computed(() => {
+  switch (status.value) {
+    case 'in-stock':
+      return 'border-green-600';
+    case 'low-stock':
+      return 'border-amber-600';
+    case 'out-of-stock':
+      return 'border-red-600';
+    case 'on-demand':
+      return 'border-blue-600';
+    default:
+      return '';
+  }
+});
 </script>
 
 <template>
-  <Badge v-if="status" variant="outline" :class="badgeClass">
+  <!-- Compact inline: green dot + text -->
+  <span
+    v-if="status && size === 'sm'"
+    class="inline-flex items-center gap-1 text-xs"
+  >
+    <span
+      class="size-[9px] shrink-0 rounded-full border-2 bg-transparent"
+      :class="dotColor"
+    />
+    <span class="text-muted-foreground">{{ label }}</span>
+  </span>
+
+  <!-- Default: pill badge -->
+  <Badge v-else-if="status" variant="outline" :class="badgeClass">
     {{ label }}
   </Badge>
 </template>

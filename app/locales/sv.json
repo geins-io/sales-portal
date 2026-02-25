@@ -16,7 +16,8 @@
     "language": "Språk",
     "change_language": "Byt språk",
     "market": "Marknad",
-    "change_market": "Byt marknad"
+    "change_market": "Byt marknad",
+    "view_all_in": "Visa alla i {name}"
   },
   "auth": {
     "login": "Logga in",
@@ -37,16 +38,26 @@
   },
   "cart": {
     "title": "Varukorg",
+    "shopping_cart": "Varukorg",
     "add_to_cart": "Lägg i varukorg",
     "add": "Lägg till",
     "empty_cart": "Din varukorg är tom",
+    "empty_cart_message": "Det ser ut som att du inte har lagt till något i varukorgen ännu.",
+    "continue_shopping": "Fortsätt handla",
     "remove_item": "Ta bort artikel",
     "quantity": "Antal",
     "subtotal": "Delsumma",
+    "subtotal_items": "Delsumma ({count} artiklar)",
+    "shipping": "Frakt",
+    "tax_estimated": "Moms (beräknad)",
     "total": "Totalt",
     "checkout": "Gå till kassan",
+    "proceed_to_checkout": "Gå till kassan",
+    "order_summary": "Ordersammanfattning",
     "item_count": "{count} artikel | {count} artiklar",
-    "your_cart_description": "Din varukorg"
+    "your_cart_description": "Din varukorg",
+    "unit_price_prefix": "à",
+    "items_short": "varor"
   },
   "product": {
     "details": "Produktdetaljer",
@@ -59,7 +70,8 @@
     "related": "Relaterade produkter",
     "add_to_cart": "Lägg i varukorg",
     "add_to_quote": "Lägg till offert",
-    "download": "Ladda ner",
+    "download": "Ladda ner datablad",
+    "delivery_info": "Läs om vår frakt",
     "sort_by": "Sortera efter",
     "sort_relevance": "Relevans",
     "sort_price_asc": "Pris: Lägst först",
@@ -76,7 +88,16 @@
     "no_products": "Inga produkter hittades.",
     "filters": "Filter",
     "clear_all": "Rensa alla",
-    "failed_to_load": "Kunde inte ladda produkt."
+    "no_documents": "Inga dokument tillgängliga för denna produkt.",
+    "failed_to_load": "Kunde inte ladda produkt.",
+    "article_number": "Art nr. {number}",
+    "wishlist": "Lägg till i önskelista",
+    "quick_filter_placeholder": "Filtrera på art nr eller produktnamn",
+    "view_as": "Visa som:",
+    "grid": "Rutnät",
+    "list": "Lista",
+    "grid_view": "Rutnätsvy",
+    "list_view": "Listvy"
   },
   "account": {
     "my_account": "Mitt konto",
@@ -143,6 +164,12 @@
     "try_different_terms": "Prova andra sökord eller bläddra bland våra kategorier.",
     "enter_search_term": "Ange ett sökord för att hitta produkter.",
     "view_all_results": "Visa alla {count} resultat"
+  },
+  "pagination": {
+    "previous": "Föregående",
+    "next": "Nästa",
+    "navigation": "Sidnavigering",
+    "showing_range": "Visar {from}-{to} av {total} produkter"
   },
   "elements": {
     "component_showcase": "Komponentvisning",

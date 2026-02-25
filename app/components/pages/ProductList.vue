@@ -1,29 +1,43 @@
 <script setup lang="ts">
 import type {
   CategoryRouteResolution,
+  BrandRouteResolution,
   BreadcrumbItem,
 } from '#shared/types/common';
 import type {
-  ListProduct,
   ListPageInfo,
   ProductListResponse,
   ProductFiltersResponse,
 } from '#shared/types/commerce';
-import { useStorage } from '@vueuse/core';
+import { useDebounceFn } from '@vueuse/core';
 
 const props = defineProps<{
-  resolution: CategoryRouteResolution;
+  resolution: CategoryRouteResolution | BrandRouteResolution;
 }>();
 
+const isBrand = computed(() => props.resolution.type === 'brand');
+const listSlug = computed(() =>
+  isBrand.value
+    ? (props.resolution as BrandRouteResolution).brandSlug
+    : (props.resolution as CategoryRouteResolution).categorySlug,
+);
+
+const route = useRoute();
 const router = useRouter();
 
 // --- State ---
 const filterState = ref<Record<string, string[]>>({});
 const sortBy = ref('relevance');
-const viewMode = useStorage<'grid' | 'list'>('plp-view-mode', 'grid');
-const skip = ref(0);
+const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
+  default: () => 'grid',
+});
+const filterText = ref('');
+const debouncedFilterText = ref('');
 const take = 24;
-const allProducts = ref<ListProduct[]>([]);
+
+// --- Page from URL ---
+const currentPage = ref(Number(route.query.page) || 1);
+const skip = computed(() => (currentPage.value - 1) * take);
 
 const { t } = useI18n();
 const sortOptions = computed(() => [
@@ -37,9 +51,14 @@ const sortOptions = computed(() => [
 
 // --- Data Fetching ---
 const queryParams = computed(() => ({
-  categoryAlias: props.resolution.categorySlug,
+  ...(isBrand.value
+    ? { brandAlias: listSlug.value }
+    : { categoryAlias: listSlug.value }),
   skip: skip.value,
   take,
+  ...(debouncedFilterText.value
+    ? { searchText: debouncedFilterText.value }
+    : {}),
   ...filterState.value,
 }));
 
@@ -52,21 +71,38 @@ const { data: productsData, status: productsStatus } =
 const { data: filtersData } = useFetch<ProductFiltersResponse>(
   '/api/product-lists/filters',
   {
-    query: computed(() => ({ categoryAlias: props.resolution.categorySlug })),
+    query: computed(() =>
+      isBrand.value
+        ? { brandAlias: listSlug.value }
+        : { categoryAlias: listSlug.value },
+    ),
     dedupe: 'defer',
   },
 );
 
-const { data: pageInfo } = useFetch<ListPageInfo>(
-  () => `/api/product-lists/category/${props.resolution.categorySlug}`,
-  { dedupe: 'defer' },
+const pageInfoUrl = computed(() =>
+  isBrand.value
+    ? `/api/product-lists/brand/${listSlug.value}`
+    : `/api/product-lists/category/${listSlug.value}`,
 );
+
+const { data: pageInfo } = useFetch<ListPageInfo>(pageInfoUrl, {
+  dedupe: 'defer',
+});
 
 // --- Derived ---
 const facets = computed(() => filtersData.value?.filters ?? []);
 const totalCount = computed(() => productsData.value?.count ?? 0);
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(totalCount.value / take)),
+);
 const isLoading = computed(() => productsStatus.value === 'pending');
-const hasMore = computed(() => allProducts.value.length < totalCount.value);
+const products = computed(() => productsData.value?.products ?? []);
+
+const showingFrom = computed(() =>
+  totalCount.value === 0 ? 0 : skip.value + 1,
+);
+const showingTo = computed(() => Math.min(skip.value + take, totalCount.value));
 
 const breadcrumbs = computed<BreadcrumbItem[]>(() => {
   const items: BreadcrumbItem[] = [{ label: 'Home', href: '/' }];
@@ -76,33 +112,39 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
   return items;
 });
 
-// --- Watch: products data → accumulate or replace ---
-watch(
-  productsData,
-  (data) => {
-    if (!data?.products) return;
-    if (skip.value === 0) {
-      allProducts.value = data.products;
-    } else {
-      allProducts.value = [...allProducts.value, ...data.products];
-    }
-  },
-  { immediate: true },
-);
+// --- SEO ---
+useHead({
+  title: () => pageInfo.value?.name ?? '',
+});
+
+useSeoMeta({
+  description: () => pageInfo.value?.primaryDescription?.slice(0, 160) ?? '',
+  ogTitle: () => pageInfo.value?.name ?? '',
+  ogDescription: () => pageInfo.value?.primaryDescription?.slice(0, 160) ?? '',
+});
 
 // --- Filter change → reset pagination ---
 watch(
   filterState,
   () => {
-    skip.value = 0;
-    allProducts.value = [];
+    currentPage.value = 1;
   },
   { deep: true },
 );
 
+// --- Filter text with debounce ---
+const applyFilterText = useDebounceFn((value: string) => {
+  debouncedFilterText.value = value;
+  currentPage.value = 1;
+}, 300);
+
+watch(filterText, (value) => {
+  applyFilterText(value);
+});
+
 // --- URL sync ---
 watch(
-  [filterState, sortBy],
+  [filterState, sortBy, currentPage],
   () => {
     const query: Record<string, string> = {};
     for (const [key, values] of Object.entries(filterState.value)) {
@@ -113,14 +155,19 @@ watch(
     if (sortBy.value !== 'relevance') {
       query.sort = sortBy.value;
     }
+    if (currentPage.value > 1) {
+      query.page = String(currentPage.value);
+    }
     router.replace({ query });
   },
   { deep: true },
 );
 
 // --- Actions ---
-function loadMore() {
-  skip.value = allProducts.value.length;
+function onPageChange(page: number) {
+  currentPage.value = page;
+  // Scroll to top of product grid
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function removeFilter(facetId: string, valueId: string) {
@@ -141,7 +188,7 @@ function clearAllFilters() {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-8">
     <!-- Header: breadcrumbs, title, description, sub-categories -->
     <ProductListHeader
       :page-info="pageInfo ?? null"
@@ -149,64 +196,76 @@ function clearAllFilters() {
     />
 
     <!-- Active filters -->
-    <ActiveFilters
+    <ProductActiveFilters
+      v-if="facets && facets.length > 0"
       :filters="filterState"
       :facets="facets"
       @remove="removeFilter"
       @clear-all="clearAllFilters"
     />
 
-    <!-- Toolbar: count, sort, view toggle -->
+    <!-- Toolbar: filter, sort, view toggle -->
     <ProductListToolbar
       :result-count="totalCount"
       :sort-value="sortBy"
       :sort-options="sortOptions"
       :view-mode="viewMode"
+      :filter-text="filterText"
+      :has-active-filters="Object.keys(filterState).length > 0"
       @update:sort-value="sortBy = $event"
       @update:view-mode="viewMode = $event"
-    />
-
-    <!-- Main content: filters sidebar + product grid -->
-    <div class="flex gap-8">
-      <!-- Filters -->
-      <ProductFilters
-        v-if="facets.length"
-        v-model="filterState"
-        :facets="facets"
-      />
-
-      <!-- Product grid/list -->
-      <div class="flex-1">
-        <div
-          :class="
-            viewMode === 'grid'
-              ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
-              : 'flex flex-col gap-4'
-          "
-        >
-          <ProductCard
-            v-for="product in allProducts"
-            :key="product.productId"
-            :product="product"
-            :variant="viewMode"
-          />
-        </div>
-
-        <!-- Empty state -->
-        <div
-          v-if="!isLoading && allProducts.length === 0"
-          class="py-12 text-center"
-        >
-          <p class="text-muted-foreground">{{ $t('product.no_products') }}</p>
-        </div>
-
-        <!-- Load more -->
-        <LoadMoreButton
-          :loading="isLoading"
-          :has-more="hasMore"
-          @load-more="loadMore"
+      @update:filter-text="filterText = $event"
+      @reset-filters="clearAllFilters"
+    >
+      <template #filters>
+        <ProductFilters
+          v-if="facets && facets.length > 0"
+          v-model="filterState"
+          :facets="facets"
         />
-      </div>
+      </template>
+    </ProductListToolbar>
+
+    <!-- Product grid/list -->
+    <div
+      :class="
+        viewMode === 'grid'
+          ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
+          : 'flex flex-col gap-4'
+      "
+    >
+      <ProductCard
+        v-for="product in products"
+        :key="product.productId"
+        :product="product"
+        :variant="viewMode"
+      />
+    </div>
+
+    <!-- Empty state -->
+    <div
+      v-if="!isLoading && products && products.length === 0"
+      class="py-12 text-center"
+    >
+      <p class="text-muted-foreground">{{ $t('product.no_products') }}</p>
+    </div>
+
+    <!-- Pagination -->
+    <div v-if="totalCount > 0" class="mt-8 flex items-center justify-between">
+      <p class="text-muted-foreground text-sm">
+        {{
+          $t('pagination.showing_range', {
+            from: showingFrom,
+            to: showingTo,
+            total: totalCount,
+          })
+        }}
+      </p>
+      <NumberedPagination
+        :current-page="currentPage"
+        :total-pages="totalPages"
+        @update:current-page="onPageChange"
+      />
     </div>
   </div>
 </template>

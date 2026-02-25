@@ -110,7 +110,7 @@ describe('CartItem', () => {
     expect(wrapper.emitted('remove')![0]).toEqual(['item-1']);
   });
 
-  it('renders brand name', () => {
+  it('renders article number', () => {
     const wrapper = mountComponent(CartItem, {
       props: { item: mockItem },
       global: {
@@ -124,6 +124,6 @@ describe('CartItem', () => {
         },
       },
     });
-    expect(wrapper.text()).toContain('Test Brand');
+    expect(wrapper.text()).toContain('Art nr. ART-001');
   });
 });

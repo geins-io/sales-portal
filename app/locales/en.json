@@ -16,7 +16,8 @@
     "language": "Language",
     "change_language": "Change language",
     "market": "Market",
-    "change_market": "Change market"
+    "change_market": "Change market",
+    "view_all_in": "View all in {name}"
   },
   "auth": {
     "login": "Log in",
@@ -37,16 +38,26 @@
   },
   "cart": {
     "title": "Cart",
+    "shopping_cart": "Shopping Cart",
     "add_to_cart": "Add to cart",
     "add": "Add",
     "empty_cart": "Your cart is empty",
+    "empty_cart_message": "Looks like you haven't added anything to your cart yet.",
+    "continue_shopping": "Continue Shopping",
     "remove_item": "Remove item",
     "quantity": "Quantity",
     "subtotal": "Subtotal",
+    "subtotal_items": "Subtotal ({count} items)",
+    "shipping": "Shipping",
+    "tax_estimated": "Tax (estimated)",
     "total": "Total",
     "checkout": "Checkout",
+    "proceed_to_checkout": "Proceed to Checkout",
+    "order_summary": "Order Summary",
     "item_count": "{count} item | {count} items",
-    "your_cart_description": "Your shopping cart"
+    "your_cart_description": "Your shopping cart",
+    "unit_price_prefix": "\u00e0",
+    "items_short": "Items"
   },
   "product": {
     "details": "Product details",
@@ -59,7 +70,8 @@
     "related": "Related products",
     "add_to_cart": "Add to Cart",
     "add_to_quote": "Add to quote",
-    "download": "Download",
+    "download": "Download type sheets",
+    "delivery_info": "Learn about our shipping",
     "sort_by": "Sort by",
     "sort_relevance": "Relevance",
     "sort_price_asc": "Price: Low to High",
@@ -76,7 +88,16 @@
     "no_products": "No products found.",
     "filters": "Filters",
     "clear_all": "Clear all",
-    "failed_to_load": "Failed to load product."
+    "no_documents": "No documents available for this product.",
+    "failed_to_load": "Failed to load product.",
+    "article_number": "Art nr. {number}",
+    "wishlist": "Add to wishlist",
+    "quick_filter_placeholder": "Filter by art nr or product name",
+    "view_as": "View as:",
+    "grid": "Grid",
+    "list": "List",
+    "grid_view": "Grid view",
+    "list_view": "List view"
   },
   "account": {
     "my_account": "My Account",
@@ -143,6 +164,12 @@
     "try_different_terms": "Try different search terms or browse our categories.",
     "enter_search_term": "Enter a search term to find products.",
     "view_all_results": "View all {count} results"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "navigation": "Pagination",
+    "showing_range": "Showing {from}-{to} of {total} products"
   },
   "elements": {
     "component_showcase": "Component Showcase",

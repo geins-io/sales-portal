@@ -74,6 +74,13 @@ export default defineNuxtConfig({
     corsHandler: false,
   },
 
+  fonts: {
+    families: [
+      { name: 'Geist', provider: 'fontsource', weights: [400, 500, 600, 700] },
+      { name: 'Hanuman', provider: 'google', weights: [400, 700] },
+    ],
+  },
+
   image: {
     domains: ['commerce.services'],
   },
