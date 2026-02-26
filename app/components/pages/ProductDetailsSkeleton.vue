@@ -81,12 +81,28 @@
         <Skeleton class="h-8 w-24" />
         <Skeleton class="h-8 w-28" />
         <Skeleton class="h-8 w-20" />
+        <Skeleton class="h-8 w-24" />
       </div>
       <div class="space-y-2">
         <Skeleton class="h-4 w-full" />
         <Skeleton class="h-4 w-full" />
         <Skeleton class="h-4 w-5/6" />
         <Skeleton class="h-4 w-2/3" />
+      </div>
+    </div>
+
+    <!-- Related products skeleton -->
+    <div data-testid="pdp-skeleton-related" class="space-y-4">
+      <Skeleton class="h-6 w-40" />
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div v-for="i in 4" :key="i" class="rounded-md border p-0">
+          <Skeleton class="aspect-square w-full rounded-t-md rounded-b-none" />
+          <div class="space-y-2 p-3">
+            <Skeleton class="h-3 w-1/3" />
+            <Skeleton class="h-4 w-3/4" />
+            <Skeleton class="h-5 w-1/2" />
+          </div>
+        </div>
       </div>
     </div>
   </div>

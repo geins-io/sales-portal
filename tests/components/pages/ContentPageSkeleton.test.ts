@@ -36,6 +36,16 @@ describe('ContentPageSkeleton', () => {
     );
   });
 
+  it('renders breadcrumb skeleton', () => {
+    const wrapper = shallowMountComponent(ContentPageSkeleton, {
+      global: { stubs },
+    });
+
+    expect(
+      wrapper.find('[data-testid="content-skeleton-breadcrumb"]').exists(),
+    ).toBe(true);
+  });
+
   it('renders content body with heading and paragraph skeletons', () => {
     const wrapper = shallowMountComponent(ContentPageSkeleton, {
       global: { stubs },

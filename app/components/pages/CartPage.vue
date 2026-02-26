@@ -47,16 +47,10 @@ function onClose() {
     </div>
 
     <!-- Loading state -->
-    <div
+    <CartPageSkeleton
       v-if="cartStore.isLoading && !cartStore.cart"
-      class="flex items-center justify-center py-24"
       data-testid="cart-page-loading"
-    >
-      <Icon
-        name="lucide:loader-2"
-        class="text-muted-foreground size-8 animate-spin"
-      />
-    </div>
+    />
 
     <!-- Empty state -->
     <div
