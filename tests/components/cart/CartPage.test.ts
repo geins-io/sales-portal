@@ -116,6 +116,14 @@ const defaultStubs = {
     template: '<div data-testid="cart-item" />',
     props: ['item'],
   },
+  ErrorBoundary: {
+    template: '<div><slot /></div>',
+    props: ['section'],
+  },
+  SharedErrorBoundary: {
+    template: '<div><slot /></div>',
+    props: ['section'],
+  },
   GeinsImage: true,
   PriceDisplay: true,
   QuantityInput: true,
