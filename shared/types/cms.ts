@@ -1,5 +1,6 @@
 export type {
   ContentPageType,
+  ContentPageAreaType,
   ContentAreaType,
   ContentContainerType,
   ContentType,
