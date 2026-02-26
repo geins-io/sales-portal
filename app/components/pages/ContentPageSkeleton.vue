@@ -9,6 +9,16 @@ withDefaults(
 
 <template>
   <div data-testid="content-skeleton" class="min-h-[50vh]">
+    <!-- Breadcrumb skeleton -->
+    <div
+      data-testid="content-skeleton-breadcrumb"
+      class="mb-6 flex items-center gap-2"
+    >
+      <Skeleton class="h-4 w-12" />
+      <Skeleton class="h-4 w-4" />
+      <Skeleton class="h-4 w-28" />
+    </div>
+
     <!-- Sidebar variant -->
     <div v-if="sidebar" class="md:flex md:gap-8">
       <!-- Sidebar skeleton -->

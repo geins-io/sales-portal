@@ -127,6 +127,12 @@ const defaultStubs = {
   GeinsImage: true,
   PriceDisplay: true,
   QuantityInput: true,
+  CartPageSkeleton: {
+    template: '<div data-testid="cart-page-loading" />',
+  },
+  PagesCartPageSkeleton: {
+    template: '<div data-testid="cart-page-loading" />',
+  },
 };
 
 describe('CartPage', () => {

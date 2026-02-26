@@ -40,12 +40,24 @@ describe('ProductDetailsSkeleton', () => {
     );
   });
 
-  it('renders tabs skeleton', () => {
+  it('renders tabs skeleton with 4 tabs', () => {
     const wrapper = shallowMountComponent(ProductDetailsSkeleton, {
       global: { stubs },
     });
 
-    expect(wrapper.find('[data-testid="pdp-skeleton-tabs"]').exists()).toBe(
+    const tabs = wrapper.find('[data-testid="pdp-skeleton-tabs"]');
+    expect(tabs.exists()).toBe(true);
+    // 4 tab placeholders in the tab bar (first child div)
+    const tabBar = tabs.element.children[0];
+    expect(tabBar.children.length).toBe(4);
+  });
+
+  it('renders related products skeleton', () => {
+    const wrapper = shallowMountComponent(ProductDetailsSkeleton, {
+      global: { stubs },
+    });
+
+    expect(wrapper.find('[data-testid="pdp-skeleton-related"]').exists()).toBe(
       true,
     );
   });
