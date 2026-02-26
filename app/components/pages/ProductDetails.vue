@@ -5,6 +5,7 @@ import type {
   ListProduct,
 } from '#shared/types/commerce';
 import type { ProductRouteResolution } from '#shared/types/common';
+import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
 
 const props = defineProps<{
@@ -13,10 +14,15 @@ const props = defineProps<{
 
 const slug = computed(() => props.resolution.productSlug ?? '');
 
-const { data: product, error } = useFetch<ProductType>(
-  () => `/api/products/${slug.value}`,
-  { dedupe: 'defer' },
-);
+const {
+  data: product,
+  error,
+  status,
+} = useFetch<ProductType>(() => `/api/products/${slug.value}`, {
+  dedupe: 'defer',
+});
+
+const isLoading = computed(() => status.value === 'pending');
 
 const { data: related } = useFetch<ListProduct[]>(
   () => `/api/products/${slug.value}/related`,
@@ -150,9 +156,22 @@ useSchemaOrg([
 </script>
 
 <template>
-  <div v-if="error" class="py-12 text-center">
-    <p class="text-muted-foreground">{{ $t('product.failed_to_load') }}</p>
-  </div>
+  <!-- Loading skeleton -->
+  <ProductDetailsSkeleton
+    v-if="isLoading && !product"
+    data-testid="pdp-loading"
+  />
+
+  <!-- Error state -->
+  <EmptyState
+    v-else-if="error"
+    :icon="AlertTriangleIcon"
+    :title="$t('product.failed_to_load')"
+    :description="$t('common.something_went_wrong')"
+    action-label="Home"
+    action-to="/"
+    data-testid="pdp-error"
+  />
 
   <div
     v-else-if="product"
@@ -164,11 +183,13 @@ useSchemaOrg([
     <!-- Main content: two-column on md+ -->
     <div class="grid gap-8 md:grid-cols-2">
       <!-- Left: Gallery -->
-      <ProductGallery
-        v-if="product.productImages?.length"
-        :images="product.productImages"
-        :product-name="product.name ?? ''"
-      />
+      <ErrorBoundary section="product-gallery">
+        <ProductGallery
+          v-if="product.productImages?.length"
+          :images="product.productImages"
+          :product-name="product.name ?? ''"
+        />
+      </ErrorBoundary>
 
       <!-- Right: Product info -->
       <div class="flex flex-col gap-4">
@@ -267,14 +288,18 @@ useSchemaOrg([
     </div>
 
     <!-- Product tabs (full width) -->
-    <ProductTabs
-      :product="product"
-      :reviews="reviews"
-      :reviews-loading="reviewsLoading"
-      @load-reviews="onLoadReviews"
-    />
+    <ErrorBoundary section="product-tabs">
+      <ProductTabs
+        :product="product"
+        :reviews="reviews"
+        :reviews-loading="reviewsLoading"
+        @load-reviews="onLoadReviews"
+      />
+    </ErrorBoundary>
 
     <!-- Related products -->
-    <ProductRelatedProducts v-if="related?.length" :products="related" />
+    <ErrorBoundary section="related-products">
+      <ProductRelatedProducts v-if="related?.length" :products="related" />
+    </ErrorBoundary>
   </div>
 </template>
