@@ -9,6 +9,7 @@ import type {
   ProductListResponse,
   ProductFiltersResponse,
 } from '#shared/types/commerce';
+import { Package as PackageIcon } from 'lucide-vue-next';
 import { useDebounceFn } from '@vueuse/core';
 
 const props = defineProps<{
@@ -226,8 +227,16 @@ function clearAllFilters() {
       </template>
     </ProductListToolbar>
 
+    <!-- Loading skeleton -->
+    <ProductListSkeleton
+      v-if="isLoading && products.length === 0"
+      :view-mode="viewMode"
+      data-testid="plp-loading"
+    />
+
     <!-- Product grid/list -->
     <div
+      v-else
       :class="
         viewMode === 'grid'
           ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
@@ -243,11 +252,21 @@ function clearAllFilters() {
     </div>
 
     <!-- Empty state -->
-    <div
-      v-if="!isLoading && products && products.length === 0"
-      class="py-12 text-center"
-    >
-      <p class="text-muted-foreground">{{ $t('product.no_products') }}</p>
+    <div v-if="!isLoading && products.length === 0" data-testid="plp-empty">
+      <EmptyState
+        :icon="PackageIcon"
+        :title="$t('product.no_products')"
+        :description="$t('product.no_products_description')"
+      />
+      <div v-if="Object.keys(filterState).length > 0" class="mt-4 text-center">
+        <button
+          type="button"
+          class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition-colors"
+          @click="clearAllFilters"
+        >
+          {{ $t('product.clear_all') }}
+        </button>
+      </div>
     </div>
 
     <!-- Pagination -->
