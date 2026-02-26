@@ -87,6 +87,7 @@
     "attribute": "Attribut",
     "value": "Värde",
     "no_products": "Inga produkter hittades.",
+    "no_products_description": "Försök att justera dina filter eller bläddra bland våra kategorier.",
     "filters": "Filter",
     "clear_all": "Rensa alla",
     "no_documents": "Inga dokument tillgängliga för denna produkt.",
@@ -146,6 +147,10 @@
     "facebook": "Facebook",
     "linkedin": "LinkedIn",
     "instagram": "Instagram"
+  },
+  "content": {
+    "failed_to_load": "Det gick inte att ladda sidinnehållet.",
+    "no_content": "Den här sidan har inget innehåll ännu."
   },
   "cookies": {
     "banner_text": "Vi använder cookies för att analysera webbplatsens användning och förbättra din upplevelse.",

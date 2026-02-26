@@ -87,6 +87,7 @@
     "attribute": "Attribute",
     "value": "Value",
     "no_products": "No products found.",
+    "no_products_description": "Try adjusting your filters or browse our categories.",
     "filters": "Filters",
     "clear_all": "Clear all",
     "no_documents": "No documents available for this product.",
@@ -146,6 +147,10 @@
     "facebook": "Facebook",
     "linkedin": "LinkedIn",
     "instagram": "Instagram"
+  },
+  "content": {
+    "failed_to_load": "Unable to load page content.",
+    "no_content": "This page has no content yet."
   },
   "cookies": {
     "banner_text": "We use cookies to analyze site usage and improve your experience.",
