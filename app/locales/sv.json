@@ -34,7 +34,8 @@
     "account": "Konto",
     "search_products": "Sök produkter…",
     "overview": "Översikt",
-    "orders": "Beställningar"
+    "orders": "Beställningar",
+    "sidebar_navigation": "Sidnavigering"
   },
   "cart": {
     "title": "Varukorg",
