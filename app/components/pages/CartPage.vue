@@ -83,86 +83,92 @@ function onClose() {
     <div v-else class="flex flex-col gap-8 lg:flex-row lg:items-start">
       <!-- LEFT: Cart items list -->
       <div class="min-w-0 flex-1">
-        <div class="divide-border divide-y">
-          <CartItem
-            v-for="item in cartStore.cart?.items"
-            :key="item.id"
-            :item="item"
-            @update-quantity="cartStore.updateQuantity"
-            @remove="cartStore.removeItem"
-          />
-        </div>
+        <ErrorBoundary section="cart-items">
+          <div class="divide-border divide-y">
+            <CartItem
+              v-for="item in cartStore.cart?.items"
+              :key="item.id"
+              :item="item"
+              @update-quantity="cartStore.updateQuantity"
+              @remove="cartStore.removeItem"
+            />
+          </div>
+        </ErrorBoundary>
       </div>
 
       <!-- RIGHT: Order Summary (sticky) -->
       <div class="w-full lg:w-80 lg:shrink-0">
-        <div
-          class="bg-muted border-border sticky top-24 space-y-4 rounded-lg border p-6"
-          data-testid="cart-order-summary"
-        >
-          <h2 class="text-lg font-semibold">
-            {{ $t('cart.order_summary') }}
-          </h2>
+        <ErrorBoundary section="order-summary">
+          <div
+            class="bg-muted border-border sticky top-24 space-y-4 rounded-lg border p-6"
+            data-testid="cart-order-summary"
+          >
+            <h2 class="text-lg font-semibold">
+              {{ $t('cart.order_summary') }}
+            </h2>
 
-          <div class="space-y-3">
-            <!-- Subtotal -->
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">
-                {{ $t('cart.subtotal_items', { count: cartStore.itemCount }) }}
-              </span>
-              <span data-testid="cart-summary-subtotal">
+            <div class="space-y-3">
+              <!-- Subtotal -->
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-muted-foreground">
+                  {{
+                    $t('cart.subtotal_items', { count: cartStore.itemCount })
+                  }}
+                </span>
+                <span data-testid="cart-summary-subtotal">
+                  {{
+                    cartStore.cart?.summary?.subTotal
+                      ?.sellingPriceIncVatFormatted ?? ''
+                  }}
+                </span>
+              </div>
+
+              <!-- Shipping -->
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-muted-foreground">
+                  {{ $t('cart.shipping') }}
+                </span>
+                <span data-testid="cart-summary-shipping">
+                  {{ shippingFee ?? '--' }}
+                </span>
+              </div>
+
+              <!-- Tax -->
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-muted-foreground">
+                  {{ $t('cart.tax_estimated') }}
+                </span>
+                <span data-testid="cart-summary-tax">
+                  {{ taxFormatted ?? '--' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="border-border border-t" />
+
+            <!-- Total -->
+            <div class="flex items-center justify-between font-semibold">
+              <span>{{ $t('cart.total') }}</span>
+              <span data-testid="cart-summary-total">
                 {{
-                  cartStore.cart?.summary?.subTotal
-                    ?.sellingPriceIncVatFormatted ?? ''
+                  cartStore.cart?.summary?.total?.sellingPriceIncVatFormatted ??
+                  ''
                 }}
               </span>
             </div>
 
-            <!-- Shipping -->
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">
-                {{ $t('cart.shipping') }}
-              </span>
-              <span data-testid="cart-summary-shipping">
-                {{ shippingFee ?? '--' }}
-              </span>
-            </div>
-
-            <!-- Tax -->
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">
-                {{ $t('cart.tax_estimated') }}
-              </span>
-              <span data-testid="cart-summary-tax">
-                {{ taxFormatted ?? '--' }}
-              </span>
-            </div>
+            <!-- Checkout button -->
+            <button
+              type="button"
+              class="bg-primary text-primary-foreground hover:bg-primary/90 w-full rounded-md px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
+              data-testid="cart-checkout-button"
+              disabled
+            >
+              {{ $t('cart.proceed_to_checkout') }}
+            </button>
           </div>
-
-          <!-- Divider -->
-          <div class="border-border border-t" />
-
-          <!-- Total -->
-          <div class="flex items-center justify-between font-semibold">
-            <span>{{ $t('cart.total') }}</span>
-            <span data-testid="cart-summary-total">
-              {{
-                cartStore.cart?.summary?.total?.sellingPriceIncVatFormatted ??
-                ''
-              }}
-            </span>
-          </div>
-
-          <!-- Checkout button -->
-          <button
-            type="button"
-            class="bg-primary text-primary-foreground hover:bg-primary/90 w-full rounded-md px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
-            data-testid="cart-checkout-button"
-            disabled
-          >
-            {{ $t('cart.proceed_to_checkout') }}
-          </button>
-        </div>
+        </ErrorBoundary>
       </div>
     </div>
 

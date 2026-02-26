@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Search as SearchIcon, SearchX as SearchXIcon } from 'lucide-vue-next';
 import type {
   ListProduct,
   ProductListResponse,
@@ -185,8 +186,16 @@ function clearAllFilters() {
       </template>
     </ProductListToolbar>
 
+    <!-- Loading skeleton -->
+    <SearchResultsSkeleton
+      v-if="isLoading && allProducts.length === 0"
+      :view-mode="viewMode"
+      data-testid="search-loading"
+    />
+
     <!-- Product grid/list -->
     <div
+      v-else
       :class="
         viewMode === 'grid'
           ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
@@ -201,33 +210,22 @@ function clearAllFilters() {
       />
     </div>
 
-    <!-- Empty state -->
-    <div
+    <!-- No results -->
+    <EmptyState
       v-if="!isLoading && allProducts.length === 0 && searchTerm"
-      class="py-12 text-center"
-    >
-      <Icon
-        name="lucide:search-x"
-        class="text-muted-foreground mx-auto mb-4 size-12"
-      />
-      <p class="text-muted-foreground text-lg">
-        {{ $t('search.no_results_for', { query: searchTerm }) }}
-      </p>
-      <p class="text-muted-foreground mt-1 text-sm">
-        {{ $t('search.try_different_terms') }}
-      </p>
-    </div>
+      :icon="SearchXIcon"
+      :title="$t('search.no_results_for', { query: searchTerm })"
+      :description="$t('search.try_different_terms')"
+      data-testid="search-empty"
+    />
 
     <!-- No search term -->
-    <div v-if="!searchTerm" class="py-12 text-center">
-      <Icon
-        name="lucide:search"
-        class="text-muted-foreground mx-auto mb-4 size-12"
-      />
-      <p class="text-muted-foreground text-lg">
-        {{ $t('search.enter_search_term') }}
-      </p>
-    </div>
+    <EmptyState
+      v-if="!searchTerm"
+      :icon="SearchIcon"
+      :title="$t('search.enter_search_term')"
+      data-testid="search-no-term"
+    />
 
     <!-- Load more -->
     <LoadMoreButton

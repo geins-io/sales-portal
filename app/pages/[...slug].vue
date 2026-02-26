@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue';
+import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
 import {
   normalizeSlugToPath,
   useRouteResolution,
@@ -58,12 +59,28 @@ const ResolvedComponent = computed(() => {
 
 <template>
   <div>
-    <div v-if="pending">{{ $t('common.loading') }}</div>
-
-    <div v-else-if="error">
-      <!-- Keep this minimal; Nuxt error boundary will handle thrown errors -->
-      <p>{{ $t('common.something_went_wrong') }}</p>
+    <div
+      v-if="pending"
+      class="mx-auto max-w-7xl px-4 py-8 lg:px-8"
+      data-testid="route-loading"
+    >
+      <div class="flex flex-col gap-4">
+        <Skeleton class="h-8 w-1/3" />
+        <Skeleton class="h-4 w-full" />
+        <Skeleton class="h-4 w-5/6" />
+        <Skeleton class="h-4 w-2/3" />
+      </div>
     </div>
+
+    <EmptyState
+      v-else-if="error"
+      :icon="AlertTriangleIcon"
+      :title="$t('common.something_went_wrong')"
+      :description="$t('common.unable_to_resolve_route')"
+      action-label="Home"
+      action-to="/"
+      data-testid="route-error"
+    />
 
     <component
       :is="ResolvedComponent"

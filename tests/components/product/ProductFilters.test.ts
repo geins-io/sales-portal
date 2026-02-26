@@ -1,6 +1,32 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { mountComponent } from '../../utils/component';
+
 import ProductFilters from '../../../app/components/product/ProductFilters.vue';
+
+// Mock explicitly imported modules so stubs render correctly
+vi.mock('../../../app/components/ui/sheet', () => ({
+  Sheet: {
+    template: '<div><slot /></div>',
+    props: ['open'],
+  },
+  SheetContent: {
+    template: '<div><slot /></div>',
+    props: ['side'],
+  },
+  SheetHeader: {
+    template: '<div><slot /></div>',
+  },
+  SheetTitle: {
+    template: '<div><slot /></div>',
+  },
+}));
+
+vi.mock('../../../app/components/ui/button', () => ({
+  Button: {
+    template: '<button><slot /></button>',
+    props: ['size', 'variant'],
+  },
+}));
 
 const mockFacets = [
   {
@@ -66,19 +92,6 @@ const defaultStubs = {
     template: '<div class="filter-group" :data-facet-id="facet.filterId" />',
     props: ['facet', 'selected'],
   },
-  Sheet: {
-    template: '<div><slot /></div>',
-    props: ['open'],
-  },
-  SheetContent: {
-    template: '<div><slot /></div>',
-  },
-  SheetHeader: {
-    template: '<div><slot /></div>',
-  },
-  SheetTitle: {
-    template: '<div><slot /></div>',
-  },
   SlidersHorizontal: true,
 };
 
@@ -90,13 +103,7 @@ describe('ProductFilters', () => {
         modelValue: {},
       },
       global: {
-        stubs: {
-          ...defaultStubs,
-          Button: {
-            template: '<button><slot /></button>',
-            props: ['size', 'variant'],
-          },
-        },
+        stubs: defaultStubs,
       },
     });
     const button = wrapper.find('button');
