@@ -34,7 +34,8 @@
     "account": "Account",
     "search_products": "Search products…",
     "overview": "Overview",
-    "orders": "Orders"
+    "orders": "Orders",
+    "sidebar_navigation": "Page navigation"
   },
   "cart": {
     "title": "Cart",

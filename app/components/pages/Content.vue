@@ -15,6 +15,9 @@ const {
   { dedupe: 'defer' },
 );
 
+const hasSidebar = computed(() => !!page.value?.pageArea?.name);
+const sidebarMenuId = computed(() => page.value?.pageArea?.name ?? '');
+
 useHead(
   computed(() => {
     if (!page.value?.meta) return {};
@@ -32,8 +35,19 @@ useHead(
 
 <template>
   <div>
+    <!-- Sidebar layout: page has a pageArea with navigation -->
+    <div v-if="hasSidebar && page?.containers?.length" class="md:flex md:gap-8">
+      <PageSidebarNav
+        :menu-location-id="sidebarMenuId"
+        class="mb-6 md:mb-0 md:w-64 md:shrink-0"
+      />
+      <div class="min-w-0 flex-1">
+        <CmsWidgetArea :containers="page.containers" />
+      </div>
+    </div>
+    <!-- Full-width layout: no sidebar -->
     <CmsWidgetArea
-      v-if="page?.containers?.length"
+      v-else-if="page?.containers?.length"
       :containers="page.containers"
     />
     <div
