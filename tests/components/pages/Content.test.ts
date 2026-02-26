@@ -55,6 +55,28 @@ const stubs = {
       '<nav data-testid="sidebar-nav" :data-menu-id="menuLocationId"></nav>',
     props: ['menuLocationId'],
   },
+  ErrorBoundary: {
+    template: '<div><slot /></div>',
+    props: ['section'],
+  },
+  SharedErrorBoundary: {
+    template: '<div><slot /></div>',
+    props: ['section'],
+  },
+  ContentPageSkeleton: {
+    template: '<div data-testid="content-loading" />',
+  },
+  PagesContentPageSkeleton: {
+    template: '<div data-testid="content-loading" />',
+  },
+  EmptyState: {
+    template: "<div :data-testid=\"$attrs['data-testid'] || 'empty-state'\" />",
+    props: ['icon', 'title', 'description', 'actionLabel', 'actionTo'],
+  },
+  SharedEmptyState: {
+    template: "<div :data-testid=\"$attrs['data-testid'] || 'empty-state'\" />",
+    props: ['icon', 'title', 'description', 'actionLabel', 'actionTo'],
+  },
 };
 
 function createPage(overrides: Partial<ContentPageType> = {}): ContentPageType {
@@ -124,7 +146,7 @@ describe('Content.vue', () => {
     expect(wrapper.find('.md\\:flex').exists()).toBe(true);
   });
 
-  it('renders loading state when status is pending', () => {
+  it('renders loading skeleton when status is pending', () => {
     mockStatus.value = 'pending';
 
     const wrapper = mountComponent(Content, {
@@ -132,9 +154,7 @@ describe('Content.vue', () => {
       global: { stubs },
     });
 
-    // Should show loading indicator
-    expect(wrapper.find('.animate-pulse').exists()).toBe(true);
-    // Should not show widget area or sidebar
+    expect(wrapper.find('[data-testid="content-loading"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="widget-area"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="sidebar-nav"]').exists()).toBe(false);
   });
@@ -148,9 +168,7 @@ describe('Content.vue', () => {
       global: { stubs },
     });
 
-    // Should show error message
-    expect(wrapper.text()).toContain('Unable to load page content');
-    // Should not show widget area or sidebar
+    expect(wrapper.find('[data-testid="content-error"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="widget-area"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="sidebar-nav"]').exists()).toBe(false);
   });

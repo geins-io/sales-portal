@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { ContentPageType } from '#shared/types/cms';
 import type { PageRouteResolution } from '#shared/types/common';
+import {
+  FileText as FileTextIcon,
+  FileWarning as FileWarningIcon,
+} from 'lucide-vue-next';
 
 const props = defineProps<{
   resolution: PageRouteResolution;
@@ -35,32 +39,54 @@ useHead(
 
 <template>
   <div>
+    <!-- Loading skeleton -->
+    <ContentPageSkeleton
+      v-if="status === 'pending'"
+      data-testid="content-loading"
+    />
+
+    <!-- Error state -->
+    <EmptyState
+      v-else-if="error"
+      :icon="FileWarningIcon"
+      :title="$t('common.something_went_wrong')"
+      :description="$t('content.failed_to_load')"
+      action-label="Home"
+      action-to="/"
+      data-testid="content-error"
+    />
+
     <!-- Sidebar layout: page has a pageArea with navigation -->
-    <div v-if="hasSidebar && page?.containers?.length" class="md:flex md:gap-8">
-      <PageSidebarNav
-        :menu-location-id="sidebarMenuId"
-        class="mb-6 md:mb-0 md:w-64 md:shrink-0"
-      />
+    <div
+      v-else-if="hasSidebar && page?.containers?.length"
+      class="md:flex md:gap-8"
+    >
+      <ErrorBoundary section="sidebar-nav">
+        <PageSidebarNav
+          :menu-location-id="sidebarMenuId"
+          class="mb-6 md:mb-0 md:w-64 md:shrink-0"
+        />
+      </ErrorBoundary>
       <div class="min-w-0 flex-1">
-        <CmsWidgetArea :containers="page.containers" />
+        <ErrorBoundary section="cms-content">
+          <CmsWidgetArea :containers="page.containers" />
+        </ErrorBoundary>
       </div>
     </div>
+
     <!-- Full-width layout: no sidebar -->
-    <CmsWidgetArea
-      v-else-if="page?.containers?.length"
-      :containers="page.containers"
+    <ErrorBoundary v-else-if="page?.containers?.length" section="cms-content">
+      <CmsWidgetArea :containers="page.containers" />
+    </ErrorBoundary>
+
+    <!-- Empty content -->
+    <EmptyState
+      v-else
+      :icon="FileTextIcon"
+      :title="$t('content.no_content')"
+      action-label="Home"
+      action-to="/"
+      data-testid="content-empty"
     />
-    <div
-      v-else-if="status === 'pending'"
-      class="flex min-h-[50vh] items-center justify-center"
-    >
-      <div class="bg-muted size-8 animate-pulse rounded-full" />
-    </div>
-    <div
-      v-else-if="error"
-      class="text-muted-foreground flex min-h-[50vh] items-center justify-center"
-    >
-      <p>Unable to load page content.</p>
-    </div>
   </div>
 </template>
