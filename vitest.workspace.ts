@@ -56,6 +56,7 @@ const componentTestFiles = [
   'tests/components/cart/CartPage.test.ts',
   'tests/components/shared/Pagination.test.ts',
   'tests/components/pages/PageSidebarNav.test.ts',
+  'tests/components/pages/Content.test.ts',
 ];
 
 // Get Nuxt's Vite config once (aliases, auto-imports, plugins)
