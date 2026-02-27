@@ -2,72 +2,104 @@ import { describe, it, expect } from 'vitest';
 import { shallowMountComponent } from '../../utils/component';
 import AuthCard from '../../../app/components/auth/AuthCard.vue';
 
+// With shallowMount, Card and CardContent get auto-stubbed as empty components.
+// We must provide explicit stubs that render their slot content so we can test
+// the AuthCard template logic.
 const stubs = {
-  Card: { template: '<div data-testid="card"><slot /></div>' },
+  // Resolve both the import name and the Nuxt auto-import name
+  Card: { template: '<div><slot /></div>' },
+  UiCard: { template: '<div><slot /></div>' },
   CardContent: { template: '<div><slot /></div>' },
-  Tabs: {
+  UiCardContent: { template: '<div><slot /></div>' },
+  Separator: { template: '<hr />' },
+  UiSeparator: { template: '<hr />' },
+  Button: {
     template:
-      '<div data-testid="tabs" :data-model-value="modelValue" :data-default-value="defaultValue"><slot /></div>',
-    props: ['modelValue', 'defaultValue'],
+      '<button :data-testid="$attrs[\'data-testid\']" @click="$emit(\'click\')"><slot /></button>',
+    props: ['variant'],
   },
-  TabsList: { template: '<div data-testid="tabs-list"><slot /></div>' },
-  TabsTrigger: {
-    template: '<button data-testid="tabs-trigger"><slot /></button>',
-    props: ['value'],
+  UiButton: {
+    template:
+      '<button :data-testid="$attrs[\'data-testid\']" @click="$emit(\'click\')"><slot /></button>',
+    props: ['variant'],
   },
-  TabsContent: {
-    template: '<div data-testid="tabs-content"><slot /></div>',
-    props: ['value'],
-  },
-  BrandLogo: { template: '<div data-testid="brand-logo" />' },
-  LayoutBrandLogo: { template: '<div data-testid="brand-logo" />' },
 };
 
 describe('AuthCard', () => {
-  it('renders the card with logo', () => {
-    const wrapper = shallowMountComponent(AuthCard, {
-      global: { stubs },
-      slots: {
-        login: '<div>login form</div>',
-        register: '<div>register form</div>',
-      },
-    });
-
-    expect(wrapper.find('[data-testid="auth-card"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="brand-logo"]').exists()).toBe(true);
-  });
-
-  it('renders tabs with sign-in and register triggers', () => {
-    const wrapper = shallowMountComponent(AuthCard, {
-      global: { stubs },
-      slots: { login: '<div>login</div>', register: '<div>register</div>' },
-    });
-
-    expect(wrapper.find('[data-testid="tabs"]').exists()).toBe(true);
-    const triggers = wrapper.findAll('[data-testid="tabs-trigger"]');
-    expect(triggers.length).toBe(2);
-  });
-
-  it('renders login and register tab content slots', () => {
-    const wrapper = shallowMountComponent(AuthCard, {
+  function mountAuthCard(defaultView?: 'login' | 'register') {
+    return shallowMountComponent(AuthCard, {
+      props: { defaultView },
       global: { stubs },
       slots: {
         login: '<div data-testid="login-slot">login form</div>',
         register: '<div data-testid="register-slot">register form</div>',
       },
     });
+  }
 
-    expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(true);
+  it('renders the card wrapper', () => {
+    const wrapper = mountAuthCard();
+    expect(wrapper.find('[data-testid="auth-card"]').exists()).toBe(true);
   });
 
-  it('defaults to login tab', () => {
-    const wrapper = shallowMountComponent(AuthCard, {
-      global: { stubs },
-      slots: { login: '<div>login</div>', register: '<div>register</div>' },
-    });
+  it('defaults to login view with login slot visible', () => {
+    const wrapper = mountAuthCard();
+    expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(false);
+  });
 
-    const tabs = wrapper.find('[data-testid="tabs"]');
-    expect(tabs.attributes('data-model-value')).toBe('login');
+  it('shows register view when defaultView is register', () => {
+    const wrapper = mountAuthCard('register');
+    expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(false);
+  });
+
+  it('renders close button that emits close', async () => {
+    const wrapper = mountAuthCard();
+    const closeBtn = wrapper.find('[data-testid="auth-close"]');
+    expect(closeBtn.exists()).toBe(true);
+    await closeBtn.trigger('click');
+    expect(wrapper.emitted('close')).toBeTruthy();
+  });
+
+  it('renders divider text in login view', () => {
+    const wrapper = mountAuthCard();
+    expect(wrapper.find('[data-testid="auth-divider"]').exists()).toBe(true);
+  });
+
+  it('renders business account info in login view', () => {
+    const wrapper = mountAuthCard();
+    expect(wrapper.find('[data-testid="auth-business-info"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('renders apply button in login view', () => {
+    const wrapper = mountAuthCard();
+    expect(wrapper.find('[data-testid="auth-apply-button"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('switches to register view when apply button clicked', async () => {
+    const wrapper = mountAuthCard();
+    await wrapper.find('[data-testid="auth-apply-button"]').trigger('click');
+    expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(false);
+  });
+
+  it('renders back-to-login link in register view', () => {
+    const wrapper = mountAuthCard('register');
+    expect(wrapper.find('[data-testid="auth-back-to-login"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('switches back to login when sign-in link clicked', async () => {
+    const wrapper = mountAuthCard('register');
+    const backLink = wrapper.find('[data-testid="auth-back-to-login"] button');
+    await backLink.trigger('click');
+    expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(false);
   });
 });

@@ -7,13 +7,15 @@ import { createPinia, setActivePinia } from 'pinia';
 const stubs = {
   AuthCard: {
     template:
-      '<div data-testid="auth-card" :data-default-tab="defaultTab"><slot name="login" /><slot name="register" /></div>',
-    props: ['defaultTab'],
+      '<div data-testid="auth-card" :data-default-view="defaultView"><slot name="login" /><slot name="register" /></div>',
+    props: ['defaultView'],
+    emits: ['close'],
   },
   AuthAuthCard: {
     template:
-      '<div data-testid="auth-card" :data-default-tab="defaultTab"><slot name="login" /><slot name="register" /></div>',
-    props: ['defaultTab'],
+      '<div data-testid="auth-card" :data-default-view="defaultView"><slot name="login" /><slot name="register" /></div>',
+    props: ['defaultView'],
+    emits: ['close'],
   },
   LoginForm: { template: '<div data-testid="login-form" />' },
   AuthLoginForm: { template: '<div data-testid="login-form" />' },
@@ -81,16 +83,16 @@ describe('LoginPage', () => {
     expect(wrapper.find('[data-testid="register-form"]').exists()).toBe(true);
   });
 
-  it('defaults to login tab when no query param', () => {
+  it('defaults to login view when no query param', () => {
     const wrapper = shallowMountComponent(LoginPage, {
       global: { stubs },
     });
 
     const card = wrapper.find('[data-testid="auth-card"]');
-    expect(card.attributes('data-default-tab')).toBe('login');
+    expect(card.attributes('data-default-view')).toBe('login');
   });
 
-  it('uses register tab when ?tab=register', () => {
+  it('uses register view when ?tab=register', () => {
     currentRoute.value = {
       ...currentRoute.value,
       query: { tab: 'register' },
@@ -102,6 +104,6 @@ describe('LoginPage', () => {
     });
 
     const card = wrapper.find('[data-testid="auth-card"]');
-    expect(card.attributes('data-default-tab')).toBe('register');
+    expect(card.attributes('data-default-view')).toBe('register');
   });
 });

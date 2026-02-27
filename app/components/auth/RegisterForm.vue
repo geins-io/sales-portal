@@ -1,8 +1,13 @@
 <script setup lang="ts">
+import { z } from 'zod';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Button } from '~/components/ui/button';
 import { useAuthStore } from '~/stores/auth';
+
+const { t } = useI18n();
+
+const MIN_PASSWORD_LENGTH = 8;
 
 interface RegisterField {
   name: string;
@@ -58,6 +63,18 @@ const REGISTER_FIELDS: RegisterField[] = [
   },
 ];
 
+const registerSchema = z.object({
+  email: z.string().min(1, 'auth.field_required').email('auth.invalid_email'),
+  password: z
+    .string()
+    .min(1, 'auth.field_required')
+    .min(MIN_PASSWORD_LENGTH, 'auth.password_min_length'),
+  firstName: z.string().min(1, 'auth.field_required'),
+  lastName: z.string().min(1, 'auth.field_required'),
+  company: z.string().min(1, 'auth.field_required'),
+  phone: z.string().optional(),
+});
+
 const emit = defineEmits<{
   success: [user: unknown];
 }>();
@@ -68,6 +85,32 @@ const submitted = ref(false);
 const formData = reactive<Record<string, string>>(
   Object.fromEntries(REGISTER_FIELDS.map((f) => [f.name, ''])),
 );
+const fieldErrors = reactive<Record<string, string>>({});
+const touched = reactive<Record<string, boolean>>({});
+
+function validateField(name: string) {
+  const shape = registerSchema.shape[name as keyof typeof registerSchema.shape];
+  if (!shape) return;
+  const result = shape.safeParse(formData[name]);
+  if (result.success) {
+    fieldErrors[name] = '';
+  } else {
+    fieldErrors[name] = result.error.issues[0]!.message;
+  }
+}
+
+function handleBlur(name: string) {
+  touched[name] = true;
+  validateField(name);
+}
+
+function validateAll(): boolean {
+  for (const field of REGISTER_FIELDS) {
+    touched[field.name] = true;
+    validateField(field.name);
+  }
+  return Object.values(fieldErrors).every((v) => !v);
+}
 
 function buildRegisterPayload() {
   return {
@@ -86,21 +129,15 @@ function buildRegisterPayload() {
 
 async function handleSubmit() {
   authStore.clearError();
-
-  const missingRequired = REGISTER_FIELDS.some(
-    (f) => f.required && !formData[f.name],
-  );
-  if (missingRequired) return;
+  if (!validateAll()) return;
 
   try {
     const payload = buildRegisterPayload();
     const user = await authStore.register(payload);
 
     if (user) {
-      // Auto-approved: user got tokens, redirect
       emit('success', user);
     } else {
-      // Pending approval: show success message
       submitted.value = true;
     }
   } catch {
@@ -121,9 +158,9 @@ async function handleSubmit() {
     >
       <Icon name="lucide:check" class="size-6" />
     </div>
-    <h3 class="text-lg font-semibold">{{ $t('auth.register_success') }}</h3>
+    <h3 class="text-lg font-semibold">{{ t('auth.register_success') }}</h3>
     <p class="text-muted-foreground text-sm">
-      {{ $t('auth.register_success_message') }}
+      {{ t('auth.register_success_message') }}
     </p>
   </div>
 
@@ -134,30 +171,37 @@ async function handleSubmit() {
     class="space-y-4"
     @submit.prevent="handleSubmit"
   >
-    <!-- Error message -->
+    <!-- Store error message -->
     <div
       v-if="authStore.error"
       data-testid="register-error"
       class="bg-destructive/10 text-destructive rounded-md p-3 text-sm"
     >
-      {{ $t(authStore.error) }}
+      {{ t(authStore.error) }}
     </div>
 
     <!-- Dynamic fields -->
     <div v-for="field in REGISTER_FIELDS" :key="field.name" class="space-y-2">
       <Label :for="`register-${field.name}`">
-        {{ $t(field.label) }}
+        {{ t(field.label) }}
       </Label>
       <Input
         :id="`register-${field.name}`"
         v-model="formData[field.name]"
         :type="field.type"
-        :placeholder="$t(field.placeholder || field.label)"
-        :required="field.required"
+        :placeholder="field.placeholder ? t(field.placeholder) : ''"
         :autocomplete="field.autoComplete"
         :disabled="authStore.isLoading"
         :data-testid="`register-${field.name}`"
+        @blur="handleBlur(field.name)"
       />
+      <p
+        v-if="touched[field.name] && fieldErrors[field.name]"
+        class="text-destructive text-xs"
+        :data-testid="`register-${field.name}-error`"
+      >
+        {{ t(fieldErrors[field.name]!, { min: MIN_PASSWORD_LENGTH }) }}
+      </p>
     </div>
 
     <!-- Submit -->
@@ -168,9 +212,7 @@ async function handleSubmit() {
       data-testid="register-submit"
     >
       {{
-        authStore.isLoading
-          ? $t('auth.submitting')
-          : $t('auth.apply_for_account')
+        authStore.isLoading ? t('auth.submitting') : t('auth.apply_for_account')
       }}
     </Button>
   </form>

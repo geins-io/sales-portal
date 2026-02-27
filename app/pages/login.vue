@@ -7,18 +7,22 @@ definePageMeta({
 const route = useRoute();
 const router = useRouter();
 
-const defaultTab = computed(() =>
-  route.query.tab === 'register' ? 'register' : 'login',
+const defaultView = computed(() =>
+  route.query.tab === 'register' ? ('register' as const) : ('login' as const),
 );
 
 function handleSuccess() {
   const redirect = (route.query.redirect as string) || '/';
   router.replace(redirect);
 }
+
+function handleClose() {
+  router.replace('/');
+}
 </script>
 
 <template>
-  <AuthCard :default-tab="defaultTab">
+  <AuthCard :default-view="defaultView" @close="handleClose">
     <template #login>
       <LoginForm @success="handleSuccess" />
     </template>
