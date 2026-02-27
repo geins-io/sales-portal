@@ -71,8 +71,8 @@ const formData = reactive<Record<string, string>>(
 
 function buildRegisterPayload() {
   return {
-    username: formData.email,
-    password: formData.password,
+    username: formData.email!,
+    password: formData.password!,
     user: {
       address: {
         firstName: formData.firstName || undefined,
