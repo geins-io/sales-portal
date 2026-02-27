@@ -3,8 +3,8 @@ import { useAuthStore } from '~/stores/auth';
 /**
  * Guest Middleware
  *
- * Prevents authenticated users from accessing guest-only pages
- * like login and registration.
+ * Redirects authenticated users away from public-only pages (e.g. /login).
+ * If a ?redirect query param exists, redirects there; otherwise to /.
  *
  * @example
  * ```vue
@@ -15,7 +15,7 @@ import { useAuthStore } from '~/stores/auth';
  * </script>
  * ```
  */
-export default defineNuxtRouteMiddleware(async () => {
+export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore();
 
   // On first load, check session via server (cookies are sent automatically)
@@ -24,7 +24,8 @@ export default defineNuxtRouteMiddleware(async () => {
   }
 
   if (authStore.isAuthenticated) {
-    // Redirect authenticated users to home or portal page
-    return navigateTo('/portal');
+    const raw = (to.query.redirect as string) || '/';
+    const redirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
+    return navigateTo({ path: redirect });
   }
 });

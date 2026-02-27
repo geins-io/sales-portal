@@ -4,14 +4,16 @@ import { useAuthStore } from '~/stores/auth';
  * Authentication Middleware
  *
  * Protects routes that require authentication.
- * Redirects unauthenticated users to the login page.
+ * Optionally checks user roles via route meta.
  *
  * @example
  * ```vue
  * <script setup>
- * definePageMeta({
- *   middleware: 'auth'
- * })
+ * // Any authenticated user
+ * definePageMeta({ middleware: 'auth' })
+ *
+ * // Role-gated (portal users only)
+ * definePageMeta({ middleware: 'auth', roles: ['wholesale'] })
  * </script>
  * ```
  */
@@ -24,12 +26,16 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (!authStore.isAuthenticated) {
-    // Store the intended destination for redirect after login
     const redirectPath = to.fullPath;
-
     return navigateTo({
       path: '/login',
       query: redirectPath !== '/' ? { redirect: redirectPath } : undefined,
     });
+  }
+
+  // Optional role check from route meta
+  const roles = to.meta.roles;
+  if (roles?.length && !authStore.hasAnyRole(roles)) {
+    return navigateTo({ path: '/' });
   }
 });
