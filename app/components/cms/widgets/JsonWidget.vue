@@ -68,7 +68,7 @@ function _resolveImageSrc(src: string | undefined): string {
           <GeinsImage
             v-if="(item as any).image?.src"
             :file-name="(item as any).image.src"
-            type="cms"
+            type="pagewidget"
             :alt="(item as any).image?.alt ?? ''"
             class="size-full object-cover"
           />
@@ -119,7 +119,7 @@ function _resolveImageSrc(src: string | undefined): string {
           <GeinsImage
             v-if="(item as any).src"
             :file-name="(item as any).src"
-            type="cms"
+            type="pagewidget"
             :alt="(item as any).alt ?? ''"
             class="size-full object-cover transition-transform group-hover:scale-105"
           />
@@ -168,7 +168,7 @@ function _resolveImageSrc(src: string | undefined): string {
       <GeinsImage
         v-if="(banner as any).image?.src"
         :file-name="(banner as any).image.src"
-        type="cms"
+        type="pagewidget"
         :alt="(banner as any).image?.alt ?? ''"
         class="aspect-[16/9] w-full object-cover"
       />
