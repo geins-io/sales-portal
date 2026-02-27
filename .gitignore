@@ -3,6 +3,7 @@
 .temp
 .vscode
 .plans
+.worktrees
 local-docs/
 
 # Nuxt dev/build outputs
