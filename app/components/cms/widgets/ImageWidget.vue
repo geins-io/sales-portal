@@ -20,7 +20,7 @@ const hasLink = computed(() => !!props.data.image?.href);
     <GeinsImage
       v-if="imageFileName"
       :file-name="imageFileName"
-      type="cms"
+      type="pagewidget"
       :alt="data.image?.altText || config.displayName || ''"
     />
   </component>

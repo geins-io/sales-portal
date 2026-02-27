@@ -44,7 +44,7 @@ describe('ImageWidget', () => {
     const img = wrapper.find('.geins-image');
     expect(img.exists()).toBe(true);
     expect(img.attributes('data-file')).toBe('banner.jpg');
-    expect(img.attributes('data-type')).toBe('cms');
+    expect(img.attributes('data-type')).toBe('pagewidget');
   });
 
   it('wraps in NuxtLink when href exists', () => {
