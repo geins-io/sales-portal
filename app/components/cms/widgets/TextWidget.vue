@@ -47,7 +47,7 @@ const title = computed(
 </script>
 
 <template>
-  <div :class="alignmentClass">
+  <div :class="alignmentClass" data-testid="cms-widget">
     <component :is="headingTag" v-if="title" class="mb-4 font-bold">
       {{ title }}
     </component>

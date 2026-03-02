@@ -80,6 +80,7 @@ const textColorClass = computed(() => {
     :is="hasLink ? resolveComponent('NuxtLink') : 'div'"
     :to="hasLink ? data.image.href : undefined"
     class="relative block overflow-hidden"
+    data-testid="cms-widget"
   >
     <GeinsImage
       v-if="imageFileName"

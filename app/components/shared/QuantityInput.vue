@@ -20,6 +20,7 @@ function onUpdate(value: number) {
 
 <template>
   <NumberField
+    data-testid="quantity-input"
     :model-value="modelValue"
     :min="min"
     :max="max"

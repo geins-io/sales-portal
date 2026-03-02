@@ -114,6 +114,7 @@ function onCloseAutocomplete() {
     <input
       v-model="query"
       type="text"
+      data-testid="search-input"
       :placeholder="placeholder ?? $t('nav.search_products')"
       class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border py-2 pr-10 pl-10 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
       @keydown.enter="onSubmit"

@@ -64,7 +64,7 @@ const isOpen = computed({
 </script>
 
 <template>
-  <div data-slot="mobile-nav">
+  <div data-slot="mobile-nav" data-testid="mobile-nav-panel">
     <Sheet v-model:open="isOpen">
       <SheetContent side="left" class="flex w-80 flex-col p-0">
         <!-- Header -->

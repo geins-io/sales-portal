@@ -37,6 +37,7 @@ const cartStore = useCartStore();
     <!-- Hamburger (mobile only) -->
     <button
       data-slot="menu-toggle"
+      data-testid="mobile-nav-trigger"
       type="button"
       class="text-muted-foreground hover:text-foreground p-2 lg:hidden"
       @click="appStore.toggleSidebar()"

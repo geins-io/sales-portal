@@ -24,10 +24,10 @@ function handleClose() {
 <template>
   <AuthCard :default-view="defaultView" @close="handleClose">
     <template #login>
-      <LoginForm @success="handleSuccess" />
+      <AuthLoginForm @success="handleSuccess" />
     </template>
     <template #register>
-      <RegisterForm @success="handleSuccess" />
+      <AuthRegisterForm @success="handleSuccess" />
     </template>
   </AuthCard>
 </template>

@@ -42,8 +42,8 @@ export default defineConfig({
     ? [['html', { outputFolder: 'playwright-report' }], ['github']]
     : [['html', { outputFolder: 'playwright-report' }], ['list']],
 
-  // Global timeout
-  timeout: 30000,
+  // Global timeout — extended for real API calls
+  timeout: 60000,
 
   // Expect timeout
   expect: {
@@ -78,30 +78,16 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    // Uncomment these for more browser coverage in CI
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
-    // Mobile viewport testing
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
+    {
+      name: 'Mobile Chrome',
+      use: { ...devices['Pixel 5'] },
+    },
   ],
 
   // Local development server
   webServer: {
     command: process.env.CI ? 'pnpm preview' : 'pnpm dev',
-    url: `http://localhost:${TEST_PORT}`,
+    url: `http://${TEST_TENANT_HOST}:${TEST_PORT}/api/config`,
     reuseExistingServer: !process.env.CI,
     timeout: 120000, // 2 minutes to start the dev server
     stdout: 'pipe',
