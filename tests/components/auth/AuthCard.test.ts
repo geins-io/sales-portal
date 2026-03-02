@@ -26,13 +26,14 @@ const stubs = {
 };
 
 describe('AuthCard', () => {
-  function mountAuthCard(defaultView?: 'login' | 'register') {
+  function mountAuthCard(defaultView?: 'login' | 'register' | 'forgot') {
     return shallowMountComponent(AuthCard, {
       props: { defaultView },
       global: { stubs },
       slots: {
         login: '<div data-testid="login-slot">login form</div>',
         register: '<div data-testid="register-slot">register form</div>',
+        forgot: '<div data-testid="forgot-slot">forgot form</div>',
       },
     });
   }
@@ -101,5 +102,28 @@ describe('AuthCard', () => {
     await backLink.trigger('click');
     expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(false);
+  });
+
+  it('shows forgot view when defaultView is forgot', () => {
+    const wrapper = mountAuthCard('forgot');
+    expect(wrapper.find('[data-testid="forgot-slot"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(false);
+  });
+
+  it('renders back-to-login link in forgot view', () => {
+    const wrapper = mountAuthCard('forgot');
+    expect(
+      wrapper.find('[data-testid="auth-forgot-back-to-login"]').exists(),
+    ).toBe(true);
+  });
+
+  it('switches from forgot back to login', async () => {
+    const wrapper = mountAuthCard('forgot');
+    const backLink = wrapper.find(
+      '[data-testid="auth-forgot-back-to-login"] button',
+    );
+    await backLink.trigger('click');
+    expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="forgot-slot"]').exists()).toBe(false);
   });
 });

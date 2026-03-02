@@ -5,7 +5,7 @@ import { Separator } from '~/components/ui/separator';
 
 const props = withDefaults(
   defineProps<{
-    defaultView?: 'login' | 'register';
+    defaultView?: 'login' | 'register' | 'forgot';
   }>(),
   { defaultView: 'login' },
 );
@@ -23,6 +23,12 @@ function switchToRegister() {
 function switchToLogin() {
   activeView.value = 'login';
 }
+
+function switchToForgot() {
+  activeView.value = 'forgot';
+}
+
+defineExpose({ switchToForgot });
 </script>
 
 <template>
@@ -88,7 +94,7 @@ function switchToLogin() {
         </template>
 
         <!-- Register view -->
-        <template v-else>
+        <template v-else-if="activeView === 'register'">
           <!-- Header -->
           <div class="mb-6">
             <h1 class="text-xl font-semibold tracking-tight">
@@ -113,6 +119,32 @@ function switchToLogin() {
               @click="switchToLogin"
             >
               {{ $t('auth.sign_in') }}
+            </button>
+          </p>
+        </template>
+
+        <!-- Forgot password view -->
+        <template v-else-if="activeView === 'forgot'">
+          <!-- Header -->
+          <div class="mb-6">
+            <h1 class="text-xl font-semibold tracking-tight">
+              {{ $t('auth.forgot_password') }}
+            </h1>
+          </div>
+
+          <!-- Forgot password form slot -->
+          <slot name="forgot" />
+
+          <!-- Back to login -->
+          <p
+            class="mt-4 text-center text-sm"
+            data-testid="auth-forgot-back-to-login"
+          >
+            <button
+              class="text-primary hover:text-primary/80 font-medium underline underline-offset-4"
+              @click="switchToLogin"
+            >
+              {{ $t('auth.forgot_back_to_login') }}
             </button>
           </p>
         </template>
