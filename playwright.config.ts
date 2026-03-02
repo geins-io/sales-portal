@@ -34,8 +34,8 @@ export default defineConfig({
   // Retry failed tests in CI
   retries: process.env.CI ? 2 : 0,
 
-  // Run tests in parallel
-  workers: process.env.CI ? 1 : undefined,
+  // Run tests in parallel — CI runners have 2 vCPUs
+  workers: process.env.CI ? 2 : undefined,
 
   // Reporter configuration
   reporter: process.env.CI
