@@ -9,7 +9,14 @@ const stubs = {
   Input: {
     template:
       '<input :type="type" :id="id" v-bind="$attrs" @blur="$emit(\'blur\', $event)" />',
-    props: ['type', 'id', 'modelValue', 'placeholder', 'autocomplete', 'disabled'],
+    props: [
+      'type',
+      'id',
+      'modelValue',
+      'placeholder',
+      'autocomplete',
+      'disabled',
+    ],
     emits: ['update:modelValue', 'blur'],
   },
   Button: {
@@ -47,12 +54,16 @@ describe('ForgotPasswordForm', () => {
     const emailInput = wrapper.find('[data-testid="forgot-email"]');
     await emailInput.trigger('blur');
     await wrapper.vm.$nextTick();
-    expect(wrapper.find('[data-testid="forgot-email-error"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="forgot-email-error"]').exists()).toBe(
+      true,
+    );
   });
 
   it('does not show validation error before blur', () => {
     const wrapper = mountComponent(ForgotPasswordForm, { global: { stubs } });
-    expect(wrapper.find('[data-testid="forgot-email-error"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="forgot-email-error"]').exists()).toBe(
+      false,
+    );
   });
 
   it('renders forgot form initially (not success)', () => {

@@ -116,7 +116,9 @@ async function handleSubmit() {
       :disabled="authStore.isLoading"
       data-testid="forgot-submit"
     >
-      {{ authStore.isLoading ? t('auth.forgot_sending') : t('auth.forgot_submit') }}
+      {{
+        authStore.isLoading ? t('auth.forgot_sending') : t('auth.forgot_submit')
+      }}
     </Button>
   </form>
 </template>
