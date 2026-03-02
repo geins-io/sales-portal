@@ -8,7 +8,7 @@ Testing strategy, architecture, and practices for the Sales Portal.
 
 ## Overview
 
-1219 tests across 90 files, running in ~30s via a 3-tier Vitest workspace.
+1330 unit/component tests across 105 files + 51 E2E tests across 8 Playwright spec files.
 
 | Level       | Tool                    | What it tests                            |
 | ----------- | ----------------------- | ---------------------------------------- |
@@ -130,9 +130,16 @@ tests/
 │   ├── useErrorTracking.test.ts          # nuxt tier (useRuntimeConfig)
 │   ├── useRouteResolution.test.ts
 │   └── useTenant.test.ts                 # nuxt tier (useFetch)
-├── e2e/               # Playwright E2E tests
-│   ├── app.spec.ts
-│   └── health.spec.ts
+├── e2e/               # Playwright E2E tests (51 tests)
+│   ├── helpers.ts          # Shared: discoverProduct, waitForHydration, addToCart
+│   ├── app.spec.ts         # App health, responsive, accessibility, perf (10)
+│   ├── auth.spec.ts        # Login, register, validation, view switching (8)
+│   ├── cart.spec.ts        # Add-to-cart, cart page, remove, promo (5)
+│   ├── health.spec.ts      # API health, config, homepage (3)
+│   ├── homepage.spec.ts    # Hero, products, CMS sections, nav, footer (5)
+│   ├── navigation.spec.ts  # Header, breadcrumbs, footer, mobile nav (7)
+│   ├── product-browsing.spec.ts  # PLP grid, sort, filter, PDP (8)
+│   └── search.spec.ts      # Autocomplete, results page, clear (5)
 ├── middleware/         # Middleware tests (node tier)
 │   └── feature.test.ts
 ├── server/            # Server tests (mostly node tier)
@@ -285,16 +292,47 @@ vi.stubGlobal(
 
 ## E2E Tests
 
-```typescript
-import { test, expect } from '@playwright/test';
+E2E tests run against the real dev server with real Geins API data — no mocks.
 
-test.describe('Feature', () => {
-  test('should complete user flow', async ({ page }) => {
-    await page.goto('/');
-    await page.click('button[data-testid="submit"]');
-    await expect(page.locator('.success-message')).toBeVisible();
-  });
-});
+### Key patterns
+
+**Dynamic data discovery** — tests don't hardcode slugs or IDs:
+
+```typescript
+import { discoverProduct, discoverCategory } from './helpers';
+
+const product = await discoverProduct(page); // Fetches /api/product-lists/products
+const category = await discoverCategory(page); // Fetches /api/cms/menu
+```
+
+**Hydration wait** — SSR renders HTML immediately but Vue event handlers only attach after hydration. Always call `waitForHydration(page)` before interacting with reactive elements:
+
+```typescript
+import { waitForHydration } from './helpers';
+
+await page.goto('/some-page');
+await page.waitForLoadState('load');
+await waitForHydration(page); // Checks __vue_app__ + 1s stabilization
+```
+
+**pressSequentially for v-model** — `fill()` sets values programmatically and may not trigger Vue's watch chain. Use `pressSequentially()` for search inputs and other watched fields:
+
+```typescript
+await searchInput.click();
+await searchInput.pressSequentially(searchTerm, { delay: 50 });
+```
+
+**Retry clicks for hydration-sensitive elements** — hydration mismatch patching can leave event handlers temporarily unattached:
+
+```typescript
+for (let attempt = 0; attempt < 3; attempt++) {
+  await button.click();
+  const opened = await dialog
+    .waitFor({ state: 'visible', timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  if (opened) break;
+}
 ```
 
 ## Coverage

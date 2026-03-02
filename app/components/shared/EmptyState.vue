@@ -11,7 +11,10 @@ defineProps<{
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center py-16 text-center">
+  <div
+    class="flex flex-col items-center justify-center py-16 text-center"
+    data-testid="empty-state"
+  >
     <component
       :is="icon"
       v-if="icon"

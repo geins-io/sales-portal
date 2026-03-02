@@ -44,6 +44,7 @@ async function addToCart() {
   <div
     v-if="variant === 'grid'"
     class="bg-card flex flex-col overflow-hidden rounded-md border"
+    data-testid="product-card"
   >
     <!-- Image -->
     <div class="bg-muted group relative aspect-square w-full overflow-hidden">
@@ -127,6 +128,7 @@ async function addToCart() {
   <div
     v-else
     class="bg-card flex flex-row items-center gap-4 overflow-hidden rounded-md border"
+    data-testid="product-card"
   >
     <!-- Thumbnail -->
     <div class="bg-muted group w-32 shrink-0 self-stretch overflow-hidden">

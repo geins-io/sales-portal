@@ -16,6 +16,7 @@ const hasLink = computed(() => !!props.data.image?.href);
   <component
     :is="hasLink ? resolveComponent('NuxtLink') : 'div'"
     :to="hasLink ? data.image.href : undefined"
+    data-testid="cms-widget"
   >
     <GeinsImage
       v-if="imageFileName"

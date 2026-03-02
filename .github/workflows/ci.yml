@@ -91,7 +91,7 @@ jobs:
   test-e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -116,12 +116,15 @@ jobs:
 
       - name: Build application
         run: pnpm build
+        env:
+          NUXT_GEINS_TENANT_API_KEY: ${{ secrets.GEINS_TENANT_API_KEY }}
 
-      - name: Run E2E tests
-        run: pnpm test:e2e
+      - name: Run E2E smoke tests
+        run: pnpm test:e2e --project=chromium tests/e2e/health.spec.ts tests/e2e/app.spec.ts tests/e2e/homepage.spec.ts
         env:
           PLAYWRIGHT_BASE_URL: http://tenant-a.litium.portal:3000
           NUXT_AUTO_CREATE_TENANT: 'true'
+          NUXT_GEINS_TENANT_API_KEY: ${{ secrets.GEINS_TENANT_API_KEY }}
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

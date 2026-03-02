@@ -7,5 +7,5 @@ useHead({
 </script>
 
 <template>
-  <CartPage />
+  <PagesCartPage />
 </template>

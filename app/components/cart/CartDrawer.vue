@@ -22,7 +22,11 @@ const taxFormatted = computed(
 
 <template>
   <Sheet v-model:open="isOpen">
-    <SheetContent side="right" class="flex w-full flex-col sm:max-w-md">
+    <SheetContent
+      side="right"
+      class="flex w-full flex-col sm:max-w-md"
+      data-testid="cart-drawer"
+    >
       <SheetHeader>
         <SheetTitle class="flex items-center gap-2">
           <ShoppingCart class="size-5" />

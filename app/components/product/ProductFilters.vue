@@ -36,7 +36,7 @@ function getSelected(facetId: string): string[] {
 
 <template>
   <div>
-    <Button size="sm" @click="sheetOpen = true">
+    <Button size="sm" data-testid="product-filters" @click="sheetOpen = true">
       <SlidersHorizontal class="mr-2 size-4" />
       {{ $t('product.filters') }}
     </Button>

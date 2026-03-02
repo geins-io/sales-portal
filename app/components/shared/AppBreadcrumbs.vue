@@ -33,7 +33,7 @@ const displayItems = computed((): DisplayItem[] => {
 </script>
 
 <template>
-  <Breadcrumb v-if="items.length">
+  <Breadcrumb v-if="items.length" data-testid="breadcrumbs">
     <BreadcrumbList>
       <template v-for="(item, index) in displayItems" :key="index">
         <BreadcrumbItemPrimitive>

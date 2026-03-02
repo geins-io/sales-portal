@@ -47,7 +47,7 @@ function onClose() {
     </div>
 
     <!-- Loading state -->
-    <CartPageSkeleton
+    <PagesCartPageSkeleton
       v-if="cartStore.isLoading && !cartStore.cart"
       data-testid="cart-page-loading"
     />

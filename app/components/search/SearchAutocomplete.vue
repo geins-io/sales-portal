@@ -32,6 +32,7 @@ onUnmounted(() => {
   <div
     v-if="open"
     data-slot="search-autocomplete"
+    data-testid="search-autocomplete"
     class="bg-popover text-popover-foreground border-border absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-md border shadow-lg"
   >
     <!-- Loading state -->

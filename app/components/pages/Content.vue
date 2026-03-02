@@ -62,7 +62,7 @@ useHead(
       class="md:flex md:gap-8"
     >
       <ErrorBoundary section="sidebar-nav">
-        <PageSidebarNav
+        <PagesPageSidebarNav
           :menu-location-id="sidebarMenuId"
           class="mb-6 md:mb-0 md:w-64 md:shrink-0"
         />

@@ -13,7 +13,7 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <div class="flex items-center gap-1">
+  <div class="flex items-center gap-1" data-testid="view-toggle">
     <button
       type="button"
       class="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"

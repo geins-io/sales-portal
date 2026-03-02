@@ -42,7 +42,7 @@ const showThumbnails = computed(() => props.images.length > 1);
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
+  <div class="flex flex-col gap-2" data-testid="product-gallery">
     <!-- Gallery: thumbnails left + main image right -->
     <div class="flex gap-3">
       <!-- Vertical thumbnail strip -->
