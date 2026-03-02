@@ -137,5 +137,38 @@ export const useAuthStore = defineStore('auth', {
     clearError() {
       this.error = null;
     },
+
+    async requestPasswordReset(email: string): Promise<void> {
+      this.isLoading = true;
+      this.error = null;
+
+      try {
+        await $fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          body: { email },
+        });
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    async resetPassword(resetKey: string, password: string): Promise<void> {
+      this.isLoading = true;
+      this.error = null;
+
+      try {
+        await $fetch('/api/auth/reset-password', {
+          method: 'POST',
+          body: { resetKey, password },
+        });
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'auth.reset_failed';
+        this.error = message;
+        throw new Error(message);
+      } finally {
+        this.isLoading = false;
+      }
+    },
   },
 });

@@ -89,4 +89,11 @@ describe('LoginForm', () => {
       true,
     );
   });
+
+  it('emits forgot event when forgot password link is clicked', async () => {
+    const wrapper = mountComponent(LoginForm, { global: { stubs } });
+    const forgotLink = wrapper.find('[data-testid="login-forgot-password"]');
+    await forgotLink.trigger('click');
+    expect(wrapper.emitted('forgot')).toBeTruthy();
+  });
 });

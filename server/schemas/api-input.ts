@@ -152,3 +152,17 @@ export const CartPromoCodeSchema = z.object({
   promoCode: z.string().min(1).max(50),
 });
 export type CartPromoCodeInput = z.infer<typeof CartPromoCodeSchema>;
+
+// ---------------------------------------------------------------------------
+// Auth — Password Reset
+// ---------------------------------------------------------------------------
+export const ForgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>;
+
+export const ResetPasswordSchema = z.object({
+  resetKey: z.string().min(1),
+  password: z.string().min(8),
+});
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;

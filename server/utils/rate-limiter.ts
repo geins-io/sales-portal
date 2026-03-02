@@ -178,3 +178,9 @@ export const refreshRateLimiter = new RateLimiter({
   windowMs: 60000,
   prefix: 'auth-refresh',
 });
+
+export const forgotPasswordRateLimiter = new RateLimiter({
+  limit: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  prefix: 'auth-forgot-password',
+});

@@ -66,6 +66,8 @@ const componentTestFiles = [
   'tests/components/auth/LoginForm.test.ts',
   'tests/components/auth/RegisterForm.test.ts',
   'tests/components/auth/LoginPage.test.ts',
+  'tests/components/auth/ForgotPasswordForm.test.ts',
+  'tests/components/auth/ResetPasswordForm.test.ts',
 ];
 
 // Get Nuxt's Vite config once (aliases, auto-imports, plugins)

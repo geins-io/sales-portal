@@ -63,3 +63,30 @@ export async function register(
     ErrorCode.UNAUTHORIZED,
   );
 }
+
+export async function requestPasswordReset(
+  email: string,
+  event: H3Event,
+): Promise<unknown> {
+  const { crm } = await getTenantSDK(event);
+  return wrapServiceCall(
+    () => crm.user.password.requestReset(email),
+    'user',
+    AuthError,
+    ErrorCode.BAD_REQUEST,
+  );
+}
+
+export async function commitPasswordReset(
+  resetKey: string,
+  password: string,
+  event: H3Event,
+): Promise<unknown> {
+  const { crm } = await getTenantSDK(event);
+  return wrapServiceCall(
+    () => crm.user.password.commitReset(resetKey, password),
+    'user',
+    AuthError,
+    ErrorCode.BAD_REQUEST,
+  );
+}

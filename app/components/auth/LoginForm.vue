@@ -9,6 +9,7 @@ const { t } = useI18n();
 
 const emit = defineEmits<{
   success: [user: unknown];
+  forgot: [];
 }>();
 
 const authStore = useAuthStore();
@@ -103,12 +104,14 @@ async function handleSubmit() {
     <div class="space-y-2">
       <div class="flex items-center justify-between">
         <Label for="login-password">{{ t('auth.password') }}</Label>
-        <span
+        <button
+          type="button"
           data-testid="login-forgot-password"
-          class="text-muted-foreground cursor-not-allowed text-sm opacity-50"
+          class="text-primary hover:text-primary/80 text-sm font-medium underline underline-offset-4"
+          @click="emit('forgot')"
         >
           {{ t('auth.forgot_password') }}
-        </span>
+        </button>
       </div>
       <Input
         id="login-password"
