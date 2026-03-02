@@ -372,4 +372,91 @@ describe('useAuthStore', () => {
       expect(store.error).toBeNull();
     });
   });
+
+  describe('requestPasswordReset action', () => {
+    it('should call /api/auth/forgot-password with POST', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockResolvedValueOnce({ success: true });
+
+      await store.requestPasswordReset('user@example.com');
+
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/auth/forgot-password', {
+        method: 'POST',
+        body: { email: 'user@example.com' },
+      });
+    });
+
+    it('should set loading state during request', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            expect(store.isLoading).toBe(true);
+            resolve({ success: true });
+          }),
+      );
+
+      await store.requestPasswordReset('user@example.com');
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('should propagate errors but clear loading', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockRejectedValueOnce(new Error('Server error'));
+
+      await expect(
+        store.requestPasswordReset('user@example.com'),
+      ).rejects.toThrow('Server error');
+      expect(store.isLoading).toBe(false);
+    });
+  });
+
+  describe('resetPassword action', () => {
+    it('should call /api/auth/reset-password with POST', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockResolvedValueOnce({ success: true });
+
+      await store.resetPassword('key123', 'newpass88');
+
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/auth/reset-password', {
+        method: 'POST',
+        body: { resetKey: 'key123', password: 'newpass88' },
+      });
+    });
+
+    it('should set loading state during request', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            expect(store.isLoading).toBe(true);
+            resolve({ success: true });
+          }),
+      );
+
+      await store.resetPassword('key123', 'newpass88');
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('should set error on failure', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockRejectedValueOnce(new Error('Invalid key'));
+
+      await expect(store.resetPassword('key123', 'newpass88')).rejects.toThrow(
+        'Invalid key',
+      );
+      expect(store.error).toBe('Invalid key');
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('should use i18n key as fallback for non-Error failures', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockRejectedValueOnce('not an Error');
+
+      await expect(store.resetPassword('key123', 'newpass88')).rejects.toThrow(
+        'auth.reset_failed',
+      );
+      expect(store.error).toBe('auth.reset_failed');
+    });
+  });
 });
