@@ -1,0 +1,175 @@
+<script setup lang="ts">
+import type { GeinsUserType } from '@geins/types';
+import { useAuthStore } from '~/stores/auth';
+
+const { t } = useI18n();
+const route = useRoute();
+const authStore = useAuthStore();
+
+const { data: profileData } = useFetch<{ profile: GeinsUserType }>(
+  '/api/user/profile',
+  { dedupe: 'defer' },
+);
+
+const profile = computed(() => profileData.value?.profile);
+const welcomeName = computed(
+  () => profile.value?.address?.firstName || authStore.displayName || '',
+);
+const customerNo = computed(
+  () => profile.value?.id?.toString() || authStore.user?.memberId || '',
+);
+const email = computed(
+  () => profile.value?.email || authStore.user?.username || '',
+);
+const orgName = computed(() => profile.value?.address?.company || '');
+
+interface PortalTab {
+  key: string;
+  label: string;
+  to: string;
+  icon: string;
+}
+
+const tabs: PortalTab[] = [
+  {
+    key: 'overview',
+    label: 'portal.tabs.overview',
+    to: '/portal',
+    icon: 'lucide:layout-dashboard',
+  },
+  {
+    key: 'orders',
+    label: 'portal.tabs.orders',
+    to: '/portal/orders',
+    icon: 'lucide:shopping-bag',
+  },
+  {
+    key: 'quotations',
+    label: 'portal.tabs.quotations',
+    to: '/portal/quotations',
+    icon: 'lucide:file-text',
+  },
+  {
+    key: 'products',
+    label: 'portal.tabs.products',
+    to: '/portal/products',
+    icon: 'lucide:package',
+  },
+  {
+    key: 'lists',
+    label: 'portal.tabs.lists',
+    to: '/portal/lists',
+    icon: 'lucide:list',
+  },
+  {
+    key: 'organisation',
+    label: 'portal.tabs.organisation',
+    to: '/portal/organisation',
+    icon: 'lucide:building-2',
+  },
+];
+
+function isActiveTab(tab: PortalTab): boolean {
+  if (tab.to === '/portal') {
+    return route.path === '/portal' || route.path === '/portal/';
+  }
+  return route.path.startsWith(tab.to);
+}
+
+async function handleLogout() {
+  await authStore.logout();
+  navigateTo('/');
+}
+</script>
+
+<template>
+  <div data-testid="portal-shell">
+    <!-- Hero Banner -->
+    <div
+      data-testid="portal-hero"
+      class="bg-primary text-primary-foreground py-12 text-center"
+    >
+      <p class="text-primary-foreground/70 text-xs tracking-wider uppercase">
+        CMS Content area
+      </p>
+      <h1 class="mt-2 text-3xl font-bold">Portal landing page</h1>
+      <p class="text-primary-foreground/80 mx-auto mt-2 max-w-md text-sm">
+        Follow with one or two sentences that expand on your value proposition
+        and focus on key benefits.
+      </p>
+    </div>
+
+    <!-- Welcome Card -->
+    <div class="mx-auto max-w-6xl px-4">
+      <div
+        data-testid="portal-welcome"
+        class="border-border bg-background -mt-6 flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-center"
+      >
+        <!-- Left: User info -->
+        <div>
+          <h2 class="text-xl font-semibold">
+            {{ t('portal.welcome', { name: welcomeName }) }}
+          </h2>
+          <p class="text-muted-foreground mt-1 text-sm">
+            {{ t('portal.customer_no', { id: customerNo, email }) }}
+          </p>
+          <p v-if="orgName" class="text-muted-foreground text-sm">
+            {{ t('portal.organisation', { org: orgName }) }}
+          </p>
+        </div>
+
+        <!-- Right: Quick links -->
+        <div class="flex flex-col gap-2 text-sm">
+          <NuxtLink
+            to="/portal/lists"
+            class="text-primary hover:text-primary/80 flex items-center gap-2 font-medium"
+          >
+            <Icon name="lucide:heart" class="size-4" />
+            {{ t('portal.quick_links.favorites') }}
+          </NuxtLink>
+          <NuxtLink
+            to="/portal/account"
+            class="text-primary hover:text-primary/80 flex items-center gap-2 font-medium"
+          >
+            <Icon name="lucide:user" class="size-4" />
+            {{ t('portal.quick_links.account') }}
+          </NuxtLink>
+          <button
+            type="button"
+            class="text-primary hover:text-primary/80 flex items-center gap-2 text-left font-medium"
+            @click="handleLogout"
+          >
+            <Icon name="lucide:log-out" class="size-4" />
+            {{ t('portal.quick_links.logout') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab Navigation -->
+      <nav
+        data-testid="portal-tabs"
+        class="border-border mt-6 flex gap-1 overflow-x-auto border-b"
+      >
+        <NuxtLink
+          v-for="tab in tabs"
+          :key="tab.key"
+          :to="tab.to"
+          class="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors"
+          :class="
+            isActiveTab(tab)
+              ? 'border-primary text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:border-border border-transparent'
+          "
+        >
+          <Icon :name="tab.icon" class="size-4" />
+          {{ t(tab.label) }}
+        </NuxtLink>
+      </nav>
+
+      <!-- Page Content -->
+      <div class="py-8">
+        <slot />
+      </div>
+    </div>
+  </div>
+</template>

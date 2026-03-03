@@ -184,3 +184,9 @@ export const forgotPasswordRateLimiter = new RateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
   prefix: 'auth-forgot-password',
 });
+
+export const changePasswordRateLimiter = new RateLimiter({
+  limit: 5,
+  windowMs: 60000,
+  prefix: 'auth-change-password',
+});
