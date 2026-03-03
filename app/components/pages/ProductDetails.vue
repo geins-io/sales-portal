@@ -226,13 +226,6 @@ useSchemaOrg([
           </button>
         </div>
 
-        <!-- Price -->
-        <PriceDisplay
-          v-if="product.unitPrice"
-          :price="product.unitPrice"
-          class="text-lg font-semibold"
-        />
-
         <!-- Brand -->
         <p
           v-if="product.brand?.name"
@@ -241,6 +234,13 @@ useSchemaOrg([
         >
           {{ product.brand.name }}
         </p>
+
+        <!-- Price -->
+        <PriceDisplay
+          v-if="product.unitPrice"
+          :price="product.unitPrice"
+          class="text-lg font-semibold"
+        />
 
         <!-- Short description -->
         <p

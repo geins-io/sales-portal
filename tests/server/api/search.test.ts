@@ -17,6 +17,13 @@ vi.mock('../../../server/services/search', () => ({
 // ---------------------------------------------------------------------------
 vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getQuery', vi.fn());
+vi.stubGlobal(
+  'getValidatedQuery',
+  vi.fn(async (_event: unknown, validator: (raw: unknown) => unknown) => {
+    const query = (getQuery as ReturnType<typeof vi.fn>)(_event);
+    return validator(query);
+  }),
+);
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
 
 // ---------------------------------------------------------------------------

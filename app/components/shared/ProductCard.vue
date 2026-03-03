@@ -58,28 +58,27 @@ async function addToCart() {
           class="size-full object-cover transition-transform group-hover:scale-105"
         />
       </NuxtLink>
+      <!-- Wishlist button overlay -->
+      <button
+        type="button"
+        data-testid="wishlist-button"
+        class="bg-background/80 text-muted-foreground hover:text-foreground absolute top-2 right-2 shrink-0 rounded border p-1.5 transition-colors"
+        :aria-label="$t('product.wishlist')"
+      >
+        <Star class="size-4" />
+      </button>
     </div>
 
     <!-- Content -->
     <div class="flex flex-1 flex-col gap-1 p-4">
-      <!-- Article number + wishlist -->
-      <div class="flex items-center justify-between">
-        <p
-          v-if="product.articleNumber"
-          class="text-muted-foreground text-xs"
-          data-testid="article-number"
-        >
-          {{ $t('product.article_number', { number: product.articleNumber }) }}
-        </p>
-        <button
-          type="button"
-          data-testid="wishlist-button"
-          class="border-border text-muted-foreground hover:text-foreground shrink-0 rounded border p-1.5 transition-colors"
-          :aria-label="$t('product.wishlist')"
-        >
-          <Star class="size-4" />
-        </button>
-      </div>
+      <!-- Article number -->
+      <p
+        v-if="product.articleNumber"
+        class="text-muted-foreground text-xs"
+        data-testid="article-number"
+      >
+        {{ $t('product.article_number', { number: product.articleNumber }) }}
+      </p>
 
       <!-- Product title -->
       <NuxtLink :to="productUrl" class="hover:underline">
@@ -87,6 +86,15 @@ async function addToCart() {
           {{ product.name }}
         </h3>
       </NuxtLink>
+
+      <!-- Brand name -->
+      <p
+        v-if="product.brand?.name"
+        class="text-muted-foreground text-xs"
+        data-testid="product-brand"
+      >
+        {{ product.brand.name }}
+      </p>
 
       <!-- Stock badge -->
       <StockBadge
@@ -127,7 +135,7 @@ async function addToCart() {
   <!-- List variant -->
   <div
     v-else
-    class="bg-card flex flex-row items-center gap-4 overflow-hidden rounded-md border"
+    class="bg-card flex flex-row items-center gap-4 overflow-hidden border-b"
     data-testid="product-card"
   >
     <!-- Thumbnail -->

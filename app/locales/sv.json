@@ -141,7 +141,8 @@
     "grid": "Rutnät",
     "list": "Lista",
     "grid_view": "Rutnätsvy",
-    "list_view": "Listvy"
+    "list_view": "Listvy",
+    "view_all": "Visa alla"
   },
   "account": {
     "my_account": "Mitt konto",

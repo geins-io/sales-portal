@@ -141,7 +141,8 @@
     "grid": "Grid",
     "list": "List",
     "grid_view": "Grid view",
-    "list_view": "List view"
+    "list_view": "List view",
+    "view_all": "View all"
   },
   "account": {
     "my_account": "My Account",

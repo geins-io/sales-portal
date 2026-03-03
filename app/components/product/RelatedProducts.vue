@@ -34,25 +34,33 @@ const hasProducts = computed(() => props.products.length > 0);
   <section v-if="hasProducts" data-testid="related-products">
     <div class="mb-4 flex items-center justify-between">
       <h2 class="text-lg font-semibold">{{ $t('product.related') }}</h2>
-      <div class="hidden gap-1 md:flex">
-        <button
-          v-show="canScrollLeft"
-          type="button"
-          class="bg-background hover:bg-muted rounded-full border p-1.5"
-          aria-label="Scroll left"
-          @click="scrollBy('left')"
+      <div class="flex items-center gap-3">
+        <NuxtLink
+          to="/products"
+          class="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
         >
-          <Icon name="lucide:chevron-left" class="size-4" />
-        </button>
-        <button
-          v-show="canScrollRight"
-          type="button"
-          class="bg-background hover:bg-muted rounded-full border p-1.5"
-          aria-label="Scroll right"
-          @click="scrollBy('right')"
-        >
-          <Icon name="lucide:chevron-right" class="size-4" />
-        </button>
+          {{ $t('product.view_all') }}
+        </NuxtLink>
+        <div class="hidden gap-1 md:flex">
+          <button
+            v-show="canScrollLeft"
+            type="button"
+            class="bg-background hover:bg-muted rounded-full border p-1.5"
+            aria-label="Scroll left"
+            @click="scrollBy('left')"
+          >
+            <Icon name="lucide:chevron-left" class="size-4" />
+          </button>
+          <button
+            v-show="canScrollRight"
+            type="button"
+            class="bg-background hover:bg-muted rounded-full border p-1.5"
+            aria-label="Scroll right"
+            @click="scrollBy('right')"
+          >
+            <Icon name="lucide:chevron-right" class="size-4" />
+          </button>
+        </div>
       </div>
     </div>
 

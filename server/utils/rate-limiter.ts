@@ -119,6 +119,12 @@ export class RateLimiter {
  *
  * Checks common proxy headers first, then falls back to the direct connection IP.
  * The order of header checks follows common proxy/CDN conventions.
+ *
+ * TRUST BOUNDARY: This function trusts X-Forwarded-For from the reverse proxy.
+ * In production, Azure Front Door overwrites X-Forwarded-For with the true client IP.
+ * If the app is ever exposed directly (without a trusted proxy), an attacker could
+ * spoof this header to bypass rate limiting. Ensure the proxy layer always sanitizes
+ * client-provided X-Forwarded-For values.
  */
 export function getClientIp(event: H3Event): string {
   // Check X-Forwarded-For header (most common proxy header)
@@ -189,4 +195,16 @@ export const changePasswordRateLimiter = new RateLimiter({
   limit: 5,
   windowMs: 60000,
   prefix: 'auth-change-password',
+});
+
+export const resetPasswordRateLimiter = new RateLimiter({
+  limit: 5,
+  windowMs: 60000,
+  prefix: 'auth-reset-password',
+});
+
+export const newsletterRateLimiter = new RateLimiter({
+  limit: 5,
+  windowMs: 60000,
+  prefix: 'newsletter-subscribe',
 });
