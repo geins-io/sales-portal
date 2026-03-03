@@ -235,5 +235,102 @@
     "with_image": "With image",
     "fallback": "Fallback",
     "icon": "Icon"
+  },
+  "portal": {
+    "welcome": "Welcome {name}!",
+    "customer_no": "Customer no: {id} / {email}",
+    "organisation": "Organisation: {org}",
+    "quick_links": {
+      "favorites": "Your Favorites",
+      "account": "Your account",
+      "logout": "Log ut"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "orders": "Orders",
+      "quotations": "Quotations",
+      "products": "Products",
+      "lists": "Saved lists",
+      "organisation": "Your organisation"
+    },
+    "overview": {
+      "stat": {
+        "pending_quotations": "Pending quotations",
+        "orders_placed": "Orders placed",
+        "purchased_products": "Purchased products",
+        "persons_in_org": "Persons in your org"
+      },
+      "latest_orders": "Latest Orders",
+      "pending_quotations": "Pending quotations",
+      "your_lists": "Your lists",
+      "purchased_products": "Purchased products",
+      "view_all": "View all",
+      "no_orders": "No orders yet",
+      "no_quotations": "No pending quotations",
+      "no_lists": "No lists yet",
+      "no_products": "No purchased products yet",
+      "read_write_description": "Read and write directly to databases and stores from your projects."
+    },
+    "orders": {
+      "title": "Orders",
+      "columns": {
+        "id": "Id",
+        "created": "Created",
+        "placed_by": "Placed by",
+        "type": "Type",
+        "quote_nr": "Quote nr",
+        "sum": "Sum",
+        "status": "Status"
+      },
+      "status": {
+        "placed": "Placed",
+        "delivered": "Delivered",
+        "processing": "Processing",
+        "shipped": "Shipped",
+        "cancelled": "Cancelled"
+      },
+      "view": "View",
+      "type_web": "Web order",
+      "quick_search": "Quick search",
+      "showing_count": "{shown} of {total} orders"
+    },
+    "account": {
+      "title": "Account profile",
+      "subtitle": "Manage your personal information",
+      "first_name": "First name",
+      "last_name": "Last name",
+      "email": "Email",
+      "phone": "Phone",
+      "mobile": "Mobile",
+      "company": "Company",
+      "address_line1": "Address",
+      "address_line2": "Address line 2",
+      "zip": "Zip code",
+      "city": "City",
+      "country": "Country",
+      "save": "Save changes",
+      "saving": "Saving\u2026",
+      "save_success": "Profile updated successfully",
+      "save_error": "Failed to update profile"
+    },
+    "password": {
+      "title": "Change password",
+      "subtitle": "Update your account password",
+      "current": "Current password",
+      "new": "New password",
+      "confirm": "Confirm new password",
+      "submit": "Change password",
+      "submitting": "Changing\u2026",
+      "success": "Password changed successfully",
+      "error": "Failed to change password",
+      "mismatch": "Passwords do not match",
+      "wrong_current": "Current password is incorrect",
+      "field_required": "This field is required.",
+      "min_length": "Password must be at least {min} characters."
+    },
+    "placeholder": {
+      "title": "Coming soon",
+      "description": "This section is under development."
+    }
   }
 }

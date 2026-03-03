@@ -235,5 +235,102 @@
     "with_image": "Med bild",
     "fallback": "Reserv",
     "icon": "Ikon"
+  },
+  "portal": {
+    "welcome": "Välkommen {name}!",
+    "customer_no": "Kundnr: {id} / {email}",
+    "organisation": "Organisation: {org}",
+    "quick_links": {
+      "favorites": "Dina favoriter",
+      "account": "Ditt konto",
+      "logout": "Logga ut"
+    },
+    "tabs": {
+      "overview": "Översikt",
+      "orders": "Beställningar",
+      "quotations": "Offerter",
+      "products": "Produkter",
+      "lists": "Sparade listor",
+      "organisation": "Din organisation"
+    },
+    "overview": {
+      "stat": {
+        "pending_quotations": "Väntande offerter",
+        "orders_placed": "Lagda beställningar",
+        "purchased_products": "Köpta produkter",
+        "persons_in_org": "Personer i din org"
+      },
+      "latest_orders": "Senaste beställningar",
+      "pending_quotations": "Väntande offerter",
+      "your_lists": "Dina listor",
+      "purchased_products": "Köpta produkter",
+      "view_all": "Visa alla",
+      "no_orders": "Inga beställningar ännu",
+      "no_quotations": "Inga väntande offerter",
+      "no_lists": "Inga listor ännu",
+      "no_products": "Inga köpta produkter ännu",
+      "read_write_description": "Läs och skriv direkt till databaser och butiker från dina projekt."
+    },
+    "orders": {
+      "title": "Beställningar",
+      "columns": {
+        "id": "Id",
+        "created": "Skapad",
+        "placed_by": "Lagd av",
+        "type": "Typ",
+        "quote_nr": "Offertnr",
+        "sum": "Summa",
+        "status": "Status"
+      },
+      "status": {
+        "placed": "Lagd",
+        "delivered": "Levererad",
+        "processing": "Behandlas",
+        "shipped": "Skickad",
+        "cancelled": "Avbruten"
+      },
+      "view": "Visa",
+      "type_web": "Webbbeställning",
+      "quick_search": "Snabbsök",
+      "showing_count": "{shown} av {total} beställningar"
+    },
+    "account": {
+      "title": "Kontoprofil",
+      "subtitle": "Hantera din personliga information",
+      "first_name": "Förnamn",
+      "last_name": "Efternamn",
+      "email": "E-post",
+      "phone": "Telefon",
+      "mobile": "Mobil",
+      "company": "Företag",
+      "address_line1": "Adress",
+      "address_line2": "Adress rad 2",
+      "zip": "Postnummer",
+      "city": "Ort",
+      "country": "Land",
+      "save": "Spara ändringar",
+      "saving": "Sparar\u2026",
+      "save_success": "Profilen har uppdaterats",
+      "save_error": "Det gick inte att uppdatera profilen"
+    },
+    "password": {
+      "title": "Byt lösenord",
+      "subtitle": "Uppdatera ditt kontolösenord",
+      "current": "Nuvarande lösenord",
+      "new": "Nytt lösenord",
+      "confirm": "Bekräfta nytt lösenord",
+      "submit": "Byt lösenord",
+      "submitting": "Byter\u2026",
+      "success": "Lösenordet har ändrats",
+      "error": "Det gick inte att byta lösenord",
+      "mismatch": "Lösenorden matchar inte",
+      "wrong_current": "Nuvarande lösenord är felaktigt",
+      "field_required": "Detta fält är obligatoriskt.",
+      "min_length": "Lösenordet måste vara minst {min} tecken."
+    },
+    "placeholder": {
+      "title": "Kommer snart",
+      "description": "Det här avsnittet är under utveckling."
+    }
   }
 }
