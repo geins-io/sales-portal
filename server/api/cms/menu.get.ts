@@ -2,8 +2,10 @@ import { CmsMenuSchema } from '../../schemas/api-input';
 import { getMenu } from '../../services/cms';
 
 export default defineEventHandler(async (event) => {
-  const query = getQuery(event);
-  const { menuLocationId } = CmsMenuSchema.parse(query);
+  const { menuLocationId } = await getValidatedQuery(
+    event,
+    CmsMenuSchema.parse,
+  );
 
   return withErrorHandling(
     async () => {

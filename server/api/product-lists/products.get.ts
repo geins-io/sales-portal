@@ -2,8 +2,7 @@ import { ProductListSchema } from '../../schemas/api-input';
 import { getProducts } from '../../services/product-lists';
 
 export default defineEventHandler(async (event) => {
-  const query = getQuery(event);
-  const validated = ProductListSchema.parse(query);
+  const validated = await getValidatedQuery(event, ProductListSchema.parse);
 
   return withErrorHandling(
     async () => {

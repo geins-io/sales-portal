@@ -3,8 +3,9 @@ import { getReviews } from '../../../services/products';
 
 export default defineEventHandler(async (event) => {
   const alias = getRouterParam(event, 'alias');
-  const query = getQuery(event);
-  const validated = ProductReviewsSchema.parse({ alias, ...query });
+  const validated = await getValidatedQuery(event, (q) =>
+    ProductReviewsSchema.parse({ alias, ...(q as Record<string, unknown>) }),
+  );
 
   return withErrorHandling(
     async () => {

@@ -13,7 +13,17 @@ vi.stubGlobal(
   'createAppError',
   vi.fn((code: string, msg: string) => new Error(`${code}: ${msg}`)),
 );
-vi.stubGlobal('ErrorCode', { BAD_REQUEST: 'BAD_REQUEST' });
+vi.stubGlobal('ErrorCode', {
+  BAD_REQUEST: 'BAD_REQUEST',
+  RATE_LIMITED: 'RATE_LIMITED',
+});
+vi.stubGlobal(
+  'getClientIp',
+  vi.fn(() => '127.0.0.1'),
+);
+vi.stubGlobal('resetPasswordRateLimiter', {
+  check: vi.fn().mockResolvedValue({ allowed: true, remaining: 4 }),
+});
 
 describe('POST /api/auth/reset-password', () => {
   const mockEvent = {} as unknown as import('h3').H3Event;

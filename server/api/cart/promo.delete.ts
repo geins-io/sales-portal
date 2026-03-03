@@ -2,8 +2,7 @@ import { CartIdSchema } from '../../schemas/api-input';
 import { removePromoCode } from '../../services/cart';
 
 export default defineEventHandler(async (event) => {
-  const query = getQuery(event);
-  const { cartId } = CartIdSchema.parse(query);
+  const { cartId } = await getValidatedQuery(event, CartIdSchema.parse);
 
   return withErrorHandling(
     async () => {

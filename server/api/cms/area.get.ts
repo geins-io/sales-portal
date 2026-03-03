@@ -3,8 +3,10 @@ import { getContentArea } from '../../services/cms';
 import { sanitizeCmsArea } from '../../utils/cms-sanitize';
 
 export default defineEventHandler(async (event) => {
-  const query = getQuery(event);
-  const { family, areaName } = CmsAreaSchema.parse(query);
+  const { family, areaName } = await getValidatedQuery(
+    event,
+    CmsAreaSchema.parse,
+  );
 
   return withErrorHandling(
     async () => {

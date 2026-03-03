@@ -53,14 +53,14 @@ const maxQuantity = computed(() => {
     <!-- Row 1: Thumbnail + product info + delete button -->
     <div class="flex items-start gap-4">
       <!-- Thumbnail -->
-      <div class="size-16 shrink-0 overflow-hidden rounded-md">
+      <div class="size-12 shrink-0 overflow-hidden rounded-md">
         <GeinsImage
           v-if="imageFileName"
           :file-name="imageFileName"
           type="product"
           :alt="item.product?.name ?? ''"
           aspect-ratio="1"
-          sizes="64px"
+          sizes="48px"
         />
         <div v-else class="bg-muted flex size-full items-center justify-center">
           <Icon name="lucide:image-off" class="text-muted-foreground size-5" />
@@ -106,7 +106,7 @@ const maxQuantity = computed(() => {
     </div>
 
     <!-- Row 2: Quantity + unit price + total price (aligned under product info) -->
-    <div class="flex items-center gap-4 pl-20">
+    <div class="flex items-center gap-4 pl-16">
       <!-- Quantity -->
       <div class="shrink-0">
         <QuantityInput

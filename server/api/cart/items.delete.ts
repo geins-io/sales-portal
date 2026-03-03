@@ -2,8 +2,10 @@ import { CartDeleteItemSchema } from '../../schemas/api-input';
 import { deleteItem } from '../../services/cart';
 
 export default defineEventHandler(async (event) => {
-  const query = getQuery(event);
-  const { cartId, itemId } = CartDeleteItemSchema.parse(query);
+  const { cartId, itemId } = await getValidatedQuery(
+    event,
+    CartDeleteItemSchema.parse,
+  );
 
   return withErrorHandling(
     async () => {

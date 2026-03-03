@@ -2,8 +2,7 @@ import { SearchProductsSchema } from '../../schemas/api-input';
 import { searchProducts } from '../../services/search';
 
 export default defineEventHandler(async (event) => {
-  const query = getQuery(event);
-  const validated = SearchProductsSchema.parse(query);
+  const validated = await getValidatedQuery(event, SearchProductsSchema.parse);
 
   return withErrorHandling(
     async () => {
