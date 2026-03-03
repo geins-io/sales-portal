@@ -166,3 +166,31 @@ export const ResetPasswordSchema = z.object({
   password: z.string().min(8),
 });
 export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;
+
+// ---------------------------------------------------------------------------
+// User Profile
+// ---------------------------------------------------------------------------
+export const UpdateProfileSchema = z.object({
+  address: z
+    .object({
+      firstName: z.string().min(1).max(100).optional(),
+      lastName: z.string().min(1).max(100).optional(),
+      company: z.string().max(200).optional(),
+      phone: z.string().max(50).optional(),
+      mobile: z.string().max(50).optional(),
+      addressLine1: z.string().max(200).optional(),
+      addressLine2: z.string().max(200).optional(),
+      zip: z.string().max(20).optional(),
+      city: z.string().max(100).optional(),
+      country: z.string().max(100).optional(),
+    })
+    .optional(),
+  newsletter: z.boolean().optional(),
+});
+export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
+
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
+});
+export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
