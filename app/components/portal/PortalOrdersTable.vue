@@ -123,7 +123,7 @@ function getTotal(order: {
       <tbody>
         <tr
           v-for="order in limit ? orders.slice(0, limit) : orders"
-          :key="order.id"
+          :key="order.id ?? undefined"
           class="border-border border-b"
         >
           <td class="py-3 pr-4">{{ order.id }}</td>
