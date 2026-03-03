@@ -71,6 +71,9 @@ const componentTestFiles = [
   'tests/components/portal/PortalPlaceholder.test.ts',
   'tests/components/portal/PortalStatCard.test.ts',
   'tests/components/portal/PortalOrdersTable.test.ts',
+  'tests/components/portal/PortalShell.test.ts',
+  'tests/components/portal/ChangePasswordForm.test.ts',
+  'tests/components/portal/ProfileForm.test.ts',
 ];
 
 // Get Nuxt's Vite config once (aliases, auto-imports, plugins)
