@@ -11,6 +11,14 @@ const props = withDefaults(
   { threshold: 5, size: 'default' },
 );
 
+const { hasFeature } = useTenant();
+const { canAccess } = useFeatureAccess();
+
+const showStock = computed(() => {
+  if (!hasFeature('stock')) return true;
+  return canAccess('stock');
+});
+
 const status = computed<StockStatus | null>(() => {
   if (!props.stock) return null;
   return getStockStatus(props.stock, props.threshold);
@@ -65,7 +73,7 @@ const dotColor = computed(() => {
 <template>
   <!-- Compact inline: green dot + text -->
   <span
-    v-if="status && size === 'sm'"
+    v-if="showStock && status && size === 'sm'"
     class="inline-flex items-center gap-1 text-xs"
   >
     <span
@@ -76,7 +84,7 @@ const dotColor = computed(() => {
   </span>
 
   <!-- Default: pill badge -->
-  <Badge v-else-if="status" variant="outline" :class="badgeClass">
+  <Badge v-else-if="showStock && status" variant="outline" :class="badgeClass">
     {{ label }}
   </Badge>
 </template>

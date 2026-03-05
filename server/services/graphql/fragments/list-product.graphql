@@ -25,4 +25,17 @@ fragment ListProduct on ProductType {
   skus {
     ...Sku
   }
+  lowestPrice {
+    lowestPriceIncVat
+    lowestPriceIncVatFormatted
+    lowestPriceExVat
+    lowestPriceExVatFormatted
+    comparisonPriceIncVat
+    comparisonPriceIncVatFormatted
+    comparisonPriceExVat
+    comparisonPriceExVatFormatted
+    isDiscounted
+    discountPercentage
+  }
+  discountType
 }

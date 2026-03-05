@@ -74,6 +74,19 @@ query product(
     discountCampaigns {
       ...Campaign
     }
+    lowestPrice {
+      lowestPriceIncVat
+      lowestPriceIncVatFormatted
+      lowestPriceExVat
+      lowestPriceExVatFormatted
+      comparisonPriceIncVat
+      comparisonPriceIncVatFormatted
+      comparisonPriceExVat
+      comparisonPriceExVatFormatted
+      isDiscounted
+      discountPercentage
+    }
+    discountType
     rating {
       score
       voteCount

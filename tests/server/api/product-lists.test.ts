@@ -54,6 +54,7 @@ vi.stubGlobal(
   }),
 );
 vi.stubGlobal('defineEventHandler', (fn: (event: H3Event) => unknown) => fn);
+vi.stubGlobal('optionalAuth', vi.fn().mockResolvedValue(null));
 
 // =============================================================================
 // Helpers

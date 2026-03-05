@@ -6,9 +6,14 @@ export default defineEventHandler(async (event) => {
     MonitorAvailabilitySchema.parse(raw),
   );
 
+  const auth = await optionalAuth(event);
+
   return withErrorHandling(
     async () => {
-      return monitorAvailability(validated, event);
+      return monitorAvailability(
+        { ...validated, userToken: auth?.authToken },
+        event,
+      );
     },
     { operation: 'products.monitorAvailability.post' },
   );

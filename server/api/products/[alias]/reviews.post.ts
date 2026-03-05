@@ -7,9 +7,11 @@ export default defineEventHandler(async (event) => {
     PostReviewSchema.parse({ alias, ...(raw as Record<string, unknown>) }),
   );
 
+  const auth = await optionalAuth(event);
+
   return withErrorHandling(
     async () => {
-      return postReview(validated, event);
+      return postReview({ ...validated, userToken: auth?.authToken }, event);
     },
     { operation: 'products.reviews.post' },
   );

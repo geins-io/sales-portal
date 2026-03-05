@@ -4,6 +4,7 @@
 .vscode
 .plans
 .worktrees
+docs/plans/
 local-docs/
 
 # Nuxt dev/build outputs

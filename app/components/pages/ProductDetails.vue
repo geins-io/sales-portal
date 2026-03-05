@@ -71,6 +71,13 @@ const maxQuantity = computed(() => {
 });
 
 const cartStore = useCartStore();
+const { hasFeature } = useTenant();
+const { canAccess } = useFeatureAccess();
+
+const showPrice = computed(() => {
+  if (!hasFeature('pricing')) return true;
+  return canAccess('pricing');
+});
 
 async function addToCart() {
   if (!resolvedSku.value?.skuId) return;
@@ -216,6 +223,7 @@ useSchemaOrg([
 
           <!-- Add to cart button (compact, top-right) -->
           <button
+            v-if="showPrice"
             type="button"
             class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex shrink-0 items-center gap-2 rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors"
             data-testid="add-to-cart-button"
@@ -239,6 +247,8 @@ useSchemaOrg([
         <PriceDisplay
           v-if="product.unitPrice"
           :price="product.unitPrice"
+          :lowest-price="(product as any).lowestPrice"
+          :discount-type="(product as any).discountType"
           class="text-lg font-semibold"
         />
 
@@ -263,7 +273,7 @@ useSchemaOrg([
         />
 
         <!-- Quantity -->
-        <div class="w-32">
+        <div v-if="showPrice" class="w-32">
           <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
         </div>
 

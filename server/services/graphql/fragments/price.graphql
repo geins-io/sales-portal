@@ -10,4 +10,9 @@ fragment Price on PriceType {
   regularPriceExVat
   vat
   discountPercentage
+  currency {
+    code
+    symbol
+    name
+  }
 }

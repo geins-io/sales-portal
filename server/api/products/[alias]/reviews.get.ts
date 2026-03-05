@@ -7,9 +7,11 @@ export default defineEventHandler(async (event) => {
     ProductReviewsSchema.parse({ alias, ...(q as Record<string, unknown>) }),
   );
 
+  const auth = await optionalAuth(event);
+
   return withErrorHandling(
     async () => {
-      return getReviews(validated, event);
+      return getReviews({ ...validated, userToken: auth?.authToken }, event);
     },
     { operation: 'products.reviews.get' },
   );
