@@ -142,7 +142,9 @@
     "list": "Lista",
     "grid_view": "Rutnätsvy",
     "list_view": "Listvy",
-    "view_all": "Visa alla"
+    "view_all": "Visa alla",
+    "login_for_prices": "Logga in för priser",
+    "lowest_price_30d": "Lägsta pris senaste 30 dagarna: {price}"
   },
   "account": {
     "my_account": "Mitt konto",

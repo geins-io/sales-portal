@@ -1,6 +1,73 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { ref, computed } from 'vue';
 import { mountComponent } from '../../utils/component';
 import ProductCard from '../../../app/components/shared/ProductCard.vue';
+
+const mockCanAccess = vi.fn(() => true);
+const mockHasFeature = vi.fn((_name: string) => false);
+
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
+}));
+
+const tenant = ref({
+  tenantId: 'test-tenant',
+  hostname: 'test.example.com',
+  locale: 'sv-SE',
+  theme: {
+    colors: {
+      primary: 'oklch(0.205 0 0)',
+      secondary: 'oklch(0.97 0 0)',
+      background: 'oklch(1 0 0)',
+      foreground: 'oklch(0.145 0 0)',
+    },
+    radius: '0.625rem',
+  },
+  branding: {
+    name: 'Test Store',
+    logoUrl: '/logo.svg',
+    faviconUrl: '/favicon.ico',
+  },
+  features: {},
+});
+
+vi.mock('../../../app/composables/useTenant', () => ({
+  useTenant: () => ({
+    tenant,
+    tenantId: computed(() => tenant.value?.tenantId ?? ''),
+    hostname: computed(() => tenant.value?.hostname ?? ''),
+    isLoading: ref(false),
+    error: ref(null),
+    refresh: vi.fn(),
+    theme: computed(() => tenant.value?.theme),
+    branding: computed(() => tenant.value?.branding),
+    logoUrl: computed(() => '/logo.svg'),
+    logoDarkUrl: computed(() => null),
+    logoSymbolUrl: computed(() => null),
+    faviconUrl: computed(() => '/favicon.ico'),
+    ogImageUrl: computed(() => null),
+    brandName: computed(() => 'Test Store'),
+    mode: computed(() => 'commerce'),
+    watermark: computed(() => 'full'),
+    availableLocales: computed(() => ['sv']),
+    availableMarkets: computed(() => []),
+    market: computed(() => ''),
+    imageBaseUrl: computed(() => 'https://monitor.commerce.services'),
+    features: computed(() => tenant.value?.features),
+    hasFeature: mockHasFeature,
+    suspense: () => Promise.resolve(),
+  }),
+  useTenantTheme: () => ({
+    colors: computed(() => tenant.value?.theme?.colors),
+    typography: computed(() => undefined),
+    radius: computed(() => tenant.value?.theme?.radius),
+    getColor: () => '',
+    primaryColor: computed(() => 'oklch(0.205 0 0)'),
+    secondaryColor: computed(() => 'oklch(0.97 0 0)'),
+    backgroundColor: computed(() => 'oklch(1 0 0)'),
+    foregroundColor: computed(() => 'oklch(0.145 0 0)'),
+  }),
+}));
 
 const geinsImageStub = {
   template: '<div class="geins-image" />',
@@ -240,5 +307,47 @@ describe('ProductCard', () => {
       global: { stubs },
     });
     expect(wrapper.find('.geins-image').exists()).toBe(false);
+  });
+
+  describe('feature flags', () => {
+    afterEach(() => {
+      mockHasFeature.mockReturnValue(false);
+      mockCanAccess.mockReturnValue(true);
+    });
+
+    it('shows add-to-cart when pricing is not configured', () => {
+      mockHasFeature.mockReturnValue(false);
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('hides add-to-cart when pricing is restricted', () => {
+      mockHasFeature.mockReturnValue(true);
+      mockCanAccess.mockReturnValue(false);
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('shows add-to-cart when pricing is accessible', () => {
+      mockHasFeature.mockReturnValue(true);
+      mockCanAccess.mockReturnValue(true);
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        true,
+      );
+    });
   });
 });

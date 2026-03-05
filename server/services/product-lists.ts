@@ -11,18 +11,21 @@ export interface ProductListOptions {
   discountCampaignAlias?: string;
   url?: string;
   filter?: Record<string, unknown>;
+  userToken?: string;
 }
 
 export async function getProducts(
   options: ProductListOptions,
   event: H3Event,
 ): Promise<unknown> {
+  const { userToken, ...variables } = options;
   const sdk = await getTenantSDK(event);
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('product-lists/products.graphql'),
-        variables: { ...options, ...getRequestChannelVariables(sdk, event) },
+        variables: { ...variables, ...getRequestChannelVariables(sdk, event) },
+        userToken,
       }),
     'product-lists',
   );
@@ -33,12 +36,14 @@ export async function getFilters(
   options: ProductListOptions,
   event: H3Event,
 ): Promise<unknown> {
+  const { userToken, ...variables } = options;
   const sdk = await getTenantSDK(event);
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('product-lists/list-filters.graphql'),
-        variables: { ...options, ...getRequestChannelVariables(sdk, event) },
+        variables: { ...variables, ...getRequestChannelVariables(sdk, event) },
+        userToken,
       }),
     'product-lists',
   );
@@ -46,7 +51,7 @@ export async function getFilters(
 }
 
 export async function getCategoryPage(
-  args: { alias: string },
+  args: { alias: string; userToken?: string },
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
@@ -58,6 +63,7 @@ export async function getCategoryPage(
           alias: args.alias,
           ...getRequestChannelVariables(sdk, event),
         },
+        userToken: args.userToken,
       }),
     'product-lists',
   );
@@ -65,7 +71,7 @@ export async function getCategoryPage(
 }
 
 export async function getBrandPage(
-  args: { alias: string },
+  args: { alias: string; userToken?: string },
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
@@ -77,6 +83,7 @@ export async function getBrandPage(
           alias: args.alias,
           ...getRequestChannelVariables(sdk, event),
         },
+        userToken: args.userToken,
       }),
     'product-lists',
   );
@@ -84,7 +91,7 @@ export async function getBrandPage(
 }
 
 export async function getDiscountCampaignPage(
-  args: { alias: string },
+  args: { alias: string; userToken?: string },
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
@@ -98,6 +105,7 @@ export async function getDiscountCampaignPage(
           alias: args.alias,
           ...getRequestChannelVariables(sdk, event),
         },
+        userToken: args.userToken,
       }),
     'product-lists',
   );

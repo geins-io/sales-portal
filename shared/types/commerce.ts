@@ -75,6 +75,28 @@ export type {
 } from '@geins/types';
 
 // ---------------------------------------------------------------------------
+// Discount & lowest-price types (from enriched pricing GraphQL fragments)
+// ---------------------------------------------------------------------------
+export type ProductDiscountType =
+  | 'NONE'
+  | 'SALE_PRICE'
+  | 'PRICE_CAMPAIGN'
+  | 'EXTERNAL';
+
+export interface LowestPriceInfo {
+  lowestPriceIncVat: number;
+  lowestPriceIncVatFormatted?: string;
+  lowestPriceExVat: number;
+  lowestPriceExVatFormatted?: string;
+  comparisonPriceIncVat: number;
+  comparisonPriceIncVatFormatted?: string;
+  comparisonPriceExVat: number;
+  comparisonPriceExVatFormatted?: string;
+  isDiscounted: boolean;
+  discountPercentage: number;
+}
+
+// ---------------------------------------------------------------------------
 // List Product (subset of ProductType returned by product-list queries)
 // ---------------------------------------------------------------------------
 export interface ListProduct {
@@ -90,6 +112,8 @@ export interface ListProduct {
   totalStock: StockType;
   skus: SkuType[];
   discountCampaigns: { name: string; hideTitle: boolean }[];
+  lowestPrice?: LowestPriceInfo;
+  discountType?: ProductDiscountType;
 }
 
 // ---------------------------------------------------------------------------

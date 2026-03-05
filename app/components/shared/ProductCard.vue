@@ -12,6 +12,13 @@ const props = withDefaults(
 );
 
 const cartStore = useCartStore();
+const { hasFeature } = useTenant();
+const { canAccess } = useFeatureAccess();
+
+const showPrice = computed(() => {
+  if (!hasFeature('pricing')) return true;
+  return canAccess('pricing');
+});
 
 const firstImage = computed(() => props.product.productImages?.[0]);
 const productUrl = computed(
@@ -107,11 +114,13 @@ async function addToCart() {
       <PriceDisplay
         v-if="product.unitPrice"
         :price="product.unitPrice"
+        :lowest-price="(product as any).lowestPrice"
+        :discount-type="(product as any).discountType"
         class="mt-1 text-base font-semibold"
       />
 
       <!-- Quantity + Add to cart (same row) -->
-      <div class="mt-auto flex items-center gap-2 pt-2">
+      <div v-if="showPrice" class="mt-auto flex items-center gap-2 pt-2">
         <QuantityInput
           v-model="quantity"
           :min="1"
@@ -178,18 +187,22 @@ async function addToCart() {
       <PriceDisplay
         v-if="product.unitPrice"
         :price="product.unitPrice"
+        :lowest-price="(product as any).lowestPrice"
+        :discount-type="(product as any).discountType"
         class="text-base font-semibold"
       />
-      <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
-      <Button
-        data-testid="add-to-cart-button"
-        size="sm"
-        :disabled="!firstSku || isAdding"
-        @click="addToCart"
-      >
-        <ShoppingCart class="mr-1.5 size-4 shrink-0" />
-        <span class="whitespace-nowrap">{{ $t('cart.add_to_cart') }}</span>
-      </Button>
+      <template v-if="showPrice">
+        <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
+        <Button
+          data-testid="add-to-cart-button"
+          size="sm"
+          :disabled="!firstSku || isAdding"
+          @click="addToCart"
+        >
+          <ShoppingCart class="mr-1.5 size-4 shrink-0" />
+          <span class="whitespace-nowrap">{{ $t('cart.add_to_cart') }}</span>
+        </Button>
+      </template>
     </div>
   </div>
 </template>

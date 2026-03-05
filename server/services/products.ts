@@ -10,7 +10,7 @@ import { unwrapGraphQL } from './graphql/unwrap';
  */
 
 export async function getProduct(
-  args: { alias: string },
+  args: { alias: string; userToken?: string },
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
@@ -22,6 +22,7 @@ export async function getProduct(
           alias: args.alias,
           ...getRequestChannelVariables(sdk, event),
         },
+        userToken: args.userToken,
       }),
     'products',
   );
@@ -29,7 +30,7 @@ export async function getProduct(
 }
 
 export async function getRelatedProducts(
-  args: { alias: string },
+  args: { alias: string; userToken?: string },
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
@@ -41,6 +42,7 @@ export async function getRelatedProducts(
           alias: args.alias,
           ...getRequestChannelVariables(sdk, event),
         },
+        userToken: args.userToken,
       }),
     'products',
   );
@@ -48,15 +50,17 @@ export async function getRelatedProducts(
 }
 
 export async function getReviews(
-  args: { alias: string; skip?: number; take?: number },
+  args: { alias: string; skip?: number; take?: number; userToken?: string },
   event: H3Event,
 ): Promise<unknown> {
+  const { userToken, ...variables } = args;
   const sdk = await getTenantSDK(event);
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('products/reviews.graphql'),
-        variables: { ...args, ...getRequestChannelVariables(sdk, event) },
+        variables: { ...variables, ...getRequestChannelVariables(sdk, event) },
+        userToken,
       }),
     'products',
   );
@@ -64,7 +68,7 @@ export async function getReviews(
 }
 
 export async function getPriceHistory(
-  args: { alias: string },
+  args: { alias: string; userToken?: string },
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
@@ -76,6 +80,7 @@ export async function getPriceHistory(
           alias: args.alias,
           ...getRequestChannelVariables(sdk, event),
         },
+        userToken: args.userToken,
       }),
     'products',
   );
@@ -83,15 +88,23 @@ export async function getPriceHistory(
 }
 
 export async function postReview(
-  args: { alias: string; rating: number; author: string; comment?: string },
+  args: {
+    alias: string;
+    rating: number;
+    author: string;
+    comment?: string;
+    userToken?: string;
+  },
   event: H3Event,
 ): Promise<unknown> {
+  const { userToken, ...variables } = args;
   const sdk = await getTenantSDK(event);
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.mutation({
         queryAsString: loadQuery('products/post-review.graphql'),
-        variables: { ...args, ...getRequestChannelVariables(sdk, event) },
+        variables: { ...variables, ...getRequestChannelVariables(sdk, event) },
+        userToken,
       }),
     'products',
   );
@@ -99,15 +112,17 @@ export async function postReview(
 }
 
 export async function monitorAvailability(
-  args: { email: string; skuId: number },
+  args: { email: string; skuId: number; userToken?: string },
   event: H3Event,
 ): Promise<unknown> {
+  const { userToken, ...variables } = args;
   const sdk = await getTenantSDK(event);
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.mutation({
         queryAsString: loadQuery('products/monitor-availability.graphql'),
-        variables: { ...args, ...getRequestChannelVariables(sdk, event) },
+        variables: { ...variables, ...getRequestChannelVariables(sdk, event) },
+        userToken,
       }),
     'products',
   );

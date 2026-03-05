@@ -142,7 +142,9 @@
     "list": "List",
     "grid_view": "Grid view",
     "list_view": "List view",
-    "view_all": "View all"
+    "view_all": "View all",
+    "login_for_prices": "Login for prices",
+    "lowest_price_30d": "Lowest price in last 30 days: {price}"
   },
   "account": {
     "my_account": "My Account",

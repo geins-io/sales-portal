@@ -4,7 +4,7 @@ import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 
 export async function searchProducts(
-  args: { filter: Record<string, unknown> },
+  args: { filter: Record<string, unknown>; userToken?: string },
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
@@ -16,6 +16,7 @@ export async function searchProducts(
           filter: args.filter,
           ...getRequestChannelVariables(sdk, event),
         },
+        userToken: args.userToken,
       }),
     'search',
   );

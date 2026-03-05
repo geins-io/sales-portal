@@ -1,6 +1,73 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { ref, computed } from 'vue';
 import { mountComponent } from '../../utils/component';
 import PriceDisplay from '../../../app/components/shared/PriceDisplay.vue';
+
+const mockCanAccess = vi.fn(() => true);
+const mockHasFeature = vi.fn((_name: string) => false);
+
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
+}));
+
+const tenant = ref({
+  tenantId: 'test-tenant',
+  hostname: 'test.example.com',
+  locale: 'sv-SE',
+  theme: {
+    colors: {
+      primary: 'oklch(0.205 0 0)',
+      secondary: 'oklch(0.97 0 0)',
+      background: 'oklch(1 0 0)',
+      foreground: 'oklch(0.145 0 0)',
+    },
+    radius: '0.625rem',
+  },
+  branding: {
+    name: 'Test Store',
+    logoUrl: '/logo.svg',
+    faviconUrl: '/favicon.ico',
+  },
+  features: {},
+});
+
+vi.mock('../../../app/composables/useTenant', () => ({
+  useTenant: () => ({
+    tenant,
+    tenantId: computed(() => tenant.value?.tenantId ?? ''),
+    hostname: computed(() => tenant.value?.hostname ?? ''),
+    isLoading: ref(false),
+    error: ref(null),
+    refresh: vi.fn(),
+    theme: computed(() => tenant.value?.theme),
+    branding: computed(() => tenant.value?.branding),
+    logoUrl: computed(() => '/logo.svg'),
+    logoDarkUrl: computed(() => null),
+    logoSymbolUrl: computed(() => null),
+    faviconUrl: computed(() => '/favicon.ico'),
+    ogImageUrl: computed(() => null),
+    brandName: computed(() => 'Test Store'),
+    mode: computed(() => 'commerce'),
+    watermark: computed(() => 'full'),
+    availableLocales: computed(() => ['sv']),
+    availableMarkets: computed(() => []),
+    market: computed(() => ''),
+    imageBaseUrl: computed(() => 'https://monitor.commerce.services'),
+    features: computed(() => tenant.value?.features),
+    hasFeature: mockHasFeature,
+    suspense: () => Promise.resolve(),
+  }),
+  useTenantTheme: () => ({
+    colors: computed(() => tenant.value?.theme?.colors),
+    typography: computed(() => undefined),
+    radius: computed(() => tenant.value?.theme?.radius),
+    getColor: () => '',
+    primaryColor: computed(() => 'oklch(0.205 0 0)'),
+    secondaryColor: computed(() => 'oklch(0.97 0 0)'),
+    backgroundColor: computed(() => 'oklch(1 0 0)'),
+    foregroundColor: computed(() => 'oklch(0.145 0 0)'),
+  }),
+}));
 
 function makePrice(overrides: Record<string, unknown> = {}) {
   return {
@@ -89,5 +156,79 @@ describe('PriceDisplay', () => {
       props: { price: undefined },
     });
     expect(wrapper.text()).toBe('');
+  });
+
+  describe('lowest price (EU compliance)', () => {
+    function makeLowestPrice(overrides: Record<string, unknown> = {}) {
+      return {
+        lowestPriceIncVat: 149,
+        lowestPriceIncVatFormatted: '149,00 kr',
+        lowestPriceExVat: 119.2,
+        lowestPriceExVatFormatted: '119,20 kr',
+        comparisonPriceIncVat: 299,
+        comparisonPriceIncVatFormatted: '299,00 kr',
+        comparisonPriceExVat: 239.2,
+        comparisonPriceExVatFormatted: '239,20 kr',
+        isDiscounted: true,
+        discountPercentage: 50,
+        ...overrides,
+      };
+    }
+
+    it('shows lowest price when lowestPrice is provided and discounted', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice(), lowestPrice: makeLowestPrice() },
+      });
+      const lowestEl = wrapper.find('[data-testid="lowest-price"]');
+      expect(lowestEl.exists()).toBe(true);
+      expect(lowestEl.text()).toContain('product.lowest_price_30d');
+    });
+
+    it('hides lowest price when lowestPrice is not discounted', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: {
+          price: makePrice(),
+          lowestPrice: makeLowestPrice({ isDiscounted: false }),
+        },
+      });
+      expect(wrapper.find('[data-testid="lowest-price"]').exists()).toBe(false);
+    });
+
+    it('hides lowest price when lowestPrice is not provided', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice() },
+      });
+      expect(wrapper.find('[data-testid="lowest-price"]').exists()).toBe(false);
+    });
+  });
+
+  describe('feature flags', () => {
+    it('shows price when pricing feature is not configured', () => {
+      mockHasFeature.mockReturnValue(false);
+      mockCanAccess.mockReturnValue(false);
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice() },
+      });
+      expect(wrapper.text()).toContain('199,00 kr');
+    });
+
+    it('shows price when pricing feature allows access', () => {
+      mockHasFeature.mockReturnValue(true);
+      mockCanAccess.mockReturnValue(true);
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice() },
+      });
+      expect(wrapper.text()).toContain('199,00 kr');
+    });
+
+    it('shows login message when pricing feature denies access', () => {
+      mockHasFeature.mockReturnValue(true);
+      mockCanAccess.mockReturnValue(false);
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice() },
+      });
+      expect(wrapper.text()).toContain('product.login_for_prices');
+      expect(wrapper.text()).not.toContain('199,00 kr');
+    });
   });
 });

@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { PriceType } from '#shared/types/commerce';
+import type {
+  PriceType,
+  LowestPriceInfo,
+  ProductDiscountType,
+} from '#shared/types/commerce';
 import { formatPrice } from '#shared/types/commerce';
 
 const props = withDefaults(
@@ -8,6 +12,8 @@ const props = withDefaults(
     showVat?: boolean;
     showDiscount?: boolean;
     fromPrice?: boolean;
+    lowestPrice?: LowestPriceInfo;
+    discountType?: ProductDiscountType;
   }>(),
   {
     showVat: true,
@@ -16,7 +22,13 @@ const props = withDefaults(
   },
 );
 
-const { tenant } = useTenant();
+const { tenant, hasFeature } = useTenant();
+const { canAccess } = useFeatureAccess();
+
+const showPrice = computed(() => {
+  if (!hasFeature('pricing')) return true;
+  return canAccess('pricing');
+});
 
 const sellingPrice = computed(() => {
   if (!props.price) return '';
@@ -49,11 +61,29 @@ const isDiscounted = computed(
 );
 
 const discountPercentage = computed(() => props.price?.discountPercentage ?? 0);
+
+const lowestPriceFormatted = computed(() => {
+  if (!props.lowestPrice?.isDiscounted) return '';
+  const formatted = props.showVat
+    ? props.lowestPrice.lowestPriceIncVatFormatted
+    : props.lowestPrice.lowestPriceExVatFormatted;
+  if (formatted) return formatted;
+  const raw = props.showVat
+    ? props.lowestPrice.lowestPriceIncVat
+    : props.lowestPrice.lowestPriceExVat;
+  if (raw == null) return '';
+  return formatPrice(raw, props.price?.currency?.code, tenant.value?.locale);
+});
 </script>
 
 <template>
+  <div v-if="price && !showPrice" class="inline-flex items-baseline">
+    <span class="text-muted-foreground text-sm italic">
+      {{ $t('product.login_for_prices') }}
+    </span>
+  </div>
   <div
-    v-if="price && sellingPrice"
+    v-else-if="price && sellingPrice"
     class="inline-flex flex-wrap items-baseline gap-2"
   >
     <span v-if="fromPrice" class="text-muted-foreground text-sm">From</span>
@@ -73,5 +103,12 @@ const discountPercentage = computed(() => props.price?.discountPercentage ?? 0);
       -{{ discountPercentage }}%
     </span>
     <span v-if="!showVat" class="text-muted-foreground text-xs">ex. VAT</span>
+  </div>
+  <div
+    v-if="showPrice && lowestPriceFormatted"
+    class="text-muted-foreground text-xs"
+    data-testid="lowest-price"
+  >
+    {{ $t('product.lowest_price_30d', { price: lowestPriceFormatted }) }}
   </div>
 </template>

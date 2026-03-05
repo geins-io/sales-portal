@@ -32,9 +32,15 @@ const mockCheckoutCreateToken = vi.fn();
 
 const mockOrderGet = vi.fn();
 
+const mockGraphqlQuery = vi.fn();
+const mockGraphqlMutation = vi.fn();
+
 // --- Mock getTenantSDK to return controlled mocks ---
 const mockSDK = {
-  core: { geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' } },
+  core: {
+    geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' },
+    graphql: { query: mockGraphqlQuery, mutation: mockGraphqlMutation },
+  },
   crm: {
     auth: {
       login: mockAuthLogin,
@@ -83,6 +89,14 @@ vi.mock('../../../server/services/_sdk', () => ({
   getRequestChannelVariables: vi
     .fn()
     .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
+}));
+
+// Mock GraphQL loader and unwrap helpers used by product/search services
+vi.mock('../../../server/services/graphql/loader', () => ({
+  loadQuery: vi.fn((path: string) => `query:${path}`),
+}));
+vi.mock('../../../server/services/graphql/unwrap', () => ({
+  unwrapGraphQL: vi.fn((result: unknown) => result),
 }));
 
 // Mock Nitro auto-imports for error handling
@@ -470,6 +484,122 @@ describe('SDK-backed services (0.6.0)', () => {
 
       expect(mockOrderGet).toHaveBeenCalledWith(args);
       expect(result).toBe(expected);
+    });
+  });
+
+  describe('products service (userToken threading)', () => {
+    let products: typeof import('../../../server/services/products');
+
+    beforeEach(async () => {
+      products = await import('../../../server/services/products');
+    });
+
+    it('getProduct passes userToken to graphql.query when provided', async () => {
+      mockGraphqlQuery.mockResolvedValue({ data: { product: { id: '1' } } });
+
+      await products.getProduct(
+        { alias: 'test-product', userToken: 'test-token' },
+        event,
+      );
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: 'test-token' }),
+      );
+    });
+
+    it('getProduct omits userToken from graphql.query when not provided', async () => {
+      mockGraphqlQuery.mockResolvedValue({ data: { product: { id: '1' } } });
+
+      await products.getProduct({ alias: 'test-product' }, event);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: undefined }),
+      );
+    });
+
+    it('getRelatedProducts passes userToken to graphql.query when provided', async () => {
+      mockGraphqlQuery.mockResolvedValue({ data: { related: [] } });
+
+      await products.getRelatedProducts(
+        { alias: 'test-product', userToken: 'test-token' },
+        event,
+      );
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: 'test-token' }),
+      );
+    });
+
+    it('getRelatedProducts omits userToken from graphql.query when not provided', async () => {
+      mockGraphqlQuery.mockResolvedValue({ data: { related: [] } });
+
+      await products.getRelatedProducts({ alias: 'test-product' }, event);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: undefined }),
+      );
+    });
+  });
+
+  describe('product-lists service (userToken threading)', () => {
+    let productLists: typeof import('../../../server/services/product-lists');
+
+    beforeEach(async () => {
+      productLists = await import('../../../server/services/product-lists');
+    });
+
+    it('getProducts passes userToken to graphql.query when provided', async () => {
+      mockGraphqlQuery.mockResolvedValue({ data: { products: [] } });
+
+      await productLists.getProducts(
+        { take: 10, userToken: 'test-token' },
+        event,
+      );
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: 'test-token' }),
+      );
+    });
+
+    it('getProducts omits userToken from graphql.query when not provided', async () => {
+      mockGraphqlQuery.mockResolvedValue({ data: { products: [] } });
+
+      await productLists.getProducts({ take: 10 }, event);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: undefined }),
+      );
+    });
+  });
+
+  describe('search service (userToken threading)', () => {
+    let search: typeof import('../../../server/services/search');
+
+    beforeEach(async () => {
+      search = await import('../../../server/services/search');
+    });
+
+    it('searchProducts passes userToken to graphql.query when provided', async () => {
+      mockGraphqlQuery.mockResolvedValue({ data: { search: [] } });
+
+      await search.searchProducts(
+        { filter: { query: 'shoes' }, userToken: 'test-token' },
+        event,
+      );
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: 'test-token' }),
+      );
+    });
+
+    it('searchProducts omits userToken from graphql.query when not provided', async () => {
+      mockGraphqlQuery.mockResolvedValue({ data: { search: [] } });
+
+      await search.searchProducts({ filter: { query: 'shoes' } }, event);
+
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ userToken: undefined }),
+      );
     });
   });
 });
