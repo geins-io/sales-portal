@@ -194,3 +194,58 @@ export const ChangePasswordSchema = z.object({
   newPassword: z.string().min(8),
 });
 export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
+
+// ---------------------------------------------------------------------------
+// B2B Organization
+// ---------------------------------------------------------------------------
+export const UpdateOrganizationSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  organizationNumber: z.string().max(50).optional(),
+  referenceContact: z.string().max(200).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().max(50).optional(),
+});
+export type UpdateOrganizationInput = z.infer<typeof UpdateOrganizationSchema>;
+
+const ShippingAddressSchema = z.object({
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
+  company: z.string().max(200).optional(),
+  addressLine1: z.string().min(1).max(200),
+  addressLine2: z.string().max(200).optional(),
+  addressLine3: z.string().max(200).optional(),
+  postalCode: z.string().min(1).max(20),
+  city: z.string().min(1).max(100),
+  state: z.string().max(100).optional(),
+  country: z.string().min(1).max(100),
+  phone: z.string().max(50).optional(),
+});
+
+export const AddAddressSchema = z.object({
+  label: z.string().min(1).max(200),
+  isDefault: z.boolean().optional(),
+  address: ShippingAddressSchema,
+});
+export type AddAddressInput = z.infer<typeof AddAddressSchema>;
+
+export const UpdateAddressSchema = z.object({
+  label: z.string().min(1).max(200).optional(),
+  isDefault: z.boolean().optional(),
+  address: ShippingAddressSchema.partial().optional(),
+});
+export type UpdateAddressInput = z.infer<typeof UpdateAddressSchema>;
+
+const BuyerRoleEnum = z.enum(['org_admin', 'order_approver', 'order_placer']);
+
+export const InviteBuyerSchema = z.object({
+  email: z.string().email(),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  role: BuyerRoleEnum,
+});
+export type InviteBuyerInput = z.infer<typeof InviteBuyerSchema>;
+
+export const UpdateBuyerRoleSchema = z.object({
+  role: BuyerRoleEnum,
+});
+export type UpdateBuyerRoleInput = z.infer<typeof UpdateBuyerRoleSchema>;

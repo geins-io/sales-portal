@@ -17,7 +17,9 @@
     "change_language": "Change language",
     "market": "Market",
     "change_market": "Change market",
-    "view_all_in": "View all in {name}"
+    "view_all_in": "View all in {name}",
+    "yes": "Yes",
+    "no": "No"
   },
   "auth": {
     "already_have_account": "Already have an account?",
@@ -334,6 +336,105 @@
     "placeholder": {
       "title": "Coming soon",
       "description": "This section is under development."
+    },
+    "org": {
+      "tabs": {
+        "info": "General settings",
+        "persons": "Persons",
+        "addresses": "Addresses",
+        "buyers": "Buyers",
+        "roles": "Roles"
+      },
+      "status": {
+        "active": "Active",
+        "pending": "Pending",
+        "suspended": "Suspended"
+      },
+      "info": {
+        "title": "Company information",
+        "subtitle": "View and manage your organisation details",
+        "name": "Company name",
+        "org_number": "Organisation number",
+        "reference_contact": "Reference contact",
+        "email": "Email",
+        "phone": "Phone",
+        "edit": "Edit",
+        "save": "Save changes",
+        "saving": "Saving\u2026",
+        "save_success": "Organisation updated successfully",
+        "save_error": "Failed to update organisation"
+      },
+      "addresses": {
+        "title": "Shipping addresses",
+        "subtitle": "Manage your organisation's shipping addresses",
+        "add": "Add address",
+        "add_title": "Add new address",
+        "edit_title": "Edit address",
+        "empty": "No addresses yet. Add your first shipping address.",
+        "label": "Label",
+        "first_name": "First name",
+        "last_name": "Last name",
+        "company": "Company",
+        "address_line_1": "Address line 1",
+        "address_line_2": "Address line 2",
+        "address_line_3": "Address line 3",
+        "postal_code": "Postal code",
+        "city": "City",
+        "state": "State / Region",
+        "country": "Country",
+        "phone": "Phone",
+        "set_default": "Set as default address",
+        "default": "Default",
+        "save": "Save address",
+        "saving": "Saving\u2026",
+        "save_error": "Failed to save address",
+        "remove": "Remove",
+        "remove_error": "Failed to remove address",
+        "confirm_remove": "Remove this address?"
+      },
+      "buyers": {
+        "title": "Persons",
+        "col_name": "Name",
+        "col_email": "Email",
+        "col_role": "Role",
+        "col_status": "Status",
+        "col_actions": "Actions",
+        "invite": "Invite",
+        "invite_title": "Invite a new person",
+        "invite_error": "Failed to send invitation",
+        "inviting": "Inviting\u2026",
+        "first_name": "First name",
+        "last_name": "Last name",
+        "email": "Email",
+        "role": "Role",
+        "you": "you",
+        "status_active": "Active",
+        "status_invited": "Invited",
+        "status_deactivated": "Deactivated",
+        "deactivate": "Deactivate",
+        "deactivate_error": "Failed to deactivate person",
+        "reactivate": "Reactivate",
+        "reactivate_error": "Failed to reactivate person",
+        "confirm_deactivate": "Are you sure?",
+        "load_error": "Failed to load persons",
+        "empty": "No persons found"
+      },
+      "persons": {
+        "col_id": "Id",
+        "col_latest_login": "Latest login",
+        "add": "+ Add person"
+      },
+      "roles": {
+        "title": "Roles",
+        "subtitle": "Manage organisation roles",
+        "col_role": "Role",
+        "col_description": "Description",
+        "col_assigned": "Assigned persons",
+        "add": "+ Add new role",
+        "save": "Save"
+      },
+      "error_title": "Unable to load organisation",
+      "error_description": "Something went wrong loading your organisation data. Please try again later."
     }
   }
 }

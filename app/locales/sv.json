@@ -17,7 +17,9 @@
     "change_language": "Byt språk",
     "market": "Marknad",
     "change_market": "Byt marknad",
-    "view_all_in": "Visa alla i {name}"
+    "view_all_in": "Visa alla i {name}",
+    "yes": "Ja",
+    "no": "Nej"
   },
   "auth": {
     "already_have_account": "Har du redan ett konto?",
@@ -334,6 +336,105 @@
     "placeholder": {
       "title": "Kommer snart",
       "description": "Det här avsnittet är under utveckling."
+    },
+    "org": {
+      "tabs": {
+        "info": "Allmänna inställningar",
+        "persons": "Personer",
+        "addresses": "Adresser",
+        "buyers": "Köpare",
+        "roles": "Roller"
+      },
+      "status": {
+        "active": "Aktiv",
+        "pending": "Väntande",
+        "suspended": "Avstängd"
+      },
+      "info": {
+        "title": "Företagsinformation",
+        "subtitle": "Visa och hantera din organisationsinformation",
+        "name": "Företagsnamn",
+        "org_number": "Organisationsnummer",
+        "reference_contact": "Referenskontakt",
+        "email": "E-post",
+        "phone": "Telefon",
+        "edit": "Redigera",
+        "save": "Spara ändringar",
+        "saving": "Sparar\u2026",
+        "save_success": "Organisationen har uppdaterats",
+        "save_error": "Det gick inte att uppdatera organisationen"
+      },
+      "addresses": {
+        "title": "Leveransadresser",
+        "subtitle": "Hantera din organisations leveransadresser",
+        "add": "Lägg till adress",
+        "add_title": "Lägg till ny adress",
+        "edit_title": "Redigera adress",
+        "empty": "Inga adresser ännu. Lägg till din första leveransadress.",
+        "label": "Etikett",
+        "first_name": "Förnamn",
+        "last_name": "Efternamn",
+        "company": "Företag",
+        "address_line_1": "Adressrad 1",
+        "address_line_2": "Adressrad 2",
+        "address_line_3": "Adressrad 3",
+        "postal_code": "Postnummer",
+        "city": "Stad",
+        "state": "Län / Region",
+        "country": "Land",
+        "phone": "Telefon",
+        "set_default": "Ange som standardadress",
+        "default": "Standard",
+        "save": "Spara adress",
+        "saving": "Sparar\u2026",
+        "save_error": "Det gick inte att spara adressen",
+        "remove": "Ta bort",
+        "remove_error": "Det gick inte att ta bort adressen",
+        "confirm_remove": "Ta bort denna adress?"
+      },
+      "buyers": {
+        "title": "Personer",
+        "col_name": "Namn",
+        "col_email": "E-post",
+        "col_role": "Roll",
+        "col_status": "Status",
+        "col_actions": "Åtgärder",
+        "invite": "Bjud in",
+        "invite_title": "Bjud in en ny person",
+        "invite_error": "Det gick inte att skicka inbjudan",
+        "inviting": "Bjuder in\u2026",
+        "first_name": "Förnamn",
+        "last_name": "Efternamn",
+        "email": "E-post",
+        "role": "Roll",
+        "you": "du",
+        "status_active": "Aktiv",
+        "status_invited": "Inbjuden",
+        "status_deactivated": "Inaktiverad",
+        "deactivate": "Inaktivera",
+        "deactivate_error": "Det gick inte att inaktivera personen",
+        "reactivate": "Återaktivera",
+        "reactivate_error": "Det gick inte att återaktivera personen",
+        "confirm_deactivate": "Är du säker?",
+        "load_error": "Det gick inte att ladda personer",
+        "empty": "Inga personer hittades"
+      },
+      "persons": {
+        "col_id": "Id",
+        "col_latest_login": "Senaste inloggning",
+        "add": "+ Lägg till person"
+      },
+      "roles": {
+        "title": "Roller",
+        "subtitle": "Hantera organisationsroller",
+        "col_role": "Roll",
+        "col_description": "Beskrivning",
+        "col_assigned": "Tilldelade personer",
+        "add": "+ Lägg till ny roll",
+        "save": "Spara"
+      },
+      "error_title": "Kunde inte ladda organisation",
+      "error_description": "Något gick fel vid laddning av organisationsdata. Försök igen senare."
     }
   }
 }

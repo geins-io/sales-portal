@@ -3,6 +3,7 @@ import type { FeatureAccess } from '#shared/types/tenant-config';
 export interface UserContext {
   authenticated: boolean;
   customerType?: string;
+  permissions?: string[];
 }
 
 type RuleEvaluator = (rule: FeatureAccess, user: UserContext) => boolean | null;
@@ -22,6 +23,14 @@ const evaluators: RuleEvaluator[] = [
   (rule, user) => {
     if (typeof rule === 'object' && 'role' in rule) {
       return user.customerType === rule.role;
+    }
+    return null;
+  },
+
+  // { permission } — matches against user's permissions array
+  (rule, user) => {
+    if (typeof rule === 'object' && 'permission' in rule) {
+      return user.permissions?.includes(rule.permission) ?? false;
     }
     return null;
   },

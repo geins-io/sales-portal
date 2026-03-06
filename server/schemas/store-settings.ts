@@ -118,6 +118,7 @@ export const FeatureAccessSchema = z.union([
   z.literal('authenticated'),
   z.object({ group: z.string() }),
   z.object({ role: z.string() }),
+  z.object({ permission: z.string() }),
   z.object({ accountType: z.string() }),
 ]);
 

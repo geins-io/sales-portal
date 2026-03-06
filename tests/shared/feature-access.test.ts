@@ -12,6 +12,10 @@ const withRole: UserContext = {
   authenticated: true,
   customerType: 'wholesale',
 };
+const withPermissions: UserContext = {
+  authenticated: true,
+  permissions: ['orders:create', 'org:view'],
+};
 
 describe('evaluateAccess', () => {
   describe('rule: "all"', () => {
@@ -49,6 +53,42 @@ describe('evaluateAccess', () => {
 
     it('denies access to anonymous users', () => {
       expect(evaluateAccess({ role: 'wholesale' }, anonymous)).toBe(false);
+    });
+  });
+
+  describe('rule: { permission }', () => {
+    it('grants access when user has the permission', () => {
+      expect(
+        evaluateAccess({ permission: 'orders:create' }, withPermissions),
+      ).toBe(true);
+    });
+
+    it('denies access when user lacks the permission', () => {
+      expect(evaluateAccess({ permission: 'org:edit' }, withPermissions)).toBe(
+        false,
+      );
+    });
+
+    it('denies access when user has no permissions array', () => {
+      expect(evaluateAccess({ permission: 'orders:create' }, loggedIn)).toBe(
+        false,
+      );
+    });
+
+    it('denies access for anonymous users', () => {
+      expect(evaluateAccess({ permission: 'orders:create' }, anonymous)).toBe(
+        false,
+      );
+    });
+
+    it('denies access when permissions array is empty', () => {
+      const emptyPerms: UserContext = {
+        authenticated: true,
+        permissions: [],
+      };
+      expect(evaluateAccess({ permission: 'orders:create' }, emptyPerms)).toBe(
+        false,
+      );
     });
   });
 
@@ -131,5 +171,15 @@ describe('canAccessFeature', () => {
       access: { accountType: 'enterprise' } as FeatureAccess,
     };
     expect(canAccessFeature(feature, loggedIn)).toBe(false);
+  });
+
+  it('evaluates access: { permission } correctly', () => {
+    const feature = {
+      enabled: true,
+      access: { permission: 'orders:create' } as FeatureAccess,
+    };
+    expect(canAccessFeature(feature, withPermissions)).toBe(true);
+    expect(canAccessFeature(feature, loggedIn)).toBe(false);
+    expect(canAccessFeature(feature, anonymous)).toBe(false);
   });
 });
