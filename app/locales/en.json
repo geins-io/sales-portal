@@ -334,6 +334,34 @@
     "placeholder": {
       "title": "Coming soon",
       "description": "This section is under development."
+    },
+    "org": {
+      "tabs": {
+        "info": "Company info",
+        "addresses": "Addresses",
+        "buyers": "Buyers"
+      },
+      "status": {
+        "active": "Active",
+        "pending": "Pending",
+        "suspended": "Suspended"
+      },
+      "info": {
+        "title": "Company information",
+        "subtitle": "View and manage your organisation details",
+        "name": "Company name",
+        "org_number": "Organisation number",
+        "reference_contact": "Reference contact",
+        "email": "Email",
+        "phone": "Phone",
+        "edit": "Edit",
+        "save": "Save changes",
+        "saving": "Saving\u2026",
+        "save_success": "Organisation updated successfully",
+        "save_error": "Failed to update organisation"
+      },
+      "error_title": "Unable to load organisation",
+      "error_description": "Something went wrong loading your organisation data. Please try again later."
     }
   }
 }

@@ -334,6 +334,34 @@
     "placeholder": {
       "title": "Kommer snart",
       "description": "Det här avsnittet är under utveckling."
+    },
+    "org": {
+      "tabs": {
+        "info": "Företagsinfo",
+        "addresses": "Adresser",
+        "buyers": "Köpare"
+      },
+      "status": {
+        "active": "Aktiv",
+        "pending": "Väntande",
+        "suspended": "Avstängd"
+      },
+      "info": {
+        "title": "Företagsinformation",
+        "subtitle": "Visa och hantera din organisationsinformation",
+        "name": "Företagsnamn",
+        "org_number": "Organisationsnummer",
+        "reference_contact": "Referenskontakt",
+        "email": "E-post",
+        "phone": "Telefon",
+        "edit": "Redigera",
+        "save": "Spara ändringar",
+        "saving": "Sparar\u2026",
+        "save_success": "Organisationen har uppdaterats",
+        "save_error": "Det gick inte att uppdatera organisationen"
+      },
+      "error_title": "Kunde inte ladda organisation",
+      "error_description": "Något gick fel vid laddning av organisationsdata. Försök igen senare."
     }
   }
 }
