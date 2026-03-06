@@ -74,6 +74,10 @@ const componentTestFiles = [
   'tests/components/portal/PortalShell.test.ts',
   'tests/components/portal/ChangePasswordForm.test.ts',
   'tests/components/portal/ProfileForm.test.ts',
+  'tests/components/portal/OrgSubNav.test.ts',
+  'tests/components/portal/OrgInfoCard.test.ts',
+  'tests/components/portal/OrgAddressBook.test.ts',
+  'tests/components/portal/OrgBuyerList.test.ts',
   'tests/components/cms/HtmlWidget.test.ts',
   'tests/components/cart/PromoCodeInput.test.ts',
 ];
