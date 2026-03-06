@@ -17,7 +17,9 @@
     "change_language": "Byt språk",
     "market": "Marknad",
     "change_market": "Byt marknad",
-    "view_all_in": "Visa alla i {name}"
+    "view_all_in": "Visa alla i {name}",
+    "yes": "Ja",
+    "no": "Nej"
   },
   "auth": {
     "already_have_account": "Har du redan ett konto?",
@@ -337,9 +339,11 @@
     },
     "org": {
       "tabs": {
-        "info": "Företagsinfo",
+        "info": "Allmänna inställningar",
+        "persons": "Personer",
         "addresses": "Adresser",
-        "buyers": "Köpare"
+        "buyers": "Köpare",
+        "roles": "Roller"
       },
       "status": {
         "active": "Aktiv",
@@ -387,6 +391,47 @@
         "remove": "Ta bort",
         "remove_error": "Det gick inte att ta bort adressen",
         "confirm_remove": "Ta bort denna adress?"
+      },
+      "buyers": {
+        "title": "Personer",
+        "col_name": "Namn",
+        "col_email": "E-post",
+        "col_role": "Roll",
+        "col_status": "Status",
+        "col_actions": "Åtgärder",
+        "invite": "Bjud in",
+        "invite_title": "Bjud in en ny person",
+        "invite_error": "Det gick inte att skicka inbjudan",
+        "inviting": "Bjuder in\u2026",
+        "first_name": "Förnamn",
+        "last_name": "Efternamn",
+        "email": "E-post",
+        "role": "Roll",
+        "you": "du",
+        "status_active": "Aktiv",
+        "status_invited": "Inbjuden",
+        "status_deactivated": "Inaktiverad",
+        "deactivate": "Inaktivera",
+        "deactivate_error": "Det gick inte att inaktivera personen",
+        "reactivate": "Återaktivera",
+        "reactivate_error": "Det gick inte att återaktivera personen",
+        "confirm_deactivate": "Är du säker?",
+        "load_error": "Det gick inte att ladda personer",
+        "empty": "Inga personer hittades"
+      },
+      "persons": {
+        "col_id": "Id",
+        "col_latest_login": "Senaste inloggning",
+        "add": "+ Lägg till person"
+      },
+      "roles": {
+        "title": "Roller",
+        "subtitle": "Hantera organisationsroller",
+        "col_role": "Roll",
+        "col_description": "Beskrivning",
+        "col_assigned": "Tilldelade personer",
+        "add": "+ Lägg till ny roll",
+        "save": "Spara"
       },
       "error_title": "Kunde inte ladda organisation",
       "error_description": "Något gick fel vid laddning av organisationsdata. Försök igen senare."

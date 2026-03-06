@@ -8,10 +8,16 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
+const VALID_TABS = ['info', 'persons', 'addresses', 'roles'] as const;
+
 const activeTab = computed({
   get: () => {
     const tab = route.query.tab as string | undefined;
-    return tab && ['info', 'addresses', 'buyers'].includes(tab) ? tab : 'info';
+    // Backward compat: treat "buyers" as "persons"
+    if (tab === 'buyers') return 'persons';
+    return tab && (VALID_TABS as readonly string[]).includes(tab)
+      ? tab
+      : 'info';
   },
   set: (value: string) => {
     router.replace({ query: { ...route.query, tab: value } });
@@ -40,9 +46,15 @@ const { data: addressData, refresh: refreshAddresses } = useFetch<{
   dedupe: 'defer',
 });
 
+const { data: buyersData } = useFetch<{ buyers: Buyer[] }>(
+  '/api/organization/buyers',
+  { dedupe: 'defer' },
+);
+
 const organization = computed(() => orgData.value?.organization);
 const buyer = computed(() => meData.value?.buyer);
 const addresses = computed(() => addressData.value?.addresses ?? []);
+const buyers = computed(() => buyersData.value?.buyers ?? []);
 const canEdit = computed(() => {
   if (!buyer.value) return false;
   return hasPermission(buyer.value.role, 'org:edit');
@@ -50,6 +62,10 @@ const canEdit = computed(() => {
 const canManageAddresses = computed(() => {
   if (!buyer.value) return false;
   return hasPermission(buyer.value.role, 'org:manage_addresses');
+});
+const canManageRoles = computed(() => {
+  if (!buyer.value) return false;
+  return hasPermission(buyer.value.role, 'org:manage_roles');
 });
 const isLoading = computed(() => orgPending.value || mePending.value);
 const hasError = computed(() => !!orgError.value || !!meError.value);
@@ -93,26 +109,40 @@ function handleOrgUpdated(updated: Organization) {
 
     <!-- Content -->
     <template v-else-if="organization && buyer">
-      <OrgSubNav :active-tab="activeTab" @update:tab="activeTab = $event" />
+      <div class="grid gap-8 md:grid-cols-[200px_1fr]">
+        <OrgSubNav v-model="activeTab" />
 
-      <!-- Info tab -->
-      <OrgInfoCard
-        v-if="activeTab === 'info'"
-        :organization="organization"
-        :can-edit="canEdit"
-        @updated="handleOrgUpdated"
-      />
+        <div>
+          <!-- Info tab -->
+          <OrgInfoCard
+            v-if="activeTab === 'info'"
+            :organization="organization"
+            :can-edit="canEdit"
+            @updated="handleOrgUpdated"
+          />
 
-      <!-- Addresses tab -->
-      <OrgAddressBook
-        v-else-if="activeTab === 'addresses'"
-        :addresses="addresses"
-        :can-manage="canManageAddresses"
-        @refresh="refreshAddresses"
-      />
+          <!-- Persons tab -->
+          <OrgBuyerList
+            v-else-if="activeTab === 'persons'"
+            :current-buyer="buyer"
+          />
 
-      <!-- Buyers tab -->
-      <OrgBuyerList v-else-if="activeTab === 'buyers'" :current-buyer="buyer" />
+          <!-- Addresses tab -->
+          <OrgAddressBook
+            v-else-if="activeTab === 'addresses'"
+            :addresses="addresses"
+            :can-manage="canManageAddresses"
+            @refresh="refreshAddresses"
+          />
+
+          <!-- Roles tab -->
+          <OrgRoleList
+            v-else-if="activeTab === 'roles'"
+            :buyers="buyers"
+            :can-manage-roles="canManageRoles"
+          />
+        </div>
+      </div>
     </template>
   </PortalShell>
 </template>

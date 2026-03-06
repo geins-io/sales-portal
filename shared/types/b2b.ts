@@ -54,6 +54,7 @@ export interface Buyer {
   lastName: string;
   role: BuyerRole;
   status: BuyerStatus;
+  lastLogin?: string;
   invitedAt?: string;
   createdAt: string;
   updatedAt: string;

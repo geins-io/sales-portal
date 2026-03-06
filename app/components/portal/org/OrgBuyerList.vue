@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Buyer, BuyerRole, BuyerStatus } from '#shared/types/b2b';
+import type { Buyer, BuyerRole } from '#shared/types/b2b';
 import { DEFAULT_ROLES, hasPermission } from '#shared/types/b2b';
 import { Button } from '~/components/ui/button';
 import {
@@ -39,16 +39,21 @@ const showInviteForm = ref(false);
 const confirmingDeactivateId = ref<string | null>(null);
 const actionError = ref('');
 
-function statusBadgeClass(status: BuyerStatus): string {
-  switch (status) {
-    case 'active':
-      return 'bg-green-100 text-green-800';
-    case 'invited':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'deactivated':
-      return 'bg-gray-100 text-gray-800';
-    default:
-      return 'bg-muted text-muted-foreground';
+function truncateId(id: string): string {
+  return id.length > 8 ? `${id.slice(0, 8)}...` : id;
+}
+
+function formatLastLogin(dateStr?: string): string {
+  if (!dateStr) return '\u2014';
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return '\u2014';
   }
 }
 
@@ -82,18 +87,6 @@ async function handleDeactivate(buyer: Buyer) {
     actionError.value = t('portal.org.buyers.deactivate_error');
   }
 }
-
-async function handleReactivate(buyer: Buyer) {
-  actionError.value = '';
-  try {
-    await $fetch(`/api/organization/buyers/${buyer.id}/reactivate`, {
-      method: 'PATCH',
-    });
-    refreshBuyers();
-  } catch {
-    actionError.value = t('portal.org.buyers.reactivate_error');
-  }
-}
 </script>
 
 <template>
@@ -109,8 +102,8 @@ async function handleReactivate(buyer: Buyer) {
         data-testid="buyer-invite-btn"
         @click="showInviteForm = true"
       >
-        <Icon name="lucide:user-plus" class="mr-1 size-4" />
-        {{ t('portal.org.buyers.invite') }}
+        <Icon name="lucide:plus" class="mr-1 size-4" />
+        {{ t('portal.org.persons.add') }}
       </Button>
     </div>
 
@@ -162,10 +155,10 @@ async function handleReactivate(buyer: Buyer) {
     <Table v-else data-testid="buyers-table">
       <TableHeader>
         <TableRow>
-          <TableHead>{{ t('portal.org.buyers.col_name') }}</TableHead>
+          <TableHead>{{ t('portal.org.persons.col_id') }}</TableHead>
           <TableHead>{{ t('portal.org.buyers.col_email') }}</TableHead>
           <TableHead>{{ t('portal.org.buyers.col_role') }}</TableHead>
-          <TableHead>{{ t('portal.org.buyers.col_status') }}</TableHead>
+          <TableHead>{{ t('portal.org.persons.col_latest_login') }}</TableHead>
           <TableHead v-if="canManageBuyers">
             {{ t('portal.org.buyers.col_actions') }}
           </TableHead>
@@ -177,9 +170,11 @@ async function handleReactivate(buyer: Buyer) {
           :key="b.id"
           :data-testid="`buyer-row-${b.id}`"
         >
-          <!-- Name -->
+          <!-- Id -->
           <TableCell>
-            {{ b.firstName }} {{ b.lastName }}
+            <span :title="b.id" class="font-mono text-xs">
+              {{ truncateId(b.id) }}
+            </span>
             <span v-if="isSelf(b)" class="text-muted-foreground ml-1 text-xs">
               ({{ t('portal.org.buyers.you') }})
             </span>
@@ -199,41 +194,37 @@ async function handleReactivate(buyer: Buyer) {
             <span v-else>{{ DEFAULT_ROLES[b.role].label }}</span>
           </TableCell>
 
-          <!-- Status -->
+          <!-- Latest login -->
           <TableCell>
-            <span
-              :data-testid="`buyer-status-${b.id}`"
-              class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-              :class="statusBadgeClass(b.status)"
-            >
-              {{ t(`portal.org.buyers.status_${b.status}`) }}
+            <span :data-testid="`buyer-last-login-${b.id}`">
+              {{ formatLastLogin(b.lastLogin) }}
             </span>
           </TableCell>
 
           <!-- Actions -->
           <TableCell v-if="canManageBuyers">
             <template v-if="!isSelf(b)">
-              <!-- Deactivated: show reactivate -->
-              <Button
-                v-if="b.status === 'deactivated'"
-                variant="outline"
-                size="sm"
-                :data-testid="`buyer-reactivate-${b.id}`"
-                @click="handleReactivate(b)"
-              >
-                {{ t('portal.org.buyers.reactivate') }}
-              </Button>
+              <div class="flex items-center gap-1">
+                <!-- Edit (placeholder) -->
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  :data-testid="`buyer-edit-${b.id}`"
+                  class="size-8 p-0"
+                >
+                  <Icon name="lucide:pencil" class="size-4" />
+                </Button>
 
-              <!-- Active/invited: show deactivate with confirmation -->
-              <template v-else>
+                <!-- Delete / deactivate with confirmation -->
                 <Button
                   v-if="confirmingDeactivateId !== b.id"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  :data-testid="`buyer-deactivate-${b.id}`"
+                  :data-testid="`buyer-delete-${b.id}`"
+                  class="size-8 p-0"
                   @click="confirmingDeactivateId = b.id"
                 >
-                  {{ t('portal.org.buyers.deactivate') }}
+                  <Icon name="lucide:trash-2" class="size-4" />
                 </Button>
                 <div
                   v-else
@@ -260,7 +251,7 @@ async function handleReactivate(buyer: Buyer) {
                     {{ t('common.no') }}
                   </Button>
                 </div>
-              </template>
+              </div>
             </template>
           </TableCell>
         </TableRow>

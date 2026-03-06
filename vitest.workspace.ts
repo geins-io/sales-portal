@@ -78,6 +78,7 @@ const componentTestFiles = [
   'tests/components/portal/OrgInfoCard.test.ts',
   'tests/components/portal/OrgAddressBook.test.ts',
   'tests/components/portal/OrgBuyerList.test.ts',
+  'tests/components/portal/OrgRoleList.test.ts',
   'tests/components/cms/HtmlWidget.test.ts',
   'tests/components/cart/PromoCodeInput.test.ts',
 ];

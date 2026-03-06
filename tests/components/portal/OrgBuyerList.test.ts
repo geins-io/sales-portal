@@ -16,6 +16,7 @@ const mockBuyers: Buyer[] = [
     lastName: 'Admin',
     role: 'org_admin',
     status: 'active',
+    lastLogin: '2026-01-15T10:30:00Z',
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-06-01T00:00:00Z',
   },
@@ -28,6 +29,7 @@ const mockBuyers: Buyer[] = [
     lastName: 'Buyer',
     role: 'order_placer',
     status: 'active',
+    lastLogin: '2026-02-20T14:00:00Z',
     createdAt: '2024-02-01T00:00:00Z',
     updatedAt: '2024-06-01T00:00:00Z',
   },
@@ -70,7 +72,7 @@ const stubs = {
   NuxtIcon: iconStub,
   Button: {
     template:
-      '<button :data-testid="$attrs[\'data-testid\']" @click="$emit(\'click\')"><slot /></button>',
+      '<button :data-testid="$attrs[\'data-testid\']" :class="$attrs.class" :disabled="$attrs.disabled" @click="$emit(\'click\')"><slot /></button>',
     inheritAttrs: false,
   },
   Table: {
@@ -139,7 +141,20 @@ describe('OrgBuyerList', () => {
     expect(wrapper.find('[data-testid="buyers-table"]').exists()).toBe(true);
   });
 
-  it('renders buyer rows', () => {
+  it('renders table with Id, Email, Role, Latest login columns', () => {
+    const wrapper = mountComponent(OrgBuyerList, {
+      props: { currentBuyer: adminBuyer },
+      global: { stubs },
+    });
+    const headers = wrapper.findAll('th');
+    const headerTexts = headers.map((h) => h.text());
+    expect(headerTexts).toContain('portal.org.persons.col_id');
+    expect(headerTexts).toContain('portal.org.buyers.col_email');
+    expect(headerTexts).toContain('portal.org.buyers.col_role');
+    expect(headerTexts).toContain('portal.org.persons.col_latest_login');
+  });
+
+  it('renders buyer rows with truncated ids and emails', () => {
     const wrapper = mountComponent(OrgBuyerList, {
       props: { currentBuyer: adminBuyer },
       global: { stubs },
@@ -153,17 +168,25 @@ describe('OrgBuyerList', () => {
     expect(wrapper.find('[data-testid="buyer-row-buyer-3"]').exists()).toBe(
       true,
     );
+    expect(wrapper.text()).toContain('admin@acme.com');
+    expect(wrapper.text()).toContain('bob@acme.com');
   });
 
-  it('renders buyer names and emails', () => {
+  it('renders last login date for buyers with lastLogin', () => {
     const wrapper = mountComponent(OrgBuyerList, {
       props: { currentBuyer: adminBuyer },
       global: { stubs },
     });
-    expect(wrapper.text()).toContain('Alice Admin');
-    expect(wrapper.text()).toContain('admin@acme.com');
-    expect(wrapper.text()).toContain('Bob Buyer');
-    expect(wrapper.text()).toContain('bob@acme.com');
+    // buyer-1 has lastLogin, should show a formatted date (not a dash)
+    const loginCell = wrapper.find('[data-testid="buyer-last-login-buyer-1"]');
+    expect(loginCell.exists()).toBe(true);
+    expect(loginCell.text()).not.toBe('\u2014');
+    // buyer-3 has no lastLogin, should show dash
+    const noLoginCell = wrapper.find(
+      '[data-testid="buyer-last-login-buyer-3"]',
+    );
+    expect(noLoginCell.exists()).toBe(true);
+    expect(noLoginCell.text()).toBe('\u2014');
   });
 
   it('shows "(you)" label for the current buyer', () => {
@@ -175,14 +198,14 @@ describe('OrgBuyerList', () => {
     expect(row.text()).toContain('portal.org.buyers.you');
   });
 
-  it('shows invite button when current buyer can manage buyers', () => {
+  it('shows invite button with "+ Add person" text when admin', () => {
     const wrapper = mountComponent(OrgBuyerList, {
       props: { currentBuyer: adminBuyer },
       global: { stubs },
     });
-    expect(wrapper.find('[data-testid="buyer-invite-btn"]').exists()).toBe(
-      true,
-    );
+    const btn = wrapper.find('[data-testid="buyer-invite-btn"]');
+    expect(btn.exists()).toBe(true);
+    expect(btn.text()).toContain('portal.org.persons.add');
   });
 
   it('hides invite button when current buyer cannot manage buyers', () => {
@@ -195,50 +218,30 @@ describe('OrgBuyerList', () => {
     );
   });
 
-  it('shows deactivate button for non-self active buyers when admin', () => {
+  it('shows edit and delete icon buttons for non-self buyers when admin', () => {
     const wrapper = mountComponent(OrgBuyerList, {
       props: { currentBuyer: adminBuyer },
       global: { stubs },
     });
-    expect(
-      wrapper.find('[data-testid="buyer-deactivate-buyer-2"]').exists(),
-    ).toBe(true);
-  });
-
-  it('shows reactivate button for deactivated buyers when admin', () => {
-    const wrapper = mountComponent(OrgBuyerList, {
-      props: { currentBuyer: adminBuyer },
-      global: { stubs },
-    });
-    expect(
-      wrapper.find('[data-testid="buyer-reactivate-buyer-3"]').exists(),
-    ).toBe(true);
-  });
-
-  it('does not show deactivate button for self', () => {
-    const wrapper = mountComponent(OrgBuyerList, {
-      props: { currentBuyer: adminBuyer },
-      global: { stubs },
-    });
-    expect(
-      wrapper.find('[data-testid="buyer-deactivate-buyer-1"]').exists(),
-    ).toBe(false);
-  });
-
-  it('shows status badges', () => {
-    const wrapper = mountComponent(OrgBuyerList, {
-      props: { currentBuyer: adminBuyer },
-      global: { stubs },
-    });
-    expect(wrapper.find('[data-testid="buyer-status-buyer-1"]').exists()).toBe(
+    expect(wrapper.find('[data-testid="buyer-edit-buyer-2"]').exists()).toBe(
       true,
     );
-    expect(
-      wrapper.find('[data-testid="buyer-status-buyer-1"]').text(),
-    ).toContain('portal.org.buyers.status_active');
-    expect(
-      wrapper.find('[data-testid="buyer-status-buyer-3"]').text(),
-    ).toContain('portal.org.buyers.status_deactivated');
+    expect(wrapper.find('[data-testid="buyer-delete-buyer-2"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('does not show action buttons for self', () => {
+    const wrapper = mountComponent(OrgBuyerList, {
+      props: { currentBuyer: adminBuyer },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="buyer-edit-buyer-1"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('[data-testid="buyer-delete-buyer-1"]').exists()).toBe(
+      false,
+    );
   });
 
   it('shows loading state', () => {
@@ -290,14 +293,12 @@ describe('OrgBuyerList', () => {
     expect(wrapper.find('[data-testid="buyers-empty"]').exists()).toBe(true);
   });
 
-  it('shows deactivate confirmation when deactivate is clicked', async () => {
+  it('shows deactivate confirmation when delete icon is clicked', async () => {
     const wrapper = mountComponent(OrgBuyerList, {
       props: { currentBuyer: adminBuyer },
       global: { stubs },
     });
-    await wrapper
-      .find('[data-testid="buyer-deactivate-buyer-2"]')
-      .trigger('click');
+    await wrapper.find('[data-testid="buyer-delete-buyer-2"]').trigger('click');
     expect(
       wrapper.find('[data-testid="buyer-confirm-deactivate-buyer-2"]').exists(),
     ).toBe(true);
