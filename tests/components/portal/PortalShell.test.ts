@@ -35,6 +35,12 @@ vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
 // Stub navigateTo (Nuxt auto-import, not available in component tier)
 vi.stubGlobal('navigateTo', vi.fn());
 
+// Mock useFeatureAccess — default: all features denied (organisation tab hidden)
+const mockCanAccess = vi.fn(() => false);
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
+}));
+
 const iconStub = {
   template: '<span class="icon" :data-name="name"></span>',
   props: ['name'],
@@ -63,7 +69,8 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.welcome');
   });
 
-  it('renders all 6 tab links', () => {
+  it('renders 5 tabs when organisation feature flag is off', () => {
+    mockCanAccess.mockReturnValue(false);
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div>content</div>' },
       global: { stubs },
@@ -73,6 +80,15 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.tabs.quotations');
     expect(wrapper.text()).toContain('portal.tabs.products');
     expect(wrapper.text()).toContain('portal.tabs.lists');
+    expect(wrapper.text()).not.toContain('portal.tabs.organisation');
+  });
+
+  it('renders organisation tab when feature flag is enabled', () => {
+    mockCanAccess.mockReturnValue(true);
+    const wrapper = mountComponent(PortalShell, {
+      slots: { default: '<div>content</div>' },
+      global: { stubs },
+    });
     expect(wrapper.text()).toContain('portal.tabs.organisation');
   });
 

@@ -5,6 +5,7 @@ import { useAuthStore } from '~/stores/auth';
 const { t } = useI18n();
 const route = useRoute();
 const authStore = useAuthStore();
+const { canAccess } = useFeatureAccess();
 
 const { data: profileData } = useFetch<{ profile: GeinsUserType }>(
   '/api/user/profile',
@@ -28,6 +29,7 @@ interface PortalTab {
   label: string;
   to: string;
   icon: string;
+  feature?: string;
 }
 
 const tabs: PortalTab[] = [
@@ -66,8 +68,13 @@ const tabs: PortalTab[] = [
     label: 'portal.tabs.organisation',
     to: '/portal/organisation',
     icon: 'lucide:building-2',
+    feature: 'organisation_tab',
   },
 ];
+
+const visibleTabs = computed(() =>
+  tabs.filter((tab) => !tab.feature || canAccess(tab.feature)),
+);
 
 function isActiveTab(tab: PortalTab): boolean {
   if (tab.to === '/portal') {
@@ -151,7 +158,7 @@ async function handleLogout() {
         class="border-border mt-6 flex gap-1 overflow-x-auto border-b"
       >
         <NuxtLink
-          v-for="tab in tabs"
+          v-for="tab in visibleTabs"
           :key="tab.key"
           :to="tab.to"
           class="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors"
