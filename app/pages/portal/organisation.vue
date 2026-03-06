@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Organization, Buyer } from '#shared/types/b2b';
+import type { Organization, Buyer, OrgAddress } from '#shared/types/b2b';
 import { hasPermission } from '#shared/types/b2b';
 
 definePageMeta({ middleware: 'auth' });
@@ -34,11 +34,22 @@ const {
   dedupe: 'defer',
 });
 
+const { data: addressData, refresh: refreshAddresses } = useFetch<{
+  addresses: OrgAddress[];
+}>('/api/organization/addresses', {
+  dedupe: 'defer',
+});
+
 const organization = computed(() => orgData.value?.organization);
 const buyer = computed(() => meData.value?.buyer);
+const addresses = computed(() => addressData.value?.addresses ?? []);
 const canEdit = computed(() => {
   if (!buyer.value) return false;
   return hasPermission(buyer.value.role, 'org:edit');
+});
+const canManageAddresses = computed(() => {
+  if (!buyer.value) return false;
+  return hasPermission(buyer.value.role, 'org:manage_addresses');
 });
 const isLoading = computed(() => orgPending.value || mePending.value);
 const hasError = computed(() => !!orgError.value || !!meError.value);
@@ -92,11 +103,16 @@ function handleOrgUpdated(updated: Organization) {
         @updated="handleOrgUpdated"
       />
 
-      <!-- Addresses tab (placeholder) -->
-      <PortalPlaceholder v-else-if="activeTab === 'addresses'" />
+      <!-- Addresses tab -->
+      <OrgAddressBook
+        v-else-if="activeTab === 'addresses'"
+        :addresses="addresses"
+        :can-manage="canManageAddresses"
+        @refresh="refreshAddresses"
+      />
 
-      <!-- Buyers tab (placeholder) -->
-      <PortalPlaceholder v-else-if="activeTab === 'buyers'" />
+      <!-- Buyers tab -->
+      <OrgBuyerList v-else-if="activeTab === 'buyers'" :current-buyer="buyer" />
     </template>
   </PortalShell>
 </template>
