@@ -20,6 +20,7 @@ export type FeatureAccess =
   | 'authenticated'
   | { group: string }
   | { role: string }
+  | { permission: string }
   | { accountType: string };
 
 /**
