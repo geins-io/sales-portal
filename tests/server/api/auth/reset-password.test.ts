@@ -2,9 +2,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
-const mockCommitPasswordReset = vi.fn().mockResolvedValue({ succeeded: true });
-vi.mock('../../../../server/services/user', () => ({
-  commitPasswordReset: (...args: unknown[]) => mockCommitPasswordReset(...args),
+// ---------------------------------------------------------------------------
+// Mock at the SDK boundary — let user service run for real
+// ---------------------------------------------------------------------------
+const mockPasswordCommitReset = vi.fn().mockResolvedValue({ succeeded: true });
+
+const mockSDK = {
+  crm: {
+    user: {
+      password: {
+        commitReset: mockPasswordCommitReset,
+      },
+    },
+  },
+};
+
+vi.mock('../../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
 }));
 
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
@@ -16,6 +30,7 @@ vi.stubGlobal(
 vi.stubGlobal('ErrorCode', {
   BAD_REQUEST: 'BAD_REQUEST',
   RATE_LIMITED: 'RATE_LIMITED',
+  UNAUTHORIZED: 'UNAUTHORIZED',
 });
 vi.stubGlobal(
   'getClientIp',
@@ -24,6 +39,7 @@ vi.stubGlobal(
 vi.stubGlobal('resetPasswordRateLimiter', {
   check: vi.fn().mockResolvedValue({ allowed: true, remaining: 4 }),
 });
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
 describe('POST /api/auth/reset-password', () => {
   const mockEvent = {} as unknown as import('h3').H3Event;
@@ -38,16 +54,12 @@ describe('POST /api/auth/reset-password', () => {
     });
   });
 
-  it('calls commitPasswordReset with resetKey and password', async () => {
+  it('calls SDK password.commitReset with resetKey and password', async () => {
     const handler = (
       await import('../../../../server/api/auth/reset-password.post')
     ).default;
     await handler(mockEvent);
-    expect(mockCommitPasswordReset).toHaveBeenCalledWith(
-      'key123',
-      'newpass88',
-      mockEvent,
-    );
+    expect(mockPasswordCommitReset).toHaveBeenCalledWith('key123', 'newpass88');
   });
 
   it('returns success: true on successful reset', async () => {
@@ -59,7 +71,7 @@ describe('POST /api/auth/reset-password', () => {
   });
 
   it('throws BAD_REQUEST when SDK returns null', async () => {
-    mockCommitPasswordReset.mockResolvedValueOnce(null);
+    mockPasswordCommitReset.mockResolvedValueOnce(null);
     const handler = (
       await import('../../../../server/api/auth/reset-password.post')
     ).default;
@@ -67,7 +79,7 @@ describe('POST /api/auth/reset-password', () => {
   });
 
   it('throws when SDK throws (invalid/expired key)', async () => {
-    mockCommitPasswordReset.mockRejectedValueOnce(new Error('Invalid key'));
+    mockPasswordCommitReset.mockRejectedValueOnce(new Error('Invalid key'));
     const handler = (
       await import('../../../../server/api/auth/reset-password.post')
     ).default;

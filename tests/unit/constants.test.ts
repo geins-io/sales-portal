@@ -21,13 +21,11 @@ describe('Application Constants', () => {
     });
 
     it('should have a version', () => {
-      expect(APP.VERSION).toBeDefined();
-      expect(typeof APP.VERSION).toBe('string');
+      expect(APP.VERSION).toBe('1.0.0');
     });
 
     it('should have a description', () => {
-      expect(APP.DESCRIPTION).toBeDefined();
-      expect(typeof APP.DESCRIPTION).toBe('string');
+      expect(APP.DESCRIPTION).toBe('Multi-tenant storefront application');
     });
   });
 
@@ -48,13 +46,13 @@ describe('Application Constants', () => {
   });
 
   describe('STORAGE_KEYS', () => {
-    it('should have all required storage keys', () => {
-      expect(STORAGE_KEYS.THEME).toBeDefined();
-      expect(STORAGE_KEYS.AUTH_TOKEN).toBeDefined();
-      expect(STORAGE_KEYS.USER_PREFERENCES).toBeDefined();
-      expect(STORAGE_KEYS.RECENTLY_VIEWED).toBeDefined();
-      expect(STORAGE_KEYS.CART).toBeDefined();
-      expect(STORAGE_KEYS.WISHLIST).toBeDefined();
+    it('should have all required storage keys with correct values', () => {
+      expect(STORAGE_KEYS.THEME).toBe('app-theme');
+      expect(STORAGE_KEYS.AUTH_TOKEN).toBe('auth-token');
+      expect(STORAGE_KEYS.USER_PREFERENCES).toBe('user-preferences');
+      expect(STORAGE_KEYS.RECENTLY_VIEWED).toBe('recently-viewed');
+      expect(STORAGE_KEYS.CART).toBe('cart-data');
+      expect(STORAGE_KEYS.WISHLIST).toBe('wishlist-data');
     });
 
     it('should have unique key values', () => {
@@ -83,20 +81,20 @@ describe('Application Constants', () => {
     });
 
     it('should have authentication routes', () => {
-      expect(ROUTES.LOGIN).toBeDefined();
-      expect(ROUTES.REGISTER).toBeDefined();
-      expect(ROUTES.FORGOT_PASSWORD).toBeDefined();
+      expect(ROUTES.LOGIN).toBe('/login');
+      expect(ROUTES.REGISTER).toBe('/register');
+      expect(ROUTES.FORGOT_PASSWORD).toBe('/forgot-password');
     });
 
     it('should have product routes', () => {
-      expect(ROUTES.PRODUCTS).toBeDefined();
-      expect(ROUTES.PRODUCT_DETAIL).toContain(':id');
+      expect(ROUTES.PRODUCTS).toBe('/products');
+      expect(ROUTES.PRODUCT_DETAIL).toBe('/products/:id');
     });
 
     it('should have account routes', () => {
-      expect(ROUTES.ACCOUNT).toBeDefined();
-      expect(ROUTES.ACCOUNT_ORDERS).toBeDefined();
-      expect(ROUTES.ACCOUNT_PROFILE).toBeDefined();
+      expect(ROUTES.ACCOUNT).toBe('/account');
+      expect(ROUTES.ACCOUNT_ORDERS).toBe('/account/orders');
+      expect(ROUTES.ACCOUNT_PROFILE).toBe('/account/profile');
     });
   });
 
@@ -132,14 +130,14 @@ describe('Application Constants', () => {
 
   describe('DATE_FORMATS', () => {
     it('should have ISO format', () => {
-      expect(DATE_FORMATS.ISO).toBeDefined();
+      expect(DATE_FORMATS.ISO).toBe('YYYY-MM-DD');
     });
 
     it('should have various date formats', () => {
-      expect(DATE_FORMATS.SHORT).toBeDefined();
-      expect(DATE_FORMATS.LONG).toBeDefined();
-      expect(DATE_FORMATS.DATETIME).toBeDefined();
-      expect(DATE_FORMATS.TIME).toBeDefined();
+      expect(DATE_FORMATS.SHORT).toBe('DD MMM YYYY');
+      expect(DATE_FORMATS.LONG).toBe('MMMM DD, YYYY');
+      expect(DATE_FORMATS.DATETIME).toBe('DD MMM YYYY, HH:mm');
+      expect(DATE_FORMATS.TIME).toBe('HH:mm');
     });
   });
 
@@ -176,19 +174,23 @@ describe('Application Constants', () => {
     });
 
     it('should have currency symbols', () => {
-      expect(CURRENCY.SYMBOLS.SEK).toBeDefined();
+      expect(CURRENCY.SYMBOLS.SEK).toBe('kr');
       expect(CURRENCY.SYMBOLS.EUR).toBe('€');
       expect(CURRENCY.SYMBOLS.USD).toBe('$');
       expect(CURRENCY.SYMBOLS.GBP).toBe('£');
+      expect(CURRENCY.SYMBOLS.NOK).toBe('kr');
+      expect(CURRENCY.SYMBOLS.DKK).toBe('kr');
     });
   });
 
   describe('DEFAULT_FEATURES', () => {
-    it('should have feature flags', () => {
-      expect(typeof DEFAULT_FEATURES.DARK_MODE).toBe('boolean');
-      expect(typeof DEFAULT_FEATURES.SEARCH).toBe('boolean');
-      expect(typeof DEFAULT_FEATURES.AUTHENTICATION).toBe('boolean');
-      expect(typeof DEFAULT_FEATURES.CART).toBe('boolean');
+    it('should have feature flags with correct defaults', () => {
+      expect(DEFAULT_FEATURES.DARK_MODE).toBe(true);
+      expect(DEFAULT_FEATURES.SEARCH).toBe(true);
+      expect(DEFAULT_FEATURES.AUTHENTICATION).toBe(true);
+      expect(DEFAULT_FEATURES.CART).toBe(true);
+      expect(DEFAULT_FEATURES.WISHLIST).toBe(false);
+      expect(DEFAULT_FEATURES.PRODUCT_COMPARISON).toBe(false);
     });
   });
 

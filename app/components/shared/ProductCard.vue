@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import type { ProductType, ListProduct } from '#shared/types/commerce';
+import type { DetailProduct, ListProduct } from '#shared/types/commerce';
+import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import { ShoppingCart, Star } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
 
 const props = withDefaults(
   defineProps<{
-    product: ProductType | ListProduct;
+    product: DetailProduct | ListProduct;
     variant?: 'grid' | 'list';
   }>(),
   { variant: 'grid' },
@@ -31,6 +33,10 @@ const maxQuantity = computed(() => {
   const stock = props.product.totalStock?.totalStock;
   return stock && stock > 0 ? stock : 99;
 });
+
+const visibleCampaigns = computed(() =>
+  filterVisibleCampaigns(props.product.discountCampaigns ?? []),
+);
 
 const quantity = ref(1);
 const isAdding = ref(false);
@@ -65,6 +71,20 @@ async function addToCart() {
           class="size-full object-cover transition-transform group-hover:scale-105"
         />
       </NuxtLink>
+      <!-- Campaign badges -->
+      <div
+        v-if="visibleCampaigns.length"
+        class="absolute top-2 left-2 flex flex-col gap-1"
+      >
+        <span
+          v-for="campaign in visibleCampaigns"
+          :key="campaign.name"
+          :class="BADGE_DESTRUCTIVE"
+          data-testid="campaign-badge"
+        >
+          {{ campaign.name }}
+        </span>
+      </div>
       <!-- Wishlist button overlay -->
       <button
         type="button"
@@ -114,8 +134,9 @@ async function addToCart() {
       <PriceDisplay
         v-if="product.unitPrice"
         :price="product.unitPrice"
-        :lowest-price="(product as any).lowestPrice"
-        :discount-type="(product as any).discountType"
+        :lowest-price="product.lowestPrice"
+        :discount-type="product.discountType"
+        :campaign-names="visibleCampaigns.map((c) => c.name)"
         class="mt-1 text-base font-semibold"
       />
 
@@ -148,7 +169,9 @@ async function addToCart() {
     data-testid="product-card"
   >
     <!-- Thumbnail -->
-    <div class="bg-muted group w-32 shrink-0 self-stretch overflow-hidden">
+    <div
+      class="bg-muted group relative w-32 shrink-0 self-stretch overflow-hidden"
+    >
       <NuxtLink :to="productUrl" class="block size-full">
         <GeinsImage
           v-if="firstImage?.fileName"
@@ -159,6 +182,20 @@ async function addToCart() {
           class="size-full object-cover transition-transform group-hover:scale-105"
         />
       </NuxtLink>
+      <!-- Campaign badges -->
+      <div
+        v-if="visibleCampaigns.length"
+        class="absolute top-2 left-2 flex flex-col gap-1"
+      >
+        <span
+          v-for="campaign in visibleCampaigns"
+          :key="campaign.name"
+          :class="BADGE_DESTRUCTIVE"
+          data-testid="campaign-badge"
+        >
+          {{ campaign.name }}
+        </span>
+      </div>
     </div>
 
     <!-- Info column -->
@@ -187,8 +224,9 @@ async function addToCart() {
       <PriceDisplay
         v-if="product.unitPrice"
         :price="product.unitPrice"
-        :lowest-price="(product as any).lowestPrice"
-        :discount-type="(product as any).discountType"
+        :lowest-price="product.lowestPrice"
+        :discount-type="product.discountType"
+        :campaign-names="visibleCampaigns.map((c) => c.name)"
         class="text-base font-semibold"
       />
       <template v-if="showPrice">

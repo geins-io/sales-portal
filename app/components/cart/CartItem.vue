@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Trash2 } from 'lucide-vue-next';
 import type { CartItemType } from '#shared/types/commerce';
+import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 
 const { t } = useI18n();
 
@@ -37,6 +39,10 @@ const skuName = computed(() => {
   );
   return sku?.name ?? '';
 });
+
+const visibleItemCampaigns = computed(() =>
+  filterVisibleCampaigns(props.item.campaign?.appliedCampaigns ?? []),
+);
 
 const maxQuantity = computed(() => {
   if (!props.item.skuId || !props.item.product?.skus?.length) return undefined;
@@ -92,6 +98,20 @@ const maxQuantity = computed(() => {
             {{ skuName }}
           </template>
         </p>
+        <!-- Campaign badges -->
+        <div
+          v-if="visibleItemCampaigns.length"
+          class="mt-0.5 flex flex-wrap gap-1"
+        >
+          <span
+            v-for="campaign in visibleItemCampaigns"
+            :key="campaign.name"
+            :class="BADGE_DESTRUCTIVE"
+            data-testid="cart-item-campaign"
+          >
+            {{ campaign.name }}
+          </span>
+        </div>
       </div>
 
       <!-- Remove button -->

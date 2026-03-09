@@ -45,7 +45,9 @@ test.describe('Navigation', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Wait for the page content to render
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle').catch(() => {
+      // Fallback: networkidle may not fire if long-polling is active
+    });
 
     const breadcrumbs = page.locator('[data-testid="breadcrumbs"]');
 

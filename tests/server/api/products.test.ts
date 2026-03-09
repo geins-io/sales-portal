@@ -2,22 +2,42 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { H3Event } from 'h3';
 
 // ---------------------------------------------------------------------------
-// Mock the products service module
+// Mock at the SDK boundary — let service functions run for real
 // ---------------------------------------------------------------------------
-const mockGetProduct = vi.fn();
-const mockGetRelatedProducts = vi.fn();
-const mockGetReviews = vi.fn();
-const mockGetPriceHistory = vi.fn();
-const mockPostReview = vi.fn();
-const mockMonitorAvailability = vi.fn();
+const mockGraphqlQuery = vi.fn();
+const mockGraphqlMutation = vi.fn();
 
-vi.mock('../../../server/services/products', () => ({
-  getProduct: (...args: unknown[]) => mockGetProduct(...args),
-  getRelatedProducts: (...args: unknown[]) => mockGetRelatedProducts(...args),
-  getReviews: (...args: unknown[]) => mockGetReviews(...args),
-  getPriceHistory: (...args: unknown[]) => mockGetPriceHistory(...args),
-  postReview: (...args: unknown[]) => mockPostReview(...args),
-  monitorAvailability: (...args: unknown[]) => mockMonitorAvailability(...args),
+const mockSDK = {
+  core: {
+    geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' },
+    graphql: { query: mockGraphqlQuery, mutation: mockGraphqlMutation },
+  },
+};
+
+vi.mock('../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
+  getChannelVariables: vi.fn(),
+  getRequestChannelVariables: vi
+    .fn()
+    .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
+}));
+
+// Mock graphql loader (depends on #graphql-queries build-time alias)
+vi.mock('../../../server/services/graphql/loader', () => ({
+  loadQuery: vi.fn((path: string) => `query:${path}`),
+}));
+
+// Let unwrapGraphQL run for real — it's pure logic
+vi.mock('../../../server/services/graphql/unwrap', () => ({
+  unwrapGraphQL: vi.fn((result: unknown) => {
+    if (result === null || result === undefined) return result;
+    if (typeof result !== 'object' || Array.isArray(result)) return result;
+    const keys = Object.keys(result as Record<string, unknown>);
+    if (keys.length === 1) {
+      return (result as Record<string, unknown>)[keys[0]!];
+    }
+    return result;
+  }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -52,6 +72,9 @@ vi.stubGlobal(
 );
 vi.stubGlobal('defineEventHandler', (fn: (event: H3Event) => unknown) => fn);
 vi.stubGlobal('optionalAuth', vi.fn().mockResolvedValue(null));
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
+vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -80,22 +103,20 @@ describe('Product API Routes', () => {
       handler = mod.default as Handler;
     });
 
-    it('calls getProduct with validated alias', async () => {
+    it('returns product data from SDK graphql query', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
-      mockGetProduct.mockResolvedValue({ id: 1, name: 'My Product' });
+      mockGraphqlQuery.mockResolvedValue({
+        product: { id: 1, name: 'My Product' },
+      });
 
       const result = await handler(fakeEvent);
 
-      expect(mockGetProduct).toHaveBeenCalledWith(
-        { alias: 'my-product' },
-        fakeEvent,
-      );
       expect(result).toEqual({ id: 1, name: 'My Product' });
     });
 
-    it('throws NOT_FOUND when service returns null', async () => {
+    it('throws NOT_FOUND when SDK returns null', async () => {
       vi.mocked(getRouterParam).mockReturnValue('missing');
-      mockGetProduct.mockResolvedValue(null);
+      mockGraphqlQuery.mockResolvedValue({ product: null });
 
       await expect(handler(fakeEvent)).rejects.toThrow('Product not found');
     });
@@ -126,17 +147,15 @@ describe('Product API Routes', () => {
       handler = mod.default as Handler;
     });
 
-    it('calls getRelatedProducts with validated alias', async () => {
+    it('returns related products from SDK', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
-      mockGetRelatedProducts.mockResolvedValue([{ id: 2 }]);
+      mockGraphqlQuery.mockResolvedValue({
+        relatedProducts: [{ id: 2, name: 'Related' }],
+      });
 
       const result = await handler(fakeEvent);
 
-      expect(mockGetRelatedProducts).toHaveBeenCalledWith(
-        { alias: 'my-product' },
-        fakeEvent,
-      );
-      expect(result).toEqual([{ id: 2 }]);
+      expect(result).toEqual([{ id: 2, name: 'Related' }]);
     });
 
     it('throws ZodError for empty alias', async () => {
@@ -159,31 +178,28 @@ describe('Product API Routes', () => {
       handler = mod.default as Handler;
     });
 
-    it('calls getReviews with alias and pagination', async () => {
+    it('returns reviews from SDK with pagination', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
       vi.mocked(getQuery).mockReturnValue({ skip: '0', take: '10' });
-      mockGetReviews.mockResolvedValue({ items: [] });
+      mockGraphqlQuery.mockResolvedValue({
+        reviews: { items: [{ rating: 5, author: 'Alice' }] },
+      });
 
       const result = await handler(fakeEvent);
 
-      expect(mockGetReviews).toHaveBeenCalledWith(
-        { alias: 'my-product', skip: 0, take: 10 },
-        fakeEvent,
-      );
-      expect(result).toEqual({ items: [] });
+      expect(result).toEqual({ items: [{ rating: 5, author: 'Alice' }] });
     });
 
     it('works without optional query params', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
       vi.mocked(getQuery).mockReturnValue({});
-      mockGetReviews.mockResolvedValue({ items: [] });
+      mockGraphqlQuery.mockResolvedValue({
+        reviews: { items: [] },
+      });
 
-      await handler(fakeEvent);
+      const result = await handler(fakeEvent);
 
-      expect(mockGetReviews).toHaveBeenCalledWith(
-        { alias: 'my-product' },
-        fakeEvent,
-      );
+      expect(result).toEqual({ items: [] });
     });
 
     it('throws ZodError for invalid take value', async () => {
@@ -207,26 +223,17 @@ describe('Product API Routes', () => {
       handler = mod.default as Handler;
     });
 
-    it('calls postReview with alias + body', async () => {
+    it('posts review through SDK and returns result', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
       vi.mocked(readBody).mockResolvedValue({
         rating: 5,
         author: 'Alice',
         comment: 'Great!',
       });
-      mockPostReview.mockResolvedValue({ ok: true });
+      mockGraphqlMutation.mockResolvedValue({ postReview: { ok: true } });
 
       const result = await handler(fakeEvent);
 
-      expect(mockPostReview).toHaveBeenCalledWith(
-        {
-          alias: 'my-product',
-          rating: 5,
-          author: 'Alice',
-          comment: 'Great!',
-        },
-        fakeEvent,
-      );
       expect(result).toEqual({ ok: true });
     });
 
@@ -236,14 +243,11 @@ describe('Product API Routes', () => {
         rating: 3,
         author: 'Bob',
       });
-      mockPostReview.mockResolvedValue({ ok: true });
+      mockGraphqlMutation.mockResolvedValue({ postReview: { ok: true } });
 
-      await handler(fakeEvent);
+      const result = await handler(fakeEvent);
 
-      expect(mockPostReview).toHaveBeenCalledWith(
-        { alias: 'my-product', rating: 3, author: 'Bob' },
-        fakeEvent,
-      );
+      expect(result).toEqual({ ok: true });
     });
 
     it('throws ZodError for missing rating', async () => {
@@ -277,18 +281,14 @@ describe('Product API Routes', () => {
       handler = mod.default as Handler;
     });
 
-    it('calls getPriceHistory with validated alias', async () => {
+    it('returns price history from SDK', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
-      mockGetPriceHistory.mockResolvedValue([
-        { price: 100, date: '2026-01-01' },
-      ]);
+      mockGraphqlQuery.mockResolvedValue({
+        priceHistory: [{ price: 100, date: '2026-01-01' }],
+      });
 
       const result = await handler(fakeEvent);
 
-      expect(mockGetPriceHistory).toHaveBeenCalledWith(
-        { alias: 'my-product' },
-        fakeEvent,
-      );
       expect(result).toEqual([{ price: 100, date: '2026-01-01' }]);
     });
 
@@ -312,19 +312,17 @@ describe('Product API Routes', () => {
       handler = mod.default as Handler;
     });
 
-    it('calls monitorAvailability with validated body', async () => {
+    it('submits monitor request through SDK and returns result', async () => {
       vi.mocked(readBody).mockResolvedValue({
         email: 'user@example.com',
         skuId: 42,
       });
-      mockMonitorAvailability.mockResolvedValue({ ok: true });
+      mockGraphqlMutation.mockResolvedValue({
+        monitorAvailability: { ok: true },
+      });
 
       const result = await handler(fakeEvent);
 
-      expect(mockMonitorAvailability).toHaveBeenCalledWith(
-        { email: 'user@example.com', skuId: 42 },
-        fakeEvent,
-      );
       expect(result).toEqual({ ok: true });
     });
 

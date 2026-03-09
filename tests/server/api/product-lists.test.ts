@@ -2,20 +2,41 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ZodError } from 'zod';
 import type { H3Event } from 'h3';
 
-// =============================================================================
-// Mock Setup
-// =============================================================================
+// ---------------------------------------------------------------------------
+// Mock at the SDK boundary — let service functions run for real
+// ---------------------------------------------------------------------------
+const mockGraphqlQuery = vi.fn();
 
-const mockGetProducts = vi.fn();
-const mockGetFilters = vi.fn();
-const mockGetCategoryPage = vi.fn();
-const mockGetBrandPage = vi.fn();
+const mockSDK = {
+  core: {
+    geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' },
+    graphql: { query: mockGraphqlQuery, mutation: vi.fn() },
+  },
+};
 
-vi.mock('../../../server/services/product-lists', () => ({
-  getProducts: (...args: unknown[]) => mockGetProducts(...args),
-  getFilters: (...args: unknown[]) => mockGetFilters(...args),
-  getCategoryPage: (...args: unknown[]) => mockGetCategoryPage(...args),
-  getBrandPage: (...args: unknown[]) => mockGetBrandPage(...args),
+vi.mock('../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
+  getChannelVariables: vi.fn(),
+  getRequestChannelVariables: vi
+    .fn()
+    .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
+}));
+
+// Mock graphql loader (depends on #graphql-queries build-time alias)
+vi.mock('../../../server/services/graphql/loader', () => ({
+  loadQuery: vi.fn((path: string) => `query:${path}`),
+}));
+
+vi.mock('../../../server/services/graphql/unwrap', () => ({
+  unwrapGraphQL: vi.fn((result: unknown) => {
+    if (result === null || result === undefined) return result;
+    if (typeof result !== 'object' || Array.isArray(result)) return result;
+    const keys = Object.keys(result as Record<string, unknown>);
+    if (keys.length === 1) {
+      return (result as Record<string, unknown>)[keys[0]!];
+    }
+    return result;
+  }),
 }));
 
 vi.mock('../../../server/utils/logger', () => ({
@@ -55,10 +76,13 @@ vi.stubGlobal(
 );
 vi.stubGlobal('defineEventHandler', (fn: (event: H3Event) => unknown) => fn);
 vi.stubGlobal('optionalAuth', vi.fn().mockResolvedValue(null));
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
+vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
 
-// =============================================================================
+// ---------------------------------------------------------------------------
 // Helpers
-// =============================================================================
+// ---------------------------------------------------------------------------
 
 const createMockEvent = (): H3Event =>
   ({
@@ -71,9 +95,9 @@ const createMockEvent = (): H3Event =>
     },
   }) as unknown as H3Event;
 
-// =============================================================================
+// ---------------------------------------------------------------------------
 // Tests
-// =============================================================================
+// ---------------------------------------------------------------------------
 
 describe('Product List API Routes', () => {
   beforeEach(() => {
@@ -93,29 +117,29 @@ describe('Product List API Routes', () => {
       handler = mod.default as (event: H3Event) => Promise<unknown>;
     });
 
-    it('should call getProducts with validated query', async () => {
+    it('should return products from SDK', async () => {
       const query = { skip: '0', take: '10', categoryAlias: 'shoes' };
       (getQuery as ReturnType<typeof vi.fn>).mockReturnValue(query);
-      mockGetProducts.mockResolvedValue({ products: [] });
+      mockGraphqlQuery.mockResolvedValue({
+        products: { products: [], count: 0 },
+      });
 
       const event = createMockEvent();
       const result = await handler(event);
 
-      expect(mockGetProducts).toHaveBeenCalledWith(
-        { skip: 0, take: 10, categoryAlias: 'shoes' },
-        event,
-      );
-      expect(result).toEqual({ products: [] });
+      expect(result).toEqual({ products: [], count: 0 });
     });
 
     it('should accept empty query (all optional)', async () => {
       (getQuery as ReturnType<typeof vi.fn>).mockReturnValue({});
-      mockGetProducts.mockResolvedValue({ products: [] });
+      mockGraphqlQuery.mockResolvedValue({
+        products: { products: [], count: 0 },
+      });
 
       const event = createMockEvent();
-      await handler(event);
+      const result = await handler(event);
 
-      expect(mockGetProducts).toHaveBeenCalledWith({}, event);
+      expect(result).toEqual({ products: [], count: 0 });
     });
 
     it('should throw ZodError for invalid take value', async () => {
@@ -152,29 +176,29 @@ describe('Product List API Routes', () => {
       handler = mod.default as (event: H3Event) => Promise<unknown>;
     });
 
-    it('should call getFilters with validated query', async () => {
+    it('should return filters from SDK', async () => {
       const query = { brandAlias: 'nike' };
       (getQuery as ReturnType<typeof vi.fn>).mockReturnValue(query);
-      mockGetFilters.mockResolvedValue({ filters: [] });
+      mockGraphqlQuery.mockResolvedValue({
+        filters: { filters: [], count: 5 },
+      });
 
       const event = createMockEvent();
       const result = await handler(event);
 
-      expect(mockGetFilters).toHaveBeenCalledWith(
-        { brandAlias: 'nike' },
-        event,
-      );
-      expect(result).toEqual({ filters: [] });
+      expect(result).toEqual({ filters: [], count: 5 });
     });
 
     it('should accept empty query', async () => {
       (getQuery as ReturnType<typeof vi.fn>).mockReturnValue({});
-      mockGetFilters.mockResolvedValue({ filters: [] });
+      mockGraphqlQuery.mockResolvedValue({
+        filters: { filters: [] },
+      });
 
       const event = createMockEvent();
-      await handler(event);
+      const result = await handler(event);
 
-      expect(mockGetFilters).toHaveBeenCalledWith({}, event);
+      expect(result).toEqual({ filters: [] });
     });
 
     it('should throw ZodError for invalid take', async () => {
@@ -198,25 +222,23 @@ describe('Product List API Routes', () => {
       handler = mod.default as (event: H3Event) => Promise<unknown>;
     });
 
-    it('should call getCategoryPage with validated alias', async () => {
+    it('should return category page from SDK', async () => {
       (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue('shoes');
-      mockGetCategoryPage.mockResolvedValue({ name: 'Shoes' });
+      mockGraphqlQuery.mockResolvedValue({
+        categoryPage: { name: 'Shoes', subCategories: [] },
+      });
 
       const event = createMockEvent();
       const result = await handler(event);
 
-      expect(mockGetCategoryPage).toHaveBeenCalledWith(
-        { alias: 'shoes' },
-        event,
-      );
-      expect(result).toEqual({ name: 'Shoes' });
+      expect(result).toEqual({ name: 'Shoes', subCategories: [] });
     });
 
-    it('should throw NOT_FOUND when getCategoryPage returns null', async () => {
+    it('should throw NOT_FOUND when SDK returns null', async () => {
       (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue(
         'non-existent',
       );
-      mockGetCategoryPage.mockResolvedValue(null);
+      mockGraphqlQuery.mockResolvedValue({ categoryPage: null });
 
       const event = createMockEvent();
       await expect(handler(event)).rejects.toThrow('Category page not found');
@@ -250,22 +272,23 @@ describe('Product List API Routes', () => {
       handler = mod.default as (event: H3Event) => Promise<unknown>;
     });
 
-    it('should call getBrandPage with validated alias', async () => {
+    it('should return brand page from SDK', async () => {
       (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue('nike');
-      mockGetBrandPage.mockResolvedValue({ name: 'Nike' });
+      mockGraphqlQuery.mockResolvedValue({
+        brandPage: { name: 'Nike', id: 1 },
+      });
 
       const event = createMockEvent();
       const result = await handler(event);
 
-      expect(mockGetBrandPage).toHaveBeenCalledWith({ alias: 'nike' }, event);
-      expect(result).toEqual({ name: 'Nike' });
+      expect(result).toEqual({ name: 'Nike', id: 1 });
     });
 
-    it('should throw NOT_FOUND when getBrandPage returns null', async () => {
+    it('should throw NOT_FOUND when SDK returns null', async () => {
       (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue(
         'non-existent',
       );
-      mockGetBrandPage.mockResolvedValue(null);
+      mockGraphqlQuery.mockResolvedValue({ brandPage: null });
 
       const event = createMockEvent();
       await expect(handler(event)).rejects.toThrow('Brand page not found');

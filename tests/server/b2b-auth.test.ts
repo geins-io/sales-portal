@@ -1,8 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { H3Event } from 'h3';
 
-import * as authService from '../../server/services/auth';
-import * as organizationService from '../../server/services/organization';
+// ---------------------------------------------------------------------------
+// Mock at the SDK boundary — let auth + organization services run for real.
+// The organization service uses in-memory stubs (no SDK calls yet).
+// The auth service calls sdk.crm.auth.getUser — we mock the SDK for that.
+// ---------------------------------------------------------------------------
+const mockCrmAuth = {
+  getUser: vi.fn(),
+  login: vi.fn(),
+  logout: vi.fn(),
+  refresh: vi.fn(),
+};
+
+vi.mock('../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue({
+    core: {
+      geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' },
+      graphql: { query: vi.fn(), mutation: vi.fn() },
+    },
+    crm: {
+      auth: mockCrmAuth,
+      user: { get: vi.fn(), update: vi.fn(), create: vi.fn() },
+    },
+    cms: {},
+    oms: {},
+  }),
+  getRequestChannelVariables: vi.fn(),
+}));
 
 // Stub Nitro auto-imports
 vi.stubGlobal(
@@ -19,20 +44,20 @@ vi.stubGlobal('ErrorCode', {
   FORBIDDEN: 'FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
 });
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
 // Stub requireAuth (Nitro auto-import from server/utils/auth.ts)
 const mockRequireAuth = vi.fn();
 vi.stubGlobal('requireAuth', mockRequireAuth);
 
-// Mock the services that b2b-auth.ts imports
-vi.mock('../../server/services/auth', () => ({
-  getUser: vi.fn(),
-}));
-vi.mock('../../server/services/organization', () => ({
-  getMyBuyerProfile: vi.fn(),
-}));
-
 const event = {} as H3Event;
+
+// Known stub userIds from server/services/stubs/organization.ts
+const STUB_USERS = {
+  admin: 'user-admin-001', // role: org_admin
+  approver: 'user-approver-002', // role: order_approver
+  placer: 'user-placer-003', // role: order_placer
+} as const;
 
 describe('b2b-auth utilities', () => {
   let b2bAuth: typeof import('../../server/utils/b2b-auth');
@@ -57,6 +82,9 @@ describe('b2b-auth utilities', () => {
       FORBIDDEN: 'FORBIDDEN',
       NOT_FOUND: 'NOT_FOUND',
     });
+    vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) =>
+      fn(),
+    );
 
     b2bAuth = await import('../../server/utils/b2b-auth');
   });
@@ -68,30 +96,16 @@ describe('b2b-auth utilities', () => {
     it('returns tokens and buyer for a valid org member', async () => {
       const tokens = { authToken: 'auth-123', refreshToken: 'refresh-456' };
       mockRequireAuth.mockResolvedValue(tokens);
-      vi.mocked(authService.getUser).mockResolvedValue({
+      mockCrmAuth.getUser.mockResolvedValue({
         succeeded: true,
-        user: { userId: 'user-1' },
-      } as ReturnType<typeof authService.getUser> extends Promise<infer T>
-        ? T
-        : never);
-      vi.mocked(organizationService.getMyBuyerProfile).mockResolvedValue({
-        id: 'buyer-1',
-        organizationId: 'org-1',
-        userId: 'user-1',
-        email: 'test@acme.se',
-        firstName: 'Test',
-        lastName: 'User',
-        role: 'org_admin',
-        status: 'active',
-        createdAt: '2024-01-01',
-        updatedAt: '2024-01-01',
+        user: { userId: STUB_USERS.admin },
       });
 
       const result = await b2bAuth.requireOrgMembership(event);
 
       expect(result.authToken).toBe('auth-123');
       expect(result.refreshToken).toBe('refresh-456');
-      expect(result.buyer.email).toBe('test@acme.se');
+      expect(result.buyer.email).toBe('anna@acmecorp.se');
       expect(result.buyer.role).toBe('org_admin');
     });
 
@@ -100,15 +114,10 @@ describe('b2b-auth utilities', () => {
         authToken: 'a',
         refreshToken: 'r',
       });
-      vi.mocked(authService.getUser).mockResolvedValue({
+      mockCrmAuth.getUser.mockResolvedValue({
         succeeded: true,
-        user: { userId: 'user-lonely' },
-      } as ReturnType<typeof authService.getUser> extends Promise<infer T>
-        ? T
-        : never);
-      vi.mocked(organizationService.getMyBuyerProfile).mockRejectedValue(
-        new Error('No buyer profile'),
-      );
+        user: { userId: 'user-lonely-no-org' },
+      });
 
       await expect(b2bAuth.requireOrgMembership(event)).rejects.toThrow(
         'Not a member of any organization',
@@ -120,11 +129,9 @@ describe('b2b-auth utilities', () => {
         authToken: 'a',
         refreshToken: 'r',
       });
-      vi.mocked(authService.getUser).mockResolvedValue({
+      mockCrmAuth.getUser.mockResolvedValue({
         succeeded: false,
-      } as ReturnType<typeof authService.getUser> extends Promise<infer T>
-        ? T
-        : never);
+      });
 
       await expect(b2bAuth.requireOrgMembership(event)).rejects.toThrow(
         'Unable to resolve user identity',
@@ -136,35 +143,19 @@ describe('b2b-auth utilities', () => {
   // requirePermission
   // -----------------------------------------------------------------------
   describe('requirePermission', () => {
-    function setupMemberWithRole(
-      role: 'org_admin' | 'order_approver' | 'order_placer',
-    ) {
+    function setupAuth(userId: string) {
       mockRequireAuth.mockResolvedValue({
         authToken: 'a',
         refreshToken: 'r',
       });
-      vi.mocked(authService.getUser).mockResolvedValue({
+      mockCrmAuth.getUser.mockResolvedValue({
         succeeded: true,
-        user: { userId: 'u1' },
-      } as ReturnType<typeof authService.getUser> extends Promise<infer T>
-        ? T
-        : never);
-      vi.mocked(organizationService.getMyBuyerProfile).mockResolvedValue({
-        id: 'b1',
-        organizationId: 'o1',
-        userId: 'u1',
-        email: 'test@acme.se',
-        firstName: 'T',
-        lastName: 'U',
-        role,
-        status: 'active',
-        createdAt: '2024-01-01',
-        updatedAt: '2024-01-01',
+        user: { userId },
       });
     }
 
     it('returns context when role has the permission', async () => {
-      setupMemberWithRole('org_admin');
+      setupAuth(STUB_USERS.admin);
 
       const result = await b2bAuth.requirePermission(
         event,
@@ -176,7 +167,7 @@ describe('b2b-auth utilities', () => {
     });
 
     it('throws 403 when role lacks the permission', async () => {
-      setupMemberWithRole('order_placer');
+      setupAuth(STUB_USERS.placer);
 
       await expect(
         b2bAuth.requirePermission(event, 'org:manage_buyers'),
@@ -184,14 +175,14 @@ describe('b2b-auth utilities', () => {
     });
 
     it('allows order_placer to create orders', async () => {
-      setupMemberWithRole('order_placer');
+      setupAuth(STUB_USERS.placer);
 
       const result = await b2bAuth.requirePermission(event, 'orders:create');
       expect(result.buyer.role).toBe('order_placer');
     });
 
     it('denies order_placer from approving orders', async () => {
-      setupMemberWithRole('order_placer');
+      setupAuth(STUB_USERS.placer);
 
       await expect(
         b2bAuth.requirePermission(event, 'orders:approve'),

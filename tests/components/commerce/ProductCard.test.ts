@@ -1,72 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ref, computed } from 'vue';
 import { mountComponent } from '../../utils/component';
 import ProductCard from '../../../app/components/shared/ProductCard.vue';
+import { useTenant } from '../../../app/composables/useTenant';
+
+// useTenant mock is provided by setup-components.ts — access tenant ref to control features
+const { tenant } = useTenant();
 
 const mockCanAccess = vi.fn(() => true);
-const mockHasFeature = vi.fn((_name: string) => false);
 
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
-}));
-
-const tenant = ref({
-  tenantId: 'test-tenant',
-  hostname: 'test.example.com',
-  locale: 'sv-SE',
-  theme: {
-    colors: {
-      primary: 'oklch(0.205 0 0)',
-      secondary: 'oklch(0.97 0 0)',
-      background: 'oklch(1 0 0)',
-      foreground: 'oklch(0.145 0 0)',
-    },
-    radius: '0.625rem',
-  },
-  branding: {
-    name: 'Test Store',
-    logoUrl: '/logo.svg',
-    faviconUrl: '/favicon.ico',
-  },
-  features: {},
-});
-
-vi.mock('../../../app/composables/useTenant', () => ({
-  useTenant: () => ({
-    tenant,
-    tenantId: computed(() => tenant.value?.tenantId ?? ''),
-    hostname: computed(() => tenant.value?.hostname ?? ''),
-    isLoading: ref(false),
-    error: ref(null),
-    refresh: vi.fn(),
-    theme: computed(() => tenant.value?.theme),
-    branding: computed(() => tenant.value?.branding),
-    logoUrl: computed(() => '/logo.svg'),
-    logoDarkUrl: computed(() => null),
-    logoSymbolUrl: computed(() => null),
-    faviconUrl: computed(() => '/favicon.ico'),
-    ogImageUrl: computed(() => null),
-    brandName: computed(() => 'Test Store'),
-    mode: computed(() => 'commerce'),
-    watermark: computed(() => 'full'),
-    availableLocales: computed(() => ['sv']),
-    availableMarkets: computed(() => []),
-    market: computed(() => ''),
-    imageBaseUrl: computed(() => 'https://monitor.commerce.services'),
-    features: computed(() => tenant.value?.features),
-    hasFeature: mockHasFeature,
-    suspense: () => Promise.resolve(),
-  }),
-  useTenantTheme: () => ({
-    colors: computed(() => tenant.value?.theme?.colors),
-    typography: computed(() => undefined),
-    radius: computed(() => tenant.value?.theme?.radius),
-    getColor: () => '',
-    primaryColor: computed(() => 'oklch(0.205 0 0)'),
-    secondaryColor: computed(() => 'oklch(0.97 0 0)'),
-    backgroundColor: computed(() => 'oklch(1 0 0)'),
-    foregroundColor: computed(() => 'oklch(0.145 0 0)'),
-  }),
 }));
 
 const geinsImageStub = {
@@ -309,14 +252,82 @@ describe('ProductCard', () => {
     expect(wrapper.find('.geins-image').exists()).toBe(false);
   });
 
+  describe('campaign badges', () => {
+    it('shows visible campaigns as badges', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: makeProduct({
+            discountCampaigns: [{ name: 'Summer Sale', hideTitle: false }],
+          }),
+        },
+        global: { stubs },
+      });
+      const badges = wrapper.findAll('[data-testid="campaign-badge"]');
+      expect(badges.length).toBe(1);
+      expect(badges[0].text()).toBe('Summer Sale');
+    });
+
+    it('hides campaigns with hideTitle true', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: makeProduct({
+            discountCampaigns: [{ name: 'Secret', hideTitle: true }],
+          }),
+        },
+        global: { stubs },
+      });
+      expect(wrapper.findAll('[data-testid="campaign-badge"]').length).toBe(0);
+    });
+
+    it('shows multiple campaigns stacked', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: makeProduct({
+            discountCampaigns: [
+              { name: 'Sale A', hideTitle: false },
+              { name: 'Sale B', hideTitle: false },
+            ],
+          }),
+        },
+        global: { stubs },
+      });
+      expect(wrapper.findAll('[data-testid="campaign-badge"]').length).toBe(2);
+    });
+
+    it('shows no badge container when no campaigns', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: makeProduct({ discountCampaigns: [] }),
+        },
+        global: { stubs },
+      });
+      expect(wrapper.findAll('[data-testid="campaign-badge"]').length).toBe(0);
+    });
+
+    it('shows badges in list variant', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: makeProduct({
+            discountCampaigns: [{ name: 'List Sale', hideTitle: false }],
+          }),
+          variant: 'list',
+        },
+        global: { stubs },
+      });
+      const badges = wrapper.findAll('[data-testid="campaign-badge"]');
+      expect(badges.length).toBe(1);
+      expect(badges[0].text()).toBe('List Sale');
+    });
+  });
+
   describe('feature flags', () => {
     afterEach(() => {
-      mockHasFeature.mockReturnValue(false);
+      tenant.value.features = {};
       mockCanAccess.mockReturnValue(true);
     });
 
     it('shows add-to-cart when pricing is not configured', () => {
-      mockHasFeature.mockReturnValue(false);
+      tenant.value.features = {};
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
         global: { stubs },
@@ -327,7 +338,7 @@ describe('ProductCard', () => {
     });
 
     it('hides add-to-cart when pricing is restricted', () => {
-      mockHasFeature.mockReturnValue(true);
+      tenant.value.features = { pricing: { enabled: true } };
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
@@ -339,7 +350,7 @@ describe('ProductCard', () => {
     });
 
     it('shows add-to-cart when pricing is accessible', () => {
-      mockHasFeature.mockReturnValue(true);
+      tenant.value.features = { pricing: { enabled: true } };
       mockCanAccess.mockReturnValue(true);
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },

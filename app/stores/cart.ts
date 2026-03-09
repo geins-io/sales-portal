@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import type { CartType } from '#shared/types/commerce';
+import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 
 export const useCartStore = defineStore('cart', () => {
@@ -18,6 +19,14 @@ export const useCartStore = defineStore('cart', () => {
       0,
   );
   const isEmpty = computed(() => itemCount.value === 0);
+
+  const discountAmount = computed(
+    () => cart.value?.summary?.fixedAmountDiscountIncVat ?? 0,
+  );
+
+  const visibleCartCampaigns = computed(() =>
+    filterVisibleCampaigns(cart.value?.appliedCampaigns ?? []),
+  );
 
   async function fetchCart() {
     if (!cartId.value) return;
@@ -123,6 +132,8 @@ export const useCartStore = defineStore('cart', () => {
     error,
     itemCount,
     isEmpty,
+    discountAmount,
+    visibleCartCampaigns,
     fetchCart,
     addItem,
     updateQuantity,

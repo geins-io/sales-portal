@@ -120,4 +120,135 @@ describe('CartDrawer', () => {
     expect(wrapper.find('[data-testid="cart-empty"]').exists()).toBe(false);
     expect(wrapper.findAll('[data-testid="cart-item"]').length).toBe(1);
   });
+
+  describe('discount line', () => {
+    const sheetStubs = {
+      Sheet: { template: '<div><slot /></div>', props: ['open'] },
+      SheetContent: { template: '<div><slot /></div>' },
+      SheetHeader: { template: '<div><slot /></div>' },
+      SheetTitle: { template: '<div><slot /></div>' },
+      SheetDescription: { template: '<div><slot /></div>' },
+      SheetFooter: { template: '<div><slot /></div>' },
+      CartItem: {
+        template: '<div data-testid="cart-item" />',
+        props: ['item'],
+      },
+      CartPromoCodeInput: true,
+    };
+
+    function makeCartWithDiscount(
+      discount: number,
+      campaigns: { name: string; hideTitle: boolean }[] = [],
+    ) {
+      return {
+        id: 'cart-123',
+        items: [
+          {
+            id: 'item-1',
+            skuId: 100,
+            quantity: 1,
+            product: {
+              productId: '1',
+              name: 'Product',
+              alias: 'product',
+              articleNumber: 'ART-1',
+              brand: { name: 'Brand' },
+              productImages: [],
+              canonicalUrl: '/product',
+              primaryCategory: { name: 'Cat' },
+              skus: [],
+              unitPrice: {
+                sellingPriceIncVat: 100,
+                sellingPriceIncVatFormatted: '100 kr',
+              },
+            },
+            unitPrice: {
+              sellingPriceIncVat: 100,
+              sellingPriceIncVatFormatted: '100 kr',
+            },
+            totalPrice: {
+              sellingPriceIncVat: 100,
+              sellingPriceIncVatFormatted: '100 kr',
+            },
+          },
+        ],
+        freeShipping: false,
+        completed: false,
+        fixedDiscount: discount,
+        appliedCampaigns: campaigns,
+        summary: {
+          fixedAmountDiscountIncVat: discount,
+          fixedAmountDiscountExVat: discount * 0.8,
+          total: {
+            sellingPriceIncVat: 100 - discount,
+            sellingPriceIncVatFormatted: `${100 - discount} kr`,
+            currency: { code: 'SEK', symbol: 'kr' },
+          },
+          subTotal: {
+            sellingPriceIncVat: 100,
+            sellingPriceIncVatFormatted: '100 kr',
+          },
+          vats: [],
+          fees: {
+            paymentFeeIncVat: 0,
+            paymentFeeExVat: 0,
+            shippingFeeIncVat: 0,
+            shippingFeeExVat: 0,
+          },
+          balance: {
+            pending: 0,
+            pendingFormatted: '0 kr',
+            totalSellingPriceExBalanceExVat: 80,
+            totalSellingPriceExBalanceIncVat: 100,
+            totalSellingPriceExBalanceIncVatFormatted: '100 kr',
+          },
+          shipping: {},
+          payment: {},
+        },
+      } as unknown as CartType;
+    }
+
+    it('shows discount line when fixedAmountDiscountIncVat > 0', () => {
+      const store = useCartStore();
+      store.isOpen = true;
+      store.cart = makeCartWithDiscount(50);
+
+      const wrapper = shallowMountComponent(CartDrawer, {
+        global: { stubs: sheetStubs },
+      });
+
+      const discountRow = wrapper.find('[data-testid="cart-summary-discount"]');
+      expect(discountRow.exists()).toBe(true);
+    });
+
+    it('hides discount line when fixedAmountDiscountIncVat is 0', () => {
+      const store = useCartStore();
+      store.isOpen = true;
+      store.cart = makeCartWithDiscount(0);
+
+      const wrapper = shallowMountComponent(CartDrawer, {
+        global: { stubs: sheetStubs },
+      });
+
+      expect(
+        wrapper.find('[data-testid="cart-summary-discount"]').exists(),
+      ).toBe(false);
+    });
+
+    it('shows cart-level campaign names', () => {
+      const store = useCartStore();
+      store.isOpen = true;
+      store.cart = makeCartWithDiscount(50, [
+        { name: 'Free shipping', hideTitle: false },
+      ]);
+
+      const wrapper = shallowMountComponent(CartDrawer, {
+        global: { stubs: sheetStubs },
+      });
+
+      const campaigns = wrapper.find('[data-testid="cart-campaigns"]');
+      expect(campaigns.exists()).toBe(true);
+      expect(campaigns.text()).toContain('Free shipping');
+    });
+  });
 });

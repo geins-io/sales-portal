@@ -280,4 +280,59 @@ describe('CartPage', () => {
       false,
     );
   });
+
+  describe('discount line', () => {
+    function makeCartWithDiscount(discount: number) {
+      return {
+        ...mockCart,
+        fixedDiscount: discount,
+        appliedCampaigns:
+          discount > 0 ? [{ name: 'Cart discount', hideTitle: false }] : [],
+        summary: {
+          ...mockCart.summary,
+          fixedAmountDiscountIncVat: discount,
+          fixedAmountDiscountExVat: discount * 0.8,
+        },
+      } as unknown as CartType;
+    }
+
+    it('shows discount line when fixedAmountDiscountIncVat > 0', () => {
+      const store = useCartStore();
+      store.cart = makeCartWithDiscount(50);
+
+      const wrapper = shallowMountComponent(CartPage, {
+        global: { stubs: defaultStubs },
+      });
+
+      expect(
+        wrapper.find('[data-testid="cart-summary-discount"]').exists(),
+      ).toBe(true);
+    });
+
+    it('hides discount line when fixedAmountDiscountIncVat is 0', () => {
+      const store = useCartStore();
+      store.cart = makeCartWithDiscount(0);
+
+      const wrapper = shallowMountComponent(CartPage, {
+        global: { stubs: defaultStubs },
+      });
+
+      expect(
+        wrapper.find('[data-testid="cart-summary-discount"]').exists(),
+      ).toBe(false);
+    });
+
+    it('shows cart-level campaign names', () => {
+      const store = useCartStore();
+      store.cart = makeCartWithDiscount(50);
+
+      const wrapper = shallowMountComponent(CartPage, {
+        global: { stubs: defaultStubs },
+      });
+
+      const campaigns = wrapper.find('[data-testid="cart-campaigns"]');
+      expect(campaigns.exists()).toBe(true);
+      expect(campaigns.text()).toContain('Cart discount');
+    });
+  });
 });

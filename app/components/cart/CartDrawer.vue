@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ShoppingCart } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
+import { formatPrice } from '#shared/types/commerce';
 
 const cartStore = useCartStore();
+const { tenant } = useTenant();
 
 const isOpen = computed({
   get: () => cartStore.isOpen,
@@ -18,6 +20,16 @@ const shippingFee = computed(
 const taxFormatted = computed(
   () => cartStore.cart?.summary?.total?.vatFormatted ?? null,
 );
+
+const discountFormatted = computed(() => {
+  if (!cartStore.discountAmount) return '';
+  const currency = cartStore.cart?.summary?.total?.currency;
+  return formatPrice(
+    cartStore.discountAmount,
+    currency?.code,
+    tenant.value?.locale,
+  );
+});
 </script>
 
 <template>
@@ -97,6 +109,17 @@ const taxFormatted = computed(
               ''
             }}</span>
           </div>
+          <!-- Discount line -->
+          <div
+            v-if="cartStore.discountAmount"
+            class="flex items-center justify-between text-sm"
+            data-testid="cart-summary-discount"
+          >
+            <span class="text-destructive">{{ $t('discount.discount') }}</span>
+            <span class="text-destructive font-medium"
+              >-{{ discountFormatted }}</span
+            >
+          </div>
           <div
             v-if="shippingFee"
             class="flex items-center justify-between text-sm"
@@ -112,6 +135,21 @@ const taxFormatted = computed(
               $t('cart.tax_estimated')
             }}</span>
             <span>{{ taxFormatted }}</span>
+          </div>
+          <!-- Cart-level campaigns -->
+          <div
+            v-if="cartStore.visibleCartCampaigns.length"
+            class="space-y-1"
+            data-testid="cart-campaigns"
+          >
+            <div
+              v-for="campaign in cartStore.visibleCartCampaigns"
+              :key="campaign.name"
+              class="flex items-center gap-1 text-xs"
+            >
+              <Icon name="lucide:tag" class="text-destructive size-3" />
+              <span class="text-destructive">{{ campaign.name }}</span>
+            </div>
           </div>
           <div class="border-border border-t pt-2">
             <div class="flex items-center justify-between font-medium">

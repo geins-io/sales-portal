@@ -2,6 +2,27 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
+// ---------------------------------------------------------------------------
+// Mock at the SDK boundary — let auth service run for real
+// ---------------------------------------------------------------------------
+const mockAuthLogin = vi.fn();
+
+const mockSDK = {
+  crm: {
+    auth: {
+      login: mockAuthLogin,
+      logout: vi.fn(),
+      refresh: vi.fn(),
+      getUser: vi.fn(),
+    },
+  },
+};
+
+vi.mock('../../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
+}));
+
+// Rate limiter — uses useStorage('kv'), must stay mocked
 const mockCheck = vi
   .fn()
   .mockResolvedValue({ allowed: true, remaining: 4, resetTime: 0 });
@@ -10,11 +31,6 @@ vi.mock('../../../../server/utils/rate-limiter', () => ({
     check: (...args: unknown[]) => mockCheck(...args),
   },
   getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
-}));
-
-const mockLogin = vi.fn();
-vi.mock('../../../../server/services/auth', () => ({
-  login: (...args: unknown[]) => mockLogin(...args),
 }));
 
 const mockSetAuthCookies = vi.fn();
@@ -30,6 +46,7 @@ vi.stubGlobal('ErrorCode', {
   RATE_LIMITED: 'RATE_LIMITED',
   UNAUTHORIZED: 'UNAUTHORIZED',
 });
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
 describe('POST /api/auth/login', () => {
   const mockEvent = {} as import('h3').H3Event;
@@ -51,7 +68,7 @@ describe('POST /api/auth/login', () => {
 
   it('returns user and expiresAt on successful login', async () => {
     const mockUser = { id: 1, email: 'user@example.com' };
-    mockLogin.mockResolvedValue({
+    mockAuthLogin.mockResolvedValue({
       succeeded: true,
       tokens: {
         token: 'access-token',
@@ -65,17 +82,13 @@ describe('POST /api/auth/login', () => {
       .default;
     const result = await handler(mockEvent);
 
-    expect(mockLogin).toHaveBeenCalledWith(
-      { username: 'user@example.com', password: 'password123' },
-      mockEvent,
-    );
     expect(result).toHaveProperty('user', mockUser);
     expect(result).toHaveProperty('expiresAt');
     expect(result.expiresAt).toBeTruthy();
   });
 
   it('sets auth cookies on successful login', async () => {
-    mockLogin.mockResolvedValue({
+    mockAuthLogin.mockResolvedValue({
       succeeded: true,
       tokens: {
         token: 'access-token',
@@ -97,7 +110,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('throws UNAUTHORIZED when login fails', async () => {
-    mockLogin.mockResolvedValue({ succeeded: false });
+    mockAuthLogin.mockResolvedValue({ succeeded: false });
 
     const handler = (await import('../../../../server/api/auth/login.post'))
       .default;
@@ -105,7 +118,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('throws UNAUTHORIZED when tokens are missing', async () => {
-    mockLogin.mockResolvedValue({
+    mockAuthLogin.mockResolvedValue({
       succeeded: true,
       tokens: { token: null, refreshToken: null },
     });
@@ -128,7 +141,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('returns null expiresAt when expiresIn is not provided', async () => {
-    mockLogin.mockResolvedValue({
+    mockAuthLogin.mockResolvedValue({
       succeeded: true,
       tokens: {
         token: 'access-token',

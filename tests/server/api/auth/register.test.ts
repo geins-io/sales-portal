@@ -2,6 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
+// ---------------------------------------------------------------------------
+// Mock at the SDK boundary — let user service run for real
+// ---------------------------------------------------------------------------
+const mockUserCreate = vi.fn();
+
+const mockSDK = {
+  crm: {
+    user: {
+      create: mockUserCreate,
+    },
+  },
+};
+
+vi.mock('../../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
+}));
+
+// Rate limiter — uses useStorage('kv'), must stay mocked
 const mockCheck = vi
   .fn()
   .mockResolvedValue({ allowed: true, remaining: 4, resetTime: 0 });
@@ -10,11 +28,6 @@ vi.mock('../../../../server/utils/rate-limiter', () => ({
     check: (...args: unknown[]) => mockCheck(...args),
   },
   getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
-}));
-
-const mockRegister = vi.fn();
-vi.mock('../../../../server/services/user', () => ({
-  register: (...args: unknown[]) => mockRegister(...args),
 }));
 
 const mockSetAuthCookies = vi.fn();
@@ -29,7 +42,9 @@ vi.stubGlobal(
 vi.stubGlobal('ErrorCode', {
   RATE_LIMITED: 'RATE_LIMITED',
   BAD_REQUEST: 'BAD_REQUEST',
+  UNAUTHORIZED: 'UNAUTHORIZED',
 });
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
 describe('POST /api/auth/register', () => {
   const mockEvent = {} as import('h3').H3Event;
@@ -52,7 +67,7 @@ describe('POST /api/auth/register', () => {
 
   it('returns user and expiresAt on successful registration', async () => {
     const mockUser = { id: 1, email: 'newuser@example.com' };
-    mockRegister.mockResolvedValue({
+    mockUserCreate.mockResolvedValue({
       succeeded: true,
       tokens: {
         token: 'access-token',
@@ -66,10 +81,9 @@ describe('POST /api/auth/register', () => {
       .default;
     const result = await handler(mockEvent);
 
-    expect(mockRegister).toHaveBeenCalledWith(
+    expect(mockUserCreate).toHaveBeenCalledWith(
       { username: 'newuser@example.com', password: 'password123' },
       { firstName: 'John', lastName: 'Doe' },
-      mockEvent,
     );
     expect(result).toHaveProperty('user', mockUser);
     expect(result).toHaveProperty('expiresAt');
@@ -77,7 +91,7 @@ describe('POST /api/auth/register', () => {
   });
 
   it('sets auth cookies on successful registration', async () => {
-    mockRegister.mockResolvedValue({
+    mockUserCreate.mockResolvedValue({
       succeeded: true,
       tokens: {
         token: 'access-token',
@@ -99,7 +113,7 @@ describe('POST /api/auth/register', () => {
   });
 
   it('throws BAD_REQUEST when registration fails', async () => {
-    mockRegister.mockResolvedValue({ succeeded: false });
+    mockUserCreate.mockResolvedValue({ succeeded: false });
 
     const handler = (await import('../../../../server/api/auth/register.post'))
       .default;
@@ -107,7 +121,7 @@ describe('POST /api/auth/register', () => {
   });
 
   it('throws BAD_REQUEST when tokens are missing', async () => {
-    mockRegister.mockResolvedValue({
+    mockUserCreate.mockResolvedValue({
       succeeded: true,
       tokens: { token: null, refreshToken: null },
     });
@@ -130,7 +144,7 @@ describe('POST /api/auth/register', () => {
   });
 
   it('returns null expiresAt when expiresIn is not provided', async () => {
-    mockRegister.mockResolvedValue({
+    mockUserCreate.mockResolvedValue({
       succeeded: true,
       tokens: {
         token: 'access-token',

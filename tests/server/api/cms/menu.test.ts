@@ -2,9 +2,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
-const mockGetMenu = vi.fn();
-vi.mock('../../../../server/services/cms', () => ({
-  getMenu: (...args: unknown[]) => mockGetMenu(...args),
+// ---------------------------------------------------------------------------
+// Mock at the SDK boundary — let cms service run for real
+// ---------------------------------------------------------------------------
+const mockMenuGet = vi.fn();
+
+const mockSDK = {
+  core: {
+    geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' },
+  },
+  cms: {
+    menu: { get: mockMenuGet },
+  },
+};
+
+vi.mock('../../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
+  getChannelVariables: vi.fn(),
+  getRequestChannelVariables: vi
+    .fn()
+    .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
 }));
 
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
@@ -17,6 +34,9 @@ vi.stubGlobal(
 vi.stubGlobal('ErrorCode', {
   BAD_REQUEST: 'BAD_REQUEST',
 });
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
+vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
 
 describe('GET /api/cms/menu', () => {
   const mockEvent = {} as import('h3').H3Event;
@@ -30,44 +50,48 @@ describe('GET /api/cms/menu', () => {
     });
   });
 
-  it('returns menu data on success', async () => {
+  it('returns menu data from SDK', async () => {
     const mockMenuData = {
       id: 'main-menu',
       items: [{ title: 'Home', url: '/' }],
     };
-    mockGetMenu.mockResolvedValue(mockMenuData);
+    mockMenuGet.mockResolvedValue(mockMenuData);
 
     const handler = (await import('../../../../server/api/cms/menu.get'))
       .default;
     const result = await handler(mockEvent);
 
-    expect(mockGetMenu).toHaveBeenCalledWith(
-      { menuLocationId: 'main-menu' },
-      mockEvent,
-    );
+    expect(mockMenuGet).toHaveBeenCalledWith({
+      menuLocationId: 'main-menu',
+      channelId: '1',
+      languageId: 'sv-SE',
+      marketId: 'se',
+    });
     expect(result).toEqual(mockMenuData);
   });
 
-  it('calls getMenu with parsed menuLocationId', async () => {
+  it('calls SDK with parsed menuLocationId', async () => {
     (
       globalThis.getValidatedQuery as ReturnType<typeof vi.fn>
     ).mockResolvedValue({
       menuLocationId: 'footer-menu',
     });
-    mockGetMenu.mockResolvedValue({ id: 'footer-menu', items: [] });
+    mockMenuGet.mockResolvedValue({ id: 'footer-menu', items: [] });
 
     const handler = (await import('../../../../server/api/cms/menu.get'))
       .default;
     await handler(mockEvent);
 
-    expect(mockGetMenu).toHaveBeenCalledWith(
-      { menuLocationId: 'footer-menu' },
-      mockEvent,
-    );
+    expect(mockMenuGet).toHaveBeenCalledWith({
+      menuLocationId: 'footer-menu',
+      channelId: '1',
+      languageId: 'sv-SE',
+      marketId: 'se',
+    });
   });
 
-  it('throws when getMenu rejects', async () => {
-    mockGetMenu.mockRejectedValue(new Error('CMS service error'));
+  it('throws when SDK rejects', async () => {
+    mockMenuGet.mockRejectedValue(new Error('CMS service error'));
 
     const handler = (await import('../../../../server/api/cms/menu.get'))
       .default;

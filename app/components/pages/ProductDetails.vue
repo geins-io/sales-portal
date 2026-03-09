@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type {
-  ProductType,
+  DetailProduct,
   ReviewsResponse,
   ListProduct,
 } from '#shared/types/commerce';
+import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import type { ProductRouteResolution } from '#shared/types/common';
 import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
@@ -18,7 +20,7 @@ const {
   data: product,
   error,
   status,
-} = useFetch<ProductType>(() => `/api/products/${slug.value}`, {
+} = useFetch<DetailProduct>(() => `/api/products/${slug.value}`, {
   dedupe: 'defer',
 });
 
@@ -83,6 +85,11 @@ async function addToCart() {
   if (!resolvedSku.value?.skuId) return;
   await cartStore.addItem(resolvedSku.value.skuId, quantity.value);
 }
+
+// Discount campaigns
+const visibleCampaigns = computed(() =>
+  filterVisibleCampaigns(product.value?.discountCampaigns ?? []),
+);
 
 // Breadcrumbs
 const breadcrumbItems = computed(() => {
@@ -243,14 +250,40 @@ useSchemaOrg([
           {{ product.brand.name }}
         </p>
 
+        <!-- Campaign badges -->
+        <div
+          v-if="visibleCampaigns.length"
+          class="flex flex-wrap gap-1"
+          data-testid="pdp-campaign-badges"
+        >
+          <span
+            v-for="campaign in visibleCampaigns"
+            :key="campaign.name"
+            :class="BADGE_DESTRUCTIVE"
+          >
+            {{ campaign.name }}
+          </span>
+        </div>
+
         <!-- Price -->
         <PriceDisplay
           v-if="product.unitPrice"
           :price="product.unitPrice"
-          :lowest-price="(product as any).lowestPrice"
-          :discount-type="(product as any).discountType"
+          :lowest-price="product.lowestPrice"
+          :discount-type="product.discountType"
+          :campaign-names="visibleCampaigns.map((c) => c.name)"
           class="text-lg font-semibold"
         />
+
+        <!-- Negotiated price info banner -->
+        <div
+          v-if="product.discountType === 'EXTERNAL'"
+          class="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800"
+          data-testid="negotiated-price-banner"
+        >
+          <Icon name="lucide:badge-check" class="size-4 shrink-0" />
+          <span>{{ $t('discount.negotiated_price_info') }}</span>
+        </div>
 
         <!-- Short description -->
         <p

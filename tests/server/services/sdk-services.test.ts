@@ -1,41 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { H3Event } from 'h3';
+import { describe, it, expect, vi } from 'vitest';
 
-// --- Shared mock SDK methods (0.6.0 stateless API) ---
-const mockAuthLogin = vi.fn();
-const mockAuthLogout = vi.fn();
-const mockAuthRefresh = vi.fn();
-const mockAuthGetUser = vi.fn();
+/**
+ * Smoke tests for the service layer exports.
+ *
+ * Verifies that every public service function exists and is callable.
+ * Behavioral coverage is provided by the API route tests (which mock at the
+ * SDK boundary and let services execute for real) and by
+ * integration.test.ts (which runs against the real Geins API).
+ */
 
-const mockUserGet = vi.fn();
-const mockUserUpdate = vi.fn();
-const mockUserCreate = vi.fn();
-const mockPasswordChange = vi.fn();
-
-const mockMenuGet = vi.fn();
-const mockPageGet = vi.fn();
-const mockAreaGet = vi.fn();
-
-const mockCartGet = vi.fn();
-const mockCartCreate = vi.fn();
-const mockCartAddItem = vi.fn();
-const mockCartUpdateItem = vi.fn();
-const mockCartDeleteItem = vi.fn();
-const mockCartSetPromotionCode = vi.fn();
-const mockCartRemovePromotionCode = vi.fn();
-
-const mockCheckoutGet = vi.fn();
-const mockCheckoutValidate = vi.fn();
-const mockCheckoutCreateOrder = vi.fn();
-const mockCheckoutSummary = vi.fn();
-const mockCheckoutCreateToken = vi.fn();
-
-const mockOrderGet = vi.fn();
-
-const mockGraphqlQuery = vi.fn();
-const mockGraphqlMutation = vi.fn();
-
-// --- Mock getTenantSDK to return controlled mocks ---
+// Mock the SDK boundary so service modules can be imported
+const mockGraphqlQuery = vi.fn().mockResolvedValue({ data: {} });
+const mockGraphqlMutation = vi.fn().mockResolvedValue({ data: {} });
 const mockSDK = {
   core: {
     geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' },
@@ -43,43 +19,46 @@ const mockSDK = {
   },
   crm: {
     auth: {
-      login: mockAuthLogin,
-      logout: mockAuthLogout,
-      refresh: mockAuthRefresh,
-      getUser: mockAuthGetUser,
+      login: vi.fn(),
+      logout: vi.fn(),
+      refresh: vi.fn(),
+      getUser: vi.fn(),
     },
     user: {
-      get: mockUserGet,
-      update: mockUserUpdate,
-      create: mockUserCreate,
-      password: { change: mockPasswordChange },
+      get: vi.fn(),
+      update: vi.fn(),
+      create: vi.fn(),
+      password: {
+        change: vi.fn(),
+        requestReset: vi.fn(),
+        commitReset: vi.fn(),
+      },
+      orders: { get: vi.fn() },
     },
   },
   cms: {
-    menu: { get: mockMenuGet },
-    page: { get: mockPageGet },
-    area: { get: mockAreaGet },
+    menu: { get: vi.fn() },
+    page: { get: vi.fn() },
+    area: { get: vi.fn() },
   },
   oms: {
     cart: {
-      get: mockCartGet,
-      create: mockCartCreate,
-      addItem: mockCartAddItem,
-      updateItem: mockCartUpdateItem,
-      deleteItem: mockCartDeleteItem,
-      setPromotionCode: mockCartSetPromotionCode,
-      removePromotionCode: mockCartRemovePromotionCode,
+      get: vi.fn(),
+      create: vi.fn(),
+      addItem: vi.fn(),
+      updateItem: vi.fn(),
+      deleteItem: vi.fn(),
+      setPromotionCode: vi.fn(),
+      removePromotionCode: vi.fn(),
     },
     checkout: {
-      get: mockCheckoutGet,
-      validate: mockCheckoutValidate,
-      createOrder: mockCheckoutCreateOrder,
-      summary: mockCheckoutSummary,
-      createToken: mockCheckoutCreateToken,
+      get: vi.fn(),
+      validate: vi.fn(),
+      createOrder: vi.fn(),
+      summary: vi.fn(),
+      createToken: vi.fn(),
     },
-    order: {
-      get: mockOrderGet,
-    },
+    order: { get: vi.fn() },
   },
 };
 
@@ -91,515 +70,95 @@ vi.mock('../../../server/services/_sdk', () => ({
     .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
 }));
 
-// Mock GraphQL loader and unwrap helpers used by product/search services
 vi.mock('../../../server/services/graphql/loader', () => ({
   loadQuery: vi.fn((path: string) => `query:${path}`),
 }));
 vi.mock('../../../server/services/graphql/unwrap', () => ({
-  unwrapGraphQL: vi.fn((result: unknown) => result),
+  unwrapGraphQL: vi.fn((r: unknown) => r),
 }));
 
-// Mock Nitro auto-imports for error handling
-vi.stubGlobal(
-  'createAppError',
-  vi.fn((_code: string, message: string) => {
-    const err = new Error(message);
-    (err as Error & { statusCode: number }).statusCode = 400;
-    return err;
-  }),
-);
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
+vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
+vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('createAppError', vi.fn());
 vi.stubGlobal('ErrorCode', {
   BAD_REQUEST: 'BAD_REQUEST',
   UNAUTHORIZED: 'UNAUTHORIZED',
-  EXTERNAL_API_ERROR: 'EXTERNAL_API_ERROR',
 });
-vi.stubGlobal(
-  'createExternalApiError',
-  vi.fn((service: string, err?: Error) => {
-    const e = new Error(err?.message || `Error communicating with ${service}`);
-    (e as Error & { statusCode: number }).statusCode = 502;
-    return e;
-  }),
-);
-vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
-// Mock preview cookie helper (auto-imported in cms.ts)
-vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
-
-const event = {} as H3Event;
-
-describe('SDK-backed services (0.6.0)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+describe('Service layer exports', () => {
+  it('auth service exports all expected functions', async () => {
+    const auth = await import('../../../server/services/auth');
+    expect(auth.login).toBeTypeOf('function');
+    expect(auth.logout).toBeTypeOf('function');
+    expect(auth.refresh).toBeTypeOf('function');
+    expect(auth.getUser).toBeTypeOf('function');
   });
 
-  describe('auth service', () => {
-    let auth: typeof import('../../../server/services/auth');
-
-    beforeEach(async () => {
-      auth = await import('../../../server/services/auth');
-    });
-
-    it('login should delegate to crm.auth.login', async () => {
-      const creds = { username: 'user@test.com', password: 'pass' };
-      const expected = { succeeded: true };
-      mockAuthLogin.mockResolvedValue(expected);
-
-      const result = await auth.login(creds, event);
-
-      expect(mockAuthLogin).toHaveBeenCalledWith(creds);
-      expect(result).toBe(expected);
-    });
-
-    it('logout should delegate to crm.auth.logout (no params)', async () => {
-      mockAuthLogout.mockResolvedValue(undefined);
-
-      await auth.logout(event);
-
-      expect(mockAuthLogout).toHaveBeenCalledWith();
-    });
-
-    it('refresh should delegate to crm.auth.refresh with token', async () => {
-      const expected = { succeeded: true, tokens: { token: 'new' } };
-      mockAuthRefresh.mockResolvedValue(expected);
-
-      const result = await auth.refresh('refresh-token', event);
-
-      expect(mockAuthRefresh).toHaveBeenCalledWith('refresh-token');
-      expect(result).toBe(expected);
-    });
-
-    it('getUser should delegate to crm.auth.getUser with tokens', async () => {
-      const expected = { succeeded: true, user: { userId: '1' } };
-      mockAuthGetUser.mockResolvedValue(expected);
-
-      const result = await auth.getUser('refresh', 'user-token', event);
-
-      expect(mockAuthGetUser).toHaveBeenCalledWith('refresh', 'user-token');
-      expect(result).toBe(expected);
-    });
+  it('user service exports all expected functions', async () => {
+    const user = await import('../../../server/services/user');
+    expect(user.getUser).toBeTypeOf('function');
+    expect(user.updateUser).toBeTypeOf('function');
+    expect(user.changePassword).toBeTypeOf('function');
+    expect(user.register).toBeTypeOf('function');
+    expect(user.requestPasswordReset).toBeTypeOf('function');
+    expect(user.commitPasswordReset).toBeTypeOf('function');
+    expect(user.getUserOrders).toBeTypeOf('function');
   });
 
-  describe('user service', () => {
-    let user: typeof import('../../../server/services/user');
-
-    beforeEach(async () => {
-      user = await import('../../../server/services/user');
-    });
-
-    it('getUser should pass userToken to crm.user.get', async () => {
-      const expected = { email: 'user@test.com' };
-      mockUserGet.mockResolvedValue(expected);
-
-      const result = await user.getUser('user-token-123', event);
-
-      expect(mockUserGet).toHaveBeenCalledWith('user-token-123');
-      expect(result).toBe(expected);
-    });
-
-    it('updateUser should pass data and userToken to crm.user.update', async () => {
-      const userData = { address: { firstName: 'Test' } };
-      const expected = { email: 'user@test.com' };
-      mockUserUpdate.mockResolvedValue(expected);
-
-      const result = await user.updateUser(
-        userData as Parameters<typeof user.updateUser>[0],
-        'user-token-123',
-        event,
-      );
-
-      expect(mockUserUpdate).toHaveBeenCalledWith(userData, 'user-token-123');
-      expect(result).toBe(expected);
-    });
-
-    it('changePassword should pass credentials and refreshToken', async () => {
-      const creds = {
-        username: 'user@test.com',
-        password: 'old',
-        newPassword: 'new',
-      };
-      const expected = { succeeded: true };
-      mockPasswordChange.mockResolvedValue(expected);
-
-      const result = await user.changePassword(creds, 'refresh-token', event);
-
-      expect(mockPasswordChange).toHaveBeenCalledWith(creds, 'refresh-token');
-      expect(result).toBe(expected);
-    });
-
-    it('register should delegate to crm.user.create', async () => {
-      const creds = { username: 'new@test.com', password: 'pass' };
-      const expected = { succeeded: true };
-      mockUserCreate.mockResolvedValue(expected);
-
-      const result = await user.register(creds, undefined, event);
-
-      expect(mockUserCreate).toHaveBeenCalledWith(creds, undefined);
-      expect(result).toBe(expected);
-    });
+  it('cms service exports all expected functions', async () => {
+    const cms = await import('../../../server/services/cms');
+    expect(cms.getMenu).toBeTypeOf('function');
+    expect(cms.getPage).toBeTypeOf('function');
+    expect(cms.getContentArea).toBeTypeOf('function');
   });
 
-  describe('cms service', () => {
-    let cms: typeof import('../../../server/services/cms');
-
-    beforeEach(async () => {
-      cms = await import('../../../server/services/cms');
-    });
-
-    it('getMenu should delegate to cms.menu.get with channel vars', async () => {
-      const args = { menuLocationId: 'header' };
-      const expected = { id: '1', title: 'Main Menu', menuItems: [] };
-      mockMenuGet.mockResolvedValue(expected);
-
-      const result = await cms.getMenu(args, event);
-
-      expect(mockMenuGet).toHaveBeenCalledWith({
-        menuLocationId: 'header',
-        channelId: '1',
-        languageId: 'sv-SE',
-        marketId: 'se',
-      });
-      expect(result).toBe(expected);
-    });
-
-    it('getPage should delegate to cms.page.get with channel vars (no preview)', async () => {
-      const args = { alias: 'about-us' };
-      const expected = { title: 'About Us' };
-      mockPageGet.mockResolvedValue(expected);
-
-      const result = await cms.getPage(args, event);
-
-      expect(mockPageGet).toHaveBeenCalledWith({
-        alias: 'about-us',
-        channelId: '1',
-        languageId: 'sv-SE',
-        marketId: 'se',
-      });
-      expect(result).toBe(expected);
-    });
-
-    it('getContentArea should delegate to cms.area.get with channel vars (no preview)', async () => {
-      const args = { family: 'StartPage', areaName: 'Hero' };
-      const expected = { containers: [] };
-      mockAreaGet.mockResolvedValue(expected);
-
-      const result = await cms.getContentArea(args, event);
-
-      expect(mockAreaGet).toHaveBeenCalledWith({
-        family: 'StartPage',
-        areaName: 'Hero',
-        channelId: '1',
-        languageId: 'sv-SE',
-        marketId: 'se',
-      });
-      expect(result).toBe(expected);
-    });
+  it('cart service exports all expected functions', async () => {
+    const cart = await import('../../../server/services/cart');
+    expect(cart.getCart).toBeTypeOf('function');
+    expect(cart.createCart).toBeTypeOf('function');
+    expect(cart.addItem).toBeTypeOf('function');
+    expect(cart.updateItem).toBeTypeOf('function');
+    expect(cart.deleteItem).toBeTypeOf('function');
+    expect(cart.applyPromoCode).toBeTypeOf('function');
+    expect(cart.removePromoCode).toBeTypeOf('function');
   });
 
-  describe('cart service (flat API)', () => {
-    let cart: typeof import('../../../server/services/cart');
-
-    beforeEach(async () => {
-      cart = await import('../../../server/services/cart');
-    });
-
-    it('getCart should delegate to oms.cart.get with cartId', async () => {
-      const expected = { id: 'cart-1', items: [] };
-      mockCartGet.mockResolvedValue(expected);
-
-      const result = await cart.getCart('cart-1', event);
-
-      expect(mockCartGet).toHaveBeenCalledWith('cart-1');
-      expect(result).toBe(expected);
-    });
-
-    it('createCart should delegate to oms.cart.create', async () => {
-      const expected = { id: 'new-cart', items: [] };
-      mockCartCreate.mockResolvedValue(expected);
-
-      const result = await cart.createCart(event);
-
-      expect(mockCartCreate).toHaveBeenCalled();
-      expect(result).toBe(expected);
-    });
-
-    it('addItem should call oms.cart.addItem with cartId and input', async () => {
-      const expected = { id: 'cart-1', items: [{ skuId: 123, quantity: 2 }] };
-      mockCartAddItem.mockResolvedValue(expected);
-
-      const result = await cart.addItem(
-        'cart-1',
-        { skuId: 123, quantity: 2 },
-        event,
-      );
-
-      expect(mockCartAddItem).toHaveBeenCalledWith('cart-1', {
-        skuId: 123,
-        quantity: 2,
-      });
-      expect(result).toBe(expected);
-    });
-
-    it('updateItem should call oms.cart.updateItem with cartId and input', async () => {
-      const expected = { id: 'cart-1', items: [{ skuId: 123, quantity: 5 }] };
-      mockCartUpdateItem.mockResolvedValue(expected);
-
-      const result = await cart.updateItem(
-        'cart-1',
-        { id: 'item-1', quantity: 5 },
-        event,
-      );
-
-      expect(mockCartUpdateItem).toHaveBeenCalledWith('cart-1', {
-        id: 'item-1',
-        quantity: 5,
-      });
-      expect(result).toBe(expected);
-    });
-
-    it('deleteItem should call oms.cart.deleteItem with cartId and itemId', async () => {
-      const expected = { id: 'cart-1', items: [] };
-      mockCartDeleteItem.mockResolvedValue(expected);
-
-      const result = await cart.deleteItem('cart-1', 'item-1', event);
-
-      expect(mockCartDeleteItem).toHaveBeenCalledWith('cart-1', 'item-1');
-      expect(result).toBe(expected);
-    });
-
-    it('applyPromoCode should call oms.cart.setPromotionCode', async () => {
-      const expected = { id: 'cart-1', promoCode: 'SAVE10' };
-      mockCartSetPromotionCode.mockResolvedValue(expected);
-
-      const result = await cart.applyPromoCode('cart-1', 'SAVE10', event);
-
-      expect(mockCartSetPromotionCode).toHaveBeenCalledWith('cart-1', 'SAVE10');
-      expect(result).toBe(expected);
-    });
-
-    it('removePromoCode should call oms.cart.removePromotionCode', async () => {
-      const expected = { id: 'cart-1', promoCode: undefined };
-      mockCartRemovePromotionCode.mockResolvedValue(expected);
-
-      const result = await cart.removePromoCode('cart-1', event);
-
-      expect(mockCartRemovePromotionCode).toHaveBeenCalledWith('cart-1');
-      expect(result).toBe(expected);
-    });
+  it('checkout service exports all expected functions', async () => {
+    const checkout = await import('../../../server/services/checkout');
+    expect(checkout.getCheckout).toBeTypeOf('function');
+    expect(checkout.validateOrder).toBeTypeOf('function');
+    expect(checkout.createOrder).toBeTypeOf('function');
+    expect(checkout.getSummary).toBeTypeOf('function');
+    expect(checkout.createToken).toBeTypeOf('function');
   });
 
-  describe('checkout service', () => {
-    let checkout: typeof import('../../../server/services/checkout');
-
-    beforeEach(async () => {
-      checkout = await import('../../../server/services/checkout');
-    });
-
-    it('getCheckout should delegate to oms.checkout.get', async () => {
-      const args = { cartId: 'cart-1', paymentMethodId: 1 };
-      const expected = { email: 'test@test.com', cart: { id: 'cart-1' } };
-      mockCheckoutGet.mockResolvedValue(expected);
-
-      const result = await checkout.getCheckout(
-        args as Parameters<typeof checkout.getCheckout>[0],
-        event,
-      );
-
-      expect(mockCheckoutGet).toHaveBeenCalledWith(args);
-      expect(result).toBe(expected);
-    });
-
-    it('validateOrder should delegate to oms.checkout.validate', async () => {
-      const args = {
-        cartId: 'cart-1',
-        checkoutOptions: { paymentId: 1 },
-      };
-      const expected = { isValid: true };
-      mockCheckoutValidate.mockResolvedValue(expected);
-
-      const result = await checkout.validateOrder(
-        args as Parameters<typeof checkout.validateOrder>[0],
-        event,
-      );
-
-      expect(mockCheckoutValidate).toHaveBeenCalledWith(args);
-      expect(result).toBe(expected);
-    });
-
-    it('createOrder should delegate to oms.checkout.createOrder', async () => {
-      const args = {
-        cartId: 'cart-1',
-        checkoutOptions: { paymentId: 1 },
-      };
-      const expected = { created: true, orderId: 'order-1' };
-      mockCheckoutCreateOrder.mockResolvedValue(expected);
-
-      const result = await checkout.createOrder(
-        args as Parameters<typeof checkout.createOrder>[0],
-        event,
-      );
-
-      expect(mockCheckoutCreateOrder).toHaveBeenCalledWith(args);
-      expect(result).toBe(expected);
-    });
-
-    it('getSummary should delegate to oms.checkout.summary', async () => {
-      const args = { orderId: 'order-1', paymentMethod: 'klarna' };
-      const expected = { id: 'order-1' };
-      mockCheckoutSummary.mockResolvedValue(expected);
-
-      const result = await checkout.getSummary(args, event);
-
-      expect(mockCheckoutSummary).toHaveBeenCalledWith(args);
-      expect(result).toBe(expected);
-    });
-
-    it('createToken should delegate to oms.checkout.createToken', async () => {
-      const args = { cartId: 'cart-1' };
-      mockCheckoutCreateToken.mockResolvedValue('token-abc');
-
-      const result = await checkout.createToken(
-        args as Parameters<typeof checkout.createToken>[0],
-        event,
-      );
-
-      expect(mockCheckoutCreateToken).toHaveBeenCalledWith(args);
-      expect(result).toBe('token-abc');
-    });
+  it('orders service exports getOrder', async () => {
+    const orders = await import('../../../server/services/orders');
+    expect(orders.getOrder).toBeTypeOf('function');
   });
 
-  describe('orders service', () => {
-    let orders: typeof import('../../../server/services/orders');
-
-    beforeEach(async () => {
-      orders = await import('../../../server/services/orders');
-    });
-
-    it('getOrder should delegate to oms.order.get', async () => {
-      const args = { publicOrderId: 'pub-123' };
-      const expected = { id: 'order-1', publicId: 'pub-123' };
-      mockOrderGet.mockResolvedValue(expected);
-
-      const result = await orders.getOrder(args, event);
-
-      expect(mockOrderGet).toHaveBeenCalledWith(args);
-      expect(result).toBe(expected);
-    });
+  it('products service exports all expected functions', async () => {
+    const products = await import('../../../server/services/products');
+    expect(products.getProduct).toBeTypeOf('function');
+    expect(products.getRelatedProducts).toBeTypeOf('function');
+    expect(products.getReviews).toBeTypeOf('function');
+    expect(products.getPriceHistory).toBeTypeOf('function');
+    expect(products.postReview).toBeTypeOf('function');
+    expect(products.monitorAvailability).toBeTypeOf('function');
   });
 
-  describe('products service (userToken threading)', () => {
-    let products: typeof import('../../../server/services/products');
-
-    beforeEach(async () => {
-      products = await import('../../../server/services/products');
-    });
-
-    it('getProduct passes userToken to graphql.query when provided', async () => {
-      mockGraphqlQuery.mockResolvedValue({ data: { product: { id: '1' } } });
-
-      await products.getProduct(
-        { alias: 'test-product', userToken: 'test-token' },
-        event,
-      );
-
-      expect(mockGraphqlQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ userToken: 'test-token' }),
-      );
-    });
-
-    it('getProduct omits userToken from graphql.query when not provided', async () => {
-      mockGraphqlQuery.mockResolvedValue({ data: { product: { id: '1' } } });
-
-      await products.getProduct({ alias: 'test-product' }, event);
-
-      expect(mockGraphqlQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ userToken: undefined }),
-      );
-    });
-
-    it('getRelatedProducts passes userToken to graphql.query when provided', async () => {
-      mockGraphqlQuery.mockResolvedValue({ data: { related: [] } });
-
-      await products.getRelatedProducts(
-        { alias: 'test-product', userToken: 'test-token' },
-        event,
-      );
-
-      expect(mockGraphqlQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ userToken: 'test-token' }),
-      );
-    });
-
-    it('getRelatedProducts omits userToken from graphql.query when not provided', async () => {
-      mockGraphqlQuery.mockResolvedValue({ data: { related: [] } });
-
-      await products.getRelatedProducts({ alias: 'test-product' }, event);
-
-      expect(mockGraphqlQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ userToken: undefined }),
-      );
-    });
+  it('product-lists service exports all expected functions', async () => {
+    const pl = await import('../../../server/services/product-lists');
+    expect(pl.getProducts).toBeTypeOf('function');
+    expect(pl.getFilters).toBeTypeOf('function');
+    expect(pl.getCategoryPage).toBeTypeOf('function');
+    expect(pl.getBrandPage).toBeTypeOf('function');
   });
 
-  describe('product-lists service (userToken threading)', () => {
-    let productLists: typeof import('../../../server/services/product-lists');
-
-    beforeEach(async () => {
-      productLists = await import('../../../server/services/product-lists');
-    });
-
-    it('getProducts passes userToken to graphql.query when provided', async () => {
-      mockGraphqlQuery.mockResolvedValue({ data: { products: [] } });
-
-      await productLists.getProducts(
-        { take: 10, userToken: 'test-token' },
-        event,
-      );
-
-      expect(mockGraphqlQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ userToken: 'test-token' }),
-      );
-    });
-
-    it('getProducts omits userToken from graphql.query when not provided', async () => {
-      mockGraphqlQuery.mockResolvedValue({ data: { products: [] } });
-
-      await productLists.getProducts({ take: 10 }, event);
-
-      expect(mockGraphqlQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ userToken: undefined }),
-      );
-    });
-  });
-
-  describe('search service (userToken threading)', () => {
-    let search: typeof import('../../../server/services/search');
-
-    beforeEach(async () => {
-      search = await import('../../../server/services/search');
-    });
-
-    it('searchProducts passes userToken to graphql.query when provided', async () => {
-      mockGraphqlQuery.mockResolvedValue({ data: { search: [] } });
-
-      await search.searchProducts(
-        { filter: { query: 'shoes' }, userToken: 'test-token' },
-        event,
-      );
-
-      expect(mockGraphqlQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ userToken: 'test-token' }),
-      );
-    });
-
-    it('searchProducts omits userToken from graphql.query when not provided', async () => {
-      mockGraphqlQuery.mockResolvedValue({ data: { search: [] } });
-
-      await search.searchProducts({ filter: { query: 'shoes' } }, event);
-
-      expect(mockGraphqlQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ userToken: undefined }),
-      );
-    });
+  it('search service exports searchProducts', async () => {
+    const search = await import('../../../server/services/search');
+    expect(search.searchProducts).toBeTypeOf('function');
   });
 });

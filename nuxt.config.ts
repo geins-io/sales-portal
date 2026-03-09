@@ -6,21 +6,28 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   modules: [
+    // Always needed (aliases, auto-imports, component resolution)
     '~~/modules/graphql-loader',
     '@nuxt/eslint',
-    '@nuxt/fonts',
-    '@nuxt/hints',
     '@nuxt/icon',
     '@nuxt/image',
     '@nuxtjs/tailwindcss',
     '@nuxtjs/i18n',
     '@nuxtjs/seo',
-    '@nuxt/scripts',
     '@nuxt/test-utils',
     'shadcn-nuxt',
     '@pinia/nuxt',
-    '@sentry/nuxt/module',
-    'nuxt-security',
+
+    // Runtime-only modules (skip during tests — no aliases or auto-imports needed)
+    ...(!process.env.VITEST
+      ? [
+          '@sentry/nuxt/module',
+          'nuxt-security',
+          '@nuxt/fonts',
+          '@nuxt/scripts',
+          '@nuxt/hints',
+        ]
+      : []),
   ],
 
   security: {

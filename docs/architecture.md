@@ -847,6 +847,44 @@ Rate limiter uses `useStorage('kv')` — scales to Redis in production.
 
 ---
 
+## Discount & Pricing UI
+
+The storefront renders discount and pricing information from Geins through several layers:
+
+### Data Flow
+
+```
+Geins GraphQL API → GraphQL fragments (list-product, product) → SDK types
+→ commerce.ts types (DetailProduct, ListProduct) → Vue components
+```
+
+Key enriched fields from GraphQL (not in base SDK types):
+
+- `discountType` — `NONE | SALE_PRICE | PRICE_CAMPAIGN | EXTERNAL`
+- `discountCampaigns` — `{ name, hideTitle }[]`
+- `lowestPrice` — EU omnibus directive lowest price (30-day)
+
+The `DetailProduct` interface in `shared/types/commerce.ts` extends `ProductType` with these enriched fields, replacing incompatible SDK shapes (e.g., `DiscountType` enum vs string, `LowestPriceType` vs `LowestPriceInfo`).
+
+### Components
+
+| Component                 | What it shows                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------ |
+| `PriceDisplay`            | Selling/regular price, discount percentage badge, discount type label (Sale/Campaign/Your Price) |
+| `ProductCard`             | Campaign badges overlaid on product image                                                        |
+| `ProductDetails`          | Campaign badges, negotiated price banner, PriceDisplay with full context                         |
+| `VolumePricingTable`      | Tiered quantity pricing from `CampaignPriceType[]`                                               |
+| `CartItem`                | Per-item campaign badges                                                                         |
+| `CartDrawer` / `CartPage` | Cart-level discount line, applied campaign names                                                 |
+
+### Shared Patterns
+
+- **Badge styles**: `app/lib/badge-styles.ts` — `BADGE_DESTRUCTIVE` (sales/campaigns) and `BADGE_INFO` (negotiated/external)
+- **Campaign filter**: `filterVisibleCampaigns()` in `shared/types/commerce.ts` — filters `hideTitle: true` campaigns
+- **Cart discount getters**: `discountAmount` and `visibleCartCampaigns` live in the cart Pinia store to avoid duplication between CartDrawer and CartPage
+
+---
+
 ## Future Considerations
 
 - **Admin Dashboard**: Self-service tenant management
@@ -856,4 +894,4 @@ Rate limiter uses `useStorage('kv')` — scales to Redis in production.
 
 ---
 
-_Last updated: February 2026_
+_Last updated: March 2026_
