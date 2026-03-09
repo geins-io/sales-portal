@@ -4,6 +4,7 @@ import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import { ShoppingCart, Star } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
+import { useFavoritesStore } from '~/stores/favorites';
 
 const props = withDefaults(
   defineProps<{
@@ -14,8 +15,17 @@ const props = withDefaults(
 );
 
 const cartStore = useCartStore();
+const favoritesStore = useFavoritesStore();
 const { hasFeature } = useTenant();
 const { canAccess } = useFeatureAccess();
+
+const isFavorited = computed(() =>
+  favoritesStore.isFavorite(props.product.alias),
+);
+
+function toggleFavorite() {
+  favoritesStore.toggle(props.product.alias);
+}
 
 const showPrice = computed(() => {
   if (!hasFeature('pricing')) return true;
@@ -87,12 +97,15 @@ async function addToCart() {
       </div>
       <!-- Wishlist button overlay -->
       <button
+        v-if="hasFeature('wishlist')"
         type="button"
         data-testid="wishlist-button"
+        :data-favorited="isFavorited"
         class="bg-background/80 text-muted-foreground hover:text-foreground absolute top-2 right-2 shrink-0 rounded border p-1.5 transition-colors"
         :aria-label="$t('product.wishlist')"
+        @click.prevent.stop="toggleFavorite"
       >
-        <Star class="size-4" />
+        <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
       </button>
     </div>
 
