@@ -1,72 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
 
+// useTenant mock is provided by setup-components.ts
+
 const mockCanAccess = vi.fn(() => true);
-const mockHasFeature = vi.fn((_name: string) => false);
 
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
-}));
-
-const tenant = ref({
-  tenantId: 'test-tenant',
-  hostname: 'test.example.com',
-  locale: 'sv-SE',
-  theme: {
-    colors: {
-      primary: 'oklch(0.205 0 0)',
-      secondary: 'oklch(0.97 0 0)',
-      background: 'oklch(1 0 0)',
-      foreground: 'oklch(0.145 0 0)',
-    },
-    radius: '0.625rem',
-  },
-  branding: {
-    name: 'Test Store',
-    logoUrl: '/logo.svg',
-    faviconUrl: '/favicon.ico',
-  },
-  features: {},
-});
-
-vi.mock('../../../app/composables/useTenant', () => ({
-  useTenant: () => ({
-    tenant,
-    tenantId: computed(() => tenant.value?.tenantId ?? ''),
-    hostname: computed(() => tenant.value?.hostname ?? ''),
-    isLoading: ref(false),
-    error: ref(null),
-    refresh: vi.fn(),
-    theme: computed(() => tenant.value?.theme),
-    branding: computed(() => tenant.value?.branding),
-    logoUrl: computed(() => '/logo.svg'),
-    logoDarkUrl: computed(() => null),
-    logoSymbolUrl: computed(() => null),
-    faviconUrl: computed(() => '/favicon.ico'),
-    ogImageUrl: computed(() => null),
-    brandName: computed(() => 'Test Store'),
-    mode: computed(() => 'commerce'),
-    watermark: computed(() => 'full'),
-    availableLocales: computed(() => ['sv']),
-    availableMarkets: computed(() => []),
-    market: computed(() => ''),
-    imageBaseUrl: computed(() => 'https://monitor.commerce.services'),
-    features: computed(() => tenant.value?.features),
-    hasFeature: mockHasFeature,
-    suspense: () => Promise.resolve(),
-  }),
-  useTenantTheme: () => ({
-    colors: computed(() => tenant.value?.theme?.colors),
-    typography: computed(() => undefined),
-    radius: computed(() => tenant.value?.theme?.radius),
-    getColor: () => '',
-    primaryColor: computed(() => 'oklch(0.205 0 0)'),
-    secondaryColor: computed(() => 'oklch(0.97 0 0)'),
-    backgroundColor: computed(() => 'oklch(1 0 0)'),
-    foregroundColor: computed(() => 'oklch(0.145 0 0)'),
-  }),
 }));
 
 vi.mock('~/stores/cart', () => ({
@@ -125,15 +67,18 @@ vi.mock('@unhead/schema-org/vue', () => ({
   defineBreadcrumb: vi.fn(() => ({})),
 }));
 
-// Mock nuxt-schema-org runtime composable (auto-imported by Nuxt unimport)
-// The unimport plugin resolves to the actual pnpm store path at transform time.
-// We mock using the absolute path to the resolved module.
-vi.mock(
-  '/home/ali.halaki/Projects/geins/sales-portal/node_modules/.pnpm/nuxt-schema-org@5.0.10_@unhead+vue@2.1.4_vue@3.5.28_typescript@5.9.3___magicast@0.5.2_u_b3ea5f4000fe1ffd41f4f55dfbec252e/node_modules/nuxt-schema-org/dist/runtime/app/composables/useSchemaOrg',
-  () => ({
-    useSchemaOrg: vi.fn(),
-  }),
-);
+// Mock nuxt-schema-org runtime composable (auto-imported by Nuxt unimport).
+// Resolve the path dynamically so the mock isn't tied to a specific pnpm store hash.
+const { schemaOrgComposablePath } = vi.hoisted(() => {
+  const nodeModule = require.resolve('nuxt-schema-org/schema'); // exported subpath
+  const pkgRoot = nodeModule.replace(/\/dist\/schema\..*$/, '');
+  return {
+    schemaOrgComposablePath: `${pkgRoot}/dist/runtime/app/composables/useSchemaOrg`,
+  };
+});
+vi.mock(schemaOrgComposablePath, () => ({
+  useSchemaOrg: vi.fn(),
+}));
 
 function makeProduct(overrides: Record<string, unknown> = {}) {
   return {
@@ -212,7 +157,6 @@ describe('ProductDetails', () => {
     mockProduct.value = null;
     mockStatus.value = 'success';
     mockError.value = null;
-    mockHasFeature.mockReturnValue(false);
     mockCanAccess.mockReturnValue(true);
   });
 

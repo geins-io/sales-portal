@@ -1,72 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
-import { ref, computed } from 'vue';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import PriceDisplay from '../../../app/components/shared/PriceDisplay.vue';
+import { useTenant } from '../../../app/composables/useTenant';
+
+// useTenant mock is provided by setup-components.ts — access tenant ref to control features
+const { tenant } = useTenant();
 
 const mockCanAccess = vi.fn(() => true);
-const mockHasFeature = vi.fn((_name: string) => false);
 
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
-}));
-
-const tenant = ref({
-  tenantId: 'test-tenant',
-  hostname: 'test.example.com',
-  locale: 'sv-SE',
-  theme: {
-    colors: {
-      primary: 'oklch(0.205 0 0)',
-      secondary: 'oklch(0.97 0 0)',
-      background: 'oklch(1 0 0)',
-      foreground: 'oklch(0.145 0 0)',
-    },
-    radius: '0.625rem',
-  },
-  branding: {
-    name: 'Test Store',
-    logoUrl: '/logo.svg',
-    faviconUrl: '/favicon.ico',
-  },
-  features: {},
-});
-
-vi.mock('../../../app/composables/useTenant', () => ({
-  useTenant: () => ({
-    tenant,
-    tenantId: computed(() => tenant.value?.tenantId ?? ''),
-    hostname: computed(() => tenant.value?.hostname ?? ''),
-    isLoading: ref(false),
-    error: ref(null),
-    refresh: vi.fn(),
-    theme: computed(() => tenant.value?.theme),
-    branding: computed(() => tenant.value?.branding),
-    logoUrl: computed(() => '/logo.svg'),
-    logoDarkUrl: computed(() => null),
-    logoSymbolUrl: computed(() => null),
-    faviconUrl: computed(() => '/favicon.ico'),
-    ogImageUrl: computed(() => null),
-    brandName: computed(() => 'Test Store'),
-    mode: computed(() => 'commerce'),
-    watermark: computed(() => 'full'),
-    availableLocales: computed(() => ['sv']),
-    availableMarkets: computed(() => []),
-    market: computed(() => ''),
-    imageBaseUrl: computed(() => 'https://monitor.commerce.services'),
-    features: computed(() => tenant.value?.features),
-    hasFeature: mockHasFeature,
-    suspense: () => Promise.resolve(),
-  }),
-  useTenantTheme: () => ({
-    colors: computed(() => tenant.value?.theme?.colors),
-    typography: computed(() => undefined),
-    radius: computed(() => tenant.value?.theme?.radius),
-    getColor: () => '',
-    primaryColor: computed(() => 'oklch(0.205 0 0)'),
-    secondaryColor: computed(() => 'oklch(0.97 0 0)'),
-    backgroundColor: computed(() => 'oklch(1 0 0)'),
-    foregroundColor: computed(() => 'oklch(0.145 0 0)'),
-  }),
 }));
 
 function makePrice(overrides: Record<string, unknown> = {}) {
@@ -87,6 +30,11 @@ function makePrice(overrides: Record<string, unknown> = {}) {
 }
 
 describe('PriceDisplay', () => {
+  beforeEach(() => {
+    tenant.value.features = {};
+    mockCanAccess.mockReturnValue(true);
+  });
+
   it('renders selling price inc VAT by default', () => {
     const wrapper = mountComponent(PriceDisplay, {
       props: { price: makePrice() },
@@ -288,7 +236,7 @@ describe('PriceDisplay', () => {
 
   describe('feature flags', () => {
     it('shows price when pricing feature is not configured', () => {
-      mockHasFeature.mockReturnValue(false);
+      tenant.value.features = {};
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice() },
@@ -297,7 +245,7 @@ describe('PriceDisplay', () => {
     });
 
     it('shows price when pricing feature allows access', () => {
-      mockHasFeature.mockReturnValue(true);
+      tenant.value.features = { pricing: { enabled: true } };
       mockCanAccess.mockReturnValue(true);
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice() },
@@ -306,7 +254,7 @@ describe('PriceDisplay', () => {
     });
 
     it('shows login message when pricing feature denies access', () => {
-      mockHasFeature.mockReturnValue(true);
+      tenant.value.features = { pricing: { enabled: true } };
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice() },
