@@ -9,13 +9,18 @@ import { describe, it, expect, vi, afterAll } from 'vitest';
  * to avoid nonce mismatches between Vite's multi-pass SSR and the CSP header).
  */
 
-// Set NODE_ENV to production BEFORE importing nuxt.config so the
-// conditional CSP/nonce/SRI branches evaluate to their prod values.
+// Set NODE_ENV to production and clear VITEST BEFORE importing nuxt.config so
+// the conditional CSP/nonce/SRI branches and module list evaluate to their prod values.
 const originalNodeEnv = process.env.NODE_ENV;
+const originalVitest = process.env.VITEST;
 process.env.NODE_ENV = 'production';
+delete process.env.VITEST;
 
 afterAll(() => {
   process.env.NODE_ENV = originalNodeEnv;
+  if (originalVitest !== undefined) {
+    process.env.VITEST = originalVitest;
+  }
 });
 
 // Mock defineNuxtConfig to pass-through the config object
