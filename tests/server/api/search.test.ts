@@ -1,20 +1,48 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// eslint-friendly callable type
-type AnyFn = (...args: unknown[]) => unknown;
-
 // ---------------------------------------------------------------------------
-// Mock the search service module
+// Mock at the SDK boundary — let search service run for real
 // ---------------------------------------------------------------------------
-const mockSearchProducts = vi.fn();
+const mockGraphqlQuery = vi.fn();
 
-vi.mock('../../../server/services/search', () => ({
-  searchProducts: (...args: unknown[]) => mockSearchProducts(...args),
+const mockSDK = {
+  core: {
+    geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' },
+    graphql: { query: mockGraphqlQuery, mutation: vi.fn() },
+  },
+};
+
+vi.mock('../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
+  getChannelVariables: vi.fn(),
+  getRequestChannelVariables: vi
+    .fn()
+    .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
+}));
+
+// Mock graphql loader (depends on #graphql-queries build-time alias)
+vi.mock('../../../server/services/graphql/loader', () => ({
+  loadQuery: vi.fn((path: string) => `query:${path}`),
+}));
+
+vi.mock('../../../server/services/graphql/unwrap', () => ({
+  unwrapGraphQL: vi.fn((result: unknown) => {
+    if (result === null || result === undefined) return result;
+    if (typeof result !== 'object' || Array.isArray(result)) return result;
+    const keys = Object.keys(result as Record<string, unknown>);
+    if (keys.length === 1) {
+      return (result as Record<string, unknown>)[keys[0]!];
+    }
+    return result;
+  }),
 }));
 
 // ---------------------------------------------------------------------------
 // Stub Nitro / h3 auto-imports
 // ---------------------------------------------------------------------------
+// eslint-friendly callable type
+type AnyFn = (...args: unknown[]) => unknown;
+
 vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getQuery', vi.fn());
 vi.stubGlobal(
@@ -26,6 +54,9 @@ vi.stubGlobal(
 );
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
 vi.stubGlobal('optionalAuth', vi.fn().mockResolvedValue(null));
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
+vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,24 +72,23 @@ describe('GET /api/search/products', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
-    mockSearchProducts.mockResolvedValue({ products: [] });
+    mockGraphqlQuery.mockResolvedValue({
+      searchProducts: { products: [], count: 0 },
+    });
     const mod = await import('../../../server/api/search/products.get.ts');
     handler = mod.default as (event: import('h3').H3Event) => Promise<unknown>;
   });
 
-  it('builds filter with searchText and calls searchProducts', async () => {
+  it('builds filter with searchText and queries SDK', async () => {
     vi.mocked(getQuery).mockReturnValue({ query: 'shoes' });
 
-    await handler(fakeEvent);
+    const result = await handler(fakeEvent);
 
-    expect(mockSearchProducts).toHaveBeenCalledOnce();
-    expect(mockSearchProducts).toHaveBeenCalledWith(
-      { filter: { searchText: 'shoes' } },
-      fakeEvent,
-    );
+    expect(mockGraphqlQuery).toHaveBeenCalledOnce();
+    expect(result).toEqual({ products: [], count: 0 });
   });
 
-  it('includes skip and take in filter when provided', async () => {
+  it('includes skip and take in SDK query when provided', async () => {
     vi.mocked(getQuery).mockReturnValue({
       query: 'jackets',
       skip: '0',
@@ -67,9 +97,16 @@ describe('GET /api/search/products', () => {
 
     await handler(fakeEvent);
 
-    expect(mockSearchProducts).toHaveBeenCalledWith(
-      { filter: { searchText: 'jackets', skip: 0, take: 10 } },
-      fakeEvent,
+    expect(mockGraphqlQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: expect.objectContaining({
+          filter: expect.objectContaining({
+            searchText: 'jackets',
+            skip: 0,
+            take: 10,
+          }),
+        }),
+      }),
     );
   });
 
@@ -81,9 +118,15 @@ describe('GET /api/search/products', () => {
 
     await handler(fakeEvent);
 
-    expect(mockSearchProducts).toHaveBeenCalledWith(
-      { filter: { color: 'red', searchText: 'boots' } },
-      fakeEvent,
+    expect(mockGraphqlQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: expect.objectContaining({
+          filter: expect.objectContaining({
+            searchText: 'boots',
+            color: 'red',
+          }),
+        }),
+      }),
     );
   });
 

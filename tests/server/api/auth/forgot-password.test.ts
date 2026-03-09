@@ -2,6 +2,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
+// ---------------------------------------------------------------------------
+// Mock at the SDK boundary — let user service run for real
+// ---------------------------------------------------------------------------
+const mockPasswordRequestReset = vi.fn().mockResolvedValue({ succeeded: true });
+
+const mockSDK = {
+  crm: {
+    user: {
+      password: {
+        requestReset: mockPasswordRequestReset,
+      },
+    },
+  },
+};
+
+vi.mock('../../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
+}));
+
+// Rate limiter — uses useStorage('kv'), must stay mocked
 const mockCheck = vi
   .fn()
   .mockResolvedValue({ allowed: true, remaining: 4, resetTime: 0 });
@@ -10,12 +30,6 @@ vi.mock('../../../../server/utils/rate-limiter', () => ({
     check: (...args: unknown[]) => mockCheck(...args),
   },
   getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
-}));
-
-const mockRequestPasswordReset = vi.fn().mockResolvedValue({ succeeded: true });
-vi.mock('../../../../server/services/user', () => ({
-  requestPasswordReset: (...args: unknown[]) =>
-    mockRequestPasswordReset(...args),
 }));
 
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
@@ -27,7 +41,9 @@ vi.stubGlobal(
 vi.stubGlobal('ErrorCode', {
   RATE_LIMITED: 'RATE_LIMITED',
   BAD_REQUEST: 'BAD_REQUEST',
+  UNAUTHORIZED: 'UNAUTHORIZED',
 });
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
 describe('POST /api/auth/forgot-password', () => {
   const mockEvent = {} as unknown as import('h3').H3Event;
@@ -54,19 +70,16 @@ describe('POST /api/auth/forgot-password', () => {
     expect(result).toEqual({ success: true });
   });
 
-  it('calls requestPasswordReset with the email', async () => {
+  it('calls SDK password.requestReset with the email', async () => {
     const handler = (
       await import('../../../../server/api/auth/forgot-password.post')
     ).default;
     await handler(mockEvent);
-    expect(mockRequestPasswordReset).toHaveBeenCalledWith(
-      'user@example.com',
-      mockEvent,
-    );
+    expect(mockPasswordRequestReset).toHaveBeenCalledWith('user@example.com');
   });
 
   it('still returns success: true when SDK throws (email not found)', async () => {
-    mockRequestPasswordReset.mockRejectedValueOnce(new Error('User not found'));
+    mockPasswordRequestReset.mockRejectedValueOnce(new Error('User not found'));
     const handler = (
       await import('../../../../server/api/auth/forgot-password.post')
     ).default;

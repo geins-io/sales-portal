@@ -2,11 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
-const mockGetUser = vi.fn();
-vi.mock('../../../../server/services/user', () => ({
-  getUser: (...args: unknown[]) => mockGetUser(...args),
+// ---------------------------------------------------------------------------
+// Mock at the SDK boundary — let user service run for real
+// ---------------------------------------------------------------------------
+const mockUserGet = vi.fn();
+
+const mockSDK = {
+  crm: {
+    user: {
+      get: mockUserGet,
+    },
+  },
+};
+
+vi.mock('../../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
 }));
 
+// requireAuth reads cookies — must stay mocked
 const mockRequireAuth = vi.fn().mockResolvedValue({
   authToken: 'test-auth-token',
   refreshToken: 'test-refresh-token',
@@ -24,6 +37,7 @@ vi.stubGlobal('ErrorCode', {
   UNAUTHORIZED: 'UNAUTHORIZED',
   BAD_REQUEST: 'BAD_REQUEST',
 });
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
 describe('GET /api/user/profile', () => {
   const mockEvent = {} as import('h3').H3Event;
@@ -36,25 +50,25 @@ describe('GET /api/user/profile', () => {
     });
   });
 
-  it('returns user profile on success', async () => {
+  it('returns user profile from SDK', async () => {
     const mockProfile = {
       id: 1,
       email: 'user@example.com',
       address: { firstName: 'John', lastName: 'Doe' },
     };
-    mockGetUser.mockResolvedValue(mockProfile);
+    mockUserGet.mockResolvedValue(mockProfile);
 
     const handler = (await import('../../../../server/api/user/profile.get'))
       .default;
     const result = await handler(mockEvent);
 
     expect(mockRequireAuth).toHaveBeenCalledWith(mockEvent);
-    expect(mockGetUser).toHaveBeenCalledWith('test-auth-token', mockEvent);
+    expect(mockUserGet).toHaveBeenCalledWith('test-auth-token');
     expect(result).toEqual({ profile: mockProfile });
   });
 
-  it('throws BAD_REQUEST when user not found', async () => {
-    mockGetUser.mockResolvedValue(undefined);
+  it('throws BAD_REQUEST when SDK returns undefined', async () => {
+    mockUserGet.mockResolvedValue(undefined);
 
     const handler = (await import('../../../../server/api/user/profile.get'))
       .default;

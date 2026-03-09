@@ -2,11 +2,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
-const mockGetUserOrders = vi.fn();
-vi.mock('../../../../server/services/user', () => ({
-  getUserOrders: (...args: unknown[]) => mockGetUserOrders(...args),
+// ---------------------------------------------------------------------------
+// Mock at the SDK boundary — let user service run for real
+// ---------------------------------------------------------------------------
+const mockUserOrdersGet = vi.fn();
+
+const mockSDK = {
+  crm: {
+    user: {
+      orders: {
+        get: mockUserOrdersGet,
+      },
+    },
+  },
+};
+
+vi.mock('../../../../server/services/_sdk', () => ({
+  getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
 }));
 
+// requireAuth reads cookies — must stay mocked
 const mockRequireAuth = vi.fn().mockResolvedValue({
   authToken: 'test-auth-token',
   refreshToken: 'test-refresh-token',
@@ -24,6 +39,7 @@ vi.stubGlobal('ErrorCode', {
   UNAUTHORIZED: 'UNAUTHORIZED',
   BAD_REQUEST: 'BAD_REQUEST',
 });
+vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
 describe('GET /api/user/orders', () => {
   const mockEvent = {} as import('h3').H3Event;
@@ -36,26 +52,23 @@ describe('GET /api/user/orders', () => {
     });
   });
 
-  it('returns orders on success', async () => {
+  it('returns orders from SDK', async () => {
     const mockOrders = {
       getOrders: [{ id: 1, status: 'placed', createdAt: '2026-01-01' }],
     };
-    mockGetUserOrders.mockResolvedValue(mockOrders);
+    mockUserOrdersGet.mockResolvedValue(mockOrders);
 
     const handler = (await import('../../../../server/api/user/orders.get'))
       .default;
     const result = await handler(mockEvent);
 
     expect(mockRequireAuth).toHaveBeenCalledWith(mockEvent);
-    expect(mockGetUserOrders).toHaveBeenCalledWith(
-      'test-auth-token',
-      mockEvent,
-    );
+    expect(mockUserOrdersGet).toHaveBeenCalledWith('test-auth-token');
     expect(result).toEqual({ orders: mockOrders.getOrders });
   });
 
-  it('returns empty array when no orders', async () => {
-    mockGetUserOrders.mockResolvedValue(undefined);
+  it('returns empty array when SDK returns undefined', async () => {
+    mockUserOrdersGet.mockResolvedValue(undefined);
 
     const handler = (await import('../../../../server/api/user/orders.get'))
       .default;
