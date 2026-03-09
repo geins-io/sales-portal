@@ -62,6 +62,7 @@ const componentTestFiles = [
   'tests/components/pages/ContentPageSkeleton.test.ts',
   'tests/components/pages/SearchResultsSkeleton.test.ts',
   'tests/components/pages/CartPageSkeleton.test.ts',
+  'tests/components/pages/ProductDetails.test.ts',
   'tests/components/auth/AuthCard.test.ts',
   'tests/components/auth/LoginForm.test.ts',
   'tests/components/auth/RegisterForm.test.ts',

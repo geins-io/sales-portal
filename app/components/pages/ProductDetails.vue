@@ -84,6 +84,16 @@ async function addToCart() {
   await cartStore.addItem(resolvedSku.value.skuId, quantity.value);
 }
 
+// Discount campaigns
+const visibleCampaigns = computed(() =>
+  (
+    ((product.value as Record<string, unknown>)?.discountCampaigns as {
+      name: string;
+      hideTitle: boolean;
+    }[]) ?? []
+  ).filter((c) => !c.hideTitle),
+);
+
 // Breadcrumbs
 const breadcrumbItems = computed(() => {
   if (!product.value?.breadcrumbs) return [];
@@ -243,14 +253,40 @@ useSchemaOrg([
           {{ product.brand.name }}
         </p>
 
+        <!-- Campaign badges -->
+        <div
+          v-if="visibleCampaigns.length"
+          class="flex flex-wrap gap-1"
+          data-testid="pdp-campaign-badges"
+        >
+          <span
+            v-for="campaign in visibleCampaigns"
+            :key="campaign.name"
+            class="bg-destructive/10 text-destructive rounded-sm px-1.5 py-0.5 text-xs font-medium"
+          >
+            {{ campaign.name }}
+          </span>
+        </div>
+
         <!-- Price -->
         <PriceDisplay
           v-if="product.unitPrice"
           :price="product.unitPrice"
           :lowest-price="(product as any).lowestPrice"
           :discount-type="(product as any).discountType"
+          :campaign-names="visibleCampaigns.map((c) => c.name)"
           class="text-lg font-semibold"
         />
+
+        <!-- Negotiated price info banner -->
+        <div
+          v-if="(product as any).discountType === 'EXTERNAL'"
+          class="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800"
+          data-testid="negotiated-price-banner"
+        >
+          <Icon name="lucide:badge-check" class="size-4 shrink-0" />
+          <span>{{ $t('discount.negotiated_price_info') }}</span>
+        </div>
 
         <!-- Short description -->
         <p
