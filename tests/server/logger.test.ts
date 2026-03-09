@@ -39,8 +39,11 @@ describe('Logger utilities', () => {
       const parentLogger = createLogger({ hostname: 'tenant-1.example.com' });
       const childLogger = parentLogger.child({ requestId: 'req-1' });
 
-      expect(childLogger).toBeDefined();
       expect(childLogger).toHaveProperty('debug');
+      expect(childLogger).toHaveProperty('info');
+      expect(childLogger).toHaveProperty('warn');
+      expect(childLogger).toHaveProperty('error');
+      expect(childLogger).toHaveProperty('child');
     });
 
     it('should return correlation ID from context', () => {
@@ -58,8 +61,11 @@ describe('Logger utilities', () => {
     it('should create a logger with hostname context', () => {
       const logger = createTenantLogger('tenant-123.example.com');
 
-      expect(logger).toBeDefined();
+      expect(logger).toHaveProperty('debug');
       expect(logger).toHaveProperty('info');
+      expect(logger).toHaveProperty('warn');
+      expect(logger).toHaveProperty('error');
+      expect(logger).toHaveProperty('child');
     });
   });
 

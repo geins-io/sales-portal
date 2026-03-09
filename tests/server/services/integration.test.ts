@@ -72,8 +72,8 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
         string,
         unknown
       >;
-      expect(data).toBeDefined();
-      expect(data.defaultMarketId).toBeDefined();
+      expect(data).toBeTypeOf('object');
+      expect(data.defaultMarketId).toBeTypeOf('string');
 
       const markets = data.markets as Array<Record<string, unknown>>;
       expect(markets.length).toBeGreaterThan(0);
@@ -159,7 +159,7 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
         filters: Array<Record<string, unknown>>;
       };
       expect(data.count).toBeGreaterThan(0);
-      expect(data.filters).toBeDefined();
+      expect(data.filters).toBeTypeOf('object');
     });
 
     it('should load category page with subcategories', async () => {
@@ -169,9 +169,9 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
         { alias: discoveredCategory!.alias },
         event,
       )) as { id: number; name: string; subCategories: unknown[] };
-      expect(data).toBeDefined();
+      expect(data).toBeTypeOf('object');
       expect(data.name).toBe(discoveredCategory!.name);
-      expect(data.subCategories).toBeDefined();
+      expect(Array.isArray(data.subCategories)).toBe(true);
     });
 
     it('should load brand page', async () => {
@@ -180,7 +180,7 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
         { alias: discoveredBrand!.alias },
         event,
       )) as { id: number; name: string };
-      expect(data).toBeDefined();
+      expect(data).toBeTypeOf('object');
       expect(data.name).toBe(discoveredBrand!.name);
     });
   });
@@ -209,21 +209,23 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
         { alias: productAlias },
         event,
       )) as Record<string, unknown>;
-      expect(data).toBeDefined();
-      expect(data.name).toBeDefined();
-      expect(data.unitPrice).toBeDefined();
-      expect(data.totalStock).toBeDefined();
-      expect(data.skus).toBeDefined();
-      expect(data.meta).toBeDefined();
+      expect(data).toBeTypeOf('object');
+      expect(data.name).toBeTypeOf('string');
+      expect(data.unitPrice).toBeTypeOf('object');
+      expect(data.totalStock).toBeTypeOf('object');
+      expect(Array.isArray(data.skus)).toBe(true);
+      expect(data.meta).toBeTypeOf('object');
     });
 
     it('should load related products', async () => {
-      // unwrapped: returns array directly (or whatever relatedProducts contains)
+      // unwrapped: returns array or object depending on query shape
       const result = await products.getRelatedProducts(
         { alias: productAlias },
         event,
       );
-      expect(result).toBeDefined();
+      expect(result).not.toBeUndefined();
+      // Result may be an array or an object — either is valid
+      expect(typeof result === 'object' || Array.isArray(result)).toBe(true);
     });
 
     it('should load price history', async () => {
@@ -232,7 +234,8 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
         { alias: productAlias },
         event,
       );
-      expect(result).toBeDefined();
+      expect(result).not.toBeUndefined();
+      expect(typeof result === 'object').toBe(true);
     });
   });
 
@@ -346,22 +349,22 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
     });
 
     it('should create an empty cart', async () => {
-      const newCart = await cart.createCart(event);
-      expect(newCart).toBeDefined();
+      const newCart = (await cart.createCart(event)) as { id: string };
+      expect(newCart).toBeTypeOf('object');
+      expect(newCart.id).toBeTypeOf('string');
     });
 
     it('should add an item to a cart', async () => {
       expect(validSkuId).not.toBeNull();
-      const newCart = await cart.createCart(event);
-      expect(newCart).toBeDefined();
-      const cartId = (newCart as { id?: string })?.id;
-      if (!cartId) return;
-      const updated = await cart.addItem(
-        cartId,
+      const newCart = (await cart.createCart(event)) as { id: string };
+      expect(newCart.id).toBeTypeOf('string');
+      const updated = (await cart.addItem(
+        newCart.id,
         { skuId: validSkuId!, quantity: 1 },
         event,
-      );
-      expect(updated).toBeDefined();
+      )) as { id: string };
+      expect(updated).toBeTypeOf('object');
+      expect(updated.id).toBeTypeOf('string');
     });
 
     // Promo code apply/remove requires a cart with items (cart ID is stateful).
@@ -387,8 +390,8 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
         event,
       );
       expect(loginResult!.succeeded).toBe(true);
-      expect(loginResult!.tokens!.refreshToken).toBeTruthy();
-      expect(loginResult!.user).toBeDefined();
+      expect(loginResult!.tokens!.refreshToken).toBeTypeOf('string');
+      expect(loginResult!.user).toBeTypeOf('object');
 
       // Get user via auth.getUser (uses refresh + user token)
       const authResult = await auth.getUser(
@@ -397,7 +400,7 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
         event,
       );
       expect(authResult!.succeeded).toBe(true);
-      expect(authResult!.user).toBeDefined();
+      expect(authResult!.user).toBeTypeOf('object');
     }, 15_000);
 
     it('should refresh tokens', async () => {
@@ -415,7 +418,8 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
         event,
       );
       expect(refreshResult!.succeeded).toBe(true);
-      expect(refreshResult!.tokens).toBeDefined();
+      expect(refreshResult!.tokens).toBeTypeOf('object');
+      expect(refreshResult!.tokens!.token).toBeTypeOf('string');
     }, 15_000);
 
     it('should reject invalid credentials', async () => {

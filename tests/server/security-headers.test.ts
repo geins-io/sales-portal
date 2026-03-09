@@ -42,9 +42,10 @@ describe('nuxt-security configuration', () => {
     expect(modules).toContain('nuxt-security');
   });
 
-  it('has security config defined', () => {
-    expect(security).toBeDefined();
-    expect(typeof security).toBe('object');
+  it('has security config with expected keys', () => {
+    expect(security).toHaveProperty('headers');
+    expect(security).toHaveProperty('nonce');
+    expect(security).toHaveProperty('sri');
   });
 
   it('enables nonce support for SSR in production', () => {
