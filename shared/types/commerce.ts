@@ -98,6 +98,23 @@ export interface LowestPriceInfo {
 }
 
 // ---------------------------------------------------------------------------
+// Campaign types & utilities
+// ---------------------------------------------------------------------------
+
+/** Minimal campaign shape shared across product, cart item, and cart-level campaigns */
+export interface CampaignInfo {
+  name: string;
+  hideTitle: boolean;
+}
+
+/** Filter campaigns to only those with visible titles */
+export function filterVisibleCampaigns<T extends { hideTitle?: boolean }>(
+  campaigns: T[],
+): T[] {
+  return campaigns.filter((c) => !c.hideTitle);
+}
+
+// ---------------------------------------------------------------------------
 // List Product (subset of ProductType returned by product-list queries)
 // ---------------------------------------------------------------------------
 export interface ListProduct {

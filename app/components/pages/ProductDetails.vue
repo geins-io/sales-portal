@@ -4,6 +4,7 @@ import type {
   ReviewsResponse,
   ListProduct,
 } from '#shared/types/commerce';
+import { filterVisibleCampaigns } from '#shared/types/commerce';
 import type { ProductRouteResolution } from '#shared/types/common';
 import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
@@ -86,7 +87,7 @@ async function addToCart() {
 
 // Discount campaigns
 const visibleCampaigns = computed(() =>
-  (product.value?.discountCampaigns ?? []).filter((c) => !c.hideTitle),
+  filterVisibleCampaigns(product.value?.discountCampaigns ?? []),
 );
 
 // Breadcrumbs

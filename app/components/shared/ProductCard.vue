@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
+import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { ShoppingCart, Star } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
 
@@ -33,7 +34,7 @@ const maxQuantity = computed(() => {
 });
 
 const visibleCampaigns = computed(() =>
-  (props.product.discountCampaigns ?? []).filter((c) => !c.hideTitle),
+  filterVisibleCampaigns(props.product.discountCampaigns ?? []),
 );
 
 const quantity = ref(1);

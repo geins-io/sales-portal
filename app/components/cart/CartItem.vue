@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Trash2 } from 'lucide-vue-next';
 import type { CartItemType } from '#shared/types/commerce';
+import { filterVisibleCampaigns } from '#shared/types/commerce';
 
 const { t } = useI18n();
 
@@ -39,9 +40,7 @@ const skuName = computed(() => {
 });
 
 const visibleItemCampaigns = computed(() =>
-  (props.item.campaign?.appliedCampaigns ?? []).filter(
-    (c: { hideTitle?: boolean }) => !c.hideTitle,
-  ),
+  filterVisibleCampaigns(props.item.campaign?.appliedCampaigns ?? []),
 );
 
 const maxQuantity = computed(() => {

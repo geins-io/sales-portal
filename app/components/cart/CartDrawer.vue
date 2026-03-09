@@ -21,25 +21,15 @@ const taxFormatted = computed(
   () => cartStore.cart?.summary?.total?.vatFormatted ?? null,
 );
 
-const discountAmount = computed(
-  () => cartStore.cart?.summary?.fixedAmountDiscountIncVat ?? 0,
-);
-
 const discountFormatted = computed(() => {
-  if (!discountAmount.value) return '';
+  if (!cartStore.discountAmount) return '';
   const currency = cartStore.cart?.summary?.total?.currency;
   return formatPrice(
-    discountAmount.value,
+    cartStore.discountAmount,
     currency?.code,
     tenant.value?.locale,
   );
 });
-
-const cartCampaigns = computed(() =>
-  (cartStore.cart?.appliedCampaigns ?? []).filter(
-    (c: { hideTitle?: boolean }) => !c.hideTitle,
-  ),
-);
 </script>
 
 <template>
@@ -121,7 +111,7 @@ const cartCampaigns = computed(() =>
           </div>
           <!-- Discount line -->
           <div
-            v-if="discountAmount"
+            v-if="cartStore.discountAmount"
             class="flex items-center justify-between text-sm"
             data-testid="cart-summary-discount"
           >
@@ -148,12 +138,12 @@ const cartCampaigns = computed(() =>
           </div>
           <!-- Cart-level campaigns -->
           <div
-            v-if="cartCampaigns.length"
+            v-if="cartStore.visibleCartCampaigns.length"
             class="space-y-1"
             data-testid="cart-campaigns"
           >
             <div
-              v-for="campaign in cartCampaigns"
+              v-for="campaign in cartStore.visibleCartCampaigns"
               :key="campaign.name"
               class="flex items-center gap-1 text-xs"
             >
