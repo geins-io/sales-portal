@@ -26,6 +26,18 @@ vi.mock('~/stores/cart', () => ({
   }),
 }));
 
+const mockToggle = vi.fn();
+const mockIsFavorite = vi.fn(() => false);
+
+vi.mock('~/stores/favorites', () => ({
+  useFavoritesStore: () => ({
+    toggle: mockToggle,
+    isFavorite: mockIsFavorite,
+    items: [],
+    count: 0,
+  }),
+}));
+
 const stubs = {
   GeinsImage: geinsImageStub,
   SharedGeinsImage: geinsImageStub,
@@ -95,6 +107,8 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
 describe('ProductCard', () => {
   beforeEach(() => {
     mockAddItem.mockReset();
+    mockToggle.mockReset();
+    mockIsFavorite.mockReset().mockReturnValue(false);
   });
 
   it('renders product name', () => {
@@ -204,7 +218,8 @@ describe('ProductCard', () => {
     expect(addToCartButton.attributes('disabled')).toBeDefined();
   });
 
-  it('renders wishlist button', () => {
+  it('renders wishlist button when feature is enabled', () => {
+    tenant.value.features = { wishlist: { enabled: true } };
     const wrapper = mountComponent(ProductCard, {
       props: { product: makeProduct() },
       global: { stubs },
@@ -317,6 +332,66 @@ describe('ProductCard', () => {
       const badges = wrapper.findAll('[data-testid="campaign-badge"]');
       expect(badges.length).toBe(1);
       expect(badges[0].text()).toBe('List Sale');
+    });
+  });
+
+  describe('wishlist', () => {
+    afterEach(() => {
+      tenant.value.features = {};
+    });
+
+    it('hides wishlist button when feature is disabled', () => {
+      tenant.value.features = {};
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="wishlist-button"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('shows wishlist button when feature is enabled', () => {
+      tenant.value.features = { wishlist: { enabled: true } };
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="wishlist-button"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('calls toggle with product alias on click', async () => {
+      tenant.value.features = { wishlist: { enabled: true } };
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct({ alias: 'my-product' }) },
+        global: { stubs },
+      });
+      await wrapper.find('[data-testid="wishlist-button"]').trigger('click');
+      expect(mockToggle).toHaveBeenCalledWith('my-product');
+    });
+
+    it('shows filled star when product is a favorite', () => {
+      tenant.value.features = { wishlist: { enabled: true } };
+      mockIsFavorite.mockReturnValue(true);
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs },
+      });
+      const button = wrapper.find('[data-testid="wishlist-button"]');
+      expect(button.attributes('data-favorited')).toBe('true');
+    });
+
+    it('shows unfilled star when product is not a favorite', () => {
+      tenant.value.features = { wishlist: { enabled: true } };
+      mockIsFavorite.mockReturnValue(false);
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs },
+      });
+      const button = wrapper.find('[data-testid="wishlist-button"]');
+      expect(button.attributes('data-favorited')).toBe('false');
     });
   });
 
