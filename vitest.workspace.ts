@@ -55,6 +55,7 @@ const componentTestFiles = [
   'tests/components/cart/CartDrawer.test.ts',
   'tests/components/cart/CartPage.test.ts',
   'tests/components/shared/Pagination.test.ts',
+  'tests/components/shared/VolumePricingTable.test.ts',
   'tests/components/pages/PageSidebarNav.test.ts',
   'tests/components/pages/Content.test.ts',
   'tests/components/pages/ProductListSkeleton.test.ts',
