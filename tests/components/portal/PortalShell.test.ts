@@ -3,6 +3,8 @@ import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
 import PortalShell from '../../../app/components/portal/PortalShell.vue';
 import { createPinia, setActivePinia } from 'pinia';
+import { useTenant } from '../../../app/composables/useTenant';
+import { useFavoritesStore } from '../../../app/stores/favorites';
 
 // Mock useFetch for profile data
 const mockUseFetch = vi.fn(() => ({
@@ -48,9 +50,34 @@ const iconStub = {
 
 const stubs = { Icon: iconStub, NuxtIcon: iconStub };
 
+function enableWishlistFeature() {
+  const { tenant } = useTenant();
+  tenant.value = {
+    ...tenant.value,
+    features: {
+      ...tenant.value?.features,
+      wishlist: { enabled: true },
+    },
+  };
+}
+
+function disableWishlistFeature() {
+  const { tenant } = useTenant();
+  tenant.value = {
+    ...tenant.value,
+    features: {
+      ...tenant.value?.features,
+      wishlist: { enabled: false },
+    },
+  };
+}
+
 describe('PortalShell', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    mockCanAccess.mockReturnValue(false);
+    // Reset tenant features to default (no wishlist)
+    disableWishlistFeature();
   });
 
   it('renders hero banner', () => {
@@ -101,6 +128,7 @@ describe('PortalShell', () => {
   });
 
   it('renders quick links (favorites, account, logout)', () => {
+    enableWishlistFeature();
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div>content</div>' },
       global: { stubs },
@@ -108,5 +136,99 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.quick_links.favorites');
     expect(wrapper.text()).toContain('portal.quick_links.account');
     expect(wrapper.text()).toContain('portal.quick_links.logout');
+  });
+
+  describe('favorites quick link', () => {
+    it('links to /portal/favorites when wishlist feature is enabled', () => {
+      enableWishlistFeature();
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      const favoritesLink = wrapper
+        .findAll('a')
+        .find((a) => a.text().includes('portal.quick_links.favorites'));
+      expect(favoritesLink).toBeDefined();
+      expect(favoritesLink!.attributes('href')).toBe('/portal/favorites');
+    });
+
+    it('hides favorites quick link when wishlist feature is disabled', () => {
+      disableWishlistFeature();
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      const favoritesLink = wrapper
+        .findAll('a')
+        .find((a) => a.text().includes('portal.quick_links.favorites'));
+      expect(favoritesLink).toBeUndefined();
+    });
+
+    it('shows count badge when favorites exist', () => {
+      enableWishlistFeature();
+      const pinia = createPinia();
+      setActivePinia(pinia);
+      const store = useFavoritesStore();
+      store.$patch({ items: ['prod-1', 'prod-2', 'prod-3'] });
+
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs, plugins: [pinia] },
+      });
+      const badge = wrapper.find('[data-testid="favorites-count"]');
+      expect(badge.exists()).toBe(true);
+      expect(badge.text()).toBe('3');
+    });
+
+    it('hides count badge when no favorites', () => {
+      enableWishlistFeature();
+      const pinia = createPinia();
+      setActivePinia(pinia);
+      const store = useFavoritesStore();
+      store.$patch({ items: [] });
+
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs, plugins: [pinia] },
+      });
+      const badge = wrapper.find('[data-testid="favorites-count"]');
+      expect(badge.exists()).toBe(false);
+    });
+  });
+
+  describe('favorites tab', () => {
+    it('shows favorites tab when wishlist feature is accessible', () => {
+      mockCanAccess.mockImplementation(
+        (feature: string) => feature === 'wishlist',
+      );
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      expect(wrapper.text()).toContain('portal.tabs.favorites');
+    });
+
+    it('hides favorites tab when wishlist feature is not accessible', () => {
+      mockCanAccess.mockReturnValue(false);
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      expect(wrapper.text()).not.toContain('portal.tabs.favorites');
+    });
+
+    it('favorites tab links to /portal/favorites', () => {
+      mockCanAccess.mockReturnValue(true);
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      const tabLinks = wrapper.findAll('[data-testid="portal-tabs"] a');
+      const favoritesTab = tabLinks.find((a) =>
+        a.text().includes('portal.tabs.favorites'),
+      );
+      expect(favoritesTab).toBeDefined();
+      expect(favoritesTab!.attributes('href')).toBe('/portal/favorites');
+    });
   });
 });

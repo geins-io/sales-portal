@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { GeinsUserType } from '@geins/types';
 import { useAuthStore } from '~/stores/auth';
+import { useFavoritesStore } from '~/stores/favorites';
 
 const { t } = useI18n();
 const route = useRoute();
 const authStore = useAuthStore();
 const { canAccess } = useFeatureAccess();
+const { hasFeature } = useTenant();
+const favoritesStore = useFavoritesStore();
 
 const { data: profileData } = useFetch<{ profile: GeinsUserType }>(
   '/api/user/profile',
@@ -62,6 +65,13 @@ const tabs: PortalTab[] = [
     label: 'portal.tabs.lists',
     to: '/portal/lists',
     icon: 'lucide:list',
+  },
+  {
+    key: 'favorites',
+    label: 'portal.tabs.favorites',
+    to: '/portal/favorites',
+    icon: 'lucide:heart',
+    feature: 'wishlist',
   },
   {
     key: 'organisation',
@@ -128,11 +138,19 @@ async function handleLogout() {
         <!-- Right: Quick links -->
         <div class="flex flex-col gap-2 text-sm">
           <NuxtLink
-            to="/portal/lists"
+            v-if="hasFeature('wishlist')"
+            to="/portal/favorites"
             class="text-primary hover:text-primary/80 flex items-center gap-2 font-medium"
           >
             <Icon name="lucide:heart" class="size-4" />
             {{ t('portal.quick_links.favorites') }}
+            <span
+              v-if="favoritesStore.count > 0"
+              data-testid="favorites-count"
+              class="bg-primary text-primary-foreground inline-flex size-5 items-center justify-center rounded-full text-xs font-semibold"
+            >
+              {{ favoritesStore.count }}
+            </span>
           </NuxtLink>
           <NuxtLink
             to="/portal/account"
