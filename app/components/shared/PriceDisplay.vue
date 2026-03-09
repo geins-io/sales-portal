@@ -14,6 +14,7 @@ const props = withDefaults(
     fromPrice?: boolean;
     lowestPrice?: LowestPriceInfo;
     discountType?: ProductDiscountType;
+    campaignNames?: string[];
   }>(),
   {
     showVat: true,
@@ -21,6 +22,8 @@ const props = withDefaults(
     fromPrice: false,
   },
 );
+
+const { t } = useI18n();
 
 const { tenant, hasFeature } = useTenant();
 const { canAccess } = useFeatureAccess();
@@ -62,6 +65,27 @@ const isDiscounted = computed(
 
 const discountPercentage = computed(() => props.price?.discountPercentage ?? 0);
 
+const discountLabel = computed(() => {
+  if (!isDiscounted.value) return '';
+  switch (props.discountType) {
+    case 'SALE_PRICE':
+      return t('discount.sale');
+    case 'PRICE_CAMPAIGN':
+      return props.campaignNames?.[0] || t('discount.campaign');
+    case 'EXTERNAL':
+      return t('discount.your_price');
+    default:
+      return '';
+  }
+});
+
+const discountLabelClass = computed(() => {
+  if (props.discountType === 'EXTERNAL') {
+    return 'bg-blue-100 text-blue-800 rounded-sm px-1.5 py-0.5 text-xs font-medium';
+  }
+  return 'bg-destructive/10 text-destructive rounded-sm px-1.5 py-0.5 text-xs font-medium';
+});
+
 const lowestPriceFormatted = computed(() => {
   if (!props.lowestPrice?.isDiscounted) return '';
   const formatted = props.showVat
@@ -101,6 +125,13 @@ const lowestPriceFormatted = computed(() => {
       class="bg-destructive/10 text-destructive rounded-sm px-1.5 py-0.5 text-xs font-medium"
     >
       -{{ discountPercentage }}%
+    </span>
+    <span
+      v-if="discountLabel"
+      :class="discountLabelClass"
+      data-testid="discount-type-label"
+    >
+      {{ discountLabel }}
     </span>
     <span v-if="!showVat" class="text-muted-foreground text-xs">ex. VAT</span>
   </div>

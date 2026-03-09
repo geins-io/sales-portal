@@ -202,6 +202,90 @@ describe('PriceDisplay', () => {
     });
   });
 
+  describe('discount type label', () => {
+    it('shows "Sale" label for SALE_PRICE when discounted', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice(), discountType: 'SALE_PRICE' },
+      });
+      const label = wrapper.find('[data-testid="discount-type-label"]');
+      expect(label.exists()).toBe(true);
+      expect(label.text()).toBe('discount.sale');
+    });
+
+    it('shows campaign name for PRICE_CAMPAIGN when discounted', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: {
+          price: makePrice(),
+          discountType: 'PRICE_CAMPAIGN',
+          campaignNames: ['Summer Sale'],
+        },
+      });
+      const label = wrapper.find('[data-testid="discount-type-label"]');
+      expect(label.exists()).toBe(true);
+      expect(label.text()).toBe('Summer Sale');
+    });
+
+    it('falls back to generic campaign label when no campaign names', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: {
+          price: makePrice(),
+          discountType: 'PRICE_CAMPAIGN',
+        },
+      });
+      const label = wrapper.find('[data-testid="discount-type-label"]');
+      expect(label.exists()).toBe(true);
+      expect(label.text()).toBe('discount.campaign');
+    });
+
+    it('shows "Your price" for EXTERNAL in blue styling', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice(), discountType: 'EXTERNAL' },
+      });
+      const label = wrapper.find('[data-testid="discount-type-label"]');
+      expect(label.exists()).toBe(true);
+      expect(label.text()).toBe('discount.your_price');
+      expect(label.classes()).toContain('text-blue-800');
+    });
+
+    it('shows no label for NONE', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice(), discountType: 'NONE' },
+      });
+      expect(wrapper.find('[data-testid="discount-type-label"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('shows no label when not discounted', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: {
+          price: makePrice({ isDiscounted: false }),
+          discountType: 'SALE_PRICE',
+        },
+      });
+      expect(wrapper.find('[data-testid="discount-type-label"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('shows no label when discountType is not provided', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice() },
+      });
+      expect(wrapper.find('[data-testid="discount-type-label"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('uses destructive styling for SALE_PRICE', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice(), discountType: 'SALE_PRICE' },
+      });
+      const label = wrapper.find('[data-testid="discount-type-label"]');
+      expect(label.classes()).toContain('text-destructive');
+    });
+  });
+
   describe('feature flags', () => {
     it('shows price when pricing feature is not configured', () => {
       mockHasFeature.mockReturnValue(false);
