@@ -109,8 +109,16 @@ test.describe('Cart', () => {
       await promoInput.fill('INVALID_PROMO_12345');
       await promoApply.click();
 
-      // Wait for error response
-      await page.waitForTimeout(2000);
+      // Wait for the promo code API response
+      await page
+        .waitForResponse(
+          (resp) =>
+            resp.url().includes('/api/cart/promo') && resp.status() !== 0,
+          { timeout: 10000 },
+        )
+        .catch(() => {
+          // Fallback: API may not fire if validation is client-side
+        });
 
       // The promo code should not be applied — no active promo visible
       const promoRemove = drawer.locator('[data-testid="promo-remove"]');

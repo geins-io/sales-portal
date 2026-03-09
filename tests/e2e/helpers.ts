@@ -125,7 +125,15 @@ export async function clearCart(page: Page) {
   let removeButton = page.locator('[data-testid="cart-item-remove"]').first();
   while (await removeButton.isVisible().catch(() => false)) {
     await removeButton.click();
-    await page.waitForTimeout(500);
+    // Wait for the cart API response after removing the item
+    await page
+      .waitForResponse(
+        (resp) => resp.url().includes('/api/cart') && resp.status() !== 0,
+        { timeout: 5000 },
+      )
+      .catch(() => {
+        // Fallback: DOM may update without an API call in edge cases
+      });
     removeButton = page.locator('[data-testid="cart-item-remove"]').first();
   }
 }
@@ -234,7 +242,7 @@ export async function waitForHydration(page: Page, timeout = 15000) {
   );
 
   // Allow Vue to finish hydration mismatch patching and re-attach event handlers
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(300);
 }
 
 // ---------- Viewport ----------
