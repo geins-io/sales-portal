@@ -309,6 +309,74 @@ describe('ProductCard', () => {
     expect(wrapper.find('.geins-image').exists()).toBe(false);
   });
 
+  describe('campaign badges', () => {
+    it('shows visible campaigns as badges', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: makeProduct({
+            discountCampaigns: [{ name: 'Summer Sale', hideTitle: false }],
+          }),
+        },
+        global: { stubs },
+      });
+      const badges = wrapper.findAll('[data-testid="campaign-badge"]');
+      expect(badges.length).toBe(1);
+      expect(badges[0].text()).toBe('Summer Sale');
+    });
+
+    it('hides campaigns with hideTitle true', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: makeProduct({
+            discountCampaigns: [{ name: 'Secret', hideTitle: true }],
+          }),
+        },
+        global: { stubs },
+      });
+      expect(wrapper.findAll('[data-testid="campaign-badge"]').length).toBe(0);
+    });
+
+    it('shows multiple campaigns stacked', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: makeProduct({
+            discountCampaigns: [
+              { name: 'Sale A', hideTitle: false },
+              { name: 'Sale B', hideTitle: false },
+            ],
+          }),
+        },
+        global: { stubs },
+      });
+      expect(wrapper.findAll('[data-testid="campaign-badge"]').length).toBe(2);
+    });
+
+    it('shows no badge container when no campaigns', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: makeProduct({ discountCampaigns: [] }),
+        },
+        global: { stubs },
+      });
+      expect(wrapper.findAll('[data-testid="campaign-badge"]').length).toBe(0);
+    });
+
+    it('shows badges in list variant', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: makeProduct({
+            discountCampaigns: [{ name: 'List Sale', hideTitle: false }],
+          }),
+          variant: 'list',
+        },
+        global: { stubs },
+      });
+      const badges = wrapper.findAll('[data-testid="campaign-badge"]');
+      expect(badges.length).toBe(1);
+      expect(badges[0].text()).toBe('List Sale');
+    });
+  });
+
   describe('feature flags', () => {
     afterEach(() => {
       mockHasFeature.mockReturnValue(false);
