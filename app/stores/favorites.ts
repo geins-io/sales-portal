@@ -22,7 +22,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   let session: ListsSession | null = null;
 
-  function getSession(): ListsSession {
+  function getSession(): ListsSession | null {
+    if (import.meta.server) return null;
     if (!session) {
       session = new ListsSession({ storage: new LocalStorageAdapter() });
     }
@@ -30,37 +31,46 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function syncFromSession() {
-    items.value = getSession().favorites.items;
+    const s = getSession();
+    items.value = s ? s.favorites.items : [];
   }
 
   function initialize() {
-    if (import.meta.server) return;
     syncFromSession();
   }
 
   function toggle(productId: string): boolean {
-    const result = getSession().toggleFavorite(productId);
+    const s = getSession();
+    if (!s) return false;
+    const result = s.toggleFavorite(productId);
     syncFromSession();
     return result;
   }
 
   function add(productId: string) {
-    getSession().addItem(FAVORITES_LIST_ID, productId);
+    const s = getSession();
+    if (!s) return;
+    s.addItem(FAVORITES_LIST_ID, productId);
     syncFromSession();
   }
 
   function remove(productId: string) {
-    getSession().removeItem(FAVORITES_LIST_ID, productId);
+    const s = getSession();
+    if (!s) return;
+    s.removeItem(FAVORITES_LIST_ID, productId);
     syncFromSession();
   }
 
   function clear() {
-    getSession().clearItems(FAVORITES_LIST_ID);
+    const s = getSession();
+    if (!s) return;
+    s.clearItems(FAVORITES_LIST_ID);
     syncFromSession();
   }
 
   function isFavorite(productId: string): boolean {
-    return getSession().isFavorite(productId);
+    const s = getSession();
+    return s ? s.isFavorite(productId) : false;
   }
 
   return {
