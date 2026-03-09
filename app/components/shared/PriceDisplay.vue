@@ -5,6 +5,7 @@ import type {
   ProductDiscountType,
 } from '#shared/types/commerce';
 import { formatPrice } from '#shared/types/commerce';
+import { BADGE_DESTRUCTIVE, BADGE_INFO } from '~/lib/badge-styles';
 
 const props = withDefaults(
   defineProps<{
@@ -79,12 +80,9 @@ const discountLabel = computed(() => {
   }
 });
 
-const discountLabelClass = computed(() => {
-  if (props.discountType === 'EXTERNAL') {
-    return 'bg-blue-100 text-blue-800 rounded-sm px-1.5 py-0.5 text-xs font-medium';
-  }
-  return 'bg-destructive/10 text-destructive rounded-sm px-1.5 py-0.5 text-xs font-medium';
-});
+const discountLabelClass = computed(() =>
+  props.discountType === 'EXTERNAL' ? BADGE_INFO : BADGE_DESTRUCTIVE,
+);
 
 const lowestPriceFormatted = computed(() => {
   if (!props.lowestPrice?.isDiscounted) return '';
@@ -122,7 +120,7 @@ const lowestPriceFormatted = computed(() => {
     </span>
     <span
       v-if="isDiscounted && discountPercentage > 0"
-      class="bg-destructive/10 text-destructive rounded-sm px-1.5 py-0.5 text-xs font-medium"
+      :class="BADGE_DESTRUCTIVE"
     >
       -{{ discountPercentage }}%
     </span>

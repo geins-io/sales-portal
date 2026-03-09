@@ -2,6 +2,7 @@
 import { Trash2 } from 'lucide-vue-next';
 import type { CartItemType } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 
 const { t } = useI18n();
 
@@ -105,7 +106,7 @@ const maxQuantity = computed(() => {
           <span
             v-for="campaign in visibleItemCampaigns"
             :key="campaign.name"
-            class="bg-destructive/10 text-destructive rounded-sm px-1.5 py-0.5 text-xs font-medium"
+            :class="BADGE_DESTRUCTIVE"
             data-testid="cart-item-campaign"
           >
             {{ campaign.name }}

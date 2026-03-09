@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import { ShoppingCart, Star } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
 
@@ -78,7 +79,7 @@ async function addToCart() {
         <span
           v-for="campaign in visibleCampaigns"
           :key="campaign.name"
-          class="bg-destructive/10 text-destructive rounded-sm px-1.5 py-0.5 text-xs font-medium"
+          :class="BADGE_DESTRUCTIVE"
           data-testid="campaign-badge"
         >
           {{ campaign.name }}
@@ -189,7 +190,7 @@ async function addToCart() {
         <span
           v-for="campaign in visibleCampaigns"
           :key="campaign.name"
-          class="bg-destructive/10 text-destructive rounded-sm px-1.5 py-0.5 text-xs font-medium"
+          :class="BADGE_DESTRUCTIVE"
           data-testid="campaign-badge"
         >
           {{ campaign.name }}

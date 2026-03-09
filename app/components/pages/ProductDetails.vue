@@ -5,6 +5,7 @@ import type {
   ListProduct,
 } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import type { ProductRouteResolution } from '#shared/types/common';
 import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
@@ -258,7 +259,7 @@ useSchemaOrg([
           <span
             v-for="campaign in visibleCampaigns"
             :key="campaign.name"
-            class="bg-destructive/10 text-destructive rounded-sm px-1.5 py-0.5 text-xs font-medium"
+            :class="BADGE_DESTRUCTIVE"
           >
             {{ campaign.name }}
           </span>
