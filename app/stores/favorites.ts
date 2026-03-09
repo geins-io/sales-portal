@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { FavoritesSession } from '@geins/crm';
+import { ListsSession, FAVORITES_LIST_ID } from '@geins/crm';
 import type { StorageInterface } from '@geins/core';
 
 class LocalStorageAdapter implements StorageInterface {
@@ -20,18 +20,17 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const items = ref<string[]>([]);
   const count = computed(() => items.value.length);
 
-  let session: FavoritesSession | null = null;
+  let session: ListsSession | null = null;
 
-  function getSession(): FavoritesSession {
+  function getSession(): ListsSession {
     if (!session) {
-      session = new FavoritesSession({ storage: new LocalStorageAdapter() });
+      session = new ListsSession({ storage: new LocalStorageAdapter() });
     }
     return session;
   }
 
   function syncFromSession() {
-    const s = getSession();
-    items.value = s.getAll();
+    items.value = getSession().favorites.items;
   }
 
   function initialize() {
@@ -40,28 +39,28 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function toggle(productId: string): boolean {
-    const result = getSession().toggle(productId);
+    const result = getSession().toggleFavorite(productId);
     syncFromSession();
     return result;
   }
 
   function add(productId: string) {
-    getSession().add(productId);
+    getSession().addItem(FAVORITES_LIST_ID, productId);
     syncFromSession();
   }
 
   function remove(productId: string) {
-    getSession().remove(productId);
+    getSession().removeItem(FAVORITES_LIST_ID, productId);
     syncFromSession();
   }
 
   function clear() {
-    getSession().clear();
+    getSession().clearItems(FAVORITES_LIST_ID);
     syncFromSession();
   }
 
   function isFavorite(productId: string): boolean {
-    return getSession().has(productId);
+    return getSession().isFavorite(productId);
   }
 
   return {
