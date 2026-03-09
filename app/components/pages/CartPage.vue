@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ShoppingCart, X } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
+import { formatPrice } from '#shared/types/commerce';
 
 const cartStore = useCartStore();
 const router = useRouter();
+const { tenant } = useTenant();
 
 // Fetch cart on mount if we have a cartId but no cart data
 onMounted(() => {
@@ -18,6 +20,28 @@ const shippingFee = computed(
 
 const taxFormatted = computed(
   () => cartStore.cart?.summary?.total?.vatFormatted ?? null,
+);
+
+const discountAmount = computed(
+  () =>
+    ((cartStore.cart?.summary as Record<string, unknown>)
+      ?.fixedAmountDiscountIncVat as number) ?? 0,
+);
+
+const discountFormatted = computed(() => {
+  if (!discountAmount.value) return '';
+  const currency = cartStore.cart?.summary?.total?.currency;
+  return formatPrice(
+    discountAmount.value,
+    currency?.code,
+    tenant.value?.locale,
+  );
+});
+
+const cartCampaigns = computed(() =>
+  (cartStore.cart?.appliedCampaigns ?? []).filter(
+    (c: { hideTitle?: boolean }) => !c.hideTitle,
+  ),
 );
 
 function onClose() {
@@ -117,6 +141,20 @@ function onClose() {
                 </span>
               </div>
 
+              <!-- Discount line -->
+              <div
+                v-if="discountAmount"
+                class="flex items-center justify-between text-sm"
+                data-testid="cart-summary-discount"
+              >
+                <span class="text-destructive">{{
+                  $t('discount.discount')
+                }}</span>
+                <span class="text-destructive font-medium"
+                  >-{{ discountFormatted }}</span
+                >
+              </div>
+
               <!-- Shipping -->
               <div class="flex items-center justify-between text-sm">
                 <span class="text-muted-foreground">
@@ -135,6 +173,22 @@ function onClose() {
                 <span data-testid="cart-summary-tax">
                   {{ taxFormatted ?? '--' }}
                 </span>
+              </div>
+            </div>
+
+            <!-- Cart-level campaigns -->
+            <div
+              v-if="cartCampaigns.length"
+              class="space-y-1"
+              data-testid="cart-campaigns"
+            >
+              <div
+                v-for="campaign in cartCampaigns"
+                :key="campaign.name"
+                class="flex items-center gap-1 text-xs"
+              >
+                <Icon name="lucide:tag" class="text-destructive size-3" />
+                <span class="text-destructive">{{ campaign.name }}</span>
               </div>
             </div>
 
