@@ -126,4 +126,59 @@ describe('CartItem', () => {
     });
     expect(wrapper.text()).toContain('Art nr. ART-001');
   });
+
+  describe('campaign badges', () => {
+    const stubs = {
+      GeinsImage: true,
+      PriceDisplay: { template: '<span />', props: ['price'] },
+      QuantityInput: {
+        template: '<div />',
+        props: ['modelValue', 'min', 'max'],
+      },
+    };
+
+    it('shows campaign names when item has applied campaigns', () => {
+      const itemWithCampaigns = {
+        ...mockItem,
+        campaign: {
+          appliedCampaigns: [{ name: '10% off', hideTitle: false }],
+          prices: [],
+        },
+      };
+      const wrapper = mountComponent(CartItem, {
+        props: { item: itemWithCampaigns },
+        global: { stubs },
+      });
+      const badges = wrapper.findAll('[data-testid="cart-item-campaign"]');
+      expect(badges.length).toBe(1);
+      expect(badges[0].text()).toBe('10% off');
+    });
+
+    it('hides campaigns with hideTitle true', () => {
+      const itemWithHidden = {
+        ...mockItem,
+        campaign: {
+          appliedCampaigns: [{ name: 'Hidden', hideTitle: true }],
+          prices: [],
+        },
+      };
+      const wrapper = mountComponent(CartItem, {
+        props: { item: itemWithHidden },
+        global: { stubs },
+      });
+      expect(wrapper.findAll('[data-testid="cart-item-campaign"]').length).toBe(
+        0,
+      );
+    });
+
+    it('shows no badges when campaign data is undefined', () => {
+      const wrapper = mountComponent(CartItem, {
+        props: { item: mockItem },
+        global: { stubs },
+      });
+      expect(wrapper.findAll('[data-testid="cart-item-campaign"]').length).toBe(
+        0,
+      );
+    });
+  });
 });

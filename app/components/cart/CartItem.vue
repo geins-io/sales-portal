@@ -38,6 +38,12 @@ const skuName = computed(() => {
   return sku?.name ?? '';
 });
 
+const visibleItemCampaigns = computed(() =>
+  (props.item.campaign?.appliedCampaigns ?? []).filter(
+    (c: { hideTitle?: boolean }) => !c.hideTitle,
+  ),
+);
+
 const maxQuantity = computed(() => {
   if (!props.item.skuId || !props.item.product?.skus?.length) return undefined;
   const sku = props.item.product.skus.find(
@@ -92,6 +98,20 @@ const maxQuantity = computed(() => {
             {{ skuName }}
           </template>
         </p>
+        <!-- Campaign badges -->
+        <div
+          v-if="visibleItemCampaigns.length"
+          class="mt-0.5 flex flex-wrap gap-1"
+        >
+          <span
+            v-for="campaign in visibleItemCampaigns"
+            :key="campaign.name"
+            class="bg-destructive/10 text-destructive rounded-sm px-1.5 py-0.5 text-xs font-medium"
+            data-testid="cart-item-campaign"
+          >
+            {{ campaign.name }}
+          </span>
+        </div>
       </div>
 
       <!-- Remove button -->
