@@ -8,7 +8,7 @@ Testing strategy, architecture, and practices for the Sales Portal.
 
 ## Overview
 
-1330 unit/component tests across 105 files + 51 E2E tests across 8 Playwright spec files.
+1612 unit/component tests across 138 files + 51 E2E tests across 8 Playwright spec files.
 
 | Level       | Tool                    | What it tests                            |
 | ----------- | ----------------------- | ---------------------------------------- |
@@ -78,6 +78,53 @@ After creating a test, add its path to the appropriate list in `vitest.workspace
 | `sequence.concurrent: true` | all tiers        | Runs tests within a file concurrently                       |
 | `getVitestConfigFromNuxt()` | node, components | Shares Nuxt's Vite config without booting Nuxt              |
 | `happy-dom` over `jsdom`    | components       | ~3s faster for 10 component files                           |
+
+### Performance benchmarks
+
+The full suite runs in ~40s:
+
+- **1612 tests** across **138 files**
+- Transform: ~35s, setup: ~105s, collect: ~130s, tests: ~50s
+- Environment overhead: ~75s (shared across tiers)
+- Nuxt boot: single instance shared via `getVitestConfigFromNuxt()`
+
+Keeping `isolate: false` is critical — enabling isolation adds ~15s from per-file worker spawning.
+
+### Mock discipline
+
+Only mock at the **SDK boundary** (`@geins/*` packages) and external services (HTTP, email). Never mock internal modules, utilities, or services from this codebase.
+
+Allowed mocks:
+
+- `vi.mock('@geins/...')` — SDK packages
+- `vi.stubGlobal('useRuntimeConfig', ...)` — Nitro globals in node tier
+- `vi.stubGlobal('getPreviewCookie', ...)` — server CMS utilities
+- `vi.mock('~/composables/useTenant')` — in component tier setup (bridges Nuxt runtime gap)
+
+Forbidden:
+
+- Mocking internal services (`server/services/*`)
+- Mocking shared utilities (`shared/types/*`, `shared/utils/*`)
+- Mocking Pinia stores when testing components that use them
+
+See `.mint/hard-blocks.md` for the full list.
+
+### Test routing (glob-based)
+
+Tests are routed to tiers by file path globs in `vitest.workspace.ts`:
+
+| Glob pattern                     | Tier       | Environment         |
+| -------------------------------- | ---------- | ------------------- |
+| `tests/components/**` (default)  | components | happy-dom           |
+| Explicit list in `nuxtTestFiles` | nuxt       | nuxt (full runtime) |
+| Everything else                  | node       | node                |
+
+To add a new test:
+
+1. Create the file in the appropriate `tests/` subdirectory
+2. If it needs the Nuxt runtime (`useRoute`, `registerEndpoint`), add its path to `nuxtTestFiles` in `vitest.workspace.ts`
+3. If it's a component test, it's automatically picked up by the components tier
+4. Otherwise, it falls through to the node tier
 
 ## Running Tests
 
