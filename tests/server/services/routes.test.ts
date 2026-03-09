@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import {
-  resolveRoute,
-  clearCategoryCache,
-} from '../../../server/services/routes';
-
 // Mock service dependencies
 const mockGetCategories = vi.fn();
 const mockGetProduct = vi.fn();
@@ -33,8 +28,17 @@ function mockEvent(hostname = 'test.com') {
 }
 
 describe('resolveRoute service', () => {
-  beforeEach(() => {
+  let resolveRoute: typeof import('../../../server/services/routes').resolveRoute;
+  let clearCategoryCache: typeof import('../../../server/services/routes').clearCategoryCache;
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
+
+    const mod = await import('../../../server/services/routes');
+    resolveRoute = mod.resolveRoute;
+    clearCategoryCache = mod.clearCategoryCache;
+
     clearCategoryCache();
     mockGetCategories.mockResolvedValue([]);
     mockGetProduct.mockRejectedValue(new Error('not found'));

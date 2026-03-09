@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { subscribe } from '../../server/services/newsletter';
 
 // Mock logger
 vi.mock('../../server/utils/logger', () => ({
@@ -48,8 +47,14 @@ const mockEvent = {
 } as unknown as import('h3').H3Event;
 
 describe('Newsletter Service', () => {
-  beforeEach(() => {
+  let subscribe: typeof import('../../server/services/newsletter').subscribe;
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
+
+    const mod = await import('../../server/services/newsletter');
+    subscribe = mod.subscribe;
   });
 
   it('calls GraphQL mutation with email and channel variables', async () => {

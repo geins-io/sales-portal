@@ -131,6 +131,7 @@ const event = {} as H3Event;
 describe('SDK-backed services (0.6.0)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
   });
 
   describe('auth service', () => {
