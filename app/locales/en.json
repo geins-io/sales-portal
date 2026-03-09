@@ -199,6 +199,18 @@
     "failed_to_load": "Unable to load page content.",
     "no_content": "This page has no content yet."
   },
+  "discount": {
+    "sale": "Sale",
+    "campaign": "Campaign",
+    "your_price": "Your price",
+    "negotiated_price_info": "This price is based on your negotiated agreement.",
+    "volume_pricing": "Volume pricing",
+    "quantity": "Quantity",
+    "unit_price": "Unit price",
+    "savings": "Savings",
+    "discount": "Discount",
+    "active_campaigns": "Active campaigns"
+  },
   "cookies": {
     "banner_text": "We use cookies to analyze site usage and improve your experience.",
     "accept": "Accept cookies",

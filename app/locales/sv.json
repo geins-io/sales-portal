@@ -199,6 +199,18 @@
     "failed_to_load": "Det gick inte att ladda sidinnehållet.",
     "no_content": "Den här sidan har inget innehåll ännu."
   },
+  "discount": {
+    "sale": "Rea",
+    "campaign": "Kampanj",
+    "your_price": "Ditt pris",
+    "negotiated_price_info": "Detta pris baseras p\u00e5 ditt avtalade pris.",
+    "volume_pricing": "Volympriser",
+    "quantity": "Antal",
+    "unit_price": "Styckpris",
+    "savings": "Besparing",
+    "discount": "Rabatt",
+    "active_campaigns": "Aktiva kampanjer"
+  },
   "cookies": {
     "banner_text": "Vi använder cookies för att analysera webbplatsens användning och förbättra din upplevelse.",
     "accept": "Acceptera cookies",
