@@ -34,8 +34,10 @@ describe('VolumePricingTable', () => {
       props: { prices },
     });
 
-    expect(wrapper.find('table').exists()).toBe(true);
-    const rows = wrapper.findAll('tbody tr');
+    expect(wrapper.find('[data-testid="volume-pricing-table"]').exists()).toBe(
+      true,
+    );
+    const rows = wrapper.findAll('[data-testid="volume-pricing-row"]');
     expect(rows.length).toBe(3);
     expect(rows[0].text()).toContain('5+');
     expect(rows[0].text()).toContain('-5%');
@@ -48,7 +50,7 @@ describe('VolumePricingTable', () => {
       props: { prices: [] },
     });
 
-    expect(wrapper.find('table').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="volume-pricing"]').exists()).toBe(false);
     expect(wrapper.text()).toBe('');
   });
 
@@ -57,7 +59,7 @@ describe('VolumePricingTable', () => {
       props: { prices: [makeTier(1, 0, 100, 80)] },
     });
 
-    expect(wrapper.find('table').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="volume-pricing"]').exists()).toBe(false);
   });
 
   it('shows inc VAT prices by default', () => {
@@ -67,7 +69,7 @@ describe('VolumePricingTable', () => {
       props: { prices },
     });
 
-    const firstRow = wrapper.findAll('tbody tr')[0];
+    const firstRow = wrapper.findAll('[data-testid="volume-pricing-row"]')[0];
     expect(firstRow.text()).toContain('95 kr');
   });
 
@@ -78,7 +80,7 @@ describe('VolumePricingTable', () => {
       props: { prices, showVat: false },
     });
 
-    const firstRow = wrapper.findAll('tbody tr')[0];
+    const firstRow = wrapper.findAll('[data-testid="volume-pricing-row"]')[0];
     expect(firstRow.text()).toContain('76 kr');
   });
 

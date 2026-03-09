@@ -20,9 +20,11 @@ function formatTierPrice(tier: CampaignPriceType): string {
 </script>
 
 <template>
-  <div v-if="prices.length > 1" class="space-y-2">
-    <h4 class="text-sm font-medium">{{ $t('discount.volume_pricing') }}</h4>
-    <table class="w-full text-sm">
+  <div v-if="prices.length > 1" class="space-y-2" data-testid="volume-pricing">
+    <h4 class="text-sm font-medium" data-testid="volume-pricing-heading">
+      {{ $t('discount.volume_pricing') }}
+    </h4>
+    <table class="w-full text-sm" data-testid="volume-pricing-table">
       <thead>
         <tr class="border-b text-left">
           <th class="py-1.5 font-medium">{{ $t('discount.quantity') }}</th>
@@ -35,6 +37,7 @@ function formatTierPrice(tier: CampaignPriceType): string {
           v-for="tier in prices"
           :key="tier.quantity"
           class="border-b last:border-0"
+          data-testid="volume-pricing-row"
         >
           <td class="py-1.5">{{ tier.quantity }}+</td>
           <td class="py-1.5">{{ formatTierPrice(tier) }}</td>
