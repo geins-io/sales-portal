@@ -23,9 +23,7 @@ const taxFormatted = computed(
 );
 
 const discountAmount = computed(
-  () =>
-    ((cartStore.cart?.summary as Record<string, unknown>)
-      ?.fixedAmountDiscountIncVat as number) ?? 0,
+  () => cartStore.cart?.summary?.fixedAmountDiscountIncVat ?? 0,
 );
 
 const discountFormatted = computed(() => {

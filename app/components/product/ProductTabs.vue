@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ProductType, ReviewsResponse } from '#shared/types/commerce';
+import type { DetailProduct, ReviewsResponse } from '#shared/types/commerce';
 import { useMediaQuery } from '@vueuse/core';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import {
@@ -10,7 +10,7 @@ import {
 } from '~/components/ui/accordion';
 
 const props = defineProps<{
-  product: ProductType;
+  product: DetailProduct;
   reviews: ReviewsResponse | null;
   reviewsLoading: boolean;
 }>();

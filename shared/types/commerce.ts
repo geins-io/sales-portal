@@ -1,6 +1,7 @@
 import type {
   PriceType,
   ProductImageType,
+  ProductType,
   StockType,
   SkuType,
   MetadataType,
@@ -112,6 +113,24 @@ export interface ListProduct {
   totalStock: StockType;
   skus: SkuType[];
   discountCampaigns: { name: string; hideTitle: boolean }[];
+  lowestPrice?: LowestPriceInfo;
+  discountType?: ProductDiscountType;
+}
+
+// ---------------------------------------------------------------------------
+// Detail Product (ProductType with enriched pricing fields from GraphQL)
+// ---------------------------------------------------------------------------
+/**
+ * Extends the SDK ProductType with fields that come from our enriched
+ * GraphQL product queries (discount campaigns, discount type, lowest price).
+ * The SDK types use different shapes (e.g. DiscountType enum vs string,
+ * LowestPriceType vs LowestPriceInfo) so we augment rather than re-export.
+ */
+export interface DetailProduct extends Omit<
+  ProductType,
+  'discountType' | 'lowestPrice'
+> {
+  discountCampaigns?: { name: string; hideTitle: boolean }[];
   lowestPrice?: LowestPriceInfo;
   discountType?: ProductDiscountType;
 }

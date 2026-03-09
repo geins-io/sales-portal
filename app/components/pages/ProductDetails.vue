@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type {
-  ProductType,
+  DetailProduct,
   ReviewsResponse,
   ListProduct,
 } from '#shared/types/commerce';
@@ -18,7 +18,7 @@ const {
   data: product,
   error,
   status,
-} = useFetch<ProductType>(() => `/api/products/${slug.value}`, {
+} = useFetch<DetailProduct>(() => `/api/products/${slug.value}`, {
   dedupe: 'defer',
 });
 
@@ -86,12 +86,7 @@ async function addToCart() {
 
 // Discount campaigns
 const visibleCampaigns = computed(() =>
-  (
-    ((product.value as Record<string, unknown>)?.discountCampaigns as {
-      name: string;
-      hideTitle: boolean;
-    }[]) ?? []
-  ).filter((c) => !c.hideTitle),
+  (product.value?.discountCampaigns ?? []).filter((c) => !c.hideTitle),
 );
 
 // Breadcrumbs
@@ -272,15 +267,15 @@ useSchemaOrg([
         <PriceDisplay
           v-if="product.unitPrice"
           :price="product.unitPrice"
-          :lowest-price="(product as any).lowestPrice"
-          :discount-type="(product as any).discountType"
+          :lowest-price="product.lowestPrice"
+          :discount-type="product.discountType"
           :campaign-names="visibleCampaigns.map((c) => c.name)"
           class="text-lg font-semibold"
         />
 
         <!-- Negotiated price info banner -->
         <div
-          v-if="(product as any).discountType === 'EXTERNAL'"
+          v-if="product.discountType === 'EXTERNAL'"
           class="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800"
           data-testid="negotiated-price-banner"
         >
