@@ -250,3 +250,15 @@ export const UpdateBuyerRoleSchema = z.object({
   role: BuyerRoleEnum,
 });
 export type UpdateBuyerRoleInput = z.infer<typeof UpdateBuyerRoleSchema>;
+
+// ---------------------------------------------------------------------------
+// Contact Form
+// ---------------------------------------------------------------------------
+export const ContactFormSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  phone: z.string().max(50).optional(),
+  subject: z.string().min(1).max(200),
+  message: z.string().min(1).max(5000),
+});
+export type ContactFormInput = z.infer<typeof ContactFormSchema>;

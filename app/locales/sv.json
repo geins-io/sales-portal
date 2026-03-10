@@ -196,6 +196,23 @@
     "linkedin": "LinkedIn",
     "instagram": "Instagram"
   },
+  "contact": {
+    "title": "Kontakta oss",
+    "subtitle": "Har du en fråga eller feedback? Fyll i formuläret nedan så återkommer vi.",
+    "name": "Namn",
+    "email": "E-post",
+    "phone": "Telefon (valfritt)",
+    "subject": "Ämne",
+    "message": "Meddelande",
+    "field_required": "Detta fält är obligatoriskt.",
+    "invalid_email": "Ange en giltig e-postadress.",
+    "submit": "Skicka meddelande",
+    "submitting": "Skickar\u2026",
+    "success_title": "Meddelande skickat",
+    "success_message": "Tack för ditt meddelande. Vi återkommer så snart som möjligt.",
+    "error_message": "Något gick fel. Försök igen.",
+    "too_many_attempts": "För många försök. Försök igen senare."
+  },
   "content": {
     "failed_to_load": "Det gick inte att ladda sidinnehållet.",
     "no_content": "Den här sidan har inget innehåll ännu."
