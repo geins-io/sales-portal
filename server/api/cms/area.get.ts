@@ -7,10 +7,14 @@ export default defineEventHandler(async (event) => {
     event,
     CmsAreaSchema.parse,
   );
+  const customerType = await getCustomerType(event);
 
   return withErrorHandling(
     async () => {
-      const area = await getContentArea({ family, areaName }, event);
+      const area = await getContentArea(
+        { family, areaName, customerType },
+        event,
+      );
 
       if (!area?.containers?.length) {
         throw createAppError(ErrorCode.NOT_FOUND, 'Content area not found');
