@@ -78,12 +78,24 @@ export interface ButtonsWidgetData {
   buttons: ButtonItem[];
 }
 
+export interface VideoWidgetData {
+  name: string;
+  active: boolean;
+  /** Video ID (YouTube or Vimeo). ralph-ui: configuration.videoId */
+  videoId: string;
+  /** 0=youtube, 1=vimeo. ralph-ui: CaWidgetVideo.vue videoProvider */
+  videoProvider?: number;
+  /** Optional thumbnail image */
+  image?: WidgetImage;
+}
+
 export type WidgetData =
   | TextWidgetData
   | HtmlWidgetData
   | ImageWidgetData
   | BannerWidgetData
-  | ButtonsWidgetData;
+  | ButtonsWidgetData
+  | VideoWidgetData;
 
 /** Resolve the image filename from either `filename` (CMS config) or `fileName` (GraphQL). */
 export function resolveImageFileName(image: WidgetImage | undefined): string {
