@@ -22,6 +22,10 @@ const buttonsWidgetStub = {
   template: '<div class="buttons-widget" />',
   props: ['data', 'config', 'layout'],
 };
+const videoWidgetStub = {
+  template: '<div class="video-widget" />',
+  props: ['data', 'config', 'layout'],
+};
 
 const stubs = {
   TextWidget: textWidgetStub,
@@ -34,6 +38,8 @@ const stubs = {
   CmsWidgetsBannerWidget: bannerWidgetStub,
   ButtonsWidget: buttonsWidgetStub,
   CmsWidgetsButtonsWidget: buttonsWidgetStub,
+  VideoWidget: videoWidgetStub,
+  CmsWidgetsVideoWidget: videoWidgetStub,
 };
 
 function makeWidget(type: string) {
@@ -89,6 +95,14 @@ describe('CmsWidget', () => {
   it('renders component for ButtonsPageWidget type', () => {
     const wrapper = shallowMountComponent(CmsWidget, {
       props: makeWidget('ButtonsPageWidget'),
+      global: { stubs },
+    });
+    expect(wrapper.html()).not.toBe('');
+  });
+
+  it('renders component for VideoPageWidget type', () => {
+    const wrapper = shallowMountComponent(CmsWidget, {
+      props: makeWidget('VideoPageWidget'),
       global: { stubs },
     });
     expect(wrapper.html()).not.toBe('');

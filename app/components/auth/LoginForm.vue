@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Button } from '~/components/ui/button';
+import { Checkbox } from '~/components/ui/checkbox';
 import { useAuthStore } from '~/stores/auth';
 
 const { t } = useI18n();
@@ -16,6 +17,7 @@ const authStore = useAuthStore();
 
 const email = ref('');
 const password = ref('');
+const rememberMe = ref(true);
 const fieldErrors = reactive<Record<string, string>>({});
 const touched = reactive<Record<string, boolean>>({});
 
@@ -55,6 +57,7 @@ async function handleSubmit() {
     const user = await authStore.login({
       username: email.value,
       password: password.value,
+      rememberMe: rememberMe.value,
     });
     emit('success', user);
   } catch {
@@ -129,6 +132,19 @@ async function handleSubmit() {
       >
         {{ t(fieldErrors.password) }}
       </p>
+    </div>
+
+    <!-- Remember me -->
+    <div class="flex items-center gap-2">
+      <Checkbox
+        id="login-remember-me"
+        v-model="rememberMe"
+        :disabled="authStore.isLoading"
+        data-testid="login-remember-me"
+      />
+      <Label for="login-remember-me" class="text-sm font-normal">
+        {{ t('auth.remember_me') }}
+      </Label>
     </div>
 
     <!-- Submit -->

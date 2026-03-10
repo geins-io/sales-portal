@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const LoginSchema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
+  rememberMe: z.boolean().optional(),
 });
 
 export const RegisterSchema = z.object({
@@ -249,3 +250,29 @@ export const UpdateBuyerRoleSchema = z.object({
   role: BuyerRoleEnum,
 });
 export type UpdateBuyerRoleInput = z.infer<typeof UpdateBuyerRoleSchema>;
+
+// ---------------------------------------------------------------------------
+// Apply for Account (B2B)
+// ---------------------------------------------------------------------------
+export const ApplyForAccountSchema = z.object({
+  companyName: z.string().min(1).max(200),
+  organizationNumber: z.string().min(1).max(50),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  email: z.string().email(),
+  phone: z.string().max(50).optional(),
+  message: z.string().max(5000).optional(),
+});
+export type ApplyForAccountInput = z.infer<typeof ApplyForAccountSchema>;
+
+// ---------------------------------------------------------------------------
+// Contact Form
+// ---------------------------------------------------------------------------
+export const ContactFormSchema = z.object({
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  phone: z.string().max(50).optional(),
+  subject: z.string().min(1).max(200),
+  message: z.string().min(1).max(5000),
+});
+export type ContactFormInput = z.infer<typeof ContactFormSchema>;

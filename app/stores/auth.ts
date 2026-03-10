@@ -49,6 +49,7 @@ export const useAuthStore = defineStore('auth', {
     async login(credentials: {
       username: string;
       password: string;
+      rememberMe?: boolean;
     }): Promise<AuthUser> {
       this.isLoading = true;
       this.error = null;

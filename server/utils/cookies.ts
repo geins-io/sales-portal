@@ -42,15 +42,21 @@ function cookieDefaults() {
 
 export function setAuthCookies(
   event: H3Event,
-  tokens: { token: string; refreshToken: string; expiresIn?: number },
+  tokens: {
+    token: string;
+    refreshToken: string;
+    expiresIn?: number;
+    rememberMe?: boolean;
+  },
 ) {
+  const persist = tokens.rememberMe !== false;
   setCookie(event, COOKIE_NAMES.AUTH_TOKEN, tokens.token, {
     ...cookieDefaults(),
-    maxAge: tokens.expiresIn ?? 3600,
+    ...(persist ? { maxAge: tokens.expiresIn ?? 3600 } : {}),
   });
   setCookie(event, COOKIE_NAMES.REFRESH_TOKEN, tokens.refreshToken, {
     ...cookieDefaults(),
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    ...(persist ? { maxAge: 30 * 24 * 60 * 60 } : {}), // 30 days
   });
 }
 

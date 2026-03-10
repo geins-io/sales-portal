@@ -233,5 +233,8 @@ function clearAllFilters() {
       :has-more="hasMore"
       @load-more="loadMore"
     />
+
+    <!-- File/document search placeholder -->
+    <SearchFilesPlaceholder v-if="searchTerm" />
   </div>
 </template>

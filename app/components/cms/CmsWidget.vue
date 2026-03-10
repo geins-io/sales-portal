@@ -31,6 +31,9 @@ const widgetRegistry: Record<
   'Product listPageWidget': defineAsyncComponent(
     () => import('./widgets/ProductListWidget.vue'),
   ),
+  VideoPageWidget: defineAsyncComponent(
+    () => import('./widgets/VideoWidget.vue'),
+  ),
 };
 
 const resolvedComponent = computed(() => {
