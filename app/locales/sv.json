@@ -229,7 +229,10 @@
     "no_results_for": "Inga resultat för \"{query}\"",
     "try_different_terms": "Prova andra sökord eller bläddra bland våra kategorier.",
     "enter_search_term": "Ange ett sökord för att hitta produkter.",
-    "view_all_results": "Visa alla {count} resultat"
+    "view_all_results": "Visa alla {count} resultat",
+    "files_title": "Filer & Dokument",
+    "files_coming_soon": "Filsökning är ännu inte tillgänglig.",
+    "files_coming_soon_description": "Sökfunktion för dokument och filer blir tillgänglig när plattformens API stödjer det."
   },
   "pagination": {
     "previous": "Föregående",

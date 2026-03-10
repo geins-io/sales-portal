@@ -229,7 +229,10 @@
     "no_results_for": "No results found for \"{query}\"",
     "try_different_terms": "Try different search terms or browse our categories.",
     "enter_search_term": "Enter a search term to find products.",
-    "view_all_results": "View all {count} results"
+    "view_all_results": "View all {count} results",
+    "files_title": "Files & Documents",
+    "files_coming_soon": "File search is not yet available.",
+    "files_coming_soon_description": "Document and file search will be available when the platform API supports it."
   },
   "pagination": {
     "previous": "Previous",
