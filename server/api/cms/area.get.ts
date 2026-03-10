@@ -7,10 +7,25 @@ export default defineEventHandler(async (event) => {
     event,
     CmsAreaSchema.parse,
   );
+  const customerType = await getCustomerType(event);
+
+  if (customerType) {
+    setHeader(event, 'Cache-Control', 'private, no-store');
+  } else {
+    setHeader(
+      event,
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=600',
+    );
+    setHeader(event, 'Vary', 'cookie');
+  }
 
   return withErrorHandling(
     async () => {
-      const area = await getContentArea({ family, areaName }, event);
+      const area = await getContentArea(
+        { family, areaName, customerType },
+        event,
+      );
 
       if (!area?.containers?.length) {
         throw createAppError(ErrorCode.NOT_FOUND, 'Content area not found');
