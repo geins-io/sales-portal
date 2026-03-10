@@ -7,6 +7,17 @@ export default defineEventHandler(async (event) => {
   const { alias: validatedAlias } = CmsPageSchema.parse({ alias });
   const customerType = await getCustomerType(event);
 
+  if (customerType) {
+    setHeader(event, 'Cache-Control', 'private, no-store');
+  } else {
+    setHeader(
+      event,
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=600',
+    );
+    setHeader(event, 'Vary', 'cookie');
+  }
+
   return withErrorHandling(
     async () => {
       const page = await getPage(

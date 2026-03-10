@@ -30,9 +30,10 @@ vi.mock('../../../server/utils/cms-sanitize', () => ({
 // Stub Nitro / H3 auto-imports
 // ---------------------------------------------------------------------------
 const getCustomerTypeMock = vi.fn();
-vi.stubGlobal('getCustomerType', getCustomerTypeMock);
-vi.stubGlobal('setHeader', vi.fn());
+const setHeaderMock = vi.fn();
 
+vi.stubGlobal('getCustomerType', getCustomerTypeMock);
+vi.stubGlobal('setHeader', setHeaderMock);
 vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('createAppError', (code: string, msg: string) => {
   const err = new Error(msg);
@@ -61,18 +62,17 @@ function mockEvent() {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Page route — cache headers
 // ---------------------------------------------------------------------------
-describe('CMS page route — customerType threading', () => {
+describe('CMS page route — cache headers', () => {
   let pageHandler: (event: import('h3').H3Event) => Promise<unknown>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
 
-    // Re-stub globals after resetModules
     vi.stubGlobal('getCustomerType', getCustomerTypeMock);
-    vi.stubGlobal('setHeader', vi.fn());
+    vi.stubGlobal('setHeader', setHeaderMock);
     vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) =>
       fn(),
     );
@@ -99,43 +99,51 @@ describe('CMS page route — customerType threading', () => {
     ) => Promise<unknown>;
   });
 
-  it('passes ORGANIZATION customerType from getCustomerType to getPage', async () => {
+  it('sets private, no-store cache header for authenticated users', async () => {
     getCustomerTypeMock.mockResolvedValue(GeinsCustomerType.OrganizationType);
     const event = mockEvent();
 
     await pageHandler(event);
 
-    expect(getCustomerTypeMock).toHaveBeenCalledWith(event);
-    expect(mockGetPage).toHaveBeenCalledWith(
-      { alias: 'test-alias', customerType: GeinsCustomerType.OrganizationType },
+    expect(setHeaderMock).toHaveBeenCalledWith(
       event,
+      'Cache-Control',
+      'private, no-store',
+    );
+    expect(setHeaderMock).not.toHaveBeenCalledWith(
+      event,
+      'Vary',
+      expect.anything(),
     );
   });
 
-  it('passes undefined customerType for anonymous users', async () => {
+  it('sets public cache header and Vary for anonymous users', async () => {
     getCustomerTypeMock.mockResolvedValue(undefined);
     const event = mockEvent();
 
     await pageHandler(event);
 
-    expect(getCustomerTypeMock).toHaveBeenCalledWith(event);
-    expect(mockGetPage).toHaveBeenCalledWith(
-      { alias: 'test-alias', customerType: undefined },
+    expect(setHeaderMock).toHaveBeenCalledWith(
       event,
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=600',
     );
+    expect(setHeaderMock).toHaveBeenCalledWith(event, 'Vary', 'cookie');
   });
 });
 
-describe('CMS area route — customerType threading', () => {
+// ---------------------------------------------------------------------------
+// Area route — cache headers
+// ---------------------------------------------------------------------------
+describe('CMS area route — cache headers', () => {
   let areaHandler: (event: import('h3').H3Event) => Promise<unknown>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
 
-    // Re-stub globals after resetModules
     vi.stubGlobal('getCustomerType', getCustomerTypeMock);
-    vi.stubGlobal('setHeader', vi.fn());
+    vi.stubGlobal('setHeader', setHeaderMock);
     vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) =>
       fn(),
     );
@@ -163,33 +171,35 @@ describe('CMS area route — customerType threading', () => {
     ) => Promise<unknown>;
   });
 
-  it('passes PERSON customerType from getCustomerType to getContentArea', async () => {
+  it('sets private, no-store cache header for authenticated users', async () => {
     getCustomerTypeMock.mockResolvedValue(GeinsCustomerType.PersonType);
     const event = mockEvent();
 
     await areaHandler(event);
 
-    expect(getCustomerTypeMock).toHaveBeenCalledWith(event);
-    expect(mockGetContentArea).toHaveBeenCalledWith(
-      {
-        family: 'StartPage',
-        areaName: 'Hero',
-        customerType: GeinsCustomerType.PersonType,
-      },
+    expect(setHeaderMock).toHaveBeenCalledWith(
       event,
+      'Cache-Control',
+      'private, no-store',
+    );
+    expect(setHeaderMock).not.toHaveBeenCalledWith(
+      event,
+      'Vary',
+      expect.anything(),
     );
   });
 
-  it('passes undefined customerType for anonymous users', async () => {
+  it('sets public cache header and Vary for anonymous users', async () => {
     getCustomerTypeMock.mockResolvedValue(undefined);
     const event = mockEvent();
 
     await areaHandler(event);
 
-    expect(getCustomerTypeMock).toHaveBeenCalledWith(event);
-    expect(mockGetContentArea).toHaveBeenCalledWith(
-      { family: 'StartPage', areaName: 'Hero', customerType: undefined },
+    expect(setHeaderMock).toHaveBeenCalledWith(
       event,
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=600',
     );
+    expect(setHeaderMock).toHaveBeenCalledWith(event, 'Vary', 'cookie');
   });
 });

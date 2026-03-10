@@ -9,6 +9,17 @@ export default defineEventHandler(async (event) => {
   );
   const customerType = await getCustomerType(event);
 
+  if (customerType) {
+    setHeader(event, 'Cache-Control', 'private, no-store');
+  } else {
+    setHeader(
+      event,
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=600',
+    );
+    setHeader(event, 'Vary', 'cookie');
+  }
+
   return withErrorHandling(
     async () => {
       const area = await getContentArea(
