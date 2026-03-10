@@ -1,4 +1,9 @@
-import type { ContentPageType, ContentAreaType, MenuType } from '@geins/types';
+import type {
+  ContentPageType,
+  ContentAreaType,
+  MenuType,
+  GeinsCustomerType,
+} from '@geins/types';
 import type { H3Event } from 'h3';
 import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 
@@ -15,7 +20,7 @@ export async function getMenu(
 }
 
 export async function getPage(
-  args: { alias: string },
+  args: { alias: string; customerType?: GeinsCustomerType },
   event: H3Event,
 ): Promise<ContentPageType> {
   const sdk = await getTenantSDK(event);
@@ -27,13 +32,14 @@ export async function getPage(
         ...args,
         ...channelVars,
         ...(preview && { preview: true }),
+        ...(args.customerType && { customerType: args.customerType }),
       }) as Promise<ContentPageType>,
     'cms',
   );
 }
 
 export async function getContentArea(
-  args: { family: string; areaName: string },
+  args: { family: string; areaName: string; customerType?: GeinsCustomerType },
   event: H3Event,
 ): Promise<ContentAreaType> {
   const sdk = await getTenantSDK(event);
@@ -45,6 +51,7 @@ export async function getContentArea(
         ...args,
         ...channelVars,
         ...(preview && { preview: true }),
+        ...(args.customerType && { customerType: args.customerType }),
       }) as Promise<ContentAreaType>,
     'cms',
   );
