@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3';
+import { GeinsCustomerType } from '@geins/types';
 import * as authService from '../services/auth';
 
 export interface AuthTokens {
@@ -57,6 +58,53 @@ export async function optionalAuth(event: H3Event): Promise<AuthTokens | null> {
   }
 
   return null;
+}
+
+/**
+ * Extracts the customer type from the current user's JWT payload.
+ * Returns undefined for anonymous users, invalid tokens, or preview mode.
+ */
+export async function getCustomerType(
+  event: H3Event,
+): Promise<GeinsCustomerType | undefined> {
+  if (getPreviewCookie(event)) {
+    return undefined;
+  }
+
+  const auth = await optionalAuth(event);
+  if (!auth) {
+    return undefined;
+  }
+
+  try {
+    const payload = decodeJwtPayload(auth.authToken);
+    if (!payload?.customerType) {
+      return undefined;
+    }
+
+    const normalized = String(payload.customerType).toUpperCase();
+    if (normalized === GeinsCustomerType.OrganizationType) {
+      return GeinsCustomerType.OrganizationType;
+    }
+    if (normalized === GeinsCustomerType.PersonType) {
+      return GeinsCustomerType.PersonType;
+    }
+
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return null;
+  }
 }
 
 async function refreshAndRotate(
