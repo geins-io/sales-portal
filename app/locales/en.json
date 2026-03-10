@@ -213,6 +213,25 @@
     "error_message": "Something went wrong. Please try again.",
     "too_many_attempts": "Too many attempts. Please try again later."
   },
+  "apply": {
+    "title": "Apply for a Business Account",
+    "subtitle": "Fill in your company details below and we'll review your application.",
+    "company_name": "Company name",
+    "organization_number": "Organization number",
+    "first_name": "First name",
+    "last_name": "Last name",
+    "email": "Email",
+    "phone": "Phone (optional)",
+    "message": "Message (optional)",
+    "field_required": "This field is required.",
+    "invalid_email": "Please enter a valid email address.",
+    "submit": "Submit application",
+    "submitting": "Submitting\u2026",
+    "success_title": "Application submitted",
+    "success_message": "Thank you for your application. We'll review it and get back to you by email.",
+    "error_message": "Something went wrong. Please try again.",
+    "too_many_attempts": "Too many attempts. Please try again later."
+  },
   "content": {
     "failed_to_load": "Unable to load page content.",
     "no_content": "This page has no content yet."

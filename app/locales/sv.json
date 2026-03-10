@@ -213,6 +213,25 @@
     "error_message": "Något gick fel. Försök igen.",
     "too_many_attempts": "För många försök. Försök igen senare."
   },
+  "apply": {
+    "title": "Ansök om företagskonto",
+    "subtitle": "Fyll i dina företagsuppgifter nedan så granskar vi din ansökan.",
+    "company_name": "Företagsnamn",
+    "organization_number": "Organisationsnummer",
+    "first_name": "Förnamn",
+    "last_name": "Efternamn",
+    "email": "E-post",
+    "phone": "Telefon (valfritt)",
+    "message": "Meddelande (valfritt)",
+    "field_required": "Detta fält är obligatoriskt.",
+    "invalid_email": "Ange en giltig e-postadress.",
+    "submit": "Skicka ansökan",
+    "submitting": "Skickar\u2026",
+    "success_title": "Ansökan skickad",
+    "success_message": "Tack för din ansökan. Vi granskar den och återkommer via e-post.",
+    "error_message": "Något gick fel. Försök igen.",
+    "too_many_attempts": "För många försök. Försök igen senare."
+  },
   "content": {
     "failed_to_load": "Det gick inte att ladda sidinnehållet.",
     "no_content": "Den här sidan har inget innehåll ännu."

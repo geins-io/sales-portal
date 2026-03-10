@@ -252,6 +252,20 @@ export const UpdateBuyerRoleSchema = z.object({
 export type UpdateBuyerRoleInput = z.infer<typeof UpdateBuyerRoleSchema>;
 
 // ---------------------------------------------------------------------------
+// Apply for Account (B2B)
+// ---------------------------------------------------------------------------
+export const ApplyForAccountSchema = z.object({
+  companyName: z.string().min(1).max(200),
+  organizationNumber: z.string().min(1).max(50),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  email: z.string().email(),
+  phone: z.string().max(50).optional(),
+  message: z.string().max(5000).optional(),
+});
+export type ApplyForAccountInput = z.infer<typeof ApplyForAccountSchema>;
+
+// ---------------------------------------------------------------------------
 // Contact Form
 // ---------------------------------------------------------------------------
 export const ContactFormSchema = z.object({
