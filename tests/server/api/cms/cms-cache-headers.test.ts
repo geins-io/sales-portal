@@ -11,17 +11,17 @@ const mockGetContentArea = vi.fn().mockResolvedValue({
   containers: [{ widgets: [] }],
 });
 
-vi.mock('../../../server/services/cms', () => ({
+vi.mock('../../../../server/services/cms', () => ({
   getPage: (...args: unknown[]) => mockGetPage(...args),
   getContentArea: (...args: unknown[]) => mockGetContentArea(...args),
 }));
 
-vi.mock('../../../server/schemas/api-input', () => ({
+vi.mock('../../../../server/schemas/api-input', () => ({
   CmsPageSchema: { parse: (v: unknown) => v },
   CmsAreaSchema: { parse: (v: unknown) => v },
 }));
 
-vi.mock('../../../server/utils/cms-sanitize', () => ({
+vi.mock('../../../../server/utils/cms-sanitize', () => ({
   sanitizeCmsPage: (v: unknown) => v,
   sanitizeCmsArea: (v: unknown) => v,
 }));
@@ -93,7 +93,7 @@ describe('CMS page route — cache headers', () => {
 
     mockGetPage.mockResolvedValue({ containers: [{ widgets: [] }] });
 
-    const mod = await import('../../../server/api/cms/page/[alias].get');
+    const mod = await import('../../../../server/api/cms/page/[alias].get');
     pageHandler = mod.default as (
       event: import('h3').H3Event,
     ) => Promise<unknown>;
@@ -165,7 +165,7 @@ describe('CMS area route — cache headers', () => {
 
     mockGetContentArea.mockResolvedValue({ containers: [{ widgets: [] }] });
 
-    const mod = await import('../../../server/api/cms/area.get');
+    const mod = await import('../../../../server/api/cms/area.get');
     areaHandler = mod.default as (
       event: import('h3').H3Event,
     ) => Promise<unknown>;

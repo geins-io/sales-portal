@@ -27,11 +27,11 @@ vi.stubGlobal(
 vi.stubGlobal('ErrorCode', { UNAUTHORIZED: 'UNAUTHORIZED' });
 
 // Mock auth service (external dependency)
-vi.mock('../../../server/services/auth', () => ({
+vi.mock('../../server/services/auth', () => ({
   refresh: vi.fn(),
 }));
 
-const { getCustomerType } = await import('../../../server/utils/auth');
+const { getCustomerType } = await import('../../server/utils/auth');
 
 const mockEvent = {} as H3Event;
 
