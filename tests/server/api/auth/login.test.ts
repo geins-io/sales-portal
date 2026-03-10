@@ -106,6 +106,38 @@ describe('POST /api/auth/login', () => {
       token: 'access-token',
       refreshToken: 'refresh-token',
       expiresIn: 3600,
+      rememberMe: undefined,
+    });
+  });
+
+  it('passes rememberMe to setAuthCookies', async () => {
+    (
+      globalThis.readValidatedBody as ReturnType<typeof vi.fn>
+    ).mockResolvedValue({
+      username: 'user@example.com',
+      password: 'password123',
+      rememberMe: false,
+    });
+
+    mockAuthLogin.mockResolvedValue({
+      succeeded: true,
+      tokens: {
+        token: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 3600,
+      },
+      user: { id: 1 },
+    });
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    await handler(mockEvent);
+
+    expect(mockSetAuthCookies).toHaveBeenCalledWith(mockEvent, {
+      token: 'access-token',
+      refreshToken: 'refresh-token',
+      expiresIn: 3600,
+      rememberMe: false,
     });
   });
 

@@ -42,6 +42,7 @@
     "password_min_length": "Password must be at least {min} characters.",
     "phone": "Phone",
     "register": "Register",
+    "remember_me": "Remember me",
     "register_failed": "Registration failed. Please try again.",
     "register_success": "Application submitted",
     "register_subtitle": "Fill in the details below to apply for a business account.",

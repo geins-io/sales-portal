@@ -32,6 +32,7 @@ export default defineEventHandler(async (event) => {
     token: tokens.token!,
     refreshToken: tokens.refreshToken!,
     expiresIn: tokens.expiresIn,
+    rememberMe: body.rememberMe,
   });
 
   return {
