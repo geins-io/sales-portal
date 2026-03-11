@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { shallowMountComponent } from '../../utils/component';
 import CartPage from '../../../app/components/pages/CartPage.vue';
 import type { CartType } from '../../../shared/types/commerce';
@@ -138,6 +138,7 @@ const defaultStubs = {
 describe('CartPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
+    vi.mocked(useRouter().push).mockClear();
   });
 
   it('renders the page with data-testid', () => {
@@ -215,7 +216,7 @@ describe('CartPage', () => {
     expect(shipping.text()).toBe('$8.00');
   });
 
-  it('renders checkout button as disabled', () => {
+  it('checkout button is not disabled when cart has items', () => {
     const store = useCartStore();
     store.cart = mockCart;
 
@@ -225,8 +226,34 @@ describe('CartPage', () => {
 
     const btn = wrapper.find('[data-testid="cart-checkout-button"]');
     expect(btn.exists()).toBe(true);
-    expect(btn.attributes('disabled')).toBeDefined();
+    expect(btn.attributes('disabled')).toBeUndefined();
     expect(btn.text()).toContain('cart.proceed_to_checkout');
+  });
+
+  it('checkout button navigates to /checkout on click', async () => {
+    const store = useCartStore();
+    store.cart = mockCart;
+    const router = useRouter();
+
+    const wrapper = shallowMountComponent(CartPage, {
+      global: { stubs: defaultStubs },
+    });
+
+    await wrapper.find('[data-testid="cart-checkout-button"]').trigger('click');
+    expect(router.push).toHaveBeenCalledWith('/checkout');
+  });
+
+  it('checkout button is disabled during loading', () => {
+    const store = useCartStore();
+    store.cart = mockCart;
+    store.isLoading = true;
+
+    const wrapper = shallowMountComponent(CartPage, {
+      global: { stubs: defaultStubs },
+    });
+
+    const btn = wrapper.find('[data-testid="cart-checkout-button"]');
+    expect(btn.attributes('disabled')).toBeDefined();
   });
 
   it('renders close button', () => {

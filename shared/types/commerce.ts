@@ -219,3 +219,27 @@ export interface ProductFiltersResponse {
   count: number;
   filters: FilterFacet[];
 }
+
+// ---------------------------------------------------------------------------
+// Checkout & Order types (re-exported from SDK)
+// ---------------------------------------------------------------------------
+export type {
+  CheckoutType,
+  CheckoutInputType,
+  AddressInputType,
+  CreateOrderOptions,
+  CreateOrderResponseType,
+  ValidateOrderCreationResponseType,
+  CheckoutSummaryType,
+  CheckoutSummaryOrderType,
+  CheckoutSummaryOrderRowType,
+  CheckoutSummaryOrderTotalType,
+  CheckoutSummaryPriceType,
+  ConsentType,
+  PaymentOptionType,
+  ShippingOptionType,
+  OrderSummaryType,
+  AddressType,
+  GetCheckoutOptions,
+} from '@geins/types';
+export { PaymentOptionCheckoutType } from '@geins/types';

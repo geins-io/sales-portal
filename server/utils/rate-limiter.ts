@@ -220,3 +220,9 @@ export const contactFormRateLimiter = new RateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
   prefix: 'contact-form',
 });
+
+export const createOrderRateLimiter = new RateLimiter({
+  limit: 5,
+  windowMs: 60000,
+  prefix: 'checkout-create-order',
+});

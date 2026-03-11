@@ -35,6 +35,10 @@ const discountFormatted = computed(() => {
 function onClose() {
   router.back();
 }
+
+function goToCheckout() {
+  router.push('/checkout');
+}
 </script>
 
 <template>
@@ -199,7 +203,8 @@ function onClose() {
               type="button"
               class="bg-primary text-primary-foreground hover:bg-primary/90 w-full rounded-md px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
               data-testid="cart-checkout-button"
-              disabled
+              :disabled="cartStore.isLoading"
+              @click="goToCheckout"
             >
               {{ $t('cart.proceed_to_checkout') }}
             </button>

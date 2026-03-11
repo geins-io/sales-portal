@@ -276,3 +276,55 @@ export const ContactFormSchema = z.object({
   message: z.string().min(1).max(5000),
 });
 export type ContactFormInput = z.infer<typeof ContactFormSchema>;
+
+// ---------------------------------------------------------------------------
+// Checkout
+// ---------------------------------------------------------------------------
+export const CheckoutAddressSchema = z.object({
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  addressLine1: z.string().min(1).max(200),
+  addressLine2: z.string().max(200).optional(),
+  addressLine3: z.string().max(200).optional(),
+  entryCode: z.string().max(50).optional(),
+  careOf: z.string().max(200).optional(),
+  city: z.string().min(1).max(100),
+  state: z.string().max(100).optional(),
+  country: z.string().min(1).max(100),
+  zip: z.string().min(1).max(20),
+  company: z.string().max(200).optional(),
+  mobile: z.string().max(50).optional(),
+  phone: z.string().max(50).optional(),
+});
+export type CheckoutAddressInput = z.infer<typeof CheckoutAddressSchema>;
+
+export const GetCheckoutSchema = z.object({
+  cartId: z.string().min(1),
+});
+export type GetCheckoutInput = z.infer<typeof GetCheckoutSchema>;
+
+export const PlaceOrderSchema = z.object({
+  cartId: z.string().min(1),
+  paymentId: z.number(),
+  shippingId: z.number(),
+  email: z.string().email(),
+  identityNumber: z.string().max(50).optional(),
+  message: z.string().max(2000).optional(),
+  acceptedConsents: z.array(z.string()).optional(),
+  billingAddress: CheckoutAddressSchema,
+  shippingAddress: CheckoutAddressSchema.optional(),
+  customerType: z.string().max(50).optional(),
+});
+export type PlaceOrderInput = z.infer<typeof PlaceOrderSchema>;
+
+export const ValidateOrderSchema = z.object({
+  cartId: z.string().min(1),
+  email: z.string().email().optional(),
+});
+export type ValidateOrderInput = z.infer<typeof ValidateOrderSchema>;
+
+export const CheckoutSummarySchema = z.object({
+  orderId: z.string().min(1),
+  paymentMethod: z.string().min(1),
+});
+export type CheckoutSummaryInput = z.infer<typeof CheckoutSummarySchema>;
