@@ -4,6 +4,7 @@ import { useCartStore } from '~/stores/cart';
 import { formatPrice } from '#shared/types/commerce';
 
 const cartStore = useCartStore();
+const router = useRouter();
 const { tenant } = useTenant();
 
 const isOpen = computed({
@@ -30,6 +31,11 @@ const discountFormatted = computed(() => {
     tenant.value?.locale,
   );
 });
+
+function goToCheckout() {
+  cartStore.isOpen = false;
+  router.push('/checkout');
+}
 </script>
 
 <template>
@@ -172,7 +178,9 @@ const discountFormatted = computed(() => {
           <button
             type="button"
             class="bg-primary text-primary-foreground hover:bg-primary/90 w-full rounded-md px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
-            disabled
+            data-testid="cart-drawer-checkout-button"
+            :disabled="cartStore.isLoading"
+            @click="goToCheckout"
           >
             {{ $t('cart.checkout') }}
           </button>
