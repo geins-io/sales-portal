@@ -362,6 +362,18 @@
     "fallback": "Fallback",
     "icon": "Icon"
   },
+  "quote": {
+    "request_quote": "Request Quote",
+    "quote_message": "Additional Message",
+    "quote_message_placeholder": "Add any special requirements or notes...",
+    "requesting_quote": "Requesting Quote...",
+    "po_number": "PO Number",
+    "payment_terms": "Payment Terms",
+    "confirmation_title": "Quote Request Submitted",
+    "confirmation_message": "Your quote request has been submitted. We will review it and get back to you shortly.",
+    "quote_number": "Quote Number",
+    "back_to_portal": "View Your Quotes"
+  },
   "portal": {
     "welcome": "Welcome {name}!",
     "customer_no": "Customer no: {id} / {email}",
@@ -556,6 +568,42 @@
       },
       "error_title": "Unable to load organisation",
       "error_description": "Something went wrong loading your organisation data. Please try again later."
+    },
+    "quotations": {
+      "title": "Quotations",
+      "search_placeholder": "Search quotations...",
+      "no_quotations": "No quotations found",
+      "quote_number": "Quote Nr",
+      "created": "Created",
+      "contact": "Contact",
+      "status": "Status",
+      "total": "Total",
+      "view": "View",
+      "status_pending": "Pending",
+      "status_accepted": "Accepted",
+      "status_rejected": "Rejected",
+      "status_expired": "Expired",
+      "status_cancelled": "Cancelled",
+      "detail_title": "Quotation Details",
+      "product": "Product",
+      "article_number": "Art Nr",
+      "quantity": "Amount",
+      "unit_price": "Unit Price",
+      "line_total": "Total",
+      "subtotal": "Subtotal",
+      "tax": "Tax",
+      "grand_total": "Total",
+      "accept": "Accept Quote",
+      "decline": "Decline Quote",
+      "accepting": "Accepting...",
+      "declining": "Declining...",
+      "decline_reason": "Reason for declining",
+      "decline_reason_placeholder": "Optional: tell us why you're declining...",
+      "expires_at": "Expires",
+      "payment_terms": "Payment Terms",
+      "sale_contact": "Sale Contact",
+      "invoice_address": "Invoice Address",
+      "delivery_address": "Delivery Address"
     }
   }
 }
