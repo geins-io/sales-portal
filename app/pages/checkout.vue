@@ -63,9 +63,26 @@ watch(
   },
 );
 
+// Watch for successful quote request
+watch(
+  () => checkoutStore.quoteResult,
+  (result) => {
+    if (result?.quoteId) {
+      navigateTo(
+        `/quote-confirmation/${result.quoteId}?quoteNumber=${encodeURIComponent(result.quoteNumber)}`,
+      );
+    }
+  },
+);
+
 async function handlePlaceOrder() {
   if (!cartStore.cartId || !checkoutStore.canPlaceOrder) return;
   await checkoutStore.placeOrder(cartStore.cartId);
+}
+
+async function handleRequestQuote() {
+  if (!cartStore.cartId || !checkoutStore.canRequestQuote) return;
+  await checkoutStore.requestQuote(cartStore.cartId);
 }
 </script>
 
@@ -251,28 +268,55 @@ async function handlePlaceOrder() {
 
         <Separator />
 
-        <!-- Place Order Button -->
-        <Button
-          type="button"
-          class="w-full py-3"
-          :disabled="
-            !checkoutStore.canPlaceOrder ||
-            checkoutStore.isPlacingOrder ||
-            checkoutStore.isBlacklisted
-          "
-          data-testid="place-order-button"
-          @click="handlePlaceOrder"
-        >
-          <Loader2
-            v-if="checkoutStore.isPlacingOrder"
-            class="mr-2 size-4 animate-spin"
-          />
-          {{
-            checkoutStore.isPlacingOrder
-              ? t('checkout.placing_order')
-              : t('checkout.place_order')
-          }}
-        </Button>
+        <!-- Action Buttons -->
+        <div class="flex flex-col gap-3 sm:flex-row">
+          <!-- Place Order Button -->
+          <Button
+            type="button"
+            class="flex-1 py-3"
+            :disabled="
+              !checkoutStore.canPlaceOrder ||
+              checkoutStore.isPlacingOrder ||
+              checkoutStore.isBlacklisted
+            "
+            data-testid="place-order-button"
+            @click="handlePlaceOrder"
+          >
+            <Loader2
+              v-if="checkoutStore.isPlacingOrder"
+              class="mr-2 size-4 animate-spin"
+            />
+            {{
+              checkoutStore.isPlacingOrder
+                ? t('checkout.placing_order')
+                : t('checkout.place_order')
+            }}
+          </Button>
+
+          <!-- Request Quote Button -->
+          <Button
+            type="button"
+            variant="outline"
+            class="flex-1 py-3"
+            :disabled="
+              !checkoutStore.canRequestQuote ||
+              checkoutStore.isRequestingQuote ||
+              checkoutStore.isBlacklisted
+            "
+            data-testid="request-quote-button"
+            @click="handleRequestQuote"
+          >
+            <Loader2
+              v-if="checkoutStore.isRequestingQuote"
+              class="mr-2 size-4 animate-spin"
+            />
+            {{
+              checkoutStore.isRequestingQuote
+                ? t('quote.requesting_quote')
+                : t('quote.request_quote')
+            }}
+          </Button>
+        </div>
       </div>
 
       <!-- RIGHT: Order Summary Sidebar -->
