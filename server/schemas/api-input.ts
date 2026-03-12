@@ -328,3 +328,31 @@ export const CheckoutSummarySchema = z.object({
   paymentMethod: z.string().min(1),
 });
 export type CheckoutSummaryInput = z.infer<typeof CheckoutSummarySchema>;
+
+// ---------------------------------------------------------------------------
+// Quotes
+// ---------------------------------------------------------------------------
+export const CreateQuoteSchema = z.object({
+  cartId: z.string().min(1),
+  message: z.string().max(2000).optional(),
+  poNumber: z.string().max(100).optional(),
+  paymentTerms: z.string().max(200).optional(),
+});
+export type CreateQuoteInput = z.infer<typeof CreateQuoteSchema>;
+
+export const AcceptQuoteSchema = z.object({
+  quoteId: z.string().min(1),
+});
+export type AcceptQuoteInput = z.infer<typeof AcceptQuoteSchema>;
+
+export const RejectQuoteSchema = z.object({
+  quoteId: z.string().min(1),
+  reason: z.string().max(2000).optional(),
+});
+export type RejectQuoteInput = z.infer<typeof RejectQuoteSchema>;
+
+export const ListQuotesSchema = z.object({
+  skip: z.coerce.number().min(0).optional(),
+  take: z.coerce.number().min(1).max(50).optional(),
+});
+export type ListQuotesInput = z.infer<typeof ListQuotesSchema>;
