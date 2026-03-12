@@ -226,3 +226,9 @@ export const createOrderRateLimiter = new RateLimiter({
   windowMs: 60000,
   prefix: 'checkout-create-order',
 });
+
+export const quoteCreateRateLimiter = new RateLimiter({
+  limit: 5,
+  windowMs: 60000,
+  prefix: 'quote-create',
+});
