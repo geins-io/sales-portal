@@ -1,0 +1,317 @@
+// @vitest-environment happy-dom
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mount } from '@vue/test-utils';
+import { ref, computed, onMounted } from 'vue';
+import { createPinia, setActivePinia } from 'pinia';
+
+// ---------------------------------------------------------------------------
+// Mock Nuxt auto-imports
+// ---------------------------------------------------------------------------
+vi.stubGlobal('definePageMeta', vi.fn());
+vi.stubGlobal('useHead', vi.fn());
+
+vi.mock('#app/composables/head', () => ({
+  useHead: vi.fn(),
+  useHeadSafe: vi.fn(),
+  useServerHead: vi.fn(),
+  useServerHeadSafe: vi.fn(),
+  useSeoMeta: vi.fn(),
+  useServerSeoMeta: vi.fn(),
+  injectHead: vi.fn(),
+}));
+
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string) => key,
+    locale: ref('en'),
+  }),
+}));
+
+vi.stubGlobal('computed', computed);
+vi.stubGlobal('onMounted', onMounted);
+
+// ---------------------------------------------------------------------------
+// Mock useFetch (orders API)
+// ---------------------------------------------------------------------------
+let mockOrdersData: { orders: unknown[] } | null = { orders: [] };
+let mockOrdersPending = false;
+
+vi.mock('#app/composables/fetch', () => ({
+  useFetch: vi.fn(() => ({
+    data: ref(mockOrdersData),
+    pending: ref(mockOrdersPending),
+  })),
+  $fetch: vi.fn(),
+}));
+
+vi.stubGlobal('useFetch', () => ({
+  data: ref(mockOrdersData),
+  pending: ref(mockOrdersPending),
+}));
+
+// ---------------------------------------------------------------------------
+// Mock quotes store
+// ---------------------------------------------------------------------------
+let mockPendingQuotes: Array<{
+  id: string;
+  quoteNumber: string;
+  contactName: string;
+  status: string;
+  totalFormatted: string;
+  createdAt: string;
+}> = [];
+let mockPendingCount = 0;
+let mockFetchQuotes = vi.fn();
+
+// The store returns computed arrays/numbers as plain values (not refs).
+// We use a mutable object so tests can update it between runs.
+const mockQuotesStoreInstance = {
+  get pendingQuotes() {
+    return mockPendingQuotes;
+  },
+  get pendingCount() {
+    return mockPendingCount;
+  },
+  fetchQuotes: (...args: unknown[]) => mockFetchQuotes(...args),
+};
+
+vi.mock('../../../app/stores/quotes', () => ({
+  useQuotesStore: () => mockQuotesStoreInstance,
+}));
+
+vi.stubGlobal('useQuotesStore', () => mockQuotesStoreInstance);
+
+// ---------------------------------------------------------------------------
+// Stubs
+// ---------------------------------------------------------------------------
+const stubs = {
+  NuxtLink: {
+    template: '<a :href="to" v-bind="$attrs"><slot /></a>',
+    props: ['to'],
+  },
+  PortalShell: {
+    template: '<div data-testid="portal-shell"><slot /></div>',
+  },
+  PortalStatCard: {
+    template:
+      '<div data-testid="portal-stat-card" :data-count="count" :data-show-dot="showDot"><slot /></div>',
+    props: ['icon', 'count', 'label', 'showDot'],
+  },
+  PortalOrdersTable: {
+    template: '<div data-testid="portal-orders-table"></div>',
+    props: ['orders', 'limit'],
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Import page after stubs are set
+// ---------------------------------------------------------------------------
+const PortalOverviewPage = await import('../../../app/pages/portal/index.vue');
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+describe('Portal Overview page', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockPendingQuotes = [];
+    mockPendingCount = 0;
+    mockFetchQuotes = vi.fn().mockResolvedValue(undefined);
+    mockOrdersData = { orders: [] };
+    mockOrdersPending = false;
+  });
+
+  // -------------------------------------------------------------------------
+  // Stat card — pending count
+  // -------------------------------------------------------------------------
+  it('shows 0 in stat card when no pending quotes', () => {
+    mockPendingCount = 0;
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
+    const quotationCard = cards[0];
+    expect(quotationCard?.attributes('data-count')).toBe('0');
+  });
+
+  it('shows real pending count in stat card', () => {
+    mockPendingCount = 3;
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
+    const quotationCard = cards[0];
+    expect(quotationCard?.attributes('data-count')).toBe('3');
+  });
+
+  // -------------------------------------------------------------------------
+  // Stat card — dot indicator
+  // -------------------------------------------------------------------------
+  it('hides dot when no pending quotes', () => {
+    mockPendingCount = 0;
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
+    const quotationCard = cards[0];
+    expect(quotationCard?.attributes('data-show-dot')).toBe('false');
+  });
+
+  it('shows dot when there are pending quotes', () => {
+    mockPendingCount = 2;
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    const cards = wrapper.findAll('[data-testid="portal-stat-card"]');
+    const quotationCard = cards[0];
+    expect(quotationCard?.attributes('data-show-dot')).toBe('true');
+  });
+
+  // -------------------------------------------------------------------------
+  // Pending quotations section — empty state
+  // -------------------------------------------------------------------------
+  it('shows empty state when no pending quotes', () => {
+    mockPendingQuotes = [];
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    const emptyState = wrapper.find('[data-testid="pending-quotations-empty"]');
+    expect(emptyState.exists()).toBe(true);
+  });
+
+  it('hides empty state when pending quotes exist', () => {
+    mockPendingQuotes = [
+      {
+        id: 'q1',
+        quoteNumber: 'Q-1001',
+        contactName: 'Jane Doe',
+        status: 'pending',
+        totalFormatted: '$500.00',
+        createdAt: '2026-03-01T00:00:00Z',
+      },
+    ];
+    mockPendingCount = 1;
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    const emptyState = wrapper.find('[data-testid="pending-quotations-empty"]');
+    expect(emptyState.exists()).toBe(false);
+  });
+
+  // -------------------------------------------------------------------------
+  // Pending quotations section — quote list
+  // -------------------------------------------------------------------------
+  it('renders pending quote rows', () => {
+    mockPendingQuotes = [
+      {
+        id: 'q1',
+        quoteNumber: 'Q-1001',
+        contactName: 'Jane Doe',
+        status: 'pending',
+        totalFormatted: '$500.00',
+        createdAt: '2026-03-01T00:00:00Z',
+      },
+      {
+        id: 'q2',
+        quoteNumber: 'Q-1002',
+        contactName: 'John Smith',
+        status: 'pending',
+        totalFormatted: '$200.00',
+        createdAt: '2026-03-02T00:00:00Z',
+      },
+    ];
+    mockPendingCount = 2;
+
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    const rows = wrapper.findAll('[data-testid="pending-quote-row"]');
+    expect(rows).toHaveLength(2);
+  });
+
+  it('shows quote number, contact name, and total in each row', () => {
+    mockPendingQuotes = [
+      {
+        id: 'q1',
+        quoteNumber: 'Q-1001',
+        contactName: 'Jane Doe',
+        status: 'pending',
+        totalFormatted: '$500.00',
+        createdAt: '2026-03-01T00:00:00Z',
+      },
+    ];
+    mockPendingCount = 1;
+
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    const row = wrapper.find('[data-testid="pending-quote-row"]');
+    expect(row.text()).toContain('Q-1001');
+    expect(row.text()).toContain('Jane Doe');
+    expect(row.text()).toContain('$500.00');
+  });
+
+  it('caps displayed quotes at 3', () => {
+    mockPendingQuotes = [
+      {
+        id: 'q1',
+        quoteNumber: 'Q-1001',
+        contactName: 'A',
+        status: 'pending',
+        totalFormatted: '$100',
+        createdAt: '2026-03-01T00:00:00Z',
+      },
+      {
+        id: 'q2',
+        quoteNumber: 'Q-1002',
+        contactName: 'B',
+        status: 'pending',
+        totalFormatted: '$200',
+        createdAt: '2026-03-02T00:00:00Z',
+      },
+      {
+        id: 'q3',
+        quoteNumber: 'Q-1003',
+        contactName: 'C',
+        status: 'pending',
+        totalFormatted: '$300',
+        createdAt: '2026-03-03T00:00:00Z',
+      },
+      {
+        id: 'q4',
+        quoteNumber: 'Q-1004',
+        contactName: 'D',
+        status: 'pending',
+        totalFormatted: '$400',
+        createdAt: '2026-03-04T00:00:00Z',
+      },
+    ];
+    mockPendingCount = 4;
+
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    const rows = wrapper.findAll('[data-testid="pending-quote-row"]');
+    expect(rows).toHaveLength(3);
+  });
+
+  // -------------------------------------------------------------------------
+  // fetchQuotes called on mount
+  // -------------------------------------------------------------------------
+  it('calls fetchQuotes on mount', () => {
+    mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    expect(mockFetchQuotes).toHaveBeenCalledTimes(1);
+  });
+});

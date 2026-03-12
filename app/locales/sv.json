@@ -362,6 +362,18 @@
     "fallback": "Reserv",
     "icon": "Ikon"
   },
+  "quote": {
+    "request_quote": "Begär offert",
+    "quote_message": "Ytterligare meddelande",
+    "quote_message_placeholder": "Lägg till eventuella specialkrav eller anteckningar...",
+    "requesting_quote": "Begär offert...",
+    "po_number": "PO-nummer",
+    "payment_terms": "Betalningsvillkor",
+    "confirmation_title": "Offertförfrågan skickad",
+    "confirmation_message": "Din offertförfrågan har skickats. Vi granskar den och återkommer till dig inom kort.",
+    "quote_number": "Offertnummer",
+    "back_to_portal": "Visa dina offerter"
+  },
   "portal": {
     "welcome": "Välkommen {name}!",
     "customer_no": "Kundnr: {id} / {email}",
@@ -556,6 +568,42 @@
       },
       "error_title": "Kunde inte ladda organisation",
       "error_description": "Något gick fel vid laddning av organisationsdata. Försök igen senare."
+    },
+    "quotations": {
+      "title": "Offerter",
+      "search_placeholder": "Sök offerter...",
+      "no_quotations": "Inga offerter hittades",
+      "quote_number": "Offertnr",
+      "created": "Skapad",
+      "contact": "Kontakt",
+      "status": "Status",
+      "total": "Totalt",
+      "view": "Visa",
+      "status_pending": "Väntande",
+      "status_accepted": "Accepterad",
+      "status_rejected": "Avvisad",
+      "status_expired": "Utgången",
+      "status_cancelled": "Avbruten",
+      "detail_title": "Offertdetaljer",
+      "product": "Produkt",
+      "article_number": "Art nr",
+      "quantity": "Antal",
+      "unit_price": "Styckpris",
+      "line_total": "Totalt",
+      "subtotal": "Delsumma",
+      "tax": "Moms",
+      "grand_total": "Totalt",
+      "accept": "Acceptera offert",
+      "decline": "Avvisa offert",
+      "accepting": "Accepterar...",
+      "declining": "Avvisar...",
+      "decline_reason": "Anledning till avvisning",
+      "decline_reason_placeholder": "Valfritt: berätta varför du avvisar...",
+      "expires_at": "Utgår",
+      "payment_terms": "Betalningsvillkor",
+      "sale_contact": "Säljkontakt",
+      "invoice_address": "Fakturaadress",
+      "delivery_address": "Leveransadress"
     }
   }
 }

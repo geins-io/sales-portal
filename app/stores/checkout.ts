@@ -44,6 +44,11 @@ export const useCheckoutStore = defineStore('checkout', () => {
   const isPlacingOrder = ref(false);
   const error = ref<string | null>(null);
   const orderResult = ref<{ orderId: string; publicId: string } | null>(null);
+  const quoteMessage = ref('');
+  const isRequestingQuote = ref(false);
+  const quoteResult = ref<{ quoteId: string; quoteNumber: string } | null>(
+    null,
+  );
 
   // Computeds
   const paymentOptions = computed<PaymentOptionType[]>(
@@ -76,6 +81,21 @@ export const useCheckoutStore = defineStore('checkout', () => {
       return false;
     if (!selectedPaymentId.value) return false;
     if (!selectedShippingId.value) return false;
+    return true;
+  });
+  const canRequestQuote = computed(() => {
+    if (isLoading.value || isRequestingQuote.value) return false;
+    if (!email.value) return false;
+    const addr = billingAddress.value;
+    if (
+      !addr.firstName ||
+      !addr.lastName ||
+      !addr.addressLine1 ||
+      !addr.city ||
+      !addr.country ||
+      !addr.zip
+    )
+      return false;
     return true;
   });
 
@@ -192,6 +212,31 @@ export const useCheckoutStore = defineStore('checkout', () => {
     }
   }
 
+  async function requestQuote(cartId: string) {
+    isRequestingQuote.value = true;
+    error.value = null;
+    try {
+      const response = await $fetch<{ quoteId: string; quoteNumber: string }>(
+        '/api/quotes',
+        {
+          method: 'POST',
+          body: {
+            cartId,
+            message: quoteMessage.value,
+          },
+        },
+      );
+      quoteResult.value = {
+        quoteId: response.quoteId,
+        quoteNumber: response.quoteNumber,
+      };
+    } catch {
+      error.value = 'Failed to request quote';
+    } finally {
+      isRequestingQuote.value = false;
+    }
+  }
+
   function reset() {
     checkout.value = null;
     billingAddress.value = emptyAddress();
@@ -207,6 +252,9 @@ export const useCheckoutStore = defineStore('checkout', () => {
     isPlacingOrder.value = false;
     error.value = null;
     orderResult.value = null;
+    quoteMessage.value = '';
+    isRequestingQuote.value = false;
+    quoteResult.value = null;
   }
 
   return {
@@ -230,9 +278,14 @@ export const useCheckoutStore = defineStore('checkout', () => {
     isBlacklisted,
     effectiveShippingAddress,
     canPlaceOrder,
+    canRequestQuote,
+    quoteMessage,
+    isRequestingQuote,
+    quoteResult,
     fetchCheckout,
     toggleConsent,
     placeOrder,
+    requestQuote,
     reset,
   };
 });

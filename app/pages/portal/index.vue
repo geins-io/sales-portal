@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useQuotesStore } from '~/stores/quotes';
+
 definePageMeta({
   middleware: 'auth',
 });
@@ -37,6 +39,15 @@ const purchasedProductIds = computed(() => {
   return ids;
 });
 const purchasedProductCount = computed(() => purchasedProductIds.value.size);
+
+const quotesStore = useQuotesStore();
+const recentPendingQuotes = computed(() =>
+  quotesStore.pendingQuotes.slice(0, 3),
+);
+
+onMounted(() => {
+  quotesStore.fetchQuotes();
+});
 </script>
 
 <template>
@@ -45,9 +56,9 @@ const purchasedProductCount = computed(() => purchasedProductIds.value.size);
     <div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <PortalStatCard
         icon="lucide:file-text"
-        :count="0"
+        :count="quotesStore.pendingCount"
         :label="t('portal.overview.stat.pending_quotations')"
-        :show-dot="false"
+        :show-dot="quotesStore.pendingCount > 0"
       />
       <PortalStatCard
         icon="lucide:shopping-bag"
@@ -105,9 +116,31 @@ const purchasedProductCount = computed(() => purchasedProductIds.value.size);
             {{ t('portal.overview.view_all') }}
           </NuxtLink>
         </div>
-        <p class="text-muted-foreground text-sm">
+        <p
+          v-if="recentPendingQuotes.length === 0"
+          data-testid="pending-quotations-empty"
+          class="text-muted-foreground text-sm"
+        >
           {{ t('portal.overview.no_quotations') }}
         </p>
+        <ul v-else class="divide-border divide-y">
+          <li
+            v-for="quote in recentPendingQuotes"
+            :key="quote.id"
+            data-testid="pending-quote-row"
+            class="flex items-center justify-between py-3"
+          >
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium">
+                {{ quote.quoteNumber }}
+              </p>
+              <p class="text-muted-foreground truncate text-xs">
+                {{ quote.contactName }}
+              </p>
+            </div>
+            <span class="text-sm font-medium">{{ quote.totalFormatted }}</span>
+          </li>
+        </ul>
       </div>
       <div>
         <div class="mb-4 flex items-center justify-between">
