@@ -463,6 +463,16 @@ export function useErrorBoundary(context: ErrorContext = {}) {
   const { trackError } = useErrorTracking();
 
   onErrorCaptured((err, instance, info) => {
+    // Let Nuxt fatal errors (404, 500) propagate to error.vue
+    if (
+      err &&
+      typeof err === 'object' &&
+      'fatal' in err &&
+      (err as Record<string, unknown>).fatal
+    ) {
+      return;
+    }
+
     error.value = err;
 
     trackError(err, {

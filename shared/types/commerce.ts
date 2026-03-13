@@ -217,7 +217,7 @@ export interface ProductListResponse {
 
 export interface ProductFiltersResponse {
   count: number;
-  filters: FilterFacet[];
+  filters: { facets: FilterFacet[] };
 }
 
 // ---------------------------------------------------------------------------

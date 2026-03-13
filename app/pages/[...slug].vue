@@ -18,12 +18,26 @@ const {
   error,
 } = await useRouteResolution(normalizedPath);
 
-// Handle resolution side effects (404, canonical)
+// Handle 404: use abortNavigation for SSR, showError for client
+if (resolution.value?.type === 'not-found') {
+  if (import.meta.server) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Not Found',
+      fatal: true,
+    });
+  } else {
+    await navigateTo('/404', { redirectCode: 404 });
+  }
+}
+
+// Handle resolution side effects on client-side navigation
 watch(
   () => resolution.value,
   (res) => {
     if (res?.type === 'not-found') {
-      throw createError({ statusCode: 404, statusMessage: 'Not Found' });
+      showError(createError({ statusCode: 404, statusMessage: 'Not Found' }));
+      return;
     }
     if (res && 'canonical' in res && res.canonical) {
       useHead({
@@ -31,7 +45,6 @@ watch(
       });
     }
   },
-  { immediate: true },
 );
 
 // Cache async component definitions to avoid recreating on each render

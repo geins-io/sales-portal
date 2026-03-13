@@ -68,7 +68,7 @@ const { data: filtersData } = useFetch<ProductFiltersResponse>(
 );
 
 // --- Derived ---
-const facets = computed(() => filtersData.value?.filters ?? []);
+const facets = computed(() => filtersData.value?.filters?.facets ?? []);
 const totalCount = computed(() => productsData.value?.count ?? 0);
 const isLoading = computed(() => productsStatus.value === 'pending');
 const hasMore = computed(() => allProducts.value.length < totalCount.value);
