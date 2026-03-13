@@ -22,10 +22,15 @@ const emit = defineEmits<{
 const isDesktop = useMediaQuery('(min-width: 768px)');
 
 const hasDescription = computed(() => !!props.product.texts?.text1);
-const hasSpecs = computed(
-  () =>
-    !!props.product.parameterGroups && props.product.parameterGroups.length > 0,
+const visibleGroups = computed(() =>
+  (props.product.parameterGroups ?? [])
+    .map((g) => ({
+      ...g,
+      parameters: (g.parameters ?? []).filter((p) => p.show !== false),
+    }))
+    .filter((g) => g.parameters.length > 0),
 );
+const hasSpecs = computed(() => visibleGroups.value.length > 0);
 
 const reviewsLoaded = ref(false);
 
@@ -80,11 +85,11 @@ function onAccordionChange(value: string | string[] | undefined) {
       <TabsContent v-if="hasSpecs" value="specifications">
         <div class="grid gap-6 md:grid-cols-2">
           <div
-            v-for="group in product.parameterGroups"
-            :key="group.groupName"
+            v-for="group in visibleGroups"
+            :key="group.name ?? group.parameterGroupId"
             class="flex flex-col gap-2"
           >
-            <h4 class="text-sm font-semibold">{{ group.groupName }}</h4>
+            <h4 class="text-sm font-semibold">{{ group.name }}</h4>
             <p
               v-if="group.parameters?.[0]?.description"
               class="text-muted-foreground text-xs"
@@ -94,8 +99,8 @@ function onAccordionChange(value: string | string[] | undefined) {
             <table class="w-full text-sm" data-testid="spec-table">
               <tbody>
                 <tr
-                  v-for="param in group.parameters"
-                  :key="param.parameterId"
+                  v-for="(param, idx) in group.parameters"
+                  :key="param.identifier ?? param.name ?? idx"
                   class="border-border border-b"
                 >
                   <td class="text-muted-foreground py-2 pr-4">
@@ -154,16 +159,16 @@ function onAccordionChange(value: string | string[] | undefined) {
         <AccordionContent>
           <div class="flex flex-col gap-4">
             <div
-              v-for="group in product.parameterGroups"
-              :key="group.groupName"
+              v-for="group in visibleGroups"
+              :key="group.name ?? group.parameterGroupId"
               class="flex flex-col gap-2"
             >
-              <h4 class="text-sm font-semibold">{{ group.groupName }}</h4>
+              <h4 class="text-sm font-semibold">{{ group.name }}</h4>
               <table class="w-full text-sm" data-testid="spec-table">
                 <tbody>
                   <tr
-                    v-for="param in group.parameters"
-                    :key="param.parameterId"
+                    v-for="(param, idx) in group.parameters"
+                    :key="param.identifier ?? param.name ?? idx"
                     class="border-border border-b"
                   >
                     <td class="text-muted-foreground py-2 pr-4">

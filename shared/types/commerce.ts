@@ -20,13 +20,30 @@ export type {
   VariantDimensionType,
   VariantType,
   VariantGroupType,
-  ParameterGroupType,
   AttributeType,
   BreadcrumbType,
   MetadataType,
   RatingType,
   LowestPriceType,
 } from '@geins/types';
+
+/**
+ * Parameter group as returned by the GraphQL API.
+ * NOTE: The SDK's ParameterGroupType uses `groupName` but the actual
+ * GraphQL schema returns `name`. This local type matches the real response.
+ */
+export interface ParameterGroupType {
+  name: string;
+  parameterGroupId: number;
+  parameters: {
+    name?: string;
+    label?: string;
+    description?: string;
+    value?: string;
+    show: boolean;
+    identifier?: string;
+  }[];
+}
 
 /** Stock availability state — derived from StockType fields */
 export type StockStatus =
@@ -145,8 +162,9 @@ export interface ListProduct {
  */
 export interface DetailProduct extends Omit<
   ProductType,
-  'discountType' | 'lowestPrice'
+  'discountType' | 'lowestPrice' | 'parameterGroups'
 > {
+  parameterGroups?: ParameterGroupType[];
   discountCampaigns?: { name: string; hideTitle: boolean }[];
   lowestPrice?: LowestPriceInfo;
   discountType?: ProductDiscountType;
