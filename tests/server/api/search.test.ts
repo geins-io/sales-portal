@@ -102,9 +102,9 @@ describe('GET /api/search/products', () => {
         variables: expect.objectContaining({
           filter: expect.objectContaining({
             searchText: 'jackets',
-            skip: 0,
-            take: 10,
           }),
+          skip: 0,
+          take: 10,
         }),
       }),
     );

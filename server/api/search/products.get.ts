@@ -11,10 +11,16 @@ export default defineEventHandler(async (event) => {
         ...validated.filter,
         searchText: validated.query,
       };
-      if (validated.skip !== undefined) filter.skip = validated.skip;
-      if (validated.take !== undefined) filter.take = validated.take;
 
-      return searchProducts({ filter, userToken: auth?.authToken }, event);
+      return searchProducts(
+        {
+          filter,
+          skip: validated.skip,
+          take: validated.take,
+          userToken: auth?.authToken,
+        },
+        event,
+      );
     },
     { operation: 'search.products.get' },
   );
