@@ -26,9 +26,23 @@ const listSlug = computed(() =>
 const route = useRoute();
 const router = useRouter();
 
-// --- State ---
-const filterState = ref<Record<string, string[]>>({});
-const sortBy = ref('relevance');
+// --- State (restored from URL on mount) ---
+const reservedParams = new Set(['page', 'sort', 'searchText']);
+
+function restoreFiltersFromQuery(): Record<string, string[]> {
+  const state: Record<string, string[]> = {};
+  for (const [key, value] of Object.entries(route.query)) {
+    if (reservedParams.has(key) || typeof value !== 'string') continue;
+    const values = value.split(',').filter(Boolean);
+    if (values.length > 0) state[key] = values;
+  }
+  return state;
+}
+
+const filterState = ref<Record<string, string[]>>(restoreFiltersFromQuery());
+const sortBy = ref(
+  typeof route.query.sort === 'string' ? route.query.sort : 'relevance',
+);
 const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
   default: () => 'grid',
 });
@@ -50,6 +64,29 @@ const sortOptions = computed(() => [
   { label: t('product.sort_name_desc'), value: 'name-desc' },
 ]);
 
+// --- Sort mapping (UI value → GraphQL SortType) ---
+const sortMap: Record<string, string> = {
+  relevance: 'RELEVANCE',
+  'price-asc': 'PRICE',
+  'price-desc': 'PRICE_DESC',
+  newest: 'LATEST',
+  'name-asc': 'ALPHABETICAL',
+  'name-desc': 'ALPHABETICAL',
+};
+
+// --- Build filter object for GraphQL FilterInputType ---
+const filterInput = computed(() => {
+  const selectedFacetIds = Object.values(filterState.value).flat();
+  const filter: Record<string, unknown> = {};
+
+  if (selectedFacetIds.length > 0) filter.facets = selectedFacetIds;
+  if (debouncedFilterText.value) filter.searchText = debouncedFilterText.value;
+  if (sortBy.value !== 'relevance')
+    filter.sort = sortMap[sortBy.value] ?? 'RELEVANCE';
+
+  return Object.keys(filter).length > 0 ? filter : undefined;
+});
+
 // --- Data Fetching ---
 const queryParams = computed(() => ({
   ...(isBrand.value
@@ -57,10 +94,7 @@ const queryParams = computed(() => ({
     : { categoryAlias: listSlug.value }),
   skip: skip.value,
   take,
-  ...(debouncedFilterText.value
-    ? { searchText: debouncedFilterText.value }
-    : {}),
-  ...filterState.value,
+  ...(filterInput.value ? { filter: filterInput.value } : {}),
 }));
 
 const { data: productsData, status: productsStatus } =
@@ -92,7 +126,7 @@ const { data: pageInfo } = useFetch<ListPageInfo>(pageInfoUrl, {
 });
 
 // --- Derived ---
-const facets = computed(() => filtersData.value?.filters ?? []);
+const facets = computed(() => filtersData.value?.filters?.facets ?? []);
 const totalCount = computed(() => productsData.value?.count ?? 0);
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(totalCount.value / take)),

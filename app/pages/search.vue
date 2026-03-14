@@ -43,12 +43,34 @@ useHead({
   ),
 });
 
+// --- Sort mapping (UI value → GraphQL SortType) ---
+const sortMap: Record<string, string> = {
+  relevance: 'RELEVANCE',
+  'price-asc': 'PRICE',
+  'price-desc': 'PRICE_DESC',
+  newest: 'LATEST',
+  'name-asc': 'ALPHABETICAL',
+  'name-desc': 'ALPHABETICAL',
+};
+
+// --- Build filter object for GraphQL FilterInputType ---
+const filterInput = computed(() => {
+  const selectedFacetIds = Object.values(filterState.value).flat();
+  const filter: Record<string, unknown> = {};
+
+  if (selectedFacetIds.length > 0) filter.facets = selectedFacetIds;
+  if (sortBy.value !== 'relevance')
+    filter.sort = sortMap[sortBy.value] ?? 'RELEVANCE';
+
+  return Object.keys(filter).length > 0 ? filter : undefined;
+});
+
 // --- Data Fetching ---
 const queryParams = computed(() => ({
   query: searchTerm.value,
   skip: skip.value,
   take,
-  ...filterState.value,
+  ...(filterInput.value ? { filter: filterInput.value } : {}),
 }));
 
 const { data: productsData, status: productsStatus } =
@@ -68,7 +90,7 @@ const { data: filtersData } = useFetch<ProductFiltersResponse>(
 );
 
 // --- Derived ---
-const facets = computed(() => filtersData.value?.filters ?? []);
+const facets = computed(() => filtersData.value?.filters?.facets ?? []);
 const totalCount = computed(() => productsData.value?.count ?? 0);
 const isLoading = computed(() => productsStatus.value === 'pending');
 const hasMore = computed(() => allProducts.value.length < totalCount.value);

@@ -1,10 +1,14 @@
 query products(
+  $skip: Int = null
+  $take: Int = null
   $filter: FilterInputType = null
   $channelId: String
   $languageId: String
   $marketId: String
 ) {
   products(
+    skip: $skip
+    take: $take
     filter: $filter
     channelId: $channelId
     languageId: $languageId

@@ -87,23 +87,26 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
     texts: { text1: '<p>Product description here</p>' },
     parameterGroups: [
       {
-        groupName: 'Dimensions',
+        name: 'Dimensions',
+        parameterGroupId: 1,
         parameters: [
           {
-            parameterId: 1,
-            parameterGroupId: 1,
             name: 'Weight',
             value: '500g',
             show: true,
-            showFilter: false,
+            identifier: 'weight',
           },
           {
-            parameterId: 2,
-            parameterGroupId: 1,
             name: 'Height',
             value: '10cm',
             show: true,
-            showFilter: false,
+            identifier: 'height',
+          },
+          {
+            name: 'Hidden Param',
+            value: 'secret',
+            show: false,
+            identifier: 'hidden',
           },
         ],
       },
@@ -143,7 +146,7 @@ describe('ProductTabs', () => {
     expect(descContent.html()).toContain('Product description here');
   });
 
-  it('renders specification table', () => {
+  it('renders specification table with group name and filters hidden params', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: {
         product: makeProduct(),
@@ -155,8 +158,11 @@ describe('ProductTabs', () => {
     const specContent = wrapper.find(
       '.tabs-content[data-value="specifications"]',
     );
+    expect(specContent.text()).toContain('Dimensions');
     expect(specContent.text()).toContain('Weight');
     expect(specContent.text()).toContain('500g');
+    expect(specContent.text()).not.toContain('Hidden Param');
+    expect(specContent.text()).not.toContain('secret');
   });
 
   it('hides description tab when no text', () => {
