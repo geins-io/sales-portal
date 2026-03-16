@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { CheckoutSummaryOrderType } from '@geins/types';
 import { CircleCheck } from 'lucide-vue-next';
+import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
+import { Badge } from '~/components/ui/badge';
 
 const props = defineProps<{
   summary: CheckoutSummaryOrderType | null;
@@ -69,20 +71,91 @@ const shippingLines = computed(() =>
     <!-- Success state -->
     <template v-else-if="summary">
       <!-- Thank you banner -->
-      <div class="bg-muted mb-8 rounded-lg border p-6 text-center">
-        <CircleCheck class="text-primary mx-auto mb-3 size-12" />
-        <h1 class="text-2xl font-bold">
-          {{ t('order_confirmation.thank_you') }}
-        </h1>
-        <p class="text-muted-foreground mt-1 text-sm">
-          {{ t('order_confirmation.order_placed') }}
-        </p>
-        <p class="mt-2 text-lg font-semibold" data-testid="order-number">
-          {{ t('order_confirmation.order_number') }}: {{ summary.orderId }}
-        </p>
+      <Card class="mb-8 text-center">
+        <CardContent class="flex flex-col items-center gap-3 py-8">
+          <CircleCheck class="size-14 text-green-500" />
+          <h1 class="text-2xl font-bold">
+            {{ t('order_confirmation.thank_you') }}
+          </h1>
+          <p class="text-muted-foreground text-sm">
+            {{ t('order_confirmation.order_placed') }}
+          </p>
+          <Badge
+            variant="secondary"
+            class="text-base"
+            data-testid="order-number"
+          >
+            {{ t('order_confirmation.order_number') }}: {{ summary.orderId }}
+          </Badge>
+        </CardContent>
+      </Card>
+
+      <!-- 3-column info: Buyer / Billing / Shipping -->
+      <div
+        v-if="summary.billingAddress || summary.shippingAddress"
+        class="mb-8 grid gap-4 md:grid-cols-3"
+      >
+        <!-- Buyer info (uses billing address name/company) -->
+        <Card v-if="summary.billingAddress" data-testid="buyer-info">
+          <CardHeader class="px-6 pb-0">
+            <CardTitle class="text-sm">{{
+              t('order_confirmation.buyer')
+            }}</CardTitle>
+          </CardHeader>
+          <CardContent class="px-6">
+            <div class="text-muted-foreground space-y-0.5 text-sm">
+              <p
+                v-if="
+                  summary.billingAddress.firstName ||
+                  summary.billingAddress.lastName
+                "
+              >
+                {{
+                  [
+                    summary.billingAddress.firstName,
+                    summary.billingAddress.lastName,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
+                }}
+              </p>
+              <p v-if="summary.billingAddress.company">
+                {{ summary.billingAddress.company }}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Billing Address -->
+        <Card v-if="summary.billingAddress" data-testid="billing-address">
+          <CardHeader class="px-6 pb-0">
+            <CardTitle class="text-sm">{{
+              t('order_confirmation.billing_address')
+            }}</CardTitle>
+          </CardHeader>
+          <CardContent class="px-6">
+            <div class="text-muted-foreground space-y-0.5 text-sm">
+              <p v-for="line in billingLines" :key="line">{{ line }}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Shipping Address -->
+        <Card v-if="summary.shippingAddress" data-testid="shipping-address">
+          <CardHeader class="px-6 pb-0">
+            <CardTitle class="text-sm">{{
+              t('order_confirmation.shipping_address')
+            }}</CardTitle>
+          </CardHeader>
+          <CardContent class="px-6">
+            <div class="text-muted-foreground space-y-0.5 text-sm">
+              <p v-for="line in shippingLines" :key="line">{{ line }}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <!-- Two-column layout -->
+      <!-- Two-column layout: Items + Summary -->
       <div class="flex flex-col gap-8 lg:flex-row lg:items-start">
         <!-- LEFT: Items table -->
         <div class="min-w-0 flex-1">
@@ -151,7 +224,7 @@ const shippingLines = computed(() =>
         <div class="w-full lg:w-80 lg:shrink-0">
           <!-- Summary card -->
           <div
-            class="bg-muted border-border sticky top-24 space-y-4 rounded-lg border p-6"
+            class="bg-card border-border sticky top-24 space-y-4 rounded-lg border p-6"
           >
             <h2 class="text-lg font-semibold">
               {{ t('order_confirmation.summary') }}
@@ -205,50 +278,22 @@ const shippingLines = computed(() =>
               <span>{{ summary.total?.sumFormatted }}</span>
             </div>
           </div>
-
-          <!-- Invoice Address -->
-          <div
-            v-if="summary.billingAddress"
-            class="border-border mt-4 rounded-lg border p-6"
-            data-testid="billing-address"
-          >
-            <h3 class="mb-2 text-sm font-semibold">
-              {{ t('order_confirmation.billing_address') }}
-            </h3>
-            <div class="text-muted-foreground space-y-0.5 text-sm">
-              <p v-for="line in billingLines" :key="line">{{ line }}</p>
-            </div>
-          </div>
-
-          <!-- Delivery Address -->
-          <div
-            v-if="summary.shippingAddress"
-            class="border-border mt-4 rounded-lg border p-6"
-            data-testid="shipping-address"
-          >
-            <h3 class="mb-2 text-sm font-semibold">
-              {{ t('order_confirmation.shipping_address') }}
-            </h3>
-            <div class="text-muted-foreground space-y-0.5 text-sm">
-              <p v-for="line in shippingLines" :key="line">{{ line }}</p>
-            </div>
-          </div>
         </div>
       </div>
 
       <!-- Action buttons -->
       <div class="mt-8 flex flex-wrap justify-center gap-4">
         <NuxtLink
-          to="/"
-          class="border-border hover:bg-muted rounded-md border px-6 py-2.5 text-sm font-medium transition-colors"
-        >
-          {{ t('order_confirmation.continue_shopping') }}
-        </NuxtLink>
-        <NuxtLink
           to="/portal/orders"
           class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
         >
           {{ t('order_confirmation.view_orders') }}
+        </NuxtLink>
+        <NuxtLink
+          to="/"
+          class="border-border hover:bg-muted rounded-md border px-6 py-2.5 text-sm font-medium transition-colors"
+        >
+          {{ t('order_confirmation.continue_shopping') }}
         </NuxtLink>
       </div>
     </template>

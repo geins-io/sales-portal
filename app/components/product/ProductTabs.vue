@@ -64,7 +64,7 @@ function onAccordionChange(value: string | string[] | undefined) {
       default-value="description"
       @update:model-value="onTabChange"
     >
-      <TabsList>
+      <TabsList variant="underline">
         <TabsTrigger v-if="hasDescription" value="description">
           {{ $t('product.details') }}
         </TabsTrigger>

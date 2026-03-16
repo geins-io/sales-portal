@@ -110,7 +110,7 @@ function goToCheckout() {
       <div class="w-full lg:w-80 lg:shrink-0">
         <ErrorBoundary section="order-summary">
           <div
-            class="bg-muted border-border sticky top-24 space-y-4 rounded-lg border p-6"
+            class="bg-card border-border sticky top-24 space-y-4 rounded-lg border p-6"
             data-testid="cart-order-summary"
           >
             <h2 class="text-lg font-semibold">

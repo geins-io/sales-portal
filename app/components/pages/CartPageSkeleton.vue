@@ -30,7 +30,7 @@
 
       <!-- RIGHT: Order Summary -->
       <div class="w-full lg:w-80 lg:shrink-0">
-        <div class="bg-muted space-y-4 rounded-lg border p-6">
+        <div class="bg-card space-y-4 rounded-lg border p-6">
           <Skeleton class="h-6 w-36" />
           <div class="space-y-3">
             <div class="flex justify-between">

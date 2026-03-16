@@ -148,7 +148,8 @@
     "login_required": "Du måste vara inloggad för att handla.",
     "cart_empty": "Din varukorg är tom.",
     "amount_left_free_shipping": "{amount} kvar till fri frakt",
-    "items_count": "{count} vara | {count} varor"
+    "items_count": "{count} vara | {count} varor",
+    "back_to_store": "Tillbaka till butiken"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",
@@ -172,7 +173,8 @@
     "shipping_address": "Leveransadress",
     "continue_shopping": "Fortsätt handla",
     "view_orders": "Visa mina ordrar",
-    "order_not_found": "Order hittades inte."
+    "order_not_found": "Order hittades inte.",
+    "buyer": "Köpare"
   },
   "product": {
     "details": "Produktdetaljer",
@@ -605,5 +607,11 @@
       "invoice_address": "Fakturaadress",
       "delivery_address": "Leveransadress"
     }
+  },
+  "info_pages": {
+    "about_us": "Om oss",
+    "contact": "Kontakt",
+    "apply_for_account": "Ansök om konto",
+    "terms": "Villkor"
   }
 }

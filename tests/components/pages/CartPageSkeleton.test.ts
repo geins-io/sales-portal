@@ -32,8 +32,8 @@ describe('CartPageSkeleton', () => {
       global: { stubs },
     });
 
-    // Order summary has bg-muted class
-    const summary = wrapper.find('.bg-muted');
+    // Order summary has bg-card class
+    const summary = wrapper.find('.bg-card');
     expect(summary.exists()).toBe(true);
   });
 });

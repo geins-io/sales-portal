@@ -148,7 +148,8 @@
     "login_required": "You must be logged in to checkout.",
     "cart_empty": "Your cart is empty.",
     "amount_left_free_shipping": "{amount} left for free shipping",
-    "items_count": "{count} item | {count} items"
+    "items_count": "{count} item | {count} items",
+    "back_to_store": "Back to store"
   },
   "order_confirmation": {
     "title": "Order Confirmation",
@@ -172,7 +173,8 @@
     "shipping_address": "Delivery Address",
     "continue_shopping": "Continue Shopping",
     "view_orders": "View My Orders",
-    "order_not_found": "Order not found."
+    "order_not_found": "Order not found.",
+    "buyer": "Buyer"
   },
   "product": {
     "details": "Product details",
@@ -605,5 +607,11 @@
       "invoice_address": "Invoice Address",
       "delivery_address": "Delivery Address"
     }
+  },
+  "info_pages": {
+    "about_us": "About us",
+    "contact": "Contact",
+    "apply_for_account": "Apply for an account",
+    "terms": "Terms"
   }
 }

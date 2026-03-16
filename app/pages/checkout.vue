@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { Loader2 } from 'lucide-vue-next';
+import {
+  Loader2,
+  Mail,
+  MapPin,
+  CreditCard,
+  Truck,
+  MessageSquare,
+  FileCheck,
+} from 'lucide-vue-next';
 import { useCheckoutStore } from '~/stores/checkout';
 import { useCartStore } from '~/stores/cart';
-import { Separator } from '~/components/ui/separator';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Checkbox } from '~/components/ui/checkbox';
+import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
 
-definePageMeta({ middleware: 'auth' });
+definePageMeta({ layout: 'checkout', middleware: 'auth' });
 
 const { t } = useI18n();
 const cartStore = useCartStore();
@@ -88,10 +96,6 @@ async function handleRequestQuote() {
 
 <template>
   <div class="mx-auto max-w-7xl px-4 py-8 lg:px-8" data-testid="checkout-page">
-    <h1 class="mb-6 text-2xl font-bold" data-testid="checkout-title">
-      {{ t('checkout.title') }}
-    </h1>
-
     <!-- Error -->
     <div
       v-if="checkoutStore.error"
@@ -122,151 +126,170 @@ async function handleRequestQuote() {
     <!-- Main content -->
     <div v-else class="flex flex-col gap-8 lg:flex-row lg:items-start">
       <!-- LEFT: Checkout form -->
-      <div class="min-w-0 flex-1 space-y-8">
-        <!-- Email -->
-        <div class="space-y-2">
-          <Label for="checkout-email">{{ t('checkout.email') }}</Label>
-          <Input
-            id="checkout-email"
-            :model-value="checkoutStore.email"
-            type="email"
-            autocomplete="email"
-            data-testid="checkout-email"
-            @update:model-value="checkoutStore.email = $event as string"
-          />
-        </div>
-
-        <!-- Identity Number -->
-        <div class="space-y-2">
-          <Label for="checkout-identity">{{
-            t('checkout.identity_number')
-          }}</Label>
-          <Input
-            id="checkout-identity"
-            :model-value="checkoutStore.identityNumber"
-            type="text"
-            data-testid="checkout-identity"
-            @update:model-value="
-              checkoutStore.identityNumber = $event as string
-            "
-          />
-        </div>
-
-        <Separator />
+      <div class="min-w-0 flex-1 space-y-6">
+        <!-- Contact Information -->
+        <Card>
+          <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
+            <Mail class="text-muted-foreground size-5" />
+            <CardTitle class="text-lg">{{ t('checkout.email') }}</CardTitle>
+          </CardHeader>
+          <CardContent class="space-y-4 px-6">
+            <div class="space-y-2">
+              <Label for="checkout-email">{{ t('checkout.email') }}</Label>
+              <Input
+                id="checkout-email"
+                :model-value="checkoutStore.email"
+                type="email"
+                autocomplete="email"
+                data-testid="checkout-email"
+                @update:model-value="checkoutStore.email = $event as string"
+              />
+            </div>
+            <div class="space-y-2">
+              <Label for="checkout-identity">{{
+                t('checkout.identity_number')
+              }}</Label>
+              <Input
+                id="checkout-identity"
+                :model-value="checkoutStore.identityNumber"
+                type="text"
+                data-testid="checkout-identity"
+                @update:model-value="
+                  checkoutStore.identityNumber = $event as string
+                "
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         <!-- Billing Address -->
-        <div>
-          <h2 class="mb-4 text-lg font-semibold">
-            {{ t('checkout.billing_address') }}
-          </h2>
-          <CheckoutCheckoutAddressForm
-            :model-value="checkoutStore.billingAddress"
-            prefix="billing"
-            :disabled="checkoutStore.isPlacingOrder"
-            @update:model-value="
-              Object.assign(checkoutStore.billingAddress, $event)
-            "
-          />
-        </div>
+        <Card>
+          <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
+            <MapPin class="text-muted-foreground size-5" />
+            <CardTitle class="text-lg">{{
+              t('checkout.billing_address')
+            }}</CardTitle>
+          </CardHeader>
+          <CardContent class="px-6">
+            <CheckoutCheckoutAddressForm
+              :model-value="checkoutStore.billingAddress"
+              prefix="billing"
+              :disabled="checkoutStore.isPlacingOrder"
+              @update:model-value="
+                Object.assign(checkoutStore.billingAddress, $event)
+              "
+            />
+          </CardContent>
+        </Card>
 
-        <Separator />
+        <!-- Shipping Address -->
+        <Card>
+          <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
+            <Truck class="text-muted-foreground size-5" />
+            <CardTitle class="text-lg">{{
+              t('checkout.shipping_address')
+            }}</CardTitle>
+          </CardHeader>
+          <CardContent class="space-y-4 px-6">
+            <div class="flex items-center gap-3">
+              <Checkbox
+                id="separate-shipping"
+                :checked="checkoutStore.useSeparateShipping"
+                data-testid="separate-shipping-toggle"
+                @update:checked="checkoutStore.useSeparateShipping = !!$event"
+              />
+              <Label for="separate-shipping" class="cursor-pointer text-sm">
+                {{ t('checkout.use_different_shipping') }}
+              </Label>
+            </div>
+            <CheckoutCheckoutAddressForm
+              v-if="checkoutStore.useSeparateShipping"
+              :model-value="checkoutStore.shippingAddress"
+              prefix="shipping"
+              :disabled="checkoutStore.isPlacingOrder"
+              @update:model-value="
+                Object.assign(checkoutStore.shippingAddress, $event)
+              "
+            />
+          </CardContent>
+        </Card>
 
-        <!-- Shipping Address Toggle -->
-        <div class="flex items-center gap-3">
-          <Checkbox
-            id="separate-shipping"
-            :checked="checkoutStore.useSeparateShipping"
-            data-testid="separate-shipping-toggle"
-            @update:checked="checkoutStore.useSeparateShipping = !!$event"
-          />
-          <Label for="separate-shipping" class="cursor-pointer text-sm">
-            {{ t('checkout.use_different_shipping') }}
-          </Label>
-        </div>
+        <!-- Payment Method -->
+        <Card>
+          <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
+            <CreditCard class="text-muted-foreground size-5" />
+            <CardTitle class="text-lg">{{
+              t('checkout.payment_method')
+            }}</CardTitle>
+          </CardHeader>
+          <CardContent class="px-6">
+            <CheckoutCheckoutPaymentOptions
+              :options="checkoutStore.paymentOptions"
+              :model-value="checkoutStore.selectedPaymentId"
+              :disabled="checkoutStore.isPlacingOrder"
+              @update:model-value="checkoutStore.selectedPaymentId = $event"
+            />
+          </CardContent>
+        </Card>
 
-        <!-- Shipping Address (conditional) -->
-        <div v-if="checkoutStore.useSeparateShipping">
-          <h2 class="mb-4 text-lg font-semibold">
-            {{ t('checkout.shipping_address') }}
-          </h2>
-          <CheckoutCheckoutAddressForm
-            :model-value="checkoutStore.shippingAddress"
-            prefix="shipping"
-            :disabled="checkoutStore.isPlacingOrder"
-            @update:model-value="
-              Object.assign(checkoutStore.shippingAddress, $event)
-            "
-          />
-        </div>
-
-        <Separator />
-
-        <!-- Payment Options -->
-        <div>
-          <h2 class="mb-4 text-lg font-semibold">
-            {{ t('checkout.payment_method') }}
-          </h2>
-          <CheckoutCheckoutPaymentOptions
-            :options="checkoutStore.paymentOptions"
-            :model-value="checkoutStore.selectedPaymentId"
-            :disabled="checkoutStore.isPlacingOrder"
-            @update:model-value="checkoutStore.selectedPaymentId = $event"
-          />
-        </div>
-
-        <Separator />
-
-        <!-- Shipping Options -->
-        <div>
-          <h2 class="mb-4 text-lg font-semibold">
-            {{ t('checkout.shipping_method') }}
-          </h2>
-          <CheckoutCheckoutShippingOptions
-            :options="checkoutStore.shippingOptions"
-            :model-value="checkoutStore.selectedShippingId"
-            :disabled="checkoutStore.isPlacingOrder"
-            @update:model-value="checkoutStore.selectedShippingId = $event"
-          />
-        </div>
-
-        <Separator />
+        <!-- Shipping Method -->
+        <Card>
+          <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
+            <Truck class="text-muted-foreground size-5" />
+            <CardTitle class="text-lg">{{
+              t('checkout.shipping_method')
+            }}</CardTitle>
+          </CardHeader>
+          <CardContent class="px-6">
+            <CheckoutCheckoutShippingOptions
+              :options="checkoutStore.shippingOptions"
+              :model-value="checkoutStore.selectedShippingId"
+              :disabled="checkoutStore.isPlacingOrder"
+              @update:model-value="checkoutStore.selectedShippingId = $event"
+            />
+          </CardContent>
+        </Card>
 
         <!-- Order Message -->
-        <div class="space-y-2">
-          <Label for="checkout-message">{{
-            t('checkout.order_message')
-          }}</Label>
-          <textarea
-            id="checkout-message"
-            :value="checkoutStore.message"
-            :placeholder="t('checkout.order_message_placeholder')"
-            :disabled="checkoutStore.isPlacingOrder"
-            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-            data-testid="checkout-message"
-            @input="
-              checkoutStore.message = (
-                $event.target as HTMLTextAreaElement
-              ).value
-            "
-          />
-        </div>
-
-        <Separator />
+        <Card>
+          <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
+            <MessageSquare class="text-muted-foreground size-5" />
+            <CardTitle class="text-lg">{{
+              t('checkout.order_message')
+            }}</CardTitle>
+          </CardHeader>
+          <CardContent class="px-6">
+            <textarea
+              id="checkout-message"
+              :value="checkoutStore.message"
+              :placeholder="t('checkout.order_message_placeholder')"
+              :disabled="checkoutStore.isPlacingOrder"
+              class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              data-testid="checkout-message"
+              @input="
+                checkoutStore.message = (
+                  $event.target as HTMLTextAreaElement
+                ).value
+              "
+            />
+          </CardContent>
+        </Card>
 
         <!-- Consents -->
-        <div>
-          <h2 class="mb-4 text-lg font-semibold">
-            {{ t('checkout.consents') }}
-          </h2>
-          <CheckoutCheckoutConsents
-            :consents="checkoutStore.consents"
-            :accepted="checkoutStore.acceptedConsents"
-            :disabled="checkoutStore.isPlacingOrder"
-            @toggle="checkoutStore.toggleConsent($event)"
-          />
-        </div>
-
-        <Separator />
+        <Card>
+          <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
+            <FileCheck class="text-muted-foreground size-5" />
+            <CardTitle class="text-lg">{{ t('checkout.consents') }}</CardTitle>
+          </CardHeader>
+          <CardContent class="px-6">
+            <CheckoutCheckoutConsents
+              :consents="checkoutStore.consents"
+              :accepted="checkoutStore.acceptedConsents"
+              :disabled="checkoutStore.isPlacingOrder"
+              @toggle="checkoutStore.toggleConsent($event)"
+            />
+          </CardContent>
+        </Card>
 
         <!-- Action Buttons -->
         <div class="flex flex-col gap-3 sm:flex-row">

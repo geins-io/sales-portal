@@ -49,7 +49,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
 <template>
   <nav
     v-if="visibleItems.length"
-    class="bg-muted relative hidden h-16 items-center border-b lg:flex"
+    class="bg-muted relative hidden h-12 items-center border-b lg:flex"
     :aria-label="$t('layout.main_navigation')"
   >
     <div class="mx-auto w-full max-w-7xl px-4 lg:px-8">

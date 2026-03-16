@@ -21,7 +21,7 @@ const forwarded = useForwardProps(delegatedProps);
     v-bind="forwarded"
     :class="
       cn(
-        'hover:bg-muted flex items-center justify-center px-2 py-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-20',
+        'hover:bg-muted flex items-center justify-center px-1.5 py-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-20',
         props.class,
       )
     "

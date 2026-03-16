@@ -207,39 +207,22 @@ useSchemaOrg([
 
       <!-- Right: Product info -->
       <div class="flex flex-col gap-4">
-        <!-- Top row: info left + add-to-cart right -->
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex min-w-0 flex-col gap-1">
-            <!-- Product name -->
-            <h1
-              class="font-heading text-xl font-bold"
-              data-testid="product-name"
-            >
-              {{ product.name }}
-            </h1>
+        <!-- Product name -->
+        <h1
+          class="font-heading text-[20px] font-bold"
+          data-testid="product-name"
+        >
+          {{ product.name }}
+        </h1>
 
-            <!-- Article number -->
-            <p
-              v-if="product.articleNumber"
-              class="text-muted-foreground text-xs"
-              data-testid="product-article-number"
-            >
-              Art nr. {{ product.articleNumber }}
-            </p>
-          </div>
-
-          <!-- Add to cart button (compact, top-right) -->
-          <button
-            v-if="showPrice"
-            type="button"
-            class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex shrink-0 items-center gap-2 rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors"
-            data-testid="add-to-cart-button"
-            @click="addToCart"
-          >
-            <Icon name="lucide:shopping-cart" class="size-4" />
-            {{ $t('product.add_to_cart') }}
-          </button>
-        </div>
+        <!-- Article number -->
+        <p
+          v-if="product.articleNumber"
+          class="text-muted-foreground text-xs"
+          data-testid="product-article-number"
+        >
+          Art nr. {{ product.articleNumber }}
+        </p>
 
         <!-- Brand -->
         <p
@@ -272,7 +255,7 @@ useSchemaOrg([
           :lowest-price="product.lowestPrice"
           :discount-type="product.discountType"
           :campaign-names="visibleCampaigns.map((c) => c.name)"
-          class="text-lg font-semibold"
+          class="text-base font-semibold"
         />
 
         <!-- Negotiated price info banner -->
@@ -305,9 +288,20 @@ useSchemaOrg([
           :variants="product.variantGroup?.variants ?? []"
         />
 
-        <!-- Quantity -->
-        <div v-if="showPrice" class="w-32">
-          <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
+        <!-- Quantity + Add to cart -->
+        <div v-if="showPrice" class="flex items-end gap-3">
+          <div class="w-28">
+            <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
+          </div>
+          <button
+            type="button"
+            class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-2 rounded-md px-6 py-2.5 text-sm font-medium whitespace-nowrap transition-colors"
+            data-testid="add-to-cart-button"
+            @click="addToCart"
+          >
+            <Icon name="lucide:shopping-cart" class="size-4" />
+            {{ $t('product.add_to_cart') }}
+          </button>
         </div>
 
         <!-- Download + Delivery links -->
