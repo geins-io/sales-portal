@@ -45,9 +45,9 @@ const recentPendingQuotes = computed(() =>
   quotesStore.pendingQuotes.slice(0, 3),
 );
 
-onMounted(() => {
-  quotesStore.fetchQuotes();
-});
+// Use callOnce to fetch quotes — runs during SSR and skips on client hydration,
+// avoiding hydration mismatch for pendingCount stat card.
+callOnce('portal-quotes', () => quotesStore.fetchQuotes());
 </script>
 
 <template>

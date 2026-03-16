@@ -9,25 +9,28 @@ const route = useRoute();
 const loginToken = route.query.loginToken as string | undefined;
 const redirect = route.query.redirect as string | undefined;
 
-onMounted(async () => {
-  if (!loginToken) {
-    await navigateTo('/', { replace: true });
-    return;
-  }
+// SSR-safe: validate token during server render and client navigation alike.
+// If no loginToken query param, redirect immediately (works on both SSR and client).
+if (!loginToken) {
+  await navigateTo('/', { replace: true });
+}
 
-  try {
-    await $fetch('/api/auth/preview', {
-      method: 'POST',
-      body: { loginToken },
-    });
+const { error: previewError } = await useAsyncData('preview-auth', () =>
+  $fetch('/api/auth/preview', {
+    method: 'POST',
+    body: { loginToken },
+  }),
+);
 
-    if (redirect === 'true') {
-      await navigateTo('/', { replace: true });
-    }
-  } catch {
-    await navigateTo('/', { replace: true });
-  }
-});
+// If token validation failed, redirect to home
+if (previewError.value) {
+  await navigateTo('/', { replace: true });
+}
+
+// If redirect flag is set, go to home after successful auth
+if (redirect === 'true') {
+  await navigateTo('/', { replace: true });
+}
 </script>
 
 <template>

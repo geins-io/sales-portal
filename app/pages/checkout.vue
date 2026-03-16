@@ -10,6 +10,7 @@ import {
 } from 'lucide-vue-next';
 import { useCheckoutStore } from '~/stores/checkout';
 import { useCartStore } from '~/stores/cart';
+import { COOKIE_NAMES } from '#shared/constants/storage';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
@@ -25,6 +26,13 @@ const checkoutStore = useCheckoutStore();
 useHead({
   title: computed(() => t('checkout.title')),
 });
+
+// SSR-safe cart validation: useCookie works on both server and client.
+// If no cart cookie exists, redirect immediately — no need to wait for onMounted.
+const cartIdCookie = useCookie<string | null>(COOKIE_NAMES.CART_ID);
+if (!cartIdCookie.value) {
+  await navigateTo('/cart', { replace: true });
+}
 
 // Cart summary computeds (read from cart store — do NOT duplicate)
 const subtotal = computed(
@@ -50,10 +58,10 @@ const discountFormatted = computed(() => {
   );
 });
 
-// On mount: redirect if cart empty, otherwise fetch checkout
+// Fetch checkout data when component mounts (client-side hydration)
 onMounted(async () => {
   if (cartStore.isEmpty) {
-    await navigateTo('/cart');
+    await navigateTo('/cart', { replace: true });
     return;
   }
   if (cartStore.cartId) {

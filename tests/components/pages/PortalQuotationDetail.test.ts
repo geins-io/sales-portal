@@ -3,7 +3,7 @@ import { shallowMountComponent } from '../../utils/component';
 import PortalQuotationDetail from '../../../app/pages/portal/quotations/[id].vue';
 import type { Quote } from '../../../shared/types/quote';
 
-// Hoist reactive store state so it's available inside vi.mock factories
+// Hoist reactive store state and error mocks so they're available inside vi.mock factories
 const {
   mockFetchQuote,
   mockAcceptQuote,
@@ -11,9 +11,25 @@ const {
   mockCurrentQuote,
   mockIsLoading,
   mockIsActionLoading,
+  mockShowError,
+  mockCreateError,
 } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ref } = require('vue') as typeof import('vue');
+
+  const createErrorFn = (opts: {
+    statusCode: number;
+    statusMessage: string;
+  }) => {
+    const err = new Error(opts.statusMessage) as Error & {
+      statusCode: number;
+      statusMessage: string;
+    };
+    err.statusCode = opts.statusCode;
+    err.statusMessage = opts.statusMessage;
+    return err;
+  };
+
   return {
     mockFetchQuote: vi.fn(() => Promise.resolve()),
     mockAcceptQuote: vi.fn(() => Promise.resolve()),
@@ -21,6 +37,8 @@ const {
     mockCurrentQuote: ref<Quote | null>(null),
     mockIsLoading: ref(false),
     mockIsActionLoading: ref(false),
+    mockShowError: vi.fn(),
+    mockCreateError: createErrorFn,
   };
 });
 
@@ -29,6 +47,15 @@ vi.stubGlobal('definePageMeta', vi.fn());
 
 // Mock navigateTo
 vi.stubGlobal('navigateTo', vi.fn());
+
+// Mock showError and createError (used when quote not found after fetch)
+vi.stubGlobal('showError', mockShowError);
+vi.stubGlobal('createError', mockCreateError);
+
+vi.mock('#app/composables/error', () => ({
+  createError: mockCreateError,
+  showError: mockShowError,
+}));
 
 // Mock useHead / head composables
 vi.stubGlobal('useHead', vi.fn());
@@ -151,6 +178,7 @@ describe('PortalQuotationDetail', () => {
     mockFetchQuote.mockClear();
     mockAcceptQuote.mockClear();
     mockRejectQuote.mockClear();
+    mockShowError.mockClear();
   });
 
   describe('loading state', () => {
@@ -441,6 +469,27 @@ describe('PortalQuotationDetail', () => {
       });
 
       expect(mockFetchQuote).toHaveBeenCalledWith('q-001');
+    });
+  });
+
+  describe('error handling', () => {
+    it('calls showError with 404 when quote is not found after fetch', async () => {
+      // currentQuote stays null (default), simulating a failed or empty fetch
+      mockFetchQuote.mockResolvedValue(undefined);
+
+      shallowMountComponent(PortalQuotationDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      // Wait for the onMounted async callback to complete
+      await vi.waitFor(() => {
+        expect(mockShowError).toHaveBeenCalledTimes(1);
+      });
+
+      const errorArg = mockShowError.mock.calls[0]![0] as Error & {
+        statusCode: number;
+      };
+      expect(errorArg.statusCode).toBe(404);
     });
   });
 });

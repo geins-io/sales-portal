@@ -14,8 +14,17 @@ useHead({
   title: computed(() => t('portal.quotations.detail_title')),
 });
 
-onMounted(() => {
-  store.fetchQuote(quoteId.value);
+onMounted(async () => {
+  await store.fetchQuote(quoteId.value);
+  // If quote was not found (fetch failed or returned null), show 404
+  if (!store.currentQuote) {
+    showError(
+      createError({
+        statusCode: 404,
+        statusMessage: 'Quotation not found',
+      }),
+    );
+  }
 });
 
 const quote = computed(() => store.currentQuote);

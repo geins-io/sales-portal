@@ -30,6 +30,20 @@ vi.mock('vue-i18n', () => ({
 vi.stubGlobal('computed', computed);
 vi.stubGlobal('onMounted', onMounted);
 
+// Mock callOnce — calls the factory function synchronously (mirrors Nuxt's callOnce)
+vi.stubGlobal(
+  'callOnce',
+  vi.fn((_key: string, fn: () => unknown) => {
+    fn();
+  }),
+);
+
+vi.mock('#app/composables/once', () => ({
+  callOnce: (_key: string, fn: () => unknown) => {
+    fn();
+  },
+}));
+
 // ---------------------------------------------------------------------------
 // Mock useFetch (orders API)
 // ---------------------------------------------------------------------------
