@@ -24,6 +24,7 @@ const authStore = useAuthStore();
           <span class="sm:hidden">{{ $t('layout.contact') }}</span>
         </NuxtLink>
         <LocaleSwitcher variant="text" />
+        <MarketSwitcher variant="text" />
       </div>
 
       <!-- Center: Env badge (dev only) -->

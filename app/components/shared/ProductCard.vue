@@ -2,7 +2,7 @@
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
-import { ShoppingCart, Star } from 'lucide-vue-next';
+import { ShoppingCart, Star, AlertCircle } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
 
@@ -50,12 +50,19 @@ const visibleCampaigns = computed(() =>
 
 const quantity = ref(1);
 const isAdding = ref(false);
+const addError = ref(false);
 
 async function addToCart() {
   if (!firstSku.value?.skuId) return;
   isAdding.value = true;
+  addError.value = false;
   try {
     await cartStore.addItem(firstSku.value.skuId, quantity.value);
+    if (cartStore.error) {
+      addError.value = true;
+    }
+  } catch {
+    addError.value = true;
   } finally {
     isAdding.value = false;
   }
@@ -165,11 +172,15 @@ async function addToCart() {
           data-testid="add-to-cart-button"
           class="min-w-0 flex-1 overflow-hidden"
           size="sm"
+          :variant="addError ? 'destructive' : 'default'"
           :disabled="!firstSku || isAdding"
           @click="addToCart"
         >
-          <ShoppingCart class="mr-1.5 size-4 shrink-0" />
-          <span class="truncate">{{ $t('cart.add_to_cart') }}</span>
+          <AlertCircle v-if="addError" class="mr-1.5 size-4 shrink-0" />
+          <ShoppingCart v-else class="mr-1.5 size-4 shrink-0" />
+          <span class="truncate">{{
+            addError ? $t('cart.add_failed') : $t('cart.add_to_cart')
+          }}</span>
         </Button>
       </div>
     </div>
@@ -247,11 +258,15 @@ async function addToCart() {
         <Button
           data-testid="add-to-cart-button"
           size="sm"
+          :variant="addError ? 'destructive' : 'default'"
           :disabled="!firstSku || isAdding"
           @click="addToCart"
         >
-          <ShoppingCart class="mr-1.5 size-4 shrink-0" />
-          <span class="whitespace-nowrap">{{ $t('cart.add_to_cart') }}</span>
+          <AlertCircle v-if="addError" class="mr-1.5 size-4 shrink-0" />
+          <ShoppingCart v-else class="mr-1.5 size-4 shrink-0" />
+          <span class="whitespace-nowrap">{{
+            addError ? $t('cart.add_failed') : $t('cart.add_to_cart')
+          }}</span>
         </Button>
       </template>
     </div>

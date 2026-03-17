@@ -31,7 +31,7 @@ const reservedParams = new Set(['page', 'sort', 'searchText']);
 
 function restoreFiltersFromQuery(): Record<string, string[]> {
   const state: Record<string, string[]> = {};
-  for (const [key, value] of Object.entries(route.query)) {
+  for (const [key, value] of Object.entries(route.query ?? {})) {
     if (reservedParams.has(key) || typeof value !== 'string') continue;
     const values = value.split(',').filter(Boolean);
     if (values.length > 0) state[key] = values;
@@ -76,7 +76,7 @@ const sortMap: Record<string, string> = {
 
 // --- Build filter object for GraphQL FilterInputType ---
 const filterInput = computed(() => {
-  const selectedFacetIds = Object.values(filterState.value).flat();
+  const selectedFacetIds = Object.values(filterState.value ?? {}).flat();
   const filter: Record<string, unknown> = {};
 
   if (selectedFacetIds.length > 0) filter.facets = selectedFacetIds;
@@ -182,7 +182,7 @@ watch(
   [filterState, sortBy, currentPage],
   () => {
     const query: Record<string, string> = {};
-    for (const [key, values] of Object.entries(filterState.value)) {
+    for (const [key, values] of Object.entries(filterState.value ?? {})) {
       if (values.length > 0) {
         query[key] = values.join(',');
       }
@@ -201,8 +201,10 @@ watch(
 // --- Actions ---
 function onPageChange(page: number) {
   currentPage.value = page;
-  // Scroll to top of product grid
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Scroll to top of product grid (client-only — window is not available during SSR)
+  if (import.meta.client) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 }
 
 function removeFilter(facetId: string, valueId: string) {
@@ -246,7 +248,7 @@ function clearAllFilters() {
       :sort-options="sortOptions"
       :view-mode="viewMode"
       :filter-text="filterText"
-      :has-active-filters="Object.keys(filterState).length > 0"
+      :has-active-filters="Object.keys(filterState ?? {}).length > 0"
       @update:sort-value="sortBy = $event"
       @update:view-mode="viewMode = $event"
       @update:filter-text="filterText = $event"
@@ -292,7 +294,10 @@ function clearAllFilters() {
         :title="$t('product.no_products')"
         :description="$t('product.no_products_description')"
       />
-      <div v-if="Object.keys(filterState).length > 0" class="mt-4 text-center">
+      <div
+        v-if="Object.keys(filterState ?? {}).length > 0"
+        class="mt-4 text-center"
+      >
         <button
           type="button"
           class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition-colors"

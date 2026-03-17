@@ -185,7 +185,7 @@ const shippingLines = computed(() =>
               </thead>
               <tbody>
                 <tr
-                  v-for="(row, index) in summary.rows"
+                  v-for="(row, index) in summary.rows ?? []"
                   :key="row.articleNumber ?? index"
                   class="border-border border-b last:border-b-0"
                 >

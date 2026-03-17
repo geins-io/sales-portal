@@ -23,33 +23,36 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <div class="space-y-2">
+  <div class="space-y-3">
     <!-- Row 1: Filters button (left) | View toggle (right) -->
-    <div class="flex items-center gap-2">
-      <slot name="filters" />
-      <Button
-        v-if="hasActiveFilters"
-        variant="outline"
-        size="sm"
-        @click="emit('reset-filters')"
-      >
-        {{ t('product.clear_all') }}
-      </Button>
-      <div class="flex-1" />
-      <span class="text-muted-foreground hidden text-sm sm:inline">{{
-        t('product.view_as')
-      }}</span>
-      <ProductViewToggle
-        :model-value="viewMode"
-        @update:model-value="emit('update:viewMode', $event)"
-      />
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <slot name="filters" />
+        <Button
+          v-if="hasActiveFilters"
+          variant="outline"
+          size="sm"
+          @click="emit('reset-filters')"
+        >
+          {{ t('product.clear_all') }}
+        </Button>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-muted-foreground hidden text-sm sm:inline">{{
+          t('product.view_as')
+        }}</span>
+        <ProductViewToggle
+          :model-value="viewMode"
+          @update:model-value="emit('update:viewMode', $event)"
+        />
+      </div>
     </div>
 
     <!-- Row 2: Search input (left) | Sort dropdown (right) -->
-    <div class="flex items-center gap-2">
-      <div class="relative w-full max-w-xs">
+    <div class="flex items-center justify-between gap-4">
+      <div class="relative w-full max-w-sm">
         <Search
-          class="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+          class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
         />
         <Input
           :model-value="filterText ?? ''"
@@ -58,7 +61,6 @@ const { t } = useI18n();
           @update:model-value="emit('update:filterText', String($event))"
         />
       </div>
-      <div class="flex-1" />
       <ProductSortDropdown
         :model-value="sortValue"
         :options="sortOptions"

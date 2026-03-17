@@ -32,6 +32,14 @@ function updateFacet(facetId: string, selected: string[]) {
 function getSelected(facetId: string): string[] {
   return props.modelValue[facetId] ?? [];
 }
+
+const hasSelectedFilters = computed(
+  () => Object.keys(props.modelValue).length > 0,
+);
+
+function clearAll() {
+  emit('update:modelValue', {});
+}
 </script>
 
 <template>
@@ -42,18 +50,25 @@ function getSelected(facetId: string): string[] {
     </Button>
 
     <Sheet v-model:open="sheetOpen">
-      <SheetContent side="left" class="overflow-y-auto">
-        <SheetHeader>
+      <SheetContent side="left" class="flex flex-col overflow-hidden">
+        <SheetHeader class="border-b px-6 pb-4">
           <SheetTitle>{{ $t('product.filters') }}</SheetTitle>
         </SheetHeader>
-        <div class="mt-4 space-y-1">
-          <FilterGroup
-            v-for="facet in facets"
-            :key="facet.filterId"
-            :facet="facet"
-            :selected="getSelected(facet.filterId)"
-            @update:selected="updateFacet(facet.filterId, $event)"
-          />
+        <div class="flex-1 overflow-y-auto px-6 py-4">
+          <div class="space-y-2">
+            <FilterGroup
+              v-for="facet in facets"
+              :key="facet.filterId"
+              :facet="facet"
+              :selected="getSelected(facet.filterId)"
+              @update:selected="updateFacet(facet.filterId, $event)"
+            />
+          </div>
+        </div>
+        <div v-if="hasSelectedFilters" class="border-t px-6 py-4">
+          <Button variant="outline" class="w-full" @click="clearAll">
+            {{ $t('product.clear_all') }}
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

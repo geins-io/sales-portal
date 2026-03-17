@@ -86,6 +86,7 @@
     "title": "Cart",
     "shopping_cart": "Shopping Cart",
     "add_to_cart": "Add to cart",
+    "add_failed": "Failed",
     "add": "Add",
     "empty_cart": "Your cart is empty",
     "empty_cart_message": "Looks like you haven't added anything to your cart yet.",
