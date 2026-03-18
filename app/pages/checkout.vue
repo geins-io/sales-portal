@@ -179,7 +179,7 @@ async function handleRequestQuote() {
             }}</CardTitle>
           </CardHeader>
           <CardContent class="px-6">
-            <CheckoutCheckoutAddressForm
+            <CheckoutAddressForm
               :model-value="checkoutStore.billingAddress"
               prefix="billing"
               :disabled="checkoutStore.isPlacingOrder"
@@ -210,7 +210,7 @@ async function handleRequestQuote() {
                 {{ t('checkout.use_different_shipping') }}
               </Label>
             </div>
-            <CheckoutCheckoutAddressForm
+            <CheckoutAddressForm
               v-if="checkoutStore.useSeparateShipping"
               :model-value="checkoutStore.shippingAddress"
               prefix="shipping"
@@ -231,7 +231,7 @@ async function handleRequestQuote() {
             }}</CardTitle>
           </CardHeader>
           <CardContent class="px-6">
-            <CheckoutCheckoutPaymentOptions
+            <CheckoutPaymentOptions
               :options="checkoutStore.paymentOptions"
               :model-value="checkoutStore.selectedPaymentId"
               :disabled="checkoutStore.isPlacingOrder"
@@ -249,7 +249,7 @@ async function handleRequestQuote() {
             }}</CardTitle>
           </CardHeader>
           <CardContent class="px-6">
-            <CheckoutCheckoutShippingOptions
+            <CheckoutShippingOptions
               :options="checkoutStore.shippingOptions"
               :model-value="checkoutStore.selectedShippingId"
               :disabled="checkoutStore.isPlacingOrder"
@@ -290,7 +290,7 @@ async function handleRequestQuote() {
             <CardTitle class="text-lg">{{ t('checkout.consents') }}</CardTitle>
           </CardHeader>
           <CardContent class="px-6">
-            <CheckoutCheckoutConsents
+            <CheckoutConsents
               :consents="checkoutStore.consents"
               :accepted="checkoutStore.acceptedConsents"
               :disabled="checkoutStore.isPlacingOrder"
@@ -352,7 +352,7 @@ async function handleRequestQuote() {
 
       <!-- RIGHT: Order Summary Sidebar -->
       <div class="w-full lg:w-80 lg:shrink-0">
-        <CheckoutCheckoutOrderSummary
+        <CheckoutOrderSummary
           :item-count="cartStore.itemCount"
           :subtotal="subtotal"
           :shipping-fee="shippingFee"

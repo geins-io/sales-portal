@@ -37,7 +37,7 @@ function handleSuccess() {
           </p>
         </div>
 
-        <AuthResetPasswordForm :reset-key="resetKey" @success="handleSuccess" />
+        <ResetPasswordForm :reset-key="resetKey" @success="handleSuccess" />
       </CardContent>
     </Card>
   </div>

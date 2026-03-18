@@ -182,7 +182,7 @@ function clearAllFilters() {
     </div>
 
     <!-- Active filters -->
-    <ProductActiveFilters
+    <ActiveFilters
       v-if="facets.length > 0"
       :filters="filterState"
       :facets="facets"

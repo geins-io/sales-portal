@@ -134,7 +134,7 @@ function onAccordionChange(value: string | string[] | undefined) {
             {{ $t('product.loading_reviews') }}
           </div>
           <template v-else-if="reviews">
-            <ProductReviewCard
+            <ReviewCard
               v-for="(review, i) in reviews.reviews"
               :key="i"
               :review="review"
@@ -208,7 +208,7 @@ function onAccordionChange(value: string | string[] | undefined) {
               {{ $t('product.loading_reviews') }}
             </div>
             <template v-else-if="reviews">
-              <ProductReviewCard
+              <ReviewCard
                 v-for="(review, i) in reviews.reviews"
                 :key="i"
                 :review="review"

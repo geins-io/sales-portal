@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const imageFileName = computed(() => resolveImageFileName(props.data.image));
 const hasLink = computed(() => !!props.data.image?.href);
+const { localePath } = useLocaleMarket();
 const hasOverlay = computed(
   () => props.data.text1 || props.data.text2 || props.data.buttonText,
 );
@@ -78,7 +79,7 @@ const textColorClass = computed(() => {
 <template>
   <component
     :is="hasLink ? resolveComponent('NuxtLink') : 'div'"
-    :to="hasLink ? data.image.href : undefined"
+    :to="hasLink ? localePath(data.image.href!) : undefined"
     class="relative block overflow-hidden"
     data-testid="cms-widget"
   >

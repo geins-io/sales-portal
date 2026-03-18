@@ -6,6 +6,8 @@ defineProps<{
   config: ContentConfigType;
   layout: string;
 }>();
+
+const { localePath } = useLocaleMarket();
 </script>
 
 <template>
@@ -13,7 +15,7 @@ defineProps<{
     <NuxtLink
       v-for="(button, index) in data.buttons"
       :key="index"
-      :to="button.href"
+      :to="localePath(button.href)"
       class="bg-primary text-primary-foreground rounded px-6 py-2 font-medium transition-opacity hover:opacity-90"
     >
       {{ button.text }}

@@ -21,7 +21,7 @@ const {
   error,
 } = await useRouteResolution(normalizedPath);
 
-// Handle 404: use abortNavigation for SSR, showError for client
+// Handle 404: throw on SSR, showError on client (avoids navigating to unprefixed /404)
 if (resolution.value?.type === 'not-found') {
   if (import.meta.server) {
     throw createError({
@@ -30,7 +30,7 @@ if (resolution.value?.type === 'not-found') {
       fatal: true,
     });
   } else {
-    await navigateTo('/404', { redirectCode: 404 });
+    showError(createError({ statusCode: 404, statusMessage: 'Not Found' }));
   }
 }
 

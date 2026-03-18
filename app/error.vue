@@ -56,21 +56,28 @@ const handleBack = () => {
 
 <template>
   <div
-    class="bg-background flex min-h-screen flex-col items-center justify-center px-4"
+    class="flex min-h-screen flex-col items-center justify-center px-4"
+    :style="{
+      backgroundColor: 'var(--background, #ffffff)',
+      color: 'var(--foreground, #1a1a1a)',
+    }"
   >
     <div class="mx-auto max-w-md text-center">
       <!-- Error Code -->
-      <p class="text-primary text-7xl font-bold">
+      <p
+        class="text-7xl font-bold"
+        :style="{ color: 'var(--primary, #0d9488)' }"
+      >
         {{ error.statusCode }}
       </p>
 
       <!-- Error Title -->
-      <h1 class="text-foreground mt-4 text-2xl font-semibold">
+      <h1 class="mt-4 text-2xl font-semibold">
         {{ errorTitle }}
       </h1>
 
       <!-- Error Description -->
-      <p class="text-muted-foreground mt-2">
+      <p class="mt-2" :style="{ color: 'var(--muted-foreground, #6b7280)' }">
         {{ errorDescription }}
       </p>
 
@@ -91,9 +98,16 @@ const handleBack = () => {
       </div>
 
       <!-- Additional Help -->
-      <p class="text-muted-foreground mt-8 text-sm">
+      <p
+        class="mt-8 text-sm"
+        :style="{ color: 'var(--muted-foreground, #6b7280)' }"
+      >
         If you believe this is an error, please
-        <a href="mailto:support@example.com" class="text-primary underline">
+        <a
+          href="mailto:support@example.com"
+          class="underline"
+          :style="{ color: 'var(--primary, #0d9488)' }"
+        >
           contact support </a
         >.
       </p>
@@ -101,11 +115,16 @@ const handleBack = () => {
       <!-- Debug Info (Development Only) -->
       <div
         v-if="error.stack && isDev"
-        class="border-border bg-muted mt-8 rounded-lg border p-4 text-left"
+        class="mt-8 rounded-lg border p-4 text-left"
+        :style="{
+          borderColor: 'var(--border, #e5e7eb)',
+          backgroundColor: 'var(--muted, #f3f4f6)',
+        }"
       >
-        <p class="text-foreground mb-2 text-sm font-medium">Debug Info:</p>
+        <p class="mb-2 text-sm font-medium">Debug Info:</p>
         <pre
-          class="text-muted-foreground overflow-auto text-xs whitespace-pre-wrap"
+          class="overflow-auto text-xs whitespace-pre-wrap"
+          :style="{ color: 'var(--muted-foreground, #6b7280)' }"
           >{{ error.stack }}</pre
         >
       </div>

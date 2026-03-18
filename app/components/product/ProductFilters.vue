@@ -2,6 +2,7 @@
 import type { FilterFacet } from '#shared/types/commerce';
 import { SlidersHorizontal } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
+import { Input } from '~/components/ui/input';
 import {
   Sheet,
   SheetContent,
@@ -37,6 +38,24 @@ const hasSelectedFilters = computed(
   () => Object.keys(props.modelValue).length > 0,
 );
 
+const activeFilterCount = computed(() =>
+  Object.values(props.modelValue).reduce((sum, arr) => sum + arr.length, 0),
+);
+
+const filterSearch = ref('');
+
+const filteredFacets = computed(() => {
+  const query = filterSearch.value.toLowerCase().trim();
+  if (!query) return props.facets;
+  return props.facets.filter((facet) => {
+    const name = (facet.label || facet.type || facet.filterId).toLowerCase();
+    return (
+      name.includes(query) ||
+      facet.values.some((v) => v.label.toLowerCase().includes(query))
+    );
+  });
+});
+
 function clearAll() {
   emit('update:modelValue', {});
 }
@@ -51,13 +70,27 @@ function clearAll() {
 
     <Sheet v-model:open="sheetOpen">
       <SheetContent side="left" class="flex flex-col overflow-hidden">
-        <SheetHeader class="border-b px-6 pb-4">
-          <SheetTitle>{{ $t('product.filters') }}</SheetTitle>
+        <SheetHeader class="px-6 pb-4">
+          <SheetTitle class="text-xl font-bold">
+            {{ $t('product.filters') }}
+            <span v-if="activeFilterCount > 0"> ({{ activeFilterCount }})</span>
+          </SheetTitle>
         </SheetHeader>
+
+        <!-- Search filters -->
+        <div class="border-b px-6 pb-4">
+          <Input
+            v-model="filterSearch"
+            :placeholder="$t('product.search_filters')"
+            class="w-full"
+          />
+        </div>
+
+        <!-- Filter groups -->
         <div class="flex-1 overflow-y-auto px-6 py-4">
-          <div class="space-y-2">
+          <div class="space-y-1">
             <FilterGroup
-              v-for="facet in facets"
+              v-for="facet in filteredFacets"
               :key="facet.filterId"
               :facet="facet"
               :selected="getSelected(facet.filterId)"
@@ -65,8 +98,15 @@ function clearAll() {
             />
           </div>
         </div>
-        <div v-if="hasSelectedFilters" class="border-t px-6 py-4">
-          <Button variant="outline" class="w-full" @click="clearAll">
+
+        <!-- Clear all -->
+        <div class="border-t px-6 py-4">
+          <Button
+            variant="outline"
+            class="w-full"
+            :disabled="!hasSelectedFilters"
+            @click="clearAll"
+          >
             {{ $t('product.clear_all') }}
           </Button>
         </div>

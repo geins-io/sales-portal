@@ -99,45 +99,50 @@ const lowestPriceFormatted = computed(() => {
 </script>
 
 <template>
-  <div v-if="price && !showPrice" class="inline-flex items-baseline">
-    <span class="text-muted-foreground text-sm italic">
-      {{ $t('product.login_for_prices') }}
-    </span>
-  </div>
-  <div
-    v-else-if="price && sellingPrice"
-    class="inline-flex flex-wrap items-baseline gap-2"
-  >
-    <span v-if="fromPrice" class="text-muted-foreground text-sm">From</span>
-    <span class="font-semibold" :class="isDiscounted ? 'text-destructive' : ''">
-      {{ sellingPrice }}
-    </span>
-    <span
-      v-if="isDiscounted && regularPrice"
-      class="text-muted-foreground text-sm line-through"
+  <div>
+    <div v-if="price && !showPrice" class="inline-flex items-baseline">
+      <span class="text-muted-foreground text-sm italic">
+        {{ $t('product.login_for_prices') }}
+      </span>
+    </div>
+    <div
+      v-else-if="price && sellingPrice"
+      class="inline-flex flex-wrap items-baseline gap-2"
     >
-      {{ regularPrice }}
-    </span>
-    <span
-      v-if="isDiscounted && discountPercentage > 0"
-      :class="BADGE_DESTRUCTIVE"
+      <span v-if="fromPrice" class="text-muted-foreground text-sm">From</span>
+      <span
+        class="font-semibold"
+        :class="isDiscounted ? 'text-destructive' : ''"
+      >
+        {{ sellingPrice }}
+      </span>
+      <span
+        v-if="isDiscounted && regularPrice"
+        class="text-muted-foreground text-sm line-through"
+      >
+        {{ regularPrice }}
+      </span>
+      <span
+        v-if="isDiscounted && discountPercentage > 0"
+        :class="BADGE_DESTRUCTIVE"
+      >
+        -{{ discountPercentage }}%
+      </span>
+      <span
+        v-if="discountLabel"
+        :class="discountLabelClass"
+        data-testid="discount-type-label"
+      >
+        {{ discountLabel }}
+      </span>
+      <span v-if="!showVat" class="text-muted-foreground text-xs">ex. VAT</span>
+    </div>
+    <div
+      v-if="showPrice && lowestPriceFormatted"
+      class="text-muted-foreground text-xs"
+      data-testid="lowest-price"
     >
-      -{{ discountPercentage }}%
-    </span>
-    <span
-      v-if="discountLabel"
-      :class="discountLabelClass"
-      data-testid="discount-type-label"
-    >
-      {{ discountLabel }}
-    </span>
-    <span v-if="!showVat" class="text-muted-foreground text-xs">ex. VAT</span>
-  </div>
-  <div
-    v-if="showPrice && lowestPriceFormatted"
-    class="text-muted-foreground text-xs"
-    data-testid="lowest-price"
-  >
-    {{ $t('product.lowest_price_30d', { price: lowestPriceFormatted }) }}
+      {{ $t('product.lowest_price_30d', { price: lowestPriceFormatted }) }}
+    </div>
   </div>
 </template>

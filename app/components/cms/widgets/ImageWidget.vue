@@ -10,12 +10,13 @@ const props = defineProps<{
 
 const imageFileName = computed(() => resolveImageFileName(props.data.image));
 const hasLink = computed(() => !!props.data.image?.href);
+const { localePath } = useLocaleMarket();
 </script>
 
 <template>
   <component
     :is="hasLink ? resolveComponent('NuxtLink') : 'div'"
-    :to="hasLink ? data.image.href : undefined"
+    :to="hasLink ? localePath(data.image.href!) : undefined"
     data-testid="cms-widget"
   >
     <GeinsImage

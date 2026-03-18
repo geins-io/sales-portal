@@ -32,6 +32,8 @@ const bannerImages = computed(
   () => (props.data.bannerImages as Record<string, unknown>[]) ?? [],
 );
 
+const { localePath } = useLocaleMarket();
+
 function _resolveImageSrc(src: string | undefined): string {
   if (!src) return '';
   // CMS images — use GeinsImage component instead if possible,
@@ -88,7 +90,7 @@ function _resolveImageSrc(src: string | undefined): string {
           </p>
           <NuxtLink
             v-if="(item as any).cta?.url"
-            :to="(item as any).cta.url"
+            :to="localePath((item as any).cta.url)"
             class="bg-primary text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
           >
             {{ (item as any).cta.text }}
@@ -112,7 +114,7 @@ function _resolveImageSrc(src: string | undefined): string {
       <NuxtLink
         v-for="(item, i) in items"
         :key="i"
-        :to="(item as any).url ?? '/'"
+        :to="localePath((item as any).url ?? '/')"
         class="bg-card group overflow-hidden rounded-md border"
       >
         <div class="bg-muted aspect-square overflow-hidden">
@@ -147,7 +149,7 @@ function _resolveImageSrc(src: string | undefined): string {
     </p>
     <NuxtLink
       v-if="cta?.url"
-      :to="cta.url"
+      :to="localePath(cta.url!)"
       class="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-sm font-medium"
     >
       {{ cta.label || cta.text }}
@@ -189,7 +191,7 @@ function _resolveImageSrc(src: string | undefined): string {
         </p>
         <NuxtLink
           v-if="(banner as any).cta?.url"
-          :to="(banner as any).cta.url"
+          :to="localePath((banner as any).cta.url)"
           class="bg-primary text-primary-foreground mt-3 inline-block self-start rounded-md px-4 py-2 text-sm font-medium"
         >
           {{ (banner as any).cta.text }}

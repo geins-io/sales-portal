@@ -26,7 +26,7 @@ onMounted(() => {
     <ErrorBoundary section="footer">
       <LayoutFooter />
     </ErrorBoundary>
-    <LayoutMobileNavPanel />
+    <MobileNavPanel />
     <PreviewBanner />
     <CookieBanner />
     <CartDrawer />

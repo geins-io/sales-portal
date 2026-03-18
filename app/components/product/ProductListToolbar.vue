@@ -41,7 +41,7 @@ const { t } = useI18n();
         <span class="text-muted-foreground hidden text-sm sm:inline">{{
           t('product.view_as')
         }}</span>
-        <ProductViewToggle
+        <ViewToggle
           :model-value="viewMode"
           @update:model-value="emit('update:viewMode', $event)"
         />
@@ -61,7 +61,7 @@ const { t } = useI18n();
           @update:model-value="emit('update:filterText', String($event))"
         />
       </div>
-      <ProductSortDropdown
+      <SortDropdown
         :model-value="sortValue"
         :options="sortOptions"
         @update:model-value="emit('update:sortValue', $event)"

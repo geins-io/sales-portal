@@ -206,6 +206,7 @@
     "no_products": "No products found.",
     "no_products_description": "Try adjusting your filters or browse our categories.",
     "filters": "Filters",
+    "search_filters": "Search filters",
     "clear_all": "Clear all",
     "no_documents": "No documents available for this product.",
     "failed_to_load": "Failed to load product.",

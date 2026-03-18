@@ -233,7 +233,7 @@ function clearAllFilters() {
     />
 
     <!-- Active filters -->
-    <ProductActiveFilters
+    <ActiveFilters
       v-if="facets && facets.length > 0"
       :filters="filterState"
       :facets="facets"

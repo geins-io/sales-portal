@@ -206,6 +206,7 @@
     "no_products": "Inga produkter hittades.",
     "no_products_description": "Försök att justera dina filter eller bläddra bland våra kategorier.",
     "filters": "Filter",
+    "search_filters": "Sök filter",
     "clear_all": "Rensa alla",
     "no_documents": "Inga dokument tillgängliga för denna produkt.",
     "failed_to_load": "Kunde inte ladda produkt.",

@@ -281,7 +281,7 @@ useSchemaOrg([
         <StockBadge v-if="product.totalStock" :stock="product.totalStock" />
 
         <!-- Variant selector -->
-        <ProductVariantSelector
+        <VariantSelector
           v-if="product.variantDimensions?.length"
           v-model="selectedVariants"
           :variant-dimensions="product.variantDimensions"
@@ -290,9 +290,7 @@ useSchemaOrg([
 
         <!-- Quantity + Add to cart -->
         <div v-if="showPrice" class="flex items-end gap-3">
-          <div class="w-28">
-            <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
-          </div>
+          <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
           <button
             type="button"
             class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-2 rounded-md px-6 py-2.5 text-sm font-medium whitespace-nowrap transition-colors"
@@ -336,7 +334,7 @@ useSchemaOrg([
 
     <!-- Related products -->
     <ErrorBoundary section="related-products">
-      <ProductRelatedProducts v-if="related?.length" :products="related" />
+      <RelatedProducts v-if="related?.length" :products="related" />
     </ErrorBoundary>
   </div>
 </template>

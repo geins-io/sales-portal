@@ -98,7 +98,7 @@ function goToCheckout() {
 
         <!-- Promo code -->
         <div class="border-border border-t px-4 py-3">
-          <CartPromoCodeInput
+          <PromoCodeInput
             :active-code="cartStore.cart?.promoCode ?? null"
             :loading="cartStore.isLoading"
             @apply="cartStore.applyPromoCode"

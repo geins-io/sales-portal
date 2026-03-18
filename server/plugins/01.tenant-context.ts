@@ -11,6 +11,9 @@ function normalizeHostname(hostname: string): string {
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', async (event) => {
+    // Skip if a previous plugin already sent a response (e.g., redirect from locale-market plugin)
+    if (event.node.res.headersSent) return;
+
     // Skip tenant context for health checks and internal endpoints (webhooks)
     const path = event.path || '';
     if (path.startsWith('/api/health') || path.startsWith('/api/internal/')) {

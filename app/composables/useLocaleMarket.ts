@@ -54,11 +54,40 @@ export function useLocaleMarket() {
    * @returns The prefixed path (e.g., '/se/sv/foder')
    */
   function localePath(path: string): string {
+    // Skip external URLs and protocol-relative URLs
+    if (
+      path.startsWith('http://') ||
+      path.startsWith('https://') ||
+      path.startsWith('//')
+    ) {
+      return path;
+    }
+
+    // Skip anchor-only and empty paths
+    if (
+      !path ||
+      path.startsWith('#') ||
+      path.startsWith('mailto:') ||
+      path.startsWith('tel:')
+    ) {
+      return path;
+    }
+
     const market = currentMarket.value;
     const locale = currentLocale.value;
 
     // Ensure path starts with /
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+    // Skip if already prefixed with a valid locale/market pair
+    const segments = normalizedPath.split('/').filter(Boolean);
+    if (
+      segments.length >= 2 &&
+      /^[a-z]{2}$/.test(segments[0]!) &&
+      /^[a-z]{2}$/.test(segments[1]!)
+    ) {
+      return normalizedPath;
+    }
 
     // For root, return with trailing slash
     if (normalizedPath === '/') {

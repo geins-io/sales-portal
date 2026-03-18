@@ -44,13 +44,12 @@ export default defineNuxtRouteMiddleware((to) => {
     marketCookie.value = market;
   }
 
-  // Sync i18n locale — cast through available codes to satisfy strict i18n types
-  const { locale: i18nLocale, locales } = useI18n();
-  const availableCodes: string[] = locales.value.map((l) =>
-    typeof l === 'string' ? l : l.code,
+  // Sync i18n locale — use $i18n from NuxtApp since useI18n() requires setup context
+  const { $i18n } = useNuxtApp();
+  const availableCodes: string[] = $i18n.locales.value.map(
+    (l: string | { code: string }) => (typeof l === 'string' ? l : l.code),
   );
-  if (availableCodes.includes(locale) && i18nLocale.value !== locale) {
-    // locale is validated against availableCodes above, safe to assign
-    (i18nLocale as { value: string }).value = locale;
+  if (availableCodes.includes(locale) && $i18n.locale.value !== locale) {
+    ($i18n.locale as { value: string }).value = locale;
   }
 });

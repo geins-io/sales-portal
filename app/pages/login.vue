@@ -30,13 +30,13 @@ function handleForgot() {
 <template>
   <AuthCard ref="authCardRef" :default-view="defaultView" @close="handleClose">
     <template #login>
-      <AuthLoginForm @success="handleSuccess" @forgot="handleForgot" />
+      <LoginForm @success="handleSuccess" @forgot="handleForgot" />
     </template>
     <template #register>
-      <AuthRegisterForm @success="handleSuccess" />
+      <RegisterForm @success="handleSuccess" />
     </template>
     <template #forgot>
-      <AuthForgotPasswordForm />
+      <ForgotPasswordForm />
     </template>
   </AuthCard>
 </template>
