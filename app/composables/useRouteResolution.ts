@@ -104,8 +104,15 @@ export function useRouteResolution(path: MaybeRefOrGetter<string>) {
       const cached = _routeCache.get(p);
       if (cached) return cached;
 
+      // Pass request headers during SSR so the internal API call inherits
+      // the original host header and tenant context
+      const headers = import.meta.server
+        ? useRequestHeaders(['host', 'cookie'])
+        : undefined;
+
       const data = await $fetch<RouteResolution>('/api/resolve-route', {
         query: { path: p },
+        headers,
       });
 
       // Cache for subsequent navigations
