@@ -33,8 +33,15 @@ const errorDescription = computed(() => {
   return props.error.message || 'An unexpected error occurred.';
 });
 
+// Build locale-aware home path from cookies (composables may not be available in error page)
+const homePath = computed(() => {
+  const marketCookie = useCookie('market').value || 'se';
+  const localeCookie = useCookie('locale').value || 'en';
+  return `/${marketCookie}/${localeCookie}/`;
+});
+
 const handleError = () => {
-  clearError({ redirect: '/' });
+  clearError({ redirect: homePath.value });
 };
 
 const handleBack = () => {
@@ -42,7 +49,7 @@ const handleBack = () => {
   if (window.history.length > 1) {
     window.history.back();
   } else {
-    clearError({ redirect: '/' });
+    clearError({ redirect: homePath.value });
   }
 };
 </script>

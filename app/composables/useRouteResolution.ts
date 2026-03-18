@@ -43,6 +43,36 @@ export function normalizeSlugToPath(
 }
 
 /**
+ * Strip leading 2-letter locale/market prefix segments from a path.
+ *
+ * The server middleware rewrites `/se/sv/foder` to `/foder` before SSR,
+ * but on client-side navigation Vue Router sees the full URL. This function
+ * ensures both sides produce the same canonical path for cache keys and
+ * API queries, preventing hydration mismatches and duplicate cache entries.
+ *
+ * @example
+ * stripLocaleMarketPrefix('/se/sv/foder') // '/foder'
+ * stripLocaleMarketPrefix('/se/sv/')      // '/'
+ * stripLocaleMarketPrefix('/foder')        // '/foder'
+ * stripLocaleMarketPrefix('/')             // '/'
+ */
+export function stripLocaleMarketPrefix(path: string): string {
+  const segments = path.split('/').filter(Boolean);
+
+  // Need at least 2 leading segments that are 2-letter codes
+  if (
+    segments.length >= 2 &&
+    /^[a-z]{2}$/.test(segments[0]!) &&
+    /^[a-z]{2}$/.test(segments[1]!)
+  ) {
+    const rest = segments.slice(2);
+    return rest.length > 0 ? `/${rest.join('/')}` : '/';
+  }
+
+  return path;
+}
+
+/**
  * Composable for resolving routes via the API.
  *
  * This composable handles fetching route resolution data from the server,

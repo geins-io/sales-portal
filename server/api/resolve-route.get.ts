@@ -75,6 +75,25 @@ function normalizePath(rawPath: unknown): {
   return { normalizedPath, segments };
 }
 
+/**
+ * Strip leading 2-letter locale/market prefix segments from a path for cache key normalization.
+ *
+ * The server middleware rewrites `/se/sv/foder` to `/foder`, but client-side navigation
+ * sends the full path `/se/sv/foder`. Both should resolve to the same cache entry.
+ */
+function stripLocaleMarketPrefixForCache(path: string): string {
+  const segments = path.split('/').filter(Boolean);
+  if (
+    segments.length >= 2 &&
+    /^[a-z]{2}$/.test(segments[0]!) &&
+    /^[a-z]{2}$/.test(segments[1]!)
+  ) {
+    const rest = segments.slice(2);
+    return rest.length > 0 ? `/${rest.join('/')}` : '/';
+  }
+  return path;
+}
+
 // =============================================================================
 // Cache Key Helpers
 // =============================================================================
@@ -153,8 +172,11 @@ export default defineEventHandler((event) =>
       // Normalize the input path
       const { normalizedPath, segments } = normalizePath(rawPath);
 
+      // Strip locale/market prefix for cache key so /se/sv/foder and /foder share the same entry
+      const cacheKeyPath = stripLocaleMarketPrefixForCache(normalizedPath);
+
       // Build tenant-aware cache key
-      const cacheKey = buildCacheKey(hostname, normalizedPath);
+      const cacheKey = buildCacheKey(hostname, cacheKeyPath);
 
       // Check cache first
       const cached = getCachedResolution(cacheKey);

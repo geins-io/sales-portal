@@ -18,6 +18,7 @@ const props = defineProps<{
 
 const route = useRoute();
 const { menu, pending, error } = useMenuData(props.menuLocationId);
+const { localePath } = useLocaleMarket();
 
 const visibleItems = computed(() => {
   if (!menu.value?.menuItems) return [];
@@ -29,7 +30,8 @@ const shouldRender = computed(
 );
 
 function itemUrl(canonicalUrl: string | undefined): string {
-  return normalizeMenuUrl(canonicalUrl);
+  const normalized = normalizeMenuUrl(canonicalUrl);
+  return normalized ? localePath(normalized) : '';
 }
 
 function isActive(canonicalUrl: string | undefined): boolean {

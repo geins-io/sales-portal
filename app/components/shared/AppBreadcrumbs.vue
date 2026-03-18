@@ -16,6 +16,8 @@ const props = defineProps<{
   items: BreadcrumbItem[];
 }>();
 
+const { localePath } = useLocaleMarket();
+
 // Collapse when hiding 2+ items (5+ total) — hiding a single item is worse UX than showing all
 const COLLAPSE_MIN_ITEMS = 5;
 
@@ -50,7 +52,7 @@ const displayItems = computed((): DisplayItem[] => {
 
           <!-- Regular item: link -->
           <BreadcrumbLink v-else as-child>
-            <NuxtLink :to="item.href ?? '/'">
+            <NuxtLink :to="localePath(item.href ?? '/')">
               {{ item.label }}
             </NuxtLink>
           </BreadcrumbLink>

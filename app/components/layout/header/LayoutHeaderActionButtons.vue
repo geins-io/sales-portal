@@ -5,13 +5,14 @@ import { useCartStore } from '~/stores/cart';
 
 const appStore = useAppStore();
 const cartStore = useCartStore();
+const { localePath } = useLocaleMarket();
 </script>
 
 <template>
   <div class="flex items-center gap-2">
     <!-- Search icon (mobile only — desktop has inline SearchBar) -->
     <NuxtLink
-      to="/search"
+      :to="localePath('/search')"
       data-slot="search-button"
       class="text-muted-foreground hover:text-foreground p-2 lg:hidden"
     >

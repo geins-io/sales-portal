@@ -15,6 +15,18 @@ vi.mock('~/composables/useMenuData', () => ({
 
 vi.stubGlobal('useRequestURL', () => new URL('https://test.example.com'));
 
+vi.mock('~/composables/useLocaleMarket', () => ({
+  useLocaleMarket: () => ({
+    currentMarket: ref('se'),
+    currentLocale: ref('sv'),
+    localePath: (path: string) =>
+      `/se/sv${path.startsWith('/') ? path : '/' + path}`,
+    getCleanPath: () => '/',
+    switchLocale: vi.fn(),
+    switchMarket: vi.fn(),
+  }),
+}));
+
 const mockAppStore = {
   sidebarOpen: false,
   setSidebarOpen: vi.fn(),

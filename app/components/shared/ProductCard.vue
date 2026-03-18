@@ -33,8 +33,9 @@ const showPrice = computed(() => {
 });
 
 const firstImage = computed(() => props.product.productImages?.[0]);
+const { localePath } = useLocaleMarket();
 const productUrl = computed(
-  () => props.product.canonicalUrl || `/p/${props.product.alias}`,
+  () => props.product.canonicalUrl || localePath(`/p/${props.product.alias}`),
 );
 
 const firstSku = computed(() => props.product.skus?.[0] ?? null);

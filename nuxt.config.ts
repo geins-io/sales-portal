@@ -1,9 +1,51 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import type { Environment } from './shared/types/common';
+import type { NuxtPage } from 'nuxt/schema';
+
+/**
+ * Recursively create /:market/:locale-prefixed copies of page routes.
+ * Each prefixed route uses the same component file but with the market/locale
+ * segments as route params, so Vue Router matches /se/sv/search natively.
+ */
+function createPrefixedRoutes(pages: NuxtPage[], depth = 0): NuxtPage[] {
+  const result: NuxtPage[] = [];
+
+  for (const page of pages) {
+    const prefixedPath =
+      depth === 0
+        ? `/:market/:locale${page.path === '/' ? '' : page.path}`
+        : page.path;
+
+    const prefixed: NuxtPage = {
+      ...page,
+      name: depth === 0 ? `locale-${page.name ?? ''}` : page.name,
+      path: prefixedPath,
+      children: page.children?.length
+        ? createPrefixedRoutes(page.children, depth + 1)
+        : page.children,
+    };
+
+    result.push(prefixed);
+  }
+
+  return result;
+}
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+
+  hooks: {
+    'pages:extend'(pages) {
+      // Register /:market/:locale-prefixed versions of all page routes.
+      // This allows named pages (search.vue, checkout.vue, index.vue, etc.)
+      // to be reached via /se/sv/search, /se/sv/checkout, /se/sv/ etc.
+      // Without this, only the [...slug] catch-all works with prefixed URLs.
+      // See: server/plugins/00.locale-market.ts for URL parsing.
+      const prefixed = createPrefixedRoutes(pages);
+      pages.push(...prefixed);
+    },
+  },
 
   modules: [
     // Always needed (aliases, auto-imports, component resolution)

@@ -69,6 +69,19 @@ vi.mock('#app/composables/router', async (importOriginal) => {
   };
 });
 
+// Mock useLocaleMarket — URL-based locale/market routing composable
+vi.mock('../app/composables/useLocaleMarket', () => ({
+  useLocaleMarket: () => ({
+    currentMarket: computed(() => 'se'),
+    currentLocale: computed(() => 'en'),
+    localePath: (path: string) =>
+      `/se/en${path.startsWith('/') ? path : '/' + path}`,
+    getCleanPath: () => '/',
+    switchLocale: vi.fn(),
+    switchMarket: vi.fn(),
+  }),
+}));
+
 // Mock useTenant with the same data as setup-nuxt.ts registerEndpoint
 vi.mock('../app/composables/useTenant', () => {
   const tenant = ref({

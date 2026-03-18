@@ -1,4 +1,6 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+const { localePath } = useLocaleMarket();
+</script>
 
 <template>
   <div
@@ -13,19 +15,19 @@
         <Copyright />
         <nav class="flex gap-4 text-sm">
           <NuxtLink
-            to="/privacy"
+            :to="localePath('/privacy')"
             class="text-neutral-400 transition-colors hover:text-white"
           >
             {{ $t('layout.privacy_policy') }}
           </NuxtLink>
           <NuxtLink
-            to="/terms"
+            :to="localePath('/terms')"
             class="text-neutral-400 transition-colors hover:text-white"
           >
             {{ $t('layout.terms_of_service') }}
           </NuxtLink>
           <NuxtLink
-            to="/cookies"
+            :to="localePath('/cookies')"
             class="text-neutral-400 transition-colors hover:text-white"
           >
             {{ $t('layout.cookies_settings') }}
