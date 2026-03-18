@@ -172,24 +172,22 @@ describe('useFavoritesStore', () => {
   });
 
   describe('isFavorite', () => {
-    it('returns true when session has the product', () => {
-      mockSession.isFavorite.mockReturnValue(true);
+    it('returns true when items include the product', () => {
+      mockSession.favorites.items = ['prod-1', 'prod-3'];
 
       const store = useFavoritesStore();
       store.initialize();
 
       expect(store.isFavorite('prod-1')).toBe(true);
-      expect(mockSession.isFavorite).toHaveBeenCalledWith('prod-1');
     });
 
-    it('returns false when session does not have the product', () => {
-      mockSession.isFavorite.mockReturnValue(false);
+    it('returns false when items do not include the product', () => {
+      mockSession.favorites.items = ['prod-1'];
 
       const store = useFavoritesStore();
       store.initialize();
 
       expect(store.isFavorite('prod-2')).toBe(false);
-      expect(mockSession.isFavorite).toHaveBeenCalledWith('prod-2');
     });
   });
 

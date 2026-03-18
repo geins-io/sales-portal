@@ -56,28 +56,21 @@ const handleBack = () => {
 
 <template>
   <div
-    class="flex min-h-screen flex-col items-center justify-center px-4"
-    :style="{
-      backgroundColor: 'var(--background, #ffffff)',
-      color: 'var(--foreground, #1a1a1a)',
-    }"
+    class="error-page flex min-h-screen flex-col items-center justify-center px-4"
   >
     <div class="mx-auto max-w-md text-center">
       <!-- Error Code -->
-      <p
-        class="text-7xl font-bold"
-        :style="{ color: 'var(--primary, #0d9488)' }"
-      >
+      <p class="error-page__code text-7xl font-bold">
         {{ error.statusCode }}
       </p>
 
       <!-- Error Title -->
-      <h1 class="mt-4 text-2xl font-semibold">
+      <h1 class="error-page__title mt-4 text-2xl font-semibold">
         {{ errorTitle }}
       </h1>
 
       <!-- Error Description -->
-      <p class="mt-2" :style="{ color: 'var(--muted-foreground, #6b7280)' }">
+      <p class="error-page__muted mt-2">
         {{ errorDescription }}
       </p>
 
@@ -98,16 +91,9 @@ const handleBack = () => {
       </div>
 
       <!-- Additional Help -->
-      <p
-        class="mt-8 text-sm"
-        :style="{ color: 'var(--muted-foreground, #6b7280)' }"
-      >
+      <p class="error-page__muted mt-8 text-sm">
         If you believe this is an error, please
-        <a
-          href="mailto:support@example.com"
-          class="underline"
-          :style="{ color: 'var(--primary, #0d9488)' }"
-        >
+        <a href="mailto:support@example.com" class="error-page__link underline">
           contact support </a
         >.
       </p>
@@ -115,19 +101,47 @@ const handleBack = () => {
       <!-- Debug Info (Development Only) -->
       <div
         v-if="error.stack && isDev"
-        class="mt-8 rounded-lg border p-4 text-left"
-        :style="{
-          borderColor: 'var(--border, #e5e7eb)',
-          backgroundColor: 'var(--muted, #f3f4f6)',
-        }"
+        class="error-page__debug mt-8 rounded-lg border p-4 text-left"
       >
         <p class="mb-2 text-sm font-medium">Debug Info:</p>
         <pre
-          class="overflow-auto text-xs whitespace-pre-wrap"
-          :style="{ color: 'var(--muted-foreground, #6b7280)' }"
+          class="error-page__muted overflow-auto text-xs whitespace-pre-wrap"
           >{{ error.stack }}</pre
         >
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+/*
+ * Fallback styles for the error page. These use CSS custom properties from
+ * the tenant theme when available, with hardcoded fallbacks for when the
+ * error occurs before theme CSS is loaded. No inline styles needed.
+ */
+.error-page {
+  background-color: var(--background, #ffffff);
+  color: var(--foreground, #1a1a1a);
+}
+
+.error-page__code {
+  color: var(--primary, #0d9488);
+}
+
+.error-page__title {
+  color: var(--foreground, #1a1a1a);
+}
+
+.error-page__muted {
+  color: var(--muted-foreground, #6b7280);
+}
+
+.error-page__link {
+  color: var(--primary, #0d9488);
+}
+
+.error-page__debug {
+  border-color: var(--border, #e5e7eb);
+  background-color: var(--muted, #f3f4f6);
+}
+</style>

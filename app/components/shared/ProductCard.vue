@@ -103,30 +103,31 @@ async function addToCart() {
           {{ campaign.name }}
         </span>
       </div>
-      <!-- Wishlist button overlay -->
-      <button
-        v-if="hasFeature('wishlist')"
-        type="button"
-        data-testid="wishlist-button"
-        :data-favorited="isFavorited"
-        class="bg-background/80 text-muted-foreground hover:text-foreground absolute top-2 right-2 shrink-0 rounded border p-1.5 transition-colors"
-        :aria-label="$t('product.wishlist')"
-        @click.prevent.stop="toggleFavorite"
-      >
-        <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
-      </button>
     </div>
 
     <!-- Content -->
     <div class="flex flex-1 flex-col gap-1 p-4">
-      <!-- Article number -->
-      <p
-        v-if="product.articleNumber"
-        class="text-muted-foreground text-xs"
-        data-testid="article-number"
-      >
-        {{ $t('product.article_number', { number: product.articleNumber }) }}
-      </p>
+      <!-- Article number + Wishlist -->
+      <div class="flex items-center justify-between">
+        <p
+          v-if="product.articleNumber"
+          class="text-muted-foreground text-xs"
+          data-testid="article-number"
+        >
+          {{ $t('product.article_number', { number: product.articleNumber }) }}
+        </p>
+        <button
+          v-if="hasFeature('wishlist')"
+          type="button"
+          data-testid="wishlist-button"
+          :data-favorited="isFavorited"
+          class="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+          :aria-label="$t('product.wishlist')"
+          @click.prevent.stop="toggleFavorite"
+        >
+          <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
+        </button>
+      </div>
 
       <!-- Product title -->
       <NuxtLink :to="productUrl" class="hover:underline">

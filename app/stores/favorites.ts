@@ -39,6 +39,11 @@ export const useFavoritesStore = defineStore('favorites', () => {
     syncFromSession();
   }
 
+  // Auto-initialize on client when store is first created
+  if (import.meta.client) {
+    initialize();
+  }
+
   function toggle(productId: string): boolean {
     const s = getSession();
     if (!s) return false;
@@ -69,8 +74,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
   }
 
   function isFavorite(productId: string): boolean {
-    const s = getSession();
-    return s ? s.isFavorite(productId) : false;
+    // Read from reactive items array so Vue tracks dependency changes
+    return items.value.includes(productId);
   }
 
   return {
