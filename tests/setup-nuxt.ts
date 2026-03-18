@@ -6,8 +6,24 @@
  */
 
 import './setup';
+import { vi } from 'vitest';
+import { computed } from 'vue';
 import { registerEndpoint } from '@nuxt/test-utils/runtime';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
+
+// Mock useLocaleMarket for all nuxt tier tests — the composable calls
+// useI18n() which needs the i18n plugin installed via app.use(createI18n()).
+vi.mock('../app/composables/useLocaleMarket', () => ({
+  useLocaleMarket: () => ({
+    currentMarket: computed(() => 'se'),
+    currentLocale: computed(() => 'en'),
+    localePath: (path: string) =>
+      `/se/en${path.startsWith('/') ? path : '/' + path}`,
+    getCleanPath: () => '/',
+    switchLocale: vi.fn(),
+    switchMarket: vi.fn(),
+  }),
+}));
 
 const mockTenantConfig: PublicTenantConfig = {
   tenantId: 'test-tenant',

@@ -20,11 +20,12 @@ function onQuantityUpdate(value: number) {
   emit('update-quantity', props.item.id, value);
 }
 
+const { localePath } = useLocaleMarket();
 const productUrl = computed(() =>
   props.item.product?.canonicalUrl
     ? props.item.product.canonicalUrl
     : props.item.product?.alias
-      ? `/product/${props.item.product.alias}`
+      ? localePath(`/product/${props.item.product.alias}`)
       : null,
 );
 

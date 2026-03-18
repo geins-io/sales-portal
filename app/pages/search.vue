@@ -55,7 +55,7 @@ const sortMap: Record<string, string> = {
 
 // --- Build filter object for GraphQL FilterInputType ---
 const filterInput = computed(() => {
-  const selectedFacetIds = Object.values(filterState.value).flat();
+  const selectedFacetIds = Object.values(filterState.value ?? {}).flat();
   const filter: Record<string, unknown> = {};
 
   if (selectedFacetIds.length > 0) filter.facets = selectedFacetIds;
@@ -127,7 +127,7 @@ watch(
     if (searchTerm.value) {
       query.q = searchTerm.value;
     }
-    for (const [key, values] of Object.entries(filterState.value)) {
+    for (const [key, values] of Object.entries(filterState.value ?? {})) {
       if (values.length > 0) {
         query[key] = values.join(',');
       }

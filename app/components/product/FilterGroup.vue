@@ -7,7 +7,6 @@ import {
   AccordionTrigger,
 } from '~/components/ui/accordion';
 import { Checkbox } from '~/components/ui/checkbox';
-import { Label } from '~/components/ui/label';
 
 const props = defineProps<{
   facet: FilterFacet;
@@ -40,32 +39,36 @@ function isChecked(valueId: string) {
 
 <template>
   <Accordion type="single" collapsible :default-value="facet.filterId">
-    <AccordionItem :value="facet.filterId">
-      <AccordionTrigger class="text-sm font-medium">
+    <AccordionItem :value="facet.filterId" class="border-b-0">
+      <AccordionTrigger class="py-3 text-sm font-medium">
         {{ facet.label }}
+        <span
+          v-if="selected.length > 0"
+          class="bg-primary text-primary-foreground mr-2 ml-auto inline-flex size-5 items-center justify-center rounded-full text-xs"
+        >
+          {{ selected.length }}
+        </span>
       </AccordionTrigger>
       <AccordionContent>
-        <div class="flex flex-col gap-2">
-          <div
+        <div class="flex flex-col gap-3 pb-2">
+          <label
             v-for="value in visibleValues"
             :key="value._id"
-            class="flex items-center gap-2"
+            :for="`filter-${facet.filterId}-${value._id}`"
+            class="flex cursor-pointer items-center gap-3"
           >
             <Checkbox
               :id="`filter-${facet.filterId}-${value._id}`"
               :checked="isChecked(value._id)"
               @update:checked="toggleValue(value._id)"
             />
-            <Label
-              :for="`filter-${facet.filterId}-${value._id}`"
-              class="cursor-pointer text-sm font-normal"
-            >
+            <span class="flex-1 text-sm">
               {{ value.label }}
-              <span class="text-muted-foreground ml-1 text-xs">
-                ({{ value.count }})
-              </span>
-            </Label>
-          </div>
+            </span>
+            <span class="text-muted-foreground text-xs">
+              {{ value.count }}
+            </span>
+          </label>
         </div>
       </AccordionContent>
     </AccordionItem>

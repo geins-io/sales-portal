@@ -19,6 +19,7 @@ import {
 
 const { menu } = useMenuData(MENU_LOCATION.MAIN);
 const currentHost = computed(() => useRequestURL().host);
+const { localePath } = useLocaleMarket();
 
 const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
 
@@ -38,8 +39,9 @@ function linkTag(item: MenuItemType) {
 function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
   const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
   const ext = isExternal(item);
+  const href = ext ? url || '/' : localePath(url || '/');
   return {
-    [ext ? 'href' : 'to']: url || '/',
+    [ext ? 'href' : 'to']: href,
     target: ext ? '_blank' : undefined,
     rel: ext ? 'noopener' : undefined,
   };

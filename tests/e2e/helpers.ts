@@ -5,6 +5,14 @@ import { expect, type Page } from '@playwright/test';
  *
  * Shared utilities for dynamic data discovery, common actions, and assertions.
  * Tests use real Geins API data — no hardcoded slugs.
+ *
+ * NOTE: URL-based locale/market routing
+ * The server middleware redirects `/` to `/{market}/{locale}/` (e.g. `/se/sv/`).
+ * When navigating to `/`, Playwright will follow the redirect automatically.
+ * For direct page navigation (e.g. category pages), paths like `/foder` will
+ * pass through without redirect since they don't start with a valid 2-letter
+ * market code. The server-side `stripUrlPrefixes` handles both prefixed and
+ * unprefixed paths.
  */
 
 // ---------- Data Discovery ----------

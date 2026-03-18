@@ -10,10 +10,11 @@ const props = withDefaults(
 );
 
 const { availableLocales } = useTenant();
-const { locale: currentLocale, setLocale, locales, t } = useI18n();
+const { locale: currentLocale, locales, t } = useI18n();
+const { switchLocale: switchLocaleNav } = useLocaleMarket();
 
 function switchLocale(loc: string) {
-  setLocale(loc as 'en' | 'sv');
+  switchLocaleNav(loc);
 }
 
 /** Map locale code → display name from i18n config */

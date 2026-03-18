@@ -2,11 +2,65 @@
 
 Rules for writing pages that work correctly during both SSR (server-side render) and client-side navigation. A "hard refresh" is when the user hits F5 or navigates directly to a URL — the server renders the page from scratch.
 
+## Template SSR Safety
+
+During SSR, the template renders while async data from `useFetch`/`useAsyncData` may still be `null`. All template expressions that access async data MUST use null guards.
+
+### Rules
+
+- NEVER use `Object.keys()`, `Object.entries()`, `Object.values()`, `.filter()`, `.map()` on async data without null guards
+- ALWAYS use optional chaining (`?.`) and nullish coalescing (`?? []`, `?? {}`) in template expressions
+- ALWAYS use `v-if="data"` guard before `v-for="item in data.items"` blocks
+- Computed properties that derive from async data MUST handle null/undefined input
+- NEVER access `window`, `document`, or other browser APIs outside `import.meta.client` guards or `onMounted`
+
+### Patterns
+
+```vue
+<!-- DO: guard computed properties -->
+<script setup>
+const items = computed(() => data.value?.items ?? []);
+const filterCount = computed(() => Object.keys(filters.value ?? {}).length);
+</script>
+
+<!-- DON'T: assume data is always present -->
+<script setup>
+const items = computed(() => Object.keys(data.value.filters)); // crashes if data.value is null
+</script>
+```
+
+```vue
+<!-- DO: guard v-for with v-if or nullish coalescing -->
+<div v-if="data?.items" v-for="item in data.items" :key="item.id">...</div>
+<div v-for="item in items ?? []" :key="item.id">...</div>
+
+<!-- DON'T: iterate over potentially null data -->
+<div v-for="item in data.items" :key="item.id">...</div>
+```
+
+```vue
+<!-- DO: guard browser APIs -->
+<script setup>
+function scrollToTop() {
+  if (import.meta.client) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+</script>
+
+<!-- DON'T: call browser APIs unconditionally -->
+<script setup>
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' }); // crashes during SSR
+}
+</script>
+```
+
 ## Data Fetching
 
 ### Use `useFetch` / `useAsyncData` for page-level data
 
-Data that the page needs to render MUST be fetched in a way that runs on both SSR and client.
+Data that the page needs to render MUST be fetched in a way that runs on both SSR and client. Even when using `useFetch`/`useAsyncData`, the template may still render during SSR while the fetch is in progress -- so data can be `null` on first render. Always add null guards in templates and computed properties.
 
 ```vue
 <!-- DO: runs on SSR and client -->

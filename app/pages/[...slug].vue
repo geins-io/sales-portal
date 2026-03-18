@@ -3,13 +3,16 @@ import { computed, defineAsyncComponent } from 'vue';
 import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
 import {
   normalizeSlugToPath,
+  stripLocaleMarketPrefix,
   useRouteResolution,
 } from '~/composables/useRouteResolution';
 
 const route = useRoute();
 
 const normalizedPath = computed(() =>
-  normalizeSlugToPath(route.params.slug as string | string[] | undefined),
+  stripLocaleMarketPrefix(
+    normalizeSlugToPath(route.params.slug as string | string[] | undefined),
+  ),
 );
 
 const {
@@ -31,6 +34,60 @@ if (resolution.value?.type === 'not-found') {
   }
 }
 
+// SEO: canonical + hreflang tags based on current locale/market and available alternatives
+const { currentMarket, currentLocale, validLocales } = useLocaleMarket();
+
+/**
+ * Map short locale codes to BCP-47 hreflang language tags.
+ * For most locales the code is used as-is; this map exists
+ * to override any that differ (currently none, but extensible).
+ */
+function getHreflangLang(locale: string): string {
+  return locale;
+}
+
+const seoLinks = computed(() => {
+  const market = currentMarket.value;
+  const locale = currentLocale.value;
+  const path = normalizedPath.value;
+  const pagePath = path === '/' ? '/' : path;
+
+  const links: Array<{ rel: string; href: string; hreflang?: string }> = [];
+
+  // Canonical URL: always includes the locale/market prefix
+  const canonicalHref =
+    pagePath === '/'
+      ? `/${market}/${locale}/`
+      : `/${market}/${locale}${pagePath}`;
+  links.push({ rel: 'canonical', href: canonicalHref });
+
+  // Hreflang alternates for each available locale in this market
+  const localeArray = Array.from(validLocales.value).filter(
+    (l): l is string => typeof l === 'string',
+  );
+  for (const loc of localeArray) {
+    const lang = getHreflangLang(loc);
+    const hreflang = `${lang}-${market.toUpperCase()}`;
+    const href =
+      pagePath === '/' ? `/${market}/${loc}/` : `/${market}/${loc}${pagePath}`;
+    links.push({ rel: 'alternate', href, hreflang });
+  }
+
+  // x-default: use 'en' if available, otherwise the first available locale
+  const defaultLocale = validLocales.value.has('en')
+    ? 'en'
+    : (localeArray[0] ?? locale);
+  const xDefaultHref =
+    pagePath === '/'
+      ? `/${market}/${defaultLocale}/`
+      : `/${market}/${defaultLocale}${pagePath}`;
+  links.push({ rel: 'alternate', href: xDefaultHref, hreflang: 'x-default' });
+
+  return links;
+});
+
+useHead({ link: seoLinks });
+
 // Handle resolution side effects on client-side navigation
 watch(
   () => resolution.value,
@@ -38,11 +95,6 @@ watch(
     if (res?.type === 'not-found') {
       showError(createError({ statusCode: 404, statusMessage: 'Not Found' }));
       return;
-    }
-    if (res && 'canonical' in res && res.canonical) {
-      useHead({
-        link: [{ rel: 'canonical', href: res.canonical }],
-      });
     }
   },
 );

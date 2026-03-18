@@ -252,6 +252,7 @@ export async function fetchTenantConfig(
         search: { enabled: true },
         authentication: { enabled: true },
         cart: { enabled: true },
+        wishlist: { enabled: true },
       },
       isActive: true,
       createdAt: new Date().toISOString(),

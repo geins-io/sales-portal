@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { MapPin } from 'lucide-vue-next';
-import { COOKIE_NAMES } from '#shared/constants/storage';
 
 const props = withDefaults(
   defineProps<{
@@ -10,18 +9,12 @@ const props = withDefaults(
   { variant: 'icon' },
 );
 
-const { availableMarkets, market } = useTenant();
+const { availableMarkets } = useTenant();
 const { t } = useI18n();
-
-const marketCookie = useCookie(COOKIE_NAMES.MARKET, {
-  maxAge: 365 * 24 * 60 * 60,
-});
-
-const currentMarket = computed(() => marketCookie.value || market.value);
+const { currentMarket, switchMarket: switchMarketNav } = useLocaleMarket();
 
 function switchMarket(m: string) {
-  marketCookie.value = m;
-  reloadNuxtApp();
+  switchMarketNav(m);
 }
 
 const showSwitcher = computed(() => availableMarkets.value.length > 1);

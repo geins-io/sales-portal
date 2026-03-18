@@ -6,6 +6,8 @@ defineProps<{
   pageInfo: ListPageInfo | null;
   breadcrumbs: BreadcrumbItem[];
 }>();
+
+const { localePath } = useLocaleMarket();
 </script>
 
 <template>
@@ -32,7 +34,7 @@ defineProps<{
       <NuxtLink
         v-for="sub in pageInfo.subCategories"
         :key="sub.alias"
-        :to="sub.canonicalUrl || `/${sub.alias}`"
+        :to="sub.canonicalUrl || localePath(`/${sub.alias}`)"
         class="bg-muted hover:bg-muted/80 rounded-full px-3 py-1 text-sm transition-colors"
       >
         {{ sub.name }}

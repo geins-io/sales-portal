@@ -3,6 +3,7 @@ import { Mail, User } from 'lucide-vue-next';
 import { useAuthStore } from '~/stores/auth';
 
 const authStore = useAuthStore();
+const { localePath } = useLocaleMarket();
 </script>
 
 <template>
@@ -16,7 +17,7 @@ const authStore = useAuthStore();
       <!-- Left: Contact + Locale -->
       <div class="flex items-center gap-4">
         <NuxtLink
-          to="/contact"
+          :to="localePath('/contact')"
           class="flex items-center gap-1.5 hover:underline"
         >
           <Mail class="size-4" />
@@ -24,6 +25,7 @@ const authStore = useAuthStore();
           <span class="sm:hidden">{{ $t('layout.contact') }}</span>
         </NuxtLink>
         <LocaleSwitcher variant="text" />
+        <MarketSwitcher variant="text" />
       </div>
 
       <!-- Center: Env badge (dev only) -->
@@ -39,12 +41,15 @@ const authStore = useAuthStore();
 
       <!-- Right: Apply + Login -->
       <div class="flex items-center gap-4">
-        <NuxtLink to="/apply" class="hidden hover:underline sm:inline">
+        <NuxtLink
+          :to="localePath('/apply')"
+          class="hidden hover:underline sm:inline"
+        >
           {{ $t('layout.apply_for_account') }}
         </NuxtLink>
         <NuxtLink
           v-if="!authStore.isAuthenticated"
-          to="/login"
+          :to="localePath('/login')"
           class="flex items-center gap-1.5 hover:underline"
         >
           <User class="size-4" />
@@ -52,7 +57,7 @@ const authStore = useAuthStore();
         </NuxtLink>
         <NuxtLink
           v-else
-          to="/portal"
+          :to="localePath('/portal')"
           class="flex items-center gap-1.5 hover:underline"
         >
           <User class="size-4" />
