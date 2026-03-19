@@ -1,3 +1,4 @@
+import { COOKIE_NAMES } from '#shared/constants/storage';
 import { resolveTenant } from '../utils/tenant';
 
 /**
@@ -59,6 +60,15 @@ export default defineNitroPlugin((nitroApp) => {
       event.context.tenant.config = tenant;
 
       const cachedTenantId = getTenantCookie(event);
+
+      // Detect tenant switch: clear stale cookies so the locale-market plugin
+      // redirects to fresh defaults for the new tenant.
+      if (cachedTenantId && cachedTenantId !== tenantId) {
+        deleteCookie(event, COOKIE_NAMES.LOCALE, { path: '/' });
+        deleteCookie(event, COOKIE_NAMES.MARKET, { path: '/' });
+        deleteCookie(event, COOKIE_NAMES.CART_ID, { path: '/' });
+      }
+
       if (!cachedTenantId || cachedTenantId !== tenantId) {
         setTenantCookie(event, tenantId);
       }

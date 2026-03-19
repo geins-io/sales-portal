@@ -1,4 +1,5 @@
 import type { TenantConfig } from '#shared/types/tenant-config';
+import { COOKIE_NAMES } from '#shared/constants/storage';
 
 /**
  * Extracts 2-letter locale codes from full locale strings.
@@ -120,6 +121,18 @@ export default defineEventHandler((event) => {
 
   const correctedMarket = marketValid ? market : defaultMarket;
   const correctedLocale = localeValid ? locale : defaultLocale;
+
+  // Reset cookies to corrected values before redirecting so stale values
+  // don't persist and cause repeated redirect loops.
+  const cookieOpts = {
+    httpOnly: false,
+    secure: !import.meta.dev,
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 365 * 24 * 60 * 60,
+  };
+  setCookie(event, COOKIE_NAMES.LOCALE, correctedLocale, cookieOpts);
+  setCookie(event, COOKIE_NAMES.MARKET, correctedMarket, cookieOpts);
 
   // Redirect to corrected prefixed URL
   const redirectPath =
