@@ -1,11 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import ProductTabs from '../../../app/components/product/ProductTabs.vue';
-
-// Mock useMediaQuery to control desktop/mobile
-vi.mock('@vueuse/core', () => ({
-  useMediaQuery: vi.fn().mockReturnValue({ value: true }),
-}));
 
 const stubs = {
   // Tabs (desktop)

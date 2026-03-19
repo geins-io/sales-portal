@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { DetailProduct, ReviewsResponse } from '#shared/types/commerce';
-import { useMediaQuery } from '@vueuse/core';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import {
   Accordion,
@@ -18,8 +17,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   'load-reviews': [];
 }>();
-
-const isDesktop = useMediaQuery('(min-width: 768px)');
 
 const hasDescription = computed(() => !!props.product.texts?.text1);
 const visibleGroups = computed(() =>
@@ -58,9 +55,9 @@ function onAccordionChange(value: string | string[] | undefined) {
 
 <template>
   <div data-testid="product-tabs">
-    <!-- Desktop: Tabs -->
+    <!-- Desktop: Tabs (hidden below md via CSS to avoid SSR/client flash) -->
     <Tabs
-      v-if="isDesktop"
+      class="hidden md:block"
       default-value="description"
       @update:model-value="onTabChange"
     >
@@ -144,8 +141,12 @@ function onAccordionChange(value: string | string[] | undefined) {
       </TabsContent>
     </Tabs>
 
-    <!-- Mobile: Accordion -->
-    <Accordion v-else type="multiple" @update:model-value="onAccordionChange">
+    <!-- Mobile: Accordion (hidden at md+ via CSS to avoid SSR/client flash) -->
+    <Accordion
+      class="md:hidden"
+      type="multiple"
+      @update:model-value="onAccordionChange"
+    >
       <AccordionItem v-if="hasDescription" value="description">
         <AccordionTrigger>{{ $t('product.details') }}</AccordionTrigger>
         <AccordionContent>

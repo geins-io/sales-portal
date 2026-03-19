@@ -48,7 +48,7 @@ const showThumbnails = computed(() => props.images.length > 1);
       <!-- Vertical thumbnail strip -->
       <div
         v-if="showThumbnails"
-        class="flex flex-col gap-2 overflow-y-auto"
+        class="flex flex-col gap-2 overflow-y-auto p-0.5"
         data-testid="thumbnails"
       >
         <button
