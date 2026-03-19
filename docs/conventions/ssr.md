@@ -208,6 +208,51 @@ if (import.meta.client) {
 const saved = localStorage.getItem('preference'); // crashes on SSR
 ```
 
+## Locale / i18n
+
+### Architecture
+
+Locale resolution is a multi-step server-side pipeline. The order matters.
+
+1. **Nitro Plugin 00** (`server/plugins/00.locale.ts`) — parses the URL, sets the locale cookie, and redirects `/` to the default locale path. Fallback locale comes from `process.env.GEINS_LOCALE`, not a hardcoded value.
+2. **Nitro Plugin 01** (`server/plugins/01.tenant.ts`) — resolves the tenant. Needs the locale cookie already set by plugin 00.
+3. **Validation middleware** — corrects invalid locale/market combinations after tenant resolution. This is the only other place that may write the locale cookie.
+4. **Client middleware** (`middleware/locale.ts`) — syncs the Nuxt i18n locale state from the URL on every client-side navigation.
+
+### Locale codes: short vs. BCP-47
+
+The locale cookie and all URL segments use **short codes** (`sv`, `en`). GraphQL requires **BCP-47 tags** (`sv-SE`, `en-GB`). Expansion happens at the API boundary only:
+
+- `getRequestLocale()` — reads the cookie and returns the short code for internal routing.
+- `ensureBcp47Locale()` in `server/utils/_sdk.ts` — expands short codes before any GraphQL call. This is the **gatekeeper**. No short code ever reaches GraphQL.
+- `getChannelVariables()` calls `ensureBcp47Locale()` internally — use it whenever building SDK channel variables.
+
+To add a new locale, add it to `SupportedLocale` in `shared/utils/locale-market.ts`. Never add new locales as hardcoded string casts elsewhere.
+
+### i18n config rules
+
+- `detectBrowserLanguage: false` — we handle locale detection ourselves (Nitro plugin + cookie). Enabling this will fight the cookie and overwrite the user's selected locale.
+- `defaultLocale: 'sv'` — must match the most common tenant's default to minimise SSR hydration mismatch. Do not change this without checking all tenant configs.
+- i18n's role is limited to providing `$t()` translation lookups and reactive locale state. It does not drive routing or cookie management.
+
+### What to do / not do
+
+```typescript
+// DO: expand at the API boundary
+const locale = ensureBcp47Locale(getRequestLocale(event)); // 'sv-SE'
+const variables = getChannelVariables(event); // includes BCP-47 locale
+
+// DON'T: pass short codes to SDK/GraphQL
+sdk.products({ locale: 'sv' }); // returns 0 results
+
+// DO: use the SupportedLocale type
+import type { SupportedLocale } from '~/shared/utils/locale-market';
+const locale: SupportedLocale = 'sv';
+
+// DON'T: cast locale strings
+const locale = 'sv' as SupportedLocale; // bypasses the type guard
+```
+
 ## Reference Implementation
 
 The canonical example of correct SSR page behavior is `app/pages/[...slug].vue`:
