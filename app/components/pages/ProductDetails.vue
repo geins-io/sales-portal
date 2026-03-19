@@ -207,31 +207,33 @@ useSchemaOrg([
 
       <!-- Right: Product info -->
       <div class="flex flex-col gap-4">
-        <!-- Product name -->
-        <h1
-          class="font-heading text-[20px] font-bold"
-          data-testid="product-name"
-        >
-          {{ product.name }}
-        </h1>
+        <!-- Product name + meta -->
+        <div class="flex flex-col gap-1">
+          <h1
+            class="font-heading text-[20px] font-bold"
+            data-testid="product-name"
+          >
+            {{ product.name }}
+          </h1>
 
-        <!-- Article number -->
-        <p
-          v-if="product.articleNumber"
-          class="text-muted-foreground text-xs"
-          data-testid="product-article-number"
-        >
-          Art nr. {{ product.articleNumber }}
-        </p>
+          <!-- Article number -->
+          <p
+            v-if="product.articleNumber"
+            class="text-muted-foreground text-xs"
+            data-testid="product-article-number"
+          >
+            Art nr. {{ product.articleNumber }}
+          </p>
 
-        <!-- Brand -->
-        <p
-          v-if="product.brand?.name"
-          class="text-muted-foreground text-xs tracking-wide uppercase"
-          data-testid="product-brand"
-        >
-          {{ product.brand.name }}
-        </p>
+          <!-- Brand -->
+          <p
+            v-if="product.brand?.name"
+            class="text-muted-foreground text-xs tracking-wide uppercase"
+            data-testid="product-brand"
+          >
+            {{ product.brand.name }}
+          </p>
+        </div>
 
         <!-- Campaign badges -->
         <div
@@ -291,15 +293,14 @@ useSchemaOrg([
         <!-- Quantity + Add to cart -->
         <div v-if="showPrice" class="flex items-end gap-3">
           <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
-          <button
-            type="button"
-            class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-2 rounded-md px-6 py-2.5 text-sm font-medium whitespace-nowrap transition-colors"
+          <Button
             data-testid="add-to-cart-button"
+            class="gap-2 px-6"
             @click="addToCart"
           >
             <Icon name="lucide:shopping-cart" class="size-4" />
             {{ $t('product.add_to_cart') }}
-          </button>
+          </Button>
         </div>
 
         <!-- Download + Delivery links -->

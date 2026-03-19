@@ -110,7 +110,7 @@ async function addToCart() {
     </div>
 
     <!-- Content -->
-    <div class="flex flex-1 flex-col gap-1 p-4">
+    <div class="flex flex-1 flex-col gap-2 p-4">
       <!-- Article number + Wishlist -->
       <div class="flex items-center justify-between">
         <p
@@ -163,7 +163,7 @@ async function addToCart() {
         :lowest-price="product.lowestPrice"
         :discount-type="product.discountType"
         :campaign-names="visibleCampaigns.map((c) => c.name)"
-        class="mt-1 text-base font-semibold"
+        class="text-base font-semibold"
       />
 
       <!-- Quantity + Add to cart (same row) -->
@@ -229,7 +229,7 @@ async function addToCart() {
     </div>
 
     <!-- Info column -->
-    <div class="flex min-w-0 flex-1 flex-col gap-0.5 py-3">
+    <div class="flex min-w-0 flex-1 flex-col gap-1.5 py-3">
       <p
         v-if="product.articleNumber"
         class="text-muted-foreground text-xs"
