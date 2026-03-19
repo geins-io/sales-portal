@@ -1,22 +1,27 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
 
 /**
- * Client-side global middleware that syncs locale and market state
- * from the URL prefix on every navigation.
+ * Global middleware that syncs i18n locale and market cookie from the URL prefix.
  *
- * On the server, the Nitro plugin (server/plugins/00.locale-market.ts) handles
- * cookie setting and context storage. This client-side middleware
- * complements it by keeping the i18n locale and market cookie in sync
- * during SPA navigations where the server plugin doesn't run.
+ * Runs on BOTH server and client to ensure the i18n locale always matches the
+ * URL. This is critical because:
+ *
+ * - The i18n-locale plugin may override the locale to the tenant's default,
+ *   which differs from the URL locale (e.g. tenant default is 'sv' but URL
+ *   is /se/en/). This middleware runs after plugins and corrects the mismatch
+ *   before the page renders.
+ *
+ * - On the server, the Nitro plugin (00.locale-market.ts) sets cookies but
+ *   does NOT set the i18n locale. This middleware bridges that gap.
+ *
+ * - On the client, SPA navigations don't trigger the Nitro plugin, so this
+ *   middleware keeps cookies and i18n in sync.
  *
  * With the `pages:extend` hook, prefixed routes provide `:market` and `:locale`
  * as route params. This middleware reads those params when available, falling
  * back to manual URL segment parsing for backward compatibility.
  */
 export default defineNuxtRouteMiddleware((to) => {
-  // Only run on the client — server-side is handled by Nitro plugin
-  if (import.meta.server) return;
-
   // Try route params first (set by pages:extend prefixed routes)
   let market = typeof to.params.market === 'string' ? to.params.market : null;
   let locale = typeof to.params.locale === 'string' ? to.params.locale : null;
@@ -36,7 +41,7 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (!market || !locale) return;
 
-  // Set market cookie
+  // Sync market cookie (on both server and client)
   const marketCookie = useCookie(COOKIE_NAMES.MARKET, {
     maxAge: 365 * 24 * 60 * 60,
   });
@@ -44,7 +49,8 @@ export default defineNuxtRouteMiddleware((to) => {
     marketCookie.value = market;
   }
 
-  // Sync i18n locale — use $i18n from NuxtApp since useI18n() requires setup context
+  // Sync i18n locale to match the URL — this is the authoritative source.
+  // Use $i18n from NuxtApp since useI18n() requires setup context.
   const { $i18n } = useNuxtApp();
   const availableCodes: string[] = $i18n.locales.value.map(
     (l: string | { code: string }) => (typeof l === 'string' ? l : l.code),
