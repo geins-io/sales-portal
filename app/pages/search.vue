@@ -55,10 +55,13 @@ const sortMap: Record<string, string> = {
 
 // --- Build filter object for GraphQL FilterInputType ---
 const filterInput = computed(() => {
-  const selectedFacetIds = Object.values(filterState.value ?? {}).flat();
+  const facets = Object.entries(filterState.value ?? {})
+    .filter(([, values]) => values.length > 0)
+    .map(([filterId, values]) => ({ filterId, values }));
+
   const filter: Record<string, unknown> = {};
 
-  if (selectedFacetIds.length > 0) filter.facets = selectedFacetIds;
+  if (facets.length > 0) filter.facets = facets;
   if (sortBy.value !== 'relevance')
     filter.sort = sortMap[sortBy.value] ?? 'RELEVANCE';
 
@@ -70,7 +73,7 @@ const queryParams = computed(() => ({
   query: searchTerm.value,
   skip: skip.value,
   take,
-  ...(filterInput.value ? { filter: filterInput.value } : {}),
+  ...(filterInput.value ? { filter: JSON.stringify(filterInput.value) } : {}),
 }));
 
 const { data: productsData, status: productsStatus } =
@@ -83,7 +86,7 @@ const { data: filtersData } = useFetch<ProductFiltersResponse>(
   '/api/product-lists/filters',
   {
     query: computed(() => ({
-      filter: { searchText: searchTerm.value },
+      filter: JSON.stringify({ searchText: searchTerm.value }),
     })),
     dedupe: 'defer',
   },
