@@ -37,12 +37,37 @@ vi.stubGlobal('ErrorCode', {
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('setHeader', vi.fn());
+vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 
 describe('GET /api/cms/menu', () => {
-  const mockEvent = {} as import('h3').H3Event;
+  const mockEvent = {
+    context: { tenant: { hostname: 'test.com' } },
+  } as unknown as import('h3').H3Event;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
+
+    // Re-stub globals after resetModules
+    vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
+    vi.stubGlobal('getValidatedQuery', vi.fn());
+    vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) =>
+      fn(),
+    );
+    vi.stubGlobal(
+      'createAppError',
+      vi.fn((code: string, msg: string) => new Error(`${code}: ${msg}`)),
+    );
+    vi.stubGlobal('ErrorCode', { BAD_REQUEST: 'BAD_REQUEST' });
+    vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) =>
+      fn(),
+    );
+    vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
+    vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
+    vi.stubGlobal('setHeader', vi.fn());
+    vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
+
     (
       globalThis.getValidatedQuery as ReturnType<typeof vi.fn>
     ).mockResolvedValue({

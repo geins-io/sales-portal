@@ -9,7 +9,15 @@ export default defineEventHandler(async (event) => {
 
   return withErrorHandling(
     async () => {
-      return await getMenu({ menuLocationId }, event);
+      const result = await getMenu({ menuLocationId }, event);
+
+      setHeader(
+        event,
+        'Cache-Control',
+        'public, s-maxage=300, stale-while-revalidate=600',
+      );
+
+      return result;
     },
     { operation: 'cms.menu.get' },
   );
