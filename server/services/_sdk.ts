@@ -92,24 +92,30 @@ export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
 /**
  * Ensures a locale is in BCP-47 format (e.g. 'sv-SE', not 'sv').
  * Geins GraphQL API returns 0 results for short locale codes.
- * If the locale is already BCP-47, returns as-is.
- * If short, tries to match against the SDK's configured locale.
- * If no match, returns the SDK's default locale (which is always BCP-47).
+ *
+ * Resolution order:
+ * 1. Already BCP-47 → return as-is
+ * 2. Short code → find matching BCP-47 in availableLocales list
+ * 3. Short code → match against SDK default locale
+ * 4. Fallback → SDK default locale
  */
 function ensureBcp47Locale(
   locale: string | undefined,
   sdkLocale: string,
+  availableLocales?: string[],
 ): string {
-  // No override — use SDK default (already BCP-47 from tenant config)
   if (!locale) return sdkLocale;
-
-  // Already BCP-47 format
   if (locale.includes('-')) return locale;
 
-  // Short code matches SDK locale prefix — use the full SDK locale
+  // Check all available locales for a match (e.g. 'sv' → 'sv-SE')
+  if (availableLocales?.length) {
+    const match = availableLocales.find((l) => l.split('-')[0] === locale);
+    if (match) return match;
+  }
+
+  // Fall back to SDK default if it matches
   if (sdkLocale.split('-')[0] === locale) return sdkLocale;
 
-  // Unknown short code — fall back to SDK default rather than sending a broken value
   return sdkLocale;
 }
 
@@ -117,6 +123,7 @@ export function getChannelVariables(
   sdk: TenantSDK,
   localeOverride?: string,
   marketOverride?: string,
+  availableLocales?: string[],
 ): {
   channelId: string;
   languageId: string;
@@ -125,7 +132,11 @@ export function getChannelVariables(
   const settings = sdk.core.geinsSettings;
   return {
     channelId: `${settings.channel}|${settings.tld}`,
-    languageId: ensureBcp47Locale(localeOverride, settings.locale),
+    languageId: ensureBcp47Locale(
+      localeOverride,
+      settings.locale,
+      availableLocales,
+    ),
     marketId: marketOverride ?? settings.market,
   };
 }
@@ -143,10 +154,15 @@ export function getRequestChannelVariables(
   languageId: string;
   marketId: string;
 } {
+  const tenantConfig = event.context.tenant?.config as
+    | { geinsSettings?: { availableLocales?: string[] } }
+    | undefined;
+
   return getChannelVariables(
     sdk,
     getRequestLocale(event),
     getRequestMarket(event),
+    tenantConfig?.geinsSettings?.availableLocales,
   );
 }
 
