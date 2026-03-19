@@ -5,6 +5,7 @@ import type {
   ProductListResponse,
   ProductFiltersResponse,
 } from '#shared/types/commerce';
+import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
 
 const route = useRoute();
 const router = useRouter();
@@ -43,30 +44,10 @@ useHead({
   ),
 });
 
-// --- Sort mapping (UI value → GraphQL SortType) ---
-const sortMap: Record<string, string> = {
-  relevance: 'RELEVANCE',
-  'price-asc': 'PRICE',
-  'price-desc': 'PRICE_DESC',
-  newest: 'LATEST',
-  'name-asc': 'ALPHABETICAL',
-  'name-desc': 'ALPHABETICAL',
-};
-
 // --- Build filter object for GraphQL FilterInputType ---
-const filterInput = computed(() => {
-  const facets = Object.entries(filterState.value ?? {})
-    .filter(([, values]) => values.length > 0)
-    .map(([filterId, values]) => ({ filterId, values }));
-
-  const filter: Record<string, unknown> = {};
-
-  if (facets.length > 0) filter.facets = facets;
-  if (sortBy.value !== 'relevance')
-    filter.sort = sortMap[sortBy.value] ?? 'RELEVANCE';
-
-  return Object.keys(filter).length > 0 ? filter : undefined;
-});
+const filterInput = computed(() =>
+  buildFilterInput(filterState.value, sortBy.value, undefined, SORT_MAP),
+);
 
 // --- Data Fetching ---
 const queryParams = computed(() => ({
