@@ -94,13 +94,23 @@ export type MonitorAvailabilityInput = z.infer<
 // ---------------------------------------------------------------------------
 // Product Lists
 // ---------------------------------------------------------------------------
+const jsonFilter = z
+  .union([
+    z.record(z.string(), z.unknown()),
+    z
+      .string()
+      .transform((s) => JSON.parse(s) as Record<string, unknown>)
+      .pipe(z.record(z.string(), z.unknown())),
+  ])
+  .optional();
+
 export const ProductListSchema = z.object({
   skip: z.coerce.number().min(0).optional(),
   take: z.coerce.number().min(1).max(100).optional(),
   categoryAlias: z.string().max(200).optional(),
   brandAlias: z.string().max(200).optional(),
   discountCampaignAlias: z.string().max(200).optional(),
-  filter: z.record(z.string(), z.unknown()).optional(),
+  filter: jsonFilter,
 });
 export type ProductListInput = z.infer<typeof ProductListSchema>;
 
@@ -116,7 +126,7 @@ export const SearchProductsSchema = z.object({
   query: z.string().min(1).max(200),
   skip: z.coerce.number().min(0).optional(),
   take: z.coerce.number().min(1).max(50).optional(),
-  filter: z.record(z.string(), z.unknown()).optional(),
+  filter: jsonFilter,
 });
 export type SearchProductsInput = z.infer<typeof SearchProductsSchema>;
 
