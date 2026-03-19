@@ -3,6 +3,7 @@ import { ArrowLeft, Lock } from 'lucide-vue-next';
 import { useAuthStore } from '~/stores/auth';
 
 const authStore = useAuthStore();
+const { localePath } = useLocaleMarket();
 </script>
 
 <template>
@@ -14,7 +15,7 @@ const authStore = useAuthStore();
       >
         <!-- Left: Back to store -->
         <NuxtLink
-          to="/"
+          :to="localePath('/')"
           class="inline-flex items-center gap-1.5 text-sm text-neutral-300 transition-colors hover:text-white"
           data-testid="checkout-back-link"
         >

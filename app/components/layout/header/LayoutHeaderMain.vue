@@ -1,8 +1,9 @@
 <script setup lang="ts">
 const router = useRouter();
+const { localePath } = useLocaleMarket();
 
 function onSearch(query: string) {
-  router.push({ path: '/search', query: { q: query } });
+  router.push({ path: localePath('/search'), query: { q: query } });
 }
 </script>
 

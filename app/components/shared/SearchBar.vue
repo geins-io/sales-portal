@@ -19,6 +19,7 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+const { localePath } = useLocaleMarket();
 
 const query = ref(props.modelValue);
 const autocompleteOpen = ref(false);
@@ -89,14 +90,14 @@ function onClear() {
 
 function onSelectProduct(alias: string) {
   autocompleteOpen.value = false;
-  router.push(`/${alias}`);
+  router.push(localePath(`/${alias}`));
 }
 
 function onViewAll() {
   autocompleteOpen.value = false;
   const trimmed = query.value.trim();
   if (trimmed) {
-    router.push({ path: '/search', query: { q: trimmed } });
+    router.push({ path: localePath('/search'), query: { q: trimmed } });
   }
 }
 

@@ -27,6 +27,7 @@ onMounted(() => {
   updateScrollState();
 });
 
+const { localePath } = useLocaleMarket();
 const hasProducts = computed(() => props.products.length > 0);
 </script>
 
@@ -36,7 +37,7 @@ const hasProducts = computed(() => props.products.length > 0);
       <h2 class="text-lg font-semibold">{{ $t('product.related') }}</h2>
       <div class="flex items-center gap-3">
         <NuxtLink
-          to="/products"
+          :to="localePath('/products')"
           class="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
         >
           {{ $t('product.view_all') }}

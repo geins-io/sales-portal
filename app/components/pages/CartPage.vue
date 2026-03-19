@@ -6,6 +6,7 @@ import { formatPrice } from '#shared/types/commerce';
 const cartStore = useCartStore();
 const router = useRouter();
 const { tenant } = useTenant();
+const { localePath } = useLocaleMarket();
 
 // Fetch cart on mount if we have a cartId but no cart data
 onMounted(() => {
@@ -37,7 +38,7 @@ function onClose() {
 }
 
 function goToCheckout() {
-  router.push('/checkout');
+  router.push(localePath('/checkout'));
 }
 </script>
 
@@ -82,7 +83,7 @@ function goToCheckout() {
         {{ $t('cart.empty_cart_message') }}
       </p>
       <NuxtLink
-        to="/"
+        :to="localePath('/')"
         class="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
       >
         {{ $t('cart.continue_shopping') }}

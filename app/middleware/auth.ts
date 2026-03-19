@@ -20,6 +20,11 @@ import { useAuthStore } from '~/stores/auth';
 export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore();
 
+  // Build locale/market prefix from cookies (composables aren't available in middleware)
+  const market = useCookie('market').value || 'se';
+  const locale = useCookie('locale').value || 'en';
+  const prefix = `/${market}/${locale}`;
+
   // On first load, check session via server (cookies are sent automatically)
   if (!authStore.isInitialized) {
     await authStore.fetchUser();
@@ -28,7 +33,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (!authStore.isAuthenticated) {
     const redirectPath = to.fullPath;
     return navigateTo({
-      path: '/login',
+      path: `${prefix}/login`,
       query: redirectPath !== '/' ? { redirect: redirectPath } : undefined,
     });
   }
@@ -36,6 +41,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Optional role check from route meta
   const roles = to.meta.roles;
   if (roles?.length && !authStore.hasAnyRole(roles)) {
-    return navigateTo({ path: '/' });
+    return navigateTo({ path: `${prefix}/` });
   }
 });

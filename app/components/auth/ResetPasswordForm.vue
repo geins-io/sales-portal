@@ -6,6 +6,7 @@ import { Button } from '~/components/ui/button';
 import { useAuthStore } from '~/stores/auth';
 
 const { t } = useI18n();
+const { localePath } = useLocaleMarket();
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -88,7 +89,7 @@ async function handleSubmit() {
     </div>
     <h3 class="text-lg font-semibold">{{ t('auth.reset_invalid_key') }}</h3>
     <NuxtLink
-      to="/login"
+      :to="localePath('/login')"
       class="text-primary hover:text-primary/80 text-sm font-medium underline underline-offset-4"
       data-testid="reset-request-new"
     >

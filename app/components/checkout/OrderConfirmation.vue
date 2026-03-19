@@ -11,6 +11,7 @@ const props = defineProps<{
 }>();
 
 const { t } = useI18n();
+const { localePath } = useLocaleMarket();
 
 const hasDiscount = computed(
   () => (props.summary?.total?.discountIncVat ?? 0) > 0,
@@ -61,7 +62,7 @@ const shippingLines = computed(() =>
     >
       <p class="text-destructive text-lg">{{ error }}</p>
       <NuxtLink
-        to="/portal/orders"
+        :to="localePath('/portal/orders')"
         class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
       >
         {{ t('order_confirmation.view_orders') }}
@@ -284,13 +285,13 @@ const shippingLines = computed(() =>
       <!-- Action buttons -->
       <div class="mt-8 flex flex-wrap justify-center gap-4">
         <NuxtLink
-          to="/portal/orders"
+          :to="localePath('/portal/orders')"
           class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
         >
           {{ t('order_confirmation.view_orders') }}
         </NuxtLink>
         <NuxtLink
-          to="/"
+          :to="localePath('/')"
           class="border-border hover:bg-muted rounded-md border px-6 py-2.5 text-sm font-medium transition-colors"
         >
           {{ t('order_confirmation.continue_shopping') }}

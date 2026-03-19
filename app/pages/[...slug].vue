@@ -35,7 +35,8 @@ if (resolution.value?.type === 'not-found') {
 }
 
 // SEO: canonical + hreflang tags based on current locale/market and available alternatives
-const { currentMarket, currentLocale, validLocales } = useLocaleMarket();
+const { currentMarket, currentLocale, validLocales, localePath } =
+  useLocaleMarket();
 
 /**
  * Map short locale codes to BCP-47 hreflang language tags.
@@ -143,7 +144,7 @@ const ResolvedComponent = computed(() => {
       :title="$t('common.something_went_wrong')"
       :description="$t('common.unable_to_resolve_route')"
       action-label="Home"
-      action-to="/"
+      :action-to="localePath('/')"
       data-testid="route-error"
     />
 

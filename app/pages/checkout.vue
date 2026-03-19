@@ -20,6 +20,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
 definePageMeta({ layout: 'checkout', middleware: 'auth' });
 
 const { t } = useI18n();
+const { localePath } = useLocaleMarket();
 const cartStore = useCartStore();
 const checkoutStore = useCheckoutStore();
 
@@ -31,7 +32,7 @@ useHead({
 // If no cart cookie exists, redirect immediately — no need to wait for onMounted.
 const cartIdCookie = useCookie<string | null>(COOKIE_NAMES.CART_ID);
 if (!cartIdCookie.value) {
-  await navigateTo('/cart', { replace: true });
+  await navigateTo(localePath('/cart'), { replace: true });
 }
 
 // Cart summary computeds (read from cart store — do NOT duplicate)
@@ -61,7 +62,7 @@ const discountFormatted = computed(() => {
 // Fetch checkout data when component mounts (client-side hydration)
 onMounted(async () => {
   if (cartStore.isEmpty) {
-    await navigateTo('/cart', { replace: true });
+    await navigateTo(localePath('/cart'), { replace: true });
     return;
   }
   if (cartStore.cartId) {
@@ -74,7 +75,7 @@ watch(
   () => checkoutStore.orderResult,
   (result) => {
     if (result?.publicId) {
-      navigateTo(`/order-confirmation/${result.publicId}`);
+      navigateTo(localePath(`/order-confirmation/${result.publicId}`));
     }
   },
 );
@@ -85,7 +86,9 @@ watch(
   (result) => {
     if (result?.quoteId) {
       navigateTo(
-        `/quote-confirmation/${result.quoteId}?quoteNumber=${encodeURIComponent(result.quoteNumber)}`,
+        localePath(
+          `/quote-confirmation/${result.quoteId}?quoteNumber=${encodeURIComponent(result.quoteNumber)}`,
+        ),
       );
     }
   },

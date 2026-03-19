@@ -240,7 +240,7 @@ describe('CartPage', () => {
     });
 
     await wrapper.find('[data-testid="cart-checkout-button"]').trigger('click');
-    expect(router.push).toHaveBeenCalledWith('/checkout');
+    expect(router.push).toHaveBeenCalledWith('/se/en/checkout');
   });
 
   it('checkout button is disabled during loading', () => {

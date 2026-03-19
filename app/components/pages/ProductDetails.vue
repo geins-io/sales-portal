@@ -74,6 +74,7 @@ const maxQuantity = computed(() => {
 
 const cartStore = useCartStore();
 const { hasFeature } = useTenant();
+const { localePath } = useLocaleMarket();
 const { canAccess } = useFeatureAccess();
 
 const showPrice = computed(() => {
@@ -183,7 +184,7 @@ useSchemaOrg([
     :title="$t('product.failed_to_load')"
     :description="$t('common.something_went_wrong')"
     action-label="Home"
-    action-to="/"
+    :action-to="localePath('/')"
     data-testid="pdp-error"
   />
 

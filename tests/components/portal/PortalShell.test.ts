@@ -149,7 +149,7 @@ describe('PortalShell', () => {
         .findAll('a')
         .find((a) => a.text().includes('portal.quick_links.favorites'));
       expect(favoritesLink).toBeDefined();
-      expect(favoritesLink!.attributes('href')).toBe('/portal/favorites');
+      expect(favoritesLink!.attributes('href')).toBe('/se/en/portal/favorites');
     });
 
     it('hides favorites quick link when wishlist feature is disabled', () => {
@@ -228,7 +228,7 @@ describe('PortalShell', () => {
         a.text().includes('portal.tabs.favorites'),
       );
       expect(favoritesTab).toBeDefined();
-      expect(favoritesTab!.attributes('href')).toBe('/portal/favorites');
+      expect(favoritesTab!.attributes('href')).toBe('/se/en/portal/favorites');
     });
   });
 });

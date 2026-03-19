@@ -19,6 +19,7 @@ const {
   { dedupe: 'defer' },
 );
 
+const { localePath } = useLocaleMarket();
 const hasSidebar = computed(() => !!page.value?.pageArea?.name);
 const sidebarMenuId = computed(() => page.value?.pageArea?.name ?? '');
 
@@ -52,7 +53,7 @@ useHead(
       :title="$t('common.something_went_wrong')"
       :description="$t('content.failed_to_load')"
       action-label="Home"
-      action-to="/"
+      :action-to="localePath('/')"
       data-testid="content-error"
     />
 
@@ -85,7 +86,7 @@ useHead(
       :icon="FileTextIcon"
       :title="$t('content.no_content')"
       action-label="Home"
-      action-to="/"
+      :action-to="localePath('/')"
       data-testid="content-empty"
     />
   </div>

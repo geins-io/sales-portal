@@ -33,6 +33,12 @@ vi.mock('#app/composables/router', () => ({
     fn,
 }));
 
+vi.mock('#app/composables/cookie', () => ({
+  useCookie: (name: string) => ({
+    value: name === 'market' ? 'se' : name === 'locale' ? 'en' : null,
+  }),
+}));
+
 function createRoute(
   overrides: Partial<RouteLocationNormalized> = {},
 ): RouteLocationNormalized {
@@ -62,7 +68,7 @@ describe('auth middleware', () => {
   it('redirects unauthenticated users to /login', async () => {
     const result = await authMiddleware(createRoute());
     expect(result).toEqual({
-      path: '/login',
+      path: '/se/en/login',
       query: { redirect: '/portal' },
     });
   });
@@ -71,7 +77,7 @@ describe('auth middleware', () => {
     const result = await authMiddleware(
       createRoute({ path: '/', fullPath: '/' }),
     );
-    expect(result).toEqual({ path: '/login', query: undefined });
+    expect(result).toEqual({ path: '/se/en/login', query: undefined });
   });
 
   it('allows authenticated users through when no roles required', async () => {
@@ -96,7 +102,7 @@ describe('auth middleware', () => {
     const result = await authMiddleware(
       createRoute({ meta: { roles: ['wholesale'] } }),
     );
-    expect(result).toEqual({ path: '/' });
+    expect(result).toEqual({ path: '/se/en/' });
   });
 
   it('redirects authenticated users with no customerType when roles required', async () => {
@@ -105,7 +111,7 @@ describe('auth middleware', () => {
     const result = await authMiddleware(
       createRoute({ meta: { roles: ['wholesale'] } }),
     );
-    expect(result).toEqual({ path: '/' });
+    expect(result).toEqual({ path: '/se/en/' });
   });
 
   it('calls fetchUser when not initialized', async () => {

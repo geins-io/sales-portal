@@ -229,7 +229,7 @@ describe('CartDrawer', () => {
         .find('[data-testid="cart-drawer-checkout-button"]')
         .trigger('click');
       expect(store.isOpen).toBe(false);
-      expect(router.push).toHaveBeenCalledWith('/checkout');
+      expect(router.push).toHaveBeenCalledWith('/se/en/checkout');
     });
 
     it('checkout button is disabled during loading', () => {

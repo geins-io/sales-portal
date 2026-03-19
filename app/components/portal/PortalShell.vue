@@ -8,6 +8,7 @@ const route = useRoute();
 const authStore = useAuthStore();
 const { canAccess } = useFeatureAccess();
 const { hasFeature } = useTenant();
+const { localePath } = useLocaleMarket();
 const favoritesStore = useFavoritesStore();
 
 const { data: profileData } = useFetch<{ profile: GeinsUserType }>(
@@ -87,15 +88,16 @@ const visibleTabs = computed(() =>
 );
 
 function isActiveTab(tab: PortalTab): boolean {
+  const prefixedPath = localePath(tab.to);
   if (tab.to === '/portal') {
-    return route.path === '/portal' || route.path === '/portal/';
+    return route.path === prefixedPath || route.path === `${prefixedPath}/`;
   }
-  return route.path.startsWith(tab.to);
+  return route.path.startsWith(prefixedPath);
 }
 
 async function handleLogout() {
   await authStore.logout();
-  navigateTo('/');
+  navigateTo(localePath('/'));
 }
 </script>
 
@@ -139,7 +141,7 @@ async function handleLogout() {
         <div class="flex flex-col gap-2 text-sm">
           <NuxtLink
             v-if="hasFeature('wishlist')"
-            to="/portal/favorites"
+            :to="localePath('/portal/favorites')"
             class="text-primary hover:text-primary/80 flex items-center gap-2 font-medium"
           >
             <Icon name="lucide:heart" class="size-4" />
@@ -153,7 +155,7 @@ async function handleLogout() {
             </span>
           </NuxtLink>
           <NuxtLink
-            to="/portal/account"
+            :to="localePath('/portal/account')"
             class="text-primary hover:text-primary/80 flex items-center gap-2 font-medium"
           >
             <Icon name="lucide:user" class="size-4" />
@@ -178,7 +180,7 @@ async function handleLogout() {
         <NuxtLink
           v-for="tab in visibleTabs"
           :key="tab.key"
-          :to="tab.to"
+          :to="localePath(tab.to)"
           class="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors"
           :class="
             isActiveTab(tab)

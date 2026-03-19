@@ -194,14 +194,14 @@ describe('OrderConfirmation', () => {
 
   it('shows continue shopping link', () => {
     const wrapper = mountConfirmation();
-    const link = wrapper.find('a[href="/"]');
+    const link = wrapper.find('a[href="/se/en/"]');
     expect(link.exists()).toBe(true);
     expect(link.text()).toContain('order_confirmation.continue_shopping');
   });
 
   it('shows view orders link', () => {
     const wrapper = mountConfirmation();
-    const link = wrapper.find('a[href="/portal/orders"]');
+    const link = wrapper.find('a[href="/se/en/portal/orders"]');
     expect(link.exists()).toBe(true);
     expect(link.text()).toContain('order_confirmation.view_orders');
   });

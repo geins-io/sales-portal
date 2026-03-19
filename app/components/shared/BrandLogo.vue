@@ -18,6 +18,7 @@ const props = withDefaults(
   },
 );
 
+const { localePath } = useLocaleMarket();
 const { logoUrl, logoDarkUrl, logoSymbolUrl, brandName } = useTenant();
 
 const effectiveSrc = computed(() => props.src ?? logoUrl.value);
@@ -35,7 +36,7 @@ const tag = computed(() =>
 <template>
   <component
     :is="tag"
-    :to="linked ? '/' : undefined"
+    :to="linked ? localePath('/') : undefined"
     data-slot="logo"
     :class="cn('inline-flex items-center', props.class)"
   >

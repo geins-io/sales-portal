@@ -6,6 +6,7 @@ import { formatPrice } from '#shared/types/commerce';
 const cartStore = useCartStore();
 const router = useRouter();
 const { tenant } = useTenant();
+const { localePath } = useLocaleMarket();
 
 const isOpen = computed({
   get: () => cartStore.isOpen,
@@ -34,7 +35,7 @@ const discountFormatted = computed(() => {
 
 function goToCheckout() {
   cartStore.isOpen = false;
-  router.push('/checkout');
+  router.push(localePath('/checkout'));
 }
 </script>
 

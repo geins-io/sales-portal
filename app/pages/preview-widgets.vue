@@ -6,13 +6,14 @@ useHead({
 });
 
 const route = useRoute();
+const { localePath } = useLocaleMarket();
 const loginToken = route.query.loginToken as string | undefined;
 const redirect = route.query.redirect as string | undefined;
 
 // SSR-safe: validate token during server render and client navigation alike.
 // If no loginToken query param, redirect immediately (works on both SSR and client).
 if (!loginToken) {
-  await navigateTo('/', { replace: true });
+  await navigateTo(localePath('/'), { replace: true });
 }
 
 const { error: previewError } = await useAsyncData('preview-auth', () =>
@@ -24,12 +25,12 @@ const { error: previewError } = await useAsyncData('preview-auth', () =>
 
 // If token validation failed, redirect to home
 if (previewError.value) {
-  await navigateTo('/', { replace: true });
+  await navigateTo(localePath('/'), { replace: true });
 }
 
 // If redirect flag is set, go to home after successful auth
 if (redirect === 'true') {
-  await navigateTo('/', { replace: true });
+  await navigateTo(localePath('/'), { replace: true });
 }
 </script>
 
