@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { stripGeinsPrefix } from '#shared/utils/menu';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import { ShoppingCart, Star, AlertCircle } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
@@ -34,9 +35,12 @@ const showPrice = computed(() => {
 
 const firstImage = computed(() => props.product.productImages?.[0]);
 const { localePath } = useLocaleMarket();
-const productUrl = computed(
-  () => props.product.canonicalUrl || localePath(`/p/${props.product.alias}`),
-);
+const productUrl = computed(() => {
+  if (props.product.canonicalUrl) {
+    return stripGeinsPrefix(props.product.canonicalUrl);
+  }
+  return localePath(`/${props.product.alias}`);
+});
 
 const firstSku = computed(() => props.product.skus?.[0] ?? null);
 
