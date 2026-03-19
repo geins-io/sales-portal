@@ -5,6 +5,7 @@ import type {
   ProductListResponse,
   ProductFiltersResponse,
 } from '#shared/types/commerce';
+import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
 
 const route = useRoute();
 const router = useRouter();
@@ -43,34 +44,17 @@ useHead({
   ),
 });
 
-// --- Sort mapping (UI value → GraphQL SortType) ---
-const sortMap: Record<string, string> = {
-  relevance: 'RELEVANCE',
-  'price-asc': 'PRICE',
-  'price-desc': 'PRICE_DESC',
-  newest: 'LATEST',
-  'name-asc': 'ALPHABETICAL',
-  'name-desc': 'ALPHABETICAL',
-};
-
 // --- Build filter object for GraphQL FilterInputType ---
-const filterInput = computed(() => {
-  const selectedFacetIds = Object.values(filterState.value ?? {}).flat();
-  const filter: Record<string, unknown> = {};
-
-  if (selectedFacetIds.length > 0) filter.facets = selectedFacetIds;
-  if (sortBy.value !== 'relevance')
-    filter.sort = sortMap[sortBy.value] ?? 'RELEVANCE';
-
-  return Object.keys(filter).length > 0 ? filter : undefined;
-});
+const filterInput = computed(() =>
+  buildFilterInput(filterState.value, sortBy.value, undefined, SORT_MAP),
+);
 
 // --- Data Fetching ---
 const queryParams = computed(() => ({
   query: searchTerm.value,
   skip: skip.value,
   take,
-  ...(filterInput.value ? { filter: filterInput.value } : {}),
+  ...(filterInput.value ? { filter: JSON.stringify(filterInput.value) } : {}),
 }));
 
 const { data: productsData, status: productsStatus } =
@@ -83,7 +67,7 @@ const { data: filtersData } = useFetch<ProductFiltersResponse>(
   '/api/product-lists/filters',
   {
     query: computed(() => ({
-      filter: { searchText: searchTerm.value },
+      filter: JSON.stringify({ searchText: searchTerm.value }),
     })),
     dedupe: 'defer',
   },

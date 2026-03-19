@@ -107,10 +107,10 @@ describe('FavoritesPage', () => {
     expect(mockClear).toHaveBeenCalled();
   });
 
-  it('renders alias as link to /p/{alias}', () => {
+  it('renders alias as link to /{alias}', () => {
     const wrapper = mountFavorites(['my-product']);
     const link = wrapper.find('[data-testid="favorite-item"] a');
     expect(link.exists()).toBe(true);
-    expect(link.attributes('href')).toBe('/p/my-product');
+    expect(link.attributes('href')).toBe('/my-product');
   });
 });

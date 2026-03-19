@@ -89,7 +89,7 @@ function onClear() {
 
 function onSelectProduct(alias: string) {
   autocompleteOpen.value = false;
-  router.push(`/p/${alias}`);
+  router.push(`/${alias}`);
 }
 
 function onViewAll() {

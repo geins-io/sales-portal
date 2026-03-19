@@ -1,4 +1,5 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
+import { hasLocaleMarketPrefix } from '#shared/utils/locale-market';
 
 /**
  * Composable for URL-based locale and market routing.
@@ -80,12 +81,7 @@ export function useLocaleMarket() {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
     // Skip if already prefixed with a valid locale/market pair
-    const segments = normalizedPath.split('/').filter(Boolean);
-    if (
-      segments.length >= 2 &&
-      /^[a-z]{2}$/.test(segments[0]!) &&
-      /^[a-z]{2}$/.test(segments[1]!)
-    ) {
+    if (hasLocaleMarketPrefix(normalizedPath)) {
       return normalizedPath;
     }
 

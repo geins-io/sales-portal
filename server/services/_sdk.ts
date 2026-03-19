@@ -100,7 +100,7 @@ export function getChannelVariables(
 } {
   const settings = sdk.core.geinsSettings;
   return {
-    channelId: settings.channel,
+    channelId: `${settings.channel}|${settings.tld}`,
     languageId: localeOverride ?? settings.locale,
     marketId: marketOverride ?? settings.market,
   };

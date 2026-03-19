@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { stripGeinsPrefix } from '#shared/utils/menu';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import { ShoppingCart, Star, AlertCircle } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
@@ -34,9 +35,12 @@ const showPrice = computed(() => {
 
 const firstImage = computed(() => props.product.productImages?.[0]);
 const { localePath } = useLocaleMarket();
-const productUrl = computed(
-  () => props.product.canonicalUrl || localePath(`/p/${props.product.alias}`),
-);
+const productUrl = computed(() => {
+  if (props.product.canonicalUrl) {
+    return stripGeinsPrefix(props.product.canonicalUrl);
+  }
+  return localePath(`/${props.product.alias}`);
+});
 
 const firstSku = computed(() => props.product.skus?.[0] ?? null);
 
@@ -106,7 +110,7 @@ async function addToCart() {
     </div>
 
     <!-- Content -->
-    <div class="flex flex-1 flex-col gap-1 p-4">
+    <div class="flex flex-1 flex-col gap-2 p-4">
       <!-- Article number + Wishlist -->
       <div class="flex items-center justify-between">
         <p
@@ -159,7 +163,7 @@ async function addToCart() {
         :lowest-price="product.lowestPrice"
         :discount-type="product.discountType"
         :campaign-names="visibleCampaigns.map((c) => c.name)"
-        class="mt-1 text-base font-semibold"
+        class="text-base font-semibold"
       />
 
       <!-- Quantity + Add to cart (same row) -->
@@ -225,7 +229,7 @@ async function addToCart() {
     </div>
 
     <!-- Info column -->
-    <div class="flex min-w-0 flex-1 flex-col gap-0.5 py-3">
+    <div class="flex min-w-0 flex-1 flex-col gap-1.5 py-3">
       <p
         v-if="product.articleNumber"
         class="text-muted-foreground text-xs"

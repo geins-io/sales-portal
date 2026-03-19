@@ -11,6 +11,7 @@ import type {
 } from '#shared/types/commerce';
 import { Package as PackageIcon } from 'lucide-vue-next';
 import { useDebounceFn } from '@vueuse/core';
+import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
 
 const props = defineProps<{
   resolution: CategoryRouteResolution | BrandRouteResolution;
@@ -64,28 +65,15 @@ const sortOptions = computed(() => [
   { label: t('product.sort_name_desc'), value: 'name-desc' },
 ]);
 
-// --- Sort mapping (UI value → GraphQL SortType) ---
-const sortMap: Record<string, string> = {
-  relevance: 'RELEVANCE',
-  'price-asc': 'PRICE',
-  'price-desc': 'PRICE_DESC',
-  newest: 'LATEST',
-  'name-asc': 'ALPHABETICAL',
-  'name-desc': 'ALPHABETICAL',
-};
-
 // --- Build filter object for GraphQL FilterInputType ---
-const filterInput = computed(() => {
-  const selectedFacetIds = Object.values(filterState.value ?? {}).flat();
-  const filter: Record<string, unknown> = {};
-
-  if (selectedFacetIds.length > 0) filter.facets = selectedFacetIds;
-  if (debouncedFilterText.value) filter.searchText = debouncedFilterText.value;
-  if (sortBy.value !== 'relevance')
-    filter.sort = sortMap[sortBy.value] ?? 'RELEVANCE';
-
-  return Object.keys(filter).length > 0 ? filter : undefined;
-});
+const filterInput = computed(() =>
+  buildFilterInput(
+    filterState.value,
+    sortBy.value,
+    debouncedFilterText.value || undefined,
+    SORT_MAP,
+  ),
+);
 
 // --- Data Fetching ---
 const queryParams = computed(() => ({
@@ -94,7 +82,7 @@ const queryParams = computed(() => ({
     : { categoryAlias: listSlug.value }),
   skip: skip.value,
   take,
-  ...(filterInput.value ? { filter: filterInput.value } : {}),
+  ...(filterInput.value ? { filter: JSON.stringify(filterInput.value) } : {}),
 }));
 
 const { data: productsData, status: productsStatus } =

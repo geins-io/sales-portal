@@ -1,6 +1,7 @@
 import { defineEventHandler, getQuery, setResponseHeader } from 'h3';
 import { LRUCache } from 'lru-cache';
 import type { RouteResolution } from '#shared/types';
+import { stripLocaleMarketPrefix } from '#shared/utils/locale-market';
 import { withErrorHandling } from '../utils/errors';
 import { resolveRoute } from '../services/routes';
 
@@ -73,25 +74,6 @@ function normalizePath(rawPath: unknown): {
   const normalizedPath = segments.length > 0 ? '/' + segments.join('/') : '/';
 
   return { normalizedPath, segments };
-}
-
-/**
- * Strip leading 2-letter locale/market prefix segments from a path for cache key normalization.
- *
- * The server middleware rewrites `/se/sv/foder` to `/foder`, but client-side navigation
- * sends the full path `/se/sv/foder`. Both should resolve to the same cache entry.
- */
-function stripLocaleMarketPrefixForCache(path: string): string {
-  const segments = path.split('/').filter(Boolean);
-  if (
-    segments.length >= 2 &&
-    /^[a-z]{2}$/.test(segments[0]!) &&
-    /^[a-z]{2}$/.test(segments[1]!)
-  ) {
-    const rest = segments.slice(2);
-    return rest.length > 0 ? `/${rest.join('/')}` : '/';
-  }
-  return path;
 }
 
 // =============================================================================
@@ -173,7 +155,7 @@ export default defineEventHandler((event) =>
       const { normalizedPath, segments } = normalizePath(rawPath);
 
       // Strip locale/market prefix for cache key so /se/sv/foder and /foder share the same entry
-      const cacheKeyPath = stripLocaleMarketPrefixForCache(normalizedPath);
+      const cacheKeyPath = stripLocaleMarketPrefix(normalizedPath);
 
       // Build tenant-aware cache key
       const cacheKey = buildCacheKey(hostname, cacheKeyPath);
