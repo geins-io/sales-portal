@@ -1,4 +1,5 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
+import type { SupportedLocale } from '#shared/utils/locale-market';
 
 /**
  * Global middleware that syncs i18n locale and market cookie from the URL prefix.
@@ -50,12 +51,19 @@ export default defineNuxtRouteMiddleware((to) => {
   }
 
   // Sync i18n locale to match the URL — this is the authoritative source.
-  // Use $i18n from NuxtApp since useI18n() requires setup context.
   const { $i18n } = useNuxtApp();
-  const availableCodes: string[] = $i18n.locales.value.map(
-    (l: string | { code: string }) => (typeof l === 'string' ? l : l.code),
-  );
-  if (availableCodes.includes(locale) && $i18n.locale.value !== locale) {
-    ($i18n.locale as { value: string }).value = locale;
+  if ($i18n.locale.value !== locale) {
+    const availableCodes: string[] = $i18n.locales.value.map(
+      (l: string | { code: string }) => (typeof l === 'string' ? l : l.code),
+    );
+    if (availableCodes.includes(locale)) {
+      if (import.meta.server) {
+        // On SSR: direct assignment (synchronous, messages already bundled)
+        ($i18n.locale as { value: string }).value = locale;
+      } else {
+        // On client: setLocale loads messages asynchronously
+        $i18n.setLocale(locale as SupportedLocale);
+      }
+    }
   }
 });

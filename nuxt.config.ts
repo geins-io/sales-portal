@@ -143,11 +143,7 @@ export default defineNuxtConfig({
     ],
     langDir: 'locales',
     strategy: 'no_prefix',
-    detectBrowserLanguage: {
-      useCookie: true,
-      cookieKey: 'locale',
-      fallbackLocale: 'sv',
-    },
+    detectBrowserLanguage: false,
   },
 
   // @nuxtjs/seo configuration — per-tenant values set at request time

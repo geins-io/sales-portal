@@ -1,5 +1,8 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
-import { hasLocaleMarketPrefix } from '#shared/utils/locale-market';
+import {
+  hasLocaleMarketPrefix,
+  type SupportedLocale,
+} from '#shared/utils/locale-market';
 
 /**
  * Composable for URL-based locale and market routing.
@@ -122,7 +125,7 @@ export function useLocaleMarket() {
   async function switchLocale(locale: string) {
     if (!validLocales.value.has(locale)) return;
 
-    await setLocale(locale as 'en' | 'sv');
+    await setLocale(locale as SupportedLocale);
     const cleanPath = getCleanPath();
     const market = currentMarket.value;
 

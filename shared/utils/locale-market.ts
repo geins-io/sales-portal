@@ -6,6 +6,19 @@
  * /{market}/{locale} prefix from URL paths.
  */
 
+// ---------------------------------------------------------------------------
+// Supported locales — single source of truth
+// ---------------------------------------------------------------------------
+
+/**
+ * All locale codes the app supports. Add new locales here — the type
+ * and nuxt.config i18n locales array both derive from this.
+ */
+export const SUPPORTED_LOCALE_CODES = ['en', 'sv'] as const;
+
+/** Union type of supported locale codes. */
+export type SupportedLocale = (typeof SUPPORTED_LOCALE_CODES)[number];
+
 /**
  * Check whether a path starts with two 2-letter segments (market + locale).
  *
