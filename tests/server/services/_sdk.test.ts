@@ -294,7 +294,7 @@ describe('server/services/_sdk', () => {
       const vars = getChannelVariables(sdk);
 
       expect(vars).toEqual({
-        channelId: '1',
+        channelId: '1|se',
         languageId: 'sv-SE',
         marketId: 'se',
       });
@@ -305,7 +305,7 @@ describe('server/services/_sdk', () => {
       const vars = getChannelVariables(sdk, 'en');
 
       expect(vars).toEqual({
-        channelId: '1',
+        channelId: '1|se',
         languageId: 'en',
         marketId: 'se',
       });
@@ -316,7 +316,7 @@ describe('server/services/_sdk', () => {
       const vars = getChannelVariables(sdk, undefined, 'no');
 
       expect(vars).toEqual({
-        channelId: '1',
+        channelId: '1|se',
         languageId: 'sv-SE',
         marketId: 'no',
       });
@@ -327,7 +327,7 @@ describe('server/services/_sdk', () => {
       const vars = getChannelVariables(sdk, 'en', 'no');
 
       expect(vars).toEqual({
-        channelId: '1',
+        channelId: '1|se',
         languageId: 'en',
         marketId: 'no',
       });
@@ -344,7 +344,7 @@ describe('server/services/_sdk', () => {
       const vars = getRequestChannelVariables(sdk, event);
 
       expect(vars).toEqual({
-        channelId: '1',
+        channelId: '1|se',
         languageId: 'en',
         marketId: 'no',
       });
@@ -361,7 +361,7 @@ describe('server/services/_sdk', () => {
       const vars = getRequestChannelVariables(sdk, event);
 
       expect(vars).toEqual({
-        channelId: '1',
+        channelId: '1|se',
         languageId: 'sv-SE',
         marketId: 'se',
       });
