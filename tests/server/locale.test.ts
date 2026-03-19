@@ -13,8 +13,14 @@ vi.mock('#shared/constants/storage', () => ({
   },
 }));
 
-function createEvent(): H3Event {
-  return {} as unknown as H3Event;
+function createEvent(tenantConfig?: Record<string, unknown>): H3Event {
+  return {
+    context: {
+      tenant: tenantConfig
+        ? { config: { geinsSettings: tenantConfig } }
+        : undefined,
+    },
+  } as unknown as H3Event;
 }
 
 describe('server/utils/locale', () => {
@@ -31,12 +37,26 @@ describe('server/utils/locale', () => {
   });
 
   describe('getRequestLocale', () => {
-    it('should return locale from locale cookie', () => {
+    it('should expand short locale to BCP-47 using tenant config', () => {
+      const event = createEvent({ availableLocales: ['sv-SE', 'en-US'] });
+      mockGetCookie.mockReturnValue('sv');
+
+      expect(getRequestLocale(event)).toBe('sv-SE');
+      expect(mockGetCookie).toHaveBeenCalledWith(event, 'locale');
+    });
+
+    it('should return BCP-47 locale as-is', () => {
+      const event = createEvent();
+      mockGetCookie.mockReturnValue('sv-SE');
+
+      expect(getRequestLocale(event)).toBe('sv-SE');
+    });
+
+    it('should return undefined for short locale without tenant config', () => {
       const event = createEvent();
       mockGetCookie.mockReturnValue('sv');
 
-      expect(getRequestLocale(event)).toBe('sv');
-      expect(mockGetCookie).toHaveBeenCalledWith(event, 'locale');
+      expect(getRequestLocale(event)).toBeUndefined();
     });
 
     it('should return undefined when cookie is not set', () => {
