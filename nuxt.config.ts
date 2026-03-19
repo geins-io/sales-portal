@@ -136,7 +136,7 @@ export default defineNuxtConfig({
 
   i18n: {
     restructureDir: 'app',
-    defaultLocale: 'en',
+    defaultLocale: 'sv',
     locales: [
       { code: 'en', language: 'en', name: 'English', file: 'en.json' },
       { code: 'sv', language: 'sv-SE', name: 'Svenska', file: 'sv.json' },
@@ -146,6 +146,7 @@ export default defineNuxtConfig({
     detectBrowserLanguage: {
       useCookie: true,
       cookieKey: 'locale',
+      fallbackLocale: 'sv',
     },
   },
 

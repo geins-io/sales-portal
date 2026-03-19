@@ -26,7 +26,7 @@ function isTwoLetterCode(segment: string): boolean {
  * tenant context is resolved.
  *
  * For the root path `/`:
- * - Redirects to `/{market}/{locale}/` using cookie values or hardcoded fallbacks
+ * - Redirects to `/{market}/{locale}/` using cookie values or env-based fallbacks
  */
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', (event) => {
@@ -96,11 +96,13 @@ export default defineNitroPlugin((nitroApp) => {
       const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
       const localeCookie = getCookie(event, COOKIE_NAMES.LOCALE);
 
-      // Use cookie values or hardcoded fallbacks (tenant config not available yet)
+      // Use cookie values or env-based fallbacks (tenant config not available yet)
       const market =
         marketCookie && isTwoLetterCode(marketCookie) ? marketCookie : 'se';
       const locale =
-        localeCookie && isTwoLetterCode(localeCookie) ? localeCookie : 'en';
+        localeCookie && isTwoLetterCode(localeCookie)
+          ? localeCookie
+          : process.env.GEINS_LOCALE?.split('-')[0] || 'sv';
 
       return sendRedirect(event, `/${market}/${locale}/${query}`, 302);
     }

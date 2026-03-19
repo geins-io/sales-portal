@@ -256,14 +256,14 @@ describe('server/plugins/00.locale-market (Nitro plugin)', () => {
       expect(mockSendRedirect).toHaveBeenCalledWith(event, '/no/sv/', 302);
     });
 
-    it('should use hardcoded fallbacks when no cookies set', () => {
+    it('should use env-based fallbacks when no cookies set', () => {
       mockGetCookie.mockReturnValue(undefined);
 
       const event = createPluginEvent('/');
       pluginHandler(event);
 
-      // Fallback: market 'se', locale 'en'
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/se/en/', 302);
+      // Fallback: market 'se', locale from GEINS_LOCALE env or 'sv'
+      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/se/sv/', 302);
     });
 
     it('should ignore non-2-letter cookie values', () => {
