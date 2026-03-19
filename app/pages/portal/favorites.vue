@@ -50,7 +50,7 @@ const favoritesStore = useFavoritesStore();
             class="flex items-center justify-between py-3"
           >
             <NuxtLink
-              :to="`/p/${alias}`"
+              :to="`/${alias}`"
               class="text-primary hover:text-primary/80 font-medium"
             >
               {{ alias }}
