@@ -300,13 +300,35 @@ describe('server/services/_sdk', () => {
       });
     });
 
-    it('should use localeOverride when provided', () => {
+    it('should use BCP-47 localeOverride when provided', () => {
       const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
-      const vars = getChannelVariables(sdk, 'en');
+      const vars = getChannelVariables(sdk, 'en-US');
 
       expect(vars).toEqual({
         channelId: '1|se',
-        languageId: 'en',
+        languageId: 'en-US',
+        marketId: 'se',
+      });
+    });
+
+    it('should expand short locale override matching SDK locale prefix', () => {
+      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const vars = getChannelVariables(sdk, 'sv');
+
+      expect(vars).toEqual({
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'se',
+      });
+    });
+
+    it('should fall back to SDK locale for unknown short locale', () => {
+      const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
+      const vars = getChannelVariables(sdk, 'de');
+
+      expect(vars).toEqual({
+        channelId: '1|se',
+        languageId: 'sv-SE',
         marketId: 'se',
       });
     });
@@ -324,11 +346,11 @@ describe('server/services/_sdk', () => {
 
     it('should use both overrides when provided', () => {
       const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
-      const vars = getChannelVariables(sdk, 'en', 'no');
+      const vars = getChannelVariables(sdk, 'en-US', 'no');
 
       expect(vars).toEqual({
         channelId: '1|se',
-        languageId: 'en',
+        languageId: 'en-US',
         marketId: 'no',
       });
     });
@@ -336,7 +358,7 @@ describe('server/services/_sdk', () => {
 
   describe('getRequestChannelVariables', () => {
     it('should use locale and market from request cookies', () => {
-      mockGetRequestLocale.mockReturnValue('en');
+      mockGetRequestLocale.mockReturnValue('en-US');
       mockGetRequestMarket.mockReturnValue('no');
 
       const sdk = createTenantSDK(MOCK_GEINS_SETTINGS);
@@ -345,7 +367,7 @@ describe('server/services/_sdk', () => {
 
       expect(vars).toEqual({
         channelId: '1|se',
-        languageId: 'en',
+        languageId: 'en-US',
         marketId: 'no',
       });
       expect(mockGetRequestLocale).toHaveBeenCalledWith(event);

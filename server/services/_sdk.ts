@@ -89,6 +89,30 @@ export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
  *   Pass the user's market preference (from `getRequestMarket()`) to keep
  *   GraphQL queries in sync with the selected market.
  */
+/**
+ * Ensures a locale is in BCP-47 format (e.g. 'sv-SE', not 'sv').
+ * Geins GraphQL API returns 0 results for short locale codes.
+ * If the locale is already BCP-47, returns as-is.
+ * If short, tries to match against the SDK's configured locale.
+ * If no match, returns the SDK's default locale (which is always BCP-47).
+ */
+function ensureBcp47Locale(
+  locale: string | undefined,
+  sdkLocale: string,
+): string {
+  // No override — use SDK default (already BCP-47 from tenant config)
+  if (!locale) return sdkLocale;
+
+  // Already BCP-47 format
+  if (locale.includes('-')) return locale;
+
+  // Short code matches SDK locale prefix — use the full SDK locale
+  if (sdkLocale.split('-')[0] === locale) return sdkLocale;
+
+  // Unknown short code — fall back to SDK default rather than sending a broken value
+  return sdkLocale;
+}
+
 export function getChannelVariables(
   sdk: TenantSDK,
   localeOverride?: string,
@@ -101,7 +125,7 @@ export function getChannelVariables(
   const settings = sdk.core.geinsSettings;
   return {
     channelId: `${settings.channel}|${settings.tld}`,
-    languageId: localeOverride ?? settings.locale,
+    languageId: ensureBcp47Locale(localeOverride, settings.locale),
     marketId: marketOverride ?? settings.market,
   };
 }
