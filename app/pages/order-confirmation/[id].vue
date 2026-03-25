@@ -30,7 +30,7 @@ const errorMessage = computed(() => {
 
 <template>
   <div class="mx-auto max-w-7xl px-4 py-8 lg:px-8">
-    <CheckoutOrderConfirmation
+    <OrderConfirmation
       :summary="orderSummary"
       :is-loading="pending"
       :error="errorMessage"
