@@ -1,12 +1,6 @@
 import type { MaybeRefOrGetter } from 'vue';
 import type { RouteResolution } from '#shared/types';
 
-// Re-export from shared so existing consumers (e.g. [...slug].vue) keep working.
-export {
-  normalizeSlugToPath,
-  stripLocaleMarketPrefix,
-} from '#shared/utils/locale-market';
-
 // Client-side route resolution cache (module-scoped, lives for the SPA session).
 // On the server this is a fresh Map per request (module re-evaluated per SSR request in prod,
 // shared in dev but harmless since server-side useAsyncData transfers via payload anyway).

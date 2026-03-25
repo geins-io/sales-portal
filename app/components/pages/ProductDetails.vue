@@ -7,8 +7,9 @@ import type {
 import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import type { ProductRouteResolution } from '#shared/types/common';
-import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
+import { AlertTriangle as AlertTriangleIcon, Star } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
+import { useFavoritesStore } from '~/stores/favorites';
 
 const props = defineProps<{
   resolution: ProductRouteResolution;
@@ -73,9 +74,20 @@ const maxQuantity = computed(() => {
 });
 
 const cartStore = useCartStore();
+const favoritesStore = useFavoritesStore();
 const { hasFeature } = useTenant();
 const { localePath } = useLocaleMarket();
 const { canAccess } = useFeatureAccess();
+
+const isFavorited = computed(() =>
+  product.value ? favoritesStore.isFavorite(product.value.alias) : false,
+);
+
+function toggleFavorite() {
+  if (product.value) {
+    favoritesStore.toggle(product.value.alias);
+  }
+}
 
 const showPrice = computed(() => {
   if (!hasFeature('pricing')) return true;
@@ -93,12 +105,27 @@ const visibleCampaigns = computed(() =>
 );
 
 // Breadcrumbs
+const { t } = useI18n();
+
 const breadcrumbItems = computed(() => {
-  if (!product.value?.breadcrumbs) return [];
-  return product.value.breadcrumbs.map((bc) => ({
-    label: bc.name,
-    href: bc.url,
-  }));
+  const items: { label: string; href?: string }[] = [
+    { label: t('common.home'), href: localePath('/') },
+  ];
+
+  const categorySlug = props.resolution.categorySlug;
+  if (categorySlug) {
+    const categoryLabel = categorySlug
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    items.push({ label: categoryLabel, href: localePath(`/${categorySlug}`) });
+  }
+
+  if (product.value?.name) {
+    items.push({ label: product.value.name });
+  }
+
+  return items;
 });
 
 // SEO
@@ -210,12 +237,28 @@ useSchemaOrg([
       <div class="flex flex-col gap-4">
         <!-- Product name + meta -->
         <div class="flex flex-col gap-1">
-          <h1
-            class="font-heading text-[20px] font-bold"
-            data-testid="product-name"
-          >
-            {{ product.name }}
-          </h1>
+          <div class="flex items-start justify-between gap-2">
+            <h1
+              class="font-heading text-[20px] font-bold"
+              data-testid="product-name"
+            >
+              {{ product.name }}
+            </h1>
+            <button
+              v-if="hasFeature('wishlist')"
+              type="button"
+              class="text-muted-foreground hover:text-foreground mt-0.5 shrink-0 transition-colors"
+              :data-favorited="isFavorited"
+              :aria-label="$t('product.wishlist')"
+              data-testid="pdp-wishlist-toggle"
+              @click="toggleFavorite"
+            >
+              <Star
+                class="size-5"
+                :fill="isFavorited ? 'currentColor' : 'none'"
+              />
+            </button>
+          </div>
 
           <!-- Article number -->
           <p

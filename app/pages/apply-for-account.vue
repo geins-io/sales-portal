@@ -10,7 +10,7 @@ useHead({
   <div class="mx-auto max-w-7xl px-4 py-8 lg:px-8">
     <div class="md:flex md:gap-8">
       <!-- Sidebar -->
-      <PagesInfoPageSidebar
+      <InfoPageSidebar
         active-path="/apply-for-account"
         class="mb-6 md:mb-0 md:w-64 md:shrink-0"
       />

@@ -18,6 +18,7 @@
     "market": "Marknad",
     "change_market": "Byt marknad",
     "view_all_in": "Visa alla i {name}",
+    "home": "Hem",
     "yes": "Ja",
     "no": "Nej"
   },
@@ -220,7 +221,12 @@
     "list_view": "Listvy",
     "view_all": "Visa alla",
     "login_for_prices": "Logga in för priser",
-    "lowest_price_30d": "Lägsta pris senaste 30 dagarna: {price}"
+    "lowest_price_30d": "Lägsta pris senaste 30 dagarna: {price}",
+    "result_count": "{count} produkter",
+    "in_stock": "I lager",
+    "low_stock": "Begränsat lager",
+    "out_of_stock": "Slut i lager",
+    "on_demand": "På begäran"
   },
   "account": {
     "my_account": "Mitt konto",

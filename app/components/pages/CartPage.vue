@@ -64,7 +64,7 @@ function goToCheckout() {
     </div>
 
     <!-- Loading state -->
-    <PagesCartPageSkeleton
+    <CartPageSkeleton
       v-if="cartStore.isLoading && !cartStore.cart"
       data-testid="cart-page-loading"
     />

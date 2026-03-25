@@ -18,6 +18,7 @@
     "market": "Market",
     "change_market": "Change market",
     "view_all_in": "View all in {name}",
+    "home": "Home",
     "yes": "Yes",
     "no": "No"
   },
@@ -220,7 +221,12 @@
     "list_view": "List view",
     "view_all": "View all",
     "login_for_prices": "Login for prices",
-    "lowest_price_30d": "Lowest price in last 30 days: {price}"
+    "lowest_price_30d": "Lowest price in last 30 days: {price}",
+    "result_count": "{count} items",
+    "in_stock": "In stock",
+    "low_stock": "Low stock",
+    "out_of_stock": "Out of stock",
+    "on_demand": "On demand"
   },
   "account": {
     "my_account": "My Account",

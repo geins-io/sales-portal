@@ -43,7 +43,7 @@ describe('StockBadge', () => {
       props: { stock: makeStock() },
       global: { stubs },
     });
-    expect(wrapper.text()).toContain('In stock');
+    expect(wrapper.text()).toContain('product.in_stock');
   });
 
   it('renders low-stock state when totalStock <= threshold', () => {
@@ -51,7 +51,7 @@ describe('StockBadge', () => {
       props: { stock: makeStock({ totalStock: 3, inStock: 3 }) },
       global: { stubs },
     });
-    expect(wrapper.text()).toContain('Low stock');
+    expect(wrapper.text()).toContain('product.low_stock');
   });
 
   it('renders out-of-stock state', () => {
@@ -59,7 +59,7 @@ describe('StockBadge', () => {
       props: { stock: makeStock({ totalStock: 0, inStock: 0 }) },
       global: { stubs },
     });
-    expect(wrapper.text()).toContain('Out of stock');
+    expect(wrapper.text()).toContain('product.out_of_stock');
   });
 
   it('renders on-demand state when static > 0 and inStock === 0', () => {
@@ -67,7 +67,7 @@ describe('StockBadge', () => {
       props: { stock: makeStock({ totalStock: 0, inStock: 0, static: 10 }) },
       global: { stubs },
     });
-    expect(wrapper.text()).toContain('On demand');
+    expect(wrapper.text()).toContain('product.on_demand');
   });
 
   it('respects custom threshold', () => {
@@ -78,7 +78,7 @@ describe('StockBadge', () => {
       },
       global: { stubs },
     });
-    expect(wrapper.text()).toContain('Low stock');
+    expect(wrapper.text()).toContain('product.low_stock');
   });
 
   it('renders nothing when stock is undefined', () => {
@@ -97,7 +97,7 @@ describe('StockBadge', () => {
         props: { stock: makeStock() },
         global: { stubs },
       });
-      expect(wrapper.text()).toContain('In stock');
+      expect(wrapper.text()).toContain('product.in_stock');
     });
 
     it('hides stock when stock feature denies access', () => {
@@ -117,7 +117,7 @@ describe('StockBadge', () => {
         props: { stock: makeStock() },
         global: { stubs },
       });
-      expect(wrapper.text()).toContain('In stock');
+      expect(wrapper.text()).toContain('product.in_stock');
     });
   });
 });

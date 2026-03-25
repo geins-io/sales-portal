@@ -11,6 +11,7 @@ const props = withDefaults(
   { threshold: 5, size: 'default' },
 );
 
+const { t } = useI18n();
 const { hasFeature } = useTenant();
 const { canAccess } = useFeatureAccess();
 
@@ -27,13 +28,13 @@ const status = computed<StockStatus | null>(() => {
 const label = computed(() => {
   switch (status.value) {
     case 'in-stock':
-      return 'In stock';
+      return t('product.in_stock');
     case 'low-stock':
-      return 'Low stock';
+      return t('product.low_stock');
     case 'out-of-stock':
-      return 'Out of stock';
+      return t('product.out_of_stock');
     case 'on-demand':
-      return 'On demand';
+      return t('product.on_demand');
     default:
       return '';
   }
