@@ -220,7 +220,8 @@
     "list_view": "Listvy",
     "view_all": "Visa alla",
     "login_for_prices": "Logga in för priser",
-    "lowest_price_30d": "Lägsta pris senaste 30 dagarna: {price}"
+    "lowest_price_30d": "Lägsta pris senaste 30 dagarna: {price}",
+    "result_count": "{count} produkter"
   },
   "account": {
     "my_account": "Mitt konto",

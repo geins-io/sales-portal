@@ -220,7 +220,8 @@
     "list_view": "List view",
     "view_all": "View all",
     "login_for_prices": "Login for prices",
-    "lowest_price_30d": "Lowest price in last 30 days: {price}"
+    "lowest_price_30d": "Lowest price in last 30 days: {price}",
+    "result_count": "{count} items"
   },
   "account": {
     "my_account": "My Account",

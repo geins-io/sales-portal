@@ -38,6 +38,13 @@ const { t } = useI18n();
         </Button>
       </div>
       <div class="flex items-center gap-2">
+        <span
+          v-if="resultCount > 0"
+          class="text-muted-foreground text-sm"
+          data-testid="result-count"
+        >
+          {{ t('product.result_count', { count: resultCount }) }}
+        </span>
         <span class="text-muted-foreground hidden text-sm sm:inline">{{
           t('product.view_as')
         }}</span>
