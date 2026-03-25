@@ -272,7 +272,7 @@ useSchemaOrg([
           <!-- Brand -->
           <p
             v-if="product.brand?.name"
-            class="text-muted-foreground text-xs tracking-wide uppercase"
+            class="text-muted-foreground text-xs"
             data-testid="product-brand"
           >
             {{ product.brand.name }}

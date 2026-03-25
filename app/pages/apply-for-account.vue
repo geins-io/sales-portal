@@ -25,7 +25,7 @@ useHead({
             {{ t('apply.subtitle') }}
           </p>
         </div>
-        <ApplyApplyForAccountForm />
+        <ApplyForAccountForm />
       </div>
     </div>
   </div>

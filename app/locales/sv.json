@@ -87,6 +87,7 @@
     "title": "Varukorg",
     "shopping_cart": "Varukorg",
     "add_to_cart": "Lägg i varukorg",
+    "add_to_cart_short": "Köp",
     "add_failed": "Misslyckades",
     "add": "Lägg till",
     "empty_cart": "Din varukorg är tom",

@@ -56,6 +56,7 @@ const currentPage = ref(Number(route.query.page) || 1);
 const skip = computed(() => (currentPage.value - 1) * take);
 
 const { t } = useI18n();
+const { localePath } = useLocaleMarket();
 const sortOptions = computed(() => [
   { label: t('product.sort_relevance'), value: 'relevance' },
   { label: t('product.sort_price_asc'), value: 'price-asc' },
@@ -128,7 +129,9 @@ const showingFrom = computed(() =>
 const showingTo = computed(() => Math.min(skip.value + take, totalCount.value));
 
 const breadcrumbs = computed<BreadcrumbItem[]>(() => {
-  const items: BreadcrumbItem[] = [{ label: 'Home', href: '/' }];
+  const items: BreadcrumbItem[] = [
+    { label: t('common.home'), href: localePath('/') },
+  ];
   if (pageInfo.value?.name) {
     items.push({ label: pageInfo.value.name, current: true });
   }

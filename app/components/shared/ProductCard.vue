@@ -184,8 +184,8 @@ async function addToCart() {
         >
           <AlertCircle v-if="addError" class="mr-1.5 size-4 shrink-0" />
           <ShoppingCart v-else class="mr-1.5 size-4 shrink-0" />
-          <span class="truncate">{{
-            addError ? $t('cart.add_failed') : $t('cart.add_to_cart')
+          <span class="whitespace-nowrap">{{
+            addError ? $t('cart.add_failed') : $t('cart.add_to_cart_short')
           }}</span>
         </Button>
       </div>
