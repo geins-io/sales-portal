@@ -105,12 +105,27 @@ const visibleCampaigns = computed(() =>
 );
 
 // Breadcrumbs
+const { t } = useI18n();
+
 const breadcrumbItems = computed(() => {
-  if (!product.value?.breadcrumbs) return [];
-  return product.value.breadcrumbs.map((bc) => ({
-    label: bc.name,
-    href: bc.url,
-  }));
+  const items: { label: string; href?: string }[] = [
+    { label: t('common.home'), href: localePath('/') },
+  ];
+
+  const categorySlug = props.resolution.categorySlug;
+  if (categorySlug) {
+    const categoryLabel = categorySlug
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    items.push({ label: categoryLabel, href: localePath(`/${categorySlug}`) });
+  }
+
+  if (product.value?.name) {
+    items.push({ label: product.value.name });
+  }
+
+  return items;
 });
 
 // SEO
