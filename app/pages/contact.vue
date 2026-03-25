@@ -25,7 +25,7 @@ useHead({
             {{ t('contact.subtitle') }}
           </p>
         </div>
-        <ContactContactForm />
+        <ContactForm />
       </div>
     </div>
   </div>

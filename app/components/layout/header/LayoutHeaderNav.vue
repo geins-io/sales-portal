@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { MenuItemType } from '#shared/types/cms';
+import type { MenuItemType, MenuType } from '#shared/types/cms';
 import { MENU_LOCATION } from '#shared/constants/cms';
 import {
   normalizeMenuUrl,
@@ -17,7 +17,12 @@ import {
   NavigationMenuTrigger,
 } from '~/components/ui/navigation-menu';
 
-const { menu } = useMenuData(MENU_LOCATION.MAIN);
+const { locale } = useI18n();
+const { data: menu } = useFetch<MenuType>('/api/cms/menu', {
+  query: { menuLocationId: MENU_LOCATION.MAIN },
+  dedupe: 'defer',
+  watch: [locale],
+});
 const currentHost = computed(() => useRequestURL().host);
 const { localePath } = useLocaleMarket();
 

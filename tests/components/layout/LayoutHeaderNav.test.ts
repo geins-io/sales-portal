@@ -3,17 +3,30 @@ import { ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import LayoutHeaderNav from '../../../app/components/layout/header/LayoutHeaderNav.vue';
 
-// Mock useMenuData
 import type { MenuType } from '@geins/types';
 
 const mockMenu = ref<MenuType | null>(null);
-const mockPending = ref(false);
-vi.mock('~/composables/useMenuData', () => ({
-  useMenuData: () => ({
-    menu: mockMenu,
-    pending: mockPending,
+
+// Mock useFetch — component now uses useFetch directly instead of useMenuData
+vi.mock('#app/composables/fetch', () => ({
+  useFetch: () => ({
+    data: mockMenu,
+    pending: ref(false),
     error: ref(null),
+    refresh: vi.fn(),
+    execute: vi.fn(),
+    status: ref('success'),
   }),
+  $fetch: vi.fn(),
+}));
+
+vi.stubGlobal('useFetch', () => ({
+  data: mockMenu,
+  pending: ref(false),
+  error: ref(null),
+  refresh: vi.fn(),
+  execute: vi.fn(),
+  status: ref('success'),
 }));
 
 // Mock useRequestURL
