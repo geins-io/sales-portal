@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from 'vue';
 import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
+import { useRouteResolution } from '~/composables/useRouteResolution';
 import {
   normalizeSlugToPath,
   stripLocaleMarketPrefix,
-  useRouteResolution,
-} from '~/composables/useRouteResolution';
+} from '#shared/utils/locale-market';
 
 const route = useRoute();
 

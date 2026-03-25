@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
-  normalizeSlugToPath,
   prefetchRouteResolution,
   _routeCache,
 } from '../../app/composables/useRouteResolution';
+import { normalizeSlugToPath } from '../../shared/utils/locale-market';
 
 // Mock $fetch globally
 let mockFetchImpl: ReturnType<typeof vi.fn>;
