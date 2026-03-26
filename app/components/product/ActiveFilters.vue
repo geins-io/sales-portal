@@ -31,7 +31,7 @@ const activeFilters = computed<ActiveFilter[]>(() => {
       if (!value) continue;
       result.push({
         facetId,
-        facetLabel: facet.label,
+        facetLabel: facet.label || facet.type || facet.filterId,
         valueId,
         valueLabel: value.label,
       });
