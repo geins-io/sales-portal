@@ -173,9 +173,9 @@ describe('ProductCard', () => {
     // There should be links for image and title
     const links = wrapper.findAll('a');
     expect(links.length).toBe(2);
-    // Both should point to the product URL
+    // Both should point to the product URL (localePath mock prepends /se/en/)
     links.forEach((link) => {
-      expect(link.attributes('href')).toBe('/products/test-product');
+      expect(link.attributes('href')).toBe('/se/en/products/test-product');
     });
   });
 
