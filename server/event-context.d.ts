@@ -1,4 +1,5 @@
 import type { TenantConfig } from '#shared/types/tenant-config';
+import type { ResolvedLocaleMarket } from '#shared/utils/locale-market';
 
 declare module 'h3' {
   interface H3EventContext {
@@ -10,6 +11,10 @@ declare module 'h3' {
       /** Full resolved tenant config (set by 01.tenant-context plugin). */
       config?: TenantConfig;
     };
+    /** Raw market/locale parsed from URL prefix by plugin 00. */
+    localeMarket: { market: string; locale: string } | undefined;
+    /** Validated locale/market with BCP-47 expansion, set by plugin 01. */
+    resolvedLocaleMarket: ResolvedLocaleMarket | undefined;
   }
 }
 

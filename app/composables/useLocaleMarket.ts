@@ -99,19 +99,40 @@ export function useLocaleMarket() {
   /**
    * Get the current page path WITHOUT the locale/market prefix.
    * Useful when switching locale/market to reconstruct the URL.
+   *
+   * Validates the first two segments against validMarkets and validLocales Sets.
+   * Falls back to regex-only check when tenant config is not yet loaded (empty Sets).
+   * Handles query strings by preserving them after the clean path.
    */
   function getCleanPath(): string {
     const fullPath = route.fullPath;
-    const segments = fullPath.split('/').filter(Boolean);
 
-    // Check if URL currently has a locale/market prefix
-    if (
-      segments.length >= 2 &&
-      /^[a-z]{2}$/.test(segments[0]!) &&
-      validLocales.value.has(segments[1]!)
-    ) {
-      const rest = segments.slice(2);
-      return rest.length > 0 ? '/' + rest.join('/') : '/';
+    // Split on '?' to handle query strings separately
+    const queryIndex = fullPath.indexOf('?');
+    const pathPart =
+      queryIndex !== -1 ? fullPath.slice(0, queryIndex) : fullPath;
+    const queryPart = queryIndex !== -1 ? fullPath.slice(queryIndex) : '';
+
+    const segments = pathPart.split('/').filter(Boolean);
+
+    if (segments.length >= 2) {
+      const markets = validMarkets.value;
+      const locales = validLocales.value;
+      const seg0 = segments[0]!;
+      const seg1 = segments[1]!;
+
+      // Determine if seg0 is a valid market and seg1 is a valid locale.
+      // If either Set is empty (tenant config not yet loaded), fall back to regex-only check.
+      const marketOk =
+        markets.size === 0 ? /^[a-z]{2}$/.test(seg0) : markets.has(seg0);
+      const localeOk =
+        locales.size === 0 ? /^[a-z]{2}$/.test(seg1) : locales.has(seg1);
+
+      if (marketOk && localeOk) {
+        const rest = segments.slice(2);
+        const cleanPath = rest.length > 0 ? '/' + rest.join('/') : '/';
+        return cleanPath + queryPart;
+      }
     }
 
     return fullPath;

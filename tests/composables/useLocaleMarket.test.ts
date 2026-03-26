@@ -159,6 +159,35 @@ describe('useLocaleMarket', () => {
       const { getCleanPath } = useLocaleMarket();
       expect(getCleanPath()).toBe('/se/xx/some-page');
     });
+
+    it('should not strip prefix when first segment is not a valid market', () => {
+      // 'xx' matches /^[a-z]{2}$/ but is not in validMarkets (['se', 'no', 'dk'])
+      mockRouteFullPath.value = '/xx/sv/some-page';
+      const { getCleanPath } = useLocaleMarket();
+      expect(getCleanPath()).toBe('/xx/sv/some-page');
+    });
+
+    it('should strip prefix and preserve query string', () => {
+      mockRouteFullPath.value = '/se/sv/search?q=boots&color=red';
+      const { getCleanPath } = useLocaleMarket();
+      expect(getCleanPath()).toBe('/search?q=boots&color=red');
+    });
+
+    it('should fall back to regex-only check when validMarkets Set is empty (race condition)', () => {
+      // Simulate tenant config not yet loaded — both Sets are empty
+      mockAvailableLocales.value = [];
+      mockAvailableMarkets.value = [];
+      // With regex-only fallback, /^[a-z]{2}$/ matches 'se' and 'sv', so prefix is stripped
+      mockRouteFullPath.value = '/se/sv/foder';
+      const { getCleanPath } = useLocaleMarket();
+      expect(getCleanPath()).toBe('/foder');
+    });
+
+    it('should handle query-string-only path when no prefix present', () => {
+      mockRouteFullPath.value = '/contact?ref=nav';
+      const { getCleanPath } = useLocaleMarket();
+      expect(getCleanPath()).toBe('/contact?ref=nav');
+    });
   });
 
   describe('currentMarket', () => {

@@ -7,6 +7,93 @@
  */
 
 // ---------------------------------------------------------------------------
+// Resolved locale/market — validated, expanded, single source of truth
+// ---------------------------------------------------------------------------
+
+/**
+ * Validated locale/market data with BCP-47 expansion.
+ * Set on `event.context.resolvedLocaleMarket` by the tenant context plugin.
+ */
+export interface ResolvedLocaleMarket {
+  /** Validated short market code, e.g. 'se' */
+  market: string;
+  /** Validated short locale code, e.g. 'sv' */
+  locale: string;
+  /** Expanded BCP-47 locale, e.g. 'sv-SE' */
+  localeBcp47: string;
+}
+
+/**
+ * Extracts 2-letter locale codes from full BCP-47 locale strings.
+ *
+ * @example
+ * extractShortLocales(['sv-SE', 'en-US']) // Set(['sv', 'en'])
+ * extractShortLocales([])                 // Set()
+ */
+export function extractShortLocales(fullLocales: string[]): Set<string> {
+  const shorts = new Set<string>();
+  for (const l of fullLocales) {
+    const short = l.split('-')[0];
+    if (short && /^[a-z]{2}$/.test(short)) {
+      shorts.add(short);
+    }
+  }
+  return shorts;
+}
+
+/**
+ * Validates parsed locale/market values against tenant configuration.
+ * Returns a resolved result with BCP-47 expansion and whether correction was needed.
+ *
+ * Pure function — no side effects, no cookies, no redirects.
+ */
+export function resolveLocaleMarket(
+  parsed: { market: string; locale: string },
+  tenantLocaleConfig: {
+    availableLocales: string[];
+    availableMarkets: string[];
+    defaultLocale: string;
+    defaultMarket: string;
+  },
+): { resolved: ResolvedLocaleMarket; corrected: boolean } {
+  const { availableLocales, availableMarkets, defaultLocale, defaultMarket } =
+    tenantLocaleConfig;
+
+  const validLocales = extractShortLocales(availableLocales);
+  const validMarkets = new Set(availableMarkets);
+
+  const marketValid = validMarkets.has(parsed.market);
+  const localeValid = validLocales.has(parsed.locale);
+
+  const corrected = !marketValid || !localeValid;
+
+  const resolvedMarket = marketValid ? parsed.market : defaultMarket;
+  const resolvedLocale = localeValid
+    ? parsed.locale
+    : (defaultLocale.split('-')[0] ?? defaultLocale);
+
+  // Expand short locale to BCP-47 by finding the match in availableLocales
+  let localeBcp47 = defaultLocale;
+  if (localeValid) {
+    const match = availableLocales.find(
+      (l) => l.split('-')[0] === parsed.locale,
+    );
+    if (match) {
+      localeBcp47 = match;
+    }
+  }
+
+  return {
+    resolved: {
+      market: resolvedMarket,
+      locale: resolvedLocale,
+      localeBcp47,
+    },
+    corrected,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Supported locales — single source of truth
 // ---------------------------------------------------------------------------
 

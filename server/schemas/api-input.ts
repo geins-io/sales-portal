@@ -56,6 +56,7 @@ export type CmsAreaInput = z.infer<typeof CmsAreaSchema>;
 
 export const CmsMenuSchema = z.object({
   menuLocationId: z.string().min(1).max(100),
+  locale: z.string().min(2).max(10).optional(),
 });
 
 export type CmsMenuInput = z.infer<typeof CmsMenuSchema>;

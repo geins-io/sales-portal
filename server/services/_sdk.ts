@@ -142,9 +142,13 @@ export function getChannelVariables(
 }
 
 /**
- * Composes getChannelVariables with request-level locale and market cookies.
+ * Composes getChannelVariables with request-level locale and market.
  * Use this in service functions to automatically pipe the user's preferences
  * into GraphQL queries.
+ *
+ * getRequestLocale returns BCP-47 from resolvedLocaleMarket when available
+ * (page routes), so ensureBcp47Locale is a safety net for the cookie fallback
+ * path (API routes) where a short code may still arrive.
  */
 export function getRequestChannelVariables(
   sdk: TenantSDK,

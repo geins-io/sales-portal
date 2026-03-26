@@ -17,16 +17,24 @@ function expandLocale(shortCode: string, availableLocales?: string[]): string {
 }
 
 /**
- * Reads the user's preferred locale from the i18n cookie on the request,
- * expanded to the full BCP-47 locale code using the tenant config.
+ * Reads the user's preferred locale from the request, returning a full BCP-47
+ * locale code for use with the Geins GraphQL API.
  *
- * The cookie stores short codes ('sv', 'en') but the Geins GraphQL API
- * requires full BCP-47 codes ('sv-SE', 'en-US'). This function maps
- * between the two using the tenant's availableLocales.
+ * Resolution order:
+ * 1. event.context.resolvedLocaleMarket.localeBcp47 — already validated and
+ *    BCP-47 expanded by plugin 01 (page routes only).
+ * 2. Cookie fallback — for API routes where resolvedLocaleMarket is not set.
+ *    The cookie stores short codes ('sv', 'en') which are expanded using the
+ *    tenant's availableLocales list.
  *
  * @returns The full locale code (e.g. 'sv-SE') or undefined if not set.
  */
 export function getRequestLocale(event: H3Event): string | undefined {
+  // Prefer the pre-validated, BCP-47 expanded value from plugin 01
+  const resolved = event.context.resolvedLocaleMarket;
+  if (resolved?.localeBcp47) return resolved.localeBcp47;
+
+  // Cookie fallback for API routes where resolvedLocaleMarket is not set
   const shortLocale = getCookie(event, COOKIE_NAMES.LOCALE);
   if (!shortLocale) return undefined;
 
@@ -48,10 +56,20 @@ export function getRequestLocale(event: H3Event): string | undefined {
 }
 
 /**
- * Reads the user's preferred market from the market cookie on the request.
+ * Reads the user's preferred market from the request.
+ *
+ * Resolution order:
+ * 1. event.context.resolvedLocaleMarket.market — validated by plugin 01
+ *    (page routes only).
+ * 2. Cookie fallback — for API routes where resolvedLocaleMarket is not set.
  *
  * @returns The market code (e.g. 'se', 'no') or undefined if not set.
  */
 export function getRequestMarket(event: H3Event): string | undefined {
+  // Prefer the pre-validated value from plugin 01
+  const resolved = event.context.resolvedLocaleMarket;
+  if (resolved?.market) return resolved.market;
+
+  // Cookie fallback for API routes where resolvedLocaleMarket is not set
   return getCookie(event, COOKIE_NAMES.MARKET) || undefined;
 }
