@@ -14,38 +14,44 @@ describe('buildFilterInput', () => {
     expect(buildFilterInput(undefined, 'relevance')).toBeUndefined();
   });
 
-  it('includes facets when filters are active', () => {
-    const result = buildFilterInput({ color: ['red', 'blue'] }, 'relevance');
-    expect(result).toEqual({
-      facets: [{ filterId: 'color', values: ['red', 'blue'] }],
-    });
-  });
-
-  it('includes multiple facets', () => {
+  it('flattens a single facet group to a flat string array', () => {
     const result = buildFilterInput(
-      { color: ['red'], size: ['L', 'XL'] },
+      { Price: ['price_10000_sek'] },
       'relevance',
     );
-    expect(result?.facets).toHaveLength(2);
-    expect(result?.facets).toContainEqual({
-      filterId: 'color',
-      values: ['red'],
-    });
-    expect(result?.facets).toContainEqual({
-      filterId: 'size',
-      values: ['L', 'XL'],
+    expect(result).toEqual({ facets: ['price_10000_sek'] });
+  });
+
+  it('flattens multiple values within a single facet group', () => {
+    const result = buildFilterInput({ color: ['red', 'blue'] }, 'relevance');
+    expect(result).toEqual({ facets: ['red', 'blue'] });
+  });
+
+  it('merges multiple facet groups into a single flat array', () => {
+    const result = buildFilterInput(
+      { Price: ['price_10000_sek'], Brand: ['b_our-company'] },
+      'relevance',
+    );
+    expect(result).toEqual({
+      facets: ['price_10000_sek', 'b_our-company'],
     });
   });
 
   it('skips facets with empty values array', () => {
     const result = buildFilterInput({ color: [], size: ['L'] }, 'relevance');
-    expect(result?.facets).toEqual([{ filterId: 'size', values: ['L'] }]);
+    expect(result?.facets).toEqual(['L']);
   });
 
   it('returns undefined when all facets have empty values', () => {
     expect(
       buildFilterInput({ color: [], size: [] }, 'relevance'),
     ).toBeUndefined();
+  });
+
+  it('returns no facets field when filterState is empty', () => {
+    const result = buildFilterInput({}, 'price-asc');
+    expect(result).toEqual({ sort: 'PRICE' });
+    expect(result?.facets).toBeUndefined();
   });
 
   it('includes sort when not relevance', () => {
@@ -84,7 +90,7 @@ describe('buildFilterInput', () => {
       'running',
     );
     expect(result).toEqual({
-      facets: [{ filterId: 'brand', values: ['nike'] }],
+      facets: ['nike'],
       sort: 'PRICE',
       searchText: 'running',
     });
