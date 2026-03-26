@@ -19,7 +19,7 @@ import {
 
 const { locale } = useI18n();
 const { data: menu } = useFetch<MenuType>('/api/cms/menu', {
-  query: { menuLocationId: MENU_LOCATION.MAIN },
+  query: { menuLocationId: MENU_LOCATION.MAIN, locale },
   dedupe: 'defer',
   watch: [locale],
 });
