@@ -115,7 +115,9 @@ export type SupportedLocale = (typeof SUPPORTED_LOCALE_CODES)[number];
  * hasLocaleMarketPrefix('/')             // false
  */
 export function hasLocaleMarketPrefix(path: string): boolean {
-  const segments = path.split('/').filter(Boolean);
+  // Strip query string and hash before checking segments
+  const cleanPath = path.split('?')[0]!.split('#')[0]!;
+  const segments = cleanPath.split('/').filter(Boolean);
   return (
     segments.length >= 2 &&
     /^[a-z]{2}$/.test(segments[0]!) &&
