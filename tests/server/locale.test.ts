@@ -13,12 +13,40 @@ vi.mock('#shared/constants/storage', () => ({
   },
 }));
 
-function createEvent(tenantConfig?: Record<string, unknown>): H3Event {
+interface CreateEventOptions {
+  tenantConfig?: Record<string, unknown>;
+  resolvedLocaleMarket?: {
+    market: string;
+    locale: string;
+    localeBcp47: string;
+  };
+}
+
+function createEvent(
+  tenantConfigOrOptions?: Record<string, unknown> | CreateEventOptions,
+): H3Event {
+  // Support both old signature (tenantConfig object) and new options object
+  let tenantConfig: Record<string, unknown> | undefined;
+  let resolvedLocaleMarket: CreateEventOptions['resolvedLocaleMarket'];
+
+  if (
+    tenantConfigOrOptions &&
+    ('tenantConfig' in tenantConfigOrOptions ||
+      'resolvedLocaleMarket' in tenantConfigOrOptions)
+  ) {
+    const opts = tenantConfigOrOptions as CreateEventOptions;
+    tenantConfig = opts.tenantConfig;
+    resolvedLocaleMarket = opts.resolvedLocaleMarket;
+  } else {
+    tenantConfig = tenantConfigOrOptions as Record<string, unknown> | undefined;
+  }
+
   return {
     context: {
       tenant: tenantConfig
         ? { config: { geinsSettings: tenantConfig } }
         : undefined,
+      resolvedLocaleMarket: resolvedLocaleMarket ?? undefined,
     },
   } as unknown as H3Event;
 }
@@ -37,6 +65,30 @@ describe('server/utils/locale', () => {
   });
 
   describe('getRequestLocale', () => {
+    it('should return localeBcp47 from resolvedLocaleMarket when present', () => {
+      const event = createEvent({
+        resolvedLocaleMarket: {
+          market: 'se',
+          locale: 'sv',
+          localeBcp47: 'sv-SE',
+        },
+      });
+      mockGetCookie.mockReturnValue('en');
+
+      expect(getRequestLocale(event)).toBe('sv-SE');
+      expect(mockGetCookie).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to cookie when resolvedLocaleMarket is absent', () => {
+      const event = createEvent({
+        tenantConfig: { availableLocales: ['sv-SE', 'en-US'] },
+      });
+      mockGetCookie.mockReturnValue('sv');
+
+      expect(getRequestLocale(event)).toBe('sv-SE');
+      expect(mockGetCookie).toHaveBeenCalledWith(event, 'locale');
+    });
+
     it('should expand short locale to BCP-47 using tenant config', () => {
       const event = createEvent({ availableLocales: ['sv-SE', 'en-US'] });
       mockGetCookie.mockReturnValue('sv');
@@ -75,6 +127,28 @@ describe('server/utils/locale', () => {
   });
 
   describe('getRequestMarket', () => {
+    it('should return market from resolvedLocaleMarket when present', () => {
+      const event = createEvent({
+        resolvedLocaleMarket: {
+          market: 'se',
+          locale: 'sv',
+          localeBcp47: 'sv-SE',
+        },
+      });
+      mockGetCookie.mockReturnValue('no');
+
+      expect(getRequestMarket(event)).toBe('se');
+      expect(mockGetCookie).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to cookie when resolvedLocaleMarket is absent', () => {
+      const event = createEvent();
+      mockGetCookie.mockReturnValue('no');
+
+      expect(getRequestMarket(event)).toBe('no');
+      expect(mockGetCookie).toHaveBeenCalledWith(event, 'market');
+    });
+
     it('should return market from market cookie', () => {
       const event = createEvent();
       mockGetCookie.mockReturnValue('no');

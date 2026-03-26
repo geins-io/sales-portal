@@ -24,11 +24,13 @@ const areaCache = new LRUCache<string, ContentAreaType>({
 
 /**
  * Build a cache key prefix from event context (tenant hostname, locale, market).
+ * Reads from resolvedLocaleMarket (validated by plugin 01) with a 'default'
+ * fallback for safety.
  */
 function buildCachePrefix(event: H3Event): string {
   const hostname = event.context?.tenant?.hostname ?? 'default';
-  const locale = event.context?.localeMarket?.locale ?? 'default';
-  const market = event.context?.localeMarket?.market ?? 'default';
+  const locale = event.context?.resolvedLocaleMarket?.locale ?? 'default';
+  const market = event.context?.resolvedLocaleMarket?.market ?? 'default';
   return `${hostname}::${locale}::${market}`;
 }
 
