@@ -38,6 +38,7 @@ function createMockTenantConfig(
     tenantId: 'test-tenant',
     hostname: 'test.example.com',
     mode: 'commerce',
+    checkoutMode: 'custom',
     theme: {
       name: 'test-theme',
       colors: {
@@ -187,6 +188,40 @@ describe('useTenant', () => {
       const { mode } = useTenant();
 
       expect(mode.value).toBe('commerce');
+    });
+  });
+
+  describe('checkoutMode', () => {
+    it('should return checkoutMode from config', () => {
+      mockData.value = createMockTenantConfig({ checkoutMode: 'hosted' });
+
+      const { checkoutMode } = useTenant();
+
+      expect(checkoutMode.value).toBe('hosted');
+    });
+
+    it('should return custom checkoutMode when set to custom', () => {
+      mockData.value = createMockTenantConfig({ checkoutMode: 'custom' });
+
+      const { checkoutMode } = useTenant();
+
+      expect(checkoutMode.value).toBe('custom');
+    });
+
+    it('should default to custom when config is null', () => {
+      mockData.value = null;
+
+      const { checkoutMode } = useTenant();
+
+      expect(checkoutMode.value).toBe('custom');
+    });
+
+    it('should be included in the return object', () => {
+      mockData.value = null;
+
+      const result = useTenant();
+
+      expect(result).toHaveProperty('checkoutMode');
     });
   });
 

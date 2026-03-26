@@ -92,6 +92,7 @@ export async function getPublicConfig(
     hostname: config.hostname,
     aliases: config.aliases,
     mode: config.mode,
+    checkoutMode: config.checkoutMode,
     theme: config.theme,
     branding: config.branding,
     features: config.features,

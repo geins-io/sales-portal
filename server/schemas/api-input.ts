@@ -345,6 +345,11 @@ export const CheckoutSummarySchema = z.object({
 });
 export type CheckoutSummaryInput = z.infer<typeof CheckoutSummarySchema>;
 
+export const CheckoutTokenSchema = z.object({
+  cartId: z.string().min(1),
+});
+export type CheckoutTokenInput = z.infer<typeof CheckoutTokenSchema>;
+
 // ---------------------------------------------------------------------------
 // Quotes
 // ---------------------------------------------------------------------------
