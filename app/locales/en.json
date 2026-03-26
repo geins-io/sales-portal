@@ -105,7 +105,7 @@
     "order_summary": "Order Summary",
     "item_count": "{count} item | {count} items",
     "your_cart_description": "Your shopping cart",
-    "unit_price_prefix": "\u00e0",
+    "unit_price_prefix": "à",
     "items_short": "Items"
   },
   "checkout": {
@@ -287,7 +287,7 @@
     "field_required": "This field is required.",
     "invalid_email": "Please enter a valid email address.",
     "submit": "Send message",
-    "submitting": "Sending\u2026",
+    "submitting": "Sending…",
     "success_title": "Message sent",
     "success_message": "Thank you for your message. We'll get back to you as soon as possible.",
     "error_message": "Something went wrong. Please try again.",
@@ -306,7 +306,7 @@
     "field_required": "This field is required.",
     "invalid_email": "Please enter a valid email address.",
     "submit": "Submit application",
-    "submitting": "Submitting\u2026",
+    "submitting": "Submitting…",
     "success_title": "Application submitted",
     "success_message": "Thank you for your application. We'll review it and get back to you by email.",
     "error_message": "Something went wrong. Please try again.",
@@ -400,7 +400,8 @@
       "quotations": "Quotations",
       "products": "Products",
       "lists": "Saved lists",
-      "organisation": "Your organisation"
+      "organisation": "Your organisation",
+      "favorites": "Favorites"
     },
     "overview": {
       "stat": {
@@ -458,7 +459,7 @@
       "city": "City",
       "country": "Country",
       "save": "Save changes",
-      "saving": "Saving\u2026",
+      "saving": "Saving…",
       "save_success": "Profile updated successfully",
       "save_error": "Failed to update profile"
     },
@@ -469,7 +470,7 @@
       "new": "New password",
       "confirm": "Confirm new password",
       "submit": "Change password",
-      "submitting": "Changing\u2026",
+      "submitting": "Changing…",
       "success": "Password changed successfully",
       "error": "Failed to change password",
       "mismatch": "Passwords do not match",
@@ -504,7 +505,7 @@
         "phone": "Phone",
         "edit": "Edit",
         "save": "Save changes",
-        "saving": "Saving\u2026",
+        "saving": "Saving…",
         "save_success": "Organisation updated successfully",
         "save_error": "Failed to update organisation"
       },
@@ -530,7 +531,7 @@
         "set_default": "Set as default address",
         "default": "Default",
         "save": "Save address",
-        "saving": "Saving\u2026",
+        "saving": "Saving…",
         "save_error": "Failed to save address",
         "remove": "Remove",
         "remove_error": "Failed to remove address",
@@ -546,7 +547,7 @@
         "invite": "Invite",
         "invite_title": "Invite a new person",
         "invite_error": "Failed to send invitation",
-        "inviting": "Inviting\u2026",
+        "inviting": "Inviting…",
         "first_name": "First name",
         "last_name": "Last name",
         "email": "Email",
@@ -615,6 +616,13 @@
       "sale_contact": "Sale Contact",
       "invoice_address": "Invoice Address",
       "delivery_address": "Delivery Address"
+    },
+    "favorites": {
+      "title": "Favorites",
+      "empty": "You have no favorites yet",
+      "browse_products": "Browse products",
+      "clear_all": "Clear all",
+      "remove": "Remove"
     }
   },
   "info_pages": {
