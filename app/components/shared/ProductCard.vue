@@ -37,7 +37,7 @@ const firstImage = computed(() => props.product.productImages?.[0]);
 const { localePath } = useLocaleMarket();
 const productUrl = computed(() => {
   if (props.product.canonicalUrl) {
-    return stripGeinsPrefix(props.product.canonicalUrl);
+    return localePath(stripGeinsPrefix(props.product.canonicalUrl));
   }
   return localePath(`/${props.product.alias}`);
 });

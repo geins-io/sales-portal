@@ -2,6 +2,7 @@
 import { Trash2 } from 'lucide-vue-next';
 import type { CartItemType } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { stripGeinsPrefix } from '#shared/utils/menu';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 
 const { t } = useI18n();
@@ -23,7 +24,7 @@ function onQuantityUpdate(value: number) {
 const { localePath } = useLocaleMarket();
 const productUrl = computed(() =>
   props.item.product?.canonicalUrl
-    ? props.item.product.canonicalUrl
+    ? localePath(stripGeinsPrefix(props.item.product.canonicalUrl))
     : props.item.product?.alias
       ? localePath(`/product/${props.item.product.alias}`)
       : null,
