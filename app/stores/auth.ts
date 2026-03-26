@@ -117,7 +117,11 @@ export const useAuthStore = defineStore('auth', {
 
       _fetchPromise = (async () => {
         try {
-          const response = await $fetch('/api/auth/me');
+          // Forward cookies during SSR so auth token reaches /api/auth/me
+          const headers = import.meta.server
+            ? useRequestHeaders(['cookie'])
+            : undefined;
+          const response = await $fetch('/api/auth/me', { headers });
           this.user = response.user ?? null;
         } catch {
           this.user = null;
