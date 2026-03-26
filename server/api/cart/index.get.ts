@@ -1,8 +1,12 @@
-import { CartIdSchema } from '../../schemas/api-input';
+import { CartGetSchema } from '../../schemas/api-input';
 import { getCart } from '../../services/cart';
 
 export default defineEventHandler(async (event) => {
-  const { cartId } = await getValidatedQuery(event, CartIdSchema.parse);
+  const { cartId } = await getValidatedQuery(event, CartGetSchema.parse);
+
+  if (!cartId) {
+    return null;
+  }
 
   return withErrorHandling(
     async () => {

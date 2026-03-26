@@ -27,11 +27,11 @@ const activeFilters = computed<ActiveFilter[]>(() => {
     const facet = props.facets.find((f) => f.filterId === facetId);
     if (!facet) continue;
     for (const valueId of valueIds) {
-      const value = facet.values.find((v) => v._id === valueId);
+      const value = facet.values.find((v) => v.facetId === valueId);
       if (!value) continue;
       result.push({
         facetId,
-        facetLabel: facet.label,
+        facetLabel: facet.label || facet.type || facet.filterId,
         valueId,
         valueLabel: value.label,
       });

@@ -296,7 +296,9 @@ describe('useAuthStore', () => {
 
       expect(store.user).toEqual(mockUser);
       expect(store.isInitialized).toBe(true);
-      expect(mockFetchImpl).toHaveBeenCalledWith('/api/auth/me');
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/auth/me', {
+        headers: undefined,
+      });
     });
 
     it('should set user to null when no session', async () => {

@@ -49,6 +49,9 @@ export interface TenantConfig {
   // Portal mode
   mode: 'commerce' | 'catalog';
 
+  // Checkout mode
+  checkoutMode: 'custom' | 'hosted';
+
   // Theme
   theme: {
     name: string;
@@ -134,6 +137,7 @@ export interface PublicTenantConfig {
   hostname: string;
   aliases?: string[];
   mode: 'commerce' | 'catalog';
+  checkoutMode: 'custom' | 'hosted';
   theme: TenantConfig['theme'];
   branding: TenantConfig['branding'];
   features: TenantConfig['features'];

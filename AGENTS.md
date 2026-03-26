@@ -1,3 +1,26 @@
+<!-- mint:start v2 -->
+
+## MANDATORY: Use mint for ALL Code Changes
+
+**For ANY task that modifies files in this repo, invoke the `mint` skill FIRST.**
+
+This is not optional. Before writing, editing, or deleting any code:
+
+1. Invoke `mint` with the task description
+2. mint auto-routes to the right mode (quick/plan/ship/research/verify)
+3. Follow mint's execution flow with gates and reviews
+
+The only exceptions:
+
+- Pure conversation / answering questions
+- Reading files to understand context (no modifications)
+
+If you catch yourself thinking "this is just a small fix" or "I'll just edit one file" — STOP. Invoke mint. Small fixes use quick mode. mint decides the workflow, not you.
+
+**NEVER use Claude Code's built-in plan mode (EnterPlanMode/ExitPlanMode).** mint has its own planning flow — Claude Code plan mode is redundant and conflicts with mint's orchestration. Always stay in normal mode and let mint handle planning via its plan/ship modes.
+
+<!-- mint:end -->
+
 # Sales Portal - AI Agent Instructions
 
 > Single source of truth for all AI coding assistants working on this codebase.

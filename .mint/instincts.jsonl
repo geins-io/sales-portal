@@ -1,0 +1,10 @@
+{"category":"naming","pattern":"camelCase-functions","filesSeen":"quote-schemas.test.ts, api-input.ts, quote-stubs.test.ts","confidence":213,"lastUpdated":"2026-03-26"}
+{"category":"tests","pattern":"describe-it-pattern","filesSeen":"quote-schemas.test.ts, quote-stubs.test.ts, quote-routes.test.ts","confidence":119,"lastUpdated":"2026-03-26"}
+{"category":"tests","pattern":"expect-assertions","filesSeen":"quote-schemas.test.ts, quote-stubs.test.ts, quote-routes.test.ts","confidence":120,"lastUpdated":"2026-03-26"}
+{"category":"framework","pattern":"vue-sfc","filesSeen":"[id].vue, quotations.vue, checkout.vue, index.vue, ProductList.vue","confidence":209,"lastUpdated":"2026-03-26"}
+{"category":"imports","pattern":"alias-imports","filesSeen":"checkout.ts, useErrorTracking.ts, auth.ts","confidence":3,"lastUpdated":"2026-03-19"}
+{"category":"framework","pattern":"python","filesSeen":"export-missing.py, send-report-email.py","confidence":2,"lastUpdated":"2026-03-14"}
+{"category":"framework","pattern":"page-data-fetching","filesSeen":"[...slug].vue, portal/index.vue, checkout.vue, portal/quotations/[id].vue","confidence":4,"lastUpdated":"2026-03-16"}
+{"category":"framework","pattern":"dynamic-route-404","filesSeen":"[...slug].vue, portal/quotations/[id].vue","confidence":3,"lastUpdated":"2026-03-16"}
+{"category":"ssr","pattern":"ssr-template-null-safety: All template expressions accessing async data must use ?. and ??. Browser APIs guarded with import.meta.client","filesSeen":"ProductList.vue, search.vue","confidence":5,"lastUpdated":"2026-03-19"}
+{"category":"locale","pattern":"locale-code-boundary: Short codes in cookies/URLs, BCP-47 in GraphQL. Always expand at API boundary via ensureBcp47Locale()","filesSeen":"_sdk.ts, locale-market.ts","confidence":5,"lastUpdated":"2026-03-19"}

@@ -43,7 +43,7 @@
     "password_min_length": "Lösenordet måste vara minst {min} tecken.",
     "phone": "Telefon",
     "register": "Registrera",
-    "remember_me": "Kom ih\u00e5g mig",
+    "remember_me": "Kom ihåg mig",
     "register_failed": "Registreringen misslyckades. Försök igen.",
     "register_success": "Ansökan skickad",
     "register_subtitle": "Fyll i uppgifterna nedan för att ansöka om ett företagskonto.",
@@ -152,7 +152,10 @@
     "cart_empty": "Din varukorg är tom.",
     "amount_left_free_shipping": "{amount} kvar till fri frakt",
     "items_count": "{count} vara | {count} varor",
-    "back_to_store": "Tillbaka till butiken"
+    "back_to_store": "Tillbaka till butiken",
+    "redirecting": "Omdirigerar till kassan…",
+    "redirect_error": "Det gick inte att starta kassan. Försök igen.",
+    "retry": "Försök igen"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",
@@ -287,7 +290,7 @@
     "field_required": "Detta fält är obligatoriskt.",
     "invalid_email": "Ange en giltig e-postadress.",
     "submit": "Skicka meddelande",
-    "submitting": "Skickar\u2026",
+    "submitting": "Skickar…",
     "success_title": "Meddelande skickat",
     "success_message": "Tack för ditt meddelande. Vi återkommer så snart som möjligt.",
     "error_message": "Något gick fel. Försök igen.",
@@ -306,7 +309,7 @@
     "field_required": "Detta fält är obligatoriskt.",
     "invalid_email": "Ange en giltig e-postadress.",
     "submit": "Skicka ansökan",
-    "submitting": "Skickar\u2026",
+    "submitting": "Skickar…",
     "success_title": "Ansökan skickad",
     "success_message": "Tack för din ansökan. Vi granskar den och återkommer via e-post.",
     "error_message": "Något gick fel. Försök igen.",
@@ -320,7 +323,7 @@
     "sale": "Rea",
     "campaign": "Kampanj",
     "your_price": "Ditt pris",
-    "negotiated_price_info": "Detta pris baseras p\u00e5 ditt avtalade pris.",
+    "negotiated_price_info": "Detta pris baseras på ditt avtalade pris.",
     "volume_pricing": "Volympriser",
     "quantity": "Antal",
     "unit_price": "Styckpris",
@@ -400,7 +403,8 @@
       "quotations": "Offerter",
       "products": "Produkter",
       "lists": "Sparade listor",
-      "organisation": "Din organisation"
+      "organisation": "Din organisation",
+      "favorites": "Favoriter"
     },
     "overview": {
       "stat": {
@@ -458,7 +462,7 @@
       "city": "Ort",
       "country": "Land",
       "save": "Spara ändringar",
-      "saving": "Sparar\u2026",
+      "saving": "Sparar…",
       "save_success": "Profilen har uppdaterats",
       "save_error": "Det gick inte att uppdatera profilen"
     },
@@ -469,7 +473,7 @@
       "new": "Nytt lösenord",
       "confirm": "Bekräfta nytt lösenord",
       "submit": "Byt lösenord",
-      "submitting": "Byter\u2026",
+      "submitting": "Byter…",
       "success": "Lösenordet har ändrats",
       "error": "Det gick inte att byta lösenord",
       "mismatch": "Lösenorden matchar inte",
@@ -504,7 +508,7 @@
         "phone": "Telefon",
         "edit": "Redigera",
         "save": "Spara ändringar",
-        "saving": "Sparar\u2026",
+        "saving": "Sparar…",
         "save_success": "Organisationen har uppdaterats",
         "save_error": "Det gick inte att uppdatera organisationen"
       },
@@ -530,7 +534,7 @@
         "set_default": "Ange som standardadress",
         "default": "Standard",
         "save": "Spara adress",
-        "saving": "Sparar\u2026",
+        "saving": "Sparar…",
         "save_error": "Det gick inte att spara adressen",
         "remove": "Ta bort",
         "remove_error": "Det gick inte att ta bort adressen",
@@ -546,7 +550,7 @@
         "invite": "Bjud in",
         "invite_title": "Bjud in en ny person",
         "invite_error": "Det gick inte att skicka inbjudan",
-        "inviting": "Bjuder in\u2026",
+        "inviting": "Bjuder in…",
         "first_name": "Förnamn",
         "last_name": "Efternamn",
         "email": "E-post",
@@ -615,6 +619,13 @@
       "sale_contact": "Säljkontakt",
       "invoice_address": "Fakturaadress",
       "delivery_address": "Leveransadress"
+    },
+    "favorites": {
+      "title": "Favoriter",
+      "empty": "Du har inga favoriter ännu",
+      "browse_products": "Bläddra bland produkter",
+      "clear_all": "Rensa alla",
+      "remove": "Ta bort"
     }
   },
   "info_pages": {

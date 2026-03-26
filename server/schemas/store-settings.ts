@@ -183,6 +183,7 @@ export const StoreSettingsSchema = z.object({
   aliases: z.array(z.string()).optional(),
   geinsSettings: GeinsSettingsSchema,
   mode: z.enum(['commerce', 'catalog']),
+  checkoutMode: z.enum(['custom', 'hosted']).default('custom'),
   theme: ThemeConfigSchema,
   branding: BrandingConfigSchema,
   features: z.record(z.string(), FeatureConfigSchema),

@@ -16,7 +16,7 @@ export const SORT_MAP: Record<string, string> = {
 };
 
 export interface FilterInput {
-  facets?: Array<{ filterId: string; values: string[] }>;
+  facets?: string[];
   sort?: string;
   searchText?: string;
 }
@@ -38,13 +38,13 @@ export function buildFilterInput(
   searchText?: string,
   sortMap: Record<string, string> = SORT_MAP,
 ): FilterInput | undefined {
-  const facets = Object.entries(filterState ?? {})
-    .filter(([, values]) => values.length > 0)
-    .map(([filterId, values]) => ({ filterId, values }));
+  const facetValues = Object.values(filterState ?? {})
+    .flat()
+    .filter(Boolean);
 
   const filter: FilterInput = {};
 
-  if (facets.length > 0) filter.facets = facets;
+  if (facetValues.length > 0) filter.facets = facetValues;
   if (searchText) filter.searchText = searchText;
   if (sortBy !== 'relevance') filter.sort = sortMap[sortBy] ?? 'RELEVANCE';
 

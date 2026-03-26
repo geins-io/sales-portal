@@ -22,7 +22,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // Build locale/market prefix from cookies (composables aren't available in middleware)
   const market = useCookie('market').value || 'se';
-  const locale = useCookie('locale').value || 'en';
+  const locale = useCookie('locale').value || 'sv';
   const prefix = `/${market}/${locale}`;
 
   // On first load, check session via server (cookies are sent automatically)

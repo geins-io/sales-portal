@@ -56,8 +56,8 @@ function isChecked(valueId: string) {
           >
             <Checkbox
               :id="`filter-${facet.filterId}-${value._id}`"
-              :checked="isChecked(value._id)"
-              @update:checked="toggleValue(value._id)"
+              :model-value="isChecked(value.facetId)"
+              @update:model-value="toggleValue(value.facetId)"
             />
             <span class="flex-1 text-sm">
               {{ value.label }}

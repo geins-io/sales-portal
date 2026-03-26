@@ -24,6 +24,19 @@ export const DEFAULT_CORE_COLORS: Pick<
 };
 
 /**
+ * Brand teal colors for localhost development (Litium brand)
+ */
+export const BRAND_LOCALHOST_COLORS: Pick<
+  ThemeColors,
+  'primary' | 'primaryForeground' | 'secondary' | 'secondaryForeground'
+> = {
+  primary: 'oklch(0.5 0.16 175)', // Teal brand primary
+  primaryForeground: 'oklch(0.985 0 0)', // White
+  secondary: 'oklch(0.97 0 0)', // Light gray
+  secondaryForeground: 'oklch(0.205 0 0)', // Dark gray
+};
+
+/**
  * CSS property name mapping for all 32 theme color keys
  */
 const COLOR_CSS_MAP: Record<keyof FullThemeColors, string> = {
@@ -202,13 +215,20 @@ export function generateTenantCss(
 
 /**
  * Creates a default theme for development/auto-created tenants
+ * Uses brand teal colors for localhost, zinc defaults for other hostnames
  */
 export function createDefaultTheme(tenantId: string): TenantConfig['theme'] {
+  const isLocalhost =
+    tenantId === 'localhost' || tenantId.startsWith('localhost:');
+  const coreColors = isLocalhost
+    ? { ...DEFAULT_CORE_COLORS, ...BRAND_LOCALHOST_COLORS }
+    : DEFAULT_CORE_COLORS;
+
   return {
     name: tenantId.toLowerCase(),
     displayName: tenantId,
     colors: {
-      ...DEFAULT_CORE_COLORS,
+      ...coreColors,
       card: null,
       cardForeground: null,
       popover: null,
