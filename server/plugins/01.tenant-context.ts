@@ -1,4 +1,5 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
+import { resolveLocaleMarket } from '#shared/utils/locale-market';
 import { resolveTenant } from '../utils/tenant';
 
 /**
@@ -58,6 +59,57 @@ export default defineNitroPlugin((nitroApp) => {
       const tenantId = tenant.tenantId || hostname;
       event.context.tenant.tenantId = tenantId;
       event.context.tenant.config = tenant;
+
+      // Validate locale/market from plugin 00 against tenant config.
+      // Only runs when a locale/market prefix was detected and tenant has geinsSettings.
+      const localeMarket = event.context.localeMarket as
+        | { market: string; locale: string }
+        | undefined;
+
+      if (localeMarket && tenant.geinsSettings) {
+        const { resolved, corrected } = resolveLocaleMarket(localeMarket, {
+          availableLocales: tenant.geinsSettings.availableLocales,
+          availableMarkets: tenant.geinsSettings.availableMarkets,
+          defaultLocale: tenant.geinsSettings.locale,
+          defaultMarket: tenant.geinsSettings.market,
+        });
+
+        event.context.resolvedLocaleMarket = resolved;
+
+        if (corrected) {
+          // Build corrected redirect URL, preserving query string
+          const fullPath = event.path || '/';
+          const queryIndex = fullPath.indexOf('?');
+          const pathOnly =
+            queryIndex >= 0 ? fullPath.slice(0, queryIndex) : fullPath;
+          const query = queryIndex >= 0 ? fullPath.slice(queryIndex) : '';
+
+          const segments = pathOnly.split('/').filter(Boolean);
+          const remainingSegments = segments.slice(2);
+          const remainingPath =
+            remainingSegments.length > 0
+              ? '/' + remainingSegments.join('/')
+              : '/';
+
+          // Reset cookies to corrected values
+          const cookieOpts = {
+            httpOnly: false,
+            secure: !import.meta.dev,
+            sameSite: 'lax' as const,
+            path: '/',
+            maxAge: 365 * 24 * 60 * 60,
+          };
+          setCookie(event, COOKIE_NAMES.LOCALE, resolved.locale, cookieOpts);
+          setCookie(event, COOKIE_NAMES.MARKET, resolved.market, cookieOpts);
+
+          const redirectPath =
+            remainingPath === '/'
+              ? `/${resolved.market}/${resolved.locale}/${query}`
+              : `/${resolved.market}/${resolved.locale}${remainingPath}${query}`;
+
+          return sendRedirect(event, redirectPath, 302);
+        }
+      }
 
       const cachedTenantId = getTenantCookie(event);
 

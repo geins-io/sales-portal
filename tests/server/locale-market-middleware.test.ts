@@ -328,7 +328,7 @@ describe('server/plugins/00.locale-market (Nitro plugin)', () => {
   });
 });
 
-describe('server/middleware/locale-market-validate', () => {
+describe('server/middleware/locale-market-validate (no-op placeholder)', () => {
   let handler: (event: MockEvent) => unknown;
 
   beforeEach(async () => {
@@ -339,177 +339,19 @@ describe('server/middleware/locale-market-validate', () => {
     handler = mod.default as unknown as (event: MockEvent) => unknown;
   });
 
-  describe('valid market and locale', () => {
-    it('should pass through when both market and locale are valid', () => {
-      const event = createValidationEvent('/se/sv/foder', {
-        localeMarket: { market: 'se', locale: 'sv' },
-      });
-      handler(event);
-
-      expect(mockSendRedirect).not.toHaveBeenCalled();
+  it('should return without redirecting (no-op)', () => {
+    const event = createValidationEvent('/xx/yy/some-page', {
+      localeMarket: { market: 'xx', locale: 'yy' },
     });
+    handler(event);
 
-    it('should pass through with different valid market/locale combinations', () => {
-      const event = createValidationEvent('/no/en/some-page', {
-        localeMarket: { market: 'no', locale: 'en' },
-      });
-      handler(event);
-
-      expect(mockSendRedirect).not.toHaveBeenCalled();
-    });
+    expect(mockSendRedirect).not.toHaveBeenCalled();
   });
 
-  describe('invalid market redirect', () => {
-    it('should redirect to default market when market is invalid but locale is valid', () => {
-      const event = createValidationEvent('/xx/sv/foder', {
-        localeMarket: { market: 'xx', locale: 'sv' },
-      });
-      handler(event);
+  it('should return without redirecting for unprefixed URLs', () => {
+    const event = createValidationEvent('/foder');
+    handler(event);
 
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/se/sv/foder', 302);
-    });
-
-    it('should redirect preserving nested path when market is invalid', () => {
-      const event = createValidationEvent('/zz/en/p/category/product', {
-        localeMarket: { market: 'zz', locale: 'en' },
-      });
-      handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(
-        event,
-        '/se/en/p/category/product',
-        302,
-      );
-    });
-
-    it('should redirect to root when market is invalid and path is just prefix', () => {
-      const event = createValidationEvent('/xx/sv/', {
-        localeMarket: { market: 'xx', locale: 'sv' },
-      });
-      handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/se/sv/', 302);
-    });
-
-    it('should preserve query string in redirect when market is invalid', () => {
-      const event = createValidationEvent('/xx/sv/foder?page=2', {
-        localeMarket: { market: 'xx', locale: 'sv' },
-      });
-      handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(
-        event,
-        '/se/sv/foder?page=2',
-        302,
-      );
-    });
-  });
-
-  describe('invalid locale redirect', () => {
-    it('should redirect to default locale when locale is invalid but market is valid', () => {
-      const event = createValidationEvent('/se/xx/foder', {
-        localeMarket: { market: 'se', locale: 'xx' },
-      });
-      handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/se/sv/foder', 302);
-    });
-
-    it('should redirect preserving nested path when locale is invalid', () => {
-      const event = createValidationEvent('/no/zz/p/category/product', {
-        localeMarket: { market: 'no', locale: 'zz' },
-      });
-      handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(
-        event,
-        '/no/sv/p/category/product',
-        302,
-      );
-    });
-
-    it('should redirect to root when locale is invalid and path is just prefix', () => {
-      const event = createValidationEvent('/dk/xx/', {
-        localeMarket: { market: 'dk', locale: 'xx' },
-      });
-      handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/dk/sv/', 302);
-    });
-  });
-
-  describe('both invalid redirect', () => {
-    it('should redirect to defaults when both market and locale are invalid', () => {
-      const event = createValidationEvent('/xx/yy/some-page', {
-        localeMarket: { market: 'xx', locale: 'yy' },
-      });
-      handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(
-        event,
-        '/se/sv/some-page',
-        302,
-      );
-    });
-  });
-
-  describe('tenant with different locale set', () => {
-    it('should validate against tenant-specific locales', () => {
-      const event = createValidationEvent('/se/en/foder', {
-        localeMarket: { market: 'se', locale: 'en' },
-        availableLocales: ['sv-SE'],
-        availableMarkets: ['se'],
-        defaultLocale: 'sv-SE',
-      });
-      handler(event);
-
-      // 'en' is not in tenant's available locales, should redirect to default 'sv'
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/se/sv/foder', 302);
-    });
-
-    it('should accept locale when tenant has it configured', () => {
-      const event = createValidationEvent('/se/fi/foder', {
-        localeMarket: { market: 'se', locale: 'fi' },
-        availableLocales: ['sv-SE', 'fi-FI', 'en-US'],
-        availableMarkets: ['se', 'fi'],
-      });
-      handler(event);
-
-      expect(mockSendRedirect).not.toHaveBeenCalled();
-    });
-
-    it('should validate market against tenant-specific markets', () => {
-      const event = createValidationEvent('/dk/sv/foder', {
-        localeMarket: { market: 'dk', locale: 'sv' },
-        availableMarkets: ['se', 'no'],
-        defaultMarket: 'se',
-      });
-      handler(event);
-
-      // 'dk' is not in available markets, should redirect
-      expect(mockSendRedirect).toHaveBeenCalledWith(event, '/se/sv/foder', 302);
-    });
-  });
-
-  describe('no locale/market context (unprefixed URL)', () => {
-    it('should pass through when no localeMarket in context', () => {
-      const event = createValidationEvent('/foder');
-      handler(event);
-
-      expect(mockSendRedirect).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('no tenant config', () => {
-    it('should pass through when tenant config is unavailable', () => {
-      const event = createValidationEvent('/se/sv/foder', {
-        localeMarket: { market: 'se', locale: 'sv' },
-        noTenant: true,
-      });
-      handler(event);
-
-      // Can't validate without tenant config, trust the values
-      expect(mockSendRedirect).not.toHaveBeenCalled();
-    });
+    expect(mockSendRedirect).not.toHaveBeenCalled();
   });
 });
