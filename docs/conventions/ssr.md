@@ -212,19 +212,38 @@ const saved = localStorage.getItem('preference'); // crashes on SSR
 
 ### Architecture
 
-Locale resolution is a multi-step server-side pipeline. The order matters.
+Locale resolution is a 3-step server-side pipeline. The order matters.
 
-1. **Nitro Plugin 00** (`server/plugins/00.locale.ts`) — parses the URL, sets the locale cookie, and redirects `/` to the default locale path. Fallback locale comes from `process.env.GEINS_LOCALE`, not a hardcoded value.
-2. **Nitro Plugin 01** (`server/plugins/01.tenant.ts`) — resolves the tenant. Needs the locale cookie already set by plugin 00.
-3. **Validation middleware** — corrects invalid locale/market combinations after tenant resolution. This is the only other place that may write the locale cookie.
-4. **Client middleware** (`middleware/locale.ts`) — syncs the Nuxt i18n locale state from the URL on every client-side navigation.
+1. **Nitro Plugin 00** (`server/plugins/00.locale-market.ts`) — parses the URL, sets locale/market cookies, and redirects `/` to the default locale path. Stores raw `{ market, locale }` in `event.context.localeMarket`. Fallback locale comes from `process.env.GEINS_LOCALE`, not a hardcoded value.
+2. **Nitro Plugin 01** (`server/plugins/01.tenant-context.ts`) — resolves the tenant (needs cookies from plugin 00), validates the locale/market combination against tenant config, stores a validated `ResolvedLocaleMarket` in `event.context.resolvedLocaleMarket`, and redirects if a correction is needed. This is the only layer that may rewrite the locale/market cookies.
+3. **Client middleware** (`middleware/locale.ts`) — syncs the Nuxt i18n locale state from the URL on every client-side navigation.
+
+### ResolvedLocaleMarket
+
+Plugin 01 produces a single, validated `ResolvedLocaleMarket` object:
+
+```typescript
+interface ResolvedLocaleMarket {
+  market: string; // e.g. "SE"
+  locale: string; // short code, e.g. "sv"
+  localeBcp47: string; // BCP-47, e.g. "sv-SE"
+}
+```
+
+Server utilities read from `event.context.resolvedLocaleMarket`:
+
+- `getRequestLocale(event)` — returns `resolvedLocaleMarket.locale` (short code)
+- `getRequestMarket(event)` — returns `resolvedLocaleMarket.market`
+- `buildCachePrefix(event)` — uses both fields for cache key construction
+
+API routes (e.g. `/api/...`) run outside the plugin 01 request hook, so `resolvedLocaleMarket` may not be set. These routes fall back to reading the locale/market cookies directly.
 
 ### Locale codes: short vs. BCP-47
 
-The locale cookie and all URL segments use **short codes** (`sv`, `en`). GraphQL requires **BCP-47 tags** (`sv-SE`, `en-GB`). Expansion happens at the API boundary only:
+URL segments and cookies use **short codes** (`sv`, `en`). GraphQL requires **BCP-47 tags** (`sv-SE`, `en-GB`). Expansion happens at the API boundary only:
 
-- `getRequestLocale()` — reads the cookie and returns the short code for internal routing.
-- `ensureBcp47Locale()` in `server/utils/_sdk.ts` — expands short codes before any GraphQL call. This is the **gatekeeper**. No short code ever reaches GraphQL.
+- `resolvedLocaleMarket.localeBcp47` — the preferred BCP-47 source for page requests (already expanded by plugin 01).
+- `ensureBcp47Locale()` in `server/utils/_sdk.ts` — safety net for API routes where `resolvedLocaleMarket` is not set. Expands short codes before any GraphQL call.
 - `getChannelVariables()` calls `ensureBcp47Locale()` internally — use it whenever building SDK channel variables.
 
 To add a new locale, add it to `SupportedLocale` in `shared/utils/locale-market.ts`. Never add new locales as hardcoded string casts elsewhere.
