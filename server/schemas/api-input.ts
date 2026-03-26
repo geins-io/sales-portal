@@ -139,6 +139,11 @@ export const CartIdSchema = z.object({
 });
 export type CartIdInput = z.infer<typeof CartIdSchema>;
 
+export const CartGetSchema = z.object({
+  cartId: z.string().min(1).optional(),
+});
+export type CartGetInput = z.infer<typeof CartGetSchema>;
+
 export const CartAddItemSchema = z.object({
   cartId: z.string().min(1),
   skuId: z.number(),

@@ -105,14 +105,16 @@ describe('Cart API Routes', () => {
       await expect(handler(mockEvent)).rejects.toThrow('Cart not found');
     });
 
-    it('throws on invalid query (missing cartId)', async () => {
+    it('returns null when cartId is absent (first-visit users)', async () => {
       const getQueryMock = vi.mocked(getQuery);
       getQueryMock.mockReturnValue({});
 
       const handler = (await import('../../../server/api/cart/index.get'))
         .default;
+      const result = await handler(mockEvent);
 
-      await expect(handler(mockEvent)).rejects.toThrow();
+      expect(result).toBeNull();
+      expect(mockCartGet).not.toHaveBeenCalled();
     });
   });
 
