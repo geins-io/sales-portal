@@ -386,16 +386,14 @@ describe('useCheckoutStore', () => {
         method: 'POST',
         body: {
           cartId: 'cart-abc',
-          checkoutOptions: {
-            email: 'order@example.com',
-            paymentId: 2,
-            shippingId: 10,
-            message: 'Leave at door',
-            acceptedConsents: ['terms'],
-            billingAddress: mockAddress,
-            shippingAddress: mockAddress,
-            identityNumber: '',
-          },
+          email: 'order@example.com',
+          paymentId: 2,
+          shippingId: 10,
+          message: 'Leave at door',
+          acceptedConsents: ['terms'],
+          billingAddress: mockAddress,
+          shippingAddress: mockAddress,
+          identityNumber: undefined,
         },
       });
     });
@@ -423,8 +421,8 @@ describe('useCheckoutStore', () => {
       await store.placeOrder('cart-abc');
 
       const callBody = mockFetchImpl.mock.calls[0][1].body;
-      expect(callBody.checkoutOptions.shippingAddress).toEqual(separateAddress);
-      expect(callBody.checkoutOptions.billingAddress).toEqual(mockAddress);
+      expect(callBody.shippingAddress).toEqual(separateAddress);
+      expect(callBody.billingAddress).toEqual(mockAddress);
     });
 
     it('sets orderResult on success', async () => {

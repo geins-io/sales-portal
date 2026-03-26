@@ -1,5 +1,6 @@
 /**
  * Hosted checkout base URL.
- * The checkout token endpoint appends `?token=<token>&cartId=<cartId>` to this base.
+ * The token endpoint returns `{HOSTED_CHECKOUT_BASE_URL}/{token}`.
  */
-export const HOSTED_CHECKOUT_BASE_URL = 'https://checkout.geins.io' as const;
+export const HOSTED_CHECKOUT_BASE_URL =
+  'https://checkout.geins.services' as const;
