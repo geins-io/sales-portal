@@ -22,31 +22,13 @@ interface CreateEventOptions {
   };
 }
 
-function createEvent(
-  tenantConfigOrOptions?: Record<string, unknown> | CreateEventOptions,
-): H3Event {
-  // Support both old signature (tenantConfig object) and new options object
-  let tenantConfig: Record<string, unknown> | undefined;
-  let resolvedLocaleMarket: CreateEventOptions['resolvedLocaleMarket'];
-
-  if (
-    tenantConfigOrOptions &&
-    ('tenantConfig' in tenantConfigOrOptions ||
-      'resolvedLocaleMarket' in tenantConfigOrOptions)
-  ) {
-    const opts = tenantConfigOrOptions as CreateEventOptions;
-    tenantConfig = opts.tenantConfig;
-    resolvedLocaleMarket = opts.resolvedLocaleMarket;
-  } else {
-    tenantConfig = tenantConfigOrOptions as Record<string, unknown> | undefined;
-  }
-
+function createEvent(options?: CreateEventOptions): H3Event {
   return {
     context: {
-      tenant: tenantConfig
-        ? { config: { geinsSettings: tenantConfig } }
+      tenant: options?.tenantConfig
+        ? { config: { geinsSettings: options.tenantConfig } }
         : undefined,
-      resolvedLocaleMarket: resolvedLocaleMarket ?? undefined,
+      resolvedLocaleMarket: options?.resolvedLocaleMarket,
     },
   } as unknown as H3Event;
 }
@@ -90,7 +72,9 @@ describe('server/utils/locale', () => {
     });
 
     it('should expand short locale to BCP-47 using tenant config', () => {
-      const event = createEvent({ availableLocales: ['sv-SE', 'en-US'] });
+      const event = createEvent({
+        tenantConfig: { availableLocales: ['sv-SE', 'en-US'] },
+      });
       mockGetCookie.mockReturnValue('sv');
 
       expect(getRequestLocale(event)).toBe('sv-SE');
@@ -142,14 +126,6 @@ describe('server/utils/locale', () => {
     });
 
     it('should fall back to cookie when resolvedLocaleMarket is absent', () => {
-      const event = createEvent();
-      mockGetCookie.mockReturnValue('no');
-
-      expect(getRequestMarket(event)).toBe('no');
-      expect(mockGetCookie).toHaveBeenCalledWith(event, 'market');
-    });
-
-    it('should return market from market cookie', () => {
       const event = createEvent();
       mockGetCookie.mockReturnValue('no');
 
