@@ -182,16 +182,17 @@ export const useCheckoutStore = defineStore('checkout', () => {
           method: 'POST',
           body: {
             cartId,
-            checkoutOptions: {
-              email: email.value,
-              paymentId: selectedPaymentId.value,
-              shippingId: selectedShippingId.value,
-              message: message.value,
-              acceptedConsents: acceptedConsents.value,
-              billingAddress: billingAddress.value,
-              shippingAddress: effectiveShippingAddress.value,
-              identityNumber: identityNumber.value,
-            },
+            email: email.value,
+            paymentId: selectedPaymentId.value,
+            shippingId: selectedShippingId.value,
+            message: message.value || undefined,
+            acceptedConsents:
+              acceptedConsents.value.length > 0
+                ? acceptedConsents.value
+                : undefined,
+            billingAddress: billingAddress.value,
+            shippingAddress: effectiveShippingAddress.value,
+            identityNumber: identityNumber.value || undefined,
           },
         },
       );
