@@ -70,7 +70,7 @@ export function resolveLocaleMarket(
   const resolvedMarket = marketValid ? parsed.market : defaultMarket;
   const resolvedLocale = localeValid
     ? parsed.locale
-    : defaultLocale.split('-')[0]!;
+    : (defaultLocale.split('-')[0] ?? defaultLocale);
 
   // Expand short locale to BCP-47 by finding the match in availableLocales
   let localeBcp47 = defaultLocale;

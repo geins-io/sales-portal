@@ -62,9 +62,7 @@ export default defineNitroPlugin((nitroApp) => {
 
       // Validate locale/market from plugin 00 against tenant config.
       // Only runs when a locale/market prefix was detected and tenant has geinsSettings.
-      const localeMarket = event.context.localeMarket as
-        | { market: string; locale: string }
-        | undefined;
+      const localeMarket = event.context.localeMarket;
 
       if (localeMarket && tenant.geinsSettings) {
         const { resolved, corrected } = resolveLocaleMarket(localeMarket, {

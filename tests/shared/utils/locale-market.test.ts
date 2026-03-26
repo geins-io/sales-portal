@@ -249,4 +249,30 @@ describe('resolveLocaleMarket', () => {
     );
     expect(result.resolved.localeBcp47).toBe('sv-SE');
   });
+
+  it('en matches en-US when en-US appears before en-GB in availableLocales (first match wins)', () => {
+    const result = resolveLocaleMarket(
+      { market: 'se', locale: 'en' },
+      {
+        ...defaultConfig,
+        availableLocales: ['sv-SE', 'en-US', 'en-GB'],
+      },
+    );
+    expect(result.corrected).toBe(false);
+    expect(result.resolved.locale).toBe('en');
+    expect(result.resolved.localeBcp47).toBe('en-US');
+  });
+
+  it('en matches en-GB when en-GB appears before en-US in availableLocales (first match wins)', () => {
+    const result = resolveLocaleMarket(
+      { market: 'se', locale: 'en' },
+      {
+        ...defaultConfig,
+        availableLocales: ['sv-SE', 'en-GB', 'en-US'],
+      },
+    );
+    expect(result.corrected).toBe(false);
+    expect(result.resolved.locale).toBe('en');
+    expect(result.resolved.localeBcp47).toBe('en-GB');
+  });
 });
