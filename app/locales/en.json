@@ -152,7 +152,10 @@
     "cart_empty": "Your cart is empty.",
     "amount_left_free_shipping": "{amount} left for free shipping",
     "items_count": "{count} item | {count} items",
-    "back_to_store": "Back to store"
+    "back_to_store": "Back to store",
+    "redirecting": "Redirecting to checkout…",
+    "redirect_error": "Failed to start checkout. Please try again.",
+    "retry": "Try again"
   },
   "order_confirmation": {
     "title": "Order Confirmation",

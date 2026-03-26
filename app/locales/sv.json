@@ -152,7 +152,10 @@
     "cart_empty": "Din varukorg är tom.",
     "amount_left_free_shipping": "{amount} kvar till fri frakt",
     "items_count": "{count} vara | {count} varor",
-    "back_to_store": "Tillbaka till butiken"
+    "back_to_store": "Tillbaka till butiken",
+    "redirecting": "Omdirigerar till kassan…",
+    "redirect_error": "Det gick inte att starta kassan. Försök igen.",
+    "retry": "Försök igen"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",
