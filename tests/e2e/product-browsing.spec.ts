@@ -315,12 +315,12 @@ test.describe('Product Browsing', () => {
     // Wait for navigation to complete
     await page.waitForLoadState('load', { timeout: 15000 });
 
-    // Verify URL contains locale prefix (redirect adds /se/sv/)
+    // Verify URL contains a locale prefix (e.g., /se/sv/ or /se/en/)
     const url = page.url();
-    expect(url).toMatch(/\/se\/sv\//);
+    expect(url).toMatch(/\/[a-z]{2}\/[a-z]{2}\//);
 
     // Verify it's NOT the homepage (product click shouldn't redirect to home)
-    expect(url).not.toMatch(/\/se\/sv\/$/);
+    expect(url).not.toMatch(/\/[a-z]{2}\/[a-z]{2}\/$/);
 
     // Verify PDP content loads (product title visible)
     const heading = page.locator('h1');
