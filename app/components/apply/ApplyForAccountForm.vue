@@ -132,87 +132,91 @@ async function handleSubmit() {
       {{ t(errorMessage) }}
     </div>
 
-    <!-- Company name -->
-    <div class="space-y-2">
-      <Label for="apply-company-name">{{ t('apply.company_name') }}</Label>
-      <Input
-        id="apply-company-name"
-        v-model="formData.companyName"
-        type="text"
-        autocomplete="organization"
-        :disabled="isLoading"
-        data-testid="apply-company-name"
-        @blur="handleBlur('companyName')"
-      />
-      <p
-        v-if="touched.companyName && fieldErrors.companyName"
-        class="text-destructive text-xs"
-        data-testid="apply-company-name-error"
-      >
-        {{ t(fieldErrors.companyName) }}
-      </p>
+    <!-- Company name + Organization number -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div class="space-y-2">
+        <Label for="apply-company-name">{{ t('apply.company_name') }}</Label>
+        <Input
+          id="apply-company-name"
+          v-model="formData.companyName"
+          type="text"
+          autocomplete="organization"
+          :disabled="isLoading"
+          data-testid="apply-company-name"
+          @blur="handleBlur('companyName')"
+        />
+        <p
+          v-if="touched.companyName && fieldErrors.companyName"
+          class="text-destructive text-xs"
+          data-testid="apply-company-name-error"
+        >
+          {{ t(fieldErrors.companyName) }}
+        </p>
+      </div>
+
+      <div class="space-y-2">
+        <Label for="apply-org-number">{{
+          t('apply.organization_number')
+        }}</Label>
+        <Input
+          id="apply-org-number"
+          v-model="formData.organizationNumber"
+          type="text"
+          :disabled="isLoading"
+          data-testid="apply-org-number"
+          @blur="handleBlur('organizationNumber')"
+        />
+        <p
+          v-if="touched.organizationNumber && fieldErrors.organizationNumber"
+          class="text-destructive text-xs"
+          data-testid="apply-org-number-error"
+        >
+          {{ t(fieldErrors.organizationNumber) }}
+        </p>
+      </div>
     </div>
 
-    <!-- Organization number -->
-    <div class="space-y-2">
-      <Label for="apply-org-number">{{ t('apply.organization_number') }}</Label>
-      <Input
-        id="apply-org-number"
-        v-model="formData.organizationNumber"
-        type="text"
-        :disabled="isLoading"
-        data-testid="apply-org-number"
-        @blur="handleBlur('organizationNumber')"
-      />
-      <p
-        v-if="touched.organizationNumber && fieldErrors.organizationNumber"
-        class="text-destructive text-xs"
-        data-testid="apply-org-number-error"
-      >
-        {{ t(fieldErrors.organizationNumber) }}
-      </p>
-    </div>
+    <!-- First name + Last name -->
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div class="space-y-2">
+        <Label for="apply-first-name">{{ t('apply.first_name') }}</Label>
+        <Input
+          id="apply-first-name"
+          v-model="formData.firstName"
+          type="text"
+          autocomplete="given-name"
+          :disabled="isLoading"
+          data-testid="apply-first-name"
+          @blur="handleBlur('firstName')"
+        />
+        <p
+          v-if="touched.firstName && fieldErrors.firstName"
+          class="text-destructive text-xs"
+          data-testid="apply-first-name-error"
+        >
+          {{ t(fieldErrors.firstName) }}
+        </p>
+      </div>
 
-    <!-- First name -->
-    <div class="space-y-2">
-      <Label for="apply-first-name">{{ t('apply.first_name') }}</Label>
-      <Input
-        id="apply-first-name"
-        v-model="formData.firstName"
-        type="text"
-        autocomplete="given-name"
-        :disabled="isLoading"
-        data-testid="apply-first-name"
-        @blur="handleBlur('firstName')"
-      />
-      <p
-        v-if="touched.firstName && fieldErrors.firstName"
-        class="text-destructive text-xs"
-        data-testid="apply-first-name-error"
-      >
-        {{ t(fieldErrors.firstName) }}
-      </p>
-    </div>
-
-    <!-- Last name -->
-    <div class="space-y-2">
-      <Label for="apply-last-name">{{ t('apply.last_name') }}</Label>
-      <Input
-        id="apply-last-name"
-        v-model="formData.lastName"
-        type="text"
-        autocomplete="family-name"
-        :disabled="isLoading"
-        data-testid="apply-last-name"
-        @blur="handleBlur('lastName')"
-      />
-      <p
-        v-if="touched.lastName && fieldErrors.lastName"
-        class="text-destructive text-xs"
-        data-testid="apply-last-name-error"
-      >
-        {{ t(fieldErrors.lastName) }}
-      </p>
+      <div class="space-y-2">
+        <Label for="apply-last-name">{{ t('apply.last_name') }}</Label>
+        <Input
+          id="apply-last-name"
+          v-model="formData.lastName"
+          type="text"
+          autocomplete="family-name"
+          :disabled="isLoading"
+          data-testid="apply-last-name"
+          @blur="handleBlur('lastName')"
+        />
+        <p
+          v-if="touched.lastName && fieldErrors.lastName"
+          class="text-destructive text-xs"
+          data-testid="apply-last-name-error"
+        >
+          {{ t(fieldErrors.lastName) }}
+        </p>
+      </div>
     </div>
 
     <!-- Email -->
