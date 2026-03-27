@@ -23,11 +23,19 @@ const visibleGroups = computed(() =>
   (props.product.parameterGroups ?? [])
     .map((g) => ({
       ...g,
-      parameters: (g.parameters ?? []).filter((p) => p.show !== false),
+      parameters: (g.parameters ?? []).filter(
+        (p) => (p.name || p.label) && p.value != null,
+      ),
     }))
     .filter((g) => g.parameters.length > 0),
 );
 const hasSpecs = computed(() => visibleGroups.value.length > 0);
+
+const defaultTab = computed(() => {
+  if (hasDescription.value) return 'description';
+  if (hasSpecs.value) return 'specifications';
+  return 'documents';
+});
 
 const reviewsLoaded = ref(false);
 
@@ -58,7 +66,7 @@ function onAccordionChange(value: string | string[] | undefined) {
     <!-- Desktop: Tabs (hidden below md via CSS to avoid SSR/client flash) -->
     <Tabs
       class="hidden md:block"
-      default-value="description"
+      :default-value="defaultTab"
       @update:model-value="onTabChange"
     >
       <TabsList variant="underline">

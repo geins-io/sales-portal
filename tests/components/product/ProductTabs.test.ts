@@ -98,10 +98,16 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
             identifier: 'height',
           },
           {
-            name: 'Hidden Param',
-            value: 'secret',
+            name: 'Produkttyp',
+            value: 'Elektronik',
             show: false,
-            identifier: 'hidden',
+            identifier: 'produkttyp',
+          },
+          {
+            name: '',
+            value: null,
+            show: true,
+            identifier: 'empty',
           },
         ],
       },
@@ -141,7 +147,7 @@ describe('ProductTabs', () => {
     expect(descContent.html()).toContain('Product description here');
   });
 
-  it('renders specification table with group name and filters hidden params', () => {
+  it('renders specification table with group name and shows all params with name and value', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: {
         product: makeProduct(),
@@ -156,8 +162,11 @@ describe('ProductTabs', () => {
     expect(specContent.text()).toContain('Dimensions');
     expect(specContent.text()).toContain('Weight');
     expect(specContent.text()).toContain('500g');
-    expect(specContent.text()).not.toContain('Hidden Param');
-    expect(specContent.text()).not.toContain('secret');
+    // show:false params are now visible if they have name and value
+    expect(specContent.text()).toContain('Produkttyp');
+    expect(specContent.text()).toContain('Elektronik');
+    // params without name or null value are filtered out
+    expect(specContent.text()).not.toContain('empty');
   });
 
   it('hides description tab when no text', () => {
@@ -172,6 +181,28 @@ describe('ProductTabs', () => {
     const triggers = wrapper.findAll('.tabs-trigger');
     const labels = triggers.map((t) => t.text());
     expect(labels).not.toContain('product.details');
+  });
+
+  it('defaults to specifications tab when product has no description', () => {
+    const localStubs = {
+      ...stubs,
+      Tabs: {
+        template:
+          '<div class="tabs" data-testid="tabs" :data-default-value="defaultValue"><slot /></div>',
+        props: ['defaultValue'],
+        emits: ['update:modelValue'],
+      },
+    };
+    const wrapper = mountComponent(ProductTabs, {
+      props: {
+        product: makeProduct({ texts: undefined }),
+        reviews: null,
+        reviewsLoading: false,
+      },
+      global: { stubs: localStubs },
+    });
+    const tabs = wrapper.find('[data-testid="tabs"]');
+    expect(tabs.attributes('data-default-value')).toBe('specifications');
   });
 
   it('shows loading state when reviews loading', () => {
