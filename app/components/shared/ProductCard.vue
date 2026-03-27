@@ -90,8 +90,14 @@ async function addToCart() {
           type="product"
           :alt="product.name || ''"
           loading="lazy"
-          class="size-full object-cover transition-transform group-hover:scale-105"
+          class="size-full object-contain transition-transform group-hover:scale-105"
         />
+        <div
+          v-else
+          class="text-muted-foreground flex size-full items-center justify-center text-xs"
+        >
+          {{ $t('product.no_image') }}
+        </div>
       </NuxtLink>
       <!-- Campaign badges -->
       <div

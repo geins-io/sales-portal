@@ -230,7 +230,8 @@
     "in_stock": "In stock",
     "low_stock": "Low stock",
     "out_of_stock": "Out of stock",
-    "on_demand": "On demand"
+    "on_demand": "On demand",
+    "no_image": "No image available"
   },
   "account": {
     "my_account": "My Account",
