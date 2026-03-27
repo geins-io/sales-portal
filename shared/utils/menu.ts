@@ -12,15 +12,18 @@ import type { MenuItemType } from '../types/cms';
  */
 export function stripGeinsPrefix(path: string): string {
   // Match: /xx/xx-yy/ or /xx/xx/ prefix (market + locale)
+  // Type indicator is a SINGLE char followed by / (e.g., /l/epoxi, /p/product).
+  // Without the lookahead, /se/en/materials would match 'm' as type indicator
+  // and return '/aterials' — stripping the first letter of the actual path.
   const prefixMatch = path.match(
-    /^\/[a-z]{2}\/[a-z]{2}(?:-[a-z]{2})?(?:\/([a-z]))?(\/.*)$/i,
+    /^\/[a-z]{2}\/[a-z]{2}(?:-[a-z]{2})?(?:\/([a-z])(?=\/))?(\/.*)$/i,
   );
   if (!prefixMatch) return path;
 
-  const typeIndicator = prefixMatch[1]; // 'l', 'p', 'b', etc.
+  const typeIndicator = prefixMatch[1]; // 'l', 'p', 'b', etc. (only if followed by /)
   const remainder = prefixMatch[2]!; // '/epoxi' or '/cat/product'
 
-  // If there's a single-char type indicator, strip it (it's already consumed by the regex)
+  // If there's a single-char type indicator, strip it (already consumed by the regex)
   if (typeIndicator) return remainder;
 
   // No type indicator — just market/locale prefix

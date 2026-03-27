@@ -22,7 +22,6 @@ vi.mock('../../../../server/services/_sdk', () => ({
   getRequestChannelVariables: vi
     .fn()
     .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
-  buildRequestContext: vi.fn().mockReturnValue({}),
 }));
 
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
@@ -87,15 +86,12 @@ describe('GET /api/cms/menu', () => {
       .default;
     const result = await handler(mockEvent);
 
-    expect(mockMenuGet).toHaveBeenCalledWith(
-      {
-        menuLocationId: 'main-menu',
-        channelId: '1',
-        languageId: 'sv-SE',
-        marketId: 'se',
-      },
-      {},
-    );
+    expect(mockMenuGet).toHaveBeenCalledWith({
+      menuLocationId: 'main-menu',
+      channelId: '1',
+      languageId: 'sv-SE',
+      marketId: 'se',
+    });
     expect(result).toEqual(mockMenuData);
   });
 
@@ -111,15 +107,12 @@ describe('GET /api/cms/menu', () => {
       .default;
     await handler(mockEvent);
 
-    expect(mockMenuGet).toHaveBeenCalledWith(
-      {
-        menuLocationId: 'footer-menu',
-        channelId: '1',
-        languageId: 'sv-SE',
-        marketId: 'se',
-      },
-      {},
-    );
+    expect(mockMenuGet).toHaveBeenCalledWith({
+      menuLocationId: 'footer-menu',
+      channelId: '1',
+      languageId: 'sv-SE',
+      marketId: 'se',
+    });
   });
 
   it('throws when SDK rejects', async () => {

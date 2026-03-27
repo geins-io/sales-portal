@@ -31,6 +31,32 @@ describe('stripGeinsPrefix', () => {
     expect(stripGeinsPrefix('/about-us')).toBe('/about-us');
     expect(stripGeinsPrefix('/epoxi')).toBe('/epoxi');
   });
+
+  it('does NOT strip first letter of multi-char path segments', () => {
+    // Regression: /se/en/materials was returning /aterials because 'm'
+    // matched the single-char type indicator pattern (meant for /l/, /p/, /b/)
+    expect(stripGeinsPrefix('/se/en/materials')).toBe('/materials');
+    expect(stripGeinsPrefix('/se/en/equipment/compressors-1')).toBe(
+      '/equipment/compressors-1',
+    );
+    expect(stripGeinsPrefix('/se/sv/kompressorer')).toBe('/kompressorer');
+    expect(stripGeinsPrefix('/se/en/contact')).toBe('/contact');
+  });
+
+  it('preserves nested paths after stripping prefix', () => {
+    expect(stripGeinsPrefix('/se/en/materials/branch-pipes')).toBe(
+      '/materials/branch-pipes',
+    );
+    expect(stripGeinsPrefix('/se/en/safety-misc/protective-equipment')).toBe(
+      '/safety-misc/protective-equipment',
+    );
+  });
+
+  it('still strips single-char type indicators correctly', () => {
+    expect(stripGeinsPrefix('/se/sv/l/epoxi')).toBe('/epoxi');
+    expect(stripGeinsPrefix('/se/sv/p/cat/product')).toBe('/cat/product');
+    expect(stripGeinsPrefix('/se/sv/b/our-company')).toBe('/our-company');
+  });
 });
 
 describe('normalizeMenuUrl', () => {
