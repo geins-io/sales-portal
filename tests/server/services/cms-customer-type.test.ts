@@ -26,6 +26,7 @@ vi.mock('../../../server/services/_sdk', () => ({
     },
   }),
   getRequestChannelVariables: vi.fn().mockReturnValue(channelVars),
+  buildRequestContext: vi.fn().mockReturnValue({}),
 }));
 
 const getPreviewCookieMock = vi.fn().mockReturnValue(false);
@@ -50,20 +51,26 @@ describe('CMS service customerType threading', () => {
         mockEvent,
       );
 
-      expect(mockPageGet).toHaveBeenCalledWith({
-        alias: '/about',
-        ...channelVars,
-        customerType: GeinsCustomerType.OrganizationType,
-      });
+      expect(mockPageGet).toHaveBeenCalledWith(
+        {
+          alias: '/about',
+          ...channelVars,
+          customerType: GeinsCustomerType.OrganizationType,
+        },
+        {},
+      );
     });
 
     it('omits customerType when undefined', async () => {
       await getPage({ alias: '/about' }, mockEvent);
 
-      expect(mockPageGet).toHaveBeenCalledWith({
-        alias: '/about',
-        ...channelVars,
-      });
+      expect(mockPageGet).toHaveBeenCalledWith(
+        {
+          alias: '/about',
+          ...channelVars,
+        },
+        {},
+      );
     });
 
     it('passes both customerType and preview when both are active', async () => {
@@ -73,12 +80,15 @@ describe('CMS service customerType threading', () => {
         mockEvent,
       );
 
-      expect(mockPageGet).toHaveBeenCalledWith({
-        alias: '/about',
-        ...channelVars,
-        preview: true,
-        customerType: GeinsCustomerType.PersonType,
-      });
+      expect(mockPageGet).toHaveBeenCalledWith(
+        {
+          alias: '/about',
+          ...channelVars,
+          preview: true,
+          customerType: GeinsCustomerType.PersonType,
+        },
+        {},
+      );
     });
   });
 
@@ -93,12 +103,15 @@ describe('CMS service customerType threading', () => {
         mockEvent,
       );
 
-      expect(mockAreaGet).toHaveBeenCalledWith({
-        family: 'StartPage',
-        areaName: 'Hero',
-        ...channelVars,
-        customerType: GeinsCustomerType.PersonType,
-      });
+      expect(mockAreaGet).toHaveBeenCalledWith(
+        {
+          family: 'StartPage',
+          areaName: 'Hero',
+          ...channelVars,
+          customerType: GeinsCustomerType.PersonType,
+        },
+        {},
+      );
     });
 
     it('omits customerType when undefined', async () => {
@@ -107,11 +120,14 @@ describe('CMS service customerType threading', () => {
         mockEvent,
       );
 
-      expect(mockAreaGet).toHaveBeenCalledWith({
-        family: 'StartPage',
-        areaName: 'Hero',
-        ...channelVars,
-      });
+      expect(mockAreaGet).toHaveBeenCalledWith(
+        {
+          family: 'StartPage',
+          areaName: 'Hero',
+          ...channelVars,
+        },
+        {},
+      );
     });
   });
 
@@ -119,10 +135,13 @@ describe('CMS service customerType threading', () => {
     it('does not accept customerType parameter', async () => {
       await getMenu({ menuLocationId: 'main' }, mockEvent);
 
-      expect(mockMenuGet).toHaveBeenCalledWith({
-        menuLocationId: 'main',
-        ...channelVars,
-      });
+      expect(mockMenuGet).toHaveBeenCalledWith(
+        {
+          menuLocationId: 'main',
+          ...channelVars,
+        },
+        {},
+      );
     });
   });
 });

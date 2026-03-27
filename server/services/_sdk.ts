@@ -3,7 +3,10 @@ import { GeinsCRM } from '@geins/crm';
 import { GeinsCMS } from '@geins/cms';
 import { GeinsOMS } from '@geins/oms';
 import { RuntimeContext } from '@geins/types';
-import type { GeinsSettings as SdkGeinsSettings } from '@geins/types';
+import type {
+  GeinsSettings as SdkGeinsSettings,
+  RequestContext,
+} from '@geins/types';
 import type { H3Event } from 'h3';
 import type { GeinsSettings as TenantGeinsSettings } from '#shared/types/tenant-config';
 
@@ -57,19 +60,12 @@ export function clearSdkCache(tenantId: string): void {
  * Creates a Geins SDK instance from tenant Geins settings.
  */
 export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
-  // Use the first availableLocale as the SDK default instead of the admin's
-  // configured default (geinsSettings.locale). The admin might set en-US as
-  // default but products are only configured for sv-SE, causing cart/order
-  // operations to fail with the wrong languageId.
-  const effectiveLocale =
-    geinsSettings.availableLocales?.[0] ?? geinsSettings.locale;
-
   const sdkSettings: SdkGeinsSettings = {
     apiKey: geinsSettings.apiKey,
     accountName: geinsSettings.accountName,
     channel: geinsSettings.channel,
     tld: geinsSettings.tld,
-    locale: effectiveLocale,
+    locale: geinsSettings.locale,
     market: geinsSettings.market,
     environment: mapEnvironment(geinsSettings.environment),
   };
@@ -175,6 +171,18 @@ export function getRequestChannelVariables(
     getRequestMarket(event),
     tenantConfig?.geinsSettings?.availableLocales,
   );
+}
+
+/**
+ * Builds a RequestContext from the current request's locale and market.
+ * Pass the result to SDK service methods to override the SDK-level defaults
+ * so a single SDK singleton can serve requests in any locale/market.
+ */
+export function buildRequestContext(event: H3Event): RequestContext {
+  return {
+    languageId: getRequestLocale(event),
+    marketId: getRequestMarket(event),
+  };
 }
 
 /**

@@ -21,6 +21,7 @@ vi.mock('../../../server/services/_sdk', () => ({
   getRequestChannelVariables: vi
     .fn()
     .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
+  buildRequestContext: vi.fn().mockReturnValue({}),
 }));
 
 vi.mock('../../../server/services/graphql/loader', () => ({
