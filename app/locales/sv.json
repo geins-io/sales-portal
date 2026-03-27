@@ -300,7 +300,7 @@
     "company_address": "Streetname 1",
     "company_postal": "123 45 City",
     "company_phone": "08-123 456 78",
-    "company_email": "info@example.com"
+    "company_email": "info{'@'}example.com"
   },
   "apply": {
     "title": "Ansök om företagskonto",
