@@ -57,12 +57,19 @@ export function clearSdkCache(tenantId: string): void {
  * Creates a Geins SDK instance from tenant Geins settings.
  */
 export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
+  // Use the first availableLocale as the SDK default instead of the admin's
+  // configured default (geinsSettings.locale). The admin might set en-US as
+  // default but products are only configured for sv-SE, causing cart/order
+  // operations to fail with the wrong languageId.
+  const effectiveLocale =
+    geinsSettings.availableLocales?.[0] ?? geinsSettings.locale;
+
   const sdkSettings: SdkGeinsSettings = {
     apiKey: geinsSettings.apiKey,
     accountName: geinsSettings.accountName,
     channel: geinsSettings.channel,
     tld: geinsSettings.tld,
-    locale: geinsSettings.locale,
+    locale: effectiveLocale,
     market: geinsSettings.market,
     environment: mapEnvironment(geinsSettings.environment),
   };
