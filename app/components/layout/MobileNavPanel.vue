@@ -38,8 +38,8 @@ function isExternal(item: MenuItemType): boolean {
   return isExternalUrl(url, currentHost.value) || !!item.targetBlank;
 }
 
-function linkTag(item: MenuItemType): string {
-  return isExternal(item) ? 'a' : 'NuxtLink';
+function linkTag(item: MenuItemType) {
+  return isExternal(item) ? 'a' : resolveComponent('NuxtLink');
 }
 
 function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
