@@ -207,8 +207,12 @@ test.describe('Product Browsing', () => {
     await filterButton.click();
     await expect(filterSheet).toBeVisible({ timeout: 5000 });
 
-    const clearButton = filterSheet.getByText('Rensa alla');
-    await clearButton.click();
+    const clearButton = filterSheet
+      .locator('button')
+      .filter({ hasText: 'Rensa alla' })
+      .last();
+    await clearButton.scrollIntoViewIfNeeded();
+    await clearButton.click({ force: true });
 
     // Wait for product list to update
     await page
