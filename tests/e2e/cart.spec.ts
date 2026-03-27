@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { discoverProduct, addToCart, waitForHydration } from './helpers';
+import {
+  discoverProduct,
+  discoverCategory,
+  addToCart,
+  waitForHydration,
+} from './helpers';
 
 /**
  * Cart E2E Tests
@@ -125,5 +130,158 @@ test.describe('Cart', () => {
       const hasActivePromo = await promoRemove.isVisible().catch(() => false);
       expect(hasActivePromo).toBe(false);
     }
+  });
+
+  test('should add product from PLP grid add-to-cart button', async ({
+    page,
+  }) => {
+    const category = await discoverCategory(page);
+    await page.goto(`/${category.alias}`);
+
+    // Wait for products to load
+    await expect(
+      page.locator('[data-testid="product-card"]').first(),
+    ).toBeVisible({ timeout: 20000 });
+    await waitForHydration(page);
+
+    // Click the first add-to-cart button on the PLP (grid view shows "Köp", list shows "Lägg i varukorg")
+    const addButton = page
+      .locator('[data-testid="add-to-cart-button"]')
+      .first();
+    if (!(await addButton.isVisible().catch(() => false))) return;
+
+    await addButton.click();
+
+    // Cart drawer should open
+    const drawer = page.locator('[data-testid="cart-drawer"]');
+    await expect(drawer).toBeVisible({ timeout: 10000 });
+
+    // Cart should have at least 1 item
+    const cartItem = drawer.locator('[data-testid="cart-item"]');
+    await expect(cartItem.first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should update quantity in cart drawer', async ({ page }) => {
+    const product = await discoverProduct(page);
+    await addToCart(page, product.alias);
+
+    // Cart drawer is open with the item
+    const drawer = page.locator('[data-testid="cart-drawer"]');
+    await expect(drawer).toBeVisible();
+
+    const cartItem = drawer.locator('[data-testid="cart-item"]').first();
+    await expect(cartItem).toBeVisible({ timeout: 10000 });
+
+    // Find the quantity input within the cart item
+    const quantityInput = cartItem.locator(
+      '[data-testid="quantity-input"] input',
+    );
+
+    // Get initial quantity
+    const initialQty = await quantityInput.inputValue();
+
+    // Click the increment button (NumberFieldIncrement)
+    const incrementButton = cartItem.locator(
+      '[data-testid="quantity-input"] button:last-of-type',
+    );
+    await incrementButton.click();
+
+    // Wait for cart API response
+    await page
+      .waitForResponse(
+        (resp) => resp.url().includes('/api/cart') && resp.status() !== 0,
+        { timeout: 10000 },
+      )
+      .catch(() => {});
+
+    // Verify quantity changed
+    const updatedQty = await quantityInput.inputValue();
+    expect(Number(updatedQty)).toBe(Number(initialQty) + 1);
+  });
+
+  test('should delete item from cart drawer', async ({ page }) => {
+    const product = await discoverProduct(page);
+    await addToCart(page, product.alias);
+
+    // Cart drawer is open with the item
+    const drawer = page.locator('[data-testid="cart-drawer"]');
+    await expect(drawer).toBeVisible();
+    await expect(
+      drawer.locator('[data-testid="cart-item"]').first(),
+    ).toBeVisible({ timeout: 10000 });
+
+    // Click the remove/delete button
+    const removeButton = drawer
+      .locator('[data-testid="cart-item-remove"]')
+      .first();
+    await removeButton.click();
+
+    // Wait for cart API response
+    await page
+      .waitForResponse(
+        (resp) => resp.url().includes('/api/cart') && resp.status() !== 0,
+        { timeout: 10000 },
+      )
+      .catch(() => {});
+
+    // Verify cart shows empty state
+    const emptyState = drawer.locator('[data-testid="cart-empty"]');
+    await expect(emptyState).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should persist cart across category navigation', async ({ page }) => {
+    const product = await discoverProduct(page);
+    await addToCart(page, product.alias);
+
+    // Cart drawer is open — close it
+    const drawer = page.locator('[data-testid="cart-drawer"]');
+    await expect(drawer).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(drawer).not.toBeVisible({ timeout: 5000 });
+
+    // Navigate to a category page (full navigation)
+    const category = await discoverCategory(page);
+    await page.goto(`/${category.alias}`);
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    // Wait for products to load
+    await expect(
+      page.locator('[data-testid="product-card"]').first(),
+    ).toBeVisible({ timeout: 20000 });
+
+    // Verify cart still has items by checking the cart page
+    await page.goto('/cart');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    // Cart should still have items (cookie persists the cartId)
+    const cartItem = page.locator('[data-testid="cart-item"]');
+    await expect(cartItem.first()).toBeVisible({ timeout: 20000 });
+  });
+
+  test('should redirect to login when clicking checkout without auth', async ({
+    page,
+  }) => {
+    const product = await discoverProduct(page);
+    await addToCart(page, product.alias);
+
+    // Cart drawer is open — click checkout
+    const drawer = page.locator('[data-testid="cart-drawer"]');
+    await expect(drawer).toBeVisible();
+
+    const checkoutButton = drawer.locator(
+      '[data-testid="cart-drawer-checkout-button"]',
+    );
+    await expect(checkoutButton).toBeVisible({ timeout: 5000 });
+    await checkoutButton.click();
+
+    // Should redirect to login page with redirect query param
+    await page.waitForURL(/\/login/, { timeout: 15000 });
+
+    expect(page.url()).toContain('/login');
+    // The redirect param should point to checkout
+    expect(page.url()).toContain('redirect=');
+    expect(page.url()).toMatch(/checkout/);
   });
 });

@@ -150,4 +150,216 @@ test.describe('Product Browsing', () => {
       .first();
     await expect(addButton).toBeVisible({ timeout: 15000 });
   });
+
+  test('should filter products by price and return to full list on clear', async ({
+    page,
+  }) => {
+    const category = await discoverCategory(page);
+    await page.goto(`/${category.alias}`);
+
+    // Wait for products to load
+    await expect(
+      page.locator('[data-testid="product-card"]').first(),
+    ).toBeVisible({ timeout: 20000 });
+    await waitForHydration(page);
+
+    const initialCount = await page
+      .locator('[data-testid="product-card"]')
+      .count();
+
+    // Open filter panel
+    const filterButton = page.locator('[data-testid="product-filters"]');
+    if (!(await filterButton.isVisible().catch(() => false))) return;
+
+    await filterButton.click();
+    const filterSheet = page.locator('[role="dialog"]');
+    await expect(filterSheet).toBeVisible({ timeout: 5000 });
+
+    // Find and click a price filter checkbox
+    const checkbox = filterSheet.locator('[role="checkbox"]').first();
+    if (!(await checkbox.isVisible().catch(() => false))) return;
+
+    await checkbox.click();
+
+    // Wait for product list to update via API
+    await page
+      .waitForResponse(
+        (resp) =>
+          resp.url().includes('/api/product-lists/products') &&
+          resp.status() === 200,
+        { timeout: 15000 },
+      )
+      .catch(() => {
+        // Filter may update without a separate API call
+      });
+
+    // Close the filter sheet by pressing Escape
+    await page.keyboard.press('Escape');
+    await expect(filterSheet).not.toBeVisible({ timeout: 5000 });
+
+    // Verify product count changed (may have decreased or stayed the same if filter matches all)
+    const filteredCount = await page
+      .locator('[data-testid="product-card"]')
+      .count();
+    expect(filteredCount).toBeGreaterThan(0);
+
+    // Re-open filter panel and clear all filters
+    await filterButton.click();
+    await expect(filterSheet).toBeVisible({ timeout: 5000 });
+
+    const clearButton = filterSheet.getByText('Rensa alla');
+    await clearButton.click();
+
+    // Wait for product list to update
+    await page
+      .waitForResponse(
+        (resp) =>
+          resp.url().includes('/api/product-lists/products') &&
+          resp.status() === 200,
+        { timeout: 15000 },
+      )
+      .catch(() => {});
+
+    await page.keyboard.press('Escape');
+    await expect(filterSheet).not.toBeVisible({ timeout: 5000 });
+
+    // Verify count returns to original
+    const restoredCount = await page
+      .locator('[data-testid="product-card"]')
+      .count();
+    expect(restoredCount).toBe(initialCount);
+  });
+
+  test('should filter products by text search and clear', async ({ page }) => {
+    const category = await discoverCategory(page);
+    await page.goto(`/${category.alias}`);
+
+    // Wait for products to load
+    await expect(
+      page.locator('[data-testid="product-card"]').first(),
+    ).toBeVisible({ timeout: 20000 });
+    await waitForHydration(page);
+
+    const initialCount = await page
+      .locator('[data-testid="product-card"]')
+      .count();
+
+    // Type in the quick filter input
+    const searchInput = page.getByPlaceholder(
+      'Filtrera på art nr eller produktnamn',
+    );
+    if (!(await searchInput.isVisible().catch(() => false))) return;
+
+    await searchInput.fill('test');
+
+    // Wait for debounce (300ms) + API refetch
+    await page
+      .waitForResponse(
+        (resp) =>
+          resp.url().includes('/api/product-lists/products') &&
+          resp.status() === 200,
+        { timeout: 15000 },
+      )
+      .catch(() => {});
+
+    // Wait a bit for DOM update
+    await page.waitForTimeout(500);
+
+    // Product count should have changed (could be 0 or fewer)
+    const filteredCount = await page
+      .locator('[data-testid="product-card"]')
+      .count();
+    // The search may filter to 0 or fewer products
+    expect(filteredCount).toBeLessThanOrEqual(initialCount);
+
+    // Clear the search input
+    await searchInput.clear();
+
+    // Wait for refetch
+    await page
+      .waitForResponse(
+        (resp) =>
+          resp.url().includes('/api/product-lists/products') &&
+          resp.status() === 200,
+        { timeout: 15000 },
+      )
+      .catch(() => {});
+
+    await page.waitForTimeout(500);
+
+    // Verify products return to original count
+    const restoredCount = await page
+      .locator('[data-testid="product-card"]')
+      .count();
+    expect(restoredCount).toBe(initialCount);
+  });
+
+  test('should navigate to PDP with locale prefix in URL', async ({ page }) => {
+    const category = await discoverCategory(page);
+    await page.goto(`/${category.alias}`);
+
+    // Wait for products to load
+    await expect(
+      page.locator('[data-testid="product-card"]').first(),
+    ).toBeVisible({ timeout: 20000 });
+    await waitForHydration(page);
+
+    // Click the first product card link
+    const productLink = page.locator('[data-testid="product-card"] a').first();
+    await productLink.click();
+
+    // Wait for PDP to load
+    await page.waitForURL(/\/se\/sv\//, { timeout: 15000 });
+
+    // Verify URL contains locale prefix
+    expect(page.url()).toContain('/se/sv/');
+
+    // Verify PDP content loads (product title visible)
+    const heading = page.locator('h1');
+    await expect(heading).toBeVisible({ timeout: 15000 });
+    await expect(heading).not.toBeEmpty();
+  });
+
+  test('should return to category from PDP breadcrumb with products visible', async ({
+    page,
+  }) => {
+    const category = await discoverCategory(page);
+    await page.goto(`/${category.alias}`);
+
+    // Wait for products to load
+    await expect(
+      page.locator('[data-testid="product-card"]').first(),
+    ).toBeVisible({ timeout: 20000 });
+    await waitForHydration(page);
+
+    // Navigate to a PDP by clicking the first product
+    const productLink = page.locator('[data-testid="product-card"] a').first();
+    await productLink.click();
+
+    // Wait for PDP to load
+    const heading = page.locator('h1');
+    await expect(heading).toBeVisible({ timeout: 15000 });
+
+    // Click the category breadcrumb link (not the last item, which is the product)
+    const breadcrumbs = page.locator('[data-testid="breadcrumbs"]');
+    if (!(await breadcrumbs.isVisible().catch(() => false))) return;
+
+    // The breadcrumb links are all but the last item (current page)
+    const breadcrumbLinks = breadcrumbs.locator('a');
+    const linkCount = await breadcrumbLinks.count();
+    if (linkCount === 0) return;
+
+    // Click the last breadcrumb link (the category, one before current page)
+    await breadcrumbLinks.nth(linkCount - 1).click();
+
+    // Wait for category page to load with products
+    await expect(
+      page.locator('[data-testid="product-card"]').first(),
+    ).toBeVisible({ timeout: 20000 });
+
+    const productCount = await page
+      .locator('[data-testid="product-card"]')
+      .count();
+    expect(productCount).toBeGreaterThan(0);
+  });
 });
