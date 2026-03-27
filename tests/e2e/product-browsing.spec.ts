@@ -312,11 +312,15 @@ test.describe('Product Browsing', () => {
     const productLink = page.locator('[data-testid="product-card"] a').first();
     await productLink.click();
 
-    // Wait for PDP to load
-    await page.waitForURL(/\/se\/sv\//, { timeout: 15000 });
+    // Wait for navigation to complete
+    await page.waitForLoadState('load', { timeout: 15000 });
 
-    // Verify URL contains locale prefix
-    expect(page.url()).toContain('/se/sv/');
+    // Verify URL contains locale prefix (redirect adds /se/sv/)
+    const url = page.url();
+    expect(url).toMatch(/\/se\/sv\//);
+
+    // Verify it's NOT the homepage (product click shouldn't redirect to home)
+    expect(url).not.toMatch(/\/se\/sv\/$/);
 
     // Verify PDP content loads (product title visible)
     const heading = page.locator('h1');
