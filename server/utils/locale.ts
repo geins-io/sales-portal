@@ -36,7 +36,13 @@ export function getRequestLocale(event: H3Event): string | undefined {
 
   // Cookie fallback for API routes where resolvedLocaleMarket is not set
   const shortLocale = getCookie(event, COOKIE_NAMES.LOCALE);
-  if (!shortLocale) return undefined;
+  if (!shortLocale) {
+    // No cookie — use tenant's first available locale as fallback
+    const tenantLocales = (
+      event.context.tenant?.config as TenantConfig | undefined
+    )?.geinsSettings?.availableLocales;
+    return tenantLocales?.[0] ?? undefined;
+  }
 
   // Already in BCP-47 format (contains hyphen) — return as-is
   if (shortLocale.includes('-')) return shortLocale;
@@ -71,5 +77,12 @@ export function getRequestMarket(event: H3Event): string | undefined {
   if (resolved?.market) return resolved.market;
 
   // Cookie fallback for API routes where resolvedLocaleMarket is not set
-  return getCookie(event, COOKIE_NAMES.MARKET) || undefined;
+  const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
+  if (marketCookie) return marketCookie;
+
+  // No cookie — use tenant's default market as fallback
+  const tenantMarket = (
+    event.context.tenant?.config as TenantConfig | undefined
+  )?.geinsSettings?.market;
+  return tenantMarket ?? undefined;
 }
