@@ -9,7 +9,7 @@ import type {
 } from '@geins/types';
 import { CheckoutError } from '@geins/core';
 import type { H3Event } from 'h3';
-import { getTenantSDK, buildRequestContext } from './_sdk';
+import { getTenantSDK } from './_sdk';
 
 export async function getCheckout(
   args: GetCheckoutOptions,
@@ -52,9 +52,8 @@ export async function getSummary(
   event: H3Event,
 ): Promise<CheckoutSummaryType | undefined> {
   const { oms } = await getTenantSDK(event);
-  const requestContext = buildRequestContext(event);
   return wrapServiceCall(
-    () => oms.checkout.summary({ ...args, requestContext }),
+    () => oms.checkout.summary(args),
     'checkout',
     CheckoutError,
   );

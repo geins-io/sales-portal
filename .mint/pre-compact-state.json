@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-03-10T12:27:25.585Z",
+  "cwd": "/home/ali.halaki/Projects/geins/sales-portal",
+  "git_branch": "main",
+  "open_tasks": [
+    "sal-20-b2b",
+    "sal-21-pricing",
+    "sal-23-customer-specific-content",
+    "sal-24-favorites",
+    "sdk-crm-favorites",
+    "sdk-crm-lists",
+    "sdk-crm-lists-unified"
+  ]
+}

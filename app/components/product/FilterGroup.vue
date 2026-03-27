@@ -41,9 +41,11 @@ function isChecked(valueId: string) {
   <Accordion type="single" collapsible :default-value="facet.filterId">
     <AccordionItem :value="facet.filterId">
       <AccordionTrigger class="py-3 text-sm font-medium">
-        {{ facet.label || facet.type || facet.filterId }}
-        <span v-if="selected.length > 0" class="text-muted-foreground ml-1">
-          ({{ selected.length }})
+        <span>
+          {{ facet.label || facet.type || facet.filterId }}
+          <span v-if="selected.length > 0" class="text-muted-foreground ml-1">
+            ({{ selected.length }})
+          </span>
         </span>
       </AccordionTrigger>
       <AccordionContent>

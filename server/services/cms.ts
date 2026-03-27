@@ -6,11 +6,7 @@ import type {
 } from '@geins/types';
 import type { H3Event } from 'h3';
 import { LRUCache } from 'lru-cache';
-import {
-  getTenantSDK,
-  getRequestChannelVariables,
-  buildRequestContext,
-} from './_sdk';
+import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 
 // =============================================================================
 // Cache Configuration
@@ -54,9 +50,8 @@ export async function getMenu(
 
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
-  const requestContext = buildRequestContext(event);
   const result = (await wrapServiceCall(
-    () => sdk.cms.menu.get({ ...args, ...channelVars }, requestContext),
+    () => sdk.cms.menu.get({ ...args, ...channelVars }),
     'cms',
   )) as MenuType;
 
@@ -71,18 +66,14 @@ export async function getPage(
   const sdk = await getTenantSDK(event);
   const preview = getPreviewCookie(event);
   const channelVars = getRequestChannelVariables(sdk, event);
-  const requestContext = buildRequestContext(event);
   return wrapServiceCall(
     () =>
-      sdk.cms.page.get(
-        {
-          ...args,
-          ...channelVars,
-          ...(preview && { preview: true }),
-          ...(args.customerType && { customerType: args.customerType }),
-        },
-        requestContext,
-      ) as Promise<ContentPageType>,
+      sdk.cms.page.get({
+        ...args,
+        ...channelVars,
+        ...(preview && { preview: true }),
+        ...(args.customerType && { customerType: args.customerType }),
+      }) as Promise<ContentPageType>,
     'cms',
   );
 }
@@ -104,18 +95,14 @@ export async function getContentArea(
 
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
-  const requestContext = buildRequestContext(event);
   const result = (await wrapServiceCall(
     () =>
-      sdk.cms.area.get(
-        {
-          ...args,
-          ...channelVars,
-          ...(preview && { preview: true }),
-          ...(args.customerType && { customerType: args.customerType }),
-        },
-        requestContext,
-      ) as Promise<ContentAreaType>,
+      sdk.cms.area.get({
+        ...args,
+        ...channelVars,
+        ...(preview && { preview: true }),
+        ...(args.customerType && { customerType: args.customerType }),
+      }) as Promise<ContentAreaType>,
     'cms',
   )) as ContentAreaType;
 

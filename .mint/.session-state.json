@@ -1,0 +1,9 @@
+{
+  "mintInvoked": true,
+  "invokedAt": "2026-03-27T13:10:00.000Z",
+  "task": "E2E tests for critical happy-path flows",
+  "mode": "plan",
+  "autoCommitOverride": null,
+  "designContextLoaded": false,
+  "activeSpec": null
+}
