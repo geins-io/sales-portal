@@ -295,7 +295,12 @@
     "success_title": "Meddelande skickat",
     "success_message": "Tack för ditt meddelande. Vi återkommer så snart som möjligt.",
     "error_message": "Något gick fel. Försök igen.",
-    "too_many_attempts": "För många försök. Försök igen senare."
+    "too_many_attempts": "För många försök. Försök igen senare.",
+    "company_name": "Company AB",
+    "company_address": "Streetname 1",
+    "company_postal": "123 45 City",
+    "company_phone": "08-123 456 78",
+    "company_email": "info@example.com"
   },
   "apply": {
     "title": "Ansök om företagskonto",

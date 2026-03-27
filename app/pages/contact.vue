@@ -25,6 +25,15 @@ useHead({
             {{ t('contact.subtitle') }}
           </p>
         </div>
+        <div class="text-muted-foreground mb-8 space-y-1 text-sm">
+          <p class="text-foreground font-semibold">
+            {{ t('contact.company_name') }}
+          </p>
+          <p>{{ t('contact.company_address') }}</p>
+          <p>{{ t('contact.company_postal') }}</p>
+          <p>{{ t('contact.company_phone') }}</p>
+          <p>{{ t('contact.company_email') }}</p>
+        </div>
         <ContactForm />
       </div>
     </div>

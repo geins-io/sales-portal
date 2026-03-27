@@ -295,7 +295,12 @@
     "success_title": "Message sent",
     "success_message": "Thank you for your message. We'll get back to you as soon as possible.",
     "error_message": "Something went wrong. Please try again.",
-    "too_many_attempts": "Too many attempts. Please try again later."
+    "too_many_attempts": "Too many attempts. Please try again later.",
+    "company_name": "Company AB",
+    "company_address": "Streetname 1",
+    "company_postal": "123 45 City",
+    "company_phone": "08-123 456 78",
+    "company_email": "info@example.com"
   },
   "apply": {
     "title": "Apply for a Business Account",
