@@ -17,7 +17,7 @@ import { Label } from '~/components/ui/label';
 import { Checkbox } from '~/components/ui/checkbox';
 import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
 
-definePageMeta({ layout: 'checkout', middleware: 'auth' });
+definePageMeta({ layout: 'checkout' });
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
@@ -85,19 +85,14 @@ async function handleHostedCheckout() {
 
 // Fetch checkout data when component mounts (client-side hydration)
 onMounted(async () => {
-  if (cartStore.isEmpty) {
+  if (!cartIdCookie.value) {
     await navigateTo(localePath('/cart'), { replace: true });
     return;
   }
 
-  if (checkoutMode.value === 'hosted') {
-    await handleHostedCheckout();
-    return;
-  }
-
-  if (cartStore.cartId) {
-    await checkoutStore.fetchCheckout(cartStore.cartId);
-  }
+  // Always use hosted checkout — Geins handles auth and payment on their side.
+  // Custom checkout form is not yet implemented; when it is, gate on checkoutMode here.
+  await handleHostedCheckout();
 });
 
 // Watch for successful order placement

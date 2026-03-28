@@ -19,7 +19,7 @@ export default defineNuxtPlugin({
 
     const seo = tenant.value.seo;
     const contact = tenant.value.contact;
-    const locale = i18n.locale.value || tenant.value.locale || 'en';
+    const locale = i18n.locale.value || tenant.value.locale || 'sv';
 
     // Build meta tags
     const meta: Array<Record<string, string>> = [];

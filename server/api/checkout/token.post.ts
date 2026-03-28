@@ -1,11 +1,9 @@
 import type { GenerateCheckoutTokenOptions } from '@geins/types';
 import { CheckoutTokenSchema } from '../../schemas/api-input';
 import { createToken } from '../../services/checkout';
-import { requireAuth } from '../../utils/auth';
 import { HOSTED_CHECKOUT_BASE_URL } from '#shared/constants/checkout';
 
 export default defineEventHandler(async (event) => {
-  await requireAuth(event);
   const { cartId } = await readValidatedBody(event, CheckoutTokenSchema.parse);
 
   return withErrorHandling(

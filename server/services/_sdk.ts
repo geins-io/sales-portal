@@ -3,7 +3,10 @@ import { GeinsCRM } from '@geins/crm';
 import { GeinsCMS } from '@geins/cms';
 import { GeinsOMS } from '@geins/oms';
 import { RuntimeContext } from '@geins/types';
-import type { GeinsSettings as SdkGeinsSettings } from '@geins/types';
+import type {
+  GeinsSettings as SdkGeinsSettings,
+  RequestContext,
+} from '@geins/types';
 import type { H3Event } from 'h3';
 import type { GeinsSettings as TenantGeinsSettings } from '#shared/types/tenant-config';
 
@@ -225,4 +228,21 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
   tenants.set(tid, sdk);
   if (cacheKey !== tid) tenants.set(cacheKey, sdk);
   return sdk;
+}
+
+/**
+ * Builds a RequestContext from the current request's locale and market.
+ * Returns undefined if no locale or market is available — this prevents
+ * spreading { languageId: undefined } which would override valid defaults.
+ */
+export function buildRequestContext(
+  event: H3Event,
+): RequestContext | undefined {
+  const languageId = getRequestLocale(event);
+  const marketId = getRequestMarket(event);
+  if (!languageId && !marketId) return undefined;
+  const ctx: RequestContext = {};
+  if (languageId) ctx.languageId = languageId;
+  if (marketId) ctx.marketId = marketId;
+  return ctx;
 }

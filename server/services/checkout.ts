@@ -9,15 +9,17 @@ import type {
 } from '@geins/types';
 import { CheckoutError } from '@geins/core';
 import type { H3Event } from 'h3';
-import { getTenantSDK } from './_sdk';
+import { getTenantSDK, buildRequestContext } from './_sdk';
 
 export async function getCheckout(
   args: GetCheckoutOptions,
   event: H3Event,
 ): Promise<CheckoutType | undefined> {
   const { oms } = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
   return wrapServiceCall(
-    () => oms.checkout.get(args),
+    () =>
+      oms.checkout.get({ ...args, ...(requestContext && { requestContext }) }),
     'checkout',
     CheckoutError,
   );
@@ -28,8 +30,13 @@ export async function validateOrder(
   event: H3Event,
 ): Promise<ValidateOrderCreationResponseType | undefined> {
   const { oms } = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
   return wrapServiceCall(
-    () => oms.checkout.validate(args),
+    () =>
+      oms.checkout.validate({
+        ...args,
+        ...(requestContext && { requestContext }),
+      }),
     'checkout',
     CheckoutError,
   );
@@ -40,8 +47,13 @@ export async function createOrder(
   event: H3Event,
 ): Promise<CreateOrderResponseType | undefined> {
   const { oms } = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
   return wrapServiceCall(
-    () => oms.checkout.createOrder(args),
+    () =>
+      oms.checkout.createOrder({
+        ...args,
+        ...(requestContext && { requestContext }),
+      }),
     'checkout',
     CheckoutError,
   );
@@ -52,8 +64,13 @@ export async function getSummary(
   event: H3Event,
 ): Promise<CheckoutSummaryType | undefined> {
   const { oms } = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
   return wrapServiceCall(
-    () => oms.checkout.summary(args),
+    () =>
+      oms.checkout.summary({
+        ...args,
+        ...(requestContext && { requestContext }),
+      }),
     'checkout',
     CheckoutError,
   );

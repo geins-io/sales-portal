@@ -39,6 +39,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     logger.debug(
       `Feature "${requiredFeature}" is not accessible for this user/tenant`,
     );
-    return navigateTo('/');
+    const { localePath } = useLocaleMarket();
+    return navigateTo(localePath('/'));
   }
 });

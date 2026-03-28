@@ -2,12 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
-// Mock requireAuth
-const mockRequireAuth = vi.fn();
-vi.mock('../../../../server/utils/auth', () => ({
-  requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
-}));
-
 // Mock createToken from checkout service
 const mockCreateToken = vi.fn();
 vi.mock('../../../../server/services/checkout', () => ({
@@ -89,10 +83,6 @@ function makeMockEvent(
 describe('POST /api/checkout/token', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireAuth.mockResolvedValue({
-      authToken: 'auth-tok',
-      refreshToken: 'refresh-tok',
-    });
     mockCreateToken.mockResolvedValue('sdk-generated-token-123');
     (
       globalThis.readValidatedBody as ReturnType<typeof vi.fn>
@@ -152,16 +142,6 @@ describe('POST /api/checkout/token', () => {
     expect(options.redirectUrls?.cancel).toBe('http://localhost:3000/cart');
     expect(options.redirectUrls?.terms).toBe('http://localhost:3000/terms');
     expect(options.redirectUrls?.continue).toBe('http://localhost:3000/');
-  });
-
-  it('throws 401 without auth', async () => {
-    mockRequireAuth.mockRejectedValue(
-      Object.assign(new Error('Unauthorized'), { statusCode: 401 }),
-    );
-    const event = makeMockEvent({ body: { cartId: 'cart-abc' } });
-    const { default: handler } =
-      await import('../../../../server/api/checkout/token.post');
-    await expect(handler(event)).rejects.toMatchObject({ statusCode: 401 });
   });
 
   it('throws 400 when cartId is missing', async () => {
