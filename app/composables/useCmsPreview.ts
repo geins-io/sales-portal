@@ -16,7 +16,8 @@ export function useCmsPreview() {
       // Best-effort — still clear client state
     }
     previewCookie.value = null;
-    await navigateTo('/', { replace: true });
+    const { localePath: getLocalePath } = useLocaleMarket();
+    await navigateTo(getLocalePath('/'), { replace: true });
   }
 
   return { isPreview, exitPreview };

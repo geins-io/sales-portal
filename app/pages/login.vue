@@ -6,6 +6,7 @@ definePageMeta({
 
 const route = useRoute();
 const router = useRouter();
+const { localePath } = useLocaleMarket();
 
 const authCardRef = ref<{ switchToForgot: () => void } | null>(null);
 
@@ -14,12 +15,12 @@ const defaultView = computed(() =>
 );
 
 function handleSuccess() {
-  const redirect = (route.query.redirect as string) || '/';
+  const redirect = (route.query.redirect as string) || localePath('/');
   router.replace(redirect);
 }
 
 function handleClose() {
-  router.replace('/');
+  router.replace(localePath('/'));
 }
 
 function handleForgot() {

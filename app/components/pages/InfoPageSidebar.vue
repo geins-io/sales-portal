@@ -6,16 +6,20 @@ const props = defineProps<{
 
 const { t } = useI18n();
 const route = useRoute();
+const { localePath } = useLocaleMarket();
 
 const links = computed(() => [
-  { label: t('info_pages.about_us'), to: '/about' },
-  { label: t('info_pages.contact'), to: '/contact' },
-  { label: t('info_pages.apply_for_account'), to: '/apply-for-account' },
-  { label: t('info_pages.terms'), to: '/terms' },
+  { label: t('info_pages.about_us'), to: localePath('/about') },
+  { label: t('info_pages.contact'), to: localePath('/contact') },
+  {
+    label: t('info_pages.apply_for_account'),
+    to: localePath('/apply-for-account'),
+  },
+  { label: t('info_pages.terms'), to: localePath('/terms') },
 ]);
 
 function isActive(to: string): boolean {
-  return route.path === to || props.activePath === to;
+  return route.path === to || route.path.endsWith(props.activePath);
 }
 </script>
 

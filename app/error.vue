@@ -36,7 +36,7 @@ const errorDescription = computed(() => {
 // Build locale-aware home path from cookies (composables may not be available in error page)
 const homePath = computed(() => {
   const marketCookie = useCookie('market').value || 'se';
-  const localeCookie = useCookie('locale').value || 'en';
+  const localeCookie = useCookie('locale').value || 'sv';
   return `/${marketCookie}/${localeCookie}/`;
 });
 
