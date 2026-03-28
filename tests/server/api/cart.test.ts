@@ -31,6 +31,7 @@ vi.mock('../../../server/services/_sdk', () => ({
   getRequestChannelVariables: vi
     .fn()
     .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
+  buildRequestContext: vi.fn().mockReturnValue(undefined),
 }));
 
 // ---------------------------------------------------------------------------
@@ -90,7 +91,7 @@ describe('Cart API Routes', () => {
         .default;
       const result = await handler(mockEvent);
 
-      expect(mockCartGet).toHaveBeenCalledWith('cart-123');
+      expect(mockCartGet).toHaveBeenCalledWith('cart-123', false, undefined);
       expect(result).toEqual(mockCart);
     });
 
@@ -126,7 +127,7 @@ describe('Cart API Routes', () => {
         .default;
       const result = await handler(mockEvent);
 
-      expect(mockCartCreate).toHaveBeenCalled();
+      expect(mockCartCreate).toHaveBeenCalledWith(undefined);
       expect(result).toEqual(mockCart);
     });
   });
@@ -147,10 +148,14 @@ describe('Cart API Routes', () => {
         .default;
       const result = await handler(mockEvent);
 
-      expect(mockCartAddItem).toHaveBeenCalledWith('cart-123', {
-        skuId: 456,
-        quantity: 2,
-      });
+      expect(mockCartAddItem).toHaveBeenCalledWith(
+        'cart-123',
+        {
+          skuId: 456,
+          quantity: 2,
+        },
+        undefined,
+      );
       expect(result).toEqual(mockCart);
     });
 
@@ -183,10 +188,14 @@ describe('Cart API Routes', () => {
         .default;
       const result = await handler(mockEvent);
 
-      expect(mockCartUpdateItem).toHaveBeenCalledWith('cart-123', {
-        id: 'item-789',
-        quantity: 5,
-      });
+      expect(mockCartUpdateItem).toHaveBeenCalledWith(
+        'cart-123',
+        {
+          id: 'item-789',
+          quantity: 5,
+        },
+        undefined,
+      );
       expect(result).toEqual(mockCart);
     });
 
@@ -213,7 +222,11 @@ describe('Cart API Routes', () => {
         .default;
       const result = await handler(mockEvent);
 
-      expect(mockCartDeleteItem).toHaveBeenCalledWith('cart-123', 'item-789');
+      expect(mockCartDeleteItem).toHaveBeenCalledWith(
+        'cart-123',
+        'item-789',
+        undefined,
+      );
       expect(result).toEqual(mockCart);
     });
 
@@ -246,6 +259,7 @@ describe('Cart API Routes', () => {
       expect(mockCartSetPromotionCode).toHaveBeenCalledWith(
         'cart-123',
         'SAVE10',
+        undefined,
       );
       expect(result).toEqual(mockCart);
     });
@@ -273,7 +287,10 @@ describe('Cart API Routes', () => {
         .default;
       const result = await handler(mockEvent);
 
-      expect(mockCartRemovePromotionCode).toHaveBeenCalledWith('cart-123');
+      expect(mockCartRemovePromotionCode).toHaveBeenCalledWith(
+        'cart-123',
+        undefined,
+      );
       expect(result).toEqual(mockCart);
     });
 

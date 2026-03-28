@@ -1,19 +1,25 @@
 import type { CartType, CartItemInputType } from '@geins/types';
 import { CartError } from '@geins/core';
 import type { H3Event } from 'h3';
-import { getTenantSDK } from './_sdk';
+import { getTenantSDK, buildRequestContext } from './_sdk';
 
 export async function getCart(
   cartId: string,
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
-  return wrapServiceCall(() => oms.cart.get(cartId), 'cart', CartError);
+  const ctx = buildRequestContext(event);
+  return wrapServiceCall(
+    () => oms.cart.get(cartId, false, ctx),
+    'cart',
+    CartError,
+  );
 }
 
 export async function createCart(event: H3Event): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
-  return wrapServiceCall(() => oms.cart.create(), 'cart', CartError);
+  const ctx = buildRequestContext(event);
+  return wrapServiceCall(() => oms.cart.create(ctx), 'cart', CartError);
 }
 
 export async function addItem(
@@ -22,8 +28,9 @@ export async function addItem(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
+  const ctx = buildRequestContext(event);
   return wrapServiceCall(
-    () => oms.cart.addItem(cartId, input),
+    () => oms.cart.addItem(cartId, input, ctx),
     'cart',
     CartError,
   );
@@ -35,8 +42,9 @@ export async function updateItem(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
+  const ctx = buildRequestContext(event);
   return wrapServiceCall(
-    () => oms.cart.updateItem(cartId, input),
+    () => oms.cart.updateItem(cartId, input, ctx),
     'cart',
     CartError,
   );
@@ -48,8 +56,9 @@ export async function deleteItem(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
+  const ctx = buildRequestContext(event);
   return wrapServiceCall(
-    () => oms.cart.deleteItem(cartId, itemId),
+    () => oms.cart.deleteItem(cartId, itemId, ctx),
     'cart',
     CartError,
   );
@@ -61,8 +70,9 @@ export async function applyPromoCode(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
+  const ctx = buildRequestContext(event);
   return wrapServiceCall(
-    () => oms.cart.setPromotionCode(cartId, promoCode),
+    () => oms.cart.setPromotionCode(cartId, promoCode, ctx),
     'cart',
     CartError,
   );
@@ -73,8 +83,9 @@ export async function removePromoCode(
   event: H3Event,
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
+  const ctx = buildRequestContext(event);
   return wrapServiceCall(
-    () => oms.cart.removePromotionCode(cartId),
+    () => oms.cart.removePromotionCode(cartId, ctx),
     'cart',
     CartError,
   );

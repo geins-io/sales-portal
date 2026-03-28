@@ -25,6 +25,7 @@ vi.mock('../../../server/services/_sdk', () => ({
     },
   }),
   getRequestChannelVariables: vi.fn().mockReturnValue(channelVars),
+  buildRequestContext: vi.fn().mockReturnValue(undefined),
 }));
 
 const getPreviewCookieMock = vi.fn().mockReturnValue(false);
@@ -47,12 +48,15 @@ describe('CMS service preview injection', () => {
         mockEvent,
       );
 
-      expect(mockAreaGet).toHaveBeenCalledWith({
-        family: 'StartPage',
-        areaName: 'Hero',
-        ...channelVars,
-        preview: true,
-      });
+      expect(mockAreaGet).toHaveBeenCalledWith(
+        {
+          family: 'StartPage',
+          areaName: 'Hero',
+          ...channelVars,
+          preview: true,
+        },
+        undefined,
+      );
     });
 
     it('does NOT include preview key when not in preview', async () => {
@@ -62,11 +66,14 @@ describe('CMS service preview injection', () => {
         mockEvent,
       );
 
-      expect(mockAreaGet).toHaveBeenCalledWith({
-        family: 'StartPage',
-        areaName: 'Hero',
-        ...channelVars,
-      });
+      expect(mockAreaGet).toHaveBeenCalledWith(
+        {
+          family: 'StartPage',
+          areaName: 'Hero',
+          ...channelVars,
+        },
+        undefined,
+      );
     });
   });
 
@@ -75,21 +82,27 @@ describe('CMS service preview injection', () => {
       getPreviewCookieMock.mockReturnValue(true);
       await getPage({ alias: '/about' }, mockEvent);
 
-      expect(mockPageGet).toHaveBeenCalledWith({
-        alias: '/about',
-        ...channelVars,
-        preview: true,
-      });
+      expect(mockPageGet).toHaveBeenCalledWith(
+        {
+          alias: '/about',
+          ...channelVars,
+          preview: true,
+        },
+        undefined,
+      );
     });
 
     it('does NOT include preview key when not in preview', async () => {
       getPreviewCookieMock.mockReturnValue(false);
       await getPage({ alias: '/about' }, mockEvent);
 
-      expect(mockPageGet).toHaveBeenCalledWith({
-        alias: '/about',
-        ...channelVars,
-      });
+      expect(mockPageGet).toHaveBeenCalledWith(
+        {
+          alias: '/about',
+          ...channelVars,
+        },
+        undefined,
+      );
     });
   });
 
@@ -98,10 +111,13 @@ describe('CMS service preview injection', () => {
       getPreviewCookieMock.mockReturnValue(true);
       await getMenu({ menuLocationId: 'main' }, mockEvent);
 
-      expect(mockMenuGet).toHaveBeenCalledWith({
-        menuLocationId: 'main',
-        ...channelVars,
-      });
+      expect(mockMenuGet).toHaveBeenCalledWith(
+        {
+          menuLocationId: 'main',
+          ...channelVars,
+        },
+        undefined,
+      );
     });
   });
 });
