@@ -21,7 +21,9 @@ const {
 
 const { localePath } = useLocaleMarket();
 const hasSidebar = computed(() => page.value?.tags?.includes('menu') ?? false);
-const sidebarMenuId = computed(() => page.value?.pageArea?.name || 'footer');
+const sidebarMenuId = computed(
+  () => page.value?.pageArea?.name || 'info-pages',
+);
 
 useHead(
   computed(() => {

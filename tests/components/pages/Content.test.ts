@@ -137,7 +137,7 @@ describe('Content.vue', () => {
     // Sidebar nav should be present with footer as default menu location
     const sidebarNav = wrapper.find('[data-testid="sidebar-nav"]');
     expect(sidebarNav.exists()).toBe(true);
-    expect(sidebarNav.attributes('data-menu-id')).toBe('footer');
+    expect(sidebarNav.attributes('data-menu-id')).toBe('info-pages');
 
     // Widget area should also be present (inside the flex container)
     expect(wrapper.find('[data-testid="widget-area"]').exists()).toBe(true);
