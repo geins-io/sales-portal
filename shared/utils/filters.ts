@@ -12,7 +12,6 @@ export const SORT_MAP: Record<string, string> = {
   'price-desc': 'PRICE_DESC',
   newest: 'LATEST',
   'name-asc': 'ALPHABETICAL',
-  'name-desc': 'ALPHABETICAL',
 };
 
 export interface FilterInput {

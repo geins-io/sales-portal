@@ -63,7 +63,6 @@ const sortOptions = computed(() => [
   { label: t('product.sort_price_desc'), value: 'price-desc' },
   { label: t('product.sort_newest'), value: 'newest' },
   { label: t('product.sort_name_asc'), value: 'name-asc' },
-  { label: t('product.sort_name_desc'), value: 'name-desc' },
 ]);
 
 // --- Build filter object for GraphQL FilterInputType ---
