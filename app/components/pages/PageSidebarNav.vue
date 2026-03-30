@@ -36,7 +36,10 @@ function itemUrl(canonicalUrl: string | undefined): string {
 
 function isActive(canonicalUrl: string | undefined): boolean {
   const normalized = normalizeMenuUrl(canonicalUrl);
-  return normalized !== '' && route.path === normalized;
+  if (normalized === '') return false;
+  if (route.path === normalized) return true;
+  // Match child pages (e.g. /about/team matches /about) but not root '/'
+  return normalized !== '/' && route.path.startsWith(normalized + '/');
 }
 
 function visibleChildren(
