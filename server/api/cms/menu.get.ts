@@ -16,6 +16,7 @@ export default defineEventHandler(async (event) => {
         'Cache-Control',
         'public, s-maxage=300, stale-while-revalidate=600',
       );
+      setHeader(event, 'Vary', 'cookie');
 
       return result;
     },

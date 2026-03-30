@@ -129,4 +129,16 @@ describe('GET /api/cms/menu', () => {
       .default;
     await expect(handler(mockEvent)).rejects.toThrow('CMS service error');
   });
+
+  it('sets Vary: cookie header for CDN locale isolation', async () => {
+    mockMenuGet.mockResolvedValue({ id: 'main', items: [] });
+
+    const handler = (await import('../../../../server/api/cms/menu.get'))
+      .default;
+    await handler(mockEvent);
+
+    expect(
+      globalThis.setHeader as ReturnType<typeof vi.fn>,
+    ).toHaveBeenCalledWith(mockEvent, 'Vary', 'cookie');
+  });
 });
