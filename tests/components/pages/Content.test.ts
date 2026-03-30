@@ -123,8 +123,32 @@ describe('Content.vue', () => {
     expect(wrapper.find('.md\\:flex').exists()).toBe(false);
   });
 
-  it('renders sidebar layout when page has pageArea with name', () => {
+  it('renders sidebar layout when page is tagged with menu', () => {
     mockPage.value = createPage({
+      tags: ['menu'],
+    });
+    mockStatus.value = 'success';
+
+    const wrapper = mountComponent(Content, {
+      props: { resolution: { pageSlug: 'about' } },
+      global: { stubs },
+    });
+
+    // Sidebar nav should be present with footer as default menu location
+    const sidebarNav = wrapper.find('[data-testid="sidebar-nav"]');
+    expect(sidebarNav.exists()).toBe(true);
+    expect(sidebarNav.attributes('data-menu-id')).toBe('footer');
+
+    // Widget area should also be present (inside the flex container)
+    expect(wrapper.find('[data-testid="widget-area"]').exists()).toBe(true);
+
+    // Should have the sidebar flex layout
+    expect(wrapper.find('.md\\:flex').exists()).toBe(true);
+  });
+
+  it('uses pageArea.name as menu location when available', () => {
+    mockPage.value = createPage({
+      tags: ['menu'],
       pageArea: { id: 'pa1', name: 'info-pages', index: 0 },
     });
     mockStatus.value = 'success';
@@ -134,16 +158,9 @@ describe('Content.vue', () => {
       global: { stubs },
     });
 
-    // Sidebar nav should be present with correct menuLocationId
     const sidebarNav = wrapper.find('[data-testid="sidebar-nav"]');
     expect(sidebarNav.exists()).toBe(true);
     expect(sidebarNav.attributes('data-menu-id')).toBe('info-pages');
-
-    // Widget area should also be present (inside the flex container)
-    expect(wrapper.find('[data-testid="widget-area"]').exists()).toBe(true);
-
-    // Should have the sidebar flex layout
-    expect(wrapper.find('.md\\:flex').exists()).toBe(true);
   });
 
   it('renders loading skeleton when status is pending', () => {

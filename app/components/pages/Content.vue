@@ -20,8 +20,8 @@ const {
 );
 
 const { localePath } = useLocaleMarket();
-const hasSidebar = computed(() => !!page.value?.pageArea?.name);
-const sidebarMenuId = computed(() => page.value?.pageArea?.name ?? '');
+const hasSidebar = computed(() => page.value?.tags?.includes('menu') ?? false);
+const sidebarMenuId = computed(() => page.value?.pageArea?.name || 'footer');
 
 useHead(
   computed(() => {
@@ -57,7 +57,7 @@ useHead(
       data-testid="content-error"
     />
 
-    <!-- Sidebar layout: page has a pageArea with navigation -->
+    <!-- Sidebar layout: page tagged with 'menu' in CMS -->
     <div
       v-else-if="hasSidebar && page?.containers?.length"
       class="md:flex md:gap-8"
