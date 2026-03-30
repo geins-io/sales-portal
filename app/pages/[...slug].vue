@@ -151,7 +151,7 @@ const ResolvedComponent = computed(() => {
     <component
       :is="ResolvedComponent"
       v-else-if="ResolvedComponent && resolution"
-      :key="resolution.type"
+      :key="normalizedPath"
       :resolution="resolution as any"
     />
 
