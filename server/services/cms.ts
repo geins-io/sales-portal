@@ -93,9 +93,11 @@ export async function getContentArea(
 ): Promise<ContentAreaType> {
   const preview = getPreviewCookie(event);
   const isCacheable = !args.customerType && !preview;
+  const cacheKey = isCacheable
+    ? `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}`
+    : '';
 
   if (isCacheable) {
-    const cacheKey = `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}`;
     const cached = areaCache.get(cacheKey);
     if (cached) {
       return cached;
@@ -120,7 +122,6 @@ export async function getContentArea(
   )) as ContentAreaType;
 
   if (isCacheable) {
-    const cacheKey = `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}`;
     areaCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });
   }
 

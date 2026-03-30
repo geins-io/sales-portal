@@ -88,6 +88,8 @@ describe('CMS cache — locale isolation', () => {
     const result2 = await getMenu({ menuLocationId: 'main' }, mockEvent());
     expect(result2).toEqual(enMenu);
     expect(result2).not.toEqual(svMenu);
+    // SDK called twice — no cross-locale cache hit
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
   });
 
   it('returns cached data for same locale', async () => {
@@ -126,6 +128,8 @@ describe('CMS cache — locale isolation', () => {
 
     expect(result1).toEqual(tenantAMenu);
     expect(result2).toEqual(tenantBMenu);
+    // SDK called twice — no cross-tenant cache hit
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
   });
 
   it('uses default fallback when getRequestLocale returns undefined', async () => {
@@ -137,6 +141,7 @@ describe('CMS cache — locale isolation', () => {
 
     const result = await getMenu({ menuLocationId: 'main' }, mockEvent());
     expect(result).toEqual(menu);
+    expect(mockMenuGet).toHaveBeenCalledTimes(1);
   });
 
   it('isolates area cache by locale', async () => {

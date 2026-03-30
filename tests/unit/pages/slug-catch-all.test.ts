@@ -33,12 +33,11 @@ describe('[...slug] page — component key uniqueness', () => {
     expect(key1).not.toBe(key2);
   });
 
-  it('produces different keys for category vs brand', () => {
-    const categoryKey = computeKey(['se', 'sv', 'shoes']);
-    const brandKey = computeKey(['se', 'sv', 'nike']);
+  it('produces different keys for different slugs', () => {
+    const key1 = computeKey(['se', 'sv', 'shoes']);
+    const key2 = computeKey(['se', 'sv', 'nike']);
 
-    // Both resolve to different paths (even though type differs)
-    expect(categoryKey).not.toBe(brandKey);
+    expect(key1).not.toBe(key2);
   });
 
   it('strips locale/market prefix consistently', () => {
