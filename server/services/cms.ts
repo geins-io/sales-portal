@@ -28,13 +28,13 @@ const areaCache = new LRUCache<string, ContentAreaType>({
 
 /**
  * Build a cache key prefix from event context (tenant hostname, locale, market).
- * Reads from resolvedLocaleMarket (validated by plugin 01) with a 'default'
- * fallback for safety.
+ * Uses getRequestLocale/getRequestMarket which handle both page routes
+ * (resolvedLocaleMarket) and API routes (cookie fallback with BCP-47 expansion).
  */
 function buildCachePrefix(event: H3Event): string {
   const hostname = event.context?.tenant?.hostname ?? 'default';
-  const locale = event.context?.resolvedLocaleMarket?.locale ?? 'default';
-  const market = event.context?.resolvedLocaleMarket?.market ?? 'default';
+  const locale = getRequestLocale(event) ?? 'default';
+  const market = getRequestMarket(event) ?? 'default';
   return `${hostname}::${locale}::${market}`;
 }
 
@@ -93,9 +93,11 @@ export async function getContentArea(
 ): Promise<ContentAreaType> {
   const preview = getPreviewCookie(event);
   const isCacheable = !args.customerType && !preview;
+  const cacheKey = isCacheable
+    ? `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}`
+    : '';
 
   if (isCacheable) {
-    const cacheKey = `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}`;
     const cached = areaCache.get(cacheKey);
     if (cached) {
       return cached;
@@ -120,7 +122,6 @@ export async function getContentArea(
   )) as ContentAreaType;
 
   if (isCacheable) {
-    const cacheKey = `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}`;
     areaCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });
   }
 

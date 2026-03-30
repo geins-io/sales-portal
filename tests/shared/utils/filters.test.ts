@@ -110,6 +110,14 @@ describe('SORT_MAP', () => {
     expect(SORT_MAP['price-desc']).toBe('PRICE_DESC');
     expect(SORT_MAP['newest']).toBe('LATEST');
     expect(SORT_MAP['name-asc']).toBe('ALPHABETICAL');
-    expect(SORT_MAP['name-desc']).toBe('ALPHABETICAL');
+  });
+
+  it('does not include name-desc (no API support for descending alphabetical)', () => {
+    expect(SORT_MAP['name-desc']).toBeUndefined();
+  });
+
+  it('falls back to RELEVANCE when name-desc is used in buildFilterInput', () => {
+    const result = buildFilterInput({}, 'name-desc');
+    expect(result?.sort).toBe('RELEVANCE');
   });
 });

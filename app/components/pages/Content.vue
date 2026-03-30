@@ -20,16 +20,18 @@ const {
 );
 
 const { localePath } = useLocaleMarket();
-const hasSidebar = computed(() => !!page.value?.pageArea?.name);
-const sidebarMenuId = computed(() => page.value?.pageArea?.name ?? '');
+const hasSidebar = computed(() => page.value?.tags?.includes('menu') ?? false);
+const sidebarMenuId = computed(
+  () => page.value?.pageArea?.name || 'info-pages',
+);
 
 useHead(
   computed(() => {
-    if (!page.value?.meta) return {};
+    if (!page.value) return {};
     return {
-      title: page.value.meta.title,
+      title: page.value.meta?.title || page.value.title || '',
       meta: [
-        ...(page.value.meta.description
+        ...(page.value.meta?.description
           ? [{ name: 'description', content: page.value.meta.description }]
           : []),
       ],
@@ -57,7 +59,7 @@ useHead(
       data-testid="content-error"
     />
 
-    <!-- Sidebar layout: page has a pageArea with navigation -->
+    <!-- Sidebar layout: page tagged with 'menu' in CMS -->
     <div
       v-else-if="hasSidebar && page?.containers?.length"
       class="md:flex md:gap-8"

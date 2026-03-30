@@ -204,6 +204,71 @@ describe('PageSidebarNav', () => {
     expect(contactLink?.attributes('aria-current')).toBeUndefined();
   });
 
+  it('highlights parent link when on a child page', () => {
+    mockRoutePath.value = '/about/team';
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [
+        {
+          id: '1',
+          label: 'About',
+          canonicalUrl: '/se/sv/about',
+          order: 1,
+        },
+        { id: '2', label: 'Contact', canonicalUrl: '/se/sv/contact', order: 2 },
+      ],
+    };
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+    const links = wrapper.findAll('a');
+    const aboutLink = links.find((l) => l.text() === 'About');
+    expect(aboutLink?.attributes('aria-current')).toBe('page');
+    const contactLink = links.find((l) => l.text() === 'Contact');
+    expect(contactLink?.attributes('aria-current')).toBeUndefined();
+  });
+
+  it('does not highlight root path for all pages', () => {
+    mockRoutePath.value = '/about';
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [{ id: '1', label: 'Home', canonicalUrl: '/', order: 1 }],
+    };
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+    const links = wrapper.findAll('a');
+    const homeLink = links.find((l) => l.text() === 'Home');
+    expect(homeLink?.attributes('aria-current')).toBeUndefined();
+  });
+
+  it('does not highlight unrelated paths with similar prefix', () => {
+    mockRoutePath.value = '/about-more';
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [
+        {
+          id: '1',
+          label: 'About',
+          canonicalUrl: '/se/sv/about',
+          order: 1,
+        },
+      ],
+    };
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+    const links = wrapper.findAll('a');
+    const aboutLink = links.find((l) => l.text() === 'About');
+    expect(aboutLink?.attributes('aria-current')).toBeUndefined();
+  });
+
   it('renders children as nested items (2-level nesting)', () => {
     mockMenu.value = {
       id: '1',
