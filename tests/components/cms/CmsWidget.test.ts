@@ -108,12 +108,15 @@ describe('CmsWidget', () => {
     expect(wrapper.html()).not.toBe('');
   });
 
-  it('renders nothing for unknown widget type', () => {
+  it('shows dev warning for unknown widget type', () => {
+    // In test/dev mode, import.meta.dev is true
     const wrapper = shallowMountComponent(CmsWidget, {
       props: makeWidget('UnknownWidgetType'),
       global: { stubs },
     });
-    expect(wrapper.html()).toBe('<!--v-if-->');
+    const warning = wrapper.find('[data-testid="cms-widget-unknown"]');
+    expect(warning.exists()).toBe(true);
+    expect(warning.text()).toContain('UnknownWidgetType');
   });
 
   it('renders nothing when config type is missing', () => {
