@@ -156,4 +156,57 @@ describe('SearchAutocomplete', () => {
 
     expect(wrapper.text()).toContain('search.no_results');
   });
+
+  it('highlights active item with aria-selected when activeIndex matches', () => {
+    const results = {
+      products: [
+        makeProduct({ productId: 1, name: 'Product A', alias: 'product-a' }),
+        makeProduct({ productId: 2, name: 'Product B', alias: 'product-b' }),
+      ],
+      count: 2,
+    };
+
+    const wrapper = mountComponent(SearchAutocomplete, {
+      props: { results, loading: false, open: true, activeIndex: 1 },
+      global: { stubs },
+    });
+
+    const items = wrapper.findAll('[role="option"]');
+    expect(items[0].attributes('aria-selected')).toBeUndefined();
+    expect(items[1].attributes('aria-selected')).toBe('true');
+  });
+
+  it('items have id attributes for aria-activedescendant', () => {
+    const results = {
+      products: [
+        makeProduct({ productId: 1, name: 'Product A', alias: 'product-a' }),
+        makeProduct({ productId: 2, name: 'Product B', alias: 'product-b' }),
+      ],
+      count: 2,
+    };
+
+    const wrapper = mountComponent(SearchAutocomplete, {
+      props: { results, loading: false, open: true, activeIndex: -1 },
+      global: { stubs },
+    });
+
+    const items = wrapper.findAll('[role="option"]');
+    expect(items[0].attributes('id')).toBe('search-result-0');
+    expect(items[1].attributes('id')).toBe('search-result-1');
+  });
+
+  it('no item has aria-selected when activeIndex is -1', () => {
+    const results = {
+      products: [makeProduct()],
+      count: 1,
+    };
+
+    const wrapper = mountComponent(SearchAutocomplete, {
+      props: { results, loading: false, open: true, activeIndex: -1 },
+      global: { stubs },
+    });
+
+    const items = wrapper.findAll('[role="option"]');
+    expect(items[0].attributes('aria-selected')).toBeUndefined();
+  });
 });

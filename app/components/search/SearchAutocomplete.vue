@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import type { ProductListResponse } from '#shared/types/commerce';
 
-defineProps<{
-  results: ProductListResponse | null;
-  loading: boolean;
-  open: boolean;
-}>();
+withDefaults(
+  defineProps<{
+    results: ProductListResponse | null;
+    loading: boolean;
+    open: boolean;
+    activeIndex?: number;
+  }>(),
+  {
+    activeIndex: -1,
+  },
+);
 
 const emit = defineEmits<{
   'select-product': [alias: string];
@@ -48,12 +54,15 @@ onUnmounted(() => {
 
     <!-- Results -->
     <template v-else-if="results && results.products.length > 0">
-      <ul role="listbox" class="divide-border divide-y">
+      <ul id="search-listbox" role="listbox" class="divide-border divide-y">
         <li
-          v-for="product in results.products.slice(0, 5)"
+          v-for="(product, index) in results.products.slice(0, 5)"
+          :id="`search-result-${index}`"
           :key="product.productId"
           role="option"
-          class="hover:bg-accent flex cursor-pointer items-center gap-3 px-4 py-2 transition-colors"
+          :aria-selected="index === activeIndex || undefined"
+          class="flex cursor-pointer items-center gap-3 px-4 py-2 transition-colors"
+          :class="index === activeIndex ? 'bg-accent' : 'hover:bg-accent'"
           @click="emit('select-product', product.alias)"
         >
           <GeinsImage
