@@ -27,11 +27,11 @@ const sidebarMenuId = computed(
 
 useHead(
   computed(() => {
-    if (!page.value?.meta) return {};
+    if (!page.value) return {};
     return {
-      title: page.value.meta.title,
+      title: page.value.meta?.title || page.value.title || '',
       meta: [
-        ...(page.value.meta.description
+        ...(page.value.meta?.description
           ? [{ name: 'description', content: page.value.meta.description }]
           : []),
       ],
