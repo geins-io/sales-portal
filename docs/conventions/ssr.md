@@ -324,11 +324,32 @@ router.replace('/login');
 A lint-style unit test (`tests/unit/lint/bare-route-paths.test.ts`) scans `app/` for bare route
 patterns and fails if any are found. This prevents regressions.
 
+## Type-Prefixed Routing
+
+URLs use single-letter type prefixes to identify content type without server-side resolution:
+
+| Prefix | Content Type | Page File                       | Example                          |
+| ------ | ------------ | ------------------------------- | -------------------------------- |
+| `/c/`  | Category PLP | `app/pages/c/[...category].vue` | `/se/sv/c/material/epoxy`        |
+| `/p/`  | Product PDP  | `app/pages/p/[...alias].vue`    | `/se/sv/p/material/product-name` |
+| `/b/`  | Brand PLP    | `app/pages/b/[...brand].vue`    | `/se/sv/b/atlas-copco`           |
+| `/s/`  | Search       | `app/pages/s/[query].vue`       | `/se/sv/s/search+query`          |
+| (none) | CMS content  | `app/pages/[...slug].vue`       | `/se/sv/about-us`                |
+
+### Key rules
+
+- **Alias extraction**: use `.pop()` on the catch-all params array to get the entity alias (last segment). Earlier segments are parent paths for breadcrumbs/SEO.
+- **Link generation**: Geins API returns `canonicalUrl` without type prefixes. Use `categoryPath()`, `productPath()`, `brandPath()` from `shared/utils/route-helpers.ts` to add the prefix, then wrap with `localePath()`.
+- **Menu URLs**: `shared/utils/menu.ts` `stripGeinsPrefix()` maps Geins type indicators (e.g. `/l/` for category) to our prefixes (e.g. `/c/`).
+- Constants in `shared/constants/route-paths.ts`.
+
+See [ADR-015](../adr/015-ralph-style-routing.md) for full context.
+
 ## Reference Implementation
 
 The canonical example of correct SSR page behavior is `app/pages/[...slug].vue`:
 
-- Uses `await useRouteResolution()` for SSR-safe data fetching
+- Uses `useFetch` for SSR-safe data fetching
 - Handles 404 with `createError` on server, `showError` on client
 - Shows loading skeleton during pending state
 - Shows error state with action button on failure

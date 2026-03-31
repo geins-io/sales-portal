@@ -57,7 +57,6 @@ export function useSomething() {
 | `useTenant()`           | Tenant config access      | Any tenant-aware component       |
 | `useTenantTheme()`      | Theme colors/typography   | Styling that needs theme values  |
 | `useFeatureAccess()`    | Feature access evaluation | Gating UI/routes by access rules |
-| `useRouteResolution()`  | Dynamic route resolution  | Catch-all route pages            |
 | `useErrorTracking()`    | Error reporting           | Error boundaries, try/catch      |
 | `useAnalyticsConsent()` | Analytics consent state   | Cookie banner, analytics gating  |
 

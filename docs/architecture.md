@@ -75,7 +75,6 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   └── ui/                 # shadcn-vue UI primitives
 │   ├── composables/
 │   │   ├── useTenant.ts        # Tenant data access
-│   │   ├── useRouteResolution.ts # Dynamic route resolution
 │   │   ├── useErrorTracking.ts # Error tracking & reporting
 │   │   ├── useFeatureAccess.ts # Feature access control (auth + role gating)
 │   │   └── useAnalyticsConsent.ts # Per-tenant analytics consent (GDPR)
@@ -83,7 +82,12 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   └── default.vue         # Default page layout
 │   ├── lib/
 │   │   └── utils.ts            # Utility functions (cn, etc.)
-│   ├── pages/                  # File-based routing
+│   ├── pages/                  # File-based routing (type-prefixed)
+│   │   ├── c/[...category].vue # Category PLP (/c/...)
+│   │   ├── p/[...alias].vue    # Product PDP (/p/...)
+│   │   ├── b/[...brand].vue    # Brand PLP (/b/...)
+│   │   ├── s/[query].vue       # Search results (/s/...)
+│   │   ├── [...slug].vue       # CMS content catch-all
 │   │   └── index.vue           # Homepage
 │   └── plugins/
 │       ├── api.ts              # Custom $api fetch instance
@@ -810,13 +814,11 @@ Client-side navigation latency is reduced through three techniques:
 
 ### Caching Strategy Overview
 
-| Layer                      | Scope          | TTL                         | What                          |
-| -------------------------- | -------------- | --------------------------- | ----------------------------- |
-| Nitro `routeRules` SWR     | SSR output     | 5 min                       | Static page HTML              |
-| `defineCachedEventHandler` | Server handler | 1 hour                      | Tenant config (`/api/config`) |
-| LRU cache (resolve-route)  | Server memory  | 5 min (found) / 1 min (404) | Route resolution              |
-| Client `_routeCache` Map   | SPA session    | Session lifetime            | Route resolution              |
-| `useAsyncData` payload     | SSR → client   | Hydration                   | All `useAsyncData` calls      |
+| Layer                      | Scope          | TTL       | What                          |
+| -------------------------- | -------------- | --------- | ----------------------------- |
+| Nitro `routeRules` SWR     | SSR output     | 5 min     | Static page HTML              |
+| `defineCachedEventHandler` | Server handler | 1 hour    | Tenant config (`/api/config`) |
+| `useAsyncData` payload     | SSR → client   | Hydration | All `useAsyncData` calls      |
 
 ---
 
