@@ -82,12 +82,12 @@ function onAccordionChange(value: string | string[] | undefined) {
         <TabsTrigger value="reviews"> {{ $t('product.reviews') }}</TabsTrigger>
       </TabsList>
 
-      <TabsContent v-if="hasDescription" value="description">
+      <TabsContent v-if="hasDescription" value="description" class="pt-6">
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="prose max-w-none" v-html="product.texts?.text1" />
       </TabsContent>
 
-      <TabsContent v-if="hasSpecs" value="specifications">
+      <TabsContent v-if="hasSpecs" value="specifications" class="pt-6">
         <div class="grid gap-6 md:grid-cols-2">
           <div
             v-for="group in visibleGroups"
@@ -119,13 +119,13 @@ function onAccordionChange(value: string | string[] | undefined) {
         </div>
       </TabsContent>
 
-      <TabsContent value="documents">
+      <TabsContent value="documents" class="pt-6">
         <p class="text-muted-foreground text-sm">
           {{ $t('product.no_documents') }}
         </p>
       </TabsContent>
 
-      <TabsContent value="reviews">
+      <TabsContent value="reviews" class="pt-6">
         <div class="flex flex-col gap-4">
           <div v-if="reviews" class="flex items-center gap-2">
             <span class="text-lg font-semibold">

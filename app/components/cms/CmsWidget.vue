@@ -28,6 +28,9 @@ const widgetRegistry: Record<
   JSONPageWidget: defineAsyncComponent(
     () => import('./widgets/JsonWidget.vue'),
   ),
+  'Rich textPageWidget': defineAsyncComponent(
+    () => import('./widgets/TextWidget.vue'),
+  ),
   'Product listPageWidget': defineAsyncComponent(
     () => import('./widgets/ProductListWidget.vue'),
   ),
