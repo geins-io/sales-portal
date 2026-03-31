@@ -33,6 +33,7 @@ Violations trigger immediate stop and escalation to user.
 - NEVER pass short locale codes to GraphQL/SDK — always go through `getChannelVariables()` which calls `ensureBcp47Locale()`
 - NEVER set the locale cookie from client code — only Nitro plugin 00 and the server-side validation middleware may write it
 - NEVER read locale/market from cookies in server utilities when resolvedLocaleMarket is available — use `event.context.resolvedLocaleMarket` (cookie fallback only for API routes where resolvedLocaleMarket is not set)
+- NEVER use bare route paths (`to="/login"`, `navigateTo('/')`, `router.push('/portal/orders')`) — always use `localePath()` in components or cookie-based prefix in middleware
 
 ## Project-Specific
 
