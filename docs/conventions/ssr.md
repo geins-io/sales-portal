@@ -343,7 +343,7 @@ URLs use single-letter type prefixes to identify content type without server-sid
 - **Menu URLs**: `shared/utils/menu.ts` `stripGeinsPrefix()` maps Geins type indicators (e.g. `/l/` for category) to our prefixes (e.g. `/c/`).
 - Constants in `shared/constants/route-paths.ts`.
 
-See [ADR-015](../adr/015-ralph-style-routing.md) for full context.
+See [ADR-015](../adr/015-type-prefixed-routing.md) for full context.
 
 ## Reference Implementation
 
