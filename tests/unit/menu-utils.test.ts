@@ -9,22 +9,22 @@ import {
 import type { MenuItemType } from '../../shared/types/cms';
 
 describe('stripGeinsPrefix', () => {
-  it('strips market/locale/type prefix from category URL', () => {
-    expect(stripGeinsPrefix('/se/sv/l/epoxi')).toBe('/epoxi');
+  it('maps Geins /l/ type indicator to /c/ (category)', () => {
+    expect(stripGeinsPrefix('/se/sv/l/epoxi')).toBe('/c/epoxi');
   });
 
-  it('strips market/locale prefix from CMS page URL', () => {
+  it('strips market/locale prefix from CMS page URL (no type indicator)', () => {
     expect(stripGeinsPrefix('/se/sv/about-us')).toBe('/about-us');
   });
 
-  it('strips market/locale/type prefix from product URL', () => {
+  it('maps Geins /p/ type indicator to /p/ (product)', () => {
     expect(stripGeinsPrefix('/se/sv/p/epoxi/my-product')).toBe(
-      '/epoxi/my-product',
+      '/p/epoxi/my-product',
     );
   });
 
   it('handles locale with region code', () => {
-    expect(stripGeinsPrefix('/se/sv-se/l/epoxi')).toBe('/epoxi');
+    expect(stripGeinsPrefix('/se/sv-se/l/epoxi')).toBe('/c/epoxi');
   });
 
   it('returns path as-is when no prefix matches', () => {
@@ -52,29 +52,33 @@ describe('stripGeinsPrefix', () => {
     );
   });
 
-  it('still strips single-char type indicators correctly', () => {
-    expect(stripGeinsPrefix('/se/sv/l/epoxi')).toBe('/epoxi');
-    expect(stripGeinsPrefix('/se/sv/p/cat/product')).toBe('/cat/product');
-    expect(stripGeinsPrefix('/se/sv/b/our-company')).toBe('/our-company');
+  it('maps single-char type indicators to route prefixes', () => {
+    expect(stripGeinsPrefix('/se/sv/l/epoxi')).toBe('/c/epoxi');
+    expect(stripGeinsPrefix('/se/sv/p/cat/product')).toBe('/p/cat/product');
+    expect(stripGeinsPrefix('/se/sv/b/our-company')).toBe('/b/our-company');
+  });
+
+  it('maps /dc/ type indicator to /dc/ (discount campaign)', () => {
+    expect(stripGeinsPrefix('/se/sv/dc/summer-sale')).toBe('/dc/summer-sale');
   });
 });
 
 describe('normalizeMenuUrl', () => {
-  it('returns stripped relative path', () => {
-    expect(normalizeMenuUrl('/se/sv/l/epoxi')).toBe('/epoxi');
+  it('returns route-prefixed path for category URL', () => {
+    expect(normalizeMenuUrl('/se/sv/l/epoxi')).toBe('/c/epoxi');
   });
 
   it('returns simple relative path as-is', () => {
     expect(normalizeMenuUrl('/about-us')).toBe('/about-us');
   });
 
-  it('strips hostname and Geins prefix from absolute URL', () => {
+  it('strips hostname and maps Geins prefix from absolute URL', () => {
     expect(
       normalizeMenuUrl(
         'https://monitor.example.com/se/sv/l/epoxi',
         'monitor.example.com',
       ),
-    ).toBe('/epoxi');
+    ).toBe('/c/epoxi');
   });
 
   it('keeps full URL when hostname does not match', () => {

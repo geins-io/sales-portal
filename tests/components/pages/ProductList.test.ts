@@ -147,10 +147,9 @@ const stubs = {
   },
 };
 
-const categoryResolution = {
+const categoryProps = {
   type: 'category' as const,
-  categoryId: '6',
-  categorySlug: 'foder',
+  alias: 'foder',
 };
 
 describe('ProductList.vue', () => {
@@ -171,7 +170,7 @@ describe('ProductList.vue', () => {
       mockProductsStatus.value = 'pending';
 
       const wrapper = shallowMountComponent(ProductList, {
-        props: { resolution: categoryResolution },
+        props: categoryProps,
         global: { stubs },
       });
 
@@ -187,7 +186,7 @@ describe('ProductList.vue', () => {
       mockProductsStatus.value = 'success';
 
       const wrapper = shallowMountComponent(ProductList, {
-        props: { resolution: categoryResolution },
+        props: categoryProps,
         global: { stubs },
       });
 
@@ -207,7 +206,7 @@ describe('ProductList.vue', () => {
       mockProductsStatus.value = 'success';
 
       const wrapper = shallowMountComponent(ProductList, {
-        props: { resolution: categoryResolution },
+        props: categoryProps,
         global: { stubs },
       });
 
@@ -219,14 +218,13 @@ describe('ProductList.vue', () => {
       mockProductsData.value = { products: [], count: 0 };
       mockProductsStatus.value = 'success';
 
-      const brandResolution = {
+      const brandProps = {
         type: 'brand' as const,
-        brandId: '10',
-        brandSlug: 'atlas-copco',
+        alias: 'atlas-copco',
       };
 
       const wrapper = shallowMountComponent(ProductList, {
-        props: { resolution: brandResolution },
+        props: brandProps,
         global: { stubs },
       });
 
@@ -243,7 +241,7 @@ describe('ProductList.vue', () => {
       mockProductsStatus.value = 'success';
 
       const wrapper = shallowMountComponent(ProductList, {
-        props: { resolution: categoryResolution },
+        props: categoryProps,
         global: { stubs },
       });
 
@@ -255,7 +253,7 @@ describe('ProductList.vue', () => {
       mockProductsStatus.value = 'success';
 
       const wrapper = shallowMountComponent(ProductList, {
-        props: { resolution: categoryResolution },
+        props: categoryProps,
         global: { stubs },
       });
 

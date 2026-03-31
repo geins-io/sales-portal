@@ -167,7 +167,7 @@ describe('ProductDetails', () => {
       });
 
       const wrapper = shallowMountComponent(ProductDetails, {
-        props: { resolution: { productSlug: 'test-product' } },
+        props: { alias: 'test-product' },
         global: { stubs: defaultStubs },
       });
 
@@ -182,7 +182,7 @@ describe('ProductDetails', () => {
       });
 
       const wrapper = shallowMountComponent(ProductDetails, {
-        props: { resolution: { productSlug: 'test-product' } },
+        props: { alias: 'test-product' },
         global: { stubs: defaultStubs },
       });
 
@@ -195,7 +195,7 @@ describe('ProductDetails', () => {
       mockProduct.value = makeProduct({ discountCampaigns: [] });
 
       const wrapper = shallowMountComponent(ProductDetails, {
-        props: { resolution: { productSlug: 'test-product' } },
+        props: { alias: 'test-product' },
         global: { stubs: defaultStubs },
       });
 
@@ -217,7 +217,7 @@ describe('ProductDetails', () => {
       });
 
       const wrapper = shallowMountComponent(ProductDetails, {
-        props: { resolution: { productSlug: 'test-product' } },
+        props: { alias: 'test-product' },
         global: { stubs: defaultStubs },
       });
 
@@ -230,7 +230,7 @@ describe('ProductDetails', () => {
       mockProduct.value = makeProduct({ discountType: 'SALE_PRICE' });
 
       const wrapper = shallowMountComponent(ProductDetails, {
-        props: { resolution: { productSlug: 'test-product' } },
+        props: { alias: 'test-product' },
         global: { stubs: defaultStubs },
       });
 
@@ -243,7 +243,7 @@ describe('ProductDetails', () => {
       mockProduct.value = makeProduct({ discountType: 'NONE' });
 
       const wrapper = shallowMountComponent(ProductDetails, {
-        props: { resolution: { productSlug: 'test-product' } },
+        props: { alias: 'test-product' },
         global: { stubs: defaultStubs },
       });
 

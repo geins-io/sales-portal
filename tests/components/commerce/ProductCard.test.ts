@@ -175,7 +175,7 @@ describe('ProductCard', () => {
     expect(links.length).toBe(2);
     // Both should point to the product URL (localePath mock prepends /se/en/)
     links.forEach((link) => {
-      expect(link.attributes('href')).toBe('/se/en/products/test-product');
+      expect(link.attributes('href')).toBe('/se/en/p/products/test-product');
     });
   });
 
