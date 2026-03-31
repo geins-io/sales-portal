@@ -12,12 +12,7 @@ export default defineEventHandler(async (event) => {
   if (customerType) {
     setHeader(event, 'Cache-Control', 'private, no-store');
   } else {
-    setHeader(
-      event,
-      'Cache-Control',
-      'public, s-maxage=60, stale-while-revalidate=120',
-    );
-    setHeader(event, 'Vary', 'cookie');
+    setHeader(event, 'Cache-Control', 'private, no-cache');
   }
 
   return withErrorHandling(
