@@ -4,6 +4,7 @@ import type { H3Event } from 'h3';
 // Mock Nitro auto-imports
 const mockGetCookie = vi.fn();
 vi.stubGlobal('getCookie', mockGetCookie);
+vi.stubGlobal('getQuery', () => ({}));
 
 // Mock the constants import
 vi.mock('#shared/constants/storage', () => ({

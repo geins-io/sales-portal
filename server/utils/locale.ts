@@ -34,8 +34,13 @@ export function getRequestLocale(event: H3Event): string | undefined {
   const resolved = event.context.resolvedLocaleMarket;
   if (resolved?.localeBcp47) return resolved.localeBcp47;
 
+  // Query param fallback — useFetch sends locale in query for cache key
+  // differentiation. During SSR internal fetches, cookies and tenant config
+  // may not be available, but the query param is always reliable.
+  const queryLocale = getQuery(event)?.locale as string | undefined;
+
   // Cookie fallback for API routes where resolvedLocaleMarket is not set
-  const shortLocale = getCookie(event, COOKIE_NAMES.LOCALE);
+  const shortLocale = queryLocale || getCookie(event, COOKIE_NAMES.LOCALE);
   if (!shortLocale) {
     // No cookie — use tenant's first available locale as fallback
     const tenantLocales = (
@@ -76,8 +81,11 @@ export function getRequestMarket(event: H3Event): string | undefined {
   const resolved = event.context.resolvedLocaleMarket;
   if (resolved?.market) return resolved.market;
 
+  // Query param fallback — useFetch sends market in query for cache key
+  const queryMarket = getQuery(event)?.market as string | undefined;
+
   // Cookie fallback for API routes where resolvedLocaleMarket is not set
-  const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
+  const marketCookie = queryMarket || getCookie(event, COOKIE_NAMES.MARKET);
   if (marketCookie) return marketCookie;
 
   // No cookie — use tenant's default market as fallback
