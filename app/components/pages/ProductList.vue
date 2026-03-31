@@ -117,6 +117,13 @@ const pageInfoUrl = computed(() =>
 );
 
 const { data: pageInfo } = useFetch<ListPageInfo>(pageInfoUrl, {
+  // Include locale/market in query so useFetch cache key is locale-aware.
+  // The server ignores these (reads from resolvedLocaleMarket/cookies),
+  // but they differentiate the client-side cache between locales.
+  query: computed(() => ({
+    locale: currentLocale.value,
+    market: currentMarket.value,
+  })),
   dedupe: 'defer',
 });
 

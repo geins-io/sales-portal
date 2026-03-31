@@ -10,16 +10,25 @@ const props = defineProps<{
   resolution: PageRouteResolution;
 }>();
 
+const { localePath, currentLocale, currentMarket } = useLocaleMarket();
+
 const {
   data: page,
   error,
   status,
 } = useFetch<ContentPageType>(
   () => `/api/cms/page/${props.resolution.pageSlug}`,
-  { dedupe: 'defer' },
+  {
+    // Include locale/market in query so useFetch cache key is locale-aware.
+    // The server ignores these (reads from resolvedLocaleMarket/cookies),
+    // but they differentiate the client-side cache between locales.
+    query: computed(() => ({
+      locale: currentLocale.value,
+      market: currentMarket.value,
+    })),
+    dedupe: 'defer',
+  },
 );
-
-const { localePath } = useLocaleMarket();
 const hasSidebar = computed(() => page.value?.tags?.includes('menu') ?? false);
 const sidebarMenuId = computed(
   () => page.value?.pageArea?.name || 'info-pages',
