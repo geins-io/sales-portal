@@ -54,11 +54,17 @@ function isChecked(valueId: string) {
             v-for="value in visibleValues"
             :key="value._id"
             :for="`filter-${facet.filterId}-${value._id}`"
-            class="flex cursor-pointer items-center gap-3"
+            class="flex items-center gap-3"
+            :class="
+              value.count === 0
+                ? 'cursor-not-allowed opacity-50'
+                : 'cursor-pointer'
+            "
           >
             <Checkbox
               :id="`filter-${facet.filterId}-${value._id}`"
               :model-value="isChecked(value.facetId)"
+              :disabled="value.count === 0"
               @update:model-value="toggleValue(value.facetId)"
             />
             <span class="flex-1 text-sm">

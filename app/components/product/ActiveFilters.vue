@@ -2,7 +2,6 @@
 import type { FilterFacet } from '#shared/types/commerce';
 import { X } from 'lucide-vue-next';
 import { Badge } from '~/components/ui/badge';
-import { Button } from '~/components/ui/button';
 
 const props = defineProps<{
   filters: Record<string, string[]>;
@@ -61,8 +60,5 @@ const hasActiveFilters = computed(() => activeFilters.value.length > 0);
         <X class="size-3" />
       </button>
     </Badge>
-    <Button variant="ghost" size="sm" @click="emit('clear-all')">
-      {{ $t('product.clear_all') }}
-    </Button>
   </div>
 </template>
