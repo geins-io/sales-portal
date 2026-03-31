@@ -243,7 +243,7 @@ export async function fetchTenantConfig(
       hostname,
       geinsSettings: { ...DEFAULT_GEINS_SETTINGS },
       mode: 'commerce' as const,
-      checkoutMode: 'custom' as const,
+      checkoutMode: 'hosted' as const,
       theme: themeWithDerived,
       css,
       branding: {
@@ -268,7 +268,7 @@ export async function fetchTenantConfig(
     hostname: 'not-found',
     geinsSettings: { ...DEFAULT_GEINS_SETTINGS },
     mode: 'commerce' as const,
-    checkoutMode: 'custom' as const,
+    checkoutMode: 'hosted' as const,
     theme: createDefaultTheme(hostname),
     css: '',
     branding: {
