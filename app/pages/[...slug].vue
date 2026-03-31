@@ -158,25 +158,32 @@ const sidebarMenuId = computed(
     <!-- Sidebar layout: page tagged with 'menu' in CMS -->
     <div
       v-else-if="hasSidebar && page?.containers?.length"
-      class="md:flex md:gap-8"
+      class="mx-auto max-w-7xl px-4 py-8 lg:px-8"
     >
-      <ErrorBoundary section="sidebar-nav">
-        <PageSidebarNav
-          :menu-location-id="sidebarMenuId"
-          class="mb-6 md:mb-0 md:w-64 md:shrink-0"
-        />
-      </ErrorBoundary>
-      <div class="min-w-0 flex-1">
-        <ErrorBoundary section="cms-content">
-          <CmsWidgetArea :containers="page.containers" />
+      <div class="md:flex md:gap-8">
+        <ErrorBoundary section="sidebar-nav">
+          <PageSidebarNav
+            :menu-location-id="sidebarMenuId"
+            class="mb-6 md:mb-0 md:w-56 md:shrink-0"
+          />
         </ErrorBoundary>
+        <div class="min-w-0 flex-1">
+          <ErrorBoundary section="cms-content">
+            <CmsWidgetArea :containers="page.containers" />
+          </ErrorBoundary>
+        </div>
       </div>
     </div>
 
     <!-- Full-width layout: no sidebar -->
-    <ErrorBoundary v-else-if="page?.containers?.length" section="cms-content">
-      <CmsWidgetArea :containers="page.containers" />
-    </ErrorBoundary>
+    <div
+      v-else-if="page?.containers?.length"
+      class="mx-auto max-w-7xl px-4 py-8 lg:px-8"
+    >
+      <ErrorBoundary section="cms-content">
+        <CmsWidgetArea :containers="page.containers" />
+      </ErrorBoundary>
+    </div>
 
     <!-- Empty / 404 -->
     <div v-else>
