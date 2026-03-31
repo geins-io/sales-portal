@@ -1,8 +1,5 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
-import {
-  hasLocaleMarketPrefix,
-  type SupportedLocale,
-} from '#shared/utils/locale-market';
+import { hasLocaleMarketPrefix } from '#shared/utils/locale-market';
 
 /**
  * Composable for URL-based locale and market routing.
@@ -15,7 +12,7 @@ import {
  * incoming URL parsing, validation, and cookie sync.
  */
 export function useLocaleMarket() {
-  const { locale: i18nLocale, setLocale } = useI18n();
+  const { locale: i18nLocale } = useI18n();
   const {
     market: tenantMarket,
     availableLocales: tenantAvailableLocales,
@@ -184,19 +181,15 @@ export function useLocaleMarket() {
   async function switchLocale(locale: string) {
     if (!validLocales.value.has(locale)) return;
 
-    await setLocale(locale as SupportedLocale);
     const market = currentMarket.value;
 
-    if (isStaticRoute()) {
-      const cleanPath = getCleanPath();
-      await navigateTo(
-        `/${market}/${locale}${cleanPath === '/' ? '/' : cleanPath}`,
-        { external: true },
-      );
-    } else {
-      // Dynamic route — slug is locale-specific, go to home
-      await navigateTo(`/${market}/${locale}/`, { external: true });
-    }
+    // Navigate via full page reload. The locale-market middleware on the
+    // target page sets i18n locale and cookies from the URL.
+    // Dynamic routes go to home — slugs are locale-specific.
+    const target = isStaticRoute()
+      ? `/${market}/${locale}${getCleanPath()}`
+      : `/${market}/${locale}/`;
+    await navigateTo(target, { external: true });
   }
 
   /**
@@ -208,19 +201,11 @@ export function useLocaleMarket() {
   async function switchMarket(market: string) {
     if (!validMarkets.value.has(market)) return;
 
-    marketCookie.value = market;
     const locale = currentLocale.value;
-
-    if (isStaticRoute()) {
-      const cleanPath = getCleanPath();
-      await navigateTo(
-        `/${market}/${locale}${cleanPath === '/' ? '/' : cleanPath}`,
-        { external: true },
-      );
-    } else {
-      // Dynamic route — go to home for new market
-      await navigateTo(`/${market}/${locale}/`, { external: true });
-    }
+    const target = isStaticRoute()
+      ? `/${market}/${locale}${getCleanPath()}`
+      : `/${market}/${locale}/`;
+    await navigateTo(target, { external: true });
   }
 
   return {

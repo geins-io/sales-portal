@@ -229,7 +229,7 @@ describe('useLocaleMarket', () => {
       const { switchLocale } = useLocaleMarket();
       await switchLocale('en');
 
-      expect(mockSetLocale).toHaveBeenCalledWith('en');
+      // No setLocale — full page reload handles locale from URL
       // Dynamic route slugs are locale-specific, so switch goes to home
       expect(mockNavigateTo).toHaveBeenCalledWith('/se/en/', {
         external: true,
@@ -240,7 +240,6 @@ describe('useLocaleMarket', () => {
       const { switchLocale } = useLocaleMarket();
       await switchLocale('xx');
 
-      expect(mockSetLocale).not.toHaveBeenCalled();
       expect(mockNavigateTo).not.toHaveBeenCalled();
     });
 
@@ -249,7 +248,6 @@ describe('useLocaleMarket', () => {
       const { switchLocale } = useLocaleMarket();
       await switchLocale('en');
 
-      expect(mockSetLocale).not.toHaveBeenCalled();
       expect(mockNavigateTo).not.toHaveBeenCalled();
     });
 
@@ -269,8 +267,7 @@ describe('useLocaleMarket', () => {
       const { switchMarket } = useLocaleMarket();
       await switchMarket('no');
 
-      expect(mockMarketCookieValue.value).toBe('no');
-      // Dynamic route slugs differ between markets, so switch goes to home
+      // Cookie set by middleware on new page, not here
       expect(mockNavigateTo).toHaveBeenCalledWith('/no/sv/', {
         external: true,
       });
@@ -304,7 +301,6 @@ describe('useLocaleMarket', () => {
       const { switchMarket } = useLocaleMarket();
       await switchMarket('dk');
 
-      expect(mockMarketCookieValue.value).toBe('dk');
       expect(mockNavigateTo).toHaveBeenCalledWith('/dk/sv/', {
         external: true,
       });

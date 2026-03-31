@@ -13,8 +13,8 @@ const { availableMarkets } = useTenant();
 const { t } = useI18n();
 const { currentMarket, switchMarket: switchMarketNav } = useLocaleMarket();
 
-function switchMarket(m: string) {
-  switchMarketNav(m);
+async function switchMarket(m: string) {
+  await switchMarketNav(m);
 }
 
 const showSwitcher = computed(() => availableMarkets.value.length > 1);
