@@ -4,6 +4,7 @@ import { useFavoritesStore } from '~/stores/favorites';
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'wishlist' });
 
 const { t } = useI18n();
+const { localePath } = useLocaleMarket();
 const favoritesStore = useFavoritesStore();
 </script>
 
@@ -23,7 +24,7 @@ const favoritesStore = useFavoritesStore();
           {{ t('portal.favorites.empty') }}
         </p>
         <NuxtLink
-          to="/products"
+          :to="localePath('/products')"
           class="text-primary hover:text-primary/80 font-medium"
         >
           {{ t('portal.favorites.browse_products') }}

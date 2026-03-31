@@ -30,6 +30,29 @@ vi.mock('vue-i18n', () => ({
 vi.stubGlobal('computed', computed);
 vi.stubGlobal('onMounted', onMounted);
 
+// Mock useLocaleMarket — URL-based locale/market routing composable
+vi.stubGlobal('useLocaleMarket', () => ({
+  currentMarket: computed(() => 'se'),
+  currentLocale: computed(() => 'en'),
+  localePath: (path: string) =>
+    `/se/en${path.startsWith('/') ? path : '/' + path}`,
+  getCleanPath: () => '/',
+  switchLocale: vi.fn(),
+  switchMarket: vi.fn(),
+}));
+
+vi.mock('../../../app/composables/useLocaleMarket', () => ({
+  useLocaleMarket: () => ({
+    currentMarket: computed(() => 'se'),
+    currentLocale: computed(() => 'en'),
+    localePath: (path: string) =>
+      `/se/en${path.startsWith('/') ? path : '/' + path}`,
+    getCleanPath: () => '/',
+    switchLocale: vi.fn(),
+    switchMarket: vi.fn(),
+  }),
+}));
+
 // Mock callOnce — calls the factory function synchronously (mirrors Nuxt's callOnce)
 vi.stubGlobal(
   'callOnce',

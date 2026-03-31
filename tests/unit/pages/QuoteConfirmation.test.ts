@@ -41,6 +41,29 @@ vi.mock('#app/composables/router', () => ({
 
 vi.stubGlobal('computed', computed);
 
+// Mock useLocaleMarket — URL-based locale/market routing composable
+vi.stubGlobal('useLocaleMarket', () => ({
+  currentMarket: computed(() => 'se'),
+  currentLocale: computed(() => 'en'),
+  localePath: (path: string) =>
+    `/se/en${path.startsWith('/') ? path : '/' + path}`,
+  getCleanPath: () => '/',
+  switchLocale: vi.fn(),
+  switchMarket: vi.fn(),
+}));
+
+vi.mock('../../../app/composables/useLocaleMarket', () => ({
+  useLocaleMarket: () => ({
+    currentMarket: computed(() => 'se'),
+    currentLocale: computed(() => 'en'),
+    localePath: (path: string) =>
+      `/se/en${path.startsWith('/') ? path : '/' + path}`,
+    getCleanPath: () => '/',
+    switchLocale: vi.fn(),
+    switchMarket: vi.fn(),
+  }),
+}));
+
 // ---------------------------------------------------------------------------
 // Stubs
 // ---------------------------------------------------------------------------
@@ -124,7 +147,7 @@ describe('QuoteConfirmation page', () => {
 
     const link = wrapper.find('[data-testid="quote-confirmation-portal-link"]');
     expect(link.exists()).toBe(true);
-    expect(link.attributes('href')).toBe('/portal/quotations');
+    expect(link.attributes('href')).toBe('/se/en/portal/quotations');
   });
 
   it('portal link shows the back_to_portal translation key', () => {

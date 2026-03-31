@@ -27,6 +27,12 @@ vi.mock('#app/composables/router', () => ({
     fn,
 }));
 
+vi.mock('#app/composables/cookie', () => ({
+  useCookie: (name: string) => ({
+    value: name === 'market' ? 'se' : name === 'locale' ? 'en' : null,
+  }),
+}));
+
 function createRoute(
   overrides: Partial<RouteLocationNormalized> = {},
 ): RouteLocationNormalized {
@@ -57,21 +63,21 @@ describe('guest middleware', () => {
     expect(result).toBeUndefined();
   });
 
-  it('redirects authenticated users to /', async () => {
+  it('redirects authenticated users to locale-prefixed home', async () => {
     mockIsAuthenticated = true;
     const result = await guestMiddleware(createRoute());
-    expect(result).toEqual({ path: '/' });
+    expect(result).toEqual({ path: '/se/en/' });
   });
 
-  it('redirects authenticated users to redirect query param', async () => {
+  it('redirects authenticated users to redirect query param when it has locale prefix', async () => {
     mockIsAuthenticated = true;
     const result = await guestMiddleware(
       createRoute({
-        fullPath: '/login?redirect=/portal',
-        query: { redirect: '/portal' },
+        fullPath: '/login?redirect=/se/en/portal',
+        query: { redirect: '/se/en/portal' },
       }),
     );
-    expect(result).toEqual({ path: '/portal' });
+    expect(result).toEqual({ path: '/se/en/portal' });
   });
 
   it('calls fetchUser when not initialized', async () => {
@@ -91,7 +97,7 @@ describe('guest middleware', () => {
     const result = await guestMiddleware(
       createRoute({ query: { redirect: '//evil.com' } }),
     );
-    expect(result).toEqual({ path: '/' });
+    expect(result).toEqual({ path: '/se/en/' });
   });
 
   it('blocks open redirect with protocol', async () => {
@@ -99,6 +105,6 @@ describe('guest middleware', () => {
     const result = await guestMiddleware(
       createRoute({ query: { redirect: 'https://evil.com' } }),
     );
-    expect(result).toEqual({ path: '/' });
+    expect(result).toEqual({ path: '/se/en/' });
   });
 });
