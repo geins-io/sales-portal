@@ -126,7 +126,7 @@ describe('CMS page route — cache headers', () => {
     expect(setHeaderMock).toHaveBeenCalledWith(
       event,
       'Cache-Control',
-      'public, s-maxage=60, stale-while-revalidate=600',
+      'public, s-maxage=60, stale-while-revalidate=120',
     );
     expect(setHeaderMock).toHaveBeenCalledWith(event, 'Vary', 'cookie');
   });
@@ -198,7 +198,7 @@ describe('CMS area route — cache headers', () => {
     expect(setHeaderMock).toHaveBeenCalledWith(
       event,
       'Cache-Control',
-      'public, s-maxage=60, stale-while-revalidate=600',
+      'public, s-maxage=60, stale-while-revalidate=120',
     );
     expect(setHeaderMock).toHaveBeenCalledWith(event, 'Vary', 'cookie');
   });
