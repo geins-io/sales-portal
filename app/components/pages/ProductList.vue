@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import type {
-  CategoryRouteResolution,
-  BrandRouteResolution,
-  BreadcrumbItem,
-} from '#shared/types/common';
+import type { BreadcrumbItem } from '#shared/types/common';
 import type {
   ListPageInfo,
   ProductListResponse,
@@ -14,15 +10,12 @@ import { useDebounceFn } from '@vueuse/core';
 import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
 
 const props = defineProps<{
-  resolution: CategoryRouteResolution | BrandRouteResolution;
+  type: 'category' | 'brand';
+  alias: string;
 }>();
 
-const isBrand = computed(() => props.resolution.type === 'brand');
-const listSlug = computed(() =>
-  isBrand.value
-    ? (props.resolution as BrandRouteResolution).brandSlug
-    : (props.resolution as CategoryRouteResolution).categorySlug,
-);
+const isBrand = computed(() => props.type === 'brand');
+const listSlug = computed(() => props.alias);
 
 const route = useRoute();
 const router = useRouter();

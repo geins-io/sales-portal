@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ListPageInfo } from '#shared/types/commerce';
 import type { BreadcrumbItem } from '#shared/types/common';
+import { categoryPath } from '#shared/utils/route-helpers';
 
 defineProps<{
   pageInfo: ListPageInfo | null;
@@ -34,7 +35,11 @@ const { localePath } = useLocaleMarket();
       <NuxtLink
         v-for="sub in pageInfo.subCategories"
         :key="sub.alias"
-        :to="sub.canonicalUrl || localePath(`/${sub.alias}`)"
+        :to="
+          sub.canonicalUrl
+            ? localePath(categoryPath(sub.canonicalUrl))
+            : localePath(`/c/${sub.alias}`)
+        "
         class="bg-muted hover:bg-muted/80 rounded-full px-3 py-1 text-sm transition-colors"
       >
         {{ sub.name }}

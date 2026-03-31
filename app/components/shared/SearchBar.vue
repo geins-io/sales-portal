@@ -96,12 +96,12 @@ function onSubmit() {
   ) {
     const product = autocompleteItems.value[activeIndex.value]!;
     autocompleteOpen.value = false;
-    router.push(localePath(`/${product.alias}`));
+    router.push(localePath(`/p/${product.alias}`));
     return;
   }
   if (trimmed) {
     autocompleteOpen.value = false;
-    emit('search', trimmed);
+    router.push(localePath(`/s/${encodeURIComponent(trimmed)}`));
   }
 }
 
@@ -114,14 +114,14 @@ function onClear() {
 
 function onSelectProduct(alias: string) {
   autocompleteOpen.value = false;
-  router.push(localePath(`/${alias}`));
+  router.push(localePath(`/p/${alias}`));
 }
 
 function onViewAll() {
   autocompleteOpen.value = false;
   const trimmed = query.value.trim();
   if (trimmed) {
-    router.push({ path: localePath('/search'), query: { q: trimmed } });
+    router.push(localePath(`/s/${encodeURIComponent(trimmed)}`));
   }
 }
 
