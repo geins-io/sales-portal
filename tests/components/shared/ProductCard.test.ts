@@ -36,7 +36,7 @@ const baseProduct = {
   },
 };
 
-describe('ProductCard URL with Ralph-style routing', () => {
+describe('ProductCard URL with type-prefixed routing', () => {
   it('product URL adds /p/ prefix and strips market/locale from canonicalUrl', () => {
     // Geins API returns canonicalUrl with market/locale but NO type prefix:
     //   /se/sv/cat/test-product

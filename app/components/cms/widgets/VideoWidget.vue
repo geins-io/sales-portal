@@ -9,7 +9,7 @@ const props = defineProps<{
 
 /**
  * Video provider — 0=youtube, 1=vimeo.
- * ralph-ui reference: CaWidgetVideo.vue videoProvider
+ * Geins CMS videoProvider field: 0=youtube, 1=vimeo
  */
 const provider = computed(() =>
   props.data.videoProvider === 1 ? 'vimeo' : 'youtube',

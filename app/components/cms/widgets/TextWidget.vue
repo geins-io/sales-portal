@@ -9,7 +9,7 @@ const props = defineProps<{
 
 /**
  * Heading tag from titleRenderMode.
- * ralph-ui reference: CaWidgetText.vue getHeadingTag()
+ * Geins CMS heading tag from titleRenderMode.
  * 0=h1, 1=h2, 2=h3, 3=div
  */
 const headingTag = computed(() => {
@@ -22,7 +22,7 @@ const headingTag = computed(() => {
 
 /**
  * Text alignment from textAlignment.
- * ralph-ui reference: CaWidgetText.vue textAlignmentClass()
+ * Geins CMS text alignment from textAlignment field.
  * 1=left, 2=center, 3=right, 4=justify, 0/default=none
  */
 const alignmentClass = computed(() => {
@@ -40,7 +40,7 @@ const alignmentClass = computed(() => {
   }
 });
 
-/** ralph-ui uses configuration.title, not displayName */
+/** CMS uses data.title as primary, config.displayName as fallback */
 const title = computed(
   () => props.data.title || props.config.displayName || '',
 );

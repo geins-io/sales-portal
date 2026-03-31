@@ -1,11 +1,11 @@
 ---
-title: Ralph-style type-prefixed routing
+title: Type-prefixed routing
 status: accepted
 created: 2026-03-30
 tags: [routing, urls, seo]
 ---
 
-# ADR-015: Ralph-style type-prefixed routing
+# ADR-015: Type-prefixed routing
 
 ## Context
 
@@ -23,11 +23,11 @@ This approach had drawbacks:
 - Cache invalidation was complex (tenant-aware, time-based TTLs)
 - URLs were ambiguous without visual type indicators
 
-The Ralph storefront (our reference implementation) uses a simpler approach: URL type prefixes that encode the content type directly in the path.
+A simpler approach uses URL type prefixes that encode the content type directly in the path.
 
 ## Decision
 
-Adopt Ralph-style type-prefixed URLs:
+Adopt type-prefixed URLs:
 
 | Prefix | Content Type      | Example                          |
 | ------ | ----------------- | -------------------------------- |
@@ -41,7 +41,7 @@ Adopt Ralph-style type-prefixed URLs:
 
 Route path constants are defined in `shared/constants/route-paths.ts`. Link generation helpers in `shared/utils/route-helpers.ts` strip Geins market/locale prefixes from API canonical URLs and prepend the appropriate type prefix.
 
-The existing `shared/utils/menu.ts` `stripGeinsPrefix` function was updated to map Geins type indicators (`/l/` -> `/c/`, `/p/` -> `/p/`, `/b/` -> `/b/`) to our route prefixes, so all CMS menu links automatically use the new URL structure.
+The `shared/utils/menu.ts` `stripGeinsPrefix` function maps Geins type indicators (`/l/` -> `/c/`, `/p/` -> `/p/`, `/b/` -> `/b/`) to our route prefixes, so all CMS menu links automatically use the new URL structure.
 
 The `[...slug].vue` catch-all now handles only CMS content pages. Dedicated page files handle typed routes:
 
@@ -57,7 +57,7 @@ The `[...slug].vue` catch-all now handles only CMS content pages. Dedicated page
 - No route resolution API calls needed - the URL prefix tells us the content type
 - Faster navigation (eliminates the resolve-route round-trip)
 - Simpler codebase (removed ~300 lines of route resolution infrastructure)
-- URLs are self-describing and match the Ralph storefront pattern
+- URLs are self-describing and deterministic
 - Category/brand maps no longer need to be fetched and cached
 
 **Negative:**

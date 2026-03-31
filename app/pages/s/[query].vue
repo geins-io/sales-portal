@@ -5,7 +5,7 @@
  * Matches: /{market}/{locale}/s/{query}
  * The query parameter contains the search term.
  *
- * This is the Ralph-style URL for search.
+ * This is the type-prefixed URL for search.
  * The old /search?q=... page is kept for backward compatibility
  * and redirects here.
  */

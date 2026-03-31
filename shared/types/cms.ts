@@ -27,9 +27,9 @@ export interface TextWidgetData {
   name: string;
   active: boolean;
   text: string;
-  /** 1=left, 2=center, 3=right, 4=justify, 0=none. ralph-ui: CaWidgetText.vue */
+  /** 1=left, 2=center, 3=right, 4=justify, 0=none */
   textAlignment?: number;
-  /** 0=h1, 1=h2, 2=h3, 3=div. ralph-ui: CaWidgetText.vue getHeadingTag() */
+  /** 0=h1, 1=h2, 2=h3, 3=div */
   titleRenderMode?: number;
   /** Explicit title text from CMS (preferred over config.displayName) */
   title?: string;
@@ -58,11 +58,11 @@ export interface BannerWidgetData {
   text1?: string;
   text2?: string;
   buttonText?: string;
-  /** Non-fullwidth: 0=below-image, 1=on-image. ralph-ui: CaWidgetBanner.vue */
+  /** Non-fullwidth: 0=below-image, 1=on-image */
   textAndButtonPlacement?: number;
-  /** Full-width: 0=left, 1=middle, 2=right. ralph-ui: CaWidgetBanner.vue */
+  /** Full-width: 0=left, 1=middle, 2=right */
   textAndButtonPlacementFullWidth?: number;
-  /** 0=primary color, 1=secondary color. ralph-ui: CaWidgetBanner.vue textColor() */
+  /** 0=primary color, 1=secondary color */
   textColor?: number;
   classNames?: string;
 }
@@ -81,9 +81,9 @@ export interface ButtonsWidgetData {
 export interface VideoWidgetData {
   name: string;
   active: boolean;
-  /** Video ID (YouTube or Vimeo). ralph-ui: configuration.videoId */
+  /** Video ID (YouTube or Vimeo) */
   videoId: string;
-  /** 0=youtube, 1=vimeo. ralph-ui: CaWidgetVideo.vue videoProvider */
+  /** 0=youtube, 1=vimeo */
   videoProvider?: number;
   /** Optional thumbnail image */
   image?: WidgetImage;

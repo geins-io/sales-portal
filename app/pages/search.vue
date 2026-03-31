@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Legacy search page — redirects to /s/{query} (Ralph-style URL).
+ * Legacy search page — redirects to /s/{query} (type-prefixed URL).
  *
  * Preserved for backward compatibility with bookmarks and external links
  * using the old /search?q=... format.

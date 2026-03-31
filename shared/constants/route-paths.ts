@@ -1,5 +1,5 @@
 /**
- * Ralph-style route path prefixes.
+ * Type-prefixed route path constants.
  *
  * These type-indicator prefixes appear between the /{market}/{locale}/
  * segment and the entity alias in every storefront URL:

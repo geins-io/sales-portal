@@ -4,7 +4,7 @@ import { ROUTE_PATHS } from '../constants/route-paths';
 /**
  * Geins type indicator → our route prefix mapping.
  * Geins CMS uses single-char type indicators: l (list/category), p (product), b (brand), s (search), dc (discount campaign).
- * We map them to our Ralph-style route prefixes.
+ * We map them to our type-prefixed route paths.
  */
 const GEINS_TYPE_MAP: Record<string, string> = {
   l: ROUTE_PATHS.category, // /l/ → /c/
@@ -16,7 +16,7 @@ const GEINS_TYPE_MAP: Record<string, string> = {
 
 /**
  * Strip Geins market/locale prefix from a path and convert type indicators
- * to Ralph-style route prefixes.
+ * to our type-prefixed route paths.
  *
  * Geins CMS canonical URLs include prefixes like:
  *   /se/sv/l/epoxi       → /c/epoxi       (category — 'l' maps to '/c')

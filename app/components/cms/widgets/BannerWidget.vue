@@ -25,7 +25,7 @@ const fullWidth = computed(
 
 /**
  * Text & button placement — depends on fullWidth.
- * ralph-ui reference: CaWidgetBanner.vue
+ * Geins CMS banner placement logic.
  *
  * Uses textAndButtonPlacementFullWidth when full-width,
  * textAndButtonPlacement when not full-width.
@@ -67,9 +67,8 @@ const overlayAlignment = computed(() => {
 });
 
 /**
- * Text color — ralph-ui maps 0=primary, 1=secondary.
+ * Text color — Geins CMS maps 0=primary, 1=secondary.
  * We use foreground (dark) for primary (0) and white for secondary (1).
- * ralph-ui reference: CaWidgetBanner.vue textColor()
  */
 const textColorClass = computed(() => {
   return props.data.textColor === 0 ? 'text-foreground' : 'text-white';
