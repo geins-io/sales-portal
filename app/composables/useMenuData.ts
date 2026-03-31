@@ -3,8 +3,10 @@ import type { MenuType } from '#shared/types/cms';
 /**
  * Fetch CMS menu data by location ID.
  *
- * Uses useFetch with dedupe:'defer' so multiple components calling
- * useMenuData('main') share the same request.
+ * Includes locale/market in the query so SSR internal fetches resolve
+ * the correct language. During SSR, internal useFetch calls don't go
+ * through the locale plugin — the query params ensure the server API
+ * reads the correct locale.
  */
 export function useMenuData(menuLocationId: string) {
   const { currentLocale, currentMarket } = useLocaleMarket();
@@ -16,9 +18,6 @@ export function useMenuData(menuLocationId: string) {
   } = useFetch<MenuType>('/api/cms/menu', {
     query: computed(() => ({
       menuLocationId,
-      // Include locale/market in query so useFetch cache key is locale-aware.
-      // The server ignores these (reads from resolvedLocaleMarket/cookies),
-      // but they differentiate the client-side cache between locales.
       locale: currentLocale.value,
       market: currentMarket.value,
     })),

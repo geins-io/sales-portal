@@ -89,11 +89,12 @@ describe('server/utils/locale', () => {
       expect(getRequestLocale(event)).toBe('sv-SE');
     });
 
-    it('should return undefined for short locale without tenant config', () => {
+    it('should return short locale as-is when tenant config unavailable', () => {
       const event = createEvent();
       mockGetCookie.mockReturnValue('sv');
 
-      expect(getRequestLocale(event)).toBeUndefined();
+      // Short codes are returned as-is when expansion isn't possible
+      expect(getRequestLocale(event)).toBe('sv');
     });
 
     it('should return undefined when cookie is not set', () => {

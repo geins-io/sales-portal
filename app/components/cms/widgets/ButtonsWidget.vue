@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ButtonsWidgetData, ContentConfigType } from '#shared/types/cms';
+import { stripGeinsPrefix } from '#shared/utils/menu';
 
 defineProps<{
   data: ButtonsWidgetData;
@@ -15,7 +16,7 @@ const { localePath } = useLocaleMarket();
     <NuxtLink
       v-for="(button, index) in data.buttons"
       :key="index"
-      :to="localePath(button.href)"
+      :to="localePath(stripGeinsPrefix(button.href))"
       class="bg-primary text-primary-foreground rounded px-6 py-2 font-medium transition-opacity hover:opacity-90"
     >
       {{ button.text }}

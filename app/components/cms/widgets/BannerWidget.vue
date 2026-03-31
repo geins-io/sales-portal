@@ -2,6 +2,7 @@
 import { NuxtLink } from '#components';
 import type { BannerWidgetData, ContentConfigType } from '#shared/types/cms';
 import { resolveImageFileName } from '#shared/types/cms';
+import { stripGeinsPrefix } from '#shared/utils/menu';
 
 const props = defineProps<{
   data: BannerWidgetData;
@@ -12,6 +13,12 @@ const props = defineProps<{
 const imageFileName = computed(() => resolveImageFileName(props.data.image));
 const hasLink = computed(() => !!props.data.image?.href);
 const { localePath } = useLocaleMarket();
+
+const bannerHref = computed(() => {
+  const raw = props.data.image?.href;
+  if (!raw) return '/';
+  return stripGeinsPrefix(raw);
+});
 const hasOverlay = computed(
   () => props.data.text1 || props.data.text2 || props.data.buttonText,
 );
@@ -79,7 +86,7 @@ const textColorClass = computed(() => {
 <template>
   <component
     :is="hasLink ? NuxtLink : 'div'"
-    :to="hasLink ? localePath(data.image.href!) : undefined"
+    :to="hasLink ? localePath(bannerHref) : undefined"
     class="relative block overflow-hidden"
     data-testid="cms-widget"
   >
