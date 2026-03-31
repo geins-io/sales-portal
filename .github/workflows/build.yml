@@ -103,13 +103,19 @@ jobs:
           push-to-registry: true
 
   # ---------------------------------------------------------------------------
-  # Auto-deploy to dev after successful build
+  # Auto-deploy: trigger deploy workflow after successful build
+  # Uses gh CLI to dispatch since workflow_call has permission limitations
   # ---------------------------------------------------------------------------
   deploy:
     name: Deploy to Dev
     needs: build
     if: github.ref == 'refs/heads/main'
-    uses: ./.github/workflows/deploy.yml
-    with:
-      environment: dev
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run deploy.yml \
+            --repo ${{ github.repository }} \
+            --field environment=dev

@@ -14,13 +14,6 @@
 name: Deploy
 
 on:
-  workflow_call:
-    inputs:
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        type: string
-
   workflow_dispatch:
     inputs:
       environment:
@@ -53,8 +46,8 @@ jobs:
         id: set-env
         run: |
           # Determine environment
-          if [[ -n "${{ inputs.environment }}" ]]; then
-            ENV="${{ inputs.environment }}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ github.event.inputs.environment }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             ENV="prod"
           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
