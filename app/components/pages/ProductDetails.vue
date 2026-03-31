@@ -114,7 +114,11 @@ const breadcrumbItems = computed(() => {
   // Extract category from the product's primaryCategory if available
   const category = product.value?.primaryCategory;
   if (category?.name) {
-    items.push({ label: category.name });
+    const catAlias = category.alias || category.name.toLowerCase();
+    items.push({
+      label: category.name,
+      href: localePath(`/c/${catAlias}`),
+    });
   }
 
   if (product.value?.name) {

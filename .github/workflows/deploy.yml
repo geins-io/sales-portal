@@ -14,15 +14,12 @@
 name: Deploy
 
 on:
-  # SUSPENDED: Automatic staging deployment on push to main
-  # push:
-  #   branches:
-  #     - main
-
-  # SUSPENDED: Automatic production deployment on version tags
-  # push:
-  #   tags:
-  #     - 'v*'
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
 
   workflow_dispatch:
     inputs:
@@ -56,8 +53,8 @@ jobs:
         id: set-env
         run: |
           # Determine environment
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            ENV="${{ github.event.inputs.environment }}"
+          if [[ -n "${{ inputs.environment }}" ]]; then
+            ENV="${{ inputs.environment }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             ENV="prod"
           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then

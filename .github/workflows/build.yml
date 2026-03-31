@@ -101,3 +101,15 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build-push.outputs.digest }}
           push-to-registry: true
+
+  # ---------------------------------------------------------------------------
+  # Auto-deploy to dev after successful build
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to Dev
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: dev
+    secrets: inherit
