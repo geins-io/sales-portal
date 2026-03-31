@@ -75,7 +75,6 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   └── ui/                 # shadcn-vue UI primitives
 │   ├── composables/
 │   │   ├── useTenant.ts        # Tenant data access
-│   │   ├── useRouteResolution.ts # Dynamic route resolution
 │   │   ├── useErrorTracking.ts # Error tracking & reporting
 │   │   ├── useFeatureAccess.ts # Feature access control (auth + role gating)
 │   │   └── useAnalyticsConsent.ts # Per-tenant analytics consent (GDPR)
@@ -83,7 +82,12 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   └── default.vue         # Default page layout
 │   ├── lib/
 │   │   └── utils.ts            # Utility functions (cn, etc.)
-│   ├── pages/                  # File-based routing
+│   ├── pages/                  # File-based routing (type-prefixed)
+│   │   ├── c/[...category].vue # Category PLP (/c/...)
+│   │   ├── p/[...alias].vue    # Product PDP (/p/...)
+│   │   ├── b/[...brand].vue    # Brand PLP (/b/...)
+│   │   ├── s/[query].vue       # Search results (/s/...)
+│   │   ├── [...slug].vue       # CMS content catch-all
 │   │   └── index.vue           # Homepage
 │   └── plugins/
 │       ├── api.ts              # Custom $api fetch instance
@@ -99,7 +103,8 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │       └── [...].ts        # Proxy for external APIs
 │   ├── middleware/
 │   │   ├── cache-headers.ts    # CDN Vary + s-maxage + stale-while-revalidate
-│   │   └── csrf-guard.ts       # Rejects non-JSON content types on mutating requests (415)
+│   │   ├── csrf-guard.ts       # Rejects non-JSON content types on mutating requests (415)
+│   │   └── legacy-route-redirect.ts # 301 redirect bare URLs to /c/ prefix (ADR-015)
 │   ├── schemas/
 │   │   ├── store-settings.ts   # Zod schema + inferred types (ADR-007)
 │   │   └── api-input.ts        # Zod schemas for POST route validation
@@ -789,7 +794,7 @@ See [Patterns: Feature Access Control](patterns/README.md#feature-access-control
 
 ### Navigation Performance
 
-Client-side navigation latency is reduced through three techniques:
+Client-side navigation latency is reduced through two techniques:
 
 1. **Parallel Auth Initialization** (`app/plugins/auth-init.client.ts`)
    - Fires `fetchUser()` during plugin init (fire-and-forget, not awaited)
@@ -797,26 +802,20 @@ Client-side navigation latency is reduced through three techniques:
    - `fetchUser()` uses promise deduplication — concurrent calls share one in-flight request
    - Middleware still calls `fetchUser()` but awaits the already-in-flight promise
 
-2. **Route Resolution Prefetching** (`app/composables/useRouteResolution.ts`)
-   - Client-side `Map` cache stores resolved routes for the SPA session
-   - `prefetchRouteResolution(path)` pre-warms the cache on link hover/intersection
-   - `useRouteResolution()` checks the cache before calling `/api/resolve-route`
-   - Server-side LRU cache (5 min TTL, 1000 entries) handles repeated requests
-
-3. **SWR Route Caching** (`nuxt.config.ts` `routeRules`)
+2. **SWR Route Caching** (`nuxt.config.ts` `routeRules`)
    - Static pages (`/`, `/login`, `/portal`, `/portal/login`) cached for 5 minutes
    - Nitro serves stale response immediately, revalidates in background
    - Cache key includes the full URL (host + path) for multi-tenant isolation
 
+Route resolution prefetching was removed in the type-prefixed routing migration (ADR-015). URLs now encode the content type directly in the path, eliminating the need for server-side route classification.
+
 ### Caching Strategy Overview
 
-| Layer                      | Scope          | TTL                         | What                          |
-| -------------------------- | -------------- | --------------------------- | ----------------------------- |
-| Nitro `routeRules` SWR     | SSR output     | 5 min                       | Static page HTML              |
-| `defineCachedEventHandler` | Server handler | 1 hour                      | Tenant config (`/api/config`) |
-| LRU cache (resolve-route)  | Server memory  | 5 min (found) / 1 min (404) | Route resolution              |
-| Client `_routeCache` Map   | SPA session    | Session lifetime            | Route resolution              |
-| `useAsyncData` payload     | SSR → client   | Hydration                   | All `useAsyncData` calls      |
+| Layer                      | Scope          | TTL       | What                          |
+| -------------------------- | -------------- | --------- | ----------------------------- |
+| Nitro `routeRules` SWR     | SSR output     | 5 min     | Static page HTML              |
+| `defineCachedEventHandler` | Server handler | 1 hour    | Tenant config (`/api/config`) |
+| `useAsyncData` payload     | SSR → client   | Hydration | All `useAsyncData` calls      |
 
 ---
 

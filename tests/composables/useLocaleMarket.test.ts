@@ -225,12 +225,13 @@ describe('useLocaleMarket', () => {
   });
 
   describe('switchLocale', () => {
-    it('should call setLocale and navigateTo with new locale in URL', async () => {
+    it('should navigate to home on dynamic route (locale-specific slugs)', async () => {
       const { switchLocale } = useLocaleMarket();
       await switchLocale('en');
 
-      expect(mockSetLocale).toHaveBeenCalledWith('en');
-      expect(mockNavigateTo).toHaveBeenCalledWith('/se/en/foder', {
+      // No setLocale — full page reload handles locale from URL
+      // Dynamic route slugs are locale-specific, so switch goes to home
+      expect(mockNavigateTo).toHaveBeenCalledWith('/se/en/', {
         external: true,
       });
     });
@@ -239,7 +240,6 @@ describe('useLocaleMarket', () => {
       const { switchLocale } = useLocaleMarket();
       await switchLocale('xx');
 
-      expect(mockSetLocale).not.toHaveBeenCalled();
       expect(mockNavigateTo).not.toHaveBeenCalled();
     });
 
@@ -248,7 +248,6 @@ describe('useLocaleMarket', () => {
       const { switchLocale } = useLocaleMarket();
       await switchLocale('en');
 
-      expect(mockSetLocale).not.toHaveBeenCalled();
       expect(mockNavigateTo).not.toHaveBeenCalled();
     });
 
@@ -264,12 +263,12 @@ describe('useLocaleMarket', () => {
   });
 
   describe('switchMarket', () => {
-    it('should set cookie and navigateTo with new market in URL', async () => {
+    it('should navigate to home on dynamic route when switching market', async () => {
       const { switchMarket } = useLocaleMarket();
       await switchMarket('no');
 
-      expect(mockMarketCookieValue.value).toBe('no');
-      expect(mockNavigateTo).toHaveBeenCalledWith('/no/sv/foder', {
+      // Cookie set by middleware on new page, not here
+      expect(mockNavigateTo).toHaveBeenCalledWith('/no/sv/', {
         external: true,
       });
     });
@@ -302,8 +301,7 @@ describe('useLocaleMarket', () => {
       const { switchMarket } = useLocaleMarket();
       await switchMarket('dk');
 
-      expect(mockMarketCookieValue.value).toBe('dk');
-      expect(mockNavigateTo).toHaveBeenCalledWith('/dk/sv/foder', {
+      expect(mockNavigateTo).toHaveBeenCalledWith('/dk/sv/', {
         external: true,
       });
     });

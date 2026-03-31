@@ -11,10 +11,15 @@ const props = withDefaults(
 
 const { availableLocales } = useTenant();
 const { locale: currentLocale, locales, t } = useI18n();
-const { switchLocale: switchLocaleNav } = useLocaleMarket();
+const { currentMarket } = useLocaleMarket();
 
-function switchLocale(loc: string) {
-  switchLocaleNav(loc);
+/**
+ * Generate the URL for switching to a given locale.
+ * Always goes to home page — dynamic route slugs are locale-specific.
+ * Uses a plain <a href> for full page reload, no JavaScript switching.
+ */
+function localeHref(loc: string): string {
+  return `/${currentMarket.value}/${loc}/`;
 }
 
 /** Map locale code → display name from i18n config */
@@ -40,15 +45,19 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
 <template>
   <!-- Inline: flat button row -->
   <div v-if="showSwitcher && props.variant === 'inline'" class="flex gap-1">
-    <Button
+    <a
       v-for="loc in availableLocales as string[]"
       :key="loc"
-      :variant="loc === currentLocale ? 'secondary' : 'ghost'"
-      size="sm"
-      @click="switchLocale(loc)"
+      :href="localeHref(loc)"
+      class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+      :class="
+        loc === currentLocale
+          ? 'bg-secondary text-secondary-foreground'
+          : 'hover:bg-accent hover:text-accent-foreground'
+      "
     >
       {{ localeNames.get(loc) ?? loc }}
-    </Button>
+    </a>
   </div>
 
   <!-- Dropdown: icon-only or text+icon trigger -->
@@ -75,14 +84,15 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
     <DropdownMenuContent align="end">
       <DropdownMenuLabel>{{ t('common.language') }}</DropdownMenuLabel>
       <DropdownMenuSeparator />
-      <DropdownMenuItem
+      <a
         v-for="loc in availableLocales as string[]"
         :key="loc"
+        :href="localeHref(loc)"
+        class="hover:bg-accent hover:text-accent-foreground relative flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none"
         :class="{ 'font-semibold': loc === currentLocale }"
-        @click="switchLocale(loc)"
       >
         {{ localeNames.get(loc) ?? loc }}
-      </DropdownMenuItem>
+      </a>
     </DropdownMenuContent>
   </DropdownMenu>
 </template>

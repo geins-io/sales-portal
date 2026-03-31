@@ -1,0 +1,41 @@
+{
+  "$schema": "doc-manifest-v1",
+  "docs": [
+    {
+      "path": "README.md",
+      "description": "Public-facing project documentation",
+      "trigger": "on-task-complete",
+      "sections": []
+    },
+    {
+      "path": "CLAUDE.md",
+      "description": "AI assistant project instructions",
+      "trigger": "on-architectural-change",
+      "sections": []
+    },
+    {
+      "path": "docs/testing.md",
+      "description": "Documentation — testing",
+      "trigger": "on-architectural-change",
+      "sections": []
+    },
+    {
+      "path": "docs/architecture.md",
+      "description": "Documentation — architecture",
+      "trigger": "on-architectural-change",
+      "sections": []
+    },
+    {
+      "path": "docs/index.md",
+      "description": "Documentation — index",
+      "trigger": "on-architectural-change",
+      "sections": []
+    },
+    {
+      "path": "docs/WHY_THESE_DOCS.md",
+      "description": "Documentation — WHY_THESE_DOCS",
+      "trigger": "on-architectural-change",
+      "sections": []
+    }
+  ]
+}

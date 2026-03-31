@@ -11,12 +11,7 @@ export default defineEventHandler(async (event) => {
     async () => {
       const result = await getMenu({ menuLocationId }, event);
 
-      setHeader(
-        event,
-        'Cache-Control',
-        'public, s-maxage=300, stale-while-revalidate=600',
-      );
-      setHeader(event, 'Vary', 'cookie');
+      setHeader(event, 'Cache-Control', 'private, no-cache');
 
       return result;
     },

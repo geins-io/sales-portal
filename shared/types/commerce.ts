@@ -54,7 +54,7 @@ export type StockStatus =
 
 /**
  * Derive stock status from StockType.
- * ralph-ui reference: MixStockHandler
+ * Geins stock field mapping
  */
 export function getStockStatus(
   stock: { totalStock: number; inStock: number; static: number },

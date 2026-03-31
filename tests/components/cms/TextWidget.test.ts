@@ -42,8 +42,8 @@ describe('TextWidget', () => {
     expect(prose.html()).toContain('<p>Some content</p>');
   });
 
-  // ralph-ui: CaWidgetText.vue getHeadingTag() — 0=h1, 1=h2, 2=h3, 3=div
-  describe('titleRenderMode (ralph-ui: getHeadingTag)', () => {
+  // Geins CMS field: titleRenderMode — 0=h1, 1=h2, 2=h3, 3=div
+  describe('titleRenderMode (heading tag)', () => {
     it('renders h1 when titleRenderMode is 0', () => {
       const wrapper = mountComponent(TextWidget, {
         props: makeProps({ titleRenderMode: 0 }),
@@ -87,8 +87,8 @@ describe('TextWidget', () => {
     });
   });
 
-  // ralph-ui: CaWidgetText.vue textAlignmentClass() — 1=left, 2=center, 3=right, 4=justify, 0=none
-  describe('textAlignment (ralph-ui: textAlignmentClass)', () => {
+  // Geins CMS field: textAlignment — 1=left, 2=center, 3=right, 4=justify, 0=none
+  describe('textAlignment (alignment class)', () => {
     it('applies text-left for 1', () => {
       const wrapper = mountComponent(TextWidget, {
         props: makeProps({ textAlignment: 1 }),
@@ -127,8 +127,8 @@ describe('TextWidget', () => {
     });
   });
 
-  // ralph-ui: CaWidgetText.vue uses configuration.title, not displayName
-  describe('title resolution (ralph-ui: configuration.title)', () => {
+  // CMS uses data.title as primary, config.displayName as fallback
+  describe('title resolution (data.title vs config.displayName)', () => {
     it('prefers data.title over config.displayName', () => {
       const wrapper = mountComponent(TextWidget, {
         props: makeProps({ title: 'Data Title', displayName: 'Config Name' }),

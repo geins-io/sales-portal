@@ -18,14 +18,20 @@ import { useAuthStore } from '~/stores/auth';
 export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore();
 
+  // Build locale/market prefix from cookies (composables aren't available in middleware)
+  const market = useCookie('market').value || 'se';
+  const locale = useCookie('locale').value || 'sv';
+  const prefix = `/${market}/${locale}`;
+
   // On first load, check session via server (cookies are sent automatically)
   if (!authStore.isInitialized) {
     await authStore.fetchUser();
   }
 
   if (authStore.isAuthenticated) {
-    const raw = (to.query.redirect as string) || '/';
-    const redirect = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
+    const raw = (to.query.redirect as string) || '';
+    // If redirect already has locale prefix, use as-is; otherwise go to prefixed home
+    const redirect = raw.startsWith(`/${market}/`) ? raw : `${prefix}/`;
     return navigateTo({ path: redirect });
   }
 });

@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import type { ContentAreaType } from '#shared/types/cms';
 
+const { currentLocale, currentMarket } = useLocaleMarket();
+
 const {
   data: area,
   error,
   status,
 } = useFetch<ContentAreaType>('/api/cms/area', {
-  query: { family: 'Frontpage', areaName: 'Content' },
+  query: computed(() => ({
+    family: 'Frontpage',
+    areaName: 'Content',
+    ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+    ...(currentMarket.value ? { market: currentMarket.value } : {}),
+  })),
   dedupe: 'defer',
 });
 </script>

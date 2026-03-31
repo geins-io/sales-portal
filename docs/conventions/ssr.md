@@ -272,11 +272,84 @@ const locale: SupportedLocale = 'sv';
 const locale = 'sv' as SupportedLocale; // bypasses the type guard
 ```
 
+## Locale-Safe Navigation
+
+All route paths in the application must include the locale/market prefix. Never use bare paths.
+
+### Rules
+
+- ALWAYS use `localePath()` from `useLocaleMarket()` when building route paths in Vue components
+- In route middleware (where composables are unavailable), build the prefix from cookies:
+  ```typescript
+  const market = useCookie('market').value || 'se';
+  const locale = useCookie('locale').value || 'sv';
+  const prefix = `/${market}/${locale}`;
+  ```
+- NEVER use bare paths like `to="/login"`, `navigateTo('/')`, `router.push('/portal/orders')`
+
+### Patterns
+
+```vue
+<!-- DO: use localePath() -->
+<NuxtLink :to="localePath('/login')">Login</NuxtLink>
+<NuxtLink :to="localePath('/portal/orders')">Orders</NuxtLink>
+
+<!-- DON'T: bare paths lose locale prefix -->
+<NuxtLink to="/login">Login</NuxtLink>
+<NuxtLink to="/portal/orders">Orders</NuxtLink>
+```
+
+```typescript
+// DO: in middleware, use cookie-based prefix
+const market = useCookie('market').value || 'se';
+const locale = useCookie('locale').value || 'sv';
+const prefix = `/${market}/${locale}`;
+return navigateTo({ path: `${prefix}/login` });
+
+// DON'T: redirect to bare path
+return navigateTo({ path: '/login' });
+```
+
+```typescript
+// DO: in components, use localePath()
+const { localePath } = useLocaleMarket();
+router.replace(localePath('/login'));
+
+// DON'T: bare path in programmatic navigation
+router.replace('/login');
+```
+
+### Regression Test
+
+A lint-style unit test (`tests/unit/lint/bare-route-paths.test.ts`) scans `app/` for bare route
+patterns and fails if any are found. This prevents regressions.
+
+## Type-Prefixed Routing
+
+URLs use single-letter type prefixes to identify content type without server-side resolution:
+
+| Prefix | Content Type | Page File                       | Example                          |
+| ------ | ------------ | ------------------------------- | -------------------------------- |
+| `/c/`  | Category PLP | `app/pages/c/[...category].vue` | `/se/sv/c/material/epoxy`        |
+| `/p/`  | Product PDP  | `app/pages/p/[...alias].vue`    | `/se/sv/p/material/product-name` |
+| `/b/`  | Brand PLP    | `app/pages/b/[...brand].vue`    | `/se/sv/b/atlas-copco`           |
+| `/s/`  | Search       | `app/pages/s/[query].vue`       | `/se/sv/s/search+query`          |
+| (none) | CMS content  | `app/pages/[...slug].vue`       | `/se/sv/about-us`                |
+
+### Key rules
+
+- **Alias extraction**: use `.pop()` on the catch-all params array to get the entity alias (last segment). Earlier segments are parent paths for breadcrumbs/SEO.
+- **Link generation**: Geins API returns `canonicalUrl` without type prefixes. Use `categoryPath()`, `productPath()`, `brandPath()` from `shared/utils/route-helpers.ts` to add the prefix, then wrap with `localePath()`.
+- **Menu URLs**: `shared/utils/menu.ts` `stripGeinsPrefix()` maps Geins type indicators (e.g. `/l/` for category) to our prefixes (e.g. `/c/`).
+- Constants in `shared/constants/route-paths.ts`.
+
+See [ADR-015](../adr/015-type-prefixed-routing.md) for full context.
+
 ## Reference Implementation
 
 The canonical example of correct SSR page behavior is `app/pages/[...slug].vue`:
 
-- Uses `await useRouteResolution()` for SSR-safe data fetching
+- Uses `useFetch` for SSR-safe data fetching
 - Handles 404 with `createError` on server, `showError` on client
 - Shows loading skeleton during pending state
 - Shows error state with action button on failure

@@ -9,13 +9,14 @@ definePageMeta({
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
+const { localePath } = useLocaleMarket();
 
 const resetKey = computed(() => (route.query.key as string) || '');
 
 function handleSuccess() {
   // Auto-redirect to login after 3 seconds
   setTimeout(() => {
-    router.replace('/login');
+    router.replace(localePath('/login'));
   }, 3000);
 }
 </script>

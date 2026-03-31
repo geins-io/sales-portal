@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import type {
-  CategoryRouteResolution,
-  BrandRouteResolution,
-  BreadcrumbItem,
-} from '#shared/types/common';
+import type { BreadcrumbItem } from '#shared/types/common';
 import type {
   ListPageInfo,
   ProductListResponse,
@@ -14,15 +10,12 @@ import { useDebounceFn } from '@vueuse/core';
 import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
 
 const props = defineProps<{
-  resolution: CategoryRouteResolution | BrandRouteResolution;
+  type: 'category' | 'brand';
+  alias: string;
 }>();
 
-const isBrand = computed(() => props.resolution.type === 'brand');
-const listSlug = computed(() =>
-  isBrand.value
-    ? (props.resolution as BrandRouteResolution).brandSlug
-    : (props.resolution as CategoryRouteResolution).categorySlug,
-);
+const isBrand = computed(() => props.type === 'brand');
+const listSlug = computed(() => props.alias);
 
 const route = useRoute();
 const router = useRouter();
@@ -56,7 +49,7 @@ const currentPage = ref(Number(route.query.page) || 1);
 const skip = computed(() => (currentPage.value - 1) * take);
 
 const { t } = useI18n();
-const { localePath, currentLocale, currentMarket } = useLocaleMarket();
+const { localePath } = useLocaleMarket();
 const sortOptions = computed(() => [
   { label: t('product.sort_relevance'), value: 'relevance' },
   { label: t('product.sort_price_asc'), value: 'price-asc' },
@@ -83,11 +76,6 @@ const queryParams = computed(() => ({
   skip: skip.value,
   take,
   ...(filterInput.value ? { filter: JSON.stringify(filterInput.value) } : {}),
-  // Include locale/market in query so useFetch cache key is locale-aware.
-  // The server ignores these (reads from resolvedLocaleMarket/cookies),
-  // but they differentiate the client-side cache between locales.
-  locale: currentLocale.value,
-  market: currentMarket.value,
 }));
 
 const { data: productsData, status: productsStatus } =
@@ -103,8 +91,6 @@ const { data: filtersData } = useFetch<ProductFiltersResponse>(
       ...(isBrand.value
         ? { brandAlias: listSlug.value }
         : { categoryAlias: listSlug.value }),
-      locale: currentLocale.value,
-      market: currentMarket.value,
     })),
     dedupe: 'defer',
   },

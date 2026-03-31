@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { NuxtLink } from '#components';
 import type { BannerWidgetData, ContentConfigType } from '#shared/types/cms';
 import { resolveImageFileName } from '#shared/types/cms';
+import { stripGeinsPrefix } from '#shared/utils/menu';
 
 const props = defineProps<{
   data: BannerWidgetData;
@@ -11,6 +13,12 @@ const props = defineProps<{
 const imageFileName = computed(() => resolveImageFileName(props.data.image));
 const hasLink = computed(() => !!props.data.image?.href);
 const { localePath } = useLocaleMarket();
+
+const bannerHref = computed(() => {
+  const raw = props.data.image?.href;
+  if (!raw) return '/';
+  return stripGeinsPrefix(raw);
+});
 const hasOverlay = computed(
   () => props.data.text1 || props.data.text2 || props.data.buttonText,
 );
@@ -25,7 +33,7 @@ const fullWidth = computed(
 
 /**
  * Text & button placement — depends on fullWidth.
- * ralph-ui reference: CaWidgetBanner.vue
+ * Geins CMS banner placement logic.
  *
  * Uses textAndButtonPlacementFullWidth when full-width,
  * textAndButtonPlacement when not full-width.
@@ -67,9 +75,8 @@ const overlayAlignment = computed(() => {
 });
 
 /**
- * Text color — ralph-ui maps 0=primary, 1=secondary.
+ * Text color — Geins CMS maps 0=primary, 1=secondary.
  * We use foreground (dark) for primary (0) and white for secondary (1).
- * ralph-ui reference: CaWidgetBanner.vue textColor()
  */
 const textColorClass = computed(() => {
   return props.data.textColor === 0 ? 'text-foreground' : 'text-white';
@@ -78,8 +85,8 @@ const textColorClass = computed(() => {
 
 <template>
   <component
-    :is="hasLink ? resolveComponent('NuxtLink') : 'div'"
-    :to="hasLink ? localePath(data.image.href!) : undefined"
+    :is="hasLink ? NuxtLink : 'div'"
+    :to="hasLink ? localePath(bannerHref) : undefined"
     class="relative block overflow-hidden"
     data-testid="cms-widget"
   >

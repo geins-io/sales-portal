@@ -3,7 +3,7 @@ const router = useRouter();
 const { localePath } = useLocaleMarket();
 
 function onSearch(query: string) {
-  router.push({ path: localePath('/search'), query: { q: query } });
+  router.push(localePath(`/s/${encodeURIComponent(query)}`));
 }
 </script>
 

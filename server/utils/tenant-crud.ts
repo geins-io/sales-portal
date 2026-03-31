@@ -41,7 +41,7 @@ export async function createTenant(
       ...DEFAULT_GEINS_SETTINGS,
     },
     mode: partialConfig?.mode ?? 'commerce',
-    checkoutMode: partialConfig?.checkoutMode ?? 'custom',
+    checkoutMode: partialConfig?.checkoutMode ?? 'hosted',
     theme: themeWithDerived,
     css,
     themeHash,

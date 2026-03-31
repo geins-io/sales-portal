@@ -25,7 +25,7 @@ function isActive(to: string): boolean {
 
 <template>
   <nav
-    class="sticky top-4 hidden md:block"
+    class="bg-muted sticky top-4 hidden rounded-lg p-4 md:block"
     :aria-label="t('nav.sidebar_navigation')"
     data-testid="info-page-sidebar"
   >

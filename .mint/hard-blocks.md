@@ -33,6 +33,13 @@ Violations trigger immediate stop and escalation to user.
 - NEVER pass short locale codes to GraphQL/SDK — always go through `getChannelVariables()` which calls `ensureBcp47Locale()`
 - NEVER set the locale cookie from client code — only Nitro plugin 00 and the server-side validation middleware may write it
 - NEVER read locale/market from cookies in server utilities when resolvedLocaleMarket is available — use `event.context.resolvedLocaleMarket` (cookie fallback only for API routes where resolvedLocaleMarket is not set)
+- NEVER use bare route paths (`to="/login"`, `navigateTo('/')`, `router.push('/portal/orders')`) — always use `localePath()` in components or cookie-based prefix in middleware
+
+## Type-Prefixed Routing (ADR-015)
+
+- NEVER link to category, product, brand, or search pages without their type prefix (`/c/`, `/p/`, `/b/`, `/s/`). Use `categoryPath()`, `productPath()`, `brandPath()`, `searchPath()` from `shared/utils/route-helpers.ts` to build the path, then wrap with `localePath()`.
+- NEVER add new page files for typed content outside the prefix directories (`app/pages/c/`, `app/pages/p/`, `app/pages/b/`, `app/pages/s/`). The `[...slug].vue` catch-all is for CMS content only.
+- NEVER modify the legacy redirect middleware to redirect to anything other than `/c/` — unknown bare paths default to category. Products must use `/p/` links from the source.
 
 ## Project-Specific
 

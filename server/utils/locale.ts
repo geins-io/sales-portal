@@ -34,8 +34,10 @@ export function getRequestLocale(event: H3Event): string | undefined {
   const resolved = event.context.resolvedLocaleMarket;
   if (resolved?.localeBcp47) return resolved.localeBcp47;
 
-  // Cookie fallback for API routes where resolvedLocaleMarket is not set
-  const shortLocale = getCookie(event, COOKIE_NAMES.LOCALE);
+  // Query param → cookie fallback. During SSR internal fetches, cookies may
+  // not be set yet but useFetch passes locale as a query param.
+  const queryLocale = getQuery(event)?.locale as string | undefined;
+  const shortLocale = queryLocale || getCookie(event, COOKIE_NAMES.LOCALE);
   if (!shortLocale) {
     // No cookie — use tenant's first available locale as fallback
     const tenantLocales = (
@@ -50,15 +52,7 @@ export function getRequestLocale(event: H3Event): string | undefined {
   const tenantConfig = event.context.tenant?.config as TenantConfig | undefined;
   const availableLocales = tenantConfig?.geinsSettings?.availableLocales;
 
-  const expanded = expandLocale(shortLocale, availableLocales);
-
-  // If expansion didn't change anything (no tenant config available, e.g. internal SSR fetch),
-  // return undefined so the caller falls back to the SDK's default locale (already BCP-47).
-  if (expanded === shortLocale && !shortLocale.includes('-')) {
-    return undefined;
-  }
-
-  return expanded;
+  return expandLocale(shortLocale, availableLocales);
 }
 
 /**
@@ -76,8 +70,9 @@ export function getRequestMarket(event: H3Event): string | undefined {
   const resolved = event.context.resolvedLocaleMarket;
   if (resolved?.market) return resolved.market;
 
-  // Cookie fallback for API routes where resolvedLocaleMarket is not set
-  const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
+  // Query param → cookie fallback
+  const queryMarket = getQuery(event)?.market as string | undefined;
+  const marketCookie = queryMarket || getCookie(event, COOKIE_NAMES.MARKET);
   if (marketCookie) return marketCookie;
 
   // No cookie — use tenant's default market as fallback

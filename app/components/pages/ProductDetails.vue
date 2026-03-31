@@ -6,16 +6,15 @@ import type {
 } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
-import type { ProductRouteResolution } from '#shared/types/common';
 import { AlertTriangle as AlertTriangleIcon, Star } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
 
 const props = defineProps<{
-  resolution: ProductRouteResolution;
+  alias: string;
 }>();
 
-const slug = computed(() => props.resolution.productSlug ?? '');
+const slug = computed(() => props.alias);
 
 const {
   data: product,
@@ -112,13 +111,10 @@ const breadcrumbItems = computed(() => {
     { label: t('common.home'), href: localePath('/') },
   ];
 
-  const categorySlug = props.resolution.categorySlug;
-  if (categorySlug) {
-    const categoryLabel = categorySlug
-      .split('-')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-    items.push({ label: categoryLabel, href: localePath(`/${categorySlug}`) });
+  // Extract category from the product's primaryCategory if available
+  const category = product.value?.primaryCategory;
+  if (category?.name) {
+    items.push({ label: category.name });
   }
 
   if (product.value?.name) {

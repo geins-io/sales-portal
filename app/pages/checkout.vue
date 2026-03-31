@@ -23,7 +23,13 @@ const { t } = useI18n();
 const { localePath } = useLocaleMarket();
 const cartStore = useCartStore();
 const checkoutStore = useCheckoutStore();
-const { checkoutMode } = useTenant();
+
+// Await tenant data before rendering — prevents flash of custom form when in hosted mode.
+// Without this, checkoutMode defaults to 'custom' during client-side navigation while
+// useFetch resolves, briefly showing the wrong UI.
+const tenantData = useTenant();
+await tenantData.suspense();
+const { checkoutMode } = tenantData;
 
 useHead({
   title: computed(() => t('checkout.title')),
@@ -83,17 +89,11 @@ async function handleHostedCheckout() {
   }
 }
 
-// Fetch checkout data when component mounts (client-side hydration)
-onMounted(async () => {
-  if (!cartIdCookie.value) {
-    await navigateTo(localePath('/cart'), { replace: true });
-    return;
-  }
-
-  // Always use hosted checkout — Geins handles auth and payment on their side.
-  // Custom checkout form is not yet implemented; when it is, gate on checkoutMode here.
+// Hosted checkout: redirect on the client during setup — before the template mounts.
+// This eliminates the flash of the custom checkout form entirely.
+if (import.meta.client && checkoutMode.value === 'hosted') {
   await handleHostedCheckout();
-});
+}
 
 // Watch for successful order placement
 watch(

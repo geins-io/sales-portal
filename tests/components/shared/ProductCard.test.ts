@@ -36,15 +36,17 @@ const baseProduct = {
   },
 };
 
-describe('ProductCard URL regression', () => {
-  it('product URL strips /p/ prefix from canonicalUrl', () => {
-    // Regression: canonicalUrl from Geins includes /se/sv/p/cat/product-alias
-    // but our app routes don't use /p/. stripGeinsPrefix should strip it.
+describe('ProductCard URL with type-prefixed routing', () => {
+  it('product URL adds /p/ prefix and strips market/locale from canonicalUrl', () => {
+    // Geins API returns canonicalUrl with market/locale but NO type prefix:
+    //   /se/sv/cat/test-product
+    // productPath strips locale → /p/cat/test-product
+    // localePath (mock) prepends /se/en/ → /se/en/p/cat/test-product
     const wrapper = shallowMountComponent(ProductCard, {
       props: {
         product: {
           ...baseProduct,
-          canonicalUrl: '/se/sv/p/cat/test-product',
+          canonicalUrl: '/se/sv/cat/test-product',
         },
       },
     });
@@ -52,13 +54,10 @@ describe('ProductCard URL regression', () => {
     const links = wrapper.findAll('a');
     const hrefs = links.map((l) => l.attributes('href'));
 
-    // The URL should NOT contain /p/ — localePath mock prepends /se/en/
-    expect(hrefs.some((h) => h === '/se/en/cat/test-product')).toBe(true);
-    expect(hrefs.every((h) => !h?.includes('/p/'))).toBe(true);
+    expect(hrefs.some((h) => h === '/se/en/p/cat/test-product')).toBe(true);
   });
 
-  it('product URL fallback uses localePath with /{alias}', () => {
-    // When no canonicalUrl, fallback should use localePath('/{alias}')
+  it('product URL fallback uses /p/{alias} when no canonicalUrl', () => {
     const wrapper = shallowMountComponent(ProductCard, {
       props: {
         product: {
@@ -71,19 +70,16 @@ describe('ProductCard URL regression', () => {
     const links = wrapper.findAll('a');
     const hrefs = links.map((l) => l.attributes('href'));
 
-    // localePath mock in setup-components.ts returns /se/en/{path}
-    expect(hrefs.some((h) => h === '/se/en/test-product')).toBe(true);
-    // Must NOT have /p/ in the fallback path
-    expect(hrefs.every((h) => !h?.includes('/p/'))).toBe(true);
+    // localePath('/p/test-product') → /se/en/p/test-product
+    expect(hrefs.some((h) => h === '/se/en/p/test-product')).toBe(true);
   });
 
-  it('product URL strips market/locale prefix from canonicalUrl', () => {
-    // CMS canonical URLs include the full /market/locale/type/... path
+  it('product URL handles canonicalUrl without market/locale prefix', () => {
     const wrapper = shallowMountComponent(ProductCard, {
       props: {
         product: {
           ...baseProduct,
-          canonicalUrl: '/se/sv/l/category-alias',
+          canonicalUrl: '/cat/test-product',
         },
       },
     });
@@ -91,7 +87,8 @@ describe('ProductCard URL regression', () => {
     const links = wrapper.findAll('a');
     const hrefs = links.map((l) => l.attributes('href'));
 
-    // /l/ type indicator should be stripped along with market/locale; localePath mock prepends /se/en/
-    expect(hrefs.some((h) => h === '/se/en/category-alias')).toBe(true);
+    // productPath('/cat/test-product') → /p/cat/test-product
+    // localePath → /se/en/p/cat/test-product
+    expect(hrefs.some((h) => h === '/se/en/p/cat/test-product')).toBe(true);
   });
 });

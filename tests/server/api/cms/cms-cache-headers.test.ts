@@ -117,7 +117,7 @@ describe('CMS page route — cache headers', () => {
     );
   });
 
-  it('sets public cache header and Vary for anonymous users', async () => {
+  it('sets private no-cache header for anonymous users', async () => {
     getCustomerTypeMock.mockResolvedValue(undefined);
     const event = mockEvent();
 
@@ -126,9 +126,8 @@ describe('CMS page route — cache headers', () => {
     expect(setHeaderMock).toHaveBeenCalledWith(
       event,
       'Cache-Control',
-      'public, s-maxage=60, stale-while-revalidate=600',
+      'private, no-cache',
     );
-    expect(setHeaderMock).toHaveBeenCalledWith(event, 'Vary', 'cookie');
   });
 });
 
@@ -189,7 +188,7 @@ describe('CMS area route — cache headers', () => {
     );
   });
 
-  it('sets public cache header and Vary for anonymous users', async () => {
+  it('sets private no-cache header for anonymous users', async () => {
     getCustomerTypeMock.mockResolvedValue(undefined);
     const event = mockEvent();
 
@@ -198,8 +197,7 @@ describe('CMS area route — cache headers', () => {
     expect(setHeaderMock).toHaveBeenCalledWith(
       event,
       'Cache-Control',
-      'public, s-maxage=60, stale-while-revalidate=600',
+      'private, no-cache',
     );
-    expect(setHeaderMock).toHaveBeenCalledWith(event, 'Vary', 'cookie');
   });
 });

@@ -12,7 +12,7 @@ useHead({
       <!-- Sidebar -->
       <InfoPageSidebar
         active-path="/apply-for-account"
-        class="mb-6 md:mb-0 md:w-64 md:shrink-0"
+        class="mb-6 md:mb-0 md:w-56 md:shrink-0"
       />
 
       <!-- Content -->

@@ -16,7 +16,7 @@ import {
 // Cache Configuration
 // =============================================================================
 
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 60 * 1000; // 1 minute — short TTL for multi-locale correctness
 
 const menuCache = new LRUCache<string, MenuType>({
   max: 200,

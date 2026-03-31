@@ -65,7 +65,7 @@ function visibleChildren(
     data-testid="sidebar-nav"
   >
     <!-- Desktop: sticky vertical nav, hidden on mobile -->
-    <ul class="sticky top-4 hidden space-y-1 md:block">
+    <ul class="bg-muted sticky top-4 hidden space-y-1 rounded-lg p-4 md:block">
       <li v-for="item in visibleItems" :key="item.id ?? getMenuLabel(item)">
         <template v-if="visibleChildren(item.children).length > 0">
           <span class="text-foreground block py-2 ps-3 text-sm font-semibold">

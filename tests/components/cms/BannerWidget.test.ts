@@ -105,11 +105,11 @@ describe('BannerWidget', () => {
   });
 
   /**
-   * ralph-ui reference: CaWidgetBanner.vue
+   * Geins CMS banner placement:
    * Full-width: always overlay. textAndButtonPlacementFullWidth: 0=left, 1=middle, 2=right
    * Not full-width: textAndButtonPlacement: 0=below-image, 1=on-image
    */
-  describe('text placement (ralph-ui: CaWidgetBanner)', () => {
+  describe('text placement (banner widget)', () => {
     it('full-width: always renders as overlay', () => {
       const wrapper = mountComponent(BannerWidget, {
         props: makeProps({

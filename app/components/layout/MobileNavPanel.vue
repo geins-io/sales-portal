@@ -17,6 +17,7 @@ import {
   getMenuLabel,
   getVisibleItems,
   isExternalUrl,
+  addCategoryPrefix,
 } from '#shared/utils/menu';
 
 const appStore = useAppStore();
@@ -43,8 +44,9 @@ function linkTag(item: MenuItemType) {
 }
 
 function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
-  const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
+  let url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
   const ext = isExternal(item);
+  if (!ext) url = addCategoryPrefix(url, item);
   const href = ext ? url || '/' : localePath(url || '/');
   return {
     [ext ? 'href' : 'to']: href,

@@ -6,6 +6,7 @@ definePageMeta({
 });
 
 const { t } = useI18n();
+const { localePath } = useLocaleMarket();
 
 const { data: ordersData, pending: ordersPending } = useFetch<{
   orders: Array<{
@@ -84,7 +85,7 @@ callOnce('portal-quotes', () => quotesStore.fetchQuotes());
           {{ t('portal.overview.latest_orders') }}
         </h3>
         <NuxtLink
-          to="/portal/orders"
+          :to="localePath('/portal/orders')"
           class="text-primary hover:text-primary/80 text-sm font-medium"
         >
           {{ t('portal.overview.view_all') }}
@@ -110,7 +111,7 @@ callOnce('portal-quotes', () => quotesStore.fetchQuotes());
             {{ t('portal.overview.pending_quotations') }}
           </h3>
           <NuxtLink
-            to="/portal/quotations"
+            :to="localePath('/portal/quotations')"
             class="text-primary hover:text-primary/80 text-sm font-medium"
           >
             {{ t('portal.overview.view_all') }}
@@ -148,7 +149,7 @@ callOnce('portal-quotes', () => quotesStore.fetchQuotes());
             {{ t('portal.overview.your_lists') }}
           </h3>
           <NuxtLink
-            to="/portal/lists"
+            :to="localePath('/portal/lists')"
             class="text-primary hover:text-primary/80 text-sm font-medium"
           >
             {{ t('portal.overview.view_all') }}
@@ -167,7 +168,7 @@ callOnce('portal-quotes', () => quotesStore.fetchQuotes());
           {{ t('portal.overview.purchased_products') }}
         </h3>
         <NuxtLink
-          to="/portal/products"
+          :to="localePath('/portal/products')"
           class="text-primary hover:text-primary/80 text-sm font-medium"
         >
           {{ t('portal.overview.view_all') }}
