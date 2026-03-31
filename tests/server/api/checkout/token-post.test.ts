@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
-// Mock createToken from checkout service
+// Mock checkout service
 const mockCreateToken = vi.fn();
+const mockGetCheckout = vi.fn();
 vi.mock('../../../../server/services/checkout', () => ({
   createToken: (...args: unknown[]) => mockCreateToken(...args),
+  getCheckout: (...args: unknown[]) => mockGetCheckout(...args),
 }));
 
 // Stub Nitro / h3 auto-imports
@@ -84,6 +86,16 @@ describe('POST /api/checkout/token', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreateToken.mockResolvedValue('sdk-generated-token-123');
+    mockGetCheckout.mockResolvedValue({
+      paymentOptions: [
+        { id: 23, isDefault: true, isSelected: false },
+        { id: 42, isDefault: false, isSelected: false },
+      ],
+      shippingOptions: [
+        { id: 1, isDefault: true, isSelected: false },
+        { id: 2, isDefault: false, isSelected: false },
+      ],
+    });
     (
       globalThis.readValidatedBody as ReturnType<typeof vi.fn>
     ).mockImplementation(
@@ -120,6 +132,8 @@ describe('POST /api/checkout/token', () => {
       import('@geins/types').GenerateCheckoutTokenOptions,
     ];
     expect(options.cartId).toBe('cart-brand');
+    expect(options.selectedPaymentMethodId).toBe(23);
+    expect(options.selectedShippingMethodId).toBe(1);
     expect(options.branding?.title).toBe('Test Brand');
     expect(options.branding?.logo).toBe('https://example.com/logo.svg');
     expect(options.branding?.styles?.accent).toBe('oklch(0.5 0.2 200)');

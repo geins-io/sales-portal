@@ -1,6 +1,6 @@
 import type { GenerateCheckoutTokenOptions } from '@geins/types';
 import { CheckoutTokenSchema } from '../../schemas/api-input';
-import { createToken } from '../../services/checkout';
+import { createToken, getCheckout } from '../../services/checkout';
 import { HOSTED_CHECKOUT_BASE_URL } from '#shared/constants/checkout';
 
 export default defineEventHandler(async (event) => {
@@ -14,8 +14,20 @@ export default defineEventHandler(async (event) => {
       const requestUrl = getRequestURL(event);
       const origin = `${requestUrl.protocol}//${requestUrl.host}`;
 
+      // Fetch checkout to discover available payment/shipping methods
+      const checkout = await getCheckout({ cartId }, event);
+
+      const defaultPayment =
+        checkout?.paymentOptions?.find((o) => o.isDefault || o.isSelected) ??
+        checkout?.paymentOptions?.[0];
+      const defaultShipping =
+        checkout?.shippingOptions?.find((o) => o.isDefault || o.isSelected) ??
+        checkout?.shippingOptions?.[0];
+
       const options: GenerateCheckoutTokenOptions = {
         cartId,
+        selectedPaymentMethodId: defaultPayment?.id,
+        selectedShippingMethodId: defaultShipping?.id,
         redirectUrls: {
           success: `${origin}/order-confirmation`,
           cancel: `${origin}/cart`,
