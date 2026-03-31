@@ -225,12 +225,13 @@ describe('useLocaleMarket', () => {
   });
 
   describe('switchLocale', () => {
-    it('should call setLocale and navigateTo with new locale in URL', async () => {
+    it('should navigate to home on dynamic route (locale-specific slugs)', async () => {
       const { switchLocale } = useLocaleMarket();
       await switchLocale('en');
 
       expect(mockSetLocale).toHaveBeenCalledWith('en');
-      expect(mockNavigateTo).toHaveBeenCalledWith('/se/en/foder', {
+      // Dynamic route slugs are locale-specific, so switch goes to home
+      expect(mockNavigateTo).toHaveBeenCalledWith('/se/en/', {
         external: true,
       });
     });
@@ -264,12 +265,13 @@ describe('useLocaleMarket', () => {
   });
 
   describe('switchMarket', () => {
-    it('should set cookie and navigateTo with new market in URL', async () => {
+    it('should navigate to home on dynamic route when switching market', async () => {
       const { switchMarket } = useLocaleMarket();
       await switchMarket('no');
 
       expect(mockMarketCookieValue.value).toBe('no');
-      expect(mockNavigateTo).toHaveBeenCalledWith('/no/sv/foder', {
+      // Dynamic route slugs differ between markets, so switch goes to home
+      expect(mockNavigateTo).toHaveBeenCalledWith('/no/sv/', {
         external: true,
       });
     });
@@ -303,7 +305,7 @@ describe('useLocaleMarket', () => {
       await switchMarket('dk');
 
       expect(mockMarketCookieValue.value).toBe('dk');
-      expect(mockNavigateTo).toHaveBeenCalledWith('/dk/sv/foder', {
+      expect(mockNavigateTo).toHaveBeenCalledWith('/dk/sv/', {
         external: true,
       });
     });

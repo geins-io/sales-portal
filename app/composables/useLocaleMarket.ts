@@ -139,40 +139,88 @@ export function useLocaleMarket() {
   }
 
   /**
-   * Switch to a different locale while staying on the same page.
-   * Updates the URL, cookie, and i18n state.
-   * Rejects locales not in the tenant's available locales.
+   * Static routes that use the same path slug across all locales.
+   * These can safely keep their path when switching locale/market.
+   * Dynamic routes (categories, products, CMS pages) have locale-specific
+   * slugs from the Geins API and must redirect to home on switch.
+   */
+  const staticRoutes = new Set([
+    'index',
+    'cart',
+    'checkout',
+    'contact',
+    'login',
+    'search',
+    'apply-for-account',
+    'reset-password',
+    'elements',
+    'preview-widgets',
+    'error-test',
+  ]);
+
+  /**
+   * Check if the current route is a static route (same slug across locales).
+   * Static routes: /cart, /checkout, /login, /portal/*, etc.
+   * Dynamic routes: categories, products, CMS pages (locale-specific slugs).
+   */
+  function isStaticRoute(): boolean {
+    const name = route.name?.toString() ?? '';
+    // Nuxt generates route names like "cart", "portal-orders", "slug" for [...slug]
+    // Portal routes all start with "portal" and use the same slugs across locales
+    if (name.startsWith('portal')) return true;
+    // Check against static route set (strip locale suffix like "cart___sv")
+    const baseName = name.replace(/___.*$/, '');
+    return staticRoutes.has(baseName);
+  }
+
+  /**
+   * Switch to a different locale. Full page reload (external: true).
+   *
+   * For static routes (cart, portal, etc.): keeps the same path.
+   * For dynamic routes (categories, products, CMS pages): navigates to
+   * home page because slugs are locale-specific (e.g. "utrustning" in SV
+   * becomes "equipment" in EN — the Geins API returns translated canonicalUrls).
    */
   async function switchLocale(locale: string) {
     if (!validLocales.value.has(locale)) return;
 
     await setLocale(locale as SupportedLocale);
-    const cleanPath = getCleanPath();
     const market = currentMarket.value;
 
-    await navigateTo(
-      `/${market}/${locale}${cleanPath === '/' ? '/' : cleanPath}`,
-      { external: true },
-    );
+    if (isStaticRoute()) {
+      const cleanPath = getCleanPath();
+      await navigateTo(
+        `/${market}/${locale}${cleanPath === '/' ? '/' : cleanPath}`,
+        { external: true },
+      );
+    } else {
+      // Dynamic route — slug is locale-specific, go to home
+      await navigateTo(`/${market}/${locale}/`, { external: true });
+    }
   }
 
   /**
-   * Switch to a different market while staying on the same page.
-   * Updates the URL and cookie. Triggers a full reload because
-   * market changes affect server-side data (products, prices, etc.).
-   * Rejects markets not in the tenant's available markets.
+   * Switch to a different market. Full page reload (external: true).
+   *
+   * Same logic as switchLocale — static routes keep path, dynamic routes
+   * go to home because product catalogs differ between markets.
    */
   async function switchMarket(market: string) {
     if (!validMarkets.value.has(market)) return;
 
     marketCookie.value = market;
-    const cleanPath = getCleanPath();
     const locale = currentLocale.value;
 
-    await navigateTo(
-      `/${market}/${locale}${cleanPath === '/' ? '/' : cleanPath}`,
-      { external: true },
-    );
+    if (isStaticRoute()) {
+      const cleanPath = getCleanPath();
+      await navigateTo(
+        `/${market}/${locale}${cleanPath === '/' ? '/' : cleanPath}`,
+        { external: true },
+      );
+    } else {
+      // Dynamic route — go to home for new market
+      await navigateTo(`/${market}/${locale}/`, { external: true });
+    }
   }
 
   return {
