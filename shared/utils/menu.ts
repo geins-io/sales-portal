@@ -101,6 +101,30 @@ export function getVisibleItems(
 }
 
 /**
+ * Add type prefix to a normalized menu URL if it doesn't already have one.
+ * Menu items for categories come from the API without /c/ prefix.
+ * Detects categories by item.children presence or item.type.
+ */
+export function addCategoryPrefix(
+  url: string,
+  item: Partial<MenuItemType>,
+): string {
+  if (!url || url === '/') return url;
+  // Already has a type prefix — no change
+  const firstSeg = url.split('/').filter(Boolean)[0];
+  const knownPrefixes = Object.values(ROUTE_PATHS).map((p) =>
+    p.replace('/', ''),
+  );
+  if (firstSeg && knownPrefixes.includes(firstSeg)) return url;
+  // Menu item with children = category
+  if ((item as MenuItemType).children?.length)
+    return `${ROUTE_PATHS.category}${url}`;
+  // Menu item of type 'category' from CMS
+  if (item.type === 'category') return `${ROUTE_PATHS.category}${url}`;
+  return url;
+}
+
+/**
  * Check if a URL points to an external host.
  */
 export function isExternalUrl(url: string, currentHost?: string): boolean {
