@@ -1,22 +1,12 @@
 <script setup lang="ts">
 import type { ContentAreaType } from '#shared/types/cms';
 
-const { currentLocale, currentMarket } = useLocaleMarket();
-
 const {
   data: area,
   error,
   status,
 } = useFetch<ContentAreaType>('/api/cms/area', {
-  query: computed(() => ({
-    family: 'Frontpage',
-    areaName: 'Content',
-    // Include locale/market in query so useFetch cache key is locale-aware.
-    // The server ignores these (reads from resolvedLocaleMarket/cookies),
-    // but they differentiate the client-side cache between locales.
-    locale: currentLocale.value,
-    market: currentMarket.value,
-  })),
+  query: { family: 'Frontpage', areaName: 'Content' },
   dedupe: 'defer',
 });
 </script>
