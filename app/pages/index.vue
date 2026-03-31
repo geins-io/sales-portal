@@ -11,8 +11,8 @@ const {
   query: computed(() => ({
     family: 'Frontpage',
     areaName: 'Content',
-    locale: currentLocale.value,
-    market: currentMarket.value,
+    ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+    ...(currentMarket.value ? { market: currentMarket.value } : {}),
   })),
   dedupe: 'defer',
 });

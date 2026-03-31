@@ -18,8 +18,8 @@ export function useMenuData(menuLocationId: string) {
   } = useFetch<MenuType>('/api/cms/menu', {
     query: computed(() => ({
       menuLocationId,
-      locale: currentLocale.value,
-      market: currentMarket.value,
+      ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+      ...(currentMarket.value ? { market: currentMarket.value } : {}),
     })),
     dedupe: 'defer',
   });
