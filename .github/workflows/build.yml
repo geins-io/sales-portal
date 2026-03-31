@@ -111,6 +111,8 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
     steps:
       - name: Trigger deploy workflow
         env:
