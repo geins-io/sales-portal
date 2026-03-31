@@ -17,5 +17,5 @@ const categoryAlias = computed(() => {
 </script>
 
 <template>
-  <ProductList :type="'category'" :alias="categoryAlias" />
+  <ProductList :key="categoryAlias" :type="'category'" :alias="categoryAlias" />
 </template>

@@ -17,5 +17,5 @@ const productAlias = computed(() => {
 </script>
 
 <template>
-  <ProductDetails :alias="productAlias" />
+  <ProductDetails :key="productAlias" :alias="productAlias" />
 </template>
