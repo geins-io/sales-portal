@@ -1,9 +1,0 @@
-{
-  "mintInvoked": true,
-  "invokedAt": "2026-03-31T17:00:00Z",
-  "task": "PDP breadcrumb fix + auto-deploy",
-  "mode": "quick",
-  "autoCommitOverride": null,
-  "designContextLoaded": false,
-  "activeSpec": null
-}

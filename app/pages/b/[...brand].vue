@@ -10,11 +10,12 @@
 const route = useRoute();
 
 const brandAlias = computed(() => {
-  const segments = route.params.brand as string[];
+  const raw = route.params.brand;
+  const segments = Array.isArray(raw) ? raw : [raw].filter(Boolean);
   return decodeURIComponent(segments[segments.length - 1] ?? '');
 });
 </script>
 
 <template>
-  <ProductList :key="brandAlias" :type="'brand'" :alias="brandAlias" />
+  <ProductList :type="'brand'" :alias="brandAlias" />
 </template>

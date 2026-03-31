@@ -11,11 +11,12 @@
 const route = useRoute();
 
 const categoryAlias = computed(() => {
-  const segments = route.params.category as string[];
+  const raw = route.params.category;
+  const segments = Array.isArray(raw) ? raw : [raw].filter(Boolean);
   return decodeURIComponent(segments[segments.length - 1] ?? '');
 });
 </script>
 
 <template>
-  <ProductList :key="categoryAlias" :type="'category'" :alias="categoryAlias" />
+  <ProductList :type="'category'" :alias="categoryAlias" />
 </template>

@@ -11,11 +11,12 @@
 const route = useRoute();
 
 const productAlias = computed(() => {
-  const segments = route.params.alias as string[];
+  const raw = route.params.alias;
+  const segments = Array.isArray(raw) ? raw : [raw].filter(Boolean);
   return decodeURIComponent(segments[segments.length - 1] ?? '');
 });
 </script>
 
 <template>
-  <ProductDetails :key="productAlias" :alias="productAlias" />
+  <ProductDetails :alias="productAlias" />
 </template>
