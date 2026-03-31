@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NuxtLink } from '#components';
 import type { BannerWidgetData, ContentConfigType } from '#shared/types/cms';
 import { resolveImageFileName } from '#shared/types/cms';
 
@@ -77,7 +78,7 @@ const textColorClass = computed(() => {
 
 <template>
   <component
-    :is="hasLink ? resolveComponent('NuxtLink') : 'div'"
+    :is="hasLink ? NuxtLink : 'div'"
     :to="hasLink ? localePath(data.image.href!) : undefined"
     class="relative block overflow-hidden"
     data-testid="cms-widget"
