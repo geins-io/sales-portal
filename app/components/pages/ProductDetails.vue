@@ -16,11 +16,17 @@ const props = defineProps<{
 
 const slug = computed(() => props.alias);
 
+const { currentLocale, currentMarket } = useLocaleMarket();
+
 const {
   data: product,
   error,
   status,
 } = useFetch<DetailProduct>(() => `/api/products/${slug.value}`, {
+  query: computed(() => ({
+    ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+    ...(currentMarket.value ? { market: currentMarket.value } : {}),
+  })),
   dedupe: 'defer',
 });
 
@@ -28,7 +34,14 @@ const isLoading = computed(() => status.value === 'pending');
 
 const { data: related } = useFetch<ListProduct[]>(
   () => `/api/products/${slug.value}/related`,
-  { dedupe: 'defer', lazy: true },
+  {
+    query: computed(() => ({
+      ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+      ...(currentMarket.value ? { market: currentMarket.value } : {}),
+    })),
+    dedupe: 'defer',
+    lazy: true,
+  },
 );
 
 const { data: reviewsData, execute: loadReviews } = useFetch<ReviewsResponse>(

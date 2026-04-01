@@ -36,6 +36,7 @@ const take = 24;
 const allProducts = ref<ListProduct[]>([]);
 
 const { t } = useI18n();
+const { currentLocale, currentMarket } = useLocaleMarket();
 const sortOptions = computed(() => [
   { label: t('product.sort_relevance'), value: 'relevance' },
   { label: t('product.sort_price_asc'), value: 'price-asc' },
@@ -65,6 +66,8 @@ const queryParams = computed(() => ({
   skip: skip.value,
   take,
   ...(filterInput.value ? { filter: JSON.stringify(filterInput.value) } : {}),
+  ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+  ...(currentMarket.value ? { market: currentMarket.value } : {}),
 }));
 
 const { data: productsData, status: productsStatus } =
@@ -78,6 +81,8 @@ const { data: filtersData } = useFetch<ProductFiltersResponse>(
   {
     query: computed(() => ({
       filter: JSON.stringify({ searchText: searchTerm.value }),
+      ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+      ...(currentMarket.value ? { market: currentMarket.value } : {}),
     })),
     dedupe: 'defer',
   },

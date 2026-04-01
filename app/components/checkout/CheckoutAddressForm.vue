@@ -5,6 +5,7 @@ import { Label } from '~/components/ui/label';
 import type { AddressInputType } from '#shared/types/commerce';
 
 const { t } = useI18n();
+const { localePath } = useLocaleMarket();
 
 type AddressFieldName = Extract<keyof AddressInputType, string>;
 
@@ -124,8 +125,9 @@ const props = withDefaults(
     modelValue: Partial<AddressInputType>;
     prefix: string;
     disabled?: boolean;
+    readonly?: boolean;
   }>(),
-  { disabled: false },
+  { disabled: false, readonly: false },
 );
 
 const emit = defineEmits<{
@@ -216,7 +218,8 @@ defineExpose({ validate });
 
 <template>
   <div :data-testid="`${prefix}-address-form`" class="space-y-4">
-    <div class="grid grid-cols-2 gap-4">
+    <!-- Editable mode (default) -->
+    <div v-if="!readonly" class="grid grid-cols-2 gap-4">
       <template v-for="field in ADDRESS_FIELDS" :key="field.name">
         <div
           :class="['space-y-2', isGridRow(field.name) ? '' : 'col-span-2']"
@@ -244,6 +247,59 @@ defineExpose({ validate });
           </p>
         </div>
       </template>
+    </div>
+
+    <!-- Readonly mode (B2B pre-filled address) -->
+    <div v-else data-testid="address-readonly" class="space-y-1 text-sm">
+      <p v-if="props.modelValue?.company" class="font-bold">
+        {{ props.modelValue.company }}
+      </p>
+      <p v-if="props.modelValue?.firstName || props.modelValue?.lastName">
+        {{
+          [props.modelValue?.firstName, props.modelValue?.lastName]
+            .filter(Boolean)
+            .join(' ')
+        }}
+      </p>
+      <p v-if="props.modelValue?.addressLine1">
+        {{ props.modelValue.addressLine1 }}
+      </p>
+      <p v-if="props.modelValue?.addressLine2">
+        {{ props.modelValue.addressLine2 }}
+      </p>
+      <p v-if="props.modelValue?.careOf">
+        {{ props.modelValue.careOf }}
+      </p>
+      <p
+        v-if="
+          props.modelValue?.city ||
+          props.modelValue?.zip ||
+          props.modelValue?.country
+        "
+      >
+        {{
+          [
+            props.modelValue?.zip,
+            props.modelValue?.city,
+            props.modelValue?.country,
+          ]
+            .filter(Boolean)
+            .join(', ')
+        }}
+      </p>
+      <p v-if="props.modelValue?.phone">
+        {{ props.modelValue.phone }}
+      </p>
+      <p v-if="props.modelValue?.mobile">
+        {{ props.modelValue.mobile }}
+      </p>
+      <NuxtLink
+        :to="localePath('/portal/account')"
+        data-testid="address-change-link"
+        class="text-primary mt-2 inline-block text-sm underline"
+      >
+        {{ t('checkout.change_company_details') }}
+      </NuxtLink>
     </div>
   </div>
 </template>

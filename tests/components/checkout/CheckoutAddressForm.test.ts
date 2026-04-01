@@ -54,6 +54,20 @@ function mountForm(
   });
 }
 
+const FULL_ADDRESS = {
+  company: 'Acme Corp',
+  firstName: 'John',
+  lastName: 'Doe',
+  addressLine1: '123 Main St',
+  addressLine2: 'Suite 100',
+  careOf: 'Jane Smith',
+  city: 'Stockholm',
+  zip: '11122',
+  country: 'Sweden',
+  phone: '+46701234567',
+  mobile: '+46709876543',
+};
+
 describe('CheckoutAddressForm', () => {
   it('renders all address fields', () => {
     const wrapper = mountForm();
@@ -153,5 +167,129 @@ describe('CheckoutAddressForm', () => {
         wrapper.find(`[data-testid="billing-${field}-error"]`).exists(),
       ).toBe(true);
     }
+  });
+
+  // --- Readonly mode tests ---
+
+  describe('readonly mode', () => {
+    it('when readonly=false, renders input fields (existing behavior)', () => {
+      const wrapper = mountForm({ readonly: false });
+      const inputs = wrapper.findAll('input');
+      expect(inputs.length).toBeGreaterThan(0);
+      expect(wrapper.find('[data-testid="address-readonly"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('when readonly=true, does NOT render input fields', () => {
+      const wrapper = mountForm({
+        readonly: true,
+        modelValue: FULL_ADDRESS,
+      });
+      const inputs = wrapper.findAll('input');
+      expect(inputs.length).toBe(0);
+    });
+
+    it('when readonly=true, renders address as static text', () => {
+      const wrapper = mountForm({
+        readonly: true,
+        modelValue: FULL_ADDRESS,
+      });
+      expect(wrapper.find('[data-testid="address-readonly"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('when readonly=true, displays company name when present', () => {
+      const wrapper = mountForm({
+        readonly: true,
+        modelValue: FULL_ADDRESS,
+      });
+      const readonlyEl = wrapper.find('[data-testid="address-readonly"]');
+      expect(readonlyEl.text()).toContain('Acme Corp');
+    });
+
+    it('when readonly=true, displays first + last name', () => {
+      const wrapper = mountForm({
+        readonly: true,
+        modelValue: FULL_ADDRESS,
+      });
+      const readonlyEl = wrapper.find('[data-testid="address-readonly"]');
+      expect(readonlyEl.text()).toContain('John');
+      expect(readonlyEl.text()).toContain('Doe');
+    });
+
+    it('when readonly=true, displays address lines', () => {
+      const wrapper = mountForm({
+        readonly: true,
+        modelValue: FULL_ADDRESS,
+      });
+      const readonlyEl = wrapper.find('[data-testid="address-readonly"]');
+      expect(readonlyEl.text()).toContain('123 Main St');
+      expect(readonlyEl.text()).toContain('Suite 100');
+      expect(readonlyEl.text()).toContain('Jane Smith');
+    });
+
+    it('when readonly=true, displays city, zip, country', () => {
+      const wrapper = mountForm({
+        readonly: true,
+        modelValue: FULL_ADDRESS,
+      });
+      const readonlyEl = wrapper.find('[data-testid="address-readonly"]');
+      expect(readonlyEl.text()).toContain('Stockholm');
+      expect(readonlyEl.text()).toContain('11122');
+      expect(readonlyEl.text()).toContain('Sweden');
+    });
+
+    it('when readonly=true, renders "Change company details" link', () => {
+      const wrapper = mountForm({
+        readonly: true,
+        modelValue: FULL_ADDRESS,
+      });
+      const link = wrapper.find('[data-testid="address-change-link"]');
+      expect(link.exists()).toBe(true);
+      expect(link.text()).toContain('checkout.change_company_details');
+    });
+
+    it('when readonly=true, link points to /portal/account via localePath', () => {
+      const wrapper = mountForm({
+        readonly: true,
+        modelValue: FULL_ADDRESS,
+      });
+      const link = wrapper.find('[data-testid="address-change-link"]');
+      // localePath mock prepends /se/en
+      expect(link.attributes('href')).toBe('/se/en/portal/account');
+    });
+
+    it('when readonly=true with partial address data, gracefully handles missing fields', () => {
+      const wrapper = mountForm({
+        readonly: true,
+        modelValue: {
+          firstName: 'John',
+          lastName: 'Doe',
+          city: 'Stockholm',
+        },
+      });
+      const readonlyEl = wrapper.find('[data-testid="address-readonly"]');
+      expect(readonlyEl.exists()).toBe(true);
+      expect(readonlyEl.text()).toContain('John');
+      expect(readonlyEl.text()).toContain('Doe');
+      expect(readonlyEl.text()).toContain('Stockholm');
+      // Should NOT contain undefined or null text
+      expect(readonlyEl.text()).not.toContain('undefined');
+      expect(readonlyEl.text()).not.toContain('null');
+    });
+
+    it('when readonly=true with empty modelValue, shows no text (no crash)', () => {
+      const wrapper = mountForm({
+        readonly: true,
+        modelValue: {},
+      });
+      const readonlyEl = wrapper.find('[data-testid="address-readonly"]');
+      expect(readonlyEl.exists()).toBe(true);
+      // Should not crash, should not contain undefined/null
+      expect(readonlyEl.text()).not.toContain('undefined');
+      expect(readonlyEl.text()).not.toContain('null');
+    });
   });
 });

@@ -39,6 +39,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
   const email = ref('');
   const identityNumber = ref('');
   const message = ref('');
+  const poNumber = ref('');
   const acceptedConsents = ref<string[]>([]);
   const isLoading = ref(false);
   const isPlacingOrder = ref(false);
@@ -193,6 +194,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
             billingAddress: billingAddress.value,
             shippingAddress: effectiveShippingAddress.value,
             identityNumber: identityNumber.value || undefined,
+            poNumber: poNumber.value || undefined,
           },
         },
       );
@@ -248,6 +250,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
     email.value = '';
     identityNumber.value = '';
     message.value = '';
+    poNumber.value = '';
     acceptedConsents.value = [];
     isLoading.value = false;
     isPlacingOrder.value = false;
@@ -268,6 +271,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
     email,
     identityNumber,
     message,
+    poNumber,
     acceptedConsents,
     isLoading,
     isPlacingOrder,

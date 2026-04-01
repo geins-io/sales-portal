@@ -31,13 +31,17 @@ const pageSlug = computed(() => {
   return segments[segments.length - 1] ?? '/';
 });
 
-const { localePath } = useLocaleMarket();
+const { localePath, currentLocale, currentMarket } = useLocaleMarket();
 
 const {
   data: page,
   error,
   status,
 } = useFetch<ContentPageType>(() => `/api/cms/page/${pageSlug.value}`, {
+  query: computed(() => ({
+    ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+    ...(currentMarket.value ? { market: currentMarket.value } : {}),
+  })),
   dedupe: 'defer',
 });
 
