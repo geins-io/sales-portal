@@ -239,6 +239,15 @@ export interface ProductFiltersResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Checkout payment terms (extended — not yet available in SDK types)
+// ---------------------------------------------------------------------------
+export interface CheckoutPaymentTerms {
+  name: string;
+  description?: string;
+  days?: number;
+}
+
+// ---------------------------------------------------------------------------
 // Checkout & Order types (re-exported from SDK)
 // ---------------------------------------------------------------------------
 export type {

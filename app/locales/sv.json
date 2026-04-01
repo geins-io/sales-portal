@@ -156,7 +156,13 @@
     "redirecting": "Omdirigerar till kassan…",
     "redirect_error": "Det gick inte att starta kassan. Försök igen.",
     "retry": "Försök igen",
-    "cart_items": "Dina varor"
+    "cart_items": "Dina varor",
+    "invoice_info": "Fakturainformation",
+    "po_number": "PO-nummer",
+    "po_number_placeholder": "Ange inköpsordernummer",
+    "payment_terms": "Betalningsvillkor",
+    "payment_terms_days": "Dagar",
+    "currency": "Valuta"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",

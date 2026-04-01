@@ -236,6 +236,14 @@ async function handleRequestQuote() {
             </CardContent>
           </Card>
 
+          <!-- Invoice Information -->
+          <CheckoutInvoiceInfo
+            :po-number="checkoutStore.poNumber"
+            :currency="cartStore.cart?.summary?.total?.currency?.code ?? null"
+            :payment-terms="null"
+            @update:po-number="checkoutStore.poNumber = $event"
+          />
+
           <!-- Billing Address -->
           <Card>
             <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
