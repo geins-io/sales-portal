@@ -6,13 +6,13 @@ import { expect, type Page } from '@playwright/test';
  * Shared utilities for dynamic data discovery, common actions, and assertions.
  * Tests use real Geins API data — no hardcoded slugs.
  *
- * NOTE: URL-based locale/market routing
+ * NOTE: Type-prefixed routing (ADR-015)
  * The server middleware redirects `/` to `/{market}/{locale}/` (e.g. `/se/sv/`).
  * When navigating to `/`, Playwright will follow the redirect automatically.
- * For direct page navigation (e.g. category pages), paths like `/foder` will
- * pass through without redirect since they don't start with a valid 2-letter
- * market code. The server-side `stripUrlPrefixes` handles both prefixed and
- * unprefixed paths.
+ * Category pages require a `/c/` prefix (e.g. `/c/material`), products require
+ * `/p/` (e.g. `/p/product-name`). The menu API returns canonical URLs with
+ * market/locale prefixes (e.g. `/se/sv/material`) which must be stripped and
+ * have the correct type prefix added before navigation.
  */
 
 // ---------- Data Discovery ----------
@@ -57,8 +57,21 @@ export async function discoverProduct(page: Page): Promise<DiscoveredProduct> {
 }
 
 /**
+ * Strip the Geins market/locale prefix from a canonical URL.
+ * Menu API returns URLs like `/se/sv/material` — we strip `/se/sv/` to get `/material`.
+ * This is a simplified version of shared/utils/menu.ts `stripGeinsPrefix` for E2E use
+ * (Playwright tests can't import Nuxt aliases).
+ */
+function stripMarketLocalePrefix(path: string): string {
+  return path.replace(/^\/[a-z]{2}\/[a-z]{2}(?:-[a-z]{2})?\//i, '/');
+}
+
+/**
  * Discover a category by resolving a known route pattern.
  * Falls back to fetching the menu and picking the first category link.
+ *
+ * Returns alias with `/c/` type prefix (e.g. `c/material`) so tests can
+ * navigate with `page.goto(`/${category.alias}`)`.
  */
 export async function discoverCategory(
   page: Page,
@@ -75,8 +88,11 @@ export async function discoverCategory(
     // Find first category-type menu item
     for (const item of items) {
       if (item.type === 'category' && item.canonicalUrl) {
+        // Strip market/locale prefix (e.g. /se/sv/material → /material)
+        // then add /c/ type prefix for category routing (ADR-015)
+        const stripped = stripMarketLocalePrefix(item.canonicalUrl);
         return {
-          alias: item.canonicalUrl.replace(/^\//, ''),
+          alias: `c${stripped}`,
           name: item.title || item.label || 'Category',
         };
       }
