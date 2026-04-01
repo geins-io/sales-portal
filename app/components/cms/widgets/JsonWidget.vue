@@ -2,6 +2,41 @@
 import type { ContentConfigType } from '#shared/types/cms';
 import { stripGeinsPrefix } from '#shared/utils/menu';
 
+// ---------- Widget-internal types ----------
+
+interface JsonWidgetImage {
+  src?: string;
+  alt?: string;
+}
+
+interface JsonWidgetCta {
+  url?: string;
+  text?: string;
+  label?: string;
+}
+
+interface CardsRichItem {
+  heading?: string;
+  description?: string;
+  image?: JsonWidgetImage;
+  cta?: JsonWidgetCta;
+}
+
+interface CardsSimpleItem {
+  title?: string;
+  url?: string;
+  src?: string;
+  alt?: string;
+}
+
+interface BannerCardItem {
+  image?: JsonWidgetImage;
+  text?: { title?: string; byline?: string };
+  cta?: JsonWidgetCta;
+}
+
+// ---------- Props & computed ----------
+
 const props = defineProps<{
   data: Record<string, unknown>;
   config: ContentConfigType;
@@ -16,21 +51,17 @@ const header = computed(
       | { heading?: string; description?: string; textAlign?: string }
       | undefined,
 );
-const items = computed(
-  () => (props.data.items as Record<string, unknown>[]) ?? [],
+const items = computed(() => (props.data.items as CardsRichItem[]) ?? []);
+const simpleItems = computed(
+  () => (props.data.items as CardsSimpleItem[]) ?? [],
 );
 const textBlock = computed(
   () =>
     props.data.text as { header?: string; description?: string } | undefined,
 );
-const cta = computed(
-  () =>
-    props.data.cta as
-      | { label?: string; text?: string; url?: string }
-      | undefined,
-);
+const cta = computed(() => props.data.cta as JsonWidgetCta | undefined);
 const bannerImages = computed(
-  () => (props.data.bannerImages as Record<string, unknown>[]) ?? [],
+  () => (props.data.bannerImages as BannerCardItem[]) ?? [],
 );
 
 const { localePath } = useLocaleMarket();
@@ -69,32 +100,26 @@ function _resolveImageSrc(src: string | undefined): string {
       >
         <div class="bg-muted aspect-[4/3] overflow-hidden">
           <GeinsImage
-            v-if="(item as any).image?.src"
-            :file-name="(item as any).image.src"
+            v-if="item.image?.src"
+            :file-name="item.image.src"
             type="pagewidget"
-            :alt="(item as any).image?.alt ?? ''"
+            :alt="item.image?.alt ?? ''"
             class="size-full object-cover"
           />
         </div>
         <div class="space-y-2 p-4">
-          <h3
-            v-if="(item as any).heading"
-            class="font-heading text-lg font-semibold"
-          >
-            {{ (item as any).heading }}
+          <h3 v-if="item.heading" class="font-heading text-lg font-semibold">
+            {{ item.heading }}
           </h3>
-          <p
-            v-if="(item as any).description"
-            class="text-muted-foreground text-sm"
-          >
-            {{ (item as any).description }}
+          <p v-if="item.description" class="text-muted-foreground text-sm">
+            {{ item.description }}
           </p>
           <NuxtLink
-            v-if="(item as any).cta?.url"
-            :to="localePath(stripGeinsPrefix((item as any).cta.url))"
+            v-if="item.cta?.url"
+            :to="localePath(stripGeinsPrefix(item.cta.url))"
             class="bg-primary text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
           >
-            {{ (item as any).cta.text }}
+            {{ item.cta.text }}
           </NuxtLink>
         </div>
       </div>
@@ -113,22 +138,22 @@ function _resolveImageSrc(src: string | undefined): string {
     </div>
     <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
       <NuxtLink
-        v-for="(item, i) in items"
+        v-for="(item, i) in simpleItems"
         :key="i"
-        :to="localePath(stripGeinsPrefix((item as any).url ?? '/'))"
+        :to="localePath(stripGeinsPrefix(item.url ?? '/'))"
         class="bg-card group overflow-hidden rounded-md border"
       >
         <div class="bg-muted aspect-square overflow-hidden">
           <GeinsImage
-            v-if="(item as any).src"
-            :file-name="(item as any).src"
+            v-if="item.src"
+            :file-name="item.src"
             type="pagewidget"
-            :alt="(item as any).alt ?? ''"
+            :alt="item.alt ?? ''"
             class="size-full object-cover transition-transform group-hover:scale-105"
           />
         </div>
         <p class="p-3 text-center text-sm font-medium">
-          {{ (item as any).title }}
+          {{ item.title }}
         </p>
       </NuxtLink>
     </div>
@@ -169,33 +194,27 @@ function _resolveImageSrc(src: string | undefined): string {
       class="group relative overflow-hidden rounded-md"
     >
       <GeinsImage
-        v-if="(banner as any).image?.src"
-        :file-name="(banner as any).image.src"
+        v-if="banner.image?.src"
+        :file-name="banner.image.src"
         type="pagewidget"
-        :alt="(banner as any).image?.alt ?? ''"
+        :alt="banner.image?.alt ?? ''"
         class="aspect-[16/9] w-full object-cover"
       />
       <div
         class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-6"
       >
-        <h3
-          v-if="(banner as any).text?.title"
-          class="text-lg font-semibold text-white"
-        >
-          {{ (banner as any).text.title }}
+        <h3 v-if="banner.text?.title" class="text-lg font-semibold text-white">
+          {{ banner.text.title }}
         </h3>
-        <p
-          v-if="(banner as any).text?.byline"
-          class="mt-1 text-sm text-white/80"
-        >
-          {{ (banner as any).text.byline }}
+        <p v-if="banner.text?.byline" class="mt-1 text-sm text-white/80">
+          {{ banner.text.byline }}
         </p>
         <NuxtLink
-          v-if="(banner as any).cta?.url"
-          :to="localePath(stripGeinsPrefix((banner as any).cta.url))"
+          v-if="banner.cta?.url"
+          :to="localePath(stripGeinsPrefix(banner.cta.url))"
           class="bg-primary text-primary-foreground mt-3 inline-block self-start rounded-md px-4 py-2 text-sm font-medium"
         >
-          {{ (banner as any).cta.text }}
+          {{ banner.cta.text }}
         </NuxtLink>
       </div>
     </div>
