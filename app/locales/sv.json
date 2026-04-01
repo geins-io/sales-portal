@@ -162,7 +162,8 @@
     "po_number_placeholder": "Ange inköpsordernummer",
     "payment_terms": "Betalningsvillkor",
     "payment_terms_days": "Dagar",
-    "currency": "Valuta"
+    "currency": "Valuta",
+    "change_company_details": "Ändra företagsuppgifter"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",

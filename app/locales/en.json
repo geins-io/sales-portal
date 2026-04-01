@@ -162,7 +162,8 @@
     "po_number_placeholder": "Enter purchase order number",
     "payment_terms": "Payment Terms",
     "payment_terms_days": "Days",
-    "currency": "Currency"
+    "currency": "Currency",
+    "change_company_details": "Change company details"
   },
   "order_confirmation": {
     "title": "Order Confirmation",

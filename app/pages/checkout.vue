@@ -10,6 +10,7 @@ import {
 } from 'lucide-vue-next';
 import { useCheckoutStore } from '~/stores/checkout';
 import { useCartStore } from '~/stores/cart';
+import { useAuthStore } from '~/stores/auth';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
@@ -23,6 +24,15 @@ const { t } = useI18n();
 const { localePath } = useLocaleMarket();
 const cartStore = useCartStore();
 const checkoutStore = useCheckoutStore();
+const authStore = useAuthStore();
+
+const isBillingAddressReadonly = computed(() => {
+  return authStore.isAuthenticated && !!checkoutStore.checkout?.billingAddress;
+});
+
+const isShippingAddressReadonly = computed(() => {
+  return authStore.isAuthenticated && !!checkoutStore.checkout?.shippingAddress;
+});
 
 // Await tenant data before rendering — prevents flash of custom form when in hosted mode.
 // Without this, checkoutMode defaults to 'custom' during client-side navigation while
@@ -257,6 +267,7 @@ async function handleRequestQuote() {
                 :model-value="checkoutStore.billingAddress"
                 prefix="billing"
                 :disabled="checkoutStore.isPlacingOrder"
+                :readonly="isBillingAddressReadonly"
                 @update:model-value="
                   Object.assign(checkoutStore.billingAddress, $event)
                 "
@@ -289,6 +300,7 @@ async function handleRequestQuote() {
                 :model-value="checkoutStore.shippingAddress"
                 prefix="shipping"
                 :disabled="checkoutStore.isPlacingOrder"
+                :readonly="isShippingAddressReadonly"
                 @update:model-value="
                   Object.assign(checkoutStore.shippingAddress, $event)
                 "
