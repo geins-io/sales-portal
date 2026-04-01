@@ -198,6 +198,9 @@ async function handleRequestQuote() {
       <div v-else class="flex flex-col gap-8 lg:flex-row lg:items-start">
         <!-- LEFT: Checkout form -->
         <div class="min-w-0 flex-1 space-y-6">
+          <!-- Cart Items Summary -->
+          <CheckoutCartItems :items="cartStore.cart?.items ?? []" />
+
           <!-- Contact Information -->
           <Card>
             <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">

@@ -155,7 +155,8 @@
     "back_to_store": "Tillbaka till butiken",
     "redirecting": "Omdirigerar till kassan…",
     "redirect_error": "Det gick inte att starta kassan. Försök igen.",
-    "retry": "Försök igen"
+    "retry": "Försök igen",
+    "cart_items": "Dina varor"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",

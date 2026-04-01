@@ -155,7 +155,8 @@
     "back_to_store": "Back to store",
     "redirecting": "Redirecting to checkout…",
     "redirect_error": "Failed to start checkout. Please try again.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "cart_items": "Your Items"
   },
   "order_confirmation": {
     "title": "Order Confirmation",
