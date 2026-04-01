@@ -334,8 +334,8 @@ export default defineNuxtConfig({
 
   // Experimental features
   experimental: {
-    // Enable payload extraction for better caching
     payloadExtraction: true,
+    buildCache: true,
   },
 
   // Vite configuration
