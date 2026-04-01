@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue';
+import { NuxtLink } from '#components';
 import { cn } from '@/lib/utils';
 
 const props = withDefaults(
@@ -28,9 +29,7 @@ const effectiveSrcSymbol = computed(
 );
 const effectiveAlt = computed(() => props.alt ?? brandName.value);
 
-const tag = computed(() =>
-  props.linked ? resolveComponent('NuxtLink') : 'span',
-);
+const tag = computed(() => (props.linked ? NuxtLink : 'span'));
 </script>
 
 <template>

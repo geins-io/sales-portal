@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { NuxtLink } from '#components';
 import type { MenuItemType, MenuType } from '#shared/types/cms';
 import { MENU_LOCATION } from '#shared/constants/cms';
 import {
@@ -39,7 +40,7 @@ function isExternal(item: MenuItemType): boolean {
 }
 
 function linkTag(item: MenuItemType) {
-  return isExternal(item) ? 'a' : resolveComponent('NuxtLink');
+  return isExternal(item) ? 'a' : NuxtLink;
 }
 
 function linkAttrs(item: MenuItemType): Record<string, string | undefined> {

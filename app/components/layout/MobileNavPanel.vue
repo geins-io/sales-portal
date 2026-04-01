@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { NuxtLink } from '#components';
 import { User } from 'lucide-vue-next';
 import { useAppStore } from '~/stores/app';
 import { useAuthStore } from '~/stores/auth';
@@ -40,7 +41,7 @@ function isExternal(item: MenuItemType): boolean {
 }
 
 function linkTag(item: MenuItemType) {
-  return isExternal(item) ? 'a' : resolveComponent('NuxtLink');
+  return isExternal(item) ? 'a' : NuxtLink;
 }
 
 function linkAttrs(item: MenuItemType): Record<string, string | undefined> {

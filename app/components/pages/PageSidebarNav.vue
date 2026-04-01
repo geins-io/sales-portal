@@ -4,6 +4,7 @@ import {
   normalizeMenuUrl,
   getMenuLabel,
   getVisibleItems,
+  addCategoryPrefix,
 } from '#shared/utils/menu';
 import {
   Accordion,
@@ -29,8 +30,12 @@ const shouldRender = computed(
   () => !pending.value && !error.value && visibleItems.value.length > 0,
 );
 
-function itemUrl(canonicalUrl: string | undefined): string {
-  const normalized = normalizeMenuUrl(canonicalUrl);
+function itemUrl(
+  canonicalUrl: string | undefined,
+  item?: Parameters<typeof addCategoryPrefix>[1],
+): string {
+  let normalized = normalizeMenuUrl(canonicalUrl);
+  if (normalized && item) normalized = addCategoryPrefix(normalized, item);
   return normalized ? localePath(normalized) : '';
 }
 
@@ -77,7 +82,7 @@ function visibleChildren(
               :key="child.id ?? getMenuLabel(child)"
             >
               <NuxtLink
-                :to="itemUrl(child.canonicalUrl)"
+                :to="itemUrl(child.canonicalUrl, child)"
                 :aria-current="
                   isActive(child.canonicalUrl) ? 'page' : undefined
                 "
@@ -95,7 +100,7 @@ function visibleChildren(
         </template>
         <template v-else>
           <NuxtLink
-            :to="itemUrl(item.canonicalUrl)"
+            :to="itemUrl(item.canonicalUrl, item)"
             :aria-current="isActive(item.canonicalUrl) ? 'page' : undefined"
             class="block rounded-md py-2 ps-3 text-sm transition-colors"
             :class="
@@ -135,7 +140,7 @@ function visibleChildren(
                       :key="child.id ?? getMenuLabel(child)"
                     >
                       <NuxtLink
-                        :to="itemUrl(child.canonicalUrl)"
+                        :to="itemUrl(child.canonicalUrl, child)"
                         :aria-current="
                           isActive(child.canonicalUrl) ? 'page' : undefined
                         "
@@ -153,7 +158,7 @@ function visibleChildren(
                 </template>
                 <template v-else>
                   <NuxtLink
-                    :to="itemUrl(item.canonicalUrl)"
+                    :to="itemUrl(item.canonicalUrl, item)"
                     :aria-current="
                       isActive(item.canonicalUrl) ? 'page' : undefined
                     "
