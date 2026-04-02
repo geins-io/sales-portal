@@ -46,21 +46,37 @@ export async function getMenu(
   args: { menuLocationId: string },
   event: H3Event,
 ): Promise<MenuType> {
+  const preview = getPreviewCookie(event);
+  const isCacheable = !preview;
   const cacheKey = `${buildCachePrefix(event)}::menu::${args.menuLocationId}`;
-  const cached = menuCache.get(cacheKey);
-  if (cached) {
-    return cached;
+
+  if (isCacheable) {
+    const cached = menuCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
   }
 
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
   const ctx = buildRequestContext(event);
   const result = (await wrapServiceCall(
-    () => sdk.cms.menu.get({ ...args, ...channelVars }, ctx),
+    () =>
+      sdk.cms.menu.get(
+        {
+          ...args,
+          ...channelVars,
+          ...(preview && { preview: true }),
+        },
+        ctx,
+      ),
     'cms',
   )) as MenuType;
 
-  menuCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });
+  if (isCacheable) {
+    menuCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });
+  }
+
   return result;
 }
 
