@@ -1,4 +1,15 @@
 <script setup lang="ts">
+/**
+ * CMS Preview entry page.
+ *
+ * Usage: /preview-widgets?loginToken=JWT&redirect=true
+ *
+ * This page redirects to /api/auth/preview-enter which sets cookies
+ * directly on the browser response (not via internal SSR fetch).
+ * The API endpoint then redirects to the storefront homepage.
+ *
+ * Without redirect param: shows a status page with "Browse site" button.
+ */
 definePageMeta({ layout: false });
 
 useHead({
@@ -8,35 +19,44 @@ useHead({
 
 const route = useRoute();
 const { localePath } = useLocaleMarket();
-const { exitPreview } = useCmsPreview();
+const { isPreview, exitPreview } = useCmsPreview();
 const { tenant } = useTenant();
 
 const loginToken = route.query.loginToken as string | undefined;
 const redirect = route.query.redirect as string | undefined;
 
-const authError = ref<string | null>(null);
-const isReady = ref(false);
-
-// SSR-safe: validate token during server render and client navigation alike.
+// No token → go home
 if (!loginToken) {
   await navigateTo(localePath('/'), { replace: true });
 }
 
-const { error: previewError } = await useAsyncData('preview-auth', () =>
-  $fetch('/api/auth/preview', {
-    method: 'POST',
-    body: { loginToken },
-  }),
-);
+// With redirect flag → send browser directly to the API endpoint that
+// sets cookies and redirects. This ensures Set-Cookie headers reach the browser.
+if (loginToken && redirect === 'true') {
+  const target = `/api/auth/preview-enter?loginToken=${encodeURIComponent(loginToken)}&redirect=${encodeURIComponent(localePath('/'))}`;
+  await navigateTo(target, { external: true });
+}
 
-if (previewError.value) {
-  authError.value = 'Invalid or expired preview token';
-} else {
-  isReady.value = true;
+// Without redirect → activate preview via API and show status page
+const authError = ref<string | null>(null);
+const isReady = ref(false);
 
-  // If redirect flag is set, go to home after successful auth
-  if (redirect === 'true') {
-    await navigateTo(localePath('/'), { replace: true });
+if (loginToken && redirect !== 'true') {
+  // Client-side: call the API directly (browser makes real HTTP request)
+  if (import.meta.client) {
+    try {
+      await $fetch('/api/auth/preview', {
+        method: 'POST',
+        body: { loginToken },
+      });
+      isReady.value = true;
+    } catch {
+      authError.value = 'Invalid or expired preview token';
+    }
+  } else {
+    // SSR: redirect to the GET endpoint which sets cookies properly
+    const target = `/api/auth/preview-enter?loginToken=${encodeURIComponent(loginToken)}&redirect=${encodeURIComponent('/preview-widgets?loginToken=' + encodeURIComponent(loginToken))}`;
+    await navigateTo(target, { external: true });
   }
 }
 </script>
@@ -73,8 +93,8 @@ if (previewError.value) {
         </a>
       </div>
 
-      <!-- Success state -->
-      <div v-else-if="isReady" class="space-y-4 text-center">
+      <!-- Success state (cookies set, preview active) -->
+      <div v-else-if="isReady || isPreview" class="space-y-4 text-center">
         <div
           class="mx-auto flex size-12 items-center justify-center rounded-full bg-green-100"
         >
