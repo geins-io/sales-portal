@@ -1,5 +1,20 @@
 import { ProductAliasSchema } from '../../schemas/api-input';
 import { getProduct } from '../../services/products';
+import { sanitizeWidgetHtml } from '../../utils/cms-sanitize';
+
+function sanitizeProductTexts<
+  T extends { texts?: { text1?: string; text2?: string; text3?: string } },
+>(product: T): T {
+  if (!product.texts) return product;
+
+  const texts = { ...product.texts };
+  for (const key of ['text1', 'text2', 'text3'] as const) {
+    if (typeof texts[key] === 'string') {
+      texts[key] = sanitizeWidgetHtml(texts[key]);
+    }
+  }
+  return { ...product, texts };
+}
 
 export default defineEventHandler(async (event) => {
   const alias = getRouterParam(event, 'alias');
@@ -15,7 +30,7 @@ export default defineEventHandler(async (event) => {
       if (!product) {
         throw createAppError(ErrorCode.NOT_FOUND, 'Product not found');
       }
-      return product;
+      return sanitizeProductTexts(product);
     },
     { operation: 'products.get' },
   );
