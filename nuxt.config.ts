@@ -101,7 +101,11 @@ export default defineNuxtConfig({
                 'https://www.google-analytics.com',
                 'https://www.googletagmanager.com',
               ],
-              'frame-ancestors': ["'none'"],
+              'frame-ancestors': [
+                "'self'",
+                'https://*.geins.io',
+                'https://*.litium.io',
+              ],
               'frame-src': ["'self'"],
               'base-uri': ["'none'"],
               'form-action': ["'self'"],
@@ -113,7 +117,7 @@ export default defineNuxtConfig({
             }
           : false,
       xContentTypeOptions: 'nosniff',
-      xFrameOptions: 'DENY',
+      xFrameOptions: false,
       referrerPolicy: 'strict-origin-when-cross-origin',
       crossOriginEmbedderPolicy: false,
     },

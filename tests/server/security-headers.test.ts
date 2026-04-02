@@ -96,8 +96,11 @@ describe('nuxt-security configuration', () => {
       expect(connectSrc).toContain('https://www.googletagmanager.com');
     });
 
-    it('disallows framing with frame-ancestors none', () => {
-      expect(csp['frame-ancestors']).toEqual(["'none'"]);
+    it('allows framing from Geins Studio and Litium domains', () => {
+      const frameAncestors = csp['frame-ancestors'] as string[];
+      expect(frameAncestors).toContain("'self'");
+      expect(frameAncestors).toContain('https://*.geins.io');
+      expect(frameAncestors).toContain('https://*.litium.io');
     });
 
     it('restricts base-uri to none', () => {
@@ -130,8 +133,8 @@ describe('nuxt-security configuration', () => {
       expect(headers.xContentTypeOptions).toBe('nosniff');
     });
 
-    it('sets X-Frame-Options to DENY', () => {
-      expect(headers.xFrameOptions).toBe('DENY');
+    it('disables X-Frame-Options (CSP frame-ancestors takes precedence)', () => {
+      expect(headers.xFrameOptions).toBe(false);
     });
 
     it('sets Referrer-Policy to strict-origin-when-cross-origin', () => {
