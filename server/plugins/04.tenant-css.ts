@@ -30,11 +30,13 @@ export default defineNitroPlugin((nitroApp: NitroApp) => {
     // 1. Inject data-theme attribute on <html>
     html.htmlAttrs.push(` data-theme="${escapedTheme}"`);
 
-    // 2. Inject tenant CSS
+    // 2. Inject tenant CSS (with CSP nonce when available)
     const sanitizedCss = sanitizeTenantCss(tenant.css ?? '');
     if (sanitizedCss) {
+      const nonce = event.context.security?.nonce;
+      const nonceAttr = nonce ? ` nonce="${nonce}"` : '';
       html.head.unshift(
-        `<style data-tenant-theme="${escapedTheme}">${sanitizedCss}</style>`,
+        `<style${nonceAttr} data-tenant-theme="${escapedTheme}">${sanitizedCss}</style>`,
       );
     }
 

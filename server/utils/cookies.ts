@@ -108,15 +108,20 @@ export function setPreviewAuthToken(
   maxAge: number = 3600,
 ) {
   setCookie(event, COOKIE_NAMES.AUTH_TOKEN, token, {
-    ...cookieDefaults(),
+    httpOnly: true,
+    secure: true, // Required for SameSite=None (cross-origin iframe)
+    sameSite: 'none' as const, // Preview runs inside CMS Studio iframe
+    path: '/',
     maxAge,
   });
 }
 
 export function setPreviewCookie(event: H3Event) {
   setCookie(event, COOKIE_NAMES.PREVIEW_MODE, 'true', {
-    ...cookieDefaults(),
-    httpOnly: false, // client needs to read for banner UI
+    httpOnly: false, // Client needs to read for banner UI
+    secure: true, // Required for SameSite=None (cross-origin iframe)
+    sameSite: 'none' as const, // Preview runs inside CMS Studio iframe
+    path: '/',
     maxAge: 3600,
   });
 }
