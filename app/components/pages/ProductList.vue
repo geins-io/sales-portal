@@ -139,6 +139,10 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
 });
 
 // --- SEO ---
+const typePrefix = computed(() => (isBrand.value ? 'b' : 'c'));
+const listPath = computed(() => `/${typePrefix.value}/${listSlug.value}`);
+const { seoLinks } = useSeoLinks(listPath);
+
 useHead({
   title: () => pageInfo.value?.name ?? '',
 });
@@ -147,7 +151,32 @@ useSeoMeta({
   description: () => pageInfo.value?.primaryDescription?.slice(0, 160) ?? '',
   ogTitle: () => pageInfo.value?.name ?? '',
   ogDescription: () => pageInfo.value?.primaryDescription?.slice(0, 160) ?? '',
+  ogUrl: () => seoLinks.value.find((l) => l.rel === 'canonical')?.href ?? '',
 });
+
+// JSON-LD structured data (Schema.org BreadcrumbList + ItemList)
+useSchemaOrg([
+  defineBreadcrumb({
+    itemListElement: () =>
+      breadcrumbs.value.map((bc, i) => ({
+        '@type': 'ListItem' as const,
+        position: i + 1,
+        name: bc.label,
+        item: bc.href,
+      })),
+  }),
+  defineItemList({
+    itemListElement: () =>
+      products.value.map((p, i) => ({
+        '@type': 'ListItem' as const,
+        position: i + 1,
+        name: p.name,
+        url: p.alias
+          ? `/${currentMarket.value}/${currentLocale.value}/p/${p.alias}`
+          : undefined,
+      })),
+  }),
+]);
 
 // --- Filter change → reset pagination ---
 watch(
