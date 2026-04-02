@@ -102,21 +102,38 @@ export function getCartCookie(event: H3Event) {
 
 // --- Preview cookies ---
 
+/**
+ * Preview cookie options — different from regular cookies because preview
+ * may run inside a cross-origin iframe (CMS Studio embedding storefront).
+ * SameSite=None + Secure is required for cross-origin cookies in production.
+ * In dev (HTTP), SameSite=Lax + Secure=false since browsers reject
+ * SameSite=None without Secure, and Secure requires HTTPS.
+ */
+function previewCookieDefaults() {
+  const isProd = !import.meta.dev;
+  return {
+    sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+    secure: isProd,
+    path: '/',
+  };
+}
+
 export function setPreviewAuthToken(
   event: H3Event,
   token: string,
   maxAge: number = 3600,
 ) {
   setCookie(event, COOKIE_NAMES.AUTH_TOKEN, token, {
-    ...cookieDefaults(),
+    httpOnly: true,
+    ...previewCookieDefaults(),
     maxAge,
   });
 }
 
 export function setPreviewCookie(event: H3Event) {
   setCookie(event, COOKIE_NAMES.PREVIEW_MODE, 'true', {
-    ...cookieDefaults(),
-    httpOnly: false, // client needs to read for banner UI
+    httpOnly: false, // Client needs to read for banner UI
+    ...previewCookieDefaults(),
     maxAge: 3600,
   });
 }

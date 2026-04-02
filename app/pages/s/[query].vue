@@ -11,7 +11,6 @@
  */
 import { Search as SearchIcon, SearchX as SearchXIcon } from 'lucide-vue-next';
 import type {
-  ListProduct,
   ProductListResponse,
   ProductFiltersResponse,
 } from '#shared/types/commerce';
@@ -31,9 +30,8 @@ const sortBy = ref('relevance');
 const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
   default: () => 'grid',
 });
-const skip = ref(0);
+const currentPage = ref(Number(route.query.page) || 1);
 const take = 24;
-const allProducts = ref<ListProduct[]>([]);
 
 const { t } = useI18n();
 const { currentLocale, currentMarket, localeQuery } = useLocaleMarket();
@@ -71,6 +69,8 @@ const filterInput = computed(() =>
 );
 
 // --- Data Fetching ---
+const skip = computed(() => (currentPage.value - 1) * take);
+
 const queryParams = computed(() => ({
   query: searchTerm.value,
   skip: skip.value,
@@ -99,36 +99,24 @@ const { data: filtersData } = useFetch<ProductFiltersResponse>(
 // --- Derived ---
 const facets = computed(() => filtersData.value?.filters?.facets ?? []);
 const totalCount = computed(() => productsData.value?.count ?? 0);
+const products = computed(() => productsData.value?.products ?? []);
 const isLoading = computed(() => productsStatus.value === 'pending');
-const hasMore = computed(() => allProducts.value.length < totalCount.value);
+const totalPages = computed(() => Math.ceil(totalCount.value / take));
+const showingFrom = computed(() => (totalCount.value > 0 ? skip.value + 1 : 0));
+const showingTo = computed(() => Math.min(skip.value + take, totalCount.value));
 
-// --- Watch: products data -> accumulate or replace ---
-watch(
-  productsData,
-  (data) => {
-    if (!data?.products) return;
-    if (skip.value === 0) {
-      allProducts.value = data.products;
-    } else {
-      allProducts.value = [...allProducts.value, ...data.products];
-    }
-  },
-  { immediate: true },
-);
-
-// --- Reset on search term or filter change ---
+// --- Reset page on search term or filter change ---
 watch(
   [searchTerm, filterState],
   () => {
-    skip.value = 0;
-    allProducts.value = [];
+    currentPage.value = 1;
   },
   { deep: true },
 );
 
 // --- URL sync for filters ---
 watch(
-  [filterState, sortBy],
+  [filterState, sortBy, currentPage],
   () => {
     const query: Record<string, string> = {};
     for (const [key, values] of Object.entries(filterState.value ?? {})) {
@@ -139,14 +127,20 @@ watch(
     if (sortBy.value !== 'relevance') {
       query.sort = sortBy.value;
     }
+    if (currentPage.value > 1) {
+      query.page = String(currentPage.value);
+    }
     router.replace({ query });
   },
   { deep: true },
 );
 
 // --- Actions ---
-function loadMore() {
-  skip.value = allProducts.value.length;
+function onPageChange(page: number) {
+  currentPage.value = page;
+  if (import.meta.client) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 }
 
 function removeFilter(facetId: string, valueId: string) {
@@ -214,7 +208,7 @@ function clearAllFilters() {
 
     <!-- Loading skeleton -->
     <SearchResultsSkeleton
-      v-if="isLoading && allProducts.length === 0"
+      v-if="isLoading && products.length === 0"
       :view-mode="viewMode"
       data-testid="search-loading"
     />
@@ -229,7 +223,7 @@ function clearAllFilters() {
       "
     >
       <ProductCard
-        v-for="product in allProducts"
+        v-for="product in products"
         :key="product.productId"
         :product="product"
         :variant="viewMode"
@@ -238,7 +232,7 @@ function clearAllFilters() {
 
     <!-- No results -->
     <EmptyState
-      v-if="!isLoading && allProducts.length === 0 && searchTerm"
+      v-if="!isLoading && products.length === 0 && searchTerm"
       :icon="SearchXIcon"
       :title="$t('search.no_results_for', { query: searchTerm })"
       :description="$t('search.try_different_terms')"
@@ -253,12 +247,23 @@ function clearAllFilters() {
       data-testid="search-no-term"
     />
 
-    <!-- Load more -->
-    <LoadMoreButton
-      :loading="isLoading"
-      :has-more="hasMore"
-      @load-more="loadMore"
-    />
+    <!-- Pagination -->
+    <div v-if="totalCount > 0" class="mt-8 flex items-center justify-between">
+      <p class="text-muted-foreground text-sm">
+        {{
+          $t('pagination.showing_range', {
+            from: showingFrom,
+            to: showingTo,
+            total: totalCount,
+          })
+        }}
+      </p>
+      <NumberedPagination
+        :current-page="currentPage"
+        :total-pages="totalPages"
+        @update:current-page="onPageChange"
+      />
+    </div>
 
     <!-- File/document search placeholder -->
     <SearchFilesPlaceholder v-if="searchTerm" />

@@ -61,7 +61,10 @@ describe('useCmsPreview', () => {
     await exitPreview();
 
     expect(mockCookieRef.value).toBeNull();
-    expect(navigateToMock).toHaveBeenCalledWith('/se/en/', { replace: true });
+    expect(navigateToMock).toHaveBeenCalledWith('/se/en/', {
+      replace: true,
+      external: true,
+    });
   });
 
   it('exitPreview still navigates even if fetch throws', async () => {
@@ -78,6 +81,9 @@ describe('useCmsPreview', () => {
     await exitPreview();
 
     expect(mockCookieRef.value).toBeNull();
-    expect(navigateToMock).toHaveBeenCalledWith('/se/en/', { replace: true });
+    expect(navigateToMock).toHaveBeenCalledWith('/se/en/', {
+      replace: true,
+      external: true,
+    });
   });
 });

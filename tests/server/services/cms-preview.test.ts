@@ -109,8 +109,22 @@ describe('CMS service preview injection', () => {
   });
 
   describe('getMenu', () => {
-    it('never passes preview regardless of cookie state', async () => {
+    it('passes preview: true when in preview', async () => {
       getPreviewCookieMock.mockReturnValue(true);
+      await getMenu({ menuLocationId: 'main' }, mockEvent);
+
+      expect(mockMenuGet).toHaveBeenCalledWith(
+        {
+          menuLocationId: 'main',
+          ...channelVars,
+          preview: true,
+        },
+        undefined,
+      );
+    });
+
+    it('does NOT include preview key when not in preview', async () => {
+      getPreviewCookieMock.mockReturnValue(false);
       await getMenu({ menuLocationId: 'main' }, mockEvent);
 
       expect(mockMenuGet).toHaveBeenCalledWith(

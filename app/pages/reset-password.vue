@@ -13,12 +13,18 @@ const { localePath } = useLocaleMarket();
 
 const resetKey = computed(() => (route.query.key as string) || '');
 
+let redirectTimer: ReturnType<typeof setTimeout> | null = null;
+
 function handleSuccess() {
   // Auto-redirect to login after 3 seconds
-  setTimeout(() => {
+  redirectTimer = setTimeout(() => {
     router.replace(localePath('/login'));
   }, 3000);
 }
+
+onUnmounted(() => {
+  if (redirectTimer) clearTimeout(redirectTimer);
+});
 </script>
 
 <template>
