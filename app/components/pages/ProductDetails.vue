@@ -154,6 +154,9 @@ const primaryImageUrl = computed(
     '',
 );
 
+const productPath = computed(() => `/p/${slug.value}`);
+const { seoLinks } = useSeoLinks(productPath);
+
 useHead({
   title: () => product.value?.name ?? '',
 });
@@ -163,6 +166,7 @@ useSeoMeta({
   ogTitle: () => product.value?.name ?? '',
   ogDescription: () => plainDescription.value,
   ogImage: () => primaryImageUrl.value || undefined,
+  ogUrl: () => seoLinks.value.find((l) => l.rel === 'canonical')?.href ?? '',
 });
 
 // JSON-LD structured data (Schema.org Product + BreadcrumbList)

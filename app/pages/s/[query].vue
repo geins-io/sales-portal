@@ -47,12 +47,22 @@ const sortOptions = computed(() => [
 ]);
 
 // --- SEO ---
+const searchUrl = computed(
+  () =>
+    `/${currentMarket.value}/${currentLocale.value}/s/${encodeURIComponent(searchTerm.value)}`,
+);
+
 useHead({
   title: computed(() =>
     searchTerm.value
       ? t('search.results_for', { query: searchTerm.value })
       : t('search.title'),
   ),
+});
+
+useSeoMeta({
+  robots: 'noindex,follow',
+  ogUrl: () => searchUrl.value,
 });
 
 // --- Build filter object for GraphQL FilterInputType ---
