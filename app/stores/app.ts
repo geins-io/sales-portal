@@ -1,27 +1,26 @@
 import { defineStore } from 'pinia';
 
-interface AppState {
-  isLoading: boolean;
-  sidebarOpen: boolean;
-}
+export const useAppStore = defineStore('app', () => {
+  const isLoading = ref(false);
+  const sidebarOpen = ref(false);
 
-export const useAppStore = defineStore('app', {
-  state: (): AppState => ({
-    isLoading: false,
-    sidebarOpen: false,
-  }),
+  function setLoading(loading: boolean) {
+    isLoading.value = loading;
+  }
 
-  actions: {
-    setLoading(loading: boolean) {
-      this.isLoading = loading;
-    },
+  function toggleSidebar() {
+    sidebarOpen.value = !sidebarOpen.value;
+  }
 
-    toggleSidebar() {
-      this.sidebarOpen = !this.sidebarOpen;
-    },
+  function setSidebarOpen(open: boolean) {
+    sidebarOpen.value = open;
+  }
 
-    setSidebarOpen(open: boolean) {
-      this.sidebarOpen = open;
-    },
-  },
+  return {
+    isLoading,
+    sidebarOpen,
+    setLoading,
+    toggleSidebar,
+    setSidebarOpen,
+  };
 });
