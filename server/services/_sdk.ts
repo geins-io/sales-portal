@@ -8,6 +8,7 @@ import type {
   RequestContext,
 } from '@geins/types';
 import type { H3Event } from 'h3';
+import { LRUCache } from 'lru-cache';
 import type { GeinsSettings as TenantGeinsSettings } from '#shared/types/tenant-config';
 
 export interface TenantSDK {
@@ -34,7 +35,7 @@ function mapEnvironment(
 }
 
 /** Per-tenant singleton cache. Same tenant reuses the same SDK instance. */
-const tenants = new Map<string, TenantSDK>();
+const tenants = new LRUCache<string, TenantSDK>({ max: 100 });
 
 /**
  * Clears cached SDK instances for a tenant.

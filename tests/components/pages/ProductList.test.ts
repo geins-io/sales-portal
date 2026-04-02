@@ -61,6 +61,37 @@ vi.mock('#app/composables/head', () => ({
 vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
 vi.stubGlobal('useHead', vi.fn());
 vi.stubGlobal('useSeoMeta', vi.fn());
+vi.stubGlobal('useSchemaOrg', vi.fn());
+vi.stubGlobal(
+  'defineBreadcrumb',
+  vi.fn(() => ({})),
+);
+vi.stubGlobal(
+  'defineItemList',
+  vi.fn(() => ({})),
+);
+
+// Mock @unhead/schema-org/vue helpers (auto-imported by Nuxt)
+vi.mock('@unhead/schema-org/vue', () => ({
+  defineBreadcrumb: vi.fn(() => ({})),
+  defineItemList: vi.fn(() => ({})),
+}));
+
+// Mock nuxt-schema-org runtime composable (auto-imported by Nuxt unimport).
+const { schemaOrgComposablePath: plpSchemaOrgPath } = vi.hoisted(() => {
+  const nodeModule = require.resolve('nuxt-schema-org/schema'); // exported subpath
+  const pkgRoot = nodeModule.replace(/\/dist\/schema\..*$/, '');
+  return {
+    schemaOrgComposablePath: `${pkgRoot}/dist/runtime/app/composables/useSchemaOrg`,
+  };
+});
+vi.mock(plpSchemaOrgPath, () => ({
+  useSchemaOrg: vi.fn(),
+}));
+vi.stubGlobal(
+  'useSeoLinks',
+  vi.fn(() => ({ seoLinks: ref([]) })),
+);
 vi.stubGlobal(
   'useCookie',
   vi.fn(() => ref('grid')),

@@ -67,19 +67,21 @@ export const useCheckoutStore = defineStore('checkout', () => {
   const effectiveShippingAddress = computed<AddressInputType>(() =>
     useSeparateShipping.value ? shippingAddress.value : billingAddress.value,
   );
+  const isAddressComplete = computed(() => {
+    const addr = billingAddress.value;
+    return !!(
+      addr.firstName &&
+      addr.lastName &&
+      addr.addressLine1 &&
+      addr.city &&
+      addr.country &&
+      addr.zip
+    );
+  });
   const canPlaceOrder = computed(() => {
     if (isLoading.value || isPlacingOrder.value) return false;
     if (!email.value) return false;
-    const addr = billingAddress.value;
-    if (
-      !addr.firstName ||
-      !addr.lastName ||
-      !addr.addressLine1 ||
-      !addr.city ||
-      !addr.country ||
-      !addr.zip
-    )
-      return false;
+    if (!isAddressComplete.value) return false;
     if (!selectedPaymentId.value) return false;
     if (!selectedShippingId.value) return false;
     return true;
@@ -87,16 +89,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
   const canRequestQuote = computed(() => {
     if (isLoading.value || isRequestingQuote.value) return false;
     if (!email.value) return false;
-    const addr = billingAddress.value;
-    if (
-      !addr.firstName ||
-      !addr.lastName ||
-      !addr.addressLine1 ||
-      !addr.city ||
-      !addr.country ||
-      !addr.zip
-    )
-      return false;
+    if (!isAddressComplete.value) return false;
     return true;
   });
 

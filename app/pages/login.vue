@@ -1,3 +1,16 @@
+<script lang="ts">
+/**
+ * Validates that a redirect path is safe (relative, no open-redirect).
+ * Must start with `/` and must not contain `://` or `//`.
+ */
+export function isValidRedirect(path: unknown): boolean {
+  if (typeof path !== 'string' || !path) return false;
+  if (!path.startsWith('/')) return false;
+  if (path.includes('://') || path.includes('//')) return false;
+  return true;
+}
+</script>
+
 <script setup lang="ts">
 definePageMeta({
   middleware: 'guest',
@@ -15,7 +28,8 @@ const defaultView = computed(() =>
 );
 
 function handleSuccess() {
-  const redirect = (route.query.redirect as string) || localePath('/');
+  const raw = route.query.redirect as string | undefined;
+  const redirect = isValidRedirect(raw) ? raw! : localePath('/');
   router.replace(redirect);
 }
 

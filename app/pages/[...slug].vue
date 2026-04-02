@@ -31,17 +31,14 @@ const pageSlug = computed(() => {
   return segments[segments.length - 1] ?? '/';
 });
 
-const { localePath, currentLocale, currentMarket } = useLocaleMarket();
+const { localePath, localeQuery } = useLocaleMarket();
 
 const {
   data: page,
   error,
   status,
 } = useFetch<ContentPageType>(() => `/api/cms/page/${pageSlug.value}`, {
-  query: computed(() => ({
-    ...(currentLocale.value ? { locale: currentLocale.value } : {}),
-    ...(currentMarket.value ? { market: currentMarket.value } : {}),
-  })),
+  query: localeQuery,
   dedupe: 'defer',
 });
 
@@ -65,51 +62,11 @@ watch(
 );
 
 // SEO: canonical + hreflang tags
-const {
-  currentMarket: market,
-  currentLocale: locale,
-  validLocales,
-} = useLocaleMarket();
+const { seoLinks } = useSeoLinks(normalizedPath);
 
-function getHreflangLang(loc: string): string {
-  return loc;
-}
-
-const seoLinks = computed(() => {
-  const m = market.value;
-  const l = locale.value;
-  const path = normalizedPath.value;
-  const pagePath = path === '/' ? '/' : path;
-
-  const links: Array<{ rel: string; href: string; hreflang?: string }> = [];
-
-  const canonicalHref =
-    pagePath === '/' ? `/${m}/${l}/` : `/${m}/${l}${pagePath}`;
-  links.push({ rel: 'canonical', href: canonicalHref });
-
-  const localeArray = Array.from(validLocales.value).filter(
-    (loc): loc is string => typeof loc === 'string',
-  );
-  for (const loc of localeArray) {
-    const lang = getHreflangLang(loc);
-    const hreflang = `${lang}-${m.toUpperCase()}`;
-    const href = pagePath === '/' ? `/${m}/${loc}/` : `/${m}/${loc}${pagePath}`;
-    links.push({ rel: 'alternate', href, hreflang });
-  }
-
-  const defaultLocale = validLocales.value.has('en')
-    ? 'en'
-    : (localeArray[0] ?? l);
-  const xDefaultHref =
-    pagePath === '/'
-      ? `/${m}/${defaultLocale}/`
-      : `/${m}/${defaultLocale}${pagePath}`;
-  links.push({ rel: 'alternate', href: xDefaultHref, hreflang: 'x-default' });
-
-  return links;
+useSeoMeta({
+  ogUrl: () => seoLinks.value.find((l) => l.rel === 'canonical')?.href ?? '',
 });
-
-useHead({ link: seoLinks });
 
 // Page head meta from CMS
 useHead(

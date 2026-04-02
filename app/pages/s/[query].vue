@@ -36,7 +36,7 @@ const take = 24;
 const allProducts = ref<ListProduct[]>([]);
 
 const { t } = useI18n();
-const { currentLocale, currentMarket } = useLocaleMarket();
+const { currentLocale, currentMarket, localeQuery } = useLocaleMarket();
 const sortOptions = computed(() => [
   { label: t('product.sort_relevance'), value: 'relevance' },
   { label: t('product.sort_price_asc'), value: 'price-asc' },
@@ -47,12 +47,22 @@ const sortOptions = computed(() => [
 ]);
 
 // --- SEO ---
+const searchUrl = computed(
+  () =>
+    `/${currentMarket.value}/${currentLocale.value}/s/${encodeURIComponent(searchTerm.value)}`,
+);
+
 useHead({
   title: computed(() =>
     searchTerm.value
       ? t('search.results_for', { query: searchTerm.value })
       : t('search.title'),
   ),
+});
+
+useSeoMeta({
+  robots: 'noindex,follow',
+  ogUrl: () => searchUrl.value,
 });
 
 // --- Build filter object for GraphQL FilterInputType ---
@@ -66,8 +76,7 @@ const queryParams = computed(() => ({
   skip: skip.value,
   take,
   ...(filterInput.value ? { filter: JSON.stringify(filterInput.value) } : {}),
-  ...(currentLocale.value ? { locale: currentLocale.value } : {}),
-  ...(currentMarket.value ? { market: currentMarket.value } : {}),
+  ...localeQuery.value,
 }));
 
 const { data: productsData, status: productsStatus } =
@@ -81,8 +90,7 @@ const { data: filtersData } = useFetch<ProductFiltersResponse>(
   {
     query: computed(() => ({
       filter: JSON.stringify({ searchText: searchTerm.value }),
-      ...(currentLocale.value ? { locale: currentLocale.value } : {}),
-      ...(currentMarket.value ? { market: currentMarket.value } : {}),
+      ...localeQuery.value,
     })),
     dedupe: 'defer',
   },

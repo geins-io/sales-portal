@@ -49,7 +49,8 @@ const currentPage = ref(Number(route.query.page) || 1);
 const skip = computed(() => (currentPage.value - 1) * take);
 
 const { t } = useI18n();
-const { localePath, currentLocale, currentMarket } = useLocaleMarket();
+const { localePath, currentLocale, currentMarket, localeQuery } =
+  useLocaleMarket();
 const sortOptions = computed(() => [
   { label: t('product.sort_relevance'), value: 'relevance' },
   { label: t('product.sort_price_asc'), value: 'price-asc' },
@@ -76,8 +77,7 @@ const queryParams = computed(() => ({
   skip: skip.value,
   take,
   ...(filterInput.value ? { filter: JSON.stringify(filterInput.value) } : {}),
-  ...(currentLocale.value ? { locale: currentLocale.value } : {}),
-  ...(currentMarket.value ? { market: currentMarket.value } : {}),
+  ...localeQuery.value,
 }));
 
 const { data: productsData, status: productsStatus } =
@@ -93,8 +93,7 @@ const { data: filtersData } = useFetch<ProductFiltersResponse>(
       ...(isBrand.value
         ? { brandAlias: listSlug.value }
         : { categoryAlias: listSlug.value }),
-      ...(currentLocale.value ? { locale: currentLocale.value } : {}),
-      ...(currentMarket.value ? { market: currentMarket.value } : {}),
+      ...localeQuery.value,
     })),
     dedupe: 'defer',
   },
@@ -107,10 +106,7 @@ const pageInfoUrl = computed(() =>
 );
 
 const { data: pageInfo } = useFetch<ListPageInfo>(pageInfoUrl, {
-  query: computed(() => ({
-    ...(currentLocale.value ? { locale: currentLocale.value } : {}),
-    ...(currentMarket.value ? { market: currentMarket.value } : {}),
-  })),
+  query: localeQuery,
   dedupe: 'defer',
 });
 
@@ -139,6 +135,10 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
 });
 
 // --- SEO ---
+const typePrefix = computed(() => (isBrand.value ? 'b' : 'c'));
+const listPath = computed(() => `/${typePrefix.value}/${listSlug.value}`);
+const { seoLinks } = useSeoLinks(listPath);
+
 useHead({
   title: () => pageInfo.value?.name ?? '',
 });
@@ -147,7 +147,32 @@ useSeoMeta({
   description: () => pageInfo.value?.primaryDescription?.slice(0, 160) ?? '',
   ogTitle: () => pageInfo.value?.name ?? '',
   ogDescription: () => pageInfo.value?.primaryDescription?.slice(0, 160) ?? '',
+  ogUrl: () => seoLinks.value.find((l) => l.rel === 'canonical')?.href ?? '',
 });
+
+// JSON-LD structured data (Schema.org BreadcrumbList + ItemList)
+useSchemaOrg([
+  defineBreadcrumb({
+    itemListElement: () =>
+      breadcrumbs.value.map((bc, i) => ({
+        '@type': 'ListItem' as const,
+        position: i + 1,
+        name: bc.label,
+        item: bc.href,
+      })),
+  }),
+  defineItemList({
+    itemListElement: () =>
+      products.value.map((p, i) => ({
+        '@type': 'ListItem' as const,
+        position: i + 1,
+        name: p.name,
+        url: p.alias
+          ? `/${currentMarket.value}/${currentLocale.value}/p/${p.alias}`
+          : undefined,
+      })),
+  }),
+]);
 
 // --- Filter change → reset pagination ---
 watch(

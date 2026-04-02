@@ -208,11 +208,18 @@ export function useLocaleMarket() {
     await navigateTo(target, { external: true });
   }
 
+  /** Guarded locale/market query params for useFetch calls. */
+  const localeQuery = computed(() => ({
+    ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+    ...(currentMarket.value ? { market: currentMarket.value } : {}),
+  }));
+
   return {
     currentMarket,
     currentLocale,
     validLocales,
     validMarkets,
+    localeQuery,
     localePath,
     getCleanPath,
     switchLocale,

@@ -232,3 +232,21 @@ export const quoteCreateRateLimiter = new RateLimiter({
   windowMs: 60000,
   prefix: 'quote-create',
 });
+
+export const reviewPostRateLimiter = new RateLimiter({
+  limit: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  prefix: 'product-review',
+});
+
+export const monitorAvailabilityRateLimiter = new RateLimiter({
+  limit: 10,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  prefix: 'monitor-availability',
+});
+
+export const promoCodeRateLimiter = new RateLimiter({
+  limit: 10,
+  windowMs: 5 * 60 * 1000, // 5 minutes — tighter window to prevent brute-force
+  prefix: 'cart-promo',
+});

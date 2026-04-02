@@ -9,7 +9,7 @@ import type { MenuType } from '#shared/types/cms';
  * reads the correct locale.
  */
 export function useMenuData(menuLocationId: string) {
-  const { currentLocale, currentMarket } = useLocaleMarket();
+  const { localeQuery } = useLocaleMarket();
 
   const {
     data: menu,
@@ -18,8 +18,7 @@ export function useMenuData(menuLocationId: string) {
   } = useFetch<MenuType>('/api/cms/menu', {
     query: computed(() => ({
       menuLocationId,
-      ...(currentLocale.value ? { locale: currentLocale.value } : {}),
-      ...(currentMarket.value ? { market: currentMarket.value } : {}),
+      ...localeQuery.value,
     })),
     dedupe: 'defer',
   });

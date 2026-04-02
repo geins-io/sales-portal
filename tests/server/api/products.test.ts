@@ -40,6 +40,21 @@ vi.mock('../../../server/services/graphql/unwrap', () => ({
   }),
 }));
 
+// Rate limiter — uses useStorage('kv'), must stay mocked
+vi.mock('../../../server/utils/rate-limiter', () => ({
+  reviewPostRateLimiter: {
+    check: vi
+      .fn()
+      .mockResolvedValue({ allowed: true, remaining: 4, resetTime: 0 }),
+  },
+  monitorAvailabilityRateLimiter: {
+    check: vi
+      .fn()
+      .mockResolvedValue({ allowed: true, remaining: 9, resetTime: 0 }),
+  },
+  getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+}));
+
 // ---------------------------------------------------------------------------
 // Stub Nitro / h3 auto-imports
 // ---------------------------------------------------------------------------
@@ -52,7 +67,10 @@ vi.stubGlobal(
     return err;
   }),
 );
-vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
+vi.stubGlobal('ErrorCode', {
+  NOT_FOUND: 'NOT_FOUND',
+  RATE_LIMITED: 'RATE_LIMITED',
+});
 vi.stubGlobal('getRouterParam', vi.fn());
 vi.stubGlobal('getQuery', vi.fn());
 vi.stubGlobal(
