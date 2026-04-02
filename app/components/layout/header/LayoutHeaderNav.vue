@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { NuxtLink } from '#components';
-import type { MenuItemType, MenuType } from '#shared/types/cms';
+import type { MenuItemType } from '#shared/types/cms';
 import { MENU_LOCATION } from '#shared/constants/cms';
 import {
   normalizeMenuUrl,
@@ -19,12 +19,7 @@ import {
   NavigationMenuTrigger,
 } from '~/components/ui/navigation-menu';
 
-const { locale } = useI18n();
-const { data: menu } = useFetch<MenuType>('/api/cms/menu', {
-  query: { menuLocationId: MENU_LOCATION.MAIN, locale },
-  dedupe: 'defer',
-  watch: [locale],
-});
+const { menu } = useMenuData(MENU_LOCATION.MAIN);
 const currentHost = computed(() => useRequestURL().host);
 const { localePath } = useLocaleMarket();
 
