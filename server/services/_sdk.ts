@@ -241,9 +241,11 @@ export function buildRequestContext(
 ): RequestContext | undefined {
   const languageId = getRequestLocale(event);
   const marketId = getRequestMarket(event);
-  if (!languageId && !marketId) return undefined;
+  const { authToken } = getAuthCookies(event);
+  if (!languageId && !marketId && !authToken) return undefined;
   const ctx: RequestContext = {};
   if (languageId) ctx.languageId = languageId;
   if (marketId) ctx.marketId = marketId;
+  if (authToken) ctx.userToken = authToken;
   return ctx;
 }

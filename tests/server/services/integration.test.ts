@@ -48,6 +48,10 @@ vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 // Locale/market cookie readers — return undefined to use SDK defaults
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal(
+  'getAuthCookies',
+  vi.fn().mockReturnValue({ authToken: undefined, refreshToken: undefined }),
+);
 
 const runIntegration = hasGeinsCredentials();
 const runCrm = hasCrmCredentials();

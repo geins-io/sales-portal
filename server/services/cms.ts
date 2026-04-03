@@ -60,16 +60,21 @@ export async function getMenu(
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
   const ctx = buildRequestContext(event);
+  const queryArgs = { ...args, ...channelVars };
+
+  if (preview) {
+    try {
+      return (await wrapServiceCall(
+        () => sdk.cms.menu.get({ ...queryArgs, preview: true }, ctx),
+        'cms',
+      )) as MenuType;
+    } catch {
+      // Preview fetch failed — fall back to published content
+    }
+  }
+
   const result = (await wrapServiceCall(
-    () =>
-      sdk.cms.menu.get(
-        {
-          ...args,
-          ...channelVars,
-          ...(preview && { preview: true }),
-        },
-        ctx,
-      ),
+    () => sdk.cms.menu.get(queryArgs, ctx),
     'cms',
   )) as MenuType;
 
@@ -88,17 +93,29 @@ export async function getPage(
   const preview = getPreviewCookie(event);
   const channelVars = getRequestChannelVariables(sdk, event);
   const ctx = buildRequestContext(event);
+  const queryArgs = {
+    ...args,
+    ...channelVars,
+    ...(args.customerType && { customerType: args.customerType }),
+  };
+
+  if (preview) {
+    try {
+      return await wrapServiceCall(
+        () =>
+          sdk.cms.page.get(
+            { ...queryArgs, preview: true },
+            ctx,
+          ) as Promise<ContentPageType>,
+        'cms',
+      );
+    } catch {
+      // Preview fetch failed — fall back to published content
+    }
+  }
+
   return wrapServiceCall(
-    () =>
-      sdk.cms.page.get(
-        {
-          ...args,
-          ...channelVars,
-          ...(preview && { preview: true }),
-          ...(args.customerType && { customerType: args.customerType }),
-        },
-        ctx,
-      ) as Promise<ContentPageType>,
+    () => sdk.cms.page.get(queryArgs, ctx) as Promise<ContentPageType>,
     'cms',
   );
 }
@@ -123,17 +140,29 @@ export async function getContentArea(
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
   const ctx = buildRequestContext(event);
+  const queryArgs = {
+    ...args,
+    ...channelVars,
+    ...(args.customerType && { customerType: args.customerType }),
+  };
+
+  if (preview) {
+    try {
+      return (await wrapServiceCall(
+        () =>
+          sdk.cms.area.get(
+            { ...queryArgs, preview: true },
+            ctx,
+          ) as Promise<ContentAreaType>,
+        'cms',
+      )) as ContentAreaType;
+    } catch {
+      // Preview fetch failed — fall back to published content
+    }
+  }
+
   const result = (await wrapServiceCall(
-    () =>
-      sdk.cms.area.get(
-        {
-          ...args,
-          ...channelVars,
-          ...(preview && { preview: true }),
-          ...(args.customerType && { customerType: args.customerType }),
-        },
-        ctx,
-      ) as Promise<ContentAreaType>,
+    () => sdk.cms.area.get(queryArgs, ctx) as Promise<ContentAreaType>,
     'cms',
   )) as ContentAreaType;
 
