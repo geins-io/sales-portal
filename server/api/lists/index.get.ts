@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
     );
   }
 
+  setResponseHeader(event, 'Cache-Control', 'private, no-cache');
   return withErrorHandling(
     async () => {
       const lists = await savedListsService.getLists(

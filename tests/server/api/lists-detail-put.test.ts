@@ -21,6 +21,15 @@ vi.mock('../../../server/services/auth', () => ({
   getUser: (...args: unknown[]) => mockGetUser(...args),
 }));
 
+// Rate limiter
+const mockRateLimiterCheck = vi.fn().mockResolvedValue({ allowed: true });
+vi.mock('../../../server/utils/rate-limiter', () => ({
+  savedListUpdateRateLimiter: {
+    check: (...args: unknown[]) => mockRateLimiterCheck(...args),
+  },
+  getClientIp: vi.fn().mockReturnValue('127.0.0.1'),
+}));
+
 // ---------------------------------------------------------------------------
 // Stub Nitro / h3 auto-imports
 // ---------------------------------------------------------------------------
@@ -38,6 +47,7 @@ vi.stubGlobal('ErrorCode', {
   UNAUTHORIZED: 'UNAUTHORIZED',
   NOT_FOUND: 'NOT_FOUND',
   BAD_REQUEST: 'BAD_REQUEST',
+  RATE_LIMITED: 'RATE_LIMITED',
 });
 vi.stubGlobal(
   'withErrorHandling',

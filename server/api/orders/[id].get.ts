@@ -4,6 +4,11 @@ import { OrderIdSchema } from '../../schemas/api-input';
 
 export default defineEventHandler(async (event) => {
   await requireAuth(event);
+  setResponseHeader(
+    event,
+    'Cache-Control',
+    'private, max-age=30, must-revalidate',
+  );
   const id = getRouterParam(event, 'id');
   const { id: validatedId } = OrderIdSchema.parse({ id });
   return withErrorHandling(

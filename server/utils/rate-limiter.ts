@@ -250,3 +250,21 @@ export const promoCodeRateLimiter = new RateLimiter({
   windowMs: 5 * 60 * 1000, // 5 minutes — tighter window to prevent brute-force
   prefix: 'cart-promo',
 });
+
+export const savedListCreateRateLimiter = new RateLimiter({
+  limit: 10,
+  windowMs: 60000,
+  prefix: 'saved-list-create',
+});
+
+export const savedListUpdateRateLimiter = new RateLimiter({
+  limit: 20,
+  windowMs: 60000,
+  prefix: 'saved-list-update',
+});
+
+export const savedListDeleteRateLimiter = new RateLimiter({
+  limit: 10,
+  windowMs: 60000,
+  prefix: 'saved-list-delete',
+});

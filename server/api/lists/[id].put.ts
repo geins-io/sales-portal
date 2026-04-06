@@ -5,8 +5,22 @@ import {
   SavedListIdSchema,
   UpdateSavedListSchema,
 } from '../../schemas/api-input';
+import {
+  savedListUpdateRateLimiter,
+  getClientIp,
+} from '../../utils/rate-limiter';
 
 export default defineEventHandler(async (event) => {
+  const clientIp = getClientIp(event);
+  const rateLimit = await savedListUpdateRateLimiter.check(clientIp);
+
+  if (!rateLimit.allowed) {
+    throw createAppError(
+      ErrorCode.RATE_LIMITED,
+      'Too many list update requests',
+    );
+  }
+
   const tokens = await requireAuth(event);
 
   const authResult = await authService.getUser(

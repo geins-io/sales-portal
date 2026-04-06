@@ -46,6 +46,7 @@ vi.stubGlobal('ErrorCode', {
 });
 vi.stubGlobal('defineEventHandler', (fn: (event: H3Event) => unknown) => fn);
 vi.stubGlobal('getRouterParam', vi.fn());
+vi.stubGlobal('setResponseHeader', vi.fn());
 
 let handler: (event: H3Event) => Promise<unknown>;
 
