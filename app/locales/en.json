@@ -451,6 +451,7 @@
       },
       "status": {
         "placed": "Placed",
+        "pending": "Pending",
         "delivered": "Delivered",
         "processing": "Processing",
         "shipped": "Shipped",

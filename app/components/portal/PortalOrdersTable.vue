@@ -72,6 +72,7 @@ function getStatusKey(status: string): string {
   const key = status.toLowerCase();
   const knownStatuses = [
     'placed',
+    'pending',
     'delivered',
     'processing',
     'shipped',

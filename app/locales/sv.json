@@ -451,6 +451,7 @@
       },
       "status": {
         "placed": "Lagd",
+        "pending": "Väntande",
         "delivered": "Levererad",
         "processing": "Behandlas",
         "shipped": "Skickad",
