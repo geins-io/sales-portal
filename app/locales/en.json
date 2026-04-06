@@ -459,7 +459,48 @@
       "view": "View",
       "type_web": "Web order",
       "quick_search": "Quick search",
-      "showing_count": "{shown} of {total} orders"
+      "showing_count": "{shown} of {total} orders",
+      "search_placeholder": "Search orders...",
+      "no_orders": "No orders found",
+      "error_loading": "Failed to load orders. Please try again.",
+      "retry": "Try again",
+      "pagination": {
+        "previous": "Previous",
+        "next": "Next",
+        "showing": "{shown} of {total} orders"
+      },
+      "sort_created_asc": "Oldest first",
+      "sort_created_desc": "Newest first",
+      "detail": {
+        "title": "Order",
+        "back_to_orders": "All orders",
+        "actions": {
+          "new_order_same_data": "New order/same data",
+          "download_invoice": "Download invoice",
+          "other_communication": "Other communication",
+          "reorder": "Reorder"
+        },
+        "items": {
+          "title": "Order items",
+          "product": "Product",
+          "article_number": "Art. nr",
+          "quantity": "Amount",
+          "unit_price": "Unit price",
+          "total": "Total"
+        },
+        "summary": {
+          "title": "Order summary",
+          "subtotal": "Subtotal",
+          "shipping": "Shipping",
+          "tax": "Tax",
+          "total": "Total"
+        },
+        "billing_address": "Invoice details",
+        "shipping_address": "Delivery address",
+        "order_date": "Order date",
+        "order_status": "Status",
+        "payment_method": "Payment method"
+      }
     },
     "account": {
       "title": "Account profile",

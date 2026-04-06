@@ -459,7 +459,48 @@
       "view": "Visa",
       "type_web": "Webbbeställning",
       "quick_search": "Snabbsök",
-      "showing_count": "{shown} av {total} beställningar"
+      "showing_count": "{shown} av {total} beställningar",
+      "search_placeholder": "Sök beställningar...",
+      "no_orders": "Inga beställningar hittades",
+      "error_loading": "Det gick inte att ladda beställningar. Försök igen.",
+      "retry": "Försök igen",
+      "pagination": {
+        "previous": "Föregående",
+        "next": "Nästa",
+        "showing": "{shown} av {total} beställningar"
+      },
+      "sort_created_asc": "Äldst först",
+      "sort_created_desc": "Nyast först",
+      "detail": {
+        "title": "Order",
+        "back_to_orders": "Alla beställningar",
+        "actions": {
+          "new_order_same_data": "Ny order/samma data",
+          "download_invoice": "Ladda ner faktura",
+          "other_communication": "Övrig kommunikation",
+          "reorder": "Beställ igen"
+        },
+        "items": {
+          "title": "Orderrader",
+          "product": "Produkt",
+          "article_number": "Art. nr",
+          "quantity": "Antal",
+          "unit_price": "Styckpris",
+          "total": "Totalt"
+        },
+        "summary": {
+          "title": "Ordersammanfattning",
+          "subtotal": "Delsumma",
+          "shipping": "Frakt",
+          "tax": "Moms",
+          "total": "Totalt"
+        },
+        "billing_address": "Fakturauppgifter",
+        "shipping_address": "Leveransadress",
+        "order_date": "Orderdatum",
+        "order_status": "Status",
+        "payment_method": "Betalningsmetod"
+      }
     },
     "account": {
       "title": "Kontoprofil",
