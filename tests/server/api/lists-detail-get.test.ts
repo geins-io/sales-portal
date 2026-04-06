@@ -50,6 +50,7 @@ vi.stubGlobal(
     return event?.context?.params?.[name];
   }),
 );
+vi.stubGlobal('setResponseHeader', vi.fn());
 
 // ---------------------------------------------------------------------------
 // Fixtures

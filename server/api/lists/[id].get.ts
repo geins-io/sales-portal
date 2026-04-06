@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id');
   const { id: validatedId } = SavedListIdSchema.parse({ id });
 
+  setResponseHeader(event, 'Cache-Control', 'private, no-cache');
   return withErrorHandling(
     async () => {
       const list = await savedListsService.getList(

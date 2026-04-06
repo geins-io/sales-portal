@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { X } from 'lucide-vue-next';
+import { Input } from '~/components/ui/input';
 
 defineProps<{
   activeCode: string | null;
@@ -43,11 +44,11 @@ function onApply() {
 
     <!-- Input + Apply button -->
     <form v-else class="flex gap-2" @submit.prevent="onApply">
-      <input
+      <Input
         v-model="code"
         type="text"
         placeholder="Promo code"
-        class="border-input bg-background placeholder:text-muted-foreground flex-1 rounded-md border px-3 py-1.5 text-sm"
+        class="flex-1"
         data-testid="promo-input"
         :disabled="loading"
       />

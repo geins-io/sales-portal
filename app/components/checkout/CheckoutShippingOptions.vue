@@ -42,7 +42,7 @@ function selectOption(id: number) {
           :value="option.id"
           :checked="props.modelValue === option.id"
           :disabled="props.disabled"
-          class="accent-primary size-4"
+          class="accent-primary focus-visible:ring-ring size-4 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           @change="selectOption(option.id)"
         />
         <div class="flex-1">

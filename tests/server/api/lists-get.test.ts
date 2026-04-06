@@ -43,6 +43,7 @@ vi.stubGlobal(
   'withErrorHandling',
   vi.fn(async (fn: AnyFn) => fn()),
 );
+vi.stubGlobal('setResponseHeader', vi.fn());
 
 // ---------------------------------------------------------------------------
 // Fixtures

@@ -108,7 +108,7 @@ async function handleCreateList() {
       </p>
       <button
         data-testid="saved-lists-retry"
-        class="text-primary hover:text-primary/80 text-sm font-medium"
+        class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
         @click="refresh()"
       >
         {{ t('portal.saved_lists.retry') }}

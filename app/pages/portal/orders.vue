@@ -106,7 +106,7 @@ watch(searchQuery, () => {
       </p>
       <button
         data-testid="orders-retry"
-        class="text-primary hover:text-primary/80 text-sm font-medium"
+        class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
         @click="refresh()"
       >
         {{ t('portal.orders.retry') }}
@@ -150,7 +150,7 @@ watch(searchQuery, () => {
         <div class="flex items-center gap-2">
           <button
             data-testid="orders-previous"
-            class="text-primary hover:text-primary/80 rounded px-3 py-1 text-sm font-medium disabled:opacity-50"
+            class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded px-3 py-1 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
             :disabled="currentPage <= 1"
             @click="goToPage(currentPage - 1)"
           >
@@ -163,7 +163,7 @@ watch(searchQuery, () => {
                 page === totalPages ||
                 Math.abs(page - currentPage) <= 1
               "
-              class="rounded px-3 py-1 text-sm"
+              class="focus-visible:ring-ring rounded px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
               :class="
                 page === currentPage
                   ? 'bg-primary text-primary-foreground font-medium'
@@ -185,7 +185,7 @@ watch(searchQuery, () => {
           </template>
           <button
             data-testid="orders-next"
-            class="text-primary hover:text-primary/80 rounded px-3 py-1 text-sm font-medium disabled:opacity-50"
+            class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded px-3 py-1 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
             :disabled="currentPage >= totalPages"
             @click="goToPage(currentPage + 1)"
           >

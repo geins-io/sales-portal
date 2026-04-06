@@ -358,7 +358,7 @@ async function handleRequestQuote() {
                 :value="checkoutStore.message"
                 :placeholder="t('checkout.order_message_placeholder')"
                 :disabled="checkoutStore.isPlacingOrder"
-                class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                 data-testid="checkout-message"
                 @input="
                   checkoutStore.message = (
