@@ -294,6 +294,14 @@ export const ContactFormSchema = z.object({
 export type ContactFormInput = z.infer<typeof ContactFormSchema>;
 
 // ---------------------------------------------------------------------------
+// Orders
+// ---------------------------------------------------------------------------
+export const OrderIdSchema = z.object({
+  id: z.string().min(1),
+});
+export type OrderIdInput = z.infer<typeof OrderIdSchema>;
+
+// ---------------------------------------------------------------------------
 // Checkout
 // ---------------------------------------------------------------------------
 export const CheckoutAddressSchema = z.object({

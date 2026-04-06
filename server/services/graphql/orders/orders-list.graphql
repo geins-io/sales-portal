@@ -1,0 +1,21 @@
+query getOrders($channelId: String, $languageId: String, $marketId: String) {
+  getOrders(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+    id
+    publicId
+    status
+    createdAt
+    billingAddress {
+      firstName
+      lastName
+      company
+    }
+    cart {
+      summary {
+        total {
+          sellingPriceIncVat
+          sellingPriceIncVatFormatted
+        }
+      }
+    }
+  }
+}

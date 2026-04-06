@@ -248,6 +248,29 @@ export interface CheckoutPaymentTerms {
 }
 
 // ---------------------------------------------------------------------------
+// Order list item (subset of OrderSummaryType for list views)
+// ---------------------------------------------------------------------------
+export interface OrderListItem {
+  id?: number | null;
+  publicId?: string | null;
+  status: string;
+  createdAt?: string | null;
+  billingAddress?: {
+    firstName?: string;
+    lastName?: string;
+    company?: string;
+  } | null;
+  cart?: {
+    summary?: {
+      total?: {
+        sellingPriceIncVat?: number;
+        sellingPriceIncVatFormatted?: string;
+      } | null;
+    } | null;
+  } | null;
+}
+
+// ---------------------------------------------------------------------------
 // Checkout & Order types (re-exported from SDK)
 // ---------------------------------------------------------------------------
 export type {
