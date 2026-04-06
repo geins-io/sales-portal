@@ -244,7 +244,7 @@ function formatDate(iso: string): string {
                 data-testid="decline-reason-input"
                 :placeholder="t('portal.quotations.decline_reason_placeholder')"
                 rows="3"
-                class="border-input bg-background w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
               />
               <div class="flex gap-2">
                 <Button

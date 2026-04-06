@@ -252,7 +252,10 @@ function addAllToCart() {
                 <div class="flex items-center justify-center gap-1">
                   <button
                     data-testid="quantity-decrement"
-                    class="border-border hover:bg-muted inline-flex size-7 items-center justify-center rounded border text-sm"
+                    :aria-label="
+                      t('portal.saved_list_detail.decrease_quantity')
+                    "
+                    class="border-border hover:bg-muted focus-visible:ring-ring inline-flex size-7 items-center justify-center rounded border text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                     :disabled="item?.quantity <= 1"
                     @click="decrementQuantity(index)"
                   >
@@ -266,7 +269,10 @@ function addAllToCart() {
                   </span>
                   <button
                     data-testid="quantity-increment"
-                    class="border-border hover:bg-muted inline-flex size-7 items-center justify-center rounded border text-sm"
+                    :aria-label="
+                      t('portal.saved_list_detail.increase_quantity')
+                    "
+                    class="border-border hover:bg-muted focus-visible:ring-ring inline-flex size-7 items-center justify-center rounded border text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                     @click="incrementQuantity(index)"
                   >
                     +
@@ -279,7 +285,8 @@ function addAllToCart() {
               <td class="px-4 py-3 text-right">
                 <button
                   data-testid="delete-item"
-                  class="text-muted-foreground hover:text-destructive inline-flex items-center justify-center"
+                  :aria-label="t('portal.saved_list_detail.remove_item')"
+                  class="text-muted-foreground hover:text-destructive focus-visible:ring-ring inline-flex items-center justify-center rounded focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                   @click="removeItem(index)"
                 >
                   <Icon name="lucide:trash-2" class="size-4" />

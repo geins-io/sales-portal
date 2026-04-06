@@ -724,7 +724,10 @@
       "delete_confirm": "Are you sure you want to delete this list?",
       "empty_list": "This list has no items yet",
       "saved": "Changes saved",
-      "deleted": "List deleted"
+      "deleted": "List deleted",
+      "increase_quantity": "Increase quantity",
+      "decrease_quantity": "Decrease quantity",
+      "remove_item": "Remove item"
     },
     "saved_lists": {
       "title": "Saved lists",

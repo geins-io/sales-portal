@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Input } from '~/components/ui/input';
 import { useQuotesStore } from '~/stores/quotes';
 import type { QuoteStatus } from '#shared/types/quote';
 
@@ -66,11 +67,11 @@ function getStatusLabel(status: QuoteStatus): string {
         {{ t('portal.quotations.title') }}
       </h2>
       <!-- Search -->
-      <input
+      <Input
         v-model="searchQuery"
         type="search"
         data-testid="quotations-search"
-        class="border-border bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:w-72"
+        class="w-full sm:w-72"
         :placeholder="t('portal.quotations.search_placeholder')"
       />
     </div>

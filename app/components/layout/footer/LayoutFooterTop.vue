@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Input } from '~/components/ui/input';
+
 const email = ref('');
 const status = ref<'idle' | 'loading' | 'success' | 'error'>('idle');
 
@@ -43,13 +45,13 @@ async function handleSubscribe() {
         @submit.prevent="handleSubscribe"
       >
         <div class="flex gap-2">
-          <input
+          <Input
             v-model="email"
             type="email"
             required
             :disabled="status === 'loading'"
             :placeholder="$t('layout.enter_email')"
-            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 lg:w-64"
+            class="w-full lg:w-64"
           />
           <Button size="lg" type="submit" :disabled="status === 'loading'">
             {{ $t('layout.subscribe') }}

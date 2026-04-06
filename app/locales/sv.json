@@ -724,7 +724,10 @@
       "delete_confirm": "Är du säker på att du vill ta bort denna lista?",
       "empty_list": "Denna lista har inga produkter än",
       "saved": "Ändringar sparade",
-      "deleted": "Lista borttagen"
+      "deleted": "Lista borttagen",
+      "increase_quantity": "Öka antal",
+      "decrease_quantity": "Minska antal",
+      "remove_item": "Ta bort artikel"
     },
     "saved_lists": {
       "title": "Sparade listor",
