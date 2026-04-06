@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { SavedList } from '#shared/types/saved-list';
+import { Input } from '~/components/ui/input';
+import { Button } from '~/components/ui/button';
 import {
   Sheet,
   SheetContent,
@@ -68,21 +70,21 @@ async function handleCreateList() {
       </h2>
       <div class="flex items-center gap-3">
         <!-- Search -->
-        <input
+        <Input
           v-model="searchQuery"
           type="search"
           data-testid="saved-lists-search"
-          class="border-border bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:w-72"
+          class="w-full sm:w-72"
           :placeholder="t('portal.saved_lists.search_placeholder')"
         />
         <!-- Create button -->
-        <button
+        <Button
           data-testid="saved-lists-create"
-          class="rounded-md bg-green-600 px-4 py-2 text-sm font-medium whitespace-nowrap text-white hover:bg-green-700"
+          class="bg-green-600 whitespace-nowrap hover:bg-green-700"
           @click="openCreateSheet"
         >
           {{ t('portal.saved_lists.create') }}
-        </button>
+        </Button>
       </div>
     </div>
 
@@ -137,34 +139,30 @@ async function handleCreateList() {
           }}</SheetDescription>
         </SheetHeader>
 
-        <div class="space-y-4 py-4">
-          <div>
-            <label for="list-name" class="mb-1 block text-sm font-medium">
+        <div class="space-y-4 px-4 py-4">
+          <div class="space-y-2">
+            <label for="list-name" class="text-sm font-medium">
               {{ t('portal.saved_lists.create_dialog.name_label') }}
             </label>
-            <input
+            <Input
               id="list-name"
               v-model="newListName"
               type="text"
               data-testid="create-list-name"
-              class="border-border bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
               :placeholder="
                 t('portal.saved_lists.create_dialog.name_placeholder')
               "
             />
           </div>
-          <div>
-            <label
-              for="list-description"
-              class="mb-1 block text-sm font-medium"
-            >
+          <div class="space-y-2">
+            <label for="list-description" class="text-sm font-medium">
               {{ t('portal.saved_lists.create_dialog.description_label') }}
             </label>
             <textarea
               id="list-description"
               v-model="newListDescription"
               data-testid="create-list-description"
-              class="border-border bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+              class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
               :placeholder="
                 t('portal.saved_lists.create_dialog.description_placeholder')
               "
@@ -174,20 +172,17 @@ async function handleCreateList() {
         </div>
 
         <SheetFooter>
-          <button
-            class="text-muted-foreground hover:text-foreground rounded-md px-4 py-2 text-sm"
-            @click="sheetOpen = false"
-          >
+          <Button variant="ghost" @click="sheetOpen = false">
             {{ t('portal.saved_lists.create_dialog.cancel') }}
-          </button>
-          <button
+          </Button>
+          <Button
             data-testid="create-list-submit"
-            class="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            class="bg-green-600 hover:bg-green-700"
             :disabled="!newListName.trim() || isSubmitting"
             @click="handleCreateList"
           >
             {{ t('portal.saved_lists.create_dialog.submit') }}
-          </button>
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

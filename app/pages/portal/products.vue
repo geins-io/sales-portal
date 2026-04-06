@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PurchasedProduct } from '#shared/types/commerce';
+import { Input } from '~/components/ui/input';
 
 definePageMeta({ middleware: 'auth' });
 
@@ -87,11 +88,11 @@ watch(pageSize, () => {
         {{ t('portal.purchased_products.title') }}
       </h2>
       <!-- Search -->
-      <input
+      <Input
         v-model="searchQuery"
         type="search"
         data-testid="products-search"
-        class="border-border bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:w-72"
+        class="w-full sm:w-72"
         :placeholder="t('portal.purchased_products.search_placeholder')"
       />
     </div>

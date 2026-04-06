@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OrderListItem } from '#shared/types/commerce';
+import { Input } from '~/components/ui/input';
 
 definePageMeta({ middleware: 'auth' });
 
@@ -80,11 +81,11 @@ watch(searchQuery, () => {
         {{ t('portal.orders.title') }}
       </h2>
       <!-- Search -->
-      <input
+      <Input
         v-model="searchQuery"
         type="search"
         data-testid="orders-search"
-        class="border-border bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-sm focus:ring-2 focus:outline-none sm:w-72"
+        class="w-full sm:w-72"
         :placeholder="t('portal.orders.search_placeholder')"
       />
     </div>

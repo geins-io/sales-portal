@@ -42,7 +42,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = response.user ?? null;
       return response.user!;
     } catch (err) {
-      if (import.meta.dev) logger.error('Login error:', err);
+      if (import.meta.dev) console.error('Login error:', err);
       error.value = 'auth.login_failed';
       throw err;
     } finally {
@@ -67,7 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = response.user ?? null;
       return response.user!;
     } catch (err) {
-      if (import.meta.dev) logger.error('Register error:', err);
+      if (import.meta.dev) console.error('Register error:', err);
       error.value = 'auth.register_failed';
       throw err;
     } finally {
@@ -147,7 +147,7 @@ export const useAuthStore = defineStore('auth', () => {
         body: { resetKey, password },
       });
     } catch (err) {
-      if (import.meta.dev) logger.error('Reset password error:', err);
+      if (import.meta.dev) console.error('Reset password error:', err);
       error.value = 'auth.reset_failed';
       throw err;
     } finally {
