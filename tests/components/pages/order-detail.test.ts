@@ -39,9 +39,25 @@ const {
   };
 });
 
+// Mock cart store
+const mockAddItem = vi.fn().mockResolvedValue(undefined);
+const mockCartStore = {
+  addItem: mockAddItem,
+  isLoading: false,
+};
+
+vi.mock('../../../app/stores/cart', () => ({
+  useCartStore: () => mockCartStore,
+}));
+
+vi.stubGlobal('useCartStore', () => mockCartStore);
+
+// Mock navigateTo
+const mockNavigateTo = vi.fn();
+
 // Mock definePageMeta (Nuxt macro)
 vi.stubGlobal('definePageMeta', vi.fn());
-vi.stubGlobal('navigateTo', vi.fn());
+vi.stubGlobal('navigateTo', mockNavigateTo);
 vi.stubGlobal('showError', mockShowError);
 vi.stubGlobal('createError', mockCreateError);
 vi.stubGlobal('useHead', mockUseHead);
@@ -88,6 +104,7 @@ vi.mock('#app/composables/router', async (importOriginal) => {
       matched: [],
       meta: {},
     }),
+    navigateTo: (...args: unknown[]) => mockNavigateTo(...args),
   };
 });
 
@@ -246,6 +263,9 @@ describe('OrderDetail', () => {
     mockUseFetch.mockClear();
     mockShowError.mockClear();
     mockUseHead.mockClear();
+    mockAddItem.mockClear();
+    mockNavigateTo.mockClear();
+    mockAddItem.mockResolvedValue(undefined);
   });
 
   describe('loading state', () => {
@@ -472,6 +492,96 @@ describe('OrderDetail', () => {
       });
 
       expect(mockUseHead).toHaveBeenCalled();
+    });
+  });
+
+  describe('reorder action', () => {
+    it('adds all order items to cart when reorder button is clicked', async () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const reorderButton = wrapper.find('[data-testid="reorder-button"]');
+      expect(reorderButton.exists()).toBe(true);
+
+      await reorderButton.trigger('click');
+      // Wait for async reorder to complete
+      await vi.dynamicImportSettled();
+
+      expect(mockAddItem).toHaveBeenCalledTimes(2);
+      expect(mockAddItem).toHaveBeenCalledWith(1001, 3);
+      expect(mockAddItem).toHaveBeenCalledWith(1002, 1);
+    });
+
+    it('navigates to cart page after reorder', async () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      await wrapper.find('[data-testid="reorder-button"]').trigger('click');
+      await vi.dynamicImportSettled();
+
+      expect(mockNavigateTo).toHaveBeenCalled();
+    });
+
+    it('shows loading state on reorder button while adding items', async () => {
+      // Make addItem hang so we can check loading state
+      let resolveAdd!: () => void;
+      mockAddItem.mockImplementation(
+        () => new Promise<void>((r) => (resolveAdd = r)),
+      );
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const btn = wrapper.find('[data-testid="reorder-button"]');
+      btn.trigger('click');
+      await wrapper.vm.$nextTick();
+
+      expect(
+        wrapper.find('[data-testid="reorder-button"]').attributes('disabled'),
+      ).toBeDefined();
+
+      // Resolve all pending adds
+      resolveAdd();
+      resolveAdd();
+      await vi.dynamicImportSettled();
+    });
+
+    it('skips items without skuId', async () => {
+      mockData.value = makeOrder({
+        cart: {
+          items: [
+            {
+              product: { name: 'No SKU' },
+              skuId: undefined,
+              quantity: 1,
+            },
+            {
+              product: { name: 'Has SKU' },
+              skuId: 2001,
+              quantity: 2,
+            },
+          ],
+          summary: {},
+        },
+      });
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      await wrapper.find('[data-testid="reorder-button"]').trigger('click');
+      await vi.dynamicImportSettled();
+
+      expect(mockAddItem).toHaveBeenCalledTimes(1);
+      expect(mockAddItem).toHaveBeenCalledWith(2001, 2);
     });
   });
 });

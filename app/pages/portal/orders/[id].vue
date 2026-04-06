@@ -1,11 +1,31 @@
 <script setup lang="ts">
 import { Button } from '~/components/ui/button';
+import { useCartStore } from '~/stores/cart';
 
 definePageMeta({ middleware: 'auth' });
 
 const { t } = useI18n();
 const route = useRoute();
 const { localePath } = useLocaleMarket();
+const cartStore = useCartStore();
+
+const isReordering = ref(false);
+
+async function handleReorder() {
+  const items = order.value?.cart?.items;
+  if (!items?.length) return;
+
+  isReordering.value = true;
+  try {
+    for (const item of items) {
+      if (!item?.skuId) continue;
+      await cartStore.addItem(item.skuId, item.quantity ?? 1);
+    }
+    navigateTo(localePath('/cart'));
+  } finally {
+    isReordering.value = false;
+  }
+}
 
 const orderId = computed(() => route.params.id as string);
 
@@ -124,7 +144,17 @@ function statusBadgeClass(status?: string): string {
         <Button variant="outline">
           {{ t('portal.orders.detail.actions.other_communication') }}
         </Button>
-        <Button class="bg-green-600 text-white hover:bg-green-700">
+        <Button
+          data-testid="reorder-button"
+          class="bg-green-600 text-white hover:bg-green-700"
+          :disabled="isReordering"
+          @click="handleReorder"
+        >
+          <Icon
+            v-if="isReordering"
+            name="lucide:loader-circle"
+            class="size-4 animate-spin"
+          />
           {{ t('portal.orders.detail.actions.reorder') }}
         </Button>
       </div>
