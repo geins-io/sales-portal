@@ -271,6 +271,20 @@ export interface OrderListItem {
 }
 
 // ---------------------------------------------------------------------------
+// Purchased product (aggregated from order history)
+// ---------------------------------------------------------------------------
+export interface PurchasedProduct {
+  name: string;
+  articleNumber: string;
+  priceExVat: number;
+  priceExVatFormatted?: string;
+  totalQuantity: number;
+  latestOrderDate: string;
+  latestOrderId: string;
+  latestBuyerName: string;
+}
+
+// ---------------------------------------------------------------------------
 // Checkout & Order types (re-exported from SDK)
 // ---------------------------------------------------------------------------
 export type {
