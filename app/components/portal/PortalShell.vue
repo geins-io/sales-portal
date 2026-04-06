@@ -92,6 +92,14 @@ function isActiveTab(tab: PortalTab): boolean {
   if (tab.to === '/portal') {
     return route.path === prefixedPath || route.path === `${prefixedPath}/`;
   }
+  // Saved lists tab should highlight on /portal/saved-lists/[id] detail pages too
+  if (tab.key === 'lists') {
+    const savedListsPath = localePath('/portal/saved-lists');
+    return (
+      route.path.startsWith(prefixedPath) ||
+      route.path.startsWith(savedListsPath)
+    );
+  }
   return route.path.startsWith(prefixedPath);
 }
 
