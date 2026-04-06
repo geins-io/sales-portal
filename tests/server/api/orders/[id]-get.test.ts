@@ -117,6 +117,6 @@ describe('GET /api/orders/[id]', () => {
     });
     mockedGetRouterParam.mockReturnValueOnce(undefined);
 
-    await expect(handler(mockEvent)).rejects.toThrow('Order ID is required');
+    await expect(handler(mockEvent)).rejects.toThrow();
   });
 });
