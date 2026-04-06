@@ -451,6 +451,7 @@
       },
       "status": {
         "placed": "Lagd",
+        "pending": "Väntande",
         "delivered": "Levererad",
         "processing": "Behandlas",
         "shipped": "Skickad",
@@ -459,7 +460,47 @@
       "view": "Visa",
       "type_web": "Webbbeställning",
       "quick_search": "Snabbsök",
-      "showing_count": "{shown} av {total} beställningar"
+      "search_placeholder": "Sök beställningar...",
+      "no_orders": "Inga beställningar hittades",
+      "error_loading": "Det gick inte att ladda beställningar. Försök igen.",
+      "retry": "Försök igen",
+      "pagination": {
+        "previous": "Föregående",
+        "next": "Nästa",
+        "showing": "{shown} av {total} beställningar"
+      },
+      "sort_created_asc": "Äldst först",
+      "sort_created_desc": "Nyast först",
+      "detail": {
+        "title": "Order",
+        "back_to_orders": "Alla beställningar",
+        "actions": {
+          "new_order_same_data": "Ny order/samma data",
+          "download_invoice": "Ladda ner faktura",
+          "other_communication": "Övrig kommunikation",
+          "reorder": "Beställ igen"
+        },
+        "items": {
+          "title": "Orderrader",
+          "product": "Produkt",
+          "article_number": "Art. nr",
+          "quantity": "Antal",
+          "unit_price": "Styckpris",
+          "total": "Totalt"
+        },
+        "summary": {
+          "title": "Ordersammanfattning",
+          "subtotal": "Delsumma",
+          "shipping": "Frakt",
+          "tax": "Moms",
+          "total": "Totalt"
+        },
+        "billing_address": "Fakturauppgifter",
+        "shipping_address": "Leveransadress",
+        "order_date": "Orderdatum",
+        "order_status": "Status",
+        "payment_method": "Betalningsmetod"
+      }
     },
     "account": {
       "title": "Kontoprofil",
@@ -640,6 +681,74 @@
       "browse_products": "Bläddra bland produkter",
       "clear_all": "Rensa alla",
       "remove": "Ta bort"
+    },
+    "purchased_products": {
+      "title": "Köpta produkter",
+      "search_placeholder": "Sök på artikelnummer eller produktnamn...",
+      "columns": {
+        "product": "Produkt",
+        "article_number": "Art. nr",
+        "price_ex_vat": "Pris (ex moms)",
+        "total_ordered": "Totalt beställt",
+        "latest_order": "Senaste order",
+        "latest_buyer": "Senaste köpare"
+      },
+      "no_products": "Inga köpta produkter hittades",
+      "no_search_results": "Inga produkter matchar din sökning",
+      "error_loading": "Det gick inte att ladda köpta produkter. Försök igen.",
+      "retry": "Försök igen",
+      "pagination": {
+        "showing": "Visar {shown} av {total} produkter",
+        "page_of": "Sida {current} av {total}",
+        "previous": "Föregående",
+        "next": "Nästa",
+        "rows_per_page": "Rader per sida"
+      }
+    },
+    "saved_list_detail": {
+      "title": "Sparad lista",
+      "back_to_lists": "Tillbaka till sparade listor",
+      "name_placeholder": "Listnamn",
+      "description_placeholder": "Lägg till en beskrivning...",
+      "columns": {
+        "product": "Produkt",
+        "article_number": "Art. nr",
+        "price": "Pris",
+        "quantity": "Antal",
+        "total": "Totalt",
+        "actions": ""
+      },
+      "total_sum": "Totalt",
+      "add_to_cart": "Lägg alla i varukorgen",
+      "delete_list": "Ta bort lista",
+      "delete_confirm": "Är du säker på att du vill ta bort denna lista?",
+      "empty_list": "Denna lista har inga produkter än",
+      "saved": "Ändringar sparade",
+      "deleted": "Lista borttagen"
+    },
+    "saved_lists": {
+      "title": "Sparade listor",
+      "search_placeholder": "Sök listor...",
+      "columns": {
+        "name": "Namn",
+        "created_by": "Skapad av",
+        "modified": "Ändrad",
+        "products": "Produkter",
+        "actions": ""
+      },
+      "no_lists": "Inga sparade listor än",
+      "error_loading": "Kunde inte ladda sparade listor",
+      "retry": "Försök igen",
+      "create": "+ Skapa ny lista",
+      "create_dialog": {
+        "title": "Skapa ny lista",
+        "name_label": "Listnamn",
+        "name_placeholder": "Ange listnamn",
+        "description_label": "Beskrivning (valfri)",
+        "description_placeholder": "Ange beskrivning",
+        "submit": "Skapa",
+        "cancel": "Avbryt"
+      }
     }
   },
   "info_pages": {

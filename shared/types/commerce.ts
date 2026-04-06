@@ -248,6 +248,43 @@ export interface CheckoutPaymentTerms {
 }
 
 // ---------------------------------------------------------------------------
+// Order list item (subset of OrderSummaryType for list views)
+// ---------------------------------------------------------------------------
+export interface OrderListItem {
+  id?: number | null;
+  publicId?: string | null;
+  status: string;
+  createdAt?: string | null;
+  billingAddress?: {
+    firstName?: string;
+    lastName?: string;
+    company?: string;
+  } | null;
+  cart?: {
+    summary?: {
+      total?: {
+        sellingPriceIncVat?: number;
+        sellingPriceIncVatFormatted?: string;
+      } | null;
+    } | null;
+  } | null;
+}
+
+// ---------------------------------------------------------------------------
+// Purchased product (aggregated from order history)
+// ---------------------------------------------------------------------------
+export interface PurchasedProduct {
+  name: string;
+  articleNumber: string;
+  priceExVat: number;
+  priceExVatFormatted?: string;
+  totalQuantity: number;
+  latestOrderDate: string;
+  latestOrderId: string;
+  latestBuyerName: string;
+}
+
+// ---------------------------------------------------------------------------
 // Checkout & Order types (re-exported from SDK)
 // ---------------------------------------------------------------------------
 export type {

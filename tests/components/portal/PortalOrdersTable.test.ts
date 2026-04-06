@@ -5,6 +5,7 @@ import PortalOrdersTable from '../../../app/components/portal/PortalOrdersTable.
 const mockOrders = [
   {
     id: 2124,
+    publicId: 'pub-2124',
     status: 'placed',
     createdAt: '2025-12-22T17:22:00Z',
     billingAddress: { firstName: 'Adam', lastName: 'Johnsson' },
@@ -19,6 +20,7 @@ const mockOrders = [
   },
   {
     id: 2125,
+    publicId: 'pub-2125',
     status: 'delivered',
     createdAt: '2025-12-23T10:00:00Z',
     billingAddress: { firstName: 'Jessica', lastName: 'Andersson' },
@@ -78,5 +80,45 @@ describe('PortalOrdersTable', () => {
     });
     const viewLinks = wrapper.findAll('[data-testid="order-view-link"]');
     expect(viewLinks.length).toBe(2);
+  });
+
+  it('view link uses publicId in href', () => {
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: { orders: mockOrders },
+    });
+    const viewLink = wrapper.find('[data-testid="order-view-link"]');
+    expect(viewLink.attributes('href')).toContain('pub-2124');
+  });
+
+  it('view link falls back to id when publicId is missing', () => {
+    const ordersWithoutPublicId = [{ ...mockOrders[0], publicId: undefined }];
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: { orders: ordersWithoutPublicId },
+    });
+    const viewLink = wrapper.find('[data-testid="order-view-link"]');
+    expect(viewLink.attributes('href')).toContain('2124');
+  });
+
+  it('emits sort event when Created header is clicked', async () => {
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: { orders: mockOrders, sortDirection: 'desc' },
+    });
+    const createdHeader = wrapper.find('[data-testid="sort-created"]');
+    expect(createdHeader.exists()).toBe(true);
+    await createdHeader.trigger('click');
+    expect(wrapper.emitted('sort')).toBeTruthy();
+    expect(wrapper.emitted('sort')![0]).toEqual(['created']);
+  });
+
+  it('renders correct status badge variants', () => {
+    const ordersWithStatuses = [
+      { ...mockOrders[0], status: 'delivered' },
+      { ...mockOrders[1], status: 'cancelled' },
+    ];
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: { orders: ordersWithStatuses },
+    });
+    expect(wrapper.text()).toContain('portal.orders.status.delivered');
+    expect(wrapper.text()).toContain('portal.orders.status.cancelled');
   });
 });

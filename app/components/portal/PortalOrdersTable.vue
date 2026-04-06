@@ -2,10 +2,12 @@
 import { Badge } from '~/components/ui/badge';
 
 const { t } = useI18n();
+const { localePath } = useLocaleMarket();
 
 defineProps<{
   orders: Array<{
     id?: number | null;
+    publicId?: string | null;
     status: string;
     createdAt?: string | null;
     billingAddress?: {
@@ -22,6 +24,11 @@ defineProps<{
     } | null;
   }>;
   limit?: number;
+  sortDirection?: 'asc' | 'desc';
+}>();
+
+const emit = defineEmits<{
+  sort: [column: string];
 }>();
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -65,6 +72,7 @@ function getStatusKey(status: string): string {
   const key = status.toLowerCase();
   const knownStatuses = [
     'placed',
+    'pending',
     'delivered',
     'processing',
     'shipped',
@@ -81,6 +89,18 @@ function getTotal(order: {
   } | null;
 }): string {
   return order.cart?.summary?.total?.sellingPriceIncVatFormatted ?? '-';
+}
+
+function getOrderLink(order: {
+  id?: number | null;
+  publicId?: string | null;
+}): string {
+  const identifier = order.publicId ?? order.id;
+  return localePath(`/portal/orders/${identifier}`);
+}
+
+function handleSortCreated() {
+  emit('sort', 'created');
 }
 </script>
 
@@ -102,8 +122,16 @@ function getTotal(order: {
           <th class="py-3 pr-4 font-medium">
             {{ t('portal.orders.columns.id') }}
           </th>
-          <th class="py-3 pr-4 font-medium">
+          <th
+            class="cursor-pointer py-3 pr-4 font-medium select-none"
+            data-testid="sort-created"
+            @click="handleSortCreated"
+          >
             {{ t('portal.orders.columns.created') }}
+            <span v-if="sortDirection === 'asc'" class="ml-1">&#9650;</span>
+            <span v-else-if="sortDirection === 'desc'" class="ml-1"
+              >&#9660;</span
+            >
           </th>
           <th class="py-3 pr-4 font-medium">
             {{ t('portal.orders.columns.placed_by') }}
@@ -124,7 +152,7 @@ function getTotal(order: {
         <tr
           v-for="order in limit ? orders.slice(0, limit) : orders"
           :key="order.id ?? undefined"
-          class="border-border border-b"
+          class="border-border hover:bg-muted/50 border-b transition-colors"
         >
           <td class="py-3 pr-4">{{ order.id }}</td>
           <td class="py-3 pr-4">{{ formatDate(order.createdAt) }}</td>
@@ -138,7 +166,7 @@ function getTotal(order: {
           </td>
           <td class="py-3">
             <NuxtLink
-              :to="`/portal/orders/${order.id}`"
+              :to="getOrderLink(order)"
               class="text-primary hover:text-primary/80 text-sm font-medium"
               data-testid="order-view-link"
             >

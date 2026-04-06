@@ -451,6 +451,7 @@
       },
       "status": {
         "placed": "Placed",
+        "pending": "Pending",
         "delivered": "Delivered",
         "processing": "Processing",
         "shipped": "Shipped",
@@ -459,7 +460,47 @@
       "view": "View",
       "type_web": "Web order",
       "quick_search": "Quick search",
-      "showing_count": "{shown} of {total} orders"
+      "search_placeholder": "Search orders...",
+      "no_orders": "No orders found",
+      "error_loading": "Failed to load orders. Please try again.",
+      "retry": "Try again",
+      "pagination": {
+        "previous": "Previous",
+        "next": "Next",
+        "showing": "{shown} of {total} orders"
+      },
+      "sort_created_asc": "Oldest first",
+      "sort_created_desc": "Newest first",
+      "detail": {
+        "title": "Order",
+        "back_to_orders": "All orders",
+        "actions": {
+          "new_order_same_data": "New order/same data",
+          "download_invoice": "Download invoice",
+          "other_communication": "Other communication",
+          "reorder": "Reorder"
+        },
+        "items": {
+          "title": "Order items",
+          "product": "Product",
+          "article_number": "Art. nr",
+          "quantity": "Amount",
+          "unit_price": "Unit price",
+          "total": "Total"
+        },
+        "summary": {
+          "title": "Order summary",
+          "subtotal": "Subtotal",
+          "shipping": "Shipping",
+          "tax": "Tax",
+          "total": "Total"
+        },
+        "billing_address": "Invoice details",
+        "shipping_address": "Delivery address",
+        "order_date": "Order date",
+        "order_status": "Status",
+        "payment_method": "Payment method"
+      }
     },
     "account": {
       "title": "Account profile",
@@ -640,6 +681,74 @@
       "browse_products": "Browse products",
       "clear_all": "Clear all",
       "remove": "Remove"
+    },
+    "purchased_products": {
+      "title": "Purchased products",
+      "search_placeholder": "Search by article number or product name...",
+      "columns": {
+        "product": "Product",
+        "article_number": "Art. nr",
+        "price_ex_vat": "Price (ex VAT)",
+        "total_ordered": "Total ordered",
+        "latest_order": "Latest order",
+        "latest_buyer": "Latest buyer"
+      },
+      "no_products": "No purchased products found",
+      "no_search_results": "No products match your search",
+      "error_loading": "Failed to load purchased products. Please try again.",
+      "retry": "Try again",
+      "pagination": {
+        "showing": "Showing {shown} of {total} products",
+        "page_of": "Page {current} of {total}",
+        "previous": "Previous",
+        "next": "Next",
+        "rows_per_page": "Rows per page"
+      }
+    },
+    "saved_list_detail": {
+      "title": "Saved list",
+      "back_to_lists": "Back to saved lists",
+      "name_placeholder": "List name",
+      "description_placeholder": "Add a description...",
+      "columns": {
+        "product": "Product",
+        "article_number": "Art. nr",
+        "price": "Price",
+        "quantity": "Quantity",
+        "total": "Total",
+        "actions": ""
+      },
+      "total_sum": "Total",
+      "add_to_cart": "Add all to cart",
+      "delete_list": "Delete list",
+      "delete_confirm": "Are you sure you want to delete this list?",
+      "empty_list": "This list has no items yet",
+      "saved": "Changes saved",
+      "deleted": "List deleted"
+    },
+    "saved_lists": {
+      "title": "Saved lists",
+      "search_placeholder": "Search lists...",
+      "columns": {
+        "name": "Name",
+        "created_by": "Created by",
+        "modified": "Modified",
+        "products": "Products",
+        "actions": ""
+      },
+      "no_lists": "No saved lists yet",
+      "error_loading": "Failed to load saved lists",
+      "retry": "Try again",
+      "create": "+ Create new list",
+      "create_dialog": {
+        "title": "Create new list",
+        "name_label": "List name",
+        "name_placeholder": "Enter list name",
+        "description_label": "Description (optional)",
+        "description_placeholder": "Enter description",
+        "submit": "Create",
+        "cancel": "Cancel"
+      }
     }
   },
   "info_pages": {

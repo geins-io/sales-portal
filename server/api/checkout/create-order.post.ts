@@ -35,10 +35,10 @@ export default defineEventHandler(async (event) => {
       const result = await createOrder(options, event);
 
       if (!result?.created) {
-        throw createAppError(
-          ErrorCode.BAD_REQUEST,
-          result?.message || 'Order creation failed',
-        );
+        if (result?.message) {
+          console.error('Order creation SDK error:', result.message);
+        }
+        throw createAppError(ErrorCode.BAD_REQUEST, 'Order creation failed');
       }
 
       return { orderId: result.orderId, publicId: result.publicId };
