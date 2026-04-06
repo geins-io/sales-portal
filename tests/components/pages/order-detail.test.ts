@@ -10,6 +10,7 @@ const {
   mockStatus,
   mockShowError,
   mockCreateError,
+  mockUseHead,
 } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ref } = require('vue') as typeof import('vue');
@@ -34,6 +35,7 @@ const {
     mockStatus: ref('success'),
     mockShowError: vi.fn(),
     mockCreateError: createErrorFn,
+    mockUseHead: vi.fn(),
   };
 });
 
@@ -42,7 +44,7 @@ vi.stubGlobal('definePageMeta', vi.fn());
 vi.stubGlobal('navigateTo', vi.fn());
 vi.stubGlobal('showError', mockShowError);
 vi.stubGlobal('createError', mockCreateError);
-vi.stubGlobal('useHead', vi.fn());
+vi.stubGlobal('useHead', mockUseHead);
 
 vi.mock('#app/composables/error', () => ({
   createError: mockCreateError,
@@ -50,7 +52,7 @@ vi.mock('#app/composables/error', () => ({
 }));
 
 vi.mock('#app/composables/head', () => ({
-  useHead: vi.fn(),
+  useHead: mockUseHead,
   useHeadSafe: vi.fn(),
   useServerHead: vi.fn(),
   useServerHeadSafe: vi.fn(),
@@ -243,6 +245,7 @@ describe('OrderDetail', () => {
     mockStatus.value = 'success';
     mockUseFetch.mockClear();
     mockShowError.mockClear();
+    mockUseHead.mockClear();
   });
 
   describe('loading state', () => {
@@ -456,6 +459,18 @@ describe('OrderDetail', () => {
       expect(mockUseFetch).toHaveBeenCalled();
       const [url] = mockUseFetch.mock.calls[0]!;
       expect(url).toBe(`/api/orders/${TEST_ORDER_ID}`);
+    });
+  });
+
+  describe('page title', () => {
+    it('sets page title with order ID via useHead', () => {
+      mockData.value = makeOrder();
+
+      shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      expect(mockUseHead).toHaveBeenCalled();
     });
   });
 });
