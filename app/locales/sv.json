@@ -680,6 +680,74 @@
       "browse_products": "Bläddra bland produkter",
       "clear_all": "Rensa alla",
       "remove": "Ta bort"
+    },
+    "purchased_products": {
+      "title": "Köpta produkter",
+      "search_placeholder": "Sök på artikelnummer eller produktnamn...",
+      "columns": {
+        "product": "Produkt",
+        "article_number": "Art. nr",
+        "price_ex_vat": "Pris (ex moms)",
+        "total_ordered": "Totalt beställt",
+        "latest_order": "Senaste order",
+        "latest_buyer": "Senaste köpare"
+      },
+      "no_products": "Inga köpta produkter hittades",
+      "no_search_results": "Inga produkter matchar din sökning",
+      "error_loading": "Det gick inte att ladda köpta produkter. Försök igen.",
+      "retry": "Försök igen",
+      "pagination": {
+        "showing": "Visar {shown} av {total} produkter",
+        "page_of": "Sida {current} av {total}",
+        "previous": "Föregående",
+        "next": "Nästa",
+        "rows_per_page": "Rader per sida"
+      }
+    },
+    "saved_list_detail": {
+      "title": "Sparad lista",
+      "back_to_lists": "Tillbaka till sparade listor",
+      "name_placeholder": "Listnamn",
+      "description_placeholder": "Lagg till en beskrivning...",
+      "columns": {
+        "product": "Produkt",
+        "article_number": "Art. nr",
+        "price": "Pris",
+        "quantity": "Antal",
+        "total": "Totalt",
+        "actions": ""
+      },
+      "total_sum": "Totalt",
+      "add_to_cart": "Lagg alla i varukorgen",
+      "delete_list": "Ta bort lista",
+      "delete_confirm": "Ar du saker pa att du vill ta bort denna lista?",
+      "empty_list": "Denna lista har inga produkter an",
+      "saved": "Andringar sparade",
+      "deleted": "Lista borttagen"
+    },
+    "saved_lists": {
+      "title": "Sparade listor",
+      "search_placeholder": "Sok listor...",
+      "columns": {
+        "name": "Namn",
+        "created_by": "Skapad av",
+        "modified": "Andrad",
+        "products": "Produkter",
+        "actions": ""
+      },
+      "no_lists": "Inga sparade listor an",
+      "error_loading": "Kunde inte ladda sparade listor",
+      "retry": "Forsok igen",
+      "create": "+ Skapa ny lista",
+      "create_dialog": {
+        "title": "Skapa ny lista",
+        "name_label": "Listnamn",
+        "name_placeholder": "Ange listnamn",
+        "description_label": "Beskrivning (valfri)",
+        "description_placeholder": "Ange beskrivning",
+        "submit": "Skapa",
+        "cancel": "Avbryt"
+      }
     }
   },
   "info_pages": {
