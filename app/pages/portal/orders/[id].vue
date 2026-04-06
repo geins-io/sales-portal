@@ -9,9 +9,10 @@ const { localePath } = useLocaleMarket();
 
 const orderId = computed(() => route.params.id as string);
 
-const { data, error, pending } = useFetch(`/api/orders/${orderId.value}`, {
-  dedupe: 'defer',
-});
+const { data, error, pending } = useFetch(
+  () => `/api/orders/${orderId.value}`,
+  { dedupe: 'defer' },
+);
 
 const order = computed(() => data.value?.order);
 

@@ -457,7 +457,8 @@ describe('OrderDetail', () => {
       });
 
       expect(mockUseFetch).toHaveBeenCalled();
-      const [url] = mockUseFetch.mock.calls[0]!;
+      const [urlOrFn] = mockUseFetch.mock.calls[0]!;
+      const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
       expect(url).toBe(`/api/orders/${TEST_ORDER_ID}`);
     });
   });

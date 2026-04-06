@@ -459,7 +459,6 @@
       "view": "Visa",
       "type_web": "Webbbeställning",
       "quick_search": "Snabbsök",
-      "showing_count": "{shown} av {total} beställningar",
       "search_placeholder": "Sök beställningar...",
       "no_orders": "Inga beställningar hittades",
       "error_loading": "Det gick inte att ladda beställningar. Försök igen.",

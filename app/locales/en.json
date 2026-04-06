@@ -459,7 +459,6 @@
       "view": "View",
       "type_web": "Web order",
       "quick_search": "Quick search",
-      "showing_count": "{shown} of {total} orders",
       "search_placeholder": "Search orders...",
       "no_orders": "No orders found",
       "error_loading": "Failed to load orders. Please try again.",
