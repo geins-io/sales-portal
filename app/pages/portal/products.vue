@@ -194,17 +194,33 @@ watch(pageSize, () => {
           >
             {{ t('portal.purchased_products.pagination.previous') }}
           </button>
-          <span
-            data-testid="products-page-info"
-            class="text-muted-foreground text-sm"
-          >
-            {{
-              t('portal.purchased_products.pagination.page_of', {
-                current: currentPage,
-                total: totalPages,
-              })
-            }}
-          </span>
+          <template v-for="page in totalPages" :key="page">
+            <button
+              v-if="
+                page === 1 ||
+                page === totalPages ||
+                Math.abs(page - currentPage) <= 1
+              "
+              class="rounded px-3 py-1 text-sm"
+              :class="
+                page === currentPage
+                  ? 'bg-primary text-primary-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground'
+              "
+              @click="goToPage(page)"
+            >
+              {{ page }}
+            </button>
+            <span
+              v-else-if="
+                page === 2 && currentPage > 3
+                  ? true
+                  : page === totalPages - 1 && currentPage < totalPages - 2
+              "
+              class="text-muted-foreground px-1"
+              >...</span
+            >
+          </template>
           <button
             data-testid="products-next"
             class="text-primary hover:text-primary/80 rounded px-3 py-1 text-sm font-medium disabled:opacity-50"

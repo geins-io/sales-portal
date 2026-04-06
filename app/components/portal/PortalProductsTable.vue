@@ -88,7 +88,7 @@ function handleSortProduct() {
           v-for="product in products"
           :key="product.articleNumber"
           data-testid="product-row"
-          class="border-border border-b"
+          class="border-border hover:bg-muted/50 border-b transition-colors"
         >
           <td class="py-3 pr-4">{{ product.name }}</td>
           <td class="py-3 pr-4">{{ product.articleNumber }}</td>

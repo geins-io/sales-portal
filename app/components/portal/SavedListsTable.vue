@@ -51,7 +51,7 @@ function formatDate(dateStr: string | null | undefined): string {
           v-for="list in lists"
           :key="list.id"
           data-testid="saved-list-row"
-          class="border-border border-b"
+          class="border-border hover:bg-muted/50 border-b transition-colors"
         >
           <td class="py-3 pr-4">{{ list.name }}</td>
           <td class="py-3 pr-4">{{ list.createdBy }}</td>

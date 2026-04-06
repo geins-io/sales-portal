@@ -708,7 +708,7 @@
       "title": "Sparad lista",
       "back_to_lists": "Tillbaka till sparade listor",
       "name_placeholder": "Listnamn",
-      "description_placeholder": "Lagg till en beskrivning...",
+      "description_placeholder": "Lägg till en beskrivning...",
       "columns": {
         "product": "Produkt",
         "article_number": "Art. nr",
@@ -718,26 +718,26 @@
         "actions": ""
       },
       "total_sum": "Totalt",
-      "add_to_cart": "Lagg alla i varukorgen",
+      "add_to_cart": "Lägg alla i varukorgen",
       "delete_list": "Ta bort lista",
-      "delete_confirm": "Ar du saker pa att du vill ta bort denna lista?",
-      "empty_list": "Denna lista har inga produkter an",
-      "saved": "Andringar sparade",
+      "delete_confirm": "Är du säker på att du vill ta bort denna lista?",
+      "empty_list": "Denna lista har inga produkter än",
+      "saved": "Ändringar sparade",
       "deleted": "Lista borttagen"
     },
     "saved_lists": {
       "title": "Sparade listor",
-      "search_placeholder": "Sok listor...",
+      "search_placeholder": "Sök listor...",
       "columns": {
         "name": "Namn",
         "created_by": "Skapad av",
-        "modified": "Andrad",
+        "modified": "Ändrad",
         "products": "Produkter",
         "actions": ""
       },
-      "no_lists": "Inga sparade listor an",
+      "no_lists": "Inga sparade listor än",
       "error_loading": "Kunde inte ladda sparade listor",
-      "retry": "Forsok igen",
+      "retry": "Försök igen",
       "create": "+ Skapa ny lista",
       "create_dialog": {
         "title": "Skapa ny lista",

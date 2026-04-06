@@ -159,6 +159,12 @@ const defaultStubs = {
       '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
     emits: ['click'],
   },
+  Input: {
+    template:
+      '<input v-bind="$attrs" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" @blur="$emit(\'blur\', $event)" />',
+    props: ['modelValue'],
+    emits: ['update:modelValue', 'blur'],
+  },
   Icon: {
     template: '<span class="icon" :data-name="name"></span>',
     props: ['name'],

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Button } from '~/components/ui/button';
+import { Input } from '~/components/ui/input';
 import type { SavedList, SavedListItem } from '#shared/types/saved-list';
 
 definePageMeta({ middleware: 'auth' });
@@ -159,19 +160,19 @@ function addAllToCart() {
           {{ t('portal.saved_list_detail.back_to_lists') }}
         </NuxtLink>
 
-        <input
+        <Input
           v-model="editName"
           data-testid="list-name-input"
           type="text"
           :placeholder="t('portal.saved_list_detail.name_placeholder')"
-          class="border-border bg-background focus:ring-primary mt-2 block w-full rounded-lg border px-3 py-2 text-2xl font-semibold focus:ring-2 focus:outline-none"
+          class="mt-2 text-2xl font-semibold"
           @blur="saveListMeta"
         />
         <textarea
           v-model="editDescription"
           data-testid="list-description-input"
           :placeholder="t('portal.saved_list_detail.description_placeholder')"
-          class="border-border bg-background focus:ring-primary mt-2 block w-full rounded-lg border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+          class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring mt-2 flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           rows="2"
           @blur="saveListMeta"
         />
