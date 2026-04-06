@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { OrderSummaryType } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 
@@ -29,7 +30,7 @@ async function handleReorder() {
 
 const orderId = computed(() => route.params.id as string);
 
-const { data, error, pending } = useFetch(
+const { data, error, pending } = useFetch<{ order: OrderSummaryType }>(
   () => `/api/orders/${orderId.value}`,
   { dedupe: 'defer' },
 );
