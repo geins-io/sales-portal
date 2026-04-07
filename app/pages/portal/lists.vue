@@ -62,30 +62,35 @@ async function handleCreateList() {
 <template>
   <PortalShell>
     <!-- Page header -->
-    <div
-      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <h2 class="text-xl font-semibold">
-        {{ t('portal.saved_lists.title') }}
-      </h2>
-      <div class="flex items-center gap-3">
-        <!-- Search -->
-        <Input
-          v-model="searchQuery"
-          type="search"
-          data-testid="saved-lists-search"
-          class="w-full sm:w-72"
-          :placeholder="t('portal.saved_lists.search_placeholder')"
-        />
-        <!-- Create button -->
-        <Button
-          data-testid="saved-lists-create"
-          class="bg-green-600 whitespace-nowrap hover:bg-green-700"
-          @click="openCreateSheet"
-        >
-          {{ t('portal.saved_lists.create') }}
-        </Button>
+    <div class="mb-6">
+      <div
+        class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <h2 class="text-lg font-semibold">
+          {{ t('portal.saved_lists.title') }}
+        </h2>
+        <div class="flex items-center gap-3">
+          <!-- Search -->
+          <Input
+            v-model="searchQuery"
+            type="search"
+            data-testid="saved-lists-search"
+            class="w-full sm:w-72"
+            :placeholder="t('portal.saved_lists.search_placeholder')"
+          />
+          <!-- Create button -->
+          <Button
+            data-testid="saved-lists-create"
+            class="bg-green-600 whitespace-nowrap hover:bg-green-700"
+            @click="openCreateSheet"
+          >
+            {{ t('portal.saved_lists.create') }}
+          </Button>
+        </div>
       </div>
+      <p class="text-muted-foreground mt-1 text-sm">
+        {{ t('portal.saved_lists.subtitle') }}
+      </p>
     </div>
 
     <!-- Loading state -->

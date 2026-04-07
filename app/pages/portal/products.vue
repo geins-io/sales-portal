@@ -50,10 +50,6 @@ const paginatedProducts = computed(() => {
   return sortedProducts.value.slice(start, start + pageSize.value);
 });
 
-const showingCount = computed(() =>
-  Math.min(currentPage.value * pageSize.value, sortedProducts.value.length),
-);
-
 const showPagination = computed(
   () => sortedProducts.value.length > pageSize.value,
 );
@@ -82,11 +78,16 @@ watch(pageSize, () => {
   <PortalShell>
     <!-- Page header -->
     <div
-      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
     >
-      <h2 class="text-xl font-semibold">
-        {{ t('portal.purchased_products.title') }}
-      </h2>
+      <div>
+        <h2 class="text-xl font-semibold">
+          {{ t('portal.purchased_products.title') }}
+        </h2>
+        <p class="text-muted-foreground mt-1 text-sm">
+          {{ t('portal.purchased_products.subtitle') }}
+        </p>
+      </div>
       <!-- Search -->
       <Input
         v-model="searchQuery"
@@ -95,23 +96,6 @@ watch(pageSize, () => {
         class="w-full sm:w-72"
         :placeholder="t('portal.purchased_products.search_placeholder')"
       />
-    </div>
-
-    <!-- Rows per page selector -->
-    <div class="mb-4 flex items-center gap-2">
-      <label for="products-page-size" class="text-muted-foreground text-sm">
-        {{ t('portal.purchased_products.pagination.rows_per_page') }}
-      </label>
-      <select
-        id="products-page-size"
-        v-model.number="pageSize"
-        data-testid="products-page-size"
-        class="border-input bg-background focus-visible:ring-ring rounded-md border px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-      >
-        <option v-for="opt in pageSizeOptions" :key="opt" :value="opt">
-          {{ opt }}
-        </option>
-      </select>
     </div>
 
     <!-- Loading state -->
@@ -168,67 +152,61 @@ watch(pageSize, () => {
         @sort="handleSort"
       />
 
-      <!-- Pagination -->
+      <!-- Footer: Rows per page + Pagination -->
       <div
-        v-if="showPagination"
         data-testid="products-pagination"
-        class="mt-4 flex items-center justify-between"
+        class="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
       >
-        <span
-          data-testid="products-showing-count"
-          class="text-muted-foreground text-sm"
-        >
-          {{
-            t('portal.purchased_products.pagination.showing', {
-              shown: showingCount,
-              total: sortedProducts.length,
-            })
-          }}
-        </span>
+        <!-- Rows per page selector -->
         <div class="flex items-center gap-2">
-          <button
-            data-testid="products-previous"
-            class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded px-3 py-1 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
-            :disabled="currentPage <= 1"
-            @click="goToPage(currentPage - 1)"
+          <label for="products-page-size" class="text-muted-foreground text-sm">
+            {{ t('portal.purchased_products.pagination.rows_per_page') }}
+          </label>
+          <select
+            id="products-page-size"
+            v-model.number="pageSize"
+            data-testid="products-page-size"
+            class="border-input bg-background focus-visible:ring-ring rounded-md border px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
-            {{ t('portal.purchased_products.pagination.previous') }}
-          </button>
-          <template v-for="page in totalPages" :key="page">
+            <option v-for="opt in pageSizeOptions" :key="opt" :value="opt">
+              {{ opt }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Page indicator + navigation -->
+        <div v-if="showPagination" class="flex items-center gap-3">
+          <span
+            data-testid="products-showing-count"
+            class="text-muted-foreground text-sm"
+          >
+            {{
+              t('portal.purchased_products.pagination.page_of', {
+                current: currentPage,
+                total: totalPages,
+              })
+            }}
+          </span>
+          <div class="flex items-center gap-1">
             <button
-              v-if="
-                page === 1 ||
-                page === totalPages ||
-                Math.abs(page - currentPage) <= 1
-              "
-              class="focus-visible:ring-ring rounded px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              :class="
-                page === currentPage
-                  ? 'bg-primary text-primary-foreground font-medium'
-                  : 'text-muted-foreground hover:text-foreground'
-              "
-              @click="goToPage(page)"
+              data-testid="products-previous"
+              class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
+              :disabled="currentPage <= 1"
+              :aria-label="t('portal.purchased_products.pagination.previous')"
+              @click="goToPage(currentPage - 1)"
             >
-              {{ page }}
+              <Icon name="lucide:chevron-left" class="size-4" />
             </button>
-            <span
-              v-else-if="
-                page === 2 && currentPage > 3
-                  ? true
-                  : page === totalPages - 1 && currentPage < totalPages - 2
-              "
-              class="text-muted-foreground px-1"
-              >...</span
+            <button
+              data-testid="products-next"
+              class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
+              :disabled="currentPage >= totalPages"
+              :aria-label="t('portal.purchased_products.pagination.next')"
+              @click="goToPage(currentPage + 1)"
             >
-          </template>
-          <button
-            data-testid="products-next"
-            class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded px-3 py-1 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
-            :disabled="currentPage >= totalPages"
-            @click="goToPage(currentPage + 1)"
-          >
-            {{ t('portal.purchased_products.pagination.next') }}
-          </button>
+              <Icon name="lucide:chevron-right" class="size-4" />
+            </button>
+          </div>
         </div>
       </div>
     </template>

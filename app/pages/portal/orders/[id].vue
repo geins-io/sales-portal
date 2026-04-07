@@ -106,32 +106,32 @@ function statusBadgeClass(status?: string): string {
 
     <!-- Detail View -->
     <div v-else-if="order" data-testid="order-detail" class="space-y-6">
-      <!-- Header -->
+      <!-- Back link row -->
       <div class="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <NuxtLink
-            :to="localePath('/portal/orders')"
-            data-testid="back-link"
-            class="text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1 text-sm"
-          >
-            <Icon name="lucide:arrow-left" class="size-4" />
-            {{ t('portal.orders.detail.back_to_orders') }}
-          </NuxtLink>
-          <h2 class="text-2xl font-semibold">
-            {{ t('portal.orders.detail.title') }} #{{ order?.publicId }}
-          </h2>
-          <p class="text-muted-foreground mt-1 text-sm">
-            {{ formatDate(order?.createdAt) }}
-          </p>
-        </div>
-        <span
-          v-if="order?.status"
-          data-testid="status-badge"
-          class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-          :class="statusBadgeClass(order?.status)"
+        <NuxtLink
+          :to="localePath('/portal/orders')"
+          data-testid="back-link"
+          class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
         >
-          {{ t(`portal.orders.status.${order?.status}`) }}
-        </span>
+          <Icon name="lucide:arrow-left" class="size-4" />
+          {{ t('portal.orders.detail.back_to_orders') }}
+        </NuxtLink>
+        <div class="flex items-center gap-3">
+          <h2 class="text-lg font-semibold">
+            {{ t('portal.orders.detail.title') }} {{ order?.publicId }}
+          </h2>
+          <span class="text-muted-foreground text-sm">
+            {{ formatDate(order?.createdAt) }}
+          </span>
+          <span
+            v-if="order?.status"
+            data-testid="status-badge"
+            class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+            :class="statusBadgeClass(order?.status)"
+          >
+            {{ t(`portal.orders.status.${order?.status}`) }}
+          </span>
+        </div>
       </div>
 
       <!-- Action Buttons -->
@@ -164,6 +164,9 @@ function statusBadgeClass(status?: string): string {
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <!-- Left: Order Items Table -->
         <div class="lg:col-span-2">
+          <h3 class="mb-3 text-base font-semibold">
+            {{ t('portal.orders.detail.items.title') }}
+          </h3>
           <div class="border-border rounded-lg border">
             <table data-testid="order-items-table" class="w-full text-sm">
               <thead class="bg-muted/50">
@@ -240,41 +243,46 @@ function statusBadgeClass(status?: string): string {
           <!-- Summary Card -->
           <div
             data-testid="order-summary"
-            class="border-border space-y-2 rounded-lg border p-4"
+            class="border-border rounded-lg border p-4"
           >
-            <div class="flex justify-between text-sm">
-              <span class="text-muted-foreground">{{
-                t('portal.orders.detail.summary.subtotal')
-              }}</span>
-              <span>{{
-                order?.cart?.summary?.subTotal?.sellingPriceIncVatFormatted
-              }}</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-muted-foreground">{{
-                t('portal.orders.detail.summary.shipping')
-              }}</span>
-              <span>{{
-                order?.cart?.summary?.shipping?.feeIncVatFormatted
-              }}</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-muted-foreground">{{
-                t('portal.orders.detail.summary.tax')
-              }}</span>
-              <span>{{
-                order?.cart?.summary?.total?.vatFormatted ??
-                order?.vat?.sellingPriceIncVatFormatted
-              }}</span>
-            </div>
-            <div
-              class="border-border mt-2 flex justify-between border-t pt-2 font-semibold"
-            >
-              <span>{{ t('portal.orders.detail.summary.total') }}</span>
-              <span>{{
-                order?.cart?.summary?.total?.sellingPriceIncVatFormatted ??
-                order?.orderTotal?.sellingPriceIncVatFormatted
-              }}</span>
+            <h3 class="mb-3 text-base font-semibold">
+              {{ t('portal.orders.detail.summary.title') }}
+            </h3>
+            <div class="space-y-2">
+              <div class="flex justify-between text-sm">
+                <span class="text-muted-foreground">{{
+                  t('portal.orders.detail.summary.subtotal')
+                }}</span>
+                <span>{{
+                  order?.cart?.summary?.subTotal?.sellingPriceIncVatFormatted
+                }}</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-muted-foreground">{{
+                  t('portal.orders.detail.summary.shipping')
+                }}</span>
+                <span>{{
+                  order?.cart?.summary?.shipping?.feeIncVatFormatted
+                }}</span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-muted-foreground">{{
+                  t('portal.orders.detail.summary.tax')
+                }}</span>
+                <span>{{
+                  order?.cart?.summary?.total?.vatFormatted ??
+                  order?.vat?.sellingPriceIncVatFormatted
+                }}</span>
+              </div>
+              <div
+                class="border-border mt-2 flex justify-between border-t pt-2 font-semibold"
+              >
+                <span>{{ t('portal.orders.detail.summary.total') }}</span>
+                <span>{{
+                  order?.cart?.summary?.total?.sellingPriceIncVatFormatted ??
+                  order?.orderTotal?.sellingPriceIncVatFormatted
+                }}</span>
+              </div>
             </div>
           </div>
 
@@ -284,11 +292,9 @@ function statusBadgeClass(status?: string): string {
             data-testid="billing-address"
             class="border-border space-y-1 rounded-lg border p-4"
           >
-            <p
-              class="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase"
-            >
+            <h3 class="mb-2 text-base font-semibold">
               {{ t('portal.orders.detail.billing_address') }}
-            </p>
+            </h3>
             <p
               v-if="order?.billingAddress?.company"
               class="text-sm font-medium"
@@ -344,11 +350,9 @@ function statusBadgeClass(status?: string): string {
             data-testid="shipping-address"
             class="border-border space-y-1 rounded-lg border p-4"
           >
-            <p
-              class="text-muted-foreground mb-2 text-xs font-medium tracking-wider uppercase"
-            >
+            <h3 class="mb-2 text-base font-semibold">
               {{ t('portal.orders.detail.shipping_address') }}
-            </p>
+            </h3>
             <p
               v-if="order?.shippingAddress?.company"
               class="text-sm font-medium"

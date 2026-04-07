@@ -74,20 +74,27 @@ watch(searchQuery, () => {
 <template>
   <PortalShell>
     <!-- Page header -->
-    <div
-      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <h2 class="text-xl font-semibold">
-        {{ t('portal.orders.title') }}
-      </h2>
-      <!-- Search -->
-      <Input
-        v-model="searchQuery"
-        type="search"
-        data-testid="orders-search"
-        class="w-full sm:w-72"
-        :placeholder="t('portal.orders.search_placeholder')"
-      />
+    <div class="mb-6">
+      <div
+        class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+      >
+        <div>
+          <h2 class="text-xl font-semibold">
+            {{ t('portal.orders.title') }}
+          </h2>
+          <p class="text-muted-foreground mt-1 text-sm">
+            {{ t('portal.orders.subtitle') }}
+          </p>
+        </div>
+        <!-- Search -->
+        <Input
+          v-model="searchQuery"
+          type="search"
+          data-testid="orders-search"
+          class="w-full shrink-0 sm:w-64"
+          :placeholder="t('portal.orders.quick_search')"
+        />
+      </div>
     </div>
 
     <!-- Loading state -->

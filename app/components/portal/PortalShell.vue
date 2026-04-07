@@ -147,7 +147,7 @@ async function handleLogout() {
     <div class="mx-auto max-w-6xl px-4">
       <div
         data-testid="portal-welcome"
-        class="border-border bg-background -mt-6 flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-center"
+        class="border-border bg-background -mt-6 flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-start"
       >
         <!-- Left: User info -->
         <div>

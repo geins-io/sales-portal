@@ -41,7 +41,7 @@ function handleSortProduct() {
 </script>
 
 <template>
-  <div data-testid="portal-products-table">
+  <div data-testid="portal-products-table" class="overflow-x-auto">
     <!-- Empty state -->
     <div
       v-if="!products.length"
