@@ -439,6 +439,7 @@
     },
     "orders": {
       "title": "Orders",
+      "subtitle": "Read and write directly to databases and stores from your projects.",
       "columns": {
         "id": "Id",
         "created": "Created",
@@ -640,6 +641,7 @@
     },
     "quotations": {
       "title": "Quotations",
+      "subtitle": "Read and write directly to databases and stores from your projects",
       "search_placeholder": "Search quotations...",
       "no_quotations": "No quotations found",
       "quote_number": "Quote Nr",
@@ -682,8 +684,9 @@
       "remove": "Remove"
     },
     "purchased_products": {
-      "title": "Purchased products",
-      "search_placeholder": "Search by article number or product name...",
+      "title": "Your purchased products",
+      "subtitle": "A complete list of the different products your company has purchased",
+      "search_placeholder": "Search on art nr or prod name",
       "columns": {
         "product": "Product",
         "article_number": "Art. nr",
@@ -707,8 +710,11 @@
     "saved_list_detail": {
       "title": "Saved list",
       "back_to_lists": "Back to saved lists",
+      "list_name_label": "List name",
       "name_placeholder": "List name",
       "description_placeholder": "Add a description...",
+      "list_total_label": "List Total",
+      "total_subtitle": "Sum for all products in this list",
       "columns": {
         "product": "Product",
         "article_number": "Art. nr",
@@ -730,8 +736,10 @@
     },
     "saved_lists": {
       "title": "Saved lists",
+      "subtitle": "A list of all your quotations",
       "search_placeholder": "Search lists...",
       "columns": {
+        "id": "Id",
         "name": "Name",
         "created_by": "Created by",
         "modified": "Modified",

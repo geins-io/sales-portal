@@ -149,33 +149,74 @@ function addAllToCart() {
 
     <!-- Detail View -->
     <div v-else-if="data" data-testid="list-detail" class="space-y-6">
-      <!-- Header -->
-      <div>
-        <NuxtLink
-          :to="localePath('/portal/lists')"
-          data-testid="back-link"
-          class="text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1 text-sm"
-        >
-          <Icon name="lucide:arrow-left" class="size-4" />
-          {{ t('portal.saved_list_detail.back_to_lists') }}
-        </NuxtLink>
+      <!-- Back link -->
+      <NuxtLink
+        :to="localePath('/portal/lists')"
+        data-testid="back-link"
+        class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+      >
+        <Icon name="lucide:arrow-left" class="size-4" />
+        {{ t('portal.saved_list_detail.back_to_lists') }}
+      </NuxtLink>
 
-        <Input
-          v-model="editName"
-          data-testid="list-name-input"
-          type="text"
-          :placeholder="t('portal.saved_list_detail.name_placeholder')"
-          class="mt-2 text-2xl font-semibold"
-          @blur="saveListMeta"
-        />
-        <textarea
-          v-model="editDescription"
-          data-testid="list-description-input"
-          :placeholder="t('portal.saved_list_detail.description_placeholder')"
-          class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring mt-2 flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-          rows="2"
-          @blur="saveListMeta"
-        />
+      <!-- Header: list info left, total + actions right -->
+      <div
+        class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between"
+      >
+        <!-- Left: editable name + description -->
+        <div class="flex-1 space-y-2">
+          <h2 class="text-sm font-medium">
+            {{ t('portal.saved_list_detail.list_name_label') }}
+          </h2>
+          <Input
+            v-model="editName"
+            data-testid="list-name-input"
+            type="text"
+            :placeholder="t('portal.saved_list_detail.name_placeholder')"
+            class="text-2xl font-semibold"
+            @blur="saveListMeta"
+          />
+          <Input
+            v-model="editDescription"
+            data-testid="list-description-input"
+            type="text"
+            :placeholder="t('portal.saved_list_detail.description_placeholder')"
+            class="text-sm"
+            @blur="saveListMeta"
+          />
+        </div>
+
+        <!-- Right: total + actions -->
+        <div class="flex flex-col items-end gap-4">
+          <div class="text-right">
+            <p class="text-muted-foreground text-sm">
+              {{ t('portal.saved_list_detail.list_total_label') }}
+            </p>
+            <p data-testid="list-total" class="text-2xl font-semibold">
+              {{ formatPrice(totalSum) }}
+            </p>
+            <p class="text-muted-foreground text-xs">
+              {{ t('portal.saved_list_detail.total_subtitle') }}
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <Button
+              data-testid="delete-list-btn"
+              variant="outline"
+              class="text-destructive border-destructive/30 hover:bg-destructive/10"
+              @click="deleteList"
+            >
+              {{ t('portal.saved_list_detail.delete_list') }}
+            </Button>
+            <Button
+              data-testid="add-to-cart-btn"
+              class="bg-green-600 text-white hover:bg-green-700"
+              @click="addAllToCart"
+            >
+              {{ t('portal.saved_list_detail.add_to_cart') }}
+            </Button>
+          </div>
+        </div>
       </div>
 
       <!-- Empty list -->
@@ -188,28 +229,36 @@ function addAllToCart() {
       </div>
 
       <!-- Items table -->
-      <div v-else class="border-border rounded-lg border">
+      <div v-else class="border-border overflow-hidden rounded-lg border">
         <table data-testid="list-items-table" class="w-full text-sm">
           <thead class="bg-muted/50">
             <tr>
-              <th class="px-4 py-3 text-left font-medium">
+              <th
+                class="text-muted-foreground px-4 py-3 text-left text-xs font-medium"
+              >
                 {{ t('portal.saved_list_detail.columns.product') }}
               </th>
-              <th class="px-4 py-3 text-left font-medium">
+              <th
+                class="text-muted-foreground px-4 py-3 text-left text-xs font-medium"
+              >
                 {{ t('portal.saved_list_detail.columns.article_number') }}
               </th>
-              <th class="px-4 py-3 text-right font-medium">
+              <th
+                class="text-muted-foreground px-4 py-3 text-right text-xs font-medium"
+              >
                 {{ t('portal.saved_list_detail.columns.price') }}
               </th>
-              <th class="px-4 py-3 text-center font-medium">
+              <th
+                class="text-muted-foreground px-4 py-3 text-center text-xs font-medium"
+              >
                 {{ t('portal.saved_list_detail.columns.quantity') }}
               </th>
-              <th class="px-4 py-3 text-right font-medium">
+              <th
+                class="text-muted-foreground px-4 py-3 text-right text-xs font-medium"
+              >
                 {{ t('portal.saved_list_detail.columns.total') }}
               </th>
-              <th class="px-4 py-3 text-right font-medium">
-                {{ t('portal.saved_list_detail.columns.actions') }}
-              </th>
+              <th class="px-4 py-3 text-right text-xs font-medium" />
             </tr>
           </thead>
           <tbody class="divide-border divide-y">
@@ -293,35 +342,21 @@ function addAllToCart() {
                 </button>
               </td>
             </tr>
+            <!-- Total row -->
+            <tr class="bg-muted/30">
+              <td
+                colspan="4"
+                class="px-4 py-3 text-right text-sm font-semibold"
+              >
+                {{ t('portal.saved_list_detail.total_sum') }}
+              </td>
+              <td class="px-4 py-3 text-right text-sm font-semibold">
+                {{ formatPrice(totalSum) }}
+              </td>
+              <td />
+            </tr>
           </tbody>
         </table>
-      </div>
-
-      <!-- Footer -->
-      <div
-        v-if="localItems.length > 0"
-        class="flex flex-wrap items-center justify-between gap-4"
-      >
-        <div data-testid="list-total" class="text-lg font-semibold">
-          {{ t('portal.saved_list_detail.total_sum') }}:
-          {{ formatPrice(totalSum) }}
-        </div>
-        <div class="flex gap-2">
-          <Button
-            data-testid="delete-list-btn"
-            variant="destructive"
-            @click="deleteList"
-          >
-            {{ t('portal.saved_list_detail.delete_list') }}
-          </Button>
-          <Button
-            data-testid="add-to-cart-btn"
-            class="bg-green-600 text-white hover:bg-green-700"
-            @click="addAllToCart"
-          >
-            {{ t('portal.saved_list_detail.add_to_cart') }}
-          </Button>
-        </div>
       </div>
     </div>
   </PortalShell>

@@ -439,6 +439,7 @@
     },
     "orders": {
       "title": "Beställningar",
+      "subtitle": "Läs och skriv direkt till databaser och butiker från dina projekt.",
       "columns": {
         "id": "Id",
         "created": "Skapad",
@@ -640,6 +641,7 @@
     },
     "quotations": {
       "title": "Offerter",
+      "subtitle": "Läs och skriv direkt till databaser och butiker från dina projekt",
       "search_placeholder": "Sök offerter...",
       "no_quotations": "Inga offerter hittades",
       "quote_number": "Offertnr",
@@ -682,8 +684,9 @@
       "remove": "Ta bort"
     },
     "purchased_products": {
-      "title": "Köpta produkter",
-      "search_placeholder": "Sök på artikelnummer eller produktnamn...",
+      "title": "Dina köpta produkter",
+      "subtitle": "En komplett lista över de olika produkter ditt företag har köpt",
+      "search_placeholder": "Sök på art.nr eller produktnamn",
       "columns": {
         "product": "Produkt",
         "article_number": "Art. nr",
@@ -707,8 +710,11 @@
     "saved_list_detail": {
       "title": "Sparad lista",
       "back_to_lists": "Tillbaka till sparade listor",
+      "list_name_label": "Listnamn",
       "name_placeholder": "Listnamn",
       "description_placeholder": "Lägg till en beskrivning...",
+      "list_total_label": "Listtotal",
+      "total_subtitle": "Summa for alla produkter i denna lista",
       "columns": {
         "product": "Produkt",
         "article_number": "Art. nr",
@@ -730,8 +736,10 @@
     },
     "saved_lists": {
       "title": "Sparade listor",
+      "subtitle": "En lista over alla dina offerter",
       "search_placeholder": "Sök listor...",
       "columns": {
+        "id": "Id",
         "name": "Namn",
         "created_by": "Skapad av",
         "modified": "Ändrad",
