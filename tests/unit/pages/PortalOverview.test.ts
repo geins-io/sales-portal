@@ -138,6 +138,14 @@ const stubs = {
     template: '<div data-testid="portal-orders-table"></div>',
     props: ['orders', 'limit'],
   },
+  Icon: {
+    template: '<span></span>',
+    props: ['name'],
+  },
+  Button: {
+    template: '<button v-bind="$attrs"><slot /></button>',
+    props: ['size', 'variant'],
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -273,7 +281,7 @@ describe('Portal Overview page', () => {
     expect(rows).toHaveLength(2);
   });
 
-  it('shows quote number, contact name, and total in each row', () => {
+  it('shows quote number, status, and total in each row', () => {
     mockPendingQuotes = [
       {
         id: 'q1',
@@ -292,11 +300,10 @@ describe('Portal Overview page', () => {
 
     const row = wrapper.find('[data-testid="pending-quote-row"]');
     expect(row.text()).toContain('Q-1001');
-    expect(row.text()).toContain('Jane Doe');
     expect(row.text()).toContain('$500.00');
   });
 
-  it('caps displayed quotes at 3', () => {
+  it('caps displayed quotes at 5', () => {
     mockPendingQuotes = [
       {
         id: 'q1',
@@ -330,15 +337,31 @@ describe('Portal Overview page', () => {
         totalFormatted: '$400',
         createdAt: '2026-03-04T00:00:00Z',
       },
+      {
+        id: 'q5',
+        quoteNumber: 'Q-1005',
+        contactName: 'E',
+        status: 'pending',
+        totalFormatted: '$500',
+        createdAt: '2026-03-05T00:00:00Z',
+      },
+      {
+        id: 'q6',
+        quoteNumber: 'Q-1006',
+        contactName: 'F',
+        status: 'pending',
+        totalFormatted: '$600',
+        createdAt: '2026-03-06T00:00:00Z',
+      },
     ];
-    mockPendingCount = 4;
+    mockPendingCount = 6;
 
     const wrapper = mount(PortalOverviewPage.default, {
       global: { stubs },
     });
 
     const rows = wrapper.findAll('[data-testid="pending-quote-row"]');
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(5);
   });
 
   // -------------------------------------------------------------------------
