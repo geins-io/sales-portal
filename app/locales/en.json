@@ -435,8 +435,7 @@
       "no_orders": "No orders yet",
       "no_quotations": "No pending quotations",
       "no_lists": "No lists yet",
-      "no_products": "No purchased products yet",
-      "read_write_description": "Read and write directly to databases and stores from your projects."
+      "no_products": "No purchased products yet"
     },
     "orders": {
       "title": "Orders",

@@ -435,8 +435,7 @@
       "no_orders": "Inga beställningar ännu",
       "no_quotations": "Inga väntande offerter",
       "no_lists": "Inga listor ännu",
-      "no_products": "Inga köpta produkter ännu",
-      "read_write_description": "Läs och skriv direkt till databaser och butiker från dina projekt."
+      "no_products": "Inga köpta produkter ännu"
     },
     "orders": {
       "title": "Beställningar",

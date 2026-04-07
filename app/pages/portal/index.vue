@@ -127,7 +127,7 @@ function getProductPrice(product: PurchasedProduct): string {
 <template>
   <PortalShell>
     <!-- Stat Cards -->
-    <div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <PortalStatCard
         icon="lucide:file-text"
         :count="quotesStore.pendingCount"
@@ -152,7 +152,7 @@ function getProductPrice(product: PurchasedProduct): string {
     </div>
 
     <!-- Latest Orders -->
-    <div class="mb-8">
+    <div class="mb-6">
       <div class="mb-4 flex items-center justify-between">
         <h3 class="text-lg font-semibold">
           {{ t('portal.overview.latest_orders') }}
@@ -164,9 +164,6 @@ function getProductPrice(product: PurchasedProduct): string {
           {{ t('portal.overview.view_all') }}
         </NuxtLink>
       </div>
-      <p class="text-muted-foreground mb-4 text-sm">
-        {{ t('portal.overview.read_write_description') }}
-      </p>
       <div
         v-if="ordersPending"
         class="text-muted-foreground py-8 text-center text-sm"
@@ -177,9 +174,9 @@ function getProductPrice(product: PurchasedProduct): string {
     </div>
 
     <!-- Pending Quotations & Your Lists -->
-    <div class="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+    <div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
       <!-- Pending Quotations mini-table -->
-      <div>
+      <div class="border-border rounded-lg border p-4">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-lg font-semibold">
             {{ t('portal.overview.pending_quotations') }}
@@ -191,14 +188,7 @@ function getProductPrice(product: PurchasedProduct): string {
             {{ t('portal.overview.view_all') }}
           </NuxtLink>
         </div>
-        <p
-          v-if="recentPendingQuotes.length === 0"
-          data-testid="pending-quotations-empty"
-          class="text-muted-foreground text-sm"
-        >
-          {{ t('portal.overview.no_quotations') }}
-        </p>
-        <div v-else class="overflow-x-auto">
+        <div class="overflow-x-auto">
           <table data-testid="pending-quotations-table" class="w-full text-sm">
             <thead>
               <tr class="border-border border-b text-left">
@@ -218,6 +208,15 @@ function getProductPrice(product: PurchasedProduct): string {
               </tr>
             </thead>
             <tbody>
+              <tr v-if="recentPendingQuotes.length === 0">
+                <td
+                  colspan="5"
+                  data-testid="pending-quotations-empty"
+                  class="text-muted-foreground py-6 text-center text-sm"
+                >
+                  {{ t('portal.overview.no_quotations') }}
+                </td>
+              </tr>
               <tr
                 v-for="quote in recentPendingQuotes"
                 :key="quote.id"
@@ -254,7 +253,7 @@ function getProductPrice(product: PurchasedProduct): string {
       </div>
 
       <!-- Your Lists mini-table -->
-      <div>
+      <div class="border-border rounded-lg border p-4">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-lg font-semibold">
             {{ t('portal.overview.your_lists') }}
@@ -272,13 +271,6 @@ function getProductPrice(product: PurchasedProduct): string {
         >
           {{ t('common.loading') }}
         </div>
-        <p
-          v-else-if="recentLists.length === 0"
-          data-testid="your-lists-empty"
-          class="text-muted-foreground text-sm"
-        >
-          {{ t('portal.overview.no_lists') }}
-        </p>
         <div v-else class="overflow-x-auto">
           <table data-testid="your-lists-table" class="w-full text-sm">
             <thead>
@@ -296,6 +288,15 @@ function getProductPrice(product: PurchasedProduct): string {
               </tr>
             </thead>
             <tbody>
+              <tr v-if="recentLists.length === 0">
+                <td
+                  colspan="4"
+                  data-testid="your-lists-empty"
+                  class="text-muted-foreground py-6 text-center text-sm"
+                >
+                  {{ t('portal.overview.no_lists') }}
+                </td>
+              </tr>
               <tr
                 v-for="list in recentLists"
                 :key="list.id"
@@ -355,25 +356,23 @@ function getProductPrice(product: PurchasedProduct): string {
           v-for="product in recentProducts"
           :key="product.articleNumber"
           data-testid="purchased-product-card"
-          class="border-border flex flex-col rounded-lg border"
+          class="border-border flex flex-col overflow-hidden rounded-lg border"
         >
           <!-- Product image placeholder -->
-          <div
-            class="bg-muted flex aspect-square items-center justify-center rounded-t-lg"
-          >
+          <div class="bg-muted flex h-32 items-center justify-center">
             <Icon name="lucide:package" class="text-muted-foreground size-10" />
           </div>
           <!-- Product info -->
-          <div class="flex flex-1 flex-col gap-2 p-4">
-            <p class="text-sm leading-tight font-medium">
+          <div class="flex flex-1 flex-col gap-2 p-3">
+            <p class="truncate text-sm font-medium">
               {{ product.name }}
             </p>
-            <p class="text-foreground mt-auto text-sm font-semibold">
+            <p class="text-muted-foreground mt-auto text-sm">
               {{ getProductPrice(product) }}
             </p>
             <Button
               size="sm"
-              class="mt-1 w-full"
+              class="mt-1 w-full text-xs"
               data-testid="product-add-to-cart"
             >
               <Icon name="lucide:shopping-cart" class="mr-1.5 size-3.5" />
