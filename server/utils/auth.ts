@@ -48,6 +48,11 @@ export async function optionalAuth(event: H3Event): Promise<AuthTokens | null> {
     return { authToken, refreshToken };
   }
 
+  // Auth token without refresh token (preview/impersonation tokens)
+  if (authToken && !refreshToken) {
+    return { authToken, refreshToken: '' };
+  }
+
   if (!authToken && refreshToken) {
     try {
       return await refreshAndRotate(event, refreshToken);
@@ -96,7 +101,9 @@ export async function getCustomerType(
   }
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
+export function decodeJwtPayload(
+  token: string,
+): Record<string, unknown> | null {
   try {
     const base64Url = token.split('.')[1];
     if (!base64Url) return null;
