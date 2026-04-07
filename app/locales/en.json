@@ -754,6 +754,17 @@
       }
     }
   },
+  "preview": {
+    "title": "CMS Edit / Preview Mode",
+    "description": "— You are visiting the page in CMS edit/preview mode.",
+    "exit": "Exit preview",
+    "studio_connected": "Studio connected"
+  },
+  "impersonation": {
+    "title": "Logged in as customer",
+    "description": "— Viewing as {customerName} (spoofed by {adminEmail})",
+    "exit": "Exit"
+  },
   "info_pages": {
     "about_us": "About us",
     "contact": "Contact",

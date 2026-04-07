@@ -9,6 +9,8 @@ onMounted(() => {
 
 <template>
   <div class="flex min-h-screen flex-col">
+    <PreviewBanner />
+    <ImpersonationBanner />
     <a
       href="#main-content"
       class="bg-primary text-primary-foreground sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:px-4 focus:py-2"
@@ -27,7 +29,6 @@ onMounted(() => {
       <LayoutFooter />
     </ErrorBoundary>
     <MobileNavPanel />
-    <PreviewBanner />
     <CookieBanner />
     <CartDrawer />
   </div>

@@ -754,6 +754,17 @@
       }
     }
   },
+  "preview": {
+    "title": "CMS Redigering / Forhandsvisning",
+    "description": "— Du visar sidan i CMS redigerings-/forhandsvisningslage.",
+    "exit": "Avsluta forhandsvisning",
+    "studio_connected": "Studio ansluten"
+  },
+  "impersonation": {
+    "title": "Inloggad som kund",
+    "description": "— Visar som {customerName} (forfalskad av {adminEmail})",
+    "exit": "Avsluta"
+  },
   "info_pages": {
     "about_us": "Om oss",
     "contact": "Kontakt",
