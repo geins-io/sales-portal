@@ -25,8 +25,8 @@ const { tenant } = useTenant();
 const loginToken = route.query.loginToken as string | undefined;
 const redirect = route.query.redirect as string | undefined;
 
-// No token → go home
-if (!loginToken) {
+// No token and not in preview mode → go home
+if (!loginToken && !isPreview) {
   await navigateTo(localePath('/'), { replace: true });
 }
 
@@ -54,10 +54,15 @@ if (loginToken && redirect !== 'true') {
       authError.value = 'Invalid or expired preview token';
     }
   } else {
-    // SSR: redirect to the GET endpoint which sets cookies properly
-    const target = `/api/auth/preview-enter?loginToken=${encodeURIComponent(loginToken)}&redirect=${encodeURIComponent('/preview-widgets?loginToken=' + encodeURIComponent(loginToken))}`;
+    // SSR: redirect to the GET endpoint which sets cookies properly.
+    // Do NOT include loginToken in the redirect URL — cookies are already set
+    // by preview-enter, so returning here without a token shows the status page.
+    const target = `/api/auth/preview-enter?loginToken=${encodeURIComponent(loginToken)}&redirect=${encodeURIComponent('/preview-widgets')}`;
     await navigateTo(target, { external: true });
   }
+} else if (!loginToken && isPreview) {
+  // Returned from preview-enter with cookies set — show success state
+  isReady.value = true;
 }
 </script>
 

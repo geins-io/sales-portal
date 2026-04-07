@@ -164,3 +164,21 @@ export function setMarketCookie(event: H3Event, market: string) {
 export function getMarketCookie(event: H3Event) {
   return getCookie(event, COOKIE_NAMES.MARKET);
 }
+
+// --- Impersonation (spoofed-by) cookie ---
+
+export function setSpoofedByCookie(event: H3Event, spoofedBy: string) {
+  setCookie(event, COOKIE_NAMES.SPOOFED_BY, spoofedBy, {
+    ...cookieDefaults(),
+    httpOnly: false, // client needs to read for impersonation banner
+    maxAge: 3600,
+  });
+}
+
+export function getSpoofedByCookie(event: H3Event): string | undefined {
+  return getCookie(event, COOKIE_NAMES.SPOOFED_BY);
+}
+
+export function clearSpoofedByCookie(event: H3Event) {
+  deleteCookie(event, COOKIE_NAMES.SPOOFED_BY, { path: '/' });
+}

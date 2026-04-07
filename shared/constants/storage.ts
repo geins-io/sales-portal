@@ -44,4 +44,5 @@ export const COOKIE_NAMES = {
   MARKET: 'market',
   CART_ID: 'cart_id',
   PREVIEW_MODE: 'preview_mode',
+  SPOOFED_BY: 'geins-spoofed-by',
 } as const;
