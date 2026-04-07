@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Badge } from '~/components/ui/badge';
 import { Input } from '~/components/ui/input';
 import { useQuotesStore } from '~/stores/quotes';
 import type { QuoteStatus } from '#shared/types/quote';
@@ -36,19 +37,16 @@ function formatDate(dateStr: string): string {
   }
 }
 
-function getStatusClasses(status: QuoteStatus): string {
+function getStatusVariant(
+  status: QuoteStatus,
+): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
-    case 'pending':
-      return 'bg-amber-100 text-amber-800';
     case 'accepted':
-      return 'bg-green-100 text-green-800';
+      return 'default';
     case 'rejected':
-      return 'bg-red-100 text-red-800';
-    case 'expired':
-    case 'cancelled':
-      return 'bg-gray-100 text-gray-600';
+      return 'destructive';
     default:
-      return 'bg-gray-100 text-gray-600';
+      return 'secondary';
   }
 }
 
@@ -61,11 +59,16 @@ function getStatusLabel(status: QuoteStatus): string {
   <PortalShell>
     <!-- Page header -->
     <div
-      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+      class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
     >
-      <h2 class="text-xl font-semibold">
-        {{ t('portal.quotations.title') }}
-      </h2>
+      <div>
+        <h2 class="text-xl font-semibold">
+          {{ t('portal.quotations.title') }}
+        </h2>
+        <p class="text-muted-foreground mt-1 text-sm">
+          {{ t('portal.quotations.subtitle') }}
+        </p>
+      </div>
       <!-- Search -->
       <Input
         v-model="searchQuery"
@@ -109,10 +112,10 @@ function getStatusLabel(status: QuoteStatus): string {
               {{ t('portal.quotations.contact') }}
             </th>
             <th class="py-3 pr-4 font-medium">
-              {{ t('portal.quotations.status') }}
+              {{ t('portal.quotations.total') }}
             </th>
             <th class="py-3 pr-4 font-medium">
-              {{ t('portal.quotations.total') }}
+              {{ t('portal.quotations.status') }}
             </th>
             <th class="py-3 font-medium" />
           </tr>
@@ -122,26 +125,25 @@ function getStatusLabel(status: QuoteStatus): string {
             v-for="quote in filteredQuotes"
             :key="quote.id"
             data-testid="quotation-row"
-            class="border-border border-b"
+            class="border-border hover:bg-muted/50 border-b transition-colors"
           >
-            <td class="py-3 pr-4 font-medium">{{ quote.quoteNumber }}</td>
+            <td class="py-3 pr-4">{{ quote.quoteNumber }}</td>
             <td class="py-3 pr-4">{{ formatDate(quote.createdAt) }}</td>
             <td class="py-3 pr-4">{{ quote.contactName }}</td>
+            <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
             <td class="py-3 pr-4">
-              <span
+              <Badge
                 data-testid="quote-status-badge"
-                class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-                :class="getStatusClasses(quote.status)"
+                :variant="getStatusVariant(quote.status)"
               >
                 {{ getStatusLabel(quote.status) }}
-              </span>
+              </Badge>
             </td>
-            <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
             <td class="py-3">
               <NuxtLink
                 :to="`/portal/quotations/${quote.id}`"
                 data-testid="quotation-view-link"
-                class="text-primary hover:text-primary/80 font-medium"
+                class="text-primary hover:text-primary/80 text-sm font-medium"
               >
                 {{ t('portal.quotations.view') }}
               </NuxtLink>

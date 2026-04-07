@@ -43,6 +43,14 @@ const defaultStubs = {
     template: '<a :href="to" v-bind="$attrs"><slot /></a>',
     props: ['to'],
   },
+  Icon: {
+    template: '<span class="icon" :data-name="name" />',
+    props: ['name'],
+  },
+  NuxtIcon: {
+    template: '<span class="icon" :data-name="name" />',
+    props: ['name'],
+  },
 };
 
 function makeProduct(overrides: Record<string, unknown> = {}) {
@@ -263,12 +271,15 @@ describe('Purchased products page', () => {
       );
     });
 
-    it('does not show pagination when products fit on one page', () => {
+    it('does not show page navigation when products fit on one page', () => {
       mockData.value = { products: [makeProduct()], total: 1 };
       const wrapper = mountComponent(ProductsPage, {
         global: { stubs: defaultStubs },
       });
-      expect(wrapper.find('[data-testid="products-pagination"]').exists()).toBe(
+      expect(wrapper.find('[data-testid="products-previous"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('[data-testid="products-next"]').exists()).toBe(
         false,
       );
     });
