@@ -1,0 +1,78 @@
+mutation rejectQuotation($quotationId: Int!, $channelId: String, $languageId: String, $marketId: String) {
+  rejectQuotation(quotationId: $quotationId, channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+    id
+    items {
+      productId
+      sku {
+        skuId
+        name
+        articleNumber
+      }
+      quantity
+      unitPrice {
+        sellingPriceIncVat
+        sellingPriceIncVatFormatted
+      }
+      totalPrice {
+        sellingPriceIncVat
+        sellingPriceIncVatFormatted
+      }
+      product {
+        productId
+        name
+        primaryImage
+      }
+    }
+    summary {
+      subTotal {
+        sellingPriceIncVat
+        sellingPriceIncVatFormatted
+        sellingPriceExVat
+        sellingPriceExVatFormatted
+        vat
+        vatFormatted
+      }
+      total {
+        sellingPriceIncVat
+        sellingPriceIncVatFormatted
+      }
+    }
+    quotation {
+      quotationNumber
+      name
+      currency
+      marketId
+      channelId
+      status
+      createdAt
+      modifiedAt
+      validFrom
+      validTo
+      company {
+        companyId
+        name
+        vatNumber
+      }
+      owner {
+        ownerId
+        firstName
+        lastName
+        phone
+      }
+      customer {
+        customerId
+        internalCustomerId
+        firstName
+        lastName
+        phone
+        approvedAt
+        rejectedAt
+      }
+      terms {
+        text
+      }
+      orderId
+      discount
+    }
+  }
+}

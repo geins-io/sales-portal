@@ -1,18 +1,219 @@
 import type { H3Event } from 'h3';
-import type { Quote, QuoteLineItem, QuoteListItem } from '#shared/types/quote';
+import type {
+  Quote,
+  QuoteLineItem,
+  QuoteListItem,
+  QuoteStatus,
+} from '#shared/types/quote';
 import {
-  createQuoteStub,
-  listQuotesStub,
-  getQuoteStub,
-  acceptQuoteStub,
-  rejectQuoteStub,
-} from './stubs/quotes';
+  getTenantSDK,
+  buildRequestContext,
+  getRequestChannelVariables,
+} from './_sdk';
+import { loadQuery } from './graphql/loader';
+import { unwrapGraphQL } from './graphql/unwrap';
+import { createQuoteStub } from './stubs/quotes';
 
 // ---------------------------------------------------------------------------
-// Quotes
+// GraphQL response types (raw Geins API shapes)
 // ---------------------------------------------------------------------------
 
-/** TODO: Replace stub with Geins API — POST /quotes */
+interface RawCartItem {
+  productId: number;
+  sku?: { skuId?: string; name?: string; articleNumber?: string };
+  quantity: number;
+  unitPrice?: {
+    sellingPriceIncVat?: number;
+    sellingPriceIncVatFormatted?: string;
+  };
+  totalPrice?: {
+    sellingPriceIncVat?: number;
+    sellingPriceIncVatFormatted?: string;
+  };
+  product?: { productId?: number; name?: string; primaryImage?: string };
+}
+
+interface RawQuotation {
+  quotationNumber?: string;
+  name?: string;
+  currency?: string;
+  marketId?: string;
+  channelId?: string;
+  status?: string;
+  createdAt?: string;
+  modifiedAt?: string;
+  validFrom?: string;
+  validTo?: string;
+  company?: { companyId?: string; name?: string; vatNumber?: string };
+  owner?: {
+    ownerId?: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+  };
+  customer?: {
+    customerId?: string;
+    internalCustomerId?: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    approvedAt?: string | null;
+    rejectedAt?: string | null;
+  };
+  terms?: { text?: string };
+  billingAddress?: {
+    email?: string;
+    phone?: string;
+    company?: string;
+    firstName?: string;
+    lastName?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    addressLine3?: string;
+    zip?: string;
+    city?: string;
+    region?: string;
+    country?: string;
+  };
+  shippingAddress?: {
+    email?: string;
+    phone?: string;
+    company?: string;
+    firstName?: string;
+    lastName?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    addressLine3?: string;
+    zip?: string;
+    city?: string;
+    region?: string;
+    country?: string;
+  } | null;
+  orderId?: string | null;
+  discount?: number | null;
+}
+
+interface RawCartSummary {
+  subTotal?: {
+    sellingPriceIncVat?: number;
+    sellingPriceIncVatFormatted?: string;
+    sellingPriceExVat?: number;
+    sellingPriceExVatFormatted?: string;
+    vat?: number;
+    vatFormatted?: string;
+  };
+  total?: {
+    sellingPriceIncVat?: number;
+    sellingPriceIncVatFormatted?: string;
+  };
+}
+
+interface RawQuotationCart {
+  id: string;
+  items?: RawCartItem[];
+  summary?: RawCartSummary;
+  quotation?: RawQuotation;
+}
+
+// ---------------------------------------------------------------------------
+// Status mapping
+// ---------------------------------------------------------------------------
+
+const QUOTATION_STATUS_MAP: Record<string, QuoteStatus> = {
+  DRAFT: 'pending',
+  PENDING: 'pending',
+  EXPIRED: 'expired',
+  REJECTED: 'rejected',
+  ACCEPTED: 'accepted',
+  CONFIRMED: 'accepted',
+  FINALIZED: 'accepted',
+  CANCELED: 'cancelled',
+};
+
+function mapStatus(raw?: string): QuoteStatus {
+  if (!raw) return 'pending';
+  return QUOTATION_STATUS_MAP[raw] ?? 'pending';
+}
+
+// ---------------------------------------------------------------------------
+// Transform helpers
+// ---------------------------------------------------------------------------
+
+function mapLineItem(item: RawCartItem): QuoteLineItem {
+  return {
+    productId: item.productId,
+    sku: item.sku?.skuId ?? '',
+    name: item.sku?.name ?? item.product?.name ?? '',
+    articleNumber: item.sku?.articleNumber ?? '',
+    quantity: item.quantity,
+    unitPrice: item.unitPrice?.sellingPriceIncVat ?? 0,
+    unitPriceFormatted: item.unitPrice?.sellingPriceIncVatFormatted ?? '',
+    totalPrice: item.totalPrice?.sellingPriceIncVat ?? 0,
+    totalPriceFormatted: item.totalPrice?.sellingPriceIncVatFormatted ?? '',
+    imageUrl: item.product?.primaryImage ?? undefined,
+  };
+}
+
+function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
+  const q = cart.quotation ?? {};
+  const summary = cart.summary;
+  const items = (cart.items ?? []).map(mapLineItem);
+
+  const contactFirstName = q.customer?.firstName ?? q.owner?.firstName ?? '';
+  const contactLastName = q.customer?.lastName ?? q.owner?.lastName ?? '';
+  const contactName = `${contactFirstName} ${contactLastName}`.trim();
+  const contactEmail = q.billingAddress?.email ?? '';
+
+  return {
+    id: cart.id,
+    quoteNumber: q.quotationNumber ?? '',
+    organizationId: q.company?.companyId ?? '',
+    createdBy: q.owner?.ownerId ?? '',
+    contactName,
+    contactEmail,
+    status: mapStatus(q.status),
+    message: q.name ?? undefined,
+    internalNotes: undefined,
+    lineItems: items,
+    subtotal: summary?.subTotal?.sellingPriceIncVat ?? 0,
+    subtotalFormatted: summary?.subTotal?.sellingPriceIncVatFormatted ?? '',
+    tax: summary?.subTotal?.vat ?? 0,
+    taxFormatted: summary?.subTotal?.vatFormatted ?? '',
+    total: summary?.total?.sellingPriceIncVat ?? 0,
+    totalFormatted: summary?.total?.sellingPriceIncVatFormatted ?? '',
+    currency: q.currency ?? '',
+    paymentTerms: q.terms?.text ?? undefined,
+    expiresAt: q.validTo ?? undefined,
+    createdAt: q.createdAt ?? '',
+    updatedAt: q.modifiedAt ?? '',
+  };
+}
+
+function mapQuotationCartToListItem(cart: RawQuotationCart): QuoteListItem {
+  const q = cart.quotation ?? {};
+  const contactFirstName = q.customer?.firstName ?? q.owner?.firstName ?? '';
+  const contactLastName = q.customer?.lastName ?? q.owner?.lastName ?? '';
+
+  return {
+    id: cart.id,
+    quoteNumber: q.quotationNumber ?? '',
+    contactName: `${contactFirstName} ${contactLastName}`.trim(),
+    contactEmail: q.billingAddress?.email ?? '',
+    status: mapStatus(q.status),
+    total: cart.summary?.total?.sellingPriceIncVat ?? 0,
+    totalFormatted: cart.summary?.total?.sellingPriceIncVatFormatted ?? '',
+    currency: q.currency ?? '',
+    itemCount: cart.items?.length ?? 0,
+    createdAt: q.createdAt ?? '',
+    expiresAt: q.validTo ?? undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Quotes service
+// ---------------------------------------------------------------------------
+
+/** TODO: Replace stub with Geins API when create mutation is available */
 export async function createQuote(
   orgId: string,
   createdBy: string,
@@ -36,37 +237,106 @@ export async function createQuote(
   );
 }
 
-/** TODO: Replace stub with Geins API — GET /quotes */
+/** List quotation carts via Geins GraphQL API */
 export async function listQuotes(
-  orgId: string,
-  skip: number | undefined,
-  take: number | undefined,
-  _event: H3Event,
+  _orgId: string,
+  _skip: number | undefined,
+  _take: number | undefined,
+  event: H3Event,
 ): Promise<{ quotes: QuoteListItem[]; total: number }> {
-  return listQuotesStub(orgId, skip, take);
+  const sdk = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('quotes/list-quotations.graphql'),
+        variables: {
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: requestContext?.userToken,
+      }),
+    'quotes',
+  );
+  const carts = (unwrapGraphQL(result) as RawQuotationCart[] | null) ?? [];
+  const quotes = carts.map(mapQuotationCartToListItem);
+  return { quotes, total: quotes.length };
 }
 
-/** TODO: Replace stub with Geins API — GET /quotes/{id} */
+/** Get a single quotation cart via Geins GraphQL API */
 export async function getQuote(
   quoteId: string,
-  _event: H3Event,
+  event: H3Event,
 ): Promise<Quote> {
-  return getQuoteStub(quoteId);
+  const sdk = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('quotes/get-quotation.graphql'),
+        variables: {
+          quotationId: quoteId,
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: requestContext?.userToken,
+      }),
+    'quotes',
+  );
+  const cart = unwrapGraphQL(result) as RawQuotationCart | null;
+  if (!cart) {
+    throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
+  }
+  return mapQuotationCartToQuote(cart);
 }
 
-/** TODO: Replace stub with Geins API — POST /quotes/{id}/accept */
+/** Accept a quotation via Geins GraphQL API */
 export async function acceptQuote(
   quoteId: string,
-  _event: H3Event,
+  event: H3Event,
 ): Promise<Quote> {
-  return acceptQuoteStub(quoteId);
+  const sdk = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.mutation({
+        queryAsString: loadQuery('quotes/accept-quotation.graphql'),
+        variables: {
+          quotationId: quoteId,
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: requestContext?.userToken,
+      }),
+    'quotes',
+  );
+  const cart = unwrapGraphQL(result) as RawQuotationCart | null;
+  if (!cart) {
+    throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
+  }
+  return mapQuotationCartToQuote(cart);
 }
 
-/** TODO: Replace stub with Geins API — POST /quotes/{id}/reject */
+/** Reject a quotation via Geins GraphQL API */
 export async function rejectQuote(
   quoteId: string,
-  reason: string | undefined,
-  _event: H3Event,
+  _reason: string | undefined,
+  event: H3Event,
 ): Promise<Quote> {
-  return rejectQuoteStub(quoteId, reason);
+  const sdk = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.mutation({
+        queryAsString: loadQuery('quotes/reject-quotation.graphql'),
+        variables: {
+          quotationId: quoteId,
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: requestContext?.userToken,
+      }),
+    'quotes',
+  );
+  const cart = unwrapGraphQL(result) as RawQuotationCart | null;
+  if (!cart) {
+    throw createAppError(ErrorCode.NOT_FOUND, `Quote ${quoteId} not found`);
+  }
+  return mapQuotationCartToQuote(cart);
 }
