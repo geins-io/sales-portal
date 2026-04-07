@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GeinsUserType } from '@geins/types';
+import type { ContentAreaType } from '#shared/types/cms';
 import { useAuthStore } from '~/stores/auth';
 import { useFavoritesStore } from '~/stores/favorites';
 
@@ -8,8 +9,18 @@ const route = useRoute();
 const authStore = useAuthStore();
 const { canAccess } = useFeatureAccess();
 const { hasFeature } = useTenant();
-const { localePath } = useLocaleMarket();
+const { localePath, currentLocale, currentMarket } = useLocaleMarket();
 const favoritesStore = useFavoritesStore();
+
+const { data: heroArea } = useFetch<ContentAreaType>('/api/cms/area', {
+  query: computed(() => ({
+    family: 'Portal',
+    areaName: 'Hero',
+    ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+    ...(currentMarket.value ? { market: currentMarket.value } : {}),
+  })),
+  dedupe: 'defer',
+});
 
 const { data: profileData } = useFetch<{ profile: GeinsUserType }>(
   '/api/user/profile',
@@ -112,7 +123,13 @@ async function handleLogout() {
 <template>
   <div data-testid="portal-shell">
     <!-- Hero Banner -->
+    <CmsWidgetArea
+      v-if="heroArea?.containers?.length"
+      data-testid="portal-hero"
+      :containers="heroArea.containers"
+    />
     <div
+      v-else
       data-testid="portal-hero"
       class="bg-primary text-primary-foreground py-12 text-center"
     >
