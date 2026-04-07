@@ -2,12 +2,8 @@ query listQuotationCarts($channelId: String, $languageId: String, $marketId: Str
   listQuotationCarts(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
     id
     items {
-      productId
-      sku {
-        skuId
-        name
-        articleNumber
-      }
+      id
+      skuId
       quantity
       unitPrice {
         sellingPriceIncVat
@@ -20,7 +16,10 @@ query listQuotationCarts($channelId: String, $languageId: String, $marketId: Str
       product {
         productId
         name
-        primaryImage
+        articleNumber
+        productImages {
+          fileName
+        }
       }
     }
     summary {
@@ -100,7 +99,6 @@ query listQuotationCarts($channelId: String, $languageId: String, $marketId: Str
         country
       }
       orderId
-      discount
     }
   }
 }

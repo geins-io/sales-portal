@@ -2,12 +2,8 @@ mutation acceptQuotation($quotationId: Int!, $channelId: String, $languageId: St
   acceptQuotation(quotationId: $quotationId, channelId: $channelId, languageId: $languageId, marketId: $marketId) {
     id
     items {
-      productId
-      sku {
-        skuId
-        name
-        articleNumber
-      }
+      id
+      skuId
       quantity
       unitPrice {
         sellingPriceIncVat
@@ -20,7 +16,10 @@ mutation acceptQuotation($quotationId: Int!, $channelId: String, $languageId: St
       product {
         productId
         name
-        primaryImage
+        articleNumber
+        productImages {
+          fileName
+        }
       }
     }
     summary {
@@ -72,7 +71,6 @@ mutation acceptQuotation($quotationId: Int!, $channelId: String, $languageId: St
         text
       }
       orderId
-      discount
     }
   }
 }

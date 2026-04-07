@@ -2,12 +2,8 @@ query getQuotationCart($quotationId: Int!, $channelId: String, $languageId: Stri
   getQuotationCart(quotationId: $quotationId, channelId: $channelId, languageId: $languageId, marketId: $marketId) {
     id
     items {
-      productId
-      sku {
-        skuId
-        name
-        articleNumber
-      }
+      id
+      skuId
       quantity
       unitPrice {
         sellingPriceIncVat
@@ -20,7 +16,10 @@ query getQuotationCart($quotationId: Int!, $channelId: String, $languageId: Stri
       product {
         productId
         name
-        primaryImage
+        articleNumber
+        productImages {
+          fileName
+        }
       }
     }
     summary {
@@ -100,7 +99,6 @@ query getQuotationCart($quotationId: Int!, $channelId: String, $languageId: Stri
         country
       }
       orderId
-      discount
     }
   }
 }

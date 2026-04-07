@@ -19,8 +19,8 @@ import { createQuoteStub } from './stubs/quotes';
 // ---------------------------------------------------------------------------
 
 interface RawCartItem {
-  productId: number;
-  sku?: { skuId?: string; name?: string; articleNumber?: string };
+  id?: string;
+  skuId?: number;
   quantity: number;
   unitPrice?: {
     sellingPriceIncVat?: number;
@@ -30,7 +30,12 @@ interface RawCartItem {
     sellingPriceIncVat?: number;
     sellingPriceIncVatFormatted?: string;
   };
-  product?: { productId?: number; name?: string; primaryImage?: string };
+  product?: {
+    productId?: number;
+    name?: string;
+    articleNumber?: string;
+    productImages?: { fileName?: string }[];
+  };
 }
 
 interface RawQuotation {
@@ -90,7 +95,10 @@ interface RawQuotation {
     country?: string;
   } | null;
   orderId?: string | null;
-  discount?: number | null;
+  discount?: {
+    discountIncVat?: number;
+    discountIncVatFormatted?: string;
+  } | null;
 }
 
 interface RawCartSummary {
@@ -141,16 +149,16 @@ function mapStatus(raw?: string): QuoteStatus {
 
 function mapLineItem(item: RawCartItem): QuoteLineItem {
   return {
-    productId: item.productId,
-    sku: item.sku?.skuId ?? '',
-    name: item.sku?.name ?? item.product?.name ?? '',
-    articleNumber: item.sku?.articleNumber ?? '',
+    productId: item.product?.productId ?? 0,
+    sku: String(item.skuId ?? ''),
+    name: item.product?.name ?? '',
+    articleNumber: item.product?.articleNumber ?? '',
     quantity: item.quantity,
     unitPrice: item.unitPrice?.sellingPriceIncVat ?? 0,
     unitPriceFormatted: item.unitPrice?.sellingPriceIncVatFormatted ?? '',
     totalPrice: item.totalPrice?.sellingPriceIncVat ?? 0,
     totalPriceFormatted: item.totalPrice?.sellingPriceIncVatFormatted ?? '',
-    imageUrl: item.product?.primaryImage ?? undefined,
+    imageUrl: item.product?.productImages?.[0]?.fileName ?? undefined,
   };
 }
 

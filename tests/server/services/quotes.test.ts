@@ -71,12 +71,8 @@ function makeRawQuotationCart(overrides: Record<string, unknown> = {}) {
     id: 'cart-001',
     items: [
       {
-        productId: 101,
-        sku: {
-          skuId: 'SKU-001',
-          name: 'Standing Desk Oak Large',
-          articleNumber: 'SD-OAK-L',
-        },
+        id: 'item-001',
+        skuId: 501,
         quantity: 2,
         unitPrice: {
           sellingPriceIncVat: 4995,
@@ -89,7 +85,8 @@ function makeRawQuotationCart(overrides: Record<string, unknown> = {}) {
         product: {
           productId: 101,
           name: 'Standing Desk Oak Large',
-          primaryImage: '/img/desk.jpg',
+          articleNumber: 'SD-OAK-L',
+          productImages: [{ fileName: '/img/desk.jpg' }],
         },
       },
     ],
@@ -151,7 +148,6 @@ function makeRawQuotationCart(overrides: Record<string, unknown> = {}) {
       },
       shippingAddress: null,
       orderId: null,
-      discount: null,
       ...overrides,
     },
   };
@@ -298,7 +294,7 @@ describe('quotes service', () => {
       expect(result.lineItems).toHaveLength(1);
       expect(result.lineItems[0]).toMatchObject({
         productId: 101,
-        sku: 'SKU-001',
+        sku: '501',
         name: 'Standing Desk Oak Large',
         articleNumber: 'SD-OAK-L',
         quantity: 2,
