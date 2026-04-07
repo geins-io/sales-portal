@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { PurchasedProduct } from '#shared/types/commerce';
+import type { SavedList } from '#shared/types/saved-list';
+import type { QuoteStatus } from '#shared/types/quote';
+import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
 
 definePageMeta({
@@ -8,9 +12,13 @@ definePageMeta({
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
 
+// ---------------------------------------------------------------------------
+// Orders data
+// ---------------------------------------------------------------------------
 const { data: ordersData, pending: ordersPending } = useFetch<{
   orders: Array<{
     id?: number | null;
+    publicId?: string | null;
     status: string;
     createdAt?: string | null;
     billingAddress?: { firstName?: string; lastName?: string } | null;
@@ -41,14 +49,79 @@ const purchasedProductIds = computed(() => {
 });
 const purchasedProductCount = computed(() => purchasedProductIds.value.size);
 
+// ---------------------------------------------------------------------------
+// Quotes data
+// ---------------------------------------------------------------------------
 const quotesStore = useQuotesStore();
 const recentPendingQuotes = computed(() =>
-  quotesStore.pendingQuotes.slice(0, 3),
+  quotesStore.pendingQuotes.slice(0, 5),
 );
 
 // Use callOnce to fetch quotes — runs during SSR and skips on client hydration,
 // avoiding hydration mismatch for pendingCount stat card.
 callOnce('portal-quotes', () => quotesStore.fetchQuotes());
+
+// ---------------------------------------------------------------------------
+// Purchased products data
+// ---------------------------------------------------------------------------
+const { data: productsData, pending: productsPending } = useFetch<{
+  products: PurchasedProduct[];
+  total: number;
+}>('/api/orders/products', { dedupe: 'defer' });
+
+const recentProducts = computed(() =>
+  (productsData.value?.products ?? []).slice(0, 4),
+);
+
+// ---------------------------------------------------------------------------
+// Saved lists data
+// ---------------------------------------------------------------------------
+const { data: listsData, pending: listsPending } = useFetch<{
+  lists: SavedList[];
+  total: number;
+}>('/api/lists', { dedupe: 'defer' });
+
+const recentLists = computed(() => (listsData.value?.lists ?? []).slice(0, 5));
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '-';
+  try {
+    return new Date(dateStr).toLocaleDateString('sv-SE', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function getStatusClasses(status: QuoteStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'bg-amber-100 text-amber-800';
+    case 'accepted':
+      return 'bg-green-100 text-green-800';
+    case 'rejected':
+      return 'bg-red-100 text-red-800';
+    case 'expired':
+    case 'cancelled':
+      return 'bg-gray-100 text-gray-600';
+    default:
+      return 'bg-gray-100 text-gray-600';
+  }
+}
+
+function getStatusLabel(status: QuoteStatus): string {
+  return t(`portal.quotations.status_${status}`);
+}
+
+function getProductPrice(product: PurchasedProduct): string {
+  return product.priceExVatFormatted ?? String(product.priceExVat ?? '-');
+}
 </script>
 
 <template>
@@ -98,13 +171,14 @@ callOnce('portal-quotes', () => quotesStore.fetchQuotes());
         v-if="ordersPending"
         class="text-muted-foreground py-8 text-center text-sm"
       >
-        Loading...
+        {{ t('common.loading') }}
       </div>
       <PortalOrdersTable v-else :orders="orders" :limit="5" />
     </div>
 
     <!-- Pending Quotations & Your Lists -->
     <div class="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <!-- Pending Quotations mini-table -->
       <div>
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-lg font-semibold">
@@ -124,25 +198,62 @@ callOnce('portal-quotes', () => quotesStore.fetchQuotes());
         >
           {{ t('portal.overview.no_quotations') }}
         </p>
-        <ul v-else class="divide-border divide-y">
-          <li
-            v-for="quote in recentPendingQuotes"
-            :key="quote.id"
-            data-testid="pending-quote-row"
-            class="flex items-center justify-between py-3"
-          >
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium">
-                {{ quote.quoteNumber }}
-              </p>
-              <p class="text-muted-foreground truncate text-xs">
-                {{ quote.contactName }}
-              </p>
-            </div>
-            <span class="text-sm font-medium">{{ quote.totalFormatted }}</span>
-          </li>
-        </ul>
+        <div v-else class="overflow-x-auto">
+          <table data-testid="pending-quotations-table" class="w-full text-sm">
+            <thead>
+              <tr class="border-border border-b text-left">
+                <th class="py-3 pr-4 font-medium">
+                  {{ t('portal.quotations.quote_number') }}
+                </th>
+                <th class="py-3 pr-4 font-medium">
+                  {{ t('portal.quotations.created') }}
+                </th>
+                <th class="py-3 pr-4 font-medium">
+                  {{ t('portal.quotations.status') }}
+                </th>
+                <th class="py-3 pr-4 font-medium">
+                  {{ t('portal.quotations.total') }}
+                </th>
+                <th class="py-3 font-medium" />
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="quote in recentPendingQuotes"
+                :key="quote.id"
+                data-testid="pending-quote-row"
+                class="border-border hover:bg-muted/50 border-b transition-colors"
+              >
+                <td class="py-3 pr-4 font-medium">
+                  {{ quote.quoteNumber }}
+                </td>
+                <td class="py-3 pr-4">
+                  {{ formatDate(quote.createdAt) }}
+                </td>
+                <td class="py-3 pr-4">
+                  <span
+                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                    :class="getStatusClasses(quote.status)"
+                  >
+                    {{ getStatusLabel(quote.status) }}
+                  </span>
+                </td>
+                <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
+                <td class="py-3">
+                  <NuxtLink
+                    :to="localePath(`/portal/quotations/${quote.id}`)"
+                    class="text-primary hover:text-primary/80 text-sm font-medium"
+                  >
+                    {{ t('portal.quotations.view') }}
+                  </NuxtLink>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      <!-- Your Lists mini-table -->
       <div>
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-lg font-semibold">
@@ -155,9 +266,57 @@ callOnce('portal-quotes', () => quotesStore.fetchQuotes());
             {{ t('portal.overview.view_all') }}
           </NuxtLink>
         </div>
-        <p class="text-muted-foreground text-sm">
+        <div
+          v-if="listsPending"
+          class="text-muted-foreground py-8 text-center text-sm"
+        >
+          {{ t('common.loading') }}
+        </div>
+        <p
+          v-else-if="recentLists.length === 0"
+          data-testid="your-lists-empty"
+          class="text-muted-foreground text-sm"
+        >
           {{ t('portal.overview.no_lists') }}
         </p>
+        <div v-else class="overflow-x-auto">
+          <table data-testid="your-lists-table" class="w-full text-sm">
+            <thead>
+              <tr class="border-border border-b text-left">
+                <th class="py-3 pr-4 font-medium">
+                  {{ t('portal.saved_lists.columns.name') }}
+                </th>
+                <th class="py-3 pr-4 font-medium">
+                  {{ t('portal.saved_lists.columns.modified') }}
+                </th>
+                <th class="py-3 pr-4 font-medium">
+                  {{ t('portal.saved_lists.columns.products') }}
+                </th>
+                <th class="py-3 font-medium" />
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="list in recentLists"
+                :key="list.id"
+                data-testid="your-list-row"
+                class="border-border hover:bg-muted/50 border-b transition-colors"
+              >
+                <td class="py-3 pr-4">{{ list.name }}</td>
+                <td class="py-3 pr-4">{{ formatDate(list.updatedAt) }}</td>
+                <td class="py-3 pr-4">{{ list.items?.length ?? 0 }}</td>
+                <td class="py-3">
+                  <NuxtLink
+                    :to="localePath(`/portal/saved-lists/${list.id}`)"
+                    class="text-primary hover:text-primary/80 text-sm font-medium"
+                  >
+                    {{ t('portal.quotations.view') }}
+                  </NuxtLink>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -174,9 +333,55 @@ callOnce('portal-quotes', () => quotesStore.fetchQuotes());
           {{ t('portal.overview.view_all') }}
         </NuxtLink>
       </div>
-      <p class="text-muted-foreground text-sm">
+      <div
+        v-if="productsPending"
+        class="text-muted-foreground py-8 text-center text-sm"
+      >
+        {{ t('common.loading') }}
+      </div>
+      <p
+        v-else-if="recentProducts.length === 0"
+        data-testid="purchased-products-empty"
+        class="text-muted-foreground text-sm"
+      >
         {{ t('portal.overview.no_products') }}
       </p>
+      <div
+        v-else
+        data-testid="purchased-products-grid"
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        <div
+          v-for="product in recentProducts"
+          :key="product.articleNumber"
+          data-testid="purchased-product-card"
+          class="border-border flex flex-col rounded-lg border"
+        >
+          <!-- Product image placeholder -->
+          <div
+            class="bg-muted flex aspect-square items-center justify-center rounded-t-lg"
+          >
+            <Icon name="lucide:package" class="text-muted-foreground size-10" />
+          </div>
+          <!-- Product info -->
+          <div class="flex flex-1 flex-col gap-2 p-4">
+            <p class="text-sm leading-tight font-medium">
+              {{ product.name }}
+            </p>
+            <p class="text-foreground mt-auto text-sm font-semibold">
+              {{ getProductPrice(product) }}
+            </p>
+            <Button
+              size="sm"
+              class="mt-1 w-full"
+              data-testid="product-add-to-cart"
+            >
+              <Icon name="lucide:shopping-cart" class="mr-1.5 size-3.5" />
+              {{ t('portal.saved_list_detail.add_to_cart') }}
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   </PortalShell>
 </template>

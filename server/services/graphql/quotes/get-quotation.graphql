@@ -1,0 +1,104 @@
+query getQuotationCart($quotationId: Int!, $channelId: String, $languageId: String, $marketId: String) {
+  getQuotationCart(quotationId: $quotationId, channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+    id
+    items {
+      id
+      skuId
+      quantity
+      unitPrice {
+        sellingPriceIncVat
+        sellingPriceIncVatFormatted
+      }
+      totalPrice {
+        sellingPriceIncVat
+        sellingPriceIncVatFormatted
+      }
+      product {
+        productId
+        name
+        articleNumber
+        productImages {
+          fileName
+        }
+      }
+    }
+    summary {
+      subTotal {
+        sellingPriceIncVat
+        sellingPriceIncVatFormatted
+        sellingPriceExVat
+        sellingPriceExVatFormatted
+        vat
+        vatFormatted
+      }
+      total {
+        sellingPriceIncVat
+        sellingPriceIncVatFormatted
+      }
+    }
+    quotation {
+      quotationNumber
+      name
+      currency
+      marketId
+      channelId
+      status
+      createdAt
+      modifiedAt
+      validFrom
+      validTo
+      company {
+        companyId
+        name
+        vatNumber
+      }
+      owner {
+        ownerId
+        firstName
+        lastName
+        phone
+      }
+      customer {
+        customerId
+        internalCustomerId
+        firstName
+        lastName
+        phone
+        approvedAt
+        rejectedAt
+      }
+      terms {
+        text
+      }
+      billingAddress {
+        email
+        phone
+        company
+        firstName
+        lastName
+        addressLine1
+        addressLine2
+        addressLine3
+        zip
+        city
+        region
+        country
+      }
+      shippingAddress {
+        email
+        phone
+        company
+        firstName
+        lastName
+        addressLine1
+        addressLine2
+        addressLine3
+        zip
+        city
+        region
+        country
+      }
+      orderId
+    }
+  }
+}
