@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
 
@@ -98,13 +99,14 @@ function getStatusLabel(status: QuoteStatus): string {
       <p class="text-muted-foreground mb-4 text-sm">
         {{ t('portal.quotations.error_loading') }}
       </p>
-      <button
+      <Button
         data-testid="quotations-retry"
-        class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+        variant="link"
+        size="sm"
         @click="refresh()"
       >
         {{ t('portal.quotations.retry') }}
-      </button>
+      </Button>
     </div>
 
     <!-- Empty state -->

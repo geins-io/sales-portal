@@ -128,8 +128,6 @@ async function deleteList() {
 
 function addAllToCart() {
   // Stub -- actual cart integration is future scope
-
-  console.log('Add all to cart', localItems.value);
 }
 </script>
 
@@ -299,47 +297,53 @@ function addAllToCart() {
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center justify-center gap-1">
-                  <button
+                  <Button
                     data-testid="quantity-decrement"
+                    variant="outline"
+                    size="icon"
+                    class="size-7"
                     :aria-label="
                       t('portal.saved_list_detail.decrease_quantity')
                     "
-                    class="border-border hover:bg-muted focus-visible:ring-ring inline-flex size-7 items-center justify-center rounded border text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                     :disabled="item?.quantity <= 1"
                     @click="decrementQuantity(index)"
                   >
                     -
-                  </button>
+                  </Button>
                   <span
                     data-testid="quantity-display"
                     class="w-8 text-center text-sm"
                   >
                     {{ item?.quantity }}
                   </span>
-                  <button
+                  <Button
                     data-testid="quantity-increment"
+                    variant="outline"
+                    size="icon"
+                    class="size-7"
                     :aria-label="
                       t('portal.saved_list_detail.increase_quantity')
                     "
-                    class="border-border hover:bg-muted focus-visible:ring-ring inline-flex size-7 items-center justify-center rounded border text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                     @click="incrementQuantity(index)"
                   >
                     +
-                  </button>
+                  </Button>
                 </div>
               </td>
               <td class="px-4 py-3 text-right font-medium">
                 {{ formatPrice(item?.unitPrice * item?.quantity) }}
               </td>
               <td class="px-4 py-3 text-right">
-                <button
+                <Button
                   data-testid="delete-item"
+                  variant="ghost"
+                  size="icon"
                   :aria-label="t('portal.saved_list_detail.remove_item')"
-                  class="text-muted-foreground hover:text-destructive focus-visible:ring-ring inline-flex items-center justify-center rounded focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                  class="text-muted-foreground hover:text-destructive"
                   @click="removeItem(index)"
                 >
                   <Icon name="lucide:trash-2" class="size-4" />
-                </button>
+                </Button>
               </td>
             </tr>
             <!-- Total row -->

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OrderListItem } from '#shared/types/commerce';
+import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 
 definePageMeta({ middleware: 'auth' });
@@ -111,13 +112,14 @@ watch(searchQuery, () => {
       <p class="text-muted-foreground mb-4 text-sm">
         {{ t('portal.orders.error_loading') }}
       </p>
-      <button
+      <Button
         data-testid="orders-retry"
-        class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+        variant="link"
+        size="sm"
         @click="refresh()"
       >
         {{ t('portal.orders.retry') }}
-      </button>
+      </Button>
     </div>
 
     <!-- Empty state -->
@@ -155,31 +157,28 @@ watch(searchQuery, () => {
           }}
         </span>
         <div class="flex items-center gap-2">
-          <button
+          <Button
             data-testid="orders-previous"
-            class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded px-3 py-1 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
+            variant="ghost"
+            size="sm"
             :disabled="currentPage <= 1"
             @click="goToPage(currentPage - 1)"
           >
             {{ t('portal.orders.pagination.previous') }}
-          </button>
+          </Button>
           <template v-for="page in totalPages" :key="page">
-            <button
+            <Button
               v-if="
                 page === 1 ||
                 page === totalPages ||
                 Math.abs(page - currentPage) <= 1
               "
-              class="focus-visible:ring-ring rounded px-3 py-1 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              :class="
-                page === currentPage
-                  ? 'bg-primary text-primary-foreground font-medium'
-                  : 'text-muted-foreground hover:text-foreground'
-              "
+              :variant="page === currentPage ? 'default' : 'ghost'"
+              size="sm"
               @click="goToPage(page)"
             >
               {{ page }}
-            </button>
+            </Button>
             <span
               v-else-if="
                 page === 2 && currentPage > 3
@@ -190,14 +189,15 @@ watch(searchQuery, () => {
               >...</span
             >
           </template>
-          <button
+          <Button
             data-testid="orders-next"
-            class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded px-3 py-1 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
+            variant="ghost"
+            size="sm"
             :disabled="currentPage >= totalPages"
             @click="goToPage(currentPage + 1)"
           >
             {{ t('portal.orders.pagination.next') }}
-          </button>
+          </Button>
         </div>
       </div>
     </template>
