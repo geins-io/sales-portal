@@ -119,7 +119,7 @@ function removeItem(index: number) {
 }
 
 async function deleteList() {
-  if (!window.confirm(t('portal.saved_list_detail.delete_confirm'))) {
+  if (!safeConfirm(t('portal.saved_list_detail.delete_confirm'))) {
     return;
   }
   await $fetch(`/api/lists/${listId.value}`, { method: 'DELETE' });

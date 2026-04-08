@@ -92,7 +92,7 @@ async function handleHostedCheckout() {
         body: { cartId: cartStore.cartId },
       },
     );
-    window.location.href = result.checkoutUrl;
+    safeLocationRedirect(result.checkoutUrl);
   } catch {
     isRedirecting.value = false;
     redirectError.value = t('checkout.redirect_error');
