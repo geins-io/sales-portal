@@ -28,6 +28,7 @@ vi.mock('../../../../server/utils/auth', () => ({
   requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
 }));
 
+vi.stubGlobal('setResponseHeader', vi.fn());
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
 vi.stubGlobal(
   'createAppError',

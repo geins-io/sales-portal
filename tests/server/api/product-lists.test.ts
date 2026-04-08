@@ -74,6 +74,7 @@ vi.stubGlobal(
     return validator(query);
   }),
 );
+vi.stubGlobal('setResponseHeader', vi.fn());
 vi.stubGlobal('defineEventHandler', (fn: (event: H3Event) => unknown) => fn);
 vi.stubGlobal('optionalAuth', vi.fn().mockResolvedValue(null));
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());

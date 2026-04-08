@@ -3,6 +3,7 @@ import { requireAuth } from '../../utils/auth';
 
 export default defineEventHandler(async (event) => {
   const { authToken } = await requireAuth(event);
+  setResponseHeader(event, 'Cache-Control', 'private, no-cache');
   const profile = await userService.getUser(authToken, event);
 
   if (!profile) {
