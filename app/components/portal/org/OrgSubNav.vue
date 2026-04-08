@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Button } from '~/components/ui/button';
+
 const { t } = useI18n();
 
 const props = defineProps<{
@@ -27,39 +29,36 @@ const tabs: SubTab[] = [
     <!-- Desktop: vertical sidebar -->
     <ul class="hidden flex-col space-y-1 md:flex">
       <li v-for="tab in tabs" :key="tab.key">
-        <button
-          type="button"
-          class="block w-full rounded-md py-2 ps-3 text-left text-sm transition-colors"
+        <Button
+          :variant="props.modelValue === tab.key ? 'secondary' : 'ghost'"
+          class="w-full justify-start ps-3"
           :class="
             props.modelValue === tab.key
-              ? 'bg-accent text-accent-foreground font-medium'
-              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+              ? 'font-medium'
+              : 'text-muted-foreground'
           "
           :data-testid="`org-tab-${tab.key}`"
           @click="emit('update:modelValue', tab.key)"
         >
           {{ t(tab.label) }}
-        </button>
+        </Button>
       </li>
     </ul>
 
     <!-- Mobile: horizontal scroll -->
     <div class="flex gap-1 overflow-x-auto md:hidden">
-      <button
+      <Button
         v-for="tab in tabs"
         :key="tab.key"
-        type="button"
-        class="rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors"
-        :class="
-          props.modelValue === tab.key
-            ? 'bg-accent text-accent-foreground'
-            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-        "
+        :variant="props.modelValue === tab.key ? 'secondary' : 'ghost'"
+        size="sm"
+        class="whitespace-nowrap"
+        :class="props.modelValue !== tab.key ? 'text-muted-foreground' : ''"
         :data-testid="`org-tab-${tab.key}`"
         @click="emit('update:modelValue', tab.key)"
       >
         {{ t(tab.label) }}
-      </button>
+      </Button>
     </div>
   </nav>
 </template>

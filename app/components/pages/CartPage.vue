@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ShoppingCart, X } from 'lucide-vue-next';
+import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import { formatPrice } from '#shared/types/commerce';
 
@@ -52,15 +53,15 @@ function goToCheckout() {
           ({{ $t('cart.item_count', { count: cartStore.itemCount }) }})
         </span>
       </h1>
-      <button
-        type="button"
-        class="text-muted-foreground hover:text-foreground rounded-md border p-2 transition-colors"
+      <Button
+        variant="outline"
+        size="icon"
         :aria-label="$t('common.close')"
         data-testid="cart-page-close"
         @click="onClose"
       >
         <X class="size-5" />
-      </button>
+      </Button>
     </div>
 
     <!-- Loading state -->
@@ -200,15 +201,14 @@ function goToCheckout() {
             </div>
 
             <!-- Checkout button -->
-            <button
-              type="button"
-              class="bg-primary text-primary-foreground hover:bg-primary/90 w-full rounded-md px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
+            <Button
+              class="w-full"
               data-testid="cart-checkout-button"
               :disabled="cartStore.isLoading"
               @click="goToCheckout"
             >
               {{ $t('cart.proceed_to_checkout') }}
-            </button>
+            </Button>
           </div>
         </ErrorBoundary>
       </div>

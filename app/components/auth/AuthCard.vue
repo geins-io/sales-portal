@@ -38,14 +38,16 @@ defineExpose({ switchToForgot });
   >
     <Card class="relative w-full max-w-sm">
       <!-- Close button -->
-      <button
+      <Button
+        variant="ghost"
+        size="icon-sm"
         data-testid="auth-close"
-        class="text-muted-foreground hover:text-foreground absolute top-4 right-4 rounded-sm opacity-70 transition-opacity hover:opacity-100"
+        class="absolute top-4 right-4 opacity-70 hover:opacity-100"
         @click="emit('close')"
       >
         <Icon name="lucide:x" class="size-4" />
         <span class="sr-only">{{ $t('common.close') }}</span>
-      </button>
+      </Button>
 
       <CardContent class="px-6 pt-8 pb-6">
         <!-- Login view -->
@@ -114,12 +116,9 @@ defineExpose({ switchToForgot });
               {{ $t('auth.already_have_account') }}
             </span>
             {{ ' ' }}
-            <button
-              class="text-primary hover:text-primary/80 font-medium underline underline-offset-4"
-              @click="switchToLogin"
-            >
+            <Button variant="link" class="h-auto p-0" @click="switchToLogin">
               {{ $t('auth.sign_in') }}
-            </button>
+            </Button>
           </p>
         </template>
 
@@ -140,12 +139,9 @@ defineExpose({ switchToForgot });
             class="mt-4 text-center text-sm"
             data-testid="auth-forgot-back-to-login"
           >
-            <button
-              class="text-primary hover:text-primary/80 font-medium underline underline-offset-4"
-              @click="switchToLogin"
-            >
+            <Button variant="link" class="h-auto p-0" @click="switchToLogin">
               {{ $t('auth.forgot_back_to_login') }}
-            </button>
+            </Button>
           </p>
         </template>
       </CardContent>

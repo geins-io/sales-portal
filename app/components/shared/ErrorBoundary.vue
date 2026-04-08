@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Button } from '~/components/ui/button';
+
 const props = withDefaults(
   defineProps<{
     section?: string;
@@ -20,9 +22,9 @@ const { error, clearError } = useErrorBoundary({
     <p class="text-muted-foreground text-sm">
       {{ $t('errors.section_failed') }}
     </p>
-    <button class="text-primary mt-2 text-xs underline" @click="clearError">
+    <Button variant="link" class="mt-2 h-auto p-0 text-xs" @click="clearError">
       {{ $t('errors.retry') }}
-    </button>
+    </Button>
   </div>
   <slot v-else />
 </template>

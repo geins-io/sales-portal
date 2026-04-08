@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Button } from '~/components/ui/button';
+
 /**
  * CMS Preview entry page.
  *
@@ -134,12 +136,7 @@ if (loginToken && redirect !== 'true') {
           >
             Browse site
           </a>
-          <button
-            class="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            @click="exitPreview"
-          >
-            Exit preview
-          </button>
+          <Button variant="outline" @click="exitPreview"> Exit preview </Button>
         </div>
       </div>
 

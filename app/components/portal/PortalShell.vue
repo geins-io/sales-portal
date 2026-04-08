@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { GeinsUserType } from '@geins/types';
 import type { ContentAreaType } from '#shared/types/cms';
+import { Button } from '~/components/ui/button';
 import { useAuthStore } from '~/stores/auth';
 import { useFavoritesStore } from '~/stores/favorites';
 
@@ -187,14 +188,14 @@ async function handleLogout() {
             <Icon name="lucide:user" class="size-4" />
             {{ t('portal.quick_links.account') }}
           </NuxtLink>
-          <button
-            type="button"
-            class="text-primary hover:text-primary/80 flex items-center gap-2 text-left font-medium"
+          <Button
+            variant="link"
+            class="text-primary hover:text-primary/80 h-auto gap-2 p-0 text-left font-medium"
             @click="handleLogout"
           >
             <Icon name="lucide:log-out" class="size-4" />
             {{ t('portal.quick_links.logout') }}
-          </button>
+          </Button>
         </div>
       </div>
 

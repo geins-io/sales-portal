@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ProductListResponse } from '#shared/types/commerce';
+import { Button } from '~/components/ui/button';
 
 withDefaults(
   defineProps<{
@@ -82,13 +83,13 @@ onUnmounted(() => {
       </ul>
 
       <!-- View all link -->
-      <button
-        type="button"
-        class="text-primary hover:bg-accent w-full border-t px-4 py-2.5 text-center text-sm font-medium transition-colors"
+      <Button
+        variant="ghost"
+        class="text-primary w-full rounded-none border-t"
         @click="emit('view-all')"
       >
         {{ $t('search.view_all_results', { count: results.count }) }}
-      </button>
+      </Button>
     </template>
 
     <!-- No results -->

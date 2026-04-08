@@ -6,6 +6,7 @@ import type {
   ProductFiltersResponse,
 } from '#shared/types/commerce';
 import { Package as PackageIcon } from 'lucide-vue-next';
+import { Button } from '~/components/ui/button';
 import { useDebounceFn } from '@vueuse/core';
 import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
 
@@ -314,13 +315,9 @@ function clearAllFilters() {
         v-if="Object.keys(filterState ?? {}).length > 0"
         class="mt-4 text-center"
       >
-        <button
-          type="button"
-          class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-medium transition-colors"
-          @click="clearAllFilters"
-        >
+        <Button @click="clearAllFilters">
           {{ $t('product.clear_all') }}
-        </button>
+        </Button>
       </div>
     </div>
 

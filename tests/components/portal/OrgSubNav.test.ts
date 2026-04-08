@@ -7,7 +7,19 @@ const iconStub = {
   props: ['name'],
 };
 
-const stubs = { Icon: iconStub, NuxtIcon: iconStub };
+const buttonStub = {
+  template:
+    '<button v-bind="$attrs" :class="[$attrs.class]" @click="$emit(\'click\', $event)"><slot /></button>',
+  props: ['variant', 'size'],
+  emits: ['click'],
+};
+
+const stubs = {
+  Icon: iconStub,
+  NuxtIcon: iconStub,
+  Button: buttonStub,
+  UiButton: buttonStub,
+};
 
 describe('OrgSubNav', () => {
   it('renders all 4 tabs', () => {
@@ -44,7 +56,6 @@ describe('OrgSubNav', () => {
     const activeTab = allButtons[0]!;
     const allInfoButtons = wrapper.findAll('[data-testid="org-tab-info"]');
     const inactiveTab = allInfoButtons[0]!;
-    expect(activeTab.classes()).toContain('bg-accent');
     expect(activeTab.classes()).toContain('font-medium');
     expect(inactiveTab.classes()).toContain('text-muted-foreground');
   });

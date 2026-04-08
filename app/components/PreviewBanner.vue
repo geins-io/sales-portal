@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Pencil, EyeOff } from 'lucide-vue-next';
+import { Button } from '~/components/ui/button';
 
 const { t } = useI18n();
 const { isPreview, exitPreview } = useCmsPreview();
@@ -27,12 +28,14 @@ const studioConnected = useState('cms-studio-connected', () => false);
       :title="t('preview.studio_connected')"
     />
 
-    <button
-      class="flex items-center gap-1.5 rounded-md bg-black/20 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-black/[.35]"
+    <Button
+      variant="ghost"
+      size="sm"
+      class="gap-1.5 bg-black/20 text-[11px] font-medium text-white hover:bg-black/[.35] hover:text-white"
       @click="exitPreview"
     >
       <EyeOff class="size-[13px]" />
       {{ t('preview.exit') }}
-    </button>
+    </Button>
   </div>
 </template>

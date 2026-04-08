@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { User } from 'lucide-vue-next';
+import { Button } from '~/components/ui/button';
 
 const { t } = useI18n();
 const { isImpersonating, spoofedBy, customerName, exitImpersonation } =
@@ -26,11 +27,13 @@ const { isImpersonating, spoofedBy, customerName, exitImpersonation } =
 
     <span class="flex-1" />
 
-    <button
-      class="flex items-center gap-1.5 rounded-md bg-black/20 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-black/[.35]"
+    <Button
+      variant="ghost"
+      size="sm"
+      class="gap-1.5 bg-black/20 text-[11px] font-medium text-white hover:bg-black/[.35] hover:text-white"
       @click="exitImpersonation"
     >
       {{ t('impersonation.exit') }}
-    </button>
+    </Button>
   </div>
 </template>

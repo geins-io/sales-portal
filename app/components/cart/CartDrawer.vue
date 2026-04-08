@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ShoppingCart } from 'lucide-vue-next';
+import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import { formatPrice } from '#shared/types/commerce';
 
@@ -176,15 +177,14 @@ function goToCheckout() {
 
         <!-- Checkout button -->
         <SheetFooter class="px-4 pb-4">
-          <button
-            type="button"
-            class="bg-primary text-primary-foreground hover:bg-primary/90 w-full rounded-md px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+          <Button
+            class="w-full"
             data-testid="cart-drawer-checkout-button"
             :disabled="cartStore.isLoading"
             @click="goToCheckout"
           >
             {{ $t('cart.checkout') }}
-          </button>
+          </Button>
         </SheetFooter>
       </template>
     </SheetContent>

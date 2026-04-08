@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ListProduct } from '#shared/types/commerce';
+import { Button } from '~/components/ui/button';
 
 const props = defineProps<{
   products: ListProduct[];
@@ -43,24 +44,26 @@ const hasProducts = computed(() => props.products.length > 0);
           {{ $t('product.view_all') }}
         </NuxtLink>
         <div class="hidden gap-1 md:flex">
-          <button
+          <Button
             v-show="canScrollLeft"
-            type="button"
-            class="bg-background hover:bg-muted rounded-full border p-1.5"
+            variant="outline"
+            size="icon-sm"
+            class="rounded-full"
             aria-label="Scroll left"
             @click="scrollBy('left')"
           >
             <Icon name="lucide:chevron-left" class="size-4" />
-          </button>
-          <button
+          </Button>
+          <Button
             v-show="canScrollRight"
-            type="button"
-            class="bg-background hover:bg-muted rounded-full border p-1.5"
+            variant="outline"
+            size="icon-sm"
+            class="rounded-full"
             aria-label="Scroll right"
             @click="scrollBy('right')"
           >
             <Icon name="lucide:chevron-right" class="size-4" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

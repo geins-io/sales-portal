@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ShoppingCart, Search, Menu } from 'lucide-vue-next';
+import { Button } from '~/components/ui/button';
 import { useAppStore } from '~/stores/app';
 import { useCartStore } from '~/stores/cart';
 
@@ -20,10 +21,10 @@ const { localePath } = useLocaleMarket();
     </NuxtLink>
 
     <!-- Cart -->
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       data-slot="cart-button"
-      class="text-muted-foreground hover:text-foreground flex items-center gap-1.5 p-2"
+      class="gap-1.5"
       @click="cartStore.isOpen = true"
     >
       <ShoppingCart class="size-5" />
@@ -33,17 +34,18 @@ const { localePath } = useLocaleMarket();
       >
         {{ cartStore.itemCount }} {{ $t('cart.items_short') }}
       </span>
-    </button>
+    </Button>
 
     <!-- Hamburger (mobile only) -->
-    <button
+    <Button
+      variant="ghost"
+      size="icon"
       data-slot="menu-toggle"
       data-testid="mobile-nav-trigger"
-      type="button"
-      class="text-muted-foreground hover:text-foreground p-2 lg:hidden"
+      class="lg:hidden"
       @click="appStore.toggleSidebar()"
     >
       <Menu class="size-5" />
-    </button>
+    </Button>
   </div>
 </template>
