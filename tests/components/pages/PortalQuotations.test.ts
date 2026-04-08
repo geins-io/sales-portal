@@ -1,23 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { reactive } from 'vue';
+import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
-import PortalQuotations from '../../../app/pages/portal/quotations.vue';
 import type { QuoteListItem } from '../../../shared/types/quote';
 
-// Use reactive so refs inside auto-unwrap in template (mirrors real Pinia store behaviour)
-const mockStore = reactive({
-  quotes: [] as QuoteListItem[],
-  isLoading: false,
-  totalQuotes: 0,
-  fetchQuotes: vi.fn(),
-});
+// Mock useFetch — returns reactive refs
+const mockData = ref<{
+  quotes: QuoteListItem[];
+  total: number;
+} | null>(null);
+const mockPending = ref(false);
+const mockError = ref<Error | null>(null);
+const mockRefresh = vi.fn();
 
-vi.mock('~/stores/quotes', () => ({
-  useQuotesStore: () => mockStore,
+const useFetchMock = vi.fn(() => ({
+  data: mockData,
+  pending: mockPending,
+  error: mockError,
+  refresh: mockRefresh,
 }));
 
-// Stub definePageMeta — not available in test env
+vi.mock('#app/composables/fetch', () => ({
+  useFetch: (...args: unknown[]) => useFetchMock(...args),
+  $fetch: vi.fn(),
+}));
+
+vi.stubGlobal('useFetch', (...args: unknown[]) => useFetchMock(...args));
 vi.stubGlobal('definePageMeta', vi.fn());
+
+// Import AFTER mocks are set up
+const { default: PortalQuotations } =
+  await import('../../../app/pages/portal/quotations.vue');
 
 const defaultStubs = {
   PortalShell: {
@@ -51,10 +63,11 @@ function makeQuote(overrides: Partial<QuoteListItem> = {}): QuoteListItem {
 
 describe('PortalQuotations page', () => {
   beforeEach(() => {
-    mockStore.quotes = [];
-    mockStore.isLoading = false;
-    mockStore.totalQuotes = 0;
-    mockStore.fetchQuotes.mockClear();
+    mockData.value = null;
+    mockPending.value = false;
+    mockError.value = null;
+    mockRefresh.mockClear();
+    useFetchMock.mockClear();
   });
 
   describe('page structure', () => {
@@ -65,15 +78,18 @@ describe('PortalQuotations page', () => {
       expect(wrapper.find('[data-testid="portal-shell"]').exists()).toBe(true);
     });
 
-    it('calls fetchQuotes on mount', () => {
+    it('calls useFetch with /api/quotes', () => {
       mountComponent(PortalQuotations, { global: { stubs: defaultStubs } });
-      expect(mockStore.fetchQuotes).toHaveBeenCalledOnce();
+      expect(useFetchMock.mock.calls[0]?.[0]).toBe('/api/quotes');
+      expect(useFetchMock.mock.calls[0]?.[1]).toMatchObject({
+        dedupe: 'defer',
+      });
     });
   });
 
   describe('loading state', () => {
-    it('shows loading state when isLoading is true', () => {
-      mockStore.isLoading = true;
+    it('shows loading state when pending is true', () => {
+      mockPending.value = true;
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -86,10 +102,30 @@ describe('PortalQuotations page', () => {
     });
   });
 
+  describe('error state', () => {
+    it('shows error state when error is present', () => {
+      mockError.value = new Error('Network error');
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      expect(wrapper.find('[data-testid="quotations-error"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('calls refresh when retry is clicked', async () => {
+      mockError.value = new Error('Network error');
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      await wrapper.find('[data-testid="quotations-retry"]').trigger('click');
+      expect(mockRefresh).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('empty state', () => {
     it('shows empty state when there are no quotes and not loading', () => {
-      mockStore.quotes = [];
-      mockStore.isLoading = false;
+      mockData.value = { quotes: [], total: 0 };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -102,7 +138,7 @@ describe('PortalQuotations page', () => {
     });
 
     it('does not show table when there are no quotes', () => {
-      mockStore.quotes = [];
+      mockData.value = { quotes: [], total: 0 };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -114,7 +150,7 @@ describe('PortalQuotations page', () => {
 
   describe('table rendering', () => {
     it('renders the table when quotes are present', () => {
-      mockStore.quotes = [makeQuote()];
+      mockData.value = { quotes: [makeQuote()], total: 1 };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -124,11 +160,14 @@ describe('PortalQuotations page', () => {
     });
 
     it('renders a row for each quote', () => {
-      mockStore.quotes = [
-        makeQuote({ id: 'q-001', quoteNumber: 'Q-001' }),
-        makeQuote({ id: 'q-002', quoteNumber: 'Q-002' }),
-        makeQuote({ id: 'q-003', quoteNumber: 'Q-003' }),
-      ];
+      mockData.value = {
+        quotes: [
+          makeQuote({ id: 'q-001', quoteNumber: 'Q-001' }),
+          makeQuote({ id: 'q-002', quoteNumber: 'Q-002' }),
+          makeQuote({ id: 'q-003', quoteNumber: 'Q-003' }),
+        ],
+        total: 3,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -137,7 +176,10 @@ describe('PortalQuotations page', () => {
     });
 
     it('displays quote number in each row', () => {
-      mockStore.quotes = [makeQuote({ quoteNumber: 'Q-2024-042' })];
+      mockData.value = {
+        quotes: [makeQuote({ quoteNumber: 'Q-2024-042' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -147,7 +189,10 @@ describe('PortalQuotations page', () => {
     });
 
     it('displays contact name in each row', () => {
-      mockStore.quotes = [makeQuote({ contactName: 'John Smith' })];
+      mockData.value = {
+        quotes: [makeQuote({ contactName: 'John Smith' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -157,7 +202,10 @@ describe('PortalQuotations page', () => {
     });
 
     it('displays formatted total in each row', () => {
-      mockStore.quotes = [makeQuote({ totalFormatted: '2 500,00 kr' })];
+      mockData.value = {
+        quotes: [makeQuote({ totalFormatted: '2 500,00 kr' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -167,7 +215,10 @@ describe('PortalQuotations page', () => {
     });
 
     it('renders a view link for each quote', () => {
-      mockStore.quotes = [makeQuote({ id: 'q-abc' })];
+      mockData.value = {
+        quotes: [makeQuote({ id: 'q-abc' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -188,7 +239,10 @@ describe('PortalQuotations page', () => {
 
     for (const status of statuses) {
       it(`renders status badge for ${status}`, () => {
-        mockStore.quotes = [makeQuote({ status })];
+        mockData.value = {
+          quotes: [makeQuote({ status })],
+          total: 1,
+        };
         const wrapper = mountComponent(PortalQuotations, {
           global: { stubs: defaultStubs },
         });
@@ -199,7 +253,10 @@ describe('PortalQuotations page', () => {
     }
 
     it('uses secondary variant for pending badge', () => {
-      mockStore.quotes = [makeQuote({ status: 'pending' })];
+      mockData.value = {
+        quotes: [makeQuote({ status: 'pending' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -208,7 +265,10 @@ describe('PortalQuotations page', () => {
     });
 
     it('uses default variant for accepted badge', () => {
-      mockStore.quotes = [makeQuote({ status: 'accepted' })];
+      mockData.value = {
+        quotes: [makeQuote({ status: 'accepted' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -217,7 +277,10 @@ describe('PortalQuotations page', () => {
     });
 
     it('uses destructive variant for rejected badge', () => {
-      mockStore.quotes = [makeQuote({ status: 'rejected' })];
+      mockData.value = {
+        quotes: [makeQuote({ status: 'rejected' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -226,7 +289,10 @@ describe('PortalQuotations page', () => {
     });
 
     it('uses secondary variant for expired badge', () => {
-      mockStore.quotes = [makeQuote({ status: 'expired' })];
+      mockData.value = {
+        quotes: [makeQuote({ status: 'expired' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -235,7 +301,10 @@ describe('PortalQuotations page', () => {
     });
 
     it('uses secondary variant for cancelled badge', () => {
-      mockStore.quotes = [makeQuote({ status: 'cancelled' })];
+      mockData.value = {
+        quotes: [makeQuote({ status: 'cancelled' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -246,10 +315,21 @@ describe('PortalQuotations page', () => {
 
   describe('search filtering', () => {
     it('shows all quotes when search is empty', async () => {
-      mockStore.quotes = [
-        makeQuote({ id: 'q-001', quoteNumber: 'Q-001', contactName: 'Alice' }),
-        makeQuote({ id: 'q-002', quoteNumber: 'Q-002', contactName: 'Bob' }),
-      ];
+      mockData.value = {
+        quotes: [
+          makeQuote({
+            id: 'q-001',
+            quoteNumber: 'Q-001',
+            contactName: 'Alice',
+          }),
+          makeQuote({
+            id: 'q-002',
+            quoteNumber: 'Q-002',
+            contactName: 'Bob',
+          }),
+        ],
+        total: 2,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -258,10 +338,13 @@ describe('PortalQuotations page', () => {
     });
 
     it('filters quotes by quote number', async () => {
-      mockStore.quotes = [
-        makeQuote({ id: 'q-001', quoteNumber: 'Q-2024-001' }),
-        makeQuote({ id: 'q-002', quoteNumber: 'Q-2024-002' }),
-      ];
+      mockData.value = {
+        quotes: [
+          makeQuote({ id: 'q-001', quoteNumber: 'Q-2024-001' }),
+          makeQuote({ id: 'q-002', quoteNumber: 'Q-2024-002' }),
+        ],
+        total: 2,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -272,10 +355,13 @@ describe('PortalQuotations page', () => {
     });
 
     it('filters quotes by contact name', async () => {
-      mockStore.quotes = [
-        makeQuote({ id: 'q-001', contactName: 'Alice Anderson' }),
-        makeQuote({ id: 'q-002', contactName: 'Bob Baker' }),
-      ];
+      mockData.value = {
+        quotes: [
+          makeQuote({ id: 'q-001', contactName: 'Alice Anderson' }),
+          makeQuote({ id: 'q-002', contactName: 'Bob Baker' }),
+        ],
+        total: 2,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -287,7 +373,10 @@ describe('PortalQuotations page', () => {
     });
 
     it('search is case-insensitive', async () => {
-      mockStore.quotes = [makeQuote({ contactName: 'Jane Doe' })];
+      mockData.value = {
+        quotes: [makeQuote({ contactName: 'Jane Doe' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
@@ -298,7 +387,10 @@ describe('PortalQuotations page', () => {
     });
 
     it('shows empty state when search has no matches', async () => {
-      mockStore.quotes = [makeQuote({ contactName: 'Alice' })];
+      mockData.value = {
+        quotes: [makeQuote({ contactName: 'Alice' })],
+        total: 1,
+      };
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
