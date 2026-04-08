@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { X } from 'lucide-vue-next';
+import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 
 defineProps<{
@@ -30,15 +31,15 @@ function onApply() {
         class="bg-primary/10 text-primary inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium"
       >
         {{ activeCode }}
-        <button
-          type="button"
-          class="hover:text-destructive transition-colors"
+        <Button
+          variant="ghost"
+          class="hover:text-destructive size-auto p-0"
           data-testid="promo-remove"
           :disabled="loading"
           @click="emit('remove')"
         >
           <X class="size-3.5" />
-        </button>
+        </Button>
       </span>
     </div>
 
@@ -52,14 +53,15 @@ function onApply() {
         data-testid="promo-input"
         :disabled="loading"
       />
-      <button
+      <Button
         type="submit"
-        class="bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+        variant="secondary"
+        size="sm"
         :disabled="loading || !code.trim()"
         data-testid="promo-apply"
       >
         Apply
-      </button>
+      </Button>
     </form>
   </div>
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { VariantDimensionType, VariantType } from '#shared/types/commerce';
+import { Button } from '~/components/ui/button';
 
 const props = defineProps<{
   variantDimensions: VariantDimensionType[];
@@ -58,15 +59,14 @@ function isSelected(dimensionName: string, value: string): boolean {
         {{ dimension.dimensionName }}
       </span>
       <div class="flex flex-wrap gap-2" data-testid="dimension-values">
-        <button
+        <Button
           v-for="value in dimension.values"
           :key="value"
-          type="button"
-          class="rounded-md border px-3 py-1.5 text-sm transition-colors"
+          :variant="
+            isSelected(dimension.dimensionName, value) ? 'default' : 'outline'
+          "
+          size="sm"
           :class="[
-            isSelected(dimension.dimensionName, value)
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'bg-background hover:bg-muted border-input',
             !isValueAvailable(dimension.dimensionName, value)
               ? 'pointer-events-none line-through opacity-40'
               : '',
@@ -76,7 +76,7 @@ function isSelected(dimensionName: string, value: string): boolean {
           @click="selectValue(dimension.dimensionName, value)"
         >
           {{ value }}
-        </button>
+        </Button>
       </div>
     </div>
   </div>

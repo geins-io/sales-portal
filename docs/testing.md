@@ -8,7 +8,7 @@ Testing strategy, architecture, and practices for the Sales Portal.
 
 ## Overview
 
-1612 unit/component tests across 138 files + 51 E2E tests across 8 Playwright spec files.
+2346 unit/component tests across 197 files + 9 E2E spec files (portal, auth, cart, navigation, etc.).
 
 | Level       | Tool                    | What it tests                            |
 | ----------- | ----------------------- | ---------------------------------------- |

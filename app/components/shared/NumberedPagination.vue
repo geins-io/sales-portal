@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { Button } from '~/components/ui/button';
 
 const props = defineProps<{
   currentPage: number;
@@ -66,14 +67,15 @@ function goToPage(page: number) {
     :aria-label="t('pagination.navigation')"
     class="flex items-center justify-end gap-1"
   >
-    <button
+    <Button
+      variant="ghost"
+      size="sm"
       :disabled="isFirstPage"
-      class="hover:bg-accent inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
       @click="goToPage(currentPage - 1)"
     >
       <ChevronLeft class="size-4" />
       {{ t('pagination.previous') }}
-    </button>
+    </Button>
 
     <template v-for="(page, index) in visiblePages" :key="index">
       <span
@@ -82,28 +84,25 @@ function goToPage(page: number) {
       >
         &hellip;
       </span>
-      <button
+      <Button
         v-else
-        :class="[
-          'inline-flex size-9 items-center justify-center rounded-md text-sm font-medium transition-colors',
-          page === currentPage
-            ? 'bg-primary text-primary-foreground'
-            : 'hover:bg-accent',
-        ]"
+        :variant="page === currentPage ? 'default' : 'ghost'"
+        size="icon"
         :aria-current="page === currentPage ? 'page' : undefined"
         @click="goToPage(page)"
       >
         {{ page }}
-      </button>
+      </Button>
     </template>
 
-    <button
+    <Button
+      variant="ghost"
+      size="sm"
       :disabled="isLastPage"
-      class="hover:bg-accent inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50"
       @click="goToPage(currentPage + 1)"
     >
       {{ t('pagination.next') }}
       <ChevronRight class="size-4" />
-    </button>
+    </Button>
   </nav>
 </template>

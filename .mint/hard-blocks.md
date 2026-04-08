@@ -24,7 +24,7 @@ Violations trigger immediate stop and escalation to user.
 ## SSR Safety
 
 - NEVER access properties or iterate over async data in Vue templates without null guards. All `v-for`, `Object.keys()`, `Object.entries()`, `.map()`, `.filter()` in templates MUST use optional chaining and nullish coalescing. SSR renders templates before async data resolves -- null access crashes the server with 500.
-- NEVER call `window`, `document`, or browser APIs outside `import.meta.client` guards or `onMounted`
+- NEVER call `window`, `document`, or browser APIs directly — use SSR-safe helpers from `app/utils/client-helpers.ts` (`safeConfirm`, `safeScrollTo`, `safeLocationRedirect`, `safeHistoryBack`). If no helper exists, guard with `if (import.meta.client)`. Raw `window.*` calls crash the server during SSR.
 
 ## Locale / i18n
 

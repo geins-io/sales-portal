@@ -111,7 +111,16 @@ const mockCart: CartType = {
   },
 } as unknown as CartType;
 
+const buttonStub = {
+  template:
+    '<button v-bind="$attrs" :disabled="disabled" @click="$emit(\'click\', $event)"><slot /></button>',
+  props: ['disabled', 'variant', 'size'],
+  emits: ['click'],
+};
+
 const defaultStubs = {
+  Button: buttonStub,
+  UiButton: buttonStub,
   CartItem: {
     template: '<div data-testid="cart-item" />',
     props: ['item'],

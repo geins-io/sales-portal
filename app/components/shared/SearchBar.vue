@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Search, X } from 'lucide-vue-next';
+import { Button } from '~/components/ui/button';
 import { useDebounceFn, onClickOutside } from '@vueuse/core';
 import type { ProductListResponse } from '#shared/types/commerce';
 
@@ -177,15 +178,16 @@ const activeDescendant = computed(() =>
       @keydown.up.prevent="onArrowUp"
       @keydown.escape="onEscape"
     />
-    <button
+    <Button
       v-if="query.length > 0"
+      variant="ghost"
+      size="icon-sm"
       data-slot="search-clear"
-      type="button"
-      class="text-muted-foreground hover:text-foreground absolute right-3 p-0.5"
+      class="absolute right-1.5"
       @click="onClear"
     >
       <X class="size-4" />
-    </button>
+    </Button>
 
     <!-- Autocomplete dropdown -->
     <SearchAutocomplete

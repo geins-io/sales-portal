@@ -255,10 +255,11 @@ useSchemaOrg([
             >
               {{ product.name }}
             </h1>
-            <button
+            <Button
               v-if="hasFeature('wishlist')"
-              type="button"
-              class="text-muted-foreground hover:text-foreground mt-0.5 shrink-0 transition-colors"
+              variant="ghost"
+              size="icon"
+              class="mt-0.5 shrink-0"
               :data-favorited="isFavorited"
               :aria-label="$t('product.wishlist')"
               data-testid="pdp-wishlist-toggle"
@@ -268,7 +269,7 @@ useSchemaOrg([
                 class="size-5"
                 :fill="isFavorited ? 'currentColor' : 'none'"
               />
-            </button>
+            </Button>
           </div>
 
           <!-- Article number -->

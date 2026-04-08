@@ -123,7 +123,16 @@ describe('CartDrawer', () => {
   });
 
   describe('checkout button', () => {
+    const buttonStub = {
+      template:
+        '<button v-bind="$attrs" :disabled="disabled" @click="$emit(\'click\', $event)"><slot /></button>',
+      props: ['disabled', 'variant', 'size'],
+      emits: ['click'],
+    };
+
     const drawerStubs = {
+      Button: buttonStub,
+      UiButton: buttonStub,
       Sheet: { template: '<div><slot /></div>', props: ['open'] },
       SheetContent: { template: '<div><slot /></div>' },
       SheetHeader: { template: '<div><slot /></div>' },

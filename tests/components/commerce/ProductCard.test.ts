@@ -67,17 +67,15 @@ const stubs = {
   },
   Button: {
     template:
-      '<button :data-testid="$attrs[\'data-testid\']" :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
-    props: ['disabled'],
+      '<button v-bind="$attrs" :disabled="disabled" @click="$emit(\'click\', $event)"><slot /></button>',
+    props: ['disabled', 'variant', 'size'],
     emits: ['click'],
-    inheritAttrs: false,
   },
   UiButton: {
     template:
-      '<button :data-testid="$attrs[\'data-testid\']" :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
-    props: ['disabled'],
+      '<button v-bind="$attrs" :disabled="disabled" @click="$emit(\'click\', $event)"><slot /></button>',
+    props: ['disabled', 'variant', 'size'],
     emits: ['click'],
-    inheritAttrs: false,
   },
 };
 

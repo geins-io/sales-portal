@@ -2,6 +2,26 @@
 
 Rules for writing pages that work correctly during both SSR (server-side render) and client-side navigation. A "hard refresh" is when the user hits F5 or navigates directly to a URL — the server renders the page from scratch.
 
+## Browser API Safety
+
+**NEVER access `window`, `document`, or `navigator` directly.** Use the SSR-safe helpers from `app/utils/client-helpers.ts`:
+
+```typescript
+// BAD — crashes on SSR
+window.confirm('Delete?');
+window.scrollTo({ top: 0 });
+window.location.href = url;
+window.history.back();
+
+// GOOD — SSR-safe
+safeConfirm('Delete?'); // returns true on server
+safeScrollTo({ top: 0 }); // no-op on server
+safeLocationRedirect(url); // no-op on server
+safeHistoryBack('/fallback'); // navigates to fallback on server
+```
+
+These are auto-imported by Nuxt (in `app/utils/`). If you need a browser API not covered by a helper, guard it with `if (import.meta.client)`.
+
 ## Template SSR Safety
 
 During SSR, the template renders while async data from `useFetch`/`useAsyncData` may still be `null`. All template expressions that access async data MUST use null guards.

@@ -2,6 +2,7 @@
 import type { FilterFacet } from '#shared/types/commerce';
 import { X } from 'lucide-vue-next';
 import { Badge } from '~/components/ui/badge';
+import { Button } from '~/components/ui/button';
 
 const props = defineProps<{
   filters: Record<string, string[]>;
@@ -51,14 +52,14 @@ const hasActiveFilters = computed(() => activeFilters.value.length > 0);
       class="gap-1 pr-1"
     >
       {{ filter.valueLabel }}
-      <button
-        type="button"
-        class="hover:bg-muted rounded-full p-0.5"
+      <Button
+        variant="ghost"
+        class="size-auto rounded-full p-0.5"
         :aria-label="`Remove ${filter.valueLabel} filter`"
         @click="emit('remove', filter.facetId, filter.valueId)"
       >
         <X class="size-3" />
-      </button>
+      </Button>
     </Badge>
   </div>
 </template>

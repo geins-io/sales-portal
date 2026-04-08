@@ -95,6 +95,16 @@ try {
 }
 ```
 
+### Error Keys for User-Facing Messages
+
+Auth store errors always use i18n keys, never raw API error strings:
+
+- `auth.login_failed` — shown on failed login
+- `auth.register_failed` — shown on failed registration
+- `auth.reset_failed` — shown on failed password reset
+
+Server API routes use `createAppError()` which auto-sanitizes in production mode (returns generic error messages, logs details server-side).
+
 ### Sentry Context
 
 Sentry context is automatically set up via `app/plugins/error-context.ts`:

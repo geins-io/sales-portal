@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Button } from '~/components/ui/button';
+
 const { hasInteracted, accept, revoke } = useAnalyticsConsent();
 const { hasFeature } = useTenant();
 
@@ -21,18 +23,12 @@ const visible = computed(() => !hasInteracted.value && hasFeature('analytics'));
             {{ $t('cookies.banner_text') }}
           </p>
           <div class="flex shrink-0 gap-2">
-            <button
-              class="bg-primary text-primary-foreground focus-visible:ring-ring rounded px-4 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              @click="accept"
-            >
+            <Button @click="accept">
               {{ $t('cookies.accept') }}
-            </button>
-            <button
-              class="bg-muted text-muted-foreground focus-visible:ring-ring rounded px-4 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              @click="revoke"
-            >
+            </Button>
+            <Button variant="secondary" @click="revoke">
               {{ $t('cookies.decline') }}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

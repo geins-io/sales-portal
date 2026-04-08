@@ -77,7 +77,12 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── useTenant.ts        # Tenant data access
 │   │   ├── useErrorTracking.ts # Error tracking & reporting
 │   │   ├── useFeatureAccess.ts # Feature access control (auth + role gating)
-│   │   └── useAnalyticsConsent.ts # Per-tenant analytics consent (GDPR)
+│   │   ├── useAnalyticsConsent.ts # Per-tenant analytics consent (GDPR)
+│   │   ├── useImpersonation.ts    # Admin impersonation state (spoofed-by cookie)
+│   │   ├── useCmsPreview.ts       # CMS preview mode toggle
+│   │   ├── useLocaleMarket.ts     # Locale/market selection + localePath()
+│   │   ├── useMenuData.ts         # CMS menu navigation data
+│   │   └── useSeoLinks.ts         # Canonical + hreflang links
 │   ├── layouts/
 │   │   └── default.vue         # Default page layout
 │   ├── lib/
@@ -124,6 +129,10 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── categories.ts       # Category listing
 │   │   ├── channels.ts         # Storefront config
 │   │   ├── newsletter.ts       # Newsletter subscribe
+│   │   ├── quotes.ts           # Quotation management (real Geins GraphQL API)
+│   │   ├── saved-lists.ts      # Saved product lists (Track 2 stubs)
+│   │   ├── purchased-products.ts # Purchased product aggregation from order history
+│   │   ├── organization.ts     # B2B organization/buyer management (Track 2 stubs)
 │   │   ├── index.ts            # Re-exports all services
 │   │   └── graphql/            # .graphql query files + loader
 │   │       ├── loader.ts       # Reads .graphql files, resolves fragments
@@ -134,7 +143,9 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │       ├── brands/         # Brand queries
 │   │       ├── categories/     # Category queries
 │   │       ├── channels/       # Channel queries
-│   │       └── newsletter/     # Newsletter mutations
+│   │       ├── newsletter/     # Newsletter mutations
+│   │       ├── quotes/         # Quotation queries + mutations (list, get, accept, reject)
+│   │       └── orders/         # Order list query
 │   ├── plugins/
 │   │   ├── 01.tenant-context.ts # Request-level tenant context + tenantId resolution + config caching
 │   │   ├── 02.request-logging.ts # Correlation ID, request timing, tenant-scoped logging
@@ -183,6 +194,24 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 ├── tsconfig.json               # TypeScript configuration
 └── eslint.config.mjs           # ESLint configuration
 ```
+
+### Portal Pages
+
+Authenticated user portal at `/portal/`:
+
+| Page             | Route                      | Features                                                                   |
+| ---------------- | -------------------------- | -------------------------------------------------------------------------- |
+| Overview         | `/portal`                  | Stat cards, latest orders, pending quotes, saved lists, purchased products |
+| Orders           | `/portal/orders`           | Order history table, search, pagination, status badges                     |
+| Order Detail     | `/portal/orders/[id]`      | Items table, summary sidebar, addresses, reorder button                    |
+| Quotations       | `/portal/quotations`       | Quote list from real Geins API, search, status badges                      |
+| Quotation Detail | `/portal/quotations/[id]`  | Items, summary, accept/reject actions                                      |
+| Products         | `/portal/products`         | Purchased product history, aggregated from orders                          |
+| Saved Lists      | `/portal/lists`            | CRUD lists (Track 2 stubs), create dialog                                  |
+| List Detail      | `/portal/saved-lists/[id]` | Editable items, quantity controls, add to cart                             |
+| Profile          | `/portal/profile`          | User profile form                                                          |
+| Organization     | `/portal/organisation`     | B2B company, addresses, persons, roles (Track 2 stubs)                     |
+| Favorites        | `/portal/favorites`        | Wishlist via SDK ListsSession                                              |
 
 ---
 
@@ -707,7 +736,7 @@ Configure via environment variables:
 ### Testing
 
 ```bash
-# Unit tests (1219+ tests, Vitest)
+# Unit tests (2346 tests, Vitest)
 pnpm test
 
 # E2E tests (Playwright)
@@ -893,4 +922,4 @@ The `DetailProduct` interface in `shared/types/commerce.ts` extends `ProductType
 
 ---
 
-_Last updated: March 2026_
+_Last updated: April 2026_

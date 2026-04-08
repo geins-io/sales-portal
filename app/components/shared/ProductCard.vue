@@ -126,17 +126,18 @@ async function addToCart() {
         >
           {{ $t('product.article_number', { number: product.articleNumber }) }}
         </p>
-        <button
+        <Button
           v-if="hasFeature('wishlist')"
-          type="button"
+          variant="ghost"
+          size="icon-sm"
           data-testid="wishlist-button"
           :data-favorited="isFavorited"
-          class="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+          class="shrink-0"
           :aria-label="$t('product.wishlist')"
           @click.prevent.stop="toggleFavorite"
         >
           <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
-        </button>
+        </Button>
       </div>
 
       <!-- Product title -->

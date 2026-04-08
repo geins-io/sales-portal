@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Trash2 } from 'lucide-vue-next';
+import { Button } from '~/components/ui/button';
 import type { CartItemType } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { productPath } from '#shared/utils/route-helpers';
@@ -117,14 +118,15 @@ const maxQuantity = computed(() => {
       </div>
 
       <!-- Remove button -->
-      <button
-        type="button"
-        class="text-muted-foreground hover:text-destructive shrink-0 p-1 transition-colors"
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        class="text-muted-foreground hover:text-destructive shrink-0"
         data-testid="cart-item-remove"
         @click="item.id && emit('remove', item.id)"
       >
         <Trash2 class="size-4" />
-      </button>
+      </Button>
     </div>
 
     <!-- Row 2: Quantity + unit price + total price (aligned under product info) -->

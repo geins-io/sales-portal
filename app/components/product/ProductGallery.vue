@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ProductImageType } from '#shared/types/commerce';
+import { Button } from '~/components/ui/button';
 import { Dialog, DialogContent } from '~/components/ui/dialog';
 
 const props = defineProps<{
@@ -51,11 +52,11 @@ const showThumbnails = computed(() => props.images.length > 1);
         class="flex flex-col gap-2 overflow-y-auto p-0.5"
         data-testid="thumbnails"
       >
-        <button
+        <Button
           v-for="(image, index) in images"
           :key="index"
-          type="button"
-          class="bg-muted size-16 shrink-0 overflow-hidden rounded-md transition-all"
+          variant="ghost"
+          class="bg-muted size-16 shrink-0 overflow-hidden rounded-md p-0 transition-all"
           :class="
             index === selectedIndex
               ? 'ring-primary ring-2 ring-offset-1'
@@ -70,14 +71,14 @@ const showThumbnails = computed(() => props.images.length > 1);
             loading="lazy"
             class="size-full object-cover"
           />
-        </button>
+        </Button>
       </div>
 
       <!-- Main image -->
-      <button
+      <Button
         v-if="currentImage"
-        type="button"
-        class="bg-muted flex-1 cursor-pointer overflow-hidden rounded-lg"
+        variant="ghost"
+        class="bg-muted h-auto flex-1 cursor-pointer overflow-hidden rounded-lg p-0"
         @click="openLightbox"
       >
         <GeinsImage
@@ -87,7 +88,7 @@ const showThumbnails = computed(() => props.images.length > 1);
           loading="eager"
           class="max-h-[500px] w-full object-contain"
         />
-      </button>
+      </Button>
     </div>
 
     <!-- Image counter -->
@@ -113,24 +114,26 @@ const showThumbnails = computed(() => props.images.length > 1);
           />
 
           <!-- Navigation arrows -->
-          <button
+          <Button
             v-if="images.length > 1"
-            type="button"
-            class="bg-background/80 hover:bg-background absolute left-2 rounded-full p-2 shadow-md"
+            variant="ghost"
+            size="icon"
+            class="bg-background/80 hover:bg-background absolute left-2 rounded-full shadow-md"
             aria-label="Previous image"
             @click="prev"
           >
             <Icon name="lucide:chevron-left" class="size-5" />
-          </button>
-          <button
+          </Button>
+          <Button
             v-if="images.length > 1"
-            type="button"
-            class="bg-background/80 hover:bg-background absolute right-2 rounded-full p-2 shadow-md"
+            variant="ghost"
+            size="icon"
+            class="bg-background/80 hover:bg-background absolute right-2 rounded-full shadow-md"
             aria-label="Next image"
             @click="next"
           >
             <Icon name="lucide:chevron-right" class="size-5" />
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
