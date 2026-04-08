@@ -1,24 +1,25 @@
 <script setup lang="ts">
 import { Badge } from '~/components/ui/badge';
 import { Input } from '~/components/ui/input';
-import { useQuotesStore } from '~/stores/quotes';
-import type { QuoteStatus } from '#shared/types/quote';
+import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
 
 definePageMeta({ middleware: 'auth' });
 
 const { t } = useI18n();
-const quotesStore = useQuotesStore();
+
+const { data, pending, error, refresh } = useFetch<{
+  quotes: QuoteListItem[];
+  total: number;
+}>('/api/quotes', { dedupe: 'defer' });
+
+const allQuotes = computed(() => data.value?.quotes ?? []);
 
 const searchQuery = ref('');
 
-onMounted(() => {
-  quotesStore.fetchQuotes();
-});
-
 const filteredQuotes = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
-  if (!q) return quotesStore.quotes;
-  return quotesStore.quotes.filter(
+  if (!q) return allQuotes.value;
+  return allQuotes.value.filter(
     (quote) =>
       quote.quoteNumber.toLowerCase().includes(q) ||
       quote.contactName.toLowerCase().includes(q),
@@ -81,11 +82,29 @@ function getStatusLabel(status: QuoteStatus): string {
 
     <!-- Loading state -->
     <div
-      v-if="quotesStore.isLoading"
+      v-if="pending"
       data-testid="quotations-loading"
       class="text-muted-foreground py-12 text-center text-sm"
     >
       {{ t('portal.quotations.title') }}...
+    </div>
+
+    <!-- Error state -->
+    <div
+      v-else-if="error"
+      data-testid="quotations-error"
+      class="py-12 text-center"
+    >
+      <p class="text-muted-foreground mb-4 text-sm">
+        {{ t('portal.quotations.error_loading') }}
+      </p>
+      <button
+        data-testid="quotations-retry"
+        class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+        @click="refresh()"
+      >
+        {{ t('portal.quotations.retry') }}
+      </button>
     </div>
 
     <!-- Empty state -->
