@@ -52,13 +52,15 @@ export function useSomething() {
 
 ## Existing Composables
 
-| Composable              | Purpose                   | When to Use                      |
-| ----------------------- | ------------------------- | -------------------------------- |
-| `useTenant()`           | Tenant config access      | Any tenant-aware component       |
-| `useTenantTheme()`      | Theme colors/typography   | Styling that needs theme values  |
-| `useFeatureAccess()`    | Feature access evaluation | Gating UI/routes by access rules |
-| `useErrorTracking()`    | Error reporting           | Error boundaries, try/catch      |
-| `useAnalyticsConsent()` | Analytics consent state   | Cookie banner, analytics gating  |
+| Composable              | Purpose                   | When to Use                       |
+| ----------------------- | ------------------------- | --------------------------------- |
+| `useTenant()`           | Tenant config access      | Any tenant-aware component        |
+| `useTenantTheme()`      | Theme colors/typography   | Styling that needs theme values   |
+| `useFeatureAccess()`    | Feature access evaluation | Gating UI/routes by access rules  |
+| `useErrorTracking()`    | Error reporting           | Error boundaries, try/catch       |
+| `useAnalyticsConsent()` | Analytics consent state   | Cookie banner, analytics gating   |
+| `useImpersonation()`    | Admin impersonation state | Spoofed-by cookie detection       |
+| `useCmsPreview()`       | CMS preview mode toggle   | Preview enter/exit, Studio iframe |
 
 ## API Data in Composables
 
