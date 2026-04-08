@@ -71,6 +71,7 @@ vi.stubGlobal('ErrorCode', {
   NOT_FOUND: 'NOT_FOUND',
   RATE_LIMITED: 'RATE_LIMITED',
 });
+vi.stubGlobal('setResponseHeader', vi.fn());
 vi.stubGlobal('getRouterParam', vi.fn());
 vi.stubGlobal('getQuery', vi.fn());
 vi.stubGlobal(

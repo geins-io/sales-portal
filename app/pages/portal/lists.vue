@@ -111,13 +111,14 @@ async function handleCreateList() {
       <p class="text-muted-foreground mb-4 text-sm">
         {{ t('portal.saved_lists.error_loading') }}
       </p>
-      <button
+      <Button
         data-testid="saved-lists-retry"
-        class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+        variant="link"
+        size="sm"
         @click="refresh()"
       >
         {{ t('portal.saved_lists.retry') }}
-      </button>
+      </Button>
     </div>
 
     <!-- Empty state -->

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Button } from '~/components/ui/button';
 import { useFavoritesStore } from '~/stores/favorites';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'wishlist' });
@@ -34,13 +35,15 @@ const favoritesStore = useFavoritesStore();
       <!-- Favorites list -->
       <div v-else>
         <div class="mt-4 flex justify-end">
-          <button
+          <Button
             data-testid="favorites-clear-all"
-            class="text-destructive hover:text-destructive/80 text-sm font-medium"
+            variant="ghost"
+            size="sm"
+            class="text-destructive hover:text-destructive/80"
             @click="favoritesStore.clear()"
           >
             {{ t('portal.favorites.clear_all') }}
-          </button>
+          </Button>
         </div>
 
         <ul data-testid="favorites-list" class="mt-4 divide-y">
@@ -56,13 +59,15 @@ const favoritesStore = useFavoritesStore();
             >
               {{ alias }}
             </NuxtLink>
-            <button
+            <Button
               data-testid="favorite-remove"
-              class="text-muted-foreground hover:text-destructive text-sm"
+              variant="ghost"
+              size="sm"
+              class="text-muted-foreground hover:text-destructive"
               @click="favoritesStore.remove(alias)"
             >
               {{ t('portal.favorites.remove') }}
-            </button>
+            </Button>
           </li>
         </ul>
       </div>

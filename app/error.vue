@@ -45,8 +45,7 @@ const handleError = () => {
 };
 
 const handleBack = () => {
-  // Try to go back in history, or go home if no history
-  if (window.history.length > 1) {
+  if (import.meta.client && window.history.length > 1) {
     window.history.back();
   } else {
     clearError({ redirect: homePath.value });

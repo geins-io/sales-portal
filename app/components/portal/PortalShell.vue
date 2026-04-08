@@ -116,7 +116,8 @@ function isActiveTab(tab: PortalTab): boolean {
 
 async function handleLogout() {
   await authStore.logout();
-  navigateTo(localePath('/'));
+  // Force full page reload to clear all cached useFetch/useAsyncData state
+  navigateTo(localePath('/'), { external: true });
 }
 </script>
 

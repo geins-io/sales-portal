@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PurchasedProduct } from '#shared/types/commerce';
+import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 
 definePageMeta({ middleware: 'auth' });
@@ -116,13 +117,14 @@ watch(pageSize, () => {
       <p class="text-muted-foreground mb-4 text-sm">
         {{ t('portal.purchased_products.error_loading') }}
       </p>
-      <button
+      <Button
         data-testid="products-retry"
-        class="text-primary hover:text-primary/80 focus-visible:ring-ring rounded text-sm font-medium focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+        variant="link"
+        size="sm"
         @click="refresh()"
       >
         {{ t('portal.purchased_products.retry') }}
-      </button>
+      </Button>
     </div>
 
     <!-- Empty state -->
@@ -188,24 +190,28 @@ watch(pageSize, () => {
             }}
           </span>
           <div class="flex items-center gap-1">
-            <button
+            <Button
               data-testid="products-previous"
-              class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
+              variant="ghost"
+              size="icon"
+              class="size-8"
               :disabled="currentPage <= 1"
               :aria-label="t('portal.purchased_products.pagination.previous')"
               @click="goToPage(currentPage - 1)"
             >
               <Icon name="lucide:chevron-left" class="size-4" />
-            </button>
-            <button
+            </Button>
+            <Button
               data-testid="products-next"
-              class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded p-1 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
+              variant="ghost"
+              size="icon"
+              class="size-8"
               :disabled="currentPage >= totalPages"
               :aria-label="t('portal.purchased_products.pagination.next')"
               @click="goToPage(currentPage + 1)"
             >
               <Icon name="lucide:chevron-right" class="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </div>

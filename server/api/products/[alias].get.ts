@@ -21,6 +21,14 @@ export default defineEventHandler(async (event) => {
   const { alias: validatedAlias } = ProductAliasSchema.parse({ alias });
   const auth = await optionalAuth(event);
 
+  setResponseHeader(
+    event,
+    'Cache-Control',
+    auth?.authToken
+      ? 'private, no-cache'
+      : 'public, s-maxage=60, stale-while-revalidate=600',
+  );
+
   return withErrorHandling(
     async () => {
       const product = await getProduct(
