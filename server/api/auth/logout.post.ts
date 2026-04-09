@@ -3,6 +3,8 @@ import * as authService from '../../services/auth';
 export default defineEventHandler(async (event) => {
   // Clear cookies first — always succeeds
   clearAuthCookies(event);
+  clearSpoofedByCookie(event);
+  clearPreviewCookie(event);
 
   // Best-effort server-side logout — don't fail if Geins API errors
   try {
