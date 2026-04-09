@@ -200,25 +200,31 @@ async function handleLogout() {
       </div>
 
       <!-- Tab Navigation -->
-      <nav
-        data-testid="portal-tabs"
-        class="border-border mt-6 flex gap-1 overflow-x-auto border-b"
-      >
-        <NuxtLink
-          v-for="tab in visibleTabs"
-          :key="tab.key"
-          :to="localePath(tab.to)"
-          class="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors"
-          :class="
-            isActiveTab(tab)
-              ? 'border-primary text-foreground'
-              : 'text-muted-foreground hover:text-foreground hover:border-border border-transparent'
-          "
+      <div class="relative mt-6">
+        <nav
+          data-testid="portal-tabs"
+          class="border-border scrollbar-none flex gap-1 overflow-x-auto border-b"
         >
-          <Icon :name="tab.icon" class="size-4" />
-          {{ t(tab.label) }}
-        </NuxtLink>
-      </nav>
+          <NuxtLink
+            v-for="tab in visibleTabs"
+            :key="tab.key"
+            :to="localePath(tab.to)"
+            class="flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium whitespace-nowrap transition-colors md:px-4"
+            :class="
+              isActiveTab(tab)
+                ? 'border-primary text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:border-border border-transparent'
+            "
+          >
+            <Icon :name="tab.icon" class="hidden size-4 md:block" />
+            {{ t(tab.label) }}
+          </NuxtLink>
+        </nav>
+        <!-- Scroll hint fade on mobile -->
+        <div
+          class="from-background pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l md:hidden"
+        />
+      </div>
 
       <!-- Page Content -->
       <div class="py-8">

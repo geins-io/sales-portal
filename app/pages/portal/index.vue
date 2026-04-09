@@ -188,68 +188,104 @@ function getProductPrice(product: PurchasedProduct): string {
             {{ t('portal.overview.view_all') }}
           </NuxtLink>
         </div>
-        <div class="overflow-x-auto">
-          <table data-testid="pending-quotations-table" class="w-full text-sm">
-            <thead>
-              <tr class="border-border border-b text-left">
-                <th class="py-3 pr-4 font-medium">
-                  {{ t('portal.quotations.quote_number') }}
-                </th>
-                <th class="py-3 pr-4 font-medium">
-                  {{ t('portal.quotations.created') }}
-                </th>
-                <th class="py-3 pr-4 font-medium">
-                  {{ t('portal.quotations.status') }}
-                </th>
-                <th class="py-3 pr-4 font-medium">
-                  {{ t('portal.quotations.total') }}
-                </th>
-                <th class="py-3 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="recentPendingQuotes.length === 0">
-                <td
-                  colspan="5"
-                  data-testid="pending-quotations-empty"
-                  class="text-muted-foreground py-6 text-center text-sm"
-                >
-                  {{ t('portal.overview.no_quotations') }}
-                </td>
-              </tr>
-              <tr
-                v-for="quote in recentPendingQuotes"
-                :key="quote.id"
-                data-testid="pending-quote-row"
-                class="border-border hover:bg-muted/50 border-b transition-colors"
-              >
-                <td class="py-3 pr-4 font-medium">
-                  {{ quote.quoteNumber }}
-                </td>
-                <td class="py-3 pr-4">
-                  {{ formatDate(quote.createdAt) }}
-                </td>
-                <td class="py-3 pr-4">
-                  <span
-                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-                    :class="getStatusClasses(quote.status)"
-                  >
-                    {{ getStatusLabel(quote.status) }}
-                  </span>
-                </td>
-                <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
-                <td class="py-3">
-                  <NuxtLink
-                    :to="localePath(`/portal/quotations/${quote.id}`)"
-                    class="text-primary hover:text-primary/80 text-sm font-medium"
-                  >
-                    {{ t('portal.quotations.view') }}
-                  </NuxtLink>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Mobile cards -->
+        <div
+          v-if="recentPendingQuotes.length === 0"
+          data-testid="pending-quotations-empty"
+          class="text-muted-foreground py-6 text-center text-sm"
+        >
+          {{ t('portal.overview.no_quotations') }}
         </div>
+        <template v-else>
+          <!-- Mobile cards -->
+          <div
+            class="space-y-2 md:hidden"
+            data-testid="pending-quotations-table"
+          >
+            <NuxtLink
+              v-for="quote in recentPendingQuotes"
+              :key="quote.id"
+              :to="localePath(`/portal/quotations/${quote.id}`)"
+              data-testid="pending-quote-row"
+              class="hover:bg-muted/50 flex items-center justify-between rounded-lg border p-3 transition-colors"
+            >
+              <div>
+                <div class="text-sm font-medium">{{ quote.quoteNumber }}</div>
+                <div class="text-muted-foreground text-xs">
+                  {{ formatDate(quote.createdAt) }}
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-medium">
+                  {{ quote.totalFormatted }}
+                </div>
+                <span
+                  class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="getStatusClasses(quote.status)"
+                >
+                  {{ getStatusLabel(quote.status) }}
+                </span>
+              </div>
+            </NuxtLink>
+          </div>
+          <!-- Desktop table -->
+          <div class="hidden overflow-x-auto md:block">
+            <table
+              data-testid="pending-quotations-table"
+              class="w-full text-sm"
+            >
+              <thead>
+                <tr class="border-border border-b text-left">
+                  <th class="py-3 pr-4 font-medium">
+                    {{ t('portal.quotations.quote_number') }}
+                  </th>
+                  <th class="py-3 pr-4 font-medium">
+                    {{ t('portal.quotations.created') }}
+                  </th>
+                  <th class="py-3 pr-4 font-medium">
+                    {{ t('portal.quotations.status') }}
+                  </th>
+                  <th class="py-3 pr-4 font-medium">
+                    {{ t('portal.quotations.total') }}
+                  </th>
+                  <th class="py-3 font-medium" />
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="quote in recentPendingQuotes"
+                  :key="quote.id"
+                  data-testid="pending-quote-row"
+                  class="border-border hover:bg-muted/50 border-b transition-colors"
+                >
+                  <td class="py-3 pr-4 font-medium">
+                    {{ quote.quoteNumber }}
+                  </td>
+                  <td class="py-3 pr-4">
+                    {{ formatDate(quote.createdAt) }}
+                  </td>
+                  <td class="py-3 pr-4">
+                    <span
+                      class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                      :class="getStatusClasses(quote.status)"
+                    >
+                      {{ getStatusLabel(quote.status) }}
+                    </span>
+                  </td>
+                  <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
+                  <td class="py-3">
+                    <NuxtLink
+                      :to="localePath(`/portal/quotations/${quote.id}`)"
+                      class="text-primary hover:text-primary/80 text-sm font-medium"
+                    >
+                      {{ t('portal.quotations.view') }}
+                    </NuxtLink>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
       </div>
 
       <!-- Your Lists mini-table -->
@@ -271,53 +307,76 @@ function getProductPrice(product: PurchasedProduct): string {
         >
           {{ t('common.loading') }}
         </div>
-        <div v-else class="overflow-x-auto">
-          <table data-testid="your-lists-table" class="w-full text-sm">
-            <thead>
-              <tr class="border-border border-b text-left">
-                <th class="py-3 pr-4 font-medium">
-                  {{ t('portal.saved_lists.columns.name') }}
-                </th>
-                <th class="py-3 pr-4 font-medium">
-                  {{ t('portal.saved_lists.columns.modified') }}
-                </th>
-                <th class="py-3 pr-4 font-medium">
-                  {{ t('portal.saved_lists.columns.products') }}
-                </th>
-                <th class="py-3 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="recentLists.length === 0">
-                <td
-                  colspan="4"
-                  data-testid="your-lists-empty"
-                  class="text-muted-foreground py-6 text-center text-sm"
-                >
-                  {{ t('portal.overview.no_lists') }}
-                </td>
-              </tr>
-              <tr
-                v-for="list in recentLists"
-                :key="list.id"
-                data-testid="your-list-row"
-                class="border-border hover:bg-muted/50 border-b transition-colors"
-              >
-                <td class="py-3 pr-4">{{ list.name }}</td>
-                <td class="py-3 pr-4">{{ formatDate(list.updatedAt) }}</td>
-                <td class="py-3 pr-4">{{ list.items?.length ?? 0 }}</td>
-                <td class="py-3">
-                  <NuxtLink
-                    :to="localePath(`/portal/saved-lists/${list.id}`)"
-                    class="text-primary hover:text-primary/80 text-sm font-medium"
-                  >
-                    {{ t('portal.quotations.view') }}
-                  </NuxtLink>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div
+          v-else-if="recentLists.length === 0"
+          data-testid="your-lists-empty"
+          class="text-muted-foreground py-6 text-center text-sm"
+        >
+          {{ t('portal.overview.no_lists') }}
         </div>
+        <template v-else>
+          <!-- Mobile cards -->
+          <div class="space-y-2 md:hidden" data-testid="your-lists-table">
+            <NuxtLink
+              v-for="list in recentLists"
+              :key="list.id"
+              :to="localePath(`/portal/saved-lists/${list.id}`)"
+              data-testid="your-list-row"
+              class="hover:bg-muted/50 flex items-center justify-between rounded-lg border p-3 transition-colors"
+            >
+              <div>
+                <div class="text-sm font-medium">{{ list.name }}</div>
+                <div class="text-muted-foreground text-xs">
+                  {{ list.items?.length ?? 0 }}
+                  {{ t('portal.saved_lists.columns.products').toLowerCase() }}
+                </div>
+              </div>
+              <Icon
+                name="lucide:chevron-right"
+                class="text-muted-foreground size-4"
+              />
+            </NuxtLink>
+          </div>
+          <!-- Desktop table -->
+          <div class="hidden overflow-x-auto md:block">
+            <table data-testid="your-lists-table" class="w-full text-sm">
+              <thead>
+                <tr class="border-border border-b text-left">
+                  <th class="py-3 pr-4 font-medium">
+                    {{ t('portal.saved_lists.columns.name') }}
+                  </th>
+                  <th class="py-3 pr-4 font-medium">
+                    {{ t('portal.saved_lists.columns.modified') }}
+                  </th>
+                  <th class="py-3 pr-4 font-medium">
+                    {{ t('portal.saved_lists.columns.products') }}
+                  </th>
+                  <th class="py-3 font-medium" />
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="list in recentLists"
+                  :key="list.id"
+                  data-testid="your-list-row"
+                  class="border-border hover:bg-muted/50 border-b transition-colors"
+                >
+                  <td class="py-3 pr-4">{{ list.name }}</td>
+                  <td class="py-3 pr-4">{{ formatDate(list.updatedAt) }}</td>
+                  <td class="py-3 pr-4">{{ list.items?.length ?? 0 }}</td>
+                  <td class="py-3">
+                    <NuxtLink
+                      :to="localePath(`/portal/saved-lists/${list.id}`)"
+                      class="text-primary hover:text-primary/80 text-sm font-medium"
+                    >
+                      {{ t('portal.quotations.view') }}
+                    </NuxtLink>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
       </div>
     </div>
 

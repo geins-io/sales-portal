@@ -81,7 +81,9 @@ describe('SavedListsTable', () => {
       props: { lists: mockLists },
       global: { stubs: defaultStubs },
     });
-    const rows = wrapper.findAll('[data-testid="saved-list-row"]');
+    const rows = wrapper
+      .find('table')
+      .findAll('[data-testid="saved-list-row"]');
     expect(rows.length).toBe(2);
   });
 

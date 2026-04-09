@@ -14,6 +14,13 @@ ADRs document significant architectural decisions with context and consequences.
 | 006 | [Cookie utility module](006-cookie-utility-module.md)                              | accepted | 2026-02-10 |
 | 007 | [Tenant config schema & service layer](007-tenant-config-schema-service-layer.md)  | accepted | 2026-02-11 |
 | 008 | [SEO Foundation with @nuxtjs/seo](008-seo-foundation.md)                           | accepted | 2026-02-12 |
+| 009 | [Webhook-based config cache invalidation](009-webhook-cache-invalidation.md)       | accepted | 2026-02-16 |
+| 010 | [Navigation performance optimizations](010-navigation-performance.md)              | accepted | 2026-02-16 |
+| 011 | [CMS Menu Integration](011-cms-menu-integration.md)                                | accepted | 2026-02-23 |
+| 012 | [CMS page layout variants driven by pageArea](012-cms-page-layout-variants.md)     | accepted | 2026-02-26 |
+| 013 | [Configurable Checkout Mode (Hosted vs Custom)](013-configurable-checkout-mode.md) | accepted | 2026-03-15 |
+| 014 | [CMS Caching Strategy](014-caching-strategy.md)                                    | accepted | 2026-03-20 |
+| 015 | [Type-prefixed routing](015-type-prefixed-routing.md)                              | accepted | 2026-03-30 |
 
 ## Adding New ADRs
 

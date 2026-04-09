@@ -171,7 +171,9 @@ describe('PortalQuotations page', () => {
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
-      const rows = wrapper.findAll('[data-testid="quotation-row"]');
+      const rows = wrapper
+        .find('table')
+        .findAll('[data-testid="quotation-row"]');
       expect(rows).toHaveLength(3);
     });
 
@@ -183,9 +185,9 @@ describe('PortalQuotations page', () => {
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
-      expect(wrapper.find('[data-testid="quotation-row"]').text()).toContain(
-        'Q-2024-042',
-      );
+      expect(
+        wrapper.find('table').find('[data-testid="quotation-row"]').text(),
+      ).toContain('Q-2024-042');
     });
 
     it('displays contact name in each row', () => {
@@ -196,9 +198,9 @@ describe('PortalQuotations page', () => {
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
-      expect(wrapper.find('[data-testid="quotation-row"]').text()).toContain(
-        'John Smith',
-      );
+      expect(
+        wrapper.find('table').find('[data-testid="quotation-row"]').text(),
+      ).toContain('John Smith');
     });
 
     it('displays formatted total in each row', () => {
@@ -209,9 +211,9 @@ describe('PortalQuotations page', () => {
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
-      expect(wrapper.find('[data-testid="quotation-row"]').text()).toContain(
-        '2 500,00 kr',
-      );
+      expect(
+        wrapper.find('table').find('[data-testid="quotation-row"]').text(),
+      ).toContain('2 500,00 kr');
     });
 
     it('renders a view link for each quote', () => {
@@ -333,7 +335,9 @@ describe('PortalQuotations page', () => {
       const wrapper = mountComponent(PortalQuotations, {
         global: { stubs: defaultStubs },
       });
-      const rows = wrapper.findAll('[data-testid="quotation-row"]');
+      const rows = wrapper
+        .find('table')
+        .findAll('[data-testid="quotation-row"]');
       expect(rows).toHaveLength(2);
     });
 
@@ -350,7 +354,9 @@ describe('PortalQuotations page', () => {
       });
       const input = wrapper.find('[data-testid="quotations-search"]');
       await input.setValue('Q-2024-001');
-      const rows = wrapper.findAll('[data-testid="quotation-row"]');
+      const rows = wrapper
+        .find('table')
+        .findAll('[data-testid="quotation-row"]');
       expect(rows).toHaveLength(1);
     });
 
@@ -367,7 +373,9 @@ describe('PortalQuotations page', () => {
       });
       const input = wrapper.find('[data-testid="quotations-search"]');
       await input.setValue('Alice');
-      const rows = wrapper.findAll('[data-testid="quotation-row"]');
+      const rows = wrapper
+        .find('table')
+        .findAll('[data-testid="quotation-row"]');
       expect(rows).toHaveLength(1);
       expect(rows[0]!.text()).toContain('Alice Anderson');
     });
@@ -382,7 +390,9 @@ describe('PortalQuotations page', () => {
       });
       const input = wrapper.find('[data-testid="quotations-search"]');
       await input.setValue('jane');
-      const rows = wrapper.findAll('[data-testid="quotation-row"]');
+      const rows = wrapper
+        .find('table')
+        .findAll('[data-testid="quotation-row"]');
       expect(rows).toHaveLength(1);
     });
 

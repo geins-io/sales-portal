@@ -51,61 +51,102 @@ function handleSortProduct() {
       {{ t('portal.purchased_products.no_products') }}
     </div>
 
-    <!-- Products table -->
-    <table v-else class="w-full text-sm">
-      <thead>
-        <tr class="border-border border-b text-left">
-          <th
-            class="cursor-pointer py-3 pr-4 font-medium select-none"
-            data-testid="sort-product"
-            @click="handleSortProduct"
-          >
-            {{ t('portal.purchased_products.columns.product') }}
-            <span v-if="sortDirection === 'asc'" class="ml-1">&#9650;</span>
-            <span v-else-if="sortDirection === 'desc'" class="ml-1"
-              >&#9660;</span
-            >
-          </th>
-          <th class="py-3 pr-4 font-medium">
-            {{ t('portal.purchased_products.columns.article_number') }}
-          </th>
-          <th class="py-3 pr-4 font-medium">
-            {{ t('portal.purchased_products.columns.price_ex_vat') }}
-          </th>
-          <th class="py-3 pr-4 font-medium">
-            {{ t('portal.purchased_products.columns.total_ordered') }}
-          </th>
-          <th class="py-3 pr-4 font-medium">
-            {{ t('portal.purchased_products.columns.latest_order') }}
-          </th>
-          <th class="py-3 font-medium">
-            {{ t('portal.purchased_products.columns.latest_buyer') }}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
+    <template v-else>
+      <!-- Mobile card view -->
+      <div class="space-y-3 md:hidden">
+        <div
           v-for="product in products"
           :key="product.articleNumber"
           data-testid="product-row"
-          class="border-border hover:bg-muted/50 border-b transition-colors"
+          class="border-border rounded-lg border p-4"
         >
-          <td class="py-3 pr-4">{{ product.name }}</td>
-          <td class="py-3 pr-4">{{ product.articleNumber }}</td>
-          <td class="py-3 pr-4">{{ getPrice(product) }}</td>
-          <td class="py-3 pr-4">{{ product.totalQuantity }}</td>
-          <td class="py-3 pr-4">
+          <div class="mb-1 font-medium">{{ product.name }}</div>
+          <div class="text-muted-foreground mb-2 text-xs">
+            {{ product.articleNumber }}
+          </div>
+          <div class="text-muted-foreground grid grid-cols-2 gap-1 text-sm">
+            <span>{{
+              t('portal.purchased_products.columns.price_ex_vat')
+            }}</span>
+            <span class="text-foreground text-right">{{
+              getPrice(product)
+            }}</span>
+            <span>{{
+              t('portal.purchased_products.columns.total_ordered')
+            }}</span>
+            <span class="text-foreground text-right">{{
+              product.totalQuantity
+            }}</span>
+            <span>{{
+              t('portal.purchased_products.columns.latest_order')
+            }}</span>
             <NuxtLink
               :to="getOrderLink(product)"
-              class="text-primary hover:text-primary/80 text-sm font-medium"
+              class="text-primary text-right text-sm"
               data-testid="order-link"
             >
               {{ formatDate(product.latestOrderDate) }}
             </NuxtLink>
-          </td>
-          <td class="py-3">{{ product.latestBuyerName }}</td>
-        </tr>
-      </tbody>
-    </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop table -->
+      <table class="hidden w-full text-sm md:table">
+        <thead>
+          <tr class="border-border border-b text-left">
+            <th
+              class="cursor-pointer py-3 pr-4 font-medium select-none"
+              data-testid="sort-product"
+              @click="handleSortProduct"
+            >
+              {{ t('portal.purchased_products.columns.product') }}
+              <span v-if="sortDirection === 'asc'" class="ml-1">&#9650;</span>
+              <span v-else-if="sortDirection === 'desc'" class="ml-1"
+                >&#9660;</span
+              >
+            </th>
+            <th class="py-3 pr-4 font-medium">
+              {{ t('portal.purchased_products.columns.article_number') }}
+            </th>
+            <th class="py-3 pr-4 font-medium">
+              {{ t('portal.purchased_products.columns.price_ex_vat') }}
+            </th>
+            <th class="py-3 pr-4 font-medium">
+              {{ t('portal.purchased_products.columns.total_ordered') }}
+            </th>
+            <th class="py-3 pr-4 font-medium">
+              {{ t('portal.purchased_products.columns.latest_order') }}
+            </th>
+            <th class="py-3 font-medium">
+              {{ t('portal.purchased_products.columns.latest_buyer') }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="product in products"
+            :key="product.articleNumber"
+            data-testid="product-row"
+            class="border-border hover:bg-muted/50 border-b transition-colors"
+          >
+            <td class="py-3 pr-4">{{ product.name }}</td>
+            <td class="py-3 pr-4">{{ product.articleNumber }}</td>
+            <td class="py-3 pr-4">{{ getPrice(product) }}</td>
+            <td class="py-3 pr-4">{{ product.totalQuantity }}</td>
+            <td class="py-3 pr-4">
+              <NuxtLink
+                :to="getOrderLink(product)"
+                class="text-primary hover:text-primary/80 text-sm font-medium"
+                data-testid="order-link"
+              >
+                {{ formatDate(product.latestOrderDate) }}
+              </NuxtLink>
+            </td>
+            <td class="py-3">{{ product.latestBuyerName }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </template>
   </div>
 </template>

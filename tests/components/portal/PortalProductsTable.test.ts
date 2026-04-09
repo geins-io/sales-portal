@@ -37,7 +37,7 @@ describe('PortalProductsTable', () => {
     expect(wrapper.find('[data-testid="portal-products-table"]').exists()).toBe(
       true,
     );
-    const rows = wrapper.findAll('[data-testid="product-row"]');
+    const rows = wrapper.find('table').findAll('[data-testid="product-row"]');
     expect(rows.length).toBe(2);
   });
 
@@ -95,7 +95,7 @@ describe('PortalProductsTable', () => {
         sortDirection: 'asc',
       },
     });
-    const links = wrapper.findAll('[data-testid="order-link"]');
+    const links = wrapper.find('table').findAll('[data-testid="order-link"]');
     expect(links.length).toBe(2);
     expect(links[0].attributes('href')).toContain('order-abc-123');
   });
