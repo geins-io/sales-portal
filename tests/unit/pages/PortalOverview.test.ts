@@ -277,7 +277,9 @@ describe('Portal Overview page', () => {
       global: { stubs },
     });
 
-    const rows = wrapper.findAll('[data-testid="pending-quote-row"]');
+    const rows = wrapper
+      .find('table')
+      .findAll('[data-testid="pending-quote-row"]');
     expect(rows).toHaveLength(2);
   });
 
@@ -298,7 +300,7 @@ describe('Portal Overview page', () => {
       global: { stubs },
     });
 
-    const row = wrapper.find('[data-testid="pending-quote-row"]');
+    const row = wrapper.find('table').find('[data-testid="pending-quote-row"]');
     expect(row.text()).toContain('Q-1001');
     expect(row.text()).toContain('$500.00');
   });
@@ -360,7 +362,9 @@ describe('Portal Overview page', () => {
       global: { stubs },
     });
 
-    const rows = wrapper.findAll('[data-testid="pending-quote-row"]');
+    const rows = wrapper
+      .find('table')
+      .findAll('[data-testid="pending-quote-row"]');
     expect(rows).toHaveLength(5);
   });
 

@@ -115,66 +115,94 @@ function handleSortCreated() {
       {{ t('portal.overview.no_orders') }}
     </div>
 
-    <!-- Orders table -->
-    <table v-else class="w-full text-sm">
-      <thead>
-        <tr class="border-border border-b text-left">
-          <th class="py-3 pr-4 font-medium">
-            {{ t('portal.orders.columns.id') }}
-          </th>
-          <th
-            class="cursor-pointer py-3 pr-4 font-medium select-none"
-            data-testid="sort-created"
-            @click="handleSortCreated"
-          >
-            {{ t('portal.orders.columns.created') }}
-            <span v-if="sortDirection === 'asc'" class="ml-1">&#9650;</span>
-            <span v-else-if="sortDirection === 'desc'" class="ml-1"
-              >&#9660;</span
-            >
-          </th>
-          <th class="py-3 pr-4 font-medium">
-            {{ t('portal.orders.columns.placed_by') }}
-          </th>
-          <th class="py-3 pr-4 font-medium">
-            {{ t('portal.orders.columns.type') }}
-          </th>
-          <th class="py-3 pr-4 font-medium">
-            {{ t('portal.orders.columns.sum') }}
-          </th>
-          <th class="py-3 pr-4 font-medium">
-            {{ t('portal.orders.columns.status') }}
-          </th>
-          <th class="py-3 font-medium" />
-        </tr>
-      </thead>
-      <tbody>
-        <tr
+    <template v-else>
+      <!-- Mobile card view -->
+      <div class="space-y-3 md:hidden">
+        <NuxtLink
           v-for="order in limit ? orders.slice(0, limit) : orders"
           :key="order.id ?? undefined"
-          class="border-border hover:bg-muted/50 border-b transition-colors"
+          :to="getOrderLink(order)"
+          class="border-border hover:bg-muted/50 block rounded-lg border p-4 transition-colors"
         >
-          <td class="py-3 pr-4">{{ order.id }}</td>
-          <td class="py-3 pr-4">{{ formatDate(order.createdAt) }}</td>
-          <td class="py-3 pr-4">{{ getPlacedBy(order) }}</td>
-          <td class="py-3 pr-4">{{ t('portal.orders.type_web') }}</td>
-          <td class="py-3 pr-4">{{ getTotal(order) }}</td>
-          <td class="py-3 pr-4">
+          <div class="mb-2 flex items-center justify-between">
+            <span class="font-medium">#{{ order.id }}</span>
             <Badge :variant="getStatusVariant(order.status)">
               {{ t(getStatusKey(order.status)) }}
             </Badge>
-          </td>
-          <td class="py-3">
-            <NuxtLink
-              :to="getOrderLink(order)"
-              class="text-primary hover:text-primary/80 text-sm font-medium"
-              data-testid="order-view-link"
+          </div>
+          <div class="text-muted-foreground space-y-1 text-sm">
+            <div class="flex justify-between">
+              <span>{{ formatDate(order.createdAt) }}</span>
+              <span class="text-foreground font-medium">{{
+                getTotal(order)
+              }}</span>
+            </div>
+            <div>{{ getPlacedBy(order) }}</div>
+          </div>
+        </NuxtLink>
+      </div>
+
+      <!-- Desktop table -->
+      <table class="hidden w-full text-sm md:table">
+        <thead>
+          <tr class="border-border border-b text-left">
+            <th class="py-3 pr-4 font-medium">
+              {{ t('portal.orders.columns.id') }}
+            </th>
+            <th
+              class="cursor-pointer py-3 pr-4 font-medium select-none"
+              data-testid="sort-created"
+              @click="handleSortCreated"
             >
-              {{ t('portal.orders.view') }}
-            </NuxtLink>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+              {{ t('portal.orders.columns.created') }}
+              <span v-if="sortDirection === 'asc'" class="ml-1">&#9650;</span>
+              <span v-else-if="sortDirection === 'desc'" class="ml-1"
+                >&#9660;</span
+              >
+            </th>
+            <th class="py-3 pr-4 font-medium">
+              {{ t('portal.orders.columns.placed_by') }}
+            </th>
+            <th class="py-3 pr-4 font-medium">
+              {{ t('portal.orders.columns.type') }}
+            </th>
+            <th class="py-3 pr-4 font-medium">
+              {{ t('portal.orders.columns.sum') }}
+            </th>
+            <th class="py-3 pr-4 font-medium">
+              {{ t('portal.orders.columns.status') }}
+            </th>
+            <th class="py-3 font-medium" />
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="order in limit ? orders.slice(0, limit) : orders"
+            :key="order.id ?? undefined"
+            class="border-border hover:bg-muted/50 border-b transition-colors"
+          >
+            <td class="py-3 pr-4">{{ order.id }}</td>
+            <td class="py-3 pr-4">{{ formatDate(order.createdAt) }}</td>
+            <td class="py-3 pr-4">{{ getPlacedBy(order) }}</td>
+            <td class="py-3 pr-4">{{ t('portal.orders.type_web') }}</td>
+            <td class="py-3 pr-4">{{ getTotal(order) }}</td>
+            <td class="py-3 pr-4">
+              <Badge :variant="getStatusVariant(order.status)">
+                {{ t(getStatusKey(order.status)) }}
+              </Badge>
+            </td>
+            <td class="py-3">
+              <NuxtLink
+                :to="getOrderLink(order)"
+                class="text-primary hover:text-primary/80 text-sm font-medium"
+                data-testid="order-view-link"
+              >
+                {{ t('portal.orders.view') }}
+              </NuxtLink>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </template>
   </div>
 </template>

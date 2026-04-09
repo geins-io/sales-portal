@@ -26,7 +26,34 @@ function formatDate(dateStr: string | null | undefined): string {
 
 <template>
   <div data-testid="saved-lists-table">
-    <table class="w-full text-sm">
+    <!-- Mobile card view -->
+    <div class="space-y-3 md:hidden">
+      <NuxtLink
+        v-for="list in lists"
+        :key="list.id"
+        :to="localePath(`/portal/saved-lists/${list.id}`)"
+        data-testid="saved-list-row"
+        class="border-border hover:bg-muted/50 block rounded-lg border p-4 transition-colors"
+      >
+        <div class="mb-1 flex items-center justify-between">
+          <span class="font-medium">{{ list.name }}</span>
+          <Icon
+            name="lucide:chevron-right"
+            class="text-muted-foreground size-4"
+          />
+        </div>
+        <div class="text-muted-foreground flex gap-4 text-sm">
+          <span
+            >{{ list.items?.length ?? 0 }}
+            {{ t('portal.saved_lists.columns.products').toLowerCase() }}</span
+          >
+          <span>{{ formatDate(list.updatedAt) }}</span>
+        </div>
+      </NuxtLink>
+    </div>
+
+    <!-- Desktop table -->
+    <table class="hidden w-full text-sm md:table">
       <thead>
         <tr class="border-border border-b text-left">
           <th class="text-muted-foreground py-3 pr-4 font-medium">

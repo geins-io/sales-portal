@@ -118,60 +118,92 @@ function getStatusLabel(status: QuoteStatus): string {
       {{ t('portal.quotations.no_quotations') }}
     </div>
 
-    <!-- Quotations table -->
-    <div v-else class="overflow-x-auto">
-      <table data-testid="quotations-table" class="w-full text-sm">
-        <thead>
-          <tr class="border-border border-b text-left">
-            <th class="py-3 pr-4 font-medium">
-              {{ t('portal.quotations.quote_number') }}
-            </th>
-            <th class="py-3 pr-4 font-medium">
-              {{ t('portal.quotations.created') }}
-            </th>
-            <th class="py-3 pr-4 font-medium">
-              {{ t('portal.quotations.contact') }}
-            </th>
-            <th class="py-3 pr-4 font-medium">
-              {{ t('portal.quotations.total') }}
-            </th>
-            <th class="py-3 pr-4 font-medium">
-              {{ t('portal.quotations.status') }}
-            </th>
-            <th class="py-3 font-medium" />
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="quote in filteredQuotes"
-            :key="quote.id"
-            data-testid="quotation-row"
-            class="border-border hover:bg-muted/50 border-b transition-colors"
-          >
-            <td class="py-3 pr-4">{{ quote.quoteNumber }}</td>
-            <td class="py-3 pr-4">{{ formatDate(quote.createdAt) }}</td>
-            <td class="py-3 pr-4">{{ quote.contactName }}</td>
-            <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
-            <td class="py-3 pr-4">
-              <Badge
-                data-testid="quote-status-badge"
-                :variant="getStatusVariant(quote.status)"
-              >
-                {{ getStatusLabel(quote.status) }}
-              </Badge>
-            </td>
-            <td class="py-3">
-              <NuxtLink
-                :to="`/portal/quotations/${quote.id}`"
-                data-testid="quotation-view-link"
-                class="text-primary hover:text-primary/80 text-sm font-medium"
-              >
-                {{ t('portal.quotations.view') }}
-              </NuxtLink>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <template v-else>
+      <!-- Mobile card view -->
+      <div class="space-y-3 md:hidden" data-testid="quotations-table">
+        <NuxtLink
+          v-for="quote in filteredQuotes"
+          :key="quote.id"
+          :to="`/portal/quotations/${quote.id}`"
+          data-testid="quotation-row"
+          class="border-border hover:bg-muted/50 block rounded-lg border p-4 transition-colors"
+        >
+          <div class="mb-2 flex items-center justify-between">
+            <span class="font-medium">{{ quote.quoteNumber }}</span>
+            <Badge
+              data-testid="quote-status-badge"
+              :variant="getStatusVariant(quote.status)"
+            >
+              {{ getStatusLabel(quote.status) }}
+            </Badge>
+          </div>
+          <div class="text-muted-foreground space-y-1 text-sm">
+            <div class="flex justify-between">
+              <span>{{ formatDate(quote.createdAt) }}</span>
+              <span class="text-foreground font-medium">{{
+                quote.totalFormatted
+              }}</span>
+            </div>
+            <div>{{ quote.contactName }}</div>
+          </div>
+        </NuxtLink>
+      </div>
+
+      <!-- Desktop table -->
+      <div class="hidden overflow-x-auto md:block">
+        <table data-testid="quotations-table" class="w-full text-sm">
+          <thead>
+            <tr class="border-border border-b text-left">
+              <th class="py-3 pr-4 font-medium">
+                {{ t('portal.quotations.quote_number') }}
+              </th>
+              <th class="py-3 pr-4 font-medium">
+                {{ t('portal.quotations.created') }}
+              </th>
+              <th class="py-3 pr-4 font-medium">
+                {{ t('portal.quotations.contact') }}
+              </th>
+              <th class="py-3 pr-4 font-medium">
+                {{ t('portal.quotations.total') }}
+              </th>
+              <th class="py-3 pr-4 font-medium">
+                {{ t('portal.quotations.status') }}
+              </th>
+              <th class="py-3 font-medium" />
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="quote in filteredQuotes"
+              :key="quote.id"
+              data-testid="quotation-row"
+              class="border-border hover:bg-muted/50 border-b transition-colors"
+            >
+              <td class="py-3 pr-4">{{ quote.quoteNumber }}</td>
+              <td class="py-3 pr-4">{{ formatDate(quote.createdAt) }}</td>
+              <td class="py-3 pr-4">{{ quote.contactName }}</td>
+              <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
+              <td class="py-3 pr-4">
+                <Badge
+                  data-testid="quote-status-badge"
+                  :variant="getStatusVariant(quote.status)"
+                >
+                  {{ getStatusLabel(quote.status) }}
+                </Badge>
+              </td>
+              <td class="py-3">
+                <NuxtLink
+                  :to="`/portal/quotations/${quote.id}`"
+                  data-testid="quotation-view-link"
+                  class="text-primary hover:text-primary/80 text-sm font-medium"
+                >
+                  {{ t('portal.quotations.view') }}
+                </NuxtLink>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
   </PortalShell>
 </template>
