@@ -18,11 +18,13 @@ const mockOptionalAuth = vi.fn();
 const mockGetPreviewCookie = vi.fn();
 const mockGetAuthCookies = vi.fn();
 const mockClearAuthCookies = vi.fn();
+const mockGetSpoofedByCookie = vi.fn();
 
 vi.stubGlobal('optionalAuth', mockOptionalAuth);
 vi.stubGlobal('getPreviewCookie', mockGetPreviewCookie);
 vi.stubGlobal('getAuthCookies', mockGetAuthCookies);
 vi.stubGlobal('clearAuthCookies', mockClearAuthCookies);
+vi.stubGlobal('getSpoofedByCookie', mockGetSpoofedByCookie);
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
 vi.stubGlobal(
   'createAppError',
@@ -59,6 +61,7 @@ describe('GET /api/auth/me', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPreviewCookie.mockReturnValue(false);
+    mockGetSpoofedByCookie.mockReturnValue(undefined);
   });
 
   // -----------------------------------------------------------------------
@@ -167,6 +170,50 @@ describe('GET /api/auth/me', () => {
     mockGetPreviewCookie.mockReturnValue(true);
     mockGetAuthCookies.mockReturnValue({
       authToken: 'not-a-valid-jwt',
+      refreshToken: undefined,
+    });
+
+    const result = await handler(mockEvent);
+
+    expect(result).toEqual({ user: null });
+  });
+
+  // -----------------------------------------------------------------------
+  // Impersonation mode (login-as-customer) — spoofed-by cookie, no preview
+  // -----------------------------------------------------------------------
+  it('returns synthetic user from JWT when spoofed-by cookie is set', async () => {
+    const token = fakeJwt({
+      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name':
+        'customer@example.com',
+      CustomerType: 'ORGANIZATION',
+      MemberId: '42',
+      SpoofedBy: 'admin@example.com',
+    });
+
+    mockGetSpoofedByCookie.mockReturnValue('admin@example.com');
+    mockGetAuthCookies.mockReturnValue({
+      authToken: token,
+      refreshToken: undefined,
+    });
+
+    const result = await handler(mockEvent);
+
+    expect(result).toEqual({
+      user: {
+        username: 'customer@example.com',
+        customerType: 'ORGANIZATION',
+        memberId: '42',
+      },
+      spoofedBy: 'admin@example.com',
+    });
+    expect(mockOptionalAuth).not.toHaveBeenCalled();
+    expect(mockGetUser).not.toHaveBeenCalled();
+  });
+
+  it('returns null user in impersonation mode when no auth token', async () => {
+    mockGetSpoofedByCookie.mockReturnValue('admin@example.com');
+    mockGetAuthCookies.mockReturnValue({
+      authToken: undefined,
       refreshToken: undefined,
     });
 
