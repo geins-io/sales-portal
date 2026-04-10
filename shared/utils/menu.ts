@@ -1,5 +1,6 @@
 import type { MenuItemType } from '../types/cms';
 import { ROUTE_PATHS } from '../constants/route-paths';
+import { SUPPORTED_LOCALE_CODES } from '../utils/locale-market';
 
 /**
  * Geins type indicator → our route prefix mapping.
@@ -23,32 +24,45 @@ const GEINS_TYPE_MAP: Record<string, string> = {
  *   /se/sv/p/cat/product  → /p/cat/product  (product)
  *   /se/sv/about-us       → /about-us       (CMS page — no type indicator)
  *
- * Pattern: /{market}/{locale}[/{type}]/{slug...}
- * where market = 2-char, locale = 2-4 char, type = single char (l, p, b, etc.) or 'dc'
+ * CMS-generated page URLs may omit the market segment:
+ *   /en/about-us          → /about-us       (locale-only prefix)
+ *   /sv/om-oss            → /om-oss
+ *
+ * Pattern 1: /{market}/{locale}[/{type}]/{slug...}
+ * Pattern 2: /{locale}/{slug...} (CMS-generated, no market)
  */
 export function stripGeinsPrefix(path: string): string {
-  // Match: /xx/xx-yy/ or /xx/xx/ prefix (market + locale)
+  // Pattern 1: /xx/xx-yy/ or /xx/xx/ prefix (market + locale)
   // Then optionally a type indicator (1-2 chars) followed by /
-  const prefixMatch = path.match(
+  const fullMatch = path.match(
     /^\/[a-z]{2}\/[a-z]{2}(?:-[a-z]{2})?(?:\/(dc|[a-z])(?=\/))?(\/.*)$/i,
   );
-  if (!prefixMatch) return path;
+  if (fullMatch) {
+    const typeIndicator = fullMatch[1];
+    const remainder = fullMatch[2]!;
 
-  const typeIndicator = prefixMatch[1]; // 'l', 'p', 'b', 'dc', etc. (only if followed by /)
-  const remainder = prefixMatch[2]!; // '/epoxi' or '/cat/product'
-
-  if (typeIndicator) {
-    // Map the Geins type indicator to our route prefix
-    const routePrefix = GEINS_TYPE_MAP[typeIndicator.toLowerCase()];
-    if (routePrefix) {
-      return `${routePrefix}${remainder}`;
+    if (typeIndicator) {
+      const routePrefix = GEINS_TYPE_MAP[typeIndicator.toLowerCase()];
+      if (routePrefix) {
+        return `${routePrefix}${remainder}`;
+      }
+      return remainder;
     }
-    // Unknown type indicator — just strip it
+
     return remainder;
   }
 
-  // No type indicator — CMS page, just strip market/locale
-  return remainder;
+  // Pattern 2: /{locale}/{slug...} — CMS-generated URLs with locale-only prefix.
+  // Only strip known locale codes to avoid false positives (e.g. /dc/ is a type, not a locale).
+  const segments = path.split('/').filter(Boolean);
+  if (
+    segments.length >= 2 &&
+    (SUPPORTED_LOCALE_CODES as readonly string[]).includes(segments[0]!)
+  ) {
+    return '/' + segments.slice(1).join('/');
+  }
+
+  return path;
 }
 
 /**
