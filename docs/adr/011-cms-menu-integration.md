@@ -30,6 +30,8 @@ The storefront needs dynamic navigation menus that content editors can manage th
 - Single source of truth for menu data (CMS)
 - Shared utilities prevent URL handling bugs across components
 - Adding new menu locations requires only adding a constant and calling `useMenuData`
+- Language fallback ensures menus render even when content is only created for one language
+- URL normalization handles both `/{market}/{locale}/` and CMS-generated `/{locale}/` prefixes
 
 **Bad:**
 
