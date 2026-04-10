@@ -68,3 +68,7 @@ URL prefix routing (`prefix_and_default`) can be added later if needed for multi
 - Every user-visible string must have a translation key — small overhead per component
 - Adding a new locale requires translating all keys (mitigated by lazy loading — only active locale affects bundle)
 - `no_prefix` means no locale in URL — search engines can't crawl different language versions via URL alone (acceptable for B2B portal behind auth)
+
+### CMS Language Fallback
+
+CMS widget areas and menus may only exist for one language. The CMS service layer retries without `languageId` when content is missing, falling back to the SDK's default locale. This prevents blank pages when CMS content hasn't been localized. CMS pages do **not** fall back — they have language-specific aliases (e.g. `om-oss` vs `about-us`) and a missing page for a locale is a genuine 404. See `local-docs/CMS-LANGUAGE-MODEL.md`.

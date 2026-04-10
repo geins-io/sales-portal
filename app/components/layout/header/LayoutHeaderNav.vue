@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { NuxtLink } from '#components';
 import type { MenuItemType } from '#shared/types/cms';
 import { MENU_LOCATION } from '#shared/constants/cms';
@@ -27,6 +26,18 @@ const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
 
 function visibleChildren(item: MenuItemType): MenuItemType[] {
   return getVisibleItems(item.children);
+}
+
+const gridColsMap: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+  4: 'grid-cols-4',
+};
+
+function getGridColsClass(item: MenuItemType): string {
+  const count = Math.min(visibleChildren(item).length, 4);
+  return gridColsMap[count] || 'grid-cols-4';
 }
 
 function isExternal(item: MenuItemType): boolean {
@@ -91,9 +102,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
                   </NavigationMenuLink>
                   <div
                     class="grid gap-x-8 gap-y-1"
-                    :style="{
-                      gridTemplateColumns: `repeat(${Math.min(visibleChildren(item).length, 4)}, minmax(0, 1fr))`,
-                    }"
+                    :class="getGridColsClass(item)"
                   >
                     <NavigationMenuLink
                       v-for="child in visibleChildren(item)"

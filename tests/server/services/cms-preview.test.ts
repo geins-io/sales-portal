@@ -33,6 +33,7 @@ vi.stubGlobal('getPreviewCookie', getPreviewCookieMock);
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
 
 const { getContentArea, getPage, getMenu } =
   await import('../../../server/services/cms');
@@ -55,6 +56,7 @@ describe('CMS service preview injection', () => {
           family: 'StartPage',
           areaName: 'Hero',
           ...channelVars,
+          displaySetting: 'desktop',
           preview: true,
         },
         undefined,
@@ -73,6 +75,7 @@ describe('CMS service preview injection', () => {
           family: 'StartPage',
           areaName: 'Hero',
           ...channelVars,
+          displaySetting: 'desktop',
         },
         undefined,
       );

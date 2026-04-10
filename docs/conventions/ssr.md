@@ -360,10 +360,23 @@ URLs use single-letter type prefixes to identify content type without server-sid
 
 - **Alias extraction**: use `.pop()` on the catch-all params array to get the entity alias (last segment). Earlier segments are parent paths for breadcrumbs/SEO.
 - **Link generation**: Geins API returns `canonicalUrl` without type prefixes. Use `categoryPath()`, `productPath()`, `brandPath()` from `shared/utils/route-helpers.ts` to add the prefix, then wrap with `localePath()`.
-- **Menu URLs**: `shared/utils/menu.ts` `stripGeinsPrefix()` maps Geins type indicators (e.g. `/l/` for category) to our prefixes (e.g. `/c/`).
+- **Menu URLs**: `shared/utils/menu.ts` `stripGeinsPrefix()` maps Geins type indicators (e.g. `/l/` for category) to our prefixes (e.g. `/c/`). Also handles CMS-generated `/{locale}/path` URLs (without market segment) by stripping known locale prefixes.
 - Constants in `shared/constants/route-paths.ts`.
 
 See [ADR-015](../adr/015-type-prefixed-routing.md) for full context.
+
+### CMS Language Fallback
+
+CMS widget areas and menus may only exist for one language (e.g. Swedish-only start page). The CMS service layer (`server/services/cms.ts`) handles this:
+
+1. Query with user's `languageId` (from request locale)
+2. If empty, retry **without** `languageId` — SDK falls back to its default locale
+3. `languageId` is stripped from both query variables AND `RequestContext` (SDK merges both)
+4. In preview mode, fallback tries `preview: true` first, then non-preview
+
+**Pages do NOT fallback** — they are language-specific with different aliases per language. Missing page = genuine 404.
+
+CMS area queries pass `displaySetting` (`mobile`/`desktop`) derived from the `User-Agent` header. See `local-docs/CMS-LANGUAGE-MODEL.md` for the full CMS language model.
 
 ## Reference Implementation
 

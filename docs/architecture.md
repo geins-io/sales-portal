@@ -118,7 +118,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── _sdk.ts             # SDK factory (per-tenant singleton cache)
 │   │   ├── auth.ts             # CRM auth (login, logout, refresh)
 │   │   ├── user.ts             # CRM user (profile, register)
-│   │   ├── cms.ts              # CMS (menu, pages, areas)
+│   │   ├── cms.ts              # CMS (menu, pages, areas) — language fallback, displaySetting, preview
 │   │   ├── cart.ts             # OMS cart operations
 │   │   ├── checkout.ts         # OMS checkout + orders
 │   │   ├── orders.ts           # OMS order lookup
@@ -366,6 +366,15 @@ API routes in `server/api/` automatically have access to:
 - Tenant context via `event.context.tenant`
 - KV storage via `useStorage('kv')`
 - Runtime config via `useRuntimeConfig(event)` (always pass the event!)
+
+### CMS Service (`server/services/cms.ts`)
+
+The CMS service wraps Geins SDK calls for menus, pages, and widget areas with:
+
+- **Language fallback**: Widget areas and menus retry without `languageId` when content doesn't exist for the user's locale. Pages do not fallback (different aliases per language).
+- **Preview mode**: Detects `preview_mode` cookie and passes `preview: true` to SDK. Falls through to published content if preview returns empty.
+- **Display setting**: Passes `mobile`/`desktop` to widget area queries based on `User-Agent` header.
+- **LRU caching**: Menu and area results cached with 60s TTL. Cache bypassed in preview mode and for authenticated users.
 
 ### Caching
 

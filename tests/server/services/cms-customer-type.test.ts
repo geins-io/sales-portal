@@ -34,6 +34,7 @@ vi.stubGlobal('getPreviewCookie', getPreviewCookieMock);
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
 
 const { getContentArea, getPage, getMenu } =
   await import('../../../server/services/cms');
@@ -110,6 +111,7 @@ describe('CMS service customerType threading', () => {
           family: 'StartPage',
           areaName: 'Hero',
           ...channelVars,
+          displaySetting: 'desktop',
           customerType: GeinsCustomerType.PersonType,
         },
         undefined,
@@ -127,6 +129,7 @@ describe('CMS service customerType threading', () => {
           family: 'StartPage',
           areaName: 'Hero',
           ...channelVars,
+          displaySetting: 'desktop',
         },
         undefined,
       );

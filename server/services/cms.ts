@@ -38,6 +38,25 @@ function buildCachePrefix(event: H3Event): string {
   return `${hostname}::${locale}::${market}`;
 }
 
+/**
+ * Check if a widget area result has actual content.
+ */
+function hasContent(area: ContentAreaType | null | undefined): boolean {
+  return !!area?.containers?.length;
+}
+
+/**
+ * Detect display setting from User-Agent header.
+ * Returns 'mobile' or 'desktop' for CMS widget area queries.
+ * The Geins CMS can serve different widget configurations per display setting.
+ */
+function getDisplaySetting(event: H3Event): string {
+  const ua = getRequestHeader(event, 'user-agent') ?? '';
+  const isMobile =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  return isMobile ? 'mobile' : 'desktop';
+}
+
 // =============================================================================
 // Service Functions
 // =============================================================================
@@ -73,10 +92,49 @@ export async function getMenu(
     }
   }
 
-  const result = (await wrapServiceCall(
+  let result = (await wrapServiceCall(
     () => sdk.cms.menu.get(queryArgs, ctx),
     'cms',
   )) as MenuType;
+
+  // Fallback: if no menu for this language, retry without languageId override
+  // so the SDK uses its default locale. Handles CMS content that was created
+  // for a single language but should be visible to all users.
+  // Must strip languageId from BOTH query vars AND RequestContext — the SDK
+  // merges context after vars, so context.languageId would override the strip.
+  if (!result?.menuItems?.length && channelVars.languageId) {
+    const { languageId: _v, ...varsWithoutLang } = channelVars;
+    const { languageId: _c, ...ctxWithoutLang } = ctx ?? {};
+    const fallbackBase = { ...args, ...varsWithoutLang };
+    const fallbackCtx = Object.keys(ctxWithoutLang).length
+      ? ctxWithoutLang
+      : undefined;
+
+    if (preview) {
+      try {
+        const pResult = (await wrapServiceCall(
+          () =>
+            sdk.cms.menu.get({ ...fallbackBase, preview: true }, fallbackCtx),
+          'cms',
+        )) as MenuType;
+        if (pResult?.menuItems?.length) {
+          result = pResult;
+        }
+      } catch {
+        // Preview fallback failed
+      }
+    }
+
+    if (!result?.menuItems?.length) {
+      const fbResult = (await wrapServiceCall(
+        () => sdk.cms.menu.get(fallbackBase, fallbackCtx),
+        'cms',
+      )) as MenuType;
+      if (fbResult?.menuItems?.length) {
+        result = fbResult;
+      }
+    }
+  }
 
   if (isCacheable) {
     menuCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });
@@ -121,13 +179,19 @@ export async function getPage(
 }
 
 export async function getContentArea(
-  args: { family: string; areaName: string; customerType?: GeinsCustomerType },
+  args: {
+    family: string;
+    areaName: string;
+    customerType?: GeinsCustomerType;
+    displaySetting?: string;
+  },
   event: H3Event,
 ): Promise<ContentAreaType> {
   const preview = getPreviewCookie(event);
   const isCacheable = !args.customerType && !preview;
+  const displaySetting = args.displaySetting ?? getDisplaySetting(event);
   const cacheKey = isCacheable
-    ? `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}`
+    ? `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}::${displaySetting}`
     : '';
 
   if (isCacheable) {
@@ -143,12 +207,13 @@ export async function getContentArea(
   const queryArgs = {
     ...args,
     ...channelVars,
+    displaySetting,
     ...(args.customerType && { customerType: args.customerType }),
   };
 
   if (preview) {
     try {
-      return (await wrapServiceCall(
+      const previewResult = (await wrapServiceCall(
         () =>
           sdk.cms.area.get(
             { ...queryArgs, preview: true },
@@ -156,15 +221,69 @@ export async function getContentArea(
           ) as Promise<ContentAreaType>,
         'cms',
       )) as ContentAreaType;
+      if (hasContent(previewResult)) return previewResult;
     } catch {
       // Preview fetch failed — fall back to published content
     }
   }
 
-  const result = (await wrapServiceCall(
+  let result = (await wrapServiceCall(
     () => sdk.cms.area.get(queryArgs, ctx) as Promise<ContentAreaType>,
     'cms',
   )) as ContentAreaType;
+
+  // Fallback: if no content for this language, retry without languageId override
+  // so the SDK uses its default locale. Handles CMS content that was created
+  // for a single language but should be visible to all users.
+  // Preserves preview flag so draft content still works in fallback.
+  // Must strip languageId from BOTH query vars AND RequestContext — the SDK
+  // merges context after vars, so context.languageId would override the strip.
+  if (!hasContent(result) && channelVars.languageId) {
+    const { languageId: _v, ...varsWithoutLang } = channelVars;
+    const { languageId: _c, ...ctxWithoutLang } = ctx ?? {};
+    const fallbackBase = {
+      ...args,
+      ...varsWithoutLang,
+      displaySetting,
+      ...(args.customerType && { customerType: args.customerType }),
+    };
+    const fallbackCtx = Object.keys(ctxWithoutLang).length
+      ? ctxWithoutLang
+      : undefined;
+
+    // Try with preview first (if in preview mode), then without
+    if (preview) {
+      try {
+        const pResult = (await wrapServiceCall(
+          () =>
+            sdk.cms.area.get(
+              { ...fallbackBase, preview: true },
+              fallbackCtx,
+            ) as Promise<ContentAreaType>,
+          'cms',
+        )) as ContentAreaType;
+        if (hasContent(pResult)) {
+          result = pResult;
+        }
+      } catch {
+        // Preview fallback failed — continue to non-preview fallback
+      }
+    }
+
+    if (!hasContent(result)) {
+      const fbResult = (await wrapServiceCall(
+        () =>
+          sdk.cms.area.get(
+            fallbackBase,
+            fallbackCtx,
+          ) as Promise<ContentAreaType>,
+        'cms',
+      )) as ContentAreaType;
+      if (hasContent(fbResult)) {
+        result = fbResult;
+      }
+    }
+  }
 
   if (isCacheable) {
     areaCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });

@@ -77,7 +77,7 @@ describe('GeinsImage Component', () => {
     expect(wrapper.find('img').attributes('src')).toBe('/custom/path.jpg');
   });
 
-  it('applies aspect-ratio style when prop is set', () => {
+  it('applies aspect-ratio class when prop is set', () => {
     const wrapper = mountComponent(GeinsImage, {
       props: {
         fileName: 'img.jpg',
@@ -89,7 +89,7 @@ describe('GeinsImage Component', () => {
     });
 
     const container = wrapper.find('div');
-    expect(container.attributes('style')).toContain('aspect-ratio: 1 / 1');
+    expect(container.classes()).toContain('aspect-[1/1]');
   });
 
   it('shows skeleton placeholder initially', () => {

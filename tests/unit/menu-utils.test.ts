@@ -61,6 +61,31 @@ describe('stripGeinsPrefix', () => {
   it('maps /dc/ type indicator to /dc/ (discount campaign)', () => {
     expect(stripGeinsPrefix('/se/sv/dc/summer-sale')).toBe('/dc/summer-sale');
   });
+
+  // CMS-generated locale-only URLs (no market segment)
+  it('strips locale-only prefix for known locales', () => {
+    expect(stripGeinsPrefix('/en/about-us')).toBe('/about-us');
+    expect(stripGeinsPrefix('/sv/om-oss')).toBe('/om-oss');
+    expect(stripGeinsPrefix('/en/contact')).toBe('/contact');
+    expect(stripGeinsPrefix('/sv/vilkor')).toBe('/vilkor');
+  });
+
+  it('handles locale-only prefix with nested paths', () => {
+    expect(stripGeinsPrefix('/en/materials/branch-pipes')).toBe(
+      '/materials/branch-pipes',
+    );
+    expect(stripGeinsPrefix('/sv/info/kontakt')).toBe('/info/kontakt');
+  });
+
+  it('does NOT strip unknown 2-letter prefixes (e.g. /dc/)', () => {
+    expect(stripGeinsPrefix('/dc/summer-sale')).toBe('/dc/summer-sale');
+    expect(stripGeinsPrefix('/ab/some-page')).toBe('/ab/some-page');
+  });
+
+  it('does NOT strip single-segment paths', () => {
+    expect(stripGeinsPrefix('/en')).toBe('/en');
+    expect(stripGeinsPrefix('/sv')).toBe('/sv');
+  });
 });
 
 describe('normalizeMenuUrl', () => {

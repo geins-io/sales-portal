@@ -3,7 +3,7 @@ import { getContentArea } from '../../services/cms';
 import { sanitizeCmsArea } from '../../utils/cms-sanitize';
 
 export default defineEventHandler(async (event) => {
-  const { family, areaName } = await getValidatedQuery(
+  const { family, areaName, displaySetting } = await getValidatedQuery(
     event,
     CmsAreaSchema.parse,
   );
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   return withErrorHandling(
     async () => {
       const area = await getContentArea(
-        { family, areaName, customerType },
+        { family, areaName, customerType, displaySetting },
         event,
       );
 

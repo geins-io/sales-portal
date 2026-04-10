@@ -49,6 +49,7 @@ export const CmsPageSchema = z.object({
 export const CmsAreaSchema = z.object({
   family: z.string().min(1).max(100),
   areaName: z.string().min(1).max(100),
+  displaySetting: z.enum(['mobile', 'desktop']).optional(),
 });
 
 export type CmsPageInput = z.infer<typeof CmsPageSchema>;
