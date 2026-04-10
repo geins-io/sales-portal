@@ -91,6 +91,12 @@ export default defineNuxtConfig({
                 "'self'",
                 "'nonce-{{nonce}}'",
                 'https://fonts.googleapis.com',
+                // Vue and radix-vue set style attributes at runtime for
+                // positioning (popovers, dialogs) and scroll-lock. These
+                // can't use nonces, so we allow the specific hashes.
+                "'unsafe-hashes'",
+                "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='", // empty style=""
+                "'sha256-iYwYhiMcsGmXCUzLEpEzZNz5dINrlkqf1sLbLhEcqGM='", // radix-vue positioning
               ],
               'font-src': ["'self'", 'https://fonts.gstatic.com'],
               'img-src': ["'self'", 'data:', 'https:'],
