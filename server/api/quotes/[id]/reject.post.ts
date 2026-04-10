@@ -1,9 +1,8 @@
 import * as quotesService from '../../../services/quotes';
 import { RejectQuoteSchema } from '../../../schemas/api-input';
-import { requirePermission } from '../../../utils/b2b-auth';
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'quotes:reject');
+  await requireAuth(event);
 
   const id = getRouterParam(event, 'id');
 

@@ -27,6 +27,11 @@ export async function requireAuth(event: H3Event): Promise<AuthTokens> {
     return { authToken, refreshToken };
   }
 
+  // Auth token without refresh token — impersonation/preview tokens from admin
+  if (authToken && !refreshToken) {
+    return { authToken, refreshToken: '' };
+  }
+
   // No auth token but have refresh token — try to refresh
   if (!authToken && refreshToken) {
     return await refreshAndRotate(event, refreshToken);

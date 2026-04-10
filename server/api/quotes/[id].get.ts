@@ -1,10 +1,11 @@
 import * as quotesService from '../../services/quotes';
-import { requirePermission } from '../../utils/b2b-auth';
 
 export default defineEventHandler(async (event) => {
-  await requirePermission(event, 'quotes:view_own');
+  await requireAuth(event);
 
   const id = getRouterParam(event, 'id');
+
+  setHeader(event, 'Cache-Control', 'private, no-cache');
 
   const quote = await quotesService.getQuote(id as string, event);
 
