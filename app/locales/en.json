@@ -439,7 +439,7 @@
     },
     "orders": {
       "title": "Orders",
-      "subtitle": "Read and write directly to databases and stores from your projects.",
+      "subtitle": "View and manage your orders, track deliveries and reorder.",
       "columns": {
         "id": "Id",
         "created": "Created",
@@ -641,7 +641,7 @@
     },
     "quotations": {
       "title": "Quotations",
-      "subtitle": "Read and write directly to databases and stores from your projects",
+      "subtitle": "View, accept or reject quotations from your sales team.",
       "search_placeholder": "Search quotations...",
       "no_quotations": "No quotations found",
       "quote_number": "Quote Nr",

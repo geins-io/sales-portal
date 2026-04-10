@@ -141,7 +141,9 @@ const listPath = computed(() => `/${typePrefix.value}/${listSlug.value}`);
 const { seoLinks } = useSeoLinks(listPath);
 
 useHead({
-  title: () => pageInfo.value?.name ?? '',
+  title: () =>
+    pageInfo.value?.name ||
+    props.alias.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
 });
 
 useSeoMeta({

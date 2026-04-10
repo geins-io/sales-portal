@@ -439,7 +439,7 @@
     },
     "orders": {
       "title": "Beställningar",
-      "subtitle": "Läs och skriv direkt till databaser och butiker från dina projekt.",
+      "subtitle": "Visa och hantera dina beställningar, spåra leveranser och beställ om.",
       "columns": {
         "id": "Id",
         "created": "Skapad",
@@ -641,7 +641,7 @@
     },
     "quotations": {
       "title": "Offerter",
-      "subtitle": "Läs och skriv direkt till databaser och butiker från dina projekt",
+      "subtitle": "Visa, acceptera eller avvisa offerter från ditt säljteam.",
       "search_placeholder": "Sök offerter...",
       "no_quotations": "Inga offerter hittades",
       "quote_number": "Offertnr",
