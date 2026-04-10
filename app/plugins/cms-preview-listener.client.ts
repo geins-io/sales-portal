@@ -111,7 +111,11 @@ export default defineNuxtPlugin(() => {
 
   window.addEventListener('message', handleMessage);
 
-  // Notify parent iframe (if embedded) that we're ready
+  // Notify parent iframe (if embedded) that we're ready.
+  // Uses '*' because the parent Studio URL can be any *.geins.io subdomain
+  // and postMessage requires exact origins (no wildcards). The ready message
+  // only contains the current page URL which is not sensitive. All incoming
+  // messages are still validated against TRUSTED_ORIGINS via isTrustedOrigin().
   if (window.parent !== window) {
     try {
       window.parent.postMessage(

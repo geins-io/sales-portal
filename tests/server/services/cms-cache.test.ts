@@ -36,6 +36,7 @@ vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
 vi.stubGlobal('getRequestMarket', getRequestMarketMock);
 vi.stubGlobal('getCustomerType', vi.fn().mockResolvedValue(undefined));
+vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -62,6 +63,7 @@ describe('CMS cache — locale isolation', () => {
     vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
     vi.stubGlobal('getRequestMarket', getRequestMarketMock);
     vi.stubGlobal('getCustomerType', vi.fn().mockResolvedValue(undefined));
+    vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
 
     const mod = await import('../../../server/services/cms');
     getMenu = mod.getMenu;

@@ -45,6 +45,18 @@ function hasContent(area: ContentAreaType | null | undefined): boolean {
   return !!area?.containers?.length;
 }
 
+/**
+ * Detect display setting from User-Agent header.
+ * Returns 'mobile' or 'desktop' for CMS widget area queries.
+ * The Geins CMS can serve different widget configurations per display setting.
+ */
+function getDisplaySetting(event: H3Event): string {
+  const ua = getRequestHeader(event, 'user-agent') ?? '';
+  const isMobile =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  return isMobile ? 'mobile' : 'desktop';
+}
+
 // =============================================================================
 // Service Functions
 // =============================================================================
@@ -90,8 +102,13 @@ export async function getMenu(
   // for a single language but should be visible to all users.
   if (!result?.menuItems?.length && channelVars.languageId) {
     const { languageId: _, ...varsWithoutLang } = channelVars;
+    const fallbackArgs = {
+      ...args,
+      ...varsWithoutLang,
+      ...(preview && { preview: true }),
+    };
     const fallbackResult = (await wrapServiceCall(
-      () => sdk.cms.menu.get({ ...args, ...varsWithoutLang }, ctx),
+      () => sdk.cms.menu.get(fallbackArgs, ctx),
       'cms',
     )) as MenuType;
     if (fallbackResult?.menuItems?.length) {
@@ -142,13 +159,19 @@ export async function getPage(
 }
 
 export async function getContentArea(
-  args: { family: string; areaName: string; customerType?: GeinsCustomerType },
+  args: {
+    family: string;
+    areaName: string;
+    customerType?: GeinsCustomerType;
+    displaySetting?: string;
+  },
   event: H3Event,
 ): Promise<ContentAreaType> {
   const preview = getPreviewCookie(event);
   const isCacheable = !args.customerType && !preview;
+  const displaySetting = args.displaySetting ?? getDisplaySetting(event);
   const cacheKey = isCacheable
-    ? `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}`
+    ? `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}::${displaySetting}`
     : '';
 
   if (isCacheable) {
@@ -164,6 +187,7 @@ export async function getContentArea(
   const queryArgs = {
     ...args,
     ...channelVars,
+    displaySetting,
     ...(args.customerType && { customerType: args.customerType }),
   };
 
@@ -191,12 +215,15 @@ export async function getContentArea(
   // Fallback: if no content for this language, retry without languageId override
   // so the SDK uses its default locale. Handles CMS content that was created
   // for a single language but should be visible to all users.
+  // Preserves preview flag so draft content still works in fallback.
   if (!hasContent(result) && channelVars.languageId) {
     const { languageId: _, ...varsWithoutLang } = channelVars;
     const fallbackArgs = {
       ...args,
       ...varsWithoutLang,
+      displaySetting,
       ...(args.customerType && { customerType: args.customerType }),
+      ...(preview && { preview: true }),
     };
     const fallbackResult = (await wrapServiceCall(
       () => sdk.cms.area.get(fallbackArgs, ctx) as Promise<ContentAreaType>,
