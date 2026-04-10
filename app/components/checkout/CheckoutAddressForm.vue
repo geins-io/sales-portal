@@ -222,8 +222,11 @@ defineExpose({ validate });
     <div v-if="!readonly" class="grid grid-cols-2 gap-4">
       <template v-for="field in ADDRESS_FIELDS" :key="field.name">
         <div
-          :class="['space-y-2', isGridRow(field.name) ? '' : 'col-span-2']"
-          :style="isGridStart(field.name) ? 'grid-column-start: 1' : ''"
+          :class="[
+            'space-y-2',
+            isGridRow(field.name) ? '' : 'col-span-2',
+            isGridStart(field.name) ? 'col-start-1' : '',
+          ]"
         >
           <Label :for="`${prefix}-${field.name}`">
             {{ t(field.label) }}

@@ -54,7 +54,7 @@ watch(
 <template>
   <div
     class="relative overflow-hidden"
-    :style="aspectRatio ? { aspectRatio } : undefined"
+    :class="aspectRatio ? `aspect-[${aspectRatio}]` : ''"
   >
     <!-- Skeleton placeholder -->
     <div
