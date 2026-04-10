@@ -38,6 +38,13 @@ function buildCachePrefix(event: H3Event): string {
   return `${hostname}::${locale}::${market}`;
 }
 
+/**
+ * Check if a widget area result has actual content.
+ */
+function hasContent(area: ContentAreaType | null | undefined): boolean {
+  return !!area?.containers?.length;
+}
+
 // =============================================================================
 // Service Functions
 // =============================================================================
@@ -73,10 +80,24 @@ export async function getMenu(
     }
   }
 
-  const result = (await wrapServiceCall(
+  let result = (await wrapServiceCall(
     () => sdk.cms.menu.get(queryArgs, ctx),
     'cms',
   )) as MenuType;
+
+  // Fallback: if no menu for this language, retry without languageId override
+  // so the SDK uses its default locale. Handles CMS content that was created
+  // for a single language but should be visible to all users.
+  if (!result?.menuItems?.length && channelVars.languageId) {
+    const { languageId: _, ...varsWithoutLang } = channelVars;
+    const fallbackResult = (await wrapServiceCall(
+      () => sdk.cms.menu.get({ ...args, ...varsWithoutLang }, ctx),
+      'cms',
+    )) as MenuType;
+    if (fallbackResult?.menuItems?.length) {
+      result = fallbackResult;
+    }
+  }
 
   if (isCacheable) {
     menuCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });
@@ -148,7 +169,7 @@ export async function getContentArea(
 
   if (preview) {
     try {
-      return (await wrapServiceCall(
+      const previewResult = (await wrapServiceCall(
         () =>
           sdk.cms.area.get(
             { ...queryArgs, preview: true },
@@ -156,15 +177,35 @@ export async function getContentArea(
           ) as Promise<ContentAreaType>,
         'cms',
       )) as ContentAreaType;
+      if (hasContent(previewResult)) return previewResult;
     } catch {
       // Preview fetch failed — fall back to published content
     }
   }
 
-  const result = (await wrapServiceCall(
+  let result = (await wrapServiceCall(
     () => sdk.cms.area.get(queryArgs, ctx) as Promise<ContentAreaType>,
     'cms',
   )) as ContentAreaType;
+
+  // Fallback: if no content for this language, retry without languageId override
+  // so the SDK uses its default locale. Handles CMS content that was created
+  // for a single language but should be visible to all users.
+  if (!hasContent(result) && channelVars.languageId) {
+    const { languageId: _, ...varsWithoutLang } = channelVars;
+    const fallbackArgs = {
+      ...args,
+      ...varsWithoutLang,
+      ...(args.customerType && { customerType: args.customerType }),
+    };
+    const fallbackResult = (await wrapServiceCall(
+      () => sdk.cms.area.get(fallbackArgs, ctx) as Promise<ContentAreaType>,
+      'cms',
+    )) as ContentAreaType;
+    if (hasContent(fallbackResult)) {
+      result = fallbackResult;
+    }
+  }
 
   if (isCacheable) {
     areaCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });

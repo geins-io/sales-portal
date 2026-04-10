@@ -69,8 +69,8 @@ describe('CMS cache — locale isolation', () => {
   });
 
   it('produces different cache keys for different locales', async () => {
-    const svMenu = { id: 'main', items: [{ title: 'Hem' }] };
-    const enMenu = { id: 'main', items: [{ title: 'Home' }] };
+    const svMenu = { id: 'main', menuItems: [{ title: 'Hem' }] };
+    const enMenu = { id: 'main', menuItems: [{ title: 'Home' }] };
 
     // First request — Swedish locale
     getRequestLocaleMock.mockReturnValue('sv-SE');
@@ -93,7 +93,7 @@ describe('CMS cache — locale isolation', () => {
   });
 
   it('returns cached data for same locale', async () => {
-    const menu = { id: 'main', items: [{ title: 'Hem' }] };
+    const menu = { id: 'main', menuItems: [{ title: 'Hem' }] };
 
     getRequestLocaleMock.mockReturnValue('sv-SE');
     getRequestMarketMock.mockReturnValue('se');
@@ -108,8 +108,8 @@ describe('CMS cache — locale isolation', () => {
   });
 
   it('isolates cache by tenant hostname', async () => {
-    const tenantAMenu = { id: 'main', items: [{ title: 'Tenant A' }] };
-    const tenantBMenu = { id: 'main', items: [{ title: 'Tenant B' }] };
+    const tenantAMenu = { id: 'main', menuItems: [{ title: 'Tenant A' }] };
+    const tenantBMenu = { id: 'main', menuItems: [{ title: 'Tenant B' }] };
 
     getRequestLocaleMock.mockReturnValue('sv-SE');
     getRequestMarketMock.mockReturnValue('se');
@@ -133,7 +133,7 @@ describe('CMS cache — locale isolation', () => {
   });
 
   it('uses default fallback when getRequestLocale returns undefined', async () => {
-    const menu = { id: 'main', items: [{ title: 'Default' }] };
+    const menu = { id: 'main', menuItems: [{ title: 'Default' }] };
 
     getRequestLocaleMock.mockReturnValue(undefined);
     getRequestMarketMock.mockReturnValue(undefined);
