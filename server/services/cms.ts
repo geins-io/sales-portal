@@ -100,19 +100,39 @@ export async function getMenu(
   // Fallback: if no menu for this language, retry without languageId override
   // so the SDK uses its default locale. Handles CMS content that was created
   // for a single language but should be visible to all users.
+  // Must strip languageId from BOTH query vars AND RequestContext — the SDK
+  // merges context after vars, so context.languageId would override the strip.
   if (!result?.menuItems?.length && channelVars.languageId) {
-    const { languageId: _, ...varsWithoutLang } = channelVars;
-    const fallbackArgs = {
-      ...args,
-      ...varsWithoutLang,
-      ...(preview && { preview: true }),
-    };
-    const fallbackResult = (await wrapServiceCall(
-      () => sdk.cms.menu.get(fallbackArgs, ctx),
-      'cms',
-    )) as MenuType;
-    if (fallbackResult?.menuItems?.length) {
-      result = fallbackResult;
+    const { languageId: _v, ...varsWithoutLang } = channelVars;
+    const { languageId: _c, ...ctxWithoutLang } = ctx ?? {};
+    const fallbackBase = { ...args, ...varsWithoutLang };
+    const fallbackCtx = Object.keys(ctxWithoutLang).length
+      ? ctxWithoutLang
+      : undefined;
+
+    if (preview) {
+      try {
+        const pResult = (await wrapServiceCall(
+          () =>
+            sdk.cms.menu.get({ ...fallbackBase, preview: true }, fallbackCtx),
+          'cms',
+        )) as MenuType;
+        if (pResult?.menuItems?.length) {
+          result = pResult;
+        }
+      } catch {
+        // Preview fallback failed
+      }
+    }
+
+    if (!result?.menuItems?.length) {
+      const fbResult = (await wrapServiceCall(
+        () => sdk.cms.menu.get(fallbackBase, fallbackCtx),
+        'cms',
+      )) as MenuType;
+      if (fbResult?.menuItems?.length) {
+        result = fbResult;
+      }
     }
   }
 
@@ -216,21 +236,52 @@ export async function getContentArea(
   // so the SDK uses its default locale. Handles CMS content that was created
   // for a single language but should be visible to all users.
   // Preserves preview flag so draft content still works in fallback.
+  // Must strip languageId from BOTH query vars AND RequestContext — the SDK
+  // merges context after vars, so context.languageId would override the strip.
   if (!hasContent(result) && channelVars.languageId) {
-    const { languageId: _, ...varsWithoutLang } = channelVars;
-    const fallbackArgs = {
+    const { languageId: _v, ...varsWithoutLang } = channelVars;
+    const { languageId: _c, ...ctxWithoutLang } = ctx ?? {};
+    const fallbackBase = {
       ...args,
       ...varsWithoutLang,
       displaySetting,
       ...(args.customerType && { customerType: args.customerType }),
-      ...(preview && { preview: true }),
     };
-    const fallbackResult = (await wrapServiceCall(
-      () => sdk.cms.area.get(fallbackArgs, ctx) as Promise<ContentAreaType>,
-      'cms',
-    )) as ContentAreaType;
-    if (hasContent(fallbackResult)) {
-      result = fallbackResult;
+    const fallbackCtx = Object.keys(ctxWithoutLang).length
+      ? ctxWithoutLang
+      : undefined;
+
+    // Try with preview first (if in preview mode), then without
+    if (preview) {
+      try {
+        const pResult = (await wrapServiceCall(
+          () =>
+            sdk.cms.area.get(
+              { ...fallbackBase, preview: true },
+              fallbackCtx,
+            ) as Promise<ContentAreaType>,
+          'cms',
+        )) as ContentAreaType;
+        if (hasContent(pResult)) {
+          result = pResult;
+        }
+      } catch {
+        // Preview fallback failed — continue to non-preview fallback
+      }
+    }
+
+    if (!hasContent(result)) {
+      const fbResult = (await wrapServiceCall(
+        () =>
+          sdk.cms.area.get(
+            fallbackBase,
+            fallbackCtx,
+          ) as Promise<ContentAreaType>,
+        'cms',
+      )) as ContentAreaType;
+      if (hasContent(fbResult)) {
+        result = fbResult;
+      }
     }
   }
 
