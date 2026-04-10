@@ -12,7 +12,6 @@ import {
 } from './_sdk';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
-import { createQuoteStub } from './stubs/quotes';
 
 // ---------------------------------------------------------------------------
 // GraphQL response types (raw Geins API shapes)
@@ -220,30 +219,6 @@ function mapQuotationCartToListItem(cart: RawQuotationCart): QuoteListItem {
 // ---------------------------------------------------------------------------
 // Quotes service
 // ---------------------------------------------------------------------------
-
-/** TODO: Replace stub with Geins API when create mutation is available */
-export async function createQuote(
-  orgId: string,
-  createdBy: string,
-  contactName: string,
-  contactEmail: string,
-  lineItems: QuoteLineItem[],
-  message: string | undefined,
-  poNumber: string | undefined,
-  paymentTerms: string | undefined,
-  _event: H3Event,
-): Promise<Quote> {
-  return createQuoteStub(
-    orgId,
-    createdBy,
-    contactName,
-    contactEmail,
-    lineItems,
-    message,
-    poNumber,
-    paymentTerms,
-  );
-}
 
 /** List quotation carts via Geins GraphQL API */
 export async function listQuotes(

@@ -366,38 +366,4 @@ describe('quotes service', () => {
       expect(result.status).toBe('rejected');
     });
   });
-
-  // -------------------------------------------------------------------------
-  // createQuote (still stubbed)
-  // -------------------------------------------------------------------------
-  describe('createQuote', () => {
-    it('returns a quote with pending status (stub)', async () => {
-      const result = await quotesService.createQuote(
-        'org-1',
-        'user-1',
-        'Test User',
-        'test@test.com',
-        [
-          {
-            productId: 1,
-            sku: 'SKU-1',
-            name: 'Test',
-            articleNumber: 'ART-1',
-            quantity: 1,
-            unitPrice: 100,
-            unitPriceFormatted: '100 SEK',
-            totalPrice: 100,
-            totalPriceFormatted: '100 SEK',
-          },
-        ],
-        'Hello',
-        'PO-123',
-        'Net 30',
-        mockEvent,
-      );
-
-      expect(result.status).toBe('pending');
-      expect(result.contactName).toBe('Test User');
-    });
-  });
 });

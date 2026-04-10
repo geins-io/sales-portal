@@ -362,14 +362,6 @@ export type CheckoutTokenInput = z.infer<typeof CheckoutTokenSchema>;
 // ---------------------------------------------------------------------------
 // Quotes
 // ---------------------------------------------------------------------------
-export const CreateQuoteSchema = z.object({
-  cartId: z.string().min(1),
-  message: z.string().max(2000).optional(),
-  poNumber: z.string().max(100).optional(),
-  paymentTerms: z.string().max(200).optional(),
-});
-export type CreateQuoteInput = z.infer<typeof CreateQuoteSchema>;
-
 export const AcceptQuoteSchema = z.object({
   quoteId: z.string().min(1),
 });
