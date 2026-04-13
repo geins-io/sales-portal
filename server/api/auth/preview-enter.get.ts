@@ -1,3 +1,5 @@
+import { isSafeInternalPath } from '#shared/utils/redirect';
+
 /**
  * Preview entry — browser hits this URL directly (not via internal fetch).
  * Sets preview cookies and redirects to the storefront.
@@ -21,13 +23,11 @@ export default defineEventHandler((event) => {
   setPreviewAuthToken(event, loginToken);
   setPreviewCookie(event);
 
-  // Redirect to the specified path or home
-  const redirectPath = (query.redirect as string) || '/';
-  // Validate redirect is a relative path (prevent open redirect)
-  const safePath =
-    redirectPath.startsWith('/') && !redirectPath.includes('://')
-      ? redirectPath
-      : '/';
+  // Redirect to the specified path or home. The shared validator rejects
+  // external and protocol-relative URLs (including //evil.com, /\evil.com,
+  // javascript:...) so this endpoint can't be used as an open-redirect.
+  const redirectPath = query.redirect;
+  const safePath = isSafeInternalPath(redirectPath) ? redirectPath : '/';
 
   return sendRedirect(event, safePath, 302);
 });

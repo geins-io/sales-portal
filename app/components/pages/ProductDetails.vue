@@ -22,10 +22,21 @@ const {
   data: product,
   error,
   status,
-} = useFetch<DetailProduct>(() => `/api/products/${slug.value}`, {
+} = await useFetch<DetailProduct>(() => `/api/products/${slug.value}`, {
   query: localeQuery,
   dedupe: 'defer',
 });
+
+// Propagate HTTP 404 when the product doesn't exist. Without this the
+// page rendered an empty state with 200 and crawlers would index
+// phantom URLs.
+if (error.value || !product.value?.productId) {
+  throw createError({
+    statusCode: 404,
+    statusMessage: 'Not Found',
+    fatal: true,
+  });
+}
 
 const isLoading = computed(() => status.value === 'pending');
 

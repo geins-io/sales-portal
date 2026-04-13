@@ -106,10 +106,23 @@ const pageInfoUrl = computed(() =>
     : `/api/product-lists/category/${listSlug.value}`,
 );
 
-const { data: pageInfo } = useFetch<ListPageInfo>(pageInfoUrl, {
-  query: localeQuery,
-  dedupe: 'defer',
-});
+const { data: pageInfo, error: pageInfoError } = await useFetch<ListPageInfo>(
+  pageInfoUrl,
+  {
+    query: localeQuery,
+    dedupe: 'defer',
+  },
+);
+
+// Propagate a real HTTP 404 when the API says the brand/category doesn't
+// exist. Without this, crawlers would index phantom URLs.
+if (pageInfoError.value || !pageInfo.value?.id) {
+  throw createError({
+    statusCode: 404,
+    statusMessage: 'Not Found',
+    fatal: true,
+  });
+}
 
 // --- Derived ---
 const facets = computed(() => filtersData.value?.filters?.facets ?? []);
@@ -120,9 +133,19 @@ const totalPages = computed(() =>
 const isLoading = computed(() => productsStatus.value === 'pending');
 const products = computed(() => productsData.value?.products ?? []);
 
-const showingFrom = computed(() =>
-  totalCount.value === 0 ? 0 : skip.value + 1,
-);
+// Clamp currentPage if the URL asks for a page beyond the total. Without
+// this, "?page=5" on a 15-product list renders "Showing 97–15 of 15".
+watch([totalPages, currentPage], ([pages, page]) => {
+  if (pages > 0 && page > pages) {
+    currentPage.value = 1;
+  }
+});
+
+const showingFrom = computed(() => {
+  if (totalCount.value === 0) return 0;
+  const from = skip.value + 1;
+  return from > totalCount.value ? totalCount.value : from;
+});
 const showingTo = computed(() => Math.min(skip.value + take, totalCount.value));
 
 const breadcrumbs = computed<BreadcrumbItem[]>(() => {

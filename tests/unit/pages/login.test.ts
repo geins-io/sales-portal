@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 
-// Import the pure validation function exported from the login page
-import { isValidRedirect } from '../../../app/pages/login.vue';
+import { isSafeInternalPath } from '../../../shared/utils/redirect';
 
-describe('login page — isValidRedirect', () => {
+// Historical name retained in tests so regressions stay readable.
+const isValidRedirect = isSafeInternalPath;
+
+describe('shared/utils/redirect — isSafeInternalPath', () => {
   it('accepts a simple relative path', () => {
     expect(isValidRedirect('/dashboard')).toBe(true);
   });
@@ -34,6 +36,10 @@ describe('login page — isValidRedirect', () => {
 
   it('rejects protocol-relative URL (//)', () => {
     expect(isValidRedirect('//evil.com')).toBe(false);
+  });
+
+  it('rejects backslash-prefixed URL (/\\)', () => {
+    expect(isValidRedirect('/\\evil.com')).toBe(false);
   });
 
   it('rejects path containing :// anywhere', () => {

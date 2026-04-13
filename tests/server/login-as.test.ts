@@ -227,7 +227,7 @@ describe('login-as endpoint', () => {
     expect(sendRedirectMock).toHaveBeenCalledWith(mockEvent, '/dashboard', 302);
   });
 
-  it('prevents open redirect by sanitizing redirect param', async () => {
+  it('prevents open redirect for an absolute URL', async () => {
     const token = fakeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
     getQueryMock.mockReturnValue({
       loginToken: token,
@@ -237,7 +237,35 @@ describe('login-as endpoint', () => {
     const handler = await importHandler();
     handler(mockEvent);
 
-    // Should fall back to /portal instead of external URL
+    expect(sendRedirectMock).toHaveBeenCalledWith(mockEvent, '/portal', 302);
+  });
+
+  it('prevents open redirect for a protocol-relative URL', async () => {
+    // Regression: `//evil.com` passed the old `startsWith('/') && !includes('://')`
+    // check and the browser resolved it as `http://evil.com/`.
+    const token = fakeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    getQueryMock.mockReturnValue({
+      loginToken: token,
+      redirect: '//evil.com',
+    });
+
+    const handler = await importHandler();
+    handler(mockEvent);
+
+    expect(sendRedirectMock).toHaveBeenCalledWith(mockEvent, '/portal', 302);
+  });
+
+  it('prevents open redirect for a backslash-prefixed URL', async () => {
+    // Some browsers normalise `\` to `/`, so `/\evil.com` becomes `//evil.com`.
+    const token = fakeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    getQueryMock.mockReturnValue({
+      loginToken: token,
+      redirect: '/\\evil.com',
+    });
+
+    const handler = await importHandler();
+    handler(mockEvent);
+
     expect(sendRedirectMock).toHaveBeenCalledWith(mockEvent, '/portal', 302);
   });
 });

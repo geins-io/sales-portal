@@ -1,7 +1,42 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ref } from 'vue';
-import { shallowMountComponent } from '../../utils/component';
+import { ref, defineComponent, h, Suspense } from 'vue';
+import { mount, flushPromises } from '@vue/test-utils';
+import { defaultMountOptions } from '../../utils/component';
 import ProductList from '../../../app/components/pages/ProductList.vue';
+
+// ProductList uses `await useFetch(...)` so its setup is async. The top-level
+// await makes the component require a Suspense parent to render. Wrap it
+// here and flush promises so tests can observe the resolved state.
+async function mountProductList(
+  props: Record<string, unknown>,
+  mountOptions: Parameters<typeof mount>[1] = {},
+) {
+  const Wrapper = defineComponent({
+    components: { ProductList },
+    props: Object.keys(props),
+    setup(wrapperProps) {
+      return () =>
+        h(Suspense, null, {
+          default: () => h(ProductList, wrapperProps),
+        });
+    },
+  });
+  const wrapper = mount(Wrapper, {
+    ...defaultMountOptions,
+    ...mountOptions,
+    props,
+    global: {
+      ...defaultMountOptions.global,
+      ...mountOptions.global,
+      stubs: {
+        ...(defaultMountOptions.global?.stubs ?? {}),
+        ...(mountOptions.global?.stubs ?? {}),
+      },
+    },
+  });
+  await flushPromises();
+  return wrapper;
+}
 
 // --- Mocks ---
 
@@ -183,41 +218,44 @@ const categoryProps = {
   alias: 'foder',
 };
 
+// Default pageInfo — a valid resolved category/brand. Tests that want to
+// assert 404 behavior override this with null/invalid shapes.
+const VALID_PAGE_INFO = {
+  id: 1,
+  name: 'Test Category',
+  alias: 'foder',
+  canonicalUrl: '/se/sv/foder',
+};
+
 describe('ProductList.vue', () => {
   beforeEach(() => {
     mockProductsData.value = null;
     mockFiltersData.value = null;
-    mockPageInfo.value = null;
+    mockPageInfo.value = { ...VALID_PAGE_INFO };
     mockProductsStatus.value = 'idle';
     mockUseFetch.mockClear();
   });
 
-  describe('SSR safety — renders without crash when async data is null', () => {
-    it('renders without error when all fetch data is null (SSR initial state)', () => {
-      // Simulates SSR first render: useFetch returns null data
+  describe('rendering states', () => {
+    it('renders loading skeleton while products are pending', async () => {
       mockProductsData.value = null;
       mockFiltersData.value = null;
-      mockPageInfo.value = null;
       mockProductsStatus.value = 'pending';
 
-      const wrapper = shallowMountComponent(ProductList, {
-        props: categoryProps,
+      const wrapper = await mountProductList(categoryProps, {
         global: { stubs },
       });
 
-      // Should render without throwing "Cannot convert undefined or null to object"
       expect(wrapper.exists()).toBe(true);
-      // Should show loading skeleton when pending with no data
       expect(wrapper.find('[data-testid="plp-loading"]').exists()).toBe(true);
     });
 
-    it('renders empty state when fetch completes with empty products', () => {
+    it('renders empty state when fetch completes with empty products', async () => {
       mockProductsData.value = { products: [], count: 0 };
       mockFiltersData.value = { filters: { facets: [] } };
       mockProductsStatus.value = 'success';
 
-      const wrapper = shallowMountComponent(ProductList, {
-        props: categoryProps,
+      const wrapper = await mountProductList(categoryProps, {
         global: { stubs },
       });
 
@@ -225,7 +263,7 @@ describe('ProductList.vue', () => {
       expect(wrapper.find('[data-testid="plp-empty"]').exists()).toBe(true);
     });
 
-    it('renders product cards when fetch returns products', () => {
+    it('renders product cards when fetch returns products', async () => {
       mockProductsData.value = {
         products: [
           { productId: '1', name: 'Product 1' },
@@ -236,8 +274,7 @@ describe('ProductList.vue', () => {
       mockFiltersData.value = { filters: { facets: [] } };
       mockProductsStatus.value = 'success';
 
-      const wrapper = shallowMountComponent(ProductList, {
-        props: categoryProps,
+      const wrapper = await mountProductList(categoryProps, {
         global: { stubs },
       });
 
@@ -245,7 +282,7 @@ describe('ProductList.vue', () => {
       expect(wrapper.findAll('[data-testid="product-card"]').length).toBe(2);
     });
 
-    it('handles brand resolution type correctly', () => {
+    it('handles brand resolution type correctly', async () => {
       mockProductsData.value = { products: [], count: 0 };
       mockProductsStatus.value = 'success';
 
@@ -254,8 +291,7 @@ describe('ProductList.vue', () => {
         alias: 'atlas-copco',
       };
 
-      const wrapper = shallowMountComponent(ProductList, {
-        props: brandProps,
+      const wrapper = await mountProductList(brandProps, {
         global: { stubs },
       });
 
@@ -264,27 +300,25 @@ describe('ProductList.vue', () => {
   });
 
   describe('pagination', () => {
-    it('shows pagination when totalCount > 0', () => {
+    it('shows pagination when totalCount > 0', async () => {
       mockProductsData.value = {
         products: [{ productId: '1', name: 'Product 1' }],
         count: 25,
       };
       mockProductsStatus.value = 'success';
 
-      const wrapper = shallowMountComponent(ProductList, {
-        props: categoryProps,
+      const wrapper = await mountProductList(categoryProps, {
         global: { stubs },
       });
 
       expect(wrapper.find('[data-testid="pagination"]').exists()).toBe(true);
     });
 
-    it('hides pagination when totalCount is 0', () => {
+    it('hides pagination when totalCount is 0', async () => {
       mockProductsData.value = { products: [], count: 0 };
       mockProductsStatus.value = 'success';
 
-      const wrapper = shallowMountComponent(ProductList, {
-        props: categoryProps,
+      const wrapper = await mountProductList(categoryProps, {
         global: { stubs },
       });
 

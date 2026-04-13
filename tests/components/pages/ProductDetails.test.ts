@@ -1,7 +1,42 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ref } from 'vue';
-import { shallowMountComponent } from '../../utils/component';
+import { ref, defineComponent, h, Suspense } from 'vue';
+import { mount, flushPromises } from '@vue/test-utils';
+import { defaultMountOptions } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
+
+// ProductDetails uses `await useFetch(...)` so the setup is async. Wrap it
+// in a Suspense boundary, mount full-depth (stubs provided via global.stubs
+// cover every heavy child), and flush the microtask queue before asserting.
+async function mountProductDetails(
+  props: Record<string, unknown>,
+  mountOptions: Parameters<typeof mount>[1] = {},
+) {
+  const Wrapper = defineComponent({
+    components: { ProductDetails },
+    props: Object.keys(props),
+    setup(wrapperProps) {
+      return () =>
+        h(Suspense, null, {
+          default: () => h(ProductDetails, wrapperProps),
+        });
+    },
+  });
+  const wrapper = mount(Wrapper, {
+    ...defaultMountOptions,
+    ...mountOptions,
+    props,
+    global: {
+      ...defaultMountOptions.global,
+      ...mountOptions.global,
+      stubs: {
+        ...(defaultMountOptions.global?.stubs ?? {}),
+        ...(mountOptions.global?.stubs ?? {}),
+      },
+    },
+  });
+  await flushPromises();
+  return wrapper;
+}
 
 // useTenant mock is provided by setup-components.ts
 
@@ -104,6 +139,14 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
 }
 
 const defaultStubs = {
+  Icon: {
+    template: '<span class="icon" :data-name="name" />',
+    props: ['name'],
+  },
+  NuxtIcon: {
+    template: '<span class="icon" :data-name="name" />',
+    props: ['name'],
+  },
   ProductGallery: true,
   ProductDetailsSkeleton: {
     template: '<div data-testid="pdp-loading" />',
@@ -161,43 +204,43 @@ describe('ProductDetails', () => {
   });
 
   describe('campaign badges', () => {
-    it('shows campaign badges when product has visible campaigns', () => {
+    it('shows campaign badges when product has visible campaigns', async () => {
       mockProduct.value = makeProduct({
         discountCampaigns: [{ name: 'Spring Sale', hideTitle: false }],
       });
 
-      const wrapper = shallowMountComponent(ProductDetails, {
-        props: { alias: 'test-product' },
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
 
       const badges = wrapper.find('[data-testid="pdp-campaign-badges"]');
       expect(badges.exists()).toBe(true);
       expect(badges.text()).toContain('Spring Sale');
     });
 
-    it('hides campaign badges when all campaigns have hideTitle true', () => {
+    it('hides campaign badges when all campaigns have hideTitle true', async () => {
       mockProduct.value = makeProduct({
         discountCampaigns: [{ name: 'Hidden', hideTitle: true }],
       });
 
-      const wrapper = shallowMountComponent(ProductDetails, {
-        props: { alias: 'test-product' },
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
 
       expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
         false,
       );
     });
 
-    it('shows no badges when discountCampaigns is empty', () => {
+    it('shows no badges when discountCampaigns is empty', async () => {
       mockProduct.value = makeProduct({ discountCampaigns: [] });
 
-      const wrapper = shallowMountComponent(ProductDetails, {
-        props: { alias: 'test-product' },
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
 
       expect(wrapper.find('[data-testid="pdp-campaign-badges"]').exists()).toBe(
         false,
@@ -206,7 +249,7 @@ describe('ProductDetails', () => {
   });
 
   describe('negotiated price banner', () => {
-    it('shows info banner when discountType is EXTERNAL', () => {
+    it('shows info banner when discountType is EXTERNAL', async () => {
       mockProduct.value = makeProduct({
         discountType: 'EXTERNAL',
         unitPrice: {
@@ -216,36 +259,36 @@ describe('ProductDetails', () => {
         },
       });
 
-      const wrapper = shallowMountComponent(ProductDetails, {
-        props: { alias: 'test-product' },
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
 
       const banner = wrapper.find('[data-testid="negotiated-price-banner"]');
       expect(banner.exists()).toBe(true);
       expect(banner.text()).toContain('discount.negotiated_price_info');
     });
 
-    it('does not show banner for SALE_PRICE', () => {
+    it('does not show banner for SALE_PRICE', async () => {
       mockProduct.value = makeProduct({ discountType: 'SALE_PRICE' });
 
-      const wrapper = shallowMountComponent(ProductDetails, {
-        props: { alias: 'test-product' },
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
 
       expect(
         wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
       ).toBe(false);
     });
 
-    it('does not show banner for NONE', () => {
+    it('does not show banner for NONE', async () => {
       mockProduct.value = makeProduct({ discountType: 'NONE' });
 
-      const wrapper = shallowMountComponent(ProductDetails, {
-        props: { alias: 'test-product' },
-        global: { stubs: defaultStubs },
-      });
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
 
       expect(
         wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
