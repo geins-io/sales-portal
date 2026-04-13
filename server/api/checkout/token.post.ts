@@ -2,6 +2,9 @@ import type { GenerateCheckoutTokenOptions } from '@geins/types';
 import { CheckoutTokenSchema } from '../../schemas/api-input';
 import { createToken, getCheckout } from '../../services/checkout';
 import { HOSTED_CHECKOUT_BASE_URL } from '#shared/constants/checkout';
+import { COOKIE_NAMES } from '#shared/constants/storage';
+
+const TWO_LETTER = /^[a-z]{2}$/;
 
 export default defineEventHandler(async (event) => {
   const { cartId } = await readValidatedBody(event, CheckoutTokenSchema.parse);
@@ -13,6 +16,20 @@ export default defineEventHandler(async (event) => {
       const branding = tenantConfig?.branding;
       const requestUrl = getRequestURL(event);
       const origin = `${requestUrl.protocol}//${requestUrl.host}`;
+
+      // The hosted-checkout redirect URLs must preserve the user's current
+      // locale/market so post-payment landings don't bounce through
+      // middleware. API routes skip plugin 01 resolution, so read the short
+      // codes straight from the cookies set by plugin 00.
+      const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
+      const localeCookie = getCookie(event, COOKIE_NAMES.LOCALE);
+      const prefix =
+        marketCookie &&
+        localeCookie &&
+        TWO_LETTER.test(marketCookie) &&
+        TWO_LETTER.test(localeCookie)
+          ? `/${marketCookie}/${localeCookie}`
+          : '';
 
       // Fetch checkout to discover available payment/shipping methods
       const checkout = await getCheckout({ cartId }, event);
@@ -29,10 +46,12 @@ export default defineEventHandler(async (event) => {
         selectedPaymentMethodId: defaultPayment?.id,
         selectedShippingMethodId: defaultShipping?.id,
         redirectUrls: {
-          success: `${origin}/order-confirmation`,
-          cancel: `${origin}/cart`,
-          terms: `${origin}/terms`,
-          continue: `${origin}/`,
+          // Geins auto-appends ?geins-cart={cartid}&geins-pm=...&geins-pt=...
+          // &geins-uid=... to the success URL. The confirmation page reads
+          // `geins-cart` from the query to resolve the order summary.
+          success: `${origin}${prefix}/order-confirmation`,
+          cancel: `${origin}${prefix}/cart`,
+          continue: `${origin}${prefix}/`,
         },
         branding: {
           title: branding?.name ?? undefined,

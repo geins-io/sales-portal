@@ -33,9 +33,15 @@ Make checkout mode configurable via `checkoutMode` in tenant config:
 2. Checkout page detects `checkoutMode === 'hosted'`
 3. Shows spinner: "Omdirigerar till kassan..."
 4. Calls `POST /api/checkout/token` with `{ cartId }`
-5. Server generates token via SDK with branding from tenant theme
+5. Server generates token via SDK with branding from tenant theme. Redirect
+   URLs are prefixed with the current `/{market}/{locale}` (read from
+   cookies set by plugin 00) so post-payment landings stay in-locale.
 6. Client redirects to `https://checkout.geins.services/{token}`
-7. After payment, Geins redirects to our `/order-confirmation` page
+7. After payment, Geins redirects to `/{market}/{locale}/order-confirmation`
+   with the SDK-auto-appended query params `?geins-cart=<cartid>&geins-pm=
+<id>&geins-pt=<type>&geins-uid=<payment-uid>`. The page at
+   `app/pages/order-confirmation/index.vue` reads `geins-cart` (hosted flow)
+   or `orderId` (in-app flow) from `route.query`.
 
 ### Branding Mapping
 
@@ -54,8 +60,12 @@ Make checkout mode configurable via `checkoutMode` in tenant config:
 
 - Default checkout requires zero configuration — works out of the box with tenant branding
 - Custom checkout remains available as a fallback
-- Order confirmation page works for both modes (Geins redirects with orderId in URL)
+- A single `/order-confirmation` page reads the order id from `route.query`
+  so both flows (hosted `geins-cart`, in-app `orderId`) share one implementation
+- Guest checkout is fully supported: `/api/checkout/summary` uses `optionalAuth`
+  and the confirmation page carries no auth middleware
 - The `HOSTED_CHECKOUT_BASE_URL` constant in `shared/constants/checkout.ts` avoids hardcoding
+- Terms URL is intentionally not sent in `redirectUrls` — no curated terms page exists yet
 
 ## References
 

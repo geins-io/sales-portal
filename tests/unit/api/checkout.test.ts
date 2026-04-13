@@ -16,8 +16,10 @@ vi.mock('../../../server/services/checkout', () => ({
 }));
 
 const mockRequireAuth = vi.fn();
+const mockOptionalAuth = vi.fn();
 vi.mock('../../../server/utils/auth', () => ({
   requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
+  optionalAuth: (...args: unknown[]) => mockOptionalAuth(...args),
 }));
 
 const mockRateLimitCheck = vi.fn();
@@ -96,6 +98,7 @@ describe('Checkout API routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireAuth.mockResolvedValue(AUTH_TOKENS);
+    mockOptionalAuth.mockResolvedValue(null);
     mockRateLimitCheck.mockResolvedValue({
       allowed: true,
       remaining: 4,
@@ -254,7 +257,7 @@ describe('Checkout API routes', () => {
       handler = mod.default;
     });
 
-    it('returns summary data', async () => {
+    it('returns summary data for authenticated users', async () => {
       const summaryData = {
         htmlSnippet: '<div>Thanks</div>',
         order: { orderId: '123' },
@@ -266,12 +269,25 @@ describe('Checkout API routes', () => {
       });
       const result = await handler(event);
 
-      expect(mockRequireAuth).toHaveBeenCalledWith(event);
+      expect(mockOptionalAuth).toHaveBeenCalledWith(event);
       expect(mockGetSummary).toHaveBeenCalledWith(
         { orderId: '123', paymentMethod: 'card' },
         event,
       );
       expect(result).toEqual(summaryData);
+    });
+
+    it('returns summary data for guest checkout (no auth token)', async () => {
+      mockOptionalAuth.mockResolvedValueOnce(null);
+      mockGetSummary.mockResolvedValue({ order: { orderId: '123' } });
+
+      const event = mockEvent({
+        query: { orderId: '123', paymentMethod: 'card' },
+      });
+      await handler(event);
+
+      expect(mockOptionalAuth).toHaveBeenCalledWith(event);
+      expect(mockRequireAuth).not.toHaveBeenCalled();
     });
 
     it('throws NOT_FOUND when summary is undefined', async () => {
@@ -288,22 +304,18 @@ describe('Checkout API routes', () => {
 
   // --- Auth check across all routes ----------------------------------------
   describe('auth enforcement', () => {
-    it('all routes call requireAuth', async () => {
-      // Verify by checking the mock was called in each previous test
-      // Here we verify auth failure propagates
+    it('guarded routes propagate 401 from requireAuth; summary is open for guests', async () => {
       const authError = new Error('Unauthorized') as Error & {
         statusCode: number;
       };
       authError.statusCode = 401;
       mockRequireAuth.mockRejectedValue(authError);
 
-      const [getCheckout, validate, createOrderMod, summary] =
-        await Promise.all([
-          import('../../../server/api/checkout/index.get'),
-          import('../../../server/api/checkout/validate.post'),
-          import('../../../server/api/checkout/create-order.post'),
-          import('../../../server/api/checkout/summary.get'),
-        ]);
+      const [getCheckout, validate, createOrderMod] = await Promise.all([
+        import('../../../server/api/checkout/index.get'),
+        import('../../../server/api/checkout/validate.post'),
+        import('../../../server/api/checkout/create-order.post'),
+      ]);
 
       const event = mockEvent();
 
@@ -314,9 +326,6 @@ describe('Checkout API routes', () => {
         statusCode: 401,
       });
       await expect(createOrderMod.default(event)).rejects.toMatchObject({
-        statusCode: 401,
-      });
-      await expect(summary.default(event)).rejects.toMatchObject({
         statusCode: 401,
       });
     });

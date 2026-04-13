@@ -23,6 +23,11 @@ vi.stubGlobal(
   'getRequestURL',
   vi.fn(() => new URL('http://localhost:3000/se/sv/checkout')),
 );
+const mockCookies: Record<string, string | undefined> = {};
+vi.stubGlobal(
+  'getCookie',
+  vi.fn((_event: unknown, name: string) => mockCookies[name]),
+);
 vi.stubGlobal(
   'createAppError',
   vi.fn((code: string, msg: string) => {
@@ -85,6 +90,9 @@ function makeMockEvent(
 describe('POST /api/checkout/token', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    for (const k of Object.keys(mockCookies)) mockCookies[k] = undefined;
+    mockCookies.market = 'se';
+    mockCookies.locale = 'sv';
     mockCreateToken.mockResolvedValue('sdk-generated-token-123');
     mockGetCheckout.mockResolvedValue({
       paymentOptions: [
@@ -141,8 +149,40 @@ describe('POST /api/checkout/token', () => {
     expect(options.branding?.styles?.radius).toBe('0.5rem');
   });
 
-  it('sets redirect URLs with request origin', async () => {
+  it('sets redirect URLs with locale/market prefix from cookies', async () => {
     const event = makeMockEvent({ body: { cartId: 'cart-redirect' } });
+    const { default: handler } =
+      await import('../../../../server/api/checkout/token.post');
+    await handler(event);
+
+    const [options] = mockCreateToken.mock.calls[0] as [
+      import('@geins/types').GenerateCheckoutTokenOptions,
+    ];
+    expect(options.redirectUrls?.success).toBe(
+      'http://localhost:3000/se/sv/order-confirmation',
+    );
+    expect(options.redirectUrls?.cancel).toBe(
+      'http://localhost:3000/se/sv/cart',
+    );
+    expect(options.redirectUrls?.continue).toBe('http://localhost:3000/se/sv/');
+  });
+
+  it('does not send a terms URL in the redirect payload', async () => {
+    const event = makeMockEvent({ body: { cartId: 'cart-no-terms' } });
+    const { default: handler } =
+      await import('../../../../server/api/checkout/token.post');
+    await handler(event);
+
+    const [options] = mockCreateToken.mock.calls[0] as [
+      import('@geins/types').GenerateCheckoutTokenOptions,
+    ];
+    expect(options.redirectUrls?.terms).toBeUndefined();
+  });
+
+  it('omits locale/market prefix when cookies are missing or invalid', async () => {
+    mockCookies.market = undefined;
+    mockCookies.locale = undefined;
+    const event = makeMockEvent({ body: { cartId: 'cart-no-cookies' } });
     const { default: handler } =
       await import('../../../../server/api/checkout/token.post');
     await handler(event);
@@ -154,7 +194,6 @@ describe('POST /api/checkout/token', () => {
       'http://localhost:3000/order-confirmation',
     );
     expect(options.redirectUrls?.cancel).toBe('http://localhost:3000/cart');
-    expect(options.redirectUrls?.terms).toBe('http://localhost:3000/terms');
     expect(options.redirectUrls?.continue).toBe('http://localhost:3000/');
   });
 
