@@ -159,15 +159,24 @@ describe('POST /api/checkout/token', () => {
       import('@geins/types').GenerateCheckoutTokenOptions,
     ];
     expect(options.redirectUrls?.success).toBe(
-      'http://localhost:3000/se/sv/order-confirmation',
+      'http://localhost:3000/se/sv/order-confirmation/{geins.cartid}?geins-pm={geins.paymentMethodId}&geins-pt={geins.paymentType}&geins-uid={payment.uid}',
     );
     expect(options.redirectUrls?.cancel).toBe(
       'http://localhost:3000/se/sv/cart',
     );
-    expect(options.redirectUrls?.terms).toBe(
-      'http://localhost:3000/se/sv/terms',
-    );
     expect(options.redirectUrls?.continue).toBe('http://localhost:3000/se/sv/');
+  });
+
+  it('does not send a terms URL in the redirect payload', async () => {
+    const event = makeMockEvent({ body: { cartId: 'cart-no-terms' } });
+    const { default: handler } =
+      await import('../../../../server/api/checkout/token.post');
+    await handler(event);
+
+    const [options] = mockCreateToken.mock.calls[0] as [
+      import('@geins/types').GenerateCheckoutTokenOptions,
+    ];
+    expect(options.redirectUrls?.terms).toBeUndefined();
   });
 
   it('omits locale/market prefix when cookies are missing or invalid', async () => {
@@ -182,10 +191,9 @@ describe('POST /api/checkout/token', () => {
       import('@geins/types').GenerateCheckoutTokenOptions,
     ];
     expect(options.redirectUrls?.success).toBe(
-      'http://localhost:3000/order-confirmation',
+      'http://localhost:3000/order-confirmation/{geins.cartid}?geins-pm={geins.paymentMethodId}&geins-pt={geins.paymentType}&geins-uid={payment.uid}',
     );
     expect(options.redirectUrls?.cancel).toBe('http://localhost:3000/cart');
-    expect(options.redirectUrls?.terms).toBe('http://localhost:3000/terms');
     expect(options.redirectUrls?.continue).toBe('http://localhost:3000/');
   });
 

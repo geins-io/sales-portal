@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'checkout', middleware: 'auth' });
+definePageMeta({ layout: 'checkout' });
 
 const { t } = useI18n();
 const route = useRoute();
