@@ -223,6 +223,7 @@
     "filters": "Filters",
     "search_filters": "Search filters",
     "clear_all": "Clear all",
+    "remove_filter": "Remove {name} filter",
     "no_documents": "No documents available for this product.",
     "failed_to_load": "Failed to load product.",
     "article_number": "Art nr. {number}",

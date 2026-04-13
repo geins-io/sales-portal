@@ -223,6 +223,7 @@
     "filters": "Filter",
     "search_filters": "Sök filter",
     "clear_all": "Rensa alla",
+    "remove_filter": "Ta bort filter: {name}",
     "no_documents": "Inga dokument tillgängliga för denna produkt.",
     "failed_to_load": "Kunde inte ladda produkt.",
     "article_number": "Art nr. {number}",

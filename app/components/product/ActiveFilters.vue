@@ -4,6 +4,8 @@ import { X } from 'lucide-vue-next';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 
+const { t } = useI18n();
+
 const props = defineProps<{
   filters: Record<string, string[]>;
   facets: FilterFacet[];
@@ -55,7 +57,7 @@ const hasActiveFilters = computed(() => activeFilters.value.length > 0);
       <Button
         variant="ghost"
         class="size-auto rounded-full p-0.5"
-        :aria-label="`Remove ${filter.valueLabel} filter`"
+        :aria-label="t('product.remove_filter', { name: filter.valueLabel })"
         @click="emit('remove', filter.facetId, filter.valueId)"
       >
         <X class="size-3" />

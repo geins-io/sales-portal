@@ -37,29 +37,19 @@ const {
   data: page,
   error,
   status,
-} = useFetch<ContentPageType>(() => `/api/cms/page/${pageSlug.value}`, {
+} = await useFetch<ContentPageType>(() => `/api/cms/page/${pageSlug.value}`, {
   query: localeQuery,
   dedupe: 'defer',
 });
 
-// Handle 404: throw on SSR, showError on client
-watch(
-  () => page.value,
-  (p) => {
-    if (status.value !== 'pending' && !p?.containers?.length && !p?.id) {
-      if (import.meta.server) {
-        throw createError({
-          statusCode: 404,
-          statusMessage: 'Not Found',
-          fatal: true,
-        });
-      } else {
-        showError(createError({ statusCode: 404, statusMessage: 'Not Found' }));
-      }
-    }
-  },
-  { immediate: true },
-);
+// Propagate HTTP 404 when the CMS page doesn't exist.
+if (error.value || (!page.value?.id && !page.value?.containers?.length)) {
+  throw createError({
+    statusCode: 404,
+    statusMessage: 'Not Found',
+    fatal: true,
+  });
+}
 
 // SEO: canonical + hreflang tags
 const { seoLinks } = useSeoLinks(normalizedPath);
