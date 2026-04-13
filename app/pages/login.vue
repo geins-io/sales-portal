@@ -1,17 +1,6 @@
-<script lang="ts">
-/**
- * Validates that a redirect path is safe (relative, no open-redirect).
- * Must start with `/` and must not contain `://` or `//`.
- */
-export function isValidRedirect(path: unknown): boolean {
-  if (typeof path !== 'string' || !path) return false;
-  if (!path.startsWith('/')) return false;
-  if (path.includes('://') || path.includes('//')) return false;
-  return true;
-}
-</script>
-
 <script setup lang="ts">
+import { isSafeInternalPath } from '#shared/utils/redirect';
+
 definePageMeta({
   middleware: 'guest',
   layout: false,
@@ -33,8 +22,8 @@ const defaultView = computed(() =>
 );
 
 function handleSuccess() {
-  const raw = route.query.redirect as string | undefined;
-  const redirect = isValidRedirect(raw) ? raw! : localePath('/');
+  const raw = route.query.redirect;
+  const redirect = isSafeInternalPath(raw) ? raw : localePath('/');
   router.replace(redirect);
 }
 

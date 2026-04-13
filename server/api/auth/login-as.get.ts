@@ -1,3 +1,5 @@
+import { isSafeInternalPath } from '#shared/utils/redirect';
+
 /**
  * Login-as-customer — admin impersonation entry point.
  *
@@ -35,12 +37,11 @@ export default defineEventHandler((event) => {
     setSpoofedByCookie(event, spoofedBy);
   }
 
-  // Redirect to the specified path or /portal
-  const redirectPath = (query.redirect as string) || '/portal';
-  const safePath =
-    redirectPath.startsWith('/') && !redirectPath.includes('://')
-      ? redirectPath
-      : '/portal';
+  // Redirect to the specified path or /portal. The shared validator rejects
+  // external and protocol-relative URLs (including //evil.com, /\evil.com,
+  // javascript:...) so this endpoint can't be used as an open-redirect.
+  const redirectPath = query.redirect;
+  const safePath = isSafeInternalPath(redirectPath) ? redirectPath : '/portal';
 
   return sendRedirect(event, safePath, 302);
 });
