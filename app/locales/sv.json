@@ -352,7 +352,21 @@
   },
   "errors": {
     "section_failed": "Det gick inte att läsa in det här avsnittet.",
-    "retry": "Försök igen"
+    "retry": "Försök igen",
+    "page_not_found_title": "Sidan kunde inte hittas",
+    "page_not_found_description": "Vi kunde tyvärr inte hitta sidan du letar efter. Den kan ha flyttats eller tagits bort.",
+    "server_error_title": "Något gick fel",
+    "server_error_description": "Vi har tekniska problem just nu. Försök igen senare.",
+    "generic_title": "Ett fel uppstod",
+    "generic_description": "Ett oväntat fel uppstod.",
+    "teapot_description": "Jag är en tekanna",
+    "go_home": "Till startsidan",
+    "go_back": "Tillbaka",
+    "contact_support_prefix": "Om du tror att detta är ett fel, vänligen",
+    "contact_support_link": "kontakta support"
+  },
+  "footer": {
+    "copyright": "© {year} {brand}. Alla rättigheter förbehållna."
   },
   "search": {
     "title": "Sök",

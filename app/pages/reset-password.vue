@@ -11,6 +11,10 @@ const route = useRoute();
 const router = useRouter();
 const { localePath } = useLocaleMarket();
 
+useHead({
+  title: computed(() => t('auth.reset_title')),
+});
+
 const resetKey = computed(() => (route.query.key as string) || '');
 
 let redirectTimer: ReturnType<typeof setTimeout> | null = null;

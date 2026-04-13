@@ -6,6 +6,8 @@ const props = defineProps<{
 }>();
 
 const isDev = import.meta.dev;
+const { t } = useI18n();
+const { tenant } = useTenant();
 
 const is404 = computed(() => props.error.statusCode === 404);
 const is418 = computed(() => props.error.statusCode === 418);
@@ -15,23 +17,23 @@ const is500 = computed(
 );
 
 const errorTitle = computed(() => {
-  if (is404.value) return 'Page Not Found';
-  if (is500.value) return 'Something Went Wrong';
-  return props.error.statusMessage || 'An Error Occurred';
+  if (is404.value) return t('errors.page_not_found_title');
+  if (is500.value) return t('errors.server_error_title');
+  return props.error.statusMessage || t('errors.generic_title');
 });
 
 const errorDescription = computed(() => {
-  if (is418.value) {
-    return "I'm a teapot";
-  }
-  if (is404.value) {
-    return "Sorry, we couldn't find the page you're looking for. It might have been moved or deleted.";
-  }
-  if (is500.value) {
-    return "We're experiencing some technical difficulties. Please try again later.";
-  }
-  return props.error.message || 'An unexpected error occurred.';
+  if (is418.value) return t('errors.teapot_description');
+  if (is404.value) return t('errors.page_not_found_description');
+  if (is500.value) return t('errors.server_error_description');
+  return props.error.message || t('errors.generic_description');
 });
+
+useHead({
+  title: errorTitle,
+});
+
+const supportEmail = computed(() => tenant.value?.contact?.email ?? null);
 
 // Build locale-aware home path from cookies (composables may not be available in error page)
 const homePath = computed(() => {
@@ -80,20 +82,20 @@ const handleBack = () => {
       >
         <Button class="min-w-[140px]" @click="handleError">
           <Icon name="lucide:home" class="mr-2 size-4" />
-          Go Home
+          {{ t('errors.go_home') }}
         </Button>
 
         <Button variant="outline" class="min-w-[140px]" @click="handleBack">
           <Icon name="lucide:arrow-left" class="mr-2 size-4" />
-          Go Back
+          {{ t('errors.go_back') }}
         </Button>
       </div>
 
-      <!-- Additional Help -->
-      <p class="error-page__muted mt-8 text-sm">
-        If you believe this is an error, please
-        <a href="mailto:support@example.com" class="error-page__link underline">
-          contact support </a
+      <!-- Additional Help (only when we have a real support email) -->
+      <p v-if="supportEmail" class="error-page__muted mt-8 text-sm">
+        {{ t('errors.contact_support_prefix') }}
+        <a :href="`mailto:${supportEmail}`" class="error-page__link underline">
+          {{ t('errors.contact_support_link') }} </a
         >.
       </p>
 

@@ -15,6 +15,6 @@ const year = new Date().getFullYear();
     data-slot="copyright"
     :class="cn('text-xs text-neutral-400', props.class)"
   >
-    &copy; {{ year }} {{ brandName }}. All rights reserved.
+    {{ $t('footer.copyright', { year, brand: brandName }) }}
   </span>
 </template>

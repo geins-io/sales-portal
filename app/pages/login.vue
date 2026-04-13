@@ -17,9 +17,14 @@ definePageMeta({
   layout: false,
 });
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const { localePath } = useLocaleMarket();
+
+useHead({
+  title: computed(() => t('auth.log_in')),
+});
 
 const authCardRef = ref<{ switchToForgot: () => void } | null>(null);
 
