@@ -13,6 +13,22 @@ import { createPinia, setActivePinia } from 'pinia';
 // Create a fresh Pinia instance for each test so stores work without Nuxt
 setActivePinia(createPinia());
 
+// Mock Nuxt head composables — they require a Nuxt instance that the
+// component tier doesn't have. Auto-imports resolve to the #app/composables/head
+// module, so mock both the module and the globals.
+vi.mock('#app/composables/head', () => ({
+  useHead: vi.fn(),
+  useHeadSafe: vi.fn(),
+  useServerHead: vi.fn(),
+  useServerHeadSafe: vi.fn(),
+  useSeoMeta: vi.fn(),
+  useServerSeoMeta: vi.fn(),
+  injectHead: vi.fn(),
+}));
+vi.stubGlobal('useHead', vi.fn());
+vi.stubGlobal('useHeadSafe', vi.fn());
+vi.stubGlobal('useSeoMeta', vi.fn());
+
 // Mock vue-i18n — useI18n requires app.use(createI18n()) which isn't available
 // in the component tier. Return a passthrough `t` function.
 vi.mock('vue-i18n', () => ({

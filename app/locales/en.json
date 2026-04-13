@@ -352,7 +352,21 @@
   },
   "errors": {
     "section_failed": "This section could not be loaded.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "page_not_found_title": "Page not found",
+    "page_not_found_description": "Sorry, we couldn't find the page you're looking for. It might have been moved or deleted.",
+    "server_error_title": "Something went wrong",
+    "server_error_description": "We're experiencing some technical difficulties. Please try again later.",
+    "generic_title": "An error occurred",
+    "generic_description": "An unexpected error occurred.",
+    "teapot_description": "I'm a teapot",
+    "go_home": "Go home",
+    "go_back": "Go back",
+    "contact_support_prefix": "If you believe this is an error, please",
+    "contact_support_link": "contact support"
+  },
+  "footer": {
+    "copyright": "© {year} {brand}. All rights reserved."
   },
   "search": {
     "title": "Search",
