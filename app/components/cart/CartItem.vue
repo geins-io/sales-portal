@@ -123,6 +123,11 @@ const maxQuantity = computed(() => {
         size="icon-sm"
         class="text-muted-foreground hover:text-destructive shrink-0"
         data-testid="cart-item-remove"
+        :aria-label="
+          item.product?.name
+            ? t('cart.remove_item_named', { name: item.product.name })
+            : t('cart.remove_item')
+        "
         @click="item.id && emit('remove', item.id)"
       >
         <Trash2 class="size-4" />

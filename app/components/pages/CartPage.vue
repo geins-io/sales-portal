@@ -155,7 +155,7 @@ function goToCheckout() {
                   {{ $t('cart.shipping') }}
                 </span>
                 <span data-testid="cart-summary-shipping">
-                  {{ shippingFee ?? '--' }}
+                  {{ shippingFee || $t('cart.calculated_at_checkout') }}
                 </span>
               </div>
 
@@ -165,7 +165,7 @@ function goToCheckout() {
                   {{ $t('cart.tax_estimated') }}
                 </span>
                 <span data-testid="cart-summary-tax">
-                  {{ taxFormatted ?? '--' }}
+                  {{ taxFormatted || $t('cart.calculated_at_checkout') }}
                 </span>
               </div>
             </div>

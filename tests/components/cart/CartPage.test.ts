@@ -225,6 +225,42 @@ describe('CartPage', () => {
     expect(shipping.text()).toBe('$8.00');
   });
 
+  it('shows a localized fallback when shipping fee is missing', () => {
+    const store = useCartStore();
+    store.cart = {
+      ...mockCart,
+      summary: {
+        ...mockCart.summary,
+        shipping: { ...mockCart.summary.shipping, feeIncVatFormatted: '' },
+      },
+    } as unknown as CartType;
+
+    const wrapper = shallowMountComponent(CartPage, {
+      global: { stubs: defaultStubs },
+    });
+
+    const shipping = wrapper.find('[data-testid="cart-summary-shipping"]');
+    expect(shipping.text()).toBe('cart.calculated_at_checkout');
+  });
+
+  it('shows a localized fallback when tax is missing', () => {
+    const store = useCartStore();
+    store.cart = {
+      ...mockCart,
+      summary: {
+        ...mockCart.summary,
+        total: { ...mockCart.summary.total, vatFormatted: '' },
+      },
+    } as unknown as CartType;
+
+    const wrapper = shallowMountComponent(CartPage, {
+      global: { stubs: defaultStubs },
+    });
+
+    const tax = wrapper.find('[data-testid="cart-summary-tax"]');
+    expect(tax.text()).toBe('cart.calculated_at_checkout');
+  });
+
   it('checkout button is not disabled when cart has items', () => {
     const store = useCartStore();
     store.cart = mockCart;

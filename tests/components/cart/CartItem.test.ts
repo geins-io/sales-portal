@@ -110,6 +110,30 @@ describe('CartItem', () => {
     expect(wrapper.emitted('remove')![0]).toEqual(['item-1']);
   });
 
+  it('sets a per-item aria-label on the remove button for screen readers', () => {
+    const wrapper = mountComponent(CartItem, {
+      props: { item: mockItem },
+      global: {
+        stubs: {
+          GeinsImage: true,
+          PriceDisplay: { template: '<span />', props: ['price'] },
+          QuantityInput: {
+            template: '<div />',
+            props: ['modelValue', 'min', 'max'],
+          },
+        },
+      },
+    });
+    const removeBtn = wrapper.find('[data-testid="cart-item-remove"]');
+    expect(removeBtn.attributes('aria-label')).toBeTruthy();
+    // Either the named variant (with product name interpolated) or the
+    // generic fallback must be used — never an unlabelled icon button.
+    const label = removeBtn.attributes('aria-label') ?? '';
+    expect(
+      label === 'cart.remove_item' || label.includes('cart.remove_item_named'),
+    ).toBe(true);
+  });
+
   it('renders article number', () => {
     const wrapper = mountComponent(CartItem, {
       props: { item: mockItem },

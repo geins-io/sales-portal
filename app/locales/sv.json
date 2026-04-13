@@ -94,6 +94,8 @@
     "empty_cart_message": "Det ser ut som att du inte har lagt till något i varukorgen ännu.",
     "continue_shopping": "Fortsätt handla",
     "remove_item": "Ta bort artikel",
+    "remove_item_named": "Ta bort {name} från varukorgen",
+    "calculated_at_checkout": "Beräknas i kassan",
     "quantity": "Antal",
     "subtotal": "Delsumma",
     "subtotal_items": "Delsumma ({count} artiklar)",

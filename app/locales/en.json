@@ -94,6 +94,8 @@
     "empty_cart_message": "Looks like you haven't added anything to your cart yet.",
     "continue_shopping": "Continue Shopping",
     "remove_item": "Remove item",
+    "remove_item_named": "Remove {name} from cart",
+    "calculated_at_checkout": "Calculated at checkout",
     "quantity": "Quantity",
     "subtotal": "Subtotal",
     "subtotal_items": "Subtotal ({count} items)",
