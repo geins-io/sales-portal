@@ -110,7 +110,10 @@ watch(
   () => checkoutStore.orderResult,
   (result) => {
     if (result?.publicId) {
-      navigateTo(localePath(`/order-confirmation/${result.publicId}`));
+      navigateTo({
+        path: localePath('/order-confirmation'),
+        query: { orderId: result.publicId },
+      });
     }
   },
 );

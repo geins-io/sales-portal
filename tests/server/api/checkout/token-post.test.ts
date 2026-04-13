@@ -159,7 +159,7 @@ describe('POST /api/checkout/token', () => {
       import('@geins/types').GenerateCheckoutTokenOptions,
     ];
     expect(options.redirectUrls?.success).toBe(
-      'http://localhost:3000/se/sv/order-confirmation/{geins.cartid}?geins-pm={geins.paymentMethodId}&geins-pt={geins.paymentType}&geins-uid={payment.uid}',
+      'http://localhost:3000/se/sv/order-confirmation',
     );
     expect(options.redirectUrls?.cancel).toBe(
       'http://localhost:3000/se/sv/cart',
@@ -191,7 +191,7 @@ describe('POST /api/checkout/token', () => {
       import('@geins/types').GenerateCheckoutTokenOptions,
     ];
     expect(options.redirectUrls?.success).toBe(
-      'http://localhost:3000/order-confirmation/{geins.cartid}?geins-pm={geins.paymentMethodId}&geins-pt={geins.paymentType}&geins-uid={payment.uid}',
+      'http://localhost:3000/order-confirmation',
     );
     expect(options.redirectUrls?.cancel).toBe('http://localhost:3000/cart');
     expect(options.redirectUrls?.continue).toBe('http://localhost:3000/');

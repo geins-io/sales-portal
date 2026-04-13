@@ -46,9 +46,10 @@ export default defineEventHandler(async (event) => {
         selectedPaymentMethodId: defaultPayment?.id,
         selectedShippingMethodId: defaultShipping?.id,
         redirectUrls: {
-          // Geins substitutes {geins.cartid} at redirect time. The cartId
-          // becomes the orderId post-payment, matching our /[id].vue route.
-          success: `${origin}${prefix}/order-confirmation/{geins.cartid}?geins-pm={geins.paymentMethodId}&geins-pt={geins.paymentType}&geins-uid={payment.uid}`,
+          // Geins auto-appends ?geins-cart={cartid}&geins-pm=...&geins-pt=...
+          // &geins-uid=... to the success URL. The confirmation page reads
+          // `geins-cart` from the query to resolve the order summary.
+          success: `${origin}${prefix}/order-confirmation`,
           cancel: `${origin}${prefix}/cart`,
           continue: `${origin}${prefix}/`,
         },
