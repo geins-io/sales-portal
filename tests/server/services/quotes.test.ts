@@ -302,7 +302,7 @@ describe('quotes service', () => {
         unitPriceFormatted: '4 995 SEK',
         totalPrice: 9990,
         totalPriceFormatted: '9 990 SEK',
-        imageUrl: '/img/desk.jpg',
+        imageFileName: '/img/desk.jpg',
       });
     });
 

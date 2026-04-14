@@ -158,6 +158,11 @@ const defaultStubs = {
     template: '<span class="icon" :data-name="name"></span>',
     props: ['name'],
   },
+  GeinsImage: {
+    template:
+      '<img data-testid="geins-image" :data-file-name="fileName" :data-type="type" :alt="alt" />',
+    props: ['fileName', 'type', 'alt', 'aspectRatio', 'sizes', 'loading'],
+  },
 };
 
 // Mount the detail page wrapped in <Suspense>. Captures any error thrown
@@ -214,7 +219,7 @@ function makeQuote(overrides: Partial<Quote> = {}): Quote {
         unitPriceFormatted: '100,00 kr',
         totalPrice: 200,
         totalPriceFormatted: '200,00 kr',
-        imageUrl: '/img/widget.jpg',
+        imageFileName: '/img/widget.jpg',
       },
     ],
     subtotal: 200,
@@ -309,6 +314,54 @@ describe('PortalQuotationDetail', () => {
       expect(table.text()).toContain('2');
       expect(table.text()).toContain('100,00 kr');
       expect(table.text()).toContain('200,00 kr');
+    });
+
+    it('renders a GeinsImage with the product file name and type=product when imageFileName is set', async () => {
+      mockData.value = { quote: makeQuote() };
+      const { wrapper } = await mountDetailPage();
+
+      const img = wrapper.find('[data-testid="geins-image"]');
+      expect(img.exists()).toBe(true);
+      expect(img.attributes('data-file-name')).toBe('/img/widget.jpg');
+      expect(img.attributes('data-type')).toBe('product');
+      expect(img.attributes('alt')).toBe('Widget Pro');
+    });
+
+    it('does not render a GeinsImage when imageFileName is missing', async () => {
+      mockData.value = {
+        quote: makeQuote({
+          lineItems: [
+            {
+              productId: 1,
+              sku: 'SKU-A',
+              name: 'Widget Pro',
+              articleNumber: 'ART-001',
+              quantity: 2,
+              unitPrice: 100,
+              unitPriceFormatted: '100,00 kr',
+              totalPrice: 200,
+              totalPriceFormatted: '200,00 kr',
+            },
+          ],
+        }),
+      };
+      const { wrapper } = await mountDetailPage();
+
+      expect(wrapper.find('[data-testid="geins-image"]').exists()).toBe(false);
+    });
+
+    it('does not render any raw <img> tags for line item thumbnails', async () => {
+      mockData.value = { quote: makeQuote() };
+      const { wrapper } = await mountDetailPage();
+
+      // The only <img> rendered inside the line items table should be the
+      // GeinsImage stub (which carries data-testid="geins-image"). No raw
+      // <img :src="..."> for the thumbnail should remain.
+      const table = wrapper.find('[data-testid="line-items-table"]');
+      const imgs = table.findAll('img');
+      for (const img of imgs) {
+        expect(img.attributes('data-testid')).toBe('geins-image');
+      }
     });
 
     it('renders all line items', async () => {

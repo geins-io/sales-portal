@@ -157,7 +157,7 @@ function mapLineItem(item: RawCartItem): QuoteLineItem {
     unitPriceFormatted: item.unitPrice?.sellingPriceIncVatFormatted ?? '',
     totalPrice: item.totalPrice?.sellingPriceIncVat ?? 0,
     totalPriceFormatted: item.totalPrice?.sellingPriceIncVatFormatted ?? '',
-    imageUrl: item.product?.productImages?.[0]?.fileName ?? undefined,
+    imageFileName: item.product?.productImages?.[0]?.fileName ?? undefined,
   };
 }
 
