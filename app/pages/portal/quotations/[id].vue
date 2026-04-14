@@ -31,12 +31,12 @@ if (error.value || !data.value?.quote) {
 }
 
 // Seed the Pinia store so accept/reject mutations have the latest snapshot.
+// Clear any stale error from a previous route so the banner starts hidden.
 store.currentQuote = data.value.quote;
+store.error = null;
 
 const quote = computed<Quote | null>(() => data.value?.quote ?? null);
 const isPending = computed(() => quote.value?.status === 'pending');
-
-const actionError = ref<string | null>(null);
 
 useHead({
   title: computed(
@@ -48,25 +48,13 @@ useHead({
 
 async function handleAccept() {
   if (!quote.value) return;
-  actionError.value = null;
-  try {
-    await store.acceptQuote(quote.value.id);
-  } catch (e) {
-    console.error('Accept failed', e);
-    actionError.value = t('portal.quotations.accept_failed');
-  }
+  await store.acceptQuote(quote.value.id);
 }
 
 async function handleDecline() {
   if (!quote.value) return;
   if (!safeConfirm(t('portal.quotations.decline_confirm'))) return;
-  actionError.value = null;
-  try {
-    await store.rejectQuote(quote.value.id);
-  } catch (e) {
-    console.error('Decline failed', e);
-    actionError.value = t('portal.quotations.decline_failed');
-  }
+  await store.rejectQuote(quote.value.id);
 }
 
 function statusLabel(status: string): string {
@@ -243,12 +231,12 @@ function formatDate(iso: string): string {
           <!-- Accept / Decline buttons (pending only) -->
           <div v-if="isPending" class="flex flex-col gap-2">
             <div
-              v-if="actionError"
+              v-if="store.error"
               data-testid="action-error"
               role="alert"
               class="bg-destructive/10 text-destructive border-destructive/20 mb-2 rounded-md border px-3 py-2 text-sm"
             >
-              {{ actionError }}
+              {{ t(store.error) }}
             </div>
             <Button
               data-testid="accept-btn"

@@ -249,14 +249,25 @@ describe('useQuotesStore', () => {
       expect(store.quotes[0].status).toBe('accepted');
     });
 
-    it('sets error on failure', async () => {
+    it('sets error to the accept_failed i18n key on failure', async () => {
       mockFetchImpl.mockRejectedValueOnce(new Error('Server error'));
 
       const store = useQuotesStore();
       await store.acceptQuote('q-001');
 
-      expect(store.error).toBe('Failed to accept quote');
+      expect(store.error).toBe('portal.quotations.accept_failed');
       expect(store.isActionLoading).toBe(false);
+    });
+
+    it('clears a stale error at the start of the call before retrying', async () => {
+      const acceptedQuote = { ...mockQuote, status: 'accepted' as const };
+      mockFetchImpl.mockResolvedValueOnce({ quote: acceptedQuote });
+
+      const store = useQuotesStore();
+      store.error = 'portal.quotations.accept_failed';
+      await store.acceptQuote('q-001');
+
+      expect(store.error).toBeNull();
     });
   });
 
@@ -295,14 +306,25 @@ describe('useQuotesStore', () => {
       expect(store.quotes[0].status).toBe('rejected');
     });
 
-    it('sets error on failure', async () => {
+    it('sets error to the decline_failed i18n key on failure', async () => {
       mockFetchImpl.mockRejectedValueOnce(new Error('Server error'));
 
       const store = useQuotesStore();
       await store.rejectQuote('q-001');
 
-      expect(store.error).toBe('Failed to reject quote');
+      expect(store.error).toBe('portal.quotations.decline_failed');
       expect(store.isActionLoading).toBe(false);
+    });
+
+    it('clears a stale error at the start of the call before retrying', async () => {
+      const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
+      mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });
+
+      const store = useQuotesStore();
+      store.error = 'portal.quotations.decline_failed';
+      await store.rejectQuote('q-001');
+
+      expect(store.error).toBeNull();
     });
   });
 

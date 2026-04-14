@@ -15,6 +15,7 @@ const {
   mockIsActionLoading,
   mockIsLoading,
   mockStoreCurrentQuote,
+  mockStoreError,
   mockCreateError,
 } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -36,16 +37,27 @@ const {
     return err;
   };
 
+  const storeErrorRef = ref<string | null>(null);
+
   return {
     mockData: ref<{ quote: Quote } | null>(null),
     mockError: ref<Error | null>(null),
     mockPending: ref(false),
     mockUseFetch: vi.fn(),
-    mockAcceptQuote: vi.fn(() => Promise.resolve()),
-    mockRejectQuote: vi.fn(() => Promise.resolve()),
+    // Default implementations simulate the real store by clearing/setting
+    // the shared error ref. Individual tests can override with mockImplementationOnce.
+    mockAcceptQuote: vi.fn(() => {
+      storeErrorRef.value = null;
+      return Promise.resolve();
+    }),
+    mockRejectQuote: vi.fn(() => {
+      storeErrorRef.value = null;
+      return Promise.resolve();
+    }),
     mockIsActionLoading: ref(false),
     mockIsLoading: ref(false),
     mockStoreCurrentQuote: ref<Quote | null>(null),
+    mockStoreError: storeErrorRef,
     mockCreateError: createErrorFn,
   };
 });
@@ -133,6 +145,13 @@ vi.mock('../../../app/stores/quotes', () => ({
     },
     get isActionLoading() {
       return mockIsActionLoading.value;
+    },
+    // error is reactive so the banner v-if updates when actions mutate it
+    get error() {
+      return mockStoreError.value;
+    },
+    set error(value: string | null) {
+      mockStoreError.value = value;
     },
     acceptQuote: mockAcceptQuote,
     rejectQuote: mockRejectQuote,
@@ -257,9 +276,18 @@ describe('PortalQuotationDetail', () => {
     mockIsActionLoading.value = false;
     mockIsLoading.value = false;
     mockStoreCurrentQuote.value = null;
+    mockStoreError.value = null;
     mockUseFetch.mockClear();
     mockAcceptQuote.mockClear();
+    mockAcceptQuote.mockImplementation(() => {
+      mockStoreError.value = null;
+      return Promise.resolve();
+    });
     mockRejectQuote.mockClear();
+    mockRejectQuote.mockImplementation(() => {
+      mockStoreError.value = null;
+      return Promise.resolve();
+    });
     mockSafeConfirm.mockClear();
     mockSafeConfirm.mockReturnValue(true);
   });
@@ -818,8 +846,15 @@ describe('PortalQuotationDetail', () => {
       expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
     });
 
-    it('renders the error banner with accept_failed text when acceptQuote throws', async () => {
-      mockAcceptQuote.mockRejectedValueOnce(new Error('boom'));
+    it('renders the error banner with accept_failed text when acceptQuote sets store.error', async () => {
+      // Simulate the real store's catch block: on failure, set store.error
+      // to the i18n key and leave the promise resolved (store swallows the
+      // throw internally). This mirrors the real contract at
+      // app/stores/quotes.ts acceptQuote catch branch.
+      mockAcceptQuote.mockImplementationOnce(() => {
+        mockStoreError.value = 'portal.quotations.accept_failed';
+        return Promise.resolve();
+      });
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
 
@@ -832,8 +867,11 @@ describe('PortalQuotationDetail', () => {
       expect(banner.attributes('role')).toBe('alert');
     });
 
-    it('renders the error banner with decline_failed text when rejectQuote throws', async () => {
-      mockRejectQuote.mockRejectedValueOnce(new Error('boom'));
+    it('renders the error banner with decline_failed text when rejectQuote sets store.error', async () => {
+      mockRejectQuote.mockImplementationOnce(() => {
+        mockStoreError.value = 'portal.quotations.decline_failed';
+        return Promise.resolve();
+      });
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
 
@@ -845,8 +883,11 @@ describe('PortalQuotationDetail', () => {
       expect(banner.text()).toContain('portal.quotations.decline_failed');
     });
 
-    it('clears the error banner when the user clicks Accept again', async () => {
-      mockAcceptQuote.mockRejectedValueOnce(new Error('boom'));
+    it('clears the error banner when the user clicks Accept again and it succeeds', async () => {
+      mockAcceptQuote.mockImplementationOnce(() => {
+        mockStoreError.value = 'portal.quotations.accept_failed';
+        return Promise.resolve();
+      });
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
 
@@ -854,16 +895,20 @@ describe('PortalQuotationDetail', () => {
       await flushPromises();
       expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(true);
 
-      // Second click succeeds — banner should disappear before retrying
-      mockAcceptQuote.mockResolvedValueOnce(undefined);
+      // Second click succeeds — the default mockAcceptQuote impl clears
+      // store.error at the start (mirroring the real store), so the banner
+      // should disappear.
       await wrapper.find('[data-testid="accept-btn"]').trigger('click');
       await flushPromises();
 
       expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
     });
 
-    it('clears the error banner when the user clicks Decline again', async () => {
-      mockRejectQuote.mockRejectedValueOnce(new Error('boom'));
+    it('clears the error banner when the user clicks Decline again and it succeeds', async () => {
+      mockRejectQuote.mockImplementationOnce(() => {
+        mockStoreError.value = 'portal.quotations.decline_failed';
+        return Promise.resolve();
+      });
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
 
@@ -871,7 +916,6 @@ describe('PortalQuotationDetail', () => {
       await flushPromises();
       expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(true);
 
-      mockRejectQuote.mockResolvedValueOnce(undefined);
       await wrapper.find('[data-testid="decline-btn"]').trigger('click');
       await flushPromises();
 
@@ -884,6 +928,16 @@ describe('PortalQuotationDetail', () => {
 
       await wrapper.find('[data-testid="accept-btn"]').trigger('click');
       await flushPromises();
+
+      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
+    });
+
+    it('clears a stale store.error on mount so the banner starts hidden on navigation', async () => {
+      // Simulate a stale error left over from a previous route — the page
+      // setup should reset store.error to null when it seeds currentQuote.
+      mockStoreError.value = 'portal.quotations.accept_failed';
+      mockData.value = { quote: makeQuote({ status: 'pending' }) };
+      const { wrapper } = await mountDetailPage();
 
       expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
     });

@@ -62,7 +62,7 @@ export const useQuotesStore = defineStore('quotes', () => {
         };
       }
     } catch {
-      error.value = 'Failed to accept quote';
+      error.value = 'portal.quotations.accept_failed';
     } finally {
       isActionLoading.value = false;
     }
@@ -84,7 +84,7 @@ export const useQuotesStore = defineStore('quotes', () => {
         };
       }
     } catch {
-      error.value = 'Failed to reject quote';
+      error.value = 'portal.quotations.decline_failed';
     } finally {
       isActionLoading.value = false;
     }
