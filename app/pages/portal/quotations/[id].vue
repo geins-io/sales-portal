@@ -6,7 +6,7 @@ import type { Quote } from '#shared/types/quote';
 
 definePageMeta({ middleware: 'auth' });
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const route = useRoute();
 const store = useQuotesStore();
 
@@ -71,7 +71,7 @@ function statusLabel(status: string): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+  return new Date(iso).toLocaleDateString(locale.value, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

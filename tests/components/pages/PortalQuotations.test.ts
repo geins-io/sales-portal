@@ -203,6 +203,29 @@ describe('PortalQuotations page', () => {
       ).toContain('John Smith');
     });
 
+    it('formats the created date using the current i18n locale (not hardcoded sv-SE)', () => {
+      // Component tests stub useI18n().locale to 'en' (see setup-components.ts).
+      // Expect the en-format numeric date for 2024-03-01, NOT the sv-SE 2024-03-01.
+      mockData.value = {
+        quotes: [makeQuote({ createdAt: '2024-03-01T10:00:00Z' })],
+        total: 1,
+      };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      const expected = new Date('2024-03-01T10:00:00Z').toLocaleDateString(
+        'en',
+        {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        },
+      );
+      expect(
+        wrapper.find('table').find('[data-testid="quotation-row"]').text(),
+      ).toContain(expected);
+    });
+
     it('displays formatted total in each row', () => {
       mockData.value = {
         quotes: [makeQuote({ totalFormatted: '2 500,00 kr' })],

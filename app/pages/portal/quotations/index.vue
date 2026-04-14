@@ -6,7 +6,7 @@ import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
 
 definePageMeta({ middleware: 'auth' });
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { localePath } = useLocaleMarket();
 
 const { data, pending, error, refresh } = useFetch<{
@@ -30,7 +30,7 @@ const filteredQuotes = computed(() => {
 
 function formatDate(dateStr: string): string {
   try {
-    return new Date(dateStr).toLocaleDateString('sv-SE', {
+    return new Date(dateStr).toLocaleDateString(locale.value, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
