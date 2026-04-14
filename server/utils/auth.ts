@@ -132,7 +132,7 @@ async function refreshAndRotate(
       !result.tokens?.refreshToken
     ) {
       clearAuthCookies(event);
-      throw createAppError(ErrorCode.UNAUTHORIZED, 'Session expired');
+      throw createAppError(ErrorCode.SESSION_EXPIRED, 'Session expired');
     }
 
     const { tokens } = result;
@@ -149,9 +149,17 @@ async function refreshAndRotate(
     };
   } catch (error) {
     clearAuthCookies(event);
-    if (error && typeof error === 'object' && 'statusCode' in error) {
-      throw error; // Re-throw H3 errors
+    // Any failure to refresh (SDK error, expired refresh token, network error,
+    // etc.) is surfaced as SESSION_EXPIRED so the client can redirect to login
+    // gracefully instead of rendering a generic 401 error blob.
+    if (
+      error &&
+      typeof error === 'object' &&
+      'statusCode' in error &&
+      (error as { data?: { code?: string } }).data?.code === 'SESSION_EXPIRED'
+    ) {
+      throw error; // Already SESSION_EXPIRED — preserve
     }
-    throw createAppError(ErrorCode.UNAUTHORIZED, 'Session expired');
+    throw createAppError(ErrorCode.SESSION_EXPIRED, 'Session expired');
   }
 }

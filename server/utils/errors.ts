@@ -8,6 +8,7 @@ export enum ErrorCode {
   // Client errors (4xx)
   BAD_REQUEST = 'BAD_REQUEST',
   UNAUTHORIZED = 'UNAUTHORIZED',
+  SESSION_EXPIRED = 'SESSION_EXPIRED',
   FORBIDDEN = 'FORBIDDEN',
   NOT_FOUND = 'NOT_FOUND',
   RATE_LIMITED = 'RATE_LIMITED',
@@ -30,6 +31,7 @@ export enum ErrorCode {
 const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
   [ErrorCode.BAD_REQUEST]: 400,
   [ErrorCode.UNAUTHORIZED]: 401,
+  [ErrorCode.SESSION_EXPIRED]: 401,
   [ErrorCode.FORBIDDEN]: 403,
   [ErrorCode.NOT_FOUND]: 404,
   [ErrorCode.RATE_LIMITED]: 429,
@@ -50,6 +52,7 @@ const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
 const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.BAD_REQUEST]: 'Bad request',
   [ErrorCode.UNAUTHORIZED]: 'Authentication required',
+  [ErrorCode.SESSION_EXPIRED]: 'Session expired',
   [ErrorCode.FORBIDDEN]: 'Access denied',
   [ErrorCode.NOT_FOUND]: 'Resource not found',
   [ErrorCode.RATE_LIMITED]: 'Too many requests',
