@@ -698,7 +698,12 @@
       "invoice_address": "Fakturaadress",
       "delivery_address": "Leveransadress",
       "error_loading": "Det gick inte att ladda offerter. Försök igen.",
-      "retry": "Försök igen"
+      "retry": "Försök igen",
+      "count_summary": "{shown} av {total} offerter",
+      "pagination": {
+        "previous": "Föregående",
+        "next": "Nästa"
+      }
     },
     "favorites": {
       "title": "Favoriter",

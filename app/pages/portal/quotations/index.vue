@@ -17,6 +17,8 @@ const { data, pending, error, refresh } = useFetch<{
 const allQuotes = computed(() => data.value?.quotes ?? []);
 
 const searchQuery = ref('');
+const currentPage = ref(1);
+const pageSize = 20;
 
 const filteredQuotes = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -26,6 +28,35 @@ const filteredQuotes = computed(() => {
       quote.quoteNumber.toLowerCase().includes(q) ||
       quote.contactName.toLowerCase().includes(q),
   );
+});
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredQuotes.value.length / pageSize)),
+);
+
+const paginatedQuotes = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  return filteredQuotes.value.slice(start, start + pageSize);
+});
+
+const showPagination = computed(() => filteredQuotes.value.length > pageSize);
+
+function goToPage(page: number) {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+  }
+}
+
+// Reset to page 1 when search changes
+watch(searchQuery, () => {
+  currentPage.value = 1;
+});
+
+// Clamp current page if the total shrinks below it (e.g. after filtering)
+watch(totalPages, (n) => {
+  if (currentPage.value > n) {
+    currentPage.value = n;
+  }
 });
 
 function formatDate(dateStr: string): string {
@@ -107,10 +138,25 @@ function getStatusLabel(status: QuoteStatus): string {
     </div>
 
     <template v-else>
+      <!-- Count summary -->
+      <p
+        data-testid="quotations-count"
+        :data-shown="paginatedQuotes.length"
+        :data-total="filteredQuotes.length"
+        class="text-muted-foreground mb-3 text-sm"
+      >
+        {{
+          t('portal.quotations.count_summary', {
+            shown: paginatedQuotes.length,
+            total: filteredQuotes.length,
+          })
+        }}
+      </p>
+
       <!-- Mobile card view -->
       <div class="space-y-3 md:hidden" data-testid="quotations-table">
         <NuxtLink
-          v-for="quote in filteredQuotes"
+          v-for="quote in paginatedQuotes"
           :key="quote.id"
           :to="localePath(`/portal/quotations/${quote.id}`)"
           data-testid="quotation-row"
@@ -163,7 +209,7 @@ function getStatusLabel(status: QuoteStatus): string {
           </thead>
           <tbody>
             <tr
-              v-for="quote in filteredQuotes"
+              v-for="quote in paginatedQuotes"
               :key="quote.id"
               data-testid="quotation-row"
               class="border-border hover:bg-muted/50 border-b transition-colors"
@@ -193,6 +239,55 @@ function getStatusLabel(status: QuoteStatus): string {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination -->
+      <div
+        v-if="showPagination"
+        data-testid="quotations-pagination"
+        class="mt-4 flex items-center justify-end gap-2"
+      >
+        <Button
+          data-testid="quotations-previous"
+          variant="ghost"
+          size="sm"
+          :disabled="currentPage <= 1"
+          @click="goToPage(currentPage - 1)"
+        >
+          {{ t('portal.quotations.pagination.previous') }}
+        </Button>
+        <template v-for="page in totalPages" :key="page">
+          <Button
+            v-if="
+              page === 1 ||
+              page === totalPages ||
+              Math.abs(page - currentPage) <= 1
+            "
+            :variant="page === currentPage ? 'default' : 'ghost'"
+            size="sm"
+            @click="goToPage(page)"
+          >
+            {{ page }}
+          </Button>
+          <span
+            v-else-if="
+              page === 2 && currentPage > 3
+                ? true
+                : page === totalPages - 1 && currentPage < totalPages - 2
+            "
+            class="text-muted-foreground px-1"
+            >...</span
+          >
+        </template>
+        <Button
+          data-testid="quotations-next"
+          variant="ghost"
+          size="sm"
+          :disabled="currentPage >= totalPages"
+          @click="goToPage(currentPage + 1)"
+        >
+          {{ t('portal.quotations.pagination.next') }}
+        </Button>
       </div>
     </template>
   </PortalShell>

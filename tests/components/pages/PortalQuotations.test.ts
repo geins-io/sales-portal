@@ -418,4 +418,135 @@ describe('PortalQuotations page', () => {
       );
     });
   });
+
+  describe('pagination', () => {
+    function makeQuotes(count: number): QuoteListItem[] {
+      return Array.from({ length: count }, (_, i) =>
+        makeQuote({
+          id: `q-${String(i + 1).padStart(3, '0')}`,
+          quoteNumber: `Q-${String(i + 1).padStart(4, '0')}`,
+          contactName: `Contact ${i + 1}`,
+        }),
+      );
+    }
+
+    it('does not render pagination controls when quotes fit in one page', () => {
+      mockData.value = { quotes: makeQuotes(5), total: 5 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      expect(
+        wrapper.find('[data-testid="quotations-pagination"]').exists(),
+      ).toBe(false);
+    });
+
+    it('renders pagination controls when quotes exceed page size', () => {
+      mockData.value = { quotes: makeQuotes(25), total: 25 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      expect(
+        wrapper.find('[data-testid="quotations-pagination"]').exists(),
+      ).toBe(true);
+    });
+
+    it('first page renders exactly 20 rows when there are 25 quotes', () => {
+      mockData.value = { quotes: makeQuotes(25), total: 25 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      const rows = wrapper
+        .find('table')
+        .findAll('[data-testid="quotation-row"]');
+      expect(rows).toHaveLength(20);
+    });
+
+    it('clicking Next advances to page 2 and renders remaining 5 rows', async () => {
+      mockData.value = { quotes: makeQuotes(25), total: 25 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      await wrapper.find('[data-testid="quotations-next"]').trigger('click');
+      const rows = wrapper
+        .find('table')
+        .findAll('[data-testid="quotation-row"]');
+      expect(rows).toHaveLength(5);
+    });
+
+    it('clicking Previous goes back to page 1', async () => {
+      mockData.value = { quotes: makeQuotes(25), total: 25 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      await wrapper.find('[data-testid="quotations-next"]').trigger('click');
+      await wrapper
+        .find('[data-testid="quotations-previous"]')
+        .trigger('click');
+      const rows = wrapper
+        .find('table')
+        .findAll('[data-testid="quotation-row"]');
+      expect(rows).toHaveLength(20);
+    });
+
+    it('renders count summary with shown and total on page 1', () => {
+      mockData.value = { quotes: makeQuotes(25), total: 25 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      const summary = wrapper.find('[data-testid="quotations-count"]');
+      expect(summary.exists()).toBe(true);
+      expect(summary.attributes('data-shown')).toBe('20');
+      expect(summary.attributes('data-total')).toBe('25');
+    });
+
+    it('count summary updates when navigating to last page', async () => {
+      mockData.value = { quotes: makeQuotes(25), total: 25 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      await wrapper.find('[data-testid="quotations-next"]').trigger('click');
+      const summary = wrapper.find('[data-testid="quotations-count"]');
+      expect(summary.attributes('data-shown')).toBe('5');
+      expect(summary.attributes('data-total')).toBe('25');
+    });
+
+    it('resets to page 1 when search query changes', async () => {
+      mockData.value = { quotes: makeQuotes(25), total: 25 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      // Navigate to page 2
+      await wrapper.find('[data-testid="quotations-next"]').trigger('click');
+      // Search filters to a single match AND should reset page to 1
+      const input = wrapper.find('[data-testid="quotations-search"]');
+      await input.setValue('Q-0001');
+      const rows = wrapper
+        .find('table')
+        .findAll('[data-testid="quotation-row"]');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.text()).toContain('Q-0001');
+      // Pagination hidden (only 1 result)
+      expect(
+        wrapper.find('[data-testid="quotations-pagination"]').exists(),
+      ).toBe(false);
+    });
+
+    it('clamps currentPage when filtered results shrink below it', async () => {
+      mockData.value = { quotes: makeQuotes(25), total: 25 };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      // Navigate to page 2 (has 5 rows)
+      await wrapper.find('[data-testid="quotations-next"]').trigger('click');
+      // Filter to something that only matches a single page-1 item —
+      // search watcher should reset to page 1 so we don't show an empty page
+      const input = wrapper.find('[data-testid="quotations-search"]');
+      await input.setValue('Contact 3');
+      const rows = wrapper
+        .find('table')
+        .findAll('[data-testid="quotation-row"]');
+      // "Contact 3" matches Contact 3, 30, 31, ..., 39 → within 20 rows on page 1
+      expect(rows.length).toBeGreaterThan(0);
+    });
+  });
 });

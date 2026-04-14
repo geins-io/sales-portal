@@ -698,7 +698,12 @@
       "invoice_address": "Invoice Address",
       "delivery_address": "Delivery Address",
       "error_loading": "Failed to load quotations. Please try again.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "count_summary": "{shown} of {total} quotes",
+      "pagination": {
+        "previous": "Previous",
+        "next": "Next"
+      }
     },
     "favorites": {
       "title": "Favorites",
