@@ -31,6 +31,10 @@ mutation rejectQuotation($quotationId: Int!, $channelId: String, $languageId: St
         vat
         vatFormatted
       }
+      shipping {
+        feeIncVat
+        feeIncVatFormatted
+      }
       total {
         sellingPriceIncVat
         sellingPriceIncVatFormatted

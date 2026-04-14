@@ -82,6 +82,8 @@ const mockQuote: Quote = {
   subtotalFormatted: '1 500 SEK',
   tax: 300,
   taxFormatted: '300 SEK',
+  shipping: 0,
+  shippingFormatted: '',
   total: 1500,
   totalFormatted: '1 500 SEK',
   currency: 'SEK',

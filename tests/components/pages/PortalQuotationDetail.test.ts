@@ -226,6 +226,8 @@ function makeQuote(overrides: Partial<Quote> = {}): Quote {
     subtotalFormatted: '200,00 kr',
     tax: 50,
     taxFormatted: '50,00 kr',
+    shipping: 0,
+    shippingFormatted: '',
     total: 250,
     totalFormatted: '250,00 kr',
     currency: 'SEK',

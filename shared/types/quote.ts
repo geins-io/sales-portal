@@ -42,6 +42,8 @@ export interface Quote {
   subtotalFormatted: string;
   tax: number;
   taxFormatted: string;
+  shipping: number;
+  shippingFormatted: string;
   total: number;
   totalFormatted: string;
   currency: string;

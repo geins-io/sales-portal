@@ -99,9 +99,13 @@ function makeRawQuotationCart(overrides: Record<string, unknown> = {}) {
         vat: 1998,
         vatFormatted: '1 998 SEK',
       },
+      shipping: {
+        feeIncVat: 49,
+        feeIncVatFormatted: '49 SEK',
+      },
       total: {
-        sellingPriceIncVat: 9990,
-        sellingPriceIncVatFormatted: '9 990 SEK',
+        sellingPriceIncVat: 10039,
+        sellingPriceIncVatFormatted: '10 039 SEK',
       },
     },
     quotation: {
@@ -198,7 +202,7 @@ describe('quotes service', () => {
         id: 'cart-001',
         quoteNumber: 'Q-20260101001',
         status: 'pending',
-        totalFormatted: '9 990 SEK',
+        totalFormatted: '10 039 SEK',
         currency: 'SEK',
         itemCount: 1,
       });
@@ -275,12 +279,14 @@ describe('quotes service', () => {
         quoteNumber: 'Q-20260101001',
         status: 'pending',
         currency: 'SEK',
-        total: 9990,
-        totalFormatted: '9 990 SEK',
+        total: 10039,
+        totalFormatted: '10 039 SEK',
         subtotal: 9990,
         subtotalFormatted: '9 990 SEK',
         tax: 1998,
         taxFormatted: '1 998 SEK',
+        shipping: 49,
+        shippingFormatted: '49 SEK',
         createdAt: '2026-03-01T10:15:00Z',
         updatedAt: '2026-03-01T10:15:00Z',
         expiresAt: '2026-04-01T00:00:00Z',
@@ -304,6 +310,18 @@ describe('quotes service', () => {
         totalPriceFormatted: '9 990 SEK',
         imageFileName: '/img/desk.jpg',
       });
+    });
+
+    it('defaults shipping to 0 and empty string when summary.shipping is missing', async () => {
+      const cart = makeRawQuotationCart();
+      // Remove shipping from summary to simulate Geins response without shipping
+      delete (cart.summary as Record<string, unknown>).shipping;
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result.shipping).toBe(0);
+      expect(result.shippingFormatted).toBe('');
     });
 
     it('maps quotation.name to Quote.name (proposal title)', async () => {

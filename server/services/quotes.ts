@@ -109,6 +109,10 @@ interface RawCartSummary {
     vat?: number;
     vatFormatted?: string;
   };
+  shipping?: {
+    feeIncVat?: number;
+    feeIncVatFormatted?: string;
+  };
   total?: {
     sellingPriceIncVat?: number;
     sellingPriceIncVatFormatted?: string;
@@ -186,6 +190,8 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     subtotalFormatted: summary?.subTotal?.sellingPriceIncVatFormatted ?? '',
     tax: summary?.subTotal?.vat ?? 0,
     taxFormatted: summary?.subTotal?.vatFormatted ?? '',
+    shipping: summary?.shipping?.feeIncVat ?? 0,
+    shippingFormatted: summary?.shipping?.feeIncVatFormatted ?? '',
     total: summary?.total?.sellingPriceIncVat ?? 0,
     totalFormatted: summary?.total?.sellingPriceIncVatFormatted ?? '',
     currency: q.currency ?? '',

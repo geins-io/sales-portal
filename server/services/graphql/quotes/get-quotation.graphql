@@ -31,6 +31,10 @@ query getQuotationCart($quotationId: Int!, $channelId: String, $languageId: Stri
         vat
         vatFormatted
       }
+      shipping {
+        feeIncVat
+        feeIncVatFormatted
+      }
       total {
         sellingPriceIncVat
         sellingPriceIncVatFormatted
