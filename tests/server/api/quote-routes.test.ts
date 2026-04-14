@@ -226,18 +226,11 @@ describe('Quote API Routes', () => {
   // POST /api/quotes/[id]/reject
   // -------------------------------------------------------------------------
   describe('POST /api/quotes/[id]/reject', () => {
-    it('rejects a quote with reason', async () => {
+    it('rejects a quote without reading any body', async () => {
       const eventWithId = {
         ...mockEvent,
         context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
       } as unknown as import('h3').H3Event;
-      const readBodyMock = vi.mocked(readValidatedBody);
-      readBodyMock.mockImplementation(async (_event, parse) => {
-        return (parse as AnyFn)({
-          quoteId: 'quote-uuid-001',
-          reason: 'Price too high',
-        });
-      });
       const rejected = { ...mockQuote, status: 'rejected' };
       mockRejectQuote.mockResolvedValue(rejected);
 
@@ -249,29 +242,8 @@ describe('Quote API Routes', () => {
       expect(mockRequireAuth).toHaveBeenCalledWith(eventWithId);
       expect(mockRejectQuote).toHaveBeenCalledWith(
         'quote-uuid-001',
-        'Price too high',
         eventWithId,
       );
-      expect(result).toEqual({ quote: rejected });
-    });
-
-    it('rejects without a reason', async () => {
-      const eventWithId = {
-        ...mockEvent,
-        context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
-      } as unknown as import('h3').H3Event;
-      const readBodyMock = vi.mocked(readValidatedBody);
-      readBodyMock.mockImplementation(async (_event, parse) => {
-        return (parse as AnyFn)({ quoteId: 'quote-uuid-001' });
-      });
-      const rejected = { ...mockQuote, status: 'rejected' };
-      mockRejectQuote.mockResolvedValue(rejected);
-
-      const handler = (
-        await import('../../../server/api/quotes/[id]/reject.post')
-      ).default;
-      const result = await handler(eventWithId);
-
       expect(result).toEqual({ quote: rejected });
     });
 
@@ -281,10 +253,6 @@ describe('Quote API Routes', () => {
         ...mockEvent,
         context: { ...mockEvent.context, params: { id: 'quote-uuid-001' } },
       } as unknown as import('h3').H3Event;
-      const readBodyMock = vi.mocked(readValidatedBody);
-      readBodyMock.mockImplementation(async (_event, parse) => {
-        return (parse as AnyFn)({});
-      });
 
       const handler = (
         await import('../../../server/api/quotes/[id]/reject.post')

@@ -109,6 +109,16 @@ vi.mock('#app/composables/router', async (importOriginal) => {
   };
 });
 
+// Mock safeConfirm — the detail page calls it before rejecting. Default true
+// so the decline flow proceeds in tests; override per-test to assert cancel.
+const mockSafeConfirm = vi.fn(() => true);
+vi.mock('../../../app/utils/client-helpers', () => ({
+  safeConfirm: (...args: unknown[]) => mockSafeConfirm(...args),
+  safeScrollTo: vi.fn(),
+  safeLocationRedirect: vi.fn(),
+  safeHistoryBack: vi.fn(),
+}));
+
 vi.mock('../../../app/stores/quotes', () => ({
   useQuotesStore: () => ({
     // currentQuote is read/written by the detail page — back with a hoisted ref
@@ -233,6 +243,8 @@ describe('PortalQuotationDetail', () => {
     mockUseFetch.mockClear();
     mockAcceptQuote.mockClear();
     mockRejectQuote.mockClear();
+    mockSafeConfirm.mockClear();
+    mockSafeConfirm.mockReturnValue(true);
   });
 
   describe('SSR 404 handling', () => {
@@ -452,54 +464,36 @@ describe('PortalQuotationDetail', () => {
       expect(mockAcceptQuote).toHaveBeenCalledWith('q-001');
     });
 
-    it('shows decline reason textarea when decline button is clicked', async () => {
+    it('does not render a decline-reason textarea', async () => {
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
 
       expect(wrapper.find('[data-testid="decline-form"]').exists()).toBe(false);
-
-      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
-
-      expect(wrapper.find('[data-testid="decline-form"]').exists()).toBe(true);
+      expect(
+        wrapper.find('[data-testid="decline-reason-input"]').exists(),
+      ).toBe(false);
     });
 
-    it('calls rejectQuote with reason when confirm decline is clicked', async () => {
+    it('calls rejectQuote with id only when decline button is clicked', async () => {
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
 
       await wrapper.find('[data-testid="decline-btn"]').trigger('click');
 
-      const textarea = wrapper.find('[data-testid="decline-reason-input"]');
-      await textarea.setValue('Price too high');
-
-      await wrapper
-        .find('[data-testid="confirm-decline-btn"]')
-        .trigger('click');
-
-      expect(mockRejectQuote).toHaveBeenCalledWith('q-001', 'Price too high');
+      expect(mockSafeConfirm).toHaveBeenCalled();
+      expect(mockRejectQuote).toHaveBeenCalledWith('q-001');
+      expect(mockRejectQuote.mock.calls[0]).toHaveLength(1);
     });
 
-    it('calls rejectQuote with empty string when no reason given', async () => {
+    it('does not call rejectQuote when decline confirm is cancelled', async () => {
+      mockSafeConfirm.mockReturnValue(false);
       mockData.value = { quote: makeQuote({ status: 'pending' }) };
       const { wrapper } = await mountDetailPage();
 
       await wrapper.find('[data-testid="decline-btn"]').trigger('click');
-      await wrapper
-        .find('[data-testid="confirm-decline-btn"]')
-        .trigger('click');
 
-      expect(mockRejectQuote).toHaveBeenCalledWith('q-001', '');
-    });
-
-    it('dismisses decline form when cancel is clicked', async () => {
-      mockData.value = { quote: makeQuote({ status: 'pending' }) };
-      const { wrapper } = await mountDetailPage();
-
-      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
-      expect(wrapper.find('[data-testid="decline-form"]').exists()).toBe(true);
-
-      await wrapper.find('[data-testid="cancel-decline-btn"]').trigger('click');
-      expect(wrapper.find('[data-testid="decline-form"]').exists()).toBe(false);
+      expect(mockSafeConfirm).toHaveBeenCalled();
+      expect(mockRejectQuote).not.toHaveBeenCalled();
     });
   });
 

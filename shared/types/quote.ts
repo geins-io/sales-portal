@@ -35,7 +35,7 @@ export interface Quote {
   contactName: string;
   contactEmail: string;
   status: QuoteStatus;
-  message?: string;
+  name?: string;
   internalNotes?: string;
   lineItems: QuoteLineItem[];
   subtotal: number;
@@ -84,5 +84,4 @@ export interface AcceptQuoteInput {
 
 export interface RejectQuoteInput {
   quoteId: string;
-  reason?: string;
 }

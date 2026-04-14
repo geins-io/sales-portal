@@ -306,6 +306,18 @@ describe('quotes service', () => {
       });
     });
 
+    it('maps quotation.name to Quote.name (proposal title)', async () => {
+      const cart = makeRawQuotationCart({ name: 'Dec order proposal' });
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result.name).toBe('Dec order proposal');
+      expect(
+        (result as unknown as { message?: string }).message,
+      ).toBeUndefined();
+    });
+
     it('throws when quotation cart is not found', async () => {
       mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: null });
 
@@ -347,11 +359,7 @@ describe('quotes service', () => {
       const cart = makeRawQuotationCart({ status: 'REJECTED' });
       mockGraphqlMutation.mockResolvedValueOnce({ rejectQuotation: cart });
 
-      const result = await quotesService.rejectQuote(
-        'cart-001',
-        'Too expensive',
-        mockEvent,
-      );
+      const result = await quotesService.rejectQuote('cart-001', mockEvent);
 
       expect(mockGraphqlMutation).toHaveBeenCalledWith(
         expect.objectContaining({

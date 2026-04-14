@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
+import { safeConfirm } from '~/utils/client-helpers';
 import type { Quote } from '#shared/types/quote';
 
 definePageMeta({ middleware: 'auth' });
@@ -37,20 +38,6 @@ store.currentQuote = data.value.quote;
 const quote = computed<Quote | null>(() => data.value?.quote ?? null);
 const isPending = computed(() => quote.value?.status === 'pending');
 
-// Decline form state
-const showDeclineForm = ref(false);
-const declineReason = ref('');
-
-function openDeclineForm() {
-  showDeclineForm.value = true;
-  declineReason.value = '';
-}
-
-function cancelDecline() {
-  showDeclineForm.value = false;
-  declineReason.value = '';
-}
-
 async function handleAccept() {
   if (!quote.value) return;
   await store.acceptQuote(quote.value.id);
@@ -58,9 +45,8 @@ async function handleAccept() {
 
 async function handleDecline() {
   if (!quote.value) return;
-  await store.rejectQuote(quote.value.id, declineReason.value);
-  showDeclineForm.value = false;
-  declineReason.value = '';
+  if (!safeConfirm(t('portal.quotations.decline_confirm'))) return;
+  await store.rejectQuote(quote.value.id);
 }
 
 function statusBadgeClass(status: string): string {
@@ -214,69 +200,31 @@ function formatDate(iso: string): string {
           </div>
 
           <!-- Accept / Decline buttons (pending only) -->
-          <template v-if="isPending">
-            <div v-if="!showDeclineForm" class="flex flex-col gap-2">
-              <Button
-                data-testid="accept-btn"
-                :disabled="store.isActionLoading"
-                @click="handleAccept"
-              >
-                {{
-                  store.isActionLoading
-                    ? t('portal.quotations.accepting')
-                    : t('portal.quotations.accept')
-                }}
-              </Button>
-              <Button
-                data-testid="decline-btn"
-                variant="outline"
-                :disabled="store.isActionLoading"
-                @click="openDeclineForm"
-              >
-                {{ t('portal.quotations.decline') }}
-              </Button>
-            </div>
-
-            <!-- Decline form -->
-            <div
-              v-else
-              data-testid="decline-form"
-              class="border-border space-y-3 rounded-lg border p-4"
+          <div v-if="isPending" class="flex flex-col gap-2">
+            <Button
+              data-testid="accept-btn"
+              :disabled="store.isActionLoading"
+              @click="handleAccept"
             >
-              <label class="text-sm font-medium">
-                {{ t('portal.quotations.decline_reason') }}
-              </label>
-              <textarea
-                v-model="declineReason"
-                data-testid="decline-reason-input"
-                :placeholder="t('portal.quotations.decline_reason_placeholder')"
-                rows="3"
-                class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              <div class="flex gap-2">
-                <Button
-                  data-testid="confirm-decline-btn"
-                  variant="destructive"
-                  :disabled="store.isActionLoading"
-                  @click="handleDecline"
-                >
-                  {{
-                    store.isActionLoading
-                      ? t('portal.quotations.declining')
-                      : t('portal.quotations.decline')
-                  }}
-                </Button>
-                <Button
-                  data-testid="cancel-decline-btn"
-                  variant="outline"
-                  :disabled="store.isActionLoading"
-                  @click="cancelDecline"
-                >
-                  {{ t('common.cancel') }}
-                </Button>
-              </div>
-            </div>
-          </template>
+              {{
+                store.isActionLoading
+                  ? t('portal.quotations.accepting')
+                  : t('portal.quotations.accept')
+              }}
+            </Button>
+            <Button
+              data-testid="decline-btn"
+              variant="outline"
+              :disabled="store.isActionLoading"
+              @click="handleDecline"
+            >
+              {{
+                store.isActionLoading
+                  ? t('portal.quotations.declining')
+                  : t('portal.quotations.decline')
+              }}
+            </Button>
+          </div>
 
           <!-- Expiration date -->
           <div

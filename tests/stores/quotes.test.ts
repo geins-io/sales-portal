@@ -259,20 +259,7 @@ describe('useQuotesStore', () => {
   });
 
   describe('rejectQuote', () => {
-    it('calls POST /api/quotes/:id/reject with reason in body', async () => {
-      const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
-      mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });
-
-      const store = useQuotesStore();
-      await store.rejectQuote('q-001', 'Price too high');
-
-      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/reject', {
-        method: 'POST',
-        body: { reason: 'Price too high' },
-      });
-    });
-
-    it('calls POST without reason when not provided', async () => {
+    it('calls POST /api/quotes/:id/reject without body', async () => {
       const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
       mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });
 
@@ -281,7 +268,6 @@ describe('useQuotesStore', () => {
 
       expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/reject', {
         method: 'POST',
-        body: { reason: undefined },
       });
     });
 
@@ -291,7 +277,7 @@ describe('useQuotesStore', () => {
 
       const store = useQuotesStore();
       store.currentQuote = { ...mockQuote };
-      await store.rejectQuote('q-001', 'Too expensive');
+      await store.rejectQuote('q-001');
 
       expect(store.currentQuote?.status).toBe('rejected');
     });

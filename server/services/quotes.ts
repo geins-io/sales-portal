@@ -179,7 +179,7 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     contactName,
     contactEmail,
     status: mapStatus(q.status),
-    message: q.name ?? undefined,
+    name: q.name ?? undefined,
     internalNotes: undefined,
     lineItems: items,
     subtotal: summary?.subTotal?.sellingPriceIncVat ?? 0,
@@ -300,7 +300,6 @@ export async function acceptQuote(
 /** Reject a quotation via Geins GraphQL API */
 export async function rejectQuote(
   quoteId: string,
-  _reason: string | undefined,
   event: H3Event,
 ): Promise<Quote> {
   const sdk = await getTenantSDK(event);
