@@ -29,7 +29,7 @@ vi.stubGlobal('definePageMeta', vi.fn());
 
 // Import AFTER mocks are set up
 const { default: PortalQuotations } =
-  await import('../../../app/pages/portal/quotations.vue');
+  await import('../../../app/pages/portal/quotations/index.vue');
 
 const defaultStubs = {
   PortalShell: {
