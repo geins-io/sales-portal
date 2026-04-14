@@ -25,6 +25,33 @@ export interface QuoteLineItem {
 }
 
 // ---------------------------------------------------------------------------
+// Quote Address (billing / shipping)
+// ---------------------------------------------------------------------------
+export interface QuoteAddress {
+  email?: string;
+  phone?: string;
+  company?: string;
+  firstName?: string;
+  lastName?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  addressLine3?: string;
+  zip?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Quote Company
+// ---------------------------------------------------------------------------
+export interface QuoteCompany {
+  companyId?: string;
+  name?: string;
+  vatNumber?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Quote
 // ---------------------------------------------------------------------------
 export interface Quote {
@@ -51,6 +78,9 @@ export interface Quote {
   expiresAt?: string;
   createdAt: string;
   updatedAt: string;
+  billingAddress?: QuoteAddress;
+  shippingAddress?: QuoteAddress;
+  company?: QuoteCompany;
 }
 
 // ---------------------------------------------------------------------------

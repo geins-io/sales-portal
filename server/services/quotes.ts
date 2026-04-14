@@ -1,6 +1,8 @@
 import type { H3Event } from 'h3';
 import type {
   Quote,
+  QuoteAddress,
+  QuoteCompany,
   QuoteLineItem,
   QuoteListItem,
   QuoteStatus,
@@ -165,6 +167,33 @@ function mapLineItem(item: RawCartItem): QuoteLineItem {
   };
 }
 
+function mapAddress(
+  a: NonNullable<RawQuotation['billingAddress']>,
+): QuoteAddress {
+  return {
+    email: a.email ?? undefined,
+    phone: a.phone ?? undefined,
+    company: a.company ?? undefined,
+    firstName: a.firstName ?? undefined,
+    lastName: a.lastName ?? undefined,
+    addressLine1: a.addressLine1 ?? undefined,
+    addressLine2: a.addressLine2 ?? undefined,
+    addressLine3: a.addressLine3 ?? undefined,
+    zip: a.zip ?? undefined,
+    city: a.city ?? undefined,
+    region: a.region ?? undefined,
+    country: a.country ?? undefined,
+  };
+}
+
+function mapCompany(c: NonNullable<RawQuotation['company']>): QuoteCompany {
+  return {
+    companyId: c.companyId ?? undefined,
+    name: c.name ?? undefined,
+    vatNumber: c.vatNumber ?? undefined,
+  };
+}
+
 function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
   const q = cart.quotation ?? {};
   const summary = cart.summary;
@@ -199,6 +228,11 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     expiresAt: q.validTo ?? undefined,
     createdAt: q.createdAt ?? '',
     updatedAt: q.modifiedAt ?? '',
+    billingAddress: q.billingAddress ? mapAddress(q.billingAddress) : undefined,
+    shippingAddress: q.shippingAddress
+      ? mapAddress(q.shippingAddress)
+      : undefined,
+    company: q.company ? mapCompany(q.company) : undefined,
   };
 }
 

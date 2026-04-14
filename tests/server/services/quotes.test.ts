@@ -150,7 +150,20 @@ function makeRawQuotationCart(overrides: Record<string, unknown> = {}) {
         region: null,
         country: 'SE',
       },
-      shippingAddress: null,
+      shippingAddress: {
+        email: 'delivery@acmecorp.se',
+        phone: '+46987654',
+        company: 'Acme Corp Warehouse',
+        firstName: 'Warehouse',
+        lastName: 'Receiver',
+        addressLine1: 'Industrivagen 5',
+        addressLine2: 'Building B',
+        addressLine3: null,
+        zip: '55533',
+        city: 'Goteborg',
+        region: null,
+        country: 'SE',
+      },
       orderId: null,
       ...overrides,
     },
@@ -310,6 +323,54 @@ describe('quotes service', () => {
         totalPriceFormatted: '9 990 SEK',
         imageFileName: '/img/desk.jpg',
       });
+
+      expect(result.company).toEqual({
+        companyId: 'comp-1',
+        name: 'Acme Corp',
+        vatNumber: 'SE12345',
+      });
+
+      expect(result.billingAddress).toEqual({
+        email: 'lisa@acmecorp.se',
+        phone: '+46123456',
+        company: 'Acme Corp',
+        firstName: 'Lisa',
+        lastName: 'Andersson',
+        addressLine1: 'Street 1',
+        addressLine2: undefined,
+        addressLine3: undefined,
+        zip: '11122',
+        city: 'Stockholm',
+        region: undefined,
+        country: 'SE',
+      });
+
+      expect(result.shippingAddress).toEqual({
+        email: 'delivery@acmecorp.se',
+        phone: '+46987654',
+        company: 'Acme Corp Warehouse',
+        firstName: 'Warehouse',
+        lastName: 'Receiver',
+        addressLine1: 'Industrivagen 5',
+        addressLine2: 'Building B',
+        addressLine3: undefined,
+        zip: '55533',
+        city: 'Goteborg',
+        region: undefined,
+        country: 'SE',
+      });
+    });
+
+    it('returns undefined for shippingAddress when raw shippingAddress is null', async () => {
+      const cart = makeRawQuotationCart({ shippingAddress: null });
+      mockGraphqlQuery.mockResolvedValueOnce({ getQuotationCart: cart });
+
+      const result = await quotesService.getQuote('cart-001', mockEvent);
+
+      expect(result.shippingAddress).toBeUndefined();
+      // Billing still populated even when shipping is missing
+      expect(result.billingAddress).toBeDefined();
+      expect(result.billingAddress?.addressLine1).toBe('Street 1');
     });
 
     it('defaults shipping to 0 and empty string when summary.shipping is missing', async () => {
