@@ -690,7 +690,9 @@
       "payment_terms": "Betalningsvillkor",
       "sale_contact": "Säljkontakt",
       "invoice_address": "Fakturaadress",
-      "delivery_address": "Leveransadress"
+      "delivery_address": "Leveransadress",
+      "error_loading": "Det gick inte att ladda offerter. Försök igen.",
+      "retry": "Försök igen"
     },
     "favorites": {
       "title": "Favoriter",

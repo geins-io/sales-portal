@@ -690,7 +690,9 @@
       "payment_terms": "Payment Terms",
       "sale_contact": "Sale Contact",
       "invoice_address": "Invoice Address",
-      "delivery_address": "Delivery Address"
+      "delivery_address": "Delivery Address",
+      "error_loading": "Failed to load quotations. Please try again.",
+      "retry": "Try again"
     },
     "favorites": {
       "title": "Favorites",
