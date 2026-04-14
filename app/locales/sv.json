@@ -668,7 +668,7 @@
       "total": "Totalt",
       "view": "Visa",
       "status_pending": "Väntande",
-      "status_accepted": "Accepterad",
+      "status_accepted": "Bekräftad",
       "status_rejected": "Avvisad",
       "status_expired": "Utgången",
       "status_cancelled": "Avbruten",

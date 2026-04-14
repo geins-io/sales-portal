@@ -278,9 +278,15 @@ describe('PortalQuotations page', () => {
       });
     }
 
-    it('uses secondary variant for pending badge', () => {
+    it.each<[QuoteListItem['status'], string]>([
+      ['pending', 'gray'],
+      ['accepted', 'green'],
+      ['rejected', 'red'],
+      ['expired', 'orange'],
+      ['cancelled', 'rose'],
+    ])('paints %s pill with %s palette', (status, color) => {
       mockData.value = {
-        quotes: [makeQuote({ status: 'pending' })],
+        quotes: [makeQuote({ status })],
         total: 1,
       };
       const wrapper = mountComponent(PortalQuotations, {
@@ -288,54 +294,28 @@ describe('PortalQuotations page', () => {
       });
       const badge = wrapper.find('[data-testid="quote-status-badge"]');
       expect(badge.exists()).toBe(true);
+      expect(badge.attributes('class')).toContain(`bg-${color}-100`);
+      expect(badge.attributes('class')).toContain(`text-${color}-800`);
     });
 
-    it('uses default variant for accepted badge', () => {
-      mockData.value = {
-        quotes: [makeQuote({ status: 'accepted' })],
-        total: 1,
+    it('gives expired and cancelled visually distinct palettes from pending', () => {
+      const classFor = (status: QuoteListItem['status']) => {
+        mockData.value = { quotes: [makeQuote({ status })], total: 1 };
+        const wrapper = mountComponent(PortalQuotations, {
+          global: { stubs: defaultStubs },
+        });
+        return (
+          wrapper
+            .find('[data-testid="quote-status-badge"]')
+            .attributes('class') ?? ''
+        );
       };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      const badge = wrapper.find('[data-testid="quote-status-badge"]');
-      expect(badge.exists()).toBe(true);
-    });
-
-    it('uses destructive variant for rejected badge', () => {
-      mockData.value = {
-        quotes: [makeQuote({ status: 'rejected' })],
-        total: 1,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      const badge = wrapper.find('[data-testid="quote-status-badge"]');
-      expect(badge.exists()).toBe(true);
-    });
-
-    it('uses secondary variant for expired badge', () => {
-      mockData.value = {
-        quotes: [makeQuote({ status: 'expired' })],
-        total: 1,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      const badge = wrapper.find('[data-testid="quote-status-badge"]');
-      expect(badge.exists()).toBe(true);
-    });
-
-    it('uses secondary variant for cancelled badge', () => {
-      mockData.value = {
-        quotes: [makeQuote({ status: 'cancelled' })],
-        total: 1,
-      };
-      const wrapper = mountComponent(PortalQuotations, {
-        global: { stubs: defaultStubs },
-      });
-      const badge = wrapper.find('[data-testid="quote-status-badge"]');
-      expect(badge.exists()).toBe(true);
+      const pending = classFor('pending');
+      const expired = classFor('expired');
+      const cancelled = classFor('cancelled');
+      expect(pending).not.toBe(expired);
+      expect(pending).not.toBe(cancelled);
+      expect(expired).not.toBe(cancelled);
     });
   });
 

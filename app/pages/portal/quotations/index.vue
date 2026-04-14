@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
+import { getQuoteStatusPillClass } from '~/utils/quote-status';
 import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
 
 definePageMeta({ middleware: 'auth' });
@@ -37,19 +37,6 @@ function formatDate(dateStr: string): string {
     });
   } catch {
     return dateStr;
-  }
-}
-
-function getStatusVariant(
-  status: QuoteStatus,
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status) {
-    case 'accepted':
-      return 'default';
-    case 'rejected':
-      return 'destructive';
-    default:
-      return 'secondary';
   }
 }
 
@@ -131,12 +118,13 @@ function getStatusLabel(status: QuoteStatus): string {
         >
           <div class="mb-2 flex items-center justify-between">
             <span class="font-medium">{{ quote.quoteNumber }}</span>
-            <Badge
+            <span
               data-testid="quote-status-badge"
-              :variant="getStatusVariant(quote.status)"
+              class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+              :class="getQuoteStatusPillClass(quote.status)"
             >
               {{ getStatusLabel(quote.status) }}
-            </Badge>
+            </span>
           </div>
           <div class="text-muted-foreground space-y-1 text-sm">
             <div class="flex justify-between">
@@ -185,12 +173,13 @@ function getStatusLabel(status: QuoteStatus): string {
               <td class="py-3 pr-4">{{ quote.contactName }}</td>
               <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
               <td class="py-3 pr-4">
-                <Badge
+                <span
                   data-testid="quote-status-badge"
-                  :variant="getStatusVariant(quote.status)"
+                  class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                  :class="getQuoteStatusPillClass(quote.status)"
                 >
                   {{ getStatusLabel(quote.status) }}
-                </Badge>
+                </span>
               </td>
               <td class="py-3">
                 <NuxtLink

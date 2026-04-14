@@ -2,6 +2,7 @@
 import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
 import { safeConfirm } from '~/utils/client-helpers';
+import { getQuoteStatusPillClass } from '~/utils/quote-status';
 import type { Quote } from '#shared/types/quote';
 
 definePageMeta({ middleware: 'auth' });
@@ -49,23 +50,6 @@ async function handleDecline() {
   await store.rejectQuote(quote.value.id);
 }
 
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case 'pending':
-      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
-    case 'accepted':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-    case 'rejected':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-    case 'expired':
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
-    case 'cancelled':
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-}
-
 function statusLabel(status: string): string {
   return t(`portal.quotations.status_${status}`);
 }
@@ -108,7 +92,7 @@ function formatDate(iso: string): string {
         <span
           data-testid="status-badge"
           class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-          :class="statusBadgeClass(quote.status)"
+          :class="getQuoteStatusPillClass(quote.status)"
         >
           {{ statusLabel(quote.status) }}
         </span>

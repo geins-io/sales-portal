@@ -668,7 +668,7 @@
       "total": "Total",
       "view": "View",
       "status_pending": "Pending",
-      "status_accepted": "Accepted",
+      "status_accepted": "Confirmed",
       "status_rejected": "Rejected",
       "status_expired": "Expired",
       "status_cancelled": "Cancelled",
