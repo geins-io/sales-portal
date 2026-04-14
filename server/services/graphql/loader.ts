@@ -27,6 +27,10 @@ const FRAGMENT_NAMES: Record<string, string> = {
   ListProduct: './fragments/list-product.graphql',
   ListInfo: './fragments/list-info.graphql',
   ListFilters: './fragments/list-filters.graphql',
+  QuotationCartItem: './fragments/quotation-cart-item.graphql',
+  QuotationCartSummary: './fragments/quotation-cart-summary.graphql',
+  QuotationCore: './fragments/quotation-core.graphql',
+  QuotationWithAddresses: './fragments/quotation-with-addresses.graphql',
 };
 
 function loadFragments(): void {

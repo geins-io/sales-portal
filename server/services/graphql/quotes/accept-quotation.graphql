@@ -2,79 +2,13 @@ mutation acceptQuotation($quotationId: Int!, $channelId: String, $languageId: St
   acceptQuotation(quotationId: $quotationId, channelId: $channelId, languageId: $languageId, marketId: $marketId) {
     id
     items {
-      id
-      skuId
-      quantity
-      unitPrice {
-        sellingPriceIncVat
-        sellingPriceIncVatFormatted
-      }
-      totalPrice {
-        sellingPriceIncVat
-        sellingPriceIncVatFormatted
-      }
-      product {
-        productId
-        name
-        articleNumber
-        productImages {
-          fileName
-        }
-      }
+      ...QuotationCartItem
     }
     summary {
-      subTotal {
-        sellingPriceIncVat
-        sellingPriceIncVatFormatted
-        sellingPriceExVat
-        sellingPriceExVatFormatted
-        vat
-        vatFormatted
-      }
-      shipping {
-        feeIncVat
-        feeIncVatFormatted
-      }
-      total {
-        sellingPriceIncVat
-        sellingPriceIncVatFormatted
-      }
+      ...QuotationCartSummary
     }
     quotation {
-      quotationNumber
-      name
-      currency
-      marketId
-      channelId
-      status
-      createdAt
-      modifiedAt
-      validFrom
-      validTo
-      company {
-        companyId
-        name
-        vatNumber
-      }
-      owner {
-        ownerId
-        firstName
-        lastName
-        phone
-      }
-      customer {
-        customerId
-        internalCustomerId
-        firstName
-        lastName
-        phone
-        approvedAt
-        rejectedAt
-      }
-      terms {
-        text
-      }
-      orderId
+      ...QuotationCore
     }
   }
 }

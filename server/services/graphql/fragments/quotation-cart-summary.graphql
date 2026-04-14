@@ -1,0 +1,18 @@
+fragment QuotationCartSummary on CartSummaryType {
+  subTotal {
+    sellingPriceIncVat
+    sellingPriceIncVatFormatted
+    sellingPriceExVat
+    sellingPriceExVatFormatted
+    vat
+    vatFormatted
+  }
+  shipping {
+    feeIncVat
+    feeIncVatFormatted
+  }
+  total {
+    sellingPriceIncVat
+    sellingPriceIncVatFormatted
+  }
+}

@@ -1,0 +1,21 @@
+fragment QuotationCartItem on CartItemType {
+  id
+  skuId
+  quantity
+  unitPrice {
+    sellingPriceIncVat
+    sellingPriceIncVatFormatted
+  }
+  totalPrice {
+    sellingPriceIncVat
+    sellingPriceIncVatFormatted
+  }
+  product {
+    productId
+    name
+    articleNumber
+    productImages {
+      fileName
+    }
+  }
+}
