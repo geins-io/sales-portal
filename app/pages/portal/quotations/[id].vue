@@ -10,12 +10,9 @@ definePageMeta({ middleware: 'auth' });
 const { t, locale } = useI18n();
 const route = useRoute();
 const store = useQuotesStore();
+const { localePath } = useLocaleMarket();
 
 const quoteId = computed(() => route.params.id as string);
-
-useHead({
-  title: computed(() => t('portal.quotations.detail_title')),
-});
 
 // SSR-safe 404: fetch at top-level setup so Nuxt can set the response status
 // before the HTML is streamed. Sibling routes (accept/reject) under
@@ -38,6 +35,14 @@ store.currentQuote = data.value.quote;
 
 const quote = computed<Quote | null>(() => data.value?.quote ?? null);
 const isPending = computed(() => quote.value?.status === 'pending');
+
+useHead({
+  title: computed(
+    () =>
+      quote.value?.name ??
+      `${t('portal.quotations.detail_title')} #${quote.value?.quoteNumber ?? ''}`,
+  ),
+});
 
 async function handleAccept() {
   if (!quote.value) return;
@@ -79,11 +84,24 @@ function formatDate(iso: string): string {
 
     <!-- Detail View -->
     <div v-else-if="quote" data-testid="quote-detail" class="space-y-6">
+      <!-- Back to quotations link -->
+      <NuxtLink
+        data-testid="back-link"
+        :to="localePath('/portal/quotations')"
+        class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+      >
+        <Icon name="lucide:arrow-left" class="size-4" />
+        {{ t('portal.quotations.back_to_quotations') }}
+      </NuxtLink>
+
       <!-- Header -->
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-semibold">
-            {{ t('portal.quotations.detail_title') }} #{{ quote.quoteNumber }}
+          <h2 data-testid="quote-title" class="text-2xl font-semibold">
+            {{
+              quote?.name ??
+              `${t('portal.quotations.detail_title')} #${quote?.quoteNumber ?? ''}`
+            }}
           </h2>
           <p class="text-muted-foreground mt-1 text-sm">
             {{ formatDate(quote.createdAt) }}
@@ -178,9 +196,21 @@ function formatDate(iso: string): string {
           >
             <div class="flex justify-between text-sm">
               <span class="text-muted-foreground">{{
-                t('portal.quotations.subtotal')
+                t('portal.quotations.subtotal_with_count', {
+                  count: quote?.lineItems?.length ?? 0,
+                })
               }}</span>
               <span>{{ quote.subtotalFormatted }}</span>
+            </div>
+            <div
+              v-if="(quote?.shipping ?? 0) > 0"
+              data-testid="shipping-row"
+              class="flex justify-between text-sm"
+            >
+              <span class="text-muted-foreground">{{
+                t('portal.quotations.shipping')
+              }}</span>
+              <span>{{ quote.shippingFormatted }}</span>
             </div>
             <div class="flex justify-between text-sm">
               <span class="text-muted-foreground">{{
@@ -225,45 +255,221 @@ function formatDate(iso: string): string {
 
           <!-- Expiration date -->
           <div
-            v-if="quote.expiresAt"
+            v-if="quote?.expiresAt"
             data-testid="expires-at"
-            class="border-border space-y-1 rounded-lg border p-4"
+            class="border-border flex items-start gap-3 rounded-lg border p-4"
           >
-            <p
-              class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
-            >
-              {{ t('portal.quotations.expires_at') }}
-            </p>
-            <p class="text-sm font-medium">{{ formatDate(quote.expiresAt) }}</p>
+            <Icon
+              name="lucide:calendar"
+              class="text-muted-foreground mt-0.5 size-4 shrink-0"
+            />
+            <div class="space-y-1">
+              <p
+                class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
+              >
+                {{ t('portal.quotations.expires_at') }}
+              </p>
+              <p class="text-sm font-medium">
+                {{ formatDate(quote.expiresAt) }}
+              </p>
+            </div>
           </div>
 
           <!-- Payment terms -->
           <div
-            v-if="quote.paymentTerms"
+            v-if="quote?.paymentTerms"
             data-testid="payment-terms"
-            class="border-border space-y-1 rounded-lg border p-4"
+            class="border-border flex items-start gap-3 rounded-lg border p-4"
           >
-            <p
-              class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
-            >
-              {{ t('portal.quotations.payment_terms') }}
-            </p>
-            <p class="text-sm font-medium">{{ quote.paymentTerms }}</p>
+            <Icon
+              name="lucide:clock"
+              class="text-muted-foreground mt-0.5 size-4 shrink-0"
+            />
+            <div class="space-y-1">
+              <p
+                class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
+              >
+                {{ t('portal.quotations.payment_terms') }}
+              </p>
+              <p class="text-sm font-medium">{{ quote.paymentTerms }}</p>
+            </div>
           </div>
 
           <!-- Sale contact -->
           <div
             data-testid="sale-contact"
+            class="border-border flex items-start gap-3 rounded-lg border p-4"
+          >
+            <Icon
+              name="lucide:user"
+              class="text-muted-foreground mt-0.5 size-4 shrink-0"
+            />
+            <div class="space-y-1">
+              <p
+                class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
+              >
+                {{ t('portal.quotations.sale_contact') }}
+              </p>
+              <p class="text-sm font-medium">{{ quote.contactName }}</p>
+              <p class="text-muted-foreground text-sm">
+                {{ quote.contactEmail }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Customer information -->
+          <div
+            v-if="quote?.company"
+            data-testid="customer-info"
             class="border-border space-y-1 rounded-lg border p-4"
           >
             <p
               class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
             >
-              {{ t('portal.quotations.sale_contact') }}
+              {{ t('portal.quotations.customer_info') }}
             </p>
-            <p class="text-sm font-medium">{{ quote.contactName }}</p>
-            <p class="text-muted-foreground text-sm">
-              {{ quote.contactEmail }}
+            <p v-if="quote?.company?.name" class="text-sm font-medium">
+              {{ quote.company.name }}
+            </p>
+            <p
+              v-if="quote?.company?.companyId"
+              class="text-muted-foreground text-sm"
+            >
+              {{ t('portal.quotations.org_number') }}:
+              {{ quote.company.companyId }}
+            </p>
+            <p
+              v-if="quote?.company?.vatNumber"
+              class="text-muted-foreground text-sm"
+            >
+              {{ t('portal.quotations.vat_number') }}:
+              {{ quote.company.vatNumber }}
+            </p>
+          </div>
+
+          <!-- Invoice address -->
+          <div
+            v-if="quote?.billingAddress"
+            data-testid="invoice-address"
+            class="border-border space-y-1 rounded-lg border p-4"
+          >
+            <p
+              class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
+            >
+              {{ t('portal.quotations.invoice_address') }}
+            </p>
+            <p
+              v-if="quote?.billingAddress?.company"
+              class="text-sm font-medium"
+            >
+              {{ quote.billingAddress.company }}
+            </p>
+            <p
+              v-if="
+                quote?.billingAddress?.firstName ||
+                quote?.billingAddress?.lastName
+              "
+              class="text-muted-foreground text-sm"
+            >
+              {{
+                [
+                  quote?.billingAddress?.firstName,
+                  quote?.billingAddress?.lastName,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              }}
+            </p>
+            <p
+              v-if="quote?.billingAddress?.addressLine1"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.billingAddress.addressLine1 }}
+            </p>
+            <p
+              v-if="quote?.billingAddress?.addressLine2"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.billingAddress.addressLine2 }}
+            </p>
+            <p
+              v-if="quote?.billingAddress?.zip || quote?.billingAddress?.city"
+              class="text-muted-foreground text-sm"
+            >
+              {{
+                [quote?.billingAddress?.zip, quote?.billingAddress?.city]
+                  .filter(Boolean)
+                  .join(' ')
+              }}
+            </p>
+            <p
+              v-if="quote?.billingAddress?.country"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.billingAddress.country }}
+            </p>
+          </div>
+
+          <!-- Delivery address -->
+          <div
+            v-if="quote?.shippingAddress"
+            data-testid="delivery-address"
+            class="border-border space-y-1 rounded-lg border p-4"
+          >
+            <p
+              class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
+            >
+              {{ t('portal.quotations.delivery_address') }}
+            </p>
+            <p
+              v-if="quote?.shippingAddress?.company"
+              class="text-sm font-medium"
+            >
+              {{ quote.shippingAddress.company }}
+            </p>
+            <p
+              v-if="
+                quote?.shippingAddress?.firstName ||
+                quote?.shippingAddress?.lastName
+              "
+              class="text-muted-foreground text-sm"
+            >
+              {{
+                [
+                  quote?.shippingAddress?.firstName,
+                  quote?.shippingAddress?.lastName,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              }}
+            </p>
+            <p
+              v-if="quote?.shippingAddress?.addressLine1"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.shippingAddress.addressLine1 }}
+            </p>
+            <p
+              v-if="quote?.shippingAddress?.addressLine2"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.shippingAddress.addressLine2 }}
+            </p>
+            <p
+              v-if="quote?.shippingAddress?.zip || quote?.shippingAddress?.city"
+              class="text-muted-foreground text-sm"
+            >
+              {{
+                [quote?.shippingAddress?.zip, quote?.shippingAddress?.city]
+                  .filter(Boolean)
+                  .join(' ')
+              }}
+            </p>
+            <p
+              v-if="quote?.shippingAddress?.country"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.shippingAddress.country }}
             </p>
           </div>
         </div>

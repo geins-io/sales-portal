@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { defineComponent, h, Suspense, onErrorCaptured } from 'vue';
+import { defineComponent, h, Suspense, onErrorCaptured, type VNode } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote } from '../../../shared/types/quote';
@@ -154,10 +154,20 @@ const defaultStubs = {
       '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
     emits: ['click'],
   },
-  Icon: {
-    template: '<span class="icon" :data-name="name"></span>',
-    props: ['name'],
-  },
+  Icon: defineComponent({
+    name: 'Icon',
+    props: { name: { type: String, default: '' } },
+    setup(props): () => VNode {
+      return () => h('span', { class: 'icon', 'data-name': props.name });
+    },
+  }),
+  NuxtIcon: defineComponent({
+    name: 'NuxtIcon',
+    props: { name: { type: String, default: '' } },
+    setup(props): () => VNode {
+      return () => h('span', { class: 'icon', 'data-name': props.name });
+    },
+  }),
   GeinsImage: {
     template:
       '<img data-testid="geins-image" :data-file-name="fileName" :data-type="type" :alt="alt" />',
@@ -455,6 +465,254 @@ describe('PortalQuotationDetail', () => {
       const contact = wrapper.find('[data-testid="sale-contact"]');
       expect(contact.text()).toContain('Jane Doe');
       expect(contact.text()).toContain('jane@example.com');
+    });
+  });
+
+  describe('header title (D1)', () => {
+    it('renders quote.name as the H2 title when name is set', async () => {
+      mockData.value = {
+        quote: makeQuote({ name: 'Dec order proposal' }),
+      };
+      const { wrapper } = await mountDetailPage();
+
+      const title = wrapper.find('[data-testid="quote-title"]');
+      expect(title.exists()).toBe(true);
+      expect(title.text()).toBe('Dec order proposal');
+    });
+
+    it('falls back to "detail_title #number" when name is absent', async () => {
+      mockData.value = {
+        quote: makeQuote({ name: undefined, quoteNumber: 'QUO-2026-001' }),
+      };
+      const { wrapper } = await mountDetailPage();
+
+      const title = wrapper.find('[data-testid="quote-title"]');
+      expect(title.text()).toContain('portal.quotations.detail_title');
+      expect(title.text()).toContain('#QUO-2026-001');
+    });
+  });
+
+  describe('back to quotations link (D2)', () => {
+    it('renders a back link pointing to the locale-prefixed quotations list', async () => {
+      mockData.value = { quote: makeQuote() };
+      const { wrapper } = await mountDetailPage();
+
+      const back = wrapper.find('[data-testid="back-link"]');
+      expect(back.exists()).toBe(true);
+      // setup-components.ts stubs localePath() to '/se/en' + path
+      expect(back.attributes('href')).toBe('/se/en/portal/quotations');
+      expect(back.text()).toContain('portal.quotations.back_to_quotations');
+    });
+
+    it('renders a lucide:arrow-left icon inside the back link', async () => {
+      mockData.value = { quote: makeQuote() };
+      const { wrapper } = await mountDetailPage();
+
+      const back = wrapper.find('[data-testid="back-link"]');
+      const icon = back.find('[data-name="lucide:arrow-left"]');
+      expect(icon.exists()).toBe(true);
+    });
+  });
+
+  describe('shipping row (D3)', () => {
+    it('renders shipping line when shipping > 0', async () => {
+      mockData.value = {
+        quote: makeQuote({ shipping: 100, shippingFormatted: '100,00 kr' }),
+      };
+      const { wrapper } = await mountDetailPage();
+
+      const row = wrapper.find('[data-testid="shipping-row"]');
+      expect(row.exists()).toBe(true);
+      expect(row.text()).toContain('portal.quotations.shipping');
+      expect(row.text()).toContain('100,00 kr');
+    });
+
+    it('hides shipping row when shipping is 0', async () => {
+      mockData.value = { quote: makeQuote({ shipping: 0 }) };
+      const { wrapper } = await mountDetailPage();
+
+      expect(wrapper.find('[data-testid="shipping-row"]').exists()).toBe(false);
+    });
+  });
+
+  describe('subtotal with item count (D8)', () => {
+    it('renders subtotal label interpolated with lineItems length', async () => {
+      mockData.value = {
+        quote: makeQuote({
+          lineItems: [
+            {
+              productId: 1,
+              sku: 'SKU-A',
+              name: 'A',
+              articleNumber: 'ART-A',
+              quantity: 1,
+              unitPrice: 10,
+              unitPriceFormatted: '10 kr',
+              totalPrice: 10,
+              totalPriceFormatted: '10 kr',
+            },
+            {
+              productId: 2,
+              sku: 'SKU-B',
+              name: 'B',
+              articleNumber: 'ART-B',
+              quantity: 1,
+              unitPrice: 20,
+              unitPriceFormatted: '20 kr',
+              totalPrice: 20,
+              totalPriceFormatted: '20 kr',
+            },
+            {
+              productId: 3,
+              sku: 'SKU-C',
+              name: 'C',
+              articleNumber: 'ART-C',
+              quantity: 1,
+              unitPrice: 30,
+              unitPriceFormatted: '30 kr',
+              totalPrice: 30,
+              totalPriceFormatted: '30 kr',
+            },
+          ],
+        }),
+      };
+      const { wrapper } = await mountDetailPage();
+
+      const summary = wrapper.find('[data-testid="quote-summary"]');
+      expect(summary.text()).toContain('portal.quotations.subtotal_with_count');
+      // Passthrough t() in setup-components.ts returns the key, so we can't
+      // assert the rendered count. Assert via the VDOM props instead.
+      expect(mockUseFetch).toHaveBeenCalled();
+      // lineItems.length is 3 — confirm the component read the right input
+      expect(wrapper.findAll('[data-testid="line-item-row"]')).toHaveLength(3);
+    });
+  });
+
+  describe('customer information block (D5)', () => {
+    it('renders customer info when quote.company is present', async () => {
+      mockData.value = {
+        quote: makeQuote({
+          company: {
+            name: 'Acme AB',
+            companyId: '556677-8899',
+            vatNumber: 'SE556677889901',
+          },
+        }),
+      };
+      const { wrapper } = await mountDetailPage();
+
+      const card = wrapper.find('[data-testid="customer-info"]');
+      expect(card.exists()).toBe(true);
+      expect(card.text()).toContain('Acme AB');
+      expect(card.text()).toContain('556677-8899');
+      expect(card.text()).toContain('SE556677889901');
+    });
+
+    it('hides customer info block when quote.company is undefined', async () => {
+      mockData.value = { quote: makeQuote({ company: undefined }) };
+      const { wrapper } = await mountDetailPage();
+
+      expect(wrapper.find('[data-testid="customer-info"]').exists()).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('invoice address block (D6)', () => {
+    it('renders invoice address when billingAddress is present', async () => {
+      mockData.value = {
+        quote: makeQuote({
+          billingAddress: {
+            company: 'Acme AB',
+            firstName: 'Jane',
+            lastName: 'Doe',
+            addressLine1: 'Main Street 1',
+            zip: '12345',
+            city: 'Stockholm',
+            country: 'Sweden',
+          },
+        }),
+      };
+      const { wrapper } = await mountDetailPage();
+
+      const card = wrapper.find('[data-testid="invoice-address"]');
+      expect(card.exists()).toBe(true);
+      expect(card.text()).toContain('Acme AB');
+      expect(card.text()).toContain('Jane Doe');
+      expect(card.text()).toContain('Main Street 1');
+      expect(card.text()).toContain('12345 Stockholm');
+      expect(card.text()).toContain('Sweden');
+    });
+
+    it('hides invoice address block when billingAddress is undefined', async () => {
+      mockData.value = { quote: makeQuote({ billingAddress: undefined }) };
+      const { wrapper } = await mountDetailPage();
+
+      expect(wrapper.find('[data-testid="invoice-address"]').exists()).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('delivery address block (D7)', () => {
+    it('renders delivery address when shippingAddress is present', async () => {
+      mockData.value = {
+        quote: makeQuote({
+          shippingAddress: {
+            company: 'Acme AB',
+            firstName: 'John',
+            lastName: 'Smith',
+            addressLine1: 'Warehouse Lane 5',
+            zip: '54321',
+            city: 'Gothenburg',
+            country: 'Sweden',
+          },
+        }),
+      };
+      const { wrapper } = await mountDetailPage();
+
+      const card = wrapper.find('[data-testid="delivery-address"]');
+      expect(card.exists()).toBe(true);
+      expect(card.text()).toContain('Acme AB');
+      expect(card.text()).toContain('John Smith');
+      expect(card.text()).toContain('Warehouse Lane 5');
+      expect(card.text()).toContain('54321 Gothenburg');
+      expect(card.text()).toContain('Sweden');
+    });
+
+    it('hides delivery address block when shippingAddress is undefined', async () => {
+      mockData.value = { quote: makeQuote({ shippingAddress: undefined }) };
+      const { wrapper } = await mountDetailPage();
+
+      expect(wrapper.find('[data-testid="delivery-address"]').exists()).toBe(
+        false,
+      );
+    });
+  });
+
+  describe('sidebar icons (D10)', () => {
+    it('renders a calendar icon inside the expires-at block', async () => {
+      mockData.value = { quote: makeQuote() };
+      const { wrapper } = await mountDetailPage();
+
+      const block = wrapper.find('[data-testid="expires-at"]');
+      expect(block.find('[data-name="lucide:calendar"]').exists()).toBe(true);
+    });
+
+    it('renders a clock icon inside the payment-terms block', async () => {
+      mockData.value = { quote: makeQuote() };
+      const { wrapper } = await mountDetailPage();
+
+      const block = wrapper.find('[data-testid="payment-terms"]');
+      expect(block.find('[data-name="lucide:clock"]').exists()).toBe(true);
+    });
+
+    it('renders a user icon inside the sale-contact block', async () => {
+      mockData.value = { quote: makeQuote() };
+      const { wrapper } = await mountDetailPage();
+
+      const block = wrapper.find('[data-testid="sale-contact"]');
+      expect(block.find('[data-name="lucide:user"]').exists()).toBe(true);
     });
   });
 
