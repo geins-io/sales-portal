@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
+import type { Quote } from '#shared/types/quote';
 
 definePageMeta({ middleware: 'auth' });
 
@@ -14,20 +15,26 @@ useHead({
   title: computed(() => t('portal.quotations.detail_title')),
 });
 
-onMounted(async () => {
-  await store.fetchQuote(quoteId.value);
-  // If quote was not found (fetch failed or returned null), show 404
-  if (!store.currentQuote) {
-    showError(
-      createError({
-        statusCode: 404,
-        statusMessage: 'Quotation not found',
-      }),
-    );
-  }
-});
+// SSR-safe 404: fetch at top-level setup so Nuxt can set the response status
+// before the HTML is streamed. Sibling routes (accept/reject) under
+// /api/quotes/[id] can cause union inference, so explicitly type the generic.
+const { data, error } = await useFetch<{ quote: Quote }>(
+  () => `/api/quotes/${quoteId.value}`,
+  { dedupe: 'defer' },
+);
 
-const quote = computed(() => store.currentQuote);
+if (error.value || !data.value?.quote) {
+  throw createError({
+    statusCode: 404,
+    statusMessage: 'Quotation not found',
+    fatal: true,
+  });
+}
+
+// Seed the Pinia store so accept/reject mutations have the latest snapshot.
+store.currentQuote = data.value.quote;
+
+const quote = computed<Quote | null>(() => data.value?.quote ?? null);
 const isPending = computed(() => quote.value?.status === 'pending');
 
 // Decline form state
