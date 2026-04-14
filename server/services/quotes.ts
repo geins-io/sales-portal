@@ -1,6 +1,8 @@
 import type { H3Event } from 'h3';
 import type {
   Quote,
+  QuoteAddress,
+  QuoteCompany,
   QuoteLineItem,
   QuoteListItem,
   QuoteStatus,
@@ -109,6 +111,10 @@ interface RawCartSummary {
     vat?: number;
     vatFormatted?: string;
   };
+  shipping?: {
+    feeIncVat?: number;
+    feeIncVatFormatted?: string;
+  };
   total?: {
     sellingPriceIncVat?: number;
     sellingPriceIncVatFormatted?: string;
@@ -157,7 +163,34 @@ function mapLineItem(item: RawCartItem): QuoteLineItem {
     unitPriceFormatted: item.unitPrice?.sellingPriceIncVatFormatted ?? '',
     totalPrice: item.totalPrice?.sellingPriceIncVat ?? 0,
     totalPriceFormatted: item.totalPrice?.sellingPriceIncVatFormatted ?? '',
-    imageUrl: item.product?.productImages?.[0]?.fileName ?? undefined,
+    imageFileName: item.product?.productImages?.[0]?.fileName ?? undefined,
+  };
+}
+
+function mapAddress(
+  a: NonNullable<RawQuotation['billingAddress']>,
+): QuoteAddress {
+  return {
+    email: a.email ?? undefined,
+    phone: a.phone ?? undefined,
+    company: a.company ?? undefined,
+    firstName: a.firstName ?? undefined,
+    lastName: a.lastName ?? undefined,
+    addressLine1: a.addressLine1 ?? undefined,
+    addressLine2: a.addressLine2 ?? undefined,
+    addressLine3: a.addressLine3 ?? undefined,
+    zip: a.zip ?? undefined,
+    city: a.city ?? undefined,
+    region: a.region ?? undefined,
+    country: a.country ?? undefined,
+  };
+}
+
+function mapCompany(c: NonNullable<RawQuotation['company']>): QuoteCompany {
+  return {
+    companyId: c.companyId ?? undefined,
+    name: c.name ?? undefined,
+    vatNumber: c.vatNumber ?? undefined,
   };
 }
 
@@ -179,13 +212,15 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     contactName,
     contactEmail,
     status: mapStatus(q.status),
-    message: q.name ?? undefined,
+    name: q.name ?? undefined,
     internalNotes: undefined,
     lineItems: items,
     subtotal: summary?.subTotal?.sellingPriceIncVat ?? 0,
     subtotalFormatted: summary?.subTotal?.sellingPriceIncVatFormatted ?? '',
     tax: summary?.subTotal?.vat ?? 0,
     taxFormatted: summary?.subTotal?.vatFormatted ?? '',
+    shipping: summary?.shipping?.feeIncVat ?? 0,
+    shippingFormatted: summary?.shipping?.feeIncVatFormatted ?? '',
     total: summary?.total?.sellingPriceIncVat ?? 0,
     totalFormatted: summary?.total?.sellingPriceIncVatFormatted ?? '',
     currency: q.currency ?? '',
@@ -193,6 +228,11 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
     expiresAt: q.validTo ?? undefined,
     createdAt: q.createdAt ?? '',
     updatedAt: q.modifiedAt ?? '',
+    billingAddress: q.billingAddress ? mapAddress(q.billingAddress) : undefined,
+    shippingAddress: q.shippingAddress
+      ? mapAddress(q.shippingAddress)
+      : undefined,
+    company: q.company ? mapCompany(q.company) : undefined,
   };
 }
 
@@ -300,7 +340,6 @@ export async function acceptQuote(
 /** Reject a quotation via Geins GraphQL API */
 export async function rejectQuote(
   quoteId: string,
-  _reason: string | undefined,
   event: H3Event,
 ): Promise<Quote> {
   const sdk = await getTenantSDK(event);

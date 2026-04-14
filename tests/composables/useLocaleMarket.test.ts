@@ -128,6 +128,21 @@ describe('useLocaleMarket', () => {
       const { localePath } = useLocaleMarket();
       expect(localePath('contact')).toBe('/se/sv/contact');
     });
+
+    // B13 regression — paths with UUIDs (hyphen-rich) must get a correct prefix
+    it('should prefix paths whose later segments contain UUIDs', () => {
+      const { localePath } = useLocaleMarket();
+      expect(
+        localePath('/portal/quotations/de305d54-75b4-431b-adb2-eb6b9e546014'),
+      ).toBe('/se/sv/portal/quotations/de305d54-75b4-431b-adb2-eb6b9e546014');
+    });
+
+    it('should be idempotent — calling on an already-prefixed UUID path is a no-op', () => {
+      const { localePath } = useLocaleMarket();
+      const already =
+        '/se/sv/portal/quotations/de305d54-75b4-431b-adb2-eb6b9e546014';
+      expect(localePath(already)).toBe(already);
+    });
   });
 
   describe('getCleanPath', () => {

@@ -1,0 +1,36 @@
+fragment QuotationCore on CartQuotationType {
+  quotationNumber
+  name
+  currency
+  marketId
+  channelId
+  status
+  createdAt
+  modifiedAt
+  validFrom
+  validTo
+  company {
+    companyId
+    name
+    vatNumber
+  }
+  owner {
+    ownerId
+    firstName
+    lastName
+    phone
+  }
+  customer {
+    customerId
+    internalCustomerId
+    firstName
+    lastName
+    phone
+    approvedAt
+    rejectedAt
+  }
+  terms {
+    text
+  }
+  orderId
+}

@@ -21,7 +21,34 @@ export interface QuoteLineItem {
   unitPriceFormatted: string;
   totalPrice: number;
   totalPriceFormatted: string;
-  imageUrl?: string;
+  imageFileName?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Quote Address (billing / shipping)
+// ---------------------------------------------------------------------------
+export interface QuoteAddress {
+  email?: string;
+  phone?: string;
+  company?: string;
+  firstName?: string;
+  lastName?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  addressLine3?: string;
+  zip?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Quote Company
+// ---------------------------------------------------------------------------
+export interface QuoteCompany {
+  companyId?: string;
+  name?: string;
+  vatNumber?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,13 +62,15 @@ export interface Quote {
   contactName: string;
   contactEmail: string;
   status: QuoteStatus;
-  message?: string;
+  name?: string;
   internalNotes?: string;
   lineItems: QuoteLineItem[];
   subtotal: number;
   subtotalFormatted: string;
   tax: number;
   taxFormatted: string;
+  shipping: number;
+  shippingFormatted: string;
   total: number;
   totalFormatted: string;
   currency: string;
@@ -49,6 +78,9 @@ export interface Quote {
   expiresAt?: string;
   createdAt: string;
   updatedAt: string;
+  billingAddress?: QuoteAddress;
+  shippingAddress?: QuoteAddress;
+  company?: QuoteCompany;
 }
 
 // ---------------------------------------------------------------------------
@@ -84,5 +116,4 @@ export interface AcceptQuoteInput {
 
 export interface RejectQuoteInput {
   quoteId: string;
-  reason?: string;
 }

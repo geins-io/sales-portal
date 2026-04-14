@@ -289,4 +289,92 @@ test.describe('Portal Quotations', () => {
       expect(count).toBeGreaterThanOrEqual(5);
     }
   });
+
+  test('should navigate from list to populated detail page with all sections', async ({
+    page,
+  }) => {
+    await loginAsTestUser(page);
+    await page.goto('/se/sv/portal/quotations');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    // Wait for loading to finish
+    const loading = page.locator('[data-testid="quotations-loading"]');
+    await expect(loading).toBeHidden({ timeout: PAGE_TIMEOUT });
+
+    // Skip if the test account has no quotes (empty state — data drift tolerant)
+    const empty = page.locator('[data-testid="quotations-empty"]');
+    const hasEmpty = await empty.isVisible().catch(() => false);
+    test.skip(hasEmpty, 'Test account has no quotes — fixture required');
+
+    // Click the first view link (desktop table preferred, falls back to mobile card)
+    const viewLink = page
+      .locator('[data-testid="quotation-view-link"]')
+      .first();
+    const quotationRow = page.locator('[data-testid="quotation-row"]').first();
+    const linkCount = await viewLink.count();
+    if (linkCount > 0) {
+      await viewLink.click();
+    } else {
+      await quotationRow.click();
+    }
+
+    // Wait for navigation to the locale-prefixed detail URL (uuid segment)
+    await page.waitForURL(/\/se\/sv\/portal\/quotations\/[\w-]+/, {
+      timeout: PAGE_TIMEOUT,
+    });
+
+    // Detail page landed — must NOT be the 404 fallback
+    const detail = page.locator('[data-testid="quote-detail"]');
+    await expect(detail).toBeVisible({ timeout: PAGE_TIMEOUT });
+
+    // Core header: back link, title, status badge
+    await expect(page.locator('[data-testid="back-link"]')).toBeVisible();
+    await expect(page.locator('[data-testid="quote-title"]')).toBeVisible();
+    await expect(page.locator('[data-testid="status-badge"]')).toBeVisible();
+
+    // Items table with at least one line item row
+    await expect(
+      page.locator('[data-testid="line-items-table"]'),
+    ).toBeVisible();
+    const lineItemCount = await page
+      .locator('[data-testid="line-item-row"]')
+      .count();
+    expect(lineItemCount).toBeGreaterThan(0);
+
+    // Sidebar summary
+    await expect(page.locator('[data-testid="quote-summary"]')).toBeVisible();
+
+    // Sidebar info blocks — customer info + sale contact are always rendered
+    await expect(page.locator('[data-testid="customer-info"]')).toBeVisible();
+    await expect(page.locator('[data-testid="sale-contact"]')).toBeVisible();
+
+    // Address blocks — may be absent depending on quotation data, soft check
+    const invoiceAddress = page.locator('[data-testid="invoice-address"]');
+    const deliveryAddress = page.locator('[data-testid="delivery-address"]');
+    const hasInvoice = await invoiceAddress.isVisible().catch(() => false);
+    const hasDelivery = await deliveryAddress.isVisible().catch(() => false);
+    // At least one address block should render when the quote has billing data
+    expect(hasInvoice || hasDelivery).toBe(true);
+
+    // Accept/Decline buttons only for pending quotes — presence is acceptable
+    // but we NEVER click them (mutating the real backend is out of scope)
+    const acceptBtn = page.locator('[data-testid="accept-btn"]');
+    const declineBtn = page.locator('[data-testid="decline-btn"]');
+    const hasAccept = await acceptBtn.isVisible().catch(() => false);
+    if (hasAccept) {
+      await expect(acceptBtn).toBeEnabled();
+      await expect(declineBtn).toBeVisible();
+      await expect(declineBtn).toBeEnabled();
+    }
+
+    // Back link round-trip — returns to list
+    await page.locator('[data-testid="back-link"]').click();
+    await page.waitForURL(/\/se\/sv\/portal\/quotations\/?$/, {
+      timeout: PAGE_TIMEOUT,
+    });
+    await expect(page.locator('[data-testid="quotations-table"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+  });
 });

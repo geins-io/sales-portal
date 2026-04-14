@@ -62,19 +62,18 @@ export const useQuotesStore = defineStore('quotes', () => {
         };
       }
     } catch {
-      error.value = 'Failed to accept quote';
+      error.value = 'portal.quotations.accept_failed';
     } finally {
       isActionLoading.value = false;
     }
   }
 
-  async function rejectQuote(id: string, reason?: string) {
+  async function rejectQuote(id: string) {
     isActionLoading.value = true;
     error.value = null;
     try {
       const data = await $fetch<{ quote: Quote }>(`/api/quotes/${id}/reject`, {
         method: 'POST',
-        body: { reason },
       });
       currentQuote.value = data.quote;
       const idx = quotes.value.findIndex((q) => q.id === id);
@@ -85,7 +84,7 @@ export const useQuotesStore = defineStore('quotes', () => {
         };
       }
     } catch {
-      error.value = 'Failed to reject quote';
+      error.value = 'portal.quotations.decline_failed';
     } finally {
       isActionLoading.value = false;
     }

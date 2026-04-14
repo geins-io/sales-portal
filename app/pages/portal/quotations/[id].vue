@@ -1,48 +1,50 @@
 <script setup lang="ts">
 import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
+import { safeConfirm } from '~/utils/client-helpers';
+import { getQuoteStatusPillClass } from '~/utils/quote-status';
+import type { Quote } from '#shared/types/quote';
 
 definePageMeta({ middleware: 'auth' });
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const route = useRoute();
 const store = useQuotesStore();
+const { localePath } = useLocaleMarket();
 
 const quoteId = computed(() => route.params.id as string);
 
-useHead({
-  title: computed(() => t('portal.quotations.detail_title')),
-});
+// SSR-safe 404: fetch at top-level setup so Nuxt can set the response status
+// before the HTML is streamed. Sibling routes (accept/reject) under
+// /api/quotes/[id] can cause union inference, so explicitly type the generic.
+const { data, error } = await useFetch<{ quote: Quote }>(
+  () => `/api/quotes/${quoteId.value}`,
+  { dedupe: 'defer' },
+);
 
-onMounted(async () => {
-  await store.fetchQuote(quoteId.value);
-  // If quote was not found (fetch failed or returned null), show 404
-  if (!store.currentQuote) {
-    showError(
-      createError({
-        statusCode: 404,
-        statusMessage: 'Quotation not found',
-      }),
-    );
-  }
-});
+if (error.value || !data.value?.quote) {
+  throw createError({
+    statusCode: 404,
+    statusMessage: 'Quotation not found',
+    fatal: true,
+  });
+}
 
-const quote = computed(() => store.currentQuote);
+// Seed the Pinia store so accept/reject mutations have the latest snapshot.
+// Clear any stale error from a previous route so the banner starts hidden.
+store.currentQuote = data.value.quote;
+store.error = null;
+
+const quote = computed<Quote | null>(() => data.value?.quote ?? null);
 const isPending = computed(() => quote.value?.status === 'pending');
 
-// Decline form state
-const showDeclineForm = ref(false);
-const declineReason = ref('');
-
-function openDeclineForm() {
-  showDeclineForm.value = true;
-  declineReason.value = '';
-}
-
-function cancelDecline() {
-  showDeclineForm.value = false;
-  declineReason.value = '';
-}
+useHead({
+  title: computed(
+    () =>
+      quote.value?.name ??
+      `${t('portal.quotations.detail_title')} #${quote.value?.quoteNumber ?? ''}`,
+  ),
+});
 
 async function handleAccept() {
   if (!quote.value) return;
@@ -51,26 +53,8 @@ async function handleAccept() {
 
 async function handleDecline() {
   if (!quote.value) return;
-  await store.rejectQuote(quote.value.id, declineReason.value);
-  showDeclineForm.value = false;
-  declineReason.value = '';
-}
-
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case 'pending':
-      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
-    case 'accepted':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-    case 'rejected':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-    case 'expired':
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
-    case 'cancelled':
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
+  if (!safeConfirm(t('portal.quotations.decline_confirm'))) return;
+  await store.rejectQuote(quote.value.id);
 }
 
 function statusLabel(status: string): string {
@@ -78,7 +62,7 @@ function statusLabel(status: string): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+  return new Date(iso).toLocaleDateString(locale.value, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -102,11 +86,24 @@ function formatDate(iso: string): string {
 
     <!-- Detail View -->
     <div v-else-if="quote" data-testid="quote-detail" class="space-y-6">
+      <!-- Back to quotations link -->
+      <NuxtLink
+        data-testid="back-link"
+        :to="localePath('/portal/quotations')"
+        class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+      >
+        <Icon name="lucide:arrow-left" class="size-4" />
+        {{ t('portal.quotations.back_to_quotations') }}
+      </NuxtLink>
+
       <!-- Header -->
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-semibold">
-            {{ t('portal.quotations.detail_title') }} #{{ quote.quoteNumber }}
+          <h2 data-testid="quote-title" class="text-2xl font-semibold">
+            {{
+              quote?.name ??
+              `${t('portal.quotations.detail_title')} #${quote?.quoteNumber ?? ''}`
+            }}
           </h2>
           <p class="text-muted-foreground mt-1 text-sm">
             {{ formatDate(quote.createdAt) }}
@@ -115,7 +112,7 @@ function formatDate(iso: string): string {
         <span
           data-testid="status-badge"
           class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-          :class="statusBadgeClass(quote.status)"
+          :class="getQuoteStatusPillClass(quote.status)"
         >
           {{ statusLabel(quote.status) }}
         </span>
@@ -154,12 +151,25 @@ function formatDate(iso: string): string {
                 >
                   <td class="px-4 py-3">
                     <div class="flex items-center gap-3">
-                      <img
-                        v-if="item.imageUrl"
-                        :src="item.imageUrl"
-                        :alt="item.name"
-                        class="size-10 rounded object-cover"
-                      />
+                      <div class="size-10 shrink-0 overflow-hidden rounded">
+                        <GeinsImage
+                          v-if="item.imageFileName"
+                          :file-name="item.imageFileName"
+                          type="product"
+                          :alt="item.name"
+                          aspect-ratio="1"
+                          sizes="40px"
+                        />
+                        <div
+                          v-else
+                          class="bg-muted flex size-full items-center justify-center"
+                        >
+                          <Icon
+                            name="lucide:image-off"
+                            class="text-muted-foreground size-4"
+                          />
+                        </div>
+                      </div>
                       <span class="font-medium">{{ item.name }}</span>
                     </div>
                   </td>
@@ -188,9 +198,21 @@ function formatDate(iso: string): string {
           >
             <div class="flex justify-between text-sm">
               <span class="text-muted-foreground">{{
-                t('portal.quotations.subtotal')
+                t('portal.quotations.subtotal_with_count', {
+                  count: quote?.lineItems?.length ?? 0,
+                })
               }}</span>
               <span>{{ quote.subtotalFormatted }}</span>
+            </div>
+            <div
+              v-if="(quote?.shipping ?? 0) > 0"
+              data-testid="shipping-row"
+              class="flex justify-between text-sm"
+            >
+              <span class="text-muted-foreground">{{
+                t('portal.quotations.shipping')
+              }}</span>
+              <span>{{ quote.shippingFormatted }}</span>
             </div>
             <div class="flex justify-between text-sm">
               <span class="text-muted-foreground">{{
@@ -207,111 +229,257 @@ function formatDate(iso: string): string {
           </div>
 
           <!-- Accept / Decline buttons (pending only) -->
-          <template v-if="isPending">
-            <div v-if="!showDeclineForm" class="flex flex-col gap-2">
-              <Button
-                data-testid="accept-btn"
-                :disabled="store.isActionLoading"
-                @click="handleAccept"
-              >
-                {{
-                  store.isActionLoading
-                    ? t('portal.quotations.accepting')
-                    : t('portal.quotations.accept')
-                }}
-              </Button>
-              <Button
-                data-testid="decline-btn"
-                variant="outline"
-                :disabled="store.isActionLoading"
-                @click="openDeclineForm"
-              >
-                {{ t('portal.quotations.decline') }}
-              </Button>
-            </div>
-
-            <!-- Decline form -->
+          <div v-if="isPending" class="flex flex-col gap-2">
             <div
-              v-else
-              data-testid="decline-form"
-              class="border-border space-y-3 rounded-lg border p-4"
+              v-if="store.error"
+              data-testid="action-error"
+              role="alert"
+              class="bg-destructive/10 text-destructive border-destructive/20 mb-2 rounded-md border px-3 py-2 text-sm"
             >
-              <label class="text-sm font-medium">
-                {{ t('portal.quotations.decline_reason') }}
-              </label>
-              <textarea
-                v-model="declineReason"
-                data-testid="decline-reason-input"
-                :placeholder="t('portal.quotations.decline_reason_placeholder')"
-                rows="3"
-                class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              <div class="flex gap-2">
-                <Button
-                  data-testid="confirm-decline-btn"
-                  variant="destructive"
-                  :disabled="store.isActionLoading"
-                  @click="handleDecline"
-                >
-                  {{
-                    store.isActionLoading
-                      ? t('portal.quotations.declining')
-                      : t('portal.quotations.decline')
-                  }}
-                </Button>
-                <Button
-                  data-testid="cancel-decline-btn"
-                  variant="outline"
-                  :disabled="store.isActionLoading"
-                  @click="cancelDecline"
-                >
-                  {{ t('common.cancel') }}
-                </Button>
-              </div>
+              {{ t(store.error) }}
             </div>
-          </template>
+            <Button
+              data-testid="accept-btn"
+              :disabled="store.isActionLoading"
+              @click="handleAccept"
+            >
+              {{
+                store.isActionLoading
+                  ? t('portal.quotations.accepting')
+                  : t('portal.quotations.accept')
+              }}
+            </Button>
+            <Button
+              data-testid="decline-btn"
+              variant="outline"
+              :disabled="store.isActionLoading"
+              @click="handleDecline"
+            >
+              {{
+                store.isActionLoading
+                  ? t('portal.quotations.declining')
+                  : t('portal.quotations.decline')
+              }}
+            </Button>
+          </div>
 
           <!-- Expiration date -->
           <div
-            v-if="quote.expiresAt"
+            v-if="quote?.expiresAt"
             data-testid="expires-at"
-            class="border-border space-y-1 rounded-lg border p-4"
+            class="border-border flex items-start gap-3 rounded-lg border p-4"
           >
-            <p
-              class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
-            >
-              {{ t('portal.quotations.expires_at') }}
-            </p>
-            <p class="text-sm font-medium">{{ formatDate(quote.expiresAt) }}</p>
+            <Icon
+              name="lucide:calendar"
+              class="text-muted-foreground mt-0.5 size-4 shrink-0"
+            />
+            <div class="space-y-1">
+              <p
+                class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
+              >
+                {{ t('portal.quotations.expires_at') }}
+              </p>
+              <p class="text-sm font-medium">
+                {{ formatDate(quote.expiresAt) }}
+              </p>
+            </div>
           </div>
 
           <!-- Payment terms -->
           <div
-            v-if="quote.paymentTerms"
+            v-if="quote?.paymentTerms"
             data-testid="payment-terms"
-            class="border-border space-y-1 rounded-lg border p-4"
+            class="border-border flex items-start gap-3 rounded-lg border p-4"
           >
-            <p
-              class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
-            >
-              {{ t('portal.quotations.payment_terms') }}
-            </p>
-            <p class="text-sm font-medium">{{ quote.paymentTerms }}</p>
+            <Icon
+              name="lucide:clock"
+              class="text-muted-foreground mt-0.5 size-4 shrink-0"
+            />
+            <div class="space-y-1">
+              <p
+                class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
+              >
+                {{ t('portal.quotations.payment_terms') }}
+              </p>
+              <p class="text-sm font-medium">{{ quote.paymentTerms }}</p>
+            </div>
           </div>
 
           <!-- Sale contact -->
           <div
             data-testid="sale-contact"
+            class="border-border flex items-start gap-3 rounded-lg border p-4"
+          >
+            <Icon
+              name="lucide:user"
+              class="text-muted-foreground mt-0.5 size-4 shrink-0"
+            />
+            <div class="space-y-1">
+              <p
+                class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
+              >
+                {{ t('portal.quotations.sale_contact') }}
+              </p>
+              <p class="text-sm font-medium">{{ quote.contactName }}</p>
+              <p class="text-muted-foreground text-sm">
+                {{ quote.contactEmail }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Customer information -->
+          <div
+            v-if="quote?.company"
+            data-testid="customer-info"
             class="border-border space-y-1 rounded-lg border p-4"
           >
             <p
               class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
             >
-              {{ t('portal.quotations.sale_contact') }}
+              {{ t('portal.quotations.customer_info') }}
             </p>
-            <p class="text-sm font-medium">{{ quote.contactName }}</p>
-            <p class="text-muted-foreground text-sm">
-              {{ quote.contactEmail }}
+            <p v-if="quote?.company?.name" class="text-sm font-medium">
+              {{ quote.company.name }}
+            </p>
+            <p
+              v-if="quote?.company?.companyId"
+              class="text-muted-foreground text-sm"
+            >
+              {{ t('portal.quotations.org_number') }}:
+              {{ quote.company.companyId }}
+            </p>
+            <p
+              v-if="quote?.company?.vatNumber"
+              class="text-muted-foreground text-sm"
+            >
+              {{ t('portal.quotations.vat_number') }}:
+              {{ quote.company.vatNumber }}
+            </p>
+          </div>
+
+          <!-- Invoice address -->
+          <div
+            v-if="quote?.billingAddress"
+            data-testid="invoice-address"
+            class="border-border space-y-1 rounded-lg border p-4"
+          >
+            <p
+              class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
+            >
+              {{ t('portal.quotations.invoice_address') }}
+            </p>
+            <p
+              v-if="quote?.billingAddress?.company"
+              class="text-sm font-medium"
+            >
+              {{ quote.billingAddress.company }}
+            </p>
+            <p
+              v-if="
+                quote?.billingAddress?.firstName ||
+                quote?.billingAddress?.lastName
+              "
+              class="text-muted-foreground text-sm"
+            >
+              {{
+                [
+                  quote?.billingAddress?.firstName,
+                  quote?.billingAddress?.lastName,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              }}
+            </p>
+            <p
+              v-if="quote?.billingAddress?.addressLine1"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.billingAddress.addressLine1 }}
+            </p>
+            <p
+              v-if="quote?.billingAddress?.addressLine2"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.billingAddress.addressLine2 }}
+            </p>
+            <p
+              v-if="quote?.billingAddress?.zip || quote?.billingAddress?.city"
+              class="text-muted-foreground text-sm"
+            >
+              {{
+                [quote?.billingAddress?.zip, quote?.billingAddress?.city]
+                  .filter(Boolean)
+                  .join(' ')
+              }}
+            </p>
+            <p
+              v-if="quote?.billingAddress?.country"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.billingAddress.country }}
+            </p>
+          </div>
+
+          <!-- Delivery address -->
+          <div
+            v-if="quote?.shippingAddress"
+            data-testid="delivery-address"
+            class="border-border space-y-1 rounded-lg border p-4"
+          >
+            <p
+              class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
+            >
+              {{ t('portal.quotations.delivery_address') }}
+            </p>
+            <p
+              v-if="quote?.shippingAddress?.company"
+              class="text-sm font-medium"
+            >
+              {{ quote.shippingAddress.company }}
+            </p>
+            <p
+              v-if="
+                quote?.shippingAddress?.firstName ||
+                quote?.shippingAddress?.lastName
+              "
+              class="text-muted-foreground text-sm"
+            >
+              {{
+                [
+                  quote?.shippingAddress?.firstName,
+                  quote?.shippingAddress?.lastName,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+              }}
+            </p>
+            <p
+              v-if="quote?.shippingAddress?.addressLine1"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.shippingAddress.addressLine1 }}
+            </p>
+            <p
+              v-if="quote?.shippingAddress?.addressLine2"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.shippingAddress.addressLine2 }}
+            </p>
+            <p
+              v-if="quote?.shippingAddress?.zip || quote?.shippingAddress?.city"
+              class="text-muted-foreground text-sm"
+            >
+              {{
+                [quote?.shippingAddress?.zip, quote?.shippingAddress?.city]
+                  .filter(Boolean)
+                  .join(' ')
+              }}
+            </p>
+            <p
+              v-if="quote?.shippingAddress?.country"
+              class="text-muted-foreground text-sm"
+            >
+              {{ quote.shippingAddress.country }}
             </p>
           </div>
         </div>

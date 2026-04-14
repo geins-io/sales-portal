@@ -367,12 +367,6 @@ export const AcceptQuoteSchema = z.object({
 });
 export type AcceptQuoteInput = z.infer<typeof AcceptQuoteSchema>;
 
-export const RejectQuoteSchema = z.object({
-  quoteId: z.string().min(1),
-  reason: z.string().max(2000).optional(),
-});
-export type RejectQuoteInput = z.infer<typeof RejectQuoteSchema>;
-
 export const ListQuotesSchema = z.object({
   skip: z.coerce.number().min(0).optional(),
   take: z.coerce.number().min(1).max(50).optional(),

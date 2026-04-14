@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
+import { getQuoteStatusPillClass } from '~/utils/quote-status';
 import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
 
 definePageMeta({ middleware: 'auth' });
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const { localePath } = useLocaleMarket();
 
 const { data, pending, error, refresh } = useFetch<{
   quotes: QuoteListItem[];
@@ -16,6 +17,8 @@ const { data, pending, error, refresh } = useFetch<{
 const allQuotes = computed(() => data.value?.quotes ?? []);
 
 const searchQuery = ref('');
+const currentPage = ref(1);
+const pageSize = 20;
 
 const filteredQuotes = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -27,28 +30,44 @@ const filteredQuotes = computed(() => {
   );
 });
 
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredQuotes.value.length / pageSize)),
+);
+
+const paginatedQuotes = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  return filteredQuotes.value.slice(start, start + pageSize);
+});
+
+const showPagination = computed(() => filteredQuotes.value.length > pageSize);
+
+function goToPage(page: number) {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+  }
+}
+
+// Reset to page 1 when search changes
+watch(searchQuery, () => {
+  currentPage.value = 1;
+});
+
+// Clamp current page if the total shrinks below it (e.g. after filtering)
+watch(totalPages, (n) => {
+  if (currentPage.value > n) {
+    currentPage.value = n;
+  }
+});
+
 function formatDate(dateStr: string): string {
   try {
-    return new Date(dateStr).toLocaleDateString('sv-SE', {
+    return new Date(dateStr).toLocaleDateString(locale.value, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
     });
   } catch {
     return dateStr;
-  }
-}
-
-function getStatusVariant(
-  status: QuoteStatus,
-): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status) {
-    case 'accepted':
-      return 'default';
-    case 'rejected':
-      return 'destructive';
-    default:
-      return 'secondary';
   }
 }
 
@@ -119,23 +138,39 @@ function getStatusLabel(status: QuoteStatus): string {
     </div>
 
     <template v-else>
+      <!-- Count summary -->
+      <p
+        data-testid="quotations-count"
+        :data-shown="paginatedQuotes.length"
+        :data-total="filteredQuotes.length"
+        class="text-muted-foreground mb-3 text-sm"
+      >
+        {{
+          t('portal.quotations.count_summary', {
+            shown: paginatedQuotes.length,
+            total: filteredQuotes.length,
+          })
+        }}
+      </p>
+
       <!-- Mobile card view -->
       <div class="space-y-3 md:hidden" data-testid="quotations-table">
         <NuxtLink
-          v-for="quote in filteredQuotes"
+          v-for="quote in paginatedQuotes"
           :key="quote.id"
-          :to="`/portal/quotations/${quote.id}`"
+          :to="localePath(`/portal/quotations/${quote.id}`)"
           data-testid="quotation-row"
           class="border-border hover:bg-muted/50 block rounded-lg border p-4 transition-colors"
         >
           <div class="mb-2 flex items-center justify-between">
             <span class="font-medium">{{ quote.quoteNumber }}</span>
-            <Badge
+            <span
               data-testid="quote-status-badge"
-              :variant="getStatusVariant(quote.status)"
+              class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+              :class="getQuoteStatusPillClass(quote.status)"
             >
               {{ getStatusLabel(quote.status) }}
-            </Badge>
+            </span>
           </div>
           <div class="text-muted-foreground space-y-1 text-sm">
             <div class="flex justify-between">
@@ -174,7 +209,7 @@ function getStatusLabel(status: QuoteStatus): string {
           </thead>
           <tbody>
             <tr
-              v-for="quote in filteredQuotes"
+              v-for="quote in paginatedQuotes"
               :key="quote.id"
               data-testid="quotation-row"
               class="border-border hover:bg-muted/50 border-b transition-colors"
@@ -184,16 +219,17 @@ function getStatusLabel(status: QuoteStatus): string {
               <td class="py-3 pr-4">{{ quote.contactName }}</td>
               <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
               <td class="py-3 pr-4">
-                <Badge
+                <span
                   data-testid="quote-status-badge"
-                  :variant="getStatusVariant(quote.status)"
+                  class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                  :class="getQuoteStatusPillClass(quote.status)"
                 >
                   {{ getStatusLabel(quote.status) }}
-                </Badge>
+                </span>
               </td>
               <td class="py-3">
                 <NuxtLink
-                  :to="`/portal/quotations/${quote.id}`"
+                  :to="localePath(`/portal/quotations/${quote.id}`)"
                   data-testid="quotation-view-link"
                   class="text-primary hover:text-primary/80 text-sm font-medium"
                 >
@@ -203,6 +239,55 @@ function getStatusLabel(status: QuoteStatus): string {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination -->
+      <div
+        v-if="showPagination"
+        data-testid="quotations-pagination"
+        class="mt-4 flex items-center justify-end gap-2"
+      >
+        <Button
+          data-testid="quotations-previous"
+          variant="ghost"
+          size="sm"
+          :disabled="currentPage <= 1"
+          @click="goToPage(currentPage - 1)"
+        >
+          {{ t('portal.quotations.pagination.previous') }}
+        </Button>
+        <template v-for="page in totalPages" :key="page">
+          <Button
+            v-if="
+              page === 1 ||
+              page === totalPages ||
+              Math.abs(page - currentPage) <= 1
+            "
+            :variant="page === currentPage ? 'default' : 'ghost'"
+            size="sm"
+            @click="goToPage(page)"
+          >
+            {{ page }}
+          </Button>
+          <span
+            v-else-if="
+              page === 2 && currentPage > 3
+                ? true
+                : page === totalPages - 1 && currentPage < totalPages - 2
+            "
+            class="text-muted-foreground px-1"
+            >...</span
+          >
+        </template>
+        <Button
+          data-testid="quotations-next"
+          variant="ghost"
+          size="sm"
+          :disabled="currentPage >= totalPages"
+          @click="goToPage(currentPage + 1)"
+        >
+          {{ t('portal.quotations.pagination.next') }}
+        </Button>
       </div>
     </template>
   </PortalShell>

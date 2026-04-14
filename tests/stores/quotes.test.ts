@@ -82,6 +82,8 @@ const mockQuote: Quote = {
   subtotalFormatted: '1 500 SEK',
   tax: 300,
   taxFormatted: '300 SEK',
+  shipping: 0,
+  shippingFormatted: '',
   total: 1500,
   totalFormatted: '1 500 SEK',
   currency: 'SEK',
@@ -247,32 +249,30 @@ describe('useQuotesStore', () => {
       expect(store.quotes[0].status).toBe('accepted');
     });
 
-    it('sets error on failure', async () => {
+    it('sets error to the accept_failed i18n key on failure', async () => {
       mockFetchImpl.mockRejectedValueOnce(new Error('Server error'));
 
       const store = useQuotesStore();
       await store.acceptQuote('q-001');
 
-      expect(store.error).toBe('Failed to accept quote');
+      expect(store.error).toBe('portal.quotations.accept_failed');
       expect(store.isActionLoading).toBe(false);
+    });
+
+    it('clears a stale error at the start of the call before retrying', async () => {
+      const acceptedQuote = { ...mockQuote, status: 'accepted' as const };
+      mockFetchImpl.mockResolvedValueOnce({ quote: acceptedQuote });
+
+      const store = useQuotesStore();
+      store.error = 'portal.quotations.accept_failed';
+      await store.acceptQuote('q-001');
+
+      expect(store.error).toBeNull();
     });
   });
 
   describe('rejectQuote', () => {
-    it('calls POST /api/quotes/:id/reject with reason in body', async () => {
-      const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
-      mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });
-
-      const store = useQuotesStore();
-      await store.rejectQuote('q-001', 'Price too high');
-
-      expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/reject', {
-        method: 'POST',
-        body: { reason: 'Price too high' },
-      });
-    });
-
-    it('calls POST without reason when not provided', async () => {
+    it('calls POST /api/quotes/:id/reject without body', async () => {
       const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
       mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });
 
@@ -281,7 +281,6 @@ describe('useQuotesStore', () => {
 
       expect(mockFetchImpl).toHaveBeenCalledWith('/api/quotes/q-001/reject', {
         method: 'POST',
-        body: { reason: undefined },
       });
     });
 
@@ -291,7 +290,7 @@ describe('useQuotesStore', () => {
 
       const store = useQuotesStore();
       store.currentQuote = { ...mockQuote };
-      await store.rejectQuote('q-001', 'Too expensive');
+      await store.rejectQuote('q-001');
 
       expect(store.currentQuote?.status).toBe('rejected');
     });
@@ -307,14 +306,25 @@ describe('useQuotesStore', () => {
       expect(store.quotes[0].status).toBe('rejected');
     });
 
-    it('sets error on failure', async () => {
+    it('sets error to the decline_failed i18n key on failure', async () => {
       mockFetchImpl.mockRejectedValueOnce(new Error('Server error'));
 
       const store = useQuotesStore();
       await store.rejectQuote('q-001');
 
-      expect(store.error).toBe('Failed to reject quote');
+      expect(store.error).toBe('portal.quotations.decline_failed');
       expect(store.isActionLoading).toBe(false);
+    });
+
+    it('clears a stale error at the start of the call before retrying', async () => {
+      const rejectedQuote = { ...mockQuote, status: 'rejected' as const };
+      mockFetchImpl.mockResolvedValueOnce({ quote: rejectedQuote });
+
+      const store = useQuotesStore();
+      store.error = 'portal.quotations.decline_failed';
+      await store.rejectQuote('q-001');
+
+      expect(store.error).toBeNull();
     });
   });
 
