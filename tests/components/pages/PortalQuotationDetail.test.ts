@@ -810,6 +810,85 @@ describe('PortalQuotationDetail', () => {
     });
   });
 
+  describe('action error banner (B6)', () => {
+    it('does not render the error banner by default', async () => {
+      mockData.value = { quote: makeQuote({ status: 'pending' }) };
+      const { wrapper } = await mountDetailPage();
+
+      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
+    });
+
+    it('renders the error banner with accept_failed text when acceptQuote throws', async () => {
+      mockAcceptQuote.mockRejectedValueOnce(new Error('boom'));
+      mockData.value = { quote: makeQuote({ status: 'pending' }) };
+      const { wrapper } = await mountDetailPage();
+
+      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
+      await flushPromises();
+
+      const banner = wrapper.find('[data-testid="action-error"]');
+      expect(banner.exists()).toBe(true);
+      expect(banner.text()).toContain('portal.quotations.accept_failed');
+      expect(banner.attributes('role')).toBe('alert');
+    });
+
+    it('renders the error banner with decline_failed text when rejectQuote throws', async () => {
+      mockRejectQuote.mockRejectedValueOnce(new Error('boom'));
+      mockData.value = { quote: makeQuote({ status: 'pending' }) };
+      const { wrapper } = await mountDetailPage();
+
+      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
+      await flushPromises();
+
+      const banner = wrapper.find('[data-testid="action-error"]');
+      expect(banner.exists()).toBe(true);
+      expect(banner.text()).toContain('portal.quotations.decline_failed');
+    });
+
+    it('clears the error banner when the user clicks Accept again', async () => {
+      mockAcceptQuote.mockRejectedValueOnce(new Error('boom'));
+      mockData.value = { quote: makeQuote({ status: 'pending' }) };
+      const { wrapper } = await mountDetailPage();
+
+      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
+      await flushPromises();
+      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(true);
+
+      // Second click succeeds — banner should disappear before retrying
+      mockAcceptQuote.mockResolvedValueOnce(undefined);
+      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
+    });
+
+    it('clears the error banner when the user clicks Decline again', async () => {
+      mockRejectQuote.mockRejectedValueOnce(new Error('boom'));
+      mockData.value = { quote: makeQuote({ status: 'pending' }) };
+      const { wrapper } = await mountDetailPage();
+
+      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
+      await flushPromises();
+      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(true);
+
+      mockRejectQuote.mockResolvedValueOnce(undefined);
+      await wrapper.find('[data-testid="decline-btn"]').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
+    });
+
+    it('does not render the error banner when acceptQuote succeeds', async () => {
+      mockData.value = { quote: makeQuote({ status: 'pending' }) };
+      const { wrapper } = await mountDetailPage();
+
+      await wrapper.find('[data-testid="accept-btn"]').trigger('click');
+      await flushPromises();
+
+      expect(wrapper.find('[data-testid="action-error"]').exists()).toBe(false);
+    });
+  });
+
   describe('store seeding', () => {
     it('seeds the quotes store currentQuote from the fetch result', async () => {
       const quote = makeQuote({ id: 'q-001' });

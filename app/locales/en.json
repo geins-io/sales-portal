@@ -688,6 +688,8 @@
       "accepting": "Accepting...",
       "declining": "Declining...",
       "decline_confirm": "Are you sure you want to decline this quote?",
+      "accept_failed": "Failed to accept the quote. Please try again.",
+      "decline_failed": "Failed to decline the quote. Please try again.",
       "back_to_quotations": "Back to quotations",
       "expires_at": "Expires",
       "payment_terms": "Payment Terms",

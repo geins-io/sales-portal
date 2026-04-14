@@ -36,6 +36,8 @@ store.currentQuote = data.value.quote;
 const quote = computed<Quote | null>(() => data.value?.quote ?? null);
 const isPending = computed(() => quote.value?.status === 'pending');
 
+const actionError = ref<string | null>(null);
+
 useHead({
   title: computed(
     () =>
@@ -46,13 +48,25 @@ useHead({
 
 async function handleAccept() {
   if (!quote.value) return;
-  await store.acceptQuote(quote.value.id);
+  actionError.value = null;
+  try {
+    await store.acceptQuote(quote.value.id);
+  } catch (e) {
+    console.error('Accept failed', e);
+    actionError.value = t('portal.quotations.accept_failed');
+  }
 }
 
 async function handleDecline() {
   if (!quote.value) return;
   if (!safeConfirm(t('portal.quotations.decline_confirm'))) return;
-  await store.rejectQuote(quote.value.id);
+  actionError.value = null;
+  try {
+    await store.rejectQuote(quote.value.id);
+  } catch (e) {
+    console.error('Decline failed', e);
+    actionError.value = t('portal.quotations.decline_failed');
+  }
 }
 
 function statusLabel(status: string): string {
@@ -228,6 +242,14 @@ function formatDate(iso: string): string {
 
           <!-- Accept / Decline buttons (pending only) -->
           <div v-if="isPending" class="flex flex-col gap-2">
+            <div
+              v-if="actionError"
+              data-testid="action-error"
+              role="alert"
+              class="bg-destructive/10 text-destructive border-destructive/20 mb-2 rounded-md border px-3 py-2 text-sm"
+            >
+              {{ actionError }}
+            </div>
             <Button
               data-testid="accept-btn"
               :disabled="store.isActionLoading"
