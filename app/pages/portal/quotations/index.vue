@@ -7,6 +7,7 @@ import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
 definePageMeta({ middleware: 'auth' });
 
 const { t } = useI18n();
+const { localePath } = useLocaleMarket();
 
 const { data, pending, error, refresh } = useFetch<{
   quotes: QuoteListItem[];
@@ -124,7 +125,7 @@ function getStatusLabel(status: QuoteStatus): string {
         <NuxtLink
           v-for="quote in filteredQuotes"
           :key="quote.id"
-          :to="`/portal/quotations/${quote.id}`"
+          :to="localePath(`/portal/quotations/${quote.id}`)"
           data-testid="quotation-row"
           class="border-border hover:bg-muted/50 block rounded-lg border p-4 transition-colors"
         >
@@ -193,7 +194,7 @@ function getStatusLabel(status: QuoteStatus): string {
               </td>
               <td class="py-3">
                 <NuxtLink
-                  :to="`/portal/quotations/${quote.id}`"
+                  :to="localePath(`/portal/quotations/${quote.id}`)"
                   data-testid="quotation-view-link"
                   class="text-primary hover:text-primary/80 text-sm font-medium"
                 >

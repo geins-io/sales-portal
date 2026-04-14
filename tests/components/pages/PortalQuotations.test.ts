@@ -226,7 +226,8 @@ describe('PortalQuotations page', () => {
       });
       const link = wrapper.find('[data-testid="quotation-view-link"]');
       expect(link.exists()).toBe(true);
-      expect(link.attributes('href')).toBe('/portal/quotations/q-abc');
+      // B13: links must go through localePath() and include the /{market}/{locale} prefix
+      expect(link.attributes('href')).toBe('/se/en/portal/quotations/q-abc');
     });
   });
 

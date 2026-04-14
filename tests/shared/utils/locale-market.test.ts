@@ -276,3 +276,37 @@ describe('resolveLocaleMarket', () => {
     expect(result.resolved.localeBcp47).toBe('en-GB');
   });
 });
+
+// B13 regression — locale-market parsing must be stable for paths whose
+// later segments contain UUIDs (hyphen-rich strings). See spec 002.
+describe('locale-market parsing — path with UUID segment', () => {
+  const tenantConfig = {
+    availableLocales: ['sv-SE', 'en-US'],
+    availableMarkets: ['se', 'us'],
+    defaultLocale: 'sv-SE',
+    defaultMarket: 'se',
+  };
+  const uuidPath =
+    '/se/sv/portal/quotations/de305d54-75b4-431b-adb2-eb6b9e546014';
+
+  it('hasLocaleMarketPrefix returns true for /se/sv/portal/quotations/<UUID>', () => {
+    expect(hasLocaleMarketPrefix(uuidPath)).toBe(true);
+  });
+
+  it('stripLocaleMarketPrefix strips only first two segments, preserving UUID', () => {
+    expect(stripLocaleMarketPrefix(uuidPath)).toBe(
+      '/portal/quotations/de305d54-75b4-431b-adb2-eb6b9e546014',
+    );
+  });
+
+  it('resolveLocaleMarket yields market=se, locale=sv regardless of later segments', () => {
+    const { resolved, corrected } = resolveLocaleMarket(
+      { market: 'se', locale: 'sv' },
+      tenantConfig,
+    );
+    expect(resolved.market).toBe('se');
+    expect(resolved.locale).toBe('sv');
+    expect(resolved.localeBcp47).toBe('sv-SE');
+    expect(corrected).toBe(false);
+  });
+});
