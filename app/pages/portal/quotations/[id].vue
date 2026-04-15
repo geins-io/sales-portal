@@ -358,130 +358,20 @@ function formatDate(iso: string): string {
           </div>
 
           <!-- Invoice address -->
-          <div
+          <AddressBlock
             v-if="quote?.billingAddress"
             data-testid="invoice-address"
-            class="border-border space-y-1 rounded-lg border p-4"
-          >
-            <p
-              class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
-            >
-              {{ t('portal.quotations.invoice_address') }}
-            </p>
-            <p
-              v-if="quote?.billingAddress?.company"
-              class="text-sm font-medium"
-            >
-              {{ quote.billingAddress.company }}
-            </p>
-            <p
-              v-if="
-                quote?.billingAddress?.firstName ||
-                quote?.billingAddress?.lastName
-              "
-              class="text-muted-foreground text-sm"
-            >
-              {{
-                [
-                  quote?.billingAddress?.firstName,
-                  quote?.billingAddress?.lastName,
-                ]
-                  .filter(Boolean)
-                  .join(' ')
-              }}
-            </p>
-            <p
-              v-if="quote?.billingAddress?.addressLine1"
-              class="text-muted-foreground text-sm"
-            >
-              {{ quote.billingAddress.addressLine1 }}
-            </p>
-            <p
-              v-if="quote?.billingAddress?.addressLine2"
-              class="text-muted-foreground text-sm"
-            >
-              {{ quote.billingAddress.addressLine2 }}
-            </p>
-            <p
-              v-if="quote?.billingAddress?.zip || quote?.billingAddress?.city"
-              class="text-muted-foreground text-sm"
-            >
-              {{
-                [quote?.billingAddress?.zip, quote?.billingAddress?.city]
-                  .filter(Boolean)
-                  .join(' ')
-              }}
-            </p>
-            <p
-              v-if="quote?.billingAddress?.country"
-              class="text-muted-foreground text-sm"
-            >
-              {{ quote.billingAddress.country }}
-            </p>
-          </div>
+            :label="t('portal.quotations.invoice_address')"
+            :address="quote.billingAddress"
+          />
 
           <!-- Delivery address -->
-          <div
+          <AddressBlock
             v-if="quote?.shippingAddress"
             data-testid="delivery-address"
-            class="border-border space-y-1 rounded-lg border p-4"
-          >
-            <p
-              class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
-            >
-              {{ t('portal.quotations.delivery_address') }}
-            </p>
-            <p
-              v-if="quote?.shippingAddress?.company"
-              class="text-sm font-medium"
-            >
-              {{ quote.shippingAddress.company }}
-            </p>
-            <p
-              v-if="
-                quote?.shippingAddress?.firstName ||
-                quote?.shippingAddress?.lastName
-              "
-              class="text-muted-foreground text-sm"
-            >
-              {{
-                [
-                  quote?.shippingAddress?.firstName,
-                  quote?.shippingAddress?.lastName,
-                ]
-                  .filter(Boolean)
-                  .join(' ')
-              }}
-            </p>
-            <p
-              v-if="quote?.shippingAddress?.addressLine1"
-              class="text-muted-foreground text-sm"
-            >
-              {{ quote.shippingAddress.addressLine1 }}
-            </p>
-            <p
-              v-if="quote?.shippingAddress?.addressLine2"
-              class="text-muted-foreground text-sm"
-            >
-              {{ quote.shippingAddress.addressLine2 }}
-            </p>
-            <p
-              v-if="quote?.shippingAddress?.zip || quote?.shippingAddress?.city"
-              class="text-muted-foreground text-sm"
-            >
-              {{
-                [quote?.shippingAddress?.zip, quote?.shippingAddress?.city]
-                  .filter(Boolean)
-                  .join(' ')
-              }}
-            </p>
-            <p
-              v-if="quote?.shippingAddress?.country"
-              class="text-muted-foreground text-sm"
-            >
-              {{ quote.shippingAddress.country }}
-            </p>
-          </div>
+            :label="t('portal.quotations.delivery_address')"
+            :address="quote.shippingAddress"
+          />
         </div>
       </div>
     </div>
