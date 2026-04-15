@@ -267,25 +267,10 @@ function addAllToCart() {
             >
               <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
-                  <div class="size-10 shrink-0 overflow-hidden rounded">
-                    <GeinsImage
-                      v-if="item?.imageUrl"
-                      :file-name="item?.imageUrl"
-                      type="product"
-                      :alt="item?.name ?? ''"
-                      aspect-ratio="1"
-                      sizes="40px"
-                    />
-                    <div
-                      v-else
-                      class="bg-muted flex size-full items-center justify-center"
-                    >
-                      <Icon
-                        name="lucide:image-off"
-                        class="text-muted-foreground size-4"
-                      />
-                    </div>
-                  </div>
+                  <ProductThumbnail
+                    :file-name="item?.imageUrl ?? null"
+                    :alt="item?.name ?? ''"
+                  />
                   <span class="font-medium">{{ item?.name }}</span>
                 </div>
               </td>

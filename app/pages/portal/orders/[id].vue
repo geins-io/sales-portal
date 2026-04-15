@@ -196,27 +196,12 @@ function statusBadgeClass(status?: string): string {
                 >
                   <td class="px-4 py-3">
                     <div class="flex items-center gap-3">
-                      <div class="size-10 shrink-0 overflow-hidden rounded">
-                        <GeinsImage
-                          v-if="item?.product?.productImages?.[0]?.fileName"
-                          :file-name="
-                            item?.product?.productImages?.[0]?.fileName
-                          "
-                          type="product"
-                          :alt="item?.product?.name ?? ''"
-                          aspect-ratio="1"
-                          sizes="40px"
-                        />
-                        <div
-                          v-else
-                          class="bg-muted flex size-full items-center justify-center"
-                        >
-                          <Icon
-                            name="lucide:image-off"
-                            class="text-muted-foreground size-4"
-                          />
-                        </div>
-                      </div>
+                      <ProductThumbnail
+                        :file-name="
+                          item?.product?.productImages?.[0]?.fileName ?? null
+                        "
+                        :alt="item?.product?.name ?? ''"
+                      />
                       <span class="font-medium">{{ item?.product?.name }}</span>
                     </div>
                   </td>
