@@ -58,7 +58,12 @@ export function buildLoginRedirect(params: {
 
   // Never redirect when the user is already on a login page — this prevents
   // loops when the login page itself makes an authenticated API call.
-  if (currentPath.includes('/login')) {
+  // Use a segment-anchored match so sibling paths like `/login-as-user` or
+  // `/checkout/login-return` still get redirected normally. Strip any trailing
+  // query string first so `/login?redirect=...` is still recognised as login.
+  const pathOnly = currentPath.split('?')[0] ?? currentPath;
+  const segments = pathOnly.split('/').filter(Boolean);
+  if (segments.includes('login')) {
     return null;
   }
 
