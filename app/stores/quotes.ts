@@ -27,7 +27,7 @@ export const useQuotesStore = defineStore('quotes', () => {
       quotes.value = data.quotes;
       totalQuotes.value = data.total;
     } catch {
-      error.value = 'Failed to load quotes';
+      error.value = 'portal.quotations.error_loading';
     } finally {
       isLoading.value = false;
     }
@@ -40,7 +40,7 @@ export const useQuotesStore = defineStore('quotes', () => {
       const data = await $fetch<{ quote: Quote }>(`/api/quotes/${id}`);
       currentQuote.value = data.quote;
     } catch {
-      error.value = 'Failed to load quote';
+      error.value = 'portal.quotations.load_failed';
     } finally {
       isLoading.value = false;
     }

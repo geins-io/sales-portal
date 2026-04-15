@@ -690,6 +690,7 @@
       "decline_confirm": "Är du säker på att du vill avvisa offerten?",
       "accept_failed": "Det gick inte att acceptera offerten. Försök igen.",
       "decline_failed": "Det gick inte att avvisa offerten. Försök igen.",
+      "load_failed": "Det gick inte att ladda offerten. Försök igen.",
       "back_to_quotations": "Tillbaka till offerter",
       "expires_at": "Utgår",
       "payment_terms": "Betalningsvillkor",
