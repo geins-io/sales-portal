@@ -26,6 +26,14 @@ export const defaultMountOptions: MountingOptions<unknown> = {
         template: '<span class="icon" :data-name="name"></span>',
         props: ['name'],
       },
+      // @nuxt/icon registers its component as `NuxtIcon` (not `Icon`), so
+      // without this stub the real component tries to render in JSDOM and
+      // needs Nuxt runtime + network fetches. Mirror the `Icon` stub shape
+      // so assertions like `[data-name="foo"]` work for both names.
+      NuxtIcon: {
+        template: '<span class="icon" :data-name="name"></span>',
+        props: ['name'],
+      },
       ClientOnly: {
         template: '<slot />',
       },
