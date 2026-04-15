@@ -433,3 +433,8 @@ export default defineEventHandler(async (event) => {
   return products;
 });
 ```
+
+## Further Reading
+
+- [CMS Menu](./cms-menu.md) — how navigation menus are fetched from the Geins CMS and rendered.
+- [Sidebar Info Card](./sidebar-info-card.md) — canonical class set for the bordered label-and-value cards used on portal detail pages.
