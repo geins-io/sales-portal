@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { OrderSummaryType } from '#shared/types/commerce';
+import type { AddressType, OrderSummaryType } from '#shared/types/commerce';
+import type { QuoteAddress } from '#shared/types/quote';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 
@@ -36,6 +37,32 @@ const { data, error, pending } = useFetch<{ order: OrderSummaryType }>(
 );
 
 const order = computed(() => data.value?.order);
+
+function mapAddress(
+  a: AddressType | null | undefined,
+): QuoteAddress | undefined {
+  if (!a) return undefined;
+  return {
+    company: a.company ?? undefined,
+    firstName: a.firstName ?? undefined,
+    lastName: a.lastName ?? undefined,
+    addressLine1: a.addressLine1 ?? undefined,
+    addressLine2: a.addressLine2 ?? undefined,
+    addressLine3: a.addressLine3 ?? undefined,
+    zip: a.zip ?? undefined,
+    city: a.city ?? undefined,
+    country: a.country ?? undefined,
+    phone: a.phone ?? a.mobile ?? undefined,
+  };
+}
+
+const billingAddress = computed<QuoteAddress | undefined>(() =>
+  mapAddress(order.value?.billingAddress),
+);
+
+const shippingAddress = computed<QuoteAddress | undefined>(() =>
+  mapAddress(order.value?.shippingAddress),
+);
 
 useHead({
   title: computed(() => `${t('portal.orders.detail.title')} #${orderId.value}`),
@@ -272,120 +299,20 @@ function statusBadgeClass(status?: string): string {
           </div>
 
           <!-- Billing Address -->
-          <div
-            v-if="order?.billingAddress"
+          <AddressBlock
+            v-if="billingAddress"
             data-testid="billing-address"
-            class="border-border space-y-1 rounded-lg border p-4"
-          >
-            <h3 class="mb-2 text-base font-semibold">
-              {{ t('portal.orders.detail.billing_address') }}
-            </h3>
-            <p
-              v-if="order?.billingAddress?.company"
-              class="text-sm font-medium"
-            >
-              {{ order?.billingAddress?.company }}
-            </p>
-            <p
-              v-if="
-                order?.billingAddress?.firstName ||
-                order?.billingAddress?.lastName
-              "
-              class="text-sm"
-            >
-              {{ order?.billingAddress?.firstName }}
-              {{ order?.billingAddress?.lastName }}
-            </p>
-            <p v-if="order?.billingAddress?.addressLine1" class="text-sm">
-              {{ order?.billingAddress?.addressLine1 }}
-            </p>
-            <p v-if="order?.billingAddress?.addressLine2" class="text-sm">
-              {{ order?.billingAddress?.addressLine2 }}
-            </p>
-            <p v-if="order?.billingAddress?.addressLine3" class="text-sm">
-              {{ order?.billingAddress?.addressLine3 }}
-            </p>
-            <p
-              v-if="order?.billingAddress?.zip || order?.billingAddress?.city"
-              class="text-sm"
-            >
-              {{ order?.billingAddress?.zip }}
-              {{ order?.billingAddress?.city }}
-            </p>
-            <p v-if="order?.billingAddress?.country" class="text-sm">
-              {{ order?.billingAddress?.country }}
-            </p>
-            <p
-              v-if="order?.billingAddress?.phone"
-              class="text-muted-foreground text-sm"
-            >
-              {{ order?.billingAddress?.phone }}
-            </p>
-            <p
-              v-if="order?.billingAddress?.mobile"
-              class="text-muted-foreground text-sm"
-            >
-              {{ order?.billingAddress?.mobile }}
-            </p>
-          </div>
+            :label="t('portal.orders.detail.billing_address')"
+            :address="billingAddress"
+          />
 
           <!-- Shipping Address -->
-          <div
-            v-if="order?.shippingAddress"
+          <AddressBlock
+            v-if="shippingAddress"
             data-testid="shipping-address"
-            class="border-border space-y-1 rounded-lg border p-4"
-          >
-            <h3 class="mb-2 text-base font-semibold">
-              {{ t('portal.orders.detail.shipping_address') }}
-            </h3>
-            <p
-              v-if="order?.shippingAddress?.company"
-              class="text-sm font-medium"
-            >
-              {{ order?.shippingAddress?.company }}
-            </p>
-            <p
-              v-if="
-                order?.shippingAddress?.firstName ||
-                order?.shippingAddress?.lastName
-              "
-              class="text-sm"
-            >
-              {{ order?.shippingAddress?.firstName }}
-              {{ order?.shippingAddress?.lastName }}
-            </p>
-            <p v-if="order?.shippingAddress?.addressLine1" class="text-sm">
-              {{ order?.shippingAddress?.addressLine1 }}
-            </p>
-            <p v-if="order?.shippingAddress?.addressLine2" class="text-sm">
-              {{ order?.shippingAddress?.addressLine2 }}
-            </p>
-            <p v-if="order?.shippingAddress?.addressLine3" class="text-sm">
-              {{ order?.shippingAddress?.addressLine3 }}
-            </p>
-            <p
-              v-if="order?.shippingAddress?.zip || order?.shippingAddress?.city"
-              class="text-sm"
-            >
-              {{ order?.shippingAddress?.zip }}
-              {{ order?.shippingAddress?.city }}
-            </p>
-            <p v-if="order?.shippingAddress?.country" class="text-sm">
-              {{ order?.shippingAddress?.country }}
-            </p>
-            <p
-              v-if="order?.shippingAddress?.phone"
-              class="text-muted-foreground text-sm"
-            >
-              {{ order?.shippingAddress?.phone }}
-            </p>
-            <p
-              v-if="order?.shippingAddress?.mobile"
-              class="text-muted-foreground text-sm"
-            >
-              {{ order?.shippingAddress?.mobile }}
-            </p>
-          </div>
+            :label="t('portal.orders.detail.shipping_address')"
+            :address="shippingAddress"
+          />
         </div>
       </div>
     </div>

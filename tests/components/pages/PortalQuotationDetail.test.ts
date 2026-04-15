@@ -10,6 +10,7 @@ import {
 import { mount, flushPromises } from '@vue/test-utils';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote } from '../../../shared/types/quote';
+import { makeQuote } from '../../fixtures/quote';
 
 // Per-file override of the shared `vue-i18n` mock from `tests/setup-components.ts`.
 // Wraps `t` in a `vi.fn` so individual cases (e.g. D8 subtotal-with-count) can
@@ -249,45 +250,6 @@ async function mountDetailPage() {
   });
   await flushPromises();
   return { wrapper, captured };
-}
-
-function makeQuote(overrides: Partial<Quote> = {}): Quote {
-  return {
-    id: 'q-001',
-    quoteNumber: 'QUO-2026-001',
-    createdBy: 'user@example.com',
-    contactName: 'Jane Doe',
-    contactEmail: 'jane@example.com',
-    status: 'pending',
-    lineItems: [
-      {
-        productId: 1,
-        sku: 'SKU-A',
-        name: 'Widget Pro',
-        articleNumber: 'ART-001',
-        quantity: 2,
-        unitPrice: 100,
-        unitPriceFormatted: '100,00 kr',
-        totalPrice: 200,
-        totalPriceFormatted: '200,00 kr',
-        imageFileName: '/img/widget.jpg',
-      },
-    ],
-    subtotal: 200,
-    subtotalFormatted: '200,00 kr',
-    tax: 50,
-    taxFormatted: '50,00 kr',
-    shipping: 0,
-    shippingFormatted: '',
-    total: 250,
-    totalFormatted: '250,00 kr',
-    currency: 'SEK',
-    paymentTerms: 'Net 30',
-    expiresAt: '2026-04-01T00:00:00Z',
-    createdAt: '2026-03-01T00:00:00Z',
-    updatedAt: '2026-03-01T00:00:00Z',
-    ...overrides,
-  };
 }
 
 describe('PortalQuotationDetail', () => {

@@ -112,7 +112,7 @@ async function handleSubmit() {
     </div>
     <h3 class="text-lg font-semibold">{{ t('apply.success_title') }}</h3>
     <p class="text-muted-foreground text-sm">
-      {{ t('apply.success_message') }}
+      {{ t('apply.confirmation_message') }}
     </p>
   </div>
 

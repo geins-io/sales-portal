@@ -224,6 +224,15 @@
     "search_filters": "Search filters",
     "clear_all": "Clear all",
     "remove_filter": "Remove {name} filter",
+    "filter_groups": {
+      "categories": "Categories",
+      "brands": "Brands",
+      "price": "Price",
+      "skus": "Sizes",
+      "stock_status": "Stock status",
+      "discount": "Sale",
+      "campaigns": "Campaigns"
+    },
     "no_documents": "No documents available for this product.",
     "failed_to_load": "Failed to load product.",
     "article_number": "Art nr. {number}",
@@ -328,7 +337,7 @@
     "submit": "Submit application",
     "submitting": "Submitting…",
     "success_title": "Application submitted",
-    "success_message": "Thank you for your application. We'll review it and get back to you by email.",
+    "confirmation_message": "Application received. We'll get back to you within 1-2 business days.",
     "error_message": "Something went wrong. Please try again.",
     "too_many_attempts": "Too many attempts. Please try again later."
   },

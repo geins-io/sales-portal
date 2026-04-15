@@ -7,6 +7,7 @@ import {
   AccordionTrigger,
 } from '~/components/ui/accordion';
 import { Checkbox } from '~/components/ui/checkbox';
+import { getFilterGroupLabel } from '~/utils/filter-labels';
 
 const props = defineProps<{
   facet: FilterFacet;
@@ -17,8 +18,24 @@ const emit = defineEmits<{
   'update:selected': [value: string[]];
 }>();
 
+const { t } = useI18n();
+
 const visibleValues = computed(() =>
   props.facet.values.filter((v) => !v.hidden),
+);
+
+/**
+ * Header label for the filter group accordion. Tries the API's `group` field
+ * through the translation dictionary first; falls back to the raw `label` /
+ * `type` / `filterId` chain (mirroring the previous inline template logic)
+ * when the lookup returns nothing.
+ */
+const groupLabel = computed(
+  () =>
+    getFilterGroupLabel(props.facet.group, t) ||
+    props.facet.label ||
+    props.facet.type ||
+    props.facet.filterId,
 );
 
 function toggleValue(valueId: string) {
@@ -42,7 +59,7 @@ function isChecked(valueId: string) {
     <AccordionItem :value="facet.filterId">
       <AccordionTrigger class="py-3 text-sm font-medium">
         <span>
-          {{ facet.label || facet.type || facet.filterId }}
+          {{ groupLabel }}
           <span v-if="selected.length > 0" class="text-muted-foreground ml-1">
             ({{ selected.length }})
           </span>

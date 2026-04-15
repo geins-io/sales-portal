@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { H3Event } from 'h3';
+import { makeRawQuotationCart } from '../../fixtures/quote';
 
 // Mock the SDK module
 const mockGraphqlQuery = vi.fn();
@@ -60,115 +61,6 @@ vi.stubGlobal('ErrorCode', {
   UNAUTHORIZED: 'UNAUTHORIZED',
   NOT_FOUND: 'NOT_FOUND',
 });
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
-/** A raw CartType response from the Geins GraphQL API */
-function makeRawQuotationCart(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'cart-001',
-    items: [
-      {
-        id: 'item-001',
-        skuId: 501,
-        quantity: 2,
-        unitPrice: {
-          sellingPriceIncVat: 4995,
-          sellingPriceIncVatFormatted: '4 995 SEK',
-        },
-        totalPrice: {
-          sellingPriceIncVat: 9990,
-          sellingPriceIncVatFormatted: '9 990 SEK',
-        },
-        product: {
-          productId: 101,
-          name: 'Standing Desk Oak Large',
-          articleNumber: 'SD-OAK-L',
-          productImages: [{ fileName: '/img/desk.jpg' }],
-        },
-      },
-    ],
-    summary: {
-      subTotal: {
-        sellingPriceIncVat: 9990,
-        sellingPriceIncVatFormatted: '9 990 SEK',
-        sellingPriceExVat: 7992,
-        sellingPriceExVatFormatted: '7 992 SEK',
-        vat: 1998,
-        vatFormatted: '1 998 SEK',
-      },
-      shipping: {
-        feeIncVat: 49,
-        feeIncVatFormatted: '49 SEK',
-      },
-      total: {
-        sellingPriceIncVat: 10039,
-        sellingPriceIncVatFormatted: '10 039 SEK',
-      },
-    },
-    quotation: {
-      quotationNumber: 'Q-20260101001',
-      name: 'Office order',
-      currency: 'SEK',
-      marketId: 'se',
-      channelId: '1|se',
-      status: 'PENDING',
-      createdAt: '2026-03-01T10:15:00Z',
-      modifiedAt: '2026-03-01T10:15:00Z',
-      validFrom: '2026-03-01T00:00:00Z',
-      validTo: '2026-04-01T00:00:00Z',
-      company: { companyId: 'comp-1', name: 'Acme Corp', vatNumber: 'SE12345' },
-      owner: {
-        ownerId: 'owner-1',
-        firstName: 'Lisa',
-        lastName: 'Andersson',
-        phone: '+46123456',
-      },
-      customer: {
-        customerId: 'cust-1',
-        internalCustomerId: 'ic-1',
-        firstName: 'Lisa',
-        lastName: 'Andersson',
-        phone: '+46123456',
-        approvedAt: null,
-        rejectedAt: null,
-      },
-      terms: { text: 'Net 30' },
-      billingAddress: {
-        email: 'lisa@acmecorp.se',
-        phone: '+46123456',
-        company: 'Acme Corp',
-        firstName: 'Lisa',
-        lastName: 'Andersson',
-        addressLine1: 'Street 1',
-        addressLine2: null,
-        addressLine3: null,
-        zip: '11122',
-        city: 'Stockholm',
-        region: null,
-        country: 'SE',
-      },
-      shippingAddress: {
-        email: 'delivery@acmecorp.se',
-        phone: '+46987654',
-        company: 'Acme Corp Warehouse',
-        firstName: 'Warehouse',
-        lastName: 'Receiver',
-        addressLine1: 'Industrivagen 5',
-        addressLine2: 'Building B',
-        addressLine3: null,
-        zip: '55533',
-        city: 'Goteborg',
-        region: null,
-        country: 'SE',
-      },
-      orderId: null,
-      ...overrides,
-    },
-  };
-}
 
 let quotesService: typeof import('../../../server/services/quotes');
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
 import type { QuoteListItem } from '../../../shared/types/quote';
+import { makeQuoteListItem as makeQuote } from '../../fixtures/quote';
 
 // Mock useFetch — returns reactive refs
 const mockData = ref<{
@@ -44,22 +45,6 @@ const defaultStubs = {
     props: ['name'],
   },
 };
-
-function makeQuote(overrides: Partial<QuoteListItem> = {}): QuoteListItem {
-  return {
-    id: 'q-001',
-    quoteNumber: 'Q-2024-001',
-    contactName: 'Jane Doe',
-    contactEmail: 'jane@example.com',
-    status: 'pending',
-    total: 1500,
-    totalFormatted: '1 500,00 kr',
-    currency: 'SEK',
-    itemCount: 3,
-    createdAt: '2024-03-01T10:00:00Z',
-    ...overrides,
-  };
-}
 
 describe('PortalQuotations page', () => {
   beforeEach(() => {
@@ -188,6 +173,33 @@ describe('PortalQuotations page', () => {
       expect(
         wrapper.find('table').find('[data-testid="quotation-row"]').text(),
       ).toContain('Q-2024-042');
+    });
+
+    it('renders em dash when quoteNumber is empty string (mobile + desktop)', () => {
+      // Pending drafts come back from Geins with an empty string — not null —
+      // so the fallback must use || and the rendered character must be U+2014 (—).
+      mockData.value = {
+        quotes: [makeQuote({ quoteNumber: '' })],
+        total: 1,
+      };
+      const wrapper = mountComponent(PortalQuotations, {
+        global: { stubs: defaultStubs },
+      });
+      // Desktop table row
+      const desktopRow = wrapper
+        .find('table')
+        .find('[data-testid="quotation-row"]');
+      expect(desktopRow.exists()).toBe(true);
+      expect(desktopRow.text()).toContain('—');
+
+      // Mobile card — NuxtLink is stubbed to <a> and lives under the md:hidden
+      // wrapper; jsdom ignores Tailwind breakpoints so both trees exist.
+      const allRows = wrapper.findAll('[data-testid="quotation-row"]');
+      // One mobile <a> and one desktop <tr>
+      expect(allRows.length).toBeGreaterThanOrEqual(2);
+      const mobileRow = allRows.find((r) => r.element.tagName === 'A');
+      expect(mobileRow).toBeDefined();
+      expect(mobileRow!.text()).toContain('—');
     });
 
     it('displays contact name in each row', () => {

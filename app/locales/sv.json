@@ -224,6 +224,15 @@
     "search_filters": "Sök filter",
     "clear_all": "Rensa alla",
     "remove_filter": "Ta bort filter: {name}",
+    "filter_groups": {
+      "categories": "Kategorier",
+      "brands": "Märken",
+      "price": "Pris",
+      "skus": "Storlekar",
+      "stock_status": "Lagerstatus",
+      "discount": "Rea",
+      "campaigns": "Kampanjer"
+    },
     "no_documents": "Inga dokument tillgängliga för denna produkt.",
     "failed_to_load": "Kunde inte ladda produkt.",
     "article_number": "Art nr. {number}",
@@ -328,7 +337,7 @@
     "submit": "Skicka ansökan",
     "submitting": "Skickar…",
     "success_title": "Ansökan skickad",
-    "success_message": "Tack för din ansökan. Vi granskar den och återkommer via e-post.",
+    "confirmation_message": "Ansökan mottagen. Vi hör av oss inom 1-2 arbetsdagar.",
     "error_message": "Något gick fel. Försök igen.",
     "too_many_attempts": "För många försök. Försök igen senare."
   },

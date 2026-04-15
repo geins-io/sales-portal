@@ -144,7 +144,7 @@ function getStatusLabel(status: QuoteStatus): string {
           class="border-border hover:bg-muted/50 block rounded-lg border p-4 transition-colors"
         >
           <div class="mb-2 flex items-center justify-between">
-            <span class="font-medium">{{ quote.quoteNumber }}</span>
+            <span class="font-medium">{{ quote.quoteNumber || '—' }}</span>
             <span
               data-testid="quote-status-badge"
               class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
@@ -195,7 +195,7 @@ function getStatusLabel(status: QuoteStatus): string {
               data-testid="quotation-row"
               class="border-border hover:bg-muted/50 border-b transition-colors"
             >
-              <td class="py-3 pr-4">{{ quote.quoteNumber }}</td>
+              <td class="py-3 pr-4">{{ quote.quoteNumber || '—' }}</td>
               <td class="py-3 pr-4">{{ formatDate(quote.createdAt) }}</td>
               <td class="py-3 pr-4">{{ quote.contactName }}</td>
               <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>

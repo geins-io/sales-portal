@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import type { Quote, QuoteListItem } from '#shared/types/quote';
+import { makeQuote, makeQuoteListItem } from '../fixtures/quote';
 
 // Mock $fetch at module level
 let mockFetchImpl: ReturnType<typeof vi.fn> = vi.fn();
@@ -18,20 +18,14 @@ const { useQuotesStore } = await import('../../app/stores/quotes');
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const mockQuoteListItem: QuoteListItem = {
+const mockQuoteListItem = makeQuoteListItem({
   id: 'q-001',
   quoteNumber: 'Q-001',
-  contactName: 'Jane Doe',
-  contactEmail: 'jane@example.com',
-  status: 'pending',
-  total: 1500,
   totalFormatted: '1 500 SEK',
-  currency: 'SEK',
-  itemCount: 3,
   createdAt: '2026-01-01T00:00:00Z',
-};
+});
 
-const mockQuoteListItem2: QuoteListItem = {
+const mockQuoteListItem2 = makeQuoteListItem({
   id: 'q-002',
   quoteNumber: 'Q-002',
   contactName: 'John Smith',
@@ -39,12 +33,11 @@ const mockQuoteListItem2: QuoteListItem = {
   status: 'accepted',
   total: 2000,
   totalFormatted: '2 000 SEK',
-  currency: 'SEK',
   itemCount: 2,
   createdAt: '2026-01-02T00:00:00Z',
-};
+});
 
-const mockQuoteListItem3: QuoteListItem = {
+const mockQuoteListItem3 = makeQuoteListItem({
   id: 'q-003',
   quoteNumber: 'Q-003',
   contactName: 'Alice Brown',
@@ -52,18 +45,13 @@ const mockQuoteListItem3: QuoteListItem = {
   status: 'pending',
   total: 500,
   totalFormatted: '500 SEK',
-  currency: 'SEK',
   itemCount: 1,
   createdAt: '2026-01-03T00:00:00Z',
-};
+});
 
-const mockQuote: Quote = {
-  id: 'q-001',
+const mockQuote = makeQuote({
   quoteNumber: 'Q-001',
   createdBy: 'user-001',
-  contactName: 'Jane Doe',
-  contactEmail: 'jane@example.com',
-  status: 'pending',
   lineItems: [
     {
       productId: 1,
@@ -81,14 +69,13 @@ const mockQuote: Quote = {
   subtotalFormatted: '1 500 SEK',
   tax: 300,
   taxFormatted: '300 SEK',
-  shipping: 0,
-  shippingFormatted: '',
   total: 1500,
   totalFormatted: '1 500 SEK',
-  currency: 'SEK',
+  paymentTerms: undefined,
+  expiresAt: undefined,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
-};
+});
 
 // ---------------------------------------------------------------------------
 // Tests

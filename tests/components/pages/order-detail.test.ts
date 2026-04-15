@@ -252,6 +252,16 @@ const defaultStubs = {
     template: '<img :data-file-name="fileName" :alt="alt" />',
     props: ['fileName', 'type', 'alt', 'aspectRatio', 'sizes'],
   },
+  AddressBlock: {
+    template:
+      '<div v-bind="$attrs"><p>{{ label }}</p><p v-if="address?.company">{{ address.company }}</p><p v-if="address?.firstName || address?.lastName">{{ address?.firstName }} {{ address?.lastName }}</p><p v-if="address?.addressLine1">{{ address.addressLine1 }}</p><p v-if="address?.addressLine2">{{ address.addressLine2 }}</p><p v-if="address?.addressLine3">{{ address.addressLine3 }}</p><p v-if="address?.zip || address?.city">{{ address?.zip }} {{ address?.city }}</p><p v-if="address?.country">{{ address.country }}</p></div>',
+    props: ['label', 'icon', 'address'],
+  },
+  ProductThumbnail: {
+    template:
+      '<div class="product-thumbnail" :data-file-name="fileName" :data-alt="alt"></div>',
+    props: ['fileName', 'alt', 'size', 'radius', 'iconSize'],
+  },
 };
 
 describe('OrderDetail', () => {

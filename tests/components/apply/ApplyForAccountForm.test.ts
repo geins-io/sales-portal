@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { flushPromises } from '@vue/test-utils';
 import { mountComponent } from '../../utils/component';
 import ApplyForAccountForm from '../../../app/components/apply/ApplyForAccountForm.vue';
 
@@ -6,7 +7,7 @@ const stubs = {
   Label: { template: '<label><slot /></label>', props: ['for'] },
   Input: {
     template:
-      '<input :type="type" :id="id" v-bind="$attrs" @blur="$emit(\'blur\', $event)" />',
+      '<input :type="type" :id="id" :value="modelValue" v-bind="$attrs" @input="$emit(\'update:modelValue\', $event.target.value)" @blur="$emit(\'blur\', $event)" />',
     props: [
       'type',
       'id',
@@ -83,5 +84,36 @@ describe('ApplyForAccountForm', () => {
   it('does not show error message initially', () => {
     const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
     expect(wrapper.find('[data-testid="apply-error"]').exists()).toBe(false);
+  });
+
+  it('renders confirmation message after successful submit', async () => {
+    (globalThis as unknown as { $fetch: ReturnType<typeof vi.fn> }).$fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: true });
+
+    const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
+
+    await wrapper
+      .find('[data-testid="apply-company-name"]')
+      .setValue('Acme AB');
+    await wrapper.find('[data-testid="apply-org-number"]').setValue('556677');
+    await wrapper.find('[data-testid="apply-first-name"]').setValue('Ada');
+    await wrapper.find('[data-testid="apply-last-name"]').setValue('Lovelace');
+    await wrapper
+      .find('[data-testid="apply-email"]')
+      .setValue('ada@example.com');
+
+    await wrapper.find('[data-testid="apply-form"]').trigger('submit');
+    await flushPromises();
+
+    const success = wrapper.find('[data-testid="apply-success"]');
+    expect(success.exists()).toBe(true);
+    expect(success.text()).toContain('apply.confirmation_message');
+    expect(success.text()).not.toContain('apply.success_message');
+  });
+
+  it('does not reference the removed apply.success_message key', () => {
+    const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
+    expect(wrapper.html()).not.toContain('apply.success_message');
   });
 });

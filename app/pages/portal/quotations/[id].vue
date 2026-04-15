@@ -72,20 +72,8 @@ function formatDate(iso: string): string {
 
 <template>
   <PortalShell>
-    <!-- Loading -->
-    <div
-      v-if="store.isLoading"
-      data-testid="quote-loading"
-      class="flex items-center justify-center py-16"
-    >
-      <Icon
-        name="lucide:loader-circle"
-        class="text-muted-foreground size-8 animate-spin"
-      />
-    </div>
-
     <!-- Detail View -->
-    <div v-else-if="quote" data-testid="quote-detail" class="space-y-6">
+    <div v-if="quote" data-testid="quote-detail" class="space-y-6">
       <!-- Back to quotations link -->
       <NuxtLink
         data-testid="back-link"
