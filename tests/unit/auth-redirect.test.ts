@@ -125,5 +125,44 @@ describe('auth-redirect plugin', () => {
         }),
       ).toBe('/se/sv/login');
     });
+
+    it('builds a redirect for paths that merely contain the substring "login"', () => {
+      const result = buildLoginRedirect({
+        loginPath: '/se/sv/login',
+        currentPath: '/se/sv/login-as-user',
+      });
+      expect(result).toBe(
+        '/se/sv/login?redirect=' + encodeURIComponent('/se/sv/login-as-user'),
+      );
+    });
+
+    it('builds a redirect for /checkout/login-return (no exact login segment)', () => {
+      const result = buildLoginRedirect({
+        loginPath: '/se/sv/login',
+        currentPath: '/se/sv/checkout/login-return',
+      });
+      expect(result).toBe(
+        '/se/sv/login?redirect=' +
+          encodeURIComponent('/se/sv/checkout/login-return'),
+      );
+    });
+
+    it('skips redirect when the path has an exact /login segment', () => {
+      expect(
+        buildLoginRedirect({
+          loginPath: '/se/sv/login',
+          currentPath: '/se/sv/login',
+        }),
+      ).toBeNull();
+    });
+
+    it('skips redirect when the path has a /login segment with trailing query', () => {
+      expect(
+        buildLoginRedirect({
+          loginPath: '/se/sv/login',
+          currentPath: '/se/sv/login?redirect=/foo',
+        }),
+      ).toBeNull();
+    });
   });
 });

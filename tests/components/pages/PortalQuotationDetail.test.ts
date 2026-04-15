@@ -1,8 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { defineComponent, h, Suspense, onErrorCaptured, type VNode } from 'vue';
+import {
+  defineComponent,
+  h,
+  ref,
+  Suspense,
+  onErrorCaptured,
+  type VNode,
+} from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { defaultMountOptions } from '../../utils/component';
 import type { Quote } from '../../../shared/types/quote';
+
+// Per-file override of the shared `vue-i18n` mock from `tests/setup-components.ts`.
+// Wraps `t` in a `vi.fn` so individual cases (e.g. D8 subtotal-with-count) can
+// assert the interpolation args were actually passed. Shape must match the shared
+// mock — `useI18n` returning `{ t, locale }` — or components that read
+// `locale.value` (e.g. via `formatDate`) will break. The spy must be hoisted
+// so it's available inside the `vi.mock` factory (which is hoisted above
+// imports).
+const { tSpy } = vi.hoisted(() => ({
+  tSpy: vi.fn((key: string, params?: Record<string, unknown>): string => {
+    if (!params) return key;
+    let result = key;
+    for (const [k, v] of Object.entries(params)) {
+      result = result.replace(`{${k}}`, String(v));
+    }
+    return result;
+  }),
+}));
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({ t: tSpy, locale: ref('en') }),
+}));
 
 // Hoist reactive mock state so it's available inside vi.mock factories
 const {
@@ -180,13 +208,8 @@ const defaultStubs = {
       return () => h('span', { class: 'icon', 'data-name': props.name });
     },
   }),
-  NuxtIcon: defineComponent({
-    name: 'NuxtIcon',
-    props: { name: { type: String, default: '' } },
-    setup(props): () => VNode {
-      return () => h('span', { class: 'icon', 'data-name': props.name });
-    },
-  }),
+  // NuxtIcon is stubbed globally in tests/utils/component.ts — no per-file
+  // entry needed. @nuxt/icon actually registers as <NuxtIcon>, not <Icon>.
   GeinsImage: {
     template:
       '<img data-testid="geins-image" :data-file-name="fileName" :data-type="type" :alt="alt" />',
@@ -232,7 +255,6 @@ function makeQuote(overrides: Partial<Quote> = {}): Quote {
   return {
     id: 'q-001',
     quoteNumber: 'QUO-2026-001',
-    organizationId: 'org-1',
     createdBy: 'user@example.com',
     contactName: 'Jane Doe',
     contactEmail: 'jane@example.com',
@@ -565,6 +587,10 @@ describe('PortalQuotationDetail', () => {
 
   describe('subtotal with item count (D8)', () => {
     it('renders subtotal label interpolated with lineItems length', async () => {
+      // Clear the shared `t` spy so `toHaveBeenCalledWith` reflects only the
+      // calls made by this test's mount — mountDetailPage triggers a full
+      // template render that invokes `t` many times.
+      tSpy.mockClear();
       mockData.value = {
         quote: makeQuote({
           lineItems: [
@@ -606,10 +632,14 @@ describe('PortalQuotationDetail', () => {
       };
       const { wrapper } = await mountDetailPage();
 
-      const summary = wrapper.find('[data-testid="quote-summary"]');
-      expect(summary.text()).toContain('portal.quotations.subtotal_with_count');
-      // Passthrough t() in setup-components.ts returns the key, so we can't
-      // assert the rendered count. Assert via the VDOM props instead.
+      // Strong assertion: verify the component actually passed `{ count: 3 }`
+      // to `t()` for the subtotal label. Guards against a regression where
+      // someone drops the interpolation args (the passthrough mock would
+      // otherwise mask it).
+      expect(tSpy).toHaveBeenCalledWith(
+        'portal.quotations.subtotal_with_count',
+        { count: 3 },
+      );
       expect(mockUseFetch).toHaveBeenCalled();
       // lineItems.length is 3 — confirm the component read the right input
       expect(wrapper.findAll('[data-testid="line-item-row"]')).toHaveLength(3);

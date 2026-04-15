@@ -17,8 +17,6 @@ const { data, pending, error, refresh } = useFetch<{
 const allQuotes = computed(() => data.value?.quotes ?? []);
 
 const searchQuery = ref('');
-const currentPage = ref(1);
-const pageSize = 20;
 
 const filteredQuotes = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -30,33 +28,16 @@ const filteredQuotes = computed(() => {
   );
 });
 
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredQuotes.value.length / pageSize)),
-);
-
-const paginatedQuotes = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return filteredQuotes.value.slice(start, start + pageSize);
-});
-
-const showPagination = computed(() => filteredQuotes.value.length > pageSize);
-
-function goToPage(page: number) {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-  }
-}
-
-// Reset to page 1 when search changes
-watch(searchQuery, () => {
-  currentPage.value = 1;
-});
-
-// Clamp current page if the total shrinks below it (e.g. after filtering)
-watch(totalPages, (n) => {
-  if (currentPage.value > n) {
-    currentPage.value = n;
-  }
+const {
+  currentPage,
+  totalPages,
+  paginatedItems: paginatedQuotes,
+  showPagination,
+  goToPage,
+} = usePagination<QuoteListItem>({
+  source: () => filteredQuotes.value,
+  pageSize: 20,
+  resetOn: [() => searchQuery.value],
 });
 
 function formatDate(dateStr: string): string {

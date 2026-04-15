@@ -13,8 +13,6 @@ const { data, pending, error, refresh } = useFetch<{
 }>('/api/orders', { dedupe: 'defer' });
 
 const searchQuery = ref('');
-const currentPage = ref(1);
-const pageSize = 20;
 const sortDirection = ref<'asc' | 'desc'>('desc');
 
 const allOrders = computed(() => data.value?.orders ?? []);
@@ -41,35 +39,26 @@ const sortedOrders = computed(() => {
   return orders;
 });
 
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(sortedOrders.value.length / pageSize)),
-);
-
-const paginatedOrders = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return sortedOrders.value.slice(start, start + pageSize);
+const {
+  currentPage,
+  pageSize,
+  totalPages,
+  paginatedItems: paginatedOrders,
+  showPagination,
+  goToPage,
+} = usePagination<OrderListItem>({
+  source: () => sortedOrders.value,
+  pageSize: 20,
+  resetOn: [() => searchQuery.value],
 });
 
 const showingCount = computed(() =>
-  Math.min(currentPage.value * pageSize, sortedOrders.value.length),
+  Math.min(currentPage.value * pageSize.value, sortedOrders.value.length),
 );
-
-const showPagination = computed(() => sortedOrders.value.length > pageSize);
 
 function handleSort(_column: string) {
   sortDirection.value = sortDirection.value === 'desc' ? 'asc' : 'desc';
 }
-
-function goToPage(page: number) {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-  }
-}
-
-// Reset to page 1 when search changes
-watch(searchQuery, () => {
-  currentPage.value = 1;
-});
 </script>
 
 <template>

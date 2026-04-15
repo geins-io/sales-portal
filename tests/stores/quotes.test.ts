@@ -60,7 +60,6 @@ const mockQuoteListItem3: QuoteListItem = {
 const mockQuote: Quote = {
   id: 'q-001',
   quoteNumber: 'Q-001',
-  organizationId: 'org-123',
   createdBy: 'user-001',
   contactName: 'Jane Doe',
   contactEmail: 'jane@example.com',
@@ -160,7 +159,7 @@ describe('useQuotesStore', () => {
       const store = useQuotesStore();
       await store.fetchQuotes();
 
-      expect(store.error).toBe('Failed to load quotes');
+      expect(store.error).toBe('portal.quotations.error_loading');
       expect(store.isLoading).toBe(false);
     });
 
@@ -209,7 +208,7 @@ describe('useQuotesStore', () => {
       const store = useQuotesStore();
       await store.fetchQuote('nonexistent');
 
-      expect(store.error).toBe('Failed to load quote');
+      expect(store.error).toBe('portal.quotations.load_failed');
       expect(store.isLoading).toBe(false);
     });
   });

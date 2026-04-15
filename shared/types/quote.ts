@@ -57,7 +57,6 @@ export interface QuoteCompany {
 export interface Quote {
   id: string;
   quoteNumber: string;
-  organizationId: string;
   createdBy: string;
   contactName: string;
   contactEmail: string;
@@ -111,9 +110,5 @@ export interface CreateQuoteInput {
 }
 
 export interface AcceptQuoteInput {
-  quoteId: string;
-}
-
-export interface RejectQuoteInput {
   quoteId: string;
 }
