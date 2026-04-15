@@ -113,7 +113,3 @@ export interface CreateQuoteInput {
 export interface AcceptQuoteInput {
   quoteId: string;
 }
-
-export interface RejectQuoteInput {
-  quoteId: string;
-}
