@@ -57,7 +57,6 @@ export interface QuoteCompany {
 export interface Quote {
   id: string;
   quoteNumber: string;
-  organizationId: string;
   createdBy: string;
   contactName: string;
   contactEmail: string;

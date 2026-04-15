@@ -305,7 +305,6 @@ describe('quotes service', () => {
         expiresAt: '2026-04-01T00:00:00Z',
         contactName: 'Lisa Andersson',
         contactEmail: 'lisa@acmecorp.se',
-        organizationId: 'comp-1',
         createdBy: 'owner-1',
         paymentTerms: 'Net 30',
       });

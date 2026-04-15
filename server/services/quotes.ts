@@ -207,7 +207,6 @@ function mapQuotationCartToQuote(cart: RawQuotationCart): Quote {
   return {
     id: cart.id,
     quoteNumber: q.quotationNumber ?? '',
-    organizationId: q.company?.companyId ?? '',
     createdBy: q.owner?.ownerId ?? '',
     contactName,
     contactEmail,

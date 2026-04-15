@@ -208,13 +208,8 @@ const defaultStubs = {
       return () => h('span', { class: 'icon', 'data-name': props.name });
     },
   }),
-  NuxtIcon: defineComponent({
-    name: 'NuxtIcon',
-    props: { name: { type: String, default: '' } },
-    setup(props): () => VNode {
-      return () => h('span', { class: 'icon', 'data-name': props.name });
-    },
-  }),
+  // NuxtIcon is stubbed globally in tests/utils/component.ts — no per-file
+  // entry needed. @nuxt/icon actually registers as <NuxtIcon>, not <Icon>.
   GeinsImage: {
     template:
       '<img data-testid="geins-image" :data-file-name="fileName" :data-type="type" :alt="alt" />',
@@ -260,7 +255,6 @@ function makeQuote(overrides: Partial<Quote> = {}): Quote {
   return {
     id: 'q-001',
     quoteNumber: 'QUO-2026-001',
-    organizationId: 'org-1',
     createdBy: 'user@example.com',
     contactName: 'Jane Doe',
     contactEmail: 'jane@example.com',
