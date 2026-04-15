@@ -81,6 +81,24 @@ export default defineNuxtPlugin((nuxtApp) => {
   // Capture the original `$fetch` once so we can forward calls through it.
   const originalFetch = globalThis.$fetch;
 
+  // ---------------------------------------------------------------------
+  // onResponseError composition gotcha
+  // ---------------------------------------------------------------------
+  // `originalFetch.create(...)` sets a default `onResponseError` on the
+  // returned instance. When a caller passes `$fetch(url, { onResponseError })`,
+  // ofetch REPLACES this default rather than composing both hooks.
+  //
+  // Today there are zero callers that override `onResponseError` per-call,
+  // so the session-expired redirect always fires. If you're about to add
+  // a per-call interceptor, EITHER:
+  //   1. Re-throw the original error inside your hook so the wrapped
+  //      instance's logic still runs at the call site, OR
+  //   2. Inline the `isSessionExpiredError` check + `buildLoginRedirect`
+  //      call into your handler (and keep them in sync with this file).
+  //
+  // Ofetch does not currently expose a way to chain multiple
+  // `onResponseError` hooks on a single fetch call.
+  // ---------------------------------------------------------------------
   const wrapped = originalFetch.create({
     async onResponseError({ response }) {
       if (!isSessionExpiredError({ response })) return;
