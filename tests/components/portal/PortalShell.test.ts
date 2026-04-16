@@ -80,12 +80,12 @@ describe('PortalShell', () => {
     disableWishlistFeature();
   });
 
-  it('renders hero banner', () => {
+  it('hides hero banner when CMS area is empty', () => {
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div>content</div>' },
       global: { stubs },
     });
-    expect(wrapper.find('[data-testid="portal-hero"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="portal-hero"]').exists()).toBe(false);
   });
 
   it('renders welcome card with user name', () => {

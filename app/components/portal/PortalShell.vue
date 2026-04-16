@@ -124,32 +124,21 @@ async function handleLogout() {
 
 <template>
   <div data-testid="portal-shell">
-    <!-- Hero Banner -->
+    <!-- Hero Banner (CMS-driven — renders only when content area is configured) -->
     <CmsWidgetArea
       v-if="heroArea?.containers?.length"
       data-testid="portal-hero"
       :containers="heroArea.containers"
     />
-    <div
-      v-else
-      data-testid="portal-hero"
-      class="bg-primary text-primary-foreground py-12 text-center"
-    >
-      <p class="text-primary-foreground/70 text-xs tracking-wider uppercase">
-        CMS Content area
-      </p>
-      <h1 class="mt-2 text-3xl font-bold">Portal landing page</h1>
-      <p class="text-primary-foreground/80 mx-auto mt-2 max-w-md text-sm">
-        Follow with one or two sentences that expand on your value proposition
-        and focus on key benefits.
-      </p>
-    </div>
 
     <!-- Welcome Card -->
     <div class="mx-auto max-w-6xl px-4">
       <div
         data-testid="portal-welcome"
-        class="border-border bg-background -mt-6 flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-start"
+        :class="[
+          'border-border bg-background flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-start',
+          heroArea?.containers?.length ? '-mt-6' : 'mt-6',
+        ]"
       >
         <!-- Left: User info -->
         <div>
