@@ -1,5 +1,5 @@
-mutation rejectQuotation($quotationId: Int!, $channelId: String, $languageId: String, $marketId: String) {
-  rejectQuotation(quotationId: $quotationId, channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+mutation rejectQuotation($quotationId: Guid!, $languageId: String) {
+  rejectQuotation(quotationId: $quotationId, languageId: $languageId) {
     id
     items {
       ...QuotationCartItem

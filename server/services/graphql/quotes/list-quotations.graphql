@@ -1,5 +1,5 @@
-query listQuotationCarts($channelId: String, $languageId: String, $marketId: String) {
-  listQuotationCarts(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+query listQuotationCarts($languageId: String) {
+  listQuotationCarts(languageId: $languageId) {
     id
     items {
       ...QuotationCartItem

@@ -1,5 +1,5 @@
-query getQuotationCart($quotationId: Int!, $channelId: String, $languageId: String, $marketId: String) {
-  getQuotationCart(quotationId: $quotationId, channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+query getQuotationCart($quotationId: Int!, $languageId: String) {
+  getQuotationCart(quotationId: $quotationId, languageId: $languageId) {
     id
     items {
       ...QuotationCartItem

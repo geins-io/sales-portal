@@ -268,13 +268,16 @@ export async function listQuotes(
 ): Promise<{ quotes: QuoteListItem[]; total: number }> {
   const sdk = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
+  // Quotation queries use languageId only — NOT channelId/marketId.
+  // Studio stores channelId as "1" but getRequestChannelVariables produces "1|se",
+  // which causes a filter mismatch and hides quotes from the buyer.
+  // Quotes are already user-scoped via the auth token.
+  const { languageId } = getRequestChannelVariables(sdk, event);
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('quotes/list-quotations.graphql'),
-        variables: {
-          ...getRequestChannelVariables(sdk, event),
-        },
+        variables: { languageId },
         userToken: requestContext?.userToken,
       }),
     'quotes',
@@ -291,13 +294,14 @@ export async function getQuote(
 ): Promise<Quote> {
   const sdk = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
+  const { languageId } = getRequestChannelVariables(sdk, event);
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('quotes/get-quotation.graphql'),
         variables: {
           quotationId: quoteId,
-          ...getRequestChannelVariables(sdk, event),
+          languageId,
         },
         userToken: requestContext?.userToken,
       }),
@@ -317,13 +321,14 @@ export async function acceptQuote(
 ): Promise<Quote> {
   const sdk = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
+  const { languageId } = getRequestChannelVariables(sdk, event);
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.mutation({
         queryAsString: loadQuery('quotes/accept-quotation.graphql'),
         variables: {
           quotationId: quoteId,
-          ...getRequestChannelVariables(sdk, event),
+          languageId,
         },
         userToken: requestContext?.userToken,
       }),
@@ -343,13 +348,14 @@ export async function rejectQuote(
 ): Promise<Quote> {
   const sdk = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
+  const { languageId } = getRequestChannelVariables(sdk, event);
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.mutation({
         queryAsString: loadQuery('quotes/reject-quotation.graphql'),
         variables: {
           quotationId: quoteId,
-          ...getRequestChannelVariables(sdk, event),
+          languageId,
         },
         userToken: requestContext?.userToken,
       }),

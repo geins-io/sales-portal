@@ -93,11 +93,8 @@ describe('quotes service', () => {
       expect(mockGraphqlQuery).toHaveBeenCalledWith(
         expect.objectContaining({
           queryAsString: 'query:quotes/list-quotations.graphql',
-          variables: expect.objectContaining({
-            channelId: '1|se',
-            languageId: 'sv-SE',
-            marketId: 'se',
-          }),
+          userToken: 'test-user-token',
+          variables: { languageId: 'sv-SE' },
         }),
       );
 
@@ -170,12 +167,11 @@ describe('quotes service', () => {
       expect(mockGraphqlQuery).toHaveBeenCalledWith(
         expect.objectContaining({
           queryAsString: 'query:quotes/get-quotation.graphql',
-          variables: expect.objectContaining({
+          userToken: 'test-user-token',
+          variables: {
             quotationId: 'cart-001',
-            channelId: '1|se',
             languageId: 'sv-SE',
-            marketId: 'se',
-          }),
+          },
         }),
       );
 
@@ -310,10 +306,11 @@ describe('quotes service', () => {
       expect(mockGraphqlMutation).toHaveBeenCalledWith(
         expect.objectContaining({
           queryAsString: 'query:quotes/accept-quotation.graphql',
-          variables: expect.objectContaining({
+          userToken: 'test-user-token',
+          variables: {
             quotationId: 'cart-001',
-            channelId: '1|se',
-          }),
+            languageId: 'sv-SE',
+          },
         }),
       );
 
@@ -334,10 +331,11 @@ describe('quotes service', () => {
       expect(mockGraphqlMutation).toHaveBeenCalledWith(
         expect.objectContaining({
           queryAsString: 'query:quotes/reject-quotation.graphql',
-          variables: expect.objectContaining({
+          userToken: 'test-user-token',
+          variables: {
             quotationId: 'cart-001',
-            channelId: '1|se',
-          }),
+            languageId: 'sv-SE',
+          },
         }),
       );
 
