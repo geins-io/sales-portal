@@ -1,4 +1,4 @@
-query getQuotationCart($quotationId: Int!, $languageId: String) {
+query getQuotationCart($quotationId: Guid!, $languageId: String) {
   getQuotationCart(quotationId: $quotationId, languageId: $languageId) {
     id
     items {

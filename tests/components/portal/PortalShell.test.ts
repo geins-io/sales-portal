@@ -96,8 +96,7 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.welcome');
   });
 
-  it('renders 5 tabs when organisation feature flag is off', () => {
-    mockCanAccess.mockReturnValue(false);
+  it('renders all 7 portal tabs including organisation', () => {
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div>content</div>' },
       global: { stubs },
@@ -107,15 +106,6 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.tabs.quotations');
     expect(wrapper.text()).toContain('portal.tabs.products');
     expect(wrapper.text()).toContain('portal.tabs.lists');
-    expect(wrapper.text()).not.toContain('portal.tabs.organisation');
-  });
-
-  it('renders organisation tab when feature flag is enabled', () => {
-    mockCanAccess.mockReturnValue(true);
-    const wrapper = mountComponent(PortalShell, {
-      slots: { default: '<div>content</div>' },
-      global: { stubs },
-    });
     expect(wrapper.text()).toContain('portal.tabs.organisation');
   });
 

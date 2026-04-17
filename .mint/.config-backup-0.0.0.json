@@ -1,0 +1,111 @@
+{
+  "stack": "nuxt",
+  "packageManager": "pnpm",
+  "gates": {
+    "lint": "pnpm run lint",
+    "types": "pnpm run typecheck",
+    "tests": "pnpm run vitest run",
+    "coverage": false
+  },
+  "reviewers": {
+    "spec": {
+      "enabled": true,
+      "model": "opus"
+    },
+    "quality": {
+      "enabled": true,
+      "model": "sonnet"
+    },
+    "security": true,
+    "conventions": {
+      "enabled": true,
+      "model": "haiku"
+    },
+    "tests": true,
+    "business": {
+      "enabled": true,
+      "model": "opus"
+    },
+    "performance": true
+  },
+  "conventions": {
+    "docs": ["docs/conventions.md", "CONTRIBUTING.md"]
+  },
+  "business": {
+    "docs": ["docs/architecture.md"]
+  },
+  "tdd": {
+    "default": true,
+    "desloppify": true,
+    "coverageThreshold": 80
+  },
+  "instincts": {
+    "enabled": true
+  },
+  "modelRouting": {
+    "enabled": true,
+    "override": {}
+  },
+  "autoCommit": true,
+  "hooks": {
+    "testOnSave": false
+  },
+  "isolation": {
+    "plan": "none",
+    "ship": "none",
+    "quick": "none"
+  },
+  "definitionOfDone": {
+    "gatesPassing": true,
+    "specReviewPassed": true,
+    "stage2ReviewsPassed": true,
+    "screenshotReminder": "ui-changes",
+    "docCheckPassed": true
+  },
+  "browser": {
+    "enabled": true
+  },
+  "context": {
+    "enabled": true,
+    "autoRoute": true,
+    "sandbox": {
+      "timeout": 30000
+    },
+    "session": {
+      "enabled": true
+    }
+  },
+  "design": {
+    "enabled": true,
+    "stack": "auto",
+    "profile": ".mint/design-profile.json",
+    "notes": ".mint/design-notes.md",
+    "conventions": [],
+    "uiFilePatterns": [
+      "*.tsx",
+      "*.jsx",
+      "*.vue",
+      "*.svelte",
+      "*.css",
+      "*.scss",
+      "*.html"
+    ],
+    "review": {
+      "accessibility": true,
+      "consistency": true,
+      "performance": true,
+      "rtl": false,
+      "i18n": false,
+      "brand": false
+    }
+  },
+  "signature": false,
+  "documenters": [],
+  "plugins": [
+    "plugins/mint-nuxt",
+    "plugins/mint-e2e",
+    "plugins/mint-linear",
+    "plugins/mint-figma",
+    "plugins/mint-gws"
+  ]
+}

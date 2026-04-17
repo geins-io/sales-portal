@@ -91,7 +91,6 @@ const tabs: PortalTab[] = [
     label: 'portal.tabs.organisation',
     to: '/portal/organisation',
     icon: 'lucide:building-2',
-    feature: 'organisation_tab',
   },
 ];
 
