@@ -72,6 +72,10 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │       └── tailwind.css    # Tailwind config + design tokens + fallback defaults
 │   ├── components/
 │   │   ├── layout/             # Header, Footer, Navigation components
+│   │   ├── shared/             # Reusable cross-page components
+│   │   │   ├── AddressBlock.vue      # Billing/shipping address card (used in quotes + orders)
+│   │   │   ├── ProductThumbnail.vue  # Product image with GeinsImage CDN + fallback icon
+│   │   │   └── GeinsImage.vue        # CDN image builder (type + fileName → full URL)
 │   │   └── ui/                 # shadcn-vue UI primitives
 │   ├── composables/
 │   │   ├── useTenant.ts        # Tenant data access
@@ -82,6 +86,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── useCmsPreview.ts       # CMS preview mode toggle
 │   │   ├── useLocaleMarket.ts     # Locale/market selection + localePath()
 │   │   ├── useMenuData.ts         # CMS menu navigation data
+│   │   ├── usePagination.ts       # Client-side pagination (page/total/ellipsis/clamp)
 │   │   └── useSeoLinks.ts         # Canonical + hreflang links
 │   ├── layouts/
 │   │   └── default.vue         # Default page layout
@@ -94,9 +99,16 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── s/[query].vue       # Search results (/s/...)
 │   │   ├── [...slug].vue       # CMS content catch-all
 │   │   └── index.vue           # Homepage
+│   ├── utils/
+│   │   ├── client-helpers.ts      # SSR-safe browser APIs (safeConfirm, safeScrollTo, etc.)
+│   │   ├── filter-labels.ts       # PLP filter group label i18n dictionary (ralph-storefront pattern)
+│   │   ├── quote-status.ts        # Exhaustive status→Tailwind class map for quote pill colors
+│   │   └── logger.ts              # Client-side structured logging
 │   └── plugins/
 │       ├── api.ts              # Custom $api fetch instance
 │       ├── auth-init.client.ts # Early auth session check (parallel with tenant)
+│       ├── auth-redirect.client.ts # Global $fetch interceptor — SESSION_EXPIRED → /login redirect
+│       ├── cms-preview-listener.client.ts # PostMessage listener for CMS Studio iframe preview
 │       ├── tenant-theme.ts     # Runtime theme injection (CSS, fonts, favicon)
 │       ├── tenant-seo.ts       # SEO meta tags, lang attr, schema.org
 │       └── tenant-analytics.ts # GA/GTM with consent gating (client-only)
@@ -145,6 +157,8 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │       ├── channels/       # Channel queries
 │   │       ├── newsletter/     # Newsletter mutations
 │   │       ├── quotes/         # Quotation queries + mutations (list, get, accept, reject)
+│   │       │                   #   Uses fragments: QuotationCartItem, QuotationCartSummary,
+│   │       │                   #   QuotationCore, QuotationWithAddresses
 │   │       └── orders/         # Order list query
 │   ├── plugins/
 │   │   ├── 01.tenant-context.ts # Request-level tenant context + tenantId resolution + config caching
@@ -175,18 +189,36 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   ├── constants/
 │   │   └── storage.ts          # KV_STORAGE_KEYS, LOCAL_STORAGE_KEYS, COOKIE_NAMES
 │   ├── utils/
-│   │   └── feature-access.ts   # Evaluator registry (evaluateAccess, canAccessFeature)
+│   │   ├── feature-access.ts   # Evaluator registry (evaluateAccess, canAccessFeature)
+│   │   ├── locale-market.ts    # Pure locale/market parser (resolveLocaleMarket, SupportedLocale)
+│   │   ├── redirect.ts         # isSafeInternalPath — open-redirect guard
+│   │   └── filters.ts          # Filter builder + sort map
 │   └── types/
 │       ├── index.ts            # Type exports
 │       ├── tenant-config.ts    # Tenant configuration types
-│       └── layout.ts           # Layout-related types
+│       ├── layout.ts           # Layout-related types
+│       ├── quote.ts            # Quote, QuoteLineItem, QuoteAddress, QuoteCompany, QuoteStatus
+│       ├── b2b.ts              # Organization, Buyer, OrgAddress, BuyerRole, Permission
+│       ├── saved-list.ts       # SavedList, SavedListItem
+│       └── commerce.ts         # OrderSummaryType, DetailProduct, CampaignInfo
 │
 ├── mockdata/                   # Mock API responses for development
 ├── public/                     # Static assets
+├── tests/                      # Test suite
+│   ├── components/             # Component tests (mount + assert DOM)
+│   ├── composables/            # Composable tests (usePagination, useLocaleMarket, etc.)
+│   ├── server/                 # Server service + API route tests
+│   ├── stores/                 # Pinia store tests
+│   ├── utils/                  # Utility function tests (filter-labels, quote-status, etc.)
+│   ├── unit/                   # Plugin + pure function unit tests
+│   ├── fixtures/               # Shared test factories (makeQuote, makeQuoteListItem, makeRawQuotationCart)
+│   ├── e2e/                    # Playwright E2E tests
+│   └── utils/component.ts      # Shared mount helper + global stubs (Icon, NuxtIcon, NuxtLink)
+│
 ├── docs/                       # Documentation
-│   ├── adr/                    # Architecture Decision Records
-│   ├── conventions/            # Coding standards
-│   ├── patterns/               # Implementation patterns
+│   ├── adr/                    # Architecture Decision Records (17 ADRs)
+│   ├── conventions/            # Coding standards (SSR, i18n, error handling, composables, runtime config)
+│   ├── patterns/               # Implementation patterns (CMS menu, sidebar info card)
 │   └── guide/                  # VitePress user guide
 │
 ├── nuxt.config.ts              # Nuxt configuration
@@ -199,19 +231,19 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 
 Authenticated user portal at `/portal/`:
 
-| Page             | Route                      | Features                                                                   |
-| ---------------- | -------------------------- | -------------------------------------------------------------------------- |
-| Overview         | `/portal`                  | Stat cards, latest orders, pending quotes, saved lists, purchased products |
-| Orders           | `/portal/orders`           | Order history table, search, pagination, status badges                     |
-| Order Detail     | `/portal/orders/[id]`      | Items table, summary sidebar, addresses, reorder button                    |
-| Quotations       | `/portal/quotations`       | Quote list from real Geins API, search, status badges                      |
-| Quotation Detail | `/portal/quotations/[id]`  | Items, summary, accept/reject actions                                      |
-| Products         | `/portal/products`         | Purchased product history, aggregated from orders                          |
-| Saved Lists      | `/portal/lists`            | CRUD lists (Track 2 stubs), create dialog                                  |
-| List Detail      | `/portal/saved-lists/[id]` | Editable items, quantity controls, add to cart                             |
-| Profile          | `/portal/profile`          | User profile form                                                          |
-| Organization     | `/portal/organisation`     | B2B company, addresses, persons, roles (Track 2 stubs)                     |
-| Favorites        | `/portal/favorites`        | Wishlist via SDK ListsSession                                              |
+| Page             | Route                      | Features                                                                                                                                      |
+| ---------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview         | `/portal`                  | Stat cards, latest orders, pending quotes, saved lists, purchased products                                                                    |
+| Orders           | `/portal/orders`           | Order history table, search, pagination, status badges                                                                                        |
+| Order Detail     | `/portal/orders/[id]`      | Items table, summary sidebar, addresses, reorder button                                                                                       |
+| Quotations       | `/portal/quotations`       | Quote list (real Geins GraphQL), search, pagination, 5-color status pills                                                                     |
+| Quotation Detail | `/portal/quotations/[id]`  | Items table, shipping/tax summary, customer info, invoice/delivery address blocks, accept/decline with error banner, back link, section icons |
+| Products         | `/portal/products`         | Purchased product history, aggregated from orders                                                                                             |
+| Saved Lists      | `/portal/lists`            | CRUD lists (Track 2 stubs), create dialog                                                                                                     |
+| List Detail      | `/portal/saved-lists/[id]` | Editable items, quantity controls, add to cart                                                                                                |
+| Profile          | `/portal/profile`          | User profile form                                                                                                                             |
+| Organization     | `/portal/organisation`     | B2B company, addresses, persons, roles (Track 2 stubs)                                                                                        |
+| Favorites        | `/portal/favorites`        | Wishlist via SDK ListsSession                                                                                                                 |
 
 ---
 

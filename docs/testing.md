@@ -8,7 +8,7 @@ Testing strategy, architecture, and practices for the Sales Portal.
 
 ## Overview
 
-2346 unit/component tests across 197 files + 9 E2E spec files (portal, auth, cart, navigation, etc.).
+2457 unit/component tests across 204 files + 10 E2E spec files (portal, auth, cart, navigation, quotation walkthrough, etc.).
 
 | Level       | Tool                    | What it tests                            |
 | ----------- | ----------------------- | ---------------------------------------- |
@@ -81,11 +81,11 @@ After creating a test, add its path to the appropriate list in `vitest.workspace
 
 ### Performance benchmarks
 
-The full suite runs in ~40s:
+The full suite runs in ~70-80s:
 
-- **1612 tests** across **138 files**
-- Transform: ~35s, setup: ~105s, collect: ~130s, tests: ~50s
-- Environment overhead: ~75s (shared across tiers)
+- **2457 tests** across **204 files**
+- Transform: ~55s, setup: ~90s, collect: ~240s, tests: ~120s
+- Environment overhead: ~115s (shared across tiers)
 - Nuxt boot: single instance shared via `getVitestConfigFromNuxt()`
 
 Keeping `isolate: false` is critical — enabling isolation adds ~15s from per-file worker spawning.
@@ -100,6 +100,25 @@ Allowed mocks:
 - `vi.stubGlobal('useRuntimeConfig', ...)` — Nitro globals in node tier
 - `vi.stubGlobal('getPreviewCookie', ...)` — server CMS utilities
 - `vi.mock('~/composables/useTenant')` — in component tier setup (bridges Nuxt runtime gap)
+
+### Global stubs
+
+The shared mount helper at `tests/utils/component.ts` provides global stubs that all component tests inherit:
+
+- **`Icon`** — plain render with `data-name` attribute (matches `<Icon name="lucide:..." />`)
+- **`NuxtIcon`** — same shape as Icon. `@nuxt/icon` registers its component as `NuxtIcon`, not `Icon`. Without this stub, `Icon`-keyed stubs are silent no-ops and icon assertions pass vacuously.
+- **`NuxtLink`** — renders as `<a>` with `href` for route assertion
+- **`NuxtImg`** — renders as `<img>` with `src` passthrough
+
+### Shared test fixtures
+
+`tests/fixtures/quote.ts` exports reusable factories:
+
+- `makeQuote(overrides?)` — domain `Quote` object with all required fields
+- `makeQuoteListItem(overrides?)` — list-row shape
+- `makeRawQuotationCart(overrides?)` — raw GraphQL response shape for server service tests
+
+Use `Partial<>` overrides to customize per-test. Import from `tests/fixtures/quote` instead of defining local factories in each test file.
 
 Forbidden:
 
