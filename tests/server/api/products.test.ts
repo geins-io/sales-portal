@@ -425,8 +425,23 @@ describe('Product API Routes', () => {
       expect(result).toEqual({ products: [{ alias: 'a', name: 'A' }] });
     });
 
-    it('sets private cache header', async () => {
+    it('sets public cache header for anonymous requests', async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'a' });
+      vi.mocked(optionalAuth).mockResolvedValue(null);
+      mockGraphqlQuery.mockResolvedValue({ product: { alias: 'a' } });
+
+      await handler(fakeEvent);
+
+      expect(setResponseHeader).toHaveBeenCalledWith(
+        fakeEvent,
+        'Cache-Control',
+        'public, s-maxage=60, stale-while-revalidate=600',
+      );
+    });
+
+    it('sets private cache header for authenticated requests', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'a' });
+      vi.mocked(optionalAuth).mockResolvedValue({ authToken: 'tok' });
       mockGraphqlQuery.mockResolvedValue({ product: { alias: 'a' } });
 
       await handler(fakeEvent);
@@ -436,6 +451,14 @@ describe('Product API Routes', () => {
         'Cache-Control',
         'private, no-cache',
       );
+
+      // Reset for other tests
+      vi.mocked(optionalAuth).mockResolvedValue(null);
+    });
+
+    it('rejects aliases with disallowed characters', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'good,../bad' });
+      await expect(handler(fakeEvent)).rejects.toThrow();
     });
 
     it('trims whitespace-only aliases before validating', async () => {

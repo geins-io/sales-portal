@@ -723,10 +723,11 @@
       "title": "Favoriter",
       "empty": "Du har inga favoriter ännu",
       "browse_products": "Bläddra bland produkter",
-      "clear_all": "Rensa alla",
       "remove": "Ta bort",
       "count": "Visar {count} favoriter",
-      "loading": "Laddar dina favoriter..."
+      "loading": "Laddar dina favoriter...",
+      "view_grid": "Rutnät",
+      "view_list": "Lista"
     },
     "purchased_products": {
       "title": "Dina köpta produkter",

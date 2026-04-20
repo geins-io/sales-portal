@@ -55,7 +55,7 @@ if (import.meta.client) {
         refresh();
       }
     },
-    { immediate: true, deep: true },
+    { immediate: true },
   );
 }
 
@@ -107,6 +107,7 @@ async function handleAddToCart(
           <div data-testid="view-toggle" class="flex gap-1">
             <button
               type="button"
+              :aria-label="t('portal.favorites.view_grid')"
               :aria-pressed="viewMode === 'grid'"
               :class="
                 viewMode === 'grid'
@@ -119,6 +120,7 @@ async function handleAddToCart(
             </button>
             <button
               type="button"
+              :aria-label="t('portal.favorites.view_list')"
               :aria-pressed="viewMode === 'list'"
               :class="
                 viewMode === 'list'
@@ -186,6 +188,7 @@ async function handleAddToCart(
           </button>
           <ProductCard
             :product="mapToCardItem(product)"
+            :variant="viewMode"
             @add-to-cart="handleAddToCart(product, $event)"
           />
         </div>
