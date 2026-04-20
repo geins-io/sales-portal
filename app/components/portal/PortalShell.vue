@@ -13,10 +13,20 @@ const { hasFeature } = useTenant();
 const { localePath, currentLocale, currentMarket } = useLocaleMarket();
 const favoritesStore = useFavoritesStore();
 
+// The family + areaName pair is the Geins system identifier for the
+// "Portal (Customer logged in)" tab in Merchant Center CMS. These strings
+// come from the admin UI label + the default page area Geins provisions
+// ("Above Content"). Verified working via the merchant GraphQL API against
+// the monitor tenant.
+//
+// TODO: confirm with Kristian that these identifiers are system constants
+// (not per-tenant renamable). If a tenant renames them, we need a tenant
+// config override. Until then, relying on the constants matches how
+// ralph-storefront hardcodes "Frontpage" / "Product" / "Productlist".
 const { data: heroArea } = useFetch<ContentAreaType>('/api/cms/area', {
   query: computed(() => ({
-    family: 'Portal',
-    areaName: 'Hero',
+    family: 'Portal (Customer logged in)',
+    areaName: 'Above Content',
     ...(currentLocale.value ? { locale: currentLocale.value } : {}),
     ...(currentMarket.value ? { market: currentMarket.value } : {}),
   })),

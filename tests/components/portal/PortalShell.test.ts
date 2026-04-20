@@ -40,7 +40,7 @@ const mockUseFetch = vi.fn((_url: unknown, opts?: { query?: unknown }) => {
     rawQuery != null && typeof rawQuery === 'object' && 'value' in rawQuery
       ? (rawQuery as { value: HeroQuery }).value
       : (rawQuery as HeroQuery | undefined);
-  if (resolved?.areaName === 'Hero') {
+  if (resolved?.areaName === 'Above Content') {
     return makeFetchReturn(mockHeroData);
   }
   return makeFetchReturn(mockProfileData);
