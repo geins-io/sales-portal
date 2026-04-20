@@ -2,7 +2,9 @@
 import type { PurchasedProduct } from '#shared/types/commerce';
 import type { SavedList } from '#shared/types/saved-list';
 import type { QuoteStatus } from '#shared/types/quote';
-import { Button } from '~/components/ui/button';
+import ProductCard, {
+  type ProductCardItem,
+} from '~/components/shared/ProductCard.vue';
 import { useQuotesStore } from '~/stores/quotes';
 
 definePageMeta({
@@ -119,8 +121,22 @@ function getStatusLabel(status: QuoteStatus): string {
   return t(`portal.quotations.status_${status}`);
 }
 
-function getProductPrice(product: PurchasedProduct): string {
-  return product.priceExVatFormatted ?? String(product.priceExVat ?? '-');
+function mapPurchasedProduct(product: PurchasedProduct): ProductCardItem {
+  return {
+    name: product.name,
+    price: product.priceExVatFormatted ?? String(product.priceExVat ?? '-'),
+    articleNumber: product.articleNumber,
+    imageFileName: null,
+    alias: null,
+  };
+}
+
+function handleProductAddToCart(
+  _product: PurchasedProduct,
+  _payload: { quantity: number },
+): void {
+  // TODO: PurchasedProduct lacks skuId. Enrich the /api/orders/products
+  // endpoint with skuId to wire this to cartStore.addItem.
 }
 </script>
 
@@ -415,29 +431,11 @@ function getProductPrice(product: PurchasedProduct): string {
           v-for="product in recentProducts"
           :key="product.articleNumber"
           data-testid="purchased-product-card"
-          class="border-border flex flex-col overflow-hidden rounded-lg border"
         >
-          <!-- Product image placeholder -->
-          <div class="bg-muted flex h-32 items-center justify-center">
-            <Icon name="lucide:package" class="text-muted-foreground size-10" />
-          </div>
-          <!-- Product info -->
-          <div class="flex flex-1 flex-col gap-2 p-3">
-            <p class="truncate text-sm font-medium">
-              {{ product.name }}
-            </p>
-            <p class="text-muted-foreground mt-auto text-sm">
-              {{ getProductPrice(product) }}
-            </p>
-            <Button
-              size="sm"
-              class="mt-1 w-full text-xs"
-              data-testid="product-add-to-cart"
-            >
-              <Icon name="lucide:shopping-cart" class="mr-1.5 size-3.5" />
-              {{ t('portal.saved_list_detail.add_to_cart') }}
-            </Button>
-          </div>
+          <ProductCard
+            :product="mapPurchasedProduct(product)"
+            @add-to-cart="handleProductAddToCart(product, $event)"
+          />
         </div>
       </div>
     </div>
