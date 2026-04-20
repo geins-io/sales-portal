@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GeinsUserType } from '@geins/types';
+import { readonly } from 'vue';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Button } from '~/components/ui/button';
@@ -8,6 +9,7 @@ const { t } = useI18n();
 
 const props = defineProps<{
   profile: GeinsUserType;
+  hideSubmitButton?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -133,6 +135,8 @@ async function handleSubmit() {
     isLoading.value = false;
   }
 }
+
+defineExpose({ submit: handleSubmit, isLoading: readonly(isLoading) });
 </script>
 
 <template>
@@ -189,8 +193,13 @@ async function handleSubmit() {
       </div>
     </div>
 
-    <!-- Save button -->
-    <Button type="submit" :disabled="isLoading" data-testid="profile-save">
+    <!-- Save button (hidden when parent controls submit externally) -->
+    <Button
+      v-if="!hideSubmitButton"
+      type="submit"
+      :disabled="isLoading"
+      data-testid="profile-save"
+    >
       {{ isLoading ? t('portal.account.saving') : t('portal.account.save') }}
     </Button>
   </form>

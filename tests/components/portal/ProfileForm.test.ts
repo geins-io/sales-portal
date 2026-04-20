@@ -98,4 +98,44 @@ describe('ProfileForm', () => {
 
     expect(wrapper.emitted('saved')).toBeTruthy();
   });
+
+  it('shows internal submit button by default', () => {
+    const wrapper = mountComponent(ProfileForm, {
+      props: { profile: mockProfile },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="profile-save"]').exists()).toBe(true);
+  });
+
+  it('hides internal submit button when hideSubmitButton prop is true', () => {
+    const wrapper = mountComponent(ProfileForm, {
+      props: { profile: mockProfile, hideSubmitButton: true },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="profile-save"]').exists()).toBe(false);
+  });
+
+  it('exposes submit() method via defineExpose', () => {
+    const wrapper = mountComponent(ProfileForm, {
+      props: { profile: mockProfile },
+      global: { stubs },
+    });
+    expect(typeof (wrapper.vm as { submit?: unknown }).submit).toBe('function');
+  });
+
+  it('calling exposed submit() triggers form submission and emits saved', async () => {
+    (globalThis.$fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      profile: mockProfile,
+    });
+
+    const wrapper = mountComponent(ProfileForm, {
+      props: { profile: mockProfile },
+      global: { stubs },
+    });
+
+    await (wrapper.vm as { submit: () => Promise<void> }).submit();
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.emitted('saved')).toBeTruthy();
+  });
 });
