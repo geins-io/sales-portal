@@ -503,24 +503,25 @@
         "title": "Order",
         "back_to_orders": "All orders",
         "actions": {
-          "add_selected": "Add selected items",
+          "view_additional_data": "View additional data",
           "download_receipt": "Download receipt",
-          "order_memorandum": "Order memorandum",
+          "order_communication": "Order communication",
           "reorder": "Reorder"
         },
         "items": {
           "title": "Order items",
           "product": "Product",
-          "article_number": "Art. nr",
+          "article_number": "Art nr",
           "quantity": "Amount",
-          "unit_price": "Unit price",
+          "unit_price": "à price",
           "total": "Total"
         },
         "summary": {
           "title": "Order summary",
+          "subtotal_with_count": "Subtotal ({count} items)",
           "subtotal": "Subtotal",
           "shipping": "Shipping",
-          "tax": "Tax",
+          "tax": "Tax (estimated)",
           "total": "Total"
         },
         "billing_address": "Invoice details",

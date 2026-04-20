@@ -503,24 +503,25 @@
         "title": "Order",
         "back_to_orders": "Alla beställningar",
         "actions": {
-          "add_selected": "Lägg till valda artiklar",
+          "view_additional_data": "Visa ytterligare data",
           "download_receipt": "Ladda ned kvitto",
-          "order_memorandum": "Ordermemo",
+          "order_communication": "Orderkommunikation",
           "reorder": "Beställ igen"
         },
         "items": {
           "title": "Orderrader",
           "product": "Produkt",
-          "article_number": "Art. nr",
+          "article_number": "Art nr",
           "quantity": "Antal",
-          "unit_price": "Styckpris",
+          "unit_price": "À-pris",
           "total": "Totalt"
         },
         "summary": {
           "title": "Ordersammanfattning",
+          "subtotal_with_count": "Delsumma ({count} artiklar)",
           "subtotal": "Delsumma",
           "shipping": "Frakt",
-          "tax": "Moms",
+          "tax": "Moms (uppskattad)",
           "total": "Totalt"
         },
         "billing_address": "Fakturauppgifter",
