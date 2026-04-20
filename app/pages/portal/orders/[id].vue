@@ -133,8 +133,11 @@ function statusBadgeClass(status?: string): string {
 
     <!-- Detail View -->
     <div v-else-if="order" data-testid="order-detail" class="space-y-6">
-      <!-- Back link row -->
-      <div class="flex flex-wrap items-center justify-between gap-4">
+      <!-- Action Toolbar: back link left, action buttons right -->
+      <div
+        data-testid="order-action-toolbar"
+        class="flex flex-wrap items-center justify-between gap-4"
+      >
         <NuxtLink
           :to="localePath('/portal/orders')"
           data-testid="back-link"
@@ -143,48 +146,47 @@ function statusBadgeClass(status?: string): string {
           <Icon name="lucide:arrow-left" class="size-4" />
           {{ t('portal.orders.detail.back_to_orders') }}
         </NuxtLink>
-        <div class="flex items-center gap-3">
-          <h2 class="text-lg font-semibold">
-            {{ t('portal.orders.detail.title') }} {{ order?.publicId }}
-          </h2>
-          <span class="text-muted-foreground text-sm">
-            {{ formatDate(order?.createdAt) }}
-          </span>
-          <span
-            v-if="order?.status"
-            data-testid="status-badge"
-            class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-            :class="statusBadgeClass(order?.status)"
+        <div class="flex flex-wrap items-center gap-2">
+          <Button data-testid="add-selected-button" variant="outline">
+            {{ t('portal.orders.detail.actions.add_selected') }}
+          </Button>
+          <Button data-testid="download-receipt-button" variant="outline">
+            {{ t('portal.orders.detail.actions.download_receipt') }}
+          </Button>
+          <Button data-testid="order-memorandum-button" variant="outline">
+            {{ t('portal.orders.detail.actions.order_memorandum') }}
+          </Button>
+          <Button
+            data-testid="reorder-button"
+            :disabled="isReordering"
+            @click="handleReorder"
           >
-            {{ t(`portal.orders.status.${order?.status}`) }}
-          </span>
+            <Icon
+              v-if="isReordering"
+              name="lucide:loader-circle"
+              class="size-4 animate-spin"
+            />
+            {{ t('portal.orders.detail.actions.reorder') }}
+          </Button>
         </div>
       </div>
 
-      <!-- Action Buttons -->
-      <div data-testid="action-buttons" class="flex flex-wrap gap-2">
-        <Button variant="outline">
-          {{ t('portal.orders.detail.actions.new_order_same_data') }}
-        </Button>
-        <Button variant="outline">
-          {{ t('portal.orders.detail.actions.download_invoice') }}
-        </Button>
-        <Button variant="outline">
-          {{ t('portal.orders.detail.actions.other_communication') }}
-        </Button>
-        <Button
-          data-testid="reorder-button"
-          class="bg-green-600 text-white hover:bg-green-700"
-          :disabled="isReordering"
-          @click="handleReorder"
+      <!-- Order header: title, date, status -->
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-lg font-semibold">
+          {{ t('portal.orders.detail.title') }} {{ order?.publicId }}
+        </h2>
+        <span class="text-muted-foreground text-sm">
+          {{ formatDate(order?.createdAt) }}
+        </span>
+        <span
+          v-if="order?.status"
+          data-testid="status-badge"
+          class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+          :class="statusBadgeClass(order?.status)"
         >
-          <Icon
-            v-if="isReordering"
-            name="lucide:loader-circle"
-            class="size-4 animate-spin"
-          />
-          {{ t('portal.orders.detail.actions.reorder') }}
-        </Button>
+          {{ t(`portal.orders.status.${order?.status}`) }}
+        </span>
       </div>
 
       <!-- Two-column layout -->

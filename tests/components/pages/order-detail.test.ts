@@ -360,26 +360,116 @@ describe('OrderDetail', () => {
     });
   });
 
-  describe('action buttons', () => {
-    it('renders all four action buttons', () => {
+  describe('action toolbar', () => {
+    it('renders the action toolbar container', () => {
       mockData.value = makeOrder();
 
       const wrapper = shallowMountComponent(OrderDetail, {
         global: { stubs: defaultStubs },
       });
 
-      const buttons = wrapper.find('[data-testid="action-buttons"]');
-      expect(buttons.exists()).toBe(true);
-      expect(buttons.text()).toContain(
-        'portal.orders.detail.actions.new_order_same_data',
+      expect(
+        wrapper.find('[data-testid="order-action-toolbar"]').exists(),
+      ).toBe(true);
+    });
+
+    it('has back link inside the toolbar', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
+      const backLink = toolbar.find('[data-testid="back-link"]');
+      expect(backLink.exists()).toBe(true);
+      expect(backLink.attributes('href')).toContain('/portal/orders');
+    });
+
+    it('renders all four action buttons in the toolbar', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
+      expect(toolbar.exists()).toBe(true);
+      expect(toolbar.text()).toContain(
+        'portal.orders.detail.actions.add_selected',
       );
-      expect(buttons.text()).toContain(
-        'portal.orders.detail.actions.download_invoice',
+      expect(toolbar.text()).toContain(
+        'portal.orders.detail.actions.download_receipt',
       );
-      expect(buttons.text()).toContain(
-        'portal.orders.detail.actions.other_communication',
+      expect(toolbar.text()).toContain(
+        'portal.orders.detail.actions.order_memorandum',
       );
-      expect(buttons.text()).toContain('portal.orders.detail.actions.reorder');
+      expect(toolbar.text()).toContain('portal.orders.detail.actions.reorder');
+    });
+
+    it('renders add_selected, download_receipt, and order_memorandum as outline buttons', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: {
+          stubs: {
+            ...defaultStubs,
+            Button: {
+              template:
+                '<button v-bind="$attrs" :data-variant="variant" @click="$emit(\'click\')"><slot /></button>',
+              props: ['variant'],
+              emits: ['click'],
+            },
+          },
+        },
+      });
+
+      const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
+      const buttons = toolbar.findAll('button');
+      const outlineButtons = buttons.filter(
+        (b) => b.attributes('data-variant') === 'outline',
+      );
+      expect(outlineButtons.length).toBe(3);
+    });
+
+    it('renders reorder as default (primary) variant button', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: {
+          stubs: {
+            ...defaultStubs,
+            Button: {
+              template:
+                '<button v-bind="$attrs" :data-variant="variant ?? \'default\'" @click="$emit(\'click\')"><slot /></button>',
+              props: ['variant'],
+              emits: ['click'],
+            },
+          },
+        },
+      });
+
+      const reorderBtn = wrapper.find('[data-testid="reorder-button"]');
+      expect(reorderBtn.exists()).toBe(true);
+      expect(reorderBtn.attributes('data-variant')).toBe('default');
+    });
+
+    it('stub buttons (add_selected, download_receipt, order_memorandum) are no-ops on click', async () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
+      const stubButtons = toolbar.findAll(
+        '[data-testid="add-selected-button"], [data-testid="download-receipt-button"], [data-testid="order-memorandum-button"]',
+      );
+      // Should not throw on click
+      for (const btn of stubButtons) {
+        await btn.trigger('click');
+      }
+      expect(mockNavigateTo).not.toHaveBeenCalled();
     });
   });
 
