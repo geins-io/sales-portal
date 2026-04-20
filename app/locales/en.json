@@ -20,7 +20,10 @@
     "view_all_in": "View all in {name}",
     "home": "Home",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "add_to_cart": "Add to cart",
+    "decrease_quantity": "Decrease quantity",
+    "increase_quantity": "Increase quantity"
   },
   "auth": {
     "already_have_account": "Already have an account?",
@@ -443,8 +446,7 @@
       "quotations": "Quotations",
       "products": "Products",
       "lists": "Saved lists",
-      "organisation": "Your organisation",
-      "favorites": "Favorites"
+      "organisation": "Your organisation"
     },
     "overview": {
       "stat": {
@@ -501,9 +503,9 @@
         "title": "Order",
         "back_to_orders": "All orders",
         "actions": {
-          "new_order_same_data": "New order/same data",
-          "download_invoice": "Download invoice",
-          "other_communication": "Other communication",
+          "add_selected": "Add selected items",
+          "download_receipt": "Download receipt",
+          "order_memorandum": "Order memorandum",
           "reorder": "Reorder"
         },
         "items": {

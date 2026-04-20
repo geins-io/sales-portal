@@ -20,7 +20,10 @@
     "view_all_in": "Visa alla i {name}",
     "home": "Hem",
     "yes": "Ja",
-    "no": "Nej"
+    "no": "Nej",
+    "add_to_cart": "Lägg i varukorg",
+    "decrease_quantity": "Minska antal",
+    "increase_quantity": "Öka antal"
   },
   "auth": {
     "already_have_account": "Har du redan ett konto?",
@@ -443,8 +446,7 @@
       "quotations": "Offerter",
       "products": "Produkter",
       "lists": "Sparade listor",
-      "organisation": "Din organisation",
-      "favorites": "Favoriter"
+      "organisation": "Din organisation"
     },
     "overview": {
       "stat": {
@@ -501,9 +503,9 @@
         "title": "Order",
         "back_to_orders": "Alla beställningar",
         "actions": {
-          "new_order_same_data": "Ny order/samma data",
-          "download_invoice": "Ladda ner faktura",
-          "other_communication": "Övrig kommunikation",
+          "add_selected": "Lägg till valda artiklar",
+          "download_receipt": "Ladda ned kvitto",
+          "order_memorandum": "Ordermemo",
           "reorder": "Beställ igen"
         },
         "items": {

@@ -96,7 +96,7 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.welcome');
   });
 
-  it('renders all 7 portal tabs including organisation', () => {
+  it('renders all 6 portal tabs including organisation', () => {
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div>content</div>' },
       global: { stubs },
@@ -107,6 +107,7 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.tabs.products');
     expect(wrapper.text()).toContain('portal.tabs.lists');
     expect(wrapper.text()).toContain('portal.tabs.organisation');
+    expect(wrapper.text()).not.toContain('portal.tabs.favorites');
   });
 
   it('renders slot content', () => {
@@ -183,42 +184,6 @@ describe('PortalShell', () => {
       });
       const badge = wrapper.find('[data-testid="favorites-count"]');
       expect(badge.exists()).toBe(false);
-    });
-  });
-
-  describe('favorites tab', () => {
-    it('shows favorites tab when wishlist feature is accessible', () => {
-      mockCanAccess.mockImplementation(
-        (feature: string) => feature === 'wishlist',
-      );
-      const wrapper = mountComponent(PortalShell, {
-        slots: { default: '<div>content</div>' },
-        global: { stubs },
-      });
-      expect(wrapper.text()).toContain('portal.tabs.favorites');
-    });
-
-    it('hides favorites tab when wishlist feature is not accessible', () => {
-      mockCanAccess.mockReturnValue(false);
-      const wrapper = mountComponent(PortalShell, {
-        slots: { default: '<div>content</div>' },
-        global: { stubs },
-      });
-      expect(wrapper.text()).not.toContain('portal.tabs.favorites');
-    });
-
-    it('favorites tab links to /portal/favorites', () => {
-      mockCanAccess.mockReturnValue(true);
-      const wrapper = mountComponent(PortalShell, {
-        slots: { default: '<div>content</div>' },
-        global: { stubs },
-      });
-      const tabLinks = wrapper.findAll('[data-testid="portal-tabs"] a');
-      const favoritesTab = tabLinks.find((a) =>
-        a.text().includes('portal.tabs.favorites'),
-      );
-      expect(favoritesTab).toBeDefined();
-      expect(favoritesTab!.attributes('href')).toBe('/se/en/portal/favorites');
     });
   });
 });

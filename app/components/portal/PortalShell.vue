@@ -80,13 +80,6 @@ const tabs: PortalTab[] = [
     icon: 'lucide:list',
   },
   {
-    key: 'favorites',
-    label: 'portal.tabs.favorites',
-    to: '/portal/favorites',
-    icon: 'lucide:heart',
-    feature: 'wishlist',
-  },
-  {
     key: 'organisation',
     label: 'portal.tabs.organisation',
     to: '/portal/organisation',
