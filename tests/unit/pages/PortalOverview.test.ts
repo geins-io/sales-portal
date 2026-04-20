@@ -68,23 +68,33 @@ vi.mock('#app/composables/once', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock useFetch (orders API)
+// Mock useFetch — URL-aware so each endpoint can be controlled independently
 // ---------------------------------------------------------------------------
 let mockOrdersData: { orders: unknown[] } | null = { orders: [] };
 let mockOrdersPending = false;
+let mockProductsData: { products: unknown[]; total?: number } | null = {
+  products: [],
+};
+let mockProductsPending = false;
+let mockListsData: { lists: unknown[]; total?: number } | null = { lists: [] };
+let mockListsPending = false;
+
+function routedUseFetch(url: string) {
+  if (url.includes('/orders/products')) {
+    return { data: ref(mockProductsData), pending: ref(mockProductsPending) };
+  }
+  if (url.includes('/api/lists')) {
+    return { data: ref(mockListsData), pending: ref(mockListsPending) };
+  }
+  return { data: ref(mockOrdersData), pending: ref(mockOrdersPending) };
+}
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: vi.fn(() => ({
-    data: ref(mockOrdersData),
-    pending: ref(mockOrdersPending),
-  })),
+  useFetch: vi.fn((url: string) => routedUseFetch(url)),
   $fetch: vi.fn(),
 }));
 
-vi.stubGlobal('useFetch', () => ({
-  data: ref(mockOrdersData),
-  pending: ref(mockOrdersPending),
-}));
+vi.stubGlobal('useFetch', (url: string) => routedUseFetch(url));
 
 // ---------------------------------------------------------------------------
 // Mock quotes store
@@ -139,6 +149,7 @@ const stubs = {
     props: ['orders', 'limit'],
   },
   ProductCard: {
+    name: 'ProductCard',
     template:
       '<div data-testid="product-card" :data-name="product.name" :data-price="product.price"></div>',
     props: ['product', 'variant', 'isLoading'],
@@ -170,6 +181,10 @@ describe('Portal Overview page', () => {
     mockFetchQuotes = vi.fn().mockResolvedValue(undefined);
     mockOrdersData = { orders: [] };
     mockOrdersPending = false;
+    mockProductsData = { products: [] };
+    mockProductsPending = false;
+    mockListsData = { lists: [] };
+    mockListsPending = false;
   });
 
   // -------------------------------------------------------------------------
@@ -389,8 +404,7 @@ describe('Portal Overview page', () => {
   // Purchased products section — Figma-aligned ProductCard usage
   // -------------------------------------------------------------------------
   it('renders purchased products as ProductCard components', () => {
-    mockOrdersData = {
-      orders: [],
+    mockProductsData = {
       products: [
         {
           name: 'Hammer',
@@ -403,19 +417,54 @@ describe('Portal Overview page', () => {
           latestBuyerName: 'Jane',
         },
       ],
-    } as unknown as { orders: unknown[] };
+      total: 1,
+    };
 
     const wrapper = mount(PortalOverviewPage.default, {
       global: { stubs },
     });
 
     const cards = wrapper.findAll('[data-testid="purchased-product-card"]');
-    // The shared useFetch mock returns the same data for every call, so the
-    // products section renders zero cards unless the empty-state branch
-    // flips. We at least verify the empty-state testid is present when no
-    // products are returned.
-    const empty = wrapper.find('[data-testid="purchased-products-empty"]');
-    expect(cards.length + (empty.exists() ? 1 : 0)).toBeGreaterThan(0);
+    expect(cards).toHaveLength(1);
+    // Verify each card uses the shared ProductCard component (stub)
+    expect(cards[0]?.find('[data-testid="product-card"]').exists()).toBe(true);
+  });
+
+  it('passes mapped PurchasedProduct data to ProductCard', () => {
+    mockProductsData = {
+      products: [
+        {
+          name: 'Hammer',
+          articleNumber: 'ART-001',
+          priceExVat: 49.95,
+          priceExVatFormatted: 'SEK 49.95',
+          totalQuantity: 1,
+          latestOrderDate: '2026-03-01T00:00:00Z',
+          latestOrderId: 'o1',
+          latestBuyerName: 'Jane',
+        },
+      ],
+    };
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+    const card = wrapper.find('[data-testid="product-card"]');
+    expect(card.attributes('data-name')).toBe('Hammer');
+    expect(card.attributes('data-price')).toBe('SEK 49.95');
+  });
+
+  it('shows purchased products loading state', () => {
+    mockProductsPending = true;
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+    // Loading state appears as plain "common.loading" text in the products section
+    expect(
+      wrapper.find('[data-testid="purchased-products-grid"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapper.find('[data-testid="purchased-products-empty"]').exists(),
+    ).toBe(false);
   });
 
   it('renders purchased products empty state by default', () => {
@@ -424,5 +473,27 @@ describe('Portal Overview page', () => {
     });
     const empty = wrapper.find('[data-testid="purchased-products-empty"]');
     expect(empty.exists()).toBe(true);
+  });
+
+  it('handles ProductCard add-to-cart event without throwing', async () => {
+    mockProductsData = {
+      products: [
+        {
+          name: 'Hammer',
+          articleNumber: 'ART-001',
+          priceExVat: 49.95,
+          priceExVatFormatted: 'SEK 49.95',
+          totalQuantity: 1,
+          latestOrderDate: '2026-03-01T00:00:00Z',
+          latestOrderId: 'o1',
+          latestBuyerName: 'Jane',
+        },
+      ],
+    };
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+    const card = wrapper.findComponent({ name: 'ProductCard' });
+    expect(() => card.vm.$emit('add-to-cart', { quantity: 2 })).not.toThrow();
   });
 });

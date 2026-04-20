@@ -141,4 +141,13 @@ describe('ProductCard', () => {
     expect(emitted).toBeTruthy();
     expect(emitted?.[0]?.[0]).toMatchObject({ quantity: 1 });
   });
+
+  it('disables the add-to-cart button when isLoading is true', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: baseProduct, isLoading: true },
+      global: { stubs },
+    });
+    const button = wrapper.find('[data-testid="add-to-cart-button"]');
+    expect(button.attributes('disabled')).toBeDefined();
+  });
 });
