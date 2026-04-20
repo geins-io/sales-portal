@@ -1,12 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { shallowMountComponent } from '../../utils/component';
+import { mountComponent } from '../../utils/component';
 import ProductCard from '../../../app/components/shared/ProductCard.vue';
 
 // useTenant and useLocaleMarket mocks are provided by setup-components.ts
-
-vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: vi.fn(() => true) }),
-}));
 
 vi.mock('~/stores/cart', () => ({
   useCartStore: () => ({
@@ -23,72 +19,135 @@ vi.mock('~/stores/favorites', () => ({
   }),
 }));
 
-const baseProduct = {
-  alias: 'test-product',
-  name: 'Test Product',
-  productImages: [{ fileName: 'test.jpg' }],
-  skus: [{ skuId: 1 }],
-  totalStock: { totalStock: 10 },
-  unitPrice: {
-    sellingPriceIncVat: 100,
-    sellingPriceExVat: 80,
-    currency: 'SEK',
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({ canAccess: vi.fn(() => true) }),
+}));
+
+const stubs = {
+  GeinsImage: {
+    props: ['fileName', 'type', 'alt'],
+    template:
+      '<img data-testid="geins-image" :data-file-name="fileName" :alt="alt" />',
+  },
+  QuantityStepper: {
+    props: ['modelValue', 'min', 'max', 'disabled'],
+    emits: ['update:modelValue'],
+    template:
+      '<div data-testid="quantity-stepper" :data-value="modelValue"></div>',
+  },
+  Button: {
+    props: ['disabled', 'variant', 'size'],
+    template:
+      '<button data-testid="add-to-cart-button" :disabled="disabled"><slot /></button>',
   },
 };
 
-describe('ProductCard URL with type-prefixed routing', () => {
-  it('product URL adds /p/ prefix and strips market/locale from canonicalUrl', () => {
-    // Geins API returns canonicalUrl with market/locale but NO type prefix:
-    //   /se/sv/cat/test-product
-    // productPath strips locale → /p/cat/test-product
-    // localePath (mock) prepends /se/en/ → /se/en/p/cat/test-product
-    const wrapper = shallowMountComponent(ProductCard, {
-      props: {
-        product: {
-          ...baseProduct,
-          canonicalUrl: '/se/sv/cat/test-product',
-        },
-      },
+const baseProduct = {
+  name: 'Test Widget',
+  imageFileName: 'widget.jpg',
+  price: 199,
+  articleNumber: 'ART-001',
+  alias: 'test-widget',
+};
+
+describe('ProductCard', () => {
+  it('renders the product name', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: baseProduct },
+      global: { stubs },
     });
-
-    const links = wrapper.findAll('a');
-    const hrefs = links.map((l) => l.attributes('href'));
-
-    expect(hrefs.some((h) => h === '/se/en/p/cat/test-product')).toBe(true);
+    expect(wrapper.text()).toContain('Test Widget');
   });
 
-  it('product URL fallback uses /p/{alias} when no canonicalUrl', () => {
-    const wrapper = shallowMountComponent(ProductCard, {
-      props: {
-        product: {
-          ...baseProduct,
-          canonicalUrl: undefined,
-        },
-      },
+  it('renders article number when provided', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: baseProduct },
+      global: { stubs },
     });
-
-    const links = wrapper.findAll('a');
-    const hrefs = links.map((l) => l.attributes('href'));
-
-    // localePath('/p/test-product') → /se/en/p/test-product
-    expect(hrefs.some((h) => h === '/se/en/p/test-product')).toBe(true);
+    expect(wrapper.find('[data-testid="article-number"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="article-number"]').text()).toContain(
+      'ART-001',
+    );
   });
 
-  it('product URL handles canonicalUrl without market/locale prefix', () => {
-    const wrapper = shallowMountComponent(ProductCard, {
+  it('does not render article number section when absent', () => {
+    const wrapper = mountComponent(ProductCard, {
       props: {
-        product: {
-          ...baseProduct,
-          canonicalUrl: '/cat/test-product',
-        },
+        product: { ...baseProduct, articleNumber: undefined },
       },
+      global: { stubs },
     });
+    expect(wrapper.find('[data-testid="article-number"]').exists()).toBe(false);
+  });
 
-    const links = wrapper.findAll('a');
-    const hrefs = links.map((l) => l.attributes('href'));
+  it('renders GeinsImage when imageFileName is provided', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: baseProduct },
+      global: { stubs },
+    });
+    const img = wrapper.find('[data-testid="geins-image"]');
+    expect(img.exists()).toBe(true);
+    expect(img.attributes('data-file-name')).toBe('widget.jpg');
+  });
 
-    // productPath('/cat/test-product') → /p/cat/test-product
-    // localePath → /se/en/p/cat/test-product
-    expect(hrefs.some((h) => h === '/se/en/p/cat/test-product')).toBe(true);
+  it('renders image fallback when imageFileName is absent', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: {
+        product: { ...baseProduct, imageFileName: undefined },
+      },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="geins-image"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="image-fallback"]').exists()).toBe(true);
+  });
+
+  it('renders price', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: baseProduct },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="price"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="price"]').text()).toContain('199');
+  });
+
+  it('renders sale price in red and original crossed out when salePrice provided', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: {
+        product: { ...baseProduct, salePrice: 149 },
+      },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="sale-price"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="original-price"]').exists()).toBe(true);
+  });
+
+  it('renders QuantityStepper', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: baseProduct },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="quantity-stepper"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('emits add-to-cart with quantity when add button is clicked', async () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: baseProduct },
+      global: { stubs },
+    });
+    await wrapper.find('[data-testid="add-to-cart-button"]').trigger('click');
+    const emitted = wrapper.emitted('add-to-cart');
+    expect(emitted).toBeTruthy();
+    expect(emitted?.[0]?.[0]).toMatchObject({ quantity: 1 });
+  });
+
+  it('disables the add-to-cart button when isLoading is true', () => {
+    const wrapper = mountComponent(ProductCard, {
+      props: { product: baseProduct, isLoading: true },
+      global: { stubs },
+    });
+    const button = wrapper.find('[data-testid="add-to-cart-button"]');
+    expect(button.attributes('disabled')).toBeDefined();
   });
 });

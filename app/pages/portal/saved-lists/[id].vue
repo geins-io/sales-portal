@@ -126,6 +126,8 @@ async function deleteList() {
   navigateTo(localePath('/portal/lists'));
 }
 
+// TODO(M7): wire to cart store addItem per list item once the
+// batch-add API exists. See SAL-96.
 function addAllToCart() {
   // Stub -- actual cart integration is future scope
 }
@@ -157,7 +159,27 @@ function addAllToCart() {
         {{ t('portal.saved_list_detail.back_to_lists') }}
       </NuxtLink>
 
-      <!-- Header: list info left, total + actions right -->
+      <!-- Action toolbar -->
+      <div
+        data-testid="saved-list-action-toolbar"
+        class="flex flex-wrap items-center justify-end gap-2"
+      >
+        <Button
+          data-testid="delete-list-btn"
+          variant="outline"
+          class="text-destructive border-destructive/30 hover:bg-destructive/10"
+          @click="deleteList"
+        >
+          <Icon name="lucide:x" class="size-4" />
+          {{ t('portal.saved_list_detail.delete_list') }}
+        </Button>
+        <Button data-testid="add-to-cart-btn" @click="addAllToCart">
+          <Icon name="lucide:shopping-cart" class="size-4" />
+          {{ t('portal.saved_list_detail.add_to_cart') }}
+        </Button>
+      </div>
+
+      <!-- Header: list info left, total right -->
       <div
         class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between"
       >
@@ -184,36 +206,17 @@ function addAllToCart() {
           />
         </div>
 
-        <!-- Right: total + actions -->
-        <div class="flex flex-col items-end gap-4">
-          <div class="text-right">
-            <p class="text-muted-foreground text-sm">
-              {{ t('portal.saved_list_detail.list_total_label') }}
-            </p>
-            <p data-testid="list-total" class="text-2xl font-semibold">
-              {{ formatPrice(totalSum) }}
-            </p>
-            <p class="text-muted-foreground text-xs">
-              {{ t('portal.saved_list_detail.total_subtitle') }}
-            </p>
-          </div>
-          <div class="flex gap-2">
-            <Button
-              data-testid="delete-list-btn"
-              variant="outline"
-              class="text-destructive border-destructive/30 hover:bg-destructive/10"
-              @click="deleteList"
-            >
-              {{ t('portal.saved_list_detail.delete_list') }}
-            </Button>
-            <Button
-              data-testid="add-to-cart-btn"
-              class="bg-green-600 text-white hover:bg-green-700"
-              @click="addAllToCart"
-            >
-              {{ t('portal.saved_list_detail.add_to_cart') }}
-            </Button>
-          </div>
+        <!-- Right: total display -->
+        <div class="text-right">
+          <p class="text-muted-foreground text-sm">
+            {{ t('portal.saved_list_detail.list_total_label') }}
+          </p>
+          <p data-testid="list-total" class="text-2xl font-semibold">
+            {{ formatPrice(totalSum) }}
+          </p>
+          <p class="text-muted-foreground text-xs">
+            {{ t('portal.saved_list_detail.total_subtitle') }}
+          </p>
         </div>
       </div>
 

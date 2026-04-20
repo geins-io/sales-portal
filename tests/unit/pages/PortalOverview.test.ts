@@ -68,23 +68,33 @@ vi.mock('#app/composables/once', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Mock useFetch (orders API)
+// Mock useFetch — URL-aware so each endpoint can be controlled independently
 // ---------------------------------------------------------------------------
 let mockOrdersData: { orders: unknown[] } | null = { orders: [] };
 let mockOrdersPending = false;
+let mockProductsData: { products: unknown[]; total?: number } | null = {
+  products: [],
+};
+let mockProductsPending = false;
+let mockListsData: { lists: unknown[]; total?: number } | null = { lists: [] };
+let mockListsPending = false;
+
+function routedUseFetch(url: string) {
+  if (url.includes('/orders/products')) {
+    return { data: ref(mockProductsData), pending: ref(mockProductsPending) };
+  }
+  if (url.includes('/api/lists')) {
+    return { data: ref(mockListsData), pending: ref(mockListsPending) };
+  }
+  return { data: ref(mockOrdersData), pending: ref(mockOrdersPending) };
+}
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: vi.fn(() => ({
-    data: ref(mockOrdersData),
-    pending: ref(mockOrdersPending),
-  })),
+  useFetch: vi.fn((url: string) => routedUseFetch(url)),
   $fetch: vi.fn(),
 }));
 
-vi.stubGlobal('useFetch', () => ({
-  data: ref(mockOrdersData),
-  pending: ref(mockOrdersPending),
-}));
+vi.stubGlobal('useFetch', (url: string) => routedUseFetch(url));
 
 // ---------------------------------------------------------------------------
 // Mock quotes store
@@ -138,6 +148,13 @@ const stubs = {
     template: '<div data-testid="portal-orders-table"></div>',
     props: ['orders', 'limit'],
   },
+  ProductCard: {
+    name: 'ProductCard',
+    template:
+      '<div data-testid="product-card" :data-name="product.name" :data-price="product.price"></div>',
+    props: ['product', 'variant', 'isLoading'],
+    emits: ['add-to-cart'],
+  },
   Icon: {
     template: '<span></span>',
     props: ['name'],
@@ -164,6 +181,10 @@ describe('Portal Overview page', () => {
     mockFetchQuotes = vi.fn().mockResolvedValue(undefined);
     mockOrdersData = { orders: [] };
     mockOrdersPending = false;
+    mockProductsData = { products: [] };
+    mockProductsPending = false;
+    mockListsData = { lists: [] };
+    mockListsPending = false;
   });
 
   // -------------------------------------------------------------------------
@@ -377,5 +398,107 @@ describe('Portal Overview page', () => {
     });
 
     expect(mockFetchQuotes).toHaveBeenCalledTimes(1);
+  });
+
+  // -------------------------------------------------------------------------
+  // Purchased products section — Figma-aligned ProductCard usage
+  // -------------------------------------------------------------------------
+  it('renders purchased products as ProductCard components', () => {
+    mockProductsData = {
+      products: [
+        {
+          name: 'Hammer',
+          articleNumber: 'ART-001',
+          priceExVat: 49.95,
+          priceExVatFormatted: 'SEK 49.95',
+          totalQuantity: 2,
+          latestOrderDate: '2026-03-01T00:00:00Z',
+          latestOrderId: 'o1',
+          latestBuyerName: 'Jane',
+        },
+      ],
+      total: 1,
+    };
+
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+
+    const cards = wrapper.findAll('[data-testid="purchased-product-card"]');
+    expect(cards).toHaveLength(1);
+    // Verify each card uses the shared ProductCard component (stub)
+    expect(cards[0]?.find('[data-testid="product-card"]').exists()).toBe(true);
+  });
+
+  it('passes mapped PurchasedProduct data to ProductCard', () => {
+    mockProductsData = {
+      products: [
+        {
+          name: 'Hammer',
+          articleNumber: 'ART-001',
+          priceExVat: 49.95,
+          priceExVatFormatted: 'SEK 49.95',
+          totalQuantity: 1,
+          latestOrderDate: '2026-03-01T00:00:00Z',
+          latestOrderId: 'o1',
+          latestBuyerName: 'Jane',
+        },
+      ],
+    };
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+    const card = wrapper.find('[data-testid="product-card"]');
+    expect(card.attributes('data-name')).toBe('Hammer');
+    expect(card.attributes('data-price')).toBe('SEK 49.95');
+  });
+
+  it('shows purchased products loading state', () => {
+    mockProductsPending = true;
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+    // Loading state appears as plain "common.loading" text in the products section
+    expect(
+      wrapper.find('[data-testid="purchased-products-grid"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapper.find('[data-testid="purchased-products-empty"]').exists(),
+    ).toBe(false);
+  });
+
+  it('renders purchased products empty state by default', () => {
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+    const empty = wrapper.find('[data-testid="purchased-products-empty"]');
+    expect(empty.exists()).toBe(true);
+  });
+
+  it('wires ProductCard add-to-cart to the page handler', async () => {
+    mockProductsData = {
+      products: [
+        {
+          name: 'Hammer',
+          articleNumber: 'ART-001',
+          priceExVat: 49.95,
+          priceExVatFormatted: 'SEK 49.95',
+          totalQuantity: 1,
+          latestOrderDate: '2026-03-01T00:00:00Z',
+          latestOrderId: 'o1',
+          latestBuyerName: 'Jane',
+        },
+      ],
+    };
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+    const card = wrapper.findComponent({ name: 'ProductCard' });
+    expect(card.exists()).toBe(true);
+    // PurchasedProduct lacks skuId so the handler is a deliberate no-op
+    // stub. The event emission must not throw — that confirms the binding
+    // exists and the handler is callable. When the API is enriched with
+    // skuId in M7, this test should be tightened to assert cartStore.addItem.
+    expect(() => card.vm.$emit('add-to-cart', { quantity: 2 })).not.toThrow();
   });
 });

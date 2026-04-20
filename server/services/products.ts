@@ -29,6 +29,29 @@ export async function getProduct(
   return unwrapGraphQL(result);
 }
 
+/**
+ * Fetch multiple products by alias in parallel. Failures and null results are
+ * omitted — callers get the set that resolved. Used by /api/products/by-aliases
+ * to hydrate client-only favorites lists without failing the whole batch when
+ * a single alias is stale or deleted.
+ */
+export async function getProductsByAliases(
+  args: { aliases: string[]; userToken?: string },
+  event: H3Event,
+): Promise<unknown[]> {
+  const results = await Promise.allSettled(
+    args.aliases.map((alias) =>
+      getProduct({ alias, userToken: args.userToken }, event),
+    ),
+  );
+  return results
+    .filter(
+      (r): r is PromiseFulfilledResult<unknown> =>
+        r.status === 'fulfilled' && r.value != null,
+    )
+    .map((r) => r.value);
+}
+
 export async function getRelatedProducts(
   args: { alias: string; userToken?: string },
   event: H3Event,

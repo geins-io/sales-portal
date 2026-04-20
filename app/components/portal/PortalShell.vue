@@ -13,10 +13,20 @@ const { hasFeature } = useTenant();
 const { localePath, currentLocale, currentMarket } = useLocaleMarket();
 const favoritesStore = useFavoritesStore();
 
+// The family + areaName pair is the Geins system identifier for the
+// "Portal (Customer logged in)" tab in Merchant Center CMS. These strings
+// come from the admin UI label + the default page area Geins provisions
+// ("Above Content"). Verified working via the merchant GraphQL API against
+// the monitor tenant.
+//
+// TODO: confirm with Kristian that these identifiers are system constants
+// (not per-tenant renamable). If a tenant renames them, we need a tenant
+// config override. Until then, relying on the constants matches how
+// ralph-storefront hardcodes "Frontpage" / "Product" / "Productlist".
 const { data: heroArea } = useFetch<ContentAreaType>('/api/cms/area', {
   query: computed(() => ({
-    family: 'Portal',
-    areaName: 'Hero',
+    family: 'Portal (Customer logged in)',
+    areaName: 'Above Content',
     ...(currentLocale.value ? { locale: currentLocale.value } : {}),
     ...(currentMarket.value ? { market: currentMarket.value } : {}),
   })),
@@ -80,13 +90,6 @@ const tabs: PortalTab[] = [
     icon: 'lucide:list',
   },
   {
-    key: 'favorites',
-    label: 'portal.tabs.favorites',
-    to: '/portal/favorites',
-    icon: 'lucide:heart',
-    feature: 'wishlist',
-  },
-  {
     key: 'organisation',
     label: 'portal.tabs.organisation',
     to: '/portal/organisation',
@@ -123,21 +126,19 @@ async function handleLogout() {
 
 <template>
   <div data-testid="portal-shell">
-    <!-- Hero Banner (CMS-driven — renders only when content area is configured) -->
+    <!-- Hero Banner: CMS-driven when configured, fallback otherwise -->
     <CmsWidgetArea
       v-if="heroArea?.containers?.length"
       data-testid="portal-hero"
       :containers="heroArea.containers"
     />
+    <PortalHeroFallback v-else />
 
     <!-- Welcome Card -->
     <div class="mx-auto max-w-6xl px-4">
       <div
         data-testid="portal-welcome"
-        :class="[
-          'border-border bg-background flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-start',
-          heroArea?.containers?.length ? '-mt-6' : 'mt-6',
-        ]"
+        class="border-border bg-background -mt-6 flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-start"
       >
         <!-- Left: User info -->
         <div>

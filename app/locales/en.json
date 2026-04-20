@@ -20,7 +20,10 @@
     "view_all_in": "View all in {name}",
     "home": "Home",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "add_to_cart": "Add to cart",
+    "decrease_quantity": "Decrease quantity",
+    "increase_quantity": "Increase quantity"
   },
   "auth": {
     "already_have_account": "Already have an account?",
@@ -443,8 +446,12 @@
       "quotations": "Quotations",
       "products": "Products",
       "lists": "Saved lists",
-      "organisation": "Your organisation",
-      "favorites": "Favorites"
+      "organisation": "Your organisation"
+    },
+    "hero": {
+      "cms_hint": "CMS Content area",
+      "fallback_title": "Customer Portal",
+      "fallback_subtitle": "Welcome to your account dashboard."
     },
     "overview": {
       "stat": {
@@ -501,24 +508,24 @@
         "title": "Order",
         "back_to_orders": "All orders",
         "actions": {
-          "new_order_same_data": "New order/same data",
-          "download_invoice": "Download invoice",
-          "other_communication": "Other communication",
+          "view_additional_data": "View additional data",
+          "download_receipt": "Download receipt",
+          "order_communication": "Order communication",
           "reorder": "Reorder"
         },
         "items": {
           "title": "Order items",
           "product": "Product",
-          "article_number": "Art. nr",
+          "article_number": "Art nr",
           "quantity": "Amount",
-          "unit_price": "Unit price",
+          "unit_price": "à price",
           "total": "Total"
         },
         "summary": {
           "title": "Order summary",
-          "subtotal": "Subtotal",
+          "subtotal_with_count": "Subtotal ({count} items)",
           "shipping": "Shipping",
-          "tax": "Tax",
+          "tax": "Tax (estimated)",
           "total": "Total"
         },
         "billing_address": "Invoice details",
@@ -531,6 +538,11 @@
     "account": {
       "title": "Account profile",
       "subtitle": "Manage your personal information",
+      "page_title": "Your Account",
+      "page_subtitle": "A list of all your quotations",
+      "sidebar_label": "Your account",
+      "general_section": "General information",
+      "general_section_hint": "Avatar is your profile picture — everyone who visits your profile will see this.",
       "first_name": "First name",
       "last_name": "Last name",
       "email": "Email",
@@ -721,8 +733,11 @@
       "title": "Favorites",
       "empty": "You have no favorites yet",
       "browse_products": "Browse products",
-      "clear_all": "Clear all",
-      "remove": "Remove"
+      "remove": "Remove",
+      "count": "Showing {count} favorites",
+      "loading": "Loading your favorites...",
+      "view_grid": "Grid view",
+      "view_list": "List view"
     },
     "purchased_products": {
       "title": "Your purchased products",
@@ -755,7 +770,7 @@
       "name_placeholder": "List name",
       "description_placeholder": "Add a description...",
       "list_total_label": "List Total",
-      "total_subtitle": "Sum for all products in this list",
+      "total_subtitle": "Sum for all products in list",
       "columns": {
         "product": "Product",
         "article_number": "Art. nr",

@@ -81,7 +81,7 @@ async function handleCreateList() {
           <!-- Create button -->
           <Button
             data-testid="saved-lists-create"
-            class="bg-green-600 whitespace-nowrap hover:bg-green-700"
+            class="whitespace-nowrap"
             @click="openCreateSheet"
           >
             {{ t('portal.saved_lists.create') }}
@@ -183,7 +183,6 @@ async function handleCreateList() {
           </Button>
           <Button
             data-testid="create-list-submit"
-            class="bg-green-600 hover:bg-green-700"
             :disabled="!newListName.trim() || isSubmitting"
             @click="handleCreateList"
           >

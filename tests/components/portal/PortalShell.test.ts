@@ -6,25 +6,45 @@ import { createPinia, setActivePinia } from 'pinia';
 import { useTenant } from '../../../app/composables/useTenant';
 import { useFavoritesStore } from '../../../app/stores/favorites';
 
-// Mock useFetch for profile data
-const mockUseFetch = vi.fn(() => ({
-  data: ref({
-    profile: {
-      id: 1,
-      email: 'adam@example.com',
-      address: {
-        firstName: 'Adam',
-        lastName: 'Johnsson',
-        company: 'Company AB',
-      },
+// Per-query mock data refs — routes Hero vs profile fetches
+const mockProfileData = ref({
+  profile: {
+    id: 1,
+    email: 'adam@example.com',
+    address: {
+      firstName: 'Adam',
+      lastName: 'Johnsson',
+      company: 'Company AB',
     },
-  }),
-  pending: ref(false),
-  error: ref(null),
-  status: ref('success'),
-  refresh: vi.fn(),
-  execute: vi.fn(),
-}));
+  },
+});
+const mockHeroData = ref<{ containers: unknown[] } | null>(null);
+
+type HeroQuery = { areaName?: string };
+
+function makeFetchReturn(data: ReturnType<typeof ref>) {
+  return {
+    data,
+    pending: ref(false),
+    error: ref(null),
+    status: ref('success'),
+    refresh: vi.fn(),
+    execute: vi.fn(),
+  };
+}
+
+const mockUseFetch = vi.fn((_url: unknown, opts?: { query?: unknown }) => {
+  const rawQuery = opts?.query;
+  // query may be a computed ref (has .value) or a plain object
+  const resolved =
+    rawQuery != null && typeof rawQuery === 'object' && 'value' in rawQuery
+      ? (rawQuery as { value: HeroQuery }).value
+      : (rawQuery as HeroQuery | undefined);
+  if (resolved?.areaName === 'Above Content') {
+    return makeFetchReturn(mockHeroData);
+  }
+  return makeFetchReturn(mockProfileData);
+});
 
 // Mock at the module level — Nuxt auto-imports resolve to these internal modules
 vi.mock('#app/composables/fetch', () => ({
@@ -78,14 +98,40 @@ describe('PortalShell', () => {
     mockCanAccess.mockReturnValue(false);
     // Reset tenant features to default (no wishlist)
     disableWishlistFeature();
+    // Reset hero data to null (no CMS content configured)
+    mockHeroData.value = null;
   });
 
-  it('hides hero banner when CMS area is empty', () => {
+  it('shows fallback hero banner when CMS area is empty', () => {
+    mockHeroData.value = null;
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div>content</div>' },
       global: { stubs },
     });
+    expect(wrapper.find('[data-testid="portal-hero-fallback"]').exists()).toBe(
+      true,
+    );
     expect(wrapper.find('[data-testid="portal-hero"]').exists()).toBe(false);
+  });
+
+  it('shows CMS hero banner when CMS area has containers', () => {
+    mockHeroData.value = { containers: [{ id: 'c1', widgets: [] }] };
+    const wrapper = mountComponent(PortalShell, {
+      slots: { default: '<div>content</div>' },
+      global: {
+        stubs: {
+          ...stubs,
+          CmsWidgetArea: {
+            template: '<div data-testid="portal-hero"></div>',
+            props: ['containers'],
+          },
+        },
+      },
+    });
+    expect(wrapper.find('[data-testid="portal-hero"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="portal-hero-fallback"]').exists()).toBe(
+      false,
+    );
   });
 
   it('renders welcome card with user name', () => {
@@ -96,7 +142,7 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.welcome');
   });
 
-  it('renders all 7 portal tabs including organisation', () => {
+  it('renders all 6 portal tabs including organisation', () => {
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div>content</div>' },
       global: { stubs },
@@ -107,6 +153,7 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.tabs.products');
     expect(wrapper.text()).toContain('portal.tabs.lists');
     expect(wrapper.text()).toContain('portal.tabs.organisation');
+    expect(wrapper.text()).not.toContain('portal.tabs.favorites');
   });
 
   it('renders slot content', () => {
@@ -183,42 +230,6 @@ describe('PortalShell', () => {
       });
       const badge = wrapper.find('[data-testid="favorites-count"]');
       expect(badge.exists()).toBe(false);
-    });
-  });
-
-  describe('favorites tab', () => {
-    it('shows favorites tab when wishlist feature is accessible', () => {
-      mockCanAccess.mockImplementation(
-        (feature: string) => feature === 'wishlist',
-      );
-      const wrapper = mountComponent(PortalShell, {
-        slots: { default: '<div>content</div>' },
-        global: { stubs },
-      });
-      expect(wrapper.text()).toContain('portal.tabs.favorites');
-    });
-
-    it('hides favorites tab when wishlist feature is not accessible', () => {
-      mockCanAccess.mockReturnValue(false);
-      const wrapper = mountComponent(PortalShell, {
-        slots: { default: '<div>content</div>' },
-        global: { stubs },
-      });
-      expect(wrapper.text()).not.toContain('portal.tabs.favorites');
-    });
-
-    it('favorites tab links to /portal/favorites', () => {
-      mockCanAccess.mockReturnValue(true);
-      const wrapper = mountComponent(PortalShell, {
-        slots: { default: '<div>content</div>' },
-        global: { stubs },
-      });
-      const tabLinks = wrapper.findAll('[data-testid="portal-tabs"] a');
-      const favoritesTab = tabLinks.find((a) =>
-        a.text().includes('portal.tabs.favorites'),
-      );
-      expect(favoritesTab).toBeDefined();
-      expect(favoritesTab!.attributes('href')).toBe('/se/en/portal/favorites');
     });
   });
 });

@@ -360,26 +360,137 @@ describe('OrderDetail', () => {
     });
   });
 
-  describe('action buttons', () => {
-    it('renders all four action buttons', () => {
+  describe('action toolbar', () => {
+    it('renders the action toolbar container', () => {
       mockData.value = makeOrder();
 
       const wrapper = shallowMountComponent(OrderDetail, {
         global: { stubs: defaultStubs },
       });
 
-      const buttons = wrapper.find('[data-testid="action-buttons"]');
-      expect(buttons.exists()).toBe(true);
-      expect(buttons.text()).toContain(
-        'portal.orders.detail.actions.new_order_same_data',
+      expect(
+        wrapper.find('[data-testid="order-action-toolbar"]').exists(),
+      ).toBe(true);
+    });
+
+    it('has back link inside the toolbar', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
+      const backLink = toolbar.find('[data-testid="back-link"]');
+      expect(backLink.exists()).toBe(true);
+      expect(backLink.attributes('href')).toContain('/portal/orders');
+    });
+
+    it('renders all four action buttons in the toolbar', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
+      expect(toolbar.exists()).toBe(true);
+      expect(toolbar.text()).toContain(
+        'portal.orders.detail.actions.view_additional_data',
       );
-      expect(buttons.text()).toContain(
-        'portal.orders.detail.actions.download_invoice',
+      expect(toolbar.text()).toContain(
+        'portal.orders.detail.actions.download_receipt',
       );
-      expect(buttons.text()).toContain(
-        'portal.orders.detail.actions.other_communication',
+      expect(toolbar.text()).toContain(
+        'portal.orders.detail.actions.order_communication',
       );
-      expect(buttons.text()).toContain('portal.orders.detail.actions.reorder');
+      expect(toolbar.text()).toContain('portal.orders.detail.actions.reorder');
+    });
+
+    it('renders view-additional-data-button and order-communication-button testids', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      expect(
+        wrapper.find('[data-testid="view-additional-data-button"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="order-communication-button"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="download-receipt-button"]').exists(),
+      ).toBe(true);
+      expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('renders view_additional_data, download_receipt, and order_communication as outline buttons', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: {
+          stubs: {
+            ...defaultStubs,
+            Button: {
+              template:
+                '<button v-bind="$attrs" :data-variant="variant" @click="$emit(\'click\')"><slot /></button>',
+              props: ['variant'],
+              emits: ['click'],
+            },
+          },
+        },
+      });
+
+      const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
+      const buttons = toolbar.findAll('button');
+      const outlineButtons = buttons.filter(
+        (b) => b.attributes('data-variant') === 'outline',
+      );
+      expect(outlineButtons.length).toBe(3);
+    });
+
+    it('renders reorder as default (primary) variant button', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: {
+          stubs: {
+            ...defaultStubs,
+            Button: {
+              template:
+                '<button v-bind="$attrs" :data-variant="variant ?? \'default\'" @click="$emit(\'click\')"><slot /></button>',
+              props: ['variant'],
+              emits: ['click'],
+            },
+          },
+        },
+      });
+
+      const reorderBtn = wrapper.find('[data-testid="reorder-button"]');
+      expect(reorderBtn.exists()).toBe(true);
+      expect(reorderBtn.attributes('data-variant')).toBe('default');
+    });
+
+    it('stub buttons (view_additional_data, download_receipt, order_communication) are no-ops on click', async () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
+      const stubButtons = toolbar.findAll(
+        '[data-testid="view-additional-data-button"], [data-testid="download-receipt-button"], [data-testid="order-communication-button"]',
+      );
+      // Should not throw on click
+      for (const btn of stubButtons) {
+        await btn.trigger('click');
+      }
+      expect(mockNavigateTo).not.toHaveBeenCalled();
     });
   });
 
@@ -412,6 +523,59 @@ describe('OrderDetail', () => {
       expect(rows[0]!.text()).toContain('Widget Pro');
       expect(rows[1]!.text()).toContain('Gadget Plus');
     });
+
+    it('renders in-table totals footer with 4 rows', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const footer = wrapper.find('[data-testid="order-items-footer"]');
+      expect(footer.exists()).toBe(true);
+      const rows = footer.findAll('tr');
+      expect(rows).toHaveLength(4);
+    });
+
+    it('subtotal row in footer uses subtotal_with_count i18n key', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const footer = wrapper.find('[data-testid="order-items-footer"]');
+      // i18n mock renders key literals — confirm the key is used (not the plain subtotal key)
+      expect(footer.text()).toContain(
+        'portal.orders.detail.summary.subtotal_with_count',
+      );
+    });
+
+    it('in-table footer total amount matches sidebar total', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const footer = wrapper.find('[data-testid="order-items-footer"]');
+      const sidebar = wrapper.find('[data-testid="order-summary"]');
+      // Both should show the same total formatted value
+      expect(footer.text()).toContain('699,00 kr');
+      expect(sidebar.text()).toContain('699,00 kr');
+    });
+
+    it('column header for unit price uses unit_price i18n key (à price)', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const table = wrapper.find('[data-testid="order-items-table"]');
+      // The i18n mock renders the key — verify it's present in headers
+      expect(table.text()).toContain('portal.orders.detail.items.unit_price');
+    });
   });
 
   describe('summary sidebar', () => {
@@ -428,6 +592,19 @@ describe('OrderDetail', () => {
       expect(summary.text()).toContain('49,00 kr');
       expect(summary.text()).toContain('139,80 kr');
       expect(summary.text()).toContain('699,00 kr');
+    });
+
+    it('sidebar subtotal uses subtotal_with_count i18n key', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const summary = wrapper.find('[data-testid="order-summary"]');
+      expect(summary.text()).toContain(
+        'portal.orders.detail.summary.subtotal_with_count',
+      );
     });
   });
 

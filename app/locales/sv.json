@@ -20,7 +20,10 @@
     "view_all_in": "Visa alla i {name}",
     "home": "Hem",
     "yes": "Ja",
-    "no": "Nej"
+    "no": "Nej",
+    "add_to_cart": "Lägg i varukorg",
+    "decrease_quantity": "Minska antal",
+    "increase_quantity": "Öka antal"
   },
   "auth": {
     "already_have_account": "Har du redan ett konto?",
@@ -443,8 +446,12 @@
       "quotations": "Offerter",
       "products": "Produkter",
       "lists": "Sparade listor",
-      "organisation": "Din organisation",
-      "favorites": "Favoriter"
+      "organisation": "Din organisation"
+    },
+    "hero": {
+      "cms_hint": "CMS-innehållsområde",
+      "fallback_title": "Kundportal",
+      "fallback_subtitle": "Välkommen till din kontopanel."
     },
     "overview": {
       "stat": {
@@ -501,24 +508,24 @@
         "title": "Order",
         "back_to_orders": "Alla beställningar",
         "actions": {
-          "new_order_same_data": "Ny order/samma data",
-          "download_invoice": "Ladda ner faktura",
-          "other_communication": "Övrig kommunikation",
+          "view_additional_data": "Visa ytterligare data",
+          "download_receipt": "Ladda ned kvitto",
+          "order_communication": "Orderkommunikation",
           "reorder": "Beställ igen"
         },
         "items": {
           "title": "Orderrader",
           "product": "Produkt",
-          "article_number": "Art. nr",
+          "article_number": "Art nr",
           "quantity": "Antal",
-          "unit_price": "Styckpris",
+          "unit_price": "À-pris",
           "total": "Totalt"
         },
         "summary": {
           "title": "Ordersammanfattning",
-          "subtotal": "Delsumma",
+          "subtotal_with_count": "Delsumma ({count} artiklar)",
           "shipping": "Frakt",
-          "tax": "Moms",
+          "tax": "Moms (uppskattad)",
           "total": "Totalt"
         },
         "billing_address": "Fakturauppgifter",
@@ -531,6 +538,11 @@
     "account": {
       "title": "Kontoprofil",
       "subtitle": "Hantera din personliga information",
+      "page_title": "Ditt konto",
+      "page_subtitle": "En lista över alla dina offerter",
+      "sidebar_label": "Ditt konto",
+      "general_section": "Allmän information",
+      "general_section_hint": "Avataren är din profilbild — alla som besöker din profil ser den.",
       "first_name": "Förnamn",
       "last_name": "Efternamn",
       "email": "E-post",
@@ -721,8 +733,11 @@
       "title": "Favoriter",
       "empty": "Du har inga favoriter ännu",
       "browse_products": "Bläddra bland produkter",
-      "clear_all": "Rensa alla",
-      "remove": "Ta bort"
+      "remove": "Ta bort",
+      "count": "Visar {count} favoriter",
+      "loading": "Laddar dina favoriter...",
+      "view_grid": "Rutnät",
+      "view_list": "Lista"
     },
     "purchased_products": {
       "title": "Dina köpta produkter",
@@ -755,7 +770,7 @@
       "name_placeholder": "Listnamn",
       "description_placeholder": "Lägg till en beskrivning...",
       "list_total_label": "Listtotal",
-      "total_subtitle": "Summa for alla produkter i denna lista",
+      "total_subtitle": "Summa för alla produkter i listan",
       "columns": {
         "product": "Produkt",
         "article_number": "Art. nr",
