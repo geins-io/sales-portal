@@ -724,7 +724,9 @@
       "empty": "You have no favorites yet",
       "browse_products": "Browse products",
       "clear_all": "Clear all",
-      "remove": "Remove"
+      "remove": "Remove",
+      "count": "Showing {count} favorites",
+      "loading": "Loading your favorites..."
     },
     "purchased_products": {
       "title": "Your purchased products",

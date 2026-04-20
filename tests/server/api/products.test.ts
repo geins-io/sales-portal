@@ -362,4 +362,85 @@ describe('Product API Routes', () => {
       await expect(handler(fakeEvent)).rejects.toThrow();
     });
   });
+
+  // =======================================================================
+  // GET /api/products/by-aliases
+  // =======================================================================
+  describe('GET /api/products/by-aliases', () => {
+    let handler: Handler;
+
+    beforeEach(async () => {
+      vi.resetModules();
+      const mod =
+        await import('../../../server/api/products/by-aliases.get.ts');
+      handler = mod.default as Handler;
+    });
+
+    it('returns products for valid aliases', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'a,b' });
+      mockGraphqlQuery
+        .mockResolvedValueOnce({ product: { alias: 'a', name: 'A' } })
+        .mockResolvedValueOnce({ product: { alias: 'b', name: 'B' } });
+
+      const result = await handler(fakeEvent);
+
+      expect(result).toEqual({
+        products: [
+          { alias: 'a', name: 'A' },
+          { alias: 'b', name: 'B' },
+        ],
+      });
+    });
+
+    it('rejects empty aliases string', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: '' });
+      await expect(handler(fakeEvent)).rejects.toThrow();
+    });
+
+    it('rejects more than 50 aliases', async () => {
+      const many = Array.from({ length: 51 }, (_, i) => `p${i}`).join(',');
+      vi.mocked(getQuery).mockReturnValue({ aliases: many });
+      await expect(handler(fakeEvent)).rejects.toThrow();
+    });
+
+    it('omits products returned as null', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'a,missing' });
+      mockGraphqlQuery
+        .mockResolvedValueOnce({ product: { alias: 'a', name: 'A' } })
+        .mockResolvedValueOnce({ product: null });
+
+      const result = await handler(fakeEvent);
+
+      expect(result).toEqual({ products: [{ alias: 'a', name: 'A' }] });
+    });
+
+    it('handles partial failure gracefully', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'a,b' });
+      mockGraphqlQuery
+        .mockResolvedValueOnce({ product: { alias: 'a', name: 'A' } })
+        .mockRejectedValueOnce(new Error('SDK exploded'));
+
+      const result = await handler(fakeEvent);
+
+      expect(result).toEqual({ products: [{ alias: 'a', name: 'A' }] });
+    });
+
+    it('sets private cache header', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'a' });
+      mockGraphqlQuery.mockResolvedValue({ product: { alias: 'a' } });
+
+      await handler(fakeEvent);
+
+      expect(setResponseHeader).toHaveBeenCalledWith(
+        fakeEvent,
+        'Cache-Control',
+        'private, no-cache',
+      );
+    });
+
+    it('trims whitespace-only aliases before validating', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: '  ,  , ' });
+      await expect(handler(fakeEvent)).rejects.toThrow();
+    });
+  });
 });

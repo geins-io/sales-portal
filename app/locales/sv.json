@@ -724,7 +724,9 @@
       "empty": "Du har inga favoriter ännu",
       "browse_products": "Bläddra bland produkter",
       "clear_all": "Rensa alla",
-      "remove": "Ta bort"
+      "remove": "Ta bort",
+      "count": "Visar {count} favoriter",
+      "loading": "Laddar dina favoriter..."
     },
     "purchased_products": {
       "title": "Dina köpta produkter",
