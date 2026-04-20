@@ -402,6 +402,79 @@ describe('SavedListDetail', () => {
     });
   });
 
+  describe('action toolbar', () => {
+    it('renders action toolbar above header with delete and add-to-cart buttons', () => {
+      mockData.value = makeList();
+
+      const wrapper = shallowMountComponent(SavedListDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const toolbar = wrapper.find('[data-testid="saved-list-action-toolbar"]');
+      expect(toolbar.exists()).toBe(true);
+      expect(toolbar.find('[data-testid="delete-list-btn"]').exists()).toBe(
+        true,
+      );
+      expect(toolbar.find('[data-testid="add-to-cart-btn"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('toolbar appears before header in DOM order (back-link → toolbar → header)', () => {
+      mockData.value = makeList();
+
+      const wrapper = shallowMountComponent(SavedListDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const detail = wrapper.find('[data-testid="list-detail"]');
+      const html = detail.html();
+      const toolbarPos = html.indexOf('saved-list-action-toolbar');
+      const nameInputPos = html.indexOf('list-name-input');
+      expect(toolbarPos).toBeGreaterThan(-1);
+      expect(nameInputPos).toBeGreaterThan(-1);
+      expect(toolbarPos).toBeLessThan(nameInputPos);
+    });
+
+    it('delete button has lucide:x icon before label', () => {
+      mockData.value = makeList();
+
+      const wrapper = shallowMountComponent(SavedListDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const deleteBtn = wrapper.find('[data-testid="delete-list-btn"]');
+      const icon = deleteBtn.find('.icon[data-name="lucide:x"]');
+      expect(icon.exists()).toBe(true);
+    });
+
+    it('add-to-cart button has lucide:shopping-cart icon before label', () => {
+      mockData.value = makeList();
+
+      const wrapper = shallowMountComponent(SavedListDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const addToCartBtn = wrapper.find('[data-testid="add-to-cart-btn"]');
+      const icon = addToCartBtn.find('.icon[data-name="lucide:shopping-cart"]');
+      expect(icon.exists()).toBe(true);
+    });
+
+    it('add-to-cart button does NOT use bg-green-600 inline class', () => {
+      mockData.value = makeList();
+
+      const wrapper = shallowMountComponent(SavedListDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const addToCartBtn = wrapper.find('[data-testid="add-to-cart-btn"]');
+      expect(addToCartBtn.classes()).not.toContain('bg-green-600');
+      expect(addToCartBtn.attributes('class') ?? '').not.toContain(
+        'bg-green-600',
+      );
+    });
+  });
+
   describe('name edit', () => {
     it('triggers PUT on blur of name input', async () => {
       mockData.value = makeList();

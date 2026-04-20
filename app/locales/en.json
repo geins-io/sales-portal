@@ -448,6 +448,11 @@
       "lists": "Saved lists",
       "organisation": "Your organisation"
     },
+    "hero": {
+      "cms_hint": "CMS Content area",
+      "fallback_title": "Customer Portal",
+      "fallback_subtitle": "Welcome to your account dashboard."
+    },
     "overview": {
       "stat": {
         "pending_quotations": "Pending quotations",
@@ -534,6 +539,12 @@
     "account": {
       "title": "Account profile",
       "subtitle": "Manage your personal information",
+      "page_title": "Your Account",
+      "page_subtitle": "A list of all your quotations",
+      "sidebar_label": "Your account",
+      "general_section": "General information",
+      "general_section_hint": "Avatar is your profile picture — everyone who visits your profile will see this.",
+      "password_section_hint": "Avatar is your profile picture — everyone who visits your profile will see this.",
       "first_name": "First name",
       "last_name": "Last name",
       "email": "Email",
@@ -761,7 +772,7 @@
       "name_placeholder": "List name",
       "description_placeholder": "Add a description...",
       "list_total_label": "List Total",
-      "total_subtitle": "Sum for all products in this list",
+      "total_subtitle": "Sum for all products in list",
       "columns": {
         "product": "Product",
         "article_number": "Art. nr",

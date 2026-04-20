@@ -448,6 +448,11 @@
       "lists": "Sparade listor",
       "organisation": "Din organisation"
     },
+    "hero": {
+      "cms_hint": "CMS-innehållsområde",
+      "fallback_title": "Kundportal",
+      "fallback_subtitle": "Välkommen till din kontopanel."
+    },
     "overview": {
       "stat": {
         "pending_quotations": "Väntande offerter",
@@ -534,6 +539,12 @@
     "account": {
       "title": "Kontoprofil",
       "subtitle": "Hantera din personliga information",
+      "page_title": "Ditt konto",
+      "page_subtitle": "En lista över alla dina offerter",
+      "sidebar_label": "Ditt konto",
+      "general_section": "Allmän information",
+      "general_section_hint": "Avataren är din profilbild — alla som besöker din profil ser den.",
+      "password_section_hint": "Avataren är din profilbild — alla som besöker din profil ser den.",
       "first_name": "Förnamn",
       "last_name": "Efternamn",
       "email": "E-post",
@@ -761,7 +772,7 @@
       "name_placeholder": "Listnamn",
       "description_placeholder": "Lägg till en beskrivning...",
       "list_total_label": "Listtotal",
-      "total_subtitle": "Summa for alla produkter i denna lista",
+      "total_subtitle": "Summa för alla produkter i listan",
       "columns": {
         "product": "Produkt",
         "article_number": "Art. nr",
