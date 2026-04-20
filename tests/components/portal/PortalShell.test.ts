@@ -6,25 +6,45 @@ import { createPinia, setActivePinia } from 'pinia';
 import { useTenant } from '../../../app/composables/useTenant';
 import { useFavoritesStore } from '../../../app/stores/favorites';
 
-// Mock useFetch for profile data
-const mockUseFetch = vi.fn(() => ({
-  data: ref({
-    profile: {
-      id: 1,
-      email: 'adam@example.com',
-      address: {
-        firstName: 'Adam',
-        lastName: 'Johnsson',
-        company: 'Company AB',
-      },
+// Per-query mock data refs — routes Hero vs profile fetches
+const mockProfileData = ref({
+  profile: {
+    id: 1,
+    email: 'adam@example.com',
+    address: {
+      firstName: 'Adam',
+      lastName: 'Johnsson',
+      company: 'Company AB',
     },
-  }),
-  pending: ref(false),
-  error: ref(null),
-  status: ref('success'),
-  refresh: vi.fn(),
-  execute: vi.fn(),
-}));
+  },
+});
+const mockHeroData = ref<{ containers: unknown[] } | null>(null);
+
+type HeroQuery = { areaName?: string };
+
+function makeFetchReturn(data: ReturnType<typeof ref>) {
+  return {
+    data,
+    pending: ref(false),
+    error: ref(null),
+    status: ref('success'),
+    refresh: vi.fn(),
+    execute: vi.fn(),
+  };
+}
+
+const mockUseFetch = vi.fn((_url: unknown, opts?: { query?: unknown }) => {
+  const rawQuery = opts?.query;
+  // query may be a computed ref (has .value) or a plain object
+  const resolved =
+    rawQuery != null && typeof rawQuery === 'object' && 'value' in rawQuery
+      ? (rawQuery as { value: HeroQuery }).value
+      : (rawQuery as HeroQuery | undefined);
+  if (resolved?.areaName === 'Hero') {
+    return makeFetchReturn(mockHeroData);
+  }
+  return makeFetchReturn(mockProfileData);
+});
 
 // Mock at the module level — Nuxt auto-imports resolve to these internal modules
 vi.mock('#app/composables/fetch', () => ({
@@ -78,14 +98,40 @@ describe('PortalShell', () => {
     mockCanAccess.mockReturnValue(false);
     // Reset tenant features to default (no wishlist)
     disableWishlistFeature();
+    // Reset hero data to null (no CMS content configured)
+    mockHeroData.value = null;
   });
 
-  it('hides hero banner when CMS area is empty', () => {
+  it('shows fallback hero banner when CMS area is empty', () => {
+    mockHeroData.value = null;
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div>content</div>' },
       global: { stubs },
     });
+    expect(wrapper.find('[data-testid="portal-hero-fallback"]').exists()).toBe(
+      true,
+    );
     expect(wrapper.find('[data-testid="portal-hero"]').exists()).toBe(false);
+  });
+
+  it('shows CMS hero banner when CMS area has containers', () => {
+    mockHeroData.value = { containers: [{ id: 'c1', widgets: [] }] };
+    const wrapper = mountComponent(PortalShell, {
+      slots: { default: '<div>content</div>' },
+      global: {
+        stubs: {
+          ...stubs,
+          CmsWidgetArea: {
+            template: '<div data-testid="portal-hero"></div>',
+            props: ['containers'],
+          },
+        },
+      },
+    });
+    expect(wrapper.find('[data-testid="portal-hero"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="portal-hero-fallback"]').exists()).toBe(
+      false,
+    );
   });
 
   it('renders welcome card with user name', () => {

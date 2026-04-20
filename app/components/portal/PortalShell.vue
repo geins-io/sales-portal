@@ -116,21 +116,19 @@ async function handleLogout() {
 
 <template>
   <div data-testid="portal-shell">
-    <!-- Hero Banner (CMS-driven — renders only when content area is configured) -->
+    <!-- Hero Banner: CMS-driven when configured, fallback otherwise -->
     <CmsWidgetArea
       v-if="heroArea?.containers?.length"
       data-testid="portal-hero"
       :containers="heroArea.containers"
     />
+    <PortalHeroFallback v-else />
 
     <!-- Welcome Card -->
     <div class="mx-auto max-w-6xl px-4">
       <div
         data-testid="portal-welcome"
-        :class="[
-          'border-border bg-background flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-start',
-          heroArea?.containers?.length ? '-mt-6' : 'mt-6',
-        ]"
+        class="border-border bg-background -mt-6 flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-start"
       >
         <!-- Left: User info -->
         <div>
