@@ -524,7 +524,6 @@
         "summary": {
           "title": "Order summary",
           "subtotal_with_count": "Subtotal ({count} items)",
-          "subtotal": "Subtotal",
           "shipping": "Shipping",
           "tax": "Tax (estimated)",
           "total": "Total"
@@ -544,7 +543,6 @@
       "sidebar_label": "Your account",
       "general_section": "General information",
       "general_section_hint": "Avatar is your profile picture — everyone who visits your profile will see this.",
-      "password_section_hint": "Avatar is your profile picture — everyone who visits your profile will see this.",
       "first_name": "First name",
       "last_name": "Last name",
       "email": "Email",

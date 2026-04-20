@@ -85,7 +85,7 @@ async function handleSaveClick() {
             v-if="pending"
             class="text-muted-foreground py-8 text-center text-sm"
           >
-            Loading...
+            {{ t('common.loading') }}
           </div>
           <div v-else class="space-y-8">
             <!-- General information section -->

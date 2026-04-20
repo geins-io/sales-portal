@@ -524,7 +524,6 @@
         "summary": {
           "title": "Ordersammanfattning",
           "subtotal_with_count": "Delsumma ({count} artiklar)",
-          "subtotal": "Delsumma",
           "shipping": "Frakt",
           "tax": "Moms (uppskattad)",
           "total": "Totalt"
@@ -544,7 +543,6 @@
       "sidebar_label": "Ditt konto",
       "general_section": "Allmän information",
       "general_section_hint": "Avataren är din profilbild — alla som besöker din profil ser den.",
-      "password_section_hint": "Avataren är din profilbild — alla som besöker din profil ser den.",
       "first_name": "Förnamn",
       "last_name": "Efternamn",
       "email": "E-post",

@@ -14,7 +14,7 @@ const { t } = useI18n();
       </p>
       <h1
         id="portal-hero-title"
-        class="mt-2 font-serif text-2xl font-semibold sm:text-4xl"
+        class="mt-2 text-2xl font-semibold sm:text-4xl"
       >
         {{ t('portal.hero.fallback_title') }}
       </h1>
