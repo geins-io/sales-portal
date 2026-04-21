@@ -145,11 +145,7 @@ async function addToCart() {
   >
     <!-- Image -->
     <div class="bg-muted group relative aspect-square w-full overflow-hidden">
-      <component
-        :is="productUrl ? 'NuxtLink' : 'div'"
-        :to="productUrl ?? undefined"
-        class="block size-full"
-      >
+      <NuxtLink v-if="productUrl" :to="productUrl" class="block size-full">
         <GeinsImage
           v-if="imageFileName"
           :file-name="imageFileName"
@@ -165,7 +161,24 @@ async function addToCart() {
         >
           {{ t('product.no_image') }}
         </div>
-      </component>
+      </NuxtLink>
+      <div v-else class="block size-full">
+        <GeinsImage
+          v-if="imageFileName"
+          :file-name="imageFileName"
+          type="product"
+          :alt="product?.name ?? ''"
+          loading="lazy"
+          class="size-full object-contain transition-transform group-hover:scale-105"
+        />
+        <div
+          v-else
+          class="text-muted-foreground flex size-full items-center justify-center text-xs"
+          data-testid="image-fallback"
+        >
+          {{ t('product.no_image') }}
+        </div>
+      </div>
       <!-- Campaign badges (legacy only) -->
       <div
         v-if="visibleCampaigns.length"
@@ -213,15 +226,14 @@ async function addToCart() {
       </div>
 
       <!-- Product title -->
-      <component
-        :is="productUrl ? 'NuxtLink' : 'div'"
-        :to="productUrl ?? undefined"
-        class="hover:underline"
-      >
+      <NuxtLink v-if="productUrl" :to="productUrl" class="hover:underline">
         <h3 class="line-clamp-2 text-sm leading-tight font-medium">
           {{ product?.name }}
         </h3>
-      </component>
+      </NuxtLink>
+      <h3 v-else class="line-clamp-2 text-sm leading-tight font-medium">
+        {{ product?.name }}
+      </h3>
 
       <!-- Brand name (legacy only) -->
       <p
@@ -328,11 +340,7 @@ async function addToCart() {
     <div
       class="bg-muted group relative w-32 shrink-0 self-stretch overflow-hidden"
     >
-      <component
-        :is="productUrl ? 'NuxtLink' : 'div'"
-        :to="productUrl ?? undefined"
-        class="block size-full"
-      >
+      <NuxtLink v-if="productUrl" :to="productUrl" class="block size-full">
         <GeinsImage
           v-if="imageFileName"
           :file-name="imageFileName"
@@ -341,7 +349,17 @@ async function addToCart() {
           loading="lazy"
           class="size-full object-cover transition-transform group-hover:scale-105"
         />
-      </component>
+      </NuxtLink>
+      <div v-else class="block size-full">
+        <GeinsImage
+          v-if="imageFileName"
+          :file-name="imageFileName"
+          type="product"
+          :alt="product?.name ?? ''"
+          loading="lazy"
+          class="size-full object-cover transition-transform group-hover:scale-105"
+        />
+      </div>
       <!-- Campaign badges -->
       <div
         v-if="visibleCampaigns.length"
@@ -372,15 +390,14 @@ async function addToCart() {
           {{ product.articleNumber }}
         </template>
       </p>
-      <component
-        :is="productUrl ? 'NuxtLink' : 'div'"
-        :to="productUrl ?? undefined"
-        class="hover:underline"
-      >
+      <NuxtLink v-if="productUrl" :to="productUrl" class="hover:underline">
         <h3 class="text-sm leading-tight font-medium">
           {{ product?.name }}
         </h3>
-      </component>
+      </NuxtLink>
+      <h3 v-else class="text-sm leading-tight font-medium">
+        {{ product?.name }}
+      </h3>
       <StockBadge
         v-if="isLegacyProduct(product) && product.totalStock"
         :stock="product.totalStock"

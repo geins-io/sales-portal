@@ -143,7 +143,20 @@ function formatDate(iso: string): string {
                         :file-name="item.imageFileName"
                         :alt="item.name"
                       />
-                      <span class="font-medium">{{ item.name }}</span>
+                      <NuxtLink
+                        v-if="item.alias"
+                        :to="localePath(`/p/${item.alias}`)"
+                        data-testid="line-item-name-link"
+                        class="font-medium hover:underline"
+                      >
+                        {{ item.name }}
+                      </NuxtLink>
+                      <span
+                        v-else
+                        data-testid="line-item-name"
+                        class="font-medium"
+                        >{{ item.name }}</span
+                      >
                     </div>
                   </td>
                   <td class="text-muted-foreground px-4 py-3">

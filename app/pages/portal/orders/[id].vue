@@ -233,7 +233,20 @@ function statusBadgeClass(status?: string): string {
                         "
                         :alt="item?.product?.name ?? ''"
                       />
-                      <span class="font-medium">{{ item?.product?.name }}</span>
+                      <NuxtLink
+                        v-if="item?.product?.alias"
+                        :to="localePath(`/p/${item.product.alias}`)"
+                        data-testid="order-item-name-link"
+                        class="font-medium hover:underline"
+                      >
+                        {{ item?.product?.name }}
+                      </NuxtLink>
+                      <span
+                        v-else
+                        data-testid="order-item-name"
+                        class="font-medium"
+                        >{{ item?.product?.name }}</span
+                      >
                     </div>
                   </td>
                   <td class="text-muted-foreground px-4 py-3">
