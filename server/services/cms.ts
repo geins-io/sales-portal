@@ -39,10 +39,15 @@ function buildCachePrefix(event: H3Event): string {
 }
 
 /**
- * Check if a widget area result has actual content.
+ * Check if a widget area result has actual content. A container with zero
+ * widgets counts as empty — the CMS can provision empty container shells in
+ * one language while the translated sibling stays populated, and we want
+ * the language fallback to kick in when the current language only returns
+ * shells.
  */
 function hasContent(area: ContentAreaType | null | undefined): boolean {
-  return !!area?.containers?.length;
+  const containers = area?.containers ?? [];
+  return containers.some((c) => (c?.content?.length ?? 0) > 0);
 }
 
 /**
