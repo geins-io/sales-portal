@@ -3,25 +3,64 @@ import { z } from 'zod';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Button } from '~/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select';
+import { Checkbox } from '~/components/ui/checkbox';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const { localePath } = useLocaleMarket();
 
+const TERMS_ALIAS = { sv: '/vilkor' } as const;
+const termsPath = computed(
+  () => TERMS_ALIAS[locale.value as keyof typeof TERMS_ALIAS] ?? '/terms',
+);
+
+// Client-side schema mirrors server ApplyForAccountSchema (not imported — server-only types)
 const applySchema = z.object({
   companyName: z.string().min(1, 'apply.field_required').max(200),
   organizationNumber: z.string().min(1, 'apply.field_required').max(50),
   firstName: z.string().min(1, 'apply.field_required').max(100),
   lastName: z.string().min(1, 'apply.field_required').max(100),
+  country: z.enum(['SE', 'NO', 'DK', 'FI', 'DE', 'GB'], {
+    error: 'apply.field_required',
+  }),
   email: z.string().min(1, 'apply.field_required').email('apply.invalid_email'),
+  password: z
+    .string()
+    .min(1, 'apply.field_required')
+    .min(8, 'apply.password_min_length'),
+  acceptTerms: z.literal(true, { error: 'apply.accept_terms_required' }),
   phone: z.string().max(50).optional(),
   message: z.string().max(5000).optional(),
 });
 
-const formData = reactive({
+type FormData = {
+  companyName: string;
+  organizationNumber: string;
+  firstName: string;
+  lastName: string;
+  country: string;
+  email: string;
+  password: string;
+  acceptTerms: boolean;
+  phone: string;
+  message: string;
+};
+
+const formData = reactive<FormData>({
   companyName: '',
   organizationNumber: '',
   firstName: '',
   lastName: '',
+  country: '',
   email: '',
+  password: '',
+  acceptTerms: false,
   phone: '',
   message: '',
 });
@@ -31,21 +70,37 @@ const touched = reactive<Record<string, boolean>>({});
 const isLoading = ref(false);
 const submitted = ref(false);
 const errorMessage = ref('');
+const showPassword = ref(false);
 
-type FormField = keyof typeof formData;
+type FormField = keyof FormData;
 
 const requiredFields: FormField[] = [
   'companyName',
   'organizationNumber',
   'firstName',
   'lastName',
+  'country',
   'email',
+  'password',
+  'acceptTerms',
 ];
 
+const countryOptions = [
+  { value: 'SE', key: 'apply.country_sweden' },
+  { value: 'NO', key: 'apply.country_norway' },
+  { value: 'DK', key: 'apply.country_denmark' },
+  { value: 'FI', key: 'apply.country_finland' },
+  { value: 'DE', key: 'apply.country_germany' },
+  { value: 'GB', key: 'apply.country_uk' },
+] as const;
+
 function validateField(field: FormField) {
-  const shape = applySchema.shape[field];
+  const shape = applySchema.shape[field as keyof typeof applySchema.shape];
   if (!shape) return;
-  const result = shape.safeParse(formData[field] || undefined);
+  const rawValue = formData[field];
+  const parseValue =
+    rawValue === '' || rawValue === false ? undefined : rawValue;
+  const result = shape.safeParse(parseValue);
   if (result.success) {
     fieldErrors[field] = '';
   } else {
@@ -79,7 +134,10 @@ async function handleSubmit() {
         organizationNumber: formData.organizationNumber,
         firstName: formData.firstName,
         lastName: formData.lastName,
+        country: formData.country,
         email: formData.email,
+        password: formData.password,
+        acceptTerms: formData.acceptTerms as true,
         phone: formData.phone || undefined,
         message: formData.message || undefined,
       },
@@ -219,6 +277,45 @@ async function handleSubmit() {
       </div>
     </div>
 
+    <!-- Country -->
+    <div class="space-y-2">
+      <Label for="apply-country">{{ t('apply.country') }}</Label>
+      <Select
+        :model-value="formData.country"
+        :disabled="isLoading"
+        data-testid="apply-country"
+        @update:model-value="
+          (val) => {
+            formData.country = String(val ?? '');
+            touched.country = true;
+            validateField('country');
+          }
+        "
+      >
+        <SelectTrigger id="apply-country" class="w-full">
+          <SelectValue :placeholder="t('apply.country_placeholder')" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem
+            v-for="opt in countryOptions"
+            :key="opt.value"
+            :value="opt.value"
+            data-testid="apply-country-option"
+            :data-value="opt.value"
+          >
+            {{ t(opt.key) }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+      <p
+        v-if="touched.country && fieldErrors.country"
+        class="text-destructive text-xs"
+        data-testid="apply-country-error"
+      >
+        {{ t(fieldErrors.country) }}
+      </p>
+    </div>
+
     <!-- Email -->
     <div class="space-y-2">
       <Label for="apply-email">{{ t('apply.email') }}</Label>
@@ -240,40 +337,118 @@ async function handleSubmit() {
       </p>
     </div>
 
-    <!-- Phone (optional) -->
+    <!-- Password -->
     <div class="space-y-2">
-      <Label for="apply-phone">{{ t('apply.phone') }}</Label>
-      <Input
-        id="apply-phone"
-        v-model="formData.phone"
-        type="tel"
-        autocomplete="tel"
-        :disabled="isLoading"
-        data-testid="apply-phone"
-      />
+      <Label for="apply-password">{{ t('apply.password') }}</Label>
+      <div class="relative">
+        <Input
+          id="apply-password"
+          v-model="formData.password"
+          :type="showPassword ? 'text' : 'password'"
+          autocomplete="new-password"
+          :disabled="isLoading"
+          data-testid="apply-password"
+          @blur="handleBlur('password')"
+        />
+        <button
+          type="button"
+          tabindex="-1"
+          class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+          data-testid="apply-password-toggle"
+          :aria-label="
+            showPassword ? t('apply.hide_password') : t('apply.show_password')
+          "
+          @click="showPassword = !showPassword"
+        >
+          <Icon
+            :name="showPassword ? 'lucide:eye-off' : 'lucide:eye'"
+            class="size-4"
+          />
+        </button>
+      </div>
+      <p
+        v-if="touched.password && fieldErrors.password"
+        class="text-destructive text-xs"
+        data-testid="apply-password-error"
+      >
+        {{ t(fieldErrors.password) }}
+      </p>
     </div>
 
-    <!-- Message (optional) -->
+    <!-- Accept Terms -->
     <div class="space-y-2">
-      <Label for="apply-message">{{ t('apply.message') }}</Label>
-      <textarea
-        id="apply-message"
-        v-model="formData.message"
-        rows="4"
-        :disabled="isLoading"
-        data-testid="apply-message"
-        class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-      />
+      <div class="flex items-start gap-2">
+        <Checkbox
+          id="apply-terms"
+          :checked="formData.acceptTerms"
+          :disabled="isLoading"
+          data-testid="apply-terms"
+          @update:checked="
+            (val: boolean | 'indeterminate') => {
+              formData.acceptTerms = Boolean(val);
+              touched.acceptTerms = true;
+              validateField('acceptTerms');
+            }
+          "
+        />
+        <Label for="apply-terms" class="text-sm leading-relaxed">
+          {{ t('apply.accept_terms_label') }}
+          <NuxtLink
+            :to="localePath(termsPath)"
+            class="text-primary underline underline-offset-2"
+            data-testid="apply-terms-link"
+          >
+            {{ t('apply.accept_terms_label') }}
+          </NuxtLink>
+        </Label>
+      </div>
+      <p
+        v-if="touched.acceptTerms && fieldErrors.acceptTerms"
+        class="text-destructive text-xs"
+        data-testid="apply-terms-error"
+      >
+        {{ t(fieldErrors.acceptTerms) }}
+      </p>
+    </div>
+
+    <!-- Additional information -->
+    <div class="space-y-4">
+      <p class="text-muted-foreground text-sm font-medium">
+        {{ t('apply.additional_information') }}
+      </p>
+
+      <!-- Phone (optional) -->
+      <div class="space-y-2">
+        <Label for="apply-phone">{{ t('apply.phone') }}</Label>
+        <Input
+          id="apply-phone"
+          v-model="formData.phone"
+          type="tel"
+          autocomplete="tel"
+          :disabled="isLoading"
+          data-testid="apply-phone"
+        />
+      </div>
+
+      <!-- Message (optional) -->
+      <div class="space-y-2">
+        <Label for="apply-message">{{ t('apply.message') }}</Label>
+        <textarea
+          id="apply-message"
+          v-model="formData.message"
+          rows="4"
+          :disabled="isLoading"
+          data-testid="apply-message"
+          class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      </div>
     </div>
 
     <!-- Submit -->
-    <Button
-      type="submit"
-      class="w-full"
-      :disabled="isLoading"
-      data-testid="apply-submit"
-    >
-      {{ isLoading ? t('apply.submitting') : t('apply.submit') }}
-    </Button>
+    <div class="flex justify-end">
+      <Button type="submit" :disabled="isLoading" data-testid="apply-submit">
+        {{ isLoading ? t('apply.submitting') : t('apply.submit') }}
+      </Button>
+    </div>
   </form>
 </template>
