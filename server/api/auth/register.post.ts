@@ -13,6 +13,18 @@ export default defineEventHandler(async (event) => {
     );
   }
 
+  // Fail-open: missing tenant context or missing registration feature key
+  // both default to enabled. Only a tenant explicitly setting
+  // `features.registration.enabled === false` disables the endpoint.
+  const registrationEnabled =
+    event.context?.tenant?.config?.features?.registration?.enabled ?? true;
+  if (!registrationEnabled) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Registration is disabled for this tenant',
+    });
+  }
+
   const body = await readValidatedBody(event, RegisterSchema.parse);
 
   const result = await userService.register(

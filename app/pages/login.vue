@@ -10,6 +10,7 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const { localePath } = useLocaleMarket();
+const { features } = useTenant();
 
 useHead({
   title: computed(() => t('auth.log_in')),
@@ -17,8 +18,14 @@ useHead({
 
 const authCardRef = ref<{ switchToForgot: () => void } | null>(null);
 
+const registrationEnabled = computed(
+  () => features.value?.registration?.enabled ?? true,
+);
+
 const defaultView = computed(() =>
-  route.query.tab === 'register' ? ('register' as const) : ('login' as const),
+  route.query.tab === 'register' && registrationEnabled.value
+    ? ('register' as const)
+    : ('login' as const),
 );
 
 function handleSuccess() {
