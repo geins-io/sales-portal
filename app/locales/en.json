@@ -357,7 +357,10 @@
     "hide_password": "Hide password",
     "accept_terms_label": "I accept the terms and conditions",
     "accept_terms_required": "You must accept the terms and conditions.",
-    "additional_information": "Additional information (optional)"
+    "additional_information": "Additional information (optional)",
+    "pending_approval_title": "Application received",
+    "pending_approval_body": "Your business account is pending approval. Some features may be limited until then.",
+    "dismiss_banner": "Dismiss"
   },
   "content": {
     "failed_to_load": "Unable to load page content.",

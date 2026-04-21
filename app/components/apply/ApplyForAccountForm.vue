@@ -68,9 +68,10 @@ const formData = reactive<FormData>({
 const fieldErrors = reactive<Record<string, string>>({});
 const touched = reactive<Record<string, boolean>>({});
 const isLoading = ref(false);
-const submitted = ref(false);
 const errorMessage = ref('');
 const showPassword = ref(false);
+
+const router = useRouter();
 
 type FormField = keyof FormData;
 
@@ -142,7 +143,10 @@ async function handleSubmit() {
         message: formData.message || undefined,
       },
     });
-    submitted.value = true;
+    // Backend registers + promotes to ORGANIZATION + sets auth cookies,
+    // so the user is logged in. Redirect to portal with a ?applied=1
+    // query param which the pending-approval banner reads.
+    await router.push(`${localePath('/portal')}?applied=1`);
   } catch (err: unknown) {
     const status = (err as { statusCode?: number })?.statusCode;
     if (status === 429) {
@@ -157,26 +161,9 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <!-- Success state -->
-  <div
-    v-if="submitted"
-    data-testid="apply-success"
-    class="space-y-3 py-4 text-center"
-  >
-    <div
-      class="bg-primary/10 text-primary mx-auto flex size-12 items-center justify-center rounded-full"
-    >
-      <Icon name="lucide:check" class="size-6" />
-    </div>
-    <h3 class="text-lg font-semibold">{{ t('apply.success_title') }}</h3>
-    <p class="text-muted-foreground text-sm">
-      {{ t('apply.confirmation_message') }}
-    </p>
-  </div>
-
-  <!-- Application form -->
+  <!-- Application form — on successful submit the user is redirected to
+       /portal?applied=1 so the pending-approval banner can welcome them. -->
   <form
-    v-else
     data-testid="apply-form"
     class="space-y-4"
     @submit.prevent="handleSubmit"

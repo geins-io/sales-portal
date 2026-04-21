@@ -139,6 +139,9 @@ const stubs = {
   PortalShell: {
     template: '<div data-testid="portal-shell"><slot /></div>',
   },
+  PortalPendingApprovalBanner: {
+    template: '<div data-testid="portal-pending-approval-banner-stub"></div>',
+  },
   PortalStatCard: {
     template:
       '<div data-testid="portal-stat-card" :data-count="count" :data-show-dot="showDot"><slot /></div>',
