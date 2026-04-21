@@ -10,7 +10,10 @@ describe('ApplyForAccountSchema', () => {
     organizationNumber: '556677-8899',
     firstName: 'Jane',
     lastName: 'Doe',
+    country: 'SE',
     email: 'jane@acme.com',
+    password: 'secret123',
+    acceptTerms: true,
     phone: '+46701234567',
     message: 'We are interested in a wholesale account.',
   };
@@ -173,5 +176,75 @@ describe('ApplyForAccountSchema', () => {
       phone: '1'.repeat(51),
     });
     expect(result.success).toBe(false);
+  });
+
+  // --- New fields: country, password, acceptTerms ---
+
+  it('rejects missing country', () => {
+    const { country: _, ...payload } = validPayload;
+    const result = ApplyForAccountSchema.safeParse(payload);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid country code', () => {
+    const result = ApplyForAccountSchema.safeParse({
+      ...validPayload,
+      country: 'US',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts all valid country codes', () => {
+    for (const code of ['SE', 'NO', 'DK', 'FI', 'DE', 'GB'] as const) {
+      const result = ApplyForAccountSchema.safeParse({
+        ...validPayload,
+        country: code,
+      });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it('rejects missing password', () => {
+    const { password: _, ...payload } = validPayload;
+    const result = ApplyForAccountSchema.safeParse(payload);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects password shorter than 8 characters', () => {
+    const result = ApplyForAccountSchema.safeParse({
+      ...validPayload,
+      password: 'short',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts password of exactly 8 characters', () => {
+    const result = ApplyForAccountSchema.safeParse({
+      ...validPayload,
+      password: '12345678',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects missing acceptTerms', () => {
+    const { acceptTerms: _, ...payload } = validPayload;
+    const result = ApplyForAccountSchema.safeParse(payload);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects acceptTerms = false', () => {
+    const result = ApplyForAccountSchema.safeParse({
+      ...validPayload,
+      acceptTerms: false,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts acceptTerms = true', () => {
+    const result = ApplyForAccountSchema.safeParse({
+      ...validPayload,
+      acceptTerms: true,
+    });
+    expect(result.success).toBe(true);
   });
 });

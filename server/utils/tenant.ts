@@ -253,6 +253,7 @@ export async function fetchTenantConfig(
       features: {
         search: { enabled: true },
         authentication: { enabled: true },
+        registration: { enabled: true },
         cart: { enabled: true },
         wishlist: { enabled: true },
       },

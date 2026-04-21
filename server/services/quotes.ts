@@ -33,6 +33,7 @@ interface RawCartItem {
   };
   product?: {
     productId?: number;
+    alias?: string;
     name?: string;
     articleNumber?: string;
     productImages?: { fileName?: string }[];
@@ -155,6 +156,7 @@ function mapStatus(raw?: string): QuoteStatus {
 function mapLineItem(item: RawCartItem): QuoteLineItem {
   return {
     productId: item.product?.productId ?? 0,
+    alias: item.product?.alias ?? null,
     sku: String(item.skuId ?? ''),
     name: item.product?.name ?? '',
     articleNumber: item.product?.articleNumber ?? '',

@@ -342,7 +342,22 @@
     "success_title": "Ansökan skickad",
     "confirmation_message": "Ansökan mottagen. Vi hör av oss inom 1-2 arbetsdagar.",
     "error_message": "Något gick fel. Försök igen.",
-    "too_many_attempts": "För många försök. Försök igen senare."
+    "too_many_attempts": "För många försök. Försök igen senare.",
+    "country": "Land",
+    "country_placeholder": "Välj land",
+    "country_sweden": "Sverige",
+    "country_norway": "Norge",
+    "country_denmark": "Danmark",
+    "country_finland": "Finland",
+    "country_germany": "Tyskland",
+    "country_uk": "Storbritannien",
+    "password": "Lösenord",
+    "password_min_length": "Lösenordet måste vara minst 8 tecken.",
+    "show_password": "Visa lösenord",
+    "hide_password": "Dölj lösenord",
+    "accept_terms_label": "Jag godkänner villkoren",
+    "accept_terms_required": "Du måste godkänna villkoren.",
+    "additional_information": "Ytterligare information (valfritt)"
   },
   "content": {
     "failed_to_load": "Det gick inte att ladda sidinnehållet.",

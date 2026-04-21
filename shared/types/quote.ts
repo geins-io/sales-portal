@@ -13,6 +13,7 @@ export type QuoteStatus =
 // ---------------------------------------------------------------------------
 export interface QuoteLineItem {
   productId: number;
+  alias?: string | null;
   sku: string;
   name: string;
   articleNumber: string;

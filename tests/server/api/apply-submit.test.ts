@@ -51,7 +51,10 @@ const validBody = {
   organizationNumber: '556677-8899',
   firstName: 'Jane',
   lastName: 'Doe',
+  country: 'SE',
   email: 'jane@acme.com',
+  password: 'secret123',
+  acceptTerms: true,
   phone: '+46701234567',
   message: 'We want a wholesale account.',
 };

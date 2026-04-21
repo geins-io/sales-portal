@@ -2,6 +2,7 @@
 import { Card, CardContent } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
 import { Separator } from '~/components/ui/separator';
+import { useTenant } from '~/composables/useTenant';
 
 const props = withDefaults(
   defineProps<{
@@ -14,7 +15,21 @@ const emit = defineEmits<{
   close: [];
 }>();
 
+const { features } = useTenant();
+
+// Fail-open: missing key, missing features map, or missing tenant all default
+// to enabled. Only an explicit `registration.enabled === false` disables.
+const registrationEnabled = computed(
+  () => features.value?.registration?.enabled ?? true,
+);
+
 const activeView = ref(props.defaultView);
+
+watchEffect(() => {
+  if (!registrationEnabled.value && activeView.value === 'register') {
+    activeView.value = 'login';
+  }
+});
 
 function switchToRegister() {
   activeView.value = 'register';
@@ -65,34 +80,36 @@ defineExpose({ switchToForgot });
           <!-- Login form slot -->
           <slot name="login" />
 
-          <!-- Divider -->
-          <div class="relative my-6">
-            <Separator />
-            <span
-              class="text-muted-foreground bg-card absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 text-xs"
-              data-testid="auth-divider"
+          <template v-if="registrationEnabled">
+            <!-- Divider -->
+            <div class="relative my-6">
+              <Separator />
+              <span
+                class="text-muted-foreground bg-card absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 text-xs"
+                data-testid="auth-divider"
+              >
+                {{ $t('auth.no_account') }}
+              </span>
+            </div>
+
+            <!-- Business account info -->
+            <p
+              class="text-muted-foreground mb-4 text-sm"
+              data-testid="auth-business-info"
             >
-              {{ $t('auth.no_account') }}
-            </span>
-          </div>
+              {{ $t('auth.business_account_info') }}
+            </p>
 
-          <!-- Business account info -->
-          <p
-            class="text-muted-foreground mb-4 text-sm"
-            data-testid="auth-business-info"
-          >
-            {{ $t('auth.business_account_info') }}
-          </p>
-
-          <!-- Apply for account button -->
-          <Button
-            variant="outline"
-            class="w-full"
-            data-testid="auth-apply-button"
-            @click="switchToRegister"
-          >
-            {{ $t('auth.apply_for_account') }}
-          </Button>
+            <!-- Apply for account button -->
+            <Button
+              variant="outline"
+              class="w-full"
+              data-testid="auth-apply-button"
+              @click="switchToRegister"
+            >
+              {{ $t('auth.apply_for_account') }}
+            </Button>
+          </template>
         </template>
 
         <!-- Register view -->
