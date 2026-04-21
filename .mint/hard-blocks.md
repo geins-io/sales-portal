@@ -35,6 +35,10 @@ Violations trigger immediate stop and escalation to user.
 - NEVER read locale/market from cookies in server utilities when resolvedLocaleMarket is available — use `event.context.resolvedLocaleMarket` (cookie fallback only for API routes where resolvedLocaleMarket is not set)
 - NEVER use bare route paths (`to="/login"`, `navigateTo('/')`, `router.push('/portal/orders')`) — always use `localePath()` in components or cookie-based prefix in middleware
 
+## Component Rendering
+
+- NEVER use `<component :is="'NuxtLink'">` or any dynamic `<component :is>` that references an auto-imported framework component via string literal. Use explicit `<NuxtLink v-if>` + `<div v-else>` / `<h3 v-else>` fallback instead. Nuxt 4's `resolveDynamicComponent` cannot resolve auto-imported component names from string literals at runtime — the tag serializes as a literal `<NuxtLink>` in the rendered HTML, clicks do nothing, and unit tests pass because they stub `NuxtLink`. This regression shipped in PR #138 (`ProductCard.vue`) and was caught by a production smoke test in PR #139. When reviewing a component that conditionally renders a link vs a non-link wrapper, insist on the explicit v-if/v-else pattern.
+
 ## Type-Prefixed Routing (ADR-015)
 
 - NEVER link to category, product, brand, or search pages without their type prefix (`/c/`, `/p/`, `/b/`, `/s/`). Use `categoryPath()`, `productPath()`, `brandPath()`, `searchPath()` from `shared/utils/route-helpers.ts` to build the path, then wrap with `localePath()`.
