@@ -3,6 +3,7 @@ import {
   tenantIdKey,
   tenantConfigKey,
   collectAllHostnames,
+  buildTenantConfig,
 } from '../../server/utils/tenant';
 import {
   createDefaultTheme,
@@ -13,7 +14,10 @@ import {
 } from '../../server/utils/tenant-css';
 import type { TenantConfig } from '#shared/types/tenant-config';
 import { deriveThemeColors } from '../../server/utils/theme';
-import type { ThemeColors } from '../../server/schemas/store-settings';
+import type {
+  ThemeColors,
+  StoreSettings,
+} from '../../server/schemas/store-settings';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
 
 describe('Tenant utilities', () => {
@@ -300,6 +304,56 @@ describe('Tenant utilities', () => {
       const config = createMinimalConfig({ hostname: '' });
       const hostnames = collectAllHostnames(config);
       expect(hostnames.size).toBe(0);
+    });
+  });
+
+  describe('buildTenantConfig theme.name fallback', () => {
+    const baseSettings: StoreSettings = {
+      tenantId: 'boattools',
+      hostname: 'boattools.litium.store',
+      geinsSettings: {
+        apiKey: 'k',
+        accountName: 'boattools',
+        channel: '1',
+        tld: 'se',
+        locale: 'sv-SE',
+        market: 'se',
+        environment: 'production',
+        availableLocales: ['sv-SE'],
+        availableMarkets: ['se'],
+      },
+      mode: 'commerce',
+      checkoutMode: 'hosted',
+      theme: {
+        colors: {
+          primary: 'oklch(0.55 0.03 235)',
+          primaryForeground: 'oklch(0.985 0 0)',
+          secondary: 'oklch(0.93 0.05 90)',
+          secondaryForeground: 'oklch(0.25 0.02 235)',
+          background: 'oklch(1 0 0)',
+          foreground: 'oklch(0.145 0 0)',
+        },
+      },
+      branding: { name: 'BoatTools', watermark: 'minimal' },
+      features: {},
+      isActive: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    it('uses tenantId when theme.name is missing', () => {
+      const built = buildTenantConfig(baseSettings);
+      expect(built.theme.name).toBe('boattools');
+      expect(built.css).toContain("[data-theme='boattools']");
+    });
+
+    it('preserves explicit theme.name when provided', () => {
+      const built = buildTenantConfig({
+        ...baseSettings,
+        theme: { ...baseSettings.theme, name: 'ocean' },
+      });
+      expect(built.theme.name).toBe('ocean');
+      expect(built.css).toContain("[data-theme='ocean']");
     });
   });
 });
