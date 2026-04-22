@@ -1,7 +1,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { flushPromises } from '@vue/test-utils';
+
 import { mountComponent } from '../../utils/component';
 import ApplyForAccountForm from '../../../app/components/apply/ApplyForAccountForm.vue';
+
+const pushMock = vi.hoisted(() => vi.fn());
+vi.mock('#app/composables/router', () => ({
+  useRouter: () => ({ push: pushMock }),
+  useRoute: () => ({
+    query: {},
+    path: '/apply-for-account',
+    params: {},
+    hash: '',
+    fullPath: '/apply-for-account',
+    name: 'apply-for-account',
+  }),
+}));
 
 const stubs = {
   Label: { template: '<label><slot /></label>', props: ['for'] },
@@ -95,11 +109,6 @@ describe('ApplyForAccountForm', () => {
     );
   });
 
-  it('does not show success state initially', () => {
-    const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
-    expect(wrapper.find('[data-testid="apply-success"]').exists()).toBe(false);
-  });
-
   it('renders the form element with submit handler', () => {
     const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
     expect(wrapper.find('[data-testid="apply-form"]').exists()).toBe(true);
@@ -110,12 +119,15 @@ describe('ApplyForAccountForm', () => {
     expect(wrapper.find('[data-testid="apply-error"]').exists()).toBe(false);
   });
 
-  it('renders confirmation message after successful submit', async () => {
+  it('redirects to /portal?applied=1 on successful submit', async () => {
     (globalThis as unknown as { $fetch: ReturnType<typeof vi.fn> }).$fetch = vi
       .fn()
-      .mockResolvedValue({ ok: true });
+      .mockResolvedValue({ user: { id: 1 }, expiresAt: null });
 
-    const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
+    pushMock.mockClear();
+    const wrapper = mountComponent(ApplyForAccountForm, {
+      global: { stubs },
+    });
 
     await wrapper
       .find('[data-testid="apply-company-name"]')
@@ -127,7 +139,6 @@ describe('ApplyForAccountForm', () => {
       .find('[data-testid="apply-email"]')
       .setValue('ada@example.com');
 
-    // Fill in new required fields via reactive data
     const vm = wrapper.vm as unknown as {
       formData: { country: string; password: string; acceptTerms: boolean };
     };
@@ -139,15 +150,9 @@ describe('ApplyForAccountForm', () => {
     await wrapper.find('[data-testid="apply-form"]').trigger('submit');
     await flushPromises();
 
-    const success = wrapper.find('[data-testid="apply-success"]');
-    expect(success.exists()).toBe(true);
-    expect(success.text()).toContain('apply.confirmation_message');
-    expect(success.text()).not.toContain('apply.success_message');
-  });
-
-  it('does not reference the removed apply.success_message key', () => {
-    const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
-    expect(wrapper.html()).not.toContain('apply.success_message');
+    expect(pushMock).toHaveBeenCalledWith(
+      expect.stringContaining('/portal?applied=1'),
+    );
   });
 
   // --- New tests for Figma alignment ---

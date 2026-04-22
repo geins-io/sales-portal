@@ -339,8 +339,6 @@
     "invalid_email": "Please enter a valid email address.",
     "submit": "Submit application",
     "submitting": "Submitting…",
-    "success_title": "Application submitted",
-    "confirmation_message": "Application received. We'll get back to you within 1-2 business days.",
     "error_message": "Something went wrong. Please try again.",
     "too_many_attempts": "Too many attempts. Please try again later.",
     "country": "Country",
@@ -357,7 +355,10 @@
     "hide_password": "Hide password",
     "accept_terms_label": "I accept the terms and conditions",
     "accept_terms_required": "You must accept the terms and conditions.",
-    "additional_information": "Additional information (optional)"
+    "additional_information": "Additional information (optional)",
+    "pending_approval_title": "Application received",
+    "pending_approval_body": "Your business account is pending approval. Some features may be limited until then.",
+    "dismiss_banner": "Dismiss"
   },
   "content": {
     "failed_to_load": "Unable to load page content.",

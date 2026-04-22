@@ -339,8 +339,6 @@
     "invalid_email": "Ange en giltig e-postadress.",
     "submit": "Skicka ansökan",
     "submitting": "Skickar…",
-    "success_title": "Ansökan skickad",
-    "confirmation_message": "Ansökan mottagen. Vi hör av oss inom 1-2 arbetsdagar.",
     "error_message": "Något gick fel. Försök igen.",
     "too_many_attempts": "För många försök. Försök igen senare.",
     "country": "Land",
@@ -357,7 +355,10 @@
     "hide_password": "Dölj lösenord",
     "accept_terms_label": "Jag godkänner villkoren",
     "accept_terms_required": "Du måste godkänna villkoren.",
-    "additional_information": "Ytterligare information (valfritt)"
+    "additional_information": "Ytterligare information (valfritt)",
+    "pending_approval_title": "Ansökan mottagen",
+    "pending_approval_body": "Ditt företagskonto väntar på godkännande. Vissa funktioner kan vara begränsade tills vidare.",
+    "dismiss_banner": "Avfärda"
   },
   "content": {
     "failed_to_load": "Det gick inte att ladda sidinnehållet.",

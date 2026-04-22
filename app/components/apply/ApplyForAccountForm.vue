@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod';
+import type { AuthUser } from '@geins/types';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Button } from '~/components/ui/button';
@@ -11,9 +12,11 @@ import {
   SelectValue,
 } from '~/components/ui/select';
 import { Checkbox } from '~/components/ui/checkbox';
+import { useAuthStore } from '~/stores/auth';
 
 const { t, locale } = useI18n();
 const { localePath } = useLocaleMarket();
+const authStore = useAuthStore();
 
 const TERMS_ALIAS = { sv: '/vilkor' } as const;
 const termsPath = computed(
@@ -68,9 +71,10 @@ const formData = reactive<FormData>({
 const fieldErrors = reactive<Record<string, string>>({});
 const touched = reactive<Record<string, boolean>>({});
 const isLoading = ref(false);
-const submitted = ref(false);
 const errorMessage = ref('');
 const showPassword = ref(false);
+
+const router = useRouter();
 
 type FormField = keyof FormData;
 
@@ -127,7 +131,10 @@ async function handleSubmit() {
 
   isLoading.value = true;
   try {
-    await $fetch('/api/apply/submit', {
+    const response = await $fetch<{
+      user: AuthUser | null;
+      expiresAt: string | null;
+    }>('/api/apply/submit', {
       method: 'POST',
       body: {
         companyName: formData.companyName,
@@ -142,7 +149,14 @@ async function handleSubmit() {
         message: formData.message || undefined,
       },
     });
-    submitted.value = true;
+    // Backend registers + promotes to ORGANIZATION + sets auth cookies.
+    // Populate the client auth store so the portal recognises the session
+    // without requiring a full page reload, then redirect with ?applied=1
+    // which the pending-approval banner reads.
+    if (response?.user) {
+      authStore.user = response.user;
+    }
+    await router.push(`${localePath('/portal')}?applied=1`);
   } catch (err: unknown) {
     const status = (err as { statusCode?: number })?.statusCode;
     if (status === 429) {
@@ -157,26 +171,9 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <!-- Success state -->
-  <div
-    v-if="submitted"
-    data-testid="apply-success"
-    class="space-y-3 py-4 text-center"
-  >
-    <div
-      class="bg-primary/10 text-primary mx-auto flex size-12 items-center justify-center rounded-full"
-    >
-      <Icon name="lucide:check" class="size-6" />
-    </div>
-    <h3 class="text-lg font-semibold">{{ t('apply.success_title') }}</h3>
-    <p class="text-muted-foreground text-sm">
-      {{ t('apply.confirmation_message') }}
-    </p>
-  </div>
-
-  <!-- Application form -->
+  <!-- Application form — on successful submit the user is redirected to
+       /portal?applied=1 so the pending-approval banner can welcome them. -->
   <form
-    v-else
     data-testid="apply-form"
     class="space-y-4"
     @submit.prevent="handleSubmit"
