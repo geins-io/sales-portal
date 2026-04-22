@@ -100,10 +100,11 @@ const isFavorited = computed(() =>
   product.value ? favoritesStore.isFavorite(product.value.alias) : false,
 );
 
-function toggleFavorite() {
-  if (product.value) {
-    favoritesStore.toggle(product.value.alias);
-  }
+const showListPicker = ref(false);
+
+function openListPicker() {
+  if (!product.value) return;
+  showListPicker.value = true;
 }
 
 const showPrice = computed(() => {
@@ -274,7 +275,7 @@ useSchemaOrg([
               :data-favorited="isFavorited"
               :aria-label="$t('product.wishlist')"
               data-testid="pdp-wishlist-toggle"
-              @click="toggleFavorite"
+              @click="openListPicker"
             >
               <Star
                 class="size-5"
@@ -404,5 +405,11 @@ useSchemaOrg([
     <ErrorBoundary section="related-products">
       <RelatedProducts v-if="related?.length" :products="related" />
     </ErrorBoundary>
+
+    <AddToListDialog
+      v-if="product"
+      v-model:open="showListPicker"
+      :product-alias="product.alias"
+    />
   </div>
 </template>

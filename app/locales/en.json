@@ -360,6 +360,17 @@
     "pending_approval_body": "Your business account is pending approval. Some features may be limited until then.",
     "dismiss_banner": "Dismiss"
   },
+  "lists": {
+    "picker": {
+      "title": "Add to list",
+      "favorites": "Favorites",
+      "create_new": "Create new list",
+      "list_name_placeholder": "List name",
+      "create": "Create",
+      "cancel": "Cancel",
+      "done": "Done"
+    }
+  },
   "content": {
     "failed_to_load": "Unable to load page content.",
     "no_content": "This page has no content yet."

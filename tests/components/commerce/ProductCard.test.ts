@@ -360,14 +360,16 @@ describe('ProductCard', () => {
       );
     });
 
-    it('calls toggle with product alias on click', async () => {
+    it('does not toggle favorites on click (opens picker dialog instead)', async () => {
       tenant.value.features = { wishlist: { enabled: true } };
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct({ alias: 'my-product' }) },
         global: { stubs },
       });
       await wrapper.find('[data-testid="wishlist-button"]').trigger('click');
-      expect(mockToggle).toHaveBeenCalledWith('my-product');
+      // Star button now opens the AddToListDialog rather than calling the
+      // single-list `toggle` action. The dialog has its own test file.
+      expect(mockToggle).not.toHaveBeenCalled();
     });
 
     it('shows filled star when product is a favorite', () => {
