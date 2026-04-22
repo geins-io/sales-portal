@@ -324,7 +324,7 @@ export default defineNuxtConfig({
     // Replaces Nitro's default "Server Error" scrubber with one that
     // surfaces the real message, correlation ID, tenantId, and stack
     // (stack only when NUXT_DEBUG_ERRORS=true). See server/error.ts.
-    errorHandler: '~/server/error',
+    errorHandler: '~~/server/error',
   },
 
   components: [
