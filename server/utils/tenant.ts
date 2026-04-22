@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3';
 import type { TenantConfig } from '#shared/types/tenant-config';
+import { CMS_SLOTS } from '#shared/types/cms-slots';
 import type { StoreSettings, GeinsSettings } from '../schemas/store-settings';
 import { StoreSettingsSchema } from '../schemas/store-settings';
 import { deriveThemeColors } from './theme';
@@ -256,6 +257,21 @@ export async function fetchTenantConfig(
         registration: { enabled: true },
         cart: { enabled: true },
         wishlist: { enabled: true },
+      },
+      // Seed the CMS slot registry with the Geins out-of-box collection
+      // names so dev/auto-provisioned tenants work without extra config.
+      // Production tenants override or add slots via Merchant Center sync.
+      cms: {
+        slots: {
+          [CMS_SLOTS.PORTAL_HERO]: {
+            family: 'Portal (Customer logged in)',
+            areaName: 'Above Content',
+          },
+          [CMS_SLOTS.FRONTPAGE_CONTENT]: {
+            family: 'Frontpage',
+            areaName: 'Content',
+          },
+        },
       },
       isActive: true,
       createdAt: new Date().toISOString(),

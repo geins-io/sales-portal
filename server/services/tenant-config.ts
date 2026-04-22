@@ -96,6 +96,7 @@ export async function getPublicConfig(
     theme: config.theme,
     branding: config.branding,
     features: config.features,
+    cms: config.cms,
     seo: config.seo,
     contact: config.contact,
     css: config.css,
