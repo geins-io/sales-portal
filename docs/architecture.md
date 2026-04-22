@@ -161,8 +161,8 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │       │                   #   QuotationCore, QuotationWithAddresses
 │   │       └── orders/         # Order list query
 │   ├── plugins/
-│   │   ├── 01.tenant-context.ts # Request-level tenant context + tenantId resolution + config caching
-│   │   ├── 02.request-logging.ts # Correlation ID, request timing, tenant-scoped logging
+│   │   ├── 02.tenant-context.ts # Request-level tenant context + tenantId resolution + config caching
+│   │   ├── 01.request-logging.ts # Correlation ID, request timing, tenant-scoped logging
 │   │   ├── 03.seo-config.ts    # Per-tenant site-config (URL, locale, indexability)
 │   │   └── 04.tenant-css.ts    # Tenant CSS + fonts + favicon injection into HTML
 │   ├── utils/
@@ -272,7 +272,7 @@ The system identifies tenants based on the request hostname. Each tenant is mapp
 
 ### Request Flow
 
-1. **Hostname Detection** (`server/plugins/01.tenant-context.ts`)
+1. **Hostname Detection** (`server/plugins/02.tenant-context.ts`)
    - Extracts hostname from request (ignoring port)
    - Attaches tenant context to H3 event
 
@@ -299,7 +299,7 @@ export default defineEventHandler((event) => {
 });
 ```
 
-Plugin `01.tenant-context.ts` resolves the tenant once per request and stores the full `TenantConfig` in `event.context.tenant.config`. Downstream plugins (03, 04), services, and routes read from context instead of re-resolving.
+Plugin `02.tenant-context.ts` resolves the tenant once per request and stores the full `TenantConfig` in `event.context.tenant.config`. Downstream plugins (03, 04), services, and routes read from context instead of re-resolving.
 
 ### Storage Keys
 

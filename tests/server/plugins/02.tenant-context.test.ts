@@ -113,7 +113,7 @@ function createEvent(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('server/plugins/01.tenant-context — locale/market validation', () => {
+describe('server/plugins/02.tenant-context — locale/market validation', () => {
   let handler: (event: MockEvent) => Promise<unknown>;
 
   beforeEach(async () => {
@@ -125,7 +125,7 @@ describe('server/plugins/01.tenant-context — locale/market validation', () => 
     // Default: no cached tenant cookie
     mockGetTenantCookie.mockReturnValue(undefined);
 
-    const mod = await import('../../../server/plugins/01.tenant-context');
+    const mod = await import('../../../server/plugins/02.tenant-context');
     const hooks = mod.default as unknown as Record<
       string,
       (event: unknown) => Promise<unknown>

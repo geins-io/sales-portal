@@ -8,7 +8,7 @@ import type {
 /**
  * Tenant Config Service — sectioned accessors over TenantConfig.
  * Insulates the app from schema changes. All methods read the tenant config
- * from event.context (already resolved by 01.tenant-context plugin).
+ * from event.context (already resolved by 02.tenant-context plugin).
  */
 
 function resolveConfig(event: H3Event): TenantConfig | null {

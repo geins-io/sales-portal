@@ -204,7 +204,7 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
     return cached;
   }
 
-  // Prefer the config already resolved by 01.tenant-context plugin
+  // Prefer the config already resolved by 02.tenant-context plugin
   const tenant =
     event.context.tenant.config ?? (await resolveTenant(hostname, event));
   if (!tenant?.geinsSettings) {

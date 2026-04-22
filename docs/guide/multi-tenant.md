@@ -27,7 +27,7 @@ The system identifies tenants based on the request hostname. Each tenant is mapp
 
 ### 1. Hostname Detection
 
-The server plugin (`server/plugins/01.tenant-context.ts`) extracts the hostname from incoming requests:
+The server plugin (`server/plugins/02.tenant-context.ts`) extracts the hostname from incoming requests:
 
 - Extracts hostname from request headers
 - Ignores port number

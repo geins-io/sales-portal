@@ -8,7 +8,7 @@ declare module 'h3' {
       hostname: string;
       /** The resolved tenant ID (may differ from hostname for multi-hostname tenants). */
       tenantId?: string;
-      /** Full resolved tenant config (set by 01.tenant-context plugin). */
+      /** Full resolved tenant config (set by 02.tenant-context plugin). */
       config?: TenantConfig;
     };
     /** Raw market/locale parsed from URL prefix by plugin 00. */

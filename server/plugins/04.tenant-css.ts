@@ -19,7 +19,7 @@ import { buildGoogleFontsUrl } from '#shared/utils/fonts';
  */
 export default defineNitroPlugin((nitroApp: NitroApp) => {
   nitroApp.hooks.hook('render:html', async (html, { event }) => {
-    // Tenant already resolved by 01.tenant-context — read from event context.
+    // Tenant already resolved by 02.tenant-context — read from event context.
     const tenant = event.context.tenant?.config;
     if (!tenant) return;
 
