@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod';
+import type { AuthUser } from '@geins/types';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Button } from '~/components/ui/button';
@@ -11,9 +12,11 @@ import {
   SelectValue,
 } from '~/components/ui/select';
 import { Checkbox } from '~/components/ui/checkbox';
+import { useAuthStore } from '~/stores/auth';
 
 const { t, locale } = useI18n();
 const { localePath } = useLocaleMarket();
+const authStore = useAuthStore();
 
 const TERMS_ALIAS = { sv: '/vilkor' } as const;
 const termsPath = computed(
@@ -128,7 +131,10 @@ async function handleSubmit() {
 
   isLoading.value = true;
   try {
-    await $fetch('/api/apply/submit', {
+    const response = await $fetch<{
+      user: AuthUser | null;
+      expiresAt: string | null;
+    }>('/api/apply/submit', {
       method: 'POST',
       body: {
         companyName: formData.companyName,
@@ -143,9 +149,13 @@ async function handleSubmit() {
         message: formData.message || undefined,
       },
     });
-    // Backend registers + promotes to ORGANIZATION + sets auth cookies,
-    // so the user is logged in. Redirect to portal with a ?applied=1
-    // query param which the pending-approval banner reads.
+    // Backend registers + promotes to ORGANIZATION + sets auth cookies.
+    // Populate the client auth store so the portal recognises the session
+    // without requiring a full page reload, then redirect with ?applied=1
+    // which the pending-approval banner reads.
+    if (response?.user) {
+      authStore.user = response.user;
+    }
     await router.push(`${localePath('/portal')}?applied=1`);
   } catch (err: unknown) {
     const status = (err as { statusCode?: number })?.statusCode;

@@ -339,8 +339,6 @@
     "invalid_email": "Please enter a valid email address.",
     "submit": "Submit application",
     "submitting": "Submitting…",
-    "success_title": "Application submitted",
-    "confirmation_message": "Application received. We'll get back to you within 1-2 business days.",
     "error_message": "Something went wrong. Please try again.",
     "too_many_attempts": "Too many attempts. Please try again later.",
     "country": "Country",

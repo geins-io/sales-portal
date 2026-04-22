@@ -339,8 +339,6 @@
     "invalid_email": "Ange en giltig e-postadress.",
     "submit": "Skicka ansökan",
     "submitting": "Skickar…",
-    "success_title": "Ansökan skickad",
-    "confirmation_message": "Ansökan mottagen. Vi hör av oss inom 1-2 arbetsdagar.",
     "error_message": "Något gick fel. Försök igen.",
     "too_many_attempts": "För många försök. Försök igen senare.",
     "country": "Land",
