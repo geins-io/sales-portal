@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ListsSession, FAVORITES_LIST_ID } from '@geins/crm';
+import type { ProductList } from '@geins/crm';
 import type { StorageInterface } from '@geins/core';
 
 class LocalStorageAdapter implements StorageInterface {
@@ -20,6 +21,13 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const items = ref<string[]>([]);
   const count = computed(() => items.value.length);
 
+  // All custom lists (excludes the built-in favorites list). Surfaces
+  // the ListsSession state reactively so the AddToListDialog can render
+  // + react to additions / removals without subscribing directly to the
+  // SDK session.
+  const lists = ref<ProductList[]>([]);
+  const favorites = ref<ProductList | null>(null);
+
   let session: ListsSession | null = null;
 
   function getSession(): ListsSession | null {
@@ -32,7 +40,16 @@ export const useFavoritesStore = defineStore('favorites', () => {
 
   function syncFromSession() {
     const s = getSession();
-    items.value = s ? s.favorites.items : [];
+    if (!s) {
+      items.value = [];
+      lists.value = [];
+      favorites.value = null;
+      return;
+    }
+    const fav = s.favorites;
+    favorites.value = fav;
+    items.value = fav.items;
+    lists.value = s.getLists().filter((l) => l.id !== FAVORITES_LIST_ID);
   }
 
   function initialize() {
@@ -78,14 +95,66 @@ export const useFavoritesStore = defineStore('favorites', () => {
     return items.value.includes(productId);
   }
 
+  // --- Custom list operations (backing the AddToListDialog) ---------------
+
+  /**
+   * Create a new custom list. Returns the created list, or null on
+   * server render / empty name. Sync happens before the return value
+   * so callers can immediately reference it in reactive state.
+   */
+  function createList(name: string): ProductList | null {
+    const trimmed = name.trim();
+    if (!trimmed) return null;
+    const s = getSession();
+    if (!s) return null;
+    const created = s.createList(trimmed);
+    syncFromSession();
+    return created;
+  }
+
+  /**
+   * Add a product to a specific list. Accepts the built-in favorites
+   * list id too, so the dialog can treat favorites uniformly.
+   */
+  function addItemToList(listId: string, productId: string) {
+    const s = getSession();
+    if (!s) return;
+    s.addItem(listId, productId);
+    syncFromSession();
+  }
+
+  /** Remove a product from a specific list. */
+  function removeItemFromList(listId: string, productId: string) {
+    const s = getSession();
+    if (!s) return;
+    s.removeItem(listId, productId);
+    syncFromSession();
+  }
+
+  /** IDs of all lists that currently contain `productId`. */
+  function productListIds(productId: string): string[] {
+    const s = getSession();
+    if (!s) return [];
+    return s
+      .getLists()
+      .filter((l) => l.items.includes(productId))
+      .map((l) => l.id);
+  }
+
   return {
     items,
     count,
+    lists,
+    favorites,
     initialize,
     toggle,
     add,
     remove,
     clear,
     isFavorite,
+    createList,
+    addItemToList,
+    removeItemFromList,
+    productListIds,
   };
 });

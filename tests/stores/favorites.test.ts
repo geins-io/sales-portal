@@ -14,6 +14,10 @@ const mockSession = {
   removeItem: vi.fn(),
   toggleFavorite: vi.fn<(id: string) => boolean>().mockReturnValue(true),
   clearItems: vi.fn(),
+  createList: vi.fn(),
+  getLists: vi
+    .fn<() => Array<{ id: string; items: string[] }>>()
+    .mockReturnValue([]),
   count: 0,
 };
 

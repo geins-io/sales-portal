@@ -360,6 +360,17 @@
     "pending_approval_body": "Ditt företagskonto väntar på godkännande. Vissa funktioner kan vara begränsade tills vidare.",
     "dismiss_banner": "Avfärda"
   },
+  "lists": {
+    "picker": {
+      "title": "Lägg till i lista",
+      "favorites": "Favoriter",
+      "create_new": "Skapa ny lista",
+      "list_name_placeholder": "Listnamn",
+      "create": "Skapa",
+      "cancel": "Avbryt",
+      "done": "Klar"
+    }
+  },
   "content": {
     "failed_to_load": "Det gick inte att ladda sidinnehållet.",
     "no_content": "Den här sidan har inget innehåll ännu."

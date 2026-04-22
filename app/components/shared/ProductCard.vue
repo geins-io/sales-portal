@@ -55,9 +55,11 @@ const isFavorited = computed(() => {
   return favoritesStore.isFavorite(props.product.alias);
 });
 
-function toggleFavorite() {
+const showListPicker = ref(false);
+
+function openListPicker() {
   if (!isLegacyProduct(props.product)) return;
-  favoritesStore.toggle(props.product.alias);
+  showListPicker.value = true;
 }
 
 const showPrice = computed(() => {
@@ -219,7 +221,7 @@ async function addToCart() {
           :data-favorited="isFavorited"
           class="shrink-0"
           :aria-label="t('product.wishlist')"
-          @click.prevent.stop="toggleFavorite"
+          @click.prevent.stop="openListPicker"
         >
           <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
         </Button>
@@ -451,5 +453,11 @@ async function addToCart() {
         </Button>
       </template>
     </div>
+
+    <AddToListDialog
+      v-if="isLegacyProduct(product)"
+      v-model:open="showListPicker"
+      :product-alias="product.alias"
+    />
   </div>
 </template>
