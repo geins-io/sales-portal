@@ -130,6 +130,18 @@ vi.mock('../app/composables/useTenant', () => {
       authentication: { enabled: true },
       cart: { enabled: true },
     },
+    cms: {
+      slots: {
+        portal_hero: {
+          family: 'Portal (Customer logged in)',
+          areaName: 'Above Content',
+        },
+        frontpage_content: {
+          family: 'Frontpage',
+          areaName: 'Content',
+        },
+      },
+    },
     locale: 'sv-SE',
     availableLocales: ['sv-SE'],
   });

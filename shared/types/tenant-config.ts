@@ -1,3 +1,5 @@
+import type { CmsSlotConfig, CmsSlotKey } from './cms-slots';
+
 export type {
   StoreSettings,
   ThemeColors,
@@ -79,6 +81,14 @@ export interface TenantConfig {
   // Features — keyed by feature name
   features: Record<string, { enabled: boolean; access?: FeatureAccess }>;
 
+  // CMS slot registry — see shared/types/cms-slots.ts for the design.
+  // Tenant config is the single source of truth; missing slots resolve
+  // to null and consumers fall back gracefully. Auto-provisioned dev
+  // tenants are seeded with Geins out-of-box names in server/utils/tenant.ts.
+  cms?: {
+    slots?: Partial<Record<CmsSlotKey, CmsSlotConfig>>;
+  };
+
   // Optional sections
   seo?: {
     defaultTitle?: string | null;
@@ -141,6 +151,7 @@ export interface PublicTenantConfig {
   theme: TenantConfig['theme'];
   branding: TenantConfig['branding'];
   features: TenantConfig['features'];
+  cms?: TenantConfig['cms'];
   seo?: TenantConfig['seo'];
   contact?: TenantConfig['contact'];
   css: string;

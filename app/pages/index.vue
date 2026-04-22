@@ -1,19 +1,30 @@
 <script setup lang="ts">
 import type { ContentAreaType } from '#shared/types/cms';
+import { CMS_SLOTS } from '#shared/types/cms-slots';
 
 const { currentLocale, currentMarket } = useLocaleMarket();
+
+// Resolve the frontpage CMS slot from tenant config. The slot is null
+// when the tenant has not configured it; the empty-state branch below
+// handles that case. See docs/patterns/cms-slots.md.
+const frontpageSlot = useCmsSlot(CMS_SLOTS.FRONTPAGE_CONTENT);
 
 const {
   data: area,
   error,
   status,
 } = useFetch<ContentAreaType>('/api/cms/area', {
-  query: computed(() => ({
-    family: 'Frontpage',
-    areaName: 'Content',
-    ...(currentLocale.value ? { locale: currentLocale.value } : {}),
-    ...(currentMarket.value ? { market: currentMarket.value } : {}),
-  })),
+  query: computed(() =>
+    frontpageSlot.value
+      ? {
+          family: frontpageSlot.value.family,
+          areaName: frontpageSlot.value.areaName,
+          ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+          ...(currentMarket.value ? { market: currentMarket.value } : {}),
+        }
+      : { skip: '1' },
+  ),
+  immediate: !!frontpageSlot.value,
   dedupe: 'defer',
 });
 </script>
