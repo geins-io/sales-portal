@@ -146,7 +146,7 @@ export function transformGeinsSettings(
  * Builds a TenantConfig from validated StoreSettings.
  * Derives colors, merges override features, generates CSS + hash.
  */
-function buildTenantConfig(settings: StoreSettings): TenantConfig {
+export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   const derivedColors = deriveThemeColors(settings.theme.colors);
 
   // Merge override features into base features
@@ -157,8 +157,10 @@ function buildTenantConfig(settings: StoreSettings): TenantConfig {
     }
   }
 
+  const themeName = settings.theme.name ?? settings.tenantId;
+
   const css = generateTenantCss(
-    settings.theme.name,
+    themeName,
     derivedColors,
     settings.theme.radius,
     settings.overrides?.css,
@@ -167,6 +169,7 @@ function buildTenantConfig(settings: StoreSettings): TenantConfig {
 
   const theme: TenantConfig['theme'] = {
     ...settings.theme,
+    name: themeName,
     colors: derivedColors,
   };
 

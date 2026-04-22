@@ -260,6 +260,43 @@ describe('StoreSettingsSchema', () => {
       expect(result.success).toBe(true);
     });
 
+    it('should accept a theme without `name` (merchant API dropped the field)', () => {
+      const withoutThemeName = {
+        tenantId: 'boattools',
+        hostname: 'boattools.litium.store',
+        geinsSettings: {
+          apiKey: 'key',
+          accountName: 'boattools',
+          channel: '1',
+          tld: 'se',
+          locale: 'sv-SE',
+          market: 'se',
+          environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
+        },
+        mode: 'commerce',
+        theme: {
+          colors: {
+            primary: 'oklch(0.55 0.03 235)',
+            primaryForeground: 'oklch(0.985 0 0)',
+            secondary: 'oklch(0.93 0.05 90)',
+            secondaryForeground: 'oklch(0.25 0.02 235)',
+            background: 'oklch(1 0 0)',
+            foreground: 'oklch(0.145 0 0)',
+          },
+          radius: '0.625rem',
+        },
+        branding: { name: 'BoatTools', watermark: 'minimal' },
+        features: {},
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+      const result = StoreSettingsSchema.safeParse(withoutThemeName);
+      expect(result.success).toBe(true);
+    });
+
     it('should validate minimal required config', () => {
       const minimal = {
         tenantId: 'test',

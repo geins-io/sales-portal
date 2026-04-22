@@ -277,6 +277,13 @@ export default defineNuxtConfig({
       verboseRequests: false,
     },
 
+    // When true, 500 responses include the error stack trace.
+    // Always off in production by default — flip to debug live incidents.
+    // Correlation ID + message + tenantId are surfaced regardless so
+    // support can trace any error via App Insights without this flag.
+    // Azure: NUXT_DEBUG_ERRORS=true
+    debugErrors: false,
+
     // ── Public Config (exposed to client) ───────────────────────────────────
     public: {
       // App metadata (typically not overridden)
@@ -314,6 +321,10 @@ export default defineNuxtConfig({
     compressPublicAssets: true,
     // Production optimizations
     minify: true,
+    // Replaces Nitro's default "Server Error" scrubber with one that
+    // surfaces the real message, correlation ID, tenantId, and stack
+    // (stack only when NUXT_DEBUG_ERRORS=true). See server/error.ts.
+    errorHandler: '~/server/error',
   },
 
   components: [

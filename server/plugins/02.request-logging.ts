@@ -138,6 +138,23 @@ export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook(
     'beforeResponse',
     (event: H3Event, response: ResponseObject) => {
+      // Always expose correlation + tenant IDs so support can look up
+      // any request in App Insights, not just failed ones. Set before
+      // the excluded-path bail so even skipped-from-logging requests
+      // (health checks, static assets) carry the correlation ID.
+      if (event.context.correlationId && !event.node.res.headersSent) {
+        event.node.res.setHeader(
+          'x-correlation-id',
+          event.context.correlationId,
+        );
+        if (event.context.tenant?.tenantId) {
+          event.node.res.setHeader(
+            'x-tenant-id',
+            event.context.tenant.tenantId,
+          );
+        }
+      }
+
       // Skip excluded paths
       if (shouldExcludePath(event.path)) {
         return;

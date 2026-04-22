@@ -60,7 +60,11 @@ export const ThemeTypographySchema = z.object({
 });
 
 export const ThemeConfigSchema = z.object({
-  name: z.string(),
+  // Cosmetic CSS selector label. Synthesized from tenantId in
+  // buildTenantConfig when the API omits it — the merchant API has
+  // started returning themes without this field and we don't want
+  // to hard-fail tenant resolution over a missing label.
+  name: z.string().optional(),
   displayName: z.string().nullable().optional(),
   colors: ThemeColorsSchema,
   radius: z.string().nullable().optional(),
