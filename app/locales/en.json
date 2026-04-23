@@ -458,6 +458,13 @@
     "quote_number": "Quote Number",
     "back_to_portal": "View Your Quotes"
   },
+  "frontpage": {
+    "fallback": {
+      "welcome": "Welcome",
+      "welcome_named": "Welcome to {brand}",
+      "subtitle": "Browse our products using the navigation above, or contact us if you need help finding what you're looking for."
+    }
+  },
   "portal": {
     "welcome": "Welcome {name}!",
     "customer_no": "Customer no: {id} / {email}",

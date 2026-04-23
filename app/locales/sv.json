@@ -458,6 +458,13 @@
     "quote_number": "Offertnummer",
     "back_to_portal": "Visa dina offerter"
   },
+  "frontpage": {
+    "fallback": {
+      "welcome": "Välkommen",
+      "welcome_named": "Välkommen till {brand}",
+      "subtitle": "Bläddra bland våra produkter via menyn ovan, eller kontakta oss om du behöver hjälp att hitta det du söker."
+    }
+  },
   "portal": {
     "welcome": "Välkommen {name}!",
     "customer_no": "Kundnr: {id} / {email}",
