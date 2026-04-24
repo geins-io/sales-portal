@@ -9,11 +9,10 @@ const { currentLocale, currentMarket } = useLocaleMarket();
 // handles that case. See docs/patterns/cms-slots.md.
 const frontpageSlot = useCmsSlot(CMS_SLOTS.FRONTPAGE_CONTENT);
 
-const {
-  data: area,
-  error,
-  status,
-} = useFetch<ContentAreaType>('/api/cms/area', {
+// Note: `error` is intentionally not destructured. The FrontpageFallback
+// v-else handles both the unconfigured-slot case and the fetch-error
+// case uniformly — we don't branch on error state separately.
+const { data: area, status } = useFetch<ContentAreaType>('/api/cms/area', {
   query: computed(() =>
     frontpageSlot.value
       ? {
@@ -41,11 +40,14 @@ const {
     >
       <div class="bg-muted size-8 animate-pulse rounded-full" />
     </div>
-    <div
-      v-else-if="error"
-      class="text-muted-foreground flex min-h-[50vh] items-center justify-center"
-    >
-      <p>Unable to load page content.</p>
-    </div>
+    <!--
+      Fallback is rendered when:
+        - the tenant has no FRONTPAGE_CONTENT slot configured, OR
+        - the slot resolves but the area has no containers, OR
+        - the /api/cms/area fetch errors out.
+      A blank `<div>` on the storefront landing page is a blocker for
+      tenants that haven't wired CMS yet — never ship empty here.
+    -->
+    <FrontpageFallback v-else />
   </div>
 </template>

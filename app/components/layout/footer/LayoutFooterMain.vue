@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { NuxtLink } from '#components';
 import type { MenuItemType } from '#shared/types/cms';
-import { MENU_LOCATION } from '#shared/constants/cms';
+import { CMS_MENUS } from '#shared/constants/cms';
 import {
   normalizeMenuUrl,
   getMenuLabel,
@@ -11,7 +11,10 @@ import {
   addCategoryPrefix,
 } from '#shared/utils/menu';
 
-const { menu } = useMenuData(MENU_LOCATION.FOOTER);
+// Resolves the menuLocationId from `tenant.cms.menus[FOOTER]`.
+// When unconfigured, the footer link block is hidden but the layout's
+// surrounding branding / copyright remain.
+const { menu } = useCmsMenuData(CMS_MENUS.FOOTER);
 const currentHost = computed(() => useRequestURL().host);
 const { localePath } = useLocaleMarket();
 

@@ -1,4 +1,5 @@
 import type { CmsSlotConfig, CmsSlotKey } from './cms-slots';
+import type { CmsMenuConfig, CmsMenuKey } from '../constants/cms';
 
 export type {
   StoreSettings,
@@ -81,12 +82,14 @@ export interface TenantConfig {
   // Features — keyed by feature name
   features: Record<string, { enabled: boolean; access?: FeatureAccess }>;
 
-  // CMS slot registry — see shared/types/cms-slots.ts for the design.
-  // Tenant config is the single source of truth; missing slots resolve
-  // to null and consumers fall back gracefully. Auto-provisioned dev
-  // tenants are seeded with Geins out-of-box names in server/utils/tenant.ts.
+  // CMS slot + menu registry — see docs/patterns/cms-config.md for the
+  // design. Tenant config is the single source of truth; missing slots
+  // and menus resolve to null and consumers fall back gracefully.
+  // Auto-provisioned dev tenants are seeded with Geins out-of-box names
+  // in server/utils/tenant.ts.
   cms?: {
     slots?: Partial<Record<CmsSlotKey, CmsSlotConfig>>;
+    menus?: Partial<Record<CmsMenuKey, CmsMenuConfig>>;
   };
 
   // Optional sections

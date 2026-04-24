@@ -38,6 +38,24 @@ export const CMS_SLOTS = {
   PORTAL_HERO: 'portal_hero',
   /** Main content area on the unauthenticated storefront landing page. */
   FRONTPAGE_CONTENT: 'frontpage_content',
+  /**
+   * CMS area rendered above the product grid on category PLPs.
+   * Not yet consumed by `pages/c/[...category].vue` — registered here
+   * so tenants can pre-configure the mapping before the consumer ships.
+   */
+  PRODUCT_LIST_TOP: 'product_list_top',
+  /**
+   * CMS area rendered below the product grid on category PLPs.
+   * Not yet consumed by `pages/c/[...category].vue` — registered here
+   * so tenants can pre-configure the mapping before the consumer ships.
+   */
+  PRODUCT_LIST_BOTTOM: 'product_list_bottom',
+  /**
+   * CMS area rendered on product detail pages (PDP).
+   * Not yet consumed by `ProductDetails.vue` — registered here so
+   * tenants can pre-configure the mapping before the consumer ships.
+   */
+  PRODUCT_DETAIL: 'product_detail',
 } as const;
 
 export type CmsSlotKey = (typeof CMS_SLOTS)[keyof typeof CMS_SLOTS];

@@ -5,6 +5,8 @@ import type {
   ProductListResponse,
   ProductFiltersResponse,
 } from '#shared/types/commerce';
+import type { ContentAreaType } from '#shared/types/cms';
+import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { Package as PackageIcon } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useDebounceFn } from '@vueuse/core';
@@ -264,10 +266,55 @@ function removeFilter(facetId: string, valueId: string) {
 function clearAllFilters() {
   filterState.value = {};
 }
+
+// --- CMS zones above + below the product grid ---
+// Rendered only when the tenant has configured the slot AND the area
+// returns at least one container. A missing slot or empty area simply
+// omits the zone; the product grid itself is the primary content and
+// still renders regardless. Uses the existing `currentLocale` /
+// `currentMarket` destructured above.
+const topSlot = useCmsSlot(CMS_SLOTS.PRODUCT_LIST_TOP);
+const bottomSlot = useCmsSlot(CMS_SLOTS.PRODUCT_LIST_BOTTOM);
+
+function buildAreaQuery(slot: typeof topSlot) {
+  return computed(() =>
+    slot.value
+      ? {
+          family: slot.value.family,
+          areaName: slot.value.areaName,
+          ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+          ...(currentMarket.value ? { market: currentMarket.value } : {}),
+        }
+      : { skip: '1' },
+  );
+}
+
+const { data: topArea } = useFetch<ContentAreaType>('/api/cms/area', {
+  query: buildAreaQuery(topSlot),
+  immediate: !!topSlot.value,
+  dedupe: 'defer',
+  lazy: true,
+});
+
+const { data: bottomArea } = useFetch<ContentAreaType>('/api/cms/area', {
+  query: buildAreaQuery(bottomSlot),
+  immediate: !!bottomSlot.value,
+  dedupe: 'defer',
+  lazy: true,
+});
 </script>
 
 <template>
   <div class="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-8">
+    <!-- CMS zone above the product grid (tenant-configurable via
+         CMS_SLOTS.PRODUCT_LIST_TOP). Omitted if slot unconfigured or
+         area empty. -->
+    <CmsWidgetArea
+      v-if="topArea?.containers?.length"
+      data-testid="plp-cms-top"
+      :containers="topArea.containers"
+    />
+
     <!-- Header: breadcrumbs, title, description, sub-categories -->
     <ProductListHeader
       :page-info="pageInfo ?? null"
@@ -363,5 +410,14 @@ function clearAllFilters() {
         @update:current-page="onPageChange"
       />
     </div>
+
+    <!-- CMS zone below the product grid (tenant-configurable via
+         CMS_SLOTS.PRODUCT_LIST_BOTTOM). Omitted if unconfigured or
+         empty. -->
+    <CmsWidgetArea
+      v-if="bottomArea?.containers?.length"
+      data-testid="plp-cms-bottom"
+      :containers="bottomArea.containers"
+    />
   </div>
 </template>

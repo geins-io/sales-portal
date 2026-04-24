@@ -14,6 +14,7 @@ import {
   stripLocaleMarketPrefix,
 } from '#shared/utils/locale-market';
 import type { ContentPageType } from '#shared/types/cms';
+import { CMS_MENUS } from '#shared/constants/cms';
 
 const route = useRoute();
 
@@ -74,8 +75,18 @@ useHead(
 );
 
 const hasSidebar = computed(() => page.value?.tags?.includes('menu') ?? false);
-const sidebarMenuId = computed(
-  () => page.value?.pageArea?.name || 'info-pages',
+
+// Sidebar menu resolution: prefer the per-page declared `pageArea.name`
+// (dynamic, page-specific). Fall back to the tenant-configured
+// `SIDEBAR_FALLBACK` menu when the page is silent. If neither is set,
+// return null — `PageSidebarNav` handles the null-menu case by
+// rendering nothing.
+const sidebarFallbackMenu = useCmsMenu(CMS_MENUS.SIDEBAR_FALLBACK);
+const sidebarMenuId = computed<string | null>(
+  () =>
+    page.value?.pageArea?.name ||
+    sidebarFallbackMenu.value?.menuLocationId ||
+    null,
 );
 </script>
 
@@ -112,7 +123,7 @@ const sidebarMenuId = computed(
       class="mx-auto max-w-7xl px-4 py-8 lg:px-8"
     >
       <div class="md:flex md:gap-8">
-        <ErrorBoundary section="sidebar-nav">
+        <ErrorBoundary v-if="sidebarMenuId" section="sidebar-nav">
           <PageSidebarNav
             :menu-location-id="sidebarMenuId"
             class="mb-6 md:mb-0 md:w-56 md:shrink-0"

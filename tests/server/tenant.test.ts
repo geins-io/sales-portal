@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 import {
   tenantIdKey,
   tenantConfigKey,
   collectAllHostnames,
   buildTenantConfig,
+  writeHostnameMappings,
 } from '../../server/utils/tenant';
 import {
   createDefaultTheme,
@@ -19,6 +21,19 @@ import type {
   StoreSettings,
 } from '../../server/schemas/store-settings';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
+
+// Mock logger BEFORE importing tenant utils so the defensive-code
+// warn() calls go to our spy. vi.hoisted so the ref exists when
+// vi.mock's factory runs (factories are hoisted above module imports).
+const { mockLoggerWarn } = vi.hoisted(() => ({ mockLoggerWarn: vi.fn() }));
+vi.mock('../../server/utils/logger', () => ({
+  logger: {
+    warn: mockLoggerWarn,
+    error: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
 
 describe('Tenant utilities', () => {
   describe('tenantIdKey', () => {
@@ -354,6 +369,119 @@ describe('Tenant utilities', () => {
       });
       expect(built.theme.name).toBe('ocean');
       expect(built.css).toContain("[data-theme='ocean']");
+    });
+  });
+
+  describe('writeHostnameMappings — duplicate hostname guard', () => {
+    // In-memory storage shim that mimics the subset of useStorage
+    // actually used by writeHostnameMappings (getItem + setItem).
+    function makeStorage() {
+      const data = new Map<string, unknown>();
+      return {
+        getItem: <T = unknown>(k: string) =>
+          Promise.resolve((data.get(k) ?? null) as T | null),
+        setItem: (k: string, v: unknown) => {
+          data.set(k, v);
+          return Promise.resolve();
+        },
+        data,
+      };
+    }
+
+    function makeConfigWithHostnames(
+      tenantId: string,
+      hostname: string,
+      aliases: string[] = [],
+    ): TenantConfig {
+      return {
+        tenantId,
+        hostname,
+        aliases,
+        mode: 'commerce',
+        checkoutMode: 'hosted',
+        theme: { name: tenantId, colors: {} as ThemeColors },
+        css: '',
+        branding: { name: tenantId, watermark: 'minimal' },
+        features: {},
+        isActive: true,
+        createdAt: '',
+        updatedAt: '',
+        // geinsSettings omitted (not used here)
+      } as unknown as TenantConfig;
+    }
+
+    beforeEach(() => {
+      mockLoggerWarn.mockClear();
+    });
+
+    it('writes mappings for every hostname + alias in the config', async () => {
+      const storage = makeStorage();
+      const config = makeConfigWithHostnames('tenant-a', 'a.example.com', [
+        'a.alt.com',
+      ]);
+      await writeHostnameMappings(
+        storage as unknown as ReturnType<
+          typeof import('nitropack/runtime').useStorage
+        >,
+        config,
+      );
+      expect(storage.data.get(tenantIdKey('a.example.com'))).toBe('tenant-a');
+      expect(storage.data.get(tenantIdKey('a.alt.com'))).toBe('tenant-a');
+      expect(mockLoggerWarn).not.toHaveBeenCalled();
+    });
+
+    it('does NOT warn when re-writing the same tenantId to the same hostname', async () => {
+      const storage = makeStorage();
+      const config = makeConfigWithHostnames('tenant-a', 'a.example.com');
+      await writeHostnameMappings(
+        storage as unknown as ReturnType<
+          typeof import('nitropack/runtime').useStorage
+        >,
+        config,
+      );
+      await writeHostnameMappings(
+        storage as unknown as ReturnType<
+          typeof import('nitropack/runtime').useStorage
+        >,
+        config,
+      );
+      expect(mockLoggerWarn).not.toHaveBeenCalled();
+    });
+
+    it('warns when a hostname is remapped to a DIFFERENT tenantId', async () => {
+      const storage = makeStorage();
+      const configA = makeConfigWithHostnames('tenant-a', 'shared.example.com');
+      const configB = makeConfigWithHostnames('tenant-b', 'shared.example.com');
+
+      await writeHostnameMappings(
+        storage as unknown as ReturnType<
+          typeof import('nitropack/runtime').useStorage
+        >,
+        configA,
+      );
+      expect(mockLoggerWarn).not.toHaveBeenCalled();
+
+      await writeHostnameMappings(
+        storage as unknown as ReturnType<
+          typeof import('nitropack/runtime').useStorage
+        >,
+        configB,
+      );
+      expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+      const [msg, meta] = mockLoggerWarn.mock.calls[0]!;
+      expect(msg).toContain('shared.example.com');
+      expect(msg).toContain('tenant-a');
+      expect(msg).toContain('tenant-b');
+      expect(meta).toMatchObject({
+        hostname: 'shared.example.com',
+        previousTenantId: 'tenant-a',
+        newTenantId: 'tenant-b',
+      });
+
+      // Last-writer-wins: the KV is now pointing at tenant-b.
+      expect(storage.data.get(tenantIdKey('shared.example.com'))).toBe(
+        'tenant-b',
+      );
     });
   });
 });
