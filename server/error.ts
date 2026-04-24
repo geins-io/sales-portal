@@ -37,6 +37,23 @@ const errorHandler: NitroErrorHandler = (error, event) => {
   const hostname = event.context.tenant?.hostname;
   const message = error.message || statusMessage;
 
+  // "Tenant not provisioned" detection:
+  //   1. No tenantId was ever attached to the event context — tenant
+  //      resolution either never ran or failed early.
+  //   2. The downstream error is `@nuxtjs/i18n`'s server-context
+  //      crash, which only fires when Nuxt tried to render error.vue
+  //      for an earlier thrown error before the i18n middleware
+  //      initialised the per-request context.
+  //
+  // When both hold, the actual root cause is that the tenant isn't
+  // in the merchant API yet — a config problem, not a code crash.
+  // Swap the user-facing copy to something meaningful; keep the raw
+  // message in the diagnostics block for support.
+  const isTenantNotProvisioned =
+    !tenantId &&
+    typeof message === 'string' &&
+    message.includes('Nuxt I18n server context has not been set up');
+
   if (statusCode >= 500) {
     logger.error(
       `[error-handler] ${event.method ?? 'GET'} ${event.path} → ${statusCode}`,
@@ -68,6 +85,7 @@ const errorHandler: NitroErrorHandler = (error, event) => {
         tenantId,
         hostname,
         stack: debugErrors ? error.stack : undefined,
+        isTenantNotProvisioned,
       }),
     );
     return;
@@ -118,6 +136,13 @@ export interface ErrorHtmlInput {
   tenantId: string | undefined;
   hostname: string | undefined;
   stack?: string;
+  /**
+   * When true, overrides the 5xx "Something went wrong" copy with a
+   * clean "store not yet configured" message. Used when the error
+   * chain indicates the tenant isn't in the merchant API yet — a
+   * provisioning step, not a runtime crash the user caused.
+   */
+  isTenantNotProvisioned?: boolean;
 }
 
 /**
@@ -143,21 +168,28 @@ export function renderErrorHtml(input: ErrorHtmlInput): string {
     tenantId,
     hostname,
     stack,
+    isTenantNotProvisioned,
   } = input;
 
   const is404 = statusCode === 404;
   const is500 = statusCode >= 500 && statusCode < 600;
 
-  const friendlyTitle = is404
-    ? 'Page not found'
-    : is500
-      ? 'Something went wrong'
-      : statusMessage || 'Error';
-  const friendlyDescription = is404
-    ? 'The page you are looking for does not exist or has been moved.'
-    : is500
-      ? 'We hit an unexpected error. The technical team has been notified.'
-      : 'Please try again, or head back to the home page.';
+  // Tenant-not-provisioned takes precedence over the generic 5xx copy —
+  // same status code, cleaner message.
+  const friendlyTitle = isTenantNotProvisioned
+    ? 'Store not yet available'
+    : is404
+      ? 'Page not found'
+      : is500
+        ? 'Something went wrong'
+        : statusMessage || 'Error';
+  const friendlyDescription = isTenantNotProvisioned
+    ? 'This store is being configured. Please check back soon.'
+    : is404
+      ? 'The page you are looking for does not exist or has been moved.'
+      : is500
+        ? 'We hit an unexpected error. The technical team has been notified.'
+        : 'Please try again, or head back to the home page.';
 
   // Only show the raw error message when it's distinct from the
   // friendly copy — avoids "Something went wrong / Something went wrong".

@@ -396,4 +396,60 @@ describe('errorHandler (Nitro integration)', () => {
     run(event, err);
     expect(errorSpy).not.toHaveBeenCalled();
   });
+
+  // "Tenant not provisioned" is the chain we see when a hostname hits
+  // the storefront but the merchant API doesn't have a record for it.
+  // Plugin 02 throws 404, Nuxt tries to render error.vue, the render
+  // crashes in @nuxtjs/i18n (no per-request context set up), Nitro's
+  // error handler fires with the i18n crash as `error`. We detect the
+  // chain and show a friendly "store not yet configured" page instead
+  // of the raw technical message.
+  it('shows "Store not yet available" when tenant context never resolved AND message is the i18n crash', () => {
+    const event = makeEvent({
+      accept: 'text/html',
+      tenantId: null,
+      hostname: null,
+    });
+    const err = Object.assign(
+      new Error('Nuxt I18n server context has not been set up yet.'),
+      { statusCode: 500 },
+    );
+    run(event, err);
+
+    expect(event.node.res.body).toContain('Store not yet available');
+    expect(event.node.res.body).toContain('This store is being configured');
+    // Raw message still visible in the diagnostics block for support.
+    expect(event.node.res.body).toContain(
+      'Nuxt I18n server context has not been set up yet.',
+    );
+  });
+
+  it('does NOT swap copy when the tenant IS resolved (real crash, not provisioning)', () => {
+    // tenantId default is 'boattools' via makeEvent — this is the case
+    // where a known tenant's page render legitimately failed.
+    const event = makeEvent({ accept: 'text/html' });
+    const err = Object.assign(
+      new Error('Nuxt I18n server context has not been set up yet.'),
+      { statusCode: 500 },
+    );
+    run(event, err);
+
+    expect(event.node.res.body).toContain('Something went wrong');
+    expect(event.node.res.body).not.toContain('Store not yet available');
+  });
+
+  it('does NOT swap copy when tenant is missing but message is unrelated', () => {
+    const event = makeEvent({
+      accept: 'text/html',
+      tenantId: null,
+      hostname: null,
+    });
+    const err = Object.assign(new Error('database unreachable'), {
+      statusCode: 500,
+    });
+    run(event, err);
+
+    expect(event.node.res.body).toContain('Something went wrong');
+    expect(event.node.res.body).not.toContain('Store not yet available');
+  });
 });
