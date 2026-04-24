@@ -84,7 +84,11 @@
     "search_products": "Search products…",
     "overview": "Overview",
     "orders": "Orders",
-    "sidebar_navigation": "Page navigation"
+    "sidebar_navigation": "Page navigation",
+    "fallback": {
+      "contact": "Contact",
+      "about": "About"
+    }
   },
   "cart": {
     "title": "Cart",
@@ -457,6 +461,13 @@
     "confirmation_message": "Your quote request has been submitted. We will review it and get back to you shortly.",
     "quote_number": "Quote Number",
     "back_to_portal": "View Your Quotes"
+  },
+  "frontpage": {
+    "fallback": {
+      "welcome": "Welcome",
+      "welcome_named": "Welcome to {brand}",
+      "subtitle": "Browse our products using the navigation above, or contact us if you need help finding what you're looking for."
+    }
   },
   "portal": {
     "welcome": "Welcome {name}!",

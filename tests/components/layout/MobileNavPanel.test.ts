@@ -5,11 +5,15 @@ import MobileNavPanel from '../../../app/components/layout/MobileNavPanel.vue';
 import type { MenuType } from '@geins/types';
 
 const mockMenu = ref<MenuType | null>(null);
-vi.mock('~/composables/useMenuData', () => ({
-  useMenuData: () => ({
+// MobileNavPanel migrated to useCmsMenuData (tenant-config-keyed menu
+// resolver). The component now resolves menuLocationId from tenant
+// config via CMS_MENUS.MOBILE_DRAWER. Mock the new composable.
+vi.mock('~/composables/useCmsMenuData', () => ({
+  useCmsMenuData: () => ({
     menu: mockMenu,
     pending: ref(false),
     error: ref(null),
+    isConfigured: ref(true),
   }),
 }));
 

@@ -5,6 +5,8 @@ import type {
   ListProduct,
 } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
+import type { ContentAreaType } from '#shared/types/cms';
+import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import { AlertTriangle as AlertTriangleIcon, Star } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
@@ -110,6 +112,29 @@ function openListPicker() {
 const showPrice = computed(() => {
   if (!hasFeature('pricing')) return true;
   return canAccess('pricing');
+});
+
+// --- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL) ---
+// Rendered below the related-products row when the slot is configured
+// and the area has content. Missing slot or empty area simply omits
+// the zone — product info is the primary content.
+const { currentLocale, currentMarket } = useLocaleMarket();
+const pdpSlot = useCmsSlot(CMS_SLOTS.PRODUCT_DETAIL);
+
+const { data: pdpCmsArea } = useFetch<ContentAreaType>('/api/cms/area', {
+  query: computed(() =>
+    pdpSlot.value
+      ? {
+          family: pdpSlot.value.family,
+          areaName: pdpSlot.value.areaName,
+          ...(currentLocale.value ? { locale: currentLocale.value } : {}),
+          ...(currentMarket.value ? { market: currentMarket.value } : {}),
+        }
+      : { skip: '1' },
+  ),
+  immediate: !!pdpSlot.value,
+  dedupe: 'defer',
+  lazy: true,
 });
 
 async function addToCart() {
@@ -405,6 +430,14 @@ useSchemaOrg([
     <ErrorBoundary section="related-products">
       <RelatedProducts v-if="related?.length" :products="related" />
     </ErrorBoundary>
+
+    <!-- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL).
+         Omitted when unconfigured or empty. -->
+    <CmsWidgetArea
+      v-if="pdpCmsArea?.containers?.length"
+      data-testid="pdp-cms-area"
+      :containers="pdpCmsArea.containers"
+    />
 
     <AddToListDialog
       v-if="product"

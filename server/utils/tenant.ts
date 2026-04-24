@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3';
 import type { TenantConfig } from '#shared/types/tenant-config';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
+import { CMS_MENUS } from '#shared/constants/cms';
 import type { StoreSettings, GeinsSettings } from '../schemas/store-settings';
 import { StoreSettingsSchema } from '../schemas/store-settings';
 import { deriveThemeColors } from './theme';
@@ -99,6 +100,12 @@ export function collectAllHostnames(config: TenantConfig): Set<string> {
 
 /**
  * Writes hostname → tenantId mappings for all hostnames in the config.
+ *
+ * Logs a loud warning when a hostname is being remapped from one
+ * tenantId to another — this usually means two merchant-API tenant
+ * configs claim the same alias (tenant misconfiguration, e.g. a copy
+ * paste bug in the admin). We still perform the write so recoverable
+ * reconfigurations work, but the warning makes the misconfig visible.
  */
 export async function writeHostnameMappings(
   storage: ReturnType<typeof useStorage>,
@@ -107,7 +114,17 @@ export async function writeHostnameMappings(
   const hostnames = collectAllHostnames(config);
   const tid = config.tenantId;
   await Promise.all(
-    [...hostnames].map((h) => storage.setItem(tenantIdKey(h), tid)),
+    [...hostnames].map(async (h) => {
+      const existing = await storage.getItem<string>(tenantIdKey(h));
+      if (existing && existing !== tid) {
+        logger.warn(
+          `[tenant] Hostname "${h}" remapped ${existing} → ${tid}. ` +
+            `Two tenant configs may claim the same alias.`,
+          { hostname: h, previousTenantId: existing, newTenantId: tid },
+        );
+      }
+      await storage.setItem(tenantIdKey(h), tid);
+    }),
   );
 }
 
@@ -261,9 +278,10 @@ export async function fetchTenantConfig(
         cart: { enabled: true },
         wishlist: { enabled: true },
       },
-      // Seed the CMS slot registry with the Geins out-of-box collection
-      // names so dev/auto-provisioned tenants work without extra config.
-      // Production tenants override or add slots via Merchant Center sync.
+      // Seed the CMS slot + menu registry with the Geins out-of-box
+      // names so dev / auto-provisioned tenants work without extra
+      // config. Production tenants override or add entries via their
+      // stored config (tenant config is the single source of truth).
       cms: {
         slots: {
           [CMS_SLOTS.PORTAL_HERO]: {
@@ -274,6 +292,12 @@ export async function fetchTenantConfig(
             family: 'Frontpage',
             areaName: 'Content',
           },
+        },
+        menus: {
+          [CMS_MENUS.HEADER_MAIN]: { menuLocationId: 'main' },
+          [CMS_MENUS.FOOTER]: { menuLocationId: 'footer' },
+          [CMS_MENUS.MOBILE_DRAWER]: { menuLocationId: 'main' },
+          [CMS_MENUS.SIDEBAR_FALLBACK]: { menuLocationId: 'info-pages' },
         },
       },
       isActive: true,
@@ -343,7 +367,26 @@ export async function resolveTenant(
 
   if (tenantId) {
     const config = await getTenantById(tenantId);
-    if (config) return config;
+    if (config) {
+      // Defensive re-validation: make sure the config we loaded actually
+      // claims the hostname we were asked about. If two tenants claimed
+      // the same alias at some point, the KV entry for that hostname may
+      // still point at the WRONG tenantId even after the merchant admin
+      // corrected the alias — nothing invalidates stale mappings.
+      //
+      // Re-validating here lets us self-heal: delete the bad KV key,
+      // fall through to the fresh merchant-API fetch, which writes the
+      // correct mapping. Costs one Set membership check per cache hit.
+      const claimed = collectAllHostnames(config);
+      if (claimed.has(hostname)) return config;
+      logger.warn(
+        `[tenant] Stale hostname mapping: "${hostname}" → "${tenantId}" ` +
+          `but that tenant no longer claims the hostname. Busting KV and ` +
+          `re-fetching.`,
+        { hostname, staleTenantId: tenantId },
+      );
+      await storage.removeItem(tenantIdKey(hostname));
+    }
   }
 
   // Backwards compat: check for legacy tenant:config:{hostname}

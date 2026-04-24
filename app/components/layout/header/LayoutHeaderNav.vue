@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { NuxtLink } from '#components';
 import type { MenuItemType } from '#shared/types/cms';
-import { MENU_LOCATION } from '#shared/constants/cms';
+import { CMS_MENUS } from '#shared/constants/cms';
 import {
   normalizeMenuUrl,
   getMenuLabel,
@@ -18,7 +18,10 @@ import {
   NavigationMenuTrigger,
 } from '~/components/ui/navigation-menu';
 
-const { menu } = useMenuData(MENU_LOCATION.MAIN);
+// Resolves the menuLocationId from `tenant.cms.menus[HEADER_MAIN]`.
+// Falls back gracefully to "no nav bar shown" when the tenant hasn't
+// configured the slot — the header still has the logo + search + cart.
+const { menu } = useCmsMenuData(CMS_MENUS.HEADER_MAIN);
 const currentHost = computed(() => useRequestURL().host);
 const { localePath } = useLocaleMarket();
 

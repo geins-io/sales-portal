@@ -12,7 +12,7 @@ import {
   AccordionContent,
 } from '~/components/ui/accordion';
 import type { MenuItemType } from '#shared/types/cms';
-import { MENU_LOCATION } from '#shared/constants/cms';
+import { CMS_MENUS } from '#shared/constants/cms';
 import {
   normalizeMenuUrl,
   getMenuLabel,
@@ -25,7 +25,9 @@ const appStore = useAppStore();
 const authStore = useAuthStore();
 const route = useRoute();
 
-const { menu } = useMenuData(MENU_LOCATION.MAIN);
+// Same source as the header nav — falls back to "no items, drawer shows
+// only account + auth links" when the tenant hasn't configured.
+const { menu } = useCmsMenuData(CMS_MENUS.MOBILE_DRAWER);
 const currentHost = computed(() => useRequestURL().host);
 const { localePath } = useLocaleMarket();
 

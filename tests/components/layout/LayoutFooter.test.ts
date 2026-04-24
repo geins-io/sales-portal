@@ -7,11 +7,14 @@ import LayoutFooterMain from '../../../app/components/layout/footer/LayoutFooter
 import LayoutFooterBottom from '../../../app/components/layout/footer/LayoutFooterBottom.vue';
 
 const mockFooterMenu = ref<MenuType | null>(null);
-vi.mock('~/composables/useMenuData', () => ({
-  useMenuData: () => ({
+// LayoutFooterMain migrated to useCmsMenuData (tenant-config-keyed menu
+// resolver). We mock that instead of the older useMenuData.
+vi.mock('~/composables/useCmsMenuData', () => ({
+  useCmsMenuData: () => ({
     menu: mockFooterMenu,
     pending: ref(false),
     error: ref(null),
+    isConfigured: ref(true),
   }),
 }));
 vi.stubGlobal('useRequestURL', () => new URL('https://test.example.com'));

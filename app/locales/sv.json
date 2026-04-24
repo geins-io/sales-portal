@@ -84,7 +84,11 @@
     "search_products": "Sök produkter…",
     "overview": "Översikt",
     "orders": "Beställningar",
-    "sidebar_navigation": "Sidnavigering"
+    "sidebar_navigation": "Sidnavigering",
+    "fallback": {
+      "contact": "Kontakt",
+      "about": "Om oss"
+    }
   },
   "cart": {
     "title": "Varukorg",
@@ -457,6 +461,13 @@
     "confirmation_message": "Din offertförfrågan har skickats. Vi granskar den och återkommer till dig inom kort.",
     "quote_number": "Offertnummer",
     "back_to_portal": "Visa dina offerter"
+  },
+  "frontpage": {
+    "fallback": {
+      "welcome": "Välkommen",
+      "welcome_named": "Välkommen till {brand}",
+      "subtitle": "Bläddra bland våra produkter via menyn ovan, eller kontakta oss om du behöver hjälp att hitta det du söker."
+    }
   },
   "portal": {
     "welcome": "Välkommen {name}!",
