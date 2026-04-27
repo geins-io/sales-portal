@@ -804,29 +804,16 @@
     "saved_list_detail": {
       "title": "Saved list",
       "back_to_lists": "Back to saved lists",
-      "list_name_label": "List name",
-      "name_placeholder": "List name",
-      "description_placeholder": "Add a description...",
-      "list_total_label": "List Total",
-      "total_subtitle": "Sum for all products in list",
-      "columns": {
-        "product": "Product",
-        "article_number": "Art. nr",
-        "price": "Price",
-        "quantity": "Quantity",
-        "total": "Total",
-        "actions": ""
-      },
-      "total_sum": "Total",
-      "add_to_cart": "Add all to cart",
+      "item_count": "{count} item | {count} items",
+      "no_items": "This list has no items yet. Add products from the catalogue to start.",
+      "not_found": "This list no longer exists or hasn't been created on this device.",
+      "add_all_to_cart": "Add all to cart",
+      "rename_list": "Rename",
+      "rename_description": "Pick a new name for this list.",
+      "rename_save": "Save",
       "delete_list": "Delete list",
-      "delete_confirm": "Are you sure you want to delete this list?",
-      "empty_list": "This list has no items yet",
-      "saved": "Changes saved",
-      "deleted": "List deleted",
-      "increase_quantity": "Increase quantity",
-      "decrease_quantity": "Decrease quantity",
-      "remove_item": "Remove item"
+      "delete_confirm": "This will permanently delete the list and all its items. You can't undo this.",
+      "remove_item": "Remove from list"
     },
     "saved_lists": {
       "title": "Saved lists",
@@ -852,6 +839,9 @@
         "description_placeholder": "Enter description",
         "submit": "Create",
         "cancel": "Cancel"
+      },
+      "row_actions": {
+        "edit": "Edit"
       }
     }
   },

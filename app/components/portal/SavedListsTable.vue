@@ -1,17 +1,29 @@
 <script setup lang="ts">
-import type { SavedList } from '#shared/types/saved-list';
+import type { ProductList } from '@geins/crm';
+import { useAuthStore } from '~/stores/auth';
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
+const authStore = useAuthStore();
 
 defineProps<{
-  lists: SavedList[];
+  lists: ProductList[];
 }>();
 
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '-';
+// Lists live in the current browser's localStorage, so the only person
+// who can have created them is the currently authenticated user. Show
+// their display name in the "Created by" column to mirror Figma.
+// Falls back to "—" when the auth store hasn't populated yet.
+const currentUserName = computed(
+  () => authStore.displayName || authStore.user?.username || '—',
+);
+
+// SDK ProductList stores `updatedAt` as a numeric epoch (Date.now()),
+// not a string. Format defensively in case the SDK shape changes.
+function formatDate(value: number | string | undefined): string {
+  if (value == null) return '-';
   try {
-    return new Date(dateStr).toLocaleDateString('sv-SE', {
+    return new Date(value).toLocaleDateString('sv-SE', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -19,7 +31,7 @@ function formatDate(dateStr: string | null | undefined): string {
       minute: '2-digit',
     });
   } catch {
-    return dateStr;
+    return String(value);
   }
 }
 </script>
@@ -42,12 +54,15 @@ function formatDate(dateStr: string | null | undefined): string {
             class="text-muted-foreground size-4"
           />
         </div>
-        <div class="text-muted-foreground flex gap-4 text-sm">
+        <div
+          class="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-sm"
+        >
+          <span>{{ currentUserName }}</span>
+          <span>{{ formatDate(list.updatedAt) }}</span>
           <span
             >{{ list.items?.length ?? 0 }}
             {{ t('portal.saved_lists.columns.products').toLowerCase() }}</span
           >
-          <span>{{ formatDate(list.updatedAt) }}</span>
         </div>
       </NuxtLink>
     </div>
@@ -56,9 +71,6 @@ function formatDate(dateStr: string | null | undefined): string {
     <table class="hidden w-full text-sm md:table">
       <thead>
         <tr class="border-border border-b text-left">
-          <th class="text-muted-foreground py-3 pr-4 font-medium">
-            {{ t('portal.saved_lists.columns.id') }}
-          </th>
           <th class="text-muted-foreground py-3 pr-4 font-medium">
             {{ t('portal.saved_lists.columns.name') }}
           </th>
@@ -71,9 +83,10 @@ function formatDate(dateStr: string | null | undefined): string {
           <th class="text-muted-foreground py-3 pr-4 font-medium">
             {{ t('portal.saved_lists.columns.products') }}
           </th>
-          <th class="text-muted-foreground py-3 font-medium">
-            {{ t('portal.saved_lists.columns.actions') }}
-          </th>
+          <th
+            class="text-muted-foreground py-3 text-right font-medium"
+            aria-label=""
+          />
         </tr>
       </thead>
       <tbody>
@@ -83,25 +96,20 @@ function formatDate(dateStr: string | null | undefined): string {
           data-testid="saved-list-row"
           class="border-border hover:bg-muted/50 border-b transition-colors"
         >
-          <td class="text-muted-foreground py-3 pr-4">{{ list.id }}</td>
           <td class="py-3 pr-4 font-medium">{{ list.name }}</td>
-          <td class="py-3 pr-4">{{ list.createdBy }}</td>
+          <td class="py-3 pr-4">{{ currentUserName }}</td>
           <td class="py-3 pr-4">{{ formatDate(list.updatedAt) }}</td>
           <td class="py-3 pr-4">{{ list.items?.length ?? 0 }}</td>
-          <td class="flex items-center gap-3 py-3">
+          <td class="py-3 text-right">
             <NuxtLink
               :to="localePath(`/portal/saved-lists/${list.id}`)"
-              class="text-muted-foreground hover:text-foreground transition-colors"
+              class="border-border text-foreground hover:bg-muted inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors"
               data-testid="saved-list-edit"
+              :aria-label="t('portal.saved_lists.row_actions.edit')"
             >
               <Icon name="lucide:pencil" class="size-4" />
-            </NuxtLink>
-            <NuxtLink
-              :to="localePath(`/portal/saved-lists/${list.id}`)"
-              class="text-muted-foreground hover:text-foreground transition-colors"
-              data-testid="saved-list-view"
-            >
-              <Icon name="lucide:arrow-right" class="size-4" />
+              {{ t('portal.saved_lists.row_actions.edit') }}
+              <Icon name="lucide:chevron-right" class="size-4" />
             </NuxtLink>
           </td>
         </tr>

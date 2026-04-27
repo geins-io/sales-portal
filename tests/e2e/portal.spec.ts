@@ -237,19 +237,12 @@ test.describe('Portal Saved Lists', () => {
     const createButton = page.locator('[data-testid="saved-lists-create"]');
     await expect(createButton).toBeVisible({ timeout: PAGE_TIMEOUT });
 
-    // Wait for loading to finish
-    const loading = page.locator('[data-testid="saved-lists-loading"]');
-    await expect(loading).toBeHidden({ timeout: PAGE_TIMEOUT });
-
-    // Either lists content or empty state
+    // Saved lists are entirely client-side (SDK ListsSession in
+    // localStorage). On a fresh test browser the user has no lists yet,
+    // so the empty state is what should show. No server roundtrip and
+    // therefore no loading state.
     const listsEmpty = page.locator('[data-testid="saved-lists-empty"]');
-    const hasEmpty = await listsEmpty.isVisible().catch(() => false);
-
-    // If not empty, there should be a table or list content
-    if (!hasEmpty) {
-      const body = page.locator('body');
-      await expect(body).toBeVisible();
-    }
+    await expect(listsEmpty).toBeVisible({ timeout: PAGE_TIMEOUT });
   });
 });
 

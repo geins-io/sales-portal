@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { SavedList } from '#shared/types/saved-list';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
 import {
@@ -10,49 +9,38 @@ import {
   SheetDescription,
   SheetFooter,
 } from '~/components/ui/sheet';
+import { useFavoritesStore } from '~/stores/favorites';
 
 definePageMeta({ middleware: 'auth' });
 
 const { t } = useI18n();
+const { localePath } = useLocaleMarket();
+const router = useRouter();
 
-const { data, pending, error, refresh } = useFetch<{
-  lists: SavedList[];
-  total: number;
-}>('/api/lists', { dedupe: 'defer' });
+// Saved lists are entirely client-side via the SDK ListsSession
+// (localStorage). No server API. No persistence beyond the browser.
+// See `docs/patterns/lists.md`.
+const favoritesStore = useFavoritesStore();
+const allLists = computed(() => favoritesStore.lists);
 
-const searchQuery = ref('');
 const sheetOpen = ref(false);
 const newListName = ref('');
-const newListDescription = ref('');
 const isSubmitting = ref(false);
-
-const allLists = computed(() => data.value?.lists ?? []);
-
-const filteredLists = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase();
-  if (!q) return allLists.value;
-  return allLists.value.filter((list) => list.name?.toLowerCase().includes(q));
-});
 
 function openCreateSheet() {
   newListName.value = '';
-  newListDescription.value = '';
   sheetOpen.value = true;
 }
 
-async function handleCreateList() {
+function handleCreateList() {
   if (!newListName.value.trim() || isSubmitting.value) return;
   isSubmitting.value = true;
   try {
-    await $fetch('/api/lists', {
-      method: 'POST',
-      body: {
-        name: newListName.value.trim(),
-        description: newListDescription.value.trim() || undefined,
-      },
-    });
+    const created = favoritesStore.createList(newListName.value.trim());
     sheetOpen.value = false;
-    await refresh();
+    if (created) {
+      router.push(localePath(`/portal/saved-lists/${created.id}`));
+    }
   } finally {
     isSubmitting.value = false;
   }
@@ -64,66 +52,30 @@ async function handleCreateList() {
     <!-- Page header -->
     <div class="mb-6">
       <div
-        class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
       >
-        <h2 class="text-lg font-semibold">
-          {{ t('portal.saved_lists.title') }}
-        </h2>
-        <div class="flex items-center gap-3">
-          <!-- Search -->
-          <Input
-            v-model="searchQuery"
-            type="search"
-            data-testid="saved-lists-search"
-            class="w-full sm:w-72"
-            :placeholder="t('portal.saved_lists.search_placeholder')"
-          />
-          <!-- Create button -->
-          <Button
-            data-testid="saved-lists-create"
-            class="whitespace-nowrap"
-            @click="openCreateSheet"
-          >
-            {{ t('portal.saved_lists.create') }}
-          </Button>
+        <div>
+          <h2 class="text-lg font-semibold">
+            {{ t('portal.saved_lists.title') }}
+          </h2>
+          <p class="text-muted-foreground mt-1 text-sm">
+            {{ t('portal.saved_lists.subtitle') }}
+          </p>
         </div>
+        <Button
+          data-testid="saved-lists-create"
+          class="whitespace-nowrap"
+          @click="openCreateSheet"
+        >
+          <Icon name="lucide:plus" class="size-4" />
+          {{ t('portal.saved_lists.create') }}
+        </Button>
       </div>
-      <p class="text-muted-foreground mt-1 text-sm">
-        {{ t('portal.saved_lists.subtitle') }}
-      </p>
-    </div>
-
-    <!-- Loading state -->
-    <div
-      v-if="pending"
-      data-testid="saved-lists-loading"
-      class="text-muted-foreground py-12 text-center text-sm"
-    >
-      {{ t('common.loading') }}
-    </div>
-
-    <!-- Error state -->
-    <div
-      v-else-if="error"
-      data-testid="saved-lists-error"
-      class="py-12 text-center"
-    >
-      <p class="text-muted-foreground mb-4 text-sm">
-        {{ t('portal.saved_lists.error_loading') }}
-      </p>
-      <Button
-        data-testid="saved-lists-retry"
-        variant="link"
-        size="sm"
-        @click="refresh()"
-      >
-        {{ t('portal.saved_lists.retry') }}
-      </Button>
     </div>
 
     <!-- Empty state -->
     <div
-      v-else-if="!filteredLists.length"
+      v-if="!allLists.length"
       data-testid="saved-lists-empty"
       class="text-muted-foreground py-12 text-center text-sm"
     >
@@ -131,7 +83,7 @@ async function handleCreateList() {
     </div>
 
     <!-- Lists table -->
-    <SavedListsTable v-else :lists="filteredLists" />
+    <SavedListsTable v-else :lists="allLists" />
 
     <!-- Create list sheet -->
     <Sheet v-model:open="sheetOpen">
@@ -158,21 +110,7 @@ async function handleCreateList() {
               :placeholder="
                 t('portal.saved_lists.create_dialog.name_placeholder')
               "
-            />
-          </div>
-          <div class="space-y-2">
-            <label for="list-description" class="text-sm font-medium">
-              {{ t('portal.saved_lists.create_dialog.description_label') }}
-            </label>
-            <textarea
-              id="list-description"
-              v-model="newListDescription"
-              data-testid="create-list-description"
-              class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              :placeholder="
-                t('portal.saved_lists.create_dialog.description_placeholder')
-              "
-              rows="3"
+              @keydown.enter="handleCreateList"
             />
           </div>
         </div>

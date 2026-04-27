@@ -251,20 +251,5 @@ export const promoCodeRateLimiter = new RateLimiter({
   prefix: 'cart-promo',
 });
 
-export const savedListCreateRateLimiter = new RateLimiter({
-  limit: 10,
-  windowMs: 60000,
-  prefix: 'saved-list-create',
-});
-
-export const savedListUpdateRateLimiter = new RateLimiter({
-  limit: 20,
-  windowMs: 60000,
-  prefix: 'saved-list-update',
-});
-
-export const savedListDeleteRateLimiter = new RateLimiter({
-  limit: 10,
-  windowMs: 60000,
-  prefix: 'saved-list-delete',
-});
+// Saved-list rate limiters removed — saved lists no longer have a server
+// API. They live entirely in the SDK ListsSession (localStorage).

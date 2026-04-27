@@ -321,35 +321,5 @@ export const ListQuotesSchema = z.object({
 });
 export type ListQuotesInput = z.infer<typeof ListQuotesSchema>;
 
-// ---------------------------------------------------------------------------
-// Saved Lists
-// ---------------------------------------------------------------------------
-export const SavedListIdSchema = z.object({
-  id: z.string().min(1),
-});
-export type SavedListIdInput = z.infer<typeof SavedListIdSchema>;
-
-const SavedListItemSchema = z.object({
-  productId: z.number(),
-  sku: z.string().min(1).max(100),
-  name: z.string().min(1).max(200),
-  articleNumber: z.string().min(1).max(100),
-  quantity: z.number().min(1).max(9999),
-  unitPrice: z.number().min(0),
-  unitPriceFormatted: z.string().max(50),
-  imageUrl: z.string().max(500).optional(),
-});
-
-export const CreateSavedListSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().max(2000).optional(),
-  items: z.array(SavedListItemSchema).optional(),
-});
-export type CreateSavedListInput = z.infer<typeof CreateSavedListSchema>;
-
-export const UpdateSavedListSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  description: z.string().max(2000).optional(),
-  items: z.array(SavedListItemSchema).optional(),
-});
-export type UpdateSavedListInput = z.infer<typeof UpdateSavedListSchema>;
+// Saved-list schemas removed — saved lists are entirely client-side
+// (SDK ListsSession + localStorage). See `docs/patterns/lists.md`.
