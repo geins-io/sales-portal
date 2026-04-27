@@ -804,29 +804,16 @@
     "saved_list_detail": {
       "title": "Sparad lista",
       "back_to_lists": "Tillbaka till sparade listor",
-      "list_name_label": "Listnamn",
-      "name_placeholder": "Listnamn",
-      "description_placeholder": "Lägg till en beskrivning...",
-      "list_total_label": "Listtotal",
-      "total_subtitle": "Summa för alla produkter i listan",
-      "columns": {
-        "product": "Produkt",
-        "article_number": "Art. nr",
-        "price": "Pris",
-        "quantity": "Antal",
-        "total": "Totalt",
-        "actions": ""
-      },
-      "total_sum": "Totalt",
-      "add_to_cart": "Lägg alla i varukorgen",
-      "delete_list": "Ta bort lista",
-      "delete_confirm": "Är du säker på att du vill ta bort denna lista?",
-      "empty_list": "Denna lista har inga produkter än",
-      "saved": "Ändringar sparade",
-      "deleted": "Lista borttagen",
-      "increase_quantity": "Öka antal",
-      "decrease_quantity": "Minska antal",
-      "remove_item": "Ta bort artikel"
+      "item_count": "{count} produkt | {count} produkter",
+      "no_items": "Den här listan har inga produkter ännu. Lägg till produkter från katalogen för att komma igång.",
+      "not_found": "Listan finns inte längre eller har inte skapats på den här enheten.",
+      "add_all_to_cart": "Lägg alla i varukorgen",
+      "rename_list": "Byt namn",
+      "rename_description": "Välj ett nytt namn för listan.",
+      "rename_save": "Spara",
+      "delete_list": "Radera lista",
+      "delete_confirm": "Det här raderar listan och alla dess produkter permanent. Det går inte att ångra.",
+      "remove_item": "Ta bort från lista"
     },
     "saved_lists": {
       "title": "Sparade listor",
@@ -836,7 +823,7 @@
         "id": "Id",
         "name": "Namn",
         "created_by": "Skapad av",
-        "modified": "Ändrad",
+        "modified": "Senast ändrad",
         "products": "Produkter",
         "actions": ""
       },
@@ -852,6 +839,9 @@
         "description_placeholder": "Ange beskrivning",
         "submit": "Skapa",
         "cancel": "Avbryt"
+      },
+      "row_actions": {
+        "edit": "Redigera"
       }
     }
   },

@@ -15,8 +15,10 @@ const mockSession = {
   toggleFavorite: vi.fn<(id: string) => boolean>().mockReturnValue(true),
   clearItems: vi.fn(),
   createList: vi.fn(),
+  deleteList: vi.fn(),
+  renameList: vi.fn(),
   getLists: vi
-    .fn<() => Array<{ id: string; items: string[] }>>()
+    .fn<() => Array<{ id: string; name: string; items: string[] }>>()
     .mockReturnValue([]),
   count: 0,
 };
@@ -204,6 +206,70 @@ describe('useFavoritesStore', () => {
       store.initialize();
 
       expect(store.count).toBe(3);
+    });
+  });
+
+  describe('deleteList', () => {
+    it('forwards to session.deleteList for custom lists', () => {
+      mockSession.getLists.mockReturnValue([
+        { id: 'l1', name: 'Office', items: [] },
+      ]);
+      const store = useFavoritesStore();
+      store.deleteList('l1');
+      expect(mockSession.deleteList).toHaveBeenCalledWith('l1');
+    });
+
+    it('refuses to delete the favorites list', () => {
+      const store = useFavoritesStore();
+      store.deleteList('__favorites__');
+      expect(mockSession.deleteList).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('renameList', () => {
+    it('forwards a trimmed name to session.renameList', () => {
+      const store = useFavoritesStore();
+      store.renameList('l1', '  New Name  ');
+      expect(mockSession.renameList).toHaveBeenCalledWith('l1', 'New Name');
+    });
+
+    it('refuses to rename the favorites list', () => {
+      const store = useFavoritesStore();
+      store.renameList('__favorites__', 'Anything');
+      expect(mockSession.renameList).not.toHaveBeenCalled();
+    });
+
+    it('refuses an empty name', () => {
+      const store = useFavoritesStore();
+      store.renameList('l1', '   ');
+      expect(mockSession.renameList).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getListById', () => {
+    it('returns the favorites list when asked for the favorites id', () => {
+      mockSession.favorites.items = ['a'];
+      const store = useFavoritesStore();
+      store.initialize();
+      const result = store.getListById('__favorites__');
+      expect(result?.id).toBe('__favorites__');
+    });
+
+    it('returns a custom list by id', () => {
+      mockSession.getLists.mockReturnValue([
+        { id: 'l1', name: 'Office', items: ['a', 'b'] },
+      ]);
+      const store = useFavoritesStore();
+      store.initialize();
+      const result = store.getListById('l1');
+      expect(result?.id).toBe('l1');
+      expect(result?.name).toBe('Office');
+    });
+
+    it('returns null for an unknown id', () => {
+      const store = useFavoritesStore();
+      const result = store.getListById('does-not-exist');
+      expect(result).toBeNull();
     });
   });
 });

@@ -142,11 +142,11 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── channels.ts         # Storefront config
 │   │   ├── newsletter.ts       # Newsletter subscribe
 │   │   ├── quotes.ts           # Quotation management (real Geins GraphQL API)
-│   │   ├── saved-lists.ts      # Saved product lists (Track 2 stubs)
 │   │   ├── purchased-products.ts # Purchased product aggregation from order history
-│   │   ├── organization.ts     # B2B organization/buyer management (Track 2 stubs)
 │   │   ├── index.ts            # Re-exports all services
 │   │   └── graphql/            # .graphql query files + loader
+│   │   # Saved lists are client-side only — no server service. See
+│   │   # docs/patterns/lists.md.
 │   │       ├── loader.ts       # Reads .graphql files, resolves fragments
 │   │       ├── fragments/      # Shared GraphQL fragments
 │   │       ├── products/       # Product queries/mutations
@@ -198,8 +198,6 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │       ├── tenant-config.ts    # Tenant configuration types
 │       ├── layout.ts           # Layout-related types
 │       ├── quote.ts            # Quote, QuoteLineItem, QuoteAddress, QuoteCompany, QuoteStatus
-│       ├── b2b.ts              # Organization, Buyer, OrgAddress, BuyerRole, Permission
-│       ├── saved-list.ts       # SavedList, SavedListItem
 │       └── commerce.ts         # OrderSummaryType, DetailProduct, CampaignInfo
 │
 ├── mockdata/                   # Mock API responses for development
@@ -239,11 +237,11 @@ Authenticated user portal at `/portal/`:
 | Quotations       | `/portal/quotations`       | Quote list (real Geins GraphQL), search, pagination, 5-color status pills                                                                     |
 | Quotation Detail | `/portal/quotations/[id]`  | Items table, shipping/tax summary, customer info, invoice/delivery address blocks, accept/decline with error banner, back link, section icons |
 | Products         | `/portal/products`         | Purchased product history, aggregated from orders                                                                                             |
-| Saved Lists      | `/portal/lists`            | CRUD lists (Track 2 stubs), create dialog                                                                                                     |
-| List Detail      | `/portal/saved-lists/[id]` | Editable items, quantity controls, add to cart                                                                                                |
+| Saved Lists      | `/portal/lists`            | List of named lists. Client-only via SDK ListsSession (localStorage). Create + open detail.                                                   |
+| List Detail      | `/portal/saved-lists/[id]` | Items as ProductCards. Add-all-to-cart, rename, delete, remove items. Items are product aliases — fresh product data fetched at render time.  |
 | Profile          | `/portal/profile`          | User profile form                                                                                                                             |
-| Organization     | `/portal/organisation`     | B2B company, addresses, persons, roles (Track 2 stubs)                                                                                        |
-| Favorites        | `/portal/favorites`        | Wishlist via SDK ListsSession                                                                                                                 |
+| Organization     | `/portal/organisation`     | Placeholder. Geins exposes no B2B org/buyer/multi-address API; org linking happens on the Geins admin side.                                   |
+| Favorites        | `/portal/favorites`        | Wishlist via SDK ListsSession (same store as saved lists, just the built-in `__favorites__` list)                                             |
 
 ---
 

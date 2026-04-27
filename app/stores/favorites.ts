@@ -141,6 +141,32 @@ export const useFavoritesStore = defineStore('favorites', () => {
       .map((l) => l.id);
   }
 
+  /** Delete a custom list by id. No-op for the built-in favorites list. */
+  function deleteList(listId: string) {
+    if (listId === FAVORITES_LIST_ID) return;
+    const s = getSession();
+    if (!s) return;
+    s.deleteList(listId);
+    syncFromSession();
+  }
+
+  /** Rename a custom list. No-op for the built-in favorites list. */
+  function renameList(listId: string, name: string) {
+    if (listId === FAVORITES_LIST_ID) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const s = getSession();
+    if (!s) return;
+    s.renameList(listId, trimmed);
+    syncFromSession();
+  }
+
+  /** Look up a single list by id (favorites or custom). */
+  function getListById(listId: string): ProductList | null {
+    if (listId === FAVORITES_LIST_ID) return favorites.value;
+    return lists.value.find((l) => l.id === listId) ?? null;
+  }
+
   return {
     items,
     count,
@@ -156,5 +182,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
     addItemToList,
     removeItemFromList,
     productListIds,
+    deleteList,
+    renameList,
+    getListById,
   };
 });

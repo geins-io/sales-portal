@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { PurchasedProduct } from '#shared/types/commerce';
-import type { SavedList } from '#shared/types/saved-list';
 import type { QuoteStatus } from '#shared/types/quote';
 import ProductCard, {
   type ProductCardItem,
 } from '~/components/shared/ProductCard.vue';
 import { useQuotesStore } from '~/stores/quotes';
+import { useFavoritesStore } from '~/stores/favorites';
 
 definePageMeta({
   middleware: 'auth',
@@ -76,20 +76,19 @@ const recentProducts = computed(() =>
 );
 
 // ---------------------------------------------------------------------------
-// Saved lists data
+// Saved lists data — client-side via SDK ListsSession (no server API).
+// See `docs/patterns/lists.md`. Empty on SSR (localStorage is browser-only),
+// populates after the favorites store auto-initialises on mount.
 // ---------------------------------------------------------------------------
-const { data: listsData, pending: listsPending } = useFetch<{
-  lists: SavedList[];
-  total: number;
-}>('/api/lists', { dedupe: 'defer' });
-
-const recentLists = computed(() => (listsData.value?.lists ?? []).slice(0, 5));
+const favoritesStore = useFavoritesStore();
+const recentLists = computed(() => favoritesStore.lists.slice(0, 5));
+const listsPending = computed(() => false);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '-';
+function formatDate(dateStr: string | number | null | undefined): string {
+  if (dateStr == null) return '-';
   try {
     return new Date(dateStr).toLocaleDateString('sv-SE', {
       year: 'numeric',
@@ -97,7 +96,7 @@ function formatDate(dateStr: string | null | undefined): string {
       day: '2-digit',
     });
   } catch {
-    return dateStr;
+    return String(dateStr);
   }
 }
 
