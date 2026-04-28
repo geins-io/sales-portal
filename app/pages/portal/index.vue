@@ -6,6 +6,7 @@ import ProductCard, {
 } from '~/components/shared/ProductCard.vue';
 import { useQuotesStore } from '~/stores/quotes';
 import { useFavoritesStore } from '~/stores/favorites';
+import { getQuoteStatusPillClass } from '~/utils/quote-status';
 
 definePageMeta({
   middleware: 'auth',
@@ -97,22 +98,6 @@ function formatDate(dateStr: string | number | null | undefined): string {
     });
   } catch {
     return String(dateStr);
-  }
-}
-
-function getStatusClasses(status: QuoteStatus): string {
-  switch (status) {
-    case 'pending':
-      return 'bg-amber-100 text-amber-800';
-    case 'accepted':
-      return 'bg-green-100 text-green-800';
-    case 'rejected':
-      return 'bg-red-100 text-red-800';
-    case 'expired':
-    case 'cancelled':
-      return 'bg-gray-100 text-gray-600';
-    default:
-      return 'bg-gray-100 text-gray-600';
   }
 }
 
@@ -237,7 +222,7 @@ function handleProductAddToCart(
                 </div>
                 <span
                   class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="getStatusClasses(quote.status)"
+                  :class="getQuoteStatusPillClass(quote.status)"
                 >
                   {{ getStatusLabel(quote.status) }}
                 </span>
@@ -283,7 +268,7 @@ function handleProductAddToCart(
                   <td class="py-3 pr-4">
                     <span
                       class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-                      :class="getStatusClasses(quote.status)"
+                      :class="getQuoteStatusPillClass(quote.status)"
                     >
                       {{ getStatusLabel(quote.status) }}
                     </span>

@@ -431,7 +431,14 @@
     "previous": "Föregående",
     "next": "Nästa",
     "navigation": "Sidnavigering",
-    "showing_range": "Visar {from}-{to} av {total} produkter"
+    "showing_range": "Visar {from}-{to} av {total} produkter",
+    "count_summary": "{shown} av {total} {noun}",
+    "nouns": {
+      "orders": "beställningar",
+      "quotes": "offerter",
+      "products": "produkter",
+      "lists": "listor"
+    }
   },
   "elements": {
     "component_showcase": "Komponentvisning",
@@ -775,7 +782,8 @@
       "count": "Visar {count} favoriter",
       "loading": "Laddar dina favoriter...",
       "view_grid": "Rutnät",
-      "view_list": "Lista"
+      "view_list": "Lista",
+      "search_placeholder": "Snabbfilter på art.nr eller produktnamn"
     },
     "purchased_products": {
       "title": "Dina köpta produkter",

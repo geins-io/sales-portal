@@ -4,13 +4,13 @@ import type { QuoteStatus } from '../../shared/types/quote';
 
 describe('getQuoteStatusPillClass', () => {
   it.each<[QuoteStatus, string]>([
-    ['pending', 'gray'],
-    ['accepted', 'green'],
-    ['rejected', 'red'],
+    ['pending', 'muted'],
+    ['accepted', 'primary'],
+    ['rejected', 'destructive'],
+    ['cancelled', 'destructive'],
     ['expired', 'orange'],
-    ['cancelled', 'rose'],
-  ])('returns class for %s containing %s palette', (status, color) => {
-    expect(getQuoteStatusPillClass(status)).toContain(color);
+  ])('returns theme-aware class for %s containing %s', (status, token) => {
+    expect(getQuoteStatusPillClass(status)).toContain(token);
   });
 
   it('returns a class string containing both bg and text utilities', () => {
@@ -23,20 +23,14 @@ describe('getQuoteStatusPillClass', () => {
     ];
     for (const status of statuses) {
       const cls = getQuoteStatusPillClass(status);
-      expect(cls).toMatch(/bg-\w+-100/);
-      expect(cls).toMatch(/text-\w+-800/);
-      expect(cls).toContain('dark:');
+      expect(cls).toMatch(/bg-/);
+      expect(cls).toMatch(/text-/);
     }
   });
 
-  it('returns distinct class strings for all 5 statuses', () => {
-    const results = new Set([
-      getQuoteStatusPillClass('pending'),
-      getQuoteStatusPillClass('accepted'),
-      getQuoteStatusPillClass('rejected'),
-      getQuoteStatusPillClass('expired'),
+  it('rejected and cancelled share the destructive palette', () => {
+    expect(getQuoteStatusPillClass('rejected')).toBe(
       getQuoteStatusPillClass('cancelled'),
-    ]);
-    expect(results.size).toBe(5);
+    );
   });
 });

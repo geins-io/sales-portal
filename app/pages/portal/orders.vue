@@ -56,6 +56,12 @@ const showingCount = computed(() =>
   Math.min(currentPage.value * pageSize.value, sortedOrders.value.length),
 );
 
+const paginationSummary = usePaginationSummary(
+  showingCount,
+  computed(() => sortedOrders.value.length),
+  'orders',
+);
+
 function handleSort(_column: string) {
   sortDirection.value = sortDirection.value === 'desc' ? 'asc' : 'desc';
 }
@@ -138,12 +144,7 @@ function handleSort(_column: string) {
           data-testid="orders-showing-count"
           class="text-muted-foreground text-sm"
         >
-          {{
-            t('portal.orders.pagination.showing', {
-              shown: showingCount,
-              total: sortedOrders.length,
-            })
-          }}
+          {{ paginationSummary }}
         </span>
         <div class="flex items-center gap-2">
           <Button

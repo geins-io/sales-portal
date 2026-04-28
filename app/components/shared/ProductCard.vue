@@ -50,15 +50,20 @@ const favoritesStore = useFavoritesStore();
 const { hasFeature } = useTenant();
 const { canAccess } = useFeatureAccess();
 
+const productAlias = computed<string | null>(() => {
+  if (isLegacyProduct(props.product)) return props.product.alias ?? null;
+  return props.product.alias ?? null;
+});
+
 const isFavorited = computed(() => {
-  if (!isLegacyProduct(props.product)) return false;
-  return favoritesStore.isFavorite(props.product.alias);
+  if (!productAlias.value) return false;
+  return favoritesStore.isFavorite(productAlias.value);
 });
 
 const showListPicker = ref(false);
 
 function openListPicker() {
-  if (!isLegacyProduct(props.product)) return;
+  if (!productAlias.value) return;
   showListPicker.value = true;
 }
 
@@ -214,7 +219,7 @@ async function addToCart() {
           </template>
         </p>
         <Button
-          v-if="isLegacyProduct(product) && hasFeature('wishlist')"
+          v-if="productAlias && hasFeature('wishlist')"
           variant="ghost"
           size="icon-sm"
           data-testid="wishlist-button"
@@ -330,6 +335,11 @@ async function addToCart() {
         </Button>
       </div>
     </div>
+    <AddToListDialog
+      v-if="productAlias"
+      v-model:open="showListPicker"
+      :product-alias="productAlias"
+    />
   </div>
 
   <!-- List variant (legacy only) -->
@@ -455,9 +465,9 @@ async function addToCart() {
     </div>
 
     <AddToListDialog
-      v-if="isLegacyProduct(product)"
+      v-if="productAlias"
       v-model:open="showListPicker"
-      :product-alias="product.alias"
+      :product-alias="productAlias"
     />
   </div>
 </template>
