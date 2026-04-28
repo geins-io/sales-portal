@@ -265,7 +265,7 @@ useSchemaOrg([
 
   <div
     v-else-if="product"
-    class="mx-auto max-w-7xl space-y-8 px-4 py-8 lg:px-8"
+    class="mx-auto max-w-7xl space-y-8 px-4 py-8 lg:px-6"
   >
     <!-- Breadcrumbs -->
     <AppBreadcrumbs v-if="breadcrumbItems.length" :items="breadcrumbItems" />

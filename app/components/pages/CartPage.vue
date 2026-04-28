@@ -44,7 +44,7 @@ function goToCheckout() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 lg:px-8" data-testid="cart-page">
+  <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6" data-testid="cart-page">
     <!-- Header row -->
     <div class="mb-6 flex items-start justify-between">
       <h1 class="text-2xl font-bold" data-testid="cart-page-title">

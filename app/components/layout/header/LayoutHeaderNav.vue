@@ -71,7 +71,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
     class="bg-muted relative hidden h-12 items-center border-b lg:flex"
     :aria-label="$t('layout.main_navigation')"
   >
-    <div class="mx-auto w-full max-w-7xl px-4 lg:px-8">
+    <div class="mx-auto w-full max-w-7xl px-4 lg:px-6">
       <NavigationMenu
         :viewport="false"
         class="static max-w-none justify-start [&>div]:!static"
@@ -90,7 +90,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
               <NavigationMenuContent
                 class="!absolute !top-full !left-0 !mt-0 !w-screen !max-w-none !rounded-none !border-x-0 !border-t-0"
               >
-                <div class="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+                <div class="mx-auto max-w-7xl px-4 py-6 lg:px-6">
                   <!-- "View all" link for parent category -->
                   <NavigationMenuLink as-child>
                     <component

@@ -39,7 +39,7 @@ const errorMessage = computed(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+  <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
     <OrderConfirmation
       :summary="orderSummary"
       :is-loading="pending"

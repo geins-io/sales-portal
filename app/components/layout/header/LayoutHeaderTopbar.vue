@@ -12,7 +12,7 @@ const { localePath } = useLocaleMarket();
     class="bg-primary text-primary-foreground w-full text-sm"
   >
     <div
-      class="mx-auto flex h-10 max-w-7xl items-center justify-between px-4 lg:px-8"
+      class="mx-auto flex h-10 max-w-7xl items-center justify-between px-4 lg:px-6"
     >
       <!-- Left: Contact + Locale -->
       <div class="flex items-center gap-4">

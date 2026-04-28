@@ -161,7 +161,7 @@ function clearAllFilters() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-8">
+  <div class="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-6">
     <!-- Search header -->
     <div>
       <h1 class="text-2xl font-bold">

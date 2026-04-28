@@ -22,7 +22,7 @@ if (searchTerm.value) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+  <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
     <p class="text-muted-foreground">{{ $t('search.enter_search_term') }}</p>
   </div>
 </template>

@@ -1,7 +1,7 @@
 <template>
   <div
     data-testid="pdp-skeleton"
-    class="mx-auto max-w-7xl space-y-8 px-4 py-8 lg:px-8"
+    class="mx-auto max-w-7xl space-y-8 px-4 py-8 lg:px-6"
   >
     <!-- Breadcrumb skeleton -->
     <div class="flex items-center gap-2">
