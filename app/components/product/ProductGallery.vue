@@ -11,10 +11,6 @@ const props = defineProps<{
 const selectedIndex = ref(0);
 const lightboxOpen = ref(false);
 
-function selectImage(index: number) {
-  selectedIndex.value = index;
-}
-
 function openLightbox() {
   lightboxOpen.value = true;
 }
@@ -39,46 +35,17 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 const currentImage = computed(() => props.images[selectedIndex.value]);
-const showThumbnails = computed(() => props.images.length > 1);
+const hasMultiple = computed(() => props.images.length > 1);
 </script>
 
 <template>
   <div class="flex flex-col gap-2" data-testid="product-gallery">
-    <!-- Gallery: thumbnails left + main image right -->
-    <div class="flex gap-3">
-      <!-- Vertical thumbnail strip -->
-      <div
-        v-if="showThumbnails"
-        class="flex flex-col gap-2 overflow-y-auto p-0.5"
-        data-testid="thumbnails"
-      >
-        <Button
-          v-for="(image, index) in images"
-          :key="index"
-          variant="ghost"
-          class="bg-muted size-16 shrink-0 overflow-hidden rounded-md p-0 transition-all"
-          :class="
-            index === selectedIndex
-              ? 'ring-primary ring-2 ring-offset-1'
-              : 'opacity-70 hover:opacity-100'
-          "
-          @click="selectImage(index)"
-        >
-          <GeinsImage
-            :file-name="image.fileName ?? ''"
-            type="product"
-            :alt="`${productName} thumbnail ${index + 1}`"
-            loading="lazy"
-            class="size-full object-cover"
-          />
-        </Button>
-      </div>
-
-      <!-- Main image -->
+    <!-- Main image with overlay arrows -->
+    <div class="bg-muted relative aspect-square overflow-hidden rounded-lg">
       <Button
         v-if="currentImage"
         variant="ghost"
-        class="bg-muted h-auto flex-1 cursor-pointer overflow-hidden rounded-lg p-0"
+        class="size-full cursor-pointer p-0"
         @click="openLightbox"
       >
         <GeinsImage
@@ -86,18 +53,46 @@ const showThumbnails = computed(() => props.images.length > 1);
           type="product"
           :alt="productName"
           loading="eager"
-          class="max-h-[500px] w-full object-contain"
+          class="size-full object-contain"
         />
+      </Button>
+
+      <Button
+        v-if="hasMultiple"
+        variant="ghost"
+        size="icon"
+        class="bg-background/80 hover:bg-background absolute top-1/2 left-2 -translate-y-1/2 rounded-full shadow-md"
+        :aria-label="$t('product.gallery_previous')"
+        data-testid="gallery-prev"
+        @click="prev"
+      >
+        <Icon name="lucide:chevron-left" class="size-5" />
+      </Button>
+      <Button
+        v-if="hasMultiple"
+        variant="ghost"
+        size="icon"
+        class="bg-background/80 hover:bg-background absolute top-1/2 right-2 -translate-y-1/2 rounded-full shadow-md"
+        :aria-label="$t('product.gallery_next')"
+        data-testid="gallery-next"
+        @click="next"
+      >
+        <Icon name="lucide:chevron-right" class="size-5" />
       </Button>
     </div>
 
     <!-- Image counter -->
     <p
-      v-if="showThumbnails"
+      v-if="hasMultiple"
       class="text-muted-foreground text-xs"
       data-testid="image-counter"
     >
-      Image {{ selectedIndex + 1 }} of {{ images.length }}
+      {{
+        $t('product.image_counter', {
+          current: selectedIndex + 1,
+          total: images.length,
+        })
+      }}
     </p>
 
     <!-- Lightbox -->
@@ -113,23 +108,22 @@ const showThumbnails = computed(() => props.images.length > 1);
             class="max-h-[80vh] w-full object-contain"
           />
 
-          <!-- Navigation arrows -->
           <Button
-            v-if="images.length > 1"
+            v-if="hasMultiple"
             variant="ghost"
             size="icon"
             class="bg-background/80 hover:bg-background absolute left-2 rounded-full shadow-md"
-            aria-label="Previous image"
+            :aria-label="$t('product.gallery_previous')"
             @click="prev"
           >
             <Icon name="lucide:chevron-left" class="size-5" />
           </Button>
           <Button
-            v-if="images.length > 1"
+            v-if="hasMultiple"
             variant="ghost"
             size="icon"
             class="bg-background/80 hover:bg-background absolute right-2 rounded-full shadow-md"
-            aria-label="Next image"
+            :aria-label="$t('product.gallery_next')"
             @click="next"
           >
             <Icon name="lucide:chevron-right" class="size-5" />

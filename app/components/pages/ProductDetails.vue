@@ -270,8 +270,11 @@ useSchemaOrg([
     <!-- Breadcrumbs -->
     <AppBreadcrumbs v-if="breadcrumbItems.length" :items="breadcrumbItems" />
 
-    <!-- Main content: two-column on md+ -->
-    <div class="grid gap-8 md:grid-cols-2">
+    <!-- Main content: bordered card with two-column layout on md+ -->
+    <div
+      class="grid gap-8 rounded-lg border p-4 md:grid-cols-2 md:p-6 lg:p-8"
+      data-testid="pdp-top-area"
+    >
       <!-- Left: Gallery -->
       <ErrorBoundary section="product-gallery">
         <ProductGallery
@@ -283,31 +286,45 @@ useSchemaOrg([
 
       <!-- Right: Product info -->
       <div class="flex flex-col gap-4">
+        <!-- Quantity + Add to cart (top-right per Figma) -->
+        <div
+          v-if="showPrice"
+          class="flex items-end justify-end gap-3"
+          data-testid="pdp-actions"
+        >
+          <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
+          <Button
+            data-testid="add-to-cart-button"
+            class="gap-2 px-6"
+            @click="addToCart"
+          >
+            <Icon name="lucide:shopping-cart" class="size-4" />
+            {{ $t('product.add_to_cart') }}
+          </Button>
+          <Button
+            v-if="hasFeature('wishlist')"
+            variant="ghost"
+            size="icon"
+            :data-favorited="isFavorited"
+            :aria-label="$t('product.wishlist')"
+            data-testid="pdp-wishlist-toggle"
+            @click="openListPicker"
+          >
+            <Star
+              class="size-5"
+              :fill="isFavorited ? 'currentColor' : 'none'"
+            />
+          </Button>
+        </div>
+
         <!-- Product name + meta -->
         <div class="flex flex-col gap-1">
-          <div class="flex items-start justify-between gap-2">
-            <h1
-              class="font-heading text-[20px] font-bold"
-              data-testid="product-name"
-            >
-              {{ product.name }}
-            </h1>
-            <Button
-              v-if="hasFeature('wishlist')"
-              variant="ghost"
-              size="icon"
-              class="mt-0.5 shrink-0"
-              :data-favorited="isFavorited"
-              :aria-label="$t('product.wishlist')"
-              data-testid="pdp-wishlist-toggle"
-              @click="openListPicker"
-            >
-              <Star
-                class="size-5"
-                :fill="isFavorited ? 'currentColor' : 'none'"
-              />
-            </Button>
-          </div>
+          <h1
+            class="font-heading text-2xl font-bold"
+            data-testid="product-name"
+          >
+            {{ product.name }}
+          </h1>
 
           <!-- Article number -->
           <p
@@ -350,7 +367,7 @@ useSchemaOrg([
           :lowest-price="product.lowestPrice"
           :discount-type="product.discountType"
           :campaign-names="visibleCampaigns.map((c) => c.name)"
-          class="text-base font-semibold"
+          class="text-lg font-semibold"
         />
 
         <!-- Negotiated price info banner -->
@@ -382,19 +399,6 @@ useSchemaOrg([
           :variant-dimensions="product.variantDimensions"
           :variants="product.variantGroup?.variants ?? []"
         />
-
-        <!-- Quantity + Add to cart -->
-        <div v-if="showPrice" class="flex items-end gap-3">
-          <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
-          <Button
-            data-testid="add-to-cart-button"
-            class="gap-2 px-6"
-            @click="addToCart"
-          >
-            <Icon name="lucide:shopping-cart" class="size-4" />
-            {{ $t('product.add_to_cart') }}
-          </Button>
-        </div>
 
         <!-- Download + Delivery links -->
         <div class="flex flex-col gap-2 pt-2">

@@ -12,30 +12,26 @@
       <Skeleton class="h-4 w-32" />
     </div>
 
-    <!-- Main content: two columns -->
-    <div class="grid gap-8 md:grid-cols-2">
+    <!-- Main content: bordered card with two columns -->
+    <div class="grid gap-8 rounded-lg border p-4 md:grid-cols-2 md:p-6 lg:p-8">
       <!-- Left: Gallery -->
-      <div data-testid="pdp-skeleton-gallery" class="space-y-3">
+      <div data-testid="pdp-skeleton-gallery" class="space-y-2">
         <Skeleton class="aspect-square w-full rounded-lg" />
-        <div class="flex gap-2">
-          <Skeleton
-            v-for="i in 4"
-            :key="i"
-            data-testid="pdp-skeleton-thumbnail"
-            class="size-16 shrink-0 rounded-md"
-          />
-        </div>
+        <Skeleton class="h-3 w-20" />
       </div>
 
       <!-- Right: Product info -->
       <div data-testid="pdp-skeleton-info" class="flex flex-col gap-4">
-        <!-- Title + add to cart row -->
-        <div class="flex items-start justify-between gap-4">
-          <div class="flex flex-col gap-2">
-            <Skeleton class="h-7 w-3/4" />
-            <Skeleton class="h-3 w-24" />
-          </div>
-          <Skeleton class="h-10 w-32 shrink-0 rounded-md" />
+        <!-- Top-right actions: qty + add to cart -->
+        <div class="flex items-center justify-end gap-3">
+          <Skeleton class="h-10 w-24 rounded-md" />
+          <Skeleton class="h-10 w-32 rounded-md" />
+        </div>
+
+        <!-- Title + meta -->
+        <div class="flex flex-col gap-2">
+          <Skeleton class="h-7 w-3/4" />
+          <Skeleton class="h-3 w-24" />
         </div>
 
         <!-- Price -->
@@ -57,15 +53,8 @@
         <!-- Variant selector -->
         <div class="space-y-2">
           <Skeleton class="h-4 w-16" />
-          <div class="flex gap-2">
-            <Skeleton class="h-10 w-20 rounded-md" />
-            <Skeleton class="h-10 w-20 rounded-md" />
-            <Skeleton class="h-10 w-20 rounded-md" />
-          </div>
+          <Skeleton class="h-10 w-full rounded-md" />
         </div>
-
-        <!-- Quantity -->
-        <Skeleton class="h-10 w-32 rounded-md" />
 
         <!-- Links -->
         <div class="flex flex-col gap-2 pt-2">
