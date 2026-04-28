@@ -35,7 +35,10 @@ const rows = computed(() => {
         id: FAVORITES_LIST_ID,
         name: t('lists.picker.favorites'),
       };
-  const customLists = store.lists.map((l) => ({ id: l.id, name: l.name }));
+  const customLists = (store.lists ?? []).map((l) => ({
+    id: l.id,
+    name: l.name,
+  }));
   return [favorites, ...customLists];
 });
 

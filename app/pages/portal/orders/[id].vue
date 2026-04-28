@@ -3,6 +3,7 @@ import type { AddressType, OrderSummaryType } from '#shared/types/commerce';
 import type { QuoteAddress } from '#shared/types/quote';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
+import { getOrderStatusPillClass } from '~/utils/order-status';
 
 definePageMeta({ middleware: 'auth' });
 
@@ -100,23 +101,6 @@ function formatDate(iso?: string): string {
     day: 'numeric',
   });
 }
-
-function statusBadgeClass(status?: string): string {
-  switch (status) {
-    case 'placed':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-    case 'processing':
-      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
-    case 'shipped':
-      return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400';
-    case 'delivered':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-    case 'cancelled':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-}
 </script>
 
 <template>
@@ -185,7 +169,7 @@ function statusBadgeClass(status?: string): string {
           v-if="order?.status"
           data-testid="status-badge"
           class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-          :class="statusBadgeClass(order?.status)"
+          :class="getOrderStatusPillClass(order?.status)"
         >
           {{ t(`portal.orders.status.${order?.status}`) }}
         </span>

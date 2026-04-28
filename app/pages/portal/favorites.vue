@@ -2,6 +2,7 @@
 import ProductCard, {
   type ProductCardItem,
 } from '~/components/shared/ProductCard.vue';
+import { Input } from '~/components/ui/input';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
 
@@ -30,6 +31,7 @@ const favoritesStore = useFavoritesStore();
 const cartStore = useCartStore();
 
 const viewMode = ref<'grid' | 'list'>('grid');
+const searchQuery = ref('');
 
 const aliasesQuery = computed(() => ({
   aliases: favoritesStore.items.join(','),
@@ -46,6 +48,16 @@ const { data, pending, refresh } = useFetch<{ products: FavoriteProduct[] }>(
 );
 
 const products = computed<FavoriteProduct[]>(() => data.value?.products ?? []);
+
+const filteredProducts = computed<FavoriteProduct[]>(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return products.value;
+  return products.value.filter((p) => {
+    const name = (p.name ?? '').toLowerCase();
+    const articleNumber = (p.articleNumber ?? '').toLowerCase();
+    return name.includes(q) || articleNumber.includes(q);
+  });
+});
 
 if (import.meta.client) {
   watch(
@@ -162,37 +174,37 @@ async function handleAddToCart(
         {{ t('portal.favorites.loading') }}
       </div>
 
-      <!-- Product grid -->
-      <div
-        v-else
-        data-testid="favorites-grid"
-        class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        <div
-          v-for="product in products"
-          :key="product.alias ?? ''"
-          data-testid="favorite-card"
-          class="relative"
-        >
-          <button
-            type="button"
-            data-testid="favorite-remove"
-            :aria-label="t('portal.favorites.remove')"
-            class="bg-background/80 hover:bg-background absolute top-2 right-2 z-10 rounded-full p-1.5 shadow"
-            @click="product.alias && favoritesStore.remove(product.alias)"
-          >
-            <Icon
-              name="lucide:heart"
-              class="size-5 fill-red-500 text-red-500"
-            />
-          </button>
-          <ProductCard
-            :product="mapToCardItem(product)"
-            :variant="viewMode"
-            @add-to-cart="handleAddToCart(product, $event)"
+      <!-- Loaded -->
+      <template v-else>
+        <!-- Search filter -->
+        <div class="mb-4">
+          <Input
+            v-model="searchQuery"
+            type="search"
+            data-testid="favorites-search"
+            class="w-full sm:w-96"
+            :placeholder="t('portal.favorites.search_placeholder')"
           />
         </div>
-      </div>
+
+        <!-- Product grid -->
+        <div
+          data-testid="favorites-grid"
+          class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          <div
+            v-for="product in filteredProducts"
+            :key="product.alias ?? ''"
+            data-testid="favorite-card"
+          >
+            <ProductCard
+              :product="mapToCardItem(product)"
+              :variant="viewMode"
+              @add-to-cart="handleAddToCart(product, $event)"
+            />
+          </div>
+        </div>
+      </template>
     </div>
   </PortalShell>
 </template>

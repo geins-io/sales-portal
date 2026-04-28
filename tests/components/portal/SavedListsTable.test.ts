@@ -56,4 +56,13 @@ describe('SavedListsTable', () => {
     });
     expect(wrapper.find('[data-testid="saved-list-row"]').exists()).toBe(false);
   });
+
+  it('shows a sequential numeric Id column matching list order', () => {
+    const wrapper = mountComponent(SavedListsTable, {
+      props: { lists: mockLists },
+    });
+    const desktopRows = wrapper.findAll('table [data-testid="saved-list-row"]');
+    expect(desktopRows[0]?.text()).toContain('1');
+    expect(desktopRows[1]?.text()).toContain('2');
+  });
 });

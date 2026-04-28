@@ -40,6 +40,12 @@ const {
   resetOn: [() => searchQuery.value],
 });
 
+const paginationSummary = usePaginationSummary(
+  computed(() => paginatedQuotes.value.length),
+  computed(() => filteredQuotes.value.length),
+  'quotes',
+);
+
 function formatDate(dateStr: string): string {
   try {
     return new Date(dateStr).toLocaleDateString(locale.value, {
@@ -126,12 +132,7 @@ function getStatusLabel(status: QuoteStatus): string {
         :data-total="filteredQuotes.length"
         class="text-muted-foreground mb-3 text-sm"
       >
-        {{
-          t('portal.quotations.count_summary', {
-            shown: paginatedQuotes.length,
-            total: filteredQuotes.length,
-          })
-        }}
+        {{ paginationSummary }}
       </p>
 
       <!-- Mobile card view -->

@@ -35,6 +35,12 @@ vi.mock('~/stores/favorites', () => ({
     isFavorite: mockIsFavorite,
     items: [],
     count: 0,
+    lists: [],
+    favorites: null,
+    productListIds: () => [],
+    addItemToList: vi.fn(),
+    removeItemFromList: vi.fn(),
+    createList: vi.fn(),
   }),
 }));
 

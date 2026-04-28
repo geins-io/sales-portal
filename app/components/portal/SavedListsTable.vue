@@ -72,6 +72,9 @@ function formatDate(value: number | string | undefined): string {
       <thead>
         <tr class="border-border border-b text-left">
           <th class="text-muted-foreground py-3 pr-4 font-medium">
+            {{ t('portal.saved_lists.columns.id') }}
+          </th>
+          <th class="text-muted-foreground py-3 pr-4 font-medium">
             {{ t('portal.saved_lists.columns.name') }}
           </th>
           <th class="text-muted-foreground py-3 pr-4 font-medium">
@@ -91,11 +94,12 @@ function formatDate(value: number | string | undefined): string {
       </thead>
       <tbody>
         <tr
-          v-for="list in lists"
+          v-for="(list, idx) in lists"
           :key="list.id"
           data-testid="saved-list-row"
           class="border-border hover:bg-muted/50 border-b transition-colors"
         >
+          <td class="text-muted-foreground py-3 pr-4">{{ idx + 1 }}</td>
           <td class="py-3 pr-4 font-medium">{{ list.name }}</td>
           <td class="py-3 pr-4">{{ currentUserName }}</td>
           <td class="py-3 pr-4">{{ formatDate(list.updatedAt) }}</td>

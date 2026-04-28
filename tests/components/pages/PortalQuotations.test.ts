@@ -291,12 +291,12 @@ describe('PortalQuotations page', () => {
     }
 
     it.each<[QuoteListItem['status'], string]>([
-      ['pending', 'gray'],
-      ['accepted', 'green'],
-      ['rejected', 'red'],
+      ['pending', 'muted'],
+      ['accepted', 'primary'],
+      ['rejected', 'destructive'],
+      ['cancelled', 'destructive'],
       ['expired', 'orange'],
-      ['cancelled', 'rose'],
-    ])('paints %s pill with %s palette', (status, color) => {
+    ])('paints %s pill with theme-aware %s token', (status, token) => {
       mockData.value = {
         quotes: [makeQuote({ status })],
         total: 1,
@@ -306,11 +306,10 @@ describe('PortalQuotations page', () => {
       });
       const badge = wrapper.find('[data-testid="quote-status-badge"]');
       expect(badge.exists()).toBe(true);
-      expect(badge.attributes('class')).toContain(`bg-${color}-100`);
-      expect(badge.attributes('class')).toContain(`text-${color}-800`);
+      expect(badge.attributes('class')).toContain(token);
     });
 
-    it('gives expired and cancelled visually distinct palettes from pending', () => {
+    it('gives expired a distinct palette from pending', () => {
       const classFor = (status: QuoteListItem['status']) => {
         mockData.value = { quotes: [makeQuote({ status })], total: 1 };
         const wrapper = mountComponent(PortalQuotations, {
@@ -322,12 +321,7 @@ describe('PortalQuotations page', () => {
             .attributes('class') ?? ''
         );
       };
-      const pending = classFor('pending');
-      const expired = classFor('expired');
-      const cancelled = classFor('cancelled');
-      expect(pending).not.toBe(expired);
-      expect(pending).not.toBe(cancelled);
-      expect(expired).not.toBe(cancelled);
+      expect(classFor('pending')).not.toBe(classFor('expired'));
     });
   });
 

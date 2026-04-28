@@ -431,7 +431,14 @@
     "previous": "Previous",
     "next": "Next",
     "navigation": "Pagination",
-    "showing_range": "Showing {from}-{to} of {total} products"
+    "showing_range": "Showing {from}-{to} of {total} products",
+    "count_summary": "{shown} of {total} {noun}",
+    "nouns": {
+      "orders": "orders",
+      "quotes": "quotes",
+      "products": "products",
+      "lists": "lists"
+    }
   },
   "elements": {
     "component_showcase": "Component Showcase",
@@ -775,7 +782,8 @@
       "count": "Showing {count} favorites",
       "loading": "Loading your favorites...",
       "view_grid": "Grid view",
-      "view_list": "List view"
+      "view_list": "List view",
+      "search_placeholder": "Quick filter on art nr or product name"
     },
     "purchased_products": {
       "title": "Your purchased products",

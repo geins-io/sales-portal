@@ -196,13 +196,27 @@ describe('FavoritesPage (Figma-aligned grid)', () => {
     expect(buttons[1]!.attributes('aria-pressed')).toBe('false');
   });
 
-  it('calls favoritesStore.remove when the heart overlay is clicked', async () => {
+  it('renders a search filter input above the grid', () => {
     const wrapper = mountFavorites({
       aliases: ['alpha'],
       products: [{ alias: 'alpha', name: 'Alpha' }],
     });
-    await wrapper.find('[data-testid="favorite-remove"]').trigger('click');
-    expect(mockRemove).toHaveBeenCalledWith('alpha');
+    expect(wrapper.find('[data-testid="favorites-search"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('filters products by name or article number', async () => {
+    const wrapper = mountFavorites({
+      aliases: ['alpha', 'beta'],
+      products: [
+        { alias: 'alpha', name: 'Alpha shoe', articleNumber: 'A-1' },
+        { alias: 'beta', name: 'Beta hat', articleNumber: 'B-2' },
+      ],
+    });
+    expect(wrapper.findAll('[data-testid="favorite-card"]')).toHaveLength(2);
+    await wrapper.find('[data-testid="favorites-search"]').setValue('beta');
+    expect(wrapper.findAll('[data-testid="favorite-card"]')).toHaveLength(1);
   });
 
   it('calls cartStore.addItem when ProductCard emits add-to-cart', async () => {
