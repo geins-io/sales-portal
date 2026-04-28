@@ -13,7 +13,11 @@ function normalizeHostname(hostname: string): string {
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', async (event) => {
-    // Skip if a previous plugin already sent a response (e.g., redirect from locale-market plugin)
+    // Locale-market normalisation lives in `server/middleware/00.locale-market.ts`
+    // and runs AFTER plugins. Root `/` requests still flow through here, get
+    // a tenant attached, and only later get redirected by the middleware. The
+    // headersSent guard stays as a defence-in-depth check for any future
+    // plugin that responds early.
     if (event.node.res.headersSent) return;
 
     // Skip tenant context for health checks and internal endpoints (webhooks)

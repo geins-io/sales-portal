@@ -234,7 +234,7 @@ const saved = localStorage.getItem('preference'); // crashes on SSR
 
 Locale resolution is a 3-step server-side pipeline. The order matters.
 
-1. **Nitro Plugin 00** (`server/plugins/00.locale-market.ts`) — parses the URL, sets locale/market cookies, and redirects `/` to the default locale path. Stores raw `{ market, locale }` in `event.context.localeMarket`. Fallback locale comes from `process.env.GEINS_LOCALE`, not a hardcoded value.
+1. **Server middleware 00** (`server/middleware/00.locale-market.ts`) — parses the URL, sets locale/market cookies, and redirects `/` to the default locale path. Stores raw `{ market, locale }` in `event.context.localeMarket`. Fallback locale comes from `process.env.GEINS_LOCALE`, not a hardcoded value. Lives in `server/middleware/` (not `server/plugins/`) so `sendRedirect` integrates with Nitro's response pipeline — `nuxt-security` route-rule headers get applied before the redirect flushes, instead of triggering `ERR_HTTP_HEADERS_SENT` after.
 2. **Nitro Plugin 01** (`server/plugins/02.tenant-context.ts`) — resolves the tenant (needs cookies from plugin 00), validates the locale/market combination against tenant config, stores a validated `ResolvedLocaleMarket` in `event.context.resolvedLocaleMarket`, and redirects if a correction is needed. This is the only layer that may rewrite the locale/market cookies.
 3. **Client middleware** (`middleware/locale.ts`) — syncs the Nuxt i18n locale state from the URL on every client-side navigation.
 
