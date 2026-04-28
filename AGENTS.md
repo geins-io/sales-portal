@@ -120,6 +120,33 @@ Tenant flows through: Server plugin → `event.context.tenant` → `/api/config`
 
 Do not create or commit generated documentation files (README.md, CONTRIBUTING.md, etc.) unless explicitly requested. The `docs/` directory contains hand-written, curated documentation only.
 
+## Commit Message Format
+
+Conventional Commits — every commit MUST start with `type(scope): description`:
+
+```
+fix(tenant): flatten merchant API appSettings response
+feat(portal): add saved-lists Id column
+chore(deps): bump @geins/crm to 0.10.1
+docs(cms-config): document DEFAULT_CMS_CONFIG resolution order
+test(favorites): cover quick-filter search
+refactor(quote-status): use theme tokens instead of hardcoded palette
+```
+
+**Allowed types**: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `style`, `revert`.
+
+**Scope** is the area touched — feature, package, or filename root (`tenant`, `cart`, `portal`, `quotes`, `cms`, `auth`, `deps`, `i18n`, etc). Pick something meaningful, lowercase, single token.
+
+**Description** is the imperative one-liner — what changed, not what was wrong. Lowercase, no period, ≤72 chars.
+
+**Never**:
+
+- Include ticket numbers (`SAL-20`, `#147`) — those belong in the PR body.
+- Mention internal stakeholder names, tracking docs, or AI assistants.
+- Use vague verbs like "update" or "fix stuff" — say what you did.
+
+PR titles should follow the same format. Body holds the longer rationale, test plan, follow-ups.
+
 ## Pre-Push Quality Gate
 
 **No failing builds or checks may reach GitHub.** Before pushing any commit, verify locally:
