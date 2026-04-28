@@ -15,6 +15,46 @@ import {
 } from './tenant-css';
 
 /**
+ * Default CMS slot + menu mapping using Geins's out-of-box admin family and
+ * areaName values. Applied when a tenant's StoreSettings does not define
+ * `cms` explicitly, so every Geins tenant works without per-tenant config.
+ *
+ * A tenant CAN override by setting `cms` on its StoreSettings. Verified
+ * against pinchtab + Geins admin (see MEMORY: Portal (Customer logged in),
+ * Frontpage, Productlist, Product, main/footer/info-pages).
+ */
+export const DEFAULT_CMS_CONFIG: NonNullable<TenantConfig['cms']> = {
+  slots: {
+    [CMS_SLOTS.PORTAL_HERO]: {
+      family: 'Portal (Customer logged in)',
+      areaName: 'Above Content',
+    },
+    [CMS_SLOTS.FRONTPAGE_CONTENT]: {
+      family: 'Frontpage',
+      areaName: 'Content',
+    },
+    [CMS_SLOTS.PRODUCT_LIST_TOP]: {
+      family: 'Productlist',
+      areaName: 'Above List',
+    },
+    [CMS_SLOTS.PRODUCT_LIST_BOTTOM]: {
+      family: 'Productlist',
+      areaName: 'Below List',
+    },
+    [CMS_SLOTS.PRODUCT_DETAIL]: {
+      family: 'Product',
+      areaName: 'Below Details',
+    },
+  },
+  menus: {
+    [CMS_MENUS.HEADER_MAIN]: { menuLocationId: 'main' },
+    [CMS_MENUS.FOOTER]: { menuLocationId: 'footer' },
+    [CMS_MENUS.MOBILE_DRAWER]: { menuLocationId: 'main' },
+    [CMS_MENUS.SIDEBAR_FALLBACK]: { menuLocationId: 'info-pages' },
+  },
+};
+
+/**
  * Default GeinsSettings for auto-created and fallback tenants.
  * Single source of truth — used in fetchTenantConfig and createTenant.
  */
@@ -192,6 +232,12 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
 
   const themeHash = generateThemeHash(theme);
 
+  // CMS: explicit tenant config wins, otherwise fall back to the standard
+  // Geins out-of-box family/areaName values + menu locations. Lets every
+  // tenant render slots/menus without per-tenant overrides.
+  const cms =
+    (settings as { cms?: TenantConfig['cms'] }).cms ?? DEFAULT_CMS_CONFIG;
+
   return {
     tenantId: settings.tenantId,
     hostname: settings.hostname,
@@ -205,12 +251,59 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     seo: settings.seo,
     contact: settings.contact,
     overrides: settings.overrides,
+    cms,
     css,
     themeHash,
     isActive: settings.isActive,
     createdAt: settings.createdAt,
     updatedAt: settings.updatedAt,
   };
+}
+
+/**
+ * Adapt the merchant API response to our internal `StoreSettings` shape.
+ *
+ * The API returns `{ geinsSettings, appSettings, ... }` where `appSettings`
+ * is the bulk of the per-tenant config (theme, branding, features, cms,
+ * aliases) and `geinsSettings` carries Geins API creds + every hostname
+ * the tenant is reachable on (`defaultHostName` + `additionalHostNames`).
+ *
+ * Steps:
+ *   1. Pull `appSettings` to root (or fall back to the raw response if a
+ *      future merchant API serves a flat shape — we don't fight it).
+ *   2. Convert `geinsSettings` from the API's "Geins API" shape (channelId,
+ *      defaultLocale, locales) to our internal flat shape via
+ *      `transformGeinsSettings`.
+ *   3. Merge `geinsSettings.additionalHostNames` into `aliases` so any
+ *      configured hostname resolves the right tenant on subsequent KV
+ *      lookups (the API keeps these in two places — we want one).
+ *   4. Drop a couple of legacy fields the API still emits but our schema
+ *      doesn't care about (`id`, `geinsApiSettings`).
+ */
+function adaptMerchantApiResponse(
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  const appSettings = (raw.appSettings as Record<string, unknown>) ?? raw;
+  const rawGeins = raw.geinsSettings as Record<string, unknown> | undefined;
+
+  const geinsSettings = rawGeins ? transformGeinsSettings(rawGeins) : undefined;
+
+  const additional = Array.isArray(rawGeins?.additionalHostNames)
+    ? (rawGeins.additionalHostNames as string[])
+    : [];
+  const existing = Array.isArray(appSettings.aliases)
+    ? (appSettings.aliases as string[])
+    : [];
+  const aliases = Array.from(new Set([...existing, ...additional]));
+
+  const candidate: Record<string, unknown> = {
+    ...appSettings,
+    geinsSettings,
+    aliases,
+  };
+  delete candidate.geinsApiSettings;
+  delete candidate.id;
+  return candidate;
 }
 
 export async function fetchTenantConfig(
@@ -230,17 +323,9 @@ export async function fetchTenantConfig(
     );
 
     if (response.ok) {
-      const data = await response.json();
-
-      if (data.geinsSettings) {
-        data.geinsSettings = transformGeinsSettings(
-          data.geinsSettings as Record<string, unknown>,
-        );
-      }
-      delete data.geinsApiSettings;
-      delete data.id;
-
-      const parsed = StoreSettingsSchema.safeParse(data);
+      const raw = (await response.json()) as Record<string, unknown>;
+      const candidate = adaptMerchantApiResponse(raw);
+      const parsed = StoreSettingsSchema.safeParse(candidate);
 
       if (parsed.success) {
         return buildTenantConfig(parsed.data);
@@ -278,28 +363,10 @@ export async function fetchTenantConfig(
         cart: { enabled: true },
         wishlist: { enabled: true },
       },
-      // Seed the CMS slot + menu registry with the Geins out-of-box
-      // names so dev / auto-provisioned tenants work without extra
-      // config. Production tenants override or add entries via their
-      // stored config (tenant config is the single source of truth).
-      cms: {
-        slots: {
-          [CMS_SLOTS.PORTAL_HERO]: {
-            family: 'Portal (Customer logged in)',
-            areaName: 'Above Content',
-          },
-          [CMS_SLOTS.FRONTPAGE_CONTENT]: {
-            family: 'Frontpage',
-            areaName: 'Content',
-          },
-        },
-        menus: {
-          [CMS_MENUS.HEADER_MAIN]: { menuLocationId: 'main' },
-          [CMS_MENUS.FOOTER]: { menuLocationId: 'footer' },
-          [CMS_MENUS.MOBILE_DRAWER]: { menuLocationId: 'main' },
-          [CMS_MENUS.SIDEBAR_FALLBACK]: { menuLocationId: 'info-pages' },
-        },
-      },
+      // Geins out-of-box CMS slots + menus. Single source of truth —
+      // see DEFAULT_CMS_CONFIG above. Tenants override by setting `cms`
+      // on their stored StoreSettings.
+      cms: DEFAULT_CMS_CONFIG,
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

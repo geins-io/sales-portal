@@ -19,16 +19,41 @@ The registry decouples the storefront from per-tenant CMS naming.
 Storefront code asks for a logical key (`PORTAL_HERO`, `HEADER_MAIN`);
 tenant config supplies the concrete identifiers to query.
 
-## Design — tenant config is the single source of truth
+## Design — tenant config + safe defaults
 
-There is NO global defaults map. Missing or partial slot configs resolve
-to `null` and consumers fall back gracefully. Auto-provisioned dev
-tenants ARE seeded with the Geins out-of-box names in
-`server/utils/tenant.ts`, but that seed is per-tenant config, not a
-global fallback.
+Resolution order for `tenant.cms`:
 
-Production tenants must configure their slots explicitly. The shape is
-validated at the type level via `tenant.cms.slots`.
+1. **Explicit tenant config** (`appSettings.cms` in the merchant API
+   response, or any KV-stored override) wins.
+2. **`DEFAULT_CMS_CONFIG`** in `server/utils/tenant.ts` is applied when
+   the tenant's StoreSettings has no `cms` block. The defaults match the
+   Geins out-of-box admin family + areaName values, so a vanilla Geins
+   install renders correctly without per-tenant work.
+3. Per-key resolution still returns `null` when a tenant explicitly sets
+   `cms` but omits the key — consumers still fall back gracefully.
+
+Auto-provisioned dev tenants and the seeded fixtures use the same
+`DEFAULT_CMS_CONFIG` constant, so all paths agree.
+
+## Merchant API response shape
+
+The Geins merchant API (`/store-settings?hostname=...`) returns:
+
+```jsonc
+{
+  "geinsSettings": {
+    /* api creds, defaultHostName, additionalHostNames */
+  },
+  "appSettings": {
+    /* tenantId, hostname, theme, branding, features, cms, ... */
+  },
+}
+```
+
+`fetchTenantConfig` flattens the two halves before validating against
+`StoreSettingsSchema`, and merges `geinsSettings.additionalHostNames` into
+`appSettings.aliases` so all configured hostnames resolve to the right
+tenant.
 
 ## Current slots (`tenant.cms.slots`)
 
@@ -137,13 +162,14 @@ area (e.g. tenant created a collection shell but added no widgets):
 1. Add the key to the appropriate enum:
    - Slots → `CMS_SLOTS` in `shared/types/cms-slots.ts`.
    - Menus → `CMS_MENUS` in `shared/constants/cms.ts`.
-2. Add the entry to the seed map in `server/utils/tenant.ts` if dev /
-   auto-provisioned tenants should get it automatically.
+2. Add the entry to `DEFAULT_CMS_CONFIG` in `server/utils/tenant.ts` so
+   every tenant (real + autocreated) gets it without per-tenant work.
 3. Add it to the dev-only fixture seed in
    `server/plugins/99.dev-tenant-seed.ts` (`FULL_CMS_CONFIG`) so local
    multi-tenant walkthrough stays complete.
 4. Document the entry in the table above.
-5. Update existing production tenant configs to add the new entry.
+5. Tenants that want a non-default mapping override via their stored
+   `appSettings.cms` block — see "How a tenant configures an override".
 
 ## Local multi-tenant walkthrough
 
@@ -169,7 +195,7 @@ The plugin is a no-op in production (guarded on `import.meta.dev`).
 - `app/composables/useCmsSlot.ts` — slot resolver.
 - `app/composables/useCmsMenu.ts` — menu resolver (config only).
 - `app/composables/useCmsMenuData.ts` — menu resolver + fetch wrapper.
-- `server/utils/tenant.ts` — auto-provisioned tenant seed.
+- `server/utils/tenant.ts` — `DEFAULT_CMS_CONFIG`, response flattening, auto-provisioned tenant seed.
 - `server/plugins/99.dev-tenant-seed.ts` — local fixture tenants.
 - `app/components/portal/PortalShell.vue` — `PORTAL_HERO` consumer.
 - `app/pages/index.vue` — `FRONTPAGE_CONTENT` consumer.

@@ -179,6 +179,33 @@ export const OverrideConfigSchema = z
   .optional();
 
 /**
+ * CMS slot + menu config carried through the merchant API's `appSettings.cms`
+ * block. Loosely typed here (record-of-record) — the strict shape lives in
+ * `shared/types/cms-slots.ts` and `shared/constants/cms.ts`.
+ */
+const CmsConfigSchema = z
+  .object({
+    slots: z
+      .record(
+        z.string(),
+        z.object({
+          family: z.string(),
+          areaName: z.string(),
+        }),
+      )
+      .optional(),
+    menus: z
+      .record(
+        z.string(),
+        z.object({
+          menuLocationId: z.string(),
+        }),
+      )
+      .optional(),
+  })
+  .optional();
+
+/**
  * Complete Store Settings schema — the contract the sales portal expects from the merchant API.
  */
 export const StoreSettingsSchema = z.object({
@@ -194,6 +221,7 @@ export const StoreSettingsSchema = z.object({
   seo: SeoConfigSchema.nullable().optional(),
   contact: ContactConfigSchema.nullable().optional(),
   overrides: OverrideConfigSchema,
+  cms: CmsConfigSchema,
   isActive: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
