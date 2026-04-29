@@ -249,9 +249,10 @@ useSchemaOrg([
     <!-- Breadcrumbs -->
     <AppBreadcrumbs v-if="breadcrumbItems.length" :items="breadcrumbItems" />
 
-    <!-- Main content: bordered card with two-column layout on md+ -->
+    <!-- Main content: bordered card with two-column layout on md+
+         Figma: container p-6 (24px), gap-9 (36px) between gallery+info -->
     <div
-      class="grid gap-8 rounded-lg border p-4 md:grid-cols-2 md:p-6 lg:p-8"
+      class="grid gap-8 rounded-lg border p-4 md:grid-cols-2 md:gap-9 md:p-6"
       data-testid="pdp-top-area"
     >
       <!-- Left: Gallery -->

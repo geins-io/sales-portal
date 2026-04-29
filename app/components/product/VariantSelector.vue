@@ -148,7 +148,7 @@ const activeDimension = computed(
         data-testid="variant-sheet"
       >
         <SheetHeader class="border-b px-6 py-4">
-          <SheetTitle>
+          <SheetTitle class="text-lg">
             {{
               activeDimension
                 ? `${$t('product.select_variant')} — ${activeDimension.dimensionName}`

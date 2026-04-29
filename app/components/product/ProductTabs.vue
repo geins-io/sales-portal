@@ -57,7 +57,7 @@ const defaultTab = computed(() => {
       <TabsContent
         v-if="hasDescription"
         value="description"
-        class="mt-6 rounded-lg border p-6 lg:p-8"
+        class="mt-6 rounded-lg border p-6"
       >
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="prose max-w-none" v-html="product.texts?.text1" />
@@ -66,7 +66,7 @@ const defaultTab = computed(() => {
       <TabsContent
         v-if="hasSpecs"
         value="specifications"
-        class="mt-6 rounded-lg border p-6 lg:p-8"
+        class="mt-6 rounded-lg border p-6"
       >
         <div class="grid gap-8 md:grid-cols-2">
           <div
@@ -101,7 +101,7 @@ const defaultTab = computed(() => {
         </div>
       </TabsContent>
 
-      <TabsContent value="documents" class="mt-6 rounded-lg border p-6 lg:p-8">
+      <TabsContent value="documents" class="mt-6 rounded-lg border p-6">
         <p class="text-muted-foreground text-sm">
           {{ $t('product.no_documents') }}
         </p>
@@ -110,7 +110,7 @@ const defaultTab = computed(() => {
       <TabsContent
         v-if="hasRelated"
         value="related"
-        class="mt-6 rounded-lg border p-6 lg:p-8"
+        class="mt-6 rounded-lg border p-6"
       >
         <RelatedProducts :products="related ?? []" :hide-heading="true" />
       </TabsContent>
