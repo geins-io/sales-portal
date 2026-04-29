@@ -142,8 +142,10 @@ refactor(quote-status): use theme tokens instead of hardcoded palette
 **Never**:
 
 - Include ticket numbers (`SAL-20`, `#147`) — those belong in the PR body.
-- Mention internal stakeholder names, tracking docs, or AI assistants.
+- Mention people by name (first or last), private directories (e.g. `local-docs/`), private file paths, internal team names, "stakeholders", "the platform team", "alignment notes", or AI assistants. The only references allowed are repo-internal artifacts: `docs/`, `docs/adr/`, `docs/patterns/`, `docs/conventions/`, in-tree code paths.
 - Use vague verbs like "update" or "fix stuff" — say what you did.
+
+This rule applies the same way to commit messages, commit bodies, PR titles, PR descriptions, code comments, JSDoc, READMEs, ADRs, patterns docs, and anything else under `docs/` or in source. If a piece of context can't be expressed without naming a person or a private path, drop the context entirely — the git history and PR description are enough.
 
 PR titles should follow the same format. Body holds the longer rationale, test plan, follow-ups.
 

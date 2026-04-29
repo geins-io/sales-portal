@@ -35,12 +35,10 @@ ApplyForAccountForm
 
 ## Why the manual linking step
 
-The wiki (`local-docs/litium-wiki/business/packaging/features/sales-portal.md`)
-lists "Business account application" as a first-class feature, separate
-from "Login". Kristian confirmed at the 2026-04-17 meeting that company
-→ organization linking is done in Geins Studio by the sales team — there
-is no API for it. The storefront's job ends when the user record is
-created and promoted.
+The product spec lists "Business account application" as a first-class
+feature, separate from "Login". Company → organization linking is done
+in Geins Studio by the sales team — there is no API for it. The
+storefront's job ends when the user record is created and promoted.
 
 ## Error handling
 
@@ -61,4 +59,3 @@ We never log `password` or `acceptTerms`.
 - `app/components/apply/ApplyForAccountForm.vue` — form.
 - `app/components/portal/PortalPendingApprovalBanner.vue` — post-submit banner.
 - `app/pages/portal/index.vue` — banner mount point.
-- `local-docs/KRISTIAN-MEETING-20260417.md` — decision source.

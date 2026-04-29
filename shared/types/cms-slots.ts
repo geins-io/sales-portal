@@ -14,7 +14,7 @@
  *   New slots can be added without touching tenant configs that don't
  *   need them.
  *
- * Design decisions (per Kristian, 2026-04-22):
+ * Design decisions:
  * - Tenant config is the SINGLE source of truth. There is no global
  *   defaults map — `useCmsSlot(key)` returns `null` when the slot is
  *   not configured, and consumers fall back gracefully (e.g. the
