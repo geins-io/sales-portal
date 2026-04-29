@@ -34,6 +34,7 @@ Violations trigger immediate stop and escalation to user.
 - NEVER set the locale cookie from client code — only Nitro plugin 00 and the server-side validation middleware may write it
 - NEVER read locale/market from cookies in server utilities when resolvedLocaleMarket is available — use `event.context.resolvedLocaleMarket` (cookie fallback only for API routes where resolvedLocaleMarket is not set)
 - NEVER use bare route paths (`to="/login"`, `navigateTo('/')`, `router.push('/portal/orders')`) — always use `localePath()` in components or cookie-based prefix in middleware
+- NEVER override `i18n.locale` from a tenant default, cookie, or any non-URL source when the URL has a `/:market/:locale/` prefix. The URL locale is authoritative; `app/middleware/locale-market.global.ts` is the writer for prefixed URLs. Plugins or composables that watch tenant/cookie state must guard with a URL-prefix check (see `app/plugins/i18n-locale.ts`). Without the guard, the SSR race makes `useFetch` send `?locale=<wrong>` for PLP/PDP/category pages — they render fine on client-side navigation but return 404 on hard refresh.
 
 ## Component Rendering
 
