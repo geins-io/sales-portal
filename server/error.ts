@@ -22,7 +22,7 @@ import { readErrorHandlerConfig } from './utils/error-config';
  * structured JSON response for API clients. It never invokes Nuxt
  * rendering and has no composable dependencies. That is the point.
  *
- * Full rationale + options considered in `local-docs/ERROR-HANDLING-DESIGN.md`.
+ * Full rationale + options considered: see this file's git history.
  */
 const errorHandler: NitroErrorHandler = (error, event) => {
   const { debugErrors } = readErrorHandlerConfig(event);

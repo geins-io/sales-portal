@@ -52,4 +52,4 @@ All in `shared/utils/menu.ts`:
 
 ## CMS Language Behavior
 
-Menu queries pass `languageId` to the Geins API. If the menu has no content for the user's locale, the service retries without `languageId` so the SDK uses its default locale. This ensures menus always render even when content is only created for one language. See `local-docs/CMS-LANGUAGE-MODEL.md` for full details.
+Menu queries pass `languageId` to the Geins API. If the menu has no content for the user's locale, the service retries without `languageId` so the SDK uses its default locale. This ensures menus always render even when content is only created for one language.

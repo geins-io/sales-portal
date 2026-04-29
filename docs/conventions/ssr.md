@@ -376,7 +376,7 @@ CMS widget areas and menus may only exist for one language (e.g. Swedish-only st
 
 **Pages do NOT fallback** — they are language-specific with different aliases per language. Missing page = genuine 404.
 
-CMS area queries pass `displaySetting` (`mobile`/`desktop`) derived from the `User-Agent` header. See `local-docs/CMS-LANGUAGE-MODEL.md` for the full CMS language model.
+CMS area queries pass `displaySetting` (`mobile`/`desktop`) derived from the `User-Agent` header.
 
 ## Reference Implementation
 

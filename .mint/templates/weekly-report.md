@@ -32,7 +32,7 @@ Next Week's Deliverables
 Team & Project Updates
 
 Team collaboration
-{{Any communication with Kristian, decisions made, blockers discussed, strategy alignment.}}
+{{Decisions made, blockers discussed, strategy alignment.}}
 
 Project context
 {{Which milestones are done, which are in progress, how many tickets remain in current milestone.}}
