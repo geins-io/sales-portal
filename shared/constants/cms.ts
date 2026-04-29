@@ -39,11 +39,8 @@ export const CMS_MENUS = {
   /** Off-canvas drawer shown on small screens. */
   MOBILE_DRAWER: 'mobile_drawer',
   /**
-   * Default sidebar menu used by CMS pages tagged with "menu" that
-   * don't declare their own `pageArea.name`. When a page DOES declare
-   * a `pageArea.name`, that wins — this fallback only fires when the
-   * page is silent. Keeps the dynamic sidebar consumer in
-   * `pages/[...slug].vue` from hardcoding a tenant-specific menu name.
+   * Default sidebar menu used by CMS pages tagged with `CMS_TAGS.SIDEBAR_MENU`.
+   * Tenants map this to the merchant-center menu (e.g. `info-pages`).
    */
   SIDEBAR_FALLBACK: 'sidebar_fallback',
 } as const;
@@ -58,3 +55,28 @@ export type CmsMenuKey = (typeof CMS_MENUS)[keyof typeof CMS_MENUS];
 export interface CmsMenuConfig {
   menuLocationId: string;
 }
+
+/**
+ * CMS tag registry — logical keys for tags merchants can attach to a
+ * Geins CMS page in the admin. The storefront keys behaviors off these
+ * tags (e.g. show a sidebar nav when a page has `SIDEBAR_MENU`).
+ *
+ * The string value is what merchants type into the admin tag field.
+ * Geins serializes tags hashtag-prefixed (`#menu`) — `hasPageTag()` in
+ * `shared/utils/cms-tags.ts` normalizes the prefix and casing so this
+ * registry stays free of `#` and lowercase by convention.
+ *
+ * Mirrors the `CMS_SLOTS` / `CMS_MENUS` pattern. New tags go here so the
+ * convention stays grep-able and editors get a stable contract.
+ */
+export const CMS_TAGS = {
+  /**
+   * Page renders with the `SIDEBAR_FALLBACK` menu shown as a sidebar nav
+   * to the left of the main content. Used for info pages (about, terms,
+   * jobs, etc.) so editors can grow that section in the admin without
+   * touching code.
+   */
+  SIDEBAR_MENU: 'menu',
+} as const;
+
+export type CmsTagKey = (typeof CMS_TAGS)[keyof typeof CMS_TAGS];

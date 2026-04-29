@@ -67,17 +67,29 @@ tenant.
 
 ## Current menus (`tenant.cms.menus`)
 
-| Key                          | Where it renders                                                        | Consumer                                            | Typical `{menuLocationId}`         |
-| ---------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------- |
-| `CMS_MENUS.HEADER_MAIN`      | Desktop header nav bar                                                  | `app/components/layout/header/LayoutHeaderNav.vue`  | `{ menuLocationId: "main" }`       |
-| `CMS_MENUS.FOOTER`           | Footer link columns                                                     | `app/components/layout/footer/LayoutFooterMain.vue` | `{ menuLocationId: "footer" }`     |
-| `CMS_MENUS.MOBILE_DRAWER`    | Mobile off-canvas navigation                                            | `app/components/layout/MobileNavPanel.vue`          | `{ menuLocationId: "main" }`       |
-| `CMS_MENUS.SIDEBAR_FALLBACK` | Default sidebar menu for CMS pages that don't declare a `pageArea.name` | `app/pages/[...slug].vue` → `PageSidebarNav`        | `{ menuLocationId: "info-pages" }` |
+| Key                          | Where it renders                                         | Consumer                                            | Typical `{menuLocationId}`         |
+| ---------------------------- | -------------------------------------------------------- | --------------------------------------------------- | ---------------------------------- |
+| `CMS_MENUS.HEADER_MAIN`      | Desktop header nav bar                                   | `app/components/layout/header/LayoutHeaderNav.vue`  | `{ menuLocationId: "main" }`       |
+| `CMS_MENUS.FOOTER`           | Footer link columns                                      | `app/components/layout/footer/LayoutFooterMain.vue` | `{ menuLocationId: "footer" }`     |
+| `CMS_MENUS.MOBILE_DRAWER`    | Mobile off-canvas navigation                             | `app/components/layout/MobileNavPanel.vue`          | `{ menuLocationId: "main" }`       |
+| `CMS_MENUS.SIDEBAR_FALLBACK` | Sidebar nav for CMS pages tagged `CMS_TAGS.SIDEBAR_MENU` | `app/pages/[...slug].vue` → `PageSidebarNav`        | `{ menuLocationId: "info-pages" }` |
 
-> Sidebar resolution: `pages/[...slug].vue` first tries
-> `page.pageArea.name` (per-page, dynamic). If the page doesn't declare
-> one, it falls back to `CMS_MENUS.SIDEBAR_FALLBACK` from tenant config.
-> If neither is set, the sidebar simply doesn't render.
+> Sidebar resolution: `pages/[...slug].vue` checks the page's tags via
+> `hasPageTag(page, CMS_TAGS.SIDEBAR_MENU)`. When the tag is present, the
+> tenant's `CMS_MENUS.SIDEBAR_FALLBACK` menu renders to the left of the
+> page content. When absent (or the menu isn't configured), the sidebar
+> doesn't render — same page just goes full-width.
+
+## Current tags (`page.tags`)
+
+| Key                     | Effect                                                            | Consumer                  | Stored as |
+| ----------------------- | ----------------------------------------------------------------- | ------------------------- | --------- |
+| `CMS_TAGS.SIDEBAR_MENU` | Render `CMS_MENUS.SIDEBAR_FALLBACK` as a sidebar nav on this page | `app/pages/[...slug].vue` | `#menu`   |
+
+> Geins serializes admin tags hashtag-prefixed (`#menu`) and editors can
+> type any casing. Always check tags through `hasPageTag()` from
+> `shared/utils/cms-tags.ts` — it normalizes `#`, casing, and whitespace
+> so the registry constants stay clean (`'menu'`, not `'#menu'`).
 
 ## How a tenant configures an override
 
