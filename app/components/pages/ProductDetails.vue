@@ -268,13 +268,18 @@ useSchemaOrg([
         <!-- Quantity + Add to cart (top-right per Figma) -->
         <div
           v-if="showPrice"
-          class="flex items-end justify-end gap-3"
+          class="flex items-center justify-end gap-3"
           data-testid="pdp-actions"
         >
-          <QuantityInput v-model="quantity" :min="1" :max="maxQuantity" />
+          <QuantityInput
+            v-model="quantity"
+            :min="1"
+            :max="maxQuantity"
+            class="h-9"
+          />
           <Button
             data-testid="add-to-cart-button"
-            class="gap-2 px-6"
+            class="h-9 gap-2 px-6"
             @click="addToCart"
           >
             <Icon name="lucide:shopping-cart" class="size-4" />
@@ -283,14 +288,15 @@ useSchemaOrg([
           <Button
             v-if="hasFeature('wishlist')"
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             :data-favorited="isFavorited"
+            class="bg-card text-foreground rounded-md border shadow-sm"
             :aria-label="$t('product.wishlist')"
             data-testid="pdp-wishlist-toggle"
             @click="openListPicker"
           >
             <Star
-              class="size-5"
+              class="size-4"
               :fill="isFavorited ? 'currentColor' : 'none'"
             />
           </Button>

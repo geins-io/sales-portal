@@ -226,11 +226,11 @@ async function addToCart() {
         <span v-else />
         <Button
           v-if="productAlias && hasFeature('wishlist')"
-          variant="outline"
+          variant="ghost"
           size="icon-sm"
           data-testid="wishlist-button"
           :data-favorited="isFavorited"
-          class="-mt-1 shrink-0 shadow-sm"
+          class="bg-card hover:bg-accent text-foreground -mt-1 shrink-0 rounded-md border shadow-sm"
           :aria-label="t('product.wishlist')"
           @click.prevent.stop="openListPicker"
         >
@@ -238,13 +238,13 @@ async function addToCart() {
         </Button>
       </div>
 
-      <!-- Product title -->
+      <!-- Product title (Figma: text-base/500) -->
       <NuxtLink v-if="productUrl" :to="productUrl" class="hover:underline">
-        <h3 class="line-clamp-2 text-sm leading-tight font-medium">
+        <h3 class="line-clamp-2 text-base leading-tight font-medium">
           {{ product?.name }}
         </h3>
       </NuxtLink>
-      <h3 v-else class="line-clamp-2 text-sm leading-tight font-medium">
+      <h3 v-else class="line-clamp-2 text-base leading-tight font-medium">
         {{ product?.name }}
       </h3>
 
@@ -298,21 +298,26 @@ async function addToCart() {
         </span>
       </div>
 
-      <!-- Quantity + Add to cart -->
-      <div v-if="showPrice" class="mt-auto flex items-center gap-2 pt-3">
+      <!-- Quantity + Add to cart (Figma: both 36px tall, gap 12) -->
+      <div v-if="showPrice" class="mt-auto flex items-center gap-3 pt-3">
         <!-- Legacy: QuantityInput -->
         <QuantityInput
           v-if="isLegacyProduct(product)"
           v-model="quantity"
           :min="1"
           :max="maxQuantity"
-          class="shrink-0"
+          class="h-9 shrink-0"
         />
         <!-- New: QuantityStepper -->
-        <QuantityStepper v-else v-model="quantity" :min="1" class="shrink-0" />
+        <QuantityStepper
+          v-else
+          v-model="quantity"
+          :min="1"
+          class="h-9 shrink-0"
+        />
         <Button
           data-testid="add-to-cart-button"
-          class="h-10 min-w-0 flex-1 overflow-hidden px-4"
+          class="h-9 min-w-0 flex-1 overflow-hidden px-4"
           :variant="addError ? 'destructive' : 'default'"
           :disabled="
             isLegacyProduct(product) ? !firstSku || isAdding : isLoading
@@ -451,17 +456,18 @@ async function addToCart() {
         <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
       </Button>
       <template v-if="showPrice">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
           <QuantityInput
             v-if="isLegacyProduct(product)"
             v-model="quantity"
             :min="1"
             :max="maxQuantity"
+            class="h-9"
           />
-          <QuantityStepper v-else v-model="quantity" :min="1" />
+          <QuantityStepper v-else v-model="quantity" :min="1" class="h-9" />
           <Button
             data-testid="add-to-cart-button"
-            class="h-10 px-4"
+            class="h-9 px-4"
             :variant="addError ? 'destructive' : 'default'"
             :disabled="
               isLegacyProduct(product) ? !firstSku || isAdding : isLoading
