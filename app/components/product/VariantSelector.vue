@@ -8,11 +8,48 @@ import {
   SheetTitle,
 } from '~/components/ui/sheet';
 
+// The Geins GraphQL `variantDimensions` field returns one row per
+// (dimension, value) pair, not the SDK type's nominal `{dimensionName, values}`
+// shape. Group them into a dimension → values map for rendering.
+type RawDimensionRow = {
+  dimension?: string;
+  dimensionName?: string;
+  value?: string;
+  values?: string[];
+  label?: string;
+};
+
 const props = defineProps<{
   variantDimensions: VariantDimensionType[];
   variants: VariantType[];
   modelValue: Record<string, string>;
 }>();
+
+interface GroupedDimension {
+  dimensionName: string;
+  values: string[];
+}
+
+const groupedDimensions = computed<GroupedDimension[]>(() => {
+  const rows = props.variantDimensions as unknown as RawDimensionRow[];
+  const map = new Map<string, Set<string>>();
+  for (const row of rows ?? []) {
+    // Tolerate both the legacy `{dimensionName, values}` shape and the
+    // GraphQL `{dimension, value}` shape so unit tests + real data both work.
+    const name = row.dimensionName ?? row.dimension;
+    if (!name) continue;
+    if (!map.has(name)) map.set(name, new Set());
+    if (Array.isArray(row.values)) {
+      for (const v of row.values) map.get(name)!.add(v);
+    } else if (row.value != null) {
+      map.get(name)!.add(row.value);
+    }
+  }
+  return Array.from(map, ([dimensionName, values]) => ({
+    dimensionName,
+    values: Array.from(values),
+  }));
+});
 
 const emit = defineEmits<{
   'update:modelValue': [value: Record<string, string>];
@@ -37,8 +74,17 @@ function selectValue(dimensionName: string, value: string) {
 }
 
 function isValueAvailable(dimensionName: string, value: string): boolean {
+  // Geins responses sometimes return `attributes` as a missing field or
+  // an empty string instead of an array. Treat anything non-array as
+  // "no attribute info" and fall back to allowing the value — the
+  // server-side API will reject an unbuyable SKU at add-to-cart time.
   return props.variants.some((variant) => {
-    const hasAttribute = variant.attributes.some(
+    const attrs = Array.isArray(variant.attributes) ? variant.attributes : [];
+    if (attrs.length === 0) {
+      return (variant.stock?.totalStock ?? 0) > 0;
+    }
+
+    const hasAttribute = attrs.some(
       (attr) =>
         attr.attributeName === dimensionName && attr.attributeValue === value,
     );
@@ -46,20 +92,20 @@ function isValueAvailable(dimensionName: string, value: string): boolean {
 
     for (const [dimName, dimValue] of Object.entries(props.modelValue)) {
       if (dimName === dimensionName) continue;
-      const matches = variant.attributes.some(
+      const matches = attrs.some(
         (attr) =>
           attr.attributeName === dimName && attr.attributeValue === dimValue,
       );
       if (!matches) return false;
     }
 
-    return variant.stock.totalStock > 0;
+    return (variant.stock?.totalStock ?? 0) > 0;
   });
 }
 
 const activeDimension = computed(
   () =>
-    props.variantDimensions.find(
+    groupedDimensions.value.find(
       (d) => d.dimensionName === openDimension.value,
     ) ?? null,
 );
@@ -68,7 +114,7 @@ const activeDimension = computed(
 <template>
   <div class="flex flex-col gap-3" data-testid="variant-selector">
     <div
-      v-for="dimension in variantDimensions"
+      v-for="dimension in groupedDimensions"
       :key="dimension.dimensionName"
       class="flex flex-col gap-1.5"
     >
