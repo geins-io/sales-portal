@@ -17,7 +17,7 @@ describe('ProductDetailsSkeleton', () => {
     expect(wrapper.find('[data-testid="pdp-skeleton"]').exists()).toBe(true);
   });
 
-  it('renders gallery skeleton with main image and thumbnails', () => {
+  it('renders gallery skeleton', () => {
     const wrapper = shallowMountComponent(ProductDetailsSkeleton, {
       global: { stubs },
     });
@@ -25,9 +25,6 @@ describe('ProductDetailsSkeleton', () => {
     expect(wrapper.find('[data-testid="pdp-skeleton-gallery"]').exists()).toBe(
       true,
     );
-    expect(
-      wrapper.findAll('[data-testid="pdp-skeleton-thumbnail"]').length,
-    ).toBe(4);
   });
 
   it('renders info column skeleton', () => {

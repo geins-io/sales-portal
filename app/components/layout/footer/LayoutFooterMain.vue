@@ -50,7 +50,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
   <div
     v-if="visibleItems.length"
     data-slot="footer-main"
-    class="px-6 py-8 lg:px-8 lg:py-10"
+    class="px-6 py-8 lg:px-6 lg:py-10"
   >
     <div class="mx-auto max-w-7xl">
       <h3 v-if="menu?.title" class="mb-4 text-sm font-bold text-white">

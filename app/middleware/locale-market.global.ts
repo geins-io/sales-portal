@@ -57,13 +57,12 @@ export default defineNuxtRouteMiddleware((to) => {
       (l: string | { code: string }) => (typeof l === 'string' ? l : l.code),
     );
     if (availableCodes.includes(locale)) {
-      if (import.meta.server) {
-        // On SSR: direct assignment (synchronous, messages already bundled)
-        ($i18n.locale as { value: string }).value = locale;
-      } else {
-        // On client: setLocale loads messages asynchronously
-        $i18n.setLocale(locale as SupportedLocale);
-      }
+      // setLocale lazy-loads the locale's messages then swaps. Required on
+      // both SSR and client because @nuxtjs/i18n v10 defaults to
+      // `lazy: true` — direct assignment renders raw keys (e.g.
+      // `nav.search_products` instead of "Search products…") because the
+      // messages haven't been imported yet.
+      return $i18n.setLocale(locale as SupportedLocale);
     }
   }
 });

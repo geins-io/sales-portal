@@ -37,48 +37,101 @@ const variants = [
   },
 ];
 
+const sheetStubs = {
+  Sheet: { template: '<div><slot /></div>', props: ['open'] },
+  SheetContent: {
+    template: '<div data-testid="variant-sheet"><slot /></div>',
+    props: ['side', 'class'],
+  },
+  SheetHeader: { template: '<div><slot /></div>' },
+  SheetTitle: { template: '<h2><slot /></h2>' },
+};
+
 describe('VariantSelector', () => {
-  it('renders dimension groups', () => {
+  it('renders a trigger per dimension', () => {
     const wrapper = mountComponent(VariantSelector, {
       props: {
         variantDimensions: dimensions,
         variants,
         modelValue: {},
       },
+      global: { stubs: sheetStubs },
     });
-    expect(wrapper.text()).toContain('Color');
-    expect(wrapper.text()).toContain('Size');
+    expect(wrapper.find('[data-testid="variant-trigger-Color"]').exists()).toBe(
+      true,
+    );
+    expect(wrapper.find('[data-testid="variant-trigger-Size"]').exists()).toBe(
+      true,
+    );
   });
 
-  it('renders value buttons', () => {
+  it('shows selected value in trigger when set', () => {
     const wrapper = mountComponent(VariantSelector, {
       props: {
         variantDimensions: dimensions,
         variants,
-        modelValue: {},
+        modelValue: { Color: 'Red' },
       },
+      global: { stubs: sheetStubs },
     });
-    const buttons = wrapper.findAll('[data-testid="dimension-values"] button');
-    // 2 colors + 3 sizes = 5 buttons
-    expect(buttons.length).toBe(5);
-    expect(buttons[0]!.text()).toBe('Red');
-    expect(buttons[1]!.text()).toBe('Blue');
-    expect(buttons[2]!.text()).toBe('S');
+    const trigger = wrapper.find('[data-testid="variant-trigger-Color"]');
+    expect(trigger.text()).toContain('Red');
   });
 
-  it('emits update on click', async () => {
+  it('opens sheet with dimension values when trigger clicked', async () => {
     const wrapper = mountComponent(VariantSelector, {
       props: {
         variantDimensions: dimensions,
         variants,
         modelValue: {},
       },
+      global: { stubs: sheetStubs },
     });
-    const buttons = wrapper.findAll('[data-testid="dimension-values"] button');
-    await buttons[0]!.trigger('click');
+    await wrapper.find('[data-testid="variant-trigger-Size"]').trigger('click');
+    const options = wrapper.find('[data-testid="variant-sheet-options"]');
+    expect(options.exists()).toBe(true);
+    expect(options.text()).toContain('S');
+    expect(options.text()).toContain('M');
+    expect(options.text()).toContain('L');
+  });
+
+  it('emits update:modelValue when value selected in sheet', async () => {
+    const wrapper = mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: dimensions,
+        variants,
+        modelValue: {},
+      },
+      global: { stubs: sheetStubs },
+    });
+    await wrapper
+      .find('[data-testid="variant-trigger-Color"]')
+      .trigger('click');
+    const valueButtons = wrapper
+      .find('[data-testid="variant-sheet-options"]')
+      .findAll('button');
+    await valueButtons[0]!.trigger('click');
 
     const emitted = wrapper.emitted('update:modelValue');
     expect(emitted).toBeTruthy();
     expect(emitted![0]![0]).toEqual({ Color: 'Red' });
+  });
+
+  it('disables unavailable values based on current selection', async () => {
+    const wrapper = mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: dimensions,
+        variants,
+        modelValue: { Color: 'Red' },
+      },
+      global: { stubs: sheetStubs },
+    });
+    await wrapper.find('[data-testid="variant-trigger-Size"]').trigger('click');
+    const options = wrapper.find('[data-testid="variant-sheet-options"]');
+    const buttons = options.findAll('button');
+    // S available with Red (totalStock=5), M not (totalStock=0), L not (Blue/L only)
+    expect(buttons[0]!.attributes('disabled')).toBeUndefined();
+    expect(buttons[1]!.attributes('disabled')).toBeDefined();
+    expect(buttons[2]!.attributes('disabled')).toBeDefined();
   });
 });

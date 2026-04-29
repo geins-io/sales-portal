@@ -7,7 +7,7 @@ useHead({
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+  <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
     <div class="md:flex md:gap-8">
       <!-- Sidebar -->
       <InfoPageSidebar

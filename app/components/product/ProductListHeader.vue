@@ -3,30 +3,40 @@ import type { ListPageInfo } from '#shared/types/commerce';
 import type { BreadcrumbItem } from '#shared/types/common';
 import { categoryPath } from '#shared/utils/route-helpers';
 
-defineProps<{
+const props = defineProps<{
   pageInfo: ListPageInfo | null;
   breadcrumbs: BreadcrumbItem[];
 }>();
 
 const { localePath } = useLocaleMarket();
+
+// CMS authors sometimes return primaryDescription wrapped in `<p>` tags
+// (or other inline markup). Strip tags so we render plain text without
+// the literal markup leaking into the page.
+const description = computed(() => {
+  const raw = props.pageInfo?.primaryDescription;
+  if (!raw) return '';
+  return raw.replace(/<[^>]*>/g, '').trim();
+});
 </script>
 
 <template>
-  <div v-if="pageInfo" class="space-y-4">
+  <div v-if="pageInfo" class="space-y-6">
     <AppBreadcrumbs :items="breadcrumbs" />
 
-    <div>
+    <!-- Figma: title 60/700 desktop, 48/700 mobile; description 18/400 -->
+    <div class="space-y-6 py-4">
       <h1
         v-if="!pageInfo.hideTitle"
-        class="font-heading text-2xl font-bold tracking-tight"
+        class="font-heading text-5xl font-bold tracking-tight md:text-6xl"
       >
         {{ pageInfo.name }}
       </h1>
       <p
-        v-if="!pageInfo.hideDescription && pageInfo.primaryDescription"
-        class="text-muted-foreground mt-2 text-sm"
+        v-if="!pageInfo.hideDescription && description"
+        class="text-muted-foreground max-w-xl text-lg leading-relaxed"
       >
-        {{ pageInfo.primaryDescription }}
+        {{ description }}
       </p>
     </div>
 

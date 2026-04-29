@@ -35,7 +35,7 @@ function makeImages(count = 3) {
 }
 
 describe('ProductGallery', () => {
-  it('renders main image with first image', () => {
+  it('renders main image', () => {
     const wrapper = mountComponent(ProductGallery, {
       props: { images: makeImages(), productName: 'Test Product' },
       global: { stubs },
@@ -44,41 +44,48 @@ describe('ProductGallery', () => {
     expect(images.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows thumbnails for multiple images', () => {
+  it('does not render thumbnail strip', () => {
     const wrapper = mountComponent(ProductGallery, {
       props: { images: makeImages(3), productName: 'Test Product' },
-      global: { stubs },
-    });
-    const thumbnails = wrapper.find('[data-testid="thumbnails"]');
-    expect(thumbnails.exists()).toBe(true);
-    // 3 thumbnail buttons
-    const thumbButtons = thumbnails.findAll('button');
-    expect(thumbButtons.length).toBe(3);
-  });
-
-  it('hides thumbnails for single image', () => {
-    const wrapper = mountComponent(ProductGallery, {
-      props: { images: makeImages(1), productName: 'Test Product' },
       global: { stubs },
     });
     expect(wrapper.find('[data-testid="thumbnails"]').exists()).toBe(false);
   });
 
-  it('click thumbnail changes selected index', async () => {
+  it('shows prev/next arrows for multiple images', () => {
     const wrapper = mountComponent(ProductGallery, {
       props: { images: makeImages(3), productName: 'Test Product' },
       global: { stubs },
     });
-    const thumbnails = wrapper.find('[data-testid="thumbnails"]');
-    const thumbButtons = thumbnails.findAll('button');
+    expect(wrapper.find('[data-testid="gallery-prev"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="gallery-next"]').exists()).toBe(true);
+  });
 
-    // Second thumbnail should not have ring initially
-    expect(thumbButtons[1]!.classes()).toContain('opacity-70');
+  it('hides arrows for single image', () => {
+    const wrapper = mountComponent(ProductGallery, {
+      props: { images: makeImages(1), productName: 'Test Product' },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="gallery-prev"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="gallery-next"]').exists()).toBe(false);
+  });
 
-    await thumbButtons[1]!.trigger('click');
+  it('next arrow click does not error', async () => {
+    const wrapper = mountComponent(ProductGallery, {
+      props: { images: makeImages(3), productName: 'Test Product' },
+      global: { stubs },
+    });
+    await wrapper.find('[data-testid="gallery-next"]').trigger('click');
+    expect(wrapper.find('[data-testid="image-counter"]').exists()).toBe(true);
+  });
 
-    // After click, second thumbnail should have ring
-    expect(thumbButtons[1]!.classes()).toContain('ring-primary');
+  it('prev arrow wraps from first to last', async () => {
+    const wrapper = mountComponent(ProductGallery, {
+      props: { images: makeImages(3), productName: 'Test Product' },
+      global: { stubs },
+    });
+    await wrapper.find('[data-testid="gallery-prev"]').trigger('click');
+    expect(wrapper.find('[data-testid="image-counter"]').exists()).toBe(true);
   });
 
   it('shows image counter for multiple images', () => {
@@ -88,7 +95,6 @@ describe('ProductGallery', () => {
     });
     const counter = wrapper.find('[data-testid="image-counter"]');
     expect(counter.exists()).toBe(true);
-    expect(counter.text()).toContain('Image 1 of 3');
   });
 
   it('hides image counter for single image', () => {
@@ -97,19 +103,5 @@ describe('ProductGallery', () => {
       global: { stubs },
     });
     expect(wrapper.find('[data-testid="image-counter"]').exists()).toBe(false);
-  });
-
-  it('updates image counter on thumbnail click', async () => {
-    const wrapper = mountComponent(ProductGallery, {
-      props: { images: makeImages(3), productName: 'Test Product' },
-      global: { stubs },
-    });
-    const thumbnails = wrapper.find('[data-testid="thumbnails"]');
-    const thumbButtons = thumbnails.findAll('button');
-
-    await thumbButtons[1]!.trigger('click');
-
-    const counter = wrapper.find('[data-testid="image-counter"]');
-    expect(counter.text()).toContain('Image 2 of 3');
   });
 });

@@ -5,7 +5,7 @@ const { localePath } = useLocaleMarket();
 <template>
   <div
     data-slot="footer-bottom"
-    class="border-t border-neutral-800 px-6 py-6 lg:px-8"
+    class="border-t border-neutral-800 px-6 py-6 lg:px-6"
   >
     <div class="mx-auto flex max-w-7xl flex-col items-center gap-4">
       <!-- Top row: copyright + legal links -->

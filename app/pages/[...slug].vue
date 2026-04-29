@@ -95,7 +95,7 @@ const sidebarMenuId = computed<string | null>(
     <!-- Loading skeleton -->
     <div
       v-if="status === 'pending'"
-      class="mx-auto max-w-7xl px-4 py-8 lg:px-8"
+      class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
       data-testid="route-loading"
     >
       <div class="flex flex-col gap-4">
@@ -120,7 +120,7 @@ const sidebarMenuId = computed<string | null>(
     <!-- Sidebar layout: page tagged with 'menu' in CMS -->
     <div
       v-else-if="hasSidebar && page?.containers?.length"
-      class="mx-auto max-w-7xl px-4 py-8 lg:px-8"
+      class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
     >
       <div class="md:flex md:gap-8">
         <ErrorBoundary v-if="sidebarMenuId" section="sidebar-nav">
@@ -140,7 +140,7 @@ const sidebarMenuId = computed<string | null>(
     <!-- Full-width layout: no sidebar -->
     <div
       v-else-if="page?.containers?.length"
-      class="mx-auto max-w-7xl px-4 py-8 lg:px-8"
+      class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
     >
       <ErrorBoundary section="cms-content">
         <CmsWidgetArea :containers="page.containers" />

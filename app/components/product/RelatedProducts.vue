@@ -2,9 +2,13 @@
 import type { ListProduct } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 
-const props = defineProps<{
-  products: ListProduct[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    products: ListProduct[];
+    hideHeading?: boolean;
+  }>(),
+  { hideHeading: false },
+);
 
 const scrollContainer = ref<HTMLElement | null>(null);
 const canScrollLeft = ref(false);
@@ -34,8 +38,14 @@ const hasProducts = computed(() => props.products.length > 0);
 
 <template>
   <section v-if="hasProducts" data-testid="related-products">
-    <div class="mb-4 flex items-center justify-between">
-      <h2 class="text-lg font-semibold">{{ $t('product.related') }}</h2>
+    <div
+      v-if="!hideHeading || canScrollLeft || canScrollRight"
+      class="mb-4 flex items-center justify-between"
+    >
+      <h2 v-if="!hideHeading" class="text-lg font-semibold">
+        {{ $t('product.related') }}
+      </h2>
+      <div v-else />
       <div class="flex items-center gap-3">
         <NuxtLink
           :to="localePath('/products')"

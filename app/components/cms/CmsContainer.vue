@@ -22,13 +22,13 @@ const layoutClasses = computed(() => {
 const designClasses = computed(() => {
   switch (props.container.design) {
     case 'contained':
-      return 'mx-auto max-w-7xl px-4';
+      return 'mx-auto max-w-7xl px-4 lg:px-6';
     case 'narrow':
       return 'mx-auto max-w-3xl px-4';
     case 'full-width':
       return 'w-full';
     default:
-      return 'mx-auto max-w-7xl px-4';
+      return 'mx-auto max-w-7xl px-4 lg:px-6';
   }
 });
 

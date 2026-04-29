@@ -11,7 +11,7 @@ const { localePath } = useLocaleMarket();
     <!-- Minimal checkout header -->
     <header class="bg-neutral-900 text-white">
       <div
-        class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-8"
+        class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-6"
       >
         <!-- Left: Back to store -->
         <NuxtLink
