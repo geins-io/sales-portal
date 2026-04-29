@@ -13,8 +13,9 @@ import {
   normalizeSlugToPath,
   stripLocaleMarketPrefix,
 } from '#shared/utils/locale-market';
+import { hasPageTag } from '#shared/utils/cms-tags';
 import type { ContentPageType } from '#shared/types/cms';
-import { CMS_MENUS } from '#shared/constants/cms';
+import { CMS_MENUS, CMS_TAGS } from '#shared/constants/cms';
 
 const route = useRoute();
 
@@ -74,19 +75,16 @@ useHead(
   }),
 );
 
-const hasSidebar = computed(() => page.value?.tags?.includes('menu') ?? false);
-
-// Sidebar menu resolution: prefer the per-page declared `pageArea.name`
-// (dynamic, page-specific). Fall back to the tenant-configured
-// `SIDEBAR_FALLBACK` menu when the page is silent. If neither is set,
-// return null — `PageSidebarNav` handles the null-menu case by
-// rendering nothing.
+// Pages tagged with `CMS_TAGS.SIDEBAR_MENU` render the
+// `CMS_MENUS.SIDEBAR_FALLBACK` menu as a sidebar nav. Geins serializes
+// admin tags as `#menu` so the inline tag check has to go through
+// `hasPageTag` to normalize the prefix; see `shared/utils/cms-tags.ts`.
 const sidebarFallbackMenu = useCmsMenu(CMS_MENUS.SIDEBAR_FALLBACK);
+const hasSidebar = computed(() =>
+  hasPageTag(page.value, CMS_TAGS.SIDEBAR_MENU),
+);
 const sidebarMenuId = computed<string | null>(
-  () =>
-    page.value?.pageArea?.name ||
-    sidebarFallbackMenu.value?.menuLocationId ||
-    null,
+  () => sidebarFallbackMenu.value?.menuLocationId ?? null,
 );
 </script>
 
