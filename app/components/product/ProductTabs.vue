@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { DetailProduct, ReviewsResponse } from '#shared/types/commerce';
+import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import {
   Accordion,
@@ -10,12 +10,7 @@ import {
 
 const props = defineProps<{
   product: DetailProduct;
-  reviews: ReviewsResponse | null;
-  reviewsLoading: boolean;
-}>();
-
-const emit = defineEmits<{
-  'load-reviews': [];
+  related?: ListProduct[] | null;
 }>();
 
 const hasDescription = computed(() => !!props.product.texts?.text1);
@@ -30,45 +25,20 @@ const visibleGroups = computed(() =>
     .filter((g) => g.parameters.length > 0),
 );
 const hasSpecs = computed(() => visibleGroups.value.length > 0);
+const hasRelated = computed(() => (props.related?.length ?? 0) > 0);
 
 const defaultTab = computed(() => {
   if (hasDescription.value) return 'description';
   if (hasSpecs.value) return 'specifications';
+  if (hasRelated.value) return 'related';
   return 'documents';
 });
-
-const reviewsLoaded = ref(false);
-
-function onReviewsActivate() {
-  if (!reviewsLoaded.value) {
-    reviewsLoaded.value = true;
-    emit('load-reviews');
-  }
-}
-
-function onTabChange(value: string | number) {
-  if (String(value) === 'reviews') {
-    onReviewsActivate();
-  }
-}
-
-function onAccordionChange(value: string | string[] | undefined) {
-  if (!value) return;
-  const values = Array.isArray(value) ? value : [value];
-  if (values.includes('reviews')) {
-    onReviewsActivate();
-  }
-}
 </script>
 
 <template>
   <div data-testid="product-tabs">
     <!-- Desktop: Tabs (hidden below md via CSS to avoid SSR/client flash) -->
-    <Tabs
-      class="hidden md:block"
-      :default-value="defaultTab"
-      @update:model-value="onTabChange"
-    >
+    <Tabs class="hidden md:block" :default-value="defaultTab">
       <TabsList variant="underline">
         <TabsTrigger v-if="hasDescription" value="description">
           {{ $t('product.details') }}
@@ -79,22 +49,34 @@ function onAccordionChange(value: string | string[] | undefined) {
         <TabsTrigger value="documents">
           {{ $t('product.documents') }}
         </TabsTrigger>
-        <TabsTrigger value="reviews"> {{ $t('product.reviews') }}</TabsTrigger>
+        <TabsTrigger v-if="hasRelated" value="related">
+          {{ $t('product.related') }}
+        </TabsTrigger>
       </TabsList>
 
-      <TabsContent v-if="hasDescription" value="description" class="pt-6">
+      <TabsContent
+        v-if="hasDescription"
+        value="description"
+        class="mt-6 rounded-lg border p-6 lg:p-8"
+      >
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="prose max-w-none" v-html="product.texts?.text1" />
       </TabsContent>
 
-      <TabsContent v-if="hasSpecs" value="specifications" class="pt-6">
-        <div class="grid gap-6 md:grid-cols-2">
+      <TabsContent
+        v-if="hasSpecs"
+        value="specifications"
+        class="mt-6 rounded-lg border p-6 lg:p-8"
+      >
+        <div class="grid gap-8 md:grid-cols-2">
           <div
             v-for="group in visibleGroups"
             :key="group.name ?? group.parameterGroupId"
-            class="flex flex-col gap-2"
+            class="flex flex-col gap-3"
           >
-            <h4 class="text-sm font-semibold">{{ group.name }}</h4>
+            <h4 class="font-heading text-base font-semibold">
+              {{ group.name }}
+            </h4>
             <p
               v-if="group.parameters?.[0]?.description"
               class="text-muted-foreground text-xs"
@@ -106,7 +88,7 @@ function onAccordionChange(value: string | string[] | undefined) {
                 <tr
                   v-for="(param, idx) in group.parameters"
                   :key="param.identifier ?? param.name ?? idx"
-                  class="border-border border-b"
+                  class="border-border border-b last:border-b-0"
                 >
                   <td class="text-muted-foreground py-2 pr-4">
                     {{ param.name ?? param.label ?? '' }}
@@ -119,42 +101,23 @@ function onAccordionChange(value: string | string[] | undefined) {
         </div>
       </TabsContent>
 
-      <TabsContent value="documents" class="pt-6">
+      <TabsContent value="documents" class="mt-6 rounded-lg border p-6 lg:p-8">
         <p class="text-muted-foreground text-sm">
           {{ $t('product.no_documents') }}
         </p>
       </TabsContent>
 
-      <TabsContent value="reviews" class="pt-6">
-        <div class="flex flex-col gap-4">
-          <div v-if="reviews" class="flex items-center gap-2">
-            <span class="text-lg font-semibold">
-              {{ reviews.averageRating.toFixed(1) }}
-            </span>
-            <span class="text-muted-foreground text-sm">
-              {{ $t('product.reviews_count', { count: reviews.count }) }}
-            </span>
-          </div>
-          <div v-if="reviewsLoading" class="text-muted-foreground text-sm">
-            {{ $t('product.loading_reviews') }}
-          </div>
-          <template v-else-if="reviews">
-            <ReviewCard
-              v-for="(review, i) in reviews.reviews"
-              :key="i"
-              :review="review"
-            />
-          </template>
-        </div>
+      <TabsContent
+        v-if="hasRelated"
+        value="related"
+        class="mt-6 rounded-lg border p-6 lg:p-8"
+      >
+        <RelatedProducts :products="related ?? []" :hide-heading="true" />
       </TabsContent>
     </Tabs>
 
     <!-- Mobile: Accordion (hidden at md+ via CSS to avoid SSR/client flash) -->
-    <Accordion
-      class="md:hidden"
-      type="multiple"
-      @update:model-value="onAccordionChange"
-    >
+    <Accordion class="md:hidden" type="multiple">
       <AccordionItem v-if="hasDescription" value="description">
         <AccordionTrigger>{{ $t('product.details') }}</AccordionTrigger>
         <AccordionContent>
@@ -201,29 +164,10 @@ function onAccordionChange(value: string | string[] | undefined) {
         </AccordionContent>
       </AccordionItem>
 
-      <AccordionItem value="reviews">
-        <AccordionTrigger>{{ $t('product.reviews') }}</AccordionTrigger>
+      <AccordionItem v-if="hasRelated" value="related">
+        <AccordionTrigger>{{ $t('product.related') }}</AccordionTrigger>
         <AccordionContent>
-          <div class="flex flex-col gap-4">
-            <div v-if="reviews" class="flex items-center gap-2">
-              <span class="text-lg font-semibold">
-                {{ reviews.averageRating.toFixed(1) }}
-              </span>
-              <span class="text-muted-foreground text-sm">
-                {{ $t('product.reviews_count', { count: reviews.count }) }}
-              </span>
-            </div>
-            <div v-if="reviewsLoading" class="text-muted-foreground text-sm">
-              {{ $t('product.loading_reviews') }}
-            </div>
-            <template v-else-if="reviews">
-              <ReviewCard
-                v-for="(review, i) in reviews.reviews"
-                :key="i"
-                :review="review"
-              />
-            </template>
-          </div>
+          <RelatedProducts :products="related ?? []" :hide-heading="true" />
         </AccordionContent>
       </AccordionItem>
     </Accordion>

@@ -3,26 +3,15 @@ import { mountComponent } from '../../utils/component';
 import ProductTabs from '../../../app/components/product/ProductTabs.vue';
 
 const stubs = {
-  // Tabs (desktop)
   Tabs: {
-    template: '<div class="tabs" data-testid="tabs"><slot /></div>',
-    props: ['defaultValue'],
-    emits: ['update:modelValue'],
-  },
-  UiTabs: {
-    template: '<div class="tabs" data-testid="tabs"><slot /></div>',
+    template:
+      '<div class="tabs" data-testid="tabs" :data-default-value="defaultValue"><slot /></div>',
     props: ['defaultValue'],
   },
   TabsList: {
     template: '<div class="tabs-list" data-testid="tabs-list"><slot /></div>',
   },
-  UiTabsList: { template: '<div class="tabs-list"><slot /></div>' },
   TabsTrigger: {
-    template:
-      '<button class="tabs-trigger" :data-value="value"><slot /></button>',
-    props: ['value'],
-  },
-  UiTabsTrigger: {
     template:
       '<button class="tabs-trigger" :data-value="value"><slot /></button>',
     props: ['value'],
@@ -31,16 +20,7 @@ const stubs = {
     template: '<div class="tabs-content" :data-value="value"><slot /></div>',
     props: ['value'],
   },
-  UiTabsContent: {
-    template: '<div class="tabs-content" :data-value="value"><slot /></div>',
-    props: ['value'],
-  },
-  // Accordion (mobile)
   Accordion: {
-    template: '<div class="accordion"><slot /></div>',
-    props: ['type'],
-  },
-  UiAccordion: {
     template: '<div class="accordion"><slot /></div>',
     props: ['type'],
   },
@@ -48,26 +28,15 @@ const stubs = {
     template: '<div class="accordion-item"><slot /></div>',
     props: ['value'],
   },
-  UiAccordionItem: {
-    template: '<div class="accordion-item"><slot /></div>',
-    props: ['value'],
-  },
   AccordionTrigger: {
-    template: '<button class="accordion-trigger"><slot /></button>',
-  },
-  UiAccordionTrigger: {
     template: '<button class="accordion-trigger"><slot /></button>',
   },
   AccordionContent: {
     template: '<div class="accordion-content"><slot /></div>',
   },
-  UiAccordionContent: {
-    template: '<div class="accordion-content"><slot /></div>',
-  },
-  // Review card
-  ProductReviewCard: {
-    template: '<div class="review-card" />',
-    props: ['review'],
+  RelatedProducts: {
+    template: '<div class="related-products" />',
+    props: ['products', 'hideHeading'],
   },
 };
 
@@ -117,43 +86,56 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ProductTabs', () => {
-  it('renders tab triggers for product details, specifications, documents, related', () => {
+  it('renders details, specifications, documents triggers (no reviews)', () => {
+    const wrapper = mountComponent(ProductTabs, {
+      props: { product: makeProduct(), related: [] },
+      global: { stubs },
+    });
+    const triggers = wrapper.findAll('.tabs-trigger');
+    expect(triggers.length).toBe(3);
+    const labels = triggers.map((t) => t.text());
+    expect(labels).toEqual([
+      'product.details',
+      'product.specifications',
+      'product.documents',
+    ]);
+    expect(labels).not.toContain('product.reviews');
+  });
+
+  it('adds related tab when related products exist', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: {
         product: makeProduct(),
-        reviews: null,
-        reviewsLoading: false,
+        related: [{ productId: 2, name: 'Other' }],
       },
       global: { stubs },
     });
     const triggers = wrapper.findAll('.tabs-trigger');
     expect(triggers.length).toBe(4);
-    expect(triggers[0]!.text()).toBe('product.details');
-    expect(triggers[1]!.text()).toBe('product.specifications');
-    expect(triggers[2]!.text()).toBe('product.documents');
-    expect(triggers[3]!.text()).toBe('product.reviews');
+    expect(triggers[3]!.text()).toBe('product.related');
+  });
+
+  it('omits related tab when related list is empty or missing', () => {
+    const wrapper = mountComponent(ProductTabs, {
+      props: { product: makeProduct(), related: null },
+      global: { stubs },
+    });
+    const labels = wrapper.findAll('.tabs-trigger').map((t) => t.text());
+    expect(labels).not.toContain('product.related');
   });
 
   it('renders description content with v-html', () => {
     const wrapper = mountComponent(ProductTabs, {
-      props: {
-        product: makeProduct(),
-        reviews: null,
-        reviewsLoading: false,
-      },
+      props: { product: makeProduct(), related: [] },
       global: { stubs },
     });
     const descContent = wrapper.find('.tabs-content[data-value="description"]');
     expect(descContent.html()).toContain('Product description here');
   });
 
-  it('renders specification table with group name and shows all params with name and value', () => {
+  it('renders specification table with group name and visible params', () => {
     const wrapper = mountComponent(ProductTabs, {
-      props: {
-        product: makeProduct(),
-        reviews: null,
-        reviewsLoading: false,
-      },
+      props: { product: makeProduct(), related: [] },
       global: { stubs },
     });
     const specContent = wrapper.find(
@@ -162,58 +144,39 @@ describe('ProductTabs', () => {
     expect(specContent.text()).toContain('Dimensions');
     expect(specContent.text()).toContain('Weight');
     expect(specContent.text()).toContain('500g');
-    // show:false params are now visible if they have name and value
     expect(specContent.text()).toContain('Produkttyp');
     expect(specContent.text()).toContain('Elektronik');
-    // params without name or null value are filtered out
     expect(specContent.text()).not.toContain('empty');
   });
 
   it('hides description tab when no text', () => {
     const wrapper = mountComponent(ProductTabs, {
-      props: {
-        product: makeProduct({ texts: undefined }),
-        reviews: null,
-        reviewsLoading: false,
-      },
+      props: { product: makeProduct({ texts: undefined }), related: [] },
       global: { stubs },
     });
-    const triggers = wrapper.findAll('.tabs-trigger');
-    const labels = triggers.map((t) => t.text());
+    const labels = wrapper.findAll('.tabs-trigger').map((t) => t.text());
     expect(labels).not.toContain('product.details');
   });
 
-  it('defaults to specifications tab when product has no description', () => {
-    const localStubs = {
-      ...stubs,
-      Tabs: {
-        template:
-          '<div class="tabs" data-testid="tabs" :data-default-value="defaultValue"><slot /></div>',
-        props: ['defaultValue'],
-        emits: ['update:modelValue'],
-      },
-    };
+  it('defaults to specifications when product has no description', () => {
     const wrapper = mountComponent(ProductTabs, {
-      props: {
-        product: makeProduct({ texts: undefined }),
-        reviews: null,
-        reviewsLoading: false,
-      },
-      global: { stubs: localStubs },
+      props: { product: makeProduct({ texts: undefined }), related: [] },
+      global: { stubs },
     });
     const tabs = wrapper.find('[data-testid="tabs"]');
     expect(tabs.attributes('data-default-value')).toBe('specifications');
   });
 
-  it('shows loading state when reviews loading', () => {
+  it('renders RelatedProducts inside the related tab', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: {
         product: makeProduct(),
-        reviews: null,
-        reviewsLoading: true,
+        related: [{ productId: 2, name: 'Other' }],
       },
       global: { stubs },
     });
-    expect(wrapper.text()).toContain('product.loading_reviews');
+    const relatedContent = wrapper.find('.tabs-content[data-value="related"]');
+    expect(relatedContent.exists()).toBe(true);
+    expect(relatedContent.find('.related-products').exists()).toBe(true);
   });
 });

@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import type {
-  DetailProduct,
-  ReviewsResponse,
-  ListProduct,
-} from '#shared/types/commerce';
+import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
@@ -50,23 +46,6 @@ const { data: related } = useFetch<ListProduct[]>(
     lazy: true,
   },
 );
-
-const { data: reviewsData, execute: loadReviews } = useFetch<ReviewsResponse>(
-  () => `/api/products/${slug.value}/reviews`,
-  { dedupe: 'defer', immediate: false },
-);
-
-const reviews = computed<ReviewsResponse | null>(
-  () => reviewsData.value ?? null,
-);
-
-const reviewsLoading = ref(false);
-
-async function onLoadReviews() {
-  reviewsLoading.value = true;
-  await loadReviews();
-  reviewsLoading.value = false;
-}
 
 // Variant state
 const selectedVariants = ref<Record<string, string>>({});
@@ -422,17 +401,7 @@ useSchemaOrg([
 
     <!-- Product tabs (full width) -->
     <ErrorBoundary section="product-tabs">
-      <ProductTabs
-        :product="product"
-        :reviews="reviews"
-        :reviews-loading="reviewsLoading"
-        @load-reviews="onLoadReviews"
-      />
-    </ErrorBoundary>
-
-    <!-- Related products -->
-    <ErrorBoundary section="related-products">
-      <RelatedProducts v-if="related?.length" :products="related" />
+      <ProductTabs :product="product" :related="related" />
     </ErrorBoundary>
 
     <!-- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL).
