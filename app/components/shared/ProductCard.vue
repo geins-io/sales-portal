@@ -204,36 +204,39 @@ async function addToCart() {
           </span>
         </div>
       </div>
-      <!-- Wishlist (top-right of image area, with shadow) -->
-      <Button
-        v-if="productAlias && hasFeature('wishlist')"
-        variant="ghost"
-        size="icon-sm"
-        data-testid="wishlist-button"
-        :data-favorited="isFavorited"
-        class="bg-background/90 hover:bg-background absolute top-5 right-5 shadow-md backdrop-blur-sm"
-        :aria-label="t('product.wishlist')"
-        @click.prevent.stop="openListPicker"
-      >
-        <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
-      </Button>
     </div>
 
     <!-- Content -->
     <div class="flex flex-1 flex-col gap-2 px-4 pb-4">
-      <!-- Article number -->
-      <p
-        v-if="product?.articleNumber"
-        class="text-muted-foreground text-xs"
-        data-testid="article-number"
-      >
-        <template v-if="isLegacyProduct(product)">
-          {{ t('product.article_number', { number: product.articleNumber }) }}
-        </template>
-        <template v-else>
-          {{ product.articleNumber }}
-        </template>
-      </p>
+      <!-- Article number + Wishlist (Figma: heart sits next to art nr in
+           the content area, not on the image) -->
+      <div class="flex items-start justify-between gap-2">
+        <p
+          v-if="product?.articleNumber"
+          class="text-muted-foreground text-xs"
+          data-testid="article-number"
+        >
+          <template v-if="isLegacyProduct(product)">
+            {{ t('product.article_number', { number: product.articleNumber }) }}
+          </template>
+          <template v-else>
+            {{ product.articleNumber }}
+          </template>
+        </p>
+        <span v-else />
+        <Button
+          v-if="productAlias && hasFeature('wishlist')"
+          variant="outline"
+          size="icon-sm"
+          data-testid="wishlist-button"
+          :data-favorited="isFavorited"
+          class="-mt-1 shrink-0 shadow-sm"
+          :aria-label="t('product.wishlist')"
+          @click.prevent.stop="openListPicker"
+        >
+          <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
+        </Button>
+      </div>
 
       <!-- Product title -->
       <NuxtLink v-if="productUrl" :to="productUrl" class="hover:underline">
