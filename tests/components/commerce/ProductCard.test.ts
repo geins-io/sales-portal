@@ -244,7 +244,9 @@ describe('ProductCard', () => {
       props: { product: makeProduct(), variant: 'list' },
       global: { stubs },
     });
-    expect(wrapper.find('.flex-row').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="product-card"]').classes()).toContain(
+      'md:flex-row',
+    );
   });
 
   it('handles missing totalStock gracefully', () => {
