@@ -42,19 +42,21 @@ const { localePath } = useLocaleMarket();
       <!-- Right: Apply + Login -->
       <div class="flex items-center gap-4">
         <NuxtLink
-          :to="localePath('/apply')"
+          :to="localePath('/apply-for-account')"
           class="hidden hover:underline sm:inline"
         >
           {{ $t('layout.apply_for_account') }}
         </NuxtLink>
-        <NuxtLink
+        <button
           v-if="!authStore.isAuthenticated"
-          :to="localePath('/login')"
+          type="button"
           class="flex items-center gap-1.5 hover:underline"
+          data-testid="topbar-login"
+          @click="authStore.openSheet()"
         >
           <User class="size-4" />
           <span>{{ $t('auth.login') }}</span>
-        </NuxtLink>
+        </button>
         <NuxtLink
           v-else
           :to="localePath('/portal')"

@@ -31,5 +31,6 @@ onMounted(() => {
     <MobileNavPanel />
     <CookieBanner />
     <CartDrawer />
+    <AuthSheet />
   </div>
 </template>

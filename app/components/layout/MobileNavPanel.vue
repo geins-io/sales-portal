@@ -148,14 +148,21 @@ const isOpen = computed({
             <LocaleSwitcher variant="inline" />
             <MarketSwitcher variant="inline" />
           </div>
-          <NuxtLink
+          <button
             v-if="!authStore.isAuthenticated"
-            :to="localePath('/login')"
+            type="button"
             class="flex items-center gap-2 text-sm font-medium"
+            data-testid="mobile-nav-login"
+            @click="
+              () => {
+                appStore.setSidebarOpen(false);
+                authStore.openSheet();
+              }
+            "
           >
             <User class="size-4" />
             {{ $t('auth.login') }}
-          </NuxtLink>
+          </button>
           <NuxtLink
             v-else
             :to="localePath('/portal')"

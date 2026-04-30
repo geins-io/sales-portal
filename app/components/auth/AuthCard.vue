@@ -4,6 +4,8 @@ import { Button } from '~/components/ui/button';
 import { Separator } from '~/components/ui/separator';
 import { useTenant } from '~/composables/useTenant';
 
+const { localePath } = useLocaleMarket();
+
 const props = withDefaults(
   defineProps<{
     defaultView?: 'login' | 'register' | 'forgot';
@@ -30,10 +32,6 @@ watchEffect(() => {
     activeView.value = 'login';
   }
 });
-
-function switchToRegister() {
-  activeView.value = 'register';
-}
 
 function switchToLogin() {
   activeView.value = 'login';
@@ -100,15 +98,14 @@ defineExpose({ switchToForgot });
               {{ $t('auth.business_account_info') }}
             </p>
 
-            <!-- Apply for account button -->
-            <Button
-              variant="outline"
-              class="w-full"
+            <!-- Apply for account link -->
+            <NuxtLink
+              :to="localePath('/apply-for-account')"
+              class="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-full items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors"
               data-testid="auth-apply-button"
-              @click="switchToRegister"
             >
               {{ $t('auth.apply_for_account') }}
-            </Button>
+            </NuxtLink>
           </template>
         </template>
 

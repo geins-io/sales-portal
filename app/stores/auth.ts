@@ -4,11 +4,24 @@ import { logger } from '~/utils/logger';
 
 let _fetchPromise: Promise<void> | null = null;
 
+export type AuthSheetView = 'login' | 'forgot';
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null);
   const isLoading = ref(false);
   const isInitialized = ref(false);
   const error = ref<string | null>(null);
+  const sheetOpen = ref(false);
+  const sheetView = ref<AuthSheetView>('login');
+
+  function openSheet(view: AuthSheetView = 'login') {
+    sheetView.value = view;
+    sheetOpen.value = true;
+  }
+
+  function closeSheet() {
+    sheetOpen.value = false;
+  }
 
   // Getters
   const isAuthenticated = computed(() => !!user.value);
@@ -161,6 +174,8 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading,
     isInitialized,
     error,
+    sheetOpen,
+    sheetView,
     // Getters
     isAuthenticated,
     displayName,
@@ -175,5 +190,7 @@ export const useAuthStore = defineStore('auth', () => {
     clearError,
     requestPasswordReset,
     resetPassword,
+    openSheet,
+    closeSheet,
   };
 });
