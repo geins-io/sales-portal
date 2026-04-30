@@ -1,4 +1,8 @@
 <script setup lang="ts">
+withDefaults(defineProps<{ navVariant?: 'grey' | 'white' }>(), {
+  navVariant: 'grey',
+});
+
 const router = useRouter();
 const { localePath } = useLocaleMarket();
 
@@ -8,9 +12,9 @@ function onSearch(query: string) {
 </script>
 
 <template>
-  <div class="bg-background border-b">
+  <div class="bg-background" :class="navVariant === 'white' ? 'border-b' : ''">
     <div
-      class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:px-6"
+      class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:h-20 lg:px-6"
     >
       <!-- Logo -->
       <BrandLogo class="shrink-0" />
