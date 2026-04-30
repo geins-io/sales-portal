@@ -59,6 +59,9 @@ const defaultTab = computed(() => {
         value="description"
         class="mt-6 rounded-lg border p-6"
       >
+        <h3 class="font-heading mb-4 text-2xl font-bold">
+          {{ $t('product.details') }}
+        </h3>
         <!-- eslint-disable-next-line vue/no-v-html -->
         <div class="prose max-w-none" v-html="product.texts?.text1" />
       </TabsContent>
@@ -68,18 +71,21 @@ const defaultTab = computed(() => {
         value="specifications"
         class="mt-6 rounded-lg border p-6"
       >
+        <h3 class="font-heading mb-6 text-2xl font-bold">
+          {{ $t('product.specifications') }}
+        </h3>
         <div class="grid gap-8 md:grid-cols-2">
           <div
             v-for="group in visibleGroups"
             :key="group.name ?? group.parameterGroupId"
             class="flex flex-col gap-3"
           >
-            <h4 class="font-heading text-base font-semibold">
+            <h4 class="font-heading text-xl font-semibold">
               {{ group.name }}
             </h4>
             <p
               v-if="group.parameters?.[0]?.description"
-              class="text-muted-foreground text-xs"
+              class="text-muted-foreground text-sm"
             >
               {{ group.parameters[0].description }}
             </p>
@@ -88,12 +94,12 @@ const defaultTab = computed(() => {
                 <tr
                   v-for="(param, idx) in group.parameters"
                   :key="param.identifier ?? param.name ?? idx"
-                  class="border-border border-b last:border-b-0"
+                  class="border-border odd:bg-muted/40 border-b"
                 >
-                  <td class="text-muted-foreground py-2 pr-4">
+                  <td class="text-muted-foreground px-3 py-3 pr-4">
                     {{ param.name ?? param.label ?? '' }}
                   </td>
-                  <td class="py-2">{{ param.value }}</td>
+                  <td class="px-3 py-3 text-right">{{ param.value }}</td>
                 </tr>
               </tbody>
             </table>
@@ -102,6 +108,9 @@ const defaultTab = computed(() => {
       </TabsContent>
 
       <TabsContent value="documents" class="mt-6 rounded-lg border p-6">
+        <h3 class="font-heading mb-4 text-2xl font-bold">
+          {{ $t('product.documents') }}
+        </h3>
         <p class="text-muted-foreground text-sm">
           {{ $t('product.no_documents') }}
         </p>
@@ -112,6 +121,9 @@ const defaultTab = computed(() => {
         value="related"
         class="mt-6 rounded-lg border p-6"
       >
+        <h3 class="font-heading mb-4 text-2xl font-bold">
+          {{ $t('product.related') }}
+        </h3>
         <RelatedProducts :products="related ?? []" :hide-heading="true" />
       </TabsContent>
     </Tabs>
