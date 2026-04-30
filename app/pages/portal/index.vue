@@ -87,6 +87,36 @@ const recentLists = computed(() => favoritesStore.lists.slice(0, 5));
 const listsPending = computed(() => false);
 
 // ---------------------------------------------------------------------------
+// Stat-card subtitles — only rendered when the underlying data exists.
+// No fake placeholders; missing data leaves the subtitle line empty.
+// ---------------------------------------------------------------------------
+const nearestQuoteExpirySubtitle = computed(() => {
+  const dates = quotesStore.pendingQuotes
+    .map((q) => q.expiresAt)
+    .filter((d): d is string => !!d)
+    .sort();
+  if (!dates.length) return undefined;
+  return t('portal.overview.stat.closes_expiration_date', {
+    date: formatDate(dates[0]),
+  });
+});
+
+const latestOrderSubtitle = computed(() => {
+  const latest = orders.value[0]?.createdAt;
+  if (!latest) return undefined;
+  return t('portal.overview.stat.latest_placed', { date: formatDate(latest) });
+});
+
+const mostPurchasedSubtitle = computed(() => {
+  const products = productsData.value?.products ?? [];
+  if (!products.length) return undefined;
+  const top = products.reduce((a, b) =>
+    (a.totalQuantity ?? 0) >= (b.totalQuantity ?? 0) ? a : b,
+  );
+  return t('portal.overview.stat.most_purchased_item', { name: top.name });
+});
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function formatDate(dateStr: string | number | null | undefined): string {
@@ -134,17 +164,20 @@ function handleProductAddToCart(
         icon="lucide:file-text"
         :count="quotesStore.pendingCount"
         :label="t('portal.overview.stat.pending_quotations')"
+        :subtitle="nearestQuoteExpirySubtitle"
         :show-dot="quotesStore.pendingCount > 0"
       />
       <PortalStatCard
         icon="lucide:shopping-bag"
         :count="orderCount"
         :label="t('portal.overview.stat.orders_placed')"
+        :subtitle="latestOrderSubtitle"
       />
       <PortalStatCard
         icon="lucide:package"
         :count="purchasedProductCount"
         :label="t('portal.overview.stat.purchased_products')"
+        :subtitle="mostPurchasedSubtitle"
       />
       <PortalStatCard
         icon="lucide:users"

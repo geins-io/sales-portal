@@ -502,7 +502,10 @@
         "pending_quotations": "Väntande offerter",
         "orders_placed": "Lagda beställningar",
         "purchased_products": "Köpta produkter",
-        "persons_in_org": "Personer i din org"
+        "persons_in_org": "Personer i din org",
+        "closes_expiration_date": "Stänger {date}",
+        "latest_placed": "Senast lagd: {date}",
+        "most_purchased_item": "Mest köpt: {name}"
       },
       "latest_orders": "Senaste beställningar",
       "pending_quotations": "Väntande offerter",
