@@ -248,15 +248,6 @@ async function addToCart() {
         {{ product?.name }}
       </h3>
 
-      <!-- Brand name (legacy only) -->
-      <p
-        v-if="isLegacyProduct(product) && product.brand?.name"
-        class="text-muted-foreground text-xs"
-        data-testid="product-brand"
-      >
-        {{ product.brand.name }}
-      </p>
-
       <!-- Stock badge (legacy only) -->
       <StockBadge
         v-if="isLegacyProduct(product) && product.totalStock"
@@ -352,111 +343,100 @@ async function addToCart() {
     />
   </div>
 
-  <!-- List variant (legacy only) -->
+  <!-- List variant (legacy only) — compact single-row on md+, stacked on mobile -->
   <div
     v-else
-    class="bg-card flex flex-row items-stretch gap-4 overflow-hidden rounded-md border p-3"
+    class="bg-card flex flex-col gap-3 rounded-md border px-3 py-2 md:flex-row md:items-center md:gap-4"
     data-testid="product-card"
   >
-    <!-- Thumbnail (square ratio matching grid) -->
-    <div
-      class="bg-muted group relative aspect-square w-32 shrink-0 overflow-hidden rounded-md sm:w-40"
-    >
-      <NuxtLink v-if="productUrl" :to="productUrl" class="block size-full">
-        <GeinsImage
-          v-if="imageFileName"
-          :file-name="imageFileName"
-          type="product"
-          :alt="product?.name ?? ''"
-          loading="lazy"
-          class="size-full object-contain transition-transform group-hover:scale-105"
-        />
-      </NuxtLink>
-      <div v-else class="block size-full">
-        <GeinsImage
-          v-if="imageFileName"
-          :file-name="imageFileName"
-          type="product"
-          :alt="product?.name ?? ''"
-          loading="lazy"
-          class="size-full object-contain transition-transform group-hover:scale-105"
-        />
-      </div>
-      <!-- Campaign badges -->
+    <!-- Top row on mobile: thumbnail + title-meta -->
+    <div class="flex min-w-0 items-center gap-3 md:contents">
+      <!-- Thumbnail (small square) -->
       <div
-        v-if="visibleCampaigns.length"
-        class="absolute top-2 left-2 flex flex-col gap-1"
+        class="bg-muted relative aspect-square size-16 shrink-0 overflow-hidden rounded-md"
       >
-        <span
-          v-for="campaign in visibleCampaigns"
-          :key="campaign.name"
-          :class="BADGE_DESTRUCTIVE"
-          data-testid="campaign-badge"
+        <NuxtLink v-if="productUrl" :to="productUrl" class="block size-full">
+          <GeinsImage
+            v-if="imageFileName"
+            :file-name="imageFileName"
+            type="product"
+            :alt="product?.name ?? ''"
+            loading="lazy"
+            class="size-full object-contain"
+          />
+        </NuxtLink>
+        <div v-else class="block size-full">
+          <GeinsImage
+            v-if="imageFileName"
+            :file-name="imageFileName"
+            type="product"
+            :alt="product?.name ?? ''"
+            loading="lazy"
+            class="size-full object-contain"
+          />
+        </div>
+        <div
+          v-if="visibleCampaigns.length"
+          class="absolute top-1 left-1 flex flex-col gap-0.5"
         >
-          {{ campaign.name }}
-        </span>
+          <span
+            v-for="campaign in visibleCampaigns"
+            :key="campaign.name"
+            :class="BADGE_DESTRUCTIVE"
+            data-testid="campaign-badge"
+          >
+            {{ campaign.name }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Title + meta -->
+      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <NuxtLink v-if="productUrl" :to="productUrl" class="hover:underline">
+          <h3 class="line-clamp-1 text-sm leading-tight font-semibold">
+            {{ product?.name }}
+          </h3>
+        </NuxtLink>
+        <h3 v-else class="line-clamp-1 text-sm leading-tight font-semibold">
+          {{ product?.name }}
+        </h3>
+        <p
+          v-if="product?.articleNumber"
+          class="text-muted-foreground text-xs"
+          data-testid="article-number"
+        >
+          <template v-if="isLegacyProduct(product)">
+            {{ t('product.article_number', { number: product.articleNumber }) }}
+          </template>
+          <template v-else>
+            {{ product.articleNumber }}
+          </template>
+        </p>
+        <StockBadge
+          v-if="isLegacyProduct(product) && product.totalStock"
+          :stock="product.totalStock"
+          size="sm"
+        />
       </div>
     </div>
 
-    <!-- Info column: title at top, then meta -->
-    <div class="flex min-w-0 flex-1 flex-col gap-2 py-1">
-      <NuxtLink v-if="productUrl" :to="productUrl" class="hover:underline">
-        <h3 class="text-base leading-tight font-semibold">
-          {{ product?.name }}
-        </h3>
-      </NuxtLink>
-      <h3 v-else class="text-base leading-tight font-semibold">
-        {{ product?.name }}
-      </h3>
-      <p
-        v-if="product?.articleNumber"
-        class="text-muted-foreground text-xs"
-        data-testid="article-number"
-      >
-        <template v-if="isLegacyProduct(product)">
-          {{ t('product.article_number', { number: product.articleNumber }) }}
-        </template>
-        <template v-else>
-          {{ product.articleNumber }}
-        </template>
-      </p>
-      <p
-        v-if="isLegacyProduct(product) && product.brand?.name"
-        class="text-muted-foreground text-xs"
-        data-testid="product-brand"
-      >
-        {{ product.brand.name }}
-      </p>
-      <StockBadge
-        v-if="isLegacyProduct(product) && product.totalStock"
-        :stock="product.totalStock"
-        size="sm"
-      />
+    <!-- Bottom row on mobile: price + actions justified -->
+    <div
+      class="flex items-center justify-between gap-3 md:contents md:justify-end"
+    >
+      <!-- Price -->
       <PriceDisplay
         v-if="isLegacyProduct(product) && product.unitPrice"
         :price="product.unitPrice"
         :lowest-price="product.lowestPrice"
         :discount-type="product.discountType"
         :campaign-names="visibleCampaigns.map((c) => c.name)"
-        class="mt-auto text-base font-semibold"
+        class="shrink-0 text-base font-semibold"
       />
-    </div>
 
-    <!-- Actions column -->
-    <div class="flex shrink-0 flex-col items-end justify-between gap-3 py-1">
-      <Button
-        v-if="productAlias && hasFeature('wishlist')"
-        variant="ghost"
-        size="icon-sm"
-        data-testid="wishlist-button"
-        :data-favorited="isFavorited"
-        :aria-label="t('product.wishlist')"
-        @click.prevent.stop="openListPicker"
-      >
-        <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
-      </Button>
+      <!-- Actions: qty + cart + wishlist -->
       <template v-if="showPrice">
-        <div class="flex items-center gap-3">
+        <div class="flex shrink-0 items-center gap-2">
           <QuantityInput
             v-if="isLegacyProduct(product)"
             v-model="quantity"
@@ -490,6 +470,20 @@ async function addToCart() {
                 {{ t('common.add_to_cart') }}
               </template>
             </span>
+          </Button>
+          <Button
+            v-if="productAlias && hasFeature('wishlist')"
+            variant="ghost"
+            size="icon-sm"
+            data-testid="wishlist-button"
+            :data-favorited="isFavorited"
+            :aria-label="t('product.wishlist')"
+            @click.prevent.stop="openListPicker"
+          >
+            <Star
+              class="size-4"
+              :fill="isFavorited ? 'currentColor' : 'none'"
+            />
           </Button>
         </div>
       </template>
