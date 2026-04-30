@@ -7,6 +7,7 @@ import ProductCard, {
 import { useQuotesStore } from '~/stores/quotes';
 import { useFavoritesStore } from '~/stores/favorites';
 import { getQuoteStatusPillClass } from '~/utils/quote-status';
+import { Button } from '~/components/ui/button';
 
 definePageMeta({
   middleware: 'auth',
@@ -152,18 +153,17 @@ function handleProductAddToCart(
       />
     </div>
 
-    <!-- Latest Orders -->
-    <div class="mb-6">
+    <!-- Latest Orders — bordered card per Figma -->
+    <div class="border-border mb-6 rounded-lg border p-6">
       <div class="mb-4 flex items-center justify-between">
-        <h3 class="text-lg font-semibold">
+        <h3 class="text-xl font-semibold">
           {{ t('portal.overview.latest_orders') }}
         </h3>
-        <NuxtLink
-          :to="localePath('/portal/orders')"
-          class="text-primary hover:text-primary/80 text-sm font-medium"
-        >
-          {{ t('portal.overview.view_all') }}
-        </NuxtLink>
+        <Button as-child variant="secondary" size="sm">
+          <NuxtLink :to="localePath('/portal/orders')">
+            {{ t('portal.overview.view_all') }}
+          </NuxtLink>
+        </Button>
       </div>
       <div
         v-if="ordersPending"
@@ -177,17 +177,16 @@ function handleProductAddToCart(
     <!-- Pending Quotations & Your Lists -->
     <div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
       <!-- Pending Quotations mini-table -->
-      <div class="border-border rounded-lg border p-4">
+      <div class="border-border rounded-lg border p-6">
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold">
+          <h3 class="text-xl font-semibold">
             {{ t('portal.overview.pending_quotations') }}
           </h3>
-          <NuxtLink
-            :to="localePath('/portal/quotations')"
-            class="text-primary hover:text-primary/80 text-sm font-medium"
-          >
-            {{ t('portal.overview.view_all') }}
-          </NuxtLink>
+          <Button as-child variant="secondary" size="sm">
+            <NuxtLink :to="localePath('/portal/quotations')">
+              {{ t('portal.overview.view_all') }}
+            </NuxtLink>
+          </Button>
         </div>
         <!-- Mobile cards -->
         <div
@@ -290,17 +289,16 @@ function handleProductAddToCart(
       </div>
 
       <!-- Your Lists mini-table -->
-      <div class="border-border rounded-lg border p-4">
+      <div class="border-border rounded-lg border p-6">
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold">
+          <h3 class="text-xl font-semibold">
             {{ t('portal.overview.your_lists') }}
           </h3>
-          <NuxtLink
-            :to="localePath('/portal/lists')"
-            class="text-primary hover:text-primary/80 text-sm font-medium"
-          >
-            {{ t('portal.overview.view_all') }}
-          </NuxtLink>
+          <Button as-child variant="secondary" size="sm">
+            <NuxtLink :to="localePath('/portal/lists')">
+              {{ t('portal.overview.view_all') }}
+            </NuxtLink>
+          </Button>
         </div>
         <div
           v-if="listsPending"
@@ -381,18 +379,17 @@ function handleProductAddToCart(
       </div>
     </div>
 
-    <!-- Purchased Products -->
-    <div>
+    <!-- Purchased Products — bordered card per Figma -->
+    <div class="border-border rounded-lg border p-6">
       <div class="mb-4 flex items-center justify-between">
-        <h3 class="text-lg font-semibold">
+        <h3 class="text-xl font-semibold">
           {{ t('portal.overview.purchased_products') }}
         </h3>
-        <NuxtLink
-          :to="localePath('/portal/products')"
-          class="text-primary hover:text-primary/80 text-sm font-medium"
-        >
-          {{ t('portal.overview.view_all') }}
-        </NuxtLink>
+        <Button as-child variant="secondary" size="sm">
+          <NuxtLink :to="localePath('/portal/products')">
+            {{ t('portal.overview.view_all') }}
+          </NuxtLink>
+        </Button>
       </div>
       <div
         v-if="productsPending"

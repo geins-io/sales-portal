@@ -10,27 +10,32 @@ defineProps<{
 
 <template>
   <div
-    class="border-border flex items-start gap-4 rounded-lg border p-4"
+    class="border-border flex flex-col rounded-lg border p-6"
     data-testid="portal-stat-card"
   >
-    <div class="relative">
-      <div
-        class="bg-muted text-muted-foreground flex size-10 items-center justify-center rounded-full"
-      >
-        <Icon :name="icon" class="size-5" />
-      </div>
-      <span
-        v-if="showDot"
-        data-testid="stat-card-dot"
-        class="bg-destructive absolute -top-0.5 -right-0.5 size-2.5 rounded-full"
-      />
-    </div>
-    <div>
-      <p class="text-2xl leading-none font-bold">{{ count }}</p>
+    <!-- Top row: label (left) + small icon (top-right) per Figma -->
+    <div class="flex items-start justify-between gap-2">
       <p class="text-sm font-medium">{{ label }}</p>
-      <p v-if="subtitle" class="text-muted-foreground text-xs">
-        {{ subtitle }}
-      </p>
+      <div class="relative shrink-0">
+        <Icon :name="icon" class="text-muted-foreground size-4" />
+        <span
+          v-if="showDot"
+          data-testid="stat-card-dot"
+          class="bg-destructive absolute -top-1 -right-1 size-2 rounded-full"
+        />
+      </div>
     </div>
+
+    <!-- Optional subtitle (small muted line) — only when data is provided -->
+    <p
+      v-if="subtitle"
+      class="text-muted-foreground mt-1 text-xs"
+      data-testid="stat-card-subtitle"
+    >
+      {{ subtitle }}
+    </p>
+
+    <!-- Big number at bottom -->
+    <p class="mt-6 text-3xl leading-none font-bold">{{ count }}</p>
   </div>
 </template>
