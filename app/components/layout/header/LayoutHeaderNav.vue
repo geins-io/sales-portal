@@ -18,6 +18,10 @@ import {
   NavigationMenuTrigger,
 } from '~/components/ui/navigation-menu';
 
+withDefaults(defineProps<{ variant?: 'grey' | 'white' }>(), {
+  variant: 'grey',
+});
+
 // Resolves the menuLocationId from `tenant.cms.menus[HEADER_MAIN]`.
 // Falls back gracefully to "no nav bar shown" when the tenant hasn't
 // configured the slot — the header still has the logo + search + cart.
@@ -68,7 +72,8 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
 <template>
   <nav
     v-if="visibleItems.length"
-    class="bg-muted relative hidden h-12 items-center border-b lg:flex"
+    class="relative hidden h-12 items-center border-b lg:flex"
+    :class="variant === 'white' ? 'bg-background' : 'bg-muted'"
     :aria-label="$t('layout.main_navigation')"
   >
     <div class="mx-auto w-full max-w-7xl px-4 lg:px-6">

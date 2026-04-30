@@ -79,6 +79,12 @@ export interface TenantConfig {
     ogImageUrl?: string | null;
   };
 
+  // Layout variants — tenant-tunable presentation knobs.
+  // Missing keys fall back to component defaults.
+  layout?: {
+    headerNavVariant?: 'grey' | 'white' | null;
+  } | null;
+
   // Features — keyed by feature name
   features: Record<string, { enabled: boolean; access?: FeatureAccess }>;
 
@@ -153,6 +159,7 @@ export interface PublicTenantConfig {
   checkoutMode: 'custom' | 'hosted';
   theme: TenantConfig['theme'];
   branding: TenantConfig['branding'];
+  layout?: TenantConfig['layout'];
   features: TenantConfig['features'];
   cms?: TenantConfig['cms'];
   seo?: TenantConfig['seo'];

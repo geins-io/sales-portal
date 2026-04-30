@@ -95,6 +95,7 @@ export async function getPublicConfig(
     checkoutMode: config.checkoutMode,
     theme: config.theme,
     branding: config.branding,
+    layout: config.layout,
     features: config.features,
     cms: config.cms,
     seo: config.seo,

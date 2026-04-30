@@ -105,7 +105,11 @@ const textColorClass = computed(() => {
       :class="[overlayAlignment, textColorClass]"
     >
       <div class="max-w-2xl">
-        <p v-if="data.text1" class="text-2xl font-bold md:text-4xl lg:text-5xl">
+        <p
+          v-if="data.text1"
+          class="font-heading text-2xl font-bold md:text-4xl lg:text-5xl"
+          data-testid="banner-title"
+        >
           {{ data.text1 }}
         </p>
         <p
@@ -129,7 +133,11 @@ const textColorClass = computed(() => {
       class="flex flex-col gap-2 p-6"
       :class="textColorClass"
     >
-      <p v-if="data.text1" class="text-xl font-bold md:text-2xl">
+      <p
+        v-if="data.text1"
+        class="font-heading text-xl font-bold md:text-2xl"
+        data-testid="banner-title"
+      >
         {{ data.text1 }}
       </p>
       <p v-if="data.text2" class="text-muted-foreground text-sm md:text-base">
