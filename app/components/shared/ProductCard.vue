@@ -248,15 +248,6 @@ async function addToCart() {
         {{ product?.name }}
       </h3>
 
-      <!-- Brand name (legacy only) -->
-      <p
-        v-if="isLegacyProduct(product) && product.brand?.name"
-        class="text-muted-foreground text-xs"
-        data-testid="product-brand"
-      >
-        {{ product.brand.name }}
-      </p>
-
       <!-- Stock badge (legacy only) -->
       <StockBadge
         v-if="isLegacyProduct(product) && product.totalStock"
@@ -352,15 +343,15 @@ async function addToCart() {
     />
   </div>
 
-  <!-- List variant (legacy only) -->
+  <!-- List variant (legacy only) — compact single-row layout per Figma -->
   <div
     v-else
-    class="bg-card flex flex-row items-stretch gap-4 overflow-hidden rounded-md border p-3"
+    class="bg-card flex flex-row items-center gap-4 rounded-md border px-3 py-2"
     data-testid="product-card"
   >
-    <!-- Thumbnail (square ratio matching grid) -->
+    <!-- Thumbnail (small square) -->
     <div
-      class="bg-muted group relative aspect-square w-32 shrink-0 overflow-hidden rounded-md sm:w-40"
+      class="bg-muted relative aspect-square size-16 shrink-0 overflow-hidden rounded-md"
     >
       <NuxtLink v-if="productUrl" :to="productUrl" class="block size-full">
         <GeinsImage
@@ -369,7 +360,7 @@ async function addToCart() {
           type="product"
           :alt="product?.name ?? ''"
           loading="lazy"
-          class="size-full object-contain transition-transform group-hover:scale-105"
+          class="size-full object-contain"
         />
       </NuxtLink>
       <div v-else class="block size-full">
@@ -379,13 +370,12 @@ async function addToCart() {
           type="product"
           :alt="product?.name ?? ''"
           loading="lazy"
-          class="size-full object-contain transition-transform group-hover:scale-105"
+          class="size-full object-contain"
         />
       </div>
-      <!-- Campaign badges -->
       <div
         v-if="visibleCampaigns.length"
-        class="absolute top-2 left-2 flex flex-col gap-1"
+        class="absolute top-1 left-1 flex flex-col gap-0.5"
       >
         <span
           v-for="campaign in visibleCampaigns"
@@ -398,14 +388,14 @@ async function addToCart() {
       </div>
     </div>
 
-    <!-- Info column: title at top, then meta -->
-    <div class="flex min-w-0 flex-1 flex-col gap-2 py-1">
+    <!-- Title + meta (single column, compact) -->
+    <div class="flex min-w-0 flex-1 flex-col gap-0.5">
       <NuxtLink v-if="productUrl" :to="productUrl" class="hover:underline">
-        <h3 class="text-base leading-tight font-semibold">
+        <h3 class="line-clamp-1 text-sm leading-tight font-semibold">
           {{ product?.name }}
         </h3>
       </NuxtLink>
-      <h3 v-else class="text-base leading-tight font-semibold">
+      <h3 v-else class="line-clamp-1 text-sm leading-tight font-semibold">
         {{ product?.name }}
       </h3>
       <p
@@ -420,80 +410,73 @@ async function addToCart() {
           {{ product.articleNumber }}
         </template>
       </p>
-      <p
-        v-if="isLegacyProduct(product) && product.brand?.name"
-        class="text-muted-foreground text-xs"
-        data-testid="product-brand"
-      >
-        {{ product.brand.name }}
-      </p>
       <StockBadge
         v-if="isLegacyProduct(product) && product.totalStock"
         :stock="product.totalStock"
         size="sm"
       />
-      <PriceDisplay
-        v-if="isLegacyProduct(product) && product.unitPrice"
-        :price="product.unitPrice"
-        :lowest-price="product.lowestPrice"
-        :discount-type="product.discountType"
-        :campaign-names="visibleCampaigns.map((c) => c.name)"
-        class="mt-auto text-base font-semibold"
-      />
     </div>
 
-    <!-- Actions column -->
-    <div class="flex shrink-0 flex-col items-end justify-between gap-3 py-1">
-      <Button
-        v-if="productAlias && hasFeature('wishlist')"
-        variant="ghost"
-        size="icon-sm"
-        data-testid="wishlist-button"
-        :data-favorited="isFavorited"
-        :aria-label="t('product.wishlist')"
-        @click.prevent.stop="openListPicker"
-      >
-        <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
-      </Button>
-      <template v-if="showPrice">
-        <div class="flex items-center gap-3">
-          <QuantityInput
-            v-if="isLegacyProduct(product)"
-            v-model="quantity"
-            :min="1"
-            :max="maxQuantity"
-            class="h-9"
+    <!-- Price -->
+    <PriceDisplay
+      v-if="isLegacyProduct(product) && product.unitPrice"
+      :price="product.unitPrice"
+      :lowest-price="product.lowestPrice"
+      :discount-type="product.discountType"
+      :campaign-names="visibleCampaigns.map((c) => c.name)"
+      class="shrink-0 text-base font-semibold"
+    />
+
+    <!-- Actions: qty + cart + wishlist on a single row -->
+    <template v-if="showPrice">
+      <div class="flex shrink-0 items-center gap-2">
+        <QuantityInput
+          v-if="isLegacyProduct(product)"
+          v-model="quantity"
+          :min="1"
+          :max="maxQuantity"
+          class="h-9"
+        />
+        <QuantityStepper v-else v-model="quantity" :min="1" class="h-9" />
+        <Button
+          data-testid="add-to-cart-button"
+          class="h-9 px-4"
+          :variant="addError ? 'destructive' : 'default'"
+          :disabled="
+            isLegacyProduct(product) ? !firstSku || isAdding : isLoading
+          "
+          @click="addToCart"
+        >
+          <AlertCircle
+            v-if="isLegacyProduct(product) && addError"
+            class="mr-1.5 size-4 shrink-0"
           />
-          <QuantityStepper v-else v-model="quantity" :min="1" class="h-9" />
-          <Button
-            data-testid="add-to-cart-button"
-            class="h-9 px-4"
-            :variant="addError ? 'destructive' : 'default'"
-            :disabled="
-              isLegacyProduct(product) ? !firstSku || isAdding : isLoading
-            "
-            @click="addToCart"
-          >
-            <AlertCircle
-              v-if="isLegacyProduct(product) && addError"
-              class="mr-1.5 size-4 shrink-0"
-            />
-            <ShoppingCart
-              v-else-if="isLegacyProduct(product)"
-              class="mr-1.5 size-4 shrink-0"
-            />
-            <span class="whitespace-nowrap">
-              <template v-if="isLegacyProduct(product)">
-                {{ addError ? t('cart.add_failed') : t('cart.add_to_cart') }}
-              </template>
-              <template v-else>
-                {{ t('common.add_to_cart') }}
-              </template>
-            </span>
-          </Button>
-        </div>
-      </template>
-    </div>
+          <ShoppingCart
+            v-else-if="isLegacyProduct(product)"
+            class="mr-1.5 size-4 shrink-0"
+          />
+          <span class="whitespace-nowrap">
+            <template v-if="isLegacyProduct(product)">
+              {{ addError ? t('cart.add_failed') : t('cart.add_to_cart') }}
+            </template>
+            <template v-else>
+              {{ t('common.add_to_cart') }}
+            </template>
+          </span>
+        </Button>
+        <Button
+          v-if="productAlias && hasFeature('wishlist')"
+          variant="ghost"
+          size="icon-sm"
+          data-testid="wishlist-button"
+          :data-favorited="isFavorited"
+          :aria-label="t('product.wishlist')"
+          @click.prevent.stop="openListPicker"
+        >
+          <Star class="size-4" :fill="isFavorited ? 'currentColor' : 'none'" />
+        </Button>
+      </div>
+    </template>
 
     <AddToListDialog
       v-if="productAlias"
