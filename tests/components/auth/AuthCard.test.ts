@@ -96,11 +96,11 @@ describe('AuthCard', () => {
     );
   });
 
-  it('switches to register view when apply button clicked', async () => {
+  it('apply button does not switch to register view (it navigates instead)', async () => {
     const wrapper = mountAuthCard();
     await wrapper.find('[data-testid="auth-apply-button"]').trigger('click');
-    expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="login-slot"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="register-slot"]').exists()).toBe(false);
   });
 
   it('renders back-to-login link in register view', () => {

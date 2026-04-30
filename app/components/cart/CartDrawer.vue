@@ -44,16 +44,15 @@ function goToCheckout() {
   <Sheet v-model:open="isOpen">
     <SheetContent
       side="right"
-      class="flex w-full flex-col sm:max-w-md"
+      class="flex w-full flex-col gap-0 p-0 sm:max-w-md lg:max-w-4xl"
       data-testid="cart-drawer"
     >
-      <SheetHeader>
-        <SheetTitle class="flex items-center gap-2">
-          <ShoppingCart class="size-5" />
+      <SheetHeader class="border-border border-b px-6 py-5">
+        <SheetTitle class="flex items-center gap-2 text-2xl font-semibold">
           {{ $t('cart.title') }}
           <span
             v-if="cartStore.itemCount > 0"
-            class="text-muted-foreground text-sm font-normal"
+            class="text-muted-foreground text-base font-normal"
           >
             ({{ $t('cart.item_count', { count: cartStore.itemCount }) }})
           </span>
@@ -84,108 +83,141 @@ function goToCheckout() {
         <p class="text-muted-foreground text-sm">{{ $t('cart.empty_cart') }}</p>
       </div>
 
-      <!-- Cart items -->
+      <!-- Cart items + summary -->
       <template v-else>
-        <div class="flex-1 overflow-y-auto px-4">
-          <div class="divide-border divide-y">
-            <CartItem
-              v-for="item in cartStore.cart?.items"
-              :key="item.id"
-              :item="item"
-              @update-quantity="cartStore.updateQuantity"
-              @remove="cartStore.removeItem"
-            />
-          </div>
-        </div>
+        <div
+          class="bg-muted/30 flex flex-1 flex-col overflow-hidden lg:flex-row"
+        >
+          <!-- Items column -->
+          <div class="flex flex-1 flex-col overflow-hidden">
+            <div class="flex-1 overflow-y-auto px-6 py-4">
+              <div class="divide-border divide-y">
+                <CartItem
+                  v-for="item in cartStore.cart?.items"
+                  :key="item.id"
+                  :item="item"
+                  @update-quantity="cartStore.updateQuantity"
+                  @remove="cartStore.removeItem"
+                />
+              </div>
+            </div>
 
-        <!-- Promo code -->
-        <div class="border-border border-t px-4 py-3">
-          <PromoCodeInput
-            :active-code="cartStore.cart?.promoCode ?? null"
-            :loading="cartStore.isLoading"
-            @apply="cartStore.applyPromoCode"
-            @remove="cartStore.removePromoCode"
-          />
-        </div>
+            <!-- Promo code (mobile inline, desktop above summary) -->
+            <div class="border-border border-t px-6 py-3 lg:hidden">
+              <PromoCodeInput
+                :active-code="cartStore.cart?.promoCode ?? null"
+                :loading="cartStore.isLoading"
+                @apply="cartStore.applyPromoCode"
+                @remove="cartStore.removePromoCode"
+              />
+            </div>
+          </div>
 
-        <!-- Summary -->
-        <div class="border-border space-y-2 border-t px-4 py-3">
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-muted-foreground">{{ $t('cart.subtotal') }}</span>
-            <span>{{
-              cartStore.cart?.summary?.subTotal?.sellingPriceIncVatFormatted ??
-              ''
-            }}</span>
-          </div>
-          <!-- Discount line -->
-          <div
-            v-if="cartStore.discountAmount"
-            class="flex items-center justify-between text-sm"
-            data-testid="cart-summary-discount"
+          <!-- Summary column -->
+          <aside
+            class="border-border bg-background flex shrink-0 flex-col gap-4 overflow-y-auto border-t px-6 py-6 lg:w-80 lg:border-t-0 lg:border-l"
+            data-testid="cart-summary"
           >
-            <span class="text-destructive">{{ $t('discount.discount') }}</span>
-            <span class="text-destructive font-medium"
-              >-{{ discountFormatted }}</span
-            >
-          </div>
-          <div
-            v-if="shippingFee"
-            class="flex items-center justify-between text-sm"
-          >
-            <span class="text-muted-foreground">{{ $t('cart.shipping') }}</span>
-            <span>{{ shippingFee }}</span>
-          </div>
-          <div
-            v-if="taxFormatted"
-            class="flex items-center justify-between text-sm"
-          >
-            <span class="text-muted-foreground">{{
-              $t('cart.tax_estimated')
-            }}</span>
-            <span>{{ taxFormatted }}</span>
-          </div>
-          <!-- Cart-level campaigns -->
-          <div
-            v-if="cartStore.visibleCartCampaigns.length"
-            class="space-y-1"
-            data-testid="cart-campaigns"
-          >
+            <div class="hidden lg:block">
+              <PromoCodeInput
+                :active-code="cartStore.cart?.promoCode ?? null"
+                :loading="cartStore.isLoading"
+                @apply="cartStore.applyPromoCode"
+                @remove="cartStore.removePromoCode"
+              />
+            </div>
+
             <div
-              v-for="campaign in cartStore.visibleCartCampaigns"
-              :key="campaign.name"
-              class="flex items-center gap-1 text-xs"
+              class="border-border bg-card rounded-lg border p-5"
+              data-testid="cart-summary-card"
             >
-              <Icon name="lucide:tag" class="text-destructive size-3" />
-              <span class="text-destructive">{{ campaign.name }}</span>
+              <h2 class="mb-4 text-base font-semibold">
+                {{ $t('cart.order_summary') }}
+              </h2>
+              <dl class="space-y-2 text-sm">
+                <div class="flex items-center justify-between">
+                  <dt class="text-muted-foreground">
+                    {{ $t('cart.subtotal') }}
+                  </dt>
+                  <dd>
+                    {{
+                      cartStore.cart?.summary?.subTotal
+                        ?.sellingPriceIncVatFormatted ?? ''
+                    }}
+                  </dd>
+                </div>
+                <div
+                  v-if="cartStore.discountAmount"
+                  class="flex items-center justify-between"
+                  data-testid="cart-summary-discount"
+                >
+                  <dt class="text-destructive">
+                    {{ $t('discount.discount') }}
+                  </dt>
+                  <dd class="text-destructive font-medium">
+                    -{{ discountFormatted }}
+                  </dd>
+                </div>
+                <div
+                  v-if="shippingFee"
+                  class="flex items-center justify-between"
+                >
+                  <dt class="text-muted-foreground">
+                    {{ $t('cart.shipping') }}
+                  </dt>
+                  <dd>{{ shippingFee }}</dd>
+                </div>
+                <div
+                  v-if="taxFormatted"
+                  class="flex items-center justify-between"
+                >
+                  <dt class="text-muted-foreground">
+                    {{ $t('cart.tax_estimated') }}
+                  </dt>
+                  <dd>{{ taxFormatted }}</dd>
+                </div>
+                <div
+                  v-if="cartStore.visibleCartCampaigns.length"
+                  class="space-y-1 pt-1"
+                  data-testid="cart-campaigns"
+                >
+                  <div
+                    v-for="campaign in cartStore.visibleCartCampaigns"
+                    :key="campaign.name"
+                    class="flex items-center gap-1 text-xs"
+                  >
+                    <Icon name="lucide:tag" class="text-destructive size-3" />
+                    <span class="text-destructive">{{ campaign.name }}</span>
+                  </div>
+                </div>
+                <div class="border-border mt-3 border-t pt-3">
+                  <div class="flex items-center justify-between font-semibold">
+                    <dt>{{ $t('cart.total') }}</dt>
+                    <dd>
+                      {{
+                        cartStore.cart?.summary?.total
+                          ?.sellingPriceIncVatFormatted ?? ''
+                      }}
+                    </dd>
+                  </div>
+                </div>
+              </dl>
             </div>
-          </div>
-          <div class="border-border border-t pt-2">
-            <div class="flex items-center justify-between font-medium">
-              <span>{{ $t('cart.total') }}</span>
-              <span>{{
-                cartStore.cart?.summary?.total?.sellingPriceIncVatFormatted ??
-                ''
-              }}</span>
-            </div>
-          </div>
+
+            <p v-if="cartStore.error" class="text-destructive text-sm">
+              {{ cartStore.error }}
+            </p>
+
+            <Button
+              class="w-full"
+              data-testid="cart-drawer-checkout-button"
+              :disabled="cartStore.isLoading"
+              @click="goToCheckout"
+            >
+              {{ $t('cart.checkout') }}
+            </Button>
+          </aside>
         </div>
-
-        <!-- Error -->
-        <p v-if="cartStore.error" class="text-destructive px-4 text-sm">
-          {{ cartStore.error }}
-        </p>
-
-        <!-- Checkout button -->
-        <SheetFooter class="px-4 pb-4">
-          <Button
-            class="w-full"
-            data-testid="cart-drawer-checkout-button"
-            :disabled="cartStore.isLoading"
-            @click="goToCheckout"
-          >
-            {{ $t('cart.checkout') }}
-          </Button>
-        </SheetFooter>
       </template>
     </SheetContent>
   </Sheet>
