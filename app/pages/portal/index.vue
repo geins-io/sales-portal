@@ -7,6 +7,7 @@ import ProductCard, {
 import { useQuotesStore } from '~/stores/quotes';
 import { useFavoritesStore } from '~/stores/favorites';
 import { getQuoteStatusPillClass } from '~/utils/quote-status';
+import { Button } from '~/components/ui/button';
 
 definePageMeta({
   middleware: 'auth',
@@ -86,6 +87,36 @@ const recentLists = computed(() => favoritesStore.lists.slice(0, 5));
 const listsPending = computed(() => false);
 
 // ---------------------------------------------------------------------------
+// Stat-card subtitles — only rendered when the underlying data exists.
+// No fake placeholders; missing data leaves the subtitle line empty.
+// ---------------------------------------------------------------------------
+const nearestQuoteExpirySubtitle = computed(() => {
+  const dates = quotesStore.pendingQuotes
+    .map((q) => q.expiresAt)
+    .filter((d): d is string => !!d)
+    .sort();
+  if (!dates.length) return undefined;
+  return t('portal.overview.stat.closes_expiration_date', {
+    date: formatDate(dates[0]),
+  });
+});
+
+const latestOrderSubtitle = computed(() => {
+  const latest = orders.value[0]?.createdAt;
+  if (!latest) return undefined;
+  return t('portal.overview.stat.latest_placed', { date: formatDate(latest) });
+});
+
+const mostPurchasedSubtitle = computed(() => {
+  const products = productsData.value?.products ?? [];
+  if (!products.length) return undefined;
+  const top = products.reduce((a, b) =>
+    (a.totalQuantity ?? 0) >= (b.totalQuantity ?? 0) ? a : b,
+  );
+  return t('portal.overview.stat.most_purchased_item', { name: top.name });
+});
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function formatDate(dateStr: string | number | null | undefined): string {
@@ -133,17 +164,20 @@ function handleProductAddToCart(
         icon="lucide:file-text"
         :count="quotesStore.pendingCount"
         :label="t('portal.overview.stat.pending_quotations')"
+        :subtitle="nearestQuoteExpirySubtitle"
         :show-dot="quotesStore.pendingCount > 0"
       />
       <PortalStatCard
         icon="lucide:shopping-bag"
         :count="orderCount"
         :label="t('portal.overview.stat.orders_placed')"
+        :subtitle="latestOrderSubtitle"
       />
       <PortalStatCard
         icon="lucide:package"
         :count="purchasedProductCount"
         :label="t('portal.overview.stat.purchased_products')"
+        :subtitle="mostPurchasedSubtitle"
       />
       <PortalStatCard
         icon="lucide:users"
@@ -152,18 +186,17 @@ function handleProductAddToCart(
       />
     </div>
 
-    <!-- Latest Orders -->
-    <div class="mb-6">
+    <!-- Latest Orders — bordered card per Figma -->
+    <div class="border-border mb-6 rounded-lg border p-6">
       <div class="mb-4 flex items-center justify-between">
-        <h3 class="text-lg font-semibold">
+        <h3 class="text-xl font-semibold">
           {{ t('portal.overview.latest_orders') }}
         </h3>
-        <NuxtLink
-          :to="localePath('/portal/orders')"
-          class="text-primary hover:text-primary/80 text-sm font-medium"
-        >
-          {{ t('portal.overview.view_all') }}
-        </NuxtLink>
+        <Button as-child variant="secondary" size="sm">
+          <NuxtLink :to="localePath('/portal/orders')">
+            {{ t('portal.overview.view_all') }}
+          </NuxtLink>
+        </Button>
       </div>
       <div
         v-if="ordersPending"
@@ -177,17 +210,16 @@ function handleProductAddToCart(
     <!-- Pending Quotations & Your Lists -->
     <div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
       <!-- Pending Quotations mini-table -->
-      <div class="border-border rounded-lg border p-4">
+      <div class="border-border rounded-lg border p-6">
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold">
+          <h3 class="text-xl font-semibold">
             {{ t('portal.overview.pending_quotations') }}
           </h3>
-          <NuxtLink
-            :to="localePath('/portal/quotations')"
-            class="text-primary hover:text-primary/80 text-sm font-medium"
-          >
-            {{ t('portal.overview.view_all') }}
-          </NuxtLink>
+          <Button as-child variant="secondary" size="sm">
+            <NuxtLink :to="localePath('/portal/quotations')">
+              {{ t('portal.overview.view_all') }}
+            </NuxtLink>
+          </Button>
         </div>
         <!-- Mobile cards -->
         <div
@@ -290,17 +322,16 @@ function handleProductAddToCart(
       </div>
 
       <!-- Your Lists mini-table -->
-      <div class="border-border rounded-lg border p-4">
+      <div class="border-border rounded-lg border p-6">
         <div class="mb-4 flex items-center justify-between">
-          <h3 class="text-lg font-semibold">
+          <h3 class="text-xl font-semibold">
             {{ t('portal.overview.your_lists') }}
           </h3>
-          <NuxtLink
-            :to="localePath('/portal/lists')"
-            class="text-primary hover:text-primary/80 text-sm font-medium"
-          >
-            {{ t('portal.overview.view_all') }}
-          </NuxtLink>
+          <Button as-child variant="secondary" size="sm">
+            <NuxtLink :to="localePath('/portal/lists')">
+              {{ t('portal.overview.view_all') }}
+            </NuxtLink>
+          </Button>
         </div>
         <div
           v-if="listsPending"
@@ -381,18 +412,17 @@ function handleProductAddToCart(
       </div>
     </div>
 
-    <!-- Purchased Products -->
-    <div>
+    <!-- Purchased Products — bordered card per Figma -->
+    <div class="border-border rounded-lg border p-6">
       <div class="mb-4 flex items-center justify-between">
-        <h3 class="text-lg font-semibold">
+        <h3 class="text-xl font-semibold">
           {{ t('portal.overview.purchased_products') }}
         </h3>
-        <NuxtLink
-          :to="localePath('/portal/products')"
-          class="text-primary hover:text-primary/80 text-sm font-medium"
-        >
-          {{ t('portal.overview.view_all') }}
-        </NuxtLink>
+        <Button as-child variant="secondary" size="sm">
+          <NuxtLink :to="localePath('/portal/products')">
+            {{ t('portal.overview.view_all') }}
+          </NuxtLink>
+        </Button>
       </div>
       <div
         v-if="productsPending"

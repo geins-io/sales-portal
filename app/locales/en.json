@@ -502,7 +502,10 @@
         "pending_quotations": "Pending quotations",
         "orders_placed": "Orders placed",
         "purchased_products": "Purchased products",
-        "persons_in_org": "Persons in your org"
+        "persons_in_org": "Persons in your org",
+        "closes_expiration_date": "Closes expiration date {date}",
+        "latest_placed": "Latest placed: {date}",
+        "most_purchased_item": "Most purchased item: {name}"
       },
       "latest_orders": "Latest Orders",
       "pending_quotations": "Pending quotations",

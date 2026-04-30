@@ -138,7 +138,7 @@ async function handleLogout() {
     <div class="mx-auto max-w-6xl px-4">
       <div
         data-testid="portal-welcome"
-        class="border-border bg-background -mt-6 flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-start"
+        class="border-border bg-background mt-8 flex flex-col gap-6 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between"
       >
         <!-- Left: User info -->
         <div>
@@ -153,8 +153,10 @@ async function handleLogout() {
           </p>
         </div>
 
-        <!-- Right: Quick links -->
-        <div class="flex flex-col gap-2 text-sm">
+        <!-- Right: Quick links — left-bordered + left-aligned + icons per Figma -->
+        <div
+          class="border-border flex flex-col items-start gap-3 text-sm sm:border-l sm:pl-6"
+        >
           <NuxtLink
             v-if="hasFeature('wishlist')"
             :to="localePath('/portal/favorites')"
