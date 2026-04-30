@@ -1,11 +1,15 @@
 <script setup lang="ts">
-// Nav bar variant — controls shadow + separator between main and nav.
-// 'grey' (default): nav uses bg-muted, no header shadow, no border between
-//   main and nav so it flows seamlessly into the grey nav.
-// 'white': nav uses bg-background, header has shadow-sm and main has border-b
-//   to visually separate the two same-colored sections.
-type NavVariant = 'grey' | 'white';
-const navVariant = ref<NavVariant>('grey');
+// Header nav variant — controls shadow + separator between main and nav.
+//   'grey' : nav is bg-muted; header has no shadow and main has no border-b,
+//            so it flows seamlessly into the grey nav.
+//   'white': nav is bg-background; header gets shadow-sm and main gets border-b
+//            to visually separate two same-coloured sections.
+//
+// Resolution: tenant.layout.headerNavVariant → 'grey' (default).
+const { tenant } = useTenant();
+const navVariant = computed<'grey' | 'white'>(
+  () => tenant.value?.layout?.headerNavVariant ?? 'grey',
+);
 </script>
 
 <template>
