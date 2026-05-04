@@ -107,11 +107,10 @@ function formatDate(value: number | string | undefined): string {
           <td class="py-3 text-right">
             <NuxtLink
               :to="localePath(`/portal/saved-lists/${list.id}`)"
-              class="border-border text-foreground hover:bg-muted inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors"
+              class="bg-muted text-foreground hover:bg-muted/80 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors"
               data-testid="saved-list-edit"
               :aria-label="t('portal.saved_lists.row_actions.edit')"
             >
-              <Icon name="lucide:pencil" class="size-4" />
               {{ t('portal.saved_lists.row_actions.edit') }}
               <Icon name="lucide:chevron-right" class="size-4" />
             </NuxtLink>

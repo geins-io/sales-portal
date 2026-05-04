@@ -135,7 +135,9 @@ async function handleLogout() {
     <PortalHeroFallback v-else />
 
     <!-- Welcome Card -->
-    <div class="mx-auto max-w-6xl px-4">
+    <!-- Page content uses 1280px container (max-w-7xl). Side padding only
+         on smaller viewports — Figma calls for flush edges at 1280+ -->
+    <div class="mx-auto max-w-7xl px-4 lg:px-0">
       <div
         data-testid="portal-welcome"
         class="border-border bg-background mt-8 flex flex-col gap-6 rounded-lg border p-6 shadow-sm sm:flex-row sm:items-start sm:justify-between"
