@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import type { VariantDimensionType, VariantType } from '#shared/types/commerce';
+import type {
+  VariantDimensionType,
+  VariantType,
+  ProductImageType,
+} from '#shared/types/commerce';
+import type { SkuType } from '@geins/types';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import {
@@ -24,6 +29,18 @@ const props = defineProps<{
   variantDimensions: VariantDimensionType[];
   variants: VariantType[];
   modelValue: Record<string, string>;
+  // Optional product-level data threaded through so each sheet row can
+  // surface the variant's article number, stock and price + the product
+  // image as a thumbnail. Sheet still renders correctly without these,
+  // falling back to a name-only row.
+  skus?: SkuType[];
+  productImages?: ProductImageType[];
+  priceFormatted?: string | null;
+  productName?: string;
+  // Fallback art-nr for single-variant wrapper products where the SKU
+  // doesn't carry one of its own (Geins returns a "DefaultProduct"
+  // dimension with attributes: null on these).
+  productArticleNumber?: string | null;
 }>();
 
 interface GroupedDimension {
@@ -73,6 +90,41 @@ function filteredValues(values: string[]): string[] {
   if (!q) return values;
   return values.filter((v) => v.toLowerCase().includes(q));
 }
+
+// Resolve the first variant matching (dimension, value) and its sku so
+// each sheet row can show real article number / stock pulled from the
+// SDK. Returns null on multi-dim products where the value alone doesn't
+// pin a single sku — caller falls back to name-only display.
+function variantInfoFor(
+  dimensionName: string,
+  value: string,
+): { articleNumber?: string; stockTotal: number } | null {
+  const matchingVariant = props.variants.find((variant) => {
+    const attrs = Array.isArray(variant.attributes) ? variant.attributes : [];
+    return attrs.some(
+      (attr) =>
+        attr.attributeName === dimensionName && attr.attributeValue === value,
+    );
+  });
+  // Single-variant "wrapper" products surface a single dimension value
+  // with no real attributes; fall through and use the product-level art-nr.
+  const sku = matchingVariant
+    ? props.skus?.find((s) => s.skuId === matchingVariant.variantId)
+    : props.skus?.[0];
+  const articleNumber =
+    sku?.articleNumber || props.productArticleNumber || undefined;
+  const stockTotal =
+    matchingVariant?.stock?.totalStock ?? sku?.stock?.totalStock ?? 0;
+  if (!articleNumber && !matchingVariant) return null;
+  return { articleNumber, stockTotal };
+}
+
+const primaryImageFileName = computed<string | null>(() => {
+  const images = props.productImages ?? [];
+  return (
+    images.find((i) => i.isPrimary)?.fileName ?? images[0]?.fileName ?? null
+  );
+});
 
 function selectValue(dimensionName: string, value: string) {
   emit('update:modelValue', {
@@ -211,14 +263,40 @@ const activeDimension = computed(
                 "
                 @click="selectValue(activeDimension.dimensionName, value)"
               >
-                <!-- Thumbnail placeholder. Variants in our model don't
-                     carry per-variant images, so each row gets a neutral
-                     square to keep PLP-list-view alignment consistent. -->
-                <div class="bg-muted size-12 shrink-0 rounded-md" />
+                <!-- Thumbnail uses the product's primary image. Geins
+                     doesn't expose per-variant imagery; this keeps the
+                     visual rhythm of the list consistent with Figma. -->
+                <div
+                  class="bg-muted size-12 shrink-0 overflow-hidden rounded-md"
+                >
+                  <GeinsImage
+                    v-if="primaryImageFileName"
+                    :file-name="primaryImageFileName"
+                    type="product"
+                    :alt="productName ?? value"
+                    class="size-full object-contain"
+                  />
+                </div>
 
                 <div class="min-w-0 flex-1">
                   <div class="truncate text-sm font-medium">
                     {{ value }}
+                  </div>
+                  <div
+                    v-if="
+                      variantInfoFor(activeDimension.dimensionName, value)
+                        ?.articleNumber
+                    "
+                    class="text-muted-foreground mt-0.5 truncate text-xs"
+                  >
+                    {{
+                      $t('product.article_number', {
+                        number: variantInfoFor(
+                          activeDimension.dimensionName,
+                          value,
+                        )?.articleNumber,
+                      })
+                    }}
                   </div>
                   <div
                     class="mt-1 flex items-center gap-1 text-xs"
@@ -243,6 +321,16 @@ const activeDimension = computed(
                     }}
                   </div>
                 </div>
+
+                <!-- Price column: product-level price applies to every
+                     variant. Hide entirely when no formatted price is
+                     available so the row stays clean. -->
+                <span
+                  v-if="priceFormatted"
+                  class="shrink-0 text-sm font-medium"
+                >
+                  {{ priceFormatted }}
+                </span>
 
                 <Icon
                   v-if="modelValue[activeDimension.dimensionName] === value"

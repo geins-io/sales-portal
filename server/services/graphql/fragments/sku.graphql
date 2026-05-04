@@ -1,5 +1,6 @@
 fragment Sku on SkuType {
   skuId
+  articleNumber
   gtin
   name
   productId

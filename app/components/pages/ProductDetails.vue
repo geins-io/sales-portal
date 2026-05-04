@@ -373,12 +373,22 @@ useSchemaOrg([
         <!-- Stock -->
         <StockBadge v-if="product.totalStock" :stock="product.totalStock" />
 
-        <!-- Variant selector -->
+        <!-- Variant selector — pass product-level data through so each
+             sheet row can render a real Figma-style item with thumbnail,
+             art-nr, stock and price (price is product-level so it's the
+             same on every row). -->
         <VariantSelector
           v-if="product.variantDimensions?.length"
           v-model="selectedVariants"
           :variant-dimensions="product.variantDimensions"
           :variants="product.variantGroup?.variants ?? []"
+          :skus="product.skus ?? []"
+          :product-images="product.productImages ?? []"
+          :product-name="product.name ?? ''"
+          :price-formatted="
+            product.unitPrice?.sellingPriceIncVatFormatted ?? null
+          "
+          :product-article-number="product.articleNumber ?? null"
         />
       </div>
 
