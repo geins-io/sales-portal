@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { VariantDimensionType, VariantType } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
+import { Input } from '~/components/ui/input';
 import {
   Sheet,
   SheetContent,
@@ -56,13 +57,21 @@ const emit = defineEmits<{
 }>();
 
 const openDimension = ref<string | null>(null);
+const searchQuery = ref('');
 
 function openSheet(dimensionName: string) {
   openDimension.value = dimensionName;
+  searchQuery.value = '';
 }
 
 function closeSheet() {
   openDimension.value = null;
+}
+
+function filteredValues(values: string[]): string[] {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return values;
+  return values.filter((v) => v.toLowerCase().includes(q));
 }
 
 function selectValue(dimensionName: string, value: string) {
@@ -144,7 +153,7 @@ const activeDimension = computed(
     >
       <SheetContent
         side="right"
-        class="flex h-screen w-full flex-col p-0 sm:max-w-md"
+        class="flex h-screen w-full flex-col p-0 sm:max-w-lg"
         data-testid="variant-sheet"
       >
         <SheetHeader class="border-b px-6 py-4">
@@ -157,23 +166,44 @@ const activeDimension = computed(
           </SheetTitle>
         </SheetHeader>
 
+        <div v-if="activeDimension" class="border-b px-6 py-3">
+          <div class="relative">
+            <Icon
+              name="lucide:search"
+              class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2"
+            />
+            <Input
+              v-model="searchQuery"
+              type="search"
+              :placeholder="$t('product.variant_search_placeholder')"
+              class="pl-9"
+              data-testid="variant-sheet-search"
+            />
+          </div>
+        </div>
+
         <div
           v-if="activeDimension"
           class="flex-1 overflow-y-auto px-6 py-4"
           data-testid="variant-sheet-options"
         >
           <ul class="flex flex-col gap-2">
-            <li v-for="value in activeDimension.values" :key="value">
-              <Button
+            <li
+              v-for="value in filteredValues(activeDimension.values)"
+              :key="value"
+            >
+              <button
                 type="button"
-                variant="outline"
                 :disabled="
                   !isValueAvailable(activeDimension.dimensionName, value)
                 "
                 :class="[
-                  'h-12 w-full justify-between text-left',
+                  'border-border hover:border-foreground/40 flex w-full items-center gap-3 rounded-md border bg-transparent p-3 text-left transition-colors',
+                  modelValue[activeDimension.dimensionName] === value
+                    ? 'border-foreground'
+                    : '',
                   !isValueAvailable(activeDimension.dimensionName, value)
-                    ? 'pointer-events-none line-through opacity-40'
+                    ? 'pointer-events-none opacity-40'
                     : '',
                 ]"
                 :aria-pressed="
@@ -181,13 +211,45 @@ const activeDimension = computed(
                 "
                 @click="selectValue(activeDimension.dimensionName, value)"
               >
-                <span>{{ value }}</span>
+                <!-- Thumbnail placeholder. Variants in our model don't
+                     carry per-variant images, so each row gets a neutral
+                     square to keep PLP-list-view alignment consistent. -->
+                <div class="bg-muted size-12 shrink-0 rounded-md" />
+
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-sm font-medium">
+                    {{ value }}
+                  </div>
+                  <div
+                    class="mt-1 flex items-center gap-1 text-xs"
+                    :class="
+                      isValueAvailable(activeDimension.dimensionName, value)
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground'
+                    "
+                  >
+                    <span
+                      class="size-1.5 rounded-full"
+                      :class="
+                        isValueAvailable(activeDimension.dimensionName, value)
+                          ? 'bg-emerald-500'
+                          : 'bg-muted-foreground'
+                      "
+                    />
+                    {{
+                      isValueAvailable(activeDimension.dimensionName, value)
+                        ? $t('product.in_stock')
+                        : $t('product.out_of_stock')
+                    }}
+                  </div>
+                </div>
+
                 <Icon
                   v-if="modelValue[activeDimension.dimensionName] === value"
                   name="lucide:check"
-                  class="size-4"
+                  class="size-4 shrink-0"
                 />
-              </Button>
+              </button>
             </li>
           </ul>
         </div>

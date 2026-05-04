@@ -88,10 +88,30 @@ function openListPicker() {
   showListPicker.value = true;
 }
 
+function toggleFavourite() {
+  if (!product.value) return;
+  favoritesStore.toggle(product.value.alias);
+}
+
+function printDataSheet() {
+  if (import.meta.client) window.print();
+}
+
 const showPrice = computed(() => {
   if (!hasFeature('pricing')) return true;
   return canAccess('pricing');
 });
+
+// Plain-text variants of CMS-authored copy. Text 1 lands under the price
+// and Text 3 under the product details block; both fields may contain
+// editor HTML, but the top-area inlines render as small body copy and
+// the markup would otherwise leak as visible angle brackets.
+function stripHtml(value: string | null | undefined): string {
+  return value ? value.replace(/<[^>]*>/g, '').trim() : '';
+}
+
+const text1Plain = computed(() => stripHtml(product.value?.texts?.text1));
+const text3Plain = computed(() => stripHtml(product.value?.texts?.text3));
 
 // --- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL) ---
 // Rendered below the related-products row when the slot is configured
@@ -295,6 +315,15 @@ useSchemaOrg([
           >
             {{ product.brand.name }}
           </p>
+
+          <!-- Text 3: extra detail copy under the product header -->
+          <p
+            v-if="text3Plain"
+            class="text-muted-foreground mt-1 text-sm leading-relaxed"
+            data-testid="product-text3"
+          >
+            {{ text3Plain }}
+          </p>
         </div>
 
         <!-- Campaign badges -->
@@ -332,13 +361,13 @@ useSchemaOrg([
           <span>{{ $t('discount.negotiated_price_info') }}</span>
         </div>
 
-        <!-- Short description -->
+        <!-- Text 1: short description under price (HTML stripped) -->
         <p
-          v-if="product.texts?.text2"
+          v-if="text1Plain"
           class="text-muted-foreground text-sm leading-relaxed"
           data-testid="short-description"
         >
-          {{ product.texts.text2 }}
+          {{ text1Plain }}
         </p>
 
         <!-- Stock -->
@@ -392,25 +421,47 @@ useSchemaOrg([
           </Button>
         </div>
 
-        <!-- Info links card -->
+        <!-- Info links: borderless block with separator lines top + bottom.
+             Order per Figma: Download data sheet, Save as favourites,
+             Add to lists, optional latest-order info below. -->
         <div
-          class="border-border bg-card flex flex-col gap-3 rounded-lg border p-4"
+          class="border-border flex flex-col divide-y border-y"
           data-testid="pdp-info-card"
         >
-          <a
-            href="#"
-            class="text-muted-foreground hover:text-foreground flex items-center gap-2 text-sm transition-colors"
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-3 text-left text-sm transition-colors"
+            data-testid="pdp-print"
+            @click="printDataSheet"
           >
             <Icon name="lucide:download" class="size-4" />
-            <span>{{ $t('product.download') }}</span>
-          </a>
-          <a
-            href="#"
-            class="text-muted-foreground hover:text-foreground flex items-center gap-2 text-sm transition-colors"
+            <span>{{ $t('product.download_data_sheet') }}</span>
+          </button>
+          <button
+            v-if="hasFeature('wishlist')"
+            type="button"
+            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-3 text-left text-sm transition-colors"
+            data-testid="pdp-save-favourite"
+            @click="toggleFavourite"
           >
-            <Icon name="lucide:truck" class="size-4" />
-            <span>{{ $t('product.delivery_info') }}</span>
-          </a>
+            <Icon name="lucide:star" class="size-4" />
+            <span>
+              {{
+                isFavorited
+                  ? $t('product.saved_as_favourite')
+                  : $t('product.save_as_favourite')
+              }}
+            </span>
+          </button>
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-3 text-left text-sm transition-colors"
+            data-testid="pdp-add-to-lists"
+            @click="openListPicker"
+          >
+            <Icon name="lucide:list-plus" class="size-4" />
+            <span>{{ $t('product.add_to_lists') }}</span>
+          </button>
         </div>
       </aside>
     </div>

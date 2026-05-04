@@ -40,8 +40,14 @@ const hasMultiple = computed(() => props.images.length > 1);
 
 <template>
   <div class="flex flex-col gap-2" data-testid="product-gallery">
-    <!-- Main image with overlay arrows -->
-    <div class="bg-muted relative aspect-square overflow-hidden rounded-lg">
+    <!-- Main image with overlay arrows.
+         Arrows fade to a low base opacity so they don't compete with the
+         product photo, and lift to full opacity on hover anywhere on the
+         image area. `group` + `group-hover` on the wrapper keeps the
+         lift behaviour without requiring hover on the buttons themselves. -->
+    <div
+      class="bg-muted group relative aspect-square overflow-hidden rounded-lg"
+    >
       <Button
         v-if="currentImage"
         variant="ghost"
@@ -61,7 +67,7 @@ const hasMultiple = computed(() => props.images.length > 1);
         v-if="hasMultiple"
         variant="ghost"
         size="icon"
-        class="bg-background/80 hover:bg-background absolute top-1/2 left-2 -translate-y-1/2 rounded-full shadow-md"
+        class="bg-background/80 hover:bg-background absolute top-1/2 left-2 -translate-y-1/2 rounded-full opacity-40 shadow-md transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         :aria-label="$t('product.gallery_previous')"
         data-testid="gallery-prev"
         @click="prev"
@@ -72,7 +78,7 @@ const hasMultiple = computed(() => props.images.length > 1);
         v-if="hasMultiple"
         variant="ghost"
         size="icon"
-        class="bg-background/80 hover:bg-background absolute top-1/2 right-2 -translate-y-1/2 rounded-full shadow-md"
+        class="bg-background/80 hover:bg-background absolute top-1/2 right-2 -translate-y-1/2 rounded-full opacity-40 shadow-md transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         :aria-label="$t('product.gallery_next')"
         data-testid="gallery-next"
         @click="next"
