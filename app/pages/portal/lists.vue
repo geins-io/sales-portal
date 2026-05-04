@@ -49,41 +49,46 @@ function handleCreateList() {
 
 <template>
   <PortalShell>
-    <!-- Page header -->
-    <div class="mb-6">
-      <div
-        class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
-      >
-        <div>
-          <h2 class="text-lg font-semibold">
-            {{ t('portal.saved_lists.title') }}
-          </h2>
-          <p class="text-muted-foreground mt-1 text-sm">
-            {{ t('portal.saved_lists.subtitle') }}
-          </p>
-        </div>
-        <Button
-          data-testid="saved-lists-create"
-          class="whitespace-nowrap"
-          @click="openCreateSheet"
+    <!-- Bordered content card per Figma — wraps header, action, table -->
+    <div class="border-border rounded-lg border p-6">
+      <!-- Page header -->
+      <div class="mb-6">
+        <div
+          class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
         >
-          <Icon name="lucide:plus" class="size-4" />
-          {{ t('portal.saved_lists.create') }}
-        </Button>
+          <div>
+            <h2 class="text-lg font-semibold">
+              {{ t('portal.saved_lists.title') }}
+            </h2>
+            <p class="text-muted-foreground mt-1 text-sm">
+              {{ t('portal.saved_lists.subtitle') }}
+            </p>
+          </div>
+          <!-- px-4 overrides shadcn Button's has-[>svg]:px-3 shrink so the
+               leading + icon keeps full Figma left padding -->
+          <Button
+            data-testid="saved-lists-create"
+            class="px-4! whitespace-nowrap"
+            @click="openCreateSheet"
+          >
+            <Icon name="lucide:plus" class="size-4" />
+            {{ t('portal.saved_lists.create') }}
+          </Button>
+        </div>
       </div>
-    </div>
 
-    <!-- Empty state -->
-    <div
-      v-if="!allLists.length"
-      data-testid="saved-lists-empty"
-      class="text-muted-foreground py-12 text-center text-sm"
-    >
-      {{ t('portal.saved_lists.no_lists') }}
-    </div>
+      <!-- Empty state -->
+      <div
+        v-if="!allLists.length"
+        data-testid="saved-lists-empty"
+        class="text-muted-foreground py-12 text-center text-sm"
+      >
+        {{ t('portal.saved_lists.no_lists') }}
+      </div>
 
-    <!-- Lists table -->
-    <SavedListsTable v-else :lists="allLists" />
+      <!-- Lists table -->
+      <SavedListsTable v-else :lists="allLists" />
+    </div>
 
     <!-- Create list sheet -->
     <Sheet v-model:open="sheetOpen">

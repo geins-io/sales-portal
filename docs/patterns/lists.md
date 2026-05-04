@@ -72,8 +72,23 @@ its reactive state from the SDK after each mutation.
 `localStorage` is browser-only. On SSR:
 
 - `useFavoritesStore` initialises empty (`items = []`, `lists = []`, `favorites = null`).
-- The store auto-initialises on the client when first imported (`if (import.meta.client) initialize()`).
-- Pages that depend on list contents (favorites, saved-lists detail) gate their rendering on client-side data and SSR with empty state.
+- Hydration is driven by `app/plugins/favorites-init.client.ts`, which calls `store.initialize()` once the app boots on the client.
+- Pages that depend on list contents (favorites, saved-lists detail) SSR with empty state and fill in after hydration.
+
+### Hydration ordering trap (read this before adding similar stores)
+
+It looks tempting to call `initialize()` from inside the Pinia setup factory, gated on `import.meta.client`:
+
+```ts
+// DO NOT DO THIS in setup-style Pinia stores
+if (import.meta.client) {
+  initialize();
+}
+```
+
+In Nuxt with Pinia, the factory runs on the client AFTER SSR but BEFORE Pinia restores the serialised SSR payload (`nuxtApp.payload.pinia`). Whatever the factory writes to refs gets clobbered moments later by the empty server state. The visible symptom is "data appears only after the first mutation" — the first mutation triggers a fresh sync, which finally lands.
+
+Canonical fix: a `*.client.ts` Nuxt plugin that calls the store's `initialize()` action. Plugins run after Pinia is fully hydrated, so reads from `localStorage` (or any client-only source) stick. See `app/plugins/favorites-init.client.ts` for the reference shape — apply the same pattern to any future client-storage-backed Pinia store.
 
 ## Why this is NOT in the merchant API config layer
 

@@ -827,7 +827,7 @@
     },
     "saved_lists": {
       "title": "Sparade listor",
-      "subtitle": "En lista over alla dina offerter",
+      "subtitle": "En lista över alla dina offerter",
       "search_placeholder": "Sök listor...",
       "columns": {
         "id": "Id",

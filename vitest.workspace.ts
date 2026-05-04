@@ -54,6 +54,7 @@ export default [
           'tests/unit/**/*.test.ts',
           'tests/composables/**/*.test.ts',
           'tests/middleware/**/*.test.ts',
+          'tests/plugins/**/*.test.ts',
           'tests/shared/**/*.test.ts',
           'tests/stores/**/*.test.ts',
           'tests/utils/**/*.test.ts',

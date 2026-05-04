@@ -228,6 +228,41 @@ if (import.meta.client) {
 const saved = localStorage.getItem('preference'); // crashes on SSR
 ```
 
+### Pinia + client-side storage: hydrate from a plugin
+
+Stores backed by `localStorage`, `sessionStorage`, IndexedDB, or any other client-only source must be hydrated from a `*.client.ts` Nuxt plugin, NOT from inside the Pinia setup factory.
+
+**Why:** in Nuxt + Pinia, the SSR-serialised payload (`nuxtApp.payload.pinia`) is restored on the client AFTER the store factory runs. Anything the factory writes to refs gets clobbered by the empty server state moments later. Symptom: the store renders empty until the user triggers a mutation, which forces a fresh sync.
+
+```typescript
+// DON'T: clobbered by Pinia hydration
+export const useThingStore = defineStore('thing', () => {
+  const items = ref<string[]>([]);
+  if (import.meta.client) {
+    items.value = JSON.parse(localStorage.getItem('thing') ?? '[]');
+  }
+  return { items };
+});
+
+// DO: read in the factory only on demand, hydrate from a plugin
+// app/stores/thing.ts
+export const useThingStore = defineStore('thing', () => {
+  const items = ref<string[]>([]);
+  function initialize() {
+    if (import.meta.server) return;
+    items.value = JSON.parse(localStorage.getItem('thing') ?? '[]');
+  }
+  return { items, initialize };
+});
+
+// app/plugins/thing-init.client.ts
+export default defineNuxtPlugin(() => {
+  useThingStore().initialize();
+});
+```
+
+Reference implementation: `app/plugins/favorites-init.client.ts` + `app/stores/favorites.ts`. Pattern doc: `docs/patterns/lists.md`.
+
 ## Locale / i18n
 
 ### Architecture
