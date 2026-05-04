@@ -48,6 +48,21 @@ describe('useFavoritesStore', () => {
       expect(store.items).toEqual([]);
       expect(store.count).toBe(0);
     });
+
+    it('does not read from session at factory time (hydration is plugin-driven)', () => {
+      // Pre-seed the session — if the store read it during setup, items
+      // would populate without an explicit initialize() call. The plugin
+      // owns hydration to avoid clobbering by Pinia SSR payload restore.
+      mockSession.favorites.items = ['prod-leak'];
+      mockSession.count = 1;
+
+      const store = useFavoritesStore();
+
+      expect(store.items).toEqual([]);
+      expect(store.count).toBe(0);
+      expect(store.lists).toEqual([]);
+      expect(store.favorites).toBeNull();
+    });
   });
 
   describe('initialize', () => {

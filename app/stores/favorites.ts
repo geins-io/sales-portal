@@ -56,10 +56,10 @@ export const useFavoritesStore = defineStore('favorites', () => {
     syncFromSession();
   }
 
-  // Auto-initialize on client when store is first created
-  if (import.meta.client) {
-    initialize();
-  }
+  // Hydration is driven by `app/plugins/favorites-init.client.ts`, which
+  // runs after Pinia restores the SSR payload. Calling `initialize()`
+  // inside this factory would race that restore and lose the
+  // localStorage state. See `docs/patterns/lists.md`.
 
   function toggle(productId: string): boolean {
     const s = getSession();
