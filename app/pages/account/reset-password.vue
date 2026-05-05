@@ -15,7 +15,10 @@ useHead({
   title: computed(() => t('auth.reset_title')),
 });
 
-const resetKey = computed(() => (route.query.key as string) || '');
+// `resetKey` is the query-param name written into outbound reset emails
+// by the merchant admin template, so route + param both have to match
+// exactly or the link in the email lands on a "no key" error state.
+const resetKey = computed(() => (route.query.resetKey as string) || '');
 
 let redirectTimer: ReturnType<typeof setTimeout> | null = null;
 
