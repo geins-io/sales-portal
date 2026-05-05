@@ -1,4 +1,29 @@
-import type { PublicTenantConfig } from '#shared/types/tenant-config';
+import type {
+  FeatureAccess,
+  PublicTenantConfig,
+} from '#shared/types/tenant-config';
+
+type FeatureEntry = { enabled: boolean; access?: FeatureAccess };
+type FeatureMap = Record<string, FeatureEntry>;
+
+/**
+ * The runtime tenant payload may carry an `overrides.features` map even
+ * though the public type doesn't formally surface it. Read it
+ * structurally so this composable can resolve overrides without forcing
+ * a wider schema change. If the property is absent (today's prod path),
+ * resolution falls back to the base `features` map.
+ */
+function readOverrideFeatures(
+  tenant: PublicTenantConfig | null | undefined,
+): FeatureMap | undefined {
+  const carrier = tenant as
+    | (PublicTenantConfig & {
+        overrides?: { features?: FeatureMap | null } | null;
+      })
+    | null
+    | undefined;
+  return carrier?.overrides?.features ?? undefined;
+}
 
 /**
  * Composable for accessing the current tenant configuration.
@@ -22,7 +47,25 @@ export function useTenant() {
   const hostname = computed(() => tenant.value?.hostname ?? '');
   const theme = computed(() => tenant.value?.theme);
   const branding = computed(() => tenant.value?.branding);
-  const features = computed(() => tenant.value?.features);
+  /**
+   * Effective features = base features with override entries replacing
+   * (not deep-merging) the matching base entry per feature name. An
+   * override that sets `{ enabled: false }` legitimately wins over a
+   * base `{ enabled: true }`. `??` (not `||`) on the per-feature lookup
+   * keeps that semantics.
+   */
+  const features = computed<FeatureMap | undefined>(() => {
+    const base = tenant.value?.features;
+    const override = readOverrideFeatures(tenant.value);
+    if (!base && !override) return undefined;
+    const merged: FeatureMap = { ...(base ?? {}) };
+    if (override) {
+      for (const [name, entry] of Object.entries(override)) {
+        merged[name] = entry;
+      }
+    }
+    return merged;
+  });
   const contact = computed(() => tenant.value?.contact ?? null);
   const mode = computed(() => tenant.value?.mode ?? 'commerce');
   const checkoutMode = computed(() => tenant.value?.checkoutMode ?? 'custom');
@@ -30,12 +73,17 @@ export function useTenant() {
 
   /**
    * Check if a feature is enabled.
-   * Features are now Record<string, { enabled, access? }>.
+   * Features are Record<string, { enabled, access? }>. Override
+   * entries (when present) replace base entries per feature name. The
+   * `??` ensures an override `{ enabled: false }` wins over a base
+   * `{ enabled: true }`.
    */
   const hasFeature = (featureName: string): boolean => {
-    const feature = tenant.value?.features?.[featureName];
-    if (!feature) return false;
-    return feature.enabled;
+    const overrideEntry = readOverrideFeatures(tenant.value)?.[featureName];
+    const baseEntry = tenant.value?.features?.[featureName];
+    const entry = overrideEntry ?? baseEntry;
+    if (!entry) return false;
+    return entry.enabled;
   };
 
   const logoUrl = computed(() => {
