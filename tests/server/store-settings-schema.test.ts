@@ -297,6 +297,43 @@ describe('StoreSettingsSchema', () => {
       expect(result.success).toBe(true);
     });
 
+    it('normalises mode "catalogue" (UK spelling) to "catalog"', () => {
+      const config = {
+        tenantId: 'cat',
+        hostname: 'cat.example.com',
+        geinsSettings: {
+          apiKey: 'key',
+          accountName: 'acct',
+          channel: '1',
+          tld: 'se',
+          locale: 'sv-SE',
+          market: 'se',
+          environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
+        },
+        mode: 'catalogue',
+        theme: {
+          colors: {
+            primary: 'oklch(0.5 0.1 200)',
+            primaryForeground: 'oklch(0.9 0 0)',
+            secondary: 'oklch(0.8 0 0)',
+            secondaryForeground: 'oklch(0.2 0 0)',
+            background: 'oklch(1 0 0)',
+            foreground: 'oklch(0.1 0 0)',
+          },
+        },
+        branding: { name: 'Cat', watermark: 'full' },
+        features: {},
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+      const result = StoreSettingsSchema.safeParse(config);
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.mode).toBe('catalog');
+    });
+
     it('should validate minimal required config', () => {
       const minimal = {
         tenantId: 'test',

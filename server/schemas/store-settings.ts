@@ -206,6 +206,17 @@ const CmsConfigSchema = z
   .optional();
 
 /**
+ * Tenant mode. Merchant admin has historically emitted both `catalog`
+ * (US) and `catalogue` (UK) spellings; we normalise to `catalog` so
+ * downstream code only sees one. `z.preprocess` runs before validation
+ * so unknown values still fail enum validation cleanly.
+ */
+export const TenantModeSchema = z.preprocess(
+  (v) => (v === 'catalogue' ? 'catalog' : v),
+  z.enum(['commerce', 'catalog']),
+);
+
+/**
  * Complete Store Settings schema — the contract the sales portal expects from the merchant API.
  */
 export const StoreSettingsSchema = z.object({
@@ -213,7 +224,7 @@ export const StoreSettingsSchema = z.object({
   hostname: z.string(),
   aliases: z.array(z.string()).optional(),
   geinsSettings: GeinsSettingsSchema,
-  mode: z.enum(['commerce', 'catalog']),
+  mode: TenantModeSchema,
   checkoutMode: z.enum(['custom', 'hosted']).default('custom'),
   theme: ThemeConfigSchema,
   branding: BrandingConfigSchema,
