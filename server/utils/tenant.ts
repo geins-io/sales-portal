@@ -306,6 +306,105 @@ function adaptMerchantApiResponse(
   return candidate;
 }
 
+/**
+ * Parse a candidate StoreSettings tolerantly.
+ *
+ * Strict `StoreSettingsSchema.safeParse` is the happy path. When the
+ * merchant API ships a renamed field, an unexpected enum value, or
+ * drops something we depend on, the strict parse fails — and a single
+ * brittle field would otherwise blank an entire tenant (PR #144 fixed
+ * one such break, this wrapper prevents the next one from paging us).
+ *
+ * Strategy: salvage. Walk each top-level Zod issue, substitute a
+ * conservative default at the failing path, retry. If we still can't
+ * land a valid config after a bounded number of substitutions, give up
+ * and return null (caller falls back to autoCreate / default tenant).
+ *
+ * We intentionally do NOT silently swap critical credentials
+ * (`tenantId`, `hostname`, `geinsSettings.apiKey`) — those failures
+ * stay fatal so we don't serve a half-broken tenant claiming wrong IDs.
+ */
+export function parseStoreSettingsResilient(
+  candidate: unknown,
+  hostname: string,
+): StoreSettings | null {
+  const strict = StoreSettingsSchema.safeParse(candidate);
+  if (strict.success) return strict.data;
+
+  if (typeof candidate !== 'object' || candidate === null) {
+    logger.error(
+      `[tenant] Schema validation failed for ${hostname}: candidate is not an object`,
+    );
+    return null;
+  }
+
+  const SALVAGE_DEFAULTS: Record<string, unknown> = {
+    mode: 'commerce',
+    checkoutMode: 'custom',
+    aliases: [],
+    seo: null,
+    contact: null,
+    overrides: null,
+    cms: undefined,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const FATAL_PATHS = new Set([
+    'tenantId',
+    'hostname',
+    'geinsSettings',
+    'geinsSettings.apiKey',
+    'geinsSettings.accountName',
+    'theme',
+    'theme.colors',
+    'branding',
+    'features',
+  ]);
+
+  // Work on a shallow copy; mutate a single field per iteration.
+  let work: Record<string, unknown> = {
+    ...(candidate as Record<string, unknown>),
+  };
+  let parsed = StoreSettingsSchema.safeParse(work);
+  const MAX_SUBSTITUTIONS = 12;
+  const applied: string[] = [];
+
+  for (let i = 0; i < MAX_SUBSTITUTIONS && !parsed.success; i++) {
+    const issue = parsed.error.issues[0];
+    if (!issue) break;
+    const top = String(issue.path[0] ?? '');
+    const dotted = issue.path.map(String).join('.');
+    if (!top || FATAL_PATHS.has(dotted) || FATAL_PATHS.has(top)) {
+      logger.error(
+        `[tenant] Schema validation failed for ${hostname} on a fatal path (${dotted}): ${issue.message}`,
+      );
+      return null;
+    }
+    if (!(top in SALVAGE_DEFAULTS)) {
+      logger.error(
+        `[tenant] Schema validation failed for ${hostname} (${dotted}): ${issue.message}; no salvage default`,
+      );
+      return null;
+    }
+    work = { ...work, [top]: SALVAGE_DEFAULTS[top] };
+    applied.push(`${dotted} → default`);
+    parsed = StoreSettingsSchema.safeParse(work);
+  }
+
+  if (!parsed.success) {
+    logger.error(
+      `[tenant] Schema validation failed for ${hostname} after ${applied.length} substitutions: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`,
+    );
+    return null;
+  }
+
+  logger.warn(
+    `[tenant] Schema validation salvaged for ${hostname} with ${applied.length} field default(s): ${applied.join('; ')}`,
+  );
+  return parsed.data;
+}
+
 export async function fetchTenantConfig(
   hostname: string,
   event?: H3Event,
@@ -325,15 +424,8 @@ export async function fetchTenantConfig(
     if (response.ok) {
       const raw = (await response.json()) as Record<string, unknown>;
       const candidate = adaptMerchantApiResponse(raw);
-      const parsed = StoreSettingsSchema.safeParse(candidate);
-
-      if (parsed.success) {
-        return buildTenantConfig(parsed.data);
-      }
-
-      logger.error(
-        `[tenant] Schema validation failed for ${hostname}: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`,
-      );
+      const settings = parseStoreSettingsResilient(candidate, hostname);
+      if (settings) return buildTenantConfig(settings);
     }
   } catch {
     // External API unavailable — fall through to default handling

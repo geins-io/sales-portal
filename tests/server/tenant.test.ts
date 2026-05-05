@@ -6,6 +6,7 @@ import {
   collectAllHostnames,
   buildTenantConfig,
   writeHostnameMappings,
+  parseStoreSettingsResilient,
 } from '../../server/utils/tenant';
 import {
   createDefaultTheme,
@@ -482,6 +483,67 @@ describe('Tenant utilities', () => {
       expect(storage.data.get(tenantIdKey('shared.example.com'))).toBe(
         'tenant-b',
       );
+    });
+  });
+
+  describe('parseStoreSettingsResilient', () => {
+    function fullCandidate(): Record<string, unknown> {
+      return {
+        tenantId: 'tenant-a',
+        hostname: 'tenant-a.example.com',
+        geinsSettings: {
+          apiKey: 'k',
+          accountName: 'a',
+          channel: '1',
+          tld: 'se',
+          locale: 'sv-SE',
+          market: 'se',
+          environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
+        },
+        mode: 'commerce',
+        theme: {
+          colors: {
+            primary: 'oklch(0.5 0.1 200)',
+            primaryForeground: 'oklch(0.9 0 0)',
+            secondary: 'oklch(0.8 0 0)',
+            secondaryForeground: 'oklch(0.2 0 0)',
+            background: 'oklch(1 0 0)',
+            foreground: 'oklch(0.1 0 0)',
+          },
+        },
+        branding: { name: 'A', watermark: 'full' },
+        features: {},
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+    }
+
+    it('returns the strict-parsed value on a clean candidate', () => {
+      const out = parseStoreSettingsResilient(fullCandidate(), 'h');
+      expect(out).not.toBeNull();
+      expect(out?.tenantId).toBe('tenant-a');
+    });
+
+    it('salvages a candidate with an unknown mode value by defaulting to commerce', () => {
+      const candidate = fullCandidate();
+      candidate.mode = 'museum';
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out?.mode).toBe('commerce');
+    });
+
+    it('returns null when a fatal field (geinsSettings) is unparseable', () => {
+      const candidate = fullCandidate();
+      candidate.geinsSettings = { apiKey: '', accountName: '' };
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out).toBeNull();
+    });
+
+    it('returns null when candidate is not an object', () => {
+      expect(parseStoreSettingsResilient(null, 'h')).toBeNull();
+      expect(parseStoreSettingsResilient('nope', 'h')).toBeNull();
     });
   });
 });
