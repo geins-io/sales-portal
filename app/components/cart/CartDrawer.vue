@@ -115,7 +115,7 @@ function goToCheckout() {
             data-testid="cart-summary"
           >
             <div
-              class="bg-muted flex flex-col gap-4 rounded-lg p-5 lg:w-[340px]"
+              class="bg-muted flex flex-col gap-5 rounded-lg p-6 lg:w-[340px]"
               data-testid="cart-summary-card"
             >
               <h2 class="text-base font-semibold">
