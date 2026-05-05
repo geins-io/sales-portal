@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { ThemeColorsSchema } from '../../../../server/schemas/store-settings';
+import {
+  ThemeColorsSchema,
+  OverrideConfigSchema,
+} from '../../../../server/schemas/store-settings';
 
 const baseCore = {
   primary: 'oklch(0.5 0.1 200)',
@@ -133,6 +136,32 @@ describe('ThemeColorsSchema strict 32 colors regression', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       destructive: '#ff0000',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('OverrideConfigSchema css', () => {
+  it('treats css as optional', () => {
+    const result = OverrideConfigSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it('treats the entire override block as optional', () => {
+    const result = OverrideConfigSchema.safeParse(undefined);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts an arbitrary string-to-string record', () => {
+    const result = OverrideConfigSchema.safeParse({
+      css: { '--radius': '0', '--my-token': 'blue', radius: '0' },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects non-string values', () => {
+    const result = OverrideConfigSchema.safeParse({
+      css: { '--radius': 0 },
     });
     expect(result.success).toBe(false);
   });

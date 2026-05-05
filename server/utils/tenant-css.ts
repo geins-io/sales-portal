@@ -1,6 +1,7 @@
 import type { TenantConfig } from '#shared/types/tenant-config';
 import type { ThemeColors, ThemeTypography } from '../schemas/store-settings';
 import { deriveThemeColors, type FullThemeColors } from './theme';
+import { logger } from './logger';
 import { escapeCssString } from './sanitize';
 
 /**
@@ -141,20 +142,31 @@ export function generateFontCss(
 }
 
 /**
- * Generates CSS custom properties from override CSS map
+ * Generates CSS custom properties from an override map.
+ *
+ * Only keys that start with `--` (CSS custom property syntax) are emitted.
+ * Any other key is dropped and a warn log is written so a malformed admin
+ * entry cannot inject arbitrary CSS into the tenant selector. Values are
+ * emitted verbatim and are NEVER logged (they may carry PII or secrets in
+ * a worst-case admin paste); only the offending key is logged.
  */
-/** Matches valid CSS custom property names (--foo-bar) or standard properties (font-size). */
-const VALID_CSS_PROP = /^--?[a-zA-Z][a-zA-Z0-9-]*$/;
-
 export function generateOverrideCss(
   css?: Record<string, string> | null,
   indent: string = '  ',
 ): string {
   if (!css) return '';
-  return Object.entries(css)
-    .filter(([prop]) => VALID_CSS_PROP.test(prop))
-    .map(([prop, value]) => `${indent}${prop}: ${value};`)
-    .join('\n');
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(css)) {
+    if (!key.startsWith('--')) {
+      logger.warn(
+        '[tenant-css] override.css key skipped (must start with --)',
+        { key },
+      );
+      continue;
+    }
+    lines.push(`${indent}${key}: ${value};`);
+  }
+  return lines.join('\n');
 }
 
 /**

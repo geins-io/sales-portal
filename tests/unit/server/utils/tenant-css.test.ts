@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { generateTenantCss } from '../../../../server/utils/tenant-css';
 import { deriveThemeColors } from '../../../../server/utils/theme';
 import type { ThemeColors } from '../../../../server/schemas/store-settings';
+import { logger } from '../../../../server/utils/logger';
 
 const coreColors: ThemeColors = {
   primary: 'oklch(0.5 0.1 200)',
@@ -39,5 +40,84 @@ describe('generateTenantCss surface colors', () => {
     const css = generateTenantCss('test', derived);
     expect(css).not.toContain('--top-bar-background');
     expect(css).not.toContain('--footer-background');
+  });
+});
+
+describe('generateTenantCss override.css', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('emits override entries with -- prefixed keys', () => {
+    const derived = deriveThemeColors({ ...coreColors });
+    const css = generateTenantCss('test', derived, null, {
+      '--radius': '0',
+      '--my-token': 'blue',
+    });
+    expect(css).toContain('--radius: 0;');
+    expect(css).toContain('--my-token: blue;');
+  });
+
+  it('emits override block AFTER the standard color block in the same selector', () => {
+    const derived = deriveThemeColors({ ...coreColors });
+    const css = generateTenantCss('test', derived, null, {
+      '--my-token': 'blue',
+    });
+    const selectorIdx = css.indexOf("[data-theme='test'] {");
+    const standardIdx = css.indexOf('--primary:');
+    const overrideIdx = css.indexOf('--my-token:');
+    const closingIdx = css.indexOf('}', overrideIdx);
+    expect(selectorIdx).toBeGreaterThanOrEqual(0);
+    expect(standardIdx).toBeGreaterThan(selectorIdx);
+    expect(overrideIdx).toBeGreaterThan(standardIdx);
+    expect(closingIdx).toBeGreaterThan(overrideIdx);
+  });
+
+  it('lets an override of an existing standard var win by cascade order', () => {
+    const derived = deriveThemeColors({ ...coreColors });
+    const css = generateTenantCss('test', derived, null, {
+      '--primary': 'oklch(0.5 0.2 30)',
+    });
+    const firstPrimary = css.indexOf('--primary:');
+    const lastPrimary = css.lastIndexOf('--primary:');
+    expect(firstPrimary).toBeGreaterThan(0);
+    expect(lastPrimary).toBeGreaterThan(firstPrimary);
+    expect(css).toContain('--primary: oklch(0.5 0.2 30);');
+  });
+
+  it('skips keys that do not start with -- and warns once per skipped key', () => {
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    const derived = deriveThemeColors({ ...coreColors });
+    const css = generateTenantCss('test', derived, null, {
+      radius: '0',
+      '}; body { display: none; }': 'red',
+      '--ok': 'green',
+    });
+    expect(css).not.toContain('radius: 0;');
+    expect(css).not.toContain('display: none');
+    expect(css).toContain('--ok: green;');
+    expect(warnSpy).toHaveBeenCalledTimes(2);
+    // Logged context must contain the offending key, never the value.
+    const calls = warnSpy.mock.calls;
+    const flattened = JSON.stringify(calls);
+    expect(flattened).not.toContain('"red"');
+    expect(flattened).not.toContain('"0"');
+  });
+
+  it('produces output identical to baseline when override.css is empty or missing', () => {
+    const derived = deriveThemeColors({ ...coreColors });
+    const baseline = generateTenantCss('test', derived);
+    const withNull = generateTenantCss('test', derived, null, null);
+    const withEmpty = generateTenantCss('test', derived, null, {});
+    expect(withNull).toBe(baseline);
+    expect(withEmpty).toBe(baseline);
+  });
+
+  it('emits override values verbatim (only keys are validated)', () => {
+    const derived = deriveThemeColors({ ...coreColors });
+    const css = generateTenantCss('test', derived, null, {
+      '--weird': '  spaced  value  ',
+    });
+    expect(css).toContain('--weird:   spaced  value  ;');
   });
 });
