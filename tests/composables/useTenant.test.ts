@@ -461,6 +461,67 @@ describe('useTenant', () => {
     });
   });
 
+  describe('contact', () => {
+    it('exposes contact from config when set', () => {
+      mockData.value = createMockTenantConfig({
+        contact: {
+          email: 'hello@example.com',
+          phone: '+46 8 123 456',
+          address: {
+            street: 'Streetname 1',
+            city: 'Stockholm',
+            postalCode: '111 22',
+            country: 'Sweden',
+          },
+          social: {
+            facebook: 'https://facebook.com/example',
+            instagram: null,
+            twitter: null,
+            linkedin: null,
+            youtube: null,
+          },
+        },
+      });
+
+      const { contact } = useTenant();
+
+      expect(contact.value?.email).toBe('hello@example.com');
+      expect(contact.value?.phone).toBe('+46 8 123 456');
+      expect(contact.value?.address?.city).toBe('Stockholm');
+      expect(contact.value?.social?.facebook).toBe(
+        'https://facebook.com/example',
+      );
+    });
+
+    it('returns null when tenant has no contact block', () => {
+      mockData.value = createMockTenantConfig({ contact: null });
+
+      const { contact } = useTenant();
+
+      expect(contact.value).toBeNull();
+    });
+
+    it('returns null when tenant config is null', () => {
+      mockData.value = null;
+
+      const { contact } = useTenant();
+
+      expect(contact.value).toBeNull();
+    });
+
+    it('updates reactively when tenant data changes', () => {
+      const { contact } = useTenant();
+
+      expect(contact.value).toBeNull();
+
+      mockData.value = createMockTenantConfig({
+        contact: { email: 'a@b.com' },
+      });
+
+      expect(contact.value?.email).toBe('a@b.com');
+    });
+  });
+
   describe('reactivity', () => {
     it('should update tenant when data changes', () => {
       const { tenant } = useTenant();

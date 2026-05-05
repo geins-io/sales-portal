@@ -23,6 +23,7 @@ export function useTenant() {
   const theme = computed(() => tenant.value?.theme);
   const branding = computed(() => tenant.value?.branding);
   const features = computed(() => tenant.value?.features);
+  const contact = computed(() => tenant.value?.contact ?? null);
   const mode = computed(() => tenant.value?.mode ?? 'commerce');
   const checkoutMode = computed(() => tenant.value?.checkoutMode ?? 'custom');
   const watermark = computed(() => tenant.value?.branding?.watermark ?? 'full');
@@ -107,6 +108,7 @@ export function useTenant() {
     imageBaseUrl,
     features,
     hasFeature,
+    contact,
     suspense: () => asyncData,
   };
 }
