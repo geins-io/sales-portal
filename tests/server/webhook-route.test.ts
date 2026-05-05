@@ -97,15 +97,64 @@ describe('processConfigRefresh', () => {
     mockRateLimitStore.clear();
   });
 
-  it('should return 500 when no secrets are configured', async () => {
-    const request = createRequest({ secrets: [] });
-    const { storage: kv } = createMockKvStorage();
-    const { storage: cache } = createMockCacheStorage();
+  describe('open mode (no secret configured)', () => {
+    it('accepts an unsigned request with valid body and invalidates the cache', async () => {
+      const body = JSON.stringify({ hostname: 'tenant-a.litium.portal' });
+      const request = createRequest({
+        secrets: [],
+        rawBody: body,
+        contentLength: Buffer.byteLength(body, 'utf-8'),
+        signatureHeader: undefined,
+        webhookId: undefined,
+      });
+      const { storage: kv } = createMockKvStorage();
+      const { storage: cache } = createMockCacheStorage();
 
-    await expect(
-      processConfigRefresh(request, kv, cache),
-    ).rejects.toMatchObject({
-      statusCode: 500,
+      const result = await processConfigRefresh(request, kv, cache);
+
+      expect(result).toEqual({ invalidated: true });
+    });
+
+    it('still rejects bodies missing hostname with 422', async () => {
+      const body = JSON.stringify({ wrong: 'shape' });
+      const request = createRequest({
+        secrets: [],
+        rawBody: body,
+        contentLength: Buffer.byteLength(body, 'utf-8'),
+        signatureHeader: undefined,
+        webhookId: undefined,
+      });
+      const { storage: kv } = createMockKvStorage();
+      const { storage: cache } = createMockCacheStorage();
+
+      await expect(
+        processConfigRefresh(request, kv, cache),
+      ).rejects.toMatchObject({ statusCode: 422 });
+    });
+
+    it('still enforces the rate limiter so unauth callers cannot loop', async () => {
+      const make = () => {
+        const body = JSON.stringify({ hostname: 'tenant-a.litium.portal' });
+        return createRequest({
+          secrets: [],
+          rawBody: body,
+          contentLength: Buffer.byteLength(body, 'utf-8'),
+          signatureHeader: undefined,
+          webhookId: undefined,
+          // Same IP so the rate limiter window matches.
+          clientIp: '10.99.99.99',
+        });
+      };
+      const { storage: kv } = createMockKvStorage();
+      const { storage: cache } = createMockCacheStorage();
+
+      // First 10 calls are allowed; 11th must trip the limiter (10/min).
+      for (let i = 0; i < 10; i++) {
+        await processConfigRefresh(make(), kv, cache);
+      }
+      await expect(
+        processConfigRefresh(make(), kv, cache),
+      ).rejects.toMatchObject({ statusCode: 429 });
     });
   });
 
