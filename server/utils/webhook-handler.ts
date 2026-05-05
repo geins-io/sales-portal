@@ -45,32 +45,47 @@ export interface CacheStorage {
 /**
  * Core webhook handler logic for config cache invalidation.
  * Accepts plain data — no H3 dependency.
+ *
+ * Security mode is determined by `request.secrets`:
+ *
+ * - **Signed mode** (recommended) — at least one secret is configured.
+ *   Every call must carry a valid HMAC signature header and a fresh
+ *   timestamp; the rate limiter (10/min/IP) is a secondary defence.
+ *
+ * - **Open mode** (fallback) — `request.secrets` is empty. The receiver
+ *   accepts requests without signature or timestamp checks. The rate
+ *   limiter and body/hostname validation still run. This exists so an
+ *   environment that hasn't shipped `NUXT_WEBHOOK_SECRET` yet can still
+ *   bust caches operationally instead of returning 500 on every call;
+ *   set the secret in the env to upgrade to signed mode automatically.
+ *
+ * Open mode is a deliberate availability/security tradeoff. Set the
+ * secret as soon as the env supports it.
  */
 export async function processConfigRefresh(
   request: WebhookRequest,
   kvStorage: KvStorage,
   cacheStorage: CacheStorage,
 ): Promise<{ invalidated: true }> {
-  // 1. Rate limit
+  // 1. Rate limit (always on — primary defence in open mode, secondary in signed mode)
   const rateResult = await rateLimiter.check(request.clientIp);
   if (!rateResult.allowed) {
     throw createAppError(ErrorCode.RATE_LIMITED);
   }
 
-  // 2. Webhook secrets must be configured
-  if (request.secrets.length === 0) {
-    throw createAppError(
-      ErrorCode.INTERNAL_ERROR,
-      'Webhook secret not configured',
+  const signedMode = request.secrets.length > 0;
+  if (!signedMode) {
+    logger.warn(
+      `[webhook] No secret configured — accepting unauthenticated invalidation request from ${request.clientIp}. Set NUXT_WEBHOOK_SECRET to enforce signature verification.`,
     );
   }
 
-  // 3. Content-Length check
+  // 2. Content-Length check
   if (request.contentLength > MAX_WEBHOOK_BODY_SIZE) {
     throw createAppError(ErrorCode.PAYLOAD_TOO_LARGE);
   }
 
-  // 4. Raw body must be present + actual size check
+  // 3. Raw body must be present + actual size check
   if (!request.rawBody) {
     throw createAppError(ErrorCode.UNAUTHORIZED, 'Missing body');
   }
@@ -79,29 +94,34 @@ export async function processConfigRefresh(
     throw createAppError(ErrorCode.PAYLOAD_TOO_LARGE);
   }
 
-  // 5. Signature header must be present
-  if (!request.signatureHeader) {
-    throw createAppError(ErrorCode.UNAUTHORIZED, 'Missing signature header');
+  // 4. Signature verification (signed mode only)
+  if (signedMode) {
+    if (!request.signatureHeader) {
+      throw createAppError(ErrorCode.UNAUTHORIZED, 'Missing signature header');
+    }
+
+    const parsed = parseSignatureHeader(request.signatureHeader);
+    if (!parsed) {
+      throw createAppError(
+        ErrorCode.UNAUTHORIZED,
+        'Malformed signature header',
+      );
+    }
+
+    const signedPayload = `${parsed.timestamp}.${request.rawBody}`;
+    if (!verifyWithSecrets(signedPayload, parsed.signature, request.secrets)) {
+      throw createAppError(ErrorCode.UNAUTHORIZED, 'Invalid webhook signature');
+    }
+
+    if (!validateTimestamp(parsed.timestamp)) {
+      throw createAppError(
+        ErrorCode.UNAUTHORIZED,
+        'Stale or missing timestamp',
+      );
+    }
   }
 
-  // 6. Parse signature header
-  const parsed = parseSignatureHeader(request.signatureHeader);
-  if (!parsed) {
-    throw createAppError(ErrorCode.UNAUTHORIZED, 'Malformed signature header');
-  }
-
-  // 7. Verify signature with key rotation support
-  const signedPayload = `${parsed.timestamp}.${request.rawBody}`;
-  if (!verifyWithSecrets(signedPayload, parsed.signature, request.secrets)) {
-    throw createAppError(ErrorCode.UNAUTHORIZED, 'Invalid webhook signature');
-  }
-
-  // 8. Timestamp replay protection
-  if (!validateTimestamp(parsed.timestamp)) {
-    throw createAppError(ErrorCode.UNAUTHORIZED, 'Stale or missing timestamp');
-  }
-
-  // 9. Parse JSON body, extract hostname
+  // 5. Parse JSON body, extract hostname
   let body: { hostname?: string };
   try {
     body = JSON.parse(request.rawBody);
@@ -116,16 +136,22 @@ export async function processConfigRefresh(
     );
   }
 
-  // 10. Webhook ID must be present
-  if (!request.webhookId) {
+  // 6. Webhook ID required in signed mode for dedup. In open mode the
+  // rate limiter is the only abuse defence, so accept calls without a
+  // delivery ID — duplicates are skipped silently rather than rejected.
+  const webhookId = request.webhookId;
+  if (signedMode && !webhookId) {
     throw createAppError(ErrorCode.UNAUTHORIZED, 'Missing webhook ID');
   }
 
-  // 11. Deduplication — check if this delivery was already processed
-  const dedupKey = `${KV_STORAGE_KEYS.WEBHOOK_PROCESSED_PREFIX}${request.webhookId}`;
-  const alreadyProcessed = await kvStorage.getItem(dedupKey);
-  if (alreadyProcessed) {
-    throw createAppError(ErrorCode.CONFLICT);
+  // 7. Deduplication — check if this delivery was already processed.
+  // Skipped entirely in open mode when the caller didn't supply an id.
+  if (webhookId) {
+    const dedupKey = `${KV_STORAGE_KEYS.WEBHOOK_PROCESSED_PREFIX}${webhookId}`;
+    const alreadyProcessed = await kvStorage.getItem(dedupKey);
+    if (alreadyProcessed) {
+      throw createAppError(ErrorCode.CONFLICT);
+    }
   }
 
   // 12. Invalidate KV storage — clean up all hostname aliases
@@ -164,8 +190,11 @@ export async function processConfigRefresh(
   const nitroCacheKey = `nitro:handlers:${configKey}`;
   await cacheStorage.removeItem(nitroCacheKey);
 
-  // 15. Store webhook ID for deduplication
-  await kvStorage.setItem(dedupKey, true);
+  // 12. Store webhook ID for deduplication (only when one was supplied)
+  if (webhookId) {
+    const dedupKey = `${KV_STORAGE_KEYS.WEBHOOK_PROCESSED_PREFIX}${webhookId}`;
+    await kvStorage.setItem(dedupKey, true);
+  }
 
   logger.info(
     `[webhook] Config cache invalidated for ${hostname} (tenantId: ${tid})`,

@@ -53,6 +53,14 @@ Requests with `Content-Length` exceeding 64 KB are rejected with `413 Payload To
 2. Update sender to sign with `new_key`
 3. Remove old key: `NUXT_WEBHOOK_SECRET=new_key`
 
+### Open mode when no secret is configured
+
+If `NUXT_WEBHOOK_SECRET` is unset (length 0 after `parseSecrets`), the receiver runs in **open mode**: signature parsing, replay-window validation, and the `x-webhook-id` requirement are all skipped. Rate limiting (10/min/IP) and body/hostname validation still apply.
+
+Why this is acceptable: the previous behaviour returned `500 INTERNAL_ERROR` on every call when the secret hadn't been deployed, leaving operators with no way to bust caches except a redeploy. Open mode trades cryptographic auth for operational availability — the rate limiter remains the primary abuse defence in this state. Every accepted unauthenticated call logs `[webhook] No secret configured — accepting unauthenticated invalidation request from <ip>` so the gap is visible in observability.
+
+This is a fallback, not a posture. Set `NUXT_WEBHOOK_SECRET` as soon as the env supports it; the receiver upgrades to signed mode automatically on the next request.
+
 ### Timestamp replay protection
 
 Requests older than 5 minutes are rejected. This prevents replay attacks with captured valid signatures.

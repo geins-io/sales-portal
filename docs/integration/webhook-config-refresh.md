@@ -102,7 +102,15 @@ It tries each key in order and accepts on the first match. To rotate without dow
 | **413** | Payload Too Large         | Body exceeds 64 KB                                                                    |
 | **422** | Validation Error          | Missing or invalid `hostname` in body                                                 |
 | **429** | Rate Limited              | More than 10 requests/minute from the same IP                                         |
-| **500** | Internal Error            | Webhook secret not configured on the receiver                                         |
+
+## Operating modes
+
+The receiver runs in one of two modes based on whether `NUXT_WEBHOOK_SECRET` is set:
+
+- **Signed mode (recommended)** — at least one secret is configured. Every call must carry a valid `x-webhook-signature` header, a `x-webhook-id` for dedup, and a fresh timestamp. The rate limiter is a secondary defence on top of cryptographic auth.
+- **Open mode (fallback)** — `NUXT_WEBHOOK_SECRET` is empty. The receiver accepts requests without signature, timestamp, or webhook-id headers. Rate limiting (10/min/IP) and body validation still run; everything else (signature parse, replay window, dedup) is skipped. A `[webhook] No secret configured — accepting unauthenticated invalidation request from <ip>` warning is logged on every accepted call.
+
+Open mode exists so an environment that hasn't shipped `NUXT_WEBHOOK_SECRET` yet can still bust caches operationally instead of returning errors on every call. **Set the secret as soon as the env supports it** — open mode is a deliberate availability/security tradeoff, not a long-term posture.
 
 ## Important Notes
 
