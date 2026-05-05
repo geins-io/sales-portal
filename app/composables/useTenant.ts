@@ -22,19 +22,19 @@ export function useTenant() {
   const hostname = computed(() => tenant.value?.hostname ?? '');
   const theme = computed(() => tenant.value?.theme);
   const branding = computed(() => tenant.value?.branding);
-  const features = computed(() => tenant.value?.features);
+  const features = computed(() => tenant.value?.features ?? undefined);
+  const contact = computed(() => tenant.value?.contact ?? null);
   const mode = computed(() => tenant.value?.mode ?? 'commerce');
   const checkoutMode = computed(() => tenant.value?.checkoutMode ?? 'custom');
   const watermark = computed(() => tenant.value?.branding?.watermark ?? 'full');
 
   /**
    * Check if a feature is enabled.
-   * Features are now Record<string, { enabled, access? }>.
+   * Override-vs-base merging happens server-side in `buildTenantConfig`,
+   * so the client only ever sees the effective `features` map.
    */
   const hasFeature = (featureName: string): boolean => {
-    const feature = tenant.value?.features?.[featureName];
-    if (!feature) return false;
-    return feature.enabled;
+    return tenant.value?.features?.[featureName]?.enabled === true;
   };
 
   const logoUrl = computed(() => {
@@ -107,6 +107,7 @@ export function useTenant() {
     imageBaseUrl,
     features,
     hasFeature,
+    contact,
     suspense: () => asyncData,
   };
 }

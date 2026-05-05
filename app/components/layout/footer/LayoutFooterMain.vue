@@ -15,8 +15,34 @@ import {
 // When unconfigured, the footer link block is hidden but the layout's
 // surrounding branding / copyright remain.
 const { menu } = useCmsMenuData(CMS_MENUS.FOOTER);
+const { contact } = useTenant();
 const currentHost = computed(() => useRequestURL().host);
 const { localePath } = useLocaleMarket();
+
+const SOCIAL_ICONS = {
+  facebook: 'lucide:facebook',
+  instagram: 'lucide:instagram',
+  twitter: 'lucide:twitter',
+  linkedin: 'lucide:linkedin',
+  youtube: 'lucide:youtube',
+} as const;
+
+type SocialKey = keyof typeof SOCIAL_ICONS;
+
+const SOCIAL_KEYS = Object.keys(SOCIAL_ICONS) as SocialKey[];
+
+const socialEntries = computed(() => {
+  const social = contact.value?.social;
+  if (!social)
+    return [] as Array<{ key: SocialKey; url: string; icon: string }>;
+  return SOCIAL_KEYS.map((key) => ({
+    key,
+    url: social[key] ?? '',
+    icon: SOCIAL_ICONS[key],
+  })).filter((entry) => entry.url.length > 0);
+});
+
+const hasSocial = computed(() => socialEntries.value.length > 0);
 
 const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
 
@@ -48,7 +74,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
 
 <template>
   <div
-    v-if="visibleItems.length"
+    v-if="visibleItems.length || hasSocial"
     data-slot="footer-main"
     class="px-6 py-8 lg:px-6 lg:py-10"
   >
@@ -56,7 +82,10 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
       <h3 v-if="menu?.title" class="mb-4 text-sm font-bold text-white">
         {{ menu.title }}
       </h3>
-      <div class="grid grid-cols-2 gap-8 md:grid-cols-4">
+      <div
+        v-if="visibleItems.length"
+        class="grid grid-cols-2 gap-8 md:grid-cols-4"
+      >
         <template v-for="item in visibleItems" :key="item.id">
           <!-- Item with children: render as a column -->
           <div v-if="visibleChildren(item).length">
@@ -86,6 +115,25 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
             {{ getMenuLabel(item) }}
           </component>
         </template>
+      </div>
+
+      <!-- Social row: rendered only when at least one social URL is set -->
+      <div
+        v-if="hasSocial"
+        data-slot="footer-social"
+        :class="visibleItems.length ? 'mt-8 flex gap-4' : 'flex gap-4'"
+      >
+        <a
+          v-for="entry in socialEntries"
+          :key="entry.key"
+          :href="entry.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          :aria-label="entry.key"
+          class="text-neutral-400 transition-colors hover:text-white"
+        >
+          <Icon :name="entry.icon" class="size-5" />
+        </a>
       </div>
     </div>
   </div>
