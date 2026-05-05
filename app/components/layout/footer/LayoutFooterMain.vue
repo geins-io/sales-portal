@@ -2,7 +2,6 @@
 import { computed } from 'vue';
 import { NuxtLink } from '#components';
 import type { MenuItemType } from '#shared/types/cms';
-import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { CMS_MENUS } from '#shared/constants/cms';
 import {
   normalizeMenuUrl,
@@ -16,11 +15,7 @@ import {
 // When unconfigured, the footer link block is hidden but the layout's
 // surrounding branding / copyright remain.
 const { menu } = useCmsMenuData(CMS_MENUS.FOOTER);
-// `contact` may be undefined when the test harness mocks `useTenant`
-// without exposing it; treat any non-ref shape as "no contact block".
-const tenantApi = useTenant() as {
-  contact?: { value?: PublicTenantConfig['contact'] };
-};
+const { contact } = useTenant();
 const currentHost = computed(() => useRequestURL().host);
 const { localePath } = useLocaleMarket();
 
@@ -34,20 +29,17 @@ const SOCIAL_ICONS = {
 
 type SocialKey = keyof typeof SOCIAL_ICONS;
 
+const SOCIAL_KEYS = Object.keys(SOCIAL_ICONS) as SocialKey[];
+
 const socialEntries = computed(() => {
-  const social = tenantApi.contact?.value?.social;
+  const social = contact.value?.social;
   if (!social)
     return [] as Array<{ key: SocialKey; url: string; icon: string }>;
-  const keys: SocialKey[] = [
-    'facebook',
-    'instagram',
-    'twitter',
-    'linkedin',
-    'youtube',
-  ];
-  return keys
-    .map((key) => ({ key, url: social[key] ?? '', icon: SOCIAL_ICONS[key] }))
-    .filter((entry) => entry.url.length > 0);
+  return SOCIAL_KEYS.map((key) => ({
+    key,
+    url: social[key] ?? '',
+    icon: SOCIAL_ICONS[key],
+  })).filter((entry) => entry.url.length > 0);
 });
 
 const hasSocial = computed(() => socialEntries.value.length > 0);

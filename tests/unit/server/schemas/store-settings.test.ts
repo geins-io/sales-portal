@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   ThemeColorsSchema,
   OverrideConfigSchema,
+  ContactSocialSchema,
 } from '../../../../server/schemas/store-settings';
 
 const baseCore = {
@@ -139,6 +140,48 @@ describe('ThemeColorsSchema strict 32 colors regression', () => {
     });
     expect(result.success).toBe(false);
   });
+});
+
+describe('ContactSocialSchema URL validation', () => {
+  const SOCIAL_FIELDS = [
+    'facebook',
+    'instagram',
+    'twitter',
+    'linkedin',
+    'youtube',
+  ] as const;
+
+  const HOSTILE_VALUES = [
+    'javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'vbscript:msgbox("xss")',
+  ];
+
+  for (const field of SOCIAL_FIELDS) {
+    for (const hostile of HOSTILE_VALUES) {
+      it(`rejects ${hostile} for ${field}`, () => {
+        const result = ContactSocialSchema.safeParse({ [field]: hostile });
+        expect(result.success).toBe(false);
+      });
+    }
+
+    it(`accepts a valid https URL for ${field}`, () => {
+      const result = ContactSocialSchema.safeParse({
+        [field]: 'https://facebook.com/acme',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it(`accepts null for ${field}`, () => {
+      const result = ContactSocialSchema.safeParse({ [field]: null });
+      expect(result.success).toBe(true);
+    });
+
+    it(`accepts an omitted ${field}`, () => {
+      const result = ContactSocialSchema.safeParse({});
+      expect(result.success).toBe(true);
+    });
+  }
 });
 
 describe('OverrideConfigSchema css', () => {

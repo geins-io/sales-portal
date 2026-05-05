@@ -373,6 +373,71 @@ describe('Tenant utilities', () => {
     });
   });
 
+  describe('buildTenantConfig override.features resolution', () => {
+    const baseSettings: StoreSettings = {
+      tenantId: 'tenant-x',
+      hostname: 'tenant-x.litium.store',
+      geinsSettings: {
+        apiKey: 'k',
+        accountName: 'tenant-x',
+        channel: '1',
+        tld: 'se',
+        locale: 'sv-SE',
+        market: 'se',
+        environment: 'production',
+        availableLocales: ['sv-SE'],
+        availableMarkets: ['se'],
+      },
+      mode: 'commerce',
+      checkoutMode: 'custom',
+      theme: {
+        colors: {
+          primary: 'oklch(0.55 0.03 235)',
+          primaryForeground: 'oklch(0.985 0 0)',
+          secondary: 'oklch(0.93 0.05 90)',
+          secondaryForeground: 'oklch(0.25 0.02 235)',
+          background: 'oklch(1 0 0)',
+          foreground: 'oklch(0.145 0 0)',
+        },
+      },
+      branding: { name: 'Tenant X', watermark: 'minimal' },
+      features: {},
+      isActive: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    it('lets override disable a base-enabled feature', () => {
+      const built = buildTenantConfig({
+        ...baseSettings,
+        features: { b2bQuotes: { enabled: true } },
+        overrides: {
+          features: { b2bQuotes: { enabled: false } },
+        },
+      });
+      expect(built.features.b2bQuotes?.enabled).toBe(false);
+    });
+
+    it('passes the base entry through when no override exists for that key', () => {
+      const built = buildTenantConfig({
+        ...baseSettings,
+        features: { search: { enabled: true } },
+      });
+      expect(built.features.search?.enabled).toBe(true);
+    });
+
+    it('creates an entry when only the override has it', () => {
+      const built = buildTenantConfig({
+        ...baseSettings,
+        features: {},
+        overrides: {
+          features: { newThing: { enabled: true } },
+        },
+      });
+      expect(built.features.newThing?.enabled).toBe(true);
+    });
+  });
+
   describe('writeHostnameMappings — duplicate hostname guard', () => {
     // In-memory storage shim that mimics the subset of useStorage
     // actually used by writeHostnameMappings (getItem + setItem).

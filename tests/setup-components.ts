@@ -175,6 +175,7 @@ vi.mock('../app/composables/useTenant', () => {
       market: computed(() => ''),
       imageBaseUrl: computed(() => 'https://monitor.commerce.services'),
       features: computed(() => tenant.value?.features),
+      contact: computed(() => null),
       hasFeature: (name: string) => {
         const f = tenant.value?.features?.[name];
         return f ? f.enabled : false;

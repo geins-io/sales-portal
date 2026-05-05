@@ -182,11 +182,11 @@ export const ContactAddressSchema = z.object({
 });
 
 export const ContactSocialSchema = z.object({
-  facebook: z.string().nullable().optional(),
-  instagram: z.string().nullable().optional(),
-  twitter: z.string().nullable().optional(),
-  linkedin: z.string().nullable().optional(),
-  youtube: z.string().nullable().optional(),
+  facebook: SafeUrlSchema.nullable().optional(),
+  instagram: SafeUrlSchema.nullable().optional(),
+  twitter: SafeUrlSchema.nullable().optional(),
+  linkedin: SafeUrlSchema.nullable().optional(),
+  youtube: SafeUrlSchema.nullable().optional(),
 });
 
 export const ContactConfigSchema = z.object({
