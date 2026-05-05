@@ -54,6 +54,8 @@ export default defineNitroPlugin(async () => {
         hostnames: ['tenant-b.localhost', 'tenant-b.litium.store'],
         brandName: 'Tenant B Store',
         primary: 'oklch(0.58 0.17 15.0)', // rose
+        topBarBackground: '#f084ec',
+        footerBackground: '#d241b3',
       }),
       withFullCms: true,
     },
@@ -111,6 +113,8 @@ interface FixtureInput {
   hostnames: string[];
   brandName: string;
   primary: string;
+  topBarBackground?: string;
+  footerBackground?: string;
 }
 
 function makeFixture(input: FixtureInput): StoreSettings {
@@ -142,6 +146,12 @@ function makeFixture(input: FixtureInput): StoreSettings {
         secondaryForeground: 'oklch(0.205 0 0)',
         background: 'oklch(1 0 0)',
         foreground: 'oklch(0.145 0 0)',
+        ...(input.topBarBackground
+          ? { topBarBackground: input.topBarBackground }
+          : {}),
+        ...(input.footerBackground
+          ? { footerBackground: input.footerBackground }
+          : {}),
       },
       radius: '0.625rem',
     },

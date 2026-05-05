@@ -154,7 +154,7 @@ export function deriveThemeColors(colors: ThemeColors): FullThemeColors {
     sidebarBorder: pick(colors.sidebarBorder, borderColor),
     sidebarRing: pick(colors.sidebarRing, ringColor),
 
-    // Surface colors. No derivation — these are pass-through values
+    // Surface colors. No derivation; these are pass-through values
     // that the tenant-css emitter renders only when present. Empty
     // string sentinel keeps the FullThemeColors shape strict while
     // letting the emitter skip empty entries.
