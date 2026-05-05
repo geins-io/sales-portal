@@ -149,7 +149,7 @@ export function useLocaleMarket() {
     'login',
     'search',
     'apply-for-account',
-    'reset-password',
+    'account-reset-password',
     'elements',
     'preview-widgets',
     'error-test',

@@ -88,7 +88,9 @@ function goToCheckout() {
         <div
           class="bg-muted/30 flex flex-1 flex-col overflow-hidden lg:flex-row"
         >
-          <!-- Items column -->
+          <!-- Items column. Promo-code field is hidden per Figma; the
+               feature stays in the store/API so re-enabling is a single
+               re-render of `<PromoCodeInput>` once design wants it back. -->
           <div class="flex flex-1 flex-col overflow-hidden">
             <div class="flex-1 overflow-y-auto px-6 py-4">
               <div class="divide-border divide-y">
@@ -101,40 +103,25 @@ function goToCheckout() {
                 />
               </div>
             </div>
-
-            <!-- Promo code (mobile inline, desktop above summary) -->
-            <div class="border-border border-t px-6 py-3 lg:hidden">
-              <PromoCodeInput
-                :active-code="cartStore.cart?.promoCode ?? null"
-                :loading="cartStore.isLoading"
-                @apply="cartStore.applyPromoCode"
-                @remove="cartStore.removePromoCode"
-              />
-            </div>
           </div>
 
-          <!-- Summary column -->
+          <!-- Summary column. The summary itself is a single grey card —
+               no border, exactly 340px wide on lg+, button sits inside
+               the grey area below the totals. The column hosts breathing
+               room around the card so it doesn't sit flush with the
+               sheet edge per Figma. -->
           <aside
-            class="border-border bg-background flex shrink-0 flex-col gap-4 overflow-y-auto border-t px-6 py-6 lg:w-80 lg:border-t-0 lg:border-l"
+            class="border-border flex shrink-0 flex-col gap-4 overflow-y-auto border-t px-6 py-6 lg:w-auto lg:border-t-0 lg:border-l-0"
             data-testid="cart-summary"
           >
-            <div class="hidden lg:block">
-              <PromoCodeInput
-                :active-code="cartStore.cart?.promoCode ?? null"
-                :loading="cartStore.isLoading"
-                @apply="cartStore.applyPromoCode"
-                @remove="cartStore.removePromoCode"
-              />
-            </div>
-
             <div
-              class="border-border bg-card rounded-lg border p-5"
+              class="bg-muted flex flex-col gap-4 rounded-lg p-5 lg:w-[340px]"
               data-testid="cart-summary-card"
             >
-              <h2 class="mb-4 text-base font-semibold">
+              <h2 class="text-base font-semibold">
                 {{ $t('cart.order_summary') }}
               </h2>
-              <dl class="space-y-2 text-sm">
+              <dl class="space-y-3 text-sm">
                 <div class="flex items-center justify-between">
                   <dt class="text-muted-foreground">
                     {{ $t('cart.subtotal') }}
@@ -178,7 +165,7 @@ function goToCheckout() {
                 </div>
                 <div
                   v-if="cartStore.visibleCartCampaigns.length"
-                  class="space-y-1 pt-1"
+                  class="space-y-1"
                   data-testid="cart-campaigns"
                 >
                   <div
@@ -190,7 +177,7 @@ function goToCheckout() {
                     <span class="text-destructive">{{ campaign.name }}</span>
                   </div>
                 </div>
-                <div class="border-border mt-3 border-t pt-3">
+                <div class="border-border border-t pt-3">
                   <div class="flex items-center justify-between font-semibold">
                     <dt>{{ $t('cart.total') }}</dt>
                     <dd>
@@ -202,20 +189,20 @@ function goToCheckout() {
                   </div>
                 </div>
               </dl>
+
+              <p v-if="cartStore.error" class="text-destructive text-sm">
+                {{ cartStore.error }}
+              </p>
+
+              <Button
+                class="w-full"
+                data-testid="cart-drawer-checkout-button"
+                :disabled="cartStore.isLoading"
+                @click="goToCheckout"
+              >
+                {{ $t('cart.checkout') }}
+              </Button>
             </div>
-
-            <p v-if="cartStore.error" class="text-destructive text-sm">
-              {{ cartStore.error }}
-            </p>
-
-            <Button
-              class="w-full"
-              data-testid="cart-drawer-checkout-button"
-              :disabled="cartStore.isLoading"
-              @click="goToCheckout"
-            >
-              {{ $t('cart.checkout') }}
-            </Button>
           </aside>
         </div>
       </template>
