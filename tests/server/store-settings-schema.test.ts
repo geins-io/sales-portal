@@ -712,12 +712,18 @@ describe('deriveThemeColors', () => {
   it('should derive all 26 optional colors from 6 core', () => {
     const result = deriveThemeColors(coreColors);
 
-    // All 32 keys should be present as non-null strings
+    // 32 standard color keys + 2 surface keys (topBarBackground,
+    // footerBackground) that pass through unchanged.
     const keys = Object.keys(result);
-    expect(keys).toHaveLength(32);
+    expect(keys).toHaveLength(34);
     for (const key of keys) {
-      expect(result[key as keyof typeof result]).toBeTruthy();
-      expect(typeof result[key as keyof typeof result]).toBe('string');
+      // Surface colors collapse to '' when the tenant did not set them.
+      // The standard 32 must always resolve to a non-empty string.
+      const value = result[key as keyof typeof result];
+      expect(typeof value).toBe('string');
+      if (key !== 'topBarBackground' && key !== 'footerBackground') {
+        expect(value).toBeTruthy();
+      }
     }
   });
 

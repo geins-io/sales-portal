@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import { describe, it, expect, vi } from 'vitest';
 import type { MenuType } from '@geins/types';
 import { shallowMountComponent, mountComponent } from '../../utils/component';
+import LayoutFooter from '../../../app/components/layout/LayoutFooter.vue';
 import LayoutFooterTop from '../../../app/components/layout/footer/LayoutFooterTop.vue';
 import LayoutFooterMain from '../../../app/components/layout/footer/LayoutFooterMain.vue';
 import LayoutFooterBottom from '../../../app/components/layout/footer/LayoutFooterBottom.vue';
@@ -18,6 +19,21 @@ vi.mock('~/composables/useCmsMenuData', () => ({
   }),
 }));
 vi.stubGlobal('useRequestURL', () => new URL('https://test.example.com'));
+
+describe('LayoutFooter root', () => {
+  it('exposes bg-footer-background on the root footer element', () => {
+    const wrapper = shallowMountComponent(LayoutFooter);
+    const footer = wrapper.find('footer');
+    expect(footer.exists()).toBe(true);
+    expect(footer.classes()).toContain('bg-footer-background');
+  });
+
+  it('keeps the border-t fallback class', () => {
+    const wrapper = shallowMountComponent(LayoutFooter);
+    const footer = wrapper.find('footer');
+    expect(footer.classes()).toContain('border-t');
+  });
+});
 
 describe('LayoutFooterTop', () => {
   it('renders newsletter section', () => {

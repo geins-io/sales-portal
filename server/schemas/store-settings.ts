@@ -12,6 +12,26 @@ const OklchColorSchema = z
   .regex(oklchRegex, 'Must be in oklch(L C H) format');
 
 /**
+ * 6-digit hex color validator. Strict: no 3-digit shorthand, no 8-digit
+ * alpha, no named colors. Used only for the two merchant-supplied surface
+ * colors (top bar, footer) that the API emits as hex strings while every
+ * other theme color stays strict OKLCH.
+ */
+const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, {
+  message: 'must be a 6-digit hex color',
+});
+
+/**
+ * Permissive color schema accepting either OKLCH or 6-digit hex. Reserved
+ * for theme.colors.topBarBackground and theme.colors.footerBackground.
+ * Do NOT widen the standard 32 theme colors to this; they must stay OKLCH.
+ */
+export const HexOrOklchColorSchema = z.union([
+  OklchColorSchema,
+  HexColorSchema,
+]);
+
+/**
  * Theme Colors — 6 required core colors, 26 optional (derived server-side if null/omitted).
  * API sends null for omitted optional colors.
  */
@@ -51,6 +71,12 @@ export const ThemeColorsSchema = z.object({
   sidebarAccentForeground: OklchColorSchema.nullable().optional(),
   sidebarBorder: OklchColorSchema.nullable().optional(),
   sidebarRing: OklchColorSchema.nullable().optional(),
+
+  // Surface colors that the merchant API emits as 6-digit hex.
+  // Permissive (hex OR oklch) for these two keys only; the 32 keys above
+  // remain strict OKLCH so a typo in admin still fails validation loudly.
+  topBarBackground: HexOrOklchColorSchema.nullable().optional(),
+  footerBackground: HexOrOklchColorSchema.nullable().optional(),
 });
 
 export const ThemeTypographySchema = z.object({

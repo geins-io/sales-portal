@@ -72,6 +72,10 @@ const COLOR_CSS_MAP: Record<keyof FullThemeColors, string> = {
   sidebarAccentForeground: '--sidebar-accent-foreground',
   sidebarBorder: '--sidebar-border',
   sidebarRing: '--sidebar-ring',
+  // Surface colors. Hex passes through verbatim; OKLCH passes through
+  // via the same path as the strict 32 colors above.
+  topBarBackground: '--top-bar-background',
+  footerBackground: '--footer-background',
 };
 
 /**

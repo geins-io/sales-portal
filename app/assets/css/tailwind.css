@@ -42,6 +42,8 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-top-bar-background: var(--top-bar-background);
+  --color-footer-background: var(--footer-background);
 }
 
 @layer base {
