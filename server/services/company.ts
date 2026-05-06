@@ -9,6 +9,7 @@ import {
   getRequestChannelVariables,
   buildRequestContext,
 } from './_sdk';
+import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 
 // ---------------------------------------------------------------------------
@@ -54,50 +55,6 @@ interface RawCompany {
   addresses?: RawCompanyAddress[] | null;
   buyers?: RawCompanyBuyer[] | null;
 }
-
-// ---------------------------------------------------------------------------
-// GraphQL query (inline; no dedicated SDK company module exists yet)
-// ---------------------------------------------------------------------------
-
-const GET_COMPANY_QUERY = `
-  query GetCompany($channelId: String, $languageId: String, $marketId: String) {
-    getCompany(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
-      id
-      name
-      vatNumber
-      exVat
-      limitedProductAccess
-      addresses {
-        addressId
-        companyId
-        email
-        phone
-        company
-        firstName
-        lastName
-        careOf
-        addressLine1
-        addressLine2
-        addressLine3
-        zip
-        city
-        region
-        country
-        addressType
-        addressReferenceId
-      }
-      buyers {
-        id
-        firstName
-        lastName
-        phone
-        companyId
-        active
-        restrictToDedicatedPriceLists
-      }
-    }
-  }
-`;
 
 // ---------------------------------------------------------------------------
 // Mapping helpers
@@ -163,11 +120,10 @@ export async function getCompany(event: H3Event): Promise<Company | null> {
     event,
   );
 
-  // Uses sdk.core.graphql.query (matches products.ts, quotes.ts). SDK injects Authorization + X-ApiKey from per-tenant runtime config.
   const raw = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
-        queryAsString: GET_COMPANY_QUERY,
+        queryAsString: loadQuery('company/get-company.graphql'),
         variables: { channelId, languageId, marketId },
         userToken: requestContext?.userToken,
       }),
