@@ -152,18 +152,7 @@ function mapCompany(raw: RawCompany): Company {
 // Service
 // ---------------------------------------------------------------------------
 
-/**
- * Fetches the company linked to the authenticated user via the Geins
- * getCompany GraphQL query. Issues the query through the SDK's generic
- * graphql client, passing the user's JWT as userToken so the API authenticates
- * the request via the standard Authorization: Bearer header.
- *
- * Returns null when the user is not linked to a company. Geins signals this
- * by returning errors[{message:"User not found"}] with data.getCompany: null.
- * Other errors propagate via wrapServiceCall.
- *
- * @throws 401 if the request carries no userToken
- */
+// Returns null when Geins signals "User not found" (data.getCompany: null). Other errors propagate.
 export async function getCompany(event: H3Event): Promise<Company | null> {
   const requestContext = buildRequestContext(event);
 

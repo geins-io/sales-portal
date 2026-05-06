@@ -101,8 +101,6 @@ const COMPANY: Company = {
   ],
 };
 
-const AUTH_TOKENS = { authToken: 'tok', refreshToken: 'ref' };
-
 function mockEvent() {
   return {
     context: { tenant: { hostname: 'test.com' } },
@@ -118,7 +116,7 @@ describe('GET /api/portal/company', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    mockRequireAuth.mockResolvedValue(AUTH_TOKENS);
+    mockRequireAuth.mockResolvedValue(undefined);
 
     const mod = await import('../../../../../server/api/portal/company.get');
     handler = mod.default;

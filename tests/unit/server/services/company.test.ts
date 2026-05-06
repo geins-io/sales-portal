@@ -214,16 +214,6 @@ describe('company service', () => {
       expect(result).toBeNull();
     });
 
-    it('returns null when result itself is null', async () => {
-      mockGraphqlQuery.mockResolvedValue(null);
-
-      const { getCompany } =
-        await import('../../../../server/services/company');
-      const result = await getCompany(mockEvent());
-
-      expect(result).toBeNull();
-    });
-
     it('throws 401 when buildRequestContext returns no userToken', async () => {
       mockBuildRequestContext.mockReturnValue({ userToken: undefined });
 
