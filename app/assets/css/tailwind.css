@@ -44,6 +44,10 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-top-bar-background: var(--top-bar-background);
   --color-footer-background: var(--footer-background);
+  --color-nav-bar-background: var(--nav-bar-background);
+  --color-site-background: var(--site-background);
+  --color-button-background: var(--button-background);
+  --color-button-purchase-background: var(--button-purchase-background);
 }
 
 @layer base {

@@ -23,8 +23,10 @@ const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, {
 
 /**
  * Permissive color schema accepting either OKLCH or 6-digit hex. Reserved
- * for theme.colors.topBarBackground and theme.colors.footerBackground.
- * Do NOT widen the standard 32 theme colors to this; they must stay OKLCH.
+ * for the surface-color fields the merchant API emits (topBarBackground,
+ * footerBackground, navBarBackground, siteBackground, buttonBackground,
+ * buttonPurchaseBackground). Do NOT widen the standard 32 theme colors to
+ * this; they must stay OKLCH so a typo in admin still fails loudly.
  */
 export const HexOrOklchColorSchema = z.union([
   OklchColorSchema,
@@ -73,10 +75,16 @@ export const ThemeColorsSchema = z.object({
   sidebarRing: OklchColorSchema.nullable().optional(),
 
   // Surface colors that the merchant API emits as 6-digit hex.
-  // Permissive (hex OR oklch) for these two keys only; the 32 keys above
-  // remain strict OKLCH so a typo in admin still fails validation loudly.
+  // Permissive (hex OR oklch) for these surface keys only; the 32 keys
+  // above remain strict OKLCH so a typo in admin still fails validation
+  // loudly. Each surface always resolves to a CSS var in tenant-css via a
+  // fallback chain so components can blindly reference bg-<surface>.
   topBarBackground: HexOrOklchColorSchema.nullable().optional(),
   footerBackground: HexOrOklchColorSchema.nullable().optional(),
+  navBarBackground: HexOrOklchColorSchema.nullable().optional(),
+  siteBackground: HexOrOklchColorSchema.nullable().optional(),
+  buttonBackground: HexOrOklchColorSchema.nullable().optional(),
+  buttonPurchaseBackground: HexOrOklchColorSchema.nullable().optional(),
 });
 
 export const ThemeTypographySchema = z.object({

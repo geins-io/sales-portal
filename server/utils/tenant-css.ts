@@ -74,9 +74,36 @@ const COLOR_CSS_MAP: Record<keyof FullThemeColors, string> = {
   sidebarBorder: '--sidebar-border',
   sidebarRing: '--sidebar-ring',
   // Surface colors. Hex passes through verbatim; OKLCH passes through
-  // via the same path as the strict 32 colors above.
+  // via the same path as the strict 32 colors above. When the tenant
+  // value is empty the emitter substitutes a fallback chain (see
+  // SURFACE_FALLBACKS below) so every surface var is always defined.
   topBarBackground: '--top-bar-background',
   footerBackground: '--footer-background',
+  navBarBackground: '--nav-bar-background',
+  siteBackground: '--site-background',
+  buttonBackground: '--button-background',
+  buttonPurchaseBackground: '--button-purchase-background',
+};
+
+/**
+ * Surface color keys. When the tenant has not set one of these, the
+ * emitter writes the corresponding fallback string (typically a
+ * `var(...)` reference to another CSS variable) so the surface var is
+ * always present in the emitted stylesheet. Components can therefore
+ * reference bg-<surface> classes without layering bg-<fallback>.
+ *
+ * footerBackground is intentionally a hardcoded OKLCH (neutral-900
+ * equivalent) rather than a var reference, matching the original PR
+ * #161 design where the footer is a fixed dark surface unless the
+ * tenant overrides it.
+ */
+const SURFACE_FALLBACKS: Record<string, string> = {
+  topBarBackground: 'var(--primary)',
+  footerBackground: 'oklch(0.205 0 0)',
+  navBarBackground: 'var(--background)',
+  siteBackground: 'var(--background)',
+  buttonBackground: 'var(--primary)',
+  buttonPurchaseBackground: 'var(--button-background)',
 };
 
 /**
@@ -91,6 +118,14 @@ function generateColorCss(
     const value = colors[key as keyof FullThemeColors];
     if (value) {
       lines.push(`${indent}${cssVar}: ${value};`);
+      continue;
+    }
+    // Surface colors with an empty sentinel fall back to a documented
+    // chain (other CSS var or hardcoded value) so every surface var is
+    // always emitted. The 32 standard tokens never reach this branch.
+    const fallback = SURFACE_FALLBACKS[key];
+    if (fallback) {
+      lines.push(`${indent}${cssVar}: ${fallback};`);
     }
   }
   return lines.join('\n');

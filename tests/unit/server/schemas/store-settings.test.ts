@@ -124,6 +124,66 @@ describe('ThemeColorsSchema footerBackground', () => {
   });
 });
 
+describe.each([
+  'navBarBackground',
+  'siteBackground',
+  'buttonBackground',
+  'buttonPurchaseBackground',
+] as const)('ThemeColorsSchema %s surface field', (field) => {
+  it('accepts a 6-digit lowercase hex value', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      [field]: '#824f4f',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a 6-digit uppercase hex value', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      [field]: '#FAFAFA',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid OKLCH value', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      [field]: 'oklch(0.6 0.05 280)',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a 3-digit hex shorthand', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      [field]: '#fff',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an 8-digit hex (alpha channel)', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      [field]: '#ff00aabb',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a CSS named color', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      [field]: 'green',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it(`treats ${field} as optional`, () => {
+    const result = ThemeColorsSchema.safeParse({ ...baseCore });
+    expect(result.success).toBe(true);
+  });
+});
+
 describe('ThemeColorsSchema strict 32 colors regression', () => {
   it('still rejects hex on the standard primary color', () => {
     const result = ThemeColorsSchema.safeParse({
