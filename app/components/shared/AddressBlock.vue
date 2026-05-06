@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { QuoteAddress } from '#shared/types/quote';
+import type { CompanyAddress } from '#shared/types/company';
 
 const props = defineProps<{
   label: string;
   icon?: string;
-  address: QuoteAddress;
+  address: QuoteAddress | CompanyAddress;
 }>();
 
 const joinedName = computed(() =>
