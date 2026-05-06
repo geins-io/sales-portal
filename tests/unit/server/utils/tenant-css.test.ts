@@ -35,11 +35,54 @@ describe('generateTenantCss surface colors', () => {
     expect(css).toContain('--footer-background: oklch(0.7 0.1 20);');
   });
 
-  it('omits both surface vars when neither is set', () => {
+  it('emits all six surface vars verbatim when every surface is set', () => {
+    const derived = deriveThemeColors({
+      ...coreColors,
+      topBarBackground: '#111111',
+      footerBackground: '#222222',
+      navBarBackground: '#FFFFFF',
+      siteBackground: '#FAFAFA',
+      buttonBackground: '#824f4f',
+      buttonPurchaseBackground: '#4a497e',
+    });
+    const css = generateTenantCss('test', derived);
+    expect(css).toContain('--top-bar-background: #111111;');
+    expect(css).toContain('--footer-background: #222222;');
+    expect(css).toContain('--nav-bar-background: #FFFFFF;');
+    expect(css).toContain('--site-background: #FAFAFA;');
+    expect(css).toContain('--button-background: #824f4f;');
+    expect(css).toContain('--button-purchase-background: #4a497e;');
+  });
+
+  it('emits the documented fallback chain when no surface is set', () => {
     const derived = deriveThemeColors({ ...coreColors });
     const css = generateTenantCss('test', derived);
-    expect(css).not.toContain('--top-bar-background');
-    expect(css).not.toContain('--footer-background');
+    expect(css).toContain('--top-bar-background: var(--primary);');
+    expect(css).toContain('--footer-background: oklch(0.205 0 0);');
+    expect(css).toContain('--nav-bar-background: var(--background);');
+    expect(css).toContain('--site-background: var(--background);');
+    expect(css).toContain('--button-background: var(--primary);');
+    expect(css).toContain(
+      '--button-purchase-background: var(--button-background);',
+    );
+  });
+
+  it('chains buttonPurchaseBackground through buttonBackground when only buttonBackground is set', () => {
+    const derived = deriveThemeColors({
+      ...coreColors,
+      buttonBackground: '#824f4f',
+    });
+    const css = generateTenantCss('test', derived);
+    expect(css).toContain('--button-background: #824f4f;');
+    expect(css).toContain(
+      '--button-purchase-background: var(--button-background);',
+    );
+    // Order matters for cascade resolution: button-background must be
+    // declared before button-purchase-background.
+    const buttonIdx = css.indexOf('--button-background:');
+    const purchaseIdx = css.indexOf('--button-purchase-background:');
+    expect(buttonIdx).toBeGreaterThan(0);
+    expect(purchaseIdx).toBeGreaterThan(buttonIdx);
   });
 });
 

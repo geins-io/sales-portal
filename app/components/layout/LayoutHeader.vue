@@ -14,7 +14,7 @@ const navVariant = computed<'grey' | 'white'>(
 
 <template>
   <header
-    class="bg-background bg-top-bar-background sticky top-0 z-50 w-full"
+    class="bg-background sticky top-0 z-50 w-full"
     :class="navVariant === 'white' ? 'shadow-sm' : ''"
   >
     <LayoutHeaderTopbar />

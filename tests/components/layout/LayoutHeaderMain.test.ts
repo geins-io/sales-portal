@@ -4,6 +4,13 @@ import { shallowMountComponent } from '../../utils/component';
 import LayoutHeaderMain from '../../../app/components/layout/header/LayoutHeaderMain.vue';
 
 describe('LayoutHeaderMain', () => {
+  it('paints bg-nav-bar-background on the wrapper', () => {
+    const wrapper = shallowMountComponent(LayoutHeaderMain);
+    const root = wrapper.find('div');
+    expect(root.classes()).toContain('bg-nav-bar-background');
+    expect(root.classes()).not.toContain('bg-background');
+  });
+
   it('renders the brand logo', () => {
     const wrapper = shallowMountComponent(LayoutHeaderMain);
     // shallowMount stubs child components — check for kebab-case stub

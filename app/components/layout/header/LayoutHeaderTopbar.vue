@@ -9,7 +9,7 @@ const { localePath } = useLocaleMarket();
 <template>
   <div
     data-slot="topbar"
-    class="bg-primary text-primary-foreground w-full text-sm"
+    class="bg-top-bar-background text-primary-foreground w-full text-sm"
   >
     <div class="flex h-10 items-center justify-between px-4 lg:px-6">
       <!-- Left: Contact + Locale -->

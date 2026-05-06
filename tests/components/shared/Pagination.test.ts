@@ -47,7 +47,7 @@ describe('Pagination', () => {
     const wrapper = mountPagination({ currentPage: 3, totalPages: 5 });
     const buttons = wrapper.findAll('button');
     // Page 3 is the 4th button (after Previous)
-    expect(buttons[3].classes()).toContain('bg-primary');
+    expect(buttons[3].classes()).toContain('bg-button-background');
     expect(buttons[3].attributes('aria-current')).toBe('page');
   });
 

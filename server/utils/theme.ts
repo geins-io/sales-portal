@@ -155,10 +155,15 @@ export function deriveThemeColors(colors: ThemeColors): FullThemeColors {
     sidebarRing: pick(colors.sidebarRing, ringColor),
 
     // Surface colors. No derivation; these are pass-through values
-    // that the tenant-css emitter renders only when present. Empty
-    // string sentinel keeps the FullThemeColors shape strict while
-    // letting the emitter skip empty entries.
+    // that the tenant-css emitter renders against a fallback chain when
+    // empty. Empty string sentinel keeps the FullThemeColors shape strict
+    // while letting the emitter detect unset entries and substitute the
+    // documented fallback CSS var reference.
     topBarBackground: colors.topBarBackground ?? '',
     footerBackground: colors.footerBackground ?? '',
+    navBarBackground: colors.navBarBackground ?? '',
+    siteBackground: colors.siteBackground ?? '',
+    buttonBackground: colors.buttonBackground ?? '',
+    buttonPurchaseBackground: colors.buttonPurchaseBackground ?? '',
   };
 }

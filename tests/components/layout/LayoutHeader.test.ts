@@ -5,16 +5,18 @@ import LayoutHeader from '../../../app/components/layout/LayoutHeader.vue';
 vi.stubGlobal('useRequestURL', () => new URL('https://test.example.com'));
 
 describe('LayoutHeader root', () => {
-  it('exposes bg-top-bar-background on the root header element', () => {
+  it('does not paint bg-top-bar-background on the outer header (children paint)', () => {
     const wrapper = shallowMountComponent(LayoutHeader);
     const header = wrapper.find('header');
     expect(header.exists()).toBe(true);
-    expect(header.classes()).toContain('bg-top-bar-background');
+    expect(header.classes()).not.toContain('bg-top-bar-background');
   });
 
-  it('keeps the bg-background fallback class for tenants without the var', () => {
+  it('stays sticky at the top with the expected layout classes', () => {
     const wrapper = shallowMountComponent(LayoutHeader);
     const header = wrapper.find('header');
-    expect(header.classes()).toContain('bg-background');
+    expect(header.classes()).toContain('sticky');
+    expect(header.classes()).toContain('top-0');
+    expect(header.classes()).toContain('z-50');
   });
 });

@@ -38,7 +38,22 @@ describe('Button Component', () => {
       const wrapper = mount(Button);
       const classes = wrapper.classes().join(' ');
 
-      expect(classes).toContain('bg-primary');
+      expect(classes).toContain('bg-button-background');
+      expect(classes).toContain('hover:bg-button-background/90');
+      expect(classes).toContain('text-primary-foreground');
+    });
+
+    it('should apply purchase variant classes', () => {
+      const wrapper = mount(Button, {
+        props: {
+          variant: 'purchase',
+        },
+      });
+
+      const classes = wrapper.classes().join(' ');
+      expect(classes).toContain('bg-button-purchase-background');
+      expect(classes).toContain('hover:bg-button-purchase-background/90');
+      expect(classes).toContain('text-primary-foreground');
     });
 
     it('should apply destructive variant classes', () => {
@@ -177,12 +192,19 @@ describe('Button Component', () => {
 describe('buttonVariants', () => {
   it('should return default variant classes', () => {
     const classes = buttonVariants();
-    expect(classes).toContain('bg-primary');
+    expect(classes).toContain('bg-button-background');
+  });
+
+  it('should return purchase variant classes', () => {
+    const classes = buttonVariants({ variant: 'purchase' });
+    expect(classes).toContain('bg-button-purchase-background');
+    expect(classes).toContain('hover:bg-button-purchase-background/90');
   });
 
   it('should return correct classes for each variant', () => {
     const variants = [
       'default',
+      'purchase',
       'destructive',
       'outline',
       'secondary',
@@ -198,7 +220,14 @@ describe('buttonVariants', () => {
   });
 
   it('should return correct classes for each size', () => {
-    const sizes = ['default', 'sm', 'lg', 'icon', 'icon-sm', 'icon-lg'] as const;
+    const sizes = [
+      'default',
+      'sm',
+      'lg',
+      'icon',
+      'icon-sm',
+      'icon-lg',
+    ] as const;
 
     sizes.forEach((size) => {
       const classes = buttonVariants({ size });
