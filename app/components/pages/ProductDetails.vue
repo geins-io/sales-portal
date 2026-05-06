@@ -407,6 +407,7 @@ useSchemaOrg([
             class="h-9 shrink-0"
           />
           <Button
+            variant="purchase"
             data-testid="add-to-cart-button"
             class="h-9 flex-1 gap-2 px-4"
             @click="addToCart"
