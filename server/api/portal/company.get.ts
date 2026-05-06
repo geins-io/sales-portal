@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const company = await companyService.getCompany(event);
 
   if (!company) {
-    throw createError({ statusCode: 404, statusMessage: 'COMPANY_NOT_FOUND' });
+    throw createAppError(ErrorCode.NOT_FOUND, 'COMPANY_NOT_FOUND');
   }
 
   return { company };

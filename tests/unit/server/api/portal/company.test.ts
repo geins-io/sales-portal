@@ -22,20 +22,6 @@ vi.stubGlobal(
   'defineEventHandler',
   (fn: (event: unknown) => Promise<unknown>) => fn,
 );
-vi.stubGlobal(
-  'createError',
-  (opts: { statusCode: number; statusMessage?: string }) => {
-    const error = new Error(
-      opts.statusMessage || String(opts.statusCode),
-    ) as Error & {
-      statusCode: number;
-      statusMessage?: string;
-    };
-    error.statusCode = opts.statusCode;
-    error.statusMessage = opts.statusMessage;
-    return error;
-  },
-);
 vi.stubGlobal('createAppError', (code: string, message?: string) => {
   const statusMap: Record<string, number> = {
     NOT_FOUND: 404,
@@ -137,7 +123,8 @@ describe('GET /api/portal/company', () => {
     const event = mockEvent();
     await expect(handler(event)).rejects.toMatchObject({
       statusCode: 404,
-      statusMessage: 'COMPANY_NOT_FOUND',
+      code: 'NOT_FOUND',
+      message: 'COMPANY_NOT_FOUND',
     });
   });
 
@@ -161,5 +148,6 @@ describe('GET /api/portal/company', () => {
 
     expect(mockRequireAuth).toHaveBeenCalledWith(event);
     expect(mockGetCompany).toHaveBeenCalledWith(event);
+    expect(mockRequireAuth).toHaveBeenCalledBefore(mockGetCompany);
   });
 });

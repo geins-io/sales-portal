@@ -9,6 +9,7 @@ import {
   getRequestChannelVariables,
   buildRequestContext,
 } from './_sdk';
+import { unwrapGraphQL } from './graphql/unwrap';
 
 // ---------------------------------------------------------------------------
 // GraphQL response shapes (raw Geins API)
@@ -55,10 +56,10 @@ interface RawCompany {
 }
 
 // ---------------------------------------------------------------------------
-// GraphQL query (inline — no dedicated SDK company module exists yet)
+// GraphQL query (inline; no dedicated SDK company module exists yet)
 // ---------------------------------------------------------------------------
 
-export const GET_COMPANY_QUERY = `
+const GET_COMPANY_QUERY = `
   query GetCompany($channelId: String, $languageId: String, $marketId: String) {
     getCompany(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
       id
@@ -156,34 +157,29 @@ function mapCompany(raw: RawCompany): Company {
 export async function getCompany(event: H3Event): Promise<Company | null> {
   const requestContext = buildRequestContext(event);
 
-  if (!requestContext?.userToken) {
-    throw createAppError(ErrorCode.UNAUTHORIZED, 'Authentication required');
-  }
-
   const sdk = await getTenantSDK(event);
   const { channelId, languageId, marketId } = getRequestChannelVariables(
     sdk,
     event,
   );
 
-  // Uses sdk.core.graphql.query (matches products.ts, quotes.ts) — SDK injects Authorization + X-ApiKey from per-tenant runtime config.
+  // Uses sdk.core.graphql.query (matches products.ts, quotes.ts). SDK injects Authorization + X-ApiKey from per-tenant runtime config.
   const raw = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: GET_COMPANY_QUERY,
         variables: { channelId, languageId, marketId },
-        userToken: requestContext.userToken,
+        userToken: requestContext?.userToken,
       }),
     'company',
   );
 
-  // The SDK's parseResult strips the outer data wrapper, leaving
-  // { getCompany: ... } or null when the user has no linked company.
-  const result = raw as { getCompany?: RawCompany | null } | null;
+  // unwrapGraphQL strips the { getCompany: ... } wrapper, returning the inner value or null.
+  const result = unwrapGraphQL(raw) as RawCompany | null;
 
-  if (!result?.getCompany) {
+  if (!result) {
     return null;
   }
 
-  return mapCompany(result.getCompany);
+  return mapCompany(result);
 }

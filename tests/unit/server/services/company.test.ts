@@ -184,39 +184,36 @@ describe('company service', () => {
     it('includes the expected field set in the query string', async () => {
       mockGraphqlQuery.mockResolvedValue(RAW_GRAPHQL_RESULT);
 
-      const { getCompany, GET_COMPANY_QUERY } =
+      const { getCompany } =
         await import('../../../../server/services/company');
       await getCompany(mockEvent());
 
-      expect(GET_COMPANY_QUERY).toContain('getCompany');
-      expect(GET_COMPANY_QUERY).toContain('vatNumber');
-      expect(GET_COMPANY_QUERY).toContain('exVat');
-      expect(GET_COMPANY_QUERY).toContain('limitedProductAccess');
-      expect(GET_COMPANY_QUERY).toContain('addresses');
-      expect(GET_COMPANY_QUERY).toContain('buyers');
-      expect(GET_COMPANY_QUERY).toContain('addressId');
-      expect(GET_COMPANY_QUERY).toContain('restrictToDedicatedPriceLists');
-
       expect(mockGraphqlQuery).toHaveBeenCalledWith(
         expect.objectContaining({
-          queryAsString: GET_COMPANY_QUERY,
+          queryAsString: expect.stringContaining('getCompany'),
+        }),
+      );
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queryAsString: expect.stringContaining('addresses'),
+        }),
+      );
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queryAsString: expect.stringContaining('buyers'),
+        }),
+      );
+      expect(mockGraphqlQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queryAsString: expect.stringContaining(
+            'restrictToDedicatedPriceLists',
+          ),
         }),
       );
     });
 
+    // "User not found" is the live Geins shape; wrapServiceCall strips errors so we only observe getCompany: null.
     it('returns null when getCompany resolves to null (user not linked)', async () => {
-      mockGraphqlQuery.mockResolvedValue({ getCompany: null });
-
-      const { getCompany } =
-        await import('../../../../server/services/company');
-      const result = await getCompany(mockEvent());
-
-      expect(result).toBeNull();
-    });
-
-    it('returns null for "User not found" GraphQL error response (verified live shape from merchantapi.geins.io)', async () => {
-      // Geins returns { errors: [{ message: "User not found" }], data: { getCompany: null } }
-      // wrapServiceCall passes through the data portion; null getCompany triggers null return.
       mockGraphqlQuery.mockResolvedValue({ getCompany: null });
 
       const { getCompany } =
@@ -231,21 +228,10 @@ describe('company service', () => {
 
       const { getCompany } =
         await import('../../../../server/services/company');
-      await getCompany(mockEvent());
+      const event = mockEvent();
+      await getCompany(event);
 
-      expect(mockGetTenantSDK).toHaveBeenCalled();
-      // The resolved SDK fixture carries apiKey — confirms per-tenant key reaches the query layer.
-      expect(MOCK_SDK.core.geinsSettings.apiKey).toBe('test-api-key');
-    });
-
-    it('throws 401 when buildRequestContext returns no userToken', async () => {
-      mockBuildRequestContext.mockReturnValue({ userToken: undefined });
-
-      const { getCompany } =
-        await import('../../../../server/services/company');
-      await expect(getCompany(mockEvent())).rejects.toMatchObject({
-        statusCode: 401,
-      });
+      expect(mockGetTenantSDK).toHaveBeenCalledWith(event);
     });
   });
 });

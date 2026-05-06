@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Company types mirroring the Geins getCompany GraphQL schema
 // verified against merchantapi.geins.io on 2026-05-06.
-// Do NOT import these from @geins/types — the SDK does not yet ship them.
+// Do NOT import these from @geins/types; the SDK does not yet ship them.
 // ---------------------------------------------------------------------------
 
 export interface CompanyAddress {
