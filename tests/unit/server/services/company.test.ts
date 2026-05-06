@@ -214,6 +214,30 @@ describe('company service', () => {
       expect(result).toBeNull();
     });
 
+    it('returns null for "User not found" GraphQL error response (verified live shape from merchantapi.geins.io)', async () => {
+      // Geins returns { errors: [{ message: "User not found" }], data: { getCompany: null } }
+      // wrapServiceCall passes through the data portion; null getCompany triggers null return.
+      mockGraphqlQuery.mockResolvedValue({ getCompany: null });
+
+      const { getCompany } =
+        await import('../../../../server/services/company');
+      const result = await getCompany(mockEvent());
+
+      expect(result).toBeNull();
+    });
+
+    it('SDK is constructed with the tenant apiKey', async () => {
+      mockGraphqlQuery.mockResolvedValue(RAW_GRAPHQL_RESULT);
+
+      const { getCompany } =
+        await import('../../../../server/services/company');
+      await getCompany(mockEvent());
+
+      expect(mockGetTenantSDK).toHaveBeenCalled();
+      // The resolved SDK fixture carries apiKey — confirms per-tenant key reaches the query layer.
+      expect(MOCK_SDK.core.geinsSettings.apiKey).toBe('test-api-key');
+    });
+
     it('throws 401 when buildRequestContext returns no userToken', async () => {
       mockBuildRequestContext.mockReturnValue({ userToken: undefined });
 

@@ -166,9 +166,7 @@ export async function getCompany(event: H3Event): Promise<Company | null> {
     event,
   );
 
-  // sdk.core.graphql.query wraps $fetch to config.geins.apiEndpoint with the
-  // tenant's X-ApiKey and Authorization: Bearer <userToken> headers.
-  // This matches the pattern used in products.ts and quotes.ts.
+  // Uses sdk.core.graphql.query (matches products.ts, quotes.ts) — SDK injects Authorization + X-ApiKey from per-tenant runtime config.
   const raw = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
