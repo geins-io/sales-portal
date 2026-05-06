@@ -1,0 +1,202 @@
+import type { H3Event } from 'h3';
+import type {
+  Company,
+  CompanyAddress,
+  CompanyBuyer,
+} from '#shared/types/company';
+import {
+  getTenantSDK,
+  getRequestChannelVariables,
+  buildRequestContext,
+} from './_sdk';
+
+// ---------------------------------------------------------------------------
+// GraphQL response shapes (raw Geins API)
+// ---------------------------------------------------------------------------
+
+interface RawCompanyAddress {
+  addressId: string;
+  companyId?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  company?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  careOf?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  addressLine3?: string | null;
+  zip?: string | null;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  addressType?: string | null;
+  addressReferenceId?: string | null;
+}
+
+interface RawCompanyBuyer {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  companyId?: string | null;
+  active: boolean;
+  restrictToDedicatedPriceLists: boolean;
+}
+
+interface RawCompany {
+  id: string;
+  name?: string | null;
+  vatNumber?: string | null;
+  exVat: boolean;
+  limitedProductAccess: boolean;
+  addresses?: RawCompanyAddress[] | null;
+  buyers?: RawCompanyBuyer[] | null;
+}
+
+// ---------------------------------------------------------------------------
+// GraphQL query (inline — no dedicated SDK company module exists yet)
+// ---------------------------------------------------------------------------
+
+export const GET_COMPANY_QUERY = `
+  query GetCompany($channelId: String, $languageId: String, $marketId: String) {
+    getCompany(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+      id
+      name
+      vatNumber
+      exVat
+      limitedProductAccess
+      addresses {
+        addressId
+        companyId
+        email
+        phone
+        company
+        firstName
+        lastName
+        careOf
+        addressLine1
+        addressLine2
+        addressLine3
+        zip
+        city
+        region
+        country
+        addressType
+        addressReferenceId
+      }
+      buyers {
+        id
+        firstName
+        lastName
+        phone
+        companyId
+        active
+        restrictToDedicatedPriceLists
+      }
+    }
+  }
+`;
+
+// ---------------------------------------------------------------------------
+// Mapping helpers
+// ---------------------------------------------------------------------------
+
+function mapAddress(raw: RawCompanyAddress): CompanyAddress {
+  return {
+    addressId: raw.addressId,
+    companyId: raw.companyId ?? null,
+    email: raw.email ?? null,
+    phone: raw.phone ?? null,
+    company: raw.company ?? null,
+    firstName: raw.firstName ?? null,
+    lastName: raw.lastName ?? null,
+    careOf: raw.careOf ?? null,
+    addressLine1: raw.addressLine1 ?? null,
+    addressLine2: raw.addressLine2 ?? null,
+    addressLine3: raw.addressLine3 ?? null,
+    zip: raw.zip ?? null,
+    city: raw.city ?? null,
+    region: raw.region ?? null,
+    country: raw.country ?? null,
+    addressType: raw.addressType ?? null,
+    addressReferenceId: raw.addressReferenceId ?? null,
+  };
+}
+
+function mapBuyer(raw: RawCompanyBuyer): CompanyBuyer {
+  return {
+    id: raw.id,
+    firstName: raw.firstName ?? null,
+    lastName: raw.lastName ?? null,
+    phone: raw.phone ?? null,
+    companyId: raw.companyId ?? null,
+    active: raw.active,
+    restrictToDedicatedPriceLists: raw.restrictToDedicatedPriceLists,
+  };
+}
+
+function mapCompany(raw: RawCompany): Company {
+  return {
+    id: raw.id,
+    name: raw.name ?? null,
+    vatNumber: raw.vatNumber ?? null,
+    exVat: raw.exVat,
+    limitedProductAccess: raw.limitedProductAccess,
+    addresses: raw.addresses ? raw.addresses.map(mapAddress) : null,
+    buyers: raw.buyers ? raw.buyers.map(mapBuyer) : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the company linked to the authenticated user via the Geins
+ * getCompany GraphQL query. Issues the query through the SDK's generic
+ * graphql client, passing the user's JWT as userToken so the API authenticates
+ * the request via the standard Authorization: Bearer header.
+ *
+ * Returns null when the user is not linked to a company. Geins signals this
+ * by returning errors[{message:"User not found"}] with data.getCompany: null.
+ * Other errors propagate via wrapServiceCall.
+ *
+ * @throws 401 if the request carries no userToken
+ */
+export async function getCompany(event: H3Event): Promise<Company | null> {
+  const requestContext = buildRequestContext(event);
+
+  if (!requestContext?.userToken) {
+    throw createAppError(ErrorCode.UNAUTHORIZED, 'Authentication required');
+  }
+
+  const sdk = await getTenantSDK(event);
+  const { channelId, languageId, marketId } = getRequestChannelVariables(
+    sdk,
+    event,
+  );
+
+  // sdk.core.graphql.query wraps $fetch to config.geins.apiEndpoint with the
+  // tenant's X-ApiKey and Authorization: Bearer <userToken> headers.
+  // This matches the pattern used in products.ts and quotes.ts.
+  const raw = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: GET_COMPANY_QUERY,
+        variables: { channelId, languageId, marketId },
+        userToken: requestContext.userToken,
+      }),
+    'company',
+  );
+
+  // The SDK's parseResult strips the outer data wrapper, leaving
+  // { getCompany: ... } or null when the user has no linked company.
+  const result = raw as { getCompany?: RawCompany | null } | null;
+
+  if (!result?.getCompany) {
+    return null;
+  }
+
+  return mapCompany(result.getCompany);
+}
