@@ -3,12 +3,12 @@ import { shallowMountComponent } from '../../utils/component';
 import LayoutHeaderTopbar from '../../../app/components/layout/header/LayoutHeaderTopbar.vue';
 
 describe('LayoutHeaderTopbar', () => {
-  it('renders with primary background', () => {
+  it('paints bg-top-bar-background on the topbar surface', () => {
     const wrapper = shallowMountComponent(LayoutHeaderTopbar);
-    expect(wrapper.find('[data-slot="topbar"]').exists()).toBe(true);
-    expect(wrapper.find('[data-slot="topbar"]').classes()).toContain(
-      'bg-primary',
-    );
+    const topbar = wrapper.find('[data-slot="topbar"]');
+    expect(topbar.exists()).toBe(true);
+    expect(topbar.classes()).toContain('bg-top-bar-background');
+    expect(topbar.classes()).not.toContain('bg-primary');
   });
 
   it('renders contact link', () => {
