@@ -56,6 +56,10 @@ export default defineNitroPlugin(async () => {
         primary: 'oklch(0.58 0.17 15.0)', // rose
         topBarBackground: '#f084ec',
         footerBackground: '#d241b3',
+        navBarBackground: '#FFFFFF',
+        siteBackground: '#FAFAFA',
+        buttonBackground: '#824f4f',
+        buttonPurchaseBackground: '#4a497e',
       }),
       withFullCms: true,
     },
@@ -115,6 +119,10 @@ interface FixtureInput {
   primary: string;
   topBarBackground?: string;
   footerBackground?: string;
+  navBarBackground?: string;
+  siteBackground?: string;
+  buttonBackground?: string;
+  buttonPurchaseBackground?: string;
 }
 
 function makeFixture(input: FixtureInput): StoreSettings {
@@ -151,6 +159,18 @@ function makeFixture(input: FixtureInput): StoreSettings {
           : {}),
         ...(input.footerBackground
           ? { footerBackground: input.footerBackground }
+          : {}),
+        ...(input.navBarBackground
+          ? { navBarBackground: input.navBarBackground }
+          : {}),
+        ...(input.siteBackground
+          ? { siteBackground: input.siteBackground }
+          : {}),
+        ...(input.buttonBackground
+          ? { buttonBackground: input.buttonBackground }
+          : {}),
+        ...(input.buttonPurchaseBackground
+          ? { buttonPurchaseBackground: input.buttonPurchaseBackground }
           : {}),
       },
       radius: '0.625rem',
