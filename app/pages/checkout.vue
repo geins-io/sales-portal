@@ -8,6 +8,7 @@ import {
   MessageSquare,
   FileCheck,
 } from 'lucide-vue-next';
+import type { Company } from '#shared/types/company';
 import { useCheckoutStore } from '~/stores/checkout';
 import { useCartStore } from '~/stores/cart';
 import { useAuthStore } from '~/stores/auth';
@@ -36,6 +37,36 @@ const isBillingAddressReadonly = computed(() => {
 const isShippingAddressReadonly = computed(() => {
   return authStore.isAuthenticated && !!checkoutStore.checkout?.shippingAddress;
 });
+
+// Company user detection: only fetch if authenticated to avoid 401s
+const companyFetchData = ref<{ company: Company } | null>(null);
+const companyFetchError = ref<unknown>(null);
+
+if (authStore.isAuthenticated) {
+  try {
+    const { data, error } = await useFetch<{ company: Company }>(
+      '/api/portal/company',
+      { dedupe: 'defer' },
+    );
+    companyFetchData.value = data.value ?? null;
+    companyFetchError.value = error.value ?? null;
+  } catch (err) {
+    companyFetchError.value = err;
+  }
+}
+
+const isCompanyUser = computed(
+  () => !!companyFetchData.value?.company && !companyFetchError.value,
+);
+
+const companyData = computed<Company | null>(
+  () => companyFetchData.value?.company ?? null,
+);
+
+// Pre-fill checkout store from company data once available
+if (isCompanyUser.value && companyData.value) {
+  checkoutStore.prefillFromCompany(companyData.value);
+}
 
 // Await tenant data before rendering — prevents flash of custom form when in hosted mode.
 // Without this, checkoutMode defaults to 'custom' during client-side navigation while
@@ -210,8 +241,12 @@ async function handlePlaceOrder() {
               :is-editable="!isQuotationMode"
             />
 
-            <!-- Contact Information -->
-            <Card>
+            <!-- Contact Information: company users see read-only company card -->
+            <CheckoutCompanyInfo
+              v-if="isCompanyUser && companyData"
+              :company="companyData"
+            />
+            <Card v-else>
               <CardHeader
                 class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
               >
@@ -255,8 +290,8 @@ async function handlePlaceOrder() {
               @update:po-number="checkoutStore.poNumber = $event"
             />
 
-            <!-- Billing Address -->
-            <Card>
+            <!-- Billing Address: hidden for company users (included in company card) -->
+            <Card v-if="!isCompanyUser">
               <CardHeader
                 class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
               >
@@ -278,8 +313,12 @@ async function handlePlaceOrder() {
               </CardContent>
             </Card>
 
-            <!-- Shipping Address -->
-            <Card>
+            <!-- Shipping Address: company users see read-only delivery card -->
+            <CheckoutDeliveryInfo
+              v-if="isCompanyUser && companyData"
+              :company="companyData"
+            />
+            <Card v-else-if="!isCompanyUser">
               <CardHeader
                 class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
               >

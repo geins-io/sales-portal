@@ -174,7 +174,11 @@
     "currency": "Currency",
     "change_company_details": "Change company details",
     "heading": "Checkout",
-    "remove_item": "Remove item"
+    "remove_item": "Remove item",
+    "company_and_billing_info": "Company & Billing Information",
+    "delivery_info": "Delivery Information",
+    "vat_number": "VAT Number",
+    "company_name": "Company"
   },
   "order_confirmation": {
     "title": "Order Confirmation",

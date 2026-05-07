@@ -174,7 +174,11 @@
     "currency": "Valuta",
     "change_company_details": "Ändra företagsuppgifter",
     "heading": "Kassa",
-    "remove_item": "Ta bort artikel"
+    "remove_item": "Ta bort artikel",
+    "company_and_billing_info": "Foretag och fakturainformation",
+    "delivery_info": "Leveransinformation",
+    "vat_number": "Organisationsnummer",
+    "company_name": "Foretag"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",
