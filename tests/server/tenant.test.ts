@@ -7,6 +7,7 @@ import {
   buildTenantConfig,
   writeHostnameMappings,
   parseStoreSettingsResilient,
+  adaptMerchantApiResponse,
 } from '../../server/utils/tenant';
 import {
   createDefaultTheme,
@@ -609,6 +610,90 @@ describe('Tenant utilities', () => {
     it('returns null when candidate is not an object', () => {
       expect(parseStoreSettingsResilient(null, 'h')).toBeNull();
       expect(parseStoreSettingsResilient('nope', 'h')).toBeNull();
+    });
+
+    it('salvages a candidate with missing theme by applying a neutral default', () => {
+      const candidate = fullCandidate();
+      delete candidate.theme;
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out).not.toBeNull();
+      expect(out?.theme.colors.primary).toBe('oklch(0.5 0.2 260)');
+    });
+
+    it('salvages a candidate with missing branding by applying a neutral default', () => {
+      const candidate = fullCandidate();
+      delete candidate.branding;
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out).not.toBeNull();
+      expect(out?.branding.name).toBe('Store');
+      expect(out?.branding.watermark).toBe('full');
+    });
+  });
+
+  describe('adaptMerchantApiResponse', () => {
+    function rawApiResponse(overrides: Record<string, unknown> = {}) {
+      return {
+        geinsSettings: {
+          defaultHostName: 'tenant-b.sales-portal.geins.dev',
+          additionalHostNames: ['tenant-b.litium.portal'],
+          apiKey: 'C10CF115',
+          accountName: 'monitor',
+          channelId: '2|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE', 'en-US'],
+          markets: ['se', 'fi'],
+        },
+        appSettings: {
+          mode: 'catalogue',
+          features: { priceVisibility: { enabled: false } },
+          id: 'store',
+        },
+        tenantId: 'monitor',
+        isActive: true,
+        updatedAt: '2026-05-07T08:41:44+00:00',
+        ...overrides,
+      };
+    }
+
+    it('extracts root-level tenantId when absent from appSettings', () => {
+      const result = adaptMerchantApiResponse(rawApiResponse());
+      expect(result.tenantId).toBe('monitor');
+    });
+
+    it('extracts root-level isActive when absent from appSettings', () => {
+      const result = adaptMerchantApiResponse(rawApiResponse());
+      expect(result.isActive).toBe(true);
+    });
+
+    it('derives hostname from geinsSettings.defaultHostName when absent from appSettings', () => {
+      const result = adaptMerchantApiResponse(rawApiResponse());
+      expect(result.hostname).toBe('tenant-b.sales-portal.geins.dev');
+    });
+
+    it('lets appSettings.tenantId override root-level tenantId', () => {
+      const raw = rawApiResponse();
+      (raw.appSettings as Record<string, unknown>).tenantId =
+        'from-app-settings';
+      const result = adaptMerchantApiResponse(raw);
+      expect(result.tenantId).toBe('from-app-settings');
+    });
+
+    it('merges additionalHostNames into aliases', () => {
+      const result = adaptMerchantApiResponse(rawApiResponse());
+      expect(result.aliases).toContain('tenant-b.litium.portal');
+    });
+
+    it('strips the id field from appSettings', () => {
+      const result = adaptMerchantApiResponse(rawApiResponse());
+      expect(result.id).toBeUndefined();
+    });
+
+    it('transforms channelId into channel + tld in geinsSettings', () => {
+      const result = adaptMerchantApiResponse(rawApiResponse());
+      const gs = result.geinsSettings as Record<string, unknown>;
+      expect(gs.channel).toBe('2');
+      expect(gs.tld).toBe('se');
     });
   });
 });
