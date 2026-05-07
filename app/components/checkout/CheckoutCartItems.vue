@@ -2,12 +2,19 @@
 import { ShoppingCart } from 'lucide-vue-next';
 import type { CartItemType } from '#shared/types/commerce';
 import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
+import { Button } from '~/components/ui/button';
+import { useCartStore } from '~/stores/cart';
 
 const { t } = useI18n();
+const cartStore = useCartStore();
 
-const props = defineProps<{
-  items: CartItemType[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    items: CartItemType[];
+    isEditable?: boolean;
+  }>(),
+  { isEditable: false },
+);
 
 function getImageFileName(item: CartItemType): string {
   return item.product?.productImages?.[0]?.fileName ?? '';
@@ -19,6 +26,16 @@ function getSkuName(item: CartItemType): string {
     (s) => String(s.skuId) === String(item.skuId),
   );
   return sku?.name ?? '';
+}
+
+function handleQuantityUpdate(item: CartItemType, newQty: number) {
+  if (item.id == null) return;
+  cartStore.updateQuantity(item.id, newQty);
+}
+
+function handleRemove(item: CartItemType) {
+  if (item.id == null) return;
+  cartStore.removeItem(item.id);
 }
 </script>
 
@@ -76,18 +93,48 @@ function getSkuName(item: CartItemType): string {
             </p>
           </div>
 
-          <!-- Quantity -->
-          <span class="text-muted-foreground shrink-0 text-sm">
-            x {{ item.quantity ?? 0 }}
-          </span>
+          <!-- Quantity: editable or read-only -->
+          <template v-if="props.isEditable">
+            <div class="flex shrink-0 items-center gap-2">
+              <QuantityStepper
+                :model-value="item.quantity ?? 1"
+                :min="1"
+                data-testid="checkout-quantity-stepper"
+                @update:model-value="handleQuantityUpdate(item, $event)"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                :aria-label="t('checkout.remove_item')"
+                data-testid="checkout-remove-item"
+                @click="handleRemove(item)"
+              >
+                <Icon name="lucide:trash-2" class="size-4" />
+              </Button>
+            </div>
+          </template>
+          <template v-else>
+            <span class="text-muted-foreground shrink-0 text-sm">
+              x {{ item.quantity ?? 0 }}
+            </span>
+          </template>
 
-          <!-- Line total -->
-          <div class="shrink-0 text-right font-semibold whitespace-nowrap">
+          <!-- Price: row total on top, unit price below -->
+          <div class="shrink-0 text-right whitespace-nowrap">
             <PriceDisplay
               v-if="item.totalPrice"
               :price="item.totalPrice"
               class="text-sm font-semibold"
             />
+            <p
+              v-if="item.unitPrice"
+              class="text-muted-foreground text-xs"
+              data-testid="checkout-unit-price"
+            >
+              <PriceDisplay :price="item.unitPrice" class="text-xs" />
+              {{ t('checkout.per_unit') }}
+            </p>
           </div>
         </div>
       </div>

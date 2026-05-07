@@ -9,14 +9,14 @@ const { localePath } = useLocaleMarket();
 <template>
   <div class="flex min-h-screen flex-col">
     <!-- Minimal checkout header -->
-    <header class="bg-neutral-900 text-white">
+    <header class="bg-top-bar-background text-primary-foreground">
       <div
         class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-6"
       >
         <!-- Left: Back to store -->
         <NuxtLink
           :to="localePath('/')"
-          class="inline-flex items-center gap-1.5 text-sm text-neutral-300 transition-colors hover:text-white"
+          class="inline-flex items-center gap-1.5 text-sm opacity-70 transition-opacity hover:opacity-100"
           data-testid="checkout-back-link"
         >
           <ArrowLeft class="size-4" />
@@ -32,7 +32,7 @@ const { localePath } = useLocaleMarket();
         <!-- Right: User name -->
         <span
           v-if="authStore.displayName"
-          class="text-sm text-neutral-300"
+          class="text-sm opacity-70"
           data-testid="checkout-user-name"
         >
           {{ authStore.displayName }}

@@ -7,6 +7,7 @@ import type {
   ShippingOptionType,
   CreateOrderResponseType,
 } from '#shared/types/commerce';
+import type { Company, CompanyAddress } from '#shared/types/company';
 import { useCartStore } from '~/stores/cart';
 import { useAuthStore } from '~/stores/auth';
 
@@ -233,6 +234,64 @@ export const useCheckoutStore = defineStore('checkout', () => {
     }
   }
 
+  function resolveBillingAddress(company: Company): CompanyAddress | null {
+    const addresses = company.addresses ?? [];
+    return (
+      addresses.find((a) => a.addressType?.toLowerCase().includes('billing')) ??
+      addresses[0] ??
+      null
+    );
+  }
+
+  function resolveDeliveryAddress(
+    company: Company,
+    billingFallback: CompanyAddress | null,
+  ): CompanyAddress | null {
+    const addresses = company.addresses ?? [];
+    return (
+      addresses.find(
+        (a) =>
+          a.addressType?.toLowerCase().includes('delivery') ||
+          a.addressType?.toLowerCase().includes('shipping'),
+      ) ?? billingFallback
+    );
+  }
+
+  function companyAddressToInput(addr: CompanyAddress): AddressInputType {
+    return {
+      firstName: addr.firstName ?? '',
+      lastName: addr.lastName ?? '',
+      addressLine1: addr.addressLine1 ?? '',
+      addressLine2: addr.addressLine2 ?? '',
+      addressLine3: addr.addressLine3 ?? '',
+      entryCode: '',
+      careOf: addr.careOf ?? '',
+      city: addr.city ?? '',
+      state: '',
+      country: addr.country ?? '',
+      zip: addr.zip ?? '',
+      company: addr.company ?? '',
+      mobile: '',
+      phone: addr.phone ?? '',
+    };
+  }
+
+  function prefillFromCompany(company: Company) {
+    // TODO: use billingAddressId/shippingAddressId once @geins/types adds company checkout support
+    const billingAddr = resolveBillingAddress(company);
+    const deliveryAddr = resolveDeliveryAddress(company, billingAddr);
+
+    const authStore = useAuthStore();
+    email.value = billingAddr?.email ?? authStore.user?.username ?? '';
+
+    if (billingAddr) {
+      billingAddress.value = companyAddressToInput(billingAddr);
+    }
+    if (deliveryAddr) {
+      shippingAddress.value = companyAddressToInput(deliveryAddr);
+    }
+  }
+
   function reset() {
     checkout.value = null;
     billingAddress.value = emptyAddress();
@@ -284,6 +343,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
     toggleConsent,
     placeOrder,
     requestQuote,
+    prefillFromCompany,
     reset,
   };
 });
