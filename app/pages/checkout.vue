@@ -245,6 +245,7 @@ async function handlePlaceOrder() {
             <CheckoutCompanyInfo
               v-if="isCompanyUser && companyData"
               :company="companyData"
+              @change-company-details="() => {}"
             />
             <Card v-else>
               <CardHeader
