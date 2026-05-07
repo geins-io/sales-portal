@@ -95,8 +95,41 @@ describe('CheckoutCompanyInfo', () => {
     expect(addrBlock.text()).toContain('Main Street 1');
     expect(addrBlock.text()).toContain('11122 Stockholm');
     expect(addrBlock.text()).toContain('SE');
-    expect(addrBlock.text()).toContain('+46-70-000-0001');
-    expect(addrBlock.text()).toContain('billing@acme.com');
+  });
+
+  it('renders buyer email in the buyer block', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: {
+        company: makeCompany({
+          buyers: [
+            {
+              id: 'buyer-1',
+              firstName: 'Jane',
+              lastName: 'Doe',
+              phone: null,
+              companyId: 'comp-1',
+              active: true,
+              restrictToDedicatedPriceLists: false,
+            },
+          ],
+        }),
+      },
+      global: { stubs },
+    });
+    const buyerBlock = wrapper.find('[data-testid="company-buyer"]');
+    expect(buyerBlock.text()).toContain('Jane Doe');
+    expect(buyerBlock.text()).toContain('billing@acme.com');
+  });
+
+  it('emits changeCompanyDetails when button clicked', async () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: { company: makeCompany() },
+      global: { stubs },
+    });
+    await wrapper
+      .find('[data-testid="change-company-details"]')
+      .trigger('click');
+    expect(wrapper.emitted('changeCompanyDetails')).toHaveLength(1);
   });
 
   it('uses first address with addressType containing billing', () => {

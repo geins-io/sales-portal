@@ -133,7 +133,7 @@ function handleRemove(item: CartItemType) {
               data-testid="checkout-unit-price"
             >
               <PriceDisplay :price="item.unitPrice" class="text-xs" />
-              / st
+              {{ t('checkout.per_unit') }}
             </p>
           </div>
         </div>
