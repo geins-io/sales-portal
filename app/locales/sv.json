@@ -655,7 +655,15 @@
         "save": "Spara ändringar",
         "saving": "Sparar…",
         "save_success": "Organisationen har uppdaterats",
-        "save_error": "Det gick inte att uppdatera organisationen"
+        "save_error": "Det gick inte att uppdatera organisationen",
+        "address": "Adress",
+        "addresses": "Adresser",
+        "ex_vat": "Exkl. moms",
+        "id": "ID / Kundnummer",
+        "limited_product_access": "Begransad produktatkomst",
+        "no": "Nej",
+        "vat_number": "Momsregistreringsnummer",
+        "yes": "Ja"
       },
       "addresses": {
         "title": "Leveransadresser",
@@ -715,7 +723,14 @@
       "persons": {
         "col_id": "Id",
         "col_latest_login": "Senaste inloggning",
-        "add": "+ Lägg till person"
+        "add": "+ Lägg till person",
+        "col_active": "Aktiv",
+        "col_name": "Namn",
+        "col_phone": "Telefon",
+        "empty": "Inga personer hittades",
+        "status_active": "Aktiv",
+        "status_inactive": "Inaktiv",
+        "title": "Personer"
       },
       "roles": {
         "title": "Roller",
@@ -727,7 +742,13 @@
         "save": "Spara"
       },
       "error_title": "Kunde inte ladda organisation",
-      "error_description": "Något gick fel vid laddning av organisationsdata. Försök igen senare."
+      "error_description": "Något gick fel vid laddning av organisationsdata. Försök igen senare.",
+      "error_loading": "Det gick inte att ladda organisationsdata",
+      "sidebar_aria": "Organisationsnavigering",
+      "sidebar": {
+        "general_settings": "Allmanna installningar",
+        "persons": "Personer"
+      }
     },
     "quotations": {
       "title": "Offerter",
