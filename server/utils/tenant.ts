@@ -271,16 +271,22 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
  * Steps:
  *   1. Pull `appSettings` to root (or fall back to the raw response if a
  *      future merchant API serves a flat shape — we don't fight it).
- *   2. Convert `geinsSettings` from the API's "Geins API" shape (channelId,
+ *   2. Pull root-level identity fields (`tenantId`, `isActive`, `createdAt`,
+ *      `updatedAt`) as fallbacks — the API sometimes emits these outside
+ *      `appSettings` (observed after a Geins admin reset). `appSettings`
+ *      wins when both define a field.
+ *   3. Derive `hostname` from `geinsSettings.defaultHostName` when not
+ *      present in `appSettings`.
+ *   4. Convert `geinsSettings` from the API's "Geins API" shape (channelId,
  *      defaultLocale, locales) to our internal flat shape via
  *      `transformGeinsSettings`.
- *   3. Merge `geinsSettings.additionalHostNames` into `aliases` so any
+ *   5. Merge `geinsSettings.additionalHostNames` into `aliases` so any
  *      configured hostname resolves the right tenant on subsequent KV
  *      lookups (the API keeps these in two places — we want one).
- *   4. Drop a couple of legacy fields the API still emits but our schema
+ *   6. Drop a couple of legacy fields the API still emits but our schema
  *      doesn't care about (`id`, `geinsApiSettings`).
  */
-function adaptMerchantApiResponse(
+export function adaptMerchantApiResponse(
   raw: Record<string, unknown>,
 ): Record<string, unknown> {
   const appSettings = (raw.appSettings as Record<string, unknown>) ?? raw;
@@ -297,6 +303,13 @@ function adaptMerchantApiResponse(
   const aliases = Array.from(new Set([...existing, ...additional]));
 
   const candidate: Record<string, unknown> = {
+    // Root-level identity fields the API sometimes emits outside appSettings.
+    // appSettings spreads on top and wins when both define a field.
+    tenantId: raw.tenantId,
+    isActive: raw.isActive,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    hostname: rawGeins?.defaultHostName,
     ...appSettings,
     geinsSettings,
     aliases,
@@ -323,6 +336,9 @@ function adaptMerchantApiResponse(
  * We intentionally do NOT silently swap critical credentials
  * (`tenantId`, `hostname`, `geinsSettings.apiKey`) — those failures
  * stay fatal so we don't serve a half-broken tenant claiming wrong IDs.
+ * Theme and branding are presentation config, not credentials; missing
+ * values are salvaged with neutral defaults so a reset tenant renders
+ * with a plain look rather than hard-failing with a 500.
  */
 export function parseStoreSettingsResilient(
   candidate: unknown,
@@ -349,6 +365,20 @@ export function parseStoreSettingsResilient(
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    theme: {
+      colors: {
+        primary: 'oklch(0.5 0.2 260)',
+        primaryForeground: 'oklch(1 0 0)',
+        secondary: 'oklch(0.95 0.01 260)',
+        secondaryForeground: 'oklch(0.2 0.02 260)',
+        background: 'oklch(1 0 0)',
+        foreground: 'oklch(0.145 0 0)',
+      },
+    },
+    branding: {
+      name: 'Store',
+      watermark: 'full',
+    },
   };
   const FATAL_PATHS = new Set([
     'tenantId',
@@ -356,9 +386,6 @@ export function parseStoreSettingsResilient(
     'geinsSettings',
     'geinsSettings.apiKey',
     'geinsSettings.accountName',
-    'theme',
-    'theme.colors',
-    'branding',
     'features',
   ]);
 
