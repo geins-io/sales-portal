@@ -36,6 +36,16 @@ watch(
 <template>
   <PortalShell>
     <PortalOrganisationShell>
+      <!-- Page header -->
+      <div class="mb-6">
+        <h2 class="text-xl font-semibold">
+          {{ t('portal.org.sidebar.general_settings') }}
+        </h2>
+        <p class="text-muted-foreground mt-1 text-sm">
+          {{ t('portal.org.info.subtitle') }}
+        </p>
+      </div>
+
       <!-- Loading state -->
       <div
         v-if="pending"

@@ -730,6 +730,7 @@
         "empty": "Inga personer hittades",
         "status_active": "Aktiv",
         "status_inactive": "Inaktiv",
+        "subtitle": "En lista över alla personer i din organisation",
         "title": "Personer"
       },
       "roles": {
@@ -746,7 +747,7 @@
       "error_loading": "Det gick inte att ladda organisationsdata",
       "sidebar_aria": "Organisationsnavigering",
       "sidebar": {
-        "general_settings": "Allmanna installningar",
+        "general_settings": "Allmänna inställningar",
         "persons": "Personer"
       }
     },

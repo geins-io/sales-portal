@@ -730,6 +730,7 @@
         "empty": "No persons found",
         "status_active": "Active",
         "status_inactive": "Inactive",
+        "subtitle": "A list of all persons in your organisation",
         "title": "Persons"
       },
       "roles": {
