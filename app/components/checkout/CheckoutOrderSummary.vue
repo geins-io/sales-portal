@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { Loader2 } from 'lucide-vue-next';
 import { Separator } from '~/components/ui/separator';
+import { Button } from '~/components/ui/button';
 
 const { t } = useI18n();
 
@@ -10,6 +12,12 @@ const props = defineProps<{
   tax: string | null;
   total: string;
   discount?: string;
+  canPlaceOrder: boolean;
+  isPlacingOrder: boolean;
+}>();
+
+const emit = defineEmits<{
+  placeOrder: [];
 }>();
 </script>
 
@@ -74,5 +82,22 @@ const props = defineProps<{
         {{ props.total || '--' }}
       </span>
     </div>
+
+    <!-- Place Order -->
+    <Button
+      type="button"
+      size="lg"
+      class="w-full"
+      :disabled="!props.canPlaceOrder || props.isPlacingOrder"
+      data-testid="place-order-button"
+      @click="emit('placeOrder')"
+    >
+      <Loader2 v-if="props.isPlacingOrder" class="mr-2 size-4 animate-spin" />
+      {{
+        props.isPlacingOrder
+          ? t('checkout.placing_order')
+          : t('checkout.place_order')
+      }}
+    </Button>
   </div>
 </template>

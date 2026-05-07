@@ -172,7 +172,8 @@
     "payment_terms": "Betalningsvillkor",
     "payment_terms_days": "Dagar",
     "currency": "Valuta",
-    "change_company_details": "Ändra företagsuppgifter"
+    "change_company_details": "Ändra företagsuppgifter",
+    "heading": "Kassa"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",
