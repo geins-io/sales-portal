@@ -173,7 +173,8 @@
     "payment_terms_days": "Dagar",
     "currency": "Valuta",
     "change_company_details": "Ändra företagsuppgifter",
-    "heading": "Kassa"
+    "heading": "Kassa",
+    "remove_item": "Ta bort artikel"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",

@@ -173,7 +173,8 @@
     "payment_terms_days": "Days",
     "currency": "Currency",
     "change_company_details": "Change company details",
-    "heading": "Checkout"
+    "heading": "Checkout",
+    "remove_item": "Remove item"
   },
   "order_confirmation": {
     "title": "Order Confirmation",

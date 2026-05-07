@@ -22,9 +22,12 @@ definePageMeta({ layout: 'checkout' });
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
+const route = useRoute();
 const cartStore = useCartStore();
 const checkoutStore = useCheckoutStore();
 const authStore = useAuthStore();
+
+const isQuotationMode = computed(() => !!route.query.quotationId);
 
 const isBillingAddressReadonly = computed(() => {
   return authStore.isAuthenticated && !!checkoutStore.checkout?.billingAddress;
@@ -202,7 +205,10 @@ async function handlePlaceOrder() {
           <!-- LEFT: Checkout form -->
           <div class="min-w-0 flex-1 space-y-6">
             <!-- Cart Items Summary -->
-            <CheckoutCartItems :items="cartStore.cart?.items ?? []" />
+            <CheckoutCartItems
+              :items="cartStore.cart?.items ?? []"
+              :is-editable="!isQuotationMode"
+            />
 
             <!-- Contact Information -->
             <Card>
