@@ -52,15 +52,15 @@ describe('usePriceVisibility', () => {
   });
 
   it('returns showPrice=false when pricing feature enabled but canAccess returns false', () => {
-    mockHasFeature = (name) => name === 'pricing';
+    mockHasFeature = (name) => name === 'priceVisibility';
     mockCanAccess = () => false;
     const { showPrice } = usePriceVisibility();
     expect(showPrice.value).toBe(false);
   });
 
   it('returns showPrice=true when pricing feature enabled and canAccess returns true', () => {
-    mockHasFeature = (name) => name === 'pricing';
-    mockCanAccess = (name) => name === 'pricing';
+    mockHasFeature = (name) => name === 'priceVisibility';
+    mockCanAccess = (name) => name === 'priceVisibility';
     const { showPrice } = usePriceVisibility();
     expect(showPrice.value).toBe(true);
   });

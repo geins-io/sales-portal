@@ -102,7 +102,7 @@ describe('StockBadge (unit)', () => {
 
   describe('stock feature enabled', () => {
     it('hides badge when canAccess returns false', () => {
-      mockHasFeature = (name) => name === 'stock';
+      mockHasFeature = (name) => name === 'stockStatus';
       mockCanAccess = () => false;
       const wrapper = mount(StockBadge.default, {
         props: { stock: makeStock() },
@@ -112,8 +112,8 @@ describe('StockBadge (unit)', () => {
     });
 
     it('shows badge when canAccess returns true', () => {
-      mockHasFeature = (name) => name === 'stock';
-      mockCanAccess = (name) => name === 'stock';
+      mockHasFeature = (name) => name === 'stockStatus';
+      mockCanAccess = (name) => name === 'stockStatus';
       const wrapper = mount(StockBadge.default, {
         props: { stock: makeStock() },
         global: { stubs },

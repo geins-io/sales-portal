@@ -245,7 +245,7 @@ describe('PriceDisplay', () => {
     });
 
     it('shows price when pricing feature allows access', () => {
-      tenant.value.features = { pricing: { enabled: true } };
+      tenant.value.features = { priceVisibility: { enabled: true } };
       mockCanAccess.mockReturnValue(true);
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice() },
@@ -254,7 +254,7 @@ describe('PriceDisplay', () => {
     });
 
     it('shows login message when pricing feature denies access', () => {
-      tenant.value.features = { pricing: { enabled: true } };
+      tenant.value.features = { priceVisibility: { enabled: true } };
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice() },

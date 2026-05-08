@@ -52,21 +52,21 @@ describe('useStockVisibility', () => {
   });
 
   it('returns showStock=true when stock feature enabled and canAccess returns true', () => {
-    mockHasFeature = (name) => name === 'stock';
-    mockCanAccess = (name) => name === 'stock';
+    mockHasFeature = (name) => name === 'stockStatus';
+    mockCanAccess = (name) => name === 'stockStatus';
     const { showStock } = useStockVisibility();
     expect(showStock.value).toBe(true);
   });
 
   it('returns showStock=false when stock feature enabled but canAccess returns false', () => {
-    mockHasFeature = (name) => name === 'stock';
+    mockHasFeature = (name) => name === 'stockStatus';
     mockCanAccess = () => false;
     const { showStock } = useStockVisibility();
     expect(showStock.value).toBe(false);
   });
 
   it('returns showStock=true for other features not named stock (fail-open)', () => {
-    // hasFeature('stock') returns false, so stock is shown regardless
+    // hasFeature('stockStatus') returns false, so stock is shown regardless
     mockHasFeature = (name) => name === 'price'; // stock not enabled
     mockCanAccess = () => false;
     const { showStock } = useStockVisibility();

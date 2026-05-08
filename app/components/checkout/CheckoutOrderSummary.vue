@@ -4,6 +4,7 @@ import { Separator } from '~/components/ui/separator';
 import { Button } from '~/components/ui/button';
 
 const { t } = useI18n();
+const { showPrice } = usePriceVisibility();
 
 const props = defineProps<{
   itemCount: number;
@@ -30,7 +31,7 @@ const emit = defineEmits<{
       {{ t('checkout.order_summary') }}
     </h2>
 
-    <div class="space-y-3">
+    <div v-if="showPrice" class="space-y-3">
       <!-- Subtotal -->
       <div class="flex items-center justify-between text-sm">
         <span class="text-muted-foreground">
@@ -73,10 +74,13 @@ const emit = defineEmits<{
       </div>
     </div>
 
-    <Separator />
+    <Separator v-if="showPrice" />
 
     <!-- Total -->
-    <div class="flex items-center justify-between font-semibold">
+    <div
+      v-if="showPrice"
+      class="flex items-center justify-between font-semibold"
+    >
       <span>{{ t('checkout.total') }}</span>
       <span data-testid="checkout-summary-total">
         {{ props.total || '--' }}

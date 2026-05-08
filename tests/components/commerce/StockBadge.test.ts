@@ -101,7 +101,7 @@ describe('StockBadge', () => {
     });
 
     it('hides stock when stock feature denies access', () => {
-      tenant.value.features = { stock: { enabled: true } };
+      tenant.value.features = { stockStatus: { enabled: true } };
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(StockBadge, {
         props: { stock: makeStock() },
@@ -111,7 +111,7 @@ describe('StockBadge', () => {
     });
 
     it('shows stock when stock feature allows access', () => {
-      tenant.value.features = { stock: { enabled: true } };
+      tenant.value.features = { stockStatus: { enabled: true } };
       mockCanAccess.mockReturnValue(true);
       const wrapper = mountComponent(StockBadge, {
         props: { stock: makeStock() },

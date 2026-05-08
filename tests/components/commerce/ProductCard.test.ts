@@ -423,7 +423,7 @@ describe('ProductCard', () => {
     });
 
     it('hides add-to-cart when pricing is restricted', () => {
-      tenant.value.features = { pricing: { enabled: true } };
+      tenant.value.features = { priceVisibility: { enabled: true } };
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
@@ -435,7 +435,7 @@ describe('ProductCard', () => {
     });
 
     it('shows add-to-cart when pricing is accessible', () => {
-      tenant.value.features = { pricing: { enabled: true } };
+      tenant.value.features = { priceVisibility: { enabled: true } };
       mockCanAccess.mockReturnValue(true);
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
