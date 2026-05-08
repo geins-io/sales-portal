@@ -10,6 +10,10 @@ import { vi } from 'vitest';
 import { ref, computed } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 
+// Exported ref so individual component tests can toggle catalog mode
+// without duplicating the full useTenant mock.
+export const mockIsCatalogMode = ref(false);
+
 // Create a fresh Pinia instance for each test so stores work without Nuxt
 setActivePinia(createPinia());
 
@@ -169,6 +173,7 @@ vi.mock('../app/composables/useTenant', () => {
         () => tenant.value?.branding?.name ?? tenant.value?.tenantId ?? 'Store',
       ),
       mode: computed(() => tenant.value?.mode ?? 'commerce'),
+      isCatalogMode: computed(() => mockIsCatalogMode.value),
       watermark: computed(() => tenant.value?.branding?.watermark ?? 'full'),
       availableLocales: computed(() => ['sv']),
       availableMarkets: computed(() => []),

@@ -52,6 +52,22 @@ type AnyFn = (...args: unknown[]) => unknown;
 
 vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal(
+  'createError',
+  ({
+    statusCode,
+    statusMessage,
+  }: {
+    statusCode: number;
+    statusMessage?: string;
+  }) => {
+    const err = new Error(statusMessage ?? String(statusCode)) as Error & {
+      statusCode: number;
+    };
+    err.statusCode = statusCode;
+    return err;
+  },
+);
+vi.stubGlobal(
   'createAppError',
   vi.fn((_code: string, msg: string) => {
     const err = new Error(msg);
@@ -315,6 +331,43 @@ describe('Cart API Routes', () => {
         .default;
 
       await expect(handler(mockEvent)).rejects.toThrow();
+    });
+  });
+
+  describe('catalog mode guard', () => {
+    const catalogModeEvent = {
+      context: {
+        tenant: {
+          hostname: 'test.example.com',
+          tenantId: 'test-tenant',
+          config: { mode: 'catalog' },
+        },
+      },
+      node: { req: { headers: {} } },
+    } as unknown as import('h3').H3Event;
+
+    it('POST /api/cart returns 403 in catalog mode', async () => {
+      const handler = (await import('../../../server/api/cart/index.post'))
+        .default;
+      await expect(handler(catalogModeEvent)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+    });
+
+    it('POST /api/cart/items returns 403 in catalog mode', async () => {
+      const readBodyMock = vi.mocked(readValidatedBody);
+      readBodyMock.mockImplementation(async (_event, parse) => {
+        return (parse as (...args: unknown[]) => unknown)({
+          cartId: 'cart-123',
+          skuId: 456,
+          quantity: 1,
+        });
+      });
+      const handler = (await import('../../../server/api/cart/items.post'))
+        .default;
+      await expect(handler(catalogModeEvent)).rejects.toMatchObject({
+        statusCode: 403,
+      });
     });
   });
 });

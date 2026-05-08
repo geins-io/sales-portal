@@ -1,39 +1,27 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
-import { ref, computed } from 'vue';
+import { ref, computed, readonly } from 'vue';
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
-let mockHasFeature = (_name: string): boolean => false;
-let mockCanAccess = (_name: string): boolean => false;
+const showPriceRef = ref(true);
+
+vi.mock('../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: readonly(showPriceRef) }),
+}));
 
 vi.mock('../../app/composables/useTenant', () => ({
   useTenant: () => ({
     tenant: ref(null),
-    hasFeature: (name: string) => mockHasFeature(name),
+    hasFeature: (_name: string) => false,
     features: computed(() => ({})),
     branding: computed(() => null),
     theme: computed(() => null),
     isCatalogMode: computed(() => false),
     availableLocales: computed(() => []),
     availableMarkets: computed(() => []),
-  }),
-}));
-
-vi.mock('../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({
-    canAccess: (name: string) => mockCanAccess(name),
-  }),
-}));
-
-vi.mock('../../app/composables/usePriceVisibility', () => ({
-  usePriceVisibility: () => ({
-    showPrice: computed(() => {
-      if (!mockHasFeature('pricing')) return true;
-      return mockCanAccess('pricing');
-    }),
   }),
 }));
 
@@ -90,14 +78,12 @@ function makePrice(overrides: Record<string, unknown> = {}) {
 // ---------------------------------------------------------------------------
 describe('PriceDisplay (unit)', () => {
   beforeEach(() => {
-    mockHasFeature = () => false;
-    mockCanAccess = () => false;
+    showPriceRef.value = true;
   });
 
   describe('price visibility', () => {
-    it('shows login message when pricing feature is enabled and user cannot access', () => {
-      mockHasFeature = (name) => name === 'pricing';
-      mockCanAccess = () => false;
+    it('shows login message when showPrice is false', () => {
+      showPriceRef.value = false;
       const wrapper = mount(PriceDisplay.default, {
         props: { price: makePrice() },
         ...globalMounts,
@@ -106,19 +92,8 @@ describe('PriceDisplay (unit)', () => {
       expect(wrapper.text()).not.toContain('100 kr');
     });
 
-    it('shows price when pricing feature is not configured (fail-open)', () => {
-      mockHasFeature = () => false;
-      const wrapper = mount(PriceDisplay.default, {
-        props: { price: makePrice() },
-        ...globalMounts,
-      });
-      expect(wrapper.text()).toContain('100 kr');
-      expect(wrapper.text()).not.toContain('product.login_for_prices');
-    });
-
-    it('shows price when pricing feature is enabled and user has access', () => {
-      mockHasFeature = (name) => name === 'pricing';
-      mockCanAccess = (name) => name === 'pricing';
+    it('shows price when showPrice is true', () => {
+      showPriceRef.value = true;
       const wrapper = mount(PriceDisplay.default, {
         props: { price: makePrice() },
         ...globalMounts,
@@ -130,7 +105,7 @@ describe('PriceDisplay (unit)', () => {
 
   describe('price rendering', () => {
     beforeEach(() => {
-      mockHasFeature = () => false;
+      showPriceRef.value = true;
     });
 
     it('renders nothing when no price prop provided', () => {

@@ -7,6 +7,13 @@ import { COOKIE_NAMES } from '#shared/constants/storage';
 const TWO_LETTER = /^[a-z]{2}$/;
 
 export default defineEventHandler(async (event) => {
+  if (event.context.tenant?.config?.mode === 'catalog') {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Not available in catalogue mode',
+    });
+  }
+
   const { cartId } = await readValidatedBody(event, CheckoutTokenSchema.parse);
 
   return withErrorHandling(
