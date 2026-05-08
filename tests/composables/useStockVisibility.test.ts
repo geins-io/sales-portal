@@ -5,10 +5,12 @@ import { computed } from 'vue';
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
+let mockIsFeatureConfigured = (_name: string): boolean => false;
 let mockHasFeature = (_name: string): boolean => false;
 let mockCanAccess = (_name: string): boolean => false;
 
 vi.stubGlobal('useTenant', () => ({
+  isFeatureConfigured: (name: string) => mockIsFeatureConfigured(name),
   hasFeature: (name: string) => mockHasFeature(name),
 }));
 
@@ -20,6 +22,7 @@ vi.stubGlobal('computed', computed);
 
 vi.mock('../../app/composables/useTenant', () => ({
   useTenant: () => ({
+    isFeatureConfigured: (name: string) => mockIsFeatureConfigured(name),
     hasFeature: (name: string) => mockHasFeature(name),
   }),
 }));
@@ -41,33 +44,42 @@ const { useStockVisibility } =
 // ---------------------------------------------------------------------------
 describe('useStockVisibility', () => {
   beforeEach(() => {
+    mockIsFeatureConfigured = () => false;
     mockHasFeature = () => false;
     mockCanAccess = () => false;
   });
 
-  it('returns showStock=true when feature "stock" is not configured (fail-open)', () => {
-    mockHasFeature = () => false;
+  it('returns showStock=true when stockStatus feature is not configured (fail-open)', () => {
+    mockIsFeatureConfigured = () => false;
     const { showStock } = useStockVisibility();
     expect(showStock.value).toBe(true);
   });
 
-  it('returns showStock=true when stock feature enabled and canAccess returns true', () => {
+  it('returns showStock=false when stockStatus feature is present but enabled: false', () => {
+    mockIsFeatureConfigured = (name) => name === 'stockStatus';
+    mockHasFeature = () => false;
+    const { showStock } = useStockVisibility();
+    expect(showStock.value).toBe(false);
+  });
+
+  it('returns showStock=true when stockStatus feature enabled and canAccess returns true', () => {
+    mockIsFeatureConfigured = (name) => name === 'stockStatus';
     mockHasFeature = (name) => name === 'stockStatus';
     mockCanAccess = (name) => name === 'stockStatus';
     const { showStock } = useStockVisibility();
     expect(showStock.value).toBe(true);
   });
 
-  it('returns showStock=false when stock feature enabled but canAccess returns false', () => {
+  it('returns showStock=false when stockStatus feature enabled but canAccess returns false', () => {
+    mockIsFeatureConfigured = (name) => name === 'stockStatus';
     mockHasFeature = (name) => name === 'stockStatus';
     mockCanAccess = () => false;
     const { showStock } = useStockVisibility();
     expect(showStock.value).toBe(false);
   });
 
-  it('returns showStock=true for other features not named stock (fail-open)', () => {
-    // hasFeature('stockStatus') returns false, so stock is shown regardless
-    mockHasFeature = (name) => name === 'price'; // stock not enabled
+  it('returns showStock=true for other features not named stockStatus (fail-open)', () => {
+    mockIsFeatureConfigured = (name) => name === 'price';
     mockCanAccess = () => false;
     const { showStock } = useStockVisibility();
     expect(showStock.value).toBe(true);

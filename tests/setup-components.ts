@@ -185,6 +185,9 @@ vi.mock('../app/composables/useTenant', () => {
         const f = tenant.value?.features?.[name];
         return f ? f.enabled : false;
       },
+      isFeatureConfigured: (name: string) => {
+        return name in (tenant.value?.features ?? {});
+      },
       suspense: () => Promise.resolve(),
     }),
     useTenantTheme: () => ({

@@ -38,6 +38,10 @@ export function useTenant() {
     return tenant.value?.features?.[featureName]?.enabled === true;
   };
 
+  const isFeatureConfigured = (featureName: string): boolean => {
+    return featureName in (tenant.value?.features ?? {});
+  };
+
   const logoUrl = computed(() => {
     return tenant.value?.branding?.logoUrl ?? '/logo.svg';
   });
@@ -109,6 +113,7 @@ export function useTenant() {
     imageBaseUrl,
     features,
     hasFeature,
+    isFeatureConfigured,
     contact,
     suspense: () => asyncData,
   };

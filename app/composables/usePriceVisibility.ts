@@ -1,9 +1,10 @@
 export function usePriceVisibility() {
-  const { hasFeature } = useTenant();
+  const { isFeatureConfigured, hasFeature } = useTenant();
   const { canAccess } = useFeatureAccess();
 
   const showPrice = computed(() => {
-    if (!hasFeature('priceVisibility')) return true;
+    if (!isFeatureConfigured('priceVisibility')) return true;
+    if (!hasFeature('priceVisibility')) return false;
     return canAccess('priceVisibility');
   });
 

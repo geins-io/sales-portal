@@ -6,12 +6,14 @@ import { ref, computed } from 'vue';
 // ---------------------------------------------------------------------------
 // Mock dependencies
 // ---------------------------------------------------------------------------
+let mockIsFeatureConfigured = (_name: string): boolean => false;
 let mockHasFeature = (_name: string): boolean => false;
 let mockCanAccess = (_name: string): boolean => false;
 
 vi.mock('../../app/composables/useTenant', () => ({
   useTenant: () => ({
     tenant: ref(null),
+    isFeatureConfigured: (name: string) => mockIsFeatureConfigured(name),
     hasFeature: (name: string) => mockHasFeature(name),
     features: computed(() => ({})),
     branding: computed(() => null),
@@ -75,12 +77,14 @@ function makeStock(overrides: Record<string, number> = {}) {
 // ---------------------------------------------------------------------------
 describe('StockBadge (unit)', () => {
   beforeEach(() => {
+    mockIsFeatureConfigured = () => false;
     mockHasFeature = () => false;
     mockCanAccess = () => false;
   });
 
   describe('stock feature not configured (fail-open)', () => {
     it('shows the badge when stock feature is absent', () => {
+      mockIsFeatureConfigured = () => false;
       mockHasFeature = () => false;
       const wrapper = mount(StockBadge.default, {
         props: { stock: makeStock() },
@@ -102,6 +106,7 @@ describe('StockBadge (unit)', () => {
 
   describe('stock feature enabled', () => {
     it('hides badge when canAccess returns false', () => {
+      mockIsFeatureConfigured = (name) => name === 'stockStatus';
       mockHasFeature = (name) => name === 'stockStatus';
       mockCanAccess = () => false;
       const wrapper = mount(StockBadge.default, {
@@ -112,6 +117,7 @@ describe('StockBadge (unit)', () => {
     });
 
     it('shows badge when canAccess returns true', () => {
+      mockIsFeatureConfigured = (name) => name === 'stockStatus';
       mockHasFeature = (name) => name === 'stockStatus';
       mockCanAccess = (name) => name === 'stockStatus';
       const wrapper = mount(StockBadge.default, {
