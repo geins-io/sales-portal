@@ -334,6 +334,12 @@ export default defineNuxtConfig({
     },
   ],
 
+  icon: {
+    serverBundle: {
+      collections: ['lucide'],
+    },
+  },
+
   shadcn: {
     prefix: '',
     componentDir: './app/components/ui',
