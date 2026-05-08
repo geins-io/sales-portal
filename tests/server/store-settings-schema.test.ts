@@ -712,12 +712,12 @@ describe('deriveThemeColors', () => {
   it('should derive all 26 optional colors from 6 core', () => {
     const result = deriveThemeColors(coreColors);
 
-    // 32 standard color keys + 6 surface keys (topBarBackground,
+    // 32 standard color keys + 8 surface keys (topBarBackground,
     // footerBackground, navBarBackground, siteBackground,
-    // buttonBackground, buttonPurchaseBackground) that pass through
-    // unchanged.
+    // buttonBackground, buttonPurchaseBackground, topBarText,
+    // footerText) that pass through unchanged.
     const keys = Object.keys(result);
-    expect(keys).toHaveLength(38);
+    expect(keys).toHaveLength(40);
     const surfaceKeys = new Set([
       'topBarBackground',
       'footerBackground',
@@ -725,6 +725,8 @@ describe('deriveThemeColors', () => {
       'siteBackground',
       'buttonBackground',
       'buttonPurchaseBackground',
+      'topBarText',
+      'footerText',
     ]);
     for (const key of keys) {
       // Surface colors collapse to '' when the tenant did not set them.

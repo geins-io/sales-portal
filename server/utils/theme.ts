@@ -165,5 +165,7 @@ export function deriveThemeColors(colors: ThemeColors): FullThemeColors {
     siteBackground: colors.siteBackground ?? '',
     buttonBackground: colors.buttonBackground ?? '',
     buttonPurchaseBackground: colors.buttonPurchaseBackground ?? '',
+    topBarText: colors.topBarText ?? '',
+    footerText: colors.footerText ?? '',
   };
 }

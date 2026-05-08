@@ -38,8 +38,8 @@ describe('deriveThemeColors surface forwarding', () => {
     expect(result.buttonPurchaseBackground).toBe('');
   });
 
-  it('returns 38 keys total (32 standard + 6 surfaces)', () => {
+  it('returns 40 keys total (32 standard + 8 surfaces)', () => {
     const result = deriveThemeColors({ ...coreColors });
-    expect(Object.keys(result)).toHaveLength(38);
+    expect(Object.keys(result)).toHaveLength(40);
   });
 });
