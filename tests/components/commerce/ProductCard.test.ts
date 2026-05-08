@@ -1,9 +1,98 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { ref, computed } from 'vue';
 import { mountComponent } from '../../utils/component';
 import ProductCard from '../../../app/components/shared/ProductCard.vue';
 import { useTenant } from '../../../app/composables/useTenant';
 
-// useTenant mock is provided by setup-components.ts — access tenant ref to control features
+// Mutable flag so individual tests can flip catalog mode on/off.
+const isCatalogModeRef = ref(false);
+
+vi.mock('../../../app/composables/useTenant', () => {
+  const tenant = ref({
+    tenantId: 'test-tenant',
+    hostname: 'test.example.com',
+    isActive: true,
+    css: '',
+    mode: 'commerce',
+    branding: {
+      name: 'Test Store',
+      watermark: 'full',
+      logoUrl: '/logo.svg',
+      faviconUrl: '/favicon.ico',
+    },
+    theme: {
+      name: 'default',
+      displayName: 'Default Theme',
+      colors: {
+        primary: 'oklch(0.205 0 0)',
+        secondary: 'oklch(0.97 0 0)',
+        background: 'oklch(1 0 0)',
+        foreground: 'oklch(0.145 0 0)',
+        primaryForeground: 'oklch(0.985 0 0)',
+        secondaryForeground: 'oklch(0.205 0 0)',
+      },
+      radius: '0.625rem',
+    },
+    features: {
+      search: { enabled: true },
+      authentication: { enabled: true },
+      cart: { enabled: true },
+    },
+    locale: 'sv-SE',
+    availableLocales: ['sv-SE'],
+  });
+
+  return {
+    useTenant: () => ({
+      tenant,
+      tenantId: computed(() => tenant.value?.tenantId ?? ''),
+      hostname: computed(() => tenant.value?.hostname ?? ''),
+      isLoading: ref(false),
+      error: ref(null),
+      refresh: vi.fn(),
+      theme: computed(() => tenant.value?.theme),
+      branding: computed(() => tenant.value?.branding),
+      logoUrl: computed(() => tenant.value?.branding?.logoUrl ?? '/logo.svg'),
+      logoDarkUrl: computed(() => tenant.value?.branding?.logoDarkUrl ?? null),
+      logoSymbolUrl: computed(
+        () => tenant.value?.branding?.logoSymbolUrl ?? null,
+      ),
+      faviconUrl: computed(
+        () => tenant.value?.branding?.faviconUrl ?? '/favicon.ico',
+      ),
+      ogImageUrl: computed(() => tenant.value?.branding?.ogImageUrl ?? null),
+      brandName: computed(
+        () => tenant.value?.branding?.name ?? tenant.value?.tenantId ?? 'Store',
+      ),
+      mode: computed(() => tenant.value?.mode ?? 'commerce'),
+      isCatalogMode: isCatalogModeRef,
+      watermark: computed(() => tenant.value?.branding?.watermark ?? 'full'),
+      availableLocales: computed(() => ['sv']),
+      availableMarkets: computed(() => []),
+      market: computed(() => ''),
+      imageBaseUrl: computed(() => 'https://monitor.commerce.services'),
+      features: computed(() => tenant.value?.features),
+      contact: computed(() => null),
+      hasFeature: (name: string) => {
+        const f = tenant.value?.features?.[name];
+        return f ? f.enabled : false;
+      },
+      suspense: () => Promise.resolve(),
+    }),
+    useTenantTheme: () => ({
+      colors: computed(() => tenant.value?.theme?.colors),
+      typography: computed(() => undefined),
+      radius: computed(() => tenant.value?.theme?.radius),
+      getColor: () => '',
+      primaryColor: computed(() => 'oklch(0.205 0 0)'),
+      secondaryColor: computed(() => 'oklch(0.97 0 0)'),
+      backgroundColor: computed(() => 'oklch(1 0 0)'),
+      foregroundColor: computed(() => 'oklch(0.145 0 0)'),
+    }),
+  };
+});
+
+// useTenant mock is defined above — access tenant ref to control features
 const { tenant } = useTenant();
 
 const mockCanAccess = vi.fn(() => true);
@@ -441,6 +530,34 @@ describe('ProductCard', () => {
       });
       expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
         true,
+      );
+    });
+  });
+
+  describe('catalog mode', () => {
+    afterEach(() => {
+      isCatalogModeRef.value = false;
+    });
+
+    it('hides add-to-cart button in grid variant when catalog mode is active', () => {
+      isCatalogModeRef.value = true;
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('hides add-to-cart button in list variant when catalog mode is active', () => {
+      isCatalogModeRef.value = true;
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct(), variant: 'list' },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
       );
     });
   });
