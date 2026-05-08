@@ -117,7 +117,7 @@ function _resolveImageSrc(src: string | undefined): string {
           <NuxtLink
             v-if="item.cta?.url"
             :to="localePath(stripGeinsPrefix(item.cta.url))"
-            class="bg-primary text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
+            class="bg-button-background text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
           >
             {{ item.cta.text }}
           </NuxtLink>
@@ -212,7 +212,7 @@ function _resolveImageSrc(src: string | undefined): string {
         <NuxtLink
           v-if="banner.cta?.url"
           :to="localePath(stripGeinsPrefix(banner.cta.url))"
-          class="bg-primary text-primary-foreground mt-3 inline-block self-start rounded-md px-4 py-2 text-sm font-medium"
+          class="bg-button-background text-primary-foreground mt-3 inline-block self-start rounded-md px-4 py-2 text-sm font-medium"
         >
           {{ banner.cta.text }}
         </NuxtLink>

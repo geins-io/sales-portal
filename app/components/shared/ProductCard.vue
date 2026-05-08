@@ -48,7 +48,7 @@ function isLegacyProduct(p: ProductCardProp): p is ListProduct | DetailProduct {
 const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
 const { hasFeature, isCatalogMode } = useTenant();
-const { showPrice: showPriceForLegacy } = usePriceVisibility();
+const { showPrice: priceVisibilityEnabled } = usePriceVisibility();
 
 const productAlias = computed<string | null>(() => {
   if (isLegacyProduct(props.product)) return props.product.alias ?? null;
@@ -67,9 +67,11 @@ function openListPicker() {
   showListPicker.value = true;
 }
 
+// Legacy ListProduct/DetailProduct shapes need the composable's visibility check.
+// New ProductCardItem shapes always have explicit prices and bypass the check.
 const showPrice = computed(() => {
   if (!isLegacyProduct(props.product)) return true;
-  return showPriceForLegacy.value;
+  return priceVisibilityEnabled.value;
 });
 
 const firstImage = computed(() => {

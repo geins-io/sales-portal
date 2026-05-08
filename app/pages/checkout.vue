@@ -73,7 +73,11 @@ if (isCompanyUser.value && companyData.value) {
 // useFetch resolves, briefly showing the wrong UI.
 const tenantData = useTenant();
 await tenantData.suspense();
-const { checkoutMode } = tenantData;
+const { checkoutMode, isCatalogMode } = tenantData;
+
+if (isCatalogMode.value) {
+  await navigateTo(localePath('/'), { replace: true });
+}
 
 useHead({
   title: computed(() => t('checkout.title')),

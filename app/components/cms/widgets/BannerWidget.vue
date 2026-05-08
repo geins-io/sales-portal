@@ -120,7 +120,7 @@ const textColorClass = computed(() => {
         </p>
         <span
           v-if="data.buttonText"
-          class="bg-primary text-primary-foreground mt-4 inline-block rounded-md px-6 py-2.5 font-medium"
+          class="bg-button-background text-primary-foreground mt-4 inline-block rounded-md px-6 py-2.5 font-medium"
         >
           {{ data.buttonText }}
         </span>
@@ -145,7 +145,7 @@ const textColorClass = computed(() => {
       </p>
       <span
         v-if="data.buttonText"
-        class="bg-primary text-primary-foreground mt-2 inline-block self-start rounded-md px-6 py-2 font-medium"
+        class="bg-button-background text-primary-foreground mt-2 inline-block self-start rounded-md px-6 py-2 font-medium"
       >
         {{ data.buttonText }}
       </span>
