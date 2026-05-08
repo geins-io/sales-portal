@@ -160,7 +160,7 @@ const { showStock } = useStockVisibility();
 </template>
 ```
 
-Never add a raw `hasFeature('pricing')` check in a new component — always go through the composable so the logic stays in one place.
+Never add a raw `hasFeature('priceVisibility')` check in a new component — always go through the composable so the logic stays in one place. The composable correctly handles the three states: feature absent (fail-open), feature present but disabled, and feature enabled with access control.
 
 ### Catalog mode
 
