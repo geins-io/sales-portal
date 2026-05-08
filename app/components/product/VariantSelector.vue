@@ -170,6 +170,8 @@ const activeDimension = computed(
       (d) => d.dimensionName === openDimension.value,
     ) ?? null,
 );
+
+const { showStock } = useStockVisibility();
 </script>
 
 <template>
@@ -299,6 +301,7 @@ const activeDimension = computed(
                     }}
                   </div>
                   <div
+                    v-if="showStock"
                     class="mt-1 flex items-center gap-1 text-xs"
                     :class="
                       isValueAvailable(activeDimension.dimensionName, value)
