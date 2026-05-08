@@ -172,6 +172,7 @@ const activeDimension = computed(
 );
 
 const { showStock } = useStockVisibility();
+const { showPrice } = usePriceVisibility();
 </script>
 
 <template>
@@ -327,9 +328,9 @@ const { showStock } = useStockVisibility();
 
                 <!-- Price column: product-level price applies to every
                      variant. Hide entirely when no formatted price is
-                     available so the row stays clean. -->
+                     available or pricing feature is disabled. -->
                 <span
-                  v-if="priceFormatted"
+                  v-if="showPrice && priceFormatted"
                   class="shrink-0 text-sm font-medium"
                 >
                   {{ priceFormatted }}

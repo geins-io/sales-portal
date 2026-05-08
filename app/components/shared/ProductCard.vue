@@ -48,7 +48,7 @@ function isLegacyProduct(p: ProductCardProp): p is ListProduct | DetailProduct {
 const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
 const { hasFeature, isCatalogMode } = useTenant();
-const { canAccess } = useFeatureAccess();
+const { showPrice: showPriceForLegacy } = usePriceVisibility();
 
 const productAlias = computed<string | null>(() => {
   if (isLegacyProduct(props.product)) return props.product.alias ?? null;
@@ -69,8 +69,7 @@ function openListPicker() {
 
 const showPrice = computed(() => {
   if (!isLegacyProduct(props.product)) return true;
-  if (!hasFeature('pricing')) return true;
-  return canAccess('pricing');
+  return showPriceForLegacy.value;
 });
 
 const firstImage = computed(() => {
