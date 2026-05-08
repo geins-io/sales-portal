@@ -1,10 +1,9 @@
 export function useStockVisibility() {
-  const { features, hasFeature } = useTenant();
+  const { hasFeature } = useTenant();
   const { canAccess } = useFeatureAccess();
 
   const showStock = computed(() => {
-    if (!features.value?.stockStatus) return true;
-    if (!hasFeature('stockStatus')) return false;
+    if (!hasFeature('stockStatus')) return true;
     return canAccess('stockStatus');
   });
 
