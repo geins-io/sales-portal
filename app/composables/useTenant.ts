@@ -25,6 +25,7 @@ export function useTenant() {
   const features = computed(() => tenant.value?.features ?? undefined);
   const contact = computed(() => tenant.value?.contact ?? null);
   const mode = computed(() => tenant.value?.mode ?? 'commerce');
+  const isCatalogMode = computed(() => mode.value === 'catalog');
   const checkoutMode = computed(() => tenant.value?.checkoutMode ?? 'custom');
   const watermark = computed(() => tenant.value?.branding?.watermark ?? 'full');
 
@@ -99,6 +100,7 @@ export function useTenant() {
     ogImageUrl,
     brandName,
     mode,
+    isCatalogMode,
     checkoutMode,
     watermark,
     availableLocales,

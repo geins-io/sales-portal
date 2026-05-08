@@ -7,6 +7,7 @@ import { useCartStore } from '~/stores/cart';
 const appStore = useAppStore();
 const cartStore = useCartStore();
 const { localePath } = useLocaleMarket();
+const { isCatalogMode } = useTenant();
 </script>
 
 <template>
@@ -22,6 +23,7 @@ const { localePath } = useLocaleMarket();
 
     <!-- Cart -->
     <Button
+      v-if="!isCatalogMode"
       variant="ghost"
       data-slot="cart-button"
       class="gap-1.5"

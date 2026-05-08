@@ -73,7 +73,7 @@ const maxQuantity = computed(() => {
 
 const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
-const { hasFeature } = useTenant();
+const { hasFeature, isCatalogMode } = useTenant();
 const { localePath } = useLocaleMarket();
 const { canAccess } = useFeatureAccess();
 
@@ -396,7 +396,7 @@ useSchemaOrg([
       <aside class="flex flex-col gap-4">
         <!-- Quantity + Add to cart + Wishlist -->
         <div
-          v-if="showPrice"
+          v-if="showPrice && !isCatalogMode"
           class="flex items-center gap-2"
           data-testid="pdp-actions"
         >

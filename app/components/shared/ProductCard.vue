@@ -47,7 +47,7 @@ function isLegacyProduct(p: ProductCardProp): p is ListProduct | DetailProduct {
 
 const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
-const { hasFeature } = useTenant();
+const { hasFeature, isCatalogMode } = useTenant();
 const { canAccess } = useFeatureAccess();
 
 const productAlias = computed<string | null>(() => {
@@ -290,7 +290,10 @@ async function addToCart() {
       </div>
 
       <!-- Quantity + Add to cart (Figma: both 36px tall, gap 12) -->
-      <div v-if="showPrice" class="mt-auto flex items-center gap-3 pt-3">
+      <div
+        v-if="showPrice && !isCatalogMode"
+        class="mt-auto flex items-center gap-3 pt-3"
+      >
         <!-- Legacy: QuantityInput -->
         <QuantityInput
           v-if="isLegacyProduct(product)"
@@ -435,7 +438,7 @@ async function addToCart() {
       />
 
       <!-- Actions: qty + cart + wishlist -->
-      <template v-if="showPrice">
+      <template v-if="showPrice && !isCatalogMode">
         <div class="flex shrink-0 items-center gap-2">
           <QuantityInput
             v-if="isLegacyProduct(product)"
