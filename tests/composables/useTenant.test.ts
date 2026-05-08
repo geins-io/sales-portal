@@ -191,6 +191,32 @@ describe('useTenant', () => {
     });
   });
 
+  describe('isCatalogMode', () => {
+    it('should be false when mode is commerce', () => {
+      mockData.value = createMockTenantConfig({ mode: 'commerce' });
+
+      const { isCatalogMode } = useTenant();
+
+      expect(isCatalogMode.value).toBe(false);
+    });
+
+    it('should be true when mode is catalog', () => {
+      mockData.value = createMockTenantConfig({ mode: 'catalog' });
+
+      const { isCatalogMode } = useTenant();
+
+      expect(isCatalogMode.value).toBe(true);
+    });
+
+    it('should be false when tenant data is null', () => {
+      mockData.value = null;
+
+      const { isCatalogMode } = useTenant();
+
+      expect(isCatalogMode.value).toBe(false);
+    });
+  });
+
   describe('checkoutMode', () => {
     it('should return checkoutMode from config', () => {
       mockData.value = createMockTenantConfig({ checkoutMode: 'hosted' });

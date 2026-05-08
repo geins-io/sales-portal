@@ -26,13 +26,8 @@ const props = withDefaults(
 
 const { t } = useI18n();
 
-const { tenant, hasFeature } = useTenant();
-const { canAccess } = useFeatureAccess();
-
-const showPrice = computed(() => {
-  if (!hasFeature('pricing')) return true;
-  return canAccess('pricing');
-});
+const { tenant } = useTenant();
+const { showPrice } = usePriceVisibility();
 
 const sellingPrice = computed(() => {
   if (!props.price) return '';

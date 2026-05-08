@@ -12,13 +12,7 @@ const props = withDefaults(
 );
 
 const { t } = useI18n();
-const { hasFeature } = useTenant();
-const { canAccess } = useFeatureAccess();
-
-const showStock = computed(() => {
-  if (!hasFeature('stock')) return true;
-  return canAccess('stock');
-});
+const { showStock } = useStockVisibility();
 
 const status = computed<StockStatus | null>(() => {
   if (!props.stock) return null;

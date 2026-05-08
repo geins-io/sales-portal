@@ -43,6 +43,7 @@ vi.mock('../../../app/composables/useTenant', () => ({
   useTenant: () => ({
     tenant: ref({ locale: 'en' }),
     checkoutMode: ref('custom'),
+    isCatalogMode: computed(() => false),
     hasFeature: vi.fn(() => true),
     suspense: vi.fn().mockResolvedValue(undefined),
     tenantId: computed(() => 'test-tenant'),

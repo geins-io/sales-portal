@@ -23,6 +23,7 @@ function onQuantityUpdate(value: number) {
 }
 
 const { localePath } = useLocaleMarket();
+const { showPrice } = usePriceVisibility();
 const productUrl = computed(() =>
   props.item.product?.canonicalUrl
     ? localePath(productPath(props.item.product.canonicalUrl))
@@ -143,20 +144,22 @@ const maxQuantity = computed(() => {
       <div class="flex-1" />
 
       <!-- Unit price with "à" prefix -->
-      <div class="text-muted-foreground shrink-0 text-sm whitespace-nowrap">
-        <span v-if="item.unitPrice">
+      <div
+        v-if="showPrice && item.unitPrice"
+        class="text-muted-foreground shrink-0 text-sm whitespace-nowrap"
+      >
+        <span>
           {{ t('cart.unit_price_prefix') }}
           <PriceDisplay :price="item.unitPrice" class="inline text-sm" />
         </span>
       </div>
 
       <!-- Total price -->
-      <div class="shrink-0 text-right font-semibold whitespace-nowrap">
-        <PriceDisplay
-          v-if="item.totalPrice"
-          :price="item.totalPrice"
-          class="text-sm font-semibold"
-        />
+      <div
+        v-if="showPrice && item.totalPrice"
+        class="shrink-0 text-right font-semibold whitespace-nowrap"
+      >
+        <PriceDisplay :price="item.totalPrice" class="text-sm font-semibold" />
       </div>
     </div>
   </div>

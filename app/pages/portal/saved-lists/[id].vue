@@ -42,6 +42,7 @@ const { t } = useI18n();
 const route = useRoute();
 const { localePath } = useLocaleMarket();
 const router = useRouter();
+const { isCatalogMode } = useTenant();
 
 const favoritesStore = useFavoritesStore();
 const cartStore = useCartStore();
@@ -228,7 +229,7 @@ function confirmDelete() {
             {{ t('portal.saved_list_detail.delete_list') }}
           </Button>
           <Button
-            v-if="products.length"
+            v-if="products.length && !isCatalogMode"
             data-testid="add-all-to-cart-btn"
             :disabled="isAddingAll"
             @click="addAllToCart"

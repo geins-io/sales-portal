@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import ProductCard from '../../../app/components/shared/ProductCard.vue';
 import { useTenant } from '../../../app/composables/useTenant';
+import { mockIsCatalogMode } from '../../setup-components';
 
-// useTenant mock is provided by setup-components.ts — access tenant ref to control features
+// useTenant is mocked globally in setup-components.ts.
+// Access the tenant ref to mutate features in individual tests.
 const { tenant } = useTenant();
 
 const mockCanAccess = vi.fn(() => true);
@@ -441,6 +443,34 @@ describe('ProductCard', () => {
       });
       expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
         true,
+      );
+    });
+  });
+
+  describe('catalog mode', () => {
+    afterEach(() => {
+      mockIsCatalogMode.value = false;
+    });
+
+    it('hides add-to-cart button in grid variant when catalog mode is active', () => {
+      mockIsCatalogMode.value = true;
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('hides add-to-cart button in list variant when catalog mode is active', () => {
+      mockIsCatalogMode.value = true;
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct(), variant: 'list' },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
       );
     });
   });

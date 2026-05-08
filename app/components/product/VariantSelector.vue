@@ -170,6 +170,9 @@ const activeDimension = computed(
       (d) => d.dimensionName === openDimension.value,
     ) ?? null,
 );
+
+const { showStock } = useStockVisibility();
+const { showPrice } = usePriceVisibility();
 </script>
 
 <template>
@@ -299,6 +302,7 @@ const activeDimension = computed(
                     }}
                   </div>
                   <div
+                    v-if="showStock"
                     class="mt-1 flex items-center gap-1 text-xs"
                     :class="
                       isValueAvailable(activeDimension.dimensionName, value)
@@ -324,9 +328,9 @@ const activeDimension = computed(
 
                 <!-- Price column: product-level price applies to every
                      variant. Hide entirely when no formatted price is
-                     available so the row stays clean. -->
+                     available or pricing feature is disabled. -->
                 <span
-                  v-if="priceFormatted"
+                  v-if="showPrice && priceFormatted"
                   class="shrink-0 text-sm font-medium"
                 >
                   {{ priceFormatted }}

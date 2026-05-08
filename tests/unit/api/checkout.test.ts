@@ -32,6 +32,22 @@ vi.mock('../../../server/utils/rate-limiter', () => ({
 
 // Stub Nitro auto-imports
 vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
+vi.stubGlobal(
+  'createError',
+  ({
+    statusCode,
+    statusMessage,
+  }: {
+    statusCode: number;
+    statusMessage?: string;
+  }) => {
+    const err = new Error(statusMessage ?? String(statusCode)) as Error & {
+      statusCode: number;
+    };
+    err.statusCode = statusCode;
+    return err;
+  },
+);
 vi.stubGlobal('createAppError', (code: string, message?: string) => {
   const statusMap: Record<string, number> = {
     NOT_FOUND: 404,
@@ -327,6 +343,67 @@ describe('Checkout API routes', () => {
       });
       await expect(createOrderMod.default(event)).rejects.toMatchObject({
         statusCode: 401,
+      });
+    });
+  });
+
+  // --- Catalog mode guard --------------------------------------------------
+  describe('catalog mode guard', () => {
+    function catalogModeEvent(
+      overrides: {
+        query?: Record<string, unknown>;
+        body?: Record<string, unknown>;
+      } = {},
+    ) {
+      return {
+        context: {
+          tenant: { hostname: 'test.com', config: { mode: 'catalog' } },
+        },
+        __query: overrides.query,
+        __body: overrides.body,
+        node: { req: { socket: { remoteAddress: '127.0.0.1' } } },
+      } as unknown as import('h3').H3Event;
+    }
+
+    it('POST /api/checkout/token returns 403 in catalog mode', async () => {
+      const mod = await import('../../../server/api/checkout/token.post');
+      const event = catalogModeEvent({ body: { cartId: 'cart-1' } });
+      await expect(mod.default(event)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+    });
+
+    it('POST /api/checkout/validate returns 403 in catalog mode', async () => {
+      const mod = await import('../../../server/api/checkout/validate.post');
+      const event = catalogModeEvent({
+        body: { cartId: 'cart-1', email: 'a@b.com' },
+      });
+      await expect(mod.default(event)).rejects.toMatchObject({
+        statusCode: 403,
+      });
+    });
+
+    it('POST /api/checkout/create-order returns 403 in catalog mode', async () => {
+      const mod =
+        await import('../../../server/api/checkout/create-order.post');
+      const event = catalogModeEvent({
+        body: {
+          cartId: 'cart-1',
+          paymentId: 1,
+          shippingId: 2,
+          email: 'a@b.com',
+          billingAddress: {
+            firstName: 'A',
+            lastName: 'B',
+            addressLine1: '1 St',
+            city: 'Stockholm',
+            country: 'SE',
+            zip: '11122',
+          },
+        },
+      });
+      await expect(mod.default(event)).rejects.toMatchObject({
+        statusCode: 403,
       });
     });
   });

@@ -15,6 +15,10 @@ vi.stubGlobal('useI18n', () => ({
   locale: ref('en'),
 }));
 
+vi.mock('~/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: ref(true) }),
+}));
+
 const stubs = {
   Separator: {
     template: '<hr />',

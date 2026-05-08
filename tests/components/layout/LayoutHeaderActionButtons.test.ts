@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import LayoutHeaderActionButtons from '../../../app/components/layout/header/LayoutHeaderActionButtons.vue';
+import { mockIsCatalogMode } from '../../setup-components';
+
+// useTenant is mocked globally in setup-components.ts.
+// Use mockIsCatalogMode to toggle catalog mode in individual tests.
 
 describe('LayoutHeaderActionButtons', () => {
   it('renders cart button', () => {
@@ -22,5 +26,15 @@ describe('LayoutHeaderActionButtons', () => {
   it('renders hamburger button on mobile', () => {
     const wrapper = mountComponent(LayoutHeaderActionButtons);
     expect(wrapper.find('[data-slot="menu-toggle"]').exists()).toBe(true);
+  });
+
+  it('does not render cart button when catalog mode is active', () => {
+    mockIsCatalogMode.value = true;
+    const wrapper = mountComponent(LayoutHeaderActionButtons);
+    expect(wrapper.find('[data-slot="cart-button"]').exists()).toBe(false);
+  });
+
+  afterEach(() => {
+    mockIsCatalogMode.value = false;
   });
 });

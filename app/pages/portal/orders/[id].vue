@@ -11,6 +11,7 @@ const { t } = useI18n();
 const route = useRoute();
 const { localePath } = useLocaleMarket();
 const cartStore = useCartStore();
+const { isCatalogMode } = useTenant();
 
 const isReordering = ref(false);
 
@@ -143,6 +144,7 @@ function formatDate(iso?: string): string {
             {{ t('portal.orders.detail.actions.order_communication') }}
           </Button>
           <Button
+            v-if="!isCatalogMode"
             data-testid="reorder-button"
             :disabled="isReordering"
             @click="handleReorder"

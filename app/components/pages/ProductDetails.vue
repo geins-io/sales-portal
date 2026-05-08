@@ -73,9 +73,9 @@ const maxQuantity = computed(() => {
 
 const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
-const { hasFeature } = useTenant();
+const { hasFeature, isCatalogMode } = useTenant();
 const { localePath } = useLocaleMarket();
-const { canAccess } = useFeatureAccess();
+const { showPrice } = usePriceVisibility();
 
 const isFavorited = computed(() =>
   product.value ? favoritesStore.isFavorite(product.value.alias) : false,
@@ -96,11 +96,6 @@ function toggleFavourite() {
 function printDataSheet() {
   if (import.meta.client) window.print();
 }
-
-const showPrice = computed(() => {
-  if (!hasFeature('pricing')) return true;
-  return canAccess('pricing');
-});
 
 // Plain-text variants of CMS-authored copy. Text 1 lands under the price
 // and Text 3 under the product details block; both fields may contain
@@ -396,7 +391,7 @@ useSchemaOrg([
       <aside class="flex flex-col gap-4">
         <!-- Quantity + Add to cart + Wishlist -->
         <div
-          v-if="showPrice"
+          v-if="showPrice && !isCatalogMode"
           class="flex items-center gap-2"
           data-testid="pdp-actions"
         >

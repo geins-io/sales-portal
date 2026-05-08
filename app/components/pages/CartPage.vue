@@ -8,6 +8,7 @@ const cartStore = useCartStore();
 const router = useRouter();
 const { tenant } = useTenant();
 const { localePath } = useLocaleMarket();
+const { showPrice } = usePriceVisibility();
 
 // Fetch cart on mount if we have a cartId but no cart data
 onMounted(() => {
@@ -119,7 +120,7 @@ function goToCheckout() {
               {{ $t('cart.order_summary') }}
             </h2>
 
-            <div class="space-y-3">
+            <div v-if="showPrice" class="space-y-3">
               <!-- Subtotal -->
               <div class="flex items-center justify-between text-sm">
                 <span class="text-muted-foreground">
@@ -190,7 +191,10 @@ function goToCheckout() {
             <div class="border-border border-t" />
 
             <!-- Total -->
-            <div class="flex items-center justify-between font-semibold">
+            <div
+              v-if="showPrice"
+              class="flex items-center justify-between font-semibold"
+            >
               <span>{{ $t('cart.total') }}</span>
               <span data-testid="cart-summary-total">
                 {{

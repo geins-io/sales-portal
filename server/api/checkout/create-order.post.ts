@@ -5,6 +5,13 @@ import { requireAuth } from '../../utils/auth';
 import { createOrderRateLimiter, getClientIp } from '../../utils/rate-limiter';
 
 export default defineEventHandler(async (event) => {
+  if (event.context.tenant?.config?.mode === 'catalog') {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Not available in catalogue mode',
+    });
+  }
+
   await requireAuth(event);
 
   const ip = getClientIp(event);

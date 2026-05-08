@@ -144,6 +144,58 @@ export default defineEventHandler(async (event) => {
 | `{ accountType: 'ent' }` | Not yet available in Geins API (safe deny) |
 | _(no access field)_      | Defaults to `'all'`                        |
 
+### Price and stock visibility
+
+Use the pre-built composables instead of calling `hasFeature`/`canAccess` inline. Both are fail-open: if the feature key is absent from tenant config, the content is shown.
+
+```vue
+<script setup>
+const { showPrice } = usePriceVisibility();
+const { showStock } = useStockVisibility();
+</script>
+
+<template>
+  <PriceDisplay v-if="showPrice" :price="product.price" />
+  <StockBadge v-if="showStock" :status="product.stock" />
+</template>
+```
+
+Never add a raw `hasFeature('pricing')` check in a new component — always go through the composable so the logic stays in one place.
+
+### Catalog mode
+
+`isCatalogMode` from `useTenant()` hides all commerce UI when a tenant runs in browse-only mode.
+
+```vue
+<script setup>
+const { isCatalogMode } = useTenant();
+</script>
+
+<template>
+  <AddToCartButton v-if="!isCatalogMode" />
+</template>
+```
+
+Pages that serve no purpose in catalog mode (cart, checkout) redirect at setup time:
+
+```typescript
+const { isCatalogMode } = useTenant();
+if (isCatalogMode.value) {
+  await navigateTo(localePath('/'), { replace: true });
+}
+```
+
+Server routes that mutate cart/checkout state throw 403 in catalog mode:
+
+```typescript
+if (event.context.tenant?.config?.mode === 'catalog') {
+  throw createError({
+    statusCode: 403,
+    statusMessage: 'Not available in catalogue mode',
+  });
+}
+```
+
 ## Forms
 
 ### Debounced Search
