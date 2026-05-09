@@ -32,13 +32,21 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
 
 <template>
   <Card data-testid="checkout-delivery-info">
-    <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
+    <CardHeader
+      class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+    >
       <MapPin class="text-muted-foreground size-5" />
       <CardTitle class="text-lg">{{ t('checkout.delivery_info') }}</CardTitle>
     </CardHeader>
     <CardContent class="px-6">
       <div v-if="deliveryAddress" data-testid="delivery-address">
-        <div class="space-y-0.5 text-sm">
+        <p
+          class="text-foreground mb-1 text-xs font-medium tracking-wide uppercase"
+          data-testid="delivery-address-label"
+        >
+          {{ t('checkout.delivery_address') }}
+        </p>
+        <div class="text-muted-foreground space-y-0.5 text-sm">
           <p>
             {{
               [deliveryAddress.firstName, deliveryAddress.lastName]
