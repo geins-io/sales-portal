@@ -84,7 +84,6 @@ export const useCheckoutStore = defineStore('checkout', () => {
     if (!email.value) return false;
     if (!isAddressComplete.value) return false;
     if (!selectedPaymentId.value) return false;
-    if (!selectedShippingId.value) return false;
     return true;
   });
   const canRequestQuote = computed(() => {

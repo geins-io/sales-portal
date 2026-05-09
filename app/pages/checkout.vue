@@ -63,11 +63,6 @@ const companyData = computed<Company | null>(
   () => companyFetchData.value?.company ?? null,
 );
 
-// Pre-fill checkout store from company data once available
-if (isCompanyUser.value && companyData.value) {
-  checkoutStore.prefillFromCompany(companyData.value);
-}
-
 // Await tenant data before rendering — prevents flash of custom form when in hosted mode.
 // Without this, checkoutMode defaults to 'custom' during client-side navigation while
 // useFetch resolves, briefly showing the wrong UI.
@@ -88,6 +83,16 @@ useHead({
 const cartIdCookie = useCookie<string | null>(COOKIE_NAMES.CART_ID);
 if (!cartIdCookie.value) {
   await navigateTo(localePath('/cart'), { replace: true });
+}
+
+// Load checkout data: payment options, shipping options, consents
+if (cartIdCookie.value) {
+  await checkoutStore.fetchCheckout(cartIdCookie.value);
+}
+
+// Prefill from company after checkout loads so company data takes priority
+if (isCompanyUser.value && companyData.value) {
+  checkoutStore.prefillFromCompany(companyData.value);
 }
 
 // Cart summary computeds (read from cart store — do NOT duplicate)
