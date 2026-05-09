@@ -41,7 +41,9 @@ function handleRemove(item: CartItemType) {
 
 <template>
   <Card v-if="props.items.length" data-testid="checkout-cart-items">
-    <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
+    <CardHeader
+      class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+    >
       <ShoppingCart class="text-muted-foreground size-5" />
       <CardTitle class="text-lg">{{ t('checkout.cart_items') }}</CardTitle>
     </CardHeader>
@@ -74,7 +76,7 @@ function handleRemove(item: CartItemType) {
             </div>
           </div>
 
-          <!-- Info -->
+          <!-- Info: name, SKU, and quantity stepper stacked -->
           <div class="min-w-0 flex-1">
             <span class="text-sm font-medium">
               {{ item.product?.name ?? item.title ?? '' }}
@@ -91,36 +93,18 @@ function handleRemove(item: CartItemType) {
                 {{ getSkuName(item) }}
               </template>
             </p>
-          </div>
-
-          <!-- Quantity: editable or read-only -->
-          <template v-if="props.isEditable">
-            <div class="flex shrink-0 items-center gap-2">
+            <div class="mt-2">
               <QuantityStepper
                 :model-value="item.quantity ?? 1"
                 :min="1"
+                :disabled="!props.isEditable"
                 data-testid="checkout-quantity-stepper"
                 @update:model-value="handleQuantityUpdate(item, $event)"
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                :aria-label="t('checkout.remove_item')"
-                data-testid="checkout-remove-item"
-                @click="handleRemove(item)"
-              >
-                <Icon name="lucide:trash-2" class="size-4" />
-              </Button>
             </div>
-          </template>
-          <template v-else>
-            <span class="text-muted-foreground shrink-0 text-sm">
-              x {{ item.quantity ?? 0 }}
-            </span>
-          </template>
+          </div>
 
-          <!-- Price: row total on top, unit price below -->
+          <!-- Price and trash: right column -->
           <div class="shrink-0 text-right whitespace-nowrap">
             <PriceDisplay
               v-if="item.totalPrice"
@@ -135,6 +119,17 @@ function handleRemove(item: CartItemType) {
               <PriceDisplay :price="item.unitPrice" class="text-xs" />
               {{ t('checkout.per_unit') }}
             </p>
+            <Button
+              v-if="props.isEditable"
+              type="button"
+              variant="ghost"
+              size="icon"
+              :aria-label="t('checkout.remove_item')"
+              data-testid="checkout-remove-item"
+              @click="handleRemove(item)"
+            >
+              <Icon name="lucide:trash-2" class="size-4" />
+            </Button>
           </div>
         </div>
       </div>

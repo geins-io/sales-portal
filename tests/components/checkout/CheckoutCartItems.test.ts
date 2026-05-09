@@ -26,8 +26,8 @@ const stubs = {
   },
   QuantityStepper: {
     template:
-      '<div data-testid="checkout-quantity-stepper"><button data-testid="qty-decrement" @click="$emit(\'update:modelValue\', modelValue - 1)" /><span data-testid="qty-value">{{ modelValue }}</span><button data-testid="qty-increment" @click="$emit(\'update:modelValue\', modelValue + 1)" /></div>',
-    props: ['modelValue', 'min'],
+      '<div data-testid="checkout-quantity-stepper" :data-disabled="disabled"><button data-testid="qty-decrement" :disabled="disabled" @click="$emit(\'update:modelValue\', modelValue - 1)" /><span data-testid="qty-value">{{ modelValue }}</span><button data-testid="qty-increment" :disabled="disabled" @click="$emit(\'update:modelValue\', modelValue + 1)" /></div>',
+    props: ['modelValue', 'min', 'disabled'],
     emits: ['update:modelValue'],
   },
   Card: {
@@ -203,15 +203,13 @@ describe('CheckoutCartItems', () => {
     expect(wrapper.text()).toContain('Size M');
   });
 
-  // C2: isEditable=false shows read-only quantity display
-  it('(isEditable=false) shows "x N" quantity and no QuantityStepper or remove button', () => {
+  // C2: isEditable=false shows disabled stepper, no trash button, no "x qty" text
+  it('(isEditable=false) shows disabled QuantityStepper and no remove button', () => {
     const wrapper = mountItems([createItem({ quantity: 3 })], {
       isEditable: false,
     });
-    expect(wrapper.text()).toContain('x 3');
-    expect(
-      wrapper.find('[data-testid="checkout-quantity-stepper"]').exists(),
-    ).toBe(false);
+    const stepper = wrapper.find('[data-testid="checkout-quantity-stepper"]');
+    expect(stepper.exists()).toBe(true);
     expect(wrapper.find('[data-testid="checkout-remove-item"]').exists()).toBe(
       false,
     );
