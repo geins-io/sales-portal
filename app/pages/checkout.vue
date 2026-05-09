@@ -249,11 +249,12 @@ async function handlePlaceOrder() {
             <CheckoutCompanyInfo
               v-if="isCompanyUser && companyData"
               :company="companyData"
+              :buyer-email="authStore.user?.username ?? undefined"
               @change-company-details="() => {}"
             />
             <Card v-else>
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <Mail class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{ t('checkout.email') }}</CardTitle>
@@ -287,18 +288,10 @@ async function handlePlaceOrder() {
               </CardContent>
             </Card>
 
-            <!-- Invoice Information -->
-            <CheckoutInvoiceInfo
-              :po-number="checkoutStore.poNumber"
-              :currency="cartStore.cart?.summary?.total?.currency?.code ?? null"
-              :payment-terms="null"
-              @update:po-number="checkoutStore.poNumber = $event"
-            />
-
             <!-- Billing Address: hidden for company users (included in company card) -->
             <Card v-if="!isCompanyUser">
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <MapPin class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -325,7 +318,7 @@ async function handlePlaceOrder() {
             />
             <Card v-else-if="!isCompanyUser">
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <Truck class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -362,7 +355,7 @@ async function handlePlaceOrder() {
             <!-- Payment Method -->
             <Card>
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <CreditCard class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -379,32 +372,10 @@ async function handlePlaceOrder() {
               </CardContent>
             </Card>
 
-            <!-- Shipping Method -->
-            <Card>
-              <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
-              >
-                <Truck class="text-muted-foreground size-5" />
-                <CardTitle class="text-lg">{{
-                  t('checkout.shipping_method')
-                }}</CardTitle>
-              </CardHeader>
-              <CardContent class="px-6">
-                <CheckoutShippingOptions
-                  :options="checkoutStore.shippingOptions"
-                  :model-value="checkoutStore.selectedShippingId"
-                  :disabled="checkoutStore.isPlacingOrder"
-                  @update:model-value="
-                    checkoutStore.selectedShippingId = $event
-                  "
-                />
-              </CardContent>
-            </Card>
-
             <!-- Order Message -->
             <Card>
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <MessageSquare class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -431,7 +402,7 @@ async function handlePlaceOrder() {
             <!-- Consents -->
             <Card>
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <FileCheck class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
