@@ -4,11 +4,11 @@ import { shallowMountComponent } from '../../utils/component';
 import LayoutHeaderMain from '../../../app/components/layout/header/LayoutHeaderMain.vue';
 
 describe('LayoutHeaderMain', () => {
-  it('paints bg-nav-bar-background on the wrapper', () => {
+  it('paints bg-background on the wrapper (nav-bar-background belongs on the nav only)', () => {
     const wrapper = shallowMountComponent(LayoutHeaderMain);
     const root = wrapper.find('div');
-    expect(root.classes()).toContain('bg-nav-bar-background');
-    expect(root.classes()).not.toContain('bg-background');
+    expect(root.classes()).toContain('bg-background');
+    expect(root.classes()).not.toContain('bg-nav-bar-background');
   });
 
   it('renders the brand logo', () => {

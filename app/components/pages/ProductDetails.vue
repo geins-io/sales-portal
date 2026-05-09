@@ -7,6 +7,7 @@ import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import { AlertTriangle as AlertTriangleIcon, Star } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
+import { useAuthStore } from '~/stores/auth';
 
 const props = defineProps<{
   alias: string;
@@ -73,6 +74,7 @@ const maxQuantity = computed(() => {
 
 const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
+const authStore = useAuthStore();
 const { hasFeature, isCatalogMode } = useTenant();
 const { localePath } = useLocaleMarket();
 const { showPrice } = usePriceVisibility();
@@ -269,7 +271,7 @@ useSchemaOrg([
          md:  gallery + info on first row, right card below
          mobile: stacked single column -->
     <div
-      class="grid gap-6 rounded-lg border p-4 md:p-6 lg:grid-cols-[400px_1fr_280px] lg:gap-9"
+      class="bg-card grid gap-6 rounded-lg border p-4 md:p-6 lg:grid-cols-[400px_1fr_280px] lg:gap-9"
       data-testid="pdp-top-area"
     >
       <!-- Left: Gallery -->
@@ -373,7 +375,9 @@ useSchemaOrg([
              art-nr, stock and price (price is product-level so it's the
              same on every row). -->
         <VariantSelector
-          v-if="product.variantDimensions?.length"
+          v-if="
+            product.variantDimensions?.length && (product.skus?.length ?? 0) > 1
+          "
           v-model="selectedVariants"
           :variant-dimensions="product.variantDimensions"
           :variants="product.variantGroup?.variants ?? []"
@@ -411,7 +415,7 @@ useSchemaOrg([
             {{ $t('product.add_to_cart') }}
           </Button>
           <Button
-            v-if="hasFeature('wishlist')"
+            v-if="hasFeature('wishlist') && authStore.isAuthenticated"
             variant="ghost"
             size="icon-sm"
             :data-favorited="isFavorited"
@@ -444,7 +448,7 @@ useSchemaOrg([
             <span>{{ $t('product.download_data_sheet') }}</span>
           </button>
           <button
-            v-if="hasFeature('wishlist')"
+            v-if="hasFeature('wishlist') && authStore.isAuthenticated"
             type="button"
             class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-3 text-left text-sm transition-colors"
             data-testid="pdp-save-favourite"
@@ -460,6 +464,7 @@ useSchemaOrg([
             </span>
           </button>
           <button
+            v-if="authStore.isAuthenticated"
             type="button"
             class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-3 text-left text-sm transition-colors"
             data-testid="pdp-add-to-lists"

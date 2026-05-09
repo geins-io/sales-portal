@@ -10,7 +10,7 @@ defineProps<{
 
 <template>
   <div
-    class="border-border flex flex-col rounded-lg border p-6"
+    class="border-border bg-card flex flex-col rounded-lg border p-6"
     data-testid="portal-stat-card"
   >
     <!-- Top row: label (left) + small icon (top-right) per Figma -->

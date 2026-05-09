@@ -118,7 +118,7 @@ export function deriveThemeColors(colors: ThemeColors): FullThemeColors {
     foreground: colors.foreground,
 
     // Derived with fallbacks
-    card: pick(colors.card, colors.background),
+    card: pick(colors.card, 'oklch(1 0 0)'),
     cardForeground: pick(colors.cardForeground, colors.foreground),
     popover: pick(colors.popover, colors.background),
     popoverForeground: pick(colors.popoverForeground, colors.foreground),

@@ -40,7 +40,7 @@ describe('LayoutFooter root', () => {
     expect(inner.exists()).toBe(true);
     expect(inner.classes()).toContain('bg-footer-background');
     expect(inner.classes()).not.toContain('bg-neutral-900');
-    expect(inner.classes()).toContain('text-white');
+    expect(inner.classes()).toContain('text-footer-text');
   });
 });
 
