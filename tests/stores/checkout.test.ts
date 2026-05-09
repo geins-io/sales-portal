@@ -506,13 +506,14 @@ describe('useCheckoutStore', () => {
       expect(store.canPlaceOrder).toBe(false);
     });
 
-    it('is false when no shipping selected', () => {
+    it('is true when payment selected but shipping is not (shipping hidden from UI)', () => {
       const store = useCheckoutStore();
       store.email = 'test@example.com';
       store.billingAddress = { ...mockAddress };
       store.selectedPaymentId = 2;
+      // selectedShippingId remains null — shipping card is hidden, auto-selects if options exist
 
-      expect(store.canPlaceOrder).toBe(false);
+      expect(store.canPlaceOrder).toBe(true);
     });
 
     it('is false when isPlacingOrder is true', () => {
@@ -520,7 +521,6 @@ describe('useCheckoutStore', () => {
       store.email = 'test@example.com';
       store.billingAddress = { ...mockAddress };
       store.selectedPaymentId = 2;
-      store.selectedShippingId = 10;
       store.isPlacingOrder = true;
 
       expect(store.canPlaceOrder).toBe(false);
@@ -531,7 +531,6 @@ describe('useCheckoutStore', () => {
       store.email = 'test@example.com';
       store.billingAddress = { ...mockAddress };
       store.selectedPaymentId = 2;
-      store.selectedShippingId = 10;
 
       expect(store.canPlaceOrder).toBe(true);
     });

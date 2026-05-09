@@ -89,6 +89,20 @@ describe('CheckoutDeliveryInfo', () => {
     expect(addrBlock.text()).toContain('+46-70-000-0002');
   });
 
+  it('renders delivery address section label', () => {
+    const company = makeCompany();
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: { company },
+      global: { stubs },
+    });
+    expect(
+      wrapper.find('[data-testid="delivery-address-label"]').exists(),
+    ).toBe(true);
+    expect(wrapper.find('[data-testid="delivery-address-label"]').text()).toBe(
+      'checkout.delivery_address',
+    );
+  });
+
   it('uses first delivery/shipping type address when available', () => {
     const billingAddr = makeAddress({
       addressId: 'addr-billing',

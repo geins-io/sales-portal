@@ -63,11 +63,6 @@ const companyData = computed<Company | null>(
   () => companyFetchData.value?.company ?? null,
 );
 
-// Pre-fill checkout store from company data once available
-if (isCompanyUser.value && companyData.value) {
-  checkoutStore.prefillFromCompany(companyData.value);
-}
-
 // Await tenant data before rendering — prevents flash of custom form when in hosted mode.
 // Without this, checkoutMode defaults to 'custom' during client-side navigation while
 // useFetch resolves, briefly showing the wrong UI.
@@ -88,6 +83,16 @@ useHead({
 const cartIdCookie = useCookie<string | null>(COOKIE_NAMES.CART_ID);
 if (!cartIdCookie.value) {
   await navigateTo(localePath('/cart'), { replace: true });
+}
+
+// Load checkout data: payment options, shipping options, consents
+if (cartIdCookie.value) {
+  await checkoutStore.fetchCheckout(cartIdCookie.value);
+}
+
+// Prefill from company after checkout loads so company data takes priority
+if (isCompanyUser.value && companyData.value) {
+  checkoutStore.prefillFromCompany(companyData.value);
 }
 
 // Cart summary computeds (read from cart store — do NOT duplicate)
@@ -249,11 +254,12 @@ async function handlePlaceOrder() {
             <CheckoutCompanyInfo
               v-if="isCompanyUser && companyData"
               :company="companyData"
+              :buyer-email="authStore.user?.username ?? undefined"
               @change-company-details="() => {}"
             />
             <Card v-else>
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <Mail class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{ t('checkout.email') }}</CardTitle>
@@ -287,18 +293,10 @@ async function handlePlaceOrder() {
               </CardContent>
             </Card>
 
-            <!-- Invoice Information -->
-            <CheckoutInvoiceInfo
-              :po-number="checkoutStore.poNumber"
-              :currency="cartStore.cart?.summary?.total?.currency?.code ?? null"
-              :payment-terms="null"
-              @update:po-number="checkoutStore.poNumber = $event"
-            />
-
             <!-- Billing Address: hidden for company users (included in company card) -->
             <Card v-if="!isCompanyUser">
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <MapPin class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -325,7 +323,7 @@ async function handlePlaceOrder() {
             />
             <Card v-else-if="!isCompanyUser">
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <Truck class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -362,7 +360,7 @@ async function handlePlaceOrder() {
             <!-- Payment Method -->
             <Card>
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <CreditCard class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -379,32 +377,10 @@ async function handlePlaceOrder() {
               </CardContent>
             </Card>
 
-            <!-- Shipping Method -->
-            <Card>
-              <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
-              >
-                <Truck class="text-muted-foreground size-5" />
-                <CardTitle class="text-lg">{{
-                  t('checkout.shipping_method')
-                }}</CardTitle>
-              </CardHeader>
-              <CardContent class="px-6">
-                <CheckoutShippingOptions
-                  :options="checkoutStore.shippingOptions"
-                  :model-value="checkoutStore.selectedShippingId"
-                  :disabled="checkoutStore.isPlacingOrder"
-                  @update:model-value="
-                    checkoutStore.selectedShippingId = $event
-                  "
-                />
-              </CardContent>
-            </Card>
-
             <!-- Order Message -->
             <Card>
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <MessageSquare class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -431,7 +407,7 @@ async function handlePlaceOrder() {
             <!-- Consents -->
             <Card>
               <CardHeader
-                class="flex-row items-center gap-2 space-y-0 px-6 pb-0"
+                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <FileCheck class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{

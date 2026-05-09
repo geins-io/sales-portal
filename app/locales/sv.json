@@ -180,7 +180,8 @@
     "vat_number": "Organisationsnummer",
     "company_name": "Foretag",
     "buyer": "Köpare",
-    "per_unit": "/ st"
+    "per_unit": "/ st",
+    "delivery_address": "Leveransadress"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",

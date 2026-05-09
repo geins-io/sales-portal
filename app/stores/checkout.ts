@@ -84,7 +84,6 @@ export const useCheckoutStore = defineStore('checkout', () => {
     if (!email.value) return false;
     if (!isAddressComplete.value) return false;
     if (!selectedPaymentId.value) return false;
-    if (!selectedShippingId.value) return false;
     return true;
   });
   const canRequestQuote = computed(() => {
@@ -282,7 +281,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
     const deliveryAddr = resolveDeliveryAddress(company, billingAddr);
 
     const authStore = useAuthStore();
-    email.value = billingAddr?.email ?? authStore.user?.username ?? '';
+    email.value = authStore.user?.username ?? billingAddr?.email ?? '';
 
     if (billingAddr) {
       billingAddress.value = companyAddressToInput(billingAddr);

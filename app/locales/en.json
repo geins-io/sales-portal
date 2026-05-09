@@ -180,7 +180,8 @@
     "vat_number": "VAT Number",
     "company_name": "Company",
     "buyer": "Buyer",
-    "per_unit": "/ unit"
+    "per_unit": "/ unit",
+    "delivery_address": "Delivery Address"
   },
   "order_confirmation": {
     "title": "Order Confirmation",

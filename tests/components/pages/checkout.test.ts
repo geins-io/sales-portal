@@ -66,6 +66,8 @@ vi.mock('../../../app/composables/useTenant', () => ({
 // ---------------------------------------------------------------------------
 // Mock stores
 // ---------------------------------------------------------------------------
+const mockFetchCheckout = vi.fn().mockResolvedValue(undefined);
+
 vi.mock('../../../app/stores/checkout', () => ({
   useCheckoutStore: vi.fn(() => ({
     isLoading: false,
@@ -91,6 +93,8 @@ vi.mock('../../../app/stores/checkout', () => ({
     checkout: null,
     placeOrder: vi.fn(),
     toggleConsent: vi.fn(),
+    fetchCheckout: mockFetchCheckout,
+    prefillFromCompany: vi.fn(),
   })),
 }));
 
@@ -209,6 +213,7 @@ describe('checkout page', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     mockCartIdCookie.value = 'cart-test-001';
+    mockFetchCheckout.mockClear();
   });
 
   it('renders checkout page container', async () => {
@@ -228,5 +233,10 @@ describe('checkout page', () => {
     expect(wrapper.find('[data-testid="request-quote-button"]').exists()).toBe(
       false,
     );
+  });
+
+  it('calls fetchCheckout on load when cart cookie is present', async () => {
+    await mountCheckoutPage();
+    expect(mockFetchCheckout).toHaveBeenCalledWith('cart-test-001');
   });
 });
