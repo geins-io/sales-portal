@@ -82,19 +82,10 @@ describe('useCheckoutStore — prefillFromCompany', () => {
     vi.stubGlobal('$fetch', (...args: unknown[]) => mockFetchImpl(...args));
   });
 
-  it('sets email from billing address email', () => {
-    const store = useCheckoutStore();
-    const company = makeCompany();
-
-    store.prefillFromCompany(company);
-
-    expect(store.email).toBe('billing@acme.com');
-  });
-
-  it('falls back to authStore user username when billing address has no email', () => {
+  it('prefers authStore user username over billing address email', () => {
     const authStore = useAuthStore();
     authStore.user = {
-      username: 'user@example.com',
+      username: 'loggedin@example.com',
       firstName: 'Test',
       lastName: 'User',
       customerType: 'PRIVATE',
@@ -103,13 +94,37 @@ describe('useCheckoutStore — prefillFromCompany', () => {
     } as never;
 
     const store = useCheckoutStore();
+    const company = makeCompany();
+
+    store.prefillFromCompany(company);
+
+    expect(store.email).toBe('loggedin@example.com');
+  });
+
+  it('falls back to billing address email when authStore user has no username', () => {
+    const authStore = useAuthStore();
+    authStore.user = null;
+
+    const store = useCheckoutStore();
+    const company = makeCompany();
+
+    store.prefillFromCompany(company);
+
+    expect(store.email).toBe('billing@acme.com');
+  });
+
+  it('falls back to empty string when neither auth user nor billing email available', () => {
+    const authStore = useAuthStore();
+    authStore.user = null;
+
+    const store = useCheckoutStore();
     const company = makeCompany({
       addresses: [makeAddress({ email: null })],
     });
 
     store.prefillFromCompany(company);
 
-    expect(store.email).toBe('user@example.com');
+    expect(store.email).toBe('');
   });
 
   it('maps billingAddress fields from CompanyAddress correctly', () => {

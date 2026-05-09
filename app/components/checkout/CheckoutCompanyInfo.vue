@@ -11,6 +11,7 @@ const { t } = useI18n();
 
 const props = defineProps<{
   company: Company;
+  buyerEmail?: string;
 }>();
 
 const emit = defineEmits<{
@@ -39,7 +40,9 @@ const buyerName = computed(() =>
 
 <template>
   <Card data-testid="checkout-company-info">
-    <CardHeader class="flex-row items-center gap-2 space-y-0 px-6 pb-0">
+    <CardHeader
+      class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+    >
       <Building2 class="text-muted-foreground size-5 shrink-0" />
       <CardTitle class="text-lg">{{
         t('checkout.company_and_billing_info')
@@ -59,19 +62,23 @@ const buyerName = computed(() =>
         <div class="space-y-3">
           <div data-testid="company-name">
             <p
-              class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+              class="text-foreground text-xs font-medium tracking-wide uppercase"
             >
               {{ t('checkout.company_name') }}
             </p>
-            <p class="text-sm">{{ props.company.name ?? '' }}</p>
+            <p class="text-muted-foreground text-sm">
+              {{ props.company.name ?? '' }}
+            </p>
           </div>
           <div data-testid="company-vat">
             <p
-              class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+              class="text-foreground text-xs font-medium tracking-wide uppercase"
             >
               {{ t('checkout.vat_number') }}
             </p>
-            <p class="text-sm">{{ props.company.vatNumber ?? '' }}</p>
+            <p class="text-muted-foreground text-sm">
+              {{ props.company.vatNumber ?? '' }}
+            </p>
           </div>
         </div>
 
@@ -79,48 +86,36 @@ const buyerName = computed(() =>
         <div class="space-y-3">
           <div v-if="billingAddress" data-testid="company-billing-address">
             <p
-              class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+              class="text-foreground text-xs font-medium tracking-wide uppercase"
             >
               {{ t('checkout.billing_address') }}
             </p>
-            <div class="mt-1 space-y-0.5 text-sm">
-              <p v-if="billingAddress.company">{{ billingAddress.company }}</p>
-              <p>
-                {{
-                  [billingAddress.firstName, billingAddress.lastName]
-                    .filter(Boolean)
-                    .join(' ')
-                }}
-              </p>
-              <p v-if="billingAddress.addressLine1">
-                {{ billingAddress.addressLine1 }}
-              </p>
-              <p v-if="billingAddress.zip || billingAddress.city">
-                {{
+            <p class="text-muted-foreground mt-1 text-sm">
+              {{
+                [
+                  billingAddress.addressLine1,
                   [billingAddress.zip, billingAddress.city]
                     .filter(Boolean)
-                    .join(' ')
-                }}
-              </p>
-              <p v-if="billingAddress.country">{{ billingAddress.country }}</p>
-            </div>
+                    .join(' '),
+                  billingAddress.country,
+                ]
+                  .filter(Boolean)
+                  .join(', ')
+              }}
+            </p>
           </div>
-          <div
-            v-if="buyerName || billingAddress?.email"
-            data-testid="company-buyer"
-          >
+          <div v-if="buyerName || props.buyerEmail" data-testid="company-buyer">
             <p
-              class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+              class="text-foreground text-xs font-medium tracking-wide uppercase"
             >
               {{ t('checkout.buyer') }}
             </p>
-            <div class="mt-1 space-y-0.5 text-sm">
-              <p v-if="buyerName">{{ buyerName }}</p>
-              <p
-                v-if="billingAddress?.email"
-                class="text-muted-foreground text-xs"
-              >
-                {{ billingAddress.email }}
+            <div class="mt-1 space-y-0.5">
+              <p v-if="buyerName" class="text-muted-foreground text-sm">
+                {{ buyerName }}
+              </p>
+              <p v-if="props.buyerEmail" class="text-muted-foreground text-sm">
+                {{ props.buyerEmail }}
               </p>
             </div>
           </div>
