@@ -413,7 +413,7 @@ function handleProductAddToCart(
     </div>
 
     <!-- Purchased Products — bordered card per Figma -->
-    <div class="border-border rounded-lg border p-6">
+    <div class="border-border bg-card rounded-lg border p-6">
       <div class="mb-4 flex items-center justify-between">
         <h3 class="text-xl font-semibold">
           {{ t('portal.overview.purchased_products') }}
