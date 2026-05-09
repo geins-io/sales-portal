@@ -79,7 +79,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
     class="px-6 py-8 lg:px-6 lg:py-10"
   >
     <div class="mx-auto max-w-7xl">
-      <h3 v-if="menu?.title" class="mb-4 text-sm font-bold text-white">
+      <h3 v-if="menu?.title" class="mb-4 text-sm font-bold">
         {{ menu.title }}
       </h3>
       <div
@@ -89,7 +89,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
         <template v-for="item in visibleItems" :key="item.id">
           <!-- Item with children: render as a column -->
           <div v-if="visibleChildren(item).length">
-            <h4 class="mb-3 text-sm font-semibold text-white">
+            <h4 class="mb-3 text-sm font-semibold">
               {{ getMenuLabel(item) }}
             </h4>
             <ul class="flex flex-col gap-2">
@@ -97,7 +97,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
                 <component
                   :is="linkTag(child)"
                   v-bind="linkAttrs(child)"
-                  class="text-sm text-neutral-400 transition-colors hover:text-white"
+                  class="text-footer-text/70 hover:text-footer-text text-sm transition-colors"
                 >
                   {{ getMenuLabel(child) }}
                 </component>
@@ -110,7 +110,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
             :is="linkTag(item)"
             v-else
             v-bind="linkAttrs(item)"
-            class="text-sm text-neutral-400 transition-colors hover:text-white"
+            class="text-footer-text/70 hover:text-footer-text text-sm transition-colors"
           >
             {{ getMenuLabel(item) }}
           </component>
@@ -130,7 +130,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
           target="_blank"
           rel="noopener noreferrer"
           :aria-label="entry.key"
-          class="text-neutral-400 transition-colors hover:text-white"
+          class="text-footer-text/70 hover:text-footer-text transition-colors"
         >
           <Icon :name="entry.icon" class="size-5" />
         </a>

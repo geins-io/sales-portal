@@ -83,6 +83,8 @@ const COLOR_CSS_MAP: Record<keyof FullThemeColors, string> = {
   siteBackground: '--site-background',
   buttonBackground: '--button-background',
   buttonPurchaseBackground: '--button-purchase-background',
+  topBarText: '--top-bar-text',
+  footerText: '--footer-text',
 };
 
 /**
@@ -104,6 +106,8 @@ const SURFACE_FALLBACKS: Record<string, string> = {
   siteBackground: 'var(--background)',
   buttonBackground: 'var(--primary)',
   buttonPurchaseBackground: 'var(--button-background)',
+  topBarText: 'var(--primary-foreground)',
+  footerText: 'oklch(0.85 0 0)',
 };
 
 /**

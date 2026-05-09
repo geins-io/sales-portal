@@ -187,7 +187,7 @@ function handleProductAddToCart(
     </div>
 
     <!-- Latest Orders — bordered card per Figma -->
-    <div class="border-border mb-6 rounded-lg border p-6">
+    <div class="border-border bg-card mb-6 rounded-lg border p-6">
       <div class="mb-4 flex items-center justify-between">
         <h3 class="text-xl font-semibold">
           {{ t('portal.overview.latest_orders') }}
@@ -210,7 +210,7 @@ function handleProductAddToCart(
     <!-- Pending Quotations & Your Lists -->
     <div class="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
       <!-- Pending Quotations mini-table -->
-      <div class="border-border rounded-lg border p-6">
+      <div class="border-border bg-card rounded-lg border p-6">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-xl font-semibold">
             {{ t('portal.overview.pending_quotations') }}
@@ -322,7 +322,7 @@ function handleProductAddToCart(
       </div>
 
       <!-- Your Lists mini-table -->
-      <div class="border-border rounded-lg border p-6">
+      <div class="border-border bg-card rounded-lg border p-6">
         <div class="mb-4 flex items-center justify-between">
           <h3 class="text-xl font-semibold">
             {{ t('portal.overview.your_lists') }}

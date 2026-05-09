@@ -48,6 +48,8 @@
   --color-site-background: var(--site-background);
   --color-button-background: var(--button-background);
   --color-button-purchase-background: var(--button-purchase-background);
+  --color-top-bar-text: var(--top-bar-text);
+  --color-footer-text: var(--footer-text);
 }
 
 @layer base {

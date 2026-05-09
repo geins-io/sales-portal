@@ -12,10 +12,7 @@ function onSearch(query: string) {
 </script>
 
 <template>
-  <div
-    class="bg-nav-bar-background"
-    :class="navVariant === 'white' ? 'border-b' : ''"
-  >
+  <div class="bg-background" :class="navVariant === 'white' ? 'border-b' : ''">
     <div
       class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:h-20 lg:px-6"
     >

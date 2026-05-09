@@ -3,7 +3,7 @@
 <template>
   <footer class="border-t">
     <LayoutFooterTop />
-    <div class="bg-footer-background text-white">
+    <div class="bg-footer-background text-footer-text">
       <LayoutFooterMain />
       <LayoutFooterBottom />
     </div>

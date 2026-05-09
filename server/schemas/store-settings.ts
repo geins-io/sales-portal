@@ -85,6 +85,8 @@ export const ThemeColorsSchema = z.object({
   siteBackground: HexOrOklchColorSchema.nullable().optional(),
   buttonBackground: HexOrOklchColorSchema.nullable().optional(),
   buttonPurchaseBackground: HexOrOklchColorSchema.nullable().optional(),
+  topBarText: HexOrOklchColorSchema.nullable().optional(),
+  footerText: HexOrOklchColorSchema.nullable().optional(),
 });
 
 export const ThemeTypographySchema = z.object({
