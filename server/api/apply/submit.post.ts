@@ -3,6 +3,12 @@ import { ApplyForAccountSchema } from '../../schemas/api-input';
 import * as userService from '../../services/user';
 
 export default defineEventHandler(async (event) => {
+  const applyForAccountEnabled =
+    event.context?.tenant?.config?.features?.applyForAccount?.enabled ?? true;
+  if (!applyForAccountEnabled) {
+    throw createAppError(ErrorCode.FORBIDDEN, 'Apply for account is disabled');
+  }
+
   const ip = getClientIp(event);
   const { allowed } = await applyForAccountRateLimiter.check(ip);
   if (!allowed) {

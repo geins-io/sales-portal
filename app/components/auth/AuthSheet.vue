@@ -3,6 +3,7 @@ import { useAuthStore } from '~/stores/auth';
 
 const authStore = useAuthStore();
 const { localePath } = useLocaleMarket();
+const { hasFeature } = useTenant();
 const router = useRouter();
 
 const isOpen = computed({
@@ -70,31 +71,33 @@ watch(
         <template v-if="authStore.sheetView === 'login'">
           <LoginForm @success="handleSuccess" @forgot="handleForgot" />
 
-          <div class="relative my-6">
-            <Separator />
-            <span
-              class="text-muted-foreground bg-background absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 text-xs"
-              data-testid="auth-sheet-divider"
+          <template v-if="hasFeature('applyForAccount')">
+            <div class="relative my-6">
+              <Separator />
+              <span
+                class="text-muted-foreground bg-background absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 text-xs"
+                data-testid="auth-sheet-divider"
+              >
+                {{ $t('auth.no_account') }}
+              </span>
+            </div>
+
+            <p
+              class="text-muted-foreground mb-4 text-sm"
+              data-testid="auth-sheet-business-info"
             >
-              {{ $t('auth.no_account') }}
-            </span>
-          </div>
+              {{ $t('auth.business_account_info') }}
+            </p>
 
-          <p
-            class="text-muted-foreground mb-4 text-sm"
-            data-testid="auth-sheet-business-info"
-          >
-            {{ $t('auth.business_account_info') }}
-          </p>
-
-          <NuxtLink
-            :to="localePath('/apply-for-account')"
-            class="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-10 w-full items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors"
-            data-testid="auth-sheet-apply"
-            @click="goToApply"
-          >
-            {{ $t('auth.apply_for_account') }}
-          </NuxtLink>
+            <NuxtLink
+              :to="localePath('/apply-for-account')"
+              class="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-10 w-full items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors"
+              data-testid="auth-sheet-apply"
+              @click="goToApply"
+            >
+              {{ $t('auth.apply_for_account') }}
+            </NuxtLink>
+          </template>
         </template>
 
         <template v-else-if="authStore.sheetView === 'forgot'">

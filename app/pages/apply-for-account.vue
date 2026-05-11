@@ -4,6 +4,11 @@ import { CMS_SLOTS } from '#shared/types/cms-slots';
 
 const { t } = useI18n();
 const { currentLocale, currentMarket } = useLocaleMarket();
+const { hasFeature } = useTenant();
+
+if (!hasFeature('applyForAccount')) {
+  throw createError({ statusCode: 404, fatal: true });
+}
 
 const applySlot = useCmsSlot(CMS_SLOTS.APPLY_FOR_ACCOUNT);
 

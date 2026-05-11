@@ -4,6 +4,7 @@ import { useAuthStore } from '~/stores/auth';
 
 const authStore = useAuthStore();
 const { localePath } = useLocaleMarket();
+const { hasFeature } = useTenant();
 </script>
 
 <template>
@@ -40,6 +41,7 @@ const { localePath } = useLocaleMarket();
       <!-- Right: Apply + Login -->
       <div class="flex items-center gap-4">
         <NuxtLink
+          v-if="hasFeature('applyForAccount')"
           :to="localePath('/apply-for-account')"
           class="hidden hover:underline sm:inline"
         >

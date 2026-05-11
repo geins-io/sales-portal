@@ -510,6 +510,7 @@ export async function fetchTenantConfig(
         registration: { enabled: true },
         cart: { enabled: true },
         wishlist: { enabled: true },
+        applyForAccount: { enabled: true },
       },
       // Geins out-of-box CMS slots + menus. Single source of truth —
       // see DEFAULT_CMS_CONFIG above. Tenants override by setting `cms`
