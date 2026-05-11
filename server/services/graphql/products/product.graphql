@@ -12,6 +12,7 @@ query product(
   ) {
     productId
     articleNumber
+    alias
     canonicalUrl
     name
     brand {
