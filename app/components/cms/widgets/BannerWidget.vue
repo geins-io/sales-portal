@@ -135,7 +135,7 @@ const textColorClass = computed(() => {
     >
       <p
         v-if="data.text1"
-        class="font-heading text-xl font-bold md:text-2xl"
+        class="font-heading text-4xl font-bold"
         data-testid="banner-title"
       >
         {{ data.text1 }}

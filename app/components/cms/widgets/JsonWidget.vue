@@ -82,7 +82,7 @@ function _resolveImageSrc(src: string | undefined): string {
       class="space-y-2"
       :class="header?.textAlign === 'center' ? 'text-center' : ''"
     >
-      <h2 v-if="header?.heading" class="font-heading text-2xl font-bold">
+      <h2 v-if="header?.heading" class="font-heading text-4xl font-bold">
         {{ header.heading }}
       </h2>
       <p v-if="header?.description" class="text-muted-foreground text-sm">
@@ -129,7 +129,7 @@ function _resolveImageSrc(src: string | undefined): string {
   <!-- Cards Simple: image + title + link -->
   <div v-else-if="templateId === 'cards-simple'" class="space-y-6">
     <div v-if="header?.heading || header?.description" class="space-y-2">
-      <h2 v-if="header?.heading" class="font-heading text-2xl font-bold">
+      <h2 v-if="header?.heading" class="font-heading text-4xl font-bold">
         {{ header.heading }}
       </h2>
       <p v-if="header?.description" class="text-muted-foreground text-sm">
@@ -152,7 +152,7 @@ function _resolveImageSrc(src: string | undefined): string {
             class="size-full object-cover transition-transform group-hover:scale-105"
           />
         </div>
-        <p class="p-3 text-center text-sm font-medium">
+        <p class="font-heading p-3 text-center text-xl font-medium">
           {{ item.title }}
         </p>
       </NuxtLink>
@@ -164,7 +164,7 @@ function _resolveImageSrc(src: string | undefined): string {
     v-else-if="templateId === 'text-+-cta'"
     class="mx-auto max-w-2xl space-y-4 py-8 text-center"
   >
-    <h2 v-if="textBlock?.header" class="font-heading text-2xl font-bold">
+    <h2 v-if="textBlock?.header" class="font-heading text-4xl font-bold">
       {{ textBlock.header }}
     </h2>
     <p
