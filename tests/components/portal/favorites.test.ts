@@ -11,6 +11,8 @@ const mockRemove = vi.fn();
 const mockItems = ref<string[]>([]);
 const mockCount = computed(() => mockItems.value.length);
 
+const mockPruneStaleAliases = vi.fn();
+
 const mockFavoritesStore = reactive({
   items: mockItems,
   count: mockCount,
@@ -20,6 +22,7 @@ const mockFavoritesStore = reactive({
   toggle: vi.fn(),
   add: vi.fn(),
   isFavorite: vi.fn(() => false),
+  pruneStaleAliases: mockPruneStaleAliases,
 });
 
 vi.mock('../../../app/stores/favorites', () => ({
@@ -138,6 +141,7 @@ describe('FavoritesPage (Figma-aligned grid)', () => {
     mockRemove.mockClear();
     mockAddItem.mockClear();
     mockRefresh.mockClear();
+    mockPruneStaleAliases.mockClear();
   });
 
   it('renders inside PortalShell', () => {
