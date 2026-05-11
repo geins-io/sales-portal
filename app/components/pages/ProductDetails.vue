@@ -4,7 +4,7 @@ import { filterVisibleCampaigns } from '#shared/types/commerce';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
-import { AlertTriangle as AlertTriangleIcon, Star } from 'lucide-vue-next';
+import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useAuthStore } from '~/stores/auth';
@@ -107,7 +107,6 @@ function stripHtml(value: string | null | undefined): string {
   return value ? value.replace(/<[^>]*>/g, '').trim() : '';
 }
 
-const text1Plain = computed(() => stripHtml(product.value?.texts?.text1));
 const text3Plain = computed(() => stripHtml(product.value?.texts?.text3));
 
 // --- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL) ---
@@ -358,15 +357,6 @@ useSchemaOrg([
           <span>{{ $t('discount.negotiated_price_info') }}</span>
         </div>
 
-        <!-- Text 1: short description under price (HTML stripped) -->
-        <p
-          v-if="text1Plain"
-          class="text-muted-foreground text-sm leading-relaxed"
-          data-testid="short-description"
-        >
-          {{ text1Plain }}
-        </p>
-
         <!-- Stock -->
         <StockBadge v-if="product.totalStock" :stock="product.totalStock" />
 
@@ -413,21 +403,6 @@ useSchemaOrg([
           >
             <Icon name="lucide:shopping-cart" class="size-4" />
             {{ $t('product.add_to_cart') }}
-          </Button>
-          <Button
-            v-if="hasFeature('wishlist') && authStore.isAuthenticated"
-            variant="ghost"
-            size="icon-sm"
-            :data-favorited="isFavorited"
-            class="bg-card text-foreground h-9 w-9 shrink-0 rounded-md border shadow-sm"
-            :aria-label="$t('product.wishlist')"
-            data-testid="pdp-wishlist-toggle"
-            @click="openListPicker"
-          >
-            <Star
-              class="size-4"
-              :fill="isFavorited ? 'currentColor' : 'none'"
-            />
           </Button>
         </div>
 
