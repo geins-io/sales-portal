@@ -859,7 +859,11 @@
       "rename_save": "Save",
       "delete_list": "Delete list",
       "delete_confirm": "This will permanently delete the list and all its items. You can't undo this.",
-      "remove_item": "Remove from list"
+      "remove_item": "Remove from list",
+      "quick_filter_placeholder": "Quick filter on art nr or product name",
+      "list_total_label": "Sum for all products in list",
+      "add_to_cart": "Add to cart",
+      "add_to_list": "Add to list"
     },
     "saved_lists": {
       "title": "Saved lists",

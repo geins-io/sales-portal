@@ -859,7 +859,11 @@
       "rename_save": "Spara",
       "delete_list": "Radera lista",
       "delete_confirm": "Det här raderar listan och alla dess produkter permanent. Det går inte att ångra.",
-      "remove_item": "Ta bort från lista"
+      "remove_item": "Ta bort från lista",
+      "quick_filter_placeholder": "Snabbfilter på art nr eller produktnamn",
+      "list_total_label": "Summa för alla produkter i listan",
+      "add_to_cart": "Lägg i varukorg",
+      "add_to_list": "Lägg till i lista"
     },
     "saved_lists": {
       "title": "Sparade listor",

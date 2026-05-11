@@ -12,7 +12,6 @@ describe('ApplyForAccountSchema', () => {
     lastName: 'Doe',
     country: 'SE',
     email: 'jane@acme.com',
-    password: 'secret123',
     acceptTerms: true,
     phone: '+46701234567',
     message: 'We are interested in a wholesale account.',
@@ -178,7 +177,7 @@ describe('ApplyForAccountSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  // --- New fields: country, password, acceptTerms ---
+  // --- New fields: country, acceptTerms ---
 
   it('rejects missing country', () => {
     const { country: _, ...payload } = validPayload;
@@ -202,28 +201,6 @@ describe('ApplyForAccountSchema', () => {
       });
       expect(result.success).toBe(true);
     }
-  });
-
-  it('rejects missing password', () => {
-    const { password: _, ...payload } = validPayload;
-    const result = ApplyForAccountSchema.safeParse(payload);
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects password shorter than 8 characters', () => {
-    const result = ApplyForAccountSchema.safeParse({
-      ...validPayload,
-      password: 'short',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('accepts password of exactly 8 characters', () => {
-    const result = ApplyForAccountSchema.safeParse({
-      ...validPayload,
-      password: '12345678',
-    });
-    expect(result.success).toBe(true);
   });
 
   it('rejects missing acceptTerms', () => {

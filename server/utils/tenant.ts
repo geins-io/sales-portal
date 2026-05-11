@@ -45,6 +45,10 @@ export const DEFAULT_CMS_CONFIG: NonNullable<TenantConfig['cms']> = {
       family: 'Product',
       areaName: 'Below Details',
     },
+    [CMS_SLOTS.APPLY_FOR_ACCOUNT]: {
+      family: 'Infopage',
+      areaName: 'Account application',
+    },
   },
   menus: {
     [CMS_MENUS.HEADER_MAIN]: { menuLocationId: 'main' },
@@ -506,6 +510,7 @@ export async function fetchTenantConfig(
         registration: { enabled: true },
         cart: { enabled: true },
         wishlist: { enabled: true },
+        applyForAccount: { enabled: true },
       },
       // Geins out-of-box CMS slots + menus. Single source of truth —
       // see DEFAULT_CMS_CONFIG above. Tenants override by setting `cms`
