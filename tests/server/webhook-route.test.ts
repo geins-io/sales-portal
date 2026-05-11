@@ -360,7 +360,7 @@ describe('processConfigRefresh', () => {
     // Should remove config under tenantId
     expect(kvRemoveItem).toHaveBeenCalledWith('tenant:config:tenant-a');
     expect(cacheRemoveItem).toHaveBeenCalledWith(
-      'nitro:handlers:tenant:config:tenant-a',
+      'nitro/handlers:_:tenantconfigtenanta.json',
     );
     expect(kvSetItem).toHaveBeenCalledWith(
       `webhook:processed:${webhookId}`,
@@ -391,7 +391,45 @@ describe('processConfigRefresh', () => {
     expect(kvRemoveItem).toHaveBeenCalledWith(`tenant:id:${hostname}`);
     expect(kvRemoveItem).toHaveBeenCalledWith(`tenant:config:${hostname}`);
     expect(cacheRemoveItem).toHaveBeenCalledWith(
-      `nitro:handlers:tenant:config:${hostname}`,
+      'nitro/handlers:_:tenantconfignewtenantexamplecom.json',
+    );
+  });
+
+  it('removes the Nitro handler cache with the correct escaped key format', async () => {
+    const hostname = 'tenant-b.sales-portal.geins.dev';
+    const body = JSON.stringify({ hostname });
+    const sig = signStripe(body, 'test-secret');
+
+    const request = createRequest({
+      rawBody: body,
+      signatureHeader: sig,
+      contentLength: Buffer.byteLength(body, 'utf-8'),
+    });
+
+    const { storage: kv } = createMockKvStorage({
+      getItem: vi.fn().mockImplementation(async (key: string) => {
+        if (key === `tenant:id:${hostname}`) return 'tenant-b';
+        if (key === 'tenant:config:tenant-b')
+          return {
+            tenantId: 'tenant-b',
+            hostname,
+            aliases: [],
+            isActive: true,
+          };
+        return null;
+      }),
+    });
+    const { storage: cache, removeItem: cacheRemoveItem } =
+      createMockCacheStorage();
+
+    await processConfigRefresh(request, kv, cache);
+
+    // Nitro 2.x stores defineCachedEventHandler entries as:
+    //   nitro/handlers:_:{escapeKey(configKey)}.json
+    // escapeKey strips all non-word chars (\W) — colons, dots, hyphens removed.
+    // configKey = "tenant:config:tenant-b" → escaped = "tenantconfigtenantb"
+    expect(cacheRemoveItem).toHaveBeenCalledWith(
+      'nitro/handlers:_:tenantconfigtenantb.json',
     );
   });
 

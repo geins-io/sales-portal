@@ -186,8 +186,15 @@ export async function processConfigRefresh(
   clearSdkCache(tid);
   clearNegativeCache(hostname);
 
-  // 14. Invalidate Nitro handler cache
-  const nitroCacheKey = `nitro:handlers:${configKey}`;
+  // 14. Invalidate Nitro handler cache.
+  // Nitro 2.x stores defineCachedEventHandler entries at:
+  //   {group}:{name}:{escapeKey(getKey())}.json
+  // where group="nitro/handlers", name="_" (default), and escapeKey strips
+  // all non-word characters (\W). The leading /cache: base is absorbed by
+  // the useStorage("cache") namespace, so the key we remove here is:
+  //   nitro/handlers:_:{stripped configKey}.json
+  const escapedConfigKey = configKey.replace(/\W/g, '');
+  const nitroCacheKey = `nitro/handlers:_:${escapedConfigKey}.json`;
   await cacheStorage.removeItem(nitroCacheKey);
 
   // 12. Store webhook ID for deduplication (only when one was supplied)
