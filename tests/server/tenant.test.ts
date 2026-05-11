@@ -437,6 +437,30 @@ describe('Tenant utilities', () => {
       });
       expect(built.features.newThing?.enabled).toBe(true);
     });
+
+    it('includes portal-only feature defaults even when settings.features is empty', () => {
+      const built = buildTenantConfig({ ...baseSettings, features: {} });
+      expect(built.features.registration?.enabled).toBe(true);
+      expect(built.features.applyForAccount?.enabled).toBe(true);
+    });
+
+    it('lets settings.features override portal defaults', () => {
+      const built = buildTenantConfig({
+        ...baseSettings,
+        features: { registration: { enabled: false } },
+      });
+      expect(built.features.registration?.enabled).toBe(false);
+      expect(built.features.applyForAccount?.enabled).toBe(true);
+    });
+
+    it('lets overrides.features take final precedence over portal defaults', () => {
+      const built = buildTenantConfig({
+        ...baseSettings,
+        features: {},
+        overrides: { features: { applyForAccount: { enabled: false } } },
+      });
+      expect(built.features.applyForAccount?.enabled).toBe(false);
+    });
   });
 
   describe('writeHostnameMappings — duplicate hostname guard', () => {

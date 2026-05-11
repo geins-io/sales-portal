@@ -210,8 +210,16 @@ export function transformGeinsSettings(
 export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   const derivedColors = deriveThemeColors(settings.theme.colors);
 
-  // Merge override features into base features
-  const features = { ...settings.features };
+  // Portal-only feature flags not managed by the Geins API. These provide
+  // sensible defaults so real tenants don't need explicit configuration.
+  // settings.features takes precedence (Geins API values win), and
+  // overrides.features takes final precedence below.
+  const PORTAL_FEATURE_DEFAULTS: Record<string, { enabled: boolean }> = {
+    registration: { enabled: true },
+    applyForAccount: { enabled: true },
+  };
+
+  const features = { ...PORTAL_FEATURE_DEFAULTS, ...settings.features };
   if (settings.overrides?.features) {
     for (const [key, value] of Object.entries(settings.overrides.features)) {
       features[key] = value;
