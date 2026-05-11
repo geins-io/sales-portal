@@ -120,267 +120,269 @@ function formatDate(iso?: string): string {
 
     <!-- Detail View -->
     <div v-else-if="order" data-testid="order-detail" class="space-y-6">
-      <!-- Action Toolbar: back link left, action buttons right -->
-      <div
-        data-testid="order-action-toolbar"
-        class="flex flex-wrap items-center justify-between gap-4"
-      >
-        <NuxtLink
-          :to="localePath('/portal/orders')"
-          data-testid="back-link"
-          class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
+      <div class="border-border rounded-lg border p-6">
+        <!-- Action Toolbar: back link left, action buttons right -->
+        <div
+          data-testid="order-action-toolbar"
+          class="flex flex-wrap items-center justify-between gap-4"
         >
-          <Icon name="lucide:arrow-left" class="size-4" />
-          {{ t('portal.orders.detail.back_to_orders') }}
-        </NuxtLink>
-        <div class="flex flex-wrap items-center gap-2">
-          <Button data-testid="view-additional-data-button" variant="outline">
-            {{ t('portal.orders.detail.actions.view_additional_data') }}
-          </Button>
-          <Button data-testid="download-receipt-button" variant="outline">
-            {{ t('portal.orders.detail.actions.download_receipt') }}
-          </Button>
-          <Button data-testid="order-communication-button" variant="outline">
-            {{ t('portal.orders.detail.actions.order_communication') }}
-          </Button>
-          <Button
-            v-if="!isCatalogMode"
-            data-testid="reorder-button"
-            :disabled="isReordering"
-            @click="handleReorder"
+          <NuxtLink
+            :to="localePath('/portal/orders')"
+            data-testid="back-link"
+            class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
           >
-            <Icon
-              v-if="isReordering"
-              name="lucide:loader-circle"
-              class="size-4 animate-spin"
-            />
-            {{ t('portal.orders.detail.actions.reorder') }}
-          </Button>
-        </div>
-      </div>
-
-      <!-- Order header: title, date, status -->
-      <div class="flex flex-wrap items-center gap-3">
-        <h2 class="text-lg font-semibold">
-          {{ t('portal.orders.detail.title') }} {{ order?.publicId }}
-        </h2>
-        <span class="text-muted-foreground text-sm">
-          {{ formatDate(order?.createdAt) }}
-        </span>
-        <span
-          v-if="order?.status"
-          data-testid="status-badge"
-          class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-          :class="getOrderStatusPillClass(order?.status)"
-        >
-          {{ t(`portal.orders.status.${order?.status}`) }}
-        </span>
-      </div>
-
-      <!-- Two-column layout -->
-      <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <!-- Left: Order Items Table -->
-        <div class="lg:col-span-2">
-          <h3 class="mb-3 text-base font-semibold">
-            {{ t('portal.orders.detail.items.title') }}
-          </h3>
-          <div class="border-border rounded-lg border">
-            <table data-testid="order-items-table" class="w-full text-sm">
-              <thead class="bg-muted/50">
-                <tr>
-                  <th class="px-4 py-3 text-left font-medium">
-                    {{ t('portal.orders.detail.items.product') }}
-                  </th>
-                  <th class="px-4 py-3 text-left font-medium">
-                    {{ t('portal.orders.detail.items.article_number') }}
-                  </th>
-                  <th class="px-4 py-3 text-right font-medium">
-                    {{ t('portal.orders.detail.items.quantity') }}
-                  </th>
-                  <th class="px-4 py-3 text-right font-medium">
-                    {{ t('portal.orders.detail.items.unit_price') }}
-                  </th>
-                  <th class="px-4 py-3 text-right font-medium">
-                    {{ t('portal.orders.detail.items.total') }}
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-border divide-y">
-                <tr
-                  v-for="item in order?.cart?.items"
-                  :key="item?.skuId"
-                  data-testid="order-item-row"
-                >
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-3">
-                      <ProductThumbnail
-                        :file-name="
-                          item?.product?.productImages?.[0]?.fileName ?? null
-                        "
-                        :alt="item?.product?.name ?? ''"
-                      />
-                      <NuxtLink
-                        v-if="item?.product?.alias"
-                        :to="localePath(`/p/${item.product.alias}`)"
-                        data-testid="order-item-name-link"
-                        class="font-medium hover:underline"
-                      >
-                        {{ item?.product?.name }}
-                      </NuxtLink>
-                      <span
-                        v-else
-                        data-testid="order-item-name"
-                        class="font-medium"
-                        >{{ item?.product?.name }}</span
-                      >
-                    </div>
-                  </td>
-                  <td class="text-muted-foreground px-4 py-3">
-                    {{ item?.product?.articleNumber }}
-                  </td>
-                  <td class="px-4 py-3 text-right">
-                    {{ item?.quantity }}
-                  </td>
-                  <td class="px-4 py-3 text-right">
-                    {{ item?.unitPrice?.sellingPriceIncVatFormatted }}
-                  </td>
-                  <td class="px-4 py-3 text-right font-medium">
-                    {{ item?.totalPrice?.sellingPriceIncVatFormatted }}
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot
-                data-testid="order-items-footer"
-                class="border-border border-t"
-              >
-                <tr>
-                  <td
-                    colspan="4"
-                    class="text-muted-foreground px-4 py-2 text-right text-sm"
-                  >
-                    {{
-                      t('portal.orders.detail.summary.subtotal_with_count', {
-                        count: itemCount,
-                      })
-                    }}
-                  </td>
-                  <td class="px-4 py-2 text-right text-sm">
-                    {{
-                      order?.cart?.summary?.subTotal
-                        ?.sellingPriceIncVatFormatted
-                    }}
-                  </td>
-                </tr>
-                <tr>
-                  <td
-                    colspan="4"
-                    class="text-muted-foreground px-4 py-2 text-right text-sm"
-                  >
-                    {{ t('portal.orders.detail.summary.shipping') }}
-                  </td>
-                  <td class="px-4 py-2 text-right text-sm">
-                    {{ order?.cart?.summary?.shipping?.feeIncVatFormatted }}
-                  </td>
-                </tr>
-                <tr>
-                  <td
-                    colspan="4"
-                    class="text-muted-foreground px-4 py-2 text-right text-sm"
-                  >
-                    {{ t('portal.orders.detail.summary.tax') }}
-                  </td>
-                  <td class="px-4 py-2 text-right text-sm">
-                    {{
-                      order?.cart?.summary?.total?.vatFormatted ??
-                      order?.vat?.sellingPriceIncVatFormatted
-                    }}
-                  </td>
-                </tr>
-                <tr class="border-border border-t">
-                  <td
-                    colspan="4"
-                    class="px-4 py-3 text-right text-sm font-semibold"
-                  >
-                    {{ t('portal.orders.detail.summary.total') }}
-                  </td>
-                  <td class="px-4 py-3 text-right text-sm font-semibold">
-                    {{
-                      order?.cart?.summary?.total
-                        ?.sellingPriceIncVatFormatted ??
-                      order?.orderTotal?.sellingPriceIncVatFormatted
-                    }}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+            <Icon name="lucide:arrow-left" class="size-4" />
+            {{ t('portal.orders.detail.back_to_orders') }}
+          </NuxtLink>
+          <div class="flex flex-wrap items-center gap-2">
+            <Button data-testid="view-additional-data-button" variant="outline">
+              {{ t('portal.orders.detail.actions.view_additional_data') }}
+            </Button>
+            <Button data-testid="download-receipt-button" variant="outline">
+              {{ t('portal.orders.detail.actions.download_receipt') }}
+            </Button>
+            <Button data-testid="order-communication-button" variant="outline">
+              {{ t('portal.orders.detail.actions.order_communication') }}
+            </Button>
+            <Button
+              v-if="!isCatalogMode"
+              data-testid="reorder-button"
+              :disabled="isReordering"
+              @click="handleReorder"
+            >
+              <Icon
+                v-if="isReordering"
+                name="lucide:loader-circle"
+                class="size-4 animate-spin"
+              />
+              {{ t('portal.orders.detail.actions.reorder') }}
+            </Button>
           </div>
         </div>
 
-        <!-- Right: Summary Sidebar -->
-        <div class="space-y-4">
-          <!-- Summary Card -->
-          <div
-            data-testid="order-summary"
-            class="border-border rounded-lg border p-4"
+        <!-- Order header: title, date, status -->
+        <div class="flex flex-wrap items-center gap-3">
+          <h2 class="text-lg font-semibold">
+            {{ t('portal.orders.detail.title') }} {{ order?.publicId }}
+          </h2>
+          <span class="text-muted-foreground text-sm">
+            {{ formatDate(order?.createdAt) }}
+          </span>
+          <span
+            v-if="order?.status"
+            data-testid="status-badge"
+            class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+            :class="getOrderStatusPillClass(order?.status)"
           >
+            {{ t(`portal.orders.status.${order?.status}`) }}
+          </span>
+        </div>
+
+        <!-- Two-column layout -->
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <!-- Left: Order Items Table -->
+          <div class="lg:col-span-2">
             <h3 class="mb-3 text-base font-semibold">
-              {{ t('portal.orders.detail.summary.title') }}
+              {{ t('portal.orders.detail.items.title') }}
             </h3>
-            <div class="space-y-2">
-              <div class="flex justify-between text-sm">
-                <span class="text-muted-foreground">{{
-                  t('portal.orders.detail.summary.subtotal_with_count', {
-                    count: itemCount,
-                  })
-                }}</span>
-                <span>{{
-                  order?.cart?.summary?.subTotal?.sellingPriceIncVatFormatted
-                }}</span>
-              </div>
-              <div class="flex justify-between text-sm">
-                <span class="text-muted-foreground">{{
-                  t('portal.orders.detail.summary.shipping')
-                }}</span>
-                <span>{{
-                  order?.cart?.summary?.shipping?.feeIncVatFormatted
-                }}</span>
-              </div>
-              <div class="flex justify-between text-sm">
-                <span class="text-muted-foreground">{{
-                  t('portal.orders.detail.summary.tax')
-                }}</span>
-                <span>{{
-                  order?.cart?.summary?.total?.vatFormatted ??
-                  order?.vat?.sellingPriceIncVatFormatted
-                }}</span>
-              </div>
-              <div
-                class="border-border mt-2 flex justify-between border-t pt-2 font-semibold"
-              >
-                <span>{{ t('portal.orders.detail.summary.total') }}</span>
-                <span>{{
-                  order?.cart?.summary?.total?.sellingPriceIncVatFormatted ??
-                  order?.orderTotal?.sellingPriceIncVatFormatted
-                }}</span>
-              </div>
+            <div class="border-border rounded-lg border">
+              <table data-testid="order-items-table" class="w-full text-sm">
+                <thead class="bg-muted/50">
+                  <tr>
+                    <th class="px-4 py-3 text-left font-medium">
+                      {{ t('portal.orders.detail.items.product') }}
+                    </th>
+                    <th class="px-4 py-3 text-left font-medium">
+                      {{ t('portal.orders.detail.items.article_number') }}
+                    </th>
+                    <th class="px-4 py-3 text-right font-medium">
+                      {{ t('portal.orders.detail.items.quantity') }}
+                    </th>
+                    <th class="px-4 py-3 text-right font-medium">
+                      {{ t('portal.orders.detail.items.unit_price') }}
+                    </th>
+                    <th class="px-4 py-3 text-right font-medium">
+                      {{ t('portal.orders.detail.items.total') }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="divide-border divide-y">
+                  <tr
+                    v-for="item in order?.cart?.items"
+                    :key="item?.skuId"
+                    data-testid="order-item-row"
+                  >
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-3">
+                        <ProductThumbnail
+                          :file-name="
+                            item?.product?.productImages?.[0]?.fileName ?? null
+                          "
+                          :alt="item?.product?.name ?? ''"
+                        />
+                        <NuxtLink
+                          v-if="item?.product?.alias"
+                          :to="localePath(`/p/${item.product.alias}`)"
+                          data-testid="order-item-name-link"
+                          class="font-medium hover:underline"
+                        >
+                          {{ item?.product?.name }}
+                        </NuxtLink>
+                        <span
+                          v-else
+                          data-testid="order-item-name"
+                          class="font-medium"
+                          >{{ item?.product?.name }}</span
+                        >
+                      </div>
+                    </td>
+                    <td class="text-muted-foreground px-4 py-3">
+                      {{ item?.product?.articleNumber }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      {{ item?.quantity }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      {{ item?.unitPrice?.sellingPriceIncVatFormatted }}
+                    </td>
+                    <td class="px-4 py-3 text-right font-medium">
+                      {{ item?.totalPrice?.sellingPriceIncVatFormatted }}
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot
+                  data-testid="order-items-footer"
+                  class="border-border border-t"
+                >
+                  <tr>
+                    <td
+                      colspan="4"
+                      class="text-muted-foreground px-4 py-2 text-right text-sm"
+                    >
+                      {{
+                        t('portal.orders.detail.summary.subtotal_with_count', {
+                          count: itemCount,
+                        })
+                      }}
+                    </td>
+                    <td class="px-4 py-2 text-right text-sm">
+                      {{
+                        order?.cart?.summary?.subTotal
+                          ?.sellingPriceIncVatFormatted
+                      }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      colspan="4"
+                      class="text-muted-foreground px-4 py-2 text-right text-sm"
+                    >
+                      {{ t('portal.orders.detail.summary.shipping') }}
+                    </td>
+                    <td class="px-4 py-2 text-right text-sm">
+                      {{ order?.cart?.summary?.shipping?.feeIncVatFormatted }}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      colspan="4"
+                      class="text-muted-foreground px-4 py-2 text-right text-sm"
+                    >
+                      {{ t('portal.orders.detail.summary.tax') }}
+                    </td>
+                    <td class="px-4 py-2 text-right text-sm">
+                      {{
+                        order?.cart?.summary?.total?.vatFormatted ??
+                        order?.vat?.sellingPriceIncVatFormatted
+                      }}
+                    </td>
+                  </tr>
+                  <tr class="border-border border-t">
+                    <td
+                      colspan="4"
+                      class="px-4 py-3 text-right text-sm font-semibold"
+                    >
+                      {{ t('portal.orders.detail.summary.total') }}
+                    </td>
+                    <td class="px-4 py-3 text-right text-sm font-semibold">
+                      {{
+                        order?.cart?.summary?.total
+                          ?.sellingPriceIncVatFormatted ??
+                        order?.orderTotal?.sellingPriceIncVatFormatted
+                      }}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>
 
-          <!-- Billing Address -->
-          <AddressBlock
-            v-if="billingAddress"
-            data-testid="billing-address"
-            :label="t('portal.orders.detail.billing_address')"
-            :address="billingAddress"
-          />
+          <!-- Right: Summary Sidebar -->
+          <div class="space-y-4">
+            <!-- Summary Card -->
+            <div
+              data-testid="order-summary"
+              class="border-border rounded-lg border p-4"
+            >
+              <h3 class="mb-3 text-base font-semibold">
+                {{ t('portal.orders.detail.summary.title') }}
+              </h3>
+              <div class="space-y-2">
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">{{
+                    t('portal.orders.detail.summary.subtotal_with_count', {
+                      count: itemCount,
+                    })
+                  }}</span>
+                  <span>{{
+                    order?.cart?.summary?.subTotal?.sellingPriceIncVatFormatted
+                  }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">{{
+                    t('portal.orders.detail.summary.shipping')
+                  }}</span>
+                  <span>{{
+                    order?.cart?.summary?.shipping?.feeIncVatFormatted
+                  }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">{{
+                    t('portal.orders.detail.summary.tax')
+                  }}</span>
+                  <span>{{
+                    order?.cart?.summary?.total?.vatFormatted ??
+                    order?.vat?.sellingPriceIncVatFormatted
+                  }}</span>
+                </div>
+                <div
+                  class="border-border mt-2 flex justify-between border-t pt-2 font-semibold"
+                >
+                  <span>{{ t('portal.orders.detail.summary.total') }}</span>
+                  <span>{{
+                    order?.cart?.summary?.total?.sellingPriceIncVatFormatted ??
+                    order?.orderTotal?.sellingPriceIncVatFormatted
+                  }}</span>
+                </div>
+              </div>
+            </div>
 
-          <!-- Shipping Address -->
-          <AddressBlock
-            v-if="shippingAddress"
-            data-testid="shipping-address"
-            :label="t('portal.orders.detail.shipping_address')"
-            :address="shippingAddress"
-          />
+            <!-- Billing Address -->
+            <AddressBlock
+              v-if="billingAddress"
+              data-testid="billing-address"
+              :label="t('portal.orders.detail.billing_address')"
+              :address="billingAddress"
+            />
+
+            <!-- Shipping Address -->
+            <AddressBlock
+              v-if="shippingAddress"
+              data-testid="shipping-address"
+              :label="t('portal.orders.detail.shipping_address')"
+              :address="shippingAddress"
+            />
+          </div>
         </div>
       </div>
     </div>
