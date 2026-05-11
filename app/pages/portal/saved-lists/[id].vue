@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
+import type { StockType } from '#shared/types/commerce';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
 
@@ -24,7 +25,7 @@ interface ListProduct {
   name?: string | null;
   articleNumber?: string | null;
   productImages?: Array<{ fileName?: string | null } | null> | null;
-  totalStock?: unknown;
+  totalStock?: StockType | null;
   unitPrice?: {
     isDiscounted?: boolean | null;
     regularPriceIncVat?: number | null;
@@ -183,6 +184,23 @@ const addToListAlias = ref('');
 function openAddToList(alias: string) {
   addToListAlias.value = alias;
   showAddToList.value = true;
+}
+
+// --- Qty helpers (typed wrappers to avoid index-signature undefined) ---
+function getQty(alias: string | null | undefined): number {
+  if (!alias) return 1;
+  return qty.value[alias] ?? 1;
+}
+
+function setQty(alias: string | null | undefined, value: number) {
+  if (!alias) return;
+  qty.value[alias] = value;
+}
+
+function addToCart(product: ListProduct) {
+  const skuId = product.skus?.[0]?.skuId;
+  if (!skuId) return;
+  cartStore.addItem(skuId, getQty(product.alias));
 }
 </script>
 
@@ -354,9 +372,10 @@ function openAddToList(alias: string) {
             <!-- Qty stepper -->
             <QuantityStepper
               v-if="product.alias"
-              v-model="qty[product.alias]"
+              :model-value="getQty(product.alias)"
               :min="1"
               class="shrink-0"
+              @update:model-value="(v) => setQty(product.alias, v)"
             />
 
             <!-- Add to cart -->
@@ -366,12 +385,7 @@ function openAddToList(alias: string) {
               size="icon"
               :aria-label="t('portal.saved_list_detail.add_to_cart')"
               data-testid="list-item-add-to-cart"
-              @click="
-                cartStore.addItem(
-                  product.skus?.[0]?.skuId,
-                  qty[product.alias] ?? 1,
-                )
-              "
+              @click="addToCart(product)"
             >
               <Icon name="lucide:shopping-cart" class="size-4" />
             </Button>
