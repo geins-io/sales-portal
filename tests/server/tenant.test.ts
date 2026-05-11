@@ -628,6 +628,23 @@ describe('Tenant utilities', () => {
       expect(out?.branding.name).toBe('Store');
       expect(out?.branding.watermark).toBe('full');
     });
+
+    it('preserves surface colors when core OKLCH colors are missing from theme', () => {
+      const candidate = fullCandidate();
+      candidate.theme = {
+        colors: {
+          topBarBackground: '#79a07d',
+          footerBackground: '#333333',
+          navBarBackground: '#ffffff',
+        },
+      };
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out).not.toBeNull();
+      expect(out?.theme.colors.primary).toBe('oklch(0.5 0.2 260)');
+      expect(out?.theme.colors.topBarBackground).toBe('#79a07d');
+      expect(out?.theme.colors.footerBackground).toBe('#333333');
+      expect(out?.theme.colors.navBarBackground).toBe('#ffffff');
+    });
   });
 
   describe('adaptMerchantApiResponse', () => {

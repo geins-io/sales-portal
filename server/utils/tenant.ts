@@ -319,6 +319,23 @@ export function adaptMerchantApiResponse(
   return candidate;
 }
 
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function mergeDeep(
+  base: Record<string, unknown>,
+  override: Record<string, unknown>,
+): Record<string, unknown> {
+  const result = { ...base };
+  for (const key of Object.keys(override)) {
+    const b = base[key];
+    const o = override[key];
+    result[key] = isPlainObject(b) && isPlainObject(o) ? mergeDeep(b, o) : o;
+  }
+  return result;
+}
+
 /**
  * Parse a candidate StoreSettings tolerantly.
  *
@@ -414,7 +431,15 @@ export function parseStoreSettingsResilient(
       );
       return null;
     }
-    work = { ...work, [top]: SALVAGE_DEFAULTS[top] };
+    const existing = work[top];
+    const salvage = SALVAGE_DEFAULTS[top];
+    work = {
+      ...work,
+      [top]:
+        isPlainObject(existing) && isPlainObject(salvage)
+          ? mergeDeep(salvage as Record<string, unknown>, existing)
+          : salvage,
+    };
     applied.push(`${dotted} → default`);
     parsed = StoreSettingsSchema.safeParse(work);
   }
