@@ -140,10 +140,9 @@ describe('ApplyForAccountForm', () => {
       .setValue('ada@example.com');
 
     const vm = wrapper.vm as unknown as {
-      formData: { country: string; password: string; acceptTerms: boolean };
+      formData: { country: string; acceptTerms: boolean };
     };
     vm.formData.country = 'SE';
-    vm.formData.password = 'secret123';
     vm.formData.acceptTerms = true;
     await wrapper.vm.$nextTick();
 
@@ -168,18 +167,6 @@ describe('ApplyForAccountForm', () => {
     expect(options).toHaveLength(6);
     const values = options.map((o) => o.attributes('data-value'));
     expect(values).toEqual(['SE', 'NO', 'DK', 'FI', 'DE', 'GB']);
-  });
-
-  it('renders password input', () => {
-    const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
-    expect(wrapper.find('[data-testid="apply-password"]').exists()).toBe(true);
-  });
-
-  it('renders password show/hide toggle', () => {
-    const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
-    expect(wrapper.find('[data-testid="apply-password-toggle"]').exists()).toBe(
-      true,
-    );
   });
 
   it('renders terms checkbox', () => {
@@ -222,9 +209,8 @@ describe('ApplyForAccountForm', () => {
       .setValue('ada@example.com');
 
     const vm = wrapper.vm as unknown as {
-      formData: { password: string; acceptTerms: boolean };
+      formData: { acceptTerms: boolean };
     };
-    vm.formData.password = 'secret123';
     vm.formData.acceptTerms = true;
     await wrapper.vm.$nextTick();
 
@@ -232,35 +218,6 @@ describe('ApplyForAccountForm', () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.find('[data-testid="apply-country-error"]').exists()).toBe(
-      true,
-    );
-  });
-
-  it('shows password min length error when password is too short on submit', async () => {
-    const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
-
-    await wrapper
-      .find('[data-testid="apply-company-name"]')
-      .setValue('Acme AB');
-    await wrapper.find('[data-testid="apply-org-number"]').setValue('556677');
-    await wrapper.find('[data-testid="apply-first-name"]').setValue('Ada');
-    await wrapper.find('[data-testid="apply-last-name"]').setValue('Lovelace');
-    await wrapper
-      .find('[data-testid="apply-email"]')
-      .setValue('ada@example.com');
-
-    const vm = wrapper.vm as unknown as {
-      formData: { country: string; password: string; acceptTerms: boolean };
-    };
-    vm.formData.country = 'SE';
-    vm.formData.password = 'short';
-    vm.formData.acceptTerms = true;
-    await wrapper.vm.$nextTick();
-
-    await wrapper.find('[data-testid="apply-form"]').trigger('submit');
-    await wrapper.vm.$nextTick();
-
-    expect(wrapper.find('[data-testid="apply-password-error"]').exists()).toBe(
       true,
     );
   });
@@ -279,10 +236,9 @@ describe('ApplyForAccountForm', () => {
       .setValue('ada@example.com');
 
     const vm = wrapper.vm as unknown as {
-      formData: { country: string; password: string };
+      formData: { country: string };
     };
     vm.formData.country = 'SE';
-    vm.formData.password = 'secret123';
     await wrapper.vm.$nextTick();
 
     await wrapper.find('[data-testid="apply-form"]').trigger('submit');
@@ -302,7 +258,6 @@ describe('ApplyForAccountForm', () => {
     const firstNameIdx = html.indexOf('apply-first-name');
     const countryIdx = html.indexOf('apply-country');
     const emailIdx = html.indexOf('apply-email');
-    const passwordIdx = html.indexOf('apply-password"');
     const termsIdx = html.indexOf('apply-terms"');
     const phoneIdx = html.indexOf('apply-phone');
     const submitIdx = html.indexOf('apply-submit');
@@ -310,8 +265,7 @@ describe('ApplyForAccountForm', () => {
     expect(companyIdx).toBeLessThan(firstNameIdx);
     expect(firstNameIdx).toBeLessThan(countryIdx);
     expect(countryIdx).toBeLessThan(emailIdx);
-    expect(emailIdx).toBeLessThan(passwordIdx);
-    expect(passwordIdx).toBeLessThan(termsIdx);
+    expect(emailIdx).toBeLessThan(termsIdx);
     expect(termsIdx).toBeLessThan(phoneIdx);
     expect(phoneIdx).toBeLessThan(submitIdx);
   });

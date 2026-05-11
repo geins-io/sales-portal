@@ -65,7 +65,6 @@ const validBody = {
   lastName: 'Doe',
   country: 'SE',
   email: 'jane@acme.com',
-  password: 'secret123',
   acceptTerms: true,
   phone: '+46701234567',
   message: 'We want a wholesale account.',
@@ -121,7 +120,7 @@ describe('POST /api/apply/submit', () => {
     };
 
     expect(mockRegister).toHaveBeenCalledWith(
-      { username: validBody.email, password: validBody.password },
+      { username: validBody.email, password: expect.any(String) },
       expect.objectContaining({
         address: expect.objectContaining({
           firstName: 'Jane',
