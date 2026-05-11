@@ -867,7 +867,7 @@
     },
     "saved_lists": {
       "title": "Sparade listor",
-      "subtitle": "En lista över alla dina offerter",
+      "subtitle": "Visa och hantera dina sparade produktlistor",
       "search_placeholder": "Sök listor...",
       "columns": {
         "id": "Id",
@@ -883,6 +883,7 @@
       "create": "+ Skapa ny lista",
       "create_dialog": {
         "title": "Skapa ny lista",
+        "description": "Ge din nya lista ett namn för att komma igång",
         "name_label": "Listnamn",
         "name_placeholder": "Ange listnamn",
         "description_label": "Beskrivning (valfri)",

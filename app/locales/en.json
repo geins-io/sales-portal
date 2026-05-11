@@ -867,7 +867,7 @@
     },
     "saved_lists": {
       "title": "Saved lists",
-      "subtitle": "A list of all your quotations",
+      "subtitle": "View and manage your saved product lists",
       "search_placeholder": "Search lists...",
       "columns": {
         "id": "Id",
@@ -883,6 +883,7 @@
       "create": "+ Create new list",
       "create_dialog": {
         "title": "Create new list",
+        "description": "Give your new list a name to get started",
         "name_label": "List name",
         "name_placeholder": "Enter list name",
         "description_label": "Description (optional)",
