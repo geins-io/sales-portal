@@ -29,8 +29,5 @@ export default defineCachedEventHandler(
     swr: true,
     // Cache for 1 hour
     maxAge: 60 * 60,
-    // Important: Prevent discarding tenant-specific headers
-    // An array of request headers to be considered for the cache
-    varies: ['host', 'x-forwarded-host'],
   },
 );
