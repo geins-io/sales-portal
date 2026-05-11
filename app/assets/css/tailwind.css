@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import './transitions.css';
+@import './print.css';
 
 @theme inline {
   --font-sans: var(--font-family);

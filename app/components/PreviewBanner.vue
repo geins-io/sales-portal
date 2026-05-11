@@ -10,6 +10,7 @@ const studioConnected = useState('cms-studio-connected', () => false);
 <template>
   <div
     v-if="isPreview"
+    data-testid="preview-banner"
     class="sticky top-0 z-[61] flex min-h-12 items-center gap-4 bg-orange-700 px-5 shadow-[0_2px_8px_rgba(0,0,0,.25)]"
   >
     <Pencil class="size-[13px] shrink-0 text-orange-200" />
