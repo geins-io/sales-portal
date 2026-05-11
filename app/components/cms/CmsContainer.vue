@@ -41,7 +41,10 @@ const activeWidgets = computed<ContentType[]>(() => {
 </script>
 
 <template>
-  <section v-if="activeWidgets.length" :class="designClasses" class="py-4">
+  <section
+    v-if="activeWidgets.length"
+    :class="[designClasses, container.design !== 'full-width' && 'py-4']"
+  >
     <div :class="layoutClasses">
       <CmsWidget
         v-for="(widget, index) in activeWidgets"
