@@ -65,7 +65,7 @@ function handleSort(_column: string) {
       class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
     >
       <div>
-        <h2 class="text-xl font-semibold">
+        <h2 class="text-2xl font-semibold">
           {{ t('portal.purchased_products.title') }}
         </h2>
         <p class="text-muted-foreground mt-1 text-sm">
@@ -130,12 +130,14 @@ function handleSort(_column: string) {
 
     <!-- Products table -->
     <template v-else>
-      <PortalProductsTable
-        :products="paginatedProducts"
-        sort-column="name"
-        :sort-direction="sortDirection"
-        @sort="handleSort"
-      />
+      <div class="border-border overflow-hidden rounded-lg border">
+        <PortalProductsTable
+          :products="paginatedProducts"
+          sort-column="name"
+          :sort-direction="sortDirection"
+          @sort="handleSort"
+        />
+      </div>
 
       <!-- Footer: Rows per page + Pagination -->
       <div

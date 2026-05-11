@@ -70,7 +70,7 @@ function getStatusLabel(status: QuoteStatus): string {
       class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
     >
       <div>
-        <h2 class="text-xl font-semibold">
+        <h2 class="text-2xl font-semibold">
           {{ t('portal.quotations.title') }}
         </h2>
         <p class="text-muted-foreground mt-1 text-sm">
@@ -167,7 +167,9 @@ function getStatusLabel(status: QuoteStatus): string {
       </div>
 
       <!-- Desktop table -->
-      <div class="hidden overflow-x-auto md:block">
+      <div
+        class="border-border hidden overflow-hidden rounded-lg border md:block"
+      >
         <table data-testid="quotations-table" class="w-full text-sm">
           <thead>
             <tr class="border-border border-b text-left">
