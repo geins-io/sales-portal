@@ -9,9 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
-import ProductCard, {
-  type ProductCardItem,
-} from '~/components/shared/ProductCard.vue';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
 
@@ -19,15 +16,15 @@ definePageMeta({ middleware: 'auth' });
 
 // Saved-list detail. The list itself is client-side (SDK ListsSession),
 // items are product aliases. We fetch fresh product data from
-// /api/products/by-aliases and render ProductCards. Add-to-cart and
-// remove-from-list are client actions; no server persistence beyond
-// the cart itself.
+// /api/products/by-aliases and render a horizontal row list.
+// Add-to-cart, add-to-list, and remove-from-list are client actions.
 
 interface ListProduct {
   alias?: string | null;
   name?: string | null;
   articleNumber?: string | null;
   productImages?: Array<{ fileName?: string | null } | null> | null;
+  totalStock?: unknown;
   unitPrice?: {
     isDiscounted?: boolean | null;
     regularPriceIncVat?: number | null;
@@ -74,6 +71,9 @@ const { data, pending, refresh } = useFetch<{ products: ListProduct[] }>(
 
 const products = computed<ListProduct[]>(() => data.value?.products ?? []);
 
+// Per-item quantity tracker
+const qty = ref<Record<string, number>>({});
+
 if (import.meta.client) {
   watch(
     () => list.value?.items,
@@ -86,42 +86,43 @@ if (import.meta.client) {
   );
 }
 
-function mapToCardItem(product: ListProduct): ProductCardItem {
-  const unitPrice = product.unitPrice;
-  const regular = unitPrice?.regularPriceIncVat ?? null;
-  const selling = unitPrice?.sellingPriceIncVat ?? null;
-  const hasDiscount =
-    unitPrice?.isDiscounted === true ||
-    (regular != null && selling != null && regular > selling);
+watch(products, (newProducts) => {
+  for (const p of newProducts) {
+    if (p.alias) {
+      qty.value[p.alias] = qty.value[p.alias] ?? 1;
+    }
+  }
+});
 
-  return {
-    name: product.name ?? '',
-    imageFileName: product.productImages?.[0]?.fileName ?? null,
-    price: hasDiscount
-      ? (unitPrice?.regularPriceIncVatFormatted ?? null)
-      : (unitPrice?.sellingPriceIncVatFormatted ?? null),
-    salePrice: hasDiscount
-      ? (unitPrice?.sellingPriceIncVatFormatted ?? null)
-      : null,
-    articleNumber: product.articleNumber ?? null,
-    alias: product.alias ?? null,
-  };
-}
+// --- List total ---
+const listTotal = computed(() =>
+  products.value.reduce(
+    (sum, p) => sum + (p.unitPrice?.sellingPriceIncVat ?? 0),
+    0,
+  ),
+);
 
-async function handleAddToCart(
-  product: ListProduct,
-  { quantity }: { quantity: number },
-) {
-  const firstSku = product.skus?.find((s) => s?.skuId != null);
-  if (!firstSku?.skuId) return;
-  await cartStore.addItem(firstSku.skuId, quantity);
-}
+const listTotalFormatted = computed(() =>
+  listTotal.value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }),
+);
 
-function removeItem(alias: string | null | undefined) {
-  if (!alias) return;
-  favoritesStore.removeItemFromList(listId.value, alias);
-}
+// --- Quick search filter ---
+const searchQuery = ref('');
 
+const filteredProducts = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return products.value;
+  return products.value.filter(
+    (p) =>
+      p.name?.toLowerCase().includes(q) ||
+      p.articleNumber?.toLowerCase().includes(q),
+  );
+});
+
+// --- Add all to cart ---
 const isAddingAll = ref(false);
 async function addAllToCart() {
   if (isAddingAll.value || products.value.length === 0) return;
@@ -138,7 +139,13 @@ async function addAllToCart() {
   }
 }
 
-// --- Rename ---
+// --- Remove item ---
+function removeItem(alias: string | null | undefined) {
+  if (!alias) return;
+  favoritesStore.removeItemFromList(listId.value, alias);
+}
+
+// --- Rename (inline + dialog) ---
 const renameOpen = ref(false);
 const renameValue = ref('');
 
@@ -154,6 +161,12 @@ function commitRename() {
   renameOpen.value = false;
 }
 
+function handleRename() {
+  if (!renameValue.value.trim() || renameValue.value === list.value?.name)
+    return;
+  favoritesStore.renameList(listId.value, renameValue.value.trim());
+}
+
 // --- Delete ---
 const deleteOpen = ref(false);
 
@@ -161,6 +174,15 @@ function confirmDelete() {
   favoritesStore.deleteList(listId.value);
   deleteOpen.value = false;
   router.push(localePath('/portal/lists'));
+}
+
+// --- Add to list dialog ---
+const showAddToList = ref(false);
+const addToListAlias = ref('');
+
+function openAddToList(alias: string) {
+  addToListAlias.value = alias;
+  showAddToList.value = true;
 }
 </script>
 
@@ -180,7 +202,7 @@ function confirmDelete() {
     </div>
 
     <div v-else data-testid="list-detail" class="space-y-6">
-      <!-- Back link -->
+      <!-- Back link (outside card) -->
       <NuxtLink
         :to="localePath('/portal/lists')"
         data-testid="back-link"
@@ -190,101 +212,195 @@ function confirmDelete() {
         {{ t('portal.saved_list_detail.back_to_lists') }}
       </NuxtLink>
 
-      <!-- Header + actions -->
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 data-testid="list-name" class="text-2xl font-semibold">
-            {{ list.name }}
-          </h1>
-          <p
-            v-if="list.items.length"
-            class="text-muted-foreground mt-1 text-sm"
+      <!-- Card wrapper -->
+      <div class="border-border overflow-hidden rounded-lg border">
+        <!-- Header row -->
+        <div class="flex items-center justify-between p-6">
+          <div>
+            <h1 data-testid="list-name" class="text-2xl font-semibold">
+              {{ list.name }}
+            </h1>
+            <p
+              v-if="list.items.length"
+              class="text-muted-foreground mt-1 text-sm"
+            >
+              {{
+                t('portal.saved_list_detail.item_count', {
+                  count: list.items.length,
+                })
+              }}
+            </p>
+          </div>
+          <div
+            data-testid="saved-list-action-toolbar"
+            class="flex flex-wrap items-center gap-2"
           >
-            {{
-              t('portal.saved_list_detail.item_count', {
-                count: list.items.length,
-              })
-            }}
-          </p>
+            <Button
+              data-testid="rename-list-btn"
+              variant="outline"
+              @click="openRename"
+            >
+              <Icon name="lucide:pencil" class="size-4" />
+              {{ t('portal.saved_list_detail.rename_list') }}
+            </Button>
+            <Button
+              data-testid="delete-list-btn"
+              variant="outline"
+              class="text-destructive border-destructive/30 hover:bg-destructive/10"
+              @click="deleteOpen = true"
+            >
+              <Icon name="lucide:trash-2" class="size-4" />
+              {{ t('portal.saved_list_detail.delete_list') }}
+            </Button>
+            <Button
+              v-if="products.length && !isCatalogMode"
+              data-testid="add-all-to-cart-btn"
+              :disabled="isAddingAll"
+              @click="addAllToCart"
+            >
+              <Icon name="lucide:shopping-cart" class="size-4" />
+              {{ t('portal.saved_list_detail.add_all_to_cart') }}
+            </Button>
+          </div>
         </div>
+
+        <!-- Divider row: inline rename input + list total -->
         <div
-          data-testid="saved-list-action-toolbar"
-          class="flex flex-wrap items-center gap-2"
+          class="border-border flex items-center justify-between gap-4 border-t px-6 py-4"
         >
-          <Button
-            data-testid="rename-list-btn"
-            variant="outline"
-            @click="openRename"
+          <Input
+            v-model="renameValue"
+            class="max-w-xs"
+            :placeholder="list.name"
+            data-testid="rename-inline-input"
+            @blur="
+              renameValue !== list.name && renameValue.trim()
+                ? handleRename()
+                : undefined
+            "
+          />
+          <div
+            v-if="products.length > 0"
+            class="flex shrink-0 items-center gap-2"
           >
-            <Icon name="lucide:pencil" class="size-4" />
-            {{ t('portal.saved_list_detail.rename_list') }}
-          </Button>
-          <Button
-            data-testid="delete-list-btn"
-            variant="outline"
-            class="text-destructive border-destructive/30 hover:bg-destructive/10"
-            @click="deleteOpen = true"
-          >
-            <Icon name="lucide:trash-2" class="size-4" />
-            {{ t('portal.saved_list_detail.delete_list') }}
-          </Button>
-          <Button
-            v-if="products.length && !isCatalogMode"
-            data-testid="add-all-to-cart-btn"
-            :disabled="isAddingAll"
-            @click="addAllToCart"
-          >
-            <Icon name="lucide:shopping-cart" class="size-4" />
-            {{ t('portal.saved_list_detail.add_all_to_cart') }}
-          </Button>
+            <span class="text-muted-foreground text-sm">{{
+              t('portal.saved_list_detail.list_total_label')
+            }}</span>
+            <span class="font-semibold">{{ listTotalFormatted }}</span>
+          </div>
         </div>
-      </div>
 
-      <!-- Empty list -->
-      <div
-        v-if="!list.items.length"
-        data-testid="empty-list"
-        class="text-muted-foreground py-12 text-center text-sm"
-      >
-        {{ t('portal.saved_list_detail.no_items') }}
-      </div>
-
-      <!-- Loading -->
-      <div
-        v-else-if="pending"
-        data-testid="list-loading"
-        class="text-muted-foreground py-12 text-center text-sm"
-      >
-        {{ t('common.loading') }}
-      </div>
-
-      <!-- Items grid -->
-      <div
-        v-else
-        data-testid="list-items-grid"
-        class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        <div
-          v-for="product in products"
-          :key="product.alias ?? ''"
-          data-testid="list-item-card"
-          class="relative"
-        >
-          <button
-            type="button"
-            data-testid="list-item-remove"
-            :aria-label="t('portal.saved_list_detail.remove_item')"
-            class="bg-background/80 hover:bg-background absolute top-2 right-2 z-10 rounded-full p-1.5 shadow"
-            @click="removeItem(product.alias)"
-          >
-            <Icon name="lucide:x" class="size-4" />
-          </button>
-          <ProductCard
-            :product="mapToCardItem(product)"
-            variant="grid"
-            @add-to-cart="handleAddToCart(product, $event)"
+        <!-- Quick search row -->
+        <div class="border-border border-t px-6 py-3">
+          <Input
+            v-model="searchQuery"
+            :placeholder="
+              t('portal.saved_list_detail.quick_filter_placeholder')
+            "
+            class="max-w-sm"
+            data-testid="list-search-input"
           />
         </div>
+
+        <!-- Empty list -->
+        <div
+          v-if="!list.items.length"
+          data-testid="empty-list"
+          class="text-muted-foreground border-border border-t px-6 py-12 text-center text-sm"
+        >
+          {{ t('portal.saved_list_detail.no_items') }}
+        </div>
+
+        <!-- Loading -->
+        <div
+          v-else-if="pending"
+          data-testid="list-loading"
+          class="text-muted-foreground border-border border-t px-6 py-12 text-center text-sm"
+        >
+          {{ t('common.loading') }}
+        </div>
+
+        <!-- Items list -->
+        <template v-else>
+          <div
+            v-for="product in filteredProducts"
+            :key="product.alias ?? ''"
+            data-testid="list-item-row"
+            class="border-border flex items-center gap-4 border-t px-6 py-3"
+          >
+            <ProductThumbnail
+              :product="product"
+              class="size-10 shrink-0 rounded"
+            />
+
+            <!-- Product info -->
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-medium">{{ product.name }}</p>
+              <p class="text-muted-foreground text-xs">
+                {{ product.articleNumber }}
+              </p>
+              <StockBadge
+                v-if="product.totalStock"
+                :stock="product.totalStock"
+                class="mt-1"
+              />
+            </div>
+
+            <!-- Price -->
+            <span class="shrink-0 text-sm font-medium">{{
+              product.unitPrice?.sellingPriceIncVatFormatted ?? ''
+            }}</span>
+
+            <!-- Qty stepper -->
+            <QuantityStepper
+              v-if="product.alias"
+              v-model="qty[product.alias]"
+              :min="1"
+              class="shrink-0"
+            />
+
+            <!-- Add to cart -->
+            <Button
+              v-if="!isCatalogMode && product.alias"
+              variant="ghost"
+              size="icon"
+              :aria-label="t('portal.saved_list_detail.add_to_cart')"
+              data-testid="list-item-add-to-cart"
+              @click="
+                cartStore.addItem(
+                  product.skus?.[0]?.skuId,
+                  qty[product.alias] ?? 1,
+                )
+              "
+            >
+              <Icon name="lucide:shopping-cart" class="size-4" />
+            </Button>
+
+            <!-- Add to list -->
+            <Button
+              v-if="product.alias"
+              variant="ghost"
+              size="icon"
+              :aria-label="t('portal.saved_list_detail.add_to_list')"
+              data-testid="list-item-add-to-list"
+              @click="openAddToList(product.alias)"
+            >
+              <Icon name="lucide:list-plus" class="size-4" />
+            </Button>
+
+            <!-- Remove -->
+            <Button
+              variant="ghost"
+              size="icon"
+              class="text-destructive"
+              :aria-label="t('portal.saved_list_detail.remove_item')"
+              data-testid="list-item-remove"
+              @click="removeItem(product.alias)"
+            >
+              <Icon name="lucide:trash-2" class="size-4" />
+            </Button>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -345,5 +461,11 @@ function confirmDelete() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <!-- Add to list dialog -->
+    <AddToListDialog
+      v-model:open="showAddToList"
+      :product-alias="addToListAlias"
+    />
   </PortalShell>
 </template>
