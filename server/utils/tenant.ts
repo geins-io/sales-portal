@@ -45,6 +45,10 @@ export const DEFAULT_CMS_CONFIG: NonNullable<TenantConfig['cms']> = {
       family: 'Product',
       areaName: 'Below Details',
     },
+    [CMS_SLOTS.APPLY_FOR_ACCOUNT]: {
+      family: 'Infopage',
+      areaName: 'Account application',
+    },
   },
   menus: {
     [CMS_MENUS.HEADER_MAIN]: { menuLocationId: 'main' },

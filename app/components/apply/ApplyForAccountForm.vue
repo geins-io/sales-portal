@@ -33,10 +33,6 @@ const applySchema = z.object({
     error: 'apply.field_required',
   }),
   email: z.string().min(1, 'apply.field_required').email('apply.invalid_email'),
-  password: z
-    .string()
-    .min(1, 'apply.field_required')
-    .min(8, 'apply.password_min_length'),
   acceptTerms: z.literal(true, { error: 'apply.accept_terms_required' }),
   phone: z.string().max(50).optional(),
   message: z.string().max(5000).optional(),
@@ -49,7 +45,6 @@ type FormData = {
   lastName: string;
   country: string;
   email: string;
-  password: string;
   acceptTerms: boolean;
   phone: string;
   message: string;
@@ -62,7 +57,6 @@ const formData = reactive<FormData>({
   lastName: '',
   country: '',
   email: '',
-  password: '',
   acceptTerms: false,
   phone: '',
   message: '',
@@ -72,7 +66,6 @@ const fieldErrors = reactive<Record<string, string>>({});
 const touched = reactive<Record<string, boolean>>({});
 const isLoading = ref(false);
 const errorMessage = ref('');
-const showPassword = ref(false);
 
 const router = useRouter();
 
@@ -85,7 +78,6 @@ const requiredFields: FormField[] = [
   'lastName',
   'country',
   'email',
-  'password',
   'acceptTerms',
 ];
 
@@ -143,7 +135,6 @@ async function handleSubmit() {
         lastName: formData.lastName,
         country: formData.country,
         email: formData.email,
-        password: formData.password,
         acceptTerms: formData.acceptTerms as true,
         phone: formData.phone || undefined,
         message: formData.message || undefined,
@@ -331,44 +322,6 @@ async function handleSubmit() {
         data-testid="apply-email-error"
       >
         {{ t(fieldErrors.email) }}
-      </p>
-    </div>
-
-    <!-- Password -->
-    <div class="space-y-2">
-      <Label for="apply-password">{{ t('apply.password') }}</Label>
-      <div class="relative">
-        <Input
-          id="apply-password"
-          v-model="formData.password"
-          :type="showPassword ? 'text' : 'password'"
-          autocomplete="new-password"
-          :disabled="isLoading"
-          data-testid="apply-password"
-          @blur="handleBlur('password')"
-        />
-        <button
-          type="button"
-          tabindex="-1"
-          class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
-          data-testid="apply-password-toggle"
-          :aria-label="
-            showPassword ? t('apply.hide_password') : t('apply.show_password')
-          "
-          @click="showPassword = !showPassword"
-        >
-          <Icon
-            :name="showPassword ? 'lucide:eye-off' : 'lucide:eye'"
-            class="size-4"
-          />
-        </button>
-      </div>
-      <p
-        v-if="touched.password && fieldErrors.password"
-        class="text-destructive text-xs"
-        data-testid="apply-password-error"
-      >
-        {{ t(fieldErrors.password) }}
       </p>
     </div>
 

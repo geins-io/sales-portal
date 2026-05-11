@@ -14,6 +14,10 @@ export default defineEventHandler(async (event) => {
 
   const body = await readValidatedBody(event, ApplyForAccountSchema.parse);
 
+  // Auto-generate a secure password — the user never sees it.
+  // They log in via the password-reset flow after account approval.
+  const autoPassword = crypto.randomUUID() + 'Aa1!';
+
   // Step 1: create the user as a PERSON via the standard register flow.
   const address = {
     firstName: body.firstName,
@@ -23,7 +27,7 @@ export default defineEventHandler(async (event) => {
   };
 
   const registerResult = await userService.register(
-    { username: body.email, password: body.password },
+    { username: body.email, password: autoPassword },
     { address },
     event,
   );

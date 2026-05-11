@@ -223,7 +223,6 @@ export const ApplyForAccountSchema = z.object({
   lastName: z.string().min(1).max(100),
   country: z.enum(['SE', 'NO', 'DK', 'FI', 'DE', 'GB']),
   email: z.string().email(),
-  password: z.string().min(8),
   acceptTerms: z.literal(true),
   phone: z.string().max(50).optional(),
   message: z.string().max(5000).optional(),
