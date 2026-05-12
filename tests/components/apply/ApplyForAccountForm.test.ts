@@ -52,9 +52,9 @@ const stubs = {
   },
   Checkbox: {
     template:
-      '<input type="checkbox" data-stub="checkbox" :checked="checked" @change="$emit(\'update:checked\', $event.target.checked)" v-bind="$attrs" />',
-    props: ['checked', 'id', 'disabled'],
-    emits: ['update:checked'],
+      '<input type="checkbox" data-stub="checkbox" :checked="modelValue" @change="$emit(\'update:modelValue\', $event.target.checked)" v-bind="$attrs" />',
+    props: ['modelValue', 'id', 'disabled'],
+    emits: ['update:modelValue'],
   },
   NuxtLink: {
     template: '<a :href="to"><slot /></a>',
@@ -246,6 +246,26 @@ describe('ApplyForAccountForm', () => {
 
     expect(wrapper.find('[data-testid="apply-terms-error"]').exists()).toBe(
       true,
+    );
+  });
+
+  it('binds terms checkbox to formData via update:modelValue', async () => {
+    const wrapper = mountComponent(ApplyForAccountForm, { global: { stubs } });
+
+    const terms = wrapper.find('[data-testid="apply-terms"]');
+    expect(terms.exists()).toBe(true);
+
+    const vm = wrapper.vm as unknown as {
+      formData: { acceptTerms: boolean };
+    };
+    expect(vm.formData.acceptTerms).toBe(false);
+
+    await terms.setValue(true);
+    await wrapper.vm.$nextTick();
+
+    expect(vm.formData.acceptTerms).toBe(true);
+    expect(wrapper.find('[data-testid="apply-terms-error"]').exists()).toBe(
+      false,
     );
   });
 

@@ -57,7 +57,7 @@ function handleCreateList() {
           class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
         >
           <div>
-            <h2 class="text-lg font-semibold">
+            <h2 class="text-2xl font-bold">
               {{ t('portal.saved_lists.title') }}
             </h2>
             <p class="text-muted-foreground mt-1 text-sm">

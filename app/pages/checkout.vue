@@ -85,9 +85,13 @@ if (!cartIdCookie.value) {
   await navigateTo(localePath('/cart'), { replace: true });
 }
 
-// Load checkout data: payment options, shipping options, consents
+// Load checkout data: payment options, shipping options, consents.
+// callOnce prevents re-fetching on client hydration after SSR — avoids the
+// "Failed to load checkout" flash caused by SSR errors clearing on client re-run.
 if (cartIdCookie.value) {
-  await checkoutStore.fetchCheckout(cartIdCookie.value);
+  await callOnce('checkout-fetch', () =>
+    checkoutStore.fetchCheckout(cartIdCookie.value!),
+  );
 }
 
 // Prefill from company after checkout loads so company data takes priority
@@ -255,11 +259,10 @@ async function handlePlaceOrder() {
               v-if="isCompanyUser && companyData"
               :company="companyData"
               :buyer-email="authStore.user?.username ?? undefined"
-              @change-company-details="() => {}"
             />
             <Card v-else>
               <CardHeader
-                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <Mail class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{ t('checkout.email') }}</CardTitle>
@@ -296,7 +299,7 @@ async function handlePlaceOrder() {
             <!-- Billing Address: hidden for company users (included in company card) -->
             <Card v-if="!isCompanyUser">
               <CardHeader
-                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <MapPin class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -323,7 +326,7 @@ async function handlePlaceOrder() {
             />
             <Card v-else-if="!isCompanyUser">
               <CardHeader
-                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <Truck class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -360,7 +363,7 @@ async function handlePlaceOrder() {
             <!-- Payment Method -->
             <Card>
               <CardHeader
-                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <CreditCard class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -380,7 +383,7 @@ async function handlePlaceOrder() {
             <!-- Order Message -->
             <Card>
               <CardHeader
-                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <MessageSquare class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{
@@ -404,10 +407,10 @@ async function handlePlaceOrder() {
               </CardContent>
             </Card>
 
-            <!-- Consents -->
-            <Card>
+            <!-- Consents: only rendered when there are non-auto-accepted consents -->
+            <Card v-if="checkoutStore.consents?.some((c) => !c.autoAccept)">
               <CardHeader
-                class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >
                 <FileCheck class="text-muted-foreground size-5" />
                 <CardTitle class="text-lg">{{

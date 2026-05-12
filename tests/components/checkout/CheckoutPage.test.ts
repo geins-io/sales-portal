@@ -23,9 +23,9 @@ const stubs = {
   },
   Checkbox: {
     template:
-      '<button role="checkbox" :data-state="checked ? \'checked\' : \'unchecked\'" :disabled="disabled" v-bind="$attrs" @click="$emit(\'update:checked\', !checked)"></button>',
-    props: ['checked', 'disabled', 'id'],
-    emits: ['update:checked'],
+      '<button role="checkbox" :data-state="modelValue ? \'checked\' : \'unchecked\'" :disabled="disabled" v-bind="$attrs" @click="$emit(\'update:modelValue\', !modelValue)"></button>',
+    props: ['modelValue', 'disabled', 'id'],
+    emits: ['update:modelValue'],
   },
   Separator: { template: '<hr />' },
   Textarea: {

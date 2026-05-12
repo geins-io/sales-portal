@@ -33,7 +33,7 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
 <template>
   <Card data-testid="checkout-delivery-info">
     <CardHeader
-      class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+      class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
     >
       <MapPin class="text-muted-foreground size-5" />
       <CardTitle class="text-lg">{{ t('checkout.delivery_info') }}</CardTitle>

@@ -29,10 +29,13 @@
     display: none !important;
   }
 
-  /* Hide Nuxt devtools bar and any floating debug overlays */
+  /* Hide Nuxt devtools bar and any floating debug overlays.
+     NOTE: do NOT use [id^='__nuxt'] — that also matches #__nuxt (the app root
+     that contains every page), so print preview renders blank. Devtools mounts
+     use the __nuxt_devtools_ prefix (underscore), which is safe. */
   nuxt-dev-tools,
   #nuxt-devtools,
-  [id^='__nuxt'],
+  [id^='__nuxt_devtools'],
   [data-v-inspector],
   .nuxt-devtools {
     display: none !important;

@@ -15,6 +15,15 @@ vi.stubGlobal(
   vi.fn(() => ''),
 );
 vi.stubGlobal('watch', vi.fn());
+// Stub Nuxt's `callOnce` at the module level. The real impl reaches for
+// the Nuxt instance via useNuxtApp() which isn't present under plain
+// @vue/test-utils mount.
+vi.mock('#app/composables/once', () => ({
+  callOnce: vi.fn((_keyOrFn: unknown, maybeFn?: unknown) => {
+    const fn = typeof _keyOrFn === 'function' ? _keyOrFn : maybeFn;
+    return typeof fn === 'function' ? fn() : Promise.resolve();
+  }),
+}));
 
 vi.mock('#app/composables/router', () => ({
   useRoute: () => ({ params: {}, query: {}, path: '/se/en/checkout' }),

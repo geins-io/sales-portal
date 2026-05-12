@@ -98,8 +98,16 @@ export async function copyCart(
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
   const ctx = { ...buildRequestContext(event), userToken };
+  // Geins cartCopy does not re-evaluate pricelist/discount rules against
+  // the authenticated context — the new cart is returned at guest prices.
+  // A subsequent cart.get with forceRefresh=true forces Geins to re-resolve
+  // prices under the userToken, so the user sees their pricelist immediately
+  // after login instead of after the next add-to-cart.
   return wrapServiceCall(
-    () => oms.cart.copy(cartId, {}, ctx),
+    async () => {
+      const copied = await oms.cart.copy(cartId, {}, ctx);
+      return oms.cart.get(copied.id, true, ctx);
+    },
     'cart',
     CartError,
   );

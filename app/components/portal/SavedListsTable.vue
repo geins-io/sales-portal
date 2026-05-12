@@ -107,7 +107,7 @@ function formatDate(value: number | string | undefined): string {
           <td class="py-3 text-right">
             <NuxtLink
               :to="localePath(`/portal/saved-lists/${list.id}`)"
-              class="bg-muted text-foreground hover:bg-muted/80 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors"
+              class="border-border hover:bg-muted/40 inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors"
               data-testid="saved-list-edit"
               :aria-label="t('portal.saved_lists.row_actions.edit')"
             >

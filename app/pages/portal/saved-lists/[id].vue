@@ -146,21 +146,14 @@ function removeItem(alias: string | null | undefined) {
   favoritesStore.removeItemFromList(listId.value, alias);
 }
 
-// --- Rename (inline + dialog) ---
-const renameOpen = ref(false);
+// --- Rename (inline only — the input itself is the rename UI) ---
 const renameValue = ref('');
 
-function openRename() {
-  if (!list.value) return;
-  renameValue.value = list.value.name;
-  renameOpen.value = true;
-}
-
-function commitRename() {
-  if (!renameValue.value.trim()) return;
-  favoritesStore.renameList(listId.value, renameValue.value.trim());
-  renameOpen.value = false;
-}
+watchEffect(() => {
+  if (list.value && !renameValue.value) {
+    renameValue.value = list.value.name;
+  }
+});
 
 function handleRename() {
   if (!renameValue.value.trim() || renameValue.value === list.value?.name)
@@ -206,249 +199,226 @@ function addToCart(product: ListProduct) {
 
 <template>
   <PortalShell>
-    <div v-if="!list" data-testid="list-missing" class="space-y-4 py-12">
-      <p class="text-muted-foreground text-center text-sm">
-        {{ t('portal.saved_list_detail.not_found') }}
-      </p>
-      <div class="flex justify-center">
-        <NuxtLink :to="localePath('/portal/lists')">
-          <Button variant="outline">
-            {{ t('portal.saved_list_detail.back_to_lists') }}
-          </Button>
-        </NuxtLink>
+    <ClientOnly>
+      <template #fallback>
+        <div
+          class="border-border min-h-[420px] animate-pulse rounded-lg border"
+          data-testid="list-detail-skeleton"
+        />
+      </template>
+
+      <div v-if="!list" data-testid="list-missing" class="space-y-4 py-12">
+        <p class="text-muted-foreground text-center text-sm">
+          {{ t('portal.saved_list_detail.not_found') }}
+        </p>
+        <div class="flex justify-center">
+          <NuxtLink :to="localePath('/portal/lists')">
+            <Button variant="outline">
+              {{ t('portal.saved_list_detail.back_to_lists') }}
+            </Button>
+          </NuxtLink>
+        </div>
       </div>
-    </div>
 
-    <div v-else data-testid="list-detail" class="space-y-6">
-      <!-- Back link (outside card) -->
-      <NuxtLink
-        :to="localePath('/portal/lists')"
-        data-testid="back-link"
-        class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
-      >
-        <Icon name="lucide:arrow-left" class="size-4" />
-        {{ t('portal.saved_list_detail.back_to_lists') }}
-      </NuxtLink>
-
-      <!-- Card wrapper -->
-      <div class="border-border overflow-hidden rounded-lg border">
-        <!-- Header row -->
-        <div class="flex items-center justify-between p-6">
-          <div>
-            <h1 data-testid="list-name" class="text-2xl font-semibold">
-              {{ list.name }}
-            </h1>
-            <p
-              v-if="list.items.length"
-              class="text-muted-foreground mt-1 text-sm"
+      <div v-else data-testid="list-detail">
+        <!-- Card wrapper (matches Figma node 25387:121485) -->
+        <div class="bg-card border-border overflow-hidden rounded-lg border">
+          <!-- Top row: back link (left) + action buttons (right) -->
+          <div class="flex items-center justify-between gap-4 px-6 py-4">
+            <NuxtLink
+              :to="localePath('/portal/lists')"
+              data-testid="back-link"
+              class="text-muted-foreground hover:text-foreground text-sm"
             >
-              {{
-                t('portal.saved_list_detail.item_count', {
-                  count: list.items.length,
-                })
-              }}
-            </p>
+              &lt; {{ t('portal.saved_list_detail.back_to_lists') }}
+            </NuxtLink>
+            <div
+              data-testid="saved-list-action-toolbar"
+              class="flex shrink-0 items-center gap-2"
+            >
+              <Button
+                data-testid="delete-list-btn"
+                variant="outline"
+                @click="deleteOpen = true"
+              >
+                <Icon name="lucide:x" class="size-4" />
+                {{ t('portal.saved_list_detail.delete_list') }}
+              </Button>
+              <Button
+                v-if="products.length && !isCatalogMode"
+                data-testid="add-all-to-cart-btn"
+                :disabled="isAddingAll"
+                @click="addAllToCart"
+              >
+                <Icon name="lucide:shopping-cart" class="size-4" />
+                {{ t('portal.saved_list_detail.add_all_to_cart') }}
+              </Button>
+            </div>
           </div>
+
+          <!-- List name + list total -->
           <div
-            data-testid="saved-list-action-toolbar"
-            class="flex flex-wrap items-center gap-2"
+            class="border-border flex items-start justify-between gap-6 border-t p-6"
           >
-            <Button
-              data-testid="rename-list-btn"
-              variant="outline"
-              @click="openRename"
-            >
-              <Icon name="lucide:pencil" class="size-4" />
-              {{ t('portal.saved_list_detail.rename_list') }}
-            </Button>
-            <Button
-              data-testid="delete-list-btn"
-              variant="outline"
-              class="text-destructive border-destructive/30 hover:bg-destructive/10"
-              @click="deleteOpen = true"
-            >
-              <Icon name="lucide:x" class="size-4" />
-              {{ t('portal.saved_list_detail.delete_list') }}
-            </Button>
-            <Button
-              v-if="products.length && !isCatalogMode"
-              data-testid="add-all-to-cart-btn"
-              :disabled="isAddingAll"
-              @click="addAllToCart"
-            >
-              <Icon name="lucide:shopping-cart" class="size-4" />
-              {{ t('portal.saved_list_detail.add_all_to_cart') }}
-            </Button>
-          </div>
-        </div>
-
-        <!-- Divider row: inline rename input + list total -->
-        <div
-          class="border-border flex items-center justify-between gap-4 border-t px-6 py-4"
-        >
-          <Input
-            v-model="renameValue"
-            class="max-w-xs"
-            :placeholder="list.name"
-            data-testid="rename-inline-input"
-            @blur="
-              renameValue !== list.name && renameValue.trim()
-                ? handleRename()
-                : undefined
-            "
-          />
-          <div
-            v-if="products.length > 0"
-            class="flex shrink-0 items-center gap-2"
-          >
-            <span class="text-muted-foreground text-sm">{{
-              t('portal.saved_list_detail.list_total_label')
-            }}</span>
-            <span class="font-semibold">{{ listTotalFormatted }}</span>
-          </div>
-        </div>
-
-        <!-- Quick search row -->
-        <div class="border-border border-t px-6 py-3">
-          <Input
-            v-model="searchQuery"
-            :placeholder="
-              t('portal.saved_list_detail.quick_filter_placeholder')
-            "
-            class="max-w-sm"
-            data-testid="list-search-input"
-          />
-        </div>
-
-        <!-- Empty list -->
-        <div
-          v-if="!list.items.length"
-          data-testid="empty-list"
-          class="text-muted-foreground border-border border-t px-6 py-12 text-center text-sm"
-        >
-          {{ t('portal.saved_list_detail.no_items') }}
-        </div>
-
-        <!-- Loading -->
-        <div
-          v-else-if="pending"
-          data-testid="list-loading"
-          class="text-muted-foreground border-border border-t px-6 py-12 text-center text-sm"
-        >
-          {{ t('common.loading') }}
-        </div>
-
-        <!-- Items list -->
-        <template v-else>
-          <div
-            v-for="product in filteredProducts"
-            :key="product.alias ?? ''"
-            data-testid="list-item-row"
-            class="border-border flex items-center gap-4 border-t px-6 py-3"
-          >
-            <ProductThumbnail
-              :product="product"
-              class="size-10 shrink-0 rounded"
-            />
-
-            <!-- Product info -->
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">{{ product.name }}</p>
-              <p class="text-muted-foreground text-xs">
-                {{ product.articleNumber }}
+            <div class="min-w-0 flex-1 space-y-2">
+              <label
+                for="saved-list-rename"
+                class="block text-sm font-semibold"
+              >
+                {{ t('portal.saved_list_detail.list_name_label') }}
+              </label>
+              <Input
+                id="saved-list-rename"
+                v-model="renameValue"
+                :placeholder="list.name"
+                data-testid="rename-inline-input"
+                @blur="
+                  renameValue !== list.name && renameValue.trim()
+                    ? handleRename()
+                    : undefined
+                "
+              />
+              <p class="text-muted-foreground text-sm">
+                {{ t('portal.saved_list_detail.list_internal_note') }}
               </p>
-              <StockBadge
-                v-if="product.totalStock"
-                :stock="product.totalStock"
-                class="mt-1"
+            </div>
+            <div
+              v-if="products.length > 0"
+              class="bg-card border-border w-56 shrink-0 rounded-md border p-4"
+              data-testid="list-total-card"
+            >
+              <p class="text-sm font-semibold">
+                {{ t('portal.saved_list_detail.list_total_label') }}
+              </p>
+              <p class="mt-1 text-2xl font-bold">{{ listTotalFormatted }}</p>
+              <p class="text-muted-foreground mt-1 text-xs">
+                {{ t('portal.saved_list_detail.list_total_caption') }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Quick search row -->
+          <div class="border-border border-t px-6 py-4">
+            <div class="relative max-w-sm">
+              <Icon
+                name="lucide:search"
+                class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+              />
+              <Input
+                v-model="searchQuery"
+                :placeholder="
+                  t('portal.saved_list_detail.quick_filter_placeholder')
+                "
+                class="pl-9"
+                data-testid="list-search-input"
               />
             </div>
-
-            <!-- Price -->
-            <span class="shrink-0 text-sm font-medium">{{
-              product.unitPrice?.sellingPriceIncVatFormatted ?? ''
-            }}</span>
-
-            <!-- Qty stepper -->
-            <QuantityStepper
-              v-if="product.alias"
-              :model-value="getQty(product.alias)"
-              :min="1"
-              class="shrink-0"
-              @update:model-value="(v) => setQty(product.alias, v)"
-            />
-
-            <!-- Add to cart -->
-            <Button
-              v-if="!isCatalogMode && product.alias"
-              variant="ghost"
-              size="icon"
-              :aria-label="t('portal.saved_list_detail.add_to_cart')"
-              data-testid="list-item-add-to-cart"
-              @click="addToCart(product)"
-            >
-              <Icon name="lucide:shopping-cart" class="size-4" />
-            </Button>
-
-            <!-- Add to list -->
-            <Button
-              v-if="product.alias"
-              variant="ghost"
-              size="icon"
-              :aria-label="t('portal.saved_list_detail.add_to_list')"
-              data-testid="list-item-add-to-list"
-              @click="openAddToList(product.alias)"
-            >
-              <Icon name="lucide:list-plus" class="size-4" />
-            </Button>
-
-            <!-- Remove -->
-            <Button
-              variant="ghost"
-              size="icon"
-              class="text-destructive"
-              :aria-label="t('portal.saved_list_detail.remove_item')"
-              data-testid="list-item-remove"
-              @click="removeItem(product.alias)"
-            >
-              <Icon name="lucide:trash-2" class="size-4" />
-            </Button>
           </div>
-        </template>
-      </div>
-    </div>
 
-    <!-- Rename dialog -->
-    <Dialog v-model:open="renameOpen">
-      <DialogContent data-testid="rename-list-dialog">
-        <DialogHeader>
-          <DialogTitle>{{
-            t('portal.saved_list_detail.rename_list')
-          }}</DialogTitle>
-          <DialogDescription>{{
-            t('portal.saved_list_detail.rename_description')
-          }}</DialogDescription>
-        </DialogHeader>
-        <Input
-          v-model="renameValue"
-          data-testid="rename-list-input"
-          :placeholder="t('portal.saved_lists.create_dialog.name_placeholder')"
-          @keydown.enter="commitRename"
-        />
-        <DialogFooter>
-          <Button variant="ghost" @click="renameOpen = false">
-            {{ t('portal.saved_lists.create_dialog.cancel') }}
-          </Button>
-          <Button
-            data-testid="rename-list-submit"
-            :disabled="!renameValue.trim()"
-            @click="commitRename"
+          <!-- Empty list -->
+          <div
+            v-if="!list.items.length"
+            data-testid="empty-list"
+            class="text-muted-foreground border-border border-t px-6 py-12 text-center text-sm"
           >
-            {{ t('portal.saved_list_detail.rename_save') }}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            {{ t('portal.saved_list_detail.no_items') }}
+          </div>
+
+          <!-- Loading -->
+          <div
+            v-else-if="pending"
+            data-testid="list-loading"
+            class="text-muted-foreground border-border border-t px-6 py-12 text-center text-sm"
+          >
+            {{ t('common.loading') }}
+          </div>
+
+          <!-- Items list (each row is its own bordered card, image flush-left) -->
+          <div v-else class="border-border space-y-3 border-t px-6 py-4">
+            <div
+              v-for="product in filteredProducts"
+              :key="product.alias ?? ''"
+              data-testid="list-item-row"
+              class="bg-card border-border flex items-stretch overflow-hidden rounded-lg border"
+            >
+              <!-- Image: square, flush, full height -->
+              <ProductThumbnail
+                :file-name="product.productImages?.[0]?.fileName ?? null"
+                :alt="product.name ?? ''"
+                size="w-20 self-stretch"
+                radius="rounded-none"
+              />
+
+              <!-- Right side: padded content row -->
+              <div class="flex flex-1 items-center gap-4 px-4 py-3">
+                <!-- Product info -->
+                <div class="min-w-0 flex-1">
+                  <p class="truncate font-medium">{{ product.name }}</p>
+                  <p class="text-muted-foreground text-xs">
+                    Art nr. {{ product.articleNumber }}
+                  </p>
+                  <StockBadge
+                    v-if="product.totalStock"
+                    :stock="product.totalStock"
+                    size="sm"
+                    class="mt-1"
+                  />
+                </div>
+
+                <!-- Price -->
+                <span class="w-28 shrink-0 text-center font-semibold">{{
+                  product.unitPrice?.sellingPriceIncVatFormatted ?? ''
+                }}</span>
+
+                <!-- Qty stepper -->
+                <QuantityStepper
+                  v-if="product.alias"
+                  :model-value="getQty(product.alias)"
+                  :min="1"
+                  class="shrink-0"
+                  @update:model-value="(v) => setQty(product.alias, v)"
+                />
+
+                <!-- Add to cart -->
+                <Button
+                  v-if="!isCatalogMode && product.alias"
+                  variant="ghost"
+                  size="icon"
+                  :aria-label="t('portal.saved_list_detail.add_to_cart')"
+                  data-testid="list-item-add-to-cart"
+                  @click="addToCart(product)"
+                >
+                  <Icon name="lucide:shopping-cart" class="size-4" />
+                </Button>
+
+                <!-- Add to list -->
+                <Button
+                  v-if="product.alias"
+                  variant="ghost"
+                  size="icon"
+                  :aria-label="t('portal.saved_list_detail.add_to_list')"
+                  data-testid="list-item-add-to-list"
+                  @click="openAddToList(product.alias)"
+                >
+                  <Icon name="lucide:list-plus" class="size-4" />
+                </Button>
+
+                <!-- Remove -->
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  :aria-label="t('portal.saved_list_detail.remove_item')"
+                  data-testid="list-item-remove"
+                  @click="removeItem(product.alias)"
+                >
+                  <Icon name="lucide:trash-2" class="size-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ClientOnly>
 
     <!-- Delete confirmation -->
     <Dialog v-model:open="deleteOpen">

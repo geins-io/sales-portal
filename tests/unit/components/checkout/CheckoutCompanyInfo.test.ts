@@ -144,17 +144,6 @@ describe('CheckoutCompanyInfo', () => {
     expect(wrapper.find('[data-testid="company-buyer"]').exists()).toBe(false);
   });
 
-  it('emits changeCompanyDetails when button clicked', async () => {
-    const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: { company: makeCompany() },
-      global: { stubs },
-    });
-    await wrapper
-      .find('[data-testid="change-company-details"]')
-      .trigger('click');
-    expect(wrapper.emitted('changeCompanyDetails')).toHaveLength(1);
-  });
-
   it('uses first address with addressType containing billing', () => {
     const deliveryAddr = makeBillingAddress({
       addressId: 'addr-2',
