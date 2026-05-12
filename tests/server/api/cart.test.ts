@@ -337,14 +337,27 @@ describe('Cart API Routes', () => {
   });
 
   describe('copyCart service helper', () => {
-    it('calls oms.cart.copy then forces a price refresh under the user token', async () => {
-      const copiedCart = { id: 'new-cart-456', items: [] };
-      const refreshedCart = {
-        id: 'new-cart-456',
-        items: [{ price: { sellingPriceIncVat: 62.5 } }],
+    it('re-adds guest cart items into a fresh authenticated cart so pricelist prices are applied', async () => {
+      const guestCart = {
+        id: 'guest-cart-123',
+        items: [
+          { skuId: 1075, quantity: 2 },
+          { skuId: 2200, quantity: 1, groupKey: 'pkg-1' },
+        ],
       };
-      mockCartCopy.mockResolvedValue(copiedCart);
-      mockCartGet.mockResolvedValue(refreshedCart);
+      const authedCart = { id: 'authed-cart-789', items: [] };
+      const finalCart = {
+        id: 'authed-cart-789',
+        items: [
+          { skuId: 1075, quantity: 2, unitPrice: { sellingPriceIncVat: 62.5 } },
+          { skuId: 2200, quantity: 1, unitPrice: { sellingPriceIncVat: 35 } },
+        ],
+      };
+      mockCartGet
+        .mockResolvedValueOnce(guestCart)
+        .mockResolvedValueOnce(finalCart);
+      mockCartCreate.mockResolvedValue(authedCart);
+      mockCartAddItem.mockResolvedValue(authedCart);
 
       const { copyCart } = await import('../../../server/services/cart');
       const result = await copyCart(
@@ -353,28 +366,61 @@ describe('Cart API Routes', () => {
         'user-token-abc',
       );
 
-      expect(mockCartCopy).toHaveBeenCalledWith(
-        'guest-cart-123',
-        {},
+      expect(mockCartCreate).toHaveBeenCalledWith(
         expect.objectContaining({ userToken: 'user-token-abc' }),
       );
-      // The reprice is the whole point — the new cart id is fetched with
-      // forceRefresh=true under the same authenticated context.
-      expect(mockCartGet).toHaveBeenCalledWith(
-        'new-cart-456',
-        true,
+      expect(mockCartAddItem).toHaveBeenCalledTimes(2);
+      expect(mockCartAddItem).toHaveBeenNthCalledWith(
+        1,
+        'authed-cart-789',
+        { skuId: 1075, quantity: 2 },
         expect.objectContaining({ userToken: 'user-token-abc' }),
       );
-      expect(result).toEqual(refreshedCart);
+      expect(mockCartAddItem).toHaveBeenNthCalledWith(
+        2,
+        'authed-cart-789',
+        { skuId: 2200, quantity: 1, groupKey: 'pkg-1' },
+        expect.objectContaining({ userToken: 'user-token-abc' }),
+      );
+      expect(result).toEqual(finalCart);
     });
 
-    it('throws when oms.cart.copy returns null (cart not found)', async () => {
-      mockCartCopy.mockRejectedValue(new Error('Failed to copy cart'));
+    it('tolerates an item that fails to re-add and continues with the rest', async () => {
+      const guestCart = {
+        id: 'guest-cart-123',
+        items: [
+          { skuId: 1075, quantity: 1 },
+          { skuId: 9999, quantity: 1 },
+        ],
+      };
+      const authedCart = { id: 'authed-cart-789', items: [] };
+      const finalCart = { id: 'authed-cart-789', items: [{ skuId: 1075 }] };
+      mockCartGet
+        .mockResolvedValueOnce(guestCart)
+        .mockResolvedValueOnce(finalCart);
+      mockCartCreate.mockResolvedValue(authedCart);
+      mockCartAddItem
+        .mockResolvedValueOnce(authedCart)
+        .mockRejectedValueOnce(new Error('SKU unavailable'));
+
+      const { copyCart } = await import('../../../server/services/cart');
+      const result = await copyCart(
+        'guest-cart-123',
+        mockEvent,
+        'user-token-abc',
+      );
+
+      expect(mockCartAddItem).toHaveBeenCalledTimes(2);
+      expect(result).toEqual(finalCart);
+    });
+
+    it('throws when the guest cart cannot be read', async () => {
+      mockCartGet.mockRejectedValueOnce(new Error('Failed to read cart'));
 
       const { copyCart } = await import('../../../server/services/cart');
       await expect(
         copyCart('missing-cart', mockEvent, 'user-token-abc'),
-      ).rejects.toThrow('Failed to copy cart');
+      ).rejects.toThrow('Failed to read cart');
     });
   });
 

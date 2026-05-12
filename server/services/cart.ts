@@ -98,15 +98,35 @@ export async function copyCart(
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
   const ctx = { ...buildRequestContext(event), userToken };
-  // Geins cartCopy does not re-evaluate pricelist/discount rules against
-  // the authenticated context — the new cart is returned at guest prices.
-  // A subsequent cart.get with forceRefresh=true forces Geins to re-resolve
-  // prices under the userToken, so the user sees their pricelist immediately
-  // after login instead of after the next add-to-cart.
+  // Geins does not reprice items in cartCopy and forceRefresh on cartGet
+  // doesn't help either — prices in those mutations are locked at the
+  // moment the line was originally added (guest context). The only way
+  // to get pricelist prices applied is to re-resolve each line through
+  // addItem under the authenticated context, which runs the full SKU
+  // pricing pipeline.
   return wrapServiceCall(
     async () => {
-      const copied = await oms.cart.copy(cartId, {}, ctx);
-      return oms.cart.get(copied.id, true, ctx);
+      const guest = await oms.cart.get(cartId, false, ctx);
+      const authed = await oms.cart.create(ctx);
+      for (const item of guest.items ?? []) {
+        if (item.skuId == null || item.quantity <= 0) continue;
+        try {
+          await oms.cart.addItem(
+            authed.id,
+            {
+              skuId: item.skuId,
+              quantity: item.quantity,
+              ...(item.groupKey ? { groupKey: item.groupKey } : {}),
+            },
+            ctx,
+          );
+        } catch {
+          // Skip items that fail to re-add (e.g. SKU now out of stock or
+          // unavailable under the user's market). The login itself must
+          // not fail because one stale line couldn't be carried over.
+        }
+      }
+      return oms.cart.get(authed.id, false, ctx);
     },
     'cart',
     CartError,
