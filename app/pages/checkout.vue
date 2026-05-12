@@ -85,9 +85,13 @@ if (!cartIdCookie.value) {
   await navigateTo(localePath('/cart'), { replace: true });
 }
 
-// Load checkout data: payment options, shipping options, consents
+// Load checkout data: payment options, shipping options, consents.
+// callOnce prevents re-fetching on client hydration after SSR — avoids the
+// "Failed to load checkout" flash caused by SSR errors clearing on client re-run.
 if (cartIdCookie.value) {
-  await checkoutStore.fetchCheckout(cartIdCookie.value);
+  await callOnce('checkout-fetch', () =>
+    checkoutStore.fetchCheckout(cartIdCookie.value!),
+  );
 }
 
 // Prefill from company after checkout loads so company data takes priority
@@ -404,8 +408,8 @@ async function handlePlaceOrder() {
               </CardContent>
             </Card>
 
-            <!-- Consents -->
-            <Card>
+            <!-- Consents: only rendered when there are non-auto-accepted consents -->
+            <Card v-if="checkoutStore.consents?.some((c) => !c.autoAccept)">
               <CardHeader
                 class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
               >

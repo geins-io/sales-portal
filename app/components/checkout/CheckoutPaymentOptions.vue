@@ -47,7 +47,10 @@ function selectOption(id: number) {
         />
         <div class="flex flex-1 items-center justify-between">
           <span class="text-sm font-medium">
-            {{ option.displayName ?? option.name }}
+            {{
+              (option.displayName ?? option.name) ||
+              t('checkout.payment_method')
+            }}
           </span>
           <span
             v-if="option.feeIncVat > 0"
