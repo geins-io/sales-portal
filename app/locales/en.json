@@ -861,7 +861,10 @@
       "delete_confirm": "This will permanently delete the list and all its items. You can't undo this.",
       "remove_item": "Remove from list",
       "quick_filter_placeholder": "Quick filter on art nr or product name",
-      "list_total_label": "Sum for all products in list",
+      "list_name_label": "List Name",
+      "list_internal_note": "For internal use only",
+      "list_total_label": "List Total",
+      "list_total_caption": "Sum for all products in list",
       "add_to_cart": "Add to cart",
       "add_to_list": "Add to list"
     },
@@ -880,7 +883,7 @@
       "no_lists": "No saved lists yet",
       "error_loading": "Failed to load saved lists",
       "retry": "Try again",
-      "create": "+ Create new list",
+      "create": "Create new list",
       "create_dialog": {
         "title": "Create new list",
         "description": "Give your new list a name to get started",

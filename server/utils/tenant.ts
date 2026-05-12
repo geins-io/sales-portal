@@ -217,6 +217,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   const PORTAL_FEATURE_DEFAULTS: Record<string, { enabled: boolean }> = {
     registration: { enabled: true },
     applyForAccount: { enabled: true },
+    stockStatus: { enabled: true },
   };
 
   const features = { ...PORTAL_FEATURE_DEFAULTS, ...settings.features };
