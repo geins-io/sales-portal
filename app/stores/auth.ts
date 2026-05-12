@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import type { AuthUser } from '@geins/types';
 import { logger } from '~/utils/logger';
+import { useCartStore } from '~/stores/cart';
 
 let _fetchPromise: Promise<void> | null = null;
 
@@ -53,6 +54,13 @@ export const useAuthStore = defineStore('auth', () => {
 
       error.value = null;
       user.value = response.user ?? null;
+
+      // Refresh cart so pricelist prices from the new authenticated cart
+      // are reflected immediately without a page reload.
+      useCartStore()
+        .fetchCart()
+        .catch(() => {});
+
       return response.user!;
     } catch (err) {
       if (import.meta.dev) console.error('Login error:', err);

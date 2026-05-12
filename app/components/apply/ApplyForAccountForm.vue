@@ -342,11 +342,13 @@ async function handleSubmit() {
           "
         />
         <Label for="apply-terms" class="text-sm leading-relaxed">
-          {{ t('apply.accept_terms_label') }}
           <NuxtLink
             :to="localePath(termsPath)"
+            target="_blank"
+            rel="noopener noreferrer"
             class="text-primary underline underline-offset-2"
             data-testid="apply-terms-link"
+            @click.stop
           >
             {{ t('apply.accept_terms_label') }}
           </NuxtLink>

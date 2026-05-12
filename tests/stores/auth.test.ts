@@ -24,6 +24,12 @@ vi.mock('~/utils/logger', () => ({
   },
 }));
 
+// Mock cart store to avoid useCookie dependency in test environment
+const mockFetchCart = vi.fn().mockResolvedValue(undefined);
+vi.mock('~/stores/cart', () => ({
+  useCartStore: () => ({ fetchCart: mockFetchCart }),
+}));
+
 describe('useAuthStore', () => {
   const mockUser: AuthUser = {
     authenticated: true,
