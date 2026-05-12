@@ -1,4 +1,5 @@
 import * as authService from '../../services/auth';
+import * as cartService from '../../services/cart';
 import { loginRateLimiter, getClientIp } from '../../utils/rate-limiter';
 import { LoginSchema } from '../../schemas/api-input';
 
@@ -34,6 +35,23 @@ export default defineEventHandler(async (event) => {
     expiresIn: tokens.expiresIn,
     rememberMe: body.rememberMe,
   });
+
+  // Copy the guest cart into a new authenticated cart so the logged-in
+  // user's pricelist prices are applied. Geins OMS won't reprice a
+  // pre-existing guest cart even when a valid userToken is present.
+  const guestCartId = getCartCookie(event);
+  if (guestCartId) {
+    try {
+      const newCart = await cartService.copyCart(
+        guestCartId,
+        event,
+        tokens.token!,
+      );
+      setCartCookie(event, newCart.id);
+    } catch {
+      // Non-fatal: cart copy failed, user gets fresh pricing on next add
+    }
+  }
 
   return {
     user,

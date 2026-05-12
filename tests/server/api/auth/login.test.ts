@@ -22,6 +22,11 @@ vi.mock('../../../../server/services/_sdk', () => ({
   getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
 }));
 
+const mockCopyCart = vi.fn();
+vi.mock('../../../../server/services/cart', () => ({
+  copyCart: (...args: unknown[]) => mockCopyCart(...args),
+}));
+
 // Rate limiter — uses useStorage('kv'), must stay mocked
 const mockCheck = vi
   .fn()
@@ -35,6 +40,11 @@ vi.mock('../../../../server/utils/rate-limiter', () => ({
 
 const mockSetAuthCookies = vi.fn();
 vi.stubGlobal('setAuthCookies', mockSetAuthCookies);
+
+const mockGetCartCookie = vi.fn().mockReturnValue(undefined);
+const mockSetCartCookie = vi.fn();
+vi.stubGlobal('getCartCookie', mockGetCartCookie);
+vi.stubGlobal('setCartCookie', mockSetCartCookie);
 
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
 vi.stubGlobal('readValidatedBody', vi.fn());
@@ -188,5 +198,74 @@ describe('POST /api/auth/login', () => {
     const result = await handler(mockEvent);
 
     expect(result.expiresAt).toBeNull();
+  });
+
+  it('copies guest cart on login and updates cart cookie', async () => {
+    mockGetCartCookie.mockReturnValue('guest-cart-123');
+    mockCopyCart.mockResolvedValue({ id: 'authed-cart-456' });
+    mockAuthLogin.mockResolvedValue({
+      succeeded: true,
+      tokens: {
+        token: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 3600,
+      },
+      user: { id: 1 },
+    });
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    await handler(mockEvent);
+
+    expect(mockCopyCart).toHaveBeenCalledWith(
+      'guest-cart-123',
+      mockEvent,
+      'access-token',
+    );
+    expect(mockSetCartCookie).toHaveBeenCalledWith(
+      mockEvent,
+      'authed-cart-456',
+    );
+  });
+
+  it('skips cart copy when no guest cart exists', async () => {
+    mockGetCartCookie.mockReturnValue(undefined);
+    mockAuthLogin.mockResolvedValue({
+      succeeded: true,
+      tokens: {
+        token: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 3600,
+      },
+      user: { id: 1 },
+    });
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    await handler(mockEvent);
+
+    expect(mockCopyCart).not.toHaveBeenCalled();
+    expect(mockSetCartCookie).not.toHaveBeenCalled();
+  });
+
+  it('does not fail login when cart copy throws', async () => {
+    mockGetCartCookie.mockReturnValue('guest-cart-123');
+    mockCopyCart.mockRejectedValue(new Error('copy failed'));
+    mockAuthLogin.mockResolvedValue({
+      succeeded: true,
+      tokens: {
+        token: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 3600,
+      },
+      user: { id: 1 },
+    });
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    const result = await handler(mockEvent);
+
+    expect(result).toHaveProperty('user');
+    expect(mockSetCartCookie).not.toHaveBeenCalled();
   });
 });

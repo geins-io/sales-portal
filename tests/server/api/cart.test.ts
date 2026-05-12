@@ -10,6 +10,7 @@ const mockCartUpdateItem = vi.fn();
 const mockCartDeleteItem = vi.fn();
 const mockCartSetPromotionCode = vi.fn();
 const mockCartRemovePromotionCode = vi.fn();
+const mockCartCopy = vi.fn();
 
 const mockSDK = {
   oms: {
@@ -21,6 +22,7 @@ const mockSDK = {
       deleteItem: mockCartDeleteItem,
       setPromotionCode: mockCartSetPromotionCode,
       removePromotionCode: mockCartRemovePromotionCode,
+      copy: mockCartCopy,
     },
   },
 };
@@ -331,6 +333,36 @@ describe('Cart API Routes', () => {
         .default;
 
       await expect(handler(mockEvent)).rejects.toThrow();
+    });
+  });
+
+  describe('copyCart service helper', () => {
+    it('calls oms.cart.copy with cartId and merged userToken context', async () => {
+      const copiedCart = { id: 'new-cart-456', items: [] };
+      mockCartCopy.mockResolvedValue(copiedCart);
+
+      const { copyCart } = await import('../../../server/services/cart');
+      const result = await copyCart(
+        'guest-cart-123',
+        mockEvent,
+        'user-token-abc',
+      );
+
+      expect(mockCartCopy).toHaveBeenCalledWith(
+        'guest-cart-123',
+        {},
+        expect.objectContaining({ userToken: 'user-token-abc' }),
+      );
+      expect(result).toEqual(copiedCart);
+    });
+
+    it('throws when oms.cart.copy returns null (cart not found)', async () => {
+      mockCartCopy.mockRejectedValue(new Error('Failed to copy cart'));
+
+      const { copyCart } = await import('../../../server/services/cart');
+      await expect(
+        copyCart('missing-cart', mockEvent, 'user-token-abc'),
+      ).rejects.toThrow('Failed to copy cart');
     });
   });
 

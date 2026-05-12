@@ -90,3 +90,17 @@ export async function removePromoCode(
     CartError,
   );
 }
+
+export async function copyCart(
+  cartId: string,
+  event: H3Event,
+  userToken: string,
+): Promise<CartType> {
+  const { oms } = await getTenantSDK(event);
+  const ctx = { ...buildRequestContext(event), userToken };
+  return wrapServiceCall(
+    () => oms.cart.copy(cartId, {}, ctx),
+    'cart',
+    CartError,
+  );
+}
