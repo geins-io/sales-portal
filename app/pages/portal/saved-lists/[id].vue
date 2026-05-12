@@ -267,7 +267,7 @@ function addToCart(product: ListProduct) {
               class="text-destructive border-destructive/30 hover:bg-destructive/10"
               @click="deleteOpen = true"
             >
-              <Icon name="lucide:trash-2" class="size-4" />
+              <Icon name="lucide:x" class="size-4" />
               {{ t('portal.saved_list_detail.delete_list') }}
             </Button>
             <Button

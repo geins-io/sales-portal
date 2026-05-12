@@ -81,6 +81,7 @@
   "devDependencies": {
     "@commitlint/cli": "^20.5.2",
     "@commitlint/config-conventional": "^20.5.0",
+    "@iconify-json/lucide": "^1.2.107",
     "@nuxt/eslint": "1.11.0",
     "@nuxt/eslint-config": "^1.12.1",
     "@nuxt/kit": "^4.3.1",
