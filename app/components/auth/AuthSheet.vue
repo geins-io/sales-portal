@@ -67,7 +67,7 @@ watch(
         </SheetDescription>
       </SheetHeader>
 
-      <div class="mt-6 flex-1 overflow-y-auto">
+      <div class="mt-6 flex-1 overflow-y-auto px-0.5">
         <template v-if="authStore.sheetView === 'login'">
           <LoginForm @success="handleSuccess" @forgot="handleForgot" />
 
