@@ -337,9 +337,14 @@ describe('Cart API Routes', () => {
   });
 
   describe('copyCart service helper', () => {
-    it('calls oms.cart.copy with cartId and merged userToken context', async () => {
+    it('calls oms.cart.copy then forces a price refresh under the user token', async () => {
       const copiedCart = { id: 'new-cart-456', items: [] };
+      const refreshedCart = {
+        id: 'new-cart-456',
+        items: [{ price: { sellingPriceIncVat: 62.5 } }],
+      };
       mockCartCopy.mockResolvedValue(copiedCart);
+      mockCartGet.mockResolvedValue(refreshedCart);
 
       const { copyCart } = await import('../../../server/services/cart');
       const result = await copyCart(
@@ -353,7 +358,14 @@ describe('Cart API Routes', () => {
         {},
         expect.objectContaining({ userToken: 'user-token-abc' }),
       );
-      expect(result).toEqual(copiedCart);
+      // The reprice is the whole point — the new cart id is fetched with
+      // forceRefresh=true under the same authenticated context.
+      expect(mockCartGet).toHaveBeenCalledWith(
+        'new-cart-456',
+        true,
+        expect.objectContaining({ userToken: 'user-token-abc' }),
+      );
+      expect(result).toEqual(refreshedCart);
     });
 
     it('throws when oms.cart.copy returns null (cart not found)', async () => {

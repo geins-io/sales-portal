@@ -330,12 +330,12 @@ async function handleSubmit() {
       <div class="flex items-start gap-2">
         <Checkbox
           id="apply-terms"
-          :checked="formData.acceptTerms"
+          :model-value="formData.acceptTerms"
           :disabled="isLoading"
           data-testid="apply-terms"
-          @update:checked="
+          @update:model-value="
             (val: boolean | 'indeterminate') => {
-              formData.acceptTerms = Boolean(val);
+              formData.acceptTerms = val === true;
               touched.acceptTerms = true;
               validateField('acceptTerms');
             }

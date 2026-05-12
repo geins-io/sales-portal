@@ -29,9 +29,9 @@ const visibleConsents = computed(() =>
       >
         <Checkbox
           :id="`consent-${consent.type}`"
-          :checked="props.accepted.includes(consent.type!)"
+          :model-value="props.accepted.includes(consent.type!)"
           :disabled="props.disabled"
-          @update:checked="emit('toggle', consent.type!)"
+          @update:model-value="emit('toggle', consent.type!)"
         />
         <div class="space-y-1">
           <Label :for="`consent-${consent.type}`" class="text-sm font-medium">
