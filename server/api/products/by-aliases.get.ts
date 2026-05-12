@@ -2,13 +2,10 @@ import { z } from 'zod';
 import { getProductsByAliases } from '../../services/products';
 
 // Aliases come from client-stored favorites and are forwarded to GraphQL as
-// variables (not concatenated into the query). The regex restricts to
-// product-alias-safe characters as a defense-in-depth check.
-const aliasItem = z
-  .string()
-  .min(1)
-  .max(200)
-  .regex(/^[a-zA-Z0-9_-]+$/);
+// variables (not concatenated into the query). Matches the single-product
+// endpoint's ProductAliasSchema so any alias resolvable via /api/products/:alias
+// is also resolvable here.
+const aliasItem = z.string().min(1).max(200);
 
 const ByAliasesQuerySchema = z.object({
   aliases: z

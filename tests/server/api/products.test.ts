@@ -456,9 +456,26 @@ describe('Product API Routes', () => {
       vi.mocked(optionalAuth).mockResolvedValue(null);
     });
 
-    it('rejects aliases with disallowed characters', async () => {
-      vi.mocked(getQuery).mockReturnValue({ aliases: 'good,../bad' });
-      await expect(handler(fakeEvent)).rejects.toThrow();
+    it('accepts aliases with slashes and dots (forwarded as GraphQL variables)', async () => {
+      vi.mocked(getQuery).mockReturnValue({
+        aliases: 'manifold-100/100-45,s1.200.050',
+      });
+      mockGraphqlQuery
+        .mockResolvedValueOnce({
+          product: { alias: 'manifold-100/100-45', name: 'A' },
+        })
+        .mockResolvedValueOnce({
+          product: { alias: 's1.200.050', name: 'B' },
+        });
+
+      const result = await handler(fakeEvent);
+
+      expect(result).toEqual({
+        products: [
+          { alias: 'manifold-100/100-45', name: 'A' },
+          { alias: 's1.200.050', name: 'B' },
+        ],
+      });
     });
 
     it('trims whitespace-only aliases before validating', async () => {
