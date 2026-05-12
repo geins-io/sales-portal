@@ -57,7 +57,7 @@ const defaultTab = computed(() => {
       <TabsContent
         v-if="hasDescription"
         value="description"
-        class="mt-6 rounded-lg border p-6"
+        class="bg-card mt-6 rounded-lg border p-6"
       >
         <h3 class="font-heading mb-4 text-2xl font-bold">
           {{ $t('product.details') }}
@@ -69,7 +69,7 @@ const defaultTab = computed(() => {
       <TabsContent
         v-if="hasSpecs"
         value="specifications"
-        class="mt-6 rounded-lg border p-6"
+        class="bg-card mt-6 rounded-lg border p-6"
       >
         <h3 class="font-heading mb-6 text-2xl font-bold">
           {{ $t('product.specifications') }}
@@ -107,7 +107,7 @@ const defaultTab = computed(() => {
         </div>
       </TabsContent>
 
-      <TabsContent value="documents" class="mt-6 rounded-lg border p-6">
+      <TabsContent value="documents" class="bg-card mt-6 rounded-lg border p-6">
         <h3 class="font-heading mb-4 text-2xl font-bold">
           {{ $t('product.documents') }}
         </h3>
@@ -119,7 +119,7 @@ const defaultTab = computed(() => {
       <TabsContent
         v-if="hasRelated"
         value="related"
-        class="mt-6 rounded-lg border p-6"
+        class="bg-card mt-6 rounded-lg border p-6"
       >
         <h3 class="font-heading mb-4 text-2xl font-bold">
           {{ $t('product.related') }}
