@@ -69,6 +69,17 @@ if (import.meta.client) {
     },
     { immediate: true },
   );
+
+  // After each successful fetch, prune aliases that returned no product.
+  // This keeps the badge count in sync with what actually renders so stale
+  // localStorage entries (deleted / renamed products) don't inflate the count.
+  watch(data, (response) => {
+    if (!response) return;
+    const returnedAliases = response.products
+      .map((p) => p.alias)
+      .filter((a): a is string => typeof a === 'string' && a.length > 0);
+    favoritesStore.pruneStaleAliases(returnedAliases);
+  });
 }
 
 function mapToCardItem(product: FavoriteProduct): ProductCardItem {

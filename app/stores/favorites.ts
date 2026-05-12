@@ -167,6 +167,27 @@ export const useFavoritesStore = defineStore('favorites', () => {
     return lists.value.find((l) => l.id === listId) ?? null;
   }
 
+  /**
+   * Remove any stored alias that is not present in `foundAliases`.
+   *
+   * Called after a successful `/api/products/by-aliases` response so the
+   * badge count matches the number of products that actually rendered. Aliases
+   * that returned null from the API are stale (deleted / renamed products) and
+   * have no value staying in localStorage. Each removal goes through the SDK
+   * session so the change persists across page loads.
+   */
+  function pruneStaleAliases(foundAliases: string[]) {
+    const found = new Set(foundAliases);
+    const stale = items.value.filter((alias) => !found.has(alias));
+    if (stale.length === 0) return;
+    const s = getSession();
+    if (!s) return;
+    for (const alias of stale) {
+      s.removeItem(FAVORITES_LIST_ID, alias);
+    }
+    syncFromSession();
+  }
+
   return {
     items,
     count,
@@ -185,5 +206,6 @@ export const useFavoritesStore = defineStore('favorites', () => {
     deleteList,
     renameList,
     getListById,
+    pruneStaleAliases,
   };
 });

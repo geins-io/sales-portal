@@ -261,6 +261,68 @@ describe('useFavoritesStore', () => {
     });
   });
 
+  describe('pruneStaleAliases', () => {
+    it('removes aliases not present in foundAliases', () => {
+      mockSession.favorites.items = ['a', 'b', 'c'];
+
+      const store = useFavoritesStore();
+      store.initialize();
+
+      // Simulate: server only returned products for 'a' and 'c'
+      mockSession.favorites.items = ['a', 'c'];
+      store.pruneStaleAliases(['a', 'c']);
+
+      expect(mockSession.removeItem).toHaveBeenCalledTimes(1);
+      expect(mockSession.removeItem).toHaveBeenCalledWith('__favorites__', 'b');
+      expect(store.items).toEqual(['a', 'c']);
+    });
+
+    it('does nothing when all aliases are still valid', () => {
+      mockSession.favorites.items = ['a', 'b'];
+
+      const store = useFavoritesStore();
+      store.initialize();
+
+      store.pruneStaleAliases(['a', 'b']);
+
+      expect(mockSession.removeItem).not.toHaveBeenCalled();
+    });
+
+    it('removes all aliases when server returns empty products', () => {
+      mockSession.favorites.items = ['x', 'y'];
+
+      const store = useFavoritesStore();
+      store.initialize();
+
+      mockSession.favorites.items = [];
+      store.pruneStaleAliases([]);
+
+      expect(mockSession.removeItem).toHaveBeenCalledWith('__favorites__', 'x');
+      expect(mockSession.removeItem).toHaveBeenCalledWith('__favorites__', 'y');
+      expect(store.items).toEqual([]);
+    });
+
+    it('is a noop on server (no session available)', () => {
+      Object.defineProperty(import.meta, 'server', {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+
+      const store = useFavoritesStore();
+      // Manually seed items since initialize is also a noop server-side
+      store.pruneStaleAliases(['anything']);
+
+      expect(mockSession.removeItem).not.toHaveBeenCalled();
+
+      Object.defineProperty(import.meta, 'server', {
+        value: false,
+        writable: true,
+        configurable: true,
+      });
+    });
+  });
+
   describe('getListById', () => {
     it('returns the favorites list when asked for the favorites id', () => {
       mockSession.favorites.items = ['a'];

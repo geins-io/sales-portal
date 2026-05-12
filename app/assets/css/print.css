@@ -1,0 +1,120 @@
+/**
+ * Print styles for PDP data sheet download (window.print()).
+ *
+ * These styles are global (not scoped) so they apply regardless of which
+ * component renders the element. The selectors target semantic HTML elements
+ * and data attributes / data-testid hooks used in the layout and PDP.
+ */
+
+@media print {
+  /* Hide site chrome */
+  header,
+  footer,
+  nav {
+    display: none !important;
+  }
+
+  /* Hide preview and impersonation banners */
+  [data-testid='preview-banner'],
+  [data-testid='impersonation-banner'],
+  .preview-banner,
+  .impersonation-banner {
+    display: none !important;
+  }
+
+  /* PreviewBanner renders with sticky + z-[61]; ImpersonationBanner with z-[60].
+     Catch them by their distinctive bg classes as a belt-and-suspenders. */
+  .bg-orange-700,
+  .bg-blue-800 {
+    display: none !important;
+  }
+
+  /* Hide Nuxt devtools bar and any floating debug overlays */
+  nuxt-dev-tools,
+  #nuxt-devtools,
+  [id^='__nuxt'],
+  [data-v-inspector],
+  .nuxt-devtools {
+    display: none !important;
+  }
+
+  /* Hide breadcrumbs */
+  [data-testid='breadcrumbs'] {
+    display: none !important;
+  }
+
+  /* Hide stock status */
+  [data-testid='stock-badge'],
+  .stock-badge {
+    display: none !important;
+  }
+
+  /* Hide variant selector */
+  [data-testid='variant-selector'],
+  .variant-selector {
+    display: none !important;
+  }
+
+  /* Hide quantity input + add-to-cart area */
+  [data-testid='pdp-actions'] {
+    display: none !important;
+  }
+
+  /* Hide save-as-favourite and add-to-list buttons.
+     The whole info card border row contains the print button too, so we
+     hide the individual buttons rather than the whole container. */
+  [data-testid='pdp-save-favourite'],
+  [data-testid='pdp-add-to-lists'] {
+    display: none !important;
+  }
+
+  /* Hide related products tab content and the tabs themselves when the
+     related tab is the only non-description tab. Target the entire tabs
+     block's related panel and the trigger button. */
+  [data-testid='product-tabs'] [value='related'],
+  [data-testid='product-tabs'] [data-value='related'] {
+    display: none !important;
+  }
+
+  /* Hide mobile navigation panel */
+  [data-testid='mobile-nav-panel'],
+  [data-slot='mobile-nav'] {
+    display: none !important;
+  }
+
+  /* Hide cookie banner, cart drawer, auth sheet, and other overlays */
+  [data-testid='cookie-banner'],
+  [data-testid='cart-drawer'],
+  [data-testid='auth-sheet'],
+  [role='dialog'],
+  [role='alertdialog'] {
+    display: none !important;
+  }
+
+  /* Remove sticky positioning so the header doesn't float over content;
+     header itself is already hidden above but defensive rule here. */
+  .sticky {
+    position: static !important;
+  }
+
+  /* Ensure the main product area fills the page width */
+  .mx-auto {
+    max-width: 100% !important;
+  }
+
+  /* Avoid page breaks inside the PDP top area card */
+  [data-testid='pdp-top-area'] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Print-friendly typography */
+  body {
+    color: #000 !important;
+    background: #fff !important;
+  }
+
+  a[href]::after {
+    content: none !important;
+  }
+}

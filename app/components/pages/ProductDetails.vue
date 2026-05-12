@@ -358,7 +358,9 @@ useSchemaOrg([
         </div>
 
         <!-- Stock -->
-        <StockBadge v-if="product.totalStock" :stock="product.totalStock" />
+        <div v-if="product.totalStock" data-testid="stock-badge">
+          <StockBadge :stock="product.totalStock" />
+        </div>
 
         <!-- Variant selector — pass product-level data through so each
              sheet row can render a real Figma-style item with thumbnail,
