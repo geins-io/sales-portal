@@ -14,10 +14,6 @@ const props = defineProps<{
   buyerEmail?: string;
 }>();
 
-const emit = defineEmits<{
-  changeCompanyDetails: [];
-}>();
-
 const billingAddress = computed<CompanyAddress | null>(() => {
   const addresses = props.company.addresses ?? [];
   return (
@@ -41,20 +37,12 @@ const buyerName = computed(() =>
 <template>
   <Card data-testid="checkout-company-info">
     <CardHeader
-      class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+      class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
     >
       <Building2 class="text-muted-foreground size-5 shrink-0" />
       <CardTitle class="text-lg">{{
         t('checkout.company_and_billing_info')
       }}</CardTitle>
-      <button
-        type="button"
-        class="text-muted-foreground hover:text-foreground ml-auto text-xs underline-offset-2 hover:underline"
-        data-testid="change-company-details"
-        @click="emit('changeCompanyDetails')"
-      >
-        {{ t('checkout.change_company_details') }}
-      </button>
     </CardHeader>
     <CardContent class="px-6">
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">

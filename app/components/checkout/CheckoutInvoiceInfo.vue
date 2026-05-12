@@ -21,7 +21,7 @@ const emit = defineEmits<{
 <template>
   <Card data-testid="checkout-invoice-info">
     <CardHeader
-      class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+      class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
     >
       <FileText class="text-muted-foreground size-5" />
       <CardTitle class="text-lg">{{ t('checkout.invoice_info') }}</CardTitle>

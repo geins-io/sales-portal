@@ -42,7 +42,7 @@ function handleRemove(item: CartItemType) {
 <template>
   <Card v-if="props.items.length" data-testid="checkout-cart-items">
     <CardHeader
-      class="border-border flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
+      class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
     >
       <ShoppingCart class="text-muted-foreground size-5" />
       <CardTitle class="text-lg">{{ t('checkout.cart_items') }}</CardTitle>
