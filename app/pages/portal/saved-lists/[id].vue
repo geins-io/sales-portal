@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
+import { Search } from 'lucide-vue-next';
 import type { StockType } from '#shared/types/commerce';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
@@ -300,8 +301,7 @@ function addToCart(product: ListProduct) {
           <!-- Quick search row -->
           <div class="border-border border-t px-6 py-4">
             <div class="relative max-w-sm">
-              <Icon
-                name="lucide:search"
+              <Search
                 class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
               />
               <Input

@@ -67,27 +67,37 @@ function formatDate(value: number | string | undefined): string {
       </NuxtLink>
     </div>
 
-    <!-- Desktop table -->
-    <table class="hidden w-full text-sm md:table">
+    <!-- Desktop table — fixed layout so columns don't stretch erratically -->
+    <table class="hidden w-full table-fixed text-sm md:table">
+      <colgroup>
+        <col class="w-16" />
+        <col />
+        <col class="w-1/4" />
+        <col class="w-44" />
+        <col class="w-24" />
+        <col class="w-32" />
+      </colgroup>
       <thead>
-        <tr class="border-border border-b text-left">
-          <th class="text-muted-foreground py-3 pr-4 font-medium">
+        <tr class="border-border border-b">
+          <th
+            class="text-muted-foreground px-4 py-3 text-left font-medium first:pl-0"
+          >
             {{ t('portal.saved_lists.columns.id') }}
           </th>
-          <th class="text-muted-foreground py-3 pr-4 font-medium">
+          <th class="text-muted-foreground px-4 py-3 text-left font-medium">
             {{ t('portal.saved_lists.columns.name') }}
           </th>
-          <th class="text-muted-foreground py-3 pr-4 font-medium">
+          <th class="text-muted-foreground px-4 py-3 text-left font-medium">
             {{ t('portal.saved_lists.columns.created_by') }}
           </th>
-          <th class="text-muted-foreground py-3 pr-4 font-medium">
+          <th class="text-muted-foreground px-4 py-3 text-left font-medium">
             {{ t('portal.saved_lists.columns.modified') }}
           </th>
-          <th class="text-muted-foreground py-3 pr-4 font-medium">
+          <th class="text-muted-foreground px-4 py-3 text-left font-medium">
             {{ t('portal.saved_lists.columns.products') }}
           </th>
           <th
-            class="text-muted-foreground py-3 text-right font-medium"
+            class="text-muted-foreground px-4 py-3 text-right font-medium last:pr-0"
             aria-label=""
           />
         </tr>
@@ -97,14 +107,18 @@ function formatDate(value: number | string | undefined): string {
           v-for="(list, idx) in lists"
           :key="list.id"
           data-testid="saved-list-row"
-          class="border-border hover:bg-muted/50 border-b transition-colors"
+          class="border-border hover:bg-muted/50 border-b align-middle transition-colors"
         >
-          <td class="text-muted-foreground py-3 pr-4">{{ idx + 1 }}</td>
-          <td class="py-3 pr-4 font-medium">{{ list.name }}</td>
-          <td class="py-3 pr-4">{{ currentUserName }}</td>
-          <td class="py-3 pr-4">{{ formatDate(list.updatedAt) }}</td>
-          <td class="py-3 pr-4">{{ list.items?.length ?? 0 }}</td>
-          <td class="py-3 text-right">
+          <td class="text-muted-foreground px-4 py-3 first:pl-0">
+            {{ idx + 1 }}
+          </td>
+          <td class="truncate px-4 py-3 font-medium">{{ list.name }}</td>
+          <td class="truncate px-4 py-3">{{ currentUserName }}</td>
+          <td class="px-4 py-3 whitespace-nowrap">
+            {{ formatDate(list.updatedAt) }}
+          </td>
+          <td class="px-4 py-3">{{ list.items?.length ?? 0 }}</td>
+          <td class="px-4 py-3 text-right last:pr-0">
             <NuxtLink
               :to="localePath(`/portal/saved-lists/${list.id}`)"
               class="border-border hover:bg-muted/40 inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors"
