@@ -21,7 +21,10 @@ const paymentMethod = computed(
   () => (route.query.paymentMethod as string) ?? 'invoice',
 );
 
-const { data, pending, error } = useFetch('/api/checkout/summary', {
+// Summary is best-effort — Geins frequently hasn't propagated the order by
+// the time the user lands here. The component shows a fallback thank-you
+// when summary stays null, so we don't surface fetch errors to the user.
+const { data, pending } = useFetch('/api/checkout/summary', {
   query: {
     orderId: orderId.value,
     paymentMethod: paymentMethod.value,
@@ -31,19 +34,10 @@ const { data, pending, error } = useFetch('/api/checkout/summary', {
 });
 
 const orderSummary = computed(() => data.value?.order ?? null);
-const errorMessage = computed(() => {
-  if (!orderId.value) return t('order_confirmation.order_not_found');
-  if (error.value) return t('order_confirmation.order_not_found');
-  return null;
-});
 </script>
 
 <template>
   <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
-    <OrderConfirmation
-      :summary="orderSummary"
-      :is-loading="pending"
-      :error="errorMessage"
-    />
+    <OrderConfirmation :summary="orderSummary" :is-loading="pending" />
   </div>
 </template>

@@ -94,7 +94,6 @@ function mountConfirmation(props: Record<string, unknown> = {}) {
     props: {
       summary: mockSummary,
       isLoading: false,
-      error: null,
       ...props,
     },
   });
@@ -214,15 +213,24 @@ describe('OrderConfirmation', () => {
     expect(wrapper.find('[data-testid="items-table"]').exists()).toBe(false);
   });
 
-  it('shows error state', () => {
-    const wrapper = mountConfirmation({
-      error: 'Something went wrong',
-      summary: null,
-    });
-    expect(
-      wrapper.find('[data-testid="order-confirmation-error"]').exists(),
-    ).toBe(true);
-    expect(wrapper.text()).toContain('Something went wrong');
+  it('shows fallback thank-you when summary is unavailable', () => {
+    const wrapper = mountConfirmation({ summary: null });
+    const fallback = wrapper.find(
+      '[data-testid="order-confirmation-fallback"]',
+    );
+    expect(fallback.exists()).toBe(true);
+    expect(fallback.text()).toContain('order_confirmation.thank_you');
+    expect(fallback.text()).toContain('order_confirmation.order_placed');
+    expect(fallback.find('a[href="/se/en/portal/orders"]').exists()).toBe(true);
+    expect(fallback.find('a[href="/se/en/"]').exists()).toBe(true);
+    // Never display the legacy "Order not found" error text.
+    expect(wrapper.text()).not.toContain('order_confirmation.order_not_found');
+  });
+
+  it('does not render the success table when summary is null', () => {
+    const wrapper = mountConfirmation({ summary: null });
+    expect(wrapper.find('[data-testid="items-table"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="order-number"]').exists()).toBe(false);
   });
 
   it('handles empty rows', () => {

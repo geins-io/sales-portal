@@ -7,7 +7,6 @@ import { Badge } from '~/components/ui/badge';
 const props = defineProps<{
   summary: CheckoutSummaryOrderType | null;
   isLoading: boolean;
-  error: string | null;
 }>();
 
 const { t } = useI18n();
@@ -54,22 +53,7 @@ const shippingLines = computed(() =>
       <div class="bg-muted h-48 animate-pulse rounded-lg" />
     </div>
 
-    <!-- Error state -->
-    <div
-      v-else-if="error"
-      class="flex flex-col items-center gap-4 py-16"
-      data-testid="order-confirmation-error"
-    >
-      <p class="text-destructive text-lg">{{ error }}</p>
-      <NuxtLink
-        :to="localePath('/portal/orders')"
-        class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
-      >
-        {{ t('order_confirmation.view_orders') }}
-      </NuxtLink>
-    </div>
-
-    <!-- Success state -->
+    <!-- Success state — full order summary available -->
     <template v-else-if="summary">
       <!-- Thank you banner -->
       <Card class="mb-8 text-center">
@@ -298,5 +282,38 @@ const shippingLines = computed(() =>
         </NuxtLink>
       </div>
     </template>
+
+    <!-- Fallback state — order was placed but Geins hasn't returned the
+         summary yet (or the lookup failed). Show a friendly thank-you with
+         a path into the portal so the user is never blocked. -->
+    <div
+      v-else
+      class="flex flex-col items-center gap-6 py-16 text-center"
+      data-testid="order-confirmation-fallback"
+    >
+      <CircleCheck class="size-14 text-green-500" />
+      <div class="space-y-2">
+        <h1 class="text-2xl font-bold">
+          {{ t('order_confirmation.thank_you') }}
+        </h1>
+        <p class="text-muted-foreground text-sm">
+          {{ t('order_confirmation.order_placed') }}
+        </p>
+      </div>
+      <div class="flex flex-wrap justify-center gap-4">
+        <NuxtLink
+          :to="localePath('/portal/orders')"
+          class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
+        >
+          {{ t('order_confirmation.view_orders') }}
+        </NuxtLink>
+        <NuxtLink
+          :to="localePath('/')"
+          class="border-border hover:bg-muted rounded-md border px-6 py-2.5 text-sm font-medium transition-colors"
+        >
+          {{ t('order_confirmation.continue_shopping') }}
+        </NuxtLink>
+      </div>
+    </div>
   </div>
 </template>
