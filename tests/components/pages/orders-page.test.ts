@@ -28,7 +28,7 @@ vi.stubGlobal('definePageMeta', vi.fn());
 
 // Import AFTER mocks are set up
 const { default: OrdersPage } =
-  await import('../../../app/pages/portal/orders.vue');
+  await import('../../../app/pages/portal/orders/index.vue');
 
 const defaultStubs = {
   PortalShell: {
