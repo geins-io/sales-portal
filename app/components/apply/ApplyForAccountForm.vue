@@ -109,6 +109,13 @@ function handleBlur(field: FormField) {
   validateField(field);
 }
 
+function toggleTerms() {
+  if (isLoading.value) return;
+  formData.acceptTerms = !formData.acceptTerms;
+  touched.acceptTerms = true;
+  validateField('acceptTerms');
+}
+
 function validateAll(): boolean {
   for (const field of requiredFields) {
     touched[field] = true;
@@ -341,18 +348,18 @@ async function handleSubmit() {
             }
           "
         />
-        <Label for="apply-terms" class="text-sm leading-relaxed">
-          <NuxtLink
-            :to="localePath(termsPath)"
+        <label class="cursor-pointer text-sm leading-relaxed select-none">
+          <span @click="toggleTerms">{{ t('apply.accept_terms_prefix') }}</span>
+          <a
+            :href="localePath(termsPath)"
             target="_blank"
             rel="noopener noreferrer"
             class="text-primary underline underline-offset-2"
             data-testid="apply-terms-link"
-            @click.stop
           >
-            {{ t('apply.accept_terms_label') }}
-          </NuxtLink>
-        </Label>
+            {{ t('apply.accept_terms_link_text') }}
+          </a>
+        </label>
       </div>
       <p
         v-if="touched.acceptTerms && fieldErrors.acceptTerms"
