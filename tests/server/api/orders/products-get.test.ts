@@ -86,10 +86,7 @@ describe('GET /api/orders/products', () => {
     const result = await handler(mockEvent);
 
     expect(mockRequireAuth).toHaveBeenCalledWith(mockEvent);
-    expect(mockGetPurchasedProducts).toHaveBeenCalledWith(
-      'test-token',
-      mockEvent,
-    );
+    expect(mockGetPurchasedProducts).toHaveBeenCalledWith(mockEvent);
     expect(result).toEqual(productsResult);
   });
 
