@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ShoppingCart } from 'lucide-vue-next';
 import type { CartItemType } from '#shared/types/commerce';
-import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
+import CheckoutCardHeader from './CheckoutCardHeader.vue';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 
@@ -41,12 +42,10 @@ function handleRemove(item: CartItemType) {
 
 <template>
   <Card v-if="props.items.length" data-testid="checkout-cart-items">
-    <CardHeader
-      class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-    >
-      <ShoppingCart class="text-muted-foreground size-5" />
-      <CardTitle class="text-lg">{{ t('checkout.cart_items') }}</CardTitle>
-    </CardHeader>
+    <CheckoutCardHeader
+      :icon="ShoppingCart"
+      :title="t('checkout.cart_items')"
+    />
     <CardContent class="px-6">
       <div class="divide-border divide-y">
         <div

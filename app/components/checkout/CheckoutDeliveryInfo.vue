@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { MapPin } from 'lucide-vue-next';
 import type { Company, CompanyAddress } from '#shared/types/company';
-import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
+import CheckoutCardHeader from './CheckoutCardHeader.vue';
 
 const { t } = useI18n();
 
@@ -32,12 +33,7 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
 
 <template>
   <Card data-testid="checkout-delivery-info">
-    <CardHeader
-      class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-    >
-      <MapPin class="text-muted-foreground size-5" />
-      <CardTitle class="text-lg">{{ t('checkout.delivery_info') }}</CardTitle>
-    </CardHeader>
+    <CheckoutCardHeader :icon="MapPin" :title="t('checkout.delivery_info')" />
     <CardContent class="px-6">
       <div v-if="deliveryAddress" data-testid="delivery-address">
         <p

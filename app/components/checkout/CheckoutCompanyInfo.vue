@@ -5,7 +5,8 @@ import type {
   CompanyAddress,
   CompanyBuyer,
 } from '#shared/types/company';
-import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
+import CheckoutCardHeader from './CheckoutCardHeader.vue';
 
 const { t } = useI18n();
 
@@ -36,14 +37,10 @@ const buyerName = computed(() =>
 
 <template>
   <Card data-testid="checkout-company-info">
-    <CardHeader
-      class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-    >
-      <Building2 class="text-muted-foreground size-5 shrink-0" />
-      <CardTitle class="text-lg">{{
-        t('checkout.company_and_billing_info')
-      }}</CardTitle>
-    </CardHeader>
+    <CheckoutCardHeader
+      :icon="Building2"
+      :title="t('checkout.company_and_billing_info')"
+    />
     <CardContent class="px-6">
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <!-- Left: company identifiers -->
