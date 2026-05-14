@@ -335,8 +335,38 @@ export default defineNuxtConfig({
   ],
 
   icon: {
+    // SSR: full lucide collection bundled into the server, served via the
+    // /api/_nuxt_icon endpoint as a fallback for icons not in the client
+    // bundle below.
     serverBundle: {
       collections: ['lucide'],
+    },
+    // Client bundle: statically-named icons are auto-discovered via `scan`.
+    // Names that are only known at runtime (passed as props, computed from
+    // config, looked up in a map) MUST be listed here. The scanner cannot
+    // see them, and without an entry here every client-side render of that
+    // icon costs a round-trip to /api/_nuxt_icon, with a brief flicker on
+    // cold cache and silent failure if the endpoint is unreachable.
+    // See docs/conventions/icons.md for the rule and how to extend the list.
+    clientBundle: {
+      scan: true,
+      icons: [
+        // pages/portal/index.vue → PortalStatCard
+        'lucide:file-text',
+        'lucide:shopping-bag',
+        'lucide:package',
+        'lucide:users',
+        // components/portal/PortalShell.vue → tab strip
+        'lucide:layout-dashboard',
+        'lucide:list',
+        'lucide:building-2',
+        // components/layout/footer/LayoutFooterMain.vue → social row
+        'lucide:facebook',
+        'lucide:instagram',
+        'lucide:twitter',
+        'lucide:linkedin',
+        'lucide:youtube',
+      ],
     },
   },
 

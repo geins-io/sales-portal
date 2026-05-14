@@ -341,30 +341,59 @@ function addToCart(product: ListProduct) {
               data-testid="list-item-row"
               class="bg-card border-border flex items-stretch overflow-hidden rounded-lg border"
             >
-              <!-- Image: square, flush, full height -->
-              <ProductThumbnail
-                :file-name="product.productImages?.[0]?.fileName ?? null"
-                :alt="product.name ?? ''"
-                size="w-20 self-stretch"
-                radius="rounded-none"
-              />
-
-              <!-- Right side: padded content row -->
-              <div class="flex flex-1 items-center gap-4 px-4 py-3">
-                <!-- Product info -->
-                <div class="min-w-0 flex-1">
-                  <p class="truncate font-medium">{{ product.name }}</p>
-                  <p class="text-muted-foreground text-xs">
-                    Art nr. {{ product.articleNumber }}
-                  </p>
-                  <StockBadge
-                    v-if="product.totalStock"
-                    :stock="product.totalStock"
-                    size="sm"
-                    class="mt-1"
-                  />
+              <!-- Image + info: PDP link when alias is known, plain div otherwise -->
+              <NuxtLink
+                v-if="product.alias"
+                :to="localePath(`/p/${product.alias}`)"
+                data-testid="list-item-product-link"
+                class="flex flex-1 items-stretch hover:underline focus-visible:underline focus-visible:outline-none"
+              >
+                <ProductThumbnail
+                  :file-name="product.productImages?.[0]?.fileName ?? null"
+                  :alt="product.name ?? ''"
+                  size="w-20 self-stretch"
+                  radius="rounded-none"
+                />
+                <div class="flex min-w-0 flex-1 items-center px-4 py-3">
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate font-medium">{{ product.name }}</p>
+                    <p class="text-muted-foreground text-xs no-underline">
+                      Art nr. {{ product.articleNumber }}
+                    </p>
+                    <StockBadge
+                      v-if="product.totalStock"
+                      :stock="product.totalStock"
+                      size="sm"
+                      class="mt-1"
+                    />
+                  </div>
                 </div>
+              </NuxtLink>
+              <div v-else class="flex flex-1 items-stretch">
+                <ProductThumbnail
+                  :file-name="product.productImages?.[0]?.fileName ?? null"
+                  :alt="product.name ?? ''"
+                  size="w-20 self-stretch"
+                  radius="rounded-none"
+                />
+                <div class="flex min-w-0 flex-1 items-center px-4 py-3">
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate font-medium">{{ product.name }}</p>
+                    <p class="text-muted-foreground text-xs">
+                      Art nr. {{ product.articleNumber }}
+                    </p>
+                    <StockBadge
+                      v-if="product.totalStock"
+                      :stock="product.totalStock"
+                      size="sm"
+                      class="mt-1"
+                    />
+                  </div>
+                </div>
+              </div>
 
+              <!-- Right side: action row -->
+              <div class="flex shrink-0 items-center gap-4 px-4 py-3">
                 <!-- Price -->
                 <span class="w-28 shrink-0 text-center font-semibold">{{
                   product.unitPrice?.sellingPriceIncVatFormatted ?? ''
