@@ -2,7 +2,7 @@ import * as purchasedProductsService from '../../services/purchased-products';
 import { requireAuth } from '../../utils/auth';
 
 export default defineEventHandler(async (event) => {
-  const { authToken } = await requireAuth(event);
+  await requireAuth(event);
   setResponseHeader(
     event,
     'Cache-Control',
@@ -10,10 +10,7 @@ export default defineEventHandler(async (event) => {
   );
   return withErrorHandling(
     async () => {
-      return await purchasedProductsService.getPurchasedProducts(
-        authToken,
-        event,
-      );
+      return await purchasedProductsService.getPurchasedProducts(event);
     },
     { operation: 'orders.products' },
   );

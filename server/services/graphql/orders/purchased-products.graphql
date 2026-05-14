@@ -1,0 +1,27 @@
+query getOrdersForPurchasedProducts(
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  getOrders(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+    id
+    createdAt
+    billingAddress {
+      firstName
+      lastName
+    }
+    cart {
+      items {
+        quantity
+        unitPrice {
+          sellingPriceExVat
+          sellingPriceExVatFormatted
+        }
+        product {
+          articleNumber
+          name
+        }
+      }
+    }
+  }
+}

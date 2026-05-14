@@ -1,17 +1,68 @@
 import type { H3Event } from 'h3';
+import { OrderError } from '@geins/core';
 import type { PurchasedProduct } from '#shared/types/commerce';
-import * as userService from './user';
+import {
+  getTenantSDK,
+  buildRequestContext,
+  getRequestChannelVariables,
+} from './_sdk';
+import { loadQuery } from './graphql/loader';
+import { unwrapGraphQL } from './graphql/unwrap';
 
+interface RawOrder {
+  id?: number | string | null;
+  createdAt?: string | null;
+  billingAddress?: {
+    firstName?: string | null;
+    lastName?: string | null;
+  } | null;
+  cart?: {
+    items?: RawOrderItem[] | null;
+  } | null;
+}
+
+interface RawOrderItem {
+  quantity?: number | null;
+  unitPrice?: {
+    sellingPriceExVat?: number | null;
+    sellingPriceExVatFormatted?: string | null;
+  } | null;
+  product?: {
+    articleNumber?: string | null;
+    name?: string | null;
+  } | null;
+}
+
+/**
+ * Derives the "purchased products" list for the authenticated user.
+ *
+ * Uses a dedicated lean GraphQL query instead of `crm.user.orders.get()`. The
+ * SDK's `UserOrders` query asks for the full Cart fragment plus shipping and
+ * refund subtrees; a single broken subfield silently nulls the whole
+ * `getOrders` response on staging Geins. Asking only for what the derivation
+ * needs keeps this resilient against the wider PIM surface.
+ */
 export async function getPurchasedProducts(
-  authToken: string,
   event: H3Event,
 ): Promise<{ products: PurchasedProduct[]; total: number }> {
-  const ordersData = await userService.getUserOrders(authToken, event);
-  const orders = ordersData?.getOrders;
+  const sdk = await getTenantSDK(event);
+  const requestContext = buildRequestContext(event);
 
-  if (!orders?.length) {
-    return { products: [], total: 0 };
-  }
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('orders/purchased-products.graphql'),
+        variables: {
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: requestContext?.userToken,
+      }),
+    'order',
+    OrderError,
+  );
+
+  const orders = (unwrapGraphQL(result) as RawOrder[] | null) ?? [];
+  if (!orders.length) return { products: [], total: 0 };
 
   const productMap = new Map<
     string,
@@ -19,22 +70,21 @@ export async function getPurchasedProducts(
   >();
 
   for (const order of orders) {
-    if (!order) continue;
-
     const orderTime = order.createdAt ? new Date(order.createdAt).getTime() : 0;
     const orderId = String(order.id ?? '');
     const orderDate = order.createdAt ?? '';
 
-    const firstName = order.billingAddress?.firstName ?? '';
-    const lastName = order.billingAddress?.lastName ?? '';
-    const buyerName = [firstName, lastName].filter(Boolean).join(' ');
+    const buyerName = [
+      order.billingAddress?.firstName ?? '',
+      order.billingAddress?.lastName ?? '',
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     const items = order.cart?.items;
     if (!items?.length) continue;
 
     for (const item of items) {
-      if (!item) continue;
-
       const articleNumber = item.product?.articleNumber;
       if (!articleNumber) continue;
 
