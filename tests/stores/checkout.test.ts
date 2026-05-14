@@ -18,6 +18,12 @@ vi.mock('#app/composables/fetch', () => ({
 
 vi.stubGlobal('$fetch', (...args: unknown[]) => mockFetchImpl(...args));
 
+// Route the SSR-aware internalFetch helper to the same mock so tests can
+// inspect calls without caring about cookie forwarding.
+vi.mock('~/utils/internal-fetch', () => ({
+  internalFetch: (...args: unknown[]) => mockFetchImpl(...args),
+}));
+
 // Mock useCookie for cart store dependency
 const mockCartIdRef = { value: 'cart-abc' };
 vi.mock('#app/composables/cookie', () => ({

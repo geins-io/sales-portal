@@ -14,6 +14,12 @@ vi.mock('#app/composables/fetch', () => ({
 // Also mock the global $fetch for direct usage
 vi.stubGlobal('$fetch', (...args: unknown[]) => mockFetchImpl(...args));
 
+// Route the SSR-aware internalFetch helper to the same mock so tests can
+// inspect /api/auth/me calls without caring about cookie forwarding.
+vi.mock('~/utils/internal-fetch', () => ({
+  internalFetch: (...args: unknown[]) => mockFetchImpl(...args),
+}));
+
 // Mock the logger
 vi.mock('~/utils/logger', () => ({
   logger: {
@@ -302,9 +308,7 @@ describe('useAuthStore', () => {
 
       expect(store.user).toEqual(mockUser);
       expect(store.isInitialized).toBe(true);
-      expect(mockFetchImpl).toHaveBeenCalledWith('/api/auth/me', {
-        headers: undefined,
-      });
+      expect(mockFetchImpl).toHaveBeenCalledWith('/api/auth/me');
     });
 
     it('should set user to null when no session', async () => {

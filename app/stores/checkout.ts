@@ -98,7 +98,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      const data = await $fetch<CheckoutType>('/api/checkout', {
+      const data = await internalFetch<CheckoutType>('/api/checkout', {
         query: { cartId },
       });
       checkout.value = data;

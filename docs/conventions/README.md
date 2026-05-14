@@ -18,3 +18,4 @@ Standards and patterns for this codebase. Read before contributing.
 - [Runtime Config](runtime-config.md) - Environment variables and config
 - [Error Handling](error-handling.md) - Error patterns for client and server
 - [Icons](icons.md) - Static vs dynamic icon names, client bundle rules
+- [API Clients](api-clients.md) - useFetch vs internalFetch vs $api, SSR cookie forwarding
