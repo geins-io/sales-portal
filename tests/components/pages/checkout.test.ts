@@ -119,7 +119,9 @@ vi.mock('../../../app/stores/cart', () => ({
 vi.mock('../../../app/stores/auth', () => ({
   useAuthStore: vi.fn(() => ({
     isAuthenticated: false,
+    isInitialized: true,
     user: null,
+    fetchUser: vi.fn().mockResolvedValue(undefined),
   })),
 }));
 
