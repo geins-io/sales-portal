@@ -34,16 +34,16 @@ client bundle so they never go through path 2 or 3.
 <!-- Good: scanner sees both branches as literals -->
 <Icon :name="isDark ? 'lucide:moon' : 'lucide:sun'" />
 
-<!-- Bad: template literal — scanner cannot resolve the name at build time -->
+<!-- Bad: template literal (scanner cannot resolve the name at build time) -->
 <Icon :name="`lucide:${variant}`" />
 
-<!-- Bad: prop, computed, or map lookup — scanner cannot see what's passed -->
+<!-- Bad: prop, computed, or map lookup (scanner cannot see what's passed) -->
 <Icon :name="iconNameFromProp" />
 <Icon :name="ICON_MAP[key]" />
 ```
 
 `clientBundle.scan: true` in `nuxt.config.ts` discovers every static literal
-automatically. Static usage is free — add new ones without touching config.
+automatically. Static usage is free; add new ones without touching config.
 
 ## When you must use a dynamic name
 
@@ -71,12 +71,12 @@ array, a social-icon map, a tenant-driven menu entry. Two requirements:
 After adding icons, verify both paths:
 
 1. **Hard refresh** the page that uses the icon. Icon must appear immediately
-   on the first paint (SSR path — always works if the icon is anywhere in
+   on the first paint (SSR path, always works if the icon is anywhere in
    `serverBundle`).
 2. **Client-side navigate** to and from the page (click a link, do not refresh).
    Icon must appear without flicker. If it flashes blank for a moment, it is
-   coming from the server endpoint and is missing from the client bundle —
-   add it to `icon.clientBundle.icons`.
+   coming from the server endpoint and is missing from the client bundle.
+   Add it to `icon.clientBundle.icons`.
 
 DevTools network tab is the diagnostic: filter by `_nuxt_icon` and watch for
 requests during client navigation. Any request that fires is an icon that
@@ -86,7 +86,7 @@ should be in the client bundle.
 
 Originally we used `serverBundle.collections: ['lucide']` alone (PR #165). It
 makes SSR work and gives the runtime fallback endpoint a full collection, but
-it leaves the client bundle empty — every icon on a client-navigated page
+it leaves the client bundle empty, so every icon on a client-navigated page
 costs a round-trip and depends on the API endpoint staying healthy. Adding
 `clientBundle.scan: true` + an explicit allowlist for dynamic names removes
 that runtime dependency for the chrome icons.

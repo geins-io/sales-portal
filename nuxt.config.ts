@@ -343,10 +343,10 @@ export default defineNuxtConfig({
     },
     // Client bundle: statically-named icons are auto-discovered via `scan`.
     // Names that are only known at runtime (passed as props, computed from
-    // config, looked up in a map) MUST be listed here — the scanner cannot
+    // config, looked up in a map) MUST be listed here. The scanner cannot
     // see them, and without an entry here every client-side render of that
-    // icon costs a round-trip to /api/_nuxt_icon (with a brief flicker on
-    // cold cache, and silent failure if the endpoint is unreachable).
+    // icon costs a round-trip to /api/_nuxt_icon, with a brief flicker on
+    // cold cache and silent failure if the endpoint is unreachable.
     // See docs/conventions/icons.md for the rule and how to extend the list.
     clientBundle: {
       scan: true,
