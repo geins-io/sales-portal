@@ -82,7 +82,10 @@ function _resolveImageSrc(src: string | undefined): string {
       class="space-y-2"
       :class="header?.textAlign === 'center' ? 'text-center' : ''"
     >
-      <h2 v-if="header?.heading" class="font-heading text-4xl font-bold">
+      <h2
+        v-if="header?.heading"
+        class="font-heading text-[40px] leading-[1.1] font-bold"
+      >
         {{ header.heading }}
       </h2>
       <p v-if="header?.description" class="text-muted-foreground text-sm">
@@ -129,7 +132,10 @@ function _resolveImageSrc(src: string | undefined): string {
   <!-- Cards Simple: image + title + link -->
   <div v-else-if="templateId === 'cards-simple'" class="space-y-6">
     <div v-if="header?.heading || header?.description" class="space-y-2">
-      <h2 v-if="header?.heading" class="font-heading text-4xl font-bold">
+      <h2
+        v-if="header?.heading"
+        class="font-heading text-[40px] leading-[1.1] font-bold"
+      >
         {{ header.heading }}
       </h2>
       <p v-if="header?.description" class="text-muted-foreground text-sm">
@@ -162,14 +168,17 @@ function _resolveImageSrc(src: string | undefined): string {
   <!-- Text + CTA: centered text block with call-to-action link -->
   <div
     v-else-if="templateId === 'text-+-cta'"
-    class="mx-auto max-w-2xl space-y-4 py-8 text-center"
+    class="mx-auto max-w-[670px] space-y-4 py-8 text-center"
   >
-    <h2 v-if="textBlock?.header" class="font-heading text-4xl font-bold">
+    <h2
+      v-if="textBlock?.header"
+      class="font-heading text-[40px] leading-[1.1] font-bold"
+    >
       {{ textBlock.header }}
     </h2>
     <p
       v-if="textBlock?.description"
-      class="text-muted-foreground text-sm leading-relaxed"
+      class="text-muted-foreground text-sm leading-normal"
     >
       {{ textBlock.description }}
     </p>
@@ -203,7 +212,10 @@ function _resolveImageSrc(src: string | undefined): string {
       <div
         class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-6"
       >
-        <h3 v-if="banner.text?.title" class="text-lg font-semibold text-white">
+        <h3
+          v-if="banner.text?.title"
+          class="font-heading text-[40px] leading-[1.1] font-bold text-white"
+        >
           {{ banner.text.title }}
         </h3>
         <p v-if="banner.text?.byline" class="mt-1 text-sm text-white/80">
