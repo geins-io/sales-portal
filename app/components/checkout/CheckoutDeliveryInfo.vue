@@ -43,13 +43,6 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
           {{ t('checkout.delivery_address') }}
         </p>
         <div class="text-muted-foreground space-y-0.5 text-sm">
-          <p>
-            {{
-              [deliveryAddress.firstName, deliveryAddress.lastName]
-                .filter(Boolean)
-                .join(' ')
-            }}
-          </p>
           <p v-if="deliveryAddress.addressLine1">
             {{ deliveryAddress.addressLine1 }}
           </p>
@@ -61,7 +54,6 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
             }}
           </p>
           <p v-if="deliveryAddress.country">{{ deliveryAddress.country }}</p>
-          <p v-if="deliveryAddress.phone">{{ deliveryAddress.phone }}</p>
         </div>
       </div>
     </CardContent>
