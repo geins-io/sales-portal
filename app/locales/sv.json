@@ -151,6 +151,15 @@
     "total": "Totalt",
     "free_shipping": "Gratis",
     "no_payment_methods": "Inga betalningsmetoder tillgängliga.",
+    "payment_types": {
+      "invoice": "Faktura",
+      "klarna": "Klarna",
+      "svea": "Svea",
+      "walley": "Walley",
+      "avarda": "Avarda",
+      "geins_pay": "Geins Pay",
+      "standard": "Standardbetalning"
+    },
     "no_shipping_methods": "Inga leveransmetoder tillgängliga.",
     "blacklisted": "Ditt konto har begränsats. Kontakta support.",
     "field_required": "Detta fält är obligatoriskt.",
@@ -175,10 +184,10 @@
     "change_company_details": "Ändra företagsuppgifter",
     "heading": "Kassa",
     "remove_item": "Ta bort artikel",
-    "company_and_billing_info": "Foretag och fakturainformation",
+    "company_and_billing_info": "Företag och fakturainformation",
     "delivery_info": "Leveransinformation",
     "vat_number": "Organisationsnummer",
-    "company_name": "Foretag",
+    "company_name": "Företag",
     "buyer": "Köpare",
     "per_unit": "/ st",
     "delivery_address": "Leveransadress"

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { FileText } from 'lucide-vue-next';
 import type { CheckoutPaymentTerms } from '#shared/types/commerce';
-import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
+import CheckoutCardHeader from './CheckoutCardHeader.vue';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 
@@ -20,12 +21,7 @@ const emit = defineEmits<{
 
 <template>
   <Card data-testid="checkout-invoice-info">
-    <CardHeader
-      class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-    >
-      <FileText class="text-muted-foreground size-5" />
-      <CardTitle class="text-lg">{{ t('checkout.invoice_info') }}</CardTitle>
-    </CardHeader>
+    <CheckoutCardHeader :icon="FileText" :title="t('checkout.invoice_info')" />
     <CardContent class="space-y-4 px-6">
       <!-- PO Number -->
       <div class="space-y-2">

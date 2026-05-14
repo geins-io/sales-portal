@@ -151,6 +151,15 @@
     "total": "Total",
     "free_shipping": "Free",
     "no_payment_methods": "No payment methods available.",
+    "payment_types": {
+      "invoice": "Invoice",
+      "klarna": "Klarna",
+      "svea": "Svea",
+      "walley": "Walley",
+      "avarda": "Avarda",
+      "geins_pay": "Geins Pay",
+      "standard": "Standard payment"
+    },
     "no_shipping_methods": "No shipping methods available.",
     "blacklisted": "Your account has been restricted. Please contact support.",
     "field_required": "This field is required.",

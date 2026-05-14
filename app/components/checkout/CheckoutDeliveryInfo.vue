@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { MapPin } from 'lucide-vue-next';
 import type { Company, CompanyAddress } from '#shared/types/company';
-import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
+import CheckoutCardHeader from './CheckoutCardHeader.vue';
 
 const { t } = useI18n();
 
@@ -32,12 +33,7 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
 
 <template>
   <Card data-testid="checkout-delivery-info">
-    <CardHeader
-      class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-    >
-      <MapPin class="text-muted-foreground size-5" />
-      <CardTitle class="text-lg">{{ t('checkout.delivery_info') }}</CardTitle>
-    </CardHeader>
+    <CheckoutCardHeader :icon="MapPin" :title="t('checkout.delivery_info')" />
     <CardContent class="px-6">
       <div v-if="deliveryAddress" data-testid="delivery-address">
         <p
@@ -47,13 +43,6 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
           {{ t('checkout.delivery_address') }}
         </p>
         <div class="text-muted-foreground space-y-0.5 text-sm">
-          <p>
-            {{
-              [deliveryAddress.firstName, deliveryAddress.lastName]
-                .filter(Boolean)
-                .join(' ')
-            }}
-          </p>
           <p v-if="deliveryAddress.addressLine1">
             {{ deliveryAddress.addressLine1 }}
           </p>
@@ -65,7 +54,6 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
             }}
           </p>
           <p v-if="deliveryAddress.country">{{ deliveryAddress.country }}</p>
-          <p v-if="deliveryAddress.phone">{{ deliveryAddress.phone }}</p>
         </div>
       </div>
     </CardContent>

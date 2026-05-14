@@ -17,7 +17,8 @@ import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Checkbox } from '~/components/ui/checkbox';
-import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
+import { Card, CardContent } from '~/components/ui/card';
+import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 
 definePageMeta({ layout: 'checkout' });
 
@@ -261,12 +262,7 @@ async function handlePlaceOrder() {
               :buyer-email="authStore.user?.username ?? undefined"
             />
             <Card v-else>
-              <CardHeader
-                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-              >
-                <Mail class="text-muted-foreground size-5" />
-                <CardTitle class="text-lg">{{ t('checkout.email') }}</CardTitle>
-              </CardHeader>
+              <CheckoutCardHeader :icon="Mail" :title="t('checkout.email')" />
               <CardContent class="space-y-4 px-6">
                 <div class="space-y-2">
                   <Label for="checkout-email">{{ t('checkout.email') }}</Label>
@@ -298,14 +294,10 @@ async function handlePlaceOrder() {
 
             <!-- Billing Address: hidden for company users (included in company card) -->
             <Card v-if="!isCompanyUser">
-              <CardHeader
-                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-              >
-                <MapPin class="text-muted-foreground size-5" />
-                <CardTitle class="text-lg">{{
-                  t('checkout.billing_address')
-                }}</CardTitle>
-              </CardHeader>
+              <CheckoutCardHeader
+                :icon="MapPin"
+                :title="t('checkout.billing_address')"
+              />
               <CardContent class="px-6">
                 <CheckoutAddressForm
                   :model-value="checkoutStore.billingAddress"
@@ -325,14 +317,10 @@ async function handlePlaceOrder() {
               :company="companyData"
             />
             <Card v-else-if="!isCompanyUser">
-              <CardHeader
-                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-              >
-                <Truck class="text-muted-foreground size-5" />
-                <CardTitle class="text-lg">{{
-                  t('checkout.shipping_address')
-                }}</CardTitle>
-              </CardHeader>
+              <CheckoutCardHeader
+                :icon="Truck"
+                :title="t('checkout.shipping_address')"
+              />
               <CardContent class="space-y-4 px-6">
                 <div class="flex items-center gap-3">
                   <Checkbox
@@ -362,14 +350,10 @@ async function handlePlaceOrder() {
 
             <!-- Payment Method -->
             <Card>
-              <CardHeader
-                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-              >
-                <CreditCard class="text-muted-foreground size-5" />
-                <CardTitle class="text-lg">{{
-                  t('checkout.payment_method')
-                }}</CardTitle>
-              </CardHeader>
+              <CheckoutCardHeader
+                :icon="CreditCard"
+                :title="t('checkout.payment_method')"
+              />
               <CardContent class="px-6">
                 <CheckoutPaymentOptions
                   :options="checkoutStore.paymentOptions"
@@ -382,14 +366,10 @@ async function handlePlaceOrder() {
 
             <!-- Order Message -->
             <Card>
-              <CardHeader
-                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-              >
-                <MessageSquare class="text-muted-foreground size-5" />
-                <CardTitle class="text-lg">{{
-                  t('checkout.order_message')
-                }}</CardTitle>
-              </CardHeader>
+              <CheckoutCardHeader
+                :icon="MessageSquare"
+                :title="t('checkout.order_message')"
+              />
               <CardContent class="px-6">
                 <textarea
                   id="checkout-message"
@@ -409,14 +389,10 @@ async function handlePlaceOrder() {
 
             <!-- Consents: only rendered when there are non-auto-accepted consents -->
             <Card v-if="checkoutStore.consents?.some((c) => !c.autoAccept)">
-              <CardHeader
-                class="border-border flex flex-row items-center gap-2 space-y-0 border-b px-6 pb-4"
-              >
-                <FileCheck class="text-muted-foreground size-5" />
-                <CardTitle class="text-lg">{{
-                  t('checkout.consents')
-                }}</CardTitle>
-              </CardHeader>
+              <CheckoutCardHeader
+                :icon="FileCheck"
+                :title="t('checkout.consents')"
+              />
               <CardContent class="px-6">
                 <CheckoutConsents
                   :consents="checkoutStore.consents"

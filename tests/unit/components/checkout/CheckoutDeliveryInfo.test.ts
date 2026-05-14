@@ -64,7 +64,7 @@ const CheckoutDeliveryInfo =
   await import('../../../../app/components/checkout/CheckoutDeliveryInfo.vue');
 
 describe('CheckoutDeliveryInfo', () => {
-  it('renders delivery address fields', () => {
+  it('renders delivery address fields without name or phone', () => {
     const deliveryAddr = makeAddress({
       addressId: 'addr-delivery',
       addressType: 'delivery',
@@ -82,11 +82,12 @@ describe('CheckoutDeliveryInfo', () => {
       global: { stubs },
     });
     const addrBlock = wrapper.find('[data-testid="delivery-address"]');
-    expect(addrBlock.text()).toContain('Delivery Contact');
     expect(addrBlock.text()).toContain('Warehouse Road 5');
     expect(addrBlock.text()).toContain('22233 Gothenburg');
     expect(addrBlock.text()).toContain('SE');
-    expect(addrBlock.text()).toContain('+46-70-000-0002');
+    // Name and phone are intentionally omitted on the delivery card.
+    expect(addrBlock.text()).not.toContain('Delivery Contact');
+    expect(addrBlock.text()).not.toContain('+46-70-000-0002');
   });
 
   it('renders delivery address section label', () => {
@@ -107,14 +108,12 @@ describe('CheckoutDeliveryInfo', () => {
     const billingAddr = makeAddress({
       addressId: 'addr-billing',
       addressType: 'billing',
-      firstName: 'Billing',
-      lastName: 'User',
+      addressLine1: 'Billing Street 1',
     });
     const shippingAddr = makeAddress({
       addressId: 'addr-shipping',
       addressType: 'shipping',
-      firstName: 'Shipping',
-      lastName: 'User',
+      addressLine1: 'Shipping Street 9',
     });
     const company = makeCompany({ addresses: [billingAddr, shippingAddr] });
     const wrapper = mount(CheckoutDeliveryInfo.default, {
@@ -122,16 +121,15 @@ describe('CheckoutDeliveryInfo', () => {
       global: { stubs },
     });
     const addrBlock = wrapper.find('[data-testid="delivery-address"]');
-    expect(addrBlock.text()).toContain('Shipping User');
-    expect(addrBlock.text()).not.toContain('Billing User');
+    expect(addrBlock.text()).toContain('Shipping Street 9');
+    expect(addrBlock.text()).not.toContain('Billing Street 1');
   });
 
   it('falls back to billing address when no delivery/shipping address found', () => {
     const billingAddr = makeAddress({
       addressId: 'addr-billing',
       addressType: 'billing',
-      firstName: 'Billing',
-      lastName: 'Fallback',
+      addressLine1: 'Fallback Billing Street 42',
     });
     const company = makeCompany({ addresses: [billingAddr] });
     const wrapper = mount(CheckoutDeliveryInfo.default, {
@@ -139,6 +137,6 @@ describe('CheckoutDeliveryInfo', () => {
       global: { stubs },
     });
     const addrBlock = wrapper.find('[data-testid="delivery-address"]');
-    expect(addrBlock.text()).toContain('Billing Fallback');
+    expect(addrBlock.text()).toContain('Fallback Billing Street 42');
   });
 });

@@ -16,6 +16,29 @@ const emit = defineEmits<{
 function selectOption(id: number) {
   emit('update:modelValue', id);
 }
+
+// Map the Geins paymentType enum to a localized fallback label. Used when
+// the merchant has not configured a displayName or name on the option in
+// Geins admin, which would otherwise leak the section title through the
+// generic fallback. Anything not in the map (or missing entirely) defaults
+// to "Invoice" / "Faktura" because invoice is the standard B2B option.
+const PAYMENT_TYPE_LABELS: Record<string, string> = {
+  STANDARD: 'checkout.payment_types.standard',
+  KLARNA: 'checkout.payment_types.klarna',
+  SVEA: 'checkout.payment_types.svea',
+  WALLEY: 'checkout.payment_types.walley',
+  AVARDA: 'checkout.payment_types.avarda',
+  GEINS_PAY: 'checkout.payment_types.geins_pay',
+};
+
+function paymentLabel(option: PaymentOptionType): string {
+  if (option.displayName && option.displayName.trim())
+    return option.displayName;
+  if (option.name && option.name.trim()) return option.name;
+  const key =
+    option.paymentType && PAYMENT_TYPE_LABELS[option.paymentType as string];
+  return t(key ?? 'checkout.payment_types.invoice');
+}
 </script>
 
 <template>
@@ -47,10 +70,7 @@ function selectOption(id: number) {
         />
         <div class="flex flex-1 items-center justify-between">
           <span class="text-sm font-medium">
-            {{
-              (option.displayName ?? option.name) ||
-              t('checkout.payment_method')
-            }}
+            {{ paymentLabel(option) }}
           </span>
           <span
             v-if="option.feeIncVat > 0"
