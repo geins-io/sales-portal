@@ -151,6 +151,15 @@
     "total": "Totalt",
     "free_shipping": "Gratis",
     "no_payment_methods": "Inga betalningsmetoder tillgängliga.",
+    "payment_types": {
+      "invoice": "Faktura",
+      "klarna": "Klarna",
+      "svea": "Svea",
+      "walley": "Walley",
+      "avarda": "Avarda",
+      "geins_pay": "Geins Pay",
+      "standard": "Standardbetalning"
+    },
     "no_shipping_methods": "Inga leveransmetoder tillgängliga.",
     "blacklisted": "Ditt konto har begränsats. Kontakta support.",
     "field_required": "Detta fält är obligatoriskt.",
