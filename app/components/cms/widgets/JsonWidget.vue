@@ -101,7 +101,7 @@ function _resolveImageSrc(src: string | undefined): string {
         :key="i"
         class="bg-card overflow-hidden rounded-md border"
       >
-        <div class="bg-muted aspect-[4/3] overflow-hidden">
+        <div class="bg-muted aspect-square overflow-hidden">
           <GeinsImage
             v-if="item.image?.src"
             :file-name="item.image.src"
