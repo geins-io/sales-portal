@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { mountComponent } from '../../utils/component';
 import ContactPage from '../../../app/pages/contact.vue';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
@@ -12,8 +12,13 @@ vi.mock('../../../app/composables/useTenant', () => ({
   }),
 }));
 
+vi.mock('../../../app/composables/useCmsMenu', () => ({
+  useCmsMenu: () => computed(() => ({ menuLocationId: 'info-pages' })),
+}));
+
 const stubs = {
-  InfoPageSidebar: { template: '<aside class="sidebar-stub" />' },
+  PageSidebarNav: { template: '<aside class="sidebar-stub" />' },
+  ErrorBoundary: { template: '<div><slot /></div>' },
   ContactForm: { template: '<div class="contact-form-stub" />' },
 };
 

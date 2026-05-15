@@ -67,18 +67,27 @@ tenant.
 
 ## Current menus (`tenant.cms.menus`)
 
-| Key                          | Where it renders                                         | Consumer                                            | Typical `{menuLocationId}`         |
-| ---------------------------- | -------------------------------------------------------- | --------------------------------------------------- | ---------------------------------- |
-| `CMS_MENUS.HEADER_MAIN`      | Desktop header nav bar                                   | `app/components/layout/header/LayoutHeaderNav.vue`  | `{ menuLocationId: "main" }`       |
-| `CMS_MENUS.FOOTER`           | Footer link columns                                      | `app/components/layout/footer/LayoutFooterMain.vue` | `{ menuLocationId: "footer" }`     |
-| `CMS_MENUS.MOBILE_DRAWER`    | Mobile off-canvas navigation                             | `app/components/layout/MobileNavPanel.vue`          | `{ menuLocationId: "main" }`       |
-| `CMS_MENUS.SIDEBAR_FALLBACK` | Sidebar nav for CMS pages tagged `CMS_TAGS.SIDEBAR_MENU` | `app/pages/[...slug].vue` → `PageSidebarNav`        | `{ menuLocationId: "info-pages" }` |
+| Key                          | Where it renders                                                                                     | Consumer                                                                                        | Typical `{menuLocationId}`         |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `CMS_MENUS.HEADER_MAIN`      | Desktop header nav bar                                                                               | `app/components/layout/header/LayoutHeaderNav.vue`                                              | `{ menuLocationId: "main" }`       |
+| `CMS_MENUS.FOOTER`           | Footer link columns                                                                                  | `app/components/layout/footer/LayoutFooterMain.vue`                                             | `{ menuLocationId: "footer" }`     |
+| `CMS_MENUS.MOBILE_DRAWER`    | Mobile off-canvas navigation                                                                         | `app/components/layout/MobileNavPanel.vue`                                                      | `{ menuLocationId: "main" }`       |
+| `CMS_MENUS.SIDEBAR_FALLBACK` | Sidebar nav for CMS pages tagged `CMS_TAGS.SIDEBAR_MENU` and for static info-page routes that opt in | `app/pages/[...slug].vue` + static info pages (e.g. `app/pages/contact.vue`) → `PageSidebarNav` | `{ menuLocationId: "info-pages" }` |
 
-> Sidebar resolution: `pages/[...slug].vue` checks the page's tags via
-> `hasPageTag(page, CMS_TAGS.SIDEBAR_MENU)`. When the tag is present, the
-> tenant's `CMS_MENUS.SIDEBAR_FALLBACK` menu renders to the left of the
-> page content. When absent (or the menu isn't configured), the sidebar
-> doesn't render — same page just goes full-width.
+> Sidebar resolution on CMS pages: `pages/[...slug].vue` checks the page's
+> tags via `hasPageTag(page, CMS_TAGS.SIDEBAR_MENU)`. When the tag is
+> present, the tenant's `CMS_MENUS.SIDEBAR_FALLBACK` menu renders to the
+> left of the page content. When absent (or the menu isn't configured),
+> the sidebar doesn't render and the page goes full-width.
+>
+> Sidebar on static info pages: a hand-built page that wants the same
+> info-page sidebar (e.g. `/contact`) calls `useCmsMenu(CMS_MENUS.SIDEBAR_FALLBACK)`
+> directly and renders `<PageSidebarNav :menu-location-id="...">` when
+> the tenant has configured the menu. No tag check; the page author
+> opts in by including the sidebar markup. Static infopage routes should
+> NOT keep their own hardcoded sidebar list; the menu is the single
+> source of truth and gives the merchant admin control over the link set
+> per tenant.
 
 ## Current tags (`page.tags`)
 

@@ -919,11 +919,5 @@
     "title": "Inloggad som kund",
     "description": "— Visar som {customerName} (forfalskad av {adminEmail})",
     "exit": "Avsluta"
-  },
-  "info_pages": {
-    "about_us": "Om oss",
-    "contact": "Kontakt",
-    "apply_for_account": "Ansök om konto",
-    "terms": "Villkor"
   }
 }
