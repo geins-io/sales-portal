@@ -69,7 +69,10 @@ const shippingAddress = computed<QuoteAddress | undefined>(() =>
 );
 
 useHead({
-  title: computed(() => `${t('portal.orders.detail.title')} #${orderId.value}`),
+  title: computed(
+    () =>
+      `${t('portal.orders.detail.title')} #${order.value?.id ?? orderId.value}`,
+  ),
 });
 
 // Handle 404 when order not found
@@ -167,7 +170,7 @@ function formatDate(iso?: string): string {
         >
           <div>
             <h2 class="text-2xl font-semibold">
-              {{ t('portal.orders.detail.title') }} {{ order?.publicId }}
+              {{ t('portal.orders.detail.title') }} {{ order?.id }}
             </h2>
             <p class="text-muted-foreground mt-1 text-sm">
               {{ formatDate(order?.createdAt) }}

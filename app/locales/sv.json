@@ -562,7 +562,7 @@
         "cancelled": "Avbruten"
       },
       "view": "Visa",
-      "type_web": "Webbbeställning",
+      "type_web": "Webbeställning",
       "quick_search": "Snabbsök",
       "search_placeholder": "Sök beställningar...",
       "no_orders": "Inga beställningar hittades",

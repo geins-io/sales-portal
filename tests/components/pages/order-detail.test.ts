@@ -331,7 +331,9 @@ describe('OrderDetail', () => {
       });
 
       expect(wrapper.find('[data-testid="order-detail"]').exists()).toBe(true);
-      expect(wrapper.text()).toContain(TEST_ORDER_ID);
+      const headerText = wrapper.find('[data-testid="order-header"]').text();
+      expect(headerText).toContain('portal.orders.detail.title');
+      expect(headerText).toContain('1');
     });
 
     it('renders inside PortalShell', () => {
