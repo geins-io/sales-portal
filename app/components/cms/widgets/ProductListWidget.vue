@@ -5,12 +5,7 @@ import type { ContentConfigType } from '#shared/types/cms';
 const props = defineProps<{
   data: {
     title?: string;
-    searchParameters?: {
-      sort?: string;
-      searchText?: string | null;
-      include?: unknown[];
-      exclude?: unknown[];
-    };
+    searchParameters?: Record<string, unknown> | null;
     pageCount?: number;
   };
   config: ContentConfigType;
@@ -19,6 +14,18 @@ const props = defineProps<{
 
 const take = computed(() => (props.data.pageCount ?? 1) * 4);
 
+// The CMS payload exposes the curated product selection as `searchParameters`
+// which is the same shape Geins's `products(filter: FilterInputType)` query
+// accepts (include/exclude/sort/searchText). Forward it verbatim as the
+// `filter` query param so the widget renders exactly what the CMS configured
+// instead of falling back to "first N products from the catalogue".
+const filterParam = computed(() =>
+  props.data.searchParameters &&
+  Object.keys(props.data.searchParameters).length > 0
+    ? JSON.stringify(props.data.searchParameters)
+    : undefined,
+);
+
 const { data: productsData } = useFetch<{
   products: ListProduct[];
   count: number;
@@ -26,6 +33,7 @@ const { data: productsData } = useFetch<{
   query: computed(() => ({
     take: take.value,
     skip: 0,
+    ...(filterParam.value ? { filter: filterParam.value } : {}),
   })),
   dedupe: 'defer',
   lazy: true,
