@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PurchasedProduct } from '#shared/types/commerce';
+import type { OrderListItem, PurchasedProduct } from '#shared/types/commerce';
 import type { QuoteStatus } from '#shared/types/quote';
 import ProductCard, {
   type ProductCardItem,
@@ -20,38 +20,12 @@ const { localePath } = useLocaleMarket();
 // Orders data
 // ---------------------------------------------------------------------------
 const { data: ordersData, pending: ordersPending } = useFetch<{
-  orders: Array<{
-    id?: number | null;
-    publicId?: string | null;
-    status: string;
-    createdAt?: string | null;
-    billingAddress?: { firstName?: string; lastName?: string } | null;
-    cart?: {
-      items?: Array<{ product?: { productId?: number } | null } | null> | null;
-      summary?: {
-        total?: {
-          sellingPriceIncVat?: number;
-          sellingPriceIncVatFormatted?: string;
-        } | null;
-      } | null;
-    } | null;
-  }>;
-}>('/api/user/orders', { dedupe: 'defer' });
+  orders: OrderListItem[];
+  total: number;
+}>('/api/orders', { dedupe: 'defer' });
 
 const orders = computed(() => ordersData.value?.orders ?? []);
 const orderCount = computed(() => orders.value.length);
-const purchasedProductIds = computed(() => {
-  const ids = new Set<number>();
-  for (const order of orders.value) {
-    for (const item of order.cart?.items ?? []) {
-      if (item?.product?.productId) {
-        ids.add(item.product.productId);
-      }
-    }
-  }
-  return ids;
-});
-const purchasedProductCount = computed(() => purchasedProductIds.value.size);
 
 // ---------------------------------------------------------------------------
 // Quotes data
@@ -76,6 +50,7 @@ const { data: productsData, pending: productsPending } = useFetch<{
 const recentProducts = computed(() =>
   (productsData.value?.products ?? []).slice(0, 4),
 );
+const purchasedProductCount = computed(() => productsData.value?.total ?? 0);
 
 // ---------------------------------------------------------------------------
 // Saved lists data — client-side via SDK ListsSession (no server API).

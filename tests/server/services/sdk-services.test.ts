@@ -104,7 +104,6 @@ describe('Service layer exports', () => {
     expect(user.register).toBeTypeOf('function');
     expect(user.requestPasswordReset).toBeTypeOf('function');
     expect(user.commitPasswordReset).toBeTypeOf('function');
-    expect(user.getUserOrders).toBeTypeOf('function');
   });
 
   it('cms service exports all expected functions', async () => {

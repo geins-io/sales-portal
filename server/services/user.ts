@@ -3,7 +3,6 @@ import type {
   AuthResponse,
   GeinsUserType,
   GeinsUserInputTypeType,
-  GeinsUserOrdersType,
 } from '@geins/types';
 import { AuthError } from '@geins/core';
 import type { H3Event } from 'h3';
@@ -89,18 +88,5 @@ export async function commitPasswordReset(
     'user',
     AuthError,
     ErrorCode.BAD_REQUEST,
-  );
-}
-
-export async function getUserOrders(
-  userToken: string,
-  event: H3Event,
-): Promise<GeinsUserOrdersType | undefined> {
-  const { crm } = await getTenantSDK(event);
-  return wrapServiceCall(
-    () => crm.user.orders.get(userToken),
-    'user',
-    AuthError,
-    ErrorCode.UNAUTHORIZED,
   );
 }
