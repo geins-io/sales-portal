@@ -7,7 +7,17 @@ const props = defineProps<{
   label: string;
   icon?: string;
   address: QuoteAddress | CompanyAddress;
+  bare?: boolean;
 }>();
+
+const containerClass = computed(() => {
+  if (props.bare) {
+    return props.icon ? 'flex items-start gap-3' : 'space-y-1';
+  }
+  return props.icon
+    ? 'border-border flex items-start gap-3 rounded-lg border p-4'
+    : 'border-border space-y-1 rounded-lg border p-4';
+});
 
 const joinedName = computed(() =>
   [props.address?.firstName, props.address?.lastName].filter(Boolean).join(' '),
@@ -19,13 +29,7 @@ const zipCity = computed(() =>
 </script>
 
 <template>
-  <div
-    :class="
-      icon
-        ? 'border-border flex items-start gap-3 rounded-lg border p-4'
-        : 'border-border space-y-1 rounded-lg border p-4'
-    "
-  >
+  <div :class="containerClass">
     <template v-if="icon">
       <Icon :name="icon" class="text-muted-foreground mt-0.5 size-4 shrink-0" />
       <div class="space-y-1">

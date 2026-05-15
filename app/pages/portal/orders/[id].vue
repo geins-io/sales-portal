@@ -124,7 +124,7 @@ function formatDate(iso?: string): string {
         <!-- Action Toolbar: back link left, action buttons right -->
         <div
           data-testid="order-action-toolbar"
-          class="flex flex-wrap items-center justify-between gap-4"
+          class="border-border flex flex-wrap items-center justify-between gap-4 border-b pb-4"
         >
           <NuxtLink
             :to="localePath('/portal/orders')"
@@ -135,18 +135,17 @@ function formatDate(iso?: string): string {
             {{ t('portal.orders.detail.back_to_orders') }}
           </NuxtLink>
           <div class="flex flex-wrap items-center gap-2">
-            <Button data-testid="view-additional-data-button" variant="outline">
-              {{ t('portal.orders.detail.actions.view_additional_data') }}
-            </Button>
-            <Button data-testid="download-receipt-button" variant="outline">
-              {{ t('portal.orders.detail.actions.download_receipt') }}
-            </Button>
-            <Button data-testid="order-communication-button" variant="outline">
+            <Button
+              data-testid="order-communication-button"
+              variant="secondary"
+            >
+              <Icon name="lucide:message-square" class="size-4" />
               {{ t('portal.orders.detail.actions.order_communication') }}
             </Button>
             <Button
               v-if="!isCatalogMode"
               data-testid="reorder-button"
+              variant="secondary"
               :disabled="isReordering"
               @click="handleReorder"
             >
@@ -155,19 +154,25 @@ function formatDate(iso?: string): string {
                 name="lucide:loader-circle"
                 class="size-4 animate-spin"
               />
+              <Icon v-else name="lucide:rotate-cw" class="size-4" />
               {{ t('portal.orders.detail.actions.reorder') }}
             </Button>
           </div>
         </div>
 
-        <!-- Order header: title, date, status -->
-        <div class="flex flex-wrap items-center gap-3">
-          <h2 class="text-lg font-semibold">
-            {{ t('portal.orders.detail.title') }} {{ order?.publicId }}
-          </h2>
-          <span class="text-muted-foreground text-sm">
-            {{ formatDate(order?.createdAt) }}
-          </span>
+        <!-- Order header: title, date subtitle, status badge right -->
+        <div
+          data-testid="order-header"
+          class="mt-6 flex flex-wrap items-start justify-between gap-3"
+        >
+          <div>
+            <h2 class="text-2xl font-semibold">
+              {{ t('portal.orders.detail.title') }} {{ order?.publicId }}
+            </h2>
+            <p class="text-muted-foreground mt-1 text-sm">
+              {{ formatDate(order?.createdAt) }}
+            </p>
+          </div>
           <span
             v-if="order?.status"
             data-testid="status-badge"
@@ -212,7 +217,7 @@ function formatDate(iso?: string): string {
                     :key="item?.skuId"
                     data-testid="order-item-row"
                   >
-                    <td class="px-4 py-3">
+                    <td class="px-4 py-5">
                       <div class="flex items-center gap-3">
                         <ProductThumbnail
                           :file-name="
@@ -236,16 +241,16 @@ function formatDate(iso?: string): string {
                         >
                       </div>
                     </td>
-                    <td class="text-muted-foreground px-4 py-3">
+                    <td class="text-muted-foreground px-4 py-5">
                       {{ item?.product?.articleNumber }}
                     </td>
-                    <td class="px-4 py-3 text-right">
+                    <td class="px-4 py-5 text-right">
                       {{ item?.quantity }}
                     </td>
-                    <td class="px-4 py-3 text-right">
+                    <td class="px-4 py-5 text-right">
                       {{ item?.unitPrice?.sellingPriceIncVatFormatted }}
                     </td>
-                    <td class="px-4 py-3 text-right font-medium">
+                    <td class="px-4 py-5 text-right font-medium">
                       {{ item?.totalPrice?.sellingPriceIncVatFormatted }}
                     </td>
                   </tr>
@@ -320,10 +325,7 @@ function formatDate(iso?: string): string {
           <!-- Right: Summary Sidebar -->
           <div class="space-y-4">
             <!-- Summary Card -->
-            <div
-              data-testid="order-summary"
-              class="border-border rounded-lg border p-4"
-            >
+            <div data-testid="order-summary" class="bg-muted rounded-lg p-4">
               <h3 class="mb-3 text-base font-semibold">
                 {{ t('portal.orders.detail.summary.title') }}
               </h3>
@@ -367,21 +369,30 @@ function formatDate(iso?: string): string {
               </div>
             </div>
 
-            <!-- Billing Address -->
-            <AddressBlock
-              v-if="billingAddress"
-              data-testid="billing-address"
-              :label="t('portal.orders.detail.billing_address')"
-              :address="billingAddress"
-            />
-
-            <!-- Shipping Address -->
-            <AddressBlock
-              v-if="shippingAddress"
-              data-testid="shipping-address"
-              :label="t('portal.orders.detail.shipping_address')"
-              :address="shippingAddress"
-            />
+            <!-- Addresses share one grey container -->
+            <div
+              v-if="billingAddress || shippingAddress"
+              class="bg-muted space-y-4 rounded-lg p-4"
+            >
+              <AddressBlock
+                v-if="billingAddress"
+                bare
+                data-testid="billing-address"
+                :label="t('portal.orders.detail.billing_address')"
+                :address="billingAddress"
+              />
+              <hr
+                v-if="billingAddress && shippingAddress"
+                class="border-border"
+              />
+              <AddressBlock
+                v-if="shippingAddress"
+                bare
+                data-testid="shipping-address"
+                :label="t('portal.orders.detail.shipping_address')"
+                :address="shippingAddress"
+              />
+            </div>
           </div>
         </div>
       </div>

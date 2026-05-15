@@ -396,18 +396,18 @@ describe('OrderDetail', () => {
       const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
       expect(toolbar.exists()).toBe(true);
       expect(toolbar.text()).toContain(
-        'portal.orders.detail.actions.view_additional_data',
-      );
-      expect(toolbar.text()).toContain(
-        'portal.orders.detail.actions.download_receipt',
-      );
-      expect(toolbar.text()).toContain(
         'portal.orders.detail.actions.order_communication',
       );
       expect(toolbar.text()).toContain('portal.orders.detail.actions.reorder');
+      expect(toolbar.text()).not.toContain(
+        'portal.orders.detail.actions.view_additional_data',
+      );
+      expect(toolbar.text()).not.toContain(
+        'portal.orders.detail.actions.download_receipt',
+      );
     });
 
-    it('renders view-additional-data-button and order-communication-button testids', () => {
+    it('renders order-communication-button and reorder-button only', () => {
       mockData.value = makeOrder();
 
       const wrapper = shallowMountComponent(OrderDetail, {
@@ -415,20 +415,20 @@ describe('OrderDetail', () => {
       });
 
       expect(
-        wrapper.find('[data-testid="view-additional-data-button"]').exists(),
-      ).toBe(true);
-      expect(
         wrapper.find('[data-testid="order-communication-button"]').exists(),
-      ).toBe(true);
-      expect(
-        wrapper.find('[data-testid="download-receipt-button"]').exists(),
       ).toBe(true);
       expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
         true,
       );
+      expect(
+        wrapper.find('[data-testid="view-additional-data-button"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="download-receipt-button"]').exists(),
+      ).toBe(false);
     });
 
-    it('renders view_additional_data, download_receipt, and order_communication as outline buttons', () => {
+    it('toolbar buttons all use secondary (grey) variant', () => {
       mockData.value = makeOrder();
 
       const wrapper = shallowMountComponent(OrderDetail, {
@@ -447,50 +447,10 @@ describe('OrderDetail', () => {
 
       const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
       const buttons = toolbar.findAll('button');
-      const outlineButtons = buttons.filter(
-        (b) => b.attributes('data-variant') === 'outline',
+      const secondaryButtons = buttons.filter(
+        (b) => b.attributes('data-variant') === 'secondary',
       );
-      expect(outlineButtons.length).toBe(3);
-    });
-
-    it('renders reorder as default (primary) variant button', () => {
-      mockData.value = makeOrder();
-
-      const wrapper = shallowMountComponent(OrderDetail, {
-        global: {
-          stubs: {
-            ...defaultStubs,
-            Button: {
-              template:
-                '<button v-bind="$attrs" :data-variant="variant ?? \'default\'" @click="$emit(\'click\')"><slot /></button>',
-              props: ['variant'],
-              emits: ['click'],
-            },
-          },
-        },
-      });
-
-      const reorderBtn = wrapper.find('[data-testid="reorder-button"]');
-      expect(reorderBtn.exists()).toBe(true);
-      expect(reorderBtn.attributes('data-variant')).toBe('default');
-    });
-
-    it('stub buttons (view_additional_data, download_receipt, order_communication) are no-ops on click', async () => {
-      mockData.value = makeOrder();
-
-      const wrapper = shallowMountComponent(OrderDetail, {
-        global: { stubs: defaultStubs },
-      });
-
-      const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
-      const stubButtons = toolbar.findAll(
-        '[data-testid="view-additional-data-button"], [data-testid="download-receipt-button"], [data-testid="order-communication-button"]',
-      );
-      // Should not throw on click
-      for (const btn of stubButtons) {
-        await btn.trigger('click');
-      }
-      expect(mockNavigateTo).not.toHaveBeenCalled();
+      expect(secondaryButtons.length).toBe(2);
     });
   });
 
