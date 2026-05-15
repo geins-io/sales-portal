@@ -30,6 +30,8 @@ interface RawOrderItem {
   product?: {
     articleNumber?: string | null;
     name?: string | null;
+    alias?: string | null;
+    productImages?: Array<{ fileName?: string | null } | null> | null;
   } | null;
 }
 
@@ -89,6 +91,8 @@ export async function getPurchasedProducts(
       if (!articleNumber) continue;
 
       const name = item.product?.name ?? '';
+      const alias = item.product?.alias ?? null;
+      const imageFileName = item.product?.productImages?.[0]?.fileName ?? null;
       const quantity = item.quantity ?? 0;
       const priceExVat = item.unitPrice?.sellingPriceExVat ?? 0;
       const priceExVatFormatted =
@@ -100,6 +104,8 @@ export async function getPurchasedProducts(
         productMap.set(articleNumber, {
           name,
           articleNumber,
+          alias,
+          imageFileName,
           priceExVat,
           priceExVatFormatted,
           totalQuantity: quantity,
@@ -119,6 +125,9 @@ export async function getPurchasedProducts(
           existing.priceExVat = priceExVat;
           existing.priceExVatFormatted = priceExVatFormatted;
         }
+        if (!existing.alias && alias) existing.alias = alias;
+        if (!existing.imageFileName && imageFileName)
+          existing.imageFileName = imageFileName;
       }
     }
   }

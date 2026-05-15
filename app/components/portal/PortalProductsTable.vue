@@ -35,6 +35,16 @@ function getOrderLink(product: PurchasedProduct): string {
   return localePath(`/portal/orders/${product.latestOrderId}`);
 }
 
+function getProductLink(product: PurchasedProduct): string | null {
+  return product.alias ? localePath(`/p/${product.alias}`) : null;
+}
+
+function getDateWithOrderId(product: PurchasedProduct): string {
+  const date = formatDate(product.latestOrderDate);
+  if (!product.latestOrderId) return date;
+  return `${date} (${product.latestOrderId})`;
+}
+
 function handleSortProduct() {
   emit('sort', 'name');
 }
@@ -58,35 +68,50 @@ function handleSortProduct() {
           v-for="product in products"
           :key="product.articleNumber"
           data-testid="product-row"
-          class="border-border rounded-lg border p-4"
+          class="border-border flex gap-3 rounded-lg border p-4"
         >
-          <div class="mb-1 font-medium">{{ product.name }}</div>
-          <div class="text-muted-foreground mb-2 text-xs">
-            {{ product.articleNumber }}
-          </div>
-          <div class="text-muted-foreground grid grid-cols-2 gap-1 text-sm">
-            <span>{{
-              t('portal.purchased_products.columns.price_ex_vat')
-            }}</span>
-            <span class="text-foreground text-right">{{
-              getPrice(product)
-            }}</span>
-            <span>{{
-              t('portal.purchased_products.columns.total_ordered')
-            }}</span>
-            <span class="text-foreground text-right">{{
-              product.totalQuantity
-            }}</span>
-            <span>{{
-              t('portal.purchased_products.columns.latest_order')
-            }}</span>
+          <ProductThumbnail
+            :file-name="product.imageFileName"
+            :alt="product.name"
+            size="size-16"
+          />
+          <div class="min-w-0 flex-1">
             <NuxtLink
-              :to="getOrderLink(product)"
-              class="text-primary text-right text-sm"
-              data-testid="order-link"
+              v-if="getProductLink(product)"
+              :to="getProductLink(product)!"
+              data-testid="product-name-link"
+              class="hover:text-primary mb-1 block font-medium"
             >
-              {{ formatDate(product.latestOrderDate) }}
+              {{ product.name }}
             </NuxtLink>
+            <div v-else class="mb-1 font-medium">{{ product.name }}</div>
+            <div class="text-muted-foreground mb-2 text-xs">
+              {{ product.articleNumber }}
+            </div>
+            <div class="text-muted-foreground grid grid-cols-2 gap-1 text-sm">
+              <span>{{
+                t('portal.purchased_products.columns.price_ex_vat')
+              }}</span>
+              <span class="text-foreground text-right">{{
+                getPrice(product)
+              }}</span>
+              <span>{{
+                t('portal.purchased_products.columns.total_ordered')
+              }}</span>
+              <span class="text-foreground text-right">{{
+                product.totalQuantity
+              }}</span>
+              <span>{{
+                t('portal.purchased_products.columns.latest_order')
+              }}</span>
+              <NuxtLink
+                :to="getOrderLink(product)"
+                class="text-primary text-right text-sm"
+                data-testid="order-link"
+              >
+                {{ getDateWithOrderId(product) }}
+              </NuxtLink>
+            </div>
           </div>
         </div>
       </div>
@@ -95,6 +120,7 @@ function handleSortProduct() {
       <table class="hidden w-full text-sm md:table">
         <thead>
           <tr class="border-border border-b text-left">
+            <th class="py-3 pr-4 font-medium" />
             <th
               class="cursor-pointer py-3 pr-4 font-medium select-none"
               data-testid="sort-product"
@@ -130,7 +156,24 @@ function handleSortProduct() {
             data-testid="product-row"
             class="border-border hover:bg-muted/50 border-b transition-colors"
           >
-            <td class="py-3 pr-4">{{ product.name }}</td>
+            <td class="py-3 pr-4">
+              <ProductThumbnail
+                :file-name="product.imageFileName"
+                :alt="product.name"
+                size="size-12"
+              />
+            </td>
+            <td class="py-3 pr-4">
+              <NuxtLink
+                v-if="getProductLink(product)"
+                :to="getProductLink(product)!"
+                data-testid="product-name-link"
+                class="hover:text-primary font-medium"
+              >
+                {{ product.name }}
+              </NuxtLink>
+              <span v-else>{{ product.name }}</span>
+            </td>
             <td class="py-3 pr-4">{{ product.articleNumber }}</td>
             <td class="py-3 pr-4">{{ getPrice(product) }}</td>
             <td class="py-3 pr-4">{{ product.totalQuantity }}</td>
@@ -140,7 +183,7 @@ function handleSortProduct() {
                 class="text-primary hover:text-primary/80 text-sm font-medium"
                 data-testid="order-link"
               >
-                {{ formatDate(product.latestOrderDate) }}
+                {{ getDateWithOrderId(product) }}
               </NuxtLink>
             </td>
             <td class="py-3">{{ product.latestBuyerName }}</td>

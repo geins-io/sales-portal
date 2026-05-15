@@ -20,6 +20,10 @@ query getOrdersForPurchasedProducts(
         product {
           articleNumber
           name
+          alias
+          productImages {
+            fileName
+          }
         }
       }
     }

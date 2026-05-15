@@ -276,6 +276,8 @@ export interface OrderListItem {
 export interface PurchasedProduct {
   name: string;
   articleNumber: string;
+  alias?: string | null;
+  imageFileName?: string | null;
   priceExVat: number;
   priceExVatFormatted?: string;
   totalQuantity: number;
