@@ -919,11 +919,5 @@
     "title": "Logged in as customer",
     "description": "— Viewing as {customerName} (spoofed by {adminEmail})",
     "exit": "Exit"
-  },
-  "info_pages": {
-    "about_us": "About us",
-    "contact": "Contact",
-    "apply_for_account": "Apply for an account",
-    "terms": "Terms"
   }
 }

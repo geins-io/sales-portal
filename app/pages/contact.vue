@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { CMS_MENUS } from '#shared/constants/cms';
 
 const { t } = useI18n();
 const { contact } = useTenant();
+
+// CMS-driven sidebar menu, mirroring the [...slug].vue pattern for tagged
+// CMS pages. The tenant config maps `SIDEBAR_FALLBACK` to its Geins admin
+// menu location (default `info-pages`). When unconfigured the sidebar is
+// omitted entirely.
+const sidebarFallbackMenu = useCmsMenu(CMS_MENUS.SIDEBAR_FALLBACK);
+const sidebarMenuId = computed<string | null>(
+  () => sidebarFallbackMenu.value?.menuLocationId ?? null,
+);
 
 useHead({
   title: computed(() => t('contact.title')),
@@ -35,11 +45,13 @@ const emailLine = computed(
 <template>
   <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
     <div class="md:flex md:gap-8">
-      <!-- Sidebar -->
-      <InfoPageSidebar
-        active-path="/contact"
-        class="mb-6 md:mb-0 md:w-56 md:shrink-0"
-      />
+      <!-- CMS-driven sidebar, same as [...slug].vue for tagged pages -->
+      <ErrorBoundary v-if="sidebarMenuId" section="sidebar-nav">
+        <PageSidebarNav
+          :menu-location-id="sidebarMenuId"
+          class="mb-6 md:mb-0 md:w-56 md:shrink-0"
+        />
+      </ErrorBoundary>
 
       <!-- Content -->
       <div class="max-w-2xl min-w-0 flex-1">
