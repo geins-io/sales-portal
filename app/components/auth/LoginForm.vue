@@ -108,6 +108,7 @@ async function handleSubmit() {
       <div class="flex items-center justify-between">
         <Label for="login-password">{{ t('auth.password') }}</Label>
         <Button
+          type="button"
           variant="link"
           class="h-auto p-0"
           data-testid="login-forgot-password"
