@@ -139,7 +139,7 @@ async function handleAddToCart(
               "
               @click="viewMode = 'grid'"
             >
-              <Icon name="lucide:grid-2x2" class="size-4" />
+              <Icon name="lucide:layout-grid" class="size-4" />
             </button>
             <button
               type="button"
@@ -198,10 +198,14 @@ async function handleAddToCart(
           />
         </div>
 
-        <!-- Product grid -->
+        <!-- Product grid/list — mirrors PLP layout exactly -->
         <div
           data-testid="favorites-grid"
-          class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          :class="
+            viewMode === 'grid'
+              ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
+              : 'flex flex-col gap-3'
+          "
         >
           <div
             v-for="product in filteredProducts"
