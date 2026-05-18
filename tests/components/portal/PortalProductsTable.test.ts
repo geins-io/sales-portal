@@ -10,7 +10,8 @@ const mockProducts = [
     priceExVatFormatted: '150,00 SEK',
     totalQuantity: 42,
     latestOrderDate: '2025-12-22T17:22:00Z',
-    latestOrderId: 'order-abc-123',
+    latestOrderId: '1421',
+    latestOrderPublicId: 'order-abc-123',
     latestBuyerName: 'Adam Johnsson',
   },
   {
@@ -20,7 +21,8 @@ const mockProducts = [
     priceExVatFormatted: '85,00 SEK',
     totalQuantity: 10,
     latestOrderDate: '2025-12-23T10:00:00Z',
-    latestOrderId: 'order-def-456',
+    latestOrderId: '1422',
+    latestOrderPublicId: 'order-def-456',
     latestBuyerName: 'Jessica Andersson',
   },
 ];

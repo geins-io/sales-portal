@@ -283,6 +283,7 @@ export interface PurchasedProduct {
   totalQuantity: number;
   latestOrderDate: string;
   latestOrderId: string;
+  latestOrderPublicId: string | null;
   latestBuyerName: string;
 }
 

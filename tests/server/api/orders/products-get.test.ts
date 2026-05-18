@@ -76,6 +76,7 @@ describe('GET /api/orders/products', () => {
           totalQuantity: 5,
           latestOrderDate: '2026-01-01',
           latestOrderId: '1',
+          latestOrderPublicId: 'pub-1',
           latestBuyerName: 'John Doe',
         },
       ],
