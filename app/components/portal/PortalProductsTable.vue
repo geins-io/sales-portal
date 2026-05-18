@@ -160,7 +160,7 @@ function handleSortProduct() {
               <ProductThumbnail
                 :file-name="product.imageFileName"
                 :alt="product.name"
-                size="size-12"
+                size="size-10"
               />
             </td>
             <td class="py-3 pr-4">
