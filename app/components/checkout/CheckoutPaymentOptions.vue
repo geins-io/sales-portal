@@ -23,7 +23,10 @@ function selectOption(id: number) {
 // generic fallback. Anything not in the map (or missing entirely) defaults
 // to "Invoice" / "Faktura" because invoice is the standard B2B option.
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
-  STANDARD: 'checkout.payment_types.standard',
+  // STANDARD is the B2B invoice option for this tenant. Label as "Faktura"
+  // (Invoice) rather than the generic "Standardbetalning" so the radio
+  // surfaces a meaningful payment type when the admin omits displayName.
+  STANDARD: 'checkout.payment_types.invoice',
   KLARNA: 'checkout.payment_types.klarna',
   SVEA: 'checkout.payment_types.svea',
   WALLEY: 'checkout.payment_types.walley',
