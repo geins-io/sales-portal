@@ -220,7 +220,7 @@ function formatDate(iso?: string): string {
                     :key="item?.skuId"
                     data-testid="order-item-row"
                   >
-                    <td class="px-4 py-5">
+                    <td class="h-24 px-4 py-2">
                       <div class="flex items-center gap-3">
                         <ProductThumbnail
                           :file-name="
@@ -244,13 +244,13 @@ function formatDate(iso?: string): string {
                         >
                       </div>
                     </td>
-                    <td class="text-muted-foreground px-4 py-5">
+                    <td class="text-muted-foreground h-24 px-4 py-2">
                       {{ item?.product?.articleNumber }}
                     </td>
-                    <td class="px-4 py-5 text-right">
+                    <td class="h-24 px-4 py-2 text-right">
                       {{ item?.quantity }}
                     </td>
-                    <td class="px-4 py-5 text-right">
+                    <td class="h-24 px-4 py-2 text-right">
                       {{ item?.unitPrice?.sellingPriceIncVatFormatted }}
                     </td>
                     <td class="px-4 py-5 text-right font-medium">
@@ -328,7 +328,7 @@ function formatDate(iso?: string): string {
           <!-- Right: Summary Sidebar -->
           <div class="space-y-4">
             <!-- Summary Card -->
-            <div data-testid="order-summary" class="bg-muted rounded-lg p-4">
+            <div data-testid="order-summary" class="bg-muted rounded-lg p-6">
               <h3 class="mb-3 text-base font-semibold">
                 {{ t('portal.orders.detail.summary.title') }}
               </h3>

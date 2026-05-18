@@ -4,6 +4,7 @@ import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { productPath } from '#shared/utils/route-helpers';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import { ShoppingCart, Star, AlertCircle } from 'lucide-vue-next';
+import { useAuthStore } from '~/stores/auth';
 import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
 
@@ -47,6 +48,7 @@ function isLegacyProduct(p: ProductCardProp): p is ListProduct | DetailProduct {
 
 const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
+const authStore = useAuthStore();
 const { hasFeature, isCatalogMode } = useTenant();
 const { showPrice: priceVisibilityEnabled } = usePriceVisibility();
 
@@ -226,7 +228,9 @@ async function addToCart() {
         </p>
         <span v-else />
         <Button
-          v-if="productAlias && hasFeature('wishlist')"
+          v-if="
+            productAlias && hasFeature('wishlist') && authStore.isAuthenticated
+          "
           variant="ghost"
           size="icon-sm"
           data-testid="wishlist-button"
@@ -476,7 +480,11 @@ async function addToCart() {
             </span>
           </Button>
           <Button
-            v-if="productAlias && hasFeature('wishlist')"
+            v-if="
+              productAlias &&
+              hasFeature('wishlist') &&
+              authStore.isAuthenticated
+            "
             variant="ghost"
             size="icon-sm"
             data-testid="wishlist-button"

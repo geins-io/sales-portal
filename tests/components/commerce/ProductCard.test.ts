@@ -4,6 +4,10 @@ import ProductCard from '../../../app/components/shared/ProductCard.vue';
 import { useTenant } from '../../../app/composables/useTenant';
 import { mockIsCatalogMode } from '../../setup-components';
 
+// Default to authenticated so wishlist/add-to-list buttons render. Individual
+// tests can override by mutating `mockIsAuthenticated.value`.
+import { ref } from 'vue';
+
 // useTenant is mocked globally in setup-components.ts.
 // Access the tenant ref to mutate features in individual tests.
 const { tenant } = useTenant();
@@ -30,6 +34,15 @@ vi.mock('~/stores/cart', () => ({
 
 const mockToggle = vi.fn();
 const mockIsFavorite = vi.fn(() => false);
+const mockIsAuthenticated = ref(true);
+
+vi.mock('~/stores/auth', () => ({
+  useAuthStore: () => ({
+    get isAuthenticated() {
+      return mockIsAuthenticated.value;
+    },
+  }),
+}));
 
 vi.mock('~/stores/favorites', () => ({
   useFavoritesStore: () => ({
@@ -357,6 +370,19 @@ describe('ProductCard', () => {
       expect(wrapper.find('[data-testid="wishlist-button"]').exists()).toBe(
         false,
       );
+    });
+
+    it('hides wishlist button for unauthenticated users even when feature is enabled', () => {
+      tenant.value.features = { wishlist: { enabled: true } };
+      mockIsAuthenticated.value = false;
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct() },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-testid="wishlist-button"]').exists()).toBe(
+        false,
+      );
+      mockIsAuthenticated.value = true;
     });
 
     it('shows wishlist button when feature is enabled', () => {
