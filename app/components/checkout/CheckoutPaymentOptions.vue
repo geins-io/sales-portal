@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { FunctionalComponent } from 'vue';
+import { Receipt } from 'lucide-vue-next';
 import type { PaymentOptionType } from '#shared/types/commerce';
 
 const { t } = useI18n();
@@ -42,6 +44,18 @@ function paymentLabel(option: PaymentOptionType): string {
     option.paymentType && PAYMENT_TYPE_LABELS[option.paymentType as string];
   return t(key ?? 'checkout.payment_types.invoice');
 }
+
+// Icon shown next to each payment option label. Invoice/STANDARD gets a
+// receipt icon, everything else a generic credit-card icon. Keeps the
+// component dependency-free of the full lucide collection.
+const PAYMENT_TYPE_ICONS: Record<string, FunctionalComponent> = {
+  STANDARD: Receipt,
+};
+
+function paymentIcon(option: PaymentOptionType): FunctionalComponent {
+  const key = option.paymentType as string | undefined;
+  return (key && PAYMENT_TYPE_ICONS[key]) || Receipt;
+}
 </script>
 
 <template>
@@ -71,8 +85,12 @@ function paymentLabel(option: PaymentOptionType): string {
           class="accent-primary focus-visible:ring-ring size-4 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           @change="selectOption(option.id)"
         />
-        <div class="flex flex-1 items-center justify-between">
-          <span class="text-sm font-medium">
+        <div class="flex flex-1 items-center justify-between gap-3">
+          <span class="flex items-center gap-2 text-sm font-medium">
+            <component
+              :is="paymentIcon(option)"
+              class="text-muted-foreground size-4 shrink-0"
+            />
             {{ paymentLabel(option) }}
           </span>
           <span
