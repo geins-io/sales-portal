@@ -38,6 +38,10 @@ const orderSummary = computed(() => data.value?.order ?? null);
 
 <template>
   <div class="mx-auto max-w-7xl px-4 py-8 lg:px-6">
-    <OrderConfirmation :summary="orderSummary" :is-loading="pending" />
+    <OrderConfirmation
+      :summary="orderSummary"
+      :is-loading="pending"
+      :payment-method="paymentMethod"
+    />
   </div>
 </template>
