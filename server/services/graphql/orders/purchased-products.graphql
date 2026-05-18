@@ -5,6 +5,7 @@ query getOrdersForPurchasedProducts(
 ) {
   getOrders(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
     id
+    publicId
     createdAt
     billingAddress {
       firstName

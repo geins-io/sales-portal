@@ -653,6 +653,42 @@ describe('Tenant utilities', () => {
       expect(out?.branding.watermark).toBe('full');
     });
 
+    it('salvages a freshly provisioned tenant with empty appSettings end-to-end', () => {
+      // Merchant API shape for a newly set-up customer system: identity
+      // fields at the root, empty appSettings, and the standard
+      // geinsSettings credentials block. Previously 500'd because
+      // `features` was a fatal path. Now the resilient parser salvages
+      // it and buildTenantConfig overlays the PORTAL_FEATURE_DEFAULTS.
+      const raw = {
+        geinsSettings: {
+          defaultHostName: 'tinatest1.litium.store',
+          additionalHostNames: [],
+          apiKey: 'E0EB51F2-B663-457F-A7F9-A75693FD8469',
+          accountName: 'tinatest1',
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
+        },
+        appSettings: {},
+        tenantId: 'tinatest1',
+        isActive: true,
+        updatedAt: '0001-01-01T00:00:00+00:00',
+      };
+      const candidate = adaptMerchantApiResponse(raw);
+      const out = parseStoreSettingsResilient(
+        candidate,
+        'tinatest1.litium.store',
+      );
+      expect(out).not.toBeNull();
+      expect(out?.tenantId).toBe('tinatest1');
+      expect(out?.features).toEqual({});
+      const cfg = buildTenantConfig(out as StoreSettings);
+      expect(cfg.features.registration?.enabled).toBe(true);
+      expect(cfg.features.applyForAccount?.enabled).toBe(true);
+    });
+
     it('preserves surface colors when core OKLCH colors are missing from theme', () => {
       const candidate = fullCandidate();
       candidate.theme = {

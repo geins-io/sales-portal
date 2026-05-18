@@ -9,65 +9,44 @@ const mockSummary = {
       quantity: 2,
       articleNumber: 'ART-001',
       name: 'Widget A',
-      product: {
-        name: 'Widget A',
-        brand: 'Acme',
-        imageUrl: 'https://cdn.example.com/widget-a.jpg',
-        productUrl: '/products/widget-a',
-      },
+      product: { name: 'Widget A' },
       price: {
         priceIncVat: 89.99,
         priceIncVatFormatted: '$89.99',
-        discountIncVat: 0,
-        discountIncVatFormatted: '$0.00',
       },
     },
     {
       quantity: 1,
       articleNumber: 'ART-002',
       name: 'Gadget B',
-      product: {
-        name: 'Gadget B',
-        brand: 'Acme',
-        imageUrl: 'https://cdn.example.com/gadget-b.jpg',
-        productUrl: '/products/gadget-b',
-      },
+      product: { name: 'Gadget B' },
       price: {
         priceIncVat: 49.5,
         priceIncVatFormatted: '$49.50',
-        discountIncVat: 0,
-        discountIncVatFormatted: '$0.00',
       },
     },
     {
       quantity: 3,
       articleNumber: 'ART-003',
       name: 'Doohickey C',
-      product: {
-        name: 'Doohickey C',
-        brand: 'Beta',
-        imageUrl: '',
-        productUrl: '/products/doohickey-c',
-      },
+      product: { name: 'Doohickey C' },
       price: {
         priceIncVat: 19.99,
         priceIncVatFormatted: '$19.99',
-        discountIncVat: 0,
-        discountIncVatFormatted: '$0.00',
       },
     },
   ],
   total: {
-    itemValueIncVat: 289.45,
-    itemValueIncVatFormatted: '$289.45',
-    orderValueIncVat: 299.45,
-    orderValueIncVatFormatted: '$299.45',
+    itemValueExVat: 232,
+    itemValueIncVat: 290,
+    itemValueIncVatFormatted: '$290.00',
     shippingFeeIncVat: 10,
     shippingFeeIncVatFormatted: '$10.00',
     discountIncVat: 0,
     discountIncVatFormatted: '$0.00',
-    sum: 299.45,
-    sumFormatted: '$299.45',
+    sum: 300,
+    sumFormatted: '$300.00',
+    currency: 'SEK',
   },
   billingAddress: {
     firstName: 'John',
@@ -82,6 +61,7 @@ const mockSummary = {
   shippingAddress: {
     firstName: 'Jane',
     lastName: 'Smith',
+    company: 'Warehouse 4',
     addressLine1: '456 Oak Ave',
     city: 'Gothenburg',
     zip: '41101',
@@ -100,66 +80,123 @@ function mountConfirmation(props: Record<string, unknown> = {}) {
 }
 
 describe('OrderConfirmation', () => {
-  it('renders thank-you message', () => {
+  it('renders the order-confirmed heading', () => {
     const wrapper = mountConfirmation();
     expect(wrapper.text()).toContain('order_confirmation.thank_you');
+    expect(wrapper.text()).toContain(
+      'order_confirmation.confirmation_subtitle',
+    );
   });
 
-  it('displays order number', () => {
+  it('renders the check icon using the theme primary token', () => {
     const wrapper = mountConfirmation();
-    const orderNumber = wrapper.find('[data-testid="order-number"]');
-    expect(orderNumber.exists()).toBe(true);
-    expect(orderNumber.text()).toContain('ORD-215');
+    const icon = wrapper.find('[data-testid="confirm-icon"]');
+    expect(icon.exists()).toBe(true);
+    expect(icon.classes().join(' ')).toContain('text-primary');
   });
 
-  it('renders items table with rows', () => {
+  it('displays the order number badge', () => {
     const wrapper = mountConfirmation();
-    const table = wrapper.find('[data-testid="items-table"]');
-    expect(table.exists()).toBe(true);
-    const rows = table.findAll('tbody tr');
+    const badge = wrapper.find('[data-testid="order-number"]');
+    expect(badge.exists()).toBe(true);
+    expect(badge.text()).toContain('ORD-215');
+  });
+
+  it('shows buyer name from billing address', () => {
+    const wrapper = mountConfirmation();
+    const buyer = wrapper.find('[data-testid="buyer-info"]');
+    expect(buyer.exists()).toBe(true);
+    expect(buyer.text()).toContain('John Doe');
+  });
+
+  it('shows billing address company + lines without the person name', () => {
+    const wrapper = mountConfirmation();
+    const billing = wrapper.find('[data-testid="billing-address"]');
+    expect(billing.exists()).toBe(true);
+    expect(billing.text()).toContain('Acme Inc');
+    expect(billing.text()).toContain('123 Main St');
+    expect(billing.text()).toContain('Stockholm');
+    expect(billing.text()).not.toContain('John Doe');
+  });
+
+  it('shows shipping address company + lines without the person name', () => {
+    const wrapper = mountConfirmation();
+    const shipping = wrapper.find('[data-testid="shipping-address"]');
+    expect(shipping.exists()).toBe(true);
+    expect(shipping.text()).toContain('Warehouse 4');
+    expect(shipping.text()).toContain('456 Oak Ave');
+    expect(shipping.text()).not.toContain('Jane Smith');
+  });
+
+  it('renders item list rows', () => {
+    const wrapper = mountConfirmation();
+    const list = wrapper.find('[data-testid="items-list"]');
+    expect(list.exists()).toBe(true);
+    const rows = list.findAll('li');
     expect(rows.length).toBe(3);
+    expect(list.text()).toContain('Widget A');
+    expect(list.text()).toContain('SKU: ART-001');
   });
 
-  it('shows product name and article number', () => {
+  it('shows items total badge', () => {
     const wrapper = mountConfirmation();
-    const table = wrapper.find('[data-testid="items-table"]');
-    expect(table.text()).toContain('Widget A');
-    expect(table.text()).toContain('ART-001');
+    const badge = wrapper.find('[data-testid="items-total-badge"]');
+    expect(badge.exists()).toBe(true);
+    // i18n stub returns the key; the count is fed via interpolation params,
+    // which the stub drops. Assert on the key and check rendered row count.
+    expect(badge.text()).toContain('order_confirmation.items_total');
+    expect(wrapper.findAll('[data-testid="items-list"] li').length).toBe(3);
   });
 
-  it('shows quantity and price', () => {
+  it('collapses item list when rows exceed the limit and toggles open', async () => {
+    const longSummary = {
+      ...mockSummary,
+      rows: [
+        ...mockSummary.rows,
+        {
+          quantity: 1,
+          articleNumber: 'ART-004',
+          name: 'Widget D',
+          product: { name: 'Widget D' },
+          price: { priceIncVat: 5, priceIncVatFormatted: '$5.00' },
+        },
+      ],
+    };
+    const wrapper = mountConfirmation({ summary: longSummary });
+    const list = wrapper.find('[data-testid="items-list"]');
+    expect(list.findAll('li').length).toBe(3);
+    const toggle = wrapper.find('[data-testid="toggle-items"]');
+    expect(toggle.exists()).toBe(true);
+    await toggle.trigger('click');
+    expect(
+      wrapper.find('[data-testid="items-list"]').findAll('li').length,
+    ).toBe(4);
+  });
+
+  it('does not render toggle when row count is within the limit', () => {
     const wrapper = mountConfirmation();
-    const table = wrapper.find('[data-testid="items-table"]');
-    expect(table.text()).toContain('2');
-    expect(table.text()).toContain('$89.99');
+    expect(wrapper.find('[data-testid="toggle-items"]').exists()).toBe(false);
   });
 
-  it('shows summary subtotal', () => {
+  it('shows the grey summary box with subtotal, vat and total', () => {
     const wrapper = mountConfirmation();
-    expect(wrapper.text()).toContain('$289.45');
+    const box = wrapper.find('[data-testid="summary-box"]');
+    expect(box.exists()).toBe(true);
+    expect(box.text()).toContain('$290.00');
+    expect(box.find('[data-testid="summary-total"]').text()).toContain(
+      '$300.00',
+    );
   });
 
-  it('shows summary total', () => {
-    const wrapper = mountConfirmation();
-    const total = wrapper.find('[data-testid="summary-total"]');
-    expect(total.exists()).toBe(true);
-    expect(total.text()).toContain('$299.45');
-  });
-
-  it('shows shipping fee', () => {
-    const wrapper = mountConfirmation();
-    expect(wrapper.text()).toContain('$10.00');
-  });
-
-  it('hides discount line when no discount', () => {
+  it('hides discount row when none', () => {
     const wrapper = mountConfirmation();
     expect(wrapper.find('[data-testid="summary-discount"]').exists()).toBe(
       false,
     );
   });
 
-  it('shows discount line when discount exists', () => {
-    const summaryWithDiscount = {
+  it('shows discount row when present', () => {
+    const summary = {
       ...mockSummary,
       total: {
         ...mockSummary.total,
@@ -167,94 +204,63 @@ describe('OrderConfirmation', () => {
         discountIncVatFormatted: '$20.00',
       },
     };
-    const wrapper = mountConfirmation({ summary: summaryWithDiscount });
+    const wrapper = mountConfirmation({ summary });
     const discount = wrapper.find('[data-testid="summary-discount"]');
     expect(discount.exists()).toBe(true);
     expect(discount.text()).toContain('$20.00');
   });
 
-  it('shows billing address', () => {
-    const wrapper = mountConfirmation();
-    const billing = wrapper.find('[data-testid="billing-address"]');
-    expect(billing.exists()).toBe(true);
-    expect(billing.text()).toContain('John Doe');
-    expect(billing.text()).toContain('123 Main St');
-    expect(billing.text()).toContain('Stockholm');
+  it('renders payment method label when paymentMethod prop is set', () => {
+    const wrapper = mountConfirmation({ paymentMethod: 'invoice' });
+    const label = wrapper.find('[data-testid="payment-label"]');
+    expect(label.exists()).toBe(true);
   });
 
-  it('shows shipping address', () => {
+  it('omits payment method block when prop is missing', () => {
     const wrapper = mountConfirmation();
-    const shipping = wrapper.find('[data-testid="shipping-address"]');
-    expect(shipping.exists()).toBe(true);
-    expect(shipping.text()).toContain('Jane Smith');
-    expect(shipping.text()).toContain('456 Oak Ave');
-    expect(shipping.text()).toContain('Gothenburg');
+    expect(wrapper.find('[data-testid="payment-label"]').exists()).toBe(false);
   });
 
-  it('shows continue shopping link', () => {
-    const wrapper = mountConfirmation();
-    const link = wrapper.find('a[href="/se/en/"]');
-    expect(link.exists()).toBe(true);
-    expect(link.text()).toContain('order_confirmation.continue_shopping');
+  it('renders reference block when reference prop is set', () => {
+    const wrapper = mountConfirmation({ reference: 'REF-8842-X' });
+    const label = wrapper.find('[data-testid="reference-label"]');
+    expect(label.exists()).toBe(true);
+    expect(wrapper.text()).toContain('REF-8842-X');
   });
 
-  it('shows view orders link', () => {
+  it('renders full-width view-order CTA pointing to /portal/orders/<orderId>', () => {
     const wrapper = mountConfirmation();
-    const link = wrapper.find('a[href="/se/en/portal/orders"]');
-    expect(link.exists()).toBe(true);
-    expect(link.text()).toContain('order_confirmation.view_orders');
+    const cta = wrapper.find('[data-testid="view-order-cta"]');
+    expect(cta.exists()).toBe(true);
+    expect(cta.attributes('href')).toBe('/se/en/portal/orders/ORD-215');
   });
 
-  it('shows loading state', () => {
+  it('renders back-to-store link below the card', () => {
+    const wrapper = mountConfirmation();
+    const back = wrapper.find('[data-testid="back-to-store"]');
+    expect(back.exists()).toBe(true);
+    expect(back.attributes('href')).toBe('/se/en/');
+  });
+
+  it('shows loading skeleton when isLoading is true', () => {
     const wrapper = mountConfirmation({ isLoading: true, summary: null });
     expect(
       wrapper.find('[data-testid="order-confirmation-loading"]').exists(),
     ).toBe(true);
-    expect(wrapper.find('[data-testid="items-table"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="items-list"]').exists()).toBe(false);
   });
 
-  it('shows fallback thank-you when summary is unavailable', () => {
+  it('renders the same header card with CTA when summary is unavailable', () => {
     const wrapper = mountConfirmation({ summary: null });
-    const fallback = wrapper.find(
-      '[data-testid="order-confirmation-fallback"]',
+    expect(wrapper.text()).toContain('order_confirmation.thank_you');
+    expect(wrapper.text()).toContain(
+      'order_confirmation.confirmation_subtitle',
     );
-    expect(fallback.exists()).toBe(true);
-    expect(fallback.text()).toContain('order_confirmation.thank_you');
-    expect(fallback.text()).toContain('order_confirmation.order_placed');
-    expect(fallback.find('a[href="/se/en/portal/orders"]').exists()).toBe(true);
-    expect(fallback.find('a[href="/se/en/"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="items-list"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="order-number"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="view-order-cta"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="back-to-store"]').exists()).toBe(true);
     // Never display the legacy "Order not found" error text.
     expect(wrapper.text()).not.toContain('order_confirmation.order_not_found');
-  });
-
-  it('does not render the success table when summary is null', () => {
-    const wrapper = mountConfirmation({ summary: null });
-    expect(wrapper.find('[data-testid="items-table"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="order-number"]').exists()).toBe(false);
-  });
-
-  it('handles empty rows', () => {
-    const summaryNoRows = { ...mockSummary, rows: [] };
-    const wrapper = mountConfirmation({ summary: summaryNoRows });
-    expect(wrapper.find('[data-testid="items-table"]').exists()).toBe(true);
-    const rows = wrapper
-      .find('[data-testid="items-table"]')
-      .findAll('tbody tr');
-    expect(rows.length).toBe(0);
-  });
-
-  it('handles missing addresses gracefully', () => {
-    const summaryNoAddresses = {
-      ...mockSummary,
-      billingAddress: undefined,
-      shippingAddress: undefined,
-    };
-    const wrapper = mountConfirmation({ summary: summaryNoAddresses });
-    expect(wrapper.find('[data-testid="billing-address"]').exists()).toBe(
-      false,
-    );
-    expect(wrapper.find('[data-testid="shipping-address"]').exists()).toBe(
-      false,
-    );
   });
 });

@@ -1,28 +1,34 @@
 <script setup lang="ts">
-import type { CheckoutSummaryOrderType } from '@geins/types';
-import { CircleCheck } from 'lucide-vue-next';
-import { Card, CardHeader, CardTitle, CardContent } from '~/components/ui/card';
-import { Badge } from '~/components/ui/badge';
+import type { CheckoutSummaryOrderType, AddressType } from '@geins/types';
+import { CircleCheck, FileText, ChevronDown, ChevronUp } from 'lucide-vue-next';
 
 const props = defineProps<{
   summary: CheckoutSummaryOrderType | null;
   isLoading: boolean;
+  paymentMethod?: string;
+  reference?: string;
 }>();
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
 
+const COLLAPSED_ROW_LIMIT = 3;
+
+const expanded = ref(false);
+
+const rows = computed(() => props.summary?.rows ?? []);
+const visibleRows = computed(() =>
+  expanded.value ? rows.value : rows.value.slice(0, COLLAPSED_ROW_LIMIT),
+);
+const hasMoreRows = computed(() => rows.value.length > COLLAPSED_ROW_LIMIT);
+
 const hasDiscount = computed(
   () => (props.summary?.total?.discountIncVat ?? 0) > 0,
 );
 
-function formatAddress(
-  address: CheckoutSummaryOrderType['billingAddress'],
-): string[] {
+function formatAddressLines(address: AddressType | undefined | null): string[] {
   if (!address) return [];
   const lines: string[] = [];
-  const name = [address.firstName, address.lastName].filter(Boolean).join(' ');
-  if (name) lines.push(name);
   if (address.company) lines.push(address.company);
   if (address.addressLine1) lines.push(address.addressLine1);
   if (address.addressLine2) lines.push(address.addressLine2);
@@ -32,12 +38,47 @@ function formatAddress(
   return lines;
 }
 
+const buyerName = computed(() => {
+  const a = props.summary?.billingAddress;
+  if (!a) return '';
+  return [a.firstName, a.lastName].filter(Boolean).join(' ');
+});
+
 const billingLines = computed(() =>
-  formatAddress(props.summary?.billingAddress),
+  formatAddressLines(props.summary?.billingAddress),
 );
 const shippingLines = computed(() =>
-  formatAddress(props.summary?.shippingAddress),
+  formatAddressLines(props.summary?.shippingAddress),
 );
+
+const paymentLabel = computed(() => {
+  const raw = props.paymentMethod;
+  if (!raw) return null;
+  const key = `checkout.payment_types.${raw}`;
+  const localized = t(key);
+  return localized === key ? raw : localized;
+});
+
+function lineUnitPrice(row: { price?: { priceIncVatFormatted?: string } }) {
+  return row.price?.priceIncVatFormatted ?? '';
+}
+
+function lineTotal(row: {
+  quantity?: number;
+  price?: { priceIncVat?: number; priceIncVatFormatted?: string };
+}) {
+  // CheckoutSummaryPriceType doesn't expose a line total — multiply the
+  // unit price by quantity for display. Falls back to the unit string if
+  // numeric multiplication isn't possible.
+  const unit = row.price?.priceIncVat;
+  const qty = row.quantity ?? 0;
+  if (typeof unit === 'number' && qty > 0) {
+    const currency = props.summary?.total?.currency ?? '';
+    const value = (unit * qty).toLocaleString('sv-SE');
+    return `${value} ${currency}`.trim();
+  }
+  return row.price?.priceIncVatFormatted ?? '';
+}
 </script>
 
 <template>
@@ -45,275 +86,256 @@ const shippingLines = computed(() =>
     <!-- Loading state -->
     <div
       v-if="isLoading"
-      class="space-y-6"
+      class="mx-auto max-w-3xl"
       data-testid="order-confirmation-loading"
     >
-      <div class="bg-muted h-24 animate-pulse rounded-lg" />
-      <div class="bg-muted h-64 animate-pulse rounded-lg" />
-      <div class="bg-muted h-48 animate-pulse rounded-lg" />
+      <div class="bg-muted h-[600px] animate-pulse rounded-xl" />
     </div>
 
-    <!-- Success state — full order summary available -->
-    <template v-else-if="summary">
-      <!-- Thank you banner -->
-      <Card class="mb-8 text-center">
-        <CardContent class="flex flex-col items-center gap-3 py-8">
-          <CircleCheck class="size-14 text-green-500" />
-          <h1 class="text-2xl font-bold">
+    <template v-else>
+      <article
+        class="border-border bg-card mx-auto max-w-3xl rounded-xl border px-8 py-10 sm:px-12 sm:py-12"
+      >
+        <!-- Header: icon + heading + subtitle + badge -->
+        <header class="flex flex-col items-center gap-3 text-center">
+          <CircleCheck
+            class="text-primary size-12"
+            data-testid="confirm-icon"
+          />
+          <h1 class="text-2xl font-bold sm:text-3xl">
             {{ t('order_confirmation.thank_you') }}
           </h1>
-          <p class="text-muted-foreground text-sm">
-            {{ t('order_confirmation.order_placed') }}
+          <p class="text-muted-foreground max-w-md text-sm">
+            {{ t('order_confirmation.confirmation_subtitle') }}
           </p>
-          <Badge
-            variant="secondary"
-            class="text-base"
+          <div
+            v-if="summary?.orderId"
+            class="bg-muted mt-2 inline-flex items-center gap-2 rounded-md px-4 py-2"
             data-testid="order-number"
           >
-            {{ t('order_confirmation.order_number') }}: {{ summary.orderId }}
-          </Badge>
-        </CardContent>
-      </Card>
-
-      <!-- 3-column info: Buyer / Billing / Shipping -->
-      <div
-        v-if="summary.billingAddress || summary.shippingAddress"
-        class="mb-8 grid gap-4 md:grid-cols-3"
-      >
-        <!-- Buyer info (uses billing address name/company) -->
-        <Card v-if="summary.billingAddress" data-testid="buyer-info">
-          <CardHeader class="px-6 pb-0">
-            <CardTitle class="text-sm">{{
-              t('order_confirmation.buyer')
-            }}</CardTitle>
-          </CardHeader>
-          <CardContent class="px-6">
-            <div class="text-muted-foreground space-y-0.5 text-sm">
-              <p
-                v-if="
-                  summary.billingAddress.firstName ||
-                  summary.billingAddress.lastName
-                "
-              >
-                {{
-                  [
-                    summary.billingAddress.firstName,
-                    summary.billingAddress.lastName,
-                  ]
-                    .filter(Boolean)
-                    .join(' ')
-                }}
-              </p>
-              <p v-if="summary.billingAddress.company">
-                {{ summary.billingAddress.company }}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <!-- Billing Address -->
-        <Card v-if="summary.billingAddress" data-testid="billing-address">
-          <CardHeader class="px-6 pb-0">
-            <CardTitle class="text-sm">{{
-              t('order_confirmation.billing_address')
-            }}</CardTitle>
-          </CardHeader>
-          <CardContent class="px-6">
-            <div class="text-muted-foreground space-y-0.5 text-sm">
-              <p v-for="line in billingLines" :key="line">{{ line }}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <!-- Shipping Address -->
-        <Card v-if="summary.shippingAddress" data-testid="shipping-address">
-          <CardHeader class="px-6 pb-0">
-            <CardTitle class="text-sm">{{
-              t('order_confirmation.shipping_address')
-            }}</CardTitle>
-          </CardHeader>
-          <CardContent class="px-6">
-            <div class="text-muted-foreground space-y-0.5 text-sm">
-              <p v-for="line in shippingLines" :key="line">{{ line }}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <!-- Two-column layout: Items + Summary -->
-      <div class="flex flex-col gap-8 lg:flex-row lg:items-start">
-        <!-- LEFT: Items table -->
-        <div class="min-w-0 flex-1">
-          <h2 class="mb-4 text-lg font-semibold">
-            {{ t('order_confirmation.order_details') }}
-          </h2>
-          <div class="border-border overflow-x-auto rounded-lg border">
-            <table class="w-full text-sm" data-testid="items-table">
-              <thead>
-                <tr class="bg-muted border-border border-b">
-                  <th class="px-4 py-3 text-left font-medium">
-                    {{ t('order_confirmation.product') }}
-                  </th>
-                  <th class="px-4 py-3 text-left font-medium">
-                    {{ t('order_confirmation.article_number') }}
-                  </th>
-                  <th class="px-4 py-3 text-center font-medium">
-                    {{ t('order_confirmation.quantity') }}
-                  </th>
-                  <th class="px-4 py-3 text-right font-medium">
-                    {{ t('order_confirmation.unit_price') }}
-                  </th>
-                  <th class="px-4 py-3 text-right font-medium">
-                    {{ t('order_confirmation.line_total') }}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(row, index) in summary.rows ?? []"
-                  :key="row.articleNumber ?? index"
-                  class="border-border border-b last:border-b-0"
-                >
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-3">
-                      <img
-                        v-if="row.product?.imageUrl"
-                        :src="row.product.imageUrl"
-                        :alt="row.product?.name ?? row.name ?? ''"
-                        class="border-border size-12 rounded border object-cover"
-                      />
-                      <span class="font-medium">
-                        {{ row.product?.name ?? row.name }}
-                      </span>
-                    </div>
-                  </td>
-                  <td class="text-muted-foreground px-4 py-3">
-                    {{ row.articleNumber }}
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    {{ row.quantity }}
-                  </td>
-                  <td class="px-4 py-3 text-right">
-                    {{ row.price?.priceIncVatFormatted }}
-                  </td>
-                  <td class="px-4 py-3 text-right font-medium">
-                    {{ row.price?.priceIncVatFormatted }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <span
+              class="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
+            >
+              {{ t('order_confirmation.order_number') }}:
+            </span>
+            <span class="text-sm font-semibold">{{ summary.orderId }}</span>
           </div>
-        </div>
+        </header>
 
-        <!-- RIGHT: Sticky sidebar -->
-        <div class="w-full lg:w-80 lg:shrink-0">
-          <!-- Summary card -->
-          <div
-            class="bg-card border-border sticky top-24 space-y-4 rounded-lg border p-6"
+        <!-- Success body -->
+        <template v-if="summary">
+          <hr class="border-border my-8" />
+
+          <!-- Addresses: Buyer / Billing / Shipping -->
+          <section
+            v-if="buyerName || billingLines.length || shippingLines.length"
+            class="grid gap-6 sm:grid-cols-3"
           >
-            <h2 class="text-lg font-semibold">
-              {{ t('order_confirmation.summary') }}
-            </h2>
+            <div v-if="buyerName" data-testid="buyer-info">
+              <h2 class="mb-1 text-sm font-semibold">
+                {{ t('order_confirmation.buyer') }}
+              </h2>
+              <div class="text-muted-foreground space-y-0.5 text-sm">
+                <p>{{ buyerName }}</p>
+              </div>
+            </div>
 
-            <div class="space-y-3">
-              <!-- Subtotal -->
+            <div v-if="billingLines.length" data-testid="billing-address">
+              <h2 class="mb-1 text-sm font-semibold">
+                {{ t('order_confirmation.billing_address') }}
+              </h2>
+              <div class="text-muted-foreground space-y-0.5 text-sm">
+                <p v-for="line in billingLines" :key="`b-${line}`">
+                  {{ line }}
+                </p>
+              </div>
+            </div>
+
+            <div v-if="shippingLines.length" data-testid="shipping-address">
+              <h2 class="mb-1 text-sm font-semibold">
+                {{ t('order_confirmation.shipping_address') }}
+              </h2>
+              <div class="text-muted-foreground space-y-0.5 text-sm">
+                <p v-for="line in shippingLines" :key="`s-${line}`">
+                  {{ line }}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <hr class="border-border my-8" />
+
+          <!-- Order details header -->
+          <div class="mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <FileText class="size-4" />
+              <h2 class="text-base font-semibold">
+                {{ t('order_confirmation.order_details') }}
+              </h2>
+            </div>
+            <span
+              class="bg-muted rounded-md px-2.5 py-1 text-xs font-medium"
+              data-testid="items-total-badge"
+            >
+              {{ t('order_confirmation.items_total', { count: rows.length }) }}
+            </span>
+          </div>
+
+          <!-- Item rows -->
+          <ul class="divide-border divide-y" data-testid="items-list">
+            <li
+              v-for="(row, index) in visibleRows"
+              :key="row.articleNumber ?? index"
+              class="flex items-start justify-between py-3"
+            >
+              <div class="min-w-0 pr-4">
+                <p class="text-sm font-medium">
+                  {{ row.product?.name ?? row.name }}
+                </p>
+                <p
+                  v-if="row.articleNumber"
+                  class="text-muted-foreground mt-0.5 text-xs"
+                >
+                  SKU: {{ row.articleNumber }}
+                </p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="text-sm font-semibold">{{ lineTotal(row) }}</p>
+                <p
+                  v-if="row.quantity && row.price?.priceIncVatFormatted"
+                  class="text-muted-foreground mt-0.5 text-xs"
+                >
+                  {{ row.quantity }} × {{ lineUnitPrice(row) }}
+                </p>
+              </div>
+            </li>
+          </ul>
+
+          <!-- Expand toggle -->
+          <button
+            v-if="hasMoreRows"
+            type="button"
+            class="text-primary mt-3 flex w-full items-center justify-center gap-1 text-sm font-medium hover:opacity-80"
+            data-testid="toggle-items"
+            @click="expanded = !expanded"
+          >
+            <ChevronDown v-if="!expanded" class="size-4" />
+            <ChevronUp v-else class="size-4" />
+            {{
+              expanded
+                ? t('order_confirmation.hide_items')
+                : t('order_confirmation.view_all_items', {
+                    count: rows.length,
+                  })
+            }}
+          </button>
+
+          <hr class="border-border my-8" />
+
+          <!-- Bottom: reference + payment (left) | summary (right) -->
+          <section class="grid items-start gap-6 sm:grid-cols-2">
+            <div class="space-y-4">
+              <div v-if="reference">
+                <p
+                  class="text-foreground mb-0.5 text-sm font-semibold"
+                  data-testid="reference-label"
+                >
+                  {{ t('order_confirmation.reference') }}:
+                </p>
+                <p class="text-muted-foreground text-sm">{{ reference }}</p>
+              </div>
+              <div v-if="paymentLabel">
+                <p class="text-foreground mb-0.5 text-sm font-semibold">
+                  {{ t('order_confirmation.payment_method') }}:
+                </p>
+                <p
+                  class="text-muted-foreground text-sm"
+                  data-testid="payment-label"
+                >
+                  {{ paymentLabel }}
+                </p>
+              </div>
+            </div>
+
+            <div
+              class="bg-muted space-y-3 rounded-lg p-5"
+              data-testid="summary-box"
+            >
               <div class="flex items-center justify-between text-sm">
-                <span class="text-muted-foreground">
-                  {{ t('order_confirmation.subtotal') }}
-                </span>
-                <span data-testid="summary-subtotal">
-                  {{ summary.total?.itemValueIncVatFormatted }}
+                <span class="text-muted-foreground">{{
+                  t('order_confirmation.subtotal')
+                }}</span>
+                <span data-testid="summary-subtotal">{{
+                  summary.total?.itemValueIncVatFormatted
+                }}</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-muted-foreground">{{
+                  t('order_confirmation.vat')
+                }}</span>
+                <span data-testid="summary-vat">
+                  {{
+                    summary.total?.itemValueIncVat != null &&
+                    summary.total?.itemValueExVat != null
+                      ? (
+                          summary.total.itemValueIncVat -
+                          summary.total.itemValueExVat
+                        ).toLocaleString('sv-SE') +
+                        ' ' +
+                        (summary.total.currency ?? '')
+                      : '-'
+                  }}
                 </span>
               </div>
-
-              <!-- Shipping -->
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-muted-foreground">
-                  {{ t('order_confirmation.shipping') }}
-                </span>
-                <span data-testid="summary-shipping">
-                  {{ summary.total?.shippingFeeIncVatFormatted }}
-                </span>
-              </div>
-
-              <!-- Discount (conditional) -->
               <div
                 v-if="hasDiscount"
-                class="flex items-center justify-between text-sm"
+                class="text-destructive flex items-center justify-between text-sm"
                 data-testid="summary-discount"
               >
-                <span class="text-destructive">
-                  {{ t('order_confirmation.discount') }}
-                </span>
-                <span class="text-destructive font-medium">
-                  -{{ summary.total?.discountIncVatFormatted }}
-                </span>
+                <span>{{ t('order_confirmation.discount') }}</span>
+                <span class="font-medium"
+                  >-{{ summary.total?.discountIncVatFormatted }}</span
+                >
+              </div>
+              <div class="border-border border-t pt-3">
+                <div
+                  class="flex items-center justify-between text-base font-bold"
+                  data-testid="summary-total"
+                >
+                  <span>{{ t('order_confirmation.total') }}</span>
+                  <span>{{ summary.total?.sumFormatted }}</span>
+                </div>
               </div>
             </div>
+          </section>
+        </template>
 
-            <!-- Divider -->
-            <div class="border-border border-t" />
+        <!-- Fallback content shown when summary is null: just the CTA -->
 
-            <!-- Total -->
-            <div
-              class="flex items-center justify-between font-semibold"
-              data-testid="summary-total"
-            >
-              <span>{{ t('order_confirmation.total') }}</span>
-              <span>{{ summary.total?.sumFormatted }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Action buttons -->
-      <div class="mt-8 flex flex-wrap justify-center gap-4">
+        <!-- Full-width CTA -->
         <NuxtLink
-          :to="localePath('/portal/orders')"
-          class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
+          :to="
+            summary?.orderId
+              ? localePath(`/portal/orders/${summary.orderId}`)
+              : localePath('/portal/orders')
+          "
+          class="bg-primary text-primary-foreground hover:bg-primary/90 mt-8 flex w-full items-center justify-center rounded-md px-6 py-3 text-sm font-semibold transition-colors"
+          data-testid="view-order-cta"
         >
-          {{ t('order_confirmation.view_orders') }}
+          {{ t('order_confirmation.view_order_in_portal') }}
         </NuxtLink>
+      </article>
+
+      <!-- Back to store link below the card -->
+      <div class="mt-6 text-center">
         <NuxtLink
           :to="localePath('/')"
-          class="border-border hover:bg-muted rounded-md border px-6 py-2.5 text-sm font-medium transition-colors"
+          class="text-primary text-sm font-medium hover:opacity-80"
+          data-testid="back-to-store"
         >
-          {{ t('order_confirmation.continue_shopping') }}
+          &larr; {{ t('order_confirmation.back_to_store') }}
         </NuxtLink>
       </div>
     </template>
-
-    <!-- Fallback state — order was placed but Geins hasn't returned the
-         summary yet (or the lookup failed). Show a friendly thank-you with
-         a path into the portal so the user is never blocked. -->
-    <div
-      v-else
-      class="flex flex-col items-center gap-6 py-16 text-center"
-      data-testid="order-confirmation-fallback"
-    >
-      <CircleCheck class="size-14 text-green-500" />
-      <div class="space-y-2">
-        <h1 class="text-2xl font-bold">
-          {{ t('order_confirmation.thank_you') }}
-        </h1>
-        <p class="text-muted-foreground text-sm">
-          {{ t('order_confirmation.order_placed') }}
-        </p>
-      </div>
-      <div class="flex flex-wrap justify-center gap-4">
-        <NuxtLink
-          :to="localePath('/portal/orders')"
-          class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
-        >
-          {{ t('order_confirmation.view_orders') }}
-        </NuxtLink>
-        <NuxtLink
-          :to="localePath('/')"
-          class="border-border hover:bg-muted rounded-md border px-6 py-2.5 text-sm font-medium transition-colors"
-        >
-          {{ t('order_confirmation.continue_shopping') }}
-        </NuxtLink>
-      </div>
-    </div>
   </div>
 </template>

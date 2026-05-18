@@ -151,7 +151,6 @@ function formatDate(iso?: string): string {
             <Button
               v-if="!isCatalogMode"
               data-testid="reorder-button"
-              variant="secondary"
               :disabled="isReordering"
               @click="handleReorder"
             >
@@ -162,31 +161,9 @@ function formatDate(iso?: string): string {
           </div>
         </div>
 
-        <!-- Order header: title, date subtitle, status badge right -->
-        <div
-          data-testid="order-header"
-          class="mt-6 flex flex-wrap items-start justify-between gap-3"
-        >
-          <div>
-            <h2 class="text-2xl font-semibold">
-              {{ t('portal.orders.detail.title') }} {{ order?.id }}
-            </h2>
-            <p class="text-muted-foreground mt-1 text-sm">
-              {{ formatDate(order?.createdAt) }}
-            </p>
-          </div>
-          <span
-            v-if="order?.status"
-            data-testid="status-badge"
-            class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-            :class="getOrderStatusPillClass(order?.status)"
-          >
-            {{ t(`portal.orders.status.${order?.status}`) }}
-          </span>
-        </div>
-
-        <!-- Two-column layout -->
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <!-- Two-column layout — order header lives at the top of the
+             right column, above the summary box -->
+        <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <!-- Left: Order Items Table -->
           <div class="lg:col-span-2">
             <h3 class="mb-3 text-base font-semibold">
@@ -264,7 +241,7 @@ function formatDate(iso?: string): string {
                   <tr>
                     <td
                       colspan="4"
-                      class="text-muted-foreground px-4 py-2 text-right text-sm"
+                      class="text-muted-foreground px-4 py-3 text-right text-sm"
                     >
                       {{
                         t('portal.orders.detail.summary.subtotal_with_count', {
@@ -272,7 +249,7 @@ function formatDate(iso?: string): string {
                         })
                       }}
                     </td>
-                    <td class="px-4 py-2 text-right text-sm">
+                    <td class="px-4 py-3 text-right text-sm">
                       {{
                         order?.cart?.summary?.subTotal
                           ?.sellingPriceIncVatFormatted
@@ -282,22 +259,22 @@ function formatDate(iso?: string): string {
                   <tr>
                     <td
                       colspan="4"
-                      class="text-muted-foreground px-4 py-2 text-right text-sm"
+                      class="text-muted-foreground px-4 py-3 text-right text-sm"
                     >
                       {{ t('portal.orders.detail.summary.shipping') }}
                     </td>
-                    <td class="px-4 py-2 text-right text-sm">
+                    <td class="px-4 py-3 text-right text-sm">
                       {{ order?.cart?.summary?.shipping?.feeIncVatFormatted }}
                     </td>
                   </tr>
                   <tr>
                     <td
                       colspan="4"
-                      class="text-muted-foreground px-4 py-2 text-right text-sm"
+                      class="text-muted-foreground px-4 py-3 text-right text-sm"
                     >
                       {{ t('portal.orders.detail.summary.tax') }}
                     </td>
-                    <td class="px-4 py-2 text-right text-sm">
+                    <td class="px-4 py-3 text-right text-sm">
                       {{
                         order?.cart?.summary?.total?.vatFormatted ??
                         order?.vat?.sellingPriceIncVatFormatted
@@ -307,11 +284,11 @@ function formatDate(iso?: string): string {
                   <tr class="border-border border-t">
                     <td
                       colspan="4"
-                      class="px-4 py-3 text-right text-sm font-semibold"
+                      class="px-4 py-5 text-right text-sm font-semibold"
                     >
                       {{ t('portal.orders.detail.summary.total') }}
                     </td>
-                    <td class="px-4 py-3 text-right text-sm font-semibold">
+                    <td class="px-4 py-5 text-right text-sm font-semibold">
                       {{
                         order?.cart?.summary?.total
                           ?.sellingPriceIncVatFormatted ??
@@ -324,14 +301,37 @@ function formatDate(iso?: string): string {
             </div>
           </div>
 
-          <!-- Right: Summary Sidebar -->
-          <div class="space-y-4">
+          <!-- Right: Order header + Summary + Addresses -->
+          <div class="space-y-6">
+            <!-- Order header: title, date subtitle, status badge right -->
+            <div
+              data-testid="order-header"
+              class="flex flex-wrap items-start justify-between gap-3"
+            >
+              <div>
+                <h2 class="text-2xl font-semibold">
+                  {{ t('portal.orders.detail.title') }} {{ order?.id }}
+                </h2>
+                <p class="text-muted-foreground mt-1 text-sm">
+                  {{ formatDate(order?.createdAt) }}
+                </p>
+              </div>
+              <span
+                v-if="order?.status"
+                data-testid="status-badge"
+                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                :class="getOrderStatusPillClass(order?.status)"
+              >
+                {{ t(`portal.orders.status.${order?.status}`) }}
+              </span>
+            </div>
+
             <!-- Summary Card -->
             <div data-testid="order-summary" class="bg-muted rounded-lg p-6">
-              <h3 class="mb-3 text-base font-semibold">
+              <h3 class="mb-4 text-base font-semibold">
                 {{ t('portal.orders.detail.summary.title') }}
               </h3>
-              <div class="space-y-2">
+              <div class="space-y-3.5">
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">{{
                     t('portal.orders.detail.summary.subtotal_with_count', {
@@ -360,7 +360,7 @@ function formatDate(iso?: string): string {
                   }}</span>
                 </div>
                 <div
-                  class="border-border mt-2 flex justify-between border-t pt-2 font-semibold"
+                  class="border-border mt-2 flex justify-between border-t pt-4 font-semibold"
                 >
                   <span>{{ t('portal.orders.detail.summary.total') }}</span>
                   <span>{{
@@ -371,25 +371,22 @@ function formatDate(iso?: string): string {
               </div>
             </div>
 
-            <!-- Addresses share one grey container -->
-            <div
-              v-if="billingAddress || shippingAddress"
-              class="bg-muted space-y-4 rounded-lg p-4"
-            >
+            <!-- Addresses: section headers dark, not uppercase; company line muted -->
+            <div v-if="billingAddress || shippingAddress" class="space-y-5">
               <AddressBlock
                 v-if="billingAddress"
                 bare
+                label-style="header"
+                company-muted
                 data-testid="billing-address"
                 :label="t('portal.orders.detail.billing_address')"
                 :address="billingAddress"
               />
-              <hr
-                v-if="billingAddress && shippingAddress"
-                class="border-border"
-              />
               <AddressBlock
                 v-if="shippingAddress"
                 bare
+                label-style="header"
+                company-muted
                 data-testid="shipping-address"
                 :label="t('portal.orders.detail.shipping_address')"
                 :address="shippingAddress"

@@ -61,7 +61,8 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
     priceExVatFormatted: '150,00 SEK',
     totalQuantity: 42,
     latestOrderDate: '2025-12-22T17:22:00Z',
-    latestOrderId: 'order-abc-123',
+    latestOrderId: '1421',
+    latestOrderPublicId: 'order-abc-123',
     latestBuyerName: 'Adam Johnsson',
     ...overrides,
   };

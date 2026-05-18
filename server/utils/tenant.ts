@@ -409,6 +409,7 @@ export function parseStoreSettingsResilient(
       name: 'Store',
       watermark: 'full',
     },
+    features: {},
   };
   const FATAL_PATHS = new Set([
     'tenantId',
@@ -416,7 +417,6 @@ export function parseStoreSettingsResilient(
     'geinsSettings',
     'geinsSettings.apiKey',
     'geinsSettings.accountName',
-    'features',
   ]);
 
   // Work on a shallow copy; mutate a single field per iteration.

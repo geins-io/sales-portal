@@ -31,8 +31,10 @@ function getPrice(product: PurchasedProduct): string {
   return product.priceExVatFormatted ?? String(product.priceExVat ?? '-');
 }
 
-function getOrderLink(product: PurchasedProduct): string {
-  return localePath(`/portal/orders/${product.latestOrderId}`);
+function getOrderLink(product: PurchasedProduct): string | null {
+  const identifier = product.latestOrderPublicId ?? product.latestOrderId;
+  if (!identifier) return null;
+  return localePath(`/portal/orders/${identifier}`);
 }
 
 function getProductLink(product: PurchasedProduct): string | null {
@@ -105,12 +107,16 @@ function handleSortProduct() {
                 t('portal.purchased_products.columns.latest_order')
               }}</span>
               <NuxtLink
-                :to="getOrderLink(product)"
+                v-if="getOrderLink(product)"
+                :to="getOrderLink(product)!"
                 class="text-primary text-right text-sm"
                 data-testid="order-link"
               >
                 {{ getDateWithOrderId(product) }}
               </NuxtLink>
+              <span v-else class="text-right text-sm">{{
+                getDateWithOrderId(product)
+              }}</span>
             </div>
           </div>
         </div>
@@ -179,12 +185,16 @@ function handleSortProduct() {
             <td class="py-3 pr-4">{{ product.totalQuantity }}</td>
             <td class="py-3 pr-4">
               <NuxtLink
-                :to="getOrderLink(product)"
+                v-if="getOrderLink(product)"
+                :to="getOrderLink(product)!"
                 class="text-primary hover:text-primary/80 text-sm font-medium"
                 data-testid="order-link"
               >
                 {{ getDateWithOrderId(product) }}
               </NuxtLink>
+              <span v-else class="text-sm">{{
+                getDateWithOrderId(product)
+              }}</span>
             </td>
             <td class="py-3">{{ product.latestBuyerName }}</td>
           </tr>

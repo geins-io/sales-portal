@@ -32,6 +32,7 @@ let purchasedProducts: typeof import('../../../server/services/purchased-product
 
 function makeOrder(overrides: {
   id?: number;
+  publicId?: string | null;
   createdAt?: string;
   billingAddress?: { firstName?: string; lastName?: string } | null;
   items?: Array<{
@@ -44,6 +45,10 @@ function makeOrder(overrides: {
 }) {
   return {
     id: overrides.id ?? 1,
+    publicId:
+      overrides.publicId === undefined
+        ? `pub-${overrides.id ?? 1}`
+        : overrides.publicId,
     createdAt: overrides.createdAt ?? '2026-01-01T00:00:00Z',
     billingAddress:
       overrides.billingAddress === null
@@ -177,6 +182,7 @@ describe('getPurchasedProducts', () => {
         totalQuantity: 8,
         priceExVat: 60,
         latestOrderId: '2',
+        latestOrderPublicId: 'pub-2',
         latestOrderDate: '2026-03-15T00:00:00Z',
       }),
     );
@@ -217,6 +223,7 @@ describe('getPurchasedProducts', () => {
     expect(result.products[0]).toEqual(
       expect.objectContaining({
         latestOrderId: '10',
+        latestOrderPublicId: 'pub-10',
         latestOrderDate: '2026-04-01T00:00:00Z',
         latestBuyerName: 'Alice Smith',
         priceExVat: 99,

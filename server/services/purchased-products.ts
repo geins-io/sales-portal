@@ -11,6 +11,7 @@ import { unwrapGraphQL } from './graphql/unwrap';
 
 interface RawOrder {
   id?: number | string | null;
+  publicId?: string | null;
   createdAt?: string | null;
   billingAddress?: {
     firstName?: string | null;
@@ -74,6 +75,7 @@ export async function getPurchasedProducts(
   for (const order of orders) {
     const orderTime = order.createdAt ? new Date(order.createdAt).getTime() : 0;
     const orderId = String(order.id ?? '');
+    const orderPublicId = order.publicId ?? null;
     const orderDate = order.createdAt ?? '';
 
     const buyerName = [
@@ -111,6 +113,7 @@ export async function getPurchasedProducts(
           totalQuantity: quantity,
           latestOrderDate: orderDate,
           latestOrderId: orderId,
+          latestOrderPublicId: orderPublicId,
           latestBuyerName: buyerName,
           _latestTime: orderTime,
         });
@@ -121,6 +124,7 @@ export async function getPurchasedProducts(
           existing._latestTime = orderTime;
           existing.latestOrderDate = orderDate;
           existing.latestOrderId = orderId;
+          existing.latestOrderPublicId = orderPublicId;
           existing.latestBuyerName = buyerName;
           existing.priceExVat = priceExVat;
           existing.priceExVatFormatted = priceExVatFormatted;
