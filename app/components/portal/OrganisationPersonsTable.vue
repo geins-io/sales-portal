@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { CompanyBuyer } from '#shared/types/company';
 
-// Email/Role/Latest login intentionally omitted — see local-docs/SAL-126-DATA-GAPS.md A6.
+// Email, Role and Latest login columns omitted: Geins `getCompany` does
+// not expose those fields on `buyers`. Keep the table to data we actually
+// have rather than rendering placeholders.
 
 defineProps<{
   buyers: CompanyBuyer[];

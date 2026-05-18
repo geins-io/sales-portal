@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { FunctionalComponent } from 'vue';
+import { Receipt } from 'lucide-vue-next';
 import type { PaymentOptionType } from '#shared/types/commerce';
 
 const { t } = useI18n();
@@ -23,7 +25,10 @@ function selectOption(id: number) {
 // generic fallback. Anything not in the map (or missing entirely) defaults
 // to "Invoice" / "Faktura" because invoice is the standard B2B option.
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
-  STANDARD: 'checkout.payment_types.standard',
+  // STANDARD is the B2B invoice option for this tenant. Label as "Faktura"
+  // (Invoice) rather than the generic "Standardbetalning" so the radio
+  // surfaces a meaningful payment type when the admin omits displayName.
+  STANDARD: 'checkout.payment_types.invoice',
   KLARNA: 'checkout.payment_types.klarna',
   SVEA: 'checkout.payment_types.svea',
   WALLEY: 'checkout.payment_types.walley',
@@ -38,6 +43,18 @@ function paymentLabel(option: PaymentOptionType): string {
   const key =
     option.paymentType && PAYMENT_TYPE_LABELS[option.paymentType as string];
   return t(key ?? 'checkout.payment_types.invoice');
+}
+
+// Icon shown next to each payment option label. Invoice/STANDARD gets a
+// receipt icon, everything else a generic credit-card icon. Keeps the
+// component dependency-free of the full lucide collection.
+const PAYMENT_TYPE_ICONS: Record<string, FunctionalComponent> = {
+  STANDARD: Receipt,
+};
+
+function paymentIcon(option: PaymentOptionType): FunctionalComponent {
+  const key = option.paymentType as string | undefined;
+  return (key && PAYMENT_TYPE_ICONS[key]) || Receipt;
 }
 </script>
 
@@ -68,8 +85,12 @@ function paymentLabel(option: PaymentOptionType): string {
           class="accent-primary focus-visible:ring-ring size-4 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           @change="selectOption(option.id)"
         />
-        <div class="flex flex-1 items-center justify-between">
-          <span class="text-sm font-medium">
+        <div class="flex flex-1 items-center justify-between gap-3">
+          <span class="flex items-center gap-2 text-sm font-medium">
+            <component
+              :is="paymentIcon(option)"
+              class="text-muted-foreground size-4 shrink-0"
+            />
             {{ paymentLabel(option) }}
           </span>
           <span

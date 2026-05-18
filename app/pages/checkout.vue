@@ -95,12 +95,23 @@ if (!cartIdCookie.value) {
 }
 
 // Load checkout data: payment options, shipping options, consents.
-// callOnce prevents re-fetching on client hydration after SSR — avoids the
-// "Failed to load checkout" flash caused by SSR errors clearing on client re-run.
+//
+// Server: always fetch so SSR has data for the initial render.
+// Client: refetch only if SSR didn't populate the store (e.g. SSR threw an
+// auth race / transient API hiccup). The previous `callOnce` approach
+// blocked the client retry entirely, so any SSR failure stuck the page on
+// "Failed to load checkout" until full nav. Re-running fetchCheckout on
+// client when the store is empty self-heals that path.
 if (cartIdCookie.value) {
-  await callOnce('checkout-fetch', () =>
-    checkoutStore.fetchCheckout(cartIdCookie.value!),
-  );
+  if (import.meta.server) {
+    await checkoutStore.fetchCheckout(cartIdCookie.value);
+  } else if (
+    !checkoutStore.checkout ||
+    checkoutStore.error ||
+    !checkoutStore.checkout.paymentOptions?.length
+  ) {
+    await checkoutStore.fetchCheckout(cartIdCookie.value);
+  }
 }
 
 // Prefill from company after checkout loads so company data takes priority

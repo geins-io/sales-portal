@@ -127,9 +127,15 @@ export const useCheckoutStore = defineStore('checkout', () => {
         };
       }
 
-      // Auto-select default payment
+      // Auto-select default payment. Invoice (STANDARD) option wins when
+      // present, even if admin marked a different option as default. Fall
+      // back to admin default, then to the first option in the list.
       if (data.paymentOptions?.length) {
+        const invoiceOpt = data.paymentOptions.find(
+          (o) => o.paymentType === 'STANDARD',
+        );
         const defaultOpt =
+          invoiceOpt ??
           data.paymentOptions.find((o) => o.isDefault || o.isSelected) ??
           data.paymentOptions[0]!;
         selectedPaymentId.value = defaultOpt.id;
