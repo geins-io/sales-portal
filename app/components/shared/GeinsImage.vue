@@ -13,8 +13,14 @@ const props = withDefaults(
     sizes?: string;
     /** Override src entirely (skips CDN URL building) */
     src?: string;
-    /** object-fit mode on the inner img. Defaults to `cover` */
-    fit?: 'cover' | 'contain';
+    /**
+     * Sizing mode for the inner img.
+     *
+     * - `cover` (default): img fills the container; container controls ratio.
+     * - `contain`: img fits inside the container with letterboxing; container controls ratio.
+     * - `natural`: img keeps its intrinsic aspect ratio; container hugs the image.
+     */
+    fit?: 'cover' | 'contain' | 'natural';
   }>(),
   {
     aspectRatio: undefined,
@@ -82,10 +88,11 @@ watch(
       :alt="alt"
       :loading="loading"
       :sizes="sizes"
-      :class="[
-        'size-full',
-        fit === 'contain' ? 'object-contain' : 'object-cover',
-      ]"
+      :class="
+        fit === 'natural'
+          ? 'block h-auto w-full'
+          : ['size-full', fit === 'contain' ? 'object-contain' : 'object-cover']
+      "
       @load="onLoad"
       @error="onError"
     />
