@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import type { FunctionalComponent } from 'vue';
 import { NuxtLink } from '#components';
+import {
+  Facebook,
+  Instagram,
+  Linkedin,
+  Twitter,
+  Youtube,
+} from 'lucide-vue-next';
 import type { MenuItemType } from '#shared/types/cms';
 import { CMS_MENUS } from '#shared/constants/cms';
 import {
@@ -20,12 +28,12 @@ const currentHost = computed(() => useRequestURL().host);
 const { localePath } = useLocaleMarket();
 
 const SOCIAL_ICONS = {
-  facebook: 'lucide:facebook',
-  instagram: 'lucide:instagram',
-  twitter: 'lucide:twitter',
-  linkedin: 'lucide:linkedin',
-  youtube: 'lucide:youtube',
-} as const;
+  facebook: Facebook,
+  instagram: Instagram,
+  twitter: Twitter,
+  linkedin: Linkedin,
+  youtube: Youtube,
+} satisfies Record<string, FunctionalComponent>;
 
 type SocialKey = keyof typeof SOCIAL_ICONS;
 
@@ -34,7 +42,11 @@ const SOCIAL_KEYS = Object.keys(SOCIAL_ICONS) as SocialKey[];
 const socialEntries = computed(() => {
   const social = contact.value?.social;
   if (!social)
-    return [] as Array<{ key: SocialKey; url: string; icon: string }>;
+    return [] as Array<{
+      key: SocialKey;
+      url: string;
+      icon: FunctionalComponent;
+    }>;
   return SOCIAL_KEYS.map((key) => ({
     key,
     url: social[key] ?? '',
@@ -132,7 +144,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
           :aria-label="entry.key"
           class="text-footer-text/70 hover:text-footer-text transition-colors"
         >
-          <Icon :name="entry.icon" class="size-5" />
+          <component :is="entry.icon" class="size-5" />
         </a>
       </div>
     </div>

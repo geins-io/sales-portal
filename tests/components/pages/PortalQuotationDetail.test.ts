@@ -517,12 +517,12 @@ describe('PortalQuotationDetail', () => {
     });
 
     it('renders a lucide:arrow-left icon inside the back link', async () => {
+      const { ArrowLeft } = await import('lucide-vue-next');
       mockData.value = { quote: makeQuote() };
       const { wrapper } = await mountDetailPage();
 
       const back = wrapper.find('[data-testid="back-link"]');
-      const icon = back.find('[data-name="lucide:arrow-left"]');
-      expect(icon.exists()).toBe(true);
+      expect(back.findComponent(ArrowLeft).exists()).toBe(true);
     });
   });
 
@@ -712,27 +712,30 @@ describe('PortalQuotationDetail', () => {
 
   describe('sidebar icons (D10)', () => {
     it('renders a calendar icon inside the expires-at block', async () => {
+      const { Calendar } = await import('lucide-vue-next');
       mockData.value = { quote: makeQuote() };
       const { wrapper } = await mountDetailPage();
 
       const block = wrapper.find('[data-testid="expires-at"]');
-      expect(block.find('[data-name="lucide:calendar"]').exists()).toBe(true);
+      expect(block.findComponent(Calendar).exists()).toBe(true);
     });
 
     it('renders a clock icon inside the payment-terms block', async () => {
+      const { Clock } = await import('lucide-vue-next');
       mockData.value = { quote: makeQuote() };
       const { wrapper } = await mountDetailPage();
 
       const block = wrapper.find('[data-testid="payment-terms"]');
-      expect(block.find('[data-name="lucide:clock"]').exists()).toBe(true);
+      expect(block.findComponent(Clock).exists()).toBe(true);
     });
 
     it('renders a user icon inside the sale-contact block', async () => {
+      const { User } = await import('lucide-vue-next');
       mockData.value = { quote: makeQuote() };
       const { wrapper } = await mountDetailPage();
 
       const block = wrapper.find('[data-testid="sale-contact"]');
-      expect(block.find('[data-name="lucide:user"]').exists()).toBe(true);
+      expect(block.findComponent(User).exists()).toBe(true);
     });
   });
 

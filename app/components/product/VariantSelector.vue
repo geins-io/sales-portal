@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Check, ChevronDown, Search } from 'lucide-vue-next';
 import type {
   VariantDimensionType,
   VariantType,
@@ -198,7 +199,7 @@ const { showPrice } = usePriceVisibility();
             $t('product.select_variant_placeholder')
           }}
         </span>
-        <Icon name="lucide:chevron-down" class="size-4 shrink-0 opacity-50" />
+        <ChevronDown class="size-4 shrink-0 opacity-50" />
       </Button>
     </div>
 
@@ -223,8 +224,7 @@ const { showPrice } = usePriceVisibility();
 
         <div v-if="activeDimension" class="border-b px-6 py-3">
           <div class="relative">
-            <Icon
-              name="lucide:search"
+            <Search
               class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2"
             />
             <Input
@@ -336,9 +336,8 @@ const { showPrice } = usePriceVisibility();
                   {{ priceFormatted }}
                 </span>
 
-                <Icon
+                <Check
                   v-if="modelValue[activeDimension.dimensionName] === value"
-                  name="lucide:check"
                   class="size-4 shrink-0"
                 />
               </button>

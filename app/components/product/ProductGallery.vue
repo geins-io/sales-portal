@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import type { ProductImageType } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 import { Dialog, DialogContent } from '~/components/ui/dialog';
@@ -72,7 +73,7 @@ const hasMultiple = computed(() => props.images.length > 1);
         data-testid="gallery-prev"
         @click="prev"
       >
-        <Icon name="lucide:chevron-left" class="size-5" />
+        <ChevronLeft class="size-5" />
       </Button>
       <Button
         v-if="hasMultiple"
@@ -83,7 +84,7 @@ const hasMultiple = computed(() => props.images.length > 1);
         data-testid="gallery-next"
         @click="next"
       >
-        <Icon name="lucide:chevron-right" class="size-5" />
+        <ChevronRight class="size-5" />
       </Button>
     </div>
 
@@ -122,7 +123,7 @@ const hasMultiple = computed(() => props.images.length > 1);
             :aria-label="$t('product.gallery_previous')"
             @click="prev"
           >
-            <Icon name="lucide:chevron-left" class="size-5" />
+            <ChevronLeft class="size-5" />
           </Button>
           <Button
             v-if="hasMultiple"
@@ -132,7 +133,7 @@ const hasMultiple = computed(() => props.images.length > 1);
             :aria-label="$t('product.gallery_next')"
             @click="next"
           >
-            <Icon name="lucide:chevron-right" class="size-5" />
+            <ChevronRight class="size-5" />
           </Button>
         </div>
       </DialogContent>

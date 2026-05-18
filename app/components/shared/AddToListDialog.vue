@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Plus } from 'lucide-vue-next';
 import { FAVORITES_LIST_ID } from '@geins/crm';
 import {
   Dialog,
@@ -132,7 +133,7 @@ function close() {
             data-testid="add-to-list-create-trigger"
             @click="openCreateForm"
           >
-            <Icon name="lucide:plus" class="size-4" />
+            <Plus class="size-4" />
             {{ t('lists.picker.create_new') }}
           </Button>
 

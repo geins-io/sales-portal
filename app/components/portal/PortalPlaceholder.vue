@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Construction } from 'lucide-vue-next';
 const { t } = useI18n();
 </script>
 
@@ -10,7 +11,7 @@ const { t } = useI18n();
     <div
       class="bg-muted text-muted-foreground mb-4 flex size-12 items-center justify-center rounded-full"
     >
-      <Icon name="lucide:construction" class="size-6" />
+      <Construction class="size-6" />
     </div>
     <h2 class="text-lg font-semibold">
       {{ t('portal.placeholder.title') }}

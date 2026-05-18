@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Info, X } from 'lucide-vue-next';
 const { t } = useI18n();
 const route = useRoute();
 
@@ -20,7 +21,7 @@ function dismiss() {
     class="border-border bg-muted text-foreground flex items-start gap-3 rounded-md border p-4"
     role="status"
   >
-    <Icon name="lucide:info" class="mt-0.5 size-5 shrink-0" />
+    <Info class="mt-0.5 size-5 shrink-0" />
     <div class="min-w-0 flex-1">
       <p class="font-semibold">
         {{ t('apply.pending_approval_title') }}
@@ -36,7 +37,7 @@ function dismiss() {
       class="text-muted-foreground hover:text-foreground shrink-0"
       @click="dismiss"
     >
-      <Icon name="lucide:x" class="size-4" />
+      <X class="size-4" />
     </button>
   </div>
 </template>

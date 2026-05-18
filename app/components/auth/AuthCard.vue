@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { X } from 'lucide-vue-next';
 import { Card, CardContent } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
 import { Separator } from '~/components/ui/separator';
@@ -58,7 +59,7 @@ defineExpose({ switchToForgot });
         class="absolute top-4 right-4 opacity-70 hover:opacity-100"
         @click="emit('close')"
       >
-        <Icon name="lucide:x" class="size-4" />
+        <X class="size-4" />
         <span class="sr-only">{{ $t('common.close') }}</span>
       </Button>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ShoppingCart } from 'lucide-vue-next';
+import { ImageOff, ShoppingCart, Trash2 } from 'lucide-vue-next';
 import type { CartItemType } from '#shared/types/commerce';
 import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from './CheckoutCardHeader.vue';
@@ -68,10 +68,7 @@ function handleRemove(item: CartItemType) {
               v-else
               class="bg-muted flex size-full items-center justify-center"
             >
-              <Icon
-                name="lucide:image-off"
-                class="text-muted-foreground size-5"
-              />
+              <ImageOff class="text-muted-foreground size-5" />
             </div>
           </div>
 
@@ -127,7 +124,7 @@ function handleRemove(item: CartItemType) {
               data-testid="checkout-remove-item"
               @click="handleRemove(item)"
             >
-              <Icon name="lucide:trash-2" class="size-4" />
+              <Trash2 class="size-4" />
             </Button>
           </div>
         </div>

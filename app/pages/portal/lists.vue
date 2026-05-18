@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Plus } from 'lucide-vue-next';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
 import {
@@ -71,7 +72,7 @@ function handleCreateList() {
             class="px-4! whitespace-nowrap"
             @click="openCreateSheet"
           >
-            <Icon name="lucide:plus" class="size-4" />
+            <Plus class="size-4" />
             {{ t('portal.saved_lists.create') }}
           </Button>
         </div>

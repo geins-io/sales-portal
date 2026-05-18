@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import type { ListProduct } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 
@@ -62,7 +63,7 @@ const hasProducts = computed(() => props.products.length > 0);
             aria-label="Scroll left"
             @click="scrollBy('left')"
           >
-            <Icon name="lucide:chevron-left" class="size-4" />
+            <ChevronLeft class="size-4" />
           </Button>
           <Button
             v-show="canScrollRight"
@@ -72,7 +73,7 @@ const hasProducts = computed(() => props.products.length > 0);
             aria-label="Scroll right"
             @click="scrollBy('right')"
           >
-            <Icon name="lucide:chevron-right" class="size-4" />
+            <ChevronRight class="size-4" />
           </Button>
         </div>
       </div>

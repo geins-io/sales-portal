@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowRight } from 'lucide-vue-next';
 import type { ContentConfigType } from '#shared/types/cms';
 import { stripGeinsPrefix } from '#shared/utils/menu';
 
@@ -101,16 +102,14 @@ function _resolveImageSrc(src: string | undefined): string {
         :key="i"
         class="bg-card overflow-hidden rounded-md border"
       >
-        <div class="bg-muted aspect-square overflow-hidden">
-          <GeinsImage
-            v-if="item.image?.src"
-            :file-name="item.image.src"
-            type="pagewidget"
-            :alt="item.image?.alt ?? ''"
-            fit="contain"
-            class="size-full"
-          />
-        </div>
+        <GeinsImage
+          v-if="item.image?.src"
+          :file-name="item.image.src"
+          type="pagewidget"
+          :alt="item.image?.alt ?? ''"
+          fit="natural"
+          class="w-full"
+        />
         <div class="space-y-2 p-4">
           <h3 v-if="item.heading" class="font-heading text-lg font-semibold">
             {{ item.heading }}
@@ -189,7 +188,7 @@ function _resolveImageSrc(src: string | undefined): string {
       class="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-sm font-medium"
     >
       {{ cta.label || cta.text }}
-      <Icon name="lucide:arrow-right" class="size-4" />
+      <ArrowRight class="size-4" />
     </NuxtLink>
   </div>
 

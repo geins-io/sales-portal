@@ -82,7 +82,7 @@ describe('LayoutFooterMain social row', () => {
     expect(anchors[0].attributes('href')).toBe('https://facebook.com/example');
   });
 
-  it('renders only configured social entries with correct lucide icons', () => {
+  it('renders only configured social entries with correct lucide icons', async () => {
     mockContact.value = {
       email: null,
       phone: null,
@@ -95,14 +95,12 @@ describe('LayoutFooterMain social row', () => {
         youtube: null,
       },
     };
+    const { Facebook, Twitter } = await import('lucide-vue-next');
     const wrapper = mount();
     const anchors = wrapper.find('[data-slot="footer-social"]').findAll('a');
     expect(anchors).toHaveLength(2);
-    const iconNames = anchors.map((a) =>
-      a.find('[data-name]').attributes('data-name'),
-    );
-    expect(iconNames).toContain('lucide:facebook');
-    expect(iconNames).toContain('lucide:twitter');
+    expect(wrapper.findComponent(Facebook).exists()).toBe(true);
+    expect(wrapper.findComponent(Twitter).exists()).toBe(true);
   });
 
   it('sets target="_blank" and rel="noopener noreferrer" on each anchor', () => {

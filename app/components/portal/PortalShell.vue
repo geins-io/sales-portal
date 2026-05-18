@@ -1,4 +1,16 @@
 <script setup lang="ts">
+import type { FunctionalComponent } from 'vue';
+import {
+  Building2,
+  FileText,
+  Heart,
+  LayoutDashboard,
+  List,
+  LogOut,
+  Package,
+  ShoppingBag,
+  User,
+} from 'lucide-vue-next';
 import type { GeinsUserType } from '@geins/types';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
@@ -54,7 +66,7 @@ interface PortalTab {
   key: string;
   label: string;
   to: string;
-  icon: string;
+  icon: FunctionalComponent;
   feature?: string;
 }
 
@@ -63,37 +75,37 @@ const tabs: PortalTab[] = [
     key: 'overview',
     label: 'portal.tabs.overview',
     to: '/portal',
-    icon: 'lucide:layout-dashboard',
+    icon: LayoutDashboard,
   },
   {
     key: 'orders',
     label: 'portal.tabs.orders',
     to: '/portal/orders',
-    icon: 'lucide:shopping-bag',
+    icon: ShoppingBag,
   },
   {
     key: 'quotations',
     label: 'portal.tabs.quotations',
     to: '/portal/quotations',
-    icon: 'lucide:file-text',
+    icon: FileText,
   },
   {
     key: 'products',
     label: 'portal.tabs.products',
     to: '/portal/products',
-    icon: 'lucide:package',
+    icon: Package,
   },
   {
     key: 'lists',
     label: 'portal.tabs.lists',
     to: '/portal/lists',
-    icon: 'lucide:list',
+    icon: List,
   },
   {
     key: 'organisation',
     label: 'portal.tabs.organisation',
     to: '/portal/organisation',
-    icon: 'lucide:building-2',
+    icon: Building2,
   },
 ];
 
@@ -164,7 +176,7 @@ async function handleLogout() {
             :to="localePath('/portal/favorites')"
             class="text-primary hover:text-primary/80 flex items-center gap-2 font-medium"
           >
-            <Icon name="lucide:heart" class="size-4" />
+            <Heart class="size-4" />
             {{ t('portal.quick_links.favorites') }}
             <span
               v-if="favoritesStore.count > 0"
@@ -178,7 +190,7 @@ async function handleLogout() {
             :to="localePath('/portal/account')"
             class="text-primary hover:text-primary/80 flex items-center gap-2 font-medium"
           >
-            <Icon name="lucide:user" class="size-4" />
+            <User class="size-4" />
             {{ t('portal.quick_links.account') }}
           </NuxtLink>
           <Button
@@ -186,7 +198,7 @@ async function handleLogout() {
             class="text-primary hover:text-primary/80 h-auto gap-2 p-0 text-left font-medium"
             @click="handleLogout"
           >
-            <Icon name="lucide:log-out" class="size-4" />
+            <LogOut class="size-4" />
             {{ t('portal.quick_links.logout') }}
           </Button>
         </div>
@@ -209,7 +221,7 @@ async function handleLogout() {
                 : 'text-muted-foreground hover:text-foreground hover:border-border border-transparent'
             "
           >
-            <Icon :name="tab.icon" class="hidden size-4 md:block" />
+            <component :is="tab.icon" class="hidden size-4 md:block" />
             {{ t(tab.label) }}
           </NuxtLink>
         </nav>

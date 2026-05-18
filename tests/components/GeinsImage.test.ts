@@ -102,6 +102,7 @@ describe('GeinsImage Component', () => {
   });
 
   it('shows error fallback on image error', async () => {
+    const { ImageOff } = await import('lucide-vue-next');
     const wrapper = mountComponent(GeinsImage, {
       props: { fileName: 'broken.jpg', type: 'product', alt: 'test' },
       global: { stubs },
@@ -110,9 +111,7 @@ describe('GeinsImage Component', () => {
     await wrapper.find('img').trigger('error');
 
     expect(wrapper.find('img').exists()).toBe(false);
-    expect(wrapper.find('.icon[data-name="lucide:image-off"]').exists()).toBe(
-      true,
-    );
+    expect(wrapper.findComponent(ImageOff).exists()).toBe(true);
   });
 
   it('hides skeleton after image loads', async () => {

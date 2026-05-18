@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Save } from 'lucide-vue-next';
 import type { GeinsUserType } from '@geins/types';
 import { Button } from '~/components/ui/button';
 import ProfileForm from '~/components/portal/ProfileForm.vue';
@@ -71,7 +72,7 @@ async function handleSaveClick() {
             :disabled="isSaving || pending"
             @click="handleSaveClick"
           >
-            <Icon name="lucide:save" class="size-4" />
+            <Save class="size-4" />
             {{ t('portal.account.save') }}
           </Button>
         </div>

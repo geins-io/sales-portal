@@ -38,22 +38,24 @@ describe('ProductThumbnail', () => {
     expect(img.attributes('alt')).toBe('Shoe');
   });
 
-  it('renders placeholder icon when fileName is empty', () => {
+  it('renders placeholder icon when fileName is empty', async () => {
+    const { ImageOff } = await import('lucide-vue-next');
     const w = mount(ProductThumbnail, {
       props: { fileName: '', alt: 'x' },
       global: { stubs },
     });
     expect(w.find('[data-testid="geins-image"]').exists()).toBe(false);
-    expect(w.find('[data-name="lucide:image-off"]').exists()).toBe(true);
+    expect(w.findComponent(ImageOff).exists()).toBe(true);
   });
 
-  it('renders placeholder icon when fileName is null', () => {
+  it('renders placeholder icon when fileName is null', async () => {
+    const { ImageOff } = await import('lucide-vue-next');
     const w = mount(ProductThumbnail, {
       props: { fileName: null, alt: 'x' },
       global: { stubs },
     });
     expect(w.find('[data-testid="geins-image"]').exists()).toBe(false);
-    expect(w.find('[data-name="lucide:image-off"]').exists()).toBe(true);
+    expect(w.findComponent(ImageOff).exists()).toBe(true);
   });
 
   it('applies the default size-10 class when size prop omitted', () => {

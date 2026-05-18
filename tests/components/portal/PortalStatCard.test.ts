@@ -1,26 +1,19 @@
 import { describe, it, expect } from 'vitest';
+import { ShoppingCart } from 'lucide-vue-next';
 import { mountComponent } from '../../utils/component';
 import PortalStatCard from '../../../app/components/portal/PortalStatCard.vue';
 
-const iconStub = {
-  template: '<span class="icon" :data-name="name"></span>',
-  props: ['name'],
-};
-
 describe('PortalStatCard', () => {
   const defaultProps = {
-    icon: 'lucide:shopping-cart',
+    icon: ShoppingCart,
     count: 17,
     label: 'Orders placed',
     subtitle: 'Last 30 days',
   };
 
-  const stubs = { Icon: iconStub, NuxtIcon: iconStub };
-
   it('renders count', () => {
     const wrapper = mountComponent(PortalStatCard, {
       props: defaultProps,
-      global: { stubs },
     });
     expect(wrapper.text()).toContain('17');
   });
@@ -28,7 +21,6 @@ describe('PortalStatCard', () => {
   it('renders label', () => {
     const wrapper = mountComponent(PortalStatCard, {
       props: defaultProps,
-      global: { stubs },
     });
     expect(wrapper.text()).toContain('Orders placed');
   });
@@ -36,7 +28,6 @@ describe('PortalStatCard', () => {
   it('renders subtitle', () => {
     const wrapper = mountComponent(PortalStatCard, {
       props: defaultProps,
-      global: { stubs },
     });
     expect(wrapper.text()).toContain('Last 30 days');
   });
@@ -44,7 +35,6 @@ describe('PortalStatCard', () => {
   it('shows notification dot when showDot is true', () => {
     const wrapper = mountComponent(PortalStatCard, {
       props: { ...defaultProps, showDot: true },
-      global: { stubs },
     });
     expect(wrapper.find('[data-testid="stat-card-dot"]').exists()).toBe(true);
   });
@@ -52,7 +42,6 @@ describe('PortalStatCard', () => {
   it('hides notification dot by default', () => {
     const wrapper = mountComponent(PortalStatCard, {
       props: defaultProps,
-      global: { stubs },
     });
     expect(wrapper.find('[data-testid="stat-card-dot"]').exists()).toBe(false);
   });

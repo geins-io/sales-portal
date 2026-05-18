@@ -4,7 +4,14 @@ import { filterVisibleCampaigns } from '#shared/types/commerce';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
-import { AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next';
+import {
+  AlertTriangle as AlertTriangleIcon,
+  BadgeCheck,
+  Download,
+  ListPlus,
+  ShoppingCart,
+  Star,
+} from 'lucide-vue-next';
 import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useAuthStore } from '~/stores/auth';
@@ -353,7 +360,7 @@ useSchemaOrg([
           class="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800"
           data-testid="negotiated-price-banner"
         >
-          <Icon name="lucide:badge-check" class="size-4 shrink-0" />
+          <BadgeCheck class="size-4 shrink-0" />
           <span>{{ $t('discount.negotiated_price_info') }}</span>
         </div>
 
@@ -403,7 +410,7 @@ useSchemaOrg([
             class="h-9 flex-1 gap-2 px-4"
             @click="addToCart"
           >
-            <Icon name="lucide:shopping-cart" class="size-4" />
+            <ShoppingCart class="size-4" />
             {{ $t('product.add_to_cart') }}
           </Button>
         </div>
@@ -421,7 +428,7 @@ useSchemaOrg([
             data-testid="pdp-print"
             @click="printDataSheet"
           >
-            <Icon name="lucide:download" class="size-4" />
+            <Download class="size-4" />
             <span>{{ $t('product.download_data_sheet') }}</span>
           </button>
           <button
@@ -431,7 +438,7 @@ useSchemaOrg([
             data-testid="pdp-save-favourite"
             @click="toggleFavourite"
           >
-            <Icon name="lucide:star" class="size-4" />
+            <Star class="size-4" />
             <span>
               {{
                 isFavorited
@@ -447,7 +454,7 @@ useSchemaOrg([
             data-testid="pdp-add-to-lists"
             @click="openListPicker"
           >
-            <Icon name="lucide:list-plus" class="size-4" />
+            <ListPlus class="size-4" />
             <span>{{ $t('product.add_to_lists') }}</span>
           </button>
         </div>

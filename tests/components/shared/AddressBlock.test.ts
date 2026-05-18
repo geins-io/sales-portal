@@ -94,12 +94,13 @@ describe('AddressBlock', () => {
   });
 
   it('renders the icon when provided', async () => {
+    const { MapPin } = await import('lucide-vue-next');
     const w = await mountBlock({
       label: 'x',
-      icon: 'lucide:map-pin',
+      icon: MapPin,
       address: { company: 'Acme' },
     });
-    expect(w.find('[data-name="lucide:map-pin"]').exists()).toBe(true);
+    expect(w.findComponent(MapPin).exists()).toBe(true);
   });
 
   it('renders no icon element when icon prop is omitted', async () => {

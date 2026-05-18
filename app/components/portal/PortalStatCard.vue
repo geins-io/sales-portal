@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import type { FunctionalComponent } from 'vue';
+
 defineProps<{
-  icon: string;
+  icon: FunctionalComponent;
   count: number;
   label: string;
   subtitle?: string;
@@ -17,7 +19,7 @@ defineProps<{
     <div class="flex items-start justify-between gap-2">
       <p class="text-sm font-medium">{{ label }}</p>
       <div class="relative shrink-0">
-        <Icon :name="icon" class="text-muted-foreground size-4" />
+        <component :is="icon" class="text-muted-foreground size-4" />
         <span
           v-if="showDot"
           data-testid="stat-card-dot"

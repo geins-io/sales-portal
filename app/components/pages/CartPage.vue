@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ShoppingCart, X } from 'lucide-vue-next';
+import { ShoppingCart, Tag, X } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import { formatPrice } from '#shared/types/commerce';
@@ -182,7 +182,7 @@ function goToCheckout() {
                 :key="campaign.name"
                 class="flex items-center gap-1 text-xs"
               >
-                <Icon name="lucide:tag" class="text-destructive size-3" />
+                <Tag class="text-destructive size-3" />
                 <span class="text-destructive">{{ campaign.name }}</span>
               </div>
             </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Minus, Plus } from 'lucide-vue-next';
 const props = withDefaults(
   defineProps<{
     modelValue: number;
@@ -47,7 +48,7 @@ function increment() {
       :aria-label="t('common.decrease_quantity')"
       @click="decrement"
     >
-      <Icon name="lucide:minus" class="size-3.5" />
+      <Minus class="size-3.5" />
     </button>
     <span
       data-testid="qty-value"
@@ -62,7 +63,7 @@ function increment() {
       :aria-label="t('common.increase_quantity')"
       @click="increment"
     >
-      <Icon name="lucide:plus" class="size-3.5" />
+      <Plus class="size-3.5" />
     </button>
   </div>
 </template>
