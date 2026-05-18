@@ -264,7 +264,7 @@ export const StoreSettingsSchema = z.object({
   checkoutMode: z.enum(['custom', 'hosted']).default('custom'),
   theme: ThemeConfigSchema,
   branding: BrandingConfigSchema,
-  features: z.record(z.string(), FeatureConfigSchema),
+  features: z.record(z.string(), FeatureConfigSchema).default({}),
   seo: SeoConfigSchema.nullable().optional(),
   contact: ContactConfigSchema.nullable().optional(),
   overrides: OverrideConfigSchema,
