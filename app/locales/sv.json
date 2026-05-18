@@ -829,8 +829,11 @@
       "remove": "Ta bort",
       "count": "Visar {count} favoriter",
       "loading": "Laddar dina favoriter...",
+      "view_as": "Visa som:",
       "view_grid": "Rutnät",
       "view_list": "Lista",
+      "grid": "Rutnät",
+      "list": "Lista",
       "search_placeholder": "Snabbfilter på art.nr eller produktnamn"
     },
     "purchased_products": {
