@@ -430,7 +430,7 @@ describe('OrderDetail', () => {
       ).toBe(false);
     });
 
-    it('toolbar buttons all use secondary (grey) variant', () => {
+    it('order-communication button uses secondary variant, reorder uses the primary store-settings color', () => {
       mockData.value = makeOrder();
 
       const wrapper = shallowMountComponent(OrderDetail, {
@@ -447,12 +447,12 @@ describe('OrderDetail', () => {
         },
       });
 
-      const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
-      const buttons = toolbar.findAll('button');
-      const secondaryButtons = buttons.filter(
-        (b) => b.attributes('data-variant') === 'secondary',
-      );
-      expect(secondaryButtons.length).toBe(2);
+      const comm = wrapper.find('[data-testid="order-communication-button"]');
+      const reorder = wrapper.find('[data-testid="reorder-button"]');
+      expect(comm.attributes('data-variant')).toBe('secondary');
+      // The Reorder button does not declare a variant prop so it falls back
+      // to the Button component's default (primary, theme-driven).
+      expect(reorder.attributes('data-variant')).toBeUndefined();
     });
   });
 

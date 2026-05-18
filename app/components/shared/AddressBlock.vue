@@ -9,7 +9,30 @@ const props = defineProps<{
   icon?: FunctionalComponent;
   address: QuoteAddress | CompanyAddress;
   bare?: boolean;
+  /**
+   * Label style. `compact` (default) renders a small uppercase muted label
+   * suited to dense card layouts; `header` renders a dark sentence-case
+   * heading suited to inline detail sections where the label is the
+   * section title.
+   */
+  labelStyle?: 'compact' | 'header';
+  /**
+   * Render the company line in the muted body style rather than as a bold
+   * primary line. Used where the layout already has a section heading
+   * carrying the prominence.
+   */
+  companyMuted?: boolean;
 }>();
+
+const labelClass = computed(() =>
+  props.labelStyle === 'header'
+    ? 'text-foreground text-sm font-semibold'
+    : 'text-muted-foreground text-xs font-medium tracking-wider uppercase',
+);
+
+const companyClass = computed(() =>
+  props.companyMuted ? 'text-muted-foreground text-sm' : 'text-sm font-medium',
+);
 
 const containerClass = computed(() => {
   if (props.bare) {
@@ -37,12 +60,10 @@ const zipCity = computed(() =>
         class="text-muted-foreground mt-0.5 size-4 shrink-0"
       />
       <div class="space-y-1">
-        <p
-          class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
-        >
+        <p :class="labelClass">
           {{ label }}
         </p>
-        <p v-if="address?.company" class="text-sm font-medium">
+        <p v-if="address?.company" :class="companyClass">
           {{ address.company }}
         </p>
         <p v-if="joinedName" class="text-muted-foreground text-sm">
@@ -66,12 +87,10 @@ const zipCity = computed(() =>
       </div>
     </template>
     <template v-else>
-      <p
-        class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
-      >
+      <p :class="labelClass">
         {{ label }}
       </p>
-      <p v-if="address?.company" class="text-sm font-medium">
+      <p v-if="address?.company" :class="companyClass">
         {{ address.company }}
       </p>
       <p v-if="joinedName" class="text-muted-foreground text-sm">
