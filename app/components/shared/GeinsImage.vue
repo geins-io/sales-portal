@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ImageOff } from 'lucide-vue-next';
 import type { GeinsImageType } from '#shared/constants/image';
 import { buildGeinsRawUrl } from '#shared/utils/image';
 
@@ -71,7 +72,7 @@ watch(
       v-if="errored"
       class="bg-muted text-muted-foreground absolute inset-0 flex items-center justify-center"
     >
-      <Icon name="lucide:image-off" class="size-8" />
+      <ImageOff class="size-8" />
     </div>
 
     <!-- Image -->

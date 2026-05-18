@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ShoppingCart } from 'lucide-vue-next';
+import { Loader2, ShoppingCart, Tag } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import { formatPrice } from '#shared/types/commerce';
@@ -67,10 +67,7 @@ function goToCheckout() {
         v-if="cartStore.isLoading && !cartStore.cart"
         class="flex flex-1 items-center justify-center"
       >
-        <Icon
-          name="lucide:loader-2"
-          class="text-muted-foreground size-6 animate-spin"
-        />
+        <Loader2 class="text-muted-foreground size-6 animate-spin" />
       </div>
 
       <!-- Empty state -->
@@ -173,7 +170,7 @@ function goToCheckout() {
                     :key="campaign.name"
                     class="flex items-center gap-1 text-xs"
                   >
-                    <Icon name="lucide:tag" class="text-destructive size-3" />
+                    <Tag class="text-destructive size-3" />
                     <span class="text-destructive">{{ campaign.name }}</span>
                   </div>
                 </div>

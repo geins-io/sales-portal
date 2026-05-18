@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
-import { Search } from 'lucide-vue-next';
+import { ListPlus, Search, ShoppingCart, Trash2, X } from 'lucide-vue-next';
 import type { StockType } from '#shared/types/commerce';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
@@ -242,7 +242,7 @@ function addToCart(product: ListProduct) {
                 variant="outline"
                 @click="deleteOpen = true"
               >
-                <Icon name="lucide:x" class="size-4" />
+                <X class="size-4" />
                 {{ t('portal.saved_list_detail.delete_list') }}
               </Button>
               <Button
@@ -251,7 +251,7 @@ function addToCart(product: ListProduct) {
                 :disabled="isAddingAll"
                 @click="addAllToCart"
               >
-                <Icon name="lucide:shopping-cart" class="size-4" />
+                <ShoppingCart class="size-4" />
                 {{ t('portal.saved_list_detail.add_all_to_cart') }}
               </Button>
             </div>
@@ -417,7 +417,7 @@ function addToCart(product: ListProduct) {
                   data-testid="list-item-add-to-cart"
                   @click="addToCart(product)"
                 >
-                  <Icon name="lucide:shopping-cart" class="size-4" />
+                  <ShoppingCart class="size-4" />
                 </Button>
 
                 <!-- Add to list -->
@@ -429,7 +429,7 @@ function addToCart(product: ListProduct) {
                   data-testid="list-item-add-to-list"
                   @click="openAddToList(product.alias)"
                 >
-                  <Icon name="lucide:list-plus" class="size-4" />
+                  <ListPlus class="size-4" />
                 </Button>
 
                 <!-- Remove -->
@@ -440,7 +440,7 @@ function addToCart(product: ListProduct) {
                   data-testid="list-item-remove"
                   @click="removeItem(product.alias)"
                 >
-                  <Icon name="lucide:trash-2" class="size-4" />
+                  <Trash2 class="size-4" />
                 </Button>
               </div>
             </div>

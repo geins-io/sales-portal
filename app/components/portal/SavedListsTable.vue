@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronRight } from 'lucide-vue-next';
 import type { ProductList } from '@geins/crm';
 import { useAuthStore } from '~/stores/auth';
 
@@ -49,10 +50,7 @@ function formatDate(value: number | string | undefined): string {
       >
         <div class="mb-1 flex items-center justify-between">
           <span class="font-medium">{{ list.name }}</span>
-          <Icon
-            name="lucide:chevron-right"
-            class="text-muted-foreground size-4"
-          />
+          <ChevronRight class="text-muted-foreground size-4" />
         </div>
         <div
           class="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-sm"
@@ -126,7 +124,7 @@ function formatDate(value: number | string | undefined): string {
               :aria-label="t('portal.saved_lists.row_actions.edit')"
             >
               {{ t('portal.saved_lists.row_actions.edit') }}
-              <Icon name="lucide:chevron-right" class="size-4" />
+              <ChevronRight class="size-4" />
             </NuxtLink>
           </td>
         </tr>

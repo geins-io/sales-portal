@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import type { OrderListItem, PurchasedProduct } from '#shared/types/commerce';
 import type { QuoteStatus } from '#shared/types/quote';
+import {
+  ChevronRight,
+  FileText,
+  Package,
+  ShoppingBag,
+  Users,
+} from 'lucide-vue-next';
 import ProductCard, {
   type ProductCardItem,
 } from '~/components/shared/ProductCard.vue';
@@ -136,26 +143,26 @@ function handleProductAddToCart(
     <!-- Stat Cards -->
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <PortalStatCard
-        icon="lucide:file-text"
+        :icon="FileText"
         :count="quotesStore.pendingCount"
         :label="t('portal.overview.stat.pending_quotations')"
         :subtitle="nearestQuoteExpirySubtitle"
         :show-dot="quotesStore.pendingCount > 0"
       />
       <PortalStatCard
-        icon="lucide:shopping-bag"
+        :icon="ShoppingBag"
         :count="orderCount"
         :label="t('portal.overview.stat.orders_placed')"
         :subtitle="latestOrderSubtitle"
       />
       <PortalStatCard
-        icon="lucide:package"
+        :icon="Package"
         :count="purchasedProductCount"
         :label="t('portal.overview.stat.purchased_products')"
         :subtitle="mostPurchasedSubtitle"
       />
       <PortalStatCard
-        icon="lucide:users"
+        :icon="Users"
         :count="0"
         :label="t('portal.overview.stat.persons_in_org')"
       />
@@ -338,10 +345,7 @@ function handleProductAddToCart(
                   {{ t('portal.saved_lists.columns.products').toLowerCase() }}
                 </div>
               </div>
-              <Icon
-                name="lucide:chevron-right"
-                class="text-muted-foreground size-4"
-              />
+              <ChevronRight class="text-muted-foreground size-4" />
             </NuxtLink>
           </div>
           <!-- Desktop table -->

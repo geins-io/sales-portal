@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import type { PurchasedProduct } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
@@ -186,7 +187,7 @@ function handleSort(_column: string) {
                 :aria-label="t('portal.purchased_products.pagination.previous')"
                 @click="goToPage(currentPage - 1)"
               >
-                <Icon name="lucide:chevron-left" class="size-4" />
+                <ChevronLeft class="size-4" />
               </Button>
               <Button
                 data-testid="products-next"
@@ -197,7 +198,7 @@ function handleSort(_column: string) {
                 :aria-label="t('portal.purchased_products.pagination.next')"
                 @click="goToPage(currentPage + 1)"
               >
-                <Icon name="lucide:chevron-right" class="size-4" />
+                <ChevronRight class="size-4" />
               </Button>
             </div>
           </div>

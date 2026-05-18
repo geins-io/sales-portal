@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Check } from 'lucide-vue-next';
 import { z } from 'zod';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
@@ -101,7 +102,7 @@ async function handleSubmit() {
     <div
       class="bg-primary/10 text-primary mx-auto flex size-12 items-center justify-center rounded-full"
     >
-      <Icon name="lucide:check" class="size-6" />
+      <Check class="size-6" />
     </div>
     <h3 class="text-lg font-semibold">{{ t('contact.success_title') }}</h3>
     <p class="text-muted-foreground text-sm">

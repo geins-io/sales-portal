@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import {
+  ArrowLeft,
+  LoaderCircle,
+  MessageSquare,
+  RotateCw,
+} from 'lucide-vue-next';
 import type { AddressType, OrderSummaryType } from '#shared/types/commerce';
 import type { QuoteAddress } from '#shared/types/quote';
 import { Button } from '~/components/ui/button';
@@ -115,10 +121,7 @@ function formatDate(iso?: string): string {
       data-testid="order-loading"
       class="flex items-center justify-center py-16"
     >
-      <Icon
-        name="lucide:loader-circle"
-        class="text-muted-foreground size-8 animate-spin"
-      />
+      <LoaderCircle class="text-muted-foreground size-8 animate-spin" />
     </div>
 
     <!-- Detail View -->
@@ -134,7 +137,7 @@ function formatDate(iso?: string): string {
             data-testid="back-link"
             class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
           >
-            <Icon name="lucide:arrow-left" class="size-4" />
+            <ArrowLeft class="size-4" />
             {{ t('portal.orders.detail.back_to_orders') }}
           </NuxtLink>
           <div class="flex flex-wrap items-center gap-2">
@@ -142,7 +145,7 @@ function formatDate(iso?: string): string {
               data-testid="order-communication-button"
               variant="secondary"
             >
-              <Icon name="lucide:message-square" class="size-4" />
+              <MessageSquare class="size-4" />
               {{ t('portal.orders.detail.actions.order_communication') }}
             </Button>
             <Button
@@ -152,12 +155,8 @@ function formatDate(iso?: string): string {
               :disabled="isReordering"
               @click="handleReorder"
             >
-              <Icon
-                v-if="isReordering"
-                name="lucide:loader-circle"
-                class="size-4 animate-spin"
-              />
-              <Icon v-else name="lucide:rotate-cw" class="size-4" />
+              <LoaderCircle v-if="isReordering" class="size-4 animate-spin" />
+              <RotateCw v-else class="size-4" />
               {{ t('portal.orders.detail.actions.reorder') }}
             </Button>
           </div>

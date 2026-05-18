@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Heart, LayoutGrid, List } from 'lucide-vue-next';
 import ProductCard, {
   type ProductCardItem,
 } from '~/components/shared/ProductCard.vue';
@@ -142,7 +143,7 @@ async function handleAddToCart(
               "
               @click="viewMode = 'grid'"
             >
-              <Icon name="lucide:layout-grid" class="size-4" />
+              <LayoutGrid class="size-4" />
               {{ t('portal.favorites.grid') }}
             </button>
             <button
@@ -156,7 +157,7 @@ async function handleAddToCart(
               "
               @click="viewMode = 'list'"
             >
-              <Icon name="lucide:list" class="size-4" />
+              <List class="size-4" />
               {{ t('portal.favorites.list') }}
             </button>
           </div>
@@ -169,7 +170,7 @@ async function handleAddToCart(
         data-testid="favorites-empty"
         class="mt-8 flex flex-col items-center gap-4 py-12 text-center"
       >
-        <Icon name="lucide:heart" class="text-muted-foreground size-12" />
+        <Heart class="text-muted-foreground size-12" />
         <p class="text-muted-foreground">
           {{ t('portal.favorites.empty') }}
         </p>

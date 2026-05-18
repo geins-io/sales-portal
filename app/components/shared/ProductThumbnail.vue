@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ImageOff } from 'lucide-vue-next';
+
 withDefaults(
   defineProps<{
     fileName?: string | null;
@@ -28,10 +30,7 @@ withDefaults(
       sizes="48px"
     />
     <div v-else class="bg-muted flex size-full items-center justify-center">
-      <Icon
-        name="lucide:image-off"
-        :class="['text-muted-foreground', iconSize]"
-      />
+      <ImageOff :class="['text-muted-foreground', iconSize]" />
     </div>
   </div>
 </template>

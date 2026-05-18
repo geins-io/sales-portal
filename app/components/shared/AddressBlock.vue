@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import type { FunctionalComponent } from 'vue';
 import type { QuoteAddress } from '#shared/types/quote';
 import type { CompanyAddress } from '#shared/types/company';
 
 const props = defineProps<{
   label: string;
-  icon?: string;
+  icon?: FunctionalComponent;
   address: QuoteAddress | CompanyAddress;
   bare?: boolean;
 }>();
@@ -31,7 +32,10 @@ const zipCity = computed(() =>
 <template>
   <div :class="containerClass">
     <template v-if="icon">
-      <Icon :name="icon" class="text-muted-foreground mt-0.5 size-4 shrink-0" />
+      <component
+        :is="icon"
+        class="text-muted-foreground mt-0.5 size-4 shrink-0"
+      />
       <div class="space-y-1">
         <p
           class="text-muted-foreground text-xs font-medium tracking-wider uppercase"

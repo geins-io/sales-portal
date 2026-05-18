@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowRight } from 'lucide-vue-next';
 import type { ContentConfigType } from '#shared/types/cms';
 import { stripGeinsPrefix } from '#shared/utils/menu';
 
@@ -189,7 +190,7 @@ function _resolveImageSrc(src: string | undefined): string {
       class="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-sm font-medium"
     >
       {{ cta.label || cta.text }}
-      <Icon name="lucide:arrow-right" class="size-4" />
+      <ArrowRight class="size-4" />
     </NuxtLink>
   </div>
 

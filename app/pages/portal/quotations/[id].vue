@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowLeft, Calendar, Clock, User } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
 import { safeConfirm } from '~/utils/client-helpers';
@@ -80,7 +81,7 @@ function formatDate(iso: string): string {
         :to="localePath('/portal/quotations')"
         class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm"
       >
-        <Icon name="lucide:arrow-left" class="size-4" />
+        <ArrowLeft class="size-4" />
         {{ t('portal.quotations.back_to_quotations') }}
       </NuxtLink>
 
@@ -255,10 +256,7 @@ function formatDate(iso: string): string {
             data-testid="expires-at"
             class="border-border flex items-start gap-3 rounded-lg border p-4"
           >
-            <Icon
-              name="lucide:calendar"
-              class="text-muted-foreground mt-0.5 size-4 shrink-0"
-            />
+            <Calendar class="text-muted-foreground mt-0.5 size-4 shrink-0" />
             <div class="space-y-1">
               <p
                 class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
@@ -277,10 +275,7 @@ function formatDate(iso: string): string {
             data-testid="payment-terms"
             class="border-border flex items-start gap-3 rounded-lg border p-4"
           >
-            <Icon
-              name="lucide:clock"
-              class="text-muted-foreground mt-0.5 size-4 shrink-0"
-            />
+            <Clock class="text-muted-foreground mt-0.5 size-4 shrink-0" />
             <div class="space-y-1">
               <p
                 class="text-muted-foreground text-xs font-medium tracking-wider uppercase"
@@ -296,10 +291,7 @@ function formatDate(iso: string): string {
             data-testid="sale-contact"
             class="border-border flex items-start gap-3 rounded-lg border p-4"
           >
-            <Icon
-              name="lucide:user"
-              class="text-muted-foreground mt-0.5 size-4 shrink-0"
-            />
+            <User class="text-muted-foreground mt-0.5 size-4 shrink-0" />
             <div class="space-y-1">
               <p
                 class="text-muted-foreground text-xs font-medium tracking-wider uppercase"

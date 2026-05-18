@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Loader2 } from 'lucide-vue-next';
 import type { ProductListResponse } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 
@@ -44,10 +45,7 @@ onUnmounted(() => {
   >
     <!-- Loading state -->
     <div v-if="loading" class="flex items-center gap-2 px-4 py-3">
-      <Icon
-        name="lucide:loader-2"
-        class="text-muted-foreground size-4 animate-spin"
-      />
+      <Loader2 class="text-muted-foreground size-4 animate-spin" />
       <span class="text-muted-foreground text-sm">{{
         $t('common.loading')
       }}</span>
