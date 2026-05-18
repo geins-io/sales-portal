@@ -12,12 +12,15 @@ const props = withDefaults(
     sizes?: string;
     /** Override src entirely (skips CDN URL building) */
     src?: string;
+    /** object-fit mode on the inner img. Defaults to `cover` */
+    fit?: 'cover' | 'contain';
   }>(),
   {
     aspectRatio: undefined,
     loading: 'lazy',
     sizes: undefined,
     src: undefined,
+    fit: 'cover',
   },
 );
 
@@ -78,7 +81,10 @@ watch(
       :alt="alt"
       :loading="loading"
       :sizes="sizes"
-      class="size-full object-cover"
+      :class="[
+        'size-full',
+        fit === 'contain' ? 'object-contain' : 'object-cover',
+      ]"
       @load="onLoad"
       @error="onError"
     />
