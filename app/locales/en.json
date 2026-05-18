@@ -829,8 +829,11 @@
       "remove": "Remove",
       "count": "Showing {count} favorites",
       "loading": "Loading your favorites...",
+      "view_as": "View as:",
       "view_grid": "Grid view",
       "view_list": "List view",
+      "grid": "Grid",
+      "list": "List",
       "search_placeholder": "Quick filter on art nr or product name"
     },
     "purchased_products": {

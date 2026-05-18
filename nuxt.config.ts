@@ -360,6 +360,8 @@ export default defineNuxtConfig({
         'lucide:layout-dashboard',
         'lucide:list',
         'lucide:building-2',
+        // pages/portal/favorites.vue → view-toggle (both grid + list)
+        'lucide:layout-grid',
         // components/layout/footer/LayoutFooterMain.vue → social row
         'lucide:facebook',
         'lucide:instagram',

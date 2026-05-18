@@ -107,7 +107,8 @@ function _resolveImageSrc(src: string | undefined): string {
             :file-name="item.image.src"
             type="pagewidget"
             :alt="item.image?.alt ?? ''"
-            class="size-full object-cover"
+            fit="contain"
+            class="size-full"
           />
         </div>
         <div class="space-y-2 p-4">

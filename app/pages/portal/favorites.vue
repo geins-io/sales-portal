@@ -127,19 +127,23 @@ async function handleAddToCart(
           >
             {{ t('portal.favorites.count', { count: favoritesStore.count }) }}
           </span>
-          <div data-testid="view-toggle" class="flex gap-1">
+          <div data-testid="view-toggle" class="flex items-center gap-2">
+            <span class="text-muted-foreground text-sm">
+              {{ t('portal.favorites.view_as') }}
+            </span>
             <button
               type="button"
               :aria-label="t('portal.favorites.view_grid')"
               :aria-pressed="viewMode === 'grid'"
               :class="
                 viewMode === 'grid'
-                  ? 'bg-primary text-primary-foreground rounded-md p-1.5'
-                  : 'text-muted-foreground hover:bg-muted rounded-md p-1.5'
+                  ? 'bg-primary text-primary-foreground inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm'
+                  : 'text-muted-foreground hover:bg-muted inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm'
               "
               @click="viewMode = 'grid'"
             >
               <Icon name="lucide:layout-grid" class="size-4" />
+              {{ t('portal.favorites.grid') }}
             </button>
             <button
               type="button"
@@ -147,12 +151,13 @@ async function handleAddToCart(
               :aria-pressed="viewMode === 'list'"
               :class="
                 viewMode === 'list'
-                  ? 'bg-primary text-primary-foreground rounded-md p-1.5'
-                  : 'text-muted-foreground hover:bg-muted rounded-md p-1.5'
+                  ? 'bg-primary text-primary-foreground inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm'
+                  : 'text-muted-foreground hover:bg-muted inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm'
               "
               @click="viewMode = 'list'"
             >
               <Icon name="lucide:list" class="size-4" />
+              {{ t('portal.favorites.list') }}
             </button>
           </div>
         </div>
