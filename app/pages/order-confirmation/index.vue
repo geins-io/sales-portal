@@ -20,6 +20,10 @@ const orderId = computed(
 const paymentMethod = computed(
   () => (route.query.paymentMethod as string) ?? 'invoice',
 );
+// The human-friendly numeric order id is forwarded from the checkout
+// page so the badge can render immediately without depending on
+// Geins's post-placement summary propagation.
+const orderNumber = computed(() => (route.query.orderNumber as string) ?? '');
 
 // Summary is best-effort — Geins frequently hasn't propagated the order by
 // the time the user lands here. The component shows a fallback thank-you
@@ -42,6 +46,7 @@ const orderSummary = computed(() => data.value?.order ?? null);
       :summary="orderSummary"
       :is-loading="pending"
       :payment-method="paymentMethod"
+      :order-number="orderNumber"
     />
   </div>
 </template>

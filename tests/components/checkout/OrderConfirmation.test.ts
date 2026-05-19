@@ -102,6 +102,25 @@ describe('OrderConfirmation', () => {
     expect(badge.text()).toContain('ORD-215');
   });
 
+  it('falls back to the orderNumber prop when the summary has not propagated', () => {
+    const wrapper = mountConfirmation({
+      summary: null,
+      orderNumber: '1433',
+    });
+    const badge = wrapper.find('[data-testid="order-number"]');
+    expect(badge.exists()).toBe(true);
+    expect(badge.text()).toContain('1433');
+  });
+
+  it('prefers the summary order id over the prop when both are present', () => {
+    const wrapper = mountConfirmation({
+      orderNumber: '9999',
+    });
+    const badge = wrapper.find('[data-testid="order-number"]');
+    expect(badge.text()).toContain('ORD-215');
+    expect(badge.text()).not.toContain('9999');
+  });
+
   it('shows buyer name from billing address', () => {
     const wrapper = mountConfirmation();
     const buyer = wrapper.find('[data-testid="buyer-info"]');

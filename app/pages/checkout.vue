@@ -179,7 +179,10 @@ watch(
     if (result?.publicId) {
       navigateTo({
         path: localePath('/order-confirmation'),
-        query: { orderId: result.publicId },
+        query: {
+          orderId: result.publicId,
+          orderNumber: result.orderId ?? undefined,
+        },
       });
     }
   },

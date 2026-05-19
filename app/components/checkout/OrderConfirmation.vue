@@ -7,7 +7,17 @@ const props = defineProps<{
   isLoading: boolean;
   paymentMethod?: string;
   reference?: string;
+  /**
+   * Human-friendly numeric order id forwarded from the checkout page in
+   * the URL. Lets the badge render immediately even when the Geins
+   * checkout summary hasn't propagated yet.
+   */
+  orderNumber?: string;
 }>();
+
+const displayOrderNumber = computed(
+  () => props.summary?.orderId || props.orderNumber || '',
+);
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
@@ -109,7 +119,7 @@ function lineTotal(row: {
             {{ t('order_confirmation.confirmation_subtitle') }}
           </p>
           <div
-            v-if="summary?.orderId"
+            v-if="displayOrderNumber"
             class="bg-muted mt-2 inline-flex items-center gap-2 rounded-md px-4 py-2"
             data-testid="order-number"
           >
@@ -118,7 +128,7 @@ function lineTotal(row: {
             >
               {{ t('order_confirmation.order_number') }}:
             </span>
-            <span class="text-sm font-semibold">{{ summary.orderId }}</span>
+            <span class="text-sm font-semibold">{{ displayOrderNumber }}</span>
           </div>
         </header>
 
