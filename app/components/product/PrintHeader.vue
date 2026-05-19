@@ -41,10 +41,10 @@ onMounted(() => {
     <div class="flex items-center gap-5">
       <BrandLogo :linked="false" height="h-10" class="shrink-0" />
       <div class="flex flex-col gap-1 leading-tight">
-        <p class="text-[11pt] text-black">
+        <p class="text-[9pt] text-black">
           <strong>{{ t('product.printed_on') }}:</strong> {{ printedAt }}
         </p>
-        <p class="text-[10pt] break-all text-[#555]">{{ productUrl }}</p>
+        <p class="text-[8pt] break-all text-[#555]">{{ productUrl }}</p>
       </div>
     </div>
   </header>

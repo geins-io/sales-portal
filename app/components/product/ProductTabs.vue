@@ -95,7 +95,8 @@ onMounted(() => {
         v-if="hasDescription"
         value="description"
         data-print="description"
-        class="bg-card mt-6 rounded-lg border p-6"
+        force-mount
+        class="bg-card mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
       >
         <h3 class="font-heading mb-4 text-2xl font-bold">
           {{ $t('product.details') }}
@@ -108,7 +109,8 @@ onMounted(() => {
         v-if="hasSpecs"
         value="specifications"
         data-print="specifications"
-        class="bg-card mt-6 rounded-lg border p-6"
+        force-mount
+        class="bg-card mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
       >
         <h3 class="font-heading mb-6 text-2xl font-bold">
           {{ $t('product.specifications') }}
@@ -132,15 +134,6 @@ onMounted(() => {
               {{ group.parameters[0].description }}
             </p>
             <table class="w-full text-sm" data-testid="spec-table">
-              <!-- Egenskap / Värde header row — hidden on screen via
-                   `.print-only` (display: none) and surfaced on print
-                   by an explicit rule in assets/css/print.css. -->
-              <thead class="print-only hidden">
-                <tr>
-                  <td>{{ $t('product.spec_property') }}</td>
-                  <td>{{ $t('product.spec_value') }}</td>
-                </tr>
-              </thead>
               <tbody>
                 <tr
                   v-for="(param, idx) in group.parameters"

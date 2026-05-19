@@ -234,11 +234,17 @@
     display: none !important;
   }
 
-  /* Spec table thead is hidden on screen; print shows the
-     Egenskap / Värde header row above each group's table.
-     ProductTabs renders the thead inside a print-only wrapper. */
-  [data-testid='product-tabs'] thead.print-only {
-    display: table-header-group !important;
+  /* Spec tables on print: no Egenskap / Värde header, unified dark
+     text on both columns, slightly darker row separators, and no
+     trailing border under the final row of each table. */
+  [data-testid='product-tabs'] [data-testid='spec-table'] td {
+    color: #111 !important;
+  }
+  [data-testid='product-tabs'] [data-testid='spec-table'] tr {
+    border-color: #d4d4d4 !important;
+  }
+  [data-testid='product-tabs'] [data-testid='spec-table'] tr:last-child {
+    border-bottom: 0 !important;
   }
   [data-testid='product-tabs'] [data-testid='spec-group-title'] {
     font-size: 10.5pt;
@@ -248,7 +254,6 @@
     letter-spacing: 0.5px;
     padding-top: 12pt;
     margin-top: 8pt;
-    border-top: 1px solid #e5e5e5;
   }
 
   /* Print tab panels: drop the screen card chrome so each panel
