@@ -615,6 +615,26 @@ describe('OrderDetail', () => {
         false,
       );
     });
+
+    it('wraps billing + shipping in a single grey container', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const billing = wrapper.find('[data-testid="billing-address"]');
+      const shipping = wrapper.find('[data-testid="shipping-address"]');
+      // Both blocks share the same parent and that parent carries the
+      // grey rounded container styling.
+      expect(billing.element.parentElement).toBe(
+        shipping.element.parentElement,
+      );
+      const parentClass =
+        billing.element.parentElement?.getAttribute('class') ?? '';
+      expect(parentClass).toContain('bg-muted');
+      expect(parentClass).toContain('rounded-lg');
+    });
   });
 
   describe('useFetch call', () => {

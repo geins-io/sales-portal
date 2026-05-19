@@ -371,8 +371,12 @@ function formatDate(iso?: string): string {
               </div>
             </div>
 
-            <!-- Addresses: section headers dark, not uppercase; company line muted -->
-            <div v-if="billingAddress || shippingAddress" class="space-y-5">
+            <!-- Addresses: share one grey container per Figma 25361-102134.
+                 Section headers dark not uppercase, company line muted. -->
+            <div
+              v-if="billingAddress || shippingAddress"
+              class="bg-muted space-y-4 rounded-lg p-6"
+            >
               <AddressBlock
                 v-if="billingAddress"
                 bare
@@ -381,6 +385,10 @@ function formatDate(iso?: string): string {
                 data-testid="billing-address"
                 :label="t('portal.orders.detail.billing_address')"
                 :address="billingAddress"
+              />
+              <hr
+                v-if="billingAddress && shippingAddress"
+                class="border-border"
               />
               <AddressBlock
                 v-if="shippingAddress"
