@@ -64,6 +64,19 @@ const groupedDimensions = computed<GroupedDimension[]>(() => {
       map.get(name)!.add(row.value);
     }
   }
+  // Sibling-variant products carry the other variants in
+  // variantGroup.variants. Each sibling exposes its own dimension/value
+  // (or label). Merge those values into the existing dimension keys so
+  // the sheet shows every available variant across the group, not just
+  // the current product's own row.
+  const siblings = props.variants as unknown as RawDimensionRow[];
+  for (const v of siblings ?? []) {
+    const name = v.dimension ?? v.dimensionName;
+    if (!name) continue;
+    if (!map.has(name)) map.set(name, new Set());
+    const value = v.value ?? v.label;
+    if (value != null) map.get(name)!.add(value);
+  }
   return Array.from(map, ([dimensionName, values]) => ({
     dimensionName,
     values: Array.from(values),

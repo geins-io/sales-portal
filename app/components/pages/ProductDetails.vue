@@ -135,6 +135,25 @@ const additionalImages = computed(() => {
   return images.filter((i) => i.fileName && i !== primary);
 });
 
+// Last-ordered summary for this product. Auth-gated, lazy — skips
+// the fetch entirely for anonymous visitors (the common case).
+const { latestOrder, formattedDate: latestOrderDate } =
+  useLatestOrderForAlias(slug);
+
+// The variant selector renders for two distinct shapes Geins returns.
+// Internal multi-SKU products surface their variants in `product.skus`
+// (length > 1). Sibling-variant products are wrapped in a
+// `variantGroup` so each variant value is a separate product alias;
+// the current product's `skus` stays at 1 but `variantGroup.variants`
+// carries the siblings.
+const showVariantSelector = computed(() => {
+  const dims = product.value?.variantDimensions ?? [];
+  if (!dims.length) return false;
+  const skuCount = product.value?.skus?.length ?? 0;
+  const siblingCount = product.value?.variantGroup?.variants?.length ?? 0;
+  return skuCount > 1 || siblingCount > 1;
+});
+
 // --- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL) ---
 // Rendered below the related-products row when the slot is configured
 // and the area has content. Missing slot or empty area simply omits
@@ -397,11 +416,9 @@ useSchemaOrg([
              art-nr, stock and price (price is product-level so it's the
              same on every row). -->
         <VariantSelector
-          v-if="
-            product.variantDimensions?.length && (product.skus?.length ?? 0) > 1
-          "
+          v-if="showVariantSelector"
           v-model="selectedVariants"
-          :variant-dimensions="product.variantDimensions"
+          :variant-dimensions="product.variantDimensions ?? []"
           :variants="product.variantGroup?.variants ?? []"
           :skus="product.skus ?? []"
           :product-images="product.productImages ?? []"
@@ -480,6 +497,26 @@ useSchemaOrg([
             <ListPlus class="size-4" />
             <span>{{ $t('product.add_to_lists') }}</span>
           </button>
+          <NuxtLink
+            v-if="latestOrder"
+            :to="
+              latestOrder.latestOrderPublicId
+                ? localePath(
+                    `/portal/orders/${latestOrder.latestOrderPublicId}`,
+                  )
+                : localePath('/portal/orders')
+            "
+            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-3 text-left text-sm transition-colors"
+            data-testid="pdp-latest-ordered"
+          >
+            <ShoppingCart class="size-4" />
+            <span>
+              {{ $t('product.latest_ordered') }}: {{ latestOrderDate }}
+              <template v-if="latestOrder.latestOrderId">
+                ({{ latestOrder.latestOrderId }})
+              </template>
+            </span>
+          </NuxtLink>
         </div>
       </aside>
     </div>
