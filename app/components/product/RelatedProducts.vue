@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import type { ListProduct } from '#shared/types/commerce';
-import { Button } from '~/components/ui/button';
 
 const props = withDefaults(
   defineProps<{
@@ -11,86 +9,18 @@ const props = withDefaults(
   { hideHeading: false },
 );
 
-const scrollContainer = ref<HTMLElement | null>(null);
-const canScrollLeft = ref(false);
-const canScrollRight = ref(false);
-
-function updateScrollState() {
-  const el = scrollContainer.value;
-  if (!el) return;
-  canScrollLeft.value = el.scrollLeft > 0;
-  canScrollRight.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
-}
-
-function scrollBy(direction: 'left' | 'right') {
-  const el = scrollContainer.value;
-  if (!el) return;
-  const amount = direction === 'left' ? -300 : 300;
-  el.scrollBy({ left: amount, behavior: 'smooth' });
-}
-
-onMounted(() => {
-  updateScrollState();
-});
-
-const { localePath } = useLocaleMarket();
 const hasProducts = computed(() => props.products.length > 0);
 </script>
 
 <template>
   <section v-if="hasProducts" data-testid="related-products">
-    <div
-      v-if="!hideHeading || canScrollLeft || canScrollRight"
-      class="mb-4 flex items-center justify-between"
-    >
-      <h2 v-if="!hideHeading" class="text-lg font-semibold">
-        {{ $t('product.related') }}
-      </h2>
-      <div v-else />
-      <div class="flex items-center gap-3">
-        <NuxtLink
-          :to="localePath('/products')"
-          class="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
-        >
-          {{ $t('product.view_all') }}
-        </NuxtLink>
-        <div class="hidden gap-1 md:flex">
-          <Button
-            v-show="canScrollLeft"
-            variant="outline"
-            size="icon-sm"
-            class="rounded-full"
-            aria-label="Scroll left"
-            @click="scrollBy('left')"
-          >
-            <ChevronLeft class="size-4" />
-          </Button>
-          <Button
-            v-show="canScrollRight"
-            variant="outline"
-            size="icon-sm"
-            class="rounded-full"
-            aria-label="Scroll right"
-            @click="scrollBy('right')"
-          >
-            <ChevronRight class="size-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <div
-      ref="scrollContainer"
-      class="scrollbar-none flex gap-4 overflow-x-auto"
-      @scroll="updateScrollState"
-    >
-      <div
-        v-for="product in products"
-        :key="product.productId"
-        class="w-56 shrink-0"
-      >
-        <ProductCard :product="product" />
-      </div>
-    </div>
+    <h2 v-if="!hideHeading" class="mb-4 text-lg font-semibold">
+      {{ $t('product.related') }}
+    </h2>
+    <ul class="flex flex-col gap-3">
+      <li v-for="product in products" :key="product.productId">
+        <ProductCard :product="product" variant="list" />
+      </li>
+    </ul>
   </section>
 </template>

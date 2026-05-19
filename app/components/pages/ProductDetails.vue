@@ -182,6 +182,42 @@ async function addToCart() {
   await cartStore.addItem(resolvedSku.value.skuId, quantity.value);
 }
 
+// Sibling-variant products list each variant as its own product alias
+// in variantGroup.variants. When the user picks a different variant in
+// the selector, navigate to that variant's PDP rather than mutating
+// state in place. Keeps the path prefix segments (e.g. /material/grenror)
+// and swaps the last segment for the picked variant's alias.
+const route = useRoute();
+watch(
+  selectedVariants,
+  async (sel) => {
+    const variants = product.value?.variantGroup?.variants ?? [];
+    if (!variants.length || !product.value?.alias) return;
+    const picked = variants.find((v) => {
+      const dim = (v as { dimension?: string }).dimension;
+      const val = (v as { value?: string | null }).value;
+      if (dim && val != null) return sel[dim] === val;
+      const attrs = Array.isArray(v.attributes) ? v.attributes : [];
+      return attrs.every((attr) => {
+        const k =
+          (attr as { attributeName?: string; key?: string }).attributeName ??
+          (attr as { key?: string }).key;
+        const a =
+          (attr as { attributeValue?: string; value?: string })
+            .attributeValue ?? (attr as { value?: string }).value;
+        return k ? sel[k] === a : true;
+      });
+    }) as { alias?: string } | undefined;
+    if (!picked?.alias || picked.alias === product.value.alias) return;
+    const raw = route.params.alias;
+    const segs = Array.isArray(raw) ? [...raw] : raw ? [raw as string] : [];
+    if (segs.length) segs[segs.length - 1] = picked.alias;
+    else segs.push(picked.alias);
+    await navigateTo(localePath(`/p/${segs.join('/')}`));
+  },
+  { deep: true },
+);
+
 // Discount campaigns
 const visibleCampaigns = computed(() =>
   filterVisibleCampaigns(product.value?.discountCampaigns ?? []),
