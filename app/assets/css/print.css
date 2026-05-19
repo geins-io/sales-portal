@@ -235,25 +235,36 @@
   }
 
   /* Spec tables on print: no Egenskap / Värde header, unified dark
-     text on both columns, slightly darker row separators, and no
-     trailing border under the final row of each table. */
+     text on both columns, slightly darker row separators (kept on
+     every row including the last), and reduced row font size. */
   [data-testid='product-tabs'] [data-testid='spec-table'] td {
     color: #111 !important;
+    font-size: 9pt !important;
+    padding: 4pt 8pt !important;
   }
   [data-testid='product-tabs'] [data-testid='spec-table'] tr {
     border-color: #d4d4d4 !important;
   }
-  [data-testid='product-tabs'] [data-testid='spec-table'] tr:last-child {
-    border-bottom: 0 !important;
-  }
   [data-testid='product-tabs'] [data-testid='spec-group-title'] {
-    font-size: 10.5pt;
+    font-size: 10pt;
     font-weight: 700;
     color: #111;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding-top: 12pt;
-    margin-top: 8pt;
+    padding-top: 6pt;
+    margin-top: 4pt;
+  }
+
+  /* Reduce body copy size for the short description above the price
+     and the Produktdetaljer panel content. */
+  [data-testid='product-text3'] {
+    font-size: 9pt !important;
+    line-height: 1.4 !important;
+  }
+  [data-testid='product-tabs'] [data-print='description'] .prose,
+  [data-testid='product-tabs'] [data-print='description'] .prose p {
+    font-size: 9pt !important;
+    line-height: 1.45 !important;
   }
 
   /* Print tab panels: drop the screen card chrome so each panel
