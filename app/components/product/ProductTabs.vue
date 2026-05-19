@@ -33,6 +33,43 @@ const defaultTab = computed(() => {
   if (hasRelated.value) return 'related';
   return 'documents';
 });
+
+// Print expansion: radix Tabs sets the `hidden` HTML attribute on
+// inactive panels. The `[hidden]` reset lives in Tailwind's @layer base
+// with !important, and unlayered overrides cannot beat that because
+// CSS cascade-layers reverses layer order for !important. The simplest
+// reliable answer is to drop the attribute on `beforeprint` for the
+// panels we want printed, and put it back on `afterprint`.
+onMounted(() => {
+  if (typeof window === 'undefined') return;
+  const PRINT_VISIBLE = ['description', 'specifications'];
+  const restoredHidden: HTMLElement[] = [];
+  const onBeforePrint = () => {
+    document
+      .querySelectorAll<HTMLElement>(
+        '[data-testid="product-tabs"] [data-print]',
+      )
+      .forEach((el) => {
+        const key = el.getAttribute('data-print');
+        if (key && PRINT_VISIBLE.includes(key) && el.hasAttribute('hidden')) {
+          el.removeAttribute('hidden');
+          restoredHidden.push(el);
+        }
+      });
+  };
+  const onAfterPrint = () => {
+    while (restoredHidden.length) {
+      const el = restoredHidden.pop()!;
+      el.setAttribute('hidden', '');
+    }
+  };
+  window.addEventListener('beforeprint', onBeforePrint);
+  window.addEventListener('afterprint', onAfterPrint);
+  onBeforeUnmount(() => {
+    window.removeEventListener('beforeprint', onBeforePrint);
+    window.removeEventListener('afterprint', onAfterPrint);
+  });
+});
 </script>
 
 <template>
@@ -57,6 +94,7 @@ const defaultTab = computed(() => {
       <TabsContent
         v-if="hasDescription"
         value="description"
+        data-print="description"
         class="bg-card mt-6 rounded-lg border p-6"
       >
         <h3 class="font-heading mb-4 text-2xl font-bold">
@@ -69,6 +107,7 @@ const defaultTab = computed(() => {
       <TabsContent
         v-if="hasSpecs"
         value="specifications"
+        data-print="specifications"
         class="bg-card mt-6 rounded-lg border p-6"
       >
         <h3 class="font-heading mb-6 text-2xl font-bold">
@@ -80,7 +119,10 @@ const defaultTab = computed(() => {
             :key="group.name ?? group.parameterGroupId"
             class="flex flex-col gap-3"
           >
-            <h4 class="font-heading text-xl font-semibold">
+            <h4
+              data-testid="spec-group-title"
+              class="font-heading text-xl font-semibold"
+            >
               {{ group.name }}
             </h4>
             <p
@@ -90,6 +132,15 @@ const defaultTab = computed(() => {
               {{ group.parameters[0].description }}
             </p>
             <table class="w-full text-sm" data-testid="spec-table">
+              <!-- Egenskap / Värde header row — hidden on screen via
+                   `.print-only` (display: none) and surfaced on print
+                   by an explicit rule in assets/css/print.css. -->
+              <thead class="print-only hidden">
+                <tr>
+                  <td>{{ $t('product.spec_property') }}</td>
+                  <td>{{ $t('product.spec_value') }}</td>
+                </tr>
+              </thead>
               <tbody>
                 <tr
                   v-for="(param, idx) in group.parameters"
@@ -107,7 +158,11 @@ const defaultTab = computed(() => {
         </div>
       </TabsContent>
 
-      <TabsContent value="documents" class="bg-card mt-6 rounded-lg border p-6">
+      <TabsContent
+        value="documents"
+        data-print="documents"
+        class="bg-card mt-6 rounded-lg border p-6"
+      >
         <h3 class="font-heading mb-4 text-2xl font-bold">
           {{ $t('product.documents') }}
         </h3>
@@ -119,6 +174,7 @@ const defaultTab = computed(() => {
       <TabsContent
         v-if="hasRelated"
         value="related"
+        data-print="related"
         class="bg-card mt-6 rounded-lg border p-6"
       >
         <h3 class="font-heading mb-4 text-2xl font-bold">
@@ -128,8 +184,10 @@ const defaultTab = computed(() => {
       </TabsContent>
     </Tabs>
 
-    <!-- Mobile: Accordion (hidden at md+ via CSS to avoid SSR/client flash) -->
-    <Accordion class="md:hidden" type="multiple">
+    <!-- Mobile: Accordion (hidden at md+ via CSS to avoid SSR/client flash).
+         Print uses the desktop tabs branch (md+ media query active in the
+         print preview), so this accordion stays hidden when printing. -->
+    <Accordion class="md:hidden print:hidden" type="multiple">
       <AccordionItem v-if="hasDescription" value="description">
         <AccordionTrigger>{{ $t('product.details') }}</AccordionTrigger>
         <AccordionContent>

@@ -6,6 +6,13 @@
  * and data attributes / data-testid hooks used in the layout and PDP.
  */
 
+@page {
+  size: A4 portrait;
+  /* top right bottom left — slightly more bottom margin matches the
+     attached spec print-product-page-spec.md section 7. */
+  margin: 15mm 15mm 20mm 15mm;
+}
+
 @media print {
   /* Hide site chrome */
   header,
@@ -71,11 +78,33 @@
     display: none !important;
   }
 
-  /* Hide related products tab content and the tabs themselves when the
-     related tab is the only non-description tab. Target the entire tabs
-     block's related panel and the trigger button. */
-  [data-testid='product-tabs'] [value='related'],
-  [data-testid='product-tabs'] [data-value='related'] {
+  /* Tabs: hide the trigger row entirely on print; force-expand the
+     description and specifications panels (radix tabs sets hidden /
+     data-state='inactive' on non-active tabs); hide the documents and
+     related panels per spec.
+
+     The [data-print=*] hooks are set on each TabsContent in
+     ProductTabs.vue so this is independent of radix's internal markup. */
+  [data-testid='product-tabs'] [role='tablist'] {
+    display: none !important;
+  }
+  [data-testid='product-tabs'] [data-print='description'],
+  [data-testid='product-tabs'] [data-print='specifications'] {
+    display: block !important;
+  }
+  [data-testid='product-tabs'] [data-print='documents'],
+  [data-testid='product-tabs'] [data-print='related'] {
+    display: none !important;
+  }
+  /* Belt-and-suspenders: radix marks inactive panels with hidden attr
+     plus aria-hidden. Override both for the visible-on-print panels. */
+  [data-testid='product-tabs'] [data-print='description'][hidden],
+  [data-testid='product-tabs'] [data-print='specifications'][hidden] {
+    display: block !important;
+  }
+  /* Related products row that sits outside the tabs block (rendered as
+     its own section below the tabs on the PDP). */
+  [data-testid='related-products'] {
     display: none !important;
   }
 
@@ -91,6 +120,33 @@
   [data-testid='auth-sheet'],
   [role='dialog'],
   [role='alertdialog'] {
+    display: none !important;
+  }
+
+  /* Hide newsletter subscribe widget (typically rendered in the footer
+     CMS area but also stands alone on some templates). */
+  [data-testid='newsletter-signup'],
+  [data-testid='newsletter-widget'],
+  .newsletter,
+  .newsletter-signup {
+    display: none !important;
+  }
+
+  /* Hide third-party chat widgets — Intercom, Drift, Crisp, Zendesk,
+     Tawk, LiveChat. Each injects its own root container with these
+     IDs / classes regardless of where in the DOM the script attaches. */
+  #intercom-container,
+  #intercom-frame,
+  .intercom-launcher,
+  #drift-frame-controller,
+  #drift-widget,
+  .crisp-client,
+  iframe[title*='chat' i],
+  iframe[title*='messenger' i],
+  iframe[id^='zendesk'],
+  iframe[name*='tawk' i],
+  #livechat-eye-catcher,
+  #livechat-compact-container {
     display: none !important;
   }
 
@@ -115,9 +171,172 @@
   body {
     color: #000 !important;
     background: #fff !important;
+    font-size: 11pt;
+  }
+
+  /* Respect themed colors when sent to the printer so the store
+     accent on the print logo and any branded fills survive. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   a[href]::after {
     content: none !important;
+  }
+
+  /* PDP top area on print: 250px image column + flexible info column,
+     no card chrome (the A4 page itself is the visual frame). The
+     third column (qty + add-to-cart aside) is already hidden via its
+     buttons being individually hidden; this rule also collapses any
+     leftover whitespace from the third grid column. */
+  [data-testid='pdp-top-area'] {
+    grid-template-columns: 250px 1fr !important;
+    background: #fff !important;
+    border: none !important;
+    padding: 0 !important;
+    gap: 24pt !important;
+  }
+  [data-testid='pdp-top-area'] > :nth-child(3) {
+    display: none !important;
+  }
+
+  /* Product gallery on print: keep the main image, drop the arrow
+     buttons. The main image is wrapped in a Button for lightbox
+     click, so the rule must target only the arrow buttons, not
+     every button under the gallery. */
+  [data-testid='gallery-prev'],
+  [data-testid='gallery-next'],
+  [data-testid='gallery-thumbs'],
+  [data-testid='image-counter'] {
+    display: none !important;
+  }
+  /* Gallery wrapper: drop the dark bg-muted background and round
+     corners; per the spec preview the image sits in a light box
+     with a thin border. */
+  [data-testid='product-gallery'] > div:first-child {
+    background: #f7f7f7 !important;
+    border: 1px solid #e5e5e5 !important;
+    border-radius: 0 !important;
+  }
+  /* Hide GeinsImage's skeleton placeholder on print — the pulsing
+     bg-muted overlay otherwise paints a solid grey block on top of
+     images that loaded but whose load event hadn't fired yet by the
+     time the print engine took its snapshot. */
+  [data-testid='product-gallery'] .animate-pulse,
+  [data-testid='pdp-print-extra-images'] .animate-pulse,
+  [data-testid='pdp-top-area'] .animate-pulse {
+    display: none !important;
+  }
+
+  /* CMS area below the PDP — out of scope for a product data sheet. */
+  [data-testid='pdp-cms-area'] {
+    display: none !important;
+  }
+
+  /* Spec table thead is hidden on screen; print shows the
+     Egenskap / Värde header row above each group's table.
+     ProductTabs renders the thead inside a print-only wrapper. */
+  [data-testid='product-tabs'] thead.print-only {
+    display: table-header-group !important;
+  }
+  [data-testid='product-tabs'] [data-testid='spec-group-title'] {
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: #111;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding-top: 12pt;
+    margin-top: 8pt;
+    border-top: 1px solid #e5e5e5;
+  }
+
+  /* Print tab panels: drop the screen card chrome so each panel
+     reads as a flat section per the attached spec preview, with a
+     hairline separator above. */
+  [data-testid='product-tabs'] [data-print='description'],
+  [data-testid='product-tabs'] [data-print='specifications'] {
+    background: #fff !important;
+    border: none !important;
+    border-top: 1px solid #ddd !important;
+    border-radius: 0 !important;
+    padding: 14pt 0 !important;
+    margin-top: 0 !important;
+  }
+  [data-testid='product-tabs'] [data-print='description'] h3,
+  [data-testid='product-tabs'] [data-print='specifications'] h3 {
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+    margin-bottom: 12pt !important;
+  }
+  /* Avoid page breaks splitting an image tile across two pages — that
+     was what was producing the stray box at the top of page 2. */
+  [data-testid='pdp-print-extra-images'],
+  [data-testid='pdp-print-extra-images'] > div > * {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Additional images grid: square boxes with a light gray bg and
+     contained image, per spec section 6. */
+  [data-testid='pdp-print-extra-images'] {
+    border-top: 1px solid #ddd;
+    margin-top: 16pt;
+    padding-top: 0 !important;
+  }
+  [data-testid='pdp-print-extra-images'] > h3 {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #111;
+    padding: 11pt 0 12pt 0;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 14pt;
+  }
+  [data-testid='pdp-print-extra-images'] > div {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10pt !important;
+  }
+  [data-testid='pdp-print-extra-images'] > div > * {
+    border: 1px solid #e5e5e5;
+    background: #f7f7f7;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8pt;
+    overflow: hidden;
+  }
+  [data-testid='pdp-print-extra-images'] > div > * img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  /* Print-only surfaces. The components default to `hidden` so they
+     stay invisible on screen; the rules below unhide them when
+     printing without relying on Tailwind's `print:` variant (which is
+     content-scanned and can silently fall out if a new class name
+     isn't seen at build time). */
+  [data-testid='pdp-print-header'] {
+    display: block !important;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #d4d4d4;
+  }
+  [data-testid='pdp-print-extra-images'] {
+    display: block !important;
+  }
+
+  /* The mobile accordion variant of the tabs block is hidden via
+     `md:hidden` and stays hidden on print regardless of viewport. */
+  [data-testid='product-tabs'] > .md\:hidden {
+    display: none !important;
+  }
+  /* Force-show the desktop tabs wrapper even when the print preview
+     viewport falls below md, so the description and specifications
+     panels are reachable for the override below. */
+  [data-testid='product-tabs'] > .md\:block {
+    display: block !important;
   }
 }

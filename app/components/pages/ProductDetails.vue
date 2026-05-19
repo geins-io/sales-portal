@@ -116,6 +116,25 @@ function stripHtml(value: string | null | undefined): string {
 
 const text3Plain = computed(() => stripHtml(product.value?.texts?.text3));
 
+// Full canonical URL used on the print header row 2 and as the source
+// for the alias path in the additional-images grid caption.
+const printUrl = computed(() => {
+  const url = useRequestURL();
+  return `${url.origin}${url.pathname}`;
+});
+
+// Additional images beyond the primary, rendered only on print under
+// the "Ytterligare bilder" heading. The primary image is dropped from
+// the list — it's already in the gallery on the top area card. Geins
+// returns ProductImage with `fileName` (the CDN slug); GeinsImage
+// builds the actual URL at render time.
+const additionalImages = computed(() => {
+  const images = product.value?.productImages ?? [];
+  if (images.length <= 1) return [];
+  const primary = images.find((i) => i.isPrimary) ?? images[0];
+  return images.filter((i) => i.fileName && i !== primary);
+});
+
 // --- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL) ---
 // Rendered below the related-products row when the slot is configured
 // and the area has content. Missing slot or empty area simply omits
@@ -269,6 +288,10 @@ useSchemaOrg([
     v-else-if="product"
     class="mx-auto max-w-7xl space-y-8 px-4 py-8 lg:px-6"
   >
+    <!-- Print-only header: store logo + timestamp + product URL.
+         Hidden on screen, shown via @media print. -->
+    <PrintHeader :product-url="printUrl" />
+
     <!-- Breadcrumbs -->
     <AppBreadcrumbs v-if="breadcrumbItems.length" :items="breadcrumbItems" />
 
@@ -465,6 +488,31 @@ useSchemaOrg([
     <ErrorBoundary section="product-tabs">
       <ProductTabs :product="product" :related="related" />
     </ErrorBoundary>
+
+    <!-- Print-only: extra product images in a 3-col grid, gated on the
+         product having more than one image so the section disappears
+         cleanly when there is nothing to show. -->
+    <section
+      v-if="additionalImages.length"
+      class="hidden"
+      data-testid="pdp-print-extra-images"
+    >
+      <h3 class="font-heading mb-3 text-xl font-semibold">
+        {{ $t('product.print_extra_images') }}
+      </h3>
+      <div class="grid grid-cols-3 gap-3">
+        <GeinsImage
+          v-for="img in additionalImages"
+          :key="img.fileName ?? ''"
+          :file-name="img.fileName ?? ''"
+          :alt="product.name ?? ''"
+          type="product"
+          loading="eager"
+          fit="contain"
+          aspect-ratio="1/1"
+        />
+      </div>
+    </section>
 
     <!-- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL).
          Omitted when unconfigured or empty. -->
