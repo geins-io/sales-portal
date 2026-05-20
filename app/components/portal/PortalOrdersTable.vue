@@ -10,6 +10,7 @@ defineProps<{
     publicId?: string | null;
     status: string;
     createdAt?: string | null;
+    placedBy?: string | null;
     billingAddress?: {
       firstName?: string;
       lastName?: string;
@@ -47,8 +48,13 @@ function formatDate(dateStr: string | null | undefined): string {
 }
 
 function getPlacedBy(order: {
+  placedBy?: string | null;
   billingAddress?: { firstName?: string; lastName?: string } | null;
 }): string {
+  // placedBy is the resolved buyer name from the email → CompanyBuyer
+  // join; billingAddress is the company billing contact (same name on
+  // every row in a B2B account) and is only a fallback.
+  if (order.placedBy) return order.placedBy;
   const addr = order.billingAddress;
   if (!addr) return '-';
   return [addr.firstName, addr.lastName].filter(Boolean).join(' ') || '-';

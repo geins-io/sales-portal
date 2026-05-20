@@ -32,6 +32,14 @@ vi.mock('../../../server/services/_sdk', () => ({
 vi.mock('../../../server/services/graphql/loader', () => ({
   loadQuery: vi.fn((path: string) => `query:${path}`),
 }));
+vi.mock('../../../server/services/company', () => ({
+  getCompany: vi.fn().mockResolvedValue({
+    buyers: [
+      { id: 'tina@example.com', firstName: 'Tina', lastName: 'Ekestang' },
+      { id: 'ali@example.com', firstName: 'Ali', lastName: 'Halaki' },
+    ],
+  }),
+}));
 vi.mock('../../../server/services/graphql/unwrap', () => ({
   unwrapGraphQL: vi.fn((r: unknown) => {
     if (r === null || r === undefined) return r;
@@ -123,6 +131,42 @@ describe('orders service', () => {
 
       expect(result.orders).toEqual([]);
       expect(result.total).toBe(0);
+    });
+
+    it('joins each order to the company buyer roster via email', async () => {
+      mockGraphqlQuery.mockResolvedValueOnce({
+        getOrders: [
+          {
+            id: 1,
+            status: 'Placed',
+            publicId: 'a',
+            customerEmail: 'tina@example.com',
+          },
+          {
+            id: 2,
+            status: 'Placed',
+            publicId: 'b',
+            customerEmail: 'ALI@example.com',
+          },
+          {
+            id: 3,
+            status: 'Placed',
+            publicId: 'c',
+            customerEmail: 'unknown@x.com',
+          },
+          { id: 4, status: 'Placed', publicId: 'd', customerEmail: null },
+        ],
+      });
+
+      const result = await ordersService.listOrders(mockEvent);
+
+      expect(result.orders[0]!.placedBy).toBe('Tina Ekestang');
+      // case-insensitive match
+      expect(result.orders[1]!.placedBy).toBe('Ali Halaki');
+      // unknown buyer email and null email both fall through to null,
+      // letting the UI fall back to billingAddress.
+      expect(result.orders[2]!.placedBy).toBeNull();
+      expect(result.orders[3]!.placedBy).toBeNull();
     });
   });
 });
