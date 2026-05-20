@@ -8,6 +8,7 @@ import type {
   CreateOrderResponseType,
 } from '#shared/types/commerce';
 import type { Company, CompanyAddress } from '#shared/types/company';
+import { checkoutAddressFields } from '#shared/utils/checkout-address';
 import { useCartStore } from '~/stores/cart';
 import { useAuthStore } from '~/stores/auth';
 
@@ -34,6 +35,11 @@ export const useCheckoutStore = defineStore('checkout', () => {
   const checkout = ref<CheckoutType | null>(null);
   const billingAddress = ref<AddressInputType>(emptyAddress());
   const shippingAddress = ref<AddressInputType>(emptyAddress());
+  // Company (B2B) checkouts must reference predefined addresses by id;
+  // these are set by prefillFromCompany and consumed by placeOrder.
+  // null on consumer checkouts — the address objects are sent instead.
+  const billingAddressId = ref<string | null>(null);
+  const shippingAddressId = ref<string | null>(null);
   const useSeparateShipping = ref(false);
   const selectedPaymentId = ref<number | null>(null);
   const selectedShippingId = ref<number | null>(null);
@@ -190,8 +196,19 @@ export const useCheckoutStore = defineStore('checkout', () => {
               acceptedConsents.value.length > 0
                 ? acceptedConsents.value
                 : undefined,
-            billingAddress: billingAddress.value,
-            shippingAddress: effectiveShippingAddress.value,
+            ...checkoutAddressFields(
+              'billing',
+              billingAddress.value,
+              billingAddressId.value,
+            ),
+            // Shipping is omitted when not separate — Geins reuses billing.
+            ...(useSeparateShipping.value
+              ? checkoutAddressFields(
+                  'shipping',
+                  effectiveShippingAddress.value,
+                  shippingAddressId.value,
+                )
+              : {}),
             identityNumber: identityNumber.value || undefined,
             poNumber: poNumber.value || undefined,
           },
@@ -282,18 +299,22 @@ export const useCheckoutStore = defineStore('checkout', () => {
   }
 
   function prefillFromCompany(company: Company) {
-    // TODO: use billingAddressId/shippingAddressId once @geins/types adds company checkout support
     const billingAddr = resolveBillingAddress(company);
     const deliveryAddr = resolveDeliveryAddress(company, billingAddr);
 
     const authStore = useAuthStore();
     email.value = authStore.user?.username ?? billingAddr?.email ?? '';
 
+    // B2B checkout: Geins rejects literal addresses and requires the
+    // predefined addressId. Both the object (for display) and the id
+    // (for placeOrder) are populated; the helper picks at submit time.
     if (billingAddr) {
       billingAddress.value = companyAddressToInput(billingAddr);
+      billingAddressId.value = billingAddr.addressId ?? null;
     }
     if (deliveryAddr) {
       shippingAddress.value = companyAddressToInput(deliveryAddr);
+      shippingAddressId.value = deliveryAddr.addressId ?? null;
     }
   }
 
@@ -301,6 +322,8 @@ export const useCheckoutStore = defineStore('checkout', () => {
     checkout.value = null;
     billingAddress.value = emptyAddress();
     shippingAddress.value = emptyAddress();
+    billingAddressId.value = null;
+    shippingAddressId.value = null;
     useSeparateShipping.value = false;
     selectedPaymentId.value = null;
     selectedShippingId.value = null;
@@ -322,6 +345,8 @@ export const useCheckoutStore = defineStore('checkout', () => {
     checkout,
     billingAddress,
     shippingAddress,
+    billingAddressId,
+    shippingAddressId,
     useSeparateShipping,
     selectedPaymentId,
     selectedShippingId,

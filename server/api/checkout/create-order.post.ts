@@ -1,4 +1,5 @@
 import type { CreateOrderOptions, CustomerType } from '@geins/types';
+import { checkoutAddressFields } from '#shared/utils/checkout-address';
 import { PlaceOrderSchema } from '../../schemas/api-input';
 import { createOrder } from '../../services/checkout';
 import { requireAuth } from '../../utils/auth';
@@ -24,6 +25,11 @@ export default defineEventHandler(async (event) => {
 
   return withErrorHandling(
     async () => {
+      // @geins/types doesn't yet expose billingAddressId / shippingAddressId
+      // on CheckoutInputType, but the live Geins GraphQL schema accepts
+      // both (verified via introspection — required for company / B2B
+      // checkout). Build the options object loosely and cast at the
+      // boundary so TS doesn't reject the supported fields.
       const options: CreateOrderOptions = {
         cartId: body.cartId,
         checkoutOptions: {
@@ -33,10 +39,18 @@ export default defineEventHandler(async (event) => {
           identityNumber: body.identityNumber,
           message: body.message,
           acceptedConsents: body.acceptedConsents,
-          billingAddress: body.billingAddress,
-          shippingAddress: body.shippingAddress,
           customerType: body.customerType as CustomerType | undefined,
-        },
+          ...checkoutAddressFields(
+            'billing',
+            body.billingAddress,
+            body.billingAddressId,
+          ),
+          ...checkoutAddressFields(
+            'shipping',
+            body.shippingAddress,
+            body.shippingAddressId,
+          ),
+        } as CreateOrderOptions['checkoutOptions'],
       };
 
       const result = await createOrder(options, event);

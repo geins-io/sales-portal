@@ -275,18 +275,28 @@ export const GetCheckoutSchema = z.object({
 });
 export type GetCheckoutInput = z.infer<typeof GetCheckoutSchema>;
 
-export const PlaceOrderSchema = z.object({
-  cartId: z.string().min(1),
-  paymentId: z.number(),
-  shippingId: z.number(),
-  email: z.string().email(),
-  identityNumber: z.string().max(50).optional(),
-  message: z.string().max(2000).optional(),
-  acceptedConsents: z.array(z.string()).optional(),
-  billingAddress: CheckoutAddressSchema,
-  shippingAddress: CheckoutAddressSchema.optional(),
-  customerType: z.string().max(50).optional(),
-});
+export const PlaceOrderSchema = z
+  .object({
+    cartId: z.string().min(1),
+    paymentId: z.number(),
+    shippingId: z.number(),
+    email: z.string().email(),
+    identityNumber: z.string().max(50).optional(),
+    message: z.string().max(2000).optional(),
+    acceptedConsents: z.array(z.string()).optional(),
+    // Company (B2B) checkout requires addressId pointing at a predefined
+    // company address; consumer checkout sends the literal address.
+    // Exactly one of the two shapes must be present for billing.
+    billingAddress: CheckoutAddressSchema.optional(),
+    billingAddressId: z.string().min(1).max(50).optional(),
+    shippingAddress: CheckoutAddressSchema.optional(),
+    shippingAddressId: z.string().min(1).max(50).optional(),
+    customerType: z.string().max(50).optional(),
+  })
+  .refine((d) => !!d.billingAddress || !!d.billingAddressId, {
+    message: 'billingAddress or billingAddressId is required',
+    path: ['billingAddress'],
+  });
 export type PlaceOrderInput = z.infer<typeof PlaceOrderSchema>;
 
 export const ValidateOrderSchema = z.object({

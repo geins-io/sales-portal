@@ -398,8 +398,10 @@ describe('useCheckoutStore', () => {
           message: 'Leave at door',
           acceptedConsents: ['terms'],
           billingAddress: mockAddress,
-          shippingAddress: mockAddress,
+          // shippingAddress is intentionally omitted when not separate;
+          // Geins reuses the billing address for delivery in that case.
           identityNumber: undefined,
+          poNumber: undefined,
         },
       });
     });
@@ -429,6 +431,44 @@ describe('useCheckoutStore', () => {
       const callBody = mockFetchImpl.mock.calls[0][1].body;
       expect(callBody.shippingAddress).toEqual(separateAddress);
       expect(callBody.billingAddress).toEqual(mockAddress);
+    });
+
+    it('sends billingAddressId instead of billingAddress for company checkout', async () => {
+      mockFetchImpl.mockResolvedValueOnce(mockOrderResponse);
+
+      const store = useCheckoutStore();
+      store.email = 'order@example.com';
+      // Object kept around for display, id is what gets sent
+      store.billingAddress = { ...mockAddress };
+      store.billingAddressId = '42';
+      store.selectedPaymentId = 2;
+      store.selectedShippingId = 10;
+
+      await store.placeOrder('cart-abc');
+
+      const callBody = mockFetchImpl.mock.calls[0][1].body;
+      expect(callBody.billingAddressId).toBe('42');
+      expect(callBody.billingAddress).toBeUndefined();
+    });
+
+    it('sends shippingAddressId for company checkout with separate shipping', async () => {
+      mockFetchImpl.mockResolvedValueOnce(mockOrderResponse);
+
+      const store = useCheckoutStore();
+      store.email = 'order@example.com';
+      store.billingAddress = { ...mockAddress };
+      store.billingAddressId = '42';
+      store.shippingAddress = { ...mockAddress };
+      store.shippingAddressId = '99';
+      store.useSeparateShipping = true;
+      store.selectedPaymentId = 2;
+      store.selectedShippingId = 10;
+
+      await store.placeOrder('cart-abc');
+
+      const callBody = mockFetchImpl.mock.calls[0][1].body;
+      expect(callBody.shippingAddressId).toBe('99');
+      expect(callBody.shippingAddress).toBeUndefined();
     });
 
     it('sets orderResult on success', async () => {
