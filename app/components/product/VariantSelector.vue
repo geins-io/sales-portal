@@ -42,6 +42,15 @@ const props = defineProps<{
   // doesn't carry one of its own (Geins returns a "DefaultProduct"
   // dimension with attributes: null on these).
   productArticleNumber?: string | null;
+  // Sibling-variant products: each variant is a separate Geins product
+  // with its own price and art-nr. Geins's `VariantType` payload omits
+  // both fields, so the parent fetches each sibling by alias and passes
+  // the resolved values down here. Keyed by variant alias.
+  variantProducts?: Record<
+    string,
+    | { priceFormatted?: string | null; articleNumber?: string | null }
+    | undefined
+  >;
 }>();
 
 interface GroupedDimension {
@@ -112,25 +121,45 @@ function filteredValues(values: string[]): string[] {
 function variantInfoFor(
   dimensionName: string,
   value: string,
-): { articleNumber?: string; stockTotal: number } | null {
+): {
+  articleNumber?: string;
+  stockTotal: number;
+  priceFormatted?: string | null;
+} | null {
   const matchingVariant = props.variants.find((variant) => {
+    const dim = (variant as { dimension?: string }).dimension;
+    const val = (variant as { value?: string | null }).value;
+    if (dim && val != null && dim === dimensionName && val === value) {
+      return true;
+    }
     const attrs = Array.isArray(variant.attributes) ? variant.attributes : [];
     return attrs.some(
       (attr) =>
         attr.attributeName === dimensionName && attr.attributeValue === value,
     );
   });
-  // Single-variant "wrapper" products surface a single dimension value
-  // with no real attributes; fall through and use the product-level art-nr.
+  // Sibling-variant products: prefer the per-alias map populated by the
+  // parent. Falls back to the SKU-by-id lookup for multi-SKU "wrapper"
+  // products where each variant lives in props.skus, and finally to the
+  // parent product's own art-nr for the single-variant default case.
+  const siblingAlias = (matchingVariant as { alias?: string } | undefined)
+    ?.alias;
+  const sibling = siblingAlias
+    ? props.variantProducts?.[siblingAlias]
+    : undefined;
   const sku = matchingVariant
     ? props.skus?.find((s) => s.skuId === matchingVariant.variantId)
     : props.skus?.[0];
   const articleNumber =
-    sku?.articleNumber || props.productArticleNumber || undefined;
+    sibling?.articleNumber ||
+    sku?.articleNumber ||
+    props.productArticleNumber ||
+    undefined;
   const stockTotal =
     matchingVariant?.stock?.totalStock ?? sku?.stock?.totalStock ?? 0;
+  const priceFormatted = sibling?.priceFormatted ?? null;
   if (!articleNumber && !matchingVariant) return null;
-  return { articleNumber, stockTotal };
+  return { articleNumber, stockTotal, priceFormatted };
 }
 
 const primaryImageFileName = computed<string | null>(() => {
@@ -339,14 +368,23 @@ const { showPrice } = usePriceVisibility();
                   </div>
                 </div>
 
-                <!-- Price column: product-level price applies to every
-                     variant. Hide entirely when no formatted price is
-                     available or pricing feature is disabled. -->
+                <!-- Price column: prefer each sibling variant's own
+                     resolved price (passed via variantProducts), then
+                     fall back to the parent's price. Hide entirely when
+                     no formatted price is available or pricing is off. -->
                 <span
-                  v-if="showPrice && priceFormatted"
+                  v-if="
+                    showPrice &&
+                    (variantInfoFor(activeDimension.dimensionName, value)
+                      ?.priceFormatted ||
+                      priceFormatted)
+                  "
                   class="shrink-0 text-sm font-medium"
                 >
-                  {{ priceFormatted }}
+                  {{
+                    variantInfoFor(activeDimension.dimensionName, value)
+                      ?.priceFormatted || priceFormatted
+                  }}
                 </span>
 
                 <Check

@@ -154,6 +154,57 @@ const showVariantSelector = computed(() => {
   return skuCount > 1 || siblingCount > 1;
 });
 
+// Sibling-variant aliases. Geins's VariantType payload omits price and
+// articleNumber; fetch each sibling's full product so the variant sheet
+// can render each row's real price and art-nr instead of mirroring the
+// parent product on every row.
+const siblingAliases = computed<string[]>(() => {
+  const variants = product.value?.variantGroup?.variants ?? [];
+  return variants
+    .map((v) => (v as { alias?: string | null }).alias)
+    .filter((a): a is string => typeof a === 'string' && a.length > 0)
+    .filter((a) => a !== product.value?.alias);
+});
+
+const { data: siblingProducts, execute: fetchSiblings } = useFetch<{
+  products: DetailProduct[];
+}>('/api/products/by-aliases', {
+  query: computed(() => ({
+    aliases: siblingAliases.value.join(','),
+    ...localeQuery.value,
+  })),
+  immediate: false,
+  dedupe: 'defer',
+  lazy: true,
+});
+watch(
+  siblingAliases,
+  (aliases) => {
+    if (aliases.length) fetchSiblings();
+  },
+  { immediate: true },
+);
+
+const variantProductsByAlias = computed<
+  Record<
+    string,
+    { priceFormatted?: string | null; articleNumber?: string | null }
+  >
+>(() => {
+  const map: Record<
+    string,
+    { priceFormatted?: string | null; articleNumber?: string | null }
+  > = {};
+  for (const p of siblingProducts.value?.products ?? []) {
+    if (!p?.alias) continue;
+    map[p.alias] = {
+      priceFormatted: p.unitPrice?.sellingPriceIncVatFormatted ?? null,
+      articleNumber: p.articleNumber ?? null,
+    };
+  }
+  return map;
+});
+
 // --- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL) ---
 // Rendered below the related-products row when the slot is configured
 // and the area has content. Missing slot or empty area simply omits
@@ -463,6 +514,7 @@ useSchemaOrg([
             product.unitPrice?.sellingPriceIncVatFormatted ?? null
           "
           :product-article-number="product.articleNumber ?? null"
+          :variant-products="variantProductsByAlias"
         />
       </div>
 
