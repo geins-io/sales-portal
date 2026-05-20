@@ -59,7 +59,7 @@ describe('generateTenantCss surface colors', () => {
     const css = generateTenantCss('test', derived);
     expect(css).toContain('--top-bar-background: var(--primary);');
     expect(css).toContain('--footer-background: oklch(0.205 0 0);');
-    expect(css).toContain('--nav-bar-background: var(--background);');
+    expect(css).toContain('--nav-bar-background: var(--muted);');
     expect(css).toContain('--site-background: var(--background);');
     expect(css).toContain('--button-background: var(--primary);');
     expect(css).toContain(

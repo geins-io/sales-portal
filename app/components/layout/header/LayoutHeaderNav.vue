@@ -72,8 +72,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
 <template>
   <nav
     v-if="visibleItems.length"
-    class="relative hidden h-12 items-center border-b lg:flex"
-    :class="variant === 'white' ? 'bg-nav-bar-background' : 'bg-muted'"
+    class="bg-nav-bar-background relative hidden h-12 items-center border-b lg:flex"
     :aria-label="$t('layout.main_navigation')"
   >
     <div class="mx-auto w-full max-w-7xl px-4 lg:px-6">
@@ -89,7 +88,9 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
           >
             <!-- Item with children: trigger + mega menu -->
             <template v-if="visibleChildren(item).length">
-              <NavigationMenuTrigger>
+              <NavigationMenuTrigger
+                class="bg-transparent underline-offset-4 hover:bg-transparent hover:underline focus:bg-transparent data-[state=open]:bg-transparent data-[state=open]:underline data-[state=open]:hover:bg-transparent data-[state=open]:focus:bg-transparent"
+              >
                 {{ getMenuLabel(item) }}
               </NavigationMenuTrigger>
               <NavigationMenuContent
@@ -132,12 +133,11 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
 
             <!-- Item without children: plain link -->
             <template v-else>
-              <NavigationMenuLink as-child>
-                <component
-                  :is="linkTag(item)"
-                  v-bind="linkAttrs(item)"
-                  class="hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground inline-flex h-9 items-center rounded-md px-4 py-2 text-sm font-medium transition-colors"
-                >
+              <NavigationMenuLink
+                as-child
+                class="inline-flex h-9 flex-row items-center rounded-md bg-transparent px-4 py-2 text-sm font-medium underline-offset-4 transition-colors hover:bg-transparent hover:text-inherit hover:underline focus:bg-transparent focus:text-inherit focus:underline"
+              >
+                <component :is="linkTag(item)" v-bind="linkAttrs(item)">
                   {{ getMenuLabel(item) }}
                 </component>
               </NavigationMenuLink>

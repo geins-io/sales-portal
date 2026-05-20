@@ -102,7 +102,7 @@ const COLOR_CSS_MAP: Record<keyof FullThemeColors, string> = {
 const SURFACE_FALLBACKS: Record<string, string> = {
   topBarBackground: 'var(--primary)',
   footerBackground: 'oklch(0.205 0 0)',
-  navBarBackground: 'var(--background)',
+  navBarBackground: 'var(--muted)',
   siteBackground: 'var(--background)',
   buttonBackground: 'var(--primary)',
   buttonPurchaseBackground: 'var(--button-background)',

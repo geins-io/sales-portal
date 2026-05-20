@@ -121,35 +121,22 @@ describe('LayoutHeaderNav', () => {
     expect(wrapper.text()).toContain('Sub B');
   });
 
-  it('paints bg-nav-bar-background on the white variant', () => {
+  it('always paints bg-nav-bar-background (tenant theme drives colour, with var(--muted) fallback)', () => {
     mockMenu.value = {
       id: '1',
       title: 'Main',
       menuItems: [{ id: '1', label: 'Item', order: 1 }],
     };
-    const wrapper = shallowMountComponent(LayoutHeaderNav, {
-      ...mountOptions,
-      props: { variant: 'white' },
-    });
-    const nav = wrapper.find('nav');
-    expect(nav.classes()).toContain('bg-nav-bar-background');
-    expect(nav.classes()).not.toContain('bg-background');
-    expect(nav.classes()).not.toContain('bg-muted');
-  });
-
-  it('keeps bg-muted on the grey variant (non-customizable design)', () => {
-    mockMenu.value = {
-      id: '1',
-      title: 'Main',
-      menuItems: [{ id: '1', label: 'Item', order: 1 }],
-    };
-    const wrapper = shallowMountComponent(LayoutHeaderNav, {
-      ...mountOptions,
-      props: { variant: 'grey' },
-    });
-    const nav = wrapper.find('nav');
-    expect(nav.classes()).toContain('bg-muted');
-    expect(nav.classes()).not.toContain('bg-nav-bar-background');
+    for (const variant of ['grey', 'white'] as const) {
+      const wrapper = shallowMountComponent(LayoutHeaderNav, {
+        ...mountOptions,
+        props: { variant },
+      });
+      const nav = wrapper.find('nav');
+      expect(nav.classes()).toContain('bg-nav-bar-background');
+      expect(nav.classes()).not.toContain('bg-muted');
+      expect(nav.classes()).not.toContain('bg-background');
+    }
   });
 
   it('is hidden on mobile (lg:flex)', () => {
