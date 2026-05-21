@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue';
 import { NuxtLink } from '#components';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
 const props = withDefaults(
@@ -20,7 +21,8 @@ const props = withDefaults(
 );
 
 const { localePath } = useLocaleMarket();
-const { logoUrl, logoDarkUrl, logoSymbolUrl, brandName } = useTenant();
+const { logoUrl, rawLogoUrl, logoDarkUrl, logoSymbolUrl, brandName } =
+  useTenant();
 
 const effectiveSrc = computed(() => props.src ?? logoUrl.value);
 const effectiveSrcDark = computed(() => props.srcDark ?? logoDarkUrl.value);
@@ -28,6 +30,14 @@ const effectiveSrcSymbol = computed(
   () => props.srcSymbol ?? logoSymbolUrl.value,
 );
 const effectiveAlt = computed(() => props.alt ?? brandName.value);
+
+// Show the avatar+name fallback only when the tenant has not configured a logo
+// (and the caller hasn't passed an explicit src override).
+const showFallback = computed(() => !props.src && !rawLogoUrl.value);
+
+const iconFallback = computed(() =>
+  (brandName.value ?? '').trim().charAt(0).toUpperCase(),
+);
 
 const tag = computed(() => (props.linked ? NuxtLink : 'span'));
 </script>
@@ -39,40 +49,56 @@ const tag = computed(() => (props.linked ? NuxtLink : 'span'));
     data-slot="logo"
     :class="cn('inline-flex items-center', props.class)"
   >
-    <!-- Symbol logo (small screens, when available) -->
-    <NuxtImg
-      v-if="effectiveSrcSymbol"
-      :src="effectiveSrcSymbol"
-      :alt="effectiveAlt"
-      :class="cn(height, 'block w-auto md:hidden')"
-    />
+    <template v-if="showFallback">
+      <Avatar
+        v-if="iconFallback"
+        :class="cn('bg-accent text-accent-foreground mr-4 size-12 shrink-0')"
+      >
+        <AvatarFallback
+          class="bg-accent text-accent-foreground font-heading text-xl font-bold tracking-wider"
+        >
+          {{ iconFallback }}
+        </AvatarFallback>
+      </Avatar>
+      <span class="text-xl font-semibold tracking-wide">{{ brandName }}</span>
+    </template>
 
-    <!-- Full logo (light mode, or only logo) -->
-    <NuxtImg
-      :src="effectiveSrc"
-      :alt="effectiveAlt"
-      :class="
-        cn(
-          height,
-          'w-auto',
-          effectiveSrcSymbol ? 'hidden md:block' : '',
-          effectiveSrcDark ? 'dark:hidden' : '',
-        )
-      "
-    />
+    <template v-else>
+      <!-- Symbol logo (small screens, when available) -->
+      <NuxtImg
+        v-if="effectiveSrcSymbol"
+        :src="effectiveSrcSymbol"
+        :alt="effectiveAlt"
+        :class="cn(height, 'block w-auto md:hidden')"
+      />
 
-    <!-- Dark mode logo -->
-    <NuxtImg
-      v-if="effectiveSrcDark"
-      :src="effectiveSrcDark"
-      :alt="effectiveAlt"
-      :class="
-        cn(
-          height,
-          'hidden w-auto dark:block',
-          effectiveSrcSymbol ? 'md:dark:block' : '',
-        )
-      "
-    />
+      <!-- Full logo (light mode, or only logo) -->
+      <NuxtImg
+        :src="effectiveSrc"
+        :alt="effectiveAlt"
+        :class="
+          cn(
+            height,
+            'w-auto',
+            effectiveSrcSymbol ? 'hidden md:block' : '',
+            effectiveSrcDark ? 'dark:hidden' : '',
+          )
+        "
+      />
+
+      <!-- Dark mode logo -->
+      <NuxtImg
+        v-if="effectiveSrcDark"
+        :src="effectiveSrcDark"
+        :alt="effectiveAlt"
+        :class="
+          cn(
+            height,
+            'hidden w-auto dark:block',
+            effectiveSrcSymbol ? 'md:dark:block' : '',
+          )
+        "
+      />
+    </template>
   </component>
 </template>

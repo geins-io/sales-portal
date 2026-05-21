@@ -46,6 +46,14 @@ export function useTenant() {
     return tenant.value?.branding?.logoUrl ?? '/logo.svg';
   });
 
+  /**
+   * Raw branding logo URL with no fallback. Use this to detect whether a tenant
+   * has actually configured a logo (vs. relying on the `/logo.svg` placeholder).
+   */
+  const rawLogoUrl = computed(() => {
+    return tenant.value?.branding?.logoUrl ?? null;
+  });
+
   const logoDarkUrl = computed(() => {
     return tenant.value?.branding?.logoDarkUrl ?? null;
   });
@@ -98,6 +106,7 @@ export function useTenant() {
     theme,
     branding,
     logoUrl,
+    rawLogoUrl,
     logoDarkUrl,
     logoSymbolUrl,
     faviconUrl,

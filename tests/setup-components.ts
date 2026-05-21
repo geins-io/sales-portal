@@ -161,6 +161,7 @@ vi.mock('../app/composables/useTenant', () => {
       theme: computed(() => tenant.value?.theme),
       branding: computed(() => tenant.value?.branding),
       logoUrl: computed(() => tenant.value?.branding?.logoUrl ?? '/logo.svg'),
+      rawLogoUrl: computed(() => tenant.value?.branding?.logoUrl ?? null),
       logoDarkUrl: computed(() => tenant.value?.branding?.logoDarkUrl ?? null),
       logoSymbolUrl: computed(
         () => tenant.value?.branding?.logoSymbolUrl ?? null,
