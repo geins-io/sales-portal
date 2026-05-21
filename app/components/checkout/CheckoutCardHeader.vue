@@ -16,7 +16,7 @@ defineProps<{
         class="text-muted-foreground size-5 shrink-0"
         aria-hidden="true"
       />
-      <CardTitle class="text-lg">{{ title }}</CardTitle>
+      <CardTitle class="text-xl">{{ title }}</CardTitle>
       <div v-if="$slots.action" class="ms-auto">
         <slot name="action" />
       </div>
