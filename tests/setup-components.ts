@@ -203,3 +203,11 @@ vi.mock('../app/composables/useTenant', () => {
     }),
   };
 });
+
+// Component tests default to permissive access. Tests that need to assert
+// specific access behavior override this mock locally with vi.mock.
+vi.mock('../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({
+    canAccess: () => true,
+  }),
+}));
