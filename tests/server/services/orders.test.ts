@@ -98,9 +98,9 @@ describe('orders service', () => {
   });
 
   describe('listOrders', () => {
-    it('calls graphql.query with getOrders query and channel variables', async () => {
+    it('calls graphql.query with getCompanyOrders query and channel variables', async () => {
       const graphqlResult = {
-        getOrders: [
+        getCompanyOrders: [
           { id: 1, status: 'Placed', publicId: 'abc-123' },
           { id: 2, status: 'Completed', publicId: 'def-456' },
         ],
@@ -125,7 +125,7 @@ describe('orders service', () => {
     });
 
     it('returns empty array when getOrders returns null', async () => {
-      mockGraphqlQuery.mockResolvedValueOnce({ getOrders: null });
+      mockGraphqlQuery.mockResolvedValueOnce({ getCompanyOrders: null });
 
       const result = await ordersService.listOrders(mockEvent);
 
@@ -135,7 +135,7 @@ describe('orders service', () => {
 
     it('joins each order to the company buyer roster via email', async () => {
       mockGraphqlQuery.mockResolvedValueOnce({
-        getOrders: [
+        getCompanyOrders: [
           {
             id: 1,
             status: 'Placed',

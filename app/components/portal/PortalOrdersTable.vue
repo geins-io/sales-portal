@@ -39,25 +39,19 @@ function formatDate(dateStr: string | null | undefined): string {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   } catch {
     return dateStr;
   }
 }
 
-function getPlacedBy(order: {
-  placedBy?: string | null;
-  billingAddress?: { firstName?: string; lastName?: string } | null;
-}): string {
+function getPlacedBy(order: { placedBy?: string | null }): string {
   // placedBy is the resolved buyer name from the email → CompanyBuyer
-  // join; billingAddress is the company billing contact (same name on
-  // every row in a B2B account) and is only a fallback.
-  if (order.placedBy) return order.placedBy;
-  const addr = order.billingAddress;
-  if (!addr) return '-';
-  return [addr.firstName, addr.lastName].filter(Boolean).join(' ') || '-';
+  // join. Older orders predating Geins's `OrderType.customerEmail` field
+  // come back without an email and stay unresolved; we render "-"
+  // rather than falling back to billingAddress, which is the company
+  // contact and would show the same wrong name on every such row.
+  return order.placedBy || '-';
 }
 
 function getStatusVariant(

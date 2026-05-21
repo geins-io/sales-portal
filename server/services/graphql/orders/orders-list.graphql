@@ -1,5 +1,5 @@
-query getOrders($channelId: String, $languageId: String, $marketId: String) {
-  getOrders(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+query getCompanyOrders($channelId: String, $languageId: String, $marketId: String) {
+  getCompanyOrders(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
     id
     publicId
     status

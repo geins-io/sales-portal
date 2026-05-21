@@ -60,11 +60,31 @@ describe('PortalOrdersTable', () => {
     expect(wrapper.text()).toContain('portal.orders.status.delivered');
   });
 
-  it('renders placed by name from billingAddress', () => {
+  it('renders placedBy when resolved from the company buyer roster', () => {
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: {
+        orders: [{ ...mockOrders[0], placedBy: 'Tina Ekestang' }],
+      },
+    });
+    expect(wrapper.text()).toContain('Tina Ekestang');
+  });
+
+  it('renders a dash when placedBy is unresolved, never the billing contact', () => {
     const wrapper = mountComponent(PortalOrdersTable, {
       props: { orders: mockOrders },
     });
-    expect(wrapper.text()).toContain('Adam Johnsson');
+    // billingAddress is the company billing contact and would mislead the
+    // viewer into thinking that person placed the order.
+    expect(wrapper.text()).not.toContain('Adam Johnsson');
+    expect(wrapper.text()).not.toContain('Jessica Andersson');
+  });
+
+  it('formats createdAt as date only, dropping the time portion', () => {
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: { orders: mockOrders },
+    });
+    expect(wrapper.text()).toContain('2025-12-22');
+    expect(wrapper.text()).not.toMatch(/2025-12-22\s+\d{2}:\d{2}/);
   });
 
   it('shows empty state when no orders', () => {
