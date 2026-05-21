@@ -41,7 +41,7 @@ const { hasFeature } = useTenant();
       <!-- Right: Apply + Login -->
       <div class="flex items-center gap-4">
         <NuxtLink
-          v-if="hasFeature('applyForAccount')"
+          v-if="hasFeature('applyForAccount') && !authStore.isAuthenticated"
           :to="localePath('/apply-for-account')"
           class="hidden hover:underline sm:inline"
         >
