@@ -9,10 +9,15 @@ import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
 
 /**
- * Simplified product shape used by the new Figma-aligned ProductCard.
- * The component also accepts the full ListProduct | DetailProduct for
- * backward compatibility with existing callers (ProductList, RelatedProducts, etc.)
- * that have not yet been migrated to the simpler shape.
+ * Brief product shape for surfaces that don't have the full Geins SDK
+ * payload. Favorites and Purchased Products on the portal landing pull
+ * from the purchased-products aggregator and only have alias, name,
+ * image, and a pre-formatted price string. Avoids a second GraphQL
+ * round-trip per row just to render a card.
+ *
+ * ProductCard also accepts the full Geins SDK shape
+ * (ListProduct | DetailProduct) used by PLP, PDP, search, related
+ * products, and cart. The isFullProduct() type guard discriminates.
  */
 export interface ProductCardItem {
   name: string;
@@ -41,8 +46,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
 
-// Detect whether we're using the legacy rich product types
-function isLegacyProduct(p: ProductCardProp): p is ListProduct | DetailProduct {
+function isFullProduct(p: ProductCardProp): p is ListProduct | DetailProduct {
   return 'unitPrice' in p;
 }
 
@@ -50,10 +54,13 @@ const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
 const authStore = useAuthStore();
 const { hasFeature, isCatalogMode } = useTenant();
-const { showPrice: priceVisibilityEnabled } = usePriceVisibility();
+const { canAccess } = useFeatureAccess();
+const canPurchase = computed(
+  () => canAccess('orderPlacement') && !isCatalogMode.value,
+);
 
 const productAlias = computed<string | null>(() => {
-  if (isLegacyProduct(props.product)) return props.product.alias ?? null;
+  if (isFullProduct(props.product)) return props.product.alias ?? null;
   return props.product.alias ?? null;
 });
 
@@ -69,27 +76,20 @@ function openListPicker() {
   showListPicker.value = true;
 }
 
-// Legacy ListProduct/DetailProduct shapes need the composable's visibility check.
-// New ProductCardItem shapes always have explicit prices and bypass the check.
-const showPrice = computed(() => {
-  if (!isLegacyProduct(props.product)) return true;
-  return priceVisibilityEnabled.value;
-});
-
 const firstImage = computed(() => {
-  if (isLegacyProduct(props.product)) {
+  if (isFullProduct(props.product)) {
     return props.product.productImages?.[0];
   }
   return null;
 });
 
 const imageFileName = computed(() => {
-  if (isLegacyProduct(props.product)) return firstImage.value?.fileName ?? null;
+  if (isFullProduct(props.product)) return firstImage.value?.fileName ?? null;
   return props.product.imageFileName ?? null;
 });
 
 const productUrl = computed(() => {
-  if (isLegacyProduct(props.product)) {
+  if (isFullProduct(props.product)) {
     if (props.product.canonicalUrl) {
       return localePath(productPath(props.product.canonicalUrl));
     }
@@ -102,12 +102,12 @@ const productUrl = computed(() => {
 });
 
 const firstSku = computed(() => {
-  if (isLegacyProduct(props.product)) return props.product.skus?.[0] ?? null;
+  if (isFullProduct(props.product)) return props.product.skus?.[0] ?? null;
   return null;
 });
 
 const maxQuantity = computed(() => {
-  if (isLegacyProduct(props.product)) {
+  if (isFullProduct(props.product)) {
     const stock = props.product.totalStock?.totalStock;
     return stock && stock > 0 ? stock : 99;
   }
@@ -115,7 +115,7 @@ const maxQuantity = computed(() => {
 });
 
 const visibleCampaigns = computed(() => {
-  if (isLegacyProduct(props.product)) {
+  if (isFullProduct(props.product)) {
     return filterVisibleCampaigns(props.product.discountCampaigns ?? []);
   }
   return [];
@@ -126,7 +126,7 @@ const isAdding = ref(false);
 const addError = ref(false);
 
 async function addToCart() {
-  if (isLegacyProduct(props.product)) {
+  if (isFullProduct(props.product)) {
     if (!firstSku.value?.skuId) return;
     isAdding.value = true;
     addError.value = false;
@@ -153,7 +153,6 @@ async function addToCart() {
     class="bg-card flex flex-col overflow-hidden rounded-md border"
     data-testid="product-card"
   >
-    <!-- Image (padded so it doesn't fill edge-to-edge) -->
     <div class="relative p-3">
       <div
         class="bg-muted group relative aspect-square w-full overflow-hidden rounded-md"
@@ -192,7 +191,7 @@ async function addToCart() {
             {{ t('product.no_image') }}
           </div>
         </div>
-        <!-- Campaign badges (legacy only) -->
+        <!-- Campaign badges -->
         <div
           v-if="visibleCampaigns.length"
           class="absolute top-2 left-2 flex flex-col gap-1"
@@ -209,17 +208,14 @@ async function addToCart() {
       </div>
     </div>
 
-    <!-- Content -->
     <div class="flex flex-1 flex-col gap-2 px-4 pb-4">
-      <!-- Article number + Wishlist (Figma: heart sits next to art nr in
-           the content area, not on the image) -->
       <div class="flex items-start justify-between gap-2">
         <p
           v-if="product?.articleNumber"
           class="text-muted-foreground text-xs"
           data-testid="article-number"
         >
-          <template v-if="isLegacyProduct(product)">
+          <template v-if="isFullProduct(product)">
             {{ t('product.article_number', { number: product.articleNumber }) }}
           </template>
           <template v-else>
@@ -243,7 +239,6 @@ async function addToCart() {
         </Button>
       </div>
 
-      <!-- Product title (Figma: text-base/500) -->
       <NuxtLink v-if="productUrl" :to="productUrl" class="hover:underline">
         <h3 class="line-clamp-2 text-base leading-tight font-medium">
           {{ product?.name }}
@@ -253,16 +248,16 @@ async function addToCart() {
         {{ product?.name }}
       </h3>
 
-      <!-- Stock badge (legacy only) -->
+      <!-- Stock badge -->
       <StockBadge
-        v-if="isLegacyProduct(product) && product.totalStock"
+        v-if="isFullProduct(product) && product.totalStock"
         :stock="product.totalStock"
         size="sm"
       />
 
-      <!-- Price: legacy rich pricing -->
+      <!-- Price (full Geins shape) -->
       <PriceDisplay
-        v-if="isLegacyProduct(product) && product.unitPrice"
+        v-if="isFullProduct(product) && product.unitPrice"
         :price="product.unitPrice"
         :lowest-price="product.lowestPrice"
         :discount-type="product.discountType"
@@ -270,9 +265,9 @@ async function addToCart() {
         class="text-base font-semibold"
       />
 
-      <!-- Price: simple ProductCardItem pricing -->
+      <!-- Price (brief ProductCardItem shape) -->
       <div
-        v-else-if="!isLegacyProduct(product) && product.price != null"
+        v-else-if="!isFullProduct(product) && product.price != null"
         class="flex items-baseline gap-2"
       >
         <span
@@ -294,20 +289,14 @@ async function addToCart() {
         </span>
       </div>
 
-      <!-- Quantity + Add to cart (Figma: both 36px tall, gap 12) -->
-      <div
-        v-if="showPrice && !isCatalogMode"
-        class="mt-auto flex items-center gap-3 pt-3"
-      >
-        <!-- Legacy: QuantityInput -->
+      <div v-if="canPurchase" class="mt-auto flex items-center gap-3 pt-3">
         <QuantityInput
-          v-if="isLegacyProduct(product)"
+          v-if="isFullProduct(product)"
           v-model="quantity"
           :min="1"
           :max="maxQuantity"
           class="h-9 shrink-0"
         />
-        <!-- New: QuantityStepper -->
         <QuantityStepper
           v-else
           v-model="quantity"
@@ -318,21 +307,19 @@ async function addToCart() {
           data-testid="add-to-cart-button"
           class="h-9 min-w-0 flex-1 overflow-hidden px-4"
           :variant="addError ? 'destructive' : 'default'"
-          :disabled="
-            isLegacyProduct(product) ? !firstSku || isAdding : isLoading
-          "
+          :disabled="isFullProduct(product) ? !firstSku || isAdding : isLoading"
           @click="addToCart"
         >
           <AlertCircle
-            v-if="isLegacyProduct(product) && addError"
+            v-if="isFullProduct(product) && addError"
             class="mr-1.5 size-4 shrink-0"
           />
           <ShoppingCart
-            v-else-if="isLegacyProduct(product)"
+            v-else-if="isFullProduct(product)"
             class="mr-1.5 size-4 shrink-0"
           />
           <span class="whitespace-nowrap">
-            <template v-if="isLegacyProduct(product)">
+            <template v-if="isFullProduct(product)">
               {{
                 addError ? t('cart.add_failed') : t('cart.add_to_cart_short')
               }}
@@ -351,15 +338,13 @@ async function addToCart() {
     />
   </div>
 
-  <!-- List variant (legacy only) — compact single-row on md+, stacked on mobile -->
+  <!-- List variant: compact single-row on md+, stacked on mobile -->
   <div
     v-else
     class="bg-card flex flex-col gap-3 rounded-md border px-3 py-2 md:flex-row md:items-center md:gap-4"
     data-testid="product-card"
   >
-    <!-- Top row on mobile: thumbnail + title-meta -->
     <div class="flex min-w-0 items-center gap-3 md:contents">
-      <!-- Thumbnail (small square) -->
       <div
         class="bg-muted relative aspect-square size-16 shrink-0 overflow-hidden rounded-md"
       >
@@ -398,7 +383,6 @@ async function addToCart() {
         </div>
       </div>
 
-      <!-- Title + meta -->
       <div class="flex min-w-0 flex-1 flex-col gap-0.5">
         <NuxtLink v-if="productUrl" :to="productUrl" class="hover:underline">
           <h3 class="line-clamp-1 text-sm leading-tight font-semibold">
@@ -413,7 +397,7 @@ async function addToCart() {
           class="text-muted-foreground text-xs"
           data-testid="article-number"
         >
-          <template v-if="isLegacyProduct(product)">
+          <template v-if="isFullProduct(product)">
             {{ t('product.article_number', { number: product.articleNumber }) }}
           </template>
           <template v-else>
@@ -421,20 +405,18 @@ async function addToCart() {
           </template>
         </p>
         <StockBadge
-          v-if="isLegacyProduct(product) && product.totalStock"
+          v-if="isFullProduct(product) && product.totalStock"
           :stock="product.totalStock"
           size="sm"
         />
       </div>
     </div>
 
-    <!-- Bottom row on mobile: price + actions justified -->
     <div
       class="flex items-center justify-between gap-3 md:contents md:justify-end"
     >
-      <!-- Price -->
       <PriceDisplay
-        v-if="isLegacyProduct(product) && product.unitPrice"
+        v-if="isFullProduct(product) && product.unitPrice"
         :price="product.unitPrice"
         :lowest-price="product.lowestPrice"
         :discount-type="product.discountType"
@@ -442,11 +424,10 @@ async function addToCart() {
         class="shrink-0 text-base font-semibold"
       />
 
-      <!-- Actions: qty + cart + wishlist -->
-      <template v-if="showPrice && !isCatalogMode">
+      <template v-if="canPurchase">
         <div class="flex shrink-0 items-center gap-2">
           <QuantityInput
-            v-if="isLegacyProduct(product)"
+            v-if="isFullProduct(product)"
             v-model="quantity"
             :min="1"
             :max="maxQuantity"
@@ -458,20 +439,20 @@ async function addToCart() {
             class="h-9 px-4"
             :variant="addError ? 'destructive' : 'default'"
             :disabled="
-              isLegacyProduct(product) ? !firstSku || isAdding : isLoading
+              isFullProduct(product) ? !firstSku || isAdding : isLoading
             "
             @click="addToCart"
           >
             <AlertCircle
-              v-if="isLegacyProduct(product) && addError"
+              v-if="isFullProduct(product) && addError"
               class="mr-1.5 size-4 shrink-0"
             />
             <ShoppingCart
-              v-else-if="isLegacyProduct(product)"
+              v-else-if="isFullProduct(product)"
               class="mr-1.5 size-4 shrink-0"
             />
             <span class="whitespace-nowrap">
-              <template v-if="isLegacyProduct(product)">
+              <template v-if="isFullProduct(product)">
                 {{ addError ? t('cart.add_failed') : t('cart.add_to_cart') }}
               </template>
               <template v-else>

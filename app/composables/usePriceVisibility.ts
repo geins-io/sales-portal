@@ -8,5 +8,13 @@ export function usePriceVisibility() {
     return canAccess('priceVisibility');
   });
 
-  return { showPrice };
+  // True when the price is hidden but auth would unlock it — lets the UI
+  // surface a "log in to see prices" hint. False when the tenant has the
+  // feature outright disabled, because no user action will reveal them.
+  const canUnlockByAuth = computed(() => {
+    if (!isFeatureConfigured('priceVisibility')) return false;
+    return hasFeature('priceVisibility') && !canAccess('priceVisibility');
+  });
+
+  return { showPrice, canUnlockByAuth };
 }

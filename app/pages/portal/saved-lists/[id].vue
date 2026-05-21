@@ -14,7 +14,7 @@ import type { StockType } from '#shared/types/commerce';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
 
-definePageMeta({ middleware: 'auth' });
+definePageMeta({ middleware: ['auth', 'feature'], feature: 'lists' });
 
 // Saved-list detail. The list itself is client-side (SDK ListsSession),
 // items are product aliases. We fetch fresh product data from
@@ -42,6 +42,10 @@ const route = useRoute();
 const { localePath } = useLocaleMarket();
 const router = useRouter();
 const { isCatalogMode } = useTenant();
+const { canAccess } = useFeatureAccess();
+const canPurchase = computed(
+  () => canAccess('orderPlacement') && !isCatalogMode.value,
+);
 
 const favoritesStore = useFavoritesStore();
 const cartStore = useCartStore();
@@ -246,7 +250,7 @@ function addToCart(product: ListProduct) {
                 {{ t('portal.saved_list_detail.delete_list') }}
               </Button>
               <Button
-                v-if="products.length && !isCatalogMode"
+                v-if="products.length && canPurchase"
                 data-testid="add-all-to-cart-btn"
                 :disabled="isAddingAll"
                 @click="addAllToCart"
@@ -408,9 +412,8 @@ function addToCart(product: ListProduct) {
                   @update:model-value="(v) => setQty(product.alias, v)"
                 />
 
-                <!-- Add to cart -->
                 <Button
-                  v-if="!isCatalogMode && product.alias"
+                  v-if="canPurchase && product.alias"
                   variant="ghost"
                   size="icon"
                   :aria-label="t('portal.saved_list_detail.add_to_cart')"

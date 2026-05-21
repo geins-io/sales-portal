@@ -20,7 +20,11 @@ import { Checkbox } from '~/components/ui/checkbox';
 import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 
-definePageMeta({ layout: 'checkout' });
+definePageMeta({
+  layout: 'checkout',
+  middleware: 'feature',
+  feature: 'checkout',
+});
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();

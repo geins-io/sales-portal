@@ -150,7 +150,7 @@ Use the pre-built composables instead of calling `hasFeature`/`canAccess` inline
 
 ```vue
 <script setup>
-const { showPrice } = usePriceVisibility();
+const { showPrice, canUnlockByAuth } = usePriceVisibility();
 const { showStock } = useStockVisibility();
 </script>
 
@@ -160,7 +160,35 @@ const { showStock } = useStockVisibility();
 </template>
 ```
 
-Never add a raw `hasFeature('priceVisibility')` check in a new component — always go through the composable so the logic stays in one place. The composable correctly handles the three states: feature absent (fail-open), feature present but disabled, and feature enabled with access control.
+`usePriceVisibility()` exposes a second flag, `canUnlockByAuth`, that is true when the price is hidden but auth would reveal it. Surfaces that want to tell guests they can sign in to see prices should gate the hint on `canUnlockByAuth`, not just on `!showPrice`. When the feature is outright disabled the hint silently disappears.
+
+Never add a raw `hasFeature('priceVisibility')` check in a new component. Always go through the composable so the logic stays in one place. The composable handles three states: feature absent (fail-open), feature present but disabled (no hint, no price), and feature enabled with access control (hint when access is the only blocker).
+
+### Canonical feature catalog
+
+The storefront recognises the following keys from `appSettings.features` on the merchant API response. Most are toggleable in Geins admin per tenant. Names match the Geins admin contract; do not invent new keys without coordinating with the platform team.
+
+| Key                 | Gate type            | Storefront surfaces                                               |
+| ------------------- | -------------------- | ----------------------------------------------------------------- |
+| `priceVisibility`   | `enabled` + `access` | Price displays across PLP, PDP, cart, checkout, variant selector  |
+| `stockStatus`       | `enabled` + `access` | Stock badges on PLP and PDP, stock chip in variant selector       |
+| `orderPlacement`    | `enabled` + `access` | Add-to-cart buttons on PLP, PDP, saved-list rows                  |
+| `cart`              | `enabled` + `access` | Header cart icon, `/cart` route                                   |
+| `checkout`          | `enabled` + `access` | `/checkout` route                                                 |
+| `wishlist`          | `enabled` + `access` | Wishlist star on product cards and PDP, `/portal/favorites` route |
+| `lists`             | `enabled` + `access` | Add-to-list buttons, `/portal/lists`, `/portal/saved-lists/[id]`  |
+| `orderHistory`      | `enabled` + `access` | `/portal/orders`, `/portal/orders/[id]`                           |
+| `quotes`            | `enabled` + `access` | `/portal/quotations`, `/portal/quotations/[id]`                   |
+| `reorder`           | `enabled` + `access` | Reorder button on order detail                                    |
+| `newsletter`        | `enabled` only       | Footer newsletter signup block                                    |
+| `applyForAccount`   | `enabled` only       | `/apply-for-account` page, topbar link, auth-sheet tab            |
+| `registration`      | `enabled` only       | Auth-sheet sign-up tab, `/api/auth/register` endpoint             |
+| `search`            | `enabled` only       | Search bar in header (when wired)                                 |
+| `productComparison` | `enabled` only       | Reserved for a compare feature (not yet implemented)              |
+| `mfa`               | `enabled` only       | Reserved for multi-factor login (not yet implemented)             |
+| `analytics`         | `enabled` only       | Tenant analytics plugin and CookieBanner consent gate             |
+
+Three of these (`priceVisibility`, `orderPlacement`, `stockStatus`) are the canonical defaults the platform team backs with hard-coded fallbacks. The rest still come from the live API response and must be honored when present.
 
 ### Catalog mode
 
