@@ -91,7 +91,7 @@ const hasMultiple = computed(() => props.images.length > 1);
     <!-- Image counter -->
     <p
       v-if="hasMultiple"
-      class="text-muted-foreground text-xs"
+      class="text-muted-foreground text-center text-xs"
       data-testid="image-counter"
     >
       {{

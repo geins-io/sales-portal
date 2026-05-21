@@ -406,7 +406,7 @@ useSchemaOrg([
          md:  gallery + info on first row, right card below
          mobile: stacked single column -->
     <div
-      class="bg-card grid gap-6 rounded-lg border p-4 md:p-6 lg:grid-cols-[400px_1fr_280px] lg:gap-9"
+      class="bg-card grid gap-6 rounded-lg border p-4 md:p-6 lg:grid-cols-[400px_1fr_265px] lg:gap-10"
       data-testid="pdp-top-area"
     >
       <!-- Left: Gallery -->
@@ -420,7 +420,7 @@ useSchemaOrg([
       </ErrorBoundary>
 
       <!-- Middle: Product info -->
-      <div class="flex flex-col gap-4">
+      <div class="flex flex-col gap-6">
         <!-- Product name + meta -->
         <div class="flex flex-col gap-1">
           <h1
@@ -447,16 +447,27 @@ useSchemaOrg([
           >
             {{ product.brand.name }}
           </p>
-
-          <!-- Text 3: extra detail copy under the product header -->
-          <p
-            v-if="text3Plain"
-            class="text-muted-foreground mt-1 text-sm leading-relaxed"
-            data-testid="product-text3"
-          >
-            {{ text3Plain }}
-          </p>
         </div>
+
+        <!-- Price: sits above the long-form description so the dominant
+             commerce signal anchors the column. -->
+        <PriceDisplay
+          v-if="product.unitPrice"
+          :price="product.unitPrice"
+          :lowest-price="product.lowestPrice"
+          :discount-type="product.discountType"
+          :campaign-names="visibleCampaigns.map((c) => c.name)"
+          class="text-2xl font-bold"
+        />
+
+        <!-- Text 3: extra detail copy under the price -->
+        <p
+          v-if="text3Plain"
+          class="text-muted-foreground text-sm leading-relaxed"
+          data-testid="product-text3"
+        >
+          {{ text3Plain }}
+        </p>
 
         <!-- Campaign badges -->
         <div
@@ -472,16 +483,6 @@ useSchemaOrg([
             {{ campaign.name }}
           </span>
         </div>
-
-        <!-- Price -->
-        <PriceDisplay
-          v-if="product.unitPrice"
-          :price="product.unitPrice"
-          :lowest-price="product.lowestPrice"
-          :discount-type="product.discountType"
-          :campaign-names="visibleCampaigns.map((c) => c.name)"
-          class="text-2xl font-bold"
-        />
 
         <!-- Negotiated price info banner -->
         <div
@@ -547,7 +548,7 @@ useSchemaOrg([
              Order per Figma: Download data sheet, Save as favourites,
              Add to lists, optional latest-order info below. -->
         <div
-          class="border-border flex flex-col divide-y border-y"
+          class="border-border flex flex-col border-y"
           data-testid="pdp-info-card"
         >
           <button
