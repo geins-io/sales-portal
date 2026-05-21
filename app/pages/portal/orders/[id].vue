@@ -21,6 +21,8 @@ const route = useRoute();
 const { localePath } = useLocaleMarket();
 const cartStore = useCartStore();
 const { isCatalogMode } = useTenant();
+const { canAccess } = useFeatureAccess();
+const canReorder = computed(() => canAccess('reorder') && !isCatalogMode.value);
 
 const isReordering = ref(false);
 
@@ -152,7 +154,7 @@ function formatDate(iso?: string): string {
               {{ t('portal.orders.detail.actions.order_communication') }}
             </Button>
             <Button
-              v-if="!isCatalogMode"
+              v-if="canReorder"
               data-testid="reorder-button"
               :disabled="isReordering"
               @click="handleReorder"
