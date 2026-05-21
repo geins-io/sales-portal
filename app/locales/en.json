@@ -747,14 +747,10 @@
       },
       "persons": {
         "col_id": "Id",
+        "col_email": "Email",
         "col_latest_login": "Latest login",
         "add": "+ Add person",
-        "col_active": "Active",
-        "col_name": "Name",
-        "col_phone": "Phone",
         "empty": "No persons found",
-        "status_active": "Active",
-        "status_inactive": "Inactive",
         "subtitle": "A list of all persons in your organisation",
         "title": "Persons"
       },

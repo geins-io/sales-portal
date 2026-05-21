@@ -747,14 +747,10 @@
       },
       "persons": {
         "col_id": "Id",
+        "col_email": "E-post",
         "col_latest_login": "Senaste inloggning",
         "add": "+ Lägg till person",
-        "col_active": "Aktiv",
-        "col_name": "Namn",
-        "col_phone": "Telefon",
         "empty": "Inga personer hittades",
-        "status_active": "Aktiv",
-        "status_inactive": "Inaktiv",
         "subtitle": "En lista över alla personer i din organisation",
         "title": "Personer"
       },

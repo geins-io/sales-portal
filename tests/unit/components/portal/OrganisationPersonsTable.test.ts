@@ -21,7 +21,7 @@ const OrganisationPersonsTable =
 
 function makeBuyer(overrides: Partial<CompanyBuyer> = {}): CompanyBuyer {
   return {
-    id: 'buyer-1',
+    id: 'jane@acme.com',
     firstName: 'Jane',
     lastName: 'Doe',
     phone: '+46701234567',
@@ -33,125 +33,55 @@ function makeBuyer(overrides: Partial<CompanyBuyer> = {}): CompanyBuyer {
 }
 
 describe('OrganisationPersonsTable', () => {
-  it('renders exactly 4 column headers: ID, Name, Phone, Active', () => {
+  it('renders three column headers: Id, Email, Latest login', () => {
     const wrapper = mount(OrganisationPersonsTable.default, {
       props: { buyers: [makeBuyer()] },
     });
-    const headers = wrapper.findAll('th');
-    expect(headers).toHaveLength(4);
+    const headers = wrapper.findAll('th').map((h) => h.text());
+    expect(headers).toHaveLength(3);
+    expect(headers[0]).toContain('portal.org.persons.col_id');
+    expect(headers[1]).toContain('portal.org.persons.col_email');
+    expect(headers[2]).toContain('portal.org.persons.col_latest_login');
   });
 
-  it('renders ID column header', () => {
+  it('renders the buyer id in the email column', () => {
+    const wrapper = mount(OrganisationPersonsTable.default, {
+      props: { buyers: [makeBuyer({ id: 'buyer.abc@example.com' })] },
+    });
+    expect(wrapper.text()).toContain('buyer.abc@example.com');
+  });
+
+  it('renders dashes for id and latest login columns (Geins gap)', () => {
     const wrapper = mount(OrganisationPersonsTable.default, {
       props: { buyers: [makeBuyer()] },
     });
-    const headerText = wrapper
-      .findAll('th')
-      .map((h) => h.text())
-      .join(' ');
-    expect(headerText).toContain('portal.org.persons.col_id');
+    const cells = wrapper.findAll('tbody td').map((td) => td.text());
+    expect(cells[0]).toBe('—');
+    expect(cells[2]).toBe('—');
   });
 
-  it('renders Name column header', () => {
-    const wrapper = mount(OrganisationPersonsTable.default, {
-      props: { buyers: [makeBuyer()] },
-    });
-    const headerText = wrapper
-      .findAll('th')
-      .map((h) => h.text())
-      .join(' ');
-    expect(headerText).toContain('portal.org.persons.col_name');
-  });
-
-  it('renders Phone column header', () => {
-    const wrapper = mount(OrganisationPersonsTable.default, {
-      props: { buyers: [makeBuyer()] },
-    });
-    const headerText = wrapper
-      .findAll('th')
-      .map((h) => h.text())
-      .join(' ');
-    expect(headerText).toContain('portal.org.persons.col_phone');
-  });
-
-  it('renders Active column header', () => {
-    const wrapper = mount(OrganisationPersonsTable.default, {
-      props: { buyers: [makeBuyer()] },
-    });
-    const headerText = wrapper
-      .findAll('th')
-      .map((h) => h.text())
-      .join(' ');
-    expect(headerText).toContain('portal.org.persons.col_active');
-  });
-
-  it('does NOT render Email, Role, or Latest login headers', () => {
-    const wrapper = mount(OrganisationPersonsTable.default, {
-      props: { buyers: [makeBuyer()] },
-    });
-    const text = wrapper.text().toLowerCase();
-    expect(text).not.toContain('email');
-    expect(text).not.toContain('role');
-    expect(text).not.toContain('latest login');
-    expect(text).not.toContain('last login');
-  });
-
-  it('renders buyer id in the row', () => {
-    const wrapper = mount(OrganisationPersonsTable.default, {
-      props: { buyers: [makeBuyer({ id: 'buyer-abc' })] },
-    });
-    expect(wrapper.text()).toContain('buyer-abc');
-  });
-
-  it('renders full name from firstName + lastName', () => {
-    const wrapper = mount(OrganisationPersonsTable.default, {
-      props: { buyers: [makeBuyer({ firstName: 'Jane', lastName: 'Doe' })] },
-    });
-    expect(wrapper.text()).toContain('Jane Doe');
-  });
-
-  it('falls back to dash when both firstName and lastName are missing', () => {
-    const wrapper = mount(OrganisationPersonsTable.default, {
-      props: { buyers: [makeBuyer({ firstName: null, lastName: null })] },
-    });
-    expect(wrapper.text()).toContain('—');
-  });
-
-  it('renders phone in the row', () => {
-    const wrapper = mount(OrganisationPersonsTable.default, {
-      props: { buyers: [makeBuyer({ phone: '+46701234567' })] },
-    });
-    expect(wrapper.text()).toContain('+46701234567');
-  });
-
-  it('falls back to dash when phone is absent', () => {
-    const wrapper = mount(OrganisationPersonsTable.default, {
-      props: { buyers: [makeBuyer({ phone: null })] },
-    });
-    expect(wrapper.text()).toContain('—');
-  });
-
-  it('active buyer pill has different class than inactive pill', () => {
+  it('renders no name, phone, or active pill', () => {
     const wrapper = mount(OrganisationPersonsTable.default, {
       props: {
         buyers: [
-          makeBuyer({ id: 'a', active: true }),
-          makeBuyer({ id: 'b', active: false }),
+          makeBuyer({ firstName: 'Jane', lastName: 'Doe', phone: '+4670' }),
         ],
       },
     });
-    const pills = wrapper.findAll('[data-testid="buyer-status-pill"]');
-    expect(pills).toHaveLength(2);
-    const activeClass = pills[0].classes().join(' ');
-    const inactiveClass = pills[1].classes().join(' ');
-    expect(activeClass).not.toBe(inactiveClass);
+    expect(wrapper.text()).not.toContain('Jane Doe');
+    expect(wrapper.text()).not.toContain('+4670');
+    expect(wrapper.find('[data-testid="buyer-status-pill"]').exists()).toBe(
+      false,
+    );
   });
 
-  it('renders no button element (no add/edit actions)', () => {
+  it('wraps the table in a bordered card', () => {
     const wrapper = mount(OrganisationPersonsTable.default, {
       props: { buyers: [makeBuyer()] },
     });
-    expect(wrapper.find('button').exists()).toBe(false);
+    const wrapperDiv = wrapper.find('table').element.parentElement;
+    expect(wrapperDiv?.className).toContain('border');
+    expect(wrapperDiv?.className).toContain('rounded-lg');
   });
 
   it('renders empty state when buyers is empty', () => {
@@ -159,6 +89,7 @@ describe('OrganisationPersonsTable', () => {
       props: { buyers: [] },
     });
     expect(wrapper.text()).toContain('portal.org.persons.empty');
+    expect(wrapper.find('table').exists()).toBe(false);
   });
 
   it('uses semantic table with thead', () => {
