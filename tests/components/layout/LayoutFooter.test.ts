@@ -21,26 +21,19 @@ vi.mock('~/composables/useCmsMenuData', () => ({
 vi.stubGlobal('useRequestURL', () => new URL('https://test.example.com'));
 
 describe('LayoutFooter root', () => {
-  it('does not paint bg-footer-background on the outer footer (children paint)', () => {
+  it('paints bg-footer-background on the outer footer (unified background)', () => {
     const wrapper = shallowMountComponent(LayoutFooter);
     const footer = wrapper.find('footer');
     expect(footer.exists()).toBe(true);
-    expect(footer.classes()).not.toContain('bg-footer-background');
+    expect(footer.classes()).toContain('bg-footer-background');
+    expect(footer.classes()).not.toContain('bg-neutral-900');
+    expect(footer.classes()).toContain('text-footer-text');
   });
 
   it('keeps the border-t separator class on the outer footer', () => {
     const wrapper = shallowMountComponent(LayoutFooter);
     const footer = wrapper.find('footer');
     expect(footer.classes()).toContain('border-t');
-  });
-
-  it('paints bg-footer-background on the inner main+bottom container', () => {
-    const wrapper = shallowMountComponent(LayoutFooter);
-    const inner = wrapper.find('footer > div');
-    expect(inner.exists()).toBe(true);
-    expect(inner.classes()).toContain('bg-footer-background');
-    expect(inner.classes()).not.toContain('bg-neutral-900');
-    expect(inner.classes()).toContain('text-footer-text');
   });
 });
 
@@ -139,9 +132,9 @@ describe('LayoutFooterBottom', () => {
     expect(wrapper.find('copyright-stub').exists()).toBe(true);
   });
 
-  it('renders legal links', () => {
+  it('does not render hardcoded legal links (moved to CMS menu)', () => {
     const wrapper = mountComponent(LayoutFooterBottom);
-    expect(wrapper.text()).toContain('layout.privacy_policy');
-    expect(wrapper.text()).toContain('layout.terms_of_service');
+    expect(wrapper.text()).not.toContain('layout.privacy_policy');
+    expect(wrapper.text()).not.toContain('layout.terms_of_service');
   });
 });
