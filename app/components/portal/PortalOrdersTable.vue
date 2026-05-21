@@ -192,13 +192,11 @@ function handleSortCreated() {
               </Badge>
             </td>
             <td class="py-3">
-              <NuxtLink
+              <PortalRowAction
                 :to="getOrderLink(order)"
-                class="text-primary hover:text-primary/80 text-sm font-medium"
-                data-testid="order-view-link"
-              >
-                {{ t('portal.orders.view') }}
-              </NuxtLink>
+                :label="t('portal.orders.view')"
+                testid="order-view-link"
+              />
             </td>
           </tr>
         </tbody>

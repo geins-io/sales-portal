@@ -289,12 +289,10 @@ function handleProductAddToCart(
                   </td>
                   <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
                   <td class="py-3">
-                    <NuxtLink
+                    <PortalRowAction
                       :to="localePath(`/portal/quotations/${quote.id}`)"
-                      class="text-primary hover:text-primary/80 text-sm font-medium"
-                    >
-                      {{ t('portal.quotations.view') }}
-                    </NuxtLink>
+                      :label="t('portal.quotations.view')"
+                    />
                   </td>
                 </tr>
               </tbody>
@@ -376,12 +374,10 @@ function handleProductAddToCart(
                   <td class="py-3 pr-4">{{ formatDate(list.updatedAt) }}</td>
                   <td class="py-3 pr-4">{{ list.items?.length ?? 0 }}</td>
                   <td class="py-3">
-                    <NuxtLink
+                    <PortalRowAction
                       :to="localePath(`/portal/saved-lists/${list.id}`)"
-                      class="text-primary hover:text-primary/80 text-sm font-medium"
-                    >
-                      {{ t('portal.quotations.view') }}
-                    </NuxtLink>
+                      :label="t('portal.quotations.view')"
+                    />
                   </td>
                 </tr>
               </tbody>
