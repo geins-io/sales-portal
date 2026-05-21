@@ -3,11 +3,9 @@ const { hasFeature } = useTenant();
 </script>
 
 <template>
-  <footer class="border-t">
+  <footer class="bg-footer-background text-footer-text border-t">
     <LayoutFooterTop v-if="hasFeature('newsletter')" />
-    <div class="bg-footer-background text-footer-text">
-      <LayoutFooterMain />
-      <LayoutFooterBottom />
-    </div>
+    <LayoutFooterMain />
+    <LayoutFooterBottom />
   </footer>
 </template>
