@@ -8,6 +8,8 @@ const appStore = useAppStore();
 const cartStore = useCartStore();
 const { localePath } = useLocaleMarket();
 const { isCatalogMode } = useTenant();
+const { canAccess } = useFeatureAccess();
+const showCart = computed(() => !isCatalogMode.value && canAccess('cart'));
 </script>
 
 <template>
@@ -21,9 +23,8 @@ const { isCatalogMode } = useTenant();
       <Search class="size-5" />
     </NuxtLink>
 
-    <!-- Cart -->
     <Button
-      v-if="!isCatalogMode"
+      v-if="showCart"
       variant="ghost"
       data-slot="cart-button"
       class="gap-1.5"

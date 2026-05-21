@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ middleware: 'feature', feature: 'cart' });
+
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
 const { isCatalogMode } = useTenant();
