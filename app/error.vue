@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app';
+import { Home, ArrowLeft } from 'lucide-vue-next';
 
 const props = defineProps<{
   error: NuxtError;
@@ -81,12 +82,12 @@ const handleBack = () => {
         class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center"
       >
         <Button class="min-w-[140px]" @click="handleError">
-          <Icon name="lucide:home" class="mr-2 size-4" />
+          <Home class="mr-2 size-4" />
           {{ t('errors.go_home') }}
         </Button>
 
         <Button variant="outline" class="min-w-[140px]" @click="handleBack">
-          <Icon name="lucide:arrow-left" class="mr-2 size-4" />
+          <ArrowLeft class="mr-2 size-4" />
           {{ t('errors.go_back') }}
         </Button>
       </div>
