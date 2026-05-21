@@ -368,8 +368,6 @@
     "first_name": "Förnamn",
     "last_name": "Efternamn",
     "email": "E-post",
-    "phone": "Telefon (valfritt)",
-    "message": "Meddelande (valfritt)",
     "field_required": "Detta fält är obligatoriskt.",
     "invalid_email": "Ange en giltig e-postadress.",
     "submit": "Skicka ansökan",
@@ -391,7 +389,6 @@
     "accept_terms_prefix": "Jag godkänner ",
     "accept_terms_link_text": "villkoren",
     "accept_terms_required": "Du måste godkänna villkoren.",
-    "additional_information": "Ytterligare information (valfritt)",
     "pending_approval_title": "Ansökan mottagen",
     "pending_approval_body": "Ditt företagskonto väntar på godkännande. Vissa funktioner kan vara begränsade tills vidare.",
     "dismiss_banner": "Avfärda"

@@ -34,8 +34,6 @@ const applySchema = z.object({
   }),
   email: z.string().min(1, 'apply.field_required').email('apply.invalid_email'),
   acceptTerms: z.literal(true, { error: 'apply.accept_terms_required' }),
-  phone: z.string().max(50).optional(),
-  message: z.string().max(5000).optional(),
 });
 
 type FormData = {
@@ -46,8 +44,6 @@ type FormData = {
   country: string;
   email: string;
   acceptTerms: boolean;
-  phone: string;
-  message: string;
 };
 
 const formData = reactive<FormData>({
@@ -58,8 +54,6 @@ const formData = reactive<FormData>({
   country: '',
   email: '',
   acceptTerms: false,
-  phone: '',
-  message: '',
 });
 
 const fieldErrors = reactive<Record<string, string>>({});
@@ -143,8 +137,6 @@ async function handleSubmit() {
         country: formData.country,
         email: formData.email,
         acceptTerms: formData.acceptTerms as true,
-        phone: formData.phone || undefined,
-        message: formData.message || undefined,
       },
     });
     // Backend registers + promotes to ORGANIZATION + sets auth cookies.
@@ -272,64 +264,64 @@ async function handleSubmit() {
       </div>
     </div>
 
-    <!-- Country -->
-    <div class="space-y-2">
-      <Label for="apply-country">{{ t('apply.country') }}</Label>
-      <Select
-        :model-value="formData.country"
-        :disabled="isLoading"
-        data-testid="apply-country"
-        @update:model-value="
-          (val) => {
-            formData.country = String(val ?? '');
-            touched.country = true;
-            validateField('country');
-          }
-        "
-      >
-        <SelectTrigger id="apply-country" class="w-full">
-          <SelectValue :placeholder="t('apply.country_placeholder')" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem
-            v-for="opt in countryOptions"
-            :key="opt.value"
-            :value="opt.value"
-            data-testid="apply-country-option"
-            :data-value="opt.value"
-          >
-            {{ t(opt.key) }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-      <p
-        v-if="touched.country && fieldErrors.country"
-        class="text-destructive text-xs"
-        data-testid="apply-country-error"
-      >
-        {{ t(fieldErrors.country) }}
-      </p>
-    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div class="space-y-2">
+        <Label for="apply-country">{{ t('apply.country') }}</Label>
+        <Select
+          :model-value="formData.country"
+          :disabled="isLoading"
+          data-testid="apply-country"
+          @update:model-value="
+            (val) => {
+              formData.country = String(val ?? '');
+              touched.country = true;
+              validateField('country');
+            }
+          "
+        >
+          <SelectTrigger id="apply-country" class="w-full">
+            <SelectValue :placeholder="t('apply.country_placeholder')" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              v-for="opt in countryOptions"
+              :key="opt.value"
+              :value="opt.value"
+              data-testid="apply-country-option"
+              :data-value="opt.value"
+            >
+              {{ t(opt.key) }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <p
+          v-if="touched.country && fieldErrors.country"
+          class="text-destructive text-xs"
+          data-testid="apply-country-error"
+        >
+          {{ t(fieldErrors.country) }}
+        </p>
+      </div>
 
-    <!-- Email -->
-    <div class="space-y-2">
-      <Label for="apply-email">{{ t('apply.email') }}</Label>
-      <Input
-        id="apply-email"
-        v-model="formData.email"
-        type="email"
-        autocomplete="email"
-        :disabled="isLoading"
-        data-testid="apply-email"
-        @blur="handleBlur('email')"
-      />
-      <p
-        v-if="touched.email && fieldErrors.email"
-        class="text-destructive text-xs"
-        data-testid="apply-email-error"
-      >
-        {{ t(fieldErrors.email) }}
-      </p>
+      <div class="space-y-2">
+        <Label for="apply-email">{{ t('apply.email') }}</Label>
+        <Input
+          id="apply-email"
+          v-model="formData.email"
+          type="email"
+          autocomplete="email"
+          :disabled="isLoading"
+          data-testid="apply-email"
+          @blur="handleBlur('email')"
+        />
+        <p
+          v-if="touched.email && fieldErrors.email"
+          class="text-destructive text-xs"
+          data-testid="apply-email-error"
+        >
+          {{ t(fieldErrors.email) }}
+        </p>
+      </div>
     </div>
 
     <!-- Accept Terms -->
@@ -370,41 +362,7 @@ async function handleSubmit() {
       </p>
     </div>
 
-    <!-- Additional information -->
-    <div class="space-y-4">
-      <p class="text-muted-foreground text-sm font-medium">
-        {{ t('apply.additional_information') }}
-      </p>
-
-      <!-- Phone (optional) -->
-      <div class="space-y-2">
-        <Label for="apply-phone">{{ t('apply.phone') }}</Label>
-        <Input
-          id="apply-phone"
-          v-model="formData.phone"
-          type="tel"
-          autocomplete="tel"
-          :disabled="isLoading"
-          data-testid="apply-phone"
-        />
-      </div>
-
-      <!-- Message (optional) -->
-      <div class="space-y-2">
-        <Label for="apply-message">{{ t('apply.message') }}</Label>
-        <textarea
-          id="apply-message"
-          v-model="formData.message"
-          rows="4"
-          :disabled="isLoading"
-          data-testid="apply-message"
-          class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-        />
-      </div>
-    </div>
-
-    <!-- Submit -->
-    <div class="flex justify-end">
+    <div class="border-border flex justify-end border-t pt-4">
       <Button type="submit" :disabled="isLoading" data-testid="apply-submit">
         {{ isLoading ? t('apply.submitting') : t('apply.submit') }}
       </Button>

@@ -368,8 +368,6 @@
     "first_name": "First name",
     "last_name": "Last name",
     "email": "Email",
-    "phone": "Phone (optional)",
-    "message": "Message (optional)",
     "field_required": "This field is required.",
     "invalid_email": "Please enter a valid email address.",
     "submit": "Submit application",
@@ -391,7 +389,6 @@
     "accept_terms_prefix": "I accept ",
     "accept_terms_link_text": "the terms and conditions",
     "accept_terms_required": "You must accept the terms and conditions.",
-    "additional_information": "Additional information (optional)",
     "pending_approval_title": "Application received",
     "pending_approval_body": "Your business account is pending approval. Some features may be limited until then.",
     "dismiss_banner": "Dismiss"

@@ -83,8 +83,8 @@ describe('ApplyForAccountForm', () => {
     );
     expect(wrapper.find('[data-testid="apply-last-name"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="apply-email"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="apply-phone"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="apply-message"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="apply-phone"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="apply-message"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="apply-submit"]').exists()).toBe(true);
   });
 
@@ -279,14 +279,12 @@ describe('ApplyForAccountForm', () => {
     const countryIdx = html.indexOf('apply-country');
     const emailIdx = html.indexOf('apply-email');
     const termsIdx = html.indexOf('apply-terms"');
-    const phoneIdx = html.indexOf('apply-phone');
     const submitIdx = html.indexOf('apply-submit');
 
     expect(companyIdx).toBeLessThan(firstNameIdx);
     expect(firstNameIdx).toBeLessThan(countryIdx);
     expect(countryIdx).toBeLessThan(emailIdx);
     expect(emailIdx).toBeLessThan(termsIdx);
-    expect(termsIdx).toBeLessThan(phoneIdx);
-    expect(phoneIdx).toBeLessThan(submitIdx);
+    expect(termsIdx).toBeLessThan(submitIdx);
   });
 });

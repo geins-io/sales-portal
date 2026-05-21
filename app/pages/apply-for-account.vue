@@ -34,7 +34,7 @@ useHead({
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 pt-8 pb-12 lg:px-6">
+  <div class="mx-auto max-w-[670px] px-4 pt-8 pb-12 lg:px-6">
     <div class="border-border rounded-lg border p-6 md:p-8">
       <CmsWidgetArea
         v-if="applyCmsArea?.containers?.length"

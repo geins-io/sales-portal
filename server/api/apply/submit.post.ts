@@ -84,8 +84,6 @@ export default defineEventHandler(async (event) => {
     companyName: body.companyName,
     organizationNumber: body.organizationNumber,
     country: body.country,
-    phone: body.phone,
-    message: body.message,
   });
 
   return {
