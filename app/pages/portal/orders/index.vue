@@ -3,7 +3,10 @@ import type { OrderListItem } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 
-definePageMeta({ middleware: 'auth' });
+definePageMeta({
+  middleware: ['auth', 'feature'],
+  feature: 'orderHistory',
+});
 
 const { t } = useI18n();
 

@@ -14,7 +14,7 @@ import type { StockType } from '#shared/types/commerce';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
 
-definePageMeta({ middleware: 'auth' });
+definePageMeta({ middleware: ['auth', 'feature'], feature: 'lists' });
 
 // Saved-list detail. The list itself is client-side (SDK ListsSession),
 // items are product aliases. We fetch fresh product data from

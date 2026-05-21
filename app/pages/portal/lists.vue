@@ -12,7 +12,7 @@ import {
 } from '~/components/ui/sheet';
 import { useFavoritesStore } from '~/stores/favorites';
 
-definePageMeta({ middleware: 'auth' });
+definePageMeta({ middleware: ['auth', 'feature'], feature: 'lists' });
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();

@@ -11,7 +11,10 @@ import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import { getOrderStatusPillClass } from '~/utils/order-status';
 
-definePageMeta({ middleware: 'auth' });
+definePageMeta({
+  middleware: ['auth', 'feature'],
+  feature: 'orderHistory',
+});
 
 const { t } = useI18n();
 const route = useRoute();

@@ -6,7 +6,7 @@ import { safeConfirm } from '~/utils/client-helpers';
 import { getQuoteStatusPillClass } from '~/utils/quote-status';
 import type { Quote } from '#shared/types/quote';
 
-definePageMeta({ middleware: 'auth' });
+definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
 
 const { t, locale } = useI18n();
 const route = useRoute();
