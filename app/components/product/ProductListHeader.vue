@@ -6,8 +6,10 @@ import { categoryPath } from '#shared/utils/route-helpers';
 const props = defineProps<{
   pageInfo: ListPageInfo | null;
   breadcrumbs: BreadcrumbItem[];
+  resultCount?: number;
 }>();
 
+const { t } = useI18n();
 const { localePath } = useLocaleMarket();
 
 // CMS authors sometimes return primaryDescription wrapped in `<p>` tags
@@ -37,6 +39,13 @@ const description = computed(() => {
         class="text-muted-foreground max-w-xl text-lg leading-relaxed"
       >
         {{ description }}
+      </p>
+      <p
+        v-if="resultCount && resultCount > 0"
+        class="text-muted-foreground text-sm"
+        data-testid="result-count"
+      >
+        {{ t('product.result_count', { count: resultCount }) }}
       </p>
     </div>
 

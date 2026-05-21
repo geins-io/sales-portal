@@ -63,7 +63,12 @@ function clearAll() {
 
 <template>
   <div>
-    <Button size="sm" data-testid="product-filters" @click="sheetOpen = true">
+    <Button
+      size="sm"
+      class="px-[15px]"
+      data-testid="product-filters"
+      @click="sheetOpen = true"
+    >
       <SlidersHorizontal class="mr-2 size-4" />
       {{ $t('product.filters') }}
     </Button>

@@ -158,6 +158,13 @@ useSeoMeta({
       >
         {{ $t('nav.products') }}
       </h1>
+      <p
+        v-if="totalCount > 0"
+        class="text-muted-foreground mt-2 text-sm"
+        data-testid="result-count"
+      >
+        {{ $t('product.result_count', { count: totalCount }) }}
+      </p>
     </div>
 
     <!-- Active filters -->
@@ -171,7 +178,6 @@ useSeoMeta({
 
     <!-- Toolbar -->
     <ProductListToolbar
-      :result-count="totalCount"
       :sort-value="sortBy"
       :sort-options="sortOptions"
       :view-mode="viewMode"

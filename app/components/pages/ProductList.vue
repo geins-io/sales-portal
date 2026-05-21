@@ -319,6 +319,7 @@ const { data: bottomArea } = useFetch<ContentAreaType>('/api/cms/area', {
     <ProductListHeader
       :page-info="pageInfo ?? null"
       :breadcrumbs="breadcrumbs"
+      :result-count="totalCount"
     />
 
     <!-- Active filters -->
@@ -332,7 +333,6 @@ const { data: bottomArea } = useFetch<ContentAreaType>('/api/cms/area', {
 
     <!-- Toolbar: filter, sort, view toggle -->
     <ProductListToolbar
-      :result-count="totalCount"
       :sort-value="sortBy"
       :sort-options="sortOptions"
       :view-mode="viewMode"

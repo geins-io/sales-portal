@@ -18,6 +18,7 @@ const { t } = useI18n();
     <Button
       :variant="modelValue === 'grid' ? 'default' : 'outline'"
       size="sm"
+      class="px-[15px]"
       :aria-label="t('product.grid_view')"
       @click="emit('update:modelValue', 'grid')"
     >
@@ -27,6 +28,7 @@ const { t } = useI18n();
     <Button
       :variant="modelValue === 'list' ? 'default' : 'outline'"
       size="sm"
+      class="px-[15px]"
       :aria-label="t('product.list_view')"
       @click="emit('update:modelValue', 'list')"
     >
