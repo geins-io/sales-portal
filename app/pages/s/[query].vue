@@ -190,7 +190,6 @@ function clearAllFilters() {
 
     <!-- Toolbar: count, sort, view toggle -->
     <ProductListToolbar
-      :result-count="totalCount"
       :sort-value="sortBy"
       :sort-options="sortOptions"
       :view-mode="viewMode"

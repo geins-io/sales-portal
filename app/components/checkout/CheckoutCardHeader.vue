@@ -9,14 +9,18 @@ defineProps<{
 </script>
 
 <template>
-  <CardHeader class="border-border border-b px-6 pb-4">
+  <CardHeader class="border-border border-b px-6 pb-3">
     <div class="flex items-center gap-2">
       <component
         :is="icon"
         class="text-muted-foreground size-5 shrink-0"
         aria-hidden="true"
       />
-      <CardTitle class="text-lg">{{ title }}</CardTitle>
+      <CardTitle
+        class="text-xl [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]"
+      >
+        {{ title }}
+      </CardTitle>
       <div v-if="$slots.action" class="ms-auto">
         <slot name="action" />
       </div>

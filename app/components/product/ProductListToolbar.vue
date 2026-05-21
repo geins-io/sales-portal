@@ -3,7 +3,6 @@ import { Search } from 'lucide-vue-next';
 import { Input } from '~/components/ui/input';
 
 defineProps<{
-  resultCount: number;
   sortValue: string;
   sortOptions: { label: string; value: string }[];
   viewMode: 'grid' | 'list';
@@ -38,13 +37,6 @@ const { t } = useI18n();
         </Button>
       </div>
       <div class="flex items-center gap-2">
-        <span
-          v-if="resultCount > 0"
-          class="text-muted-foreground text-sm"
-          data-testid="result-count"
-        >
-          {{ t('product.result_count', { count: resultCount }) }}
-        </span>
         <span class="text-muted-foreground hidden text-sm sm:inline">{{
           t('product.view_as')
         }}</span>
@@ -64,7 +56,7 @@ const { t } = useI18n();
         <Input
           :model-value="filterText ?? ''"
           :placeholder="t('product.quick_filter_placeholder')"
-          class="pl-9"
+          class="bg-white pl-9 shadow-none"
           @update:model-value="emit('update:filterText', String($event))"
         />
       </div>

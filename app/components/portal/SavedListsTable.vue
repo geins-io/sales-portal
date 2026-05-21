@@ -117,15 +117,11 @@ function formatDate(value: number | string | undefined): string {
           </td>
           <td class="px-4 py-3">{{ list.items?.length ?? 0 }}</td>
           <td class="px-4 py-3 text-right last:pr-0">
-            <NuxtLink
+            <PortalRowAction
               :to="localePath(`/portal/saved-lists/${list.id}`)"
-              class="border-border hover:bg-muted/40 inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors"
-              data-testid="saved-list-edit"
-              :aria-label="t('portal.saved_lists.row_actions.edit')"
-            >
-              {{ t('portal.saved_lists.row_actions.edit') }}
-              <ChevronRight class="size-4" />
-            </NuxtLink>
+              :label="t('portal.saved_lists.row_actions.edit')"
+              testid="saved-list-edit"
+            />
           </td>
         </tr>
       </tbody>

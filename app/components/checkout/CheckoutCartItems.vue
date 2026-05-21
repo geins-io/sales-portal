@@ -41,7 +41,11 @@ function handleRemove(item: CartItemType) {
 </script>
 
 <template>
-  <Card v-if="props.items.length" data-testid="checkout-cart-items">
+  <Card
+    v-if="props.items.length"
+    data-testid="checkout-cart-items"
+    class="gap-0"
+  >
     <CheckoutCardHeader
       :icon="ShoppingCart"
       :title="t('checkout.cart_items')"
@@ -51,18 +55,18 @@ function handleRemove(item: CartItemType) {
         <div
           v-for="item in props.items"
           :key="item.id ?? ''"
-          class="flex items-center gap-4 py-3"
+          class="flex items-start gap-4 py-3"
           data-testid="checkout-cart-item"
         >
           <!-- Thumbnail -->
-          <div class="size-12 shrink-0 overflow-hidden rounded-md">
+          <div class="size-16 shrink-0 overflow-hidden rounded-md">
             <GeinsImage
               v-if="getImageFileName(item)"
               :file-name="getImageFileName(item)"
               type="product"
               :alt="item.product?.name ?? ''"
               aspect-ratio="1"
-              sizes="48px"
+              sizes="64px"
             />
             <div
               v-else
@@ -89,7 +93,9 @@ function handleRemove(item: CartItemType) {
                 {{ getSkuName(item) }}
               </template>
             </p>
-            <div class="mt-2">
+            <div
+              class="bg-muted mt-4 inline-flex rounded-md [&_button]:size-7 [&_span]:min-w-7"
+            >
               <QuantityStepper
                 :model-value="item.quantity ?? 1"
                 :min="1"
@@ -105,21 +111,25 @@ function handleRemove(item: CartItemType) {
             <PriceDisplay
               v-if="item.totalPrice"
               :price="item.totalPrice"
-              class="text-sm font-semibold"
+              class="text-base font-semibold"
             />
             <p
               v-if="item.unitPrice"
-              class="text-muted-foreground text-xs"
+              class="text-muted-foreground text-sm"
               data-testid="checkout-unit-price"
             >
-              <PriceDisplay :price="item.unitPrice" class="text-xs" />
+              <PriceDisplay
+                :price="item.unitPrice"
+                class="inline text-sm [&_span]:font-normal"
+              />
               {{ t('checkout.per_unit') }}
             </p>
             <Button
               v-if="props.isEditable"
               type="button"
               variant="ghost"
-              size="icon"
+              size="icon-sm"
+              class="text-muted-foreground hover:text-destructive shrink-0"
               :aria-label="t('checkout.remove_item')"
               data-testid="checkout-remove-item"
               @click="handleRemove(item)"

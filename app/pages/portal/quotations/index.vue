@@ -211,13 +211,11 @@ function getStatusLabel(status: QuoteStatus): string {
                   </span>
                 </td>
                 <td class="py-3">
-                  <NuxtLink
+                  <PortalRowAction
                     :to="localePath(`/portal/quotations/${quote.id}`)"
-                    data-testid="quotation-view-link"
-                    class="text-primary hover:text-primary/80 text-sm font-medium"
-                  >
-                    {{ t('portal.quotations.view') }}
-                  </NuxtLink>
+                    :label="t('portal.quotations.view')"
+                    testid="quotation-view-link"
+                  />
                 </td>
               </tr>
             </tbody>
