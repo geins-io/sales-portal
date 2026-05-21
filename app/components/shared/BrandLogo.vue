@@ -52,15 +52,21 @@ const tag = computed(() => (props.linked ? NuxtLink : 'span'));
     <template v-if="showFallback">
       <Avatar
         v-if="iconFallback"
-        :class="cn('bg-accent text-accent-foreground mr-4 size-12 shrink-0')"
+        class="bg-accent text-accent-foreground mr-4 size-12 shrink-0"
       >
         <AvatarFallback
-          class="bg-accent text-accent-foreground font-heading text-xl font-bold tracking-wider"
+          class="bg-accent text-accent-foreground font-heading text-xl font-bold"
         >
-          {{ iconFallback }}
+          <span
+            class="inline-block [text-box-edge:cap_alphabetic] [text-box-trim:trim-both]"
+          >
+            {{ iconFallback }}
+          </span>
         </AvatarFallback>
       </Avatar>
-      <span class="text-xl font-semibold tracking-wide">{{ brandName }}</span>
+      <h1 v-if="brandName" class="text-xl font-semibold tracking-wide">
+        {{ brandName }}
+      </h1>
     </template>
 
     <template v-else>

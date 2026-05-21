@@ -41,12 +41,16 @@ function handleRemove(item: CartItemType) {
 </script>
 
 <template>
-  <Card v-if="props.items.length" data-testid="checkout-cart-items">
+  <Card
+    v-if="props.items.length"
+    data-testid="checkout-cart-items"
+    class="gap-0"
+  >
     <CheckoutCardHeader
       :icon="ShoppingCart"
       :title="t('checkout.cart_items')"
     />
-    <CardContent class="px-6 pt-2">
+    <CardContent class="px-6">
       <div class="divide-border divide-y">
         <div
           v-for="item in props.items"
@@ -89,7 +93,9 @@ function handleRemove(item: CartItemType) {
                 {{ getSkuName(item) }}
               </template>
             </p>
-            <div class="bg-muted mt-2 inline-flex rounded-md">
+            <div
+              class="bg-muted mt-4 inline-flex rounded-md [&_button]:size-7 [&_span]:min-w-7"
+            >
               <QuantityStepper
                 :model-value="item.quantity ?? 1"
                 :min="1"
@@ -109,17 +115,21 @@ function handleRemove(item: CartItemType) {
             />
             <p
               v-if="item.unitPrice"
-              class="text-muted-foreground text-sm font-normal"
+              class="text-muted-foreground text-sm"
               data-testid="checkout-unit-price"
             >
-              <PriceDisplay :price="item.unitPrice" class="text-sm" />
+              <PriceDisplay
+                :price="item.unitPrice"
+                class="inline text-sm [&_span]:font-normal"
+              />
               {{ t('checkout.per_unit') }}
             </p>
             <Button
               v-if="props.isEditable"
               type="button"
               variant="ghost"
-              size="icon"
+              size="icon-sm"
+              class="text-muted-foreground hover:text-destructive shrink-0"
               :aria-label="t('checkout.remove_item')"
               data-testid="checkout-remove-item"
               @click="handleRemove(item)"
