@@ -389,9 +389,8 @@
     "accept_terms_prefix": "I accept ",
     "accept_terms_link_text": "the terms and conditions",
     "accept_terms_required": "You must accept the terms and conditions.",
-    "pending_approval_title": "Application received",
-    "pending_approval_body": "Your business account is pending approval. Some features may be limited until then.",
-    "dismiss_banner": "Dismiss"
+    "thank_you_title": "Thanks for your application",
+    "thank_you_body": "We have received your business-account application. You will get an email once it has been approved."
   },
   "lists": {
     "picker": {

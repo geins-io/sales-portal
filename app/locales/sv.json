@@ -389,9 +389,8 @@
     "accept_terms_prefix": "Jag godkänner ",
     "accept_terms_link_text": "villkoren",
     "accept_terms_required": "Du måste godkänna villkoren.",
-    "pending_approval_title": "Ansökan mottagen",
-    "pending_approval_body": "Ditt företagskonto väntar på godkännande. Vissa funktioner kan vara begränsade tills vidare.",
-    "dismiss_banner": "Avfärda"
+    "thank_you_title": "Tack för din ansökan",
+    "thank_you_body": "Vi har tagit emot din ansökan om företagskonto. Du får ett mejl när ditt konto har godkänts."
   },
   "lists": {
     "picker": {

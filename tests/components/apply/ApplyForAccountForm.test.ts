@@ -119,10 +119,10 @@ describe('ApplyForAccountForm', () => {
     expect(wrapper.find('[data-testid="apply-error"]').exists()).toBe(false);
   });
 
-  it('redirects to /portal?applied=1 on successful submit', async () => {
+  it('switches to thank-you state on successful submit without navigating', async () => {
     (globalThis as unknown as { $fetch: ReturnType<typeof vi.fn> }).$fetch = vi
       .fn()
-      .mockResolvedValue({ user: { id: 1 }, expiresAt: null });
+      .mockResolvedValue({ received: true });
 
     pushMock.mockClear();
     const wrapper = mountComponent(ApplyForAccountForm, {
@@ -149,9 +149,9 @@ describe('ApplyForAccountForm', () => {
     await wrapper.find('[data-testid="apply-form"]').trigger('submit');
     await flushPromises();
 
-    expect(pushMock).toHaveBeenCalledWith(
-      expect.stringContaining('/portal?applied=1'),
-    );
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="apply-thank-you"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="apply-form"]').exists()).toBe(false);
   });
 
   // --- New tests for Figma alignment ---

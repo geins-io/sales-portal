@@ -20,11 +20,12 @@ export default defineEventHandler(async (event) => {
 
   const body = await readValidatedBody(event, ApplyForAccountSchema.parse);
 
-  // Auto-generate a secure password — the user never sees it.
-  // They log in via the password-reset flow after account approval.
-  const autoPassword = crypto.randomUUID() + 'Aa1!';
+  // Geins register still requires a password on the SDK call. We generate
+  // a high-entropy one that we never return to the caller or log, so the
+  // applicant cannot log in until they go through password reset, which
+  // the merchant gates behind manual activation.
+  const internalPassword = crypto.randomUUID() + 'Aa1!';
 
-  // Step 1: create the user as a PERSON via the standard register flow.
   const address = {
     firstName: body.firstName,
     lastName: body.lastName,
@@ -33,7 +34,7 @@ export default defineEventHandler(async (event) => {
   };
 
   const registerResult = await userService.register(
-    { username: body.email, password: autoPassword },
+    { username: body.email, password: internalPassword },
     { address },
     event,
   );
@@ -48,11 +49,8 @@ export default defineEventHandler(async (event) => {
 
   const { tokens } = registerResult;
 
-  // Step 2: promote the freshly created user to ORGANIZATION. Sales team
-  // links the organization to a company manually in Geins Studio afterwards.
-  let promotedUser;
   try {
-    promotedUser = await userService.updateUser(
+    await userService.updateUser(
       {
         customerType: GeinsCustomerType.OrganizationType,
         address,
@@ -61,8 +59,6 @@ export default defineEventHandler(async (event) => {
       event,
     );
   } catch (err) {
-    // The user IS registered as a PERSON at this point. Sales can promote
-    // them manually in Studio using the organizationNumber we log here.
     logger.warn('Apply-for-account: updateUser failed after register', {
       email: body.email,
       organizationNumber: body.organizationNumber,
@@ -71,25 +67,17 @@ export default defineEventHandler(async (event) => {
     throw createAppError(ErrorCode.BAD_REQUEST, 'Account promotion failed');
   }
 
-  setAuthCookies(event, {
-    token: tokens.token!,
-    refreshToken: tokens.refreshToken!,
-    expiresIn: tokens.expiresIn,
-  });
-
-  // Log non-PII fields so the sales team has what they need to link the
-  // organization in Studio. Never log password or acceptTerms.
-  logger.info('Apply-for-account approved', {
+  // Log only non-PII fields so the sales team has what they need to link
+  // the organization in Studio. Never log password or acceptTerms.
+  logger.info('Apply-for-account received', {
     email: body.email,
     companyName: body.companyName,
     organizationNumber: body.organizationNumber,
     country: body.country,
   });
 
-  return {
-    user: promotedUser ?? registerResult.user,
-    expiresAt: tokens.expiresIn
-      ? new Date(Date.now() + tokens.expiresIn * 1000).toISOString()
-      : null,
-  };
+  // Do not return tokens or set auth cookies: the applicant must wait for
+  // merchant approval before they can sign in. The page renders a
+  // thank-you state from the success response.
+  return { received: true };
 });
