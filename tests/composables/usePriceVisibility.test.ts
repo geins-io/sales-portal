@@ -77,4 +77,33 @@ describe('usePriceVisibility', () => {
     const { showPrice } = usePriceVisibility();
     expect(showPrice.value).toBe(false);
   });
+
+  it('returns canUnlockByAuth=true when feature enabled but access blocked', () => {
+    mockIsFeatureConfigured = (name) => name === 'priceVisibility';
+    mockHasFeature = (name) => name === 'priceVisibility';
+    mockCanAccess = () => false;
+    const { canUnlockByAuth } = usePriceVisibility();
+    expect(canUnlockByAuth.value).toBe(true);
+  });
+
+  it('returns canUnlockByAuth=false when feature is disabled', () => {
+    mockIsFeatureConfigured = (name) => name === 'priceVisibility';
+    mockHasFeature = () => false;
+    const { canUnlockByAuth } = usePriceVisibility();
+    expect(canUnlockByAuth.value).toBe(false);
+  });
+
+  it('returns canUnlockByAuth=false when feature absent (fail-open)', () => {
+    mockIsFeatureConfigured = () => false;
+    const { canUnlockByAuth } = usePriceVisibility();
+    expect(canUnlockByAuth.value).toBe(false);
+  });
+
+  it('returns canUnlockByAuth=false when feature enabled and access granted', () => {
+    mockIsFeatureConfigured = (name) => name === 'priceVisibility';
+    mockHasFeature = (name) => name === 'priceVisibility';
+    mockCanAccess = (name) => name === 'priceVisibility';
+    const { canUnlockByAuth } = usePriceVisibility();
+    expect(canUnlockByAuth.value).toBe(false);
+  });
 });

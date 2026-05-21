@@ -7,9 +7,13 @@ import { ref, computed, readonly } from 'vue';
 // Mocks
 // ---------------------------------------------------------------------------
 const showPriceRef = ref(true);
+const canUnlockByAuthRef = ref(true);
 
 vi.mock('../../app/composables/usePriceVisibility', () => ({
-  usePriceVisibility: () => ({ showPrice: readonly(showPriceRef) }),
+  usePriceVisibility: () => ({
+    showPrice: readonly(showPriceRef),
+    canUnlockByAuth: readonly(canUnlockByAuthRef),
+  }),
 }));
 
 vi.mock('../../app/composables/useTenant', () => ({
@@ -79,16 +83,29 @@ function makePrice(overrides: Record<string, unknown> = {}) {
 describe('PriceDisplay (unit)', () => {
   beforeEach(() => {
     showPriceRef.value = true;
+    canUnlockByAuthRef.value = true;
   });
 
   describe('price visibility', () => {
-    it('shows login message when showPrice is false', () => {
+    it('shows login message when price is hidden and auth can unlock it', () => {
       showPriceRef.value = false;
+      canUnlockByAuthRef.value = true;
       const wrapper = mount(PriceDisplay.default, {
         props: { price: makePrice() },
         ...globalMounts,
       });
       expect(wrapper.text()).toContain('product.login_for_prices');
+      expect(wrapper.text()).not.toContain('100 kr');
+    });
+
+    it('shows nothing when price is hidden and auth will not unlock it', () => {
+      showPriceRef.value = false;
+      canUnlockByAuthRef.value = false;
+      const wrapper = mount(PriceDisplay.default, {
+        props: { price: makePrice() },
+        ...globalMounts,
+      });
+      expect(wrapper.text()).not.toContain('product.login_for_prices');
       expect(wrapper.text()).not.toContain('100 kr');
     });
 

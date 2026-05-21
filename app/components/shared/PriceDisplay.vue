@@ -27,7 +27,7 @@ const props = withDefaults(
 const { t } = useI18n();
 
 const { tenant } = useTenant();
-const { showPrice } = usePriceVisibility();
+const { showPrice, canUnlockByAuth } = usePriceVisibility();
 
 const sellingPrice = computed(() => {
   if (!props.price) return '';
@@ -95,13 +95,16 @@ const lowestPriceFormatted = computed(() => {
 
 <template>
   <div>
-    <div v-if="price && !showPrice" class="inline-flex items-baseline">
+    <div
+      v-if="price && !showPrice && canUnlockByAuth"
+      class="inline-flex items-baseline"
+    >
       <span class="text-muted-foreground text-sm italic">
         {{ $t('product.login_for_prices') }}
       </span>
     </div>
     <div
-      v-else-if="price && sellingPrice"
+      v-else-if="price && showPrice && sellingPrice"
       class="inline-flex flex-wrap items-baseline gap-2"
     >
       <span v-if="fromPrice" class="text-muted-foreground text-sm">From</span>
