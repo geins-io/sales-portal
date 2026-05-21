@@ -56,7 +56,7 @@ const { t } = useI18n();
         <Input
           :model-value="filterText ?? ''"
           :placeholder="t('product.quick_filter_placeholder')"
-          class="bg-background pl-9 shadow-none"
+          class="bg-white pl-9 shadow-none"
           @update:model-value="emit('update:filterText', String($event))"
         />
       </div>

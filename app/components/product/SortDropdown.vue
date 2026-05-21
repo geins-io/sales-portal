@@ -24,7 +24,7 @@ const emit = defineEmits<{
       @update:model-value="emit('update:modelValue', String($event))"
     >
       <SelectTrigger
-        class="bg-background w-[180px]"
+        class="w-[180px] bg-white"
         size="sm"
         data-testid="sort-dropdown"
       >
