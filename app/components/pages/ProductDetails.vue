@@ -83,8 +83,11 @@ const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
 const authStore = useAuthStore();
 const { hasFeature, isCatalogMode } = useTenant();
+const { canAccess } = useFeatureAccess();
+const canPurchase = computed(
+  () => canAccess('orderPlacement') && !isCatalogMode.value,
+);
 const { localePath } = useLocaleMarket();
-const { showPrice } = usePriceVisibility();
 
 const isFavorited = computed(() =>
   product.value ? favoritesStore.isFavorite(product.value.alias) : false,
@@ -523,7 +526,7 @@ useSchemaOrg([
       <aside class="flex flex-col gap-4">
         <!-- Quantity + Add to cart + Wishlist -->
         <div
-          v-if="showPrice && !isCatalogMode"
+          v-if="canPurchase"
           class="flex items-center gap-2"
           data-testid="pdp-actions"
         >
@@ -544,9 +547,6 @@ useSchemaOrg([
           </Button>
         </div>
 
-        <!-- Info links: borderless block with separator lines top + bottom.
-             Order per Figma: Download data sheet, Save as favourites,
-             Add to lists, optional latest-order info below. -->
         <div
           class="border-border flex flex-col border-y"
           data-testid="pdp-info-card"
