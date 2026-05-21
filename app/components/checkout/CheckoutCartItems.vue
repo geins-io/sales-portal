@@ -46,23 +46,23 @@ function handleRemove(item: CartItemType) {
       :icon="ShoppingCart"
       :title="t('checkout.cart_items')"
     />
-    <CardContent class="px-6">
+    <CardContent class="px-6 pt-2">
       <div class="divide-border divide-y">
         <div
           v-for="item in props.items"
           :key="item.id ?? ''"
-          class="flex items-center gap-4 py-3"
+          class="flex items-start gap-4 py-3"
           data-testid="checkout-cart-item"
         >
           <!-- Thumbnail -->
-          <div class="size-12 shrink-0 overflow-hidden rounded-md">
+          <div class="size-16 shrink-0 overflow-hidden rounded-md">
             <GeinsImage
               v-if="getImageFileName(item)"
               :file-name="getImageFileName(item)"
               type="product"
               :alt="item.product?.name ?? ''"
               aspect-ratio="1"
-              sizes="48px"
+              sizes="64px"
             />
             <div
               v-else
@@ -89,7 +89,7 @@ function handleRemove(item: CartItemType) {
                 {{ getSkuName(item) }}
               </template>
             </p>
-            <div class="mt-2">
+            <div class="bg-muted mt-2 inline-flex rounded-md">
               <QuantityStepper
                 :model-value="item.quantity ?? 1"
                 :min="1"
@@ -105,14 +105,14 @@ function handleRemove(item: CartItemType) {
             <PriceDisplay
               v-if="item.totalPrice"
               :price="item.totalPrice"
-              class="text-sm font-semibold"
+              class="text-base font-semibold"
             />
             <p
               v-if="item.unitPrice"
-              class="text-muted-foreground text-xs"
+              class="text-muted-foreground text-sm font-normal"
               data-testid="checkout-unit-price"
             >
-              <PriceDisplay :price="item.unitPrice" class="text-xs" />
+              <PriceDisplay :price="item.unitPrice" class="text-sm" />
               {{ t('checkout.per_unit') }}
             </p>
             <Button
