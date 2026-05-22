@@ -20,20 +20,20 @@ importers:
   .:
     dependencies:
       '@geins/cms':
-        specifier: 0.10.2
-        version: 0.10.2(@geins/core@0.10.2(graphql@16.12.0))
+        specifier: 0.10.3
+        version: 0.10.3(@geins/core@0.10.3(graphql@16.12.0))
       '@geins/core':
-        specifier: 0.10.2
-        version: 0.10.2(graphql@16.12.0)
+        specifier: 0.10.3
+        version: 0.10.3(graphql@16.12.0)
       '@geins/crm':
-        specifier: 0.10.2
-        version: 0.10.2(@geins/core@0.10.2(graphql@16.12.0))
+        specifier: 0.10.3
+        version: 0.10.3(@geins/core@0.10.3(graphql@16.12.0))
       '@geins/oms':
-        specifier: 0.10.2
-        version: 0.10.2(@geins/core@0.10.2(graphql@16.12.0))
+        specifier: 0.10.3
+        version: 0.10.3(@geins/core@0.10.3(graphql@16.12.0))
       '@geins/types':
-        specifier: 0.10.2
-        version: 0.10.2
+        specifier: 0.10.3
+        version: 0.10.3
       '@nuxt/fonts':
         specifier: 0.12.1
         version: 0.12.1(db0@0.3.4)(ioredis@5.9.2)(magicast@0.5.2)(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1)(stylus@0.57.0)(terser@5.46.0)(yaml@2.8.2))
@@ -1245,26 +1245,26 @@ packages:
   '@floating-ui/vue@1.1.10':
     resolution: {integrity: sha512-vdf8f6rHnFPPLRsmL4p12wYl+Ux4mOJOkjzKEMYVnwdf7UFdvBtHlLvQyx8iKG5vhPRbDRgZxdtpmyigDPjzYg==}
 
-  '@geins/cms@0.10.2':
-    resolution: {integrity: sha512-henFUyQll0QvDAqGSoMATJxUXNAUz6rxWzIsml+BOZJyT6oP8tgZs0MGc2A0gwap9o4TEm2ZFN0XIi/OmirCWA==}
+  '@geins/cms@0.10.3':
+    resolution: {integrity: sha512-2GM5HRbjvykUKjb3bF36kd3ijZUqz4jGMJSbZYe4+mLcJay1AZ62P/lctVVW4WhdwaMNhTG3dq1igAh1X5WFcg==}
     peerDependencies:
       '@geins/core': '*'
 
-  '@geins/core@0.10.2':
-    resolution: {integrity: sha512-0UGNDN57c4/ngDkaOLWvBimtRhSTWoSbLtFAjYzcki+MAfKKVnQVuk15kttpjNTjP4KQJxYNk4o8JCESfrCbAg==}
+  '@geins/core@0.10.3':
+    resolution: {integrity: sha512-DvR4Jme/rqb/GWbJt5PAQt4lVgS9Mn2knTCDVydEgfzMLzDCyTy+Ib7Xki4oRUTjAq7uq3ku2j6wSMJ0XTyZMw==}
 
-  '@geins/crm@0.10.2':
-    resolution: {integrity: sha512-42gAxJW9DLuPcQ649sc+8Xhzc5WCtouvn7jfnulLs0HvndA+IYlSQt65FKDg+En8n8YbYn9LVZ/949q9atbEOA==}
+  '@geins/crm@0.10.3':
+    resolution: {integrity: sha512-9al5zYnHCWD9jtvOMn2608FgbTe6WkoHmWMM+W5Y0OIKVvp28N+9lyd4ch3ZIbMa+HPJzKjgcdUNve7KXciDrg==}
     peerDependencies:
       '@geins/core': '*'
 
-  '@geins/oms@0.10.2':
-    resolution: {integrity: sha512-lscw9EqfEk2FiZLA4+/WrwDq1JjSm3aRQJWdMIzBlRqXFXnCh2j9voAh2gWlBnLSRY3dZRIic//PTpFQYsxk3g==}
+  '@geins/oms@0.10.3':
+    resolution: {integrity: sha512-9iwqyErGddZne6/l9GfNHrMfgJmYH974KeafyZk0YoFwMlA41iAfk+nAAoj8X5zcUxSnbVbgUh4nMyOPmtRzpw==}
     peerDependencies:
       '@geins/core': '*'
 
-  '@geins/types@0.10.2':
-    resolution: {integrity: sha512-Tbz19+H0G8pmsUspC6Sbi+1YBJyGhWtqHUPAqcxaXkQFkItvYZV1GawgWZ1oVd03dpG3G8WubUrfrHCiC9Ge2g==}
+  '@geins/types@0.10.3':
+    resolution: {integrity: sha512-DxSK8dBOiKjflTnJw7m494np2ykMA9tk+iMyjyLA/dDeRt0NM4J+GZK+9hUBlV6/WEhq7gQDwPv4teLKHQdGiQ==}
 
   '@graphql-typed-document-node/core@3.2.0':
     resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
@@ -9628,11 +9628,11 @@ snapshots:
       - '@vue/composition-api'
       - vue
 
-  '@geins/cms@0.10.2(@geins/core@0.10.2(graphql@16.12.0))':
+  '@geins/cms@0.10.3(@geins/core@0.10.3(graphql@16.12.0))':
     dependencies:
-      '@geins/core': 0.10.2(graphql@16.12.0)
+      '@geins/core': 0.10.3(graphql@16.12.0)
 
-  '@geins/core@0.10.2(graphql@16.12.0)':
+  '@geins/core@0.10.3(graphql@16.12.0)':
     dependencies:
       '@apollo/client': 3.14.0(graphql@16.12.0)
       '@cacheable/node-cache': 1.7.6
@@ -9646,15 +9646,15 @@ snapshots:
       - react-dom
       - subscriptions-transport-ws
 
-  '@geins/crm@0.10.2(@geins/core@0.10.2(graphql@16.12.0))':
+  '@geins/crm@0.10.3(@geins/core@0.10.3(graphql@16.12.0))':
     dependencies:
-      '@geins/core': 0.10.2(graphql@16.12.0)
+      '@geins/core': 0.10.3(graphql@16.12.0)
 
-  '@geins/oms@0.10.2(@geins/core@0.10.2(graphql@16.12.0))':
+  '@geins/oms@0.10.3(@geins/core@0.10.3(graphql@16.12.0))':
     dependencies:
-      '@geins/core': 0.10.2(graphql@16.12.0)
+      '@geins/core': 0.10.3(graphql@16.12.0)
 
-  '@geins/types@0.10.2': {}
+  '@geins/types@0.10.3': {}
 
   '@graphql-typed-document-node/core@3.2.0(graphql@16.12.0)':
     dependencies:

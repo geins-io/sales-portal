@@ -1,7 +1,9 @@
 import * as authService from '../../services/auth';
 import * as cartService from '../../services/cart';
+import * as userService from '../../services/user';
 import { loginRateLimiter, getClientIp } from '../../utils/rate-limiter';
 import { LoginSchema } from '../../schemas/api-input';
+import { resolveBuyerMarket } from '../../utils/buyer-market';
 
 export default defineEventHandler(async (event) => {
   const clientIp = getClientIp(event);
@@ -53,10 +55,21 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // If the buyer's pricelist currency is bound to a market other than the
+  // one the request arrived on, switch the market cookie so Geins's catalog
+  // filter resolves to a currency the buyer can actually see prices in.
+  // crm.auth.login() only parses identity claims out of the JWT, so we have
+  // to fetch the full user profile to read availableChannels.
+  const fullUser = await userService
+    .getUser(tokens.token!, event)
+    .catch(() => undefined);
+  const resolvedMarket = resolveBuyerMarket(event, fullUser);
+
   return {
     user,
     expiresAt: tokens.expiresIn
       ? new Date(Date.now() + tokens.expiresIn * 1000).toISOString()
       : null,
+    market: resolvedMarket,
   };
 });
