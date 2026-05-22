@@ -39,7 +39,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     logger.debug(
       `Feature "${requiredFeature}" is not accessible for this user/tenant`,
     );
-    const { localePath } = useLocaleMarket();
-    return navigateTo(localePath('/'));
+    // Build locale/market prefix from cookies (composables that depend
+    // on useI18n/useRoute are unsafe inside middleware under SSR — see
+    // app/middleware/auth.ts for the same workaround).
+    const market = useCookie('market').value || 'se';
+    const locale = useCookie('locale').value || 'sv';
+    return navigateTo(`/${market}/${locale}/`, { replace: true });
   }
 });

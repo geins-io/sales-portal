@@ -20,19 +20,18 @@ import { Checkbox } from '~/components/ui/checkbox';
 import { Card, CardContent } from '~/components/ui/card';
 import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 
-definePageMeta({ layout: 'checkout' });
+definePageMeta({
+  layout: 'checkout',
+  middleware: 'feature',
+  feature: 'checkout',
+});
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
-const { canAccess } = useFeatureAccess();
 const route = useRoute();
 const cartStore = useCartStore();
 const checkoutStore = useCheckoutStore();
 const authStore = useAuthStore();
-
-if (!canAccess('checkout')) {
-  await navigateTo(localePath('/'), { replace: true });
-}
 
 const isQuotationMode = computed(() => !!route.query.quotationId);
 

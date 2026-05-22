@@ -1,10 +1,11 @@
 <script setup lang="ts">
+definePageMeta({ middleware: 'feature', feature: 'cart' });
+
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
 const { isCatalogMode } = useTenant();
-const { canAccess } = useFeatureAccess();
 
-if (isCatalogMode.value || !canAccess('cart')) {
+if (isCatalogMode.value) {
   await navigateTo(localePath('/'), { replace: true });
 }
 
