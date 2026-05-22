@@ -769,6 +769,24 @@ describe('Tenant utilities', () => {
       }
     });
 
+    it('theme.colors as an empty object returns a non-null config', () => {
+      const candidate = fullCandidate();
+      candidate.theme = { colors: {} };
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out).not.toBeNull();
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
+      for (const key of [
+        'primary',
+        'primaryForeground',
+        'secondary',
+        'secondaryForeground',
+        'background',
+        'foreground',
+      ] as const) {
+        expect(out?.theme.colors[key]).toMatch(oklchPattern);
+      }
+    });
+
     it('theme.colors entirely missing returns a non-null config', () => {
       const candidate = fullCandidate();
       candidate.theme = {};
@@ -784,6 +802,107 @@ describe('Tenant utilities', () => {
         'foreground',
       ] as const) {
         expect(out?.theme.colors[key]).toMatch(oklchPattern);
+      }
+    });
+
+    it('many bad leaves do not cause an infinite loop', () => {
+      // Forge a candidate with every declared color key set to garbage.
+      // That is roughly 37 bad leaves, well beyond the 32-strip budget.
+      // Whether the salvager strips them all, backfills cores, or bails
+      // to null is not the point: this test asserts the loop terminates
+      // in bounded time.
+      const candidate = fullCandidate();
+      const declaredColorKeys = [
+        'primary',
+        'primaryForeground',
+        'secondary',
+        'secondaryForeground',
+        'background',
+        'foreground',
+        'card',
+        'cardForeground',
+        'popover',
+        'popoverForeground',
+        'muted',
+        'mutedForeground',
+        'accent',
+        'accentForeground',
+        'destructive',
+        'destructiveForeground',
+        'border',
+        'input',
+        'ring',
+        'sidebar',
+        'sidebarForeground',
+        'sidebarPrimary',
+        'sidebarPrimaryForeground',
+        'sidebarAccent',
+        'sidebarAccentForeground',
+        'sidebarBorder',
+        'sidebarRing',
+        'topBarBackground',
+        'footerBackground',
+        'navBarBackground',
+        'siteBackground',
+        'buttonBackground',
+        'buttonPurchaseBackground',
+        'topBarText',
+        'footerText',
+      ];
+      const colors: Record<string, string> = {};
+      for (const key of declaredColorKeys) {
+        colors[key] = 'not-a-color';
+      }
+      candidate.theme = { colors };
+      const start = Date.now();
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      const elapsed = Date.now() - start;
+      expect(elapsed).toBeLessThan(500);
+      // Either succeeds with backfilled cores or returns null. Both are
+      // acceptable outcomes. Loop termination is what matters here.
+      if (out !== null) {
+        const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
+        expect(out.theme.colors.primary).toMatch(oklchPattern);
+      }
+    });
+
+    it('strips multiple bad leaves and logs each one', () => {
+      mockLoggerWarn.mockClear();
+      const candidate = fullCandidate();
+      candidate.theme = {
+        colors: {
+          primary: 'oklch(0.5 0.2 200)',
+          primaryForeground: 'oklch(0.95 0.01 200)',
+          secondary: 'oklch(0.9 0.05 200)',
+          secondaryForeground: 'oklch(0.2 0.02 200)',
+          background: 'oklch(1 0 0)',
+          foreground: 'oklch(0.1 0 0)',
+          topBarBackground: 'banana',
+          footerBackground: 'not-a-color',
+          navBarBackground: 'nope',
+          siteBackground: '???',
+          buttonBackground: 'broken',
+        },
+      };
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out).not.toBeNull();
+      // The salvager rolls every stripped leaf into one summary warn at
+      // the end: `... N leaf-strip(s): path1; path2; ...`. Find the
+      // rollup line, then assert the count plus every expected path.
+      const rollup = mockLoggerWarn.mock.calls.find(
+        (args) => typeof args[0] === 'string' && args[0].includes('leaf-strip'),
+      );
+      expect(rollup).toBeDefined();
+      const message = rollup?.[0] as string;
+      expect(message).toContain('5 leaf-strip(s)');
+      for (const key of [
+        'topBarBackground',
+        'footerBackground',
+        'navBarBackground',
+        'siteBackground',
+        'buttonBackground',
+      ]) {
+        expect(message).toContain(`theme.colors.${key}`);
       }
     });
   });
