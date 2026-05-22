@@ -25,6 +25,9 @@ param applicationInsightsId string
 @description('Web App resource ID')
 param webAppId string
 
+@description('App Service Plan resource ID')
+param appServicePlanId string
+
 @description('Action Group resource ID for notifications (optional)')
 param actionGroupId string = ''
 
@@ -157,7 +160,7 @@ resource failureRateAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
           metricNamespace: 'microsoft.insights/components'
           operator: 'GreaterThan'
           threshold: currentThresholds.failureRatePercent
-          timeAggregation: 'Average'
+          timeAggregation: 'Count'
           criterionType: 'StaticThresholdCriterion'
         }
       ]
@@ -218,7 +221,7 @@ resource cpuAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (environment
     severity: severityLevels.warning
     enabled: true
     scopes: [
-      webAppId
+      appServicePlanId
     ]
     evaluationFrequency: 'PT5M'
     windowSize: 'PT15M'
@@ -228,7 +231,7 @@ resource cpuAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (environment
         {
           name: 'HighCPU'
           metricName: 'CpuPercentage'
-          metricNamespace: 'Microsoft.Web/sites'
+          metricNamespace: 'Microsoft.Web/serverFarms'
           operator: 'GreaterThan'
           threshold: currentThresholds.cpuPercent
           timeAggregation: 'Average'
@@ -255,7 +258,7 @@ resource memoryAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (environm
     severity: severityLevels.warning
     enabled: true
     scopes: [
-      webAppId
+      appServicePlanId
     ]
     evaluationFrequency: 'PT5M'
     windowSize: 'PT15M'
@@ -265,7 +268,7 @@ resource memoryAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (environm
         {
           name: 'HighMemory'
           metricName: 'MemoryPercentage'
-          metricNamespace: 'Microsoft.Web/sites'
+          metricNamespace: 'Microsoft.Web/serverFarms'
           operator: 'GreaterThan'
           threshold: currentThresholds.memoryPercent
           timeAggregation: 'Average'
