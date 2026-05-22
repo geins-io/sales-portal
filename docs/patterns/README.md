@@ -517,4 +517,5 @@ export default defineEventHandler(async (event) => {
 ## Further Reading
 
 - [CMS Menu](./cms-menu.md) — how navigation menus are fetched from the Geins CMS and rendered.
+- [Color Coercion](./color-coercion.md): how arbitrary CSS color strings from the merchant admin are coerced to canonical OKLCH and how the resilient parser keeps tenants alive.
 - [Sidebar Info Card](./sidebar-info-card.md) — canonical class set for the bordered label-and-value cards used on portal detail pages.

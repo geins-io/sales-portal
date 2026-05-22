@@ -1,0 +1,51 @@
+{
+  "geinsSettings": {
+    "defaultHostName": "elproman.litium.store",
+    "additionalHostNames": [],
+    "apiKey": "00000000-0000-0000-0000-000000000000",
+    "accountName": "elproman",
+    "channelId": "1|se",
+    "defaultLocale": "sv-SE",
+    "defaultMarket": "se",
+    "locales": ["sv-SE"],
+    "markets": ["se"]
+  },
+  "appSettings": {
+    "theme": {
+      "typography": {
+        "headingFontFamily": "Mukta",
+        "fontFamily": "Mukta"
+      },
+      "radius": "0.375rem",
+      "colors": {
+        "footerBackground": "#00486e",
+        "footerText": "#ffffff",
+        "topBarBackground": "#eae8dc99",
+        "buttonBackground": "#00486e",
+        "buttonPurchaseBackground": "#00486e",
+        "buttonPurchaseText": "#ffffff",
+        "buttonText": "#ffffff",
+        "siteBackground": "#FFFFFF",
+        "navBarBackground": "#FFFFFF",
+        "topBarText": "#000000"
+      }
+    },
+    "mode": "catalogue",
+    "features": {
+      "priceVisibility": {
+        "enabled": false
+      },
+      "orderPlacement": {
+        "enabled": false
+      }
+    },
+    "branding": {
+      "logoUrl": "https://elproman.commerce.services/channels/1/storefrontSettings.branding.logoUrl.png",
+      "faviconUrl": "https://elproman.commerce.services/channels/1/storefrontSettings.branding.faviconUrl.ico"
+    },
+    "id": "store"
+  },
+  "tenantId": "elproman",
+  "isActive": true,
+  "updatedAt": "2026-05-22T08:26:48+00:00"
+}

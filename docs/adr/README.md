@@ -21,6 +21,7 @@ ADRs document significant architectural decisions with context and consequences.
 | 013 | [Configurable Checkout Mode (Hosted vs Custom)](013-configurable-checkout-mode.md) | accepted | 2026-03-15 |
 | 014 | [CMS Caching Strategy](014-caching-strategy.md)                                    | accepted | 2026-03-20 |
 | 015 | [Type-prefixed routing](015-type-prefixed-routing.md)                              | accepted | 2026-03-30 |
+| 016 | [Tenant theme color coercion](016-tenant-color-coercion.md)                        | accepted | 2026-05-22 |
 
 ## Adding New ADRs
 

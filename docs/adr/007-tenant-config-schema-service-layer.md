@@ -100,4 +100,4 @@ Adding a new rule type = adding one evaluator function + extending `UserContext`
 ### Trade-offs
 
 - We chose Zod v4's two-argument `z.record(z.string(), valueSchema)` syntax. If downgrading to Zod v3, the `z.record()` calls must be adjusted.
-- Color derivation uses string-based OKLCH parsing (no external color library). If we need perceptual adjustments later, we may want a proper color library.
+- Color derivation uses string-based OKLCH parsing (no external color library). If we need perceptual adjustments later, we may want a proper color library. Realised by [ADR-016](./016-tenant-color-coercion.md) (color coercion) which adopts culori for boundary coercion of arbitrary CSS color formats.

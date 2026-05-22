@@ -39,26 +39,58 @@ describe('ThemeColorsSchema topBarBackground', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects a 3-digit hex shorthand', () => {
+  it('coerces a 3-digit hex shorthand', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       topBarBackground: '#fff',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it('rejects an 8-digit hex (alpha channel)', () => {
+  it('coerces an 8-digit hex (alpha channel preserved)', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       topBarBackground: '#ff00aabb',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it('rejects a CSS named color', () => {
+  it('coerces a CSS named color', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       topBarBackground: 'red',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('coerces an rgb() value', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      topBarBackground: 'rgb(234, 232, 220)',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('coerces an hsl() value', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      topBarBackground: 'hsl(120, 50%, 50%)',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts `#eae8dc99` (regression for elproman payload)', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      topBarBackground: '#eae8dc99',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects unparseable garbage', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      topBarBackground: 'not-a-color',
     });
     expect(result.success).toBe(false);
   });
@@ -94,28 +126,28 @@ describe('ThemeColorsSchema footerBackground', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects a 3-digit hex shorthand', () => {
+  it('coerces a 3-digit hex shorthand', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       footerBackground: '#fff',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it('rejects an 8-digit hex (alpha channel)', () => {
+  it('coerces an 8-digit hex (alpha channel preserved)', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       footerBackground: '#ff00aabb',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it('rejects a CSS named color', () => {
+  it('coerces a CSS named color', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       footerBackground: 'blue',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('treats footerBackground as optional', () => {
@@ -154,28 +186,28 @@ describe.each([
     expect(result.success).toBe(true);
   });
 
-  it('rejects a 3-digit hex shorthand', () => {
+  it('coerces a 3-digit hex shorthand', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       [field]: '#fff',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it('rejects an 8-digit hex (alpha channel)', () => {
+  it('coerces an 8-digit hex (alpha channel preserved)', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       [field]: '#ff00aabb',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it('rejects a CSS named color', () => {
+  it('coerces a CSS named color', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       [field]: 'green',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it(`treats ${field} as optional`, () => {
@@ -184,19 +216,32 @@ describe.each([
   });
 });
 
-describe('ThemeColorsSchema strict 32 colors regression', () => {
-  it('still rejects hex on the standard primary color', () => {
+describe('ThemeColorsSchema coercion on core + optional palette', () => {
+  it('coerces hex on the standard primary color', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       primary: '#ff0000',
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.primary).toMatch(
+        /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/,
+      );
+    }
   });
 
-  it('still rejects hex on an optional standard color (destructive)', () => {
+  it('coerces hex on an optional standard color (destructive)', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       destructive: '#ff0000',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects unparseable garbage on a core color', () => {
+    const result = ThemeColorsSchema.safeParse({
+      ...baseCore,
+      primary: 'not-a-color',
     });
     expect(result.success).toBe(false);
   });

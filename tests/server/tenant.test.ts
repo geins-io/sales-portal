@@ -8,7 +8,10 @@ import {
   writeHostnameMappings,
   parseStoreSettingsResilient,
   adaptMerchantApiResponse,
+  deleteAtPath,
+  backfillCoreColors,
 } from '../../server/utils/tenant';
+import elpromanFixture from '../fixtures/store-settings/elproman.json';
 import {
   createDefaultTheme,
   generateTenantCss,
@@ -641,7 +644,10 @@ describe('Tenant utilities', () => {
       delete candidate.theme;
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out).not.toBeNull();
-      expect(out?.theme.colors.primary).toBe('oklch(0.5 0.2 260)');
+      // The salvage theme is now computed lazily from
+      // `createDefaultTheme(hostname).colors`, so the palette matches the
+      // canonical default for this hostname (zinc for non-localhost).
+      expect(out?.theme.colors.primary).toBe('oklch(0.205 0 0)');
     });
 
     it('salvages a candidate with missing branding by applying a neutral default', () => {
@@ -700,10 +706,285 @@ describe('Tenant utilities', () => {
       };
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out).not.toBeNull();
-      expect(out?.theme.colors.primary).toBe('oklch(0.5 0.2 260)');
-      expect(out?.theme.colors.topBarBackground).toBe('#79a07d');
-      expect(out?.theme.colors.footerBackground).toBe('#333333');
-      expect(out?.theme.colors.navBarBackground).toBe('#ffffff');
+      // Core colors stay verbatim, surface colors are now coerced to oklch.
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
+      expect(out?.theme.colors.primary).toMatch(oklchPattern);
+      expect(out?.theme.colors.topBarBackground).toMatch(oklchPattern);
+      expect(out?.theme.colors.footerBackground).toMatch(oklchPattern);
+      expect(out?.theme.colors.navBarBackground).toMatch(oklchPattern);
+    });
+
+    it('parses the elproman fixture (no core colors, surface-only palette) without blanking', () => {
+      // Regression artifact: this exact payload caused production blanking
+      // before the salvager learned to leaf-strip and core-backfill. The
+      // fixture intentionally has zero core OKLCH keys and only surface
+      // colors (one with 8-digit alpha hex). Reverting the fix should make
+      // this test fail loudly.
+      const candidate = adaptMerchantApiResponse(
+        elpromanFixture as unknown as Record<string, unknown>,
+      );
+      const out = parseStoreSettingsResilient(
+        candidate,
+        'elproman.litium.store',
+      );
+      expect(out).not.toBeNull();
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
+      const withAlphaPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+ \/ [\d.]+\)$/;
+      for (const key of [
+        'primary',
+        'primaryForeground',
+        'secondary',
+        'secondaryForeground',
+        'background',
+        'foreground',
+      ] as const) {
+        expect(out?.theme.colors[key]).toMatch(oklchPattern);
+      }
+      // The 8-digit alpha hex `#eae8dc99` is coerced AND alpha is preserved
+      // (the admin's saved value is the truth).
+      expect(out?.theme.colors.topBarBackground).toMatch(withAlphaPattern);
+    });
+
+    it('every theme.colors value garbage still returns a non-null config', () => {
+      const candidate = fullCandidate();
+      candidate.theme = {
+        colors: {
+          primary: 'banana',
+          primaryForeground: 'not-a-color',
+          secondary: '',
+          secondaryForeground: '???',
+          background: 'rgb(banana, 0, 0)',
+          foreground: 'oklch(broken)',
+          topBarBackground: 'nope',
+          footerBackground: 'also-nope',
+        },
+      };
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out).not.toBeNull();
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
+      for (const key of [
+        'primary',
+        'primaryForeground',
+        'secondary',
+        'secondaryForeground',
+        'background',
+        'foreground',
+      ] as const) {
+        expect(out?.theme.colors[key]).toMatch(oklchPattern);
+      }
+    });
+
+    it('theme.colors as an empty object returns a non-null config', () => {
+      const candidate = fullCandidate();
+      candidate.theme = { colors: {} };
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out).not.toBeNull();
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
+      for (const key of [
+        'primary',
+        'primaryForeground',
+        'secondary',
+        'secondaryForeground',
+        'background',
+        'foreground',
+      ] as const) {
+        expect(out?.theme.colors[key]).toMatch(oklchPattern);
+      }
+    });
+
+    it('theme.colors entirely missing returns a non-null config', () => {
+      const candidate = fullCandidate();
+      candidate.theme = {};
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out).not.toBeNull();
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
+      for (const key of [
+        'primary',
+        'primaryForeground',
+        'secondary',
+        'secondaryForeground',
+        'background',
+        'foreground',
+      ] as const) {
+        expect(out?.theme.colors[key]).toMatch(oklchPattern);
+      }
+    });
+
+    it('many bad leaves do not cause an infinite loop', () => {
+      // Forge a candidate with every declared color key set to garbage,
+      // plus a handful of unknown keys that Zod strips silently. The total
+      // exceeds the old 32-strip budget but stays under the new 64 cap, so
+      // the hard guarantee holds: no combination of color values can blank
+      // a tenant. We assert non-null directly here, not the soft if-branch.
+      const candidate = fullCandidate();
+      const declaredColorKeys = [
+        'primary',
+        'primaryForeground',
+        'secondary',
+        'secondaryForeground',
+        'background',
+        'foreground',
+        'card',
+        'cardForeground',
+        'popover',
+        'popoverForeground',
+        'muted',
+        'mutedForeground',
+        'accent',
+        'accentForeground',
+        'destructive',
+        'destructiveForeground',
+        'border',
+        'input',
+        'ring',
+        'sidebar',
+        'sidebarForeground',
+        'sidebarPrimary',
+        'sidebarPrimaryForeground',
+        'sidebarAccent',
+        'sidebarAccentForeground',
+        'sidebarBorder',
+        'sidebarRing',
+        'topBarBackground',
+        'footerBackground',
+        'navBarBackground',
+        'siteBackground',
+        'buttonBackground',
+        'buttonPurchaseBackground',
+        'topBarText',
+        'footerText',
+      ];
+      const colors: Record<string, string> = {};
+      for (const key of declaredColorKeys) {
+        colors[key] = 'not-a-color';
+      }
+      // Pad to 50 garbage entries total to exercise the path comfortably
+      // beyond the previous 32-strip ceiling.
+      for (let i = 0; declaredColorKeys.length + i < 50; i++) {
+        colors[`unknownColor${i}`] = 'still-not-a-color';
+      }
+      candidate.theme = { colors };
+      const start = Date.now();
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      const elapsed = Date.now() - start;
+      expect(elapsed).toBeLessThan(500);
+      expect(out).not.toBeNull();
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
+      expect(out?.theme.colors.primary).toMatch(oklchPattern);
+    });
+
+    it('strips multiple bad leaves and logs each one', () => {
+      mockLoggerWarn.mockClear();
+      const candidate = fullCandidate();
+      candidate.theme = {
+        colors: {
+          primary: 'oklch(0.5 0.2 200)',
+          primaryForeground: 'oklch(0.95 0.01 200)',
+          secondary: 'oklch(0.9 0.05 200)',
+          secondaryForeground: 'oklch(0.2 0.02 200)',
+          background: 'oklch(1 0 0)',
+          foreground: 'oklch(0.1 0 0)',
+          topBarBackground: 'banana',
+          footerBackground: 'not-a-color',
+          navBarBackground: 'nope',
+          siteBackground: '???',
+          buttonBackground: 'broken',
+        },
+      };
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out).not.toBeNull();
+      // The salvager rolls every stripped leaf into one summary warn at
+      // the end: `... N leaf-strip(s): path1; path2; ...`. Find the
+      // rollup line, then assert the count plus every expected path.
+      const rollup = mockLoggerWarn.mock.calls.find(
+        (args) => typeof args[0] === 'string' && args[0].includes('leaf-strip'),
+      );
+      expect(rollup).toBeDefined();
+      const message = rollup?.[0] as string;
+      expect(message).toContain('5 leaf-strip(s)');
+      for (const key of [
+        'topBarBackground',
+        'footerBackground',
+        'navBarBackground',
+        'siteBackground',
+        'buttonBackground',
+      ]) {
+        expect(message).toContain(`theme.colors.${key}`);
+      }
+    });
+  });
+
+  describe('deleteAtPath', () => {
+    it('removes a nested object key in place', () => {
+      const obj = { a: { b: { c: 1, d: 2 } } };
+      const removed = deleteAtPath(obj, ['a', 'b', 'c']);
+      expect(removed).toBe(true);
+      expect(obj).toEqual({ a: { b: { d: 2 } } });
+    });
+
+    it('removes an array index without leaving a hole', () => {
+      const obj = { items: ['x', 'y', 'z'] };
+      const removed = deleteAtPath(obj, ['items', 1]);
+      expect(removed).toBe(true);
+      expect(obj.items).toEqual(['x', 'z']);
+      expect(obj.items.length).toBe(2);
+    });
+
+    it('returns false when the path is empty or root is not an object', () => {
+      expect(deleteAtPath(null, ['a'])).toBe(false);
+      expect(deleteAtPath({ a: 1 }, [])).toBe(false);
+    });
+
+    it('returns false when the key is not present', () => {
+      const obj = { a: { b: 1 } };
+      expect(deleteAtPath(obj, ['a', 'missing'])).toBe(false);
+      expect(obj).toEqual({ a: { b: 1 } });
+    });
+
+    it('returns false on out-of-range array index', () => {
+      const obj = { items: ['x'] };
+      expect(deleteAtPath(obj, ['items', 5])).toBe(false);
+      expect(obj.items).toEqual(['x']);
+    });
+
+    it('refuses to walk dangerous prototype-pollution segments', () => {
+      const obj: Record<string, unknown> = { real: 'value' };
+      expect(deleteAtPath(obj, ['__proto__', 'isAdmin'])).toBe(false);
+      expect(deleteAtPath(obj, ['constructor', 'prototype'])).toBe(false);
+      expect(deleteAtPath(obj, ['prototype'])).toBe(false);
+      expect(obj.real).toBe('value');
+    });
+  });
+
+  describe('backfillCoreColors', () => {
+    it('fills only undefined core keys and leaves existing values alone', () => {
+      const theme = {
+        colors: {
+          primary: 'oklch(0.3 0.1 50)',
+          // secondary, etc. missing
+        },
+      } as unknown as StoreSettings['theme'];
+      const filled = backfillCoreColors(theme, 'h');
+      expect(theme.colors.primary).toBe('oklch(0.3 0.1 50)');
+      expect(theme.colors.secondary).toBeDefined();
+      expect(theme.colors.background).toBeDefined();
+      expect(filled).toContain('secondary');
+      expect(filled).not.toContain('primary');
+    });
+
+    it('returns an empty list when all core keys are already present', () => {
+      const theme = {
+        colors: {
+          primary: 'oklch(0 0 0)',
+          primaryForeground: 'oklch(1 0 0)',
+          secondary: 'oklch(0.5 0 0)',
+          secondaryForeground: 'oklch(0.2 0 0)',
+          background: 'oklch(1 0 0)',
+          foreground: 'oklch(0.1 0 0)',
+        },
+      } as unknown as StoreSettings['theme'];
+      const filled = backfillCoreColors(theme, 'h');
+      expect(filled).toEqual([]);
     });
   });
 
