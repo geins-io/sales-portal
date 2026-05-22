@@ -369,12 +369,27 @@ const CORE_COLOR_KEYS = [
  * Array indices use `splice` so we don't leave a hole that breaks `.length`.
  * Returns true if a leaf was actually removed.
  */
+const FORBIDDEN_PATH_SEGMENTS = new Set([
+  '__proto__',
+  'prototype',
+  'constructor',
+]);
+
 export function deleteAtPath(
   root: unknown,
   path: ReadonlyArray<string | number>,
 ): boolean {
   if (path.length === 0 || root === null || typeof root !== 'object') {
     return false;
+  }
+  // Defense-in-depth: refuse to walk segments that could touch the
+  // prototype chain. The schema is currently `.strict()` so Zod won't emit
+  // such paths, but a future switch to `.passthrough()` / `.catchall()`
+  // could let attacker-controlled keys reach this helper.
+  for (const segment of path) {
+    if (typeof segment === 'string' && FORBIDDEN_PATH_SEGMENTS.has(segment)) {
+      return false;
+    }
   }
   let cursor: unknown = root;
   for (let i = 0; i < path.length - 1; i++) {
@@ -473,16 +488,9 @@ export function parseStoreSettingsResilient(
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    theme: {
-      colors: {
-        primary: 'oklch(0.5 0.2 260)',
-        primaryForeground: 'oklch(1 0 0)',
-        secondary: 'oklch(0.95 0.01 260)',
-        secondaryForeground: 'oklch(0.2 0.02 260)',
-        background: 'oklch(1 0 0)',
-        foreground: 'oklch(0.145 0 0)',
-      },
-    },
+    // `theme` intentionally omitted: it's computed lazily from
+    // `createDefaultTheme(hostname)` at substitution time so the salvage
+    // palette can't drift from the canonical default.
     branding: {
       name: 'Store',
       watermark: 'full',
@@ -498,14 +506,21 @@ export function parseStoreSettingsResilient(
   ]);
 
   const MAX_SUBSTITUTIONS = 12;
-  const MAX_LEAF_STRIPS = 32;
+  // ThemeColorsSchema declares ~40 color keys (6 core + 26 optional + 8
+  // surface). 64 gives comfortable headroom for "every declared color value
+  // is garbage" plus a few unknown keys, so the hard guarantee that no
+  // combination of color inputs blanks a tenant holds at full strength.
+  const MAX_LEAF_STRIPS = 64;
 
   // Deep-clone so the salvage loop can mutate (deleteAtPath splices arrays
-  // and deletes object keys). JSON round-trip is sufficient since the
-  // merchant API response is pure JSON.
-  let work: Record<string, unknown> = JSON.parse(
-    JSON.stringify(candidate),
-  ) as Record<string, unknown>;
+  // and deletes object keys). `structuredClone` preserves Date, Map, Set,
+  // typed arrays, etc., where a JSON round-trip would silently lose them,
+  // and it's a touch faster than JSON.parse(JSON.stringify(...)) on the
+  // payloads we see in practice. Node 20+ provides it natively.
+  let work: Record<string, unknown> = structuredClone(candidate) as Record<
+    string,
+    unknown
+  >;
   let parsed = StoreSettingsSchema.safeParse(work);
   if (parsed.success) {
     const filled = backfillCoreColors(parsed.data.theme, hostname);
@@ -573,14 +588,20 @@ export function parseStoreSettingsResilient(
       // can fill the gap.
     }
 
-    if (!(top in SALVAGE_DEFAULTS)) {
+    const hasSalvage = top === 'theme' || top in SALVAGE_DEFAULTS;
+    if (!hasSalvage) {
       logger.error(
         `[tenant] Schema validation failed for ${hostname} (${dotted}): ${issue.message}; no salvage default`,
       );
       return null;
     }
     const existing = work[top];
-    const salvage = SALVAGE_DEFAULTS[top];
+    // `theme` is computed lazily from `createDefaultTheme(hostname)` so the
+    // salvage palette is always the canonical default for this hostname.
+    const salvage =
+      top === 'theme'
+        ? { colors: createDefaultTheme(hostname).colors }
+        : SALVAGE_DEFAULTS[top];
     work = {
       ...work,
       [top]:

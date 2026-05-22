@@ -644,7 +644,10 @@ describe('Tenant utilities', () => {
       delete candidate.theme;
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out).not.toBeNull();
-      expect(out?.theme.colors.primary).toBe('oklch(0.5 0.2 260)');
+      // The salvage theme is now computed lazily from
+      // `createDefaultTheme(hostname).colors`, so the palette matches the
+      // canonical default for this hostname (zinc for non-localhost).
+      expect(out?.theme.colors.primary).toBe('oklch(0.205 0 0)');
     });
 
     it('salvages a candidate with missing branding by applying a neutral default', () => {
@@ -806,11 +809,11 @@ describe('Tenant utilities', () => {
     });
 
     it('many bad leaves do not cause an infinite loop', () => {
-      // Forge a candidate with every declared color key set to garbage.
-      // That is roughly 37 bad leaves, well beyond the 32-strip budget.
-      // Whether the salvager strips them all, backfills cores, or bails
-      // to null is not the point: this test asserts the loop terminates
-      // in bounded time.
+      // Forge a candidate with every declared color key set to garbage,
+      // plus a handful of unknown keys that Zod strips silently. The total
+      // exceeds the old 32-strip budget but stays under the new 64 cap, so
+      // the hard guarantee holds: no combination of color values can blank
+      // a tenant. We assert non-null directly here, not the soft if-branch.
       const candidate = fullCandidate();
       const declaredColorKeys = [
         'primary',
@@ -853,17 +856,19 @@ describe('Tenant utilities', () => {
       for (const key of declaredColorKeys) {
         colors[key] = 'not-a-color';
       }
+      // Pad to 50 garbage entries total to exercise the path comfortably
+      // beyond the previous 32-strip ceiling.
+      for (let i = 0; declaredColorKeys.length + i < 50; i++) {
+        colors[`unknownColor${i}`] = 'still-not-a-color';
+      }
       candidate.theme = { colors };
       const start = Date.now();
       const out = parseStoreSettingsResilient(candidate, 'h');
       const elapsed = Date.now() - start;
       expect(elapsed).toBeLessThan(500);
-      // Either succeeds with backfilled cores or returns null. Both are
-      // acceptable outcomes. Loop termination is what matters here.
-      if (out !== null) {
-        const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
-        expect(out.theme.colors.primary).toMatch(oklchPattern);
-      }
+      expect(out).not.toBeNull();
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
+      expect(out?.theme.colors.primary).toMatch(oklchPattern);
     });
 
     it('strips multiple bad leaves and logs each one', () => {
@@ -938,6 +943,14 @@ describe('Tenant utilities', () => {
       const obj = { items: ['x'] };
       expect(deleteAtPath(obj, ['items', 5])).toBe(false);
       expect(obj.items).toEqual(['x']);
+    });
+
+    it('refuses to walk dangerous prototype-pollution segments', () => {
+      const obj: Record<string, unknown> = { real: 'value' };
+      expect(deleteAtPath(obj, ['__proto__', 'isAdmin'])).toBe(false);
+      expect(deleteAtPath(obj, ['constructor', 'prototype'])).toBe(false);
+      expect(deleteAtPath(obj, ['prototype'])).toBe(false);
+      expect(obj.real).toBe('value');
     });
   });
 
