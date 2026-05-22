@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import { useCartStore } from '~/stores/cart';
-
-const cartStore = useCartStore();
-onMounted(() => {
-  if (cartStore.cartId) cartStore.fetchCart();
-});
+// Cart hydration runs in `app/plugins/cart-init.ts` (universal plugin).
+// See docs/patterns/cart-hydration.md for the rationale.
 </script>
 
 <template>
