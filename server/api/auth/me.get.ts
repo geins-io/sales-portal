@@ -1,6 +1,7 @@
+import type { GeinsUserType } from '@geins/types';
 import * as authService from '../../services/auth';
-import * as userService from '../../services/user';
 import { resolveBuyerMarket } from '../../utils/buyer-market';
+import { loadUserForToken } from '../../utils/load-user';
 
 const NAME_CLAIM = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
 
@@ -52,10 +53,13 @@ export default defineEventHandler(async (event) => {
       // buyer is no longer allowed on (cookie set on a previous session,
       // tenant config change, buyer's company moved pricelists, etc). The
       // result.user from crm.auth.getUser is the JWT-decoded shape without
-      // availableChannels, so we fetch the full profile here.
-      const fullUser = await userService
-        .getUser(tokens.authToken, event)
-        .catch(() => undefined);
+      // availableChannels, so we need the full profile here. Reuse the
+      // copy stashed by buyer-market middleware on this same request when
+      // available, otherwise fall back to a direct fetch.
+      const stashed = (event.context as { user?: GeinsUserType } | undefined)
+        ?.user;
+      const fullUser =
+        stashed ?? (await loadUserForToken(event, tokens.authToken));
       const resolvedMarket = resolveBuyerMarket(event, fullUser);
       return {
         user: result.user,
