@@ -350,33 +350,111 @@ function mergeDeep(
 }
 
 /**
+ * Six required core OKLCH keys the storefront cannot render without.
+ * Missing values are backfilled from `createDefaultTheme(hostname)` after a
+ * successful parse so a tenant that only saved surface colors in admin still
+ * boots with a sensible palette.
+ */
+const CORE_COLOR_KEYS = [
+  'primary',
+  'primaryForeground',
+  'secondary',
+  'secondaryForeground',
+  'background',
+  'foreground',
+] as const;
+
+/**
+ * Walks a path of object keys / array indices and deletes the leaf.
+ * Array indices use `splice` so we don't leave a hole that breaks `.length`.
+ * Returns true if a leaf was actually removed.
+ */
+export function deleteAtPath(
+  root: unknown,
+  path: ReadonlyArray<string | number>,
+): boolean {
+  if (path.length === 0 || root === null || typeof root !== 'object') {
+    return false;
+  }
+  let cursor: unknown = root;
+  for (let i = 0; i < path.length - 1; i++) {
+    if (cursor === null || typeof cursor !== 'object') return false;
+    const segment = path[i] as string | number;
+    cursor = (cursor as Record<string | number, unknown>)[segment];
+  }
+  if (cursor === null || typeof cursor !== 'object') return false;
+  const leaf = path[path.length - 1] as string | number;
+  if (Array.isArray(cursor) && typeof leaf === 'number') {
+    if (leaf < 0 || leaf >= cursor.length) return false;
+    cursor.splice(leaf, 1);
+    return true;
+  }
+  const container = cursor as Record<string | number, unknown>;
+  if (!(leaf in container)) return false;
+  // Reflect.deleteProperty (vs. `delete container[leaf]`) sidesteps the
+  // no-dynamic-delete lint; the salvager walks Zod-issue paths whose
+  // leaves are inherently dynamic.
+  return Reflect.deleteProperty(container, leaf as PropertyKey);
+}
+
+/**
+ * Fills any missing core OKLCH colors on `theme.colors` from
+ * `createDefaultTheme(hostname).colors`. Existing values (including the
+ * caller's intentional non-default values) are left untouched. Returns the
+ * list of keys that were backfilled so callers can log the diff.
+ */
+export function backfillCoreColors(
+  theme: StoreSettings['theme'],
+  hostname: string,
+): readonly (typeof CORE_COLOR_KEYS)[number][] {
+  const defaults = createDefaultTheme(hostname).colors;
+  const filled: (typeof CORE_COLOR_KEYS)[number][] = [];
+  for (const key of CORE_COLOR_KEYS) {
+    if (theme.colors[key] === undefined) {
+      // Core keys in DEFAULT_CORE_COLORS are always non-null strings; the
+      // widened type permits null because surface keys can be null.
+      const value = defaults[key];
+      if (typeof value === 'string') {
+        theme.colors[key] = value;
+        filled.push(key);
+      }
+    }
+  }
+  return filled;
+}
+
+/**
  * Parse a candidate StoreSettings tolerantly.
  *
- * Strict `StoreSettingsSchema.safeParse` is the happy path. When the
- * merchant API ships a renamed field, an unexpected enum value, or
- * drops something we depend on, the strict parse fails — and a single
- * brittle field would otherwise blank an entire tenant (PR #144 fixed
- * one such break, this wrapper prevents the next one from paging us).
+ * Strict `StoreSettingsSchema.safeParse` is the happy path. When the merchant
+ * API ships unexpected data the parser walks a three-stage salvage so a tenant
+ * never blanks because of presentation config drift:
  *
- * Strategy: salvage. Walk each top-level Zod issue, substitute a
- * conservative default at the failing path, retry. If we still can't
- * land a valid config after a bounded number of substitutions, give up
- * and return null (caller falls back to autoCreate / default tenant).
+ *   1. Top-level substitute. If a Zod issue's path is a single segment and
+ *      the field has a SALVAGE_DEFAULTS entry, swap the whole top-level value
+ *      for the conservative default (merged deeply with the existing value
+ *      when both are plain objects). Bounded by MAX_SUBSTITUTIONS.
  *
- * We intentionally do NOT silently swap critical credentials
- * (`tenantId`, `hostname`, `geinsSettings.apiKey`) — those failures
- * stay fatal so we don't serve a half-broken tenant claiming wrong IDs.
- * Theme and branding are presentation config, not credentials; missing
- * values are salvaged with neutral defaults so a reset tenant renders
- * with a plain look rather than hard-failing with a 500.
+ *   2. Deep leaf-strip. If the issue path is longer than one segment, delete
+ *      the single failing leaf from the working object via path-walk and
+ *      re-parse. Lets ~30 bad surface colors evaporate without burning the
+ *      top-level substitution budget. Bounded by MAX_LEAF_STRIPS. Stripped
+ *      paths are recorded in `seenPaths` so a logic bug can't loop on the
+ *      same key.
+ *
+ *   3. Core-color backfill. After a successful parse, any of the six required
+ *      core OKLCH keys still missing from `theme.colors` get filled from
+ *      `createDefaultTheme(hostname).colors`. This is what guarantees that
+ *      a payload with empty / missing / garbage `theme.colors` still produces
+ *      a renderable tenant. Color values are presentation data, never fatal.
+ *
+ * FATAL_PATHS (e.g. `tenantId`, `geinsSettings.apiKey`) bypass all salvage
+ * and return null so we never serve a tenant claiming wrong credentials.
  */
 export function parseStoreSettingsResilient(
   candidate: unknown,
   hostname: string,
 ): StoreSettings | null {
-  const strict = StoreSettingsSchema.safeParse(candidate);
-  if (strict.success) return strict.data;
-
   if (typeof candidate !== 'object' || candidate === null) {
     logger.error(
       `[tenant] Schema validation failed for ${hostname}: candidate is not an object`,
@@ -419,25 +497,82 @@ export function parseStoreSettingsResilient(
     'geinsSettings.accountName',
   ]);
 
-  // Work on a shallow copy; mutate a single field per iteration.
-  let work: Record<string, unknown> = {
-    ...(candidate as Record<string, unknown>),
-  };
-  let parsed = StoreSettingsSchema.safeParse(work);
   const MAX_SUBSTITUTIONS = 12;
-  const applied: string[] = [];
+  const MAX_LEAF_STRIPS = 32;
 
-  for (let i = 0; i < MAX_SUBSTITUTIONS && !parsed.success; i++) {
+  // Deep-clone so the salvage loop can mutate (deleteAtPath splices arrays
+  // and deletes object keys). JSON round-trip is sufficient since the
+  // merchant API response is pure JSON.
+  let work: Record<string, unknown> = JSON.parse(
+    JSON.stringify(candidate),
+  ) as Record<string, unknown>;
+  let parsed = StoreSettingsSchema.safeParse(work);
+  if (parsed.success) {
+    const filled = backfillCoreColors(parsed.data.theme, hostname);
+    if (filled.length > 0) {
+      logger.warn(
+        `[tenant] Backfilled ${filled.length} missing core color(s) for ${hostname}: ${filled.join(', ')}`,
+      );
+    }
+    return parsed.data;
+  }
+
+  const substituted: string[] = [];
+  const strippedLeaves: string[] = [];
+  const seenStripPaths = new Set<string>();
+  let substitutions = 0;
+  let leafStrips = 0;
+
+  while (!parsed.success) {
     const issue = parsed.error.issues[0];
     if (!issue) break;
-    const top = String(issue.path[0] ?? '');
     const dotted = issue.path.map(String).join('.');
+    const top = String(issue.path[0] ?? '');
+
     if (!top || FATAL_PATHS.has(dotted) || FATAL_PATHS.has(top)) {
       logger.error(
         `[tenant] Schema validation failed for ${hostname} on a fatal path (${dotted}): ${issue.message}`,
       );
       return null;
     }
+
+    if (issue.path.length > 1) {
+      // Deep failure: strip the single bad leaf instead of replacing the
+      // whole top-level container. Required-but-missing keys (e.g. the six
+      // core colors) are NOT salvaged here; they fall through to the
+      // top-level substitute path which carries a complete theme default,
+      // or to the post-parse backfill once a parse succeeds.
+      const stripPath = issue.path.filter(
+        (p): p is string | number =>
+          typeof p === 'string' || typeof p === 'number',
+      );
+      const stripped = deleteAtPath(work, stripPath);
+      if (stripped) {
+        if (seenStripPaths.has(dotted)) {
+          // Same leaf re-emerged after we already removed it. Indicates a
+          // logic bug or a Zod re-emission loop; bail to avoid spinning.
+          logger.error(
+            `[tenant] Schema validation for ${hostname} did not converge on path ${dotted} after strip`,
+          );
+          return null;
+        }
+        seenStripPaths.add(dotted);
+        strippedLeaves.push(dotted);
+        leafStrips++;
+        if (leafStrips > MAX_LEAF_STRIPS) {
+          logger.error(
+            `[tenant] Schema validation for ${hostname} exceeded ${MAX_LEAF_STRIPS} leaf strips; giving up`,
+          );
+          return null;
+        }
+        parsed = StoreSettingsSchema.safeParse(work);
+        continue;
+      }
+      // Leaf wasn't actually present (missing required field). Fall through
+      // to top-level substitution so the SALVAGE_DEFAULTS theme/branding/etc
+      // can fill the gap.
+    }
+
     if (!(top in SALVAGE_DEFAULTS)) {
       logger.error(
         `[tenant] Schema validation failed for ${hostname} (${dotted}): ${issue.message}; no salvage default`,
@@ -453,20 +588,43 @@ export function parseStoreSettingsResilient(
           ? mergeDeep(salvage as Record<string, unknown>, existing)
           : salvage,
     };
-    applied.push(`${dotted} → default`);
+    substituted.push(`${dotted} → default`);
+    substitutions++;
+    if (substitutions > MAX_SUBSTITUTIONS) {
+      logger.error(
+        `[tenant] Schema validation for ${hostname} exceeded ${MAX_SUBSTITUTIONS} top-level substitutions; giving up`,
+      );
+      return null;
+    }
     parsed = StoreSettingsSchema.safeParse(work);
   }
 
   if (!parsed.success) {
     logger.error(
-      `[tenant] Schema validation failed for ${hostname} after ${applied.length} substitutions: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`,
+      `[tenant] Schema validation failed for ${hostname} after ${substituted.length} substitution(s) and ${strippedLeaves.length} leaf-strip(s): ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`,
     );
     return null;
   }
 
-  logger.warn(
-    `[tenant] Schema validation salvaged for ${hostname} with ${applied.length} field default(s): ${applied.join('; ')}`,
-  );
+  const filled = backfillCoreColors(parsed.data.theme, hostname);
+
+  if (substituted.length || strippedLeaves.length || filled.length) {
+    const parts: string[] = [];
+    if (substituted.length)
+      parts.push(
+        `${substituted.length} substitution(s): ${substituted.join('; ')}`,
+      );
+    if (strippedLeaves.length)
+      parts.push(
+        `${strippedLeaves.length} leaf-strip(s): ${strippedLeaves.join('; ')}`,
+      );
+    if (filled.length)
+      parts.push(`${filled.length} core backfill(s): ${filled.join(', ')}`);
+    logger.warn(
+      `[tenant] Schema salvaged for ${hostname}: ${parts.join(' | ')}`,
+    );
+  }
+
   return parsed.data;
 }
 
