@@ -106,8 +106,8 @@ var skuConfig = {
     capacity: 1
   }
   prod: {
-    name: 'P1v3'
-    tier: 'PremiumV3'
+    name: 'S1'
+    tier: 'Standard'
     capacity: 1
   }
 }
