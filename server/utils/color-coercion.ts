@@ -19,6 +19,23 @@ useMode(modeOklch);
 
 const toOklch = converter('oklch');
 
+// Defense-in-depth: any legitimate CSS color string fits well under 256 chars.
+// Caps input cost (string copies during parse) for pathological payloads.
+const MAX_RAW_LENGTH = 256;
+
+// WHY: prevents log spam when a tenant has many alpha-stripped colors and the
+// config is re-parsed (e.g. on SWR refresh). Without this, an 8-surface tenant
+// with rgba() everywhere emits 8 warns per parse, multiplied by every refresh.
+const warnedAlphaRaw = new Set<string>();
+
+/**
+ * Test-only: reset the alpha-dedupe set between specs. Production code should
+ * never call this; the module-level Set is intentionally process-lifetime.
+ */
+export function __resetColorCoercionForTests(): void {
+  warnedAlphaRaw.clear();
+}
+
 export interface CoercedColor {
   value: string;
   droppedAlpha: boolean;
@@ -32,6 +49,7 @@ function round(value: number | undefined, decimals: number): number {
 }
 
 export function coerceToOklch(raw: string): CoercedColor | null {
+  if (raw.length > MAX_RAW_LENGTH) return null;
   if (raw.trim().length === 0) return null;
 
   const parsed = parse(raw);
@@ -47,7 +65,8 @@ export function coerceToOklch(raw: string): CoercedColor | null {
   const droppedAlpha = typeof oklch.alpha === 'number' && oklch.alpha < 1;
   const value = `oklch(${l} ${c} ${h})`;
 
-  if (droppedAlpha) {
+  if (droppedAlpha && !warnedAlphaRaw.has(raw)) {
+    warnedAlphaRaw.add(raw);
     logger.warn('color-coerce: alpha dropped', {
       raw,
       parsed: value,

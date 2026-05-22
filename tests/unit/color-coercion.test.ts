@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { coerceToOklch } from '../../server/utils/color-coercion';
+import {
+  __resetColorCoercionForTests,
+  coerceToOklch,
+} from '../../server/utils/color-coercion';
 import { logger } from '../../server/utils/logger';
 
 const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
@@ -9,6 +12,7 @@ describe('coerceToOklch', () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    __resetColorCoercionForTests();
     warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
   });
 
@@ -51,6 +55,46 @@ describe('coerceToOklch', () => {
     expect(result).not.toBeNull();
     expect(result!.value).toMatch(oklchPattern);
     expect(result!.droppedAlpha).toBe(true);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('parses `hsla(120, 50%, 50%, 0.5)` and strips alpha', () => {
+    const result = coerceToOklch('hsla(120, 50%, 50%, 0.5)');
+    expect(result).not.toBeNull();
+    expect(result!.value).toMatch(oklchPattern);
+    expect(result!.droppedAlpha).toBe(true);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'color-coerce: alpha dropped',
+      expect.objectContaining({
+        raw: 'hsla(120, 50%, 50%, 0.5)',
+        droppedAlpha: true,
+      }),
+    );
+  });
+
+  it('coerces named `transparent` and pins behaviour (alpha 0 dropped)', () => {
+    const result = coerceToOklch('transparent');
+    // Pin actual behaviour: culori parses `transparent` as a valid color
+    // with alpha 0, so we coerce to oklch and mark alpha as dropped.
+    expect(result).not.toBeNull();
+    expect(result!.value).toMatch(oklchPattern);
+    expect(result!.droppedAlpha).toBe(true);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns null for inputs longer than 256 chars (defense-in-depth)', () => {
+    expect(coerceToOklch('a'.repeat(257))).toBeNull();
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('only warns once per raw value across repeated calls (dedupe)', () => {
+    const first = coerceToOklch('#eae8dc99');
+    const second = coerceToOklch('#eae8dc99');
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    expect(first!.droppedAlpha).toBe(true);
+    expect(second!.droppedAlpha).toBe(true);
     expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 

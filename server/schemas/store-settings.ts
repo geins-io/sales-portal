@@ -10,9 +10,12 @@ import { coerceToOklch } from '../utils/color-coercion';
 const CoercedColorSchema = z.string().transform((raw, ctx) => {
   const result = coerceToOklch(raw);
   if (!result) {
+    // Truncate so attacker-controlled large strings can't be echoed back
+    // verbatim into error responses or logs through Zod's issue chain.
+    const safe = raw.length > 40 ? `${raw.slice(0, 40)}...` : raw;
     ctx.addIssue({
       code: 'custom',
-      message: `invalid color: ${raw}`,
+      message: `invalid color: ${safe}`,
     });
     return z.NEVER;
   }
