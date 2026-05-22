@@ -5,10 +5,9 @@
 # latest container image.
 #
 # Triggers:
-# - Manual workflow dispatch → Dev environment only (during development phase)
+# - Manual workflow dispatch → Dev and Prod environments
 #
-# NOTE: Staging and production deployments are SUSPENDED during development.
-# To re-enable, uncomment the push triggers below and add staging/prod to options.
+# NOTE: Staging deployment is SUSPENDED during development.
 # =============================================================================
 
 name: Deploy
@@ -22,9 +21,8 @@ on:
         type: choice
         options:
           - dev
-          # SUSPENDED during development phase:
           # - staging
-          # - prod
+          - prod
 
 env:
   REGISTRY: ghcr.io
