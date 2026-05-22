@@ -210,14 +210,31 @@ export function transformGeinsSettings(
 export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   const derivedColors = deriveThemeColors(settings.theme.colors);
 
-  // Portal-only feature flags not managed by the Geins API. These provide
-  // sensible defaults so real tenants don't need explicit configuration.
-  // settings.features takes precedence (Geins API values win), and
-  // overrides.features takes final precedence below.
+  // Portal feature flag defaults. Tenants without an explicit value for a
+  // given key inherit `enabled: true`, so the feature shows up on tenants
+  // whose store-settings response simply omits the key. Tenants that send an
+  // explicit `{ enabled: false }` still win because settings.features is
+  // spread after the defaults, and overrides.features takes final precedence
+  // below.
+  //
+  // Source of truth for which keys to list: every key referenced via
+  // `canAccess('X')` or `hasFeature('X')` on the storefront (see
+  // app/composables/useFeatureAccess.ts and the storefront callsites).
   const PORTAL_FEATURE_DEFAULTS: Record<string, { enabled: boolean }> = {
-    registration: { enabled: true },
+    analytics: { enabled: true },
     applyForAccount: { enabled: true },
+    cart: { enabled: true },
+    checkout: { enabled: true },
+    lists: { enabled: true },
+    newsletter: { enabled: true },
+    orderHistory: { enabled: true },
+    orderPlacement: { enabled: true },
+    priceVisibility: { enabled: true },
+    quotes: { enabled: true },
+    registration: { enabled: true },
+    reorder: { enabled: true },
     stockStatus: { enabled: true },
+    wishlist: { enabled: true },
   };
 
   const features = { ...PORTAL_FEATURE_DEFAULTS, ...settings.features };

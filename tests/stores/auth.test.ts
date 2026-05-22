@@ -36,6 +36,19 @@ vi.mock('~/stores/cart', () => ({
   useCartStore: () => ({ fetchCart: mockFetchCart }),
 }));
 
+// reloadToMarket reads window.location.pathname and calls
+// window.location.assign for a true full reload.
+const mockLocationAssign = vi.fn();
+function setLocation(path: string) {
+  Object.defineProperty(globalThis, 'window', {
+    value: {
+      location: { pathname: path, assign: mockLocationAssign },
+    },
+    configurable: true,
+    writable: true,
+  });
+}
+
 describe('useAuthStore', () => {
   const mockUser: AuthUser = {
     authenticated: true,
@@ -169,6 +182,39 @@ describe('useAuthStore', () => {
         method: 'POST',
         body: creds,
       });
+    });
+
+    it('redirects to new market URL when server resolves a different market', async () => {
+      const store = useAuthStore();
+      setLocation('/se/sv/portal/orders');
+      mockLocationAssign.mockReset();
+      mockFetchImpl.mockResolvedValueOnce({ user: mockUser, market: 'fi' });
+
+      await store.login({ username: 'a@b.c', password: 'x' });
+
+      expect(mockLocationAssign).toHaveBeenCalledWith('/fi/sv/portal/orders');
+    });
+
+    it('does not redirect when server market matches current URL market', async () => {
+      const store = useAuthStore();
+      setLocation('/fi/sv/portal');
+      mockLocationAssign.mockReset();
+      mockFetchImpl.mockResolvedValueOnce({ user: mockUser, market: 'fi' });
+
+      await store.login({ username: 'a@b.c', password: 'x' });
+
+      expect(mockLocationAssign).not.toHaveBeenCalled();
+    });
+
+    it('does not redirect when server returns null market', async () => {
+      const store = useAuthStore();
+      setLocation('/se/sv/');
+      mockLocationAssign.mockReset();
+      mockFetchImpl.mockResolvedValueOnce({ user: mockUser, market: null });
+
+      await store.login({ username: 'a@b.c', password: 'x' });
+
+      expect(mockLocationAssign).not.toHaveBeenCalled();
     });
 
     it('should set i18n error key on login failure', async () => {

@@ -46,6 +46,24 @@ const mockSetCartCookie = vi.fn();
 vi.stubGlobal('getCartCookie', mockGetCartCookie);
 vi.stubGlobal('setCartCookie', mockSetCartCookie);
 
+// resolveBuyerMarket reads/writes the market cookie via cookies.ts which
+// imports h3 helpers not present in the test environment. Mock both
+// functions at the module boundary so we can assert behavior without
+// pulling in the full h3 cookie machinery.
+const mockSetMarketCookie = vi.fn();
+const mockGetMarketCookie = vi.fn();
+vi.mock('../../../../server/utils/cookies', () => ({
+  setMarketCookie: (...args: unknown[]) => mockSetMarketCookie(...args),
+  getMarketCookie: (...args: unknown[]) => mockGetMarketCookie(...args),
+}));
+
+// Market resolution fetches the full user profile via userService.getUser
+// because AuthUser (decoded from the JWT) does not include availableChannels.
+const mockUserServiceGetUser = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../../../server/services/user', () => ({
+  getUser: (...args: unknown[]) => mockUserServiceGetUser(...args),
+}));
+
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
 vi.stubGlobal('readValidatedBody', vi.fn());
 vi.stubGlobal(
@@ -246,6 +264,89 @@ describe('POST /api/auth/login', () => {
 
     expect(mockCopyCart).not.toHaveBeenCalled();
     expect(mockSetCartCookie).not.toHaveBeenCalled();
+  });
+
+  it('switches market cookie when buyer market mismatches current', async () => {
+    mockGetMarketCookie.mockReturnValue('se');
+    const eventWithTenant = {
+      context: {
+        tenant: {
+          config: {
+            geinsSettings: { channel: '2', tld: 'se', market: 'se' },
+          },
+        },
+      },
+    } as import('h3').H3Event;
+
+    mockAuthLogin.mockResolvedValue({
+      succeeded: true,
+      tokens: {
+        token: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 3600,
+      },
+      user: { id: 1 },
+    });
+    mockUserServiceGetUser.mockResolvedValue({
+      id: 1,
+      availableChannels: [
+        {
+          channelId: '2|se',
+          availableMarkets: [
+            { id: 'fi', alias: 'fi', currency: { code: 'EUR' } },
+          ],
+        },
+      ],
+    });
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    const result = await handler(eventWithTenant);
+
+    expect(mockSetMarketCookie).toHaveBeenCalledWith(eventWithTenant, 'fi');
+    expect(result.market).toBe('fi');
+  });
+
+  it('leaves market unchanged when current market is in allowed list', async () => {
+    mockGetMarketCookie.mockReturnValue('fi');
+    const eventWithTenant = {
+      context: {
+        tenant: {
+          config: {
+            geinsSettings: { channel: '2', tld: 'se', market: 'se' },
+          },
+        },
+      },
+    } as import('h3').H3Event;
+
+    mockAuthLogin.mockResolvedValue({
+      succeeded: true,
+      tokens: {
+        token: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 3600,
+      },
+      user: { id: 1 },
+    });
+    mockUserServiceGetUser.mockResolvedValue({
+      id: 1,
+      availableChannels: [
+        {
+          channelId: '2|se',
+          availableMarkets: [
+            { id: 'fi', alias: 'fi', currency: { code: 'EUR' } },
+            { id: 'de', alias: 'de', currency: { code: 'EUR' } },
+          ],
+        },
+      ],
+    });
+
+    const handler = (await import('../../../../server/api/auth/login.post'))
+      .default;
+    const result = await handler(eventWithTenant);
+
+    expect(mockSetMarketCookie).not.toHaveBeenCalled();
+    expect(result.market).toBeNull();
   });
 
   it('does not fail login when cart copy throws', async () => {

@@ -61,6 +61,14 @@ export const useAuthStore = defineStore('auth', () => {
         .fetchCart()
         .catch(() => {});
 
+      // Server resolved a different market than the URL is currently on
+      // (buyer's pricelist currency belongs to another market). Full reload
+      // to /{newMarket}/{locale}/<path> so SSR re-renders the storefront
+      // against the matching catalog/currency.
+      if (response.market) {
+        reloadToMarket(response.market);
+      }
+
       return response.user!;
     } catch (err) {
       if (import.meta.dev) console.error('Login error:', err);
@@ -115,10 +123,16 @@ export const useAuthStore = defineStore('auth', () => {
 
     _fetchPromise = (async () => {
       try {
-        const response = await internalFetch<{ user: AuthUser | null }>(
-          '/api/auth/me',
-        );
+        const response = await internalFetch<{
+          user: AuthUser | null;
+          market?: string | null;
+        }>('/api/auth/me');
         user.value = response.user ?? null;
+        // Session restore detected a market mismatch: full reload to the
+        // market the buyer is allowed on. Skip on SSR (no window).
+        if (response.market && import.meta.client) {
+          reloadToMarket(response.market);
+        }
       } catch {
         user.value = null;
         logger.warn('Failed to fetch current user');
@@ -129,6 +143,27 @@ export const useAuthStore = defineStore('auth', () => {
     })();
 
     return _fetchPromise;
+  }
+
+  /**
+   * Full-reload the storefront onto a new market URL prefix. Server already
+   * set the new market cookie, we navigate via a hard reload so the next
+   * SSR pass reads the cookie and renders the matching catalog/currency.
+   *
+   * Uses `window.location.assign` instead of `navigateTo({external: true})`
+   * because this only runs on the client (gated by the caller) and
+   * `assign` is a true full document load that resets Pinia, i18n, theme
+   * and SDK state in one shot.
+   */
+  function reloadToMarket(newMarket: string): void {
+    if (typeof window === 'undefined') return;
+    const segments = window.location.pathname.split('/').filter(Boolean);
+    const currentMarket = segments[0];
+    const currentLocale = segments[1] ?? 'sv';
+    if (currentMarket === newMarket) return;
+    const rest = segments.slice(2).join('/');
+    const target = `/${newMarket}/${currentLocale}${rest ? '/' + rest : '/'}`;
+    window.location.assign(target);
   }
 
   function setUser(newUser: AuthUser) {

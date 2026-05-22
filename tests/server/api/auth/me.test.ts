@@ -11,6 +11,18 @@ vi.mock('../../../../server/services/auth', () => ({
   getUser: (...args: unknown[]) => mockGetUser(...args),
 }));
 
+const mockUserServiceGetUser = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../../../server/services/user', () => ({
+  getUser: (...args: unknown[]) => mockUserServiceGetUser(...args),
+}));
+
+const mockSetMarketCookie = vi.fn();
+const mockGetMarketCookie = vi.fn();
+vi.mock('../../../../server/utils/cookies', () => ({
+  setMarketCookie: (...args: unknown[]) => mockSetMarketCookie(...args),
+  getMarketCookie: (...args: unknown[]) => mockGetMarketCookie(...args),
+}));
+
 // ---------------------------------------------------------------------------
 // Stub Nitro / h3 auto-imports
 // ---------------------------------------------------------------------------
@@ -84,6 +96,7 @@ describe('GET /api/auth/me', () => {
     expect(result).toEqual({
       user: { id: 1, email: 'user@example.com' },
       expiresAt: expect.any(String),
+      market: null,
     });
   });
 

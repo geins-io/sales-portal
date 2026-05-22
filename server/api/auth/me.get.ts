@@ -1,4 +1,6 @@
 import * as authService from '../../services/auth';
+import * as userService from '../../services/user';
+import { resolveBuyerMarket } from '../../utils/buyer-market';
 
 const NAME_CLAIM = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
 
@@ -46,11 +48,21 @@ export default defineEventHandler(async (event) => {
     );
 
     if (result?.succeeded && result.user) {
+      // Self-heal the market cookie if a stale value points at a market the
+      // buyer is no longer allowed on (cookie set on a previous session,
+      // tenant config change, buyer's company moved pricelists, etc). The
+      // result.user from crm.auth.getUser is the JWT-decoded shape without
+      // availableChannels, so we fetch the full profile here.
+      const fullUser = await userService
+        .getUser(tokens.authToken, event)
+        .catch(() => undefined);
+      const resolvedMarket = resolveBuyerMarket(event, fullUser);
       return {
         user: result.user,
         expiresAt: result.tokens?.expiresIn
           ? new Date(Date.now() + result.tokens.expiresIn * 1000).toISOString()
           : null,
+        market: resolvedMarket,
       };
     }
   } catch {
