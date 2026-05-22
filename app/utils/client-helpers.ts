@@ -8,7 +8,7 @@
  */
 
 /**
- * Safely call window.confirm — returns true on server (skip confirmation).
+ * Safely call window.confirm. Returns true on server (skip confirmation).
  */
 export function safeConfirm(message: string): boolean {
   if (!import.meta.client) return true;
@@ -16,7 +16,7 @@ export function safeConfirm(message: string): boolean {
 }
 
 /**
- * Safely call window.scrollTo — no-op on server.
+ * Safely call window.scrollTo. No-op on server.
  */
 export function safeScrollTo(options?: ScrollToOptions): void {
   if (!import.meta.client) return;
@@ -24,16 +24,20 @@ export function safeScrollTo(options?: ScrollToOptions): void {
 }
 
 /**
- * Safely redirect via window.location.href — no-op on server.
- * For most cases, prefer navigateTo() with { external: true } instead.
+ * Safely redirect to an external absolute URL. No-op on server.
+ *
+ * Delegates to Nuxt's `navigateTo({ external: true })` so the same
+ * navigation primitive is used storefront-wide. Behaviour for an
+ * absolute external URL is identical to a direct `window.location.href`
+ * assignment: a full document load to the target.
  */
 export function safeLocationRedirect(url: string): void {
   if (!import.meta.client) return;
-  window.location.href = url;
+  void navigateTo(url, { external: true });
 }
 
 /**
- * Safely access window.history — returns fallback on server.
+ * Safely access window.history. Returns fallback on server.
  */
 export function safeHistoryBack(fallbackPath?: string): void {
   if (!import.meta.client) {

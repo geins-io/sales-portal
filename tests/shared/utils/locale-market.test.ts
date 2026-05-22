@@ -5,6 +5,7 @@ import {
   normalizeSlugToPath,
   extractShortLocales,
   resolveLocaleMarket,
+  swapMarketInPath,
 } from '../../../shared/utils/locale-market';
 
 describe('hasLocaleMarketPrefix', () => {
@@ -274,6 +275,30 @@ describe('resolveLocaleMarket', () => {
     expect(result.corrected).toBe(false);
     expect(result.resolved.locale).toBe('en');
     expect(result.resolved.localeBcp47).toBe('en-GB');
+  });
+});
+
+describe('swapMarketInPath', () => {
+  it('swaps the market segment on a deep path', () => {
+    expect(swapMarketInPath('/se/sv/portal', 'fi')).toBe('/fi/sv/portal');
+  });
+
+  it('preserves the trailing slash on prefix-only paths', () => {
+    expect(swapMarketInPath('/se/sv/', 'no')).toBe('/no/sv/');
+  });
+
+  it('preserves the locale and the deep path tail', () => {
+    expect(swapMarketInPath('/se/en/c/foo/bar', 'dk')).toBe('/dk/en/c/foo/bar');
+  });
+
+  it('preserves trailing slash on deep paths', () => {
+    expect(swapMarketInPath('/se/sv/portal/orders/', 'fi')).toBe(
+      '/fi/sv/portal/orders/',
+    );
+  });
+
+  it('falls back to sv locale when path lacks a locale segment', () => {
+    expect(swapMarketInPath('/se', 'fi')).toBe('/fi/sv');
   });
 });
 

@@ -33,8 +33,16 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
+      // On SSR self-fetch, the Host header is not forwarded by default, so
+      // server/api/cart resolves to the wrong tenant and returns an empty
+      // cart. Forward cookie + host so tenant + auth context survive the
+      // internal hop.
+      const headers = import.meta.server
+        ? useRequestHeaders(['cookie', 'host'])
+        : undefined;
       cart.value = await $fetch<CartType>('/api/cart', {
         query: { cartId: cartId.value },
+        headers,
       });
     } catch {
       error.value = 'Failed to load cart';

@@ -12,6 +12,14 @@ vi.mock('#app/composables/cookie', () => ({
 const mockFetch = vi.fn();
 vi.stubGlobal('$fetch', mockFetch);
 
+// useRequestHeaders is only invoked from the SSR branch of fetchCart.
+// import.meta.server is bundle-time replaced and not runtime-mockable in the
+// node test env, so the SSR path is verified by live SSR curl during dev.
+vi.stubGlobal(
+  'useRequestHeaders',
+  vi.fn(() => ({})),
+);
+
 // Must import after mocks are set up
 const { useCartStore } = await import('../../../app/stores/cart');
 
@@ -104,6 +112,15 @@ describe('useCartStore', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
+    it('early-returns when cartId.value is null without touching $fetch (regression guard)', async () => {
+      mockCartIdRef.value = null;
+      const store = useCartStore();
+      await store.fetchCart();
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(store.cart).toBeNull();
+      expect(store.isLoading).toBe(false);
+    });
+
     it('clears cartId on error', async () => {
       mockCartIdRef.value = 'cart-123';
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
@@ -114,6 +131,30 @@ describe('useCartStore', () => {
       expect(store.error).toBe('Failed to load cart');
       expect(store.cart).toBeNull();
       expect(mockCartIdRef.value).toBeNull();
+    });
+  });
+
+  describe('SSR payload hydration', () => {
+    it('derives itemCount and isEmpty from $state patched via Pinia payload bridging', () => {
+      const store = useCartStore();
+      // Simulate what @pinia/nuxt does on the client: the SSR-serialized
+      // pinia.state is patched into the fresh store before any component
+      // renders. We assert the computeds read from that patched state.
+      store.$patch({
+        cart: {
+          id: 'c1',
+          items: [
+            { id: 'i1', quantity: 2 },
+            { id: 'i2', quantity: 3 },
+          ],
+          // The rest of CartType is required at the type-level but ignored
+          // by the computeds under test.
+        } as unknown as typeof store.cart,
+        cartId: 'c1',
+      });
+
+      expect(store.itemCount).toBe(5);
+      expect(store.isEmpty).toBe(false);
     });
   });
 

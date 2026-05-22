@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import type { AuthUser } from '@geins/types';
 import { logger } from '~/utils/logger';
-import { useCartStore } from '~/stores/cart';
+import { swapMarketInPath } from '#shared/utils/locale-market';
 
 let _fetchPromise: Promise<void> | null = null;
 
@@ -53,20 +53,29 @@ export const useAuthStore = defineStore('auth', () => {
       });
 
       error.value = null;
-      user.value = response.user ?? null;
 
-      // Refresh cart so pricelist prices from the new authenticated cart
-      // are reflected immediately without a page reload.
-      useCartStore()
-        .fetchCart()
-        .catch(() => {});
+      // Intentionally do NOT assign `user.value = response.user` here.
+      // Doing so would trigger a re-render of the topbar (showing the
+      // authenticated email) for a frame before the reload tears the page
+      // down, producing a visible "email -> white flash -> reload" sequence.
+      // The reload below re-runs SSR which re-fetches /api/auth/me and
+      // populates the store atomically with the first paint.
+      if (import.meta.client) {
+        const current = window.location.pathname;
+        const target = response.market
+          ? swapMarketInPath(current, response.market)
+          : current;
 
-      // Server resolved a different market than the URL is currently on
-      // (buyer's pricelist currency belongs to another market). Full reload
-      // to /{newMarket}/{locale}/<path> so SSR re-renders the storefront
-      // against the matching catalog/currency.
-      if (response.market) {
-        reloadToMarket(response.market);
+        if (target !== current) {
+          // Market changed: cross-prefix navigation needs a true external
+          // nav so the new SSR pass reads the matching market cookie.
+          await navigateTo(target, { external: true, replace: true });
+        } else {
+          // Same URL: re-run SSR in place so auth-gated prices, CMS slots
+          // and the cart pricelist reflect the now-authenticated session.
+          // reloadNuxtApp is fire-and-forget, do not await.
+          reloadNuxtApp({ force: true, path: target, ttl: 1000 });
+        }
       }
 
       return response.user!;
@@ -129,9 +138,15 @@ export const useAuthStore = defineStore('auth', () => {
         }>('/api/auth/me');
         user.value = response.user ?? null;
         // Session restore detected a market mismatch: full reload to the
-        // market the buyer is allowed on. Skip on SSR (no window).
+        // market the buyer is allowed on. Skip on SSR (no window). Guard
+        // against loops by short-circuiting when the swapped target equals
+        // the current pathname.
         if (response.market && import.meta.client) {
-          reloadToMarket(response.market);
+          const current = window.location.pathname;
+          const target = swapMarketInPath(current, response.market);
+          if (target !== current) {
+            await navigateTo(target, { external: true, replace: true });
+          }
         }
       } catch {
         user.value = null;
@@ -143,27 +158,6 @@ export const useAuthStore = defineStore('auth', () => {
     })();
 
     return _fetchPromise;
-  }
-
-  /**
-   * Full-reload the storefront onto a new market URL prefix. Server already
-   * set the new market cookie, we navigate via a hard reload so the next
-   * SSR pass reads the cookie and renders the matching catalog/currency.
-   *
-   * Uses `window.location.assign` instead of `navigateTo({external: true})`
-   * because this only runs on the client (gated by the caller) and
-   * `assign` is a true full document load that resets Pinia, i18n, theme
-   * and SDK state in one shot.
-   */
-  function reloadToMarket(newMarket: string): void {
-    if (typeof window === 'undefined') return;
-    const segments = window.location.pathname.split('/').filter(Boolean);
-    const currentMarket = segments[0];
-    const currentLocale = segments[1] ?? 'sv';
-    if (currentMarket === newMarket) return;
-    const rest = segments.slice(2).join('/');
-    const target = `/${newMarket}/${currentLocale}${rest ? '/' + rest : '/'}`;
-    window.location.assign(target);
   }
 
   function setUser(newUser: AuthUser) {
