@@ -47,7 +47,7 @@ describe('ThemeColorsSchema topBarBackground', () => {
     expect(result.success).toBe(true);
   });
 
-  it('coerces an 8-digit hex (alpha channel, stripped)', () => {
+  it('coerces an 8-digit hex (alpha channel preserved)', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       topBarBackground: '#ff00aabb',
@@ -134,7 +134,7 @@ describe('ThemeColorsSchema footerBackground', () => {
     expect(result.success).toBe(true);
   });
 
-  it('coerces an 8-digit hex (alpha channel, stripped)', () => {
+  it('coerces an 8-digit hex (alpha channel preserved)', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       footerBackground: '#ff00aabb',
@@ -194,7 +194,7 @@ describe.each([
     expect(result.success).toBe(true);
   });
 
-  it('coerces an 8-digit hex (alpha channel, stripped)', () => {
+  it('coerces an 8-digit hex (alpha channel preserved)', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       [field]: '#ff00aabb',
@@ -224,7 +224,9 @@ describe('ThemeColorsSchema coercion on core + optional palette', () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.primary).toMatch(/^oklch\([\d.]+ [\d.]+ [\d.]+\)$/);
+      expect(result.data.primary).toMatch(
+        /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/,
+      );
     }
   });
 

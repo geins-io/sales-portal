@@ -3,8 +3,10 @@ import { z } from 'zod';
 import { coerceToOklch } from '../utils/color-coercion';
 
 // Accepts any CSS color string the merchant admin can produce
-// (hex/rgb/hsl/named/oklch) and normalises to `oklch(L C H)`. Alpha is
-// stripped because the downstream CSS variable injection has no transparency.
+// (hex/rgb/hsl/named/oklch) and normalises to OKLCH. Alpha is preserved
+// verbatim: opaque values emit `oklch(L C H)`, translucent values emit
+// `oklch(L C H / A)`. The admin's saved value is the truth and downstream
+// CSS variable injection forwards the OKLCH string as-is.
 // Unparseable input fails with a Zod issue so the resilient parser can
 // strip just the offending leaf rather than blanking the whole tenant.
 const CoercedColorSchema = z.string().transform((raw, ctx) => {

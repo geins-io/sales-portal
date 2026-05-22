@@ -2,9 +2,19 @@ import type { ThemeColors } from '../schemas/store-settings';
 
 /**
  * Parse an OKLCH color string into its L, C, H components.
+ *
+ * Accepts both the 3-component form (`oklch(L C H)`) and the 4-component
+ * form with alpha (`oklch(L C H / A)`). The alpha channel is read but
+ * intentionally discarded: derivation math (lighter/darker shades, muted
+ * foreground, ring hues) is undefined over a translucent base, so derived
+ * colors are always emitted as opaque 3-component OKLCH (see
+ * `formatOklch`). Base colors that carry alpha pass through unchanged in
+ * `deriveThemeColors` and reach the CSS emitter with their alpha intact.
  */
 export function parseOklch(color: string): { l: number; c: number; h: number } {
-  const match = color.match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/);
+  const match = color.match(
+    /oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*[\d.]+)?\s*\)/,
+  );
   if (!match) {
     return { l: 0.5, c: 0, h: 0 };
   }
@@ -42,6 +52,14 @@ export type FullThemeColors = Required<{
  * API-provided non-null values are preserved; only null/undefined are derived.
  *
  * Derivation rules follow shadcn/ui conventions.
+ *
+ * Alpha policy: base colors (the 6 cores plus any merchant-provided
+ * optional or surface entries) pass through unchanged and may carry an
+ * alpha channel (`oklch(L C H / A)`) if the admin saved a translucent
+ * value. Derived shades, in contrast, are always opaque 3-component
+ * OKLCH; semantic shade math over a translucent base is undefined, so
+ * `parseOklch` reads alpha and discards it before `formatOklch` re-emits
+ * a solid color.
  */
 export function deriveThemeColors(colors: ThemeColors): FullThemeColors {
   const { l: bgL, c: bgC, h: bgH } = parseOklch(colors.background);

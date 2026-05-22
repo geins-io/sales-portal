@@ -8,7 +8,17 @@ import {
   useMode,
 } from 'culori/fn';
 
-import { logger } from './logger';
+// Coerces any CSS color string the merchant admin can produce to OKLCH,
+// preserving alpha exactly as the admin entered it. The merchant admin's
+// saved value is the truth; the storefront renders what was saved.
+//
+// Output format:
+//   - alpha === 1 or alpha undefined -> `oklch(L C H)`           (3 components)
+//   - alpha < 1                      -> `oklch(L C H / A)`       (4 components)
+//
+// Derivation (see `deriveThemeColors` in `theme.ts`) is opaque by design:
+// semantic shade math over a translucent base is undefined, so derived
+// shades are emitted as 3-component OKLCH even when the base carries alpha.
 
 // rgb -> oklab -> oklch is the conversion path; modeRgb's bundled parsers
 // cover hex, rgb(), rgba(), and named CSS colors.
@@ -23,22 +33,8 @@ const toOklch = converter('oklch');
 // Caps input cost (string copies during parse) for pathological payloads.
 const MAX_RAW_LENGTH = 256;
 
-// WHY: prevents log spam when a tenant has many alpha-stripped colors and the
-// config is re-parsed (e.g. on SWR refresh). Without this, an 8-surface tenant
-// with rgba() everywhere emits 8 warns per parse, multiplied by every refresh.
-const warnedAlphaRaw = new Set<string>();
-
-/**
- * Test-only: reset the alpha-dedupe set between specs. Production code should
- * never call this; the module-level Set is intentionally process-lifetime.
- */
-export function __resetColorCoercionForTests(): void {
-  warnedAlphaRaw.clear();
-}
-
 export interface CoercedColor {
   value: string;
-  droppedAlpha: boolean;
 }
 
 // Default NaN to 0 so achromatic hues (white/black/grey) don't leak `NaN`.
@@ -62,17 +58,14 @@ export function coerceToOklch(raw: string): CoercedColor | null {
   const c = round(oklch.c, 4);
   const h = round(oklch.h, 2);
 
-  const droppedAlpha = typeof oklch.alpha === 'number' && oklch.alpha < 1;
-  const value = `oklch(${l} ${c} ${h})`;
-
-  if (droppedAlpha && !warnedAlphaRaw.has(raw)) {
-    warnedAlphaRaw.add(raw);
-    logger.warn('color-coerce: alpha dropped', {
-      raw,
-      parsed: value,
-      droppedAlpha: true,
-    });
+  // Preserve alpha verbatim. Only emit the 4-component form when the admin
+  // actually picked a translucent color; opaque colors stay in the canonical
+  // 3-component form so downstream consumers that don't care about alpha
+  // don't change shape.
+  const hasAlpha = typeof oklch.alpha === 'number' && oklch.alpha < 1;
+  if (hasAlpha) {
+    const a = round(oklch.alpha, 2);
+    return { value: `oklch(${l} ${c} ${h} / ${a})` };
   }
-
-  return { value, droppedAlpha };
+  return { value: `oklch(${l} ${c} ${h})` };
 }

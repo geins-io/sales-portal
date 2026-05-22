@@ -707,7 +707,7 @@ describe('Tenant utilities', () => {
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out).not.toBeNull();
       // Core colors stay verbatim, surface colors are now coerced to oklch.
-      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
       expect(out?.theme.colors.primary).toMatch(oklchPattern);
       expect(out?.theme.colors.topBarBackground).toMatch(oklchPattern);
       expect(out?.theme.colors.footerBackground).toMatch(oklchPattern);
@@ -728,7 +728,8 @@ describe('Tenant utilities', () => {
         'elproman.litium.store',
       );
       expect(out).not.toBeNull();
-      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
+      const withAlphaPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+ \/ [\d.]+\)$/;
       for (const key of [
         'primary',
         'primaryForeground',
@@ -739,8 +740,9 @@ describe('Tenant utilities', () => {
       ] as const) {
         expect(out?.theme.colors[key]).toMatch(oklchPattern);
       }
-      // The 8-digit alpha hex `#eae8dc99` is coerced (spec 001), not stripped.
-      expect(out?.theme.colors.topBarBackground).toMatch(oklchPattern);
+      // The 8-digit alpha hex `#eae8dc99` is coerced AND alpha is preserved
+      // (the admin's saved value is the truth).
+      expect(out?.theme.colors.topBarBackground).toMatch(withAlphaPattern);
     });
 
     it('every theme.colors value garbage still returns a non-null config', () => {
@@ -759,7 +761,7 @@ describe('Tenant utilities', () => {
       };
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out).not.toBeNull();
-      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
       for (const key of [
         'primary',
         'primaryForeground',
@@ -777,7 +779,7 @@ describe('Tenant utilities', () => {
       candidate.theme = { colors: {} };
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out).not.toBeNull();
-      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
       for (const key of [
         'primary',
         'primaryForeground',
@@ -795,7 +797,7 @@ describe('Tenant utilities', () => {
       candidate.theme = {};
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out).not.toBeNull();
-      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
       for (const key of [
         'primary',
         'primaryForeground',
@@ -867,7 +869,7 @@ describe('Tenant utilities', () => {
       const elapsed = Date.now() - start;
       expect(elapsed).toBeLessThan(500);
       expect(out).not.toBeNull();
-      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
       expect(out?.theme.colors.primary).toMatch(oklchPattern);
     });
 

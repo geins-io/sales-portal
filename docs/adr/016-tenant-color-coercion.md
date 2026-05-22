@@ -5,7 +5,7 @@ created: 2026-05-22
 tags: [tenant, theme, schema, zod, color]
 ---
 
-# ADR-016: Tenant Theme Color Coercion
+# ADR-016: Tenant theme color coercion
 
 ## Context
 
@@ -55,11 +55,12 @@ defense so that no single bad color value can blank a tenant.
 
 A `CoercedColorSchema` runs on every color leaf in `server/schemas/store-settings.ts`.
 It uses [culori](https://culorijs.org/) to parse the incoming string in any supported
-CSS color format and re-emit `oklch(L C H)`:
+CSS color format and re-emit OKLCH:
 
+- Opaque colors are emitted as `oklch(L C H)`.
+- Translucent colors are emitted as `oklch(L C H / A)`. Alpha is preserved verbatim
+  because the merchant admin's saved value is the truth.
 - Input is capped at 256 characters (defence against pathological input).
-- Alpha channels are dropped (the storefront treats colors as single-channel) and a
-  `logger.warn` is emitted once per unique raw value, deduped via a module-level Set.
 - Garbage input fails Zod validation with a truncated raw value (40 chars) in the issue
   message so the salvager can act on it.
 
@@ -101,24 +102,35 @@ fields are never fatal.
   automatically as long as they go through `CoercedColorSchema`.
 - The salvager's leaf strip is general-purpose. Future non-fatal leaves elsewhere in the
   schema get the same recovery for free.
-- The platform team can find tenants with translucent admin entries by grepping
-  production logs for the alpha-drop warning.
+- Operators can find tenants emitting non-canonical color formats by grepping
+  production logs for resilient-parse warnings on the `theme.colors.*` paths; coercion
+  itself is the happy path and no longer emits dedicated warnings.
 
 ### Negative
 
 - Validation no longer surfaces color typos loudly at parse time. The trade-off is
   intentional: the editor sees a wrong color in the browser instead of a 500 page, and
   the wrong color is fixable in admin without a code path.
-- Alpha channels are silently dropped. A merchant who deliberately picks `#eae8dc99`
-  expecting translucency gets the opaque variant. The warning log is the only signal.
+- Derived shades (lighter/darker variants, muted-foreground, ring hues, chart palette)
+  are always opaque even when the base they derive from carries alpha. Semantic shade
+  math over a translucent base is undefined; we read L/C/H and discard alpha in
+  `deriveThemeColors`. A merchant who picks a translucent `primary` gets a translucent
+  primary button but opaque derived shades. If a tenant reports a derived surface
+  rendered opaque against a translucent base, this is the cause.
 - Adds [culori](https://culorijs.org/) as a server dependency (no client impact).
 
 ### Trade-offs
 
-- **Alpha drop vs. preserve via `color-mix()`.** We chose drop. CSS variable consumers
-  are token-based and don't blend; preserving alpha would require either a parallel
-  alpha token per color or a `color-mix()` rewrite at render time. Door left open for a
-  follow-up if a tenant requests it.
+- **Preserve alpha on coerced values vs. drop universally.** We chose preserve. The
+  merchant admin is the source of truth; dropping alpha overrode the editor's intent
+  and rendered translucent topbars opaque. CSS variable consumers can carry the
+  4-component OKLCH string into `background-color` directly; the browser handles
+  blending.
+- **Opaque derivation vs. propagate alpha into derived shades.** We chose opaque. The
+  semantics of "20% lighter than a 60%-translucent base" are not well-defined for the
+  shadcn-style derivation rules and would multiply alpha through several layers; the
+  result would be unusable for accents, borders, and chart hues. Base colors keep
+  their alpha; derived shades are solid.
 - **Strict OKLCH with fallback vs. full coerce.** We chose full coerce. The failure
   mode of strict validation (whole tenant blank) is worse than the failure mode of
   coerce (one wrong color on screen).

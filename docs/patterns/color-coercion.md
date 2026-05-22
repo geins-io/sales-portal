@@ -10,7 +10,7 @@ See [ADR-016](../adr/016-tenant-color-coercion.md) for the why.
 
 | Layer | Location                         | Responsibility                                                     |
 | ----- | -------------------------------- | ------------------------------------------------------------------ |
-| 1     | `server/utils/color-coercion.ts` | Parse any CSS color string, emit `oklch(L C H)`, drop alpha + warn |
+| 1     | `server/utils/color-coercion.ts` | Parse any CSS color string, emit OKLCH, preserve alpha verbatim    |
 | 2     | `server/utils/tenant.ts`         | Salvage on parse failure: top-level sub, leaf strip, core backfill |
 | 3     | `server/utils/tenant.ts`         | `FATAL_PATHS` allowlist: colors are never fatal                    |
 
@@ -20,17 +20,18 @@ Every color leaf in `server/schemas/store-settings.ts` is declared as
 ## Supported input formats
 
 `CoercedColorSchema` accepts the following CSS color strings via culori. All are
-re-emitted as `oklch(L C H)`.
+re-emitted as OKLCH: opaque colors emit `oklch(L C H)`, translucent colors emit
+`oklch(L C H / A)`.
 
 | Input format       | Example         | Notes                                                |
 | ------------------ | --------------- | ---------------------------------------------------- |
-| 6-digit hex        | `#eae8dc`       | Most common admin output.                            |
-| 8-digit hex (RGBA) | `#eae8dc99`     | Alpha dropped, one warn emitted per unique value.    |
-| 3-digit hex        | `#abc`          | Expanded by culori.                                  |
-| `rgb()` / `rgba()` | `rgb(234,232)`  | Alpha dropped if present.                            |
-| `hsl()` / `hsla()` | `hsl(0 0% 50%)` | Alpha dropped if present.                            |
-| `oklch()`          | `oklch(0.5...)` | Re-emitted in canonical form. Alpha dropped.         |
-| Named CSS color    | `red`           | `transparent` resolves to alpha-zero and is dropped. |
+| 6-digit hex        | `#eae8dc`       | Most common admin output. Opaque.                    |
+| 8-digit hex (RGBA) | `#eae8dc99`     | Alpha preserved (admin value is truth).              |
+| 3-digit hex        | `#abc`          | Expanded by culori. Opaque.                          |
+| `rgb()` / `rgba()` | `rgb(234,232)`  | Alpha preserved when present.                        |
+| `hsl()` / `hsla()` | `hsl(0 0% 50%)` | Alpha preserved when present.                        |
+| `oklch()`          | `oklch(0.5...)` | Re-emitted in canonical form. Alpha preserved.       |
+| Named CSS color    | `red`           | `transparent` emits `oklch(0 0 0 / 0)` (legitimate). |
 
 Anything culori can't parse fails Zod validation with a truncated `raw` value (40 chars).
 The salvager then handles the failed leaf in Layer 2.
@@ -40,19 +41,23 @@ against pathological payloads, not a stylistic constraint.
 
 ## Alpha handling
 
-The storefront treats colors as single-channel. When the parser sees alpha < 1, it
-drops the alpha and emits a one-time warning per unique raw value:
+Coerced values preserve alpha exactly as the admin entered it. The merchant admin's
+saved value is the truth; the storefront renders what was saved.
 
-```
-WARN  Color alpha channel dropped: raw="#eae8dc99" oklch="oklch(0.91 0.02 87)"
-```
+- Opaque colors (no alpha, or alpha === 1) emit the 3-component `oklch(L C H)`.
+- Translucent colors emit the 4-component `oklch(L C H / A)`. The alpha component is
+  rounded to two decimals for output stability.
 
-Dedup is keyed on the raw string and stored in a module-level Set. The first occurrence
-warns; subsequent identical values are silent. Restarting the server resets the dedup.
+There is no alpha-drop warning and no dedup machinery. Coercion is the happy path.
 
-Use the log line to find tenants whose admin contains translucent values. If a tenant
-genuinely needs translucency, the long-term option is a parallel alpha token per color
-or a `color-mix()` rewrite at render time. ADR-016 explicitly leaves that door open.
+The single place that does discard alpha is `deriveThemeColors` in
+`server/utils/theme.ts`. Derived shades (lighter/darker variants, muted foreground,
+ring hues, chart palette) are emitted as opaque OKLCH even when their base carries
+alpha. Semantic shade math over a translucent base is undefined, so `parseOklch`
+reads L/C/H and discards the alpha component before `formatOklch` re-emits a solid
+3-component string. Base colors themselves pass through `deriveThemeColors`
+unchanged: if the admin sets `primary: rgba(120, 80, 200, 0.8)`, the storefront
+renders primary at 80% opacity, but `primaryHover` (derived) is opaque.
 
 ## Leaf-strip salvage
 
@@ -100,14 +105,14 @@ them as needed.
 ## Extending the coercer
 
 If a new CSS color format appears in the wild that culori does not handle, the
-extension point is `coerceColor` in `server/utils/color-coercion.ts`. The function is
-a single pass: input string in, OKLCH string or `null` out. A pre-filter step can
+extension point is `coerceToOklch` in `server/utils/color-coercion.ts`. The function
+is a single pass: input string in, OKLCH string or `null` out. A pre-filter step can
 normalise the input before handing it to culori, or a post-filter can rescue specific
-patterns. Keep the alpha-drop and dedup logic untouched; both layers above depend on
-their behaviour.
+patterns. Preserve the alpha-preservation contract; the output format (3-component
+vs 4-component) is part of the public contract callers rely on.
 
-If culori is ever swapped for another color library, swap inside `coerceColor` only.
-The schema and the salvager call `CoercedColorSchema` and `coerceColor` respectively
+If culori is ever swapped for another color library, swap inside `coerceToOklch` only.
+The schema and the salvager call `CoercedColorSchema` and `coerceToOklch` respectively
 and do not depend on culori's API surface.
 
 ## Regression fixture
@@ -118,8 +123,8 @@ parsed by `tests/server/tenant.test.ts` to assert that:
 
 - The fixture parses to a non-null tenant config.
 - The core color keys are all populated (either from the input or via backfill).
-- The 8-digit RGBA value coerces to an OKLCH string and triggers exactly one alpha-drop
-  warning.
+- The 8-digit RGBA value coerces to a 4-component OKLCH string with the admin's
+  alpha preserved.
 
 Three additional scorched-earth tests in the same file assert that every color field
 can be set to garbage simultaneously and the tenant still loads.
