@@ -196,7 +196,6 @@ module alertRules 'modules/alertRules.bicep' = if (enableMonitoring && environme
     tags: tags
     #disable-next-line BCP318
     applicationInsightsId: monitoring.outputs.id
-    webAppId: webApp.outputs.id
     appServicePlanId: appServicePlan.outputs.id
     alertEmails: alertEmails
   }

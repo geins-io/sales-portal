@@ -22,9 +22,6 @@ param tags object = {}
 @description('Application Insights resource ID')
 param applicationInsightsId string
 
-@description('Web App resource ID')
-param webAppId string
-
 @description('App Service Plan resource ID')
 param appServicePlanId string
 
