@@ -253,13 +253,13 @@ describe('PriceDisplay', () => {
       expect(wrapper.text()).toContain('199,00 kr');
     });
 
-    it('shows login message when pricing feature denies access', () => {
+    it('renders nothing when pricing feature denies access', () => {
       tenant.value.features = { priceVisibility: { enabled: true } };
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice() },
       });
-      expect(wrapper.text()).toContain('product.login_for_prices');
+      expect(wrapper.text()).not.toContain('product.login_for_prices');
       expect(wrapper.text()).not.toContain('199,00 kr');
     });
   });

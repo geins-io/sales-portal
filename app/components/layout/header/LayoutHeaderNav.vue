@@ -35,18 +35,6 @@ function visibleChildren(item: MenuItemType): MenuItemType[] {
   return getVisibleItems(item.children);
 }
 
-const gridColsMap: Record<number, string> = {
-  1: 'grid-cols-1',
-  2: 'grid-cols-2',
-  3: 'grid-cols-3',
-  4: 'grid-cols-4',
-};
-
-function getGridColsClass(item: MenuItemType): string {
-  const count = Math.min(visibleChildren(item).length, 4);
-  return gridColsMap[count] || 'grid-cols-4';
-}
-
 function isExternal(item: MenuItemType): boolean {
   const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
   return isExternalUrl(url, currentHost.value) || !!item.targetBlank;
@@ -97,35 +85,46 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
                 class="!absolute !top-full !left-0 !mt-0 !w-screen !max-w-none !rounded-none !border-x-0 !border-t-0"
               >
                 <div class="mx-auto max-w-7xl px-4 py-6 lg:px-6">
-                  <!-- "View all" link for parent category -->
                   <NavigationMenuLink as-child>
                     <component
                       :is="linkTag(item)"
                       v-bind="linkAttrs(item)"
-                      class="text-primary hover:text-primary/80 mb-3 inline-block text-sm font-semibold"
+                      class="mb-3 inline-block text-sm font-semibold underline-offset-4 hover:underline"
                     >
                       {{
                         $t('common.view_all_in', { name: getMenuLabel(item) })
                       }}
                     </component>
                   </NavigationMenuLink>
-                  <div
-                    class="grid gap-x-8 gap-y-1"
-                    :class="getGridColsClass(item)"
-                  >
-                    <NavigationMenuLink
+                  <div class="grid grid-cols-4 gap-x-8 gap-y-4">
+                    <div
                       v-for="child in visibleChildren(item)"
                       :key="child.id"
-                      as-child
+                      class="flex flex-col gap-1"
                     >
-                      <component
-                        :is="linkTag(child)"
-                        v-bind="linkAttrs(child)"
-                        class="hover:bg-accent hover:text-accent-foreground rounded-sm px-3 py-2 text-sm transition-colors"
+                      <NavigationMenuLink as-child>
+                        <component
+                          :is="linkTag(child)"
+                          v-bind="linkAttrs(child)"
+                          class="px-3 py-2 text-sm font-medium underline-offset-4 transition-colors hover:underline"
+                        >
+                          {{ getMenuLabel(child) }}
+                        </component>
+                      </NavigationMenuLink>
+                      <NavigationMenuLink
+                        v-for="grandchild in visibleChildren(child)"
+                        :key="grandchild.id"
+                        as-child
                       >
-                        {{ getMenuLabel(child) }}
-                      </component>
-                    </NavigationMenuLink>
+                        <component
+                          :is="linkTag(grandchild)"
+                          v-bind="linkAttrs(grandchild)"
+                          class="text-muted-foreground hover:text-foreground px-3 py-1 text-sm underline-offset-4 transition-colors hover:underline"
+                        >
+                          {{ getMenuLabel(grandchild) }}
+                        </component>
+                      </NavigationMenuLink>
+                    </div>
                   </div>
                 </div>
               </NavigationMenuContent>

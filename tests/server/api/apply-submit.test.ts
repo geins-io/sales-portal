@@ -113,11 +113,8 @@ describe('POST /api/apply/submit', () => {
     }
   });
 
-  it('registers the user, promotes to ORGANIZATION, sets cookies and returns user', async () => {
-    const result = (await handler(mockEvent)) as {
-      user: unknown;
-      expiresAt: string | null;
-    };
+  it('registers the user, promotes to ORGANIZATION, and returns received without setting cookies', async () => {
+    const result = (await handler(mockEvent)) as { received: boolean };
 
     expect(mockRegister).toHaveBeenCalledWith(
       { username: validBody.email, password: expect.any(String) },
@@ -141,14 +138,8 @@ describe('POST /api/apply/submit', () => {
       mockEvent,
     );
 
-    expect(mockSetAuthCookies).toHaveBeenCalledWith(mockEvent, {
-      token: 'access-token',
-      refreshToken: 'refresh-token',
-      expiresIn: 3600,
-    });
-
-    expect(result.user).toEqual(updatedUser);
-    expect(result.expiresAt).toBeTruthy();
+    expect(mockSetAuthCookies).not.toHaveBeenCalled();
+    expect(result).toEqual({ received: true });
   });
 
   it('throws BAD_REQUEST and skips updateUser when register fails', async () => {

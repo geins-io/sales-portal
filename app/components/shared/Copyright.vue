@@ -13,7 +13,7 @@ const year = new Date().getFullYear();
 <template>
   <span
     data-slot="copyright"
-    :class="cn('text-xs text-neutral-400', props.class)"
+    :class="cn('text-footer-text/70 text-xs', props.class)"
   >
     {{ $t('footer.copyright', { year, brand: brandName }) }}
   </span>

@@ -22,24 +22,19 @@ async function handleSubscribe() {
 </script>
 
 <template>
-  <div
-    data-slot="footer-top"
-    class="bg-muted border-b px-6 py-8 lg:px-6 lg:py-10"
-  >
+  <div data-slot="footer-top" class="px-6 pt-10 pb-2.5 lg:px-6">
     <div
       class="mx-auto flex max-w-7xl flex-col gap-6 lg:flex-row lg:items-center lg:justify-between"
     >
-      <!-- Text -->
       <div class="flex flex-col gap-1">
         <h2 class="text-lg font-semibold">
           {{ $t('layout.subscribe_heading') }}
         </h2>
-        <p class="text-muted-foreground text-sm">
+        <p class="text-footer-text/70 text-sm">
           {{ $t('layout.subscribe_description') }}
         </p>
       </div>
 
-      <!-- Form -->
       <form
         class="flex w-full flex-col gap-2 lg:w-auto"
         @submit.prevent="handleSubscribe"
@@ -51,9 +46,15 @@ async function handleSubscribe() {
             required
             :disabled="status === 'loading'"
             :placeholder="$t('layout.enter_email')"
-            class="w-full lg:w-64"
+            class="text-foreground w-full border-[#D1D1D1] bg-white lg:w-64"
           />
-          <Button size="lg" type="submit" :disabled="status === 'loading'">
+          <Button
+            size="lg"
+            type="submit"
+            variant="outline"
+            :disabled="status === 'loading'"
+            class="text-footer-text hover:bg-footer-text/10 border-[#D1D1D1] bg-transparent"
+          >
             {{ $t('layout.subscribe') }}
           </Button>
         </div>

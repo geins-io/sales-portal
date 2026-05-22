@@ -13,34 +13,12 @@ describe('ApplyForAccountSchema', () => {
     country: 'SE',
     email: 'jane@acme.com',
     acceptTerms: true,
-    phone: '+46701234567',
-    message: 'We are interested in a wholesale account.',
   };
 
-  it('accepts a valid full payload', () => {
+  it('accepts a valid payload', () => {
     const result = ApplyForAccountSchema.safeParse(validPayload);
     expect(result.success).toBe(true);
     expect(result.data).toEqual(validPayload);
-  });
-
-  it('accepts without optional phone', () => {
-    const { phone: _, ...withoutPhone } = validPayload;
-    const result = ApplyForAccountSchema.safeParse(withoutPhone);
-    expect(result.success).toBe(true);
-    expect(result.data).toEqual(withoutPhone);
-  });
-
-  it('accepts without optional message', () => {
-    const { message: _, ...withoutMessage } = validPayload;
-    const result = ApplyForAccountSchema.safeParse(withoutMessage);
-    expect(result.success).toBe(true);
-    expect(result.data).toEqual(withoutMessage);
-  });
-
-  it('accepts without both optional fields', () => {
-    const { phone: _p, message: _m, ...minimal } = validPayload;
-    const result = ApplyForAccountSchema.safeParse(minimal);
-    expect(result.success).toBe(true);
   });
 
   it('rejects missing companyName', () => {
@@ -149,30 +127,6 @@ describe('ApplyForAccountSchema', () => {
     const result = ApplyForAccountSchema.safeParse({
       ...validPayload,
       lastName: 'a'.repeat(101),
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('rejects message exceeding 5000 characters', () => {
-    const result = ApplyForAccountSchema.safeParse({
-      ...validPayload,
-      message: 'a'.repeat(5001),
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('accepts message at exactly 5000 characters', () => {
-    const result = ApplyForAccountSchema.safeParse({
-      ...validPayload,
-      message: 'a'.repeat(5000),
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects phone exceeding 50 characters', () => {
-    const result = ApplyForAccountSchema.safeParse({
-      ...validPayload,
-      phone: '1'.repeat(51),
     });
     expect(result.success).toBe(false);
   });

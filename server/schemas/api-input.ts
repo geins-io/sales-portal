@@ -224,8 +224,6 @@ export const ApplyForAccountSchema = z.object({
   country: z.enum(['SE', 'NO', 'DK', 'FI', 'DE', 'GB']),
   email: z.string().email(),
   acceptTerms: z.literal(true),
-  phone: z.string().max(50).optional(),
-  message: z.string().max(5000).optional(),
 });
 export type ApplyForAccountInput = z.infer<typeof ApplyForAccountSchema>;
 

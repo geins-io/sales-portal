@@ -315,9 +315,6 @@
     "enter_email": "Ange din e-post",
     "subscribe_success": "Tack för din prenumeration!",
     "subscribe_error": "Något gick fel. Försök igen.",
-    "privacy_policy": "Integritetspolicy",
-    "terms_of_service": "Användarvillkor",
-    "cookies_settings": "Cookie-inställningar",
     "company": "Företag",
     "resources": "Resurser",
     "help_feedback": "Hjälp & Feedback",
@@ -371,8 +368,6 @@
     "first_name": "Förnamn",
     "last_name": "Efternamn",
     "email": "E-post",
-    "phone": "Telefon (valfritt)",
-    "message": "Meddelande (valfritt)",
     "field_required": "Detta fält är obligatoriskt.",
     "invalid_email": "Ange en giltig e-postadress.",
     "submit": "Skicka ansökan",
@@ -394,10 +389,8 @@
     "accept_terms_prefix": "Jag godkänner ",
     "accept_terms_link_text": "villkoren",
     "accept_terms_required": "Du måste godkänna villkoren.",
-    "additional_information": "Ytterligare information (valfritt)",
-    "pending_approval_title": "Ansökan mottagen",
-    "pending_approval_body": "Ditt företagskonto väntar på godkännande. Vissa funktioner kan vara begränsade tills vidare.",
-    "dismiss_banner": "Avfärda"
+    "thank_you_title": "Tack för din ansökan",
+    "thank_you_body": "Vi har tagit emot din ansökan om företagskonto. Du får ett mejl när ditt konto har godkänts."
   },
   "lists": {
     "picker": {
@@ -753,14 +746,10 @@
       },
       "persons": {
         "col_id": "Id",
+        "col_email": "E-post",
         "col_latest_login": "Senaste inloggning",
         "add": "+ Lägg till person",
-        "col_active": "Aktiv",
-        "col_name": "Namn",
-        "col_phone": "Telefon",
         "empty": "Inga personer hittades",
-        "status_active": "Aktiv",
-        "status_inactive": "Inaktiv",
         "subtitle": "En lista över alla personer i din organisation",
         "title": "Personer"
       },

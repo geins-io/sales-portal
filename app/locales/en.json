@@ -315,9 +315,6 @@
     "enter_email": "Enter your email",
     "subscribe_success": "Thanks for subscribing!",
     "subscribe_error": "Something went wrong. Please try again.",
-    "privacy_policy": "Privacy Policy",
-    "terms_of_service": "Terms of Service",
-    "cookies_settings": "Cookies Settings",
     "company": "Company",
     "resources": "Resources",
     "help_feedback": "Help & Feedback",
@@ -371,8 +368,6 @@
     "first_name": "First name",
     "last_name": "Last name",
     "email": "Email",
-    "phone": "Phone (optional)",
-    "message": "Message (optional)",
     "field_required": "This field is required.",
     "invalid_email": "Please enter a valid email address.",
     "submit": "Submit application",
@@ -394,10 +389,8 @@
     "accept_terms_prefix": "I accept ",
     "accept_terms_link_text": "the terms and conditions",
     "accept_terms_required": "You must accept the terms and conditions.",
-    "additional_information": "Additional information (optional)",
-    "pending_approval_title": "Application received",
-    "pending_approval_body": "Your business account is pending approval. Some features may be limited until then.",
-    "dismiss_banner": "Dismiss"
+    "thank_you_title": "Thanks for your application",
+    "thank_you_body": "We have received your business-account application. You will get an email once it has been approved."
   },
   "lists": {
     "picker": {
@@ -753,14 +746,10 @@
       },
       "persons": {
         "col_id": "Id",
+        "col_email": "Email",
         "col_latest_login": "Latest login",
         "add": "+ Add person",
-        "col_active": "Active",
-        "col_name": "Name",
-        "col_phone": "Phone",
         "empty": "No persons found",
-        "status_active": "Active",
-        "status_inactive": "Inactive",
         "subtitle": "A list of all persons in your organisation",
         "title": "Persons"
       },
