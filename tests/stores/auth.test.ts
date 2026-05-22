@@ -30,24 +30,36 @@ vi.mock('~/utils/logger', () => ({
   },
 }));
 
-// Mock cart store to avoid useCookie dependency in test environment
-const mockFetchCart = vi.fn().mockResolvedValue(undefined);
-vi.mock('~/stores/cart', () => ({
-  useCartStore: () => ({ fetchCart: mockFetchCart }),
+// Login now drives the post-success reload through Nuxt-native primitives:
+// reloadNuxtApp for same-URL refresh, navigateTo for cross-market nav.
+// Mock the Nuxt auto-import source modules so the store's auto-imported
+// references resolve to our spies.
+const mockReloadNuxtApp = vi.fn();
+const mockNavigateTo = vi.fn().mockResolvedValue(undefined);
+vi.mock('#app/composables/chunk', () => ({
+  reloadNuxtApp: (...args: unknown[]) => mockReloadNuxtApp(...args),
+}));
+vi.mock('#app/composables/router', () => ({
+  navigateTo: (...args: unknown[]) => mockNavigateTo(...args),
 }));
 
-// reloadToMarket reads window.location.pathname and calls
-// window.location.assign for a true full reload.
-const mockLocationAssign = vi.fn();
 function setLocation(path: string) {
   Object.defineProperty(globalThis, 'window', {
     value: {
-      location: { pathname: path, assign: mockLocationAssign },
+      location: { pathname: path },
     },
     configurable: true,
     writable: true,
   });
 }
+
+// Force `import.meta.client` to be truthy inside the store so the reload
+// branch runs in unit tests (vitest runs in node, but the store guards
+// the navigation block on this flag).
+Object.defineProperty(import.meta, 'client', {
+  value: true,
+  configurable: true,
+});
 
 describe('useAuthStore', () => {
   const mockUser: AuthUser = {
@@ -61,6 +73,10 @@ describe('useAuthStore', () => {
     setActivePinia(createPinia());
     mockFetchImpl = vi.fn();
     vi.stubGlobal('$fetch', (...args: unknown[]) => mockFetchImpl(...args));
+    mockReloadNuxtApp.mockReset();
+    mockNavigateTo.mockReset();
+    mockNavigateTo.mockResolvedValue(undefined);
+    setLocation('/se/sv/portal');
   });
 
   describe('initial state', () => {
@@ -156,19 +172,26 @@ describe('useAuthStore', () => {
   });
 
   describe('login action', () => {
-    it('should login successfully and set user', async () => {
+    it('returns the user payload and reloads without mutating user.value', async () => {
       const store = useAuthStore();
-      mockFetchImpl.mockResolvedValueOnce({ user: mockUser });
+      mockFetchImpl.mockResolvedValueOnce({ user: mockUser, market: null });
 
       const result = await store.login({
         username: 'test@example.com',
         password: 'password',
       });
 
+      // Contract: login resolves with the user but the store state stays
+      // untouched until the upcoming reload re-fetches /api/auth/me.
       expect(result).toEqual(mockUser);
-      expect(store.user).toEqual(mockUser);
+      expect(store.user).toBeNull();
       expect(store.isLoading).toBe(false);
       expect(store.error).toBeNull();
+      expect(mockReloadNuxtApp).toHaveBeenCalledWith({
+        force: true,
+        path: '/se/sv/portal',
+        ttl: 1000,
+      });
     });
 
     it('should call /api/auth/login with POST method', async () => {
@@ -184,37 +207,61 @@ describe('useAuthStore', () => {
       });
     });
 
-    it('redirects to new market URL when server resolves a different market', async () => {
+    it('navigates externally when server resolves a different market', async () => {
       const store = useAuthStore();
       setLocation('/se/sv/portal/orders');
-      mockLocationAssign.mockReset();
       mockFetchImpl.mockResolvedValueOnce({ user: mockUser, market: 'fi' });
 
       await store.login({ username: 'a@b.c', password: 'x' });
 
-      expect(mockLocationAssign).toHaveBeenCalledWith('/fi/sv/portal/orders');
+      expect(mockNavigateTo).toHaveBeenCalledWith('/fi/sv/portal/orders', {
+        external: true,
+        replace: true,
+      });
+      expect(mockReloadNuxtApp).not.toHaveBeenCalled();
     });
 
-    it('does not redirect when server market matches current URL market', async () => {
+    it('reloads the same URL when server market matches current URL market', async () => {
       const store = useAuthStore();
       setLocation('/fi/sv/portal');
-      mockLocationAssign.mockReset();
       mockFetchImpl.mockResolvedValueOnce({ user: mockUser, market: 'fi' });
 
       await store.login({ username: 'a@b.c', password: 'x' });
 
-      expect(mockLocationAssign).not.toHaveBeenCalled();
+      expect(mockNavigateTo).not.toHaveBeenCalled();
+      expect(mockReloadNuxtApp).toHaveBeenCalledWith({
+        force: true,
+        path: '/fi/sv/portal',
+        ttl: 1000,
+      });
     });
 
-    it('does not redirect when server returns null market', async () => {
+    it('reloads the current URL when server returns null market', async () => {
       const store = useAuthStore();
       setLocation('/se/sv/');
-      mockLocationAssign.mockReset();
       mockFetchImpl.mockResolvedValueOnce({ user: mockUser, market: null });
 
       await store.login({ username: 'a@b.c', password: 'x' });
 
-      expect(mockLocationAssign).not.toHaveBeenCalled();
+      expect(mockNavigateTo).not.toHaveBeenCalled();
+      expect(mockReloadNuxtApp).toHaveBeenCalledWith({
+        force: true,
+        path: '/se/sv/',
+        ttl: 1000,
+      });
+    });
+
+    it('does not call reloadNuxtApp or navigateTo on login failure', async () => {
+      const store = useAuthStore();
+      mockFetchImpl.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(
+        store.login({ username: 'a@b.c', password: 'x' }),
+      ).rejects.toThrow('boom');
+
+      expect(mockReloadNuxtApp).not.toHaveBeenCalled();
+      expect(mockNavigateTo).not.toHaveBeenCalled();
+      expect(store.user).toBeNull();
     });
 
     it('should set i18n error key on login failure', async () => {
@@ -396,6 +443,41 @@ describe('useAuthStore', () => {
       expect(resolveCount).toBe(1);
       expect(store.user).toEqual(mockUser);
       expect(store.isInitialized).toBe(true);
+    });
+
+    it('navigates externally on market mismatch during session restore', async () => {
+      const store = useAuthStore();
+      setLocation('/se/sv/portal');
+      mockFetchImpl.mockResolvedValueOnce({ user: mockUser, market: 'fi' });
+
+      await store.fetchUser();
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/fi/sv/portal', {
+        external: true,
+        replace: true,
+      });
+    });
+
+    it('does not navigate when fetchUser market matches current URL', async () => {
+      const store = useAuthStore();
+      setLocation('/fi/sv/portal');
+      mockFetchImpl.mockResolvedValueOnce({ user: mockUser, market: 'fi' });
+
+      await store.fetchUser();
+
+      expect(mockNavigateTo).not.toHaveBeenCalled();
+      expect(mockReloadNuxtApp).not.toHaveBeenCalled();
+    });
+
+    it('does not navigate when fetchUser returns no market', async () => {
+      const store = useAuthStore();
+      setLocation('/se/sv/portal');
+      mockFetchImpl.mockResolvedValueOnce({ user: mockUser });
+
+      await store.fetchUser();
+
+      expect(mockNavigateTo).not.toHaveBeenCalled();
+      expect(mockReloadNuxtApp).not.toHaveBeenCalled();
     });
 
     it('should allow a new fetchUser call after the first completes', async () => {

@@ -155,6 +155,32 @@ export function stripLocaleMarketPrefix(path: string): string {
 }
 
 /**
+ * Replace the leading `/{market}/{locale}/...` prefix with
+ * `/{newMarket}/{locale}/...`. Preserves the existing locale segment and
+ * the path tail (including trailing slash absence/presence).
+ *
+ * Used after `/api/auth/login` resolves a buyer-specific market that
+ * differs from the URL the form was submitted from: we need to navigate
+ * to the same logical page on the new market prefix so SSR re-runs with
+ * the matching catalog/currency.
+ *
+ * @example
+ * swapMarketInPath('/se/sv/portal', 'fi')        // '/fi/sv/portal'
+ * swapMarketInPath('/se/sv/', 'no')              // '/no/sv/'
+ * swapMarketInPath('/se/en/c/foo/bar', 'dk')     // '/dk/en/c/foo/bar'
+ */
+export function swapMarketInPath(pathname: string, newMarket: string): string {
+  const hasTrailingSlash = pathname.endsWith('/');
+  const segments = pathname.split('/').filter(Boolean);
+  const locale = segments[1] ?? 'sv';
+  const rest = segments.slice(2).join('/');
+  if (!rest) {
+    return `/${newMarket}/${locale}${hasTrailingSlash ? '/' : ''}`;
+  }
+  return `/${newMarket}/${locale}/${rest}${hasTrailingSlash ? '/' : ''}`;
+}
+
+/**
  * Normalize a route parameter (slug) into a consistent path format.
  *
  * @param slug - The slug parameter from the route (string, string[], or undefined)
