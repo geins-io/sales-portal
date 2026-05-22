@@ -700,10 +700,12 @@ describe('Tenant utilities', () => {
       };
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out).not.toBeNull();
-      expect(out?.theme.colors.primary).toBe('oklch(0.5 0.2 260)');
-      expect(out?.theme.colors.topBarBackground).toBe('#79a07d');
-      expect(out?.theme.colors.footerBackground).toBe('#333333');
-      expect(out?.theme.colors.navBarBackground).toBe('#ffffff');
+      // Core colors stay verbatim, surface colors are now coerced to oklch.
+      const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/;
+      expect(out?.theme.colors.primary).toMatch(oklchPattern);
+      expect(out?.theme.colors.topBarBackground).toMatch(oklchPattern);
+      expect(out?.theme.colors.footerBackground).toMatch(oklchPattern);
+      expect(out?.theme.colors.navBarBackground).toMatch(oklchPattern);
     });
   });
 

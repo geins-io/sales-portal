@@ -1,92 +1,70 @@
 import { z } from 'zod';
 
-/**
- * OKLCH color format validator.
- * Accepts oklch(L C H) where L is 0-1, C is 0-0.4, H is 0-360.
- * Also accepts plain values like "oklch(0.5 0.2 200)" with flexible whitespace.
- */
-const oklchRegex = /^oklch\(\s*[\d.]+\s+[\d.]+\s+[\d.]+\s*\)$/;
+import { coerceToOklch } from '../utils/color-coercion';
 
-const OklchColorSchema = z
-  .string()
-  .regex(oklchRegex, 'Must be in oklch(L C H) format');
-
-/**
- * 6-digit hex color validator. Strict: no 3-digit shorthand, no 8-digit
- * alpha, no named colors. Used only for the two merchant-supplied surface
- * colors (top bar, footer) that the API emits as hex strings while every
- * other theme color stays strict OKLCH.
- */
-const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, {
-  message: 'must be a 6-digit hex color',
+// Accepts any CSS color string the merchant admin can produce
+// (hex/rgb/hsl/named/oklch) and normalises to `oklch(L C H)`. Alpha is
+// stripped because the downstream CSS variable injection has no transparency.
+// Unparseable input fails with a Zod issue so the resilient parser can
+// strip just the offending leaf rather than blanking the whole tenant.
+const CoercedColorSchema = z.string().transform((raw, ctx) => {
+  const result = coerceToOklch(raw);
+  if (!result) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `invalid color: ${raw}`,
+    });
+    return z.NEVER;
+  }
+  return result.value;
 });
 
-/**
- * Permissive color schema accepting either OKLCH or 6-digit hex. Reserved
- * for the surface-color fields the merchant API emits (topBarBackground,
- * footerBackground, navBarBackground, siteBackground, buttonBackground,
- * buttonPurchaseBackground). Do NOT widen the standard 32 theme colors to
- * this; they must stay OKLCH so a typo in admin still fails loudly.
- */
-export const HexOrOklchColorSchema = z.union([
-  OklchColorSchema,
-  HexColorSchema,
-]);
-
-/**
- * Theme Colors — 6 required core colors, 26 optional (derived server-side if null/omitted).
- * API sends null for omitted optional colors.
- */
 export const ThemeColorsSchema = z.object({
-  // 6 required core colors
-  primary: OklchColorSchema,
-  primaryForeground: OklchColorSchema,
-  secondary: OklchColorSchema,
-  secondaryForeground: OklchColorSchema,
-  background: OklchColorSchema,
-  foreground: OklchColorSchema,
+  primary: CoercedColorSchema,
+  primaryForeground: CoercedColorSchema,
+  secondary: CoercedColorSchema,
+  secondaryForeground: CoercedColorSchema,
+  background: CoercedColorSchema,
+  foreground: CoercedColorSchema,
 
-  // 26 optional colors (null from API = derive server-side)
-  card: OklchColorSchema.nullable().optional(),
-  cardForeground: OklchColorSchema.nullable().optional(),
-  popover: OklchColorSchema.nullable().optional(),
-  popoverForeground: OklchColorSchema.nullable().optional(),
-  muted: OklchColorSchema.nullable().optional(),
-  mutedForeground: OklchColorSchema.nullable().optional(),
-  accent: OklchColorSchema.nullable().optional(),
-  accentForeground: OklchColorSchema.nullable().optional(),
-  destructive: OklchColorSchema.nullable().optional(),
-  destructiveForeground: OklchColorSchema.nullable().optional(),
-  border: OklchColorSchema.nullable().optional(),
-  input: OklchColorSchema.nullable().optional(),
-  ring: OklchColorSchema.nullable().optional(),
-  chart1: OklchColorSchema.nullable().optional(),
-  chart2: OklchColorSchema.nullable().optional(),
-  chart3: OklchColorSchema.nullable().optional(),
-  chart4: OklchColorSchema.nullable().optional(),
-  chart5: OklchColorSchema.nullable().optional(),
-  sidebar: OklchColorSchema.nullable().optional(),
-  sidebarForeground: OklchColorSchema.nullable().optional(),
-  sidebarPrimary: OklchColorSchema.nullable().optional(),
-  sidebarPrimaryForeground: OklchColorSchema.nullable().optional(),
-  sidebarAccent: OklchColorSchema.nullable().optional(),
-  sidebarAccentForeground: OklchColorSchema.nullable().optional(),
-  sidebarBorder: OklchColorSchema.nullable().optional(),
-  sidebarRing: OklchColorSchema.nullable().optional(),
+  // Optional palette: null from API = derive server-side.
+  card: CoercedColorSchema.nullable().optional(),
+  cardForeground: CoercedColorSchema.nullable().optional(),
+  popover: CoercedColorSchema.nullable().optional(),
+  popoverForeground: CoercedColorSchema.nullable().optional(),
+  muted: CoercedColorSchema.nullable().optional(),
+  mutedForeground: CoercedColorSchema.nullable().optional(),
+  accent: CoercedColorSchema.nullable().optional(),
+  accentForeground: CoercedColorSchema.nullable().optional(),
+  destructive: CoercedColorSchema.nullable().optional(),
+  destructiveForeground: CoercedColorSchema.nullable().optional(),
+  border: CoercedColorSchema.nullable().optional(),
+  input: CoercedColorSchema.nullable().optional(),
+  ring: CoercedColorSchema.nullable().optional(),
+  chart1: CoercedColorSchema.nullable().optional(),
+  chart2: CoercedColorSchema.nullable().optional(),
+  chart3: CoercedColorSchema.nullable().optional(),
+  chart4: CoercedColorSchema.nullable().optional(),
+  chart5: CoercedColorSchema.nullable().optional(),
+  sidebar: CoercedColorSchema.nullable().optional(),
+  sidebarForeground: CoercedColorSchema.nullable().optional(),
+  sidebarPrimary: CoercedColorSchema.nullable().optional(),
+  sidebarPrimaryForeground: CoercedColorSchema.nullable().optional(),
+  sidebarAccent: CoercedColorSchema.nullable().optional(),
+  sidebarAccentForeground: CoercedColorSchema.nullable().optional(),
+  sidebarBorder: CoercedColorSchema.nullable().optional(),
+  sidebarRing: CoercedColorSchema.nullable().optional(),
 
-  // Surface colors that the merchant API emits as 6-digit hex.
-  // Permissive (hex OR oklch) for these surface keys only; the 32 keys
-  // above remain strict OKLCH so a typo in admin still fails validation
-  // loudly. Each surface always resolves to a CSS var in tenant-css via a
-  // fallback chain so components can blindly reference bg-<surface>.
-  topBarBackground: HexOrOklchColorSchema.nullable().optional(),
-  footerBackground: HexOrOklchColorSchema.nullable().optional(),
-  navBarBackground: HexOrOklchColorSchema.nullable().optional(),
-  siteBackground: HexOrOklchColorSchema.nullable().optional(),
-  buttonBackground: HexOrOklchColorSchema.nullable().optional(),
-  buttonPurchaseBackground: HexOrOklchColorSchema.nullable().optional(),
-  topBarText: HexOrOklchColorSchema.nullable().optional(),
-  footerText: HexOrOklchColorSchema.nullable().optional(),
+  // Surface keys: the tenant-css emitter resolves missing values to a
+  // fallback CSS variable so components can blindly reference bg-<surface>.
+  topBarBackground: CoercedColorSchema.nullable().optional(),
+  footerBackground: CoercedColorSchema.nullable().optional(),
+  navBarBackground: CoercedColorSchema.nullable().optional(),
+  siteBackground: CoercedColorSchema.nullable().optional(),
+  buttonBackground: CoercedColorSchema.nullable().optional(),
+  buttonPurchaseBackground: CoercedColorSchema.nullable().optional(),
+  topBarText: CoercedColorSchema.nullable().optional(),
+  footerText: CoercedColorSchema.nullable().optional(),
 });
 
 export const ThemeTypographySchema = z.object({

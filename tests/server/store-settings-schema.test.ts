@@ -483,8 +483,8 @@ describe('StoreSettingsSchema', () => {
     });
   });
 
-  describe('invalid OKLCH colors', () => {
-    it('should reject hex colors', () => {
+  describe('color coercion at the schema boundary', () => {
+    it('should coerce hex colors to oklch', () => {
       const hexColors = {
         tenantId: 'test',
         hostname: 'test.example.com',
@@ -518,10 +518,15 @@ describe('StoreSettingsSchema', () => {
         updatedAt: '2026-01-01T00:00:00.000Z',
       };
       const result = StoreSettingsSchema.safeParse(hexColors);
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.theme.colors.primary).toMatch(
+          /^oklch\([\d.]+ [\d.]+ [\d.]+\)$/,
+        );
+      }
     });
 
-    it('should reject rgb colors', () => {
+    it('should coerce rgb colors to oklch', () => {
       const config = {
         tenantId: 'test',
         hostname: 'test.example.com',
@@ -541,6 +546,43 @@ describe('StoreSettingsSchema', () => {
           name: 'default',
           colors: {
             primary: 'rgb(255, 0, 0)',
+            primaryForeground: 'oklch(0.9 0 0)',
+            secondary: 'oklch(0.8 0 0)',
+            secondaryForeground: 'oklch(0.2 0 0)',
+            background: 'oklch(1 0 0)',
+            foreground: 'oklch(0.1 0 0)',
+          },
+        },
+        branding: { name: 'Test', watermark: 'full' },
+        features: {},
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+      const result = StoreSettingsSchema.safeParse(config);
+      expect(result.success).toBe(true);
+    });
+
+    it('still rejects unparseable garbage', () => {
+      const config = {
+        tenantId: 'test',
+        hostname: 'test.example.com',
+        geinsSettings: {
+          apiKey: 'key',
+          accountName: 'acct',
+          channel: '1',
+          tld: 'se',
+          locale: 'sv-SE',
+          market: 'se',
+          environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
+        },
+        mode: 'commerce',
+        theme: {
+          name: 'default',
+          colors: {
+            primary: 'not-a-color',
             primaryForeground: 'oklch(0.9 0 0)',
             secondary: 'oklch(0.8 0 0)',
             secondaryForeground: 'oklch(0.2 0 0)',
