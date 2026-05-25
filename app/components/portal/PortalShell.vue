@@ -82,12 +82,14 @@ const tabs: PortalTab[] = [
     label: 'portal.tabs.orders',
     to: '/portal/orders',
     icon: ShoppingBag,
+    feature: 'orderHistory',
   },
   {
     key: 'quotations',
     label: 'portal.tabs.quotations',
     to: '/portal/quotations',
     icon: FileText,
+    feature: 'quotes',
   },
   {
     key: 'products',
@@ -100,6 +102,7 @@ const tabs: PortalTab[] = [
     label: 'portal.tabs.lists',
     to: '/portal/lists',
     icon: List,
+    feature: 'lists',
   },
   {
     key: 'organisation',

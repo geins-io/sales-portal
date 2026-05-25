@@ -46,14 +46,13 @@ async function handleSubscribe() {
             required
             :disabled="status === 'loading'"
             :placeholder="$t('layout.enter_email')"
-            class="text-foreground w-full border-[#D1D1D1] bg-white lg:w-64"
+            class="text-foreground w-full border-[#D1D1D1] bg-white shadow-none lg:w-64"
           />
           <Button
             size="lg"
             type="submit"
-            variant="outline"
             :disabled="status === 'loading'"
-            class="text-footer-text hover:bg-footer-text/10 border-[#D1D1D1] bg-transparent"
+            class="bg-button-background text-primary-foreground hover:bg-button-background/90 border border-[#D1D1D1] shadow-none"
           >
             {{ $t('layout.subscribe') }}
           </Button>

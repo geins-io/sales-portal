@@ -191,7 +191,7 @@ function handleSortCreated() {
                 {{ t(getStatusKey(order.status)) }}
               </Badge>
             </td>
-            <td class="py-3">
+            <td class="py-3 text-right">
               <PortalRowAction
                 :to="getOrderLink(order)"
                 :label="t('portal.orders.view')"

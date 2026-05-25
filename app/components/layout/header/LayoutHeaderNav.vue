@@ -106,7 +106,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
                         <component
                           :is="linkTag(child)"
                           v-bind="linkAttrs(child)"
-                          class="px-3 py-2 text-sm font-medium underline-offset-4 transition-colors hover:underline"
+                          class="px-3 py-2 text-sm font-medium underline-offset-4 transition-colors hover:bg-transparent hover:underline focus:bg-transparent"
                         >
                           {{ getMenuLabel(child) }}
                         </component>
@@ -119,7 +119,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
                         <component
                           :is="linkTag(grandchild)"
                           v-bind="linkAttrs(grandchild)"
-                          class="text-muted-foreground hover:text-foreground px-3 py-1 text-sm underline-offset-4 transition-colors hover:underline"
+                          class="text-muted-foreground hover:text-foreground px-3 py-1 text-sm underline-offset-4 transition-colors hover:bg-transparent hover:underline focus:bg-transparent"
                         >
                           {{ getMenuLabel(grandchild) }}
                         </component>

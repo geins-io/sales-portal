@@ -142,7 +142,8 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.welcome');
   });
 
-  it('renders all 6 portal tabs including organisation', () => {
+  it('renders all 6 portal tabs when every feature is accessible', () => {
+    mockCanAccess.mockReturnValue(true);
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div>content</div>' },
       global: { stubs },
@@ -154,6 +155,59 @@ describe('PortalShell', () => {
     expect(wrapper.text()).toContain('portal.tabs.lists');
     expect(wrapper.text()).toContain('portal.tabs.organisation');
     expect(wrapper.text()).not.toContain('portal.tabs.favorites');
+  });
+
+  describe('feature-gated tabs', () => {
+    it('hides the quotations tab when the quotes feature is denied', () => {
+      mockCanAccess.mockImplementation(
+        (feature: string) => feature !== 'quotes',
+      );
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      expect(wrapper.text()).not.toContain('portal.tabs.quotations');
+      expect(wrapper.text()).toContain('portal.tabs.orders');
+      expect(wrapper.text()).toContain('portal.tabs.lists');
+    });
+
+    it('hides the orders tab when the orderHistory feature is denied', () => {
+      mockCanAccess.mockImplementation(
+        (feature: string) => feature !== 'orderHistory',
+      );
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      expect(wrapper.text()).not.toContain('portal.tabs.orders');
+      expect(wrapper.text()).toContain('portal.tabs.quotations');
+    });
+
+    it('hides the lists tab when the lists feature is denied', () => {
+      mockCanAccess.mockImplementation(
+        (feature: string) => feature !== 'lists',
+      );
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      expect(wrapper.text()).not.toContain('portal.tabs.lists');
+      expect(wrapper.text()).toContain('portal.tabs.orders');
+    });
+
+    it('keeps non-feature-gated tabs (overview, products, organisation) visible when all features are denied', () => {
+      mockCanAccess.mockReturnValue(false);
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      expect(wrapper.text()).toContain('portal.tabs.overview');
+      expect(wrapper.text()).toContain('portal.tabs.products');
+      expect(wrapper.text()).toContain('portal.tabs.organisation');
+      expect(wrapper.text()).not.toContain('portal.tabs.orders');
+      expect(wrapper.text()).not.toContain('portal.tabs.quotations');
+      expect(wrapper.text()).not.toContain('portal.tabs.lists');
+    });
   });
 
   it('renders slot content', () => {

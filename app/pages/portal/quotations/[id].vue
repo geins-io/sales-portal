@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Calendar, Clock, User } from 'lucide-vue-next';
+import { ArrowLeft, Calendar, Clock, FileText, User } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
 import { safeConfirm } from '~/utils/client-helpers';
@@ -92,7 +92,10 @@ function formatDate(iso: string): string {
         <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <!-- Left: Line Items -->
           <div class="lg:col-span-2">
-            <div class="border-border rounded-lg border">
+            <h3 class="mb-3 text-base font-semibold">
+              {{ t('portal.quotations.items_heading') }}
+            </h3>
+            <div>
               <table data-testid="line-items-table" class="w-full text-sm">
                 <thead class="bg-muted/50">
                   <tr>
@@ -159,108 +162,150 @@ function formatDate(iso: string): string {
 
           <!-- Right: Header + Summary + Meta + Addresses -->
           <div class="space-y-6">
+            <!-- Card 1: title + status + totals + buttons (Figma node 25387:112581) -->
             <div
-              data-testid="quote-header"
-              class="flex flex-wrap items-start justify-between gap-3"
+              data-testid="quote-summary-card"
+              class="bg-muted space-y-4 rounded-lg p-6"
             >
-              <div>
-                <h2 data-testid="quote-title" class="text-2xl font-semibold">
-                  {{
-                    quote?.name ??
-                    `${t('portal.quotations.detail_title')} #${quote?.quoteNumber ?? ''}`
-                  }}
-                </h2>
-                <p class="text-muted-foreground mt-1 text-sm">
-                  {{ formatDate(quote.createdAt) }}
+              <div
+                data-testid="quote-header"
+                class="flex flex-wrap items-start justify-between gap-3"
+              >
+                <div>
+                  <h2 data-testid="quote-title" class="text-2xl font-semibold">
+                    {{
+                      quote?.name ??
+                      `${t('portal.quotations.detail_title')} #${quote?.quoteNumber ?? ''}`
+                    }}
+                  </h2>
+                  <p class="text-muted-foreground mt-1 text-sm">
+                    <template v-if="quote?.quoteNumber"
+                      >{{ quote.quoteNumber }} |
+                      {{ t('portal.quotations.created_at') }}:
+                    </template>
+                    {{ formatDate(quote.createdAt) }}
+                  </p>
+                </div>
+                <span
+                  data-testid="status-badge"
+                  class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                  :class="getQuoteStatusPillClass(quote.status)"
+                >
+                  {{ statusLabel(quote.status) }}
+                </span>
+              </div>
+
+              <div data-testid="quote-summary" class="space-y-3.5">
+                <p class="text-foreground text-sm font-semibold">
+                  {{ t('portal.quotations.summary_heading') }}
                 </p>
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">{{
+                    t('portal.quotations.subtotal_with_count', {
+                      count: quote?.lineItems?.length ?? 0,
+                    })
+                  }}</span>
+                  <span>{{ quote.subtotalFormatted }}</span>
+                </div>
+                <div
+                  v-if="(quote?.shipping ?? 0) > 0"
+                  data-testid="shipping-row"
+                  class="flex justify-between text-sm"
+                >
+                  <span class="text-muted-foreground">{{
+                    t('portal.quotations.shipping')
+                  }}</span>
+                  <span>{{ quote.shippingFormatted }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">{{
+                    t('portal.quotations.tax')
+                  }}</span>
+                  <span>{{ quote.taxFormatted }}</span>
+                </div>
+                <div
+                  class="border-border mt-2 flex justify-between border-t pt-2 font-semibold"
+                >
+                  <span>{{ t('portal.quotations.grand_total') }}</span>
+                  <span>{{ quote.totalFormatted }}</span>
+                </div>
               </div>
-              <span
-                data-testid="status-badge"
-                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-                :class="getQuoteStatusPillClass(quote.status)"
-              >
-                {{ statusLabel(quote.status) }}
-              </span>
-            </div>
 
-            <div
-              data-testid="quote-summary"
-              class="bg-muted space-y-3.5 rounded-lg p-6"
-            >
-              <div class="flex justify-between text-sm">
-                <span class="text-muted-foreground">{{
-                  t('portal.quotations.subtotal_with_count', {
-                    count: quote?.lineItems?.length ?? 0,
-                  })
-                }}</span>
-                <span>{{ quote.subtotalFormatted }}</span>
+              <div v-if="isPending">
+                <div
+                  v-if="store.error"
+                  data-testid="action-error"
+                  role="alert"
+                  class="bg-destructive/10 text-destructive border-destructive/20 mb-2 rounded-md border px-3 py-2 text-sm"
+                >
+                  {{ t(store.error) }}
+                </div>
+                <div class="flex gap-2">
+                  <Button
+                    data-testid="decline-btn"
+                    variant="outline"
+                    class="flex-1"
+                    :disabled="store.isActionLoading"
+                    @click="handleDecline"
+                  >
+                    {{
+                      store.isActionLoading
+                        ? t('portal.quotations.declining')
+                        : t('portal.quotations.decline')
+                    }}
+                  </Button>
+                  <Button
+                    data-testid="accept-btn"
+                    class="flex-1"
+                    :disabled="store.isActionLoading"
+                    @click="handleAccept"
+                  >
+                    {{
+                      store.isActionLoading
+                        ? t('portal.quotations.accepting')
+                        : t('portal.quotations.accept')
+                    }}
+                  </Button>
+                </div>
               </div>
-              <div
-                v-if="(quote?.shipping ?? 0) > 0"
-                data-testid="shipping-row"
-                class="flex justify-between text-sm"
-              >
-                <span class="text-muted-foreground">{{
-                  t('portal.quotations.shipping')
-                }}</span>
-                <span>{{ quote.shippingFormatted }}</span>
-              </div>
-              <div class="flex justify-between text-sm">
-                <span class="text-muted-foreground">{{
-                  t('portal.quotations.tax')
-                }}</span>
-                <span>{{ quote.taxFormatted }}</span>
-              </div>
-              <div
-                class="border-border mt-2 flex justify-between border-t pt-2 font-semibold"
-              >
-                <span>{{ t('portal.quotations.grand_total') }}</span>
-                <span>{{ quote.totalFormatted }}</span>
-              </div>
-            </div>
-
-            <!-- Accept / Decline buttons (pending only) -->
-            <div v-if="isPending" class="flex flex-col gap-2">
-              <div
-                v-if="store.error"
-                data-testid="action-error"
-                role="alert"
-                class="bg-destructive/10 text-destructive border-destructive/20 mb-2 rounded-md border px-3 py-2 text-sm"
-              >
-                {{ t(store.error) }}
-              </div>
-              <Button
-                data-testid="accept-btn"
-                :disabled="store.isActionLoading"
-                @click="handleAccept"
-              >
-                {{
-                  store.isActionLoading
-                    ? t('portal.quotations.accepting')
-                    : t('portal.quotations.accept')
-                }}
-              </Button>
-              <Button
-                data-testid="decline-btn"
-                variant="outline"
-                :disabled="store.isActionLoading"
-                @click="handleDecline"
-              >
-                {{
-                  store.isActionLoading
-                    ? t('portal.quotations.declining')
-                    : t('portal.quotations.decline')
-                }}
-              </Button>
             </div>
 
             <div
               v-if="
-                quote?.expiresAt || quote?.paymentTerms || quote?.contactName
+                quote?.quoteNumber ||
+                quote?.expiresAt ||
+                quote?.paymentTerms ||
+                quote?.contactName
               "
               data-testid="quote-meta"
               class="bg-muted space-y-4 rounded-lg p-6"
             >
+              <div
+                v-if="quote?.quoteNumber"
+                data-testid="quote-reference"
+                class="flex items-start gap-3"
+              >
+                <FileText
+                  class="text-muted-foreground mt-0.5 size-4 shrink-0"
+                />
+                <div class="space-y-1">
+                  <p class="text-foreground text-sm font-semibold">
+                    {{ t('portal.quotations.quotation_reference') }}
+                  </p>
+                  <p class="text-muted-foreground text-sm">
+                    REF: {{ quote.quoteNumber }}
+                  </p>
+                </div>
+              </div>
+              <hr
+                v-if="
+                  quote?.quoteNumber &&
+                  (quote?.expiresAt ||
+                    quote?.paymentTerms ||
+                    quote?.contactName)
+                "
+                class="border-border"
+              />
               <div
                 v-if="quote?.expiresAt"
                 data-testid="expires-at"

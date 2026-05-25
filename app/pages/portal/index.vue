@@ -287,7 +287,7 @@ function handleProductAddToCart(
                     </span>
                   </td>
                   <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
-                  <td class="py-3">
+                  <td class="py-3 text-right">
                     <PortalRowAction
                       :to="localePath(`/portal/quotations/${quote.id}`)"
                       :label="t('portal.quotations.view')"
@@ -372,7 +372,7 @@ function handleProductAddToCart(
                   <td class="py-3 pr-4">{{ list.name }}</td>
                   <td class="py-3 pr-4">{{ formatDate(list.updatedAt) }}</td>
                   <td class="py-3 pr-4">{{ list.items?.length ?? 0 }}</td>
-                  <td class="py-3">
+                  <td class="py-3 text-right">
                     <PortalRowAction
                       :to="localePath(`/portal/saved-lists/${list.id}`)"
                       :label="t('portal.quotations.view')"
