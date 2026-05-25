@@ -210,7 +210,7 @@ function getStatusLabel(status: QuoteStatus): string {
                     {{ getStatusLabel(quote.status) }}
                   </span>
                 </td>
-                <td class="py-3">
+                <td class="py-3 text-right">
                   <PortalRowAction
                     :to="localePath(`/portal/quotations/${quote.id}`)"
                     :label="t('portal.quotations.view')"
