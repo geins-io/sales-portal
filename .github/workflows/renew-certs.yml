@@ -124,7 +124,7 @@ jobs:
 
       - name: Clean up secrets
         if: always()
-        run: rm -f ~/.secrets/cloudflare.ini /tmp/sales-portal-geins-dev.pfx
+        run: sudo rm -f ~/.secrets/cloudflare.ini /tmp/sales-portal-geins-dev.pfx
 
       - name: Summary
         run: |
@@ -219,7 +219,7 @@ jobs:
 
       - name: Clean up secrets
         if: always()
-        run: rm -f ~/.secrets/cloudflare.ini /tmp/litium-store.pfx
+        run: sudo rm -f ~/.secrets/cloudflare.ini /tmp/litium-store.pfx
 
       - name: Summary
         run: |
