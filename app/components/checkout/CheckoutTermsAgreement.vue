@@ -27,7 +27,7 @@ const { localePath } = useLocaleMarket();
       for="checkout-terms-checkbox"
       class="cursor-pointer text-sm leading-relaxed select-none"
     >
-      {{ t('auth.accept_terms_prefix') }}
+      {{ t('checkout.terms_prefix') }}
       <NuxtLink
         :to="localePath('/terms')"
         target="_blank"
@@ -35,7 +35,7 @@ const { localePath } = useLocaleMarket();
         class="text-primary underline underline-offset-2"
         data-testid="checkout-terms-link"
       >
-        {{ t('auth.accept_terms_link_text') }}
+        {{ t('checkout.terms_link_text') }}
       </NuxtLink>
     </Label>
   </div>
