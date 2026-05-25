@@ -141,17 +141,20 @@ async function handleLogout() {
 
 <template>
   <div data-testid="portal-shell">
-    <!-- Hero Banner: CMS-driven when configured, fallback otherwise -->
-    <CmsWidgetArea
-      v-if="heroArea?.containers?.length"
-      data-testid="portal-hero"
-      :containers="heroArea.containers"
-    />
-    <PortalHeroFallback v-else />
+    <!-- Hero Banner: CMS-driven when configured, fallback otherwise.
+         Wrapper mirrors the welcome wrapper width so both align flush. -->
+    <div class="mx-auto max-w-7xl px-4 lg:px-0">
+      <CmsWidgetArea
+        v-if="heroArea?.containers?.length"
+        data-testid="portal-hero"
+        :containers="heroArea.containers"
+      />
+      <PortalHeroFallback v-else />
+    </div>
 
     <!-- Welcome Card -->
     <!-- Page content uses 1280px container (max-w-7xl). Side padding only
-         on smaller viewports — Figma calls for flush edges at 1280+ -->
+         on smaller viewports, flush edges at 1280+ per Figma. -->
     <div class="mx-auto max-w-7xl px-4 lg:px-0">
       <div
         data-testid="portal-welcome"

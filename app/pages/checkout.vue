@@ -151,6 +151,10 @@ const discountFormatted = computed(() => {
 const isRedirecting = ref(false);
 const redirectError = ref<string | null>(null);
 
+// Terms agreement gate (page-local; keeps the store-level canPlaceOrder
+// invariant decoupled from this specific UI requirement).
+const acceptedTerms = ref(false);
+
 async function handleHostedCheckout() {
   if (!cartStore.cartId) return;
   isRedirecting.value = true;
@@ -194,6 +198,7 @@ watch(
 
 async function handlePlaceOrder() {
   if (!cartStore.cartId || !checkoutStore.canPlaceOrder) return;
+  if (!acceptedTerms.value) return;
   await checkoutStore.placeOrder(cartStore.cartId);
 }
 </script>
@@ -428,6 +433,12 @@ async function handlePlaceOrder() {
                 />
               </CardContent>
             </Card>
+
+            <!-- Terms agreement: required before Place Order is enabled. -->
+            <CheckoutTermsAgreement
+              v-model="acceptedTerms"
+              :disabled="checkoutStore.isPlacingOrder"
+            />
           </div>
 
           <!-- RIGHT: Order Summary Sidebar -->
@@ -440,7 +451,9 @@ async function handlePlaceOrder() {
               :total="total"
               :discount="discountFormatted || undefined"
               :can-place-order="
-                checkoutStore.canPlaceOrder && !checkoutStore.isBlacklisted
+                checkoutStore.canPlaceOrder &&
+                !checkoutStore.isBlacklisted &&
+                acceptedTerms
               "
               :is-placing-order="checkoutStore.isPlacingOrder"
               @place-order="handlePlaceOrder"

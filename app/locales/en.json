@@ -190,7 +190,9 @@
     "company_name": "Company",
     "buyer": "Buyer",
     "per_unit": "/ unit",
-    "delivery_address": "Delivery Address"
+    "delivery_address": "Delivery Address",
+    "terms_prefix": "I accept ",
+    "terms_link_text": "the terms and conditions"
   },
   "order_confirmation": {
     "title": "Order Confirmation",

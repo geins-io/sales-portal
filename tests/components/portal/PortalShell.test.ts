@@ -210,6 +210,65 @@ describe('PortalShell', () => {
     });
   });
 
+  describe('hero width container', () => {
+    it('wraps CMS hero in a max-w-7xl container matching the welcome card', () => {
+      mockHeroData.value = { containers: [{ id: 'c1', widgets: [] }] };
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: {
+          stubs: {
+            ...stubs,
+            CmsWidgetArea: {
+              template: '<div data-testid="portal-hero"></div>',
+              props: ['containers'],
+            },
+          },
+        },
+      });
+      const hero = wrapper.find('[data-testid="portal-hero"]').element;
+      const ancestor = hero.closest('.max-w-7xl') as HTMLElement | null;
+      expect(ancestor).not.toBeNull();
+      expect(ancestor!.classList.contains('mx-auto')).toBe(true);
+      expect(ancestor!.classList.contains('px-4')).toBe(true);
+      expect(ancestor!.classList.contains('lg:px-0')).toBe(true);
+    });
+
+    it('wraps fallback hero in a max-w-7xl container', () => {
+      mockHeroData.value = null;
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      const fallback = wrapper.find(
+        '[data-testid="portal-hero-fallback"]',
+      ).element;
+      const ancestor = fallback.closest('.max-w-7xl') as HTMLElement | null;
+      expect(ancestor).not.toBeNull();
+      expect(ancestor!.classList.contains('mx-auto')).toBe(true);
+    });
+
+    it('renders hero wrapper and welcome wrapper as separate max-w-7xl mx-auto siblings', () => {
+      mockHeroData.value = null;
+      const wrapper = mountComponent(PortalShell, {
+        slots: { default: '<div>content</div>' },
+        global: { stubs },
+      });
+      const welcome = wrapper.find('[data-testid="portal-welcome"]').element;
+      const fallback = wrapper.find(
+        '[data-testid="portal-hero-fallback"]',
+      ).element;
+      const welcomeWrapper = welcome.closest(
+        '.max-w-7xl.mx-auto',
+      ) as HTMLElement | null;
+      const heroWrapper = fallback.closest(
+        '.max-w-7xl.mx-auto',
+      ) as HTMLElement | null;
+      expect(welcomeWrapper).not.toBeNull();
+      expect(heroWrapper).not.toBeNull();
+      expect(welcomeWrapper).not.toBe(heroWrapper);
+    });
+  });
+
   it('renders slot content', () => {
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div data-testid="slot-content">hello</div>' },

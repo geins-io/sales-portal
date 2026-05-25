@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
-import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { filterVisibleCampaigns, getStockStatus } from '#shared/types/commerce';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
@@ -87,6 +87,13 @@ const { canAccess } = useFeatureAccess();
 const canPurchase = computed(
   () => canAccess('orderPlacement') && !isCatalogMode.value,
 );
+const { showStock } = useStockVisibility();
+const isOutOfStock = computed(() => {
+  if (!showStock.value) return false;
+  const stock = product.value?.totalStock;
+  if (!stock) return false;
+  return getStockStatus(stock) === 'out-of-stock';
+});
 const { localePath } = useLocaleMarket();
 
 const isFavorited = computed(() =>
@@ -525,27 +532,26 @@ useSchemaOrg([
       <!-- Right: actions + info card -->
       <aside class="flex flex-col gap-4">
         <!-- Quantity + Add to cart + Wishlist -->
-        <div
-          v-if="canPurchase"
-          class="flex items-center gap-2"
-          data-testid="pdp-actions"
-        >
-          <QuantityInput
-            v-model="quantity"
-            :min="1"
-            :max="maxQuantity"
-            class="h-9 shrink-0"
-          />
-          <Button
-            variant="purchase"
-            data-testid="add-to-cart-button"
-            class="h-9 flex-1 gap-2 px-4"
-            @click="addToCart"
-          >
-            <ShoppingCart class="size-4" />
-            {{ $t('product.add_to_cart') }}
-          </Button>
-        </div>
+        <template v-if="canPurchase">
+          <OutOfStockBlock v-if="isOutOfStock" />
+          <div v-else class="flex items-center gap-2" data-testid="pdp-actions">
+            <QuantityInput
+              v-model="quantity"
+              :min="1"
+              :max="maxQuantity"
+              class="h-9 shrink-0"
+            />
+            <Button
+              variant="purchase"
+              data-testid="add-to-cart-button"
+              class="h-9 flex-1 gap-2 px-4"
+              @click="addToCart"
+            >
+              <ShoppingCart class="size-4" />
+              {{ $t('product.add_to_cart') }}
+            </Button>
+          </div>
+        </template>
 
         <div
           class="border-border flex flex-col border-y"

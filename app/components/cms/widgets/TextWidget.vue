@@ -44,6 +44,21 @@ const alignmentClass = computed(() => {
 const title = computed(
   () => props.data.title || props.config.displayName || '',
 );
+
+/**
+ * Geins admin can save either rich-text HTML (with p/br/etc.) or plain
+ * multi-line text. For the plain-text shape, convert newline characters to
+ * <br /> so the line breaks survive v-html rendering.
+ */
+const BLOCK_TAG_PATTERN = /<(p|div|br|ul|ol|h[1-6])/i;
+
+const renderedText = computed(() => {
+  const raw = props.data.text ?? '';
+  if (!raw) return '';
+  const normalized = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (BLOCK_TAG_PATTERN.test(normalized)) return normalized;
+  return normalized.replace(/\n/g, '<br />');
+});
 </script>
 
 <template>
@@ -52,6 +67,6 @@ const title = computed(
       {{ title }}
     </component>
     <!-- eslint-disable-next-line vue/no-v-html -->
-    <div v-if="data.text" class="prose max-w-none" v-html="data.text" />
+    <div v-if="renderedText" class="prose max-w-none" v-html="renderedText" />
   </div>
 </template>

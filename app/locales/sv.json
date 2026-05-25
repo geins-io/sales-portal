@@ -190,7 +190,9 @@
     "company_name": "Företag",
     "buyer": "Köpare",
     "per_unit": "/ st",
-    "delivery_address": "Leveransadress"
+    "delivery_address": "Leveransadress",
+    "terms_prefix": "Jag godkänner ",
+    "terms_link_text": "villkoren"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
-import { filterVisibleCampaigns } from '#shared/types/commerce';
+import { filterVisibleCampaigns, getStockStatus } from '#shared/types/commerce';
 import { productPath } from '#shared/utils/route-helpers';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import { ShoppingCart, Star, AlertCircle } from 'lucide-vue-next';
@@ -58,6 +58,14 @@ const { canAccess } = useFeatureAccess();
 const canPurchase = computed(
   () => canAccess('orderPlacement') && !isCatalogMode.value,
 );
+const { showStock } = useStockVisibility();
+const isOutOfStock = computed(() => {
+  if (!showStock.value) return false;
+  if (!isFullProduct(props.product)) return false;
+  const stock = props.product.totalStock;
+  if (!stock) return false;
+  return getStockStatus(stock) === 'out-of-stock';
+});
 
 const productAlias = computed<string | null>(() => {
   if (isFullProduct(props.product)) return props.product.alias ?? null;
@@ -289,47 +297,52 @@ async function addToCart() {
         </span>
       </div>
 
-      <div v-if="canPurchase" class="mt-auto flex items-center gap-3 pt-3">
-        <QuantityInput
-          v-if="isFullProduct(product)"
-          v-model="quantity"
-          :min="1"
-          :max="maxQuantity"
-          class="h-9 shrink-0"
-        />
-        <QuantityStepper
-          v-else
-          v-model="quantity"
-          :min="1"
-          class="h-9 shrink-0"
-        />
-        <Button
-          data-testid="add-to-cart-button"
-          class="h-9 min-w-0 flex-1 overflow-hidden px-4"
-          :variant="addError ? 'destructive' : 'default'"
-          :disabled="isFullProduct(product) ? !firstSku || isAdding : isLoading"
-          @click="addToCart"
-        >
-          <AlertCircle
-            v-if="isFullProduct(product) && addError"
-            class="mr-1.5 size-4 shrink-0"
+      <template v-if="canPurchase">
+        <OutOfStockBlock v-if="isOutOfStock" class="mt-auto pt-3" />
+        <div v-else class="mt-auto flex items-center gap-3 pt-3">
+          <QuantityInput
+            v-if="isFullProduct(product)"
+            v-model="quantity"
+            :min="1"
+            :max="maxQuantity"
+            class="h-9 shrink-0"
           />
-          <ShoppingCart
-            v-else-if="isFullProduct(product)"
-            class="mr-1.5 size-4 shrink-0"
+          <QuantityStepper
+            v-else
+            v-model="quantity"
+            :min="1"
+            class="h-9 shrink-0"
           />
-          <span class="whitespace-nowrap">
-            <template v-if="isFullProduct(product)">
-              {{
-                addError ? t('cart.add_failed') : t('cart.add_to_cart_short')
-              }}
-            </template>
-            <template v-else>
-              {{ t('common.add_to_cart') }}
-            </template>
-          </span>
-        </Button>
-      </div>
+          <Button
+            data-testid="add-to-cart-button"
+            class="h-9 min-w-0 flex-1 overflow-hidden px-4"
+            :variant="addError ? 'destructive' : 'default'"
+            :disabled="
+              isFullProduct(product) ? !firstSku || isAdding : isLoading
+            "
+            @click="addToCart"
+          >
+            <AlertCircle
+              v-if="isFullProduct(product) && addError"
+              class="mr-1.5 size-4 shrink-0"
+            />
+            <ShoppingCart
+              v-else-if="isFullProduct(product)"
+              class="mr-1.5 size-4 shrink-0"
+            />
+            <span class="whitespace-nowrap">
+              <template v-if="isFullProduct(product)">
+                {{
+                  addError ? t('cart.add_failed') : t('cart.add_to_cart_short')
+                }}
+              </template>
+              <template v-else>
+                {{ t('common.add_to_cart') }}
+              </template>
+            </span>
+          </Button>
+        </div>
+      </template>
     </div>
     <AddToListDialog
       v-if="productAlias"
@@ -425,7 +438,8 @@ async function addToCart() {
       />
 
       <template v-if="canPurchase">
-        <div class="flex shrink-0 items-center gap-2">
+        <OutOfStockBlock v-if="isOutOfStock" class="shrink-0" />
+        <div v-else class="flex shrink-0 items-center gap-2">
           <QuantityInput
             v-if="isFullProduct(product)"
             v-model="quantity"
