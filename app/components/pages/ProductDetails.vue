@@ -553,7 +553,7 @@ useSchemaOrg([
         >
           <button
             type="button"
-            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-3 text-left text-sm transition-colors"
+            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
             data-testid="pdp-print"
             @click="printDataSheet"
           >
@@ -563,7 +563,7 @@ useSchemaOrg([
           <button
             v-if="hasFeature('wishlist') && authStore.isAuthenticated"
             type="button"
-            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-3 text-left text-sm transition-colors"
+            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
             data-testid="pdp-save-favourite"
             @click="toggleFavourite"
           >
@@ -579,7 +579,7 @@ useSchemaOrg([
           <button
             v-if="authStore.isAuthenticated"
             type="button"
-            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-3 text-left text-sm transition-colors"
+            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
             data-testid="pdp-add-to-lists"
             @click="openListPicker"
           >
@@ -595,7 +595,7 @@ useSchemaOrg([
                   )
                 : localePath('/portal/orders')
             "
-            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-3 text-left text-sm transition-colors"
+            class="text-muted-foreground hover:text-foreground border-border flex items-center gap-2 border-t py-2.5 text-left text-[13px] transition-colors"
             data-testid="pdp-latest-ordered"
           >
             <ShoppingCart class="size-4" />
