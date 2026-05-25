@@ -89,7 +89,7 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
                     <component
                       :is="linkTag(item)"
                       v-bind="linkAttrs(item)"
-                      class="mb-3 inline-block text-sm font-semibold underline-offset-4 hover:underline"
+                      class="mb-3 inline-block text-sm font-semibold underline-offset-4 hover:bg-transparent hover:underline focus:bg-transparent"
                     >
                       {{
                         $t('common.view_all_in', { name: getMenuLabel(item) })
