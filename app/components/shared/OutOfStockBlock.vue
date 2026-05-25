@@ -7,7 +7,7 @@ const { t } = useI18n();
 <template>
   <div
     data-testid="oos-block"
-    class="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800"
+    class="border-destructive/20 bg-destructive/10 text-destructive flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium"
   >
     <PackageX class="size-4 shrink-0" />
     <span>{{ t('product.out_of_stock') }}</span>
