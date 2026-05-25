@@ -157,4 +157,60 @@ describe('TextWidget', () => {
     });
     expect(wrapper.find('.prose').exists()).toBe(false);
   });
+
+  // Line break preservation for plain-text shape from Geins admin
+  describe('line break handling', () => {
+    it('converts \\n in plain text to <br /> tags', () => {
+      const wrapper = mountComponent(TextWidget, {
+        props: makeProps({ text: 'line one\nline two\nline three' }),
+      });
+      const html = wrapper.html();
+      const brCount = (html.match(/<br/g) ?? []).length;
+      expect(brCount).toBe(2);
+      const text = wrapper.find('.prose').text();
+      expect(text).toContain('line one');
+      expect(text).toContain('line two');
+      expect(text).toContain('line three');
+    });
+
+    it('leaves HTML input with <p> tags unchanged', () => {
+      const wrapper = mountComponent(TextWidget, {
+        props: makeProps({ text: '<p>first</p><p>second</p>' }),
+      });
+      const html = wrapper.find('.prose').html();
+      const pCount = (html.match(/<p>/g) ?? []).length;
+      const brCount = (html.match(/<br/g) ?? []).length;
+      expect(pCount).toBe(2);
+      expect(brCount).toBe(0);
+    });
+
+    it('normalizes \\r\\n line endings to <br /> tags', () => {
+      const wrapper = mountComponent(TextWidget, {
+        props: makeProps({ text: 'a\r\nb\r\nc' }),
+      });
+      const html = wrapper.html();
+      const brCount = (html.match(/<br/g) ?? []).length;
+      expect(brCount).toBe(2);
+    });
+
+    it('does not render the prose div when text is empty', () => {
+      const wrapper = mountComponent(TextWidget, {
+        props: makeProps({ text: '' }),
+      });
+      expect(wrapper.find('.prose').exists()).toBe(false);
+    });
+
+    it('renders heading and line breaks together', () => {
+      const wrapper = mountComponent(TextWidget, {
+        props: makeProps({
+          title: 'Hello',
+          titleRenderMode: 1,
+          text: 'line\nbreak',
+        }),
+      });
+      expect(wrapper.find('h2').exists()).toBe(true);
+      expect(wrapper.find('h2').text()).toBe('Hello');
+      expect(wrapper.html()).toContain('<br');
+    });
+  });
 });
