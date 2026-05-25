@@ -38,7 +38,7 @@ on:
           - prod-only
 
 env:
-  CERT_EMAIL: kristian.arvidsson@litium.com
+  CERT_EMAIL: ${{ vars.CERT_EMAIL }}
 
 jobs:
   # ---------------------------------------------------------------------------
