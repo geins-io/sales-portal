@@ -18,7 +18,7 @@ describe('storefront-settings-defaults', () => {
 
     it('coerces hex case-insensitively (mixed-case yields same OKLCH)', () => {
       // siteBackground is `#FAFAFA` in source. Treat as opaque grey near
-      // white — the value must round-trip through OKLCH the same as
+      // white; the value must round-trip through OKLCH the same as
       // `#fafafa` would.
       expect(STOREFRONT_SETTINGS_DEFAULTS.theme.colors.siteBackground).toMatch(
         /^oklch\(/,

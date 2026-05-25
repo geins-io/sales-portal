@@ -12,7 +12,7 @@ import type { StoreSettings, FeatureConfig } from '../schemas/store-settings';
  * paste in).
  */
 
-// Source hex defaults. Preserve exactly as written — they are the human-
+// Source hex defaults. Preserve exactly as written; they are the human-
 // readable reference. Runtime values come from COLOR_DEFAULTS below.
 const HEX_DEFAULTS = {
   buttonBackground: '#363636',
@@ -138,7 +138,7 @@ function mergeDefaults(base: unknown, override: unknown): unknown {
 
 /**
  * Merges a partial StoreSettings shape (from the merchant API) onto the
- * canonical defaults. Per-field fallback — missing keys inherit, present
+ * canonical defaults. Per-field fallback: missing keys inherit, present
  * keys win including explicit "" / false / null.
  */
 export function mergeStorefrontSettings(
