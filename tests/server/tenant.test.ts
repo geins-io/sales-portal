@@ -567,6 +567,31 @@ describe('Tenant utilities', () => {
       expect(built.seo?.robots).toBe('noindex, nofollow');
       expect(built.branding.logoUrl).toBe('https://example.com/logo.png');
     });
+
+    it('fills branding.name from geinsSettings.accountName when name is empty', () => {
+      const settings = minimalSettings();
+      settings.branding = { name: '', watermark: 'full' };
+      settings.geinsSettings.accountName = 'elproman';
+      const built = buildTenantConfig(settings);
+      expect(built.branding.name).toBe('elproman');
+    });
+
+    it('falls back to hostname when both branding.name and accountName are empty', () => {
+      const settings = minimalSettings();
+      settings.branding = { name: '   ', watermark: 'full' };
+      settings.geinsSettings.accountName = '';
+      settings.hostname = 'fallback.example.com';
+      const built = buildTenantConfig(settings);
+      expect(built.branding.name).toBe('fallback.example.com');
+    });
+
+    it('preserves an explicit branding.name', () => {
+      const settings = minimalSettings();
+      settings.branding = { name: 'Tenant A Store', watermark: 'full' };
+      settings.geinsSettings.accountName = 'tenant-a';
+      const built = buildTenantConfig(settings);
+      expect(built.branding.name).toBe('Tenant A Store');
+    });
   });
 
   describe('writeHostnameMappings — duplicate hostname guard', () => {
@@ -753,13 +778,22 @@ describe('Tenant utilities', () => {
       expect(out?.theme.colors.primary).toBe('oklch(0.205 0 0)');
     });
 
-    it('salvages a candidate with missing branding by applying a neutral default', () => {
+    it('salvages a candidate with missing branding by using geinsSettings.accountName', () => {
       const candidate = fullCandidate();
       delete candidate.branding;
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out).not.toBeNull();
-      expect(out?.branding.name).toBe('Store');
+      // accountName in fullCandidate() is 'a'
+      expect(out?.branding.name).toBe('a');
       expect(out?.branding.watermark).toBe('full');
+    });
+
+    it('salvages branding without leaving a literal "Store" name', () => {
+      const candidate = fullCandidate();
+      delete candidate.branding;
+      const out = parseStoreSettingsResilient(candidate, 'store-fallback.host');
+      expect(out).not.toBeNull();
+      expect(out?.branding.name).not.toBe('Store');
     });
 
     it('salvages a freshly provisioned tenant with empty appSettings end-to-end', () => {

@@ -256,6 +256,16 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
 
   const themeHash = generateThemeHash(theme);
 
+  // Guarantee a non-empty branding.name. Canonical defaults may ship an
+  // empty string for `name`; fall back to channel `accountName`, then to
+  // hostname. The topbar avatar, hero heading, and footer copyright all
+  // consume this value directly.
+  const brandingName =
+    merged.branding?.name?.trim() ||
+    merged.geinsSettings.accountName?.trim() ||
+    merged.hostname;
+  const branding = { ...merged.branding, name: brandingName };
+
   // CMS: explicit tenant config wins, otherwise fall back to the standard
   // Geins out-of-box family/areaName values + menu locations. Lets every
   // tenant render slots/menus without per-tenant overrides.
@@ -270,7 +280,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     mode: merged.mode,
     checkoutMode: merged.checkoutMode,
     theme,
-    branding: merged.branding,
+    branding,
     features,
     seo: merged.seo,
     contact: merged.contact,
@@ -450,6 +460,27 @@ export function backfillCoreColors(
 }
 
 /**
+ * Pick a sensible default branding name from a candidate StoreSettings.
+ * Order: `geinsSettings.accountName` (trimmed, non-empty) → hostname.
+ *
+ * Used by the salvage path when the API ships no usable `branding` block,
+ * and by `buildTenantConfig` when the merged branding name is empty.
+ * Avoids rendering a generic literal in the topbar avatar, hero heading,
+ * or footer copyright.
+ */
+export function defaultBrandingName(
+  candidate: Record<string, unknown>,
+  hostname: string,
+): string {
+  const gs = candidate.geinsSettings;
+  if (gs && typeof gs === 'object') {
+    const name = (gs as Record<string, unknown>).accountName;
+    if (typeof name === 'string' && name.trim()) return name.trim();
+  }
+  return hostname;
+}
+
+/**
  * Parse a candidate StoreSettings tolerantly.
  *
  * Strict `StoreSettingsSchema.safeParse` is the happy path. When the merchant
@@ -502,8 +533,10 @@ export function parseStoreSettingsResilient(
     // `theme` intentionally omitted: it's computed lazily from
     // `createDefaultTheme(hostname)` at substitution time so the salvage
     // palette can't drift from the canonical default.
+    // `branding.name` is intentionally omitted: it's computed lazily from
+    // `defaultBrandingName(work, hostname)` at substitution time so a tenant
+    // never renders a generic literal in the topbar/hero/footer.
     branding: {
-      name: 'Store',
       watermark: 'full',
     },
     features: {},
@@ -609,10 +642,20 @@ export function parseStoreSettingsResilient(
     const existing = work[top];
     // `theme` is computed lazily from `createDefaultTheme(hostname)` so the
     // salvage palette is always the canonical default for this hostname.
-    const salvage =
-      top === 'theme'
-        ? { colors: createDefaultTheme(hostname).colors }
-        : SALVAGE_DEFAULTS[top];
+    // `branding.name` is computed lazily from the candidate's
+    // `geinsSettings.accountName` (or hostname) so a tenant never renders a
+    // generic literal in the topbar/hero/footer.
+    let salvage: unknown;
+    if (top === 'theme') {
+      salvage = { colors: createDefaultTheme(hostname).colors };
+    } else if (top === 'branding') {
+      salvage = {
+        ...(SALVAGE_DEFAULTS.branding as Record<string, unknown>),
+        name: defaultBrandingName(work, hostname),
+      };
+    } else {
+      salvage = SALVAGE_DEFAULTS[top];
+    }
     work = {
       ...work,
       [top]:
