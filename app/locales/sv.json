@@ -809,6 +809,8 @@
       "decline_failed": "Det gick inte att avvisa offerten. Försök igen.",
       "load_failed": "Det gick inte att ladda offerten. Försök igen.",
       "back_to_quotations": "Tillbaka till offerter",
+      "created_at": "Skapad",
+      "quotation_reference": "Offertreferens",
       "expires_at": "Utgår",
       "payment_terms": "Betalningsvillkor",
       "sale_contact": "Vår kontakt",

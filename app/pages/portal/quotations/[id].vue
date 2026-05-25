@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Calendar, Clock, User } from 'lucide-vue-next';
+import { ArrowLeft, Calendar, Clock, FileText, User } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useQuotesStore } from '~/stores/quotes';
 import { safeConfirm } from '~/utils/client-helpers';
@@ -179,6 +179,10 @@ function formatDate(iso: string): string {
                     }}
                   </h2>
                   <p class="text-muted-foreground mt-1 text-sm">
+                    <template v-if="quote?.quoteNumber"
+                      >{{ quote.quoteNumber }} |
+                      {{ t('portal.quotations.created_at') }}:
+                    </template>
                     {{ formatDate(quote.createdAt) }}
                   </p>
                 </div>
@@ -268,11 +272,40 @@ function formatDate(iso: string): string {
 
             <div
               v-if="
-                quote?.expiresAt || quote?.paymentTerms || quote?.contactName
+                quote?.quoteNumber ||
+                quote?.expiresAt ||
+                quote?.paymentTerms ||
+                quote?.contactName
               "
               data-testid="quote-meta"
               class="bg-muted space-y-4 rounded-lg p-6"
             >
+              <div
+                v-if="quote?.quoteNumber"
+                data-testid="quote-reference"
+                class="flex items-start gap-3"
+              >
+                <FileText
+                  class="text-muted-foreground mt-0.5 size-4 shrink-0"
+                />
+                <div class="space-y-1">
+                  <p class="text-foreground text-sm font-semibold">
+                    {{ t('portal.quotations.quotation_reference') }}
+                  </p>
+                  <p class="text-muted-foreground text-sm">
+                    REF: {{ quote.quoteNumber }}
+                  </p>
+                </div>
+              </div>
+              <hr
+                v-if="
+                  quote?.quoteNumber &&
+                  (quote?.expiresAt ||
+                    quote?.paymentTerms ||
+                    quote?.contactName)
+                "
+                class="border-border"
+              />
               <div
                 v-if="quote?.expiresAt"
                 data-testid="expires-at"

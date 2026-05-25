@@ -809,6 +809,8 @@
       "decline_failed": "Failed to decline the quote. Please try again.",
       "load_failed": "Failed to load quotation. Please try again.",
       "back_to_quotations": "Back to quotations",
+      "created_at": "Created",
+      "quotation_reference": "Quotation reference",
       "expires_at": "Expires",
       "payment_terms": "Payment Terms",
       "sale_contact": "Our Contact",
