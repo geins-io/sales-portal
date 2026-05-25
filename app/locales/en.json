@@ -788,6 +788,8 @@
       "status_expired": "Expired",
       "status_cancelled": "Cancelled",
       "detail_title": "Quotation Details",
+      "items_heading": "Items",
+      "summary_heading": "Summary",
       "product": "Product",
       "article_number": "Art Nr",
       "quantity": "Amount",

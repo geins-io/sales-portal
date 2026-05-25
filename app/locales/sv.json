@@ -788,6 +788,8 @@
       "status_expired": "Utgången",
       "status_cancelled": "Avbruten",
       "detail_title": "Offertdetaljer",
+      "items_heading": "Artiklar",
+      "summary_heading": "Sammanfattning",
       "product": "Produkt",
       "article_number": "Art nr",
       "quantity": "Antal",
