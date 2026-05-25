@@ -88,6 +88,7 @@ const textColorClass = computed(() => {
     :is="hasLink ? NuxtLink : 'div'"
     :to="hasLink ? localePath(bannerHref) : undefined"
     class="relative block overflow-hidden"
+    :class="fullWidth ? 'h-[400px]' : ''"
     data-testid="cms-widget"
   >
     <GeinsImage
@@ -96,6 +97,7 @@ const textColorClass = computed(() => {
       type="pagewidget"
       :alt="data.image?.altText || config.displayName || ''"
       loading="eager"
+      :class="fullWidth ? 'size-full' : ''"
     />
 
     <!-- Overlay mode: text on top of image -->
