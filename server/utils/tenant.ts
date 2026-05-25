@@ -2,9 +2,17 @@ import type { H3Event } from 'h3';
 import type { TenantConfig } from '#shared/types/tenant-config';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { CMS_MENUS } from '#shared/constants/cms';
-import type { StoreSettings, GeinsSettings } from '../schemas/store-settings';
+import type {
+  StoreSettings,
+  GeinsSettings,
+  FeatureConfig,
+} from '../schemas/store-settings';
 import { StoreSettingsSchema } from '../schemas/store-settings';
 import { deriveThemeColors } from './theme';
+import {
+  STOREFRONT_SETTINGS_DEFAULTS,
+  mergeStorefrontSettings,
+} from './storefront-settings-defaults';
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
 import { logger } from './logger';
 import {
@@ -208,54 +216,40 @@ export function transformGeinsSettings(
  * Derives colors, merges override features, generates CSS + hash.
  */
 export function buildTenantConfig(settings: StoreSettings): TenantConfig {
-  const derivedColors = deriveThemeColors(settings.theme.colors);
+  // Per-field deep merge of canonical defaults under the API response.
+  // Missing keys inherit; explicit "" / false / null from API win. See
+  // server/utils/storefront-settings-defaults.ts for the canonical shape.
+  const merged = mergeStorefrontSettings(settings);
 
-  // Portal feature flag defaults. Tenants without an explicit value for a
-  // given key inherit `enabled: true`, so the feature shows up on tenants
-  // whose store-settings response simply omits the key. Tenants that send an
-  // explicit `{ enabled: false }` still win because settings.features is
-  // spread after the defaults, and overrides.features takes final precedence
-  // below.
-  //
-  // Source of truth for which keys to list: every key referenced via
-  // `canAccess('X')` or `hasFeature('X')` on the storefront (see
-  // app/composables/useFeatureAccess.ts and the storefront callsites).
-  const PORTAL_FEATURE_DEFAULTS: Record<string, { enabled: boolean }> = {
-    analytics: { enabled: true },
-    applyForAccount: { enabled: true },
-    cart: { enabled: true },
-    checkout: { enabled: true },
-    lists: { enabled: true },
-    newsletter: { enabled: true },
-    orderHistory: { enabled: true },
-    orderPlacement: { enabled: true },
-    priceVisibility: { enabled: true },
-    quotes: { enabled: true },
-    registration: { enabled: true },
-    reorder: { enabled: true },
-    stockStatus: { enabled: true },
-    wishlist: { enabled: true },
+  const derivedColors = deriveThemeColors(merged.theme.colors);
+
+  // Portal feature flag layer. The canonical defaults already live in
+  // STOREFRONT_SETTINGS_DEFAULTS.features (priceVisibility, orderPlacement,
+  // stockStatus carry the {enabled, access} shape; the other 11 portal
+  // features default to {enabled: true}). overrides.features takes final
+  // precedence below.
+  const features: Record<string, FeatureConfig> = {
+    ...STOREFRONT_SETTINGS_DEFAULTS.features,
+    ...merged.features,
   };
-
-  const features = { ...PORTAL_FEATURE_DEFAULTS, ...settings.features };
-  if (settings.overrides?.features) {
-    for (const [key, value] of Object.entries(settings.overrides.features)) {
+  if (merged.overrides?.features) {
+    for (const [key, value] of Object.entries(merged.overrides.features)) {
       features[key] = value;
     }
   }
 
-  const themeName = settings.theme.name ?? settings.tenantId;
+  const themeName = merged.theme.name ?? merged.tenantId;
 
   const css = generateTenantCss(
     themeName,
     derivedColors,
-    settings.theme.radius,
-    settings.overrides?.css,
-    settings.theme.typography,
+    merged.theme.radius,
+    merged.overrides?.css,
+    merged.theme.typography,
   );
 
   const theme: TenantConfig['theme'] = {
-    ...settings.theme,
+    ...merged.theme,
     name: themeName,
     colors: derivedColors,
   };
@@ -266,27 +260,27 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   // Geins out-of-box family/areaName values + menu locations. Lets every
   // tenant render slots/menus without per-tenant overrides.
   const cms =
-    (settings as { cms?: TenantConfig['cms'] }).cms ?? DEFAULT_CMS_CONFIG;
+    (merged as { cms?: TenantConfig['cms'] }).cms ?? DEFAULT_CMS_CONFIG;
 
   return {
-    tenantId: settings.tenantId,
-    hostname: settings.hostname,
-    aliases: settings.aliases,
-    geinsSettings: settings.geinsSettings,
-    mode: settings.mode,
-    checkoutMode: settings.checkoutMode,
+    tenantId: merged.tenantId,
+    hostname: merged.hostname,
+    aliases: merged.aliases,
+    geinsSettings: merged.geinsSettings,
+    mode: merged.mode,
+    checkoutMode: merged.checkoutMode,
     theme,
-    branding: settings.branding,
+    branding: merged.branding,
     features,
-    seo: settings.seo,
-    contact: settings.contact,
-    overrides: settings.overrides,
+    seo: merged.seo,
+    contact: merged.contact,
+    overrides: merged.overrides,
     cms,
     css,
     themeHash,
-    isActive: settings.isActive,
-    createdAt: settings.createdAt,
-    updatedAt: settings.updatedAt,
+    isActive: merged.isActive,
+    createdAt: merged.createdAt,
+    updatedAt: merged.updatedAt,
   };
 }
 

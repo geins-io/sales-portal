@@ -466,6 +466,109 @@ describe('Tenant utilities', () => {
     });
   });
 
+  describe('buildTenantConfig storefront-settings defaults integration', () => {
+    function minimalSettings(): StoreSettings {
+      return {
+        tenantId: 'tenant-defaults',
+        hostname: 'tenant-defaults.litium.store',
+        geinsSettings: {
+          apiKey: 'k',
+          accountName: 'a',
+          channel: '1',
+          tld: 'se',
+          locale: 'sv-SE',
+          market: 'se',
+          environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
+        },
+        mode: 'commerce',
+        checkoutMode: 'custom',
+        theme: {
+          colors: {
+            primary: 'oklch(0.5 0.1 200)',
+            primaryForeground: 'oklch(0.9 0 0)',
+            secondary: 'oklch(0.8 0 0)',
+            secondaryForeground: 'oklch(0.2 0 0)',
+            background: 'oklch(1 0 0)',
+            foreground: 'oklch(0.1 0 0)',
+          },
+        },
+        branding: { name: 'X', watermark: 'full' },
+        features: {},
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+    }
+
+    it('empty appSettings applies canonical defaults', () => {
+      const built = buildTenantConfig(minimalSettings());
+      expect(built.features.stockStatus?.enabled).toBe(true);
+      expect(built.features.priceVisibility).toMatchObject({
+        enabled: true,
+        access: 'authenticated',
+      });
+      expect(built.theme.radius).toBe('0');
+    });
+
+    it('partial features merges per-key (api wins on present, default fills missing)', () => {
+      const built = buildTenantConfig({
+        ...minimalSettings(),
+        features: {
+          priceVisibility: { enabled: false, access: 'authenticated' },
+        },
+      });
+      expect(built.features.priceVisibility?.enabled).toBe(false);
+      expect(built.features.orderPlacement?.enabled).toBe(true);
+      expect(built.features.stockStatus?.enabled).toBe(true);
+    });
+
+    it('elproman fixture: missing stockStatus key resolves to enabled default', () => {
+      const candidate = adaptMerchantApiResponse(
+        elpromanFixture as unknown as Record<string, unknown>,
+      );
+      const settings = parseStoreSettingsResilient(
+        candidate,
+        'elproman.litium.store',
+      );
+      expect(settings).not.toBeNull();
+      const built = buildTenantConfig(settings as StoreSettings);
+      expect(built.features.stockStatus?.enabled).toBe(true);
+      expect(built.features.priceVisibility?.enabled).toBe(false);
+      expect(built.features.orderPlacement?.enabled).toBe(false);
+    });
+
+    it('full payload preserves every explicit api value over defaults', () => {
+      const built = buildTenantConfig({
+        ...minimalSettings(),
+        mode: 'catalog',
+        theme: {
+          ...minimalSettings().theme,
+          radius: '1rem',
+        },
+        features: {
+          stockStatus: { enabled: true, access: 'authenticated' },
+          priceVisibility: { enabled: false, access: 'all' },
+          orderPlacement: { enabled: false, access: 'authenticated' },
+        },
+        seo: { robots: 'noindex, nofollow' },
+        branding: {
+          name: 'Explicit',
+          watermark: 'minimal',
+          logoUrl: 'https://example.com/logo.png',
+        },
+      });
+      expect(built.mode).toBe('catalog');
+      expect(built.theme.radius).toBe('1rem');
+      expect(built.features.stockStatus?.enabled).toBe(true);
+      expect(built.features.priceVisibility?.enabled).toBe(false);
+      expect(built.features.orderPlacement?.enabled).toBe(false);
+      expect(built.seo?.robots).toBe('noindex, nofollow');
+      expect(built.branding.logoUrl).toBe('https://example.com/logo.png');
+    });
+  });
+
   describe('writeHostnameMappings — duplicate hostname guard', () => {
     // In-memory storage shim that mimics the subset of useStorage
     // actually used by writeHostnameMappings (getItem + setItem).
