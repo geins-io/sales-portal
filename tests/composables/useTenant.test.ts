@@ -478,12 +478,12 @@ describe('useTenant', () => {
       expect(brandName.value).toBe('fallback-tenant');
     });
 
-    it('should fallback to "Store" when both branding and tenantId are unavailable', () => {
+    it('should return empty string when both branding and tenantId are unavailable', () => {
       mockData.value = null;
 
       const { brandName } = useTenant();
 
-      expect(brandName.value).toBe('Store');
+      expect(brandName.value).toBe('');
     });
   });
 
@@ -573,7 +573,7 @@ describe('useTenant', () => {
       const { tenantId, brandName, logoUrl } = useTenant();
 
       expect(tenantId.value).toBe('');
-      expect(brandName.value).toBe('Store');
+      expect(brandName.value).toBe('');
       expect(logoUrl.value).toBe('/logo.svg');
 
       mockData.value = createMockTenantConfig({

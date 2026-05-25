@@ -2,9 +2,17 @@ import type { H3Event } from 'h3';
 import type { TenantConfig } from '#shared/types/tenant-config';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { CMS_MENUS } from '#shared/constants/cms';
-import type { StoreSettings, GeinsSettings } from '../schemas/store-settings';
+import type {
+  StoreSettings,
+  GeinsSettings,
+  FeatureConfig,
+} from '../schemas/store-settings';
 import { StoreSettingsSchema } from '../schemas/store-settings';
 import { deriveThemeColors } from './theme';
+import {
+  STOREFRONT_SETTINGS_DEFAULTS,
+  mergeStorefrontSettings,
+} from './storefront-settings-defaults';
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
 import { logger } from './logger';
 import {
@@ -208,85 +216,81 @@ export function transformGeinsSettings(
  * Derives colors, merges override features, generates CSS + hash.
  */
 export function buildTenantConfig(settings: StoreSettings): TenantConfig {
-  const derivedColors = deriveThemeColors(settings.theme.colors);
+  // Per-field deep merge of canonical defaults under the API response.
+  // Missing keys inherit; explicit "" / false / null from API win. See
+  // server/utils/storefront-settings-defaults.ts for the canonical shape.
+  const merged = mergeStorefrontSettings(settings);
 
-  // Portal feature flag defaults. Tenants without an explicit value for a
-  // given key inherit `enabled: true`, so the feature shows up on tenants
-  // whose store-settings response simply omits the key. Tenants that send an
-  // explicit `{ enabled: false }` still win because settings.features is
-  // spread after the defaults, and overrides.features takes final precedence
-  // below.
-  //
-  // Source of truth for which keys to list: every key referenced via
-  // `canAccess('X')` or `hasFeature('X')` on the storefront (see
-  // app/composables/useFeatureAccess.ts and the storefront callsites).
-  const PORTAL_FEATURE_DEFAULTS: Record<string, { enabled: boolean }> = {
-    analytics: { enabled: true },
-    applyForAccount: { enabled: true },
-    cart: { enabled: true },
-    checkout: { enabled: true },
-    lists: { enabled: true },
-    newsletter: { enabled: true },
-    orderHistory: { enabled: true },
-    orderPlacement: { enabled: true },
-    priceVisibility: { enabled: true },
-    quotes: { enabled: true },
-    registration: { enabled: true },
-    reorder: { enabled: true },
-    stockStatus: { enabled: true },
-    wishlist: { enabled: true },
+  const derivedColors = deriveThemeColors(merged.theme.colors);
+
+  // Portal feature flag layer. The canonical defaults already live in
+  // STOREFRONT_SETTINGS_DEFAULTS.features (priceVisibility, orderPlacement,
+  // stockStatus carry the {enabled, access} shape; the other 11 portal
+  // features default to {enabled: true}). overrides.features takes final
+  // precedence below.
+  const features: Record<string, FeatureConfig> = {
+    ...STOREFRONT_SETTINGS_DEFAULTS.features,
+    ...merged.features,
   };
-
-  const features = { ...PORTAL_FEATURE_DEFAULTS, ...settings.features };
-  if (settings.overrides?.features) {
-    for (const [key, value] of Object.entries(settings.overrides.features)) {
+  if (merged.overrides?.features) {
+    for (const [key, value] of Object.entries(merged.overrides.features)) {
       features[key] = value;
     }
   }
 
-  const themeName = settings.theme.name ?? settings.tenantId;
+  const themeName = merged.theme.name ?? merged.tenantId;
 
   const css = generateTenantCss(
     themeName,
     derivedColors,
-    settings.theme.radius,
-    settings.overrides?.css,
-    settings.theme.typography,
+    merged.theme.radius,
+    merged.overrides?.css,
+    merged.theme.typography,
   );
 
   const theme: TenantConfig['theme'] = {
-    ...settings.theme,
+    ...merged.theme,
     name: themeName,
     colors: derivedColors,
   };
 
   const themeHash = generateThemeHash(theme);
 
+  // Guarantee a non-empty branding.name. Canonical defaults may ship an
+  // empty string for `name`; fall back to channel `accountName`, then to
+  // hostname. The topbar avatar, hero heading, and footer copyright all
+  // consume this value directly.
+  const brandingName =
+    merged.branding?.name?.trim() ||
+    merged.geinsSettings.accountName?.trim() ||
+    merged.hostname;
+  const branding = { ...merged.branding, name: brandingName };
+
   // CMS: explicit tenant config wins, otherwise fall back to the standard
   // Geins out-of-box family/areaName values + menu locations. Lets every
   // tenant render slots/menus without per-tenant overrides.
   const cms =
-    (settings as { cms?: TenantConfig['cms'] }).cms ?? DEFAULT_CMS_CONFIG;
+    (merged as { cms?: TenantConfig['cms'] }).cms ?? DEFAULT_CMS_CONFIG;
 
   return {
-    tenantId: settings.tenantId,
-    hostname: settings.hostname,
-    aliases: settings.aliases,
-    geinsSettings: settings.geinsSettings,
-    mode: settings.mode,
-    checkoutMode: settings.checkoutMode,
+    tenantId: merged.tenantId,
+    hostname: merged.hostname,
+    aliases: merged.aliases,
+    geinsSettings: merged.geinsSettings,
+    mode: merged.mode,
+    checkoutMode: merged.checkoutMode,
     theme,
-    branding: settings.branding,
+    branding,
     features,
-    seo: settings.seo,
-    contact: settings.contact,
-    overrides: settings.overrides,
+    seo: merged.seo,
+    contact: merged.contact,
+    overrides: merged.overrides,
     cms,
     css,
     themeHash,
-    isActive: settings.isActive,
-    createdAt: settings.createdAt,
-    updatedAt: settings.updatedAt,
+    isActive: merged.isActive,
+    createdAt: merged.createdAt,
+    updatedAt: merged.updatedAt,
   };
 }
 
@@ -456,6 +460,27 @@ export function backfillCoreColors(
 }
 
 /**
+ * Pick a sensible default branding name from a candidate StoreSettings.
+ * Order: `geinsSettings.accountName` (trimmed, non-empty) → hostname.
+ *
+ * Used by the salvage path when the API ships no usable `branding` block,
+ * and by `buildTenantConfig` when the merged branding name is empty.
+ * Avoids rendering a generic literal in the topbar avatar, hero heading,
+ * or footer copyright.
+ */
+export function defaultBrandingName(
+  candidate: Record<string, unknown>,
+  hostname: string,
+): string {
+  const gs = candidate.geinsSettings;
+  if (gs && typeof gs === 'object') {
+    const name = (gs as Record<string, unknown>).accountName;
+    if (typeof name === 'string' && name.trim()) return name.trim();
+  }
+  return hostname;
+}
+
+/**
  * Parse a candidate StoreSettings tolerantly.
  *
  * Strict `StoreSettingsSchema.safeParse` is the happy path. When the merchant
@@ -508,8 +533,10 @@ export function parseStoreSettingsResilient(
     // `theme` intentionally omitted: it's computed lazily from
     // `createDefaultTheme(hostname)` at substitution time so the salvage
     // palette can't drift from the canonical default.
+    // `branding.name` is intentionally omitted: it's computed lazily from
+    // `defaultBrandingName(work, hostname)` at substitution time so a tenant
+    // never renders a generic literal in the topbar/hero/footer.
     branding: {
-      name: 'Store',
       watermark: 'full',
     },
     features: {},
@@ -615,10 +642,20 @@ export function parseStoreSettingsResilient(
     const existing = work[top];
     // `theme` is computed lazily from `createDefaultTheme(hostname)` so the
     // salvage palette is always the canonical default for this hostname.
-    const salvage =
-      top === 'theme'
-        ? { colors: createDefaultTheme(hostname).colors }
-        : SALVAGE_DEFAULTS[top];
+    // `branding.name` is computed lazily from the candidate's
+    // `geinsSettings.accountName` (or hostname) so a tenant never renders a
+    // generic literal in the topbar/hero/footer.
+    let salvage: unknown;
+    if (top === 'theme') {
+      salvage = { colors: createDefaultTheme(hostname).colors };
+    } else if (top === 'branding') {
+      salvage = {
+        ...(SALVAGE_DEFAULTS.branding as Record<string, unknown>),
+        name: defaultBrandingName(work, hostname),
+      };
+    } else {
+      salvage = SALVAGE_DEFAULTS[top];
+    }
     work = {
       ...work,
       [top]:

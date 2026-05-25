@@ -71,7 +71,7 @@ export function useTenant() {
   });
 
   const brandName = computed(() => {
-    return tenant.value?.branding?.name ?? tenant.value?.tenantId ?? 'Store';
+    return tenant.value?.branding?.name ?? tenant.value?.tenantId ?? '';
   });
 
   /**
