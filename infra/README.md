@@ -620,6 +620,93 @@ az deployment group create \
   --parameters enableMonitoring=false
 ```
 
+## Custom Domains & SSL Certificates
+
+Custom domains are managed manually in Azure Portal and Cloudflare (not via Bicep).
+
+### Domain Setup
+
+| Environment | Domain                     | Azure App               | DNS Provider |
+| ----------- | -------------------------- | ----------------------- | ------------ |
+| Dev         | `*.sales-portal.geins.dev` | `sales-portal-dev-app`  | Cloudflare   |
+| Prod        | `*.litium.store`           | `sales-portal-prod-app` | Cloudflare   |
+
+### Adding a Wildcard Custom Domain
+
+Azure App Service Managed Certificates do not support wildcards. Use a Let's Encrypt wildcard cert instead.
+
+**1. Generate the certificate:**
+
+```bash
+sudo certbot certonly --manual --preferred-challenges dns -d "*.your-domain.com"
+```
+
+Certbot will ask you to create a `_acme-challenge` TXT record in Cloudflare. Add it, wait a moment, then press Enter.
+
+**2. Export as PFX (Azure-compatible format):**
+
+```bash
+sudo openssl pkcs12 -export \
+  -out /tmp/your-domain.pfx \
+  -inkey /etc/letsencrypt/live/your-domain.com/privkey.pem \
+  -in /etc/letsencrypt/live/your-domain.com/fullchain.pem \
+  -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1
+
+sudo chmod 644 /tmp/your-domain.pfx
+```
+
+> The `-certpbe`, `-keypbe`, and `-macalg` flags force legacy PKCS12 encryption. Azure rejects the newer format that OpenSSL 3.x defaults to.
+
+**3. Upload to Azure:**
+
+```bash
+az webapp config ssl upload \
+  --certificate-file /tmp/your-domain.pfx \
+  --certificate-password "YOUR_PASSWORD" \
+  --name <app-name> \
+  --resource-group <resource-group>
+```
+
+**4. Add custom domain in Azure Portal:**
+
+1. App Services → your app → **Custom domains** → **Add custom domain**
+2. Select **All other domain services** and **Add certificate later**
+3. Enter `*.your-domain.com`, hostname record type **CNAME**
+4. Validate (requires CNAME + `asuid` TXT record in DNS)
+5. Add the domain, then bind the uploaded certificate via **Add binding** → SNI SSL
+
+### Cloudflare DNS Records
+
+For each wildcard domain, configure these records in Cloudflare:
+
+| Type  | Name    | Value                                    | Proxy    |
+| ----- | ------- | ---------------------------------------- | -------- |
+| CNAME | `*`     | `<app-name>.azurewebsites.net`           | DNS only |
+| TXT   | `asuid` | Custom Domain Verification ID from Azure | -        |
+
+> The Verification ID is found in Azure Portal → App Services → Custom domains → **Custom Domain Verification ID**.
+
+> **Cloudflare proxy (orange cloud):** Free/Pro plans do not support proxied wildcard records. Keep the CNAME as DNS-only and use the uploaded Let's Encrypt cert in Azure for SSL.
+
+### Certificate Renewal
+
+Let's Encrypt certs expire after **90 days**. Renewal is automated via the `renew-certs.yml` GitHub Actions workflow:
+
+- **Schedule:** runs every 60 days automatically
+- **Manual:** Actions → Renew Certificates → Run workflow → choose `all`, `dev-only`, or `prod-only`
+
+The workflow uses certbot with the Cloudflare DNS plugin — no manual TXT records needed.
+
+**Required GitHub secrets:**
+
+| Secret                  | Scope      | Description                                              |
+| ----------------------- | ---------- | -------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Repository | Cloudflare API token with `Zone:DNS:Edit` for both zones |
+| `CERT_PFX_PASSWORD`     | Repository | Password for PFX export                                  |
+| `AZURE_SUBSCRIPTION_ID` | Per env    | Set on `dev` and `prod` environments separately          |
+
+To create the Cloudflare API token: Cloudflare dashboard → My Profile → API Tokens → Create Token → **Edit zone DNS** template → select both `geins.dev` and `litium.store` zones.
+
 ## Security Considerations
 
 1. **Managed Identity**: Each Web App has a system-assigned managed identity for secure Azure resource access

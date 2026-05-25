@@ -1,0 +1,232 @@
+# =============================================================================
+# SALES PORTAL - Renew Let's Encrypt Wildcard Certificates
+# =============================================================================
+# Renews wildcard TLS certificates for custom domains and uploads them to
+# Azure App Services. Uses certbot with the Cloudflare DNS plugin for
+# automated DNS-01 challenge validation.
+#
+# Triggers:
+#   - Scheduled: every 60 days
+#   - Manual: workflow_dispatch
+#
+# Required secrets:
+#   - CLOUDFLARE_API_TOKEN: Cloudflare API token with Zone:DNS:Edit for
+#     both geins.dev and litium.store zones
+#   - AZURE_CLIENT_ID, AZURE_TENANT_ID: Azure OIDC credentials
+#   - CERT_PFX_PASSWORD: password used to encrypt the PFX files
+#
+# Required environment secrets:
+#   - AZURE_SUBSCRIPTION_ID: per-environment (dev and prod use different
+#     Azure subscriptions)
+# =============================================================================
+
+name: Renew Certificates
+
+on:
+  schedule:
+    # Run every 60 days (Let's Encrypt certs expire after 90 days)
+    - cron: '0 6 1 */2 *'
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Which domain(s) to renew'
+        required: true
+        type: choice
+        options:
+          - all
+          - dev-only
+          - prod-only
+
+env:
+  CERT_EMAIL: kristian.arvidsson@litium.com
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Renew dev certificate: *.sales-portal.geins.dev
+  # ---------------------------------------------------------------------------
+  renew-dev:
+    name: Renew *.sales-portal.geins.dev
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event.inputs.domain == 'all' ||
+      github.event.inputs.domain == 'dev-only'
+    environment: dev
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Install certbot and Cloudflare plugin
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y certbot python3-certbot-dns-cloudflare
+
+      - name: Write Cloudflare credentials
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          mkdir -p ~/.secrets
+          printf 'dns_cloudflare_api_token = %s\n' "$CF_TOKEN" > ~/.secrets/cloudflare.ini
+          chmod 600 ~/.secrets/cloudflare.ini
+
+      - name: Obtain certificate
+        run: |
+          sudo certbot certonly \
+            --dns-cloudflare \
+            --dns-cloudflare-credentials ~/.secrets/cloudflare.ini \
+            --dns-cloudflare-propagation-seconds 30 \
+            -d "*.sales-portal.geins.dev" \
+            --email "${{ env.CERT_EMAIL }}" \
+            --agree-tos \
+            --non-interactive
+
+      - name: Export PFX
+        env:
+          PFX_PASSWORD: ${{ secrets.CERT_PFX_PASSWORD }}
+        run: |
+          sudo openssl pkcs12 -export \
+            -out /tmp/sales-portal-geins-dev.pfx \
+            -inkey /etc/letsencrypt/live/sales-portal.geins.dev/privkey.pem \
+            -in /etc/letsencrypt/live/sales-portal.geins.dev/fullchain.pem \
+            -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1 \
+            -passout "pass:${PFX_PASSWORD}"
+          sudo chmod 644 /tmp/sales-portal-geins-dev.pfx
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Upload certificate to Azure
+        env:
+          PFX_PASSWORD: ${{ secrets.CERT_PFX_PASSWORD }}
+        run: |
+          az webapp config ssl upload \
+            --certificate-file /tmp/sales-portal-geins-dev.pfx \
+            --certificate-password "$PFX_PASSWORD" \
+            --name sales-portal-dev-app \
+            --resource-group rg-sales-portal-dev
+
+      - name: Bind certificate to domain
+        run: |
+          THUMBPRINT=$(az webapp config ssl list \
+            --resource-group rg-sales-portal-dev \
+            --query "[?contains(subjectName, 'sales-portal.geins.dev')].thumbprint | [0]" \
+            --output tsv)
+
+          az webapp config ssl bind \
+            --certificate-thumbprint "$THUMBPRINT" \
+            --ssl-type SNI \
+            --name sales-portal-dev-app \
+            --resource-group rg-sales-portal-dev
+
+      - name: Clean up secrets
+        if: always()
+        run: rm -f ~/.secrets/cloudflare.ini /tmp/sales-portal-geins-dev.pfx
+
+      - name: Summary
+        run: |
+          EXPIRY=$(sudo openssl x509 -enddate -noout \
+            -in /etc/letsencrypt/live/sales-portal.geins.dev/fullchain.pem \
+            | cut -d= -f2)
+          echo "### Dev Certificate Renewed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Domain:** \*.sales-portal.geins.dev" >> $GITHUB_STEP_SUMMARY
+          echo "- **Expires:** ${EXPIRY}" >> $GITHUB_STEP_SUMMARY
+          echo "- **App:** sales-portal-dev-app" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Renew prod certificate: *.litium.store
+  # ---------------------------------------------------------------------------
+  renew-prod:
+    name: Renew *.litium.store
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event.inputs.domain == 'all' ||
+      github.event.inputs.domain == 'prod-only'
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Install certbot and Cloudflare plugin
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y certbot python3-certbot-dns-cloudflare
+
+      - name: Write Cloudflare credentials
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          mkdir -p ~/.secrets
+          printf 'dns_cloudflare_api_token = %s\n' "$CF_TOKEN" > ~/.secrets/cloudflare.ini
+          chmod 600 ~/.secrets/cloudflare.ini
+
+      - name: Obtain certificate
+        run: |
+          sudo certbot certonly \
+            --dns-cloudflare \
+            --dns-cloudflare-credentials ~/.secrets/cloudflare.ini \
+            --dns-cloudflare-propagation-seconds 30 \
+            -d "*.litium.store" \
+            --email "${{ env.CERT_EMAIL }}" \
+            --agree-tos \
+            --non-interactive
+
+      - name: Export PFX
+        env:
+          PFX_PASSWORD: ${{ secrets.CERT_PFX_PASSWORD }}
+        run: |
+          sudo openssl pkcs12 -export \
+            -out /tmp/litium-store.pfx \
+            -inkey /etc/letsencrypt/live/litium.store/privkey.pem \
+            -in /etc/letsencrypt/live/litium.store/fullchain.pem \
+            -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1 \
+            -passout "pass:${PFX_PASSWORD}"
+          sudo chmod 644 /tmp/litium-store.pfx
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Upload certificate to Azure
+        env:
+          PFX_PASSWORD: ${{ secrets.CERT_PFX_PASSWORD }}
+        run: |
+          az webapp config ssl upload \
+            --certificate-file /tmp/litium-store.pfx \
+            --certificate-password "$PFX_PASSWORD" \
+            --name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod
+
+      - name: Bind certificate to domain
+        run: |
+          THUMBPRINT=$(az webapp config ssl list \
+            --resource-group rg-sales-portal-prod \
+            --query "[?contains(subjectName, 'litium.store')].thumbprint | [0]" \
+            --output tsv)
+
+          az webapp config ssl bind \
+            --certificate-thumbprint "$THUMBPRINT" \
+            --ssl-type SNI \
+            --name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod
+
+      - name: Clean up secrets
+        if: always()
+        run: rm -f ~/.secrets/cloudflare.ini /tmp/litium-store.pfx
+
+      - name: Summary
+        run: |
+          EXPIRY=$(sudo openssl x509 -enddate -noout \
+            -in /etc/letsencrypt/live/litium.store/fullchain.pem \
+            | cut -d= -f2)
+          echo "### Prod Certificate Renewed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Domain:** \*.litium.store" >> $GITHUB_STEP_SUMMARY
+          echo "- **Expires:** ${EXPIRY}" >> $GITHUB_STEP_SUMMARY
+          echo "- **App:** sales-portal-prod-app" >> $GITHUB_STEP_SUMMARY
