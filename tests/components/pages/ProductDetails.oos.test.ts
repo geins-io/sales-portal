@@ -40,10 +40,16 @@ vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
 }));
 
+let mockCartValue: { items: { skuId: number; quantity: number }[] } = {
+  items: [],
+};
 vi.mock('~/stores/cart', () => ({
   useCartStore: () => ({
     addItem: vi.fn(),
     isLoading: false,
+    get cart() {
+      return mockCartValue;
+    },
   }),
 }));
 
@@ -213,7 +219,9 @@ describe('ProductDetails out-of-stock', () => {
     expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(false);
   });
 
-  it('stock visibility off: OOS PDP still renders normal actions', async () => {
+  it('stock visibility off: OOS PDP still swaps to the OOS block', async () => {
+    // showStock controls the in-stock badge, not purchase gating. OOS UI
+    // must always fire when the product is truly unavailable.
     showStockRef.value = false;
     mockProduct.value = makeProduct({
       totalStock: { inStock: 0, oversellable: 0, totalStock: 0, static: 0 },
@@ -224,7 +232,46 @@ describe('ProductDetails out-of-stock', () => {
       { global: { stubs: defaultStubs } },
     );
 
+    expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(true);
+  });
+
+  it('on-demand product (static stock > 0) renders normal actions', async () => {
+    mockProduct.value = makeProduct({
+      totalStock: { inStock: 0, oversellable: 0, totalStock: 0, static: 1 },
+    });
+
+    const wrapper = await mountProductDetails(
+      { alias: 'test-product' },
+      { global: { stubs: defaultStubs } },
+    );
+
     expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(false);
+  });
+
+  it('cart already holds all available stock: disables add-to-cart but keeps actions visible', async () => {
+    // Stock=1 and the user already has the selected SKU in cart with qty=1,
+    // so effective remaining is 0. Per Ralph's pattern, the product is not
+    // out-of-stock — it has 1 unit, just not for this user right now. Keep
+    // the action row visible, disable both stepper + button.
+    mockProduct.value = makeProduct({
+      totalStock: { inStock: 1, oversellable: 0, totalStock: 1, static: 0 },
+    });
+    mockCartValue = { items: [{ skuId: 101, quantity: 1 }] };
+
+    const wrapper = await mountProductDetails(
+      { alias: 'test-product' },
+      { global: { stubs: defaultStubs } },
+    );
+
+    expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(false);
+    const btn = wrapper.find('[data-testid="add-to-cart-button"]');
+    expect(btn.exists()).toBe(true);
+    expect(btn.attributes('disabled')).toBeDefined();
+
+    // Cleanup for the next test
+    mockCartValue = { items: [] };
   });
 });

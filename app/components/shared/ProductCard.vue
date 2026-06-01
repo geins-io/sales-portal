@@ -58,9 +58,7 @@ const { canAccess } = useFeatureAccess();
 const canPurchase = computed(
   () => canAccess('orderPlacement') && !isCatalogMode.value,
 );
-const { showStock } = useStockVisibility();
 const isOutOfStock = computed(() => {
-  if (!showStock.value) return false;
   if (!isFullProduct(props.product)) return false;
   const stock = props.product.totalStock;
   if (!stock) return false;
