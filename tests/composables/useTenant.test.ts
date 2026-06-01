@@ -21,14 +21,22 @@ vi.mock('#app/composables/fetch', () => ({
   useFetch: (...args: unknown[]) => mockUseFetch(...args),
 }));
 
+const mockRoute = { query: {} as Record<string, string> };
+const mockRequestHeaders: Record<string, string> = {};
+
 vi.mock('#app', () => ({
   useNuxtApp: () => ({ $api: mockApi }),
   useFetch: (...args: unknown[]) => mockUseFetch(...args),
+  useRoute: () => mockRoute,
+  useRequestHeaders: () => mockRequestHeaders,
 }));
 
 // Stub globals for direct access
 vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
 vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
+
+vi.stubGlobal('useRoute', () => mockRoute);
+vi.stubGlobal('useRequestHeaders', () => mockRequestHeaders);
 
 // Create mock tenant config for tests (new PublicTenantConfig shape)
 function createMockTenantConfig(
@@ -78,10 +86,16 @@ describe('useTenant', () => {
     mockError.value = null;
     mockRefresh.mockClear();
     mockUseFetch.mockClear();
+    mockRoute.query = {};
+    for (const k of Object.keys(mockRequestHeaders))
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete mockRequestHeaders[k];
 
     vi.resetModules();
     vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
     vi.stubGlobal('useNuxtApp', () => ({ $api: mockApi }));
+    vi.stubGlobal('useRoute', () => mockRoute);
+    vi.stubGlobal('useRequestHeaders', () => mockRequestHeaders);
 
     const module = await import('../../app/composables/useTenant');
     useTenant = module.useTenant;
@@ -97,9 +111,13 @@ describe('useTenant', () => {
 
       expect(mockUseFetch).toHaveBeenCalledTimes(1);
       const [url, options] = mockUseFetch.mock.calls[0];
-      expect(url).toBe('/api/config');
+      expect(typeof url).toBe('function');
+      expect((url as () => string)()).toBe('/api/config');
       expect(options.dedupe).toBe('defer');
-      expect(options.$fetch).toBeDefined();
+      // The composable no longer routes through $api ($api is for external
+      // Geins, strips cookies and would silently return the LIVE config
+      // during SSR preview requests).
+      expect(options.$fetch).toBeUndefined();
     });
 
     it('should return tenant computed property', () => {

@@ -12,10 +12,18 @@ import type { PublicTenantConfig } from '#shared/types/tenant-config';
  * - Built-in caching
  */
 export function useTenant() {
-  const asyncData = useFetch<PublicTenantConfig>('/api/config', {
-    dedupe: 'defer',
-    $fetch: useNuxtApp().$api as typeof $fetch,
-  });
+  const route = useRoute();
+  const previewQuery = route.query.preview === '1' ? '?preview=1' : '';
+  const headers = import.meta.server
+    ? useRequestHeaders(['cookie', 'host'])
+    : undefined;
+  const asyncData = useFetch<PublicTenantConfig>(
+    () => `/api/config${previewQuery}`,
+    {
+      dedupe: 'defer',
+      headers,
+    },
+  );
   const { data: tenant, pending: isLoading, error, refresh } = asyncData;
 
   const tenantId = computed(() => tenant.value?.tenantId ?? '');
