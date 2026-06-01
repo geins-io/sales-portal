@@ -9,6 +9,7 @@ const router = useRouter();
 const { tenant, isCatalogMode } = useTenant();
 const { canAccess } = useFeatureAccess();
 const { localePath } = useLocaleMarket();
+const { showIncVat } = useVatDisplay();
 
 // Belt and suspenders: even when no entry point opens the drawer, a stale
 // store flag must not surface the purchase funnel on tenants where order
@@ -22,6 +23,26 @@ const isOpen = computed({
   set: (val: boolean) => {
     cartStore.isOpen = val;
   },
+});
+
+// Summary price computeds: pick incl-VAT or excl-VAT based on user preference.
+// sellingPriceExVatFormatted is optional on PriceType, so fall back to IncVat when absent.
+const subTotalFormatted = computed(() => {
+  const s = cartStore.cart?.summary?.subTotal;
+  return (
+    (showIncVat.value
+      ? s?.sellingPriceIncVatFormatted
+      : (s?.sellingPriceExVatFormatted ?? s?.sellingPriceIncVatFormatted)) ?? ''
+  );
+});
+
+const totalFormatted = computed(() => {
+  const t = cartStore.cart?.summary?.total;
+  return (
+    (showIncVat.value
+      ? t?.sellingPriceIncVatFormatted
+      : (t?.sellingPriceExVatFormatted ?? t?.sellingPriceIncVatFormatted)) ?? ''
+  );
 });
 
 const shippingFee = computed(
@@ -131,12 +152,7 @@ function goToCheckout() {
                   <dt class="text-muted-foreground">
                     {{ $t('cart.subtotal') }}
                   </dt>
-                  <dd>
-                    {{
-                      cartStore.cart?.summary?.subTotal
-                        ?.sellingPriceIncVatFormatted ?? ''
-                    }}
-                  </dd>
+                  <dd>{{ subTotalFormatted }}</dd>
                 </div>
                 <div
                   v-if="cartStore.discountAmount"
@@ -185,12 +201,7 @@ function goToCheckout() {
                 <div class="border-border border-t pt-3">
                   <div class="flex items-center justify-between font-semibold">
                     <dt>{{ $t('cart.total') }}</dt>
-                    <dd>
-                      {{
-                        cartStore.cart?.summary?.total
-                          ?.sellingPriceIncVatFormatted ?? ''
-                      }}
-                    </dd>
+                    <dd>{{ totalFormatted }}</dd>
                   </div>
                 </div>
               </dl>

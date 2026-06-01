@@ -4,6 +4,7 @@ import CartPage from '../../../app/components/pages/CartPage.vue';
 import type { CartType } from '../../../shared/types/commerce';
 import { useCartStore } from '../../../app/stores/cart';
 import { createPinia, setActivePinia } from 'pinia';
+import { mockShowIncVat } from '../../setup-components';
 
 const mockCart: CartType = {
   id: 'cart-123',
@@ -73,10 +74,14 @@ const mockCart: CartType = {
     total: {
       sellingPriceIncVat: 237.97,
       sellingPriceIncVatFormatted: '$237.97',
+      sellingPriceExVat: 190.38,
+      sellingPriceExVatFormatted: '$190.38',
     },
     subTotal: {
       sellingPriceIncVat: 229.97,
       sellingPriceIncVatFormatted: '$229.97',
+      sellingPriceExVat: 183.97,
+      sellingPriceExVatFormatted: '$183.97',
     },
     vats: [{ rate: 0.08, amount: 17.23 }],
     fees: {
@@ -148,6 +153,7 @@ describe('CartPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.mocked(useRouter().push).mockClear();
+    mockShowIncVat.value = true;
   });
 
   it('renders the page with data-testid', () => {
@@ -351,6 +357,40 @@ describe('CartPage', () => {
     expect(wrapper.find('[data-testid="cart-page-empty"]').exists()).toBe(
       false,
     );
+  });
+
+  describe('VAT preference on subtotal and total', () => {
+    it('shows incl-VAT subtotal and total when showIncVat is true', () => {
+      mockShowIncVat.value = true;
+      const store = useCartStore();
+      store.cart = mockCart;
+
+      const wrapper = shallowMountComponent(CartPage, {
+        global: { stubs: defaultStubs },
+      });
+
+      const subtotal = wrapper.find('[data-testid="cart-summary-subtotal"]');
+      expect(subtotal.text()).toBe('$229.97');
+
+      const total = wrapper.find('[data-testid="cart-summary-total"]');
+      expect(total.text()).toBe('$237.97');
+    });
+
+    it('shows excl-VAT subtotal and total when showIncVat is false', () => {
+      mockShowIncVat.value = false;
+      const store = useCartStore();
+      store.cart = mockCart;
+
+      const wrapper = shallowMountComponent(CartPage, {
+        global: { stubs: defaultStubs },
+      });
+
+      const subtotal = wrapper.find('[data-testid="cart-summary-subtotal"]');
+      expect(subtotal.text()).toBe('$183.97');
+
+      const total = wrapper.find('[data-testid="cart-summary-total"]');
+      expect(total.text()).toBe('$190.38');
+    });
   });
 
   describe('discount line', () => {

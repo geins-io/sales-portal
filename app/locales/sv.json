@@ -23,7 +23,11 @@
     "no": "Nej",
     "add_to_cart": "Lägg i varukorg",
     "decrease_quantity": "Minska antal",
-    "increase_quantity": "Öka antal"
+    "increase_quantity": "Öka antal",
+    "vat_display": "Moms",
+    "change_vat_display": "Ändra momsvisning",
+    "vat_incl": "Inkl. moms",
+    "vat_excl": "Exkl. moms"
   },
   "auth": {
     "already_have_account": "Har du redan ett konto?",

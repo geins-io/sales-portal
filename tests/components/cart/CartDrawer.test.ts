@@ -4,6 +4,7 @@ import CartDrawer from '../../../app/components/cart/CartDrawer.vue';
 import type { CartType } from '../../../shared/types/commerce';
 import { useCartStore } from '../../../app/stores/cart';
 import { createPinia, setActivePinia } from 'pinia';
+import { mockShowIncVat } from '../../setup-components';
 
 const mockCanAccess = vi.fn(() => true);
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
@@ -16,6 +17,7 @@ describe('CartDrawer', () => {
     vi.mocked(useRouter().push).mockClear();
     mockCanAccess.mockReset();
     mockCanAccess.mockReturnValue(true);
+    mockShowIncVat.value = true;
   });
 
   it('does not render the drawer when orderPlacement access is denied', () => {
@@ -419,6 +421,147 @@ describe('CartDrawer', () => {
       const campaigns = wrapper.find('[data-testid="cart-campaigns"]');
       expect(campaigns.exists()).toBe(true);
       expect(campaigns.text()).toContain('Free shipping');
+    });
+  });
+
+  describe('VAT preference on subtotal and total', () => {
+    const sheetStubs = {
+      Sheet: { template: '<div><slot /></div>', props: ['open'] },
+      SheetContent: { template: '<div><slot /></div>' },
+      SheetHeader: { template: '<div><slot /></div>' },
+      SheetTitle: { template: '<div><slot /></div>' },
+      SheetDescription: { template: '<div><slot /></div>' },
+      SheetFooter: { template: '<div><slot /></div>' },
+      CartItem: {
+        template: '<div data-testid="cart-item" />',
+        props: ['item'],
+      },
+      CartPromoCodeInput: true,
+    };
+
+    const cartWithVatFields = {
+      id: 'cart-123',
+      items: [
+        {
+          id: 'item-1',
+          skuId: 100,
+          quantity: 1,
+          product: {
+            productId: '1',
+            name: 'Product',
+            alias: 'product',
+            articleNumber: 'ART-1',
+            brand: { name: 'Brand' },
+            productImages: [],
+            canonicalUrl: '/product',
+            primaryCategory: { name: 'Cat' },
+            skus: [],
+            unitPrice: {
+              sellingPriceIncVat: 125,
+              sellingPriceIncVatFormatted: '125 kr',
+            },
+          },
+          unitPrice: {
+            sellingPriceIncVat: 125,
+            sellingPriceIncVatFormatted: '125 kr',
+          },
+          totalPrice: {
+            sellingPriceIncVat: 125,
+            sellingPriceIncVatFormatted: '125 kr',
+          },
+        },
+      ],
+      freeShipping: false,
+      completed: false,
+      fixedDiscount: 0,
+      appliedCampaigns: [],
+      summary: {
+        total: {
+          sellingPriceIncVat: 125,
+          sellingPriceIncVatFormatted: '125 kr',
+          sellingPriceExVat: 100,
+          sellingPriceExVatFormatted: '100 kr',
+        },
+        subTotal: {
+          sellingPriceIncVat: 125,
+          sellingPriceIncVatFormatted: '125 kr',
+          sellingPriceExVat: 100,
+          sellingPriceExVatFormatted: '100 kr',
+        },
+        vats: [],
+        fees: {
+          paymentFeeIncVat: 0,
+          paymentFeeExVat: 0,
+          shippingFeeIncVat: 0,
+          shippingFeeExVat: 0,
+        },
+        balance: {
+          pending: 0,
+          pendingFormatted: '0 kr',
+          totalSellingPriceExBalanceExVat: 100,
+          totalSellingPriceExBalanceIncVat: 125,
+          totalSellingPriceExBalanceIncVatFormatted: '125 kr',
+        },
+        shipping: {},
+        payment: {},
+      },
+    } as unknown as CartType;
+
+    it('shows incl-VAT subtotal and total when showIncVat is true', () => {
+      mockShowIncVat.value = true;
+      const store = useCartStore();
+      store.isOpen = true;
+      store.cart = cartWithVatFields;
+
+      const wrapper = shallowMountComponent(CartDrawer, {
+        global: { stubs: sheetStubs },
+      });
+
+      const summary = wrapper.find('[data-testid="cart-summary-card"]');
+      expect(summary.text()).toContain('125 kr');
+      expect(summary.text()).not.toContain('100 kr');
+    });
+
+    it('shows excl-VAT subtotal and total when showIncVat is false', () => {
+      mockShowIncVat.value = false;
+      const store = useCartStore();
+      store.isOpen = true;
+      store.cart = cartWithVatFields;
+
+      const wrapper = shallowMountComponent(CartDrawer, {
+        global: { stubs: sheetStubs },
+      });
+
+      const summary = wrapper.find('[data-testid="cart-summary-card"]');
+      expect(summary.text()).toContain('100 kr');
+      expect(summary.text()).not.toContain('125 kr');
+    });
+
+    it('falls back to incl-VAT when excl-VAT formatted is absent and showIncVat is false', () => {
+      mockShowIncVat.value = false;
+      const store = useCartStore();
+      store.isOpen = true;
+      store.cart = {
+        ...cartWithVatFields,
+        summary: {
+          ...cartWithVatFields.summary,
+          subTotal: {
+            sellingPriceIncVat: 125,
+            sellingPriceIncVatFormatted: '125 kr',
+          },
+          total: {
+            sellingPriceIncVat: 125,
+            sellingPriceIncVatFormatted: '125 kr',
+          },
+        },
+      } as unknown as CartType;
+
+      const wrapper = shallowMountComponent(CartDrawer, {
+        global: { stubs: sheetStubs },
+      });
+
+      const summary = wrapper.find('[data-testid="cart-summary-card"]');
+      expect(summary.text()).toContain('125 kr');
     });
   });
 });

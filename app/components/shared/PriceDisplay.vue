@@ -18,7 +18,10 @@ const props = withDefaults(
     campaignNames?: string[];
   }>(),
   {
-    showVat: true,
+    // Explicit undefined default: suppresses Vue's "absent Boolean prop => false"
+    // coercion so an omitted showVat stays undefined and effectiveShowVat can fall
+    // back to the user's VAT preference. An explicitly passed true/false still wins.
+    showVat: undefined,
     showDiscount: true,
     fromPrice: false,
   },
@@ -28,14 +31,22 @@ const { t } = useI18n();
 
 const { tenant } = useTenant();
 const { showPrice } = usePriceVisibility();
+const { showIncVat } = useVatDisplay();
+
+/**
+ * Effective VAT display mode:
+ * - caller passes showVat (true OR false) => that explicit value wins (using ?? not || so false is honored)
+ * - caller omits showVat (undefined) => follows user preference from useVatDisplay
+ */
+const effectiveShowVat = computed(() => props.showVat ?? showIncVat.value);
 
 const sellingPrice = computed(() => {
   if (!props.price) return '';
-  const formatted = props.showVat
+  const formatted = effectiveShowVat.value
     ? props.price.sellingPriceIncVatFormatted
     : props.price.sellingPriceExVatFormatted;
   if (formatted) return formatted;
-  const raw = props.showVat
+  const raw = effectiveShowVat.value
     ? props.price.sellingPriceIncVat
     : props.price.sellingPriceExVat;
   if (raw == null) return '';
@@ -44,11 +55,11 @@ const sellingPrice = computed(() => {
 
 const regularPrice = computed(() => {
   if (!props.price) return '';
-  const formatted = props.showVat
+  const formatted = effectiveShowVat.value
     ? props.price.regularPriceIncVatFormatted
     : props.price.regularPriceExVatFormatted;
   if (formatted) return formatted;
-  const raw = props.showVat
+  const raw = effectiveShowVat.value
     ? props.price.regularPriceIncVat
     : props.price.regularPriceExVat;
   if (raw == null) return '';
@@ -81,11 +92,11 @@ const discountLabelClass = computed(() =>
 
 const lowestPriceFormatted = computed(() => {
   if (!props.lowestPrice?.isDiscounted) return '';
-  const formatted = props.showVat
+  const formatted = effectiveShowVat.value
     ? props.lowestPrice.lowestPriceIncVatFormatted
     : props.lowestPrice.lowestPriceExVatFormatted;
   if (formatted) return formatted;
-  const raw = props.showVat
+  const raw = effectiveShowVat.value
     ? props.lowestPrice.lowestPriceIncVat
     : props.lowestPrice.lowestPriceExVat;
   if (raw == null) return '';
@@ -125,7 +136,9 @@ const lowestPriceFormatted = computed(() => {
       >
         {{ discountLabel }}
       </span>
-      <span v-if="!showVat" class="text-muted-foreground text-xs">ex. VAT</span>
+      <span v-if="!effectiveShowVat" class="text-muted-foreground text-xs"
+        >ex. VAT</span
+      >
     </div>
     <div
       v-if="showPrice && lowestPriceFormatted"

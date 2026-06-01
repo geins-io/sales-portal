@@ -25,6 +25,7 @@ const { hasFeature } = useTenant();
         </NuxtLink>
         <LocaleSwitcher variant="text" />
         <MarketSwitcher variant="text" />
+        <VatDisplaySwitcher variant="text" />
       </div>
 
       <!-- Center: Env badge (dev only) -->
