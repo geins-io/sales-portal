@@ -167,6 +167,37 @@ describe('ProductTabs', () => {
     expect(tabs.attributes('data-default-value')).toBe('specifications');
   });
 
+  it('hides the Monitor parameter group from specifications', () => {
+    const product = makeProduct({
+      parameterGroups: [
+        {
+          name: 'Monitor',
+          parameterGroupId: 99,
+          parameters: [
+            { name: 'StandardUnit-Code', value: 'm', show: true },
+            { name: 'CategoryString', value: 'KB', show: true },
+          ],
+        },
+        {
+          name: 'Kabelinfo',
+          parameterGroupId: 2,
+          parameters: [{ name: 'Ledarantal', value: '1', show: true }],
+        },
+      ],
+    });
+    const wrapper = mountComponent(ProductTabs, {
+      props: { product, related: [] },
+      global: { stubs },
+    });
+    const specContent = wrapper.find(
+      '.tabs-content[data-value="specifications"]',
+    );
+    expect(specContent.text()).not.toContain('Monitor');
+    expect(specContent.text()).not.toContain('StandardUnit-Code');
+    expect(specContent.text()).toContain('Kabelinfo');
+    expect(specContent.text()).toContain('Ledarantal');
+  });
+
   it('renders RelatedProducts inside the related tab', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: {
