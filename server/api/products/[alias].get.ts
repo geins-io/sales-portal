@@ -36,6 +36,9 @@ export default defineEventHandler(async (event) => {
         event,
       );
       if (!product) {
+        // Don't let the CDN cache the 404. A freshly-published product would
+        // otherwise stay 404 for the s-maxage window on every edge.
+        setResponseHeader(event, 'Cache-Control', 'no-store');
         throw createAppError(ErrorCode.NOT_FOUND, 'Product not found');
       }
       return sanitizeProductTexts(product);

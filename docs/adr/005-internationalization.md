@@ -72,3 +72,11 @@ URL prefix routing (`prefix_and_default`) can be added later if needed for multi
 ### CMS Language Fallback
 
 CMS widget areas and menus may only exist for one language. The CMS service layer retries without `languageId` when content is missing, falling back to the SDK's default locale. This prevents blank pages when CMS content hasn't been localized. CMS pages do **not** fall back — they have language-specific aliases (e.g. `om-oss` vs `about-us`) and a missing page for a locale is a genuine 404.
+
+### Product Language Fallback
+
+Geins's `product(alias:, languageId:)` returns `null` when a product is not published in the requested language channel. Translating the name and texts in the admin is not sufficient on its own; the product entity must also be activated for that channel. To keep PDPs usable on language switch, `getProduct()` in `server/services/products.ts` retries with the tenant's default `languageId` whenever the first query returns `null` and the requested locale differs from the SDK default. The PDP renders with default-language content rather than 404-ing.
+
+If both locales return `null` the product is genuinely missing and we throw `NOT_FOUND`. The route then sets `Cache-Control: no-store` on the response so a freshly-published product does not stay 404 at the CDN for the regular `s-maxage` window.
+
+Per-language alias resolution (e.g. canonical EN alias differs from SV alias for the same product) is not handled by the storefront. It depends on a Geins schema addition. Until then, language switches preserve the current alias and rely on the fallback above.

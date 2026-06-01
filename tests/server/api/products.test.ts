@@ -14,12 +14,16 @@ const mockSDK = {
   },
 };
 
+let channelVarsReturn: {
+  channelId: string;
+  languageId: string;
+  marketId: string;
+} = { channelId: '1', languageId: 'sv-SE', marketId: 'se' };
+
 vi.mock('../../../server/services/_sdk', () => ({
   getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
   getChannelVariables: vi.fn(),
-  getRequestChannelVariables: vi
-    .fn()
-    .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
+  getRequestChannelVariables: vi.fn(() => channelVarsReturn),
 }));
 
 // Mock graphql loader (depends on #graphql-queries build-time alias)
@@ -133,11 +137,68 @@ describe('Product API Routes', () => {
       expect(result).toEqual({ id: 1, name: 'My Product' });
     });
 
-    it('throws NOT_FOUND when SDK returns null', async () => {
+    it('throws NOT_FOUND when SDK returns null in default locale', async () => {
       vi.mocked(getRouterParam).mockReturnValue('missing');
       mockGraphqlQuery.mockResolvedValue({ product: null });
 
       await expect(handler(fakeEvent)).rejects.toThrow('Product not found');
+    });
+
+    it('sets no-store cache header on 404 so CDN does not cache the miss', async () => {
+      vi.mocked(getRouterParam).mockReturnValue('missing');
+      mockGraphqlQuery.mockResolvedValue({ product: null });
+
+      await expect(handler(fakeEvent)).rejects.toThrow('Product not found');
+
+      expect(setResponseHeader).toHaveBeenCalledWith(
+        fakeEvent,
+        'Cache-Control',
+        'no-store',
+      );
+    });
+
+    it('falls back to default locale when non-default locale returns null', async () => {
+      vi.mocked(getRouterParam).mockReturnValue('wood-screw-se');
+      // SDK default is sv-SE; request was for en-US
+      channelVarsReturn = {
+        channelId: '1',
+        languageId: 'en-US',
+        marketId: 'se',
+      };
+      mockGraphqlQuery
+        .mockResolvedValueOnce({ product: null })
+        .mockResolvedValueOnce({
+          product: { alias: 'wood-screw-se', name: 'Trä SE' },
+        });
+
+      try {
+        const result = await handler(fakeEvent);
+
+        expect(result).toEqual({ alias: 'wood-screw-se', name: 'Trä SE' });
+        expect(mockGraphqlQuery).toHaveBeenCalledTimes(2);
+        expect(mockGraphqlQuery.mock.calls[0]?.[0].variables.languageId).toBe(
+          'en-US',
+        );
+        expect(mockGraphqlQuery.mock.calls[1]?.[0].variables.languageId).toBe(
+          'sv-SE',
+        );
+      } finally {
+        channelVarsReturn = {
+          channelId: '1',
+          languageId: 'sv-SE',
+          marketId: 'se',
+        };
+      }
+    });
+
+    it('does not retry when requested locale equals SDK default', async () => {
+      vi.mocked(getRouterParam).mockReturnValue('missing');
+      // Both request and default are sv-SE
+      mockGraphqlQuery.mockResolvedValue({ product: null });
+
+      await expect(handler(fakeEvent)).rejects.toThrow('Product not found');
+
+      expect(mockGraphqlQuery).toHaveBeenCalledTimes(1);
     });
 
     it('throws ZodError for empty alias', async () => {
