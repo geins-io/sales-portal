@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import PriceDisplay from '../../../app/components/shared/PriceDisplay.vue';
 import { useTenant } from '../../../app/composables/useTenant';
+// useVatDisplay is mocked in setup-components.ts; drive it via this shared ref.
+import { mockShowIncVat } from '../../setup-components';
 
 // useTenant mock is provided by setup-components.ts — access tenant ref to control features
 const { tenant } = useTenant();
@@ -33,6 +35,7 @@ describe('PriceDisplay', () => {
   beforeEach(() => {
     tenant.value.features = {};
     mockCanAccess.mockReturnValue(true);
+    mockShowIncVat.value = true;
   });
 
   it('renders selling price inc VAT by default', () => {
@@ -47,6 +50,44 @@ describe('PriceDisplay', () => {
       props: { price: makePrice(), showVat: false },
     });
     expect(wrapper.text()).toContain('159,20 kr');
+  });
+
+  describe('VAT preference resolution', () => {
+    it('follows the preference (inc) when showVat is omitted', () => {
+      mockShowIncVat.value = true;
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice() },
+      });
+      expect(wrapper.text()).toContain('199,00 kr');
+      expect(wrapper.text()).not.toContain('ex. VAT');
+    });
+
+    it('follows the preference (ex) when showVat is omitted', () => {
+      mockShowIncVat.value = false;
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice() },
+      });
+      expect(wrapper.text()).toContain('159,20 kr');
+      expect(wrapper.text()).toContain('ex. VAT');
+    });
+
+    it('honors explicit show-vat=true even when the preference is ex', () => {
+      mockShowIncVat.value = false;
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice(), showVat: true },
+      });
+      expect(wrapper.text()).toContain('199,00 kr');
+      expect(wrapper.text()).not.toContain('ex. VAT');
+    });
+
+    it('honors explicit show-vat=false even when the preference is inc', () => {
+      mockShowIncVat.value = true;
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice(), showVat: false },
+      });
+      expect(wrapper.text()).toContain('159,20 kr');
+      expect(wrapper.text()).toContain('ex. VAT');
+    });
   });
 
   it('shows crossed-out regular price when discounted', () => {

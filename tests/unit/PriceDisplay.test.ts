@@ -8,11 +8,20 @@ import { ref, computed, readonly } from 'vue';
 // ---------------------------------------------------------------------------
 const showPriceRef = ref(true);
 const canUnlockByAuthRef = ref(true);
+const showIncVatRef = ref(true);
 
 vi.mock('../../app/composables/usePriceVisibility', () => ({
   usePriceVisibility: () => ({
     showPrice: readonly(showPriceRef),
     canUnlockByAuth: readonly(canUnlockByAuthRef),
+  }),
+}));
+
+vi.mock('../../app/composables/useVatDisplay', () => ({
+  useVatDisplay: () => ({
+    showIncVat: readonly(showIncVatRef),
+    setShowIncVat: vi.fn(),
+    toggle: vi.fn(),
   }),
 }));
 
@@ -84,6 +93,7 @@ describe('PriceDisplay (unit)', () => {
   beforeEach(() => {
     showPriceRef.value = true;
     canUnlockByAuthRef.value = true;
+    showIncVatRef.value = true;
   });
 
   describe('price visibility', () => {

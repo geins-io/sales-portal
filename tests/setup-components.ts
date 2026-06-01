@@ -7,12 +7,22 @@
 
 import './setup';
 import { vi } from 'vitest';
-import { ref, computed } from 'vue';
+import { ref, computed, type Ref } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 
 // Exported ref so individual component tests can toggle catalog mode
 // without duplicating the full useTenant mock.
 export const mockIsCatalogMode = ref(false);
+
+// Exported ref so component tests can drive the VAT-display preference.
+// PriceDisplay (and every component that renders it) calls useVatDisplay,
+// so it must be mocked at the setup tier. Defaults to incl-VAT.
+// Backed on globalThis: with `isolate: false` the setup file can be evaluated
+// as both a setupFile and an imported module (two instances). Anchoring the ref
+// on globalThis guarantees the vi.mock factory and the test import share ONE ref.
+const vatGlobal = globalThis as unknown as { __mockShowIncVat?: Ref<boolean> };
+export const mockShowIncVat: Ref<boolean> = (vatGlobal.__mockShowIncVat ??=
+  ref(true));
 
 // Create a fresh Pinia instance for each test so stores work without Nuxt
 setActivePinia(createPinia());
@@ -209,5 +219,15 @@ vi.mock('../app/composables/useTenant', () => {
 vi.mock('../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({
     canAccess: () => true,
+  }),
+}));
+
+// VAT-display preference. Defaults to incl-VAT; tests drive it via the
+// exported mockShowIncVat ref above.
+vi.mock('../app/composables/useVatDisplay', () => ({
+  useVatDisplay: () => ({
+    showIncVat: computed(() => mockShowIncVat.value),
+    setShowIncVat: vi.fn(),
+    toggle: vi.fn(),
   }),
 }));
