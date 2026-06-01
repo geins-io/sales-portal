@@ -14,19 +14,34 @@ export async function getProduct(
   event: H3Event,
 ): Promise<unknown> {
   const sdk = await getTenantSDK(event);
-  const result = await wrapServiceCall(
-    () =>
-      sdk.core.graphql.query({
-        queryAsString: loadQuery('products/product.graphql'),
-        variables: {
-          alias: args.alias,
-          ...getRequestChannelVariables(sdk, event),
-        },
-        userToken: args.userToken,
-      }),
-    'products',
-  );
-  return unwrapGraphQL(result);
+  const channelVars = getRequestChannelVariables(sdk, event);
+  const queryAsString = loadQuery('products/product.graphql');
+
+  const runQuery = (languageId: string) =>
+    wrapServiceCall(
+      () =>
+        sdk.core.graphql.query({
+          queryAsString,
+          variables: { alias: args.alias, ...channelVars, languageId },
+          userToken: args.userToken,
+        }),
+      'products',
+    );
+
+  const first = unwrapGraphQL(await runQuery(channelVars.languageId));
+
+  // Geins's product(alias:, languageId:) returns null when the product is not
+  // published in the requested language. Fall back to the tenant's default
+  // locale so the PDP renders (with default-language content) instead of 404.
+  const defaultLanguageId = sdk.core.geinsSettings.locale;
+  if (
+    first == null &&
+    defaultLanguageId &&
+    defaultLanguageId !== channelVars.languageId
+  ) {
+    return unwrapGraphQL(await runQuery(defaultLanguageId));
+  }
+  return first;
 }
 
 /**
