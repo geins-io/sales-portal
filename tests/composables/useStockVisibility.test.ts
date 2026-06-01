@@ -84,4 +84,15 @@ describe('useStockVisibility', () => {
     const { showStock } = useStockVisibility();
     expect(showStock.value).toBe(true);
   });
+
+  // Mirrors the live merchant API shape on a tenant that has explicitly
+  // toggled stockStatus off (enabled:false, access:'authenticated'). The
+  // enabled flag is the authority; access is only consulted when enabled.
+  it('returns showStock=false when stockStatus is enabled:false with access set', () => {
+    mockIsFeatureConfigured = (name) => name === 'stockStatus';
+    mockHasFeature = () => false;
+    mockCanAccess = (name) => name === 'stockStatus';
+    const { showStock } = useStockVisibility();
+    expect(showStock.value).toBe(false);
+  });
 });
