@@ -146,6 +146,7 @@ async function handleLogout() {
     <div class="mx-auto max-w-7xl px-4 lg:px-0">
       <CmsWidgetArea
         v-if="heroArea?.containers?.length"
+        flush
         data-testid="portal-hero"
         :containers="heroArea.containers"
       />

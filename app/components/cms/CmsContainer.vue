@@ -3,6 +3,10 @@ import type { ContentContainerType, ContentType } from '#shared/types/cms';
 
 const props = defineProps<{
   container: ContentContainerType;
+  // When true, the container renders without its own max-width and horizontal
+  // padding so an outer wrapper controls the width. Used by the portal hero,
+  // which is already wrapped to the page-content width and must align flush.
+  flush?: boolean;
 }>();
 
 const layoutClasses = computed(() => {
@@ -20,6 +24,7 @@ const layoutClasses = computed(() => {
 });
 
 const designClasses = computed(() => {
+  if (props.flush) return '';
   switch (props.container.design) {
     case 'contained':
       return 'mx-auto max-w-7xl px-4 lg:px-6';
