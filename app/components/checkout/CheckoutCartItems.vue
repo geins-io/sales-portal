@@ -111,6 +111,7 @@ function handleRemove(item: CartItemType) {
             <PriceDisplay
               v-if="item.totalPrice"
               :price="item.totalPrice"
+              :show-vat="true"
               class="text-base font-semibold"
             />
             <p
@@ -120,6 +121,7 @@ function handleRemove(item: CartItemType) {
             >
               <PriceDisplay
                 :price="item.unitPrice"
+                :show-vat="true"
                 class="inline text-sm [&_span]:font-normal"
               />
               {{ t('checkout.per_unit') }}
