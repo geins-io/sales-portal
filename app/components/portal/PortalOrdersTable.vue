@@ -46,11 +46,11 @@ function formatDate(dateStr: string | null | undefined): string {
 }
 
 function getPlacedBy(order: { placedBy?: string | null }): string {
-  // placedBy is the resolved buyer name from the email → CompanyBuyer
-  // join. Older orders predating Geins's `OrderType.customerEmail` field
-  // come back without an email and stay unresolved; we render "-"
-  // rather than falling back to billingAddress, which is the company
-  // contact and would show the same wrong name on every such row.
+  // placedBy is the resolved buyer name from the customerId / email
+  // join against the CompanyBuyer roster. Orders that cannot be
+  // resolved stay unresolved and render "-" rather than falling back
+  // to billingAddress, which is the company contact and would show
+  // the same wrong name on every such row.
   return order.placedBy || '-';
 }
 

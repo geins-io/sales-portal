@@ -63,10 +63,24 @@ describe('PortalOrdersTable', () => {
   it('renders placedBy when resolved from the company buyer roster', () => {
     const wrapper = mountComponent(PortalOrdersTable, {
       props: {
-        orders: [{ ...mockOrders[0], placedBy: 'Tina Ekestang' }],
+        orders: [{ ...mockOrders[0], placedBy: 'Anna Nilsson' }],
       },
     });
-    expect(wrapper.text()).toContain('Tina Ekestang');
+    expect(wrapper.text()).toContain('Anna Nilsson');
+  });
+
+  it('renders the per-order buyer on each row, not a single shared name', () => {
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: {
+        orders: [
+          { ...mockOrders[0], placedBy: 'Anna Nilsson' },
+          { ...mockOrders[1], placedBy: 'Bea Karlsson' },
+        ],
+      },
+    });
+    const text = wrapper.text();
+    expect(text).toContain('Anna Nilsson');
+    expect(text).toContain('Bea Karlsson');
   });
 
   it('renders a dash when placedBy is unresolved, never the billing contact', () => {

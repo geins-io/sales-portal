@@ -29,11 +29,14 @@ export async function listOrders(
 ): Promise<{ orders: OrderListItem[]; total: number }> {
   const sdk = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
-  // Pulls orders and the company buyer roster in parallel. Geins's
-  // OrderType.customerEmail carries the placing buyer's email;
-  // CompanyBuyer.id is also the email, so we join on it to resolve
-  // firstName/lastName. Falls back to billingAddress on the table
-  // side when the email isn't on the roster (e.g. ex-employee).
+  // Pulls orders and the company buyer roster in parallel. The Geins
+  // OrderType carries the placing buyer's numeric customerId, which
+  // matches CompanyBuyer.internalId. We join on that first because the
+  // identifier is per-order and reliable; customerEmail is kept as a
+  // secondary fallback for orders predating the customerId rollout.
+  // Unresolved rows stay null so the table renders a dash rather than
+  // the billing contact (which would mislead the viewer into thinking
+  // that person placed the order).
   const [orderResult, company] = await Promise.all([
     wrapServiceCall(
       () =>
@@ -50,18 +53,27 @@ export async function listOrders(
     getCompany(event).catch(() => null),
   ]);
   const orders = (unwrapGraphQL(orderResult) as OrderListItem[] | null) ?? [];
+  const nameByInternalId = new Map<string, string>();
   const nameByEmail = new Map<string, string>();
   for (const buyer of company?.buyers ?? []) {
-    if (!buyer.id) continue;
     const name = [buyer.firstName, buyer.lastName]
       .filter(Boolean)
       .join(' ')
       .trim();
-    if (name) nameByEmail.set(buyer.id.toLowerCase(), name);
+    if (!name) continue;
+    if (buyer.internalId) nameByInternalId.set(String(buyer.internalId), name);
+    if (buyer.id) nameByEmail.set(buyer.id.toLowerCase(), name);
   }
   const enriched = orders.map((order) => {
+    const internalId =
+      order.customerId !== undefined && order.customerId !== null
+        ? String(order.customerId)
+        : null;
     const email = order.customerEmail?.toLowerCase();
-    const placedBy = email ? (nameByEmail.get(email) ?? null) : null;
+    const placedBy =
+      (internalId && nameByInternalId.get(internalId)) ||
+      (email && nameByEmail.get(email)) ||
+      null;
     return { ...order, placedBy };
   });
   return { orders: enriched, total: enriched.length };

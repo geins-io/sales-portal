@@ -35,8 +35,18 @@ vi.mock('../../../server/services/graphql/loader', () => ({
 vi.mock('../../../server/services/company', () => ({
   getCompany: vi.fn().mockResolvedValue({
     buyers: [
-      { id: 'tina@example.com', firstName: 'Tina', lastName: 'Ekestang' },
-      { id: 'ali@example.com', firstName: 'Ali', lastName: 'Halaki' },
+      {
+        id: 'one@example.com',
+        internalId: '101',
+        firstName: 'Anna',
+        lastName: 'Nilsson',
+      },
+      {
+        id: 'two@example.com',
+        internalId: '202',
+        firstName: 'Bea',
+        lastName: 'Karlsson',
+      },
     ],
   }),
 }));
@@ -133,40 +143,58 @@ describe('orders service', () => {
       expect(result.total).toBe(0);
     });
 
-    it('joins each order to the company buyer roster via email', async () => {
+    it('joins each order to the company buyer roster via internalId, falling back to email', async () => {
       mockGraphqlQuery.mockResolvedValueOnce({
         getCompanyOrders: [
           {
             id: 1,
             status: 'Placed',
             publicId: 'a',
-            customerEmail: 'tina@example.com',
+            customerId: 101,
+            customerEmail: null,
           },
           {
             id: 2,
             status: 'Placed',
             publicId: 'b',
-            customerEmail: 'ALI@example.com',
+            customerId: 202,
+            customerEmail: null,
           },
           {
             id: 3,
             status: 'Placed',
             publicId: 'c',
-            customerEmail: 'unknown@x.com',
+            customerId: null,
+            customerEmail: 'ONE@example.com',
           },
-          { id: 4, status: 'Placed', publicId: 'd', customerEmail: null },
+          {
+            id: 4,
+            status: 'Placed',
+            publicId: 'd',
+            customerId: 999,
+            customerEmail: null,
+          },
+          {
+            id: 5,
+            status: 'Placed',
+            publicId: 'e',
+            customerId: null,
+            customerEmail: null,
+          },
         ],
       });
 
       const result = await ordersService.listOrders(mockEvent);
 
-      expect(result.orders[0]!.placedBy).toBe('Tina Ekestang');
-      // case-insensitive match
-      expect(result.orders[1]!.placedBy).toBe('Ali Halaki');
-      // unknown buyer email and null email both fall through to null,
-      // letting the UI fall back to billingAddress.
-      expect(result.orders[2]!.placedBy).toBeNull();
+      // Two orders by two different buyers must resolve to two different names.
+      expect(result.orders[0]!.placedBy).toBe('Anna Nilsson');
+      expect(result.orders[1]!.placedBy).toBe('Bea Karlsson');
+      expect(result.orders[0]!.placedBy).not.toBe(result.orders[1]!.placedBy);
+      // case-insensitive email fallback when customerId is missing
+      expect(result.orders[2]!.placedBy).toBe('Anna Nilsson');
+      // unknown customerId and fully-missing identifiers both stay null
       expect(result.orders[3]!.placedBy).toBeNull();
+      expect(result.orders[4]!.placedBy).toBeNull();
     });
   });
 });
