@@ -173,5 +173,19 @@ describe('CmsContainer', () => {
       });
       expect(wrapper.find('section').classes()).toContain('w-full');
     });
+
+    it('drops max-width and horizontal padding when flush, keeping py-4', () => {
+      const container = makeContainer('full', [makeWidget()], 'contained');
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container, flush: true },
+        global: { stubs },
+      });
+      const classes = wrapper.find('section').classes();
+      expect(classes).not.toContain('max-w-7xl');
+      expect(classes).not.toContain('px-4');
+      expect(classes).not.toContain('lg:px-6');
+      // Vertical spacing is unchanged so the hero keeps its rhythm.
+      expect(classes).toContain('py-4');
+    });
   });
 });
