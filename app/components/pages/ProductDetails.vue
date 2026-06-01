@@ -74,11 +74,6 @@ const resolvedSku = computed(() => {
 
 const quantity = ref(1);
 
-const maxQuantity = computed(() => {
-  const stock = product.value?.totalStock?.totalStock;
-  return stock && stock > 0 ? stock : 99;
-});
-
 const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
 const authStore = useAuthStore();
@@ -87,13 +82,39 @@ const { canAccess } = useFeatureAccess();
 const canPurchase = computed(
   () => canAccess('orderPlacement') && !isCatalogMode.value,
 );
-const { showStock } = useStockVisibility();
 const isOutOfStock = computed(() => {
-  if (!showStock.value) return false;
   const stock = product.value?.totalStock;
   if (!stock) return false;
   return getStockStatus(stock) === 'out-of-stock';
 });
+const cartQtyForSelectedSku = computed(() => {
+  const skuId = resolvedSku.value?.skuId;
+  if (!skuId) return 0;
+  const items = cartStore.cart?.items ?? [];
+  return items
+    .filter((i) => String(i.skuId) === String(skuId))
+    .reduce((sum, i) => sum + (i.quantity ?? 0), 0);
+});
+// Effective remaining = totalStock minus the quantity of this SKU already
+// in the cart. Used to cap the quantity stepper and disable add-to-cart so
+// the user cannot push the cart past the available stock. Oversellable and
+// static (on-demand) products are not stock-limited.
+const stockThreshold = computed(() => {
+  const stock = product.value?.totalStock;
+  if (!stock) return Number.POSITIVE_INFINITY;
+  if (stock.oversellable > 0 || stock.static > 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return Math.max(0, (stock.totalStock ?? 0) - cartQtyForSelectedSku.value);
+});
+const maxQuantity = computed(() => {
+  const threshold = stockThreshold.value;
+  if (!Number.isFinite(threshold)) return 99;
+  return Math.max(1, threshold);
+});
+const cartIsFull = computed(
+  () => Number.isFinite(stockThreshold.value) && stockThreshold.value === 0,
+);
 const { localePath } = useLocaleMarket();
 
 const isFavorited = computed(() =>
@@ -539,16 +560,22 @@ useSchemaOrg([
               v-model="quantity"
               :min="1"
               :max="maxQuantity"
+              :disabled="cartIsFull"
               class="h-9 shrink-0"
             />
             <Button
               variant="purchase"
               data-testid="add-to-cart-button"
               class="h-9 flex-1 gap-2 px-4"
+              :disabled="cartIsFull"
               @click="addToCart"
             >
               <ShoppingCart class="size-4" />
-              {{ $t('product.add_to_cart') }}
+              {{
+                cartIsFull
+                  ? $t('product.max_in_cart')
+                  : $t('product.add_to_cart')
+              }}
             </Button>
           </div>
         </template>

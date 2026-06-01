@@ -293,6 +293,7 @@
     "in_stock": "In stock",
     "low_stock": "Low stock",
     "out_of_stock": "Out of stock",
+    "max_in_cart": "Max in cart",
     "on_demand": "On demand",
     "no_image": "No image available"
   },

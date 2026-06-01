@@ -293,6 +293,7 @@
     "in_stock": "I lager",
     "low_stock": "Begränsat lager",
     "out_of_stock": "Slut i lager",
+    "max_in_cart": "Allt i varukorg",
     "on_demand": "På begäran",
     "no_image": "Ingen bild tillgänglig"
   },

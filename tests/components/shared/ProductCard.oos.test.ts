@@ -146,7 +146,11 @@ describe('ProductCard out-of-stock', () => {
     expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(true);
   });
 
-  it('tenant stock visibility off: OOS product still renders add-to-cart', () => {
+  it('OOS UI fires regardless of the stockStatus tenant setting', () => {
+    // showStock controls the in-stock/low-stock BADGE, not whether to gate
+    // purchases. An OOS product must always swap the controls for the OOS
+    // block — otherwise tenants who disable the stock badge silently let
+    // customers add unavailable products to cart.
     showStockRef.value = false;
     const product = makeFullProduct({
       totalStock: { totalStock: 0, inStock: 0, oversellable: 0, static: 0 },
@@ -156,9 +160,9 @@ describe('ProductCard out-of-stock', () => {
       global: { stubs },
     });
     expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
-      true,
+      false,
     );
-    expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(true);
   });
 
   it('brief ProductCardItem shape: OOS detection short-circuits', () => {
