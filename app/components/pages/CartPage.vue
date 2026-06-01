@@ -9,12 +9,33 @@ const router = useRouter();
 const { tenant } = useTenant();
 const { localePath } = useLocaleMarket();
 const { showPrice } = usePriceVisibility();
+const { showIncVat } = useVatDisplay();
 
 // Fetch cart on mount if we have a cartId but no cart data
 onMounted(() => {
   if (cartStore.cartId && !cartStore.cart) {
     cartStore.fetchCart();
   }
+});
+
+// Summary price computeds: pick incl-VAT or excl-VAT based on user preference.
+// sellingPriceExVatFormatted is optional on PriceType, so fall back to IncVat when absent.
+const subTotalFormatted = computed(() => {
+  const s = cartStore.cart?.summary?.subTotal;
+  return (
+    (showIncVat.value
+      ? s?.sellingPriceIncVatFormatted
+      : (s?.sellingPriceExVatFormatted ?? s?.sellingPriceIncVatFormatted)) ?? ''
+  );
+});
+
+const totalFormatted = computed(() => {
+  const t = cartStore.cart?.summary?.total;
+  return (
+    (showIncVat.value
+      ? t?.sellingPriceIncVatFormatted
+      : (t?.sellingPriceExVatFormatted ?? t?.sellingPriceIncVatFormatted)) ?? ''
+  );
 });
 
 const shippingFee = computed(
@@ -129,10 +150,7 @@ function goToCheckout() {
                   }}
                 </span>
                 <span data-testid="cart-summary-subtotal">
-                  {{
-                    cartStore.cart?.summary?.subTotal
-                      ?.sellingPriceIncVatFormatted ?? ''
-                  }}
+                  {{ subTotalFormatted }}
                 </span>
               </div>
 
@@ -197,10 +215,7 @@ function goToCheckout() {
             >
               <span>{{ $t('cart.total') }}</span>
               <span data-testid="cart-summary-total">
-                {{
-                  cartStore.cart?.summary?.total?.sellingPriceIncVatFormatted ??
-                  ''
-                }}
+                {{ totalFormatted }}
               </span>
             </div>
 

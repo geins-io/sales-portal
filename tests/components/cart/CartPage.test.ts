@@ -375,6 +375,22 @@ describe('CartPage', () => {
       const total = wrapper.find('[data-testid="cart-summary-total"]');
       expect(total.text()).toBe('$237.97');
     });
+
+    it('shows excl-VAT subtotal and total when showIncVat is false', () => {
+      mockShowIncVat.value = false;
+      const store = useCartStore();
+      store.cart = mockCart;
+
+      const wrapper = shallowMountComponent(CartPage, {
+        global: { stubs: defaultStubs },
+      });
+
+      const subtotal = wrapper.find('[data-testid="cart-summary-subtotal"]');
+      expect(subtotal.text()).toBe('$183.97');
+
+      const total = wrapper.find('[data-testid="cart-summary-total"]');
+      expect(total.text()).toBe('$190.38');
+    });
   });
 
   describe('discount line', () => {
