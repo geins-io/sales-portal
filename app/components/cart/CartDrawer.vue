@@ -6,11 +6,19 @@ import { formatPrice } from '#shared/types/commerce';
 
 const cartStore = useCartStore();
 const router = useRouter();
-const { tenant } = useTenant();
+const { tenant, isCatalogMode } = useTenant();
+const { canAccess } = useFeatureAccess();
 const { localePath } = useLocaleMarket();
 
+// Belt and suspenders: even when no entry point opens the drawer, a stale
+// store flag must not surface the purchase funnel on tenants where order
+// placement is disabled.
+const showDrawer = computed(
+  () => !isCatalogMode.value && canAccess('orderPlacement'),
+);
+
 const isOpen = computed({
-  get: () => cartStore.isOpen,
+  get: () => showDrawer.value && cartStore.isOpen,
   set: (val: boolean) => {
     cartStore.isOpen = val;
   },
@@ -41,7 +49,7 @@ function goToCheckout() {
 </script>
 
 <template>
-  <Sheet v-model:open="isOpen">
+  <Sheet v-if="showDrawer" v-model:open="isOpen">
     <SheetContent
       side="right"
       class="flex w-full flex-col gap-0 p-0 sm:max-w-md lg:max-w-4xl"

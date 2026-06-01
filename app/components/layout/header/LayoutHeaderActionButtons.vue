@@ -9,7 +9,14 @@ const cartStore = useCartStore();
 const { localePath } = useLocaleMarket();
 const { isCatalogMode } = useTenant();
 const { canAccess } = useFeatureAccess();
-const showCart = computed(() => !isCatalogMode.value && canAccess('cart'));
+// Cart entry points (header icon, drawer, /cart, checkout) all gate on
+// orderPlacement: when a tenant has order placement disabled, the entire
+// purchase funnel is hidden. The standalone `cart` feature flag is no
+// longer the authority because cart/checkout always default to enabled
+// while orderPlacement carries the real merchant intent.
+const showCart = computed(
+  () => !isCatalogMode.value && canAccess('orderPlacement'),
+);
 </script>
 
 <template>

@@ -255,6 +255,7 @@ export interface OrderListItem {
   publicId?: string | null;
   status: string;
   createdAt?: string | null;
+  customerId?: number | null;
   customerEmail?: string | null;
   placedBy?: string | null;
   billingAddress?: {

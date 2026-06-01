@@ -4,6 +4,7 @@ query getCompanyOrders($channelId: String, $languageId: String, $marketId: Strin
     publicId
     status
     createdAt
+    customerId
     customerEmail
     billingAddress {
       firstName

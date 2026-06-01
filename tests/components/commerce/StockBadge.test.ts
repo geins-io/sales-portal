@@ -119,5 +119,19 @@ describe('StockBadge', () => {
       });
       expect(wrapper.text()).toContain('product.in_stock');
     });
+
+    // Live tenant shape: explicit enabled:false with an access rule still
+    // hides the badge. The enabled flag wins regardless of access.
+    it('hides stock when stockStatus is enabled:false with access defined', () => {
+      tenant.value.features = {
+        stockStatus: { enabled: false, access: 'authenticated' },
+      };
+      mockCanAccess.mockReturnValue(true);
+      const wrapper = mountComponent(StockBadge, {
+        props: { stock: makeStock() },
+        global: { stubs },
+      });
+      expect(wrapper.text()).toBe('');
+    });
   });
 });

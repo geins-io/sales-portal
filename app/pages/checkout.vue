@@ -23,7 +23,7 @@ import CheckoutCardHeader from '~/components/checkout/CheckoutCardHeader.vue';
 definePageMeta({
   layout: 'checkout',
   middleware: 'feature',
-  feature: 'checkout',
+  feature: 'orderPlacement',
 });
 
 const { t } = useI18n();
