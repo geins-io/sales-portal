@@ -14,8 +14,10 @@ const props = defineProps<{
 }>();
 
 const hasDescription = computed(() => !!props.product.texts?.text1);
+const HIDDEN_PARAMETER_GROUPS = /^monitor$/i;
 const visibleGroups = computed(() =>
   (props.product.parameterGroups ?? [])
+    .filter((g) => !HIDDEN_PARAMETER_GROUPS.test(g.name ?? ''))
     .map((g) => ({
       ...g,
       parameters: (g.parameters ?? []).filter(
