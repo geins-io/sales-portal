@@ -7,6 +7,7 @@ import { getVitestConfigFromNuxt } from '@nuxt/test-utils/config';
 // regular unit or component tests.
 const nuxtTestFiles = [
   'tests/composables/useCmsPreview.test.ts',
+  'tests/composables/useStoreSettingsPreview.test.ts',
   'tests/composables/useTenant.test.ts',
   'tests/composables/useErrorTracking.test.ts',
   'tests/components/layout/LayoutHeaderMain.test.ts',
