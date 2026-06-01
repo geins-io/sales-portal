@@ -138,6 +138,7 @@ function makeCompany(overrides: Partial<Company> = {}): Company {
     buyers: [
       {
         id: 'buyer-1',
+        internalId: '8421',
         firstName: 'Jane',
         lastName: 'Doe',
         phone: '+46701234567',

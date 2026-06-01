@@ -38,6 +38,7 @@ interface RawCompanyAddress {
 
 interface RawCompanyBuyer {
   id: string;
+  internalId?: string | number | null;
   firstName?: string | null;
   lastName?: string | null;
   phone?: string | null;
@@ -85,6 +86,10 @@ function mapAddress(raw: RawCompanyAddress): CompanyAddress {
 function mapBuyer(raw: RawCompanyBuyer): CompanyBuyer {
   return {
     id: raw.id,
+    internalId:
+      raw.internalId === undefined || raw.internalId === null
+        ? null
+        : String(raw.internalId),
     firstName: raw.firstName ?? null,
     lastName: raw.lastName ?? null,
     phone: raw.phone ?? null,

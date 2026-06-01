@@ -22,6 +22,7 @@ const OrganisationPersonsTable =
 function makeBuyer(overrides: Partial<CompanyBuyer> = {}): CompanyBuyer {
   return {
     id: 'jane@acme.com',
+    internalId: '8421',
     firstName: 'Jane',
     lastName: 'Doe',
     phone: '+46701234567',
@@ -33,31 +34,45 @@ function makeBuyer(overrides: Partial<CompanyBuyer> = {}): CompanyBuyer {
 }
 
 describe('OrganisationPersonsTable', () => {
-  it('renders three column headers: Id, Email, Latest login', () => {
+  it('renders two column headers: Id, Email', () => {
     const wrapper = mount(OrganisationPersonsTable.default, {
       props: { buyers: [makeBuyer()] },
     });
     const headers = wrapper.findAll('th').map((h) => h.text());
-    expect(headers).toHaveLength(3);
+    expect(headers).toHaveLength(2);
     expect(headers[0]).toContain('portal.org.persons.col_id');
     expect(headers[1]).toContain('portal.org.persons.col_email');
-    expect(headers[2]).toContain('portal.org.persons.col_latest_login');
   });
 
-  it('renders the buyer id in the email column', () => {
+  it('renders internalId in the Id column', () => {
+    const wrapper = mount(OrganisationPersonsTable.default, {
+      props: { buyers: [makeBuyer({ internalId: '8421' })] },
+    });
+    const cells = wrapper.findAll('tbody td').map((td) => td.text());
+    expect(cells[0]).toBe('8421');
+  });
+
+  it('falls back to hyphen when internalId is missing', () => {
+    const wrapper = mount(OrganisationPersonsTable.default, {
+      props: { buyers: [makeBuyer({ internalId: null })] },
+    });
+    const cells = wrapper.findAll('tbody td').map((td) => td.text());
+    expect(cells[0]).toBe('-');
+  });
+
+  it('renders the email in the email column', () => {
     const wrapper = mount(OrganisationPersonsTable.default, {
       props: { buyers: [makeBuyer({ id: 'buyer.abc@example.com' })] },
     });
     expect(wrapper.text()).toContain('buyer.abc@example.com');
   });
 
-  it('renders dashes for id and latest login columns (Geins gap)', () => {
+  it('does not render a Latest login column or em dash fallback', () => {
     const wrapper = mount(OrganisationPersonsTable.default, {
       props: { buyers: [makeBuyer()] },
     });
-    const cells = wrapper.findAll('tbody td').map((td) => td.text());
-    expect(cells[0]).toBe('—');
-    expect(cells[2]).toBe('—');
+    expect(wrapper.text()).not.toContain('col_latest_login');
+    expect(wrapper.text()).not.toContain('—');
   });
 
   it('renders no name, phone, or active pill', () => {

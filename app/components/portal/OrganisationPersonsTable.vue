@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import type { CompanyBuyer } from '#shared/types/company';
 
-// TODO: render real values in the Id and Latest login columns once the
-// Geins buyers payload exposes the matching fields. buyer.id is the email.
-
 defineProps<{
   buyers: CompanyBuyer[];
 }>();
@@ -31,9 +28,6 @@ const { t } = useI18n();
             <th scope="col" class="px-4 py-4 font-medium">
               {{ t('portal.org.persons.col_email') }}
             </th>
-            <th scope="col" class="px-4 py-4 font-medium">
-              {{ t('portal.org.persons.col_latest_login') }}
-            </th>
           </tr>
         </thead>
         <tbody>
@@ -43,9 +37,8 @@ const { t } = useI18n();
             data-testid="buyer-row"
             class="border-border [&:not(:last-child)]:border-b"
           >
-            <td class="px-4 py-5">—</td>
+            <td class="px-4 py-5">{{ buyer.internalId ?? '-' }}</td>
             <td class="px-4 py-5">{{ buyer.id }}</td>
-            <td class="text-muted-foreground px-4 py-5">—</td>
           </tr>
         </tbody>
       </table>
