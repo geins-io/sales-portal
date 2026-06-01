@@ -23,7 +23,11 @@
     "no": "No",
     "add_to_cart": "Add to cart",
     "decrease_quantity": "Decrease quantity",
-    "increase_quantity": "Increase quantity"
+    "increase_quantity": "Increase quantity",
+    "vat_display": "VAT display",
+    "change_vat_display": "Change VAT display",
+    "vat_incl": "Incl. VAT",
+    "vat_excl": "Excl. VAT"
   },
   "auth": {
     "already_have_account": "Already have an account?",
