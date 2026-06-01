@@ -115,6 +115,11 @@ function previewCookieDefaults() {
     sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
     secure: isProd,
     path: '/',
+    // CHIPS: scope the cookie to the embedding top-level site so a Studio
+    // iframe session cannot bleed into a separate top-level tab on the same
+    // storefront host. Without this, opening tenant-a.sales-portal.geins.dev
+    // in its own tab would still send the preview cookie set inside Studio.
+    partitioned: isProd,
   };
 }
 
