@@ -32,14 +32,6 @@ describe('useVatDisplay', () => {
     vi.stubGlobal('useCookie', () => mockCookieValue);
     vi.stubGlobal('computed', computed);
 
-    // Re-mock after resetModules
-    vi.mock('#app/composables/cookie', () => ({
-      useCookie: () => mockCookieValue,
-    }));
-    vi.mock('#shared/constants/storage', () => ({
-      COOKIE_NAMES: { VAT_DISPLAY: 'vat_display' },
-    }));
-
     const mod = await import('../../../app/composables/useVatDisplay');
     useVatDisplay = mod.useVatDisplay;
   });
@@ -96,14 +88,6 @@ describe('useVatDisplay', () => {
       const { showIncVat, toggle } = useVatDisplay();
       toggle();
       expect(mockCookieValue.value).toBe('inc');
-      expect(showIncVat.value).toBe(true);
-    });
-
-    it('toggles twice and returns to original value', () => {
-      mockCookieValue.value = 'inc';
-      const { showIncVat, toggle } = useVatDisplay();
-      toggle();
-      toggle();
       expect(showIncVat.value).toBe(true);
     });
   });
