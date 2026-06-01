@@ -29,9 +29,12 @@ export default defineCachedEventHandler(
       const base = tenantConfigKey(
         event.context.tenant.tenantId || event.context.tenant.hostname,
       );
-      return getStoreSettingsPreviewCookie(event)
-        ? `${base}:settings-preview:${Date.now()}`
-        : base;
+      // Both the cookie and the ?preview=1 query mark a preview render.
+      // The first preview request from Studio has no cookie yet (the cookie
+      // is set on the response), so the query must also bypass the cache.
+      const isPreview =
+        getStoreSettingsPreviewCookie(event) || getQuery(event).preview === '1';
+      return isPreview ? `${base}:settings-preview:${Date.now()}` : base;
     },
     // Serve a stale cached response while asynchronously revalidating it
     swr: true,
