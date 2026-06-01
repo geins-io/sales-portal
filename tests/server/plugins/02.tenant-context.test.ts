@@ -18,6 +18,7 @@ const mockCreateError = vi.fn(
 );
 const mockGetTenantCookie = vi.fn();
 const mockSetTenantCookie = vi.fn();
+const mockGetQuery = vi.fn();
 
 vi.stubGlobal('setCookie', mockSetCookie);
 vi.stubGlobal('sendRedirect', mockSendRedirect);
@@ -27,6 +28,7 @@ vi.stubGlobal('getRequestHost', mockGetRequestHost);
 vi.stubGlobal('createError', mockCreateError);
 vi.stubGlobal('getTenantCookie', mockGetTenantCookie);
 vi.stubGlobal('setTenantCookie', mockSetTenantCookie);
+vi.stubGlobal('getQuery', mockGetQuery);
 
 vi.stubGlobal('defineNitroPlugin', (fn: (nitroApp: unknown) => void) => {
   const hooks: Record<string, (event: unknown) => unknown> = {};
@@ -45,9 +47,22 @@ vi.stubGlobal('defineNitroPlugin', (fn: (nitroApp: unknown) => void) => {
 // Module-level mocks
 // ---------------------------------------------------------------------------
 const mockResolveTenant = vi.fn();
+const mockResolvePreviewTenant = vi.fn();
 
 vi.mock('../../../server/utils/tenant', () => ({
   resolveTenant: (...args: unknown[]) => mockResolveTenant(...args),
+  resolvePreviewTenant: (...args: unknown[]) =>
+    mockResolvePreviewTenant(...args),
+}));
+
+const mockSetStoreSettingsPreviewCookie = vi.fn();
+const mockGetStoreSettingsPreviewCookie = vi.fn();
+
+vi.mock('../../../server/utils/cookies', () => ({
+  setStoreSettingsPreviewCookie: (...args: unknown[]) =>
+    mockSetStoreSettingsPreviewCookie(...args),
+  getStoreSettingsPreviewCookie: (...args: unknown[]) =>
+    mockGetStoreSettingsPreviewCookie(...args),
 }));
 
 vi.mock('#shared/constants/storage', () => ({
@@ -56,6 +71,7 @@ vi.mock('#shared/constants/storage', () => ({
     MARKET: 'market',
     CART_ID: 'cart_id',
     TENANT_ID: 'tenant_id',
+    STORE_SETTINGS_PREVIEW: 'store_settings_preview',
   },
 }));
 
@@ -124,6 +140,9 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
     mockGetRequestHost.mockReturnValue('test.localhost');
     // Default: no cached tenant cookie
     mockGetTenantCookie.mockReturnValue(undefined);
+    // Default: no preview query, no preview cookie
+    mockGetQuery.mockReturnValue({});
+    mockGetStoreSettingsPreviewCookie.mockReturnValue(false);
 
     const mod = await import('../../../server/plugins/02.tenant-context');
     const hooks = mod.default as unknown as Record<
@@ -359,6 +378,122 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
         locale: 'en',
         localeBcp47: 'en-GB',
       });
+    });
+  });
+
+  describe('store-settings preview mode', () => {
+    it('?preview=1 sets the STORE_SETTINGS_PREVIEW cookie and routes via resolvePreviewTenant', async () => {
+      const tenant = makeTenant();
+      mockResolvePreviewTenant.mockResolvedValue(tenant);
+      mockGetQuery.mockReturnValue({ preview: '1' });
+
+      const event = createEvent('/se/sv/products', {
+        localeMarket: { market: 'se', locale: 'sv' },
+      });
+
+      await handler(event);
+
+      expect(mockSetStoreSettingsPreviewCookie).toHaveBeenCalledWith(event);
+      expect(mockResolvePreviewTenant).toHaveBeenCalledWith(
+        'test.localhost',
+        event,
+      );
+      expect(mockResolveTenant).not.toHaveBeenCalled();
+    });
+
+    it('existing STORE_SETTINGS_PREVIEW cookie alone routes via resolvePreviewTenant', async () => {
+      const tenant = makeTenant();
+      mockResolvePreviewTenant.mockResolvedValue(tenant);
+      mockGetStoreSettingsPreviewCookie.mockReturnValue(true);
+
+      const event = createEvent('/se/sv/products', {
+        localeMarket: { market: 'se', locale: 'sv' },
+      });
+
+      await handler(event);
+
+      // Cookie already present; do not re-set on every request
+      expect(mockSetStoreSettingsPreviewCookie).not.toHaveBeenCalled();
+      expect(mockResolvePreviewTenant).toHaveBeenCalledWith(
+        'test.localhost',
+        event,
+      );
+      expect(mockResolveTenant).not.toHaveBeenCalled();
+    });
+
+    it('no preview signals routes via resolveTenant (regression guard)', async () => {
+      const tenant = makeTenant();
+      mockResolveTenant.mockResolvedValue(tenant);
+
+      const event = createEvent('/se/sv/products', {
+        localeMarket: { market: 'se', locale: 'sv' },
+      });
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalled();
+      expect(mockResolvePreviewTenant).not.toHaveBeenCalled();
+    });
+
+    it('preview path does not call setTenantCookie', async () => {
+      const tenant = makeTenant();
+      mockResolvePreviewTenant.mockResolvedValue(tenant);
+      mockGetQuery.mockReturnValue({ preview: '1' });
+
+      const event = createEvent('/se/sv/products', {
+        localeMarket: { market: 'se', locale: 'sv' },
+      });
+
+      await handler(event);
+
+      expect(mockSetTenantCookie).not.toHaveBeenCalled();
+    });
+
+    it('preview path does not clear locale/market/cart cookies on tenant switch', async () => {
+      const tenant = makeTenant();
+      mockResolvePreviewTenant.mockResolvedValue(tenant);
+      mockGetStoreSettingsPreviewCookie.mockReturnValue(true);
+      // Simulate stale tenant cookie that would normally trigger cookie wipe
+      mockGetTenantCookie.mockReturnValue('a-different-tenant');
+
+      const event = createEvent('/se/sv/products', {
+        localeMarket: { market: 'se', locale: 'sv' },
+      });
+
+      await handler(event);
+
+      expect(mockDeleteCookie).not.toHaveBeenCalledWith(
+        event,
+        'locale',
+        expect.anything(),
+      );
+      expect(mockDeleteCookie).not.toHaveBeenCalledWith(
+        event,
+        'market',
+        expect.anything(),
+      );
+      expect(mockDeleteCookie).not.toHaveBeenCalledWith(
+        event,
+        'cart_id',
+        expect.anything(),
+      );
+      expect(mockSetTenantCookie).not.toHaveBeenCalled();
+    });
+
+    it('API route with ?preview=1 also uses resolvePreviewTenant', async () => {
+      const tenant = makeTenant();
+      mockResolvePreviewTenant.mockResolvedValue(tenant);
+      mockGetQuery.mockReturnValue({ preview: '1' });
+
+      const event = createEvent('/api/config', {});
+
+      await handler(event);
+
+      expect(mockResolvePreviewTenant).toHaveBeenCalledWith(
+        'test.localhost',
+        event,
+      );
+      expect(mockResolveTenant).not.toHaveBeenCalled();
     });
   });
 

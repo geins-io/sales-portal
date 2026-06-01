@@ -1,6 +1,10 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { resolveLocaleMarket } from '#shared/utils/locale-market';
-import { resolveTenant } from '../utils/tenant';
+import { resolveTenant, resolvePreviewTenant } from '../utils/tenant';
+import {
+  setStoreSettingsPreviewCookie,
+  getStoreSettingsPreviewCookie,
+} from '../utils/cookies';
 
 /**
  * Normalizes a hostname by removing the port number.
@@ -38,6 +42,18 @@ export default defineNitroPlugin((nitroApp) => {
       throw createError({ statusCode: 400, message: 'Missing host header' });
     }
 
+    // Detect store-settings preview intent. `?preview=1` activates preview
+    // mode and persists a cookie; subsequent requests in the same session
+    // stay in preview based on the cookie alone. CMS preview (PREVIEW_MODE)
+    // is a separate flag and is not touched here.
+    const query = getQuery(event);
+    const previewQueryActive = query.preview === '1';
+    if (previewQueryActive) {
+      setStoreSettingsPreviewCookie(event);
+    }
+    const isStoreSettingsPreview =
+      previewQueryActive || getStoreSettingsPreviewCookie(event);
+
     // Attach tenant data to the event context to make it
     // available to all server routes and middleware.
     event.context.tenant = { hostname };
@@ -50,7 +66,9 @@ export default defineNitroPlugin((nitroApp) => {
       !path.startsWith('/_nuxt/') &&
       !path.startsWith('/__nuxt')
     ) {
-      const tenant = await resolveTenant(hostname, event);
+      const tenant = isStoreSettingsPreview
+        ? await resolvePreviewTenant(hostname, event)
+        : await resolveTenant(hostname, event);
       if (!tenant) {
         throw createError({
           statusCode: 404,
@@ -116,19 +134,32 @@ export default defineNitroPlugin((nitroApp) => {
       const cachedTenantId = getTenantCookie(event);
 
       // Detect tenant switch: clear stale cookies so the locale-market plugin
-      // redirects to fresh defaults for the new tenant.
-      if (cachedTenantId && cachedTenantId !== tenantId) {
+      // redirects to fresh defaults for the new tenant. Preview mode runs in
+      // an iframe and must never wipe the live tab's locale/market/cart state.
+      if (
+        !isStoreSettingsPreview &&
+        cachedTenantId &&
+        cachedTenantId !== tenantId
+      ) {
         deleteCookie(event, COOKIE_NAMES.LOCALE, { path: '/' });
         deleteCookie(event, COOKIE_NAMES.MARKET, { path: '/' });
         deleteCookie(event, COOKIE_NAMES.CART_ID, { path: '/' });
       }
 
-      if (!cachedTenantId || cachedTenantId !== tenantId) {
+      // Preview requests must not persist a tenant cookie. Studio embeds the
+      // storefront in an iframe; sharing tenant_id between live and preview
+      // tabs would mix state.
+      if (
+        !isStoreSettingsPreview &&
+        (!cachedTenantId || cachedTenantId !== tenantId)
+      ) {
         setTenantCookie(event, tenantId);
       }
     } else if (path.startsWith('/api/')) {
       // For API routes, always resolve from hostname (cookie is only a hint, never trusted)
-      const tenant = await resolveTenant(hostname, event);
+      const tenant = isStoreSettingsPreview
+        ? await resolvePreviewTenant(hostname, event)
+        : await resolveTenant(hostname, event);
       if (tenant) {
         event.context.tenant.tenantId = tenant.tenantId || hostname;
         event.context.tenant.config = tenant;

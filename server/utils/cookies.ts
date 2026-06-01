@@ -151,6 +151,28 @@ export function clearPreviewSession(event: H3Event) {
   clearPreviewCookie(event);
 }
 
+/**
+ * Store-settings preview cookies. Independent of the CMS preview cookie above.
+ * The store-settings preview signals the storefront to ask the merchant API
+ * for the unpublished appSettings overlay and skip the live tenant config
+ * cache. Same cross-origin iframe-safe defaults as the CMS preview cookie.
+ */
+export function setStoreSettingsPreviewCookie(event: H3Event) {
+  setCookie(event, COOKIE_NAMES.STORE_SETTINGS_PREVIEW, 'true', {
+    httpOnly: false, // client reads for banner UI
+    ...previewCookieDefaults(),
+    maxAge: 3600,
+  });
+}
+
+export function getStoreSettingsPreviewCookie(event: H3Event): boolean {
+  return getCookie(event, COOKIE_NAMES.STORE_SETTINGS_PREVIEW) === 'true';
+}
+
+export function clearStoreSettingsPreviewCookie(event: H3Event) {
+  deleteCookie(event, COOKIE_NAMES.STORE_SETTINGS_PREVIEW, { path: '/' });
+}
+
 // --- Market cookie ---
 
 export function setMarketCookie(event: H3Event, market: string) {
