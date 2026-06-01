@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ middleware: 'feature', feature: 'cart' });
+definePageMeta({ middleware: 'feature', feature: 'orderPlacement' });
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();

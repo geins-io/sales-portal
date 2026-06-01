@@ -5,10 +5,45 @@ import type { CartType } from '../../../shared/types/commerce';
 import { useCartStore } from '../../../app/stores/cart';
 import { createPinia, setActivePinia } from 'pinia';
 
+const mockCanAccess = vi.fn(() => true);
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
+}));
+
 describe('CartDrawer', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.mocked(useRouter().push).mockClear();
+    mockCanAccess.mockReset();
+    mockCanAccess.mockReturnValue(true);
+  });
+
+  it('does not render the drawer when orderPlacement access is denied', () => {
+    const store = useCartStore();
+    store.isOpen = true;
+    mockCanAccess.mockImplementation(
+      (name: string) => name !== 'orderPlacement',
+    );
+
+    const wrapper = shallowMountComponent(CartDrawer, {
+      global: {
+        stubs: {
+          Sheet: {
+            template: '<div data-testid="cart-sheet"><slot /></div>',
+            props: ['open'],
+          },
+          SheetContent: { template: '<div><slot /></div>' },
+          SheetHeader: { template: '<div><slot /></div>' },
+          SheetTitle: { template: '<div><slot /></div>' },
+          SheetDescription: { template: '<div><slot /></div>' },
+          SheetFooter: { template: '<div><slot /></div>' },
+          CartItem: true,
+          CartPromoCodeInput: true,
+        },
+      },
+    });
+
+    expect(wrapper.find('[data-testid="cart-sheet"]').exists()).toBe(false);
   });
 
   it('renders empty state when cart is empty', () => {
