@@ -749,7 +749,6 @@
       "persons": {
         "col_id": "Id",
         "col_email": "Email",
-        "col_latest_login": "Latest login",
         "add": "+ Add person",
         "empty": "No persons found",
         "subtitle": "A list of all persons in your organisation",

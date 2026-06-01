@@ -26,6 +26,7 @@ query GetCompany($channelId: String, $languageId: String, $marketId: String) {
     }
     buyers {
       id
+      internalId
       firstName
       lastName
       phone

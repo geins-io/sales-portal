@@ -28,6 +28,8 @@ export interface CompanyAddress {
 export interface CompanyBuyer {
   /** Non-nullable per schema */
   id: string;
+  /** Numeric customer id from the Geins merchant API. */
+  internalId: string | null;
   firstName: string | null;
   lastName: string | null;
   phone: string | null;

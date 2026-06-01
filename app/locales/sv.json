@@ -749,7 +749,6 @@
       "persons": {
         "col_id": "Id",
         "col_email": "E-post",
-        "col_latest_login": "Senaste inloggning",
         "add": "+ Lägg till person",
         "empty": "Inga personer hittades",
         "subtitle": "En lista över alla personer i din organisation",
