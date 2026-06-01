@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
   tenantIdKey,
@@ -10,6 +10,8 @@ import {
   adaptMerchantApiResponse,
   deleteAtPath,
   backfillCoreColors,
+  mergeDeep,
+  resolvePreviewTenant,
 } from '../../server/utils/tenant';
 import elpromanFixture from '../fixtures/store-settings/elproman.json';
 import {
@@ -30,7 +32,55 @@ import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
 // Mock logger BEFORE importing tenant utils so the defensive-code
 // warn() calls go to our spy. vi.hoisted so the ref exists when
 // vi.mock's factory runs (factories are hoisted above module imports).
-const { mockLoggerWarn } = vi.hoisted(() => ({ mockLoggerWarn: vi.fn() }));
+const { mockLoggerWarn, mockUseRuntimeConfig, mockUseStorage } = vi.hoisted(
+  () => ({
+    mockLoggerWarn: vi.fn(),
+    mockUseRuntimeConfig: vi.fn(() => ({
+      geins: { tenantApiUrl: 'https://merchant.example/api/tenant' },
+    })),
+    mockUseStorage: vi.fn(() => ({
+      getItem: vi.fn(() => Promise.resolve(null)),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      hasItem: vi.fn(() => Promise.resolve(false)),
+    })),
+  }),
+);
+vi.mock('#imports', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    useRuntimeConfig: mockUseRuntimeConfig,
+    useStorage: mockUseStorage,
+  };
+});
+vi.mock('#app/nuxt', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    useRuntimeConfig: mockUseRuntimeConfig,
+  };
+});
+vi.mock('nitropack/runtime/internal/config', async (importOriginal) => {
+  const actual = (await importOriginal().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+  return {
+    ...actual,
+    useRuntimeConfig: mockUseRuntimeConfig,
+  };
+});
+vi.mock('nitropack/runtime/internal/storage', async (importOriginal) => {
+  const actual = (await importOriginal().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+  return {
+    ...actual,
+    useStorage: mockUseStorage,
+  };
+});
 vi.mock('../../server/utils/logger', () => ({
   logger: {
     warn: mockLoggerWarn,
@@ -1189,6 +1239,216 @@ describe('Tenant utilities', () => {
       const gs = result.geinsSettings as Record<string, unknown>;
       expect(gs.channel).toBe('2');
       expect(gs.tld).toBe('se');
+    });
+  });
+
+  describe('resolvePreviewTenant', () => {
+    function rawApiPayload(
+      overrides: {
+        primary?: string;
+        brandingName?: string;
+      } = {},
+    ): Record<string, unknown> {
+      return {
+        tenantId: 'tenant-a',
+        isActive: true,
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        geinsSettings: {
+          defaultHostName: 'tenant-a.example.com',
+          additionalHostNames: [],
+          apiKey: 'E0EB51F2-B663-457F-A7F9-A75693FD8469',
+          accountName: 'tenant-a',
+          channelId: '1|se',
+          defaultLocale: 'sv-SE',
+          defaultMarket: 'se',
+          locales: ['sv-SE'],
+          markets: ['se'],
+        },
+        appSettings: {
+          mode: 'commerce',
+          theme: {
+            colors: {
+              primary: overrides.primary ?? 'oklch(0.5 0.1 200)',
+              primaryForeground: 'oklch(0.9 0 0)',
+              secondary: 'oklch(0.8 0 0)',
+              secondaryForeground: 'oklch(0.2 0 0)',
+              background: 'oklch(1 0 0)',
+              foreground: 'oklch(0.1 0 0)',
+            },
+          },
+          branding: {
+            name: overrides.brandingName ?? 'Live Brand',
+            watermark: 'full',
+          },
+          features: {},
+        },
+      };
+    }
+
+    function okResponse(body: Record<string, unknown>): Response {
+      return {
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(body),
+      } as unknown as Response;
+    }
+
+    const originalFetch = globalThis.fetch;
+
+    beforeEach(() => {
+      mockLoggerWarn.mockClear();
+      mockUseRuntimeConfig.mockReturnValue({
+        geins: { tenantApiUrl: 'https://merchant.example/api/tenant' },
+      });
+      mockUseStorage.mockReturnValue({
+        getItem: vi.fn(() => Promise.resolve(null)),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+        hasItem: vi.fn(() => Promise.resolve(false)),
+      });
+    });
+
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it('merges preview values over live (overlay wins, missing inherit)', async () => {
+      const live = rawApiPayload({
+        primary: 'oklch(0.5 0.1 200)',
+        brandingName: 'Live Brand',
+      });
+      const preview = rawApiPayload({
+        primary: 'oklch(0.7 0.2 300)',
+      });
+      // Remove branding.name from preview so it inherits from live.
+      delete (preview.appSettings as Record<string, unknown>).branding;
+
+      const fetchSpy = vi.fn(async (url: string) => {
+        return url.includes('previewKey=preview')
+          ? okResponse(preview)
+          : okResponse(live);
+      });
+      globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+      const result = await resolvePreviewTenant('tenant-a.example.com');
+      expect(result).not.toBeNull();
+      // Preview primary wins
+      expect(result?.theme.colors.primary).toBe('oklch(0.7 0.2 300)');
+      // Branding name inherited from live
+      expect(result?.branding.name).toBe('Live Brand');
+    });
+
+    it('fires both fetches in parallel', async () => {
+      const live = rawApiPayload();
+      const preview = rawApiPayload({ primary: 'oklch(0.7 0.2 300)' });
+
+      let resolveLive: (r: Response) => void = () => {};
+      let resolvePreview: (r: Response) => void = () => {};
+      const livePromise = new Promise<Response>((r) => {
+        resolveLive = r;
+      });
+      const previewPromise = new Promise<Response>((r) => {
+        resolvePreview = r;
+      });
+
+      const fetchSpy = vi.fn((url: string) => {
+        return url.includes('previewKey=preview')
+          ? previewPromise
+          : livePromise;
+      });
+      globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+      const pending = resolvePreviewTenant('tenant-a.example.com');
+
+      // Both fetches must have been called before either resolved.
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      const calledUrls = fetchSpy.mock.calls.map((c) => c[0] as string);
+      expect(calledUrls.some((u) => u.includes('previewKey=preview'))).toBe(
+        true,
+      );
+      expect(calledUrls.some((u) => !u.includes('previewKey=preview'))).toBe(
+        true,
+      );
+
+      resolveLive(okResponse(live));
+      resolvePreview(okResponse(preview));
+      const result = await pending;
+      expect(result).not.toBeNull();
+    });
+
+    it('falls back to live when preview fetch rejects (logs warn)', async () => {
+      const live = rawApiPayload({ brandingName: 'Live Brand' });
+      const fetchSpy = vi.fn(async (url: string) => {
+        if (url.includes('previewKey=preview')) {
+          throw new Error('preview unavailable');
+        }
+        return okResponse(live);
+      });
+      globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+      const result = await resolvePreviewTenant('tenant-a.example.com');
+      expect(result).not.toBeNull();
+      expect(result?.branding.name).toBe('Live Brand');
+      const previewWarnCalls = mockLoggerWarn.mock.calls.filter(
+        ([msg]) =>
+          typeof msg === 'string' &&
+          msg.includes('STORE_SETTINGS_PREVIEW_FETCH_FAILED'),
+      );
+      expect(previewWarnCalls).toHaveLength(1);
+      expect(previewWarnCalls[0]![0]).toContain('tenant-a.example.com');
+    });
+
+    it('returns null when both fetches reject', async () => {
+      const fetchSpy = vi.fn(async () => {
+        throw new Error('network down');
+      });
+      globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+      const result = await resolvePreviewTenant('tenant-a.example.com');
+      expect(result).toBeNull();
+    });
+
+    it('never writes to KV storage', async () => {
+      const live = rawApiPayload();
+      const preview = rawApiPayload({ primary: 'oklch(0.7 0.2 300)' });
+      const fetchSpy = vi.fn(async (url: string) => {
+        return url.includes('previewKey=preview')
+          ? okResponse(preview)
+          : okResponse(live);
+      });
+      globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+      const setItemSpy = vi.fn();
+      const removeItemSpy = vi.fn();
+      mockUseStorage.mockReturnValue({
+        getItem: vi.fn(() => Promise.resolve(null)),
+        setItem: setItemSpy,
+        removeItem: removeItemSpy,
+        hasItem: vi.fn(() => Promise.resolve(false)),
+      });
+
+      const result = await resolvePreviewTenant('tenant-a.example.com');
+      expect(result).not.toBeNull();
+      expect(setItemSpy).not.toHaveBeenCalled();
+      expect(removeItemSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('mergeDeep', () => {
+    it('overlays override values on top of base recursively', () => {
+      const base = { a: 1, nested: { x: 1, y: 2 } };
+      const override = { nested: { y: 99, z: 3 }, b: 'extra' };
+      expect(mergeDeep(base, override)).toEqual({
+        a: 1,
+        nested: { x: 1, y: 99, z: 3 },
+        b: 'extra',
+      });
+    });
+
+    it('keeps falsy override values (empty string, false, null) as winning', () => {
+      const base = { a: 'live', b: true, c: 'keep-me' };
+      const override = { a: '', b: false, c: null };
+      expect(mergeDeep(base, override)).toEqual({ a: '', b: false, c: null });
     });
   });
 });

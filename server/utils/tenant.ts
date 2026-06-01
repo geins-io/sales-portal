@@ -357,7 +357,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-function mergeDeep(
+export function mergeDeep(
   base: Record<string, unknown>,
   override: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -782,6 +782,70 @@ export async function fetchTenantConfig(
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Resolves a tenant config from the merchant API by combining the live
+ * appSettings with the unpublished preview appSettings overlay. Fetches both
+ * payloads in parallel, deep-merges preview values on top of live, and parses
+ * the result through the same resilient pipeline used for the live config.
+ *
+ * No-KV invariant: this function never writes to KV storage. Preview state
+ * must stay request-scoped so it cannot leak into the cached live tenant
+ * config keys. Callers wire this up only when the preview cookie is present.
+ */
+export async function resolvePreviewTenant(
+  hostname: string,
+  event?: H3Event,
+): Promise<TenantConfig | null> {
+  const runtimeConfig = useRuntimeConfig(event);
+  const baseUrl = `${runtimeConfig.geins.tenantApiUrl}?hostname=${hostname}`;
+  const previewUrl = `${baseUrl}&previewKey=preview`;
+
+  const [liveResult, previewResult] = await Promise.allSettled([
+    fetch(baseUrl, { headers: { 'Content-Type': 'application/json' } }),
+    fetch(previewUrl, { headers: { 'Content-Type': 'application/json' } }),
+  ]);
+
+  async function adaptFulfilled(
+    result: PromiseSettledResult<Response>,
+  ): Promise<Record<string, unknown> | null> {
+    if (result.status !== 'fulfilled') return null;
+    const response = result.value;
+    if (!response.ok) return null;
+    try {
+      const raw = (await response.json()) as Record<string, unknown>;
+      return adaptMerchantApiResponse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  const liveAdapted = await adaptFulfilled(liveResult);
+  const previewAdapted = await adaptFulfilled(previewResult);
+
+  let merged: Record<string, unknown> | null;
+  if (liveAdapted && previewAdapted) {
+    merged = mergeDeep(liveAdapted, previewAdapted);
+  } else if (liveAdapted) {
+    logger.warn(
+      `[tenant] STORE_SETTINGS_PREVIEW_FETCH_FAILED: preview fetch failed for ${hostname}, falling back to live appSettings`,
+    );
+    merged = liveAdapted;
+  } else if (previewAdapted) {
+    logger.warn(
+      `[tenant] STORE_SETTINGS_PREVIEW_FETCH_FAILED: live fetch failed for ${hostname}, returning preview-only appSettings`,
+    );
+    merged = previewAdapted;
+  } else {
+    merged = null;
+  }
+
+  if (!merged) return null;
+
+  const settings = parseStoreSettingsResilient(merged, hostname);
+  if (!settings) return null;
+  return buildTenantConfig(settings);
 }
 
 // ---------------------------------------------------------------------------
