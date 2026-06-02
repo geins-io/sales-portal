@@ -14,6 +14,9 @@ export default defineEventHandler(async (event) => {
       );
 
       if (!page) {
+        // Don't let the CDN cache the 404. A freshly-published category would
+        // otherwise stay 404 for the s-maxage window on every edge.
+        setResponseHeader(event, 'Cache-Control', 'no-store');
         throw createAppError(ErrorCode.NOT_FOUND, 'Category page not found');
       }
 

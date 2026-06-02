@@ -14,12 +14,16 @@ const mockSDK = {
   },
 };
 
+let channelVarsReturn: {
+  channelId: string;
+  languageId: string;
+  marketId: string;
+} = { channelId: '1', languageId: 'sv-SE', marketId: 'se' };
+
 vi.mock('../../../server/services/_sdk', () => ({
   getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
   getChannelVariables: vi.fn(),
-  getRequestChannelVariables: vi
-    .fn()
-    .mockReturnValue({ channelId: '1', languageId: 'sv-SE', marketId: 'se' }),
+  getRequestChannelVariables: vi.fn(() => channelVarsReturn),
 }));
 
 // Mock graphql loader (depends on #graphql-queries build-time alias)
@@ -235,7 +239,7 @@ describe('Product List API Routes', () => {
       expect(result).toEqual({ name: 'Shoes', subCategories: [] });
     });
 
-    it('should throw NOT_FOUND when SDK returns null', async () => {
+    it('should throw NOT_FOUND when SDK returns null in default locale', async () => {
       (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue(
         'non-existent',
       );
@@ -243,6 +247,55 @@ describe('Product List API Routes', () => {
 
       const event = createMockEvent();
       await expect(handler(event)).rejects.toThrow('Category page not found');
+    });
+
+    it('sets no-store on a real 404 so the CDN does not pin it', async () => {
+      (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue('missing');
+      mockGraphqlQuery.mockResolvedValue({ categoryPage: null });
+
+      const event = createMockEvent();
+      await expect(handler(event)).rejects.toThrow('Category page not found');
+
+      expect(setResponseHeader).toHaveBeenCalledWith(
+        event,
+        'Cache-Control',
+        'no-store',
+      );
+    });
+
+    it('falls back to the default locale when the requested locale returns null', async () => {
+      (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue(
+        'kategori-1',
+      );
+      channelVarsReturn = {
+        channelId: '1',
+        languageId: 'en-US',
+        marketId: 'se',
+      };
+      mockGraphqlQuery
+        .mockResolvedValueOnce({ categoryPage: null })
+        .mockResolvedValueOnce({
+          categoryPage: { name: 'Kategori 1', id: 1 },
+        });
+
+      const event = createMockEvent();
+      try {
+        const result = await handler(event);
+        expect(result).toEqual({ name: 'Kategori 1', id: 1 });
+        expect(mockGraphqlQuery).toHaveBeenCalledTimes(2);
+        expect(mockGraphqlQuery.mock.calls[0]?.[0].variables.languageId).toBe(
+          'en-US',
+        );
+        expect(mockGraphqlQuery.mock.calls[1]?.[0].variables.languageId).toBe(
+          'sv-SE',
+        );
+      } finally {
+        channelVarsReturn = {
+          channelId: '1',
+          languageId: 'sv-SE',
+          marketId: 'se',
+        };
+      }
     });
 
     it('should throw ZodError for empty alias', async () => {
@@ -285,7 +338,7 @@ describe('Product List API Routes', () => {
       expect(result).toEqual({ name: 'Nike', id: 1 });
     });
 
-    it('should throw NOT_FOUND when SDK returns null', async () => {
+    it('should throw NOT_FOUND when SDK returns null in default locale', async () => {
       (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue(
         'non-existent',
       );
@@ -293,6 +346,51 @@ describe('Product List API Routes', () => {
 
       const event = createMockEvent();
       await expect(handler(event)).rejects.toThrow('Brand page not found');
+    });
+
+    it('sets no-store on a real 404 so the CDN does not pin it', async () => {
+      (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue('missing');
+      mockGraphqlQuery.mockResolvedValue({ brandPage: null });
+
+      const event = createMockEvent();
+      await expect(handler(event)).rejects.toThrow('Brand page not found');
+
+      expect(setResponseHeader).toHaveBeenCalledWith(
+        event,
+        'Cache-Control',
+        'no-store',
+      );
+    });
+
+    it('falls back to the default locale when the requested locale returns null', async () => {
+      (getRouterParam as ReturnType<typeof vi.fn>).mockReturnValue('nike');
+      channelVarsReturn = {
+        channelId: '1',
+        languageId: 'en-US',
+        marketId: 'se',
+      };
+      mockGraphqlQuery
+        .mockResolvedValueOnce({ brandPage: null })
+        .mockResolvedValueOnce({ brandPage: { name: 'Nike', id: 1 } });
+
+      const event = createMockEvent();
+      try {
+        const result = await handler(event);
+        expect(result).toEqual({ name: 'Nike', id: 1 });
+        expect(mockGraphqlQuery).toHaveBeenCalledTimes(2);
+        expect(mockGraphqlQuery.mock.calls[0]?.[0].variables.languageId).toBe(
+          'en-US',
+        );
+        expect(mockGraphqlQuery.mock.calls[1]?.[0].variables.languageId).toBe(
+          'sv-SE',
+        );
+      } finally {
+        channelVarsReturn = {
+          channelId: '1',
+          languageId: 'sv-SE',
+          marketId: 'se',
+        };
+      }
     });
 
     it('should throw ZodError for empty alias', async () => {

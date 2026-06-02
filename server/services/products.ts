@@ -2,6 +2,7 @@ import type { H3Event } from 'h3';
 import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
+import { resolveWithLocaleFallback } from './_locale-fallback';
 
 /**
  * Product services — direct GraphQL via @geins/core.
@@ -13,35 +14,15 @@ export async function getProduct(
   args: { alias: string; userToken?: string },
   event: H3Event,
 ): Promise<unknown> {
-  const sdk = await getTenantSDK(event);
-  const channelVars = getRequestChannelVariables(sdk, event);
-  const queryAsString = loadQuery('products/product.graphql');
-
-  const runQuery = (languageId: string) =>
-    wrapServiceCall(
-      () =>
-        sdk.core.graphql.query({
-          queryAsString,
-          variables: { alias: args.alias, ...channelVars, languageId },
-          userToken: args.userToken,
-        }),
-      'products',
-    );
-
-  const first = unwrapGraphQL(await runQuery(channelVars.languageId));
-
-  // Geins's product(alias:, languageId:) returns null when the product is not
-  // published in the requested language. Fall back to the tenant's default
-  // locale so the PDP renders (with default-language content) instead of 404.
-  const defaultLanguageId = sdk.core.geinsSettings.locale;
-  if (
-    first == null &&
-    defaultLanguageId &&
-    defaultLanguageId !== channelVars.languageId
-  ) {
-    return unwrapGraphQL(await runQuery(defaultLanguageId));
-  }
-  return first;
+  return resolveWithLocaleFallback(
+    {
+      queryPath: 'products/product.graphql',
+      variables: { alias: args.alias },
+      serviceName: 'products',
+      userToken: args.userToken,
+    },
+    event,
+  );
 }
 
 /**
