@@ -14,6 +14,11 @@ import {
   stripLocaleMarketPrefix,
 } from '#shared/utils/locale-market';
 import { hasPageTag } from '#shared/utils/cms-tags';
+import {
+  categoryPath,
+  productPath,
+  brandPath,
+} from '#shared/utils/route-helpers';
 import type { ContentPageType } from '#shared/types/cms';
 import { CMS_MENUS, CMS_TAGS } from '#shared/constants/cms';
 
@@ -44,13 +49,78 @@ const {
   dedupe: 'defer',
 });
 
-// Propagate HTTP 404 when the CMS page doesn't exist.
-if (error.value || (!page.value?.id && !page.value?.containers?.length)) {
+/** Maps a resolver entity `type` to its locale-free type-prefixed path builder. */
+const pathBuilders = {
+  product: productPath,
+  category: categoryPath,
+  brand: brandPath,
+} as const;
+
+type ResolvedEntityUrl =
+  | { type: keyof typeof pathBuilders; canonicalUrl: string }
+  | { redirect: string }
+  | null;
+
+function throwNotFound(): never {
   throw createError({
     statusCode: 404,
     statusMessage: 'Not Found',
     fatal: true,
   });
+}
+
+/**
+ * Normalize a `urlHistory` redirect target (a renamed slug) to a routable,
+ * locale-prefixed path. The history record carries a bare url with no entity
+ * type, so we only re-apply the current locale prefix; a renamed slug is a
+ * different path than the current one, so this cannot loop. Returns null when
+ * the target would equal the current path (defensive against a self-referential
+ * history record), forcing a 404.
+ */
+function normalizeRedirect(newUrl: string): string | null {
+  const target = localePath(stripLocaleMarketPrefix(newUrl));
+  return target && target !== route.path ? target : null;
+}
+
+// Propagate HTTP 404 when the CMS page doesn't exist, but first run the inbound
+// resolver: a prefix-less entity canonical (pasted Geins url, stale bookmark) or
+// a renamed slug should 301-redirect to its typed route instead of 404ing. The
+// resolver fetch is gated behind the CMS miss so CMS hits never trigger it.
+const cmsMissed =
+  Boolean(error.value) ||
+  (!page.value?.id && !page.value?.containers?.length);
+
+if (cmsMissed) {
+  // useFetch auto-forwards cookie + host for page-level loads, so the resolver
+  // sees the same tenant/auth context during SSR (see app/utils/internal-fetch.ts).
+  const { data: resolved, error: resolveError } =
+    await useFetch<ResolvedEntityUrl>('/api/resolve-url', {
+      query: { path: route.path },
+      dedupe: 'defer',
+    });
+
+  const r = resolveError.value ? null : resolved.value;
+
+  if (r && 'type' in r && r.canonicalUrl) {
+    const build = pathBuilders[r.type];
+    const target = localePath(build(r.canonicalUrl));
+    if (target !== route.path) {
+      // SSR-safe: navigateTo with redirectCode works in setup during SSR
+      // (proven by app/pages/search.vue). No client-only guard.
+      await navigateTo(target, { redirectCode: 301, replace: true });
+    } else {
+      throwNotFound();
+    }
+  } else if (r && 'redirect' in r && r.redirect) {
+    const target = normalizeRedirect(r.redirect);
+    if (target) {
+      await navigateTo(target, { redirectCode: 301, replace: true });
+    } else {
+      throwNotFound();
+    }
+  } else {
+    throwNotFound();
+  }
 }
 
 // SEO: canonical + hreflang tags
