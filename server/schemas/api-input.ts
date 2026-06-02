@@ -330,3 +330,11 @@ export type ListQuotesInput = z.infer<typeof ListQuotesSchema>;
 
 // Saved-list schemas removed — saved lists are entirely client-side
 // (SDK ListsSession + localStorage). See `docs/patterns/lists.md`.
+
+// ---------------------------------------------------------------------------
+// Inbound URL resolver (404-miss safety net, see server/services/url-resolver.ts)
+// ---------------------------------------------------------------------------
+export const ResolveUrlSchema = z.object({
+  path: z.string().min(1).max(500),
+});
+export type ResolveUrlInput = z.infer<typeof ResolveUrlSchema>;

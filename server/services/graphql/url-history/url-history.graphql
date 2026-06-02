@@ -1,0 +1,16 @@
+query urlHistory(
+  $url: String!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  urlHistory(
+    url: $url
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    oldUrl
+    newUrl
+  }
+}
