@@ -87,6 +87,39 @@ const { data: related } = useFetch<ListProduct[]>(
 // Variant state
 const selectedVariants = ref<Record<string, string>>({});
 
+// Seed the selector with the product's own active variant so the trigger
+// shows the current variant name and the matching row is highlighted in
+// the sheet, instead of the empty "Select" placeholder. Sibling-variant
+// products expose each variant as its own product alias; the variant the
+// user is currently viewing is the one whose alias matches this product's
+// alias. Seeding the current alias's own value is a no-op for the
+// navigation watch below (its `picked.alias === product.alias` guard
+// returns early), so this never triggers a redirect.
+function currentVariantSelection(
+  p: DetailProduct | null | undefined,
+): Record<string, string> | null {
+  const variants = p?.variantGroup?.variants ?? [];
+  const current = variants.find(
+    (v) => (v as { alias?: string | null }).alias === p?.alias,
+  );
+  if (!current) return null;
+  const dimension = (current as { dimension?: string | null }).dimension;
+  const value =
+    (current as { value?: string | null }).value ??
+    (current as { label?: string | null }).label;
+  if (!dimension || value == null) return null;
+  return { [dimension]: value };
+}
+
+watch(
+  product,
+  (p) => {
+    const seeded = currentVariantSelection(p);
+    if (seeded) selectedVariants.value = seeded;
+  },
+  { immediate: true },
+);
+
 const resolvedSku = computed(() => {
   if (!product.value?.variantGroup?.variants?.length) {
     return product.value?.skus?.[0] ?? null;

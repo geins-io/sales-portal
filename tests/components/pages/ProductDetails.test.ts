@@ -362,4 +362,90 @@ describe('ProductDetails', () => {
       ).toBe(false);
     });
   });
+
+  describe('current variant seeding', () => {
+    // Capture the modelValue the variant selector receives. Reads it in the
+    // render fn so the latest value (after the immediate seed watch) wins.
+    // The template tag is <VariantSelector>, so that is the stub key.
+    function captureSelector(sink: { value: Record<string, string> }) {
+      return defineComponent({
+        props: ['modelValue', 'variantDimensions', 'variants'],
+        setup(p) {
+          return () => {
+            sink.value = {
+              ...((p.modelValue as Record<string, string>) ?? {}),
+            };
+            return h('div', { 'data-testid': 'variant-selector-stub' });
+          };
+        },
+      });
+    }
+
+    function stubsWith(sink: { value: Record<string, string> }) {
+      return { ...defaultStubs, VariantSelector: captureSelector(sink) };
+    }
+
+    it('seeds the selector with the active sibling variant', async () => {
+      const sink = { value: {} as Record<string, string> };
+      mockProduct.value = makeProduct({
+        alias: 'grenror-150-150-88',
+        variantDimensions: [{ dimension: 'Variant', value: '88' }],
+        variantGroup: {
+          variants: [
+            { alias: 'grenror-150-150-88', dimension: 'Variant', value: '88' },
+            { alias: 'grenror-150-150-90', dimension: 'Variant', value: '90' },
+          ],
+        },
+      });
+
+      await mountProductDetails(
+        { alias: 'grenror-150-150-88' },
+        { global: { stubs: stubsWith(sink) } },
+      );
+
+      expect(sink.value).toEqual({ Variant: '88' });
+    });
+
+    it('falls back to the variant label when value is absent', async () => {
+      const sink = { value: {} as Record<string, string> };
+      mockProduct.value = makeProduct({
+        alias: 'grenror-150-150-88',
+        variantDimensions: [{ dimension: 'Variant', value: '88' }],
+        variantGroup: {
+          variants: [
+            { alias: 'grenror-150-150-88', dimension: 'Variant', label: '88' },
+            { alias: 'grenror-150-150-90', dimension: 'Variant', label: '90' },
+          ],
+        },
+      });
+
+      await mountProductDetails(
+        { alias: 'grenror-150-150-88' },
+        { global: { stubs: stubsWith(sink) } },
+      );
+
+      expect(sink.value).toEqual({ Variant: '88' });
+    });
+
+    it('leaves the selection empty when no variant alias matches the product', async () => {
+      const sink = { value: { seeded: 'no' } as Record<string, string> };
+      mockProduct.value = makeProduct({
+        alias: 'parent-product',
+        variantDimensions: [{ dimension: 'Variant', value: 'A' }],
+        variantGroup: {
+          variants: [
+            { alias: 'child-a', dimension: 'Variant', value: 'A' },
+            { alias: 'child-b', dimension: 'Variant', value: 'B' },
+          ],
+        },
+      });
+
+      await mountProductDetails(
+        { alias: 'parent-product' },
+        { global: { stubs: stubsWith(sink) } },
+      );
+
+      expect(sink.value).toEqual({});
+    });
+  });
 });
