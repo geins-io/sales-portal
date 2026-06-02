@@ -7,12 +7,19 @@ import type { LocaleAlternateUrl } from '#shared/types/commerce';
 // ---------------------------------------------------------------------------
 
 const mockAvailableLocales = ref<string[]>(['sv', 'en']);
+const mockCurrentMarket = ref<string>('se');
 const localeAlternatesState = ref<Record<string, string>>({});
 let afterEachHandler: (() => void) | null = null;
 
 vi.mock('~/composables/useTenant', () => ({
   useTenant: () => ({
     availableLocales: computed(() => mockAvailableLocales.value),
+  }),
+}));
+
+vi.mock('~/composables/useLocaleMarket', () => ({
+  useLocaleMarket: () => ({
+    currentMarket: computed(() => mockCurrentMarket.value),
   }),
 }));
 
@@ -45,6 +52,9 @@ vi.stubGlobal(
     return localeAlternatesState;
   },
 );
+vi.stubGlobal('useLocaleMarket', () => ({
+  currentMarket: computed(() => mockCurrentMarket.value),
+}));
 vi.stubGlobal('useRouter', () => ({
   afterEach: (fn: () => void) => {
     afterEachHandler = fn;
@@ -52,139 +62,152 @@ vi.stubGlobal('useRouter', () => ({
 }));
 
 // Import after mocks/stubs are in place
-const { useLocaleAlternates, mapAlternatesToShortCodes } =
+const { useLocaleAlternates, mapAlternatesToShortCodes, normalizeAlternatePath } =
   await import('~/composables/useLocaleAlternates');
 
 function entry(over: Partial<LocaleAlternateUrl>): LocaleAlternateUrl {
   return {
     language: 'en',
-    culture: 'en-US',
-    country: 'US',
-    url: '/se/en/p/cutting-edge',
-    channelId: '1',
+    culture: 'en-SE',
+    country: 'SE',
+    url: '/se/en/materials/x',
+    channelId: '1|se',
     ...over,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Pure helper: normalizeAlternatePath
+// ---------------------------------------------------------------------------
+
+describe('normalizeAlternatePath', () => {
+  it('injects /p/ into a prefix-less product path (tenant-a shape)', () => {
+    expect(
+      normalizeAlternatePath(
+        '/se/en/materials/branch-pipes/manifold-150-150-88',
+        'p',
+      ),
+    ).toBe('/se/en/p/materials/branch-pipes/manifold-150-150-88');
+  });
+
+  it('injects /c/ into a prefix-less category path', () => {
+    expect(
+      normalizeAlternatePath('/se/en/materials/branch-pipes', 'c'),
+    ).toBe('/se/en/c/materials/branch-pipes');
+  });
+
+  it('leaves an already-prefixed path unchanged (tinatest shape, no /p/p/)', () => {
+    expect(
+      normalizeAlternatePath('/se/en/p/category-1/cutting-edge', 'p'),
+    ).toBe('/se/en/p/category-1/cutting-edge');
+  });
+
+  it('drops query and hash from the normalized path', () => {
+    expect(
+      normalizeAlternatePath('/se/en/materials/x?foo=1#bar', 'p'),
+    ).toBe('/se/en/p/materials/x');
+  });
+
+  it('rejects absolute, protocol-relative, and too-few-segment paths', () => {
+    expect(normalizeAlternatePath('https://evil.example/x', 'p')).toBeNull();
+    expect(normalizeAlternatePath('//evil/x', 'p')).toBeNull();
+    expect(normalizeAlternatePath('cutting-edge', 'p')).toBeNull();
+    expect(normalizeAlternatePath('/se/en', 'p')).toBeNull();
+    expect(normalizeAlternatePath('/SE/EN/x', 'p')).toBeNull();
+    expect(normalizeAlternatePath(123 as unknown as string, 'p')).toBeNull();
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Pure helper: mapAlternatesToShortCodes
 // ---------------------------------------------------------------------------
 
 describe('mapAlternatesToShortCodes', () => {
-  const available = ['sv', 'en'];
+  const opts = {
+    availableShort: ['sv', 'en'],
+    currentMarket: 'se',
+    typePrefix: 'p',
+  };
 
-  it('maps culture en-US to short code en', () => {
+  it('picks the current-market entry and drops other markets', () => {
     expect(
       mapAlternatesToShortCodes(
         [
-          entry({
-            culture: 'en-US',
-            language: 'en',
-            url: '/se/en/p/cutting-edge',
-          }),
+          entry({ culture: 'en-SE', url: '/se/en/materials/x' }),
+          entry({ culture: 'en-FI', url: '/fi/en/materials/x' }),
         ],
-        available,
+        opts,
       ),
-    ).toEqual({ en: '/se/en/p/cutting-edge' });
+    ).toEqual({ en: '/se/en/p/materials/x' });
   });
 
-  it('maps culture sv-SE to sv', () => {
+  it('maps both sv and en for the current market', () => {
     expect(
       mapAlternatesToShortCodes(
         [
-          entry({
-            culture: 'sv-SE',
-            language: 'sv',
-            url: '/se/sv/p/cutting-edge',
-          }),
+          entry({ culture: 'en-SE', language: 'en', url: '/se/en/materials/x' }),
+          entry({ culture: 'sv-SE', language: 'sv', url: '/se/sv/materials/x' }),
         ],
-        available,
+        opts,
       ),
-    ).toEqual({ sv: '/se/sv/p/cutting-edge' });
+    ).toEqual({
+      en: '/se/en/p/materials/x',
+      sv: '/se/sv/p/materials/x',
+    });
   });
 
-  it('falls back to language when culture missing/blank', () => {
+  it('dedups identical same-market urls across channels (last-wins, one key)', () => {
     expect(
       mapAlternatesToShortCodes(
-        [entry({ culture: '', language: 'en', url: '/se/en/c/category-1' })],
-        available,
+        [
+          entry({ culture: 'en-SE', url: '/se/en/materials/x', channelId: '1|se' }),
+          entry({ culture: 'en-SE', url: '/se/en/materials/x', channelId: '2|se' }),
+        ],
+        opts,
       ),
-    ).toEqual({ en: '/se/en/c/category-1' });
+    ).toEqual({ en: '/se/en/p/materials/x' });
   });
 
-  it('drops entries whose short code is not in tenant available locales', () => {
+  it('drops locales not in tenant available short codes', () => {
     expect(
       mapAlternatesToShortCodes(
-        [entry({ culture: 'de-DE', language: 'de', url: '/se/de/p/x' })],
-        available,
+        [entry({ culture: 'de-SE', language: 'de', url: '/se/de/materials/x' })],
+        opts,
       ),
     ).toEqual({});
   });
 
-  it('drops malformed urls (absolute, protocol-relative, prefix-less)', () => {
+  it('falls back to language when culture is blank', () => {
     expect(
       mapAlternatesToShortCodes(
-        [entry({ culture: 'en-US', url: 'https://evil.example/x' })],
-        available,
+        [entry({ culture: '', language: 'en', url: '/se/en/materials/x' })],
+        opts,
       ),
-    ).toEqual({});
-    expect(
-      mapAlternatesToShortCodes(
-        [entry({ culture: 'en-US', url: '//evil/x' })],
-        available,
-      ),
-    ).toEqual({});
-    expect(
-      mapAlternatesToShortCodes(
-        [entry({ culture: 'en-US', url: 'cutting-edge' })],
-        available,
-      ),
-    ).toEqual({});
+    ).toEqual({ en: '/se/en/p/materials/x' });
   });
 
-  it('keeps well-formed type-prefixed paths for p/c/b/l', () => {
+  it('leaves already-prefixed current-market urls unchanged', () => {
     expect(
       mapAlternatesToShortCodes(
-        [entry({ culture: 'en-US', url: '/se/en/p/prod' })],
-        available,
+        [entry({ culture: 'en-SE', url: '/se/en/p/category-1/cutting-edge' })],
+        opts,
       ),
-    ).toEqual({ en: '/se/en/p/prod' });
-    expect(
-      mapAlternatesToShortCodes(
-        [entry({ culture: 'en-US', url: '/se/en/c/cat' })],
-        available,
-      ),
-    ).toEqual({ en: '/se/en/c/cat' });
-    expect(
-      mapAlternatesToShortCodes(
-        [entry({ culture: 'en-US', url: '/se/en/b/brand' })],
-        available,
-      ),
-    ).toEqual({ en: '/se/en/b/brand' });
-    expect(
-      mapAlternatesToShortCodes(
-        [entry({ culture: 'en-US', url: '/se/en/l/list' })],
-        available,
-      ),
-    ).toEqual({ en: '/se/en/l/list' });
+    ).toEqual({ en: '/se/en/p/category-1/cutting-edge' });
   });
 
-  it('handles null/empty entries array', () => {
-    expect(mapAlternatesToShortCodes(null, available)).toEqual({});
-    expect(mapAlternatesToShortCodes(undefined, available)).toEqual({});
-    expect(mapAlternatesToShortCodes([], available)).toEqual({});
-  });
-
-  it('tolerates null entries inside the array', () => {
+  it('handles null/empty entries and tolerates null array members', () => {
+    expect(mapAlternatesToShortCodes(null, opts)).toEqual({});
+    expect(mapAlternatesToShortCodes(undefined, opts)).toEqual({});
+    expect(mapAlternatesToShortCodes([], opts)).toEqual({});
     expect(
       mapAlternatesToShortCodes(
         [
           null as unknown as LocaleAlternateUrl,
-          entry({ culture: 'en-US', url: '/se/en/p/prod' }),
+          entry({ culture: 'en-SE', url: '/se/en/materials/x' }),
         ],
-        available,
+        opts,
       ),
-    ).toEqual({ en: '/se/en/p/prod' });
+    ).toEqual({ en: '/se/en/p/materials/x' });
   });
 });
 
@@ -193,52 +216,74 @@ describe('mapAlternatesToShortCodes', () => {
 // ---------------------------------------------------------------------------
 
 describe('useLocaleAlternates', () => {
+  const productAlternates: LocaleAlternateUrl[] = [
+    entry({
+      culture: 'en-SE',
+      language: 'en',
+      url: '/se/en/materials/branch-pipes/manifold-150-150-88',
+    }),
+    entry({
+      culture: 'sv-SE',
+      language: 'sv',
+      url: '/se/sv/material/grenror/grenror-150-150-88',
+    }),
+    entry({
+      culture: 'en-FI',
+      language: 'en',
+      url: '/fi/en/materials/branch-pipes/manifold-150-150-88',
+    }),
+  ];
+
   beforeEach(() => {
     localeAlternatesState.value = {};
     mockAvailableLocales.value = ['sv', 'en'];
+    mockCurrentMarket.value = 'se';
     // afterEachHandler is intentionally NOT reset: the composable registers
-    // its router.afterEach exactly once (module-level guard), so the handler
-    // captured on the first call stays valid for the whole suite.
+    // its router.afterEach exactly once (module-level guard).
   });
 
-  it('setAlternates populates alternates and hrefFor returns the url', () => {
+  it('setAlternates(product) injects /p/ and drops the /fi/ sibling', () => {
     const { alternates, setAlternates, hrefFor } = useLocaleAlternates();
-    setAlternates([
-      entry({ culture: 'en-US', url: '/se/en/p/prod' }),
-      entry({ culture: 'sv-SE', language: 'sv', url: '/se/sv/p/prod' }),
-    ]);
+    setAlternates(productAlternates, { type: 'product' });
     expect(alternates.value).toEqual({
-      en: '/se/en/p/prod',
-      sv: '/se/sv/p/prod',
+      en: '/se/en/p/materials/branch-pipes/manifold-150-150-88',
+      sv: '/se/sv/p/material/grenror/grenror-150-150-88',
     });
-    expect(hrefFor('en')).toBe('/se/en/p/prod');
+    expect(hrefFor('en')).toBe(
+      '/se/en/p/materials/branch-pipes/manifold-150-150-88',
+    );
+    expect(hrefFor('sv')).toBe(
+      '/se/sv/p/material/grenror/grenror-150-150-88',
+    );
   });
 
-  it('hrefFor returns undefined for a locale with no alternate', () => {
+  it('setAlternates(category) injects /c/', () => {
     const { setAlternates, hrefFor } = useLocaleAlternates();
-    setAlternates([entry({ culture: 'en-US', url: '/se/en/p/prod' })]);
+    setAlternates(
+      [entry({ culture: 'en-SE', url: '/se/en/materials/branch-pipes' })],
+      { type: 'category' },
+    );
+    expect(hrefFor('en')).toBe('/se/en/c/materials/branch-pipes');
+  });
+
+  it('hrefFor returns undefined for a locale with no current-market alternate', () => {
+    const { setAlternates, hrefFor } = useLocaleAlternates();
+    setAlternates(
+      [entry({ culture: 'en-SE', url: '/se/en/materials/x' })],
+      { type: 'product' },
+    );
     expect(hrefFor('sv')).toBeUndefined();
   });
 
-  it('setAlternates with null/empty assigns an empty record', () => {
-    const { alternates, setAlternates } = useLocaleAlternates();
-    setAlternates([entry({ culture: 'en-US', url: '/se/en/p/prod' })]);
-    setAlternates(null);
-    expect(alternates.value).toEqual({});
-  });
-
-  it('clear empties the record', () => {
+  it('clear empties the record; route change clears too', () => {
     const { alternates, setAlternates, clear } = useLocaleAlternates();
-    setAlternates([entry({ culture: 'en-US', url: '/se/en/p/prod' })]);
+    setAlternates(productAlternates, { type: 'product' });
+    expect(Object.keys(alternates.value).length).toBeGreaterThan(0);
+
     clear();
     expect(alternates.value).toEqual({});
-  });
 
-  it('route change clears alternates', () => {
-    const { alternates, setAlternates } = useLocaleAlternates();
-    setAlternates([entry({ culture: 'en-US', url: '/se/en/p/prod' })]);
-    expect(alternates.value).toEqual({ en: '/se/en/p/prod' });
-
+    setAlternates(productAlternates, { type: 'product' });
     expect(afterEachHandler).toBeTypeOf('function');
     afterEachHandler!();
     expect(alternates.value).toEqual({});
