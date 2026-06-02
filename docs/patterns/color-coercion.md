@@ -117,9 +117,10 @@ and do not depend on culori's API surface.
 
 ## Regression fixture
 
-`tests/fixtures/store-settings/elproman.json` contains a real-world payload that
-triggered the original outage (8-digit RGBA hex in `topBarBackground`). The fixture is
-parsed by `tests/server/tenant.test.ts` to assert that:
+`tests/fixtures/store-settings/partial-payload.json` contains a real-world payload
+shape that triggered the original outage (8-digit RGBA hex in `topBarBackground`,
+surface-only color palette with no core colors). The fixture is parsed by
+`tests/server/tenant.test.ts` to assert that:
 
 - The fixture parses to a non-null tenant config.
 - The core color keys are all populated (either from the input or via backfill).
@@ -129,8 +130,8 @@ parsed by `tests/server/tenant.test.ts` to assert that:
 Three additional scorched-earth tests in the same file assert that every color field
 can be set to garbage simultaneously and the tenant still loads.
 
-Add a fixture when a new real-world failure mode is found. Keep fixture filenames
-keyed to the tenant identifier in the failing payload.
+Add a fixture when a new real-world failure mode is found. Name fixtures by the
+behaviour they cover, not by the tenant they came from.
 
 ## Related
 
@@ -139,4 +140,4 @@ keyed to the tenant identifier in the failing payload.
 - `server/utils/color-coercion.ts`
 - `server/utils/tenant.ts`
 - `server/schemas/store-settings.ts`
-- `tests/fixtures/store-settings/elproman.json`
+- `tests/fixtures/store-settings/partial-payload.json`
