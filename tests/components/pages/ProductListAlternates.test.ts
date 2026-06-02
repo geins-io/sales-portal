@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import type { LocaleAlternateUrl } from '#shared/types/commerce';
 
 // ---------------------------------------------------------------------------
-// Proves the SAL-256 data path END TO END for the PLP publisher:
+// Proves the cross-locale alternate data path END TO END for the PLP publisher:
 //   ProductList.vue calls setAlternates(pageInfo.alternativeUrls, { type:
 //   props.type }) where props.type is 'category' | 'brand'. Drives the real
 //   useLocaleAlternates composable (002) with the LIVE-VERIFIED tenant-a
@@ -82,7 +82,7 @@ const categoryAlternativeUrls: LocaleAlternateUrl[] = [
   },
 ];
 
-describe('ProductList publishes PLP alternates (SAL-256 data path)', () => {
+describe('ProductList publishes PLP alternates', () => {
   beforeEach(() => {
     localeAlternatesState.value = {};
     mockAvailableLocales.value = ['sv', 'en'];
@@ -109,7 +109,7 @@ describe('ProductList publishes PLP alternates (SAL-256 data path)', () => {
   it('setAlternates(null) clears when pageInfo is null (404 guard)', () => {
     const { setAlternates, hrefFor } = useLocaleAlternates();
     setAlternates(categoryAlternativeUrls, { type: 'category' });
-    expect(hrefFor('en')).toBeDefined();
+    expect(hrefFor('en')).toBe('/se/en/c/materials/branch-pipes');
 
     setAlternates(null, { type: 'category' });
     expect(hrefFor('en')).toBeUndefined();

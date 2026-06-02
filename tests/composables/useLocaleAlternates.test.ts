@@ -62,8 +62,11 @@ vi.stubGlobal('useRouter', () => ({
 }));
 
 // Import after mocks/stubs are in place
-const { useLocaleAlternates, mapAlternatesToShortCodes, normalizeAlternatePath } =
-  await import('~/composables/useLocaleAlternates');
+const {
+  useLocaleAlternates,
+  mapAlternatesToShortCodes,
+  normalizeAlternatePath,
+} = await import('~/composables/useLocaleAlternates');
 
 function entry(over: Partial<LocaleAlternateUrl>): LocaleAlternateUrl {
   return {
@@ -91,9 +94,9 @@ describe('normalizeAlternatePath', () => {
   });
 
   it('injects /c/ into a prefix-less category path', () => {
-    expect(
-      normalizeAlternatePath('/se/en/materials/branch-pipes', 'c'),
-    ).toBe('/se/en/c/materials/branch-pipes');
+    expect(normalizeAlternatePath('/se/en/materials/branch-pipes', 'c')).toBe(
+      '/se/en/c/materials/branch-pipes',
+    );
   });
 
   it('leaves an already-prefixed path unchanged (tinatest shape, no /p/p/)', () => {
@@ -103,9 +106,9 @@ describe('normalizeAlternatePath', () => {
   });
 
   it('drops query and hash from the normalized path', () => {
-    expect(
-      normalizeAlternatePath('/se/en/materials/x?foo=1#bar', 'p'),
-    ).toBe('/se/en/p/materials/x');
+    expect(normalizeAlternatePath('/se/en/materials/x?foo=1#bar', 'p')).toBe(
+      '/se/en/p/materials/x',
+    );
   });
 
   it('rejects absolute, protocol-relative, and too-few-segment paths', () => {
@@ -145,8 +148,16 @@ describe('mapAlternatesToShortCodes', () => {
     expect(
       mapAlternatesToShortCodes(
         [
-          entry({ culture: 'en-SE', language: 'en', url: '/se/en/materials/x' }),
-          entry({ culture: 'sv-SE', language: 'sv', url: '/se/sv/materials/x' }),
+          entry({
+            culture: 'en-SE',
+            language: 'en',
+            url: '/se/en/materials/x',
+          }),
+          entry({
+            culture: 'sv-SE',
+            language: 'sv',
+            url: '/se/sv/materials/x',
+          }),
         ],
         opts,
       ),
@@ -160,8 +171,16 @@ describe('mapAlternatesToShortCodes', () => {
     expect(
       mapAlternatesToShortCodes(
         [
-          entry({ culture: 'en-SE', url: '/se/en/materials/x', channelId: '1|se' }),
-          entry({ culture: 'en-SE', url: '/se/en/materials/x', channelId: '2|se' }),
+          entry({
+            culture: 'en-SE',
+            url: '/se/en/materials/x',
+            channelId: '1|se',
+          }),
+          entry({
+            culture: 'en-SE',
+            url: '/se/en/materials/x',
+            channelId: '2|se',
+          }),
         ],
         opts,
       ),
@@ -171,7 +190,13 @@ describe('mapAlternatesToShortCodes', () => {
   it('drops locales not in tenant available short codes', () => {
     expect(
       mapAlternatesToShortCodes(
-        [entry({ culture: 'de-SE', language: 'de', url: '/se/de/materials/x' })],
+        [
+          entry({
+            culture: 'de-SE',
+            language: 'de',
+            url: '/se/de/materials/x',
+          }),
+        ],
         opts,
       ),
     ).toEqual({});
@@ -184,6 +209,38 @@ describe('mapAlternatesToShortCodes', () => {
         opts,
       ),
     ).toEqual({ en: '/se/en/p/materials/x' });
+  });
+
+  it('falls back to language when culture does not collapse to 2 letters', () => {
+    expect(
+      mapAlternatesToShortCodes(
+        [
+          entry({
+            culture: 'english',
+            language: 'sv',
+            url: '/se/sv/material/x',
+            channelId: '1',
+          }),
+        ],
+        opts,
+      ),
+    ).toEqual({ sv: '/se/sv/p/material/x' });
+  });
+
+  it('drops the entry when neither culture nor language yields a 2-letter code', () => {
+    expect(
+      mapAlternatesToShortCodes(
+        [
+          entry({
+            culture: 'english',
+            language: 'svenska',
+            url: '/se/sv/material/x',
+            channelId: '1',
+          }),
+        ],
+        opts,
+      ),
+    ).toEqual({});
   });
 
   it('leaves already-prefixed current-market urls unchanged', () => {
@@ -252,9 +309,7 @@ describe('useLocaleAlternates', () => {
     expect(hrefFor('en')).toBe(
       '/se/en/p/materials/branch-pipes/manifold-150-150-88',
     );
-    expect(hrefFor('sv')).toBe(
-      '/se/sv/p/material/grenror/grenror-150-150-88',
-    );
+    expect(hrefFor('sv')).toBe('/se/sv/p/material/grenror/grenror-150-150-88');
   });
 
   it('setAlternates(category) injects /c/', () => {
@@ -268,10 +323,9 @@ describe('useLocaleAlternates', () => {
 
   it('hrefFor returns undefined for a locale with no current-market alternate', () => {
     const { setAlternates, hrefFor } = useLocaleAlternates();
-    setAlternates(
-      [entry({ culture: 'en-SE', url: '/se/en/materials/x' })],
-      { type: 'product' },
-    );
+    setAlternates([entry({ culture: 'en-SE', url: '/se/en/materials/x' })], {
+      type: 'product',
+    });
     expect(hrefFor('sv')).toBeUndefined();
   });
 

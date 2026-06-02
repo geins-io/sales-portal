@@ -153,7 +153,7 @@ describe('LocaleSwitcher logic', () => {
     });
 
     it('cross-locale switch lands on the correct target slug', () => {
-      // SAL-256 regression: on the SV slug `skarkant`, switching to EN must
+      // Regression: on the SV slug `skarkant`, switching to EN must
       // resolve to the published EN slug `cutting-edge`, never the SV slug.
       const hrefFor = (loc: string) =>
         loc === 'en' ? '/se/en/p/material/cutting-edge' : undefined;

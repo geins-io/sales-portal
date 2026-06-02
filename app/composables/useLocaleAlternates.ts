@@ -26,7 +26,7 @@ import type { LocaleAlternateUrl } from '#shared/types/commerce';
  *  - other tenants (e.g. tinatest) DO carry the prefix
  *    (`/se/en/p/category-1/cutting-edge`); we leave those untouched (no /p/p/).
  *
- * HARD BLOCK: this composable only reads/derives — it must never write the
+ * HARD BLOCK: this composable only reads/derives; it must never write the
  * locale cookie. Short URL-locale codes are derived from the culture/language
  * fields and validated against tenant available locales; they are never
  * hardcoded.
@@ -59,7 +59,7 @@ const TYPE_PREFIX_BY_TYPE: Record<'product' | 'category' | 'brand', string> = {
  * its safe clean-path default instead of navigating off-origin or to a 404.
  *
  * Pure and exported so tests can exercise the inject / leave-as-is / reject
- * matrix without a Nuxt context. Query/hash are dropped — alternates are
+ * matrix without a Nuxt context. Query/hash are dropped; alternates are
  * canonical pages.
  */
 export function normalizeAlternatePath(
@@ -120,7 +120,7 @@ function marketSegmentOf(url: string): string | undefined {
 }
 
 /**
- * Pure mapping helper — exported so tests can exercise the market-filter,
+ * Pure mapping helper, exported so tests can exercise the market-filter,
  * culture/language -> short-code mapping, prefix-injection and dedup matrix
  * without a Nuxt context.
  *
@@ -172,6 +172,10 @@ export function useLocaleAlternates() {
     const available = availableLocales.value.filter(
       (l): l is string => typeof l === 'string' && l.length > 0,
     );
+    // currentMarket is read here at publish time (a snapshot), not subscribed
+    // to. This is safe because locale and market switches are full-page reloads:
+    // the component remounts and re-publishes against the fresh market, so a
+    // stale-market alternate can never persist across a switch.
     state.value = mapAlternatesToShortCodes(entries, {
       availableShort: available,
       currentMarket: currentMarket.value,
@@ -187,7 +191,7 @@ export function useLocaleAlternates() {
     return state.value[short];
   }
 
-  if (!afterEachRegistered) {
+  if (import.meta.client && !afterEachRegistered) {
     afterEachRegistered = true;
     useRouter().afterEach(() => {
       clear();

@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import type { LocaleAlternateUrl } from '#shared/types/commerce';
 
 // ---------------------------------------------------------------------------
-// Proves the SAL-256 data path END TO END for the PDP publisher:
+// Proves the cross-locale alternate data path END TO END for the PDP publisher:
 //   ProductDetails.vue calls setAlternates(product.alternativeUrls, { type:
 //   'product' }); LocaleSwitcher.vue reads hrefFor(loc). Here we drive the
 //   real useLocaleAlternates composable (002) with the LIVE-VERIFIED tenant-a
@@ -91,7 +91,7 @@ const productAlternativeUrls: LocaleAlternateUrl[] = [
   },
 ];
 
-describe('ProductDetails publishes product alternates (SAL-256 data path)', () => {
+describe('ProductDetails publishes product alternates', () => {
   beforeEach(() => {
     localeAlternatesState.value = {};
     mockAvailableLocales.value = ['sv', 'en'];
@@ -121,7 +121,9 @@ describe('ProductDetails publishes product alternates (SAL-256 data path)', () =
   it('setAlternates(null) clears when the product is null (404/empty page)', () => {
     const { setAlternates, hrefFor } = useLocaleAlternates();
     setAlternates(productAlternativeUrls, { type: 'product' });
-    expect(hrefFor('en')).toBeDefined();
+    expect(hrefFor('en')).toBe(
+      '/se/en/p/materials/branch-pipes/manifold-150-150-88',
+    );
 
     // Mirrors the watch firing with p === null.
     setAlternates(null, { type: 'product' });
