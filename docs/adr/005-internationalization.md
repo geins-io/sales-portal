@@ -73,13 +73,15 @@ URL prefix routing (`prefix_and_default`) can be added later if needed for multi
 
 CMS widget areas and menus may only exist for one language. The CMS service layer retries without `languageId` when content is missing, falling back to the SDK's default locale. This prevents blank pages when CMS content hasn't been localized. CMS pages do **not** fall back — they have language-specific aliases (e.g. `om-oss` vs `about-us`) and a missing page for a locale is a genuine 404.
 
-### Product Language Fallback
+### Alias Language Fallback
 
-Geins's `product(alias:, languageId:)` returns `null` when a product is not published in the requested language channel. Translating the name and texts in the admin is not sufficient on its own; the product entity must also be activated for that channel. To keep PDPs usable on language switch, `getProduct()` in `server/services/products.ts` retries with the tenant's default `languageId` whenever the first query returns `null` and the requested locale differs from the SDK default. The PDP renders with default-language content rather than 404-ing.
+Geins's per-language alias queries (`product`, `categoryByAlias`, `brandByAlias`, `discountCampaignByAlias`) return `null` when the entity is not published in the requested language. Translating the name and texts in the admin is not sufficient on its own; the entity must also be activated for that channel.
 
-If both locales return `null` the product is genuinely missing and we throw `NOT_FOUND`. The route then sets `Cache-Control: no-store` on the response so a freshly-published product does not stay 404 at the CDN for the regular `s-maxage` window.
+To keep PDPs and PLPs usable on language switch, `server/services/_locale-fallback.ts` exposes `resolveWithLocaleFallback`. It runs the query once with the requested `languageId`, and retries with the tenant's default `languageId` when the first call returns `null` and the locales differ. Every alias-resolving service composes this helper (do not reimplement it inline). Add a new caller by passing `{queryPath, variables: {alias}, serviceName}`.
 
-Per-language alias resolution (e.g. canonical EN alias differs from SV alias for the same product) is not handled by the storefront. It depends on a Geins schema addition. Until then, language switches preserve the current alias and rely on the fallback above.
+If both locales return `null` the entity is genuinely missing and the route throws `NOT_FOUND`. Route handlers then set `Cache-Control: no-store` on the 404 response so a freshly-published entity does not stay 404 at the CDN for the regular `s-maxage` window.
+
+Per-language alias resolution (e.g. canonical EN alias differs from SV alias for the same product) is not handled by the storefront. It depends on a Geins schema addition. Until then, language switches preserve the current alias and rely on the fallback above. The client-side `replaceState` in PDP and PLP then swaps the URL to the canonical alias when the resolved entity's `canonicalUrl` stays in the same `/{market}/{locale}/` prefix as the route the user is on.
 
 ### Language Switch Preserves the Alias
 
