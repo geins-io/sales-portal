@@ -126,6 +126,17 @@ if (pageInfoError.value || !pageInfo.value?.id) {
   });
 }
 
+// Publish this list's per-locale alternate URLs so the language switcher can
+// land on the target-language slug. props.type ('category' | 'brand') selects
+// the /c/ vs /b/ prefix in the composable. Immediate so a hard refresh has the
+// alternate ready; null clears so an empty page never retains stale alternates.
+const { setAlternates } = useLocaleAlternates();
+watch(
+  pageInfo,
+  (info) => setAlternates(info?.alternativeUrls, { type: props.type }),
+  { immediate: true },
+);
+
 // Mirror the PDP self-correction: if Geins returned a per-language
 // canonical URL different from the URL the user is on (e.g. they hit
 // /se/en/l/kategori-1 and the EN slug is /se/en/l/category-1), swap

@@ -12,21 +12,26 @@ const props = withDefaults(
 const { availableLocales } = useTenant();
 const { locale: currentLocale, locales, t } = useI18n();
 const { currentMarket, getCleanPath } = useLocaleMarket();
+const { hrefFor } = useLocaleAlternates();
 
 /**
  * Generate the URL for switching to a given locale.
  *
- * Preserves the current path (alias and all). The destination page
- * re-fetches against the new locale and the PDP/PLP self-correct the
- * URL via history.replaceState once Geins returns the per-language
- * slug. If Geins has no entry for the new locale, the server fallback
- * renders default-language content under the original URL.
+ * Alternates-first: when the current entity (PDP/PLP) has published a
+ * per-locale alternate for the target locale, use it so the switch lands
+ * on the real target-language slug (e.g. SV `skarkant` -> EN
+ * `cutting-edge`) rather than carrying the current locale's slug forward.
+ * Clean-path fallback: when no alternate is published (homepage, cart,
+ * CMS, account, or any locale Geins has no entry for), preserve the
+ * current path under the new `/market/locale/` prefix; the server
+ * renders default-language content for missing translations.
  *
  * Plain `<a href>` keeps full page reload behavior, dropping the SPA
- * cache so menus, lists, and CMS slots all re-resolve in the new
- * locale.
+ * cache so menus, lists, and CMS slots all re-resolve in the new locale.
  */
 function localeHref(loc: string): string {
+  const alt = hrefFor(loc);
+  if (alt) return alt;
   return `/${currentMarket.value}/${loc}${getCleanPath()}`;
 }
 

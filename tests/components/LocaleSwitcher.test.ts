@@ -92,39 +92,74 @@ describe('LocaleSwitcher logic', () => {
   });
 
   describe('localeHref', () => {
-    // Mirrors: `/${currentMarket.value}/${loc}${getCleanPath()}`
+    // Mirrors the NEW logic: alternates-first, clean-path fallback.
+    //   const alt = hrefFor(loc);
+    //   if (alt) return alt;
+    //   return `/${market}/${loc}${cleanPath}`;
     function localeHref(
       market: string,
       loc: string,
       cleanPath: string,
+      hrefFor: (loc: string) => string | undefined,
     ): string {
+      const alt = hrefFor(loc);
+      if (alt) return alt;
       return `/${market}/${loc}${cleanPath}`;
     }
 
-    it('preserves the alias on a PDP path', () => {
+    // Fallback helper: no published alternate for any locale.
+    const noAlternate = () => undefined;
+
+    it('uses the published alternate when present', () => {
+      const hrefFor = (loc: string) =>
+        loc === 'en' ? '/se/en/p/material/cutting-edge' : undefined;
+      const result = localeHref('se', 'en', '/p/material/skarkant', hrefFor);
+      expect(result).toBe('/se/en/p/material/cutting-edge');
+      // The published alternate must NOT carry the current SV slug.
+      expect(result).not.toContain('skarkant');
+    });
+
+    it('falls back to clean-path when no alternate for the target locale', () => {
+      expect(localeHref('se', 'en', '/p/material/skarkant', noAlternate)).toBe(
+        '/se/en/p/material/skarkant',
+      );
+    });
+
+    it('preserves the alias on a PDP path (fallback branch)', () => {
       expect(
         localeHref(
           'se',
           'en',
           '/p/material/anborrningsgrenar/anborrningsgrenror-o-50-rf',
+          noAlternate,
         ),
       ).toBe('/se/en/p/material/anborrningsgrenar/anborrningsgrenror-o-50-rf');
     });
 
-    it('preserves the alias on a category path', () => {
-      expect(localeHref('se', 'en', '/l/kategori-1')).toBe(
+    it('preserves the alias on a category path (fallback branch)', () => {
+      expect(localeHref('se', 'en', '/l/kategori-1', noAlternate)).toBe(
         '/se/en/l/kategori-1',
       );
     });
 
-    it('emits /market/locale/ when the clean path is /', () => {
-      expect(localeHref('se', 'en', '/')).toBe('/se/en/');
+    it('emits /market/locale/ when the clean path is / (fallback branch)', () => {
+      expect(localeHref('se', 'en', '/', noAlternate)).toBe('/se/en/');
     });
 
-    it('keeps query strings on the destination URL', () => {
-      expect(localeHref('se', 'en', '/l/kategori-1?page=2')).toBe(
+    it('keeps query strings on the destination URL (fallback branch)', () => {
+      expect(localeHref('se', 'en', '/l/kategori-1?page=2', noAlternate)).toBe(
         '/se/en/l/kategori-1?page=2',
       );
+    });
+
+    it('cross-locale switch lands on the correct target slug', () => {
+      // SAL-256 regression: on the SV slug `skarkant`, switching to EN must
+      // resolve to the published EN slug `cutting-edge`, never the SV slug.
+      const hrefFor = (loc: string) =>
+        loc === 'en' ? '/se/en/p/material/cutting-edge' : undefined;
+      const result = localeHref('se', 'en', '/p/material/skarkant', hrefFor);
+      expect(result).toContain('cutting-edge');
+      expect(result).not.toContain('skarkant');
     });
   });
 

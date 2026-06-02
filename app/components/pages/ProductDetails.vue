@@ -133,6 +133,18 @@ watch(
   { immediate: true },
 );
 
+// Publish this product's per-locale alternate URLs so the language switcher
+// can land on the target-language slug instead of the current one. Immediate
+// so the alternate is ready on first SSR/CSR load (a hard refresh must have it
+// before the user opens the switcher); null clears so a 404/empty page never
+// retains a previous product's alternates.
+const { setAlternates } = useLocaleAlternates();
+watch(
+  product,
+  (p) => setAlternates(p?.alternativeUrls, { type: 'product' }),
+  { immediate: true },
+);
+
 const resolvedSku = computed(() => {
   if (!product.value?.variantGroup?.variants?.length) {
     return product.value?.skus?.[0] ?? null;
