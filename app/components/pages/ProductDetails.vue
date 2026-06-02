@@ -51,7 +51,10 @@ const isLoading = computed(() => status.value === 'pending');
 // canonical stays in the same /market/locale/ prefix — a fallback that
 // crossed locales (server served default-language content on a
 // missing-translation request) must not yank the user back out of the
-// locale they asked for.
+// locale they asked for — AND the canonical is a routable path (shares the
+// current route segment, e.g. `/p/`). Geins sometimes returns a
+// canonicalUrl without our `/p/` product-route segment; rewriting the URL
+// bar to that path would 404 on refresh or any subsequent in-app nav.
 if (import.meta.client) {
   const canonical = product.value?.canonicalUrl;
   const path = useRoute().path;
@@ -59,7 +62,8 @@ if (import.meta.client) {
     canonical &&
     typeof canonical === 'string' &&
     canonical !== path &&
-    samePrefix(canonical, path)
+    samePrefix(canonical, path) &&
+    isRoutableProductPath(canonical)
   ) {
     history.replaceState(history.state, '', canonical);
   }
@@ -73,6 +77,15 @@ function samePrefix(a: string, b: string): boolean {
   const bSeg = b.split('/').slice(1, 3);
   if (aSeg.length < 2 || bSeg.length < 2) return true;
   return aSeg[0] === bSeg[0] && aSeg[1] === bSeg[1];
+}
+
+// Returns true when the path is a routable product-detail URL, i.e. the
+// segment after the /market/locale/ prefix is our `/p/` product route
+// (`/<market>/<locale>/p/<...>`). Geins sometimes returns a canonicalUrl
+// that omits the `/p/` segment; that path is not a route we serve, so
+// writing it to the URL bar would 404 on refresh or in-app navigation.
+function isRoutableProductPath(p: string): boolean {
+  return p.split('/')[3] === 'p';
 }
 
 const { data: related } = useFetch<ListProduct[]>(

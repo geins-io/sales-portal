@@ -268,6 +268,28 @@ describe('ProductDetails', () => {
         router.path = originalPath;
       }
     });
+
+    it('does not rewrite when the canonicalUrl is not a routable /p/ path', async () => {
+      // Geins can return a canonicalUrl without our `/p/` product-route
+      // segment (e.g. /se/sv/material/grenror/grenror-150-150-88). Rewriting
+      // the URL bar to that non-route would 404 on refresh or in-app nav.
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockProduct.value = makeProduct({
+        canonicalUrl: '/se/sv/material/grenror/grenror-150-150-88',
+      });
+
+      try {
+        await mountProductDetails(
+          { alias: 'grenror-150-150-88' },
+          { global: { stubs: defaultStubs } },
+        );
+        expect(spy).not.toHaveBeenCalled();
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   describe('campaign badges', () => {
