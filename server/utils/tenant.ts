@@ -792,7 +792,8 @@ export async function fetchTenantConfig(
  *
  * No-KV invariant: this function never writes to KV storage. Preview state
  * must stay request-scoped so it cannot leak into the cached live tenant
- * config keys. Callers wire this up only when the preview cookie is present.
+ * config keys. Callers wire this up only when the request carries ?preview=1
+ * (query-gated, never inferred from a cookie).
  */
 export async function resolvePreviewTenant(
   hostname: string,

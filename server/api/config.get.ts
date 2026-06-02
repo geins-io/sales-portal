@@ -1,6 +1,24 @@
+import type { H3Event } from 'h3';
 import { tenantConfigKey } from '../utils/tenant';
 import { getPublicConfig } from '../services/tenant-config';
 import { createTenantLogger } from '../utils/logger';
+
+/**
+ * Computes the Nitro response-cache key for /api/config. The base key uses
+ * tenantId (so multiple hostnames for one tenant share a cache entry) and
+ * falls back to hostname. Only ?preview=1 bypasses the cache by appending a
+ * per-request suffix so every preview render rebuilds against the latest
+ * unpublished appSettings. A stale preview cookie must NEVER produce a preview
+ * key, otherwise it would poison the shared live cache entry for the tenant.
+ */
+export function resolveConfigCacheKey(event: H3Event): string {
+  const base = tenantConfigKey(
+    event.context.tenant.tenantId || event.context.tenant.hostname,
+  );
+  return getQuery(event).preview === '1'
+    ? `${base}:settings-preview:${Date.now()}`
+    : base;
+}
 
 export default defineCachedEventHandler(
   async (event) => {
@@ -19,20 +37,7 @@ export default defineCachedEventHandler(
     );
   },
   {
-    // Cache key uses tenantId (from cookie/context) so multiple hostnames
-    // for the same tenant share one cache entry. Falls back to hostname.
-    // When ?preview=1 is present, append a per-request suffix so Nitro never
-    // serves a cached preview response (every preview render must rebuild
-    // against the latest unpublished appSettings).
-    getKey: (event) => {
-      const base = tenantConfigKey(
-        event.context.tenant.tenantId || event.context.tenant.hostname,
-      );
-      // Only ?preview=1 bypasses the cache; a cookie never marks a preview
-      // render so a stale preview cookie can't poison the live cache entry.
-      const isPreview = getQuery(event).preview === '1';
-      return isPreview ? `${base}:settings-preview:${Date.now()}` : base;
-    },
+    getKey: (event) => resolveConfigCacheKey(event),
     // Serve a stale cached response while asynchronously revalidating it
     swr: true,
     // Cache for 1 hour
