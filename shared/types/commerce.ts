@@ -132,6 +132,27 @@ export function filterVisibleCampaigns<T extends { hideTitle?: boolean }>(
 }
 
 // ---------------------------------------------------------------------------
+// Per-locale alternate URL (from the GraphQL `alternativeUrls` selection)
+// ---------------------------------------------------------------------------
+/**
+ * Cross-language URL for an entity, as returned by the GraphQL
+ * `alternativeUrls` field (GeinsAlternativeUrlTypeType).
+ *
+ * NOTE: this is intentionally NOT the SDK's hand-written
+ * `AlternativeUrlType` from @geins/types/dist/pim (which is the narrower
+ * `{ url, type }` shape and does NOT match the GraphQL response). The array
+ * can be empty/absent and individual entries may be null, so consumers must
+ * null-guard.
+ */
+export interface LocaleAlternateUrl {
+  language: string;
+  culture: string;
+  country?: string | null;
+  url: string;
+  channelId: string;
+}
+
+// ---------------------------------------------------------------------------
 // List Product (subset of ProductType returned by product-list queries)
 // ---------------------------------------------------------------------------
 export interface ListProduct {
@@ -149,6 +170,7 @@ export interface ListProduct {
   discountCampaigns: { name: string; hideTitle: boolean }[];
   lowestPrice?: LowestPriceInfo;
   discountType?: ProductDiscountType;
+  alternativeUrls?: LocaleAlternateUrl[];
 }
 
 // ---------------------------------------------------------------------------
@@ -162,12 +184,15 @@ export interface ListProduct {
  */
 export interface DetailProduct extends Omit<
   ProductType,
-  'discountType' | 'lowestPrice' | 'parameterGroups'
+  'discountType' | 'lowestPrice' | 'parameterGroups' | 'alternativeUrls'
 > {
   parameterGroups?: ParameterGroupType[];
   discountCampaigns?: { name: string; hideTitle: boolean }[];
   lowestPrice?: LowestPriceInfo;
   discountType?: ProductDiscountType;
+  // Overrides the inherited narrow SDK `alternativeUrls` shape with the
+  // actual GraphQL response shape (channelId/country/culture/language/url).
+  alternativeUrls?: LocaleAlternateUrl[];
 }
 
 // ---------------------------------------------------------------------------
@@ -207,6 +232,7 @@ export interface ListPageInfo {
   logo: string;
   meta: MetadataType;
   subCategories?: { name: string; alias: string; canonicalUrl: string }[];
+  alternativeUrls?: LocaleAlternateUrl[];
 }
 
 // ---------------------------------------------------------------------------

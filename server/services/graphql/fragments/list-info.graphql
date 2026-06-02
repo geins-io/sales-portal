@@ -1,6 +1,13 @@
 fragment ListInfo on PageInfoType {
   alias
   canonicalUrl
+  alternativeUrls {
+    language
+    culture
+    country
+    url
+    channelId
+  }
   primaryImage
   name
   id
