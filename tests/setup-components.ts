@@ -6,7 +6,7 @@
  */
 
 import './setup';
-import { vi } from 'vitest';
+import { vi, beforeEach } from 'vitest';
 import { ref, computed, type Ref } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 
@@ -69,6 +69,8 @@ const mockRouter = {
   go: vi.fn(),
   back: vi.fn(),
   forward: vi.fn(),
+  // Returns an unregister fn, matching vue-router's afterEach signature.
+  afterEach: vi.fn(() => () => {}),
   currentRoute: ref({
     path: '/',
     params: {},
@@ -98,6 +100,23 @@ vi.mock('#app/composables/router', async (importOriginal) => {
     useRoute: () => mockRouter.currentRoute.value,
   };
 });
+
+// Mock useState — Nuxt's SSR-friendly shared state needs a Nuxt instance the
+// component tier lacks. Return a STABLE ref per key (Map-backed) so repeated
+// useState(key) calls in one test share one ref, mirroring real Nuxt. State is
+// cleared between tests to avoid cross-test leakage. Auto-imports resolve to
+// #app/composables/state plus the global, so stub both.
+const stateStore = new Map<string, Ref<unknown>>();
+function mockUseState<T>(key?: string, init?: () => T): Ref<T> {
+  const k = key ?? '$default';
+  if (!stateStore.has(k)) {
+    stateStore.set(k, ref(init ? init() : undefined));
+  }
+  return stateStore.get(k) as Ref<T>;
+}
+vi.stubGlobal('useState', mockUseState);
+vi.mock('#app/composables/state', () => ({ useState: mockUseState }));
+beforeEach(() => stateStore.clear());
 
 // Mock useLocaleMarket — URL-based locale/market routing composable
 vi.mock('../app/composables/useLocaleMarket', () => ({
