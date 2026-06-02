@@ -58,11 +58,11 @@ export const ROUTE_PATHS = {
 
 The Geins API returns canonical URLs without type prefixes. Helper functions in `shared/utils/route-helpers.ts` strip the Geins market/locale prefix and prepend the correct type prefix:
 
-- `categoryPath(canonicalUrl)` — prepends `/c`
-- `productPath(canonicalUrl)` — prepends `/p`
-- `brandPath(canonicalUrl)` — prepends `/b`
-- `searchPath(query)` — prepends `/s`
-- `discountCampaignPath(canonicalUrl)` — prepends `/dc`
+- `categoryPath(canonicalUrl)` prepends `/c`
+- `productPath(canonicalUrl)` prepends `/p`
+- `brandPath(canonicalUrl)` prepends `/b`
+- `searchPath(query)` prepends `/s`
+- `discountCampaignPath(canonicalUrl)` prepends `/dc`
 
 All generated paths must then be wrapped with `localePath()` to add the `/{market}/{locale}/` prefix.
 
@@ -90,13 +90,13 @@ The middleware skips:
 - Known static routes (cart, checkout, login, portal, etc.)
 - The homepage (no path after market/locale)
 
-Unknown bare paths default to `/c/` because the catch-all `[...slug].vue` handles CMS pages (which have no prefix), and CMS pages are served by their slug. If a `/c/` redirect results in a 404, the old URL was invalid. Products that came through old bare URLs will also redirect to `/c/` — the correct product URL is `/p/`.
+Unknown bare paths default to `/c/` because the catch-all `[...slug].vue` handles CMS pages (which have no prefix), and CMS pages are served by their slug. If a `/c/` redirect results in a 404, the old URL was invalid. Products that came through old bare URLs will also redirect to `/c/` (the correct product URL is `/p/`).
 
 ## Consequences
 
 **Positive:**
 
-- No route resolution API calls needed — the URL prefix tells us the content type
+- No route resolution API calls needed. The URL prefix tells us the content type
 - Faster navigation (eliminates the resolve-route round-trip)
 - Simpler codebase (removed ~300 lines of route resolution infrastructure)
 - URLs are self-describing and deterministic
@@ -115,3 +115,7 @@ Unknown bare paths default to `/c/` because the catch-all `[...slug].vue` handle
 - `server/services/routes.ts`
 - `app/composables/useRouteResolution.ts`
 - `app/components/pages/Content.vue` (inlined into catch-all)
+
+## Update: 404-miss resolver (ADR-017)
+
+[ADR-017](017-entity-url-safety-net.md) later added a narrow resolver that 301-redirects prefix-less entity URLs (stale bookmarks, shared links, search-engine results, pasted Geins canonicals, renamed slugs) to their typed route. This is not a revival of the per-navigation route resolver removed above. It runs only when the catch-all CMS lookup has already missed, as a 404 recovery step. In-app navigation still goes straight to a typed route with no resolution round-trip.

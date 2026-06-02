@@ -22,6 +22,7 @@ ADRs document significant architectural decisions with context and consequences.
 | 014 | [CMS Caching Strategy](014-caching-strategy.md)                                    | accepted | 2026-03-20 |
 | 015 | [Type-prefixed routing](015-type-prefixed-routing.md)                              | accepted | 2026-03-30 |
 | 016 | [Tenant theme color coercion](016-tenant-color-coercion.md)                        | accepted | 2026-05-22 |
+| 017 | [Entity URL safety net](017-entity-url-safety-net.md)                              | accepted | 2026-06-02 |
 
 ## Adding New ADRs
 
