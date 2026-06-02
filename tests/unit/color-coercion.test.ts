@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { coerceToOklch } from '../../server/utils/color-coercion';
+import {
+  coerceToOklch,
+  toSafariSafeColor,
+} from '../../server/utils/color-coercion';
 
 // Accepts both 3-component (opaque) and 4-component (with alpha) forms.
 const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
@@ -161,5 +164,38 @@ describe('oklchPattern shape', () => {
   it('matches both 3- and 4-component forms', () => {
     expect('oklch(0.5 0.1 200)').toMatch(oklchPattern);
     expect('oklch(0.5 0.1 200 / 0.5)').toMatch(oklchPattern);
+  });
+});
+
+describe('toSafariSafeColor', () => {
+  it('converts opaque oklch() to sRGB hex', () => {
+    expect(toSafariSafeColor('oklch(0.7 0.1 20)')).toBe('#d68585');
+    expect(toSafariSafeColor('oklch(0.205 0 0)')).toBe('#171717');
+    expect(toSafariSafeColor('oklch(0.5 0.1 200)')).toBe('#00747a');
+  });
+
+  it('converts translucent oklch() to legacy-comma rgba()', () => {
+    expect(toSafariSafeColor('oklch(0.5 0.16 175 / 0.6)')).toBe(
+      'rgba(0, 126, 94, 0.6)',
+    );
+  });
+
+  it('passes var() references through verbatim (never rewrite a reference)', () => {
+    expect(toSafariSafeColor('var(--primary)')).toBe('var(--primary)');
+    expect(toSafariSafeColor('var(--button-background)')).toBe(
+      'var(--button-background)',
+    );
+  });
+
+  it('passes already-sRGB values (hex/rgb/named) through unchanged', () => {
+    expect(toSafariSafeColor('#f084ec')).toBe('#f084ec');
+    expect(toSafariSafeColor('rgb(10, 20, 30)')).toBe('rgb(10, 20, 30)');
+    expect(toSafariSafeColor('white')).toBe('white');
+  });
+
+  it('never emits oklch() for any oklch input', () => {
+    for (const v of ['oklch(0.5 0.1 200)', 'oklch(0.9 0.2 50 / 0.4)']) {
+      expect(toSafariSafeColor(v)).not.toMatch(/oklch\(/);
+    }
   });
 });

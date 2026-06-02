@@ -1,6 +1,7 @@
 import type { TenantConfig } from '#shared/types/tenant-config';
 import type { ThemeColors, ThemeTypography } from '../schemas/store-settings';
 import { deriveThemeColors, type FullThemeColors } from './theme';
+import { toSafariSafeColor } from './color-coercion';
 import { logger } from './logger';
 import { escapeCssString } from './sanitize';
 
@@ -121,7 +122,10 @@ function generateColorCss(
   for (const [key, cssVar] of Object.entries(COLOR_CSS_MAP)) {
     const value = colors[key as keyof FullThemeColors];
     if (value) {
-      lines.push(`${indent}${cssVar}: ${value};`);
+      // Emit sRGB (hex/rgba) instead of oklch so older Safari, which
+      // cannot parse oklch(), still resolves the custom property. var()
+      // references and already-sRGB values pass through unchanged.
+      lines.push(`${indent}${cssVar}: ${toSafariSafeColor(value)};`);
       continue;
     }
     // Surface colors with an empty sentinel fall back to a documented
@@ -129,7 +133,7 @@ function generateColorCss(
     // always emitted. The 32 standard tokens never reach this branch.
     const fallback = SURFACE_FALLBACKS[key];
     if (fallback) {
-      lines.push(`${indent}${cssVar}: ${fallback};`);
+      lines.push(`${indent}${cssVar}: ${toSafariSafeColor(fallback)};`);
     }
   }
   return lines.join('\n');
