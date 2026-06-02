@@ -55,23 +55,12 @@ vi.mock('../../../server/utils/tenant', () => ({
     mockResolvePreviewTenant(...args),
 }));
 
-const mockSetStoreSettingsPreviewCookie = vi.fn();
-const mockGetStoreSettingsPreviewCookie = vi.fn();
-
-vi.mock('../../../server/utils/cookies', () => ({
-  setStoreSettingsPreviewCookie: (...args: unknown[]) =>
-    mockSetStoreSettingsPreviewCookie(...args),
-  getStoreSettingsPreviewCookie: (...args: unknown[]) =>
-    mockGetStoreSettingsPreviewCookie(...args),
-}));
-
 vi.mock('#shared/constants/storage', () => ({
   COOKIE_NAMES: {
     LOCALE: 'locale',
     MARKET: 'market',
     CART_ID: 'cart_id',
     TENANT_ID: 'tenant_id',
-    STORE_SETTINGS_PREVIEW: 'store_settings_preview',
   },
 }));
 
@@ -140,9 +129,8 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
     mockGetRequestHost.mockReturnValue('test.localhost');
     // Default: no cached tenant cookie
     mockGetTenantCookie.mockReturnValue(undefined);
-    // Default: no preview query, no preview cookie
+    // Default: no preview query
     mockGetQuery.mockReturnValue({});
-    mockGetStoreSettingsPreviewCookie.mockReturnValue(false);
 
     const mod = await import('../../../server/plugins/02.tenant-context');
     const hooks = mod.default as unknown as Record<
@@ -382,7 +370,7 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
   });
 
   describe('store-settings preview mode', () => {
-    it('?preview=1 sets the STORE_SETTINGS_PREVIEW cookie and routes via resolvePreviewTenant', async () => {
+    it('?preview=1 routes via resolvePreviewTenant', async () => {
       const tenant = makeTenant();
       mockResolvePreviewTenant.mockResolvedValue(tenant);
       mockGetQuery.mockReturnValue({ preview: '1' });
@@ -393,7 +381,6 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
 
       await handler(event);
 
-      expect(mockSetStoreSettingsPreviewCookie).toHaveBeenCalledWith(event);
       expect(mockResolvePreviewTenant).toHaveBeenCalledWith(
         'test.localhost',
         event,
@@ -401,10 +388,15 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
       expect(mockResolveTenant).not.toHaveBeenCalled();
     });
 
-    it('existing STORE_SETTINGS_PREVIEW cookie alone routes via resolvePreviewTenant', async () => {
+    it('store_settings_preview cookie alone (no ?preview=1) routes via resolveTenant (live)', async () => {
       const tenant = makeTenant();
-      mockResolvePreviewTenant.mockResolvedValue(tenant);
-      mockGetStoreSettingsPreviewCookie.mockReturnValue(true);
+      mockResolveTenant.mockResolvedValue(tenant);
+      mockGetQuery.mockReturnValue({});
+      // A stale store-settings preview cookie must never reactivate preview:
+      // the plugin reads only the query, so a present cookie is ignored.
+      mockGetCookie.mockImplementation((_e: unknown, name: string) =>
+        name === 'store_settings_preview' ? 'true' : undefined,
+      );
 
       const event = createEvent('/se/sv/products', {
         localeMarket: { market: 'se', locale: 'sv' },
@@ -412,13 +404,8 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
 
       await handler(event);
 
-      // Cookie already present; do not re-set on every request
-      expect(mockSetStoreSettingsPreviewCookie).not.toHaveBeenCalled();
-      expect(mockResolvePreviewTenant).toHaveBeenCalledWith(
-        'test.localhost',
-        event,
-      );
-      expect(mockResolveTenant).not.toHaveBeenCalled();
+      expect(mockResolveTenant).toHaveBeenCalledWith('test.localhost', event);
+      expect(mockResolvePreviewTenant).not.toHaveBeenCalled();
     });
 
     it('no preview signals routes via resolveTenant (regression guard)', async () => {
@@ -452,7 +439,7 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
     it('preview path does not clear locale/market/cart cookies on tenant switch', async () => {
       const tenant = makeTenant();
       mockResolvePreviewTenant.mockResolvedValue(tenant);
-      mockGetStoreSettingsPreviewCookie.mockReturnValue(true);
+      mockGetQuery.mockReturnValue({ preview: '1' });
       // Simulate stale tenant cookie that would normally trigger cookie wipe
       mockGetTenantCookie.mockReturnValue('a-different-tenant');
 
@@ -494,6 +481,23 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
         event,
       );
       expect(mockResolveTenant).not.toHaveBeenCalled();
+    });
+
+    it('API route with store_settings_preview cookie alone (no ?preview=1) uses resolveTenant (live)', async () => {
+      const tenant = makeTenant();
+      mockResolveTenant.mockResolvedValue(tenant);
+      mockGetQuery.mockReturnValue({});
+      // Stale preview cookie present on an API request must still route live.
+      mockGetCookie.mockImplementation((_e: unknown, name: string) =>
+        name === 'store_settings_preview' ? 'true' : undefined,
+      );
+
+      const event = createEvent('/api/config', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith('test.localhost', event);
+      expect(mockResolvePreviewTenant).not.toHaveBeenCalled();
     });
   });
 

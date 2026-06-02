@@ -1,10 +1,6 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { resolveLocaleMarket } from '#shared/utils/locale-market';
 import { resolveTenant, resolvePreviewTenant } from '../utils/tenant';
-import {
-  setStoreSettingsPreviewCookie,
-  getStoreSettingsPreviewCookie,
-} from '../utils/cookies';
 
 /**
  * Normalizes a hostname by removing the port number.
@@ -42,17 +38,11 @@ export default defineNitroPlugin((nitroApp) => {
       throw createError({ statusCode: 400, message: 'Missing host header' });
     }
 
-    // Detect store-settings preview intent. `?preview=1` activates preview
-    // mode and persists a cookie; subsequent requests in the same session
-    // stay in preview based on the cookie alone. CMS preview (PREVIEW_MODE)
-    // is a separate flag and is not touched here.
-    const query = getQuery(event);
-    const previewQueryActive = query.preview === '1';
-    if (previewQueryActive) {
-      setStoreSettingsPreviewCookie(event);
-    }
-    const isStoreSettingsPreview =
-      previewQueryActive || getStoreSettingsPreviewCookie(event);
+    // Detect store-settings preview intent. Preview is activated ONLY by the
+    // `?preview=1` query and is never inferred from a cookie: a clean top-level
+    // visit must always render the live, published theme. CMS preview
+    // (PREVIEW_MODE) is a separate flag and is not touched here.
+    const isStoreSettingsPreview = getQuery(event).preview === '1';
 
     // Attach tenant data to the event context to make it
     // available to all server routes and middleware.
@@ -134,8 +124,9 @@ export default defineNitroPlugin((nitroApp) => {
       const cachedTenantId = getTenantCookie(event);
 
       // Detect tenant switch: clear stale cookies so the locale-market plugin
-      // redirects to fresh defaults for the new tenant. Preview mode runs in
-      // an iframe and must never wipe the live tab's locale/market/cart state.
+      // redirects to fresh defaults for the new tenant. A `?preview=1` request
+      // must never clear the live visitor's locale/market/cart cookies, so its
+      // unpublished overlay can't mutate persistent client state.
       if (
         !isStoreSettingsPreview &&
         cachedTenantId &&
@@ -146,9 +137,8 @@ export default defineNitroPlugin((nitroApp) => {
         deleteCookie(event, COOKIE_NAMES.CART_ID, { path: '/' });
       }
 
-      // Preview requests must not persist a tenant cookie. Studio embeds the
-      // storefront in an iframe; sharing tenant_id between live and preview
-      // tabs would mix state.
+      // A `?preview=1` request must not persist a tenant cookie, so its
+      // unpublished overlay never writes to persistent client state.
       if (
         !isStoreSettingsPreview &&
         (!cachedTenantId || cachedTenantId !== tenantId)

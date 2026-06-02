@@ -1,16 +1,14 @@
-import {
-  getPreviewCookie,
-  getStoreSettingsPreviewCookie,
-} from '../utils/cookies';
+import { getPreviewCookie } from '../utils/cookies';
 
 /**
  * CDN-ready cache headers for page routes.
  * Azure Front Door caches per-host via Vary header,
  * serves stale for 10min while revalidating.
  *
- * Preview requests (CMS preview or store-settings preview) must never be
- * cached at the CDN. Their HTML is rendered against unpublished overlays
- * that would otherwise leak to every other visitor sharing the host.
+ * Preview requests must never be cached at the CDN. Their HTML is rendered
+ * against unpublished overlays that would otherwise leak to every other
+ * visitor sharing the host. Store-settings preview is driven purely by
+ * ?preview=1 (never a cookie); CMS preview still uses the preview_mode cookie.
  */
 export default defineEventHandler((event) => {
   const path = event.path || '';
@@ -24,10 +22,7 @@ export default defineEventHandler((event) => {
   }
 
   const query = getQuery(event);
-  const isPreview =
-    query.preview === '1' ||
-    getStoreSettingsPreviewCookie(event) ||
-    getPreviewCookie(event);
+  const isPreview = query.preview === '1' || getPreviewCookie(event);
 
   if (isPreview) {
     setHeader(event, 'Cache-Control', 'private, no-store');
