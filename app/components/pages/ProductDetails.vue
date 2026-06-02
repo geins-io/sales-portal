@@ -51,7 +51,10 @@ const isLoading = computed(() => status.value === 'pending');
 // canonical stays in the same /market/locale/ prefix — a fallback that
 // crossed locales (server served default-language content on a
 // missing-translation request) must not yank the user back out of the
-// locale they asked for.
+// locale they asked for — AND the canonical is a routable path (shares the
+// current route segment, e.g. `/p/`). Geins sometimes returns a
+// canonicalUrl without our `/p/` product-route segment; rewriting the URL
+// bar to that path would 404 on refresh or any subsequent in-app nav.
 if (import.meta.client) {
   const canonical = product.value?.canonicalUrl;
   const path = useRoute().path;
@@ -59,7 +62,8 @@ if (import.meta.client) {
     canonical &&
     typeof canonical === 'string' &&
     canonical !== path &&
-    samePrefix(canonical, path)
+    samePrefix(canonical, path) &&
+    isRoutableProductPath(canonical)
   ) {
     history.replaceState(history.state, '', canonical);
   }
@@ -75,6 +79,15 @@ function samePrefix(a: string, b: string): boolean {
   return aSeg[0] === bSeg[0] && aSeg[1] === bSeg[1];
 }
 
+// Returns true when the path is a routable product-detail URL, i.e. the
+// segment after the /market/locale/ prefix is our `/p/` product route
+// (`/<market>/<locale>/p/<...>`). Geins sometimes returns a canonicalUrl
+// that omits the `/p/` segment; that path is not a route we serve, so
+// writing it to the URL bar would 404 on refresh or in-app navigation.
+function isRoutableProductPath(p: string): boolean {
+  return p.split('/')[3] === 'p';
+}
+
 const { data: related } = useFetch<ListProduct[]>(
   () => `/api/products/${slug.value}/related`,
   {
@@ -86,6 +99,39 @@ const { data: related } = useFetch<ListProduct[]>(
 
 // Variant state
 const selectedVariants = ref<Record<string, string>>({});
+
+// Seed the selector with the product's own active variant so the trigger
+// shows the current variant name and the matching row is highlighted in
+// the sheet, instead of the empty "Select" placeholder. Sibling-variant
+// products expose each variant as its own product alias; the variant the
+// user is currently viewing is the one whose alias matches this product's
+// alias. Seeding the current alias's own value is a no-op for the
+// navigation watch below (its `picked.alias === product.alias` guard
+// returns early), so this never triggers a redirect.
+function currentVariantSelection(
+  p: DetailProduct | null | undefined,
+): Record<string, string> | null {
+  const variants = p?.variantGroup?.variants ?? [];
+  const current = variants.find(
+    (v) => (v as { alias?: string | null }).alias === p?.alias,
+  );
+  if (!current) return null;
+  const dimension = (current as { dimension?: string | null }).dimension;
+  const value =
+    (current as { value?: string | null }).value ??
+    (current as { label?: string | null }).label;
+  if (!dimension || value == null) return null;
+  return { [dimension]: value };
+}
+
+watch(
+  product,
+  (p) => {
+    const seeded = currentVariantSelection(p);
+    if (seeded) selectedVariants.value = seeded;
+  },
+  { immediate: true },
+);
 
 const resolvedSku = computed(() => {
   if (!product.value?.variantGroup?.variants?.length) {
@@ -248,18 +294,27 @@ watch(
 const variantProductsByAlias = computed<
   Record<
     string,
-    { priceFormatted?: string | null; articleNumber?: string | null }
+    {
+      priceFormatted?: string | null;
+      articleNumber?: string | null;
+      name?: string | null;
+    }
   >
 >(() => {
   const map: Record<
     string,
-    { priceFormatted?: string | null; articleNumber?: string | null }
+    {
+      priceFormatted?: string | null;
+      articleNumber?: string | null;
+      name?: string | null;
+    }
   > = {};
   for (const p of siblingProducts.value?.products ?? []) {
     if (!p?.alias) continue;
     map[p.alias] = {
       priceFormatted: p.unitPrice?.sellingPriceIncVatFormatted ?? null,
       articleNumber: p.articleNumber ?? null,
+      name: p.name ?? null,
     };
   }
   return map;
