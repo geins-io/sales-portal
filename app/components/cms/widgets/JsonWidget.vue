@@ -85,7 +85,7 @@ function _resolveImageSrc(src: string | undefined): string {
     >
       <h2
         v-if="header?.heading"
-        class="font-heading text-[40px] leading-[1.1] font-bold"
+        class="font-heading text-[32px] leading-[1.1] font-bold md:text-[40px]"
       >
         {{ header.heading }}
       </h2>
@@ -134,7 +134,7 @@ function _resolveImageSrc(src: string | undefined): string {
     <div v-if="header?.heading || header?.description" class="space-y-2">
       <h2
         v-if="header?.heading"
-        class="font-heading text-[40px] leading-[1.1] font-bold"
+        class="font-heading text-[32px] leading-[1.1] font-bold md:text-[40px]"
       >
         {{ header.heading }}
       </h2>
@@ -172,7 +172,7 @@ function _resolveImageSrc(src: string | undefined): string {
   >
     <h2
       v-if="textBlock?.header"
-      class="font-heading text-[40px] leading-[1.1] font-bold"
+      class="font-heading text-[32px] leading-[1.1] font-bold md:text-[40px]"
     >
       {{ textBlock.header }}
     </h2>
@@ -214,7 +214,7 @@ function _resolveImageSrc(src: string | undefined): string {
       >
         <h3
           v-if="banner.text?.title"
-          class="font-heading text-[40px] leading-[1.1] font-bold text-white"
+          class="font-heading text-[32px] leading-[1.1] font-bold text-white md:text-[40px]"
         >
           {{ banner.text.title }}
         </h3>

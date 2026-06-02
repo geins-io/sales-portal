@@ -35,6 +35,7 @@ const showCart = computed(
       variant="ghost"
       data-slot="cart-button"
       class="gap-1.5"
+      :aria-label="`${cartStore.itemCount} ${$t('cart.items_short')}`"
       @click="cartStore.isOpen = true"
     >
       <ShoppingCart class="size-5" />
@@ -42,7 +43,7 @@ const showCart = computed(
         v-if="cartStore.itemCount > 0"
         class="text-foreground text-sm font-medium"
       >
-        {{ cartStore.itemCount }} {{ $t('cart.items_short') }}
+        {{ cartStore.itemCount }}
       </span>
     </Button>
 

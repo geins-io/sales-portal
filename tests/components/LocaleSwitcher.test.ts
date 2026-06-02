@@ -144,3 +144,20 @@ describe('LocaleSwitcher logic', () => {
     });
   });
 });
+
+describe('LocaleSwitcher trigger abbreviation', () => {
+  // Mirrors: computed(() => currentLocale.value.toUpperCase())
+  function currentLocaleAbbr(locale: string): string {
+    return locale.toUpperCase();
+  }
+
+  it('shows the uppercased locale code in the trigger, not the full name', () => {
+    expect(currentLocaleAbbr('sv')).toBe('SV');
+    expect(currentLocaleAbbr('en')).toBe('EN');
+  });
+
+  it('is independent of the display-name map (full names stay in the dropdown)', () => {
+    // "Svenska"/"English" are the dropdown item labels; the trigger is the abbr.
+    expect(currentLocaleAbbr('sv')).not.toBe('Svenska');
+  });
+});

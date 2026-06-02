@@ -315,6 +315,7 @@ async function addToCart() {
             data-testid="add-to-cart-button"
             class="h-9 min-w-0 flex-1 overflow-hidden px-4"
             :variant="addError ? 'destructive' : 'default'"
+            :aria-label="t('cart.add_to_cart_short')"
             :disabled="
               isFullProduct(product) ? !firstSku || isAdding : isLoading
             "
@@ -322,13 +323,13 @@ async function addToCart() {
           >
             <AlertCircle
               v-if="isFullProduct(product) && addError"
-              class="mr-1.5 size-4 shrink-0"
+              class="size-4 shrink-0 sm:mr-1.5"
             />
             <ShoppingCart
               v-else-if="isFullProduct(product)"
-              class="mr-1.5 size-4 shrink-0"
+              class="size-4 shrink-0 sm:mr-1.5"
             />
-            <span class="whitespace-nowrap">
+            <span class="hidden whitespace-nowrap sm:inline">
               <template v-if="isFullProduct(product)">
                 {{
                   addError ? t('cart.add_failed') : t('cart.add_to_cart_short')
@@ -450,6 +451,7 @@ async function addToCart() {
             data-testid="add-to-cart-button"
             class="h-9 px-4"
             :variant="addError ? 'destructive' : 'default'"
+            :aria-label="t('cart.add_to_cart')"
             :disabled="
               isFullProduct(product) ? !firstSku || isAdding : isLoading
             "
@@ -457,13 +459,13 @@ async function addToCart() {
           >
             <AlertCircle
               v-if="isFullProduct(product) && addError"
-              class="mr-1.5 size-4 shrink-0"
+              class="size-4 shrink-0 sm:mr-1.5"
             />
             <ShoppingCart
               v-else-if="isFullProduct(product)"
-              class="mr-1.5 size-4 shrink-0"
+              class="size-4 shrink-0 sm:mr-1.5"
             />
-            <span class="whitespace-nowrap">
+            <span class="hidden whitespace-nowrap sm:inline">
               <template v-if="isFullProduct(product)">
                 {{ addError ? t('cart.add_failed') : t('cart.add_to_cart') }}
               </template>
