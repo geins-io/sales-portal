@@ -26,13 +26,15 @@ describe('generateTenantCss surface colors', () => {
     expect(css).toContain('--primary:');
   });
 
-  it('emits --footer-background as an OKLCH value when provided', () => {
+  it('converts an OKLCH surface value to Safari-safe sRGB hex', () => {
     const derived = deriveThemeColors({
       ...coreColors,
       footerBackground: 'oklch(0.7 0.1 20)',
     });
     const css = generateTenantCss('test', derived);
-    expect(css).toContain('--footer-background: oklch(0.7 0.1 20);');
+    // Older Safari cannot parse oklch(); the emitted var must be sRGB.
+    expect(css).toContain('--footer-background: #d68585;');
+    expect(css).not.toContain('oklch(0.7 0.1 20)');
   });
 
   it('emits all six surface vars verbatim when every surface is set', () => {
@@ -58,7 +60,8 @@ describe('generateTenantCss surface colors', () => {
     const derived = deriveThemeColors({ ...coreColors });
     const css = generateTenantCss('test', derived);
     expect(css).toContain('--top-bar-background: var(--primary);');
-    expect(css).toContain('--footer-background: oklch(0.205 0 0);');
+    // The hardcoded OKLCH footer fallback is converted to sRGB hex.
+    expect(css).toContain('--footer-background: #171717;');
     expect(css).toContain('--nav-bar-background: var(--muted);');
     expect(css).toContain('--site-background: var(--background);');
     expect(css).toContain('--button-background: var(--primary);');
@@ -83,6 +86,18 @@ describe('generateTenantCss surface colors', () => {
     const purchaseIdx = css.indexOf('--button-purchase-background:');
     expect(buttonIdx).toBeGreaterThan(0);
     expect(purchaseIdx).toBeGreaterThan(buttonIdx);
+  });
+
+  it('emits no oklch() in the color block so older Safari can parse every var', () => {
+    const derived = deriveThemeColors({
+      ...coreColors,
+      topBarBackground: 'oklch(0.5 0.16 175)',
+      buttonBackground: '#824f4f',
+    });
+    const css = generateTenantCss('test', derived);
+    // No override.css here: every emitted color var must be sRGB.
+    expect(css).not.toMatch(/oklch\(/);
+    expect(css).toContain('--primary: #00747a;');
   });
 });
 

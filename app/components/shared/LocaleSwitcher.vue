@@ -43,9 +43,10 @@ const localeNames = computed(() => {
   return map;
 });
 
-const currentLocaleName = computed(
-  () => localeNames.value.get(currentLocale.value) ?? currentLocale.value,
-);
+// Short uppercase abbreviation shown in the trigger (e.g. "SV"/"EN")
+// instead of the full language name. Applied on every breakpoint so the
+// topbar stays compact; the dropdown list keeps the full names.
+const currentLocaleAbbr = computed(() => currentLocale.value.toUpperCase());
 
 const showSwitcher = computed(() => availableLocales.value.length > 1);
 </script>
@@ -78,7 +79,7 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
         :aria-label="t('common.change_language')"
       >
         <Globe class="mr-2 h-4 w-4" />
-        {{ currentLocaleName }}
+        {{ currentLocaleAbbr }}
       </Button>
       <Button
         v-else

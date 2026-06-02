@@ -28,6 +28,7 @@ useMode(modeOklab);
 useMode(modeOklch);
 
 const toOklch = converter('oklch');
+const toRgb = converter('rgb');
 
 // Defense-in-depth: any legitimate CSS color string fits well under 256 chars.
 // Caps input cost (string copies during parse) for pathological payloads.
@@ -68,4 +69,40 @@ export function coerceToOklch(raw: string): CoercedColor | null {
     return { value: `oklch(${l} ${c} ${h} / ${a})` };
   }
   return { value: `oklch(${l} ${c} ${h})` };
+}
+
+// Converts a CSS color to a Safari-safe sRGB form. Older Safari (< 15.4)
+// cannot parse `oklch()`, so a custom property set to an oklch value
+// becomes invalid-at-computed-value-time and any `var(--x)` consuming it
+// renders nothing (the reported "store-settings colors don't show in
+// Safari" bug). We emit the sRGB equivalent instead: `#rrggbb` for opaque
+// colors, legacy-comma `rgba(r, g, b, a)` for translucent ones (both are
+// universally supported, including the modern-syntax-shy old Safari).
+//
+// Non-oklch inputs pass through verbatim: hex/rgb()/named are already
+// safe, and `var(--ref)` references MUST NOT be rewritten — they resolve
+// to whichever (already-converted) property they point at.
+export function toSafariSafeColor(value: string): string {
+  const trimmed = value.trim();
+  if (!/^oklch\(/i.test(trimmed)) return value;
+
+  const parsed = parse(trimmed);
+  if (!parsed) return value;
+  const rgb = toRgb(parsed);
+  if (!rgb) return value;
+
+  // Per-channel clamp to the sRGB byte range. Brand colors are low-chroma
+  // and in-gamut; clamping matches what the browser does on display anyway.
+  const channel = (n: number | undefined): number =>
+    Math.max(0, Math.min(255, Math.round((n ?? 0) * 255)));
+  const r = channel(rgb.r);
+  const g = channel(rgb.g);
+  const b = channel(rgb.b);
+
+  const hasAlpha = typeof rgb.alpha === 'number' && rgb.alpha < 1;
+  if (hasAlpha) {
+    return `rgba(${r}, ${g}, ${b}, ${round(rgb.alpha, 3)})`;
+  }
+  const hex = (n: number): string => n.toString(16).padStart(2, '0');
+  return `#${hex(r)}${hex(g)}${hex(b)}`;
 }

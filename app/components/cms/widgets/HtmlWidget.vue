@@ -20,6 +20,6 @@ useHead(
 <template>
   <div>
     <!-- eslint-disable-next-line vue/no-v-html -->
-    <div v-if="data.html" class="prose max-w-none" v-html="data.html" />
+    <div v-if="data.html" class="rich-text max-w-none" v-html="data.html" />
   </div>
 </template>

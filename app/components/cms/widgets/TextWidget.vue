@@ -67,6 +67,6 @@ const renderedText = computed(() => {
       {{ title }}
     </component>
     <!-- eslint-disable-next-line vue/no-v-html -->
-    <div v-if="renderedText" class="prose max-w-none" v-html="renderedText" />
+    <div v-if="renderedText" class="rich-text max-w-none" v-html="renderedText" />
   </div>
 </template>

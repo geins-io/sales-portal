@@ -33,11 +33,11 @@ function makeProps(
 }
 
 describe('TextWidget', () => {
-  it('renders text via v-html in a .prose div', () => {
+  it('renders text via v-html in a .rich-text div', () => {
     const wrapper = mountComponent(TextWidget, {
       props: makeProps({ text: '<p>Some content</p>' }),
     });
-    const prose = wrapper.find('.prose');
+    const prose = wrapper.find('.rich-text');
     expect(prose.exists()).toBe(true);
     expect(prose.html()).toContain('<p>Some content</p>');
   });
@@ -151,11 +151,11 @@ describe('TextWidget', () => {
     });
   });
 
-  it('does not render prose div when text is empty', () => {
+  it('does not render rich-text div when text is empty', () => {
     const wrapper = mountComponent(TextWidget, {
       props: makeProps({ text: '' }),
     });
-    expect(wrapper.find('.prose').exists()).toBe(false);
+    expect(wrapper.find('.rich-text').exists()).toBe(false);
   });
 
   // Line break preservation for plain-text shape from Geins admin
@@ -167,7 +167,7 @@ describe('TextWidget', () => {
       const html = wrapper.html();
       const brCount = (html.match(/<br/g) ?? []).length;
       expect(brCount).toBe(2);
-      const text = wrapper.find('.prose').text();
+      const text = wrapper.find('.rich-text').text();
       expect(text).toContain('line one');
       expect(text).toContain('line two');
       expect(text).toContain('line three');
@@ -177,7 +177,7 @@ describe('TextWidget', () => {
       const wrapper = mountComponent(TextWidget, {
         props: makeProps({ text: '<p>first</p><p>second</p>' }),
       });
-      const html = wrapper.find('.prose').html();
+      const html = wrapper.find('.rich-text').html();
       const pCount = (html.match(/<p>/g) ?? []).length;
       const brCount = (html.match(/<br/g) ?? []).length;
       expect(pCount).toBe(2);
@@ -193,11 +193,11 @@ describe('TextWidget', () => {
       expect(brCount).toBe(2);
     });
 
-    it('does not render the prose div when text is empty', () => {
+    it('does not render the rich-text div when text is empty', () => {
       const wrapper = mountComponent(TextWidget, {
         props: makeProps({ text: '' }),
       });
-      expect(wrapper.find('.prose').exists()).toBe(false);
+      expect(wrapper.find('.rich-text').exists()).toBe(false);
     });
 
     it('renders heading and line breaks together', () => {

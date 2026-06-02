@@ -17,11 +17,11 @@ const { hasFeature } = useTenant();
       <div class="flex items-center gap-4">
         <NuxtLink
           :to="localePath('/contact')"
+          :aria-label="$t('layout.contact_us')"
           class="flex items-center gap-1.5 hover:underline"
         >
           <Mail class="size-4" />
           <span class="hidden sm:inline">{{ $t('layout.contact_us') }}</span>
-          <span class="sm:hidden">{{ $t('layout.contact') }}</span>
         </NuxtLink>
         <LocaleSwitcher variant="text" />
         <MarketSwitcher variant="text" />
@@ -51,20 +51,22 @@ const { hasFeature } = useTenant();
         <button
           v-if="!authStore.isAuthenticated"
           type="button"
+          :aria-label="$t('auth.login')"
           class="flex items-center gap-1.5 hover:underline"
           data-testid="topbar-login"
           @click="authStore.openSheet()"
         >
           <User class="size-4" />
-          <span>{{ $t('auth.login') }}</span>
+          <span class="hidden sm:inline">{{ $t('auth.login') }}</span>
         </button>
         <NuxtLink
           v-else
           :to="localePath('/portal')"
+          :aria-label="authStore.displayName ?? undefined"
           class="flex items-center gap-1.5 hover:underline"
         >
           <User class="size-4" />
-          <span>{{ authStore.displayName }}</span>
+          <span class="hidden sm:inline">{{ authStore.displayName }}</span>
         </NuxtLink>
       </div>
     </div>
