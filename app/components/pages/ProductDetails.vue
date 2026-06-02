@@ -46,6 +46,35 @@ if (error.value || !product.value?.productId) {
 
 const isLoading = computed(() => status.value === 'pending');
 
+// When the loaded product's canonicalUrl differs from the URL the user
+// is on, silently rewrite to the canonical URL. Only fires when the
+// canonical stays in the same /market/locale/ prefix — a fallback that
+// crossed locales (server served default-language content on a
+// missing-translation request) must not yank the user back out of the
+// locale they asked for.
+if (import.meta.client) {
+  const canonical = product.value?.canonicalUrl;
+  const path = useRoute().path;
+  if (
+    canonical &&
+    typeof canonical === 'string' &&
+    canonical !== path &&
+    samePrefix(canonical, path)
+  ) {
+    history.replaceState(history.state, '', canonical);
+  }
+}
+
+// Returns true when both paths share the same /market/locale/ prefix, or
+// when either is too short to have one. Used to suppress replaceState
+// when a locale fallback returned a canonicalUrl in a different locale.
+function samePrefix(a: string, b: string): boolean {
+  const aSeg = a.split('/').slice(1, 3);
+  const bSeg = b.split('/').slice(1, 3);
+  if (aSeg.length < 2 || bSeg.length < 2) return true;
+  return aSeg[0] === bSeg[0] && aSeg[1] === bSeg[1];
+}
+
 const { data: related } = useFetch<ListProduct[]>(
   () => `/api/products/${slug.value}/related`,
   {

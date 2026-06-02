@@ -173,30 +173,32 @@ export function useLocaleMarket() {
   /**
    * Switch to a different locale. Full page reload (external: true).
    *
-   * For static routes (cart, portal, etc.): keeps the same path.
-   * For dynamic routes (categories, products, CMS pages): navigates to
-   * home page because slugs are locale-specific (e.g. "utrustning" in SV
-   * becomes "equipment" in EN — the Geins API returns translated canonicalUrls).
+   * Preserves the current path (alias and all). The destination page
+   * re-fetches against the new locale, and PDP/PLP self-correct the URL
+   * via `history.replaceState(canonicalUrl)` once Geins returns the
+   * per-language slug. If Geins has no entry for the new locale, the
+   * server-side product fallback renders default-language content under
+   * the original URL instead of 404-ing.
+   *
+   * The full page reload (external: true) drops the SPA cache so menus,
+   * lists, and CMS slots all re-resolve in the new locale and we never
+   * render against the previous locale's data.
    */
   async function switchLocale(locale: string) {
     if (!validLocales.value.has(locale)) return;
 
     const market = currentMarket.value;
-
-    // Navigate via full page reload. The locale-market middleware on the
-    // target page sets i18n locale and cookies from the URL.
-    // Dynamic routes go to home — slugs are locale-specific.
-    const target = isStaticRoute()
-      ? `/${market}/${locale}${getCleanPath()}`
-      : `/${market}/${locale}/`;
+    const target = `/${market}/${locale}${getCleanPath()}`;
     await navigateTo(target, { external: true });
   }
 
   /**
    * Switch to a different market. Full page reload (external: true).
    *
-   * Same logic as switchLocale — static routes keep path, dynamic routes
-   * go to home because product catalogs differ between markets.
+   * Markets can have completely different catalogs (different products,
+   * categories, prices). Dynamic routes drop to the homepage of the new
+   * market because the current alias is unlikely to resolve there; only
+   * static routes (cart, checkout, portal) carry over.
    */
   async function switchMarket(market: string) {
     if (!validMarkets.value.has(market)) return;

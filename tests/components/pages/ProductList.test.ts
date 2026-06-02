@@ -236,6 +236,61 @@ describe('ProductList.vue', () => {
     mockUseFetch.mockClear();
   });
 
+  describe('canonical URL self-correction', () => {
+    it('rewrites the URL when pageInfo.canonicalUrl differs from route path', async () => {
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockPageInfo.value = {
+        ...VALID_PAGE_INFO,
+        canonicalUrl: '/se/en/l/category-1',
+      };
+
+      await mountProductList(categoryProps, { global: { stubs } });
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0]?.[2]).toBe('/se/en/l/category-1');
+      spy.mockRestore();
+    });
+
+    it('does not rewrite the URL when canonicalUrl matches the route path', async () => {
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockPageInfo.value = { ...VALID_PAGE_INFO, canonicalUrl: '/' };
+
+      await mountProductList(categoryProps, { global: { stubs } });
+
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('does not rewrite when the canonical URL is in a different locale (fallback case)', async () => {
+      const router = (
+        (await import('#app/composables/router')) as unknown as {
+          useRoute: () => { path: string };
+        }
+      ).useRoute() as { path: string };
+      const originalPath = router.path;
+      router.path = '/se/en/l/kategori-1';
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockPageInfo.value = {
+        ...VALID_PAGE_INFO,
+        canonicalUrl: '/se/sv/l/kategori-1',
+      };
+
+      try {
+        await mountProductList(categoryProps, { global: { stubs } });
+        expect(spy).not.toHaveBeenCalled();
+      } finally {
+        spy.mockRestore();
+        router.path = originalPath;
+      }
+    });
+  });
+
   describe('rendering states', () => {
     it('renders loading skeleton while products are pending', async () => {
       mockProductsData.value = null;

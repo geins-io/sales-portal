@@ -80,3 +80,11 @@ Geins's `product(alias:, languageId:)` returns `null` when a product is not publ
 If both locales return `null` the product is genuinely missing and we throw `NOT_FOUND`. The route then sets `Cache-Control: no-store` on the response so a freshly-published product does not stay 404 at the CDN for the regular `s-maxage` window.
 
 Per-language alias resolution (e.g. canonical EN alias differs from SV alias for the same product) is not handled by the storefront. It depends on a Geins schema addition. Until then, language switches preserve the current alias and rely on the fallback above.
+
+### Language Switch Preserves the Alias
+
+The `LocaleSwitcher` component builds its `<a href>` from `getCleanPath()`, so switching language on a PDP or PLP keeps the same alias (e.g. `/se/sv/p/foo` → `/se/en/p/foo`) instead of dropping the user to the homepage of the new locale. The destination page re-fetches against the new locale; if Geins serves a different per-language canonical URL, the PDP / PLP `replaceState`s to that canonical URL after hydration. This mirrors the ralph-storefront pattern (`MixProductPage.js` does the same swap).
+
+The `replaceState` is gated on the `/{market}/{locale}/` prefix matching: a cross-locale canonical (which the locale fallback returns when the requested locale has no data) must **not** rewrite the URL, because that would yank the user out of the locale they asked for.
+
+`switchMarket` keeps the previous home-redirect behavior on dynamic routes because markets often have entirely different catalogs and the current alias is unlikely to resolve in the new market.

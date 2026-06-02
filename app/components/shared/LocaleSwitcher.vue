@@ -11,15 +11,23 @@ const props = withDefaults(
 
 const { availableLocales } = useTenant();
 const { locale: currentLocale, locales, t } = useI18n();
-const { currentMarket } = useLocaleMarket();
+const { currentMarket, getCleanPath } = useLocaleMarket();
 
 /**
  * Generate the URL for switching to a given locale.
- * Always goes to home page — dynamic route slugs are locale-specific.
- * Uses a plain <a href> for full page reload, no JavaScript switching.
+ *
+ * Preserves the current path (alias and all). The destination page
+ * re-fetches against the new locale and the PDP/PLP self-correct the
+ * URL via history.replaceState once Geins returns the per-language
+ * slug. If Geins has no entry for the new locale, the server fallback
+ * renders default-language content under the original URL.
+ *
+ * Plain `<a href>` keeps full page reload behavior, dropping the SPA
+ * cache so menus, lists, and CMS slots all re-resolve in the new
+ * locale.
  */
 function localeHref(loc: string): string {
-  return `/${currentMarket.value}/${loc}/`;
+  return `/${currentMarket.value}/${loc}${getCleanPath()}`;
 }
 
 /** Map locale code → display name from i18n config */

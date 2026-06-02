@@ -203,6 +203,73 @@ describe('ProductDetails', () => {
     mockCanAccess.mockReturnValue(true);
   });
 
+  describe('canonical URL self-correction', () => {
+    it('rewrites the URL via history.replaceState when canonicalUrl differs from route path', async () => {
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockProduct.value = makeProduct({
+        canonicalUrl: '/se/en/p/wood-screw-stainless-steel-10-mm-en',
+      });
+
+      await mountProductDetails(
+        { alias: 'wood-screw-stainless-steel-10-mm-se' },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy.mock.calls[0]?.[2]).toBe(
+        '/se/en/p/wood-screw-stainless-steel-10-mm-en',
+      );
+      spy.mockRestore();
+    });
+
+    it('does not rewrite the URL when canonicalUrl matches the route path', async () => {
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockProduct.value = makeProduct({ canonicalUrl: '/' });
+
+      await mountProductDetails(
+        { alias: 'whatever' },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it('does not rewrite when the canonical URL is in a different locale (fallback case)', async () => {
+      // Cross-locale: route is /se/en/... but canonical came back as /se/sv/...
+      // because the locale fallback served default-language content. Rewriting
+      // would yank the user out of EN, defeating their intent.
+      const router = (
+        (await import('#app/composables/router')) as unknown as {
+          useRoute: () => { path: string };
+        }
+      ).useRoute() as { path: string };
+      const originalPath = router.path;
+      router.path = '/se/en/p/wood-screw-stainless-steel-10-mm-se';
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockProduct.value = makeProduct({
+        canonicalUrl: '/se/sv/p/kategori-1/wood-screw-stainless-steel-10-mm-se',
+      });
+
+      try {
+        await mountProductDetails(
+          { alias: 'wood-screw-stainless-steel-10-mm-se' },
+          { global: { stubs: defaultStubs } },
+        );
+        expect(spy).not.toHaveBeenCalled();
+      } finally {
+        spy.mockRestore();
+        router.path = originalPath;
+      }
+    });
+  });
+
   describe('campaign badges', () => {
     it('shows campaign badges when product has visible campaigns', async () => {
       mockProduct.value = makeProduct({
