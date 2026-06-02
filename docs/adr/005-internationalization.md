@@ -83,10 +83,30 @@ If both locales return `null` the entity is genuinely missing and the route thro
 
 Per-language alias resolution (e.g. canonical EN alias differs from SV alias for the same product) is not handled by the storefront. It depends on a Geins schema addition. Until then, language switches preserve the current alias and rely on the fallback above. The client-side `replaceState` in PDP and PLP then swaps the URL to the canonical alias when the resolved entity's `canonicalUrl` stays in the same `/{market}/{locale}/` prefix as the route the user is on.
 
-### Language Switch Preserves the Alias
+### Entity-Page Locale Switching via alternativeUrls
 
-The `LocaleSwitcher` component builds its `<a href>` from `getCleanPath()`, so switching language on a PDP or PLP keeps the same alias (e.g. `/se/sv/p/foo` → `/se/en/p/foo`) instead of dropping the user to the homepage of the new locale. The destination page re-fetches against the new locale; if Geins serves a different per-language canonical URL, the PDP / PLP `replaceState`s to that canonical URL after hydration. This mirrors the ralph-storefront pattern (`MixProductPage.js` does the same swap).
+Entity URL slugs in Geins are language-specific (product 1335 is `skarkant` in SV, `cutting-edge` in EN; `kategori-1` in SV, `category-1` in EN). Preserving the current slug across a locale switch lands on a slug that does not exist in the target language, and the alias fallback below then renders default-language content under the new prefix, so the switch appears to do nothing.
 
-The `replaceState` is gated on the `/{market}/{locale}/` prefix matching: a cross-locale canonical (which the locale fallback returns when the requested locale has no data) must **not** rewrite the URL, because that would yank the user out of the locale they asked for.
+**Decision:** entity-page locale switching resolves the target-language URL from Geins `alternativeUrls`, superseding the previous "preserve alias and self-correct via canonical `replaceState`" approach for entity pages.
+
+Geins exposes `alternativeUrls { channelId country culture language url }` (`GeinsAlternativeUrlTypeType`) on product and `PageInfo` (category/brand) types, riding along the query the page already makes (no extra round-trip). The `app/composables/useLocaleAlternates.ts` composable maps these entries in three steps before the switcher consumes them:
+
+1. **Market filter:** keep only entries whose URL first segment equals the active market (Geins returns many markets and channels: `se`, `fi`, `dk`, `us`, `gb`, ...).
+2. **Culture/language to short code:** map BCP-47 `culture` (e.g. `en-US`) to the short URL locale code (`en`), fall back to `language`, and keep it only when it is one of the tenant's available locales.
+3. **Routable-path normalization:** Geins pretty SEO paths often omit the `/p/` `/c/` `/b/` type prefix (e.g. `/se/en/materials/branch-pipes/manifold-150-150-88`), which would 404; inject the entity's type prefix after `/{market}/{locale}/` when absent, and leave it when present (some tenants include it). The publisher supplies the entity type via `setAlternates(entries, { type })`.
+
+The composable is `useState`-backed and clears on every client route change so stale entity URLs never leak into the switcher. PDP and PLP publish via `setAlternates`; `app/components/shared/LocaleSwitcher.vue` consumes via `hrefFor(loc)`.
+
+**Consequences:**
+
+- The `LocaleSwitcher` `localeHref` returns the published alternate when present, else the existing clean-path build `/${market}/${loc}${getCleanPath()}`. Non-entity pages (home, cart, CMS, account) publish no alternates and are unchanged.
+- The in-page `history.replaceState` in PDP / PLP narrows to a same-locale canonical tidy-up. It no longer carries the cross-locale switch responsibility; the `samePrefix` / routable-path guard still prevents a cross-locale canonical from rewriting the URL.
+- The server-side default-locale fallback in `server/services/_locale-fallback.ts` is retained as the graceful last resort for genuinely untranslated entities and manually-typed `/se/en/<sv-slug>` URLs. There is no 301 redirect.
+
+### Language Switch Preserves the Alias (Non-Entity Pages)
+
+For pages with no published alternates, the `LocaleSwitcher` component builds its `<a href>` from `getCleanPath()`, so switching language keeps the same path under the new `/{market}/{locale}/` prefix (e.g. `/se/sv/cart` to `/se/en/cart`) instead of dropping the user to the homepage of the new locale. The destination page re-fetches against the new locale and the server renders default-language content for anything not translated. This mirrors the ralph-storefront pattern.
+
+On entity pages the alternates flow above takes precedence; the same-locale canonical `replaceState` remains only to tidy the URL within the current locale, gated on the `/{market}/{locale}/` prefix matching so a cross-locale canonical never rewrites the URL.
 
 `switchMarket` keeps the previous home-redirect behavior on dynamic routes because markets often have entirely different catalogs and the current alias is unlikely to resolve in the new market.
