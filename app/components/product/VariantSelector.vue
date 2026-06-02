@@ -48,7 +48,11 @@ const props = defineProps<{
   // the resolved values down here. Keyed by variant alias.
   variantProducts?: Record<
     string,
-    | { priceFormatted?: string | null; articleNumber?: string | null }
+    | {
+        priceFormatted?: string | null;
+        articleNumber?: string | null;
+        name?: string | null;
+      }
     | undefined
   >;
 }>();
@@ -125,6 +129,7 @@ function variantInfoFor(
   articleNumber?: string;
   stockTotal: number;
   priceFormatted?: string | null;
+  name?: string | null;
 } | null {
   const matchingVariant = props.variants.find((variant) => {
     const dim = (variant as { dimension?: string }).dimension;
@@ -158,8 +163,19 @@ function variantInfoFor(
   const stockTotal =
     matchingVariant?.stock?.totalStock ?? sku?.stock?.totalStock ?? 0;
   const priceFormatted = sibling?.priceFormatted ?? null;
+  // Sibling-variant products each carry their own product name; fall
+  // back to the parent product name for internal multi-SKU products
+  // where every row shares one name.
+  const name = sibling?.name ?? props.productName ?? undefined;
   if (!articleNumber && !matchingVariant) return null;
-  return { articleNumber, stockTotal, priceFormatted };
+  return { articleNumber, stockTotal, priceFormatted, name };
+}
+
+// First row of each sheet item: the product name. Sibling variants are
+// distinct products, so prefer the per-variant name; fall back to the
+// parent product name, then to the variant value if neither is set.
+function rowProductName(dimensionName: string, value: string): string {
+  return variantInfoFor(dimensionName, value)?.name || props.productName || value;
 }
 
 const primaryImageFileName = computed<string | null>(() => {
@@ -251,7 +267,7 @@ const { showPrice } = usePriceVisibility();
     >
       <SheetContent
         side="right"
-        class="flex h-screen w-full flex-col p-0 sm:max-w-lg"
+        class="flex h-screen w-full flex-col p-0 sm:max-w-[670px]"
         data-testid="variant-sheet"
       >
         <SheetHeader class="border-b px-6 py-4">
@@ -325,6 +341,9 @@ const { showPrice } = usePriceVisibility();
 
                 <div class="min-w-0 flex-1">
                   <div class="truncate text-sm font-medium">
+                    {{ rowProductName(activeDimension.dimensionName, value) }}
+                  </div>
+                  <div class="text-muted-foreground truncate text-sm">
                     {{ value }}
                   </div>
                   <div

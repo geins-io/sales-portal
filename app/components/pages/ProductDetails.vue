@@ -281,18 +281,27 @@ watch(
 const variantProductsByAlias = computed<
   Record<
     string,
-    { priceFormatted?: string | null; articleNumber?: string | null }
+    {
+      priceFormatted?: string | null;
+      articleNumber?: string | null;
+      name?: string | null;
+    }
   >
 >(() => {
   const map: Record<
     string,
-    { priceFormatted?: string | null; articleNumber?: string | null }
+    {
+      priceFormatted?: string | null;
+      articleNumber?: string | null;
+      name?: string | null;
+    }
   > = {};
   for (const p of siblingProducts.value?.products ?? []) {
     if (!p?.alias) continue;
     map[p.alias] = {
       priceFormatted: p.unitPrice?.sellingPriceIncVatFormatted ?? null,
       articleNumber: p.articleNumber ?? null,
+      name: p.name ?? null,
     };
   }
   return map;

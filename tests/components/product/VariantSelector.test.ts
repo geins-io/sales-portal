@@ -117,6 +117,48 @@ describe('VariantSelector', () => {
     expect(emitted![0]![0]).toEqual({ Color: 'Red' });
   });
 
+  it('renders the product name as the first row with the variant value below', async () => {
+    const wrapper = mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: dimensions,
+        variants,
+        modelValue: {},
+        productName: 'Grenror 150/150',
+      },
+      global: { stubs: sheetStubs },
+    });
+    await wrapper.find('[data-testid="variant-trigger-Size"]').trigger('click');
+    const firstItem = wrapper
+      .find('[data-testid="variant-sheet-options"]')
+      .findAll('li')[0]!;
+    // First row is the product name (bold); the variant value is a row below.
+    expect(firstItem.find('.font-medium').text()).toBe('Grenror 150/150');
+    expect(firstItem.text()).toContain('S');
+  });
+
+  it('renders the variant sheet at the Figma 670px width', () => {
+    const wrapper = mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: dimensions,
+        variants,
+        modelValue: {},
+      },
+      global: {
+        stubs: {
+          ...sheetStubs,
+          SheetContent: {
+            template:
+              '<div data-testid="variant-sheet" :class="$props.class"><slot /></div>',
+            props: ['side', 'class'],
+          },
+        },
+      },
+    });
+    expect(
+      wrapper.find('[data-testid="variant-sheet"]').classes(),
+    ).toContain('sm:max-w-[670px]');
+  });
+
   it('disables unavailable values based on current selection', async () => {
     const wrapper = mountComponent(VariantSelector, {
       props: {
