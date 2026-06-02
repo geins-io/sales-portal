@@ -15,6 +15,7 @@ import {
 import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useAuthStore } from '~/stores/auth';
+import { productPath as buildProductPath } from '#shared/utils/route-helpers';
 
 const props = defineProps<{
   alias: string;
@@ -22,7 +23,7 @@ const props = defineProps<{
 
 const slug = computed(() => props.alias);
 
-const { localeQuery } = useLocaleMarket();
+const { localeQuery, localePath } = useLocaleMarket();
 
 const {
   data: product,
@@ -46,26 +47,28 @@ if (error.value || !product.value?.productId) {
 
 const isLoading = computed(() => status.value === 'pending');
 
-// When the loaded product's canonicalUrl differs from the URL the user
-// is on, silently rewrite to the canonical URL. Only fires when the
-// canonical stays in the same /market/locale/ prefix — a fallback that
+// When the loaded product's canonicalUrl differs from the URL the user is
+// on, silently rewrite the address bar. Geins returns prefix-less
+// canonicals (e.g. /se/sv/material/grenror/grenror-150-150-88) that 404 on
+// refresh, so we normalize the canonical to the ROUTABLE /p/ form via the
+// route helper rather than writing the raw value. Only fires when the
+// canonical stays in the same /market/locale/ prefix. A fallback that
 // crossed locales (server served default-language content on a
 // missing-translation request) must not yank the user back out of the
-// locale they asked for — AND the canonical is a routable path (shares the
-// current route segment, e.g. `/p/`). Geins sometimes returns a
-// canonicalUrl without our `/p/` product-route segment; rewriting the URL
-// bar to that path would 404 on refresh or any subsequent in-app nav.
+// locale they asked for, so samePrefix is checked on the RAW canonical
+// before normalizing.
 if (import.meta.client) {
   const canonical = product.value?.canonicalUrl;
   const path = useRoute().path;
   if (
     canonical &&
     typeof canonical === 'string' &&
-    canonical !== path &&
-    samePrefix(canonical, path) &&
-    isRoutableProductPath(canonical)
+    samePrefix(canonical, path)
   ) {
-    history.replaceState(history.state, '', canonical);
+    const routable = localePath(buildProductPath(canonical));
+    if (routable !== path) {
+      history.replaceState(history.state, '', routable);
+    }
   }
 }
 
@@ -77,15 +80,6 @@ function samePrefix(a: string, b: string): boolean {
   const bSeg = b.split('/').slice(1, 3);
   if (aSeg.length < 2 || bSeg.length < 2) return true;
   return aSeg[0] === bSeg[0] && aSeg[1] === bSeg[1];
-}
-
-// Returns true when the path is a routable product-detail URL, i.e. the
-// segment after the /market/locale/ prefix is our `/p/` product route
-// (`/<market>/<locale>/p/<...>`). Geins sometimes returns a canonicalUrl
-// that omits the `/p/` segment; that path is not a route we serve, so
-// writing it to the URL bar would 404 on refresh or in-app navigation.
-function isRoutableProductPath(p: string): boolean {
-  return p.split('/')[3] === 'p';
 }
 
 const { data: related } = useFetch<ListProduct[]>(
@@ -139,11 +133,9 @@ watch(
 // before the user opens the switcher); null clears so a 404/empty page never
 // retains a previous product's alternates.
 const { setAlternates } = useLocaleAlternates();
-watch(
-  product,
-  (p) => setAlternates(p?.alternativeUrls, { type: 'product' }),
-  { immediate: true },
-);
+watch(product, (p) => setAlternates(p?.alternativeUrls, { type: 'product' }), {
+  immediate: true,
+});
 
 const resolvedSku = computed(() => {
   if (!product.value?.variantGroup?.variants?.length) {
@@ -202,7 +194,6 @@ const maxQuantity = computed(() => {
 const cartIsFull = computed(
   () => Number.isFinite(stockThreshold.value) && stockThreshold.value === 0,
 );
-const { localePath } = useLocaleMarket();
 
 const isFavorited = computed(() =>
   product.value ? favoritesStore.isFavorite(product.value.alias) : false,

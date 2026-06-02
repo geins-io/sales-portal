@@ -73,6 +73,62 @@ vi.mock('#app/composables/fetch', () => ({
 
 vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
 
+// useLocaleAlternates auto-imports useRouter/useRoute from #app/composables/router
+// (not the global stub) and registers an afterEach hook on the client; without an
+// afterEach the composable throws and aborts the component setup. Override the
+// module mock so the router carries afterEach and the route path is mutable per
+// test (setRoutePath drives it below).
+const { pdpRoute } = vi.hoisted(() => ({
+  pdpRoute: {
+    path: '/',
+    params: {},
+    query: {},
+    hash: '',
+    fullPath: '/',
+    name: 'slug',
+  },
+}));
+vi.mock('#app/composables/router', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    go: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    afterEach: vi.fn(),
+  }),
+  useRoute: () => pdpRoute,
+}));
+
+// useState (used by useLocaleAlternates) needs a live Nuxt instance the
+// component tier does not provide; back it with a plain ref store.
+const { stubUseState } = vi.hoisted(() => ({
+  // A plain { value } box is enough; useLocaleAlternates only reads/writes
+  // `.value`. Avoids needing Vue's ref inside the hoisted (pre-import) factory.
+  stubUseState: (_key: string, init?: () => unknown) => ({
+    value: typeof init === 'function' ? init() : undefined,
+  }),
+}));
+vi.stubGlobal('useState', stubUseState);
+vi.mock('#app/composables/state', () => ({ useState: stubUseState }));
+
+// Override the global useLocaleMarket mock so localePath prepends the
+// /se/sv prefix used by the live-verified canonical fixtures below. The
+// real localePath re-adds the current /{market}/{locale}/ prefix to the
+// locale-free path returned by the route helpers.
+vi.mock('../../../app/composables/useLocaleMarket', () => ({
+  useLocaleMarket: () => ({
+    currentMarket: { value: 'se' },
+    currentLocale: { value: 'sv' },
+    localePath: (path: string) =>
+      `/se/sv${path.startsWith('/') ? path : '/' + path}`,
+    localeQuery: { value: {} },
+    getCleanPath: () => '/',
+    switchLocale: vi.fn(),
+    switchMarket: vi.fn(),
+  }),
+}));
+
 // Mock SEO/head composables
 vi.mock('#app/composables/head', () => ({
   useHead: vi.fn(),
@@ -204,52 +260,99 @@ describe('ProductDetails', () => {
   });
 
   describe('canonical URL self-correction', () => {
-    it('rewrites the URL via history.replaceState when canonicalUrl differs from route path', async () => {
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
-      mockProduct.value = makeProduct({
-        canonicalUrl: '/se/en/p/wood-screw-stainless-steel-10-mm-en',
-      });
-
-      await mountProductDetails(
-        { alias: 'wood-screw-stainless-steel-10-mm-se' },
-        { global: { stubs: defaultStubs } },
-      );
-
-      expect(spy).toHaveBeenCalledTimes(1);
-      expect(spy.mock.calls[0]?.[2]).toBe(
-        '/se/en/p/wood-screw-stainless-steel-10-mm-en',
-      );
-      spy.mockRestore();
-    });
-
-    it('does not rewrite the URL when canonicalUrl matches the route path', async () => {
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
-      mockProduct.value = makeProduct({ canonicalUrl: '/' });
-
-      await mountProductDetails(
-        { alias: 'whatever' },
-        { global: { stubs: defaultStubs } },
-      );
-
-      expect(spy).not.toHaveBeenCalled();
-      spy.mockRestore();
-    });
-
-    it('does not rewrite when the canonical URL is in a different locale (fallback case)', async () => {
-      // Cross-locale: route is /se/en/... but canonical came back as /se/sv/...
-      // because the locale fallback served default-language content. Rewriting
-      // would yank the user out of EN, defeating their intent.
+    async function setRoutePath(path: string): Promise<{
+      restore: () => void;
+    }> {
       const router = (
         (await import('#app/composables/router')) as unknown as {
           useRoute: () => { path: string };
         }
       ).useRoute() as { path: string };
       const originalPath = router.path;
-      router.path = '/se/en/p/wood-screw-stainless-steel-10-mm-se';
+      router.path = path;
+      return { restore: () => (router.path = originalPath) };
+    }
+
+    it('normalizes a prefix-less canonical to the routable /p/ form', async () => {
+      // Geins returns a canonicalUrl without our `/p/` product-route segment
+      // (e.g. /se/sv/material/grenror/grenror-150-150-88). It must be
+      // normalized to the routable /p/ path, not written raw (the raw form
+      // 404s on refresh or in-app nav).
+      const { restore } = await setRoutePath('/se/sv/p/grenror-150-150-88');
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockProduct.value = makeProduct({
+        canonicalUrl: '/se/sv/material/grenror/grenror-150-150-88',
+      });
+
+      try {
+        await mountProductDetails(
+          { alias: 'grenror-150-150-88' },
+          { global: { stubs: defaultStubs } },
+        );
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy.mock.calls[0]?.[2]).toBe(
+          '/se/sv/p/material/grenror/grenror-150-150-88',
+        );
+      } finally {
+        spy.mockRestore();
+        restore();
+      }
+    });
+
+    it('rewrites to the routable /p/ form when canonicalUrl differs in the same prefix', async () => {
+      const { restore } = await setRoutePath(
+        '/se/sv/p/wood-screw-stainless-steel-10-mm-se',
+      );
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockProduct.value = makeProduct({
+        canonicalUrl: '/se/sv/p/wood-screw-stainless-steel-10-mm-en',
+      });
+
+      try {
+        await mountProductDetails(
+          { alias: 'wood-screw-stainless-steel-10-mm-se' },
+          { global: { stubs: defaultStubs } },
+        );
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy.mock.calls[0]?.[2]).toBe(
+          '/se/sv/p/wood-screw-stainless-steel-10-mm-en',
+        );
+      } finally {
+        spy.mockRestore();
+        restore();
+      }
+    });
+
+    it('does not rewrite the URL when the routable target equals the route path', async () => {
+      const { restore } = await setRoutePath('/se/sv/p/test-product');
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockProduct.value = makeProduct({ canonicalUrl: '/se/sv/test-product' });
+
+      try {
+        await mountProductDetails(
+          { alias: 'test-product' },
+          { global: { stubs: defaultStubs } },
+        );
+        expect(spy).not.toHaveBeenCalled();
+      } finally {
+        spy.mockRestore();
+        restore();
+      }
+    });
+
+    it('does not rewrite when the canonical URL is in a different locale (fallback case)', async () => {
+      // Cross-locale: route is /se/en/... but canonical came back as /se/sv/...
+      // because the locale fallback served default-language content. Rewriting
+      // would yank the user out of EN, defeating their intent.
+      const { restore } = await setRoutePath(
+        '/se/en/p/wood-screw-stainless-steel-10-mm-se',
+      );
       const spy = vi
         .spyOn(window.history, 'replaceState')
         .mockImplementation(() => {});
@@ -265,29 +368,7 @@ describe('ProductDetails', () => {
         expect(spy).not.toHaveBeenCalled();
       } finally {
         spy.mockRestore();
-        router.path = originalPath;
-      }
-    });
-
-    it('does not rewrite when the canonicalUrl is not a routable /p/ path', async () => {
-      // Geins can return a canonicalUrl without our `/p/` product-route
-      // segment (e.g. /se/sv/material/grenror/grenror-150-150-88). Rewriting
-      // the URL bar to that non-route would 404 on refresh or in-app nav.
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
-      mockProduct.value = makeProduct({
-        canonicalUrl: '/se/sv/material/grenror/grenror-150-150-88',
-      });
-
-      try {
-        await mountProductDetails(
-          { alias: 'grenror-150-150-88' },
-          { global: { stubs: defaultStubs } },
-        );
-        expect(spy).not.toHaveBeenCalled();
-      } finally {
-        spy.mockRestore();
+        restore();
       }
     });
   });

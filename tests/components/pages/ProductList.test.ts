@@ -83,6 +83,23 @@ vi.mock('#app/composables/fetch', () => ({
   useFetch: (...args: unknown[]) => mockUseFetch(...args),
 }));
 
+// Override the global useLocaleMarket mock so localePath prepends the
+// /se/sv prefix used by the live-verified canonical fixtures below. The
+// real localePath re-adds the current /{market}/{locale}/ prefix to the
+// locale-free path returned by the route helpers.
+vi.mock('../../../app/composables/useLocaleMarket', () => ({
+  useLocaleMarket: () => ({
+    currentMarket: { value: 'se' },
+    currentLocale: { value: 'sv' },
+    localePath: (path: string) =>
+      `/se/sv${path.startsWith('/') ? path : '/' + path}`,
+    localeQuery: { value: {} },
+    getCleanPath: () => '/',
+    switchLocale: vi.fn(),
+    switchMarket: vi.fn(),
+  }),
+}));
+
 vi.mock('#app/composables/head', () => ({
   useHead: vi.fn(),
   useHeadSafe: vi.fn(),
@@ -94,6 +111,18 @@ vi.mock('#app/composables/head', () => ({
 }));
 
 vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+// useState (used by useLocaleAlternates) needs a live Nuxt instance that the
+// component tier does not provide. Stub it with a plain ref-backed store so
+// the setup runs to completion and the canonical replaceState block executes.
+const { stubUseState } = vi.hoisted(() => ({
+  // A plain { value } box is enough; useLocaleAlternates only reads/writes
+  // `.value`. Avoids needing Vue's ref inside the hoisted (pre-import) factory.
+  stubUseState: (_key: string, init?: () => unknown) => ({
+    value: typeof init === 'function' ? init() : undefined,
+  }),
+}));
+vi.stubGlobal('useState', stubUseState);
+vi.mock('#app/composables/state', () => ({ useState: stubUseState }));
 vi.stubGlobal('useHead', vi.fn());
 vi.stubGlobal('useSeoMeta', vi.fn());
 vi.stubGlobal('useSchemaOrg', vi.fn());
@@ -139,8 +168,37 @@ const mockRouter = {
   go: vi.fn(),
   back: vi.fn(),
   forward: vi.fn(),
+  // useLocaleAlternates registers a router.afterEach hook on the client;
+  // without this the composable throws before the canonical rewrite runs.
+  afterEach: vi.fn(),
 };
 vi.stubGlobal('useRouter', () => mockRouter);
+// useLocaleAlternates auto-imports useRouter/useRoute from #app/composables/router
+// (not the global stub) and registers an afterEach hook; override the module mock
+// so that router carries afterEach and the canonical rewrite block is reached. The
+// route object is shared/mutable so setRoutePath() below can drive the component's
+// current path per test.
+const { plpRoute } = vi.hoisted(() => ({
+  plpRoute: {
+    path: '/foder',
+    params: { slug: ['foder'] },
+    query: {},
+    hash: '',
+    fullPath: '/foder',
+    name: 'slug',
+  },
+}));
+vi.mock('#app/composables/router', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    go: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    afterEach: vi.fn(),
+  }),
+  useRoute: () => plpRoute,
+}));
 vi.stubGlobal('useRoute', () => ({
   path: '/foder',
   params: { slug: ['foder'] },
@@ -237,48 +295,70 @@ describe('ProductList.vue', () => {
   });
 
   describe('canonical URL self-correction', () => {
-    it('rewrites the URL when pageInfo.canonicalUrl differs from route path', async () => {
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
-      mockPageInfo.value = {
-        ...VALID_PAGE_INFO,
-        canonicalUrl: '/se/en/l/category-1',
-      };
-
-      await mountProductList(categoryProps, { global: { stubs } });
-
-      expect(spy).toHaveBeenCalledTimes(1);
-      expect(spy.mock.calls[0]?.[2]).toBe('/se/en/l/category-1');
-      spy.mockRestore();
-    });
-
-    it('does not rewrite the URL when canonicalUrl matches the route path', async () => {
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
-      mockPageInfo.value = { ...VALID_PAGE_INFO, canonicalUrl: '/' };
-
-      await mountProductList(categoryProps, { global: { stubs } });
-
-      expect(spy).not.toHaveBeenCalled();
-      spy.mockRestore();
-    });
-
-    it('does not rewrite when the canonical URL is in a different locale (fallback case)', async () => {
+    async function setRoutePath(path: string): Promise<{
+      restore: () => void;
+    }> {
       const router = (
         (await import('#app/composables/router')) as unknown as {
           useRoute: () => { path: string };
         }
       ).useRoute() as { path: string };
       const originalPath = router.path;
-      router.path = '/se/en/l/kategori-1';
+      router.path = path;
+      return { restore: () => (router.path = originalPath) };
+    }
+
+    it('normalizes a prefix-less category canonical to the routable /c/ path', async () => {
+      const { restore } = await setRoutePath('/se/sv/c/grenror');
       const spy = vi
         .spyOn(window.history, 'replaceState')
         .mockImplementation(() => {});
       mockPageInfo.value = {
         ...VALID_PAGE_INFO,
-        canonicalUrl: '/se/sv/l/kategori-1',
+        canonicalUrl: '/se/sv/material/grenror',
+      };
+
+      try {
+        await mountProductList(categoryProps, { global: { stubs } });
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy.mock.calls[0]?.[2]).toBe('/se/sv/c/material/grenror');
+      } finally {
+        spy.mockRestore();
+        restore();
+      }
+    });
+
+    it('normalizes a brand canonical to the routable /b/ path', async () => {
+      const { restore } = await setRoutePath('/se/sv/b/acme');
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockPageInfo.value = {
+        ...VALID_PAGE_INFO,
+        canonicalUrl: '/se/sv/varumarke/acme',
+      };
+
+      try {
+        await mountProductList(
+          { type: 'brand' as const, alias: 'acme' },
+          { global: { stubs } },
+        );
+        expect(spy).toHaveBeenCalledTimes(1);
+        expect(spy.mock.calls[0]?.[2]).toBe('/se/sv/b/varumarke/acme');
+      } finally {
+        spy.mockRestore();
+        restore();
+      }
+    });
+
+    it('does not rewrite when the routable target equals the current path', async () => {
+      const { restore } = await setRoutePath('/se/sv/c/foder');
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockPageInfo.value = {
+        ...VALID_PAGE_INFO,
+        canonicalUrl: '/se/sv/foder',
       };
 
       try {
@@ -286,7 +366,26 @@ describe('ProductList.vue', () => {
         expect(spy).not.toHaveBeenCalled();
       } finally {
         spy.mockRestore();
-        router.path = originalPath;
+        restore();
+      }
+    });
+
+    it('does not rewrite when the canonical URL is in a different locale (fallback case)', async () => {
+      const { restore } = await setRoutePath('/se/en/c/kategori-1');
+      const spy = vi
+        .spyOn(window.history, 'replaceState')
+        .mockImplementation(() => {});
+      mockPageInfo.value = {
+        ...VALID_PAGE_INFO,
+        canonicalUrl: '/se/sv/kategori-1',
+      };
+
+      try {
+        await mountProductList(categoryProps, { global: { stubs } });
+        expect(spy).not.toHaveBeenCalled();
+      } finally {
+        spy.mockRestore();
+        restore();
       }
     });
   });

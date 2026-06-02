@@ -11,6 +11,7 @@ import { Package as PackageIcon } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useDebounceFn } from '@vueuse/core';
 import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
+import { categoryPath, brandPath } from '#shared/utils/route-helpers';
 
 const props = defineProps<{
   type: 'category' | 'brand';
@@ -140,18 +141,26 @@ watch(
 // Mirror the PDP self-correction: if Geins returned a per-language
 // canonical URL different from the URL the user is on (e.g. they hit
 // /se/en/l/kategori-1 and the EN slug is /se/en/l/category-1), swap
-// the URL in place. Only fires when the canonical stays in the same
-// /market/locale/ prefix; cross-locale fallbacks must not move the user.
+// the URL in place. Geins canonicals are prefix-less (e.g.
+// /se/sv/material/grenror), which 404 on refresh, so we rewrite to the
+// ROUTABLE type-prefixed form (/c/ or /b/) via the route helpers rather
+// than writing the raw canonical. Only fires when the canonical stays in
+// the same /market/locale/ prefix; cross-locale fallbacks must not move
+// the user, so samePrefix is checked on the RAW canonical before normalizing.
 if (import.meta.client) {
   const canonical = pageInfo.value?.canonicalUrl;
   const path = useRoute().path;
   if (
     canonical &&
     typeof canonical === 'string' &&
-    canonical !== path &&
     samePrefix(canonical, path)
   ) {
-    history.replaceState(history.state, '', canonical);
+    const routable = localePath(
+      (isBrand.value ? brandPath : categoryPath)(canonical),
+    );
+    if (routable !== path) {
+      history.replaceState(history.state, '', routable);
+    }
   }
 }
 
