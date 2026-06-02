@@ -1,7 +1,6 @@
 import { tenantConfigKey } from '../utils/tenant';
 import { getPublicConfig } from '../services/tenant-config';
 import { createTenantLogger } from '../utils/logger';
-import { getStoreSettingsPreviewCookie } from '../utils/cookies';
 
 export default defineCachedEventHandler(
   async (event) => {
@@ -22,18 +21,16 @@ export default defineCachedEventHandler(
   {
     // Cache key uses tenantId (from cookie/context) so multiple hostnames
     // for the same tenant share one cache entry. Falls back to hostname.
-    // When the store-settings preview cookie is set, append a per-request
-    // suffix so Nitro never serves a cached preview response (every preview
-    // render must rebuild against the latest unpublished appSettings).
+    // When ?preview=1 is present, append a per-request suffix so Nitro never
+    // serves a cached preview response (every preview render must rebuild
+    // against the latest unpublished appSettings).
     getKey: (event) => {
       const base = tenantConfigKey(
         event.context.tenant.tenantId || event.context.tenant.hostname,
       );
-      // Both the cookie and the ?preview=1 query mark a preview render.
-      // The first preview request from Studio has no cookie yet (the cookie
-      // is set on the response), so the query must also bypass the cache.
-      const isPreview =
-        getStoreSettingsPreviewCookie(event) || getQuery(event).preview === '1';
+      // Only ?preview=1 bypasses the cache; a cookie never marks a preview
+      // render so a stale preview cookie can't poison the live cache entry.
+      const isPreview = getQuery(event).preview === '1';
       return isPreview ? `${base}:settings-preview:${Date.now()}` : base;
     },
     // Serve a stale cached response while asynchronously revalidating it

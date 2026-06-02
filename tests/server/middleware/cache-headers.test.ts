@@ -60,11 +60,12 @@ describe('cache-headers middleware', () => {
     expect(headers['cache-control']).toBeUndefined();
   });
 
-  it('marks store-settings preview-cookie requests as uncacheable', () => {
+  it('store-settings preview cookie alone does NOT disable CDN caching', () => {
     cookies.store_settings_preview = 'true';
     run('/sv/sv/');
-    expect(headers['cache-control']).toBe('private, no-store');
-    expect(headers['vary']).toBeUndefined();
+    expect(headers['cache-control']).toBe(
+      'public, s-maxage=60, stale-while-revalidate=600',
+    );
   });
 
   it('marks CMS preview-cookie requests as uncacheable', () => {
