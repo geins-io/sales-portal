@@ -34,18 +34,18 @@ describe('HtmlWidget', () => {
         data: { html: '<p class="test">Some content</p>', css: '' },
       },
     });
-    expect(wrapper.find('.prose').exists()).toBe(true);
+    expect(wrapper.find('.rich-text').exists()).toBe(true);
     expect(wrapper.html()).toContain('Some content');
   });
 
-  it('handles empty content by not rendering prose div', () => {
+  it('handles empty content by not rendering rich-text div', () => {
     const wrapper = mountComponent(HtmlWidget, {
       props: {
         ...defaultProps,
         data: { html: '', css: '' },
       },
     });
-    expect(wrapper.find('.prose').exists()).toBe(false);
+    expect(wrapper.find('.rich-text').exists()).toBe(false);
   });
 
   it('renders HTML when html property is provided', () => {
@@ -55,7 +55,7 @@ describe('HtmlWidget', () => {
         data: { html: '<strong>Bold text</strong>', css: '' },
       },
     });
-    expect(wrapper.find('.prose').exists()).toBe(true);
+    expect(wrapper.find('.rich-text').exists()).toBe(true);
     expect(wrapper.html()).toContain('<strong>Bold text</strong>');
   });
 });

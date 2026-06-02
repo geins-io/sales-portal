@@ -115,3 +115,85 @@
     font-family: var(--mono-font-family);
   }
 }
+
+/*
+ * Rich-text widget output (CMS Text / HTML widgets).
+ *
+ * The CMS rich-text editor emits raw HTML, but Tailwind's preflight resets
+ * headings, lists and link styling to nothing, so the storefront rendered
+ * the content unstyled. These rules restore a readable type scale that
+ * matches the Merchant Center WYSIWYG. Everything is scoped under
+ * `.rich-text` so the global cascade is untouched, and every value comes
+ * from a theme token / the existing Tailwind scale (no hardcoded sizes).
+ * `:where(...)` keeps specificity at zero so utility classes still win.
+ */
+@layer components {
+  .rich-text {
+    @apply text-foreground leading-relaxed;
+    font-family: var(--font-family);
+  }
+  .rich-text :where(h1, h2, h3, h4, h5, h6) {
+    @apply mt-6 mb-2 font-bold leading-tight;
+    font-family: var(--heading-font-family);
+  }
+  .rich-text :where(h1, h2, h3, h4, h5, h6):first-child {
+    @apply mt-0;
+  }
+  .rich-text h1 {
+    @apply text-4xl;
+  }
+  .rich-text h2 {
+    @apply text-3xl;
+  }
+  .rich-text h3 {
+    @apply text-2xl;
+  }
+  .rich-text h4 {
+    @apply text-xl;
+  }
+  .rich-text h5 {
+    @apply text-lg;
+  }
+  .rich-text h6 {
+    @apply text-base;
+  }
+  .rich-text p {
+    @apply mb-4;
+  }
+  .rich-text a {
+    @apply text-primary underline underline-offset-2 hover:opacity-80;
+  }
+  .rich-text ul {
+    @apply mb-4 list-disc pl-6;
+  }
+  .rich-text ol {
+    @apply mb-4 list-decimal pl-6;
+  }
+  .rich-text li {
+    @apply my-1;
+  }
+  .rich-text :where(li) > :where(ul, ol) {
+    @apply my-1;
+  }
+  .rich-text blockquote {
+    @apply border-border text-muted-foreground my-4 border-l-2 pl-4 italic;
+  }
+  .rich-text table {
+    @apply mb-4 w-full border-collapse text-sm;
+  }
+  .rich-text :where(th, td) {
+    @apply border-border border px-3 py-2 text-left align-top;
+  }
+  .rich-text th {
+    @apply bg-muted font-semibold;
+  }
+  .rich-text img {
+    @apply h-auto max-w-full;
+  }
+  .rich-text hr {
+    @apply border-border my-6;
+  }
+  .rich-text > :last-child {
+    @apply mb-0;
+  }
+}
