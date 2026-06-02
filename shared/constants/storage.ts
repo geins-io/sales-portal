@@ -45,6 +45,5 @@ export const COOKIE_NAMES = {
   CART_ID: 'cart_id',
   PREVIEW_MODE: 'preview_mode',
   SPOOFED_BY: 'geins-spoofed-by',
-  STORE_SETTINGS_PREVIEW: 'store_settings_preview',
   VAT_DISPLAY: 'vat_display',
 } as const;

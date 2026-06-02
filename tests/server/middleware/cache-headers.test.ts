@@ -19,7 +19,6 @@ vi.stubGlobal('setHeader', setHeaderMock);
 vi.mock('#shared/constants/storage', () => ({
   COOKIE_NAMES: {
     PREVIEW_MODE: 'preview_mode',
-    STORE_SETTINGS_PREVIEW: 'store_settings_preview',
   },
 }));
 
