@@ -240,15 +240,36 @@ describe('useLocaleMarket', () => {
   });
 
   describe('switchLocale', () => {
-    it('should navigate to home on dynamic route (locale-specific slugs)', async () => {
+    it('preserves the alias on dynamic routes so the destination page can self-correct via canonicalUrl', async () => {
+      mockRouteFullPath.value = '/se/sv/p/wood-screw-stainless-steel-10-mm-se';
       const { switchLocale } = useLocaleMarket();
       await switchLocale('en');
 
-      // No setLocale — full page reload handles locale from URL
-      // Dynamic route slugs are locale-specific, so switch goes to home
-      expect(mockNavigateTo).toHaveBeenCalledWith('/se/en/', {
+      expect(mockNavigateTo).toHaveBeenCalledWith(
+        '/se/en/p/wood-screw-stainless-steel-10-mm-se',
+        { external: true },
+      );
+    });
+
+    it('preserves the alias on category routes', async () => {
+      mockRouteFullPath.value = '/se/sv/l/kategori-1';
+      const { switchLocale } = useLocaleMarket();
+      await switchLocale('en');
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/se/en/l/kategori-1', {
         external: true,
       });
+    });
+
+    it('keeps query strings when switching on a dynamic route', async () => {
+      mockRouteFullPath.value = '/se/sv/l/kategori-1?page=2';
+      const { switchLocale } = useLocaleMarket();
+      await switchLocale('en');
+
+      expect(mockNavigateTo).toHaveBeenCalledWith(
+        '/se/en/l/kategori-1?page=2',
+        { external: true },
+      );
     });
 
     it('should not switch to a locale not in tenant available locales', async () => {

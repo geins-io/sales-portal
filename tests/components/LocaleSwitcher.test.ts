@@ -91,6 +91,43 @@ describe('LocaleSwitcher logic', () => {
     });
   });
 
+  describe('localeHref', () => {
+    // Mirrors: `/${currentMarket.value}/${loc}${getCleanPath()}`
+    function localeHref(
+      market: string,
+      loc: string,
+      cleanPath: string,
+    ): string {
+      return `/${market}/${loc}${cleanPath}`;
+    }
+
+    it('preserves the alias on a PDP path', () => {
+      expect(
+        localeHref(
+          'se',
+          'en',
+          '/p/material/anborrningsgrenar/anborrningsgrenror-o-50-rf',
+        ),
+      ).toBe('/se/en/p/material/anborrningsgrenar/anborrningsgrenror-o-50-rf');
+    });
+
+    it('preserves the alias on a category path', () => {
+      expect(localeHref('se', 'en', '/l/kategori-1')).toBe(
+        '/se/en/l/kategori-1',
+      );
+    });
+
+    it('emits /market/locale/ when the clean path is /', () => {
+      expect(localeHref('se', 'en', '/')).toBe('/se/en/');
+    });
+
+    it('keeps query strings on the destination URL', () => {
+      expect(localeHref('se', 'en', '/l/kategori-1?page=2')).toBe(
+        '/se/en/l/kategori-1?page=2',
+      );
+    });
+  });
+
   describe('variant prop', () => {
     const validVariants = ['icon', 'text', 'inline'] as const;
 
