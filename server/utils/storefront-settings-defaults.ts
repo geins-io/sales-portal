@@ -46,6 +46,18 @@ const COLOR_DEFAULTS: Record<keyof typeof HEX_DEFAULTS, string> =
  * Canonical defaults. Shape mirrors `StoreSettings` partially; identity
  * fields (tenantId/hostname/geinsSettings/timestamps/isActive) are never
  * defaulted here because they come from the API or the auto-provision path.
+ *
+ * Feature-flag default policy (read this before adding a new feature):
+ *
+ *   - Flags Studio exposes a toggle for default to `enabled: false`.
+ *     Today this is `priceVisibility`, `orderPlacement`, `stockStatus`.
+ *     The merchant opts in via Studio; the API then writes the explicit
+ *     `true`/`false`. When the key is absent we treat the merchant as
+ *     not yet opted in and keep the feature off.
+ *
+ *   - All other flags default to `enabled: true` because Studio has no
+ *     toggle for them and they are required for storefront baseline
+ *     behaviour (cart, checkout, lists, etc.).
  */
 export const STOREFRONT_SETTINGS_DEFAULTS = {
   mode: 'commerce' as const,
@@ -58,18 +70,18 @@ export const STOREFRONT_SETTINGS_DEFAULTS = {
     newsletter: { enabled: true } as FeatureConfig,
     orderHistory: { enabled: true } as FeatureConfig,
     orderPlacement: {
-      enabled: true,
+      enabled: false,
       access: 'authenticated',
     } as FeatureConfig,
     priceVisibility: {
-      enabled: true,
+      enabled: false,
       access: 'authenticated',
     } as FeatureConfig,
     quotes: { enabled: true } as FeatureConfig,
     registration: { enabled: true } as FeatureConfig,
     reorder: { enabled: true } as FeatureConfig,
     stockStatus: {
-      enabled: true,
+      enabled: false,
       access: 'authenticated',
     } as FeatureConfig,
     wishlist: { enabled: true } as FeatureConfig,

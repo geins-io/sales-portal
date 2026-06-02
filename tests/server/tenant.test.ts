@@ -13,7 +13,7 @@ import {
   mergeDeep,
   resolvePreviewTenant,
 } from '../../server/utils/tenant';
-import elpromanFixture from '../fixtures/store-settings/elproman.json';
+import partialPayloadFixture from '../fixtures/store-settings/partial-payload.json';
 import {
   createDefaultTheme,
   generateTenantCss,
@@ -552,13 +552,14 @@ describe('Tenant utilities', () => {
       };
     }
 
-    it('empty appSettings applies canonical defaults', () => {
+    it('empty appSettings applies canonical defaults (Studio-managed flags off)', () => {
       const built = buildTenantConfig(minimalSettings());
-      expect(built.features.stockStatus?.enabled).toBe(true);
+      expect(built.features.stockStatus?.enabled).toBe(false);
       expect(built.features.priceVisibility).toMatchObject({
-        enabled: true,
+        enabled: false,
         access: 'authenticated',
       });
+      expect(built.features.cart?.enabled).toBe(true);
       expect(built.theme.radius).toBe('0');
     });
 
@@ -570,21 +571,26 @@ describe('Tenant utilities', () => {
         },
       });
       expect(built.features.priceVisibility?.enabled).toBe(false);
-      expect(built.features.orderPlacement?.enabled).toBe(true);
-      expect(built.features.stockStatus?.enabled).toBe(true);
+      // Studio-managed siblings without an explicit API value default off
+      expect(built.features.orderPlacement?.enabled).toBe(false);
+      expect(built.features.stockStatus?.enabled).toBe(false);
+      // Baseline storefront flags remain on by default
+      expect(built.features.cart?.enabled).toBe(true);
     });
 
-    it('elproman fixture: missing stockStatus key resolves to enabled default', () => {
+    it('partial payload fixture: missing stockStatus key resolves to default-off', () => {
       const candidate = adaptMerchantApiResponse(
-        elpromanFixture as unknown as Record<string, unknown>,
+        partialPayloadFixture as unknown as Record<string, unknown>,
       );
       const settings = parseStoreSettingsResilient(
         candidate,
-        'elproman.litium.store',
+        'partial.example.com',
       );
       expect(settings).not.toBeNull();
       const built = buildTenantConfig(settings as StoreSettings);
-      expect(built.features.stockStatus?.enabled).toBe(true);
+      // Absent from payload, resolves to the default-off rule for Studio-managed flags
+      expect(built.features.stockStatus?.enabled).toBe(false);
+      // Explicit false from the payload
       expect(built.features.priceVisibility?.enabled).toBe(false);
       expect(built.features.orderPlacement?.enabled).toBe(false);
     });
@@ -621,9 +627,9 @@ describe('Tenant utilities', () => {
     it('fills branding.name from geinsSettings.accountName when name is empty', () => {
       const settings = minimalSettings();
       settings.branding = { name: '', watermark: 'full' };
-      settings.geinsSettings.accountName = 'elproman';
+      settings.geinsSettings.accountName = 'acme-merchant';
       const built = buildTenantConfig(settings);
-      expect(built.branding.name).toBe('elproman');
+      expect(built.branding.name).toBe('acme-merchant');
     });
 
     it('falls back to hostname when both branding.name and accountName are empty', () => {
@@ -901,19 +907,16 @@ describe('Tenant utilities', () => {
       expect(out?.theme.colors.navBarBackground).toMatch(oklchPattern);
     });
 
-    it('parses the elproman fixture (no core colors, surface-only palette) without blanking', () => {
+    it('parses the partial payload fixture (no core colors, surface-only palette) without blanking', () => {
       // Regression artifact: this exact payload caused production blanking
       // before the salvager learned to leaf-strip and core-backfill. The
       // fixture intentionally has zero core OKLCH keys and only surface
       // colors (one with 8-digit alpha hex). Reverting the fix should make
       // this test fail loudly.
       const candidate = adaptMerchantApiResponse(
-        elpromanFixture as unknown as Record<string, unknown>,
+        partialPayloadFixture as unknown as Record<string, unknown>,
       );
-      const out = parseStoreSettingsResilient(
-        candidate,
-        'elproman.litium.store',
-      );
+      const out = parseStoreSettingsResilient(candidate, 'partial.example.com');
       expect(out).not.toBeNull();
       const oklchPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+( \/ [\d.]+)?\)$/;
       const withAlphaPattern = /^oklch\([\d.]+ [\d.]+ [\d.]+ \/ [\d.]+\)$/;

@@ -79,7 +79,7 @@ describe('ThemeColorsSchema topBarBackground', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts `#eae8dc99` (regression for elproman payload)', () => {
+  it('accepts `#eae8dc99` (regression for 8-digit hex with alpha)', () => {
     const result = ThemeColorsSchema.safeParse({
       ...baseCore,
       topBarBackground: '#eae8dc99',

@@ -25,22 +25,37 @@ describe('storefront-settings-defaults', () => {
       );
     });
 
-    it('defaults stockStatus to enabled:true access:authenticated', () => {
+    it('defaults the Studio-managed flags (priceVisibility, orderPlacement, stockStatus) to enabled:false', () => {
+      expect(STOREFRONT_SETTINGS_DEFAULTS.features.priceVisibility).toEqual({
+        enabled: false,
+        access: 'authenticated',
+      });
+      expect(STOREFRONT_SETTINGS_DEFAULTS.features.orderPlacement).toEqual({
+        enabled: false,
+        access: 'authenticated',
+      });
       expect(STOREFRONT_SETTINGS_DEFAULTS.features.stockStatus).toEqual({
-        enabled: true,
+        enabled: false,
         access: 'authenticated',
       });
     });
 
-    it('defaults priceVisibility and orderPlacement to authenticated', () => {
-      expect(STOREFRONT_SETTINGS_DEFAULTS.features.priceVisibility).toEqual({
-        enabled: true,
-        access: 'authenticated',
-      });
-      expect(STOREFRONT_SETTINGS_DEFAULTS.features.orderPlacement).toEqual({
-        enabled: true,
-        access: 'authenticated',
-      });
+    it('defaults baseline storefront flags (cart, checkout, lists, wishlist, etc.) to enabled:true', () => {
+      for (const key of [
+        'analytics',
+        'applyForAccount',
+        'cart',
+        'checkout',
+        'lists',
+        'newsletter',
+        'orderHistory',
+        'quotes',
+        'registration',
+        'reorder',
+        'wishlist',
+      ] as const) {
+        expect(STOREFRONT_SETTINGS_DEFAULTS.features[key]?.enabled).toBe(true);
+      }
     });
 
     it('defaults seo.robots to "index, follow"', () => {
@@ -54,15 +69,46 @@ describe('storefront-settings-defaults', () => {
   });
 
   describe('mergeStorefrontSettings', () => {
-    it('empty input yields the canonical defaults', () => {
+    it('empty input yields the canonical defaults (Studio-managed flags off, baseline flags on)', () => {
       const merged = mergeStorefrontSettings({});
       expect(merged.mode).toBe('commerce');
       expect(merged.theme.radius).toBe('0');
       expect(merged.features.stockStatus).toEqual({
+        enabled: false,
+        access: 'authenticated',
+      });
+      expect(merged.features.priceVisibility).toEqual({
+        enabled: false,
+        access: 'authenticated',
+      });
+      expect(merged.features.orderPlacement).toEqual({
+        enabled: false,
+        access: 'authenticated',
+      });
+      expect(merged.features.cart?.enabled).toBe(true);
+      expect(merged.features.checkout?.enabled).toBe(true);
+      expect(merged.seo?.robots).toBe('index, follow');
+    });
+
+    it('explicit enabled:true from the API overrides the default-off for Studio-managed flags', () => {
+      const merged = mergeStorefrontSettings({
+        features: {
+          stockStatus: { enabled: true, access: 'authenticated' },
+        },
+      });
+      expect(merged.features.stockStatus).toEqual({
         enabled: true,
         access: 'authenticated',
       });
-      expect(merged.seo?.robots).toBe('index, follow');
+      // Siblings still fall back to the canonical defaults
+      expect(merged.features.priceVisibility).toEqual({
+        enabled: false,
+        access: 'authenticated',
+      });
+      expect(merged.features.orderPlacement).toEqual({
+        enabled: false,
+        access: 'authenticated',
+      });
     });
 
     it('partial features preserves api keys and fills missing siblings', () => {
@@ -76,11 +122,11 @@ describe('storefront-settings-defaults', () => {
         access: 'authenticated',
       });
       expect(merged.features.stockStatus).toEqual({
-        enabled: true,
+        enabled: false,
         access: 'authenticated',
       });
       expect(merged.features.orderPlacement).toEqual({
-        enabled: true,
+        enabled: false,
         access: 'authenticated',
       });
     });

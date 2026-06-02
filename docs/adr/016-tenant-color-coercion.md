@@ -144,4 +144,4 @@ fields are never fatal.
 - `server/utils/color-coercion.ts`
 - `server/utils/tenant.ts`
 - `server/schemas/store-settings.ts`
-- `tests/fixtures/store-settings/elproman.json` (regression fixture)
+- `tests/fixtures/store-settings/partial-payload.json` (regression fixture)
