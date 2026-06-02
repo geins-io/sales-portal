@@ -18,6 +18,11 @@ describe('categoryPath', () => {
     expect(categoryPath('/material/epoxy')).toBe('/c/material/epoxy');
   });
 
+  it('does not double the prefix when canonical URL already includes /c/ or /l/', () => {
+    expect(categoryPath('/se/sv/l/kategori-1')).toBe('/c/kategori-1');
+    expect(categoryPath('/se/sv/c/kategori-1')).toBe('/c/kategori-1');
+  });
+
   it('handles locale with region code', () => {
     expect(categoryPath('/se/sv-se/material')).toBe('/c/material');
   });
@@ -38,6 +43,21 @@ describe('productPath', () => {
 
   it('handles deeply nested product path', () => {
     expect(productPath('/se/en/a/b/c/product')).toBe('/p/a/b/c/product');
+  });
+
+  it('does not double the prefix when the canonical URL already includes /p/', () => {
+    expect(productPath('/se/sv/p/kategori-1/wood-screw-se')).toBe(
+      '/p/kategori-1/wood-screw-se',
+    );
+    expect(productPath('/se/en/p/category-1/wood-screw-en')).toBe(
+      '/p/category-1/wood-screw-en',
+    );
+  });
+
+  it('rewrites a mismatched upstream type prefix (e.g. /l/) to /p/', () => {
+    expect(productPath('/se/sv/l/some-list/product')).toBe(
+      '/p/some-list/product',
+    );
   });
 });
 

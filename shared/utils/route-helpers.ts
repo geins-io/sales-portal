@@ -18,7 +18,12 @@ function buildTypePrefixedPath(canonicalUrl: string, prefix: string): string {
   const match = canonicalUrl.match(
     /^\/[a-z]{2}\/[a-z]{2}(?:-[a-z]{2})?(\/.*)?$/,
   );
-  const slug = match ? match[1] || '/' : canonicalUrl;
+  let slug = match ? match[1] || '/' : canonicalUrl;
+  // Strip any existing type prefix the upstream may have included. Geins
+  // returns canonical URLs like `/se/sv/p/category/product` for products and
+  // `/se/sv/l/category` for category listings, so without this step we'd
+  // emit `/p/p/category/product` or `/c/l/category` on the next line.
+  slug = stripTypePrefix(slug);
   return `${prefix}${slug === '/' ? '' : slug}`;
 }
 

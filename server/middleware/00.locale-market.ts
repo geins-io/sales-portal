@@ -1,4 +1,9 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
+import { ROUTE_PATHS } from '#shared/constants/route-paths';
+
+const TYPE_PREFIX_SEGMENTS = new Set(
+  Object.values(ROUTE_PATHS).map((p) => p.slice(1)),
+);
 
 /**
  * Parses locale/market-prefixed URLs, normalises trailing slashes, and
@@ -84,18 +89,35 @@ export default defineEventHandler((event) => {
 
   // Root path → redirect to the locale-prefixed root
   if (path === '/') {
-    const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
-    const localeCookie = getCookie(event, COOKIE_NAMES.LOCALE);
-
-    const market =
-      marketCookie && isTwoLetterCode(marketCookie) ? marketCookie : 'se';
-    const locale =
-      localeCookie && isTwoLetterCode(localeCookie)
-        ? localeCookie
-        : process.env.GEINS_LOCALE?.split('-')[0] || 'sv';
-
+    const { market, locale } = resolveDefaultMarketLocale(event);
     return sendRedirect(event, `/${market}/${locale}/${query}`, 302);
+  }
+
+  // Type-prefixed paths without /{market}/{locale}/ (e.g. /p/foo/bar coming
+  // in from Geins Merchant Center links): 301 to the locale-prefixed canonical
+  // so the page renders with proper canonical metadata and search engines do
+  // not see two URLs for the same entity.
+  if (segments[0] && TYPE_PREFIX_SEGMENTS.has(segments[0])) {
+    const { market, locale } = resolveDefaultMarketLocale(event);
+    return sendRedirect(event, `/${market}/${locale}${path}${query}`, 301);
   }
 
   // Non-prefixed URLs pass through.
 });
+
+function resolveDefaultMarketLocale(event: import('h3').H3Event): {
+  market: string;
+  locale: string;
+} {
+  const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
+  const localeCookie = getCookie(event, COOKIE_NAMES.LOCALE);
+
+  const market =
+    marketCookie && isTwoLetterCode(marketCookie) ? marketCookie : 'se';
+  const locale =
+    localeCookie && isTwoLetterCode(localeCookie)
+      ? localeCookie
+      : process.env.GEINS_LOCALE?.split('-')[0] || 'sv';
+
+  return { market, locale };
+}
