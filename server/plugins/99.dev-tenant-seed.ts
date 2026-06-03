@@ -53,6 +53,7 @@ export default defineNitroPlugin(async () => {
           // splits the merchant API comma string runs before this shape).
           defaultKeywords: ['shoes', 'boots', 'sneakers'],
           robots: 'index, follow',
+          verification: 'test-verify-abc123',
         },
       }),
       withFullCms: true,

@@ -1,6 +1,7 @@
 /**
- * SEO plugin — sets meta tags, lang attribute, verification codes,
- * and schema.org structured data (Organization + WebSite) per tenant.
+ * SEO plugin: sets meta tags, lang attribute, the Google Search Console
+ * verification token, and schema.org structured data (Organization + WebSite)
+ * per tenant.
  *
  * Visual theming (CSS, fonts, favicon) is handled server-side by
  * server/plugins/04.tenant-css.ts to prevent FOUC.
@@ -60,15 +61,10 @@ export default defineNuxtPlugin({
       meta.push({ name: 'theme-color', content: primaryColor as string });
     }
 
-    // Search engine verification
-    if (seo?.verification?.google) {
-      meta.push({
-        name: 'google-site-verification',
-        content: seo.verification.google,
-      });
-    }
-    if (seo?.verification?.bing) {
-      meta.push({ name: 'msvalidate.01', content: seo.verification.bing });
+    // Google Search Console verification
+    const verification = seo?.verification?.trim();
+    if (verification) {
+      meta.push({ name: 'google-site-verification', content: verification });
     }
 
     // Title resolution:

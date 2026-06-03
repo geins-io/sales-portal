@@ -77,13 +77,7 @@ const TenantSeoSchema = z
     robots: z.string().nullable().optional(),
     googleAnalyticsId: z.string().nullable().optional(),
     googleTagManagerId: z.string().nullable().optional(),
-    verification: z
-      .object({
-        google: z.string().nullable().optional(),
-        bing: z.string().nullable().optional(),
-      })
-      .nullable()
-      .optional(),
+    verification: z.string().nullable().optional(),
   })
   .nullable()
   .optional();

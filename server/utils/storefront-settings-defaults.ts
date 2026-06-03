@@ -102,10 +102,7 @@ export const STOREFRONT_SETTINGS_DEFAULTS = {
     robots: 'index, follow',
     googleAnalyticsId: '',
     googleTagManagerId: '',
-    verification: {
-      google: '',
-      bing: '',
-    },
+    verification: '',
   },
   contact: {
     email: '',

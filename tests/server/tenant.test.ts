@@ -813,9 +813,9 @@ describe('Tenant utilities', () => {
 
     it('keeps the seo block intact when defaultKeywords is a comma string', () => {
       // Regression: the merchant API sends defaultKeywords as a comma string.
-      // The schema used to require string[], so the resilient parser stripped
-      // the keywords leaf. The seo block (title/description) must survive and
-      // keywords must normalise to an array rather than being dropped.
+      // The seo block (title/description) must survive and keywords must
+      // normalise to an array rather than the leaf being stripped as a type
+      // mismatch.
       const candidate = fullCandidate();
       candidate.seo = {
         defaultTitle: 'Tenant A Store',
@@ -827,6 +827,21 @@ describe('Tenant utilities', () => {
       const out = parseStoreSettingsResilient(candidate, 'h');
       expect(out?.seo?.defaultTitle).toBe('Tenant A Store');
       expect(out?.seo?.defaultKeywords).toEqual(['shoes', 'boots', 'sneakers']);
+    });
+
+    it('keeps the seo block intact when verification is a flat token string', () => {
+      // Regression: the merchant API sends verification as a flat Google Search
+      // Console token string. It must survive on the seo block (and render as
+      // the google-site-verification meta) rather than the leaf being stripped
+      // as a type mismatch.
+      const candidate = fullCandidate();
+      candidate.seo = {
+        defaultTitle: 'Tenant A Store',
+        verification: 'test-verify-abc123',
+      };
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out?.seo?.defaultTitle).toBe('Tenant A Store');
+      expect(out?.seo?.verification).toBe('test-verify-abc123');
     });
 
     it('returns null when a fatal field (geinsSettings) is unparseable', () => {
