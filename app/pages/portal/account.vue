@@ -80,7 +80,7 @@ async function handleSaveClick() {
         <!-- Unified panel containing both sections -->
         <div
           data-testid="account-panel"
-          class="border-border bg-background rounded-lg border p-6 shadow-sm"
+          class="border-border rounded-lg border bg-white p-6 shadow-sm"
         >
           <div
             v-if="pending"

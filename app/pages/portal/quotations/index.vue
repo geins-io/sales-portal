@@ -65,7 +65,7 @@ function getStatusLabel(status: QuoteStatus): string {
 
 <template>
   <PortalShell>
-    <div class="border-border rounded-lg border p-6">
+    <div class="border-border rounded-lg border bg-white p-6">
       <!-- Page header -->
       <div
         class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"

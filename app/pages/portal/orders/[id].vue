@@ -131,7 +131,7 @@ function formatDate(iso?: string): string {
 
     <!-- Detail View -->
     <div v-else-if="order" data-testid="order-detail" class="space-y-6">
-      <div class="border-border rounded-lg border p-6">
+      <div class="border-border rounded-lg border bg-white p-6">
         <!-- Action Toolbar: back link left, action buttons right -->
         <div
           data-testid="order-action-toolbar"
