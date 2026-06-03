@@ -185,13 +185,10 @@ export const SeoConfigSchema = z.object({
   robots: z.string().nullable().optional(),
   googleAnalyticsId: z.string().nullable().optional(),
   googleTagManagerId: z.string().nullable().optional(),
-  verification: z
-    .object({
-      google: z.string().nullable().optional(),
-      bing: z.string().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
+  // Google Search Console verification token (the Studio "Search console
+  // verification" field). Sent by the merchant API as a flat string and
+  // rendered as the google-site-verification meta.
+  verification: z.string().nullable().optional(),
 });
 
 export const ContactAddressSchema = z.object({

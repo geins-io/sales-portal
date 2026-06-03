@@ -691,6 +691,27 @@ describe('SeoConfigSchema defaultKeywords normalization', () => {
   });
 });
 
+describe('SeoConfigSchema verification', () => {
+  function parseVerification(input: unknown) {
+    const result = SeoConfigSchema.safeParse({ verification: input });
+    if (!result.success) return result;
+    return result.data.verification;
+  }
+
+  it('accepts the merchant API flat Google Search Console token string', () => {
+    expect(parseVerification('test-verify-abc123')).toBe('test-verify-abc123');
+  });
+
+  it('preserves explicit null and leaves the field absent when omitted', () => {
+    expect(parseVerification(null)).toBeNull();
+    const result = SeoConfigSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.verification).toBeUndefined();
+    }
+  });
+});
+
 describe('StoreSettingsSchema seo with real merchant API shape', () => {
   // Mirrors the live merchant API payload observed for tinatest.litium.store:
   // keywords sent as a comma string, blank description, empty title template.
@@ -761,6 +782,31 @@ describe('StoreSettingsSchema seo with real merchant API shape', () => {
       expect(result.data.seo?.defaultTitle).toBe(
         'Produktsortiment på Elproman',
       );
+    }
+  });
+
+  it('parses the full tenant-a shape: flat verification token + analytics IDs', () => {
+    const result = StoreSettingsSchema.safeParse(
+      withSeo({
+        defaultTitle: 'Tenant A Store',
+        defaultKeywords: 'test,test2,test3',
+        googleAnalyticsId: 'G-TEST12345',
+        googleTagManagerId: 'GTM-TEST99',
+        verification: 'test-verify-abc123',
+      }),
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // Flat verification token survives instead of being stripped as a type
+      // mismatch, and renders as the google-site-verification meta.
+      expect(result.data.seo?.verification).toBe('test-verify-abc123');
+      expect(result.data.seo?.googleAnalyticsId).toBe('G-TEST12345');
+      expect(result.data.seo?.googleTagManagerId).toBe('GTM-TEST99');
+      expect(result.data.seo?.defaultKeywords).toEqual([
+        'test',
+        'test2',
+        'test3',
+      ]);
     }
   });
 });

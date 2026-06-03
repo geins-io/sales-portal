@@ -107,7 +107,7 @@ export interface TenantConfig {
     robots?: string | null;
     googleAnalyticsId?: string | null;
     googleTagManagerId?: string | null;
-    verification?: { google?: string | null; bing?: string | null } | null;
+    verification?: string | null;
   } | null;
 
   contact?: {
