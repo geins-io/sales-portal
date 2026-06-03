@@ -59,4 +59,5 @@ docs/.vitepress/cache
 .mint/research/
 .mint/worktrees/
 .mint/plugins/
+.mint/sessions/
 .mint/ssh-cache.json
