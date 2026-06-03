@@ -27,9 +27,19 @@ const mockLocalePath = vi.fn((p: string) =>
   p.startsWith('/se/sv') ? p : `/se/sv${p}`,
 );
 
+// `recoverEntityUrl` captures the Nuxt app before the await and runs the
+// post-await navigateTo through `nuxtApp.runWithContext`. The stub is a
+// pass-through so the wrapped navigateTo still executes, and the spy lets us
+// assert the composable routes the redirect THROUGH runWithContext. NB: this
+// only documents the contract; a node-tier unit test cannot reproduce the
+// real async-context loss, so the true guard is the live/E2E verification.
+const mockRunWithContext = vi.fn(<T>(fn: () => T): T => fn());
+const mockUseNuxtApp = vi.fn(() => ({ runWithContext: mockRunWithContext }));
+
 vi.stubGlobal('useFetch', mockUseFetch);
 vi.stubGlobal('navigateTo', mockNavigateTo);
 vi.stubGlobal('createError', mockCreateError);
+vi.stubGlobal('useNuxtApp', mockUseNuxtApp);
 
 vi.mock('#app/composables/fetch', () => ({
   useFetch: (...args: unknown[]) => mockUseFetch(...args),
@@ -41,6 +51,9 @@ vi.mock('#app/composables/router', () => ({
 vi.mock('#app/composables/error', () => ({
   createError: (opts: { statusCode: number; fatal?: boolean }) =>
     mockCreateError(opts),
+}));
+vi.mock('#app/nuxt', () => ({
+  useNuxtApp: () => mockUseNuxtApp(),
 }));
 
 // `useLocaleMarket` is a real composable that calls useI18n()/useTenant(),
@@ -66,6 +79,8 @@ describe('recoverEntityUrl', () => {
     mockNavigateTo.mockClear();
     mockCreateError.mockClear();
     mockLocalePath.mockClear();
+    mockRunWithContext.mockClear();
+    mockUseNuxtApp.mockClear();
   });
 
   it('calls the resolver with the path and dedupe defer', async () => {
@@ -99,6 +114,30 @@ describe('recoverEntityUrl', () => {
       { redirectCode: 301, replace: true },
     );
     expect(mockCreateError).not.toHaveBeenCalled();
+  });
+
+  // Contract guard: the post-await navigateTo MUST run through the Nuxt app
+  // context captured before the await (runWithContext), otherwise navigateTo
+  // -> useRouter -> useNuxtApp throws the out-of-context error at runtime.
+  // The node-tier stub cannot reproduce that loss, so this only pins the
+  // contract; the real guard is live/E2E verification.
+  it('routes the post-fetch navigateTo through nuxtApp.runWithContext', async () => {
+    mockUseFetch.mockReturnValue(
+      fetchResult({
+        type: 'category',
+        canonicalAppPath: '/se/sv/c/material/grenror',
+      }),
+    );
+
+    await recoverEntityUrl('/se/sv/material/grenror');
+
+    expect(mockRunWithContext).toHaveBeenCalledTimes(1);
+    expect(mockNavigateTo).toHaveBeenCalledWith('/se/sv/c/material/grenror', {
+      redirectCode: 301,
+      replace: true,
+    });
+    // The navigateTo invocation came from inside the runWithContext callback.
+    expect(mockRunWithContext).toHaveBeenCalledBefore(mockNavigateTo);
   });
 
   it('{ type, canonicalAppPath } equal to path -> throws 404 fatal (no loop)', async () => {

@@ -17,14 +17,24 @@ import { isSafeInternalPath } from '#shared/utils/redirect';
  *  - `null` / fetch error: throw a fatal 404.
  *
  * SSR-safe: `useFetch` auto-forwards cookie + host on page-level loads, and
- * `navigateTo(..., { redirectCode })` works in setup during SSR (proven by the
- * catch-all). No `window` / `history` usage.
+ * no `window` / `history` usage.
+ *
+ * Nuxt-context note: unlike a page `setup`, an `await` inside a composable does
+ * NOT auto-preserve the Nuxt instance, so calling `navigateTo` (which reaches
+ * `useRouter` -> `useNuxtApp`) after the `useFetch` await throws "A composable
+ * that requires access to the Nuxt instance was called outside of...". We
+ * therefore capture the Nuxt app BEFORE the await and restore the context for
+ * each post-await `navigateTo` via `nuxtApp.runWithContext(...)`. `createError`
+ * is a plain h3 util and needs no Nuxt instance, so it stays unwrapped.
  *
  * @param path - The incoming path to recover (use the route's path; do NOT
  *   re-derive locale beyond the prefix re-apply for the rename case).
  */
 export async function recoverEntityUrl(path: string): Promise<void> {
   const { localePath } = useLocaleMarket();
+  // Capture the Nuxt app before the await: the async boundary below drops the
+  // Nuxt instance, so the post-await navigateTo must run via runWithContext.
+  const nuxtApp = useNuxtApp();
 
   function throwNotFound(): never {
     throw createError({ statusCode: 404, fatal: true });
@@ -46,7 +56,9 @@ export async function recoverEntityUrl(path: string): Promise<void> {
     // protocol-relative path. An unsafe target is a terminal miss.
     if (!isSafeInternalPath(target)) throwNotFound();
     if (target !== path) {
-      await navigateTo(target, { redirectCode: 301, replace: true });
+      await nuxtApp.runWithContext(() =>
+        navigateTo(target, { redirectCode: 301, replace: true }),
+      );
       return;
     }
     throwNotFound();
@@ -61,7 +73,9 @@ export async function recoverEntityUrl(path: string): Promise<void> {
     // protocol-relative path. An unsafe target is a terminal miss.
     if (!isSafeInternalPath(target)) throwNotFound();
     if (target !== path) {
-      await navigateTo(target, { redirectCode: 301, replace: true });
+      await nuxtApp.runWithContext(() =>
+        navigateTo(target, { redirectCode: 301, replace: true }),
+      );
       return;
     }
     throwNotFound();
