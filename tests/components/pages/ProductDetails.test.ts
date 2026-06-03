@@ -329,14 +329,27 @@ describe('ProductDetails', () => {
     });
 
     it('does not call recoverEntityUrl when the product loads', async () => {
+      // Route path must equal the normalized canonical so the canonical-correction
+      // block is a genuine no-op (routable === path). Without this, samePrefix
+      // returns true and the correction fires navigateTo as a side effect, meaning
+      // the test no longer verifies "normal load = zero navigation".
+      //
+      // localePath(buildProductPath('/se/sv/test-product'))
+      //   -> localePath('/p/test-product')  -> '/se/sv/p/test-product'
+      const { restore } = await setRoutePath('/se/sv/p/test-product');
       mockProduct.value = makeProduct({ canonicalUrl: '/se/sv/test-product' });
 
-      await mountProductDetails(
-        { alias: 'test-product' },
-        { global: { stubs: defaultStubs } },
-      );
+      try {
+        await mountProductDetails(
+          { alias: 'test-product' },
+          { global: { stubs: defaultStubs } },
+        );
 
-      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+        expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+        expect(navigateToMock).not.toHaveBeenCalled();
+      } finally {
+        restore();
+      }
     });
   });
 
@@ -454,9 +467,16 @@ describe('ProductDetails', () => {
       );
 
       const breadcrumbs = wrapper.findComponent({ name: 'AppBreadcrumbs' });
-      const items = breadcrumbs.props('items') as Array<{ href?: string }>;
+      const items = breadcrumbs.props('items') as Array<{
+        label: string;
+        href?: string;
+      }>;
       // categoryPath('/material') -> '/c/material', localePath -> '/se/sv/c/material'
-      expect(items.some((i) => i.href === '/se/sv/c/material')).toBe(true);
+      // Find the specific category breadcrumb by its label so a wrong href on an
+      // unrelated item cannot make the assertion pass.
+      const categoryItem = items.find((i) => i.label === 'Material');
+      expect(categoryItem).toBeDefined();
+      expect(categoryItem?.href).toBe('/se/sv/c/material');
     });
 
     it('navigates to the productPath-built variant URL on variant change', async () => {

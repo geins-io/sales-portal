@@ -354,11 +354,32 @@ describe('ProductList.vue', () => {
     });
 
     it('does not call recoverEntityUrl when the listing loads', async () => {
+      // Route path must equal the normalized canonical so the canonical-correction
+      // block is a genuine no-op (routable === path). Without this, samePrefix
+      // returns true (bSeg.length < 2 for '/foder') and the correction fires
+      // navigateTo as a side effect, meaning the test does not verify "normal
+      // load = zero navigation".
+      //
+      // localePath(categoryPath('/se/sv/foder'))
+      //   -> localePath('/c/foder')  -> '/se/sv/c/foder'
+      const router = (
+        (await import('#app/composables/router')) as unknown as {
+          useRoute: () => { path: string };
+        }
+      ).useRoute() as { path: string };
+      const originalPath = router.path;
+      router.path = '/se/sv/c/foder';
+
       mockPageInfo.value = { ...VALID_PAGE_INFO };
 
-      await mountProductList(categoryProps, { global: { stubs } });
+      try {
+        await mountProductList(categoryProps, { global: { stubs } });
 
-      expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+        expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+        expect(navigateToMock).not.toHaveBeenCalled();
+      } finally {
+        router.path = originalPath;
+      }
     });
   });
 
