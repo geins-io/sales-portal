@@ -115,6 +115,24 @@ hit (renamed slug: a bare Geins `urlHistory.newUrl`) it re-applies the current
 locale prefix via `localePath` before redirecting. On a fetch error or a 404
 response it throws a fatal 404.
 
+**Invariant: recovery composables must restore Nuxt context after an await.**
+Unlike a page `setup` function, an `await` inside an extracted composable drops
+the Nuxt instance. Any code that calls `navigateTo` (which internally calls
+`useRouter` and `useNuxtApp`) after an async boundary will throw "A composable
+that requires access to the Nuxt instance was called outside of a plugin, Nuxt
+hook, Nuxt middleware, or Vue setup function" and the page error boundary will
+swallow it, producing an empty 200 instead of the intended 301.
+
+`recoverEntityUrl` handles this by capturing `const nuxtApp = useNuxtApp()`
+before the `useFetch` await, then wrapping every post-await `navigateTo` in
+`nuxtApp.runWithContext(() => navigateTo(...))`. `createError` is a plain h3
+utility that carries no Nuxt instance requirement, so it is called unwrapped.
+
+Route middleware does NOT need `runWithContext`; the middleware runner restores
+the Nuxt context automatically before invoking each middleware function. This
+invariant applies only to composables that contain their own `await` and then
+call a composable (such as `navigateTo`) that requires a live Nuxt instance.
+
 Both tiers validate their redirect targets with `isSafeInternalPath` from
 `shared/utils/redirect.ts` before calling `navigateTo`. An off-origin,
 protocol-relative, or absolute target is treated as a terminal miss (404), not
@@ -151,6 +169,35 @@ unaffected; hreflang falls back to the naive prefix swap for those locales.
 `@nuxtjs/i18n`'s `setI18nParams` is not used for alternate derivation because
 it has known alternate-desync bugs in the version in use.
 
+**Reactive SEO locale and `<html lang>` priority (`app/plugins/tenant-seo.ts`).**
+Plugins execute before route middleware. With `@nuxtjs/i18n` strategy
+`no_prefix` and programmatic `setLocale`, the active locale is not set until
+the `locale-market.global.ts` middleware runs. A locale value captured once at
+plugin setup therefore freezes to the default (`sv`) on SSR, so hard loads of
+non-default-locale pages (e.g. `/se/en/`) would emit `html lang="sv-SE"` and
+`og:locale=sv_SE` regardless of the actual URL locale.
+
+`tenant-seo` reads the locale as a Vue `computed` that references
+`i18n.locale`. Because unhead evaluates getter functions at render time (after
+middleware has set the locale), `og:locale`, schema.org `inLanguage`, and
+`<html lang>` all reflect the render-time URL locale rather than the
+plugin-setup-time default. The page content and i18n strings were already
+rendered in the correct locale; this addition fixes only the SEO and
+accessibility attributes.
+
+The `<html lang>` value is the locale's BCP-47 `language` field (`en` maps to
+`en`, `sv` maps to `sv-SE`), read from `i18n.locales` rather than hardcoded,
+keeping the plugin in lockstep with the i18n config.
+
+**`tagPriority: 1000` on the `<html lang>` entry is load-bearing and must not
+be removed.** `nuxt-seo-utils` (shipped by `@nuxtjs/seo`) registers its own
+`htmlAttrs.lang` with `tagPriority: 'low'`. In unhead's htmlAttrs merge,
+`'low'` (weight 102) counterintuitively beats the default priority (weight 100)
+and would overwrite the reactive `lang` computed above. The explicit numeric
+priority 1000 deterministically wins the merge. The `lang` entry is kept in a
+separate `useHead` call from the title/meta entry so the high numeric priority
+does not affect the weight of those tags.
+
 ## Consequences
 
 **Positive:**
@@ -161,9 +208,12 @@ it has known alternate-desync bugs in the version in use.
   runs at most one Geins round-trip per `staleMaxAge` window.
 - **Crawler-correct.** A real 301 or 404 is issued on document load. The
   correct `rel=canonical` and per-locale hreflang are emitted from the real
-  localized slugs. SPA navigations produce a soft Vue Router transition, not a
-  crawler-grade status code, which is acceptable because crawlers do not
-  execute in-app link clicks and every page still emits the correct canonical.
+  localized slugs. `<html lang>`, `og:locale`, and schema.org `inLanguage` are
+  now correct on hard-loaded non-default-locale pages (reactive computed in
+  `tenant-seo`; the high `tagPriority` wins the unhead merge). SPA navigations
+  produce a soft Vue Router transition, not a crawler-grade status code, which
+  is acceptable because crawlers do not execute in-app link clicks and every
+  page still emits the correct canonical.
 - **Loop-safe.** Three independent loop guards: the path-shape guard no-ops on
   already-correct shapes; both tiers compare the resolved target against the
   incoming path and 404 on equality; the global middleware uses 404 rather than
@@ -175,6 +225,12 @@ it has known alternate-desync bugs in the version in use.
   `navigateTo` call site plus the same-origin-by-construction invariant of
   `buildTypePrefixedPath` mean a malicious or malformed target from a Geins
   API response cannot produce an off-origin redirect.
+
+**Invariant: any composable that calls `navigateTo` after an `await` must
+capture `useNuxtApp()` before that await and wrap each post-await `navigateTo`
+in `nuxtApp.runWithContext(...)`.** Violation produces a swallowed error and an
+empty 200 page instead of a 301. Route middleware is exempt (the runner
+restores context automatically). See Pillar 2 for the full explanation.
 
 **Trade-off.** SPA navigations redirected by the global middleware are soft
 Vue Router transitions, not HTTP 301 responses. This is acceptable: crawlers
