@@ -1,0 +1,12 @@
+{
+  "mintInvoked": true,
+  "invokedAt": "2026-06-03T08:20:50Z",
+  "task": "Global routing fix (two URL-404 tickets): route-helpers sole builder + locale-alternates type-mapping, cached resolver via global middleware (shape) + recoverEntityUrl (content-miss), real 301 over replaceState, ADR + conventions, plus routing-regression test hardening (static guard + invariants + E2E)",
+  "mode": "plan",
+  "autoCommitOverride": null,
+  "designContextLoaded": true,
+  "activeSpec": ".mint/tasks/6a1fe3e2/global-routing/010-reactive-seo-locale.xml",
+  "sessionId": "6a1fe3e2",
+  "worktree": "/home/ali.halaki/Projects/geins/url-404-fixes",
+  "branch": "url-prefix-map-and-rename-redirect"
+}

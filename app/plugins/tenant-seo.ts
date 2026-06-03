@@ -31,6 +31,25 @@ export default defineNuxtPlugin({
       () => i18n.locale.value || tenant.value?.locale || 'sv',
     );
 
+    // BCP-47 form of the active locale for `<html lang>`. The short URL-locale
+    // code ('en' / 'sv') is mapped to the locale object's `language` field
+    // ('en' / 'sv-SE') declared in nuxt.config i18n. Reading the language off
+    // i18n.locales avoids hardcoding the region tag and keeps tenant-seo in
+    // lockstep with the i18n config. Falls back to the short locale when no
+    // matching locale object is found (e.g. tenant.locale fallback values).
+    const seoLang = computed(() => {
+      const code = seoLocale.value;
+      const localeObjects = i18n.locales?.value ?? [];
+      const match = localeObjects.find(
+        (l) => typeof l === 'object' && l !== null && l.code === code,
+      );
+      const language =
+        typeof match === 'object' && match !== null
+          ? match.language
+          : undefined;
+      return language || code;
+    });
+
     // Reactive meta array: rebuilt whenever seoLocale changes so og:locale
     // always reflects the URL locale rather than the plugin-setup-time default.
     const reactiveMeta = computed(() => {
@@ -88,14 +107,32 @@ export default defineNuxtPlugin({
     useHead({
       title: seo?.defaultTitle || undefined,
       titleTemplate,
-      htmlAttrs: {
-        // Getter so unhead re-evaluates at render time (post-middleware).
-        // A plain string would be captured once at plugin setup and would
-        // yield the default locale on hard loads of non-default-locale pages.
-        lang: () => seoLocale.value,
-      },
       meta: reactiveMeta,
     });
+
+    // `<html lang>` is registered in its own head entry with an explicit high
+    // numeric tagPriority. unhead merges every htmlAttrs entry into a single
+    // <html> tag and, for a scalar prop like `lang`, the entry that sorts LAST
+    // (highest weight) overwrites the value. nuxt-seo-utils registers its own
+    // htmlAttrs.lang with tagPriority 'low' (weight 102) sourced from the site
+    // config's current/default locale, which on SSR with strategy 'no_prefix'
+    // and programmatic setLocale reflects the DEFAULT locale ('sv' -> 'sv-SE')
+    // rather than the active URL locale. A default-priority entry (weight 100)
+    // would lose to it, so we pin a numeric priority above 102 to deterministi-
+    // cally win. Kept separate from the title/meta entry above so the numeric
+    // priority does not reweight the title tag.
+    useHead(
+      {
+        htmlAttrs: {
+          // Getter so unhead re-evaluates at render time (post-middleware).
+          // A plain string would be captured once at plugin setup and would
+          // yield the default locale on hard loads of non-default-locale pages.
+          // Resolves to the active locale's BCP-47 `language` ('en' / 'sv-SE').
+          lang: () => seoLang.value,
+        },
+      },
+      { tagPriority: 1000 },
+    );
 
     // Schema.org structured data
     const siteUrl = `https://${hostname.value}`;

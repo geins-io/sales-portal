@@ -6,11 +6,50 @@ import type { ComputedRef } from 'vue';
 // setup to simulate the post-middleware locale assignment on SSR.
 const i18nLocale = ref('sv');
 
-// Capture the arg that useHead receives so tests can inspect the head input.
-let capturedHeadArg: Record<string, unknown> = {};
+// Locale objects mirror nuxt.config i18n: short URL codes mapped to BCP-47
+// `language` tags. The plugin reads `language` off these to render <html lang>.
+const i18nLocales = ref<
+  Array<{ code: string; language: string; name: string }>
+>([
+  { code: 'en', language: 'en', name: 'English' },
+  { code: 'sv', language: 'sv-SE', name: 'Svenska' },
+]);
+
+// The plugin now registers two useHead entries: one for title/meta and one
+// dedicated high-priority entry for htmlAttrs.lang. Capture every call and
+// expose merged accessors so existing assertions (meta) and the new lang
+// assertions both resolve against the right entry.
+const capturedHeadArgs: Array<Record<string, unknown>> = [];
 const mockUseHead = vi.fn((arg: Record<string, unknown>) => {
-  capturedHeadArg = arg;
+  capturedHeadArgs.push(arg);
 });
+
+// The last entry that carries htmlAttrs wins for <html lang> in unhead's merge.
+function headEntryWithHtmlAttrs(): Record<string, unknown> {
+  return [...capturedHeadArgs].reverse().find((a) => 'htmlAttrs' in a) ?? {};
+}
+
+// The entry that carries the reactive meta array (title/meta head call).
+function headEntryWithMeta(): Record<string, unknown> {
+  return [...capturedHeadArgs].reverse().find((a) => 'meta' in a) ?? {};
+}
+
+// Back-compat accessor: a merged view so legacy `capturedHeadArg.meta` /
+// `capturedHeadArg.htmlAttrs` lookups keep working across the two calls.
+const capturedHeadArg = new Proxy(
+  {},
+  {
+    get(_t, prop: string) {
+      if (prop === 'htmlAttrs') return headEntryWithHtmlAttrs().htmlAttrs;
+      if (prop === 'meta') return headEntryWithMeta().meta;
+      const last = capturedHeadArgs[capturedHeadArgs.length - 1] ?? {};
+      return (last as Record<string, unknown>)[prop];
+    },
+    has(_t, prop: string) {
+      return capturedHeadArgs.some((a) => prop in a);
+    },
+  },
+) as Record<string, unknown>;
 
 // Capture the input passed to useSchemaOrg.
 let capturedSchemaOrgArg: unknown[] = [];
@@ -113,7 +152,7 @@ await import('../../app/plugins/tenant-seo');
 // Helper - run plugin setup with the given locale and return the nuxtApp used.
 async function runSetup(overrideLocale?: string) {
   i18nLocale.value = overrideLocale ?? 'sv';
-  capturedHeadArg = {};
+  capturedHeadArgs.length = 0;
   capturedSchemaOrgArg = [];
   mockUseHead.mockClear();
   mockUseSchemaOrg.mockClear();
@@ -121,6 +160,7 @@ async function runSetup(overrideLocale?: string) {
   const nuxtApp = {
     $i18n: {
       locale: i18nLocale,
+      locales: i18nLocales,
     },
   };
 
@@ -153,29 +193,55 @@ describe('tenant-seo plugin / reactive locale', () => {
       expect(typeof htmlAttrs.lang).toBe('function');
     });
 
-    it('evaluating lang AFTER flipping i18n.locale to en yields en (render-time reactive)', async () => {
+    it('the htmlAttrs head entry is registered with a numeric tagPriority that beats nuxt-seo-utils', async () => {
+      await runSetup('en');
+      // The second mockUseHead arg is the per-entry options bag. The htmlAttrs
+      // entry must carry a numeric priority above nuxt-seo-utils' 'low' weight
+      // (102) so it wins unhead's htmlAttrs merge on a hard SSR load.
+      const htmlAttrsCall = mockUseHead.mock.calls.find(
+        (call) =>
+          call[0] && 'htmlAttrs' in (call[0] as Record<string, unknown>),
+      );
+      expect(htmlAttrsCall).toBeDefined();
+      const options = htmlAttrsCall?.[1] as
+        | { tagPriority?: number }
+        | undefined;
+      expect(typeof options?.tagPriority).toBe('number');
+      expect(options?.tagPriority as number).toBeGreaterThan(102);
+    });
+
+    it('evaluating lang AFTER flipping i18n.locale to en yields the EN BCP-47 tag (render-time reactive)', async () => {
       // Plugin setup runs with locale 'sv' - simulates SSR before middleware.
       await runSetup('sv');
 
       const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
       const langGetter = htmlAttrs.lang as () => string;
 
-      // At plugin-setup time the locale is still 'sv'.
-      expect(langGetter()).toBe('sv');
+      // At plugin-setup time the locale is still 'sv' -> BCP-47 'sv-SE'.
+      expect(langGetter()).toBe('sv-SE');
 
       // Middleware fires and sets the URL locale to 'en'.
       i18nLocale.value = 'en';
 
-      // A reactive getter re-reads the locale; a stale string capture would
-      // still return 'sv' and this assertion would fail.
+      // A reactive getter re-reads the locale and maps to the 'en' locale
+      // object's `language` ('en'); a stale capture would still return 'sv-SE'.
       expect(langGetter()).toBe('en');
     });
 
-    it('lang getter reflects the locale set before setup', async () => {
+    it('lang getter yields the BCP-47 `language` of the locale set before setup', async () => {
       await runSetup('en');
       const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
       const langGetter = htmlAttrs.lang as () => string;
+      // 'en' locale object declares language 'en'.
       expect(langGetter()).toBe('en');
+    });
+
+    it('lang getter maps the sv URL locale to its BCP-47 `language` sv-SE', async () => {
+      await runSetup('sv');
+      const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
+      const langGetter = htmlAttrs.lang as () => string;
+      // 'sv' locale object declares language 'sv-SE'.
+      expect(langGetter()).toBe('sv-SE');
     });
   });
 
@@ -196,14 +262,18 @@ describe('tenant-seo plugin / reactive locale', () => {
       >;
 
       // At setup time locale is 'sv'.
-      const ogLocaleAtSetup = meta.value.find((m) => m.property === 'og:locale');
+      const ogLocaleAtSetup = meta.value.find(
+        (m) => m.property === 'og:locale',
+      );
       expect(ogLocaleAtSetup?.content).toBe('sv');
 
       // Flip locale to 'en' (simulates the route middleware running).
       i18nLocale.value = 'en';
 
       // The computed re-evaluates - og:locale should now reflect 'en'.
-      const ogLocaleAfterFlip = meta.value.find((m) => m.property === 'og:locale');
+      const ogLocaleAfterFlip = meta.value.find(
+        (m) => m.property === 'og:locale',
+      );
       expect(ogLocaleAfterFlip?.content).toBe('en');
     });
 
@@ -224,11 +294,12 @@ describe('tenant-seo plugin / reactive locale', () => {
 
       const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
       const langGetter = htmlAttrs.lang as () => string;
-      // tenant.locale is 'sv-SE', so fallback should yield 'sv-SE'.
+      // tenant.locale is 'sv-SE'. No locale object has code 'sv-SE' (codes are
+      // the short 'en'/'sv'), so the BCP-47 mapping passes the value through.
       expect(langGetter()).toBe('sv-SE');
     });
 
-    it('falls back to sv when both i18n.locale and tenant.locale are absent', async () => {
+    it('falls back to sv when both i18n.locale and tenant.locale are absent and maps to BCP-47 sv-SE', async () => {
       tenantRef.value = {
         ...tenantRef.value,
         locale: '',
@@ -238,7 +309,9 @@ describe('tenant-seo plugin / reactive locale', () => {
 
       const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
       const langGetter = htmlAttrs.lang as () => string;
-      expect(langGetter()).toBe('sv');
+      // seoLocale falls back to 'sv', which maps to the sv locale object's
+      // BCP-47 `language` of 'sv-SE'.
+      expect(langGetter()).toBe('sv-SE');
     });
   });
 
