@@ -69,4 +69,21 @@ test.describe('Content-Security-Policy', () => {
       "script-src must not allow 'unsafe-inline'",
     ).not.toContain("'unsafe-inline'");
   });
+
+  test('server-rendered markup has no inline event handlers', async ({
+    request,
+  }) => {
+    // Inline event handlers (onerror/onclick/onload/...) are blocked by
+    // script-src-attr 'none' and rejected by WebKit. @nuxt/image used to add an
+    // inline onerror sentinel to every SSR <img>; it is stripped in
+    // server/plugins/05.strip-img-onerror.ts. Guard the SSR markup so no inline
+    // handler creeps back in.
+    const res = await request.get('/se/sv/');
+    const html = await res.text();
+    const handlers = html.match(/\son[a-z]+="/gi) ?? [];
+    expect(
+      handlers,
+      `inline event handler attributes found in SSR markup: ${[...new Set(handlers)].join(', ')}`,
+    ).toEqual([]);
+  });
 });
