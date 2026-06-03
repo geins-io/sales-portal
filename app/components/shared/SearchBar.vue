@@ -3,6 +3,7 @@ import { Search, X } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useDebounceFn, onClickOutside } from '@vueuse/core';
 import type { ProductListResponse } from '#shared/types/commerce';
+import { productPath, searchPath } from '#shared/utils/route-helpers';
 
 const props = withDefaults(
   defineProps<{
@@ -97,12 +98,12 @@ function onSubmit() {
   ) {
     const product = autocompleteItems.value[activeIndex.value]!;
     autocompleteOpen.value = false;
-    router.push(localePath(`/p/${product.alias}`));
+    router.push(localePath(productPath(product.alias)));
     return;
   }
   if (trimmed) {
     autocompleteOpen.value = false;
-    router.push(localePath(`/s/${encodeURIComponent(trimmed)}`));
+    router.push(localePath(searchPath(trimmed)));
   }
 }
 
@@ -115,14 +116,14 @@ function onClear() {
 
 function onSelectProduct(alias: string) {
   autocompleteOpen.value = false;
-  router.push(localePath(`/p/${alias}`));
+  router.push(localePath(productPath(alias)));
 }
 
 function onViewAll() {
   autocompleteOpen.value = false;
   const trimmed = query.value.trim();
   if (trimmed) {
-    router.push(localePath(`/s/${encodeURIComponent(trimmed)}`));
+    router.push(localePath(searchPath(trimmed)));
   }
 }
 

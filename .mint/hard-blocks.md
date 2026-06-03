@@ -43,9 +43,9 @@ Violations trigger immediate stop and escalation to user.
 ## Type-Prefixed Routing (ADR-015)
 
 - NEVER link to category, product, brand, or search pages without their type prefix (`/c/`, `/p/`, `/b/`, `/s/`). Use `categoryPath()`, `productPath()`, `brandPath()`, `searchPath()` from `shared/utils/route-helpers.ts` to build the path, then wrap with `localePath()`.
+- NEVER write hand-built entity-URL string or template literals containing `/p/`, `/c/`, or `/b/` as an argument to `localePath()`, `navigateTo()`, `router.push()`, or `router.replace()`. Use the route-helper builders instead. The ESLint `no-restricted-syntax` rule in `eslint.config.mjs` (scoped to `app/**`) enforces this and will flag violations at lint time.
 - NEVER add new page files for typed content outside the prefix directories (`app/pages/c/`, `app/pages/p/`, `app/pages/b/`, `app/pages/s/`). The `[...slug].vue` catch-all is for CMS content only.
-- NEVER modify the legacy redirect middleware to redirect to anything other than `/c/` — unknown bare paths default to category. Products must use `/p/` links from the source.
-
+- NEVER modify the legacy redirect middleware to redirect to anything other than `/c/`. Unknown bare paths default to category. Products must use `/p/` links from the source.
 ## Project-Specific
 
 - NEVER break backwards compatibility with existing tenant config schema

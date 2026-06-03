@@ -10,6 +10,7 @@ import type { QuoteAddress } from '#shared/types/quote';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import { getOrderStatusPillClass } from '~/utils/order-status';
+import { productPath } from '#shared/utils/route-helpers';
 
 definePageMeta({
   middleware: ['auth', 'feature'],
@@ -211,7 +212,7 @@ function formatDate(iso?: string): string {
                         />
                         <NuxtLink
                           v-if="item?.product?.alias"
-                          :to="localePath(`/p/${item.product.alias}`)"
+                          :to="localePath(productPath(item.product.alias))"
                           data-testid="order-item-name-link"
                           class="font-medium hover:underline"
                         >

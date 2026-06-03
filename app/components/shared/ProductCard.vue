@@ -99,10 +99,10 @@ const productUrl = computed(() => {
     if (props.product.canonicalUrl) {
       return localePath(productPath(props.product.canonicalUrl));
     }
-    return localePath(`/p/${props.product.alias}`);
+    return localePath(productPath(props.product.alias));
   }
   if (props.product?.alias) {
-    return localePath(`/p/${props.product.alias}`);
+    return localePath(productPath(props.product.alias));
   }
   return null;
 });
