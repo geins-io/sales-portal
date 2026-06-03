@@ -270,6 +270,7 @@
     "filters": "Filters",
     "search_filters": "Search filters",
     "clear_all": "Clear all",
+    "show_results": "Show results",
     "remove_filter": "Remove {name} filter",
     "filter_groups": {
       "categories": "Categories",
