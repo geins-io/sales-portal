@@ -15,7 +15,11 @@ import {
 import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useAuthStore } from '~/stores/auth';
-import { productPath as buildProductPath } from '#shared/utils/route-helpers';
+import {
+  productPath as buildProductPath,
+  categoryPath,
+} from '#shared/utils/route-helpers';
+import { recoverEntityUrl } from '~/composables/useEntityUrlRecovery';
 
 const props = defineProps<{
   alias: string;
@@ -34,30 +38,32 @@ const {
   dedupe: 'defer',
 });
 
-// Propagate HTTP 404 when the product doesn't exist. Without this the
-// page rendered an empty state with 200 and crawlers would index
-// phantom URLs.
+// On a content miss (missing product or fetch error) the old slug may be a
+// renamed/old product that should 301 to its canonical instead of 404ing
+// (Problem B). recoverEntityUrl consults the resolver, 301s to the canonical
+// (or a urlHistory redirect), and throws a fatal 404 only on a terminal miss.
+// Kept in the setup await position so the redirect/404 carries a real SSR
+// status before render. Without this, crawlers would index phantom URLs.
 if (error.value || !product.value?.productId) {
-  throw createError({
-    statusCode: 404,
-    statusMessage: 'Not Found',
-    fatal: true,
-  });
+  await recoverEntityUrl(useRoute().path);
 }
 
 const isLoading = computed(() => status.value === 'pending');
 
 // When the loaded product's canonicalUrl differs from the URL the user is
-// on, silently rewrite the address bar. Geins returns prefix-less
+// on, issue a real 301 to the canonical. Geins returns prefix-less
 // canonicals (e.g. /se/sv/material/grenror/grenror-150-150-88) that 404 on
 // refresh, so we normalize the canonical to the ROUTABLE /p/ form via the
-// route helper rather than writing the raw value. Only fires when the
-// canonical stays in the same /market/locale/ prefix. A fallback that
-// crossed locales (server served default-language content on a
-// missing-translation request) must not yank the user back out of the
-// locale they asked for, so samePrefix is checked on the RAW canonical
-// before normalizing.
-if (import.meta.client) {
+// route helper rather than redirecting to the raw value. navigateTo is
+// SSR-safe and crawler-grade (a single clean render at the final URL with no
+// hydration risk), so this replaces the former client-only
+// history.replaceState. Only fires when the canonical stays in the same
+// /market/locale/ prefix; a fallback that crossed locales (server served
+// default-language content on a missing-translation request) must not yank the
+// user back out of the locale they asked for, so samePrefix is checked on the
+// RAW canonical before normalizing. No-op when the routable target equals the
+// current path (loop guard).
+{
   const canonical = product.value?.canonicalUrl;
   const path = useRoute().path;
   if (
@@ -67,13 +73,13 @@ if (import.meta.client) {
   ) {
     const routable = localePath(buildProductPath(canonical));
     if (routable !== path) {
-      history.replaceState(history.state, '', routable);
+      await navigateTo(routable, { redirectCode: 301, replace: true });
     }
   }
 }
 
 // Returns true when both paths share the same /market/locale/ prefix, or
-// when either is too short to have one. Used to suppress replaceState
+// when either is too short to have one. Used to suppress the canonical 301
 // when a locale fallback returned a canonicalUrl in a different locale.
 function samePrefix(a: string, b: string): boolean {
   const aSeg = a.split('/').slice(1, 3);
@@ -382,7 +388,7 @@ watch(
     const segs = Array.isArray(raw) ? [...raw] : raw ? [raw as string] : [];
     if (segs.length) segs[segs.length - 1] = picked.alias;
     else segs.push(picked.alias);
-    await navigateTo(localePath(`/p/${segs.join('/')}`));
+    await navigateTo(localePath(buildProductPath(`/${segs.join('/')}`)));
   },
   { deep: true },
 );
@@ -406,7 +412,7 @@ const breadcrumbItems = computed(() => {
     const catAlias = category.alias || category.name.toLowerCase();
     items.push({
       label: category.name,
-      href: localePath(`/c/${catAlias}`),
+      href: localePath(categoryPath(`/${catAlias}`)),
     });
   }
 
