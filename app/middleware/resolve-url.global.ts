@@ -26,6 +26,9 @@
  * i18n locale is already synced from the URL before this runs.
  */
 
+import type { ResolvedEntityUrl } from '~~/server/services/url-resolver';
+import { isSafeInternalPath } from '#shared/utils/redirect';
+
 /** Type-prefix segments that already have a page route: never engage on these. */
 const TYPED_PREFIXES = new Set(['c', 'p', 'b', 's']);
 
@@ -56,9 +59,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Engaged. Reach the cached resolver. On the server, forward cookie AND host
   // so tenant resolution survives the self-fetch (internalFetch forwards cookie
   // only, so host is added explicitly here).
-  const res = await $fetch<
-    { type: string; canonicalAppPath: string } | { redirect: string } | null
-  >('/api/resolve-url', {
+  const res = await $fetch<ResolvedEntityUrl>('/api/resolve-url', {
     query: { path: to.path },
     headers: import.meta.server
       ? useRequestHeaders(['cookie', 'host'])
@@ -74,6 +75,13 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   // Terminal miss: 404, never redirect a miss to another miss.
   if (!resolvedPath) {
+    return abortNavigation(createError({ statusCode: 404 }));
+  }
+
+  // Defense in depth: the resolver already guards its redirects, but never
+  // hand an off-origin or protocol-relative path to navigateTo. An unsafe
+  // target is treated as a terminal miss (404), not a redirect.
+  if (!isSafeInternalPath(resolvedPath)) {
     return abortNavigation(createError({ statusCode: 404 }));
   }
 

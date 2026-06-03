@@ -228,4 +228,40 @@ describe('resolveEntityUrl', () => {
 
     expect(result).toBeNull();
   });
+
+  // ---------------------------------------------------------------------------
+  // Open-redirect guard: an unsafe urlHistory.newUrl must NOT surface as a
+  // redirect. localePath() and a Location header pass http(s):// and
+  // protocol-relative // through unchanged, so an off-origin newUrl would 301
+  // the browser off this origin. Treat any unsafe value as a no-match (null).
+  // ---------------------------------------------------------------------------
+  it.each([
+    ['absolute https URL', 'https://evil.example.com/phish'],
+    ['protocol-relative URL', '//evil.example.com/phish'],
+    ['backslash-escaped host', '/\\evil.example.com'],
+    ['javascript scheme', 'javascript:alert(1)'],
+    ['embedded scheme', '/se/sv/http://evil.com'],
+    ['no leading slash', 'se/sv/new-slug'],
+  ])(
+    'returns null (no-match) when urlHistory.newUrl is an unsafe %s',
+    async (_label, newUrl) => {
+      mockGraphqlQuery.mockResolvedValue({
+        urlHistory: { oldUrl: '/se/sv/old', newUrl },
+      });
+
+      const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
+
+      expect(result).toBeNull();
+    },
+  );
+
+  it('returns { redirect } only when urlHistory.newUrl is a safe in-app path', async () => {
+    mockGraphqlQuery.mockResolvedValue({
+      urlHistory: { oldUrl: '/se/sv/old', newUrl: '/se/sv/new-slug' },
+    });
+
+    const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
+
+    expect(result).toEqual({ redirect: '/se/sv/new-slug' });
+  });
 });

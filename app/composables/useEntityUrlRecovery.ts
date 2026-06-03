@@ -1,17 +1,6 @@
+import type { ResolvedEntityUrl } from '~~/server/services/url-resolver';
 import { stripLocaleMarketPrefix } from '#shared/utils/locale-market';
-
-/**
- * Resolver return shape (normalized by `/api/resolve-url`, spec 002):
- *  - `{ type, canonicalAppPath }`: a full app path WITH /{market}/{locale}/ and
- *    the correct /c/ /p/ /b/ prefix. Already routable; callers do NOT re-build.
- *  - `{ redirect }`: a urlHistory rename target. A bare path (no entity type),
- *    so callers re-apply the current locale prefix before navigating.
- *  - `null` / 404: a real miss.
- */
-type ResolvedEntityUrl =
-  | { type: string; canonicalAppPath: string }
-  | { redirect: string }
-  | null;
+import { isSafeInternalPath } from '#shared/utils/redirect';
 
 /**
  * Content-miss recovery: the reusable extraction of the catch-all's inline
@@ -53,6 +42,9 @@ export async function recoverEntityUrl(path: string): Promise<void> {
 
   if (res && 'canonicalAppPath' in res && res.canonicalAppPath) {
     const target = res.canonicalAppPath;
+    // Defense in depth: never hand navigateTo an off-origin or
+    // protocol-relative path. An unsafe target is a terminal miss.
+    if (!isSafeInternalPath(target)) throwNotFound();
     if (target !== path) {
       await navigateTo(target, { redirectCode: 301, replace: true });
       return;
@@ -65,7 +57,10 @@ export async function recoverEntityUrl(path: string): Promise<void> {
     // locale prefix only. A rename is a different path, so this cannot loop;
     // the equality guard is defensive against a self-referential record.
     const target = localePath(stripLocaleMarketPrefix(res.redirect));
-    if (target && target !== path) {
+    // Defense in depth: never hand navigateTo an off-origin or
+    // protocol-relative path. An unsafe target is a terminal miss.
+    if (!isSafeInternalPath(target)) throwNotFound();
+    if (target !== path) {
       await navigateTo(target, { redirectCode: 301, replace: true });
       return;
     }

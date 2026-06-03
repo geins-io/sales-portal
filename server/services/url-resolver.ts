@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3';
 import { alternateEntityPath } from '#shared/utils/route-helpers';
+import { isSafeInternalPath } from '#shared/utils/redirect';
 import { getProduct } from './products';
 import { getCategoryPage, getBrandPage } from './product-lists';
 import { getTenantSDK, getRequestChannelVariables } from './_sdk';
@@ -64,7 +65,12 @@ function appPathFrom(
   // alternateEntityPath preserves market/locale, strips any Geins entity prefix
   // (/l/, /p/, etc.), and injects the correct app prefix (/c/, /p/, /b/).
   // Returns null for any malformed or unroutable input -> treat as no-match.
-  return alternateEntityPath(rawCanonical, type);
+  const appPath = alternateEntityPath(rawCanonical, type);
+  // Safe by construction (leading slash, no //, fixed app prefix), but assert
+  // the open-redirect invariant here too so the resolver never returns a path
+  // that could 301 off-origin.
+  if (appPath && !isSafeInternalPath(appPath)) return null;
+  return appPath;
 }
 
 export async function resolveEntityUrl(
@@ -112,7 +118,12 @@ export async function resolveEntityUrl(
       : (unwrapped as UrlHistoryResult['urlHistory']);
 
   const newUrl = history?.newUrl;
-  if (typeof newUrl === 'string' && newUrl.length > 0) {
+  // Open-redirect guard at the boundary: Geins urlHistory.newUrl is untrusted
+  // input. localePath() passes http(s):// and protocol-relative // through
+  // unchanged, so an absolute or off-origin newUrl would 301 the browser off
+  // this origin. Only a safe in-app path may surface as a redirect; anything
+  // else is treated as NO-MATCH (null -> 404) rather than an unsafe redirect.
+  if (isSafeInternalPath(newUrl)) {
     return { redirect: newUrl };
   }
 

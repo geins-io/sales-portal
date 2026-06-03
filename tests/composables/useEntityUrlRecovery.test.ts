@@ -164,4 +164,28 @@ describe('recoverEntityUrl', () => {
     });
     expect(mockNavigateTo).not.toHaveBeenCalled();
   });
+
+  // Open-redirect guard (defense in depth): an unsafe canonicalAppPath must
+  // throw a 404 rather than navigate the browser off-origin.
+  it.each([
+    ['absolute https URL', 'https://evil.example.com/phish'],
+    ['protocol-relative URL', '//evil.example.com/phish'],
+    ['javascript scheme', 'javascript:alert(1)'],
+  ])(
+    'throws 404 fatal when canonicalAppPath is an unsafe %s',
+    async (_label, unsafe) => {
+      mockUseFetch.mockReturnValue(
+        fetchResult({ type: 'product', canonicalAppPath: unsafe }),
+      );
+
+      await expect(recoverEntityUrl('/se/sv/foo')).rejects.toThrow(
+        'H3Error: 404',
+      );
+      expect(mockCreateError).toHaveBeenCalledWith({
+        statusCode: 404,
+        fatal: true,
+      });
+      expect(mockNavigateTo).not.toHaveBeenCalled();
+    },
+  );
 });

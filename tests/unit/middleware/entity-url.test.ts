@@ -91,6 +91,8 @@ describe('resolve-url.global middleware', () => {
 
     expect(result).toBeUndefined();
     expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockNavigateTo).not.toHaveBeenCalled();
+    expect(mockAbortNavigation).not.toHaveBeenCalled();
   });
 
   it('no-ops on already-typed product/brand/search routes', async () => {
@@ -100,9 +102,13 @@ describe('resolve-url.global middleware', () => {
       '/se/sv/s/query',
     ]) {
       mockFetch.mockClear();
+      mockNavigateTo.mockClear();
+      mockAbortNavigation.mockClear();
       const result = await resolveUrlMiddleware(createRoute({ path }));
       expect(result).toBeUndefined();
       expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockNavigateTo).not.toHaveBeenCalled();
+      expect(mockAbortNavigation).not.toHaveBeenCalled();
     }
   });
 
@@ -111,6 +117,8 @@ describe('resolve-url.global middleware', () => {
 
     expect(result).toBeUndefined();
     expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockNavigateTo).not.toHaveBeenCalled();
+    expect(mockAbortNavigation).not.toHaveBeenCalled();
   });
 
   it('no-ops when only one leading 2-letter segment is present', async () => {
@@ -120,6 +128,8 @@ describe('resolve-url.global middleware', () => {
 
     expect(result).toBeUndefined();
     expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockNavigateTo).not.toHaveBeenCalled();
+    expect(mockAbortNavigation).not.toHaveBeenCalled();
   });
 
   // -------------------------------------------------------------------------
@@ -221,5 +231,82 @@ describe('resolve-url.global middleware', () => {
       replace: true,
     });
     expect(result).toEqual(mockNavigateTo.mock.results[0]!.value);
+  });
+
+  it('engages on a multi-segment /l/ path and 301s to the canonical', async () => {
+    mockFetch.mockResolvedValue({
+      type: 'category',
+      canonicalAppPath: '/se/sv/c/parent/child',
+    });
+
+    await resolveUrlMiddleware(createRoute({ path: '/se/sv/l/parent/child' }));
+
+    const [, opts] = mockFetch.mock.calls[0] as [
+      string,
+      { query: { path: string } },
+    ];
+    expect(opts.query.path).toBe('/se/sv/l/parent/child');
+    expect(mockNavigateTo).toHaveBeenCalledWith('/se/sv/c/parent/child', {
+      redirectCode: 301,
+      replace: true,
+    });
+  });
+
+  it('engages on a trailing-slash /l/ path', async () => {
+    mockFetch.mockResolvedValue({
+      type: 'category',
+      canonicalAppPath: '/se/sv/c/category-1',
+    });
+
+    await resolveUrlMiddleware(createRoute({ path: '/se/sv/l/category-1/' }));
+
+    // The trailing-slash split still yields the wrong-shape prefix at seg[2],
+    // so the resolver is engaged and the canonical 301 is issued.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockNavigateTo).toHaveBeenCalledWith('/se/sv/c/category-1', {
+      redirectCode: 301,
+      replace: true,
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Open-redirect guard (defense in depth): an unsafe resolver target must
+  // abort with a 404 rather than 301 the browser off-origin.
+  // -------------------------------------------------------------------------
+  it.each([
+    ['absolute https URL', 'https://evil.example.com/phish'],
+    ['protocol-relative URL', '//evil.example.com/phish'],
+    ['backslash-escaped host', '/\\evil.example.com'],
+    ['javascript scheme', 'javascript:alert(1)'],
+  ])(
+    'aborts 404 when the resolver returns an unsafe %s as canonicalAppPath',
+    async (_label, unsafe) => {
+      mockFetch.mockResolvedValue({
+        type: 'category',
+        canonicalAppPath: unsafe,
+      });
+
+      const result = await resolveUrlMiddleware(
+        createRoute({ path: '/se/sv/l/old-category' }),
+      );
+
+      expect(mockCreateError).toHaveBeenCalledWith({ statusCode: 404 });
+      expect(mockAbortNavigation).toHaveBeenCalledTimes(1);
+      expect(mockNavigateTo).not.toHaveBeenCalled();
+      expect(result).toEqual(mockAbortNavigation.mock.results[0]!.value);
+    },
+  );
+
+  it('aborts 404 when the resolver { redirect } target is unsafe (open-redirect guard)', async () => {
+    mockFetch.mockResolvedValue({ redirect: '//evil.example.com/phish' });
+
+    const result = await resolveUrlMiddleware(
+      createRoute({ path: '/se/sv/l/old-category' }),
+    );
+
+    expect(mockCreateError).toHaveBeenCalledWith({ statusCode: 404 });
+    expect(mockAbortNavigation).toHaveBeenCalledTimes(1);
+    expect(mockNavigateTo).not.toHaveBeenCalled();
+    expect(result).toEqual(mockAbortNavigation.mock.results[0]!.value);
   });
 });
