@@ -30,13 +30,19 @@ export default defineNitroPlugin((nitroApp: NitroApp) => {
     // 1. Inject data-theme attribute on <html>
     html.htmlAttrs.push(` data-theme="${escapedTheme}"`);
 
-    // 2. Inject tenant CSS (with CSP nonce when available)
+    // 2. Inject tenant CSS. Emit the <style> WITHOUT a nonce attribute on
+    // purpose: nuxt-security's CSP nonce plugin runs after this hook and
+    // prepends the request nonce to every <style> tag it finds. If we also
+    // set a nonce here the tag ships with two identical nonce attributes,
+    // which is a parse error. Chromium tolerates it, but WebKit/Safari treats
+    // the nonce as invalid and refuses to apply the stylesheet under a strict
+    // style-src CSP (no 'unsafe-inline'), so every tenant surface color
+    // (--top-bar-background, --button-background, ...) silently disappears.
+    // Letting nuxt-security own the single nonce keeps the tag valid.
     const sanitizedCss = sanitizeTenantCss(tenant.css ?? '');
     if (sanitizedCss) {
-      const nonce = event.context.security?.nonce;
-      const nonceAttr = nonce ? ` nonce="${nonce}"` : '';
       html.head.unshift(
-        `<style${nonceAttr} data-tenant-theme="${escapedTheme}">${sanitizedCss}</style>`,
+        `<style data-tenant-theme="${escapedTheme}">${sanitizedCss}</style>`,
       );
     }
 
