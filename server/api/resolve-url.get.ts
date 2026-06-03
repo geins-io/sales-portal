@@ -1,4 +1,3 @@
-import type { H3Event } from 'h3';
 import { ResolveUrlSchema } from '../schemas/api-input';
 import { resolveEntityUrl } from '../services/url-resolver';
 
@@ -38,6 +37,10 @@ import { resolveEntityUrl } from '../services/url-resolver';
  *
  * The `path` query param is the normalized prefix-less inbound path; the alias
  * is its last non-empty segment.
+ *
+ * withErrorHandling/404-surfacing runs OUTSIDE the cache boundary on purpose
+ * (unlike server/api/config.get.ts): a thrown error is not cached by Nitro, so
+ * placing it inside the cached handler would defeat negative-cache entirely.
  */
 
 type ResolverCacheResult =
@@ -46,16 +49,12 @@ type ResolverCacheResult =
   | { notFound: true };
 
 /**
- * Derive the request host for cache key construction. Falls back from
- * getRequestHost -> event.context.tenant.hostname -> 'unknown'.
+ * Derive the request host for cache key construction.
+ * server/plugins/02.tenant-context.ts already 400s on an empty host before
+ * this handler runs, so no additional fallback is needed here.
  */
-function getResolverHost(event: H3Event): string {
-  return (
-    getRequestHost(event) ??
-    (event as unknown as { context?: { tenant?: { hostname?: string } } })
-      .context?.tenant?.hostname ??
-    'unknown'
-  );
+function getResolverHost(event: Parameters<typeof getRequestHost>[0]): string {
+  return getRequestHost(event);
 }
 
 /**
@@ -64,7 +63,7 @@ function getResolverHost(event: H3Event): string {
  * cached and would re-hammer Geins on every scan request.
  */
 const cachedResolver = defineCachedEventHandler(
-  async (event) => {
+  async (event): Promise<ResolverCacheResult> => {
     const { path } = ResolveUrlSchema.parse(getQuery(event));
     const auth = await optionalAuth(event);
 
@@ -82,7 +81,7 @@ const cachedResolver = defineCachedEventHandler(
       return { notFound: true as const };
     }
 
-    return result as ResolverCacheResult;
+    return result;
   },
   {
     swr: true,
@@ -90,6 +89,9 @@ const cachedResolver = defineCachedEventHandler(
     // absorbs crawler bursts while ensuring a newly published entity resolves
     // within a minute.
     maxAge: 60,
+    // staleMaxAge bounds the in-memory negative-cache entry lifetime so a path
+    // scanner cannot grow the heap unbounded with entries that never revalidate.
+    staleMaxAge: 300,
     getKey: (event) => {
       // Parse path from the query so normalization matches what the handler sees.
       const query = getQuery(event);
@@ -114,7 +116,7 @@ const cachedResolver = defineCachedEventHandler(
 export default defineEventHandler(async (event) => {
   return withErrorHandling(
     async () => {
-      const result = (await cachedResolver(event)) as ResolverCacheResult;
+      const result = await cachedResolver(event);
       if ('notFound' in result) {
         throw createAppError(ErrorCode.NOT_FOUND, 'No entity for URL');
       }

@@ -5,6 +5,8 @@ import type { H3Event } from 'h3';
 // Mock the entity-resolver services and the SDK boundary.
 // The resolver under test composes getProduct / getCategoryPage / getBrandPage
 // and the urlHistory GraphQL query; we mock all three services and the SDK.
+// unwrapGraphQL is a pure internal utility -- use the REAL implementation so
+// tests catch regressions in the unwrap logic itself rather than a mock copy.
 // ---------------------------------------------------------------------------
 const mockGetProduct = vi.fn();
 const mockGetCategoryPage = vi.fn();
@@ -33,17 +35,9 @@ vi.mock('../../../server/services/graphql/loader', () => ({
   loadQuery: vi.fn().mockReturnValue('query urlHistory'),
 }));
 
-vi.mock('../../../server/services/graphql/unwrap', () => ({
-  unwrapGraphQL: vi.fn((result: unknown) => {
-    if (result === null || result === undefined) return result;
-    if (typeof result !== 'object' || Array.isArray(result)) return result;
-    const keys = Object.keys(result as Record<string, unknown>);
-    if (keys.length === 1) {
-      return (result as Record<string, unknown>)[keys[0]!];
-    }
-    return result;
-  }),
-}));
+// Use the REAL unwrapGraphQL -- it is a pure internal utility with no external
+// deps (no SDK, no Nitro, no network). Mocking it was a verbatim copy that
+// would miss regressions in the actual implementation.
 
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 
