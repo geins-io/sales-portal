@@ -82,14 +82,31 @@ export default defineConfig({
       name: 'Mobile Chrome',
       use: { ...devices['Pixel 5'] },
     },
+    // WebKit is Safari's engine. Some CSP/nonce defects (e.g. a duplicate
+    // nonce attribute on an inline <style>) are tolerated by Chromium but
+    // rejected by WebKit, so they are invisible to the Chromium projects.
+    // Theme-color regressions must be caught here, against a production build
+    // where the CSP is active (CI runs `pnpm preview`; locally use E2E_PROD=1).
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
   ],
 
-  // Local development server
+  // Local development server.
+  // The strict production CSP (and thus the Safari theme-color bug) only exists
+  // in a production build, so the webkit regression guard needs `pnpm preview`.
+  // CI always builds; locally set E2E_PROD=1 to opt into the production path.
   webServer: {
-    command: process.env.CI ? 'pnpm preview' : 'pnpm dev',
+    command: process.env.CI
+      ? 'pnpm preview'
+      : process.env.E2E_PROD
+        ? 'pnpm build && pnpm preview'
+        : 'pnpm dev',
     url: `http://${TEST_TENANT_HOST}:${TEST_PORT}/api/config`,
     reuseExistingServer: !process.env.CI,
-    timeout: 120000, // 2 minutes to start the dev server
+    // A local production build (E2E_PROD) needs much longer than a dev boot.
+    timeout: process.env.E2E_PROD ? 360000 : 120000,
     stdout: 'pipe',
     stderr: 'pipe',
   },
