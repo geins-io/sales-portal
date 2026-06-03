@@ -150,11 +150,38 @@ export const FeatureConfigSchema = z.object({
   access: FeatureAccessSchema.optional(),
 });
 
+/**
+ * Meta keywords arrive from the merchant API as a single comma-separated
+ * string (the Studio "Default keywords" field is free text, e.g.
+ * "shoes,boots,sneakers"). Older configs and our own fixtures use a string
+ * array. Accept both and normalise to a trimmed array with empties dropped so
+ * every consumer renders one shape: "" / [] -> [], absent stays absent,
+ * explicit null stays null. Splitting and trimming preserves the merchant's
+ * terms verbatim; only the comma delimiter and surrounding whitespace go.
+ */
+function normalizeKeywords(
+  input: string | string[] | null | undefined,
+): string[] | null | undefined {
+  if (input === undefined) return undefined;
+  if (input === null) return null;
+  const parts = Array.isArray(input) ? input : [input];
+  return parts
+    .flatMap((part) => part.split(','))
+    .map((keyword) => keyword.trim())
+    .filter((keyword) => keyword.length > 0);
+}
+
 export const SeoConfigSchema = z.object({
   defaultTitle: z.string().nullable().optional(),
   titleTemplate: z.string().nullable().optional(),
   defaultDescription: z.string().nullable().optional(),
-  defaultKeywords: z.array(z.string()).nullable().optional(),
+  // Merchant API sends a comma-separated string; arrays are accepted for
+  // back-compat. Normalised to string[] via normalizeKeywords.
+  defaultKeywords: z
+    .union([z.string(), z.array(z.string())])
+    .nullable()
+    .optional()
+    .transform(normalizeKeywords),
   robots: z.string().nullable().optional(),
   googleAnalyticsId: z.string().nullable().optional(),
   googleTagManagerId: z.string().nullable().optional(),
