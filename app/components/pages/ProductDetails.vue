@@ -138,7 +138,7 @@ watch(
 // so the alternate is ready on first SSR/CSR load (a hard refresh must have it
 // before the user opens the switcher); null clears so a 404/empty page never
 // retains a previous product's alternates.
-const { setAlternates } = useLocaleAlternates();
+const { setAlternates, alternates: localeAlternates } = useLocaleAlternates();
 watch(product, (p) => setAlternates(p?.alternativeUrls, { type: 'product' }), {
   immediate: true,
 });
@@ -437,7 +437,11 @@ const primaryImageUrl = computed(
 );
 
 const productPath = computed(() => `/p/${slug.value}`);
-const { seoLinks } = useSeoLinks(productPath);
+// localeAlternates holds the real per-locale slugs published by setAlternates
+// above (populated with immediate:true so the watch fires before this line).
+// It is useState-backed (SSR-safe, no window) and reactive so hreflang stays
+// correct after client-side navigation without any hydration mismatch.
+const { seoLinks } = useSeoLinks(productPath, localeAlternates);
 
 useHead({
   title: () => product.value?.name ?? '',

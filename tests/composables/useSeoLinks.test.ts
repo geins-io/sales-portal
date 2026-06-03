@@ -177,4 +177,94 @@ describe('useSeoLinks', () => {
       '/no/sv/p/item',
     );
   });
+
+  describe('localeOverrides (2nd param)', () => {
+    it('no overrides: output identical to naive single-arg behaviour (backward compat)', () => {
+      const withOverrides = useSeoLinks('/p/my-product', undefined);
+      const withoutOverrides = useSeoLinks('/p/my-product');
+      expect(withOverrides.seoLinks.value).toEqual(
+        withoutOverrides.seoLinks.value,
+      );
+    });
+
+    it('override for a locale: that locale alternate uses the override href', () => {
+      // sv has a different slug in Swedish
+      const overrides = { sv: '/se/sv/p/produkt-sv' };
+      const { seoLinks } = useSeoLinks('/p/product-en', () => overrides);
+
+      const svAlternate = seoLinks.value.find(
+        (l) => l.rel === 'alternate' && l.hreflang === 'sv-SE',
+      );
+      expect(svAlternate?.href).toBe('/se/sv/p/produkt-sv');
+    });
+
+    it('locales WITHOUT an override fall back to naive prefix-swap', () => {
+      // Only sv is overridden; en should still use the naive path
+      const overrides = { sv: '/se/sv/p/produkt-sv' };
+      const { seoLinks } = useSeoLinks('/p/product-en', () => overrides);
+
+      const enAlternate = seoLinks.value.find(
+        (l) => l.rel === 'alternate' && l.hreflang === 'en-SE',
+      );
+      expect(enAlternate?.href).toBe('/se/en/p/product-en');
+    });
+
+    it('canonical is unaffected by overrides', () => {
+      const overrides = {
+        sv: '/se/sv/p/produkt-sv',
+        en: '/se/en/p/product-en',
+      };
+      const { seoLinks } = useSeoLinks('/p/product-en', () => overrides);
+
+      const canonical = seoLinks.value.find((l) => l.rel === 'canonical');
+      // canonical always uses current locale (sv) + naive path
+      expect(canonical?.href).toBe('/se/sv/p/product-en');
+    });
+
+    it('x-default uses the override when the default locale (en) has one', () => {
+      const overrides = { en: '/se/en/p/product-real-en-slug' };
+      const { seoLinks } = useSeoLinks('/p/product-sv', () => overrides);
+
+      const xDefault = seoLinks.value.find((l) => l.hreflang === 'x-default');
+      expect(xDefault?.href).toBe('/se/en/p/product-real-en-slug');
+    });
+
+    it('x-default falls back to naive path when the default locale has no override', () => {
+      const overrides = { sv: '/se/sv/p/produkt-sv' };
+      const { seoLinks } = useSeoLinks('/p/product-en', () => overrides);
+
+      const xDefault = seoLinks.value.find((l) => l.hreflang === 'x-default');
+      // en has no override, falls back to naive
+      expect(xDefault?.href).toBe('/se/en/p/product-en');
+    });
+
+    it('missing override for a locale does not crash (no empty href)', () => {
+      const overrides: Record<string, string> = {};
+      const { seoLinks } = useSeoLinks('/p/my-product', () => overrides);
+
+      const alternates = seoLinks.value.filter(
+        (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
+      );
+      for (const alt of alternates) {
+        expect(alt.href).toBeTruthy();
+      }
+    });
+
+    it('accepts a reactive ref as localeOverrides', () => {
+      const overrides = ref({ en: '/se/en/p/real-en-slug' });
+      const { seoLinks } = useSeoLinks('/p/product', overrides);
+
+      const enAlternate = seoLinks.value.find(
+        (l) => l.rel === 'alternate' && l.hreflang === 'en-SE',
+      );
+      expect(enAlternate?.href).toBe('/se/en/p/real-en-slug');
+
+      // Update the ref - should reactively update
+      overrides.value = { en: '/se/en/p/updated-en-slug' };
+      const updatedEnAlternate = seoLinks.value.find(
+        (l) => l.rel === 'alternate' && l.hreflang === 'en-SE',
+      );
+      expect(updatedEnAlternate?.href).toBe('/se/en/p/updated-en-slug');
+    });
+  });
 });

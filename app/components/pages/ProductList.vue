@@ -135,7 +135,7 @@ if (pageInfoError.value || !pageInfo.value?.id) {
 // land on the target-language slug. props.type ('category' | 'brand') selects
 // the /c/ vs /b/ prefix in the composable. Immediate so a hard refresh has the
 // alternate ready; null clears so an empty page never retains stale alternates.
-const { setAlternates } = useLocaleAlternates();
+const { setAlternates, alternates: localeAlternates } = useLocaleAlternates();
 watch(
   pageInfo,
   (info) => setAlternates(info?.alternativeUrls, { type: props.type }),
@@ -218,7 +218,11 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
 // --- SEO ---
 const typePrefix = computed(() => (isBrand.value ? 'b' : 'c'));
 const listPath = computed(() => `/${typePrefix.value}/${listSlug.value}`);
-const { seoLinks } = useSeoLinks(listPath);
+// localeAlternates holds the real per-locale slugs published by setAlternates
+// above (populated with immediate:true so the watch fires before this line).
+// It is useState-backed (SSR-safe, no window) and reactive so hreflang stays
+// correct after client-side navigation without any hydration mismatch.
+const { seoLinks } = useSeoLinks(listPath, localeAlternates);
 
 useHead({
   title: () =>
