@@ -3,6 +3,12 @@
 @import './transitions.css';
 @import './print.css';
 
+/* App is light-only (no .dark class is ever applied). Tailwind v4 defaults the
+   dark: variant to @media (prefers-color-scheme: dark), which makes shadcn base
+   components (input, checkbox, select) render off-spec for dark-OS users. Bind
+   dark: to a never-present .dark class so those variants stay inert. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --font-sans: var(--font-family);
   --font-heading: var(--heading-font-family);

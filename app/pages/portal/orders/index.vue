@@ -72,7 +72,7 @@ function handleSort(_column: string) {
 
 <template>
   <PortalShell>
-    <div class="border-border rounded-lg border p-6">
+    <div class="border-border rounded-lg border bg-white p-6">
       <!-- Page header -->
       <div class="mb-6">
         <div
