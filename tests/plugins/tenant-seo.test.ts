@@ -111,10 +111,36 @@ vi.mock('#app/composables/head', () => ({
   injectHead: vi.fn(),
 }));
 
-vi.mock(
-  '/home/ali.halaki/Projects/geins/url-404-fixes/node_modules/.pnpm/nuxt-schema-org@5.0.10_@unhead+vue@2.1.4_vue@3.5.28_typescript@5.9.3___magicast@0.5.2_u_b3ea5f4000fe1ffd41f4f55dfbec252e/node_modules/nuxt-schema-org/dist/runtime/app/composables/useSchemaOrg',
-  () => ({ useSchemaOrg: mockUseSchemaOrg }),
-);
+// Resolve the nuxt-schema-org composable path dynamically at collection time so
+// the mock is not tied to the pnpm content-addressed store hash, which changes
+// between machines and CI environments. require.resolve is intercepted by Vite's
+// resolver (configured by getVitestConfigFromNuxt), so it honours the tsconfig
+// path alias `nuxt-schema-org -> .pnpm/.../nuxt-schema-org` without embedding
+// the hash in source. The `/schema` subpath export is the stable entry point;
+// we strip the dist suffix and append the composable path below.
+const { schemaOrgComposablePath } = vi.hoisted(() => {
+  const schemaEntry = require.resolve('nuxt-schema-org/schema');
+  const pkgRoot = schemaEntry.replace(/\/dist\/schema\.[^/]+$/, '');
+  return {
+    schemaOrgComposablePath: `${pkgRoot}/dist/runtime/app/composables/useSchemaOrg`,
+  };
+});
+
+vi.mock(schemaOrgComposablePath, () => ({
+  useSchemaOrg: mockUseSchemaOrg,
+}));
+
+// Belt-and-suspenders: if any real schema-org composable runs despite the mock
+// above (e.g. a different resolution path in some environments), useRuntimeConfig
+// must not crash the test. Mocking nuxt/app is stable because that package
+// specifier does not contain a pnpm hash.
+vi.mock('nuxt/app', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    useRuntimeConfig: vi.fn(() => ({ public: {}, app: {} })),
+  };
+});
 
 vi.mock('@unhead/schema-org/vue', () => ({
   defineOrganization: mockDefineOrganization,
