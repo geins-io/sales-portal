@@ -181,4 +181,19 @@ describe('ProductFilters', () => {
     // color key should be removed since selected is empty
     expect(emitted![0]![0]).toEqual({});
   });
+
+  it('renders Clear all and Show results buttons in the footer', () => {
+    const wrapper = mountComponent(ProductFilters, {
+      props: {
+        facets: mockFacets,
+        modelValue: {},
+      },
+      global: {
+        stubs: defaultStubs,
+      },
+    });
+    const text = wrapper.text();
+    expect(text).toContain('product.clear_all');
+    expect(text).toContain('product.show_results');
+  });
 });
