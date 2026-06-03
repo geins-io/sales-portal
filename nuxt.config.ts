@@ -87,16 +87,21 @@ export default defineNuxtConfig({
           ? {
               'default-src': ["'none'"],
               'script-src': ["'self'", "'strict-dynamic'", "'nonce-{{nonce}}'"],
+              // Inline styles are allowed wholesale. Vue, radix-vue, and the
+              // tenant theme block all emit inline styles (element and
+              // attribute) whose values are dynamic, so a nonce or hash
+              // allowlist can never cover them: a nonce on an SSR <style> does
+              // not propagate to client-injected styles, and positioning /
+              // transition style attributes change at runtime. Anything short
+              // of 'unsafe-inline' silently breaks styling in WebKit/Safari,
+              // which enforces this directive far more strictly than Chromium.
+              // The meaningful protection — blocking injected scripts — is kept
+              // by the strict nonce-based script-src below; CSS injection is a
+              // low risk once script execution is locked down.
               'style-src': [
                 "'self'",
-                "'nonce-{{nonce}}'",
+                "'unsafe-inline'",
                 'https://fonts.googleapis.com',
-                // Vue and radix-vue set style attributes at runtime for
-                // positioning (popovers, dialogs) and scroll-lock. These
-                // can't use nonces, so we allow the specific hashes.
-                "'unsafe-hashes'",
-                "'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='", // empty style=""
-                "'sha256-iYwYhiMcsGmXCUzLEpEzZNz5dINrlkqf1sLbLhEcqGM='", // radix-vue positioning
               ],
               'font-src': ["'self'", 'https://fonts.gstatic.com'],
               'img-src': ["'self'", 'data:', 'https:'],

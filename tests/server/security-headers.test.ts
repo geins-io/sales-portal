@@ -68,12 +68,16 @@ describe('nuxt-security configuration', () => {
       expect(scriptSrc).toContain("'nonce-{{nonce}}'");
     });
 
-    it('uses nonce for style-src with Google Fonts', () => {
+    it('allows inline styles without a nonce or hash (Safari/WebKit safe)', () => {
       const styleSrc = csp['style-src'] as string[];
       expect(styleSrc).toContain("'self'");
-      expect(styleSrc).toContain("'nonce-{{nonce}}'");
+      expect(styleSrc).toContain("'unsafe-inline'");
       expect(styleSrc).toContain('https://fonts.googleapis.com');
-      expect(styleSrc).not.toContain("'unsafe-inline'");
+      // A nonce or hash on style-src silently breaks inline styles in WebKit,
+      // so the policy must rely on neither for styles (see ADR-018).
+      expect(styleSrc).not.toContain("'nonce-{{nonce}}'");
+      expect(styleSrc.some((s) => s.startsWith("'sha"))).toBe(false);
+      expect(styleSrc).not.toContain("'unsafe-hashes'");
     });
 
     it('allows Google Fonts in font-src', () => {
