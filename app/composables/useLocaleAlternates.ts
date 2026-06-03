@@ -1,4 +1,5 @@
 import type { LocaleAlternateUrl } from '#shared/types/commerce';
+import { alternateEntityPath } from '#shared/utils/route-helpers';
 
 /**
  * Locale-switch alternate URLs.
@@ -25,6 +26,8 @@ import type { LocaleAlternateUrl } from '#shared/types/commerce';
  *    renders the correct target-language content.
  *  - other tenants (e.g. tinatest) DO carry the prefix
  *    (`/se/en/p/category-1/cutting-edge`); we leave those untouched (no /p/p/).
+ *  - Geins may return `/l/` as the prefix for category alternates; this composable
+ *    remaps those to the app `/c/` route via `alternateEntityPath`.
  *
  * HARD BLOCK: this composable only reads/derives; it must never write the
  * locale cookie. Short URL-locale codes are derived from the culture/language
@@ -32,66 +35,39 @@ import type { LocaleAlternateUrl } from '#shared/types/commerce';
  * hardcoded.
  */
 
-/** Recognized type-prefix segments in app route paths. */
-const TYPE_PREFIXES = new Set(['p', 'c', 'b', 'l', 's']);
-
-/** Entity type -> route type prefix. */
-const TYPE_PREFIX_BY_TYPE: Record<'product' | 'category' | 'brand', string> = {
-  product: 'p',
-  category: 'c',
-  brand: 'b',
-};
-
 /**
  * Normalize a Geins `alternativeUrls` URL into a routable, same-origin app
  * route path shaped `/{market}/{locale}/{type}/...`.
  *
- * Handles BOTH live-verified shapes:
- *  - prefix-less pretty paths (`/se/en/materials/branch-pipes/manifold-...`):
- *    inject `typePrefix` after `/{market}/{locale}/`.
- *  - already-prefixed paths (`/se/en/p/category-1/cutting-edge`): leave as-is,
- *    no double `/p/p/`.
+ * Delegates to `alternateEntityPath` which handles both live-verified shapes:
+ *  - prefix-less pretty paths: inject `typePrefix` after `/{market}/{locale}/`.
+ *  - already-prefixed paths: leave as-is, no double `/p/p/`.
+ *  - Geins `/l/` prefix: remap to the app prefix for the entity type.
  *
  * Rejects (returns null) anything we cannot safely route: absolute http(s),
  * protocol-relative `//`, too-few segments, non-2-letter market/locale, or a
- * result that does not carry a recognized type prefix at segment[2]. This
- * mirrors the spirit of `isRoutableProductPath()` so the switcher falls back to
- * its safe clean-path default instead of navigating off-origin or to a 404.
+ * result that does not carry a recognized app type prefix at segment[2].
  *
  * Pure and exported so tests can exercise the inject / leave-as-is / reject
  * matrix without a Nuxt context. Query/hash are dropped; alternates are
  * canonical pages.
+ *
+ * `typePrefix` is the single-letter app prefix string (e.g. 'p', 'c', 'b').
  */
 export function normalizeAlternatePath(
   url: string,
   typePrefix: string,
 ): string | null {
-  if (typeof url !== 'string') return null;
-  if (!url.startsWith('/')) return null;
-  if (url.startsWith('//')) return null;
-
-  const segments = url.split('?')[0]!.split('#')[0]!.split('/').filter(Boolean);
-  // Need /{market}/{locale}/{at least one more}.
-  if (segments.length < 3) return null;
-
-  const market = segments[0]!;
-  const locale = segments[1]!;
-  if (!/^[a-z]{2}$/.test(market)) return null;
-  if (!/^[a-z]{2}$/.test(locale)) return null;
-
-  const rest = segments.slice(2);
-  const routable = TYPE_PREFIXES.has(rest[0]!)
-    ? `/${segments.join('/')}`
-    : `/${market}/${locale}/${typePrefix}/${rest.join('/')}`;
-
-  // Final validation: must be a well-formed type-prefixed path.
-  const finalSegments = routable.split('/').filter(Boolean);
-  if (finalSegments.length < 4) return null;
-  if (!/^[a-z]{2}$/.test(finalSegments[0]!)) return null;
-  if (!/^[a-z]{2}$/.test(finalSegments[1]!)) return null;
-  if (!TYPE_PREFIXES.has(finalSegments[2]!)) return null;
-
-  return routable;
+  const type =
+    typePrefix === 'p'
+      ? 'product'
+      : typePrefix === 'c'
+        ? 'category'
+        : typePrefix === 'b'
+          ? 'brand'
+          : null;
+  if (!type) return null;
+  return alternateEntityPath(url, type);
 }
 
 /**
@@ -126,14 +102,18 @@ function marketSegmentOf(url: string): string | undefined {
  *
  * For each entry: SKIP unless the URL's first segment matches `currentMarket`
  * (live-verified: alternates span many markets); derive the short code and keep
- * it only when in `availableShort`; normalize the URL (inject the type prefix
- * when absent), SKIP when null. Builds a `Record<short, routable>`; same-market
- * duplicates across channels resolve to identical paths, so last-wins is
- * harmless.
+ * it only when in `availableShort`; map the URL through `alternateEntityPath`
+ * (inject the type prefix when absent, remap /l/ to /c/ for categories),
+ * SKIP when null. Builds a `Record<short, routable>`; same-market duplicates
+ * across channels resolve to identical paths, so last-wins is harmless.
  */
 export function mapAlternatesToShortCodes(
   entries: LocaleAlternateUrl[] | null | undefined,
-  opts: { availableShort: string[]; currentMarket: string; typePrefix: string },
+  opts: {
+    availableShort: string[];
+    currentMarket: string;
+    type: 'product' | 'category' | 'brand';
+  },
 ): Record<string, string> {
   const result: Record<string, string> = {};
   if (!entries) return result;
@@ -145,7 +125,7 @@ export function mapAlternatesToShortCodes(
     if (marketSegmentOf(entry.url) !== opts.currentMarket) continue;
     const short = shortCodeFor(entry);
     if (!short || !allowed.has(short)) continue;
-    const routable = normalizeAlternatePath(entry.url, opts.typePrefix);
+    const routable = alternateEntityPath(entry.url, opts.type);
     if (!routable) continue;
     result[short] = routable;
   }
@@ -179,7 +159,7 @@ export function useLocaleAlternates() {
     state.value = mapAlternatesToShortCodes(entries, {
       availableShort: available,
       currentMarket: currentMarket.value,
-      typePrefix: TYPE_PREFIX_BY_TYPE[opts.type],
+      type: opts.type,
     });
   }
 

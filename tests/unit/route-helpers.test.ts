@@ -7,6 +7,7 @@ import {
   discountCampaignPath,
   stripTypePrefix,
   detectRouteType,
+  alternateEntityPath,
 } from '../../shared/utils/route-helpers';
 
 describe('categoryPath', () => {
@@ -58,6 +59,14 @@ describe('productPath', () => {
     expect(productPath('/se/sv/l/some-list/product')).toBe(
       '/p/some-list/product',
     );
+  });
+
+  it('tolerates a bare alias with no leading slash', () => {
+    expect(productPath('manifold-x')).toBe('/p/manifold-x');
+  });
+
+  it('is idempotent for an already-prefixed path', () => {
+    expect(productPath('/p/manifold-x')).toBe('/p/manifold-x');
   });
 });
 
@@ -156,5 +165,80 @@ describe('detectRouteType', () => {
 
   it('returns null for empty string', () => {
     expect(detectRouteType('')).toBeNull();
+  });
+});
+
+describe('alternateEntityPath', () => {
+  it('remaps /l/ Geins category alternate to /c/ app route', () => {
+    expect(alternateEntityPath('/se/en/l/category-1', 'category')).toBe(
+      '/se/en/c/category-1',
+    );
+  });
+
+  it('injects /p/ into a prefix-less product path while preserving market+locale', () => {
+    expect(
+      alternateEntityPath(
+        '/se/en/materials/branch-pipes/manifold-150-150-88',
+        'product',
+      ),
+    ).toBe('/se/en/p/materials/branch-pipes/manifold-150-150-88');
+  });
+
+  it('leaves an already-prefixed /p/ path unchanged (no /p/p/)', () => {
+    expect(
+      alternateEntityPath('/se/en/p/category-1/cutting-edge', 'product'),
+    ).toBe('/se/en/p/category-1/cutting-edge');
+  });
+
+  it('injects /c/ into a prefix-less category path', () => {
+    expect(
+      alternateEntityPath('/se/en/materials/branch-pipes', 'category'),
+    ).toBe('/se/en/c/materials/branch-pipes');
+  });
+
+  it('injects /b/ into a prefix-less brand path', () => {
+    expect(alternateEntityPath('/se/en/our-company', 'brand')).toBe(
+      '/se/en/b/our-company',
+    );
+  });
+
+  it('preserves the alternate own locale when different from current (sv alternate)', () => {
+    expect(
+      alternateEntityPath(
+        '/se/sv/material/grenror/grenror-150-150-88',
+        'product',
+      ),
+    ).toBe('/se/sv/p/material/grenror/grenror-150-150-88');
+  });
+
+  it('rejects absolute http URL', () => {
+    expect(alternateEntityPath('https://evil.example/x', 'product')).toBeNull();
+  });
+
+  it('rejects protocol-relative URL', () => {
+    expect(alternateEntityPath('//evil/x', 'product')).toBeNull();
+  });
+
+  it('rejects path with no leading slash', () => {
+    expect(alternateEntityPath('cutting-edge', 'product')).toBeNull();
+  });
+
+  it('rejects path with too few segments', () => {
+    expect(alternateEntityPath('/se/en', 'product')).toBeNull();
+  });
+
+  it('rejects non-2-letter market/locale segments', () => {
+    expect(alternateEntityPath('/SE/EN/x', 'product')).toBeNull();
+    expect(alternateEntityPath('/sweden/en/x', 'product')).toBeNull();
+  });
+
+  it('rejects non-string input', () => {
+    expect(alternateEntityPath(123 as unknown as string, 'product')).toBeNull();
+  });
+
+  it('drops query string and hash before processing', () => {
+    expect(
+      alternateEntityPath('/se/en/l/category-1?foo=bar#section', 'category'),
+    ).toBe('/se/en/c/category-1');
   });
 });
