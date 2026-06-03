@@ -6,7 +6,7 @@ author: '@geins'
 tags: [routing, i18n, seo]
 ---
 
-# ADR-018: Bulletproof URL routing
+# ADR-019: Bulletproof URL routing
 
 ## Context
 

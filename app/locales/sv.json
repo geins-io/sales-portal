@@ -270,6 +270,7 @@
     "filters": "Filter",
     "search_filters": "Sök filter",
     "clear_all": "Rensa alla",
+    "show_results": "Visa resultat",
     "remove_filter": "Ta bort filter: {name}",
     "filter_groups": {
       "categories": "Kategorier",

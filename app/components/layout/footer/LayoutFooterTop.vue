@@ -46,7 +46,7 @@ async function handleSubscribe() {
             required
             :disabled="status === 'loading'"
             :placeholder="$t('layout.enter_email')"
-            class="text-foreground w-full border-[#D1D1D1] bg-white shadow-none lg:w-64"
+            class="text-foreground w-full border-[#D1D1D1] bg-white shadow-none lg:w-64 dark:bg-white"
           />
           <Button
             size="lg"

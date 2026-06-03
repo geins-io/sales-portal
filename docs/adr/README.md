@@ -23,7 +23,8 @@ ADRs document significant architectural decisions with context and consequences.
 | 015 | [Type-prefixed routing](015-type-prefixed-routing.md)                              | accepted | 2026-03-30 |
 | 016 | [Tenant theme color coercion](016-tenant-color-coercion.md)                        | accepted | 2026-05-22 |
 | 017 | [Entity URL safety net](017-entity-url-safety-net.md)                              | accepted | 2026-06-02 |
-| 018 | [Bulletproof URL routing](018-bulletproof-routing.md)                              | accepted | 2026-06-03 |
+| 018 | [CSP allows inline styles, keeps scripts nonce-strict](018-csp-inline-styles.md)   | accepted | 2026-06-03 |
+| 019 | [Bulletproof URL routing](019-bulletproof-routing.md)                              | accepted | 2026-06-03 |
 
 ## Adding New ADRs
 

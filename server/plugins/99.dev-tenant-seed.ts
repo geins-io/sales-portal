@@ -45,6 +45,16 @@ export default defineNitroPlugin(async () => {
         hostnames: ['tenant-a.localhost', 'tenant-a.litium.store'],
         brandName: 'Tenant A Store',
         primary: 'oklch(0.55 0.13 195.71)', // teal
+        seo: {
+          defaultTitle: 'Tenant A Store',
+          titleTemplate: '%s | Tenant A Store',
+          defaultDescription: 'B2B sales portal for Tenant A',
+          // Stored post-normalisation as an array (the schema transform that
+          // splits the merchant API comma string runs before this shape).
+          defaultKeywords: ['shoes', 'boots', 'sneakers'],
+          robots: 'index, follow',
+          verification: 'test-verify-abc123',
+        },
       }),
       withFullCms: true,
     },
@@ -123,6 +133,7 @@ interface FixtureInput {
   siteBackground?: string;
   buttonBackground?: string;
   buttonPurchaseBackground?: string;
+  seo?: StoreSettings['seo'];
 }
 
 function makeFixture(input: FixtureInput): StoreSettings {
@@ -179,6 +190,7 @@ function makeFixture(input: FixtureInput): StoreSettings {
       name: input.brandName,
       watermark: 'minimal',
     },
+    ...(input.seo ? { seo: input.seo } : {}),
     features: {
       search: { enabled: true },
       authentication: { enabled: true },

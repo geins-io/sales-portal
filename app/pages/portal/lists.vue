@@ -51,7 +51,7 @@ function handleCreateList() {
 <template>
   <PortalShell>
     <!-- Bordered content card per Figma — wraps header, action, table -->
-    <div class="border-border rounded-lg border p-6">
+    <div class="border-border rounded-lg border bg-white p-6">
       <!-- Page header -->
       <div class="mb-6">
         <div

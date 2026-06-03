@@ -75,7 +75,7 @@ function formatDate(iso: string): string {
 <template>
   <PortalShell>
     <div v-if="quote" data-testid="quote-detail" class="space-y-6">
-      <div class="border-border rounded-lg border p-6">
+      <div class="border-border rounded-lg border bg-white p-6">
         <div
           data-testid="quote-action-toolbar"
           class="border-border flex flex-wrap items-center justify-between gap-4 border-b pb-4"

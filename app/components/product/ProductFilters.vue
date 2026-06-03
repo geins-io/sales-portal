@@ -93,7 +93,7 @@ function clearAll() {
 
         <!-- Filter groups -->
         <div class="flex-1 overflow-y-auto px-6 py-4">
-          <div class="space-y-1">
+          <div class="space-y-0">
             <FilterGroup
               v-for="facet in filteredFacets"
               :key="facet.filterId"
@@ -104,15 +104,17 @@ function clearAll() {
           </div>
         </div>
 
-        <!-- Clear all -->
-        <div class="border-t px-6 py-4">
+        <!-- Footer: narrower grey Clear all on the left, Show results fills the rest -->
+        <div class="flex items-center gap-3 border-t px-6 py-4">
           <Button
-            variant="outline"
-            class="w-full"
+            variant="secondary"
             :disabled="!hasSelectedFilters"
             @click="clearAll"
           >
             {{ $t('product.clear_all') }}
+          </Button>
+          <Button class="flex-1" @click="sheetOpen = false">
+            {{ $t('product.show_results') }}
           </Button>
         </div>
       </SheetContent>

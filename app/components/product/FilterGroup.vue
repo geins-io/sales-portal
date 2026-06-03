@@ -57,7 +57,7 @@ function isChecked(valueId: string) {
 <template>
   <Accordion type="single" collapsible :default-value="facet.filterId">
     <AccordionItem :value="facet.filterId">
-      <AccordionTrigger class="py-3 text-sm font-medium">
+      <AccordionTrigger class="mb-5 border-b py-3 text-base font-semibold">
         <span>
           {{ groupLabel }}
           <span v-if="selected.length > 0" class="text-muted-foreground ml-1">
@@ -66,7 +66,7 @@ function isChecked(valueId: string) {
         </span>
       </AccordionTrigger>
       <AccordionContent>
-        <div class="flex flex-col gap-3 pb-2">
+        <div class="flex flex-col gap-3">
           <label
             v-for="value in visibleValues"
             :key="value._id"
@@ -82,6 +82,7 @@ function isChecked(valueId: string) {
               :id="`filter-${facet.filterId}-${value._id}`"
               :model-value="isChecked(value.facetId)"
               :disabled="value.count === 0"
+              class="data-[state=checked]:border-button-background data-[state=checked]:bg-button-background dark:data-[state=checked]:bg-button-background"
               @update:model-value="toggleValue(value.facetId)"
             />
             <span class="flex-1 text-sm">

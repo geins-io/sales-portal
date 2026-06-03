@@ -48,6 +48,21 @@ describe('LayoutFooterTop', () => {
     expect(wrapper.find('input[type="email"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('layout.subscribe');
   });
+
+  it('pins the email input to a white background in both color schemes', () => {
+    const wrapper = mountComponent(LayoutFooterTop);
+    const input = wrapper.find('input[type="email"]');
+    const classes = input.classes();
+    // Literal white, not a theme token: the input must read white regardless
+    // of tenant theme. Light-scheme background.
+    expect(classes).toContain('bg-white');
+    // Dark scheme: the base Input ships dark:bg-input/30, which otherwise wins
+    // under prefers-color-scheme: dark and renders the input translucent grey.
+    // dark:bg-white must override it so the field stays white.
+    expect(classes).toContain('dark:bg-white');
+    expect(classes).not.toContain('dark:bg-input/30');
+    expect(classes).not.toContain('bg-transparent');
+  });
 });
 
 describe('LayoutFooterMain', () => {

@@ -1,6 +1,7 @@
 /**
- * SEO plugin: sets meta tags, lang attribute, verification codes,
- * and schema.org structured data (Organization + WebSite) per tenant.
+ * SEO plugin: sets meta tags, lang attribute, the Google Search Console
+ * verification token, and schema.org structured data (Organization + WebSite)
+ * per tenant.
  *
  * Visual theming (CSS, fonts, favicon) is handled server-side by
  * server/plugins/04.tenant-css.ts to prevent FOUC.
@@ -63,6 +64,13 @@ export default defineNuxtPlugin({
         meta.push({ name: 'robots', content: seo.robots });
       }
 
+      if (seo?.defaultKeywords?.length) {
+        meta.push({
+          name: 'keywords',
+          content: seo.defaultKeywords.join(', '),
+        });
+      }
+
       // Open Graph basics
       meta.push({ property: 'og:site_name', content: brandName.value });
       meta.push({ property: 'og:type', content: 'website' });
@@ -87,26 +95,34 @@ export default defineNuxtPlugin({
         meta.push({ name: 'theme-color', content: primaryColor as string });
       }
 
-      // Search engine verification
-      if (seo?.verification?.google) {
-        meta.push({
-          name: 'google-site-verification',
-          content: seo.verification.google,
-        });
-      }
-      if (seo?.verification?.bing) {
-        meta.push({ name: 'msvalidate.01', content: seo.verification.bing });
+      // Google Search Console verification (flat token from store settings)
+      const verification = seo?.verification?.trim();
+      if (verification) {
+        meta.push({ name: 'google-site-verification', content: verification });
       }
 
       return meta;
     });
 
-    // Title template from tenant config
-    const titleTemplate = seo?.titleTemplate ?? `%s - ${brandName.value}`;
+    // Title resolution:
+    //   - The literal `title` pins the tenant defaultTitle so @nuxtjs/seo's
+    //     automatic route-segment title inference (which would render e.g.
+    //     "Sv" from the locale path) never leaks onto pages that set no title
+    //     of their own, like the home page.
+    //   - The function template wraps a page's own title as "PageTitle | Brand"
+    //     but returns the defaultTitle verbatim when the active title IS the
+    //     default (home page) or is empty, so it never double-wraps into
+    //     "Brand | Brand". An empty Studio template falls back to the brand
+    //     pattern so a wrapped title never renders bare.
+    const titleTemplate = seo?.titleTemplate || `%s - ${brandName.value}`;
+    const defaultTitle = seo?.defaultTitle || brandName.value;
 
     useHead({
-      title: seo?.defaultTitle || undefined,
-      titleTemplate,
+      title: defaultTitle,
+      titleTemplate: (pageTitle?: string | null) =>
+        !pageTitle || pageTitle === defaultTitle
+          ? defaultTitle
+          : titleTemplate.replace('%s', pageTitle),
       meta: reactiveMeta,
     });
 

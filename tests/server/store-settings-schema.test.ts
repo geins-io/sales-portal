@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   StoreSettingsSchema,
   BrandingConfigSchema,
+  SeoConfigSchema,
 } from '../../server/schemas/store-settings';
 import {
   deriveThemeColors,
@@ -635,6 +636,178 @@ describe('StoreSettingsSchema', () => {
       const result = StoreSettingsSchema.safeParse(config);
       expect(result.success).toBe(true);
     });
+  });
+});
+
+describe('SeoConfigSchema defaultKeywords normalization', () => {
+  function parseKeywords(input: unknown) {
+    const result = SeoConfigSchema.safeParse({ defaultKeywords: input });
+    if (!result.success) return result;
+    return result.data.defaultKeywords;
+  }
+
+  it('splits the merchant API comma-separated string into an array', () => {
+    expect(parseKeywords('shoes,boots,sneakers')).toEqual([
+      'shoes',
+      'boots',
+      'sneakers',
+    ]);
+  });
+
+  it('trims whitespace around each keyword and drops empties', () => {
+    expect(parseKeywords(' shoes , boots ,, sneakers , ')).toEqual([
+      'shoes',
+      'boots',
+      'sneakers',
+    ]);
+  });
+
+  it('returns an empty array for an empty string (blank Studio field)', () => {
+    expect(parseKeywords('')).toEqual([]);
+  });
+
+  it('accepts a string array for back-compat and re-trims it', () => {
+    expect(parseKeywords([' shoes ', 'boots'])).toEqual(['shoes', 'boots']);
+  });
+
+  it('splits comma-joined entries inside an array too', () => {
+    expect(parseKeywords(['shoes,boots', 'sneakers'])).toEqual([
+      'shoes',
+      'boots',
+      'sneakers',
+    ]);
+  });
+
+  it('preserves explicit null', () => {
+    expect(parseKeywords(null)).toBeNull();
+  });
+
+  it('leaves the field absent when omitted', () => {
+    const result = SeoConfigSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.defaultKeywords).toBeUndefined();
+    }
+  });
+});
+
+describe('SeoConfigSchema verification', () => {
+  function parseVerification(input: unknown) {
+    const result = SeoConfigSchema.safeParse({ verification: input });
+    if (!result.success) return result;
+    return result.data.verification;
+  }
+
+  it('accepts the merchant API flat Google Search Console token string', () => {
+    expect(parseVerification('test-verify-abc123')).toBe('test-verify-abc123');
+  });
+
+  it('preserves explicit null and leaves the field absent when omitted', () => {
+    expect(parseVerification(null)).toBeNull();
+    const result = SeoConfigSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.verification).toBeUndefined();
+    }
+  });
+});
+
+describe('StoreSettingsSchema seo with real merchant API shape', () => {
+  // Mirrors the live merchant API payload observed for tinatest.litium.store:
+  // keywords sent as a comma string, blank description, empty title template.
+  function withSeo(seo: unknown) {
+    return {
+      tenantId: 'real',
+      hostname: 'real.litium.store',
+      geinsSettings: {
+        apiKey: 'key',
+        accountName: 'acct',
+        channel: '1',
+        tld: 'se',
+        locale: 'sv-SE',
+        market: 'se',
+        environment: 'production' as const,
+        availableLocales: ['sv-SE'],
+        availableMarkets: ['se'],
+      },
+      mode: 'commerce' as const,
+      theme: {
+        colors: {
+          primary: 'oklch(0.5 0.1 200)',
+          primaryForeground: 'oklch(0.9 0 0)',
+          secondary: 'oklch(0.8 0 0)',
+          secondaryForeground: 'oklch(0.2 0 0)',
+          background: 'oklch(1 0 0)',
+          foreground: 'oklch(0.1 0 0)',
+        },
+      },
+      branding: { name: 'Real', watermark: 'minimal' as const },
+      features: {},
+      seo,
+      isActive: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+  }
+
+  it('parses a seo block whose defaultKeywords is a comma string', () => {
+    const result = StoreSettingsSchema.safeParse(
+      withSeo({
+        defaultTitle: 'Tinas Default',
+        titleTemplate: '',
+        defaultDescription: '',
+        defaultKeywords: 'test,test2,test3',
+        robots: 'noindex, nofollow',
+      }),
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.seo?.defaultKeywords).toEqual([
+        'test',
+        'test2',
+        'test3',
+      ]);
+      // Title and the rest survive alongside the (previously dropped) keywords.
+      expect(result.data.seo?.defaultTitle).toBe('Tinas Default');
+      expect(result.data.seo?.robots).toBe('noindex, nofollow');
+    }
+  });
+
+  it('parses a seo block that only carries a title (elproman shape)', () => {
+    const result = StoreSettingsSchema.safeParse(
+      withSeo({ defaultTitle: 'Produktsortiment på Elproman' }),
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.seo?.defaultTitle).toBe(
+        'Produktsortiment på Elproman',
+      );
+    }
+  });
+
+  it('parses the full tenant-a shape: flat verification token + analytics IDs', () => {
+    const result = StoreSettingsSchema.safeParse(
+      withSeo({
+        defaultTitle: 'Tenant A Store',
+        defaultKeywords: 'test,test2,test3',
+        googleAnalyticsId: 'G-TEST12345',
+        googleTagManagerId: 'GTM-TEST99',
+        verification: 'test-verify-abc123',
+      }),
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // Flat verification token survives instead of being stripped as a type
+      // mismatch, and renders as the google-site-verification meta.
+      expect(result.data.seo?.verification).toBe('test-verify-abc123');
+      expect(result.data.seo?.googleAnalyticsId).toBe('G-TEST12345');
+      expect(result.data.seo?.googleTagManagerId).toBe('GTM-TEST99');
+      expect(result.data.seo?.defaultKeywords).toEqual([
+        'test',
+        'test2',
+        'test3',
+      ]);
+    }
   });
 });
 
