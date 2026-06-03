@@ -811,6 +811,24 @@ describe('Tenant utilities', () => {
       expect(out?.mode).toBe('commerce');
     });
 
+    it('keeps the seo block intact when defaultKeywords is a comma string', () => {
+      // Regression: the merchant API sends defaultKeywords as a comma string.
+      // The schema used to require string[], so the resilient parser stripped
+      // the keywords leaf. The seo block (title/description) must survive and
+      // keywords must normalise to an array rather than being dropped.
+      const candidate = fullCandidate();
+      candidate.seo = {
+        defaultTitle: 'Tenant A Store',
+        titleTemplate: '%s | Tenant A Store',
+        defaultDescription: 'B2B sales portal for Tenant A',
+        defaultKeywords: 'shoes,boots,sneakers',
+        robots: 'noindex, nofollow',
+      };
+      const out = parseStoreSettingsResilient(candidate, 'h');
+      expect(out?.seo?.defaultTitle).toBe('Tenant A Store');
+      expect(out?.seo?.defaultKeywords).toEqual(['shoes', 'boots', 'sneakers']);
+    });
+
     it('returns null when a fatal field (geinsSettings) is unparseable', () => {
       const candidate = fullCandidate();
       candidate.geinsSettings = { apiKey: '', accountName: '' };
