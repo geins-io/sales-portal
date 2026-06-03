@@ -1,10 +1,11 @@
 /**
- * SEO plugin — sets meta tags, lang attribute, verification codes,
+ * SEO plugin: sets meta tags, lang attribute, verification codes,
  * and schema.org structured data (Organization + WebSite) per tenant.
  *
  * Visual theming (CSS, fonts, favicon) is handled server-side by
  * server/plugins/04.tenant-css.ts to prevent FOUC.
  */
+import { computed } from 'vue';
 import type { Composer } from 'vue-i18n';
 
 export default defineNuxtPlugin({
@@ -19,53 +20,67 @@ export default defineNuxtPlugin({
 
     const seo = tenant.value.seo;
     const contact = tenant.value.contact;
-    const locale = i18n.locale.value || tenant.value.locale || 'sv';
 
-    // Build meta tags
-    const meta: Array<Record<string, string>> = [];
+    // Reactive locale: re-evaluated at render time (after the route middleware
+    // has called $i18n.setLocale). A plain `const locale = i18n.locale.value`
+    // would freeze to the default 'sv' on SSR because plugins run before the
+    // locale-market middleware. Using a computed ensures that useHead getters
+    // and the og:locale computed re-read the current locale when unhead
+    // serialises the head on the server.
+    const seoLocale = computed(
+      () => i18n.locale.value || tenant.value?.locale || 'sv',
+    );
 
-    if (seo?.defaultDescription) {
-      meta.push({ name: 'description', content: seo.defaultDescription });
-    }
+    // Reactive meta array: rebuilt whenever seoLocale changes so og:locale
+    // always reflects the URL locale rather than the plugin-setup-time default.
+    const reactiveMeta = computed(() => {
+      const meta: Array<Record<string, string>> = [];
 
-    if (seo?.robots) {
-      meta.push({ name: 'robots', content: seo.robots });
-    }
+      if (seo?.defaultDescription) {
+        meta.push({ name: 'description', content: seo.defaultDescription });
+      }
 
-    // Open Graph basics
-    meta.push({ property: 'og:site_name', content: brandName.value });
-    meta.push({ property: 'og:type', content: 'website' });
-    meta.push({
-      property: 'og:locale',
-      content: locale.replace('-', '_'),
-    });
+      if (seo?.robots) {
+        meta.push({ name: 'robots', content: seo.robots });
+      }
 
-    if (ogImageUrl.value) {
-      meta.push({ property: 'og:image', content: ogImageUrl.value });
-    }
-
-    // Twitter Card
-    meta.push({ name: 'twitter:card', content: 'summary_large_image' });
-    if (ogImageUrl.value) {
-      meta.push({ name: 'twitter:image', content: ogImageUrl.value });
-    }
-
-    // Browser theme color (address bar, task switcher)
-    const primaryColor = tenant.value.theme?.colors?.primary;
-    if (primaryColor) {
-      meta.push({ name: 'theme-color', content: primaryColor as string });
-    }
-
-    // Search engine verification
-    if (seo?.verification?.google) {
+      // Open Graph basics
+      meta.push({ property: 'og:site_name', content: brandName.value });
+      meta.push({ property: 'og:type', content: 'website' });
       meta.push({
-        name: 'google-site-verification',
-        content: seo.verification.google,
+        property: 'og:locale',
+        content: seoLocale.value.replace('-', '_'),
       });
-    }
-    if (seo?.verification?.bing) {
-      meta.push({ name: 'msvalidate.01', content: seo.verification.bing });
-    }
+
+      if (ogImageUrl.value) {
+        meta.push({ property: 'og:image', content: ogImageUrl.value });
+      }
+
+      // Twitter Card
+      meta.push({ name: 'twitter:card', content: 'summary_large_image' });
+      if (ogImageUrl.value) {
+        meta.push({ name: 'twitter:image', content: ogImageUrl.value });
+      }
+
+      // Browser theme color (address bar, task switcher)
+      const primaryColor = tenant.value?.theme?.colors?.primary;
+      if (primaryColor) {
+        meta.push({ name: 'theme-color', content: primaryColor as string });
+      }
+
+      // Search engine verification
+      if (seo?.verification?.google) {
+        meta.push({
+          name: 'google-site-verification',
+          content: seo.verification.google,
+        });
+      }
+      if (seo?.verification?.bing) {
+        meta.push({ name: 'msvalidate.01', content: seo.verification.bing });
+      }
+
+      return meta;
+    });
 
     // Title template from tenant config
     const titleTemplate = seo?.titleTemplate ?? `%s - ${brandName.value}`;
@@ -74,9 +89,12 @@ export default defineNuxtPlugin({
       title: seo?.defaultTitle || undefined,
       titleTemplate,
       htmlAttrs: {
-        lang: locale,
+        // Getter so unhead re-evaluates at render time (post-middleware).
+        // A plain string would be captured once at plugin setup and would
+        // yield the default locale on hard loads of non-default-locale pages.
+        lang: () => seoLocale.value,
       },
-      meta,
+      meta: reactiveMeta,
     });
 
     // Schema.org structured data
@@ -109,13 +127,15 @@ export default defineNuxtPlugin({
     const webSiteSchema: Record<string, unknown> = {
       name: brandName.value,
       url: siteUrl,
+      // Getter so inLanguage tracks seoLocale reactively at render time.
+      // DeepResolvableProperties (the unhead type backing defineWebSite) allows
+      // each property to be a ref or a getter function.
+      inLanguage: () => seoLocale.value,
     };
 
     if (seo?.defaultDescription) {
       webSiteSchema.description = seo.defaultDescription;
     }
-
-    webSiteSchema.inLanguage = locale;
 
     useSchemaOrg([defineOrganization(orgSchema), defineWebSite(webSiteSchema)]);
   },
