@@ -63,6 +63,8 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
       v-for="loc in availableLocales as string[]"
       :key="loc"
       :href="localeHref(loc)"
+      data-testid="locale-switcher-link"
+      :data-locale="loc"
       class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
       :class="
         loc === currentLocale
@@ -102,6 +104,8 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
         v-for="loc in availableLocales as string[]"
         :key="loc"
         :href="localeHref(loc)"
+        data-testid="locale-switcher-link"
+        :data-locale="loc"
         class="hover:bg-accent hover:text-accent-foreground relative flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none"
         :class="{ 'font-semibold': loc === currentLocale }"
       >
