@@ -67,51 +67,137 @@ describe('resolveEntityUrl', () => {
     resolver = await import('../../../server/services/url-resolver');
   });
 
+  // ---------------------------------------------------------------------------
+  // Priority order: product > category > brand
+  // ---------------------------------------------------------------------------
+
   it('returns product (priority) when product, category, and brand all resolve', async () => {
-    mockGetProduct.mockResolvedValue({ canonicalUrl: '/p/grenror' });
-    mockGetCategoryPage.mockResolvedValue({ canonicalUrl: '/c/grenror' });
-    mockGetBrandPage.mockResolvedValue({ canonicalUrl: '/b/grenror' });
+    // Geins returns prefix-less canonicals: /se/sv/{slug} (no /p/ or /l/ prefix here)
+    mockGetProduct.mockResolvedValue({
+      canonicalUrl: '/se/sv/material/grenror/grenror-150-150-88',
+    });
+    mockGetCategoryPage.mockResolvedValue({
+      canonicalUrl: '/se/sv/l/material',
+    });
+    mockGetBrandPage.mockResolvedValue({
+      canonicalUrl: '/se/sv/b/grenror-brand',
+    });
 
     const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
 
-    expect(result).toEqual({ type: 'product', canonicalUrl: '/p/grenror' });
+    expect(result).toEqual({
+      type: 'product',
+      canonicalAppPath: '/se/sv/p/material/grenror/grenror-150-150-88',
+    });
     expect(mockGraphqlQuery).not.toHaveBeenCalled();
   });
 
-  it('returns category when product is null', async () => {
-    mockGetCategoryPage.mockResolvedValue({ canonicalUrl: '/c/grenror' });
-    mockGetBrandPage.mockResolvedValue({ canonicalUrl: '/b/grenror' });
+  it('returns category when product is null (preserves market/locale, maps /l/ -> /c/)', async () => {
+    mockGetCategoryPage.mockResolvedValue({
+      canonicalUrl: '/se/sv/l/material',
+    });
+    mockGetBrandPage.mockResolvedValue({
+      canonicalUrl: '/se/sv/b/grenror-brand',
+    });
 
     const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
 
-    expect(result).toEqual({ type: 'category', canonicalUrl: '/c/grenror' });
+    expect(result).toEqual({
+      type: 'category',
+      canonicalAppPath: '/se/sv/c/material',
+    });
   });
 
   it('returns brand when product and category are null', async () => {
-    mockGetBrandPage.mockResolvedValue({ canonicalUrl: '/b/grenror' });
+    mockGetBrandPage.mockResolvedValue({
+      canonicalUrl: '/se/sv/b/grenror-brand',
+    });
 
     const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
 
-    expect(result).toEqual({ type: 'brand', canonicalUrl: '/b/grenror' });
+    expect(result).toEqual({
+      type: 'brand',
+      canonicalAppPath: '/se/sv/b/grenror-brand',
+    });
   });
 
-  it('ignores an entity whose canonicalUrl is empty and continues', async () => {
-    mockGetProduct.mockResolvedValue({ canonicalUrl: '' });
-    mockGetCategoryPage.mockResolvedValue({ canonicalUrl: '/c/grenror' });
+  // ---------------------------------------------------------------------------
+  // canonicalAppPath shape: market+locale preserved, correct app prefix
+  // ---------------------------------------------------------------------------
+
+  it('maps a raw Geins prefix-less product canonical to /se/sv/p/...', async () => {
+    // Geins returns "/se/sv/material/grenror/grenror-150" (no entity prefix)
+    mockGetProduct.mockResolvedValue({
+      canonicalUrl: '/se/sv/material/grenror/grenror-150',
+    });
 
     const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
 
-    expect(result).toEqual({ type: 'category', canonicalUrl: '/c/grenror' });
+    expect(result).toEqual({
+      type: 'product',
+      canonicalAppPath: '/se/sv/p/material/grenror/grenror-150',
+    });
+  });
+
+  it('maps a Geins /l/ category canonical to /se/sv/c/...', async () => {
+    // Geins uses /l/ prefix for category list URLs
+    mockGetCategoryPage.mockResolvedValue({
+      canonicalUrl: '/se/sv/l/category-name',
+    });
+
+    const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
+
+    expect(result).toEqual({
+      type: 'category',
+      canonicalAppPath: '/se/sv/c/category-name',
+    });
+  });
+
+  it('ignores an entity whose canonicalUrl is empty and falls through', async () => {
+    mockGetProduct.mockResolvedValue({ canonicalUrl: '' });
+    mockGetCategoryPage.mockResolvedValue({
+      canonicalUrl: '/se/sv/l/material',
+    });
+
+    const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
+
+    expect(result).toEqual({
+      type: 'category',
+      canonicalAppPath: '/se/sv/c/material',
+    });
+  });
+
+  it('treats a malformed canonical (no market/locale, too few segments) as no-match and falls through', async () => {
+    // alternateEntityPath returns null for < 3 segments after splitting
+    mockGetProduct.mockResolvedValue({ canonicalUrl: '/only-one-segment' });
+    mockGetCategoryPage.mockResolvedValue({ canonicalUrl: '/se/sv/l/good' });
+
+    const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
+
+    // product had a malformed canonical -> fell through to category
+    expect(result).toEqual({
+      type: 'category',
+      canonicalAppPath: '/se/sv/c/good',
+    });
   });
 
   it('tolerates a thrown not-found from one resolver (allSettled)', async () => {
     mockGetProduct.mockRejectedValue(new Error('not found'));
-    mockGetCategoryPage.mockResolvedValue({ canonicalUrl: '/c/grenror' });
+    mockGetCategoryPage.mockResolvedValue({
+      canonicalUrl: '/se/sv/l/material',
+    });
 
     const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
 
-    expect(result).toEqual({ type: 'category', canonicalUrl: '/c/grenror' });
+    expect(result).toEqual({
+      type: 'category',
+      canonicalAppPath: '/se/sv/c/material',
+    });
   });
+
+  // ---------------------------------------------------------------------------
+  // urlHistory (renamed slugs)
+  // ---------------------------------------------------------------------------
 
   it('falls back to urlHistory and returns { redirect: newUrl } when alias misses', async () => {
     mockGraphqlQuery.mockResolvedValue({
@@ -135,6 +221,14 @@ describe('resolveEntityUrl', () => {
     mockGraphqlQuery.mockResolvedValue({
       urlHistory: { oldUrl: '/se/sv/old', newUrl: '' },
     });
+
+    const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when alias misses and urlHistory is null', async () => {
+    mockGraphqlQuery.mockResolvedValue({ urlHistory: null });
 
     const result = await resolver.resolveEntityUrl(ARGS, createMockEvent());
 
