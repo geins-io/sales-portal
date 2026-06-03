@@ -104,11 +104,10 @@ function clearAll() {
           </div>
         </div>
 
-        <!-- Footer: smaller grey Clear all on the left, Show results on the right -->
+        <!-- Footer: narrower grey Clear all on the left, Show results fills the rest -->
         <div class="flex items-center gap-3 border-t px-6 py-4">
           <Button
             variant="secondary"
-            size="sm"
             :disabled="!hasSelectedFilters"
             @click="clearAll"
           >
