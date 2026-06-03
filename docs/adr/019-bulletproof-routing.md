@@ -90,6 +90,16 @@ error is not cached and re-hammers Geins on every scan request). The thin outer
 `defineEventHandler` wrapper converts the marker to a real 404 for callers.
 This closes the negative-cache follow-up that ADR-017 deferred.
 
+The resolver resolves in the URL's OWN market/locale, not the request default.
+It parses the leading `/{market}/{locale}` from its `path` argument
+(`parseLocaleMarketPrefix`), validates it against the tenant via
+`resolveLocaleMarket`, and sets `event.context.resolvedLocaleMarket` before the
+Geins lookups run. Without this the lookups read the request channel context,
+which on an `/api/` request falls back to the tenant default locale, so a
+non-default-locale alias (an English slug under a Swedish-default tenant) never
+resolves and the net 404s for that locale only. Prefix-less paths carry no
+market/locale segments, so the default-locale behaviour is preserved.
+
 The resolver is reached by exactly two tiers:
 
 **Tier 1 (wrong-shape global middleware).** `app/middleware/resolve-url.global.ts`

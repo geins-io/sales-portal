@@ -1,5 +1,10 @@
 import { ResolveUrlSchema } from '../schemas/api-input';
 import { resolveEntityUrl } from '../services/url-resolver';
+import {
+  parseLocaleMarketPrefix,
+  resolveLocaleMarket,
+} from '#shared/utils/locale-market';
+import type { TenantConfig } from '#shared/types/tenant-config';
 
 /**
  * Inbound URL resolver endpoint: the 404-miss safety net.
@@ -66,6 +71,27 @@ const cachedResolver = defineCachedEventHandler(
   async (event): Promise<ResolverCacheResult> => {
     const { path } = ResolveUrlSchema.parse(getQuery(event));
     const auth = await optionalAuth(event);
+
+    // Resolve in the URL's OWN market/locale, not the request default.
+    // getRequestLocale/getRequestMarket read event.context.resolvedLocaleMarket
+    // first; on an /api/ request that context reflects /api/..., so without
+    // this the Geins queries below fall back to the tenant default locale and a
+    // non-default-locale alias (an English slug under a Swedish-default tenant)
+    // never resolves. Prefix-less paths have no market/locale segments, so
+    // resolvedLocaleMarket stays unset and default-locale behaviour is kept.
+    const prefix = parseLocaleMarketPrefix(path);
+    const geinsSettings = (
+      event.context.tenant?.config as TenantConfig | undefined
+    )?.geinsSettings;
+    if (prefix && geinsSettings) {
+      const { resolved } = resolveLocaleMarket(prefix, {
+        availableLocales: geinsSettings.availableLocales,
+        availableMarkets: geinsSettings.availableMarkets,
+        defaultLocale: geinsSettings.locale,
+        defaultMarket: geinsSettings.market,
+      });
+      event.context.resolvedLocaleMarket = resolved;
+    }
 
     const segments = path.split('/').filter(Boolean);
     const alias = segments[segments.length - 1] ?? '';

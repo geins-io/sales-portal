@@ -107,6 +107,34 @@ export const SUPPORTED_LOCALE_CODES = ['en', 'sv'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALE_CODES)[number];
 
 /**
+ * Parse the leading /{market}/{locale} prefix from a path into its two short
+ * codes, or null when the path has no such prefix. Query string and hash are
+ * stripped before inspecting segments.
+ *
+ * The codes are NOT validated against any tenant here. Pass the result to
+ * resolveLocaleMarket for validation and BCP-47 expansion.
+ *
+ * @example
+ * parseLocaleMarketPrefix('/se/en/c/categoryone') // { market: 'se', locale: 'en' }
+ * parseLocaleMarketPrefix('/foder')               // null
+ * parseLocaleMarketPrefix('/')                    // null
+ */
+export function parseLocaleMarketPrefix(
+  path: string,
+): { market: string; locale: string } | null {
+  const cleanPath = path.split('?')[0]!.split('#')[0]!;
+  const segments = cleanPath.split('/').filter(Boolean);
+  if (
+    segments.length >= 2 &&
+    /^[a-z]{2}$/.test(segments[0]!) &&
+    /^[a-z]{2}$/.test(segments[1]!)
+  ) {
+    return { market: segments[0]!, locale: segments[1]! };
+  }
+  return null;
+}
+
+/**
  * Check whether a path starts with two 2-letter segments (market + locale).
  *
  * @example
@@ -115,14 +143,7 @@ export type SupportedLocale = (typeof SUPPORTED_LOCALE_CODES)[number];
  * hasLocaleMarketPrefix('/')             // false
  */
 export function hasLocaleMarketPrefix(path: string): boolean {
-  // Strip query string and hash before checking segments
-  const cleanPath = path.split('?')[0]!.split('#')[0]!;
-  const segments = cleanPath.split('/').filter(Boolean);
-  return (
-    segments.length >= 2 &&
-    /^[a-z]{2}$/.test(segments[0]!) &&
-    /^[a-z]{2}$/.test(segments[1]!)
-  );
+  return parseLocaleMarketPrefix(path) !== null;
 }
 
 /**

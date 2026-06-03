@@ -62,6 +62,39 @@ const createMockEvent = (hostname = 'test.example.com'): H3Event =>
     context: { tenant: { tenantId: 't1', hostname } },
   }) as unknown as H3Event;
 
+// Event carrying the tenant geinsSettings the endpoint reads to resolve the
+// path's own market/locale. Swedish-default tenant that also serves English.
+const createMockEventWithSettings = (hostname = 'test.example.com'): H3Event =>
+  ({
+    context: {
+      tenant: {
+        tenantId: 't1',
+        hostname,
+        config: {
+          geinsSettings: {
+            locale: 'sv-SE',
+            market: 'se',
+            availableLocales: ['sv-SE', 'en-US'],
+            availableMarkets: ['se'],
+          },
+        },
+      },
+    },
+  }) as unknown as H3Event;
+
+const readResolvedLocaleMarket = (event: H3Event) =>
+  (
+    event as unknown as {
+      context: {
+        resolvedLocaleMarket?: {
+          market: string;
+          locale: string;
+          localeBcp47: string;
+        };
+      };
+    }
+  ).context.resolvedLocaleMarket;
+
 let handler: (event: H3Event) => Promise<unknown>;
 
 describe('GET /api/resolve-url', () => {
@@ -151,7 +184,9 @@ describe('GET /api/resolve-url', () => {
     expect(innerResult).toEqual({ notFound: true });
 
     // The outer handler converts the cached marker to a real 404 throw.
-    await expect(handler(createMockEvent())).rejects.toThrow('No entity for URL');
+    await expect(handler(createMockEvent())).rejects.toThrow(
+      'No entity for URL',
+    );
   });
 
   it('getKey varies by host: same path under two tenants produces distinct cache keys including the path', async () => {
@@ -210,5 +245,62 @@ describe('GET /api/resolve-url', () => {
     const keyWithoutSlash = capturedGetKey!(event);
 
     expect(keyWithSlash).toBe(keyWithoutSlash);
+  });
+
+  it("applies the path's own market/locale so a non-default-locale alias resolves in its locale", async () => {
+    (getQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      path: '/se/en/l/categoryone',
+    });
+    mockResolveEntityUrl.mockResolvedValue({
+      type: 'category',
+      canonicalAppPath: '/se/en/c/categoryone',
+    });
+
+    const event = createMockEventWithSettings();
+    await handler(event);
+
+    // The endpoint must set resolvedLocaleMarket to EN before resolving so the
+    // downstream Geins queries run in English, not the tenant default (Swedish).
+    const resolved = readResolvedLocaleMarket(event);
+    expect(resolved).toBeDefined();
+    expect(resolved!.market).toBe('se');
+    expect(resolved!.locale).toBe('en');
+    expect(resolved!.localeBcp47).toBe('en-US');
+  });
+
+  it('leaves resolvedLocaleMarket unset for a prefix-less path (default-locale behaviour preserved)', async () => {
+    (getQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      path: '/material/grenror',
+    });
+    mockResolveEntityUrl.mockResolvedValue({
+      type: 'product',
+      canonicalAppPath: '/p/material/grenror',
+    });
+
+    const event = createMockEventWithSettings();
+    await handler(event);
+
+    expect(readResolvedLocaleMarket(event)).toBeUndefined();
+  });
+
+  it('falls back to tenant defaults when the path prefix is not a valid market/locale', async () => {
+    (getQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      path: '/xx/zz/categoryone',
+    });
+    mockResolveEntityUrl.mockResolvedValue({
+      type: 'category',
+      canonicalAppPath: '/se/sv/c/categoryone',
+    });
+
+    const event = createMockEventWithSettings();
+    await handler(event);
+
+    // 'xx'/'zz' are not in the tenant config, so resolveLocaleMarket corrects
+    // both to the tenant defaults rather than querying Geins in a bogus locale.
+    const resolved = readResolvedLocaleMarket(event);
+    expect(resolved).toBeDefined();
+    expect(resolved!.market).toBe('se');
+    expect(resolved!.locale).toBe('sv');
+    expect(resolved!.localeBcp47).toBe('sv-SE');
   });
 });
