@@ -40,6 +40,23 @@ async function mountProductDetails(
 
 // useTenant mock is provided by setup-components.ts
 
+// navigateTo + recoverEntityUrl are the redirect/recovery boundaries. The PDP
+// issues a real 301 (navigateTo) for a same-prefix differing canonical and
+// delegates content misses to recoverEntityUrl (spec 003). Both are mocked as
+// spies and asserted against; assertions watch the spies, never real navigation.
+const { navigateToMock, recoverEntityUrlMock } = vi.hoisted(() => ({
+  navigateToMock: vi.fn(() => Promise.resolve()),
+  recoverEntityUrlMock: vi.fn(() => Promise.resolve()),
+}));
+
+vi.stubGlobal('navigateTo', (...args: unknown[]) => navigateToMock(...args));
+vi.mock('../../../app/composables/useEntityUrlRecovery', () => ({
+  recoverEntityUrl: (...args: [string]) => recoverEntityUrlMock(...args),
+}));
+vi.stubGlobal('recoverEntityUrl', (...args: [string]) =>
+  recoverEntityUrlMock(...args),
+);
+
 const mockCanAccess = vi.fn(() => true);
 
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
@@ -98,6 +115,7 @@ vi.mock('#app/composables/router', () => ({
     afterEach: vi.fn(),
   }),
   useRoute: () => pdpRoute,
+  navigateTo: (...args: unknown[]) => navigateToMock(...args),
 }));
 
 // useState (used by useLocaleAlternates) needs a live Nuxt instance the
@@ -257,9 +275,11 @@ describe('ProductDetails', () => {
     mockStatus.value = 'success';
     mockError.value = null;
     mockCanAccess.mockReturnValue(true);
+    navigateToMock.mockClear();
+    recoverEntityUrlMock.mockClear();
   });
 
-  describe('canonical URL self-correction', () => {
+  describe('content-miss recovery (Problem B)', () => {
     async function setRoutePath(path: string): Promise<{
       restore: () => void;
     }> {
@@ -273,15 +293,86 @@ describe('ProductDetails', () => {
       return { restore: () => (router.path = originalPath) };
     }
 
-    it('normalizes a prefix-less canonical to the routable /p/ form', async () => {
+    it('calls recoverEntityUrl with the route path when the product is missing', async () => {
+      // A renamed/old product slug must 301 to canonical via recoverEntityUrl
+      // instead of throwing a bare 404. recoverEntityUrl is mocked to resolve,
+      // so the setup continues; we only assert it was consulted with the path.
+      const { restore } = await setRoutePath('/se/sv/p/old-slug');
+      mockProduct.value = null;
+
+      try {
+        await mountProductDetails(
+          { alias: 'old-slug' },
+          { global: { stubs: defaultStubs } },
+        );
+        expect(recoverEntityUrlMock).toHaveBeenCalledTimes(1);
+        expect(recoverEntityUrlMock).toHaveBeenCalledWith('/se/sv/p/old-slug');
+      } finally {
+        restore();
+      }
+    });
+
+    it('calls recoverEntityUrl when the fetch errors', async () => {
+      const { restore } = await setRoutePath('/se/sv/p/boom');
+      mockProduct.value = null;
+      mockError.value = new Error('fetch failed');
+
+      try {
+        await mountProductDetails(
+          { alias: 'boom' },
+          { global: { stubs: defaultStubs } },
+        );
+        expect(recoverEntityUrlMock).toHaveBeenCalledWith('/se/sv/p/boom');
+      } finally {
+        restore();
+      }
+    });
+
+    it('does not call recoverEntityUrl when the product loads', async () => {
+      // Route path must equal the normalized canonical so the canonical-correction
+      // block is a genuine no-op (routable === path). Without this, samePrefix
+      // returns true and the correction fires navigateTo as a side effect, meaning
+      // the test no longer verifies "normal load = zero navigation".
+      //
+      // localePath(buildProductPath('/se/sv/test-product'))
+      //   -> localePath('/p/test-product')  -> '/se/sv/p/test-product'
+      const { restore } = await setRoutePath('/se/sv/p/test-product');
+      mockProduct.value = makeProduct({ canonicalUrl: '/se/sv/test-product' });
+
+      try {
+        await mountProductDetails(
+          { alias: 'test-product' },
+          { global: { stubs: defaultStubs } },
+        );
+
+        expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+        expect(navigateToMock).not.toHaveBeenCalled();
+      } finally {
+        restore();
+      }
+    });
+  });
+
+  describe('canonical URL self-correction (real 301)', () => {
+    async function setRoutePath(path: string): Promise<{
+      restore: () => void;
+    }> {
+      const router = (
+        (await import('#app/composables/router')) as unknown as {
+          useRoute: () => { path: string };
+        }
+      ).useRoute() as { path: string };
+      const originalPath = router.path;
+      router.path = path;
+      return { restore: () => (router.path = originalPath) };
+    }
+
+    it('301s to the routable /p/ form when a prefix-less canonical differs', async () => {
       // Geins returns a canonicalUrl without our `/p/` product-route segment
-      // (e.g. /se/sv/material/grenror/grenror-150-150-88). It must be
-      // normalized to the routable /p/ path, not written raw (the raw form
-      // 404s on refresh or in-app nav).
+      // (e.g. /se/sv/material/grenror/grenror-150-150-88). It must be a real
+      // 301 to the routable /p/ path, not written raw (the raw form 404s on
+      // refresh or in-app nav) and not a client-only history.replaceState.
       const { restore } = await setRoutePath('/se/sv/p/grenror-150-150-88');
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
       mockProduct.value = makeProduct({
         canonicalUrl: '/se/sv/material/grenror/grenror-150-150-88',
       });
@@ -291,23 +382,20 @@ describe('ProductDetails', () => {
           { alias: 'grenror-150-150-88' },
           { global: { stubs: defaultStubs } },
         );
-        expect(spy).toHaveBeenCalledTimes(1);
-        expect(spy.mock.calls[0]?.[2]).toBe(
+        expect(navigateToMock).toHaveBeenCalledTimes(1);
+        expect(navigateToMock).toHaveBeenCalledWith(
           '/se/sv/p/material/grenror/grenror-150-150-88',
+          { redirectCode: 301, replace: true },
         );
       } finally {
-        spy.mockRestore();
         restore();
       }
     });
 
-    it('rewrites to the routable /p/ form when canonicalUrl differs in the same prefix', async () => {
+    it('301s to the routable /p/ form when canonicalUrl differs in the same prefix', async () => {
       const { restore } = await setRoutePath(
         '/se/sv/p/wood-screw-stainless-steel-10-mm-se',
       );
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
       mockProduct.value = makeProduct({
         canonicalUrl: '/se/sv/p/wood-screw-stainless-steel-10-mm-en',
       });
@@ -317,21 +405,18 @@ describe('ProductDetails', () => {
           { alias: 'wood-screw-stainless-steel-10-mm-se' },
           { global: { stubs: defaultStubs } },
         );
-        expect(spy).toHaveBeenCalledTimes(1);
-        expect(spy.mock.calls[0]?.[2]).toBe(
+        expect(navigateToMock).toHaveBeenCalledTimes(1);
+        expect(navigateToMock).toHaveBeenCalledWith(
           '/se/sv/p/wood-screw-stainless-steel-10-mm-en',
+          { redirectCode: 301, replace: true },
         );
       } finally {
-        spy.mockRestore();
         restore();
       }
     });
 
-    it('does not rewrite the URL when the routable target equals the route path', async () => {
+    it('does not redirect when the routable target equals the route path (loop guard)', async () => {
       const { restore } = await setRoutePath('/se/sv/p/test-product');
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
       mockProduct.value = makeProduct({ canonicalUrl: '/se/sv/test-product' });
 
       try {
@@ -339,23 +424,20 @@ describe('ProductDetails', () => {
           { alias: 'test-product' },
           { global: { stubs: defaultStubs } },
         );
-        expect(spy).not.toHaveBeenCalled();
+        expect(navigateToMock).not.toHaveBeenCalled();
       } finally {
-        spy.mockRestore();
         restore();
       }
     });
 
-    it('does not rewrite when the canonical URL is in a different locale (fallback case)', async () => {
+    it('does not redirect when the canonical URL is in a different locale (cross-locale guard)', async () => {
       // Cross-locale: route is /se/en/... but canonical came back as /se/sv/...
-      // because the locale fallback served default-language content. Rewriting
-      // would yank the user out of EN, defeating their intent.
+      // because the locale fallback served default-language content. Redirecting
+      // would yank the user out of EN, defeating their intent. samePrefix is
+      // evaluated on the RAW canonical before normalizing, so this is a no-op.
       const { restore } = await setRoutePath(
         '/se/en/p/wood-screw-stainless-steel-10-mm-se',
       );
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
       mockProduct.value = makeProduct({
         canonicalUrl: '/se/sv/p/kategori-1/wood-screw-stainless-steel-10-mm-se',
       });
@@ -365,11 +447,85 @@ describe('ProductDetails', () => {
           { alias: 'wood-screw-stainless-steel-10-mm-se' },
           { global: { stubs: defaultStubs } },
         );
-        expect(spy).not.toHaveBeenCalled();
+        expect(navigateToMock).not.toHaveBeenCalled();
       } finally {
-        spy.mockRestore();
         restore();
       }
+    });
+  });
+
+  describe('migrated entity-URL hrefs', () => {
+    it('builds the breadcrumb category href via categoryPath', async () => {
+      mockProduct.value = makeProduct({
+        canonicalUrl: '/se/sv/test-product',
+        primaryCategory: { name: 'Material', alias: 'material' },
+      });
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
+
+      const breadcrumbs = wrapper.findComponent({ name: 'AppBreadcrumbs' });
+      const items = breadcrumbs.props('items') as Array<{
+        label: string;
+        href?: string;
+      }>;
+      // categoryPath('/material') -> '/c/material', localePath -> '/se/sv/c/material'
+      // Find the specific category breadcrumb by its label so a wrong href on an
+      // unrelated item cannot make the assertion pass.
+      const categoryItem = items.find((i) => i.label === 'Material');
+      expect(categoryItem).toBeDefined();
+      expect(categoryItem?.href).toBe('/se/sv/c/material');
+    });
+
+    it('navigates to the productPath-built variant URL on variant change', async () => {
+      mockProduct.value = makeProduct({
+        alias: 'grenror-150-150-88',
+        canonicalUrl: '/se/sv/p/grenror-150-150-88',
+        variantDimensions: [{ dimension: 'Variant', value: '88' }],
+        variantGroup: {
+          variants: [
+            { alias: 'grenror-150-150-88', dimension: 'Variant', value: '88' },
+            { alias: 'grenror-150-150-90', dimension: 'Variant', value: '90' },
+          ],
+        },
+      });
+      // Route params drive the variant nav path segments.
+      pdpRoute.params = {
+        alias: ['material', 'grenror', 'grenror-150-150-88'],
+      };
+
+      const Selector = defineComponent({
+        props: ['modelValue', 'variantDimensions', 'variants'],
+        emits: ['update:modelValue'],
+        setup(_p, { emit }) {
+          // Simulate the user picking the 90 variant after mount.
+          return () =>
+            h('button', {
+              'data-testid': 'pick-variant',
+              onClick: () => emit('update:modelValue', { Variant: '90' }),
+            });
+        },
+      });
+
+      const wrapper = await mountProductDetails(
+        { alias: 'grenror-150-150-88' },
+        {
+          global: { stubs: { ...defaultStubs, VariantSelector: Selector } },
+        },
+      );
+
+      navigateToMock.mockClear();
+      await wrapper.find('[data-testid="pick-variant"]').trigger('click');
+      await flushPromises();
+
+      // productPath('/material/grenror/grenror-150-150-90') ->
+      // '/p/material/grenror/grenror-150-150-90', localePath -> '/se/sv/p/...'
+      expect(navigateToMock).toHaveBeenCalledWith(
+        '/se/sv/p/material/grenror/grenror-150-150-90',
+      );
+      pdpRoute.params = {};
     });
   });
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PurchasedProduct } from '#shared/types/commerce';
+import { productPath } from '#shared/utils/route-helpers';
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
@@ -38,7 +39,7 @@ function getOrderLink(product: PurchasedProduct): string | null {
 }
 
 function getProductLink(product: PurchasedProduct): string | null {
-  return product.alias ? localePath(`/p/${product.alias}`) : null;
+  return product.alias ? localePath(productPath(product.alias)) : null;
 }
 
 function getDateWithOrderId(product: PurchasedProduct): string {

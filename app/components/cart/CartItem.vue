@@ -28,7 +28,7 @@ const productUrl = computed(() =>
   props.item.product?.canonicalUrl
     ? localePath(productPath(props.item.product.canonicalUrl))
     : props.item.product?.alias
-      ? localePath(`/p/${props.item.product.alias}`)
+      ? localePath(productPath(props.item.product.alias))
       : null,
 );
 

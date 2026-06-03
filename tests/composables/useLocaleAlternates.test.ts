@@ -129,7 +129,7 @@ describe('mapAlternatesToShortCodes', () => {
   const opts = {
     availableShort: ['sv', 'en'],
     currentMarket: 'se',
-    typePrefix: 'p',
+    type: 'product' as const,
   };
 
   it('picks the current-market entry and drops other markets', () => {
@@ -265,6 +265,46 @@ describe('mapAlternatesToShortCodes', () => {
         opts,
       ),
     ).toEqual({ en: '/se/en/p/materials/x' });
+  });
+
+  it('remaps a Geins /l/ category alternate to /c/ (Problem A regression)', () => {
+    expect(
+      mapAlternatesToShortCodes(
+        [entry({ culture: 'en-SE', url: '/se/en/l/category-1' })],
+        { availableShort: ['sv', 'en'], currentMarket: 'se', type: 'category' },
+      ),
+    ).toEqual({ en: '/se/en/c/category-1' });
+  });
+
+  it('preserves the alternate own locale segment, not the current locale', () => {
+    expect(
+      mapAlternatesToShortCodes(
+        [
+          entry({
+            culture: 'en-SE',
+            language: 'en',
+            url: '/se/en/materials/x',
+          }),
+          entry({ culture: 'sv-SE', language: 'sv', url: '/se/sv/material/y' }),
+        ],
+        { availableShort: ['sv', 'en'], currentMarket: 'se', type: 'product' },
+      ),
+    ).toEqual({
+      en: '/se/en/p/materials/x',
+      sv: '/se/sv/p/material/y',
+    });
+  });
+
+  it('market-filter skips alternates whose first segment differs from currentMarket', () => {
+    expect(
+      mapAlternatesToShortCodes(
+        [
+          entry({ culture: 'en-FI', url: '/fi/en/materials/x' }),
+          entry({ culture: 'sv-FI', url: '/fi/sv/materials/x' }),
+        ],
+        { availableShort: ['sv', 'en'], currentMarket: 'se', type: 'product' },
+      ),
+    ).toEqual({});
   });
 });
 

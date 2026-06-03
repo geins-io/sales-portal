@@ -13,6 +13,7 @@ import { ListPlus, Search, ShoppingCart, Trash2, X } from 'lucide-vue-next';
 import type { StockType } from '#shared/types/commerce';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
+import { productPath } from '#shared/utils/route-helpers';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'lists' });
 
@@ -348,7 +349,7 @@ function addToCart(product: ListProduct) {
               <!-- Image + info: PDP link when alias is known, plain div otherwise -->
               <NuxtLink
                 v-if="product.alias"
-                :to="localePath(`/p/${product.alias}`)"
+                :to="localePath(productPath(product.alias))"
                 data-testid="list-item-product-link"
                 class="flex flex-1 items-stretch hover:underline focus-visible:underline focus-visible:outline-none"
               >

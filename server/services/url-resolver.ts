@@ -1,4 +1,6 @@
 import type { H3Event } from 'h3';
+import { alternateEntityPath } from '#shared/utils/route-helpers';
+import { isSafeInternalPath } from '#shared/utils/redirect';
 import { getProduct } from './products';
 import { getCategoryPage, getBrandPage } from './product-lists';
 import { getTenantSDK, getRequestChannelVariables } from './_sdk';
@@ -13,7 +15,7 @@ import { unwrapGraphQL } from './graphql/unwrap';
  * classify URLs and was deleted on purpose. This resolver runs ONLY on the 404
  * miss path (catch-all, after the CMS page lookup fails) to recover prefix-less
  * entity URLs from old bookmarks, pasted Geins canonicals, search engines, and
- * renamed slugs. Typed-route navigation never touches it. Stateless, no cache.
+ * renamed slugs. Typed-route navigation never touches it.
  *
  * Resolution strategy:
  *  1. Resolve the last-segment alias against product, category, and brand in
@@ -25,10 +27,15 @@ import { unwrapGraphQL } from './graphql/unwrap';
  *  2. If nothing matches by alias, ask Geins `urlHistory(url)` (renamed slugs)
  *     with the FULL inbound path and return a redirect to the new url.
  *  3. Otherwise null.
+ *
+ * Return shape: the service returns canonicalAppPath (a full app path WITH
+ * /{market}/{locale}/ and the correct /p/ /c/ /b/ prefix) built by
+ * alternateEntityPath so callers do not re-normalize. The raw Geins canonical
+ * is never surfaced to callers.
  */
 
 export type ResolvedEntityUrl =
-  | { type: 'product' | 'category' | 'brand'; canonicalUrl: string }
+  | { type: 'product' | 'category' | 'brand'; canonicalAppPath: string }
   | { redirect: string }
   | null;
 
@@ -39,19 +46,31 @@ interface UrlHistoryResult {
 }
 
 /**
- * Maps a settled resolver result to its canonicalUrl, or null when the resolver
- * threw, returned null, or returned an entity without a usable canonicalUrl.
- * A truthy entity with a missing/empty canonicalUrl is treated as no-match so
- * downstream callers never build a redirect to an empty path.
+ * Maps a settled resolver result to a normalized app path, or null when the
+ * resolver threw, returned null, returned an entity without a usable
+ * canonicalUrl, or when alternateEntityPath cannot build a valid app path
+ * (malformed canonical). Treats all of these as no-match so downstream callers
+ * never receive a half-built path.
  */
-function canonicalFrom(settled: PromiseSettledResult<unknown>): string | null {
+function appPathFrom(
+  settled: PromiseSettledResult<unknown>,
+  type: EntityType,
+): string | null {
   if (settled.status !== 'fulfilled' || settled.value == null) return null;
   const value = settled.value as { canonicalUrl?: unknown };
-  const canonicalUrl = value.canonicalUrl;
-  if (typeof canonicalUrl !== 'string' || canonicalUrl.length === 0) {
+  const rawCanonical = value.canonicalUrl;
+  if (typeof rawCanonical !== 'string' || rawCanonical.length === 0) {
     return null;
   }
-  return canonicalUrl;
+  // alternateEntityPath preserves market/locale, strips any Geins entity prefix
+  // (/l/, /p/, etc.), and injects the correct app prefix (/c/, /p/, /b/).
+  // Returns null for any malformed or unroutable input -> treat as no-match.
+  const appPath = alternateEntityPath(rawCanonical, type);
+  // Safe by construction (leading slash, no //, fixed app prefix), but assert
+  // the open-redirect invariant here too so the resolver never returns a path
+  // that could 301 off-origin.
+  if (appPath && !isSafeInternalPath(appPath)) return null;
+  return appPath;
 }
 
 export async function resolveEntityUrl(
@@ -66,9 +85,9 @@ export async function resolveEntityUrl(
 
   const order: EntityType[] = ['product', 'category', 'brand'];
   for (let i = 0; i < order.length; i++) {
-    const canonicalUrl = canonicalFrom(settled[i]!);
-    if (canonicalUrl) {
-      return { type: order[i]!, canonicalUrl };
+    const canonicalAppPath = appPathFrom(settled[i]!, order[i]!);
+    if (canonicalAppPath) {
+      return { type: order[i]!, canonicalAppPath };
     }
   }
 
@@ -99,7 +118,12 @@ export async function resolveEntityUrl(
       : (unwrapped as UrlHistoryResult['urlHistory']);
 
   const newUrl = history?.newUrl;
-  if (typeof newUrl === 'string' && newUrl.length > 0) {
+  // Open-redirect guard at the boundary: Geins urlHistory.newUrl is untrusted
+  // input. localePath() passes http(s):// and protocol-relative // through
+  // unchanged, so an absolute or off-origin newUrl would 301 the browser off
+  // this origin. Only a safe in-app path may surface as a redirect; anything
+  // else is treated as NO-MATCH (null -> 404) rather than an unsafe redirect.
+  if (isSafeInternalPath(newUrl)) {
     return { redirect: newUrl };
   }
 

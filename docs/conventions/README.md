@@ -24,3 +24,17 @@ Standards and patterns for this codebase. Read before contributing.
 ## URL invariant
 
 Every navigable category, product, brand, search, and discount URL MUST be type-prefixed (`/c/`, `/p/`, `/b/`, `/s/`, `/dc/`). Build the path with `categoryPath` / `productPath` / `brandPath` / `searchPath` / `discountCampaignPath` from `shared/utils/route-helpers.ts`, then wrap it with `localePath()`. Never write a raw Geins canonical (which is prefix-less) into an href, `navigateTo`, or `history.replaceState`; normalize it through a route helper first. See [ADR-015](../adr/015-type-prefixed-routing.md) for the routing scheme and [ADR-017](../adr/017-entity-url-safety-net.md) for the inbound 404-miss resolver that recovers prefix-less URLs.
+
+For language-switch alternates, use `alternateEntityPath(url, type)` from the same module. It maps a raw Geins alternate (which may carry the `/l/` list prefix for categories) to the correct app typed route while preserving the alternate's own market and locale. Never pass a raw `alternativeUrls` entry directly to `localePath` or `navigateTo`.
+
+### Inbound URL resolution
+
+Inbound URLs that do not match a typed app route are recovered by a single cached resolver (`/api/resolve-url`), reached by two tiers:
+
+1. **Wrong-shape global middleware** (`app/middleware/resolve-url.global.ts`): fires on both SSR and SPA navigation. Engages only on definitively-wrong path shapes that have no page route (`/l/`, `/dc/`). Issues a real 301 to the canonical app path; aborts with a 404 on a terminal miss. Never touches locale cookies or i18n state.
+2. **Content-miss recovery** (`app/composables/useEntityUrlRecovery.ts`): called by `ProductDetails.vue`, `ProductList.vue`, and `[...slug].vue` when their primary content fetch misses. Issues a real 301 to the canonical or a fatal 404.
+
+Always use `navigateTo(..., { redirectCode: 301 })` for canonical corrections; never use `history.replaceState`. When the loaded entity's canonical differs from the current URL, check `samePrefix` first to avoid silently switching the user's locale. See [ADR-019](../adr/019-bulletproof-routing.md) for the full contract.
+
+- **Recovery composables and Nuxt context after an await.** A composable that calls `navigateTo` after an `await` must capture `const nuxtApp = useNuxtApp()` before the await and wrap every post-await `navigateTo` in `nuxtApp.runWithContext(() => navigateTo(...))`. Page `setup` functions preserve context automatically across awaits; extracted composables do not. Violation produces a swallowed error and an empty 200 instead of a 301. Route middleware is also exempt (the middleware runner restores context). See [ADR-019 Pillar 2](../adr/019-bulletproof-routing.md) for the full invariant.
+- **SEO locale attributes are set reactively in `app/plugins/tenant-seo.ts`.** The `<html lang>`, `og:locale`, and schema.org `inLanguage` values are derived from a Vue `computed` reading `i18n.locale` at render time (after route middleware has set the URL locale), not at plugin-setup time. The `<html lang>` entry uses `tagPriority: 1000` to win the unhead htmlAttrs merge over `@nuxtjs/seo`'s low-priority default-locale value. Do not remove the reactive computed or lower the priority; doing so breaks SEO and accessibility attributes on hard-loaded non-default-locale pages.

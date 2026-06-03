@@ -5,6 +5,7 @@ import { useQuotesStore } from '~/stores/quotes';
 import { safeConfirm } from '~/utils/client-helpers';
 import { getQuoteStatusPillClass } from '~/utils/quote-status';
 import type { Quote } from '#shared/types/quote';
+import { productPath } from '#shared/utils/route-helpers';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
 
@@ -130,7 +131,7 @@ function formatDate(iso: string): string {
                         />
                         <NuxtLink
                           v-if="item.alias"
-                          :to="localePath(`/p/${item.alias}`)"
+                          :to="localePath(productPath(item.alias))"
                           data-testid="line-item-name-link"
                           class="font-medium hover:underline"
                         >

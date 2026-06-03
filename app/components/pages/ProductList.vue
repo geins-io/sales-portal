@@ -11,7 +11,12 @@ import { Package as PackageIcon } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useDebounceFn } from '@vueuse/core';
 import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
-import { categoryPath, brandPath } from '#shared/utils/route-helpers';
+import {
+  categoryPath,
+  brandPath,
+  productPath,
+} from '#shared/utils/route-helpers';
+import { recoverEntityUrl } from '~/composables/useEntityUrlRecovery';
 
 const props = defineProps<{
   type: 'category' | 'brand';
@@ -117,21 +122,20 @@ const { data: pageInfo, error: pageInfoError } = await useFetch<ListPageInfo>(
   },
 );
 
-// Propagate a real HTTP 404 when the API says the brand/category doesn't
-// exist. Without this, crawlers would index phantom URLs.
+// On a content miss (missing brand/category or fetch error) the old slug may
+// be a renamed/old listing that should 301 to its canonical instead of 404ing
+// (Problem B). recoverEntityUrl consults the resolver, 301s to the canonical
+// (or a urlHistory redirect), and throws a fatal 404 only on a terminal miss.
+// Without this, crawlers would index phantom URLs.
 if (pageInfoError.value || !pageInfo.value?.id) {
-  throw createError({
-    statusCode: 404,
-    statusMessage: 'Not Found',
-    fatal: true,
-  });
+  await recoverEntityUrl(useRoute().path);
 }
 
 // Publish this list's per-locale alternate URLs so the language switcher can
 // land on the target-language slug. props.type ('category' | 'brand') selects
 // the /c/ vs /b/ prefix in the composable. Immediate so a hard refresh has the
 // alternate ready; null clears so an empty page never retains stale alternates.
-const { setAlternates } = useLocaleAlternates();
+const { setAlternates, alternates: localeAlternates } = useLocaleAlternates();
 watch(
   pageInfo,
   (info) => setAlternates(info?.alternativeUrls, { type: props.type }),
@@ -140,14 +144,17 @@ watch(
 
 // Mirror the PDP self-correction: if Geins returned a per-language
 // canonical URL different from the URL the user is on (e.g. they hit
-// /se/en/l/kategori-1 and the EN slug is /se/en/l/category-1), swap
-// the URL in place. Geins canonicals are prefix-less (e.g.
-// /se/sv/material/grenror), which 404 on refresh, so we rewrite to the
-// ROUTABLE type-prefixed form (/c/ or /b/) via the route helpers rather
-// than writing the raw canonical. Only fires when the canonical stays in
-// the same /market/locale/ prefix; cross-locale fallbacks must not move
-// the user, so samePrefix is checked on the RAW canonical before normalizing.
-if (import.meta.client) {
+// /se/en/l/kategori-1 and the EN slug is /se/en/l/category-1), issue a real
+// 301 to the canonical. Geins canonicals are prefix-less (e.g.
+// /se/sv/material/grenror), which 404 on refresh, so we redirect to the
+// ROUTABLE type-prefixed form (/c/ or /b/) via the route helpers rather than
+// the raw canonical. navigateTo is SSR-safe and crawler-grade (a single clean
+// render at the final URL with no hydration risk), so this replaces the former
+// client-only history.replaceState. Only fires when the canonical stays in the
+// same /market/locale/ prefix; cross-locale fallbacks must not move the user,
+// so samePrefix is checked on the RAW canonical before normalizing. No-op when
+// the routable target equals the current path (loop guard).
+{
   const canonical = pageInfo.value?.canonicalUrl;
   const path = useRoute().path;
   if (
@@ -159,13 +166,13 @@ if (import.meta.client) {
       (isBrand.value ? brandPath : categoryPath)(canonical),
     );
     if (routable !== path) {
-      history.replaceState(history.state, '', routable);
+      await navigateTo(routable, { redirectCode: 301, replace: true });
     }
   }
 }
 
 // Returns true when both paths share the same /market/locale/ prefix, or
-// when either is too short to have one. Used to suppress replaceState
+// when either is too short to have one. Used to suppress the canonical 301
 // when a locale fallback returned a canonicalUrl in a different locale.
 function samePrefix(a: string, b: string): boolean {
   const aSeg = a.split('/').slice(1, 3);
@@ -211,7 +218,11 @@ const breadcrumbs = computed<BreadcrumbItem[]>(() => {
 // --- SEO ---
 const typePrefix = computed(() => (isBrand.value ? 'b' : 'c'));
 const listPath = computed(() => `/${typePrefix.value}/${listSlug.value}`);
-const { seoLinks } = useSeoLinks(listPath);
+// localeAlternates holds the real per-locale slugs published by setAlternates
+// above (populated with immediate:true so the watch fires before this line).
+// It is useState-backed (SSR-safe, no window) and reactive so hreflang stays
+// correct after client-side navigation without any hydration mismatch.
+const { seoLinks } = useSeoLinks(listPath, localeAlternates);
 
 useHead({
   title: () =>
@@ -243,9 +254,7 @@ useSchemaOrg([
         '@type': 'ListItem' as const,
         position: i + 1,
         name: p.name,
-        url: p.alias
-          ? `/${currentMarket.value}/${currentLocale.value}/p/${p.alias}`
-          : undefined,
+        url: p.alias ? localePath(productPath(`/${p.alias}`)) : undefined,
       })),
   }),
 ]);

@@ -86,20 +86,36 @@ const mockRouter = {
 
 vi.stubGlobal('useRouter', () => mockRouter);
 vi.stubGlobal('useRoute', () => mockRouter.currentRoute.value);
+// navigateTo is a Nuxt global that runs during component setup when a canonical
+// correction or entity recovery fires. Stub it as a no-op so component tests
+// that do not exercise navigation behavior do not crash. Tests that assert
+// specific navigateTo calls override this with their own vi.stubGlobal/vi.mock
+// before mounting (per-test stubs always win over setup-level stubs).
+vi.stubGlobal(
+  'navigateTo',
+  vi.fn(() => Promise.resolve()),
+);
 vi.stubGlobal(
   '$fetch',
   vi.fn(() => Promise.resolve(null)),
 );
 
-// Mock Nuxt's router composables — auto-imports resolve to #app/composables/router
-vi.mock('#app/composables/router', async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>;
-  return {
-    ...actual,
-    useRouter: () => mockRouter,
-    useRoute: () => mockRouter.currentRoute.value,
-  };
-});
+// Mock Nuxt's router composables (auto-imports resolve to #app/composables/router).
+// navigateTo is included so component setup-level calls (canonical correction,
+// entity recovery) do not hit the real Nuxt implementation, which requires a live
+// Nuxt instance. Individual test files that assert specific navigateTo calls
+// override this via their own vi.mock before mounting.
+vi.mock('#app/composables/router', () => ({
+  useRouter: () => mockRouter,
+  useRoute: () => mockRouter.currentRoute.value,
+  navigateTo: vi.fn(() => Promise.resolve()),
+  abortNavigation: vi.fn(),
+  addRouteMiddleware: vi.fn(),
+  defineNuxtRouteMiddleware: (fn: unknown) => fn,
+  onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteUpdate: vi.fn(),
+  setPageLayout: vi.fn(),
+}));
 
 // Mock useState — Nuxt's SSR-friendly shared state needs a Nuxt instance the
 // component tier lacks. Return a STABLE ref per key (Map-backed) so repeated

@@ -57,7 +57,7 @@ const description = computed(() => {
         :to="
           sub.canonicalUrl
             ? localePath(categoryPath(sub.canonicalUrl))
-            : localePath(`/c/${sub.alias}`)
+            : localePath(categoryPath(sub.alias))
         "
         class="bg-muted hover:bg-muted/80 rounded-full px-3 py-1 text-sm transition-colors"
       >

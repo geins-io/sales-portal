@@ -40,6 +40,23 @@ async function mountProductList(
 
 // --- Mocks ---
 
+// navigateTo + recoverEntityUrl are the redirect/recovery boundaries. The PLP
+// issues a real 301 (navigateTo) for a same-prefix differing canonical and
+// delegates content misses to recoverEntityUrl (spec 003). Both are mocked as
+// spies and asserted against; assertions watch the spies, never real navigation.
+const { navigateToMock, recoverEntityUrlMock } = vi.hoisted(() => ({
+  navigateToMock: vi.fn(() => Promise.resolve()),
+  recoverEntityUrlMock: vi.fn(() => Promise.resolve()),
+}));
+
+vi.stubGlobal('navigateTo', (...args: unknown[]) => navigateToMock(...args));
+vi.mock('../../../app/composables/useEntityUrlRecovery', () => ({
+  recoverEntityUrl: (...args: [string]) => recoverEntityUrlMock(...args),
+}));
+vi.stubGlobal('recoverEntityUrl', (...args: [string]) =>
+  recoverEntityUrlMock(...args),
+);
+
 const mockProductsData = ref<Record<string, unknown> | null>(null);
 const mockFiltersData = ref<Record<string, unknown> | null>(null);
 const mockPageInfo = ref<Record<string, unknown> | null>(null);
@@ -126,19 +143,25 @@ vi.mock('#app/composables/state', () => ({ useState: stubUseState }));
 vi.stubGlobal('useHead', vi.fn());
 vi.stubGlobal('useSeoMeta', vi.fn());
 vi.stubGlobal('useSchemaOrg', vi.fn());
+// Shared defineItemList spy so the JSON-LD migration test can read the exact
+// ItemList args the component built (the SFC auto-imports defineItemList from
+// @unhead/schema-org/vue, so the module mock and the global stub must share one
+// spy instance).
+const { defineItemListMock } = vi.hoisted(() => ({
+  defineItemListMock: vi.fn(() => ({})),
+}));
 vi.stubGlobal(
   'defineBreadcrumb',
   vi.fn(() => ({})),
 );
-vi.stubGlobal(
-  'defineItemList',
-  vi.fn(() => ({})),
+vi.stubGlobal('defineItemList', (...args: unknown[]) =>
+  defineItemListMock(...args),
 );
 
 // Mock @unhead/schema-org/vue helpers (auto-imported by Nuxt)
 vi.mock('@unhead/schema-org/vue', () => ({
   defineBreadcrumb: vi.fn(() => ({})),
-  defineItemList: vi.fn(() => ({})),
+  defineItemList: (...args: unknown[]) => defineItemListMock(...args),
 }));
 
 // Mock nuxt-schema-org runtime composable (auto-imported by Nuxt unimport).
@@ -198,6 +221,7 @@ vi.mock('#app/composables/router', () => ({
     afterEach: vi.fn(),
   }),
   useRoute: () => plpRoute,
+  navigateTo: (...args: unknown[]) => navigateToMock(...args),
 }));
 vi.stubGlobal('useRoute', () => ({
   path: '/foder',
@@ -292,9 +316,11 @@ describe('ProductList.vue', () => {
     mockPageInfo.value = { ...VALID_PAGE_INFO };
     mockProductsStatus.value = 'idle';
     mockUseFetch.mockClear();
+    navigateToMock.mockClear();
+    recoverEntityUrlMock.mockClear();
   });
 
-  describe('canonical URL self-correction', () => {
+  describe('content-miss recovery (Problem B)', () => {
     async function setRoutePath(path: string): Promise<{
       restore: () => void;
     }> {
@@ -308,11 +334,71 @@ describe('ProductList.vue', () => {
       return { restore: () => (router.path = originalPath) };
     }
 
-    it('normalizes a prefix-less category canonical to the routable /c/ path', async () => {
+    it('calls recoverEntityUrl with the route path when the listing is missing', async () => {
+      // A renamed/old category/brand slug must 301 to canonical via
+      // recoverEntityUrl instead of throwing a bare 404. recoverEntityUrl is
+      // mocked to resolve, so the setup continues; we only assert it was
+      // consulted with the path.
+      const { restore } = await setRoutePath('/se/sv/c/old-category');
+      mockPageInfo.value = null;
+
+      try {
+        await mountProductList(categoryProps, { global: { stubs } });
+        expect(recoverEntityUrlMock).toHaveBeenCalledTimes(1);
+        expect(recoverEntityUrlMock).toHaveBeenCalledWith(
+          '/se/sv/c/old-category',
+        );
+      } finally {
+        restore();
+      }
+    });
+
+    it('does not call recoverEntityUrl when the listing loads', async () => {
+      // Route path must equal the normalized canonical so the canonical-correction
+      // block is a genuine no-op (routable === path). Without this, samePrefix
+      // returns true (bSeg.length < 2 for '/foder') and the correction fires
+      // navigateTo as a side effect, meaning the test does not verify "normal
+      // load = zero navigation".
+      //
+      // localePath(categoryPath('/se/sv/foder'))
+      //   -> localePath('/c/foder')  -> '/se/sv/c/foder'
+      const router = (
+        (await import('#app/composables/router')) as unknown as {
+          useRoute: () => { path: string };
+        }
+      ).useRoute() as { path: string };
+      const originalPath = router.path;
+      router.path = '/se/sv/c/foder';
+
+      mockPageInfo.value = { ...VALID_PAGE_INFO };
+
+      try {
+        await mountProductList(categoryProps, { global: { stubs } });
+
+        expect(recoverEntityUrlMock).not.toHaveBeenCalled();
+        expect(navigateToMock).not.toHaveBeenCalled();
+      } finally {
+        router.path = originalPath;
+      }
+    });
+  });
+
+  describe('canonical URL self-correction (real 301)', () => {
+    async function setRoutePath(path: string): Promise<{
+      restore: () => void;
+    }> {
+      const router = (
+        (await import('#app/composables/router')) as unknown as {
+          useRoute: () => { path: string };
+        }
+      ).useRoute() as { path: string };
+      const originalPath = router.path;
+      router.path = path;
+      return { restore: () => (router.path = originalPath) };
+    }
+
+    it('301s a prefix-less category canonical to the routable /c/ path', async () => {
       const { restore } = await setRoutePath('/se/sv/c/grenror');
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
       mockPageInfo.value = {
         ...VALID_PAGE_INFO,
         canonicalUrl: '/se/sv/material/grenror',
@@ -320,19 +406,21 @@ describe('ProductList.vue', () => {
 
       try {
         await mountProductList(categoryProps, { global: { stubs } });
-        expect(spy).toHaveBeenCalledTimes(1);
-        expect(spy.mock.calls[0]?.[2]).toBe('/se/sv/c/material/grenror');
+        expect(navigateToMock).toHaveBeenCalledTimes(1);
+        expect(navigateToMock).toHaveBeenCalledWith(
+          '/se/sv/c/material/grenror',
+          {
+            redirectCode: 301,
+            replace: true,
+          },
+        );
       } finally {
-        spy.mockRestore();
         restore();
       }
     });
 
-    it('normalizes a brand canonical to the routable /b/ path', async () => {
+    it('301s a brand canonical to the routable /b/ path', async () => {
       const { restore } = await setRoutePath('/se/sv/b/acme');
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
       mockPageInfo.value = {
         ...VALID_PAGE_INFO,
         canonicalUrl: '/se/sv/varumarke/acme',
@@ -343,19 +431,18 @@ describe('ProductList.vue', () => {
           { type: 'brand' as const, alias: 'acme' },
           { global: { stubs } },
         );
-        expect(spy).toHaveBeenCalledTimes(1);
-        expect(spy.mock.calls[0]?.[2]).toBe('/se/sv/b/varumarke/acme');
+        expect(navigateToMock).toHaveBeenCalledTimes(1);
+        expect(navigateToMock).toHaveBeenCalledWith('/se/sv/b/varumarke/acme', {
+          redirectCode: 301,
+          replace: true,
+        });
       } finally {
-        spy.mockRestore();
         restore();
       }
     });
 
-    it('does not rewrite when the routable target equals the current path', async () => {
+    it('does not redirect when the routable target equals the current path (loop guard)', async () => {
       const { restore } = await setRoutePath('/se/sv/c/foder');
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
       mockPageInfo.value = {
         ...VALID_PAGE_INFO,
         canonicalUrl: '/se/sv/foder',
@@ -363,18 +450,14 @@ describe('ProductList.vue', () => {
 
       try {
         await mountProductList(categoryProps, { global: { stubs } });
-        expect(spy).not.toHaveBeenCalled();
+        expect(navigateToMock).not.toHaveBeenCalled();
       } finally {
-        spy.mockRestore();
         restore();
       }
     });
 
-    it('does not rewrite when the canonical URL is in a different locale (fallback case)', async () => {
+    it('does not redirect when the canonical URL is in a different locale (cross-locale guard)', async () => {
       const { restore } = await setRoutePath('/se/en/c/kategori-1');
-      const spy = vi
-        .spyOn(window.history, 'replaceState')
-        .mockImplementation(() => {});
       mockPageInfo.value = {
         ...VALID_PAGE_INFO,
         canonicalUrl: '/se/sv/kategori-1',
@@ -382,11 +465,31 @@ describe('ProductList.vue', () => {
 
       try {
         await mountProductList(categoryProps, { global: { stubs } });
-        expect(spy).not.toHaveBeenCalled();
+        expect(navigateToMock).not.toHaveBeenCalled();
       } finally {
-        spy.mockRestore();
         restore();
       }
+    });
+  });
+
+  describe('JSON-LD ItemList url migration', () => {
+    it('builds the ItemList product url via productPath (prefix-correct)', async () => {
+      mockProductsData.value = {
+        products: [{ productId: '1', name: 'Product 1', alias: 'product-1' }],
+        count: 1,
+      };
+      mockProductsStatus.value = 'success';
+
+      defineItemListMock.mockClear();
+
+      await mountProductList(categoryProps, { global: { stubs } });
+
+      const arg = defineItemListMock.mock.calls[0]?.[0] as {
+        itemListElement: () => Array<{ url?: string }>;
+      };
+      const elements = arg.itemListElement();
+      // productPath('/product-1') -> '/p/product-1', localePath -> '/se/sv/p/product-1'
+      expect(elements[0]?.url).toBe('/se/sv/p/product-1');
     });
   });
 
