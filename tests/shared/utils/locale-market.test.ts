@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   hasLocaleMarketPrefix,
+  parseLocaleMarketPrefix,
   stripLocaleMarketPrefix,
   normalizeSlugToPath,
   extractShortLocales,
@@ -43,6 +44,59 @@ describe('hasLocaleMarketPrefix', () => {
 
   it('returns false for paths with numeric segments', () => {
     expect(hasLocaleMarketPrefix('/12/34/page')).toBe(false);
+  });
+});
+
+describe('parseLocaleMarketPrefix', () => {
+  it('returns the market and locale for a prefixed path', () => {
+    expect(parseLocaleMarketPrefix('/se/en/c/categoryone')).toEqual({
+      market: 'se',
+      locale: 'en',
+    });
+  });
+
+  it('returns the codes for just the prefix segments', () => {
+    expect(parseLocaleMarketPrefix('/no/sv')).toEqual({
+      market: 'no',
+      locale: 'sv',
+    });
+  });
+
+  it('strips query string and hash before parsing', () => {
+    expect(parseLocaleMarketPrefix('/se/en/c/foo?ref=1#top')).toEqual({
+      market: 'se',
+      locale: 'en',
+    });
+  });
+
+  it('returns null for a prefix-less single segment', () => {
+    expect(parseLocaleMarketPrefix('/grenror')).toBeNull();
+  });
+
+  it('returns null for a multi-segment path with no 2-letter prefix', () => {
+    expect(parseLocaleMarketPrefix('/material/grenror')).toBeNull();
+  });
+
+  it('returns null for the root path', () => {
+    expect(parseLocaleMarketPrefix('/')).toBeNull();
+  });
+
+  it('returns null for uppercase segments', () => {
+    expect(parseLocaleMarketPrefix('/SE/EN/foo')).toBeNull();
+  });
+
+  it('agrees with hasLocaleMarketPrefix', () => {
+    for (const p of [
+      '/se/en/c/foo',
+      '/grenror',
+      '/material/grenror',
+      '/',
+      '/se',
+    ]) {
+      expect(parseLocaleMarketPrefix(p) !== null).toBe(
+        hasLocaleMarketPrefix(p),
+      );
+    }
   });
 });
 
