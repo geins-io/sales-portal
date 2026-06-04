@@ -126,15 +126,25 @@ export function detectRouteType(
  *  - non-string; no leading slash; protocol-relative (//); too few segments;
  *    non-2-letter market or locale; result has no valid app prefix at segment[2].
  *
+ * `opts` overrides the OUTPUT market/locale while keeping the slug tail from
+ * `url`. Use it for inbound RECOVERY, where the path being recovered carries
+ * the locale the user asked for but the Geins canonicalUrl may be the
+ * default-locale one: passing the requested market/locale keeps the user in
+ * their locale instead of bouncing them to the canonical's. The locale
+ * switcher OMITS opts so each alternate keeps its own target-language prefix.
+ * A malformed override value falls back to the url's own segment.
+ *
  * Worked examples:
  *   alternateEntityPath('/se/en/l/category-1', 'category') -> '/se/en/c/category-1'
  *   alternateEntityPath('/se/en/materials/x', 'product')   -> '/se/en/p/materials/x'
  *   alternateEntityPath('/se/en/p/cat/item', 'product')    -> '/se/en/p/cat/item'
+ *   alternateEntityPath('/se/sv/c/kabel', 'category', { locale: 'en' }) -> '/se/en/c/kabel'
  *   alternateEntityPath('https://evil/x', 'product')       -> null
  */
 export function alternateEntityPath(
   url: string,
   type: 'product' | 'category' | 'brand',
+  opts?: { market?: string; locale?: string },
 ): string | null {
   if (typeof url !== 'string') return null;
   if (!url.startsWith('/')) return null;
@@ -147,10 +157,18 @@ export function alternateEntityPath(
   // Need /{market}/{locale}/{at least one more}.
   if (segments.length < 3) return null;
 
-  const market = segments[0]!;
-  const locale = segments[1]!;
-  if (!/^[a-z]{2}$/.test(market)) return null;
-  if (!/^[a-z]{2}$/.test(locale)) return null;
+  const urlMarket = segments[0]!;
+  const urlLocale = segments[1]!;
+  if (!/^[a-z]{2}$/.test(urlMarket)) return null;
+  if (!/^[a-z]{2}$/.test(urlLocale)) return null;
+
+  // Output prefix: an override (recovery) wins over the url's own prefix, but
+  // a malformed override falls back to the url segment so a bad caller value
+  // can never produce an unroutable path.
+  const market =
+    opts?.market && /^[a-z]{2}$/.test(opts.market) ? opts.market : urlMarket;
+  const locale =
+    opts?.locale && /^[a-z]{2}$/.test(opts.locale) ? opts.locale : urlLocale;
 
   let rest = segments.slice(2);
 
