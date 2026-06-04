@@ -11,9 +11,14 @@ vi.mock('../../../../server/services/auth', () => ({
   getUser: (...args: unknown[]) => mockGetUser(...args),
 }));
 
-const mockUserServiceGetUser = vi.fn().mockResolvedValue(undefined);
-vi.mock('../../../../server/services/user', () => ({
-  getUser: (...args: unknown[]) => mockUserServiceGetUser(...args),
+const mockGetCompany = vi.fn().mockResolvedValue(null);
+vi.mock('../../../../server/services/company', () => ({
+  getCompany: (...args: unknown[]) => mockGetCompany(...args),
+}));
+
+const mockGetChannel = vi.fn().mockResolvedValue(null);
+vi.mock('../../../../server/services/channels', () => ({
+  getChannel: (...args: unknown[]) => mockGetChannel(...args),
 }));
 
 const mockSetMarketCookie = vi.fn();
@@ -98,6 +103,50 @@ describe('GET /api/auth/me', () => {
       expiresAt: expect.any(String),
       market: null,
     });
+  });
+
+  it('self-heals the market on session restore to the company-country market', async () => {
+    mockOptionalAuth.mockResolvedValue({
+      authToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
+    mockGetUser.mockResolvedValue({
+      succeeded: true,
+      tokens: { expiresIn: 3600 },
+      user: { id: 1, email: 'buyer@example.com' },
+    });
+    mockGetMarketCookie.mockReturnValue('se');
+    const eventWithTenant = {
+      context: {
+        tenant: {
+          config: { geinsSettings: { channel: '1', tld: 'se', market: 'se' } },
+        },
+      },
+    } as import('h3').H3Event;
+    mockGetCompany.mockResolvedValue({
+      addresses: [{ addressId: '37', country: 'FI', addressType: 'shipping' }],
+    });
+    mockGetChannel.mockResolvedValue({
+      markets: [
+        {
+          id: 'SE|SEK',
+          alias: 'se',
+          country: { code: 'SE' },
+          currency: { code: 'SEK' },
+        },
+        {
+          id: 'FI|EUR',
+          alias: 'fi',
+          country: { code: 'FI' },
+          currency: { code: 'EUR' },
+        },
+      ],
+    });
+
+    const result = await handler(eventWithTenant);
+
+    expect(mockSetMarketCookie).toHaveBeenCalledWith(eventWithTenant, 'fi');
+    expect(result.market).toBe('fi');
   });
 
   it('returns null user when optionalAuth returns null', async () => {

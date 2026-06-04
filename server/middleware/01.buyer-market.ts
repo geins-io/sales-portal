@@ -91,7 +91,6 @@ export default defineEventHandler(async (event) => {
         geinsSettings?: { channel?: string | number; tld?: string };
       };
     };
-    user?: unknown;
   };
 
   const localeMarket = ctx.localeMarket;
@@ -118,9 +117,6 @@ export default defineEventHandler(async (event) => {
   } else {
     try {
       const user = await loadUserForToken(event, token);
-      // Stash on the request context so downstream handlers (notably
-      // /api/auth/me) can reuse this fetch instead of re-hitting the SDK.
-      if (user) ctx.user = user;
       markets = listBuyerMarkets(event, user);
       if (markets) {
         setCacheEntry(key, { markets, expires: now + TTL_MS });

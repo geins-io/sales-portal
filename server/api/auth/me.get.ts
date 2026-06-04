@@ -1,7 +1,5 @@
-import type { GeinsUserType } from '@geins/types';
 import * as authService from '../../services/auth';
-import { resolveBuyerMarket } from '../../utils/buyer-market';
-import { loadUserForToken } from '../../utils/load-user';
+import { resolveBuyerMarket } from '../../utils/buyer-market-resolver';
 
 const NAME_CLAIM = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
 
@@ -49,18 +47,16 @@ export default defineEventHandler(async (event) => {
     );
 
     if (result?.succeeded && result.user) {
-      // Self-heal the market cookie if a stale value points at a market the
-      // buyer is no longer allowed on (cookie set on a previous session,
-      // tenant config change, buyer's company moved pricelists, etc). The
-      // result.user from crm.auth.getUser is the JWT-decoded shape without
-      // availableChannels, so we need the full profile here. Reuse the
-      // copy stashed by buyer-market middleware on this same request when
-      // available, otherwise fall back to a direct fetch.
-      const stashed = (event.context as { user?: GeinsUserType } | undefined)
-        ?.user;
-      const fullUser =
-        stashed ?? (await loadUserForToken(event, tokens.authToken));
-      const resolvedMarket = resolveBuyerMarket(event, fullUser);
+      // Re-affirm the market on session restore: pick the market matching the
+      // buyer's company delivery country so a stale cookie (set on a previous
+      // session, after a tenant config change, or after the company moved
+      // pricelists) self-heals. crm.auth.getUser returns the JWT-decoded shape
+      // without availableChannels, so the resolver fetches the market data
+      // itself from the token.
+      const resolvedMarket = await resolveBuyerMarket(
+        event,
+        tokens.authToken,
+      ).catch(() => null);
       return {
         user: result.user,
         expiresAt: result.tokens?.expiresIn
