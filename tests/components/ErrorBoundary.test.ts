@@ -77,6 +77,48 @@ describe('ErrorBoundary', () => {
 
       expect(wrapper.find('.child').exists()).toBe(false);
     });
+
+    it('renders a provided fallback slot instead of the default alert', async () => {
+      const wrapper = mountComponent(ErrorBoundary, {
+        slots: {
+          default: '<span class="child">child</span>',
+          fallback: '<p class="custom-fallback">degraded</p>',
+        },
+      });
+
+      mockError.value = new Error('boom');
+      await wrapper.vm.$nextTick();
+
+      // Custom fallback wins; the scary section-failed band is suppressed.
+      expect(wrapper.find('.custom-fallback').exists()).toBe(true);
+      expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+      expect(wrapper.find('.child').exists()).toBe(false);
+    });
+
+    it('renders nothing on error when the silent prop is set', async () => {
+      const wrapper = mountComponent(ErrorBoundary, {
+        props: { silent: true },
+        slots: { default: '<span class="child">child</span>' },
+      });
+
+      mockError.value = new Error('boom');
+      await wrapper.vm.$nextTick();
+
+      // No band, no child: the failed subtree degrades silently.
+      expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+      expect(wrapper.find('.child').exists()).toBe(false);
+    });
+
+    it('still shows the default band on error when not silent and no fallback', async () => {
+      const wrapper = mountComponent(ErrorBoundary, {
+        slots: { default: '<span class="child">child</span>' },
+      });
+
+      mockError.value = new Error('boom');
+      await wrapper.vm.$nextTick();
+
+      expect(wrapper.find('[role="alert"]').exists()).toBe(true);
+    });
   });
 
   describe('retry button', () => {

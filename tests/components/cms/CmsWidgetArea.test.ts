@@ -7,6 +7,12 @@ const stubs = {
     template: '<div class="cms-container" />',
     props: ['container'],
   },
+  // Render the boundary's default slot so the container still shows; the real
+  // boundary's resilience (degrade-on-error) is covered in ErrorBoundary.test.
+  ErrorBoundary: {
+    template: '<div class="eb-wrap"><slot /></div>',
+    props: ['section', 'silent'],
+  },
 };
 
 describe('CmsWidgetArea', () => {
@@ -37,6 +43,18 @@ describe('CmsWidgetArea', () => {
       global: { stubs },
     });
     expect(wrapper.findAll('.cms-container')).toHaveLength(2);
+  });
+
+  it('wraps each container in its own error boundary', () => {
+    // Per-container boundaries are what keep one failing widget from blanking
+    // the whole area; assert the wiring is one boundary per container.
+    const wrapper = shallowMountComponent(CmsWidgetArea, {
+      props: { containers },
+      global: { stubs },
+    });
+    expect(wrapper.findAll('.eb-wrap')).toHaveLength(2);
+    // And each boundary holds a container.
+    expect(wrapper.findAll('.eb-wrap .cms-container')).toHaveLength(2);
   });
 
   it('renders nothing when containers is empty', () => {
