@@ -11,11 +11,20 @@ defineProps<{
 
 <template>
   <div class="cms-widget-area space-y-8">
-    <CmsContainer
+    <!--
+      Each container renders inside its own error boundary so a widget that
+      throws on a transient or partial upstream payload (for example a product
+      list whose products are fetched client-side) degrades to nothing and the
+      rest of the area still renders, instead of blanking the whole section.
+      The boundary stops propagation, so the page-level boundary never trips.
+    -->
+    <ErrorBoundary
       v-for="container in containers"
       :key="container.id"
-      :container="container"
-      :flush="flush"
-    />
+      :section="`cms-container-${container.id}`"
+      silent
+    >
+      <CmsContainer :container="container" :flush="flush" />
+    </ErrorBoundary>
   </div>
 </template>
