@@ -84,7 +84,17 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
               <NavigationMenuContent
                 class="!absolute !top-full !left-0 !mt-0 !w-screen !max-w-none !rounded-none !border-x-0 !border-t-0"
               >
-                <div class="mx-auto max-w-7xl px-4 py-6 lg:px-6">
+                <!--
+                  Cap the open mega menu and scroll its contents internally so a
+                  category with many submenus never pushes links below the fold
+                  (which would scroll the page instead). 500px is the design
+                  target; calc(100vh - 11rem) subtracts the sticky header
+                  (topbar 40px + main 80px + nav 48px + 8px gap) so the panel
+                  stays inside the viewport on short screens too.
+                -->
+                <div
+                  class="mx-auto max-h-[min(500px,calc(100vh_-_11rem))] max-w-7xl overflow-y-auto px-4 py-6 lg:px-6"
+                >
                   <NavigationMenuLink as-child>
                     <component
                       :is="linkTag(item)"

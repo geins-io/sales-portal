@@ -121,6 +121,30 @@ describe('LayoutHeaderNav', () => {
     expect(wrapper.text()).toContain('Sub B');
   });
 
+  it('caps the mega menu height and scrolls its contents internally', () => {
+    mockMenu.value = {
+      id: '1',
+      title: 'Main',
+      menuItems: [
+        {
+          id: '1',
+          label: 'Category',
+          order: 1,
+          children: [
+            { id: '1-1', label: 'Sub A', canonicalUrl: '/sub-a', order: 1 },
+          ],
+        },
+      ],
+    };
+    const wrapper = shallowMountComponent(LayoutHeaderNav, mountOptions);
+    const panel = wrapper.find('.overflow-y-auto');
+    // Tall categories must scroll inside the panel, never the page behind it.
+    expect(panel.exists()).toBe(true);
+    // A max-height cap is what bounds the panel; value stays a tuning knob, so
+    // assert the cap exists rather than pinning the exact pixel target.
+    expect(panel.classes().some((c) => c.startsWith('max-h-['))).toBe(true);
+  });
+
   it('always paints bg-nav-bar-background (tenant theme drives colour, with var(--muted) fallback)', () => {
     mockMenu.value = {
       id: '1',
