@@ -241,4 +241,37 @@ describe('alternateEntityPath', () => {
       alternateEntityPath('/se/en/l/category-1?foo=bar#section', 'category'),
     ).toBe('/se/en/c/category-1');
   });
+
+  it('without opts preserves the url own market/locale (alternates behaviour)', () => {
+    expect(alternateEntityPath('/se/sv/c/kabel', 'category')).toBe(
+      '/se/sv/c/kabel',
+    );
+  });
+
+  it('opts override the output locale while keeping the slug tail (recovery)', () => {
+    expect(
+      alternateEntityPath('/se/sv/c/kabel', 'category', { locale: 'en' }),
+    ).toBe('/se/en/c/kabel');
+  });
+
+  it('opts override on a Geins /l/ input remaps to /c/ in the requested locale', () => {
+    expect(
+      alternateEntityPath('/se/sv/l/kabel', 'category', {
+        market: 'se',
+        locale: 'en',
+      }),
+    ).toBe('/se/en/c/kabel');
+  });
+
+  it('a malformed override value falls back to the url own segment', () => {
+    expect(
+      alternateEntityPath('/se/sv/c/kabel', 'category', { locale: 'english' }),
+    ).toBe('/se/sv/c/kabel');
+  });
+
+  it('still returns null for too-few-segment input even with opts', () => {
+    expect(
+      alternateEntityPath('/se/en', 'product', { locale: 'sv' }),
+    ).toBeNull();
+  });
 });

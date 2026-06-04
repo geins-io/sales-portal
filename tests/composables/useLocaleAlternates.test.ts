@@ -9,7 +9,9 @@ import type { LocaleAlternateUrl } from '#shared/types/commerce';
 const mockAvailableLocales = ref<string[]>(['sv', 'en']);
 const mockCurrentMarket = ref<string>('se');
 const localeAlternatesState = ref<Record<string, string>>({});
-let afterEachHandler: (() => void) | null = null;
+type RouteLike = { path: string; query?: Record<string, unknown> };
+type AfterEachFn = (to: RouteLike, from: RouteLike) => void;
+let afterEachHandler: AfterEachFn | null = null;
 
 vi.mock('~/composables/useTenant', () => ({
   useTenant: () => ({
@@ -34,7 +36,7 @@ vi.mock('#app/composables/state', () => ({
 
 vi.mock('#app/composables/router', () => ({
   useRouter: () => ({
-    afterEach: (fn: () => void) => {
+    afterEach: (fn: AfterEachFn) => {
       afterEachHandler = fn;
     },
   }),
@@ -56,7 +58,7 @@ vi.stubGlobal('useLocaleMarket', () => ({
   currentMarket: computed(() => mockCurrentMarket.value),
 }));
 vi.stubGlobal('useRouter', () => ({
-  afterEach: (fn: () => void) => {
+  afterEach: (fn: AfterEachFn) => {
     afterEachHandler = fn;
   },
 }));
@@ -369,7 +371,7 @@ describe('useLocaleAlternates', () => {
     expect(hrefFor('sv')).toBeUndefined();
   });
 
-  it('clear empties the record; route change clears too', () => {
+  it('clear empties the record; a path change clears too', () => {
     const { alternates, setAlternates, clear } = useLocaleAlternates();
     setAlternates(productAlternates, { type: 'product' });
     expect(Object.keys(alternates.value).length).toBeGreaterThan(0);
@@ -379,7 +381,30 @@ describe('useLocaleAlternates', () => {
 
     setAlternates(productAlternates, { type: 'product' });
     expect(afterEachHandler).toBeTypeOf('function');
-    afterEachHandler!();
+    // Navigating to a different path (a different page or entity) clears.
+    afterEachHandler!({ path: '/se/sv/c/y' }, { path: '/se/sv/c/x' });
     expect(alternates.value).toEqual({});
+  });
+
+  it('keeps alternates across a query-only navigation (sort/filter/pagination)', () => {
+    const { alternates, setAlternates, hrefFor } = useLocaleAlternates();
+    setAlternates(productAlternates, { type: 'product' });
+    const published = { ...alternates.value };
+    expect(Object.keys(published).length).toBeGreaterThan(0);
+
+    expect(afterEachHandler).toBeTypeOf('function');
+    // Changing sort is router.replace({ query }) on the SAME path. The page
+    // setup does not re-run, so clearing here would strip the only copy of the
+    // alternates and the switcher would fall back to a wrong-locale 404.
+    afterEachHandler!(
+      { path: '/se/en/c/categoryone', query: { sort: 'newest' } },
+      { path: '/se/en/c/categoryone', query: {} },
+    );
+
+    expect(alternates.value).toEqual(published);
+    expect(hrefFor('en')).toBe(
+      '/se/en/p/materials/branch-pipes/manifold-150-150-88',
+    );
+    expect(hrefFor('sv')).toBe('/se/sv/p/material/grenror/grenror-150-150-88');
   });
 });

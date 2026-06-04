@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3';
 import { alternateEntityPath } from '#shared/utils/route-helpers';
+import { parseLocaleMarketPrefix } from '#shared/utils/locale-market';
 import { isSafeInternalPath } from '#shared/utils/redirect';
 import { getProduct } from './products';
 import { getCategoryPage, getBrandPage } from './product-lists';
@@ -55,6 +56,7 @@ interface UrlHistoryResult {
 function appPathFrom(
   settled: PromiseSettledResult<unknown>,
   type: EntityType,
+  requested?: { market: string; locale: string },
 ): string | null {
   if (settled.status !== 'fulfilled' || settled.value == null) return null;
   const value = settled.value as { canonicalUrl?: unknown };
@@ -62,10 +64,12 @@ function appPathFrom(
   if (typeof rawCanonical !== 'string' || rawCanonical.length === 0) {
     return null;
   }
-  // alternateEntityPath preserves market/locale, strips any Geins entity prefix
-  // (/l/, /p/, etc.), and injects the correct app prefix (/c/, /p/, /b/).
-  // Returns null for any malformed or unroutable input -> treat as no-match.
-  const appPath = alternateEntityPath(rawCanonical, type);
+  // alternateEntityPath strips any Geins entity prefix (/l/, /p/, etc.) and
+  // injects the correct app prefix (/c/, /p/, /b/). For recovery we pass the
+  // REQUESTED market/locale so a default-locale canonicalUrl does not bounce
+  // the user out of the locale they asked for; the slug tail still comes from
+  // the canonical. Returns null for malformed/unroutable input -> no-match.
+  const appPath = alternateEntityPath(rawCanonical, type, requested);
   // Safe by construction (leading slash, no //, fixed app prefix), but assert
   // the open-redirect invariant here too so the resolver never returns a path
   // that could 301 off-origin.
@@ -83,9 +87,14 @@ export async function resolveEntityUrl(
     getBrandPage({ alias: args.alias, userToken: args.userToken }, event),
   ]);
 
+  // Recover in the locale/market the inbound path asked for. A prefix-less path
+  // (tenant-a dev) has no prefix, so requested is null and the canonical's own
+  // market/locale is kept (unchanged behaviour).
+  const requested = parseLocaleMarketPrefix(args.path) ?? undefined;
+
   const order: EntityType[] = ['product', 'category', 'brand'];
   for (let i = 0; i < order.length; i++) {
-    const canonicalAppPath = appPathFrom(settled[i]!, order[i]!);
+    const canonicalAppPath = appPathFrom(settled[i]!, order[i]!, requested);
     if (canonicalAppPath) {
       return { type: order[i]!, canonicalAppPath };
     }
@@ -118,6 +127,9 @@ export async function resolveEntityUrl(
       : (unwrapped as UrlHistoryResult['urlHistory']);
 
   const newUrl = history?.newUrl;
+  // The urlHistory redirect (renamed slug) returns Geins's newUrl verbatim and
+  // is a separate concern from the requested-locale recovery above; it is not
+  // re-localized here.
   // Open-redirect guard at the boundary: Geins urlHistory.newUrl is untrusted
   // input. localePath() passes http(s):// and protocol-relative // through
   // unchanged, so an absolute or off-origin newUrl would 301 the browser off

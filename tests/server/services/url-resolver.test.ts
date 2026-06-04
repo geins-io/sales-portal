@@ -116,6 +116,56 @@ describe('resolveEntityUrl', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Requested-locale recovery: a default-locale canonical must not bounce a
+  // non-default-locale request out of its locale.
+  // ---------------------------------------------------------------------------
+
+  it('recovers in the requested locale when the canonical is the default locale', async () => {
+    // Requested EN, but Geins returns the Swedish canonical for the category.
+    mockGetCategoryPage.mockResolvedValue({ canonicalUrl: '/se/sv/c/kabel' });
+
+    const result = await resolver.resolveEntityUrl(
+      { path: '/se/en/kabel', alias: 'kabel' },
+      createMockEvent(),
+    );
+
+    expect(result).toEqual({
+      type: 'category',
+      canonicalAppPath: '/se/en/c/kabel',
+    });
+  });
+
+  it('recovers a Geins /l/ canonical in the requested EN locale', async () => {
+    mockGetCategoryPage.mockResolvedValue({ canonicalUrl: '/se/sv/l/kabel' });
+
+    const result = await resolver.resolveEntityUrl(
+      { path: '/se/en/l/kabel', alias: 'kabel' },
+      createMockEvent(),
+    );
+
+    expect(result).toEqual({
+      type: 'category',
+      canonicalAppPath: '/se/en/c/kabel',
+    });
+  });
+
+  it('keeps the canonical own prefix for a prefix-less request (tenant-a dev)', async () => {
+    mockGetProduct.mockResolvedValue({
+      canonicalUrl: '/se/sv/material/grenror',
+    });
+
+    const result = await resolver.resolveEntityUrl(
+      { path: '/grenror', alias: 'grenror' },
+      createMockEvent(),
+    );
+
+    expect(result).toEqual({
+      type: 'product',
+      canonicalAppPath: '/se/sv/p/material/grenror',
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // canonicalAppPath shape: market+locale preserved, correct app prefix
   // ---------------------------------------------------------------------------
 
