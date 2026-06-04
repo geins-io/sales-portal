@@ -57,11 +57,16 @@ vi.mock('../../../../server/utils/cookies', () => ({
   getMarketCookie: (...args: unknown[]) => mockGetMarketCookie(...args),
 }));
 
-// Market resolution fetches the full user profile via userService.getUser
-// because AuthUser (decoded from the JWT) does not include availableChannels.
-const mockUserServiceGetUser = vi.fn().mockResolvedValue(undefined);
-vi.mock('../../../../server/services/user', () => ({
-  getUser: (...args: unknown[]) => mockUserServiceGetUser(...args),
+// Market resolution matches the company's delivery country (getCompany) to the
+// channel's market catalog (getChannel), then picks the matching market.
+const mockGetCompany = vi.fn().mockResolvedValue(null);
+vi.mock('../../../../server/services/company', () => ({
+  getCompany: (...args: unknown[]) => mockGetCompany(...args),
+}));
+
+const mockGetChannel = vi.fn().mockResolvedValue(null);
+vi.mock('../../../../server/services/channels', () => ({
+  getChannel: (...args: unknown[]) => mockGetChannel(...args),
 }));
 
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
@@ -266,13 +271,13 @@ describe('POST /api/auth/login', () => {
     expect(mockSetCartCookie).not.toHaveBeenCalled();
   });
 
-  it('switches market cookie when buyer market mismatches current', async () => {
+  it('switches a Finnish-company buyer off the default SE market to FI', async () => {
     mockGetMarketCookie.mockReturnValue('se');
     const eventWithTenant = {
       context: {
         tenant: {
           config: {
-            geinsSettings: { channel: '2', tld: 'se', market: 'se' },
+            geinsSettings: { channel: '1', tld: 'se', market: 'se' },
           },
         },
       },
@@ -287,14 +292,22 @@ describe('POST /api/auth/login', () => {
       },
       user: { id: 1 },
     });
-    mockUserServiceGetUser.mockResolvedValue({
-      id: 1,
-      availableChannels: [
+    mockGetCompany.mockResolvedValue({
+      addresses: [{ addressId: '37', country: 'FI', addressType: 'shipping' }],
+    });
+    mockGetChannel.mockResolvedValue({
+      markets: [
         {
-          channelId: '2|se',
-          availableMarkets: [
-            { id: 'fi', alias: 'fi', currency: { code: 'EUR' } },
-          ],
+          id: 'SE|SEK',
+          alias: 'se',
+          country: { code: 'SE' },
+          currency: { code: 'SEK' },
+        },
+        {
+          id: 'FI|EUR',
+          alias: 'fi',
+          country: { code: 'FI' },
+          currency: { code: 'EUR' },
         },
       ],
     });
@@ -307,13 +320,13 @@ describe('POST /api/auth/login', () => {
     expect(result.market).toBe('fi');
   });
 
-  it('leaves market unchanged when current market is in allowed list', async () => {
+  it('leaves market unchanged when already on the company-country market', async () => {
     mockGetMarketCookie.mockReturnValue('fi');
     const eventWithTenant = {
       context: {
         tenant: {
           config: {
-            geinsSettings: { channel: '2', tld: 'se', market: 'se' },
+            geinsSettings: { channel: '1', tld: 'se', market: 'se' },
           },
         },
       },
@@ -328,15 +341,22 @@ describe('POST /api/auth/login', () => {
       },
       user: { id: 1 },
     });
-    mockUserServiceGetUser.mockResolvedValue({
-      id: 1,
-      availableChannels: [
+    mockGetCompany.mockResolvedValue({
+      addresses: [{ addressId: '37', country: 'FI', addressType: 'shipping' }],
+    });
+    mockGetChannel.mockResolvedValue({
+      markets: [
         {
-          channelId: '2|se',
-          availableMarkets: [
-            { id: 'fi', alias: 'fi', currency: { code: 'EUR' } },
-            { id: 'de', alias: 'de', currency: { code: 'EUR' } },
-          ],
+          id: 'SE|SEK',
+          alias: 'se',
+          country: { code: 'SE' },
+          currency: { code: 'SEK' },
+        },
+        {
+          id: 'FI|EUR',
+          alias: 'fi',
+          country: { code: 'FI' },
+          currency: { code: 'EUR' },
         },
       ],
     });

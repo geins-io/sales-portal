@@ -116,7 +116,15 @@ function mapCompany(raw: RawCompany): Company {
 // ---------------------------------------------------------------------------
 
 // Returns null when Geins signals "User not found" (data.getCompany: null). Other errors propagate.
-export async function getCompany(event: H3Event): Promise<Company | null> {
+//
+// `userToken` is optional: most callers let it resolve from the request cookie
+// via buildRequestContext. The login handler must pass it explicitly because
+// the freshly minted auth cookie is set on the response, not yet present on
+// the inbound request.
+export async function getCompany(
+  event: H3Event,
+  userToken?: string,
+): Promise<Company | null> {
   const requestContext = buildRequestContext(event);
 
   const sdk = await getTenantSDK(event);
@@ -130,7 +138,7 @@ export async function getCompany(event: H3Event): Promise<Company | null> {
       sdk.core.graphql.query({
         queryAsString: loadQuery('company/get-company.graphql'),
         variables: { channelId, languageId, marketId },
-        userToken: requestContext?.userToken,
+        userToken: userToken ?? requestContext?.userToken,
       }),
     'company',
   );
