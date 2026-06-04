@@ -11,10 +11,15 @@ import { alternateEntityPath } from '#shared/utils/route-helpers';
  * clean-path behavior when an alternate is absent.
  *
  * State is `useState`-backed (SSR-safe, shared per request/session) under a
- * stable key. It is cleared on every client route change so a previous page's
+ * stable key. It is cleared on every client PATH change so a previous page's
  * entity URLs can never leak into the switcher (the stale-data trap this
- * composable exists to prevent). SSR sets the state fresh each request, so the
- * afterEach clear is purely a client-side belt-and-suspenders.
+ * composable exists to prevent). It is deliberately NOT cleared on query-only
+ * navigations (sort/filter/pagination call `router.replace({ query })` on the
+ * same path without re-running page setup, so the alternates would never be
+ * re-published; clearing them there leaves the switcher with nothing and it
+ * falls back to a naive locale-swap that keeps the source-locale slug, a
+ * wrong-locale 404). SSR sets the state fresh each request, so the afterEach
+ * clear is purely a client-side belt-and-suspenders.
  *
  * Live-verified facts (tenant-a.litium.portal:3000, real Geins data):
  *  - `alternativeUrls` span MANY markets/channels (en-SE, en-FI, en-US, ...);
@@ -173,8 +178,13 @@ export function useLocaleAlternates() {
 
   if (import.meta.client && !afterEachRegistered) {
     afterEachRegistered = true;
-    useRouter().afterEach(() => {
-      clear();
+    // Alternates belong to the entity (the path), not the query. Clear only
+    // when the path actually changes (a different page or entity). A sort,
+    // filter, or pagination change is a query-only navigation on the same
+    // path and must keep the published alternates intact, or the language
+    // switcher loses them between page setups.
+    useRouter().afterEach((to: { path: string }, from: { path: string }) => {
+      if (to.path !== from.path) clear();
     });
   }
 
