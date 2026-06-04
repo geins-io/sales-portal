@@ -1,0 +1,27 @@
+query productsByIds(
+  $filter: FilterInputType = null
+  $take: Int = null
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  products(
+    filter: $filter
+    take: $take
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    products {
+      productId
+      alias
+      name
+      articleNumber
+      unitPrice {
+        sellingPriceIncVatFormatted
+        sellingPriceExVatFormatted
+      }
+    }
+    count
+  }
+}
