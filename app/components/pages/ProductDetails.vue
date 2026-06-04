@@ -269,23 +269,40 @@ const showVariantSelector = computed(() => {
   return skuCount > 1 || siblingCount > 1;
 });
 
-// Sibling-variant aliases. Geins's VariantType payload omits price and
-// articleNumber; fetch each sibling's full product so the variant sheet
-// can render each row's real price and art-nr instead of mirroring the
-// parent product on every row.
-const siblingAliases = computed<string[]>(() => {
+// Sibling-variant products. Geins's VariantType payload omits each variant's
+// price and articleNumber, and its `label` carries a "<dimension> <value> / "
+// prefix rather than the clean product name, so without resolving the real
+// products the sheet mirrors the parent product on every row. Each variant
+// DOES carry its own productId, so all siblings' name + art-nr + price are
+// resolved in ONE `products(filter: { productIds })` call. Products with many
+// variants (80+ siblings exist) overflowed the per-alias fan-out endpoint's
+// size cap and resolved to nothing; a single id-filtered query (up to Geins's
+// 600 cap, no nested variantGroup payload) is both correct and scalable.
+const siblingProductIds = computed<number[]>(() => {
   const variants = product.value?.variantGroup?.variants ?? [];
-  return variants
-    .map((v) => (v as { alias?: string | null }).alias)
-    .filter((a): a is string => typeof a === 'string' && a.length > 0)
-    .filter((a) => a !== product.value?.alias);
+  const currentId = product.value?.productId;
+  const ids = variants
+    .map((v) => (v as { productId?: number | null }).productId)
+    .filter((id): id is number => typeof id === 'number' && id > 0)
+    .filter((id) => id !== currentId);
+  return [...new Set(ids)];
 });
 
+// Slim shape returned by /api/products/by-ids (products-by-ids.graphql): only
+// the fields the sheet renders, keyed back to each variant by alias.
+interface VariantMetaProduct {
+  productId: number;
+  alias?: string | null;
+  name?: string | null;
+  articleNumber?: string | null;
+  unitPrice?: { sellingPriceIncVatFormatted?: string | null } | null;
+}
+
 const { data: siblingProducts, execute: fetchSiblings } = useFetch<{
-  products: DetailProduct[];
-}>('/api/products/by-aliases', {
+  products: VariantMetaProduct[];
+}>('/api/products/by-ids', {
   query: computed(() => ({
-    aliases: siblingAliases.value.join(','),
+    ids: siblingProductIds.value.join(','),
     ...localeQuery.value,
   })),
   immediate: false,
@@ -293,9 +310,9 @@ const { data: siblingProducts, execute: fetchSiblings } = useFetch<{
   lazy: true,
 });
 watch(
-  siblingAliases,
-  (aliases) => {
-    if (aliases.length) fetchSiblings();
+  siblingProductIds,
+  (ids) => {
+    if (ids.length) fetchSiblings();
   },
   { immediate: true },
 );

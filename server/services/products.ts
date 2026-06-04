@@ -48,6 +48,38 @@ export async function getProductsByAliases(
     .map((r) => r.value);
 }
 
+/**
+ * Resolve many products by product ID in a single GraphQL call.
+ *
+ * The Geins `products(filter: { productIds })` query returns every match in one
+ * request (up to 600 ids, sorted in input order) instead of N per-alias fetches.
+ * `includeCollapsed: true` is required because variant siblings are collapsed
+ * out of normal product listings. Used to hydrate the PDP variant sheet, where a
+ * product can have dozens of siblings, far more than a per-alias fan-out can
+ * carry without timing out or blowing the request size. Returns the slim
+ * `productsByIds` payload (name + articleNumber + price, no nested variantGroup).
+ */
+export async function getProductsByIds(
+  args: { productIds: number[]; userToken?: string },
+  event: H3Event,
+): Promise<unknown> {
+  const sdk = await getTenantSDK(event);
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('products/products-by-ids.graphql'),
+        variables: {
+          filter: { productIds: args.productIds, includeCollapsed: true },
+          take: args.productIds.length,
+          ...getRequestChannelVariables(sdk, event),
+        },
+        userToken: args.userToken,
+      }),
+    'products',
+  );
+  return unwrapGraphQL(result);
+}
+
 export async function getRelatedProducts(
   args: { alias: string; userToken?: string },
   event: H3Event,

@@ -154,9 +154,9 @@ describe('VariantSelector', () => {
         },
       },
     });
-    expect(
-      wrapper.find('[data-testid="variant-sheet"]').classes(),
-    ).toContain('sm:max-w-[670px]');
+    expect(wrapper.find('[data-testid="variant-sheet"]').classes()).toContain(
+      'sm:max-w-[670px]',
+    );
   });
 
   it('disables unavailable values based on current selection', async () => {
@@ -175,5 +175,106 @@ describe('VariantSelector', () => {
     expect(buttons[0]!.attributes('disabled')).toBeUndefined();
     expect(buttons[1]!.attributes('disabled')).toBeDefined();
     expect(buttons[2]!.attributes('disabled')).toBeDefined();
+  });
+});
+
+// Sibling-variant products (Geins GraphQL shape): each variant is its own
+// product with a distinct name + article number, resolved by the parent and
+// passed down via `variantProducts` keyed by alias. SAL-270: every row must
+// surface ITS OWN name + art-nr, not the active product's on every row.
+describe('VariantSelector per-variant name and article number', () => {
+  // One variantDimensions row (the active product's own value) + the full
+  // sibling set in variantGroup.variants, mirroring real Geins payloads.
+  const siblingDimensions = [{ dimension: 'Variant', value: '88' }];
+  const siblingVariants = [
+    {
+      alias: 'grenror-150-150-88',
+      dimension: 'Variant',
+      value: '88',
+      stock: { totalStock: 5 },
+    },
+    {
+      alias: 'grenror-100-100-90',
+      dimension: 'Variant',
+      value: '90',
+      stock: { totalStock: 5 },
+    },
+    {
+      alias: 'grenror-100-75-45',
+      dimension: 'Variant',
+      value: '75-45',
+      stock: { totalStock: 5 },
+    },
+  ];
+  // The active product (88) is intentionally absent: siblings are fetched
+  // excluding self, so its row must fall back to the parent props.
+  const variantProducts = {
+    'grenror-100-100-90': {
+      name: 'Grenrör 100/100-90',
+      articleNumber: 'S1-233-090',
+      priceFormatted: '950 kr',
+    },
+    'grenror-100-75-45': {
+      name: 'Grenrör 100/75-45',
+      articleNumber: 'S1-232-045',
+      priceFormatted: '850 kr',
+    },
+  };
+
+  // Interpolate product.article_number so the rendered art-nr value is
+  // assertable (the default test $t returns the key verbatim).
+  const interpolatingT = (key: string, params?: { number?: string }) =>
+    key === 'product.article_number' && params?.number
+      ? `Art nr. ${params.number}`
+      : key;
+
+  function openSiblingSheet() {
+    const wrapper = mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: siblingDimensions,
+        variants: siblingVariants,
+        modelValue: { Variant: '88' },
+        productName: 'Grenrör 150/150-88',
+        productArticleNumber: 'S1-243-088',
+        variantProducts,
+      },
+      global: { stubs: sheetStubs, mocks: { $t: interpolatingT } },
+    });
+    return wrapper;
+  }
+
+  it('renders each sibling row with its OWN name, not the active product name', async () => {
+    const wrapper = openSiblingSheet();
+    await wrapper
+      .find('[data-testid="variant-trigger-Variant"]')
+      .trigger('click');
+    const items = wrapper
+      .find('[data-testid="variant-sheet-options"]')
+      .findAll('li');
+    // Order: variantDimensions value first (88), then sibling values (90, 75-45).
+    const names = items.map((li) => li.find('.font-medium').text());
+    expect(names).toEqual([
+      'Grenrör 150/150-88', // active product (unmapped), parent fallback
+      'Grenrör 100/100-90', // sibling, its own name
+      'Grenrör 100/75-45', // sibling, its own name
+    ]);
+    // The bug was every row sharing one name; guard that they differ.
+    expect(new Set(names).size).toBe(3);
+  });
+
+  it('renders each sibling row with its OWN article number', async () => {
+    const wrapper = openSiblingSheet();
+    await wrapper
+      .find('[data-testid="variant-trigger-Variant"]')
+      .trigger('click');
+    const items = wrapper
+      .find('[data-testid="variant-sheet-options"]')
+      .findAll('li');
+    expect(items[0]!.text()).toContain('Art nr. S1-243-088'); // active, parent
+    expect(items[1]!.text()).toContain('Art nr. S1-233-090'); // sibling 90
+    expect(items[2]!.text()).toContain('Art nr. S1-232-045'); // sibling 75-45
+    // No row should mirror the active product's art-nr onto a sibling.
+    expect(items[1]!.text()).not.toContain('S1-243-088');
+    expect(items[2]!.text()).not.toContain('S1-243-088');
   });
 });

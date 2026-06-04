@@ -544,4 +544,114 @@ describe('Product API Routes', () => {
       await expect(handler(fakeEvent)).rejects.toThrow();
     });
   });
+
+  // =======================================================================
+  // GET /api/products/by-ids
+  // =======================================================================
+  describe('GET /api/products/by-ids', () => {
+    let handler: Handler;
+
+    beforeEach(async () => {
+      vi.resetModules();
+      const mod = await import('../../../server/api/products/by-ids.get.ts');
+      handler = mod.default as Handler;
+    });
+
+    it('resolves products in a single id-filtered query', async () => {
+      vi.mocked(getQuery).mockReturnValue({ ids: '1069,1070' });
+      mockGraphqlQuery.mockResolvedValue({
+        products: {
+          products: [
+            { productId: 1069, alias: 'a', name: 'A', articleNumber: 'X1' },
+            { productId: 1070, alias: 'b', name: 'B', articleNumber: 'X2' },
+          ],
+          count: 2,
+        },
+      });
+
+      const result = await handler(fakeEvent);
+
+      // One GraphQL call for the whole batch, not one per id.
+      expect(mockGraphqlQuery).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({
+        products: [
+          { productId: 1069, alias: 'a', name: 'A', articleNumber: 'X1' },
+          { productId: 1070, alias: 'b', name: 'B', articleNumber: 'X2' },
+        ],
+        count: 2,
+      });
+    });
+
+    it('passes productIds + includeCollapsed + take to the query', async () => {
+      vi.mocked(getQuery).mockReturnValue({ ids: '1069,1070,1071' });
+      mockGraphqlQuery.mockResolvedValue({
+        products: { products: [], count: 0 },
+      });
+
+      await handler(fakeEvent);
+
+      const variables = mockGraphqlQuery.mock.calls[0]?.[0].variables;
+      expect(variables.filter).toEqual({
+        productIds: [1069, 1070, 1071],
+        includeCollapsed: true,
+      });
+      // take must equal the id count so every match returns (no default page).
+      expect(variables.take).toBe(3);
+    });
+
+    it('rejects empty ids string', async () => {
+      vi.mocked(getQuery).mockReturnValue({ ids: '' });
+      await expect(handler(fakeEvent)).rejects.toThrow();
+    });
+
+    it('rejects non-numeric ids', async () => {
+      vi.mocked(getQuery).mockReturnValue({ ids: 'abc' });
+      await expect(handler(fakeEvent)).rejects.toThrow();
+    });
+
+    it('rejects zero and negative ids', async () => {
+      vi.mocked(getQuery).mockReturnValue({ ids: '0,-5' });
+      await expect(handler(fakeEvent)).rejects.toThrow();
+    });
+
+    it('rejects more than 600 ids', async () => {
+      const many = Array.from({ length: 601 }, (_, i) => i + 1).join(',');
+      vi.mocked(getQuery).mockReturnValue({ ids: many });
+      await expect(handler(fakeEvent)).rejects.toThrow();
+    });
+
+    it('sets public cache header for anonymous requests', async () => {
+      vi.mocked(getQuery).mockReturnValue({ ids: '1069' });
+      vi.mocked(optionalAuth).mockResolvedValue(null);
+      mockGraphqlQuery.mockResolvedValue({
+        products: { products: [], count: 0 },
+      });
+
+      await handler(fakeEvent);
+
+      expect(setResponseHeader).toHaveBeenCalledWith(
+        fakeEvent,
+        'Cache-Control',
+        'public, s-maxage=60, stale-while-revalidate=600',
+      );
+    });
+
+    it('sets private cache header for authenticated requests', async () => {
+      vi.mocked(getQuery).mockReturnValue({ ids: '1069' });
+      vi.mocked(optionalAuth).mockResolvedValue({ authToken: 'tok' });
+      mockGraphqlQuery.mockResolvedValue({
+        products: { products: [], count: 0 },
+      });
+
+      await handler(fakeEvent);
+
+      expect(setResponseHeader).toHaveBeenCalledWith(
+        fakeEvent,
+        'Cache-Control',
+        'private, no-cache',
+      );
+
+      vi.mocked(optionalAuth).mockResolvedValue(null);
+    });
+  });
 });
