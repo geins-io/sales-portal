@@ -13,6 +13,7 @@ const { availableLocales } = useTenant();
 const { locale: currentLocale, locales, t } = useI18n();
 const { currentMarket, getCleanPath } = useLocaleMarket();
 const { hrefFor } = useLocaleAlternates();
+const route = useRoute();
 
 /**
  * Generate the URL for switching to a given locale.
@@ -31,7 +32,15 @@ const { hrefFor } = useLocaleAlternates();
  */
 function localeHref(loc: string): string {
   const alt = hrefFor(loc);
-  if (alt) return alt;
+  // Sort, filters, and pagination live in the query string, not the slug: they
+  // tune the SAME entity page, so carry them across the switch to keep the
+  // user's view. A filter with no match in the new locale degrades to
+  // unfiltered, never a 404. The clean-path fallback already keeps the query
+  // via getCleanPath, so both branches preserve it.
+  if (alt) {
+    const q = route.fullPath.indexOf('?');
+    return q >= 0 ? alt + route.fullPath.slice(q) : alt;
+  }
   return `/${currentMarket.value}/${loc}${getCleanPath()}`;
 }
 

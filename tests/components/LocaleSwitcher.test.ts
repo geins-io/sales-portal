@@ -92,18 +92,24 @@ describe('LocaleSwitcher logic', () => {
   });
 
   describe('localeHref', () => {
-    // Mirrors the NEW logic: alternates-first, clean-path fallback.
+    // Mirrors the logic: alternates-first (carrying the live query), then the
+    // clean-path fallback (which already includes the query via cleanPath).
     //   const alt = hrefFor(loc);
-    //   if (alt) return alt;
+    //   if (alt) { const q = fullPath.indexOf('?');
+    //     return q >= 0 ? alt + fullPath.slice(q) : alt; }
     //   return `/${market}/${loc}${cleanPath}`;
     function localeHref(
       market: string,
       loc: string,
       cleanPath: string,
       hrefFor: (loc: string) => string | undefined,
+      fullPath = '',
     ): string {
       const alt = hrefFor(loc);
-      if (alt) return alt;
+      if (alt) {
+        const q = fullPath.indexOf('?');
+        return q >= 0 ? alt + fullPath.slice(q) : alt;
+      }
       return `/${market}/${loc}${cleanPath}`;
     }
 
@@ -160,6 +166,27 @@ describe('LocaleSwitcher logic', () => {
       const result = localeHref('se', 'en', '/p/material/skarkant', hrefFor);
       expect(result).toContain('cutting-edge');
       expect(result).not.toContain('skarkant');
+    });
+
+    it('carries the active query onto the published alternate (sort/filter/page kept)', () => {
+      const hrefFor = (loc: string) =>
+        loc === 'en' ? '/se/en/c/categoryone' : undefined;
+      const result = localeHref(
+        'se',
+        'en',
+        '/c/kategorin',
+        hrefFor,
+        '/se/sv/c/kategorin?sort=newest&color=red&page=2',
+      );
+      expect(result).toBe('/se/en/c/categoryone?sort=newest&color=red&page=2');
+    });
+
+    it('emits a bare alternate when there is no active query (no trailing ?)', () => {
+      const hrefFor = (loc: string) =>
+        loc === 'en' ? '/se/en/c/categoryone' : undefined;
+      expect(
+        localeHref('se', 'en', '/c/kategorin', hrefFor, '/se/sv/c/kategorin'),
+      ).toBe('/se/en/c/categoryone');
     });
   });
 
