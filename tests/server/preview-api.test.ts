@@ -131,4 +131,27 @@ describe('POST /api/auth/preview-exit', () => {
     expect(result).toEqual({ success: true });
     expect(deleteCookieMock).toHaveBeenCalledTimes(3); // auth_token + refresh_token + preview_mode
   });
+
+  it('deletes the preview cookies with their set attributes so partitioned cookies are actually removed', async () => {
+    await previewExitHandler(mockEvent);
+
+    // A partitioned (CHIPS) cookie only clears when the delete repeats the
+    // attributes it was set with. previewCookieDefaults() mirrors how the
+    // preview cookies were created, derived from the same dev/prod flag.
+    const isProd = !import.meta.dev;
+    const previewAttrs = {
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
+      path: '/',
+      partitioned: isProd,
+    };
+
+    for (const name of ['auth_token', 'refresh_token', 'preview_mode']) {
+      expect(deleteCookieMock).toHaveBeenCalledWith(
+        mockEvent,
+        name,
+        expect.objectContaining(previewAttrs),
+      );
+    }
+  });
 });

@@ -152,8 +152,18 @@ export function clearPreviewCookie(event: H3Event) {
 }
 
 export function clearPreviewSession(event: H3Event) {
-  clearAuthCookies(event);
-  clearPreviewCookie(event);
+  // Preview cookies are set with previewCookieDefaults() (SameSite=None; Secure;
+  // Partitioned in prod). A delete Set-Cookie only removes a partitioned (CHIPS)
+  // cookie when it repeats Partitioned + SameSite=None + Secure; with a bare
+  // { path: '/' } delete the browser keeps the partitioned cookie, so the
+  // httpOnly auth_token survives exit and /api/auth/me keeps decoding the preview
+  // JWT, leaving the topbar identity on the preview user. Match the set
+  // attributes here. Regular (non-preview) flows keep the path-only deletes in
+  // clearAuthCookies/clearPreviewCookie since those cookies are not partitioned.
+  const previewAttrs = previewCookieDefaults();
+  deleteCookie(event, COOKIE_NAMES.AUTH_TOKEN, previewAttrs);
+  deleteCookie(event, COOKIE_NAMES.REFRESH_TOKEN, previewAttrs);
+  deleteCookie(event, COOKIE_NAMES.PREVIEW_MODE, previewAttrs);
 }
 
 // --- Market cookie ---
