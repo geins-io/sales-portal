@@ -49,7 +49,10 @@ function isActive(href: string): boolean {
     </aside>
 
     <!-- Main content -->
-    <div data-testid="organisation-main">
+    <div
+      data-testid="organisation-main"
+      class="border-border rounded-lg border bg-white p-6"
+    >
       <slot />
     </div>
   </div>

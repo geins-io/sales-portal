@@ -12,7 +12,7 @@ const { t } = useI18n();
   <div data-testid="organisation-general-settings" class="space-y-6">
     <!-- Company info fields -->
     <div
-      class="border-border bg-background rounded-lg border p-6 shadow-sm"
+      class="border-border rounded-lg border bg-white p-6 shadow-sm"
       data-testid="organisation-info-panel"
     >
       <h2 class="mb-4 text-lg font-semibold">
