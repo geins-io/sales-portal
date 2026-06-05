@@ -28,6 +28,12 @@ const props = defineProps<{
 const slug = computed(() => props.alias);
 
 const { localeQuery, localePath } = useLocaleMarket();
+// Visibility flags gate the price/stock blocks in the top area. PriceDisplay
+// and StockBadge render an empty root when hidden, so without these the empty
+// containers still take gap-6 spacing and leave a gap above the variant
+// selector. Gating here keeps those blocks out of the layout entirely.
+const { showPrice } = usePriceVisibility();
+const { showStock } = useStockVisibility();
 
 const {
   data: product,
@@ -597,7 +603,7 @@ useSchemaOrg([
         <!-- Price: sits above the long-form description so the dominant
              commerce signal anchors the column. -->
         <PriceDisplay
-          v-if="product.unitPrice"
+          v-if="product.unitPrice && showPrice"
           :price="product.unitPrice"
           :lowest-price="product.lowestPrice"
           :discount-type="product.discountType"
@@ -640,7 +646,7 @@ useSchemaOrg([
         </div>
 
         <!-- Stock -->
-        <div v-if="product.totalStock" data-testid="stock-badge">
+        <div v-if="product.totalStock && showStock" data-testid="stock-badge">
           <StockBadge :stock="product.totalStock" />
         </div>
 

@@ -158,7 +158,7 @@ function _resolveImageSrc(src: string | undefined): string {
             class="size-full object-cover transition-transform group-hover:scale-105"
           />
         </div>
-        <p class="font-heading p-3 text-center text-lg font-medium">
+        <p class="font-heading p-3 text-center text-base font-medium">
           {{ item.title }}
         </p>
       </NuxtLink>
