@@ -10,7 +10,7 @@ import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { Package as PackageIcon } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useDebounceFn } from '@vueuse/core';
-import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
+import { buildFilterInput, SORT_MAP, isPriceFacet, isStockFacet } from '#shared/utils/filters';
 import {
   canonicalListRedirectTarget,
   productPath,
@@ -41,7 +41,25 @@ function restoreFiltersFromQuery(): Record<string, string[]> {
   return state;
 }
 
-const filterState = ref<Record<string, string[]>>(restoreFiltersFromQuery());
+const { showPrice } = usePriceVisibility();
+const { showStock } = useStockVisibility();
+
+function stripHiddenFacetKeys(
+  state: Record<string, string[]>,
+): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const [key, values] of Object.entries(state ?? {})) {
+    const identity = { type: key, filterId: key };
+    if (!showPrice.value && isPriceFacet(identity)) continue;
+    if (!showStock.value && isStockFacet(identity)) continue;
+    result[key] = values;
+  }
+  return result;
+}
+
+const filterState = ref<Record<string, string[]>>(
+  stripHiddenFacetKeys(restoreFiltersFromQuery()),
+);
 const sortBy = ref(
   typeof route.query.sort === 'string' ? route.query.sort : 'relevance',
 );
@@ -168,7 +186,14 @@ if (import.meta.server) {
 }
 
 // --- Derived ---
-const facets = computed(() => filtersData.value?.filters?.facets ?? []);
+const facets = computed(() => {
+  const all = filtersData.value?.filters?.facets ?? [];
+  return all.filter(
+    (f) =>
+      (showPrice.value || !isPriceFacet(f)) &&
+      (showStock.value || !isStockFacet(f)),
+  );
+});
 const totalCount = computed(() => productsData.value?.count ?? 0);
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(totalCount.value / take)),

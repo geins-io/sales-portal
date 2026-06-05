@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildFilterInput, SORT_MAP } from '../../../shared/utils/filters';
+import {
+  buildFilterInput,
+  SORT_MAP,
+  isPriceFacet,
+  isStockFacet,
+} from '../../../shared/utils/filters';
 
 describe('buildFilterInput', () => {
   it('returns undefined when no filters, default sort, no search', () => {
@@ -100,6 +105,114 @@ describe('buildFilterInput', () => {
     const customMap = { custom: 'CUSTOM_SORT' };
     const result = buildFilterInput({}, 'custom', undefined, customMap);
     expect(result?.sort).toBe('CUSTOM_SORT');
+  });
+});
+
+describe('isPriceFacet', () => {
+  it('returns true for exact type and filterId "Price"', () => {
+    expect(isPriceFacet({ type: 'Price', filterId: 'Price' })).toBe(true);
+  });
+
+  it('returns true for lowercase type and filterId "price"', () => {
+    expect(isPriceFacet({ type: 'price', filterId: 'price' })).toBe(true);
+  });
+
+  it('returns true when filterId matches even if type differs', () => {
+    expect(isPriceFacet({ type: 'Other', filterId: 'Price' })).toBe(true);
+  });
+
+  it('returns true when group matches even if type and filterId differ', () => {
+    expect(
+      isPriceFacet({ type: 'Other', filterId: 'Other', group: 'Price' }),
+    ).toBe(true);
+  });
+
+  it('returns false for Brand', () => {
+    expect(isPriceFacet({ type: 'Brand', filterId: 'Brand' })).toBe(false);
+  });
+
+  it('returns false for Category', () => {
+    expect(isPriceFacet({ type: 'Category', filterId: 'Category' })).toBe(
+      false,
+    );
+  });
+
+  it('returns false for Sku', () => {
+    expect(isPriceFacet({ type: 'Sku', filterId: 'Sku' })).toBe(false);
+  });
+
+  it('returns false for empty type and filterId', () => {
+    expect(isPriceFacet({ type: '', filterId: '' })).toBe(false);
+  });
+
+  it('does not throw when group is null', () => {
+    expect(() =>
+      isPriceFacet({ type: 'Brand', filterId: 'Brand', group: null }),
+    ).not.toThrow();
+  });
+
+  it('does not throw when group is undefined', () => {
+    expect(() =>
+      isPriceFacet({ type: 'Brand', filterId: 'Brand' }),
+    ).not.toThrow();
+  });
+});
+
+describe('isStockFacet', () => {
+  it('returns true for type "StockStatus"', () => {
+    expect(isStockFacet({ type: 'StockStatus', filterId: 'StockStatus' })).toBe(
+      true,
+    );
+  });
+
+  it('returns true when filterId is "StockStatus"', () => {
+    expect(isStockFacet({ type: 'Other', filterId: 'StockStatus' })).toBe(true);
+  });
+
+  it('returns true for label-style "Stock status" (space-separated) via filterId', () => {
+    expect(
+      isStockFacet({ type: 'Stock status', filterId: 'Stock status' }),
+    ).toBe(true);
+  });
+
+  it('returns true for underscore variant "stock_status" via filterId', () => {
+    expect(
+      isStockFacet({ type: 'stock_status', filterId: 'stock_status' }),
+    ).toBe(true);
+  });
+
+  it('returns false for Brand', () => {
+    expect(isStockFacet({ type: 'Brand', filterId: 'Brand' })).toBe(false);
+  });
+
+  it('returns false for Category', () => {
+    expect(isStockFacet({ type: 'Category', filterId: 'Category' })).toBe(
+      false,
+    );
+  });
+
+  it('returns false for Sku', () => {
+    expect(isStockFacet({ type: 'Sku', filterId: 'Sku' })).toBe(false);
+  });
+
+  it('returns false for Price', () => {
+    expect(isStockFacet({ type: 'Price', filterId: 'Price' })).toBe(false);
+  });
+
+  it('returns false for empty type and filterId', () => {
+    expect(isStockFacet({ type: '', filterId: '' })).toBe(false);
+  });
+
+  it('does not throw when group is null', () => {
+    expect(() =>
+      isStockFacet({ type: 'Brand', filterId: 'Brand', group: null }),
+    ).not.toThrow();
+  });
+
+  it('does not throw when group is undefined', () => {
+    expect(() =>
+      isStockFacet({ type: 'Brand', filterId: 'Brand' }),
+    ).not.toThrow();
   });
 });
 
