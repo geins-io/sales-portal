@@ -159,7 +159,7 @@ describe('VariantSelector', () => {
     );
   });
 
-  it('disables unavailable values based on current selection', async () => {
+  it('disables only invalid combinations, not out-of-stock values', async () => {
     const wrapper = mountComponent(VariantSelector, {
       props: {
         variantDimensions: dimensions,
@@ -171,9 +171,12 @@ describe('VariantSelector', () => {
     await wrapper.find('[data-testid="variant-trigger-Size"]').trigger('click');
     const options = wrapper.find('[data-testid="variant-sheet-options"]');
     const buttons = options.findAll('button');
-    // S available with Red (totalStock=5), M not (totalStock=0), L not (Blue/L only)
+    // With Color=Red: S is a real combo in stock (totalStock=5) -> selectable.
+    // M is a real combo but out of stock (totalStock=0) -> still SELECTABLE,
+    // since an out-of-stock variant stays viewable. L only exists as Blue/L,
+    // so Red+L is an invalid combination -> disabled.
     expect(buttons[0]!.attributes('disabled')).toBeUndefined();
-    expect(buttons[1]!.attributes('disabled')).toBeDefined();
+    expect(buttons[1]!.attributes('disabled')).toBeUndefined();
     expect(buttons[2]!.attributes('disabled')).toBeDefined();
   });
 });
@@ -276,5 +279,49 @@ describe('VariantSelector per-variant name and article number', () => {
     // No row should mirror the active product's art-nr onto a sibling.
     expect(items[1]!.text()).not.toContain('S1-243-088');
     expect(items[2]!.text()).not.toContain('S1-243-088');
+  });
+
+  // SAL-270 kickback: a sibling group where every variant is out of stock
+  // (Geins returns attributes:null + stock.totalStock:0, as the cable-gland
+  // products on elproman do) must NOT render every row disabled. Out-of-stock
+  // siblings are still real, viewable products and must stay selectable.
+  it('keeps out-of-stock sibling variants selectable, not disabled', async () => {
+    const oosDimensions = [{ dimension: 'Variant', value: 'm 20 / 5-8' }];
+    const oosVariants = [
+      {
+        alias: 'gland-m20',
+        dimension: 'Variant',
+        value: 'm 20 / 5-8',
+        attributes: null,
+        stock: { totalStock: 0 },
+      },
+      {
+        alias: 'gland-m32',
+        dimension: 'Variant',
+        value: 'm 32 / 11,5-15,5',
+        attributes: null,
+        stock: { totalStock: 0 },
+      },
+    ];
+    const wrapper = mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: oosDimensions,
+        variants: oosVariants,
+        modelValue: { Variant: 'm 20 / 5-8' },
+        productName: 'Metallförskruvning M20x1,5',
+      },
+      global: { stubs: sheetStubs },
+    });
+    await wrapper
+      .find('[data-testid="variant-trigger-Variant"]')
+      .trigger('click');
+    const buttons = wrapper
+      .find('[data-testid="variant-sheet-options"]')
+      .findAll('button');
+    expect(buttons.length).toBe(2);
+    for (const button of buttons) {
+      expect(button.attributes('disabled')).toBeUndefined();
+      expect(button.classes()).not.toContain('opacity-40');
+    }
   });
 });

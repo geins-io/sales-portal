@@ -193,34 +193,50 @@ function selectValue(dimensionName: string, value: string) {
   closeSheet();
 }
 
-function isValueAvailable(dimensionName: string, value: string): boolean {
-  // Geins responses sometimes return `attributes` as a missing field or
-  // an empty string instead of an array. Treat anything non-array as
-  // "no attribute info" and fall back to allowing the value — the
-  // server-side API will reject an unbuyable SKU at add-to-cart time.
+// Geins exposes variant attributes as `{ key, value }` on the GraphQL
+// fragment, while the SDK/legacy shape uses `{ attributeName, attributeValue }`.
+// Tolerate both so real payloads and unit fixtures resolve the same way.
+function attrName(attr: { attributeName?: string; key?: string }): string | undefined {
+  return attr.attributeName ?? attr.key;
+}
+function attrValue(attr: { attributeValue?: string; value?: string }): string | undefined {
+  return attr.attributeValue ?? attr.value;
+}
+
+// Whether a (dimension, value) pair maps to a real variant given the other
+// dimensions already chosen. Stock is deliberately NOT part of this: an
+// out-of-stock variant is still a real, viewable product, so it stays
+// selectable (you can open its page; add-to-cart enforces stock downstream).
+// Disabling is reserved for combinations that do not exist — e.g. picking
+// Color=Red then a Size that only ships in Blue. Sibling-variant and
+// single-dimension products carry no attributes, so every listed value is a
+// real sibling and always selectable.
+function isValueSelectable(dimensionName: string, value: string): boolean {
   return props.variants.some((variant) => {
     const attrs = Array.isArray(variant.attributes) ? variant.attributes : [];
-    if (attrs.length === 0) {
-      return (variant.stock?.totalStock ?? 0) > 0;
-    }
+    if (attrs.length === 0) return true;
 
     const hasAttribute = attrs.some(
-      (attr) =>
-        attr.attributeName === dimensionName && attr.attributeValue === value,
+      (attr) => attrName(attr) === dimensionName && attrValue(attr) === value,
     );
     if (!hasAttribute) return false;
 
     for (const [dimName, dimValue] of Object.entries(props.modelValue)) {
       if (dimName === dimensionName) continue;
       const matches = attrs.some(
-        (attr) =>
-          attr.attributeName === dimName && attr.attributeValue === dimValue,
+        (attr) => attrName(attr) === dimName && attrValue(attr) === dimValue,
       );
       if (!matches) return false;
     }
 
-    return (variant.stock?.totalStock ?? 0) > 0;
+    return true;
   });
+}
+
+// Stock status drives only the in-stock indicator, never selectability.
+// Resolved per value so each row reflects its own variant's stock.
+function isValueInStock(dimensionName: string, value: string): boolean {
+  return (variantInfoFor(dimensionName, value)?.stockTotal ?? 0) > 0;
 }
 
 const activeDimension = computed(
@@ -308,14 +324,14 @@ const { showPrice } = usePriceVisibility();
               <button
                 type="button"
                 :disabled="
-                  !isValueAvailable(activeDimension.dimensionName, value)
+                  !isValueSelectable(activeDimension.dimensionName, value)
                 "
                 :class="[
                   'border-border hover:border-foreground/40 flex w-full items-center gap-3 rounded-md border bg-transparent p-3 text-left transition-colors',
                   modelValue[activeDimension.dimensionName] === value
                     ? 'border-foreground'
                     : '',
-                  !isValueAvailable(activeDimension.dimensionName, value)
+                  !isValueSelectable(activeDimension.dimensionName, value)
                     ? 'pointer-events-none opacity-40'
                     : '',
                 ]"
@@ -366,7 +382,7 @@ const { showPrice } = usePriceVisibility();
                     v-if="showStock"
                     class="mt-1 flex items-center gap-1 text-xs"
                     :class="
-                      isValueAvailable(activeDimension.dimensionName, value)
+                      isValueInStock(activeDimension.dimensionName, value)
                         ? 'text-emerald-600 dark:text-emerald-400'
                         : 'text-muted-foreground'
                     "
@@ -374,13 +390,13 @@ const { showPrice } = usePriceVisibility();
                     <span
                       class="size-1.5 rounded-full"
                       :class="
-                        isValueAvailable(activeDimension.dimensionName, value)
+                        isValueInStock(activeDimension.dimensionName, value)
                           ? 'bg-emerald-500'
                           : 'bg-muted-foreground'
                       "
                     />
                     {{
-                      isValueAvailable(activeDimension.dimensionName, value)
+                      isValueInStock(activeDimension.dimensionName, value)
                         ? $t('product.in_stock')
                         : $t('product.out_of_stock')
                     }}
