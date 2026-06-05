@@ -12,8 +12,7 @@ import { Button } from '~/components/ui/button';
 import { useDebounceFn } from '@vueuse/core';
 import { buildFilterInput, SORT_MAP } from '#shared/utils/filters';
 import {
-  categoryPath,
-  brandPath,
+  canonicalListRedirectTarget,
   productPath,
 } from '#shared/utils/route-helpers';
 import { recoverEntityUrl } from '~/composables/useEntityUrlRecovery';
@@ -142,43 +141,30 @@ watch(
   { immediate: true },
 );
 
-// Mirror the PDP self-correction: if Geins returned a per-language
-// canonical URL different from the URL the user is on (e.g. they hit
-// /se/en/l/kategori-1 and the EN slug is /se/en/l/category-1), issue a real
-// 301 to the canonical. Geins canonicals are prefix-less (e.g.
-// /se/sv/material/grenror), which 404 on refresh, so we redirect to the
-// ROUTABLE type-prefixed form (/c/ or /b/) via the route helpers rather than
-// the raw canonical. navigateTo is SSR-safe and crawler-grade (a single clean
-// render at the final URL with no hydration risk), so this replaces the former
-// client-only history.replaceState. Only fires when the canonical stays in the
-// same /market/locale/ prefix; cross-locale fallbacks must not move the user,
-// so samePrefix is checked on the RAW canonical before normalizing. No-op when
-// the routable target equals the current path (loop guard).
-{
-  const canonical = pageInfo.value?.canonicalUrl;
-  const path = useRoute().path;
-  if (
-    canonical &&
-    typeof canonical === 'string' &&
-    samePrefix(canonical, path)
-  ) {
-    const routable = localePath(
-      (isBrand.value ? brandPath : categoryPath)(canonical),
-    );
-    if (routable !== path) {
-      await navigateTo(routable, { redirectCode: 301, replace: true });
-    }
+// Canonical URL self-correction. Geins returns prefix-less canonicals; when a
+// listing is reached at a non-canonical but valid URL (e.g. a short /c/<alias>
+// breadcrumb link, or a per-language fallback), issue a real 301 to the
+// routable /c/ or /b/ form so crawlers and hard loads land on the canonical.
+//
+// SERVER-SIDE ONLY. On a hard load or crawler hit the server issues a real
+// 301; on client-side SPA navigation the redirect is skipped. A client-side
+// navigateTo({ replace: true }) here re-ran the non-awaited product/filter
+// fetches mid-navigation, and under that burst Geins intermittently 503s; the
+// errored response blanked the grid until a manual reload. Leaving the address
+// bar on the valid clicked URL is harmless: rel=canonical still
+// points crawlers at the canonical, and a hard load of that URL still 301s.
+// Content-miss recovery (recoverEntityUrl, above) deliberately stays
+// client-side because a renamed slug must still recover on in-app navigation.
+if (import.meta.server) {
+  const target = canonicalListRedirectTarget(
+    pageInfo.value?.canonicalUrl,
+    useRoute().path,
+    props.type,
+    localePath,
+  );
+  if (target) {
+    await navigateTo(target, { redirectCode: 301, replace: true });
   }
-}
-
-// Returns true when both paths share the same /market/locale/ prefix, or
-// when either is too short to have one. Used to suppress the canonical 301
-// when a locale fallback returned a canonicalUrl in a different locale.
-function samePrefix(a: string, b: string): boolean {
-  const aSeg = a.split('/').slice(1, 3);
-  const bSeg = b.split('/').slice(1, 3);
-  if (aSeg.length < 2 || bSeg.length < 2) return true;
-  return aSeg[0] === bSeg[0] && aSeg[1] === bSeg[1];
 }
 
 // --- Derived ---

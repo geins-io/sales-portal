@@ -8,7 +8,11 @@ import {
   stripTypePrefix,
   detectRouteType,
   alternateEntityPath,
+  canonicalListRedirectTarget,
 } from '../../shared/utils/route-helpers';
+
+// Mimics localePath from useLocaleMarket: prepends the active /market/locale.
+const localizeSeSv = (path: string) => `/se/sv${path}`;
 
 describe('categoryPath', () => {
   it('strips market/locale prefix and adds /c/', () => {
@@ -272,6 +276,71 @@ describe('alternateEntityPath', () => {
   it('still returns null for too-few-segment input even with opts', () => {
     expect(
       alternateEntityPath('/se/en', 'product', { locale: 'sv' }),
+    ).toBeNull();
+  });
+});
+
+describe('canonicalListRedirectTarget', () => {
+  it('301s a prefix-less category canonical to the routable /c/ path', () => {
+    expect(
+      canonicalListRedirectTarget(
+        '/se/sv/material/grenror',
+        '/se/sv/c/grenror',
+        'category',
+        localizeSeSv,
+      ),
+    ).toBe('/se/sv/c/material/grenror');
+  });
+
+  it('301s a brand canonical to the routable /b/ path', () => {
+    expect(
+      canonicalListRedirectTarget(
+        '/se/sv/varumarke/acme',
+        '/se/sv/b/acme',
+        'brand',
+        localizeSeSv,
+      ),
+    ).toBe('/se/sv/b/varumarke/acme');
+  });
+
+  it('returns null when the routable target equals the current path (loop guard)', () => {
+    expect(
+      canonicalListRedirectTarget(
+        '/se/sv/foder',
+        '/se/sv/c/foder',
+        'category',
+        localizeSeSv,
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null when the canonical is in a different locale (cross-locale guard)', () => {
+    expect(
+      canonicalListRedirectTarget(
+        '/se/sv/kategori-1',
+        '/se/en/c/kategori-1',
+        'category',
+        (path) => `/se/en${path}`,
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null for an absent or non-string canonical', () => {
+    expect(
+      canonicalListRedirectTarget(
+        null,
+        '/se/sv/c/foder',
+        'category',
+        localizeSeSv,
+      ),
+    ).toBeNull();
+    expect(
+      canonicalListRedirectTarget(
+        undefined,
+        '/se/sv/c/foder',
+        'category',
+        localizeSeSv,
+      ),
     ).toBeNull();
   });
 });

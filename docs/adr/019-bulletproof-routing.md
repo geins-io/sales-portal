@@ -167,6 +167,20 @@ This suppresses the redirect when a locale fallback returned a canonical in a
 different locale, preventing the router from silently switching the user's
 locale.
 
+**Refinement: the `ProductList.vue` canonical 301 fires server-side only.**
+The redirect decision is factored into the pure
+`canonicalListRedirectTarget()` helper in `route-helpers.ts`, and the listing
+page only calls `navigateTo` when `import.meta.server`. On a client-side SPA
+navigation a `navigateTo({ replace: true })` re-ran the non-awaited product and
+filter `useFetch` calls mid-navigation; under that burst the Geins-backed list
+endpoints intermittently returned 503 and the errored response blanked the grid
+until a manual reload. A hard load or crawler hit still issues the real 301
+server-side, and `rel=canonical` still points at the canonical, so SEO is
+unaffected; the client simply renders the valid clicked URL without the racing
+redirect. `ProductDetails.vue` still issues its canonical 301 on both passes
+(single awaited fetch, no list burst); apply the same server-only gate there if
+the same symptom appears.
+
 ### Pillar 4: per-locale hreflang from real slugs
 
 `app/composables/useSeoLinks.ts` accepts an optional `localeOverrides` map
