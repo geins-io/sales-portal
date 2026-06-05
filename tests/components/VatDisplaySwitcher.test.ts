@@ -104,7 +104,9 @@ describe('VatDisplaySwitcher render', () => {
 
   it('renders the switcher dropdown when showPrice is true (default icon variant)', () => {
     const wrapper = mountComponent(VatDisplaySwitcher);
-    expect(wrapper.html()).toContain('button');
+    const button = wrapper.find('button');
+    expect(button.exists()).toBe(true);
+    expect(button.attributes('aria-label')).toBe('common.change_vat_display');
   });
 
   it('renders both vat_incl and vat_excl buttons when showPrice is true and variant is inline', () => {

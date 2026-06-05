@@ -156,6 +156,22 @@ describe('isPriceFacet', () => {
       isPriceFacet({ type: 'Brand', filterId: 'Brand' }),
     ).not.toThrow();
   });
+
+  it('returns false for type "priceless" (no substring match)', () => {
+    expect(isPriceFacet({ type: 'priceless', filterId: 'priceless' })).toBe(
+      false,
+    );
+  });
+
+  it('returns false for type "priced" (no substring match)', () => {
+    expect(isPriceFacet({ type: 'priced' })).toBe(false);
+  });
+
+  it('returns true when group is "  Price " (leading/trailing whitespace)', () => {
+    expect(
+      isPriceFacet({ type: 'Other', filterId: 'Other', group: '  Price ' }),
+    ).toBe(true);
+  });
 });
 
 describe('isStockFacet', () => {
@@ -213,6 +229,12 @@ describe('isStockFacet', () => {
     expect(() =>
       isStockFacet({ type: 'Brand', filterId: 'Brand' }),
     ).not.toThrow();
+  });
+
+  it('returns false for type "stocking" (no substring match)', () => {
+    expect(isStockFacet({ type: 'stocking', filterId: 'stocking' })).toBe(
+      false,
+    );
   });
 });
 

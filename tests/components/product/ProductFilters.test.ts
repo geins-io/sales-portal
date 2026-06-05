@@ -406,5 +406,76 @@ describe('ProductFilters', () => {
       expect(groups).toHaveLength(1);
       expect(groups[0]!.attributes('data-facet-id')).toBe('color');
     });
+
+    it('group mapped through GROUP_KEY_MAP hits the t() branch and keeps all group values', async () => {
+      // group:'Price' normalises to 'price', which maps to key 'price' in
+      // GROUP_KEY_MAP. With the test $t passthrough (returns the key as-is),
+      // the displayed label becomes 'product.filter_groups.price'. Searching
+      // for a substring of that resolves via getFilterGroupLabel's t() path,
+      // not the label/filterId fallback path (which is what group:'' tests use).
+      const priceFacet = {
+        filterId: 'Price',
+        group: 'Price',
+        label: 'Price',
+        type: 'Price',
+        values: [
+          {
+            _id: 'price_100',
+            count: 8,
+            facetId: 'Price',
+            parentId: null,
+            label: 'Under 100',
+            order: 0,
+            hidden: false,
+          },
+          {
+            _id: 'price_500',
+            count: 3,
+            facetId: 'Price',
+            parentId: null,
+            label: 'Under 500',
+            order: 1,
+            hidden: false,
+          },
+        ],
+      };
+      const brandFacet = {
+        filterId: 'brand',
+        group: '',
+        label: 'Brand',
+        type: 'Brand',
+        values: [
+          {
+            _id: 'acme',
+            count: 2,
+            facetId: 'brand',
+            parentId: null,
+            label: 'Acme',
+            order: 0,
+            hidden: false,
+          },
+        ],
+      };
+
+      const wrapper = mountComponent(ProductFilters, {
+        props: {
+          facets: [priceFacet, brandFacet],
+          modelValue: {},
+        },
+        global: { stubs: defaultStubs },
+      });
+
+      // 'filter_groups' is a substring of the resolved label
+      // 'product.filter_groups.price' returned by t() for the Price group
+      const input = wrapper.find('input');
+      await input.setValue('filter_groups');
+
+      const groups = wrapper.findAll('.filter-group');
+      // Only the Price group matches (its t()-resolved label contains the query)
+      expect(groups).toHaveLength(1);
+      expect(groups[0]!.attributes('data-facet-id')).toBe('Price');
+      // All values of the matching group are kept (group match, not value match)
+      expect(groups[0]!.attributes('data-value-count')).toBe('2');
+    });
   });
 });
