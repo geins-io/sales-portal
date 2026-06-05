@@ -26,6 +26,12 @@ const filterParam = computed(() =>
     : undefined,
 );
 
+// The product list resolves its language from the request context server-side,
+// but the active locale/market must be part of the query so the fetch (and the
+// CDN cache) is keyed per locale. Without it the widget reuses the previous
+// locale's cached response and shows stale content after a language switch.
+const { localeQuery } = useLocaleMarket();
+
 const { data: productsData } = useFetch<{
   products: ListProduct[];
   count: number;
@@ -34,6 +40,7 @@ const { data: productsData } = useFetch<{
     take: take.value,
     skip: 0,
     ...(filterParam.value ? { filter: filterParam.value } : {}),
+    ...localeQuery.value,
   })),
   dedupe: 'defer',
   lazy: true,

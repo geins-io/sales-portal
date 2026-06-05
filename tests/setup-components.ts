@@ -141,6 +141,7 @@ vi.mock('../app/composables/useLocaleMarket', () => ({
     currentLocale: computed(() => 'en'),
     localePath: (path: string) =>
       `/se/en${path.startsWith('/') ? path : '/' + path}`,
+    localeQuery: computed(() => ({ locale: 'en', market: 'se' })),
     getCleanPath: () => '/',
     switchLocale: vi.fn(),
     switchMarket: vi.fn(),
