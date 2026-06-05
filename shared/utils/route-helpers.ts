@@ -193,5 +193,50 @@ export function alternateEntityPath(
   return result;
 }
 
+/**
+ * Decide whether a resolved category/brand listing should 301-redirect to its
+ * canonical URL, and if so return the routable, locale-prefixed target.
+ *
+ * Geins returns prefix-less canonical URLs (e.g. `/se/sv/material/grenror`).
+ * When a listing is reached at a non-canonical but valid URL (a short
+ * `/c/<alias>` breadcrumb link, a stale ancestor path) the address is
+ * normalized to the canonical `/c/` or `/b/` form for crawlers.
+ *
+ * Returns null when no redirect is warranted:
+ *  - no canonical, or a non-string canonical;
+ *  - the canonical is in a different market/locale than the current path (a
+ *    locale fallback must not bounce the user out of the locale they asked for);
+ *  - the routable target already equals the current path (loop guard).
+ *
+ * `localize` maps a locale-free path (`/c/...`) to the full app path
+ * (`/se/sv/c/...`); pass `localePath` from `useLocaleMarket`. It is a
+ * parameter so this stays a pure, unit-testable function.
+ */
+export function canonicalListRedirectTarget(
+  canonicalUrl: string | null | undefined,
+  currentPath: string,
+  type: 'category' | 'brand',
+  localize: (path: string) => string,
+): string | null {
+  if (!canonicalUrl || typeof canonicalUrl !== 'string') return null;
+  if (!sameLocalePrefix(canonicalUrl, currentPath)) return null;
+  const routable = localize(
+    (type === 'brand' ? brandPath : categoryPath)(canonicalUrl),
+  );
+  return routable === currentPath ? null : routable;
+}
+
+/**
+ * True when both paths share the same /{market}/{locale}/ prefix, or when
+ * either is too short to carry one. Suppresses canonical normalization when a
+ * locale fallback returned a canonical in a different locale.
+ */
+function sameLocalePrefix(a: string, b: string): boolean {
+  const aSeg = a.split('/').slice(1, 3);
+  const bSeg = b.split('/').slice(1, 3);
+  if (aSeg.length < 2 || bSeg.length < 2) return true;
+  return aSeg[0] === bSeg[0] && aSeg[1] === bSeg[1];
+}
+
 // Re-export for convenience
 export { ROUTE_PATHS };

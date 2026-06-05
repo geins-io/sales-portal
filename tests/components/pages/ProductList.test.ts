@@ -41,9 +41,10 @@ async function mountProductList(
 // --- Mocks ---
 
 // navigateTo + recoverEntityUrl are the redirect/recovery boundaries. The PLP
-// issues a real 301 (navigateTo) for a same-prefix differing canonical and
-// delegates content misses to recoverEntityUrl (spec 003). Both are mocked as
-// spies and asserted against; assertions watch the spies, never real navigation.
+// issues a real 301 (navigateTo) for a same-prefix differing canonical SERVER
+// SIDE ONLY, and delegates content misses to recoverEntityUrl on both server
+// and client. Both are mocked as spies and asserted against; assertions watch
+// the spies, never real navigation.
 const { navigateToMock, recoverEntityUrlMock } = vi.hoisted(() => ({
   navigateToMock: vi.fn(() => Promise.resolve()),
   recoverEntityUrlMock: vi.fn(() => Promise.resolve()),
@@ -383,7 +384,16 @@ describe('ProductList.vue', () => {
     });
   });
 
-  describe('canonical URL self-correction (real 301)', () => {
+  // The canonical 301 is SERVER-SIDE ONLY. A client-side
+  // navigateTo({ replace: true }) re-ran the non-awaited product/filter fetches
+  // mid-navigation; under that burst the Geins-backed list endpoints
+  // intermittently 503'd and the errored response blanked the grid until a
+  // manual reload. In the unit env import.meta.server is false (client), so the
+  // redirect must NOT fire and the products must still render. The
+  // redirect-TARGET logic (prefix-less -> /c/|/b/, loop guard, cross-locale
+  // guard) is unit tested against canonicalListRedirectTarget in
+  // tests/unit/route-helpers.test.ts.
+  describe('canonical URL self-correction (server-side only)', () => {
     async function setRoutePath(path: string): Promise<{
       restore: () => void;
     }> {
@@ -397,29 +407,29 @@ describe('ProductList.vue', () => {
       return { restore: () => (router.path = originalPath) };
     }
 
-    it('301s a prefix-less category canonical to the routable /c/ path', async () => {
+    it('does not issue a client-side redirect when the canonical differs, and still renders products', async () => {
       const { restore } = await setRoutePath('/se/sv/c/grenror');
       mockPageInfo.value = {
         ...VALID_PAGE_INFO,
         canonicalUrl: '/se/sv/material/grenror',
       };
+      mockProductsData.value = {
+        products: [{ productId: '1', name: 'Product 1', alias: 'product-1' }],
+        count: 1,
+      };
 
       try {
-        await mountProductList(categoryProps, { global: { stubs } });
-        expect(navigateToMock).toHaveBeenCalledTimes(1);
-        expect(navigateToMock).toHaveBeenCalledWith(
-          '/se/sv/c/material/grenror',
-          {
-            redirectCode: 301,
-            replace: true,
-          },
-        );
+        const wrapper = await mountProductList(categoryProps, {
+          global: { stubs },
+        });
+        expect(navigateToMock).not.toHaveBeenCalled();
+        expect(wrapper.findAll('[data-testid="product-card"]').length).toBe(1);
       } finally {
         restore();
       }
     });
 
-    it('301s a brand canonical to the routable /b/ path', async () => {
+    it('does not issue a client-side redirect for a differing brand canonical', async () => {
       const { restore } = await setRoutePath('/se/sv/b/acme');
       mockPageInfo.value = {
         ...VALID_PAGE_INFO,
@@ -431,40 +441,6 @@ describe('ProductList.vue', () => {
           { type: 'brand' as const, alias: 'acme' },
           { global: { stubs } },
         );
-        expect(navigateToMock).toHaveBeenCalledTimes(1);
-        expect(navigateToMock).toHaveBeenCalledWith('/se/sv/b/varumarke/acme', {
-          redirectCode: 301,
-          replace: true,
-        });
-      } finally {
-        restore();
-      }
-    });
-
-    it('does not redirect when the routable target equals the current path (loop guard)', async () => {
-      const { restore } = await setRoutePath('/se/sv/c/foder');
-      mockPageInfo.value = {
-        ...VALID_PAGE_INFO,
-        canonicalUrl: '/se/sv/foder',
-      };
-
-      try {
-        await mountProductList(categoryProps, { global: { stubs } });
-        expect(navigateToMock).not.toHaveBeenCalled();
-      } finally {
-        restore();
-      }
-    });
-
-    it('does not redirect when the canonical URL is in a different locale (cross-locale guard)', async () => {
-      const { restore } = await setRoutePath('/se/en/c/kategori-1');
-      mockPageInfo.value = {
-        ...VALID_PAGE_INFO,
-        canonicalUrl: '/se/sv/kategori-1',
-      };
-
-      try {
-        await mountProductList(categoryProps, { global: { stubs } });
         expect(navigateToMock).not.toHaveBeenCalled();
       } finally {
         restore();

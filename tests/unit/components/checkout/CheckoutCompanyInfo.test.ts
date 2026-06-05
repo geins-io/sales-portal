@@ -97,22 +97,24 @@ describe('CheckoutCompanyInfo', () => {
     expect(addrBlock.text()).toContain('SE');
   });
 
+  function makeBuyer(overrides = {}) {
+    return {
+      id: 'buyer@example.com',
+      internalId: null,
+      firstName: 'Jane',
+      lastName: 'Doe',
+      phone: null,
+      companyId: 'comp-1',
+      active: true,
+      restrictToDedicatedPriceLists: false,
+      ...overrides,
+    };
+  }
+
   it('renders buyerEmail prop in the buyer block, not billing address email', () => {
     const wrapper = mount(CheckoutCompanyInfo.default, {
       props: {
-        company: makeCompany({
-          buyers: [
-            {
-              id: 'buyer-1',
-              firstName: 'Jane',
-              lastName: 'Doe',
-              phone: null,
-              companyId: 'comp-1',
-              active: true,
-              restrictToDedicatedPriceLists: false,
-            },
-          ],
-        }),
+        company: makeCompany({ buyers: [makeBuyer()] }),
         buyerEmail: 'buyer@example.com',
       },
       global: { stubs },
@@ -121,6 +123,74 @@ describe('CheckoutCompanyInfo', () => {
     expect(buyerBlock.text()).toContain('Jane Doe');
     expect(buyerBlock.text()).toContain('buyer@example.com');
     expect(buyerBlock.text()).not.toContain('billing@acme.com');
+  });
+
+  it('shows the buyer matching buyerEmail, not the first buyer in the list', () => {
+    // Geins stores each buyer's email as `id`. The company lists its primary
+    // contact first; the logged-in user is a different, later buyer. The buyer
+    // block must show the logged-in user's name, not buyers[0]'s.
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: {
+        company: makeCompany({
+          buyers: [
+            makeBuyer({
+              id: 'primary@example.com',
+              firstName: 'Anna',
+              lastName: 'Andersson',
+            }),
+            makeBuyer({
+              id: 'logged-in@example.com',
+              firstName: 'Bertil',
+              lastName: 'Bok',
+            }),
+          ],
+        }),
+        buyerEmail: 'logged-in@example.com',
+      },
+      global: { stubs },
+    });
+    const buyerBlock = wrapper.find('[data-testid="company-buyer"]');
+    expect(buyerBlock.text()).toContain('Bertil Bok');
+    expect(buyerBlock.text()).not.toContain('Anna Andersson');
+    expect(buyerBlock.text()).toContain('logged-in@example.com');
+  });
+
+  it('matches the buyer email case-insensitively', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: {
+        company: makeCompany({
+          buyers: [makeBuyer({ id: 'Buyer@Example.com' })],
+        }),
+        buyerEmail: 'buyer@example.com',
+      },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="company-buyer"]').text()).toContain(
+      'Jane Doe',
+    );
+  });
+
+  it('shows no buyer name when no buyer matches buyerEmail (email only)', () => {
+    // A wrong name is worse than no name: when the logged-in email is not in
+    // the buyers list we render the email alone rather than buyers[0].
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: {
+        company: makeCompany({
+          buyers: [
+            makeBuyer({
+              id: 'primary@example.com',
+              firstName: 'Anna',
+              lastName: 'Andersson',
+            }),
+          ],
+        }),
+        buyerEmail: 'someone-else@example.com',
+      },
+      global: { stubs },
+    });
+    const buyerBlock = wrapper.find('[data-testid="company-buyer"]');
+    expect(buyerBlock.text()).not.toContain('Anna Andersson');
+    expect(buyerBlock.text()).toContain('someone-else@example.com');
   });
 
   it('shows buyer block when buyerEmail provided even without buyer name', () => {
