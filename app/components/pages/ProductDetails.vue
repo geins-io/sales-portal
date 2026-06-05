@@ -569,7 +569,7 @@ useSchemaOrg([
         <!-- Product name + meta -->
         <div class="flex flex-col gap-1">
           <h1
-            class="font-heading text-3xl leading-tight font-bold lg:text-4xl"
+            class="font-heading my-[15px] text-3xl leading-tight font-bold"
             data-testid="product-name"
           >
             {{ product.name }}
@@ -578,7 +578,7 @@ useSchemaOrg([
           <!-- Article number -->
           <p
             v-if="product.articleNumber"
-            class="text-muted-foreground text-sm"
+            class="text-muted-foreground text-[20px]"
             data-testid="product-article-number"
           >
             Art nr. {{ product.articleNumber }}
@@ -587,7 +587,7 @@ useSchemaOrg([
           <!-- Brand -->
           <p
             v-if="product.brand?.name"
-            class="text-muted-foreground text-sm"
+            class="text-muted-foreground"
             data-testid="product-brand"
           >
             {{ product.brand.name }}

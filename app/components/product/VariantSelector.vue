@@ -257,13 +257,13 @@ const { showPrice } = usePriceVisibility();
       :key="dimension.dimensionName"
       class="flex flex-col gap-1.5"
     >
-      <span class="text-sm font-medium">
+      <span class="font-medium">
         {{ dimension.dimensionName }}
       </span>
       <Button
         type="button"
         variant="outline"
-        class="border-input flex h-10 w-full items-center justify-between rounded-md px-3 font-normal"
+        class="border-input flex h-[50px] w-4/5 items-center justify-between rounded-md px-3 font-normal"
         :data-testid="`variant-trigger-${dimension.dimensionName}`"
         @click="openSheet(dimension.dimensionName)"
       >

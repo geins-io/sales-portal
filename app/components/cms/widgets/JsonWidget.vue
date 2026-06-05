@@ -134,7 +134,7 @@ function _resolveImageSrc(src: string | undefined): string {
     <div v-if="header?.heading || header?.description" class="space-y-2">
       <h2
         v-if="header?.heading"
-        class="font-heading text-[32px] leading-[1.1] font-bold md:text-[40px]"
+        class="font-heading text-2xl font-bold"
       >
         {{ header.heading }}
       </h2>
@@ -158,7 +158,7 @@ function _resolveImageSrc(src: string | undefined): string {
             class="size-full object-cover transition-transform group-hover:scale-105"
           />
         </div>
-        <p class="font-heading p-3 text-center text-xl font-medium">
+        <p class="font-heading p-3 text-center text-lg font-medium">
           {{ item.title }}
         </p>
       </NuxtLink>

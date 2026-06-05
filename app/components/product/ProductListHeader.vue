@@ -26,17 +26,17 @@ const description = computed(() => {
   <div v-if="pageInfo" class="space-y-6">
     <AppBreadcrumbs :items="breadcrumbs" />
 
-    <!-- Figma: title 60/700 desktop, 48/700 mobile; description 18/400 -->
+    <!-- Figma: title 48/700 across breakpoints; description 18/300 light -->
     <div class="space-y-6 py-4">
       <h1
         v-if="!pageInfo.hideTitle"
-        class="font-heading text-5xl font-bold tracking-tight md:text-6xl"
+        class="font-heading text-5xl font-bold tracking-tight"
       >
         {{ pageInfo.name }}
       </h1>
       <p
         v-if="!pageInfo.hideDescription && description"
-        class="text-muted-foreground max-w-xl text-lg leading-relaxed"
+        class="text-muted-foreground max-w-3xl text-lg leading-relaxed font-light"
       >
         {{ description }}
       </p>
