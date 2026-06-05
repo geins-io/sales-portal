@@ -117,7 +117,10 @@ async function handleAddToCart(
 
 <template>
   <PortalShell>
-    <div data-testid="favorites-page">
+    <div
+      data-testid="favorites-page"
+      class="border-border rounded-lg border bg-white p-6"
+    >
       <!-- Header -->
       <div class="mb-6 flex items-center justify-between">
         <h2 class="text-2xl font-bold">{{ t('portal.favorites.title') }}</h2>
