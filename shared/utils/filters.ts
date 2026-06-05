@@ -4,6 +4,35 @@
  * Builds a GraphQL FilterInputType object from UI state.
  * The caller is responsible for JSON.stringify when passing as a query param.
  */
+import type { FilterFacet } from '#shared/types/commerce';
+
+type FacetIdentity = Pick<FilterFacet, 'type' | 'filterId'> & {
+  group?: string | null;
+};
+
+function normalize(s?: string | null): string {
+  if (s == null) return '';
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '');
+}
+
+export function isPriceFacet(facet: FacetIdentity): boolean {
+  return (
+    normalize(facet.type) === 'price' ||
+    normalize(facet.filterId) === 'price' ||
+    normalize(facet.group) === 'price'
+  );
+}
+
+export function isStockFacet(facet: FacetIdentity): boolean {
+  return (
+    normalize(facet.type) === 'stockstatus' ||
+    normalize(facet.filterId) === 'stockstatus' ||
+    normalize(facet.group) === 'stockstatus'
+  );
+}
 
 /** Sort value map from UI labels to GraphQL SortType enum values. */
 export const SORT_MAP: Record<string, string> = {

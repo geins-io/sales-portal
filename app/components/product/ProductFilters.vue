@@ -9,6 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '~/components/ui/sheet';
+import { getFilterGroupLabel } from '~/utils/filter-labels';
 
 const props = defineProps<{
   facets: FilterFacet[];
@@ -18,6 +19,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: Record<string, string[]>];
 }>();
+
+const { t } = useI18n();
 
 const sheetOpen = ref(false);
 
@@ -44,16 +47,25 @@ const activeFilterCount = computed(() =>
 
 const filterSearch = ref('');
 
-const filteredFacets = computed(() => {
+const filteredFacets = computed<FilterFacet[]>(() => {
   const query = filterSearch.value.toLowerCase().trim();
   if (!query) return props.facets;
-  return props.facets.filter((facet) => {
-    const name = (facet.label || facet.type || facet.filterId).toLowerCase();
-    return (
-      name.includes(query) ||
-      facet.values.some((v) => v.label.toLowerCase().includes(query))
-    );
-  });
+  return props.facets
+    .map((facet) => {
+      const displayed = (
+        getFilterGroupLabel(facet.group, t) ||
+        facet.label ||
+        facet.type ||
+        facet.filterId
+      ).toLowerCase();
+      if (displayed.includes(query)) return facet;
+      const matchingValues = facet.values.filter(
+        (v) => !v.hidden && v.label.toLowerCase().includes(query),
+      );
+      if (matchingValues.length === 0) return null;
+      return { ...facet, values: matchingValues };
+    })
+    .filter((f): f is FilterFacet => f !== null);
 });
 
 function clearAll() {

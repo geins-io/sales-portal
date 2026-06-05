@@ -11,63 +11,66 @@ const props = withDefaults(
 
 const { showIncVat, setShowIncVat } = useVatDisplay();
 const { t } = useI18n();
+const { showPrice } = usePriceVisibility();
 </script>
 
 <template>
-  <!-- Inline: flat button row -->
-  <div v-if="props.variant === 'inline'" class="flex gap-1">
-    <Button
-      :variant="showIncVat ? 'secondary' : 'ghost'"
-      size="sm"
-      @click="setShowIncVat(true)"
-    >
-      {{ t('common.vat_incl') }}
-    </Button>
-    <Button
-      :variant="!showIncVat ? 'secondary' : 'ghost'"
-      size="sm"
-      @click="setShowIncVat(false)"
-    >
-      {{ t('common.vat_excl') }}
-    </Button>
-  </div>
-
-  <!-- Dropdown: icon-only or text+icon trigger -->
-  <DropdownMenu v-else>
-    <DropdownMenuTrigger as-child>
+  <template v-if="showPrice">
+    <!-- Inline: flat button row -->
+    <div v-if="props.variant === 'inline'" class="flex gap-1">
       <Button
-        v-if="props.variant === 'text'"
-        variant="ghost"
+        :variant="showIncVat ? 'secondary' : 'ghost'"
         size="sm"
-        :aria-label="t('common.change_vat_display')"
-      >
-        <Receipt class="mr-2 h-4 w-4" />
-        {{ showIncVat ? t('common.vat_incl') : t('common.vat_excl') }}
-      </Button>
-      <Button
-        v-else
-        variant="ghost"
-        size="icon"
-        :aria-label="t('common.change_vat_display')"
-      >
-        <Receipt class="h-4 w-4" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end">
-      <DropdownMenuLabel>{{ t('common.vat_display') }}</DropdownMenuLabel>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem
-        :class="{ 'font-semibold': showIncVat }"
         @click="setShowIncVat(true)"
       >
         {{ t('common.vat_incl') }}
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        :class="{ 'font-semibold': !showIncVat }"
+      </Button>
+      <Button
+        :variant="!showIncVat ? 'secondary' : 'ghost'"
+        size="sm"
         @click="setShowIncVat(false)"
       >
         {{ t('common.vat_excl') }}
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
+      </Button>
+    </div>
+
+    <!-- Dropdown: icon-only or text+icon trigger -->
+    <DropdownMenu v-else>
+      <DropdownMenuTrigger as-child>
+        <Button
+          v-if="props.variant === 'text'"
+          variant="ghost"
+          size="sm"
+          :aria-label="t('common.change_vat_display')"
+        >
+          <Receipt class="mr-2 h-4 w-4" />
+          {{ showIncVat ? t('common.vat_incl') : t('common.vat_excl') }}
+        </Button>
+        <Button
+          v-else
+          variant="ghost"
+          size="icon"
+          :aria-label="t('common.change_vat_display')"
+        >
+          <Receipt class="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>{{ t('common.vat_display') }}</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          :class="{ 'font-semibold': showIncVat }"
+          @click="setShowIncVat(true)"
+        >
+          {{ t('common.vat_incl') }}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          :class="{ 'font-semibold': !showIncVat }"
+          @click="setShowIncVat(false)"
+        >
+          {{ t('common.vat_excl') }}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </template>
 </template>

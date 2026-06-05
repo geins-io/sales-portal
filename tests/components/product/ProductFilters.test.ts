@@ -85,11 +85,13 @@ const mockFacets = [
 
 const defaultStubs = {
   FilterGroup: {
-    template: '<div class="filter-group" :data-facet-id="facet.filterId" />',
+    template:
+      '<div class="filter-group" :data-facet-id="facet.filterId" :data-value-count="facet.values.length" />',
     props: ['facet', 'selected'],
   },
   ProductFilterGroup: {
-    template: '<div class="filter-group" :data-facet-id="facet.filterId" />',
+    template:
+      '<div class="filter-group" :data-facet-id="facet.filterId" :data-value-count="facet.values.length" />',
     props: ['facet', 'selected'],
   },
   SlidersHorizontal: true,
@@ -195,5 +197,285 @@ describe('ProductFilters', () => {
     const text = wrapper.text();
     expect(text).toContain('product.clear_all');
     expect(text).toContain('product.show_results');
+  });
+
+  describe('search within filter groups', () => {
+    const facetsWithHidden = [
+      {
+        filterId: 'color',
+        group: 'attributes',
+        label: 'Color',
+        type: 'multi',
+        values: [
+          {
+            _id: 'red',
+            count: 5,
+            facetId: 'color',
+            parentId: null,
+            label: 'Red',
+            order: 0,
+            hidden: false,
+          },
+          {
+            _id: 'blue',
+            count: 3,
+            facetId: 'color',
+            parentId: null,
+            label: 'Blue',
+            order: 1,
+            hidden: false,
+          },
+          {
+            _id: 'hidden-green',
+            count: 2,
+            facetId: 'color',
+            parentId: null,
+            label: 'Green',
+            order: 2,
+            hidden: true,
+          },
+        ],
+      },
+      {
+        filterId: 'size',
+        group: 'attributes',
+        label: 'Size',
+        type: 'multi',
+        values: [
+          {
+            _id: 'small',
+            count: 4,
+            facetId: 'size',
+            parentId: null,
+            label: 'Small',
+            order: 0,
+            hidden: false,
+          },
+          {
+            _id: 'large',
+            count: 6,
+            facetId: 'size',
+            parentId: null,
+            label: 'Large',
+            order: 1,
+            hidden: false,
+          },
+        ],
+      },
+    ];
+
+    it('empty query renders all facets unchanged', () => {
+      const wrapper = mountComponent(ProductFilters, {
+        props: {
+          facets: mockFacets,
+          modelValue: {},
+        },
+        global: { stubs: defaultStubs },
+      });
+      const groups = wrapper.findAll('.filter-group');
+      expect(groups).toHaveLength(2);
+    });
+
+    it('value-label query narrows matching group to only matching values and drops non-matching groups', async () => {
+      const wrapper = mountComponent(ProductFilters, {
+        props: {
+          facets: mockFacets,
+          modelValue: {},
+        },
+        global: { stubs: defaultStubs },
+      });
+
+      const input = wrapper.find('input');
+      await input.setValue('red');
+
+      const groups = wrapper.findAll('.filter-group');
+      expect(groups).toHaveLength(1);
+      expect(groups[0]!.attributes('data-facet-id')).toBe('color');
+      expect(groups[0]!.attributes('data-value-count')).toBe('1');
+    });
+
+    it('group displayed label query keeps all values in that group', async () => {
+      const facetsForLabelMatch = [
+        {
+          filterId: 'color',
+          group: '',
+          label: 'Color',
+          type: 'multi',
+          values: [
+            {
+              _id: 'red',
+              count: 5,
+              facetId: 'color',
+              parentId: null,
+              label: 'Red',
+              order: 0,
+              hidden: false,
+            },
+            {
+              _id: 'blue',
+              count: 3,
+              facetId: 'color',
+              parentId: null,
+              label: 'Blue',
+              order: 1,
+              hidden: false,
+            },
+          ],
+        },
+        {
+          filterId: 'size',
+          group: '',
+          label: 'Size',
+          type: 'multi',
+          values: [
+            {
+              _id: 'small',
+              count: 4,
+              facetId: 'size',
+              parentId: null,
+              label: 'Small',
+              order: 0,
+              hidden: false,
+            },
+          ],
+        },
+      ];
+
+      const wrapper = mountComponent(ProductFilters, {
+        props: {
+          facets: facetsForLabelMatch,
+          modelValue: {},
+        },
+        global: { stubs: defaultStubs },
+      });
+
+      const input = wrapper.find('input');
+      await input.setValue('color');
+
+      const groups = wrapper.findAll('.filter-group');
+      expect(groups).toHaveLength(1);
+      expect(groups[0]!.attributes('data-facet-id')).toBe('color');
+      expect(groups[0]!.attributes('data-value-count')).toBe('2');
+    });
+
+    it('hidden values never surface in a narrowed group', async () => {
+      const wrapper = mountComponent(ProductFilters, {
+        props: {
+          facets: facetsWithHidden,
+          modelValue: {},
+        },
+        global: { stubs: defaultStubs },
+      });
+
+      const input = wrapper.find('input');
+      await input.setValue('green');
+
+      const groups = wrapper.findAll('.filter-group');
+      expect(groups).toHaveLength(0);
+    });
+
+    it('zero-match query renders no filter groups', async () => {
+      const wrapper = mountComponent(ProductFilters, {
+        props: {
+          facets: mockFacets,
+          modelValue: {},
+        },
+        global: { stubs: defaultStubs },
+      });
+
+      const input = wrapper.find('input');
+      await input.setValue('zzznomatch');
+
+      const groups = wrapper.findAll('.filter-group');
+      expect(groups).toHaveLength(0);
+    });
+
+    it('narrowed facet preserves filterId', async () => {
+      const wrapper = mountComponent(ProductFilters, {
+        props: {
+          facets: mockFacets,
+          modelValue: {},
+        },
+        global: { stubs: defaultStubs },
+      });
+
+      const input = wrapper.find('input');
+      await input.setValue('blue');
+
+      const groups = wrapper.findAll('.filter-group');
+      expect(groups).toHaveLength(1);
+      expect(groups[0]!.attributes('data-facet-id')).toBe('color');
+    });
+
+    it('group mapped through GROUP_KEY_MAP hits the t() branch and keeps all group values', async () => {
+      // group:'Price' normalises to 'price', which maps to key 'price' in
+      // GROUP_KEY_MAP. With the test $t passthrough (returns the key as-is),
+      // the displayed label becomes 'product.filter_groups.price'. Searching
+      // for a substring of that resolves via getFilterGroupLabel's t() path,
+      // not the label/filterId fallback path (which is what group:'' tests use).
+      const priceFacet = {
+        filterId: 'Price',
+        group: 'Price',
+        label: 'Price',
+        type: 'Price',
+        values: [
+          {
+            _id: 'price_100',
+            count: 8,
+            facetId: 'Price',
+            parentId: null,
+            label: 'Under 100',
+            order: 0,
+            hidden: false,
+          },
+          {
+            _id: 'price_500',
+            count: 3,
+            facetId: 'Price',
+            parentId: null,
+            label: 'Under 500',
+            order: 1,
+            hidden: false,
+          },
+        ],
+      };
+      const brandFacet = {
+        filterId: 'brand',
+        group: '',
+        label: 'Brand',
+        type: 'Brand',
+        values: [
+          {
+            _id: 'acme',
+            count: 2,
+            facetId: 'brand',
+            parentId: null,
+            label: 'Acme',
+            order: 0,
+            hidden: false,
+          },
+        ],
+      };
+
+      const wrapper = mountComponent(ProductFilters, {
+        props: {
+          facets: [priceFacet, brandFacet],
+          modelValue: {},
+        },
+        global: { stubs: defaultStubs },
+      });
+
+      // 'filter_groups' is a substring of the resolved label
+      // 'product.filter_groups.price' returned by t() for the Price group
+      const input = wrapper.find('input');
+      await input.setValue('filter_groups');
+
+      const groups = wrapper.findAll('.filter-group');
+      // Only the Price group matches (its t()-resolved label contains the query)
+      expect(groups).toHaveLength(1);
+      expect(groups[0]!.attributes('data-facet-id')).toBe('Price');
+      // All values of the matching group are kept (group match, not value match)
+      expect(groups[0]!.attributes('data-value-count')).toBe('2');
+    });
   });
 });

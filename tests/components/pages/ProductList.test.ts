@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref, defineComponent, h, Suspense } from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import { defaultMountOptions } from '../../utils/component';
@@ -236,6 +236,22 @@ vi.stubGlobal('useRoute', () => ({
 // Stub useDebounceFn from VueUse
 vi.mock('@vueuse/core', () => ({
   useDebounceFn: (fn: (...args: unknown[]) => void) => fn,
+}));
+
+// Module-level refs so existing tests keep true defaults and the visibility
+// describe block can flip them without affecting other describes.
+// Mirrors the pattern in VatDisplaySwitcher.test.ts: declare refs at module
+// scope, reference them inside vi.mock factory closures (factories run at
+// runtime, not at hoist time, so ref() is available).
+const mockShowPrice = ref(true);
+const mockShowStock = ref(true);
+
+vi.mock('../../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
+
+vi.mock('../../../app/composables/useStockVisibility', () => ({
+  useStockVisibility: () => ({ showStock: mockShowStock }),
 }));
 
 const stubs = {
@@ -556,6 +572,183 @@ describe('ProductList.vue', () => {
       });
 
       expect(wrapper.find('[data-testid="pagination"]').exists()).toBe(false);
+    });
+  });
+
+  describe('filter visibility: price and stock facet exclusion', () => {
+    // Three-facet fixture: Price, StockStatus, and a plain Brand facet.
+    const facetsWithPriceAndStock = {
+      filters: {
+        facets: [
+          {
+            filterId: 'Price',
+            type: 'Price',
+            label: 'Price',
+            group: 'Price',
+            values: [
+              {
+                _id: 'price_100',
+                count: 10,
+                facetId: 'Price',
+                parentId: null,
+                label: 'Under 100',
+                order: 0,
+                hidden: false,
+              },
+            ],
+          },
+          {
+            filterId: 'StockStatus',
+            type: 'StockStatus',
+            label: 'Stock status',
+            group: 'StockStatus',
+            values: [
+              {
+                _id: 'in_stock',
+                count: 5,
+                facetId: 'StockStatus',
+                parentId: null,
+                label: 'In stock',
+                order: 0,
+                hidden: false,
+              },
+            ],
+          },
+          {
+            filterId: 'Brand',
+            type: 'Brand',
+            label: 'Brand',
+            group: 'Brand',
+            values: [
+              {
+                _id: 'brand_acme',
+                count: 3,
+                facetId: 'Brand',
+                parentId: null,
+                label: 'Acme',
+                order: 0,
+                hidden: false,
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    beforeEach(() => {
+      mockShowPrice.value = false;
+      mockShowStock.value = false;
+      mockFiltersData.value = facetsWithPriceAndStock;
+      mockProductsData.value = { products: [], count: 0 };
+      mockProductsStatus.value = 'success';
+    });
+
+    afterEach(() => {
+      mockShowPrice.value = true;
+      mockShowStock.value = true;
+    });
+
+    it('(a) excludes Price and StockStatus facets from ProductFilters when both are hidden', async () => {
+      const capturedProps: Array<Record<string, unknown>> = [];
+      const capturingStubs = {
+        ...stubs,
+        ProductFilters: {
+          template: '<div data-testid="plp-filters" />',
+          props: ['facets', 'modelValue'],
+          setup(props: { facets: Array<{ filterId: string }> }) {
+            capturedProps.push({ facets: props.facets });
+            return {};
+          },
+        },
+      };
+
+      await mountProductList(categoryProps, {
+        global: { stubs: capturingStubs },
+      });
+
+      // At least one render captured facets
+      expect(capturedProps.length).toBeGreaterThan(0);
+      const lastCapture = capturedProps[capturedProps.length - 1]!;
+      const facetIds = (lastCapture.facets as Array<{ filterId: string }>).map(
+        (f) => f.filterId,
+      );
+
+      expect(facetIds).not.toContain('Price');
+      expect(facetIds).not.toContain('StockStatus');
+      expect(facetIds).toContain('Brand');
+    });
+
+    it('(b) strips Price and StockStatus keys from filterState when URL query contains them', async () => {
+      // plpRoute is the shared mutable object returned by the module-mocked
+      // useRoute(). Mutating its query here seeds the URL state that
+      // restoreFiltersFromQuery() reads at component setup time.
+      const savedQuery = plpRoute.query;
+      plpRoute.query = {
+        Price: 'price_100',
+        StockStatus: 'in_stock',
+        Brand: 'brand_acme',
+      } as Record<string, string>;
+
+      try {
+        const capturedFilters: Array<Record<string, unknown>> = [];
+        const capturingStubs = {
+          ...stubs,
+          ProductActiveFilters: {
+            template: '<div data-testid="plp-active-filters" />',
+            props: ['filters', 'facets'],
+            setup(props: { filters: Record<string, string[]> }) {
+              capturedFilters.push({ filters: props.filters });
+              return {};
+            },
+          },
+        };
+
+        await mountProductList(categoryProps, {
+          global: { stubs: capturingStubs },
+        });
+
+        // stripHiddenFacetKeys runs at setup; Price and StockStatus must be gone
+        if (capturedFilters.length > 0) {
+          const lastFilters = capturedFilters[capturedFilters.length - 1]!
+            .filters as Record<string, string[]>;
+          expect(Object.keys(lastFilters)).not.toContain('Price');
+          expect(Object.keys(lastFilters)).not.toContain('StockStatus');
+        }
+      } finally {
+        plpRoute.query = savedQuery;
+      }
+    });
+
+    it('positive control: all three facets present when showPrice and showStock are true', async () => {
+      mockShowPrice.value = true;
+      mockShowStock.value = true;
+
+      const capturedProps: Array<Record<string, unknown>> = [];
+      const capturingStubs = {
+        ...stubs,
+        ProductFilters: {
+          template: '<div data-testid="plp-filters" />',
+          props: ['facets', 'modelValue'],
+          setup(props: { facets: Array<{ filterId: string }> }) {
+            capturedProps.push({ facets: props.facets });
+            return {};
+          },
+        },
+      };
+
+      await mountProductList(categoryProps, {
+        global: { stubs: capturingStubs },
+      });
+
+      expect(capturedProps.length).toBeGreaterThan(0);
+      const lastCapture = capturedProps[capturedProps.length - 1]!;
+      const facetIds = (lastCapture.facets as Array<{ filterId: string }>).map(
+        (f) => f.filterId,
+      );
+
+      expect(facetIds).toContain('Price');
+      expect(facetIds).toContain('StockStatus');
+      expect(facetIds).toContain('Brand');
     });
   });
 });

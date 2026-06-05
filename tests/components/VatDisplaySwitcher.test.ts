@@ -1,4 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ref } from 'vue';
+import { mountComponent } from '../utils/component';
+import VatDisplaySwitcher from '../../app/components/shared/VatDisplaySwitcher.vue';
+
+// Control showPrice per-test via this ref.
+const mockShowPrice = ref(true);
+
+vi.mock('../../app/composables/usePriceVisibility', () => ({
+  usePriceVisibility: () => ({ showPrice: mockShowPrice }),
+}));
 
 // Pure-logic tests mirroring MarketSwitcher.test.ts approach.
 // We test the component's core logic without mounting the SFC.
@@ -84,5 +94,46 @@ describe('VatDisplaySwitcher logic', () => {
     it('should use ghost variant for inactive button', () => {
       expect(inlineButtonVariant(false)).toBe('ghost');
     });
+  });
+});
+
+describe('VatDisplaySwitcher render', () => {
+  beforeEach(() => {
+    mockShowPrice.value = true;
+  });
+
+  it('renders the switcher dropdown when showPrice is true (default icon variant)', () => {
+    const wrapper = mountComponent(VatDisplaySwitcher);
+    const button = wrapper.find('button');
+    expect(button.exists()).toBe(true);
+    expect(button.attributes('aria-label')).toBe('common.change_vat_display');
+  });
+
+  it('renders both vat_incl and vat_excl buttons when showPrice is true and variant is inline', () => {
+    const wrapper = mountComponent(VatDisplaySwitcher, {
+      props: { variant: 'inline' },
+    });
+    const html = wrapper.html();
+    expect(html).toContain('common.vat_incl');
+    expect(html).toContain('common.vat_excl');
+  });
+
+  it('renders nothing when showPrice is false', () => {
+    mockShowPrice.value = false;
+    const wrapper = mountComponent(VatDisplaySwitcher);
+    // A <template v-if> renders a comment node when false, leaving no real elements.
+    expect(wrapper.find('button').exists()).toBe(false);
+    expect(wrapper.html()).not.toContain('common.vat_incl');
+    expect(wrapper.html()).not.toContain('common.vat_excl');
+  });
+
+  it('renders nothing for inline variant when showPrice is false', () => {
+    mockShowPrice.value = false;
+    const wrapper = mountComponent(VatDisplaySwitcher, {
+      props: { variant: 'inline' },
+    });
+    expect(wrapper.find('button').exists()).toBe(false);
+    expect(wrapper.html()).not.toContain('common.vat_incl');
+    expect(wrapper.html()).not.toContain('common.vat_excl');
   });
 });
