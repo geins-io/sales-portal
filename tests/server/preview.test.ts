@@ -96,20 +96,34 @@ describe('preview cookie helpers', () => {
   });
 
   describe('clearPreviewSession', () => {
-    it('clears both auth cookies and preview cookie', () => {
+    it('deletes the preview cookies with their set attributes so partitioned cookies are removed', () => {
       clearPreviewSession(mockEvent);
 
-      expect(deleteCookieMock).toHaveBeenCalledWith(mockEvent, 'auth_token', {
+      // Preview cookies are set Partitioned/SameSite=None/Secure in prod; the
+      // delete must repeat those attributes or the partitioned cookie survives.
+      const isProd = !import.meta.dev;
+      const previewAttrs = {
+        sameSite: isProd ? 'none' : 'lax',
+        secure: isProd,
         path: '/',
-      });
+        partitioned: isProd,
+      };
+
+      expect(deleteCookieMock).toHaveBeenCalledWith(
+        mockEvent,
+        'auth_token',
+        expect.objectContaining(previewAttrs),
+      );
       expect(deleteCookieMock).toHaveBeenCalledWith(
         mockEvent,
         'refresh_token',
-        { path: '/' },
+        expect.objectContaining(previewAttrs),
       );
-      expect(deleteCookieMock).toHaveBeenCalledWith(mockEvent, 'preview_mode', {
-        path: '/',
-      });
+      expect(deleteCookieMock).toHaveBeenCalledWith(
+        mockEvent,
+        'preview_mode',
+        expect.objectContaining(previewAttrs),
+      );
     });
   });
 });
