@@ -24,12 +24,23 @@ const billingAddress = computed<CompanyAddress | null>(() => {
   );
 });
 
-const primaryBuyer = computed<CompanyBuyer | null>(
-  () => props.company.buyers?.[0] ?? null,
-);
+// Resolve the buyer to display by matching the authenticated user's email
+// against the buyers list. Geins stores each buyer's email as `id` (the same
+// join server/services/orders.ts uses to resolve placed-by names). Picking
+// buyers[0] would show whichever buyer the company happens to list first
+// (often the primary contact), not the person actually checking out.
+const activeBuyer = computed<CompanyBuyer | null>(() => {
+  const email = props.buyerEmail?.trim().toLowerCase();
+  if (!email) return null;
+  return (
+    props.company.buyers?.find(
+      (b) => b.id?.trim().toLowerCase() === email,
+    ) ?? null
+  );
+});
 
 const buyerName = computed(() =>
-  [primaryBuyer.value?.firstName, primaryBuyer.value?.lastName]
+  [activeBuyer.value?.firstName, activeBuyer.value?.lastName]
     .filter(Boolean)
     .join(' '),
 );
