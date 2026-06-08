@@ -155,6 +155,17 @@ const redirectError = ref<string | null>(null);
 // invariant decoupled from this specific UI requirement).
 const acceptedTerms = ref(false);
 
+// Today's date in yyyy-mm-dd format for the delivery date :min attribute.
+// Computed once per page load so it doesn't drift across re-renders.
+// en-CA locale yields ISO yyyy-mm-dd in the user's local timezone, so :min
+// matches the user's local today rather than UTC (which can be off by a day).
+const todayIso = new Date().toLocaleDateString('en-CA');
+
+// Required customer order number gate (parallel to acceptedTerms).
+const hasCustomerOrderNumber = computed(
+  () => !!checkoutStore.customerOrderNumber?.trim(),
+);
+
 async function handleHostedCheckout() {
   if (!cartStore.cartId) return;
   isRedirecting.value = true;
@@ -199,6 +210,7 @@ watch(
 async function handlePlaceOrder() {
   if (!cartStore.cartId || !checkoutStore.canPlaceOrder) return;
   if (!acceptedTerms.value) return;
+  if (!hasCustomerOrderNumber.value) return;
   await checkoutStore.placeOrder(cartStore.cartId);
 }
 </script>
@@ -291,6 +303,11 @@ async function handlePlaceOrder() {
               v-if="isCompanyUser && companyData"
               :company="companyData"
               :buyer-email="authStore.user?.username ?? undefined"
+              :customer-order-number="checkoutStore.customerOrderNumber"
+              :disabled="checkoutStore.isPlacingOrder"
+              @update:customer-order-number="
+                checkoutStore.customerOrderNumber = $event
+              "
             />
             <Card v-else>
               <CheckoutCardHeader :icon="Mail" :title="t('checkout.email')" />
@@ -346,6 +363,14 @@ async function handlePlaceOrder() {
             <CheckoutDeliveryInfo
               v-if="isCompanyUser && companyData"
               :company="companyData"
+              :desired-delivery-date="checkoutStore.desiredDeliveryDate"
+              :goods-label="checkoutStore.goodsLabel"
+              :disabled="checkoutStore.isPlacingOrder"
+              :today-iso="todayIso"
+              @update:desired-delivery-date="
+                checkoutStore.desiredDeliveryDate = $event
+              "
+              @update:goods-label="checkoutStore.goodsLabel = $event"
             />
             <Card v-else-if="!isCompanyUser">
               <CheckoutCardHeader
@@ -453,7 +478,8 @@ async function handlePlaceOrder() {
               :can-place-order="
                 checkoutStore.canPlaceOrder &&
                 !checkoutStore.isBlacklisted &&
-                acceptedTerms
+                acceptedTerms &&
+                hasCustomerOrderNumber
               "
               :is-placing-order="checkoutStore.isPlacingOrder"
               @place-order="handlePlaceOrder"

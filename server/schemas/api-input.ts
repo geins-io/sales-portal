@@ -290,6 +290,12 @@ export const PlaceOrderSchema = z
     shippingAddress: CheckoutAddressSchema.optional(),
     shippingAddressId: z.string().min(1).max(50).optional(),
     customerType: z.string().max(50).optional(),
+    customerOrderNumber: z.string().trim().min(1).max(200),
+    goodsLabel: z.string().max(500).optional(),
+    desiredDeliveryDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
   })
   .refine((d) => !!d.billingAddress || !!d.billingAddressId, {
     message: 'billingAddress or billingAddressId is required',

@@ -22,6 +22,24 @@ const stubs = {
   CardTitle: { template: '<h2><slot /></h2>' },
   CardContent: { template: '<div><slot /></div>' },
   MapPin: { template: '<svg />' },
+  Input: {
+    template:
+      '<input :value="modelValue" :type="type" :min="min" :disabled="disabled" data-testid="input-stub" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+    props: [
+      'modelValue',
+      'type',
+      'min',
+      'disabled',
+      'maxlength',
+      'placeholder',
+    ],
+    emits: ['update:modelValue'],
+  },
+  Label: { template: '<label><slot /></label>' },
+  CheckoutCardHeader: {
+    template: '<div data-testid="checkout-card-header" />',
+    props: ['icon', 'title'],
+  },
 };
 
 function makeAddress(overrides = {}) {
@@ -63,6 +81,21 @@ function makeCompany(overrides: Partial<Company> = {}): Company {
 const CheckoutDeliveryInfo =
   await import('../../../../app/components/checkout/CheckoutDeliveryInfo.vue');
 
+function makeProps(
+  overrides: Partial<
+    InstanceType<typeof CheckoutDeliveryInfo.default>['$props']
+  > = {},
+) {
+  return {
+    company: makeCompany(),
+    desiredDeliveryDate: '',
+    goodsLabel: '',
+    disabled: false,
+    todayIso: '2026-06-08',
+    ...overrides,
+  };
+}
+
 describe('CheckoutDeliveryInfo', () => {
   it('renders delivery address fields without name or phone', () => {
     const deliveryAddr = makeAddress({
@@ -78,7 +111,7 @@ describe('CheckoutDeliveryInfo', () => {
     });
     const company = makeCompany({ addresses: [deliveryAddr] });
     const wrapper = mount(CheckoutDeliveryInfo.default, {
-      props: { company },
+      props: makeProps({ company }),
       global: { stubs },
     });
     const addrBlock = wrapper.find('[data-testid="delivery-address"]');
@@ -91,9 +124,8 @@ describe('CheckoutDeliveryInfo', () => {
   });
 
   it('renders delivery address section label', () => {
-    const company = makeCompany();
     const wrapper = mount(CheckoutDeliveryInfo.default, {
-      props: { company },
+      props: makeProps(),
       global: { stubs },
     });
     expect(
@@ -117,7 +149,7 @@ describe('CheckoutDeliveryInfo', () => {
     });
     const company = makeCompany({ addresses: [billingAddr, shippingAddr] });
     const wrapper = mount(CheckoutDeliveryInfo.default, {
-      props: { company },
+      props: makeProps({ company }),
       global: { stubs },
     });
     const addrBlock = wrapper.find('[data-testid="delivery-address"]');
@@ -133,10 +165,104 @@ describe('CheckoutDeliveryInfo', () => {
     });
     const company = makeCompany({ addresses: [billingAddr] });
     const wrapper = mount(CheckoutDeliveryInfo.default, {
-      props: { company },
+      props: makeProps({ company }),
       global: { stubs },
     });
     const addrBlock = wrapper.find('[data-testid="delivery-address"]');
     expect(addrBlock.text()).toContain('Fallback Billing Street 42');
+  });
+
+  it('renders desired delivery date input', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(
+      wrapper.find('[data-testid="checkout-desired-delivery-date"]').exists(),
+    ).toBe(true);
+  });
+
+  it('binds :min to todayIso on the date input', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({ todayIso: '2026-07-01' }),
+      global: { stubs },
+    });
+    const dateInput = wrapper.find<HTMLInputElement>(
+      '[data-testid="checkout-desired-delivery-date"]',
+    );
+    expect(dateInput.attributes('min')).toBe('2026-07-01');
+  });
+
+  it('displays pre-filled desiredDeliveryDate', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({ desiredDeliveryDate: '2026-09-15' }),
+      global: { stubs },
+    });
+    const input = wrapper.find<HTMLInputElement>(
+      '[data-testid="checkout-desired-delivery-date"]',
+    );
+    expect(input.element.value).toBe('2026-09-15');
+  });
+
+  it('emits update:desiredDeliveryDate when date input changes', async () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    const input = wrapper.find(
+      '[data-testid="checkout-desired-delivery-date"]',
+    );
+    await input.setValue('2026-10-01');
+    expect(wrapper.emitted('update:desiredDeliveryDate')).toBeTruthy();
+    expect(wrapper.emitted('update:desiredDeliveryDate')![0]).toEqual([
+      '2026-10-01',
+    ]);
+  });
+
+  it('renders goods label input', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-testid="checkout-goods-label"]').exists()).toBe(
+      true,
+    );
+  });
+
+  it('displays pre-filled goodsLabel', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({ goodsLabel: 'Store 12' }),
+      global: { stubs },
+    });
+    const input = wrapper.find<HTMLInputElement>(
+      '[data-testid="checkout-goods-label"]',
+    );
+    expect(input.element.value).toBe('Store 12');
+  });
+
+  it('emits update:goodsLabel when goods label input changes', async () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    const input = wrapper.find('[data-testid="checkout-goods-label"]');
+    await input.setValue('Dock B');
+    expect(wrapper.emitted('update:goodsLabel')).toBeTruthy();
+    expect(wrapper.emitted('update:goodsLabel')![0]).toEqual(['Dock B']);
+  });
+
+  it('passes disabled prop to both date and goods label inputs', () => {
+    const wrapper = mount(CheckoutDeliveryInfo.default, {
+      props: makeProps({ disabled: true }),
+      global: { stubs },
+    });
+    const dateInput = wrapper.find<HTMLInputElement>(
+      '[data-testid="checkout-desired-delivery-date"]',
+    );
+    const goodsInput = wrapper.find<HTMLInputElement>(
+      '[data-testid="checkout-goods-label"]',
+    );
+    expect(dateInput.attributes('disabled')).toBeDefined();
+    expect(goodsInput.attributes('disabled')).toBeDefined();
   });
 });

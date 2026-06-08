@@ -401,7 +401,9 @@ describe('useCheckoutStore', () => {
           // shippingAddress is intentionally omitted when not separate;
           // Geins reuses the billing address for delivery in that case.
           identityNumber: undefined,
-          poNumber: undefined,
+          customerOrderNumber: undefined,
+          goodsLabel: undefined,
+          desiredDeliveryDate: undefined,
         },
       });
     });
@@ -521,6 +523,45 @@ describe('useCheckoutStore', () => {
       expect(store.isPlacingOrder).toBe(false);
       expect(store.orderResult).toBeNull();
     });
+
+    it('sends customerOrderNumber, goodsLabel, and desiredDeliveryDate when set', async () => {
+      mockFetchImpl.mockResolvedValueOnce(mockOrderResponse);
+
+      const store = useCheckoutStore();
+      store.email = 'order@example.com';
+      store.billingAddress = { ...mockAddress };
+      store.selectedPaymentId = 2;
+      store.selectedShippingId = 10;
+      store.customerOrderNumber = 'PO-12345';
+      store.goodsLabel = 'Fragile';
+      store.desiredDeliveryDate = '2026-07-01';
+
+      await store.placeOrder('cart-abc');
+
+      const callBody = mockFetchImpl.mock.calls[0][1].body;
+      expect(callBody.customerOrderNumber).toBe('PO-12345');
+      expect(callBody.goodsLabel).toBe('Fragile');
+      expect(callBody.desiredDeliveryDate).toBe('2026-07-01');
+    });
+
+    it('sends goodsLabel and desiredDeliveryDate as undefined when empty', async () => {
+      mockFetchImpl.mockResolvedValueOnce(mockOrderResponse);
+
+      const store = useCheckoutStore();
+      store.email = 'order@example.com';
+      store.billingAddress = { ...mockAddress };
+      store.selectedPaymentId = 2;
+      store.selectedShippingId = 10;
+      store.customerOrderNumber = 'PO-99';
+      store.goodsLabel = '';
+      store.desiredDeliveryDate = '';
+
+      await store.placeOrder('cart-abc');
+
+      const callBody = mockFetchImpl.mock.calls[0][1].body;
+      expect(callBody.goodsLabel).toBeUndefined();
+      expect(callBody.desiredDeliveryDate).toBeUndefined();
+    });
   });
 
   describe('canPlaceOrder', () => {
@@ -617,6 +658,9 @@ describe('useCheckoutStore', () => {
       await store.fetchCheckout('cart-abc');
       store.message = 'Hello';
       store.identityNumber = '12345';
+      store.customerOrderNumber = 'PO-999';
+      store.goodsLabel = 'Glass';
+      store.desiredDeliveryDate = '2026-09-01';
 
       store.reset();
 
@@ -633,6 +677,9 @@ describe('useCheckoutStore', () => {
       expect(store.isPlacingOrder).toBe(false);
       expect(store.error).toBeNull();
       expect(store.orderResult).toBeNull();
+      expect(store.customerOrderNumber).toBe('');
+      expect(store.goodsLabel).toBe('');
+      expect(store.desiredDeliveryDate).toBe('');
     });
   });
 });

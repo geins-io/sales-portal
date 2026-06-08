@@ -202,6 +202,7 @@ describe('Checkout API routes', () => {
         country: 'SE',
         zip: '11122',
       },
+      customerOrderNumber: 'PO-TEST-001',
     };
 
     beforeEach(async () => {
@@ -261,6 +262,67 @@ describe('Checkout API routes', () => {
       });
 
       expect(mockCreateOrder).not.toHaveBeenCalled();
+    });
+
+    it('passes customerOrderNumber and goodsLabel as strings in checkoutOptions', async () => {
+      mockCreateOrder.mockResolvedValue({
+        created: true,
+        orderId: 'ord-1',
+        publicId: 'pub-1',
+      });
+
+      const event = mockEvent({
+        body: {
+          ...validBody,
+          goodsLabel: 'Handle with care',
+        },
+      });
+      await handler(event);
+
+      expect(mockCreateOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          checkoutOptions: expect.objectContaining({
+            customerOrderNumber: 'PO-TEST-001',
+            goodsLabel: 'Handle with care',
+          }),
+        }),
+        event,
+      );
+    });
+
+    it('converts desiredDeliveryDate ISO string to a Date instance in checkoutOptions', async () => {
+      mockCreateOrder.mockResolvedValue({
+        created: true,
+        orderId: 'ord-2',
+        publicId: 'pub-2',
+      });
+
+      const event = mockEvent({
+        body: {
+          ...validBody,
+          desiredDeliveryDate: '2026-08-20',
+        },
+      });
+      await handler(event);
+
+      const passedOptions = mockCreateOrder.mock.calls[0][0];
+      const d = passedOptions.checkoutOptions.desiredDeliveryDate;
+      expect(d).toBeInstanceOf(Date);
+      expect(d.toISOString().startsWith('2026-08-20')).toBe(true);
+    });
+
+    it('omits desiredDeliveryDate from checkoutOptions when not provided', async () => {
+      mockCreateOrder.mockResolvedValue({
+        created: true,
+        orderId: 'ord-3',
+        publicId: 'pub-3',
+      });
+
+      const event = mockEvent({ body: validBody });
+      await handler(event);
+
+      const passedOptions = mockCreateOrder.mock.calls[0][0];
+      expect(passedOptions.checkoutOptions.desiredDeliveryDate).toBeUndefined();
     });
   });
 

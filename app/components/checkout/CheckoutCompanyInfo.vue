@@ -6,6 +6,8 @@ import type {
   CompanyBuyer,
 } from '#shared/types/company';
 import { Card, CardContent } from '~/components/ui/card';
+import { Input } from '~/components/ui/input';
+import { Label } from '~/components/ui/label';
 import CheckoutCardHeader from './CheckoutCardHeader.vue';
 
 const { t } = useI18n();
@@ -13,7 +15,15 @@ const { t } = useI18n();
 const props = defineProps<{
   company: Company;
   buyerEmail?: string;
+  customerOrderNumber: string;
+  disabled?: boolean;
 }>();
+
+const emit = defineEmits<{
+  'update:customerOrderNumber': [value: string];
+}>();
+
+const touched = ref(false);
 
 const billingAddress = computed<CompanyAddress | null>(() => {
   const addresses = props.company.addresses ?? [];
@@ -33,9 +43,8 @@ const activeBuyer = computed<CompanyBuyer | null>(() => {
   const email = props.buyerEmail?.trim().toLowerCase();
   if (!email) return null;
   return (
-    props.company.buyers?.find(
-      (b) => b.id?.trim().toLowerCase() === email,
-    ) ?? null
+    props.company.buyers?.find((b) => b.id?.trim().toLowerCase() === email) ??
+    null
   );
 });
 
@@ -52,7 +61,7 @@ const buyerName = computed(() =>
       :icon="Building2"
       :title="t('checkout.company_and_billing_info')"
     />
-    <CardContent class="px-6">
+    <CardContent class="space-y-6 px-6">
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <!-- Left: company identifiers -->
         <div class="space-y-3">
@@ -116,6 +125,37 @@ const buyerName = computed(() =>
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- PO number / reference (required) -->
+      <div class="space-y-2">
+        <Label for="checkout-customer-order-number">
+          {{ t('checkout.customer_order_number') }}
+          <span class="text-destructive ml-0.5">*</span>
+        </Label>
+        <Input
+          id="checkout-customer-order-number"
+          :model-value="props.customerOrderNumber"
+          type="text"
+          :placeholder="t('checkout.po_number_placeholder')"
+          :disabled="props.disabled"
+          maxlength="200"
+          data-testid="checkout-customer-order-number"
+          @blur="touched = true"
+          @update:model-value="
+            emit('update:customerOrderNumber', $event as string)
+          "
+        />
+        <p class="text-muted-foreground text-xs">
+          {{ t('checkout.customer_order_number_helper') }}
+        </p>
+        <p
+          v-if="touched && !props.customerOrderNumber"
+          class="text-destructive text-xs"
+          data-testid="checkout-customer-order-number-error"
+        >
+          {{ t('checkout.customer_order_number_required') }}
+        </p>
       </div>
     </CardContent>
   </Card>

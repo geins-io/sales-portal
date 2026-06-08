@@ -181,7 +181,7 @@
     "cart_items": "Your Items",
     "invoice_info": "Invoice Information",
     "po_number": "PO Number",
-    "po_number_placeholder": "Enter purchase order number",
+    "po_number_placeholder": "e.g. PO-2026-0412",
     "payment_terms": "Payment Terms",
     "payment_terms_days": "Days",
     "currency": "Currency",
@@ -196,7 +196,15 @@
     "per_unit": "/ unit",
     "delivery_address": "Delivery Address",
     "terms_prefix": "I accept ",
-    "terms_link_text": "the terms and conditions"
+    "terms_link_text": "the terms and conditions",
+    "customer_order_number": "Your reference / PO number",
+    "customer_order_number_helper": "Will appear on your invoice",
+    "customer_order_number_required": "Please enter your reference or PO number",
+    "goods_label": "Goods label",
+    "goods_label_placeholder": "e.g. Store 12 / Dock B / Project Atlas",
+    "goods_label_helper": "Printed on packages, freight docs and pallet flags so goods are identified on arrival",
+    "desired_delivery_date": "Desired delivery date",
+    "desired_delivery_date_helper": "Requested, not guaranteed"
   },
   "order_confirmation": {
     "title": "Order Confirmation",

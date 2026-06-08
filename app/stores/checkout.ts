@@ -46,7 +46,9 @@ export const useCheckoutStore = defineStore('checkout', () => {
   const email = ref('');
   const identityNumber = ref('');
   const message = ref('');
-  const poNumber = ref('');
+  const customerOrderNumber = ref('');
+  const goodsLabel = ref('');
+  const desiredDeliveryDate = ref(''); // ISO yyyy-mm-dd string
   const acceptedConsents = ref<string[]>([]);
   const isLoading = ref(false);
   const isPlacingOrder = ref(false);
@@ -210,7 +212,9 @@ export const useCheckoutStore = defineStore('checkout', () => {
                 )
               : {}),
             identityNumber: identityNumber.value || undefined,
-            poNumber: poNumber.value || undefined,
+            customerOrderNumber: customerOrderNumber.value || undefined,
+            goodsLabel: goodsLabel.value || undefined,
+            desiredDeliveryDate: desiredDeliveryDate.value || undefined,
           },
         },
       );
@@ -330,7 +334,9 @@ export const useCheckoutStore = defineStore('checkout', () => {
     email.value = '';
     identityNumber.value = '';
     message.value = '';
-    poNumber.value = '';
+    customerOrderNumber.value = '';
+    goodsLabel.value = '';
+    desiredDeliveryDate.value = '';
     acceptedConsents.value = [];
     isLoading.value = false;
     isPlacingOrder.value = false;
@@ -353,7 +359,9 @@ export const useCheckoutStore = defineStore('checkout', () => {
     email,
     identityNumber,
     message,
-    poNumber,
+    customerOrderNumber,
+    goodsLabel,
+    desiredDeliveryDate,
     acceptedConsents,
     isLoading,
     isPlacingOrder,

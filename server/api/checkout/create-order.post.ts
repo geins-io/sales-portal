@@ -40,6 +40,19 @@ export default defineEventHandler(async (event) => {
           message: body.message,
           acceptedConsents: body.acceptedConsents,
           customerType: body.customerType as CustomerType | undefined,
+          customerOrderNumber: body.customerOrderNumber,
+          goodsLabel: body.goodsLabel,
+          desiredDeliveryDate: (() => {
+            if (!body.desiredDeliveryDate) return undefined;
+            const d = new Date(body.desiredDeliveryDate);
+            if (isNaN(d.getTime())) {
+              throw createAppError(
+                ErrorCode.BAD_REQUEST,
+                'Invalid desiredDeliveryDate',
+              );
+            }
+            return d;
+          })(),
           ...checkoutAddressFields(
             'billing',
             body.billingAddress,
