@@ -81,9 +81,9 @@ in Geins Studio and rendered by the existing `app/pages/[...slug].vue`
 catch-all route. The form is a JSON form widget inside the page, routed
 by `JsonWidget` to `FormWidget`.
 
-The legacy `/contact` route (`app/pages/contact.vue`) issues a 301
-redirect to the locale-prefixed `/contact-form`, so any bookmarks or
-links to `/contact` continue to work.
+There is no separate `/contact` route. Navigation links straight to
+`/contact-form` (the header topbar uses `localePath('/contact-form')`),
+so `/contact-form` is the single canonical contact URL.
 
 There is no `CONTACT_FORM` CMS slot. No `DEFAULT_CMS_CONFIG` seed is
 needed: the page renders as an ordinary CMS page via the catch-all,
@@ -99,5 +99,4 @@ not via an area fetch.
 - `app/utils/mailto.ts`: `buildMailto`.
 - `app/utils/country-options.ts`: `getCountryOptions`.
 - `app/pages/apply-for-account.vue`: apply page (feature-gated CMS area).
-- `app/pages/contact.vue`: 301 redirect from /contact to /contact-form.
 - `app/pages/[...slug].vue`: catch-all that renders the contact-form CMS page.
