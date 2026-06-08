@@ -15,7 +15,7 @@ export interface CountryOption {
 
 /**
  * Full ISO 3166-1 alpha-2 country code list (249 codes).
- * Static constant — labels are resolved at runtime via Intl.DisplayNames.
+ * Static constant. Labels are resolved at runtime via Intl.DisplayNames.
  */
 const ISO_3166_1_ALPHA2 = [
   'AD', 'AE', 'AF', 'AG', 'AI', 'AL', 'AM', 'AO', 'AQ', 'AR',
