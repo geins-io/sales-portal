@@ -89,13 +89,29 @@ export interface VideoWidgetData {
   image?: WidgetImage;
 }
 
+export type FormFieldType = 'input' | 'email' | 'textarea' | 'select';
+
+export interface FormWidgetField {
+  label: string;
+  name: string;
+  required: boolean;
+  type: FormFieldType;
+  options?: { value: string; label: string }[];
+}
+
+export interface FormWidgetData {
+  sendFormToEmail: string;
+  fields: FormWidgetField[];
+}
+
 export type WidgetData =
   | TextWidgetData
   | HtmlWidgetData
   | ImageWidgetData
   | BannerWidgetData
   | ButtonsWidgetData
-  | VideoWidgetData;
+  | VideoWidgetData
+  | FormWidgetData;
 
 /** Resolve the image filename from either `filename` (CMS config) or `fileName` (GraphQL). */
 export function resolveImageFileName(image: WidgetImage | undefined): string {
