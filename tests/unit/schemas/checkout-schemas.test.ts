@@ -182,18 +182,56 @@ describe('PlaceOrderSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects missing customerOrderNumber', () => {
-    const { customerOrderNumber: _, ...noRef } = validOrder;
-    const result = PlaceOrderSchema.safeParse(noRef);
+  it('rejects missing customerOrderNumber for a company (B2B) order', () => {
+    // B2B orders send billingAddressId; customerOrderNumber is required in that
+    // shape. Consumer orders (billingAddress literal) may omit it.
+    const companyOrder = {
+      cartId: 'cart-123',
+      paymentId: 1,
+      shippingId: 2,
+      email: 'anna@example.com',
+      billingAddressId: 'addr-001',
+    };
+    const result = PlaceOrderSchema.safeParse(companyOrder);
     expect(result.success).toBe(false);
   });
 
-  it('rejects empty customerOrderNumber', () => {
-    const result = PlaceOrderSchema.safeParse({
-      ...validOrder,
+  it('rejects empty customerOrderNumber for a company (B2B) order', () => {
+    const companyOrder = {
+      cartId: 'cart-123',
+      paymentId: 1,
+      shippingId: 2,
+      email: 'anna@example.com',
+      billingAddressId: 'addr-001',
       customerOrderNumber: '',
-    });
+    };
+    const result = PlaceOrderSchema.safeParse(companyOrder);
     expect(result.success).toBe(false);
+  });
+
+  it('accepts a company (B2B) order WITH customerOrderNumber', () => {
+    const companyOrder = {
+      cartId: 'cart-123',
+      paymentId: 1,
+      shippingId: 2,
+      email: 'anna@example.com',
+      billingAddressId: 'addr-001',
+      customerOrderNumber: 'PO-2026-001',
+    };
+    const result = PlaceOrderSchema.safeParse(companyOrder);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a consumer order WITHOUT customerOrderNumber', () => {
+    const consumerOrder = {
+      cartId: 'cart-123',
+      paymentId: 1,
+      shippingId: 2,
+      email: 'anna@example.com',
+      billingAddress: validAddress,
+    };
+    const result = PlaceOrderSchema.safeParse(consumerOrder);
+    expect(result.success).toBe(true);
   });
 
   it('rejects customerOrderNumber exceeding 200 chars', () => {
@@ -246,11 +284,16 @@ describe('PlaceOrderSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects whitespace-only customerOrderNumber', () => {
-    const result = PlaceOrderSchema.safeParse({
-      ...validOrder,
+  it('rejects whitespace-only customerOrderNumber for a company (B2B) order', () => {
+    const companyOrder = {
+      cartId: 'cart-123',
+      paymentId: 1,
+      shippingId: 2,
+      email: 'anna@example.com',
+      billingAddressId: 'addr-001',
       customerOrderNumber: '   ',
-    });
+    };
+    const result = PlaceOrderSchema.safeParse(companyOrder);
     expect(result.success).toBe(false);
   });
 

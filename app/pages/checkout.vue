@@ -210,7 +210,7 @@ watch(
 async function handlePlaceOrder() {
   if (!cartStore.cartId || !checkoutStore.canPlaceOrder) return;
   if (!acceptedTerms.value) return;
-  if (!hasCustomerOrderNumber.value) return;
+  if (checkoutStore.billingAddressId && !hasCustomerOrderNumber.value) return;
   await checkoutStore.placeOrder(cartStore.cartId);
 }
 </script>
@@ -479,7 +479,7 @@ async function handlePlaceOrder() {
                 checkoutStore.canPlaceOrder &&
                 !checkoutStore.isBlacklisted &&
                 acceptedTerms &&
-                hasCustomerOrderNumber
+                (!checkoutStore.billingAddressId || hasCustomerOrderNumber)
               "
               :is-placing-order="checkoutStore.isPlacingOrder"
               @place-order="handlePlaceOrder"

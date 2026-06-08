@@ -32,6 +32,32 @@ vi.mock('#app/composables/router', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock useFetch — controls company fetch result per test.
+// Default: no company data (non-company / consumer user).
+// Tests that need isCompanyUser=true set mockCompanyData before mounting.
+// ---------------------------------------------------------------------------
+const mockCompanyData = ref<{ company: object } | null>(null);
+
+vi.mock('#app/composables/fetch', () => ({
+  useFetch: vi.fn((_url: string) => {
+    return Promise.resolve({
+      data: ref(mockCompanyData.value),
+      error: ref(null),
+    });
+  }),
+}));
+
+vi.stubGlobal(
+  'useFetch',
+  vi.fn((_url: string) => {
+    return Promise.resolve({
+      data: ref(mockCompanyData.value),
+      error: ref(null),
+    });
+  }),
+);
+
+// ---------------------------------------------------------------------------
 // Mock useCookie — cart ID present so no redirect fires
 // ---------------------------------------------------------------------------
 const mockCartIdCookie = ref<string | null>('cart-test-001');
@@ -95,6 +121,7 @@ vi.mock('../../../app/stores/checkout', () => ({
     goodsLabel: '',
     desiredDeliveryDate: '',
     billingAddress: {},
+    billingAddressId: null,
     shippingAddress: {},
     useSeparateShipping: false,
     message: '',
@@ -121,13 +148,15 @@ vi.mock('../../../app/stores/cart', () => ({
   })),
 }));
 
+const mockAuthStore = {
+  isAuthenticated: false,
+  isInitialized: true,
+  user: null as { username: string } | null,
+  fetchUser: vi.fn().mockResolvedValue(undefined),
+};
+
 vi.mock('../../../app/stores/auth', () => ({
-  useAuthStore: vi.fn(() => ({
-    isAuthenticated: false,
-    isInitialized: true,
-    user: null,
-    fetchUser: vi.fn().mockResolvedValue(undefined),
-  })),
+  useAuthStore: vi.fn(() => mockAuthStore),
 }));
 
 vi.mock('#shared/constants/storage', () => ({
@@ -140,6 +169,22 @@ vi.mock('#shared/constants/storage', () => ({
 const stubs = {
   ...defaultMountOptions.global?.stubs,
   CheckoutCartItems: { template: '<div data-testid="checkout-cart-items" />' },
+  CheckoutCompanyInfo: {
+    template: '<div data-testid="checkout-company-info" />',
+    props: ['company', 'buyerEmail', 'customerOrderNumber', 'disabled'],
+    emits: ['update:customerOrderNumber'],
+  },
+  CheckoutDeliveryInfo: {
+    template: '<div data-testid="checkout-delivery-info" />',
+    props: [
+      'company',
+      'desiredDeliveryDate',
+      'goodsLabel',
+      'disabled',
+      'todayIso',
+    ],
+    emits: ['update:desiredDeliveryDate', 'update:goodsLabel'],
+  },
   CheckoutInvoiceInfo: {
     template: '<div data-testid="checkout-invoice-info" />',
   },
@@ -231,6 +276,10 @@ describe('checkout page', () => {
     mockCartIdCookie.value = 'cart-test-001';
     mockFetchCheckout.mockClear();
     mockPlaceOrder = vi.fn().mockResolvedValue(undefined);
+    // Reset to non-company state between tests
+    mockCompanyData.value = null;
+    mockAuthStore.isAuthenticated = false;
+    mockAuthStore.user = null;
   });
 
   it('renders checkout page container', async () => {
@@ -257,15 +306,252 @@ describe('checkout page', () => {
     expect(mockFetchCheckout).toHaveBeenCalledWith('cart-test-001');
   });
 
-  it('blocks handlePlaceOrder when customerOrderNumber is empty', async () => {
-    // Default mock: customerOrderNumber is '' so the early-return fires.
-    // mockPlaceOrder is the stable fn the component's store instance delegates
-    // to, so asserting here is non-tautological (it would fail if the gate
-    // logic were removed).
-    const wrapper = await mountCheckoutPage();
+  it('blocks handlePlaceOrder when customerOrderNumber is empty for a company user', async () => {
+    // Company user context: billingAddressId is set (simulating prefillFromCompany),
+    // customerOrderNumber is '' so the B2B PO-gate fires and placeOrder is never called.
+    // Terms are auto-accepted so the terms gate is NOT the blocker — if we deleted
+    // the PO gate, this test would fail because placeOrder would be called.
+    const { useCheckoutStore } = await import('../../../app/stores/checkout');
+    vi.mocked(useCheckoutStore).mockReturnValueOnce({
+      isLoading: false,
+      isPlacingOrder: false,
+      isBlacklisted: false,
+      canPlaceOrder: true,
+      error: null,
+      orderResult: null,
+      quoteResult: null,
+      email: 'buyer@company.com',
+      identityNumber: '',
+      customerOrderNumber: '',
+      goodsLabel: '',
+      desiredDeliveryDate: '',
+      billingAddress: {},
+      billingAddressId: 'addr-b2b-1',
+      shippingAddress: {},
+      useSeparateShipping: false,
+      message: '',
+      paymentOptions: [],
+      shippingOptions: [],
+      consents: [],
+      acceptedConsents: [],
+      selectedPaymentId: 1,
+      selectedShippingId: 1,
+      checkout: null,
+      placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
+      toggleConsent: vi.fn(),
+      fetchCheckout: mockFetchCheckout,
+      prefillFromCompany: vi.fn(),
+    } as ReturnType<typeof useCheckoutStore>);
+
+    mockAuthStore.isAuthenticated = true;
+    mockAuthStore.user = { username: 'buyer@company.com' };
+    mockCompanyData.value = {
+      company: {
+        id: 'c1',
+        name: 'Acme AB',
+        addresses: [],
+      },
+    };
+
+    // Auto-accept terms so the terms gate is cleared; only the PO gate blocks.
+    const stubbedStubs = {
+      ...stubs,
+      CheckoutTermsAgreement: {
+        template: '<div data-testid="checkout-terms-auto" />',
+        props: ['modelValue', 'disabled'],
+        emits: ['update:modelValue'],
+        mounted() {
+          (this as unknown as { $emit: (e: string, v: boolean) => void }).$emit(
+            'update:modelValue',
+            true,
+          );
+        },
+      },
+    };
+
+    const Wrapper = defineComponent({
+      components: { CheckoutPage },
+      setup() {
+        return () => h(Suspense, null, { default: () => h(CheckoutPage) });
+      },
+    });
+
+    const wrapper = mount(Wrapper, {
+      global: {
+        ...defaultMountOptions.global,
+        stubs: stubbedStubs,
+        mocks: {
+          ...defaultMountOptions.global?.mocks,
+          $t: (key: string) => key,
+        },
+      },
+    });
+    await flushPromises();
+
     const placeOrderButton = wrapper.find('[data-testid="place-order-button"]');
     await placeOrderButton.trigger('click');
+    await flushPromises();
     expect(mockPlaceOrder).not.toHaveBeenCalled();
+  });
+
+  it('allows a company user with customerOrderNumber and billingAddressId to place an order', async () => {
+    // B2B happy path: billingAddressId is set, customerOrderNumber is non-empty,
+    // and terms are accepted. All gates pass and placeOrder is called.
+    const { useCheckoutStore } = await import('../../../app/stores/checkout');
+    vi.mocked(useCheckoutStore).mockReturnValueOnce({
+      isLoading: false,
+      isPlacingOrder: false,
+      isBlacklisted: false,
+      canPlaceOrder: true,
+      error: null,
+      orderResult: null,
+      quoteResult: null,
+      email: 'buyer@company.com',
+      identityNumber: '',
+      customerOrderNumber: 'PO-B2B-001',
+      goodsLabel: '',
+      desiredDeliveryDate: '',
+      billingAddress: {},
+      billingAddressId: 'addr-b2b-1',
+      shippingAddress: {},
+      useSeparateShipping: false,
+      message: '',
+      paymentOptions: [],
+      shippingOptions: [],
+      consents: [],
+      acceptedConsents: [],
+      selectedPaymentId: 1,
+      selectedShippingId: 1,
+      checkout: null,
+      placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
+      toggleConsent: vi.fn(),
+      fetchCheckout: mockFetchCheckout,
+      prefillFromCompany: vi.fn(),
+    } as ReturnType<typeof useCheckoutStore>);
+
+    mockAuthStore.isAuthenticated = true;
+    mockAuthStore.user = { username: 'buyer@company.com' };
+    mockCompanyData.value = {
+      company: {
+        id: 'c1',
+        name: 'Acme AB',
+        addresses: [],
+      },
+    };
+
+    const stubbedStubs = {
+      ...stubs,
+      CheckoutTermsAgreement: {
+        template: '<div data-testid="checkout-terms-auto" />',
+        props: ['modelValue', 'disabled'],
+        emits: ['update:modelValue'],
+        mounted() {
+          (this as unknown as { $emit: (e: string, v: boolean) => void }).$emit(
+            'update:modelValue',
+            true,
+          );
+        },
+      },
+    };
+
+    const Wrapper = defineComponent({
+      components: { CheckoutPage },
+      setup() {
+        return () => h(Suspense, null, { default: () => h(CheckoutPage) });
+      },
+    });
+
+    const wrapper = mount(Wrapper, {
+      global: {
+        ...defaultMountOptions.global,
+        stubs: stubbedStubs,
+        mocks: {
+          ...defaultMountOptions.global?.mocks,
+          $t: (key: string) => key,
+        },
+      },
+    });
+    await flushPromises();
+
+    const placeOrderButton = wrapper.find('[data-testid="place-order-button"]');
+    await placeOrderButton.trigger('click');
+    await flushPromises();
+    expect(mockPlaceOrder).toHaveBeenCalled();
+  });
+
+  it('allows a non-company user to place an order with empty customerOrderNumber', async () => {
+    // Non-company user: isAuthenticated=false (default), so isCompanyUser is
+    // false. The PO gate must NOT fire — placeOrder should be called when
+    // canPlaceOrder is true and terms are accepted.
+    const { useCheckoutStore } = await import('../../../app/stores/checkout');
+    vi.mocked(useCheckoutStore).mockReturnValueOnce({
+      isLoading: false,
+      isPlacingOrder: false,
+      isBlacklisted: false,
+      canPlaceOrder: true,
+      error: null,
+      orderResult: null,
+      quoteResult: null,
+      email: 'consumer@example.com',
+      identityNumber: '',
+      customerOrderNumber: '',
+      goodsLabel: '',
+      desiredDeliveryDate: '',
+      billingAddress: {},
+      shippingAddress: {},
+      useSeparateShipping: false,
+      message: '',
+      paymentOptions: [],
+      shippingOptions: [],
+      consents: [],
+      acceptedConsents: [],
+      selectedPaymentId: 1,
+      selectedShippingId: 1,
+      checkout: null,
+      placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
+      toggleConsent: vi.fn(),
+      fetchCheckout: mockFetchCheckout,
+      prefillFromCompany: vi.fn(),
+    } as ReturnType<typeof useCheckoutStore>);
+
+    const stubbedStubs = {
+      ...stubs,
+      CheckoutTermsAgreement: {
+        template: '<div data-testid="checkout-terms-auto" />',
+        props: ['modelValue', 'disabled'],
+        emits: ['update:modelValue'],
+        mounted() {
+          (this as unknown as { $emit: (e: string, v: boolean) => void }).$emit(
+            'update:modelValue',
+            true,
+          );
+        },
+      },
+    };
+
+    const Wrapper = defineComponent({
+      components: { CheckoutPage },
+      setup() {
+        return () => h(Suspense, null, { default: () => h(CheckoutPage) });
+      },
+    });
+
+    const wrapper = mount(Wrapper, {
+      global: {
+        ...defaultMountOptions.global,
+        stubs: stubbedStubs,
+        mocks: {
+          ...defaultMountOptions.global?.mocks,
+          $t: (key: string) => key,
+        },
+      },
+    });
+    await flushPromises();
+
+    const placeOrderButton = wrapper.find('[data-testid="place-order-button"]');
+    await placeOrderButton.trigger('click');
+    await flushPromises();
+    expect(mockPlaceOrder).toHaveBeenCalled();
   });
 
   it('calls placeOrder when customerOrderNumber is present and canPlaceOrder is true', async () => {
