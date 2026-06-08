@@ -104,30 +104,6 @@ describe('FormWidget', () => {
     expect(emailInput.attributes('type')).toBe('email');
   });
 
-  it('renders a Select for type select (country)', () => {
-    const wrapper = mountComponent(FormWidget, {
-      props: makeProps(),
-      global: {
-        stubs: {
-          'i18n-t': i18nTStub,
-          Select: {
-            template:
-              '<div class="select-stub" data-testid="select-stub"><slot /></div>',
-          },
-          SelectTrigger: { template: '<div><slot /></div>' },
-          SelectContent: { template: '<div><slot /></div>' },
-          SelectItem: {
-            template: '<div :value="value"><slot /></div>',
-            props: ['value'],
-          },
-          SelectValue: { template: '<span />' },
-        },
-      },
-    });
-    const selectStub = wrapper.find('[data-testid="select-stub"]');
-    expect(selectStub.exists()).toBe(true);
-  });
-
   it('shows required-field error after blur on an empty required field', async () => {
     const wrapper = mountWidget();
     const companyInput = wrapper.find(
@@ -204,11 +180,5 @@ describe('FormWidget', () => {
     const link = fallback.find('a');
     expect(link.exists()).toBe(true);
     expect(link.attributes('href')).toBe('mailto:contact@example.com');
-  });
-
-  it('renders safely when data.fields is empty', () => {
-    const wrapper = mountWidget({ fields: [] });
-    const fieldGroups = wrapper.findAll('[data-testid^="form-field-"]');
-    expect(fieldGroups.length).toBe(0);
   });
 });

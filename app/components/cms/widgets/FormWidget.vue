@@ -27,7 +27,6 @@ const { t, locale } = useI18n();
 // Call once in setup; getCountryOptions maps ~249 codes + sorts on every call.
 const countryOptions = getCountryOptions(locale.value as SupportedLocale);
 
-// Build reactive form values keyed by field name.
 const formValues = reactive<Record<string, string>>({});
 const fieldErrors = reactive<Record<string, string>>({});
 const touched = reactive<Record<string, boolean>>({});
@@ -41,7 +40,6 @@ watchEffect(() => {
   }
 });
 
-// Build a field-level schema map dynamically from data.fields.
 function buildFieldSchemas(
   fields: FormWidgetField[],
 ): Record<string, z.ZodTypeAny> {

@@ -68,10 +68,6 @@ const bannerImages = computed(
 
 const { localePath } = useLocaleMarket();
 
-/**
- * Type guard: returns true when data matches the FormWidgetData shape
- * (has a string sendFormToEmail and an array fields).
- */
 function isFormWidgetData(data: unknown): data is FormWidgetData {
   if (typeof data !== 'object' || data === null) return false;
   const d = data as Record<string, unknown>;
@@ -91,7 +87,6 @@ function _resolveImageSrc(src: string | undefined): string {
 </script>
 
 <template>
-  <!-- Account application form (sendFormToEmail + fields shape) -->
   <FormWidget
     v-if="formWidgetData"
     :data="formWidgetData"
