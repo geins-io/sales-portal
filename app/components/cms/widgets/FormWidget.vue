@@ -24,8 +24,10 @@ const props = defineProps<{
 
 const { t, locale } = useI18n();
 
-// Call once in setup; getCountryOptions maps ~249 codes + sorts on every call.
-const countryOptions = getCountryOptions(locale.value as SupportedLocale);
+// Computed so it reacts to locale changes without re-running on every render.
+const countryOptions = computed(() =>
+  getCountryOptions(locale.value as SupportedLocale),
+);
 
 const formValues = reactive<Record<string, string>>({});
 const fieldErrors = reactive<Record<string, string>>({});
@@ -40,38 +42,42 @@ watchEffect(() => {
   }
 });
 
-function buildFieldSchemas(
-  fields: FormWidgetField[],
-): Record<string, z.ZodTypeAny> {
+// Build schema map once per fields change; validateField looks up by name.
+const fieldSchemaMap = computed(() => {
   const map: Record<string, z.ZodTypeAny> = {};
-  for (const field of fields) {
-    if (field.required) {
-      if (field.type === 'email') {
+  for (const field of props.data?.fields ?? []) {
+    if (field.type === 'email') {
+      // Apply email format validation regardless of required so partial fills
+      // that contain an invalid address still show an error.
+      if (field.required) {
         map[field.name] = z
           .string()
           .min(1, 'form.field_required')
           .email('form.invalid_email');
       } else {
-        map[field.name] = z.string().min(1, 'form.field_required');
+        map[field.name] = z
+          .string()
+          .refine((v) => v === '' || z.string().email().safeParse(v).success, {
+            message: 'form.invalid_email',
+          });
       }
+    } else if (field.required) {
+      map[field.name] = z.string().min(1, 'form.field_required');
     } else {
       map[field.name] = z.string();
     }
   }
   return map;
-}
+});
 
 function validateField(name: string) {
-  const fields = props.data?.fields ?? [];
-  const schemas = buildFieldSchemas(fields);
-  const fieldSchema = schemas[name];
+  const fieldSchema = fieldSchemaMap.value[name];
   if (!fieldSchema) return;
   const result = fieldSchema.safeParse(formValues[name] ?? '');
   if (result.success) {
     fieldErrors[name] = '';
   } else {
-    fieldErrors[name] =
-      (result.error as z.ZodError).issues[0]?.message ?? '';
+    fieldErrors[name] = result.error.issues[0]?.message ?? '';
   }
 }
 
@@ -96,20 +102,23 @@ function validateAll(): boolean {
 
 defineExpose({ formValues, fieldErrors, touched, handleSubmit, validateAll });
 
+// Company-field detection: match first field whose name (lowercased) contains
+// any of the known company-name tokens, or fall back to first field.
+const COMPANY_TOKENS = ['company', 'companyname', 'foretag', 'företag', 'firma', 'bolag'];
+
 function handleSubmit() {
   if (!validateAll()) return;
 
   const fields = props.data?.fields ?? [];
 
-  // Determine subject field: first field whose name contains 'company' (case-insensitive), else first field.
-  const companyField = fields.find((f) =>
-    f.name.toLowerCase().includes('company'),
-  );
-  const subjectField = companyField ?? fields[0];
-  const companyValue = subjectField ? (formValues[subjectField.name] ?? '') : '';
+  const companyField =
+    fields.find((f) =>
+      COMPANY_TOKENS.some((tok) => f.name.toLowerCase().includes(tok)),
+    ) ?? fields[0];
+  const companyValue = companyField ? (formValues[companyField.name] ?? '') : '';
   const subject = `Account application: ${companyValue}`;
 
-  const mailtoFields = fields.map((f) => ({
+  const mailtoFields = fields.map((f: FormWidgetField) => ({
     label: f.label,
     value: formValues[f.name] ?? '',
   }));
@@ -121,6 +130,15 @@ function handleSubmit() {
   });
 
   safeLocationRedirect(url);
+}
+
+// Derive the options for a select field: prefer CMS-supplied options when
+// non-empty; fall back to locale-aware country list.
+function selectOptionsFor(field: FormWidgetField) {
+  if (field.options && field.options.length > 0) {
+    return field.options;
+  }
+  return countryOptions.value;
 }
 </script>
 
@@ -136,7 +154,14 @@ function handleSubmit() {
       class="space-y-2"
       :data-testid="`form-field-${field.name}`"
     >
-      <Label :for="`form-field-input-${field.name}`">{{ field.label }}</Label>
+      <Label :for="`form-field-input-${field.name}`">
+        {{ field.label }}
+        <span
+          v-if="field.required"
+          class="text-destructive ms-0.5"
+          aria-hidden="true"
+        >*</span>
+      </Label>
 
       <!-- Select field -->
       <template v-if="field.type === 'select'">
@@ -146,12 +171,24 @@ function handleSubmit() {
             (val) => handleSelectChange(field.name, String(val ?? ''))
           "
         >
-          <SelectTrigger :id="`form-field-input-${field.name}`" class="w-full">
-            <SelectValue :placeholder="t('apply.country_placeholder')" />
+          <SelectTrigger
+            :id="`form-field-input-${field.name}`"
+            class="w-full"
+            :aria-invalid="
+              touched[field.name] && !!fieldErrors[field.name] ? 'true' : undefined
+            "
+            :aria-describedby="
+              touched[field.name] && fieldErrors[field.name]
+                ? `form-field-${field.name}-error`
+                : undefined
+            "
+            :aria-required="field.required ? 'true' : undefined"
+          >
+            <SelectValue :placeholder="t('form.country_placeholder')" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem
-              v-for="opt in countryOptions"
+              v-for="opt in selectOptionsFor(field)"
               :key="opt.value"
               :value="opt.value"
             >
@@ -166,7 +203,16 @@ function handleSubmit() {
         <textarea
           :id="`form-field-input-${field.name}`"
           v-model="formValues[field.name]"
-          class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          class="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          :aria-invalid="
+            touched[field.name] && !!fieldErrors[field.name] ? 'true' : undefined
+          "
+          :aria-describedby="
+            touched[field.name] && fieldErrors[field.name]
+              ? `form-field-${field.name}-error`
+              : undefined
+          "
+          :aria-required="field.required ? 'true' : undefined"
           @blur="handleBlur(field.name)"
         />
       </template>
@@ -177,13 +223,24 @@ function handleSubmit() {
           :id="`form-field-input-${field.name}`"
           v-model="formValues[field.name]"
           :type="field.type === 'email' ? 'email' : 'text'"
+          :aria-invalid="
+            touched[field.name] && !!fieldErrors[field.name] ? 'true' : undefined
+          "
+          :aria-describedby="
+            touched[field.name] && fieldErrors[field.name]
+              ? `form-field-${field.name}-error`
+              : undefined
+          "
+          :aria-required="field.required ? 'true' : undefined"
           @blur="handleBlur(field.name)"
         />
       </template>
 
       <p
         v-if="touched[field.name] && fieldErrors[field.name]"
+        :id="`form-field-${field.name}-error`"
         class="text-destructive text-xs"
+        role="alert"
         :data-testid="`form-field-${field.name}-error`"
       >
         {{ t(fieldErrors[field.name] ?? '') }}
@@ -196,15 +253,16 @@ function handleSubmit() {
       </Button>
 
       <p
+        v-if="data?.sendFormToEmail"
         class="text-muted-foreground text-sm"
         data-testid="form-fallback"
       >
         <i18n-t keypath="form.fallback_email" tag="span">
           <template #recipient>
             <a
-              :href="`mailto:${data?.sendFormToEmail ?? ''}`"
+              :href="`mailto:${data.sendFormToEmail}`"
               class="text-primary underline underline-offset-2"
-            >{{ data?.sendFormToEmail ?? '' }}</a>
+            >{{ data.sendFormToEmail }}</a>
           </template>
         </i18n-t>
       </p>

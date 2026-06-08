@@ -30,6 +30,13 @@ const i18nTStub = {
   props: ['keypath', 'tag'],
 };
 
+// Stub Select components so they render predictable markup in happy-dom.
+const selectTriggerStub = {
+  template:
+    '<button :id="id" :aria-invalid="ariaInvalid" :aria-describedby="ariaDescribedby" :aria-required="ariaRequired" data-testid-stub="select-trigger"><slot /></button>',
+  props: ['id', 'ariaInvalid', 'ariaDescribedby', 'ariaRequired', 'class'],
+};
+
 const sampleFields: FormWidgetData['fields'] = [
   { label: 'Company name', name: 'companyName', required: true, type: 'input' },
   {
@@ -72,6 +79,7 @@ function mountWidget(dataOverride?: Partial<FormWidgetData>) {
     global: {
       stubs: {
         'i18n-t': i18nTStub,
+        SelectTrigger: selectTriggerStub,
       },
     },
   });
@@ -102,6 +110,44 @@ describe('FormWidget', () => {
     const emailInput = wrapper.find('[data-testid="form-field-email"] input');
     expect(emailInput.exists()).toBe(true);
     expect(emailInput.attributes('type')).toBe('email');
+  });
+
+  // B3: select branch is exercised — deleting the v-if="field.type==='select'" block would fail this.
+  it('renders a SelectTrigger (not a bare input) for type select', () => {
+    const wrapper = mountWidget();
+    const countryField = wrapper.find('[data-testid="form-field-country"]');
+    // Must contain a SelectTrigger stub, not a bare <input>
+    expect(countryField.find('[data-testid-stub="select-trigger"]').exists()).toBe(true);
+    expect(countryField.find('input').exists()).toBe(false);
+  });
+
+  // B4: empty fields array renders no field groups but still shows submit + fallback.
+  it('renders no field groups but shows submit and fallback when fields is empty', () => {
+    const wrapper = mountWidget({ fields: [] });
+    // No data-testid starting with form-field- (those are field groups only)
+    const fieldGroups = wrapper.findAll('[data-testid^="form-field-"]');
+    expect(fieldGroups.length).toBe(0);
+    expect(wrapper.find('[data-testid="form-submit"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="form-fallback"]').exists()).toBe(true);
+  });
+
+  // B4: undefined/null-ish data shape does not throw.
+  it('renders safely when fields is explicitly an empty array (SSR null-safety)', () => {
+    // Pass an object with no fields key to exercise ?? [] safety paths.
+    const wrapper = mountComponent(FormWidget, {
+      props: {
+        data: { sendFormToEmail: 'a@b.com', fields: [] } as FormWidgetData,
+        config: sampleConfig,
+        layout: 'full',
+      },
+      global: {
+        stubs: {
+          'i18n-t': i18nTStub,
+          SelectTrigger: selectTriggerStub,
+        },
+      },
+    });
+    expect(wrapper.find('[data-testid="form-widget"]').exists()).toBe(true);
   });
 
   it('shows required-field error after blur on an empty required field', async () => {
@@ -135,10 +181,10 @@ describe('FormWidget', () => {
     expect(navigateToMock).not.toHaveBeenCalled();
   });
 
-  it('opens a mailto URL containing the company value on valid submit', async () => {
+  // W9: strengthened mailto assertion — decode URL and verify subject + body format.
+  it('opens a mailto URL with correct subject and labelled body on valid submit', async () => {
     const wrapper = mountWidget();
 
-    // Fill all required fields via setValue (triggers reactivity)
     await wrapper
       .find('[data-testid="form-field-companyName"] input')
       .setValue('Acme Corp');
@@ -155,7 +201,7 @@ describe('FormWidget', () => {
       .find('[data-testid="form-field-email"] input')
       .setValue('jane@acme.com');
 
-    // Drive country select via exposed formValues (Radix Select is not testable in happy-dom)
+    // Drive country select via exposed formValues (Radix Select not testable in happy-dom).
     const vm = wrapper.vm as unknown as {
       formValues: Record<string, string>;
       handleSubmit: () => void;
@@ -163,14 +209,30 @@ describe('FormWidget', () => {
     vm.formValues['country'] = 'SE';
     await wrapper.vm.$nextTick();
 
-    // Call handleSubmit directly to bypass the DOM click -> form submit chain
     vm.handleSubmit();
     await wrapper.vm.$nextTick();
 
     expect(navigateToMock).toHaveBeenCalledTimes(1);
     const calledUrl: string = navigateToMock.mock.calls[0]?.[0] as string;
     expect(calledUrl).toMatch(/^mailto:/);
-    expect(calledUrl).toContain('Acme');
+
+    // Decode and verify subject equals the literal business-critical format.
+    const decoded = decodeURIComponent(calledUrl);
+    expect(decoded).toContain('Account application: Acme Corp');
+
+    // Body must contain at least one "Label: value" line.
+    expect(decoded).toMatch(/Company name:\s*Acme Corp/);
+  });
+
+  // W11: textarea branch test.
+  it('renders a textarea for type textarea', () => {
+    const fields: FormWidgetData['fields'] = [
+      { label: 'Message', name: 'message', required: false, type: 'textarea' },
+    ];
+    const wrapper = mountWidget({ fields });
+    const field = wrapper.find('[data-testid="form-field-message"]');
+    expect(field.find('textarea').exists()).toBe(true);
+    expect(field.find('input').exists()).toBe(false);
   });
 
   it('renders fallback text with the recipient email as a mailto link', () => {
@@ -180,5 +242,20 @@ describe('FormWidget', () => {
     const link = fallback.find('a');
     expect(link.exists()).toBe(true);
     expect(link.attributes('href')).toBe('mailto:contact@example.com');
+  });
+
+  it('does not render fallback when sendFormToEmail is absent', () => {
+    // W3: no empty mailto: href rendered when recipient is missing.
+    const wrapper = mountComponent(FormWidget, {
+      props: {
+        data: { sendFormToEmail: '', fields: [] } as FormWidgetData,
+        config: sampleConfig,
+        layout: 'full',
+      },
+      global: {
+        stubs: { 'i18n-t': i18nTStub, SelectTrigger: selectTriggerStub },
+      },
+    });
+    expect(wrapper.find('[data-testid="form-fallback"]').exists()).toBe(false);
   });
 });

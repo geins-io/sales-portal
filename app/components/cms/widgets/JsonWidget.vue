@@ -80,7 +80,7 @@ const formWidgetData = computed<FormWidgetData | null>(() =>
 
 function _resolveImageSrc(src: string | undefined): string {
   if (!src) return '';
-  // CMS images — use GeinsImage component instead if possible,
+  // CMS images, use GeinsImage component instead if possible,
   // but JSON widget images use a different path structure
   return src;
 }
