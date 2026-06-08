@@ -76,6 +76,9 @@ vi.mock('../../../app/composables/useTenant', () => ({
 // Mock stores
 // ---------------------------------------------------------------------------
 const mockFetchCheckout = vi.fn().mockResolvedValue(undefined);
+// Stable mock fn instances so each test can assert on the exact mock the
+// component received at mount time (avoids the tautological re-import pattern).
+let mockPlaceOrder = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../../../app/stores/checkout', () => ({
   useCheckoutStore: vi.fn(() => ({
@@ -88,7 +91,9 @@ vi.mock('../../../app/stores/checkout', () => ({
     quoteResult: null,
     email: '',
     identityNumber: '',
-    poNumber: '',
+    customerOrderNumber: '',
+    goodsLabel: '',
+    desiredDeliveryDate: '',
     billingAddress: {},
     shippingAddress: {},
     useSeparateShipping: false,
@@ -100,7 +105,7 @@ vi.mock('../../../app/stores/checkout', () => ({
     selectedPaymentId: null,
     selectedShippingId: null,
     checkout: null,
-    placeOrder: vi.fn(),
+    placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
     toggleConsent: vi.fn(),
     fetchCheckout: mockFetchCheckout,
     prefillFromCompany: vi.fn(),
@@ -225,6 +230,7 @@ describe('checkout page', () => {
     setActivePinia(createPinia());
     mockCartIdCookie.value = 'cart-test-001';
     mockFetchCheckout.mockClear();
+    mockPlaceOrder = vi.fn().mockResolvedValue(undefined);
   });
 
   it('renders checkout page container', async () => {
@@ -249,5 +255,92 @@ describe('checkout page', () => {
   it('calls fetchCheckout on load when cart cookie is present', async () => {
     await mountCheckoutPage();
     expect(mockFetchCheckout).toHaveBeenCalledWith('cart-test-001');
+  });
+
+  it('blocks handlePlaceOrder when customerOrderNumber is empty', async () => {
+    // Default mock: customerOrderNumber is '' so the early-return fires.
+    // mockPlaceOrder is the stable fn the component's store instance delegates
+    // to, so asserting here is non-tautological (it would fail if the gate
+    // logic were removed).
+    const wrapper = await mountCheckoutPage();
+    const placeOrderButton = wrapper.find('[data-testid="place-order-button"]');
+    await placeOrderButton.trigger('click');
+    expect(mockPlaceOrder).not.toHaveBeenCalled();
+  });
+
+  it('calls placeOrder when customerOrderNumber is present and canPlaceOrder is true', async () => {
+    // Mount with a stub for CheckoutTermsAgreement that auto-checks terms
+    // on mount (sets acceptedTerms = true via v-model emit), and a store
+    // mock that provides a non-empty customerOrderNumber so all gates pass.
+    const { useCheckoutStore } = await import('../../../app/stores/checkout');
+    vi.mocked(useCheckoutStore).mockReturnValueOnce({
+      isLoading: false,
+      isPlacingOrder: false,
+      isBlacklisted: false,
+      canPlaceOrder: true,
+      error: null,
+      orderResult: null,
+      quoteResult: null,
+      email: 'buyer@example.com',
+      identityNumber: '',
+      customerOrderNumber: 'PO-TEST',
+      goodsLabel: '',
+      desiredDeliveryDate: '',
+      billingAddress: {},
+      shippingAddress: {},
+      useSeparateShipping: false,
+      message: '',
+      paymentOptions: [],
+      shippingOptions: [],
+      consents: [],
+      acceptedConsents: [],
+      selectedPaymentId: 1,
+      selectedShippingId: 1,
+      checkout: null,
+      placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
+      toggleConsent: vi.fn(),
+      fetchCheckout: mockFetchCheckout,
+      prefillFromCompany: vi.fn(),
+    } as ReturnType<typeof useCheckoutStore>);
+
+    // Stub CheckoutTermsAgreement to auto-accept (emits true on mount)
+    const stubbedStubs = {
+      ...stubs,
+      CheckoutTermsAgreement: {
+        template: '<div data-testid="checkout-terms-auto" />',
+        props: ['modelValue', 'disabled'],
+        emits: ['update:modelValue'],
+        mounted() {
+          (this as unknown as { $emit: (e: string, v: boolean) => void }).$emit(
+            'update:modelValue',
+            true,
+          );
+        },
+      },
+    };
+
+    const Wrapper = defineComponent({
+      components: { CheckoutPage },
+      setup() {
+        return () => h(Suspense, null, { default: () => h(CheckoutPage) });
+      },
+    });
+
+    const wrapper = mount(Wrapper, {
+      global: {
+        ...defaultMountOptions.global,
+        stubs: stubbedStubs,
+        mocks: {
+          ...defaultMountOptions.global?.mocks,
+          $t: (key: string) => key,
+        },
+      },
+    });
+    await flushPromises();
+
+    const placeOrderButton = wrapper.find('[data-testid="place-order-button"]');
+    await placeOrderButton.trigger('click');
+    await flushPromises();
+    expect(mockPlaceOrder).toHaveBeenCalled();
   });
 });

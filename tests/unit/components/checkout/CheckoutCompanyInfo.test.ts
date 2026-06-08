@@ -22,6 +22,17 @@ const stubs = {
   CardTitle: { template: '<h2><slot /></h2>' },
   CardContent: { template: '<div><slot /></div>' },
   Building2: { template: '<svg />' },
+  Input: {
+    template:
+      '<input :value="modelValue" :disabled="disabled" data-testid="input-stub" @input="$emit(\'update:modelValue\', $event.target.value)" @blur="$emit(\'blur\')" />',
+    props: ['modelValue', 'disabled', 'type', 'maxlength', 'placeholder'],
+    emits: ['update:modelValue', 'blur'],
+  },
+  Label: { template: '<label><slot /></label>' },
+  CheckoutCardHeader: {
+    template: '<div data-testid="checkout-card-header" />',
+    props: ['icon', 'title'],
+  },
 };
 
 function makeBillingAddress(overrides = {}) {
@@ -63,10 +74,23 @@ function makeCompany(overrides: Partial<Company> = {}): Company {
 const CheckoutCompanyInfo =
   await import('../../../../app/components/checkout/CheckoutCompanyInfo.vue');
 
+function makeProps(
+  overrides: Partial<
+    InstanceType<typeof CheckoutCompanyInfo.default>['$props']
+  > = {},
+) {
+  return {
+    company: makeCompany(),
+    customerOrderNumber: '',
+    disabled: false,
+    ...overrides,
+  };
+}
+
 describe('CheckoutCompanyInfo', () => {
   it('renders company name', () => {
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: { company: makeCompany() },
+      props: makeProps(),
       global: { stubs },
     });
     expect(wrapper.find('[data-testid="company-name"]').text()).toContain(
@@ -76,7 +100,7 @@ describe('CheckoutCompanyInfo', () => {
 
   it('renders VAT number', () => {
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: { company: makeCompany() },
+      props: makeProps(),
       global: { stubs },
     });
     expect(wrapper.find('[data-testid="company-vat"]').text()).toContain(
@@ -86,7 +110,7 @@ describe('CheckoutCompanyInfo', () => {
 
   it('renders billing address as comma-separated line (no name/company)', () => {
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: { company: makeCompany() },
+      props: makeProps(),
       global: { stubs },
     });
     const addrBlock = wrapper.find('[data-testid="company-billing-address"]');
@@ -113,10 +137,10 @@ describe('CheckoutCompanyInfo', () => {
 
   it('renders buyerEmail prop in the buyer block, not billing address email', () => {
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: {
+      props: makeProps({
         company: makeCompany({ buyers: [makeBuyer()] }),
         buyerEmail: 'buyer@example.com',
-      },
+      }),
       global: { stubs },
     });
     const buyerBlock = wrapper.find('[data-testid="company-buyer"]');
@@ -130,7 +154,7 @@ describe('CheckoutCompanyInfo', () => {
     // contact first; the logged-in user is a different, later buyer. The buyer
     // block must show the logged-in user's name, not buyers[0]'s.
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: {
+      props: makeProps({
         company: makeCompany({
           buyers: [
             makeBuyer({
@@ -146,7 +170,7 @@ describe('CheckoutCompanyInfo', () => {
           ],
         }),
         buyerEmail: 'logged-in@example.com',
-      },
+      }),
       global: { stubs },
     });
     const buyerBlock = wrapper.find('[data-testid="company-buyer"]');
@@ -157,12 +181,12 @@ describe('CheckoutCompanyInfo', () => {
 
   it('matches the buyer email case-insensitively', () => {
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: {
+      props: makeProps({
         company: makeCompany({
           buyers: [makeBuyer({ id: 'Buyer@Example.com' })],
         }),
         buyerEmail: 'buyer@example.com',
-      },
+      }),
       global: { stubs },
     });
     expect(wrapper.find('[data-testid="company-buyer"]').text()).toContain(
@@ -174,7 +198,7 @@ describe('CheckoutCompanyInfo', () => {
     // A wrong name is worse than no name: when the logged-in email is not in
     // the buyers list we render the email alone rather than buyers[0].
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: {
+      props: makeProps({
         company: makeCompany({
           buyers: [
             makeBuyer({
@@ -185,7 +209,7 @@ describe('CheckoutCompanyInfo', () => {
           ],
         }),
         buyerEmail: 'someone-else@example.com',
-      },
+      }),
       global: { stubs },
     });
     const buyerBlock = wrapper.find('[data-testid="company-buyer"]');
@@ -195,10 +219,10 @@ describe('CheckoutCompanyInfo', () => {
 
   it('shows buyer block when buyerEmail provided even without buyer name', () => {
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: {
+      props: makeProps({
         company: makeCompany({ buyers: [] }),
         buyerEmail: 'loggedin@example.com',
-      },
+      }),
       global: { stubs },
     });
     const buyerBlock = wrapper.find('[data-testid="company-buyer"]');
@@ -208,7 +232,7 @@ describe('CheckoutCompanyInfo', () => {
 
   it('hides buyer block when no buyerEmail and no buyer name', () => {
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: { company: makeCompany({ buyers: [] }) },
+      props: makeProps({ company: makeCompany({ buyers: [] }) }),
       global: { stubs },
     });
     expect(wrapper.find('[data-testid="company-buyer"]').exists()).toBe(false);
@@ -227,7 +251,7 @@ describe('CheckoutCompanyInfo', () => {
     });
     const company = makeCompany({ addresses: [deliveryAddr, billingAddr] });
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: { company },
+      props: makeProps({ company }),
       global: { stubs },
     });
     const addrBlock = wrapper.find('[data-testid="company-billing-address"]');
@@ -245,10 +269,81 @@ describe('CheckoutCompanyInfo', () => {
     });
     const company = makeCompany({ addresses: [addr0] });
     const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: { company },
+      props: makeProps({ company }),
       global: { stubs },
     });
     const addrBlock = wrapper.find('[data-testid="company-billing-address"]');
     expect(addrBlock.text()).toContain('Fallback St 1');
+  });
+
+  it('renders the customer order number input', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps({ customerOrderNumber: 'PO-123' }),
+      global: { stubs },
+    });
+    const input = wrapper.find<HTMLInputElement>(
+      '[data-testid="checkout-customer-order-number"]',
+    );
+    expect(input.exists()).toBe(true);
+    expect(input.element.value).toBe('PO-123');
+  });
+
+  it('emits update:customerOrderNumber when input changes', async () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps(),
+      global: { stubs },
+    });
+    const input = wrapper.find(
+      '[data-testid="checkout-customer-order-number"]',
+    );
+    await input.setValue('PO-2026-0412');
+    expect(wrapper.emitted('update:customerOrderNumber')).toBeTruthy();
+    expect(wrapper.emitted('update:customerOrderNumber')![0]).toEqual([
+      'PO-2026-0412',
+    ]);
+  });
+
+  it('does not show required error before the field is touched', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps({ customerOrderNumber: '' }),
+      global: { stubs },
+    });
+    expect(
+      wrapper
+        .find('[data-testid="checkout-customer-order-number-error"]')
+        .exists(),
+    ).toBe(false);
+  });
+
+  it('shows required error after blur when field is empty', async () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps({ customerOrderNumber: '' }),
+      global: { stubs },
+    });
+    const input = wrapper.find(
+      '[data-testid="checkout-customer-order-number"]',
+    );
+    await input.trigger('blur');
+    expect(
+      wrapper
+        .find('[data-testid="checkout-customer-order-number-error"]')
+        .exists(),
+    ).toBe(true);
+  });
+
+  it('hides required error after blur when field has a value', async () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps({ customerOrderNumber: 'PO-999' }),
+      global: { stubs },
+    });
+    const input = wrapper.find(
+      '[data-testid="checkout-customer-order-number"]',
+    );
+    await input.trigger('blur');
+    expect(
+      wrapper
+        .find('[data-testid="checkout-customer-order-number-error"]')
+        .exists(),
+    ).toBe(false);
   });
 });

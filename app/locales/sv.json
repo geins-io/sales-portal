@@ -181,7 +181,7 @@
     "cart_items": "Dina varor",
     "invoice_info": "Fakturainformation",
     "po_number": "PO-nummer",
-    "po_number_placeholder": "Ange inköpsordernummer",
+    "po_number_placeholder": "t.ex. PO-2026-0412",
     "payment_terms": "Betalningsvillkor",
     "payment_terms_days": "Dagar",
     "currency": "Valuta",
@@ -196,7 +196,15 @@
     "per_unit": "/ st",
     "delivery_address": "Leveransadress",
     "terms_prefix": "Jag godkänner ",
-    "terms_link_text": "villkoren"
+    "terms_link_text": "villkoren",
+    "customer_order_number": "Er referens / PO-nummer",
+    "customer_order_number_helper": "Visas på er faktura",
+    "customer_order_number_required": "Ange er referens eller PO-nummer",
+    "goods_label": "Godsmärkning",
+    "goods_label_placeholder": "t.ex. Butik 12 / Lastbrygga B / Projekt Atlas",
+    "goods_label_helper": "Trycks på paket, fraktsedlar och pallflaggor så att godset kan identifieras vid leverans",
+    "desired_delivery_date": "Önskat leveransdatum",
+    "desired_delivery_date_helper": "Önskemål, inte garanterat"
   },
   "order_confirmation": {
     "title": "Orderbekräftelse",

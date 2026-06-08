@@ -107,6 +107,7 @@ describe('PlaceOrderSchema', () => {
     shippingId: 2,
     email: 'anna@example.com',
     billingAddress: validAddress,
+    customerOrderNumber: 'REF-001',
   };
 
   it('accepts valid order', () => {
@@ -179,6 +180,86 @@ describe('PlaceOrderSchema', () => {
       message: 'a'.repeat(2001),
     });
     expect(result.success).toBe(false);
+  });
+
+  it('rejects missing customerOrderNumber', () => {
+    const { customerOrderNumber: _, ...noRef } = validOrder;
+    const result = PlaceOrderSchema.safeParse(noRef);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty customerOrderNumber', () => {
+    const result = PlaceOrderSchema.safeParse({
+      ...validOrder,
+      customerOrderNumber: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects customerOrderNumber exceeding 200 chars', () => {
+    const result = PlaceOrderSchema.safeParse({
+      ...validOrder,
+      customerOrderNumber: 'a'.repeat(201),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts order without goodsLabel', () => {
+    const result = PlaceOrderSchema.safeParse(validOrder);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects goodsLabel exceeding 500 chars', () => {
+    const result = PlaceOrderSchema.safeParse({
+      ...validOrder,
+      goodsLabel: 'x'.repeat(501),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts order without desiredDeliveryDate', () => {
+    const result = PlaceOrderSchema.safeParse(validOrder);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid yyyy-mm-dd desiredDeliveryDate', () => {
+    const result = PlaceOrderSchema.safeParse({
+      ...validOrder,
+      desiredDeliveryDate: '2026-08-15',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects desiredDeliveryDate with non-ISO format (slash-separated)', () => {
+    const result = PlaceOrderSchema.safeParse({
+      ...validOrder,
+      desiredDeliveryDate: '2026/07/01',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects desiredDeliveryDate that is not a date string', () => {
+    const result = PlaceOrderSchema.safeParse({
+      ...validOrder,
+      desiredDeliveryDate: 'not-a-date',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects whitespace-only customerOrderNumber', () => {
+    const result = PlaceOrderSchema.safeParse({
+      ...validOrder,
+      customerOrderNumber: '   ',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts goodsLabel at exactly 500 chars', () => {
+    const result = PlaceOrderSchema.safeParse({
+      ...validOrder,
+      goodsLabel: 'x'.repeat(500),
+    });
+    expect(result.success).toBe(true);
   });
 });
 
