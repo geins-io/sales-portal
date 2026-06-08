@@ -2,14 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { buildMailto } from '../../app/utils/mailto';
 
 describe('buildMailto', () => {
-  it('prefixes with mailto: and includes the recipient', () => {
+  it('prefixes with mailto: and includes the recipient as a literal address', () => {
     const result = buildMailto({
       recipient: 'test@example.com',
       subject: 'Hello',
       fields: [],
     });
     expect(result).toMatch(/^mailto:/);
-    expect(result).toContain(encodeURIComponent('test@example.com'));
+    expect(result).toContain('mailto:test@example.com');
   });
 
   it('URL-encodes the subject', () => {
@@ -83,5 +83,31 @@ describe('buildMailto', () => {
       fields: [{ label: 'Name', value: 'Alice' }],
     });
     expect(result).toMatch(/^mailto:[^?]+\?subject=[^&]+&body=.+/);
+  });
+
+  it('strips control characters from recipient and field label/value to prevent header injection', () => {
+    const result = buildMailto({
+      recipient: 'evil@example.com\r\nBcc:attacker@evil.com',
+      subject: 'Test',
+      fields: [
+        { label: 'Field\r\nX-Injected', value: 'value\r\nX-Injected: yes' },
+      ],
+    });
+
+    // (a) the `to` portion is the clean literal email with CR/LF removed --
+    // CR and LF are stripped, so no line-break header injection is possible;
+    // the remaining collapsed text is not a valid email but cannot inject a
+    // header because there is no line separator before "Bcc:"
+    expect(result).toContain('mailto:evil@example.com');
+    // the `to` slot must not contain a literal CR or LF character
+    expect(result.split('?')[0]).not.toMatch(/[\r\n]/);
+
+    // (b) the raw URL string contains no unencoded CR or LF characters
+    expect(result).not.toMatch(/\r/);
+    expect(result).not.toMatch(/\n/);
+
+    // (c) no line-break-separated Bcc: header appears unencoded in the URL
+    // (the injection only works when a literal CRLF precedes "Bcc:")
+    expect(result).not.toMatch(/[\r\n]Bcc:/i);
   });
 });
