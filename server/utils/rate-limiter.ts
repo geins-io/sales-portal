@@ -209,12 +209,6 @@ export const newsletterRateLimiter = new RateLimiter({
   prefix: 'newsletter-subscribe',
 });
 
-export const applyForAccountRateLimiter = new RateLimiter({
-  limit: 3,
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  prefix: 'apply-account',
-});
-
 export const contactFormRateLimiter = new RateLimiter({
   limit: 3,
   windowMs: 15 * 60 * 1000, // 15 minutes
