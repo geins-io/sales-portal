@@ -934,5 +934,11 @@
     "title": "Logged in as customer",
     "description": "— Viewing as {customerName} (spoofed by {adminEmail})",
     "exit": "Exit"
+  },
+  "form": {
+    "send_application": "Send application via email",
+    "fallback_email": "If nothing opens, email us at {recipient}",
+    "field_required": "This field is required.",
+    "invalid_email": "Please enter a valid email address."
   }
 }

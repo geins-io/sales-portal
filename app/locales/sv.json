@@ -934,5 +934,11 @@
     "title": "Inloggad som kund",
     "description": "— Visar som {customerName} (forfalskad av {adminEmail})",
     "exit": "Avsluta"
+  },
+  "form": {
+    "send_application": "Skicka ansökan via e-post",
+    "fallback_email": "Om inget öppnas, maila oss på {recipient}",
+    "field_required": "Detta fält är obligatoriskt.",
+    "invalid_email": "Ange en giltig e-postadress."
   }
 }
