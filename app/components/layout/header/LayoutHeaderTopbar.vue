@@ -16,7 +16,7 @@ const { hasFeature } = useTenant();
       <!-- Left: Contact + Locale -->
       <div class="flex items-center gap-4">
         <NuxtLink
-          :to="localePath('/contact')"
+          :to="localePath('/contact-form')"
           :aria-label="$t('layout.contact_us')"
           class="flex items-center gap-1.5 hover:underline"
         >

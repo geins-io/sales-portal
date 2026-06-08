@@ -8,7 +8,7 @@ team handles the application from the resulting email.
 `app/pages/apply-for-account.vue` keeps its `hasFeature('applyForAccount')`
 404 gate and renders the CMS area for the `APPLY_FOR_ACCOUNT` slot. The
 form itself is the generic CMS form widget that also backs the contact
-form.
+page (the `contact-form` CMS page rendered by the catch-all route).
 
 See [cms-form-widget.md](./cms-form-widget.md) for the widget shape,
 rendering, validation, and the mailto submit details.

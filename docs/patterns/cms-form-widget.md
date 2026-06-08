@@ -4,7 +4,7 @@ Forms on CMS-driven pages are authored in Geins Studio as a JSON page
 widget and rendered by `FormWidget`. There is no server submission and
 nothing is stored: the form builds a `mailto:` URL and hands it to the
 mail client. The same widget backs both the apply-for-account page and
-the contact form.
+the contact page.
 
 ## How a form reaches the widget
 
@@ -74,11 +74,30 @@ The widget supplies the entire form; there is no server endpoint behind
 it. Self-registration (`/api/auth/register`, `RegisterForm`, the
 `registration` feature flag) is a separate flow and is unchanged.
 
+## Contact page
+
+The contact page is a CMS page at slug `contact-form`. It is authored
+in Geins Studio and rendered by the existing `app/pages/[...slug].vue`
+catch-all route. The form is a JSON form widget inside the page, routed
+by `JsonWidget` to `FormWidget`.
+
+The legacy `/contact` route (`app/pages/contact.vue`) issues a 301
+redirect to the locale-prefixed `/contact-form`, so any bookmarks or
+links to `/contact` continue to work.
+
+There is no `CONTACT_FORM` CMS slot. No `DEFAULT_CMS_CONFIG` seed is
+needed: the page renders as an ordinary CMS page via the catch-all,
+not via an area fetch.
+
 ## Related files
 
 - `shared/types/cms.ts`: `FormWidgetData` / `FormWidgetField` types.
+- `shared/types/cms-slots.ts`: `CMS_SLOTS.APPLY_FOR_ACCOUNT` slot key.
+- `app/composables/useCmsSlot.ts`: slot resolver.
 - `app/components/cms/widgets/JsonWidget.vue`: form-shape routing.
 - `app/components/cms/widgets/FormWidget.vue`: the form renderer.
 - `app/utils/mailto.ts`: `buildMailto`.
 - `app/utils/country-options.ts`: `getCountryOptions`.
 - `app/pages/apply-for-account.vue`: apply page (feature-gated CMS area).
+- `app/pages/contact.vue`: 301 redirect from /contact to /contact-form.
+- `app/pages/[...slug].vue`: catch-all that renders the contact-form CMS page.

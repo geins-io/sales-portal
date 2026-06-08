@@ -346,28 +346,6 @@
     "linkedin": "LinkedIn",
     "instagram": "Instagram"
   },
-  "contact": {
-    "title": "Contact Us",
-    "subtitle": "Have a question or feedback? Fill in the form below and we'll get back to you.",
-    "name": "Name",
-    "email": "Email",
-    "phone": "Phone (optional)",
-    "subject": "Subject",
-    "message": "Message",
-    "field_required": "This field is required.",
-    "invalid_email": "Please enter a valid email address.",
-    "submit": "Send message",
-    "submitting": "Sending…",
-    "success_title": "Message sent",
-    "success_message": "Thank you for your message. We'll get back to you as soon as possible.",
-    "error_message": "Something went wrong. Please try again.",
-    "too_many_attempts": "Too many attempts. Please try again later.",
-    "company_name": "Company AB",
-    "company_address": "Streetname 1",
-    "company_postal": "123 45 City",
-    "company_phone": "08-123 456 78",
-    "company_email": "info{'@'}example.com"
-  },
   "apply": {
     "title": "Apply for a Business Account"
   },
