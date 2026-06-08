@@ -41,7 +41,6 @@ useHead({
           v-if="applyCmsArea?.containers?.length"
           :containers="applyCmsArea.containers"
         />
-        <ApplyForAccountForm />
       </div>
     </div>
   </div>

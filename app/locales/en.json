@@ -369,36 +369,7 @@
     "company_email": "info{'@'}example.com"
   },
   "apply": {
-    "title": "Apply for a Business Account",
-    "subtitle": "Fill in your company details below and we'll review your application.",
-    "company_name": "Company name",
-    "organization_number": "Organization number",
-    "first_name": "First name",
-    "last_name": "Last name",
-    "email": "Email",
-    "field_required": "This field is required.",
-    "invalid_email": "Please enter a valid email address.",
-    "submit": "Submit application",
-    "submitting": "Submitting…",
-    "error_message": "Something went wrong. Please try again.",
-    "too_many_attempts": "Too many attempts. Please try again later.",
-    "country": "Country",
-    "country_placeholder": "Select country",
-    "country_sweden": "Sweden",
-    "country_norway": "Norway",
-    "country_denmark": "Denmark",
-    "country_finland": "Finland",
-    "country_germany": "Germany",
-    "country_uk": "United Kingdom",
-    "password": "Password",
-    "password_min_length": "Password must be at least 8 characters.",
-    "show_password": "Show password",
-    "hide_password": "Hide password",
-    "accept_terms_prefix": "I accept ",
-    "accept_terms_link_text": "the terms and conditions",
-    "accept_terms_required": "You must accept the terms and conditions.",
-    "thank_you_title": "Thanks for your application",
-    "thank_you_body": "We have received your business-account application. You will get an email once it has been approved."
+    "title": "Apply for a Business Account"
   },
   "lists": {
     "picker": {
