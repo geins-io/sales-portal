@@ -354,59 +354,8 @@
     "linkedin": "LinkedIn",
     "instagram": "Instagram"
   },
-  "contact": {
-    "title": "Kontakta oss",
-    "subtitle": "Har du en fråga eller feedback? Fyll i formuläret nedan så återkommer vi.",
-    "name": "Namn",
-    "email": "E-post",
-    "phone": "Telefon (valfritt)",
-    "subject": "Ämne",
-    "message": "Meddelande",
-    "field_required": "Detta fält är obligatoriskt.",
-    "invalid_email": "Ange en giltig e-postadress.",
-    "submit": "Skicka meddelande",
-    "submitting": "Skickar…",
-    "success_title": "Meddelande skickat",
-    "success_message": "Tack för ditt meddelande. Vi återkommer så snart som möjligt.",
-    "error_message": "Något gick fel. Försök igen.",
-    "too_many_attempts": "För många försök. Försök igen senare.",
-    "company_name": "Company AB",
-    "company_address": "Streetname 1",
-    "company_postal": "123 45 City",
-    "company_phone": "08-123 456 78",
-    "company_email": "info{'@'}example.com"
-  },
   "apply": {
-    "title": "Ansök om företagskonto",
-    "subtitle": "Fyll i dina företagsuppgifter nedan så granskar vi din ansökan.",
-    "company_name": "Företagsnamn",
-    "organization_number": "Organisationsnummer",
-    "first_name": "Förnamn",
-    "last_name": "Efternamn",
-    "email": "E-post",
-    "field_required": "Detta fält är obligatoriskt.",
-    "invalid_email": "Ange en giltig e-postadress.",
-    "submit": "Skicka ansökan",
-    "submitting": "Skickar…",
-    "error_message": "Något gick fel. Försök igen.",
-    "too_many_attempts": "För många försök. Försök igen senare.",
-    "country": "Land",
-    "country_placeholder": "Välj land",
-    "country_sweden": "Sverige",
-    "country_norway": "Norge",
-    "country_denmark": "Danmark",
-    "country_finland": "Finland",
-    "country_germany": "Tyskland",
-    "country_uk": "Storbritannien",
-    "password": "Lösenord",
-    "password_min_length": "Lösenordet måste vara minst 8 tecken.",
-    "show_password": "Visa lösenord",
-    "hide_password": "Dölj lösenord",
-    "accept_terms_prefix": "Jag godkänner ",
-    "accept_terms_link_text": "villkoren",
-    "accept_terms_required": "Du måste godkänna villkoren.",
-    "thank_you_title": "Tack för din ansökan",
-    "thank_you_body": "Vi har tagit emot din ansökan om företagskonto. Du får ett mejl när ditt konto har godkänts."
+    "title": "Ansök om företagskonto"
   },
   "lists": {
     "picker": {
@@ -942,5 +891,12 @@
     "title": "Inloggad som kund",
     "description": "— Visar som {customerName} (forfalskad av {adminEmail})",
     "exit": "Avsluta"
+  },
+  "form": {
+    "send_application": "Skicka ansökan via e-post",
+    "fallback_email": "Om inget öppnas, maila oss på {recipient}",
+    "field_required": "Detta fält är obligatoriskt.",
+    "invalid_email": "Ange en giltig e-postadress.",
+    "country_placeholder": "Välj land"
   }
 }

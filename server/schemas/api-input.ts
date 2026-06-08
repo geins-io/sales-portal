@@ -214,32 +214,6 @@ export const ChangePasswordSchema = z.object({
 export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;
 
 // ---------------------------------------------------------------------------
-// Apply for Account (B2B)
-// ---------------------------------------------------------------------------
-export const ApplyForAccountSchema = z.object({
-  companyName: z.string().min(1).max(200),
-  organizationNumber: z.string().min(1).max(50),
-  firstName: z.string().min(1).max(100),
-  lastName: z.string().min(1).max(100),
-  country: z.enum(['SE', 'NO', 'DK', 'FI', 'DE', 'GB']),
-  email: z.string().email(),
-  acceptTerms: z.literal(true),
-});
-export type ApplyForAccountInput = z.infer<typeof ApplyForAccountSchema>;
-
-// ---------------------------------------------------------------------------
-// Contact Form
-// ---------------------------------------------------------------------------
-export const ContactFormSchema = z.object({
-  name: z.string().min(1).max(100),
-  email: z.string().email(),
-  phone: z.string().max(50).optional(),
-  subject: z.string().min(1).max(200),
-  message: z.string().min(1).max(5000),
-});
-export type ContactFormInput = z.infer<typeof ContactFormSchema>;
-
-// ---------------------------------------------------------------------------
 // Orders
 // ---------------------------------------------------------------------------
 export const OrderIdSchema = z.object({

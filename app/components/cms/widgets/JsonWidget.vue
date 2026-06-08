@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ArrowRight } from 'lucide-vue-next';
-import type { ContentConfigType } from '#shared/types/cms';
+import type { ContentConfigType, FormWidgetData } from '#shared/types/cms';
 import { stripGeinsPrefix } from '#shared/utils/menu';
+import FormWidget from '~/components/cms/widgets/FormWidget.vue';
 
 // ---------- Widget-internal types ----------
 
@@ -67,17 +68,34 @@ const bannerImages = computed(
 
 const { localePath } = useLocaleMarket();
 
+function isFormWidgetData(data: unknown): data is FormWidgetData {
+  if (typeof data !== 'object' || data === null) return false;
+  const d = data as Record<string, unknown>;
+  return typeof d['sendFormToEmail'] === 'string' && Array.isArray(d['fields']);
+}
+
+const formWidgetData = computed<FormWidgetData | null>(() =>
+  isFormWidgetData(props.data) ? props.data : null,
+);
+
 function _resolveImageSrc(src: string | undefined): string {
   if (!src) return '';
-  // CMS images — use GeinsImage component instead if possible,
+  // CMS images, use GeinsImage component instead if possible,
   // but JSON widget images use a different path structure
   return src;
 }
 </script>
 
 <template>
+  <FormWidget
+    v-if="formWidgetData"
+    :data="formWidgetData"
+    :config="config"
+    :layout="layout"
+  />
+
   <!-- Cards Rich: image cards with heading, description, CTA -->
-  <div v-if="templateId === 'cards-rich'" class="space-y-6">
+  <div v-else-if="templateId === 'cards-rich'" class="space-y-6">
     <div
       v-if="header?.heading || header?.description"
       class="space-y-2"

@@ -160,6 +160,11 @@ The `immediate: !!slot.value` guard prevents a fetch when the slot is
 not configured. The `skip: '1'` query keeps the reactive query object
 stable (Nuxt complains when `query` returns `undefined` mid-flight).
 
+A JSON page widget in the area can be form-shaped
+(`{sendFormToEmail, fields}`); `JsonWidget.vue` routes that shape to
+`FormWidget`, which renders the fields and submits via a `mailto:` link.
+See [cms-form-widget.md](./cms-form-widget.md).
+
 ## Null / fallback behaviour
 
 When `useCmsSlot(key)` returns `null`:
