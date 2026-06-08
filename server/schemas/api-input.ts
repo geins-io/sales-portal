@@ -290,7 +290,7 @@ export const PlaceOrderSchema = z
     shippingAddress: CheckoutAddressSchema.optional(),
     shippingAddressId: z.string().min(1).max(50).optional(),
     customerType: z.string().max(50).optional(),
-    customerOrderNumber: z.string().trim().min(1).max(200),
+    customerOrderNumber: z.string().trim().max(200).optional(),
     goodsLabel: z.string().max(500).optional(),
     desiredDeliveryDate: z
       .string()
@@ -300,7 +300,17 @@ export const PlaceOrderSchema = z
   .refine((d) => !!d.billingAddress || !!d.billingAddressId, {
     message: 'billingAddress or billingAddressId is required',
     path: ['billingAddress'],
-  });
+  })
+  .refine(
+    (d) =>
+      // Company (B2B) orders send billingAddressId; consumer orders send the
+      // literal billingAddress. Only require customerOrderNumber for B2B.
+      !d.billingAddressId || !!d.customerOrderNumber?.trim(),
+    {
+      message: 'customerOrderNumber is required for company orders',
+      path: ['customerOrderNumber'],
+    },
+  );
 export type PlaceOrderInput = z.infer<typeof PlaceOrderSchema>;
 
 export const ValidateOrderSchema = z.object({
