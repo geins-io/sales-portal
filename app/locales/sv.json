@@ -433,6 +433,10 @@
       "lists": "listor"
     }
   },
+  "product_slideshow": {
+    "region_label": "Produktbildspel",
+    "go_to_slide_prefix": "Gå till bild"
+  },
   "elements": {
     "component_showcase": "Komponentvisning",
     "share_link": "Dela länk",

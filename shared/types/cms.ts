@@ -104,6 +104,32 @@ export interface FormWidgetData {
   fields: FormWidgetField[];
 }
 
+/** Controls which product set the ProductListWidget renders. Only DEFAULT is rendered today. */
+export type ProductListWidgetMode = 'DEFAULT' | 'LATEST_VIEWED' | 'FAVORITES';
+
+export interface ProductListWidgetData {
+  title?: string;
+  /** Stringified and passed as the filter query param to the product search API. */
+  searchParameters?: Record<string, unknown> | null;
+  /** Number of slideshow pages; total products fetched = pageCount * 4. */
+  pageCount?: number;
+  /**
+   * false => render the slideshow carousel.
+   * true or undefined => render the responsive grid (rows).
+   */
+  slideshowDisabled?: boolean;
+  /** Show left/right navigation arrows on the slideshow. */
+  displayNavigationArrows?: boolean;
+  /**
+   * Show pagination dots on the slideshow.
+   * "Links" is the CMS label for dots, not hyperlinks.
+   */
+  displayNavigationLinks?: boolean;
+  limitNrOfRows?: boolean;
+  /** Only DEFAULT is rendered today; LATEST_VIEWED and FAVORITES are out of scope. */
+  mode?: ProductListWidgetMode;
+}
+
 export type WidgetData =
   | TextWidgetData
   | HtmlWidgetData
@@ -111,7 +137,8 @@ export type WidgetData =
   | BannerWidgetData
   | ButtonsWidgetData
   | VideoWidgetData
-  | FormWidgetData;
+  | FormWidgetData
+  | ProductListWidgetData;
 
 /** Resolve the image filename from either `filename` (CMS config) or `fileName` (GraphQL). */
 export function resolveImageFileName(image: WidgetImage | undefined): string {
