@@ -36,6 +36,10 @@ export const CMS_MENUS = {
   HEADER_MAIN: 'header_main',
   /** Footer link list (columns or single list depending on layout). */
   FOOTER: 'footer',
+  /** Second footer menu location (additional footer column). */
+  FOOTER_2: 'footer_2',
+  /** Third footer menu location (additional footer column). */
+  FOOTER_3: 'footer_3',
   /** Off-canvas drawer shown on small screens. */
   MOBILE_DRAWER: 'mobile_drawer',
   /**
