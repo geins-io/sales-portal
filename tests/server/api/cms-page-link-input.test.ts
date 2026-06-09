@@ -3,7 +3,6 @@ import { CmsPageLinkSchema } from '../../../server/schemas/api-input';
 
 describe('CmsPageLinkSchema', () => {
   it('accepts a valid lowercase slug', () => {
-    expect(() => CmsPageLinkSchema.parse({ tag: 'contact' })).not.toThrow();
     expect(CmsPageLinkSchema.parse({ tag: 'contact' })).toEqual({
       tag: 'contact',
     });
