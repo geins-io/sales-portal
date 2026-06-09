@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import LayoutHeaderTopbar from '../../../app/components/layout/header/LayoutHeaderTopbar.vue';
 
@@ -25,10 +26,24 @@ vi.mock('../../../app/composables/useTenant', () => ({
   }),
 }));
 
+// Controllable refs driven per-test via the helper below
+const contactToRef = ref('/se/sv/kontakt');
+const applyToRef = ref('/se/sv/apply-for-account');
+
+vi.mock('../../../app/composables/useCmsPageLink', () => ({
+  useCmsPageLink: (tag: string) => {
+    if (tag === 'contact') return { to: contactToRef };
+    if (tag === 'apply') return { to: applyToRef };
+    return { to: ref('/') };
+  },
+}));
+
 describe('LayoutHeaderTopbar', () => {
   beforeEach(() => {
     authStoreState.isAuthenticated = false;
     authStoreState.displayName = '';
+    contactToRef.value = '/se/sv/kontakt';
+    applyToRef.value = '/se/sv/apply-for-account';
   });
 
   it('paints bg-top-bar-background on the topbar surface', () => {
@@ -66,5 +81,40 @@ describe('LayoutHeaderTopbar', () => {
     const wrapper = shallowMountComponent(LayoutHeaderTopbar);
     expect(wrapper.text()).not.toContain('layout.apply_for_account');
     expect(wrapper.text()).toContain('Ada');
+  });
+
+  it('(a) contact anchor href equals the CMS-resolved value from useCmsPageLink', () => {
+    contactToRef.value = '/se/sv/kontakt';
+    const wrapper = shallowMountComponent(LayoutHeaderTopbar);
+    // NuxtLink stub renders as <a :href="to">; find the contact anchor by aria-label
+    const contactAnchor = wrapper.find('a[aria-label="layout.contact_us"]');
+    expect(contactAnchor.exists()).toBe(true);
+    expect(contactAnchor.attributes('href')).toBe('/se/sv/kontakt');
+  });
+
+  it('(b) contact anchor href equals fallback value when useCmsPageLink yields fallback', () => {
+    contactToRef.value = '/se/sv/contact-form';
+    const wrapper = shallowMountComponent(LayoutHeaderTopbar);
+    const contactAnchor = wrapper.find('a[aria-label="layout.contact_us"]');
+    expect(contactAnchor.exists()).toBe(true);
+    expect(contactAnchor.attributes('href')).toBe('/se/sv/contact-form');
+  });
+
+  it('(c) apply anchor href equals CMS-resolved value when applyForAccount enabled and not authenticated', () => {
+    authStoreState.isAuthenticated = false;
+    applyToRef.value = '/se/sv/apply-for-account';
+    const wrapper = shallowMountComponent(LayoutHeaderTopbar);
+    const applyAnchor = wrapper.find('a[href="/se/sv/apply-for-account"]');
+    expect(applyAnchor.exists()).toBe(true);
+  });
+
+  it('(c2) apply anchor is absent when authenticated, regardless of useCmsPageLink value', () => {
+    authStoreState.isAuthenticated = true;
+    authStoreState.displayName = 'Ada';
+    applyToRef.value = '/se/sv/apply-for-account';
+    const wrapper = shallowMountComponent(LayoutHeaderTopbar);
+    // The apply link is gated by !authStore.isAuthenticated
+    const applyText = wrapper.text();
+    expect(applyText).not.toContain('layout.apply_for_account');
   });
 });

@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { Mail, User } from 'lucide-vue-next';
 import { useAuthStore } from '~/stores/auth';
+import { CMS_TAGS } from '#shared/constants/cms';
 
 const authStore = useAuthStore();
 const { localePath } = useLocaleMarket();
 const { hasFeature } = useTenant();
+const { to: contactTo } = useCmsPageLink(CMS_TAGS.CONTACT_PAGE, '/contact-form');
+const { to: applyTo } = useCmsPageLink(CMS_TAGS.APPLY_PAGE, '/apply-for-account');
 </script>
 
 <template>
@@ -16,7 +19,7 @@ const { hasFeature } = useTenant();
       <!-- Left: Contact + Locale -->
       <div class="flex items-center gap-4">
         <NuxtLink
-          :to="localePath('/contact-form')"
+          :to="contactTo"
           :aria-label="$t('layout.contact_us')"
           class="flex items-center gap-1.5 hover:underline"
         >
@@ -43,7 +46,7 @@ const { hasFeature } = useTenant();
       <div class="flex items-center gap-4">
         <NuxtLink
           v-if="hasFeature('applyForAccount') && !authStore.isAuthenticated"
-          :to="localePath('/apply-for-account')"
+          :to="applyTo"
           class="hidden hover:underline sm:inline"
         >
           {{ $t('layout.apply_for_account') }}
