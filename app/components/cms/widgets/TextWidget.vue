@@ -40,10 +40,13 @@ const alignmentClass = computed(() => {
   }
 });
 
-/** CMS uses data.title as primary, config.displayName as fallback */
-const title = computed(
-  () => props.data.title || props.config.displayName || '',
-);
+/**
+ * Heading text for the widget. Only an explicitly authored title renders.
+ * We deliberately do NOT fall back to config.displayName: Geins fills that
+ * with the widget TYPE name (e.g. "Rich text"), which would leak onto the
+ * page as a stray bold heading above the content.
+ */
+const title = computed(() => props.data.title || '');
 
 /**
  * Geins admin can save either rich-text HTML (with p/br/etc.) or plain

@@ -29,6 +29,9 @@ interface FormWidgetField {
 interface FormWidgetData {
   sendFormToEmail: string;
   fields: FormWidgetField[];
+  subject?: string; // supports {fieldName} placeholders
+  submitLabel?: string; // button text; falls back to a neutral default
+  templateName?: string; // CMS template name; subject fallback
 }
 ```
 
@@ -58,9 +61,14 @@ and opens it via `safeLocationRedirect`, which is guarded on
 
 - The recipient is placed literal per RFC 6068 (not percent-encoded),
   trimmed, and stripped of ASCII control characters.
-- The subject for the apply page is `Account application: {Company name}`
-  where the company value is taken from the first field whose name
-  matches a known company token, falling back to the first field.
+- The subject is configured per widget via `data.subject`, so each form
+  (apply, contact, ...) owns its own. It supports `{fieldName}` placeholders
+  filled from the submitted values, e.g. `Account application: {company}`.
+  When `subject` is unset it falls back to `templateName`, then a neutral
+  translated default, never a hardcoded subject that would be wrong for a
+  different form.
+- The submit button label comes from `data.submitLabel`, falling back to a
+  neutral translated default (`form.submit`).
 - The body is one `Label: value` line per field, joined with `\r\n`.
 
 If no mail client opens, a fallback line `If nothing opens, email us at

@@ -18,7 +18,7 @@ function makeProps(
       text: overrides.text ?? '<p>Hello world</p>',
       textAlignment: overrides.textAlignment ?? 1,
       titleRenderMode: overrides.titleRenderMode ?? 1,
-      ...(overrides.title !== undefined ? { title: overrides.title } : {}),
+      title: overrides.title ?? 'Title',
     },
     config: {
       name: 'test',
@@ -127,23 +127,24 @@ describe('TextWidget', () => {
     });
   });
 
-  // CMS uses data.title as primary, config.displayName as fallback
-  describe('title resolution (data.title vs config.displayName)', () => {
-    it('prefers data.title over config.displayName', () => {
+  // The heading renders only an explicitly authored data.title. config.displayName
+  // is the widget TYPE name (e.g. "Rich text") and must never leak as a heading.
+  describe('title resolution', () => {
+    it('renders data.title as the heading', () => {
       const wrapper = mountComponent(TextWidget, {
         props: makeProps({ title: 'Data Title', displayName: 'Config Name' }),
       });
       expect(wrapper.find('h2').text()).toBe('Data Title');
     });
 
-    it('falls back to config.displayName when data.title is missing', () => {
+    it('does not fall back to config.displayName (widget type name must not leak)', () => {
       const wrapper = mountComponent(TextWidget, {
-        props: makeProps({ displayName: 'My Heading' }),
+        props: makeProps({ title: '', displayName: 'Rich text' }),
       });
-      expect(wrapper.find('h2').text()).toBe('My Heading');
+      expect(wrapper.find('.font-bold').exists()).toBe(false);
     });
 
-    it('does not render heading when both title and displayName are empty', () => {
+    it('does not render a heading when no title is authored', () => {
       const wrapper = mountComponent(TextWidget, {
         props: makeProps({ title: '', displayName: '' }),
       });

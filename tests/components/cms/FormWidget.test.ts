@@ -117,7 +117,9 @@ describe('FormWidget', () => {
     const wrapper = mountWidget();
     const countryField = wrapper.find('[data-testid="form-field-country"]');
     // Must contain a SelectTrigger stub, not a bare <input>
-    expect(countryField.find('[data-testid-stub="select-trigger"]').exists()).toBe(true);
+    expect(
+      countryField.find('[data-testid-stub="select-trigger"]').exists(),
+    ).toBe(true);
     expect(countryField.find('input').exists()).toBe(false);
   });
 
@@ -182,8 +184,10 @@ describe('FormWidget', () => {
   });
 
   // W9: strengthened mailto assertion — decode URL and verify subject + body format.
-  it('opens a mailto URL with correct subject and labelled body on valid submit', async () => {
-    const wrapper = mountWidget();
+  it('opens a mailto URL with configured subject (with {field} interpolation) and labelled body on valid submit', async () => {
+    const wrapper = mountWidget({
+      subject: 'Account application: {companyName}',
+    });
 
     await wrapper
       .find('[data-testid="form-field-companyName"] input')
@@ -222,6 +226,40 @@ describe('FormWidget', () => {
 
     // Body must contain at least one "Label: value" line.
     expect(decoded).toMatch(/Company name:\s*Acme Corp/);
+  });
+
+  it('falls back to templateName for the subject when none is configured', async () => {
+    const wrapper = mountWidget({
+      fields: [
+        { label: 'Email', name: 'email', required: true, type: 'email' },
+      ],
+      templateName: 'Contact Form',
+    });
+    await wrapper
+      .find('[data-testid="form-field-email"] input')
+      .setValue('jane@acme.com');
+    (wrapper.vm as unknown as { handleSubmit: () => void }).handleSubmit();
+    await wrapper.vm.$nextTick();
+    const decoded = decodeURIComponent(
+      navigateToMock.mock.calls[0]?.[0] as string,
+    );
+    expect(decoded).toContain('Contact Form');
+  });
+
+  it('renders a configured submit label', () => {
+    const wrapper = mountWidget({ submitLabel: 'Send message' });
+    expect(wrapper.find('[data-testid="form-submit"]').text()).toBe(
+      'Send message',
+    );
+  });
+
+  it('renders the neutral default submit label when none is configured', () => {
+    // setup-components stubs t() to return the key, so the default resolves to
+    // the i18n key rather than the apply-specific copy that used to be hardcoded.
+    const wrapper = mountWidget();
+    expect(wrapper.find('[data-testid="form-submit"]').text()).toBe(
+      'form.submit',
+    );
   });
 
   // W11: textarea branch test.

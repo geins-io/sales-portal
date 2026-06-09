@@ -102,21 +102,25 @@ function validateAll(): boolean {
 
 defineExpose({ formValues, fieldErrors, touched, handleSubmit, validateAll });
 
-// Company-field detection: match first field whose name (lowercased) contains
-// any of the known company-name tokens, or fall back to first field.
-const COMPANY_TOKENS = ['company', 'companyname', 'foretag', 'företag', 'firma', 'bolag'];
+// Subject is configured per widget so each form (apply, contact, ...) owns its
+// own. `{fieldName}` placeholders are filled from the submitted values, e.g.
+// "Account application: {company}". When no subject is configured we fall back
+// to the CMS template name, then a neutral default — never a hardcoded subject
+// that would be wrong for a different form.
+function resolveSubject(): string {
+  const configured = props.data?.subject?.trim();
+  if (configured) {
+    return configured.replace(/\{(\w+)\}/g, (_match, name: string) =>
+      (formValues[name] ?? '').trim(),
+    );
+  }
+  return props.data?.templateName?.trim() || t('form.default_subject');
+}
 
 function handleSubmit() {
   if (!validateAll()) return;
 
   const fields = props.data?.fields ?? [];
-
-  const companyField =
-    fields.find((f) =>
-      COMPANY_TOKENS.some((tok) => f.name.toLowerCase().includes(tok)),
-    ) ?? fields[0];
-  const companyValue = companyField ? (formValues[companyField.name] ?? '') : '';
-  const subject = `Account application: ${companyValue}`;
 
   const mailtoFields = fields.map((f: FormWidgetField) => ({
     label: f.label,
@@ -125,7 +129,7 @@ function handleSubmit() {
 
   const url = buildMailto({
     recipient: props.data?.sendFormToEmail ?? '',
-    subject,
+    subject: resolveSubject(),
     fields: mailtoFields,
   });
 
@@ -249,7 +253,7 @@ function selectOptionsFor(field: FormWidgetField) {
 
     <div class="border-border flex flex-col items-start gap-3 border-t pt-4">
       <Button type="submit" data-testid="form-submit">
-        {{ t('form.send_application') }}
+        {{ data?.submitLabel?.trim() || t('form.submit') }}
       </Button>
 
       <p
