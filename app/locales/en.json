@@ -433,6 +433,10 @@
       "lists": "lists"
     }
   },
+  "product_slideshow": {
+    "region_label": "Product slideshow",
+    "go_to_slide_prefix": "Go to slide"
+  },
   "elements": {
     "component_showcase": "Component Showcase",
     "share_link": "Share link",
