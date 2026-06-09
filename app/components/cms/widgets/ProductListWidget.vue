@@ -80,7 +80,6 @@ const products = computed(() => productsData.value?.products ?? []);
       v-slot="{ canScrollPrev, canScrollNext }"
       :opts="{ slidesToScroll: 'auto', loop: false }"
       :aria-label="t('product_slideshow.region_label')"
-      class="px-12"
     >
       <CarouselContent v-if="products?.length">
         <CarouselItem
@@ -95,8 +94,11 @@ const products = computed(() => productsData.value?.products ?? []);
       <template
         v-if="data.displayNavigationArrows && (canScrollPrev || canScrollNext)"
       >
-        <CarouselPrevious :aria-label="t('pagination.previous')" />
-        <CarouselNext :aria-label="t('pagination.next')" />
+        <CarouselPrevious
+          class="left-2"
+          :aria-label="t('pagination.previous')"
+        />
+        <CarouselNext class="right-2" :aria-label="t('pagination.next')" />
       </template>
 
       <CarouselDots
