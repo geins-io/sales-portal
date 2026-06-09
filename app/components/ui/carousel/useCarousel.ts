@@ -40,7 +40,6 @@ const [useProvideCarousel, useInjectCarousel] = createInjectionState(
 
     function onInit(api: CarouselApi) {
       scrollSnaps.value = api?.scrollSnapList() ?? [];
-      selectedIndex.value = api?.selectedScrollSnap() ?? 0;
     }
 
     onMounted(() => {
