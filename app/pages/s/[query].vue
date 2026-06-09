@@ -33,6 +33,10 @@ const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
 const currentPage = ref(Number(route.query.page) || 1);
 const take = 24;
 
+// File and document search is hidden until the platform API can power it.
+// Flip to true to restore the Files & Documents area at the bottom of the page.
+const showFilesPlaceholder = false;
+
 const { t } = useI18n();
 const { currentLocale, currentMarket, localeQuery } = useLocaleMarket();
 const sortOptions = computed(() => [
@@ -265,6 +269,6 @@ function clearAllFilters() {
     </div>
 
     <!-- File/document search placeholder -->
-    <SearchFilesPlaceholder v-if="searchTerm" />
+    <SearchFilesPlaceholder v-if="showFilesPlaceholder && searchTerm" />
   </div>
 </template>
