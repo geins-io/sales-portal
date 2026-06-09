@@ -165,6 +165,62 @@ describe('getVisibleItems', () => {
   });
 });
 
+describe('normalizeMenuUrl scheme safety', () => {
+  const currentHost = 'test.example.com';
+
+  it('returns empty string for javascript: scheme', () => {
+    expect(
+      normalizeMenuUrl('javascript:alert(document.cookie)', currentHost),
+    ).toBe('');
+  });
+
+  it('returns empty string for mixed-case JavaScript: scheme', () => {
+    expect(normalizeMenuUrl('JavaScript:alert(1)', currentHost)).toBe('');
+  });
+
+  it('returns empty string for data: scheme', () => {
+    expect(
+      normalizeMenuUrl('data:text/html,<script>alert(1)</script>', currentHost),
+    ).toBe('');
+  });
+
+  it('returns empty string for vbscript: scheme', () => {
+    expect(normalizeMenuUrl('vbscript:msgbox(1)', currentHost)).toBe('');
+  });
+
+  it('returns empty string for file: scheme', () => {
+    expect(normalizeMenuUrl('file:///etc/passwd', currentHost)).toBe('');
+  });
+
+  it('returns external https URL verbatim when host differs', () => {
+    expect(
+      normalizeMenuUrl('https://external.example.com/page', currentHost),
+    ).toBe('https://external.example.com/page');
+  });
+
+  it('returns mailto: URL verbatim', () => {
+    expect(normalizeMenuUrl('mailto:hello@shop.com', currentHost)).toBe(
+      'mailto:hello@shop.com',
+    );
+  });
+
+  it('returns tel: URL verbatim', () => {
+    expect(normalizeMenuUrl('tel:+46812345', currentHost)).toBe(
+      'tel:+46812345',
+    );
+  });
+
+  it('strips same-host https URL to internal path (existing behavior unchanged)', () => {
+    expect(
+      normalizeMenuUrl('https://test.example.com/se/sv/l/epoxi', currentHost),
+    ).toBe('/c/epoxi');
+  });
+
+  it('strips Geins prefix from internal path (existing behavior unchanged)', () => {
+    expect(normalizeMenuUrl('/se/sv/about-us', currentHost)).toBe('/about-us');
+  });
+});
+
 describe('isExternalUrl', () => {
   it('returns false for relative paths', () => {
     expect(isExternalUrl('/about')).toBe(false);
