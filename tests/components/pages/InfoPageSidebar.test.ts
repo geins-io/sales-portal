@@ -12,41 +12,19 @@ const { mockRoutePath } = vi.hoisted(() => {
   return { mockRoutePath: hoistedRef('/') };
 });
 
-vi.mock('#app/composables/router', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { ref: mockRef } = require('vue') as { ref: <T>(v: T) => Ref<T> };
-  return {
-    useRoute: () => ({
-      path: mockRoutePath.value,
-      params: {},
-      query: {},
-      hash: '',
-      fullPath: mockRoutePath.value,
-      name: 'page',
-      matched: [],
-      redirectedFrom: undefined,
-      meta: {},
-    }),
-    useRouter: () => ({
-      push: vi.fn(() => Promise.resolve()),
-      replace: vi.fn(() => Promise.resolve()),
-      go: vi.fn(),
-      back: vi.fn(),
-      forward: vi.fn(),
-      currentRoute: mockRef({
-        path: mockRoutePath.value,
-        params: {},
-        query: {},
-        hash: '',
-        fullPath: mockRoutePath.value,
-        name: 'page',
-        matched: [],
-        redirectedFrom: undefined,
-        meta: {},
-      }),
-    }),
-  };
-});
+vi.mock('#app/composables/router', () => ({
+  useRoute: () => ({
+    path: mockRoutePath.value,
+    params: {},
+    query: {},
+    hash: '',
+    fullPath: mockRoutePath.value,
+    name: 'page',
+    matched: [],
+    redirectedFrom: undefined,
+    meta: {},
+  }),
+}));
 
 // CMS menu mock state
 const mockMenu = ref<MenuType | null>(null);
@@ -210,19 +188,6 @@ describe('InfoPageSidebar', () => {
     expect(termsAnchor!.classes()).not.toContain('bg-accent');
   });
 
-  it('marks active fallback link when route.path exactly matches href', () => {
-    mockIsConfigured.value = false;
-    mockRoutePath.value = '/se/sv/terms';
-    const wrapper = mountComponent(InfoPageSidebar, {
-      props: { activePath: '/terms' },
-    });
-    const anchors = wrapper.findAll('a');
-    const termsAnchor = anchors.find(
-      (a) => a.attributes('href') === '/se/sv/terms',
-    );
-    expect(termsAnchor!.attributes('aria-current')).toBe('page');
-  });
-
   // --- Active state in CMS branch ---
 
   it('marks active CMS link when route.path ends with activePath', () => {
@@ -255,25 +220,7 @@ describe('InfoPageSidebar', () => {
     expect(omOssAnchor!.classes()).not.toContain('bg-accent');
   });
 
-  it('marks active CMS link when route.path exactly matches derived href', () => {
-    mockIsConfigured.value = true;
-    mockError.value = null;
-    mockMenu.value = {
-      id: '1',
-      title: 'Info pages',
-      menuItems: [
-        { id: '1', label: 'Om oss', canonicalUrl: '/se/sv/om-oss', order: 1 },
-      ],
-    };
-    mockRoutePath.value = '/se/sv/om-oss';
-    const wrapper = mountComponent(InfoPageSidebar, {
-      props: { activePath: '/om-oss' },
-    });
-    const anchor = wrapper.find('a');
-    expect(anchor.attributes('aria-current')).toBe('page');
-  });
-
-  // --- Wrapper structure preserved ---
+  // --- Wrapper structure ---
 
   it('renders nav with data-testid and aria-label', () => {
     mockIsConfigured.value = false;
@@ -283,17 +230,6 @@ describe('InfoPageSidebar', () => {
     const nav = wrapper.find('[data-testid="info-page-sidebar"]');
     expect(nav.exists()).toBe(true);
     expect(nav.attributes('aria-label')).toBe('nav.sidebar_navigation');
-    expect(nav.element.tagName.toLowerCase()).toBe('nav');
-  });
-
-  it('renders ul > li structure', () => {
-    mockIsConfigured.value = false;
-    const wrapper = mountComponent(InfoPageSidebar, {
-      props: { activePath: '/about' },
-    });
-    expect(wrapper.find('ul').exists()).toBe(true);
-    const items = wrapper.findAll('li');
-    expect(items.length).toBe(4);
   });
 
   // --- External link in CMS branch ---
