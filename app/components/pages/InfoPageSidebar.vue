@@ -1,4 +1,13 @@
 <script setup lang="ts">
+import { CMS_MENUS } from '#shared/constants/cms';
+import {
+  normalizeMenuUrl,
+  getMenuLabel,
+  getVisibleItems,
+  isExternalUrl,
+} from '#shared/utils/menu';
+import type { MenuItemType } from '#shared/types/cms';
+
 const props = defineProps<{
   /** Route path of the currently active page */
   activePath: string;
@@ -8,18 +17,34 @@ const { t } = useI18n();
 const route = useRoute();
 const { localePath } = useLocaleMarket();
 
-const links = computed(() => [
-  { label: t('info_pages.about_us'), to: localePath('/about') },
-  { label: t('info_pages.contact'), to: localePath('/contact') },
-  {
-    label: t('info_pages.apply_for_account'),
-    to: localePath('/apply-for-account'),
-  },
-  { label: t('info_pages.terms'), to: localePath('/terms') },
+const { menu, error, isConfigured } = useCmsMenuData(CMS_MENUS.SIDEBAR_FALLBACK);
+const currentHost = computed(() => useRequestURL().host);
+
+const menuItems = computed(() => getVisibleItems(menu.value?.menuItems));
+
+const useCmsMenu = computed(
+  () => isConfigured.value && !error.value && menuItems.value.length > 0,
+);
+
+const fallbackLinks = computed(() => [
+  { label: t('layout.about_us'), to: localePath('/about') },
+  { label: t('layout.contact'), to: localePath('/contact') },
+  { label: t('layout.apply_for_account'), to: localePath('/apply-for-account') },
+  { label: t('layout.terms'), to: localePath('/terms') },
 ]);
 
+function itemIsExternal(item: MenuItemType): boolean {
+  const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
+  return isExternalUrl(url, currentHost.value) || !!item.targetBlank;
+}
+
+function itemTo(item: MenuItemType): string {
+  const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
+  return itemIsExternal(item) ? (url || '/') : localePath(url || '/');
+}
+
 function isActive(to: string): boolean {
-  return route.path === to || route.path.endsWith(props.activePath);
+  return route.path === to || to.endsWith(props.activePath);
 }
 </script>
 
@@ -30,20 +55,51 @@ function isActive(to: string): boolean {
     data-testid="info-page-sidebar"
   >
     <ul class="space-y-1">
-      <li v-for="link in links" :key="link.to">
-        <NuxtLink
-          :to="link.to"
-          :aria-current="isActive(link.to) ? 'page' : undefined"
-          class="block rounded-md py-2 ps-3 text-sm transition-colors"
-          :class="
-            isActive(link.to)
-              ? 'bg-accent text-accent-foreground font-medium'
-              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-          "
-        >
-          {{ link.label }}
-        </NuxtLink>
-      </li>
+      <!-- CMS menu branch -->
+      <template v-if="useCmsMenu">
+        <li v-for="item in menuItems" :key="item.id">
+          <NuxtLink
+            v-if="!itemIsExternal(item)"
+            :to="itemTo(item)"
+            :aria-current="isActive(itemTo(item)) ? 'page' : undefined"
+            class="block rounded-md py-2 ps-3 text-sm transition-colors"
+            :class="
+              isActive(itemTo(item))
+                ? 'bg-accent text-accent-foreground font-medium'
+                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+            "
+          >
+            {{ getMenuLabel(item) }}
+          </NuxtLink>
+          <a
+            v-else
+            :href="itemTo(item)"
+            target="_blank"
+            rel="noopener"
+            class="text-muted-foreground hover:bg-accent/50 hover:text-foreground block rounded-md py-2 ps-3 text-sm transition-colors"
+          >
+            {{ getMenuLabel(item) }}
+          </a>
+        </li>
+      </template>
+
+      <!-- Fallback branch -->
+      <template v-else>
+        <li v-for="link in fallbackLinks" :key="link.to">
+          <NuxtLink
+            :to="link.to"
+            :aria-current="isActive(link.to) ? 'page' : undefined"
+            class="block rounded-md py-2 ps-3 text-sm transition-colors"
+            :class="
+              isActive(link.to)
+                ? 'bg-accent text-accent-foreground font-medium'
+                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+            "
+          >
+            {{ link.label }}
+          </NuxtLink>
+        </li>
+      </template>
     </ul>
   </nav>
 </template>
