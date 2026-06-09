@@ -6,6 +6,7 @@ import {
   getVisibleItems,
   isExternalUrl,
 } from '#shared/utils/menu';
+import { isSafeInternalPath } from '#shared/utils/redirect';
 import type { MenuItemType } from '#shared/types/cms';
 
 const props = defineProps<{
@@ -22,7 +23,7 @@ const currentHost = computed(() => useRequestURL().host);
 
 const menuItems = computed(() => getVisibleItems(menu.value?.menuItems));
 
-const useCmsMenu = computed(
+const showCmsMenu = computed(
   () => isConfigured.value && !error.value && menuItems.value.length > 0,
 );
 
@@ -40,7 +41,9 @@ function itemIsExternal(item: MenuItemType): boolean {
 
 function itemTo(item: MenuItemType): string {
   const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
-  return itemIsExternal(item) ? (url || '/') : localePath(url || '/');
+  return itemIsExternal(item)
+    ? (url || '/')
+    : localePath(isSafeInternalPath(url) ? url : '/');
 }
 
 function isActive(to: string): boolean {
@@ -56,7 +59,7 @@ function isActive(to: string): boolean {
   >
     <ul class="space-y-1">
       <!-- CMS menu branch -->
-      <template v-if="useCmsMenu">
+      <template v-if="showCmsMenu">
         <li v-for="item in menuItems" :key="item.id">
           <NuxtLink
             v-if="!itemIsExternal(item)"

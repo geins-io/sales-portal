@@ -33,7 +33,7 @@ const areaCache = new LRUCache<string, ContentAreaType>({
 // Null results use an empty-string sentinel (PAGE_LINK_NULL_SENTINEL) because
 // LRUCache<string, string> disallows null values. cache.has() distinguishes a
 // cached miss from an uncached entry; get() returning "" means no page exists.
-const PAGE_LINK_NULL_SENTINEL = "";
+const PAGE_LINK_NULL_SENTINEL = '';
 const pageLinkCache = new LRUCache<string, string>({ max: 300 });
 
 /**
@@ -326,6 +326,7 @@ export async function getPageLinkByTag(
 ): Promise<string | null> {
   const preview = getPreviewCookie(event);
   const isCacheable = !preview;
+  // No preview variant: cmsPages has no preview arg; preview only disables caching here.
   const cacheKey = `${buildCachePrefix(event)}::pagelink::${args.tag}`;
 
   if (isCacheable && pageLinkCache.has(cacheKey)) {
@@ -357,7 +358,10 @@ export async function getPageLinkByTag(
     // Prefer a tag-confirmed match so a stray result without the tag is ignored.
     // The API already filtered by includeTags; this is a defensive check.
     const tagMatch = pages.find(
-      (p) => hasPageTag(p, args.tag) && typeof p.canonicalUrl === 'string' && p.canonicalUrl !== '',
+      (p) =>
+        hasPageTag(p, args.tag) &&
+        typeof p.canonicalUrl === 'string' &&
+        p.canonicalUrl !== '',
     );
     const firstWithUrl = pages.find(
       (p) => typeof p.canonicalUrl === 'string' && p.canonicalUrl !== '',
@@ -370,7 +374,9 @@ export async function getPageLinkByTag(
 
   if (isCacheable) {
     // Store sentinel for null so cache.has() returns true and avoids re-querying.
-    pageLinkCache.set(cacheKey, resolved ?? PAGE_LINK_NULL_SENTINEL, { ttl: CACHE_TTL_MS });
+    pageLinkCache.set(cacheKey, resolved ?? PAGE_LINK_NULL_SENTINEL, {
+      ttl: CACHE_TTL_MS,
+    });
   }
 
   return resolved;

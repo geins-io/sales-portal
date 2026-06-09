@@ -232,6 +232,38 @@ describe('InfoPageSidebar', () => {
     expect(nav.attributes('aria-label')).toBe('nav.sidebar_navigation');
   });
 
+  // --- itemTo safety guard ---
+
+  it('protocol-relative canonicalUrl is clamped to localePath("/") on the internal branch', () => {
+    // normalizeMenuUrl keeps '//test.example.com/page' as-is (starts with '/')
+    // and stripGeinsPrefix returns it unchanged. isExternalUrl returns false
+    // (starts with '/'), so itemIsExternal is false and the NuxtLink branch runs.
+    // isSafeInternalPath rejects it (contains '//'), so itemTo falls back to
+    // localePath('/') instead of leaking '//test.example.com/page' to the href.
+    mockIsConfigured.value = true;
+    mockError.value = null;
+    mockMenu.value = {
+      id: '1',
+      title: 'Info pages',
+      menuItems: [
+        {
+          id: '1',
+          label: 'Unsafe',
+          canonicalUrl: '//test.example.com/page',
+          order: 1,
+        },
+      ],
+    };
+    const wrapper = mountComponent(InfoPageSidebar, {
+      props: { activePath: '/page' },
+    });
+    const anchors = wrapper.findAll('a');
+    const hrefs = anchors.map((a) => a.attributes('href'));
+    expect(hrefs).not.toContain('//test.example.com/page');
+    // localePath('/') resolves to '/se/sv/' via the mock
+    expect(hrefs.some((h) => h === '/se/sv/' || h === '/se/sv')).toBe(true);
+  });
+
   // --- External link in CMS branch ---
 
   it('renders external CMS items as <a> with target and rel attributes', () => {
