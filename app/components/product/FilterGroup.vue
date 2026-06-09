@@ -25,18 +25,11 @@ const visibleValues = computed(() =>
 );
 
 /**
- * Header label for the filter group accordion. Tries the API's `group` field
- * through the translation dictionary first; falls back to the raw `label` /
- * `type` / `filterId` chain (mirroring the previous inline template logic)
- * when the lookup returns nothing.
+ * Header label for the filter group accordion. Resolves the facet's identity
+ * (`group` / `type` / `filterId`) through the translation dictionary, falling
+ * back to the facet's own label for custom parameter filters.
  */
-const groupLabel = computed(
-  () =>
-    getFilterGroupLabel(props.facet.group, t) ||
-    props.facet.label ||
-    props.facet.type ||
-    props.facet.filterId,
-);
+const groupLabel = computed(() => getFilterGroupLabel(props.facet, t));
 
 function toggleValue(valueId: string) {
   const current = [...props.selected];
