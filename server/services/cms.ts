@@ -11,6 +11,9 @@ import {
   getRequestChannelVariables,
   buildRequestContext,
 } from './_sdk';
+import { loadQuery } from './graphql/loader';
+import { unwrapGraphQL } from './graphql/unwrap';
+import { hasPageTag } from '#shared/utils/cms-tags';
 
 // =============================================================================
 // Cache Configuration
@@ -25,6 +28,13 @@ const menuCache = new LRUCache<string, MenuType>({
 const areaCache = new LRUCache<string, ContentAreaType>({
   max: 500,
 });
+
+// Cache for resolved page links keyed by tenant+locale+market+tag.
+// Null results use an empty-string sentinel (PAGE_LINK_NULL_SENTINEL) because
+// LRUCache<string, string> disallows null values. cache.has() distinguishes a
+// cached miss from an uncached entry; get() returning "" means no page exists.
+const PAGE_LINK_NULL_SENTINEL = '';
+const pageLinkCache = new LRUCache<string, string>({ max: 300 });
 
 /**
  * Build a cache key prefix from event context (tenant hostname, locale, market).
@@ -295,4 +305,79 @@ export async function getContentArea(
   }
 
   return result;
+}
+
+/**
+ * Resolve the localized canonicalUrl of the first CMS page tagged with
+ * the given tag. Returns null when no matching page is found so callers
+ * can fall back gracefully.
+ *
+ * The query drives localization via getRequestChannelVariables so no locale
+ * codes are hardcoded here. cmsPages already falls back to the default-language
+ * page server-side; a single call is correct.
+ *
+ * Cache sentinel: null results are stored as an empty string in the
+ * LRUCache (LRUCache<string, string> disallows null values). pageLinkCache.has()
+ * is used to distinguish a cached miss from an uncached entry.
+ */
+export async function getPageLinkByTag(
+  args: { tag: string },
+  event: H3Event,
+): Promise<string | null> {
+  const preview = getPreviewCookie(event);
+  const isCacheable = !preview;
+  // No preview variant: cmsPages has no preview arg; preview only disables caching here.
+  const cacheKey = `${buildCachePrefix(event)}::pagelink::${args.tag}`;
+
+  if (isCacheable && pageLinkCache.has(cacheKey)) {
+    const cached = pageLinkCache.get(cacheKey);
+    // Map sentinel back to null: empty string means "confirmed no page for this tag".
+    return cached === PAGE_LINK_NULL_SENTINEL ? null : (cached ?? null);
+  }
+
+  const sdk = await getTenantSDK(event);
+  const channelVars = getRequestChannelVariables(sdk, event);
+
+  const result = await wrapServiceCall(
+    () =>
+      sdk.core.graphql.query({
+        queryAsString: loadQuery('cms/page-by-tag.graphql'),
+        variables: { includeTags: [args.tag], ...channelVars },
+      }),
+    'cms',
+  );
+
+  const pages = unwrapGraphQL(result) as
+    | Array<{ alias?: string; tags?: string[]; canonicalUrl?: string }>
+    | null
+    | undefined;
+
+  let resolved: string | null = null;
+
+  if (Array.isArray(pages) && pages.length > 0) {
+    // Prefer a tag-confirmed match so a stray result without the tag is ignored.
+    // The API already filtered by includeTags; this is a defensive check.
+    const tagMatch = pages.find(
+      (p) =>
+        hasPageTag(p, args.tag) &&
+        typeof p.canonicalUrl === 'string' &&
+        p.canonicalUrl !== '',
+    );
+    const firstWithUrl = pages.find(
+      (p) => typeof p.canonicalUrl === 'string' && p.canonicalUrl !== '',
+    );
+    const candidate = tagMatch ?? firstWithUrl;
+    if (candidate?.canonicalUrl) {
+      resolved = candidate.canonicalUrl;
+    }
+  }
+
+  if (isCacheable) {
+    // Store sentinel for null so cache.has() returns true and avoids re-querying.
+    pageLinkCache.set(cacheKey, resolved ?? PAGE_LINK_NULL_SENTINEL, {
+      ttl: CACHE_TTL_MS,
+    });
+  }
+
+  return resolved;
 }

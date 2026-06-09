@@ -328,3 +328,11 @@ export const ResolveUrlSchema = z.object({
   path: z.string().min(1).max(500),
 });
 export type ResolveUrlInput = z.infer<typeof ResolveUrlSchema>;
+
+// ---------------------------------------------------------------------------
+// CMS page-link resolver
+// ---------------------------------------------------------------------------
+export const CmsPageLinkSchema = z.object({
+  tag: z.string().regex(/^[a-z][a-z0-9-]*$/).max(50),
+});
+export type CmsPageLinkInput = z.infer<typeof CmsPageLinkSchema>;

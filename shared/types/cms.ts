@@ -102,6 +102,16 @@ export interface FormWidgetField {
 export interface FormWidgetData {
   sendFormToEmail: string;
   fields: FormWidgetField[];
+  /**
+   * Email subject for the mailto. Supports `{fieldName}` placeholders that are
+   * filled from the submitted values (e.g. `Account application: {company}`).
+   * When unset, falls back to `templateName`, then a neutral default.
+   */
+  subject?: string;
+  /** Submit button label. Falls back to a neutral translated default. */
+  submitLabel?: string;
+  /** CMS template name; used as the subject fallback when `subject` is unset. */
+  templateName?: string;
 }
 
 /** Controls which product set the ProductListWidget renders. Only DEFAULT is rendered today. */

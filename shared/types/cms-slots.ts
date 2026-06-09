@@ -56,8 +56,6 @@ export const CMS_SLOTS = {
    * tenants can pre-configure the mapping before the consumer ships.
    */
   PRODUCT_DETAIL: 'product_detail',
-  /** CMS slot for the apply-for-account page (above the form). */
-  APPLY_FOR_ACCOUNT: 'apply_for_account',
 } as const;
 
 export type CmsSlotKey = (typeof CMS_SLOTS)[keyof typeof CMS_SLOTS];

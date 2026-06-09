@@ -77,6 +77,21 @@ export const CMS_TAGS = {
    * touching code.
    */
   SIDEBAR_MENU: 'menu',
+  /**
+   * Tags the CMS page that the topbar contact link resolves to. Editors
+   * assign this tag in the Geins admin so the alias can be localized
+   * (e.g. "kontakt" in SV, "contact" in EN) without touching any code.
+   * Lowercase, no leading hash, matching the convention used across this
+   * registry.
+   */
+  CONTACT_PAGE: 'contact',
+  /**
+   * Tags the CMS page that the topbar apply-for-account link resolves to.
+   * Editors assign this tag in the Geins admin so the alias can be
+   * localized per market without touching any code. Lowercase, no leading
+   * hash, matching the convention used across this registry.
+   */
+  APPLY_PAGE: 'apply',
 } as const;
 
 export type CmsTagKey = (typeof CMS_TAGS)[keyof typeof CMS_TAGS];
