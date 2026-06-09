@@ -1,14 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { FunctionalComponent } from 'vue';
 import { NuxtLink } from '#components';
-import {
-  Facebook,
-  Instagram,
-  Linkedin,
-  Twitter,
-  Youtube,
-} from 'lucide-vue-next';
 import type { MenuItemType } from '#shared/types/cms';
 import { CMS_MENUS } from '#shared/constants/cms';
 import {
@@ -19,49 +11,76 @@ import {
   addCategoryPrefix,
 } from '#shared/utils/menu';
 
-// Resolves the menuLocationId from `tenant.cms.menus[FOOTER]`.
-// When unconfigured, the footer link block is hidden but the layout's
-// surrounding branding / copyright remain.
-const { menu } = useCmsMenuData(CMS_MENUS.FOOTER);
+// Call useCmsMenuData once per key. Composables cannot be called in a loop.
+const { menu: footerMenu } = useCmsMenuData(CMS_MENUS.FOOTER);
+const { menu: footerMenu2 } = useCmsMenuData(CMS_MENUS.FOOTER_2);
+const { menu: footerMenu3 } = useCmsMenuData(CMS_MENUS.FOOTER_3);
+
 const { contact } = useTenant();
+const { localePath, currentLocale } = useLocaleMarket();
 const currentHost = computed(() => useRequestURL().host);
-const { localePath } = useLocaleMarket();
 
-const SOCIAL_ICONS = {
-  facebook: Facebook,
-  instagram: Instagram,
-  twitter: Twitter,
-  linkedin: Linkedin,
-  youtube: Youtube,
-} satisfies Record<string, FunctionalComponent>;
-
-type SocialKey = keyof typeof SOCIAL_ICONS;
-
-const SOCIAL_KEYS = Object.keys(SOCIAL_ICONS) as SocialKey[];
-
-const socialEntries = computed(() => {
-  const social = contact.value?.social;
-  if (!social)
-    return [] as Array<{
-      key: SocialKey;
-      url: string;
-      icon: FunctionalComponent;
-    }>;
-  return SOCIAL_KEYS.map((key) => ({
-    key,
-    url: social[key] ?? '',
-    icon: SOCIAL_ICONS[key],
-  })).filter((entry) => entry.url.length > 0);
-});
-
-const hasSocial = computed(() => socialEntries.value.length > 0);
-
-const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
-
-function visibleChildren(item: MenuItemType): MenuItemType[] {
-  return getVisibleItems(item.children);
+// Build a flat column entry for a menu if it has visible items.
+function toColumn(menu: typeof footerMenu.value, id: string) {
+  const items = getVisibleItems(menu?.menuItems);
+  if (items.length === 0) return null;
+  return { id, title: menu?.title || '', items };
 }
 
+const menuColumns = computed(() => {
+  return [
+    toColumn(footerMenu.value, 'footer'),
+    toColumn(footerMenu2.value, 'footer_2'),
+    toColumn(footerMenu3.value, 'footer_3'),
+  ].filter((col): col is NonNullable<typeof col> => col !== null);
+});
+
+// Contact computeds
+const hasContact = computed(
+  () => !!(contact.value?.email || contact.value?.phone),
+);
+
+const telHref = computed(() => {
+  const phone = contact.value?.phone;
+  if (!phone) return '';
+  return `tel:${phone.replace(/\s+/g, '')}`;
+});
+
+// Address computeds
+const address = computed(() => contact.value?.address);
+
+const hasAddress = computed(() => {
+  const a = address.value;
+  if (!a) return false;
+  return !!(a.street || a.city || a.postalCode || a.country);
+});
+
+const cityLine = computed(() => {
+  const a = address.value;
+  if (!a) return '';
+  return [a.postalCode, a.city].filter(Boolean).join(' ');
+});
+
+function regionName(code?: string | null): string {
+  if (!code) return '';
+  try {
+    const name = new Intl.DisplayNames([currentLocale.value], {
+      type: 'region',
+    }).of(code);
+    return name || code;
+  } catch {
+    return code;
+  }
+}
+
+const countryName = computed(() => regionName(address.value?.country));
+
+// Render guard: show the wrapper only when there is something to display
+const shouldRender = computed(
+  () => menuColumns.value.length > 0 || hasContact.value || hasAddress.value,
+);
+
+// Reuse the existing link helpers verbatim, operating on flat top-level items.
 function isExternal(item: MenuItemType): boolean {
   const url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
   return isExternalUrl(url, currentHost.value) || !!item.targetBlank;
@@ -86,66 +105,70 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
 
 <template>
   <div
-    v-if="visibleItems.length || hasSocial"
+    v-if="shouldRender"
     data-slot="footer-main"
     class="px-6 py-8 lg:px-6 lg:py-10"
   >
     <div class="mx-auto max-w-7xl">
-      <h3 v-if="menu?.title" class="mb-4 text-sm font-bold">
-        {{ menu.title }}
-      </h3>
-      <div
-        v-if="visibleItems.length"
-        class="grid grid-cols-2 gap-8 md:grid-cols-4"
-      >
-        <template v-for="item in visibleItems" :key="item.id">
-          <!-- Item with children: render as a column -->
-          <div v-if="visibleChildren(item).length">
-            <h4 class="mb-3 text-sm font-semibold">
-              {{ getMenuLabel(item) }}
-            </h4>
-            <ul class="flex flex-col gap-2">
-              <li v-for="child in visibleChildren(item)" :key="child.id">
-                <component
-                  :is="linkTag(child)"
-                  v-bind="linkAttrs(child)"
-                  class="text-footer-text/70 hover:text-footer-text text-sm transition-colors"
-                >
-                  {{ getMenuLabel(child) }}
-                </component>
-              </li>
-            </ul>
+      <div class="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-5">
+        <!-- Contact column -->
+        <div v-if="hasContact">
+          <h3 class="mb-4 text-sm font-bold">
+            {{ $t('layout.contact') }}
+          </h3>
+          <ul class="flex flex-col gap-2">
+            <li v-if="contact?.email">
+              <span class="text-footer-text/70 text-sm"
+                >{{ $t('layout.email') }}:</span
+              >
+              <a
+                :href="`mailto:${contact.email}`"
+                class="text-footer-text/70 hover:text-footer-text ml-1 text-sm transition-colors"
+                >{{ contact.email }}</a
+              >
+            </li>
+            <li v-if="contact?.phone">
+              <span class="text-footer-text/70 text-sm"
+                >{{ $t('layout.phone') }}:</span
+              >
+              <a
+                :href="telHref"
+                class="text-footer-text/70 hover:text-footer-text ml-1 text-sm transition-colors"
+                >{{ contact.phone }}</a
+              >
+            </li>
+          </ul>
+        </div>
+
+        <!-- Address column -->
+        <div v-if="hasAddress">
+          <h3 class="mb-4 text-sm font-bold">
+            {{ $t('layout.address') }}
+          </h3>
+          <div class="text-footer-text/70 flex flex-col gap-1 text-sm">
+            <p v-if="address?.street">{{ address.street }}</p>
+            <p v-if="cityLine">{{ cityLine }}</p>
+            <p v-if="countryName">{{ countryName }}</p>
           </div>
+        </div>
 
-          <!-- Item without children: render as a flat link -->
-          <component
-            :is="linkTag(item)"
-            v-else
-            v-bind="linkAttrs(item)"
-            class="text-footer-text/70 hover:text-footer-text text-sm transition-colors"
-          >
-            {{ getMenuLabel(item) }}
-          </component>
-        </template>
-      </div>
-
-      <!-- Social row: rendered only when at least one social URL is set -->
-      <div
-        v-if="hasSocial"
-        data-slot="footer-social"
-        :class="visibleItems.length ? 'mt-8 flex gap-4' : 'flex gap-4'"
-      >
-        <a
-          v-for="entry in socialEntries"
-          :key="entry.key"
-          :href="entry.url"
-          target="_blank"
-          rel="noopener noreferrer"
-          :aria-label="entry.key"
-          class="text-footer-text/70 hover:text-footer-text transition-colors"
-        >
-          <component :is="entry.icon" class="size-5" />
-        </a>
+        <!-- Menu columns (flat, one per configured footer menu) -->
+        <div v-for="col in menuColumns" :key="col.id">
+          <h3 v-if="col.title" class="mb-4 text-sm font-bold">
+            {{ col.title }}
+          </h3>
+          <ul class="flex flex-col gap-2">
+            <li v-for="item in col.items" :key="item.id">
+              <component
+                :is="linkTag(item)"
+                v-bind="linkAttrs(item)"
+                class="text-footer-text/70 hover:text-footer-text text-sm transition-colors"
+              >
+                {{ getMenuLabel(item) }}
+              </component>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>

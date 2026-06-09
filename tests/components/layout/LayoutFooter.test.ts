@@ -7,12 +7,17 @@ import LayoutFooterTop from '../../../app/components/layout/footer/LayoutFooterT
 import LayoutFooterMain from '../../../app/components/layout/footer/LayoutFooterMain.vue';
 import LayoutFooterBottom from '../../../app/components/layout/footer/LayoutFooterBottom.vue';
 
-const mockFooterMenu = ref<MenuType | null>(null);
-// LayoutFooterMain migrated to useCmsMenuData (tenant-config-keyed menu
-// resolver). We mock that instead of the older useMenuData.
+// Key-aware mock: each footer key gets its own ref so the three explicit
+// useCmsMenuData calls in LayoutFooterMain resolve independently.
+const footerMenus: Record<string, ReturnType<typeof ref<MenuType | null>>> = {
+  footer: ref<MenuType | null>(null),
+  footer_2: ref<MenuType | null>(null),
+  footer_3: ref<MenuType | null>(null),
+};
+
 vi.mock('~/composables/useCmsMenuData', () => ({
-  useCmsMenuData: () => ({
-    menu: mockFooterMenu,
+  useCmsMenuData: (key: string) => ({
+    menu: footerMenus[key] ?? ref(null),
     pending: ref(false),
     error: ref(null),
     isConfigured: ref(true),
@@ -67,19 +72,23 @@ describe('LayoutFooterTop', () => {
 
 describe('LayoutFooterMain', () => {
   it('renders nothing when menu is null', () => {
-    mockFooterMenu.value = null;
+    footerMenus.footer!.value = null;
+    footerMenus.footer_2!.value = null;
+    footerMenus.footer_3!.value = null;
     const wrapper = shallowMountComponent(LayoutFooterMain);
     expect(wrapper.find('[data-slot="footer-main"]').exists()).toBe(false);
   });
 
   it('renders nothing when menu has no items', () => {
-    mockFooterMenu.value = { id: '1', title: 'Footer', menuItems: [] };
+    footerMenus.footer!.value = { id: '1', title: 'Footer', menuItems: [] };
+    footerMenus.footer_2!.value = null;
+    footerMenus.footer_3!.value = null;
     const wrapper = shallowMountComponent(LayoutFooterMain);
     expect(wrapper.find('[data-slot="footer-main"]').exists()).toBe(false);
   });
 
-  it('renders CMS footer menu items as links', () => {
-    mockFooterMenu.value = {
+  it('renders CMS footer menu items as flat links', () => {
+    footerMenus.footer!.value = {
       id: '1',
       title: 'Footer',
       menuItems: [
@@ -87,47 +96,29 @@ describe('LayoutFooterMain', () => {
         { id: '2', label: 'Contact', canonicalUrl: '/contact', order: 2 },
       ],
     };
+    footerMenus.footer_2!.value = null;
+    footerMenus.footer_3!.value = null;
     const wrapper = shallowMountComponent(LayoutFooterMain);
     expect(wrapper.text()).toContain('About us');
     expect(wrapper.text()).toContain('Contact');
   });
 
   it('renders menu title as heading when present', () => {
-    mockFooterMenu.value = {
+    footerMenus.footer!.value = {
       id: '1',
       title: 'Footer Links',
       menuItems: [
         { id: '1', label: 'About', canonicalUrl: '/about', order: 1 },
       ],
     };
+    footerMenus.footer_2!.value = null;
+    footerMenus.footer_3!.value = null;
     const wrapper = shallowMountComponent(LayoutFooterMain);
     expect(wrapper.text()).toContain('Footer Links');
   });
 
-  it('renders children as sub-group when parent has children', () => {
-    mockFooterMenu.value = {
-      id: '1',
-      title: 'Footer',
-      menuItems: [
-        {
-          id: '1',
-          label: 'Company',
-          order: 1,
-          children: [
-            { id: '1-1', label: 'About us', canonicalUrl: '/about', order: 1 },
-            { id: '1-2', label: 'Careers', canonicalUrl: '/careers', order: 2 },
-          ],
-        },
-      ],
-    };
-    const wrapper = shallowMountComponent(LayoutFooterMain);
-    expect(wrapper.text()).toContain('Company');
-    expect(wrapper.text()).toContain('About us');
-    expect(wrapper.text()).toContain('Careers');
-  });
-
   it('filters hidden items', () => {
-    mockFooterMenu.value = {
+    footerMenus.footer!.value = {
       id: '1',
       title: 'Footer',
       menuItems: [
@@ -135,6 +126,8 @@ describe('LayoutFooterMain', () => {
         { id: '2', label: 'Hidden', hidden: true, order: 2 },
       ],
     };
+    footerMenus.footer_2!.value = null;
+    footerMenus.footer_3!.value = null;
     const wrapper = shallowMountComponent(LayoutFooterMain);
     expect(wrapper.text()).toContain('Visible');
     expect(wrapper.text()).not.toContain('Hidden');
