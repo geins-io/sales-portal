@@ -161,11 +161,6 @@ const acceptedTerms = ref(false);
 // matches the user's local today rather than UTC (which can be off by a day).
 const todayIso = new Date().toLocaleDateString('en-CA');
 
-// Required customer order number gate (parallel to acceptedTerms).
-const hasCustomerOrderNumber = computed(
-  () => !!checkoutStore.customerOrderNumber?.trim(),
-);
-
 async function handleHostedCheckout() {
   if (!cartStore.cartId) return;
   isRedirecting.value = true;
@@ -210,7 +205,6 @@ watch(
 async function handlePlaceOrder() {
   if (!cartStore.cartId || !checkoutStore.canPlaceOrder) return;
   if (!acceptedTerms.value) return;
-  if (checkoutStore.billingAddressId && !hasCustomerOrderNumber.value) return;
   await checkoutStore.placeOrder(cartStore.cartId);
 }
 </script>
@@ -478,8 +472,7 @@ async function handlePlaceOrder() {
               :can-place-order="
                 checkoutStore.canPlaceOrder &&
                 !checkoutStore.isBlacklisted &&
-                acceptedTerms &&
-                (!checkoutStore.billingAddressId || hasCustomerOrderNumber)
+                acceptedTerms
               "
               :is-placing-order="checkoutStore.isPlacingOrder"
               @place-order="handlePlaceOrder"

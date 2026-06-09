@@ -306,11 +306,10 @@ describe('checkout page', () => {
     expect(mockFetchCheckout).toHaveBeenCalledWith('cart-test-001');
   });
 
-  it('blocks handlePlaceOrder when customerOrderNumber is empty for a company user', async () => {
-    // Company user context: billingAddressId is set (simulating prefillFromCompany),
-    // customerOrderNumber is '' so the B2B PO-gate fires and placeOrder is never called.
-    // Terms are auto-accepted so the terms gate is NOT the blocker — if we deleted
-    // the PO gate, this test would fail because placeOrder would be called.
+  it('allows handlePlaceOrder when customerOrderNumber is empty for a company user (PO optional)', async () => {
+    // Company user context: billingAddressId is set (simulating prefillFromCompany)
+    // with an empty customerOrderNumber. The PO number is optional, so with terms
+    // auto-accepted the order places successfully.
     const { useCheckoutStore } = await import('../../../app/stores/checkout');
     vi.mocked(useCheckoutStore).mockReturnValueOnce({
       isLoading: false,
@@ -353,7 +352,7 @@ describe('checkout page', () => {
       },
     };
 
-    // Auto-accept terms so the terms gate is cleared; only the PO gate blocks.
+    // Auto-accept terms so the only order-placement gate (terms) is cleared.
     const stubbedStubs = {
       ...stubs,
       CheckoutTermsAgreement: {
@@ -391,7 +390,7 @@ describe('checkout page', () => {
     const placeOrderButton = wrapper.find('[data-testid="place-order-button"]');
     await placeOrderButton.trigger('click');
     await flushPromises();
-    expect(mockPlaceOrder).not.toHaveBeenCalled();
+    expect(mockPlaceOrder).toHaveBeenCalled();
   });
 
   it('allows a company user with customerOrderNumber and billingAddressId to place an order', async () => {

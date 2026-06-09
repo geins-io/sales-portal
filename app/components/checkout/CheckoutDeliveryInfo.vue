@@ -68,48 +68,49 @@ const deliveryAddress = computed<CompanyAddress | null>(() => {
         </div>
       </div>
 
-      <!-- Desired delivery date (optional) -->
-      <!-- A styled calendar picker can be added here in a future iteration
-           if Figma demands it. The hard requirement is: past disabled and all
-           future dates selectable, which :min satisfies with a native input. -->
-      <div class="space-y-2">
-        <Label for="checkout-desired-delivery-date">{{
-          t('checkout.desired_delivery_date')
-        }}</Label>
-        <Input
-          id="checkout-desired-delivery-date"
-          type="date"
-          :model-value="props.desiredDeliveryDate"
-          :min="props.todayIso"
-          :disabled="props.disabled"
-          data-testid="checkout-desired-delivery-date"
-          @update:model-value="
-            emit('update:desiredDeliveryDate', $event as string)
-          "
-        />
-        <p class="text-muted-foreground text-xs">
-          {{ t('checkout.desired_delivery_date_helper') }}
-        </p>
-      </div>
+      <!-- Desired delivery date + goods label sit side by side (50%) on
+           desktop and stack on mobile. A styled calendar picker can replace
+           the native date input in a future iteration; the hard requirement
+           is past disabled and all future dates selectable, which :min
+           satisfies with a native input. -->
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <!-- Desired delivery date (optional) -->
+        <div class="space-y-2">
+          <Label for="checkout-desired-delivery-date">{{
+            t('checkout.desired_delivery_date')
+          }}</Label>
+          <Input
+            id="checkout-desired-delivery-date"
+            type="date"
+            :model-value="props.desiredDeliveryDate"
+            :min="props.todayIso"
+            :disabled="props.disabled"
+            data-testid="checkout-desired-delivery-date"
+            @update:model-value="
+              emit('update:desiredDeliveryDate', $event as string)
+            "
+          />
+          <p class="text-muted-foreground text-xs">
+            {{ t('checkout.desired_delivery_date_helper') }}
+          </p>
+        </div>
 
-      <!-- Goods label (optional) -->
-      <div class="space-y-2">
-        <Label for="checkout-goods-label">{{
-          t('checkout.goods_label')
-        }}</Label>
-        <Input
-          id="checkout-goods-label"
-          :model-value="props.goodsLabel"
-          type="text"
-          :placeholder="t('checkout.goods_label_placeholder')"
-          :disabled="props.disabled"
-          maxlength="500"
-          data-testid="checkout-goods-label"
-          @update:model-value="emit('update:goodsLabel', $event as string)"
-        />
-        <p class="text-muted-foreground text-xs">
-          {{ t('checkout.goods_label_helper') }}
-        </p>
+        <!-- Goods label (optional) -->
+        <div class="space-y-2">
+          <Label for="checkout-goods-label">{{
+            t('checkout.goods_label')
+          }}</Label>
+          <Input
+            id="checkout-goods-label"
+            :model-value="props.goodsLabel"
+            type="text"
+            :placeholder="t('checkout.goods_label_placeholder')"
+            :disabled="props.disabled"
+            maxlength="500"
+            data-testid="checkout-goods-label"
+            @update:model-value="emit('update:goodsLabel', $event as string)"
+          />
+        </div>
       </div>
     </CardContent>
   </Card>

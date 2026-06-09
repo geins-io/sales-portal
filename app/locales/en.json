@@ -198,11 +198,8 @@
     "terms_prefix": "I accept ",
     "terms_link_text": "the terms and conditions",
     "customer_order_number": "Your reference / PO number",
-    "customer_order_number_helper": "Will appear on your invoice",
-    "customer_order_number_required": "Please enter your reference or PO number",
     "goods_label": "Goods label",
     "goods_label_placeholder": "e.g. Store 12 / Dock B / Project Atlas",
-    "goods_label_helper": "Printed on packages, freight docs and pallet flags so goods are identified on arrival",
     "desired_delivery_date": "Desired delivery date",
     "desired_delivery_date_helper": "Requested, not guaranteed"
   },
