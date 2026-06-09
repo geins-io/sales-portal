@@ -71,7 +71,16 @@ onUnmounted(() => {
             class="size-10 shrink-0 rounded"
           />
           <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium">{{ product.name }}</p>
+            <p class="truncate text-sm">{{ product.name }}</p>
+            <p
+              v-if="product.articleNumber"
+              data-testid="search-article-number"
+              class="text-muted-foreground my-[3px] truncate text-sm"
+            >
+              {{
+                $t('product.article_number', { number: product.articleNumber })
+              }}
+            </p>
             <p class="text-muted-foreground truncate text-xs">
               {{ product.brand?.name }}
             </p>

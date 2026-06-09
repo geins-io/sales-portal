@@ -56,6 +56,39 @@ describe('SearchAutocomplete', () => {
     expect(wrapper.text()).toContain('Product B');
   });
 
+  it('renders the article number line when articleNumber is set', () => {
+    const results = {
+      products: [makeProduct({ articleNumber: 'ART-001' })],
+      count: 1,
+    };
+
+    const wrapper = mountComponent(SearchAutocomplete, {
+      props: { results, loading: false, open: true },
+      global: { stubs },
+    });
+
+    const artNr = wrapper.find('[data-testid="search-article-number"]');
+    expect(artNr.exists()).toBe(true);
+    // $t mock returns the key — the line is rendered via the shared i18n key
+    expect(artNr.text()).toContain('product.article_number');
+  });
+
+  it('omits the article number line when articleNumber is empty', () => {
+    const results = {
+      products: [makeProduct({ articleNumber: '' })],
+      count: 1,
+    };
+
+    const wrapper = mountComponent(SearchAutocomplete, {
+      props: { results, loading: false, open: true },
+      global: { stubs },
+    });
+
+    expect(wrapper.find('[data-testid="search-article-number"]').exists()).toBe(
+      false,
+    );
+  });
+
   it('limits to 5 product items', () => {
     const products = Array.from({ length: 8 }, (_, i) =>
       makeProduct({
