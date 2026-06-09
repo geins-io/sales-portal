@@ -7,144 +7,218 @@ import { getFilterGroupLabel } from '../../app/utils/filter-labels';
  */
 const t = (key: string) => `[${key}]`;
 
+type Overrides = Partial<
+  Record<'group' | 'label' | 'type' | 'filterId', string | null>
+>;
+
+/**
+ * Builds a facet identity. Defaults mirror a real Geins system-filter payload:
+ * `group` / `label` are null and the identity is carried in `type` / `filterId`.
+ */
+function facet(overrides: Overrides) {
+  return {
+    group: null,
+    label: null,
+    type: '',
+    filterId: '',
+    ...overrides,
+  } as unknown as Parameters<typeof getFilterGroupLabel>[0];
+}
+
 describe('getFilterGroupLabel', () => {
-  describe('known groups (case-insensitive)', () => {
+  describe('known groups via the group field (case-insensitive)', () => {
     it('maps "Brand" to product.filter_groups.brands', () => {
-      expect(getFilterGroupLabel('Brand', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'Brand' }), t)).toBe(
         '[product.filter_groups.brands]',
       );
     });
 
     it('maps "brand" (lowercase) to product.filter_groups.brands', () => {
-      expect(getFilterGroupLabel('brand', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'brand' }), t)).toBe(
         '[product.filter_groups.brands]',
       );
     });
 
     it('maps "BRAND" (uppercase) to product.filter_groups.brands', () => {
-      expect(getFilterGroupLabel('BRAND', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'BRAND' }), t)).toBe(
         '[product.filter_groups.brands]',
       );
     });
 
     it('maps plural "brands" to product.filter_groups.brands', () => {
-      expect(getFilterGroupLabel('brands', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'brands' }), t)).toBe(
         '[product.filter_groups.brands]',
       );
     });
 
     it('maps "Category" to product.filter_groups.categories', () => {
-      expect(getFilterGroupLabel('Category', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'Category' }), t)).toBe(
         '[product.filter_groups.categories]',
       );
     });
 
     it('maps "categories" to product.filter_groups.categories', () => {
-      expect(getFilterGroupLabel('categories', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'categories' }), t)).toBe(
         '[product.filter_groups.categories]',
       );
     });
 
     it('maps "Sku" to product.filter_groups.skus', () => {
-      expect(getFilterGroupLabel('Sku', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'Sku' }), t)).toBe(
         '[product.filter_groups.skus]',
       );
     });
 
     it('maps "Stock status" (with space) to product.filter_groups.stock_status', () => {
-      expect(getFilterGroupLabel('Stock status', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'Stock status' }), t)).toBe(
         '[product.filter_groups.stock_status]',
       );
     });
 
     it('maps "STOCK_STATUS" (uppercase underscored) to product.filter_groups.stock_status', () => {
-      expect(getFilterGroupLabel('STOCK_STATUS', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'STOCK_STATUS' }), t)).toBe(
         '[product.filter_groups.stock_status]',
       );
     });
 
     it('maps "stockstatus" (collapsed) to product.filter_groups.stock_status', () => {
-      expect(getFilterGroupLabel('stockstatus', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'stockstatus' }), t)).toBe(
         '[product.filter_groups.stock_status]',
       );
     });
 
     it('maps "Price" to product.filter_groups.price', () => {
-      expect(getFilterGroupLabel('Price', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'Price' }), t)).toBe(
         '[product.filter_groups.price]',
       );
     });
 
     it('maps "Discount" to product.filter_groups.discount', () => {
-      expect(getFilterGroupLabel('Discount', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'Discount' }), t)).toBe(
         '[product.filter_groups.discount]',
       );
     });
 
     it('maps "Sale" to product.filter_groups.discount', () => {
-      expect(getFilterGroupLabel('Sale', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'Sale' }), t)).toBe(
         '[product.filter_groups.discount]',
       );
     });
 
     it('maps "Campaign" to product.filter_groups.campaigns', () => {
-      expect(getFilterGroupLabel('Campaign', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'Campaign' }), t)).toBe(
         '[product.filter_groups.campaigns]',
       );
     });
 
     it('maps "campaigns" to product.filter_groups.campaigns', () => {
-      expect(getFilterGroupLabel('campaigns', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: 'campaigns' }), t)).toBe(
         '[product.filter_groups.campaigns]',
       );
     });
 
     it('trims leading/trailing whitespace before lookup', () => {
-      expect(getFilterGroupLabel('  Brand  ', t)).toBe(
+      expect(getFilterGroupLabel(facet({ group: '  Brand  ' }), t)).toBe(
         '[product.filter_groups.brands]',
       );
     });
   });
 
-  describe('unknown groups (passthrough)', () => {
-    it('passes through "Color" unchanged', () => {
-      expect(getFilterGroupLabel('Color', t)).toBe('Color');
+  // The bug this fixes: Geins system filters return group:null and carry their
+  // identity in `type` / `filterId`, so resolving only `group` bled the raw
+  // English ("Brand", "Category", "Sku") through on Swedish storefronts.
+  describe('system filters resolve via type / filterId when group is null', () => {
+    it('resolves type "Brand" to brands when group is null', () => {
+      expect(getFilterGroupLabel(facet({ group: null, type: 'Brand' }), t)).toBe(
+        '[product.filter_groups.brands]',
+      );
     });
 
-    it('passes through "Material" unchanged', () => {
-      expect(getFilterGroupLabel('Material', t)).toBe('Material');
+    it('resolves type "Category" to categories when group is null', () => {
+      expect(
+        getFilterGroupLabel(facet({ group: null, type: 'Category' }), t),
+      ).toBe('[product.filter_groups.categories]');
     });
 
-    it('does not invoke t() for unknown groups', () => {
+    it('resolves type "Price" to price when group is null', () => {
+      expect(getFilterGroupLabel(facet({ group: null, type: 'Price' }), t)).toBe(
+        '[product.filter_groups.price]',
+      );
+    });
+
+    it('resolves type "Sku" to skus when group is null', () => {
+      expect(getFilterGroupLabel(facet({ group: null, type: 'Sku' }), t)).toBe(
+        '[product.filter_groups.skus]',
+      );
+    });
+
+    it('resolves type "StockStatus" to stock_status even when a raw English label is present', () => {
+      expect(
+        getFilterGroupLabel(
+          facet({ group: null, label: 'Stock status', type: 'StockStatus' }),
+          t,
+        ),
+      ).toBe('[product.filter_groups.stock_status]');
+    });
+
+    it('resolves via filterId when group and type are both empty', () => {
+      expect(
+        getFilterGroupLabel(
+          facet({ group: null, type: '', filterId: 'Brand' }),
+          t,
+        ),
+      ).toBe('[product.filter_groups.brands]');
+    });
+
+    it('prefers a known group over type (resolution order)', () => {
+      expect(
+        getFilterGroupLabel(facet({ group: 'Category', type: 'Brand' }), t),
+      ).toBe('[product.filter_groups.categories]');
+    });
+  });
+
+  describe('custom parameter filters fall back to a human-readable label', () => {
+    it('returns the label for an unknown parameter group', () => {
+      expect(
+        getFilterGroupLabel(
+          facet({ group: 'Color', label: 'Color', type: 'Parameter' }),
+          t,
+        ),
+      ).toBe('Color');
+    });
+
+    it('falls back to group when the label is empty', () => {
+      expect(
+        getFilterGroupLabel(
+          facet({ group: 'Material', label: null, type: 'Parameter' }),
+          t,
+        ),
+      ).toBe('Material');
+    });
+
+    it('does not invoke t() for an unknown facet', () => {
       const spy = vi.fn((key: string) => `[${key}]`);
-      getFilterGroupLabel('Color', spy);
+      getFilterGroupLabel(
+        facet({ group: 'Color', label: 'Color', type: 'Parameter' }),
+        spy,
+      );
       expect(spy).not.toHaveBeenCalled();
     });
   });
 
-  describe('empty / null / undefined input', () => {
-    it('returns empty string for empty input', () => {
-      expect(getFilterGroupLabel('', t)).toBe('');
+  describe('empty identity', () => {
+    it('returns empty string when every identity field is empty', () => {
+      expect(
+        getFilterGroupLabel(
+          facet({ group: null, label: null, type: '', filterId: '' }),
+          t,
+        ),
+      ).toBe('');
     });
 
-    it('returns empty string for null input', () => {
-      expect(getFilterGroupLabel(null, t)).toBe('');
-    });
-
-    it('returns empty string for undefined input', () => {
-      expect(getFilterGroupLabel(undefined, t)).toBe('');
-    });
-
-    it('passes whitespace-only input through as raw (unknown group)', () => {
-      // Trimmed lookup yields empty string → not in the map → raw passthrough.
-      expect(getFilterGroupLabel('   ', t)).toBe('   ');
-    });
-
-    it('does not invoke t() for empty/null/undefined input', () => {
+    it('does not invoke t() for an empty facet', () => {
       const spy = vi.fn((key: string) => `[${key}]`);
-      getFilterGroupLabel('', spy);
-      getFilterGroupLabel(null, spy);
-      getFilterGroupLabel(undefined, spy);
+      getFilterGroupLabel(facet({}), spy);
       expect(spy).not.toHaveBeenCalled();
     });
   });

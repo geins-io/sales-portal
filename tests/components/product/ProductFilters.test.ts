@@ -412,7 +412,7 @@ describe('ProductFilters', () => {
       // GROUP_KEY_MAP. With the test $t passthrough (returns the key as-is),
       // the displayed label becomes 'product.filter_groups.price'. Searching
       // for a substring of that resolves via getFilterGroupLabel's t() path,
-      // not the label/filterId fallback path (which is what group:'' tests use).
+      // not the label fallback path (which is what the custom facet below uses).
       const priceFacet = {
         filterId: 'Price',
         group: 'Price',
@@ -439,16 +439,19 @@ describe('ProductFilters', () => {
           },
         ],
       };
-      const brandFacet = {
-        filterId: 'brand',
-        group: '',
-        label: 'Brand',
-        type: 'Brand',
+      // Control: a custom product-parameter facet whose group / type / filterId
+      // are all unknown, so it falls back to its raw label ('Color') and never
+      // contains the 'filter_groups' substring.
+      const customFacet = {
+        filterId: 'color',
+        group: 'Color',
+        label: 'Color',
+        type: 'Parameter',
         values: [
           {
             _id: 'acme',
             count: 2,
-            facetId: 'brand',
+            facetId: 'color',
             parentId: null,
             label: 'Acme',
             order: 0,
@@ -459,7 +462,7 @@ describe('ProductFilters', () => {
 
       const wrapper = mountComponent(ProductFilters, {
         props: {
-          facets: [priceFacet, brandFacet],
+          facets: [priceFacet, customFacet],
           modelValue: {},
         },
         global: { stubs: defaultStubs },

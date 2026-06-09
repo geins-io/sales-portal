@@ -52,12 +52,7 @@ const filteredFacets = computed<FilterFacet[]>(() => {
   if (!query) return props.facets;
   return props.facets
     .map((facet) => {
-      const displayed = (
-        getFilterGroupLabel(facet.group, t) ||
-        facet.label ||
-        facet.type ||
-        facet.filterId
-      ).toLowerCase();
+      const displayed = getFilterGroupLabel(facet, t).toLowerCase();
       if (displayed.includes(query)) return facet;
       const matchingValues = facet.values.filter(
         (v) => !v.hidden && v.label.toLowerCase().includes(query),
