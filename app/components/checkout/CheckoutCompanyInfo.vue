@@ -23,8 +23,6 @@ const emit = defineEmits<{
   'update:customerOrderNumber': [value: string];
 }>();
 
-const touched = ref(false);
-
 const billingAddress = computed<CompanyAddress | null>(() => {
   const addresses = props.company.addresses ?? [];
   return (
@@ -127,11 +125,10 @@ const buyerName = computed(() =>
         </div>
       </div>
 
-      <!-- PO number / reference (required) -->
+      <!-- PO number / reference (optional) -->
       <div class="space-y-2">
         <Label for="checkout-customer-order-number">
           {{ t('checkout.customer_order_number') }}
-          <span class="text-destructive ml-0.5">*</span>
         </Label>
         <Input
           id="checkout-customer-order-number"
@@ -141,21 +138,10 @@ const buyerName = computed(() =>
           :disabled="props.disabled"
           maxlength="200"
           data-testid="checkout-customer-order-number"
-          @blur="touched = true"
           @update:model-value="
             emit('update:customerOrderNumber', $event as string)
           "
         />
-        <p class="text-muted-foreground text-xs">
-          {{ t('checkout.customer_order_number_helper') }}
-        </p>
-        <p
-          v-if="touched && !props.customerOrderNumber"
-          class="text-destructive text-xs"
-          data-testid="checkout-customer-order-number-error"
-        >
-          {{ t('checkout.customer_order_number_required') }}
-        </p>
       </div>
     </CardContent>
   </Card>

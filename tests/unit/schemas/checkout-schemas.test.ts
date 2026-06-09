@@ -182,9 +182,9 @@ describe('PlaceOrderSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects missing customerOrderNumber for a company (B2B) order', () => {
-    // B2B orders send billingAddressId; customerOrderNumber is required in that
-    // shape. Consumer orders (billingAddress literal) may omit it.
+  it('accepts a company (B2B) order WITHOUT customerOrderNumber (optional)', () => {
+    // customerOrderNumber is optional for every checkout shape, including B2B
+    // orders that send billingAddressId.
     const companyOrder = {
       cartId: 'cart-123',
       paymentId: 1,
@@ -193,10 +193,10 @@ describe('PlaceOrderSchema', () => {
       billingAddressId: 'addr-001',
     };
     const result = PlaceOrderSchema.safeParse(companyOrder);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it('rejects empty customerOrderNumber for a company (B2B) order', () => {
+  it('accepts a company (B2B) order with an empty customerOrderNumber', () => {
     const companyOrder = {
       cartId: 'cart-123',
       paymentId: 1,
@@ -206,7 +206,7 @@ describe('PlaceOrderSchema', () => {
       customerOrderNumber: '',
     };
     const result = PlaceOrderSchema.safeParse(companyOrder);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('accepts a company (B2B) order WITH customerOrderNumber', () => {
@@ -284,7 +284,7 @@ describe('PlaceOrderSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects whitespace-only customerOrderNumber for a company (B2B) order', () => {
+  it('accepts a company (B2B) order with a whitespace-only customerOrderNumber', () => {
     const companyOrder = {
       cartId: 'cart-123',
       paymentId: 1,
@@ -294,7 +294,7 @@ describe('PlaceOrderSchema', () => {
       customerOrderNumber: '   ',
     };
     const result = PlaceOrderSchema.safeParse(companyOrder);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('accepts goodsLabel at exactly 500 chars', () => {

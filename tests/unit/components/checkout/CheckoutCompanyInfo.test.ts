@@ -303,19 +303,7 @@ describe('CheckoutCompanyInfo', () => {
     ]);
   });
 
-  it('does not show required error before the field is touched', () => {
-    const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: makeProps({ customerOrderNumber: '' }),
-      global: { stubs },
-    });
-    expect(
-      wrapper
-        .find('[data-testid="checkout-customer-order-number-error"]')
-        .exists(),
-    ).toBe(false);
-  });
-
-  it('shows required error after blur when field is empty', async () => {
+  it('renders no required marker or validation error (PO number is optional)', async () => {
     const wrapper = mount(CheckoutCompanyInfo.default, {
       props: makeProps({ customerOrderNumber: '' }),
       global: { stubs },
@@ -324,26 +312,23 @@ describe('CheckoutCompanyInfo', () => {
       '[data-testid="checkout-customer-order-number"]',
     );
     await input.trigger('blur');
-    expect(
-      wrapper
-        .find('[data-testid="checkout-customer-order-number-error"]')
-        .exists(),
-    ).toBe(true);
-  });
-
-  it('hides required error after blur when field has a value', async () => {
-    const wrapper = mount(CheckoutCompanyInfo.default, {
-      props: makeProps({ customerOrderNumber: 'PO-999' }),
-      global: { stubs },
-    });
-    const input = wrapper.find(
-      '[data-testid="checkout-customer-order-number"]',
-    );
-    await input.trigger('blur');
+    // No inline error appears even when the field is empty and blurred.
     expect(
       wrapper
         .find('[data-testid="checkout-customer-order-number-error"]')
         .exists(),
     ).toBe(false);
+    // No "*" required marker in the label.
+    expect(wrapper.text()).not.toContain('*');
+  });
+
+  it('renders no helper text under the PO number field', () => {
+    const wrapper = mount(CheckoutCompanyInfo.default, {
+      props: makeProps({ customerOrderNumber: '' }),
+      global: { stubs },
+    });
+    expect(wrapper.text()).not.toContain(
+      'checkout.customer_order_number_helper',
+    );
   });
 });

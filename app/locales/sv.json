@@ -198,11 +198,8 @@
     "terms_prefix": "Jag godkänner ",
     "terms_link_text": "villkoren",
     "customer_order_number": "Er referens / PO-nummer",
-    "customer_order_number_helper": "Visas på er faktura",
-    "customer_order_number_required": "Ange er referens eller PO-nummer",
-    "goods_label": "Godsmärkning",
+    "goods_label": "Godsmärke",
     "goods_label_placeholder": "t.ex. Butik 12 / Lastbrygga B / Projekt Atlas",
-    "goods_label_helper": "Trycks på paket, fraktsedlar och pallflaggor så att godset kan identifieras vid leverans",
     "desired_delivery_date": "Önskat leveransdatum",
     "desired_delivery_date_helper": "Önskemål, inte garanterat"
   },
