@@ -25,12 +25,12 @@ const { scrollSnaps, selectedIndex, scrollTo } = useCarousel();
       :key="index"
       type="button"
       data-slot="carousel-dot"
-      :aria-selected="index === selectedIndex"
+      :aria-current="index === selectedIndex ? 'true' : undefined"
       :data-active="index === selectedIndex || undefined"
       :class="
         cn(
           'h-1.5 w-5 rounded-[4px] transition-colors duration-200 md:w-6',
-          index === selectedIndex ? 'bg-accent' : 'bg-muted',
+          index === selectedIndex ? 'bg-primary' : 'bg-muted-foreground/30',
         )
       "
       @click="scrollTo(index)"

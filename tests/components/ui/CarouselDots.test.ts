@@ -34,12 +34,12 @@ describe('CarouselDots', () => {
     expect(wrapper.find('button').exists()).toBe(false);
   });
 
-  it('marks the dot at selectedIndex as active via aria-selected', () => {
+  it('marks the dot at selectedIndex as active via aria-current', () => {
     mockSelectedIndex.value = 1;
     const wrapper = mountComponent(CarouselDots);
     const buttons = wrapper.findAll('button');
-    expect(buttons[0].attributes('aria-selected')).toBe('false');
-    expect(buttons[1].attributes('aria-selected')).toBe('true');
+    expect(buttons[0].attributes('aria-current')).toBeUndefined();
+    expect(buttons[1].attributes('aria-current')).toBe('true');
   });
 
   it('sets data-active on the active dot only', () => {
@@ -61,13 +61,13 @@ describe('CarouselDots', () => {
   it('moves the active marker to the new selectedIndex after nextTick', async () => {
     const wrapper = mountComponent(CarouselDots);
     let buttons = wrapper.findAll('button');
-    expect(buttons[0].attributes('aria-selected')).toBe('true');
+    expect(buttons[0].attributes('aria-current')).toBe('true');
 
     mockSelectedIndex.value = 1;
     await nextTick();
 
     buttons = wrapper.findAll('button');
-    expect(buttons[0].attributes('aria-selected')).toBe('false');
-    expect(buttons[1].attributes('aria-selected')).toBe('true');
+    expect(buttons[0].attributes('aria-current')).toBeUndefined();
+    expect(buttons[1].attributes('aria-current')).toBe('true');
   });
 });
