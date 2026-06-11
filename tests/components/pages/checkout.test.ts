@@ -201,6 +201,9 @@ const stubs = {
     template: '<div data-testid="checkout-consents" />',
   },
   CheckoutOrderSummary: {
+    // The terms-acceptance checkbox now lives inside the summary, above the
+    // button. Auto-accept on mount mirrors a buyer who ticked it, clearing the
+    // page's place-order gate (acceptedTerms) the same way the real flow does.
     template:
       '<div data-testid="checkout-order-summary"><button data-testid="place-order-button" @click="$emit(\'placeOrder\')" /></div>',
     props: [
@@ -212,8 +215,15 @@ const stubs = {
       'discount',
       'canPlaceOrder',
       'isPlacingOrder',
+      'termsAccepted',
     ],
-    emits: ['placeOrder'],
+    emits: ['placeOrder', 'update:termsAccepted'],
+    mounted() {
+      (this as unknown as { $emit: (e: string, v: boolean) => void }).$emit(
+        'update:termsAccepted',
+        true,
+      );
+    },
   },
   Card: { template: '<div><slot /></div>' },
   CardHeader: { template: '<div><slot /></div>' },
@@ -352,40 +362,7 @@ describe('checkout page', () => {
       },
     };
 
-    // Auto-accept terms so the only order-placement gate (terms) is cleared.
-    const stubbedStubs = {
-      ...stubs,
-      CheckoutTermsAgreement: {
-        template: '<div data-testid="checkout-terms-auto" />',
-        props: ['modelValue', 'disabled'],
-        emits: ['update:modelValue'],
-        mounted() {
-          (this as unknown as { $emit: (e: string, v: boolean) => void }).$emit(
-            'update:modelValue',
-            true,
-          );
-        },
-      },
-    };
-
-    const Wrapper = defineComponent({
-      components: { CheckoutPage },
-      setup() {
-        return () => h(Suspense, null, { default: () => h(CheckoutPage) });
-      },
-    });
-
-    const wrapper = mount(Wrapper, {
-      global: {
-        ...defaultMountOptions.global,
-        stubs: stubbedStubs,
-        mocks: {
-          ...defaultMountOptions.global?.mocks,
-          $t: (key: string) => key,
-        },
-      },
-    });
-    await flushPromises();
+    const wrapper = await mountCheckoutPage();
 
     const placeOrderButton = wrapper.find('[data-testid="place-order-button"]');
     await placeOrderButton.trigger('click');
@@ -438,39 +415,7 @@ describe('checkout page', () => {
       },
     };
 
-    const stubbedStubs = {
-      ...stubs,
-      CheckoutTermsAgreement: {
-        template: '<div data-testid="checkout-terms-auto" />',
-        props: ['modelValue', 'disabled'],
-        emits: ['update:modelValue'],
-        mounted() {
-          (this as unknown as { $emit: (e: string, v: boolean) => void }).$emit(
-            'update:modelValue',
-            true,
-          );
-        },
-      },
-    };
-
-    const Wrapper = defineComponent({
-      components: { CheckoutPage },
-      setup() {
-        return () => h(Suspense, null, { default: () => h(CheckoutPage) });
-      },
-    });
-
-    const wrapper = mount(Wrapper, {
-      global: {
-        ...defaultMountOptions.global,
-        stubs: stubbedStubs,
-        mocks: {
-          ...defaultMountOptions.global?.mocks,
-          $t: (key: string) => key,
-        },
-      },
-    });
-    await flushPromises();
+    const wrapper = await mountCheckoutPage();
 
     const placeOrderButton = wrapper.find('[data-testid="place-order-button"]');
     await placeOrderButton.trigger('click');
@@ -513,39 +458,7 @@ describe('checkout page', () => {
       prefillFromCompany: vi.fn(),
     } as ReturnType<typeof useCheckoutStore>);
 
-    const stubbedStubs = {
-      ...stubs,
-      CheckoutTermsAgreement: {
-        template: '<div data-testid="checkout-terms-auto" />',
-        props: ['modelValue', 'disabled'],
-        emits: ['update:modelValue'],
-        mounted() {
-          (this as unknown as { $emit: (e: string, v: boolean) => void }).$emit(
-            'update:modelValue',
-            true,
-          );
-        },
-      },
-    };
-
-    const Wrapper = defineComponent({
-      components: { CheckoutPage },
-      setup() {
-        return () => h(Suspense, null, { default: () => h(CheckoutPage) });
-      },
-    });
-
-    const wrapper = mount(Wrapper, {
-      global: {
-        ...defaultMountOptions.global,
-        stubs: stubbedStubs,
-        mocks: {
-          ...defaultMountOptions.global?.mocks,
-          $t: (key: string) => key,
-        },
-      },
-    });
-    await flushPromises();
+    const wrapper = await mountCheckoutPage();
 
     const placeOrderButton = wrapper.find('[data-testid="place-order-button"]');
     await placeOrderButton.trigger('click');
@@ -554,9 +467,9 @@ describe('checkout page', () => {
   });
 
   it('calls placeOrder when customerOrderNumber is present and canPlaceOrder is true', async () => {
-    // Mount with a stub for CheckoutTermsAgreement that auto-checks terms
-    // on mount (sets acceptedTerms = true via v-model emit), and a store
-    // mock that provides a non-empty customerOrderNumber so all gates pass.
+    // The shared CheckoutOrderSummary stub auto-accepts terms on mount, and
+    // the store mock provides a non-empty customerOrderNumber, so all gates
+    // pass and placeOrder is called.
     const { useCheckoutStore } = await import('../../../app/stores/checkout');
     vi.mocked(useCheckoutStore).mockReturnValueOnce({
       isLoading: false,
@@ -588,40 +501,7 @@ describe('checkout page', () => {
       prefillFromCompany: vi.fn(),
     } as ReturnType<typeof useCheckoutStore>);
 
-    // Stub CheckoutTermsAgreement to auto-accept (emits true on mount)
-    const stubbedStubs = {
-      ...stubs,
-      CheckoutTermsAgreement: {
-        template: '<div data-testid="checkout-terms-auto" />',
-        props: ['modelValue', 'disabled'],
-        emits: ['update:modelValue'],
-        mounted() {
-          (this as unknown as { $emit: (e: string, v: boolean) => void }).$emit(
-            'update:modelValue',
-            true,
-          );
-        },
-      },
-    };
-
-    const Wrapper = defineComponent({
-      components: { CheckoutPage },
-      setup() {
-        return () => h(Suspense, null, { default: () => h(CheckoutPage) });
-      },
-    });
-
-    const wrapper = mount(Wrapper, {
-      global: {
-        ...defaultMountOptions.global,
-        stubs: stubbedStubs,
-        mocks: {
-          ...defaultMountOptions.global?.mocks,
-          $t: (key: string) => key,
-        },
-      },
-    });
-    await flushPromises();
+    const wrapper = await mountCheckoutPage();
 
     const placeOrderButton = wrapper.find('[data-testid="place-order-button"]');
     await placeOrderButton.trigger('click');

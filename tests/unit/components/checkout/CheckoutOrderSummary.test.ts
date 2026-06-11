@@ -29,6 +29,12 @@ const stubs = {
     props: ['disabled', 'size'],
     emits: ['click'],
   },
+  CheckoutTermsAgreement: {
+    template:
+      '<button data-testid="checkout-terms" :data-state="modelValue ? \'checked\' : \'unchecked\'" @click="$emit(\'update:modelValue\', !modelValue)"></button>',
+    props: ['modelValue', 'disabled'],
+    emits: ['update:modelValue'],
+  },
 };
 
 function makeProps(overrides: Record<string, unknown> = {}) {
@@ -40,6 +46,7 @@ function makeProps(overrides: Record<string, unknown> = {}) {
     total: '120.00 SEK',
     canPlaceOrder: true,
     isPlacingOrder: false,
+    termsAccepted: true,
     ...overrides,
   };
 }
@@ -86,6 +93,26 @@ describe('CheckoutOrderSummary', () => {
     });
     const button = wrapper.find('[data-testid="place-order-button"]');
     expect(button.attributes('disabled')).toBeDefined();
+  });
+
+  it('button is disabled when termsAccepted is false', () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ canPlaceOrder: true, termsAccepted: false }),
+      global: { stubs },
+    });
+    const button = wrapper.find('[data-testid="place-order-button"]');
+    expect(button.attributes('disabled')).toBeDefined();
+  });
+
+  it('emits update:termsAccepted when the terms checkbox toggles', async () => {
+    const wrapper = mount(CheckoutOrderSummary.default, {
+      props: makeProps({ termsAccepted: false }),
+      global: { stubs },
+    });
+    await wrapper.find('[data-testid="checkout-terms"]').trigger('click');
+    const emitted = wrapper.emitted('update:termsAccepted');
+    expect(emitted).toBeTruthy();
+    expect(emitted?.[0]).toEqual([true]);
   });
 
   it('shows spinner when isPlacingOrder is true', () => {

@@ -62,6 +62,11 @@ const stubs = {
     props: ['consents', 'accepted', 'disabled'],
     emits: ['toggle'],
   },
+  CheckoutTermsAgreement: {
+    template: '<div data-testid="checkout-terms" />',
+    props: ['modelValue', 'disabled'],
+    emits: ['update:modelValue'],
+  },
   ErrorBoundary: { template: '<div><slot /></div>', props: ['section'] },
 };
 
@@ -147,6 +152,7 @@ describe('CheckoutOrderSummary', () => {
         shippingFee: '49,00 kr',
         tax: '109,80 kr',
         total: '549,00 kr',
+        termsAccepted: false,
       },
       global: { stubs },
     });
@@ -169,6 +175,7 @@ describe('CheckoutOrderSummary', () => {
         tax: '89,80 kr',
         total: '449,00 kr',
         discount: '100,00 kr',
+        termsAccepted: false,
       },
       global: { stubs },
     });
@@ -187,6 +194,7 @@ describe('CheckoutOrderSummary', () => {
         shippingFee: '49,00 kr',
         tax: '109,80 kr',
         total: '549,00 kr',
+        termsAccepted: false,
       },
       global: { stubs },
     });
@@ -204,6 +212,7 @@ describe('CheckoutOrderSummary', () => {
         shippingFee: null,
         tax: null,
         total: '',
+        termsAccepted: false,
       },
       global: { stubs },
     });

@@ -452,12 +452,6 @@ async function handlePlaceOrder() {
                 />
               </CardContent>
             </Card>
-
-            <!-- Terms agreement: required before Place Order is enabled. -->
-            <CheckoutTermsAgreement
-              v-model="acceptedTerms"
-              :disabled="checkoutStore.isPlacingOrder"
-            />
           </div>
 
           <!-- RIGHT: Order Summary Sidebar. self-stretch on desktop lets the
@@ -472,12 +466,12 @@ async function handlePlaceOrder() {
               :total="total"
               :discount="discountFormatted || undefined"
               :can-place-order="
-                checkoutStore.canPlaceOrder &&
-                !checkoutStore.isBlacklisted &&
-                acceptedTerms
+                checkoutStore.canPlaceOrder && !checkoutStore.isBlacklisted
               "
+              :terms-accepted="acceptedTerms"
               :is-placing-order="checkoutStore.isPlacingOrder"
               @place-order="handlePlaceOrder"
+              @update:terms-accepted="acceptedTerms = $event"
             />
           </div>
         </div>
