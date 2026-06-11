@@ -460,8 +460,10 @@ async function handlePlaceOrder() {
             />
           </div>
 
-          <!-- RIGHT: Order Summary Sidebar -->
-          <div class="w-full lg:w-80 lg:shrink-0">
+          <!-- RIGHT: Order Summary Sidebar. self-stretch on desktop lets the
+               column match the form height so the summary's sticky positioning
+               has room to engage while scrolling. -->
+          <div class="w-full lg:w-80 lg:shrink-0 lg:self-stretch">
             <CheckoutOrderSummary
               :item-count="cartStore.itemCount"
               :subtotal="subtotal"

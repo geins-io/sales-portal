@@ -570,6 +570,12 @@
           "tax": "Tax (estimated)",
           "total": "Total"
         },
+        "additional_info": {
+          "title": "Additional information",
+          "your_reference": "Your reference",
+          "goods_label": "Goods label",
+          "desired_delivery_date": "Desired delivery date"
+        },
         "billing_address": "Invoice details",
         "shipping_address": "Delivery address",
         "order_date": "Order date",
