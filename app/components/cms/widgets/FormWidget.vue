@@ -148,7 +148,7 @@ function selectOptionsFor(field: FormWidgetField) {
 
 <template>
   <form
-    class="space-y-4"
+    class="max-w-lg space-y-4"
     data-testid="form-widget"
     @submit.prevent="handleSubmit"
   >

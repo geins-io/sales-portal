@@ -140,9 +140,11 @@ const sidebarMenuId = computed<string | null>(
           />
         </ErrorBoundary>
         <div class="min-w-0 flex-1">
-          <ErrorBoundary section="cms-content">
-            <CmsWidgetArea :containers="page.containers" />
-          </ErrorBoundary>
+          <div class="border-border max-w-2xl rounded-lg border p-8">
+            <ErrorBoundary section="cms-content">
+              <CmsWidgetArea :containers="page.containers" />
+            </ErrorBoundary>
+          </div>
         </div>
       </div>
     </div>
