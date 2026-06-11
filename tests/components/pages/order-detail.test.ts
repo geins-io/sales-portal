@@ -753,4 +753,51 @@ describe('OrderDetail', () => {
       expect(mockAddItem).toHaveBeenCalledWith(2001, 2);
     });
   });
+
+  describe('additional information', () => {
+    it('renders the additional info section when fields are present', () => {
+      mockData.value = makeOrder({
+        customerOrderNumber: 'PO-421FE',
+        goodsLabel: 'labeltext',
+        desiredDeliveryDate: '2025-01-12T00:00:00Z',
+      });
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+      const section = wrapper.find('[data-testid="order-additional-info"]');
+      expect(section.exists()).toBe(true);
+      expect(section.text()).toContain('PO-421FE');
+      expect(section.text()).toContain('labeltext');
+      expect(section.text()).toContain('2025-01-12');
+    });
+
+    it('renders only the fields that are present', () => {
+      mockData.value = makeOrder({ customerOrderNumber: 'PO-ONLY' });
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+      expect(
+        wrapper.find('[data-testid="order-additional-info"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="additional-your-reference"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="additional-goods-label"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="additional-delivery-date"]').exists(),
+      ).toBe(false);
+    });
+
+    it('hides the additional info section when all three fields are absent', () => {
+      mockData.value = makeOrder();
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+      expect(
+        wrapper.find('[data-testid="order-additional-info"]').exists(),
+      ).toBe(false);
+    });
+  });
 });

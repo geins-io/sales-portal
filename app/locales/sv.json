@@ -570,6 +570,12 @@
           "tax": "Moms (uppskattad)",
           "total": "Totalt"
         },
+        "additional_info": {
+          "title": "Ytterligare information",
+          "your_reference": "Er referens",
+          "goods_label": "Godsmärke",
+          "desired_delivery_date": "Önskat leveransdatum"
+        },
         "billing_address": "Fakturauppgifter",
         "shipping_address": "Leveransadress",
         "order_date": "Orderdatum",

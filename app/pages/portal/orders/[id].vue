@@ -117,6 +117,25 @@ function formatDate(iso?: string): string {
     day: 'numeric',
   });
 }
+
+const hasAdditionalInfo = computed(
+  () =>
+    !!(
+      order.value?.customerOrderNumber ||
+      order.value?.goodsLabel ||
+      order.value?.desiredDeliveryDate
+    ),
+);
+
+// Slices the YYYY-MM-DD portion from the ISO date string rather than using
+// toLocaleDateString, which would shift a pure calendar date under negative
+// UTC offsets.
+const deliveryDate = computed(() => {
+  const raw = order.value?.desiredDeliveryDate;
+  if (!raw) return '';
+  const match = /^\d{4}-\d{2}-\d{2}/.exec(raw);
+  return match ? match[0] : raw;
+});
 </script>
 
 <template>
@@ -380,7 +399,7 @@ function formatDate(iso?: string): string {
             <!-- Addresses: share one grey container per Figma 25361-102134.
                  Section headers dark not uppercase, company line muted. -->
             <div
-              v-if="billingAddress || shippingAddress"
+              v-if="billingAddress || shippingAddress || hasAdditionalInfo"
               class="bg-muted space-y-4 rounded-lg p-6"
             >
               <AddressBlock
@@ -393,7 +412,7 @@ function formatDate(iso?: string): string {
                 :address="billingAddress"
               />
               <hr
-                v-if="billingAddress && shippingAddress"
+                v-if="billingAddress && (shippingAddress || hasAdditionalInfo)"
                 class="border-border"
               />
               <AddressBlock
@@ -405,6 +424,47 @@ function formatDate(iso?: string): string {
                 :label="t('portal.orders.detail.shipping_address')"
                 :address="shippingAddress"
               />
+              <hr
+                v-if="shippingAddress && hasAdditionalInfo"
+                class="border-border"
+              />
+              <div
+                v-if="hasAdditionalInfo"
+                data-testid="order-additional-info"
+                class="space-y-1"
+              >
+                <p class="text-foreground text-sm font-semibold">
+                  {{ t('portal.orders.detail.additional_info.title') }}
+                </p>
+                <p
+                  v-if="order?.customerOrderNumber"
+                  data-testid="additional-your-reference"
+                  class="text-muted-foreground text-sm"
+                >
+                  {{
+                    t('portal.orders.detail.additional_info.your_reference')
+                  }}: {{ order?.customerOrderNumber }}
+                </p>
+                <p
+                  v-if="order?.goodsLabel"
+                  data-testid="additional-goods-label"
+                  class="text-muted-foreground text-sm"
+                >
+                  {{ t('portal.orders.detail.additional_info.goods_label') }}:
+                  {{ order?.goodsLabel }}
+                </p>
+                <p
+                  v-if="deliveryDate"
+                  data-testid="additional-delivery-date"
+                  class="text-muted-foreground text-sm"
+                >
+                  {{
+                    t(
+                      'portal.orders.detail.additional_info.desired_delivery_date',
+                    )
+                  }}: {{ deliveryDate }}
+                </p>
+              </div>
             </div>
           </div>
         </div>
