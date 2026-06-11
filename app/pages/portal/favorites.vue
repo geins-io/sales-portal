@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Heart, LayoutGrid, List } from 'lucide-vue-next';
+import { Star, LayoutGrid, List } from 'lucide-vue-next';
 import ProductCard, {
   type ProductCardItem,
 } from '~/components/shared/ProductCard.vue';
@@ -125,12 +125,6 @@ async function handleAddToCart(
       <div class="mb-6 flex items-center justify-between">
         <h2 class="text-2xl font-bold">{{ t('portal.favorites.title') }}</h2>
         <div class="flex items-center gap-3">
-          <span
-            data-testid="favorites-count-text"
-            class="text-muted-foreground text-sm"
-          >
-            {{ t('portal.favorites.count', { count: favoritesStore.count }) }}
-          </span>
           <div data-testid="view-toggle" class="flex items-center gap-2">
             <span class="text-muted-foreground text-sm">
               {{ t('portal.favorites.view_as') }}
@@ -173,7 +167,7 @@ async function handleAddToCart(
         data-testid="favorites-empty"
         class="mt-8 flex flex-col items-center gap-4 py-12 text-center"
       >
-        <Heart class="text-muted-foreground size-12" />
+        <Star class="text-muted-foreground size-12" />
         <p class="text-muted-foreground">
           {{ t('portal.favorites.empty') }}
         </p>
