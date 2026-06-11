@@ -66,7 +66,11 @@ const renderedText = computed(() => {
 
 <template>
   <div :class="alignmentClass" data-testid="cms-widget">
-    <component :is="headingTag" v-if="title" class="mb-4 font-bold">
+    <component
+      :is="headingTag"
+      v-if="title"
+      :class="headingTag === 'h1' ? 'mb-8 text-4xl font-bold' : 'mb-4 font-bold'"
+    >
       {{ title }}
     </component>
     <!-- eslint-disable-next-line vue/no-v-html -->
