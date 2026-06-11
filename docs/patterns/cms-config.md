@@ -70,7 +70,9 @@ tenant.
 | Key                          | Where it renders                                                                                     | Consumer                                                                                        | Typical `{menuLocationId}`         |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------- |
 | `CMS_MENUS.HEADER_MAIN`      | Desktop header nav bar                                                                               | `app/components/layout/header/LayoutHeaderNav.vue`                                              | `{ menuLocationId: "main" }`       |
-| `CMS_MENUS.FOOTER`           | Footer link columns                                                                                  | `app/components/layout/footer/LayoutFooterMain.vue`                                             | `{ menuLocationId: "footer" }`     |
+| `CMS_MENUS.FOOTER`           | First footer menu column (header = menu title); the footer also renders Contact + Address columns from store-settings | `app/components/layout/footer/LayoutFooterMain.vue`                                             | `{ menuLocationId: "footer" }`     |
+| `CMS_MENUS.FOOTER_2`         | Second footer menu column (header = menu title)                                                      | `app/components/layout/footer/LayoutFooterMain.vue`                                             | `{ menuLocationId: "footer-2" }`   |
+| `CMS_MENUS.FOOTER_3`         | Third footer menu column (header = menu title)                                                       | `app/components/layout/footer/LayoutFooterMain.vue`                                             | `{ menuLocationId: "footer-3" }`   |
 | `CMS_MENUS.MOBILE_DRAWER`    | Mobile off-canvas navigation                                                                         | `app/components/layout/MobileNavPanel.vue`                                                      | `{ menuLocationId: "main" }`       |
 | `CMS_MENUS.SIDEBAR_FALLBACK` | Sidebar nav for CMS pages tagged `CMS_TAGS.SIDEBAR_MENU` and for static info-page routes that opt in | `app/pages/[...slug].vue` + static info pages (e.g. `app/pages/contact.vue`) → `PageSidebarNav` | `{ menuLocationId: "info-pages" }` |
 
@@ -115,7 +117,9 @@ Add to the tenant's stored config:
     },
     "menus": {
       "header_main": { "menuLocationId": "primary" },
-      "footer": { "menuLocationId": "footer-links" }
+      "footer": { "menuLocationId": "footer-links" },
+      "footer_2": { "menuLocationId": "footer-2" },
+      "footer_3": { "menuLocationId": "footer-3" }
     }
   }
 }
@@ -130,8 +134,16 @@ the map resolve to `null`; their consumers fall back gracefully:
   `PortalHeroFallback`.
 - `HEADER_MAIN` / `MOBILE_DRAWER` unconfigured → the nav bar / drawer
   simply omits the menu items; header still shows logo + search + cart.
-- `FOOTER` unconfigured → footer link columns are hidden; copyright and
-  branding remain.
+- `FOOTER` / `FOOTER_2` / `FOOTER_3` map to up to three footer menu
+  columns. Each column renders only when its menu location has visible
+  items; the column header is that menu's own title (`menu.title`) and
+  its links are a flat, single-level list. The footer's Contact and
+  Address columns come from store-settings `contact` (and
+  `contact.address`), not from a menu, so they render independently of
+  the menu locations: Contact shows when an email or phone is set,
+  Address shows when a street, postal code, city, or country is set. When
+  no footer menus are configured and no contact or address is set, the
+  footer middle block is hidden; copyright and branding remain.
 
 ## How storefront code consumes a slot
 

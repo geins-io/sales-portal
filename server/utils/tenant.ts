@@ -57,6 +57,8 @@ export const DEFAULT_CMS_CONFIG: NonNullable<TenantConfig['cms']> = {
   menus: {
     [CMS_MENUS.HEADER_MAIN]: { menuLocationId: 'main' },
     [CMS_MENUS.FOOTER]: { menuLocationId: 'footer' },
+    [CMS_MENUS.FOOTER_2]: { menuLocationId: 'footer-2' },
+    [CMS_MENUS.FOOTER_3]: { menuLocationId: 'footer-3' },
     [CMS_MENUS.MOBILE_DRAWER]: { menuLocationId: 'main' },
     [CMS_MENUS.SIDEBAR_FALLBACK]: { menuLocationId: 'info-pages' },
   },

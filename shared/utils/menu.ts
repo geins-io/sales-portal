@@ -66,9 +66,24 @@ export function stripGeinsPrefix(path: string): string {
 }
 
 /**
+ * URL schemes permitted in menu links.
+ * Any other scheme (javascript:, data:, vbscript:, file:, etc.) is rejected.
+ */
+const SAFE_LINK_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:'];
+
+/**
+ * Pattern matching dangerous schemes that must never be returned verbatim,
+ * used as a catch-branch guard for URLs that fail URL parsing.
+ */
+const DANGEROUS_SCHEME_RE = /^\s*(javascript|data|vbscript|file):/i;
+
+/**
  * Normalize a CMS canonical URL to a relative path for our app routing.
  * CMS stores absolute URLs like `https://tenant.example.com/se/sv/l/epoxi`.
  * We strip the host and Geins market/locale/type prefixes so NuxtLink works.
+ *
+ * Only http:, https:, mailto:, and tel: schemes are permitted.
+ * Any other scheme returns '' so the link consumers fall back to '/'.
  */
 export function normalizeMenuUrl(
   canonicalUrl: string | undefined | null,
@@ -82,12 +97,27 @@ export function normalizeMenuUrl(
   if (!canonicalUrl.startsWith('/')) {
     try {
       const parsed = new URL(canonicalUrl);
+
+      // Reject any scheme outside the allowlist (e.g. javascript:, data:, vbscript:, file:)
+      if (!SAFE_LINK_SCHEMES.includes(parsed.protocol)) {
+        return '';
+      }
+
+      // mailto: and tel: have empty host; return verbatim without path mangling
+      if (parsed.protocol === 'mailto:' || parsed.protocol === 'tel:') {
+        return canonicalUrl;
+      }
+
       if (currentHost && parsed.host !== currentHost) {
-        // External URL — return as-is
+        // External http(s) URL, returned as-is
         return canonicalUrl;
       }
       path = parsed.pathname + parsed.search + parsed.hash;
     } catch {
+      // If the raw string matches a dangerous scheme, reject it
+      if (DANGEROUS_SCHEME_RE.test(canonicalUrl)) {
+        return '';
+      }
       return canonicalUrl;
     }
   }
