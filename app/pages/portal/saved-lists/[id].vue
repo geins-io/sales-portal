@@ -32,8 +32,12 @@ interface ListProduct {
     isDiscounted?: boolean | null;
     regularPriceIncVat?: number | null;
     regularPriceIncVatFormatted?: string | null;
+    regularPriceExVat?: number | null;
+    regularPriceExVatFormatted?: string | null;
     sellingPriceIncVat?: number | null;
     sellingPriceIncVatFormatted?: string | null;
+    sellingPriceExVat?: number | null;
+    sellingPriceExVatFormatted?: string | null;
   } | null;
   skus?: Array<{ skuId?: number | null } | null> | null;
 }
@@ -50,6 +54,7 @@ const canPurchase = computed(
 
 const favoritesStore = useFavoritesStore();
 const cartStore = useCartStore();
+const { showIncVat } = useVatDisplay();
 
 const listId = computed(() => route.params.id as string);
 const list = computed(() => favoritesStore.getListById(listId.value));
@@ -101,12 +106,23 @@ watch(products, (newProducts) => {
   }
 });
 
-// --- List total ---
+// --- Per-row price (follows the inc/ex VAT toggle) ---
+function rowPriceFormatted(product: ListProduct): string {
+  const price = product.unitPrice;
+  if (!price) return '';
+  return showIncVat.value
+    ? (price.sellingPriceIncVatFormatted ?? '')
+    : (price.sellingPriceExVatFormatted ?? '');
+}
+
+// --- List total (follows the inc/ex VAT toggle) ---
 const listTotal = computed(() =>
-  products.value.reduce(
-    (sum, p) => sum + (p.unitPrice?.sellingPriceIncVat ?? 0),
-    0,
-  ),
+  products.value.reduce((sum, p) => {
+    const selling = showIncVat.value
+      ? p.unitPrice?.sellingPriceIncVat
+      : p.unitPrice?.sellingPriceExVat;
+    return sum + (selling ?? 0);
+  }, 0),
 );
 
 const listTotalFormatted = computed(() =>
@@ -401,7 +417,7 @@ function addToCart(product: ListProduct) {
               <div class="flex shrink-0 items-center gap-4 px-4 py-3">
                 <!-- Price -->
                 <span class="w-28 shrink-0 text-center font-semibold">{{
-                  product.unitPrice?.sellingPriceIncVatFormatted ?? ''
+                  rowPriceFormatted(product)
                 }}</span>
 
                 <!-- Qty stepper -->
