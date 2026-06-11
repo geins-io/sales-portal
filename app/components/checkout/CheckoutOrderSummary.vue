@@ -15,10 +15,12 @@ const props = defineProps<{
   discount?: string;
   canPlaceOrder: boolean;
   isPlacingOrder: boolean;
+  termsAccepted: boolean;
 }>();
 
 const emit = defineEmits<{
   placeOrder: [];
+  'update:termsAccepted': [value: boolean];
 }>();
 </script>
 
@@ -87,12 +89,23 @@ const emit = defineEmits<{
       </span>
     </div>
 
+    <!-- Terms agreement gates the button, so it sits directly above the CTA.
+         Otherwise the requirement is buried at the bottom of the form column
+         while the disabled button floats in this sticky sidebar. -->
+    <CheckoutTermsAgreement
+      :model-value="props.termsAccepted"
+      :disabled="props.isPlacingOrder"
+      @update:model-value="emit('update:termsAccepted', $event)"
+    />
+
     <!-- Place Order -->
     <Button
       type="button"
       size="lg"
       class="w-full"
-      :disabled="!props.canPlaceOrder || props.isPlacingOrder"
+      :disabled="
+        !props.canPlaceOrder || !props.termsAccepted || props.isPlacingOrder
+      "
       data-testid="place-order-button"
       @click="emit('placeOrder')"
     >
