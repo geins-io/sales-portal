@@ -3,18 +3,17 @@ import type { FunctionalComponent } from 'vue';
 import {
   Building2,
   FileText,
-  Heart,
   LayoutDashboard,
   List,
   LogOut,
   Package,
   ShoppingBag,
+  Star,
   User,
 } from 'lucide-vue-next';
 import type { GeinsUserType } from '@geins/types';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
-import { Button } from '~/components/ui/button';
 import { useAuthStore } from '~/stores/auth';
 import { useFavoritesStore } from '~/stores/favorites';
 
@@ -163,10 +162,10 @@ async function handleLogout() {
       >
         <!-- Left: User info -->
         <div>
-          <h2 class="text-xl font-semibold">
+          <h2 class="text-2xl font-semibold">
             {{ t('portal.welcome', { name: welcomeName }) }}
           </h2>
-          <p class="text-muted-foreground mt-1 text-sm">
+          <p class="text-muted-foreground mt-3 text-sm">
             {{ t('portal.customer_no', { id: customerNo, email }) }}
           </p>
           <p v-if="orgName" class="text-muted-foreground text-sm">
@@ -181,33 +180,34 @@ async function handleLogout() {
           <NuxtLink
             v-if="hasFeature('wishlist')"
             :to="localePath('/portal/favorites')"
-            class="text-primary hover:text-primary/80 flex items-center gap-2 font-medium"
+            class="text-primary hover:text-primary/80 flex items-center gap-2"
           >
-            <Heart class="size-4" />
-            {{ t('portal.quick_links.favorites') }}
-            <span
-              v-if="favoritesStore.count > 0"
-              data-testid="favorites-count"
-              class="bg-primary text-primary-foreground inline-flex size-5 items-center justify-center rounded-full text-xs font-semibold"
-            >
-              {{ favoritesStore.count }}
+            <Star class="size-4" />
+            <span>
+              {{ t('portal.quick_links.favorites')
+              }}<span
+                v-if="favoritesStore.count > 0"
+                data-testid="favorites-count"
+              >
+                ({{ favoritesStore.count }})</span
+              >
             </span>
           </NuxtLink>
           <NuxtLink
             :to="localePath('/portal/account')"
-            class="text-primary hover:text-primary/80 flex items-center gap-2 font-medium"
+            class="text-primary hover:text-primary/80 flex items-center gap-2"
           >
             <User class="size-4" />
             {{ t('portal.quick_links.account') }}
           </NuxtLink>
-          <Button
-            variant="link"
-            class="text-primary hover:text-primary/80 h-auto gap-2 p-0 text-left font-medium"
+          <button
+            type="button"
+            class="text-primary hover:text-primary/80 flex items-center gap-2"
             @click="handleLogout"
           >
             <LogOut class="size-4" />
             {{ t('portal.quick_links.logout') }}
-          </Button>
+          </button>
         </div>
       </div>
 

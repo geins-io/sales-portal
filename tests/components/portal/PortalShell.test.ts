@@ -314,7 +314,7 @@ describe('PortalShell', () => {
       expect(favoritesLink).toBeUndefined();
     });
 
-    it('shows count badge when favorites exist', () => {
+    it('shows inline favorites count when favorites exist', () => {
       enableWishlistFeature();
       const pinia = createPinia();
       setActivePinia(pinia);
@@ -325,12 +325,12 @@ describe('PortalShell', () => {
         slots: { default: '<div>content</div>' },
         global: { stubs, plugins: [pinia] },
       });
-      const badge = wrapper.find('[data-testid="favorites-count"]');
-      expect(badge.exists()).toBe(true);
-      expect(badge.text()).toBe('3');
+      const count = wrapper.find('[data-testid="favorites-count"]');
+      expect(count.exists()).toBe(true);
+      expect(count.text()).toBe('(3)');
     });
 
-    it('hides count badge when no favorites', () => {
+    it('hides inline favorites count when no favorites', () => {
       enableWishlistFeature();
       const pinia = createPinia();
       setActivePinia(pinia);
@@ -341,8 +341,8 @@ describe('PortalShell', () => {
         slots: { default: '<div>content</div>' },
         global: { stubs, plugins: [pinia] },
       });
-      const badge = wrapper.find('[data-testid="favorites-count"]');
-      expect(badge.exists()).toBe(false);
+      const count = wrapper.find('[data-testid="favorites-count"]');
+      expect(count.exists()).toBe(false);
     });
   });
 });
