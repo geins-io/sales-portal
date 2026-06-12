@@ -21,6 +21,14 @@ vi.mock('../../../server/services/graphql/loader', () => ({
     .mockReturnValue('query getCompanyOrdersForPurchasedProducts'),
 }));
 
+// getCompany supplies the buyers list used to resolve the orderer's name from
+// customerEmail. Mocked here so the test controls it independently of the
+// orders query.
+const mockGetCompany = vi.fn();
+vi.mock('../../../server/services/company', () => ({
+  getCompany: (...args: unknown[]) => mockGetCompany(...args),
+}));
+
 vi.stubGlobal(
   'wrapServiceCall',
   vi.fn(async (fn: () => Promise<unknown>) => fn()),
@@ -36,6 +44,7 @@ function makeOrder(overrides: {
   id?: number;
   publicId?: string | null;
   createdAt?: string;
+  customerEmail?: string | null;
   billingAddress?: { firstName?: string; lastName?: string } | null;
   items?: Array<{
     articleNumber?: string;
@@ -52,6 +61,8 @@ function makeOrder(overrides: {
         ? `pub-${overrides.id ?? 1}`
         : overrides.publicId,
     createdAt: overrides.createdAt ?? '2026-01-01T00:00:00Z',
+    customerEmail:
+      overrides.customerEmail === undefined ? null : overrides.customerEmail,
     billingAddress:
       overrides.billingAddress === null
         ? null
@@ -90,6 +101,9 @@ describe('getPurchasedProducts', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    // Default: no company buyers, so latestBuyerName falls back to the order
+    // email or billing name. Tests that exercise the name mapping override this.
+    mockGetCompany.mockResolvedValue(null);
     purchasedProducts =
       await import('../../../server/services/purchased-products');
   });
@@ -232,6 +246,63 @@ describe('getPurchasedProducts', () => {
         totalQuantity: 3,
       }),
     );
+  });
+
+  it('resolves latestBuyerName from the order email via the company buyers list', async () => {
+    mockGetCompany.mockResolvedValue({
+      buyers: [
+        {
+          id: 'kristian@acme.se',
+          firstName: 'Kristian',
+          lastName: 'Arvidsson',
+        },
+        { id: 'tina@acme.se', firstName: 'Tina', lastName: 'Ekestangs' },
+      ],
+    });
+    withOrders([
+      makeOrder({
+        id: 1,
+        customerEmail: 'KRISTIAN@acme.se',
+        billingAddress: { firstName: 'Acme', lastName: 'Billing' },
+        items: [{ articleNumber: 'ART-001', name: 'Widget', quantity: 1 }],
+      }),
+    ]);
+
+    const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+    // The orderer (matched case-insensitively by email), not the billing contact.
+    expect(result.products[0]!.latestBuyerName).toBe('Kristian Arvidsson');
+  });
+
+  it('falls back to the order email when no company buyer matches', async () => {
+    mockGetCompany.mockResolvedValue({ buyers: [] });
+    withOrders([
+      makeOrder({
+        id: 1,
+        customerEmail: 'former@acme.se',
+        billingAddress: { firstName: 'Acme', lastName: 'Billing' },
+        items: [{ articleNumber: 'ART-001', name: 'Widget', quantity: 1 }],
+      }),
+    ]);
+
+    const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+    expect(result.products[0]!.latestBuyerName).toBe('former@acme.se');
+  });
+
+  it('falls back to the billing name when the order has no customerEmail', async () => {
+    withOrders([
+      makeOrder({
+        id: 1,
+        customerEmail: null,
+        billingAddress: { firstName: 'Acme', lastName: 'Billing' },
+        items: [{ articleNumber: 'ART-001', name: 'Widget', quantity: 1 }],
+      }),
+    ]);
+
+    const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+    expect(result.products[0]!.latestBuyerName).toBe('Acme Billing');
   });
 
   it('returns empty array when GraphQL returns null', async () => {

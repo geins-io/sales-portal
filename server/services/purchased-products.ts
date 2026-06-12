@@ -8,11 +8,13 @@ import {
 } from './_sdk';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
+import { getCompany } from './company';
 
 interface RawOrder {
   id?: number | string | null;
   publicId?: string | null;
   createdAt?: string | null;
+  customerEmail?: string | null;
   billingAddress?: {
     firstName?: string | null;
     lastName?: string | null;
@@ -72,6 +74,21 @@ export async function getPurchasedProducts(
   const orders = (unwrapGraphQL(result) as RawOrder[] | null) ?? [];
   if (!orders.length) return { products: [], total: 0 };
 
+  // Resolve the actual orderer's name. The order exposes customerEmail (who
+  // placed it), not a buyer name, so match it against the company buyers list
+  // (buyer.id is the email) the same way checkout resolves the active buyer.
+  const company = await getCompany(event);
+  const buyerNameByEmail = new Map<string, string>();
+  for (const buyer of company?.buyers ?? []) {
+    const fullName = [buyer.firstName, buyer.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (buyer.id && fullName) {
+      buyerNameByEmail.set(buyer.id.trim().toLowerCase(), fullName);
+    }
+  }
+
   const productMap = new Map<
     string,
     PurchasedProduct & { _latestTime: number }
@@ -83,12 +100,19 @@ export async function getPurchasedProducts(
     const orderPublicId = order.publicId ?? null;
     const orderDate = order.createdAt ?? '';
 
-    const buyerName = [
+    // Prefer the orderer resolved from customerEmail. Fall back to the raw
+    // email when the buyer has since left the company, and only to the
+    // billing-address name when the order carries no customerEmail at all.
+    const orderEmail = order.customerEmail?.trim().toLowerCase();
+    const billingName = [
       order.billingAddress?.firstName ?? '',
       order.billingAddress?.lastName ?? '',
     ]
       .filter(Boolean)
       .join(' ');
+    const buyerName =
+      (orderEmail ? buyerNameByEmail.get(orderEmail) : undefined) ??
+      (order.customerEmail || billingName);
 
     const items = order.cart?.items;
     if (!items?.length) continue;
