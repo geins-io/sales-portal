@@ -20,9 +20,14 @@ const { contact } = useTenant();
 const { localePath, currentLocale } = useLocaleMarket();
 const currentHost = computed(() => useRequestURL().host);
 
-// Build a flat column entry for a menu if it has visible items.
+// Build a flat column entry for a menu if it has visible, labelled items.
+// Items with no resolvable label (e.g. a menu location with untranslated
+// entries on the active locale) would otherwise render as blank links, so
+// they are dropped here; a menu left with no labelled items yields no column.
 function toColumn(menu: typeof footerMenu.value, id: string) {
-  const items = getVisibleItems(menu?.menuItems);
+  const items = getVisibleItems(menu?.menuItems).filter(
+    (item) => getMenuLabel(item).trim() !== '',
+  );
   if (items.length === 0) return null;
   return { id, title: menu?.title || '', items };
 }
