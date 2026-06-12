@@ -1,9 +1,14 @@
 import type { H3Event } from 'h3';
 import { alternateEntityPath } from '#shared/utils/route-helpers';
-import { parseLocaleMarketPrefix } from '#shared/utils/locale-market';
+import {
+  parseLocaleMarketPrefix,
+  stripLocaleMarketPrefix,
+} from '#shared/utils/locale-market';
 import { isSafeInternalPath } from '#shared/utils/redirect';
+import { cmsTagForSlug } from '#shared/constants/cms';
 import { getProduct } from './products';
 import { getCategoryPage, getBrandPage } from './product-lists';
+import { getPageLinkByTag } from './cms';
 import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
@@ -19,6 +24,14 @@ import { unwrapGraphQL } from './graphql/unwrap';
  * renamed slugs. Typed-route navigation never touches it.
  *
  * Resolution strategy:
+ *  0. Semantic CMS-slug recovery (TERMS, CONTACT, APPLY family): if the alias
+ *     is a known legacy English slug, look up the merchant's localized CMS page
+ *     by tag and redirect to it. Runs BEFORE the entity lookups because semantic
+ *     slugs are unambiguous and cheap (one GraphQL call vs three in parallel).
+ *     Note: when the CMS page DOES exist at the requested slug (e.g. alias
+ *     "terms" resolves to a live "/terms" CMS page), the catch-all's
+ *     /api/cms/page/{slug} fetch hits BEFORE recovery is called, so this branch
+ *     is never reached for existing pages. No extra existence check is needed.
  *  1. Resolve the last-segment alias against product, category, and brand in
  *     parallel (Promise.allSettled, null- and throw-tolerant). Pick the first
  *     non-null match in deterministic priority PRODUCT -> CATEGORY -> BRAND.
@@ -81,6 +94,44 @@ export async function resolveEntityUrl(
   args: { path: string; alias: string; userToken?: string },
   event: H3Event,
 ): Promise<ResolvedEntityUrl> {
+  // ---------------------------------------------------------------------------
+  // Step 0: semantic CMS-slug recovery.
+  //
+  // Check whether the alias is one of the reserved legacy English slugs
+  // (terms, contact, contact-form, apply, apply-for-account). If it is, look
+  // up the merchant's localized CMS page by tag. A CMS error or a null result
+  // falls through to the entity/urlHistory branches below; it never breaks them.
+  //
+  // Loop-safety: getPageLinkByTag may return the SAME path the user requested
+  // (e.g. a tenant whose terms page alias is literally "terms"). Strip the
+  // locale/market prefix from both paths and compare the clean forms. Equal
+  // clean paths mean we would redirect the browser to itself, so treat that as
+  // a fall-through (no redirect). recoverEntityUrl enforces the same guard on
+  // the composable side, but catching it here keeps the service self-contained.
+  //
+  // Open-redirect guard: getPageLinkByTag already validates the link via
+  // isSafeInternalPath internally, but we re-check here as a defence-in-depth
+  // boundary so the resolver never emits an off-origin redirect regardless of
+  // what the CMS service returns.
+  // ---------------------------------------------------------------------------
+  const tag = cmsTagForSlug(args.alias);
+  if (tag !== null) {
+    try {
+      const link = await getPageLinkByTag({ tag }, event);
+      if (link !== null) {
+        const incomingClean = stripLocaleMarketPrefix(args.path);
+        const linkClean = stripLocaleMarketPrefix(link);
+        if (incomingClean !== linkClean && isSafeInternalPath(link)) {
+          return { redirect: link };
+        }
+        // Clean paths are equal (loop) or link is unsafe: fall through.
+      }
+      // link is null: no tagged page found, fall through to entity lookups.
+    } catch {
+      // CMS error: treat as a miss and let entity/urlHistory recovery proceed.
+    }
+  }
+
   const settled = await Promise.allSettled([
     getProduct({ alias: args.alias, userToken: args.userToken }, event),
     getCategoryPage({ alias: args.alias, userToken: args.userToken }, event),
