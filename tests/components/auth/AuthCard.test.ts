@@ -3,12 +3,22 @@ import { ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import AuthCard from '../../../app/components/auth/AuthCard.vue';
 
-// useTenant mock — default: registration enabled
+// useTenant mock, default: registration enabled
 const mockFeatures = ref<Record<string, { enabled: boolean }>>({
   registration: { enabled: true },
 });
 vi.mock('../../../app/composables/useTenant', () => ({
   useTenant: () => ({ features: mockFeatures }),
+}));
+
+// useCmsPageLink mock, default: apply page resolved
+const mockApplyTo = ref<string | undefined>('/se/sv/ansok-om-konto');
+const mockApplyResolved = ref(true);
+vi.mock('../../../app/composables/useCmsPageLink', () => ({
+  useCmsPageLink: () => ({
+    to: mockApplyTo,
+    isResolved: mockApplyResolved,
+  }),
 }));
 
 // With shallowMount, Card and CardContent get auto-stubbed as empty components.
@@ -36,8 +46,10 @@ const stubs = {
 
 describe('AuthCard', () => {
   beforeEach(() => {
-    // Reset to registration enabled before each test
+    // Reset to registration enabled and apply resolved before each test
     mockFeatures.value = { registration: { enabled: true } };
+    mockApplyTo.value = '/se/sv/ansok-om-konto';
+    mockApplyResolved.value = true;
   });
 
   function mountAuthCard(defaultView?: 'login' | 'register' | 'forgot') {
@@ -89,10 +101,26 @@ describe('AuthCard', () => {
     );
   });
 
-  it('renders apply button in login view', () => {
+  it('renders apply button in login view when resolved', () => {
     const wrapper = mountAuthCard();
     expect(wrapper.find('[data-testid="auth-apply-button"]').exists()).toBe(
       true,
+    );
+  });
+
+  it('apply button href matches the tag-resolved path', () => {
+    const wrapper = mountAuthCard();
+    const applyLink = wrapper.find('[data-testid="auth-apply-button"]');
+    expect(applyLink.exists()).toBe(true);
+    expect(applyLink.attributes('href')).toBe('/se/sv/ansok-om-konto');
+  });
+
+  it('hides apply button when apply page is unresolved', () => {
+    mockApplyTo.value = undefined;
+    mockApplyResolved.value = false;
+    const wrapper = mountAuthCard();
+    expect(wrapper.find('[data-testid="auth-apply-button"]').exists()).toBe(
+      false,
     );
   });
 
@@ -142,7 +170,7 @@ describe('AuthCard', () => {
   });
 
   describe('registration feature flag', () => {
-    it('shows divider, business-info, and apply button when registration enabled', () => {
+    it('shows divider, business-info, and apply button when registration enabled and apply resolved', () => {
       mockFeatures.value = { registration: { enabled: true } };
       const wrapper = mountAuthCard();
       expect(wrapper.find('[data-testid="auth-divider"]').exists()).toBe(true);

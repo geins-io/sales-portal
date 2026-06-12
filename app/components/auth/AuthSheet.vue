@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { useAuthStore } from '~/stores/auth';
+import { CMS_TAGS } from '#shared/constants/cms';
 
 const authStore = useAuthStore();
-const { localePath } = useLocaleMarket();
 const { hasFeature } = useTenant();
-const router = useRouter();
+const { to: applyTo, isResolved: applyResolved } = useCmsPageLink(
+  CMS_TAGS.APPLY_PAGE,
+);
 
 const isOpen = computed({
   get: () => authStore.sheetOpen,
@@ -32,7 +34,6 @@ function backToLogin() {
 
 function goToApply() {
   authStore.closeSheet();
-  router.push(localePath('/apply-for-account'));
 }
 
 watch(
@@ -90,7 +91,8 @@ watch(
             </p>
 
             <NuxtLink
-              :to="localePath('/apply-for-account')"
+              v-if="applyResolved"
+              :to="applyTo"
               class="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-10 w-full items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors"
               data-testid="auth-sheet-apply"
               @click="goToApply"

@@ -6,8 +6,12 @@ import { CMS_TAGS } from '#shared/constants/cms';
 const authStore = useAuthStore();
 const { localePath } = useLocaleMarket();
 const { hasFeature } = useTenant();
-const { to: contactTo } = useCmsPageLink(CMS_TAGS.CONTACT_PAGE, '/contact-form');
-const { to: applyTo } = useCmsPageLink(CMS_TAGS.APPLY_PAGE, '/apply-for-account');
+const { to: contactTo, isResolved: contactResolved } = useCmsPageLink(
+  CMS_TAGS.CONTACT_PAGE,
+);
+const { to: applyTo, isResolved: applyResolved } = useCmsPageLink(
+  CMS_TAGS.APPLY_PAGE,
+);
 </script>
 
 <template>
@@ -19,6 +23,7 @@ const { to: applyTo } = useCmsPageLink(CMS_TAGS.APPLY_PAGE, '/apply-for-account'
       <!-- Left: Contact + Locale -->
       <div class="flex items-center gap-4">
         <NuxtLink
+          v-if="contactResolved"
           :to="contactTo"
           :aria-label="$t('layout.contact_us')"
           class="flex items-center gap-1.5 hover:underline"
@@ -45,7 +50,11 @@ const { to: applyTo } = useCmsPageLink(CMS_TAGS.APPLY_PAGE, '/apply-for-account'
       <!-- Right: Apply + Login -->
       <div class="flex items-center gap-4">
         <NuxtLink
-          v-if="hasFeature('applyForAccount') && !authStore.isAuthenticated"
+          v-if="
+            hasFeature('applyForAccount') &&
+            !authStore.isAuthenticated &&
+            applyResolved
+          "
           :to="applyTo"
           class="hidden hover:underline sm:inline"
         >

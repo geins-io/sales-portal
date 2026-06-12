@@ -14,6 +14,7 @@ import {
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 import { hasPageTag } from '#shared/utils/cms-tags';
+import { isSafeInternalPath } from '#shared/utils/redirect';
 
 // =============================================================================
 // Cache Configuration
@@ -308,9 +309,10 @@ export async function getContentArea(
 }
 
 /**
- * Resolve the localized canonicalUrl of the first CMS page tagged with
- * the given tag. Returns null when no matching page is found so callers
- * can fall back gracefully.
+ * Resolves the localized link for the first CMS page tagged with the given tag,
+ * preferring canonicalUrl and falling back to the page alias (as a validated
+ * internal "/slug" path) when canonicalUrl is empty. Returns null when neither is
+ * present, or when the alias does not yield a safe internal path.
  *
  * The query drives localization via getRequestChannelVariables so no locale
  * codes are hardcoded here. cmsPages already falls back to the default-language
@@ -357,18 +359,20 @@ export async function getPageLinkByTag(
   if (Array.isArray(pages) && pages.length > 0) {
     // Prefer a tag-confirmed match so a stray result without the tag is ignored.
     // The API already filtered by includeTags; this is a defensive check.
-    const tagMatch = pages.find(
-      (p) =>
-        hasPageTag(p, args.tag) &&
-        typeof p.canonicalUrl === 'string' &&
-        p.canonicalUrl !== '',
-    );
-    const firstWithUrl = pages.find(
-      (p) => typeof p.canonicalUrl === 'string' && p.canonicalUrl !== '',
-    );
-    const candidate = tagMatch ?? firstWithUrl;
-    if (candidate?.canonicalUrl) {
-      resolved = candidate.canonicalUrl;
+    const tagMatch = pages.find((p) => hasPageTag(p, args.tag));
+    const candidate = tagMatch ?? pages[0];
+    const canonical = candidate?.canonicalUrl?.trim();
+    const alias = candidate?.alias?.trim();
+
+    if (canonical) {
+      resolved = canonical;
+    } else if (alias) {
+      // The alias is a bare slug. Build a clean internal path (a stray leading
+      // slash would otherwise produce a protocol-relative "//slug") and validate
+      // it at the boundary so a malformed alias is rejected here, keeping the
+      // safe-link guarantee independent of every downstream consumer.
+      const aliasPath = `/${alias.replace(/^\/+/, '')}`;
+      resolved = isSafeInternalPath(aliasPath) ? aliasPath : null;
     }
   }
 

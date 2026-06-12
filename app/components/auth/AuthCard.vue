@@ -4,8 +4,11 @@ import { Card, CardContent } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
 import { Separator } from '~/components/ui/separator';
 import { useTenant } from '~/composables/useTenant';
+import { CMS_TAGS } from '#shared/constants/cms';
 
-const { localePath } = useLocaleMarket();
+const { to: applyTo, isResolved: applyResolved } = useCmsPageLink(
+  CMS_TAGS.APPLY_PAGE,
+);
 
 const props = withDefaults(
   defineProps<{
@@ -101,7 +104,8 @@ defineExpose({ switchToForgot });
 
             <!-- Apply for account link -->
             <NuxtLink
-              :to="localePath('/apply-for-account')"
+              v-if="applyResolved"
+              :to="applyTo"
               class="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-full items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition-colors"
               data-testid="auth-apply-button"
             >
