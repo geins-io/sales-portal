@@ -103,7 +103,12 @@ describe('LayoutHeaderTopbar', () => {
     applyToRef.value = null;
     applyResolvedRef.value = false;
     const wrapper = shallowMountComponent(LayoutHeaderTopbar);
-    expect(wrapper.text()).not.toContain('layout.apply_for_account');
+    // Assert on the anchor element, not just text: the apply NuxtLink must be
+    // removed by v-if, not rendered as a hrefless anchor.
+    const applyAnchor = wrapper
+      .findAll('a')
+      .find((a) => a.text().includes('layout.apply_for_account'));
+    expect(applyAnchor).toBeUndefined();
   });
 
   it('(c2) apply anchor is absent when authenticated, regardless of useCmsPageLink value', () => {

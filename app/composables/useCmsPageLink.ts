@@ -11,7 +11,7 @@ import { isSafeInternalPath } from '#shared/utils/redirect';
  *
  * Returns { to, isResolved }:
  *   - to is a safe in-app localePath when the CMS page is resolvable and internal.
- *   - to is null and isResolved is false when the fetch errors, the resolved URL
+ *   - to is undefined and isResolved is false when the fetch errors, the resolved URL
  *     is null, the URL is external, or the normalized path fails isSafeInternalPath.
  *
  * Consumers must gate rendering on isResolved so unresolved links are hidden

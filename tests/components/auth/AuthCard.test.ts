@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import AuthCard from '../../../app/components/auth/AuthCard.vue';
 
-// useTenant mock — default: registration enabled
+// useTenant mock, default: registration enabled
 const mockFeatures = ref<Record<string, { enabled: boolean }>>({
   registration: { enabled: true },
 });
@@ -11,7 +11,7 @@ vi.mock('../../../app/composables/useTenant', () => ({
   useTenant: () => ({ features: mockFeatures }),
 }));
 
-// useCmsPageLink mock — default: apply page resolved
+// useCmsPageLink mock, default: apply page resolved
 const mockApplyTo = ref<string | undefined>('/se/sv/ansok-om-konto');
 const mockApplyResolved = ref(true);
 vi.mock('../../../app/composables/useCmsPageLink', () => ({

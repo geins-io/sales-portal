@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { shallowMountComponent } from '../../utils/component';
 import AuthSheet from '../../../app/components/auth/AuthSheet.vue';
 
-// useAuthStore mock — plain object so template property access (authStore.sheetView)
+// useAuthStore mock: plain object so template property access (authStore.sheetView)
 // returns primitive values directly, matching how Pinia exposes store state.
 const authStoreState = {
   sheetOpen: true,
@@ -17,7 +17,7 @@ vi.mock('../../../app/stores/auth', () => ({
   useAuthStore: () => authStoreState,
 }));
 
-// useTenant mock — default: applyForAccount feature enabled
+// useTenant mock, default: applyForAccount feature enabled
 const mockHasFeature = vi.fn(
   (feature: string) => feature === 'applyForAccount',
 );
@@ -25,7 +25,7 @@ vi.mock('../../../app/composables/useTenant', () => ({
   useTenant: () => ({ hasFeature: mockHasFeature }),
 }));
 
-// useCmsPageLink mock — default: apply page resolved
+// useCmsPageLink mock, default: apply page resolved
 const mockApplyTo = ref<string | undefined>('/se/sv/ansok-om-konto');
 const mockApplyResolved = ref(true);
 vi.mock('../../../app/composables/useCmsPageLink', () => ({

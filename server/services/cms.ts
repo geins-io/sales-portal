@@ -14,6 +14,7 @@ import {
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 import { hasPageTag } from '#shared/utils/cms-tags';
+import { isSafeInternalPath } from '#shared/utils/redirect';
 
 // =============================================================================
 // Cache Configuration
@@ -309,8 +310,9 @@ export async function getContentArea(
 
 /**
  * Resolves the localized link for the first CMS page tagged with the given tag,
- * preferring canonicalUrl and falling back to the page alias (prefixed with "/")
- * when canonicalUrl is empty; returns null when neither is present.
+ * preferring canonicalUrl and falling back to the page alias (as a validated
+ * internal "/slug" path) when canonicalUrl is empty. Returns null when neither is
+ * present, or when the alias does not yield a safe internal path.
  *
  * The query drives localization via getRequestChannelVariables so no locale
  * codes are hardcoded here. cmsPages already falls back to the default-language
@@ -359,14 +361,19 @@ export async function getPageLinkByTag(
     // The API already filtered by includeTags; this is a defensive check.
     const tagMatch = pages.find((p) => hasPageTag(p, args.tag));
     const candidate = tagMatch ?? pages[0];
-    const canonical = candidate?.canonicalUrl;
-    const alias = candidate?.alias;
-    resolved =
-      typeof canonical === 'string' && canonical !== ''
-        ? canonical
-        : typeof alias === 'string' && alias !== ''
-          ? `/${alias}`
-          : null;
+    const canonical = candidate?.canonicalUrl?.trim();
+    const alias = candidate?.alias?.trim();
+
+    if (canonical) {
+      resolved = canonical;
+    } else if (alias) {
+      // The alias is a bare slug. Build a clean internal path (a stray leading
+      // slash would otherwise produce a protocol-relative "//slug") and validate
+      // it at the boundary so a malformed alias is rejected here, keeping the
+      // safe-link guarantee independent of every downstream consumer.
+      const aliasPath = `/${alias.replace(/^\/+/, '')}`;
+      resolved = isSafeInternalPath(aliasPath) ? aliasPath : null;
+    }
   }
 
   if (isCacheable) {

@@ -172,6 +172,26 @@ describe('getPageLinkByTag', () => {
     expect(result).toBeNull();
   });
 
+  it('c. returns null when the alias is an empty string and there is no canonicalUrl', async () => {
+    mockQuery.mockResolvedValue({
+      cmsPages: [{ alias: '', tags: ['contact'] }],
+    });
+
+    const result = await getPageLinkByTag({ tag: 'contact' }, mockEvent());
+
+    expect(result).toBeNull();
+  });
+
+  it('c. strips a stray leading slash so a "/kontakt" alias resolves to /kontakt, not //kontakt', async () => {
+    mockQuery.mockResolvedValue({
+      cmsPages: [{ alias: '/kontakt', tags: ['contact'] }],
+    });
+
+    const result = await getPageLinkByTag({ tag: 'contact' }, mockEvent());
+
+    expect(result).toBe('/kontakt');
+  });
+
   it('c. tag-match preference: resolves tagged page alias over a stray canonicalUrl row', async () => {
     mockQuery.mockResolvedValue({
       cmsPages: [
@@ -215,9 +235,9 @@ describe('getPageLinkByTag', () => {
     expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
-  it('f. defensive fallback: uses firstWithUrl when no row matches the requested tag', async () => {
+  it('f. defensive fallback: uses the first page when no row matches the requested tag', async () => {
     // The API pre-filters by includeTags; this row has a different tag but
-    // still carries a canonicalUrl. The defensive firstWithUrl branch picks it up.
+    // still carries a canonicalUrl. The defensive pages[0] fallback picks it up.
     mockQuery.mockResolvedValue({
       cmsPages: [{ alias: 'x', tags: ['other'], canonicalUrl: '/se/sv/x' }],
     });
