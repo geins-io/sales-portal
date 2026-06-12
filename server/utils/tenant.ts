@@ -56,7 +56,11 @@ export const DEFAULT_CMS_CONFIG: NonNullable<TenantConfig['cms']> = {
   },
   menus: {
     [CMS_MENUS.HEADER_MAIN]: { menuLocationId: 'main' },
-    [CMS_MENUS.FOOTER]: { menuLocationId: 'footer' },
+    // The three footer columns share one dash-numbered convention:
+    // footer-1, footer-2, footer-3. The legacy single 'footer' location is
+    // empty on configured tenants, so column 1 reads footer-1 like its
+    // siblings. A tenant can still point this key elsewhere via its cms config.
+    [CMS_MENUS.FOOTER]: { menuLocationId: 'footer-1' },
     [CMS_MENUS.FOOTER_2]: { menuLocationId: 'footer-2' },
     [CMS_MENUS.FOOTER_3]: { menuLocationId: 'footer-3' },
     [CMS_MENUS.MOBILE_DRAWER]: { menuLocationId: 'main' },
