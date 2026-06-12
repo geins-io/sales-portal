@@ -271,3 +271,5 @@ regardless of how the user arrived.
   expanding resolver reach to the typed PDP/PLP pages (Tier 2), and adding the
   wrong-shape global middleware (Tier 1). ADR-017 remains valid; this ADR
   describes the full contract built on top of it.
+
+The same pillars (sole builder, lint guard, static-scan test, 301 recovery, loop guard) are extended to CMS pages in [ADR-021](021-cms-page-link-routing.md).
