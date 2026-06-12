@@ -7,6 +7,7 @@ const mockNavigateTo = vi.fn();
 const mockMarketCookieValue = ref<string | null>('se');
 const mockLocaleRef = ref('sv');
 const mockRouteFullPath = ref('/se/sv/foder');
+const mockRouteName = ref<string>('slug');
 const mockTenantMarket = ref('se');
 const mockAvailableLocales = ref<string[]>(['sv', 'en']);
 const mockAvailableMarkets = ref<string[]>(['se', 'no', 'dk']);
@@ -32,6 +33,7 @@ vi.mock('~/composables/useTenant', () => ({
 vi.mock('#app/composables/router', () => ({
   useRoute: () => ({
     fullPath: mockRouteFullPath.value,
+    name: mockRouteName.value,
   }),
   navigateTo: (...args: unknown[]) => mockNavigateTo(...args),
   abortNavigation: vi.fn(),
@@ -58,6 +60,7 @@ vi.stubGlobal('navigateTo', mockNavigateTo);
 vi.stubGlobal('computed', computed);
 vi.stubGlobal('useRoute', () => ({
   fullPath: mockRouteFullPath.value,
+  name: mockRouteName.value,
 }));
 vi.stubGlobal('useCookie', () => mockMarketCookieValue);
 vi.stubGlobal('useI18n', () => ({
@@ -81,6 +84,7 @@ describe('useLocaleMarket', () => {
     mockMarketCookieValue.value = 'se';
     mockLocaleRef.value = 'sv';
     mockRouteFullPath.value = '/se/sv/foder';
+    mockRouteName.value = 'slug';
     mockTenantMarket.value = 'se';
     mockAvailableLocales.value = ['sv', 'en'];
     mockAvailableMarkets.value = ['se', 'no', 'dk'];
@@ -90,6 +94,7 @@ describe('useLocaleMarket', () => {
     vi.stubGlobal('computed', computed);
     vi.stubGlobal('useRoute', () => ({
       fullPath: mockRouteFullPath.value,
+      name: mockRouteName.value,
     }));
     vi.stubGlobal('useCookie', () => mockMarketCookieValue);
     vi.stubGlobal('useI18n', () => ({
@@ -338,6 +343,64 @@ describe('useLocaleMarket', () => {
       await switchMarket('dk');
 
       expect(mockNavigateTo).toHaveBeenCalledWith('/dk/sv/', {
+        external: true,
+      });
+    });
+
+    it('CMS page route (name base slug) drops to home on market switch', async () => {
+      // CMS pages render via the [...slug].vue catch-all; route name base is 'slug'
+      mockRouteName.value = 'slug';
+      mockRouteFullPath.value = '/se/sv/kontakt';
+      const { switchMarket } = useLocaleMarket();
+      await switchMarket('no');
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/no/sv/', {
+        external: true,
+      });
+    });
+
+    it('route with name base contact is NOT treated as static and drops to home on market switch', async () => {
+      // 'contact' and 'apply-for-account' were removed from staticRoutes;
+      // any route named 'contact' must now be treated as dynamic
+      mockRouteName.value = 'contact';
+      mockRouteFullPath.value = '/se/sv/contact';
+      const { switchMarket } = useLocaleMarket();
+      await switchMarket('no');
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/no/sv/', {
+        external: true,
+      });
+    });
+
+    it('cart route (genuinely static) carries its clean path on market switch', async () => {
+      mockRouteName.value = 'cart';
+      mockRouteFullPath.value = '/se/sv/cart';
+      const { switchMarket } = useLocaleMarket();
+      await switchMarket('no');
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/no/sv/cart', {
+        external: true,
+      });
+    });
+
+    it('checkout route (genuinely static) carries its clean path on market switch', async () => {
+      mockRouteName.value = 'checkout';
+      mockRouteFullPath.value = '/se/sv/checkout';
+      const { switchMarket } = useLocaleMarket();
+      await switchMarket('no');
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/no/sv/checkout', {
+        external: true,
+      });
+    });
+
+    it('portal-orders route (genuinely static) carries its clean path on market switch', async () => {
+      mockRouteName.value = 'portal-orders';
+      mockRouteFullPath.value = '/se/sv/portal/orders';
+      const { switchMarket } = useLocaleMarket();
+      await switchMarket('no');
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/no/sv/portal/orders', {
         external: true,
       });
     });

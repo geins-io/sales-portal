@@ -40,8 +40,8 @@ import type { TenantConfig } from '#shared/types/tenant-config';
  *    forward headers: pass `useRequestHeaders(['cookie', 'host'])` to $fetch or
  *    useFetch. Omitting the Host header breaks tenant resolution silently.
  *
- * The `path` query param is the normalized prefix-less inbound path; the alias
- * is its last non-empty segment.
+ * The `path` query param is the full normalized inbound path (including the
+ * /{market}/{locale}/ prefix when present); the alias is its last non-empty segment.
  *
  * withErrorHandling/404-surfacing runs OUTSIDE the cache boundary on purpose
  * (unlike server/api/config.get.ts): a thrown error is not cached by Nitro, so

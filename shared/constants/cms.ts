@@ -96,6 +96,96 @@ export const CMS_TAGS = {
    * hash, matching the convention used across this registry.
    */
   APPLY_PAGE: 'apply',
+  /**
+   * Tags the CMS page that the checkout terms-and-conditions link resolves to.
+   * Editors assign this tag in the Geins admin so the alias can be localized
+   * per market (e.g. "villkor" in SV) without touching any code. Lowercase, no
+   * leading hash, matching the convention used across this registry.
+   */
+  TERMS_PAGE: 'terms',
 } as const;
 
 export type CmsTagKey = (typeof CMS_TAGS)[keyof typeof CMS_TAGS];
+
+/**
+ * Semantic slug map: the legacy English URL slugs that have historically
+ * appeared as hardcoded links in topbar, login, and checkout flows, and that
+ * 404 on tenants whose CMS pages use localized slugs (e.g. "villkor" instead
+ * of "terms", "kontakt" instead of "contact").
+ *
+ * All routing guards and inbound-recovery logic must consume this map as the
+ * single source of truth so the two slug aliases per tag (contact/contact-form,
+ * apply/apply-for-account) stay in lockstep with the CMS_TAGS registry.
+ *
+ * Keys are lowercase, no leading slash. Two slugs alias the same tag where
+ * both forms have appeared in the wild.
+ */
+export const CMS_SEMANTIC_SLUGS = Object.freeze({
+  terms: CMS_TAGS.TERMS_PAGE,
+  contact: CMS_TAGS.CONTACT_PAGE,
+  'contact-form': CMS_TAGS.CONTACT_PAGE,
+  apply: CMS_TAGS.APPLY_PAGE,
+  'apply-for-account': CMS_TAGS.APPLY_PAGE,
+} as const);
+
+/** Union of every known semantic slug key. */
+export type CmsSemanticSlug = keyof typeof CMS_SEMANTIC_SLUGS;
+
+/**
+ * The frozen set of semantic slug keys, for iterating in lint guards and
+ * inbound-recovery without re-declaring the list elsewhere.
+ */
+export const CMS_SEMANTIC_SLUG_KEYS: readonly string[] = Object.freeze(
+  Object.keys(CMS_SEMANTIC_SLUGS),
+);
+
+/**
+ * Returns the CMS tag for a given slug, or null if the slug is not in the
+ * semantic slug map. The input is normalized before lookup:
+ *   - non-string values return null immediately
+ *   - leading and trailing whitespace is trimmed
+ *   - converted to lowercase
+ *   - a single leading slash is stripped
+ *   - a trailing slash is stripped
+ *   - query string (?...) and hash fragment (#...) are stripped from the
+ *     final segment so '/terms?utm=x' resolves the same as '/terms'
+ *   - if the result still contains slashes (full path), the last non-empty
+ *     segment is used, so '/se/sv/apply-for-account' resolves via its tail
+ *
+ * Prototype-pollution safety: Object.hasOwn is used instead of the `in`
+ * operator so inherited keys (__proto__, constructor, etc.) never match.
+ *
+ * This function is pure: it has no side effects and imports no framework code,
+ * making it safe to call from app/, server/, shared/, and tests/.
+ */
+export function cmsTagForSlug(slug: string): CmsTagKey | null {
+  if (typeof slug !== 'string') return null;
+
+  const trimmed = slug
+    .trim()
+    .toLowerCase()
+    .replace(/^\//, '')
+    .replace(/\/$/, '');
+  if (!trimmed) return null;
+
+  const rawSegment = trimmed.includes('/')
+    ? (trimmed.split('/').filter(Boolean).at(-1) ?? '')
+    : trimmed;
+
+  if (!rawSegment) return null;
+
+  // Strip query string and hash fragment from the segment so
+  // '/terms?utm=x' and '/terms#section' resolve correctly.
+  const segment = rawSegment.split(/[?#]/)[0] ?? '';
+
+  if (!segment) return null;
+
+  // Use Object.hasOwn instead of `in` to avoid prototype-pollution:
+  // `in` matches inherited keys (__proto__, constructor, toString, etc.)
+  // which would violate the CmsTagKey|null contract.
+  if (Object.hasOwn(CMS_SEMANTIC_SLUGS, segment)) {
+    return CMS_SEMANTIC_SLUGS[segment as CmsSemanticSlug];
+  }
+
+  return null;
+}

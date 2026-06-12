@@ -25,6 +25,8 @@ ADRs document significant architectural decisions with context and consequences.
 | 017 | [Entity URL safety net](017-entity-url-safety-net.md)                              | accepted | 2026-06-02 |
 | 018 | [CSP allows inline styles, keeps scripts nonce-strict](018-csp-inline-styles.md)   | accepted | 2026-06-03 |
 | 019 | [Bulletproof URL routing](019-bulletproof-routing.md)                              | accepted | 2026-06-03 |
+| 020 | [Buyer market selection on login](020-buyer-market-selection.md)                   | accepted | 2026-06-04 |
+| 021 | [CMS-page link routing contract](021-cms-page-link-routing.md)                     | accepted | 2026-06-12 |
 
 ## Adding New ADRs
 

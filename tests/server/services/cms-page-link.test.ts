@@ -291,4 +291,37 @@ describe('getPageLinkByTag', () => {
     expect(enResult).toBe('/se/en/contact');
     expect(mockQuery).toHaveBeenCalledTimes(2);
   });
+
+  // N1: isSafeInternalPath guard on canonicalUrl branch
+  it('N1. returns null when canonicalUrl is an external URL (https://evil.com)', async () => {
+    mockQuery.mockResolvedValue({
+      cmsPages: [
+        {
+          alias: 'terms',
+          tags: ['terms'],
+          canonicalUrl: 'https://evil.com/phish',
+        },
+      ],
+    });
+
+    const result = await getPageLinkByTag({ tag: 'terms' }, mockEvent());
+
+    expect(result).toBeNull();
+  });
+
+  it('N1. returns null when canonicalUrl is a protocol-relative external URL', async () => {
+    mockQuery.mockResolvedValue({
+      cmsPages: [
+        {
+          alias: 'terms',
+          tags: ['terms'],
+          canonicalUrl: '//evil.com/phish',
+        },
+      ],
+    });
+
+    const result = await getPageLinkByTag({ tag: 'terms' }, mockEvent());
+
+    expect(result).toBeNull();
+  });
 });

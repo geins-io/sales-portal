@@ -140,15 +140,19 @@ export function useLocaleMarket() {
    * These can safely keep their path when switching locale/market.
    * Dynamic routes (categories, products, CMS pages) have locale-specific
    * slugs from the Geins API and must redirect to home on switch.
+   *
+   * Note: 'contact' and 'apply-for-account' are NOT listed here. Those are
+   * CMS pages served through the [...slug].vue catch-all with localized slugs
+   * (e.g. 'kontakt', 'ansok-om-konto'). There are no named app routes for
+   * them, so they are already dynamic by route name ('slug'). Listing them
+   * here was dead and would cause a 404 if a name ever collided.
    */
   const staticRoutes = new Set([
     'index',
     'cart',
     'checkout',
-    'contact',
     'login',
     'search',
-    'apply-for-account',
     'account-reset-password',
     'elements',
     'preview-widgets',
