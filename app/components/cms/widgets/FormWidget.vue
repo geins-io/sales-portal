@@ -207,7 +207,7 @@ function selectOptionsFor(field: FormWidgetField) {
         <textarea
           :id="`form-field-input-${field.name}`"
           v-model="formValues[field.name]"
-          class="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          class="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-[80px] w-full rounded-md border bg-white px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           :aria-invalid="
             touched[field.name] && !!fieldErrors[field.name] ? 'true' : undefined
           "
