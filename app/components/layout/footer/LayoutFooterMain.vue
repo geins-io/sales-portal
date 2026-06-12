@@ -118,12 +118,12 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
           </h3>
           <ul class="flex flex-col gap-2">
             <li v-if="contact?.email">
-              <span class="text-footer-text/70 text-sm"
+              <span class="text-footer-text/70 block text-sm"
                 >{{ $t('layout.email') }}:</span
               >
               <a
                 :href="`mailto:${contact.email}`"
-                class="text-footer-text/70 hover:text-footer-text ml-1 text-sm transition-colors"
+                class="text-footer-text/70 hover:text-footer-text block text-sm break-words transition-colors"
                 >{{ contact.email }}</a
               >
             </li>
