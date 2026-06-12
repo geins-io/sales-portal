@@ -7,6 +7,7 @@ query getCompanyOrdersForPurchasedProducts(
     id
     publicId
     createdAt
+    customerEmail
     billingAddress {
       firstName
       lastName
