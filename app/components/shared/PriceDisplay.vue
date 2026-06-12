@@ -136,9 +136,9 @@ const lowestPriceFormatted = computed(() => {
       >
         {{ discountLabel }}
       </span>
-      <span v-if="!effectiveShowVat" class="text-muted-foreground text-xs"
-        >ex. VAT</span
-      >
+      <span v-if="!effectiveShowVat" class="text-muted-foreground text-xs">{{
+        t('common.vat_excl')
+      }}</span>
     </div>
     <div
       v-if="showPrice && lowestPriceFormatted"
