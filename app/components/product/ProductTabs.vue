@@ -20,8 +20,11 @@ const visibleGroups = computed(() =>
     .filter((g) => !HIDDEN_PARAMETER_GROUPS.test(g.name ?? ''))
     .map((g) => ({
       ...g,
+      // `show` is the merchant's storefront-visibility toggle in Geins.
+      // Parameters flagged off (e.g. internal ERP-imported fields) are not
+      // meant for the product page, so they never render here.
       parameters: (g.parameters ?? []).filter(
-        (p) => (p.name || p.label) && p.value != null,
+        (p) => p.show && (p.name || p.label) && p.value != null,
       ),
     }))
     .filter((g) => g.parameters.length > 0),

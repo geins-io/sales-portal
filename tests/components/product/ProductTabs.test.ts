@@ -133,7 +133,7 @@ describe('ProductTabs', () => {
     expect(descContent.html()).toContain('Product description here');
   });
 
-  it('renders specification table with group name and visible params', () => {
+  it('renders only show:true parameters in the specification table', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: { product: makeProduct(), related: [] },
       global: { stubs },
@@ -144,9 +144,37 @@ describe('ProductTabs', () => {
     expect(specContent.text()).toContain('Dimensions');
     expect(specContent.text()).toContain('Weight');
     expect(specContent.text()).toContain('500g');
-    expect(specContent.text()).toContain('Produkttyp');
-    expect(specContent.text()).toContain('Elektronik');
+    expect(specContent.text()).toContain('Height');
+    // show:false params are the merchant's hidden/internal fields — never shown
+    expect(specContent.text()).not.toContain('Produkttyp');
+    expect(specContent.text()).not.toContain('Elektronik');
     expect(specContent.text()).not.toContain('empty');
+  });
+
+  it('drops a group whose params are all show:false and hides the spec tab when none remain', () => {
+    // Mirrors the real tinatest4 F-111 case: a single "Measurements" group
+    // carrying one show:false parameter imported from the Monitor ERP. With
+    // no visible params and no description, the spec tab must disappear.
+    const product = makeProduct({
+      texts: undefined,
+      parameterGroups: [
+        {
+          name: 'Measurements',
+          parameterGroupId: 3,
+          parameters: [
+            { name: 'Width (mm)', value: '19', show: false, identifier: 'P2' },
+          ],
+        },
+      ],
+    });
+    const wrapper = mountComponent(ProductTabs, {
+      props: { product, related: [] },
+      global: { stubs },
+    });
+    const labels = wrapper.findAll('.tabs-trigger').map((t) => t.text());
+    expect(labels).not.toContain('product.specifications');
+    expect(wrapper.text()).not.toContain('Measurements');
+    expect(wrapper.text()).not.toContain('Width (mm)');
   });
 
   it('hides description tab when no text', () => {
