@@ -59,7 +59,7 @@ describe('PriceDisplay', () => {
         props: { price: makePrice() },
       });
       expect(wrapper.text()).toContain('199,00 kr');
-      expect(wrapper.text()).not.toContain('ex. VAT');
+      expect(wrapper.text()).not.toContain('common.vat_excl');
     });
 
     it('follows the preference (ex) when showVat is omitted', () => {
@@ -68,7 +68,7 @@ describe('PriceDisplay', () => {
         props: { price: makePrice() },
       });
       expect(wrapper.text()).toContain('159,20 kr');
-      expect(wrapper.text()).toContain('ex. VAT');
+      expect(wrapper.text()).toContain('common.vat_excl');
     });
 
     it('honors explicit show-vat=true even when the preference is ex', () => {
@@ -77,7 +77,7 @@ describe('PriceDisplay', () => {
         props: { price: makePrice(), showVat: true },
       });
       expect(wrapper.text()).toContain('199,00 kr');
-      expect(wrapper.text()).not.toContain('ex. VAT');
+      expect(wrapper.text()).not.toContain('common.vat_excl');
     });
 
     it('honors explicit show-vat=false even when the preference is inc', () => {
@@ -86,7 +86,7 @@ describe('PriceDisplay', () => {
         props: { price: makePrice(), showVat: false },
       });
       expect(wrapper.text()).toContain('159,20 kr');
-      expect(wrapper.text()).toContain('ex. VAT');
+      expect(wrapper.text()).toContain('common.vat_excl');
     });
   });
 

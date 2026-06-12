@@ -6,7 +6,12 @@ const mockCookieValue = ref<'inc' | 'ex' | undefined>(undefined);
 
 // Mock the Nuxt cookie composable
 vi.mock('#app/composables/cookie', () => ({
-  useCookie: () => mockCookieValue,
+  useCookie: (_n?: string, o?: { default?: () => 'inc' | 'ex' }) => {
+    if (mockCookieValue.value === undefined && o?.default) {
+      mockCookieValue.value = o.default();
+    }
+    return mockCookieValue;
+  },
 }));
 
 // Mock the shared constants so the module loads without path issues
@@ -17,7 +22,14 @@ vi.mock('#shared/constants/storage', () => ({
 }));
 
 // Stub Nuxt auto-imports as globals (matches useLocaleMarket.test.ts pattern)
-vi.stubGlobal('useCookie', () => mockCookieValue);
+vi.stubGlobal(
+  'useCookie',
+  (_n?: string, o?: { default?: () => 'inc' | 'ex' }) => {
+    if (mockCookieValue.value === undefined && o?.default)
+      mockCookieValue.value = o.default();
+    return mockCookieValue;
+  },
+);
 vi.stubGlobal('computed', computed);
 
 describe('useVatDisplay', () => {
@@ -29,7 +41,14 @@ describe('useVatDisplay', () => {
     mockCookieValue.value = undefined;
 
     // Re-stub after resetModules
-    vi.stubGlobal('useCookie', () => mockCookieValue);
+    vi.stubGlobal(
+      'useCookie',
+      (_n?: string, o?: { default?: () => 'inc' | 'ex' }) => {
+        if (mockCookieValue.value === undefined && o?.default)
+          mockCookieValue.value = o.default();
+        return mockCookieValue;
+      },
+    );
     vi.stubGlobal('computed', computed);
 
     const mod = await import('../../../app/composables/useVatDisplay');
@@ -37,10 +56,11 @@ describe('useVatDisplay', () => {
   });
 
   describe('showIncVat', () => {
-    it('returns true when cookie is undefined (default incl-VAT)', () => {
+    it('defaults to ex-VAT (showIncVat false) when no cookie is set', () => {
       mockCookieValue.value = undefined;
       const { showIncVat } = useVatDisplay();
-      expect(showIncVat.value).toBe(true);
+      expect(showIncVat.value).toBe(false);
+      expect(mockCookieValue.value).toBe('ex');
     });
 
     it('returns true when cookie value is "inc"', () => {
