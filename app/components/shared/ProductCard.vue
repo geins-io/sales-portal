@@ -156,7 +156,7 @@ async function addToCart() {
   <!-- Grid variant -->
   <div
     v-if="variant === 'grid'"
-    class="bg-card flex flex-col overflow-hidden rounded-md border"
+    class="bg-card flex h-full flex-col overflow-hidden rounded-md border"
     data-testid="product-card"
   >
     <div class="relative p-3">

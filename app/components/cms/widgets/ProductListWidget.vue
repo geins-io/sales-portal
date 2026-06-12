@@ -103,14 +103,14 @@ const products = computed(() => productsData.value?.products ?? []);
       >
         <CarouselPrevious
           variant="ghost"
-          class="text-foreground/70 hover:text-foreground left-2 hover:bg-transparent"
+          class="text-foreground/70 hover:text-foreground left-2 size-11 hover:bg-transparent"
           :aria-label="t('pagination.previous')"
         >
           <ChevronLeft class="size-6" />
         </CarouselPrevious>
         <CarouselNext
           variant="ghost"
-          class="text-foreground/70 hover:text-foreground right-2 hover:bg-transparent"
+          class="text-foreground/70 hover:text-foreground right-2 size-11 hover:bg-transparent"
           :aria-label="t('pagination.next')"
         >
           <ChevronRight class="size-6" />
