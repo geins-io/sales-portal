@@ -149,6 +149,31 @@ describe('LayoutFooterMain', () => {
     expect(wrapper.text()).not.toContain('Empty');
   });
 
+  it('drops a menu whose only item has an empty label (no blank-link column)', () => {
+    // Regression: an untranslated footer menu location returns an item with an
+    // empty label on the active locale. It must not render a column with a
+    // blank anchor; a menu left with no labelled items yields no column.
+    footerMenus.footer.value = {
+      id: '1',
+      title: 'Menu A',
+      menuItems: [{ id: 'a1', label: 'Real', canonicalUrl: '/real', order: 1 }],
+    };
+    footerMenus.footer_2.value = {
+      id: '2',
+      title: '',
+      menuItems: [{ id: 'b1', label: '', canonicalUrl: '', order: 1 }],
+    };
+    footerMenus.footer_3.value = null;
+    const wrapper = mount();
+    // The labelled menu still renders its item.
+    expect(wrapper.text()).toContain('Real');
+    // No anchor with empty text content (the blank link) is rendered.
+    const blankLinks = wrapper
+      .findAll('a')
+      .filter((a) => a.text().trim() === '');
+    expect(blankLinks.length).toBe(0);
+  });
+
   // --- Menu column: title heading ---
 
   it('renders menu title as heading when present', () => {
