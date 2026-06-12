@@ -803,7 +803,6 @@
       "empty": "You have no favorites yet",
       "browse_products": "Browse products",
       "remove": "Remove",
-      "count": "Showing {count} favorites",
       "loading": "Loading your favorites...",
       "view_as": "View as:",
       "view_grid": "Grid view",
@@ -813,7 +812,7 @@
       "search_placeholder": "Quick filter on art nr or product name"
     },
     "purchased_products": {
-      "title": "Your purchased products",
+      "title": "Purchased products",
       "subtitle": "A complete list of the different products your company has purchased",
       "search_placeholder": "Search on art nr or prod name",
       "columns": {

@@ -16,7 +16,9 @@ vi.mock('../../../server/services/_sdk', () => ({
 }));
 
 vi.mock('../../../server/services/graphql/loader', () => ({
-  loadQuery: vi.fn().mockReturnValue('query getOrdersForPurchasedProducts'),
+  loadQuery: vi
+    .fn()
+    .mockReturnValue('query getCompanyOrdersForPurchasedProducts'),
 }));
 
 vi.stubGlobal(
@@ -77,10 +79,10 @@ function makeOrder(overrides: {
   };
 }
 
-// The service unwraps a `{ getOrders: [...] }` GraphQL shape into the array.
-// Tests mock `sdk.core.graphql.query` to return that wrapper.
+// The service unwraps a `{ getCompanyOrders: [...] }` GraphQL shape into the
+// array. Tests mock `sdk.core.graphql.query` to return that wrapper.
 function withOrders(orders: ReturnType<typeof makeOrder>[]) {
-  mockGraphqlQuery.mockResolvedValueOnce({ getOrders: orders });
+  mockGraphqlQuery.mockResolvedValueOnce({ getCompanyOrders: orders });
 }
 
 describe('getPurchasedProducts', () => {
@@ -233,7 +235,7 @@ describe('getPurchasedProducts', () => {
   });
 
   it('returns empty array when GraphQL returns null', async () => {
-    mockGraphqlQuery.mockResolvedValueOnce({ getOrders: null });
+    mockGraphqlQuery.mockResolvedValueOnce({ getCompanyOrders: null });
 
     const result = await purchasedProducts.getPurchasedProducts(mockEvent);
 
@@ -263,7 +265,7 @@ describe('getPurchasedProducts', () => {
 
   it('handles null unitPrice gracefully', async () => {
     mockGraphqlQuery.mockResolvedValueOnce({
-      getOrders: [
+      getCompanyOrders: [
         {
           id: 1,
           createdAt: '2026-01-01T00:00:00Z',

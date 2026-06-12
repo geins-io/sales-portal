@@ -803,7 +803,6 @@
       "empty": "Du har inga favoriter ännu",
       "browse_products": "Bläddra bland produkter",
       "remove": "Ta bort",
-      "count": "Visar {count} favoriter",
       "loading": "Laddar dina favoriter...",
       "view_as": "Visa som:",
       "view_grid": "Rutnät",
@@ -813,7 +812,7 @@
       "search_placeholder": "Snabbfilter på art.nr eller produktnamn"
     },
     "purchased_products": {
-      "title": "Dina köpta produkter",
+      "title": "Köpta produkter",
       "subtitle": "En komplett lista över de olika produkter ditt företag har köpt",
       "search_placeholder": "Sök på art.nr eller produktnamn",
       "columns": {

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref, computed, reactive } from 'vue';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { Star, Heart } from 'lucide-vue-next';
 
 // ---------------------------------------------------------------------------
 // Favorites store mock
@@ -180,14 +181,11 @@ describe('FavoritesPage (Figma-aligned grid)', () => {
     expect(wrapper.findAll('[data-testid="product-card"]')).toHaveLength(2);
   });
 
-  it('shows favorites count element', () => {
+  it('does not render the favorites count text', () => {
     const wrapper = mountFavorites({ aliases: ['a', 'b'] });
-    const countText = wrapper.find('[data-testid="favorites-count-text"]');
-    expect(countText.exists()).toBe(true);
-    // The text comes from portal.favorites.count with {count} interpolation.
-    // We verify the element is wired to the store count; the i18n renderer
-    // in the test harness returns the raw key, so we only assert presence.
-    expect(countText.text().length).toBeGreaterThan(0);
+    expect(wrapper.find('[data-testid="favorites-count-text"]').exists()).toBe(
+      false,
+    );
   });
 
   it('renders grid/list view toggle with grid active by default', () => {
@@ -263,11 +261,14 @@ describe('FavoritesPage (Figma-aligned grid)', () => {
     expect(wrapper.findAll('[data-testid="favorite-card"]')).toHaveLength(1);
   });
 
-  it('keeps empty state markup (heart icon + browse link)', () => {
+  it('keeps empty state markup (star icon + browse link)', () => {
     const wrapper = mountFavorites({ aliases: [] });
     const empty = wrapper.find('[data-testid="favorites-empty"]');
     expect(empty.exists()).toBe(true);
     expect(empty.text()).toContain('portal.favorites.empty');
     expect(empty.find('a').exists()).toBe(true);
+    // Empty-state icon is the shared Star, not a heart.
+    expect(wrapper.findComponent(Star).exists()).toBe(true);
+    expect(wrapper.findComponent(Heart).exists()).toBe(false);
   });
 });

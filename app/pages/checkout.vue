@@ -375,10 +375,10 @@ async function handlePlaceOrder() {
                 <div class="flex items-center gap-3">
                   <Checkbox
                     id="separate-shipping"
-                    :checked="checkoutStore.useSeparateShipping"
+                    :model-value="checkoutStore.useSeparateShipping"
                     data-testid="separate-shipping-toggle"
-                    @update:checked="
-                      checkoutStore.useSeparateShipping = !!$event
+                    @update:model-value="
+                      checkoutStore.useSeparateShipping = $event === true
                     "
                   />
                   <Label for="separate-shipping" class="cursor-pointer text-sm">

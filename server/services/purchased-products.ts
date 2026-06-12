@@ -37,13 +37,18 @@ interface RawOrderItem {
 }
 
 /**
- * Derives the "purchased products" list for the authenticated user.
+ * Derives the "purchased products" list for the buyer's company.
  *
- * Uses a dedicated lean GraphQL query instead of `crm.user.orders.get()`. The
- * SDK's `UserOrders` query asks for the full Cart fragment plus shipping and
- * refund subtrees; a single broken subfield silently nulls the whole
- * `getOrders` response on staging Geins. Asking only for what the derivation
- * needs keeps this resilient against the wider PIM surface.
+ * Built from `getCompanyOrders` (the company-wide order history, the same root
+ * field the portal Orders list uses) rather than `getOrders`, which only
+ * returns the signed-in user's personal orders and is therefore empty for a
+ * buyer who never personally placed an order. The page is explicitly "products
+ * your company has purchased", so it must aggregate across every company order.
+ *
+ * Uses a dedicated lean GraphQL query rather than the SDK's full order
+ * fragment: that fragment pulls shipping and refund subtrees, and a single
+ * broken subfield silently nulls the whole response on staging Geins. Asking
+ * only for the fields the derivation needs keeps this resilient.
  */
 export async function getPurchasedProducts(
   event: H3Event,
