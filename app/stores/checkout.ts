@@ -77,6 +77,11 @@ export const useCheckoutStore = defineStore('checkout', () => {
     useSeparateShipping.value ? shippingAddress.value : billingAddress.value,
   );
   const isAddressComplete = computed(() => {
+    // B2B checkout submits a predefined company address by id, so the literal
+    // name/street fields are never sent (see checkoutAddressFields). A company
+    // billing address also carries no person name (that lives on the buyer),
+    // so the addressId is the completeness signal rather than firstName/lastName.
+    if (billingAddressId.value) return true;
     const addr = billingAddress.value;
     return !!(
       addr.firstName &&

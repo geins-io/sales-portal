@@ -584,6 +584,24 @@ describe('useCheckoutStore', () => {
       expect(store.canPlaceOrder).toBe(false);
     });
 
+    it('is true for B2B checkout when billingAddressId is set even if the address has no name', () => {
+      // Company billing addresses carry no person name (the buyer's name lives
+      // separately), and B2B orders submit the addressId, not the literal
+      // fields. Gating on firstName/lastName here would leave the place-order
+      // button permanently disabled for company users with no way to fix it.
+      const store = useCheckoutStore();
+      store.email = 'buyer@company.com';
+      store.billingAddress = {
+        ...mockAddress,
+        firstName: '',
+        lastName: '',
+      };
+      store.billingAddressId = 'addr-b2b-1';
+      store.selectedPaymentId = 2;
+
+      expect(store.canPlaceOrder).toBe(true);
+    });
+
     it('is false when no payment selected', () => {
       const store = useCheckoutStore();
       store.email = 'test@example.com';

@@ -107,22 +107,19 @@ jobs:
   # Uses gh CLI to dispatch since workflow_call has permission limitations
   # ---------------------------------------------------------------------------
   deploy:
-    name: Deploy to Dev and Prod
+    name: Deploy to Dev
     needs: build
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       actions: write
     steps:
-      # TEMPORARY: dispatch both dev and prod so every push to main goes live in
-      # production alongside dev. Revert to dev-only when this window closes.
-      - name: Trigger deploy workflows
+      # Auto-deploy dev only. Prod is released manually via the Deploy
+      # workflow_dispatch so a push to main never goes live in production.
+      - name: Trigger dev deploy
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh workflow run deploy.yml \
             --repo ${{ github.repository }} \
             --field environment=dev
-          gh workflow run deploy.yml \
-            --repo ${{ github.repository }} \
-            --field environment=prod
