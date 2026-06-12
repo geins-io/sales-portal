@@ -40,11 +40,14 @@ vi.mock('~/stores/app', () => ({
   useAppStore: () => mockAppStore,
 }));
 
+const authStoreState = {
+  isAuthenticated: false,
+  displayName: '',
+  openSheet: vi.fn(),
+  logout: vi.fn(),
+};
 vi.mock('~/stores/auth', () => ({
-  useAuthStore: () => ({
-    isAuthenticated: false,
-    displayName: '',
-  }),
+  useAuthStore: () => authStoreState,
 }));
 
 const slotDiv = { template: '<div><slot /></div>' };
@@ -70,6 +73,8 @@ describe('MobileNavPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAppStore.sidebarOpen = true;
+    authStoreState.isAuthenticated = false;
+    authStoreState.displayName = '';
   });
 
   it('renders with data-slot="mobile-nav"', () => {
@@ -130,5 +135,25 @@ describe('MobileNavPanel', () => {
     mockMenu.value = { id: '1', title: 'Main', menuItems: [] };
     const wrapper = shallowMountComponent(MobileNavPanel, mountOptions);
     expect(wrapper.text()).toContain('auth.login');
+  });
+
+  it('shows the Customer portal link and a logout button when authenticated', () => {
+    mockMenu.value = { id: '1', title: 'Main', menuItems: [] };
+    authStoreState.isAuthenticated = true;
+    authStoreState.displayName = 'ada@example.com';
+    const wrapper = shallowMountComponent(MobileNavPanel, mountOptions);
+    expect(wrapper.text()).toContain('layout.customer_portal');
+    expect(wrapper.text()).toContain('auth.logout');
+    // The buyer's email must no longer render in the drawer footer.
+    expect(wrapper.text()).not.toContain('ada@example.com');
+    expect(wrapper.find('[data-testid="mobile-nav-portal"]').exists()).toBe(
+      true,
+    );
+    expect(wrapper.find('[data-testid="mobile-nav-logout"]').exists()).toBe(
+      true,
+    );
+    expect(wrapper.find('[data-testid="mobile-nav-login"]').exists()).toBe(
+      false,
+    );
   });
 });

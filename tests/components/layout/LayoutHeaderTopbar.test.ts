@@ -7,6 +7,7 @@ const authStoreState = {
   isAuthenticated: false,
   displayName: '',
   openSheet: vi.fn(),
+  logout: vi.fn(),
 };
 
 vi.mock('~/stores/auth', () => ({
@@ -46,6 +47,7 @@ describe('LayoutHeaderTopbar', () => {
   beforeEach(() => {
     authStoreState.isAuthenticated = false;
     authStoreState.displayName = '';
+    authStoreState.logout.mockClear();
     contactToRef.value = '/se/sv/kontakt';
     contactResolvedRef.value = true;
     applyToRef.value = '/se/sv/ansok-om-konto';
@@ -65,10 +67,45 @@ describe('LayoutHeaderTopbar', () => {
 
   it('hides the apply-for-account link when authenticated', () => {
     authStoreState.isAuthenticated = true;
-    authStoreState.displayName = 'Ada';
+    authStoreState.displayName = 'ada@example.com';
     const wrapper = shallowMountComponent(LayoutHeaderTopbar);
     expect(wrapper.text()).not.toContain('layout.apply_for_account');
-    expect(wrapper.text()).toContain('Ada');
+  });
+
+  it('shows the Customer portal link (not the buyer email) when authenticated', () => {
+    authStoreState.isAuthenticated = true;
+    authStoreState.displayName = 'ada@example.com';
+    const wrapper = shallowMountComponent(LayoutHeaderTopbar);
+    expect(wrapper.text()).toContain('layout.customer_portal');
+    // The buyer's email/displayName must no longer leak into the topbar.
+    expect(wrapper.text()).not.toContain('ada@example.com');
+    // Login control is replaced by the authenticated controls.
+    expect(wrapper.find('[data-testid="topbar-login"]').exists()).toBe(false);
+  });
+
+  it('Customer portal link points at the localized /portal route', () => {
+    authStoreState.isAuthenticated = true;
+    const wrapper = shallowMountComponent(LayoutHeaderTopbar);
+    const portalLink = wrapper.find('[data-testid="topbar-portal"]');
+    expect(portalLink.exists()).toBe(true);
+    expect(portalLink.attributes('href')).toBe('/se/en/portal');
+  });
+
+  it('renders a logout button that triggers the store logout when authenticated', async () => {
+    authStoreState.isAuthenticated = true;
+    const wrapper = shallowMountComponent(LayoutHeaderTopbar);
+    const logoutButton = wrapper.find('[data-testid="topbar-logout"]');
+    expect(logoutButton.exists()).toBe(true);
+    expect(wrapper.text()).toContain('auth.logout');
+    await logoutButton.trigger('click');
+    expect(authStoreState.logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows neither portal link nor logout button when not authenticated', () => {
+    authStoreState.isAuthenticated = false;
+    const wrapper = shallowMountComponent(LayoutHeaderTopbar);
+    expect(wrapper.find('[data-testid="topbar-portal"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="topbar-logout"]').exists()).toBe(false);
   });
 
   it('(a) contact anchor href equals the CMS-resolved value from useCmsPageLink', () => {

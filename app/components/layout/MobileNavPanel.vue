@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { NuxtLink } from '#components';
-import { User } from 'lucide-vue-next';
+import { LogOut, User } from 'lucide-vue-next';
 import { useAppStore } from '~/stores/app';
 import { useAuthStore } from '~/stores/auth';
 import { Sheet, SheetContent } from '~/components/ui/sheet';
@@ -30,6 +30,7 @@ const route = useRoute();
 const { menu } = useCmsMenuData(CMS_MENUS.MOBILE_DRAWER);
 const currentHost = computed(() => useRequestURL().host);
 const { localePath } = useLocaleMarket();
+const { logout } = useLogout();
 
 const visibleItems = computed(() => getVisibleItems(menu.value?.menuItems));
 
@@ -163,14 +164,31 @@ const isOpen = computed({
             <User class="size-4" />
             {{ $t('auth.login') }}
           </button>
-          <NuxtLink
-            v-else
-            :to="localePath('/portal')"
-            class="flex items-center gap-2 text-sm font-medium"
-          >
-            <User class="size-4" />
-            {{ authStore.displayName }}
-          </NuxtLink>
+          <template v-else>
+            <NuxtLink
+              :to="localePath('/portal')"
+              class="flex items-center gap-2 text-sm font-medium"
+              data-testid="mobile-nav-portal"
+              @click="appStore.setSidebarOpen(false)"
+            >
+              <User class="size-4" />
+              {{ $t('layout.customer_portal') }}
+            </NuxtLink>
+            <button
+              type="button"
+              class="flex items-center gap-2 text-sm font-medium"
+              data-testid="mobile-nav-logout"
+              @click="
+                () => {
+                  appStore.setSidebarOpen(false);
+                  logout();
+                }
+              "
+            >
+              <LogOut class="size-4" />
+              {{ $t('auth.logout') }}
+            </button>
+          </template>
         </div>
       </SheetContent>
     </Sheet>

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Mail, User } from 'lucide-vue-next';
+import { LogOut, Mail, User } from 'lucide-vue-next';
 import { useAuthStore } from '~/stores/auth';
 import { CMS_TAGS } from '#shared/constants/cms';
 
 const authStore = useAuthStore();
 const { localePath } = useLocaleMarket();
 const { hasFeature } = useTenant();
+const { logout } = useLogout();
 const { to: contactTo, isResolved: contactResolved } = useCmsPageLink(
   CMS_TAGS.CONTACT_PAGE,
 );
@@ -71,15 +72,29 @@ const { to: applyTo, isResolved: applyResolved } = useCmsPageLink(
           <User class="size-4" />
           <span class="hidden sm:inline">{{ $t('auth.login') }}</span>
         </button>
-        <NuxtLink
-          v-else
-          :to="localePath('/portal')"
-          :aria-label="authStore.displayName ?? undefined"
-          class="flex items-center gap-1.5 hover:underline"
-        >
-          <User class="size-4" />
-          <span class="hidden sm:inline">{{ authStore.displayName }}</span>
-        </NuxtLink>
+        <template v-else>
+          <NuxtLink
+            :to="localePath('/portal')"
+            :aria-label="$t('layout.customer_portal')"
+            class="flex items-center gap-1.5 hover:underline"
+            data-testid="topbar-portal"
+          >
+            <User class="size-4" />
+            <span class="hidden sm:inline">{{
+              $t('layout.customer_portal')
+            }}</span>
+          </NuxtLink>
+          <button
+            type="button"
+            :aria-label="$t('auth.logout')"
+            class="flex items-center gap-1.5 hover:underline"
+            data-testid="topbar-logout"
+            @click="logout"
+          >
+            <LogOut class="size-4" />
+            <span class="hidden sm:inline">{{ $t('auth.logout') }}</span>
+          </button>
+        </template>
       </div>
     </div>
   </div>

@@ -23,6 +23,7 @@ const authStore = useAuthStore();
 const { canAccess } = useFeatureAccess();
 const { hasFeature } = useTenant();
 const { localePath, currentLocale, currentMarket } = useLocaleMarket();
+const { logout } = useLogout();
 const favoritesStore = useFavoritesStore();
 
 // Resolve the portal hero CMS slot from tenant config. The slot is null
@@ -131,11 +132,6 @@ function isActiveTab(tab: PortalTab): boolean {
   return route.path.startsWith(prefixedPath);
 }
 
-async function handleLogout() {
-  await authStore.logout();
-  // Force full page reload to clear all cached useFetch/useAsyncData state
-  navigateTo(localePath('/'), { external: true });
-}
 </script>
 
 <template>
@@ -203,7 +199,7 @@ async function handleLogout() {
           <button
             type="button"
             class="text-primary hover:text-primary/80 flex items-center gap-2"
-            @click="handleLogout"
+            @click="logout"
           >
             <LogOut class="size-4" />
             {{ t('portal.quick_links.logout') }}

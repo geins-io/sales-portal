@@ -6,14 +6,12 @@ export function useImpersonation() {
   const isImpersonating = computed(() => !!spoofedBy.value);
 
   const authStore = useAuthStore();
-  const { localePath } = useLocaleMarket();
+  const { logout } = useLogout();
   const customerName = computed(() => authStore.displayName ?? '');
 
   async function exitImpersonation() {
     spoofedBy.value = null;
-    await authStore.logout();
-    // Full page reload to clear all cached state (matches PortalShell logout)
-    navigateTo(localePath('/'), { external: true });
+    await logout();
   }
 
   return { isImpersonating, spoofedBy, customerName, exitImpersonation };
