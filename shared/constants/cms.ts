@@ -96,6 +96,13 @@ export const CMS_TAGS = {
    * hash, matching the convention used across this registry.
    */
   APPLY_PAGE: 'apply',
+  /**
+   * Tags the CMS page that the checkout terms-and-conditions link resolves to.
+   * Editors assign this tag in the Geins admin so the alias can be localized
+   * per market (e.g. "villkor" in SV) without touching any code. Lowercase, no
+   * leading hash, matching the convention used across this registry.
+   */
+  TERMS_PAGE: 'terms',
 } as const;
 
 export type CmsTagKey = (typeof CMS_TAGS)[keyof typeof CMS_TAGS];
