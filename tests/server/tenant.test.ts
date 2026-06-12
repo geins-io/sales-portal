@@ -12,7 +12,10 @@ import {
   backfillCoreColors,
   mergeDeep,
   resolvePreviewTenant,
+  DEFAULT_CMS_CONFIG,
 } from '../../server/utils/tenant';
+import { CMS_MENUS } from '../../shared/constants/cms';
+import { CMS_SLOTS } from '../../shared/types/cms-slots';
 import partialPayloadFixture from '../fixtures/store-settings/partial-payload.json';
 import {
   createDefaultTheme,
@@ -647,6 +650,112 @@ describe('Tenant utilities', () => {
       settings.geinsSettings.accountName = 'tenant-a';
       const built = buildTenantConfig(settings);
       expect(built.branding.name).toBe('Tenant A Store');
+    });
+  });
+
+  describe('buildTenantConfig cms config deep-merge', () => {
+    function settingsWithCms(cms?: StoreSettings['cms']): StoreSettings {
+      return {
+        tenantId: 'tenant-cms',
+        hostname: 'tenant-cms.litium.store',
+        geinsSettings: {
+          apiKey: 'k',
+          accountName: 'a',
+          channel: '1',
+          tld: 'se',
+          locale: 'sv-SE',
+          market: 'se',
+          environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
+        },
+        mode: 'commerce',
+        checkoutMode: 'custom',
+        theme: {
+          colors: {
+            primary: 'oklch(0.5 0.1 200)',
+            primaryForeground: 'oklch(0.9 0 0)',
+            secondary: 'oklch(0.8 0 0)',
+            secondaryForeground: 'oklch(0.2 0 0)',
+            background: 'oklch(1 0 0)',
+            foreground: 'oklch(0.1 0 0)',
+          },
+        },
+        branding: { name: 'X', watermark: 'full' },
+        features: {},
+        cms,
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+    }
+
+    it('unconfigured tenant resolves to the full code defaults', () => {
+      const built = buildTenantConfig(settingsWithCms(undefined));
+      expect(built.cms).toEqual(DEFAULT_CMS_CONFIG);
+    });
+
+    it('tenant cms that omits footer_2/footer_3 still inherits them from defaults', () => {
+      // The kickback scenario: a tenant whose cms block configures only the
+      // primary footer menu used to lose every default, so footer-2/footer-3
+      // never reached the storefront. Deep-merge restores them.
+      const built = buildTenantConfig(
+        settingsWithCms({
+          menus: { [CMS_MENUS.FOOTER]: { menuLocationId: 'footer' } },
+        }),
+      );
+      expect(built.cms?.menus?.[CMS_MENUS.FOOTER_2]?.menuLocationId).toBe(
+        DEFAULT_CMS_CONFIG.menus[CMS_MENUS.FOOTER_2].menuLocationId,
+      );
+      expect(built.cms?.menus?.[CMS_MENUS.FOOTER_3]?.menuLocationId).toBe(
+        DEFAULT_CMS_CONFIG.menus[CMS_MENUS.FOOTER_3].menuLocationId,
+      );
+    });
+
+    it('an explicit tenant menu override wins over the default for that key', () => {
+      const built = buildTenantConfig(
+        settingsWithCms({
+          menus: { [CMS_MENUS.FOOTER]: { menuLocationId: 'custom-footer' } },
+        }),
+      );
+      // Overridden key takes the tenant value
+      expect(built.cms?.menus?.[CMS_MENUS.FOOTER]?.menuLocationId).toBe(
+        'custom-footer',
+      );
+      // Sibling defaults remain intact
+      expect(built.cms?.menus?.[CMS_MENUS.FOOTER_2]?.menuLocationId).toBe(
+        'footer-2',
+      );
+    });
+
+    it('configuring only menus still leaves the default slots present', () => {
+      const built = buildTenantConfig(
+        settingsWithCms({
+          menus: { [CMS_MENUS.FOOTER]: { menuLocationId: 'footer' } },
+        }),
+      );
+      expect(built.cms?.slots).toEqual(DEFAULT_CMS_CONFIG.slots);
+    });
+
+    it('a tenant slot override wins while sibling default slots are kept', () => {
+      const built = buildTenantConfig(
+        settingsWithCms({
+          slots: {
+            [CMS_SLOTS.FRONTPAGE_CONTENT]: {
+              family: 'Custom Family',
+              areaName: 'Custom Area',
+            },
+          },
+        }),
+      );
+      expect(built.cms?.slots?.[CMS_SLOTS.FRONTPAGE_CONTENT]).toEqual({
+        family: 'Custom Family',
+        areaName: 'Custom Area',
+      });
+      // A sibling default slot the tenant did not touch is still present
+      expect(built.cms?.slots?.[CMS_SLOTS.PORTAL_HERO]).toEqual(
+        DEFAULT_CMS_CONFIG.slots[CMS_SLOTS.PORTAL_HERO],
+      );
     });
   });
 

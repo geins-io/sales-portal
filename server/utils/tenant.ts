@@ -264,11 +264,20 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     merged.hostname;
   const branding = { ...merged.branding, name: brandingName };
 
-  // CMS: explicit tenant config wins, otherwise fall back to the standard
-  // Geins out-of-box family/areaName values + menu locations. Lets every
-  // tenant render slots/menus without per-tenant overrides.
-  const cms =
-    (merged as { cms?: TenantConfig['cms'] }).cms ?? DEFAULT_CMS_CONFIG;
+  // CMS: deep-merge the code-defined defaults UNDER the tenant config so a
+  // tenant that configures any cms key still inherits every default it did
+  // not override. A plain `?? DEFAULT_CMS_CONFIG` was all-or-nothing: any
+  // tenant with a `cms` block lost every default, so newly added slots/menus
+  // (e.g. footer-2/footer-3) never reached a configured tenant. The `cms`
+  // shape has exactly two sub-objects (slots, menus); each merges per key
+  // with the tenant value winning.
+  const tenantCms = (merged as { cms?: TenantConfig['cms'] }).cms;
+  const cms: TenantConfig['cms'] = {
+    ...DEFAULT_CMS_CONFIG,
+    ...tenantCms,
+    slots: { ...DEFAULT_CMS_CONFIG.slots, ...(tenantCms?.slots ?? {}) },
+    menus: { ...DEFAULT_CMS_CONFIG.menus, ...(tenantCms?.menus ?? {}) },
+  };
 
   return {
     tenantId: merged.tenantId,

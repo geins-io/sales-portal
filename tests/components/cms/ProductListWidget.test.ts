@@ -64,15 +64,15 @@ vi.mock('@/components/ui/carousel', () => ({
   },
   CarouselPrevious: {
     name: 'CarouselPrevious',
-    props: ['ariaLabel'],
+    props: ['ariaLabel', 'variant'],
     template:
-      '<button data-slot="carousel-previous" :aria-label="ariaLabel"></button>',
+      '<button data-slot="carousel-previous" :data-variant="variant" :aria-label="ariaLabel"><slot /></button>',
   },
   CarouselNext: {
     name: 'CarouselNext',
-    props: ['ariaLabel'],
+    props: ['ariaLabel', 'variant'],
     template:
-      '<button data-slot="carousel-next" :aria-label="ariaLabel"></button>',
+      '<button data-slot="carousel-next" :data-variant="variant" :aria-label="ariaLabel"><slot /></button>',
   },
   CarouselDots: {
     name: 'CarouselDots',
@@ -257,6 +257,25 @@ describe('ProductListWidget', () => {
     // Arrow aria-labels reuse the existing pagination keys.
     expect(prev.attributes('aria-label')).toBe('pagination.previous');
     expect(next.attributes('aria-label')).toBe('pagination.next');
+  });
+
+  it('renders the arrows as subtle ghost-variant chevrons, not the filled outline circle', () => {
+    fetchProducts.value = [makeProduct(1), makeProduct(2), makeProduct(3)];
+    canScrollPrev.value = false;
+    canScrollNext.value = true;
+    const wrapper = mountComponent(ProductListWidget, {
+      props: makeProps({
+        slideshowDisabled: false,
+        displayNavigationArrows: true,
+      }),
+    });
+    const prev = wrapper.find('[data-slot="carousel-previous"]');
+    const next = wrapper.find('[data-slot="carousel-next"]');
+    // The slideshow scopes a subtle treatment by passing the ghost variant,
+    // not the shared default (outline) that paints a filled circle + border.
+    // The chevron glyph itself is a visual detail verified on the storefront.
+    expect(prev.attributes('data-variant')).toBe('ghost');
+    expect(next.attributes('data-variant')).toBe('ghost');
   });
 
   it('hides arrows on multiple pages when displayNavigationArrows is false', () => {

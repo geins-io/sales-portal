@@ -21,16 +21,21 @@ tenant config supplies the concrete identifiers to query.
 
 ## Design — tenant config + safe defaults
 
-Resolution order for `tenant.cms`:
+Resolution order for `tenant.cms`. `buildTenantConfig` deep-merges
+`DEFAULT_CMS_CONFIG` UNDER the tenant config, per key:
 
-1. **Explicit tenant config** (`appSettings.cms` in the merchant API
-   response, or any KV-stored override) wins.
-2. **`DEFAULT_CMS_CONFIG`** in `server/utils/tenant.ts` is applied when
-   the tenant's StoreSettings has no `cms` block. The defaults match the
-   Geins out-of-box admin family + areaName values, so a vanilla Geins
-   install renders correctly without per-tenant work.
-3. Per-key resolution still returns `null` when a tenant explicitly sets
-   `cms` but omits the key — consumers still fall back gracefully.
+1. **`DEFAULT_CMS_CONFIG`** in `server/utils/tenant.ts` is the base layer.
+   The defaults match the Geins out-of-box admin family + areaName values
+   (and the standard menu locations), so a vanilla Geins install renders
+   correctly without per-tenant work.
+2. **Explicit tenant config** (`appSettings.cms` in the merchant API
+   response, or any KV-stored override) wins per key over the defaults.
+   The merge runs over both sub-objects (`slots`, `menus`) independently.
+3. A tenant that configures some keys but omits others still inherits the
+   defaults for the omitted keys. The previous `?? DEFAULT_CMS_CONFIG` was
+   all-or-nothing: any tenant `cms` block dropped every default, so a newly
+   added default slot or menu (for example `footer-2`/`footer-3`) never
+   reached a configured tenant.
 
 Auto-provisioned dev tenants and the seeded fixtures use the same
 `DEFAULT_CMS_CONFIG` constant, so all paths agree.

@@ -4,6 +4,7 @@ import type {
   ContentConfigType,
   ProductListWidgetData,
 } from '#shared/types/cms';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import {
   Carousel,
   CarouselContent,
@@ -91,14 +92,29 @@ const products = computed(() => productsData.value?.products ?? []);
         </CarouselItem>
       </CarouselContent>
 
+      <!--
+        Subtle chevrons, not the shared button's filled outline circle. We
+        override the shared CarouselPrevious/Next here (ghost variant + a
+        Chevron icon + transparent background) instead of restyling the shared
+        ui/carousel base, which other carousels would inherit.
+      -->
       <template
         v-if="data.displayNavigationArrows && (canScrollPrev || canScrollNext)"
       >
         <CarouselPrevious
-          class="left-2"
+          variant="ghost"
+          class="text-foreground/70 hover:text-foreground left-2 hover:bg-transparent"
           :aria-label="t('pagination.previous')"
-        />
-        <CarouselNext class="right-2" :aria-label="t('pagination.next')" />
+        >
+          <ChevronLeft class="size-6" />
+        </CarouselPrevious>
+        <CarouselNext
+          variant="ghost"
+          class="text-foreground/70 hover:text-foreground right-2 hover:bg-transparent"
+          :aria-label="t('pagination.next')"
+        >
+          <ChevronRight class="size-6" />
+        </CarouselNext>
       </template>
 
       <CarouselDots
