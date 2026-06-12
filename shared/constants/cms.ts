@@ -142,17 +142,25 @@ export const CMS_SEMANTIC_SLUG_KEYS: readonly string[] = Object.freeze(
 /**
  * Returns the CMS tag for a given slug, or null if the slug is not in the
  * semantic slug map. The input is normalized before lookup:
+ *   - non-string values return null immediately
  *   - leading and trailing whitespace is trimmed
  *   - converted to lowercase
  *   - a single leading slash is stripped
  *   - a trailing slash is stripped
+ *   - query string (?...) and hash fragment (#...) are stripped from the
+ *     final segment so '/terms?utm=x' resolves the same as '/terms'
  *   - if the result still contains slashes (full path), the last non-empty
  *     segment is used, so '/se/sv/apply-for-account' resolves via its tail
+ *
+ * Prototype-pollution safety: Object.hasOwn is used instead of the `in`
+ * operator so inherited keys (__proto__, constructor, etc.) never match.
  *
  * This function is pure: it has no side effects and imports no framework code,
  * making it safe to call from app/, server/, shared/, and tests/.
  */
 export function cmsTagForSlug(slug: string): CmsTagKey | null {
+  if (typeof slug !== 'string') return null;
+
   const trimmed = slug
     .trim()
     .toLowerCase()
@@ -160,13 +168,22 @@ export function cmsTagForSlug(slug: string): CmsTagKey | null {
     .replace(/\/$/, '');
   if (!trimmed) return null;
 
-  const segment = trimmed.includes('/')
+  const rawSegment = trimmed.includes('/')
     ? (trimmed.split('/').filter(Boolean).at(-1) ?? '')
     : trimmed;
 
+  if (!rawSegment) return null;
+
+  // Strip query string and hash fragment from the segment so
+  // '/terms?utm=x' and '/terms#section' resolve correctly.
+  const segment = rawSegment.split(/[?#]/)[0] ?? '';
+
   if (!segment) return null;
 
-  if (segment in CMS_SEMANTIC_SLUGS) {
+  // Use Object.hasOwn instead of `in` to avoid prototype-pollution:
+  // `in` matches inherited keys (__proto__, constructor, toString, etc.)
+  // which would violate the CmsTagKey|null contract.
+  if (Object.hasOwn(CMS_SEMANTIC_SLUGS, segment)) {
     return CMS_SEMANTIC_SLUGS[segment as CmsSemanticSlug];
   }
 

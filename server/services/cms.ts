@@ -365,7 +365,10 @@ export async function getPageLinkByTag(
     const alias = candidate?.alias?.trim();
 
     if (canonical) {
-      resolved = canonical;
+      // Validate the canonicalUrl at the boundary: a malformed or injected
+      // external URL must never be returned as a safe link. This mirrors the
+      // isSafeInternalPath check applied to the alias branch below.
+      resolved = isSafeInternalPath(canonical) ? canonical : null;
     } else if (alias) {
       // The alias is a bare slug. Build a clean internal path (a stray leading
       // slash would otherwise produce a protocol-relative "//slug") and validate

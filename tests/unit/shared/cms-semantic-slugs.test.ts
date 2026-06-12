@@ -83,4 +83,47 @@ describe('cmsTagForSlug', () => {
   it('normalizes mixed-case and surrounding whitespace', () => {
     expect(cmsTagForSlug('  Terms  ')).toBe(CMS_TAGS.TERMS_PAGE);
   });
+
+  // B1: prototype-pollution resistance
+  it('returns null for __proto__ (prototype-pollution guard)', () => {
+    expect(cmsTagForSlug('__proto__')).toBeNull();
+  });
+
+  it('returns null for constructor (prototype-pollution guard)', () => {
+    expect(cmsTagForSlug('constructor')).toBeNull();
+  });
+
+  it('returns null for a path whose last segment is constructor', () => {
+    expect(cmsTagForSlug('/se/sv/constructor')).toBeNull();
+  });
+
+  it('returns null for CONSTRUCTOR (case-folded prototype-pollution guard)', () => {
+    expect(cmsTagForSlug('CONSTRUCTOR')).toBeNull();
+  });
+
+  // N3: non-string input returns null
+  it('returns null for non-string input (number)', () => {
+    expect(cmsTagForSlug(42 as unknown as string)).toBeNull();
+  });
+
+  it('returns null for non-string input (null)', () => {
+    expect(cmsTagForSlug(null as unknown as string)).toBeNull();
+  });
+
+  it('returns null for non-string input (undefined)', () => {
+    expect(cmsTagForSlug(undefined as unknown as string)).toBeNull();
+  });
+
+  // N3: query-string and hash stripping
+  it('resolves /terms?utm=x to TERMS_PAGE (query stripped before lookup)', () => {
+    expect(cmsTagForSlug('/terms?utm=x')).toBe(CMS_TAGS.TERMS_PAGE);
+  });
+
+  it('resolves /terms#section to TERMS_PAGE (hash stripped before lookup)', () => {
+    expect(cmsTagForSlug('/terms#section')).toBe(CMS_TAGS.TERMS_PAGE);
+  });
+
+  it('resolves /contact-form?ref=nav to CONTACT_PAGE (query stripped)', () => {
+    expect(cmsTagForSlug('/contact-form?ref=nav')).toBe(CMS_TAGS.CONTACT_PAGE);
+  });
 });

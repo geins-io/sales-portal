@@ -115,6 +115,61 @@ export default createConfigForNuxt()
           message:
             "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
         },
+        // B3: useRouter().push('/terms') / useRouter().replace('/terms'). The existing
+        // router.push selectors only fire when the object is an identifier named 'router';
+        // this form calls useRouter() inline so the object is a CallExpression.
+        {
+          // useRouter().push('/contact-form...') / useRouter().replace(...) plain string
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.object.type='CallExpression'][callee.object.callee.name='useRouter'][callee.property.name=/^(push|replace)$/] > Literal[value=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
+          message:
+            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+        },
+        {
+          // useRouter().push(`/contact-form...`) / useRouter().replace(...) template literal
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.object.type='CallExpression'][callee.object.callee.name='useRouter'][callee.property.name=/^(push|replace)$/] > TemplateLiteral[quasis.0.value.raw=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
+          message:
+            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+        },
+        // B4: navigateTo({ path: '/terms' }) - the object-form of navigateTo evaded
+        // the scalar-arg selectors above. Flag the path/to property literal inside
+        // an ObjectExpression passed to navigateTo.
+        {
+          // navigateTo({ path: '/terms' }) plain string
+          selector:
+            "CallExpression[callee.name='navigateTo'] > ObjectExpression > Property[key.name=/^(path|to)$/] > Literal[value=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
+          message:
+            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+        },
+        {
+          // navigateTo({ path: `/terms` }) template literal
+          selector:
+            "CallExpression[callee.name='navigateTo'] > ObjectExpression > Property[key.name=/^(path|to)$/] > TemplateLiteral[quasis.0.value.raw=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
+          message:
+            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+        },
+      ],
+      // B2: bound :to/:href directive with a literal value matching a semantic slug.
+      // Catches :to="'/terms'" and :to="`/terms`" which evade the call-expression
+      // selectors in no-restricted-syntax above. vue/no-restricted-syntax traverses
+      // the full template AST (VAttribute nodes) via vue-eslint-parser.
+      'vue/no-restricted-syntax': [
+        'error',
+        {
+          // :to="'/contact-form...'" (bound directive, plain string Literal)
+          selector:
+            "VAttribute[directive=true][key.argument.name=/^(to|href)$/] > VExpressionContainer > Literal[value=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
+          message:
+            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+        },
+        {
+          // :to="`/contact-form...`" (bound directive, template literal)
+          selector:
+            "VAttribute[directive=true][key.argument.name=/^(to|href)$/] > VExpressionContainer > TemplateLiteral[quasis.0.value.raw=/^\\/(?:contact-form|contact|apply-for-account|apply|terms)(?:[/?#]|$)/]",
+          message:
+            "Resolve CMS pages via useCmsPageLink(CMS_TAGS.X) - hardcoded slugs 404 on tenants with localized page URLs: see docs/adr/019-bulletproof-routing.md",
+        },
       ],
     },
   });

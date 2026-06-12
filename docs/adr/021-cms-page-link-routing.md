@@ -183,6 +183,35 @@ concept, without producing a redirect loop. This is acceptable: the semantic slu
 are a small, stable set representing universal storefront concepts, and tenant editors
 who need a non-default alias simply choose a different string.
 
+
+## Known limitations of the static guard
+
+The static guard (Layer A ESLint + Layer B scan) can reliably catch hardcoded
+CMS page links only when they appear as recognized literal forms in the source.
+Four forms are outside its reach and must be caught through code review:
+
+**Runtime string concatenation.** An expression such as `'/' + slug` or
+`\`/\${page}\`` is not a static literal and is invisible to the selectors.
+
+**Variable indirection.** A pattern like `const path = '/terms'; localePath(path)`
+passes the slug through a variable; the ESLint selectors see only the identifier,
+not the string it holds at runtime.
+
+**Aliased helpers.** If a developer imports or renames a helper, for example
+`const lp = localePath; lp('/terms')`, the callee name is no longer
+`localePath` and the selector does not match.
+
+**Cross-line split calls.** When the function call and its argument span multiple
+source lines, the line-level Layer B regex does not match (Layer A handles this
+because ESLint operates on the AST, not lines).
+
+The guarantee provided by the guard is: no hardcoded CMS slug in a recognized
+literal form ships undetected. The inbound 301 recovery (Pillar 4) is the
+request-time backstop for the known semantic slugs (`terms`, `contact`,
+`contact-form`, `apply`, `apply-for-account`). For the unstaticable forms
+above, reviewers should reject them in code review and refer authors to
+`useCmsPageLink(CMS_TAGS.X)`.
+
 ## Relationship to prior ADRs
 
 - Extends [ADR-019](019-bulletproof-routing.md): CMS pages now have the same

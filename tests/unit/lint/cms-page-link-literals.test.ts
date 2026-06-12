@@ -11,9 +11,10 @@ import { CMS_SEMANTIC_SLUG_KEYS } from '#shared/constants/cms';
  * literal in nav contexts whose first path segment is not a real app route,
  * catalog prefix, external URL, anchor, or /api path.
  *
- * Call-scoped: only localePath/navigateTo/router.push/router.replace first
- * args and static to="/..." attributes are scanned. Code comments and JSDoc
- * examples are not matched.
+ * Call-scoped: only localePath/navigateTo/router.push/router.replace/
+ * useRouter().push/useRouter().replace first args, bound :to/:href literals,
+ * navigateTo object path/to properties, and static to="/..." attributes are
+ * scanned. Code comments and JSDoc examples are not matched.
  *
  * See: docs/conventions/, docs/adr/019-bulletproof-routing.md
  */
@@ -138,20 +139,47 @@ function collectFiles(dir: string): string[] {
 
 /**
  * Matches a string or template literal starting with '/' as the first
- * argument to localePath/navigateTo/router.push/router.replace.
+ * argument to localePath/navigateTo/router.push/router.replace or
+ * the inline useRouter().push/useRouter().replace form (B3).
  *
  * Group 1 = the opening quote char (' " backtick), group 2 = path content.
  */
 const NAV_CALL_PATTERN =
-  /(?:localePath|navigateTo|router\.(?:push|replace))\(\s*(['"`])(\/[^'"`\s]*)/g;
+  /(?:localePath|navigateTo|(?:router|useRouter\(\))\.(?:push|replace))\(\s*(['"`])(\/[^'"`\s]*)/g;
 
 /**
  * Matches a static (non-binding) to="/..." attribute on a component.
- * Note: :to="..." (dynamic binding) is intentionally NOT matched.
+ * Note: :to="..." (dynamic binding) is matched separately by BOUND_ATTR_PATTERN.
  *
  * Group 1 = path value (up to closing quote).
  */
 const STATIC_TO_ATTR_PATTERN = /\bto="(\/[^"]+)"/g;
+
+/**
+ * Matches a bound :to or :href directive containing a literal string or
+ * template literal (B2). Covers:
+ *   :to="'/terms'"          (single-quoted string inside double-quoted binding)
+ *   :to='"/terms"'          (double-quoted string inside single-quoted binding)
+ *   :href="'/apply'"
+ *
+ * Group 1 = the inner quote char, group 2 = path content.
+ *
+ * Note: backtick template literals inside bindings (:to="`/terms`") are not
+ * trivially catchable by a line-level regex (backtick nesting ambiguity);
+ * those are caught by the Layer A vue/no-restricted-syntax rule instead.
+ */
+const BOUND_ATTR_PATTERN =
+  /:(?:to|href)=["']\s*(['"])(\/[^'"`\s]*)/g;
+
+/**
+ * Matches the path or to property value inside a navigateTo({ ... }) object
+ * expression (B4). Covers navigateTo({ path: '/terms' }) and
+ * navigateTo({ to: '/terms' }).
+ *
+ * Group 1 = path value.
+ */
+const NAVIGATE_TO_OBJECT_PATTERN =
+  /navigateTo\(\s*\{[^}]*\b(?:path|to)\s*:\s*(['"`])(\/[^'"`\s]*)/g;
 
 /**
  * Scan a single line for nav-call and static-attr literals beginning with '/'.
@@ -170,6 +198,16 @@ export function extractLineLiterals(line: string): string[] {
   STATIC_TO_ATTR_PATTERN.lastIndex = 0;
   while ((m = STATIC_TO_ATTR_PATTERN.exec(line)) !== null) {
     values.push(m[1]!);
+  }
+
+  BOUND_ATTR_PATTERN.lastIndex = 0;
+  while ((m = BOUND_ATTR_PATTERN.exec(line)) !== null) {
+    values.push(m[2]!);
+  }
+
+  NAVIGATE_TO_OBJECT_PATTERN.lastIndex = 0;
+  while ((m = NAVIGATE_TO_OBJECT_PATTERN.exec(line)) !== null) {
+    values.push(m[2]!);
   }
 
   return values;
@@ -362,6 +400,129 @@ describe('cms-page-link literals deny-by-default guard', () => {
   });
 
   // -------------------------------------------------------------------------
+  // B2: bound :to/:href literal bypass patterns (new in adversarial hardening)
+  // -------------------------------------------------------------------------
+
+  it('B2: flags :to="\'about\'" bound attribute literal - not an app route', () => {
+    const allowlist = new Set(['cart', 'portal', 'login', 'index']);
+    const line = "<NuxtLink :to=\"'/about'\">About</NuxtLink>";
+    const literals = extractLineLiterals(line);
+    const flagged = literals.filter((v) => {
+      if (isExemptLiteral(v)) return false;
+      const seg = firstSegment(v);
+      if (seg === null || seg === '') return false;
+      return !allowlist.has(seg);
+    });
+    expect(flagged).toContain('/about');
+  });
+
+  it('B2: flags :href="\'about\'" bound attribute literal - not an app route', () => {
+    const allowlist = new Set(['cart', 'portal', 'login', 'index']);
+    const line = "<a :href=\"'/about'\">About</a>";
+    const literals = extractLineLiterals(line);
+    const flagged = literals.filter((v) => {
+      if (isExemptLiteral(v)) return false;
+      const seg = firstSegment(v);
+      if (seg === null || seg === '') return false;
+      return !allowlist.has(seg);
+    });
+    expect(flagged).toContain('/about');
+  });
+
+  it('B2: does NOT flag :to="\'cart\'" - real app route', () => {
+    const allowlist = new Set(['cart', 'portal', 'login', 'index']);
+    const line = "<NuxtLink :to=\"'/cart'\">Cart</NuxtLink>";
+    const literals = extractLineLiterals(line);
+    const flagged = literals.filter((v) => {
+      if (isExemptLiteral(v)) return false;
+      const seg = firstSegment(v);
+      if (seg === null || seg === '') return false;
+      return !allowlist.has(seg);
+    });
+    expect(flagged).not.toContain('/cart');
+  });
+
+  // B3: useRouter().push/replace bypass
+  it('B3: flags useRouter().push("/about") - not an app route', () => {
+    const allowlist = new Set(['cart', 'portal', 'login', 'index']);
+    const line = "useRouter().push('/about');";
+    const literals = extractLineLiterals(line);
+    const flagged = literals.filter((v) => {
+      if (isExemptLiteral(v)) return false;
+      const seg = firstSegment(v);
+      if (seg === null || seg === '') return false;
+      return !allowlist.has(seg);
+    });
+    expect(flagged).toContain('/about');
+  });
+
+  it('B3: flags useRouter().replace("/about") - not an app route', () => {
+    const allowlist = new Set(['cart', 'portal', 'login', 'index']);
+    const line = "useRouter().replace('/about');";
+    const literals = extractLineLiterals(line);
+    const flagged = literals.filter((v) => {
+      if (isExemptLiteral(v)) return false;
+      const seg = firstSegment(v);
+      if (seg === null || seg === '') return false;
+      return !allowlist.has(seg);
+    });
+    expect(flagged).toContain('/about');
+  });
+
+  it('B3: does NOT flag useRouter().push("/cart") - real app route', () => {
+    const allowlist = new Set(['cart', 'portal', 'login', 'index']);
+    const line = "useRouter().push('/cart');";
+    const literals = extractLineLiterals(line);
+    const flagged = literals.filter((v) => {
+      if (isExemptLiteral(v)) return false;
+      const seg = firstSegment(v);
+      if (seg === null || seg === '') return false;
+      return !allowlist.has(seg);
+    });
+    expect(flagged).not.toContain('/cart');
+  });
+
+  it('B3: does NOT flag useRouter().push("/portal") - real app route', () => {
+    const allowlist = new Set(['cart', 'portal', 'login', 'index']);
+    const line = "useRouter().push('/portal');";
+    const literals = extractLineLiterals(line);
+    const flagged = literals.filter((v) => {
+      if (isExemptLiteral(v)) return false;
+      const seg = firstSegment(v);
+      if (seg === null || seg === '') return false;
+      return !allowlist.has(seg);
+    });
+    expect(flagged).not.toContain('/portal');
+  });
+
+  // B4: navigateTo({ path: '/terms' }) object form
+  it('B4: flags navigateTo({ path: "/about" }) - not an app route', () => {
+    const allowlist = new Set(['cart', 'portal', 'login', 'index']);
+    const line = "navigateTo({ path: '/about' });";
+    const literals = extractLineLiterals(line);
+    const flagged = literals.filter((v) => {
+      if (isExemptLiteral(v)) return false;
+      const seg = firstSegment(v);
+      if (seg === null || seg === '') return false;
+      return !allowlist.has(seg);
+    });
+    expect(flagged).toContain('/about');
+  });
+
+  it('B4: does NOT flag navigateTo({ path: "/cart" }) - real app route', () => {
+    const allowlist = new Set(['cart', 'portal', 'login', 'index']);
+    const line = "navigateTo({ path: '/cart' });";
+    const literals = extractLineLiterals(line);
+    const flagged = literals.filter((v) => {
+      if (isExemptLiteral(v)) return false;
+      const seg = firstSegment(v);
+      if (seg === null || seg === '') return false;
+      return !allowlist.has(seg);
+    });
+    expect(flagged).not.toContain('/cart');
+  });
+
+  // -------------------------------------------------------------------------
   // Allowlist self-maintenance
   // -------------------------------------------------------------------------
 
@@ -395,23 +556,57 @@ describe('cms-page-link literals deny-by-default guard', () => {
 
   // -------------------------------------------------------------------------
   // Layer A drift guard: every CMS_SEMANTIC_SLUG_KEYS entry in eslint.config.mjs
+  // N2: word-bounded matching and bidirectional check
   // -------------------------------------------------------------------------
 
-  it('eslint.config.mjs no-restricted-syntax selectors cover every CMS_SEMANTIC_SLUG_KEYS entry', () => {
+  it('N2: eslint.config.mjs selectors contain each CMS_SEMANTIC_SLUG_KEYS entry as a word-bounded token', () => {
     const eslintConfig = readFileSync(ESLINT_CONFIG, 'utf-8');
     const missing: string[] = [];
 
     for (const slug of CMS_SEMANTIC_SLUG_KEYS) {
-      if (!eslintConfig.includes(slug)) {
+      // Word-bounded: the slug must appear as a whole word inside a selector
+      // alternation (e.g. contact-form in `contact-form|contact|...`).
+      // A simple substring check passes even when the standalone alternation
+      // is dropped but the slug appears inside a longer alternation arm.
+      // The regex word-boundary \b is not useful for slugs with hyphens, so
+      // we match on alternation delimiters (|, (, )) and the end/start of the
+      // slug token which is unambiguous in the CSS-selector alternation syntax.
+      const wordBounded = new RegExp(
+        '(?:^|[|(?:])' + slug.replace(/-/g, '\\-') + '(?:[|):]|$)',
+      );
+      if (!wordBounded.test(eslintConfig)) {
         missing.push(slug);
       }
     }
 
     expect(
       missing,
-      `The following CMS_SEMANTIC_SLUG_KEYS entries are missing from eslint.config.mjs no-restricted-syntax selectors:\n` +
+      `The following CMS_SEMANTIC_SLUG_KEYS entries are missing as standalone tokens in eslint.config.mjs no-restricted-syntax selectors:\n` +
         `  ${missing.join(', ')}\n\n` +
         `Add a no-restricted-syntax entry for each slug so the ESLint layer stays in sync with shared/constants/cms.ts.`,
+    ).toHaveLength(0);
+  });
+
+  it('N2: every slug alternation in eslint.config.mjs resolves to a CMS_SEMANTIC_SLUG_KEYS entry (reverse check)', () => {
+    const eslintConfig = readFileSync(ESLINT_CONFIG, 'utf-8');
+    // Extract the slug alternation from the regex patterns in the config.
+    // The alternation uses the form: (?:contact-form|contact|apply-for-account|apply|terms)
+    const altMatch = eslintConfig.match(
+      /\(\?:([^)]+)\)(?:\(\[\/\?#\]\|\$\))/,
+    );
+    if (!altMatch) {
+      // If the alternation pattern can't be found, skip the reverse check
+      // (the forward check above is authoritative; this is defense-in-depth).
+      return;
+    }
+    const slugsInConfig = altMatch[1]!.split('|');
+    const keySet = new Set(CMS_SEMANTIC_SLUG_KEYS);
+    const unknown = slugsInConfig.filter((s) => !keySet.has(s));
+    expect(
+      unknown,
+      `The following slugs are in eslint.config.mjs alternations but NOT in CMS_SEMANTIC_SLUG_KEYS:\n` +
+        `  ${unknown.join(', ')}\n\n` +
+        `Remove stale entries from the ESLint selector alternation or add them to shared/constants/cms.ts.`,
     ).toHaveLength(0);
   });
 });

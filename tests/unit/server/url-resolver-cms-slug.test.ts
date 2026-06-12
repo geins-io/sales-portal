@@ -265,7 +265,7 @@ describe('resolveEntityUrl: semantic CMS-slug branch', () => {
   // Open-redirect guard: unsafe link from getPageLinkByTag must fall through
   // -------------------------------------------------------------------------
 
-  it('falls through instead of redirecting when getPageLinkByTag returns an unsafe path', async () => {
+  it('falls through instead of redirecting when getPageLinkByTag returns a protocol-relative unsafe link', async () => {
     // A malformed or injected unsafe path must never surface as a redirect.
     mockGetPageLinkByTag.mockResolvedValue('//evil.com/phish');
 
@@ -280,7 +280,7 @@ describe('resolveEntityUrl: semantic CMS-slug branch', () => {
     expect(mockGetProduct).toHaveBeenCalled();
   });
 
-  it('falls through for a protocol-relative unsafe link from getPageLinkByTag', async () => {
+  it('falls through for an absolute-https unsafe link from getPageLinkByTag', async () => {
     mockGetPageLinkByTag.mockResolvedValue('https://evil.com/terms');
 
     const result = await resolver.resolveEntityUrl(
