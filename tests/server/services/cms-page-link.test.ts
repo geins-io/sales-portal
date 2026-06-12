@@ -66,13 +66,11 @@ describe('getPageLinkByTag', () => {
     // Re-mock after resetModules
     vi.mock('../../../server/services/_sdk', () => ({
       getTenantSDK: vi.fn().mockResolvedValue(mockSDK),
-      getRequestChannelVariables: vi
-        .fn()
-        .mockReturnValue({
-          channelId: 'ch1',
-          languageId: 'sv-SE',
-          marketId: 'se',
-        }),
+      getRequestChannelVariables: vi.fn().mockReturnValue({
+        channelId: 'ch1',
+        languageId: 'sv-SE',
+        marketId: 'se',
+      }),
       buildRequestContext: vi.fn().mockReturnValue(undefined),
     }));
 
@@ -144,9 +142,29 @@ describe('getPageLinkByTag', () => {
     expect(result).toBeNull();
   });
 
-  it('c. returns null when the only page has an empty canonicalUrl', async () => {
+  it('c. resolves alias when the only page has an empty canonicalUrl', async () => {
     mockQuery.mockResolvedValue({
-      cmsPages: [{ alias: 'contact', tags: ['contact'], canonicalUrl: '' }],
+      cmsPages: [{ alias: 'kontakt', tags: ['contact'], canonicalUrl: '' }],
+    });
+
+    const result = await getPageLinkByTag({ tag: 'contact' }, mockEvent());
+
+    expect(result).toBe('/kontakt');
+  });
+
+  it('c. resolves alias when the only page has a missing canonicalUrl', async () => {
+    mockQuery.mockResolvedValue({
+      cmsPages: [{ alias: 'kontakt', tags: ['contact'] }],
+    });
+
+    const result = await getPageLinkByTag({ tag: 'contact' }, mockEvent());
+
+    expect(result).toBe('/kontakt');
+  });
+
+  it('c. returns null when the page has neither canonicalUrl nor alias', async () => {
+    mockQuery.mockResolvedValue({
+      cmsPages: [{ tags: ['contact'] }],
     });
 
     const result = await getPageLinkByTag({ tag: 'contact' }, mockEvent());
@@ -154,14 +172,17 @@ describe('getPageLinkByTag', () => {
     expect(result).toBeNull();
   });
 
-  it('c. returns null when the only page has a missing canonicalUrl', async () => {
+  it('c. tag-match preference: resolves tagged page alias over a stray canonicalUrl row', async () => {
     mockQuery.mockResolvedValue({
-      cmsPages: [{ alias: 'contact', tags: ['contact'] }],
+      cmsPages: [
+        { alias: 'kontakt', tags: ['contact'] },
+        { alias: 'x', tags: ['other'], canonicalUrl: '/se/sv/x' },
+      ],
     });
 
     const result = await getPageLinkByTag({ tag: 'contact' }, mockEvent());
 
-    expect(result).toBeNull();
+    expect(result).toBe('/kontakt');
   });
 
   it('d. caches: two calls with same locale call mockQuery once', async () => {

@@ -4,30 +4,32 @@ import { isSafeInternalPath } from '#shared/utils/redirect';
 /**
  * Resolves a CMS page URL by tag and builds a safe internal NuxtLink :to value.
  *
- * Fetches the canonical URL for the given tag from /api/cms/page-link, then
- * routes it through the same normalize pipeline every other CMS link in the
- * app uses: normalizeMenuUrl strips the Geins market/locale prefix and any
- * type indicator, then localePath re-applies the current market/locale prefix.
+ * Fetches the URL for the given tag from /api/cms/page-link, then routes it
+ * through the same normalize pipeline every other CMS link in the app uses:
+ * normalizeMenuUrl strips the Geins market/locale prefix and any type indicator,
+ * then localePath re-applies the current market/locale prefix.
  *
- * Falls open to localePath(fallback) when:
- *   - the fetch errors
- *   - the resolved URL is null
- *   - the resolved URL is external (isExternalUrl returns true)
- *   - the normalized path fails isSafeInternalPath
+ * Returns { to, isResolved }:
+ *   - to is a safe in-app localePath when the CMS page is resolvable and internal.
+ *   - to is null and isResolved is false when the fetch errors, the resolved URL
+ *     is null, the URL is external, or the normalized path fails isSafeInternalPath.
  *
- * This guarantees the returned `to` is always a safe in-app path, suitable
- * for NuxtLink :to binding.
+ * Consumers must gate rendering on isResolved so unresolved links are hidden
+ * rather than rendered as hrefless anchors.
  */
-export function useCmsPageLink(tag: string, fallback: string) {
+export function useCmsPageLink(tag: string) {
   const { localeQuery, localePath } = useLocaleMarket();
   const currentHost = computed(() => useRequestURL().host);
 
-  const { data, error } = useFetch<{ url: string | null }>('/api/cms/page-link', {
-    query: computed(() => ({ tag, ...localeQuery.value })),
-    dedupe: 'defer',
-  });
+  const { data, error } = useFetch<{ url: string | null }>(
+    '/api/cms/page-link',
+    {
+      query: computed(() => ({ tag, ...localeQuery.value })),
+      dedupe: 'defer',
+    },
+  );
 
-  const to = computed(() => {
+  const to = computed<string | undefined>(() => {
     const resolved = data.value?.url;
     if (
       !error.value &&
@@ -40,8 +42,10 @@ export function useCmsPageLink(tag: string, fallback: string) {
       const path = normalizeMenuUrl(resolved, currentHost.value);
       if (isSafeInternalPath(path)) return localePath(path);
     }
-    return localePath(fallback);
+    return undefined;
   });
 
-  return { to };
+  const isResolved = computed(() => to.value !== undefined);
+
+  return { to, isResolved };
 }

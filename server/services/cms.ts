@@ -308,9 +308,9 @@ export async function getContentArea(
 }
 
 /**
- * Resolve the localized canonicalUrl of the first CMS page tagged with
- * the given tag. Returns null when no matching page is found so callers
- * can fall back gracefully.
+ * Resolves the localized link for the first CMS page tagged with the given tag,
+ * preferring canonicalUrl and falling back to the page alias (prefixed with "/")
+ * when canonicalUrl is empty; returns null when neither is present.
  *
  * The query drives localization via getRequestChannelVariables so no locale
  * codes are hardcoded here. cmsPages already falls back to the default-language
@@ -357,19 +357,16 @@ export async function getPageLinkByTag(
   if (Array.isArray(pages) && pages.length > 0) {
     // Prefer a tag-confirmed match so a stray result without the tag is ignored.
     // The API already filtered by includeTags; this is a defensive check.
-    const tagMatch = pages.find(
-      (p) =>
-        hasPageTag(p, args.tag) &&
-        typeof p.canonicalUrl === 'string' &&
-        p.canonicalUrl !== '',
-    );
-    const firstWithUrl = pages.find(
-      (p) => typeof p.canonicalUrl === 'string' && p.canonicalUrl !== '',
-    );
-    const candidate = tagMatch ?? firstWithUrl;
-    if (candidate?.canonicalUrl) {
-      resolved = candidate.canonicalUrl;
-    }
+    const tagMatch = pages.find((p) => hasPageTag(p, args.tag));
+    const candidate = tagMatch ?? pages[0];
+    const canonical = candidate?.canonicalUrl;
+    const alias = candidate?.alias;
+    resolved =
+      typeof canonical === 'string' && canonical !== ''
+        ? canonical
+        : typeof alias === 'string' && alias !== ''
+          ? `/${alias}`
+          : null;
   }
 
   if (isCacheable) {
