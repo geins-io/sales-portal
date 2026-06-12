@@ -135,8 +135,8 @@ the map resolve to `null`; their consumers fall back gracefully:
 
 - `FRONTPAGE_CONTENT` unconfigured → `pages/index.vue` renders
   `FrontpageFallback` (branded welcome hero).
-- `PORTAL_HERO` unconfigured → `PortalShell.vue` renders
-  `PortalHeroFallback`.
+- `PORTAL_HERO` unconfigured → `PortalShell.vue` renders no hero at all
+  (the area is omitted, no placeholder shell).
 - `HEADER_MAIN` / `MOBILE_DRAWER` unconfigured → the nav bar / drawer
   simply omits the menu items; header still shows logo + search + cart.
 - `FOOTER` / `FOOTER_2` / `FOOTER_3` map to up to three footer menu
@@ -187,8 +187,9 @@ See [cms-form-widget.md](./cms-form-widget.md).
 When `useCmsSlot(key)` returns `null`:
 
 - Consumers skip the `/api/cms/area` fetch entirely (no wasted request).
-- Render a fallback component (e.g. `PortalHeroFallback`).
-- No error is logged — missing slot config is a valid tenant
+- Render the area's fallback if it has one (e.g. `FrontpageFallback` for
+  `FRONTPAGE_CONTENT`); areas without a fallback render nothing.
+- No error is logged. Missing slot config is a valid tenant
   configuration, not an error state.
 
 When `useCmsSlot(key)` returns a config but the backend returns an empty
@@ -197,8 +198,8 @@ area (e.g. tenant created a collection shell but added no widgets):
 - `server/services/cms.ts` `getContentArea` runs its language fallback
   (strip `languageId`, retry with the SDK's default locale) to handle
   single-locale content.
-- If the fallback also returns empty, consumers render the fallback
-  component — same code path as a missing slot.
+- If the fallback also returns empty, consumers take the same path as a
+  missing slot: render their fallback if they have one, otherwise nothing.
 
 ## Adding a new slot or menu
 

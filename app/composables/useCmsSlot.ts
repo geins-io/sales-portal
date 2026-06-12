@@ -5,8 +5,7 @@ import type { CmsSlotConfig, CmsSlotKey } from '#shared/types/cms-slots';
  *
  * Returns `null` when the slot is not configured for this tenant or when
  * the tenant config has not loaded yet. Consumers must handle the null
- * case — typically by skipping the CMS fetch and rendering a fallback
- * (e.g. `PortalHeroFallback` for `PORTAL_HERO`).
+ * case by skipping the CMS fetch and rendering nothing for that area.
  *
  * Tenant config is the SINGLE source of truth — there is no global
  * defaults map. Auto-provisioned dev tenants are seeded with the Geins

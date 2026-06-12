@@ -102,16 +102,17 @@ describe('PortalShell', () => {
     mockHeroData.value = null;
   });
 
-  it('shows fallback hero banner when CMS area is empty', () => {
+  it('renders no hero banner or placeholder when CMS area is empty', () => {
     mockHeroData.value = null;
     const wrapper = mountComponent(PortalShell, {
       slots: { default: '<div>content</div>' },
       global: { stubs },
     });
-    expect(wrapper.find('[data-testid="portal-hero-fallback"]').exists()).toBe(
-      true,
-    );
+    // No CMS content => no hero element and no empty placeholder shell.
     expect(wrapper.find('[data-testid="portal-hero"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="portal-hero-fallback"]').exists()).toBe(
+      false,
+    );
   });
 
   it('shows CMS hero banner when CMS area has containers', () => {
@@ -233,34 +234,26 @@ describe('PortalShell', () => {
       expect(ancestor!.classList.contains('lg:px-0')).toBe(true);
     });
 
-    it('wraps fallback hero in a max-w-7xl container', () => {
-      mockHeroData.value = null;
-      const wrapper = mountComponent(PortalShell, {
-        slots: { default: '<div>content</div>' },
-        global: { stubs },
-      });
-      const fallback = wrapper.find(
-        '[data-testid="portal-hero-fallback"]',
-      ).element;
-      const ancestor = fallback.closest('.max-w-7xl') as HTMLElement | null;
-      expect(ancestor).not.toBeNull();
-      expect(ancestor!.classList.contains('mx-auto')).toBe(true);
-    });
-
     it('renders hero wrapper and welcome wrapper as separate max-w-7xl mx-auto siblings', () => {
-      mockHeroData.value = null;
+      mockHeroData.value = { containers: [{ id: 'c1', widgets: [] }] };
       const wrapper = mountComponent(PortalShell, {
         slots: { default: '<div>content</div>' },
-        global: { stubs },
+        global: {
+          stubs: {
+            ...stubs,
+            CmsWidgetArea: {
+              template: '<div data-testid="portal-hero"></div>',
+              props: ['containers'],
+            },
+          },
+        },
       });
       const welcome = wrapper.find('[data-testid="portal-welcome"]').element;
-      const fallback = wrapper.find(
-        '[data-testid="portal-hero-fallback"]',
-      ).element;
+      const hero = wrapper.find('[data-testid="portal-hero"]').element;
       const welcomeWrapper = welcome.closest(
         '.max-w-7xl.mx-auto',
       ) as HTMLElement | null;
-      const heroWrapper = fallback.closest(
+      const heroWrapper = hero.closest(
         '.max-w-7xl.mx-auto',
       ) as HTMLElement | null;
       expect(welcomeWrapper).not.toBeNull();

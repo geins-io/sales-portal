@@ -488,11 +488,6 @@
       "lists": "Sparade listor",
       "organisation": "Din organisation"
     },
-    "hero": {
-      "cms_hint": "CMS-innehållsområde",
-      "fallback_title": "Kundportal",
-      "fallback_subtitle": "Välkommen till din kontopanel."
-    },
     "overview": {
       "stat": {
         "pending_quotations": "Väntande offerter",

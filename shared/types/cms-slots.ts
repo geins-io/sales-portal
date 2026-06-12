@@ -16,10 +16,10 @@
  *
  * Design decisions:
  * - Tenant config is the SINGLE source of truth. There is no global
- *   defaults map — `useCmsSlot(key)` returns `null` when the slot is
- *   not configured, and consumers fall back gracefully (e.g. the
- *   PortalHeroFallback banner renders when the portal hero slot is
- *   missing or returns no content).
+ *   defaults map. `useCmsSlot(key)` returns `null` when the slot is not
+ *   configured, and consumers handle that gracefully: some render a
+ *   fallback (e.g. `FrontpageFallback`), while the portal hero renders
+ *   nothing.
  * - Auto-provisioned dev tenants ARE seeded with the Geins out-of-box
  *   names in `server/utils/tenant.ts`. That seed is per-tenant config,
  *   not a global fallback. Production tenants must configure their

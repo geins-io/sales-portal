@@ -488,11 +488,6 @@
       "lists": "Saved lists",
       "organisation": "Your organisation"
     },
-    "hero": {
-      "cms_hint": "CMS Content area",
-      "fallback_title": "Customer Portal",
-      "fallback_subtitle": "Welcome to your account dashboard."
-    },
     "overview": {
       "stat": {
         "pending_quotations": "Pending quotations",

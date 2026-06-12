@@ -28,7 +28,7 @@ const favoritesStore = useFavoritesStore();
 
 // Resolve the portal hero CMS slot from tenant config. The slot is null
 // when the tenant has not configured it; in that case we skip the fetch
-// and PortalHeroFallback renders below. See docs/patterns/cms-slots.md.
+// and render no hero at all. See docs/patterns/cms-slots.md.
 const heroSlot = useCmsSlot(CMS_SLOTS.PORTAL_HERO);
 const { data: heroArea } = useFetch<ContentAreaType>('/api/cms/area', {
   query: computed(() =>
@@ -136,16 +136,18 @@ function isActiveTab(tab: PortalTab): boolean {
 
 <template>
   <div data-testid="portal-shell">
-    <!-- Hero Banner: CMS-driven when configured, fallback otherwise.
-         Wrapper mirrors the welcome wrapper width so both align flush. -->
-    <div class="mx-auto max-w-7xl px-4 lg:px-0">
+    <!-- Hero Banner: rendered only when the CMS area has content. No
+         placeholder shell when empty. Wrapper mirrors the welcome wrapper
+         width so both align flush. -->
+    <div
+      v-if="heroArea?.containers?.length"
+      class="mx-auto max-w-7xl px-4 lg:px-0"
+    >
       <CmsWidgetArea
-        v-if="heroArea?.containers?.length"
         flush
         data-testid="portal-hero"
         :containers="heroArea.containers"
       />
-      <PortalHeroFallback v-else />
     </div>
 
     <!-- Welcome Card -->
