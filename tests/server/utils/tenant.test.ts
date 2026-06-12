@@ -3,9 +3,9 @@ import { DEFAULT_CMS_CONFIG } from '../../../server/utils/tenant';
 import { CMS_MENUS } from '../../../shared/constants/cms';
 
 describe('DEFAULT_CMS_CONFIG menus', () => {
-  it('preserves the existing footer entry', () => {
+  it('maps footer registry key to dash-style menuLocationId footer-1', () => {
     expect(DEFAULT_CMS_CONFIG.menus[CMS_MENUS.FOOTER]).toEqual({
-      menuLocationId: 'footer',
+      menuLocationId: 'footer-1',
     });
   });
 
