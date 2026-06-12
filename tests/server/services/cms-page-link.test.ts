@@ -109,7 +109,7 @@ describe('getPageLinkByTag', () => {
     expect(mockQuery).toHaveBeenCalledWith(
       expect.objectContaining({
         variables: expect.objectContaining({
-          includeTags: ['contact'],
+          includeTags: ['contact', '#contact'],
           channelId: 'ch1',
           languageId: 'sv-SE',
           marketId: 'se',
@@ -203,6 +203,32 @@ describe('getPageLinkByTag', () => {
     const result = await getPageLinkByTag({ tag: 'contact' }, mockEvent());
 
     expect(result).toBe('/kontakt');
+  });
+
+  it('c. resolves a page whose tag is stored hash-prefixed ("#contact")', async () => {
+    // Geins stores the tag as the literal string the merchant typed; some
+    // tenants use "#contact", others "contact". The query asks for both forms.
+    mockQuery.mockResolvedValue({
+      cmsPages: [{ alias: 'kontakt', tags: ['#contact'] }],
+    });
+
+    const result = await getPageLinkByTag({ tag: 'contact' }, mockEvent());
+
+    expect(result).toBe('/kontakt');
+  });
+
+  it('c. queries includeTags in both bare and hash-prefixed forms', async () => {
+    mockQuery.mockResolvedValue({ cmsPages: [] });
+
+    await getPageLinkByTag({ tag: 'contact' }, mockEvent());
+
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variables: expect.objectContaining({
+          includeTags: ['contact', '#contact'],
+        }),
+      }),
+    );
   });
 
   it('d. caches: two calls with same locale call mockQuery once', async () => {

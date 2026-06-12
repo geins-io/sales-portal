@@ -340,11 +340,18 @@ export async function getPageLinkByTag(
   const sdk = await getTenantSDK(event);
   const channelVars = getRequestChannelVariables(sdk, event);
 
+  // Geins cmsPages includeTags is an exact, hash-sensitive string match: a
+  // tenant may store the tag bare ("contact") or hash-prefixed ("#contact")
+  // and the two do not cross-match. Query both forms so resolution works
+  // regardless of how the merchant entered the tag in the admin.
+  const bareTag = args.tag.replace(/^#+/, '');
+  const includeTags = [bareTag, `#${bareTag}`];
+
   const result = await wrapServiceCall(
     () =>
       sdk.core.graphql.query({
         queryAsString: loadQuery('cms/page-by-tag.graphql'),
-        variables: { includeTags: [args.tag], ...channelVars },
+        variables: { includeTags, ...channelVars },
       }),
     'cms',
   );
