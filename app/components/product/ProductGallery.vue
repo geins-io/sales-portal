@@ -4,10 +4,21 @@ import type { ProductImageType } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 import { Dialog, DialogContent } from '~/components/ui/dialog';
 
+/**
+ * A gallery image. Extends the Geins product image with an optional manual
+ * alt override. Geins exposes no per-image alt field today, so this is
+ * normally absent and alt text is generated from the product name plus the
+ * image position. When a string is supplied it is used verbatim; an empty
+ * string marks the image as decorative (rendered as alt="").
+ */
+type GalleryImage = ProductImageType & { alt?: string | null };
+
 const props = defineProps<{
-  images: ProductImageType[];
+  images: GalleryImage[];
   productName: string;
 }>();
+
+const { t } = useI18n();
 
 const selectedIndex = ref(0);
 const lightboxOpen = ref(false);
@@ -37,6 +48,28 @@ function onKeydown(e: KeyboardEvent) {
 
 const currentImage = computed(() => props.images[selectedIndex.value]);
 const hasMultiple = computed(() => props.images.length > 1);
+
+/**
+ * Accessible alt text for the image at `index`.
+ *
+ * A manual override (any string, including "" for a decorative image) is used
+ * as-is. Otherwise a single image uses the product name alone, while multiple
+ * images append a 1-based positional counter so each is announced distinctly.
+ * The screen reader announces the image role itself, so the text never
+ * prefixes "Image of", "Photo of" or similar.
+ */
+function altForIndex(index: number): string {
+  const manualAlt = props.images[index]?.alt;
+  if (typeof manualAlt === 'string') return manualAlt;
+  if (props.images.length <= 1) return props.productName;
+  return t('product.image_alt_counter', {
+    name: props.productName,
+    current: index + 1,
+    total: props.images.length,
+  });
+}
+
+const currentAlt = computed(() => altForIndex(selectedIndex.value));
 </script>
 
 <template>
@@ -58,7 +91,7 @@ const hasMultiple = computed(() => props.images.length > 1);
         <GeinsImage
           :file-name="currentImage.fileName ?? ''"
           type="product"
-          :alt="productName"
+          :alt="currentAlt"
           loading="eager"
           class="size-full object-contain"
         />
@@ -110,7 +143,7 @@ const hasMultiple = computed(() => props.images.length > 1);
             v-if="currentImage"
             :file-name="currentImage.fileName ?? ''"
             type="product"
-            :alt="productName"
+            :alt="currentAlt"
             loading="eager"
             class="max-h-[80vh] w-full object-contain"
           />

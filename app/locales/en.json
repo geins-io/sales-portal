@@ -265,6 +265,7 @@
     "select_variant_placeholder": "Select",
     "variant_search_placeholder": "Search",
     "image_counter": "Image {current} of {total}",
+    "image_alt_counter": "{name} ({current} of {total})",
     "gallery_previous": "Previous image",
     "gallery_next": "Next image",
     "product_specifications": "Product specifications",
