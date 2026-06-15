@@ -1,0 +1,113 @@
+# =============================================================================
+# SALES PORTAL - Rebuild the dev (staging) branch
+# =============================================================================
+# dev is a disposable staging branch. It is never hand-curated. On every push
+# to main (feature merges and hotfixes both) it is rebuilt as:
+#
+#     dev = main + every in-flight branch listed in the manifest
+#
+# The manifest is .github/dev-branches.txt on the long-lived, unprotected
+# dev-config branch (one branch name per line, # comments allowed). Add a line
+# when a branch should ride staging; remove it when the branch merges to main.
+#
+# A push to dev made with GITHUB_TOKEN does not re-trigger build.yml's push
+# event (GitHub blocks that to prevent loops), so after the rebuild we trigger
+# build.yml via workflow_dispatch, which IS allowed under GITHUB_TOKEN. That is
+# why no personal token or GitHub App is needed.
+# =============================================================================
+
+name: Sync Dev
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: dev-sync
+  cancel-in-progress: true
+
+jobs:
+  rebuild-dev:
+    name: Rebuild dev from main + manifest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch all branches
+        run: git fetch origin --prune '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Read manifest from dev-config
+        run: |
+          if git show origin/dev-config:.github/dev-branches.txt > /tmp/manifest.txt 2>/dev/null; then
+            echo "Manifest found on dev-config."
+          else
+            : > /tmp/manifest.txt
+            echo "No manifest on dev-config; dev will equal main only."
+          fi
+          # Drop comments and blank lines, trim whitespace.
+          sed -e 's/#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' /tmp/manifest.txt \
+            | grep -v '^$' > /tmp/branches.txt || true
+          echo "Branches to re-merge:"
+          cat /tmp/branches.txt || true
+
+      - name: Rebuild dev
+        run: |
+          git checkout -B dev origin/main
+
+          : > /tmp/merged.txt
+          : > /tmp/skipped.txt
+
+          while IFS= read -r BR; do
+            [ -z "$BR" ] && continue
+            if ! git rev-parse --verify "origin/$BR" >/dev/null 2>&1; then
+              echo "- \`$BR\` (no such remote branch)" >> /tmp/skipped.txt
+              continue
+            fi
+            if git merge-base --is-ancestor "origin/$BR" origin/main; then
+              echo "- \`$BR\` (already merged to main; remove from the manifest)" >> /tmp/skipped.txt
+              continue
+            fi
+            if git merge --no-edit --no-ff "origin/$BR"; then
+              echo "- \`$BR\`" >> /tmp/merged.txt
+            else
+              git merge --abort
+              echo "- \`$BR\` (merge conflict against main; rebase the branch)" >> /tmp/skipped.txt
+            fi
+          done < /tmp/branches.txt
+
+          # Plain --force on purpose. dev is disposable and is fully overwritten
+          # on every run, so it is never a source of truth to protect. --force
+          # (not --force-with-lease) also creates the branch on the first-ever
+          # run, when there is no origin/dev to lease against.
+          git push --force origin dev
+
+      - name: Write run summary
+        run: |
+          {
+            echo "### dev rebuilt from main"
+            echo ""
+            echo "**Merged onto main:**"
+            if [ -s /tmp/merged.txt ]; then cat /tmp/merged.txt; else echo "- (none)"; fi
+            echo ""
+            echo "**Skipped:**"
+            if [ -s /tmp/skipped.txt ]; then cat /tmp/skipped.txt; else echo "- (none)"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Trigger staging build + deploy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run build.yml --repo "${{ github.repository }}" --ref dev

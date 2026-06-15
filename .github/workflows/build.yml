@@ -3,8 +3,10 @@
 # =============================================================================
 # Builds the application container and pushes to GitHub Container Registry.
 # Triggered on:
-#   - Push to main branch (after merge)
-#   - Version tags (releases)
+#   - Push to dev branch   -> build + auto-deploy the Azure dev environment (staging)
+#   - Push to main branch  -> build the prod image only (prod deploy is manual)
+#   - Version tags         -> release images
+#   - Manual dispatch      -> used by dev-sync.yml to build the rebuilt dev branch
 # =============================================================================
 
 name: Build
@@ -13,20 +15,13 @@ on:
   push:
     branches:
       - main
+      - dev
     tags:
       - 'v*'
-    paths:
-      - 'app/**'
-      - 'server/**'
-      - 'shared/**'
-      - 'public/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'nuxt.config.ts'
-      - 'tsconfig.json'
-      - 'Dockerfile'
-      - '.dockerignore'
-      - '.github/workflows/**'
+    # No paths filter on purpose: a push to dev or main always builds, so the
+    # "push builds" contract is never silently skipped by a docs-only commit.
+    # Docker layer caching keeps redundant builds cheap.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -109,17 +104,21 @@ jobs:
   deploy:
     name: Deploy to Dev
     needs: build
-    if: github.ref == 'refs/heads/main'
+    # Auto-deploy the dev branch only, to the Azure dev environment (staging).
+    # A push to main builds the prod image but never auto-deploys; prod is a
+    # manual Deploy run so a push to main never goes live in production. This
+    # condition is also true for the workflow_dispatch that dev-sync.yml fires
+    # against the dev ref after rebuilding the branch.
+    if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     permissions:
       actions: write
     steps:
-      # Auto-deploy dev only. Prod is released manually via the Deploy
-      # workflow_dispatch so a push to main never goes live in production.
       - name: Trigger dev deploy
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh workflow run deploy.yml \
             --repo ${{ github.repository }} \
+            --ref dev \
             --field environment=dev

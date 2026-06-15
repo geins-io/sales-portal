@@ -149,6 +149,17 @@ This rule applies the same way to commit messages, commit bodies, PR titles, PR 
 
 PR titles should follow the same format. Body holds the longer rationale, test plan, follow-ups.
 
+## Branching & Release Flow
+
+Full guide in [CONTRIBUTING.md](CONTRIBUTING.md); rationale in [ADR-022](docs/adr/022-dev-main-branching-release-flow.md). The essentials:
+
+- **`main` = production.** It stays equal to prod between releases. Reach it only via PR, only when a change is approved and about to ship. Prod deploys are manual (`Deploy` workflow, `environment=prod`) and never automated.
+- **`dev` = disposable staging.** Auto-deploys to the Azure dev env. The `Sync Dev` workflow rebuilds it on every push to `main` as `main` plus the branches listed in the manifest. Never fix anything on `dev`; a rebuild wipes it. Fix on the feature branch.
+- **Manifest** = `.github/dev-branches.txt` on the `dev-config` branch. Add your branch to ride staging; remove it (and delete the branch) the moment it merges to `main`.
+- **Feature:** branch off `main`, add to manifest, test on staging, rebase on `main`, PR to `main`, manual prod deploy.
+- **Hotfix:** branch off `main`, PR to `main`, prod deploy. The push to `main` syncs it to staging automatically; never cherry-pick.
+- **Never push directly to `main`, never auto-deploy prod, never fix on `dev`.**
+
 ## Pre-Push Quality Gate
 
 **No failing builds or checks may reach GitHub.** Before pushing any commit, verify locally:
