@@ -1,0 +1,7 @@
+# Staging branch manifest. One feature branch name per line; # comments allowed.
+#
+# Branches listed here are re-merged onto the dev (staging) branch on every push
+# to main, by .github/workflows/dev-sync.yml. Add a branch when it should ride
+# staging; remove it (and delete the branch) the moment it merges to main.
+#
+# (Empty at cutover: dev equals main, which is what staging already shows.)
