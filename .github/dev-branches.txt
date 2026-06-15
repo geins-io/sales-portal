@@ -6,3 +6,4 @@
 #
 # (Empty at cutover: dev equals main, which is what staging already shows.)
 sal-174-pdp-image-alt-text
+sal-299-quotations-sort-latest
