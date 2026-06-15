@@ -3,8 +3,17 @@
 # =============================================================================
 # Builds the application container and pushes to GitHub Container Registry.
 # Triggered on:
-#   - Push to main branch (after merge)
-#   - Version tags (releases)
+#   - Push to dev branch   -> build + auto-deploy the Azure dev env (staging)
+#   - Push to main branch  -> build the prod-candidate image (no deploy)
+#   - Version tags         -> build a release/hotfix image (no deploy)
+#   - Manual dispatch      -> used by dev-sync.yml to build the rebuilt dev branch
+#
+# Images are content-addressed per commit (sha-<commit>). deploy.yml never
+# builds; it promotes an already-built image to an environment, so prod runs the
+# exact artifact built and tested. We therefore build per integrated commit, not
+# per branch: the production branch is not a build trigger because at release it
+# points at a main commit whose image already exists. A hotfix is the one new
+# prod-bound commit, and it gets a single build via its v* tag.
 # =============================================================================
 
 name: Build
@@ -13,20 +22,13 @@ on:
   push:
     branches:
       - main
+      - dev
     tags:
       - 'v*'
-    paths:
-      - 'app/**'
-      - 'server/**'
-      - 'shared/**'
-      - 'public/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'nuxt.config.ts'
-      - 'tsconfig.json'
-      - 'Dockerfile'
-      - '.dockerignore'
-      - '.github/workflows/**'
+    # No paths filter on purpose: a push to dev or main always builds, so the
+    # "push builds" contract is never silently skipped by a docs-only commit.
+    # Docker layer caching keeps redundant builds cheap.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -109,17 +111,22 @@ jobs:
   deploy:
     name: Deploy to Dev
     needs: build
-    if: github.ref == 'refs/heads/main'
+    # Auto-deploy the dev branch only, to the Azure dev environment (staging).
+    # A push to main builds a prod-candidate image but never auto-deploys. Prod
+    # is always a deliberate manual Deploy run that promotes an already-built
+    # sha image (from the production branch or a hotfix tag), so nothing reaches
+    # production automatically. This condition is also true for the
+    # workflow_dispatch that dev-sync.yml fires against the dev ref.
+    if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     permissions:
       actions: write
     steps:
-      # Auto-deploy dev only. Prod is released manually via the Deploy
-      # workflow_dispatch so a push to main never goes live in production.
       - name: Trigger dev deploy
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh workflow run deploy.yml \
             --repo ${{ github.repository }} \
+            --ref dev \
             --field environment=dev

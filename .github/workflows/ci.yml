@@ -1,7 +1,9 @@
 # =============================================================================
 # SALES PORTAL - CI Checks
 # =============================================================================
-# Runs lint, type check, unit tests, and E2E tests on pull requests.
+# Runs lint, type check, unit tests, and E2E tests.
+#   - PR into main or production: full gate (lint + types + unit + e2e).
+#   - Push to dev:                light gate (lint + types + unit). e2e is PR-only.
 # =============================================================================
 
 name: CI
@@ -10,9 +12,13 @@ on:
   pull_request:
     branches:
       - main
+      - production
+  push:
+    branches:
+      - dev
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -90,6 +96,9 @@ jobs:
   # ---------------------------------------------------------------------------
   test-e2e:
     name: E2E Tests
+    # e2e is the heavier gate, reserved for the PR into main (the prod gate).
+    # Pushes to dev run the light lint/types/unit jobs only.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

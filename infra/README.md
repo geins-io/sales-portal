@@ -338,36 +338,25 @@ echo "AZURE_SUBSCRIPTION_ID: $(az account show --query id -o tsv)"
 ## Deployment Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           GitHub Actions                                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐              │
-│   │ Push to any │────▶│   Build &   │────▶│   Push to   │              │
-│   │   branch    │     │    Test     │     │    GHCR     │              │
-│   └─────────────┘     └─────────────┘     └──────┬──────┘              │
-│                                                   │                      │
-│   ┌─────────────────────────────────────────────┴─────────────────────┐│
-│   │                                                                    ││
-│   │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐        ││
-│   │  │  Dev (manual)│    │   Staging    │    │  Production  │        ││
-│   │  │ workflow_    │    │ push to main │    │   v* tags    │        ││
-│   │  │   dispatch   │    │              │    │              │        ││
-│   │  └──────┬───────┘    └──────┬───────┘    └──────┬───────┘        ││
-│   │         │                    │                   │                ││
-│   │         ▼                    ▼                   ▼                ││
-│   │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐        ││
-│   │  │  Azure Dev   │    │Azure Staging │    │ Azure Prod   │        ││
-│   │  │  (B1 tier)   │    │  (S1 tier)   │    │ (P1v3 tier)  │        ││
-│   │  └──────────────┘    └──────────────┘    └──────┬───────┘        ││
-│   │                                                  │                ││
-│   │                                           ┌──────▼───────┐        ││
-│   │                                           │  Slot Swap   │        ││
-│   │                                           │  (approval)  │        ││
-│   │                                           └──────────────┘        ││
-│   └───────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────────┘
+push to dev   -> Build -> GHCR (sha-<commit>) -> auto Deploy -> Azure Dev (staging)
+
+push to main  -> Build -> GHCR (sha-<commit>)    (prod-candidate image, NO deploy)
+       |
+       +-> Sync Dev (dev-sync.yml): rebuild dev = main + manifest, redeploy staging
+
+v* tag        -> Build -> GHCR (sha-<commit>)    (release/hotfix image, NO deploy)
+
+Deploy (manual: workflow_dispatch, env=prod, ref = production or a v* tag)
+       +-> promotes the existing sha-<commit> image -> Azure Prod (S1) -> slot swap
 ```
+
+Images are content-addressed per commit (`sha-<commit>`); `deploy.yml` never
+builds, it promotes an existing image, so prod runs the exact tested artifact.
+`production` is the live-prod branch and, besides a `v*` tag, the only ref
+`deploy.yml` will deploy to prod; a prod deploy from `main` is refused. The `dev`
+branch is staging, rebuilt from `main` plus the manifest by `dev-sync.yml`. See
+`docs/adr/022-dev-main-branching-release-flow.md` and the repo `CONTRIBUTING.md`
+for the full branching model.
 
 ## Manual Deployment
 
