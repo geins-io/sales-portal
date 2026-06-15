@@ -5,3 +5,4 @@
 # staging; remove it (and delete the branch) the moment it merges to main.
 #
 # (Empty at cutover: dev equals main, which is what staging already shows.)
+sal-174-pdp-image-alt-text
