@@ -153,12 +153,15 @@ PR titles should follow the same format. Body holds the longer rationale, test p
 
 Full guide in [CONTRIBUTING.md](CONTRIBUTING.md); rationale in [ADR-022](docs/adr/022-dev-main-branching-release-flow.md). The essentials:
 
-- **`main` = production.** It stays equal to prod between releases. Reach it only via PR, only when a change is approved and about to ship. Prod deploys are manual (`Deploy` workflow, `environment=prod`) and never automated.
-- **`dev` = disposable staging.** Auto-deploys to the Azure dev env. The `Sync Dev` workflow rebuilds it on every push to `main` as `main` plus the branches listed in the manifest. Never fix anything on `dev`; a rebuild wipes it. Fix on the feature branch.
-- **Manifest** = `.github/dev-branches.txt` on the `dev-config` branch. Add your branch to ride staging; remove it (and delete the branch) the moment it merges to `main`.
-- **Feature:** branch off `main`, add to manifest, test on staging, rebase on `main`, PR to `main`, manual prod deploy.
-- **Hotfix:** branch off `main`, PR to `main`, prod deploy. The push to `main` syncs it to staging automatically; never cherry-pick.
-- **Never push directly to `main`, never auto-deploy prod, never fix on `dev`.**
+- **`production` = what is live in prod.** Hotfix base. Prod deploys promote its already-built image. Moves only on a release or hotfix.
+- **`main` = the next release.** Approved features collect here. Free to sit ahead of prod. Features branch off `main` and PR back to it.
+- **`dev` = disposable staging.** Auto-deploys to the Azure dev env. The `Sync Dev` workflow rebuilds it on every push to `main` as `main` plus the manifest branches. Never fix anything on `dev`; a rebuild wipes it.
+- **Manifest** = `.github/dev-branches.txt` on the `dev-config` branch. Add your branch to ride staging; remove it (and delete the branch) when it merges to `main`.
+- **Build once, promote:** images are `sha-<commit>`, built on `dev`/`main`/`v*` tags; `deploy.yml` never builds, it promotes an existing image. Prod runs the exact tested artifact.
+- **Feature:** branch off `main`, add to manifest, test on staging, rebase on `main`, PR to `main`.
+- **Release:** move `production` to the tested `main` commit, deploy `production` to prod (no rebuild), tag `v*`.
+- **Hotfix:** branch off `production`, PR to `production`, tag `v*` to build, deploy the tag to prod, then forward-port to `main`.
+- **The rule:** features off `main`, hotfixes off `production`, prod deploys only from `production` or a `v*` tag (enforced by `deploy.yml`). Never push directly to `main`/`production`, never fix on `dev`, never auto-deploy prod.
 
 ## Pre-Push Quality Gate
 

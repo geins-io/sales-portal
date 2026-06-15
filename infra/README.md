@@ -338,21 +338,25 @@ echo "AZURE_SUBSCRIPTION_ID: $(az account show --query id -o tsv)"
 ## Deployment Flow
 
 ```
-push to dev  -> Build (build.yml) -> GHCR -> auto Deploy -> Azure Dev (staging)
+push to dev   -> Build -> GHCR (sha-<commit>) -> auto Deploy -> Azure Dev (staging)
 
-push to main -> Build (build.yml) -> GHCR       (prod image only, NO auto-deploy)
+push to main  -> Build -> GHCR (sha-<commit>)    (prod-candidate image, NO deploy)
        |
        +-> Sync Dev (dev-sync.yml): rebuild dev = main + manifest, redeploy staging
 
-Deploy (manual: workflow_dispatch, environment=prod)
-       +-> Azure Prod (S1) -> staging-slot swap (prod-swap reviewer approval)
+v* tag        -> Build -> GHCR (sha-<commit>)    (release/hotfix image, NO deploy)
+
+Deploy (manual: workflow_dispatch, env=prod, ref = production or a v* tag)
+       +-> promotes the existing sha-<commit> image -> Azure Prod (S1) -> slot swap
 ```
 
-`main` is production and is deployed only by the manual `Deploy` run. A push to
-`main` builds the image but never auto-deploys. The `dev` branch is the staging
-source; it is rebuilt from `main` plus the staging manifest by `dev-sync.yml`.
-See `docs/adr/022-dev-main-branching-release-flow.md` and the repo
-`CONTRIBUTING.md` for the branching model.
+Images are content-addressed per commit (`sha-<commit>`); `deploy.yml` never
+builds, it promotes an existing image, so prod runs the exact tested artifact.
+`production` is the live-prod branch and, besides a `v*` tag, the only ref
+`deploy.yml` will deploy to prod; a prod deploy from `main` is refused. The `dev`
+branch is staging, rebuilt from `main` plus the manifest by `dev-sync.yml`. See
+`docs/adr/022-dev-main-branching-release-flow.md` and the repo `CONTRIBUTING.md`
+for the full branching model.
 
 ## Manual Deployment
 

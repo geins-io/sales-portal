@@ -2,8 +2,8 @@
 # SALES PORTAL - CI Checks
 # =============================================================================
 # Runs lint, type check, unit tests, and E2E tests.
-#   - PR into main: full gate (lint + types + unit + e2e). This is the prod gate.
-#   - Push to dev:  light gate (lint + types + unit). e2e is PR-only.
+#   - PR into main or production: full gate (lint + types + unit + e2e).
+#   - Push to dev:                light gate (lint + types + unit). e2e is PR-only.
 # =============================================================================
 
 name: CI
@@ -12,6 +12,7 @@ on:
   pull_request:
     branches:
       - main
+      - production
   push:
     branches:
       - dev

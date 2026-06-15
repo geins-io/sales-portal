@@ -54,6 +54,17 @@ jobs:
             ENV="dev"
           fi
 
+          # Safety guard: production may only be deployed from the production
+          # branch or a v* tag, never from main or a feature branch. main is the
+          # next-release line and can sit ahead of prod, so this stops an
+          # unreleased commit from reaching production by a mis-selected ref.
+          if [[ "$ENV" == "prod" \
+                && "${{ github.ref }}" != "refs/heads/production" \
+                && "${{ github.ref }}" != refs/tags/v* ]]; then
+            echo "::error::Refusing prod deploy from '${{ github.ref_name }}'. Deploy prod only from the production branch or a v* tag."
+            exit 1
+          fi
+
           # Use immutable SHA-based tag for deployments
           # This ensures Stop+Start in Azure Portal uses the exact deployed version
           SHORT_SHA="${{ github.sha }}"
