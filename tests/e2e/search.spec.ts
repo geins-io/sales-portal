@@ -63,6 +63,18 @@ test.describe('Search', () => {
     }
   });
 
+  test('should render a usable search input on the bare /search page', async ({
+    page,
+  }) => {
+    // The mobile header search icon links here without a query. The page
+    // must surface a focused search field, not a dead "enter a term" stub.
+    await page.goto('/search');
+    await page.waitForLoadState('load');
+
+    const searchInput = page.locator('[data-testid="search-input"]');
+    await expect(searchInput).toBeVisible({ timeout: 15000 });
+  });
+
   test('should navigate to search results page on submit', async ({ page }) => {
     const product = await discoverProduct(page);
     const searchTerm = product.name.split(' ')[0] ?? 'test';

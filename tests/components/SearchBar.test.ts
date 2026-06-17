@@ -78,4 +78,25 @@ describe('SearchBar', () => {
     const autocomplete = wrapper.find('[data-testid="search-autocomplete"]');
     expect(autocomplete.attributes('data-active-index')).toBe('-1');
   });
+
+  it('focuses the input on mount when autofocus is set', () => {
+    const wrapper = mountComponent(SearchBar, {
+      props: { autofocus: true },
+      global: { stubs },
+      attachTo: document.body,
+    });
+    const input = wrapper.find('input[type="text"]').element;
+    expect(document.activeElement).toBe(input);
+    wrapper.unmount();
+  });
+
+  it('does not focus the input on mount by default', () => {
+    const wrapper = mountComponent(SearchBar, {
+      global: { stubs },
+      attachTo: document.body,
+    });
+    const input = wrapper.find('input[type="text"]').element;
+    expect(document.activeElement).not.toBe(input);
+    wrapper.unmount();
+  });
 });
