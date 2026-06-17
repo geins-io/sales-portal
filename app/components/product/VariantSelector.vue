@@ -281,10 +281,14 @@ const { showPrice } = usePriceVisibility();
       :open="openDimension !== null"
       @update:open="(v) => !v && closeSheet()"
     >
+      <!-- Same reasoning as the product filter sheet: don't auto-focus the
+           variant-search input on open, or the mobile keyboard pops up and
+           hides the variant options the user opened the sheet to choose. -->
       <SheetContent
         side="right"
         class="flex h-screen w-full flex-col p-0 sm:max-w-[670px]"
         data-testid="variant-sheet"
+        @open-auto-focus.prevent
       >
         <SheetHeader class="border-b px-6 py-4">
           <SheetTitle class="text-lg">

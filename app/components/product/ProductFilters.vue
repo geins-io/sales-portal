@@ -81,7 +81,15 @@ function clearAll() {
     </Button>
 
     <Sheet v-model:open="sheetOpen">
-      <SheetContent side="left" class="flex flex-col overflow-hidden">
+      <!-- Don't let the sheet auto-focus the filter-search input on open:
+           on mobile that pops the soft keyboard and hides the filters the
+           user came to browse. Focus stays on the trigger; tapping the
+           field still focuses it normally. -->
+      <SheetContent
+        side="left"
+        class="flex flex-col overflow-hidden"
+        @open-auto-focus.prevent
+      >
         <SheetHeader class="px-6 pb-4">
           <SheetTitle class="text-xl font-bold">
             {{ $t('product.filters') }}

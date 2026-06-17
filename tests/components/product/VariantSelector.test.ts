@@ -136,6 +136,25 @@ describe('VariantSelector', () => {
     expect(firstItem.text()).toContain('S');
   });
 
+  it('prevents the sheet from auto-focusing on open so the mobile keyboard stays hidden', () => {
+    const wrapper = mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: dimensions,
+        variants,
+        modelValue: {},
+      },
+      global: { stubs: sheetStubs },
+    });
+
+    // The variant-search input is the first focusable element in the sheet;
+    // letting reka-ui auto-focus it on open would pop the soft keyboard and
+    // hide the variant options, so the component must preventDefault.
+    const sheet = wrapper.findComponent('[data-testid="variant-sheet"]');
+    const event = new Event('focus', { cancelable: true });
+    sheet.vm.$emit('openAutoFocus', event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
   it('renders the variant sheet at the Figma 670px width', () => {
     const wrapper = mountComponent(VariantSelector, {
       props: {
