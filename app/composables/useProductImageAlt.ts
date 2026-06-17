@@ -19,6 +19,11 @@ export interface ProductImageAltOptions {
    * Native Geins altText override. When non-empty after trimming it is
    * returned verbatim and takes priority over the counter. Whitespace-only,
    * null, and undefined are treated as absent.
+   *
+   * Note: the storefront API (ProductImageType) exposes no per-image alt
+   * field today, so manualAlt is dormant for live storefront data and the
+   * generated name/counter renders in practice. It is wired here for when
+   * a per-image alt field becomes available on the platform.
    */
   manualAlt?: string | null;
   /**

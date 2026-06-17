@@ -194,9 +194,9 @@ const primaryImage = computed(() => {
 
 const { buildProductImageAlt } = useProductImageAlt();
 
-function thumbnailAlt(value: string): string {
+function thumbnailAlt(dimensionName: string, value: string): string {
   return buildProductImageAlt({
-    name: props.productName ?? value,
+    name: rowProductName(dimensionName, value),
     manualAlt: primaryImage.value?.altText,
   });
 }
@@ -372,7 +372,7 @@ const { showPrice } = usePriceVisibility();
                     v-if="primaryImageFileName"
                     :file-name="primaryImageFileName"
                     type="product"
-                    :alt="thumbnailAlt(value)"
+                    :alt="thumbnailAlt(activeDimension.dimensionName, value)"
                     class="size-full object-contain"
                   />
                 </div>

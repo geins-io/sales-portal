@@ -49,9 +49,8 @@ vi.stubGlobal('useI18n', () => ({
 // ---------------------------------------------------------------------------
 // Subject (lazy import so mocks are installed first)
 // ---------------------------------------------------------------------------
-const { useProductImageAlt } = await import(
-  '../../app/composables/useProductImageAlt'
-);
+const { useProductImageAlt } =
+  await import('../../app/composables/useProductImageAlt');
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -183,6 +182,32 @@ describe('useProductImageAlt', () => {
           decorative: true,
         }),
       ).toBe('');
+    });
+  });
+
+  describe('edge cases', () => {
+    it('empty-string manualAlt with total > 1 falls through to the counter', () => {
+      const { buildProductImageAlt } = useProductImageAlt();
+      const result = buildProductImageAlt({
+        name: 'Bosch Rotary Hammer',
+        index: 0,
+        total: 3,
+        manualAlt: '',
+      });
+      expect(result).toBe('Bosch Rotary Hammer (1 of 3)');
+      expect(result).not.toBe('');
+    });
+
+    it('out-of-range index is not clamped and yields the raw counter', () => {
+      const { buildProductImageAlt } = useProductImageAlt();
+      // index 5 with total 3 documents the no-clamp contract: the helper
+      // passes the caller-supplied values straight through to the i18n template.
+      const result = buildProductImageAlt({
+        name: 'Bosch Rotary Hammer',
+        index: 5,
+        total: 3,
+      });
+      expect(result).toBe('Bosch Rotary Hammer (6 of 3)');
     });
   });
 

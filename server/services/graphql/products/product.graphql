@@ -27,6 +27,8 @@ query product(
       alias
       canonicalUrl
     }
+    # Storefront ProductImageType exposes only fileName and tags (no per-image alt field).
+    # Alt text is generated client-side from product name + position (see useProductImageAlt).
     productImages {
       fileName
     }
