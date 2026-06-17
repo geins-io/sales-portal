@@ -66,7 +66,7 @@ const stubs: Record<string, unknown> = {
   },
 };
 
-type GalleryImage = { fileName: string; alt?: string | null };
+type GalleryImage = { fileName: string; altText?: string | null };
 
 function makeImages(count = 3): GalleryImage[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -164,7 +164,7 @@ describe('ProductGallery', () => {
 
     it('uses a manual PIM alt override verbatim, ignoring the format', () => {
       const images: GalleryImage[] = [
-        { fileName: 'a.jpg', alt: 'Drill bit close-up on a workbench' },
+        { fileName: 'a.jpg', altText: 'Drill bit close-up on a workbench' },
         { fileName: 'b.jpg' },
         { fileName: 'c.jpg' },
       ];
@@ -173,13 +173,13 @@ describe('ProductGallery', () => {
       expect(mainAlt(wrapper)).not.toMatch(/\(\d+ of \d+\)/);
     });
 
-    it('treats an empty-string override as decorative (alt="")', () => {
+    it('empty altText falls through to the generated counter (does not blank the image)', () => {
       const images: GalleryImage[] = [
-        { fileName: 'a.jpg', alt: '' },
+        { fileName: 'a.jpg', altText: '' },
         { fileName: 'b.jpg' },
       ];
       const wrapper = mountGallery(images, 'Bosch Rotary Hammer');
-      expect(mainAlt(wrapper)).toBe('');
+      expect(mainAlt(wrapper)).toBe('Bosch Rotary Hammer (1 of 2)');
     });
 
     it('never prefixes "Image of" / "Photo of" for any image', async () => {

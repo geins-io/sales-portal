@@ -169,6 +169,7 @@ const cartStore = useCartStore();
 const favoritesStore = useFavoritesStore();
 const authStore = useAuthStore();
 const { hasFeature, isCatalogMode } = useTenant();
+const { buildProductImageAlt } = useProductImageAlt();
 const { canAccess } = useFeatureAccess();
 const canPurchase = computed(
   () => canAccess('orderPlacement') && !isCatalogMode.value,
@@ -781,10 +782,17 @@ useSchemaOrg([
       </h3>
       <div class="grid grid-cols-3 gap-3">
         <GeinsImage
-          v-for="img in additionalImages"
+          v-for="(img, index) in additionalImages"
           :key="img.fileName ?? ''"
           :file-name="img.fileName ?? ''"
-          :alt="product.name ?? ''"
+          :alt="
+            buildProductImageAlt({
+              name: product.name ?? '',
+              index,
+              total: additionalImages.length,
+              manualAlt: img.altText,
+            })
+          "
           type="product"
           loading="eager"
           fit="contain"

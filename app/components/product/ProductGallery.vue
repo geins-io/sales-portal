@@ -4,21 +4,12 @@ import type { ProductImageType } from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 import { Dialog, DialogContent } from '~/components/ui/dialog';
 
-/**
- * A gallery image. Extends the Geins product image with an optional manual
- * alt override. Geins exposes no per-image alt field today, so this is
- * normally absent and alt text is generated from the product name plus the
- * image position. When a string is supplied it is used verbatim; an empty
- * string marks the image as decorative (rendered as alt="").
- */
-type GalleryImage = ProductImageType & { alt?: string | null };
-
 const props = defineProps<{
-  images: GalleryImage[];
+  images: ProductImageType[];
   productName: string;
 }>();
 
-const { t } = useI18n();
+const { buildProductImageAlt } = useProductImageAlt();
 
 const selectedIndex = ref(0);
 const lightboxOpen = ref(false);
@@ -50,26 +41,22 @@ const currentImage = computed(() => props.images[selectedIndex.value]);
 const hasMultiple = computed(() => props.images.length > 1);
 
 /**
- * Accessible alt text for the image at `index`.
+ * Accessible alt text for the currently displayed image.
  *
- * A manual override (any string, including "" for a decorative image) is used
- * as-is. Otherwise a single image uses the product name alone, while multiple
- * images append a 1-based positional counter so each is announced distinctly.
- * The screen reader announces the image role itself, so the text never
- * prefixes "Image of", "Photo of" or similar.
+ * Delegates to useProductImageAlt, which is the single canonical source of
+ * truth for PDP image alt text. The native Geins altText field is passed as
+ * manualAlt; when absent or empty the composable falls through to the
+ * generated name plus positional counter so a real product image is never
+ * left blank.
  */
-function altForIndex(index: number): string {
-  const manualAlt = props.images[index]?.alt;
-  if (typeof manualAlt === 'string') return manualAlt;
-  if (props.images.length <= 1) return props.productName;
-  return t('product.image_alt_counter', {
+const currentAlt = computed(() =>
+  buildProductImageAlt({
     name: props.productName,
-    current: index + 1,
+    index: selectedIndex.value,
     total: props.images.length,
-  });
-}
-
-const currentAlt = computed(() => altForIndex(selectedIndex.value));
+    manualAlt: props.images[selectedIndex.value]?.altText,
+  }),
+);
 </script>
 
 <template>
