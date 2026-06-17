@@ -7,13 +7,33 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '~/components/ui/accordion';
+import { adminText } from '~/utils/product-texts';
 
 const props = defineProps<{
   product: DetailProduct;
   related?: ListProduct[] | null;
 }>();
 
-const hasDescription = computed(() => !!props.product.texts?.text1);
+// True when the HTML carries visible copy, not just empty editor markup
+// (e.g. `<p><br></p>`), so a blank field never shows an empty block.
+function hasRenderableHtml(html: string | undefined): html is string {
+  return !!html && html.replace(/<[^>]*>/g, '').trim().length > 0;
+}
+
+// The details tab shows the merchant's admin "Text 2" copy first, then
+// "Text 3", each capped at max-w-3xl. `adminText` maps the PIM box numbers
+// onto the offset Merchant API fields (see ~/utils/product-texts).
+const detailsText2 = computed(() => {
+  const html = adminText(props.product.texts, 2);
+  return hasRenderableHtml(html) ? html : undefined;
+});
+const detailsText3 = computed(() => {
+  const html = adminText(props.product.texts, 3);
+  return hasRenderableHtml(html) ? html : undefined;
+});
+const hasDescription = computed(
+  () => !!(detailsText2.value || detailsText3.value),
+);
 const HIDDEN_PARAMETER_GROUPS = /^monitor$/i;
 const visibleGroups = computed(() =>
   (props.product.parameterGroups ?? [])
@@ -106,8 +126,20 @@ onMounted(() => {
         <h3 class="font-heading mb-4 text-2xl font-bold">
           {{ $t('product.details') }}
         </h3>
-        <!-- eslint-disable-next-line vue/no-v-html -->
-        <div class="prose max-w-none" v-html="product.texts?.text1" />
+        <!-- eslint-disable vue/no-v-html -->
+        <div class="max-w-3xl space-y-6">
+          <div
+            v-if="detailsText2"
+            class="prose max-w-none"
+            v-html="detailsText2"
+          />
+          <div
+            v-if="detailsText3"
+            class="prose max-w-none"
+            v-html="detailsText3"
+          />
+        </div>
+        <!-- eslint-enable vue/no-v-html -->
       </TabsContent>
 
       <TabsContent
@@ -189,8 +221,20 @@ onMounted(() => {
       <AccordionItem v-if="hasDescription" value="description">
         <AccordionTrigger>{{ $t('product.details') }}</AccordionTrigger>
         <AccordionContent>
-          <!-- eslint-disable-next-line vue/no-v-html -->
-          <div class="prose max-w-none" v-html="product.texts?.text1" />
+          <!-- eslint-disable vue/no-v-html -->
+          <div class="max-w-3xl space-y-6">
+            <div
+              v-if="detailsText2"
+              class="prose max-w-none"
+              v-html="detailsText2"
+            />
+            <div
+              v-if="detailsText3"
+              class="prose max-w-none"
+              v-html="detailsText3"
+            />
+          </div>
+          <!-- eslint-enable vue/no-v-html -->
         </AccordionContent>
       </AccordionItem>
 

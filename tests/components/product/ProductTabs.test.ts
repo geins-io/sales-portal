@@ -133,6 +133,66 @@ describe('ProductTabs', () => {
     expect(descContent.html()).toContain('Product description here');
   });
 
+  it('renders both admin Text 2 and Text 3 copy, Text 2 first', () => {
+    // Geins offset: API text1 = admin "Text 2", text2 = admin "Text 3",
+    // text3 = admin "Text 1" (the last is not part of the details tab).
+    const wrapper = mountComponent(ProductTabs, {
+      props: {
+        product: makeProduct({
+          texts: {
+            text1: '<p>Admin Text 2 copy</p>',
+            text2: '<p>Admin Text 3 copy</p>',
+            text3: '<p>Admin Text 1 copy</p>',
+          },
+        }),
+        related: [],
+      },
+      global: { stubs },
+    });
+    const html = wrapper.find('.tabs-content[data-value="description"]').html();
+    expect(html).toContain('Admin Text 2 copy');
+    expect(html).toContain('Admin Text 3 copy');
+    expect(html).not.toContain('Admin Text 1 copy');
+    expect(html.indexOf('Admin Text 2 copy')).toBeLessThan(
+      html.indexOf('Admin Text 3 copy'),
+    );
+  });
+
+  it('shows the details tab when only admin Text 3 (API text2) has copy', () => {
+    const wrapper = mountComponent(ProductTabs, {
+      props: {
+        product: makeProduct({ texts: { text2: '<p>Only Text 3</p>' } }),
+        related: [],
+      },
+      global: { stubs },
+    });
+    const labels = wrapper.findAll('.tabs-trigger').map((t) => t.text());
+    expect(labels).toContain('product.details');
+    const content = wrapper.find('.tabs-content[data-value="description"]');
+    expect(content.html()).toContain('Only Text 3');
+  });
+
+  it('hides the details tab when text fields are only empty markup', () => {
+    const wrapper = mountComponent(ProductTabs, {
+      props: {
+        product: makeProduct({ texts: { text1: '<p><br></p>', text2: '   ' } }),
+        related: [],
+      },
+      global: { stubs },
+    });
+    const labels = wrapper.findAll('.tabs-trigger').map((t) => t.text());
+    expect(labels).not.toContain('product.details');
+  });
+
+  it('caps the details copy column at max-w-3xl (768px)', () => {
+    const wrapper = mountComponent(ProductTabs, {
+      props: { product: makeProduct(), related: [] },
+      global: { stubs },
+    });
+    const content = wrapper.find('.tabs-content[data-value="description"]');
+    expect(content.html()).toContain('max-w-3xl');
+  });
+
   it('renders only show:true parameters in the specification table', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: { product: makeProduct(), related: [] },
