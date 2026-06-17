@@ -329,7 +329,7 @@ function lineTotal(row: {
               ? localePath(`/portal/orders/${summary.orderId}`)
               : localePath('/portal/orders')
           "
-          class="bg-primary text-primary-foreground hover:bg-primary/90 mt-8 flex w-full items-center justify-center rounded-md px-6 py-3 text-sm font-semibold transition-colors"
+          class="bg-button-background text-primary-foreground hover:bg-button-background/90 mt-8 flex w-full items-center justify-center rounded-md px-6 py-3 text-sm font-semibold transition-colors"
           data-testid="view-order-cta"
         >
           {{ t('order_confirmation.view_order_in_portal') }}

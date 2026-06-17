@@ -38,7 +38,7 @@ const quoteNumber = computed(() => (route.query.quoteNumber as string) ?? '');
     </p>
     <NuxtLink
       :to="localePath('/portal/quotations')"
-      class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center rounded-md px-6 py-3 text-sm font-medium transition-colors"
+      class="bg-button-background text-primary-foreground hover:bg-button-background/90 inline-flex items-center rounded-md px-6 py-3 text-sm font-medium transition-colors"
       data-testid="quote-confirmation-portal-link"
     >
       {{ t('quote.back_to_portal') }}
