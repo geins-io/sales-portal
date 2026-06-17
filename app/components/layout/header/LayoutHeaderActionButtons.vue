@@ -6,7 +6,6 @@ import { useCartStore } from '~/stores/cart';
 
 const appStore = useAppStore();
 const cartStore = useCartStore();
-const { localePath } = useLocaleMarket();
 const { isCatalogMode } = useTenant();
 const { canAccess } = useFeatureAccess();
 // Cart entry points (header icon, drawer, /cart, checkout) all gate on
@@ -21,14 +20,20 @@ const showCart = computed(
 
 <template>
   <div class="flex items-center gap-2">
-    <!-- Search icon (mobile only — desktop has inline SearchBar) -->
-    <NuxtLink
-      :to="localePath('/search')"
+    <!-- Search toggle (mobile only; desktop has the inline SearchBar). Opens
+         the dropdown search overlay, and tapping it again closes it. -->
+    <Button
+      variant="ghost"
+      size="icon"
       data-slot="search-button"
-      class="text-muted-foreground hover:text-foreground p-2 lg:hidden"
+      data-testid="mobile-search-trigger"
+      class="lg:hidden"
+      :aria-label="$t('nav.search_products')"
+      :aria-expanded="appStore.mobileSearchOpen"
+      @click="appStore.toggleMobileSearch()"
     >
       <Search class="size-5" />
-    </NuxtLink>
+    </Button>
 
     <Button
       v-if="showCart"

@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { discoverProduct, waitForHydration } from './helpers';
+import {
+  discoverProduct,
+  waitForHydration,
+  setMobileViewport,
+} from './helpers';
 
 /**
  * Search E2E Tests
@@ -140,5 +144,77 @@ test.describe('Search', () => {
 
     // Autocomplete should close
     await expect(autocomplete).toBeHidden({ timeout: 5000 });
+  });
+});
+
+test.describe('Mobile search overlay', () => {
+  test('search icon toggles a dropdown overlay with backdrop, not a page nav', async ({
+    page,
+  }) => {
+    await setMobileViewport(page);
+    await page.goto('/');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    const trigger = page.locator('[data-slot="search-button"]');
+    const panel = page.locator('[data-testid="mobile-search-panel"]');
+    const backdrop = page.locator('[data-testid="mobile-search-backdrop"]');
+    const input = panel.locator('[data-testid="search-input"]');
+
+    // Closed by default, and tapping never triggers a page navigation.
+    await expect(trigger).toBeVisible({ timeout: 15000 });
+    await expect(panel).toBeHidden();
+
+    // Tap opens the overlay below the header with a dark backdrop, and the
+    // field is focused so a query can be typed immediately.
+    await trigger.click();
+    await expect(panel).toBeVisible({ timeout: 5000 });
+    await expect(backdrop).toBeVisible();
+    await expect(input).toBeFocused();
+    await expect(page).toHaveURL(/\/$/);
+
+    // Tapping the icon again closes it.
+    await trigger.click();
+    await expect(panel).toBeHidden({ timeout: 5000 });
+    await expect(backdrop).toBeHidden();
+  });
+
+  test('typing in the overlay shows the same autocomplete as desktop', async ({
+    page,
+  }) => {
+    const product = await discoverProduct(page);
+    const searchTerm = product.name.split(' ')[0] ?? 'test';
+
+    await setMobileViewport(page);
+    await page.goto('/');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    await page.locator('[data-slot="search-button"]').click();
+
+    const input = page.locator(
+      '[data-testid="mobile-search-panel"] [data-testid="search-input"]',
+    );
+    await expect(input).toBeVisible({ timeout: 5000 });
+    await input.pressSequentially(searchTerm, { delay: 50 });
+
+    const autocomplete = page.locator('[data-testid="search-autocomplete"]');
+    await expect(autocomplete).toBeVisible({ timeout: 15000 });
+  });
+
+  test('tapping the backdrop closes the overlay', async ({ page }) => {
+    await setMobileViewport(page);
+    await page.goto('/');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    await page.locator('[data-slot="search-button"]').click();
+    const panel = page.locator('[data-testid="mobile-search-panel"]');
+    await expect(panel).toBeVisible({ timeout: 5000 });
+
+    await page
+      .locator('[data-testid="mobile-search-backdrop"]')
+      .click({ position: { x: 10, y: 10 } });
+    await expect(panel).toBeHidden({ timeout: 5000 });
   });
 });
