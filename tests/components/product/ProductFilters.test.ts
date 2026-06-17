@@ -10,7 +10,7 @@ vi.mock('../../../app/components/ui/sheet', () => ({
     props: ['open'],
   },
   SheetContent: {
-    template: '<div><slot /></div>',
+    template: '<div data-testid="filter-sheet"><slot /></div>',
     props: ['side'],
   },
   SheetHeader: {
@@ -182,6 +182,26 @@ describe('ProductFilters', () => {
     expect(emitted).toBeTruthy();
     // color key should be removed since selected is empty
     expect(emitted![0]![0]).toEqual({});
+  });
+
+  it('prevents the sheet from auto-focusing on open so the mobile keyboard stays hidden', () => {
+    const wrapper = mountComponent(ProductFilters, {
+      props: {
+        facets: mockFacets,
+        modelValue: {},
+      },
+      global: {
+        stubs: defaultStubs,
+      },
+    });
+
+    // reka-ui fires an `openAutoFocus` event on the sheet content; the
+    // component must call preventDefault so the filter-search input is not
+    // focused (which would pop the soft keyboard and hide the filters).
+    const sheet = wrapper.findComponent('[data-testid="filter-sheet"]');
+    const event = new Event('focus', { cancelable: true });
+    sheet.vm.$emit('openAutoFocus', event);
+    expect(event.defaultPrevented).toBe(true);
   });
 
   it('renders Clear all and Show results buttons in the footer', () => {
