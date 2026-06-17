@@ -9,3 +9,4 @@ sal-174-pdp-image-alt-text
 sal-299-quotations-sort-latest
 sal-303-304-store-settings-theming
 sal-300-305-mobile-search-filter
+sal-301-pdp-content-tab
