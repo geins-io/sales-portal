@@ -5,7 +5,7 @@ import type {
   ContentContainerType,
   ContentType,
 } from '@geins/types';
-import { sanitizeTenantCss } from './sanitize';
+import { sanitizeTenantCss } from '#shared/utils/sanitize-css';
 
 const ALLOWED_TAGS = [
   'p',

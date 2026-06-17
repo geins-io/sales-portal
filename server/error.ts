@@ -2,6 +2,8 @@ import type { NitroErrorHandler } from 'nitropack';
 import { getRequestHeader, setResponseHeader, setResponseStatus } from 'h3';
 import { logger } from './utils/logger';
 import { readErrorHandlerConfig } from './utils/error-config';
+import { sanitizeTenantCss } from '#shared/utils/sanitize-css';
+import { buildGoogleFontsUrl } from '#shared/utils/fonts';
 
 /**
  * Custom Nitro error handler.
@@ -36,6 +38,22 @@ const errorHandler: NitroErrorHandler = (error, event) => {
   const tenantId = event.context.tenant?.tenantId;
   const hostname = event.context.tenant?.hostname;
   const message = error.message || statusMessage;
+
+  // The normal tenant theme is injected by the `render:html` Nitro hook
+  // (server/plugins/04.tenant-css.ts), but this handler renders its own HTML
+  // and never runs that pipeline, so the theme would otherwise be lost and the
+  // page would fall back to the hardcoded default palette and fonts. Pull the
+  // theme straight off the resolved tenant config (set by 02.tenant-context)
+  // and hand it to the template so the error page inherits the store colors,
+  // fonts and button styles. Missing when tenant resolution failed; the
+  // template then keeps its built-in fallbacks.
+  const tenantConfig = event.context.tenant?.config;
+  const themeName = tenantConfig?.theme?.name?.toLowerCase() || undefined;
+  const themeCss = tenantConfig?.css
+    ? sanitizeTenantCss(tenantConfig.css)
+    : undefined;
+  const fontsUrl =
+    buildGoogleFontsUrl(tenantConfig?.theme?.typography) ?? undefined;
 
   // "Tenant not provisioned" detection:
   //   1. No tenantId was ever attached to the event context — tenant
@@ -86,6 +104,9 @@ const errorHandler: NitroErrorHandler = (error, event) => {
         hostname,
         stack: debugErrors ? error.stack : undefined,
         isTenantNotProvisioned,
+        themeName,
+        themeCss,
+        fontsUrl,
       }),
     );
     return;
@@ -143,6 +164,16 @@ export interface ErrorHtmlInput {
    * provisioning step, not a runtime crash the user caused.
    */
   isTenantNotProvisioned?: boolean;
+  /**
+   * Tenant theme assets. When present the error page inherits the store's
+   * colors, fonts and button styles instead of the built-in fallbacks:
+   * `themeName` is the `data-theme` value, `themeCss` is the sanitized tenant
+   * css block that defines the custom properties, and `fontsUrl` is the Google
+   * Fonts stylesheet for the tenant typography.
+   */
+  themeName?: string;
+  themeCss?: string;
+  fontsUrl?: string;
 }
 
 /**
@@ -169,6 +200,9 @@ export function renderErrorHtml(input: ErrorHtmlInput): string {
     hostname,
     stack,
     isTenantNotProvisioned,
+    themeName,
+    themeCss,
+    fontsUrl,
   } = input;
 
   const is404 = statusCode === 404;
@@ -228,8 +262,25 @@ ${
     ? `    <pre class="stack">${escapeHtml(stack)}</pre>`
     : '';
 
+  // Tenant theme markup. `data-theme` scopes the custom-property block; the
+  // tenant css (already sanitized by the caller) defines --primary,
+  // --button-background, --font-family, etc.; the font links pull the tenant
+  // typography. All three are no-ops when the tenant theme is unavailable, so
+  // the template keeps its built-in fallbacks.
+  const dataThemeAttr = themeName
+    ? ` data-theme="${escapeHtml(themeName)}"`
+    : '';
+  const fontLinks = fontsUrl
+    ? `<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="${escapeHtml(fontsUrl)}">`
+    : '';
+  const tenantThemeStyle = themeCss
+    ? `<style data-tenant-theme="${escapeHtml(themeName ?? 'default')}">${themeCss}</style>`
+    : '';
+
   return `<!doctype html>
-<html lang="en">
+<html lang="en"${dataThemeAttr}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -245,7 +296,7 @@ ${
     align-items: center;
     justify-content: center;
     padding: 1rem;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
     background: var(--background, #ffffff);
     color: var(--foreground, #1a1a1a);
   }
@@ -253,8 +304,8 @@ ${
     body { background: var(--background, #0a0a0a); color: var(--foreground, #f5f5f5); }
   }
   .wrap { max-width: 32rem; width: 100%; text-align: center; }
-  .code { font-size: 4.5rem; font-weight: 700; color: var(--primary, #0d9488); margin: 0; line-height: 1; }
-  .title { font-size: 1.5rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+  .code { font-family: var(--heading-font-family, inherit); font-size: 4.5rem; font-weight: 700; color: var(--primary, #0d9488); margin: 0; line-height: 1; }
+  .title { font-family: var(--heading-font-family, inherit); font-size: 1.5rem; font-weight: 600; margin: 1rem 0 0.5rem; }
   .desc { color: var(--muted-foreground, #6b7280); margin: 0; }
   .btns { margin-top: 2rem; display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
   .btn {
@@ -268,7 +319,7 @@ ${
     cursor: pointer;
     border: 1px solid transparent;
   }
-  .btn-primary { background: var(--primary, #0d9488); color: var(--primary-foreground, #ffffff); }
+  .btn-primary { background: var(--button-background, var(--primary, #0d9488)); color: var(--primary-foreground, #ffffff); }
   .btn-outline { background: transparent; border-color: var(--border, #d4d4d8); color: inherit; }
   .diag {
     margin-top: 2rem;
@@ -311,6 +362,8 @@ ${
     word-break: break-word;
   }
 </style>
+${fontLinks}
+${tenantThemeStyle}
 </head>
 <body>
   <main class="wrap">

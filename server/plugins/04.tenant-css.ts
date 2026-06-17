@@ -1,9 +1,6 @@
 import type { NitroApp } from 'nitropack/types';
-import {
-  sanitizeTenantCss,
-  sanitizeHtmlAttr,
-  sanitizeUrl,
-} from '../utils/sanitize';
+import { sanitizeHtmlAttr, sanitizeUrl } from '../utils/sanitize';
+import { sanitizeTenantCss } from '#shared/utils/sanitize-css';
 import { buildGoogleFontsUrl } from '#shared/utils/fonts';
 
 /**

@@ -234,6 +234,47 @@ describe('renderErrorHtml', () => {
     });
     expect(withoutStack).not.toContain('class="stack"');
   });
+
+  it('injects the tenant theme when theme assets are provided', () => {
+    const html = renderErrorHtml({
+      statusCode: 404,
+      statusMessage: 'Not Found',
+      message: 'Not Found',
+      correlationId: 'x',
+      tenantId: 'tenant-a',
+      hostname: 'tenant-a.example',
+      themeName: 'teal',
+      themeCss:
+        "[data-theme='teal'] { --primary: #006f72; --button-background: #006f72; }",
+      fontsUrl:
+        'https://fonts.googleapis.com/css2?family=Geist&family=Hanuman&display=swap',
+    });
+    // data-theme scopes the tenant custom properties to <html>.
+    expect(html).toContain('<html lang="en" data-theme="teal">');
+    // The tenant css block is injected.
+    expect(html).toContain('data-tenant-theme="teal"');
+    expect(html).toContain('--button-background: #006f72');
+    // The Google Fonts stylesheet is linked (with the & escaped).
+    expect(html).toContain('fonts.googleapis.com/css2');
+    expect(html).toContain('rel="stylesheet"');
+    // The primary button uses the store-settings button color token.
+    expect(html).toContain('var(--button-background, var(--primary');
+  });
+
+  it('keeps the built-in fallbacks when no theme is available', () => {
+    const html = renderErrorHtml({
+      statusCode: 404,
+      statusMessage: 'Not Found',
+      message: 'Not Found',
+      correlationId: 'x',
+      tenantId: undefined,
+      hostname: undefined,
+    });
+    expect(html).toContain('<html lang="en">');
+    expect(html).not.toContain('data-theme=');
+    expect(html).not.toContain('data-tenant-theme');
+    expect(html).not.toContain('fonts.googleapis.com');
+  });
 });
 
 describe('errorHandler (Nitro integration)', () => {
