@@ -152,6 +152,56 @@ describe('quotes service', () => {
         'cancelled',
       ]);
     });
+
+    it('sorts quotes newest first by createdAt', async () => {
+      // Scrambled createdAt order from the API (mid, old, new).
+      const carts = [
+        makeRawQuotationCart({
+          quotationNumber: 'Q-MID',
+          createdAt: '2026-03-10T08:00:00Z',
+        }),
+        makeRawQuotationCart({
+          quotationNumber: 'Q-OLD',
+          createdAt: '2026-01-15T08:00:00Z',
+        }),
+        makeRawQuotationCart({
+          quotationNumber: 'Q-NEW',
+          createdAt: '2026-05-20T08:00:00Z',
+        }),
+      ];
+      mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: carts });
+
+      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+
+      expect(result.quotes.map((q) => q.quoteNumber)).toEqual([
+        'Q-NEW',
+        'Q-MID',
+        'Q-OLD',
+      ]);
+    });
+
+    it('sorts quotes with empty or invalid createdAt last', async () => {
+      const carts = [
+        makeRawQuotationCart({ quotationNumber: 'Q-EMPTY', createdAt: '' }),
+        makeRawQuotationCart({
+          quotationNumber: 'Q-NEW',
+          createdAt: '2026-05-20T08:00:00Z',
+        }),
+        makeRawQuotationCart({
+          quotationNumber: 'Q-MID',
+          createdAt: '2026-03-10T08:00:00Z',
+        }),
+      ];
+      mockGraphqlQuery.mockResolvedValueOnce({ listQuotationCarts: carts });
+
+      const result = await quotesService.listQuotes('org-1', 0, 10, mockEvent);
+
+      expect(result.quotes.map((q) => q.quoteNumber)).toEqual([
+        'Q-NEW',
+        'Q-MID',
+        'Q-EMPTY',
+      ]);
+    });
   });
 
   // -------------------------------------------------------------------------

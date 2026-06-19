@@ -257,6 +257,15 @@ function mapQuotationCartToListItem(cart: RawQuotationCart): QuoteListItem {
   };
 }
 
+/**
+ * Sort key for ordering quotes newest-first. Returns the createdAt timestamp in
+ * milliseconds, or 0 for an empty or unparseable date so those rows sort last.
+ */
+function quoteCreatedTime(quote: QuoteListItem): number {
+  const time = Date.parse(quote.createdAt ?? '');
+  return Number.isNaN(time) ? 0 : time;
+}
+
 // ---------------------------------------------------------------------------
 // Quotes service
 // ---------------------------------------------------------------------------
@@ -286,6 +295,9 @@ export async function listQuotes(
   );
   const carts = (unwrapGraphQL(result) as RawQuotationCart[] | null) ?? [];
   const quotes = carts.map(mapQuotationCartToListItem);
+  // Newest first. The Geins API returns carts in an unspecified order, so sort
+  // by createdAt descending. Empty or unparseable dates sort last (epoch 0).
+  quotes.sort((a, b) => quoteCreatedTime(b) - quoteCreatedTime(a));
   return { quotes, total: quotes.length };
 }
 
