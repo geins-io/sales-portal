@@ -107,7 +107,7 @@ function goToCheckout() {
       </p>
       <NuxtLink
         :to="localePath('/')"
-        class="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
+        class="bg-button-background text-primary-foreground hover:bg-button-background/90 mt-2 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
       >
         {{ $t('cart.continue_shopping') }}
       </NuxtLink>

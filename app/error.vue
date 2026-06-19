@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app';
 import { Home, ArrowLeft } from 'lucide-vue-next';
+import { buildGoogleFontsUrl } from '#shared/utils/fonts';
+import { sanitizeTenantCss } from '#shared/utils/sanitize-css';
 
 const props = defineProps<{
   error: NuxtError;
@@ -9,6 +11,57 @@ const props = defineProps<{
 const isDev = import.meta.dev;
 const { t } = useI18n();
 const { tenant } = useTenant();
+
+// The Nitro `render:html` hook (server/plugins/04.tenant-css.ts) that injects
+// the tenant theme does not run on the error render path, so without this the
+// error page falls back to the hardcoded default palette, fonts and button
+// colors. Re-inject the same three theme assets the server plugin does, driven
+// by the resolved tenant config, so the error page inherits the store's
+// colors, fonts and button styles. The error response carries no CSP and
+// normal pages allow 'unsafe-inline' styles, so the <style> needs no nonce,
+// matching the server plugin.
+const themeName = computed(
+  () => tenant.value?.theme?.name?.toLowerCase() || null,
+);
+const tenantThemeCss = computed(() =>
+  tenant.value?.css ? sanitizeTenantCss(tenant.value.css) : '',
+);
+const tenantFontsUrl = computed(() =>
+  buildGoogleFontsUrl(tenant.value?.theme?.typography),
+);
+
+useHead(() => ({
+  htmlAttrs: themeName.value ? { 'data-theme': themeName.value } : {},
+  style: tenantThemeCss.value
+    ? [
+        {
+          key: 'tenant-theme',
+          'data-tenant-theme': themeName.value ?? 'default',
+          innerHTML: tenantThemeCss.value,
+        },
+      ]
+    : [],
+  link: tenantFontsUrl.value
+    ? [
+        {
+          key: 'tenant-fonts-preconnect',
+          rel: 'preconnect',
+          href: 'https://fonts.googleapis.com',
+        },
+        {
+          key: 'tenant-fonts-preconnect-gstatic',
+          rel: 'preconnect',
+          href: 'https://fonts.gstatic.com',
+          crossorigin: 'anonymous',
+        },
+        {
+          key: 'tenant-fonts',
+          rel: 'stylesheet',
+          href: tenantFontsUrl.value,
+        },
+      ]
+    : [],
+}));
 
 const is404 = computed(() => props.error.statusCode === 404);
 const is418 = computed(() => props.error.statusCode === 418);

@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  sanitizeTenantCss,
-  sanitizeHtmlAttr,
-} from '../../server/utils/sanitize';
+import { sanitizeHtmlAttr } from '../../server/utils/sanitize';
+import { sanitizeTenantCss } from '../../shared/utils/sanitize-css';
 
 describe('sanitizeTenantCss', () => {
   it('strips <script> tags', () => {
