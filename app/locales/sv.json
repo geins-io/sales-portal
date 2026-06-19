@@ -265,6 +265,7 @@
     "select_variant_placeholder": "Välj",
     "variant_search_placeholder": "Sök",
     "image_counter": "Bild {current} av {total}",
+    "image_alt_counter": "{name} ({current} av {total})",
     "gallery_previous": "Föregående bild",
     "gallery_next": "Nästa bild",
     "product_specifications": "Produktspecifikationer",

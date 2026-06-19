@@ -9,6 +9,8 @@ const props = defineProps<{
   productName: string;
 }>();
 
+const { buildProductImageAlt } = useProductImageAlt();
+
 const selectedIndex = ref(0);
 const lightboxOpen = ref(false);
 
@@ -37,6 +39,24 @@ function onKeydown(e: KeyboardEvent) {
 
 const currentImage = computed(() => props.images[selectedIndex.value]);
 const hasMultiple = computed(() => props.images.length > 1);
+
+/**
+ * Accessible alt text for the currently displayed image.
+ *
+ * Delegates to useProductImageAlt, which is the single canonical source of
+ * truth for PDP image alt text. The native Geins altText field is passed as
+ * manualAlt; when absent or empty the composable falls through to the
+ * generated name plus positional counter so a real product image is never
+ * left blank.
+ */
+const currentAlt = computed(() =>
+  buildProductImageAlt({
+    name: props.productName,
+    index: selectedIndex.value,
+    total: props.images.length,
+    manualAlt: props.images[selectedIndex.value]?.altText,
+  }),
+);
 </script>
 
 <template>
@@ -58,7 +78,7 @@ const hasMultiple = computed(() => props.images.length > 1);
         <GeinsImage
           :file-name="currentImage.fileName ?? ''"
           type="product"
-          :alt="productName"
+          :alt="currentAlt"
           loading="eager"
           class="size-full object-contain"
         />
@@ -110,7 +130,7 @@ const hasMultiple = computed(() => props.images.length > 1);
             v-if="currentImage"
             :file-name="currentImage.fileName ?? ''"
             type="product"
-            :alt="productName"
+            :alt="currentAlt"
             loading="eager"
             class="max-h-[80vh] w-full object-contain"
           />

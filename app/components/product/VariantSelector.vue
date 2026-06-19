@@ -175,7 +175,9 @@ function variantInfoFor(
 // distinct products, so prefer the per-variant name; fall back to the
 // parent product name, then to the variant value if neither is set.
 function rowProductName(dimensionName: string, value: string): string {
-  return variantInfoFor(dimensionName, value)?.name || props.productName || value;
+  return (
+    variantInfoFor(dimensionName, value)?.name || props.productName || value
+  );
 }
 
 const primaryImageFileName = computed<string | null>(() => {
@@ -184,6 +186,20 @@ const primaryImageFileName = computed<string | null>(() => {
     images.find((i) => i.isPrimary)?.fileName ?? images[0]?.fileName ?? null
   );
 });
+
+const primaryImage = computed(() => {
+  const images = props.productImages ?? [];
+  return images.find((i) => i.isPrimary) ?? images[0] ?? null;
+});
+
+const { buildProductImageAlt } = useProductImageAlt();
+
+function thumbnailAlt(dimensionName: string, value: string): string {
+  return buildProductImageAlt({
+    name: rowProductName(dimensionName, value),
+    manualAlt: primaryImage.value?.altText,
+  });
+}
 
 function selectValue(dimensionName: string, value: string) {
   emit('update:modelValue', {
@@ -196,10 +212,16 @@ function selectValue(dimensionName: string, value: string) {
 // Geins exposes variant attributes as `{ key, value }` on the GraphQL
 // fragment, while the SDK/legacy shape uses `{ attributeName, attributeValue }`.
 // Tolerate both so real payloads and unit fixtures resolve the same way.
-function attrName(attr: { attributeName?: string; key?: string }): string | undefined {
+function attrName(attr: {
+  attributeName?: string;
+  key?: string;
+}): string | undefined {
   return attr.attributeName ?? attr.key;
 }
-function attrValue(attr: { attributeValue?: string; value?: string }): string | undefined {
+function attrValue(attr: {
+  attributeValue?: string;
+  value?: string;
+}): string | undefined {
   return attr.attributeValue ?? attr.value;
 }
 
@@ -350,7 +372,7 @@ const { showPrice } = usePriceVisibility();
                     v-if="primaryImageFileName"
                     :file-name="primaryImageFileName"
                     type="product"
-                    :alt="productName ?? value"
+                    :alt="thumbnailAlt(activeDimension.dimensionName, value)"
                     class="size-full object-contain"
                   />
                 </div>
