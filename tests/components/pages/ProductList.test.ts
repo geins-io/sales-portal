@@ -750,5 +750,60 @@ describe('ProductList.vue', () => {
       expect(facetIds).toContain('StockStatus');
       expect(facetIds).toContain('Brand');
     });
+
+    function captureSortOptions() {
+      const captured: Array<Array<{ value: string }>> = [];
+      const capturingStubs = {
+        ...stubs,
+        ProductListToolbar: {
+          template:
+            '<div data-testid="plp-toolbar"><slot name="filters" /></div>',
+          props: [
+            'resultCount',
+            'sortValue',
+            'sortOptions',
+            'viewMode',
+            'filterText',
+            'hasActiveFilters',
+          ],
+          setup(props: { sortOptions: Array<{ value: string }> }) {
+            captured.push(props.sortOptions);
+            return {};
+          },
+        },
+      };
+      return { captured, capturingStubs };
+    }
+
+    it('offers price sort options when showPrice is true', async () => {
+      mockShowPrice.value = true;
+      const { captured, capturingStubs } = captureSortOptions();
+
+      await mountProductList(categoryProps, {
+        global: { stubs: capturingStubs },
+      });
+
+      const values = captured[captured.length - 1]!.map((o) => o.value);
+      expect(values).toContain('price-asc');
+      expect(values).toContain('price-desc');
+    });
+
+    it('hides price sort options when showPrice is false', async () => {
+      mockShowPrice.value = false;
+      const { captured, capturingStubs } = captureSortOptions();
+
+      await mountProductList(categoryProps, {
+        global: { stubs: capturingStubs },
+      });
+
+      const values = captured[captured.length - 1]!.map((o) => o.value);
+      expect(values).not.toContain('price-asc');
+      expect(values).not.toContain('price-desc');
+      expect(values).toContain('relevance');
+      expect(values).toContain('newest');
+      expect(values).toContain('name-asc');
+
+      mockShowPrice.value = true;
+    });
   });
 });

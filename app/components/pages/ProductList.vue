@@ -10,7 +10,12 @@ import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { Package as PackageIcon } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useDebounceFn } from '@vueuse/core';
-import { buildFilterInput, SORT_MAP, isPriceFacet, isStockFacet } from '#shared/utils/filters';
+import {
+  buildFilterInput,
+  SORT_MAP,
+  isPriceFacet,
+  isStockFacet,
+} from '#shared/utils/filters';
 import {
   canonicalListRedirectTarget,
   productPath,
@@ -77,13 +82,22 @@ const skip = computed(() => (currentPage.value - 1) * take);
 const { t } = useI18n();
 const { localePath, currentLocale, currentMarket, localeQuery } =
   useLocaleMarket();
-const sortOptions = computed(() => [
-  { label: t('product.sort_relevance'), value: 'relevance' },
-  { label: t('product.sort_price_asc'), value: 'price-asc' },
-  { label: t('product.sort_price_desc'), value: 'price-desc' },
-  { label: t('product.sort_newest'), value: 'newest' },
-  { label: t('product.sort_name_asc'), value: 'name-asc' },
-]);
+// Price sorts are meaningless when the tenant hides prices, so gate them on
+// the same store-settings visibility flag the price facet and VAT selector
+// already use (usePriceVisibility -> showPrice).
+const sortOptions = computed(() => {
+  const options = [
+    { label: t('product.sort_relevance'), value: 'relevance' },
+    { label: t('product.sort_price_asc'), value: 'price-asc' },
+    { label: t('product.sort_price_desc'), value: 'price-desc' },
+    { label: t('product.sort_newest'), value: 'newest' },
+    { label: t('product.sort_name_asc'), value: 'name-asc' },
+  ];
+  if (showPrice.value) return options;
+  return options.filter(
+    (o) => o.value !== 'price-asc' && o.value !== 'price-desc',
+  );
+});
 
 // --- Build filter object for GraphQL FilterInputType ---
 const filterInput = computed(() =>
