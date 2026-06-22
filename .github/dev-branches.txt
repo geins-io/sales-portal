@@ -6,3 +6,4 @@
 #
 # (Empty at cutover: dev equals main, which is what staging already shows.)
 sal-300-305-mobile-search-filter
+feat-footer-newsletter-visibility
