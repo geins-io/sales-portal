@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  ArrowLeft,
-  LoaderCircle,
-  MessageSquare,
-  RotateCw,
-} from 'lucide-vue-next';
+import { ArrowLeft, LoaderCircle, RotateCw } from 'lucide-vue-next';
 import type { AddressType, OrderSummaryType } from '#shared/types/commerce';
 import type { QuoteAddress } from '#shared/types/quote';
 import { Button } from '~/components/ui/button';
@@ -166,13 +161,6 @@ const deliveryDate = computed(() => {
             {{ t('portal.orders.detail.back_to_orders') }}
           </NuxtLink>
           <div class="flex flex-wrap items-center gap-2">
-            <Button
-              data-testid="order-communication-button"
-              variant="secondary"
-            >
-              <MessageSquare class="size-4" />
-              {{ t('portal.orders.detail.actions.order_communication') }}
-            </Button>
             <Button
               v-if="canReorder"
               data-testid="reorder-button"
@@ -465,6 +453,21 @@ const deliveryDate = computed(() => {
                   }}: {{ deliveryDate }}
                 </p>
               </div>
+            </div>
+
+            <!-- Order message: shown only when the order carries one. Grey
+                 box matching the summary and address cards. -->
+            <div
+              v-if="order?.message"
+              data-testid="order-message"
+              class="bg-muted space-y-1 rounded-lg p-6"
+            >
+              <p class="text-foreground text-sm font-semibold">
+                {{ t('portal.orders.detail.order_message') }}
+              </p>
+              <p class="text-muted-foreground text-sm whitespace-pre-line">
+                {{ order?.message }}
+              </p>
             </div>
           </div>
         </div>

@@ -575,6 +575,7 @@
         },
         "billing_address": "Fakturauppgifter",
         "shipping_address": "Leveransadress",
+        "order_message": "Ordermeddelande",
         "order_date": "Orderdatum",
         "order_status": "Status",
         "payment_method": "Betalningsmetod"

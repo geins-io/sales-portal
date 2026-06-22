@@ -575,6 +575,7 @@
         },
         "billing_address": "Invoice details",
         "shipping_address": "Delivery address",
+        "order_message": "Order message",
         "order_date": "Order date",
         "order_status": "Status",
         "payment_method": "Payment method"
