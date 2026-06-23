@@ -65,8 +65,12 @@ function stripHiddenFacetKeys(
 const filterState = ref<Record<string, string[]>>(
   stripHiddenFacetKeys(restoreFiltersFromQuery()),
 );
+// Product lists (category and brand) default to newest. Relevance with no
+// sort param yields a non-deterministic API order that reshuffles on reload,
+// so newest gives a stable, predictable ordering. Search uses relevance.
+const DEFAULT_SORT = 'newest';
 const sortBy = ref(
-  typeof route.query.sort === 'string' ? route.query.sort : 'relevance',
+  typeof route.query.sort === 'string' ? route.query.sort : DEFAULT_SORT,
 );
 const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
   default: () => 'grid',
@@ -313,7 +317,7 @@ watch(
         query[key] = values.join(',');
       }
     }
-    if (sortBy.value !== 'relevance') {
+    if (sortBy.value !== DEFAULT_SORT) {
       query.sort = sortBy.value;
     }
     if (currentPage.value > 1) {
