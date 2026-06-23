@@ -45,7 +45,9 @@ describe('JsonWidget routing', () => {
         { label: 'Company', name: 'company', required: true, type: 'input' },
       ],
     });
-    expect(wrapper.find('[data-testid="form-widget-stub"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="form-widget-stub"]').exists()).toBe(
+      true,
+    );
   });
 
   // W10: non-form data (cards template) does NOT render FormWidget.
@@ -55,13 +57,17 @@ describe('JsonWidget routing', () => {
       header: { heading: 'Hello', description: 'World' },
       items: [],
     });
-    expect(wrapper.find('[data-testid="form-widget-stub"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="form-widget-stub"]').exists()).toBe(
+      false,
+    );
   });
 
   // W10: empty/unknown data does not render FormWidget.
   it('does NOT render FormWidget for empty/unknown data', () => {
     const wrapper = mountJson({});
-    expect(wrapper.find('[data-testid="form-widget-stub"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="form-widget-stub"]').exists()).toBe(
+      false,
+    );
   });
 
   // W10: data with fields but no sendFormToEmail does not pass isFormWidgetData guard.
@@ -69,6 +75,52 @@ describe('JsonWidget routing', () => {
     const wrapper = mountJson({
       fields: [{ label: 'Name', name: 'name', required: true, type: 'input' }],
     });
-    expect(wrapper.find('[data-testid="form-widget-stub"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="form-widget-stub"]').exists()).toBe(
+      false,
+    );
+  });
+});
+
+describe('JsonWidget banner-cards placement', () => {
+  function mountBannerCards(placement?: string) {
+    return mountJson({
+      templateId: 'banner-cards',
+      bannerImages: [
+        {
+          text: { title: 'Heading', byline: 'Byline' },
+          cta: placement ? { placement } : {},
+        },
+      ],
+    });
+  }
+
+  // The overlay container drives both axes: justify-* (vertical) and
+  // items-*/text-* (horizontal). The CMS placement string is `{h}-{v}`.
+  it('centers both axes for "middle-center"', () => {
+    const overlay = mountBannerCards('middle-center').find('.absolute.inset-0');
+    expect(overlay.classes()).toContain('justify-center');
+    expect(overlay.classes()).toContain('items-center');
+    expect(overlay.classes()).toContain('text-center');
+  });
+
+  it('sits bottom-left for "left-bottom"', () => {
+    const overlay = mountBannerCards('left-bottom').find('.absolute.inset-0');
+    expect(overlay.classes()).toContain('justify-end');
+    expect(overlay.classes()).toContain('items-start');
+    expect(overlay.classes()).toContain('text-left');
+  });
+
+  it('maps "right-top" to top-right', () => {
+    const overlay = mountBannerCards('right-top').find('.absolute.inset-0');
+    expect(overlay.classes()).toContain('justify-start');
+    expect(overlay.classes()).toContain('items-end');
+    expect(overlay.classes()).toContain('text-right');
+  });
+
+  it('falls back to bottom-left when placement is missing', () => {
+    const overlay = mountBannerCards().find('.absolute.inset-0');
+    expect(overlay.classes()).toContain('justify-end');
+    expect(overlay.classes()).toContain('items-start');
+    expect(overlay.classes()).toContain('text-left');
   });
 });

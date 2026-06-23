@@ -15,6 +15,8 @@ interface JsonWidgetCta {
   url?: string;
   text?: string;
   label?: string;
+  /** `{horizontal}-{vertical}` overlay placement, e.g. "left-bottom", "middle-center". */
+  placement?: string;
 }
 
 interface CardsRichItem {
@@ -83,6 +85,33 @@ function _resolveImageSrc(src: string | undefined): string {
   // CMS images, use GeinsImage component instead if possible,
   // but JSON widget images use a different path structure
   return src;
+}
+
+/**
+ * Banner-cards overlay placement. The CMS stores each banner's position as a
+ * `{horizontal}-{vertical}` string (e.g. "left-bottom", "middle-center"). Map
+ * it onto the flex-column overlay: vertical via justify-*, horizontal via
+ * items-* plus text-* so multi-line copy aligns too. Falls back to bottom-left
+ * (the historical hardcoded position) when the field is absent or unrecognised.
+ */
+function bannerPlacementClasses(placement?: string): string {
+  const [horizontal, vertical] = (placement ?? '').toLowerCase().split('-');
+
+  const verticalClass =
+    vertical === 'top'
+      ? 'justify-start'
+      : vertical === 'center' || vertical === 'middle'
+        ? 'justify-center'
+        : 'justify-end';
+
+  const horizontalClass =
+    horizontal === 'middle' || horizontal === 'center'
+      ? 'items-center text-center'
+      : horizontal === 'right'
+        ? 'items-end text-right'
+        : 'items-start text-left';
+
+  return `${verticalClass} ${horizontalClass}`;
 }
 </script>
 
@@ -228,7 +257,8 @@ function _resolveImageSrc(src: string | undefined): string {
         class="aspect-[16/9] w-full object-cover"
       />
       <div
-        class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent p-6"
+        class="absolute inset-0 flex flex-col bg-gradient-to-t from-black/60 to-transparent p-6"
+        :class="bannerPlacementClasses(banner.cta?.placement)"
       >
         <h3
           v-if="banner.text?.title"
@@ -242,7 +272,7 @@ function _resolveImageSrc(src: string | undefined): string {
         <NuxtLink
           v-if="banner.cta?.url"
           :to="localePath(stripGeinsPrefix(banner.cta.url))"
-          class="bg-button-background text-primary-foreground mt-3 inline-block self-start rounded-md px-4 py-2 text-sm font-medium"
+          class="bg-button-background text-primary-foreground mt-3 inline-block rounded-md px-4 py-2 text-sm font-medium"
         >
           {{ banner.cta.text }}
         </NuxtLink>
