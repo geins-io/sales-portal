@@ -41,7 +41,7 @@ onUnmounted(() => {
     v-if="open"
     data-slot="search-autocomplete"
     data-testid="search-autocomplete"
-    class="bg-popover text-popover-foreground border-border absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-md border shadow-lg"
+    class="bg-popover text-popover-foreground border-border absolute top-full right-0 left-0 z-50 mt-1 max-h-[70vh] overflow-y-auto rounded-md border shadow-lg"
   >
     <!-- Loading state -->
     <div v-if="loading" class="flex items-center gap-2 px-4 py-3">

@@ -20,5 +20,6 @@ const navVariant = computed<'grey' | 'white'>(
     <LayoutHeaderTopbar />
     <LayoutHeaderMain :nav-variant="navVariant" />
     <LayoutHeaderNav :variant="navVariant" />
+    <LayoutHeaderMobileSearch />
   </header>
 </template>

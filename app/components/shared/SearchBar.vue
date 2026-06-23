@@ -9,9 +9,14 @@ const props = withDefaults(
   defineProps<{
     placeholder?: string;
     modelValue?: string;
+    // Focus the input as soon as the bar mounts. Off by default so the
+    // desktop header bar stays passive; the dedicated /search landing
+    // turns it on so a query can be typed immediately.
+    autofocus?: boolean;
   }>(),
   {
     modelValue: '',
+    autofocus: false,
   },
 );
 
@@ -28,7 +33,12 @@ const autocompleteOpen = ref(false);
 const autocompleteResults = ref<ProductListResponse | null>(null);
 const autocompleteLoading = ref(false);
 const containerRef = ref<HTMLElement | null>(null);
+const inputRef = ref<HTMLInputElement | null>(null);
 const activeIndex = ref(-1);
+
+onMounted(() => {
+  if (props.autofocus) inputRef.value?.focus();
+});
 
 const autocompleteItems = computed(
   () => autocompleteResults.value?.products.slice(0, 5) ?? [],
@@ -164,6 +174,7 @@ const activeDescendant = computed(() =>
       class="text-muted-foreground pointer-events-none absolute left-3 size-4"
     />
     <input
+      ref="inputRef"
       v-model="query"
       type="text"
       data-testid="search-input"
