@@ -10,3 +10,4 @@ feat-footer-newsletter-visibility
 sal-308-311-m8-ui-batch
 sal-313-314-layout-containers
 sal-315-316-cms-widgets
+sal-317-318-cms-widget-fixes
