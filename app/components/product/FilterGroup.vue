@@ -25,6 +25,17 @@ const visibleValues = computed(() =>
 );
 
 /**
+ * Hide the whole group when its only available value is the placeholder "-"
+ * Geins emits for products that carry no real value on a dimension (e.g. the
+ * Sku/size facet on products without sizes). Such a group offers nothing to
+ * filter by, so rendering it is noise. Empty groups keep their prior behavior.
+ */
+const shouldRender = computed(() => {
+  const values = visibleValues.value;
+  return values.length === 0 || !values.every((v) => v.label.trim() === '-');
+});
+
+/**
  * Header label for the filter group accordion. Resolves the facet's identity
  * (`group` / `type` / `filterId`) through the translation dictionary, falling
  * back to the facet's own label for custom parameter filters.
@@ -48,7 +59,12 @@ function isChecked(valueId: string) {
 </script>
 
 <template>
-  <Accordion type="single" collapsible :default-value="facet.filterId">
+  <Accordion
+    v-if="shouldRender"
+    type="single"
+    collapsible
+    :default-value="facet.filterId"
+  >
     <AccordionItem :value="facet.filterId">
       <AccordionTrigger class="mb-5 border-b py-3 text-base font-semibold">
         <span>

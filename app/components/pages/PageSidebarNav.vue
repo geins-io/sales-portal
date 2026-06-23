@@ -70,7 +70,9 @@ function visibleChildren(
     data-testid="sidebar-nav"
   >
     <!-- Desktop: sticky vertical nav, hidden on mobile -->
-    <ul class="bg-muted sticky top-4 hidden space-y-1 rounded-lg p-4 md:block">
+    <ul
+      class="border-border divide-border sticky top-4 hidden divide-y overflow-hidden rounded-lg border bg-white md:block"
+    >
       <li v-for="item in visibleItems" :key="item.id ?? getMenuLabel(item)">
         <template v-if="visibleChildren(item.children).length > 0">
           <span class="text-foreground block py-2 ps-3 text-sm font-semibold">
@@ -102,7 +104,7 @@ function visibleChildren(
           <NuxtLink
             :to="itemUrl(item.canonicalUrl, item)"
             :aria-current="isActive(item.canonicalUrl) ? 'page' : undefined"
-            class="block rounded-md py-2 ps-3 text-sm transition-colors"
+            class="block p-[15px] text-sm transition-colors"
             :class="
               isActive(item.canonicalUrl)
                 ? 'bg-accent text-accent-foreground font-medium'

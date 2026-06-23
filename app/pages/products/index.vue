@@ -33,8 +33,11 @@ function restoreFiltersFromQuery(): Record<string, string[]> {
 }
 
 const filterState = ref<Record<string, string[]>>(restoreFiltersFromQuery());
+// The full-catalogue list defaults to newest for a stable order (see the
+// category/brand PLP); relevance with no sort param reshuffles on reload.
+const DEFAULT_SORT = 'newest';
 const sortBy = ref(
-  typeof route.query.sort === 'string' ? route.query.sort : 'relevance',
+  typeof route.query.sort === 'string' ? route.query.sort : DEFAULT_SORT,
 );
 const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
   default: () => 'grid',
@@ -107,7 +110,7 @@ watch(
     for (const [key, values] of Object.entries(filterState.value ?? {})) {
       if (values.length > 0) query[key] = values.join(',');
     }
-    if (sortBy.value !== 'relevance') query.sort = sortBy.value;
+    if (sortBy.value !== DEFAULT_SORT) query.sort = sortBy.value;
     if (currentPage.value > 1) query.page = String(currentPage.value);
     router.replace({ query });
   },

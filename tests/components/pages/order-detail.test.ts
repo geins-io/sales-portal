@@ -388,7 +388,7 @@ describe('OrderDetail', () => {
       expect(backLink.attributes('href')).toContain('/portal/orders');
     });
 
-    it('renders all four action buttons in the toolbar', () => {
+    it('renders the reorder action in the toolbar without a communication button', () => {
       mockData.value = makeOrder();
 
       const wrapper = shallowMountComponent(OrderDetail, {
@@ -397,10 +397,10 @@ describe('OrderDetail', () => {
 
       const toolbar = wrapper.find('[data-testid="order-action-toolbar"]');
       expect(toolbar.exists()).toBe(true);
-      expect(toolbar.text()).toContain(
+      expect(toolbar.text()).toContain('portal.orders.detail.actions.reorder');
+      expect(toolbar.text()).not.toContain(
         'portal.orders.detail.actions.order_communication',
       );
-      expect(toolbar.text()).toContain('portal.orders.detail.actions.reorder');
       expect(toolbar.text()).not.toContain(
         'portal.orders.detail.actions.view_additional_data',
       );
@@ -409,7 +409,7 @@ describe('OrderDetail', () => {
       );
     });
 
-    it('renders order-communication-button and reorder-button only', () => {
+    it('renders the reorder button and no communication button', () => {
       mockData.value = makeOrder();
 
       const wrapper = shallowMountComponent(OrderDetail, {
@@ -418,7 +418,7 @@ describe('OrderDetail', () => {
 
       expect(
         wrapper.find('[data-testid="order-communication-button"]').exists(),
-      ).toBe(true);
+      ).toBe(false);
       expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
         true,
       );
@@ -430,7 +430,7 @@ describe('OrderDetail', () => {
       ).toBe(false);
     });
 
-    it('order-communication button uses secondary variant, reorder uses the primary store-settings color', () => {
+    it('reorder button uses the primary store-settings color (no explicit variant)', () => {
       mockData.value = makeOrder();
 
       const wrapper = shallowMountComponent(OrderDetail, {
@@ -447,12 +447,51 @@ describe('OrderDetail', () => {
         },
       });
 
-      const comm = wrapper.find('[data-testid="order-communication-button"]');
       const reorder = wrapper.find('[data-testid="reorder-button"]');
-      expect(comm.attributes('data-variant')).toBe('secondary');
       // The Reorder button does not declare a variant prop so it falls back
       // to the Button component's default (primary, theme-driven).
       expect(reorder.attributes('data-variant')).toBeUndefined();
+    });
+  });
+
+  describe('order message', () => {
+    it('renders the order message grey box when a message exists', () => {
+      mockData.value = makeOrder({
+        message: 'Please deliver to the back door.',
+      });
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const box = wrapper.find('[data-testid="order-message"]');
+      expect(box.exists()).toBe(true);
+      expect(box.text()).toContain('portal.orders.detail.order_message');
+      expect(box.text()).toContain('Please deliver to the back door.');
+    });
+
+    it('does not render the order message box when no message exists', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      expect(wrapper.find('[data-testid="order-message"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('does not render the order message box when the message is empty', () => {
+      mockData.value = makeOrder({ message: '' });
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      expect(wrapper.find('[data-testid="order-message"]').exists()).toBe(
+        false,
+      );
     });
   });
 

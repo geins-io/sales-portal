@@ -45,10 +45,17 @@ async function mountProductList(
 // SIDE ONLY, and delegates content misses to recoverEntityUrl on both server
 // and client. Both are mocked as spies and asserted against; assertions watch
 // the spies, never real navigation.
-const { navigateToMock, recoverEntityUrlMock } = vi.hoisted(() => ({
-  navigateToMock: vi.fn(() => Promise.resolve()),
-  recoverEntityUrlMock: vi.fn(() => Promise.resolve()),
-}));
+const { navigateToMock, recoverEntityUrlMock, replaceMock } = vi.hoisted(
+  () => ({
+    navigateToMock: vi.fn(() => Promise.resolve()),
+    recoverEntityUrlMock: vi.fn(() => Promise.resolve()),
+    // Shared router.replace spy so URL-sync assertions can read the query the
+    // PLP writes. The component auto-imports useRouter from
+    // #app/composables/router; both that module mock and the global stub below
+    // hand back this same spy so the assertion sees the real call.
+    replaceMock: vi.fn(),
+  }),
+);
 
 vi.stubGlobal('navigateTo', (...args: unknown[]) => navigateToMock(...args));
 vi.mock('../../../app/composables/useEntityUrlRecovery', () => ({
@@ -188,7 +195,7 @@ vi.stubGlobal('useI18n', () => ({ t: (key: string) => key }));
 
 const mockRouter = {
   push: vi.fn(),
-  replace: vi.fn(),
+  replace: replaceMock,
   go: vi.fn(),
   back: vi.fn(),
   forward: vi.fn(),
@@ -215,7 +222,7 @@ const { plpRoute } = vi.hoisted(() => ({
 vi.mock('#app/composables/router', () => ({
   useRouter: () => ({
     push: vi.fn(),
-    replace: vi.fn(),
+    replace: replaceMock,
     go: vi.fn(),
     back: vi.fn(),
     forward: vi.fn(),
@@ -335,6 +342,7 @@ describe('ProductList.vue', () => {
     mockUseFetch.mockClear();
     navigateToMock.mockClear();
     recoverEntityUrlMock.mockClear();
+    replaceMock.mockClear();
   });
 
   describe('content-miss recovery (Problem B)', () => {
@@ -749,6 +757,164 @@ describe('ProductList.vue', () => {
       expect(facetIds).toContain('Price');
       expect(facetIds).toContain('StockStatus');
       expect(facetIds).toContain('Brand');
+    });
+
+    function captureSortOptions() {
+      const captured: Array<Array<{ value: string }>> = [];
+      const capturingStubs = {
+        ...stubs,
+        ProductListToolbar: {
+          template:
+            '<div data-testid="plp-toolbar"><slot name="filters" /></div>',
+          props: [
+            'resultCount',
+            'sortValue',
+            'sortOptions',
+            'viewMode',
+            'filterText',
+            'hasActiveFilters',
+          ],
+          setup(props: { sortOptions: Array<{ value: string }> }) {
+            captured.push(props.sortOptions);
+            return {};
+          },
+        },
+      };
+      return { captured, capturingStubs };
+    }
+
+    it('offers price sort options when showPrice is true', async () => {
+      mockShowPrice.value = true;
+      const { captured, capturingStubs } = captureSortOptions();
+
+      await mountProductList(categoryProps, {
+        global: { stubs: capturingStubs },
+      });
+
+      const values = captured[captured.length - 1]!.map((o) => o.value);
+      expect(values).toContain('price-asc');
+      expect(values).toContain('price-desc');
+    });
+
+    it('hides price sort options when showPrice is false', async () => {
+      mockShowPrice.value = false;
+      const { captured, capturingStubs } = captureSortOptions();
+
+      await mountProductList(categoryProps, {
+        global: { stubs: capturingStubs },
+      });
+
+      const values = captured[captured.length - 1]!.map((o) => o.value);
+      expect(values).not.toContain('price-asc');
+      expect(values).not.toContain('price-desc');
+      expect(values).toContain('relevance');
+      expect(values).toContain('newest');
+      expect(values).toContain('name-asc');
+
+      mockShowPrice.value = true;
+    });
+  });
+
+  describe('default sort and URL sync', () => {
+    // Capture the sortValue prop the toolbar receives so the initial default
+    // can be asserted without reaching into setup internals.
+    function withSortValueCapture() {
+      const captured: string[] = [];
+      const capturingStubs = {
+        ...stubs,
+        ProductListToolbar: {
+          name: 'ProductListToolbar',
+          template:
+            '<div data-testid="plp-toolbar"><slot name="filters" /></div>',
+          props: [
+            'resultCount',
+            'sortValue',
+            'sortOptions',
+            'viewMode',
+            'filterText',
+            'hasActiveFilters',
+          ],
+          emits: ['update:sortValue', 'update:viewMode'],
+          setup(props: { sortValue: string }) {
+            captured.push(props.sortValue);
+            return {};
+          },
+        },
+      };
+      return { captured, capturingStubs };
+    }
+
+    const namedToolbarStubs = {
+      ...stubs,
+      ProductListToolbar: {
+        name: 'ProductListToolbar',
+        template:
+          '<div data-testid="plp-toolbar"><slot name="filters" /></div>',
+        props: [
+          'resultCount',
+          'sortValue',
+          'sortOptions',
+          'viewMode',
+          'filterText',
+          'hasActiveFilters',
+        ],
+        emits: ['update:sortValue', 'update:viewMode'],
+      },
+    };
+
+    function lastReplacedQuery(): Record<string, string> | undefined {
+      const calls = replaceMock.mock.calls;
+      const arg = calls[calls.length - 1]?.[0] as
+        | { query?: Record<string, string> }
+        | undefined;
+      return arg?.query;
+    }
+
+    it('initialises a category list to the newest default', async () => {
+      const { captured, capturingStubs } = withSortValueCapture();
+      await mountProductList(categoryProps, {
+        global: { stubs: capturingStubs },
+      });
+      expect(captured[captured.length - 1]).toBe('newest');
+    });
+
+    it('initialises a brand list to the newest default', async () => {
+      const { captured, capturingStubs } = withSortValueCapture();
+      await mountProductList(
+        { type: 'brand' as const, alias: 'acme' },
+        { global: { stubs: capturingStubs } },
+      );
+      expect(captured[captured.length - 1]).toBe('newest');
+    });
+
+    it('omits ?sort= from the URL while sortBy is the newest default', async () => {
+      const wrapper = await mountProductList(categoryProps, {
+        global: { stubs: namedToolbarStubs },
+      });
+      const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+
+      // Move off the default, then back to it. Returning to 'newest' must write
+      // a query with no `sort` key so the default never appears in the URL.
+      toolbar.vm.$emit('update:sortValue', 'price-asc');
+      await flushPromises();
+      toolbar.vm.$emit('update:sortValue', 'newest');
+      await flushPromises();
+
+      const query = lastReplacedQuery();
+      expect(query).toBeDefined();
+      expect(query).not.toHaveProperty('sort');
+    });
+
+    it('writes ?sort= to the URL for a non-default sort', async () => {
+      const wrapper = await mountProductList(categoryProps, {
+        global: { stubs: namedToolbarStubs },
+      });
+      const toolbar = wrapper.findComponent({ name: 'ProductListToolbar' });
+
+      toolbar.vm.$emit('update:sortValue', 'price-asc');
+      await flushPromises();
+
+      expect(lastReplacedQuery()?.sort).toBe('price-asc');
     });
   });
 });

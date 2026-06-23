@@ -10,7 +10,12 @@ import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { Package as PackageIcon } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useDebounceFn } from '@vueuse/core';
-import { buildFilterInput, SORT_MAP, isPriceFacet, isStockFacet } from '#shared/utils/filters';
+import {
+  buildFilterInput,
+  SORT_MAP,
+  isPriceFacet,
+  isStockFacet,
+} from '#shared/utils/filters';
 import {
   canonicalListRedirectTarget,
   productPath,
@@ -60,8 +65,12 @@ function stripHiddenFacetKeys(
 const filterState = ref<Record<string, string[]>>(
   stripHiddenFacetKeys(restoreFiltersFromQuery()),
 );
+// Product lists (category and brand) default to newest. Relevance with no
+// sort param yields a non-deterministic API order that reshuffles on reload,
+// so newest gives a stable, predictable ordering. Search uses relevance.
+const DEFAULT_SORT = 'newest';
 const sortBy = ref(
-  typeof route.query.sort === 'string' ? route.query.sort : 'relevance',
+  typeof route.query.sort === 'string' ? route.query.sort : DEFAULT_SORT,
 );
 const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
   default: () => 'grid',
@@ -77,13 +86,22 @@ const skip = computed(() => (currentPage.value - 1) * take);
 const { t } = useI18n();
 const { localePath, currentLocale, currentMarket, localeQuery } =
   useLocaleMarket();
-const sortOptions = computed(() => [
-  { label: t('product.sort_relevance'), value: 'relevance' },
-  { label: t('product.sort_price_asc'), value: 'price-asc' },
-  { label: t('product.sort_price_desc'), value: 'price-desc' },
-  { label: t('product.sort_newest'), value: 'newest' },
-  { label: t('product.sort_name_asc'), value: 'name-asc' },
-]);
+// Price sorts are meaningless when the tenant hides prices, so gate them on
+// the same store-settings visibility flag the price facet and VAT selector
+// already use (usePriceVisibility -> showPrice).
+const sortOptions = computed(() => {
+  const options = [
+    { label: t('product.sort_relevance'), value: 'relevance' },
+    { label: t('product.sort_price_asc'), value: 'price-asc' },
+    { label: t('product.sort_price_desc'), value: 'price-desc' },
+    { label: t('product.sort_newest'), value: 'newest' },
+    { label: t('product.sort_name_asc'), value: 'name-asc' },
+  ];
+  if (showPrice.value) return options;
+  return options.filter(
+    (o) => o.value !== 'price-asc' && o.value !== 'price-desc',
+  );
+});
 
 // --- Build filter object for GraphQL FilterInputType ---
 const filterInput = computed(() =>
@@ -299,7 +317,7 @@ watch(
         query[key] = values.join(',');
       }
     }
-    if (sortBy.value !== 'relevance') {
+    if (sortBy.value !== DEFAULT_SORT) {
       query.sort = sortBy.value;
     }
     if (currentPage.value > 1) {

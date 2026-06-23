@@ -26,7 +26,10 @@ const searchTerm = computed(() => {
 });
 
 const filterState = ref<Record<string, string[]>>({});
-const sortBy = ref('relevance');
+// Search defaults to relevance: the API ranks results by match quality, which
+// is the meaningful order for a query. Product lists default to newest instead.
+const DEFAULT_SORT = 'relevance';
+const sortBy = ref(DEFAULT_SORT);
 const viewMode = useCookie<'grid' | 'list'>('plp-view-mode', {
   default: () => 'grid',
 });
@@ -128,7 +131,7 @@ watch(
         query[key] = values.join(',');
       }
     }
-    if (sortBy.value !== 'relevance') {
+    if (sortBy.value !== DEFAULT_SORT) {
       query.sort = sortBy.value;
     }
     if (currentPage.value > 1) {
