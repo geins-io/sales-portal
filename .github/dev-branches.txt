@@ -17,3 +17,4 @@ alihalaki/mobile-topbar-polish
 alihalaki/mobile-plp-polish
 alihalaki/mobile-portal-overview-polish
 alihalaki/mobile-portal-orders-polish
+alihalaki/checkout-cart-trash-icon
