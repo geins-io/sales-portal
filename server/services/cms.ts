@@ -14,7 +14,9 @@ import {
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 import { hasPageTag } from '#shared/utils/cms-tags';
+import { mergeContainersByVisibility } from '#shared/utils/cms-visibility';
 import { isSafeInternalPath } from '#shared/utils/redirect';
+import type { CmsContentArea } from '#shared/types/cms';
 
 // =============================================================================
 // Cache Configuration
@@ -26,7 +28,7 @@ const menuCache = new LRUCache<string, MenuType>({
   max: 200,
 });
 
-const areaCache = new LRUCache<string, ContentAreaType>({
+const areaCache = new LRUCache<string, CmsContentArea>({
   max: 500,
 });
 
@@ -59,18 +61,6 @@ function buildCachePrefix(event: H3Event): string {
 function hasContent(area: ContentAreaType | null | undefined): boolean {
   const containers = area?.containers ?? [];
   return containers.some((c) => (c?.content?.length ?? 0) > 0);
-}
-
-/**
- * Detect display setting from User-Agent header.
- * Returns 'mobile' or 'desktop' for CMS widget area queries.
- * The Geins CMS can serve different widget configurations per display setting.
- */
-function getDisplaySetting(event: H3Event): string {
-  const ua = getRequestHeader(event, 'user-agent') ?? '';
-  const isMobile =
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-  return isMobile ? 'mobile' : 'desktop';
 }
 
 // =============================================================================
@@ -194,32 +184,29 @@ export async function getPage(
   );
 }
 
-export async function getContentArea(
+/**
+ * Fetches one display-setting "leg" of a content area: the containers Geins
+ * returns for the given `displaySetting` filter (a desktop leg returns the
+ * always-visible plus desktop-only containers; a mobile leg returns the
+ * always-visible plus mobile-only). Handles preview and the language fallback;
+ * getContentArea fetches both legs and merges them.
+ *
+ * Must strip languageId from BOTH query vars AND RequestContext on fallback —
+ * the SDK merges context after vars, so context.languageId would override the
+ * strip.
+ */
+async function fetchAreaLeg(
+  sdk: Awaited<ReturnType<typeof getTenantSDK>>,
   args: {
     family: string;
     areaName: string;
     customerType?: GeinsCustomerType;
-    displaySetting?: string;
   },
-  event: H3Event,
+  channelVars: ReturnType<typeof getRequestChannelVariables>,
+  ctx: ReturnType<typeof buildRequestContext>,
+  preview: boolean,
+  displaySetting: 'mobile' | 'desktop',
 ): Promise<ContentAreaType> {
-  const preview = getPreviewCookie(event);
-  const isCacheable = !args.customerType && !preview;
-  const displaySetting = args.displaySetting ?? getDisplaySetting(event);
-  const cacheKey = isCacheable
-    ? `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}::${displaySetting}`
-    : '';
-
-  if (isCacheable) {
-    const cached = areaCache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-  }
-
-  const sdk = await getTenantSDK(event);
-  const channelVars = getRequestChannelVariables(sdk, event);
-  const ctx = buildRequestContext(event);
   const queryArgs = {
     ...args,
     ...channelVars,
@@ -252,8 +239,6 @@ export async function getContentArea(
   // so the SDK uses its default locale. Handles CMS content that was created
   // for a single language but should be visible to all users.
   // Preserves preview flag so draft content still works in fallback.
-  // Must strip languageId from BOTH query vars AND RequestContext — the SDK
-  // merges context after vars, so context.languageId would override the strip.
   if (!hasContent(result) && channelVars.languageId) {
     const { languageId: _v, ...varsWithoutLang } = channelVars;
     const { languageId: _c, ...ctxWithoutLang } = ctx ?? {};
@@ -300,6 +285,56 @@ export async function getContentArea(
       }
     }
   }
+
+  return result;
+}
+
+export async function getContentArea(
+  args: {
+    family: string;
+    areaName: string;
+    customerType?: GeinsCustomerType;
+  },
+  event: H3Event,
+): Promise<CmsContentArea> {
+  const preview = getPreviewCookie(event);
+  const isCacheable = !args.customerType && !preview;
+  const cacheKey = isCacheable
+    ? `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}`
+    : '';
+
+  if (isCacheable) {
+    const cached = areaCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  }
+
+  const sdk = await getTenantSDK(event);
+  const channelVars = getRequestChannelVariables(sdk, event);
+  const ctx = buildRequestContext(event);
+
+  // Geins enforces the per-container "Display settings" server-side via the
+  // `displaySetting` filter and never returns mobile-only and desktop-only
+  // containers in the same response. Fetch both legs and merge so every
+  // container reaches the client regardless of viewport; CmsContainer then
+  // gates each by breakpoint from the derived `visibility` tag (resize-aware,
+  // not User-Agent based). The mobile leg is best-effort: if it fails we still
+  // render the desktop set rather than blanking the area.
+  const [desktopArea, mobileArea] = await Promise.all([
+    fetchAreaLeg(sdk, args, channelVars, ctx, preview, 'desktop'),
+    fetchAreaLeg(sdk, args, channelVars, ctx, preview, 'mobile').catch(
+      () => null,
+    ),
+  ]);
+
+  const result: CmsContentArea = {
+    ...desktopArea,
+    containers: mergeContainersByVisibility(
+      desktopArea?.containers ?? [],
+      mobileArea?.containers ?? [],
+    ),
+  };
 
   if (isCacheable) {
     areaCache.set(cacheKey, result, { ttl: CACHE_TTL_MS });

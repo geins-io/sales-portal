@@ -546,6 +546,7 @@
       "detail": {
         "title": "Order",
         "back_to_orders": "Alla beställningar",
+        "view_rows": "Visa orderrader",
         "actions": {
           "view_additional_data": "Visa ytterligare data",
           "download_receipt": "Ladda ned kvitto",
@@ -758,6 +759,7 @@
       "status_cancelled": "Avbruten",
       "detail_title": "Offertdetaljer",
       "items_heading": "Artiklar",
+      "view_rows": "Visa offertrader",
       "summary_heading": "Sammanfattning",
       "product": "Produkt",
       "article_number": "Art nr",

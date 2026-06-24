@@ -152,91 +152,93 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-6">
-    <!-- Page header -->
-    <div>
-      <h1
-        class="font-heading text-5xl leading-tight font-bold md:text-6xl"
-        data-testid="all-products-heading"
-      >
-        {{ $t('nav.products') }}
-      </h1>
-      <p
-        v-if="totalCount > 0"
-        class="text-muted-foreground mt-2 text-sm"
-        data-testid="result-count"
-      >
-        {{ $t('product.result_count', { count: totalCount }) }}
-      </p>
-    </div>
+  <div class="px-4 py-8 lg:px-6">
+    <div class="mx-auto max-w-7xl space-y-6">
+      <!-- Page header -->
+      <div>
+        <h1
+          class="font-heading text-5xl leading-tight font-bold md:text-6xl"
+          data-testid="all-products-heading"
+        >
+          {{ $t('nav.products') }}
+        </h1>
+        <p
+          v-if="totalCount > 0"
+          class="text-muted-foreground mt-2 text-sm"
+          data-testid="result-count"
+        >
+          {{ $t('product.result_count', { count: totalCount }) }}
+        </p>
+      </div>
 
-    <!-- Active filters -->
-    <ActiveFilters
-      v-if="facets.length > 0"
-      :filters="filterState"
-      :facets="facets"
-      @remove="removeFilter"
-      @clear-all="clearAllFilters"
-    />
+      <!-- Active filters -->
+      <ActiveFilters
+        v-if="facets.length > 0"
+        :filters="filterState"
+        :facets="facets"
+        @remove="removeFilter"
+        @clear-all="clearAllFilters"
+      />
 
-    <!-- Toolbar -->
-    <ProductListToolbar
-      :sort-value="sortBy"
-      :sort-options="sortOptions"
-      :view-mode="viewMode"
-      @update:sort-value="sortBy = $event"
-      @update:view-mode="viewMode = $event"
-    >
-      <template #filters>
-        <ProductFilters
-          v-if="facets.length"
-          v-model="filterState"
-          :facets="facets"
+      <!-- Toolbar -->
+      <ProductListToolbar
+        :sort-value="sortBy"
+        :sort-options="sortOptions"
+        :view-mode="viewMode"
+        @update:sort-value="sortBy = $event"
+        @update:view-mode="viewMode = $event"
+      >
+        <template #filters>
+          <ProductFilters
+            v-if="facets.length"
+            v-model="filterState"
+            :facets="facets"
+          />
+        </template>
+      </ProductListToolbar>
+
+      <!-- Loading skeleton -->
+      <ProductListSkeleton
+        v-if="isLoading && products.length === 0"
+        :view-mode="viewMode"
+        data-testid="all-products-loading"
+      />
+
+      <!-- Product grid/list -->
+      <div
+        v-else
+        :class="
+          viewMode === 'grid'
+            ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
+            : 'flex flex-col gap-4'
+        "
+        data-testid="all-products-grid"
+      >
+        <ProductCard
+          v-for="product in products"
+          :key="product.productId"
+          :product="product"
+          :variant="viewMode"
         />
-      </template>
-    </ProductListToolbar>
+      </div>
 
-    <!-- Loading skeleton -->
-    <ProductListSkeleton
-      v-if="isLoading && products.length === 0"
-      :view-mode="viewMode"
-      data-testid="all-products-loading"
-    />
-
-    <!-- Product grid/list -->
-    <div
-      v-else
-      :class="
-        viewMode === 'grid'
-          ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
-          : 'flex flex-col gap-4'
-      "
-      data-testid="all-products-grid"
-    >
-      <ProductCard
-        v-for="product in products"
-        :key="product.productId"
-        :product="product"
-        :variant="viewMode"
-      />
-    </div>
-
-    <!-- Pagination -->
-    <div v-if="totalCount > 0" class="mt-8 flex items-center justify-between">
-      <p class="text-muted-foreground text-sm">
-        {{
-          $t('pagination.showing_range', {
-            from: showingFrom,
-            to: showingTo,
-            total: totalCount,
-          })
-        }}
-      </p>
-      <NumberedPagination
-        :current-page="currentPage"
-        :total-pages="totalPages"
-        @update:current-page="onPageChange"
-      />
+      <!-- Pagination -->
+      <div v-if="totalCount > 0" class="mt-8 flex items-center justify-between">
+        <p class="text-muted-foreground text-sm">
+          {{
+            $t('pagination.showing_range', {
+              from: showingFrom,
+              to: showingTo,
+              total: totalCount,
+            })
+          }}
+        </p>
+        <NumberedPagination
+          :current-page="currentPage"
+          :total-pages="totalPages"
+          @update:current-page="onPageChange"
+        />
+      </div>
     </div>
   </div>
 </template>

@@ -2,6 +2,7 @@
 import { useMenuData } from '~/composables/useMenuData';
 import {
   normalizeMenuUrl,
+  stripGeinsPrefix,
   getMenuLabel,
   getVisibleItems,
   addCategoryPrefix,
@@ -42,9 +43,12 @@ function itemUrl(
 function isActive(canonicalUrl: string | undefined): boolean {
   const normalized = normalizeMenuUrl(canonicalUrl);
   if (normalized === '') return false;
-  if (route.path === normalized) return true;
+  // route.path carries the /{market}/{locale} prefix; strip it the same way
+  // normalizeMenuUrl strips it from the menu URL so the two compare like-for-like.
+  const current = stripGeinsPrefix(route.path);
+  if (current === normalized) return true;
   // Match child pages (e.g. /about/team matches /about) but not root '/'
-  return normalized !== '/' && route.path.startsWith(normalized + '/');
+  return normalized !== '/' && current.startsWith(normalized + '/');
 }
 
 function visibleChildren(
@@ -61,6 +65,26 @@ function visibleChildren(
 ) {
   return getVisibleItems(children as Parameters<typeof getVisibleItems>[0]);
 }
+
+/**
+ * Label of the page that matches the current route, used as the value shown
+ * in the collapsed mobile control. Returns null when no item matches so the
+ * template can fall back to the navigation heading as a placeholder.
+ */
+const activeLabel = computed<string | null>(() => {
+  for (const item of visibleItems.value) {
+    const children = visibleChildren(item.children);
+    if (children.length > 0) {
+      const activeChild = children.find((child) =>
+        isActive(child.canonicalUrl),
+      );
+      if (activeChild) return getMenuLabel(activeChild);
+    } else if (isActive(item.canonicalUrl)) {
+      return getMenuLabel(item);
+    }
+  }
+  return null;
+});
 </script>
 
 <template>
@@ -117,26 +141,37 @@ function visibleChildren(
       </li>
     </ul>
 
-    <!-- Mobile: collapsible accordion, hidden on desktop -->
+    <!-- Mobile: select-style disclosure, hidden on desktop -->
     <div class="md:hidden">
+      <p
+        class="text-muted-foreground mb-2 text-sm font-medium"
+        data-testid="sidebar-nav-heading"
+      >
+        {{ $t('nav.sidebar_navigation') }}
+      </p>
       <Accordion type="single" collapsible>
-        <AccordionItem value="sidebar-menu">
-          <AccordionTrigger class="text-sm font-medium">
-            {{ $t('nav.sidebar_navigation') }}
+        <AccordionItem value="sidebar-menu" class="border-b-0">
+          <AccordionTrigger
+            class="border-border text-foreground items-center rounded-lg border bg-white px-4 py-3 font-normal hover:no-underline"
+            data-testid="sidebar-nav-trigger"
+          >
+            {{ activeLabel ?? $t('nav.sidebar_navigation') }}
           </AccordionTrigger>
-          <AccordionContent>
-            <ul class="space-y-1 py-2">
+          <AccordionContent class="pb-0">
+            <ul
+              class="border-border divide-border mt-2 divide-y overflow-hidden rounded-lg border bg-white"
+            >
               <li
                 v-for="item in visibleItems"
                 :key="item.id ?? getMenuLabel(item)"
               >
                 <template v-if="visibleChildren(item.children).length > 0">
                   <span
-                    class="text-foreground block py-2 ps-3 text-sm font-semibold"
+                    class="text-foreground block px-4 py-3 text-sm font-semibold"
                   >
                     {{ getMenuLabel(item) }}
                   </span>
-                  <ul class="space-y-0.5 ps-4">
+                  <ul class="divide-border divide-y border-t">
                     <li
                       v-for="child in visibleChildren(item.children)"
                       :key="child.id ?? getMenuLabel(child)"
@@ -146,7 +181,7 @@ function visibleChildren(
                         :aria-current="
                           isActive(child.canonicalUrl) ? 'page' : undefined
                         "
-                        class="block rounded-md py-1.5 ps-3 text-sm transition-colors"
+                        class="block py-3 ps-8 pe-4 text-sm transition-colors"
                         :class="
                           isActive(child.canonicalUrl)
                             ? 'bg-accent text-accent-foreground font-medium'
@@ -164,7 +199,7 @@ function visibleChildren(
                     :aria-current="
                       isActive(item.canonicalUrl) ? 'page' : undefined
                     "
-                    class="block rounded-md py-2 ps-3 text-sm transition-colors"
+                    class="block px-4 py-3 text-sm transition-colors"
                     :class="
                       isActive(item.canonicalUrl)
                         ? 'bg-accent text-accent-foreground font-medium'

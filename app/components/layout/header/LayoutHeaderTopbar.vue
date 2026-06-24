@@ -20,14 +20,14 @@ const { to: applyTo, isResolved: applyResolved } = useCmsPageLink(
     data-slot="topbar"
     class="bg-top-bar-background text-top-bar-text w-full text-sm"
   >
-    <div class="flex h-10 items-center justify-between px-4 lg:px-6">
+    <div class="flex h-12 items-center justify-between px-4 lg:px-6">
       <!-- Left: Contact + Locale -->
       <div class="flex items-center gap-4">
         <NuxtLink
           v-if="contactResolved"
           :to="contactTo"
           :aria-label="$t('layout.contact_us')"
-          class="flex items-center gap-1.5 hover:underline"
+          class="flex items-center gap-1.5 py-2 hover:underline"
         >
           <Mail class="size-4" />
           <span class="hidden sm:inline">{{ $t('layout.contact_us') }}</span>
@@ -65,7 +65,7 @@ const { to: applyTo, isResolved: applyResolved } = useCmsPageLink(
           v-if="!authStore.isAuthenticated"
           type="button"
           :aria-label="$t('auth.login')"
-          class="flex items-center gap-1.5 hover:underline"
+          class="flex items-center gap-1.5 py-2 hover:underline"
           data-testid="topbar-login"
           @click="authStore.openSheet()"
         >
@@ -76,7 +76,7 @@ const { to: applyTo, isResolved: applyResolved } = useCmsPageLink(
           <NuxtLink
             :to="localePath('/portal')"
             :aria-label="$t('layout.customer_portal')"
-            class="flex items-center gap-1.5 hover:underline"
+            class="flex items-center gap-1.5 py-2 hover:underline"
             data-testid="topbar-portal"
           >
             <User class="size-4" />
@@ -87,7 +87,7 @@ const { to: applyTo, isResolved: applyResolved } = useCmsPageLink(
           <button
             type="button"
             :aria-label="$t('auth.logout')"
-            class="flex items-center gap-1.5 hover:underline"
+            class="hidden items-center gap-1.5 py-2 hover:underline lg:flex"
             data-testid="topbar-logout"
             @click="logout"
           >

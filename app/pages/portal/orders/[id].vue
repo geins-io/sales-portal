@@ -2,6 +2,7 @@
 import { ArrowLeft, LoaderCircle, RotateCw } from 'lucide-vue-next';
 import type { AddressType, OrderSummaryType } from '#shared/types/commerce';
 import type { QuoteAddress } from '#shared/types/quote';
+import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import { getOrderStatusPillClass } from '~/utils/order-status';
@@ -131,6 +132,54 @@ const deliveryDate = computed(() => {
   const match = /^\d{4}-\d{2}-\d{2}/.exec(raw);
   return match ? match[0] : raw;
 });
+
+// Normalised line items + totals for the mobile rows sheet (the desktop table
+// does not work on small screens).
+const orderItemRows = computed<PortalItemRow[]>(() =>
+  (order.value?.cart?.items ?? []).map((item, index) => ({
+    key: item?.skuId != null ? String(item.skuId) : `row-${index}`,
+    name: item?.product?.name ?? '',
+    articleNumber: item?.product?.articleNumber ?? undefined,
+    quantity: item?.quantity ?? 0,
+    unitPriceFormatted:
+      item?.unitPrice?.sellingPriceIncVatFormatted ?? undefined,
+    totalPriceFormatted:
+      item?.totalPrice?.sellingPriceIncVatFormatted ?? undefined,
+    imageFileName: item?.product?.productImages?.[0]?.fileName ?? null,
+    alias: item?.product?.alias ?? null,
+  })),
+);
+
+const orderTotals = computed<PortalItemTotal[]>(() => [
+  {
+    label: t('portal.orders.detail.summary.subtotal_with_count', {
+      count: itemCount.value,
+    }),
+    value:
+      order.value?.cart?.summary?.subTotal?.sellingPriceIncVatFormatted ??
+      undefined,
+  },
+  {
+    label: t('portal.orders.detail.summary.shipping'),
+    value:
+      order.value?.cart?.summary?.shipping?.feeIncVatFormatted ?? undefined,
+  },
+  {
+    label: t('portal.orders.detail.summary.tax'),
+    value:
+      order.value?.cart?.summary?.total?.vatFormatted ??
+      order.value?.vat?.sellingPriceIncVatFormatted ??
+      undefined,
+  },
+  {
+    label: t('portal.orders.detail.summary.total'),
+    value:
+      order.value?.cart?.summary?.total?.sellingPriceIncVatFormatted ??
+      order.value?.orderTotal?.sellingPriceIncVatFormatted ??
+      undefined,
+    emphasis: true,
+  },
+]);
 </script>
 
 <template>
@@ -177,8 +226,8 @@ const deliveryDate = computed(() => {
         <!-- Two-column layout — order header lives at the top of the
              right column, above the summary box -->
         <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <!-- Left: Order Items Table -->
-          <div class="lg:col-span-2">
+          <!-- Left: Order Items Table (desktop only; mobile uses the sheet) -->
+          <div class="hidden lg:col-span-2 lg:block">
             <h3 class="mb-3 text-base font-semibold">
               {{ t('portal.orders.detail.items.title') }}
             </h3>
@@ -383,6 +432,16 @@ const deliveryDate = computed(() => {
                 </div>
               </div>
             </div>
+
+            <!-- Mobile: the broken desktop table is replaced by a sheet
+                 opened from a "View order rows" trigger below the summary. -->
+            <PortalItemRowsSheet
+              class="lg:hidden"
+              :items="orderItemRows"
+              :totals="orderTotals"
+              :trigger-label="t('portal.orders.detail.view_rows')"
+              :title="t('portal.orders.detail.items.title')"
+            />
 
             <!-- Addresses: share one grey container per Figma 25361-102134.
                  Section headers dark not uppercase, company line muted. -->

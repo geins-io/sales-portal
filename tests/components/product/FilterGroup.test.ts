@@ -92,4 +92,22 @@ describe('FilterGroup', () => {
     expect(wrapper.find('[data-stub="accordion"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('Small');
   });
+
+  it('gives each option row py-3 touch padding and tightens the row gap to gap-1', () => {
+    const wrapper = mountFilterGroup(
+      makeFacet([
+        makeValue({ _id: 'small', facetId: 'small', label: 'Small' }),
+        makeValue({ _id: 'large', facetId: 'large', label: 'Large' }),
+      ]),
+    );
+    const labels = wrapper.findAll('label');
+    expect(labels).toHaveLength(2);
+    for (const label of labels) {
+      expect(label.classes()).toContain('py-3');
+    }
+    // The list container tightens to gap-1 now that each row carries py-3.
+    const container = labels[0]!.element.parentElement as HTMLElement;
+    expect(container.className).toContain('gap-1');
+    expect(container.className).not.toContain('gap-3');
+  });
 });

@@ -30,11 +30,18 @@ const emit = defineEmits<{
       >
         <SelectValue :placeholder="$t('product.sort_by')" />
       </SelectTrigger>
-      <SelectContent>
+      <!-- body-lock false: keeps the page from shifting when the dropdown
+           opens (reka otherwise locks body scroll and removes the scrollbar).
+           Full width on mobile, anchored width on md+. -->
+      <SelectContent
+        :body-lock="false"
+        class="w-screen rounded-none md:w-auto md:rounded-md"
+      >
         <SelectItem
           v-for="option in options"
           :key="option.value"
           :value="option.value"
+          class="py-3 md:py-1.5"
         >
           {{ option.label }}
         </SelectItem>

@@ -96,7 +96,9 @@ describe('CMS service customerType threading', () => {
   });
 
   describe('getContentArea', () => {
-    it('passes customerType to SDK when provided', async () => {
+    // getContentArea fetches a desktop and a mobile display-setting leg and
+    // merges them, so customerType must thread through both.
+    it('passes customerType to SDK when provided on both display-setting legs', async () => {
       await getContentArea(
         {
           family: 'StartPage',
@@ -106,33 +108,37 @@ describe('CMS service customerType threading', () => {
         mockEvent,
       );
 
-      expect(mockAreaGet).toHaveBeenCalledWith(
-        {
-          family: 'StartPage',
-          areaName: 'Hero',
-          ...channelVars,
-          displaySetting: 'desktop',
-          customerType: GeinsCustomerType.PersonType,
-        },
-        undefined,
-      );
+      for (const displaySetting of ['desktop', 'mobile'] as const) {
+        expect(mockAreaGet).toHaveBeenCalledWith(
+          {
+            family: 'StartPage',
+            areaName: 'Hero',
+            ...channelVars,
+            displaySetting,
+            customerType: GeinsCustomerType.PersonType,
+          },
+          undefined,
+        );
+      }
     });
 
-    it('omits customerType when undefined', async () => {
+    it('omits customerType when undefined on both display-setting legs', async () => {
       await getContentArea(
         { family: 'StartPage', areaName: 'Hero' },
         mockEvent,
       );
 
-      expect(mockAreaGet).toHaveBeenCalledWith(
-        {
-          family: 'StartPage',
-          areaName: 'Hero',
-          ...channelVars,
-          displaySetting: 'desktop',
-        },
-        undefined,
-      );
+      for (const displaySetting of ['desktop', 'mobile'] as const) {
+        expect(mockAreaGet).toHaveBeenCalledWith(
+          {
+            family: 'StartPage',
+            areaName: 'Hero',
+            ...channelVars,
+            displaySetting,
+          },
+          undefined,
+        );
+      }
     });
   });
 

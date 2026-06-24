@@ -636,6 +636,37 @@ describe('StoreSettingsSchema', () => {
       const result = StoreSettingsSchema.safeParse(config);
       expect(result.success).toBe(true);
     });
+
+    it('accepts a bare-boolean feature alongside object features and normalizes it', () => {
+      const config = createMinimalConfig({
+        features: {
+          newsletter: false,
+          search: true,
+          cart: { enabled: true, access: 'authenticated' },
+        },
+      });
+      const result = StoreSettingsSchema.safeParse(config);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Bare booleans normalize to the canonical { enabled } object shape.
+        expect(result.data.features.newsletter).toEqual({ enabled: false });
+        expect(result.data.features.search).toEqual({ enabled: true });
+        expect(result.data.features.cart).toEqual({
+          enabled: true,
+          access: 'authenticated',
+        });
+      }
+    });
+
+    it('rejects a feature whose value is neither a boolean nor a valid object', () => {
+      const config = createMinimalConfig({
+        features: {
+          newsletter: 'yes',
+        },
+      });
+      const result = StoreSettingsSchema.safeParse(config);
+      expect(result.success).toBe(false);
+    });
   });
 });
 

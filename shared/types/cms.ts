@@ -1,3 +1,5 @@
+import type { ContentContainerType, ContentAreaType } from '@geins/types';
+
 export type {
   ContentPageType,
   ContentPageAreaType,
@@ -9,6 +11,28 @@ export type {
   MenuType,
   MenuItemType,
 } from '@geins/types';
+
+/**
+ * Which screen sizes a CMS container is shown on, sourced from the admin
+ * "Display settings" dropdown (distinct from "Mobile behavior", which is the
+ * container's `responsiveMode` stacking value and never controls visibility).
+ *
+ * Geins enforces this server-side via the `displaySetting` query filter and
+ * never exposes it as a per-container output field, so it is derived from which
+ * display-setting fetch returned the container (see getContentArea), not read
+ * from a container property.
+ */
+export type CmsContainerVisibility = 'always' | 'mobile' | 'desktop';
+
+/** A CMS container plus its derived viewport visibility (see CmsContainerVisibility). */
+export interface CmsContentContainer extends ContentContainerType {
+  visibility?: CmsContainerVisibility;
+}
+
+/** A content area whose containers carry the derived visibility tag. */
+export interface CmsContentArea extends Omit<ContentAreaType, 'containers'> {
+  containers: CmsContentContainer[];
+}
 
 export interface WidgetImage {
   /** CMS configuration uses lowercase `filename` */

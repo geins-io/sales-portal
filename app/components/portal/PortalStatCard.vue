@@ -7,6 +7,8 @@ defineProps<{
   label: string;
   subtitle?: string;
   showDot?: boolean;
+  /** When set, the large number links to the corresponding portal view. */
+  to?: string;
 }>();
 </script>
 
@@ -37,7 +39,22 @@ defineProps<{
       {{ subtitle }}
     </p>
 
-    <!-- Big number at bottom -->
-    <p class="mt-6 text-3xl leading-none font-bold">{{ count }}</p>
+    <!-- Big number at bottom. When `to` is set it links to the matching
+         portal view, on both mobile and desktop. -->
+    <NuxtLink
+      v-if="to"
+      :to="to"
+      data-testid="stat-card-count"
+      class="mt-6 inline-block text-3xl leading-none font-bold hover:underline"
+    >
+      {{ count }}
+    </NuxtLink>
+    <p
+      v-else
+      data-testid="stat-card-count"
+      class="mt-6 text-3xl leading-none font-bold"
+    >
+      {{ count }}
+    </p>
   </div>
 </template>

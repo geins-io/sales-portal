@@ -137,6 +137,13 @@ describe('MobileNavPanel', () => {
     expect(wrapper.text()).toContain('auth.login');
   });
 
+  it('does not render lang/market switchers in the drawer (they live in the topbar)', () => {
+    mockMenu.value = { id: '1', title: 'Main', menuItems: [] };
+    const wrapper = shallowMountComponent(MobileNavPanel, mountOptions);
+    expect(wrapper.find('locale-switcher-stub').exists()).toBe(false);
+    expect(wrapper.find('market-switcher-stub').exists()).toBe(false);
+  });
+
   it('shows the Customer portal link and a logout button when authenticated', () => {
     mockMenu.value = { id: '1', title: 'Main', menuItems: [] };
     authStoreState.isAuthenticated = true;

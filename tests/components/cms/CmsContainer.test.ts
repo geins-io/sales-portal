@@ -32,15 +32,18 @@ function makeContainer(
   layout: string,
   content: ReturnType<typeof makeWidget>[] = [],
   design = '',
+  visibility?: 'always' | 'mobile' | 'desktop',
 ) {
   return {
     id: '1',
     name: 'test',
     sortOrder: 0,
     layout,
-    responsiveMode: '',
+    // responsiveMode is the "Mobile behavior" stacking value, not visibility.
+    responsiveMode: 'stack',
     design,
     content,
+    visibility,
   };
 }
 
@@ -186,6 +189,39 @@ describe('CmsContainer', () => {
       expect(classes).not.toContain('lg:px-6');
       // Vertical spacing is unchanged so the hero keeps its rhythm.
       expect(classes).toContain('py-4');
+    });
+  });
+
+  describe('visibility (Display settings)', () => {
+    it('hides a mobile-only container from the md breakpoint up', () => {
+      const container = makeContainer('full', [makeWidget()], '', 'mobile');
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container },
+        global: { stubs },
+      });
+      expect(wrapper.find('section').classes()).toContain('md:hidden');
+    });
+
+    it('hides a desktop-only container below the md breakpoint', () => {
+      const container = makeContainer('full', [makeWidget()], '', 'desktop');
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container },
+        global: { stubs },
+      });
+      const classes = wrapper.find('section').classes();
+      expect(classes).toContain('hidden');
+      expect(classes).toContain('md:block');
+    });
+
+    it('adds no visibility class for the always-visible value', () => {
+      const container = makeContainer('full', [makeWidget()], '', 'always');
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container },
+        global: { stubs },
+      });
+      const classes = wrapper.find('section').classes();
+      expect(classes).not.toContain('md:hidden');
+      expect(classes).not.toContain('hidden');
     });
   });
 });

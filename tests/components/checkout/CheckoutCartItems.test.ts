@@ -231,6 +231,23 @@ describe('CheckoutCartItems', () => {
     expect(mockRemoveItem).toHaveBeenCalledWith('item-42');
   });
 
+  // remove button sits above the prices with mb-2 spacing
+  it('(isEditable=true) renders remove button above the prices with mb-2', () => {
+    const wrapper = mountItems([createItem()], { isEditable: true });
+
+    const removeButton = wrapper.find('[data-testid="checkout-remove-item"]');
+    expect(removeButton.exists()).toBe(true);
+    expect(removeButton.classes()).toContain('mb-2');
+
+    const html = wrapper.html();
+    const removeIndex = html.indexOf('checkout-remove-item');
+    const priceIndex = html.indexOf('price-stub');
+    const unitPriceIndex = html.indexOf('checkout-unit-price');
+    expect(removeIndex).toBeGreaterThan(-1);
+    expect(removeIndex).toBeLessThan(priceIndex);
+    expect(removeIndex).toBeLessThan(unitPriceIndex);
+  });
+
   // C3: shows unit price below row total when unitPrice is present
   it('shows unit price line when unitPrice is present', () => {
     const item = createItem({

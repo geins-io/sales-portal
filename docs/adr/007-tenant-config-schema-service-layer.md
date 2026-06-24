@@ -31,6 +31,12 @@ All tenant configuration types are derived from a Zod schema in `server/schemas/
 
 TypeScript types are inferred via `z.infer<typeof Schema>`, eliminating manual interface maintenance.
 
+#### Feature flag input: bare boolean shorthand
+
+A feature with no access dimension is a pure on/off switch, so the merchant API may send it as a bare boolean (`"newsletter": true`) rather than the full object (`{ "enabled": true }`). The schema accepts both for any feature: `FeatureConfigInputSchema` is a `z.preprocess` (mirroring the `catalogue` -> `catalog` `TenantModeSchema` idiom) that coerces a bare boolean to `{ enabled }` before validation. Both `z.record` feature usages (the main `features` map and the `overrides.features` extension) use this input schema.
+
+The coercion is input-only: the normalized OUTPUT shape stays `{ enabled, access? }`, so `FeatureConfig`, the inferred types, and every downstream consumer see exactly one shape. Objects pass through untouched; genuinely invalid values (numbers, strings) still fail validation. A side benefit is resilience to key renames in transit: a stray bare-boolean feature the app does not read parses as a harmless extra entry instead of breaking the whole `features` parse.
+
 ### Server vs. client config split
 
 - `TenantConfig` (server) — full config including `geinsSettings` (transformed from platform shape), `overrides`, `themeHash`, timestamps

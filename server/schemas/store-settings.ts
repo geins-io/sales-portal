@@ -151,6 +151,21 @@ export const FeatureConfigSchema = z.object({
 });
 
 /**
+ * Input form of a feature flag. A feature with no access dimension is a pure
+ * on/off switch, so the merchant API may send it as a bare boolean shorthand
+ * (`"newsletterSignup": true`) instead of the full object (`{ enabled: true }`).
+ * Coerce the bool to `{ enabled }` before validation (mirroring the
+ * `TenantModeSchema` preprocess idiom) so the normalized OUTPUT shape stays
+ * `{ enabled, access? }` and every downstream consumer sees one shape. Objects
+ * pass through untouched; genuinely invalid values (numbers, strings) still
+ * fail `FeatureConfigSchema`.
+ */
+export const FeatureConfigInputSchema = z.preprocess(
+  (v) => (typeof v === 'boolean' ? { enabled: v } : v),
+  FeatureConfigSchema,
+);
+
+/**
  * Meta keywords arrive from the merchant API as a single comma-separated
  * string (the Studio "Default keywords" field is free text, e.g.
  * "shoes,boots,sneakers"). Older configs and our own fixtures use a string
@@ -216,7 +231,10 @@ export const ContactConfigSchema = z.object({
 export const OverrideConfigSchema = z
   .object({
     css: z.record(z.string(), z.string()).nullable().optional(),
-    features: z.record(z.string(), FeatureConfigSchema).nullable().optional(),
+    features: z
+      .record(z.string(), FeatureConfigInputSchema)
+      .nullable()
+      .optional(),
   })
   .nullable()
   .optional();
@@ -271,7 +289,7 @@ export const StoreSettingsSchema = z.object({
   checkoutMode: z.enum(['custom', 'hosted']).default('custom'),
   theme: ThemeConfigSchema,
   branding: BrandingConfigSchema,
-  features: z.record(z.string(), FeatureConfigSchema).default({}),
+  features: z.record(z.string(), FeatureConfigInputSchema).default({}),
   seo: SeoConfigSchema.nullable().optional(),
   contact: ContactConfigSchema.nullable().optional(),
   overrides: OverrideConfigSchema,

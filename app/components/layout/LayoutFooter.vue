@@ -1,10 +1,10 @@
 <script setup lang="ts">
-const { hasFeature } = useTenant();
+const { showNewsletter } = useNewsletterVisibility();
 </script>
 
 <template>
   <footer class="bg-footer-background text-footer-text border-t">
-    <LayoutFooterTop v-if="hasFeature('newsletter')" />
+    <LayoutFooterTop v-if="showNewsletter" />
     <LayoutFooterMain />
     <LayoutFooterBottom />
   </footer>

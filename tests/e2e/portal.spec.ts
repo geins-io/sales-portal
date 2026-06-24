@@ -41,9 +41,8 @@ test.describe('Portal Overview', () => {
     await waitForHydration(page);
 
     // 4 stat cards should be visible in the grid container
-    const statGrid = page.locator(
-      '.grid.grid-cols-1.sm\\:grid-cols-2.lg\\:grid-cols-4',
-    );
+    // (two columns on mobile, four on large screens)
+    const statGrid = page.locator('.grid.grid-cols-2.lg\\:grid-cols-4');
     await expect(statGrid).toBeVisible({ timeout: PAGE_TIMEOUT });
 
     // Latest orders section

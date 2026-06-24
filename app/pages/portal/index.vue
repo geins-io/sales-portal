@@ -139,26 +139,29 @@ function handleProductAddToCart(
 
 <template>
   <PortalShell>
-    <!-- Stat Cards -->
-    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <!-- Stat Cards: two columns on mobile, four on large screens. -->
+    <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
       <PortalStatCard
         :icon="FileText"
         :count="quotesStore.pendingCount"
         :label="t('portal.overview.stat.pending_quotations')"
         :subtitle="nearestQuoteExpirySubtitle"
         :show-dot="quotesStore.pendingCount > 0"
+        :to="localePath('/portal/quotations')"
       />
       <PortalStatCard
         :icon="ShoppingBag"
         :count="orderCount"
         :label="t('portal.overview.stat.orders_placed')"
         :subtitle="latestOrderSubtitle"
+        :to="localePath('/portal/orders')"
       />
       <PortalStatCard
         :icon="Package"
         :count="purchasedProductCount"
         :label="t('portal.overview.stat.purchased_products')"
         :subtitle="mostPurchasedSubtitle"
+        :to="localePath('/portal/products')"
       />
       <PortalStatCard
         :icon="Users"
