@@ -49,7 +49,6 @@ export const CmsPageSchema = z.object({
 export const CmsAreaSchema = z.object({
   family: z.string().min(1).max(100),
   areaName: z.string().min(1).max(100),
-  displaySetting: z.enum(['mobile', 'desktop']).optional(),
 });
 
 export type CmsPageInput = z.infer<typeof CmsPageSchema>;
@@ -323,6 +322,9 @@ export type ResolveUrlInput = z.infer<typeof ResolveUrlSchema>;
 // CMS page-link resolver
 // ---------------------------------------------------------------------------
 export const CmsPageLinkSchema = z.object({
-  tag: z.string().regex(/^[a-z][a-z0-9-]*$/).max(50),
+  tag: z
+    .string()
+    .regex(/^[a-z][a-z0-9-]*$/)
+    .max(50),
 });
 export type CmsPageLinkInput = z.infer<typeof CmsPageLinkSchema>;

@@ -12,6 +12,7 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from '~/components/ui/carousel';
 
 const props = defineProps<{
@@ -62,6 +63,25 @@ const { data: productsData } = useFetch<{
 });
 
 const products = computed(() => productsData.value?.products ?? []);
+
+// The product list arrives after mount via the client-side (lazy) fetch. Embla
+// only initialises when its node (the CarouselContent below) is in the DOM at
+// the carousel's mount, and embla-carousel-vue never re-initialises if that node
+// appears later. So we keep CarouselContent rendered unconditionally and re-init
+// Embla once the products land, which recomputes its scroll snaps and lets the
+// gated arrows/dots appear. A full reload already works because the products are
+// in the SSR payload at mount.
+let carouselApi: CarouselApi | undefined;
+
+function onCarouselInit(api: CarouselApi) {
+  carouselApi = api;
+}
+
+watch(products, async (list) => {
+  if (!list.length) return;
+  await nextTick();
+  carouselApi?.reInit();
+});
 </script>
 
 <template>
@@ -81,8 +101,15 @@ const products = computed(() => productsData.value?.products ?? []);
       v-slot="{ canScrollPrev, canScrollNext }"
       :opts="{ slidesToScroll: 'auto', loop: false }"
       :aria-label="t('product_slideshow.region_label')"
+      @init-api="onCarouselInit"
     >
-      <CarouselContent v-if="products?.length">
+      <!--
+        Rendered unconditionally (not gated on products) so Embla's node is in
+        the DOM when the carousel mounts and initialises. Gating it on the
+        client-loaded product list would leave Embla uninitialised whenever the
+        widget has a title (the wrapper stays mounted while products load).
+      -->
+      <CarouselContent>
         <CarouselItem
           v-for="product in products ?? []"
           :key="product.productId"

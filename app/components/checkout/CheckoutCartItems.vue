@@ -106,8 +106,20 @@ function handleRemove(item: CartItemType) {
             </div>
           </div>
 
-          <!-- Price and trash: right column -->
+          <!-- Trash and price: right column. Trash sits above the prices. -->
           <div class="shrink-0 text-right whitespace-nowrap">
+            <Button
+              v-if="props.isEditable"
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              class="text-muted-foreground hover:text-destructive mb-2 shrink-0"
+              :aria-label="t('checkout.remove_item')"
+              data-testid="checkout-remove-item"
+              @click="handleRemove(item)"
+            >
+              <Trash2 class="size-4" />
+            </Button>
             <PriceDisplay
               v-if="item.totalPrice"
               :price="item.totalPrice"
@@ -126,18 +138,6 @@ function handleRemove(item: CartItemType) {
               />
               {{ t('checkout.per_unit') }}
             </p>
-            <Button
-              v-if="props.isEditable"
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              class="text-muted-foreground hover:text-destructive shrink-0"
-              :aria-label="t('checkout.remove_item')"
-              data-testid="checkout-remove-item"
-              @click="handleRemove(item)"
-            >
-              <Trash2 class="size-4" />
-            </Button>
           </div>
         </div>
       </div>

@@ -127,7 +127,7 @@ function bannerPlacementClasses(placement?: string): string {
   <div v-else-if="templateId === 'cards-rich'" class="space-y-6">
     <div
       v-if="header?.heading || header?.description"
-      class="space-y-2"
+      class="mx-auto max-w-[670px] space-y-2"
       :class="header?.textAlign === 'center' ? 'text-center' : ''"
     >
       <h2
@@ -179,10 +179,7 @@ function bannerPlacementClasses(placement?: string): string {
   <!-- Cards Simple: image + title + link -->
   <div v-else-if="templateId === 'cards-simple'" class="space-y-6">
     <div v-if="header?.heading || header?.description" class="space-y-2">
-      <h2
-        v-if="header?.heading"
-        class="font-heading text-2xl font-bold"
-      >
+      <h2 v-if="header?.heading" class="font-heading text-2xl font-bold">
         {{ header.heading }}
       </h2>
       <p v-if="header?.description" class="text-muted-foreground text-sm">

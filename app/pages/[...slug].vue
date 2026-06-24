@@ -53,8 +53,7 @@ const {
 // and the terminal fatal 404, so it either redirects or throws on every path.
 // Gated behind the CMS miss so CMS hits never trigger it.
 const cmsMissed =
-  Boolean(error.value) ||
-  (!page.value?.id && !page.value?.containers?.length);
+  Boolean(error.value) || (!page.value?.id && !page.value?.containers?.length);
 
 if (cmsMissed) {
   // useFetch (inside recoverEntityUrl) auto-forwards cookie + host for
@@ -140,7 +139,7 @@ const sidebarMenuId = computed<string | null>(
           />
         </ErrorBoundary>
         <div class="min-w-0 flex-1">
-          <div class="border-border rounded-lg border bg-white p-8">
+          <div class="border-border rounded-lg border bg-white p-2 pt-4 md:p-8">
             <ErrorBoundary section="cms-content">
               <CmsWidgetArea :containers="page.containers" class="max-w-2xl" />
             </ErrorBoundary>
@@ -154,9 +153,11 @@ const sidebarMenuId = computed<string | null>(
       v-else-if="page?.containers?.length"
       class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
     >
-      <ErrorBoundary section="cms-content">
-        <CmsWidgetArea :containers="page.containers" />
-      </ErrorBoundary>
+      <div class="border-border rounded-lg border bg-white p-8">
+        <ErrorBoundary section="cms-content">
+          <CmsWidgetArea :containers="page.containers" class="max-w-2xl" />
+        </ErrorBoundary>
+      </div>
     </div>
 
     <!-- Empty / 404 -->

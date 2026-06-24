@@ -546,6 +546,7 @@
       "detail": {
         "title": "Order",
         "back_to_orders": "All orders",
+        "view_rows": "View order rows",
         "actions": {
           "view_additional_data": "View additional data",
           "download_receipt": "Download receipt",
@@ -758,6 +759,7 @@
       "status_cancelled": "Cancelled",
       "detail_title": "Quotation Details",
       "items_heading": "Items",
+      "view_rows": "View quotation rows",
       "summary_heading": "Summary",
       "product": "Product",
       "article_number": "Art Nr",

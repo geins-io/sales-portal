@@ -47,7 +47,7 @@ describe('storefront-settings-defaults', () => {
         'cart',
         'checkout',
         'lists',
-        'newsletter',
+        'newsletterSignup',
         'orderHistory',
         'quotes',
         'registration',

@@ -159,7 +159,10 @@ describe('CMS cache — locale isolation', () => {
       { family: 'StartPage', areaName: 'Hero' },
       mockEvent(),
     );
-    expect(result1).toEqual(svArea);
+    // getContentArea merges the display-setting legs and tags each container
+    // with a visibility, so assert the locale payload survived rather than
+    // strict-equality against the raw mock.
+    expect(result1.containers[0]).toMatchObject({ widgets: [{ text: 'Hej' }] });
 
     // English request — should NOT get Swedish cached data
     getRequestLocaleMock.mockReturnValue('en-US');
@@ -170,7 +173,11 @@ describe('CMS cache — locale isolation', () => {
       { family: 'StartPage', areaName: 'Hero' },
       mockEvent(),
     );
-    expect(result2).toEqual(enArea);
-    expect(result2).not.toEqual(svArea);
+    expect(result2.containers[0]).toMatchObject({
+      widgets: [{ text: 'Hello' }],
+    });
+    expect(result2.containers[0]).not.toMatchObject({
+      widgets: [{ text: 'Hej' }],
+    });
   });
 });

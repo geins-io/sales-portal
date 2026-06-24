@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ref, type ComputedRef } from 'vue';
+import { ref, computed, onMounted, nextTick, type ComputedRef } from 'vue';
 import { mountComponent } from '../../utils/component';
 import ProductListWidget from '../../../app/components/cms/widgets/ProductListWidget.vue';
 
@@ -17,13 +17,19 @@ const fetchProducts = ref<Array<{ productId: number }>>([]);
 
 const mockUseFetch = vi.fn((_url: unknown, opts?: Record<string, unknown>) => {
   if (opts) calls.push(opts);
+  // Reactive so a test can flip the product list AFTER mount, mirroring the
+  // lazy client-side fetch resolving once the carousel is already mounted.
   return {
-    data: ref({
+    data: computed(() => ({
       products: fetchProducts.value,
       count: fetchProducts.value.length,
-    }),
+    })),
   };
 });
+
+// A fake Embla API whose reInit we can assert was called when products land.
+const reInitSpy = vi.fn();
+const carouselApiStub = { reInit: reInitSpy };
 
 vi.mock('#app/composables/fetch', () => ({
   useFetch: (...args: unknown[]) => mockUseFetch(...(args as [unknown])),
@@ -44,9 +50,15 @@ vi.mock('@/components/ui/carousel', () => ({
   Carousel: {
     name: 'Carousel',
     props: ['opts', 'plugins', 'orientation'],
+    emits: ['init-api'],
     template:
       '<div data-slot="carousel"><slot :can-scroll-prev="canScrollPrev" :can-scroll-next="canScrollNext" /></div>',
-    setup() {
+    setup(
+      _props: unknown,
+      { emit }: { emit: (e: string, ...a: unknown[]) => void },
+    ) {
+      // Mirror the real Carousel emitting its Embla API once mounted.
+      onMounted(() => emit('init-api', carouselApiStub));
       return {
         canScrollPrev: canScrollPrev.value,
         canScrollNext: canScrollNext.value,
@@ -142,6 +154,7 @@ describe('ProductListWidget', () => {
   beforeEach(() => {
     calls.length = 0;
     mockUseFetch.mockClear();
+    reInitSpy.mockClear();
     fetchProducts.value = [];
     canScrollPrev.value = false;
     canScrollNext.value = false;
@@ -375,5 +388,37 @@ describe('ProductListWidget', () => {
     expect(wrapper.find('[data-slot="carousel-previous"]').exists()).toBe(true);
     expect(wrapper.find('[data-slot="carousel-next"]').exists()).toBe(true);
     expect(wrapper.find('[data-slot="carousel-dots"]').exists()).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------
+  // SAL-315: on client-side navigation back to the start page the carousel
+  // mounts before the lazy product fetch resolves, so Embla never recomputes
+  // and the arrows/dots stay hidden. The widget must re-init the carousel once
+  // the products arrive. jsdom has no layout, so we assert the contract
+  // (reInit is invoked) rather than the recomputed snap state.
+  // ---------------------------------------------------------------------
+  it('re-inits the carousel when products arrive after mount', async () => {
+    fetchProducts.value = [];
+    mountComponent(ProductListWidget, {
+      props: makeProps({ slideshowDisabled: false }),
+    });
+    // Mounted empty: the API is captured but no products to lay out yet.
+    expect(reInitSpy).not.toHaveBeenCalled();
+
+    // Products land from the client-side fetch.
+    fetchProducts.value = [makeProduct(1), makeProduct(2), makeProduct(3)];
+    await nextTick();
+    await nextTick();
+    expect(reInitSpy).toHaveBeenCalled();
+  });
+
+  it('does not re-init while the product list is still empty', async () => {
+    fetchProducts.value = [];
+    mountComponent(ProductListWidget, {
+      props: makeProps({ slideshowDisabled: false }),
+    });
+    await nextTick();
+    await nextTick();
+    expect(reInitSpy).not.toHaveBeenCalled();
   });
 });

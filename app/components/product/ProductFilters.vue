@@ -87,7 +87,7 @@ function clearAll() {
            field still focuses it normally. -->
       <SheetContent
         side="left"
-        class="flex flex-col overflow-hidden"
+        class="flex h-dvh flex-col overflow-hidden"
         @open-auto-focus.prevent
       >
         <SheetHeader class="px-6 pb-4">
@@ -107,7 +107,7 @@ function clearAll() {
         </div>
 
         <!-- Filter groups -->
-        <div class="flex-1 overflow-y-auto px-6 py-4">
+        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <div class="space-y-0">
             <FilterGroup
               v-for="facet in filteredFacets"
@@ -120,7 +120,7 @@ function clearAll() {
         </div>
 
         <!-- Footer: narrower grey Clear all on the left, Show results fills the rest -->
-        <div class="flex items-center gap-3 border-t px-6 py-4">
+        <div class="flex shrink-0 items-center gap-3 border-t px-6 py-4">
           <Button
             variant="secondary"
             :disabled="!hasSelectedFilters"

@@ -3,6 +3,7 @@ import {
   ThemeColorsSchema,
   OverrideConfigSchema,
   ContactSocialSchema,
+  FeatureConfigInputSchema,
 } from '../../../../server/schemas/store-settings';
 
 const baseCore = {
@@ -311,6 +312,53 @@ describe('OverrideConfigSchema css', () => {
     const result = OverrideConfigSchema.safeParse({
       css: { '--radius': 0 },
     });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('FeatureConfigInputSchema bare-boolean shorthand', () => {
+  it('normalizes a bare `true` to { enabled: true }', () => {
+    const result = FeatureConfigInputSchema.safeParse(true);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ enabled: true });
+    }
+  });
+
+  it('normalizes a bare `false` to { enabled: false }', () => {
+    const result = FeatureConfigInputSchema.safeParse(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ enabled: false });
+    }
+  });
+
+  it('still accepts the full object form with an access rule', () => {
+    const result = FeatureConfigInputSchema.safeParse({
+      enabled: true,
+      access: 'authenticated',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ enabled: true, access: 'authenticated' });
+    }
+  });
+
+  it('still accepts the bare object form without an access rule', () => {
+    const result = FeatureConfigInputSchema.safeParse({ enabled: false });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ enabled: false });
+    }
+  });
+
+  it('rejects a number (not a valid feature config)', () => {
+    const result = FeatureConfigInputSchema.safeParse(1);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a string (not a valid feature config)', () => {
+    const result = FeatureConfigInputSchema.safeParse('true');
     expect(result.success).toBe(false);
   });
 });

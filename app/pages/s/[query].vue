@@ -168,110 +168,112 @@ function clearAllFilters() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-6">
-    <!-- Search header -->
-    <div>
-      <h1 class="text-2xl font-bold">
-        {{
-          searchTerm
-            ? $t('search.results_for', { query: searchTerm })
-            : $t('search.title')
-        }}
-      </h1>
-      <p
-        v-if="searchTerm && !isLoading"
-        class="text-muted-foreground mt-1 text-sm"
+  <div class="px-4 py-8 lg:px-6">
+    <div class="mx-auto max-w-7xl space-y-6">
+      <!-- Search header -->
+      <div>
+        <h1 class="text-2xl font-bold">
+          {{
+            searchTerm
+              ? $t('search.results_for', { query: searchTerm })
+              : $t('search.title')
+          }}
+        </h1>
+        <p
+          v-if="searchTerm && !isLoading"
+          class="text-muted-foreground mt-1 text-sm"
+        >
+          {{ $t('search.result_count', { count: totalCount }) }}
+        </p>
+      </div>
+
+      <!-- Active filters -->
+      <ActiveFilters
+        v-if="facets.length > 0"
+        :filters="filterState"
+        :facets="facets"
+        @remove="removeFilter"
+        @clear-all="clearAllFilters"
+      />
+
+      <!-- Toolbar: count, sort, view toggle -->
+      <ProductListToolbar
+        :sort-value="sortBy"
+        :sort-options="sortOptions"
+        :view-mode="viewMode"
+        @update:sort-value="sortBy = $event"
+        @update:view-mode="viewMode = $event"
       >
-        {{ $t('search.result_count', { count: totalCount }) }}
-      </p>
-    </div>
+        <template #filters>
+          <ProductFilters
+            v-if="facets.length"
+            v-model="filterState"
+            :facets="facets"
+          />
+        </template>
+      </ProductListToolbar>
 
-    <!-- Active filters -->
-    <ActiveFilters
-      v-if="facets.length > 0"
-      :filters="filterState"
-      :facets="facets"
-      @remove="removeFilter"
-      @clear-all="clearAllFilters"
-    />
+      <!-- Loading skeleton -->
+      <SearchResultsSkeleton
+        v-if="isLoading && products.length === 0"
+        :view-mode="viewMode"
+        data-testid="search-loading"
+      />
 
-    <!-- Toolbar: count, sort, view toggle -->
-    <ProductListToolbar
-      :sort-value="sortBy"
-      :sort-options="sortOptions"
-      :view-mode="viewMode"
-      @update:sort-value="sortBy = $event"
-      @update:view-mode="viewMode = $event"
-    >
-      <template #filters>
-        <ProductFilters
-          v-if="facets.length"
-          v-model="filterState"
-          :facets="facets"
+      <!-- Product grid/list -->
+      <div
+        v-else
+        :class="
+          viewMode === 'grid'
+            ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
+            : 'flex flex-col gap-4'
+        "
+      >
+        <ProductCard
+          v-for="product in products"
+          :key="product.productId"
+          :product="product"
+          :variant="viewMode"
         />
-      </template>
-    </ProductListToolbar>
+      </div>
 
-    <!-- Loading skeleton -->
-    <SearchResultsSkeleton
-      v-if="isLoading && products.length === 0"
-      :view-mode="viewMode"
-      data-testid="search-loading"
-    />
-
-    <!-- Product grid/list -->
-    <div
-      v-else
-      :class="
-        viewMode === 'grid'
-          ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
-          : 'flex flex-col gap-4'
-      "
-    >
-      <ProductCard
-        v-for="product in products"
-        :key="product.productId"
-        :product="product"
-        :variant="viewMode"
+      <!-- No results -->
+      <EmptyState
+        v-if="!isLoading && products.length === 0 && searchTerm"
+        :icon="SearchXIcon"
+        :title="$t('search.no_results_for', { query: searchTerm })"
+        :description="$t('search.try_different_terms')"
+        data-testid="search-empty"
       />
-    </div>
 
-    <!-- No results -->
-    <EmptyState
-      v-if="!isLoading && products.length === 0 && searchTerm"
-      :icon="SearchXIcon"
-      :title="$t('search.no_results_for', { query: searchTerm })"
-      :description="$t('search.try_different_terms')"
-      data-testid="search-empty"
-    />
-
-    <!-- No search term -->
-    <EmptyState
-      v-if="!searchTerm"
-      :icon="SearchIcon"
-      :title="$t('search.enter_search_term')"
-      data-testid="search-no-term"
-    />
-
-    <!-- Pagination -->
-    <div v-if="totalCount > 0" class="mt-8 flex items-center justify-between">
-      <p class="text-muted-foreground text-sm">
-        {{
-          $t('pagination.showing_range', {
-            from: showingFrom,
-            to: showingTo,
-            total: totalCount,
-          })
-        }}
-      </p>
-      <NumberedPagination
-        :current-page="currentPage"
-        :total-pages="totalPages"
-        @update:current-page="onPageChange"
+      <!-- No search term -->
+      <EmptyState
+        v-if="!searchTerm"
+        :icon="SearchIcon"
+        :title="$t('search.enter_search_term')"
+        data-testid="search-no-term"
       />
-    </div>
 
-    <!-- File/document search placeholder -->
-    <SearchFilesPlaceholder v-if="showFilesPlaceholder && searchTerm" />
+      <!-- Pagination -->
+      <div v-if="totalCount > 0" class="mt-8 flex items-center justify-between">
+        <p class="text-muted-foreground text-sm">
+          {{
+            $t('pagination.showing_range', {
+              from: showingFrom,
+              to: showingTo,
+              total: totalCount,
+            })
+          }}
+        </p>
+        <NumberedPagination
+          :current-page="currentPage"
+          :total-pages="totalPages"
+          @update:current-page="onPageChange"
+        />
+      </div>
+
+      <!-- File/document search placeholder -->
+      <SearchFilesPlaceholder v-if="showFilesPlaceholder && searchTerm" />
+    </div>
   </div>
 </template>

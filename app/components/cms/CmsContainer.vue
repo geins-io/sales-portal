@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { ContentContainerType, ContentType } from '#shared/types/cms';
+import type { CmsContentContainer, ContentType } from '#shared/types/cms';
+import { cmsVisibilityClass } from '#shared/utils/cms-visibility';
 
 const props = defineProps<{
-  container: ContentContainerType;
+  container: CmsContentContainer;
   // When true, the container renders without its own max-width and horizontal
   // padding so an outer wrapper controls the width. Used by the portal hero,
   // which is already wrapped to the page-content width and must align flush.
@@ -37,6 +38,13 @@ const designClasses = computed(() => {
   }
 });
 
+// Per-container "Display settings", derived server-side from the two
+// displaySetting fetches (see getContentArea) and applied as viewport-based
+// Tailwind so visibility tracks the breakpoint (resize-aware), not the UA.
+const visibilityClass = computed(() =>
+  cmsVisibilityClass(props.container.visibility),
+);
+
 const activeWidgets = computed<ContentType[]>(() => {
   if (!props.container.content) return [];
   return props.container.content
@@ -48,7 +56,11 @@ const activeWidgets = computed<ContentType[]>(() => {
 <template>
   <section
     v-if="activeWidgets.length"
-    :class="[designClasses, container.design !== 'full-width' && 'py-4']"
+    :class="[
+      designClasses,
+      visibilityClass,
+      container.design !== 'full-width' && 'py-4',
+    ]"
   >
     <div :class="layoutClasses">
       <CmsWidget

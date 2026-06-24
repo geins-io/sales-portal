@@ -312,4 +312,136 @@ describe('PageSidebarNav', () => {
     expect(wrapper.text()).toContain('Fixturer');
     expect(wrapper.text()).not.toContain('Secret');
   });
+
+  it('renders a page-navigation heading above the mobile control', () => {
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [
+        {
+          id: '1',
+          label: 'About Us',
+          canonicalUrl: '/se/sv/about-us',
+          order: 1,
+        },
+      ],
+    };
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+    const heading = wrapper.find('[data-testid="sidebar-nav-heading"]');
+    expect(heading.exists()).toBe(true);
+    expect(heading.text()).toBe('nav.sidebar_navigation');
+  });
+
+  it('shows the active page as the value in the mobile select trigger', () => {
+    mockRoutePath.value = '/about-us';
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [
+        {
+          id: '1',
+          label: 'About Us',
+          canonicalUrl: '/se/sv/about-us',
+          order: 1,
+        },
+        { id: '2', label: 'Contact', canonicalUrl: '/se/sv/contact', order: 2 },
+      ],
+    };
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+    const trigger = wrapper.find('[data-stub="accordion-trigger"]');
+    expect(trigger.exists()).toBe(true);
+    expect(trigger.text()).toBe('About Us');
+  });
+
+  it('shows the active page in the trigger when route carries a locale/market prefix', () => {
+    // In production route.path keeps the /{market}/{locale} prefix, while the
+    // menu canonicalUrl is prefix-stripped, so the two must still match.
+    mockRoutePath.value = '/se/sv/about-us';
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [
+        {
+          id: '1',
+          label: 'About Us',
+          canonicalUrl: '/se/sv/about-us',
+          order: 1,
+        },
+        { id: '2', label: 'Contact', canonicalUrl: '/se/sv/contact', order: 2 },
+      ],
+    };
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-stub="accordion-trigger"]').text()).toBe(
+      'About Us',
+    );
+  });
+
+  it('shows the active child page in the trigger', () => {
+    mockRoutePath.value = '/se/sv/epoxi';
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [
+        {
+          id: '1',
+          label: 'Products',
+          canonicalUrl: '/se/sv/products',
+          order: 1,
+          children: [
+            {
+              id: '1-1',
+              label: 'Epoxi',
+              canonicalUrl: '/se/sv/epoxi',
+              order: 1,
+            },
+            {
+              id: '1-2',
+              label: 'Fixturer',
+              canonicalUrl: '/se/sv/fixturer',
+              order: 2,
+            },
+          ],
+        },
+      ],
+    };
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-stub="accordion-trigger"]').text()).toBe(
+      'Epoxi',
+    );
+  });
+
+  it('falls back to the navigation heading label in the trigger when no page is active', () => {
+    mockRoutePath.value = '/se/sv/unlisted-page';
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [
+        {
+          id: '1',
+          label: 'About Us',
+          canonicalUrl: '/se/sv/about-us',
+          order: 1,
+        },
+      ],
+    };
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+    expect(wrapper.find('[data-stub="accordion-trigger"]').text()).toBe(
+      'nav.sidebar_navigation',
+    );
+  });
 });

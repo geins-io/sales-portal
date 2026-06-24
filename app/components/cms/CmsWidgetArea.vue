@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { ContentContainerType } from '#shared/types/cms';
+import type { CmsContentContainer } from '#shared/types/cms';
 
 defineProps<{
-  containers: ContentContainerType[];
+  containers: CmsContentContainer[];
   // Forwarded to each CmsContainer. When true, containers render without their
   // own max-width/horizontal padding so an outer wrapper controls the width.
   flush?: boolean;

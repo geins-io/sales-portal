@@ -67,7 +67,7 @@ export const STOREFRONT_SETTINGS_DEFAULTS = {
     cart: { enabled: true } as FeatureConfig,
     checkout: { enabled: true } as FeatureConfig,
     lists: { enabled: true } as FeatureConfig,
-    newsletter: { enabled: true } as FeatureConfig,
+    newsletterSignup: { enabled: true } as FeatureConfig,
     orderHistory: { enabled: true } as FeatureConfig,
     orderPlacement: {
       enabled: false,

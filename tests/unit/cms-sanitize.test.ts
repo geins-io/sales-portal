@@ -205,4 +205,31 @@ describe('sanitizeCmsArea', () => {
     const result = sanitizeCmsArea(area);
     expect(result.containers).toEqual([]);
   });
+
+  it('preserves the derived container visibility tag through sanitize', () => {
+    // The visibility tag is attached by getContentArea after merging the two
+    // display-setting legs. Sanitize must not strip it, or only-mobile blocks
+    // lose their md:hidden class on the way to the client.
+    const area = {
+      meta: { title: 'Hero', description: '' },
+      tags: [],
+      containers: [
+        makeContainer(
+          [
+            makeWidget('TextPageWidget', {
+              text: '<p>x</p>',
+              name: 'w',
+              active: true,
+            }),
+          ],
+          { id: 'section-02', visibility: 'mobile' },
+        ),
+      ],
+    } as unknown as ContentAreaType;
+
+    const result = sanitizeCmsArea(area) as unknown as {
+      containers: Array<{ visibility?: string }>;
+    };
+    expect(result.containers[0]?.visibility).toBe('mobile');
+  });
 });

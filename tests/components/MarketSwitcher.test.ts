@@ -62,6 +62,50 @@ describe('MarketSwitcher logic', () => {
     });
   });
 
+  describe('marketLabel (full country names in the option list)', () => {
+    // Mirrors the component helper: show the localized country name with the
+    // code in the dropdown options, e.g. "Sweden (SE)", while falling back to
+    // the bare uppercase code when the region can't be resolved.
+    function marketLabel(
+      code: string,
+      regionNames: Intl.DisplayNames | null,
+    ): string {
+      const upper = code.toUpperCase();
+      try {
+        const name = regionNames?.of(upper);
+        if (name && name !== upper) return `${name} (${upper})`;
+      } catch {
+        // Malformed region code: fall through to the bare code below.
+      }
+      return upper;
+    }
+
+    const en = new Intl.DisplayNames(['en'], { type: 'region' });
+    const sv = new Intl.DisplayNames(['sv'], { type: 'region' });
+
+    it('renders the localized country name with the code in English', () => {
+      expect(marketLabel('se', en)).toBe('Sweden (SE)');
+      expect(marketLabel('no', en)).toBe('Norway (NO)');
+    });
+
+    it('localizes the country name to the active locale', () => {
+      expect(marketLabel('se', sv)).toBe('Sverige (SE)');
+    });
+
+    it('uppercases the 2-letter code regardless of input case', () => {
+      expect(marketLabel('dk', en)).toBe('Denmark (DK)');
+    });
+
+    it('falls back to the bare code when region names are unavailable', () => {
+      expect(marketLabel('se', null)).toBe('SE');
+    });
+
+    it('falls back to the bare code for a malformed region code', () => {
+      // A single-letter code is malformed; Intl.DisplayNames.of throws.
+      expect(marketLabel('s', en)).toBe('S');
+    });
+  });
+
   describe('variant prop', () => {
     const validVariants = ['icon', 'text', 'inline'] as const;
 

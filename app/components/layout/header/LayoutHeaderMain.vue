@@ -12,7 +12,17 @@ function onSearch(query: string) {
 </script>
 
 <template>
-  <div class="bg-background" :class="navVariant === 'white' ? 'border-b' : ''">
+  <!--
+    Mobile (base) always gets a border-b: the desktop nav row that normally
+    separates this main row from page content is hidden below lg, so without
+    this the header would bleed into the page. On desktop the separator is
+    variant-driven: white pairs two same-coloured sections so it keeps the
+    border; grey flows seamlessly into the grey nav, so the border is dropped.
+  -->
+  <div
+    class="bg-background"
+    :class="navVariant === 'white' ? 'border-b' : 'border-b lg:border-b-0'"
+  >
     <div
       class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 lg:h-20 lg:px-6"
     >

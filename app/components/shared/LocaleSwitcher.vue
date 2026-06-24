@@ -92,6 +92,7 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
         v-if="props.variant === 'text'"
         variant="ghost"
         size="sm"
+        class="h-auto py-2"
         :aria-label="t('common.change_language')"
       >
         <Globe class="mr-2 h-4 w-4" />
@@ -106,7 +107,10 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
         <Globe class="h-4 w-4" />
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="end">
+    <DropdownMenuContent
+      align="end"
+      class="max-h-[80dvh] w-screen rounded-none p-0 md:w-auto md:rounded-md md:p-1"
+    >
       <DropdownMenuLabel>{{ t('common.language') }}</DropdownMenuLabel>
       <DropdownMenuSeparator />
       <a
@@ -115,7 +119,7 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
         :href="localeHref(loc)"
         data-testid="locale-switcher-link"
         :data-locale="loc"
-        class="hover:bg-accent hover:text-accent-foreground relative flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none"
+        class="hover:bg-accent hover:text-accent-foreground border-border relative flex cursor-pointer items-center rounded-sm border-b px-2 py-3 text-sm transition-colors outline-none select-none last:border-b-0 md:border-b-0 md:py-1.5"
         :class="{ 'font-semibold': loc === currentLocale }"
       >
         {{ localeNames.get(loc) ?? loc }}

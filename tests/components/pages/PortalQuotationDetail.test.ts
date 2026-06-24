@@ -502,6 +502,21 @@ describe('PortalQuotationDetail', () => {
       expect(title.text()).toContain('portal.quotations.detail_title');
       expect(title.text()).toContain('#QUO-2026-001');
     });
+
+    it('renders the header above the grey summary card, not inside it', async () => {
+      mockData.value = { quote: makeQuote() };
+      const { wrapper } = await mountDetailPage();
+
+      const header = wrapper.find('[data-testid="quote-header"]').element;
+      const card = wrapper.find('[data-testid="quote-summary-card"]').element;
+
+      // Header must not be a descendant of the grey card.
+      expect(card.contains(header)).toBe(false);
+      // Header must come before the card in document order.
+      expect(
+        header.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
   });
 
   describe('back to quotations link (D2)', () => {

@@ -44,41 +44,47 @@ describe('CMS service preview injection', () => {
   beforeEach(() => vi.clearAllMocks());
 
   describe('getContentArea', () => {
-    it('passes preview: true when preview cookie is set', async () => {
+    // getContentArea fetches a desktop and a mobile display-setting leg, so the
+    // preview flag must thread through both.
+    it('passes preview: true when preview cookie is set on both legs', async () => {
       getPreviewCookieMock.mockReturnValue(true);
       await getContentArea(
         { family: 'StartPage', areaName: 'Hero' },
         mockEvent,
       );
 
-      expect(mockAreaGet).toHaveBeenCalledWith(
-        {
-          family: 'StartPage',
-          areaName: 'Hero',
-          ...channelVars,
-          displaySetting: 'desktop',
-          preview: true,
-        },
-        undefined,
-      );
+      for (const displaySetting of ['desktop', 'mobile'] as const) {
+        expect(mockAreaGet).toHaveBeenCalledWith(
+          {
+            family: 'StartPage',
+            areaName: 'Hero',
+            ...channelVars,
+            displaySetting,
+            preview: true,
+          },
+          undefined,
+        );
+      }
     });
 
-    it('does NOT include preview key when not in preview', async () => {
+    it('does NOT include preview key when not in preview on both legs', async () => {
       getPreviewCookieMock.mockReturnValue(false);
       await getContentArea(
         { family: 'StartPage', areaName: 'Hero' },
         mockEvent,
       );
 
-      expect(mockAreaGet).toHaveBeenCalledWith(
-        {
-          family: 'StartPage',
-          areaName: 'Hero',
-          ...channelVars,
-          displaySetting: 'desktop',
-        },
-        undefined,
-      );
+      for (const displaySetting of ['desktop', 'mobile'] as const) {
+        expect(mockAreaGet).toHaveBeenCalledWith(
+          {
+            family: 'StartPage',
+            areaName: 'Hero',
+            ...channelVars,
+            displaySetting,
+          },
+          undefined,
+        );
+      }
     });
   });
 

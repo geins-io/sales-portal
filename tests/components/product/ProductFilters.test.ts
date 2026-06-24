@@ -219,6 +219,33 @@ describe('ProductFilters', () => {
     expect(text).toContain('product.show_results');
   });
 
+  describe('mobile overlay layout (footer stays visible without scrolling)', () => {
+    function mountFilters() {
+      return mountComponent(ProductFilters, {
+        props: { facets: mockFacets, modelValue: {} },
+        global: { stubs: defaultStubs },
+      });
+    }
+
+    it('makes the sheet a full dynamic-viewport-height flex column', () => {
+      const sheet = mountFilters().find('[data-testid="filter-sheet"]');
+      expect(sheet.classes()).toContain('h-dvh');
+    });
+
+    it('lets the filter list flex and scroll without pushing the footer off', () => {
+      const list = mountFilters().find('.overflow-y-auto');
+      expect(list.exists()).toBe(true);
+      expect(list.classes()).toContain('min-h-0');
+      expect(list.classes()).toContain('flex-1');
+    });
+
+    it('pins the action footer so the buttons are always visible', () => {
+      const footer = mountFilters().find('.border-t');
+      expect(footer.classes()).toContain('shrink-0');
+      expect(footer.text()).toContain('product.show_results');
+    });
+  });
+
   describe('search within filter groups', () => {
     const facetsWithHidden = [
       {

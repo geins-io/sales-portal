@@ -391,119 +391,121 @@ const { data: bottomArea } = useFetch<ContentAreaType>('/api/cms/area', {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl space-y-6 px-4 py-8 lg:px-6">
-    <!-- CMS zone above the product grid (tenant-configurable via
+  <div class="px-4 py-8 lg:px-6">
+    <div class="mx-auto max-w-7xl space-y-6">
+      <!-- CMS zone above the product grid (tenant-configurable via
          CMS_SLOTS.PRODUCT_LIST_TOP). Omitted if slot unconfigured or
          area empty. -->
-    <CmsWidgetArea
-      v-if="topArea?.containers?.length"
-      data-testid="plp-cms-top"
-      :containers="topArea.containers"
-    />
-
-    <!-- Header: breadcrumbs, title, description, sub-categories -->
-    <ProductListHeader
-      :page-info="pageInfo ?? null"
-      :breadcrumbs="breadcrumbs"
-      :result-count="totalCount"
-    />
-
-    <!-- Active filters -->
-    <ActiveFilters
-      v-if="facets && facets.length > 0"
-      :filters="filterState"
-      :facets="facets"
-      @remove="removeFilter"
-      @clear-all="clearAllFilters"
-    />
-
-    <!-- Toolbar: filter, sort, view toggle -->
-    <ProductListToolbar
-      :sort-value="sortBy"
-      :sort-options="sortOptions"
-      :view-mode="viewMode"
-      :filter-text="filterText"
-      :has-active-filters="Object.keys(filterState ?? {}).length > 0"
-      @update:sort-value="sortBy = $event"
-      @update:view-mode="viewMode = $event"
-      @update:filter-text="filterText = $event"
-      @reset-filters="clearAllFilters"
-    >
-      <template #filters>
-        <ProductFilters
-          v-if="facets && facets.length > 0"
-          v-model="filterState"
-          :facets="facets"
-        />
-      </template>
-    </ProductListToolbar>
-
-    <!-- Loading skeleton -->
-    <ProductListSkeleton
-      v-if="isLoading && products.length === 0"
-      :view-mode="viewMode"
-      data-testid="plp-loading"
-    />
-
-    <!-- Product grid/list -->
-    <div
-      v-else
-      :class="
-        viewMode === 'grid'
-          ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
-          : 'flex flex-col gap-3'
-      "
-    >
-      <ProductCard
-        v-for="product in products"
-        :key="product.productId"
-        :product="product"
-        :variant="viewMode"
+      <CmsWidgetArea
+        v-if="topArea?.containers?.length"
+        data-testid="plp-cms-top"
+        :containers="topArea.containers"
       />
-    </div>
 
-    <!-- Empty state -->
-    <div v-if="!isLoading && products.length === 0" data-testid="plp-empty">
-      <EmptyState
-        :icon="PackageIcon"
-        :title="$t('product.no_products')"
-        :description="$t('product.no_products_description')"
+      <!-- Header: breadcrumbs, title, description, sub-categories -->
+      <ProductListHeader
+        :page-info="pageInfo ?? null"
+        :breadcrumbs="breadcrumbs"
+        :result-count="totalCount"
       />
-      <div
-        v-if="Object.keys(filterState ?? {}).length > 0"
-        class="mt-4 text-center"
+
+      <!-- Active filters -->
+      <ActiveFilters
+        v-if="facets && facets.length > 0"
+        :filters="filterState"
+        :facets="facets"
+        @remove="removeFilter"
+        @clear-all="clearAllFilters"
+      />
+
+      <!-- Toolbar: filter, sort, view toggle -->
+      <ProductListToolbar
+        :sort-value="sortBy"
+        :sort-options="sortOptions"
+        :view-mode="viewMode"
+        :filter-text="filterText"
+        :has-active-filters="Object.keys(filterState ?? {}).length > 0"
+        @update:sort-value="sortBy = $event"
+        @update:view-mode="viewMode = $event"
+        @update:filter-text="filterText = $event"
+        @reset-filters="clearAllFilters"
       >
-        <Button @click="clearAllFilters">
-          {{ $t('product.clear_all') }}
-        </Button>
-      </div>
-    </div>
+        <template #filters>
+          <ProductFilters
+            v-if="facets && facets.length > 0"
+            v-model="filterState"
+            :facets="facets"
+          />
+        </template>
+      </ProductListToolbar>
 
-    <!-- Pagination -->
-    <div v-if="totalCount > 0" class="mt-8 flex items-center justify-between">
-      <p class="text-muted-foreground text-sm">
-        {{
-          $t('pagination.showing_range', {
-            from: showingFrom,
-            to: showingTo,
-            total: totalCount,
-          })
-        }}
-      </p>
-      <NumberedPagination
-        :current-page="currentPage"
-        :total-pages="totalPages"
-        @update:current-page="onPageChange"
+      <!-- Loading skeleton -->
+      <ProductListSkeleton
+        v-if="isLoading && products.length === 0"
+        :view-mode="viewMode"
+        data-testid="plp-loading"
       />
-    </div>
 
-    <!-- CMS zone below the product grid (tenant-configurable via
+      <!-- Product grid/list -->
+      <div
+        v-else
+        :class="
+          viewMode === 'grid'
+            ? 'grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4'
+            : 'flex flex-col gap-3'
+        "
+      >
+        <ProductCard
+          v-for="product in products"
+          :key="product.productId"
+          :product="product"
+          :variant="viewMode"
+        />
+      </div>
+
+      <!-- Empty state -->
+      <div v-if="!isLoading && products.length === 0" data-testid="plp-empty">
+        <EmptyState
+          :icon="PackageIcon"
+          :title="$t('product.no_products')"
+          :description="$t('product.no_products_description')"
+        />
+        <div
+          v-if="Object.keys(filterState ?? {}).length > 0"
+          class="mt-4 text-center"
+        >
+          <Button @click="clearAllFilters">
+            {{ $t('product.clear_all') }}
+          </Button>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="totalCount > 0" class="mt-8 flex items-center justify-between">
+        <p class="text-muted-foreground text-sm">
+          {{
+            $t('pagination.showing_range', {
+              from: showingFrom,
+              to: showingTo,
+              total: totalCount,
+            })
+          }}
+        </p>
+        <NumberedPagination
+          :current-page="currentPage"
+          :total-pages="totalPages"
+          @update:current-page="onPageChange"
+        />
+      </div>
+
+      <!-- CMS zone below the product grid (tenant-configurable via
          CMS_SLOTS.PRODUCT_LIST_BOTTOM). Omitted if unconfigured or
          empty. -->
-    <CmsWidgetArea
-      v-if="bottomArea?.containers?.length"
-      data-testid="plp-cms-bottom"
-      :containers="bottomArea.containers"
-    />
+      <CmsWidgetArea
+        v-if="bottomArea?.containers?.length"
+        data-testid="plp-cms-bottom"
+        :containers="bottomArea.containers"
+      />
+    </div>
   </div>
 </template>

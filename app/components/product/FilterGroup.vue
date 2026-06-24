@@ -75,12 +75,12 @@ function isChecked(valueId: string) {
         </span>
       </AccordionTrigger>
       <AccordionContent>
-        <div class="flex flex-col gap-3">
+        <div class="flex flex-col gap-1">
           <label
             v-for="value in visibleValues"
             :key="value._id"
             :for="`filter-${facet.filterId}-${value._id}`"
-            class="flex items-center gap-3"
+            class="flex items-center gap-3 py-3"
             :class="
               value.count === 0
                 ? 'cursor-not-allowed opacity-50'

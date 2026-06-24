@@ -5,6 +5,7 @@ import { useQuotesStore } from '~/stores/quotes';
 import { safeConfirm } from '~/utils/client-helpers';
 import { getQuoteStatusPillClass } from '~/utils/quote-status';
 import type { Quote } from '#shared/types/quote';
+import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { productPath } from '#shared/utils/route-helpers';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
@@ -70,6 +71,46 @@ function formatDate(iso: string): string {
     day: 'numeric',
   });
 }
+
+// Normalised line items + totals for the mobile rows sheet (the desktop table
+// does not work on small screens).
+const quoteItemRows = computed<PortalItemRow[]>(() =>
+  (quote.value?.lineItems ?? []).map((item, index) => ({
+    key: item.sku || `row-${index}`,
+    name: item.name,
+    articleNumber: item.articleNumber || undefined,
+    quantity: item.quantity,
+    unitPriceFormatted: item.unitPriceFormatted,
+    totalPriceFormatted: item.totalPriceFormatted,
+    imageFileName: item.imageFileName ?? null,
+    alias: item.alias ?? null,
+  })),
+);
+
+const quoteTotals = computed<PortalItemTotal[]>(() => {
+  const q = quote.value;
+  const rows: PortalItemTotal[] = [
+    {
+      label: t('portal.quotations.subtotal_with_count', {
+        count: q?.lineItems?.length ?? 0,
+      }),
+      value: q?.subtotalFormatted,
+    },
+  ];
+  if ((q?.shipping ?? 0) > 0) {
+    rows.push({
+      label: t('portal.quotations.shipping'),
+      value: q?.shippingFormatted,
+    });
+  }
+  rows.push({ label: t('portal.quotations.tax'), value: q?.taxFormatted });
+  rows.push({
+    label: t('portal.quotations.grand_total'),
+    value: q?.totalFormatted,
+    emphasis: true,
+  });
+  return rows;
+});
 </script>
 
 <template>
@@ -91,8 +132,8 @@ function formatDate(iso: string): string {
         </div>
 
         <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <!-- Left: Line Items -->
-          <div class="lg:col-span-2">
+          <!-- Left: Line Items (desktop only; mobile uses the sheet) -->
+          <div class="hidden lg:col-span-2 lg:block">
             <h3 class="mb-3 text-base font-semibold">
               {{ t('portal.quotations.items_heading') }}
             </h3>
@@ -163,39 +204,42 @@ function formatDate(iso: string): string {
 
           <!-- Right: Header + Summary + Meta + Addresses -->
           <div class="space-y-6">
-            <!-- Card 1: title + status + totals + buttons (Figma node 25387:112581) -->
+            <!-- Order-style header: title + date subtitle left, status badge
+                 right. Sits above the grey summary card to match the order
+                 detail view. -->
+            <div
+              data-testid="quote-header"
+              class="flex flex-wrap items-start justify-between gap-3"
+            >
+              <div>
+                <h2 data-testid="quote-title" class="text-2xl font-semibold">
+                  {{
+                    quote?.name ??
+                    `${t('portal.quotations.detail_title')} #${quote?.quoteNumber ?? ''}`
+                  }}
+                </h2>
+                <p class="text-muted-foreground mt-1 text-sm">
+                  <template v-if="quote?.quoteNumber"
+                    >{{ quote.quoteNumber }} |
+                    {{ t('portal.quotations.created_at') }}:
+                  </template>
+                  {{ formatDate(quote.createdAt) }}
+                </p>
+              </div>
+              <span
+                data-testid="status-badge"
+                class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
+                :class="getQuoteStatusPillClass(quote.status)"
+              >
+                {{ statusLabel(quote.status) }}
+              </span>
+            </div>
+
+            <!-- Summary + actions card -->
             <div
               data-testid="quote-summary-card"
               class="bg-muted space-y-4 rounded-lg p-6"
             >
-              <div
-                data-testid="quote-header"
-                class="flex flex-wrap items-start justify-between gap-3"
-              >
-                <div>
-                  <h2 data-testid="quote-title" class="text-2xl font-semibold">
-                    {{
-                      quote?.name ??
-                      `${t('portal.quotations.detail_title')} #${quote?.quoteNumber ?? ''}`
-                    }}
-                  </h2>
-                  <p class="text-muted-foreground mt-1 text-sm">
-                    <template v-if="quote?.quoteNumber"
-                      >{{ quote.quoteNumber }} |
-                      {{ t('portal.quotations.created_at') }}:
-                    </template>
-                    {{ formatDate(quote.createdAt) }}
-                  </p>
-                </div>
-                <span
-                  data-testid="status-badge"
-                  class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-                  :class="getQuoteStatusPillClass(quote.status)"
-                >
-                  {{ statusLabel(quote.status) }}
-                </span>
-              </div>
-
               <div data-testid="quote-summary" class="space-y-3.5">
                 <p class="text-foreground text-sm font-semibold">
                   {{ t('portal.quotations.summary_heading') }}
@@ -245,7 +289,7 @@ function formatDate(iso: string): string {
                   <Button
                     data-testid="decline-btn"
                     variant="outline"
-                    class="flex-1"
+                    class="h-auto flex-1 py-2 text-xs whitespace-normal"
                     :disabled="store.isActionLoading"
                     @click="handleDecline"
                   >
@@ -257,7 +301,7 @@ function formatDate(iso: string): string {
                   </Button>
                   <Button
                     data-testid="accept-btn"
-                    class="flex-1"
+                    class="h-auto flex-1 py-2 text-xs whitespace-normal"
                     :disabled="store.isActionLoading"
                     @click="handleAccept"
                   >
@@ -270,6 +314,16 @@ function formatDate(iso: string): string {
                 </div>
               </div>
             </div>
+
+            <!-- Mobile: the broken desktop table is replaced by a sheet
+                 opened from a "View quotation rows" trigger below the summary. -->
+            <PortalItemRowsSheet
+              class="lg:hidden"
+              :items="quoteItemRows"
+              :totals="quoteTotals"
+              :trigger-label="t('portal.quotations.view_rows')"
+              :title="t('portal.quotations.items_heading')"
+            />
 
             <div
               v-if="

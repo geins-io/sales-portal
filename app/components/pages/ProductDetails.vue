@@ -542,277 +542,280 @@ useSchemaOrg([
     data-testid="pdp-error"
   />
 
-  <div
-    v-else-if="product"
-    class="mx-auto max-w-7xl space-y-8 px-4 py-8 lg:px-6"
-  >
-    <!-- Print-only header: store logo + timestamp + product URL.
+  <div v-else-if="product" class="px-4 py-8 lg:px-6">
+    <div class="mx-auto max-w-7xl space-y-8">
+      <!-- Print-only header: store logo + timestamp + product URL.
          Hidden on screen, shown via @media print. -->
-    <PrintHeader :product-url="printUrl" />
+      <PrintHeader :product-url="printUrl" />
 
-    <!-- Breadcrumbs -->
-    <AppBreadcrumbs v-if="breadcrumbItems.length" :items="breadcrumbItems" />
+      <!-- Breadcrumbs -->
+      <AppBreadcrumbs v-if="breadcrumbItems.length" :items="breadcrumbItems" />
 
-    <!-- PDP top area: 3-column layout per Figma
+      <!-- PDP top area: 3-column layout per Figma
          lg+: gallery (max 400) | main info | right card
          md:  gallery + info on first row, right card below
          mobile: stacked single column -->
-    <div
-      class="bg-card grid gap-6 rounded-lg border p-4 md:p-6 lg:grid-cols-[400px_1fr_265px] lg:gap-10"
-      data-testid="pdp-top-area"
-    >
-      <!-- Left: Gallery -->
-      <ErrorBoundary section="product-gallery">
-        <ProductGallery
-          v-if="product.productImages?.length"
-          :images="product.productImages"
-          :product-name="product.name ?? ''"
-          class="w-full max-w-[400px]"
-        />
-      </ErrorBoundary>
+      <div
+        class="bg-card grid gap-6 rounded-lg border p-4 md:p-6 lg:grid-cols-[400px_1fr_265px] lg:gap-10"
+        data-testid="pdp-top-area"
+      >
+        <!-- Left: Gallery -->
+        <ErrorBoundary section="product-gallery">
+          <ProductGallery
+            v-if="product.productImages?.length"
+            :images="product.productImages"
+            :product-name="product.name ?? ''"
+            class="w-full max-w-[400px]"
+          />
+        </ErrorBoundary>
 
-      <!-- Middle: Product info -->
-      <div class="flex flex-col gap-6">
-        <!-- Product name + meta -->
-        <div class="flex flex-col gap-1">
-          <h1
-            class="font-heading my-[15px] text-3xl leading-tight font-bold"
-            data-testid="product-name"
-          >
-            {{ product.name }}
-          </h1>
+        <!-- Middle: Product info -->
+        <div class="flex flex-col gap-6">
+          <!-- Product name + meta -->
+          <div class="flex flex-col gap-1">
+            <h1
+              class="font-heading my-[15px] text-3xl leading-tight font-bold"
+              data-testid="product-name"
+            >
+              {{ product.name }}
+            </h1>
 
-          <!-- Article number -->
-          <p
-            v-if="product.articleNumber"
-            class="text-muted-foreground text-[20px]"
-            data-testid="product-article-number"
-          >
-            Art nr. {{ product.articleNumber }}
-          </p>
+            <!-- Article number -->
+            <p
+              v-if="product.articleNumber"
+              class="text-muted-foreground text-[20px]"
+              data-testid="product-article-number"
+            >
+              Art nr. {{ product.articleNumber }}
+            </p>
 
-          <!-- Brand -->
-          <p
-            v-if="product.brand?.name"
-            class="text-muted-foreground"
-            data-testid="product-brand"
-          >
-            {{ product.brand.name }}
-          </p>
-        </div>
+            <!-- Brand -->
+            <p
+              v-if="product.brand?.name"
+              class="text-muted-foreground"
+              data-testid="product-brand"
+            >
+              {{ product.brand.name }}
+            </p>
+          </div>
 
-        <!-- Price: sits above the long-form description so the dominant
+          <!-- Price: sits above the long-form description so the dominant
              commerce signal anchors the column. -->
-        <PriceDisplay
-          v-if="product.unitPrice && showPrice"
-          :price="product.unitPrice"
-          :lowest-price="product.lowestPrice"
-          :discount-type="product.discountType"
-          :campaign-names="visibleCampaigns.map((c) => c.name)"
-          class="text-2xl font-bold"
-        />
+          <PriceDisplay
+            v-if="product.unitPrice && showPrice"
+            :price="product.unitPrice"
+            :lowest-price="product.lowestPrice"
+            :discount-type="product.discountType"
+            :campaign-names="visibleCampaigns.map((c) => c.name)"
+            class="text-2xl font-bold"
+          />
 
-        <!-- Text 3: extra detail copy under the price -->
-        <p
-          v-if="text3Plain"
-          class="text-muted-foreground text-sm leading-relaxed"
-          data-testid="product-text3"
-        >
-          {{ text3Plain }}
-        </p>
-
-        <!-- Campaign badges -->
-        <div
-          v-if="visibleCampaigns.length"
-          class="flex flex-wrap gap-1"
-          data-testid="pdp-campaign-badges"
-        >
-          <span
-            v-for="campaign in visibleCampaigns"
-            :key="campaign.name"
-            :class="BADGE_DESTRUCTIVE"
+          <!-- Text 3: extra detail copy under the price -->
+          <p
+            v-if="text3Plain"
+            class="text-muted-foreground text-sm leading-relaxed"
+            data-testid="product-text3"
           >
-            {{ campaign.name }}
-          </span>
-        </div>
+            {{ text3Plain }}
+          </p>
 
-        <!-- Negotiated price info banner -->
-        <div
-          v-if="product.discountType === 'EXTERNAL'"
-          class="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800"
-          data-testid="negotiated-price-banner"
-        >
-          <BadgeCheck class="size-4 shrink-0" />
-          <span>{{ $t('discount.negotiated_price_info') }}</span>
-        </div>
+          <!-- Campaign badges -->
+          <div
+            v-if="visibleCampaigns.length"
+            class="flex flex-wrap gap-1"
+            data-testid="pdp-campaign-badges"
+          >
+            <span
+              v-for="campaign in visibleCampaigns"
+              :key="campaign.name"
+              :class="BADGE_DESTRUCTIVE"
+            >
+              {{ campaign.name }}
+            </span>
+          </div>
 
-        <!-- Stock -->
-        <div v-if="product.totalStock && showStock" data-testid="stock-badge">
-          <StockBadge :stock="product.totalStock" />
-        </div>
+          <!-- Negotiated price info banner -->
+          <div
+            v-if="product.discountType === 'EXTERNAL'"
+            class="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800"
+            data-testid="negotiated-price-banner"
+          >
+            <BadgeCheck class="size-4 shrink-0" />
+            <span>{{ $t('discount.negotiated_price_info') }}</span>
+          </div>
 
-        <!-- Variant selector — pass product-level data through so each
+          <!-- Stock -->
+          <div v-if="product.totalStock && showStock" data-testid="stock-badge">
+            <StockBadge :stock="product.totalStock" />
+          </div>
+
+          <!-- Variant selector — pass product-level data through so each
              sheet row can render a real Figma-style item with thumbnail,
              art-nr, stock and price (price is product-level so it's the
              same on every row). -->
-        <VariantSelector
-          v-if="showVariantSelector"
-          v-model="selectedVariants"
-          :variant-dimensions="product.variantDimensions ?? []"
-          :variants="product.variantGroup?.variants ?? []"
-          :skus="product.skus ?? []"
-          :product-images="product.productImages ?? []"
-          :product-name="product.name ?? ''"
-          :price-formatted="
-            product.unitPrice?.sellingPriceIncVatFormatted ?? null
-          "
-          :product-article-number="product.articleNumber ?? null"
-          :variant-products="variantProductsByAlias"
-        />
-      </div>
+          <VariantSelector
+            v-if="showVariantSelector"
+            v-model="selectedVariants"
+            :variant-dimensions="product.variantDimensions ?? []"
+            :variants="product.variantGroup?.variants ?? []"
+            :skus="product.skus ?? []"
+            :product-images="product.productImages ?? []"
+            :product-name="product.name ?? ''"
+            :price-formatted="
+              product.unitPrice?.sellingPriceIncVatFormatted ?? null
+            "
+            :product-article-number="product.articleNumber ?? null"
+            :variant-products="variantProductsByAlias"
+          />
+        </div>
 
-      <!-- Right: actions + info card -->
-      <aside class="flex flex-col gap-4">
-        <!-- Quantity + Add to cart + Wishlist -->
-        <template v-if="canPurchase">
-          <OutOfStockBlock v-if="isOutOfStock" />
-          <div v-else class="flex items-center gap-2" data-testid="pdp-actions">
-            <QuantityInput
-              v-model="quantity"
-              :min="1"
-              :max="maxQuantity"
-              :disabled="cartIsFull"
-              class="h-9 shrink-0"
-            />
-            <Button
-              variant="purchase"
-              data-testid="add-to-cart-button"
-              class="h-9 flex-1 gap-2 px-4"
-              :disabled="cartIsFull"
-              @click="addToCart"
+        <!-- Right: actions + info card -->
+        <aside class="flex flex-col gap-4">
+          <!-- Quantity + Add to cart + Wishlist -->
+          <template v-if="canPurchase">
+            <OutOfStockBlock v-if="isOutOfStock" />
+            <div
+              v-else
+              class="flex items-center gap-2"
+              data-testid="pdp-actions"
+            >
+              <QuantityInput
+                v-model="quantity"
+                :min="1"
+                :max="maxQuantity"
+                :disabled="cartIsFull"
+                class="h-9 shrink-0"
+              />
+              <Button
+                variant="purchase"
+                data-testid="add-to-cart-button"
+                class="h-9 flex-1 gap-2 px-4"
+                :disabled="cartIsFull"
+                @click="addToCart"
+              >
+                <ShoppingCart class="size-4" />
+                {{
+                  cartIsFull
+                    ? $t('product.max_in_cart')
+                    : $t('product.add_to_cart')
+                }}
+              </Button>
+            </div>
+          </template>
+
+          <div
+            class="border-border flex flex-col border-y"
+            data-testid="pdp-info-card"
+          >
+            <button
+              type="button"
+              class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
+              data-testid="pdp-print"
+              @click="printDataSheet"
+            >
+              <Download class="size-4" />
+              <span>{{ $t('product.download_data_sheet') }}</span>
+            </button>
+            <button
+              v-if="hasFeature('wishlist') && authStore.isAuthenticated"
+              type="button"
+              class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
+              data-testid="pdp-save-favourite"
+              @click="toggleFavourite"
+            >
+              <Star class="size-4" />
+              <span>
+                {{
+                  isFavorited
+                    ? $t('product.saved_as_favourite')
+                    : $t('product.save_as_favourite')
+                }}
+              </span>
+            </button>
+            <button
+              v-if="authStore.isAuthenticated"
+              type="button"
+              class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
+              data-testid="pdp-add-to-lists"
+              @click="openListPicker"
+            >
+              <ListPlus class="size-4" />
+              <span>{{ $t('product.add_to_lists') }}</span>
+            </button>
+            <NuxtLink
+              v-if="latestOrder"
+              :to="
+                latestOrder.latestOrderPublicId
+                  ? localePath(
+                      `/portal/orders/${latestOrder.latestOrderPublicId}`,
+                    )
+                  : localePath('/portal/orders')
+              "
+              class="text-muted-foreground hover:text-foreground border-border flex items-center gap-2 border-t py-2.5 text-left text-[13px] transition-colors"
+              data-testid="pdp-latest-ordered"
             >
               <ShoppingCart class="size-4" />
-              {{
-                cartIsFull
-                  ? $t('product.max_in_cart')
-                  : $t('product.add_to_cart')
-              }}
-            </Button>
+              <span>
+                {{ $t('product.latest_ordered') }}: {{ latestOrderDate }}
+                <template v-if="latestOrder.latestOrderId">
+                  ({{ latestOrder.latestOrderId }})
+                </template>
+              </span>
+            </NuxtLink>
           </div>
-        </template>
+        </aside>
+      </div>
 
-        <div
-          class="border-border flex flex-col border-y"
-          data-testid="pdp-info-card"
-        >
-          <button
-            type="button"
-            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
-            data-testid="pdp-print"
-            @click="printDataSheet"
-          >
-            <Download class="size-4" />
-            <span>{{ $t('product.download_data_sheet') }}</span>
-          </button>
-          <button
-            v-if="hasFeature('wishlist') && authStore.isAuthenticated"
-            type="button"
-            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
-            data-testid="pdp-save-favourite"
-            @click="toggleFavourite"
-          >
-            <Star class="size-4" />
-            <span>
-              {{
-                isFavorited
-                  ? $t('product.saved_as_favourite')
-                  : $t('product.save_as_favourite')
-              }}
-            </span>
-          </button>
-          <button
-            v-if="authStore.isAuthenticated"
-            type="button"
-            class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
-            data-testid="pdp-add-to-lists"
-            @click="openListPicker"
-          >
-            <ListPlus class="size-4" />
-            <span>{{ $t('product.add_to_lists') }}</span>
-          </button>
-          <NuxtLink
-            v-if="latestOrder"
-            :to="
-              latestOrder.latestOrderPublicId
-                ? localePath(
-                    `/portal/orders/${latestOrder.latestOrderPublicId}`,
-                  )
-                : localePath('/portal/orders')
-            "
-            class="text-muted-foreground hover:text-foreground border-border flex items-center gap-2 border-t py-2.5 text-left text-[13px] transition-colors"
-            data-testid="pdp-latest-ordered"
-          >
-            <ShoppingCart class="size-4" />
-            <span>
-              {{ $t('product.latest_ordered') }}: {{ latestOrderDate }}
-              <template v-if="latestOrder.latestOrderId">
-                ({{ latestOrder.latestOrderId }})
-              </template>
-            </span>
-          </NuxtLink>
-        </div>
-      </aside>
-    </div>
+      <!-- Product tabs (full width) -->
+      <ErrorBoundary section="product-tabs">
+        <ProductTabs :product="product" :related="related" />
+      </ErrorBoundary>
 
-    <!-- Product tabs (full width) -->
-    <ErrorBoundary section="product-tabs">
-      <ProductTabs :product="product" :related="related" />
-    </ErrorBoundary>
-
-    <!-- Print-only: extra product images in a 3-col grid, gated on the
+      <!-- Print-only: extra product images in a 3-col grid, gated on the
          product having more than one image so the section disappears
          cleanly when there is nothing to show. -->
-    <section
-      v-if="additionalImages.length"
-      class="hidden"
-      data-testid="pdp-print-extra-images"
-    >
-      <h3 class="font-heading mb-3 text-xl font-semibold">
-        {{ $t('product.print_extra_images') }}
-      </h3>
-      <div class="grid grid-cols-3 gap-3">
-        <GeinsImage
-          v-for="(img, index) in additionalImages"
-          :key="img.fileName ?? ''"
-          :file-name="img.fileName ?? ''"
-          :alt="
-            buildProductImageAlt({
-              name: product.name ?? '',
-              index,
-              total: additionalImages.length,
-              manualAlt: img.altText,
-            })
-          "
-          type="product"
-          loading="eager"
-          fit="contain"
-          aspect-ratio="1/1"
-        />
-      </div>
-    </section>
+      <section
+        v-if="additionalImages.length"
+        class="hidden"
+        data-testid="pdp-print-extra-images"
+      >
+        <h3 class="font-heading mb-3 text-xl font-semibold">
+          {{ $t('product.print_extra_images') }}
+        </h3>
+        <div class="grid grid-cols-3 gap-3">
+          <GeinsImage
+            v-for="(img, index) in additionalImages"
+            :key="img.fileName ?? ''"
+            :file-name="img.fileName ?? ''"
+            :alt="
+              buildProductImageAlt({
+                name: product.name ?? '',
+                index,
+                total: additionalImages.length,
+                manualAlt: img.altText,
+              })
+            "
+            type="product"
+            loading="eager"
+            fit="contain"
+            aspect-ratio="1/1"
+          />
+        </div>
+      </section>
 
-    <!-- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL).
+      <!-- CMS zone on PDP (tenant-configurable via CMS_SLOTS.PRODUCT_DETAIL).
          Omitted when unconfigured or empty. -->
-    <CmsWidgetArea
-      v-if="pdpCmsArea?.containers?.length"
-      data-testid="pdp-cms-area"
-      :containers="pdpCmsArea.containers"
-    />
+      <CmsWidgetArea
+        v-if="pdpCmsArea?.containers?.length"
+        data-testid="pdp-cms-area"
+        :containers="pdpCmsArea.containers"
+      />
 
-    <AddToListDialog
-      v-if="product"
-      v-model:open="showListPicker"
-      :product-alias="product.alias"
-    />
+      <AddToListDialog
+        v-if="product"
+        v-model:open="showListPicker"
+        :product-alias="product.alias"
+      />
+    </div>
   </div>
 </template>

@@ -41,6 +41,7 @@ const { showPrice } = usePriceVisibility();
           v-if="props.variant === 'text'"
           variant="ghost"
           size="sm"
+          class="h-auto py-2"
           :aria-label="t('common.change_vat_display')"
         >
           <Receipt class="mr-2 h-4 w-4" />

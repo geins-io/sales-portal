@@ -45,4 +45,26 @@ describe('PortalStatCard', () => {
     });
     expect(wrapper.find('[data-testid="stat-card-dot"]').exists()).toBe(false);
   });
+
+  it('renders the count as a link to the given view when `to` is set', () => {
+    const wrapper = mountComponent(PortalStatCard, {
+      props: { ...defaultProps, to: '/se/sv/portal/orders' },
+    });
+    const link = wrapper.find('a[data-testid="stat-card-count"]');
+    expect(link.exists()).toBe(true);
+    expect(link.attributes('href')).toBe('/se/sv/portal/orders');
+    expect(link.text()).toContain('17');
+  });
+
+  it('renders the count as plain text when `to` is omitted', () => {
+    const wrapper = mountComponent(PortalStatCard, {
+      props: defaultProps,
+    });
+    expect(wrapper.find('a[data-testid="stat-card-count"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('p[data-testid="stat-card-count"]').exists()).toBe(
+      true,
+    );
+  });
 });

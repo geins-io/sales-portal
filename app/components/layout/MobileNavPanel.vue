@@ -91,11 +91,18 @@ const isOpen = computed({
                 class="border-b"
               >
                 <AccordionTrigger
-                  class="flex w-full items-center justify-between py-3 text-sm font-medium"
+                  class="flex w-full items-center justify-between py-5 text-sm font-medium"
                 >
                   {{ getMenuLabel(item) }}
                 </AccordionTrigger>
-                <AccordionContent class="pb-3">
+                <!--
+                  border-t draws the divider between the trigger and the first
+                  sub-item; divide-y draws one between each sub-item. No
+                  trailing border on the last child, so the AccordionItem's own
+                  border-b (the divider to the next first-level item) stays a
+                  single line rather than doubling up under the last sub-item.
+                -->
+                <AccordionContent class="divide-y border-t pb-3">
                   <template
                     v-for="child in visibleChildren(item)"
                     :key="child.id"
@@ -103,7 +110,7 @@ const isOpen = computed({
                     <!-- Child with grandchildren -->
                     <template v-if="visibleChildren(child).length">
                       <span
-                        class="text-muted-foreground block py-1.5 pl-4 text-sm font-medium"
+                        class="text-muted-foreground block py-3 pl-4 text-sm font-medium"
                       >
                         {{ getMenuLabel(child) }}
                       </span>
@@ -112,7 +119,7 @@ const isOpen = computed({
                         v-for="grandchild in visibleChildren(child)"
                         :key="grandchild.id"
                         v-bind="linkAttrs(grandchild)"
-                        class="text-muted-foreground hover:text-foreground block py-1.5 pl-8 text-sm"
+                        class="text-muted-foreground hover:text-foreground block py-3 pl-8 text-sm"
                       >
                         {{ getMenuLabel(grandchild) }}
                       </component>
@@ -122,7 +129,7 @@ const isOpen = computed({
                       :is="linkTag(child)"
                       v-else
                       v-bind="linkAttrs(child)"
-                      class="text-muted-foreground hover:text-foreground block py-1.5 pl-4 text-sm"
+                      class="text-muted-foreground hover:text-foreground block py-3 pl-4 text-sm"
                     >
                       {{ getMenuLabel(child) }}
                     </component>
@@ -135,7 +142,7 @@ const isOpen = computed({
                 :is="linkTag(item)"
                 v-else
                 v-bind="linkAttrs(item)"
-                class="block border-b py-3 text-sm font-medium"
+                class="block border-b py-5 text-sm font-medium"
               >
                 {{ getMenuLabel(item) }}
               </component>
@@ -143,16 +150,18 @@ const isOpen = computed({
           </Accordion>
         </div>
 
-        <!-- Footer -->
+        <!--
+          Footer holds only the auth action(s): lang + market live in the
+          topbar (the teal strip), which stays visible on mobile, so they are
+          intentionally not duplicated here. Each action is a full-width,
+          centered CTA with a larger touch target so login, portal and logout
+          read as consistent buttons.
+        -->
         <div class="space-y-3 border-t px-4 py-4">
-          <div class="flex items-center gap-3">
-            <LocaleSwitcher variant="inline" />
-            <MarketSwitcher variant="inline" />
-          </div>
           <button
             v-if="!authStore.isAuthenticated"
             type="button"
-            class="flex items-center gap-2 text-sm font-medium"
+            class="flex w-full items-center justify-center gap-2 py-3 text-base font-medium"
             data-testid="mobile-nav-login"
             @click="
               () => {
@@ -161,22 +170,22 @@ const isOpen = computed({
               }
             "
           >
-            <User class="size-4" />
+            <User class="size-5" />
             {{ $t('auth.login') }}
           </button>
           <template v-else>
             <NuxtLink
               :to="localePath('/portal')"
-              class="flex items-center gap-2 text-sm font-medium"
+              class="flex w-full items-center justify-center gap-2 py-3 text-base font-medium"
               data-testid="mobile-nav-portal"
               @click="appStore.setSidebarOpen(false)"
             >
-              <User class="size-4" />
+              <User class="size-5" />
               {{ $t('layout.customer_portal') }}
             </NuxtLink>
             <button
               type="button"
-              class="flex items-center gap-2 text-sm font-medium"
+              class="flex w-full items-center justify-center gap-2 py-3 text-base font-medium"
               data-testid="mobile-nav-logout"
               @click="
                 () => {
@@ -185,7 +194,7 @@ const isOpen = computed({
                 }
               "
             >
-              <LogOut class="size-4" />
+              <LogOut class="size-5" />
               {{ $t('auth.logout') }}
             </button>
           </template>

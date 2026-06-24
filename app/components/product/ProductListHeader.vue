@@ -26,11 +26,13 @@ const description = computed(() => {
   <div v-if="pageInfo" class="space-y-6">
     <AppBreadcrumbs :items="breadcrumbs" />
 
-    <!-- Figma: title 48/700 across breakpoints; description 18/300 light -->
+    <!-- Figma: title 48/700 on desktop; reduced to text-3xl on mobile and
+         allowed to break long single words so it never overflows the viewport.
+         Description 18/300 light. -->
     <div class="space-y-6 py-4">
       <h1
         v-if="!pageInfo.hideTitle"
-        class="font-heading text-5xl font-bold tracking-tight"
+        class="font-heading text-3xl font-bold tracking-tight break-words md:text-5xl"
       >
         {{ pageInfo.name }}
       </h1>

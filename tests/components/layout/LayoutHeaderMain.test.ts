@@ -28,4 +28,24 @@ describe('LayoutHeaderMain', () => {
       true,
     );
   });
+
+  it('always draws a bottom border on mobile and drops it on desktop for the grey variant', () => {
+    // The desktop nav row that separates this row from the page is hidden
+    // below lg, so the grey variant still needs a mobile-only separator.
+    const wrapper = shallowMountComponent(LayoutHeaderMain, {
+      props: { navVariant: 'grey' },
+    });
+    const root = wrapper.find('div');
+    expect(root.classes()).toContain('border-b');
+    expect(root.classes()).toContain('lg:border-b-0');
+  });
+
+  it('keeps the bottom border at all widths for the white variant', () => {
+    const wrapper = shallowMountComponent(LayoutHeaderMain, {
+      props: { navVariant: 'white' },
+    });
+    const root = wrapper.find('div');
+    expect(root.classes()).toContain('border-b');
+    expect(root.classes()).not.toContain('lg:border-b-0');
+  });
 });
