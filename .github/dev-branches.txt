@@ -5,16 +5,4 @@
 # staging; remove it (and delete the branch) the moment it merges to main.
 #
 # (Empty at cutover: dev equals main, which is what staging already shows.)
-sal-300-305-mobile-search-filter
-feat-footer-newsletter-visibility
-sal-308-311-m8-ui-batch
-sal-313-314-layout-containers
-sal-315-316-cms-widgets
-sal-317-318-cms-widget-fixes
-alihalaki/mobile-cms-page-polish
-alihalaki/mobile-header-drawer-polish
-alihalaki/mobile-topbar-polish
-alihalaki/mobile-plp-polish
-alihalaki/mobile-portal-overview-polish
-alihalaki/mobile-portal-orders-polish
-alihalaki/checkout-cart-trash-icon
+
