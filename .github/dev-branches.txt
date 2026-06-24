@@ -13,3 +13,7 @@ sal-315-316-cms-widgets
 sal-317-318-cms-widget-fixes
 alihalaki/mobile-cms-page-polish
 alihalaki/mobile-header-drawer-polish
+alihalaki/mobile-topbar-polish
+alihalaki/mobile-plp-polish
+alihalaki/mobile-portal-overview-polish
+alihalaki/mobile-portal-orders-polish
