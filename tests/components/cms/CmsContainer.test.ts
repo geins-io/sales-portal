@@ -224,4 +224,50 @@ describe('CmsContainer', () => {
       expect(classes).not.toContain('hidden');
     });
   });
+
+  describe('rich-text framing (frameRichText)', () => {
+    const richTextWidget = () => makeWidget({ type: 'Rich textPageWidget' });
+
+    it('frames a rich-text block as a bordered sheet when frameRichText is set', () => {
+      const container = makeContainer('full', [richTextWidget()], 'contained');
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container, frameRichText: true },
+        global: { stubs },
+      });
+      const classes = wrapper.find('section').classes();
+      expect(classes).toContain('bg-white');
+      expect(classes).toContain('border');
+      expect(classes).toContain('max-w-2xl');
+      // The frame replaces the design width and supplies its own padding, so the
+      // container's normal width/spacing classes must not also apply.
+      expect(classes).not.toContain('max-w-7xl');
+      expect(classes).not.toContain('py-4');
+    });
+
+    it('leaves a block without a rich-text widget full-bleed even when frameRichText is set', () => {
+      const container = makeContainer(
+        'full',
+        [makeWidget({ type: 'BannerPageWidget' })],
+        'contained',
+      );
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container, frameRichText: true },
+        global: { stubs },
+      });
+      const classes = wrapper.find('section').classes();
+      expect(classes).not.toContain('bg-white');
+      expect(classes).toContain('max-w-7xl');
+    });
+
+    it('does not frame a rich-text block when frameRichText is absent', () => {
+      const container = makeContainer('full', [richTextWidget()], 'contained');
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container },
+        global: { stubs },
+      });
+      const classes = wrapper.find('section').classes();
+      expect(classes).not.toContain('bg-white');
+      expect(classes).toContain('max-w-7xl');
+    });
+  });
 });
