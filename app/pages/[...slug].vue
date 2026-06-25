@@ -97,6 +97,19 @@ const hasSidebar = computed(() =>
 const sidebarMenuId = computed<string | null>(
   () => sidebarFallbackMenu.value?.menuLocationId ?? null,
 );
+
+// Content-frame model: a CMS page renders its content on a white bordered
+// "sheet" (background + border + capped width) only when it is a sidebar/menu
+// page (`hasSidebar` above) or a form page (`#apply` / `#contact`). Every other
+// content page renders full-bleed like the start page; long-form rich-text
+// blocks inside it self-frame at the block level via CmsContainer's
+// `frameRichText`. Keeping this as one named decision stops the frame drifting
+// back to a global wrapper applied to every page.
+const isFramedFormPage = computed(
+  () =>
+    hasPageTag(page.value, CMS_TAGS.APPLY_PAGE) ||
+    hasPageTag(page.value, CMS_TAGS.CONTACT_PAGE),
+);
 </script>
 
 <template>
@@ -148,9 +161,10 @@ const sidebarMenuId = computed<string | null>(
       </div>
     </div>
 
-    <!-- Full-width layout: no sidebar -->
+    <!-- Framed sheet: apply/contact form pages (no sidebar). Whole content area
+         sits on a white bordered card with the content capped for readability. -->
     <div
-      v-else-if="page?.containers?.length"
+      v-else-if="isFramedFormPage && page?.containers?.length"
       class="mx-auto max-w-7xl px-4 py-8 lg:px-6"
     >
       <div class="border-border rounded-lg border bg-white p-8">
@@ -158,6 +172,15 @@ const sidebarMenuId = computed<string | null>(
           <CmsWidgetArea :containers="page.containers" class="max-w-2xl" />
         </ErrorBoundary>
       </div>
+    </div>
+
+    <!-- Full-bleed: every other content page renders like the start page. Blocks
+         self-position by their CMS design; rich-text blocks self-frame so
+         long-form copy stays readable (frame-rich-text). -->
+    <div v-else-if="page?.containers?.length">
+      <ErrorBoundary section="cms-content">
+        <CmsWidgetArea :containers="page.containers" frame-rich-text />
+      </ErrorBoundary>
     </div>
 
     <!-- Empty / 404 -->

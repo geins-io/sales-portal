@@ -6,6 +6,10 @@ defineProps<{
   // Forwarded to each CmsContainer. When true, containers render without their
   // own max-width/horizontal padding so an outer wrapper controls the width.
   flush?: boolean;
+  // Forwarded to each CmsContainer. When true, a block containing a rich-text
+  // widget self-frames (contained bordered sheet) while other blocks stay
+  // full-bleed. See CmsContainer.
+  frameRichText?: boolean;
 }>();
 </script>
 
@@ -24,7 +28,11 @@ defineProps<{
       :section="`cms-container-${container.id}`"
       silent
     >
-      <CmsContainer :container="container" :flush="flush" />
+      <CmsContainer
+        :container="container"
+        :flush="flush"
+        :frame-rich-text="frameRichText"
+      />
     </ErrorBoundary>
   </div>
 </template>
