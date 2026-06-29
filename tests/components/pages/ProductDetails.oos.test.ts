@@ -203,6 +203,11 @@ describe('ProductDetails out-of-stock', () => {
 
     expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(true);
+    // OOS already shows its own block; the max-quantity notice must not
+    // double up underneath it (cartIsFull is also true when stock is 0).
+    expect(wrapper.find('[data-testid="pdp-max-quantity-info"]').exists()).toBe(
+      false,
+    );
   });
 
   it('in-stock PDP shows qty + add-to-cart and hides OOS block', async () => {
@@ -270,6 +275,10 @@ describe('ProductDetails out-of-stock', () => {
     const btn = wrapper.find('[data-testid="add-to-cart-button"]');
     expect(btn.exists()).toBe(true);
     expect(btn.attributes('disabled')).toBeDefined();
+    // Max-stock notice shows when the button is disabled by a full cart.
+    expect(wrapper.find('[data-testid="pdp-max-quantity-info"]').exists()).toBe(
+      true,
+    );
 
     // Cleanup for the next test
     mockCartValue = { items: [] };
