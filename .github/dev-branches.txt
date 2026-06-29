@@ -5,5 +5,3 @@
 # staging; remove it (and delete the branch) the moment it merges to main.
 #
 # (Empty at cutover: dev equals main, which is what staging already shows.)
-
-alihalaki/sal-339-cms-page-content-styling-should-only-apply-on-applycontact
