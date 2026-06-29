@@ -1,6 +1,50 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { onMounted, ref, nextTick } from 'vue';
 import { mountComponent } from '../../utils/component';
 import CmsContainer from '../../../app/components/cms/CmsContainer.vue';
+
+// jsdom has no layout, so the real Embla carousel never computes scroll snaps.
+// Mock the external carousel module with stubs whose canScrollPrev/Next slot
+// props we drive per test; CmsContainer itself stays real. Only the external
+// module is mocked (never an internal one that could hide a regression).
+const canScrollPrev = ref(false);
+const canScrollNext = ref(false);
+const reInitSpy = vi.fn();
+const carouselApiStub = { reInit: reInitSpy };
+
+vi.mock('@/components/ui/carousel', () => ({
+  Carousel: {
+    name: 'Carousel',
+    props: ['opts', 'plugins', 'orientation'],
+    emits: ['init-api'],
+    template:
+      '<div data-slot="carousel" :class="$attrs.class"><slot :can-scroll-prev="canScrollPrev" :can-scroll-next="canScrollNext" /></div>',
+    setup(
+      _props: unknown,
+      { emit }: { emit: (e: string, ...a: unknown[]) => void },
+    ) {
+      onMounted(() => emit('init-api', carouselApiStub));
+      return {
+        canScrollPrev: canScrollPrev.value,
+        canScrollNext: canScrollNext.value,
+      };
+    },
+  },
+  CarouselContent: {
+    name: 'CarouselContent',
+    template: '<div data-slot="carousel-content"><slot /></div>',
+  },
+  CarouselItem: {
+    name: 'CarouselItem',
+    template:
+      '<div data-slot="carousel-item" :class="$attrs.class"><slot /></div>',
+  },
+  CarouselDots: {
+    name: 'CarouselDots',
+    props: ['label'],
+    template: '<div data-slot="carousel-dots"></div>',
+  },
+}));
 
 const widgetStub = {
   template: '<div class="cms-widget" />',
@@ -33,14 +77,16 @@ function makeContainer(
   content: ReturnType<typeof makeWidget>[] = [],
   design = '',
   visibility?: 'always' | 'mobile' | 'desktop',
+  // responsiveMode is the "Mobile behavior" value: "stack" (default) or
+  // "collapse" (mobile slider). Not visibility.
+  responsiveMode: string | undefined = 'stack',
 ) {
   return {
     id: '1',
     name: 'test',
     sortOrder: 0,
     layout,
-    // responsiveMode is the "Mobile behavior" stacking value, not visibility.
-    responsiveMode: 'stack',
+    responsiveMode,
     design,
     content,
     visibility,
@@ -275,6 +321,147 @@ describe('CmsContainer', () => {
       const classes = wrapper.find('section').classes();
       expect(classes).not.toContain('bg-white');
       expect(classes).toContain('max-w-7xl');
+    });
+  });
+
+  describe('mobile behaviour (responsiveMode)', () => {
+    // The carousel scroll-state refs are module-level; reset them so a test
+    // that drives them (the dots test) can't leak state into a later one.
+    afterEach(() => {
+      canScrollPrev.value = false;
+      canScrollNext.value = false;
+    });
+
+    it('stack renders a single grid with no carousel', () => {
+      const container = makeContainer(
+        'full',
+        [makeWidget(), makeWidget()],
+        '',
+        undefined,
+        'stack',
+      );
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-slot="carousel"]').exists()).toBe(false);
+      expect(wrapper.findAll('.cms-widget')).toHaveLength(2);
+    });
+
+    it('treats an absent responsiveMode as stack (no carousel)', () => {
+      const container = makeContainer(
+        'full',
+        [makeWidget()],
+        '',
+        undefined,
+        undefined,
+      );
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-slot="carousel"]').exists()).toBe(false);
+    });
+
+    it('collapse renders a mobile slider plus the desktop grid', () => {
+      const container = makeContainer(
+        'half',
+        [makeWidget(), makeWidget()],
+        '',
+        undefined,
+        'collapse',
+      );
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container },
+        global: { stubs },
+      });
+      // Mobile slider is present and hidden from the md breakpoint up.
+      const carousel = wrapper.find('[data-slot="carousel"]');
+      expect(carousel.exists()).toBe(true);
+      expect(carousel.classes()).toContain('md:hidden');
+      // One slide per block.
+      expect(wrapper.findAll('[data-slot="carousel-item"]')).toHaveLength(2);
+      // The existing grid is kept for desktop, hidden below md. Both trees
+      // render the blocks (CSS-toggled double render).
+      expect(wrapper.find('.hidden.md\\:block').exists()).toBe(true);
+      expect(wrapper.findAll('.cms-widget')).toHaveLength(4);
+    });
+
+    it('matches collapse case-insensitively', () => {
+      const container = makeContainer(
+        'full',
+        [makeWidget()],
+        '',
+        undefined,
+        'Collapse',
+      );
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-slot="carousel"]').exists()).toBe(true);
+    });
+
+    it('shows indicator dots only when the slider can scroll', () => {
+      canScrollNext.value = false;
+      const noScroll = mountComponent(CmsContainer, {
+        props: {
+          container: makeContainer(
+            'full',
+            [makeWidget()],
+            '',
+            undefined,
+            'collapse',
+          ),
+        },
+        global: { stubs },
+      });
+      expect(noScroll.find('[data-slot="carousel-dots"]').exists()).toBe(false);
+
+      canScrollNext.value = true;
+      const scrollable = mountComponent(CmsContainer, {
+        props: {
+          container: makeContainer(
+            'full',
+            [makeWidget(), makeWidget(), makeWidget()],
+            '',
+            undefined,
+            'collapse',
+          ),
+        },
+        global: { stubs },
+      });
+      expect(scrollable.find('[data-slot="carousel-dots"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('re-inits the carousel when the block set changes', async () => {
+      reInitSpy.mockClear();
+      const wrapper = mountComponent(CmsContainer, {
+        props: {
+          container: makeContainer(
+            'full',
+            [makeWidget()],
+            '',
+            undefined,
+            'collapse',
+          ),
+        },
+        global: { stubs },
+      });
+      await wrapper.setProps({
+        container: makeContainer(
+          'full',
+          [makeWidget(), makeWidget()],
+          '',
+          undefined,
+          'collapse',
+        ),
+      });
+      await nextTick();
+      await nextTick();
+      expect(reInitSpy).toHaveBeenCalled();
     });
   });
 });

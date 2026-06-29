@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import type { CmsContentContainer, ContentType } from '#shared/types/cms';
 import { cmsVisibilityClass } from '#shared/utils/cms-visibility';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselDots,
+  CarouselItem,
+  type CarouselApi,
+} from '~/components/ui/carousel';
 
 const props = defineProps<{
   container: CmsContentContainer;
@@ -81,6 +88,27 @@ const activeWidgets = computed<ContentType[]>(() => {
     .filter((w) => w.config?.active !== false)
     .sort((a, b) => (a.config?.sortOrder ?? 0) - (b.config?.sortOrder ?? 0));
 });
+
+// "Mobile behavior" container setting (responsiveMode). "collapse" turns the
+// child blocks into a horizontal slider on mobile; anything else (including
+// "stack", the default) keeps the stacked grid. Normalised so casing can't
+// silently disable the slider.
+const isCollapse = computed(
+  () => props.container.responsiveMode?.trim().toLowerCase() === 'collapse',
+);
+
+// Re-init Embla when the block set changes so dots and scroll snaps recompute
+// (mirrors the product slideshow). CarouselContent is always rendered when
+// collapsed, so Embla inits on mount even though the slider is CSS-hidden at
+// md+ via `md:hidden`.
+let carouselApi: CarouselApi | undefined;
+function onCarouselInit(api: CarouselApi) {
+  carouselApi = api;
+}
+watch(activeWidgets, async () => {
+  await nextTick();
+  carouselApi?.reInit();
+});
 </script>
 
 <template>
@@ -93,7 +121,45 @@ const activeWidgets = computed<ContentType[]>(() => {
     ]"
   >
     <div :class="cardClasses">
-      <div :class="[layoutClasses, isRichTextFramed && 'max-w-2xl']">
+      <!-- Collapse: horizontal slider on mobile, the existing grid on desktop.
+           ponytail: renders the blocks twice (mobile carousel + desktop grid),
+           CSS-toggled. Fine for presentational blocks (text/image/banner); a
+           data-fetching widget here would fetch twice. Split into one tree
+           keyed off a JS breakpoint only if that case ever ships. -->
+      <template v-if="isCollapse">
+        <Carousel
+          v-slot="{ canScrollPrev, canScrollNext }"
+          class="md:hidden"
+          :opts="{ slidesToScroll: 'auto', loop: false }"
+          @init-api="onCarouselInit"
+        >
+          <CarouselContent>
+            <CarouselItem
+              v-for="(widget, index) in activeWidgets"
+              :key="`${container.id}-c-${index}`"
+              class="basis-4/5"
+            >
+              <CmsWidget :widget="widget" :layout="container.layout" />
+            </CarouselItem>
+          </CarouselContent>
+          <CarouselDots
+            v-if="canScrollPrev || canScrollNext"
+            class="mt-4"
+          />
+        </Carousel>
+        <div class="hidden md:block">
+          <div :class="layoutClasses">
+            <CmsWidget
+              v-for="(widget, index) in activeWidgets"
+              :key="`${container.id}-d-${index}`"
+              :widget="widget"
+              :layout="container.layout"
+            />
+          </div>
+        </div>
+      </template>
+      <!-- Stack (default): unchanged stacked grid. -->
+      <div v-else :class="[layoutClasses, isRichTextFramed && 'max-w-2xl']">
         <CmsWidget
           v-for="(widget, index) in activeWidgets"
           :key="`${container.id}-${index}`"
