@@ -224,4 +224,57 @@ describe('CmsContainer', () => {
       expect(classes).not.toContain('hidden');
     });
   });
+
+  describe('rich-text framing (frameRichText)', () => {
+    const richTextWidget = () => makeWidget({ type: 'Rich textPageWidget' });
+
+    it('frames a rich-text block as a wide card with a capped content column', () => {
+      const container = makeContainer('full', [richTextWidget()], 'contained');
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container, frameRichText: true },
+        global: { stubs },
+      });
+      // Outer section is the full-width gutter, not the white card itself.
+      const section = wrapper.find('section').classes();
+      expect(section).toContain('max-w-7xl');
+      expect(section).not.toContain('bg-white');
+      expect(section).not.toContain('max-w-2xl');
+      // The white bordered card spans the wide content width.
+      const card = wrapper.find('.bg-white');
+      expect(card.exists()).toBe(true);
+      expect(card.classes()).toContain('border');
+      expect(card.classes()).toContain('rounded-lg');
+      expect(card.classes()).not.toContain('max-w-2xl');
+      // The copy inside is capped to a reading column.
+      const content = wrapper.find('.max-w-2xl');
+      expect(content.exists()).toBe(true);
+      expect(content.classes()).toContain('grid-cols-1');
+    });
+
+    it('leaves a block without a rich-text widget full-bleed even when frameRichText is set', () => {
+      const container = makeContainer(
+        'full',
+        [makeWidget({ type: 'BannerPageWidget' })],
+        'contained',
+      );
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container, frameRichText: true },
+        global: { stubs },
+      });
+      const classes = wrapper.find('section').classes();
+      expect(classes).not.toContain('bg-white');
+      expect(classes).toContain('max-w-7xl');
+    });
+
+    it('does not frame a rich-text block when frameRichText is absent', () => {
+      const container = makeContainer('full', [richTextWidget()], 'contained');
+      const wrapper = mountComponent(CmsContainer, {
+        props: { container },
+        global: { stubs },
+      });
+      const classes = wrapper.find('section').classes();
+      expect(classes).not.toContain('bg-white');
+      expect(classes).toContain('max-w-7xl');
+    });
+  });
 });

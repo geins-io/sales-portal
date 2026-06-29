@@ -215,7 +215,13 @@ vi.mock('#app/composables/head', () => ({
 }));
 
 const stubs = {
-  CmsWidgetArea: { template: '<div data-testid="cms-widget-area" />' },
+  CmsWidgetArea: {
+    // frameRichText typed as Boolean so a bare `frame-rich-text` attribute
+    // coerces to true, mirroring the real component's typed prop.
+    props: { containers: Array, flush: Boolean, frameRichText: Boolean },
+    template:
+      '<div data-testid="cms-widget-area" :data-frame-rich-text="frameRichText" />',
+  },
   PageSidebarNav: { template: '<div data-testid="sidebar-nav" />' },
   ErrorBoundary: { template: '<div><slot /></div>' },
   Skeleton: { template: '<div data-testid="skeleton" />' },
@@ -379,6 +385,64 @@ describe('[...slug] page: entity-url fallback', () => {
       expect(createErrorMock.mock.calls[0]?.[0]).toMatchObject({
         statusCode: 404,
       });
+    },
+    MOUNT_TIMEOUT,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Content frame (SAL-339): the white bordered "sheet" only wraps the whole
+// content area on sidebar/menu pages and apply/contact form pages. Every other
+// content page renders full-bleed like the start page, opting blocks into
+// block-level rich-text framing via `frame-rich-text`.
+// ---------------------------------------------------------------------------
+describe('[...slug] page: content frame', () => {
+  beforeEach(() => {
+    mockCmsData.value = null;
+    mockCmsError.value = null;
+    mockResolveData.value = null;
+    mockResolveError.value = null;
+    mockRoute.path = '/se/sv/info';
+    mockRoute.params = { slug: ['se', 'sv', 'info'] };
+    navigateToMock.mockClear();
+    createErrorMock.mockClear();
+    recoverEntityUrlMock.mockClear();
+    mockUseFetch.mockClear();
+  });
+
+  it(
+    'frames apply/contact form pages on a white bordered sheet',
+    async () => {
+      mockCmsData.value = {
+        id: 1,
+        containers: [{ name: 'main' }],
+        tags: ['apply'],
+      };
+
+      const wrapper = await mountCatchAll();
+
+      expect(wrapper.find('.bg-white').exists()).toBe(true);
+    },
+    MOUNT_TIMEOUT,
+  );
+
+  it(
+    'renders other content pages full-bleed and enables block-level rich-text framing',
+    async () => {
+      mockCmsData.value = {
+        id: 1,
+        containers: [{ name: 'main' }],
+        tags: [],
+      };
+
+      const wrapper = await mountCatchAll();
+
+      // No page-level sheet wrapper.
+      expect(wrapper.find('.bg-white').exists()).toBe(false);
+      // Content still renders, with rich-text framing delegated to the blocks.
+      const area = wrapper.find('[data-testid="cms-widget-area"]');
+      expect(area.exists()).toBe(true);
+      expect(area.attributes('data-frame-rich-text')).toBe('true');
     },
     MOUNT_TIMEOUT,
   );

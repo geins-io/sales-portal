@@ -8,7 +8,37 @@ const props = defineProps<{
   // padding so an outer wrapper controls the width. Used by the portal hero,
   // which is already wrapped to the page-content width and must align flush.
   flush?: boolean;
+  // When true, a container whose content includes a rich-text widget renders as
+  // a contained, bordered "sheet" (background + border + reading-width cap)
+  // instead of full-bleed. Lets a page render most blocks edge-to-edge like the
+  // start page while long-form copy stays readable in a frame. Set by the
+  // catch-all CMS page for non-sidebar, non-form pages; see app/pages/[...slug].vue.
+  frameRichText?: boolean;
 }>();
+
+const RICH_TEXT_WIDGET = 'Rich textPageWidget';
+
+// A rich-text block only self-frames when the page opts in via `frameRichText`.
+// Sidebar/menu and apply/contact pages frame the whole content area instead, so
+// they never pass the flag and their rich-text blocks render plain inside that
+// outer frame (no double border).
+const isRichTextFramed = computed(
+  () =>
+    Boolean(props.frameRichText) &&
+    (props.container.content ?? []).some(
+      (w) => w.config?.type === RICH_TEXT_WIDGET,
+    ),
+);
+
+// When framed, the white "sheet" spans the full content width (its own gutter
+// comes from the section) and the copy inside is capped to a reading column,
+// mirroring the apply/contact frame: wide card, narrow content. Empty otherwise
+// so non-framed blocks render through the wrapper unchanged.
+const cardClasses = computed(() =>
+  isRichTextFramed.value
+    ? 'border-border rounded-lg border bg-white p-6 md:p-8'
+    : '',
+);
 
 const layoutClasses = computed(() => {
   switch (props.container.layout) {
@@ -57,18 +87,20 @@ const activeWidgets = computed<ContentType[]>(() => {
   <section
     v-if="activeWidgets.length"
     :class="[
-      designClasses,
+      isRichTextFramed ? 'mx-auto max-w-7xl px-4 lg:px-6' : designClasses,
       visibilityClass,
-      container.design !== 'full-width' && 'py-4',
+      (isRichTextFramed || container.design !== 'full-width') && 'py-4',
     ]"
   >
-    <div :class="layoutClasses">
-      <CmsWidget
-        v-for="(widget, index) in activeWidgets"
-        :key="`${container.id}-${index}`"
-        :widget="widget"
-        :layout="container.layout"
-      />
+    <div :class="cardClasses">
+      <div :class="[layoutClasses, isRichTextFramed && 'max-w-2xl']">
+        <CmsWidget
+          v-for="(widget, index) in activeWidgets"
+          :key="`${container.id}-${index}`"
+          :widget="widget"
+          :layout="container.layout"
+        />
+      </div>
     </div>
   </section>
 </template>
