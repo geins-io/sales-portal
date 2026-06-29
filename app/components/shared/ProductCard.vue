@@ -237,7 +237,8 @@ async function addToCart() {
           size="icon-sm"
           data-testid="wishlist-button"
           :data-favorited="isFavorited"
-          class="bg-card hover:bg-accent text-foreground -mt-1 shrink-0 rounded-md border shadow-sm"
+          class="bg-card hover:bg-accent -mt-1 shrink-0 rounded-md"
+          :class="isFavorited ? 'text-foreground' : 'text-muted-foreground'"
           :aria-label="t('product.wishlist')"
           @click.prevent.stop="openListPicker"
         >
@@ -437,43 +438,45 @@ async function addToCart() {
       />
 
       <template v-if="canPurchase">
-        <OutOfStockBlock v-if="isOutOfStock" class="shrink-0" />
-        <div v-else class="flex shrink-0 items-center gap-2">
-          <QuantityInput
-            v-if="isFullProduct(product)"
-            v-model="quantity"
-            :min="1"
-            :max="maxQuantity"
-            class="h-9"
-          />
-          <QuantityStepper v-else v-model="quantity" :min="1" class="h-9" />
-          <Button
-            data-testid="add-to-cart-button"
-            class="h-9 px-4"
-            :variant="addError ? 'destructive' : 'default'"
-            :aria-label="t('cart.add_to_cart')"
-            :disabled="
-              isFullProduct(product) ? !firstSku || isAdding : isLoading
-            "
-            @click="addToCart"
-          >
-            <AlertCircle
-              v-if="isFullProduct(product) && addError"
-              class="size-4 shrink-0 sm:mr-1.5"
+        <div class="flex shrink-0 items-center gap-2">
+          <OutOfStockBlock v-if="isOutOfStock" class="shrink-0" />
+          <template v-else>
+            <QuantityInput
+              v-if="isFullProduct(product)"
+              v-model="quantity"
+              :min="1"
+              :max="maxQuantity"
+              class="h-9"
             />
-            <ShoppingCart
-              v-else-if="isFullProduct(product)"
-              class="size-4 shrink-0 sm:mr-1.5"
-            />
-            <span class="hidden whitespace-nowrap sm:inline">
-              <template v-if="isFullProduct(product)">
-                {{ addError ? t('cart.add_failed') : t('cart.add_to_cart') }}
-              </template>
-              <template v-else>
-                {{ t('common.add_to_cart') }}
-              </template>
-            </span>
-          </Button>
+            <QuantityStepper v-else v-model="quantity" :min="1" class="h-9" />
+            <Button
+              data-testid="add-to-cart-button"
+              class="h-9 px-4"
+              :variant="addError ? 'destructive' : 'default'"
+              :aria-label="t('cart.add_to_cart')"
+              :disabled="
+                isFullProduct(product) ? !firstSku || isAdding : isLoading
+              "
+              @click="addToCart"
+            >
+              <AlertCircle
+                v-if="isFullProduct(product) && addError"
+                class="size-4 shrink-0 sm:mr-1.5"
+              />
+              <ShoppingCart
+                v-else-if="isFullProduct(product)"
+                class="size-4 shrink-0 sm:mr-1.5"
+              />
+              <span class="hidden whitespace-nowrap sm:inline">
+                <template v-if="isFullProduct(product)">
+                  {{ addError ? t('cart.add_failed') : t('cart.add_to_cart') }}
+                </template>
+                <template v-else>
+                  {{ t('common.add_to_cart') }}
+                </template>
+              </span>
+            </Button>
+          </template>
           <Button
             v-if="
               productAlias &&
@@ -484,6 +487,8 @@ async function addToCart() {
             size="icon-sm"
             data-testid="wishlist-button"
             :data-favorited="isFavorited"
+            class="shrink-0"
+            :class="isFavorited ? 'text-foreground' : 'text-muted-foreground'"
             :aria-label="t('product.wishlist')"
             @click.prevent.stop="openListPicker"
           >
