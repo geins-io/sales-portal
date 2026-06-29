@@ -176,7 +176,7 @@ function handleProductAddToCart(
         <h3 class="text-xl font-semibold">
           {{ t('portal.overview.latest_orders') }}
         </h3>
-        <Button as-child variant="secondary" size="sm">
+        <Button v-if="orders.length" as-child variant="secondary" size="sm">
           <NuxtLink :to="localePath('/portal/orders')">
             {{ t('portal.overview.view_all') }}
           </NuxtLink>
@@ -199,7 +199,12 @@ function handleProductAddToCart(
           <h3 class="text-xl font-semibold">
             {{ t('portal.overview.pending_quotations') }}
           </h3>
-          <Button as-child variant="secondary" size="sm">
+          <Button
+            v-if="recentPendingQuotes.length"
+            as-child
+            variant="secondary"
+            size="sm"
+          >
             <NuxtLink :to="localePath('/portal/quotations')">
               {{ t('portal.overview.view_all') }}
             </NuxtLink>
@@ -309,7 +314,12 @@ function handleProductAddToCart(
           <h3 class="text-xl font-semibold">
             {{ t('portal.overview.your_lists') }}
           </h3>
-          <Button as-child variant="secondary" size="sm">
+          <Button
+            v-if="recentLists.length"
+            as-child
+            variant="secondary"
+            size="sm"
+          >
             <NuxtLink :to="localePath('/portal/lists')">
               {{ t('portal.overview.view_all') }}
             </NuxtLink>
@@ -395,7 +405,12 @@ function handleProductAddToCart(
         <h3 class="text-xl font-semibold">
           {{ t('portal.overview.purchased_products') }}
         </h3>
-        <Button as-child variant="secondary" size="sm">
+        <Button
+          v-if="recentProducts.length"
+          as-child
+          variant="secondary"
+          size="sm"
+        >
           <NuxtLink :to="localePath('/portal/products')">
             {{ t('portal.overview.view_all') }}
           </NuxtLink>
