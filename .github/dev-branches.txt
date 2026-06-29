@@ -8,3 +8,4 @@
 
 fix/hide-stray-links
 fix/product-card-display
+fix/plp-all-products-facet-filters
