@@ -7,3 +7,4 @@
 # (Empty at cutover: dev equals main, which is what staging already shows.)
 
 fix/hide-stray-links
+fix/product-card-display
