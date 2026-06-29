@@ -30,6 +30,16 @@ const isRichTextFramed = computed(
     ),
 );
 
+// When framed, the white "sheet" spans the full content width (its own gutter
+// comes from the section) and the copy inside is capped to a reading column,
+// mirroring the apply/contact frame: wide card, narrow content. Empty otherwise
+// so non-framed blocks render through the wrapper unchanged.
+const cardClasses = computed(() =>
+  isRichTextFramed.value
+    ? 'border-border rounded-lg border bg-white p-6 md:p-8'
+    : '',
+);
+
 const layoutClasses = computed(() => {
   switch (props.container.layout) {
     case 'half':
@@ -77,20 +87,20 @@ const activeWidgets = computed<ContentType[]>(() => {
   <section
     v-if="activeWidgets.length"
     :class="[
-      isRichTextFramed
-        ? 'border-border mx-auto max-w-2xl rounded-lg border bg-white p-6 md:p-8'
-        : designClasses,
+      isRichTextFramed ? 'mx-auto max-w-7xl px-4 lg:px-6' : designClasses,
       visibilityClass,
-      !isRichTextFramed && container.design !== 'full-width' && 'py-4',
+      (isRichTextFramed || container.design !== 'full-width') && 'py-4',
     ]"
   >
-    <div :class="layoutClasses">
-      <CmsWidget
-        v-for="(widget, index) in activeWidgets"
-        :key="`${container.id}-${index}`"
-        :widget="widget"
-        :layout="container.layout"
-      />
+    <div :class="cardClasses">
+      <div :class="[layoutClasses, isRichTextFramed && 'max-w-2xl']">
+        <CmsWidget
+          v-for="(widget, index) in activeWidgets"
+          :key="`${container.id}-${index}`"
+          :widget="widget"
+          :layout="container.layout"
+        />
+      </div>
     </div>
   </section>
 </template>
