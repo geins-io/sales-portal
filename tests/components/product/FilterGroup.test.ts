@@ -82,6 +82,29 @@ describe('FilterGroup', () => {
     expect(wrapper.find('[data-stub="accordion"]').exists()).toBe(false);
   });
 
+  it('hides the group (without throwing) when every value has a null label', () => {
+    // Geins returns a `ParameterValue` facet whose values carry null labels.
+    // Calling `.trim()` on these used to crash the whole PLP filter render.
+    const wrapper = mountFilterGroup(
+      makeFacet([
+        makeValue({ _id: 'a', facetId: 'a', label: null }),
+        makeValue({ _id: 'b', facetId: 'b', label: null }),
+      ]),
+    );
+    expect(wrapper.find('[data-stub="accordion"]').exists()).toBe(false);
+  });
+
+  it('still renders when a null label appears alongside a real value', () => {
+    const wrapper = mountFilterGroup(
+      makeFacet([
+        makeValue({ _id: 'null', facetId: 'null', label: null }),
+        makeValue({ _id: 'small', facetId: 'small', label: 'Small' }),
+      ]),
+    );
+    expect(wrapper.find('[data-stub="accordion"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Small');
+  });
+
   it('still renders when "-" appears alongside a real value', () => {
     const wrapper = mountFilterGroup(
       makeFacet([
