@@ -701,6 +701,13 @@ useSchemaOrg([
                 }}
               </Button>
             </div>
+            <span
+              v-if="cartIsFull && !isOutOfStock"
+              class="text-muted-foreground text-xs"
+              data-testid="pdp-max-quantity-info"
+            >
+              {{ $t('product.max_quantity_info') }}
+            </span>
           </template>
 
           <div

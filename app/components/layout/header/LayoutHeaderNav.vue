@@ -95,17 +95,6 @@ function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
                 <div
                   class="mx-auto max-h-[min(500px,calc(100vh_-_11rem))] max-w-7xl overflow-y-auto px-4 py-6 lg:px-6"
                 >
-                  <NavigationMenuLink as-child>
-                    <component
-                      :is="linkTag(item)"
-                      v-bind="linkAttrs(item)"
-                      class="mb-3 inline-block text-sm font-semibold underline-offset-4 hover:bg-transparent hover:underline focus:bg-transparent"
-                    >
-                      {{
-                        $t('common.view_all_in', { name: getMenuLabel(item) })
-                      }}
-                    </component>
-                  </NavigationMenuLink>
                   <div class="grid grid-cols-4 gap-x-8 gap-y-4">
                     <div
                       v-for="child in visibleChildren(item)"

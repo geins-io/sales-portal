@@ -17,7 +17,6 @@
     "change_language": "Byt språk",
     "market": "Marknad",
     "change_market": "Byt marknad",
-    "view_all_in": "Visa alla i {name}",
     "home": "Hem",
     "yes": "Ja",
     "no": "Nej",
@@ -303,8 +302,9 @@
     "result_count": "{count} produkter",
     "in_stock": "I lager",
     "low_stock": "Begränsat lager",
-    "out_of_stock": "Slut i lager",
+    "out_of_stock": "Ej i lager",
     "max_in_cart": "Allt i varukorg",
+    "max_quantity_info": "Maxantal i lager har lagts till i varukorgen.",
     "on_demand": "På begäran",
     "no_image": "Ingen bild tillgänglig"
   },

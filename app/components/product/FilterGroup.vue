@@ -25,14 +25,20 @@ const visibleValues = computed(() =>
 );
 
 /**
- * Hide the whole group when its only available value is the placeholder "-"
+ * Hide the whole group when every available value is noise: the placeholder "-"
  * Geins emits for products that carry no real value on a dimension (e.g. the
- * Sku/size facet on products without sizes). Such a group offers nothing to
- * filter by, so rendering it is noise. Empty groups keep their prior behavior.
+ * Sku/size facet on products without sizes), or a null/blank label (Geins
+ * returns a `ParameterValue` facet whose values carry null labels). Such a
+ * group offers nothing to filter by, and a null label would otherwise crash
+ * the render on `null.trim()`. Empty groups keep their prior behavior.
  */
 const shouldRender = computed(() => {
   const values = visibleValues.value;
-  return values.length === 0 || !values.every((v) => v.label.trim() === '-');
+  if (values.length === 0) return true;
+  return !values.every((v) => {
+    const label = v.label?.trim() ?? '';
+    return label === '' || label === '-';
+  });
 });
 
 /**

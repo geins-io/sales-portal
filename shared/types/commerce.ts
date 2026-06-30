@@ -211,7 +211,10 @@ export interface FilterValue {
   count: number;
   facetId: string;
   parentId: string | null;
-  label: string;
+  // Geins returns null here for facets it has no localized label for (e.g. the
+  // `ParameterValue` facet), so consumers must guard before calling string
+  // methods on it.
+  label: string | null;
   order: number;
   hidden: boolean;
 }
