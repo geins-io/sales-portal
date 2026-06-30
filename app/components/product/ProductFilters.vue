@@ -55,7 +55,7 @@ const filteredFacets = computed<FilterFacet[]>(() => {
       const displayed = getFilterGroupLabel(facet, t).toLowerCase();
       if (displayed.includes(query)) return facet;
       const matchingValues = facet.values.filter(
-        (v) => !v.hidden && v.label.toLowerCase().includes(query),
+        (v) => !v.hidden && (v.label ?? '').toLowerCase().includes(query),
       );
       if (matchingValues.length === 0) return null;
       return { ...facet, values: matchingValues };

@@ -35,7 +35,7 @@ const activeFilters = computed<ActiveFilter[]>(() => {
         facetId,
         facetLabel: facet.label || facet.type || facet.filterId,
         valueId,
-        valueLabel: value.label,
+        valueLabel: value.label ?? '',
       });
     }
   }
