@@ -4,6 +4,10 @@ import type { ContentType } from '#shared/types/cms';
 const props = defineProps<{
   widget: ContentType;
   layout: string;
+  // "Mobile behavior = Collapse" on the parent container. Forwarded to the
+  // widget; only the cards widgets (JsonWidget) act on it. Absent/false for
+  // every Stack container, so non-collapse rendering is unchanged.
+  collapse?: boolean;
 }>();
 
 const widgetRegistry: Record<
@@ -60,6 +64,7 @@ const unknownType = computed(() => {
     :data="widget.data"
     :config="widget.config"
     :layout="layout"
+    :collapse="collapse"
   />
   <div
     v-else-if="unknownType && isDev"

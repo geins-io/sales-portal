@@ -2,9 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import CmsContainer from '../../../app/components/cms/CmsContainer.vue';
 
+// CmsContainer no longer renders a carousel itself (the "Collapse" mobile slider
+// now lives inside the cards widgets, see JsonWidget). The container only
+// forwards the collapse flag to each widget, so the stub exposes it as a data
+// attribute to assert on.
 const widgetStub = {
-  template: '<div class="cms-widget" />',
-  props: ['widget', 'layout'],
+  template: `<div class="cms-widget" :data-collapse="collapse ? 'true' : 'false'" />`,
+  props: ['widget', 'layout', 'collapse'],
 };
 
 const stubs = {
@@ -33,14 +37,16 @@ function makeContainer(
   content: ReturnType<typeof makeWidget>[] = [],
   design = '',
   visibility?: 'always' | 'mobile' | 'desktop',
+  // responsiveMode is the "Mobile behavior" value: "stack" (default) or
+  // "collapse" (mobile slider). Not visibility.
+  responsiveMode: string | undefined = 'stack',
 ) {
   return {
     id: '1',
     name: 'test',
     sortOrder: 0,
     layout,
-    // responsiveMode is the "Mobile behavior" stacking value, not visibility.
-    responsiveMode: 'stack',
+    responsiveMode,
     design,
     content,
     visibility,
@@ -275,6 +281,106 @@ describe('CmsContainer', () => {
       const classes = wrapper.find('section').classes();
       expect(classes).not.toContain('bg-white');
       expect(classes).toContain('max-w-7xl');
+    });
+  });
+
+  describe('mobile behaviour (responsiveMode)', () => {
+    // The container never builds a carousel itself anymore (that was the bounced
+    // approach that turned a whole cards block into one draggable slide). It just
+    // forwards the normalised collapse flag to each widget; the slider lives in
+    // the cards widget. These tests lock in "no container-level carousel" + the
+    // flag forwarding.
+
+    it('renders no container-level carousel for any responsiveMode', () => {
+      const wrapper = mountComponent(CmsContainer, {
+        props: {
+          container: makeContainer(
+            'half',
+            [makeWidget(), makeWidget()],
+            '',
+            undefined,
+            'collapse',
+          ),
+        },
+        global: { stubs },
+      });
+      expect(wrapper.find('[data-slot="carousel"]').exists()).toBe(false);
+      // Blocks render once (no CSS-toggled double render at the container level).
+      expect(wrapper.findAll('.cms-widget')).toHaveLength(2);
+    });
+
+    it('forwards collapse=false to every widget for stack', () => {
+      const wrapper = mountComponent(CmsContainer, {
+        props: {
+          container: makeContainer(
+            'full',
+            [makeWidget(), makeWidget()],
+            '',
+            undefined,
+            'stack',
+          ),
+        },
+        global: { stubs },
+      });
+      const flags = wrapper
+        .findAll('.cms-widget')
+        .map((w) => w.attributes('data-collapse'));
+      expect(flags).toEqual(['false', 'false']);
+    });
+
+    it('forwards collapse=false when responsiveMode is absent', () => {
+      const wrapper = mountComponent(CmsContainer, {
+        props: {
+          container: makeContainer(
+            'full',
+            [makeWidget()],
+            '',
+            undefined,
+            undefined,
+          ),
+        },
+        global: { stubs },
+      });
+      expect(wrapper.find('.cms-widget').attributes('data-collapse')).toBe(
+        'false',
+      );
+    });
+
+    it('forwards collapse=true to every widget for collapse', () => {
+      const wrapper = mountComponent(CmsContainer, {
+        props: {
+          container: makeContainer(
+            'full',
+            [makeWidget(), makeWidget()],
+            '',
+            undefined,
+            'collapse',
+          ),
+        },
+        global: { stubs },
+      });
+      const flags = wrapper
+        .findAll('.cms-widget')
+        .map((w) => w.attributes('data-collapse'));
+      expect(flags).toEqual(['true', 'true']);
+    });
+
+    it('matches collapse case-insensitively', () => {
+      const wrapper = mountComponent(CmsContainer, {
+        props: {
+          container: makeContainer(
+            'full',
+            [makeWidget()],
+            '',
+            undefined,
+            'Collapse',
+          ),
+        },
+        global: { stubs },
+      });
+      expect(wrapper.find('.cms-widget').attributes('data-collapse')).toBe(
+        'true',
+      );
     });
   });
 });

@@ -81,6 +81,16 @@ const activeWidgets = computed<ContentType[]>(() => {
     .filter((w) => w.config?.active !== false)
     .sort((a, b) => (a.config?.sortOrder ?? 0) - (b.config?.sortOrder ?? 0));
 });
+
+// "Mobile behavior" container setting (responsiveMode). "collapse" asks the card
+// widgets to turn their item grid into a horizontal swipe slider on mobile while
+// the container itself keeps its normal grid; anything else (incl. "stack", the
+// default) leaves widgets to render as before. Normalised so casing can't
+// silently disable it. Forwarded to every widget; only the cards widgets act on
+// it (see JsonWidget.vue) so non-card widgets render unchanged.
+const isCollapse = computed(
+  () => props.container.responsiveMode?.trim().toLowerCase() === 'collapse',
+);
 </script>
 
 <template>
@@ -99,6 +109,7 @@ const activeWidgets = computed<ContentType[]>(() => {
           :key="`${container.id}-${index}`"
           :widget="widget"
           :layout="container.layout"
+          :collapse="isCollapse"
         />
       </div>
     </div>

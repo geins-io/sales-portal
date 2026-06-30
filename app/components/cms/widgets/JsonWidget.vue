@@ -3,6 +3,13 @@ import { ArrowRight } from 'lucide-vue-next';
 import type { ContentConfigType, FormWidgetData } from '#shared/types/cms';
 import { stripGeinsPrefix } from '#shared/utils/menu';
 import FormWidget from '~/components/cms/widgets/FormWidget.vue';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselDots,
+  CarouselItem,
+  type CarouselApi,
+} from '~/components/ui/carousel';
 
 // ---------- Widget-internal types ----------
 
@@ -45,6 +52,11 @@ const props = defineProps<{
   data: Record<string, unknown>;
   config: ContentConfigType;
   layout: string;
+  // "Mobile behavior = Collapse" on the parent CMS block. When set, the
+  // cards-rich / cards-simple item grids become a horizontal swipe slider on
+  // mobile with indicator dots, while the header above stays fixed; desktop keeps
+  // the grid (this is a mobile-only setting). Absent for every Stack block.
+  collapse?: boolean;
 }>();
 
 const templateId = computed(() => (props.data.templateId as string) ?? '');
@@ -69,6 +81,25 @@ const bannerImages = computed(
 );
 
 const { localePath } = useLocaleMarket();
+
+// Collapse slider plumbing (cards-rich / cards-simple). Re-init Embla when the
+// item set changes so dots and scroll snaps recompute (the items swap on a
+// locale/CMS payload change). Embla's own resize observer handles the
+// desktop->mobile reveal of the `md:hidden` track. Mirrors ProductListWidget.
+// ponytail: the card markup is duplicated (carousel item + grid cell) so mobile
+// can swipe while desktop keeps the grid. Presentational only, no data fetch, so
+// the double render is cheap; revisit only if a card ever fetches.
+let carouselApi: CarouselApi | undefined;
+function onCarouselInit(api: CarouselApi) {
+  carouselApi = api;
+}
+watch(
+  () => props.data.items,
+  async () => {
+    await nextTick();
+    carouselApi?.reInit();
+  },
+);
 
 function isFormWidgetData(data: unknown): data is FormWidgetData {
   if (typeof data !== 'object' || data === null) return false;
@@ -140,9 +171,64 @@ function bannerPlacementClasses(placement?: string): string {
         {{ header.description }}
       </p>
     </div>
+
+    <!-- Collapse: mobile-only horizontal slider; the header above stays fixed. -->
+    <Carousel
+      v-if="collapse"
+      v-slot="{ canScrollPrev, canScrollNext }"
+      class="md:hidden"
+      :opts="{ slidesToScroll: 'auto', loop: false }"
+      @init-api="onCarouselInit"
+    >
+      <CarouselContent>
+        <CarouselItem
+          v-for="(item, i) in items"
+          :key="`rich-slide-${i}`"
+          class="basis-4/5"
+        >
+          <div class="bg-card h-full overflow-hidden rounded-md border">
+            <GeinsImage
+              v-if="item.image?.src"
+              :file-name="item.image.src"
+              type="pagewidget"
+              :alt="item.image?.alt ?? ''"
+              fit="natural"
+              class="w-full"
+            />
+            <div class="space-y-2 p-4">
+              <h3
+                v-if="item.heading"
+                class="font-heading text-lg font-semibold"
+              >
+                {{ item.heading }}
+              </h3>
+              <p
+                v-if="item.description"
+                class="text-muted-foreground text-sm"
+              >
+                {{ item.description }}
+              </p>
+              <NuxtLink
+                v-if="item.cta?.url"
+                :to="localePath(stripGeinsPrefix(item.cta.url))"
+                class="bg-button-background text-primary-foreground inline-block rounded-md px-4 py-2 text-sm font-medium"
+              >
+                {{ item.cta.text }}
+              </NuxtLink>
+            </div>
+          </div>
+        </CarouselItem>
+      </CarouselContent>
+      <CarouselDots v-if="canScrollPrev || canScrollNext" class="mt-4" />
+    </Carousel>
+
+    <!-- Grid: all viewports when Stack; desktop-only when Collapse (slider owns mobile). -->
     <div
-      class="grid gap-6"
-      :class="items.length <= 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'"
+      class="gap-6"
+      :class="[
+        items.length <= 2 ? 'md:grid-cols-2' : 'md:grid-cols-3',
+        collapse ? 'hidden md:grid' : 'grid',
+      ]"
     >
       <div
         v-for="(item, i) in items"
@@ -186,7 +272,48 @@ function bannerPlacementClasses(placement?: string): string {
         {{ header.description }}
       </p>
     </div>
-    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+
+    <!-- Collapse: mobile-only horizontal slider; the header above stays fixed. -->
+    <Carousel
+      v-if="collapse"
+      v-slot="{ canScrollPrev, canScrollNext }"
+      class="md:hidden"
+      :opts="{ slidesToScroll: 'auto', loop: false }"
+      @init-api="onCarouselInit"
+    >
+      <CarouselContent>
+        <CarouselItem
+          v-for="(item, i) in simpleItems"
+          :key="`simple-slide-${i}`"
+          class="basis-4/5"
+        >
+          <NuxtLink
+            :to="localePath(stripGeinsPrefix(item.url ?? '/'))"
+            class="bg-card group block overflow-hidden rounded-md border"
+          >
+            <div class="bg-muted aspect-square overflow-hidden">
+              <GeinsImage
+                v-if="item.src"
+                :file-name="item.src"
+                type="pagewidget"
+                :alt="item.alt ?? ''"
+                class="size-full object-cover transition-transform group-hover:scale-105"
+              />
+            </div>
+            <p class="font-heading p-3 text-center text-base font-medium">
+              {{ item.title }}
+            </p>
+          </NuxtLink>
+        </CarouselItem>
+      </CarouselContent>
+      <CarouselDots v-if="canScrollPrev || canScrollNext" class="mt-4" />
+    </Carousel>
+
+    <!-- Grid: all viewports when Stack; desktop-only when Collapse. -->
+    <div
+      class="gap-6 sm:grid-cols-2 lg:grid-cols-4"
+      :class="collapse ? 'hidden md:grid' : 'grid'"
+    >
       <NuxtLink
         v-for="(item, i) in simpleItems"
         :key="i"
