@@ -69,6 +69,14 @@ export default defineEventHandler(async (event) => {
 });
 ```
 
+### Type Safety
+
+Never silence the compiler. `any`, `@ts-ignore`, and `@ts-expect-error` are lint errors
+(`eslint.config.mjs`). When SDK types are missing fields that the GraphQL query returns, extend
+the type in `shared/types/commerce.ts` — a cast hides the drift and the next person inherits it.
+If an exception is genuinely unavoidable, use a targeted `eslint-disable-next-line` with a reason
+on the line above.
+
 ### Don't Create
 
 - Custom debounce/throttle composables (use VueUse)

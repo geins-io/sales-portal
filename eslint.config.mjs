@@ -32,6 +32,12 @@ export default createConfigForNuxt()
         },
       ],
       'tailwindcss/no-custom-classname': 'off',
+      // Types are the contract with @geins/types and the tenant config schema.
+      // Silencing the compiler hides drift instead of fixing it: extend the type
+      // (e.g. shared/types/commerce.ts) rather than casting. The few legitimate
+      // exceptions carry a targeted eslint-disable with a reason.
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/ban-ts-comment': 'error',
     },
   })
   .append({
