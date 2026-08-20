@@ -39,12 +39,13 @@ pnpm lint:fix   # Fix lint issues
 
 ## Before You Code
 
-| Task                             | Read First                           |
-| -------------------------------- | ------------------------------------ |
-| Any code change                  | [Conventions](docs/conventions/)     |
-| Understanding architecture       | [Architecture](docs/architecture.md) |
-| Why we chose X over Y            | [ADRs](docs/adr/)                    |
-| Specific implementation patterns | [Patterns](docs/patterns/)           |
+| Task                             | Read First                                 |
+| -------------------------------- | ------------------------------------------ |
+| Any code change                  | [Conventions](docs/conventions/)           |
+| Understanding architecture       | [Architecture](docs/architecture.md)       |
+| Why we chose X over Y            | [ADRs](docs/adr/)                          |
+| Specific implementation patterns | [Patterns](docs/patterns/)                 |
+| What has broken before, and why  | [Lessons Learned](docs/lessons-learned.md) |
 
 ## Critical Rules
 
@@ -83,6 +84,7 @@ on the line above.
 - Custom localStorage composables (use VueUse)
 - Custom API wrapper composables (use useFetch directly)
 - Abstractions for one-time operations
+- Client-side Geins SDK imports — the SDK runs server-side only (Direct mode)
 
 ### Do
 
@@ -111,6 +113,12 @@ Tenant flows through: Server plugin → `event.context.tenant` → `/api/config`
 // Server: event.context.tenant.hostname
 // Client: const { tenant, hasFeature } = useTenant()
 ```
+
+Never break backwards compatibility with the existing tenant config schema. Tenants are
+configured externally in the merchant admin, so a renamed or newly-required field breaks live
+sites that have no way to know about the change. Add fields as optional with a default; migrate
+in `server/utils/tenant.ts` rather than at the schema boundary. Never hardcode tenant-specific
+values anywhere — everything flows through the tenant config.
 
 ## Maintaining These Docs
 
@@ -181,6 +189,12 @@ Full guide in [CONTRIBUTING.md](CONTRIBUTING.md); rationale in [ADR-022](docs/ad
 4. `docker build .` — Dockerfile must build successfully (if Dockerfile was modified)
 
 If any of these fail, fix before pushing. Never push broken code to `main`.
+
+**AI assistants must never run `git push`.** Commit locally if asked, then stop and hand back —
+a human reviews the diff and pushes. This is not about trust in the change; it is that pushing is
+the one step here that is visible to everyone else and awkward to undo. The same applies to
+`git commit`: create commits only when explicitly asked, and leave work in the working tree
+otherwise. Never delete or skip tests, and never disable a lint rule, to make a gate pass.
 
 ## Design Principles
 
