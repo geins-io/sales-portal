@@ -54,10 +54,3 @@ playwright/.cache
 docs/.vitepress/dist
 docs/.vitepress/cache
 
-# mint local state
-.mint/tasks/
-.mint/research/
-.mint/worktrees/
-.mint/plugins/
-.mint/sessions/
-.mint/ssh-cache.json

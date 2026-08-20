@@ -87,4 +87,5 @@ in stores and composables:
   forwarder. They still must be auth-aware on the server, but the browser
   sends cookies on its own when those actions fire client-side.
 
-Future contributors: see `.mint/hard-blocks.md` for the bot-enforced rule.
+The rule is enforced by lint, not just convention: `sales-portal/require-runtime-config-event`
+in `eslint.config.mjs` flags `useRuntimeConfig()` calls in `server/**` that omit the event.
