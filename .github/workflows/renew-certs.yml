@@ -100,27 +100,52 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Upload certificate to Azure
+        id: upload
         env:
           PFX_PASSWORD: ${{ secrets.CERT_PFX_PASSWORD }}
         run: |
-          az webapp config ssl upload \
+          THUMBPRINT=$(az webapp config ssl upload \
             --certificate-file /tmp/sales-portal-geins-dev.pfx \
             --certificate-password "$PFX_PASSWORD" \
             --name sales-portal-dev-app \
-            --resource-group rg-sales-portal-dev
+            --resource-group rg-sales-portal-dev \
+            --query thumbprint \
+            --output tsv)
+          test -n "$THUMBPRINT"
+          echo "thumbprint=$THUMBPRINT" >> "$GITHUB_OUTPUT"
 
       - name: Bind certificate to domain
         run: |
-          THUMBPRINT=$(az webapp config ssl list \
-            --resource-group rg-sales-portal-dev \
-            --query "[?contains(subjectName, 'sales-portal.geins.dev')].thumbprint | [0]" \
-            --output tsv)
-
           az webapp config ssl bind \
-            --certificate-thumbprint "$THUMBPRINT" \
+            --certificate-thumbprint "${{ steps.upload.outputs.thumbprint }}" \
             --ssl-type SNI \
             --name sales-portal-dev-app \
             --resource-group rg-sales-portal-dev
+
+      - name: Verify binding
+        run: |
+          BOUND=$(az webapp config hostname list \
+            --webapp-name sales-portal-dev-app \
+            --resource-group rg-sales-portal-dev \
+            --query "[?name=='*.sales-portal.geins.dev'].thumbprint | [0]" \
+            --output tsv)
+          if [ "$BOUND" != "${{ steps.upload.outputs.thumbprint }}" ]; then
+            echo "::error::Bound thumbprint ($BOUND) does not match uploaded cert"
+            exit 1
+          fi
+
+      - name: Delete expired certificates
+        run: |
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%S)
+          for T in $(az webapp config ssl list \
+            --resource-group rg-sales-portal-dev \
+            --query "[?contains(subjectName, 'sales-portal.geins.dev') && expirationDate < '$NOW'].thumbprint" \
+            --output tsv); do
+            echo "Deleting expired cert $T"
+            az webapp config ssl delete \
+              --certificate-thumbprint "$T" \
+              --resource-group rg-sales-portal-dev
+          done
 
       - name: Clean up secrets
         if: always()
@@ -128,11 +153,13 @@ jobs:
 
       - name: Summary
         run: |
-          EXPIRY=$(sudo openssl x509 -enddate -noout \
-            -in /etc/letsencrypt/live/sales-portal.geins.dev/fullchain.pem \
-            | cut -d= -f2)
+          EXPIRY=$(az webapp config ssl list \
+            --resource-group rg-sales-portal-dev \
+            --query "[?thumbprint=='${{ steps.upload.outputs.thumbprint }}'].expirationDate | [0]" \
+            --output tsv)
           echo "### Dev Certificate Renewed" >> $GITHUB_STEP_SUMMARY
           echo "- **Domain:** \*.sales-portal.geins.dev" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bound thumbprint:** ${{ steps.upload.outputs.thumbprint }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Expires:** ${EXPIRY}" >> $GITHUB_STEP_SUMMARY
           echo "- **App:** sales-portal-dev-app" >> $GITHUB_STEP_SUMMARY
 
@@ -195,27 +222,52 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Upload certificate to Azure
+        id: upload
         env:
           PFX_PASSWORD: ${{ secrets.CERT_PFX_PASSWORD }}
         run: |
-          az webapp config ssl upload \
+          THUMBPRINT=$(az webapp config ssl upload \
             --certificate-file /tmp/litium-store.pfx \
             --certificate-password "$PFX_PASSWORD" \
             --name sales-portal-prod-app \
-            --resource-group rg-sales-portal-prod
+            --resource-group rg-sales-portal-prod \
+            --query thumbprint \
+            --output tsv)
+          test -n "$THUMBPRINT"
+          echo "thumbprint=$THUMBPRINT" >> "$GITHUB_OUTPUT"
 
       - name: Bind certificate to domain
         run: |
-          THUMBPRINT=$(az webapp config ssl list \
-            --resource-group rg-sales-portal-prod \
-            --query "[?contains(subjectName, 'litium.store')].thumbprint | [0]" \
-            --output tsv)
-
           az webapp config ssl bind \
-            --certificate-thumbprint "$THUMBPRINT" \
+            --certificate-thumbprint "${{ steps.upload.outputs.thumbprint }}" \
             --ssl-type SNI \
             --name sales-portal-prod-app \
             --resource-group rg-sales-portal-prod
+
+      - name: Verify binding
+        run: |
+          BOUND=$(az webapp config hostname list \
+            --webapp-name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod \
+            --query "[?name=='*.litium.store'].thumbprint | [0]" \
+            --output tsv)
+          if [ "$BOUND" != "${{ steps.upload.outputs.thumbprint }}" ]; then
+            echo "::error::Bound thumbprint ($BOUND) does not match uploaded cert"
+            exit 1
+          fi
+
+      - name: Delete expired certificates
+        run: |
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%S)
+          for T in $(az webapp config ssl list \
+            --resource-group rg-sales-portal-prod \
+            --query "[?contains(subjectName, 'litium.store') && expirationDate < '$NOW'].thumbprint" \
+            --output tsv); do
+            echo "Deleting expired cert $T"
+            az webapp config ssl delete \
+              --certificate-thumbprint "$T" \
+              --resource-group rg-sales-portal-prod
+          done
 
       - name: Clean up secrets
         if: always()
@@ -223,10 +275,12 @@ jobs:
 
       - name: Summary
         run: |
-          EXPIRY=$(sudo openssl x509 -enddate -noout \
-            -in /etc/letsencrypt/live/litium.store/fullchain.pem \
-            | cut -d= -f2)
+          EXPIRY=$(az webapp config ssl list \
+            --resource-group rg-sales-portal-prod \
+            --query "[?thumbprint=='${{ steps.upload.outputs.thumbprint }}'].expirationDate | [0]" \
+            --output tsv)
           echo "### Prod Certificate Renewed" >> $GITHUB_STEP_SUMMARY
           echo "- **Domain:** \*.litium.store" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bound thumbprint:** ${{ steps.upload.outputs.thumbprint }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Expires:** ${EXPIRY}" >> $GITHUB_STEP_SUMMARY
           echo "- **App:** sales-portal-prod-app" >> $GITHUB_STEP_SUMMARY
