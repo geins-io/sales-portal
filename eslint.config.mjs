@@ -32,6 +32,12 @@ export default createConfigForNuxt()
         },
       ],
       'tailwindcss/no-custom-classname': 'off',
+      // Types are the contract with @geins/types and the tenant config schema.
+      // Silencing the compiler hides drift instead of fixing it: extend the type
+      // (e.g. shared/types/commerce.ts) rather than casting. The few legitimate
+      // exceptions carry a targeted eslint-disable with a reason.
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/ban-ts-comment': 'error',
     },
   })
   .append({
@@ -57,28 +63,28 @@ export default createConfigForNuxt()
           selector:
             "CallExpression[callee.name=/^(localePath|navigateTo)$/] > TemplateLiteral[quasis.0.value.raw=/^[/][pcb][/]/]",
           message:
-            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see ADR-015 / hard-blocks",
+            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md",
         },
         {
           // Flag localePath('/p/...') / navigateTo('/p/...') with a plain string literal
           selector:
             "CallExpression[callee.name=/^(localePath|navigateTo)$/] > Literal[value=/^[/][pcb][/]/]",
           message:
-            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see ADR-015 / hard-blocks",
+            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md",
         },
         {
           // Flag router.push(`/p/...`) / router.replace(`/p/...`) with a bare template literal
           selector:
             "CallExpression[callee.type='MemberExpression'][callee.object.name='router'][callee.property.name=/^(push|replace)$/] > TemplateLiteral[quasis.0.value.raw=/^[/][pcb][/]/]",
           message:
-            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see ADR-015 / hard-blocks",
+            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md",
         },
         {
           // Flag router.push('/p/...') / router.replace('/p/...') with a plain string literal
           selector:
             "CallExpression[callee.type='MemberExpression'][callee.object.name='router'][callee.property.name=/^(push|replace)$/] > Literal[value=/^[/][pcb][/]/]",
           message:
-            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see ADR-015 / hard-blocks",
+            "Build entity URLs with productPath/categoryPath/brandPath from shared/utils/route-helpers, then localePath(): see docs/adr/015-type-prefixed-routing.md",
         },
         // CMS-page semantic slugs: resolve via useCmsPageLink(CMS_TAGS.X) instead of
         // hardcoding. Longest-match first (contact-form before contact,

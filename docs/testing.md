@@ -126,7 +126,8 @@ Forbidden:
 - Mocking shared utilities (`shared/types/*`, `shared/utils/*`)
 - Mocking Pinia stores when testing components that use them
 
-See `.mint/hard-blocks.md` for the full list.
+Only external boundaries may be mocked: the Geins SDK, network calls, and
+framework auto-imports. See [AGENTS.md](../AGENTS.md) for the project-wide rules.
 
 ### Test routing (glob-based)
 

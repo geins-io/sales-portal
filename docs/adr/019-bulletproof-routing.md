@@ -70,8 +70,8 @@ Three guardrails prevent raw entity-URL literals from bypassing the builders:
    `app/**`) flags string and template literals containing `/p/`, `/c/`, or
    `/b/` passed to `localePath()`, `navigateTo()`, `router.push()`, or
    `router.replace()`, with the message directing agents to the route helpers.
-2. A hard-block rule in `.mint/hard-blocks.md` makes the same constraint
-   explicit for agentic code generation.
+2. The URL invariant in [conventions/README.md](../conventions/README.md) states
+   the same constraint in prose, for humans and agents alike.
 3. A static-scan test at `tests/unit/lint/entity-url-literals.test.ts`
    enforces this at test time in addition to lint time.
 4. Route-helper invariant tests at `tests/unit/route-helpers-invariants.test.ts`

@@ -1,26 +1,3 @@
-<!-- mint:start v2 -->
-
-## MANDATORY: Use mint for ALL Code Changes
-
-**For ANY task that modifies files in this repo, invoke the `mint` skill FIRST.**
-
-This is not optional. Before writing, editing, or deleting any code:
-
-1. Invoke `mint` with the task description
-2. mint auto-routes to the right mode (quick/plan/ship/research/verify)
-3. Follow mint's execution flow with gates and reviews
-
-The only exceptions:
-
-- Pure conversation / answering questions
-- Reading files to understand context (no modifications)
-
-If you catch yourself thinking "this is just a small fix" or "I'll just edit one file" — STOP. Invoke mint. Small fixes use quick mode. mint decides the workflow, not you.
-
-**NEVER use Claude Code's built-in plan mode (EnterPlanMode/ExitPlanMode).** mint has its own planning flow — Claude Code plan mode is redundant and conflicts with mint's orchestration. Always stay in normal mode and let mint handle planning via its plan/ship modes.
-
-<!-- mint:end -->
-
 # Sales Portal - AI Agent Instructions
 
 > Single source of truth for all AI coding assistants working on this codebase.
@@ -39,12 +16,13 @@ pnpm lint:fix   # Fix lint issues
 
 ## Before You Code
 
-| Task                             | Read First                           |
-| -------------------------------- | ------------------------------------ |
-| Any code change                  | [Conventions](docs/conventions/)     |
-| Understanding architecture       | [Architecture](docs/architecture.md) |
-| Why we chose X over Y            | [ADRs](docs/adr/)                    |
-| Specific implementation patterns | [Patterns](docs/patterns/)           |
+| Task                             | Read First                                 |
+| -------------------------------- | ------------------------------------------ |
+| Any code change                  | [Conventions](docs/conventions/)           |
+| Understanding architecture       | [Architecture](docs/architecture.md)       |
+| Why we chose X over Y            | [ADRs](docs/adr/)                          |
+| Specific implementation patterns | [Patterns](docs/patterns/)                 |
+| What has broken before, and why  | [Lessons Learned](docs/lessons-learned.md) |
 
 ## Critical Rules
 
@@ -69,12 +47,21 @@ export default defineEventHandler(async (event) => {
 });
 ```
 
+### Type Safety
+
+Never silence the compiler. `any`, `@ts-ignore`, and `@ts-expect-error` are lint errors
+(`eslint.config.mjs`). When SDK types are missing fields that the GraphQL query returns, extend
+the type in `shared/types/commerce.ts` — a cast hides the drift and the next person inherits it.
+If an exception is genuinely unavoidable, use a targeted `eslint-disable-next-line` with a reason
+on the line above.
+
 ### Don't Create
 
 - Custom debounce/throttle composables (use VueUse)
 - Custom localStorage composables (use VueUse)
 - Custom API wrapper composables (use useFetch directly)
 - Abstractions for one-time operations
+- Client-side Geins SDK imports — the SDK runs server-side only (Direct mode)
 
 ### Do
 
@@ -103,6 +90,12 @@ Tenant flows through: Server plugin → `event.context.tenant` → `/api/config`
 // Server: event.context.tenant.hostname
 // Client: const { tenant, hasFeature } = useTenant()
 ```
+
+Never break backwards compatibility with the existing tenant config schema. Tenants are
+configured externally in the merchant admin, so a renamed or newly-required field breaks live
+sites that have no way to know about the change. Add fields as optional with a default; migrate
+in `server/utils/tenant.ts` rather than at the schema boundary. Never hardcode tenant-specific
+values anywhere — everything flows through the tenant config.
 
 ## Maintaining These Docs
 
@@ -173,6 +166,12 @@ Full guide in [CONTRIBUTING.md](CONTRIBUTING.md); rationale in [ADR-022](docs/ad
 4. `docker build .` — Dockerfile must build successfully (if Dockerfile was modified)
 
 If any of these fail, fix before pushing. Never push broken code to `main`.
+
+**AI assistants must never run `git push`.** Commit locally if asked, then stop and hand back —
+a human reviews the diff and pushes. This is not about trust in the change; it is that pushing is
+the one step here that is visible to everyone else and awkward to undo. The same applies to
+`git commit`: create commits only when explicitly asked, and leave work in the working tree
+otherwise. Never delete or skip tests, and never disable a lint rule, to make a gate pass.
 
 ## Design Principles
 
