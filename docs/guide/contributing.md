@@ -9,21 +9,25 @@ Thank you for your interest in contributing to the Sales Portal! This guide will
 - Node.js 20 or newer
 - PNPM 9+
 - Git
+- GitHub CLI (`gh`) — optional; used by the AI agent instructions in `AGENTS.md`
 
 ### Local Development
 
 1. Fork and clone the repository:
+
    ```bash
    git clone https://github.com/YOUR_USERNAME/sales-portal.git
    cd sales-portal
    ```
 
 2. Install dependencies:
+
    ```bash
    pnpm install
    ```
 
 3. Create a branch for your changes:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -148,19 +152,19 @@ Example:
 ```vue
 <script setup lang="ts">
 interface Props {
-  title: string
-  variant?: 'default' | 'outline'
+  title: string;
+  variant?: 'default' | 'outline';
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  variant: 'default'
-})
+  variant: 'default',
+});
 </script>
 
 <template>
   <div
     class="bg-background text-foreground rounded-md p-4"
-    :class="{ 'border border-border': props.variant === 'outline' }"
+    :class="{ 'border-border border': props.variant === 'outline' }"
   >
     <h2 class="text-lg font-semibold">{{ props.title }}</h2>
     <slot />
@@ -181,6 +185,7 @@ refactor: simplify tenant context logic
 ```
 
 Prefixes:
+
 - `feat:` — New features
 - `fix:` — Bug fixes
 - `docs:` — Documentation changes

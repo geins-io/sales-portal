@@ -8,9 +8,13 @@ Before you begin, ensure you have the following installed:
 
 - **Node.js 20 or newer** — Required for running the development server
 - **PNPM 9+** — Package manager (recommended to match `pnpm-lock.yaml`)
+- **GitHub CLI (`gh`)** — Optional. Not needed to run, build or test the app. The AI agent
+  instructions in `AGENTS.md` use it for pull request and workflow operations, so those
+  steps fail silently without it.
 
 ::: tip
-You can check your Node.js version with `node --version` and install PNPM with `npm install -g pnpm`.
+You can check your Node.js version with `node --version` and install PNPM with `npm install -g pnpm`. Install the GitHub CLI with `brew install gh` (macOS) or see
+[cli.github.com](https://cli.github.com), then authenticate with `gh auth login`.
 :::
 
 ## Installation
