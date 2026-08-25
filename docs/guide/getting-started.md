@@ -22,7 +22,7 @@ You can check your Node.js version with `node --version` and install PNPM with `
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/litium/sales-portal.git
+git clone https://github.com/geins-io/sales-portal.git
 cd sales-portal
 ```
 

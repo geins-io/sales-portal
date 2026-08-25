@@ -8,7 +8,7 @@ Multi-tenant storefront application built on Nuxt 4. Serves multiple merchants/b
 - **Tailwind CSS 4** with per-tenant CSS variable theming
 - **Pinia** for client state, **Geins SDK** for server-side e-commerce
 - **shadcn-vue** + Reka UI + Lucide icons
-- **Vitest** (875+ unit tests) + **Playwright** (E2E)
+- **Vitest** (unit + component) + **Playwright** (E2E)
 - **TypeScript** (strict mode), ESLint + Prettier, PNPM
 
 ## Getting Started
