@@ -37,13 +37,15 @@ const { to: applyTo, isResolved: applyResolved } = useCmsPageLink(
         <VatDisplaySwitcher variant="text" />
       </div>
 
-      <!-- Center: Env badge (dev only) -->
+      <!-- Center: Env badge (dev only). Hidden below sm — its ~79px pushed
+           the right-hand links past the viewport edge, overflowing the page
+           horizontally on non-production environments. -->
       <div
         v-if="
           $config?.public?.environment &&
           $config.public.environment !== 'production'
         "
-        class="font-mono text-xs uppercase opacity-75"
+        class="hidden font-mono text-xs uppercase opacity-75 sm:block"
       >
         {{ $config.public.environment }}
       </div>
