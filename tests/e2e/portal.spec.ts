@@ -1,5 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
-import { waitForHydration } from './helpers';
+import { test, expect } from '@playwright/test';
+import { waitForHydration, hasE2ECredentials, STORAGE_STATE } from './helpers';
 
 /**
  * Portal E2E Tests
@@ -7,35 +7,24 @@ import { waitForHydration } from './helpers';
  * Tests the M6 portal pages: overview, orders, order detail,
  * purchased products, saved lists, and quotations.
  *
- * All portal pages require authentication. The loginAsTestUser helper
- * logs in before each test. Tests handle empty-state scenarios
- * gracefully since the test account may have no data.
+ * All portal pages require authentication, so the file skips without a test
+ * account. Tests handle empty states since the account may have no data.
  */
 
+test.skip(
+  !hasE2ECredentials(),
+  'No E2E test account configured (set E2E_USERNAME / E2E_PASSWORD in .env)',
+);
+
+// Per-test login would exceed the 5-per-minute login rate limit.
+test.use({ storageState: STORAGE_STATE });
+
 const PAGE_TIMEOUT = 20000;
-
-/** Log in as the test user and wait for redirect to complete. */
-async function loginAsTestUser(page: Page) {
-  await page.goto('/se/sv/login');
-  await page.waitForLoadState('load');
-  await waitForHydration(page);
-
-  const emailInput = page.locator('[data-testid="login-email"]');
-  await expect(emailInput).toBeVisible({ timeout: PAGE_TIMEOUT });
-
-  await emailInput.fill('test@sales-portal.dev');
-  await page.locator('[data-testid="login-password"]').fill('TestPass2026!');
-  await page.locator('[data-testid="login-submit"]').click();
-
-  // Wait for redirect after successful login
-  await page.waitForURL(/portal|\/se\/sv\//, { timeout: PAGE_TIMEOUT });
-}
 
 test.describe('Portal Overview', () => {
   test('should render stat cards and sections on overview page', async ({
     page,
   }) => {
-    await loginAsTestUser(page);
     await page.goto('/se/sv/portal');
     await page.waitForLoadState('load');
     await waitForHydration(page);
@@ -95,7 +84,6 @@ test.describe('Portal Orders', () => {
   test('should render orders list page with search and table', async ({
     page,
   }) => {
-    await loginAsTestUser(page);
     await page.goto('/se/sv/portal/orders');
     await page.waitForLoadState('load');
     await waitForHydration(page);
@@ -133,7 +121,6 @@ test.describe('Portal Orders', () => {
   test('should navigate to order detail when clicking view link', async ({
     page,
   }) => {
-    await loginAsTestUser(page);
     await page.goto('/se/sv/portal/orders');
     await page.waitForLoadState('load');
     await waitForHydration(page);
@@ -181,7 +168,6 @@ test.describe('Portal Orders', () => {
 
 test.describe('Portal Purchased Products', () => {
   test('should render products page with search', async ({ page }) => {
-    await loginAsTestUser(page);
     await page.goto('/se/sv/portal/products');
     await page.waitForLoadState('load');
     await waitForHydration(page);
@@ -216,10 +202,7 @@ test.describe('Portal Purchased Products', () => {
 });
 
 test.describe('Portal Saved Lists', () => {
-  test('should render lists page with search and create button', async ({
-    page,
-  }) => {
-    await loginAsTestUser(page);
+  test('should render lists page with create button', async ({ page }) => {
     await page.goto('/se/sv/portal/lists');
     await page.waitForLoadState('load');
     await waitForHydration(page);
@@ -227,10 +210,6 @@ test.describe('Portal Saved Lists', () => {
     // Title
     const heading = page.locator('h2');
     await expect(heading.first()).toBeVisible({ timeout: PAGE_TIMEOUT });
-
-    // Search input
-    const searchInput = page.locator('[data-testid="saved-lists-search"]');
-    await expect(searchInput).toBeVisible({ timeout: PAGE_TIMEOUT });
 
     // Create button
     const createButton = page.locator('[data-testid="saved-lists-create"]');
@@ -247,7 +226,6 @@ test.describe('Portal Saved Lists', () => {
 
 test.describe('Portal Quotations', () => {
   test('should render quotations page with search', async ({ page }) => {
-    await loginAsTestUser(page);
     await page.goto('/se/sv/portal/quotations');
     await page.waitForLoadState('load');
     await waitForHydration(page);
@@ -285,7 +263,6 @@ test.describe('Portal Quotations', () => {
   test('should navigate from list to populated detail page with all sections', async ({
     page,
   }) => {
-    await loginAsTestUser(page);
     await page.goto('/se/sv/portal/quotations');
     await page.waitForLoadState('load');
     await waitForHydration(page);

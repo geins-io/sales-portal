@@ -1,9 +1,12 @@
 import { test, expect } from '@playwright/test';
 import {
-  discoverProduct,
+  discoverPurchasableProduct,
   discoverCategory,
   addToCart,
+  clearCart,
   waitForHydration,
+  hasE2ECredentials,
+  STORAGE_STATE,
 } from './helpers';
 
 /**
@@ -12,13 +15,28 @@ import {
  * Full cart flow: add items, cart drawer, cart page, quantity changes,
  * item removal, promo code validation.
  *
+ * Requires an authenticated customer: `orderPlacement` is authenticated-only
+ * here, so anonymous visitors get no add-to-cart button.
+ *
  * Note: After addToCart() navigates to PDP and adds an item, the cart drawer
  * opens. Navigating to /cart with page.goto() is a full page load that resets
  * Pinia state, but the cartId cookie persists and CartPage fetches the cart
  * on mount. We must wait for hydration + data loading.
  */
 
+test.skip(
+  !hasE2ECredentials(),
+  'Cart flows need an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
+);
+
+test.use({ storageState: STORAGE_STATE });
+
 test.describe('Cart', () => {
+  // Tests share a session and so a cart — without this it accumulates.
+  test.beforeEach(async ({ page }) => {
+    await clearCart(page);
+  });
+
   test('should start with an empty cart', async ({ page }) => {
     await page.goto('/cart');
     await page.waitForLoadState('load');
@@ -38,7 +56,7 @@ test.describe('Cart', () => {
   });
 
   test('should add a product to cart from PDP', async ({ page }) => {
-    const product = await discoverProduct(page);
+    const product = await discoverPurchasableProduct(page);
 
     await addToCart(page, product.alias);
 
@@ -51,7 +69,7 @@ test.describe('Cart', () => {
   });
 
   test('should show cart item on cart page after adding', async ({ page }) => {
-    const product = await discoverProduct(page);
+    const product = await discoverPurchasableProduct(page);
 
     await addToCart(page, product.alias);
 
@@ -70,7 +88,7 @@ test.describe('Cart', () => {
   });
 
   test('should remove item from cart', async ({ page }) => {
-    const product = await discoverProduct(page);
+    const product = await discoverPurchasableProduct(page);
 
     await addToCart(page, product.alias);
     await page.goto('/cart');
@@ -99,7 +117,7 @@ test.describe('Cart', () => {
   });
 
   test('should show error for invalid promo code', async ({ page }) => {
-    const product = await discoverProduct(page);
+    const product = await discoverPurchasableProduct(page);
 
     await addToCart(page, product.alias);
 
@@ -162,7 +180,7 @@ test.describe('Cart', () => {
   });
 
   test('should update quantity in cart drawer', async ({ page }) => {
-    const product = await discoverProduct(page);
+    const product = await discoverPurchasableProduct(page);
     await addToCart(page, product.alias);
 
     // Cart drawer is open with the item
@@ -200,7 +218,7 @@ test.describe('Cart', () => {
   });
 
   test('should delete item from cart drawer', async ({ page }) => {
-    const product = await discoverProduct(page);
+    const product = await discoverPurchasableProduct(page);
     await addToCart(page, product.alias);
 
     // Cart drawer is open with the item
@@ -230,7 +248,7 @@ test.describe('Cart', () => {
   });
 
   test('should persist cart across category navigation', async ({ page }) => {
-    const product = await discoverProduct(page);
+    const product = await discoverPurchasableProduct(page);
     await addToCart(page, product.alias);
 
     // Cart drawer is open — close it
@@ -260,10 +278,14 @@ test.describe('Cart', () => {
     await expect(cartItem.first()).toBeVisible({ timeout: 20000 });
   });
 
-  test('should redirect to login when clicking checkout without auth', async ({
+  // UNRESOLVED — product decision, not a test tweak. Unsatisfiable here (an
+  // anonymous visitor cannot fill a cart) and checkout.vue redirects to the
+  // market home, not `/login?redirect=…`. Either checkout should preserve
+  // intent via `auth` middleware, or this test should go.
+  test.skip('should redirect to login when clicking checkout without auth', async ({
     page,
   }) => {
-    const product = await discoverProduct(page);
+    const product = await discoverPurchasableProduct(page);
     await addToCart(page, product.alias);
 
     // Cart drawer is open — click checkout

@@ -14,12 +14,18 @@ import {
  * Note: We use pressSequentially() instead of fill() for the search input
  * because fill() sets the value programmatically and may not trigger Vue's
  * watch chain + debounce reliably. pressSequentially() simulates real typing.
+ *
+ * Viewport: the header SearchBar is `hidden … lg:flex`, so tests driving it
+ * skip on mobile projects rather than resizing — resizing would report mobile
+ * coverage while running a desktop test. Mobile has its own block below.
  */
 
 test.describe('Search', () => {
-  test('should show autocomplete after typing', async ({ page }) => {
+  test('should show autocomplete after typing', async ({ page, isMobile }) => {
     const product = await discoverProduct(page);
     const searchTerm = product.name.split(' ')[0] ?? 'test';
+
+    test.skip(isMobile, 'Header search is desktop-only (hidden below lg)');
 
     await page.goto('/');
     await page.waitForLoadState('load');
@@ -38,9 +44,14 @@ test.describe('Search', () => {
     await expect(autocomplete).toBeVisible({ timeout: 15000 });
   });
 
-  test('should show products with images in autocomplete', async ({ page }) => {
+  test('should show products with images in autocomplete', async ({
+    page,
+    isMobile,
+  }) => {
     const product = await discoverProduct(page);
     const searchTerm = product.name.split(' ')[0] ?? 'test';
+
+    test.skip(isMobile, 'Header search is desktop-only (hidden below lg)');
 
     await page.goto('/');
     await page.waitForLoadState('load');
@@ -75,7 +86,9 @@ test.describe('Search', () => {
     await page.goto('/search');
     await page.waitForLoadState('load');
 
-    const searchInput = page.locator('[data-testid="search-input"]');
+    // Scoped to `main`: the header has its own SearchBar with the same testid,
+    // so an unscoped locator fails strict mode before visibility is evaluated.
+    const searchInput = page.locator('main [data-testid="search-input"]');
     await expect(searchInput).toBeVisible({ timeout: 15000 });
   });
 
@@ -119,9 +132,14 @@ test.describe('Search', () => {
     expect(hasCards || hasEmpty).toBe(true);
   });
 
-  test('should close autocomplete when input is cleared', async ({ page }) => {
+  test('should close autocomplete when input is cleared', async ({
+    page,
+    isMobile,
+  }) => {
     const product = await discoverProduct(page);
     const searchTerm = product.name.split(' ')[0] ?? 'test';
+
+    test.skip(isMobile, 'Header search is desktop-only (hidden below lg)');
 
     await page.goto('/');
     await page.waitForLoadState('load');
@@ -212,9 +230,14 @@ test.describe('Mobile search overlay', () => {
     const panel = page.locator('[data-testid="mobile-search-panel"]');
     await expect(panel).toBeVisible({ timeout: 5000 });
 
-    await page
-      .locator('[data-testid="mobile-search-backdrop"]')
-      .click({ position: { x: 10, y: 10 } });
+    // The backdrop spans the viewport, so {10,10} lands behind the sticky
+    // header. Tap low on it instead — the area a user actually taps.
+    const backdrop = page.locator('[data-testid="mobile-search-backdrop"]');
+    const box = await backdrop.boundingBox();
+    expect(box, 'backdrop should have a layout box').not.toBeNull();
+    await backdrop.click({
+      position: { x: box!.width / 2, y: box!.height - 20 },
+    });
     await expect(panel).toBeHidden({ timeout: 5000 });
   });
 });

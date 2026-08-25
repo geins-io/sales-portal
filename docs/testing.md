@@ -8,7 +8,9 @@ Testing strategy, architecture, and practices for the Sales Portal.
 
 ## Overview
 
-2457 unit/component tests across 204 files + 10 E2E spec files (portal, auth, cart, navigation, quotation walkthrough, etc.).
+3687 unit/component tests across 277 files + 12 E2E spec files / 226 tests across three browser projects (portal, auth, cart, navigation, search, routing, etc.).
+
+Counts as of 2026-08-25. E2E has setup prerequisites — see [E2E Tests](#e2e-tests).
 
 | Level       | Tool                    | What it tests                            |
 | ----------- | ----------------------- | ---------------------------------------- |
@@ -83,7 +85,7 @@ After creating a test, add its path to the appropriate list in `vitest.workspace
 
 The full suite runs in ~70-80s:
 
-- **2457 tests** across **204 files**
+- **3687 tests** across **277 files**
 - Transform: ~55s, setup: ~90s, collect: ~240s, tests: ~120s
 - Environment overhead: ~115s (shared across tiers)
 - Nuxt boot: single instance shared via `getVitestConfigFromNuxt()`
@@ -159,18 +161,92 @@ pnpm test:ui           # Vitest visual UI
 
 ### E2E Tests
 
-E2E tests require a tenant hostname. Add to `/etc/hosts`:
+E2E has three prerequisites. Miss any of them and tests fail in ways that look like
+application bugs.
+
+#### 1. Tenant hostname
+
+Tests run against a tenant hostname, not `localhost`, so the multi-tenant server plugin can
+resolve a tenant. Add to `/etc/hosts`:
 
 ```
 127.0.0.1 tenant-a.litium.portal
 ```
 
+A wildcard `*.litium.portal` resolver (dnsmasq — see `infra/local-development.md`) works too.
+
+#### 2. A test account
+
+`tenant-a` gates `orderPlacement` and `priceVisibility` behind `access: 'authenticated'`, so an
+anonymous visitor gets **no prices and no add-to-cart button**. The cart and portal specs
+therefore need a signed-in customer. Add to `.env` (gitignored):
+
+```
+E2E_USERNAME=<test customer email>
+E2E_PASSWORD=<password>
+```
+
+Requirements for the account:
+
+- A **B2B customer** on the tenant behind `tenant-a.litium.portal` — not an admin or API key.
+- Use a **dedicated test user**, never a personal login. The suite signs in repeatedly and
+  mutates cart state.
+- One portal test additionally needs a **saved list containing products**; without it that test
+  skips.
+
+Without these variables the auth-dependent specs **skip rather than fail**
+(`hasE2ECredentials()` in `tests/e2e/helpers.ts`), so the suite stays green — you simply get less
+coverage. The run summary names what was skipped.
+
+> Logging in inside each test is not viable: `loginRateLimiter` allows 5 logins per minute per IP
+> (`server/utils/rate-limiter.ts`) and every test shares `127.0.0.1`. `tests/e2e/auth.setup.ts`
+> authenticates **once** and persists the session to `playwright/.auth/user.json` (gitignored);
+> specs opt in with `test.use({ storageState: STORAGE_STATE })`.
+
+#### 3. `E2E=1` on the dev server
+
 ```bash
-pnpm test:e2e          # Headless
+pnpm test:e2e          # simplest — Playwright starts the server itself with E2E=1
+```
+
+If you start the dev server yourself, it **must** carry the flag:
+
+```bash
+E2E=1 pnpm dev         # terminal 1
+pnpm test:e2e          # terminal 2
+```
+
+`E2E=1` disables Nuxt DevTools and `@nuxt/hints` (see `nuxt.config.ts`). Both inject fixed
+overlays that intercept pointer events at phone viewports, so `Mobile Chrome` tests fail without
+it. Playwright sets it via `webServer.env`, but `reuseExistingServer` is true outside CI — it
+attaches to whatever already holds port 3000 rather than restarting it. **A plain `pnpm dev` is
+the most common cause of a local run disagreeing with a clean one.**
+
+#### Commands
+
+```bash
+pnpm test:e2e          # Headless, all projects (chromium, Mobile Chrome, webkit)
 pnpm test:e2e:ui       # Playwright UI
 pnpm test:e2e:debug    # Debug mode
 pnpm test:e2e:report   # View last report
 ```
+
+#### If a run goes badly wrong
+
+A long-lived `pnpm dev` can exhaust the Vite worker's heap and then answer **500** while still
+listening, which produces a large, convincing wall of failures that looks like a code regression.
+`health.spec.ts` and `theme-colors.spec.ts` are the canaries — they depend on almost nothing, so
+if _they_ fail, check the server before debugging code:
+
+```bash
+curl http://tenant-a.litium.portal:3000/api/health
+```
+
+A 500 there means restart the dev server. For long sessions, start it with
+`NODE_OPTIONS=--max-old-space-size=8192`.
+
+Also: don't run two suites concurrently against one server — they share cart state and corrupt
+each other's assertions.
 
 ### Run a specific tier
 
@@ -197,7 +273,7 @@ tests/
 │   ├── useErrorTracking.test.ts          # nuxt tier (useRuntimeConfig)
 │   ├── useRouteResolution.test.ts
 │   └── useTenant.test.ts                 # nuxt tier (useFetch)
-├── e2e/               # Playwright E2E tests (51 tests)
+├── e2e/               # Playwright E2E tests (12 specs, 226 tests x 3 projects)
 │   ├── helpers.ts          # Shared: discoverProduct, waitForHydration, addToCart
 │   ├── app.spec.ts         # App health, responsive, accessibility, perf (10)
 │   ├── auth.spec.ts        # Login, register, validation, view switching (8)
@@ -359,7 +435,31 @@ vi.stubGlobal(
 
 ## E2E Tests
 
-E2E tests run against the real dev server with real Geins API data — no mocks.
+E2E tests run against the real dev server with real Geins API data — no mocks. Setup
+prerequisites are in [Running Tests → E2E Tests](#e2e-tests-1).
+
+### Writing tests that survive
+
+Most historical E2E failures in this repo were not application bugs. They were these, so check
+them before concluding the app is broken:
+
+- **Ambiguous locators.** Playwright fails a locator matching more than one element, and reports
+  it as **"element(s) not found" / "not visible"** — not as a strict-mode error. Several
+  `data-testid`s legitimately appear twice: `search-input` (header + page), `cart-drawer`,
+  `[role="tabpanel"]` (Reka UI mounts one per tab). Scope to a container (`main`,
+  `[data-testid="mobile-search-panel"]`) rather than reaching for `.first()`.
+- **`role="dialog"` is not unique.** `CookieBanner.vue` carries it, so it collides with any sheet
+  or filter panel. The consent state is pre-seeded in `playwright.config.ts` so the banner never
+  renders — if you add another persistent dialog, expect the same class of collision.
+- **Responsive layouts render twice.** `ProductTabs.vue` renders Tabs (`hidden md:block`) _and_ an
+  Accordion (`md:hidden`); the header SearchBar is `hidden … lg:flex`. Elements exist in the DOM
+  while invisible, so a click waits forever. Branch on which layout is actually visible, or skip
+  on the projects where the affordance does not exist (`test.skip(isMobile, …)`).
+- **Hydration.** Anything driven by a Vue handler needs `waitForHydration(page)` first, or the
+  click lands on inert SSR markup and nothing happens.
+- **WebKit commits URLs late.** `page.url()` (and `waitForLoadState`) can still report the previous
+  path after a navigation has returned 200. Use `page.waitForURL(...)` and assert the same
+  condition you waited for — never sample the URL.
 
 ### Key patterns
 
@@ -417,11 +517,36 @@ Excludes: `app/components/ui/**` (shadcn-vue), `*.d.ts`, `node_modules`, `.nuxt`
 
 ## CI/CD Integration
 
-Tests run on every push and PR:
+See `.github/workflows/ci.yml`. It runs on **PRs into `main`/`production`** and on **pushes to
+`dev`** — not on every push.
 
-1. Lint + TypeScript checks
-2. Unit + component tests (Vitest with coverage)
-3. E2E tests (Playwright with Chromium)
+| Job               | When     | What                                       |
+| ----------------- | -------- | ------------------------------------------ |
+| Lint & Type Check | both     | `pnpm lint`, `pnpm typecheck`              |
+| Unit & Component  | both     | `pnpm test:coverage` (full vitest suite)   |
+| E2E               | PRs only | **A 4-file smoke subset on chromium only** |
+
+The E2E job runs exactly:
+
+```
+--project=chromium health.spec.ts app.spec.ts homepage.spec.ts csp-policy.spec.ts
+```
+
+That is **18 of 226 tests**. Be aware of what this does and does not buy you:
+
+- Those four files make no data-discovery calls and need no test account, which is why they were
+  chosen — CI has no working Geins credentials.
+- Consequently they pass even against a completely unreachable backend. A green E2E job is **not**
+  evidence that the storefront works.
+- The other 8 spec files, and the `Mobile Chrome` / `webkit` projects, are ungated. They rot
+  silently; assume they are broken unless someone has run them locally.
+- `theme-colors.spec.ts` is a deliberate WebKit regression guard, but CI installs chromium only
+  and passes `--project=chromium`, so **it runs nowhere in CI** despite the comment in
+  `playwright.config.ts` implying otherwise.
+
+Running the full suite in CI would need a test account in GitHub Secrets (see
+[E2E Tests](#e2e-tests)). Until that exists, **run `pnpm test:e2e` locally before a PR that
+touches storefront behaviour** — the smoke subset will not catch it.
 
 ## Gotchas
 

@@ -28,32 +28,95 @@ export interface DiscoveredCategory {
   name: string;
 }
 
+interface RawProduct {
+  skus?: { skuId: number }[];
+  alias?: string;
+  name?: string;
+}
+
 /**
- * Discover a product by fetching the product list API and picking the first
- * in-stock product with a valid SKU.
+ * Candidates with a usable alias and SKU, sorted by alias — the products API
+ * applies no stable ordering, so an unsorted "first one" differs per call.
  */
-export async function discoverProduct(page: Page): Promise<DiscoveredProduct> {
+async function fetchProductCandidates(
+  page: Page,
+): Promise<DiscoveredProduct[]> {
   const response = await page.request.get('/api/product-lists/products', {
     params: { take: '20' },
   });
   expect(response.ok()).toBe(true);
 
   const data = await response.json();
-  const products = data.products ?? [];
+  const products: RawProduct[] = data.products ?? [];
 
-  // Find first product with a SKU
-  const product = products.find(
-    (p: { skus?: { skuId: number }[]; alias: string; name: string }) =>
-      p.skus?.length && p.alias,
+  return products
+    .filter(
+      (p): p is RawProduct & { alias: string } => !!(p.skus?.length && p.alias),
+    )
+    .map((p) => ({
+      alias: p.alias,
+      skuId: p.skus![0]!.skuId,
+      name: p.name ?? p.alias,
+    }))
+    .sort((a, b) => a.alias.localeCompare(b.alias));
+}
+
+/** A product with a valid SKU. Use `discoverPurchasableProduct` to buy. */
+export async function discoverProduct(page: Page): Promise<DiscoveredProduct> {
+  const candidates = await fetchProductCandidates(page);
+  expect(
+    candidates.length,
+    'no product with a SKU and alias found',
+  ).toBeGreaterThan(0);
+  return candidates[0]!;
+}
+
+/** Memoised per worker — probing costs a page load + hydration wait each. */
+let purchasableProductCache: DiscoveredProduct | undefined;
+
+/**
+ * A product whose PDP actually offers an add-to-cart button. A SKU is not
+ * enough (out of stock hides it), and `stockStatus` is disabled here so the
+ * list API exposes no stock — hence probing the PDP.
+ */
+export async function discoverPurchasableProduct(
+  page: Page,
+  maxAttempts = 3,
+): Promise<DiscoveredProduct> {
+  if (purchasableProductCache) return purchasableProductCache;
+
+  const candidates = await fetchProductCandidates(page);
+  expect(
+    candidates.length,
+    'no product with a SKU and alias found',
+  ).toBeGreaterThan(0);
+
+  const tried: string[] = [];
+
+  for (const candidate of candidates.slice(0, maxAttempts)) {
+    tried.push(candidate.alias);
+
+    await page.goto(`/p/${candidate.alias}`);
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    const visible = await page
+      .locator('[data-testid="add-to-cart-button"]')
+      .first()
+      .isVisible()
+      .catch(() => false);
+
+    if (visible) {
+      purchasableProductCache = candidate;
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    `No purchasable product found after ${tried.length} attempts (tried: ${tried.join(', ')}). ` +
+      `Every candidate was out of stock, or the session is not authenticated and ` +
+      `this tenant gates orderPlacement behind access: 'authenticated'.`,
   );
-
-  expect(product).toBeTruthy();
-
-  return {
-    alias: product.alias,
-    skuId: product.skus[0].skuId,
-    name: product.name,
-  };
 }
 
 /**
@@ -102,6 +165,60 @@ export async function discoverCategory(
   throw new Error('Could not discover any category from menu');
 }
 
+// ---------- Authentication ----------
+
+/** Test-account credentials from .env (loaded by playwright.config.ts). */
+export const e2eCredentials = {
+  username: process.env.E2E_USERNAME ?? '',
+  password: process.env.E2E_PASSWORD ?? '',
+};
+
+/** Session persisted by auth.setup.ts. Opt in via `test.use`. */
+export const STORAGE_STATE = 'playwright/.auth/user.json';
+
+/** Auth-dependent specs skip when false. Mirrors `hasGeinsCredentials()`. */
+export function hasE2ECredentials(): boolean {
+  return !!(e2eCredentials.username && e2eCredentials.password);
+}
+
+/** Sign in. Asserts the response so a bad credential fails here, not later. */
+export async function login(
+  page: Page,
+  credentials = e2eCredentials,
+): Promise<void> {
+  await page.goto('/se/sv/login');
+  await page.waitForLoadState('load');
+  await waitForHydration(page);
+
+  const emailInput = page.locator('[data-testid="login-email"]');
+  await expect(emailInput).toBeVisible({ timeout: 20000 });
+
+  await emailInput.fill(credentials.username);
+  await page
+    .locator('[data-testid="login-password"]')
+    .fill(credentials.password);
+
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes('/api/auth/login') && r.request().method() === 'POST',
+      { timeout: 20000 },
+    ),
+    page.locator('[data-testid="login-submit"]').click(),
+  ]);
+
+  expect(
+    response.ok(),
+    `login failed for the configured E2E account (HTTP ${response.status()}) — ` +
+      `check E2E_USERNAME / E2E_PASSWORD in .env`,
+  ).toBe(true);
+
+  // The login page redirects once the session cookie is set.
+  await page.waitForURL((url) => !url.pathname.includes('/login'), {
+    timeout: 20000,
+  });
+}
+
 // ---------- Actions ----------
 
 /**
@@ -118,24 +235,71 @@ export async function addToCart(page: Page, productAlias: string) {
   const addButton = page.locator('[data-testid="add-to-cart-button"]').first();
   await expect(addButton).toBeVisible({ timeout: 20000 });
   await expect(addButton).toBeEnabled({ timeout: 10000 });
+  await addButton.scrollIntoViewIfNeeded();
 
   const drawer = page.locator('[data-testid="cart-drawer"]');
 
-  // Retry click up to 3 times — hydration mismatch patching can cause
-  // the first click to miss the Vue handler
+  // `tap()` throws unless the context has `hasTouch`, hence the probe.
+  const hasTouch = await page
+    .evaluate(() => 'ontouchstart' in window || navigator.maxTouchPoints > 0)
+    .catch(() => false);
+
+  // Retry — hydration patching can leave the first interaction unhandled.
+  // Record why each failed; swallowing them yields an opaque 60s timeout.
+  const failures: string[] = [];
+
   for (let attempt = 0; attempt < 3; attempt++) {
-    await addButton.click();
-    const opened =
-      (await drawer.isVisible().catch(() => false)) ||
-      (await drawer
-        .waitFor({ state: 'visible', timeout: 5000 })
-        .then(() => true)
-        .catch(() => false));
-    if (opened) return;
+    try {
+      // Assert the response, not just the drawer — a server error otherwise
+      // looks identical to a tap that never registered.
+      const [response] = await Promise.all([
+        page
+          .waitForResponse(
+            (r) =>
+              r.url().includes('/api/cart/items') &&
+              r.request().method() === 'POST',
+            { timeout: 10000 },
+          )
+          .catch(() => null),
+        // Capped so one hung action can't starve the retries.
+        hasTouch
+          ? addButton.tap({ timeout: 12000 })
+          : addButton.click({ timeout: 12000 }),
+      ]);
+
+      if (response && !response.ok()) {
+        failures.push(
+          `attempt ${attempt + 1}: POST /api/cart/items returned HTTP ${response.status()}`,
+        );
+        continue;
+      }
+      if (!response) {
+        failures.push(
+          `attempt ${attempt + 1}: no POST to /api/cart/items within 10s ` +
+            `(${hasTouch ? 'tap' : 'click'} did not reach the handler)`,
+        );
+        continue;
+      }
+
+      await drawer.waitFor({ state: 'visible', timeout: 5000 });
+      return;
+    } catch (error) {
+      // Keep the actionability log — it names what blocked the action.
+      failures.push(
+        `attempt ${attempt + 1}: ` +
+          (error as Error).message
+            .split('\n')
+            .filter((l) => l.trim())
+            .slice(0, 24)
+            .join('\n      '),
+      );
+    }
   }
 
-  // Final assertion with full timeout
-  await expect(drawer).toBeVisible({ timeout: 10000 });
+  throw new Error(
+    `addToCart failed for "${productAlias}" after 3 attempts ` +
+      `(touch=${hasTouch}):\n  ${failures.join('\n  ')}`,
+  );
 }
 
 /**

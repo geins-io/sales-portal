@@ -121,12 +121,18 @@ test.describe('Routing', () => {
       targetLink.click(),
     ]);
 
-    await page.waitForLoadState('domcontentloaded');
-
     // Assert no 404 from the document response (may be null if timing varies)
     if (resp) {
       expect(resp.status()).toBeLessThan(400);
     }
+
+    // Wait for the URL rather than sampling it: WebKit commits it later than
+    // Chromium, so `page.url()` can still report the previous path after the
+    // target returned 200. Waits for the condition it then asserts.
+    await page.waitForURL(new RegExp(`/se/${targetLocale}/c/`), {
+      timeout: 20000,
+    });
+    await page.waitForLoadState('domcontentloaded');
 
     // Assert URL moved to the target locale under /c/
     const afterUrl = new URL(page.url());
