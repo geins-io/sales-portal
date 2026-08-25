@@ -33,7 +33,8 @@ function createPrefixedRoutes(pages: NuxtPage[], depth = 0): NuxtPage[] {
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
-  devtools: { enabled: true },
+  // Off when E2E=1: the DevTools frame intercepts taps at phone viewports.
+  devtools: { enabled: !process.env.E2E },
 
   hooks: {
     'pages:extend'(pages) {
@@ -67,7 +68,8 @@ export default defineNuxtConfig({
           'nuxt-security',
           '@nuxt/fonts',
           '@nuxt/scripts',
-          '@nuxt/hints',
+          // Skipped when E2E=1: its vue-tracer overlay is another such layer.
+          ...(process.env.E2E ? [] : ['@nuxt/hints']),
         ]
       : []),
   ],
