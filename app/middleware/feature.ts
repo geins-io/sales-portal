@@ -1,4 +1,5 @@
 import { logger } from '~/utils/logger';
+import { useAuthStore } from '~/stores/auth';
 
 /**
  * Feature Flag Middleware
@@ -29,10 +30,17 @@ export default defineNuxtRouteMiddleware(async (to) => {
 
   const { tenant, suspense } = useTenant();
   const { canAccess } = useFeatureAccess();
+  const authStore = useAuthStore();
 
   // Ensure tenant data is loaded before checking features
   if (!tenant.value) {
     await suspense();
+  }
+
+  // `access: 'authenticated'` reads the auth store, so an unresolved store
+  // makes a signed-in user look anonymous. Mirrors middleware/auth.ts.
+  if (!authStore.isInitialized) {
+    await authStore.fetchUser();
   }
 
   if (!canAccess(requiredFeature)) {
