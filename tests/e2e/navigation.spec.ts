@@ -100,9 +100,17 @@ test.describe('Mobile Navigation', () => {
     const dialog = page.locator('[role="dialog"]');
     await expect(dialog).toBeVisible({ timeout: 15000 });
 
-    const links = dialog.locator('a[href]');
-    const count = await links.count();
-    expect(count).toBeGreaterThan(0);
+    // Top-level categories are collapsible buttons, not anchors — `a[href]`
+    // only exists once a section is expanded.
+    const sections = dialog.locator('button[aria-expanded]');
+    await expect(sections.first()).toBeVisible({ timeout: 5000 });
+    expect(await sections.count()).toBeGreaterThan(0);
+
+    // Expanding one reveals its links.
+    await sections.first().click();
+    await expect(dialog.locator('a[href]').first()).toBeVisible({
+      timeout: 5000,
+    });
   });
 
   test('should close mobile nav on navigation', async ({ page }) => {

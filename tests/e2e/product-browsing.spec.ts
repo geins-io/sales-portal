@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { discoverCategory, discoverProduct, waitForHydration } from './helpers';
+import {
+  discoverCategory,
+  discoverProduct,
+  discoverPurchasableProduct,
+  waitForHydration,
+  hasE2ECredentials,
+  STORAGE_STATE,
+} from './helpers';
 
 /**
  * Product Browsing E2E Tests
@@ -88,6 +95,9 @@ test.describe('Product Browsing', () => {
       page.locator('[data-testid="product-card"]').first(),
     ).toBeVisible({ timeout: 20000 });
 
+    // The sheet opens via a Vue handler — unhydrated, the click is inert.
+    await waitForHydration(page);
+
     const filterButton = page.locator('[data-testid="product-filters"]');
 
     if (await filterButton.isVisible().catch(() => false)) {
@@ -126,29 +136,57 @@ test.describe('Product Browsing', () => {
     await waitForHydration(page);
 
     const tabs = page.locator('[data-testid="product-tabs"]');
+    if (!(await tabs.isVisible().catch(() => false))) return;
 
-    if (await tabs.isVisible().catch(() => false)) {
-      const tabTriggers = tabs.locator('[role="tab"]');
-      const count = await tabTriggers.count();
+    // ProductTabs renders Tabs at >= md and an Accordion below, hiding one by
+    // CSS. Both stay in the DOM, so branch on what is actually visible.
+    const tabTriggers = tabs.locator('[role="tab"]');
+    const isDesktopLayout = await tabTriggers
+      .first()
+      .isVisible()
+      .catch(() => false);
 
-      // Product may not have description/specs, so no tabs is OK
-      if (count > 0) {
-        await tabTriggers.first().click();
-        const tabPanel = page.locator('[role="tabpanel"]');
-        await expect(tabPanel).toBeVisible({ timeout: 5000 });
-      }
+    if (isDesktopLayout) {
+      await tabTriggers.first().click();
+
+      // One panel per tab, so an unscoped locator fails strict mode.
+      const tabPanel = tabs.locator('[role="tabpanel"]').first();
+      await expect(tabPanel).toBeVisible({ timeout: 5000 });
+      return;
     }
+
+    // Mobile accordion: expanding a section is the equivalent affordance.
+    const sections = tabs.locator('button[aria-expanded]');
+    // A product with no description/specs/documents renders nothing here.
+    if ((await sections.count()) === 0) return;
+
+    const firstSection = sections.first();
+    await expect(firstSection).toHaveAttribute('aria-expanded', 'false');
+    await firstSection.click();
+    await expect(firstSection).toHaveAttribute('aria-expanded', 'true', {
+      timeout: 5000,
+    });
   });
 
-  test('should show add-to-cart button on PDP', async ({ page }) => {
-    const product = await discoverProduct(page);
+  // Own block so the surrounding tests stay anonymous — only this one needs
+  // a session, since add-to-cart is gated on `orderPlacement`.
+  test.describe('purchase affordance (authenticated)', () => {
+    test.skip(
+      !hasE2ECredentials(),
+      'Needs an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
+    );
+    test.use({ storageState: STORAGE_STATE });
 
-    await page.goto(`/p/${product.alias}`);
+    test('should show add-to-cart button on PDP', async ({ page }) => {
+      const product = await discoverPurchasableProduct(page);
 
-    const addButton = page
-      .locator('[data-testid="add-to-cart-button"]')
-      .first();
-    await expect(addButton).toBeVisible({ timeout: 15000 });
+      await page.goto(`/p/${product.alias}`);
+
+      const addButton = page
+        .locator('[data-testid="add-to-cart-button"]')
+        .first();
+      await expect(addButton).toBeVisible({ timeout: 15000 });
+    });
   });
 
   test('should filter products by price and return to full list on clear', async ({

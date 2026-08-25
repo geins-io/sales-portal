@@ -21,6 +21,16 @@ async function gotoLogin(page: import('@playwright/test').Page) {
   await waitForHydration(page);
 }
 
+/**
+ * The query string is the only way in: `AuthCard` has no switch-to-register
+ * action, and `auth-apply-button` is a CMS page link that navigates away.
+ */
+async function gotoRegister(page: import('@playwright/test').Page) {
+  await page.goto('/login?tab=register');
+  await page.waitForLoadState('load');
+  await waitForHydration(page);
+}
+
 test.describe('Auth', () => {
   test('should load login page with form visible', async ({ page }) => {
     await gotoLogin(page);
@@ -66,24 +76,39 @@ test.describe('Auth', () => {
   });
 
   test('should switch to register view', async ({ page }) => {
-    await gotoLogin(page);
-
-    const applyButton = page.locator('[data-testid="auth-apply-button"]');
-    await expect(applyButton).toBeVisible({ timeout: FORM_TIMEOUT });
-    await applyButton.click();
+    await gotoRegister(page);
 
     await expect(page.locator('[data-testid="register-form"]')).toBeVisible({
       timeout: FORM_TIMEOUT,
     });
   });
 
-  test('should show all register form fields', async ({ page }) => {
+  test('apply-for-account button navigates to the CMS apply page', async ({
+    page,
+  }) => {
     await gotoLogin(page);
 
-    // Switch to register view
     const applyButton = page.locator('[data-testid="auth-apply-button"]');
-    await expect(applyButton).toBeVisible({ timeout: FORM_TIMEOUT });
+
+    if (!(await applyButton.isVisible().catch(() => false))) {
+      test.skip(true, 'Tenant has no resolvable CMS apply page');
+    }
+
+    // Per-tenant target, so read it off the link rather than hardcoding.
+    const href = await applyButton.getAttribute('href');
+    expect(
+      href,
+      'apply button must be a real link, not a hrefless anchor',
+    ).toBeTruthy();
+
     await applyButton.click();
+
+    await page.waitForURL((url) => url.pathname === href, { timeout: 15000 });
+    await expect(page.locator('[data-testid="login-form"]')).toBeHidden();
+  });
+
+  test('should show all register form fields', async ({ page }) => {
+    await gotoRegister(page);
 
     const registerForm = page.locator('[data-testid="register-form"]');
     await expect(registerForm).toBeVisible({ timeout: FORM_TIMEOUT });
@@ -106,12 +131,7 @@ test.describe('Auth', () => {
   test('should show validation errors on empty register submit', async ({
     page,
   }) => {
-    await gotoLogin(page);
-
-    // Switch to register view
-    const applyButton = page.locator('[data-testid="auth-apply-button"]');
-    await expect(applyButton).toBeVisible({ timeout: FORM_TIMEOUT });
-    await applyButton.click();
+    await gotoRegister(page);
 
     const submitButton = page.locator('[data-testid="register-submit"]');
     await expect(submitButton).toBeVisible({ timeout: FORM_TIMEOUT });
@@ -123,12 +143,7 @@ test.describe('Auth', () => {
   });
 
   test('should switch back to login from register', async ({ page }) => {
-    await gotoLogin(page);
-
-    // Switch to register view first
-    const applyButton = page.locator('[data-testid="auth-apply-button"]');
-    await expect(applyButton).toBeVisible({ timeout: FORM_TIMEOUT });
-    await applyButton.click();
+    await gotoRegister(page);
 
     const registerForm = page.locator('[data-testid="register-form"]');
     await expect(registerForm).toBeVisible({ timeout: FORM_TIMEOUT });
