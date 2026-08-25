@@ -54,3 +54,6 @@ playwright/.cache
 docs/.vitepress/dist
 docs/.vitepress/cache
 
+
+# Playwright saved auth state (session cookies — never commit)
+playwright/.auth/
