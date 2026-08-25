@@ -492,6 +492,41 @@ describe('useAuthStore', () => {
     });
   });
 
+  /**
+   * Regression guard: `_fetchPromise` at module scope was shared across SSR
+   * requests, so one request awaited another's promise and its own store never
+   * populated. The single-instance dedup test above cannot catch it — that is
+   * the case the bug handled correctly.
+   */
+  describe('SSR request isolation', () => {
+    it('populates each Pinia instance independently under concurrency', async () => {
+      const alice = { ...mockUser, userId: 'a', username: 'alice@example.com' };
+      const bob = { ...mockUser, userId: 'b', username: 'bob@example.com' };
+
+      const pending: Array<(value: unknown) => void> = [];
+      mockFetchImpl.mockImplementation(
+        () => new Promise((resolve) => pending.push(resolve)),
+      );
+
+      const storeA = useAuthStore(createPinia());
+      const storeB = useAuthStore(createPinia());
+
+      const requestA = storeA.fetchUser();
+      const requestB = storeB.fetchUser(); // arrives while A is still in flight
+
+      // Each request must issue its own /api/auth/me, not share A's promise.
+      expect(pending).toHaveLength(2);
+      pending[0]!({ user: alice });
+      pending[1]!({ user: bob });
+      await Promise.all([requestA, requestB]);
+
+      expect(storeA.isInitialized).toBe(true);
+      expect(storeA.user).toEqual(alice);
+      expect(storeB.isInitialized).toBe(true);
+      expect(storeB.user).toEqual(bob);
+    });
+  });
+
   describe('setUser action', () => {
     it('should set user directly', () => {
       const store = useAuthStore();

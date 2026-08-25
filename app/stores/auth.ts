@@ -3,8 +3,6 @@ import type { AuthUser } from '@geins/types';
 import { logger } from '~/utils/logger';
 import { swapMarketInPath } from '#shared/utils/locale-market';
 
-let _fetchPromise: Promise<void> | null = null;
-
 export type AuthSheetView = 'login' | 'forgot';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -14,6 +12,12 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref<string | null>(null);
   const sheetOpen = ref(false);
   const sheetView = ref<AuthSheetView>('login');
+
+  // Deduplicates concurrent `/api/auth/me` callers. MUST stay inside the
+  // factory: at module scope it is shared across SSR requests, so one request
+  // awaits another's promise and its own store never populates. Covered by the
+  // SSR isolation test in tests/stores/auth.test.ts.
+  let _fetchPromise: Promise<void> | null = null;
 
   function openSheet(view: AuthSheetView = 'login') {
     sheetView.value = view;
