@@ -35,7 +35,7 @@ Use `@vueuse/core` for all utility composables. Delete custom implementations.
 
 **Only create custom composables for:**
 
-- Domain-specific logic (e.g., `useTenant`, `useRouteResolution`)
+- Domain-specific logic (e.g., `useTenant`, `useLocaleMarket`)
 - Project-specific patterns not covered by VueUse
 
 ## Consequences

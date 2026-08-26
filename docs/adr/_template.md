@@ -2,6 +2,7 @@
 title: [Short descriptive title]
 status: accepted
 created: YYYY-MM-DD
+updated: YYYY-MM-DD
 author: '@github-username'
 tags: []
 ---

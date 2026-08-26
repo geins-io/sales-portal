@@ -2,6 +2,7 @@
 title: Type-prefixed routing
 status: accepted
 created: 2026-03-30
+updated: 2026-08-26
 tags: [routing, urls, seo]
 ---
 
@@ -76,21 +77,9 @@ Page files use `.pop()` on the catch-all params array to extract the entity alia
 
 ## Backward Compatibility
 
-A server middleware (`server/middleware/legacy-route-redirect.ts`) provides 301 redirects for old bare URLs:
-
-- `/se/sv/material` redirects to `/se/sv/c/material`
-- `/se/sv/material/epoxy` redirects to `/se/sv/c/material/epoxy`
-- `/se/sv/material/epoxy/product-name` redirects to `/se/sv/c/material/epoxy/product-name`
-
-The middleware skips:
-
-- Non-GET requests
-- API and Nuxt internal paths (`/api/`, `/_nuxt/`, `/__nuxt`)
-- Paths that already have a type prefix (`/c/`, `/p/`, `/b/`, `/l/`, `/s/`, `/dc/`)
-- Known static routes (cart, checkout, login, portal, etc.)
-- The homepage (no path after market/locale)
-
-Unknown bare paths default to `/c/` because the catch-all `[...slug].vue` handles CMS pages (which have no prefix), and CMS pages are served by their slug. If a `/c/` redirect results in a 404, the old URL was invalid. Products that came through old bare URLs will also redirect to `/c/` (the correct product URL is `/p/`).
+Old bare URLs without a type prefix still resolve — see _Update: 404-miss resolver_ below. Rather
+than assuming `/c/`, the resolver looks the alias up against product, category and brand and
+redirects to whichever matches.
 
 ## Consequences
 
