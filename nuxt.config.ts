@@ -42,7 +42,7 @@ export default defineNuxtConfig({
       // This allows named pages (search.vue, checkout.vue, index.vue, etc.)
       // to be reached via /se/sv/search, /se/sv/checkout, /se/sv/ etc.
       // Without this, only the [...slug] catch-all works with prefixed URLs.
-      // See: server/plugins/00.locale-market.ts for URL parsing.
+      // See: server/middleware/00.locale-market.ts for URL parsing.
       const prefixed = createPrefixedRoutes(pages);
       pages.push(...prefixed);
     },

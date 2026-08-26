@@ -106,22 +106,27 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   └── logger.ts              # Client-side structured logging
 │   └── plugins/
 │       ├── api.ts              # Custom $api fetch instance
-│       ├── auth-init.client.ts # Early auth session check (parallel with tenant)
+│       ├── auth-init.ts        # Early auth session check (parallel with tenant)
 │       ├── auth-redirect.client.ts # Global $fetch interceptor — SESSION_EXPIRED → /login redirect
+│       ├── cart-init.ts        # SSR cart hydration; client reuses Nuxt payload
 │       ├── cms-preview-listener.client.ts # PostMessage listener for CMS Studio iframe preview
-│       ├── tenant-theme.ts     # Runtime theme injection (CSS, fonts, favicon)
+│       ├── error-context.ts    # Sentry tenant/user context + navigation breadcrumbs
+│       ├── favorites-init.client.ts # Favorites hydration from storage
+│       ├── i18n-locale.ts      # Tenant default locale when the URL has no prefix
 │       ├── tenant-seo.ts       # SEO meta tags, lang attr, schema.org
 │       └── tenant-analytics.ts # GA/GTM with consent gating (client-only)
+│       # Theming is NOT a client plugin — see server/plugins/04.tenant-css.ts
 │
 ├── server/                     # Backend/server code
 │   ├── api/
 │   │   ├── config.get.ts       # Tenant config endpoint
 │   │   └── external/
 │   │       └── [...].ts        # Proxy for external APIs
-│   ├── middleware/
+│   ├── middleware/             # runs AFTER plugin request hooks — see Request Flow
+│   │   ├── 00.locale-market.ts # Parses /{market}/{locale}/, cookies, root redirect
+│   │   ├── 01.buyer-market.ts  # 302s a buyer off a market their pricelist disallows
 │   │   ├── cache-headers.ts    # CDN Vary + s-maxage + stale-while-revalidate
-│   │   ├── csrf-guard.ts       # Rejects non-JSON content types on mutating requests (415)
-│   │   └── legacy-route-redirect.ts # 301 redirect bare URLs to /c/ prefix (ADR-015)
+│   │   └── csrf-guard.ts       # Rejects non-JSON content types on mutating requests (415)
 │   ├── schemas/
 │   │   ├── store-settings.ts   # Zod schema + inferred types (ADR-007)
 │   │   └── api-input.ts        # Zod schemas for POST route validation
@@ -143,6 +148,9 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   │   ├── newsletter.ts       # Newsletter subscribe
 │   │   ├── quotes.ts           # Quotation management (real Geins GraphQL API)
 │   │   ├── purchased-products.ts # Purchased product aggregation from order history
+│   │   ├── url-resolver.ts     # Resolves/repairs entity URLs (ADR-017, ADR-019)
+│   │   ├── company.ts          # B2B organisation data
+│   │   ├── _locale-fallback.ts # Locale fallback for products + product-lists
 │   │   ├── index.ts            # Re-exports all services
 │   │   └── graphql/            # .graphql query files + loader
 │   │   # Saved lists are client-side only — no server service. See
@@ -214,9 +222,9 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   └── utils/component.ts      # Shared mount helper + global stubs (Icon, NuxtIcon, NuxtLink)
 │
 ├── docs/                       # Documentation
-│   ├── adr/                    # Architecture Decision Records (17 ADRs)
-│   ├── conventions/            # Coding standards (SSR, i18n, error handling, composables, runtime config)
-│   ├── patterns/               # Implementation patterns (CMS menu, sidebar info card)
+│   ├── adr/                    # Architecture Decision Records
+│   ├── conventions/            # Coding standards
+│   ├── patterns/               # Implementation patterns
 │   └── guide/                  # VitePress user guide
 │
 ├── nuxt.config.ts              # Nuxt configuration
@@ -229,19 +237,20 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 
 Authenticated user portal at `/portal/`:
 
-| Page             | Route                      | Features                                                                                                                                      |
-| ---------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Overview         | `/portal`                  | Stat cards, latest orders, pending quotes, saved lists, purchased products                                                                    |
-| Orders           | `/portal/orders`           | Order history table, search, pagination, status badges                                                                                        |
-| Order Detail     | `/portal/orders/[id]`      | Items table, summary sidebar, addresses, reorder button                                                                                       |
-| Quotations       | `/portal/quotations`       | Quote list (real Geins GraphQL), search, pagination, 5-color status pills                                                                     |
-| Quotation Detail | `/portal/quotations/[id]`  | Items table, shipping/tax summary, customer info, invoice/delivery address blocks, accept/decline with error banner, back link, section icons |
-| Products         | `/portal/products`         | Purchased product history, aggregated from orders                                                                                             |
-| Saved Lists      | `/portal/lists`            | List of named lists. Client-only via SDK ListsSession (localStorage). Create + open detail.                                                   |
-| List Detail      | `/portal/saved-lists/[id]` | Items as ProductCards. Add-all-to-cart, rename, delete, remove items. Items are product aliases — fresh product data fetched at render time.  |
-| Profile          | `/portal/profile`          | User profile form                                                                                                                             |
-| Organization     | `/portal/organisation`     | Placeholder. Geins exposes no B2B org/buyer/multi-address API; org linking happens on the Geins admin side.                                   |
-| Favorites        | `/portal/favorites`        | Wishlist via SDK ListsSession (same store as saved lists, just the built-in `__favorites__` list)                                             |
+| Page                | Route                          | Features                                                                                                                                      |
+| ------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview            | `/portal`                      | Stat cards, latest orders, pending quotes, saved lists, purchased products                                                                    |
+| Orders              | `/portal/orders`               | Order history table, search, pagination, status badges                                                                                        |
+| Order Detail        | `/portal/orders/[id]`          | Items table, summary sidebar, addresses, reorder button                                                                                       |
+| Quotations          | `/portal/quotations`           | Quote list (real Geins GraphQL), search, pagination, 5-color status pills                                                                     |
+| Quotation Detail    | `/portal/quotations/[id]`      | Items table, shipping/tax summary, customer info, invoice/delivery address blocks, accept/decline with error banner, back link, section icons |
+| Products            | `/portal/products`             | Purchased product history, aggregated from orders                                                                                             |
+| Saved Lists         | `/portal/lists`                | List of named lists. Client-only via SDK ListsSession (localStorage). Create + open detail.                                                   |
+| List Detail         | `/portal/saved-lists/[id]`     | Items as ProductCards. Add-all-to-cart, rename, delete, remove items. Items are product aliases — fresh product data fetched at render time.  |
+| Account             | `/portal/account`              | User profile form                                                                                                                             |
+| Organisation        | `/portal/organisation`         | Company details via `/api/portal/company`                                                                                                     |
+| Organisation People | `/portal/organisation/persons` | People belonging to the company                                                                                                               |
+| Favorites           | `/portal/favorites`            | Wishlist via SDK ListsSession (same store as saved lists, just the built-in `__favorites__` list)                                             |
 
 ---
 
@@ -899,16 +908,16 @@ See [Patterns: Feature Access Control](patterns/README.md#feature-access-control
 
 Client-side navigation latency is reduced through two techniques:
 
-1. **Parallel Auth Initialization** (`app/plugins/auth-init.client.ts`)
-   - Fires `fetchUser()` during plugin init (fire-and-forget, not awaited)
-   - Auth check runs in parallel with `tenant-theme` plugin instead of sequentially in middleware
+1. **Parallel Auth Initialization** (`app/plugins/auth-init.ts`)
+   - Server awaits `fetchUser()` so SSR HTML is correct; the client fires it without awaiting
+   - Auth check runs in parallel with page render instead of sequentially in middleware
    - `fetchUser()` uses promise deduplication — concurrent calls share one in-flight request
    - Middleware still calls `fetchUser()` but awaits the already-in-flight promise
 
-2. **SWR Route Caching** (`nuxt.config.ts` `routeRules`)
-   - Static pages (`/`, `/login`, `/portal`, `/portal/login`) cached for 5 minutes
-   - Nitro serves stale response immediately, revalidates in background
-   - Cache key includes the full URL (host + path) for multi-tenant isolation
+2. **CDN page caching** (`server/middleware/cache-headers.ts`)
+   - Page routes get `s-maxage=60, stale-while-revalidate=600`
+   - `Vary: host` keeps tenants isolated at the CDN
+   - Preview requests (`?preview=1` or the preview cookie) are `private, no-store`
 
 Route resolution prefetching was removed in the type-prefixed routing migration (ADR-015). URLs now encode the content type directly in the path, eliminating the need for server-side route classification.
 
@@ -916,7 +925,7 @@ Route resolution prefetching was removed in the type-prefixed routing migration 
 
 | Layer                      | Scope          | TTL       | What                          |
 | -------------------------- | -------------- | --------- | ----------------------------- |
-| Nitro `routeRules` SWR     | SSR output     | 5 min     | Static page HTML              |
+| CDN cache headers          | Page HTML      | 60s + SWR | Page routes (`Vary: host`)    |
 | `defineCachedEventHandler` | Server handler | 1 hour    | Tenant config (`/api/config`) |
 | `useAsyncData` payload     | SSR → client   | Hydration | All `useAsyncData` calls      |
 
