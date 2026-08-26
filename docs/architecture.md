@@ -270,18 +270,53 @@ The system identifies tenants based on the request hostname. Each tenant is mapp
 
 ### Request Flow
 
-1. **Hostname Detection** (`server/plugins/02.tenant-context.ts`)
-   - Extracts hostname from request (ignoring port)
-   - Attaches tenant context to H3 event
+```
+┌─ request hook ────────────────────────────────────────────┐
+│  01.request-logging   timer, correlation ID               │
+│  02.tenant-context    hostname → resolveTenant() → ctx    │
+└───────────────────────────────────────────────────────────┘
+                            ↓
+┌─ middleware ──────────────────────────────────────────────┐
+│  00.locale-market     parse /{market}/{locale}/, cookies, │
+│                       trailing-slash + root redirects     │
+│  01.buyer-market      block buyer on disallowed market    │
+│  cache-headers        Vary + Cache-Control for the CDN    │
+│  csrf-guard           reject non-JSON mutating /api/ calls│
+│  site-config:init  →  03.seo-config   (nuxt-site-config)  │
+└───────────────────────────────────────────────────────────┘
+                            ↓
+              route match → handler → data fetch
+                            ↓
+┌─ render:html ─────────────────────────────────────────────┐
+│  04.tenant-css          data-theme, CSS, favicon, fonts   │
+│  05.strip-img-onerror   strip NuxtImg onerror handler     │
+└───────────────────────────────────────────────────────────┘
 
-2. **Configuration Loading** (`server/api/config.get.ts`)
-   - Fetches tenant config from KV storage
-   - Auto-creates tenant in development mode
-   - Validates tenant is active
+  'error' / 'beforeResponse' → 01.request-logging
+```
 
-3. **Theme Injection** (`app/plugins/tenant-theme.ts`)
-   - Applies `data-theme` attribute to HTML
-   - Injects custom CSS for tenant
+**Plugin numbers are registration order, not execution order.** Each file in `server/plugins/`
+registers a hook, and the hooks fire in different phases. Nitro calls `callHook('request')` from the
+h3 app's `onRequest`, before any `h3App.use()` handler — and middleware are `use()` handlers, so
+request hooks always run first. `03.seo-config.ts` is the trap: a plugin that runs in the middleware
+phase, because `site-config:init` is fired from nuxt-site-config's own middleware.
+
+`00.locale-market.ts` is middleware deliberately — `sendRedirect` there lets `nuxt-security` apply
+route-rule headers before the redirect flushes, instead of throwing `ERR_HTTP_HEADERS_SENT`.
+
+`resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{tenantId}` → legacy key →
+merchant API. Cache hits are re-checked against the config's own hostname list, self-healing stale
+aliases. Missing or inactive tenants 404. **`NUXT_AUTO_CREATE_TENANT` inverts this** — the API step
+then never returns `null`, so every unknown hostname resolves to a fabricated tenant.
+
+Two hostnames, easily confused:
+
+```
+event.context.tenant.hostname         → what the browser asked for, port stripped
+event.context.tenant.config.hostname  → the tenant's canonical host
+```
+
+They differ under an alias or custom domain, and canonical output must use the config one.
 
 ### Tenant Context
 
