@@ -2,7 +2,7 @@
 title: Geins SDK integration via service abstraction layer
 status: accepted
 created: 2026-02-03
-updated: 2026-02-09
+updated: 2026-08-26
 author: '@3li7alaki'
 tags: [architecture, sdk, geins, api, services]
 ---
@@ -11,7 +11,7 @@ tags: [architecture, sdk, geins, api, services]
 
 ## Context
 
-The Sales Portal needs to integrate with the Geins platform for commerce functionality — auth, users, content, cart, checkout, orders, products, search, and more. The Geins SDK (`@geins/*` v0.6.0) provides stateless domain packages that cover auth, users, CMS, cart, checkout, and orders. For domains not yet covered by dedicated SDK packages, `@geins/core` exposes a GraphQL client that can query the Geins API directly.
+The Sales Portal needs to integrate with the Geins platform for commerce functionality — auth, users, content, cart, checkout, orders, products, search, and more. The Geins SDK (`@geins/*`, 0.10.x) provides stateless domain packages that cover auth, users, CMS, cart, checkout, and orders. For domains not yet covered by dedicated SDK packages, `@geins/core` exposes a GraphQL client that can query the Geins API directly.
 
 We need a pattern that:
 
@@ -19,14 +19,14 @@ We need a pattern that:
 2. Uses `@geins/core` GraphQL for everything else
 3. Keeps the implementation detail hidden from API routes and components — so the underlying approach can change without affecting consumers
 
-### SDK v0.6.0 Properties
+### SDK properties
 
 The SDK was designed for server-side use in multi-tenant applications:
 
 - **Stateless services** — no stored tokens or user state. Auth tokens, cart IDs, and user tokens are passed as parameters to every method
 - **Thread-safe sharing** — one SDK instance per tenant is safe across concurrent requests because there's no per-request state
 - **Typed error hierarchy** — `GeinsError` base with `AuthError`, `CartError`, `CheckoutError`, `NetworkError` subclasses. Each carries a `GeinsErrorCode` enum value
-- **Server-only** — we use `Direct` connection mode. The SDK never runs in the browser
+- **Server-first** — we use `Direct` connection mode, so SDK calls that need credentials run server-side only. One deliberate exception: `ListsSession` from `@geins/crm` runs in the browser and persists saved lists to local storage (see `docs/patterns/lists.md`)
 
 ## Decision
 
@@ -55,6 +55,12 @@ server/services/
 ├── categories.ts       # Category listing
 ├── channels.ts         # Storefront channel config
 ├── newsletter.ts       # Newsletter subscribe
+├── quotes.ts           # Quotation management
+├── purchased-products.ts # Purchased products aggregated from order history
+├── url-resolver.ts     # Entity URL resolution and repair (ADR-017, ADR-019)
+├── company.ts          # B2B organisation data
+├── tenant-config.ts    # Tenant config accessor (ADR-007)
+├── _locale-fallback.ts # Locale fallback shared by products + product-lists
 │
 └── graphql/            # .graphql query files + loader
     ├── loader.ts       # Reads files, resolves fragment dependencies, caches
@@ -70,7 +76,7 @@ server/services/
 
 ### 2. SDK factory — lazy singleton per tenant
 
-One SDK instance per tenant hostname, created on first request and reused for all subsequent requests. This is safe because SDK v0.6.0 services are stateless — tokens come from httpOnly cookies per request, not from the singleton.
+One SDK instance per tenant hostname, created on first request and reused for all subsequent requests. This is safe because SDK services are stateless — tokens come from httpOnly cookies per request, not from the singleton.
 
 ```typescript
 // server/services/_sdk.ts
@@ -120,7 +126,7 @@ export function getTenantSDK(event: H3Event): TenantSDK {
 }
 ```
 
-**Why not per-request instances?** SDK v0.6.0 stores no user state on instances. Two concurrent requests for different users share the same `GeinsCRM` safely because tokens are passed as parameters to `crm.auth.login(credentials)`, `crm.user.get(userToken)`, `oms.cart.get({ cartId })`, etc.
+**Why not per-request instances?** The SDK stores no user state on instances. Two concurrent requests for different users share the same `GeinsCRM` safely because tokens are passed as parameters to `crm.auth.login(credentials)`, `crm.user.get(userToken)`, `oms.cart.get({ cartId })`, etc.
 
 **Lifecycle:** Instances live for the Nuxt server process lifetime. On deploy → process restarts → fresh instances. No cleanup needed — no open connections or timers.
 
@@ -208,7 +214,7 @@ export default defineEventHandler(async (event) => {
 ### 4. Service examples — SDK-backed vs GraphQL
 
 ```typescript
-// server/services/cart.ts — uses @geins/oms (flat API in v0.6.0)
+// server/services/cart.ts — uses @geins/oms (flat API)
 import type { CartType, CartItemInputType } from '@geins/types';
 import { getTenantSDK } from './_sdk';
 import type { H3Event } from 'h3';
@@ -277,9 +283,13 @@ try {
 }
 ```
 
-### 6. SDK API reference (v0.6.0)
+### 6. SDK API reference
 
-Quick reference for the stateless method signatures used in services.
+Quick reference for the stateless method signatures used in services. Verified against 0.10.4.
+
+Cart and CMS methods take an optional trailing `requestContext?: RequestContext`, and every cart and
+CMS call site in `server/services/` passes it. The CRM facade (`crm.auth`, `crm.user`,
+`crm.user.orders`, `crm.user.password`) exposes no such parameter.
 
 **Auth** (`crm.auth`):
 | Method | Signature |
@@ -302,23 +312,40 @@ Quick reference for the stateless method signatures used in services.
 | `password.commitReset` | `(resetKey: string, password: string) → Promise<boolean>` |
 | `orders.get` | `(userToken: string) → Promise<GeinsUserOrdersType \| undefined>` |
 
-**Cart** (`oms.cart`) — flat API in v0.6.0, `cartId` always required:
+**Cart** (`oms.cart`) — flat API, `cartId` always required. `ctx` is `requestContext?: RequestContext`:
 | Method | Signature |
 |--------|-----------|
-| `get` | `(cartId: string) → Promise<CartType>` |
-| `create` | `() → Promise<CartType>` |
-| `addItem` | `(cartId: string, input: CartItemInputType) → Promise<CartType>` |
-| `updateItem` | `(cartId: string, input: CartItemInputType) → Promise<CartType>` |
-| `deleteItem` | `(cartId: string, itemId: string) → Promise<CartType>` |
-| `setPromotionCode` | `(cartId: string, code: string) → Promise<CartType>` |
-| `removePromotionCode` | `(cartId: string) → Promise<CartType>` |
+| `get` | `(cartId: string, forceRefresh?: boolean, ctx?) → Promise<CartType>` |
+| `create` | `(ctx?) → Promise<CartType>` |
+| `addItem` | `(cartId: string, input: CartItemInputType, ctx?) → Promise<CartType>` |
+| `updateItem` | `(cartId: string, input: CartItemInputType, ctx?) → Promise<CartType>` |
+| `deleteItem` | `(cartId: string, itemId: string, ctx?) → Promise<CartType>` |
+| `setPromotionCode` | `(cartId: string, code: string, ctx?) → Promise<CartType>` |
+| `removePromotionCode` | `(cartId: string, ctx?) → Promise<CartType>` |
 
 **CMS** (`cms.menu`, `cms.page`, `cms.area`):
 | Method | Signature |
 |--------|-----------|
-| `menu.get` | `({ menuLocationId }) → Promise<MenuType \| undefined>` |
-| `page.get` | `({ alias }) → Promise<ContentPageType \| undefined>` |
-| `area.get` | `({ family, areaName }) → Promise<ContentAreaType \| undefined>` |
+| `menu.get` | `({ menuLocationId }, ctx?) → Promise<MenuType \| undefined>` |
+| `page.get` | `({ alias }, ctx?) → Promise<ContentPageType \| undefined>` |
+| `area.get` | `({ family, areaName }, ctx?) → Promise<ContentAreaType \| undefined>` |
+
+### Missing or empty credentials
+
+`getTenantSDK()` throws `BAD_REQUEST` "Tenant has no Geins SDK configuration" when the resolved
+tenant has no `geinsSettings` at all.
+
+It does not check whether the credentials inside are usable. `apiKey` is `z.string()` with no minimum
+length, so an empty string passes schema validation and produces an SDK instance that fails later, at
+API-call time, with an error that says nothing about the real cause. Absence is guarded; emptiness is
+not.
+
+### Where the client/server boundary is enforced
+
+Nowhere, mechanically. No lint rule restricts `@geins/*` imports by directory. The boundary holds by
+convention: `app/` imports `@geins/types` freely (types are erased at build), and the only runtime
+SDK import in `app/` is the `ListsSession` exception above. A rule pinning that down would have to
+allow that exception explicitly.
 
 ### Rules
 

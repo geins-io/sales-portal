@@ -2,6 +2,7 @@
 title: Internationalization with @nuxtjs/i18n
 status: accepted
 created: 2026-02-09
+updated: 2026-08-26
 author: '@AliHalaki'
 tags: [i18n, nuxt, vue-i18n]
 ---
@@ -30,9 +31,16 @@ The tenant config already has `locale` and `multiLanguage` fields, but neither i
 
 ### Routing strategy: `no_prefix`
 
-Language is a **per-tenant / per-user preference**, not a URL segment. URLs like `/products/pipe-fitting` stay the same regardless of locale. This keeps SEO simple and aligns with the B2B portal model where a tenant picks a default language.
+The i18n module itself adds no locale segment — `strategy: 'no_prefix'` in `nuxt.config.ts`.
 
-URL prefix routing (`prefix_and_default`) can be added later if needed for multi-region SEO.
+**The application prefixes URLs anyway, by hand.** Every page route is registered a second time
+under `/{market}/{locale}/` via `pages:extend` in `nuxt.config.ts`, and
+`server/middleware/00.locale-market.ts` parses that prefix and sets the locale/market cookies. So
+real URLs look like `/se/sv/p/pipe-fitting`, not `/products/pipe-fitting`.
+
+The two coexist deliberately: the prefix carries **market** as well as locale, which the i18n module
+has no concept of, so leaving the module on `no_prefix` avoids it fighting the hand-rolled routes for
+ownership of the URL. See ADR-015 for the type-prefix segment that follows the market/locale pair.
 
 ### Translation format
 

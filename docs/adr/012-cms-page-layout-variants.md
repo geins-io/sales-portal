@@ -2,6 +2,7 @@
 title: CMS page layout variants driven by pageArea
 status: accepted
 created: 2026-02-26
+updated: 2026-08-26
 author: '@alihalaki'
 tags: [cms, layout, navigation]
 ---
@@ -16,7 +17,7 @@ We needed a way to render different layouts per page based on CMS metadata.
 
 ## Decision
 
-Layout selection happens in `Content.vue` (page-level), not via Nuxt layouts (route-level).
+Layout selection happens at page level — in the `[...slug].vue` catch-all — not via Nuxt layouts (route-level).
 
 - **`pageArea` present** — sidebar layout: `PageSidebarNav` (fetches menu by `pageArea.name`) + content area side-by-side
 - **No `pageArea`** — full-width layout: content area only
