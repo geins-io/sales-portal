@@ -2,7 +2,7 @@
 title: Navigation performance optimizations
 status: accepted
 created: 2026-02-16
-updated: 2026-08-26
+updated: 2026-08-27
 tags: [performance, navigation, caching]
 ---
 
@@ -39,9 +39,11 @@ Vary: host, accept-encoding
 Cache-Control: public, s-maxage=60, stale-while-revalidate=600
 ```
 
-Azure Front Door caches per host and serves stale content for up to 10 minutes while revalidating in the background. `Vary: host` is what keeps tenants isolated — without it one tenant's HTML could be served to another.
+These headers take effect behind a shared cache: it keys per host and serves stale content for up to 10 minutes while revalidating in the background. `Vary: host` is what keeps tenants isolated — without it one tenant's HTML could be served to another. `s-maxage` applies to shared caches only, so browsers disregard it.
 
 Preview requests are excluded and sent `private, no-store`. Their HTML is rendered against unpublished overlays, which must never reach other visitors sharing the host.
+
+**Exemptions to extend before enabling a shared cache.** The middleware exempts `/api/`, `/_nuxt/`, `/__nuxt` and preview. Authenticated routes server-render per-user data and belong in that list, since `Vary: host` alone does not separate two users on the same host.
 
 **Why middleware instead of Nitro `routeRules`:** this started as `routeRules` with 5-minute SWR on a fixed list of paths (`/`, `/login`, `/portal`, `/portal/login`). That was replaced on 2026-02-17, the day after this ADR was written, because a static path list does not scale to tenant-specific routes, and because the caching decision needs request context — the preview check depends on a query parameter and a cookie, which `routeRules` cannot see.
 
@@ -50,13 +52,13 @@ Preview requests are excluded and sent `private, no-store`. Their HTML is render
 **Good:**
 
 - Auth check starts earlier on protected routes, running in parallel with tenant loading rather than after it.
-- Page HTML is served from the CDN on repeat visits, with per-tenant isolation.
+- Anonymous page HTML is shaped for shared caching with per-tenant isolation.
 - Preview traffic is explicitly excluded from caching rather than relying on a path allowlist staying correct.
 
 **Neutral:**
 
-- Cached pages can be up to 60 seconds stale, and up to 10 minutes during background revalidation.
-- Caching lives at the CDN layer, so it is invisible in local development.
+- Behind a shared cache, pages can be up to 60 seconds stale, and 10 minutes during revalidation.
+- Caching lives at the edge, so it is invisible in local development.
 
 **Bad:**
 

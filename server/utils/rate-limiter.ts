@@ -29,10 +29,9 @@ export interface RateLimitResult {
  * KV-backed rate limiter for protecting endpoints from abuse.
  *
  * Uses a sliding window approach to track requests per IP address.
- * Backed by Nitro's `useStorage('kv')` — uses in-memory storage in dev
- * and automatically scales to Redis/Upstash when the KV driver is changed.
- * This means rate limiting works across multiple instances when using
- * a shared storage backend.
+ * Backed by Nitro's `useStorage('kv')`, currently a per-process memory store,
+ * so limits apply per instance. Sharing them across instances requires a
+ * shared storage driver, which `nitro.storage` configures at build time.
  */
 export class RateLimiter {
   private readonly limit: number;
@@ -120,11 +119,10 @@ export class RateLimiter {
  * Checks common proxy headers first, then falls back to the direct connection IP.
  * The order of header checks follows common proxy/CDN conventions.
  *
- * TRUST BOUNDARY: This function trusts X-Forwarded-For from the reverse proxy.
- * In production, Azure Front Door overwrites X-Forwarded-For with the true client IP.
- * If the app is ever exposed directly (without a trusted proxy), an attacker could
- * spoof this header to bypass rate limiting. Ensure the proxy layer always sanitizes
- * client-provided X-Forwarded-For values.
+ * TRUST BOUNDARY: takes the first X-Forwarded-For entry, which assumes an
+ * upstream proxy that overwrites the header rather than appending to it.
+ * Confirm that assumption holds for the current deployment before relying on
+ * these limits as an abuse control.
  */
 export function getClientIp(event: H3Event): string {
   // Check X-Forwarded-For header (most common proxy header)

@@ -19,7 +19,7 @@ ADRs document significant architectural decisions with context and consequences.
 | 011 | [CMS Menu Integration](011-cms-menu-integration.md)                                | accepted | 2026-02-23 |
 | 012 | [CMS page layout variants driven by pageArea](012-cms-page-layout-variants.md)     | accepted | 2026-02-26 |
 | 013 | [Configurable Checkout Mode (Hosted vs Custom)](013-configurable-checkout-mode.md) | accepted | 2026-03-15 |
-| 014 | [CMS Caching Strategy](014-caching-strategy.md)                                    | accepted | 2026-03-20 |
+| 014 | [CMS Caching Strategy](014-caching-strategy.md)                                    | accepted | 2026-03-31 |
 | 015 | [Type-prefixed routing](015-type-prefixed-routing.md)                              | accepted | 2026-03-30 |
 | 016 | [Tenant theme color coercion](016-tenant-color-coercion.md)                        | accepted | 2026-05-22 |
 | 017 | [Entity URL safety net](017-entity-url-safety-net.md)                              | accepted | 2026-06-02 |
@@ -27,7 +27,7 @@ ADRs document significant architectural decisions with context and consequences.
 | 019 | [Bulletproof URL routing](019-bulletproof-routing.md)                              | accepted | 2026-06-03 |
 | 020 | [Buyer market selection on login](020-buyer-market-selection.md)                   | accepted | 2026-06-04 |
 | 021 | [CMS-page link routing contract](021-cms-page-link-routing.md)                     | accepted | 2026-06-12 |
-| 022 | [Dev/main branching and release flow](022-dev-main-branching-release-flow.md)       | accepted | 2026-06-15 |
+| 022 | [Dev/main branching and release flow](022-dev-main-branching-release-flow.md)      | accepted | 2026-06-15 |
 
 ## Adding New ADRs
 
