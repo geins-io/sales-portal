@@ -2,7 +2,7 @@
 title: Webhook-based config cache invalidation
 status: accepted
 created: 2026-02-16
-updated: 2026-02-16
+updated: 2026-08-27
 tags: [caching, webhooks, security]
 ---
 
@@ -65,14 +65,23 @@ This is a fallback, not a posture. Set `NUXT_WEBHOOK_SECRET` as soon as the env 
 
 Requests older than 5 minutes are rejected. This prevents replay attacks with captured valid signatures.
 
-### Dual cache busting
+### Cache busting
 
 On a valid webhook, we invalidate:
 
-1. KV storage: `tenant:id:<hostname>` and `tenant:config:<tenantId>`
-2. Nitro handler cache: `nitro:handlers:tenant:config:<tenantId>`
+1. KV storage: `tenant:id:<hostname>` for every hostname the config claims, plus
+   `tenant:config:<tenantId>`
+2. Nitro handler cache for `/api/config`
+3. In-process: Geins SDK instances (`clearSdkCache`) and the negative tenant cache
+   (`clearNegativeCache`) — note this clears only the hostname in the payload, not the aliases
+   step 1 covers, so a negatively-cached alias survives its 5-minute TTL
 
-The next request for that tenant will miss both caches and fetch fresh config from the merchant API.
+The CMS LRUs and `/api/resolve-url` are left to their own short TTLs.
+
+The Nitro key is derived in `server/utils/webhook-handler.ts` from a Nitro internal
+(`nitro/handlers:_:<config key with non-word characters stripped>.json`), so a Nitro major
+upgrade should re-verify it — a mismatch fails silently and serves stale settings for up to the
+one-hour TTL.
 
 ### Payload contract
 
@@ -101,12 +110,15 @@ Body:
 - Delivery ID dedup prevents duplicate processing from retries
 - Body size limit protects against oversized payloads
 - Key rotation enables zero-downtime secret changes
-- Rate limiting (10 req/min per IP) protects against abuse
 - Handler logic is fully testable without H3 — plain data in, result out
 
 **Negative:**
 
+- Rate limiting (10 req/min per IP) keys on `X-Forwarded-For`, which assumes an upstream proxy
+  that overwrites it. That assumption should be confirmed against the deployment before open mode
+  above is relied on
 - Requires coordination with Geins to configure the shared secret
 - Single shared secret (not per-tenant) — compromise means all tenants are affected
-- Rate limiter uses KV storage (`useStorage('kv')`) — works across instances when backed by Redis
+- Rate limiter uses KV storage (`useStorage('kv')`), currently a per-process memory store, so
+  limits apply per instance; sharing them across instances requires a shared storage driver
 - Dedup storage grows over time (consider TTL-based cleanup in future)

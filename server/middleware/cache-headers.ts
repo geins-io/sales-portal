@@ -1,9 +1,10 @@
 import { getPreviewCookie } from '../utils/cookies';
 
 /**
- * CDN-ready cache headers for page routes.
- * Azure Front Door caches per-host via Vary header,
- * serves stale for 10min while revalidating.
+ * CDN-ready cache headers for page routes: per-host via Vary, stale for 10min
+ * while revalidating. Only preview and non-page paths are exempt, so
+ * authenticated routes must be added to the exemptions before any shared cache
+ * is placed in front of the app. See ADR-010.
  *
  * Preview requests must never be cached at the CDN. Their HTML is rendered
  * against unpublished overlays that would otherwise leak to every other

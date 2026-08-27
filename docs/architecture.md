@@ -125,7 +125,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   ├── middleware/             # runs AFTER plugin request hooks — see Request Flow
 │   │   ├── 00.locale-market.ts # Parses /{market}/{locale}/, cookies, root redirect
 │   │   ├── 01.buyer-market.ts  # 302s a buyer off a market their pricelist disallows
-│   │   ├── cache-headers.ts    # CDN Vary + s-maxage + stale-while-revalidate
+│   │   ├── cache-headers.ts    # Vary + s-maxage + stale-while-revalidate
 │   │   └── csrf-guard.ts       # Rejects non-JSON content types on mutating requests (415)
 │   ├── schemas/
 │   │   ├── store-settings.ts   # Zod schema + inferred types (ADR-007)
@@ -289,7 +289,7 @@ The system identifies tenants based on the request hostname. Each tenant is mapp
 │  00.locale-market     parse /{market}/{locale}/, cookies, │
 │                       trailing-slash + root redirects     │
 │  01.buyer-market      block buyer on disallowed market    │
-│  cache-headers        Vary + Cache-Control for the CDN    │
+│  cache-headers        Vary + Cache-Control for page routes│
 │  csrf-guard           reject non-JSON mutating /api/ calls│
 │  site-config:init  →  03.seo-config   (nuxt-site-config)  │
 └───────────────────────────────────────────────────────────┘
@@ -914,9 +914,10 @@ Client-side navigation latency is reduced through two techniques:
    - `fetchUser()` uses promise deduplication — concurrent calls share one in-flight request
    - Middleware still calls `fetchUser()` but awaits the already-in-flight promise
 
-2. **CDN page caching** (`server/middleware/cache-headers.ts`)
+2. **Cache headers for page routes** (`server/middleware/cache-headers.ts`)
    - Page routes get `s-maxage=60, stale-while-revalidate=600`
-   - `Vary: host` keeps tenants isolated at the CDN
+   - `Vary: host` keeps tenants isolated at a shared cache; authenticated routes belong in the
+     exemption list before one is enabled (see ADR-010)
    - Preview requests (`?preview=1` or the preview cookie) are `private, no-store`
 
 Route resolution prefetching was removed in the type-prefixed routing migration (ADR-015). URLs now encode the content type directly in the path, eliminating the need for server-side route classification.
@@ -925,7 +926,7 @@ Route resolution prefetching was removed in the type-prefixed routing migration 
 
 | Layer                      | Scope          | TTL       | What                          |
 | -------------------------- | -------------- | --------- | ----------------------------- |
-| CDN cache headers          | Page HTML      | 60s + SWR | Page routes (`Vary: host`)    |
+| Page cache headers         | Page HTML      | 60s + SWR | Page routes (`Vary: host`)    |
 | `defineCachedEventHandler` | Server handler | 1 hour    | Tenant config (`/api/config`) |
 | `useAsyncData` payload     | SSR → client   | Hydration | All `useAsyncData` calls      |
 
