@@ -129,7 +129,7 @@ Forbidden:
 - Mocking Pinia stores when testing components that use them
 
 Only external boundaries may be mocked: the Geins SDK, network calls, and
-framework auto-imports. See [AGENTS.md](../AGENTS.md) for the project-wide rules.
+framework auto-imports. See [AGENTS.md](https://github.com/geins-io/sales-portal/blob/main/AGENTS.md) for the project-wide rules.
 
 ### Test routing (glob-based)
 

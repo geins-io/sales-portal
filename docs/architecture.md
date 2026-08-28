@@ -474,7 +474,7 @@ The `server/api/external/[...].ts` handler proxies requests to external APIs wit
 
 ### Environment Variables
 
-See [`.env.example`](../.env.example) for the full list. Key variables:
+See [`.env.example`](https://github.com/geins-io/sales-portal/blob/main/.env.example) for the full list. Key variables:
 
 | Variable                         | Description                                                | Default                                |
 | -------------------------------- | ---------------------------------------------------------- | -------------------------------------- |

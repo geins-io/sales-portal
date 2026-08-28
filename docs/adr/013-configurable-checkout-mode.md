@@ -38,10 +38,10 @@ Make checkout mode configurable via `checkoutMode` in tenant config:
    cookies set by plugin 00) so post-payment landings stay in-locale.
 6. Client redirects to `https://checkout.geins.services/{token}`
 7. After payment, Geins redirects to `/{market}/{locale}/order-confirmation`
-   with the SDK-auto-appended query params `?geins-cart=<cartid>&geins-pm=
-<id>&geins-pt=<type>&geins-uid=<payment-uid>`. The page at
-   `app/pages/order-confirmation/index.vue` reads `geins-cart` (hosted flow)
-   or `orderId` (in-app flow) from `route.query`.
+   with the SDK-auto-appended query params
+   `?geins-cart=<cartid>&geins-pm=<id>&geins-pt=<type>&geins-uid=<payment-uid>`.
+   The page at `app/pages/order-confirmation/index.vue` reads `geins-cart`
+   (hosted flow) or `orderId` (in-app flow) from `route.query`.
 
 ### Branding Mapping
 

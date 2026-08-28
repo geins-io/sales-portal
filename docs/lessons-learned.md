@@ -1,7 +1,7 @@
 # Lessons Learned
 
 Incidents that cost real time, and what changed because of them. This is not a decision log —
-see [ADRs](adr/) for why the architecture is the way it is. This is the record of what broke,
+see [ADRs](adr/README.md) for why the architecture is the way it is. This is the record of what broke,
 why, and which rule exists as a result.
 
 Add an entry when a bug takes more than a day to diagnose, reaches production, or turns out to
