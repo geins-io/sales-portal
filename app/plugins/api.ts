@@ -18,8 +18,8 @@ import { logger } from '~/utils/logger';
  */
 /**
  * Allowlist of safe headers to forward during SSR.
- * Only these headers will be passed to external API requests to prevent
- * leaking sensitive internal headers or cookies.
+ * `cookie` is deliberately absent, so this client cannot authenticate an
+ * auth-gated route during SSR — use `internalFetch` or `useFetch` for those.
  */
 const SAFE_HEADERS_ALLOWLIST = [
   'accept',
@@ -30,7 +30,7 @@ const SAFE_HEADERS_ALLOWLIST = [
 
 export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig();
-  // Only forward safe headers to prevent leaking sensitive data to external services
+  // Forward only the allowlisted headers; see SAFE_HEADERS_ALLOWLIST above
   const requestHeaders = useRequestHeaders([...SAFE_HEADERS_ALLOWLIST]);
 
   // Create configured API client with retry logic and interceptors

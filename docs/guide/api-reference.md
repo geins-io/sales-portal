@@ -214,20 +214,24 @@ const { data } = useFetch<ProductList>('/api/products', {
 
 ### $api Plugin
 
-For imperative API calls, use the `$api` plugin:
+For imperative calls that need retry-with-backoff, use the `$api` plugin. Its `baseURL` is `/api`,
+so paths are relative to that — not prefixed with `/api` again:
 
 ```typescript
 const { $api } = useNuxtApp()
 
-// GET request
-const products = await $api('/api/products')
+// GET request → /api/products
+const products = await $api('/products')
 
-// POST request
-const result = await $api('/api/orders', {
+// POST request → /api/orders
+const result = await $api('/orders', {
   method: 'POST',
   body: { items: [...] }
 })
 ```
+
+`$api` forwards no cookies during SSR, so use `useFetch` or `internalFetch` for auth-gated routes.
+See [conventions/api-clients.md](/conventions/api-clients).
 
 ## Error Handling
 

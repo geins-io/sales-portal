@@ -1,12 +1,11 @@
 # API Clients
 
-Three different ways to call HTTP APIs from this codebase. Pick the right one.
+Three ways to call HTTP APIs from this codebase. Pick the right one.
 
 | Use it for                                                   | Tool                              | Why                                                                                     |
 | ------------------------------------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------- |
 | Page-level data loads (auto SSR + hydration + caching)       | `useFetch` / `useAsyncData`       | Built-in cookie forwarding on SSR. Handles loading, error, and refresh state.           |
 | Same-origin calls from a store, composable, or event handler | `internalFetch` (from `~/utils/`) | Forwards the incoming request's cookie header on SSR so auth-gated routes see the user. |
-| Calls to the external Geins API (`merchantapi.geins.io`)     | `$api` from `useNuxtApp()`        | Strips our internal cookies so the user's session does not leak to a third party.       |
 | Raw `$fetch` directly                                        | Only client-only handlers         | No cookie forwarding on SSR. Anything auth-gated that fires during SSR will return 401. |
 
 ## The rule
@@ -68,11 +67,16 @@ a payment provider).
 
 ## `$api` is not a general-purpose fetcher
 
-`app/plugins/api.ts` provides `useNuxtApp().$api`, which adds retries and
-forwards safe headers only. It is configured for calls to the external Geins
-API and explicitly excludes the `cookie` header from the SSR forward list so
-we cannot accidentally hand our session over to a third party. Do not use
-`$api` for our own `/api/*` routes; it will not authenticate them.
+`app/plugins/api.ts` provides `useNuxtApp().$api`: an `ofetch` instance with
+retry-with-backoff, a timeout and error interceptors. Its `baseURL` is
+`runtimeConfig.public.api.baseUrl`, which is `/api` — **our own routes, not the
+Geins API.** Read the name as "the retrying client", not "the Geins client": the
+browser never calls the Geins API directly, since the SDK runs server-side only
+([ADR-004](../adr/004-geins-sdk-service-layer.md)).
+
+During SSR it forwards an allowlist of headers only — `accept`,
+`accept-language`, `user-agent`, `host` — so it cannot authenticate an auth-gated
+route. Use `useFetch` or `internalFetch` for those.
 
 ## Migration audit (2026-05-14)
 
