@@ -26,7 +26,7 @@ cp .env.example .env   # Configure environment variables
 pnpm dev               # http://localhost:3000
 ```
 
-In development, tenants are auto-created for any hostname when `NUXT_AUTO_CREATE_TENANT=true`.
+Tenants are auto-created for any hostname when `NUXT_AUTO_CREATE_TENANT=true`.
 
 ### Scripts
 
@@ -95,7 +95,7 @@ See [`.env.example`](.env.example) for all available configuration. Key variable
 
 | Variable                    | Description                        | Default    |
 | --------------------------- | ---------------------------------- | ---------- |
-| `NUXT_AUTO_CREATE_TENANT`   | Auto-create tenants in dev         | `false`    |
+| `NUXT_AUTO_CREATE_TENANT`   | Auto-create unknown hostnames      | `false`    |
 | `NUXT_GEINS_API_ENDPOINT`   | Geins GraphQL endpoint             | (see file) |
 | `NUXT_GEINS_TENANT_API_URL` | Geins Tenant API URL               | (see file) |
 | `NUXT_STORAGE_DRIVER`       | KV storage (`memory`/`fs`/`redis`) | `memory`   |

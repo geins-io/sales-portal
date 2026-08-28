@@ -33,22 +33,34 @@ The server plugin (`server/plugins/02.tenant-context.ts`) extracts the hostname 
 - Ignores port number
 - Attaches tenant context to the H3 event
 
-### 2. Configuration Loading
+### 2. Tenant Resolution
 
-The config endpoint (`server/api/config.get.ts`) handles tenant configuration:
+`resolveTenant()` (`server/utils/tenant.ts`) turns that hostname into a config, trying the
+negative cache, then KV storage, then the merchant API — the full order is in
+[Architecture](/architecture#request-flow). A cache hit is re-checked against the config's own
+hostname list, so a stale alias mapping heals itself. A hostname the merchant API does not know
+does not resolve, unless `autoCreateTenant` is on — see [Local Development](#local-development).
 
-- Fetches tenant config from KV storage
-- Auto-creates tenant in development mode
-- Validates tenant is active
-- Returns configuration to the client
+The resolved config is written to `event.context.tenant.config` once per request. Downstream
+plugins, services and routes read it from context instead of resolving again.
 
-### 3. Theme Injection
+### 3. Configuration for the Client
 
-The client plugin (`app/plugins/tenant-theme.ts`) applies tenant-specific theming:
+`GET /api/config` (`server/api/config.get.ts`) returns the already-resolved config as
+`PublicTenantConfig`, with secrets stripped. It does not resolve tenants itself.
 
-- Applies `data-theme` attribute to HTML element
-- Injects custom CSS for the tenant
-- Updates theme on configuration changes
+### 4. Theme Injection
+
+The server plugin `server/plugins/04.tenant-css.ts` injects the tenant's visual assets into the
+rendered HTML from the `render:html` hook:
+
+- the `data-theme` attribute on `<html>`
+- the tenant's CSS as an unlayered `<style>` tag, so it always beats the `@layer base` defaults
+- the favicon `<link>`, when `branding.faviconUrl` is set
+- Google Fonts preconnect hints and the stylesheet `<link>`
+
+These are raw HTML strings that no client-side code touches during hydration, which is what keeps
+the first paint free of a flash of unstyled content.
 
 ## Tenant Context
 
@@ -57,15 +69,18 @@ The tenant context is available in all server handlers via `event.context.tenant
 ```typescript
 // In any server route/middleware
 export default defineEventHandler((event) => {
-  const { id, hostname } = event.context.tenant;
-  // id: Tenant identifier (e.g., "tenant-a.localhost")
-  // hostname: Request hostname
+  const { hostname, tenantId, config } = event.context.tenant;
+  // hostname: what the browser asked for, port stripped (e.g. "tenant-a.localhost")
+  // tenantId: the resolved tenant's own id (e.g. "tenant-a") — set for page routes,
+  //           optional on API routes
+  // config:   the full TenantConfig, resolved once per request
 });
 ```
 
 ## Storage Keys
 
-Tenant data is stored with the following key patterns:
+A tenant with several hostnames (primary plus aliases) stores its config once, behind a two-step
+lookup — `hostname` → `tenantId` → `TenantConfig`:
 
 | Key Pattern                | Purpose                    |
 | -------------------------- | -------------------------- |
@@ -151,25 +166,43 @@ const enabled = await isFeatureEnabled(event, 'cart');
 const config = await getPublicConfig(event);
 ```
 
-## Development Mode
+## Local Development
 
-In development mode, tenants are automatically created when accessing any hostname. This makes it easy to test multi-tenant functionality locally:
+`autoCreateTenant` decides whether an unknown hostname resolves. With it on, any hostname the
+merchant API does not know is fabricated into an active tenant, so resolution can never fail. With
+it off, an unknown hostname does not resolve. Which applies depends on how you started the server:
 
-1. Add entries to your `/etc/hosts` file:
+| How you start                           | `autoCreateTenant`                                       |
+| --------------------------------------- | -------------------------------------------------------- |
+| `pnpm dev`, no `.env`                   | off — the `nuxt.config.ts` default                       |
+| `pnpm dev` after `cp .env.example .env` | on — `.env.example` ships `NUXT_AUTO_CREATE_TENANT=true` |
+| `pnpm local:dev`                        | on — hardcoded in `infra/scripts/local-dev.sh`           |
 
-   ```
-   127.0.0.1 tenant-a.localhost
-   127.0.0.1 tenant-b.localhost
-   ```
+Deployed environments set it nowhere, so they always resolve tenants honestly.
 
-2. Access the site via the tenant hostname:
+Check this before diagnosing anything else, because a fabricated tenant is not obviously
+fabricated: it carries the shared `DEFAULT_GEINS_SETTINGS` credentials from `GEINS_API_KEY` and
+`GEINS_ACCOUNT_NAME`, so with those unset the storefront renders completely and returns no
+products. Pages that render with every listing empty are the signature.
 
-   ```
-   http://tenant-a.localhost:3000
-   http://tenant-b.localhost:3000
-   ```
+Otherwise configs come from two places. **The merchant API** is the real one: `resolveTenant()`
+calls it over plain `fetch`, from a laptop exactly as from Azure, so any hostname it knows already
+works locally given DNS pointing at your machine. **The dev seed**
+(`server/plugins/99.dev-tenant-seed.ts`, a no-op outside dev) writes three fixtures at startup —
+`tenant-a`, `tenant-b` and `tenant-blank`, each claiming a `.localhost` hostname and the first two
+a `.litium.store` alias. `tenant-blank` has no CMS config and exercises the fallback paths.
 
-3. Each tenant will be automatically created with default configuration.
+To browse one, point its hostname at your machine and use the dev server's port:
+
+```
+# /etc/hosts
+127.0.0.1 tenant-a.localhost tenant-b.localhost tenant-blank.localhost
+```
+
+Then `http://tenant-a.localhost:3000`. For a tenant registered in the merchant API, use the
+hostname it is registered under: the lookup matches the exact full hostname and does no subdomain
+parsing. `pnpm local:setup` installs a dnsmasq wildcard sending all of `*.litium.portal` to
+`127.0.0.1`, saving an `/etc/hosts` line per tenant.
 
 ## Client-Side Usage
 

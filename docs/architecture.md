@@ -315,7 +315,7 @@ route-rule headers before the redirect flushes, instead of throwing `ERR_HTTP_HE
 
 `resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{tenantId}` → legacy key →
 merchant API. Cache hits are re-checked against the config's own hostname list, self-healing stale
-aliases. Missing or inactive tenants 404. **`NUXT_AUTO_CREATE_TENANT` inverts this** — the API step
+aliases. Missing or inactive tenants do not resolve. **`NUXT_AUTO_CREATE_TENANT` inverts this** — the API step
 then never returns `null`, so every unknown hostname resolves to a fabricated tenant.
 
 Two hostnames, easily confused:
@@ -779,8 +779,13 @@ Configure via environment variables:
 
 ### Adding New Tenants
 
-1. **Development**: Tenants are auto-created when accessing any hostname
-2. **Production**: Add tenant via admin API or database migration
+A tenant exists when the merchant API returns settings for its hostname. Registration happens
+there, in the merchant admin — not in this repository, and not in a database this application
+owns. `resolveTenant()` looks the hostname up on demand and caches the result in KV.
+
+Locally, `NUXT_AUTO_CREATE_TENANT` fabricates a tenant for any unregistered hostname, and the dev
+seed writes three fixtures at startup. Both are development conveniences; see
+[Multi-Tenant Architecture](guide/multi-tenant.md#local-development) for which applies when.
 
 ### Creating Components
 
