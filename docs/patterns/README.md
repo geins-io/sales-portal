@@ -377,7 +377,8 @@ The prefetch function:
 
 ### Promise Deduplication
 
-The auth store's `fetchUser()` deduplicates concurrent calls via a module-scoped promise:
+The auth store's `fetchUser()` deduplicates concurrent calls by holding the in-flight promise, so
+several callers in one page render share a single `/api/auth/me` round trip:
 
 ```typescript
 // Multiple callers share the same in-flight request
@@ -388,7 +389,14 @@ await Promise.all([
 ]);
 ```
 
-This pattern is used by `auth-init.client.ts` (fires early) and auth/guest middleware (awaits the same promise later).
+**The promise must be declared inside the store's setup function, never at module scope.** A
+module-scoped promise is one per server process rather than one per request, so under SSR a second
+request awaits the first request's promise and its own store never populates — the user renders as
+signed out. `app/stores/auth.ts` declares it inside the factory for exactly this reason, and
+`tests/stores/auth.test.ts` covers the isolation.
+
+This pattern is used by `auth-init.ts` (fires on both server and client, awaits only on the
+server) and by the auth and guest middleware, which await the same promise later.
 
 ---
 

@@ -54,7 +54,7 @@ app/
   composables/              # useTenant, useFeatureAccess, useErrorTracking, etc.
   layouts/default.vue       # Default layout with error boundaries
   pages/                    # File-based routing
-  plugins/                  # tenant-theme, tenant-seo, tenant-analytics, auth-init, api
+  plugins/                  # tenant-seo, tenant-analytics, auth-init, api, etc.
   stores/                   # Pinia stores (auth, ui)
 
 server/
