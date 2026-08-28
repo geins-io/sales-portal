@@ -421,7 +421,7 @@ The `generateTenantCss()` function in `server/utils/tenant-css.ts` creates CSS f
 
 ### Client-Side API Access
 
-Use `useFetch` with `dedupe: 'defer'` for API calls:
+Use `useFetch` for API calls from a component or composable:
 
 ```typescript
 // In a component or composable
@@ -432,6 +432,10 @@ const { data, pending, error, refresh } = useFetch<ResponseType>(
   },
 );
 ```
+
+`dedupe` is a per-call-site choice. `'defer'` keeps an in-flight request and drops the duplicate —
+the right choice where the request key is stable, which covers most calls here. `'cancel'` (Nuxt's
+default) aborts the in-flight request instead, so the newest parameters win.
 
 ### Server API Routes
 
