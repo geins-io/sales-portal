@@ -1,7 +1,7 @@
 # Lessons Learned
 
 Incidents that cost real time, and what changed because of them. This is not a decision log —
-see [ADRs](adr/) for why the architecture is the way it is. This is the record of what broke,
+see [ADRs](adr/README.md) for why the architecture is the way it is. This is the record of what broke,
 why, and which rule exists as a result.
 
 Add an entry when a bug takes more than a day to diagnose, reaches production, or turns out to
@@ -96,6 +96,30 @@ logic.
 
 **Where the rule lives now.** Before adding logic to a _second_ component, check whether it already
 exists. If it does, extract to a store getter, composable, or utility.
+
+---
+
+## One tenant name, five hostnames, and a fallback that hid the consequence
+
+**Symptom.** The E2E suite failed on roughly 82 specs on a clean checkout while CI reported green
+on the same commit. Neither number was informative.
+
+**Root cause.** Two things compounding. `tenant-a` names four different things across five domain
+endings — a tenant registered in the merchant API, fixtures written at dev-server startup, filler
+strings in unit tests, and the registered tenant's own aliases — and nothing in a running system
+distinguishes them. Separately, `autoCreateTenant` fabricates a tenant for any hostname it cannot
+find, so a hostname mismatch, a missing credential and an unreachable merchant API all produce the
+same result: a storefront that renders, answers health checks and contains nothing.
+
+**Fix.** The suite now asserts behaviour derived from tenant config rather than one tenant's
+settings hardcoded as application behaviour. That surfaced two genuine product bugs the
+environmental noise had been hiding.
+
+**Where the rule lives now.** A fixture must not borrow the id or hostname of anything real — where
+two mechanisms can supply the same record, nothing tells a reader which one they are looking at.
+And a fallback that cannot fail cannot verify: the run that gates a merge is the one that needs it
+off. Local resolution, and what each run command implies, is in
+[guide/multi-tenant.md](guide/multi-tenant.md#local-development).
 
 ---
 

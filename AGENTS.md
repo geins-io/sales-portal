@@ -28,11 +28,11 @@ pnpm lint:fix   # Fix lint issues
 
 ### State Management
 
-| What                          | Use                               | NOT                    |
-| ----------------------------- | --------------------------------- | ---------------------- |
-| UI state (sidebar, modals)    | Pinia stores                      | -                      |
-| Server data (API responses)   | `useFetch` with `dedupe: 'defer'` | Pinia, custom wrappers |
-| Utilities (debounce, storage) | `@vueuse/core`                    | Custom composables     |
+| What                          | Use                             | NOT                    |
+| ----------------------------- | ------------------------------- | ---------------------- |
+| UI state (sidebar, modals)    | Pinia stores                    | -                      |
+| Server data (API responses)   | `useFetch` (see `dedupe` below) | Pinia, custom wrappers |
+| Utilities (debounce, storage) | `@vueuse/core`                  | Custom composables     |
 
 ### API Calls
 
@@ -46,6 +46,10 @@ export default defineEventHandler(async (event) => {
   return await $fetch(`${config.apiUrl}/data`);
 });
 ```
+
+`dedupe` is a per-call-site choice, not one blanket value. `'defer'` keeps an in-flight request and
+drops the duplicate — correct where the request key is stable, which is the common case here.
+`'cancel'` (Nuxt's default) aborts the in-flight request instead, so the newest parameters win.
 
 ### Type Safety
 

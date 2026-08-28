@@ -1,9 +1,10 @@
-import { defineConfig } from 'vitepress'
+import { defineConfig } from 'vitepress';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: 'Sales Portal',
-  description: 'Documentation for the Sales Portal - Multi-tenant Storefront Application',
+  description:
+    'Documentation for the Sales Portal - Multi-tenant Storefront Application',
 
   // Use /docs/ as the base path for GitHub Pages deployment
   base: '/docs/',
@@ -56,7 +57,9 @@ export default defineConfig({
     ],
 
     // Social links
-    socialLinks: [{ icon: 'github', link: 'https://github.com/litium/sales-portal' }],
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/geins-io/sales-portal' },
+    ],
 
     // Search
     search: {
@@ -71,7 +74,7 @@ export default defineConfig({
 
     // Edit link configuration
     editLink: {
-      pattern: 'https://github.com/litium/sales-portal/edit/main/docs/:path',
+      pattern: 'https://github.com/geins-io/sales-portal/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
 
@@ -106,8 +109,9 @@ export default defineConfig({
       'meta',
       {
         property: 'og:description',
-        content: 'Documentation for the Sales Portal - Multi-tenant Storefront Application',
+        content:
+          'Documentation for the Sales Portal - Multi-tenant Storefront Application',
       },
     ],
   ],
-})
+});

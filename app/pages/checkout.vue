@@ -45,7 +45,7 @@ const isShippingAddressReadonly = computed(() => {
 
 // Company user detection: only fetch if authenticated to avoid 401s.
 // Hydrate the auth store first if needed so SSR sees the correct auth state.
-// Without this, the SSR pass runs before auth-init.client.ts has fired, the
+// Without this, the SSR pass runs before auth-init.ts has resolved the user, the
 // company fetch is skipped, and the page commits to the non-company UI on
 // first paint even when the user is signed in.
 if (!authStore.isInitialized) {

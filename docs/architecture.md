@@ -315,7 +315,7 @@ route-rule headers before the redirect flushes, instead of throwing `ERR_HTTP_HE
 
 `resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{tenantId}` → legacy key →
 merchant API. Cache hits are re-checked against the config's own hostname list, self-healing stale
-aliases. Missing or inactive tenants 404. **`NUXT_AUTO_CREATE_TENANT` inverts this** — the API step
+aliases. Missing or inactive tenants do not resolve. **`NUXT_AUTO_CREATE_TENANT` inverts this** — the API step
 then never returns `null`, so every unknown hostname resolves to a fabricated tenant.
 
 Two hostnames, easily confused:
@@ -421,7 +421,7 @@ The `generateTenantCss()` function in `server/utils/tenant-css.ts` creates CSS f
 
 ### Client-Side API Access
 
-Use `useFetch` with `dedupe: 'defer'` for API calls:
+Use `useFetch` for API calls from a component or composable:
 
 ```typescript
 // In a component or composable
@@ -432,6 +432,10 @@ const { data, pending, error, refresh } = useFetch<ResponseType>(
   },
 );
 ```
+
+`dedupe` is a per-call-site choice. `'defer'` keeps an in-flight request and drops the duplicate —
+the right choice where the request key is stable, which covers most calls here. `'cancel'` (Nuxt's
+default) aborts the in-flight request instead, so the newest parameters win.
 
 ### Server API Routes
 
@@ -474,7 +478,7 @@ The `server/api/external/[...].ts` handler proxies requests to external APIs wit
 
 ### Environment Variables
 
-See [`.env.example`](../.env.example) for the full list. Key variables:
+See [`.env.example`](https://github.com/geins-io/sales-portal/blob/main/.env.example) for the full list. Key variables:
 
 | Variable                         | Description                                                | Default                                |
 | -------------------------------- | ---------------------------------------------------------- | -------------------------------------- |
@@ -779,8 +783,13 @@ Configure via environment variables:
 
 ### Adding New Tenants
 
-1. **Development**: Tenants are auto-created when accessing any hostname
-2. **Production**: Add tenant via admin API or database migration
+A tenant exists when the merchant API returns settings for its hostname. Registration happens
+there, in the merchant admin — not in this repository, and not in a database this application
+owns. `resolveTenant()` looks the hostname up on demand and caches the result in KV.
+
+Locally, `NUXT_AUTO_CREATE_TENANT` fabricates a tenant for any unregistered hostname, and the dev
+seed writes three fixtures at startup. Both are development conveniences; see
+[Multi-Tenant Architecture](guide/multi-tenant.md#local-development) for which applies when.
 
 ### Creating Components
 

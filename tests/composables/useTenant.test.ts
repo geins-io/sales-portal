@@ -114,9 +114,9 @@ describe('useTenant', () => {
       expect(typeof url).toBe('function');
       expect((url as () => string)()).toBe('/api/config');
       expect(options.dedupe).toBe('defer');
-      // The composable no longer routes through $api ($api is for external
-      // Geins, strips cookies and would silently return the LIVE config
-      // during SSR preview requests).
+      // The composable no longer routes through $api ($api forwards a header
+      // allowlist that excludes cookies, so it would silently return the LIVE
+      // config during SSR preview requests).
       expect(options.$fetch).toBeUndefined();
     });
 

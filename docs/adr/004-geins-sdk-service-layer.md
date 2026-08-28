@@ -2,7 +2,7 @@
 title: Geins SDK integration via service abstraction layer
 status: accepted
 created: 2026-02-03
-updated: 2026-08-26
+updated: 2026-08-28
 author: '@3li7alaki'
 tags: [architecture, sdk, geins, api, services]
 ---
@@ -335,17 +335,35 @@ CMS call site in `server/services/` passes it. The CRM facade (`crm.auth`, `crm.
 `getTenantSDK()` throws `BAD_REQUEST` "Tenant has no Geins SDK configuration" when the resolved
 tenant has no `geinsSettings` at all.
 
-It does not check whether the credentials inside are usable. `apiKey` is `z.string()` with no minimum
-length, so an empty string passes schema validation and produces an SDK instance that fails later, at
-API-call time, with an error that says nothing about the real cause. Absence is guarded; emptiness is
-not.
+A tenant's `geinsSettings` must also carry usable values, which the schema does not assert:
+`apiKey` is `z.string()` with no minimum length, so an empty string validates and produces an SDK
+instance that only fails at API-call time. Treat empty credentials as a configuration error at the
+point the tenant is registered.
 
-### Where the client/server boundary is enforced
+### Where the client/server boundary sits
 
-Nowhere, mechanically. No lint rule restricts `@geins/*` imports by directory. The boundary holds by
-convention: `app/` imports `@geins/types` freely (types are erased at build), and the only runtime
-SDK import in `app/` is the `ListsSession` exception above. A rule pinning that down would have to
-allow that exception explicitly.
+The rule is about **runtime** SDK code, not about the package name. What matters is whether an
+import survives the build and ships to the browser:
+
+| Import                                                      | Client bundle | Allowed                                  |
+| ----------------------------------------------------------- | ------------- | ---------------------------------------- |
+| `import type { … } from '@geins/types'` (or any `@geins/*`) | erased        | anywhere, including `app/`               |
+| Runtime values from `@geins/core`, `@geins/crm`, …          | shipped       | `server/` only, plus the exception below |
+
+**Both `app/` and `shared/` are client-reachable and take the same rule.** `shared/` is the easier
+one to overlook, because it reads as neutral ground between the two sides — but a component that
+imports from it pulls whatever it imports into the browser bundle, so a runtime re-export there is
+equivalent to importing the package in `app/` directly. Re-export types with `export type {}`, so
+the import does not survive the build. Pulling a single runtime helper from `@geins/core` brings
+the whole package, which is built for the server.
+
+The deliberate exception is the saved-lists code from `@geins/crm`, which runs in the browser to
+persist lists to local storage (see `docs/patterns/lists.md`).
+
+The boundary holds by convention and review rather than by a lint rule. A rule would need to
+distinguish type-only from value imports and allow the two exceptions above, which is why the
+requirement is stated here instead: **before adding a runtime `@geins/*` import outside `server/`,
+it has to be a decision recorded in this ADR, not an incidental import.**
 
 ### Rules
 
@@ -353,7 +371,7 @@ allow that exception explicitly.
 2. **Each service exports typed functions** — the interface is ours, the implementation delegates to SDK packages or `core.graphql`
 3. **`_sdk.ts` maintains per-tenant singletons** — each tenant gets its own SDK cached by hostname, reused across requests
 4. **Implementation is swappable** — if a service moves from direct GraphQL to an SDK package (or vice versa), only the service file changes
-5. **SDK runs server-side only** — no `@geins/*` imports in `app/`. Components and stores call Nuxt API routes via `$fetch`
+5. **SDK runtime code is server-side only** — no runtime `@geins/*` imports in `app/` or `shared/`, beyond the exceptions recorded above. Type-only imports are unrestricted. Components and stores reach commerce data through Nuxt API routes
 6. **`event` is always the last parameter** — every service function takes `(args, event: H3Event)` for consistent API and tenant resolution
 7. **Tokens come from cookies** — auth tokens are read from httpOnly cookies in API routes and passed to stateless SDK methods. The SDK never manages cookies in Direct mode
 

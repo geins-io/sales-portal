@@ -8,9 +8,10 @@ import type { NitroFetchOptions, NitroFetchRequest } from 'nitropack';
  * or any other non-page context. `useFetch` does this automatically for
  * page-level data loads.
  *
- * The companion `$api` (`app/plugins/api.ts`) is for calls to the external
- * Geins API; it strips cookies on purpose so our session does not leak to
- * a third party. Do not use it for internal routes.
+ * The companion `$api` (`app/plugins/api.ts`) targets the same `/api` routes
+ * but adds retry-with-backoff, and forwards a header allowlist that excludes
+ * `cookie`. Prefer this helper unless a call specifically needs the retries;
+ * `$api` cannot authenticate an auth-gated route during SSR.
  *
  * See `docs/conventions/api-clients.md`.
  */
