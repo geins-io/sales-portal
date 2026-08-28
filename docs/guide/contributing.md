@@ -1,6 +1,10 @@
 # Contributing
 
-Thank you for your interest in contributing to the Sales Portal! This guide will help you get started.
+This page covers the local setup and the day-to-day tooling.
+
+**How work reaches production — branches, releases, hotfixes, commit format — lives in
+[`CONTRIBUTING.md`](https://github.com/geins-io/sales-portal/blob/main/CONTRIBUTING.md) at the
+repository root.** That file is the source of truth for the flow; this page does not repeat it.
 
 ## Development Setup
 
@@ -13,10 +17,10 @@ Thank you for your interest in contributing to the Sales Portal! This guide will
 
 ### Local Development
 
-1. Fork and clone the repository:
+1. Clone the repository:
 
    ```bash
-   git clone https://github.com/YOUR_USERNAME/sales-portal.git
+   git clone https://github.com/geins-io/sales-portal.git
    cd sales-portal
    ```
 
@@ -26,186 +30,126 @@ Thank you for your interest in contributing to the Sales Portal! This guide will
    pnpm install
    ```
 
-3. Create a branch for your changes:
+3. Copy the environment file and read the notes in it:
 
    ```bash
-   git checkout -b feature/your-feature-name
+   cp .env.example .env
    ```
 
-4. Start the development server:
+   Which tenant you see locally depends on this file. See
+   [Multi-Tenant Architecture](/guide/multi-tenant#local-development) before you start the server.
+
+4. Branch off `main`, named `type/short-description`:
+
+   ```bash
+   git checkout -b fix/cart-quantity-rounding
+   ```
+
+5. Start the development server:
+
    ```bash
    pnpm dev
    ```
 
 ## Code Standards
 
+Conventions live in [`docs/conventions/`](/conventions/README) — component structure, composables,
+API clients, error handling, i18n, icons, runtime config and SSR safety. Read the relevant one
+before adding code; they are short.
+
 ### Formatting
 
-We use Prettier for code formatting. Format your code before committing:
+Prettier owns formatting. Husky and `lint-staged` run `eslint --fix` and `prettier --write` over
+staged files on every commit, so a normal commit formats itself. To run it across the repo:
 
 ```bash
-pnpm format
-```
-
-Check formatting without writing:
-
-```bash
-pnpm format:check
+pnpm format        # write
+pnpm format:check  # verify without writing
 ```
 
 ### Linting
 
-ESLint is configured for code quality. Run the linter:
-
 ```bash
-pnpm lint
+pnpm lint      # report
+pnpm lint:fix  # auto-fix
 ```
 
-Auto-fix issues:
-
-```bash
-pnpm lint:fix
-```
+`any`, `@ts-ignore` and `@ts-expect-error` are lint errors, not warnings. When SDK types are
+missing a field the GraphQL query returns, extend the type in `shared/types/commerce.ts`.
 
 ### Type Checking
-
-Ensure TypeScript types are correct:
 
 ```bash
 pnpm typecheck
 ```
 
-### Pre-commit Hooks
-
-Husky is configured to run linting and formatting checks before each commit. This happens automatically when you commit.
-
 ## Testing
 
-### Running Tests
-
 ```bash
-# Run unit tests
-pnpm test
-
-# Run with coverage
-pnpm test:coverage
-
-# Run E2E tests
-pnpm test:e2e
-
-# Run all tests
-pnpm test:all
+pnpm test           # unit + component (Vitest)
+pnpm test:coverage  # with coverage
+pnpm test:e2e       # end-to-end (Playwright)
 ```
 
-### Writing Tests
+Unit and component tests run against a clean checkout. The E2E suite drives a real browser against
+a running server and a tenant hostname that resolves; see
+[Multi-Tenant Architecture](/guide/multi-tenant#local-development).
 
-- **Unit tests** go in `tests/unit/` or `tests/server/`
-- **Component tests** go in `tests/components/`
-- **E2E tests** go in `tests/e2e/`
+Where tests go:
 
-See the [Testing Guide](/testing) for detailed testing documentation.
+- **Unit tests** — `tests/unit/` or `tests/server/`
+- **Component tests** — `tests/components/`
+- **E2E tests** — `tests/e2e/`
 
-## Project Structure
+See the [Testing Guide](/testing) for the full picture.
 
-```
-app/                    # Frontend application
-├── components/
-│   ├── layout/         # Layout components (header, footer)
-│   └── ui/             # UI primitives (shadcn-vue)
-├── composables/        # Vue composables
-├── pages/              # File-based routing
-└── plugins/            # Nuxt plugins
+## Adding Components
 
-server/                 # Backend code
-├── api/                # API endpoints
-├── plugins/            # Server plugins
-└── utils/              # Server utilities
-
-shared/                 # Shared code (client + server)
-└── types/              # TypeScript types
-
-tests/                  # Test files
-docs/                   # Documentation
-```
-
-## Component Guidelines
-
-### Using shadcn-vue
-
-Add new shadcn-vue components using the CLI:
+The project uses shadcn-vue. Generate a primitive with the CLI:
 
 ```bash
 pnpm dlx shadcn-vue add button
 ```
 
-Components are generated in `app/components/ui/`.
+Components land in `app/components/ui/`. For everything else — props, naming, design tokens,
+accessibility — follow [conventions/components.md](/conventions/components).
 
-### Creating Custom Components
+## Commits
 
-1. Use TypeScript for all components
-2. Use Composition API with `<script setup>`
-3. Use design tokens for colors and spacing
-4. Add appropriate ARIA attributes for accessibility
-
-Example:
-
-```vue
-<script setup lang="ts">
-interface Props {
-  title: string;
-  variant?: 'default' | 'outline';
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  variant: 'default',
-});
-</script>
-
-<template>
-  <div
-    class="bg-background text-foreground rounded-md p-4"
-    :class="{ 'border-border border': props.variant === 'outline' }"
-  >
-    <h2 class="text-lg font-semibold">{{ props.title }}</h2>
-    <slot />
-  </div>
-</template>
-```
-
-## Commit Messages
-
-Use clear, descriptive commit messages:
+Conventional Commits, enforced by `commitlint` on every commit. **The scope is required**:
 
 ```
-feat: add product search functionality
-fix: resolve cart quantity update issue
-docs: update API reference
-test: add unit tests for useDebounce
-refactor: simplify tenant context logic
+feat(search): add product search
+fix(cart): resolve quantity update on variant switch
+docs(api): document the quotes endpoints
+test(favorites): cover quick-filter search
+refactor(tenant): simplify context resolution
 ```
 
-Prefixes:
+Allowed types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `style`,
+`revert`. The hook rejects a missing scope, a trailing period, and a header over 72 characters. An
+imperative, lowercase description is convention rather than hook-enforced.
 
-- `feat:` — New features
-- `fix:` — Bug fixes
-- `docs:` — Documentation changes
-- `test:` — Test additions/changes
-- `refactor:` — Code refactoring
-- `chore:` — Maintenance tasks
+Full rule, including what must never appear in a message, is in
+[`AGENTS.md`](https://github.com/geins-io/sales-portal/blob/main/AGENTS.md).
 
 ## Pull Requests
 
-1. Ensure all tests pass: `pnpm test:all`
-2. Ensure linting passes: `pnpm lint`
-3. Update documentation if needed
-4. Write a clear PR description
-5. Link to any related issues
+Before you push:
+
+```bash
+pnpm typecheck && pnpm test && pnpm lint:fix
+```
+
+CI then runs lint, type check, unit tests with coverage, and the E2E smoke specs against a
+production build. PR titles follow the commit format; the body carries the rationale, the test
+plan and any follow-ups.
 
 ## Getting Help
 
-- Check existing [issues](https://github.com/litium/sales-portal/issues)
+- Check existing [issues](https://github.com/geins-io/sales-portal/issues)
 - Review the [documentation](/guide/getting-started)
-- Ask questions in discussions
+- Read [Lessons Learned](/lessons-learned) for what has broken before and why
 
 ## License
 
