@@ -99,6 +99,30 @@ exists. If it does, extract to a store getter, composable, or utility.
 
 ---
 
+## One tenant name, five hostnames, and a fallback that hid the consequence
+
+**Symptom.** The E2E suite failed on roughly 82 specs on a clean checkout while CI reported green
+on the same commit. Neither number was informative.
+
+**Root cause.** Two things compounding. `tenant-a` names four different things across five domain
+endings — a tenant registered in the merchant API, fixtures written at dev-server startup, filler
+strings in unit tests, and the registered tenant's own aliases — and nothing in a running system
+distinguishes them. Separately, `autoCreateTenant` fabricates a tenant for any hostname it cannot
+find, so a hostname mismatch, a missing credential and an unreachable merchant API all produce the
+same result: a storefront that renders, answers health checks and contains nothing.
+
+**Fix.** The suite now asserts behaviour derived from tenant config rather than one tenant's
+settings hardcoded as application behaviour. That surfaced two genuine product bugs the
+environmental noise had been hiding.
+
+**Where the rule lives now.** A fixture must not borrow the id or hostname of anything real — where
+two mechanisms can supply the same record, nothing tells a reader which one they are looking at.
+And a fallback that cannot fail cannot verify: the run that gates a merge is the one that needs it
+off. Local resolution, and what each run command implies, is in
+[guide/multi-tenant.md](guide/multi-tenant.md#local-development).
+
+---
+
 ## Things that worked, worth repeating
 
 **Glob-based test routing.** A hardcoded 65-entry list of test files decided which tier each test
