@@ -14,7 +14,7 @@ hero:
       link: /guide/getting-started
     - theme: alt
       text: View on GitHub
-      link: https://github.com/litium/sales-portal
+      link: https://github.com/geins-io/sales-portal
 
 features:
   - icon: 🏢
@@ -41,7 +41,7 @@ features:
 
 ```bash
 # Clone the repository
-git clone https://github.com/litium/sales-portal.git
+git clone https://github.com/geins-io/sales-portal.git
 
 # Install dependencies
 pnpm install
