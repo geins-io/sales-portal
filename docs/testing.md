@@ -222,6 +222,28 @@ it. Playwright sets it via `webServer.env`, but `reuseExistingServer` is true ou
 attaches to whatever already holds port 3000 rather than restarting it. **A plain `pnpm dev` is
 the most common cause of a local run disagreeing with a clean one.**
 
+#### 4. TLS for the production build (`E2E_PROD=1` and CI)
+
+The production build only works over https. Its CSP sets `upgrade-insecure-requests`, so over plain
+http the browser rewrites every `/_nuxt/*` request to https, nothing answers, and no JavaScript loads
+— the page renders server-side and never hydrates. Its auth cookies are `Secure`, so even a
+successful login leaves no session. Both are correct in production and invisible on the dev server,
+which has neither.
+
+So the production-build path (`E2E_PROD=1 pnpm test:e2e` locally, always in CI) serves `pnpm preview`
+over https with a self-signed certificate for `*.litium.portal`:
+
+```bash
+infra/scripts/local-cert.sh    # writes .certs/local.{crt,key}; pnpm local:setup runs it too
+E2E_PROD=1 pnpm test:e2e       # build + preview over https://tenant-a.litium.portal:3000
+```
+
+`playwright.config.ts` reads the pair and hands it to `pnpm preview` as `NITRO_SSL_CERT` /
+`NITRO_SSL_KEY` (Nitro's node-server preset serves TLS when both hold PEM contents), switches the base
+URL to `https://` and sets `ignoreHTTPSErrors` so the bundled browsers accept the cert without it being
+trusted. Nothing is installed in a trust store and nothing reaches the shipped build. To browse the
+local production build yourself without a warning, `mkcert -install` is optional and separate.
+
 #### Commands
 
 ```bash
@@ -247,6 +269,10 @@ A 500 there means restart the dev server. For long sessions, start it with
 
 Also: don't run two suites concurrently against one server — they share cart state and corrupt
 each other's assertions.
+
+Don't run `pnpm typecheck` while `pnpm build` (or `E2E_PROD=1 pnpm test:e2e`, which builds) is
+running. Both write to `.nuxt` and `node_modules/.cache/nuxt`, and the build then dies with a Rollup
+"Could not resolve ./\_nuxt/virtual_nuxt…" error. `pnpm clean` and rerun.
 
 ### Run a specific tier
 
