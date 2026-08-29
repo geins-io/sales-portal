@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // Loads E2E_USERNAME / E2E_PASSWORD from the gitignored .env.
@@ -24,14 +25,46 @@ dotenv.config({ path: resolve(import.meta.dirname, '.env'), quiet: true });
  *   Cart and portal specs need a test account (E2E_USERNAME / E2E_PASSWORD
  *   in .env) and skip without one. See docs/testing.md.
  *
+ *   The production-build path (CI, or E2E_PROD=1 locally) is served over
+ *   https with a self-signed cert from `infra/scripts/local-cert.sh`
+ *   (`pnpm local:setup` runs it). The production build sets
+ *   `upgrade-insecure-requests` in its CSP and marks auth cookies Secure, so
+ *   over plain http no JavaScript loads and no session survives. The dev
+ *   server has neither behaviour and stays http.
+ *
  * @see https://playwright.dev/docs/test-configuration
  */
 
 const TEST_TENANT_HOST = 'tenant-a.litium.portal';
 const TEST_PORT = 3000;
 
+// CI always runs the production build; locally E2E_PROD=1 opts into it.
+const PRODUCTION_BUILD = !!(process.env.CI || process.env.E2E_PROD);
+const PROTOCOL = PRODUCTION_BUILD ? 'https' : 'http';
+
 const BASE_URL =
-  process.env.PLAYWRIGHT_BASE_URL || `http://${TEST_TENANT_HOST}:${TEST_PORT}`;
+  process.env.PLAYWRIGHT_BASE_URL ||
+  `${PROTOCOL}://${TEST_TENANT_HOST}:${TEST_PORT}`;
+
+// Nitro's node-server preset serves TLS when NITRO_SSL_CERT / NITRO_SSL_KEY
+// hold PEM *contents* (not paths). Read them here so `pnpm preview` started
+// by Playwright gets them, locally and in CI alike.
+const CERT_DIR = resolve(import.meta.dirname, '.certs');
+function tlsEnv(): Record<string, string> {
+  if (!PRODUCTION_BUILD) return {};
+  const cert = resolve(CERT_DIR, 'local.crt');
+  const key = resolve(CERT_DIR, 'local.key');
+  if (!existsSync(cert) || !existsSync(key)) {
+    throw new Error(
+      `Production-build e2e needs a TLS cert at ${CERT_DIR}. ` +
+        'Run `infra/scripts/local-cert.sh` (or `pnpm local:setup`) first.',
+    );
+  }
+  return {
+    NITRO_SSL_CERT: readFileSync(cert, 'utf8'),
+    NITRO_SSL_KEY: readFileSync(key, 'utf8'),
+  };
+}
 
 // Pre-accepted consent so CookieBanner never renders: it is fixed to the
 // bottom (intercepting taps) and carries `role="dialog"` (colliding with every
@@ -84,6 +117,9 @@ export default defineConfig({
 
     // Auth specs override this with auth.setup.ts's state, which inherits it.
     storageState: CONSENT_STORAGE_STATE,
+
+    // The production build is served with a self-signed cert (see above).
+    ignoreHTTPSErrors: PRODUCTION_BUILD,
 
     // Collect trace on failure
     trace: 'on-first-retry',
@@ -139,10 +175,12 @@ export default defineConfig({
       : process.env.E2E_PROD
         ? 'pnpm build && pnpm preview'
         : 'pnpm dev',
-    url: `http://${TEST_TENANT_HOST}:${TEST_PORT}/api/config`,
-    // Disables the dev overlays (see nuxt.config.ts). Only applies when
+    url: `${PROTOCOL}://${TEST_TENANT_HOST}:${TEST_PORT}/api/config`,
+    ignoreHTTPSErrors: PRODUCTION_BUILD,
+    // E2E=1 disables the dev overlays (see nuxt.config.ts). Only applies when
     // Playwright starts the server — otherwise use `E2E=1 pnpm dev`.
-    env: { E2E: '1' },
+    // The TLS pair makes `pnpm preview` serve https (see tlsEnv above).
+    env: { E2E: '1', ...tlsEnv() },
     reuseExistingServer: !process.env.CI,
     // A local production build (E2E_PROD) needs much longer than a dev boot.
     timeout: process.env.E2E_PROD ? 360000 : 120000,

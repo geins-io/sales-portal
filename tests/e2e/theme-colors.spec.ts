@@ -47,29 +47,6 @@ async function collectThemeState(page: Page) {
         cssRuleCount = -1;
       }
 
-      // Is the bundled utility stylesheet (which carries the .bg-* rules)
-      // actually applied? Under a local http preview, the production CSP's
-      // upgrade-insecure-requests rewrites the external <link> to https and it
-      // fails to load — a test-environment artifact, not the bug. The painted
-      // check below is gated on this so it only runs when it can be trusted.
-      let bundledCssLoaded = false;
-      for (const sheet of Array.from(document.styleSheets)) {
-        try {
-          for (const rule of Array.from(sheet.cssRules)) {
-            if (
-              rule instanceof CSSStyleRule &&
-              rule.selectorText?.includes('.bg-top-bar-background')
-            ) {
-              bundledCssLoaded = true;
-              break;
-            }
-          }
-        } catch {
-          // cross-origin / blocked sheet — ignore
-        }
-        if (bundledCssLoaded) break;
-      }
-
       const topBarEl = document.querySelector('.bg-top-bar-background');
 
       return {
@@ -84,7 +61,6 @@ async function collectThemeState(page: Page) {
         surfaceValues: Object.fromEntries(
           surfaceVars.map((v) => [v, cssVar(v)]),
         ) as Record<string, string>,
-        bundledCssLoaded,
         topBarBg: topBarEl ? getComputedStyle(topBarEl).backgroundColor : null,
       };
     },
@@ -154,20 +130,14 @@ test.describe('Tenant theme colors apply in WebKit', () => {
       });
     }
 
-    // --- End-to-end painted check (only when bundled utility CSS loaded) ---
-    // Skipped under a local http preview where upgrade-insecure-requests blocks
-    // the external stylesheet; CI (https) and `pnpm dev` both exercise it.
-    if (state.bundledCssLoaded) {
-      expect(
-        TRANSPARENT.has(state.topBarBg ?? ''),
-        `topbar must paint a real background, got "${state.topBarBg}"`,
-      ).toBe(false);
-    } else {
-      test.info().annotations.push({
-        type: 'note',
-        description:
-          'bundled utility CSS not applied (local http upgrade artifact) — painted check skipped',
-      });
-    }
+    // --- End-to-end painted check ---
+    // The bundled utility stylesheet carries the .bg-* rules. It loads under
+    // every run mode: the production build is served over https under test
+    // (see playwright.config.ts), so upgrade-insecure-requests no longer
+    // rewrites the external <link> to an address nothing answers on.
+    expect(
+      TRANSPARENT.has(state.topBarBg ?? ''),
+      `topbar must paint a real background, got "${state.topBarBg}"`,
+    ).toBe(false);
   });
 });

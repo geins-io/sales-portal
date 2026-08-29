@@ -129,6 +129,12 @@ jobs:
       - name: Configure tenant hostname
         run: echo '127.0.0.1 tenant-a.litium.portal' | sudo tee -a /etc/hosts
 
+      # The production build sets `upgrade-insecure-requests` and Secure auth
+      # cookies, so it only works over https. playwright.config.ts feeds this
+      # cert to `pnpm preview` via NITRO_SSL_CERT / NITRO_SSL_KEY.
+      - name: Generate TLS cert for the preview server
+        run: ./infra/scripts/local-cert.sh
+
       - name: Cache Nuxt build
         uses: actions/cache@v4
         with:
@@ -145,7 +151,7 @@ jobs:
       - name: Run E2E smoke tests
         run: pnpm test:e2e --project=chromium tests/e2e/health.spec.ts tests/e2e/app.spec.ts tests/e2e/homepage.spec.ts tests/e2e/csp-policy.spec.ts
         env:
-          PLAYWRIGHT_BASE_URL: http://tenant-a.litium.portal:3000
+          PLAYWRIGHT_BASE_URL: https://tenant-a.litium.portal:3000
           NUXT_AUTO_CREATE_TENANT: 'true'
           NUXT_GEINS_TENANT_API_KEY: ${{ secrets.GEINS_TENANT_API_KEY }}
 

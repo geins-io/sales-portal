@@ -227,7 +227,8 @@ run_setup() {
     start_dnsmasq
     flush_dns
     setup_port_forwarding
-    
+    generate_local_cert
+
     echo ""
     test_dns
     echo ""
@@ -238,6 +239,15 @@ run_setup() {
     echo "  http://tenant-b.$DOMAIN/"
     echo "  http://[any-tenant].$DOMAIN/"
     echo ""
+    echo "Production-build e2e (E2E_PROD=1 pnpm test:e2e) serves https with the"
+    echo "self-signed cert in .certs/ — see infra/scripts/local-cert.sh."
+    echo ""
+}
+
+# Self-signed TLS cert for serving the production build over https under test
+generate_local_cert() {
+    print_status "Generating local TLS cert for *.$DOMAIN..."
+    "$(dirname "$0")/local-cert.sh"
 }
 
 # Start dev environment
