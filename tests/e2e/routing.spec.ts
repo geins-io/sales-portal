@@ -16,91 +16,85 @@
  * and URL stability on hard refresh.
  */
 
-import { test, expect } from '@playwright/test';
-import { discoverCategory, discoverProduct, waitForHydration } from './helpers';
+import { test, expect, type Page } from '@playwright/test';
+import {
+  discoverCategory,
+  discoverProduct,
+  outOfScope,
+  waitForHydration,
+} from './helpers';
+
+/**
+ * Open the locale switcher (dropdown variant) and return its links, once they
+ * are rendered. Zero links means the tenant has one locale — LocaleSwitcher
+ * renders nothing then — which is a declared tenant-config limit, not a skip.
+ */
+async function openLocaleSwitcher(page: Page) {
+  const switcherLinks = page.locator('[data-testid="locale-switcher-link"]');
+  const langTrigger = page
+    .locator('button')
+    .and(
+      page.locator(
+        '[aria-label*="language" i], [aria-label*="spr" i], [aria-label*="Change" i]',
+      ),
+    )
+    .first();
+
+  const hasTrigger = await langTrigger.isVisible().catch(() => false);
+  const inlineLinks = await switcherLinks
+    .first()
+    .isVisible()
+    .catch(() => false);
+
+  if (hasTrigger && !inlineLinks) {
+    await langTrigger.click();
+    // Wait for the dropdown to render its links rather than sampling after a
+    // fixed delay — a fixed delay reported "single locale" on a two-locale
+    // tenant when the dropdown was slow.
+    await expect(switcherLinks.first()).toBeVisible({ timeout: 5000 });
+  }
+
+  return switcherLinks;
+}
+
+/** The first switcher link whose locale differs from the current URL's. */
+async function otherLocaleLink(page: Page) {
+  const switcherLinks = await openLocaleSwitcher(page);
+  const linkCount = await switcherLinks.count();
+  outOfScope(
+    linkCount <= 1,
+    'tenant-config',
+    'tenant has a single locale; language switching does not apply',
+  );
+
+  // /se/{locale}/... — segments[0] = market, segments[1] = locale
+  const segments = new URL(page.url()).pathname.split('/').filter(Boolean);
+  const currentLocale = segments[1] ?? '';
+
+  for (let i = 0; i < linkCount; i++) {
+    const link = switcherLinks.nth(i);
+    const locale = await link.getAttribute('data-locale');
+    if (locale && locale !== currentLocale) return { link, locale };
+  }
+  // Two or more links and none for another locale is a switcher bug.
+  throw new Error(
+    `locale switcher has ${linkCount} links but none for a locale other than "${currentLocale}"`,
+  );
+}
 
 test.describe('Routing', () => {
   test('language switch on a category lands on /c/ and renders target language', async ({
     page,
   }) => {
-    // Discover a real category from Geins data; skip if none is available
-    let category: Awaited<ReturnType<typeof discoverCategory>>;
-    try {
-      category = await discoverCategory(page);
-    } catch {
-      test.skip(true, 'No discoverable category on this tenant; skipping');
-      return;
-    }
+    // Discovery throws when the tenant has no category — a real failure.
+    const category = await discoverCategory(page);
 
     await page.goto(`/${category.alias}`);
     await page.waitForLoadState('domcontentloaded');
     await waitForHydration(page);
 
-    // Open the switcher if it is a dropdown (trigger has change-language aria-label).
-    // Use a broader selector: any button whose aria-label contains language/byt.
-    const langTrigger = page
-      .locator('button')
-      .filter({ hasNot: page.locator('[data-testid="locale-switcher-link"]') })
-      .and(
-        page.locator(
-          '[aria-label*="language" i], [aria-label*="spr" i], [aria-label*="Change" i]',
-        ),
-      )
-      .first();
-
-    const isDropdown =
-      (await langTrigger.isVisible().catch(() => false)) &&
-      (await page
-        .locator('[data-testid="locale-switcher-link"]')
-        .first()
-        .isVisible()
-        .catch(() => false)) === false;
-
-    if (isDropdown) {
-      await langTrigger.click();
-      // Wait a tick for the dropdown content to render
-      await page.waitForTimeout(300);
-    }
-
-    // Collect all locale switcher links
-    const switcherLinks = page.locator('[data-testid="locale-switcher-link"]');
-    const linkCount = await switcherLinks.count();
-
-    if (linkCount <= 1) {
-      test.skip(
-        true,
-        'Tenant has a single locale; language switch test does not apply',
-      );
-      return;
-    }
-
-    // Determine current locale from the URL (segment index 2: /se/{locale}/...)
-    const currentUrl = new URL(page.url());
-    const segments = currentUrl.pathname.split('/').filter(Boolean);
-    // segments[0] = market (e.g. 'se'), segments[1] = locale (e.g. 'sv')
-    const currentLocale = segments[1] ?? '';
-
-    // Pick a target link whose data-locale differs from the current locale
-    let targetLink: ReturnType<typeof page.locator> | null = null;
-    let targetLocale = '';
-
-    for (let i = 0; i < linkCount; i++) {
-      const link = switcherLinks.nth(i);
-      const loc = await link.getAttribute('data-locale');
-      if (loc && loc !== currentLocale) {
-        targetLink = link;
-        targetLocale = loc;
-        break;
-      }
-    }
-
-    if (!targetLink || !targetLocale) {
-      test.skip(
-        true,
-        'Could not find a locale link different from current; skipping',
-      );
-      return;
-    }
+    const { link: targetLink, locale: targetLocale } =
+      await otherLocaleLink(page);
 
     // Core assertion (spec 001 fix): the href must carry the /c/ prefix,
     // NOT /l/ and NOT prefix-less.
@@ -153,74 +147,13 @@ test.describe('Routing', () => {
   test('hard refresh of the switched /c/ page holds (no 404)', async ({
     page,
   }) => {
-    // Discover a real category; skip if none available
-    let category: Awaited<ReturnType<typeof discoverCategory>>;
-    try {
-      category = await discoverCategory(page);
-    } catch {
-      test.skip(true, 'No discoverable category; skipping');
-      return;
-    }
+    const category = await discoverCategory(page);
 
     await page.goto(`/${category.alias}`);
     await page.waitForLoadState('domcontentloaded');
     await waitForHydration(page);
 
-    // Open switcher if dropdown
-    const langTrigger = page
-      .locator('button')
-      .and(
-        page.locator(
-          '[aria-label*="language" i], [aria-label*="spr" i], [aria-label*="Change" i]',
-        ),
-      )
-      .first();
-
-    const isDropdown =
-      (await langTrigger.isVisible().catch(() => false)) &&
-      (await page
-        .locator('[data-testid="locale-switcher-link"]')
-        .first()
-        .isVisible()
-        .catch(() => false)) === false;
-
-    if (isDropdown) {
-      await langTrigger.click();
-      await page.waitForTimeout(300);
-    }
-
-    const switcherLinks = page.locator('[data-testid="locale-switcher-link"]');
-    const linkCount = await switcherLinks.count();
-
-    if (linkCount <= 1) {
-      test.skip(
-        true,
-        'Tenant has a single locale; hard-refresh test does not apply',
-      );
-      return;
-    }
-
-    const currentUrl = new URL(page.url());
-    const segments = currentUrl.pathname.split('/').filter(Boolean);
-    const currentLocale = segments[1] ?? '';
-
-    let targetLink: ReturnType<typeof page.locator> | null = null;
-    let targetLocale = '';
-
-    for (let i = 0; i < linkCount; i++) {
-      const link = switcherLinks.nth(i);
-      const loc = await link.getAttribute('data-locale');
-      if (loc && loc !== currentLocale) {
-        targetLink = link;
-        targetLocale = loc;
-        break;
-      }
-    }
-
-    if (!targetLink || !targetLocale) {
-      test.skip(true, 'No alternative locale link found; skipping');
-      return;
-    }
+    const { link: targetLink } = await otherLocaleLink(page);
 
     // Navigate to the switched locale URL
     await Promise.all([
@@ -258,14 +191,7 @@ test.describe('Routing', () => {
   test('product PDP refresh holds (canonical stable, no replaceState break)', async ({
     page,
   }) => {
-    // Discover a real product; skip if none available
-    let product: Awaited<ReturnType<typeof discoverProduct>>;
-    try {
-      product = await discoverProduct(page);
-    } catch {
-      test.skip(true, 'No discoverable product; skipping');
-      return;
-    }
+    const product = await discoverProduct(page);
 
     await page.goto(`/p/${product.alias}`);
     await page.waitForLoadState('domcontentloaded');

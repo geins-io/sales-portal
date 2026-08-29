@@ -5,6 +5,7 @@ import {
   discoverPurchasableProduct,
   waitForHydration,
   hasE2ECredentials,
+  outOfScope,
   STORAGE_STATE,
 } from './helpers';
 
@@ -171,9 +172,10 @@ test.describe('Product Browsing', () => {
   // Own block so the surrounding tests stay anonymous — only this one needs
   // a session, since add-to-cart is gated on `orderPlacement`.
   test.describe('purchase affordance (authenticated)', () => {
-    test.skip(
+    outOfScope(
       !hasE2ECredentials(),
-      'Needs an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
+      'no-credentials',
+      'add-to-cart needs an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
     );
     test.use({ storageState: STORAGE_STATE });
 

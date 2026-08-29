@@ -6,6 +6,7 @@ import {
   clearCart,
   waitForHydration,
   hasE2ECredentials,
+  outOfScope,
   STORAGE_STATE,
 } from './helpers';
 
@@ -24,9 +25,10 @@ import {
  * on mount. We must wait for hydration + data loading.
  */
 
-test.skip(
+outOfScope(
   !hasE2ECredentials(),
-  'Cart flows need an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
+  'no-credentials',
+  'cart flows need an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
 );
 
 test.use({ storageState: STORAGE_STATE });
@@ -276,34 +278,5 @@ test.describe('Cart', () => {
     // Cart should still have items (cookie persists the cartId)
     const cartItem = page.locator('[data-testid="cart-item"]');
     await expect(cartItem.first()).toBeVisible({ timeout: 20000 });
-  });
-
-  // UNRESOLVED — product decision, not a test tweak. Unsatisfiable here (an
-  // anonymous visitor cannot fill a cart) and checkout.vue redirects to the
-  // market home, not `/login?redirect=…`. Either checkout should preserve
-  // intent via `auth` middleware, or this test should go.
-  test.skip('should redirect to login when clicking checkout without auth', async ({
-    page,
-  }) => {
-    const product = await discoverPurchasableProduct(page);
-    await addToCart(page, product.alias);
-
-    // Cart drawer is open — click checkout
-    const drawer = page.locator('[data-testid="cart-drawer"]');
-    await expect(drawer).toBeVisible();
-
-    const checkoutButton = drawer.locator(
-      '[data-testid="cart-drawer-checkout-button"]',
-    );
-    await expect(checkoutButton).toBeVisible({ timeout: 5000 });
-    await checkoutButton.click();
-
-    // Should redirect to login page with redirect query param
-    await page.waitForURL(/\/login/, { timeout: 15000 });
-
-    expect(page.url()).toContain('/login');
-    // The redirect param should point to checkout
-    expect(page.url()).toContain('redirect=');
-    expect(page.url()).toMatch(/checkout/);
   });
 });

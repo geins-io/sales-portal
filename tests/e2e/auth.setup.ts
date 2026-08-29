@@ -1,5 +1,5 @@
 import { test as setup, expect } from '@playwright/test';
-import { login, hasE2ECredentials, STORAGE_STATE } from './helpers';
+import { login, hasE2ECredentials, outOfScope, STORAGE_STATE } from './helpers';
 
 /**
  * Authenticates once and persists the session. Per-test login returns 429:
@@ -7,9 +7,10 @@ import { login, hasE2ECredentials, STORAGE_STATE } from './helpers';
  * Specs opt in via `test.use({ storageState: STORAGE_STATE })`.
  */
 setup('authenticate', async ({ page }) => {
-  setup.skip(
+  outOfScope(
     !hasE2ECredentials(),
-    'No E2E test account configured (set E2E_USERNAME / E2E_PASSWORD in .env)',
+    'no-credentials',
+    'set E2E_USERNAME / E2E_PASSWORD in .env',
   );
 
   await login(page);
