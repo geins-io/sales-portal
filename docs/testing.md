@@ -194,9 +194,28 @@ Requirements for the account:
 - One portal test additionally needs a **saved list containing products**; without it that test
   skips.
 
-Without these variables the auth-dependent specs **skip rather than fail**
-(`hasE2ECredentials()` in `tests/e2e/helpers.ts`), so the suite stays green — you simply get less
-coverage. The run summary names what was skipped.
+Without these variables the auth-dependent specs are **declared out of scope** rather than failed
+(`outOfScope(!hasE2ECredentials(), 'no-credentials', …)` in each spec), so the suite stays green —
+you simply get less coverage, and the run summary says so.
+
+#### Declared scope: out of scope, blocked, unknown
+
+A test that does not run says why, or the run fails. `test.skip()` / `test.fixme()` are lint errors
+in `tests/e2e/`; the one sanctioned way is `outOfScope(condition, reason, detail)` from
+`tests/e2e/helpers.ts`, where `reason` is a closed list (`ScopeReason`): `no-credentials`,
+`mobile-project`, `dev-server`, `fixture-missing`, `tenant-config`. A test that runs with part of its
+assertions off (no CSP header on the dev server) declares that with `noteOutOfScope()`.
+
+`tests/e2e/reporters/scope-reporter.ts` prints one block at the end of every run:
+
+- **out of scope** — declared, grouped by reason. `tenant-config` and `fixture-missing` entries are
+  listed one by one: the first says "passes on this tenant" and nothing more, the second goes away
+  with the seeded team-owned tenant.
+- **blocked** — a project this test depends on (`setup`) failed, so Playwright never ran it. The
+  list reporter calls these "did not run"; here they are counted against the project that failed.
+- **unknown** — skipped with no declaration. The run fails, even if every test that ran passed.
+
+A permanently skipped test is deleted, not parked; the decision it was waiting on goes in a ticket.
 
 > Logging in inside each test is not viable: `loginRateLimiter` allows 5 logins per minute per IP
 > (`server/utils/rate-limiter.ts`) and every test shares `127.0.0.1`. `tests/e2e/auth.setup.ts`
@@ -270,9 +289,10 @@ A 500 there means restart the dev server. For long sessions, start it with
 Also: don't run two suites concurrently against one server — they share cart state and corrupt
 each other's assertions.
 
-Don't run `pnpm typecheck` while `pnpm build` (or `E2E_PROD=1 pnpm test:e2e`, which builds) is
-running. Both write to `.nuxt` and `node_modules/.cache/nuxt`, and the build then dies with a Rollup
-"Could not resolve ./\_nuxt/virtual_nuxt…" error. `pnpm clean` and rerun.
+A `pnpm build` (or `E2E_PROD=1 pnpm test:e2e`, which builds) can die with a Rollup "Could not
+resolve ./\_nuxt/virtual_nuxt…" error when `.nuxt` / `node_modules/.cache/nuxt` hold state from
+something else — a `pnpm typecheck` running at the same time, or an earlier `pnpm dev` or `pnpm test`
+session. Not a code problem: `pnpm clean` and rerun.
 
 ### Run a specific tier
 
