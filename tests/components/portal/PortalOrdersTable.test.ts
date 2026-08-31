@@ -93,12 +93,13 @@ describe('PortalOrdersTable', () => {
     expect(wrapper.text()).not.toContain('Jessica Andersson');
   });
 
-  it('formats createdAt as date only, dropping the time portion', () => {
+  it('formats createdAt as date only in the active locale, dropping the time portion', () => {
     const wrapper = mountComponent(PortalOrdersTable, {
       props: { orders: mockOrders },
     });
-    expect(wrapper.text()).toContain('2025-12-22');
-    expect(wrapper.text()).not.toMatch(/2025-12-22\s+\d{2}:\d{2}/);
+    // The setup-components useI18n mock pins the locale to 'en'.
+    expect(wrapper.text()).toContain('12/22/2025');
+    expect(wrapper.text()).not.toMatch(/12\/22\/2025,?\s+\d{2}:\d{2}/);
   });
 
   it('shows empty state when no orders', () => {

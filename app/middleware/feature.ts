@@ -49,9 +49,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     );
     // Build locale/market prefix from cookies (composables that depend
     // on useI18n/useRoute are unsafe inside middleware under SSR — see
-    // app/middleware/auth.ts for the same workaround).
+    // app/middleware/auth.ts for the same workaround). Cookieless fallback:
+    // tenant config default locale, then 'sv'.
     const market = useCookie('market').value || 'se';
-    const locale = useCookie('locale').value || 'sv';
+    const locale =
+      useCookie('locale').value || tenant.value?.locale?.split('-')[0] || 'sv';
     return navigateTo(`/${market}/${locale}/`, { replace: true });
   }
 });

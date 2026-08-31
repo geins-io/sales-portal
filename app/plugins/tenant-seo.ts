@@ -24,10 +24,11 @@ export default defineNuxtPlugin({
 
     // Reactive locale: re-evaluated at render time (after the route middleware
     // has called $i18n.setLocale). A plain `const locale = i18n.locale.value`
-    // would freeze to the default 'sv' on SSR because plugins run before the
+    // would freeze to the default locale on SSR because plugins run before the
     // locale-market middleware. Using a computed ensures that useHead getters
     // and the og:locale computed re-read the current locale when unhead
-    // serialises the head on the server.
+    // serialises the head on the server. Fallback order: tenant config
+    // default, then 'sv' as the last resort (mirrors the 'se' market).
     const seoLocale = computed(
       () => i18n.locale.value || tenant.value?.locale || 'sv',
     );
@@ -132,8 +133,8 @@ export default defineNuxtPlugin({
     // (highest weight) overwrites the value. nuxt-seo-utils registers its own
     // htmlAttrs.lang with tagPriority 'low' (weight 102) sourced from the site
     // config's current/default locale, which on SSR with strategy 'no_prefix'
-    // and programmatic setLocale reflects the DEFAULT locale ('sv' -> 'sv-SE')
-    // rather than the active URL locale. A default-priority entry (weight 100)
+    // and programmatic setLocale reflects the DEFAULT locale rather than the
+    // active URL locale. A default-priority entry (weight 100)
     // would lose to it, so we pin a numeric priority above 102 to deterministi-
     // cally win. Kept separate from the title/meta entry above so the numeric
     // priority does not reweight the title tag.

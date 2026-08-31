@@ -18,9 +18,12 @@ import { useAuthStore } from '~/stores/auth';
 export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore();
 
-  // Build locale/market prefix from cookies (composables aren't available in middleware)
+  // Build locale/market prefix from cookies. Cookieless fallback: the tenant
+  // config default locale, then 'sv' to mirror the 'se' market last resort.
+  const { tenant } = useTenant();
   const market = useCookie('market').value || 'se';
-  const locale = useCookie('locale').value || 'sv';
+  const locale =
+    useCookie('locale').value || tenant.value?.locale?.split('-')[0] || 'sv';
   const prefix = `/${market}/${locale}`;
 
   // On first load, check session via server (cookies are sent automatically)

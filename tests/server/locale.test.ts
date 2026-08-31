@@ -97,18 +97,33 @@ describe('server/utils/locale', () => {
       expect(getRequestLocale(event)).toBe('sv');
     });
 
-    it('should return undefined when cookie is not set', () => {
+    it('should fall back to the tenant config default locale when cookie is not set', () => {
+      const event = createEvent({
+        tenantConfig: {
+          locale: 'nb-NO',
+          availableLocales: ['nb-NO', 'sv-SE'],
+        },
+      });
+      mockGetCookie.mockReturnValue(undefined);
+
+      expect(getRequestLocale(event)).toBe('nb-NO');
+    });
+
+    it('should fall back to "sv-SE" when cookie is not set and config has no default', () => {
       const event = createEvent();
       mockGetCookie.mockReturnValue(undefined);
 
-      expect(getRequestLocale(event)).toBeUndefined();
+      expect(getRequestLocale(event)).toBe('sv-SE');
     });
 
-    it('should return undefined when cookie is empty string', () => {
-      const event = createEvent();
+    it('should fall back to "sv-SE" when cookie is empty string and config has no default', () => {
+      // Explicitly not the first availableLocales entry.
+      const event = createEvent({
+        tenantConfig: { availableLocales: ['nb-NO'] },
+      });
       mockGetCookie.mockReturnValue('');
 
-      expect(getRequestLocale(event)).toBeUndefined();
+      expect(getRequestLocale(event)).toBe('sv-SE');
     });
   });
 

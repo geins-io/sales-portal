@@ -24,12 +24,15 @@ export function useLocaleMarket() {
     maxAge: 365 * 24 * 60 * 60,
   });
 
-  /** Set of valid locale short codes from tenant config. */
+  /**
+   * Set of valid locale short codes from tenant config. No hardcoded
+   * fallback: an empty tenant config yields an empty Set (consumers like
+   * getCleanPath fall back to a regex check, and useSeoLinks must not emit
+   * hreflang alternates for locales the tenant does not have).
+   */
   const validLocales = computed(() => {
     const locales = tenantAvailableLocales.value;
-    return new Set(
-      Array.isArray(locales) && locales.length > 0 ? locales : ['en', 'sv'],
-    );
+    return new Set(Array.isArray(locales) ? locales : []);
   });
 
   /** Set of valid market codes from tenant config. */

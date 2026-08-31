@@ -335,8 +335,8 @@ describe('tenant-seo plugin / reactive locale', () => {
 
       const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
       const langGetter = htmlAttrs.lang as () => string;
-      // seoLocale falls back to 'sv', which maps to the sv locale object's
-      // BCP-47 `language` of 'sv-SE'.
+      // seoLocale falls back to the last resort 'sv', which maps to the sv
+      // locale object's BCP-47 `language` of 'sv-SE'.
       expect(langGetter()).toBe('sv-SE');
     });
   });

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { computed } from 'vue';
 import type { RouteLocationNormalized } from 'vue-router';
 
 import authMiddleware from '../../app/middleware/auth';
@@ -6,7 +7,17 @@ import authMiddleware from '../../app/middleware/auth';
 let mockIsAuthenticated = false;
 let mockIsInitialized = true;
 let mockCustomerType: string | undefined = undefined;
+let mockLocaleCookie: string | null = 'en';
+let mockTenantLocale: string | undefined = undefined;
 const mockFetchUser = vi.fn();
+
+vi.mock('~/composables/useTenant', () => ({
+  useTenant: () => ({
+    tenant: computed(() =>
+      mockTenantLocale ? { locale: mockTenantLocale } : null,
+    ),
+  }),
+}));
 
 vi.mock('~/stores/auth', () => ({
   useAuthStore: () => ({
@@ -35,7 +46,8 @@ vi.mock('#app/composables/router', () => ({
 
 vi.mock('#app/composables/cookie', () => ({
   useCookie: (name: string) => ({
-    value: name === 'market' ? 'se' : name === 'locale' ? 'en' : null,
+    value:
+      name === 'market' ? 'se' : name === 'locale' ? mockLocaleCookie : null,
   }),
 }));
 
@@ -61,6 +73,8 @@ describe('auth middleware', () => {
     mockIsAuthenticated = false;
     mockIsInitialized = true;
     mockCustomerType = undefined;
+    mockLocaleCookie = 'en';
+    mockTenantLocale = undefined;
     mockFetchUser.mockReset();
     mockNavigateTo.mockClear();
   });
@@ -112,6 +126,26 @@ describe('auth middleware', () => {
       createRoute({ meta: { roles: ['wholesale'] } }),
     );
     expect(result).toEqual({ path: '/se/en/' });
+  });
+
+  it('falls back to the tenant config default locale when the cookie is absent', async () => {
+    mockLocaleCookie = null;
+    mockTenantLocale = 'nb-NO';
+    const result = await authMiddleware(createRoute());
+    expect(result).toEqual({
+      path: '/se/nb/login',
+      query: { redirect: '/portal' },
+    });
+  });
+
+  it('falls back to "sv" when both the cookie and the config default are absent', async () => {
+    mockLocaleCookie = null;
+    mockTenantLocale = undefined;
+    const result = await authMiddleware(createRoute());
+    expect(result).toEqual({
+      path: '/se/sv/login',
+      query: { redirect: '/portal' },
+    });
   });
 
   it('calls fetchUser when not initialized', async () => {

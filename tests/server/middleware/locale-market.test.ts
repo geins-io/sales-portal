@@ -28,10 +28,12 @@ vi.mock('#shared/constants/route-paths', () => ({
   },
 }));
 
-function makeEvent(path: string): H3Event {
+function makeEvent(path: string, defaultLocale?: string): H3Event {
   return {
     path,
-    context: {},
+    context: defaultLocale
+      ? { tenant: { config: { geinsSettings: { locale: defaultLocale } } } }
+      : {},
   } as unknown as H3Event;
 }
 
@@ -83,11 +85,41 @@ describe('00.locale-market middleware', () => {
     );
   });
 
-  it('301-redirects a product URL with no /market/locale/ prefix to the canonical locale URL', () => {
-    handler(makeEvent('/p/kategori-1/skarkant'));
+  it('redirects the cookieless root to the tenant config default locale when present', () => {
+    handler(makeEvent('/', 'nb-NO'));
     expect(sendRedirectMock).toHaveBeenCalledWith(
       expect.anything(),
-      '/se/sv/p/kategori-1/skarkant',
+      '/se/nb/',
+      302,
+    );
+  });
+
+  it('redirects the cookieless root to "sv" when the tenant config has no default locale', () => {
+    handler(makeEvent('/'));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/sv/',
+      302,
+    );
+  });
+
+  it('prefers the locale cookie over the tenant config default', () => {
+    getCookieMock.mockImplementation((_e: unknown, name: string) =>
+      name === 'locale' ? 'en' : undefined,
+    );
+    handler(makeEvent('/', 'nb-NO'));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/en/',
+      302,
+    );
+  });
+
+  it('301-redirects a product URL with no /market/locale/ prefix to the tenant default locale URL', () => {
+    handler(makeEvent('/p/kategori-1/skarkant', 'nb-NO'));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/nb/p/kategori-1/skarkant',
       301,
     );
   });

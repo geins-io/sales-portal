@@ -1,11 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { computed } from 'vue';
 import type { RouteLocationNormalized } from 'vue-router';
 
 import guestMiddleware from '../../app/middleware/guest';
 
 let mockIsAuthenticated = false;
 let mockIsInitialized = true;
+let mockLocaleCookie: string | null = 'en';
+let mockTenantLocale: string | undefined = undefined;
 const mockFetchUser = vi.fn();
+
+vi.mock('~/composables/useTenant', () => ({
+  useTenant: () => ({
+    tenant: computed(() =>
+      mockTenantLocale ? { locale: mockTenantLocale } : null,
+    ),
+  }),
+}));
 
 vi.mock('~/stores/auth', () => ({
   useAuthStore: () => ({
@@ -29,7 +40,8 @@ vi.mock('#app/composables/router', () => ({
 
 vi.mock('#app/composables/cookie', () => ({
   useCookie: (name: string) => ({
-    value: name === 'market' ? 'se' : name === 'locale' ? 'en' : null,
+    value:
+      name === 'market' ? 'se' : name === 'locale' ? mockLocaleCookie : null,
   }),
 }));
 
@@ -54,6 +66,8 @@ describe('guest middleware', () => {
   beforeEach(() => {
     mockIsAuthenticated = false;
     mockIsInitialized = true;
+    mockLocaleCookie = 'en';
+    mockTenantLocale = undefined;
     mockFetchUser.mockReset();
     mockNavigateTo.mockClear();
   });
@@ -78,6 +92,22 @@ describe('guest middleware', () => {
       }),
     );
     expect(result).toEqual({ path: '/se/en/portal' });
+  });
+
+  it('falls back to the tenant config default locale when the cookie is absent', async () => {
+    mockIsAuthenticated = true;
+    mockLocaleCookie = null;
+    mockTenantLocale = 'nb-NO';
+    const result = await guestMiddleware(createRoute());
+    expect(result).toEqual({ path: '/se/nb/' });
+  });
+
+  it('falls back to "sv" when both the cookie and the config default are absent', async () => {
+    mockIsAuthenticated = true;
+    mockLocaleCookie = null;
+    mockTenantLocale = undefined;
+    const result = await guestMiddleware(createRoute());
+    expect(result).toEqual({ path: '/se/sv/' });
   });
 
   it('calls fetchUser when not initialized', async () => {

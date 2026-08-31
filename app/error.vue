@@ -89,10 +89,13 @@ useHead({
 
 const supportEmail = computed(() => tenant.value?.contact?.email ?? null);
 
-// Build locale-aware home path from cookies (composables may not be available in error page)
+// Build locale-aware home path from cookies (composables may not be available
+// in error page). Cookieless fallback: tenant config default, then 'sv' to
+// mirror the hardcoded 'se' market fallback.
 const homePath = computed(() => {
   const marketCookie = useCookie('market').value || 'se';
-  const localeCookie = useCookie('locale').value || 'sv';
+  const localeCookie =
+    useCookie('locale').value || tenant.value?.locale?.split('-')[0] || 'sv';
   return `/${marketCookie}/${localeCookie}/`;
 });
 

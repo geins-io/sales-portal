@@ -417,10 +417,12 @@ describe('useLocaleMarket', () => {
       expect(validMarkets.value).toEqual(new Set(['se', 'no', 'dk']));
     });
 
-    it('should fall back to defaults when tenant has empty locales', () => {
+    it('should yield an empty set when tenant has empty locales', () => {
+      // No hardcoded fallback — hreflang must never advertise locales the
+      // tenant does not actually have.
       mockAvailableLocales.value = [];
       const { validLocales } = useLocaleMarket();
-      expect(validLocales.value).toEqual(new Set(['en', 'sv']));
+      expect(validLocales.value).toEqual(new Set());
     });
 
     it('should fall back to defaults when tenant has empty markets', () => {
