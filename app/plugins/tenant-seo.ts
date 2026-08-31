@@ -8,6 +8,7 @@
  */
 import { computed } from 'vue';
 import type { Composer } from 'vue-i18n';
+import { findTenantBcp47 } from '~/utils/locale-bcp47';
 
 export default defineNuxtPlugin({
   name: 'tenant-seo',
@@ -33,14 +34,19 @@ export default defineNuxtPlugin({
       () => i18n.locale.value || tenant.value?.locale || 'sv',
     );
 
-    // BCP-47 form of the active locale for `<html lang>`. The short URL-locale
-    // code ('en' / 'sv') is mapped to the locale object's `language` field
-    // ('en' / 'sv-SE') declared in nuxt.config i18n. Reading the language off
-    // i18n.locales avoids hardcoding the region tag and keeps tenant-seo in
-    // lockstep with the i18n config. Falls back to the short locale when no
-    // matching locale object is found (e.g. tenant.locale fallback values).
+    // BCP-47 form of the active locale for `<html lang>`. Resolution order:
+    //   1. the tenant's own BCP-47 tag for this short code ('en' -> 'en-GB'),
+    //      the same source hreflang uses, so the two can never disagree;
+    //   2. the i18n locale object's `language` field, for locales the tenant
+    //      does not carry;
+    //   3. the short code itself (already a valid language tag).
+    // The tenant wins because the region tag is tenant-dependent: nuxt.config
+    // declares 'en' region-less precisely because no single region is correct.
     const seoLang = computed(() => {
       const code = seoLocale.value;
+      const tenantTag = findTenantBcp47(code, tenant.value?.availableLocales);
+      if (tenantTag) return tenantTag;
+
       const localeObjects = i18n.locales?.value ?? [];
       const match = localeObjects.find(
         (l) => typeof l === 'object' && l !== null && l.code === code,
@@ -144,7 +150,7 @@ export default defineNuxtPlugin({
           // Getter so unhead re-evaluates at render time (post-middleware).
           // A plain string would be captured once at plugin setup and would
           // yield the default locale on hard loads of non-default-locale pages.
-          // Resolves to the active locale's BCP-47 `language` ('en' / 'sv-SE').
+          // Resolves to the tenant's BCP-47 tag for the active locale.
           lang: () => seoLang.value,
         },
       },

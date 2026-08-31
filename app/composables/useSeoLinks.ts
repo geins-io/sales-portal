@@ -1,3 +1,5 @@
+import { findTenantBcp47 } from '~/utils/locale-bcp47';
+
 /**
  * Composable for generating canonical + hreflang link tags.
  *
@@ -37,9 +39,9 @@ export function useSeoLinks(
     // and market are independent axes, so 'nb-SE' would claim a targeting
     // we do not mean. Falls back to the bare short code (valid hreflang)
     // when the tenant config carries no matching BCP-47 locale.
-    const fullLocales = tenant.value?.availableLocales ?? [];
+    const fullLocales = tenant.value?.availableLocales;
     const toBcp47 = (short: string): string =>
-      fullLocales.find((full) => full.split('-')[0] === short) ?? short;
+      findTenantBcp47(short, fullLocales) ?? short;
 
     const links: Array<{ rel: string; href: string; hreflang?: string }> = [];
 

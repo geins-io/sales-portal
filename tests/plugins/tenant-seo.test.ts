@@ -66,6 +66,9 @@ const mockDefineWebSite = vi.fn((schema: unknown) => schema);
 const tenantRef = ref({
   isActive: true,
   locale: 'sv-SE',
+  // Empty by default so the base cases exercise the i18n `language` fallback;
+  // the tenant-variant describe below fills it in.
+  availableLocales: [] as string[],
   seo: null as null | Record<string, unknown>,
   contact: null as null | Record<string, unknown>,
   branding: { name: 'Test Store', logoUrl: '/logo.svg' },
@@ -197,9 +200,14 @@ async function runSetup(overrideLocale?: string) {
 
 describe('tenant-seo plugin / reactive locale', () => {
   beforeEach(() => {
+    i18nLocales.value = [
+      { code: 'en', language: 'en', name: 'English' },
+      { code: 'sv', language: 'sv-SE', name: 'Svenska' },
+    ];
     tenantRef.value = {
       isActive: true,
       locale: 'sv-SE',
+      availableLocales: [],
       seo: null,
       contact: null,
       branding: { name: 'Test Store', logoUrl: '/logo.svg' },
@@ -268,6 +276,88 @@ describe('tenant-seo plugin / reactive locale', () => {
       const langGetter = htmlAttrs.lang as () => string;
       // 'sv' locale object declares language 'sv-SE'.
       expect(langGetter()).toBe('sv-SE');
+    });
+  });
+
+  describe('html lang uses the tenant BCP-47 tag, matching hreflang', () => {
+    // The tenant's English variant is not stable across tenants, so nuxt.config
+    // declares 'en' region-less. The tag has to come from the tenant config.
+    const TENANT_LOCALES = ['sv-SE', 'en-GB', 'nb-NO', 'fi-FI', 'da-DK'];
+
+    function langFor(): string {
+      const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
+      return (htmlAttrs.lang as () => string)();
+    }
+
+    it('resolves en to the tenant variant en-GB rather than the region-less i18n language', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: TENANT_LOCALES,
+      };
+      await runSetup('en');
+      expect(langFor()).toBe('en-GB');
+    });
+
+    it('a tenant on en-US yields en-US for the same URL locale', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: ['sv-SE', 'en-US'],
+      };
+      await runSetup('en');
+      expect(langFor()).toBe('en-US');
+    });
+
+    it('leaves the four already-regioned locales unchanged', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: TENANT_LOCALES,
+      };
+
+      for (const [code, expected] of [
+        ['sv', 'sv-SE'],
+        ['nb', 'nb-NO'],
+        ['fi', 'fi-FI'],
+        ['da', 'da-DK'],
+      ] as const) {
+        i18nLocales.value = [
+          ...i18nLocales.value.filter((l) => l.code !== code),
+          { code, language: expected, name: code },
+        ];
+        await runSetup(code);
+        expect(langFor()).toBe(expected);
+      }
+    });
+
+    it('falls back to the i18n `language` when the tenant carries no matching locale', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: ['sv-SE'],
+      };
+      await runSetup('en');
+      // No tenant locale has the 'en' prefix, so the i18n locale object's
+      // region-less `language` is used.
+      expect(langFor()).toBe('en');
+    });
+
+    it('falls back to the short code when neither the tenant nor i18n knows the locale', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: ['sv-SE'],
+      };
+      await runSetup('de');
+      expect(langFor()).toBe('de');
+    });
+
+    it('the tenant tag is matched on prefix, not on a full-tag equality', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: TENANT_LOCALES,
+        locale: '',
+      };
+      // i18n.locale empty -> tenant.locale empty -> last-resort 'sv', which the
+      // tenant carries as 'sv-SE'.
+      await runSetup('');
+      expect(langFor()).toBe('sv-SE');
     });
   });
 
