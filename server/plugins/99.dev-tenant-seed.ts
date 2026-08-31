@@ -154,7 +154,11 @@ function makeFixture(input: FixtureInput): StoreSettings {
       locale: 'sv-SE',
       market: 'se',
       environment: 'production',
-      availableLocales: ['sv-SE', 'en-GB'],
+      // Every locale the app ships. The locale-switching e2e spec drives the
+      // switcher into each of them, and the switcher only renders what the
+      // tenant offers — a shorter list here silently reduces that spec's
+      // coverage to whatever remains.
+      availableLocales: ['sv-SE', 'en-GB', 'nb-NO', 'fi-FI', 'da-DK'],
       availableMarkets: ['se'],
     },
     mode: 'commerce',
