@@ -101,7 +101,7 @@ export function resolveLocaleMarket(
  * All locale codes the app supports. Add new locales here — the type
  * and nuxt.config i18n locales array both derive from this.
  */
-export const SUPPORTED_LOCALE_CODES = ['en', 'sv', 'nb'] as const;
+export const SUPPORTED_LOCALE_CODES = ['en', 'sv', 'nb', 'fi', 'da'] as const;
 
 /** Union type of supported locale codes. */
 export type SupportedLocale = (typeof SUPPORTED_LOCALE_CODES)[number];
