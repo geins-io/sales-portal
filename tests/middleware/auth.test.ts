@@ -8,13 +8,17 @@ let mockIsAuthenticated = false;
 let mockIsInitialized = true;
 let mockCustomerType: string | undefined = undefined;
 let mockLocaleCookie: string | null = 'en';
+let mockMarketCookie: string | null = 'se';
 let mockTenantLocale: string | undefined = undefined;
+let mockTenantMarket: string | undefined = undefined;
 const mockFetchUser = vi.fn();
 
 vi.mock('~/composables/useTenant', () => ({
   useTenant: () => ({
     tenant: computed(() =>
-      mockTenantLocale ? { locale: mockTenantLocale } : null,
+      mockTenantLocale || mockTenantMarket
+        ? { locale: mockTenantLocale, market: mockTenantMarket }
+        : null,
     ),
   }),
 }));
@@ -47,7 +51,11 @@ vi.mock('#app/composables/router', () => ({
 vi.mock('#app/composables/cookie', () => ({
   useCookie: (name: string) => ({
     value:
-      name === 'market' ? 'se' : name === 'locale' ? mockLocaleCookie : null,
+      name === 'market'
+        ? mockMarketCookie
+        : name === 'locale'
+          ? mockLocaleCookie
+          : null,
   }),
 }));
 
@@ -74,7 +82,9 @@ describe('auth middleware', () => {
     mockIsInitialized = true;
     mockCustomerType = undefined;
     mockLocaleCookie = 'en';
+    mockMarketCookie = 'se';
     mockTenantLocale = undefined;
+    mockTenantMarket = undefined;
     mockFetchUser.mockReset();
     mockNavigateTo.mockClear();
   });
@@ -144,6 +154,36 @@ describe('auth middleware', () => {
     const result = await authMiddleware(createRoute());
     expect(result).toEqual({
       path: '/se/sv/login',
+      query: { redirect: '/portal' },
+    });
+  });
+
+  it('falls back to the tenant config default market when the cookie is absent', async () => {
+    mockMarketCookie = null;
+    mockTenantMarket = 'dk';
+    const result = await authMiddleware(createRoute());
+    expect(result).toEqual({
+      path: '/dk/en/login',
+      query: { redirect: '/portal' },
+    });
+  });
+
+  it('falls back to "se" when both the market cookie and the config default are absent', async () => {
+    mockMarketCookie = null;
+    mockTenantMarket = undefined;
+    const result = await authMiddleware(createRoute());
+    expect(result).toEqual({
+      path: '/se/en/login',
+      query: { redirect: '/portal' },
+    });
+  });
+
+  it('prefers the market cookie over the tenant config default market', async () => {
+    mockMarketCookie = 'no';
+    mockTenantMarket = 'dk';
+    const result = await authMiddleware(createRoute());
+    expect(result).toEqual({
+      path: '/no/en/login',
       query: { redirect: '/portal' },
     });
   });

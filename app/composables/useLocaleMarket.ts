@@ -35,12 +35,15 @@ export function useLocaleMarket() {
     return new Set(Array.isArray(locales) ? locales : []);
   });
 
-  /** Set of valid market codes from tenant config. */
+  /**
+   * Set of valid market codes from tenant config. No hardcoded fallback:
+   * an empty tenant config yields an empty Set, matching validLocales above
+   * (getCleanPath falls back to a regex check, and nothing should advertise
+   * a market the tenant does not have).
+   */
   const validMarkets = computed(() => {
     const markets = tenantAvailableMarkets.value;
-    return new Set(
-      Array.isArray(markets) && markets.length > 0 ? markets : ['se'],
-    );
+    return new Set(Array.isArray(markets) ? markets : []);
   });
 
   /** Current market code (from cookie, falling back to tenant default). */

@@ -22,9 +22,9 @@ const TYPE_PREFIX_SEGMENTS = new Set(
  * - For `/{market}/{locale}/...`: write market+locale cookies and stash
  *   the pair on `event.context.localeMarket` for downstream validation.
  * - For root `/`: redirect (302) to `/{market}/{locale}/` using cookie
- *   values, then the tenant config default locale, then 'sv'. The tenant
- *   context plugin (server/plugins/02.tenant-context.ts) runs on the Nitro
- *   `request` hook BEFORE this middleware, so `event.context.tenant.config`
+ *   values, then the tenant config defaults, then the 'se'/'sv' pair. The
+ *   tenant context plugin (server/plugins/02.tenant-context.ts) runs on the
+ *   Nitro `request` hook BEFORE this middleware, so `event.context.tenant.config`
  *   is already resolved for page routes.
  *
  * Does NOT validate market/locale against the resolved tenant config —
@@ -115,15 +115,19 @@ function resolveDefaultMarketLocale(event: import('h3').H3Event): {
   const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
   const localeCookie = getCookie(event, COOKIE_NAMES.LOCALE);
 
-  // Cookieless fallback: the tenant config default locale (resolved by the
-  // tenant context plugin before this middleware), then 'sv' as the last
-  // resort, mirroring the hardcoded 'se' market fallback below.
-  const configLocale = (
-    event.context.tenant?.config as TenantConfig | undefined
-  )?.geinsSettings?.locale;
+  // Cookieless fallback for both axes: the tenant config default (resolved by
+  // the tenant context plugin, which runs before this middleware), then the
+  // 'se'/'sv' pair as the last resort. Market binds currency (ADR-020) so
+  // there is no neutral market to end on.
+  const geinsSettings = (event.context.tenant?.config as TenantConfig)
+    ?.geinsSettings;
+  const configMarket = geinsSettings?.market;
+  const configLocale = geinsSettings?.locale;
 
   const market =
-    marketCookie && isTwoLetterCode(marketCookie) ? marketCookie : 'se';
+    marketCookie && isTwoLetterCode(marketCookie)
+      ? marketCookie
+      : configMarket || 'se';
   const locale =
     localeCookie && isTwoLetterCode(localeCookie)
       ? localeCookie

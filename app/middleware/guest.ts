@@ -18,10 +18,10 @@ import { useAuthStore } from '~/stores/auth';
 export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore();
 
-  // Build locale/market prefix from cookies. Cookieless fallback: the tenant
-  // config default locale, then 'sv' to mirror the 'se' market last resort.
+  // Build locale/market prefix from cookies. Cookieless fallback for both
+  // axes: the tenant config default, then the 'se'/'sv' pair.
   const { tenant } = useTenant();
-  const market = useCookie('market').value || 'se';
+  const market = useCookie('market').value || tenant.value?.market || 'se';
   const locale =
     useCookie('locale').value || tenant.value?.locale?.split('-')[0] || 'sv';
   const prefix = `/${market}/${locale}`;

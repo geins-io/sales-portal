@@ -7,13 +7,17 @@ import guestMiddleware from '../../app/middleware/guest';
 let mockIsAuthenticated = false;
 let mockIsInitialized = true;
 let mockLocaleCookie: string | null = 'en';
+let mockMarketCookie: string | null = 'se';
 let mockTenantLocale: string | undefined = undefined;
+let mockTenantMarket: string | undefined = undefined;
 const mockFetchUser = vi.fn();
 
 vi.mock('~/composables/useTenant', () => ({
   useTenant: () => ({
     tenant: computed(() =>
-      mockTenantLocale ? { locale: mockTenantLocale } : null,
+      mockTenantLocale || mockTenantMarket
+        ? { locale: mockTenantLocale, market: mockTenantMarket }
+        : null,
     ),
   }),
 }));
@@ -41,7 +45,11 @@ vi.mock('#app/composables/router', () => ({
 vi.mock('#app/composables/cookie', () => ({
   useCookie: (name: string) => ({
     value:
-      name === 'market' ? 'se' : name === 'locale' ? mockLocaleCookie : null,
+      name === 'market'
+        ? mockMarketCookie
+        : name === 'locale'
+          ? mockLocaleCookie
+          : null,
   }),
 }));
 
@@ -67,7 +75,9 @@ describe('guest middleware', () => {
     mockIsAuthenticated = false;
     mockIsInitialized = true;
     mockLocaleCookie = 'en';
+    mockMarketCookie = 'se';
     mockTenantLocale = undefined;
+    mockTenantMarket = undefined;
     mockFetchUser.mockReset();
     mockNavigateTo.mockClear();
   });
@@ -108,6 +118,30 @@ describe('guest middleware', () => {
     mockTenantLocale = undefined;
     const result = await guestMiddleware(createRoute());
     expect(result).toEqual({ path: '/se/sv/' });
+  });
+
+  it('falls back to the tenant config default market when the cookie is absent', async () => {
+    mockIsAuthenticated = true;
+    mockMarketCookie = null;
+    mockTenantMarket = 'dk';
+    const result = await guestMiddleware(createRoute());
+    expect(result).toEqual({ path: '/dk/en/' });
+  });
+
+  it('falls back to "se" when both the market cookie and the config default are absent', async () => {
+    mockIsAuthenticated = true;
+    mockMarketCookie = null;
+    mockTenantMarket = undefined;
+    const result = await guestMiddleware(createRoute());
+    expect(result).toEqual({ path: '/se/en/' });
+  });
+
+  it('prefers the market cookie over the tenant config default market', async () => {
+    mockIsAuthenticated = true;
+    mockMarketCookie = 'no';
+    mockTenantMarket = 'dk';
+    const result = await guestMiddleware(createRoute());
+    expect(result).toEqual({ path: '/no/en/' });
   });
 
   it('calls fetchUser when not initialized', async () => {

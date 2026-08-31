@@ -28,11 +28,14 @@ vi.mock('#shared/constants/route-paths', () => ({
   },
 }));
 
-function makeEvent(path: string, defaultLocale?: string): H3Event {
+function makeEvent(
+  path: string,
+  config?: { locale?: string; market?: string },
+): H3Event {
   return {
     path,
-    context: defaultLocale
-      ? { tenant: { config: { geinsSettings: { locale: defaultLocale } } } }
+    context: config
+      ? { tenant: { config: { geinsSettings: { ...config } } } }
       : {},
   } as unknown as H3Event;
 }
@@ -86,7 +89,7 @@ describe('00.locale-market middleware', () => {
   });
 
   it('redirects the cookieless root to the tenant config default locale when present', () => {
-    handler(makeEvent('/', 'nb-NO'));
+    handler(makeEvent('/', { locale: 'nb-NO' }));
     expect(sendRedirectMock).toHaveBeenCalledWith(
       expect.anything(),
       '/se/nb/',
@@ -107,7 +110,7 @@ describe('00.locale-market middleware', () => {
     getCookieMock.mockImplementation((_e: unknown, name: string) =>
       name === 'locale' ? 'en' : undefined,
     );
-    handler(makeEvent('/', 'nb-NO'));
+    handler(makeEvent('/', { locale: 'nb-NO' }));
     expect(sendRedirectMock).toHaveBeenCalledWith(
       expect.anything(),
       '/se/en/',
@@ -115,8 +118,47 @@ describe('00.locale-market middleware', () => {
     );
   });
 
+  it('redirects the cookieless root to the tenant config default market when present', () => {
+    handler(makeEvent('/', { market: 'dk', locale: 'nb-NO' }));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/dk/nb/',
+      302,
+    );
+  });
+
+  it('redirects the cookieless root to "se" when the tenant config has no default market', () => {
+    handler(makeEvent('/', { locale: 'nb-NO' }));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/nb/',
+      302,
+    );
+  });
+
+  it('prefers the market cookie over the tenant config default market', () => {
+    getCookieMock.mockImplementation((_e: unknown, name: string) =>
+      name === 'market' ? 'no' : undefined,
+    );
+    handler(makeEvent('/', { market: 'dk', locale: 'nb-NO' }));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/no/nb/',
+      302,
+    );
+  });
+
+  it('applies the tenant default market to a prefix-less type route', () => {
+    handler(makeEvent('/p/kategori-1/skarkant', { market: 'dk' }));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/dk/sv/p/kategori-1/skarkant',
+      301,
+    );
+  });
+
   it('301-redirects a product URL with no /market/locale/ prefix to the tenant default locale URL', () => {
-    handler(makeEvent('/p/kategori-1/skarkant', 'nb-NO'));
+    handler(makeEvent('/p/kategori-1/skarkant', { locale: 'nb-NO' }));
     expect(sendRedirectMock).toHaveBeenCalledWith(
       expect.anything(),
       '/se/nb/p/kategori-1/skarkant',
