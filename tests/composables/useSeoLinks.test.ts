@@ -222,6 +222,53 @@ describe('useSeoLinks', () => {
     );
   });
 
+  describe('locale root path', () => {
+    // A representative five-locale tenant.
+    beforeEach(() => {
+      mockTenantLocales.value = ['sv-SE', 'en-GB', 'nb-NO', 'fi-FI', 'da-DK'];
+    });
+
+    it('emits a canonical plus the full alternate set and x-default', () => {
+      const { seoLinks } = useSeoLinks('/');
+      expect(seoLinks.value).toEqual([
+        { rel: 'canonical', href: '/se/sv/' },
+        { rel: 'alternate', href: '/se/sv/', hreflang: 'sv-SE' },
+        { rel: 'alternate', href: '/se/en/', hreflang: 'en-GB' },
+        { rel: 'alternate', href: '/se/nb/', hreflang: 'nb-NO' },
+        { rel: 'alternate', href: '/se/fi/', hreflang: 'fi-FI' },
+        { rel: 'alternate', href: '/se/da/', hreflang: 'da-DK' },
+        { rel: 'alternate', href: '/se/en/', hreflang: 'x-default' },
+      ]);
+    });
+
+    it('the canonical follows the active locale while the alternate set stays whole', () => {
+      mockLocaleRef.value = 'fi';
+      const { seoLinks } = useSeoLinks('/');
+      expect(seoLinks.value.find((l) => l.rel === 'canonical')?.href).toBe(
+        '/se/fi/',
+      );
+      expect(
+        seoLinks.value
+          .filter((l) => l.rel === 'alternate' && l.hreflang !== 'x-default')
+          .map((l) => l.hreflang),
+      ).toEqual(['sv-SE', 'en-GB', 'nb-NO', 'fi-FI', 'da-DK']);
+    });
+
+    it('every root href keeps the trailing slash, never a bare /se/sv', () => {
+      const { seoLinks } = useSeoLinks('/');
+      for (const link of seoLinks.value) {
+        expect(link.href).toMatch(/^\/se\/[a-z]{2}\/$/);
+      }
+    });
+
+    it('registers the links with useHead so the page needs no return value', () => {
+      mockHeadCalls.length = 0;
+      useSeoLinks('/');
+      expect(mockHeadCalls).toHaveLength(1);
+      expect(mockHeadCalls[0]).toHaveProperty('link');
+    });
+  });
+
   describe('localeOverrides (2nd param)', () => {
     it('no overrides: output identical to naive single-arg behaviour (backward compat)', () => {
       const withOverrides = useSeoLinks('/p/my-product', undefined);

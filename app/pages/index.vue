@@ -26,6 +26,10 @@ const { data: area, status } = useFetch<ContentAreaType>('/api/cms/area', {
   immediate: !!frontpageSlot.value,
   dedupe: 'defer',
 });
+
+// SEO: canonical + hreflang tags. The locale root needs no per-locale slug
+// overrides — /{market}/{locale}/ is the real path in every locale.
+useSeoLinks('/');
 </script>
 
 <template>
