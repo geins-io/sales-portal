@@ -24,12 +24,22 @@ export function useSeoLinks(
   localeOverrides?: MaybeRefOrGetter<Record<string, string>>,
 ) {
   const { currentMarket, currentLocale, validLocales } = useLocaleMarket();
+  const { tenant } = useTenant();
 
   const seoLinks = computed(() => {
     const m = currentMarket.value;
     const l = currentLocale.value;
     const pagePath = toValue(path);
     const overrides = toValue(localeOverrides) ?? {};
+
+    // hreflang must be the locale's own BCP-47 code from the tenant config
+    // (e.g. 'nb' -> 'nb-NO'), never short locale + market: language region
+    // and market are independent axes, so 'nb-SE' would claim a targeting
+    // we do not mean. Falls back to the bare short code (valid hreflang)
+    // when the tenant config carries no matching BCP-47 locale.
+    const fullLocales = tenant.value?.availableLocales ?? [];
+    const toBcp47 = (short: string): string =>
+      fullLocales.find((full) => full.split('-')[0] === short) ?? short;
 
     const links: Array<{ rel: string; href: string; hreflang?: string }> = [];
 
@@ -48,7 +58,7 @@ export function useSeoLinks(
     );
 
     for (const loc of localeArray) {
-      const hreflang = `${loc}-${m.toUpperCase()}`;
+      const hreflang = toBcp47(loc);
       const href =
         overrides[loc] ??
         (pagePath === '/' ? `/${m}/${loc}/` : `/${m}/${loc}${pagePath}`);
