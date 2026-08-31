@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Globe } from 'lucide-vue-next';
+import { orderLocalesByName } from '~/utils/order-locales';
 
 const props = withDefaults(
   defineProps<{
@@ -57,6 +58,10 @@ const localeNames = computed(() => {
   return map;
 });
 
+const orderedLocales = computed(() =>
+  orderLocalesByName(availableLocales.value as string[], localeNames.value),
+);
+
 // Short uppercase abbreviation shown in the trigger (e.g. "SV"/"EN")
 // instead of the full language name. Applied on every breakpoint so the
 // topbar stays compact; the dropdown list keeps the full names.
@@ -69,7 +74,7 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
   <!-- Inline: flat button row -->
   <div v-if="showSwitcher && props.variant === 'inline'" class="flex gap-1">
     <a
-      v-for="loc in availableLocales as string[]"
+      v-for="loc in orderedLocales"
       :key="loc"
       :href="localeHref(loc)"
       data-testid="locale-switcher-link"
@@ -114,7 +119,7 @@ const showSwitcher = computed(() => availableLocales.value.length > 1);
       <DropdownMenuLabel>{{ t('common.language') }}</DropdownMenuLabel>
       <DropdownMenuSeparator />
       <a
-        v-for="loc in availableLocales as string[]"
+        v-for="loc in orderedLocales"
         :key="loc"
         :href="localeHref(loc)"
         data-testid="locale-switcher-link"
