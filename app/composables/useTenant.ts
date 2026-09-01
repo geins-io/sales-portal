@@ -12,8 +12,13 @@ import type { PublicTenantConfig } from '#shared/types/tenant-config';
  * - Built-in caching
  */
 export function useTenant() {
-  const route = useRoute();
-  const previewQuery = route.query.preview === '1' ? '?preview=1' : '';
+  // Read the preview flag off the request URL rather than useRoute(). This
+  // composable is called from a global route middleware, where useRoute() is
+  // unreliable — it can still hold the route being navigated away from — and
+  // Nuxt warns about it. useRequestURL() has no such caveat and works on both
+  // sides of the render.
+  const previewQuery =
+    useRequestURL().searchParams.get('preview') === '1' ? '?preview=1' : '';
   const headers = import.meta.server
     ? useRequestHeaders(['cookie', 'host'])
     : undefined;
