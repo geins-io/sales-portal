@@ -489,6 +489,27 @@ describe('00.locale-market prefix canonicalisation', () => {
     );
   });
 
+  it('keeps the dc type prefix even though it is two letters', () => {
+    // 'dc' must never be read as a market attempt: that would drop the
+    // segment and land the campaign link on a 404.
+    handler(makeEvent('/dc/campaign', TENANT));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/sv/dc/campaign',
+      301,
+    );
+  });
+
+  it('keeps a type prefix whose alias is a servable locale code', () => {
+    // 'c' followed by 'en' must not be read as a botched market + locale.
+    handler(makeEvent('/c/en', TENANT));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/sv/c/en',
+      301,
+    );
+  });
+
   // Only pages carry a prefix. These are all reachable at fixed URLs that must
   // not move, and several serve 200 in production today.
   it('leaves non-page runtime routes untouched', () => {

@@ -67,6 +67,14 @@ export default defineEventHandler((event) => {
     return passThroughWithoutTenantLists(event, segments, path, query);
   }
 
+  // A type-prefixed path is content by definition, so it must never reach the
+  // prefix interpreter: 'dc' is two letters and would be consumed as a market
+  // attempt, and a locale-code alias after 'c'/'p' would swallow the prefix.
+  if (segments[0] && TYPE_PREFIX_SEGMENTS.has(segments[0])) {
+    const { market, locale } = resolveDefaultMarketLocale(event);
+    return sendRedirect(event, `/${market}/${locale}${path}${query}`, 301);
+  }
+
   const { market, locale, content, attemptedPrefix } =
     interpretLocaleMarketPrefix(segments, {
       markets: knownMarkets,
@@ -110,14 +118,8 @@ export default defineEventHandler((event) => {
   }
 
   // No cookies on a corrective hop; the canonical destination writes them.
-  const isTypePrefixedContent =
-    !attemptedPrefix && !!segments[0] && TYPE_PREFIX_SEGMENTS.has(segments[0]);
   const suffix = content.length > 0 ? '' : '/';
-  return sendRedirect(
-    event,
-    `${targetPath}${suffix}${query}`,
-    isTypePrefixedContent ? 301 : 302,
-  );
+  return sendRedirect(event, `${targetPath}${suffix}${query}`, 302);
 });
 
 /** Pre-canonicalisation behaviour, for tenants whose config carries no lists. */
