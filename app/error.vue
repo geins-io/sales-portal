@@ -3,6 +3,7 @@ import type { NuxtError } from '#app';
 import { Home, ArrowLeft } from 'lucide-vue-next';
 import { buildGoogleFontsUrl } from '#shared/utils/fonts';
 import { sanitizeTenantCss } from '#shared/utils/sanitize-css';
+import { resolveLocalePrefix } from '~/utils/locale-prefix';
 
 const props = defineProps<{
   error: NuxtError;
@@ -89,16 +90,22 @@ useHead({
 
 const supportEmail = computed(() => tenant.value?.contact?.email ?? null);
 
-// Build locale-aware home path from cookies (composables may not be available
-// in error page). Cookieless fallback for both axes: tenant config default,
-// then the 'se'/'sv' pair.
-const homePath = computed(() => {
-  const marketCookie =
-    useCookie('market').value || tenant.value?.market || 'se';
-  const localeCookie =
-    useCookie('locale').value || tenant.value?.locale?.split('-')[0] || 'sv';
-  return `/${marketCookie}/${localeCookie}/`;
-});
+// The errored URL still carries the pair, and on a 404 it is the only source
+// that does — the route never matched a prefixed pattern, so the path parse
+// inside resolveLocalePrefix is what recovers it.
+const route = useRoute();
+
+const homePath = computed(
+  () =>
+    `${
+      resolveLocalePrefix({
+        route,
+        marketCookie: useCookie('market').value,
+        localeCookie: useCookie('locale').value,
+        tenant: tenant.value,
+      }).prefix
+    }/`,
+);
 
 const handleError = () => {
   clearError({ redirect: homePath.value });

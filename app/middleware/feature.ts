@@ -1,5 +1,6 @@
 import { logger } from '~/utils/logger';
 import { useAuthStore } from '~/stores/auth';
+import { resolveLocalePrefix } from '~/utils/locale-prefix';
 
 /**
  * Feature Flag Middleware
@@ -47,13 +48,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
     logger.debug(
       `Feature "${requiredFeature}" is not accessible for this user/tenant`,
     );
-    // Build locale/market prefix from cookies (composables that depend
-    // on useI18n/useRoute are unsafe inside middleware under SSR — see
-    // app/middleware/auth.ts for the same workaround). Cookieless fallback
-    // for both axes: tenant config default, then the 'se'/'sv' pair.
-    const market = useCookie('market').value || tenant.value?.market || 'se';
-    const locale =
-      useCookie('locale').value || tenant.value?.locale?.split('-')[0] || 'sv';
-    return navigateTo(`/${market}/${locale}/`, { replace: true });
+    // Composables that depend on useI18n/useRoute are unsafe inside
+    // middleware under SSR, so the prefix is built from the route and cookies.
+    const { prefix } = resolveLocalePrefix({
+      route: to,
+      marketCookie: useCookie('market').value,
+      localeCookie: useCookie('locale').value,
+      tenant: tenant.value,
+    });
+    return navigateTo(`${prefix}/`, { replace: true });
   }
 });

@@ -188,6 +188,81 @@ describe('auth middleware', () => {
     });
   });
 
+  it('takes the locale from the URL, not the cookie, when they disagree', async () => {
+    mockLocaleCookie = 'sv';
+    mockMarketCookie = 'se';
+    const result = await authMiddleware(
+      createRoute({
+        path: '/se/nb/portal',
+        fullPath: '/se/nb/portal',
+        params: { market: 'se', locale: 'nb' },
+      }),
+    );
+    expect(result).toEqual({
+      path: '/se/nb/login',
+      query: { redirect: '/se/nb/portal' },
+    });
+  });
+
+  it('keeps the URL language on a cookieless deep link', async () => {
+    // The reported bug: cookies cannot help on a first request (useCookie
+    // reads request headers, the server sets them on the response) and the
+    // tenant may be unresolved, so the URL is the only source left.
+    mockLocaleCookie = null;
+    mockMarketCookie = null;
+    mockTenantLocale = undefined;
+    mockTenantMarket = undefined;
+    const result = await authMiddleware(
+      createRoute({
+        path: '/se/nb/portal',
+        fullPath: '/se/nb/portal',
+        params: { market: 'se', locale: 'nb' },
+      }),
+    );
+    expect(result).toEqual({
+      path: '/se/nb/login',
+      query: { redirect: '/se/nb/portal' },
+    });
+  });
+
+  it('recovers the pair from the path when the route carries no params', async () => {
+    mockLocaleCookie = null;
+    mockMarketCookie = null;
+    const result = await authMiddleware(
+      createRoute({ path: '/fi/da/portal', fullPath: '/fi/da/portal' }),
+    );
+    expect(result).toEqual({
+      path: '/fi/da/login',
+      query: { redirect: '/fi/da/portal' },
+    });
+  });
+
+  it('takes the URL market over both cookie and config', async () => {
+    mockMarketCookie = 'no';
+    mockTenantMarket = 'dk';
+    const result = await authMiddleware(
+      createRoute({
+        path: '/fi/en/portal',
+        fullPath: '/fi/en/portal',
+        params: { market: 'fi', locale: 'en' },
+      }),
+    );
+    expect(result).toEqual({
+      path: '/fi/en/login',
+      query: { redirect: '/fi/en/portal' },
+    });
+  });
+
+  it('still falls back to cookies for an unprefixed route', async () => {
+    mockLocaleCookie = 'en';
+    mockMarketCookie = 'se';
+    const result = await authMiddleware(createRoute());
+    expect(result).toEqual({
+      path: '/se/en/login',
+      query: { redirect: '/portal' },
+    });
+  });
+
   it('calls fetchUser when not initialized', async () => {
     mockIsInitialized = false;
     await authMiddleware(createRoute());

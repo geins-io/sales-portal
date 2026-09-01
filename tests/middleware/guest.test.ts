@@ -144,6 +144,62 @@ describe('guest middleware', () => {
     expect(result).toEqual({ path: '/no/en/' });
   });
 
+  it('takes the locale from the URL, not the cookie, when they disagree', async () => {
+    mockIsAuthenticated = true;
+    mockLocaleCookie = 'sv';
+    const result = await guestMiddleware(
+      createRoute({
+        path: '/se/nb/login',
+        fullPath: '/se/nb/login',
+        params: { market: 'se', locale: 'nb' },
+      }),
+    );
+    expect(result).toEqual({ path: '/se/nb/' });
+  });
+
+  it('keeps the URL language on a cookieless deep link', async () => {
+    mockIsAuthenticated = true;
+    mockLocaleCookie = null;
+    mockMarketCookie = null;
+    mockTenantLocale = undefined;
+    mockTenantMarket = undefined;
+    const result = await guestMiddleware(
+      createRoute({
+        path: '/se/nb/login',
+        fullPath: '/se/nb/login',
+        params: { market: 'se', locale: 'nb' },
+      }),
+    );
+    expect(result).toEqual({ path: '/se/nb/' });
+  });
+
+  it('recovers the pair from the path when the route carries no params', async () => {
+    mockIsAuthenticated = true;
+    mockLocaleCookie = null;
+    mockMarketCookie = null;
+    const result = await guestMiddleware(
+      createRoute({ path: '/fi/da/login', fullPath: '/fi/da/login' }),
+    );
+    expect(result).toEqual({ path: '/fi/da/' });
+  });
+
+  it('honours a redirect query already on the URL market', async () => {
+    // The market used for the prefix-match check comes from the same
+    // resolution, so a URL-derived market keeps a matching redirect intact.
+    mockIsAuthenticated = true;
+    mockLocaleCookie = null;
+    mockMarketCookie = null;
+    const result = await guestMiddleware(
+      createRoute({
+        path: '/fi/da/login',
+        fullPath: '/fi/da/login?redirect=/fi/da/portal',
+        query: { redirect: '/fi/da/portal' },
+        params: { market: 'fi', locale: 'da' },
+      }),
+    );
+    expect(result).toEqual({ path: '/fi/da/portal' });
+  });
+
   it('calls fetchUser when not initialized', async () => {
     mockIsInitialized = false;
     await guestMiddleware(createRoute());
