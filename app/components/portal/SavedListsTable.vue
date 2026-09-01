@@ -3,7 +3,8 @@ import { ChevronRight } from 'lucide-vue-next';
 import type { ProductList } from '@geins/crm';
 import { useAuthStore } from '~/stores/auth';
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const { formatLocale } = useFormatLocale();
 const { localePath } = useLocaleMarket();
 const authStore = useAuthStore();
 
@@ -24,7 +25,7 @@ const currentUserName = computed(
 function formatDate(value: number | string | undefined): string {
   if (value == null) return '-';
   try {
-    return new Date(value).toLocaleDateString(locale.value, {
+    return new Date(value).toLocaleDateString(formatLocale.value, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

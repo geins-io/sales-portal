@@ -20,7 +20,8 @@ definePageMeta({
   middleware: 'auth',
 });
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const { formatLocale } = useFormatLocale();
 const { localePath } = useLocaleMarket();
 
 // ---------------------------------------------------------------------------
@@ -104,7 +105,7 @@ const mostPurchasedSubtitle = computed(() => {
 function formatDate(dateStr: string | number | null | undefined): string {
   if (dateStr == null) return '-';
   try {
-    return new Date(dateStr).toLocaleDateString(locale.value, {
+    return new Date(dateStr).toLocaleDateString(formatLocale.value, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

@@ -29,7 +29,7 @@ const props = withDefaults(
 
 const { t } = useI18n();
 
-const { tenant } = useTenant();
+const { formatLocale } = useFormatLocale();
 const { showPrice } = usePriceVisibility();
 const { showIncVat } = useVatDisplay();
 
@@ -50,7 +50,7 @@ const sellingPrice = computed(() => {
     ? props.price.sellingPriceIncVat
     : props.price.sellingPriceExVat;
   if (raw == null) return '';
-  return formatPrice(raw, props.price.currency?.code, tenant.value?.locale);
+  return formatPrice(raw, props.price.currency?.code, formatLocale.value);
 });
 
 const regularPrice = computed(() => {
@@ -63,7 +63,7 @@ const regularPrice = computed(() => {
     ? props.price.regularPriceIncVat
     : props.price.regularPriceExVat;
   if (raw == null) return '';
-  return formatPrice(raw, props.price.currency?.code, tenant.value?.locale);
+  return formatPrice(raw, props.price.currency?.code, formatLocale.value);
 });
 
 const isDiscounted = computed(
@@ -100,7 +100,7 @@ const lowestPriceFormatted = computed(() => {
     ? props.lowestPrice.lowestPriceIncVat
     : props.lowestPrice.lowestPriceExVat;
   if (raw == null) return '';
-  return formatPrice(raw, props.price?.currency?.code, tenant.value?.locale);
+  return formatPrice(raw, props.price?.currency?.code, formatLocale.value);
 });
 </script>
 
