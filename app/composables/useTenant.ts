@@ -1,4 +1,5 @@
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
+import { resolvableLocaleCodes } from '#shared/utils/locale-market';
 
 /**
  * Reactive tenant config, resolved from the request hostname.
@@ -79,13 +80,16 @@ export function useTenant() {
     return tenant.value?.branding?.name ?? tenant.value?.tenantId ?? '';
   });
 
-  /** Full Geins locales ('sv-SE') mapped to short i18n codes ('sv'). */
+  /**
+   * Full Geins locales ('sv-SE') mapped to short i18n codes ('sv'), filtered
+   * to the codes this build ships messages for — the same two-gate rule the
+   * server middleware serves URLs by. An unshipped tenant locale must not
+   * surface anywhere clickable: the server 302s it straight back.
+   */
   const availableLocales = computed(() => {
-    const raw = tenant.value;
-    if (!raw) return [];
-    const locales = raw.availableLocales;
+    const locales = tenant.value?.availableLocales;
     if (!Array.isArray(locales)) return [];
-    return locales.map((l: string) => l.split('-')[0] ?? l);
+    return resolvableLocaleCodes(locales);
   });
 
   /** Available market codes for this tenant (e.g. ['se', 'no', 'dk']). */

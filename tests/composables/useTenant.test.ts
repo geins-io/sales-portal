@@ -505,6 +505,28 @@ describe('useTenant', () => {
     });
   });
 
+  describe('availableLocales', () => {
+    it('exposes only the locales this build ships, as short codes', () => {
+      // 'de-DE' is tenant-configured but has no message bundle in this build;
+      // surfacing it would render a switcher entry the server 302s right back.
+      mockData.value = createMockTenantConfig({
+        availableLocales: ['sv-SE', 'de-DE', 'en-GB'],
+      });
+
+      const { availableLocales } = useTenant();
+
+      expect(availableLocales.value).toEqual(['sv', 'en']);
+    });
+
+    it('returns an empty list when config is null', () => {
+      mockData.value = null;
+
+      const { availableLocales } = useTenant();
+
+      expect(availableLocales.value).toEqual([]);
+    });
+  });
+
   describe('contact', () => {
     it('exposes contact from config when set', () => {
       mockData.value = createMockTenantConfig({
