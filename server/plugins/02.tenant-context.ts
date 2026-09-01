@@ -1,22 +1,17 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { resolveTenant, resolvePreviewTenant } from '../utils/tenant';
 
-/**
- * Normalizes a hostname by removing the port number.
- * This ensures consistent storage keys regardless of the port used.
- */
+/** Drops the port so storage keys are stable across ports. */
 function normalizeHostname(hostname: string): string {
-  // Remove port if present (e.g., "tenant-a.localhost:3000" -> "tenant-a.localhost")
   return hostname.split(':')[0] ?? hostname;
 }
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', async (event) => {
-    // Locale-market parsing, validation and redirects all live in
-    // `server/middleware/00.locale-market.ts`, which runs AFTER plugins. This
-    // hook only has to leave the tenant config on the context for it to
-    // validate against. The headersSent guard stays as a defence-in-depth
-    // check for any future plugin that responds early.
+    // Locale/market handling lives in `server/middleware/00.locale-market.ts`,
+    // which runs AFTER plugins; this hook only has to leave the tenant config
+    // on the context. headersSent guards against a future plugin responding
+    // early.
     if (event.node.res.headersSent) return;
 
     // Skip tenant context for health checks and internal endpoints (webhooks)
@@ -37,19 +32,13 @@ export default defineNitroPlugin((nitroApp) => {
       throw createError({ statusCode: 400, message: 'Missing host header' });
     }
 
-    // Detect store-settings preview intent. Preview is activated ONLY by the
-    // `?preview=1` query and is never inferred from a cookie: a clean top-level
-    // visit must always render the live, published theme. CMS preview
-    // (PREVIEW_MODE) is a separate flag and is not touched here.
+    // Preview is activated ONLY by `?preview=1`, never inferred from a cookie:
+    // a clean visit must render the live theme. CMS preview is a separate flag.
     const isStoreSettingsPreview = getQuery(event).preview === '1';
 
-    // Attach tenant data to the event context to make it
-    // available to all server routes and middleware.
     event.context.tenant = { hostname };
 
-    // For page routes, eagerly resolve the tenant and cache the tenantId in a cookie.
     // resolveTenant() returns null for both missing and inactive tenants.
-    // Static assets and API routes are excluded.
     if (
       !path.startsWith('/api/') &&
       !path.startsWith('/_nuxt/') &&
@@ -66,17 +55,14 @@ export default defineNitroPlugin((nitroApp) => {
         });
       }
 
-      // Store the real tenantId and full config in context
       const tenantId = tenant.tenantId || hostname;
       event.context.tenant.tenantId = tenantId;
       event.context.tenant.config = tenant;
 
       const cachedTenantId = getTenantCookie(event);
 
-      // Detect tenant switch: clear stale cookies so the locale-market plugin
-      // redirects to fresh defaults for the new tenant. A `?preview=1` request
-      // must never clear the live visitor's locale/market/cart cookies, so its
-      // unpublished overlay can't mutate persistent client state.
+      // On a tenant switch, drop stale cookies so the new tenant's defaults
+      // apply. A `?preview=1` request must never mutate persistent state.
       if (
         !isStoreSettingsPreview &&
         cachedTenantId &&
@@ -87,8 +73,6 @@ export default defineNitroPlugin((nitroApp) => {
         deleteCookie(event, COOKIE_NAMES.CART_ID, { path: '/' });
       }
 
-      // A `?preview=1` request must not persist a tenant cookie, so its
-      // unpublished overlay never writes to persistent client state.
       if (
         !isStoreSettingsPreview &&
         (!cachedTenantId || cachedTenantId !== tenantId)
@@ -96,7 +80,7 @@ export default defineNitroPlugin((nitroApp) => {
         setTenantCookie(event, tenantId);
       }
     } else if (path.startsWith('/api/')) {
-      // For API routes, always resolve from hostname (cookie is only a hint, never trusted)
+      // Hostname only — the cookie is a hint, never trusted.
       const tenant = isStoreSettingsPreview
         ? await resolvePreviewTenant(hostname, event)
         : await resolveTenant(hostname, event);

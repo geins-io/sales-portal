@@ -1,22 +1,14 @@
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 
 /**
- * Composable for accessing the current tenant configuration.
+ * Reactive tenant config, resolved from the request hostname.
  *
- * This composable provides reactive access to the tenant config
- * which is automatically loaded based on the request hostname.
- *
- * Uses Nuxt 4's built-in `useFetch` with `dedupe: 'defer'` for:
- * - Automatic request deduplication
- * - SSR payload transfer
- * - Built-in caching
+ * `useFetch` with `dedupe: 'defer'` gives deduplication, SSR payload transfer
+ * and caching for free — do not wrap it in a store.
  */
 export function useTenant() {
-  // Read the preview flag off the request URL rather than useRoute(). This
-  // composable is called from a global route middleware, where useRoute() is
-  // unreliable — it can still hold the route being navigated away from — and
-  // Nuxt warns about it. useRequestURL() has no such caveat and works on both
-  // sides of the render.
+  // Not useRoute(): this runs inside a global route middleware, where useRoute()
+  // can still hold the route being navigated away from (and Nuxt warns).
   const previewQuery =
     useRequestURL().searchParams.get('preview') === '1' ? '?preview=1' : '';
   const headers = import.meta.server
@@ -87,10 +79,7 @@ export function useTenant() {
     return tenant.value?.branding?.name ?? tenant.value?.tenantId ?? '';
   });
 
-  /**
-   * Available locale codes for this tenant.
-   * Maps full Geins locales (e.g. 'sv-SE') to short i18n codes ('sv').
-   */
+  /** Full Geins locales ('sv-SE') mapped to short i18n codes ('sv'). */
   const availableLocales = computed(() => {
     const raw = tenant.value;
     if (!raw) return [];

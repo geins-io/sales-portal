@@ -23,26 +23,16 @@ export default defineNuxtPlugin({
     const seo = tenant.value.seo;
     const contact = tenant.value.contact;
 
-    // Reactive locale: re-evaluated at render time (after the route middleware
-    // has called $i18n.setLocale). A plain `const locale = i18n.locale.value`
-    // would freeze to the default locale on SSR because plugins run before the
-    // locale-market middleware. Using a computed ensures that useHead getters
-    // and the og:locale computed re-read the current locale when unhead
-    // serialises the head on the server. Fallback order: tenant config
-    // default, then 'sv' as the last resort (mirrors the 'se' market).
+    // Computed, not a plain read: plugins run before the locale-market
+    // middleware, so a snapshot would freeze to the default locale on SSR.
     const seoLocale = computed(
       () => i18n.locale.value || tenant.value?.locale || 'sv',
     );
 
-    // BCP-47 form of the active locale for `<html lang>`. Resolution order:
-    //   1. the tenant's own BCP-47 tag for this short code ('en' -> 'en-GB');
-    //   2. the i18n locale object's `language` field, for locales the tenant
-    //      does not carry;
-    //   3. the short code itself (already a valid language tag).
-    // The tenant wins because the region tag is tenant-dependent: nuxt.config
-    // declares 'en' region-less precisely because no single region is correct.
-    // This is the document's language, not hreflang's market-based audience
-    // targeting; the two values legitimately differ.
+    // `<html lang>`: tenant tag ('en' -> 'en-GB'), then the i18n locale's
+    // `language`, then the bare code. The tenant wins because the region is
+    // tenant-dependent — nuxt.config leaves 'en' region-less for that reason.
+    // This is the document language, not hreflang targeting; they differ.
     const seoLang = computed(() => {
       const code = seoLocale.value;
       const tenantTag = findTenantBcp47(code, tenant.value?.availableLocales);
@@ -59,8 +49,6 @@ export default defineNuxtPlugin({
       return language || code;
     });
 
-    // Reactive meta array: rebuilt whenever seoLocale changes so og:locale
-    // always reflects the URL locale rather than the plugin-setup-time default.
     const reactiveMeta = computed(() => {
       const meta: Array<Record<string, string>> = [];
 
@@ -82,8 +70,7 @@ export default defineNuxtPlugin({
       // Open Graph basics
       meta.push({ property: 'og:site_name', content: brandName.value });
       meta.push({ property: 'og:type', content: 'website' });
-      // Open Graph wants the underscore form of the same BCP-47 tag that
-      // <html lang> carries ('nb-NO' -> 'nb_NO'), not the bare short code.
+      // Open Graph wants the underscore form of <html lang>: 'nb-NO' -> 'nb_NO'.
       meta.push({
         property: 'og:locale',
         content: seoLang.value.replace('-', '_'),
@@ -150,10 +137,7 @@ export default defineNuxtPlugin({
     useHead(
       {
         htmlAttrs: {
-          // Getter so unhead re-evaluates at render time (post-middleware).
-          // A plain string would be captured once at plugin setup and would
-          // yield the default locale on hard loads of non-default-locale pages.
-          // Resolves to the tenant's BCP-47 tag for the active locale.
+          // Getter so unhead re-evaluates after the middleware has run.
           lang: () => seoLang.value,
         },
       },

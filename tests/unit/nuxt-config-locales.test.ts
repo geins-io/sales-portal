@@ -1,12 +1,9 @@
 /**
- * Guards the two hand-maintained locale lists against silent drift: the
- * `i18n.locales` array in nuxt.config.ts and `SUPPORTED_LOCALE_CODES` in
- * shared/utils/locale-market.ts. Neither derives from the other, so adding a
- * locale to only one of them is an easy mistake to make and a hard one to see.
+ * The `i18n.locales` array and `SUPPORTED_LOCALE_CODES` are maintained by hand
+ * and neither derives from the other, so this guards them against drift.
  *
- * The config is read as source text rather than imported, because
- * `defineNuxtConfig` is a Nuxt auto-import that does not exist in a plain
- * unit-test environment.
+ * Read as source text, not imported: `defineNuxtConfig` is a Nuxt auto-import
+ * that does not exist in a plain unit-test environment.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -18,7 +15,7 @@ const configSource = readFileSync(
   'utf-8',
 );
 
-/** Pull the `code` of every entry in the i18n `locales: [...]` array. */
+/** The `code` of every entry in the i18n `locales: [...]` array. */
 function configLocaleCodes(): string[] {
   const block = /i18n\s*:\s*\{[\s\S]*?locales\s*:\s*\[([\s\S]*?)\]/.exec(
     configSource,
