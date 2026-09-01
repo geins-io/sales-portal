@@ -73,7 +73,9 @@ vi.mock('../../app/composables/useFeatureAccess', () => ({
 function createMockTenantConfig(
   overrides: Partial<PublicTenantConfig> = {},
 ): PublicTenantConfig {
-  return {
+  // Object.assign rather than a spread: spreading a Partial widens every key
+  // to `| undefined`, which the required fields of PublicTenantConfig reject.
+  const base: PublicTenantConfig = {
     tenantId: 'test-tenant',
     hostname: 'test.example.com',
     mode: 'commerce',
@@ -103,8 +105,11 @@ function createMockTenantConfig(
     css: '',
     isActive: true,
     availableLocales: [],
-    ...overrides,
+    availableMarkets: [],
+    imageBaseUrl: '',
+    checkoutMode: 'custom',
   };
+  return Object.assign(base, overrides);
 }
 
 // Helper to create mock route

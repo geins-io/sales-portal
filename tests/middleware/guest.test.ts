@@ -37,7 +37,7 @@ vi.mock('~/stores/auth', () => ({
 const mockNavigateTo = vi.fn((opts: { path: string }) => opts);
 
 vi.mock('#app/composables/router', () => ({
-  navigateTo: (...args: unknown[]) => mockNavigateTo(...args),
+  navigateTo: (opts: { path: string }) => mockNavigateTo(opts),
   defineNuxtRouteMiddleware: (fn: (to: RouteLocationNormalized) => unknown) =>
     fn,
 }));
@@ -70,6 +70,10 @@ function createRoute(
   };
 }
 
+// The middleware is typed as Nuxt's RouteMiddleware, which takes (to, from).
+// Only `to` is read, so `from` mirrors it.
+const run = (to: RouteLocationNormalized) => guestMiddleware(to, to);
+
 describe('guest middleware', () => {
   beforeEach(() => {
     mockIsAuthenticated = false;
@@ -83,19 +87,19 @@ describe('guest middleware', () => {
   });
 
   it('allows unauthenticated users through', async () => {
-    const result = await guestMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toBeUndefined();
   });
 
   it('redirects authenticated users to locale-prefixed home', async () => {
     mockIsAuthenticated = true;
-    const result = await guestMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({ path: '/se/en/' });
   });
 
   it('redirects authenticated users to redirect query param when it has locale prefix', async () => {
     mockIsAuthenticated = true;
-    const result = await guestMiddleware(
+    const result = await run(
       createRoute({
         fullPath: '/login?redirect=/se/en/portal',
         query: { redirect: '/se/en/portal' },
@@ -108,7 +112,7 @@ describe('guest middleware', () => {
     mockIsAuthenticated = true;
     mockLocaleCookie = null;
     mockTenantLocale = 'nb-NO';
-    const result = await guestMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({ path: '/se/nb/' });
   });
 
@@ -116,7 +120,7 @@ describe('guest middleware', () => {
     mockIsAuthenticated = true;
     mockLocaleCookie = null;
     mockTenantLocale = undefined;
-    const result = await guestMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({ path: '/se/sv/' });
   });
 
@@ -124,7 +128,7 @@ describe('guest middleware', () => {
     mockIsAuthenticated = true;
     mockMarketCookie = null;
     mockTenantMarket = 'dk';
-    const result = await guestMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({ path: '/dk/en/' });
   });
 
@@ -132,7 +136,7 @@ describe('guest middleware', () => {
     mockIsAuthenticated = true;
     mockMarketCookie = null;
     mockTenantMarket = undefined;
-    const result = await guestMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({ path: '/se/en/' });
   });
 
@@ -140,14 +144,14 @@ describe('guest middleware', () => {
     mockIsAuthenticated = true;
     mockMarketCookie = 'no';
     mockTenantMarket = 'dk';
-    const result = await guestMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({ path: '/no/en/' });
   });
 
   it('takes the locale from the URL, not the cookie, when they disagree', async () => {
     mockIsAuthenticated = true;
     mockLocaleCookie = 'sv';
-    const result = await guestMiddleware(
+    const result = await run(
       createRoute({
         path: '/se/nb/login',
         fullPath: '/se/nb/login',
@@ -163,7 +167,7 @@ describe('guest middleware', () => {
     mockMarketCookie = null;
     mockTenantLocale = undefined;
     mockTenantMarket = undefined;
-    const result = await guestMiddleware(
+    const result = await run(
       createRoute({
         path: '/se/nb/login',
         fullPath: '/se/nb/login',
@@ -177,7 +181,7 @@ describe('guest middleware', () => {
     mockIsAuthenticated = true;
     mockLocaleCookie = null;
     mockMarketCookie = null;
-    const result = await guestMiddleware(
+    const result = await run(
       createRoute({ path: '/fi/da/login', fullPath: '/fi/da/login' }),
     );
     expect(result).toEqual({ path: '/fi/da/' });
@@ -189,7 +193,7 @@ describe('guest middleware', () => {
     mockIsAuthenticated = true;
     mockLocaleCookie = null;
     mockMarketCookie = null;
-    const result = await guestMiddleware(
+    const result = await run(
       createRoute({
         path: '/fi/da/login',
         fullPath: '/fi/da/login?redirect=/fi/da/portal',
@@ -202,19 +206,19 @@ describe('guest middleware', () => {
 
   it('calls fetchUser when not initialized', async () => {
     mockIsInitialized = false;
-    await guestMiddleware(createRoute());
+    await run(createRoute());
     expect(mockFetchUser).toHaveBeenCalledOnce();
   });
 
   it('does not call fetchUser when already initialized', async () => {
     mockIsInitialized = true;
-    await guestMiddleware(createRoute());
+    await run(createRoute());
     expect(mockFetchUser).not.toHaveBeenCalled();
   });
 
   it('blocks open redirect to external URLs', async () => {
     mockIsAuthenticated = true;
-    const result = await guestMiddleware(
+    const result = await run(
       createRoute({ query: { redirect: '//evil.com' } }),
     );
     expect(result).toEqual({ path: '/se/en/' });
@@ -222,7 +226,7 @@ describe('guest middleware', () => {
 
   it('blocks open redirect with protocol', async () => {
     mockIsAuthenticated = true;
-    const result = await guestMiddleware(
+    const result = await run(
       createRoute({ query: { redirect: 'https://evil.com' } }),
     );
     expect(result).toEqual({ path: '/se/en/' });

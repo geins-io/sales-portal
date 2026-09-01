@@ -43,7 +43,7 @@ vi.mock('~/stores/auth', () => ({
 const mockNavigateTo = vi.fn((opts: { path: string }) => opts);
 
 vi.mock('#app/composables/router', () => ({
-  navigateTo: (...args: unknown[]) => mockNavigateTo(...args),
+  navigateTo: (opts: { path: string }) => mockNavigateTo(opts),
   defineNuxtRouteMiddleware: (fn: (to: RouteLocationNormalized) => unknown) =>
     fn,
 }));
@@ -76,6 +76,10 @@ function createRoute(
   };
 }
 
+// The middleware is typed as Nuxt's RouteMiddleware, which takes (to, from).
+// Only `to` is read, so `from` mirrors it.
+const run = (to: RouteLocationNormalized) => authMiddleware(to, to);
+
 describe('auth middleware', () => {
   beforeEach(() => {
     mockIsAuthenticated = false;
@@ -90,7 +94,7 @@ describe('auth middleware', () => {
   });
 
   it('redirects unauthenticated users to /login', async () => {
-    const result = await authMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({
       path: '/se/en/login',
       query: { redirect: '/portal' },
@@ -98,50 +102,42 @@ describe('auth middleware', () => {
   });
 
   it('does not add redirect query for / path', async () => {
-    const result = await authMiddleware(
-      createRoute({ path: '/', fullPath: '/' }),
-    );
+    const result = await run(createRoute({ path: '/', fullPath: '/' }));
     expect(result).toEqual({ path: '/se/en/login', query: undefined });
   });
 
   it('allows authenticated users through when no roles required', async () => {
     mockIsAuthenticated = true;
     mockCustomerType = 'retail';
-    const result = await authMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toBeUndefined();
   });
 
   it('allows authenticated users with matching role', async () => {
     mockIsAuthenticated = true;
     mockCustomerType = 'wholesale';
-    const result = await authMiddleware(
-      createRoute({ meta: { roles: ['wholesale'] } }),
-    );
+    const result = await run(createRoute({ meta: { roles: ['wholesale'] } }));
     expect(result).toBeUndefined();
   });
 
   it('redirects authenticated users with wrong role to /', async () => {
     mockIsAuthenticated = true;
     mockCustomerType = 'retail';
-    const result = await authMiddleware(
-      createRoute({ meta: { roles: ['wholesale'] } }),
-    );
+    const result = await run(createRoute({ meta: { roles: ['wholesale'] } }));
     expect(result).toEqual({ path: '/se/en/' });
   });
 
   it('redirects authenticated users with no customerType when roles required', async () => {
     mockIsAuthenticated = true;
     mockCustomerType = undefined;
-    const result = await authMiddleware(
-      createRoute({ meta: { roles: ['wholesale'] } }),
-    );
+    const result = await run(createRoute({ meta: { roles: ['wholesale'] } }));
     expect(result).toEqual({ path: '/se/en/' });
   });
 
   it('falls back to the tenant config default locale when the cookie is absent', async () => {
     mockLocaleCookie = null;
     mockTenantLocale = 'nb-NO';
-    const result = await authMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({
       path: '/se/nb/login',
       query: { redirect: '/portal' },
@@ -151,7 +147,7 @@ describe('auth middleware', () => {
   it('falls back to "sv" when both the cookie and the config default are absent', async () => {
     mockLocaleCookie = null;
     mockTenantLocale = undefined;
-    const result = await authMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({
       path: '/se/sv/login',
       query: { redirect: '/portal' },
@@ -161,7 +157,7 @@ describe('auth middleware', () => {
   it('falls back to the tenant config default market when the cookie is absent', async () => {
     mockMarketCookie = null;
     mockTenantMarket = 'dk';
-    const result = await authMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({
       path: '/dk/en/login',
       query: { redirect: '/portal' },
@@ -171,7 +167,7 @@ describe('auth middleware', () => {
   it('falls back to "se" when both the market cookie and the config default are absent', async () => {
     mockMarketCookie = null;
     mockTenantMarket = undefined;
-    const result = await authMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({
       path: '/se/en/login',
       query: { redirect: '/portal' },
@@ -181,7 +177,7 @@ describe('auth middleware', () => {
   it('prefers the market cookie over the tenant config default market', async () => {
     mockMarketCookie = 'no';
     mockTenantMarket = 'dk';
-    const result = await authMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({
       path: '/no/en/login',
       query: { redirect: '/portal' },
@@ -191,7 +187,7 @@ describe('auth middleware', () => {
   it('takes the locale from the URL, not the cookie, when they disagree', async () => {
     mockLocaleCookie = 'sv';
     mockMarketCookie = 'se';
-    const result = await authMiddleware(
+    const result = await run(
       createRoute({
         path: '/se/nb/portal',
         fullPath: '/se/nb/portal',
@@ -212,7 +208,7 @@ describe('auth middleware', () => {
     mockMarketCookie = null;
     mockTenantLocale = undefined;
     mockTenantMarket = undefined;
-    const result = await authMiddleware(
+    const result = await run(
       createRoute({
         path: '/se/nb/portal',
         fullPath: '/se/nb/portal',
@@ -228,7 +224,7 @@ describe('auth middleware', () => {
   it('recovers the pair from the path when the route carries no params', async () => {
     mockLocaleCookie = null;
     mockMarketCookie = null;
-    const result = await authMiddleware(
+    const result = await run(
       createRoute({ path: '/fi/da/portal', fullPath: '/fi/da/portal' }),
     );
     expect(result).toEqual({
@@ -240,7 +236,7 @@ describe('auth middleware', () => {
   it('takes the URL market over both cookie and config', async () => {
     mockMarketCookie = 'no';
     mockTenantMarket = 'dk';
-    const result = await authMiddleware(
+    const result = await run(
       createRoute({
         path: '/fi/en/portal',
         fullPath: '/fi/en/portal',
@@ -256,7 +252,7 @@ describe('auth middleware', () => {
   it('still falls back to cookies for an unprefixed route', async () => {
     mockLocaleCookie = 'en';
     mockMarketCookie = 'se';
-    const result = await authMiddleware(createRoute());
+    const result = await run(createRoute());
     expect(result).toEqual({
       path: '/se/en/login',
       query: { redirect: '/portal' },
@@ -265,13 +261,13 @@ describe('auth middleware', () => {
 
   it('calls fetchUser when not initialized', async () => {
     mockIsInitialized = false;
-    await authMiddleware(createRoute());
+    await run(createRoute());
     expect(mockFetchUser).toHaveBeenCalledOnce();
   });
 
   it('does not call fetchUser when already initialized', async () => {
     mockIsInitialized = true;
-    await authMiddleware(createRoute());
+    await run(createRoute());
     expect(mockFetchUser).not.toHaveBeenCalled();
   });
 });
