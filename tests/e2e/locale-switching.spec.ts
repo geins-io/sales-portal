@@ -120,8 +120,8 @@ if (collisions.length > 0) {
   );
 }
 
-/** Short locale codes this tenant actually offers, from its own config. */
-async function tenantLocaleCodes(page: Page): Promise<string[]> {
+/** Full BCP-47 locale tags this tenant actually offers, from its own config. */
+async function tenantAvailableLocales(page: Page): Promise<string[]> {
   const response = await page.request.get('/api/config');
   expect(response.ok(), 'GET /api/config must succeed').toBe(true);
 
@@ -132,7 +132,7 @@ async function tenantLocaleCodes(page: Page): Promise<string[]> {
     'tenant config must expose availableLocales',
   ).toBe(true);
 
-  return (available as string[]).map((l) => l.split('-')[0]!);
+  return available as string[];
 }
 
 /**
@@ -208,7 +208,9 @@ test.describe('Locale switching', () => {
     page,
   }) => {
     await page.goto('/');
-    const codes = await tenantLocaleCodes(page);
+    const codes = (await tenantAvailableLocales(page)).map(
+      (l) => l.split('-')[0]!,
+    );
     expect(
       codes.length,
       `tenant exposes only [${codes.join(', ')}] — the switcher hides itself ` +
@@ -223,7 +225,8 @@ test.describe('Locale switching', () => {
       await page.goto('/');
       await page.waitForLoadState('domcontentloaded');
 
-      const tenantCodes = await tenantLocaleCodes(page);
+      const tenantLocales = await tenantAvailableLocales(page);
+      const tenantCodes = tenantLocales.map((l) => l.split('-')[0]!);
       test.skip(
         !tenantCodes.includes(locale.code),
         `tenant does not offer "${locale.code}" (has: ${tenantCodes.join(', ')})`,
@@ -238,16 +241,35 @@ test.describe('Locale switching', () => {
         `URL should sit under /se/${locale.code}/ after switching`,
       ).toMatch(new RegExp(`^/se/${locale.code}/`));
 
-      // 2. <html lang> carries the locale's BCP-47 tag, not the market and not
-      //    the previous language.
+      // 2. <html lang> carries the tenant's own BCP-47 tag for this locale
+      //    (the same 'en' can be en-GB on one tenant and en-US on another).
+      //    Same prefix-match as app/utils/locale-bcp47.ts — not imported,
+      //    e2e specs sit outside the Nuxt tsconfig projects.
+      const expectedLang =
+        tenantLocales.find((l) => l.split('-')[0] === locale.code) ??
+        locale.language;
       await expect(
         page.locator('html'),
-        `<html lang> should be "${locale.language}" for locale "${locale.code}"`,
-      ).toHaveAttribute('lang', locale.language, { timeout: 10000 });
+        `<html lang> should be "${expectedLang}" for locale "${locale.code}"`,
+      ).toHaveAttribute('lang', expectedLang, { timeout: 10000 });
 
       // 3. A real translated string renders. Asserting the exact per-language
       //    value means an English placeholder cannot pass for a translation.
-      const searchInput = page.locator('[data-testid="search-input"]').first();
+      //    The probe input is inline on desktop but behind the search overlay
+      //    on mobile (its trigger is `lg:hidden`), so branch on the trigger.
+      const mobileTrigger = page.locator('[data-slot="search-button"]');
+      let searchInput = page.locator('[data-testid="search-input"]').first();
+
+      if (await mobileTrigger.isVisible()) {
+        // Fresh page load after the switch — the overlay toggle only works
+        // once hydrated.
+        await waitForHydration(page);
+        await mobileTrigger.click();
+        searchInput = page.locator(
+          '[data-testid="mobile-search-panel"] [data-testid="search-input"]',
+        );
+      }
+
       await expect(searchInput).toBeVisible({ timeout: 20000 });
       await expect(
         searchInput,
