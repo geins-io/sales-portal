@@ -269,13 +269,13 @@ Reference implementation: `app/plugins/favorites-init.client.ts` + `app/stores/f
 
 Locale resolution is a 3-step server-side pipeline. The order matters.
 
-1. **Server middleware 00** (`server/middleware/00.locale-market.ts`) — parses the URL, sets locale/market cookies, and redirects `/` to the default locale path. Stores raw `{ market, locale }` in `event.context.localeMarket`. When neither cookie nor URL supplies one, the fallback locale is the tenant config default (`geinsSettings.locale`), and `sv` only if the config carries none — mirroring the `se` market fallback. Lives in `server/middleware/` (not `server/plugins/`) so `sendRedirect` integrates with Nitro's response pipeline — `nuxt-security` route-rule headers get applied before the redirect flushes, instead of triggering `ERR_HTTP_HEADERS_SENT` after.
-2. **Nitro Plugin 01** (`server/plugins/02.tenant-context.ts`) — resolves the tenant (needs cookies from plugin 00), validates the locale/market combination against tenant config, stores a validated `ResolvedLocaleMarket` in `event.context.resolvedLocaleMarket`, and redirects if a correction is needed. This is the only layer that may rewrite the locale/market cookies.
+1. **Server middleware 00** (`server/middleware/00.locale-market.ts`) — parses the URL, validates the `{ market, locale }` pair against the tenant config, and redirects `/` to the default locale path. A valid pair writes the locale/market cookies, raw `{ market, locale }` to `event.context.localeMarket`, and the validated `ResolvedLocaleMarket` to `event.context.resolvedLocaleMarket`. An invalid pair writes no cookies at all and redirects (302) to the tenant defaults with path and query preserved. The locale must clear two gates — the tenant's `availableLocales` and the app's `SUPPORTED_LOCALE_CODES` — while the market has only the tenant's `availableMarkets`, there being no app-side market list. When neither cookie nor URL supplies one, the fallback locale is the tenant config default (`geinsSettings.locale`), and `sv` only if the config carries none — mirroring the `se` market fallback. Lives in `server/middleware/` (not `server/plugins/`) so `sendRedirect` integrates with Nitro's response pipeline — `nuxt-security` route-rule headers get applied before the redirect flushes, instead of triggering `ERR_HTTP_HEADERS_SENT` after.
+2. **Nitro plugin `02.tenant-context.ts`** — resolves the tenant onto `event.context.tenant.config`. It runs on the Nitro `request` hook, which fires BEFORE the server-middleware stack, so the tenant is already in place when middleware 00 validates against it. For the same reason validation cannot live here: `event.context.localeMarket` is always unset at this point.
 3. **Client middleware** (`middleware/locale.ts`) — syncs the Nuxt i18n locale state from the URL on every client-side navigation.
 
 ### ResolvedLocaleMarket
 
-Plugin 01 produces a single, validated `ResolvedLocaleMarket` object:
+Middleware 00 produces a single, validated `ResolvedLocaleMarket` object:
 
 ```typescript
 interface ResolvedLocaleMarket {
@@ -291,13 +291,13 @@ Server utilities read from `event.context.resolvedLocaleMarket`:
 - `getRequestMarket(event)` — returns `resolvedLocaleMarket.market`
 - `buildCachePrefix(event)` — uses both fields for cache key construction
 
-API routes (e.g. `/api/...`) run outside the plugin 01 request hook, so `resolvedLocaleMarket` may not be set. These routes fall back to reading the locale/market cookies directly.
+API routes (e.g. `/api/...`) are skipped by middleware 00, so `resolvedLocaleMarket` is not set for them. These routes fall back to reading the locale/market cookies directly.
 
 ### Locale codes: short vs. BCP-47
 
 URL segments and cookies use **short codes** (`sv`, `en`). GraphQL requires **BCP-47 tags** (`sv-SE`, `en-GB`). Expansion happens at the API boundary only:
 
-- `resolvedLocaleMarket.localeBcp47` — the preferred BCP-47 source for page requests (already expanded by plugin 01).
+- `resolvedLocaleMarket.localeBcp47` — the preferred BCP-47 source for page requests (already expanded by middleware 00).
 - `ensureBcp47Locale()` in `server/utils/_sdk.ts` — safety net for API routes where `resolvedLocaleMarket` is not set. Expands short codes before any GraphQL call.
 - `getChannelVariables()` calls `ensureBcp47Locale()` internally — use it whenever building SDK channel variables.
 

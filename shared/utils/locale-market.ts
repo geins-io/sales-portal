@@ -12,7 +12,7 @@
 
 /**
  * Validated locale/market data with BCP-47 expansion.
- * Set on `event.context.resolvedLocaleMarket` by the tenant context plugin.
+ * Set on `event.context.resolvedLocaleMarket` by `server/middleware/00.locale-market.ts`.
  */
 export interface ResolvedLocaleMarket {
   /** Validated short market code, e.g. 'se' */
@@ -45,6 +45,11 @@ export function extractShortLocales(fullLocales: string[]): Set<string> {
  * Validates parsed locale/market values against tenant configuration.
  * Returns a resolved result with BCP-47 expansion and whether correction was needed.
  *
+ * A locale must clear both gates: the tenant has to sell it AND the app has to
+ * ship messages for it. A tenant carrying a locale this build has no bundle for
+ * would otherwise render raw translation keys. Markets have no app-side list —
+ * they are tenant data all the way down — so the tenant's list is the only gate.
+ *
  * Pure function — no side effects, no cookies, no redirects.
  */
 export function resolveLocaleMarket(
@@ -61,9 +66,11 @@ export function resolveLocaleMarket(
 
   const validLocales = extractShortLocales(availableLocales);
   const validMarkets = new Set(availableMarkets);
+  const shippedLocales = new Set<string>(SUPPORTED_LOCALE_CODES);
 
   const marketValid = validMarkets.has(parsed.market);
-  const localeValid = validLocales.has(parsed.locale);
+  const localeValid =
+    validLocales.has(parsed.locale) && shippedLocales.has(parsed.locale);
 
   const corrected = !marketValid || !localeValid;
 

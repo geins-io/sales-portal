@@ -14,6 +14,7 @@ const nuxtTestFiles = [
   'tests/components/layout/MobileNavPanel.test.ts',
   'tests/server/api-contracts.test.ts',
   'tests/server/external-api.test.ts',
+  'tests/middleware/locale-market-global.test.ts',
 ];
 
 // Vite plugin that provides Nuxt environment options to @nuxt/test-utils at runtime.

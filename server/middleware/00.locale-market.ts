@@ -1,6 +1,7 @@
 import type { TenantConfig } from '#shared/types/tenant-config';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { ROUTE_PATHS } from '#shared/constants/route-paths';
+import { resolveLocaleMarket } from '#shared/utils/locale-market';
 
 const TYPE_PREFIX_SEGMENTS = new Set(
   Object.values(ROUTE_PATHS).map((p) => p.slice(1)),
@@ -19,17 +20,20 @@ const TYPE_PREFIX_SEGMENTS = new Set(
  * - Skip non-page routes (API, static assets, internal).
  * - Trailing-slash normalisation: redirect `/foo/` → `/foo` (301), except
  *   for bare root `/` and the locale/market root `/{market}/{locale}/`.
- * - For `/{market}/{locale}/...`: write market+locale cookies and stash
- *   the pair on `event.context.localeMarket` for downstream validation.
+ * - For `/{market}/{locale}/...`: validate the pair against the tenant, then
+ *   either write the market+locale cookies and the resolved context, or
+ *   redirect (302) to the tenant defaults with path and query preserved.
  * - For root `/`: redirect (302) to `/{market}/{locale}/` using cookie
  *   values, then the tenant config defaults, then the 'se'/'sv' pair. The
  *   tenant context plugin (server/plugins/02.tenant-context.ts) runs on the
  *   Nitro `request` hook BEFORE this middleware, so `event.context.tenant.config`
  *   is already resolved for page routes.
  *
- * Does NOT validate market/locale against the resolved tenant config —
- * that's `app/middleware/locale-market.client.ts`'s job (runs after the
- * tenant context plugin).
+ * Validation lives here rather than in the tenant context plugin because the
+ * Nitro `request` hook fires before the server-middleware stack: a plugin
+ * reading `event.context.localeMarket` would always see it unset. The tenant
+ * config is resolved by then, so this is the first point where the URL pair
+ * and the tenant to validate it against are both available.
  */
 function isTwoLetterCode(segment: string): boolean {
   return /^[a-z]{2}$/.test(segment);
@@ -63,29 +67,62 @@ export default defineEventHandler((event) => {
 
   const segments = path.split('/').filter(Boolean);
 
-  // Locale/market-prefixed paths: write cookies + context, no redirect
+  // Locale/market-prefixed paths: validate, then cookies + context or redirect
   if (segments.length >= 2) {
     const [first, second] = segments;
     if (isTwoLetterCode(first!) && isTwoLetterCode(second!)) {
-      const market = first!;
-      const locale = second!;
+      const parsed = { market: first!, locale: second! };
+      const geinsSettings = (
+        event.context.tenant?.config as TenantConfig | undefined
+      )?.geinsSettings;
 
-      setCookie(event, COOKIE_NAMES.MARKET, market, {
-        httpOnly: false,
-        secure: !import.meta.dev,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 365 * 24 * 60 * 60,
-      });
-      setCookie(event, COOKIE_NAMES.LOCALE, locale, {
-        httpOnly: false,
-        secure: !import.meta.dev,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 365 * 24 * 60 * 60,
+      // Nothing to validate against: no tenant config, or a config carrying
+      // neither list. Tenant config comes from the external merchant admin, so
+      // a tenant missing these fields must degrade to the old pass-through
+      // rather than redirect-loop to a default that cannot validate either.
+      const canValidate = Boolean(
+        geinsSettings?.availableLocales?.length &&
+        geinsSettings?.availableMarkets?.length,
+      );
+
+      if (!geinsSettings || !canValidate) {
+        writeLocaleMarketCookies(event, parsed.market, parsed.locale);
+        event.context.localeMarket = parsed;
+        return;
+      }
+
+      const { resolved, corrected } = resolveLocaleMarket(parsed, {
+        availableLocales: geinsSettings.availableLocales,
+        availableMarkets: geinsSettings.availableMarkets,
+        defaultLocale: geinsSettings.locale,
+        defaultMarket: geinsSettings.market,
       });
 
-      event.context.localeMarket = { market, locale };
+      // Redirect only when the correction actually changes the pair. A tenant
+      // whose own defaults fail validation (empty availableMarkets, say) would
+      // otherwise redirect to a URL that corrects to itself, forever.
+      const changesPair =
+        resolved.market !== parsed.market || resolved.locale !== parsed.locale;
+
+      if (corrected && changesPair) {
+        // No cookies here: an invalid pair must not be persisted. The
+        // redirect target is a valid pair and writes them on the next hop.
+        const remaining = segments.slice(2);
+        const remainingPath =
+          remaining.length > 0 ? `/${remaining.join('/')}` : '/';
+        const base = `/${resolved.market}/${resolved.locale}`;
+        return sendRedirect(
+          event,
+          remainingPath === '/'
+            ? `${base}/${query}`
+            : `${base}${remainingPath}${query}`,
+          302,
+        );
+      }
+
+      writeLocaleMarketCookies(event, resolved.market, resolved.locale);
+      event.context.localeMarket = parsed;
+      event.context.resolvedLocaleMarket = resolved;
       return;
     }
   }
@@ -107,6 +144,22 @@ export default defineEventHandler((event) => {
 
   // Non-prefixed URLs pass through.
 });
+
+function writeLocaleMarketCookies(
+  event: import('h3').H3Event,
+  market: string,
+  locale: string,
+): void {
+  const opts = {
+    httpOnly: false,
+    secure: !import.meta.dev,
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 365 * 24 * 60 * 60,
+  };
+  setCookie(event, COOKIE_NAMES.MARKET, market, opts);
+  setCookie(event, COOKIE_NAMES.LOCALE, locale, opts);
+}
 
 function resolveDefaultMarketLocale(event: import('h3').H3Event): {
   market: string;

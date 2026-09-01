@@ -1,5 +1,4 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
-import { resolveLocaleMarket } from '#shared/utils/locale-market';
 import { resolveTenant, resolvePreviewTenant } from '../utils/tenant';
 
 /**
@@ -13,11 +12,11 @@ function normalizeHostname(hostname: string): string {
 
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('request', async (event) => {
-    // Locale-market normalisation lives in `server/middleware/00.locale-market.ts`
-    // and runs AFTER plugins. Root `/` requests still flow through here, get
-    // a tenant attached, and only later get redirected by the middleware. The
-    // headersSent guard stays as a defence-in-depth check for any future
-    // plugin that responds early.
+    // Locale-market parsing, validation and redirects all live in
+    // `server/middleware/00.locale-market.ts`, which runs AFTER plugins. This
+    // hook only has to leave the tenant config on the context for it to
+    // validate against. The headersSent guard stays as a defence-in-depth
+    // check for any future plugin that responds early.
     if (event.node.res.headersSent) return;
 
     // Skip tenant context for health checks and internal endpoints (webhooks)
@@ -71,55 +70,6 @@ export default defineNitroPlugin((nitroApp) => {
       const tenantId = tenant.tenantId || hostname;
       event.context.tenant.tenantId = tenantId;
       event.context.tenant.config = tenant;
-
-      // Validate locale/market from plugin 00 against tenant config.
-      // Only runs when a locale/market prefix was detected and tenant has geinsSettings.
-      const localeMarket = event.context.localeMarket;
-
-      if (localeMarket && tenant.geinsSettings) {
-        const { resolved, corrected } = resolveLocaleMarket(localeMarket, {
-          availableLocales: tenant.geinsSettings.availableLocales,
-          availableMarkets: tenant.geinsSettings.availableMarkets,
-          defaultLocale: tenant.geinsSettings.locale,
-          defaultMarket: tenant.geinsSettings.market,
-        });
-
-        event.context.resolvedLocaleMarket = resolved;
-
-        if (corrected) {
-          // Build corrected redirect URL, preserving query string
-          const fullPath = event.path || '/';
-          const queryIndex = fullPath.indexOf('?');
-          const pathOnly =
-            queryIndex >= 0 ? fullPath.slice(0, queryIndex) : fullPath;
-          const query = queryIndex >= 0 ? fullPath.slice(queryIndex) : '';
-
-          const segments = pathOnly.split('/').filter(Boolean);
-          const remainingSegments = segments.slice(2);
-          const remainingPath =
-            remainingSegments.length > 0
-              ? '/' + remainingSegments.join('/')
-              : '/';
-
-          // Reset cookies to corrected values
-          const cookieOpts = {
-            httpOnly: false,
-            secure: !import.meta.dev,
-            sameSite: 'lax' as const,
-            path: '/',
-            maxAge: 365 * 24 * 60 * 60,
-          };
-          setCookie(event, COOKIE_NAMES.LOCALE, resolved.locale, cookieOpts);
-          setCookie(event, COOKIE_NAMES.MARKET, resolved.market, cookieOpts);
-
-          const redirectPath =
-            remainingPath === '/'
-              ? `/${resolved.market}/${resolved.locale}/${query}`
-              : `/${resolved.market}/${resolved.locale}${remainingPath}${query}`;
-
-          return sendRedirect(event, redirectPath, 302);
-        }
-      }
 
       const cachedTenantId = getTenantCookie(event);
 
