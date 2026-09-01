@@ -1,40 +1,27 @@
 /**
- * Shared locale/market prefix utilities.
- *
- * Works in both server (Node) and client (browser) contexts.
- * Single source of truth for detecting and stripping the leading
- * /{market}/{locale} prefix from URL paths.
+ * Locale/market prefix utilities, shared by server and browser. Pure functions
+ * only — no cookies, no redirects, no side effects.
  */
 
-// ---------------------------------------------------------------------------
-// Resolved locale/market — validated, expanded, single source of truth
-// ---------------------------------------------------------------------------
-
-/**
- * Validated locale/market data with BCP-47 expansion.
- * Set on `event.context.resolvedLocaleMarket` by `server/middleware/00.locale-market.ts`.
- */
+/** Set on `event.context.resolvedLocaleMarket` by `server/middleware/00.locale-market.ts`. */
 export interface ResolvedLocaleMarket {
-  /** Validated short market code, e.g. 'se' */
+  /** Short code, e.g. 'se'. */
   market: string;
-  /** Validated short locale code, e.g. 'sv' */
+  /** Short code, e.g. 'sv'. */
   locale: string;
-  /** Expanded BCP-47 locale, e.g. 'sv-SE' */
+  /** BCP-47, e.g. 'sv-SE'. */
   localeBcp47: string;
 }
 
-/**
- * Extracts 2-letter locale codes from full BCP-47 locale strings.
- *
- * @example
- * extractShortLocales(['sv-SE', 'en-US']) // Set(['sv', 'en'])
- * extractShortLocales([])                 // Set()
- */
+/** The shape of both URL prefix segments. */
+const TWO_LETTER_CODE = /^[a-z]{2}$/;
+
+/** `['sv-SE', 'en-US']` -> `Set(['sv', 'en'])`. */
 export function extractShortLocales(fullLocales: string[]): Set<string> {
   const shorts = new Set<string>();
   for (const l of fullLocales) {
     const short = l.split('-')[0];
-    if (short && /^[a-z]{2}$/.test(short)) {
+    if (short && TWO_LETTER_CODE.test(short)) {
       shorts.add(short);
     }
   }
@@ -42,15 +29,11 @@ export function extractShortLocales(fullLocales: string[]): Set<string> {
 }
 
 /**
- * Validates parsed locale/market values against tenant configuration.
- * Returns a resolved result with BCP-47 expansion and whether correction was needed.
+ * Validates a pair against tenant config, expanding the locale to BCP-47.
  *
- * A locale must clear both gates: the tenant has to sell it AND the app has to
- * ship messages for it. A tenant carrying a locale this build has no bundle for
- * would otherwise render raw translation keys. Markets have no app-side list —
- * they are tenant data all the way down — so the tenant's list is the only gate.
- *
- * Pure function — no side effects, no cookies, no redirects.
+ * A locale must clear both gates — the tenant sells it AND this build ships
+ * messages for it — or the page renders raw translation keys. Markets are
+ * tenant data all the way down, so their list is the only gate.
  */
 export function resolveLocaleMarket(
   parsed: { market: string; locale: string },
@@ -100,15 +83,92 @@ export function resolveLocaleMarket(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Supported locales — single source of truth
-// ---------------------------------------------------------------------------
+/** The codes a tenant can serve: sold by the tenant AND shipped by this build. */
+export function resolvableLocaleCodes(availableLocales: string[]): string[] {
+  const shipped = new Set<string>(SUPPORTED_LOCALE_CODES);
+  return [...extractShortLocales(availableLocales)].filter((code) =>
+    shipped.has(code),
+  );
+}
+
+export interface PrefixInterpretation {
+  /** Null when the slot was absent or unrecognised. */
+  market: string | null;
+  /** Null when the slot was absent or unrecognised. */
+  locale: string | null;
+  /** What is left after the prefix window. */
+  content: string[];
+  /**
+   * A leading segment was consumed as a prefix attempt, valid or not — the
+   * difference between a URL that got its prefix wrong and one that never had
+   * a prefix to get wrong.
+   */
+  attemptedPrefix: boolean;
+}
 
 /**
- * All locale codes the app supports, and the source of the `SupportedLocale`
- * type. The nuxt.config i18n `locales` array is maintained by hand alongside
- * it — adding a locale means editing both. `tests/unit/nuxt-config-locales.test.ts`
- * asserts the two lists stay in step.
+ * Read the leading segments as a `/{market}/{locale}` prefix, greedily, against
+ * the tenant's own lists.
+ *
+ * Inside the two-segment window a two-letter segment is ALWAYS a prefix
+ * attempt, even when it matches nothing: no content lives directly under
+ * `/{market}/`, so a bare code there cannot be a slug. Anything else is
+ * content, unless a real locale follows it — then it was a botched market.
+ *
+ * @example
+ * // markets ['se'], locales ['sv','en']; 'xx'/'zz' are never real codes
+ * ['se', 'xx']        // market 'se', locale null,  content []
+ * ['xx', 'en']        // market null, locale 'en',  content []
+ * ['hejhej', 'blaha'] // market null, locale null,  content both
+ * ['se', 'xxx']       // market 'se', locale null,  content ['xxx']
+ */
+export function interpretLocaleMarketPrefix(
+  segments: string[],
+  known: { markets: readonly string[]; locales: readonly string[] },
+): PrefixInterpretation {
+  const markets = new Set(known.markets);
+  const locales = new Set(known.locales);
+
+  const first = segments[0];
+  const second = segments[1];
+
+  let market: string | null = null;
+  let locale: string | null = null;
+  let index = 0;
+
+  if (first !== undefined) {
+    if (markets.has(first)) {
+      market = first;
+      index = 1;
+    } else if (TWO_LETTER_CODE.test(first)) {
+      index = 1;
+    } else if (second !== undefined && locales.has(second)) {
+      // A real locale follows, so this was a botched market, not content.
+      index = 1;
+    }
+  }
+
+  if (index === 1 && second !== undefined) {
+    if (locales.has(second)) {
+      locale = second;
+      index = 2;
+    } else if (TWO_LETTER_CODE.test(second)) {
+      index = 2;
+    }
+  }
+
+  return {
+    market,
+    locale,
+    content: segments.slice(index),
+    attemptedPrefix: index > 0,
+  };
+}
+
+/**
+ * Source of the `SupportedLocale` type. The nuxt.config i18n `locales` array is
+ * maintained by hand alongside it — adding a locale means editing both, and
+ * `tests/unit/nuxt-config-locales.test.ts` asserts they stay in step.
  */
 export const SUPPORTED_LOCALE_CODES = ['en', 'sv', 'nb', 'fi', 'da'] as const;
 
@@ -116,17 +176,11 @@ export const SUPPORTED_LOCALE_CODES = ['en', 'sv', 'nb', 'fi', 'da'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALE_CODES)[number];
 
 /**
- * Parse the leading /{market}/{locale} prefix from a path into its two short
- * codes, or null when the path has no such prefix. Query string and hash are
- * stripped before inspecting segments.
+ * `/se/en/c/one` -> `{ market: 'se', locale: 'en' }`; null when there is no
+ * such prefix. Query and hash are ignored.
  *
- * The codes are NOT validated against any tenant here. Pass the result to
- * resolveLocaleMarket for validation and BCP-47 expansion.
- *
- * @example
- * parseLocaleMarketPrefix('/se/en/c/categoryone') // { market: 'se', locale: 'en' }
- * parseLocaleMarketPrefix('/foder')               // null
- * parseLocaleMarketPrefix('/')                    // null
+ * Codes are NOT validated against any tenant — pass the result to
+ * resolveLocaleMarket for that.
  */
 export function parseLocaleMarketPrefix(
   path: string,
@@ -143,31 +197,17 @@ export function parseLocaleMarketPrefix(
   return null;
 }
 
-/**
- * Check whether a path starts with two 2-letter segments (market + locale).
- *
- * @example
- * hasLocaleMarketPrefix('/se/sv/foder')  // true
- * hasLocaleMarketPrefix('/foder')        // false
- * hasLocaleMarketPrefix('/')             // false
- */
+/** Whether a path starts with two 2-letter segments. */
 export function hasLocaleMarketPrefix(path: string): boolean {
   return parseLocaleMarketPrefix(path) !== null;
 }
 
 /**
- * Strip leading 2-letter locale/market prefix segments from a path.
+ * `/se/sv/foder` -> `/foder`; a path without a prefix is returned unchanged.
  *
- * The server middleware rewrites `/se/sv/foder` to `/foder` before SSR,
- * but on client-side navigation Vue Router sees the full URL. This function
- * ensures both sides produce the same canonical path for cache keys and
- * API queries, preventing hydration mismatches and duplicate cache entries.
- *
- * @example
- * stripLocaleMarketPrefix('/se/sv/foder') // '/foder'
- * stripLocaleMarketPrefix('/se/sv/')      // '/'
- * stripLocaleMarketPrefix('/foder')        // '/foder'
- * stripLocaleMarketPrefix('/')             // '/'
+ * SSR sees the rewritten path but client navigation sees the full URL, so both
+ * sides must derive the same cache key or they produce hydration mismatches
+ * and duplicate cache entries.
  */
 export function stripLocaleMarketPrefix(path: string): string {
   const segments = path.split('/').filter(Boolean);
@@ -185,19 +225,11 @@ export function stripLocaleMarketPrefix(path: string): string {
 }
 
 /**
- * Replace the leading `/{market}/{locale}/...` prefix with
- * `/{newMarket}/{locale}/...`. Preserves the existing locale segment and
- * the path tail (including trailing slash absence/presence).
+ * `swapMarketInPath('/se/sv/portal', 'fi')` -> `/fi/sv/portal`; locale and tail
+ * are preserved, trailing slash included.
  *
- * Used after `/api/auth/login` resolves a buyer-specific market that
- * differs from the URL the form was submitted from: we need to navigate
- * to the same logical page on the new market prefix so SSR re-runs with
- * the matching catalog/currency.
- *
- * @example
- * swapMarketInPath('/se/sv/portal', 'fi')        // '/fi/sv/portal'
- * swapMarketInPath('/se/sv/', 'no')              // '/no/sv/'
- * swapMarketInPath('/se/en/c/foo/bar', 'dk')     // '/dk/en/c/foo/bar'
+ * Used when login resolves a buyer-specific market that differs from the URL
+ * the form came from, so SSR re-runs with the matching catalog and currency.
  */
 export function swapMarketInPath(pathname: string, newMarket: string): string {
   const hasTrailingSlash = pathname.endsWith('/');
@@ -210,18 +242,7 @@ export function swapMarketInPath(pathname: string, newMarket: string): string {
   return `/${newMarket}/${locale}/${rest}${hasTrailingSlash ? '/' : ''}`;
 }
 
-/**
- * Normalize a route parameter (slug) into a consistent path format.
- *
- * @param slug - The slug parameter from the route (string, string[], or undefined)
- * @returns A normalized path string with leading slash and no trailing slash
- *
- * @example
- * normalizeSlugToPath(['category', 'product']) // '/category/product'
- * normalizeSlugToPath('category') // '/category'
- * normalizeSlugToPath([]) // '/'
- * normalizeSlugToPath(undefined) // '/'
- */
+/** `['category', 'product']` -> `/category/product`; empty or missing -> `/`. */
 export function normalizeSlugToPath(
   slug: string | string[] | undefined,
 ): string {

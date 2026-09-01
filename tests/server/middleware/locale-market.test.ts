@@ -46,9 +46,9 @@ function makeEvent(
 }
 
 /**
- * A tenant that can actually validate: both lists populated. Mirrors the dev
- * fixture — five locales, two markets — so the pair /se/de is invalid on the
- * locale axis and /xx/sv on the market axis.
+ * Mirrors the dev fixture. Invalid codes in these cases are always 'xx'/'zz',
+ * which no registry will ever assign — a real code like 'de' would quietly stop
+ * meaning "invalid" the day a tenant or this build starts shipping it.
  */
 const VALIDATING_TENANT = {
   locale: 'sv-SE',
@@ -222,16 +222,10 @@ describe('00.locale-market middleware', () => {
   });
 });
 
-/**
- * The URL pair is validated here, in the middleware, rather than in the tenant
- * context plugin: the Nitro `request` hook runs before the server-middleware
- * stack, so a plugin reading `event.context.localeMarket` always sees it unset.
- * These cases exercise that wiring — the handler with a tenant on the context —
- * not just the pure resolveLocaleMarket function.
- */
+/** Drives the real handler with a tenant on the context, not just the pure function. */
 describe('00.locale-market URL validation against the tenant', () => {
   it('redirects a locale the tenant does not carry, without setting cookies', () => {
-    handler(makeEvent('/se/de', VALIDATING_TENANT));
+    handler(makeEvent('/se/xx', VALIDATING_TENANT));
     expect(sendRedirectMock).toHaveBeenCalledWith(
       expect.anything(),
       '/se/sv/',
@@ -252,9 +246,9 @@ describe('00.locale-market URL validation against the tenant', () => {
 
   it('redirects a locale the tenant carries but the app ships no messages for', () => {
     handler(
-      makeEvent('/se/de', {
+      makeEvent('/se/xx', {
         ...VALIDATING_TENANT,
-        availableLocales: [...VALIDATING_TENANT.availableLocales, 'de-DE'],
+        availableLocales: [...VALIDATING_TENANT.availableLocales, 'xx-XX'],
       }),
     );
     expect(sendRedirectMock).toHaveBeenCalledWith(
@@ -265,7 +259,7 @@ describe('00.locale-market URL validation against the tenant', () => {
   });
 
   it('preserves the remaining path and query on a corrected redirect', () => {
-    handler(makeEvent('/se/de/c/some-cat?page=2', VALIDATING_TENANT));
+    handler(makeEvent('/se/xx/c/some-cat?page=2', VALIDATING_TENANT));
     expect(sendRedirectMock).toHaveBeenCalledWith(
       expect.anything(),
       '/se/sv/c/some-cat?page=2',
@@ -305,9 +299,8 @@ describe('00.locale-market URL validation against the tenant', () => {
     expect(event.context.resolvedLocaleMarket).toBeUndefined();
   });
 
-  // Ported from the tenant-context plugin suite, where the same cases used to
-  // run against a hand-set event.context.localeMarket — a precondition the real
-  // request path never produces. Here they go through the URL.
+  // Ported from the plugin suite, where these ran against a hand-set
+  // event.context.localeMarket that the real request path never produces.
   const TENANT_SE_NO_DK = {
     locale: 'sv-SE',
     market: 'se',
@@ -336,7 +329,7 @@ describe('00.locale-market URL validation against the tenant', () => {
   });
 
   it('corrects an invalid locale but keeps the valid market', () => {
-    handler(makeEvent('/no/de/products', TENANT_SE_NO_DK));
+    handler(makeEvent('/no/xx/products', TENANT_SE_NO_DK));
     expect(sendRedirectMock).toHaveBeenCalledWith(
       expect.anything(),
       '/no/sv/products',
@@ -345,7 +338,7 @@ describe('00.locale-market URL validation against the tenant', () => {
   });
 
   it('corrects both axes when both are invalid', () => {
-    handler(makeEvent('/xx/de/products', TENANT_SE_NO_DK));
+    handler(makeEvent('/zz/xx/products', TENANT_SE_NO_DK));
     expect(sendRedirectMock).toHaveBeenCalledWith(
       expect.anything(),
       '/se/sv/products',
@@ -397,5 +390,126 @@ describe('00.locale-market URL validation against the tenant', () => {
       }),
     );
     expect(sendRedirectMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The canonicalisation table, in tenant-a terms: defaults se/sv, markets se/fi,
+ * locales sv/en/nb/fi/da.
+ */
+describe('00.locale-market prefix canonicalisation', () => {
+  const TENANT = {
+    locale: 'sv-SE',
+    market: 'se',
+    availableLocales: ['sv-SE', 'en-GB', 'nb-NO', 'fi-FI', 'da-DK'],
+    availableMarkets: ['se', 'fi'],
+  };
+
+  const TABLE: Array<[string, string, string]> = [
+    ['/se/xx', '/se/sv/', 'invalid locale -> default locale, market kept'],
+    ['/xx/en', '/se/en/', 'invalid market -> default market, locale kept'],
+    ['/hejhej/en', '/se/en/', 'broken segment dropped, locale kept'],
+    [
+      '/hejhej/blaha',
+      '/se/sv/hejhej/blaha',
+      'nothing matches -> whole string is content',
+    ],
+    ['/se/xx', '/se/sv/', 'unknown two-letter segment is a locale attempt'],
+    ['/se/xx/foo', '/se/sv/foo', 'locale attempt corrected, tail preserved'],
+    [
+      '/se/xxx',
+      '/se/sv/xxx',
+      'non-code segment stays content, default locale fills the gap',
+    ],
+    [
+      '/se/xxx/foo',
+      '/se/sv/xxx/foo',
+      'non-code segment and its tail both stay content',
+    ],
+  ];
+
+  for (const [request, expected, why] of TABLE) {
+    it(`${request} -> ${expected} (${why})`, () => {
+      handler(makeEvent(request, TENANT));
+      expect(sendRedirectMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expected,
+        302,
+      );
+    });
+  }
+
+  it('writes no cookies on any corrective hop', () => {
+    for (const [request] of TABLE) {
+      setCookieMock.mockClear();
+      handler(makeEvent(request, TENANT));
+      expect(setCookieMock, `${request} wrote a cookie`).not.toHaveBeenCalled();
+    }
+  });
+
+  it('ignores locale/market cookies when correcting a botched prefix', () => {
+    // A stale cookie must not decide where a bad URL lands.
+    getCookieMock.mockImplementation((_e: unknown, name: string) =>
+      name === 'market' ? 'fi' : name === 'locale' ? 'nb' : undefined,
+    );
+    handler(makeEvent('/se/xx', TENANT));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/sv/',
+      302,
+    );
+  });
+
+  it('preserves the query string through canonicalisation', () => {
+    handler(makeEvent('/hejhej/blaha?page=2', TENANT));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/sv/hejhej/blaha?page=2',
+      302,
+    );
+  });
+
+  it('renders a canonical URL in place rather than redirecting', () => {
+    const event = makeEvent('/fi/fi/c/cat', TENANT);
+    handler(event);
+    expect(sendRedirectMock).not.toHaveBeenCalled();
+    expect(event.context.resolvedLocaleMarket).toEqual({
+      market: 'fi',
+      locale: 'fi',
+      localeBcp47: 'fi-FI',
+    });
+  });
+
+  it('sends type-prefixed content paths 301 so search engines collapse them', () => {
+    handler(makeEvent('/p/kategori-1/skarkant', TENANT));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/sv/p/kategori-1/skarkant',
+      301,
+    );
+  });
+
+  // Only pages carry a prefix. These are all reachable at fixed URLs that must
+  // not move, and several serve 200 in production today.
+  it('leaves non-page runtime routes untouched', () => {
+    const NON_PAGES = [
+      '/api/products/foo',
+      '/_nuxt/entry.js',
+      '/__nuxt_error',
+      '/robots.txt',
+      '/sitemap.xml',
+      '/.well-known/security.txt',
+      '/_ipx/w_100/img/x.png',
+      '/_ipx/w_100/img/x',
+      '/favicon.ico',
+      '/healthz',
+    ];
+    for (const p of NON_PAGES) {
+      sendRedirectMock.mockClear();
+      setCookieMock.mockClear();
+      handler(makeEvent(p, TENANT));
+      expect(sendRedirectMock, p).not.toHaveBeenCalled();
+      expect(setCookieMock, p).not.toHaveBeenCalled();
+    }
   });
 });

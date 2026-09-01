@@ -350,8 +350,8 @@ describe('tenant-seo plugin / reactive locale', () => {
         ...tenantRef.value,
         availableLocales: ['sv-SE'],
       };
-      await runSetup('de');
-      expect(langFor()).toBe('de');
+      await runSetup('xx');
+      expect(langFor()).toBe('xx');
     });
 
     it('the tenant tag is matched on prefix, not on a full-tag equality', async () => {

@@ -1,15 +1,9 @@
 /**
- * Guards the client half of URL locale/market validation.
+ * `/:market/:locale` matches ANY two segments, so `/hejhej/sv/` must not reach
+ * the market cookie. Covers the market guard and the shipped-locales gate.
  *
- * The prefixed routes are registered as `/:market/:locale`, which matches ANY
- * two segments, so this middleware can be handed arbitrary strings — a visit to
- * `/hejhej/sv/` must not put `hejhej` in the market cookie. The locale side has
- * always had a guard (`$i18n.locales` before `setLocale`); these cases cover
- * the market counterpart and the app-shipped-locales gate.
- *
- * Runs in the Nuxt tier (see the list in vitest.workspace.ts): the middleware
- * reaches useCookie/useTenant/useNuxtApp through auto-imports, which resolve to
- * real module paths that only mockNuxtImport can intercept.
+ * Nuxt tier (see vitest.workspace.ts): the middleware reaches its composables
+ * through auto-imports, which only mockNuxtImport can intercept.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref, computed } from 'vue';
@@ -101,8 +95,8 @@ describe('locale-market.global locale validation', () => {
   });
 
   it('does not switch to a locale the app ships no messages for', () => {
-    i18nLocales.value = [...i18nLocales.value, { code: 'de' }];
-    handler(route('/se/de/', { market: 'se', locale: 'de' }));
+    i18nLocales.value = [...i18nLocales.value, { code: 'xx' }];
+    handler(route('/se/xx/', { market: 'se', locale: 'xx' }));
     expect(setLocaleMock).not.toHaveBeenCalled();
   });
 

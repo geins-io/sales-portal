@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { listBuyerMarkets } from '../utils/buyer-market';
 import { loadUserForToken } from '../utils/load-user';
+import { isPagePath } from '../utils/is-page-path';
 
 /**
  * Server-side guard that intercepts deep-link requests where an authenticated
@@ -62,20 +63,7 @@ export default defineEventHandler(async (event) => {
   const path = queryIndex >= 0 ? fullPath.slice(0, queryIndex) : fullPath;
   const query = queryIndex >= 0 ? fullPath.slice(queryIndex) : '';
 
-  // Page-only filter: skip APIs, internal Nuxt routes, static assets,
-  // sitemap/robots/healthz, and any path that looks like a file.
-  if (
-    path.startsWith('/api/') ||
-    path.startsWith('/_nuxt/') ||
-    path.startsWith('/__nuxt') ||
-    path.startsWith('/favicon') ||
-    path.startsWith('/robots.txt') ||
-    path.startsWith('/sitemap') ||
-    path.startsWith('/healthz') ||
-    path.includes('.')
-  ) {
-    return;
-  }
+  if (!isPagePath(path)) return;
 
   const accept = getHeader(event, 'accept') || '';
   if (!accept.includes('text/html')) return;
