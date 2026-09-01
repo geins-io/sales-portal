@@ -75,8 +75,12 @@ vi.stubGlobal('createAppError', mockCreateAppError);
 vi.stubGlobal('ErrorCode', {
   BAD_REQUEST: 'BAD_REQUEST',
 });
+type AuthCookies = { authToken?: string; refreshToken?: string };
+const mockGetAuthCookies = vi.fn((): AuthCookies => ({}));
+
 vi.stubGlobal('getRequestLocale', mockGetRequestLocale);
 vi.stubGlobal('getRequestMarket', mockGetRequestMarket);
+vi.stubGlobal('getAuthCookies', mockGetAuthCookies);
 
 const MOCK_GEINS_SETTINGS: GeinsSettings = {
   apiKey: 'test-api-key',
@@ -103,6 +107,7 @@ describe('server/services/_sdk', () => {
   let getTenantSDK: typeof import('../../../server/services/_sdk').getTenantSDK;
   let getChannelVariables: typeof import('../../../server/services/_sdk').getChannelVariables;
   let getRequestChannelVariables: typeof import('../../../server/services/_sdk').getRequestChannelVariables;
+  let buildRequestContext: typeof import('../../../server/services/_sdk').buildRequestContext;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -113,6 +118,8 @@ describe('server/services/_sdk', () => {
     getTenantSDK = mod.getTenantSDK;
     getChannelVariables = mod.getChannelVariables;
     getRequestChannelVariables = mod.getRequestChannelVariables;
+    buildRequestContext = mod.buildRequestContext;
+    mockGetAuthCookies.mockReturnValue({});
   });
 
   describe('createTenantSDK', () => {
@@ -386,6 +393,56 @@ describe('server/services/_sdk', () => {
         channelId: '1|se',
         languageId: 'sv-SE',
         marketId: 'se',
+      });
+    });
+  });
+
+  describe('buildRequestContext', () => {
+    it('returns undefined when nothing upstream set a locale, market or token', () => {
+      mockGetRequestLocale.mockReturnValue(undefined);
+      mockGetRequestMarket.mockReturnValue(undefined);
+
+      expect(buildRequestContext(createEvent('test.com'))).toBeUndefined();
+    });
+
+    it('omits languageId entirely when no locale was requested', () => {
+      // Absent, not undefined: an undefined key overrides the SDK default.
+      mockGetRequestLocale.mockReturnValue(undefined);
+      mockGetRequestMarket.mockReturnValue('se');
+
+      const ctx = buildRequestContext(createEvent('test.com'));
+
+      expect(ctx).toEqual({ marketId: 'se' });
+      expect(ctx && 'languageId' in ctx).toBe(false);
+    });
+
+    it('omits marketId entirely when no market was requested', () => {
+      mockGetRequestLocale.mockReturnValue('nb-NO');
+      mockGetRequestMarket.mockReturnValue(undefined);
+
+      const ctx = buildRequestContext(createEvent('test.com'));
+
+      expect(ctx).toEqual({ languageId: 'nb-NO' });
+      expect(ctx && 'marketId' in ctx).toBe(false);
+    });
+
+    it('passes the requested locale and market through when both are set', () => {
+      mockGetRequestLocale.mockReturnValue('fi-FI');
+      mockGetRequestMarket.mockReturnValue('fi');
+
+      expect(buildRequestContext(createEvent('test.com'))).toEqual({
+        languageId: 'fi-FI',
+        marketId: 'fi',
+      });
+    });
+
+    it('builds a context for an auth token alone', () => {
+      mockGetRequestLocale.mockReturnValue(undefined);
+      mockGetRequestMarket.mockReturnValue(undefined);
+      mockGetAuthCookies.mockReturnValue({ authToken: 'token-123' });
+
+      expect(buildRequestContext(createEvent('test.com'))).toEqual({
+        userToken: 'token-123',
       });
     });
   });

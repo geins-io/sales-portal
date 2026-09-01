@@ -26,12 +26,13 @@ function expandLocale(shortCode: string, availableLocales?: string[]): string {
  * 2. Cookie fallback — for API routes where resolvedLocaleMarket is not set.
  *    The cookie stores short codes ('sv', 'en') which are expanded using the
  *    tenant's availableLocales list.
- * 3. No cookie — the tenant config default locale, then 'sv-SE' as the
- *    last resort (mirrors the 'se' market fallback).
+ * 3. No cookie — the tenant config default locale.
  *
- * @returns The full locale code (e.g. 'sv-SE'), falling back to 'sv-SE'.
+ * Undefined means nothing was requested, and callers depend on seeing it: the
+ * SDK must not be handed a languageId that overrides its own default, and the
+ * CMS keys such a request under 'default'. Each caller owns its last resort.
  */
-export function getRequestLocale(event: H3Event): string {
+export function getRequestLocale(event: H3Event): string | undefined {
   // Prefer the pre-validated, BCP-47 expanded value from plugin 01
   const resolved = event.context.resolvedLocaleMarket;
   if (resolved?.localeBcp47) return resolved.localeBcp47;
@@ -41,12 +42,8 @@ export function getRequestLocale(event: H3Event): string {
   const queryLocale = getQuery(event)?.locale as string | undefined;
   const shortLocale = queryLocale || getCookie(event, COOKIE_NAMES.LOCALE);
   if (!shortLocale) {
-    // No cookie — the tenant config default locale wins; 'sv-SE' is the
-    // last resort when the config carries no default.
-    const configLocale = (
-      event.context.tenant?.config as TenantConfig | undefined
-    )?.geinsSettings?.locale;
-    return configLocale ?? 'sv-SE';
+    return (event.context.tenant?.config as TenantConfig | undefined)
+      ?.geinsSettings?.locale;
   }
 
   // Already in BCP-47 format (contains hyphen) — return as-is
