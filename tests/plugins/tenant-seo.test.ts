@@ -20,9 +20,15 @@ const i18nLocales = ref<
 // expose merged accessors so existing assertions (meta) and the new lang
 // assertions both resolve against the right entry.
 const capturedHeadArgs: Array<Record<string, unknown>> = [];
-const mockUseHead = vi.fn((arg: Record<string, unknown>) => {
-  capturedHeadArgs.push(arg);
-});
+// Mirrors the real useHead(input, options?) arity: the plugin passes a
+// tagPriority bag as the second argument, and a one-parameter mock would make
+// vi.fn infer a length-1 call tuple that mock.calls[n][1] cannot index.
+const mockUseHead = vi.fn(
+  (arg: Record<string, unknown>, options?: Record<string, unknown>) => {
+    void options;
+    capturedHeadArgs.push(arg);
+  },
+);
 
 // The last entry that carries htmlAttrs wins for <html lang> in unhead's merge.
 function headEntryWithHtmlAttrs(): Record<string, unknown> {
@@ -377,16 +383,19 @@ describe('tenant-seo plugin / reactive locale', () => {
         Array<Record<string, string>>
       >;
 
-      // At setup time locale is 'sv'.
+      // At setup time locale is 'sv'; og:locale carries the underscore form
+      // of the same BCP-47 tag <html lang> gets, resolved from the tenant.
       const ogLocaleAtSetup = meta.value.find(
         (m) => m.property === 'og:locale',
       );
-      expect(ogLocaleAtSetup?.content).toBe('sv');
+      expect(ogLocaleAtSetup?.content).toBe('sv_SE');
 
       // Flip locale to 'en' (simulates the route middleware running).
       i18nLocale.value = 'en';
 
-      // The computed re-evaluates - og:locale should now reflect 'en'.
+      // The computed re-evaluates - og:locale should now reflect 'en', which
+      // stays region-less because neither the tenant nor nuxt.config pins a
+      // region to it.
       const ogLocaleAfterFlip = meta.value.find(
         (m) => m.property === 'og:locale',
       );
@@ -400,6 +409,23 @@ describe('tenant-seo plugin / reactive locale', () => {
       >;
       const ogLocale = meta.value.find((m) => m.property === 'og:locale');
       expect(ogLocale?.content).toBe('en_SE');
+    });
+
+    it('og:locale matches <html lang> for a short code the tenant regions', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: ['sv-SE', 'nb-NO'],
+      };
+      await runSetup('nb');
+
+      const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
+      expect((htmlAttrs.lang as () => string)()).toBe('nb-NO');
+
+      const meta = capturedHeadArg.meta as ComputedRef<
+        Array<Record<string, string>>
+      >;
+      const ogLocale = meta.value.find((m) => m.property === 'og:locale');
+      expect(ogLocale?.content).toBe('nb_NO');
     });
   });
 

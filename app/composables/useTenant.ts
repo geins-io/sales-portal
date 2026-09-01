@@ -91,7 +91,7 @@ export function useTenant() {
     if (!raw) return [];
     const locales = raw.availableLocales;
     if (!Array.isArray(locales)) return [];
-    return locales.map((l: string) => l.split('-')[0]);
+    return locales.map((l: string) => l.split('-')[0] ?? l);
   });
 
   /** Available market codes for this tenant (e.g. ['se', 'no', 'dk']). */

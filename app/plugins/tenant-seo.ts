@@ -82,9 +82,11 @@ export default defineNuxtPlugin({
       // Open Graph basics
       meta.push({ property: 'og:site_name', content: brandName.value });
       meta.push({ property: 'og:type', content: 'website' });
+      // Open Graph wants the underscore form of the same BCP-47 tag that
+      // <html lang> carries ('nb-NO' -> 'nb_NO'), not the bare short code.
       meta.push({
         property: 'og:locale',
-        content: seoLocale.value.replace('-', '_'),
+        content: seoLang.value.replace('-', '_'),
       });
 
       if (ogImageUrl.value) {

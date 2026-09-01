@@ -59,7 +59,7 @@ const localeNames = computed(() => {
 });
 
 const orderedLocales = computed(() =>
-  orderLocalesByName(availableLocales.value as string[], localeNames.value),
+  orderLocalesByName(availableLocales.value, localeNames.value),
 );
 
 // Short uppercase abbreviation shown in the trigger (e.g. "SV"/"EN")

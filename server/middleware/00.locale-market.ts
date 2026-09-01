@@ -119,8 +119,9 @@ function resolveDefaultMarketLocale(event: import('h3').H3Event): {
   // the tenant context plugin, which runs before this middleware), then the
   // 'se'/'sv' pair as the last resort. Market binds currency (ADR-020) so
   // there is no neutral market to end on.
-  const geinsSettings = (event.context.tenant?.config as TenantConfig)
-    ?.geinsSettings;
+  const geinsSettings = (
+    event.context.tenant?.config as TenantConfig | undefined
+  )?.geinsSettings;
   const configMarket = geinsSettings?.market;
   const configLocale = geinsSettings?.locale;
 
