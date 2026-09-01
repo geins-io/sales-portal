@@ -1,10 +1,12 @@
-import { findTenantBcp47 } from '~/utils/locale-bcp47';
+import { hreflangFor } from '~/utils/locale-bcp47';
 
 /**
  * Composable for generating canonical + hreflang link tags.
  *
  * Produces a canonical link for the current locale/market and alternate
  * hreflang links for every valid locale, plus an x-default entry.
+ * `hreflangFor` owns the alternate hreflang rule.
+ *
  * Calls `useHead({ link })` internally so consumers only need to call
  * `useSeoLinks(path)`.
  *
@@ -34,14 +36,7 @@ export function useSeoLinks(
     const pagePath = toValue(path);
     const overrides = toValue(localeOverrides) ?? {};
 
-    // hreflang must be the locale's own BCP-47 code from the tenant config
-    // (e.g. 'nb' -> 'nb-NO'), never short locale + market: language region
-    // and market are independent axes, so 'nb-SE' would claim a targeting
-    // we do not mean. Falls back to the bare short code (valid hreflang)
-    // when the tenant config carries no matching BCP-47 locale.
     const fullLocales = tenant.value?.availableLocales;
-    const toBcp47 = (short: string): string =>
-      findTenantBcp47(short, fullLocales) ?? short;
 
     const links: Array<{ rel: string; href: string; hreflang?: string }> = [];
 
@@ -60,7 +55,7 @@ export function useSeoLinks(
     );
 
     for (const loc of localeArray) {
-      const hreflang = toBcp47(loc);
+      const hreflang = hreflangFor(loc, m, fullLocales);
       const href =
         overrides[loc] ??
         (pagePath === '/' ? `/${m}/${loc}/` : `/${m}/${loc}${pagePath}`);

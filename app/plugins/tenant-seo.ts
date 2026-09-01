@@ -35,13 +35,14 @@ export default defineNuxtPlugin({
     );
 
     // BCP-47 form of the active locale for `<html lang>`. Resolution order:
-    //   1. the tenant's own BCP-47 tag for this short code ('en' -> 'en-GB'),
-    //      the same source hreflang uses, so the two can never disagree;
+    //   1. the tenant's own BCP-47 tag for this short code ('en' -> 'en-GB');
     //   2. the i18n locale object's `language` field, for locales the tenant
     //      does not carry;
     //   3. the short code itself (already a valid language tag).
     // The tenant wins because the region tag is tenant-dependent: nuxt.config
     // declares 'en' region-less precisely because no single region is correct.
+    // This is the document's language, not hreflang's market-based audience
+    // targeting; the two values legitimately differ.
     const seoLang = computed(() => {
       const code = seoLocale.value;
       const tenantTag = findTenantBcp47(code, tenant.value?.availableLocales);

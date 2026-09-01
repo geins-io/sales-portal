@@ -100,20 +100,19 @@ describe('useSeoLinks', () => {
     });
   });
 
-  it("generates hreflang alternates from the locales' BCP-47 codes, not locale+market", () => {
+  it('generates hreflang alternates from the locale plus the market region', () => {
     const { seoLinks } = useSeoLinks('/p/my-product');
     const alternates = seoLinks.value.filter(
       (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
     );
-    // en-US, never en-SE: the market must not appear in hreflang.
     expect(alternates).toEqual([
       { rel: 'alternate', href: '/se/sv/p/my-product', hreflang: 'sv-SE' },
-      { rel: 'alternate', href: '/se/en/p/my-product', hreflang: 'en-US' },
+      { rel: 'alternate', href: '/se/en/p/my-product', hreflang: 'en-SE' },
     ]);
   });
 
-  it('emits the BCP-47 code for a locale whose region differs from the market', () => {
-    // nb-NO on market se: the URL prefix stays /se/nb/ but hreflang is nb-NO.
+  it('targets the market even when the locale has its own home region', () => {
+    // nb-NO in tenant config, but served on market se: nb-SE.
     mockTenantLocales.value = ['sv-SE', 'en-US', 'nb-NO'];
     const { seoLinks } = useSeoLinks('/p/my-product');
     const alternates = seoLinks.value.filter(
@@ -121,31 +120,47 @@ describe('useSeoLinks', () => {
     );
     expect(alternates).toEqual([
       { rel: 'alternate', href: '/se/sv/p/my-product', hreflang: 'sv-SE' },
-      { rel: 'alternate', href: '/se/en/p/my-product', hreflang: 'en-US' },
-      { rel: 'alternate', href: '/se/nb/p/my-product', hreflang: 'nb-NO' },
+      { rel: 'alternate', href: '/se/en/p/my-product', hreflang: 'en-SE' },
+      { rel: 'alternate', href: '/se/nb/p/my-product', hreflang: 'nb-SE' },
     ]);
   });
 
-  it('keeps the same hreflang values on a different market', () => {
+  it('re-targets every hreflang value on a different market', () => {
     mockTenantLocales.value = ['sv-SE', 'en-US', 'nb-NO'];
     mockMarketCookieValue.value = 'fi';
     const { seoLinks } = useSeoLinks('/p/my-product');
     const hreflangs = seoLinks.value
       .filter((l) => l.rel === 'alternate' && l.hreflang !== 'x-default')
       .map((l) => l.hreflang);
-    expect(hreflangs).toEqual(['sv-SE', 'en-US', 'nb-NO']);
+    expect(hreflangs).toEqual(['sv-FI', 'en-FI', 'nb-FI']);
   });
 
-  it('falls back to the bare short code when no BCP-47 locale matches', () => {
-    // Defensive: validLocales and tenant locales derive from the same config,
-    // so a miss should not happen — but a bare code is still valid hreflang.
-    mockTenantLocales.value = ['sv'];
+  it('falls back to the tenant BCP-47 tag when the market is not an ISO region', () => {
+    // 'sv-EU' is not a language tag, so the tenant's own tags are emitted.
+    mockTenantLocales.value = ['sv-SE', 'en-US', 'nb-NO'];
+    mockMarketCookieValue.value = 'eu';
     const { seoLinks } = useSeoLinks('/p/my-product');
     const alternates = seoLinks.value.filter(
       (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
     );
     expect(alternates).toEqual([
-      { rel: 'alternate', href: '/se/sv/p/my-product', hreflang: 'sv' },
+      { rel: 'alternate', href: '/eu/sv/p/my-product', hreflang: 'sv-SE' },
+      { rel: 'alternate', href: '/eu/en/p/my-product', hreflang: 'en-US' },
+      { rel: 'alternate', href: '/eu/nb/p/my-product', hreflang: 'nb-NO' },
+    ]);
+  });
+
+  it('falls back to the bare short code when neither market nor tenant carries a region', () => {
+    // Defensive: validLocales and tenant locales derive from the same config,
+    // so a miss should not happen — but a bare code is still valid hreflang.
+    mockTenantLocales.value = ['sv'];
+    mockMarketCookieValue.value = 'eu';
+    const { seoLinks } = useSeoLinks('/p/my-product');
+    const alternates = seoLinks.value.filter(
+      (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
+    );
+    expect(alternates).toEqual([
+      { rel: 'alternate', href: '/eu/sv/p/my-product', hreflang: 'sv' },
     ]);
   });
 
@@ -170,7 +185,7 @@ describe('useSeoLinks', () => {
     const { seoLinks } = useSeoLinks('/');
     const canonical = seoLinks.value.find((l) => l.rel === 'canonical');
     expect(canonical?.href).toBe('/se/sv/');
-    const alternate = seoLinks.value.find((l) => l.hreflang === 'en-US');
+    const alternate = seoLinks.value.find((l) => l.hreflang === 'en-SE');
     expect(alternate?.href).toBe('/se/en/');
   });
 
@@ -233,10 +248,10 @@ describe('useSeoLinks', () => {
       expect(seoLinks.value).toEqual([
         { rel: 'canonical', href: '/se/sv/' },
         { rel: 'alternate', href: '/se/sv/', hreflang: 'sv-SE' },
-        { rel: 'alternate', href: '/se/en/', hreflang: 'en-GB' },
-        { rel: 'alternate', href: '/se/nb/', hreflang: 'nb-NO' },
-        { rel: 'alternate', href: '/se/fi/', hreflang: 'fi-FI' },
-        { rel: 'alternate', href: '/se/da/', hreflang: 'da-DK' },
+        { rel: 'alternate', href: '/se/en/', hreflang: 'en-SE' },
+        { rel: 'alternate', href: '/se/nb/', hreflang: 'nb-SE' },
+        { rel: 'alternate', href: '/se/fi/', hreflang: 'fi-SE' },
+        { rel: 'alternate', href: '/se/da/', hreflang: 'da-SE' },
         { rel: 'alternate', href: '/se/en/', hreflang: 'x-default' },
       ]);
     });
@@ -251,7 +266,17 @@ describe('useSeoLinks', () => {
         seoLinks.value
           .filter((l) => l.rel === 'alternate' && l.hreflang !== 'x-default')
           .map((l) => l.hreflang),
-      ).toEqual(['sv-SE', 'en-GB', 'nb-NO', 'fi-FI', 'da-DK']);
+      ).toEqual(['sv-SE', 'en-SE', 'nb-SE', 'fi-SE', 'da-SE']);
+    });
+
+    it('the whole set re-targets to the market the pages are served on', () => {
+      mockMarketCookieValue.value = 'fi';
+      const { seoLinks } = useSeoLinks('/');
+      expect(
+        seoLinks.value
+          .filter((l) => l.rel === 'alternate' && l.hreflang !== 'x-default')
+          .map((l) => l.hreflang),
+      ).toEqual(['sv-FI', 'en-FI', 'nb-FI', 'fi-FI', 'da-FI']);
     });
 
     it('every root href keeps the trailing slash, never a bare /se/sv', () => {
@@ -295,7 +320,7 @@ describe('useSeoLinks', () => {
       const { seoLinks } = useSeoLinks('/p/product-en', () => overrides);
 
       const enAlternate = seoLinks.value.find(
-        (l) => l.rel === 'alternate' && l.hreflang === 'en-US',
+        (l) => l.rel === 'alternate' && l.hreflang === 'en-SE',
       );
       expect(enAlternate?.href).toBe('/se/en/p/product-en');
     });
@@ -346,14 +371,14 @@ describe('useSeoLinks', () => {
       const { seoLinks } = useSeoLinks('/p/product', overrides);
 
       const enAlternate = seoLinks.value.find(
-        (l) => l.rel === 'alternate' && l.hreflang === 'en-US',
+        (l) => l.rel === 'alternate' && l.hreflang === 'en-SE',
       );
       expect(enAlternate?.href).toBe('/se/en/p/real-en-slug');
 
       // Update the ref - should reactively update
       overrides.value = { en: '/se/en/p/updated-en-slug' };
       const updatedEnAlternate = seoLinks.value.find(
-        (l) => l.rel === 'alternate' && l.hreflang === 'en-US',
+        (l) => l.rel === 'alternate' && l.hreflang === 'en-SE',
       );
       expect(updatedEnAlternate?.href).toBe('/se/en/p/updated-en-slug');
     });
