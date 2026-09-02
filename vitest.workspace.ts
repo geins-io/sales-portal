@@ -1,5 +1,5 @@
 import type { Plugin } from 'vite';
-import { defineProject } from 'vitest/config';
+import { defineProject, type UserWorkspaceConfig } from 'vitest/config';
 import { getVitestConfigFromNuxt } from '@nuxt/test-utils/config';
 
 // Files that need the full Nuxt test environment (registerEndpoint / mockNuxtImport / useNuxtApp).
@@ -14,6 +14,7 @@ const nuxtTestFiles = [
   'tests/components/layout/MobileNavPanel.test.ts',
   'tests/server/api-contracts.test.ts',
   'tests/server/external-api.test.ts',
+  'tests/middleware/locale-market-global.test.ts',
 ];
 
 // Vite plugin that provides Nuxt environment options to @nuxt/test-utils at runtime.
@@ -37,9 +38,16 @@ function nuxtEnvironmentOptionsPlugin(
 
 // Get Nuxt's Vite config once (aliases, auto-imports, plugins).
 // This single call boots Nuxt exactly once and is reused by all three tiers.
+//
+// Two Vite majors coexist in the tree (the docs site pins the older one), and
+// the config that comes back is typed against a different copy than the one
+// vitest types defineProject against. The Plugin and ServerOptions shapes are
+// structurally identical but nominally distinct, so TypeScript rejects the
+// spread. Re-typing once here beats a cast at each of the three call sites;
+// the value itself is untouched.
 const nuxtViteConfig = getVitestConfigFromNuxt(undefined, {
   overrides: { experimental: { appManifest: false } },
-});
+}) as Promise<UserWorkspaceConfig>;
 
 export default [
   // Tier 1: Node — fast tests with Nuxt's Vite config but no Nuxt runtime

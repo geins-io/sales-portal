@@ -16,6 +16,7 @@ definePageMeta({
 const { t } = useI18n();
 const route = useRoute();
 const { localePath } = useLocaleMarket();
+const { formatLocale } = useFormatLocale();
 const cartStore = useCartStore();
 const { isCatalogMode } = useTenant();
 const { canAccess } = useFeatureAccess();
@@ -107,7 +108,7 @@ watch(
 
 function formatDate(iso?: string): string {
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString(undefined, {
+  return new Date(iso).toLocaleDateString(formatLocale.value, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

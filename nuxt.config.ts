@@ -157,6 +157,9 @@ export default defineNuxtConfig({
     locales: [
       { code: 'en', language: 'en', name: 'English', file: 'en.json' },
       { code: 'sv', language: 'sv-SE', name: 'Svenska', file: 'sv.json' },
+      { code: 'nb', language: 'nb-NO', name: 'Norsk', file: 'nb.json' },
+      { code: 'fi', language: 'fi-FI', name: 'Suomi', file: 'fi.json' },
+      { code: 'da', language: 'da-DK', name: 'Dansk', file: 'da.json' },
     ],
     langDir: 'locales',
     strategy: 'no_prefix',

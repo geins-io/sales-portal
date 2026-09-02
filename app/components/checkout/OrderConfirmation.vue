@@ -20,6 +20,7 @@ const displayOrderNumber = computed(
 );
 
 const { t } = useI18n();
+const { formatLocale } = useFormatLocale();
 const { localePath } = useLocaleMarket();
 
 const COLLAPSED_ROW_LIMIT = 3;
@@ -84,7 +85,7 @@ function lineTotal(row: {
   const qty = row.quantity ?? 0;
   if (typeof unit === 'number' && qty > 0) {
     const currency = props.summary?.total?.currency ?? '';
-    const value = (unit * qty).toLocaleString('sv-SE');
+    const value = (unit * qty).toLocaleString(formatLocale.value);
     return `${value} ${currency}`.trim();
   }
   return row.price?.priceIncVatFormatted ?? '';
@@ -290,7 +291,7 @@ function lineTotal(row: {
                       ? (
                           summary.total.itemValueIncVat -
                           summary.total.itemValueExVat
-                        ).toLocaleString('sv-SE') +
+                        ).toLocaleString(formatLocale) +
                         ' ' +
                         (summary.total.currency ?? '')
                       : '-'

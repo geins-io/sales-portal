@@ -11,9 +11,9 @@ declare module 'h3' {
       /** Full resolved tenant config (set by 02.tenant-context plugin). */
       config?: TenantConfig;
     };
-    /** Raw market/locale parsed from URL prefix by plugin 00. */
+    /** Raw market/locale parsed from URL prefix by middleware 00. */
     localeMarket: { market: string; locale: string } | undefined;
-    /** Validated locale/market with BCP-47 expansion, set by plugin 01. */
+    /** Validated locale/market with BCP-47 expansion, set by middleware 00. */
     resolvedLocaleMarket: ResolvedLocaleMarket | undefined;
   }
 }

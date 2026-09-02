@@ -1,8 +1,12 @@
+import { hreflangFor } from '~/utils/locale-bcp47';
+
 /**
  * Composable for generating canonical + hreflang link tags.
  *
  * Produces a canonical link for the current locale/market and alternate
  * hreflang links for every valid locale, plus an x-default entry.
+ * `hreflangFor` owns the alternate hreflang rule.
+ *
  * Calls `useHead({ link })` internally so consumers only need to call
  * `useSeoLinks(path)`.
  *
@@ -24,12 +28,15 @@ export function useSeoLinks(
   localeOverrides?: MaybeRefOrGetter<Record<string, string>>,
 ) {
   const { currentMarket, currentLocale, validLocales } = useLocaleMarket();
+  const { tenant } = useTenant();
 
   const seoLinks = computed(() => {
     const m = currentMarket.value;
     const l = currentLocale.value;
     const pagePath = toValue(path);
     const overrides = toValue(localeOverrides) ?? {};
+
+    const fullLocales = tenant.value?.availableLocales;
 
     const links: Array<{ rel: string; href: string; hreflang?: string }> = [];
 
@@ -48,7 +55,7 @@ export function useSeoLinks(
     );
 
     for (const loc of localeArray) {
-      const hreflang = `${loc}-${m.toUpperCase()}`;
+      const hreflang = hreflangFor(loc, m, fullLocales);
       const href =
         overrides[loc] ??
         (pagePath === '/' ? `/${m}/${loc}/` : `/${m}/${loc}${pagePath}`);

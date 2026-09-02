@@ -60,4 +60,14 @@ describe('formatPrice', () => {
     expect(result).toContain('$');
     expect(result).toContain('29.99');
   });
+
+  it('falls back to the "sv-SE" locale when no locale is given', () => {
+    const result = formatPrice(199, 'SEK');
+    expect(result).toBe(
+      new Intl.NumberFormat('sv-SE', {
+        style: 'currency',
+        currency: 'SEK',
+      }).format(199),
+    );
+  });
 });

@@ -5,7 +5,8 @@ import { ref, computed } from 'vue';
 const mockLocaleRef = ref('sv');
 const mockMarketCookieValue = ref<string | null>('se');
 const mockTenantMarket = ref('se');
-const mockAvailableLocales = ref<string[]>(['sv', 'en']);
+// Tenant config carries full BCP-47 locales; the short codes derive from them.
+const mockTenantLocales = ref<string[]>(['sv-SE', 'en-US']);
 const mockAvailableMarkets = ref<string[]>(['se']);
 
 const mockHeadCalls: unknown[] = [];
@@ -20,8 +21,13 @@ vi.mock('vue-i18n', () => ({
 // Mock useTenant
 vi.mock('~/composables/useTenant', () => ({
   useTenant: () => ({
+    tenant: computed(() => ({
+      availableLocales: mockTenantLocales.value,
+    })),
     market: computed(() => mockTenantMarket.value),
-    availableLocales: computed(() => mockAvailableLocales.value),
+    availableLocales: computed(() =>
+      mockTenantLocales.value.map((l) => l.split('-')[0]),
+    ),
     availableMarkets: computed(() => mockAvailableMarkets.value),
   }),
 }));
@@ -81,7 +87,7 @@ describe('useSeoLinks', () => {
     mockLocaleRef.value = 'sv';
     mockMarketCookieValue.value = 'se';
     mockTenantMarket.value = 'se';
-    mockAvailableLocales.value = ['sv', 'en'];
+    mockTenantLocales.value = ['sv-SE', 'en-US'];
     mockHeadCalls.length = 0;
   });
 
@@ -94,7 +100,7 @@ describe('useSeoLinks', () => {
     });
   });
 
-  it('generates hreflang alternates for all valid locales', () => {
+  it('generates hreflang alternates from the locale plus the market region', () => {
     const { seoLinks } = useSeoLinks('/p/my-product');
     const alternates = seoLinks.value.filter(
       (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
@@ -102,6 +108,59 @@ describe('useSeoLinks', () => {
     expect(alternates).toEqual([
       { rel: 'alternate', href: '/se/sv/p/my-product', hreflang: 'sv-SE' },
       { rel: 'alternate', href: '/se/en/p/my-product', hreflang: 'en-SE' },
+    ]);
+  });
+
+  it('targets the market even when the locale has its own home region', () => {
+    // nb-NO in tenant config, but served on market se: nb-SE.
+    mockTenantLocales.value = ['sv-SE', 'en-US', 'nb-NO'];
+    const { seoLinks } = useSeoLinks('/p/my-product');
+    const alternates = seoLinks.value.filter(
+      (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
+    );
+    expect(alternates).toEqual([
+      { rel: 'alternate', href: '/se/sv/p/my-product', hreflang: 'sv-SE' },
+      { rel: 'alternate', href: '/se/en/p/my-product', hreflang: 'en-SE' },
+      { rel: 'alternate', href: '/se/nb/p/my-product', hreflang: 'nb-SE' },
+    ]);
+  });
+
+  it('re-targets every hreflang value on a different market', () => {
+    mockTenantLocales.value = ['sv-SE', 'en-US', 'nb-NO'];
+    mockMarketCookieValue.value = 'fi';
+    const { seoLinks } = useSeoLinks('/p/my-product');
+    const hreflangs = seoLinks.value
+      .filter((l) => l.rel === 'alternate' && l.hreflang !== 'x-default')
+      .map((l) => l.hreflang);
+    expect(hreflangs).toEqual(['sv-FI', 'en-FI', 'nb-FI']);
+  });
+
+  it('falls back to the tenant BCP-47 tag when the market is not an ISO region', () => {
+    // 'sv-EU' is not a language tag, so the tenant's own tags are emitted.
+    mockTenantLocales.value = ['sv-SE', 'en-US', 'nb-NO'];
+    mockMarketCookieValue.value = 'eu';
+    const { seoLinks } = useSeoLinks('/p/my-product');
+    const alternates = seoLinks.value.filter(
+      (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
+    );
+    expect(alternates).toEqual([
+      { rel: 'alternate', href: '/eu/sv/p/my-product', hreflang: 'sv-SE' },
+      { rel: 'alternate', href: '/eu/en/p/my-product', hreflang: 'en-US' },
+      { rel: 'alternate', href: '/eu/nb/p/my-product', hreflang: 'nb-NO' },
+    ]);
+  });
+
+  it('falls back to the bare short code when neither market nor tenant carries a region', () => {
+    // Defensive: validLocales and tenant locales derive from the same config,
+    // so a miss should not happen — but a bare code is still valid hreflang.
+    mockTenantLocales.value = ['sv'];
+    mockMarketCookieValue.value = 'eu';
+    const { seoLinks } = useSeoLinks('/p/my-product');
+    const alternates = seoLinks.value.filter(
+      (l) => l.rel === 'alternate' && l.hreflang !== 'x-default',
+    );
+    expect(alternates).toEqual([
+      { rel: 'alternate', href: '/eu/sv/p/my-product', hreflang: 'sv' },
     ]);
   });
 
@@ -116,7 +175,7 @@ describe('useSeoLinks', () => {
   });
 
   it('uses first locale for x-default when en is not available', () => {
-    mockAvailableLocales.value = ['sv', 'da'];
+    mockTenantLocales.value = ['sv-SE', 'da-DK'];
     const { seoLinks } = useSeoLinks('/c/shoes');
     const xDefault = seoLinks.value.find((l) => l.hreflang === 'x-default');
     expect(xDefault?.href).toBe('/se/sv/c/shoes');
@@ -176,6 +235,63 @@ describe('useSeoLinks', () => {
     expect(seoLinks.value.find((l) => l.rel === 'canonical')?.href).toBe(
       '/no/sv/p/item',
     );
+  });
+
+  describe('locale root path', () => {
+    // A representative five-locale tenant.
+    beforeEach(() => {
+      mockTenantLocales.value = ['sv-SE', 'en-GB', 'nb-NO', 'fi-FI', 'da-DK'];
+    });
+
+    it('emits a canonical plus the full alternate set and x-default', () => {
+      const { seoLinks } = useSeoLinks('/');
+      expect(seoLinks.value).toEqual([
+        { rel: 'canonical', href: '/se/sv/' },
+        { rel: 'alternate', href: '/se/sv/', hreflang: 'sv-SE' },
+        { rel: 'alternate', href: '/se/en/', hreflang: 'en-SE' },
+        { rel: 'alternate', href: '/se/nb/', hreflang: 'nb-SE' },
+        { rel: 'alternate', href: '/se/fi/', hreflang: 'fi-SE' },
+        { rel: 'alternate', href: '/se/da/', hreflang: 'da-SE' },
+        { rel: 'alternate', href: '/se/en/', hreflang: 'x-default' },
+      ]);
+    });
+
+    it('the canonical follows the active locale while the alternate set stays whole', () => {
+      mockLocaleRef.value = 'fi';
+      const { seoLinks } = useSeoLinks('/');
+      expect(seoLinks.value.find((l) => l.rel === 'canonical')?.href).toBe(
+        '/se/fi/',
+      );
+      expect(
+        seoLinks.value
+          .filter((l) => l.rel === 'alternate' && l.hreflang !== 'x-default')
+          .map((l) => l.hreflang),
+      ).toEqual(['sv-SE', 'en-SE', 'nb-SE', 'fi-SE', 'da-SE']);
+    });
+
+    it('the whole set re-targets to the market the pages are served on', () => {
+      mockMarketCookieValue.value = 'fi';
+      const { seoLinks } = useSeoLinks('/');
+      expect(
+        seoLinks.value
+          .filter((l) => l.rel === 'alternate' && l.hreflang !== 'x-default')
+          .map((l) => l.hreflang),
+      ).toEqual(['sv-FI', 'en-FI', 'nb-FI', 'fi-FI', 'da-FI']);
+    });
+
+    it('every root href keeps the trailing slash, never a bare /se/sv', () => {
+      const { seoLinks } = useSeoLinks('/');
+      for (const link of seoLinks.value) {
+        expect(link.href).toMatch(/^\/se\/[a-z]{2}\/$/);
+      }
+    });
+
+    it('registers the links with useHead so the page needs no return value', () => {
+      mockHeadCalls.length = 0;
+      useSeoLinks('/');
+      expect(mockHeadCalls).toHaveLength(1);
+      expect(mockHeadCalls[0]).toHaveProperty('link');
+    });
   });
 
   describe('localeOverrides (2nd param)', () => {

@@ -20,9 +20,15 @@ const i18nLocales = ref<
 // expose merged accessors so existing assertions (meta) and the new lang
 // assertions both resolve against the right entry.
 const capturedHeadArgs: Array<Record<string, unknown>> = [];
-const mockUseHead = vi.fn((arg: Record<string, unknown>) => {
-  capturedHeadArgs.push(arg);
-});
+// Mirrors the real useHead(input, options?) arity: the plugin passes a
+// tagPriority bag as the second argument, and a one-parameter mock would make
+// vi.fn infer a length-1 call tuple that mock.calls[n][1] cannot index.
+const mockUseHead = vi.fn(
+  (arg: Record<string, unknown>, options?: Record<string, unknown>) => {
+    void options;
+    capturedHeadArgs.push(arg);
+  },
+);
 
 // The last entry that carries htmlAttrs wins for <html lang> in unhead's merge.
 function headEntryWithHtmlAttrs(): Record<string, unknown> {
@@ -66,6 +72,9 @@ const mockDefineWebSite = vi.fn((schema: unknown) => schema);
 const tenantRef = ref({
   isActive: true,
   locale: 'sv-SE',
+  // Empty by default so the base cases exercise the i18n `language` fallback;
+  // the tenant-variant describe below fills it in.
+  availableLocales: [] as string[],
   seo: null as null | Record<string, unknown>,
   contact: null as null | Record<string, unknown>,
   branding: { name: 'Test Store', logoUrl: '/logo.svg' },
@@ -197,9 +206,14 @@ async function runSetup(overrideLocale?: string) {
 
 describe('tenant-seo plugin / reactive locale', () => {
   beforeEach(() => {
+    i18nLocales.value = [
+      { code: 'en', language: 'en', name: 'English' },
+      { code: 'sv', language: 'sv-SE', name: 'Svenska' },
+    ];
     tenantRef.value = {
       isActive: true,
       locale: 'sv-SE',
+      availableLocales: [],
       seo: null,
       contact: null,
       branding: { name: 'Test Store', logoUrl: '/logo.svg' },
@@ -271,6 +285,88 @@ describe('tenant-seo plugin / reactive locale', () => {
     });
   });
 
+  describe('html lang uses the tenant BCP-47 tag, matching hreflang', () => {
+    // The tenant's English variant is not stable across tenants, so nuxt.config
+    // declares 'en' region-less. The tag has to come from the tenant config.
+    const TENANT_LOCALES = ['sv-SE', 'en-GB', 'nb-NO', 'fi-FI', 'da-DK'];
+
+    function langFor(): string {
+      const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
+      return (htmlAttrs.lang as () => string)();
+    }
+
+    it('resolves en to the tenant variant en-GB rather than the region-less i18n language', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: TENANT_LOCALES,
+      };
+      await runSetup('en');
+      expect(langFor()).toBe('en-GB');
+    });
+
+    it('a tenant on en-US yields en-US for the same URL locale', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: ['sv-SE', 'en-US'],
+      };
+      await runSetup('en');
+      expect(langFor()).toBe('en-US');
+    });
+
+    it('leaves the four already-regioned locales unchanged', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: TENANT_LOCALES,
+      };
+
+      for (const [code, expected] of [
+        ['sv', 'sv-SE'],
+        ['nb', 'nb-NO'],
+        ['fi', 'fi-FI'],
+        ['da', 'da-DK'],
+      ] as const) {
+        i18nLocales.value = [
+          ...i18nLocales.value.filter((l) => l.code !== code),
+          { code, language: expected, name: code },
+        ];
+        await runSetup(code);
+        expect(langFor()).toBe(expected);
+      }
+    });
+
+    it('falls back to the i18n `language` when the tenant carries no matching locale', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: ['sv-SE'],
+      };
+      await runSetup('en');
+      // No tenant locale has the 'en' prefix, so the i18n locale object's
+      // region-less `language` is used.
+      expect(langFor()).toBe('en');
+    });
+
+    it('falls back to the short code when neither the tenant nor i18n knows the locale', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: ['sv-SE'],
+      };
+      await runSetup('xx');
+      expect(langFor()).toBe('xx');
+    });
+
+    it('the tenant tag is matched on prefix, not on a full-tag equality', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: TENANT_LOCALES,
+        locale: '',
+      };
+      // i18n.locale empty -> tenant.locale empty -> last-resort 'sv', which the
+      // tenant carries as 'sv-SE'.
+      await runSetup('');
+      expect(langFor()).toBe('sv-SE');
+    });
+  });
+
   describe('og:locale is reactive via computed meta', () => {
     it('meta passed to useHead is a computed ref (not a plain array)', async () => {
       await runSetup('sv');
@@ -287,16 +383,19 @@ describe('tenant-seo plugin / reactive locale', () => {
         Array<Record<string, string>>
       >;
 
-      // At setup time locale is 'sv'.
+      // At setup time locale is 'sv'; og:locale carries the underscore form
+      // of the same BCP-47 tag <html lang> gets, resolved from the tenant.
       const ogLocaleAtSetup = meta.value.find(
         (m) => m.property === 'og:locale',
       );
-      expect(ogLocaleAtSetup?.content).toBe('sv');
+      expect(ogLocaleAtSetup?.content).toBe('sv_SE');
 
       // Flip locale to 'en' (simulates the route middleware running).
       i18nLocale.value = 'en';
 
-      // The computed re-evaluates - og:locale should now reflect 'en'.
+      // The computed re-evaluates - og:locale should now reflect 'en', which
+      // stays region-less because neither the tenant nor nuxt.config pins a
+      // region to it.
       const ogLocaleAfterFlip = meta.value.find(
         (m) => m.property === 'og:locale',
       );
@@ -310,6 +409,23 @@ describe('tenant-seo plugin / reactive locale', () => {
       >;
       const ogLocale = meta.value.find((m) => m.property === 'og:locale');
       expect(ogLocale?.content).toBe('en_SE');
+    });
+
+    it('og:locale matches <html lang> for a short code the tenant regions', async () => {
+      tenantRef.value = {
+        ...tenantRef.value,
+        availableLocales: ['sv-SE', 'nb-NO'],
+      };
+      await runSetup('nb');
+
+      const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
+      expect((htmlAttrs.lang as () => string)()).toBe('nb-NO');
+
+      const meta = capturedHeadArg.meta as ComputedRef<
+        Array<Record<string, string>>
+      >;
+      const ogLocale = meta.value.find((m) => m.property === 'og:locale');
+      expect(ogLocale?.content).toBe('nb_NO');
     });
   });
 
@@ -335,8 +451,8 @@ describe('tenant-seo plugin / reactive locale', () => {
 
       const htmlAttrs = capturedHeadArg.htmlAttrs as Record<string, unknown>;
       const langGetter = htmlAttrs.lang as () => string;
-      // seoLocale falls back to 'sv', which maps to the sv locale object's
-      // BCP-47 `language` of 'sv-SE'.
+      // seoLocale falls back to the last resort 'sv', which maps to the sv
+      // locale object's BCP-47 `language` of 'sv-SE'.
       expect(langGetter()).toBe('sv-SE');
     });
   });

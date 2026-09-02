@@ -1,0 +1,17 @@
+{
+  // Unit specs sit outside the generated .nuxt projects, so without this no
+  // path alias resolves. Extends the app project for its `paths` and pulls in
+  // nuxt.d.ts for the auto-import globals. Playwright specs are excluded:
+  // tests/e2e has its own config, deliberately WITHOUT these aliases.
+  "extends": "../.nuxt/tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": [
+    "./**/*.ts",
+    "../.nuxt/nuxt.d.ts",
+    "../*.d.ts",
+    "../app/**/*.d.ts"
+  ],
+  "exclude": ["./e2e/**"]
+}

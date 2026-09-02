@@ -22,15 +22,18 @@ function expandLocale(shortCode: string, availableLocales?: string[]): string {
  *
  * Resolution order:
  * 1. event.context.resolvedLocaleMarket.localeBcp47 — already validated and
- *    BCP-47 expanded by plugin 01 (page routes only).
+ *    BCP-47 expanded by middleware 00 (page routes only).
  * 2. Cookie fallback — for API routes where resolvedLocaleMarket is not set.
  *    The cookie stores short codes ('sv', 'en') which are expanded using the
  *    tenant's availableLocales list.
+ * 3. No cookie — the tenant config default locale.
  *
- * @returns The full locale code (e.g. 'sv-SE') or undefined if not set.
+ * Undefined means nothing was requested, and callers depend on seeing it: the
+ * SDK must not be handed a languageId that overrides its own default, and the
+ * CMS keys such a request under 'default'. Each caller owns its last resort.
  */
 export function getRequestLocale(event: H3Event): string | undefined {
-  // Prefer the pre-validated, BCP-47 expanded value from plugin 01
+  // Prefer the pre-validated, BCP-47 expanded value from middleware 00
   const resolved = event.context.resolvedLocaleMarket;
   if (resolved?.localeBcp47) return resolved.localeBcp47;
 
@@ -39,11 +42,8 @@ export function getRequestLocale(event: H3Event): string | undefined {
   const queryLocale = getQuery(event)?.locale as string | undefined;
   const shortLocale = queryLocale || getCookie(event, COOKIE_NAMES.LOCALE);
   if (!shortLocale) {
-    // No cookie — use tenant's first available locale as fallback
-    const tenantLocales = (
-      event.context.tenant?.config as TenantConfig | undefined
-    )?.geinsSettings?.availableLocales;
-    return tenantLocales?.[0] ?? undefined;
+    return (event.context.tenant?.config as TenantConfig | undefined)
+      ?.geinsSettings?.locale;
   }
 
   // Already in BCP-47 format (contains hyphen) — return as-is
@@ -59,14 +59,14 @@ export function getRequestLocale(event: H3Event): string | undefined {
  * Reads the user's preferred market from the request.
  *
  * Resolution order:
- * 1. event.context.resolvedLocaleMarket.market — validated by plugin 01
+ * 1. event.context.resolvedLocaleMarket.market — validated by middleware 00
  *    (page routes only).
  * 2. Cookie fallback — for API routes where resolvedLocaleMarket is not set.
  *
  * @returns The market code (e.g. 'se', 'no') or undefined if not set.
  */
 export function getRequestMarket(event: H3Event): string | undefined {
-  // Prefer the pre-validated value from plugin 01
+  // Prefer the pre-validated value from middleware 00
   const resolved = event.context.resolvedLocaleMarket;
   if (resolved?.market) return resolved.market;
 

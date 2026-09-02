@@ -53,6 +53,17 @@ vi.mock('../../../app/composables/useLocaleMarket', () => ({
   }),
 }));
 
+// Mock useFormatLocale — the BCP-47 tag dates and amounts are formatted with
+vi.stubGlobal('useFormatLocale', () => ({
+  formatLocale: computed(() => 'en-GB'),
+}));
+
+vi.mock('../../../app/composables/useFormatLocale', () => ({
+  useFormatLocale: () => ({
+    formatLocale: computed(() => 'en-GB'),
+  }),
+}));
+
 // Mock callOnce — calls the factory function synchronously (mirrors Nuxt's callOnce)
 vi.stubGlobal(
   'callOnce',

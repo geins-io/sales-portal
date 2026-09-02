@@ -118,7 +118,7 @@ function createEvent(
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('server/plugins/02.tenant-context — locale/market validation', () => {
+describe('server/plugins/02.tenant-context', () => {
   let handler: (event: MockEvent) => Promise<unknown>;
 
   beforeEach(async () => {
@@ -140,162 +140,11 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
     handler = hooks.request as (event: MockEvent) => Promise<unknown>;
   });
 
-  describe('valid market and locale', () => {
-    it('sets resolvedLocaleMarket and does not redirect', async () => {
-      const tenant = makeTenant();
-      mockResolveTenant.mockResolvedValue(tenant);
-
-      const event = createEvent('/se/sv/products', {
-        localeMarket: { market: 'se', locale: 'sv' },
-      });
-
-      await handler(event);
-
-      expect(mockSendRedirect).not.toHaveBeenCalled();
-      expect(event.context.resolvedLocaleMarket).toEqual({
-        market: 'se',
-        locale: 'sv',
-        localeBcp47: 'sv-SE',
-      });
-    });
-
-    it('sets resolvedLocaleMarket for a valid secondary market and locale', async () => {
-      const tenant = makeTenant();
-      mockResolveTenant.mockResolvedValue(tenant);
-
-      const event = createEvent('/no/en/products', {
-        localeMarket: { market: 'no', locale: 'en' },
-      });
-
-      await handler(event);
-
-      expect(mockSendRedirect).not.toHaveBeenCalled();
-      expect(event.context.resolvedLocaleMarket).toMatchObject({
-        market: 'no',
-        locale: 'en',
-        localeBcp47: 'en-US',
-      });
-    });
-  });
-
-  describe('invalid market', () => {
-    it('redirects to corrected URL with default market and resets cookies', async () => {
-      const tenant = makeTenant();
-      mockResolveTenant.mockResolvedValue(tenant);
-
-      const event = createEvent('/xx/sv/products', {
-        localeMarket: { market: 'xx', locale: 'sv' },
-      });
-
-      await handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(
-        event,
-        '/se/sv/products',
-        302,
-      );
-      expect(mockSetCookie).toHaveBeenCalledWith(
-        event,
-        'locale',
-        'sv',
-        expect.objectContaining({ path: '/' }),
-      );
-      expect(mockSetCookie).toHaveBeenCalledWith(
-        event,
-        'market',
-        'se',
-        expect.objectContaining({ path: '/' }),
-      );
-    });
-  });
-
-  describe('invalid locale', () => {
-    it('redirects to corrected URL with default locale and resets cookies', async () => {
-      const tenant = makeTenant();
-      mockResolveTenant.mockResolvedValue(tenant);
-
-      const event = createEvent('/se/zz/products', {
-        localeMarket: { market: 'se', locale: 'zz' },
-      });
-
-      await handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(
-        event,
-        '/se/sv/products',
-        302,
-      );
-      expect(mockSetCookie).toHaveBeenCalledWith(
-        event,
-        'locale',
-        'sv',
-        expect.objectContaining({ path: '/' }),
-      );
-      expect(mockSetCookie).toHaveBeenCalledWith(
-        event,
-        'market',
-        'se',
-        expect.objectContaining({ path: '/' }),
-      );
-    });
-  });
-
-  describe('both market and locale invalid', () => {
-    it('redirects with both defaults', async () => {
-      const tenant = makeTenant();
-      mockResolveTenant.mockResolvedValue(tenant);
-
-      const event = createEvent('/xx/zz/products', {
-        localeMarket: { market: 'xx', locale: 'zz' },
-      });
-
-      await handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(
-        event,
-        '/se/sv/products',
-        302,
-      );
-    });
-  });
-
-  describe('query string preservation', () => {
-    it('preserves query string in redirect when locale is invalid', async () => {
-      const tenant = makeTenant();
-      mockResolveTenant.mockResolvedValue(tenant);
-
-      const event = createEvent('/se/zz/products?page=2&sort=name', {
-        localeMarket: { market: 'se', locale: 'zz' },
-      });
-
-      await handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(
-        event,
-        '/se/sv/products?page=2&sort=name',
-        302,
-      );
-    });
-
-    it('preserves query string in redirect for root path', async () => {
-      const tenant = makeTenant();
-      mockResolveTenant.mockResolvedValue(tenant);
-
-      const event = createEvent('/xx/sv/?ref=promo', {
-        localeMarket: { market: 'xx', locale: 'sv' },
-      });
-
-      await handler(event);
-
-      expect(mockSendRedirect).toHaveBeenCalledWith(
-        event,
-        '/se/sv/?ref=promo',
-        302,
-      );
-    });
-  });
-
-  describe('no localeMarket in context (API route or non-prefixed path)', () => {
+  // Validation moved to server/middleware/00.locale-market.ts, which is the
+  // first point where the URL pair and the tenant are both available. These
+  // cases pin the plugin out of that job: it must resolve the tenant and
+  // nothing more.
+  describe('leaves locale/market resolution alone', () => {
     it('does not redirect and does not set resolvedLocaleMarket', async () => {
       const tenant = makeTenant();
       mockResolveTenant.mockResolvedValue(tenant);
@@ -320,52 +169,6 @@ describe('server/plugins/02.tenant-context — locale/market validation', () => 
       // API routes still resolve tenant but skip locale/market validation
       expect(mockSendRedirect).not.toHaveBeenCalled();
       expect(event.context.resolvedLocaleMarket).toBeUndefined();
-    });
-  });
-
-  describe('en matching en-US vs en-GB (first match wins)', () => {
-    it('expands en to en-US when en-US is listed before en-GB', async () => {
-      const tenant = makeTenant(
-        makeGeinsSettings({
-          availableLocales: ['sv-SE', 'en-US', 'en-GB'],
-          availableMarkets: ['se', 'no'],
-        }),
-      );
-      mockResolveTenant.mockResolvedValue(tenant);
-
-      const event = createEvent('/se/en/products', {
-        localeMarket: { market: 'se', locale: 'en' },
-      });
-
-      await handler(event);
-
-      expect(mockSendRedirect).not.toHaveBeenCalled();
-      expect(event.context.resolvedLocaleMarket).toMatchObject({
-        locale: 'en',
-        localeBcp47: 'en-US',
-      });
-    });
-
-    it('expands en to en-GB when en-GB is listed before en-US', async () => {
-      const tenant = makeTenant(
-        makeGeinsSettings({
-          availableLocales: ['sv-SE', 'en-GB', 'en-US'],
-          availableMarkets: ['se', 'no'],
-        }),
-      );
-      mockResolveTenant.mockResolvedValue(tenant);
-
-      const event = createEvent('/se/en/products', {
-        localeMarket: { market: 'se', locale: 'en' },
-      });
-
-      await handler(event);
-
-      expect(mockSendRedirect).not.toHaveBeenCalled();
-      expect(event.context.resolvedLocaleMarket).toMatchObject({
-        locale: 'en',
-        localeBcp47: 'en-GB',
-      });
     });
   });
 

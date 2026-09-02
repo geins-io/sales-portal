@@ -82,6 +82,7 @@ const companyData = computed<Company | null>(
 const tenantData = useTenant();
 await tenantData.suspense();
 const { checkoutMode, isCatalogMode } = tenantData;
+const { formatLocale } = useFormatLocale();
 
 if (isCatalogMode.value) {
   await navigateTo(localePath('/'), { replace: true });
@@ -138,12 +139,11 @@ const total = computed(
 );
 const discountFormatted = computed(() => {
   if (!cartStore.discountAmount) return '';
-  const { tenant } = useTenant();
   const currency = cartStore.cart?.summary?.total?.currency;
   return formatPrice(
     cartStore.discountAmount,
     currency?.code,
-    tenant.value?.locale,
+    formatLocale.value,
   );
 });
 

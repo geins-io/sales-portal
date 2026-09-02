@@ -26,8 +26,8 @@ export default defineEventHandler(async (event) => {
 
       // The hosted-checkout redirect URLs must preserve the user's current
       // locale/market so post-payment landings don't bounce through
-      // middleware. API routes skip plugin 01 resolution, so read the short
-      // codes straight from the cookies set by plugin 00.
+      // middleware. API routes skip middleware 00 resolution, so read the short
+      // codes straight from the cookies set by middleware 00.
       const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
       const localeCookie = getCookie(event, COOKIE_NAMES.LOCALE);
       const prefix =

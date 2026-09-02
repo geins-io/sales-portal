@@ -26,7 +26,9 @@ export default defineNitroPlugin((nitroApp) => {
       const tenant = event.context.tenant?.config;
       if (!tenant) return;
 
-      const requestLocale = getRequestLocale(event);
+      // getRequestLocale already tried the tenant config, so only a literal
+      // is a live fallback here.
+      const requestLocale = getRequestLocale(event) ?? 'sv-SE';
 
       siteConfig.push({
         _context: 'tenant-seo',
@@ -35,7 +37,7 @@ export default defineNitroPlugin((nitroApp) => {
         name: tenant.branding.name,
         description: tenant.seo?.defaultDescription ?? '',
         defaultLocale: tenant.geinsSettings.locale,
-        currentLocale: requestLocale ?? tenant.geinsSettings.locale,
+        currentLocale: requestLocale,
         indexable: isIndexable(tenant.seo?.robots),
       });
     },

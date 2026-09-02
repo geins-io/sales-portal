@@ -10,7 +10,8 @@ import { productPath } from '#shared/utils/route-helpers';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const { formatLocale } = useFormatLocale();
 const route = useRoute();
 const store = useQuotesStore();
 const { localePath } = useLocaleMarket();
@@ -65,7 +66,7 @@ function statusLabel(status: string): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(locale.value, {
+  return new Date(iso).toLocaleDateString(formatLocale.value, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

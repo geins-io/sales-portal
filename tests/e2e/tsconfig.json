@@ -1,0 +1,14 @@
+{
+  // Playwright specs run under Node, outside the generated .nuxt projects
+  // (which is also why they must not import app/ or server/ code).
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts"]
+}

@@ -5,7 +5,8 @@ defineProps<{
   productUrl: string;
 }>();
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
+const { formatLocale } = useFormatLocale();
 
 // Render time has to be reactive against the actual print invocation —
 // the `beforeprint` event is the only reliable hook for "user just hit
@@ -16,7 +17,7 @@ const printedAt = ref('');
 
 function formatNow(): string {
   const d = new Date();
-  return d.toLocaleString(locale.value, {
+  return d.toLocaleString(formatLocale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

@@ -6,7 +6,7 @@ import { formatPrice } from '#shared/types/commerce';
 
 const cartStore = useCartStore();
 const router = useRouter();
-const { tenant } = useTenant();
+const { formatLocale } = useFormatLocale();
 const { localePath } = useLocaleMarket();
 const { showPrice } = usePriceVisibility();
 const { showIncVat } = useVatDisplay();
@@ -52,7 +52,7 @@ const discountFormatted = computed(() => {
   return formatPrice(
     cartStore.discountAmount,
     currency?.code,
-    tenant.value?.locale,
+    formatLocale.value,
   );
 });
 

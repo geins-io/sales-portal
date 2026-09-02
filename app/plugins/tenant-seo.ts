@@ -8,6 +8,7 @@
  */
 import { computed } from 'vue';
 import type { Composer } from 'vue-i18n';
+import { findTenantBcp47 } from '~/utils/locale-bcp47';
 
 export default defineNuxtPlugin({
   name: 'tenant-seo',
@@ -22,24 +23,21 @@ export default defineNuxtPlugin({
     const seo = tenant.value.seo;
     const contact = tenant.value.contact;
 
-    // Reactive locale: re-evaluated at render time (after the route middleware
-    // has called $i18n.setLocale). A plain `const locale = i18n.locale.value`
-    // would freeze to the default 'sv' on SSR because plugins run before the
-    // locale-market middleware. Using a computed ensures that useHead getters
-    // and the og:locale computed re-read the current locale when unhead
-    // serialises the head on the server.
+    // Computed, not a plain read: plugins run before the locale-market
+    // middleware, so a snapshot would freeze to the default locale on SSR.
     const seoLocale = computed(
       () => i18n.locale.value || tenant.value?.locale || 'sv',
     );
 
-    // BCP-47 form of the active locale for `<html lang>`. The short URL-locale
-    // code ('en' / 'sv') is mapped to the locale object's `language` field
-    // ('en' / 'sv-SE') declared in nuxt.config i18n. Reading the language off
-    // i18n.locales avoids hardcoding the region tag and keeps tenant-seo in
-    // lockstep with the i18n config. Falls back to the short locale when no
-    // matching locale object is found (e.g. tenant.locale fallback values).
+    // `<html lang>`: tenant tag ('en' -> 'en-GB'), then the i18n locale's
+    // `language`, then the bare code. The tenant wins because the region is
+    // tenant-dependent — nuxt.config leaves 'en' region-less for that reason.
+    // This is the document language, not hreflang targeting; they differ.
     const seoLang = computed(() => {
       const code = seoLocale.value;
+      const tenantTag = findTenantBcp47(code, tenant.value?.availableLocales);
+      if (tenantTag) return tenantTag;
+
       const localeObjects = i18n.locales?.value ?? [];
       const match = localeObjects.find(
         (l) => typeof l === 'object' && l !== null && l.code === code,
@@ -51,8 +49,6 @@ export default defineNuxtPlugin({
       return language || code;
     });
 
-    // Reactive meta array: rebuilt whenever seoLocale changes so og:locale
-    // always reflects the URL locale rather than the plugin-setup-time default.
     const reactiveMeta = computed(() => {
       const meta: Array<Record<string, string>> = [];
 
@@ -74,9 +70,10 @@ export default defineNuxtPlugin({
       // Open Graph basics
       meta.push({ property: 'og:site_name', content: brandName.value });
       meta.push({ property: 'og:type', content: 'website' });
+      // Open Graph wants the underscore form of <html lang>: 'nb-NO' -> 'nb_NO'.
       meta.push({
         property: 'og:locale',
-        content: seoLocale.value.replace('-', '_'),
+        content: seoLang.value.replace('-', '_'),
       });
 
       if (ogImageUrl.value) {
@@ -132,18 +129,15 @@ export default defineNuxtPlugin({
     // (highest weight) overwrites the value. nuxt-seo-utils registers its own
     // htmlAttrs.lang with tagPriority 'low' (weight 102) sourced from the site
     // config's current/default locale, which on SSR with strategy 'no_prefix'
-    // and programmatic setLocale reflects the DEFAULT locale ('sv' -> 'sv-SE')
-    // rather than the active URL locale. A default-priority entry (weight 100)
+    // and programmatic setLocale reflects the DEFAULT locale rather than the
+    // active URL locale. A default-priority entry (weight 100)
     // would lose to it, so we pin a numeric priority above 102 to deterministi-
     // cally win. Kept separate from the title/meta entry above so the numeric
     // priority does not reweight the title tag.
     useHead(
       {
         htmlAttrs: {
-          // Getter so unhead re-evaluates at render time (post-middleware).
-          // A plain string would be captured once at plugin setup and would
-          // yield the default locale on hard loads of non-default-locale pages.
-          // Resolves to the active locale's BCP-47 `language` ('en' / 'sv-SE').
+          // Getter so unhead re-evaluates after the middleware has run.
           lang: () => seoLang.value,
         },
       },

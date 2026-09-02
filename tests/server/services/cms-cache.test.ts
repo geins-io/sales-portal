@@ -146,6 +146,40 @@ describe('CMS cache — locale isolation', () => {
     expect(mockMenuGet).toHaveBeenCalledTimes(1);
   });
 
+  it('keys every cookieless request under one stable default prefix', async () => {
+    const menu = { id: 'main', menuItems: [{ title: 'Default' }] };
+
+    getRequestLocaleMock.mockReturnValue(undefined);
+    getRequestMarketMock.mockReturnValue(undefined);
+    mockMenuGet.mockResolvedValue(menu);
+
+    await getMenu({ menuLocationId: 'main' }, mockEvent());
+    const result = await getMenu({ menuLocationId: 'main' }, mockEvent());
+
+    // Served from cache: an unset locale gives the same prefix every time.
+    expect(result).toEqual(menu);
+    expect(mockMenuGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a cookieless request collide with a locale-bearing one', async () => {
+    const defaultMenu = { id: 'main', menuItems: [{ title: 'Default' }] };
+    const svMenu = { id: 'main', menuItems: [{ title: 'Hem' }] };
+
+    getRequestLocaleMock.mockReturnValue(undefined);
+    getRequestMarketMock.mockReturnValue(undefined);
+    mockMenuGet.mockResolvedValue(defaultMenu);
+    const first = await getMenu({ menuLocationId: 'main' }, mockEvent());
+
+    getRequestLocaleMock.mockReturnValue('sv-SE');
+    getRequestMarketMock.mockReturnValue('se');
+    mockMenuGet.mockResolvedValue(svMenu);
+    const second = await getMenu({ menuLocationId: 'main' }, mockEvent());
+
+    expect(first).toEqual(defaultMenu);
+    expect(second).toEqual(svMenu);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+  });
+
   it('isolates area cache by locale', async () => {
     const svArea = { containers: [{ widgets: [{ text: 'Hej' }] }] };
     const enArea = { containers: [{ widgets: [{ text: 'Hello' }] }] };

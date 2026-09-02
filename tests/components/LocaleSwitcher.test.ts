@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { orderLocalesByName } from '../../app/utils/order-locales';
 
 // We can't easily mount the real SFC with auto-imported Nuxt composables
 // in vitest. Instead, test the component's core logic: the showSwitcher
@@ -187,6 +190,89 @@ describe('LocaleSwitcher logic', () => {
       expect(
         localeHref('se', 'en', '/c/kategorin', hrefFor, '/se/sv/c/kategorin'),
       ).toBe('/se/en/c/categoryone');
+    });
+  });
+
+  describe('orderedLocales', () => {
+    // The real switcher's name map, read from nuxt.config.ts so a sixth
+    // language is covered without editing this file. Parsed rather than
+    // imported: `defineNuxtConfig` is an auto-import vitest has no context
+    // for. Same approach as tests/e2e/locale-switching.spec.ts.
+    function configuredEndonyms(): Map<string, string> {
+      const source = readFileSync(
+        resolve(import.meta.dirname, '../../nuxt.config.ts'),
+        'utf8',
+      );
+      const entry =
+        /\{\s*code:\s*'([^']+)',\s*language:\s*'[^']+',\s*name:\s*'([^']*)',\s*file:\s*'[^']+'\s*\}/g;
+      const map = new Map(
+        [...source.matchAll(entry)].map((m) => [m[1]!, m[2]!] as const),
+      );
+      if (map.size === 0) {
+        throw new Error(
+          'Could not parse any i18n locales out of nuxt.config.ts. The ' +
+            'locales array shape changed — update the regex here, do not ' +
+            'delete the assertion.',
+        );
+      }
+      return map;
+    }
+
+    const ENDONYMS = configuredEndonyms();
+    const CODES = [...ENDONYMS.keys()];
+
+    it('orders every configured locale alphabetically by endonym', () => {
+      const expected = [...ENDONYMS.entries()]
+        .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0))
+        .map(([code]) => code);
+
+      expect(orderLocalesByName(CODES, ENDONYMS)).toEqual(expected);
+    });
+
+    it('does not simply return the config order', () => {
+      // Guards the assertion above from passing vacuously.
+      expect(orderLocalesByName(CODES, ENDONYMS)).not.toEqual(CODES);
+    });
+
+    it('sorts on the endonym rather than the locale code', () => {
+      expect(orderLocalesByName(['fi', 'nb'], ENDONYMS)).toEqual(['nb', 'fi']);
+    });
+
+    it('is stable regardless of the incoming order', () => {
+      const expected = orderLocalesByName(CODES, ENDONYMS);
+      expect(orderLocalesByName([...CODES].reverse(), ENDONYMS)).toEqual(
+        expected,
+      );
+      expect(orderLocalesByName([...CODES].sort(), ENDONYMS)).toEqual(expected);
+    });
+
+    it('never renders a locale the tenant does not offer', () => {
+      const order = orderLocalesByName(['sv', 'da', 'en'], ENDONYMS);
+      expect(order).toEqual(['da', 'en', 'sv']);
+      expect(order).not.toContain('nb');
+      expect(order).not.toContain('fi');
+    });
+
+    it('does not put the current or default locale first', () => {
+      expect(orderLocalesByName(['sv', 'en', 'da'], ENDONYMS)[0]).toBe('da');
+    });
+
+    it('falls back to the code for a locale with no configured name', () => {
+      const names = new Map([
+        ['en', 'English'],
+        ['sv', 'Svenska'],
+      ]);
+      expect(orderLocalesByName(['sv', 'de', 'en'], names)).toEqual([
+        'de',
+        'en',
+        'sv',
+      ]);
+    });
+
+    it('does not mutate the tenant locale array', () => {
+      const tenantLocales = ['sv', 'en', 'da'];
+      orderLocalesByName(tenantLocales, ENDONYMS);
+      expect(tenantLocales).toEqual(['sv', 'en', 'da']);
     });
   });
 

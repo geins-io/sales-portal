@@ -45,6 +45,7 @@ interface ListProduct {
 const { t } = useI18n();
 const route = useRoute();
 const { localePath } = useLocaleMarket();
+const { formatLocale } = useFormatLocale();
 const router = useRouter();
 const { isCatalogMode } = useTenant();
 const { canAccess } = useFeatureAccess();
@@ -126,7 +127,7 @@ const listTotal = computed(() =>
 );
 
 const listTotalFormatted = computed(() =>
-  listTotal.value.toLocaleString(undefined, {
+  listTotal.value.toLocaleString(formatLocale.value, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }),
