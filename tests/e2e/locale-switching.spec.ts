@@ -23,7 +23,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
-import { waitForHydration } from './helpers';
+import { outOfScope, waitForHydration } from './helpers';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
 
@@ -227,8 +227,9 @@ test.describe('Locale switching', () => {
 
       const tenantLocales = await tenantAvailableLocales(page);
       const tenantCodes = tenantLocales.map((l) => l.split('-')[0]!);
-      test.skip(
+      outOfScope(
         !tenantCodes.includes(locale.code),
+        'tenant-config',
         `tenant does not offer "${locale.code}" (has: ${tenantCodes.join(', ')})`,
       );
 
