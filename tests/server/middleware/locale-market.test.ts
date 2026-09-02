@@ -204,7 +204,7 @@ describe('00.locale-market middleware', () => {
     );
   });
 
-  it('honors locale/market cookies when redirecting a prefix-less type route', () => {
+  it('302-redirects a prefix-less type route when cookies decide the target', () => {
     getCookieMock.mockImplementation((_e, name) =>
       name === 'market' ? 'no' : name === 'locale' ? 'en' : undefined,
     );
@@ -212,7 +212,19 @@ describe('00.locale-market middleware', () => {
     expect(sendRedirectMock).toHaveBeenCalledWith(
       expect.anything(),
       '/no/en/p/foo/bar',
-      301,
+      302,
+    );
+  });
+
+  it('302-redirects a prefix-less type route when only one cookie is set', () => {
+    getCookieMock.mockImplementation((_e, name) =>
+      name === 'locale' ? 'en' : undefined,
+    );
+    handler(makeEvent('/p/foo/bar'));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/en/p/foo/bar',
+      302,
     );
   });
 
@@ -507,6 +519,27 @@ describe('00.locale-market prefix canonicalisation', () => {
       expect.anything(),
       '/se/sv/c/en',
       301,
+    );
+  });
+
+  it('301s a cookieless type route to the tenant defaults', () => {
+    handler(makeEvent('/p/foo', TENANT));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/sv/p/foo',
+      301,
+    );
+  });
+
+  it('302s a cookied type route to the cookie-derived prefix', () => {
+    getCookieMock.mockImplementation((_e: unknown, name: string) =>
+      name === 'market' ? 'se' : name === 'locale' ? 'nb' : undefined,
+    );
+    handler(makeEvent('/p/foo', TENANT));
+    expect(sendRedirectMock).toHaveBeenCalledWith(
+      expect.anything(),
+      '/se/nb/p/foo',
+      302,
     );
   });
 

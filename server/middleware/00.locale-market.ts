@@ -71,8 +71,7 @@ export default defineEventHandler((event) => {
   // prefix interpreter: 'dc' is two letters and would be consumed as a market
   // attempt, and a locale-code alias after 'c'/'p' would swallow the prefix.
   if (segments[0] && TYPE_PREFIX_SEGMENTS.has(segments[0])) {
-    const { market, locale } = resolveDefaultMarketLocale(event);
-    return sendRedirect(event, `/${market}/${locale}${path}${query}`, 301);
+    return redirectTypePrefixedPath(event, path, query);
   }
 
   const { market, locale, content, attemptedPrefix } =
@@ -142,9 +141,27 @@ function passThroughWithoutTenantLists(
   }
 
   if (segments[0] && TYPE_PREFIX_SEGMENTS.has(segments[0])) {
-    const { market, locale } = resolveDefaultMarketLocale(event);
-    return sendRedirect(event, `/${market}/${locale}${path}${query}`, 301);
+    return redirectTypePrefixedPath(event, path, query);
   }
+}
+
+/**
+ * The tenant-default target is the same for every visitor (crawlers
+ * included), so it can hold a permanent 301. A cookie-derived target is
+ * per-visitor: a 301 would pin it in the browser cache past the next
+ * language switch, so it gets a 302.
+ */
+function redirectTypePrefixedPath(
+  event: import('h3').H3Event,
+  path: string,
+  query: string,
+): unknown {
+  const { market, locale, fromCookie } = resolveDefaultMarketLocale(event);
+  return sendRedirect(
+    event,
+    `/${market}/${locale}${path}${query}`,
+    fromCookie ? 302 : 301,
+  );
 }
 
 /** Tenant config defaults only — the correction path must ignore cookies. */
@@ -180,6 +197,8 @@ function writeLocaleMarketCookies(
 function resolveDefaultMarketLocale(event: import('h3').H3Event): {
   market: string;
   locale: string;
+  /** True when a cookie decided either code. */
+  fromCookie: boolean;
 } {
   const marketCookie = getCookie(event, COOKIE_NAMES.MARKET);
   const localeCookie = getCookie(event, COOKIE_NAMES.LOCALE);
@@ -200,5 +219,9 @@ function resolveDefaultMarketLocale(event: import('h3').H3Event): {
       ? localeCookie
       : configLocale?.split('-')[0] || 'sv';
 
-  return { market, locale };
+  return {
+    market,
+    locale,
+    fromCookie: market === marketCookie || locale === localeCookie,
+  };
 }
