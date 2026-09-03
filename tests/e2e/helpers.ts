@@ -359,30 +359,6 @@ export async function addToCart(page: Page, productAlias: string) {
 }
 
 /**
- * Remove all items from the cart via the cart page.
- */
-export async function clearCart(page: Page) {
-  await page.goto('/cart');
-  await page.waitForLoadState('domcontentloaded');
-
-  // Remove items one by one
-  let removeButton = page.locator('[data-testid="cart-item-remove"]').first();
-  while (await removeButton.isVisible().catch(() => false)) {
-    await removeButton.click();
-    // Wait for the cart API response after removing the item
-    await page
-      .waitForResponse(
-        (resp) => resp.url().includes('/api/cart') && resp.status() !== 0,
-        { timeout: 5000 },
-      )
-      .catch(() => {
-        // Fallback: DOM may update without an API call in edge cases
-      });
-    removeButton = page.locator('[data-testid="cart-item-remove"]').first();
-  }
-}
-
-/**
  * Fill the login form fields without submitting.
  */
 export async function fillLoginForm(

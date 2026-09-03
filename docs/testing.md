@@ -272,6 +272,13 @@ pnpm test:e2e:debug    # Debug mode
 pnpm test:e2e:report   # View last report
 ```
 
+#### Writing helpers
+
+A helper that navigates (`page.goto`) must wait for hydration (`waitForHydration`) before it
+returns. `load` fires while Nuxt's hydration navigation is still running; a `goto` issued in that
+window cancels its lazy chunk import, Nuxt's chunk-reload plugin reloads the page, and that reload
+interrupts the next navigation (`page.goto: Navigation to … is interrupted by another navigation`).
+
 #### If a run goes badly wrong
 
 A long-lived `pnpm dev` can exhaust the Vite worker's heap and then answer **500** while still

@@ -3,7 +3,6 @@ import {
   discoverPurchasableProduct,
   discoverCategory,
   addToCart,
-  clearCart,
   waitForHydration,
   hasE2ECredentials,
   outOfScope,
@@ -34,10 +33,9 @@ outOfScope(
 test.use({ storageState: STORAGE_STATE });
 
 test.describe('Cart', () => {
-  // Tests share a session and so a cart — without this it accumulates.
-  test.beforeEach(async ({ page }) => {
-    await clearCart(page);
-  });
+  // Every test starts with an empty cart: Playwright gives each test a fresh
+  // browser context from the stored login state, which carries no cart cookie,
+  // so a cart created in one test never reaches the next. No clearing needed.
 
   test('should start with an empty cart', async ({ page }) => {
     await page.goto('/cart');
