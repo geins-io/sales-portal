@@ -107,9 +107,10 @@ on the same commit. Neither number was informative.
 **Root cause.** Two things compounding. `tenant-a` names four different things across five domain
 endings — a tenant registered in the merchant API, fixtures written at dev-server startup, filler
 strings in unit tests, and the registered tenant's own aliases — and nothing in a running system
-distinguishes them. Separately, `autoCreateTenant` fabricates a tenant for any hostname it cannot
-find, so a hostname mismatch, a missing credential and an unreachable merchant API all produce the
-same result: a storefront that renders, answers health checks and contains nothing.
+distinguishes them. Separately, an auto-create fallback (since removed) fabricated a tenant for any
+hostname it could not find, so a hostname mismatch, a missing credential and an unreachable merchant
+API all produced the same result: a storefront that rendered, answered health checks and contained
+nothing.
 
 **Fix.** The suite now asserts behaviour derived from tenant config rather than one tenant's
 settings hardcoded as application behaviour. That surfaced two genuine product bugs the

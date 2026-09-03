@@ -315,8 +315,8 @@ route-rule headers before the redirect flushes, instead of throwing `ERR_HTTP_HE
 
 `resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{tenantId}` → legacy key →
 merchant API. Cache hits are re-checked against the config's own hostname list, self-healing stale
-aliases. Missing or inactive tenants do not resolve. **`NUXT_AUTO_CREATE_TENANT` inverts this** — the API step
-then never returns `null`, so every unknown hostname resolves to a fabricated tenant.
+aliases. Missing or inactive tenants do not resolve, in every environment: the tenant plugin answers
+404 without rendering (see `server/plugins/02.tenant-context.ts`).
 
 Two hostnames, easily confused:
 
@@ -482,7 +482,6 @@ See [`.env.example`](https://github.com/geins-io/sales-portal/blob/main/.env.exa
 
 | Variable                         | Description                                                | Default                                |
 | -------------------------------- | ---------------------------------------------------------- | -------------------------------------- |
-| `NUXT_AUTO_CREATE_TENANT`        | Auto-create tenants for unknown hostnames                  | `false`                                |
 | `NUXT_GEINS_API_ENDPOINT`        | Geins GraphQL endpoint                                     | `https://merchantapi.geins.io/graphql` |
 | `NUXT_GEINS_TENANT_API_URL`      | Geins Tenant API URL (server-only)                         | —                                      |
 | `NUXT_STORAGE_DRIVER`            | KV storage driver (`memory`/`fs`/`redis`)                  | `memory`                               |
@@ -789,9 +788,9 @@ owns. `resolveTenant()` looks the hostname up on demand and caches the result in
 API's store-settings endpoint is unauthenticated and answers per hostname (confirmed 2026-08-25 and
 2026-09-03): no key is sent, and the tenant's storefront API key arrives in the response.
 
-Locally, `NUXT_AUTO_CREATE_TENANT` fabricates a tenant for any unregistered hostname, and the dev
-seed writes three fixtures at startup. Both are development conveniences; see
-[Multi-Tenant Architecture](guide/multi-tenant.md#local-development) for which applies when.
+The same rule holds locally: only a hostname the merchant API knows renders, and an unknown one
+answers 404. The dev seed writes three fixtures at startup as a development convenience; see
+[Multi-Tenant Architecture](guide/multi-tenant.md#local-development).
 
 ### Creating Components
 

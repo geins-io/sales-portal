@@ -11,11 +11,11 @@ For testing multi-tenancy locally, we use:
 
 This allows you to access the app via URLs like:
 
-- `http://tenant1.litium.portal/`
-- `http://demo.litium.portal/`
-- `http://anything.litium.portal/`
+- `http://tenant-a.litium.portal/`
+- `http://tenant-b.litium.portal/`
 
-Each unique hostname will auto-create a tenant configuration.
+Only hostnames registered in the merchant API resolve; any other name answers 404, locally as in
+production.
 
 ---
 
@@ -133,9 +133,6 @@ Make sure your `.env` file has:
 ```bash
 # Bind to all interfaces (required for custom domains)
 HOST=0.0.0.0
-
-# Auto-create tenants for unknown hostnames
-NUXT_AUTO_CREATE_TENANT=true
 ```
 
 ### 2. Start the Server
