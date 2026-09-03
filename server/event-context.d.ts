@@ -11,6 +11,12 @@ declare module 'h3' {
       /** Full resolved tenant config (set by 02.tenant-context plugin). */
       config?: TenantConfig;
     };
+    /**
+     * Development only: the `[tenant] resolve …` line `resolveTenant()`
+     * logged for this request, repeated in the 404 page when the hostname
+     * did not resolve. Never set in a production build.
+     */
+    tenantResolution?: string;
     /** Raw market/locale parsed from URL prefix by middleware 00. */
     localeMarket: { market: string; locale: string } | undefined;
     /** Validated locale/market with BCP-47 expansion, set by middleware 00. */
