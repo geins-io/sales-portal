@@ -59,10 +59,6 @@ param versionX string
 @description('Geins Tenant API URL')
 param geinsTenantApiUrl string
 
-@description('Geins Tenant API Key')
-@secure()
-param geinsTenantApiKey string
-
 @description('Health Check Secret')
 @secure()
 param healthCheckSecret string
@@ -167,10 +163,6 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'NUXT_GEINS_TENANT_API_URL'
           value: geinsTenantApiUrl
-        }
-        {
-          name: 'NUXT_GEINS_TENANT_API_KEY'
-          value: geinsTenantApiKey
         }
         {
           name: 'NUXT_HEALTH_CHECK_SECRET'

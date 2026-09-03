@@ -138,7 +138,6 @@ jobs:
             ghcrToken="${{ secrets.GHCR_PAT }}"
             geinsApiEndpoint="${{ vars.GEINS_API_ENDPOINT }}"
             geinsTenantApiUrl="${{ vars.GEINS_TENANT_API_URL }}"
-            geinsTenantApiKey="${{ secrets.GEINS_TENANT_API_KEY }}"
             healthCheckSecret="${{ secrets.HEALTH_CHECK_SECRET }}"
             storageDriver="${{ vars.STORAGE_DRIVER }}"
             redisUrl="${{ secrets.REDIS_URL }}"

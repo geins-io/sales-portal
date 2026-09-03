@@ -42,10 +42,6 @@ param geinsApiEndpoint string = ''
 @description('Geins Tenant API URL')
 param geinsTenantApiUrl string = ''
 
-@description('Geins Tenant API Key')
-@secure()
-param geinsTenantApiKey string = ''
-
 @description('Health Check Secret')
 @secure()
 param healthCheckSecret string = ''
@@ -169,7 +165,6 @@ module webApp 'modules/webApp.bicep' = {
     // Application settings
     geinsApiEndpoint: geinsApiEndpoint
     geinsTenantApiUrl: geinsTenantApiUrl
-    geinsTenantApiKey: geinsTenantApiKey
     healthCheckSecret: healthCheckSecret
     storageDriver: storageDriver
     redisUrl: redisUrl

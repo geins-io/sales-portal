@@ -225,7 +225,6 @@ export default defineNuxtConfig({
    * │ NUXT_AUTO_CREATE_TENANT         │ SENTRY_AUTH_TOKEN                    │
    * │ NUXT_GEINS_API_ENDPOINT         │ SENTRY_ORG                           │
    * │ NUXT_GEINS_TENANT_API_URL       │ SENTRY_PROJECT                       │
-   * │ NUXT_GEINS_TENANT_API_KEY       │                                      │
    * │ NUXT_STORAGE_DRIVER             │                                      │
    * │ NUXT_STORAGE_REDIS_URL          │                                      │
    * │ NUXT_HEALTH_CHECK_SECRET        │                                      │
@@ -247,7 +246,7 @@ export default defineNuxtConfig({
     autoCreateTenant: false,
 
     // Geins API configuration
-    // Azure: NUXT_GEINS_API_ENDPOINT, NUXT_GEINS_TENANT_API_URL, NUXT_GEINS_TENANT_API_KEY
+    // Azure: NUXT_GEINS_API_ENDPOINT, NUXT_GEINS_TENANT_API_URL
     geins: {
       apiEndpoint: 'https://merchantapi.geins.io/graphql',
       tenantApiUrl: 'https://merchantapi.geins.io/store-settings',
