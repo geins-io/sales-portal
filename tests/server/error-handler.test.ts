@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import errorHandler, { escapeHtml, renderErrorHtml } from '../../server/error';
+import errorHandler, {
+  buildErrorResponse,
+  escapeHtml,
+  renderErrorHtml,
+} from '../../server/error';
 
 // --- Mocks ----------------------------------------------------------------
 
@@ -438,14 +442,10 @@ describe('errorHandler (Nitro integration)', () => {
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  // "Tenant not provisioned" is the chain we see when a hostname hits
-  // the storefront but the merchant API doesn't have a record for it.
-  // Plugin 02 throws 404, Nuxt tries to render error.vue, the render
-  // crashes in @nuxtjs/i18n (no per-request context set up), Nitro's
-  // error handler fires with the i18n crash as `error`. We detect the
-  // chain and show a friendly "store not yet configured" page instead
-  // of the raw technical message.
-  it('shows "Store not yet available" when tenant context never resolved AND message is the i18n crash', () => {
+  it('renders the generic 5xx copy for an early i18n crash; no message sniffing', () => {
+    // The unregistered-hostname case no longer reaches this handler (the
+    // tenant plugin answers it in render:before), so an i18n crash with no
+    // tenant is what it says it is: a crash.
     const event = makeEvent({
       accept: 'text/html',
       tenantId: null,
@@ -457,40 +457,85 @@ describe('errorHandler (Nitro integration)', () => {
     );
     run(event, err);
 
-    expect(event.node.res.body).toContain('Store not yet available');
-    expect(event.node.res.body).toContain('This store is being configured');
-    // Raw message still visible in the diagnostics block for support.
-    expect(event.node.res.body).toContain(
-      'Nuxt I18n server context has not been set up yet.',
-    );
-  });
-
-  it('does NOT swap copy when the tenant IS resolved (real crash, not provisioning)', () => {
-    // tenantId default is 'boattools' via makeEvent — this is the case
-    // where a known tenant's page render legitimately failed.
-    const event = makeEvent({ accept: 'text/html' });
-    const err = Object.assign(
-      new Error('Nuxt I18n server context has not been set up yet.'),
-      { statusCode: 500 },
-    );
-    run(event, err);
-
+    expect(event.node.res.statusCode).toBe(500);
     expect(event.node.res.body).toContain('Something went wrong');
     expect(event.node.res.body).not.toContain('Store not yet available');
   });
+});
 
-  it('does NOT swap copy when tenant is missing but message is unrelated', () => {
+// The tenant plugin answers an unregistered hostname with this response from
+// `render:before`, so the status code is decided by the caller, not sniffed
+// from an error message.
+describe('buildErrorResponse (unregistered hostname)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockReadConfig.mockReturnValue({ debugErrors: false });
+  });
+
+  const refusal = {
+    statusCode: 404,
+    statusMessage: 'Not Found',
+    message:
+      'This site is not available. If you believe this is an error, please contact support.',
+    isTenantNotProvisioned: true,
+  };
+
+  it('answers browsers with a 404 page carrying the friendly copy', () => {
     const event = makeEvent({
       accept: 'text/html',
       tenantId: null,
-      hostname: null,
+      hostname: 'unregistered.example',
     });
-    const err = Object.assign(new Error('database unreachable'), {
-      statusCode: 500,
-    });
-    run(event, err);
+    const response = buildErrorResponse(
+      event as unknown as Parameters<typeof buildErrorResponse>[0],
+      refusal,
+    );
 
-    expect(event.node.res.body).toContain('Something went wrong');
-    expect(event.node.res.body).not.toContain('Store not yet available');
+    expect(response.statusCode).toBe(404);
+    expect(response.statusMessage).toBe('Not Found');
+    expect(response.headers['content-type']).toMatch(/text\/html/);
+    expect(response.headers['x-correlation-id']).toBe('corr-abc');
+    expect(response.headers['x-tenant-id']).toBeUndefined();
+    expect(response.body).toContain(
+      '<title>404 — Store not yet available</title>',
+    );
+    expect(response.body).toContain('This store is being configured');
+    expect(response.body).toContain('This site is not available');
+  });
+
+  it('answers API clients with 404 JSON carrying the friendly message', () => {
+    const event = makeEvent({
+      accept: 'application/json',
+      tenantId: null,
+      hostname: 'unregistered.example',
+    });
+    const response = buildErrorResponse(
+      event as unknown as Parameters<typeof buildErrorResponse>[0],
+      refusal,
+    );
+
+    expect(response.statusCode).toBe(404);
+    expect(response.headers['content-type']).toBe('application/json');
+    expect(JSON.parse(response.body)).toEqual({
+      error: true,
+      statusCode: 404,
+      statusMessage: 'Not Found',
+      message: refusal.message,
+      path: '/se/sv/',
+      correlationId: 'corr-abc',
+      hostname: 'unregistered.example',
+    });
+  });
+
+  it('does not log; a refusal is not an error', async () => {
+    const { logger: importedLogger } =
+      await import('../../server/utils/logger');
+    const event = makeEvent({ accept: 'text/html', tenantId: null });
+    buildErrorResponse(
+      event as unknown as Parameters<typeof buildErrorResponse>[0],
+      refusal,
+    );
+    expect(importedLogger.error).not.toHaveBeenCalled();
+    expect(importedLogger.warn).not.toHaveBeenCalled();
   });
 });

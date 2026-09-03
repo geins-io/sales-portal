@@ -1,5 +1,22 @@
+import type { H3Event } from 'h3';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { resolveTenant, resolvePreviewTenant } from '../utils/tenant';
+import {
+  buildErrorResponse,
+  type ErrorResponse,
+  type ErrorResponseInput,
+} from '../error';
+
+declare module 'h3' {
+  interface H3EventContext {
+    /**
+     * Set by the `request` hook below when the request must not reach the
+     * storefront (no host header, hostname not registered). Answered in
+     * `render:before`; see the note there for why it is not thrown.
+     */
+    tenantRefusal?: ErrorResponseInput;
+  }
+}
 
 /** Drops the port so storage keys are stable across ports. */
 function normalizeHostname(hostname: string): string {
@@ -29,7 +46,13 @@ export default defineNitroPlugin((nitroApp) => {
     // Validate hostname is present to prevent empty tenant IDs
     // polluting cache keys and storage
     if (!hostname) {
-      throw createError({ statusCode: 400, message: 'Missing host header' });
+      event.context.tenant = { hostname: '' };
+      event.context.tenantRefusal = {
+        statusCode: 400,
+        statusMessage: 'Bad Request',
+        message: 'Missing host header',
+      };
+      return;
     }
 
     // Preview is activated ONLY by `?preview=1`, never inferred from a cookie:
@@ -48,11 +71,14 @@ export default defineNitroPlugin((nitroApp) => {
         ? await resolvePreviewTenant(hostname, event)
         : await resolveTenant(hostname, event);
       if (!tenant) {
-        throw createError({
+        event.context.tenantRefusal = {
           statusCode: 404,
           statusMessage: 'Not Found',
-          message: `This site is not available. If you believe this is an error, please contact support.`,
-        });
+          message:
+            'This site is not available. If you believe this is an error, please contact support.',
+          isTenantNotProvisioned: true,
+        };
+        return;
       }
 
       const tenantId = tenant.tenantId || hostname;
@@ -90,4 +116,24 @@ export default defineNitroPlugin((nitroApp) => {
       }
     }
   });
+
+  // A refusal is answered here, not thrown from the `request` hook above:
+  // Nitro only captures an error thrown in that hook, it does not turn it
+  // into a response. The request would carry on into the Nuxt renderer for a
+  // tenant that does not exist, and whatever failed first in that render —
+  // historically i18n's missing per-request context — would reach the error
+  // handler as a 500. Setting `response` in `render:before` is the renderer's
+  // own escape hatch: no Vue render runs, and the status code and headers go
+  // through the normal response pipeline (route-rule headers included).
+  //
+  // Only requests that reach the renderer get here. `/api/` paths are not
+  // refused above; their handlers deal with a missing tenant themselves.
+  nitroApp.hooks.hook(
+    'render:before',
+    (ctx: { event: H3Event; response?: Partial<ErrorResponse> }) => {
+      const refusal = ctx.event.context.tenantRefusal;
+      if (!refusal) return;
+      ctx.response = buildErrorResponse(ctx.event, refusal);
+    },
+  );
 });

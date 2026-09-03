@@ -55,6 +55,18 @@ vi.mock('../../../server/utils/tenant', () => ({
     mockResolvePreviewTenant(...args),
 }));
 
+const mockBuildErrorResponse = vi.fn((_event: unknown, input: unknown) => ({
+  statusCode: (input as { statusCode: number }).statusCode,
+  statusMessage: 'mocked',
+  headers: { 'content-type': 'text/html; charset=utf-8' },
+  body: '<!doctype html>mocked',
+}));
+
+vi.mock('../../../server/error', () => ({
+  buildErrorResponse: (...args: unknown[]) =>
+    mockBuildErrorResponse(args[0], args[1]),
+}));
+
 vi.mock('#shared/constants/storage', () => ({
   COOKIE_NAMES: {
     LOCALE: 'locale',
@@ -118,8 +130,14 @@ function createEvent(
 // Tests
 // ---------------------------------------------------------------------------
 
+interface RenderContext {
+  event: MockEvent;
+  response?: unknown;
+}
+
 describe('server/plugins/02.tenant-context', () => {
   let handler: (event: MockEvent) => Promise<unknown>;
+  let renderBefore: (ctx: RenderContext) => unknown;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -138,6 +156,85 @@ describe('server/plugins/02.tenant-context', () => {
       (event: unknown) => Promise<unknown>
     >;
     handler = hooks.request as (event: MockEvent) => Promise<unknown>;
+    renderBefore = hooks['render:before'] as unknown as (
+      ctx: RenderContext,
+    ) => unknown;
+  });
+
+  // A throw inside the Nitro `request` hook is captured, not answered; the
+  // request would go on into the renderer and fail there as a 500. The plugin
+  // therefore records the refusal and answers it in `render:before`.
+  describe('refuses requests that have no tenant', () => {
+    it('does not throw for an unregistered hostname; records a 404 refusal', async () => {
+      mockResolveTenant.mockResolvedValue(null);
+      const event = createEvent('/se/sv/', {});
+
+      await expect(handler(event)).resolves.toBeUndefined();
+
+      expect(mockCreateError).not.toHaveBeenCalled();
+      expect(event.context.tenantRefusal).toMatchObject({
+        statusCode: 404,
+        statusMessage: 'Not Found',
+        isTenantNotProvisioned: true,
+      });
+      expect(
+        (event.context.tenantRefusal as { message: string }).message,
+      ).toContain('This site is not available');
+      expect(
+        (event.context.tenant as { tenantId?: string }).tenantId,
+      ).toBeUndefined();
+      expect(mockSetTenantCookie).not.toHaveBeenCalled();
+    });
+
+    it('answers the refusal in render:before without rendering', async () => {
+      mockResolveTenant.mockResolvedValue(null);
+      const event = createEvent('/se/sv/', {});
+      await handler(event);
+
+      const ctx: RenderContext = { event };
+      renderBefore(ctx);
+
+      expect(mockBuildErrorResponse).toHaveBeenCalledWith(
+        event,
+        event.context.tenantRefusal,
+      );
+      expect(ctx.response).toMatchObject({ statusCode: 404 });
+    });
+
+    it('records a 400 refusal when the host header is missing', async () => {
+      mockGetRequestHost.mockReturnValue('');
+      const event = createEvent('/se/sv/', {});
+
+      await expect(handler(event)).resolves.toBeUndefined();
+
+      expect(event.context.tenantRefusal).toMatchObject({
+        statusCode: 400,
+        message: 'Missing host header',
+      });
+      expect(mockResolveTenant).not.toHaveBeenCalled();
+    });
+
+    it('leaves render:before alone when the tenant resolved', async () => {
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+      await handler(event);
+
+      const ctx: RenderContext = { event };
+      renderBefore(ctx);
+
+      expect(event.context.tenantRefusal).toBeUndefined();
+      expect(ctx.response).toBeUndefined();
+      expect(mockBuildErrorResponse).not.toHaveBeenCalled();
+    });
+
+    it('does not refuse /api/ requests; their handlers own the missing tenant', async () => {
+      mockResolveTenant.mockResolvedValue(null);
+      const event = createEvent('/api/config', {});
+
+      await handler(event);
+
+      expect(event.context.tenantRefusal).toBeUndefined();
+    });
   });
 
   // Validation moved to server/middleware/00.locale-market.ts, which is the
