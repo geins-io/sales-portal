@@ -101,6 +101,12 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      PLAYWRIGHT_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://tenant-a.litium.portal:3000' }}
+      E2E_EXPECTED_TENANT_ID: ${{ vars.E2E_EXPECTED_TENANT_ID || 'tenant-a' }}
+      E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      E2E_EXTERNAL_SERVER: '1'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -126,12 +132,17 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Configure tenant hostname
-        run: echo '127.0.0.1 tenant-a.litium.portal' | sudo tee -a /etc/hosts
+      # The target: an origin, the tenant it must resolve to, and a test
+      # account. Repository variables/secrets override the committed defaults.
+      # E2E_EXTERNAL_SERVER: the job starts the preview once (below) and runs
+      # each preflight layer against it as its own step, so the step view
+      # names the layer that broke; playwright.config.ts then starts nothing.
+      - name: Point the target hostname at the runner
+        run: echo "127.0.0.1 $(node -e 'console.log(new URL(process.env.PLAYWRIGHT_BASE_URL).hostname)')" | sudo tee -a /etc/hosts
 
       # The production build sets `upgrade-insecure-requests` and Secure auth
-      # cookies, so it only works over https. playwright.config.ts feeds this
-      # cert to `pnpm preview` via NITRO_SSL_CERT / NITRO_SSL_KEY.
+      # cookies, so it only works over https. NITRO_SSL_CERT / NITRO_SSL_KEY
+      # hold PEM contents, not paths.
       - name: Generate TLS cert for the preview server
         run: ./infra/scripts/local-cert.sh
 
@@ -146,10 +157,37 @@ jobs:
       - name: Build application
         run: pnpm build
 
+      # Output goes to a file: an open stdout would keep the step from ending.
+      - name: Start the preview server
+        run: |
+          NITRO_SSL_CERT="$(cat .certs/local.crt)" NITRO_SSL_KEY="$(cat .certs/local.key)" E2E=1 \
+            pnpm preview > preview.log 2>&1 &
+
+      - name: Preflight L0 · reachability
+        run: pnpm test:e2e --no-deps --project "L0 reachability"
+
+      - name: Preflight L1 · liveness
+        run: pnpm test:e2e --no-deps --project "L1 liveness"
+
+      - name: Preflight L2 · identity
+        run: pnpm test:e2e --no-deps --project "L2 identity"
+
+      - name: Preflight L3 · delivery
+        run: pnpm test:e2e --no-deps --project "L3 delivery"
+
+      - name: Preflight L4 · session
+        run: pnpm test:e2e --no-deps --project "L4 session"
+
       - name: Run E2E smoke tests
-        run: pnpm test:e2e --project=chromium tests/e2e/health.spec.ts tests/e2e/app.spec.ts tests/e2e/homepage.spec.ts tests/e2e/csp-policy.spec.ts tests/e2e/unknown-hostname.spec.ts
-        env:
-          PLAYWRIGHT_BASE_URL: https://tenant-a.litium.portal:3000
+        run: pnpm test:e2e --no-deps --project=chromium tests/e2e/app.spec.ts tests/e2e/homepage.spec.ts tests/e2e/csp-policy.spec.ts tests/e2e/unknown-hostname.spec.ts
+
+      - name: Upload preview server log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview-log
+          path: preview.log
+          retention-days: 7
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

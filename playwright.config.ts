@@ -1,11 +1,12 @@
-import { defineConfig, devices } from '@playwright/test';
-import dotenv from 'dotenv';
+import { defineConfig, devices, type Project } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-
-// Loads E2E_USERNAME / E2E_PASSWORD from the gitignored .env.
-// `quiet`: dotenv's banner goes to stdout and corrupts --reporter=json.
-dotenv.config({ path: resolve(import.meta.dirname, '.env'), quiet: true });
+import {
+  BASE_URL,
+  EXPECTED_TENANT_ID,
+  EXTERNAL_SERVER,
+  PRODUCTION_BUILD,
+} from './tests/e2e/target';
 
 /**
  * Playwright E2E Test Configuration
@@ -15,40 +16,34 @@ dotenv.config({ path: resolve(import.meta.dirname, '.env'), quiet: true });
  * - pnpm test:e2e:ui      - Open Playwright UI
  * - pnpm test:e2e:debug   - Debug tests
  *
- * Prerequisites (local development):
- *   Add to /etc/hosts:
- *     127.0.0.1 tenant-a.litium.portal
+ * The target comes from the environment (tests/e2e/target.ts):
+ *   PLAYWRIGHT_BASE_URL     origin under test (default tenant-a.litium.portal:3000)
+ *   E2E_EXPECTED_TENANT_ID  tenant that origin must resolve to (default tenant-a)
+ *   E2E_USERNAME/PASSWORD   test account; auth specs are out of scope without one
+ *   E2E_PROD=1              build and test the production build (CI always does)
+ *   E2E_EXTERNAL_SERVER=1   the target is already running; start nothing
  *
- *   Tests use a tenant hostname instead of localhost so the multi-tenant
- *   server plugin can resolve the correct tenant configuration.
+ * Prerequisites (local development): the target hostname in /etc/hosts →
+ * 127.0.0.1, so the multi-tenant server plugin resolves the tenant.
  *
- *   Cart and portal specs need a test account (E2E_USERNAME / E2E_PASSWORD
- *   in .env) and skip without one. See docs/testing.md.
+ * The production build is served over https with a self-signed cert from
+ * `infra/scripts/local-cert.sh` (`pnpm local:setup` runs it). It sets
+ * `upgrade-insecure-requests` in its CSP and marks auth cookies Secure, so
+ * over plain http no JavaScript loads and no session survives. The dev
+ * server has neither behaviour and stays http.
  *
- *   The production-build path (CI, or E2E_PROD=1 locally) is served over
- *   https with a self-signed cert from `infra/scripts/local-cert.sh`
- *   (`pnpm local:setup` runs it). The production build sets
- *   `upgrade-insecure-requests` in its CSP and marks auth cookies Secure, so
- *   over plain http no JavaScript loads and no session survives. The dev
- *   server has neither behaviour and stays http.
+ * Preflight: five chained projects run before the browser projects and name
+ * the layer that broke — reachability, liveness, identity, delivery,
+ * session. Each lists every layer below it as a dependency, so when one
+ * fails the scope reporter counts everything above it as blocked by that
+ * layer. See docs/testing.md.
  *
  * @see https://playwright.dev/docs/test-configuration
  */
 
-const TEST_TENANT_HOST = 'tenant-a.litium.portal';
-const TEST_PORT = 3000;
-
-// CI always runs the production build; locally E2E_PROD=1 opts into it.
-const PRODUCTION_BUILD = !!(process.env.CI || process.env.E2E_PROD);
-const PROTOCOL = PRODUCTION_BUILD ? 'https' : 'http';
-
-const BASE_URL =
-  process.env.PLAYWRIGHT_BASE_URL ||
-  `${PROTOCOL}://${TEST_TENANT_HOST}:${TEST_PORT}`;
-
 // Nitro's node-server preset serves TLS when NITRO_SSL_CERT / NITRO_SSL_KEY
 // hold PEM *contents* (not paths). Read them here so `pnpm preview` started
-// by Playwright gets them, locally and in CI alike.
+// by Playwright gets them.
 const CERT_DIR = resolve(import.meta.dirname, '.certs');
 function tlsEnv(): Record<string, string> {
   if (!PRODUCTION_BUILD) return {};
@@ -75,11 +70,36 @@ const CONSENT_STORAGE_STATE = {
     {
       origin: BASE_URL,
       localStorage: [
-        { name: 'analytics-consent-tenant-a', value: '"accepted"' },
+        {
+          name: `analytics-consent-${EXPECTED_TENANT_ID}`,
+          value: '"accepted"',
+        },
       ],
     },
   ],
 };
+
+// Preflight layers, lowest first. Project names double as CI step names.
+const PREFLIGHT_LAYERS = [
+  { name: 'L0 reachability', file: 'l0-reachability', browser: false },
+  { name: 'L1 liveness', file: 'l1-liveness', browser: false },
+  { name: 'L2 identity', file: 'l2-identity', browser: false },
+  { name: 'L3 delivery', file: 'l3-delivery', browser: true },
+  { name: 'L4 session', file: 'l4-session', browser: true },
+] as const;
+
+const PREFLIGHT_PROJECT_NAMES = PREFLIGHT_LAYERS.map((l) => l.name);
+
+// The scope reporter reads direct dependencies only, so every layer names
+// all the layers below it; the first failed one in the list is the blocker.
+const preflightProjects: Project[] = PREFLIGHT_LAYERS.map((layer, index) => ({
+  name: layer.name,
+  testMatch: new RegExp(`preflight/${layer.file}\\.spec\\.ts$`),
+  dependencies: PREFLIGHT_PROJECT_NAMES.slice(0, index),
+  ...(layer.browser ? { use: { ...devices['Desktop Chrome'] } } : {}),
+}));
+
+const PREFLIGHT_FILES = /preflight\//;
 
 export default defineConfig({
   // Test directory
@@ -122,10 +142,10 @@ export default defineConfig({
 
   // Shared settings for all tests
   use: {
-    // Base URL for navigation — use tenant hostname for multi-tenant resolution
+    // Base URL for navigation — a tenant hostname, so the server resolves a tenant
     baseURL: BASE_URL,
 
-    // Auth specs override this with auth.setup.ts's state, which inherits it.
+    // Auth specs override this with the session layer's state, which inherits it.
     storageState: CONSENT_STORAGE_STATE,
 
     // The production build is served with a self-signed cert (see above).
@@ -146,22 +166,19 @@ export default defineConfig({
     },
   },
 
-  // Configure projects for different browsers
   projects: [
-    // Authenticates once — the login rate limit is 5/minute per IP.
-    {
-      name: 'setup',
-      testMatch: /.*\.setup\.ts/,
-    },
+    ...preflightProjects,
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      dependencies: ['setup'],
+      testIgnore: PREFLIGHT_FILES,
+      dependencies: PREFLIGHT_PROJECT_NAMES,
     },
     {
       name: 'Mobile Chrome',
       use: { ...devices['Pixel 5'] },
-      dependencies: ['setup'],
+      testIgnore: PREFLIGHT_FILES,
+      dependencies: PREFLIGHT_PROJECT_NAMES,
     },
     // WebKit is Safari's engine. Some CSP/nonce defects (e.g. a duplicate
     // nonce attribute on an inline <style>) are tolerated by Chromium but
@@ -171,32 +188,37 @@ export default defineConfig({
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-      dependencies: ['setup'],
+      testIgnore: PREFLIGHT_FILES,
+      dependencies: PREFLIGHT_PROJECT_NAMES,
     },
   ],
 
-  // Local development server.
+  // Local server. CI starts the preview itself (E2E_EXTERNAL_SERVER=1) so the
+  // preflight layers can run as separate steps against one server.
   // The strict production CSP (and thus the Safari theme-color bug) only exists
   // in a production build, so the webkit regression guard needs `pnpm preview`.
-  // CI always builds; locally set E2E_PROD=1 to opt into the production path.
-  webServer: {
-    command: process.env.CI
-      ? 'pnpm preview'
-      : process.env.E2E_PROD
-        ? 'pnpm build && pnpm preview'
-        : 'pnpm dev',
-    url: `${PROTOCOL}://${TEST_TENANT_HOST}:${TEST_PORT}/api/config`,
-    ignoreHTTPSErrors: PRODUCTION_BUILD,
-    // E2E=1 disables the dev overlays (see nuxt.config.ts). Only applies when
-    // Playwright starts the server — otherwise use `E2E=1 pnpm dev`.
-    // The TLS pair makes `pnpm preview` serve https (see tlsEnv above).
-    env: { E2E: '1', ...tlsEnv() },
-    reuseExistingServer: !process.env.CI,
-    // A local production build (E2E_PROD) needs much longer than a dev boot.
-    timeout: process.env.E2E_PROD ? 360000 : 120000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
+  webServer: EXTERNAL_SERVER
+    ? undefined
+    : {
+        command: process.env.E2E_PROD
+          ? 'pnpm build && pnpm preview'
+          : PRODUCTION_BUILD
+            ? 'pnpm preview'
+            : 'pnpm dev',
+        // A static file: it answers 200 whatever the tenant lookup or the
+        // dev server's memory check say, and those are preflight's findings.
+        url: `${BASE_URL}/favicon.ico`,
+        ignoreHTTPSErrors: PRODUCTION_BUILD,
+        // E2E=1 disables the dev overlays (see nuxt.config.ts). Only applies when
+        // Playwright starts the server — otherwise use `E2E=1 pnpm dev`.
+        // The TLS pair makes `pnpm preview` serve https (see tlsEnv above).
+        env: { E2E: '1', ...tlsEnv() },
+        reuseExistingServer: !process.env.CI,
+        // A local production build (E2E_PROD) needs much longer than a dev boot.
+        timeout: process.env.E2E_PROD ? 360000 : 120000,
+        stdout: 'pipe',
+        stderr: 'pipe',
+      },
 
   // Output folder for test artifacts
   outputDir: 'test-results',
