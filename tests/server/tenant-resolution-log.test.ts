@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
   resolveTenant,
+  resolveTenantOutcome,
   clearNegativeCache,
   describeTransportError,
   formatTenantResolution,
@@ -241,9 +242,7 @@ describe.sequential('resolveTenant resolution log', () => {
 
   it('a later lookup within the negative-cache window says what it repeats', async () => {
     const host = 'cached.example';
-    const fetchSpy = stubFetch(async () => {
-      throw connectionRefused();
-    });
+    const fetchSpy = stubFetch(async () => httpResponse(404));
 
     await resolveTenant(host);
     await resolveTenant(host);
@@ -254,9 +253,41 @@ describe.sequential('resolveTenant resolution log', () => {
     expect(lines).toHaveLength(2);
     expect(lines[1]).toMatch(
       new RegExp(
-        `^\\[tenant\\] resolve host=${host} kv=skipped api=skipped outcome=negative-cache \\(transport-failure, \\d+s ago\\)$`,
+        `^\\[tenant\\] resolve host=${host} kv=skipped api=skipped outcome=negative-cache \\(unknown-tenant, \\d+s ago\\)$`,
       ),
     );
+  });
+
+  it('a transport failure is not negative-cached: the next lookup asks the merchant API again', async () => {
+    const host = 'flaky.example';
+    let calls = 0;
+    const fetchSpy = stubFetch(async () => {
+      calls++;
+      if (calls === 1) throw connectionRefused();
+      return httpResponse(200, rawApiPayload('flaky', host));
+    });
+
+    const first = await resolveTenantOutcome(host);
+    const second = await resolveTenantOutcome(host);
+    clearNegativeCache(host);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(first).toMatchObject({ config: null, outcome: 'transport-failure' });
+    expect(second.outcome).toBe('resolved');
+    expect(second.config?.tenantId).toBe('flaky');
+  });
+
+  it('an unknown hostname is negative-cached and reported as such', async () => {
+    const host = 'nobody.example';
+    const fetchSpy = stubFetch(async () => httpResponse(404));
+
+    const first = await resolveTenantOutcome(host);
+    const second = await resolveTenantOutcome(host);
+    clearNegativeCache(host);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(first.outcome).toBe('unknown-tenant');
+    expect(second.outcome).toBe('negative-cache');
   });
 
   it('a resolved lookup logs at debug, not warn', async () => {

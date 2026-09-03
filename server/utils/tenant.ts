@@ -91,7 +91,9 @@ export const DEFAULT_GEINS_SETTINGS: GeinsSettings = {
 /**
  * Negative cache — hostnames that resolved to inactive/missing tenants.
  * Prevents thundering herd of API calls for unknown hostnames (bots, scanners).
- * Entries expire after NEGATIVE_CACHE_TTL_MS.
+ * Entries expire after NEGATIVE_CACHE_TTL_MS. A transport failure is never
+ * cached: it says nothing about the hostname, and caching it would make a
+ * registered tenant answer 404 for the whole TTL after a short outage.
  */
 const NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const NEGATIVE_CACHE_MAX_SIZE = 1000;
@@ -967,6 +969,12 @@ export async function getTenantById(
   return config;
 }
 
+/** A lookup's config (null when none) and how it ended. */
+export interface TenantResolution {
+  config: TenantConfig | null;
+  outcome: TenantResolutionOutcome;
+}
+
 /**
  * Resolves a tenant config from a hostname using the 2-step KV model:
  *   1. tenant:id:{hostname} → tenantId
@@ -981,13 +989,26 @@ export async function resolveTenant(
   hostname: string,
   event?: H3Event,
 ): Promise<TenantConfig | null> {
+  return (await resolveTenantOutcome(hostname, event)).config;
+}
+
+/**
+ * `resolveTenant()` plus the outcome, so a caller can answer 503 for a
+ * merchant API that could not be reached and 404 for a hostname it does
+ * not know.
+ */
+export async function resolveTenantOutcome(
+  hostname: string,
+  event?: H3Event,
+): Promise<TenantResolution> {
   const trace: TenantResolutionTrace = {
     hostname,
     kv: 'skipped',
     outcome: 'unknown-tenant',
   };
   try {
-    return await resolveTenantTraced(hostname, event, trace);
+    const config = await resolveTenantTraced(hostname, event, trace);
+    return { config, outcome: trace.outcome };
   } finally {
     reportTenantResolution(trace, event);
   }
@@ -1062,7 +1083,9 @@ async function resolveTenantTraced(
   // Cache miss — fetch from API
   const newConfig = await fetchTenantConfig(hostname, event, trace);
   if (!newConfig) {
-    addToNegativeCache(hostname, trace.outcome);
+    if (trace.outcome !== 'transport-failure') {
+      addToNegativeCache(hostname, trace.outcome);
+    }
     return null;
   }
 

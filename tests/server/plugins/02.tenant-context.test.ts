@@ -48,9 +48,14 @@ vi.stubGlobal('defineNitroPlugin', (fn: (nitroApp: unknown) => void) => {
 // ---------------------------------------------------------------------------
 const mockResolveTenant = vi.fn();
 const mockResolvePreviewTenant = vi.fn();
+// Why the lookup returned null; `resolveTenantOutcome` reports it beside the config.
+let mockOutcome = 'unknown-tenant';
 
 vi.mock('../../../server/utils/tenant', () => ({
-  resolveTenant: (...args: unknown[]) => mockResolveTenant(...args),
+  resolveTenantOutcome: async (...args: unknown[]) => {
+    const config = await mockResolveTenant(...args);
+    return { config, outcome: config ? 'resolved' : mockOutcome };
+  },
   resolvePreviewTenant: (...args: unknown[]) =>
     mockResolvePreviewTenant(...args),
 }));
@@ -149,6 +154,7 @@ describe('server/plugins/02.tenant-context', () => {
     mockGetTenantCookie.mockReturnValue(undefined);
     // Default: no preview query
     mockGetQuery.mockReturnValue({});
+    mockOutcome = 'unknown-tenant';
 
     const mod = await import('../../../server/plugins/02.tenant-context');
     const hooks = mod.default as unknown as Record<
@@ -199,6 +205,40 @@ describe('server/plugins/02.tenant-context', () => {
         event.context.tenantRefusal,
       );
       expect(ctx.response).toMatchObject({ statusCode: 404 });
+    });
+
+    it('records a 503 refusal when the merchant API could not be reached', async () => {
+      mockResolveTenant.mockResolvedValue(null);
+      mockOutcome = 'transport-failure';
+      const event = createEvent('/se/sv/', {});
+
+      await expect(handler(event)).resolves.toBeUndefined();
+
+      expect(event.context.tenantRefusal).toMatchObject({
+        statusCode: 503,
+        statusMessage: 'Service Unavailable',
+      });
+      expect(
+        (event.context.tenantRefusal as { isTenantNotProvisioned?: boolean })
+          .isTenantNotProvisioned,
+      ).toBeUndefined();
+      expect((event.context.tenant as { resolution?: string }).resolution).toBe(
+        'transport-failure',
+      );
+    });
+
+    it('leaves the outcome on the context for /api/ requests without a tenant', async () => {
+      mockResolveTenant.mockResolvedValue(null);
+      mockOutcome = 'transport-failure';
+      const event = createEvent('/api/config', {});
+
+      await handler(event);
+
+      expect(event.context.tenantRefusal).toBeUndefined();
+      expect(event.context.tenant).toMatchObject({
+        hostname: 'test.localhost',
+        resolution: 'transport-failure',
+      });
     });
 
     it('records a 400 refusal when the host header is missing', async () => {

@@ -1,5 +1,6 @@
 import type { TenantConfig } from '#shared/types/tenant-config';
 import type { ResolvedLocaleMarket } from '#shared/utils/locale-market';
+import type { TenantResolutionOutcome } from './utils/tenant';
 
 declare module 'h3' {
   interface H3EventContext {
@@ -10,6 +11,11 @@ declare module 'h3' {
       tenantId?: string;
       /** Full resolved tenant config (set by 02.tenant-context plugin). */
       config?: TenantConfig;
+      /**
+       * How the lookup ended when no config resolved. `/api/` handlers use
+       * it to answer 503 for `transport-failure` instead of "no tenant".
+       */
+      resolution?: TenantResolutionOutcome;
     };
     /**
      * Development only: the `[tenant] resolve …` line `resolveTenant()`

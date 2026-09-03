@@ -29,6 +29,17 @@ export default defineCachedEventHandler(
       async () => {
         log.debug('Fetching tenant configuration');
         const publicConfig = await getPublicConfig(event);
+        if (
+          !publicConfig &&
+          event.context.tenant.resolution === 'transport-failure'
+        ) {
+          // Thrown, so nothing is cached and the next request asks again.
+          throw createError({
+            statusCode: 503,
+            statusMessage: 'Service Unavailable',
+            message: 'Tenant configuration is temporarily unavailable',
+          });
+        }
         log.debug('Tenant configuration loaded successfully');
 
         return publicConfig;

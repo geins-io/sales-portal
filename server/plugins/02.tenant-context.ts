@@ -1,6 +1,10 @@
 import type { H3Event } from 'h3';
 import { COOKIE_NAMES } from '#shared/constants/storage';
-import { resolveTenant, resolvePreviewTenant } from '../utils/tenant';
+import {
+  resolveTenantOutcome,
+  resolvePreviewTenant,
+  type TenantResolution,
+} from '../utils/tenant';
 import {
   buildErrorResponse,
   type ErrorResponse,
@@ -21,6 +25,17 @@ declare module 'h3' {
 /** Drops the port so storage keys are stable across ports. */
 function normalizeHostname(hostname: string): string {
   return hostname.split(':')[0] ?? hostname;
+}
+
+/** Preview reads the merchant API directly and reports no outcome of its own. */
+async function lookupTenant(
+  hostname: string,
+  event: H3Event,
+  preview: boolean,
+): Promise<TenantResolution> {
+  if (!preview) return resolveTenantOutcome(hostname, event);
+  const config = await resolvePreviewTenant(hostname, event);
+  return { config, outcome: config ? 'resolved' : 'unknown-tenant' };
 }
 
 export default defineNitroPlugin((nitroApp) => {
@@ -61,23 +76,35 @@ export default defineNitroPlugin((nitroApp) => {
 
     event.context.tenant = { hostname };
 
-    // resolveTenant() returns null for both missing and inactive tenants.
+    // No config for a missing or inactive tenant, and for a merchant API
+    // that could not be reached; the outcome tells the two apart.
     if (
       !path.startsWith('/api/') &&
       !path.startsWith('/_nuxt/') &&
       !path.startsWith('/__nuxt')
     ) {
-      const tenant = isStoreSettingsPreview
-        ? await resolvePreviewTenant(hostname, event)
-        : await resolveTenant(hostname, event);
+      const { config: tenant, outcome } = await lookupTenant(
+        hostname,
+        event,
+        isStoreSettingsPreview,
+      );
       if (!tenant) {
-        event.context.tenantRefusal = {
-          statusCode: 404,
-          statusMessage: 'Not Found',
-          message:
-            'This site is not available. If you believe this is an error, please contact support.',
-          isTenantNotProvisioned: true,
-        };
+        event.context.tenant.resolution = outcome;
+        event.context.tenantRefusal =
+          outcome === 'transport-failure'
+            ? {
+                statusCode: 503,
+                statusMessage: 'Service Unavailable',
+                message:
+                  'This site is temporarily unavailable. Please try again in a moment.',
+              }
+            : {
+                statusCode: 404,
+                statusMessage: 'Not Found',
+                message:
+                  'This site is not available. If you believe this is an error, please contact support.',
+                isTenantNotProvisioned: true,
+              };
         return;
       }
 
@@ -107,12 +134,16 @@ export default defineNitroPlugin((nitroApp) => {
       }
     } else if (path.startsWith('/api/')) {
       // Hostname only — the cookie is a hint, never trusted.
-      const tenant = isStoreSettingsPreview
-        ? await resolvePreviewTenant(hostname, event)
-        : await resolveTenant(hostname, event);
+      const { config: tenant, outcome } = await lookupTenant(
+        hostname,
+        event,
+        isStoreSettingsPreview,
+      );
       if (tenant) {
         event.context.tenant.tenantId = tenant.tenantId || hostname;
         event.context.tenant.config = tenant;
+      } else {
+        event.context.tenant.resolution = outcome;
       }
     }
   });
@@ -127,7 +158,8 @@ export default defineNitroPlugin((nitroApp) => {
   // through the normal response pipeline (route-rule headers included).
   //
   // Only requests that reach the renderer get here. `/api/` paths are not
-  // refused above; their handlers deal with a missing tenant themselves.
+  // refused above; their handlers deal with a missing tenant themselves,
+  // reading `event.context.tenant.resolution` for why it is missing.
   nitroApp.hooks.hook(
     'render:before',
     (ctx: { event: H3Event; response?: Partial<ErrorResponse> }) => {
