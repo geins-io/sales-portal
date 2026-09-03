@@ -257,11 +257,15 @@ test.describe('Locale switching', () => {
       // 3. A real translated string renders. Asserting the exact per-language
       //    value means an English placeholder cannot pass for a translation.
       //    The probe input is inline on desktop but behind the search overlay
-      //    on mobile (its trigger is `lg:hidden`), so branch on the trigger.
+      //    on mobile (its trigger is `lg:hidden`), so branch on the layout.
+      // Tailwind's lg breakpoint; the mobile trigger is `lg:hidden`. Decided on
+      // the viewport, not isVisible(): right after the reload the stylesheet
+      // may not have applied yet and the hidden trigger reads as visible.
+      const isMobile = (page.viewportSize()?.width ?? 1280) < 1024;
       const mobileTrigger = page.locator('[data-slot="search-button"]');
       let searchInput = page.locator('[data-testid="search-input"]').first();
 
-      if (await mobileTrigger.isVisible()) {
+      if (isMobile) {
         // Fresh page load after the switch — the overlay toggle only works
         // once hydrated.
         await waitForHydration(page);

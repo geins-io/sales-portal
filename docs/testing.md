@@ -279,6 +279,10 @@ returns. `load` fires while Nuxt's hydration navigation is still running; a `got
 window cancels its lazy chunk import, Nuxt's chunk-reload plugin reloads the page, and that reload
 interrupts the next navigation (`page.goto: Navigation to … is interrupted by another navigation`).
 
+Never decide a branch with `isVisible()` right after a page load: before the stylesheet has applied,
+a `lg:hidden` element reads as visible. Decide on the viewport (`page.viewportSize()`) or on
+configuration instead.
+
 #### If a run goes badly wrong
 
 A long-lived `pnpm dev` can exhaust the Vite worker's heap and then answer **500** while still
