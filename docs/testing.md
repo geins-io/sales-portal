@@ -167,7 +167,19 @@ application bugs.
 #### 1. Tenant hostname
 
 Tests run against a tenant hostname, not `localhost`, so the multi-tenant server plugin can
-resolve a tenant. Add to `/etc/hosts`:
+resolve a tenant. The target comes from the environment, read in one place (`tests/e2e/target.ts`):
+
+| Variable                        | Default                                 | Meaning                                              |
+| ------------------------------- | --------------------------------------- | ---------------------------------------------------- |
+| `PLAYWRIGHT_BASE_URL`           | `http(s)://tenant-a.litium.portal:3000` | Origin under test (https when `E2E_PROD=1` or in CI) |
+| `E2E_EXPECTED_TENANT_ID`        | `tenant-a`                              | Tenant `/api/config` must resolve to                 |
+| `E2E_USERNAME` / `E2E_PASSWORD` | unset                                   | Test account (see 2.)                                |
+| `E2E_PROD`                      | unset                                   | `1`: build and test the production build over https  |
+| `E2E_EXTERNAL_SERVER`           | unset                                   | `1`: the target is already running, start nothing    |
+
+Locally they live in `.env`; in CI in repository variables and secrets. No tenant other than the
+default is named in the repo — switching target is an environment change. The hostname must point
+at `127.0.0.1` in `/etc/hosts`:
 
 ```
 127.0.0.1 tenant-a.litium.portal
@@ -211,16 +223,38 @@ assertions off (no CSP header on the dev server) declares that with `noteOutOfSc
 - **out of scope** — declared, grouped by reason. `tenant-config` and `fixture-missing` entries are
   listed one by one: the first says "passes on this tenant" and nothing more, the second goes away
   with the seeded team-owned tenant.
-- **blocked** — a project this test depends on (`setup`) failed, so Playwright never ran it. The
-  list reporter calls these "did not run"; here they are counted against the project that failed.
+- **blocked** — a project this test depends on (a preflight layer) failed, so Playwright never
+  ran it. The list reporter calls these "did not run"; here they are counted against the layer that
+  failed.
 - **unknown** — skipped with no declaration. The run fails, even if every test that ran passed.
 
 A permanently skipped test is deleted, not parked; the decision it was waiting on goes in a ticket.
 
 > Logging in inside each test is not viable: `loginRateLimiter` allows 5 logins per minute per IP
-> (`server/utils/rate-limiter.ts`) and every test shares `127.0.0.1`. `tests/e2e/auth.setup.ts`
-> authenticates **once** and persists the session to `playwright/.auth/user.json` (gitignored);
-> specs opt in with `test.use({ storageState: STORAGE_STATE })`.
+> (`server/utils/rate-limiter.ts`) and every test shares `127.0.0.1`. The preflight session layer
+> (`tests/e2e/preflight/l4-session.spec.ts`) authenticates **once** and persists the session to
+> `playwright/.auth/user.json` (gitignored); specs opt in with
+> `test.use({ storageState: STORAGE_STATE })`.
+
+#### Preflight: which layer broke
+
+Five chained Playwright projects run before every browser project and name the layer that broke,
+lowest first. A failure at one layer reports every layer above it, and every spec, as **blocked**
+by that layer — a stopped server, a dead merchant API and a wrong tenant no longer all look like
+"no products".
+
+| Layer             | Checks                                                               | Fails when                                                                                                                                               |
+| ----------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `L0 reachability` | the origin answers at all (polls for 20 s)                           | connection refused, DNS, nothing listening                                                                                                               |
+| `L1 liveness`     | `/api/health` answers below 500 with a well-formed body              | any 5xx. Exception: on the dev server a 503 whose body says `unhealthy` is its memory check (RSS > 900 MB), declared `dev-server` with the assertion off |
+| `L2 identity`     | `/api/config` answers 200 with `tenantId` = `E2E_EXPECTED_TENANT_ID` | 503: merchant API unreachable from the server; 204/404: hostname not registered; 200 with another id: wrong tenant                                       |
+| `L3 delivery`     | the client bundle loads and Vue mounts on `#__nuxt`                  | a build whose JavaScript never runs (the CSP upgrade over plain http)                                                                                    |
+| `L4 session`      | the configured account signs in; saves the session                   | bad credentials, login broken. Out of scope (`no-credentials`) when none are configured                                                                  |
+
+Each project lists every layer below it as a dependency, which is what lets the scope reporter
+attribute the blocked count to the lowest failed layer without any special casing. In CI each layer
+is its own workflow step (see [CI/CD Integration](#cicd-integration)), so the step view shows the
+layer without opening a log.
 
 #### 3. `E2E=1` on the dev server
 
@@ -287,8 +321,8 @@ configuration instead.
 
 A long-lived `pnpm dev` can exhaust the Vite worker's heap and then answer **500** while still
 listening, which produces a large, convincing wall of failures that looks like a code regression.
-`health.spec.ts` and `theme-colors.spec.ts` are the canaries — they depend on almost nothing, so
-if _they_ fail, check the server before debugging code:
+The preflight layers are the canaries — they depend on almost nothing, so if _they_ fail, the
+report names the layer; check the server before debugging code:
 
 ```bash
 curl http://tenant-a.litium.portal:3000/api/health
@@ -330,13 +364,14 @@ tests/
 │   ├── useErrorTracking.test.ts          # nuxt tier (useRuntimeConfig)
 │   ├── useRouteResolution.test.ts
 │   └── useTenant.test.ts                 # nuxt tier (useFetch)
-├── e2e/               # Playwright E2E tests (12 specs, 226 tests x 3 projects)
+├── e2e/               # Playwright E2E tests (13 specs x 3 browser projects, after preflight)
+│   ├── target.ts           # The environment the suite reads: origin, tenant, account
 │   ├── helpers.ts          # Shared: discoverProduct, waitForHydration, addToCart
+│   ├── preflight/          # L0–L4, one spec per layer, one project per spec
 │   ├── app.spec.ts         # App health, responsive, accessibility, perf (10)
 │   ├── auth.spec.ts        # Login, register, validation, view switching (8)
 │   ├── cart.spec.ts        # Add-to-cart, cart page, remove, promo (5)
-│   ├── health.spec.ts      # API health, config, homepage (3)
-│   ├── homepage.spec.ts    # Hero, products, CMS sections, nav, footer (5)
+│   ├── homepage.spec.ts    # Nav, footer, console errors (3)
 │   ├── navigation.spec.ts  # Header, breadcrumbs, footer, mobile nav (7)
 │   ├── product-browsing.spec.ts  # PLP grid, sort, filter, PDP (8)
 │   └── search.spec.ts      # Autocomplete, results page, clear (5)
@@ -577,25 +612,32 @@ Excludes: `app/components/ui/**` (shadcn-vue), `*.d.ts`, `node_modules`, `.nuxt`
 See `.github/workflows/ci.yml`. It runs on **PRs into `main`/`production`** and on **pushes to
 `dev`** — not on every push.
 
-| Job               | When     | What                                       |
-| ----------------- | -------- | ------------------------------------------ |
-| Lint & Type Check | both     | `pnpm lint`, `pnpm typecheck`              |
-| Unit & Component  | both     | `pnpm test:coverage` (full vitest suite)   |
-| E2E               | PRs only | **A 4-file smoke subset on chromium only** |
+| Job               | When     | What                                                  |
+| ----------------- | -------- | ----------------------------------------------------- |
+| Lint & Type Check | both     | `pnpm lint`, `pnpm typecheck`                         |
+| Unit & Component  | both     | `pnpm test:coverage` (full vitest suite)              |
+| E2E               | PRs only | **Preflight, then a 4-file smoke subset on chromium** |
 
-The E2E job runs exactly:
+The E2E job builds the production build, starts `pnpm preview` once (over https, output in the
+`preview-log` artifact), then runs one step per preflight layer against it with
+`E2E_EXTERNAL_SERVER=1` and `--no-deps` — `Preflight L0 · reachability` … `L4 · session` — and
+finally the specs:
 
 ```
---project=chromium health.spec.ts app.spec.ts homepage.spec.ts csp-policy.spec.ts
+--no-deps --project=chromium app.spec.ts homepage.spec.ts csp-policy.spec.ts unknown-hostname.spec.ts
 ```
 
-That is **18 of 226 tests**. Be aware of what this does and does not buy you:
+A red run stops at the layer that broke and the later steps are skipped, so the step view names
+the layer. The target and account come from repository variables (`E2E_BASE_URL`,
+`E2E_EXPECTED_TENANT_ID`) and secrets (`E2E_USERNAME`, `E2E_PASSWORD`), with the committed
+defaults when unset. Be aware of what this does and does not buy you:
 
-- Those four files make no data-discovery calls and need no test account, which is why they were
-  chosen — CI has no working Geins credentials.
-- Consequently they pass even against a completely unreachable backend. A green E2E job is **not**
+- The four spec files make no data-discovery calls and need no test account, which is why they
+  were chosen. Without credentials the session layer is out of scope, not red.
+- The identity layer does fail against an unreachable merchant API (503) or an unregistered
+  hostname, but the specs still pass against a Geins API that is down. A green E2E job is **not**
   evidence that the storefront works.
-- The other 8 spec files, and the `Mobile Chrome` / `webkit` projects, are ungated. They rot
+- The other 9 spec files, and the `Mobile Chrome` / `webkit` projects, are ungated. They rot
   silently; assume they are broken unless someone has run them locally.
 - `theme-colors.spec.ts` is a deliberate WebKit regression guard, but CI installs chromium only
   and passes `--project=chromium`, so **it runs nowhere in CI** despite the comment in

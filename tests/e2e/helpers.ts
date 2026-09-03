@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { e2eCredentials, hasE2ECredentials } from './target';
+
+export { e2eCredentials, hasE2ECredentials };
 
 /**
  * E2E Test Helpers
@@ -223,19 +226,8 @@ export async function discoverCategory(
 
 // ---------- Authentication ----------
 
-/** Test-account credentials from .env (loaded by playwright.config.ts). */
-export const e2eCredentials = {
-  username: process.env.E2E_USERNAME ?? '',
-  password: process.env.E2E_PASSWORD ?? '',
-};
-
-/** Session persisted by auth.setup.ts. Opt in via `test.use`. */
+/** Session persisted by the preflight session layer. Opt in via `test.use`. */
 export const STORAGE_STATE = 'playwright/.auth/user.json';
-
-/** Auth-dependent specs skip when false. Mirrors `hasGeinsCredentials()`. */
-export function hasE2ECredentials(): boolean {
-  return !!(e2eCredentials.username && e2eCredentials.password);
-}
 
 /** Sign in. Asserts the response so a bad credential fails here, not later. */
 export async function login(
