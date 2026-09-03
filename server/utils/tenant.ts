@@ -167,7 +167,7 @@ export type TenantResolutionOutcome =
 export interface TenantResolutionTrace {
   hostname: string;
   /** `stale` is a hit whose config no longer claims the hostname; the lookup then falls through. */
-  kv: 'hit' | 'legacy' | 'stale' | 'miss' | 'skipped';
+  kv: 'hit' | 'stale' | 'miss' | 'skipped';
   /** The merchant API call, when one was made: its URL and status or error. */
   api?: { url: string; result: string };
   outcome: TenantResolutionOutcome;
@@ -982,8 +982,6 @@ export interface TenantResolution {
  *
  * On cache miss, fetches from the API and writes both hostname mappings
  * and the config keyed by tenantId.
- *
- * Backwards compat: checks for legacy tenant:config:{hostname} and migrates.
  */
 export async function resolveTenant(
   hostname: string,
@@ -1061,23 +1059,6 @@ async function resolveTenantTraced(
       );
       await storage.removeItem(tenantIdKey(hostname));
     }
-  }
-
-  // Backwards compat: check for legacy tenant:config:{hostname}
-  const legacyConfig = await storage.getItem<TenantConfig>(
-    tenantConfigKey(hostname),
-  );
-  if (legacyConfig && legacyConfig.isActive) {
-    const tid = legacyConfig.tenantId || hostname;
-    if (tid !== hostname) {
-      await storage.setItem(tenantConfigKey(tid), legacyConfig);
-      await storage.removeItem(tenantConfigKey(hostname));
-    }
-    await writeHostnameMappings(storage, legacyConfig);
-    trace.kv = 'legacy';
-    trace.outcome = 'resolved';
-    trace.tenantId = tid;
-    return legacyConfig;
   }
 
   // Cache miss — fetch from API
