@@ -3,6 +3,7 @@ import type { H3Event } from 'h3';
 import { getRequestHeader, setResponseHeader, setResponseStatus } from 'h3';
 import { logger } from './utils/logger';
 import { readErrorHandlerConfig } from './utils/error-config';
+import { isDevMode } from './utils/dev-mode';
 import { sanitizeTenantCss } from '#shared/utils/sanitize-css';
 import { buildGoogleFontsUrl } from '#shared/utils/fonts';
 
@@ -99,6 +100,13 @@ export function buildErrorResponse(
   const correlationId = event.context.correlationId ?? mintFallbackId();
   const tenantId = event.context.tenant?.tenantId;
   const hostname = event.context.tenant?.hostname;
+  // The resolution log line, in development only: says whether the hostname
+  // is unknown to the merchant API or the API could not be reached, which
+  // the friendly copy deliberately does not.
+  const resolution =
+    isDevMode() && isTenantNotProvisioned
+      ? event.context.tenantResolution
+      : undefined;
 
   // The normal tenant theme is injected by the `render:html` Nitro hook
   // (server/plugins/04.tenant-css.ts), but this response never runs that
@@ -139,6 +147,7 @@ export function buildErrorResponse(
         hostname,
         stack: debugErrors ? input.stack : undefined,
         isTenantNotProvisioned,
+        resolution,
         themeName,
         themeCss,
         fontsUrl,
@@ -159,6 +168,7 @@ export function buildErrorResponse(
   if (tenantId) body.tenantId = tenantId;
   if (hostname) body.hostname = hostname;
   if (input.data !== undefined) body.data = input.data;
+  if (resolution) body.resolution = resolution;
   if (debugErrors && input.stack) body.stack = input.stack.split('\n');
 
   return { statusCode, statusMessage, headers, body: JSON.stringify(body) };
@@ -197,6 +207,11 @@ export interface ErrorHtmlInput {
    */
   isTenantNotProvisioned?: boolean;
   /**
+   * Development only: the tenant resolution log line, shown verbatim in the
+   * diagnostics block so the 404 page says why the hostname did not resolve.
+   */
+  resolution?: string;
+  /**
    * Tenant theme assets. When present the error page inherits the store's
    * colors, fonts and button styles instead of the built-in fallbacks:
    * `themeName` is the `data-theme` value, `themeCss` is the sanitized tenant
@@ -232,6 +247,7 @@ export function renderErrorHtml(input: ErrorHtmlInput): string {
     hostname,
     stack,
     isTenantNotProvisioned,
+    resolution,
     themeName,
     themeCss,
     fontsUrl,
@@ -265,7 +281,8 @@ export function renderErrorHtml(input: ErrorHtmlInput): string {
   // Diagnostics panel appears for 500s (always useful for bug reports)
   // and for any error that carries a correlation ID. 404s without a
   // correlation ID stay clean — they're expected user errors.
-  const showDiagnostics = is500 || Boolean(correlationId);
+  const showDiagnostics =
+    is500 || Boolean(correlationId) || Boolean(resolution);
   const showTenantRow = Boolean(tenantId && is500);
   const showHostRow = Boolean(hostname && hostname !== tenantId && is500);
 
@@ -286,6 +303,10 @@ ${
       }${
         showMessage
           ? `      <p class="diag-msg">${escapeHtml(message)}</p>\n`
+          : ''
+      }${
+        resolution
+          ? `      <p class="diag-msg">${escapeHtml(resolution)}</p>\n`
           : ''
       }    </div>`
     : '';

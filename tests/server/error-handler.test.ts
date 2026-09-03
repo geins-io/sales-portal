@@ -30,6 +30,13 @@ vi.mock('../../server/utils/error-config', () => ({
   readErrorHandlerConfig: mockReadConfig,
 }));
 
+const { mockIsDevMode } = vi.hoisted(() => ({
+  mockIsDevMode: vi.fn(() => false),
+}));
+vi.mock('../../server/utils/dev-mode', () => ({
+  isDevMode: mockIsDevMode,
+}));
+
 // --- Helpers -------------------------------------------------------------
 
 interface MockEvent {
@@ -38,6 +45,7 @@ interface MockEvent {
   context: {
     correlationId?: string;
     tenant?: { tenantId?: string; hostname?: string };
+    tenantResolution?: string;
   };
   headers: Map<string, string>;
   node: {
@@ -59,6 +67,7 @@ function makeEvent(
     correlationId?: string | null;
     tenantId?: string | null;
     hostname?: string | null;
+    tenantResolution?: string;
   } = {},
 ): MockEvent {
   const headers = new Map<string, string>();
@@ -81,6 +90,7 @@ function makeEvent(
     context: {
       correlationId,
       tenant: tenantId || hostname ? { tenantId, hostname } : undefined,
+      tenantResolution: overrides.tenantResolution,
     },
     headers,
     node: {
@@ -470,6 +480,7 @@ describe('buildErrorResponse (unregistered hostname)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockReadConfig.mockReturnValue({ debugErrors: false });
+    mockIsDevMode.mockReturnValue(false);
   });
 
   const refusal = {
@@ -537,5 +548,82 @@ describe('buildErrorResponse (unregistered hostname)', () => {
     );
     expect(importedLogger.error).not.toHaveBeenCalled();
     expect(importedLogger.warn).not.toHaveBeenCalled();
+  });
+
+  // The resolution line is the same string resolveTenant() logged; the page
+  // repeats it verbatim, in development only.
+  describe('resolution diagnostics', () => {
+    const resolutionLine =
+      '[tenant] resolve host=unregistered.example kv=miss api=GET https://merchantapi.example/store-settings?hostname=unregistered.example → 404 outcome=unknown-tenant';
+
+    it('development: the HTML page carries the resolution line, escaped', () => {
+      mockIsDevMode.mockReturnValue(true);
+      const event = makeEvent({
+        accept: 'text/html',
+        tenantId: null,
+        hostname: 'unregistered.example',
+        tenantResolution: resolutionLine + ' <x>',
+      });
+      const response = buildErrorResponse(
+        event as unknown as Parameters<typeof buildErrorResponse>[0],
+        refusal,
+      );
+
+      expect(response.body).toContain(
+        `<p class="diag-msg">${resolutionLine} &lt;x&gt;</p>`,
+      );
+      expect(response.body).toContain('This site is not available');
+    });
+
+    it('development: the JSON body carries the resolution line', () => {
+      mockIsDevMode.mockReturnValue(true);
+      const event = makeEvent({
+        accept: 'application/json',
+        tenantId: null,
+        hostname: 'unregistered.example',
+        tenantResolution: resolutionLine,
+      });
+      const response = buildErrorResponse(
+        event as unknown as Parameters<typeof buildErrorResponse>[0],
+        refusal,
+      );
+
+      expect(JSON.parse(response.body)).toMatchObject({
+        statusCode: 404,
+        resolution: resolutionLine,
+      });
+    });
+
+    it('production build: the line never reaches the response, even when present on the event', () => {
+      mockIsDevMode.mockReturnValue(false);
+      for (const accept of ['text/html', 'application/json']) {
+        const event = makeEvent({
+          accept,
+          tenantId: null,
+          hostname: 'unregistered.example',
+          tenantResolution: resolutionLine,
+        });
+        const response = buildErrorResponse(
+          event as unknown as Parameters<typeof buildErrorResponse>[0],
+          refusal,
+        );
+        expect(response.body).not.toContain('outcome=');
+        expect(response.body).not.toContain('resolution');
+      }
+    });
+
+    it('development: the line is shown only for the tenant refusal, not for other errors', () => {
+      mockIsDevMode.mockReturnValue(true);
+      const event = makeEvent({
+        accept: 'application/json',
+        tenantResolution:
+          '[tenant] resolve host=boattools.litium.store kv=hit api=skipped outcome=resolved tenant=boattools',
+      });
+      const response = buildErrorResponse(
+        event as unknown as Parameters<typeof buildErrorResponse>[0],
+        { statusCode: 500, statusMessage: 'Error', message: 'boom' },
+      );
+      expect(JSON.parse(response.body).resolution).toBeUndefined();
+    });
   });
 });
