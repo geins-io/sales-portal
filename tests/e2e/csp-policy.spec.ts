@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { noteOutOfScope } from './helpers';
 
 /**
  * Content-Security-Policy regression guard.
@@ -32,10 +33,7 @@ test.describe('Content-Security-Policy', () => {
     const header = response?.headers()['content-security-policy'];
 
     if (!header) {
-      test.info().annotations.push({
-        type: 'note',
-        description: 'no CSP header (dev server) — policy guard skipped',
-      });
+      noteOutOfScope('dev-server', 'no CSP header — policy guard not asserted');
       return;
     }
 

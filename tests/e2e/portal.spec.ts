@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { waitForHydration, hasE2ECredentials, STORAGE_STATE } from './helpers';
+import {
+  waitForHydration,
+  hasE2ECredentials,
+  outOfScope,
+  STORAGE_STATE,
+} from './helpers';
 
 /**
  * Portal E2E Tests
@@ -11,9 +16,10 @@ import { waitForHydration, hasE2ECredentials, STORAGE_STATE } from './helpers';
  * account. Tests handle empty states since the account may have no data.
  */
 
-test.skip(
+outOfScope(
   !hasE2ECredentials(),
-  'No E2E test account configured (set E2E_USERNAME / E2E_PASSWORD in .env)',
+  'no-credentials',
+  'portal pages need a signed-in customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
 );
 
 // Per-test login would exceed the 5-per-minute login rate limit.
@@ -271,10 +277,15 @@ test.describe('Portal Quotations', () => {
     const loading = page.locator('[data-testid="quotations-loading"]');
     await expect(loading).toBeHidden({ timeout: PAGE_TIMEOUT });
 
-    // Skip if the test account has no quotes (empty state — data drift tolerant)
+    // The current test account has no quotes. Declared, not silently skipped:
+    // the seeded team-owned tenant (SAL-361) gives this test its data.
     const empty = page.locator('[data-testid="quotations-empty"]');
     const hasEmpty = await empty.isVisible().catch(() => false);
-    test.skip(hasEmpty, 'Test account has no quotes — fixture required');
+    outOfScope(
+      hasEmpty,
+      'fixture-missing',
+      'test account has no quotes — seeded by the team-owned tenant (SAL-361)',
+    );
 
     // Click the first view link (desktop table preferred, falls back to mobile card)
     const viewLink = page

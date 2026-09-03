@@ -98,9 +98,19 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined,
 
   // Reporter configuration
+  // The scope reporter separates out-of-scope / blocked / unknown skips and
+  // fails the run on an undeclared one (tests/e2e/reporters/scope-reporter.ts).
   reporter: process.env.CI
-    ? [['html', { outputFolder: 'playwright-report' }], ['github']]
-    : [['html', { outputFolder: 'playwright-report' }], ['list']],
+    ? [
+        ['html', { outputFolder: 'playwright-report' }],
+        ['github'],
+        ['./tests/e2e/reporters/scope-reporter.ts'],
+      ]
+    : [
+        ['html', { outputFolder: 'playwright-report' }],
+        ['list'],
+        ['./tests/e2e/reporters/scope-reporter.ts'],
+      ],
 
   // Global timeout — extended for real API calls
   timeout: 60000,

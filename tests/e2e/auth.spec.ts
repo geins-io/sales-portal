@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForHydration } from './helpers';
+import { outOfScope, waitForHydration } from './helpers';
 
 /**
  * Auth E2E Tests
@@ -90,9 +90,11 @@ test.describe('Auth', () => {
 
     const applyButton = page.locator('[data-testid="auth-apply-button"]');
 
-    if (!(await applyButton.isVisible().catch(() => false))) {
-      test.skip(true, 'Tenant has no resolvable CMS apply page');
-    }
+    outOfScope(
+      !(await applyButton.isVisible().catch(() => false)),
+      'tenant-config',
+      'tenant has no resolvable CMS apply page',
+    );
 
     // Per-tenant target, so read it off the link rather than hardcoding.
     const href = await applyButton.getAttribute('href');

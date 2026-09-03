@@ -23,7 +23,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
-import { waitForHydration } from './helpers';
+import { outOfScope, waitForHydration } from './helpers';
 
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
 
@@ -227,8 +227,9 @@ test.describe('Locale switching', () => {
 
       const tenantLocales = await tenantAvailableLocales(page);
       const tenantCodes = tenantLocales.map((l) => l.split('-')[0]!);
-      test.skip(
+      outOfScope(
         !tenantCodes.includes(locale.code),
+        'tenant-config',
         `tenant does not offer "${locale.code}" (has: ${tenantCodes.join(', ')})`,
       );
 
@@ -256,11 +257,15 @@ test.describe('Locale switching', () => {
       // 3. A real translated string renders. Asserting the exact per-language
       //    value means an English placeholder cannot pass for a translation.
       //    The probe input is inline on desktop but behind the search overlay
-      //    on mobile (its trigger is `lg:hidden`), so branch on the trigger.
+      //    on mobile (its trigger is `lg:hidden`), so branch on the layout.
+      // Tailwind's lg breakpoint; the mobile trigger is `lg:hidden`. Decided on
+      // the viewport, not isVisible(): right after the reload the stylesheet
+      // may not have applied yet and the hidden trigger reads as visible.
+      const isMobile = (page.viewportSize()?.width ?? 1280) < 1024;
       const mobileTrigger = page.locator('[data-slot="search-button"]');
       let searchInput = page.locator('[data-testid="search-input"]').first();
 
-      if (await mobileTrigger.isVisible()) {
+      if (isMobile) {
         // Fresh page load after the switch — the overlay toggle only works
         // once hydrated.
         await waitForHydration(page);

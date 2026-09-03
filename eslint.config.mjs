@@ -51,6 +51,26 @@ export default createConfigForNuxt()
     },
   })
   .append({
+    // Guard: e2e specs declare why a test does not run. A bare skip conflates
+    // "out of scope", "blocked" and "we don't know", and the last one must
+    // fail the run (tests/e2e/reporters/scope-reporter.ts). Only helpers.ts
+    // may call test.skip, inside outOfScope().
+    files: ['tests/e2e/**/*.ts'],
+    ignores: ['tests/e2e/helpers.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          // test.skip(...), setup.skip(...), test.fixme(...), test.describe.skip(...)
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name=/^(skip|fixme)$/]",
+          message:
+            'Declare why the test does not run with outOfScope(condition, reason, detail) from ./helpers — see ScopeReason there. A permanently skipped test is deleted, not parked.',
+        },
+      ],
+    },
+  })
+  .append({
     // Guard: entity URLs (/p/, /c/, /b/) must be built via route-helpers, not hand-crafted literals.
     // Scoped to app code; the app/** glob already excludes shared/utils/route-helpers.ts.
     files: ['app/**/*.vue', 'app/**/*.ts'],
