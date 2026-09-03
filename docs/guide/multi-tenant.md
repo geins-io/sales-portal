@@ -39,7 +39,7 @@ The server plugin (`server/plugins/02.tenant-context.ts`) extracts the hostname 
 negative cache, then KV storage, then the merchant API — the full order is in
 [Architecture](/architecture#request-flow). A cache hit is re-checked against the config's own
 hostname list, so a stale alias mapping heals itself. A hostname the merchant API does not know
-does not resolve, unless `autoCreateTenant` is on — see [Local Development](#local-development).
+does not resolve, and the tenant plugin answers 404 — see [Local Development](#local-development).
 
 The resolved config is written to `event.context.tenant.config` once per request. Downstream
 plugins, services and routes read it from context instead of resolving again.
@@ -168,24 +168,13 @@ const config = await getPublicConfig(event);
 
 ## Local Development
 
-`autoCreateTenant` decides whether an unknown hostname resolves. With it on, any hostname the
-merchant API does not know is fabricated into an active tenant, so resolution can never fail. With
-it off, an unknown hostname does not resolve. Which applies depends on how you started the server:
+Tenant resolution works the same locally as in production: a hostname either exists in the
+merchant API or it answers 404. There is no development fallback that invents a tenant for an
+unknown name, however you start the server (`pnpm dev`, `pnpm local:dev`, or the Playwright
+web server). A 404 on a hostname you expected to work means that exact hostname is not
+registered — check the registration before anything else.
 
-| How you start                           | `autoCreateTenant`                                       |
-| --------------------------------------- | -------------------------------------------------------- |
-| `pnpm dev`, no `.env`                   | off — the `nuxt.config.ts` default                       |
-| `pnpm dev` after `cp .env.example .env` | on — `.env.example` ships `NUXT_AUTO_CREATE_TENANT=true` |
-| `pnpm local:dev`                        | on — hardcoded in `infra/scripts/local-dev.sh`           |
-
-Deployed environments set it nowhere, so they always resolve tenants honestly.
-
-Check this before diagnosing anything else, because a fabricated tenant is not obviously
-fabricated: it carries the shared `DEFAULT_GEINS_SETTINGS` credentials from `GEINS_API_KEY` and
-`GEINS_ACCOUNT_NAME`, so with those unset the storefront renders completely and returns no
-products. Pages that render with every listing empty are the signature.
-
-Otherwise configs come from two places. **The merchant API** is the real one: `resolveTenant()`
+Configs come from two places. **The merchant API** is the real one: `resolveTenant()`
 calls it over plain `fetch`, from a laptop exactly as from Azure, so any hostname it knows already
 works locally given DNS pointing at your machine. **The dev seed**
 (`server/plugins/99.dev-tenant-seed.ts`, a no-op outside dev) writes three fixtures at startup —
@@ -202,7 +191,10 @@ To browse one, point its hostname at your machine and use the dev server's port:
 Then `http://tenant-a.localhost:3000`. For a tenant registered in the merchant API, use the
 hostname it is registered under: the lookup matches the exact full hostname and does no subdomain
 parsing. `pnpm local:setup` installs a dnsmasq wildcard sending all of `*.litium.portal` to
-`127.0.0.1`, saving an `/etc/hosts` line per tenant.
+`127.0.0.1`, saving an `/etc/hosts` line per tenant — but only the two legacy test tenants carry a
+`.litium.portal` alias in the merchant API, so today any other `name.litium.portal` answers 404. A
+dev-only rewrite that looks `name.litium.portal` up as `name.litium.store` is planned, so that any
+registered tenant can be browsed locally by name alone.
 
 ## Client-Side Usage
 

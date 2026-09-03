@@ -300,7 +300,7 @@ start_dev() {
     echo ""
 
     # Start the dev server with HOST=0.0.0.0
-    HOST=0.0.0.0 NUXT_AUTO_CREATE_TENANT=true pnpm nuxt dev
+    HOST=0.0.0.0 pnpm nuxt dev
 }
 
 # Parse arguments

@@ -72,14 +72,14 @@ tenant.
 
 ## Current menus (`tenant.cms.menus`)
 
-| Key                          | Where it renders                                                                                     | Consumer                                                                                        | Typical `{menuLocationId}`         |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `CMS_MENUS.HEADER_MAIN`      | Desktop header nav bar                                                                               | `app/components/layout/header/LayoutHeaderNav.vue`                                              | `{ menuLocationId: "main" }`       |
+| Key                          | Where it renders                                                                                                      | Consumer                                                                                        | Typical `{menuLocationId}`         |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `CMS_MENUS.HEADER_MAIN`      | Desktop header nav bar                                                                                                | `app/components/layout/header/LayoutHeaderNav.vue`                                              | `{ menuLocationId: "main" }`       |
 | `CMS_MENUS.FOOTER`           | First footer menu column (header = menu title); the footer also renders Contact + Address columns from store-settings | `app/components/layout/footer/LayoutFooterMain.vue`                                             | `{ menuLocationId: "footer-1" }`   |
-| `CMS_MENUS.FOOTER_2`         | Second footer menu column (header = menu title)                                                      | `app/components/layout/footer/LayoutFooterMain.vue`                                             | `{ menuLocationId: "footer-2" }`   |
-| `CMS_MENUS.FOOTER_3`         | Third footer menu column (header = menu title)                                                       | `app/components/layout/footer/LayoutFooterMain.vue`                                             | `{ menuLocationId: "footer-3" }`   |
-| `CMS_MENUS.MOBILE_DRAWER`    | Mobile off-canvas navigation                                                                         | `app/components/layout/MobileNavPanel.vue`                                                      | `{ menuLocationId: "main" }`       |
-| `CMS_MENUS.SIDEBAR_FALLBACK` | Sidebar nav for CMS pages tagged `CMS_TAGS.SIDEBAR_MENU` and for static info-page routes that opt in | `app/pages/[...slug].vue` + static info pages (e.g. `app/pages/contact.vue`) → `PageSidebarNav` | `{ menuLocationId: "info-pages" }` |
+| `CMS_MENUS.FOOTER_2`         | Second footer menu column (header = menu title)                                                                       | `app/components/layout/footer/LayoutFooterMain.vue`                                             | `{ menuLocationId: "footer-2" }`   |
+| `CMS_MENUS.FOOTER_3`         | Third footer menu column (header = menu title)                                                                        | `app/components/layout/footer/LayoutFooterMain.vue`                                             | `{ menuLocationId: "footer-3" }`   |
+| `CMS_MENUS.MOBILE_DRAWER`    | Mobile off-canvas navigation                                                                                          | `app/components/layout/MobileNavPanel.vue`                                                      | `{ menuLocationId: "main" }`       |
+| `CMS_MENUS.SIDEBAR_FALLBACK` | Sidebar nav for CMS pages tagged `CMS_TAGS.SIDEBAR_MENU` and for static info-page routes that opt in                  | `app/pages/[...slug].vue` + static info pages (e.g. `app/pages/contact.vue`) → `PageSidebarNav` | `{ menuLocationId: "info-pages" }` |
 
 > Sidebar resolution on CMS pages: `pages/[...slug].vue` checks the page's
 > tags via `hasPageTag(page, CMS_TAGS.SIDEBAR_MENU)`. When the tag is
@@ -207,7 +207,7 @@ area (e.g. tenant created a collection shell but added no widgets):
    - Slots → `CMS_SLOTS` in `shared/types/cms-slots.ts`.
    - Menus → `CMS_MENUS` in `shared/constants/cms.ts`.
 2. Add the entry to `DEFAULT_CMS_CONFIG` in `server/utils/tenant.ts` so
-   every tenant (real + autocreated) gets it without per-tenant work.
+   every tenant gets it without per-tenant work.
 3. Add it to the dev-only fixture seed in
    `server/plugins/99.dev-tenant-seed.ts` (`FULL_CMS_CONFIG`) so local
    multi-tenant walkthrough stays complete.

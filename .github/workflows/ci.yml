@@ -147,10 +147,9 @@ jobs:
         run: pnpm build
 
       - name: Run E2E smoke tests
-        run: pnpm test:e2e --project=chromium tests/e2e/health.spec.ts tests/e2e/app.spec.ts tests/e2e/homepage.spec.ts tests/e2e/csp-policy.spec.ts
+        run: pnpm test:e2e --project=chromium tests/e2e/health.spec.ts tests/e2e/app.spec.ts tests/e2e/homepage.spec.ts tests/e2e/csp-policy.spec.ts tests/e2e/unknown-hostname.spec.ts
         env:
           PLAYWRIGHT_BASE_URL: https://tenant-a.litium.portal:3000
-          NUXT_AUTO_CREATE_TENANT: 'true'
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

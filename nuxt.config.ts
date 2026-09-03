@@ -222,10 +222,9 @@ export default defineNuxtConfig({
    * ├─────────────────────────────────────────────────────────────────────────┤
    * │ AZURE APP SERVICE (runtime)     │ GITHUB SECRETS (build-time only)     │
    * │ ─────────────────────────────── │ ──────────────────────────────────── │
-   * │ NUXT_AUTO_CREATE_TENANT         │ SENTRY_AUTH_TOKEN                    │
-   * │ NUXT_GEINS_API_ENDPOINT         │ SENTRY_ORG                           │
-   * │ NUXT_GEINS_TENANT_API_URL       │ SENTRY_PROJECT                       │
-   * │ NUXT_STORAGE_DRIVER             │                                      │
+   * │ NUXT_GEINS_API_ENDPOINT         │ SENTRY_AUTH_TOKEN                    │
+   * │ NUXT_GEINS_TENANT_API_URL       │ SENTRY_ORG                           │
+   * │ NUXT_STORAGE_DRIVER             │ SENTRY_PROJECT                       │
    * │ NUXT_STORAGE_REDIS_URL          │                                      │
    * │ NUXT_HEALTH_CHECK_SECRET        │                                      │
    * │ NUXT_EXTERNAL_API_BASE_URL      │                                      │
@@ -240,10 +239,6 @@ export default defineNuxtConfig({
    */
   runtimeConfig: {
     // ── Private Config (server-side only, not exposed to client) ────────────
-
-    // Auto-create tenants for unknown hostnames
-    // Azure: NUXT_AUTO_CREATE_TENANT=true
-    autoCreateTenant: false,
 
     // Geins API configuration
     // Azure: NUXT_GEINS_API_ENDPOINT, NUXT_GEINS_TENANT_API_URL

@@ -19,7 +19,6 @@ import {
   createDefaultTheme,
   generateTenantCss,
   generateThemeHash,
-  buildDerivedTheme,
 } from './tenant-css';
 
 /**
@@ -69,8 +68,7 @@ export const DEFAULT_CMS_CONFIG: NonNullable<TenantConfig['cms']> = {
 };
 
 /**
- * Default GeinsSettings for auto-created and fallback tenants.
- * Single source of truth — used in fetchTenantConfig and createTenant.
+ * Default GeinsSettings for tenants created through createTenant.
  */
 export const DEFAULT_GEINS_SETTINGS: GeinsSettings = {
   apiKey: process.env.GEINS_API_KEY || '',
@@ -737,62 +735,12 @@ export async function fetchTenantConfig(
       if (settings) return buildTenantConfig(settings);
     }
   } catch {
-    // External API unavailable — fall through to default handling
+    // Merchant API unreachable — same outcome as an unknown hostname.
   }
 
-  // If autoCreateTenant is enabled, create an active tenant for development/testing
-  if (config.autoCreateTenant) {
-    const defaultTheme = createDefaultTheme(hostname);
-    const { themeWithDerived, css } = buildDerivedTheme(defaultTheme);
-
-    return {
-      tenantId: hostname,
-      hostname,
-      geinsSettings: { ...DEFAULT_GEINS_SETTINGS },
-      mode: 'commerce' as const,
-      checkoutMode: 'hosted' as const,
-      theme: themeWithDerived,
-      css,
-      branding: {
-        name: hostname,
-        watermark: 'full' as const,
-      },
-      features: {
-        search: { enabled: true },
-        authentication: { enabled: true },
-        registration: { enabled: true },
-        cart: { enabled: true },
-        wishlist: { enabled: true },
-        applyForAccount: { enabled: true },
-      },
-      // Geins out-of-box CMS slots + menus. Single source of truth —
-      // see DEFAULT_CMS_CONFIG above. Tenants override by setting `cms`
-      // on their stored StoreSettings.
-      cms: DEFAULT_CMS_CONFIG,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  // Default: return inactive config
-  return {
-    tenantId: 'no-tenant',
-    hostname: 'not-found',
-    geinsSettings: { ...DEFAULT_GEINS_SETTINGS },
-    mode: 'commerce' as const,
-    checkoutMode: 'hosted' as const,
-    theme: createDefaultTheme(hostname),
-    css: '',
-    branding: {
-      name: 'not-found',
-      watermark: 'none' as const,
-    },
-    features: {},
-    isActive: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  // No active settings for this hostname. The caller (resolveTenant) treats
+  // null as "does not resolve": negative-cache the hostname and answer 404.
+  return null;
 }
 
 /**
