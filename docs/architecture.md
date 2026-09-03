@@ -785,7 +785,9 @@ Configure via environment variables:
 
 A tenant exists when the merchant API returns settings for its hostname. Registration happens
 there, in the merchant admin — not in this repository, and not in a database this application
-owns. `resolveTenant()` looks the hostname up on demand and caches the result in KV.
+owns. `resolveTenant()` looks the hostname up on demand and caches the result in KV. The merchant
+API's store-settings endpoint is unauthenticated and answers per hostname (confirmed 2026-08-25 and
+2026-09-03): no key is sent, and the tenant's storefront API key arrives in the response.
 
 Locally, `NUXT_AUTO_CREATE_TENANT` fabricates a tenant for any unregistered hostname, and the dev
 seed writes three fixtures at startup. Both are development conveniences; see
