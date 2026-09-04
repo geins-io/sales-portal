@@ -7,9 +7,9 @@ import type { CmsSlotConfig, CmsSlotKey } from '#shared/types/cms-slots';
  * the tenant config has not loaded yet. Consumers must handle the null
  * case by skipping the CMS fetch and rendering nothing for that area.
  *
- * Tenant config is the SINGLE source of truth — there is no global
- * defaults map. Auto-provisioned dev tenants are seeded with the Geins
- * out-of-box names in `server/utils/tenant.ts`.
+ * Tenant config wins per key over `DEFAULT_CMS_CONFIG` in
+ * `server/utils/tenant.ts`, which supplies the Geins out-of-box names as
+ * the base layer.
  *
  * Usage:
  *   const slot = useCmsSlot(CMS_SLOTS.PORTAL_HERO);
