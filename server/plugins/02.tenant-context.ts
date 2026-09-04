@@ -5,6 +5,7 @@ import {
   resolvePreviewTenant,
   type TenantResolution,
 } from '../utils/tenant';
+import { devLookupHostname } from '../utils/dev-hostname';
 import {
   buildErrorResponse,
   type ErrorResponse,
@@ -70,6 +71,11 @@ export default defineNitroPlugin((nitroApp) => {
       return;
     }
 
+    // In the dev server only, a `.litium.portal` host is looked up as
+    // `.litium.store` — see `devLookupHostname`. The context below keeps the
+    // hostname the browser asked for; only the lookup moves.
+    const lookupHostname = devLookupHostname(hostname);
+
     // Preview is activated ONLY by `?preview=1`, never inferred from a cookie:
     // a clean visit must render the live theme. CMS preview is a separate flag.
     const isStoreSettingsPreview = getQuery(event).preview === '1';
@@ -90,7 +96,7 @@ export default defineNitroPlugin((nitroApp) => {
       !path.startsWith('/_i18n/')
     ) {
       const { config: tenant, outcome } = await lookupTenant(
-        hostname,
+        lookupHostname,
         event,
         isStoreSettingsPreview,
       );
@@ -141,7 +147,7 @@ export default defineNitroPlugin((nitroApp) => {
     } else if (path.startsWith('/api/')) {
       // Hostname only — the cookie is a hint, never trusted.
       const { config: tenant, outcome } = await lookupTenant(
-        hostname,
+        lookupHostname,
         event,
         isStoreSettingsPreview,
       );
