@@ -17,11 +17,11 @@ function localityHint(host: string, addresses: string[]): string {
       ? `resolves to ${addresses.join(', ')}`
       : 'does not resolve';
   const fix = host.endsWith('.litium.portal')
-    ? 'Run `pnpm local:setup` — it installs the dnsmasq wildcard for ' +
-      '*.litium.portal and writes the /etc/hosts line for the ' +
-      'production-build target.'
-    : `Add \`127.0.0.1 ${host}\` to /etc/hosts, or run \`pnpm local:setup\`, ` +
-      'which writes that line for the configured target.';
+    ? 'Run `pnpm local:setup` — it installs the dnsmasq wildcard that sends ' +
+      'all of *.litium.portal to 127.0.0.1.'
+    : `Point "${host}" at 127.0.0.1 with an /etc/hosts line, or target a ` +
+      '`.litium.portal` name, which the dnsmasq wildcard resolves and the ' +
+      'server looks up under `.litium.store`.';
 
   return (
     `"${host}" ${where}, not to this machine, so the run would test a ` +

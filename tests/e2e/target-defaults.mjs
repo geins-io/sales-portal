@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
  * committed target is spelled out.
  *
  * Plain ESM rather than TypeScript because `infra/scripts/local-dev.sh` runs
- * this file with node to learn which `/etc/hosts` line to write, and Node 20 —
+ * this file with node to learn which hostname a run targets, and Node 20 —
  * CI's version and this package's floor — cannot load a `.ts` file.
  * `tests/e2e/target.ts` re-exports everything below with types; the specs and
  * `playwright.config.ts` import that.
@@ -26,23 +26,16 @@ dotenv.config({
 const DEFAULT_TENANT_ID = 'sonoralab';
 
 /**
- * The dev server's host. The dnsmasq wildcard resolves all of
- * `*.litium.portal` to 127.0.0.1 and the dev server looks the tenant up under
- * `.litium.store` (`server/utils/dev-hostname.ts`), so this needs nothing
- * configured on the machine.
- */
-const DEFAULT_DEV_HOST = 'sonoralab.litium.portal';
-
-/**
- * The production build's host, in CI and under `E2E_PROD=1`. Nothing is
- * rewritten there, so it has to be the hostname the tenant is registered
- * under — which resolves publicly, hence the `/etc/hosts` line and the
- * locality check in preflight L0.
+ * The host under test, in every mode. The dnsmasq wildcard sends all of
+ * `*.litium.portal` to 127.0.0.1 and the server looks the tenant up under
+ * `.litium.store` (`server/utils/lookup-hostname.ts`), so a run needs nothing
+ * configured on the machine — no `/etc/hosts` line, and no name that could
+ * resolve to a deployed environment by accident.
  *
  * Spelled out rather than derived from the tenant id: the next tenant need not
- * follow the pattern, and both names stay greppable.
+ * follow the pattern, and the name stays greppable.
  */
-const DEFAULT_PROD_HOST = 'sonoralab.litium.store';
+const DEFAULT_HOST = 'sonoralab.litium.portal';
 
 const DEFAULT_PORT = 3000;
 
@@ -59,18 +52,10 @@ export const EXTERNAL_SERVER = !!process.env.E2E_EXTERNAL_SERVER;
  */
 export const REMOTE_TARGET = !!process.env.E2E_REMOTE;
 
-/**
- * @param {boolean} productionBuild
- * @returns {string}
- */
-function defaultBaseUrl(productionBuild) {
-  const host = productionBuild ? DEFAULT_PROD_HOST : DEFAULT_DEV_HOST;
-  return `${productionBuild ? 'https' : 'http'}://${host}:${DEFAULT_PORT}`;
-}
-
 /** Origin under test. The dev server is http, the production build https. */
 export const BASE_URL =
-  process.env.PLAYWRIGHT_BASE_URL || defaultBaseUrl(PRODUCTION_BUILD);
+  process.env.PLAYWRIGHT_BASE_URL ||
+  `${PRODUCTION_BUILD ? 'https' : 'http'}://${DEFAULT_HOST}:${DEFAULT_PORT}`;
 
 /** The tenant `/api/config` must resolve for that origin. */
 export const EXPECTED_TENANT_ID =
@@ -88,27 +73,13 @@ export function hasE2ECredentials() {
 }
 
 /**
- * The hostname that needs an `/etc/hosts` line pointing at 127.0.0.1: the
- * production-build target, whichever mode this process happens to run in.
- * `pnpm local:setup` writes the line for it.
+ * The hostname a run targets. Read by `infra/scripts/local-dev.sh` for its DNS
+ * check and its "access the app at" lines.
  *
  * @returns {string}
  */
-export function productionTargetHostname() {
-  return new URL(process.env.PLAYWRIGHT_BASE_URL || defaultBaseUrl(true))
-    .hostname;
-}
-
-/**
- * The hostname the dev server is reached under. Read by
- * `infra/scripts/local-dev.sh` for its DNS check and its "access the app at"
- * lines. With PLAYWRIGHT_BASE_URL set, both hostnames are that one.
- *
- * @returns {string}
- */
-export function devTargetHostname() {
-  return new URL(process.env.PLAYWRIGHT_BASE_URL || defaultBaseUrl(false))
-    .hostname;
+export function targetHostname() {
+  return new URL(BASE_URL).hostname;
 }
 
 /**
@@ -130,15 +101,11 @@ export function isLoopbackAddress(address) {
   return mapped === '::1' || /^(?:0{1,4}:){7}0{0,3}1$/.test(mapped);
 }
 
-// Run directly (infra/scripts/local-dev.sh): print one hostname and nothing
-// else — the production-build target, or the dev server's with --dev-host.
+// Run directly (infra/scripts/local-dev.sh): print the target hostname and
+// nothing else.
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  console.log(
-    process.argv[2] === '--dev-host'
-      ? devTargetHostname()
-      : productionTargetHostname(),
-  );
+  console.log(targetHostname());
 }

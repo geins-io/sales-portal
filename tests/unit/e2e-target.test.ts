@@ -1,25 +1,21 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import {
-  devTargetHostname,
+  BASE_URL,
   isLoopbackAddress,
-  productionTargetHostname,
+  targetHostname,
 } from '../e2e/target-defaults.mjs';
 
 /**
  * The two pieces of the e2e target module that decide something on their own,
  * rather than reading an environment variable straight through.
  *
- * `isLoopbackAddress` is what keeps a run honest: the production-build target
- * is the tenant's registered hostname, which resolves publicly, so preflight
- * L0 uses this to tell "the build under test" from "the deployed site".
+ * `isLoopbackAddress` is what keeps a run honest: preflight L0 uses it to tell
+ * "the build under test" from "a deployed environment".
  */
 
-const originalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
-
-afterEach(() => {
-  if (originalBaseUrl === undefined) delete process.env.PLAYWRIGHT_BASE_URL;
-  else process.env.PLAYWRIGHT_BASE_URL = originalBaseUrl;
-});
+const MODULE = resolve(import.meta.dirname, '../e2e/target-defaults.mjs');
 
 describe('isLoopbackAddress', () => {
   it.each([
@@ -50,23 +46,34 @@ describe('isLoopbackAddress', () => {
   });
 });
 
-describe('target hostnames', () => {
-  it('names the committed tenant per mode', () => {
-    delete process.env.PLAYWRIGHT_BASE_URL;
+describe('target hostname', () => {
+  it('is the committed local name, and the same one in every mode', () => {
+    // One default, not one per mode: the hostname rewrite
+    // (server/utils/lookup-hostname.ts) resolves it for the production build
+    // too, so nothing on the machine has to be configured.
+    expect(targetHostname()).toMatch(/\.litium\.portal$/);
+    expect(targetHostname()).toBe(new URL(BASE_URL).hostname);
 
-    // The dev server is reached under the wildcard suffix and the tenant is
-    // looked up under its registered one; the production build has no rewrite.
-    expect(devTargetHostname()).toMatch(/\.litium\.portal$/);
-    expect(productionTargetHostname()).toMatch(/\.litium\.store$/);
-    expect(devTargetHostname().split('.')[0]).toBe(
-      productionTargetHostname().split('.')[0],
+    const perMode = ['', '1'].map((prod) =>
+      execFileSync(process.execPath, [MODULE], {
+        encoding: 'utf8',
+        env: { ...process.env, E2E_PROD: prod, PLAYWRIGHT_BASE_URL: '' },
+      }).trim(),
     );
+    expect(perMode[0]).toBe(perMode[1]);
   });
 
-  it('lets PLAYWRIGHT_BASE_URL decide both', () => {
-    process.env.PLAYWRIGHT_BASE_URL = 'https://elsewhere.example.com:3000';
+  it('lets PLAYWRIGHT_BASE_URL override it', () => {
+    // Run as a child process: infra/scripts/local-dev.sh reads the hostname
+    // exactly this way, and the module resolves its target once at import.
+    const printed = execFileSync(process.execPath, [MODULE], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PLAYWRIGHT_BASE_URL: 'https://elsewhere.example.com:3000',
+      },
+    }).trim();
 
-    expect(productionTargetHostname()).toBe('elsewhere.example.com');
-    expect(devTargetHostname()).toBe('elsewhere.example.com');
+    expect(printed).toBe('elsewhere.example.com');
   });
 });

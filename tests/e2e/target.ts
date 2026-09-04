@@ -28,9 +28,8 @@ export const e2eCredentials: { username: string; password: string } =
 
 export const hasE2ECredentials: () => boolean = target.hasE2ECredentials;
 
-/** The hostname that needs an `/etc/hosts` line pointing at 127.0.0.1. */
-export const productionTargetHostname: () => string =
-  target.productionTargetHostname;
+/** The hostname a run targets. */
+export const targetHostname: () => string = target.targetHostname;
 
 /** Whether an address from `dns.lookup` is this machine. */
 export const isLoopbackAddress: (address: string) => boolean =
