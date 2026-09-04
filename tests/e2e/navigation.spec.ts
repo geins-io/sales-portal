@@ -23,19 +23,38 @@ test.describe('Navigation', () => {
     const count = await links.count();
     expect(count).toBeGreaterThan(0);
 
-    // Click the first non-home link and verify navigation
-    for (let i = 0; i < count; i++) {
-      const href = await links.nth(i).getAttribute('href');
-      if (href && href !== '/' && !href.startsWith('http')) {
-        await links.nth(i).click();
-        await page.waitForLoadState('domcontentloaded');
+    // Hydration first: before the stylesheet has applied, a viewport-gated
+    // element reads as visible (docs/testing.md), and this loop's whole job is
+    // to tell visible links from hidden ones.
+    await waitForHydration(page);
 
-        // URL should have changed
-        const url = new URL(page.url());
-        expect(url.pathname).not.toBe('/');
-        break;
-      }
+    // Click the first non-home link that is visible at this viewport. Header
+    // links are viewport-gated — the apply-for-account link is `hidden
+    // sm:inline` — so the first link in the DOM is not clickable everywhere.
+    let clicked: string | undefined;
+    for (let i = 0; i < count; i++) {
+      const link = links.nth(i);
+      const href = await link.getAttribute('href');
+      if (!href || href === '/' || href.startsWith('http')) continue;
+      if (!(await link.isVisible().catch(() => false))) continue;
+
+      await link.click();
+      clicked = href;
+      break;
     }
+
+    // Previously a loop that found nothing left the test passing with no
+    // assertion at all.
+    expect(
+      clicked,
+      'no visible header link pointed anywhere but the homepage',
+    ).toBeDefined();
+
+    await page.waitForLoadState('domcontentloaded');
+    expect(
+      new URL(page.url()).pathname,
+      `clicking "${clicked}" should have left the homepage`,
+    ).not.toBe('/');
   });
 
   test('should render breadcrumbs on category pages', async ({ page }) => {
@@ -100,17 +119,24 @@ test.describe('Mobile Navigation', () => {
     const dialog = page.locator('[role="dialog"]');
     await expect(dialog).toBeVisible({ timeout: 15000 });
 
-    // Top-level categories are collapsible buttons, not anchors — `a[href]`
-    // only exists once a section is expanded.
+    // A top-level category with children renders as a collapsible button, so
+    // its `a[href]` only exists once expanded; one without children renders as
+    // a plain link. Which shape appears is the tenant's category tree, not a
+    // property of the app — so branch on what the menu produced. Both shapes
+    // must end with a reachable category link.
     const sections = dialog.locator('button[aria-expanded]');
-    await expect(sections.first()).toBeVisible({ timeout: 5000 });
-    expect(await sections.count()).toBeGreaterThan(0);
+    const links = dialog.locator('a[href]');
 
-    // Expanding one reveals its links.
-    await sections.first().click();
-    await expect(dialog.locator('a[href]').first()).toBeVisible({
-      timeout: 5000,
-    });
+    await expect(
+      sections.or(links).first(),
+      'the mobile panel showed neither a category link nor an expandable section',
+    ).toBeVisible({ timeout: 5000 });
+
+    if ((await sections.count()) > 0) {
+      await sections.first().click();
+    }
+
+    await expect(links.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should close mobile nav on navigation', async ({ page }) => {

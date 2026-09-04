@@ -7,6 +7,7 @@
 set -e
 
 DOMAIN="litium.portal"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DNSMASQ_CONF="/opt/homebrew/etc/dnsmasq.conf"
 RESOLVER_FILE="/etc/resolver/$DOMAIN"
 PF_ANCHOR="/etc/pf.anchors/dev.local"
@@ -90,6 +91,12 @@ configure_resolver() {
     print_success "Resolver configured"
 }
 
+# The hostname the e2e suite targets, from the suite's own source (its
+# committed default, or PLAYWRIGHT_BASE_URL in .env).
+e2e_target_host() {
+    (cd "$REPO_ROOT" && node tests/e2e/target-defaults.mjs 2>/dev/null)
+}
+
 # Start dnsmasq service
 start_dnsmasq() {
     if brew services list | grep -q "dnsmasq.*started"; then
@@ -131,11 +138,15 @@ flush_dns() {
     print_success "DNS cache flushed"
 }
 
-# Test DNS resolution
+# Test DNS resolution, on the name the e2e suite itself will ask for
 test_dns() {
+    local host
+    host="$(e2e_target_host || true)"
+    host="${host:-wildcard-check.$DOMAIN}"
+
     print_status "Testing DNS resolution..."
-    if ping -c 1 -t 2 tenant-a.$DOMAIN &> /dev/null; then
-        print_success "DNS resolution working: tenant-a.$DOMAIN -> 127.0.0.1"
+    if ping -c 1 -t 2 "$host" &> /dev/null; then
+        print_success "DNS resolution working: $host -> 127.0.0.1"
         return 0
     else
         print_warning "DNS resolution test failed. You may need to wait a moment or restart your browser."
@@ -235,9 +246,8 @@ run_setup() {
     print_success "Setup complete!"
     echo ""
     echo "You can now access the app at:"
-    echo "  http://tenant-a.$DOMAIN/"
-    echo "  http://tenant-b.$DOMAIN/"
-    echo "  http://[any-tenant].$DOMAIN/"
+    echo "  http://$(e2e_target_host)/   (the e2e target)"
+    echo "  http://[any-registered-tenant].$DOMAIN/"
     echo ""
     echo "Production-build e2e (E2E_PROD=1 pnpm test:e2e) serves https with the"
     echo "self-signed cert in .certs/ — see infra/scripts/local-cert.sh."
@@ -285,14 +295,15 @@ start_dev() {
     test_dns
 
     echo ""
+    local dev_host
+    dev_host="$(e2e_target_host || true)"
+    echo "Access the app at:"
     if [[ "$skip_pf" != "true" ]]; then
-        echo "Access the app at:"
-        echo "  http://tenant-a.$DOMAIN/"
-        echo "  http://tenant-b.$DOMAIN/"
+        echo "  http://${dev_host}/   (the e2e target)"
+        echo "  http://[any-registered-tenant].$DOMAIN/"
     else
-        echo "Access the app at:"
-        echo "  http://tenant-a.$DOMAIN:3000/"
-        echo "  http://tenant-b.$DOMAIN:3000/"
+        echo "  http://${dev_host}:3000/   (the e2e target)"
+        echo "  http://[any-registered-tenant].$DOMAIN:3000/"
     fi
     echo ""
 

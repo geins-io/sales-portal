@@ -29,20 +29,23 @@ export { e2eCredentials, hasE2ECredentials };
  * - `no-credentials`: E2E_USERNAME / E2E_PASSWORD not set.
  * - `mobile-project`: the feature is desktop-only (hidden below `lg`).
  * - `dev-server`: the assertion needs the production build (CSP header).
- * - `fixture-missing`: the test account lacks the data (quotes, saved lists).
- *   Goes away with the seeded team-owned tenant (SAL-361).
+ * - `fixture-missing`: the test account lacks the data (quotes, saved lists) —
+ *   data the platform cannot produce yet, not a tenant nobody seeded.
  * - `tenant-config`: the tenant's configuration does not exercise this path
- *   (single locale, no CMS apply page). The dangerous one — "passes on
- *   tenant-a" says nothing about other tenants. M3 turns these into
- *   assertions derived from `/api/config`; until then the reporter lists
+ *   (single locale, no CMS apply page). The dangerous one — "passes on the
+ *   configured tenant" says nothing about other tenants. Deriving these from
+ *   `/api/config` as assertions is a later step; until then the reporter lists
  *   every instance so they stay visible.
+ * - `remote-target`: `E2E_REMOTE=1` — the target is a deployed environment on
+ *   purpose, so preflight L0's locality check does not apply.
  */
 export type ScopeReason =
   | 'no-credentials'
   | 'mobile-project'
   | 'dev-server'
   | 'fixture-missing'
-  | 'tenant-config';
+  | 'tenant-config'
+  | 'remote-target';
 
 /**
  * Skip the current test — or, called at file/describe level, every test in

@@ -64,9 +64,15 @@ const tag = computed(() => (props.linked ? NuxtLink : 'span'));
           </span>
         </AvatarFallback>
       </Avatar>
-      <h1 v-if="brandName" class="text-xl font-semibold tracking-wide">
+      <!-- Not a heading: this renders in the header and in the mobile nav on
+           every page, so an <h1> here would compete with the page's own. -->
+      <span
+        v-if="brandName"
+        data-slot="brand-name"
+        class="text-xl font-semibold tracking-wide"
+      >
         {{ brandName }}
-      </h1>
+      </span>
     </template>
 
     <template v-else>

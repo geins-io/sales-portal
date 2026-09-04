@@ -34,6 +34,7 @@ const SCOPE_REASONS = [
   'dev-server',
   'fixture-missing',
   'tenant-config',
+  'remote-target',
 ] as const;
 const DECLARED = new RegExp(`^(${SCOPE_REASONS.join('|')}): `);
 const SCOPE_NOTE_ANNOTATION = 'scope';

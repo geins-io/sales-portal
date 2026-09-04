@@ -169,27 +169,35 @@ application bugs.
 Tests run against a tenant hostname, not `localhost`, so the multi-tenant server plugin can
 resolve a tenant. The target comes from the environment, read in one place (`tests/e2e/target.ts`):
 
-| Variable                        | Default                                 | Meaning                                              |
-| ------------------------------- | --------------------------------------- | ---------------------------------------------------- |
-| `PLAYWRIGHT_BASE_URL`           | `http(s)://tenant-a.litium.portal:3000` | Origin under test (https when `E2E_PROD=1` or in CI) |
-| `E2E_EXPECTED_TENANT_ID`        | `tenant-a`                              | Tenant `/api/config` must resolve to                 |
-| `E2E_USERNAME` / `E2E_PASSWORD` | unset                                   | Test account (see 2.)                                |
-| `E2E_PROD`                      | unset                                   | `1`: build and test the production build over https  |
-| `E2E_EXTERNAL_SERVER`           | unset                                   | `1`: the target is already running, start nothing    |
+| Variable                        | Default         | Meaning                                              |
+| ------------------------------- | --------------- | ---------------------------------------------------- |
+| `PLAYWRIGHT_BASE_URL`           | the team tenant | Origin under test (https when `E2E_PROD=1` or in CI) |
+| `E2E_EXPECTED_TENANT_ID`        | the team tenant | Tenant `/api/config` must resolve to                 |
+| `E2E_USERNAME` / `E2E_PASSWORD` | unset           | Test account (see 2.)                                |
+| `E2E_PROD`                      | unset           | `1`: build and test the production build over https  |
+| `E2E_EXTERNAL_SERVER`           | unset           | `1`: the target is already running, start nothing    |
+| `E2E_REMOTE`                    | unset           | `1`: the target is a deployed environment on purpose |
 
-Locally they live in `.env`; in CI in repository variables and secrets. No tenant other than the
-default is named in the repo — switching target is an environment change. The hostname must point
-at `127.0.0.1` in `/etc/hosts`:
+Locally they live in `.env`; in CI in repository variables and secrets. Switching target is an
+environment change; the committed default names the team-owned test tenant, and it is one target
+in every mode: `<tenant>.litium.portal:3000` — http on the dev server, https for the production
+build.
 
-```
-127.0.0.1 tenant-a.litium.portal
-```
+Nothing has to be configured on the machine for it. The dnsmasq wildcard sends all of
+`*.litium.portal` to `127.0.0.1`, and the server looks the tenant up under `.litium.store`
+(`server/utils/lookup-hostname.ts`) in every mode, the production build included — so no
+`/etc/hosts` line, and no target name that could reach a deployed environment by accident. CI has
+no dnsmasq, so the job writes one hosts line for the target it was given, derived from
+`PLAYWRIGHT_BASE_URL`.
 
-A wildcard `*.litium.portal` resolver (dnsmasq — see `infra/local-development.md`) works too.
+**Preflight L0 resolves the target name and fails the run when it does not point at this
+machine**, naming the fix — for a `.litium.portal` name that means `pnpm local:setup` has not run.
+`E2E_REMOTE=1` is how you point the suite at a deployed environment on purpose; the check then
+declares itself out of scope.
 
 #### 2. A test account
 
-`tenant-a` gates `orderPlacement` and `priceVisibility` behind `access: 'authenticated'`, so an
+The tenant gates `orderPlacement` and `priceVisibility` behind `access: 'authenticated'`, so an
 anonymous visitor gets **no prices and no add-to-cart button**. The cart and portal specs
 therefore need a signed-in customer. Add to `.env` (gitignored):
 
@@ -200,7 +208,7 @@ E2E_PASSWORD=<password>
 
 Requirements for the account:
 
-- A **B2B customer** on the tenant behind `tenant-a.litium.portal` — not an admin or API key.
+- A **B2B customer** on the tenant the run targets — not an admin or API key.
 - Use a **dedicated test user**, never a personal login. The suite signs in repeatedly and
   mutates cart state.
 - One portal test additionally needs a **saved list containing products**; without it that test
@@ -284,11 +292,12 @@ successful login leaves no session. Both are correct in production and invisible
 which has neither.
 
 So the production-build path (`E2E_PROD=1 pnpm test:e2e` locally, always in CI) serves `pnpm preview`
-over https with a self-signed certificate for `*.litium.portal`:
+over https with a self-signed certificate. Its SAN covers `*.litium.portal` and `*.litium.store`, so
+it also fits a target pointed at a real hostname:
 
 ```bash
 infra/scripts/local-cert.sh    # writes .certs/local.{crt,key}; pnpm local:setup runs it too
-E2E_PROD=1 pnpm test:e2e       # build + preview over https://tenant-a.litium.portal:3000
+E2E_PROD=1 pnpm test:e2e       # build + preview over https://<tenant>.litium.portal:3000
 ```
 
 `playwright.config.ts` reads the pair and hands it to `pnpm preview` as `NITRO_SSL_CERT` /
@@ -325,7 +334,7 @@ The preflight layers are the canaries — they depend on almost nothing, so if _
 report names the layer; check the server before debugging code:
 
 ```bash
-curl http://tenant-a.litium.portal:3000/api/health
+curl "http://$(node tests/e2e/target-defaults.mjs --dev-host):3000/api/health"
 ```
 
 A 500 there means restart the dev server. For long sessions, start it with

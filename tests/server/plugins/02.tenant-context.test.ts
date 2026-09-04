@@ -60,9 +60,9 @@ vi.mock('../../../server/utils/tenant', () => ({
     mockResolvePreviewTenant(...args),
 }));
 
-// `devLookupHostname` runs for real; only the dev gate is mocked, so the test
-// covers the wiring rather than a stubbed rewrite. `import.meta.dev` is false
-// in the node tier, which would otherwise disable it.
+// `lookupHostname` runs for real, so these tests cover the wiring rather than
+// a stubbed rewrite. `isDevMode` is still mocked because other branches of the
+// plugin read it.
 const mockIsDevMode = vi.fn(() => false);
 
 vi.mock('../../../server/utils/dev-mode', () => ({
@@ -489,13 +489,12 @@ describe('server/plugins/02.tenant-context', () => {
     });
   });
 
-  // The dev-only rewrite (`server/utils/dev-hostname.ts`). What matters here is
-  // the split: the lookup gets the `.litium.store` name, the context keeps the
-  // `.litium.portal` one the browser asked for — cookies, redirects, the tenant
-  // logger and the 404 body all read the context field.
-  describe('dev hostname rewrite', () => {
+  // The hostname rewrite (`server/utils/lookup-hostname.ts`). What matters
+  // here is the split: the lookup gets the `.litium.store` name, the context
+  // keeps the `.litium.portal` one the browser asked for — cookies, redirects,
+  // the tenant logger and the 404 body all read the context field.
+  describe('hostname rewrite', () => {
     beforeEach(() => {
-      mockIsDevMode.mockReturnValue(true);
       mockGetRequestHost.mockReturnValue('example.litium.portal');
     });
 
@@ -529,7 +528,7 @@ describe('server/plugins/02.tenant-context', () => {
       );
     });
 
-    it('does not rewrite outside dev', async () => {
+    it('rewrites with dev mode off too — the production build is what CI tests', async () => {
       mockIsDevMode.mockReturnValue(false);
       mockResolveTenant.mockResolvedValue(makeTenant());
       const event = createEvent('/se/sv/', {});
@@ -537,7 +536,7 @@ describe('server/plugins/02.tenant-context', () => {
       await handler(event);
 
       expect(mockResolveTenant).toHaveBeenCalledWith(
-        'example.litium.portal',
+        'example.litium.store',
         event,
       );
     });

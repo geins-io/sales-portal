@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Generates a self-signed TLS certificate for *.litium.portal so the production
-# build can be served over https under test (`pnpm preview` with
-# NITRO_SSL_CERT / NITRO_SSL_KEY, wired up by playwright.config.ts).
+# Generates a self-signed TLS certificate for *.litium.portal and
+# *.litium.store so the production build can be served over https under test
+# (`pnpm preview` with NITRO_SSL_CERT / NITRO_SSL_KEY, wired up by
+# playwright.config.ts). Both suffixes: the dev server is reached under
+# .litium.portal, the production build under the tenant's registered
+# .litium.store hostname.
 #
 # Why: the production build sets `upgrade-insecure-requests` in its CSP and
 # marks auth cookies Secure. Over plain http the browser rewrites every
@@ -20,12 +23,18 @@
 set -euo pipefail
 
 DOMAIN="litium.portal"
+STORE_DOMAIN="litium.store"
 OUT_DIR="${1:-$(cd "$(dirname "$0")/../.." && pwd)/.certs}"
 CERT="$OUT_DIR/local.crt"
 KEY="$OUT_DIR/local.key"
+SAN="DNS:*.$DOMAIN,DNS:$DOMAIN,DNS:*.$STORE_DOMAIN,DNS:$STORE_DOMAIN,DNS:localhost,IP:127.0.0.1"
 
-if [[ -f "$CERT" && -f "$KEY" ]] && openssl x509 -checkend 86400 -noout -in "$CERT" >/dev/null 2>&1; then
-  echo "TLS cert for *.$DOMAIN already present in $OUT_DIR"
+# Unexpired is not enough: a cert generated before *.litium.store joined the
+# SAN would keep the production-build target off the certificate.
+if [[ -f "$CERT" && -f "$KEY" ]] &&
+  openssl x509 -checkend 86400 -noout -in "$CERT" >/dev/null 2>&1 &&
+  openssl x509 -noout -ext subjectAltName -in "$CERT" 2>/dev/null | grep -q "DNS:\*.$STORE_DOMAIN"; then
+  echo "TLS cert for *.$DOMAIN and *.$STORE_DOMAIN already present in $OUT_DIR"
   exit 0
 fi
 
@@ -33,7 +42,7 @@ mkdir -p "$OUT_DIR"
 openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
   -keyout "$KEY" -out "$CERT" \
   -subj "/CN=*.$DOMAIN" \
-  -addext "subjectAltName=DNS:*.$DOMAIN,DNS:$DOMAIN,DNS:localhost,IP:127.0.0.1" \
+  -addext "subjectAltName=$SAN" \
   >/dev/null
 chmod 600 "$KEY"
-echo "Generated self-signed TLS cert for *.$DOMAIN in $OUT_DIR"
+echo "Generated self-signed TLS cert for *.$DOMAIN and *.$STORE_DOMAIN in $OUT_DIR"
