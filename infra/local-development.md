@@ -11,11 +11,15 @@ For testing multi-tenancy locally, we use:
 
 This allows you to access the app via URLs like:
 
-- `http://tenant-a.litium.portal/`
-- `http://tenant-b.litium.portal/`
+- `http://<tenant>.litium.portal/` — any tenant registered in the merchant API, by name
 
 Only hostnames registered in the merchant API resolve; any other name answers 404, locally as in
-production.
+production. Under `pnpm dev` a `<name>.litium.portal` host is looked up as `<name>.litium.store`
+(`server/utils/dev-hostname.ts`), which is where a tenant lives by default — so no per-tenant
+configuration is needed here.
+
+`pnpm local:setup` additionally writes the `/etc/hosts` line the production-build e2e run needs;
+see [docs/testing.md](../docs/testing.md).
 
 ---
 
