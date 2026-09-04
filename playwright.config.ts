@@ -16,15 +16,20 @@ import {
  * - pnpm test:e2e:ui      - Open Playwright UI
  * - pnpm test:e2e:debug   - Debug tests
  *
- * The target comes from the environment (tests/e2e/target.ts):
- *   PLAYWRIGHT_BASE_URL     origin under test (default tenant-a.litium.portal:3000)
- *   E2E_EXPECTED_TENANT_ID  tenant that origin must resolve to (default tenant-a)
+ * The target comes from the environment (tests/e2e/target.ts). The committed
+ * defaults differ per mode: the dev server is reached under `.litium.portal`
+ * (the wildcard resolver plus the dev-only tenant lookup rewrite), the
+ * production build under the tenant's registered `.litium.store` hostname.
+ *   PLAYWRIGHT_BASE_URL     origin under test (default: the team tenant)
+ *   E2E_EXPECTED_TENANT_ID  tenant that origin must resolve to
  *   E2E_USERNAME/PASSWORD   test account; auth specs are out of scope without one
  *   E2E_PROD=1              build and test the production build (CI always does)
  *   E2E_EXTERNAL_SERVER=1   the target is already running; start nothing
+ *   E2E_REMOTE=1            the target is a deployed environment on purpose
  *
- * Prerequisites (local development): the target hostname in /etc/hosts →
- * 127.0.0.1, so the multi-tenant server plugin resolves the tenant.
+ * Prerequisites (local development): the production-build hostname in
+ * /etc/hosts → 127.0.0.1 (`pnpm local:setup` writes it), so the run tests the
+ * build under test and not the deployed site. Preflight L0 checks it.
  *
  * The production build is served over https with a self-signed cert from
  * `infra/scripts/local-cert.sh` (`pnpm local:setup` runs it). It sets
