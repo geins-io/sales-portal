@@ -313,7 +313,7 @@ phase, because `site-config:init` is fired from nuxt-site-config's own middlewar
 `00.locale-market.ts` is middleware deliberately — `sendRedirect` there lets `nuxt-security` apply
 route-rule headers before the redirect flushes, instead of throwing `ERR_HTTP_HEADERS_SENT`.
 
-`resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{tenantId}` → legacy key →
+`resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{tenantId}` →
 merchant API. Cache hits are re-checked against the config's own hostname list, self-healing stale
 aliases. Missing or inactive tenants do not resolve, in every environment: the tenant plugin answers
 404 without rendering (see `server/plugins/02.tenant-context.ts`). In development every lookup logs

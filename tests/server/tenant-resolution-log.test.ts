@@ -3,10 +3,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   resolveTenant,
   resolveTenantOutcome,
+  fetchTenantConfig,
+  getTenantById,
+  tenantIdKey,
+  tenantConfigKey,
   clearNegativeCache,
   describeTransportError,
   formatTenantResolution,
 } from '../../server/utils/tenant';
+import type { TenantResolutionTrace } from '../../server/utils/tenant';
+import type { TenantConfig } from '#shared/types/tenant-config';
 
 // Same auto-import shims as tests/server/tenant.test.ts: the tenant utils
 // reach useRuntimeConfig/useStorage through Nitro's transformer, which the
@@ -76,14 +82,18 @@ vi.stubGlobal('useStorage', mockUseStorage);
 
 const API_URL = 'https://merchant.example/store-settings';
 
-function rawApiPayload(tenantId: string, hostname: string) {
+function rawApiPayload(
+  tenantId: string,
+  hostname: string,
+  options: { isActive?: boolean; additionalHostNames?: string[] } = {},
+) {
   return {
     tenantId,
-    isActive: true,
+    isActive: options.isActive ?? true,
     updatedAt: '2026-01-01T00:00:00.000Z',
     geinsSettings: {
       defaultHostName: hostname,
-      additionalHostNames: [],
+      additionalHostNames: options.additionalHostNames ?? [],
       apiKey: 'E0EB51F2-B663-457F-A7F9-A75693FD8469',
       accountName: tenantId,
       channelId: '1|se',
@@ -137,6 +147,58 @@ function stubFetch(impl: (url: string) => Promise<Response>) {
 
 function makeEvent(): { context: Record<string, unknown> } {
   return { context: {} };
+}
+
+/**
+ * A Map-backed KV so a test can seed keys and assert exactly what the
+ * resolution path wrote and removed. Installed as the `useStorage` result
+ * until {@link resetStorage} puts the empty default back.
+ */
+function memoryStorage(seed: Record<string, unknown> = {}) {
+  const store = new Map<string, unknown>(Object.entries(seed));
+  const storage = {
+    store,
+    getItem: vi.fn((key: string) =>
+      Promise.resolve(store.has(key) ? store.get(key) : null),
+    ),
+    setItem: vi.fn((key: string, value: unknown) => {
+      store.set(key, value);
+      return Promise.resolve();
+    }),
+    removeItem: vi.fn((key: string) => {
+      store.delete(key);
+      return Promise.resolve();
+    }),
+    hasItem: vi.fn((key: string) => Promise.resolve(store.has(key))),
+  };
+  mockUseStorage.mockReturnValue(
+    storage as unknown as ReturnType<typeof mockUseStorage>,
+  );
+  return storage;
+}
+
+function resetStorage() {
+  mockUseStorage.mockReset();
+  mockUseStorage.mockImplementation(() => ({
+    getItem: vi.fn(() => Promise.resolve(null)),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+    hasItem: vi.fn(() => Promise.resolve(false)),
+  }));
+}
+
+/** A config as KV holds it: only the fields the resolution path reads. */
+function kvConfig(
+  tenantId: string,
+  hostname: string,
+  options: { isActive?: boolean; aliases?: string[] } = {},
+): TenantConfig {
+  return {
+    tenantId,
+    hostname,
+    aliases: options.aliases ?? [],
+    isActive: options.isActive ?? true,
+  } as unknown as TenantConfig;
 }
 
 function warnLinesFor(hostname: string): string[] {
@@ -356,6 +418,279 @@ describe.sequential('resolveTenant resolution log', () => {
     expect(mockLoggerWarn).not.toHaveBeenCalled();
     expect(mockLoggerDebug).not.toHaveBeenCalled();
     expect(event.context.tenantResolution).toBeUndefined();
+  });
+});
+
+// Sequential for the same reason as above; these swap the KV stub as well.
+describe.sequential('resolveTenantOutcome KV paths', () => {
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    mockLoggerWarn.mockClear();
+    mockLoggerDebug.mockClear();
+    mockIsDevMode.mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    resetStorage();
+  });
+
+  it('a resolved lookup writes the config under its tenantId and a mapping for every hostname', async () => {
+    const host = 'primary.example';
+    const aliases = ['alias.example', 'www.primary.example'];
+    const storage = memoryStorage();
+    stubFetch(async () =>
+      httpResponse(
+        200,
+        rawApiPayload('multi-host', host, { additionalHostNames: aliases }),
+      ),
+    );
+
+    const { config, outcome } = await resolveTenantOutcome(host);
+
+    expect(outcome).toBe('resolved');
+    expect(config?.tenantId).toBe('multi-host');
+    expect(storage.store.get(tenantConfigKey('multi-host'))).toBe(config);
+    for (const h of [host, ...aliases]) {
+      expect(storage.store.get(tenantIdKey(h))).toBe('multi-host');
+    }
+    // Nothing is stored under the hostname-keyed config key.
+    expect(storage.store.has(tenantConfigKey(host))).toBe(false);
+    expect(storage.store.size).toBe(1 + 1 + aliases.length);
+  });
+
+  it('after a resolve, an alias is a KV hit: no merchant API call', async () => {
+    const host = 'brand.example';
+    const alias = 'shop.brand.example';
+    memoryStorage();
+    const fetchSpy = stubFetch(async () =>
+      httpResponse(
+        200,
+        rawApiPayload('brand', host, { additionalHostNames: [alias] }),
+      ),
+    );
+
+    await resolveTenantOutcome(host);
+    const second = await resolveTenantOutcome(alias);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(second.outcome).toBe('resolved');
+    expect(second.config?.tenantId).toBe('brand');
+    expect(debugLinesFor(alias)[0]).toBe(
+      `[tenant] resolve host=${alias} kv=hit api=skipped outcome=resolved tenant=brand`,
+    );
+  });
+
+  it('stale mapping: the KV key is removed, the merchant API is asked, and the fresh mapping is written', async () => {
+    const host = 'moved.example';
+    const staleConfig = kvConfig('old-tenant', 'elsewhere.example');
+    const storage = memoryStorage({
+      [tenantIdKey(host)]: 'old-tenant',
+      [tenantConfigKey('old-tenant')]: staleConfig,
+    });
+    const fetchSpy = stubFetch(async () =>
+      httpResponse(200, rawApiPayload('new-tenant', host)),
+    );
+
+    const { config, outcome } = await resolveTenantOutcome(host);
+
+    expect(outcome).toBe('resolved');
+    expect(config?.tenantId).toBe('new-tenant');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+      `${API_URL}?hostname=${host}`,
+    );
+    // The stale key was removed before the fetch, so the rewrite is a plain
+    // write and not a remap between two tenants.
+    expect(storage.removeItem).toHaveBeenCalledWith(tenantIdKey(host));
+    expect(storage.store.get(tenantIdKey(host))).toBe('new-tenant');
+    expect(storage.store.get(tenantConfigKey('new-tenant'))).toBe(config);
+    // The other tenant's own config is left alone.
+    expect(storage.store.get(tenantConfigKey('old-tenant'))).toBe(staleConfig);
+
+    const warns = mockLoggerWarn.mock.calls.map(([msg]) => msg as string);
+    expect(warns.some((m) => m.includes('Stale hostname mapping'))).toBe(true);
+    expect(warns.some((m) => m.includes('remapped'))).toBe(false);
+    expect(debugLinesFor(host)[0]).toBe(
+      `[tenant] resolve host=${host} kv=stale api=GET ${API_URL}?hostname=${host} → 200 outcome=resolved tenant=new-tenant`,
+    );
+  });
+
+  it('a mapping to a tenant whose config is gone from KV falls through to the merchant API', async () => {
+    const host = 'orphan.example';
+    const storage = memoryStorage({ [tenantIdKey(host)]: 'vanished' });
+    const fetchSpy = stubFetch(async () =>
+      httpResponse(200, rawApiPayload('vanished', host)),
+    );
+
+    const { outcome, config } = await resolveTenantOutcome(host);
+
+    expect(outcome).toBe('resolved');
+    expect(config?.tenantId).toBe('vanished');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(storage.store.get(tenantConfigKey('vanished'))).toBe(config);
+    expect(debugLinesFor(host)[0]).toContain('kv=miss api=GET');
+  });
+
+  it('inactive tenant: unknown-tenant, negative-cached, nothing written to KV', async () => {
+    const host = 'switched-off.example';
+    const storage = memoryStorage();
+    const fetchSpy = stubFetch(async () =>
+      httpResponse(200, rawApiPayload('off', host, { isActive: false })),
+    );
+
+    const first = await resolveTenantOutcome(host);
+    const second = await resolveTenantOutcome(host);
+    clearNegativeCache(host);
+
+    expect(first).toEqual({ config: null, outcome: 'unknown-tenant' });
+    expect(second.outcome).toBe('negative-cache');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.store.size).toBe(0);
+    expect(warnLinesFor(host)[0]).toBe(
+      `[tenant] resolve host=${host} kv=miss api=GET ${API_URL}?hostname=${host} → 200 (inactive) outcome=unknown-tenant`,
+    );
+  });
+
+  it('unreadable body: invalid-config, negative-cached, nothing written to KV', async () => {
+    const host = 'garbled.example';
+    const storage = memoryStorage();
+    const fetchSpy = stubFetch(async () => httpResponse(200));
+
+    const first = await resolveTenantOutcome(host);
+    const second = await resolveTenantOutcome(host);
+    clearNegativeCache(host);
+
+    expect(first).toEqual({ config: null, outcome: 'invalid-config' });
+    expect(second.outcome).toBe('negative-cache');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(warnLinesFor(host)[0]).toBe(
+      `[tenant] resolve host=${host} kv=miss api=GET ${API_URL}?hostname=${host} → 200 (unreadable body) outcome=invalid-config`,
+    );
+    expect(warnLinesFor(host)[1]).toContain(
+      'outcome=negative-cache (invalid-config,',
+    );
+  });
+
+  it('body rejected by the schema: invalid-config, negative-cached, nothing written to KV', async () => {
+    const host = 'malformed.example';
+    const storage = memoryStorage();
+    // No tenantId anywhere: a fatal path for parseStoreSettingsResilient.
+    const fetchSpy = stubFetch(async () =>
+      httpResponse(200, { appSettings: { mode: 'commerce' } }),
+    );
+
+    const first = await resolveTenantOutcome(host);
+    const second = await resolveTenantOutcome(host);
+    clearNegativeCache(host);
+
+    expect(first).toEqual({ config: null, outcome: 'invalid-config' });
+    expect(second.outcome).toBe('negative-cache');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(warnLinesFor(host)[0]).toBe(
+      `[tenant] resolve host=${host} kv=miss api=GET ${API_URL}?hostname=${host} → 200 outcome=invalid-config`,
+    );
+  });
+});
+
+describe.sequential('getTenantById', () => {
+  afterEach(() => {
+    resetStorage();
+  });
+
+  it('returns the config stored under tenant:config:{tenantId}', async () => {
+    const config = kvConfig('t-1', 't-1.example');
+    const storage = memoryStorage({ [tenantConfigKey('t-1')]: config });
+
+    await expect(getTenantById('t-1')).resolves.toBe(config);
+    expect(storage.getItem).toHaveBeenCalledWith(tenantConfigKey('t-1'));
+    expect(storage.getItem).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns null for an unknown tenantId without touching the merchant API or writing', async () => {
+    const storage = memoryStorage();
+    const fetchSpy = stubFetch(async () => httpResponse(404));
+
+    await expect(getTenantById('nobody')).resolves.toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it('returns null for an inactive config and leaves it in KV', async () => {
+    const config = kvConfig('t-off', 't-off.example', { isActive: false });
+    const storage = memoryStorage({ [tenantConfigKey('t-off')]: config });
+
+    await expect(getTenantById('t-off')).resolves.toBeNull();
+    expect(storage.removeItem).not.toHaveBeenCalled();
+    expect(storage.store.get(tenantConfigKey('t-off'))).toBe(config);
+  });
+});
+
+describe.sequential('fetchTenantConfig', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  function trace(hostname: string): TenantResolutionTrace {
+    return { hostname, kv: 'miss', outcome: 'unknown-tenant' };
+  }
+
+  it('200: builds a TenantConfig and marks the trace resolved', async () => {
+    const host = 'fetch-ok.example';
+    stubFetch(async () => httpResponse(200, rawApiPayload('fetched', host)));
+    const t = trace(host);
+
+    const config = await fetchTenantConfig(host, undefined, t);
+
+    expect(config?.tenantId).toBe('fetched');
+    expect(config?.hostname).toBe(host);
+    expect(config?.isActive).toBe(true);
+    expect(t).toMatchObject({
+      outcome: 'resolved',
+      api: { url: `${API_URL}?hostname=${host}`, result: '200' },
+    });
+  });
+
+  it('404: null and unknown-tenant', async () => {
+    const host = 'fetch-404.example';
+    stubFetch(async () => httpResponse(404));
+    const t = trace(host);
+
+    await expect(fetchTenantConfig(host, undefined, t)).resolves.toBeNull();
+    expect(t).toMatchObject({
+      outcome: 'unknown-tenant',
+      api: { result: '404' },
+    });
+  });
+
+  it('fetch threw: null and transport-failure', async () => {
+    const host = 'fetch-down.example';
+    stubFetch(async () => {
+      throw connectionRefused();
+    });
+    const t = trace(host);
+
+    await expect(fetchTenantConfig(host, undefined, t)).resolves.toBeNull();
+    expect(t.outcome).toBe('transport-failure');
+    expect(t.api?.result).toBe(
+      'ECONNREFUSED (connect ECONNREFUSED 127.0.0.1:1)',
+    );
+  });
+
+  it('works without a trace', async () => {
+    const host = 'fetch-quiet.example';
+    stubFetch(async () => httpResponse(200, rawApiPayload('quiet', host)));
+
+    const config = await fetchTenantConfig(host);
+
+    expect(config?.tenantId).toBe('quiet');
   });
 });
 
