@@ -11,6 +11,11 @@ vi.mock('#app/composables/fetch', () => ({
 
 vi.stubGlobal('$fetch', (...args: unknown[]) => mockFetchImpl(...args));
 
+// The reads go through the SSR-aware internalFetch helper; same mock.
+vi.mock('~/utils/internal-fetch', () => ({
+  internalFetch: (...args: unknown[]) => mockFetchImpl(...args),
+}));
+
 // Import store after mocks
 const { useQuotesStore } = await import('../../app/stores/quotes');
 

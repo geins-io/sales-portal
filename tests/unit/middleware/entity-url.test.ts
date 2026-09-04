@@ -3,12 +3,8 @@ import type { RouteLocationNormalized } from 'vue-router';
 
 // ---------------------------------------------------------------------------
 // Stub the Nuxt auto-imports the middleware relies on. The node test tier has
-// no Nuxt runtime, so each composable/global is a controllable spy.
-//
-// `import.meta.server` is bundle-time replaced and resolves to `false` in the
-// node test env, so the server-only `useRequestHeaders` branch never fires
-// here (it is verified by live SSR curl during dev). The stub still exists so
-// an accidental call does not throw.
+// no Nuxt runtime, so each composable/global is a controllable spy. The
+// resolver call goes through internalFetch, routed to the same spy.
 // ---------------------------------------------------------------------------
 const mockFetch = vi.fn();
 const mockNavigateTo = vi.fn((target: string, opts?: unknown) => ({
@@ -23,10 +19,9 @@ const mockCreateError = vi.fn((opts: { statusCode: number }) => {
 });
 
 vi.stubGlobal('$fetch', mockFetch);
-vi.stubGlobal(
-  'useRequestHeaders',
-  vi.fn(() => ({})),
-);
+vi.mock('~/utils/internal-fetch', () => ({
+  internalFetch: (...args: unknown[]) => mockFetch(...args),
+}));
 
 vi.mock('#app/composables/router', () => ({
   navigateTo: (...args: unknown[]) =>

@@ -124,6 +124,14 @@ off. Local resolution, and what each run command implies, is in
 
 ---
 
+## A self-fetch with no Host header resolved a real tenant
+
+SSR self-fetches carried only `cookie`; h3 fell back to `localhost`, which the merchant API maps
+to a live tenant, so `/api/auth/me` ran with another tenant's credentials and nothing failed.
+Rule: `internalFetch` (Nuxt's request-bound fetch) for every own-route call; see [patterns/internal-fetch.md](patterns/internal-fetch.md).
+
+---
+
 ## Things that worked, worth repeating
 
 **Glob-based test routing.** A hardcoded 65-entry list of test files decided which tier each test

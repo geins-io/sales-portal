@@ -50,6 +50,14 @@ export default defineEventHandler(
 );
 ```
 
+### Calling Our Own Routes During SSR
+
+Every server-side call to `/api/*` from a store, composable, middleware or
+plugin goes through `internalFetch`, which forwards the incoming request's
+headers (Host, cookie, X-Forwarded-Proto) across the internal hop. A bare
+`$fetch` resolves the tenant as `localhost`. See
+[internal-fetch.md](internal-fetch.md).
+
 ## Multi-Tenancy
 
 ### Tenant-Aware Component

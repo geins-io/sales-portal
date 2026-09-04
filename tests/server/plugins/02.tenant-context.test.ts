@@ -277,6 +277,45 @@ describe('server/plugins/02.tenant-context', () => {
     });
   });
 
+  // Server-internal fetches reach this hook as their own requests. The lookup
+  // must run for the hostname they carry (internalFetch forwards it), and not
+  // at all for routes that cannot carry one.
+  describe('internal requests', () => {
+    it('looks up /api/ requests by the hostname they carry', async () => {
+      mockGetRequestHost.mockReturnValue('tenant-x.example');
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/api/auth/me', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledTimes(1);
+      expect(mockResolveTenant.mock.calls[0]?.[0]).toBe('tenant-x.example');
+      expect(mockGetRequestHost).toHaveBeenCalledWith(event, {
+        xForwardedHost: false,
+      });
+    });
+
+    it('does no tenant lookup for the i18n message route', async () => {
+      const event = createEvent('/_i18n/abc123/sv/messages.json', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).not.toHaveBeenCalled();
+      expect(mockResolvePreviewTenant).not.toHaveBeenCalled();
+      expect(event.context.tenantRefusal).toBeUndefined();
+      expect(event.context.tenant).toEqual({ hostname: 'test.localhost' });
+    });
+
+    it('does no tenant lookup for build assets', async () => {
+      for (const path of ['/_nuxt/entry.js', '/__nuxt_error']) {
+        const event = createEvent(path, {});
+        await handler(event);
+        expect(mockResolveTenant).not.toHaveBeenCalled();
+        expect(event.context.tenantRefusal).toBeUndefined();
+      }
+    });
+  });
+
   // Validation moved to server/middleware/00.locale-market.ts, which is the
   // first point where the URL pair and the tenant are both available. These
   // cases pin the plugin out of that job: it must resolve the tenant and
