@@ -89,10 +89,9 @@ export interface TenantConfig {
   features: Record<string, { enabled: boolean; access?: FeatureAccess }>;
 
   // CMS slot + menu registry — see docs/patterns/cms-config.md for the
-  // design. Tenant config is the single source of truth; missing slots
-  // and menus resolve to null and consumers fall back gracefully.
-  // Auto-provisioned dev tenants are seeded with Geins out-of-box names
-  // in server/utils/tenant.ts.
+  // design. Tenant config wins per key over DEFAULT_CMS_CONFIG in
+  // server/utils/tenant.ts; slots and menus neither layer defines
+  // resolve to null and consumers fall back gracefully.
   cms?: {
     slots?: Partial<Record<CmsSlotKey, CmsSlotConfig>>;
     menus?: Partial<Record<CmsMenuKey, CmsMenuConfig>>;

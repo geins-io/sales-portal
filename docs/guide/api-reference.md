@@ -17,7 +17,7 @@ GET /api/config
 ```json
 {
   "tenantId": "tenant-a",
-  "hostname": "tenant-a.localhost",
+  "hostname": "tenant-a.litium.portal",
   "mode": "commerce",
   "isActive": true,
   "theme": {

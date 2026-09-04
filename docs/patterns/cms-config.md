@@ -37,8 +37,8 @@ Resolution order for `tenant.cms`. `buildTenantConfig` deep-merges
    added default slot or menu (for example `footer-2`/`footer-3`) never
    reached a configured tenant.
 
-Auto-provisioned dev tenants and the seeded fixtures use the same
-`DEFAULT_CMS_CONFIG` constant, so all paths agree.
+Every tenant resolves through the same `DEFAULT_CMS_CONFIG` constant, so all
+paths agree.
 
 ## Merchant API response shape
 
@@ -208,28 +208,15 @@ area (e.g. tenant created a collection shell but added no widgets):
    - Menus → `CMS_MENUS` in `shared/constants/cms.ts`.
 2. Add the entry to `DEFAULT_CMS_CONFIG` in `server/utils/tenant.ts` so
    every tenant gets it without per-tenant work.
-3. Add it to the dev-only fixture seed in
-   `server/plugins/99.dev-tenant-seed.ts` (`FULL_CMS_CONFIG`) so local
-   multi-tenant walkthrough stays complete.
-4. Document the entry in the table above.
-5. Tenants that want a non-default mapping override via their stored
+3. Document the entry in the table above.
+4. Tenants that want a non-default mapping override via their stored
    `appSettings.cms` block — see "How a tenant configures an override".
 
-## Local multi-tenant walkthrough
+## Verifying CMS config locally
 
-A dev-only nitro plugin seeds three fixture tenants at startup so you
-can verify CMS config behavior without a real merchant API:
-
-- `tenant-a.localhost` — teal theme, full slots + menus
-- `tenant-b.localhost` — rose theme, full slots + menus
-- `tenant-blank.localhost` — no cms config (exercises all fallbacks)
-
-```
-curl -H "Host: tenant-a.localhost" http://localhost:3000/se/sv/
-curl -H "Host: tenant-blank.localhost" http://localhost:3000/se/sv/
-```
-
-The plugin is a no-op in production (guarded on `import.meta.dev`).
+Nothing is seeded locally: verify against a tenant the merchant API knows,
+as described in
+[Multi-Tenant Architecture](../guide/multi-tenant.md#local-development).
 
 ## Related files
 
@@ -239,8 +226,7 @@ The plugin is a no-op in production (guarded on `import.meta.dev`).
 - `app/composables/useCmsSlot.ts` — slot resolver.
 - `app/composables/useCmsMenu.ts` — menu resolver (config only).
 - `app/composables/useCmsMenuData.ts` — menu resolver + fetch wrapper.
-- `server/utils/tenant.ts` — `DEFAULT_CMS_CONFIG`, response flattening, auto-provisioned tenant seed.
-- `server/plugins/99.dev-tenant-seed.ts` — local fixture tenants.
+- `server/utils/tenant.ts` — `DEFAULT_CMS_CONFIG`, response flattening.
 - `app/components/portal/PortalShell.vue` — `PORTAL_HERO` consumer.
 - `app/pages/index.vue` — `FRONTPAGE_CONTENT` consumer.
 - `app/components/cms/FrontpageFallback.vue` — frontpage fallback.

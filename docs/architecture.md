@@ -340,7 +340,7 @@ The tenant context is available in all server handlers via `event.context.tenant
 // In any server route/middleware
 export default defineEventHandler((event) => {
   const { hostname, tenantId, config } = event.context.tenant;
-  // hostname: Request hostname (e.g., "tenant-a.localhost")
+  // hostname: Request hostname (e.g., "tenant-a.litium.portal")
   // tenantId: Resolved tenant ID (e.g., "tenant-a") — set for page routes, optional for API routes
   // config: Full TenantConfig object (cached per-request, avoids redundant KV lookups)
 });
@@ -794,8 +794,7 @@ API's store-settings endpoint is unauthenticated and answers per hostname (confi
 2026-09-03): no key is sent, and the tenant's storefront API key arrives in the response.
 
 The same rule holds locally: only a hostname the merchant API knows renders, and an unknown one
-answers 404. The dev seed writes three fixtures at startup as a development convenience; see
-[Multi-Tenant Architecture](guide/multi-tenant.md#local-development).
+answers 404; see [Multi-Tenant Architecture](guide/multi-tenant.md#local-development).
 
 ### Creating Components
 
