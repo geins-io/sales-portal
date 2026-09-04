@@ -1369,9 +1369,78 @@ describe('Tenant utilities', () => {
       expect(result.tenantId).toBe('from-app-settings');
     });
 
-    it('merges additionalHostNames into aliases', () => {
+    it('takes aliases from additionalHostNames', () => {
       const result = adaptMerchantApiResponse(rawApiResponse());
-      expect(result.aliases).toContain('tenant-b.litium.portal');
+      expect(result.aliases).toEqual(['tenant-b.litium.portal']);
+    });
+
+    // Routing truth is geinsSettings alone: appSettings is free text the
+    // tenant saved, and every name that reaches the config becomes a routing
+    // entry.
+    it('ignores appSettings.aliases', () => {
+      const raw = rawApiResponse();
+      (raw.appSettings as Record<string, unknown>).aliases = [
+        'claimed.example.com',
+      ];
+      const result = adaptMerchantApiResponse(raw);
+      expect(result.aliases).toEqual(['tenant-b.litium.portal']);
+      expect(result.aliases).not.toContain('claimed.example.com');
+    });
+
+    it('does not let appSettings.hostname override defaultHostName', () => {
+      const raw = rawApiResponse();
+      (raw.appSettings as Record<string, unknown>).hostname =
+        'claimed.example.com';
+      const result = adaptMerchantApiResponse(raw);
+      expect(result.hostname).toBe('tenant-b.sales-portal.geins.dev');
+    });
+
+    // `hostname` is required and fatal, so a tenant whose Geins record carries
+    // no defaultHostName would resolve to nothing without this fallback.
+    it('falls back to appSettings.hostname when Geins carries no defaultHostName', () => {
+      const raw = rawApiResponse();
+      delete (raw.geinsSettings as Record<string, unknown>).defaultHostName;
+      (raw.appSettings as Record<string, unknown>).hostname =
+        'only.example.com';
+      const result = adaptMerchantApiResponse(raw);
+      expect(result.hostname).toBe('only.example.com');
+    });
+
+    // The clause this ticket exists for: a hostname a tenant claims only in
+    // appSettings must not become a routing entry, so it never resolves.
+    it('writes no routing entry for a hostname claimed only in appSettings', async () => {
+      const raw = rawApiResponse();
+      (raw.appSettings as Record<string, unknown>).aliases = [
+        'claimed.example.com',
+      ];
+      const adapted = adaptMerchantApiResponse(raw);
+
+      const data = new Map<string, unknown>();
+      const storage = {
+        getItem: <T = unknown>(k: string) =>
+          Promise.resolve((data.get(k) ?? null) as T | null),
+        setItem: (k: string, v: unknown) => {
+          data.set(k, v);
+          return Promise.resolve();
+        },
+      };
+
+      await writeHostnameMappings(
+        storage as unknown as ReturnType<
+          typeof import('nitropack/runtime').useStorage
+        >,
+        {
+          tenantId: 'tenant-b',
+          hostname: adapted.hostname,
+          aliases: adapted.aliases,
+        } as unknown as TenantConfig,
+      );
+
+      expect(data.get(tenantIdKey('tenant-b.sales-portal.geins.dev'))).toBe(
+        'tenant-b',
+      );
+      expect(data.get(tenantIdKey('tenant-b.litium.portal'))).toBe('tenant-b');
+      expect(data.has(tenantIdKey('claimed.example.com'))).toBe(false);
     });
 
     it('strips the id field from appSettings', () => {
