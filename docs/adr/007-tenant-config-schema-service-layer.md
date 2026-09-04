@@ -65,6 +65,14 @@ All accessors call `getTenant()` internally (cached via KV storage + SWR).
 
 The Geins platform auto-injects `geinsSettings` into the store-settings API response in its own shape (`channelId: "2|se"`, `defaultLocale`, `locales[]`, etc.). `transformGeinsSettings()` in `server/utils/tenant.ts` normalizes this to our clean internal shape (`channel`, `tld`, `locale`, `availableLocales[]`, `availableMarkets[]`). Service layer consumers always see the internal shape.
 
+### Where hostname truth lives
+
+Routing comes from `geinsSettings` alone: `hostname` is `defaultHostName`, `aliases` is `additionalHostNames`. Those are the names the merchant API itself resolves, and `adaptMerchantApiResponse()` reads nothing else for them.
+
+`appSettings.hostname` and `appSettings.aliases` are legacy fields from before the merchant API had hostname fields of its own. Nothing writes them any more and they survive only on older records; the schema still accepts them — a stored config must never become invalid — but they are display data, never routing data. Reading them meant every name on such a record became a `hostname → tenantId` entry in KV (`collectAllHostnames()` → `writeHostnameMappings()`), routing hostnames the merchant API refuses, including another tenant's registered hostname, which then served the wrong storefront until the next restart. Which hostnames worked depended on what the running container had cached rather than on what was registered.
+
+One exception, narrow and deliberate: when a Geins record carries no `defaultHostName`, `appSettings.hostname` is the fallback. `hostname` is required and on the fatal path, so without it such a tenant would resolve to nothing at all.
+
 ### Feature access evaluation
 
 `FeatureAccess` is defined as a standalone type in `shared/types/tenant-config.ts` (not Zod-inferred) so shared utilities can import it without pulling in server/schema code. The Zod schema still validates the same shape.
