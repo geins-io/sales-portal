@@ -100,17 +100,24 @@ test.describe('Mobile Navigation', () => {
     const dialog = page.locator('[role="dialog"]');
     await expect(dialog).toBeVisible({ timeout: 15000 });
 
-    // Top-level categories are collapsible buttons, not anchors — `a[href]`
-    // only exists once a section is expanded.
+    // A top-level category with children renders as a collapsible button, so
+    // its `a[href]` only exists once expanded; one without children renders as
+    // a plain link. Which shape appears is the tenant's category tree, not a
+    // property of the app — so branch on what the menu produced. Both shapes
+    // must end with a reachable category link.
     const sections = dialog.locator('button[aria-expanded]');
-    await expect(sections.first()).toBeVisible({ timeout: 5000 });
-    expect(await sections.count()).toBeGreaterThan(0);
+    const links = dialog.locator('a[href]');
 
-    // Expanding one reveals its links.
-    await sections.first().click();
-    await expect(dialog.locator('a[href]').first()).toBeVisible({
-      timeout: 5000,
-    });
+    await expect(
+      sections.or(links).first(),
+      'the mobile panel showed neither a category link nor an expandable section',
+    ).toBeVisible({ timeout: 5000 });
+
+    if ((await sections.count()) > 0) {
+      await sections.first().click();
+    }
+
+    await expect(links.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should close mobile nav on navigation', async ({ page }) => {
