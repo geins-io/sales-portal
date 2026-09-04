@@ -14,12 +14,10 @@ This allows you to access the app via URLs like:
 - `http://<tenant>.litium.portal/` — any tenant registered in the merchant API, by name
 
 Only hostnames registered in the merchant API resolve; any other name answers 404, locally as in
-production. Under `pnpm dev` a `<name>.litium.portal` host is looked up as `<name>.litium.store`
-(`server/utils/dev-hostname.ts`), which is where a tenant lives by default — so no per-tenant
-configuration is needed here.
-
-`pnpm local:setup` additionally writes the `/etc/hosts` line the production-build e2e run needs;
-see [docs/testing.md](../docs/testing.md).
+production. A `<name>.litium.portal` host is looked up as `<name>.litium.store`
+(`server/utils/lookup-hostname.ts`), which is where a tenant lives by default — so no per-tenant
+configuration is needed, and the production build behaves the same way under test. See
+[docs/testing.md](../docs/testing.md) for the e2e target.
 
 ---
 

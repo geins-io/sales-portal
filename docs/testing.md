@@ -169,37 +169,31 @@ application bugs.
 Tests run against a tenant hostname, not `localhost`, so the multi-tenant server plugin can
 resolve a tenant. The target comes from the environment, read in one place (`tests/e2e/target.ts`):
 
-| Variable                        | Default                   | Meaning                                              |
-| ------------------------------- | ------------------------- | ---------------------------------------------------- |
-| `PLAYWRIGHT_BASE_URL`           | the team tenant, per mode | Origin under test (https when `E2E_PROD=1` or in CI) |
-| `E2E_EXPECTED_TENANT_ID`        | the team tenant           | Tenant `/api/config` must resolve to                 |
-| `E2E_USERNAME` / `E2E_PASSWORD` | unset                     | Test account (see 2.)                                |
-| `E2E_PROD`                      | unset                     | `1`: build and test the production build over https  |
-| `E2E_EXTERNAL_SERVER`           | unset                     | `1`: the target is already running, start nothing    |
-| `E2E_REMOTE`                    | unset                     | `1`: the target is a deployed environment on purpose |
+| Variable                        | Default         | Meaning                                              |
+| ------------------------------- | --------------- | ---------------------------------------------------- |
+| `PLAYWRIGHT_BASE_URL`           | the team tenant | Origin under test (https when `E2E_PROD=1` or in CI) |
+| `E2E_EXPECTED_TENANT_ID`        | the team tenant | Tenant `/api/config` must resolve to                 |
+| `E2E_USERNAME` / `E2E_PASSWORD` | unset           | Test account (see 2.)                                |
+| `E2E_PROD`                      | unset           | `1`: build and test the production build over https  |
+| `E2E_EXTERNAL_SERVER`           | unset           | `1`: the target is already running, start nothing    |
+| `E2E_REMOTE`                    | unset           | `1`: the target is a deployed environment on purpose |
 
 Locally they live in `.env`; in CI in repository variables and secrets. Switching target is an
-environment change; the committed defaults name the team-owned test tenant, and they differ per
-mode:
+environment change; the committed default names the team-owned test tenant, and it is one target
+in every mode: `<tenant>.litium.portal:3000` — http on the dev server, https for the production
+build.
 
-- **Dev server** — `http://<tenant>.litium.portal:3000`. The dnsmasq wildcard sends all of
-  `*.litium.portal` to `127.0.0.1` and the dev server looks the tenant up under `.litium.store`
-  (`server/utils/dev-hostname.ts`), so there is nothing to configure per tenant.
-- **Production build and CI** — `https://<tenant>.litium.store:3000`, the hostname the tenant is
-  actually registered under, because nothing is rewritten there. That name resolves publicly, so
-  it needs a line in `/etc/hosts`:
+Nothing has to be configured on the machine for it. The dnsmasq wildcard sends all of
+`*.litium.portal` to `127.0.0.1`, and the server looks the tenant up under `.litium.store`
+(`server/utils/lookup-hostname.ts`) in every mode, the production build included — so no
+`/etc/hosts` line, and no target name that could reach a deployed environment by accident. CI has
+no dnsmasq, so the job writes one hosts line for the target it was given, derived from
+`PLAYWRIGHT_BASE_URL`.
 
-  ```
-  127.0.0.1 <tenant>.litium.store
-  ```
-
-  `pnpm local:setup` writes that line for whatever target is configured; CI derives it from
-  `PLAYWRIGHT_BASE_URL` in its own step.
-
-Without the line the run would reach the deployed site instead of the build under test — and pass,
-because the tenant id matches. **Preflight L0 therefore resolves the target name and fails the run
-when it is not this machine**, naming the fix. `E2E_REMOTE=1` is how you point the suite at a
-deployed environment on purpose; the check then declares itself out of scope.
+**Preflight L0 resolves the target name and fails the run when it does not point at this
+machine**, naming the fix — for a `.litium.portal` name that means `pnpm local:setup` has not run.
+`E2E_REMOTE=1` is how you point the suite at a deployed environment on purpose; the check then
+declares itself out of scope.
 
 #### 2. A test account
 
@@ -299,11 +293,11 @@ which has neither.
 
 So the production-build path (`E2E_PROD=1 pnpm test:e2e` locally, always in CI) serves `pnpm preview`
 over https with a self-signed certificate. Its SAN covers `*.litium.portal` and `*.litium.store`, so
-it fits both the dev server's host and the production build's:
+it also fits a target pointed at a real hostname:
 
 ```bash
 infra/scripts/local-cert.sh    # writes .certs/local.{crt,key}; pnpm local:setup runs it too
-E2E_PROD=1 pnpm test:e2e       # build + preview over https://<tenant>.litium.store:3000
+E2E_PROD=1 pnpm test:e2e       # build + preview over https://<tenant>.litium.portal:3000
 ```
 
 `playwright.config.ts` reads the pair and hands it to `pnpm preview` as `NITRO_SSL_CERT` /

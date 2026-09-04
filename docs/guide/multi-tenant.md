@@ -193,17 +193,24 @@ installs a dnsmasq wildcard sending all of `*.litium.portal` to `127.0.0.1`, sav
 `/etc/hosts` line per tenant.
 
 `.litium.portal` is a local-only convention, and the merchant API knows almost nothing under it,
-so the dev server rewrites the lookup: a request for `name.litium.portal` is resolved as
-`name.litium.store`, where a Geins tenant lives by default
-(`devLookupHostname` in `server/utils/dev-hostname.ts`, behind `import.meta.dev`). Any registered
-tenant is therefore browsable locally by name alone, with nothing to configure — and a name the
-merchant API does not know under either suffix still answers an honest 404. Only the lookup moves:
-the response is served under the `.litium.portal` host the browser asked for, and
-`event.context.tenant.hostname` keeps that name, so cookies, redirects, the tenant logger and the
-404 body all stay on it. The rewritten name surfaces in one place, the resolution line — the
-development 404 page shows it, and it is logged — where `[tenant] resolve host=…` names the
-`.litium.store` hostname that was actually looked up, not the one you typed. Production and the
-Azure dev environment receive real hostnames and rewrite nothing.
+so the lookup is rewritten: a request for `name.litium.portal` is resolved as `name.litium.store`,
+where a Geins tenant lives by default (`lookupHostname` in
+`server/utils/lookup-hostname.ts`). Any registered tenant is therefore browsable by name alone,
+with nothing to configure — and a name the merchant API does not know under either suffix still
+answers an honest 404. Only the lookup moves: the response is served under the `.litium.portal`
+host the browser asked for, and `event.context.tenant.hostname` keeps that name, so cookies,
+redirects, the tenant logger and the 404 body all stay on it. The rewritten name surfaces in one
+place, the resolution line — the development 404 page shows it, and it is logged — where
+`[tenant] resolve host=…` names the `.litium.store` hostname that was actually looked up, not the
+one you typed.
+
+**This applies in every mode, the production build included**, because the production build is
+what CI and `E2E_PROD=1` test and they need the same name to work with nothing configured on the
+machine. Deployed environments are unaffected: `.portal` is not a real top-level domain, so a name
+under it cannot be resolved from the public internet and no deployed environment can ever receive
+one. The one thing the rewrite takes away is a tenant that registers `X.litium.portal` as an alias
+in Geins — it is no longer reachable under that exact name, since the lookup resolves
+`X.litium.store` instead, and only local and CI traffic can carry such a name anyway.
 
 ## Client-Side Usage
 
