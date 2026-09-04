@@ -91,49 +91,10 @@ configure_resolver() {
     print_success "Resolver configured"
 }
 
-# The hostname the e2e suite uses, from the suite's own source (its committed
-# default, or PLAYWRIGHT_BASE_URL in .env). $1: --dev-host for the dev server's
-# hostname, omitted for the production build's.
+# The hostname the e2e suite targets, from the suite's own source (its
+# committed default, or PLAYWRIGHT_BASE_URL in .env).
 e2e_target_host() {
-    (cd "$REPO_ROOT" && node tests/e2e/target-defaults.mjs ${1:+"$1"} 2>/dev/null)
-}
-
-# What /etc/hosts points $1 at, from the first non-comment line that names it.
-# Empty when no line does.
-hosts_entry_for() {
-    [[ -z "$1" ]] && return 0
-    awk -v h="$1" '$0 !~ /^[[:space:]]*#/ { for (i = 2; i <= NF; i++) if ($i == h) { print $1; exit } }' /etc/hosts
-}
-
-# The production build is served under the tenant's registered hostname, which
-# resolves publicly — so without this line an e2e run would test the deployed
-# site instead of the build under test. Preflight L0 refuses to run then.
-configure_hosts_entry() {
-    local host existing
-    host="$(e2e_target_host || true)"
-
-    if [[ -z "$host" ]]; then
-        print_error "Could not read the e2e target hostname from tests/e2e/target-defaults.mjs"
-        exit 1
-    fi
-
-    existing="$(hosts_entry_for "$host")"
-
-    if [[ "$existing" == "127.0.0.1" ]]; then
-        print_success "/etc/hosts already sends $host to 127.0.0.1"
-        return 0
-    fi
-
-    if [[ -n "$existing" ]]; then
-        # Not rewritten here: a hosts line can carry other names alongside this
-        # one, and editing it blind would take them with it.
-        print_error "/etc/hosts sends $host to $existing. Change that line to 127.0.0.1 and run this again."
-        exit 1
-    fi
-
-    print_status "Adding $host to /etc/hosts (the production-build e2e target)..."
-    echo "127.0.0.1 $host" | sudo tee -a /etc/hosts > /dev/null
-    print_success "/etc/hosts: 127.0.0.1 $host"
+    (cd "$REPO_ROOT" && node tests/e2e/target-defaults.mjs 2>/dev/null)
 }
 
 # Start dnsmasq service
@@ -180,7 +141,7 @@ flush_dns() {
 # Test DNS resolution, on the name the e2e suite itself will ask for
 test_dns() {
     local host
-    host="$(e2e_target_host --dev-host || true)"
+    host="$(e2e_target_host || true)"
     host="${host:-wildcard-check.$DOMAIN}"
 
     print_status "Testing DNS resolution..."
@@ -244,20 +205,6 @@ check_status() {
         print_warning "Port forwarding: disabled"
     fi
 
-    # Check the /etc/hosts line for the production-build e2e target
-    local e2e_host e2e_ip
-    e2e_host="$(e2e_target_host || true)"
-    e2e_ip="$(hosts_entry_for "$e2e_host" || true)"
-    if [[ -z "$e2e_host" ]]; then
-        print_warning "e2e target: could not read tests/e2e/target-defaults.mjs"
-    elif [[ "$e2e_ip" == "127.0.0.1" ]]; then
-        print_success "e2e target: /etc/hosts sends $e2e_host to 127.0.0.1"
-    elif [[ -n "$e2e_ip" ]]; then
-        print_error "e2e target: /etc/hosts sends $e2e_host to $e2e_ip, not 127.0.0.1"
-    else
-        print_warning "e2e target: no /etc/hosts line for $e2e_host — run --setup before a production-build e2e run"
-    fi
-
     # Test DNS
     echo ""
     test_dns
@@ -288,7 +235,6 @@ run_setup() {
 
     configure_dnsmasq
     configure_resolver
-    configure_hosts_entry
     start_dnsmasq
     flush_dns
     setup_port_forwarding
@@ -300,7 +246,7 @@ run_setup() {
     print_success "Setup complete!"
     echo ""
     echo "You can now access the app at:"
-    echo "  http://$(e2e_target_host --dev-host)/   (the e2e target)"
+    echo "  http://$(e2e_target_host)/   (the e2e target)"
     echo "  http://[any-registered-tenant].$DOMAIN/"
     echo ""
     echo "Production-build e2e (E2E_PROD=1 pnpm test:e2e) serves https with the"
@@ -350,7 +296,7 @@ start_dev() {
 
     echo ""
     local dev_host
-    dev_host="$(e2e_target_host --dev-host || true)"
+    dev_host="$(e2e_target_host || true)"
     echo "Access the app at:"
     if [[ "$skip_pf" != "true" ]]; then
         echo "  http://${dev_host}/   (the e2e target)"
