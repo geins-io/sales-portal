@@ -428,16 +428,27 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
  *      `updatedAt`) as fallbacks — the API sometimes emits these outside
  *      `appSettings` (observed after a Geins admin reset). `appSettings`
  *      wins when both define a field.
- *   3. Derive `hostname` from `geinsSettings.defaultHostName` when not
- *      present in `appSettings`.
+ *   3. Take `hostname` from `geinsSettings.defaultHostName`, and `aliases`
+ *      from `geinsSettings.additionalHostNames` — see the routing note below.
  *   4. Convert `geinsSettings` from the API's "Geins API" shape (channelId,
  *      defaultLocale, locales) to our internal flat shape via
  *      `transformGeinsSettings`.
- *   5. Merge `geinsSettings.additionalHostNames` into `aliases` so any
- *      configured hostname resolves the right tenant on subsequent KV
- *      lookups (the API keeps these in two places — we want one).
- *   6. Drop a couple of legacy fields the API still emits but our schema
+ *   5. Drop a couple of legacy fields the API still emits but our schema
  *      doesn't care about (`id`, `geinsApiSettings`).
+ *
+ * Routing truth is `geinsSettings` alone. `appSettings.hostname` and
+ * `appSettings.aliases` are legacy fields from before the merchant API had
+ * hostname fields of its own; nothing writes them any more and they survive
+ * only on older records. Every name in this config becomes a
+ * `hostname → tenantId` routing entry (`collectAllHostnames` →
+ * `writeHostnameMappings`), so reading them routed hostnames the merchant API
+ * refuses — including another tenant's registered hostname, which then served
+ * the wrong storefront until the next restart. They are no longer read for
+ * routing; the schema still accepts them so no stored config becomes invalid.
+ *
+ * `appSettings.hostname` survives as a last resort only when Geins carries no
+ * `defaultHostName`: `hostname` is required and fatal (`FATAL_PATHS`), so
+ * without the fallback such a tenant would resolve to nothing at all.
  */
 export function adaptMerchantApiResponse(
   raw: Record<string, unknown>,
@@ -447,13 +458,14 @@ export function adaptMerchantApiResponse(
 
   const geinsSettings = rawGeins ? transformGeinsSettings(rawGeins) : undefined;
 
-  const additional = Array.isArray(rawGeins?.additionalHostNames)
-    ? (rawGeins.additionalHostNames as string[])
+  const aliases = Array.isArray(rawGeins?.additionalHostNames)
+    ? Array.from(new Set(rawGeins.additionalHostNames as string[]))
     : [];
-  const existing = Array.isArray(appSettings.aliases)
-    ? (appSettings.aliases as string[])
-    : [];
-  const aliases = Array.from(new Set([...existing, ...additional]));
+
+  const defaultHostName =
+    typeof rawGeins?.defaultHostName === 'string' && rawGeins.defaultHostName
+      ? rawGeins.defaultHostName
+      : undefined;
 
   const candidate: Record<string, unknown> = {
     // Root-level identity fields the API sometimes emits outside appSettings.
@@ -462,8 +474,10 @@ export function adaptMerchantApiResponse(
     isActive: raw.isActive,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
-    hostname: rawGeins?.defaultHostName,
     ...appSettings,
+    // After the spread: Geins owns routing, so its hostname wins over whatever
+    // the tenant saved. `appSettings.hostname` is only the fallback.
+    hostname: defaultHostName ?? appSettings.hostname,
     geinsSettings,
     aliases,
   };
