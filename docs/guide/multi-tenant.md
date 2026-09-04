@@ -189,11 +189,21 @@ server's port:
 ```
 
 The lookup matches the exact full hostname and does no subdomain parsing. `pnpm local:setup`
-installs a dnsmasq wildcard sending all of `*.litium.portal` to
-`127.0.0.1`, saving an `/etc/hosts` line per tenant — but only the two legacy test tenants carry a
-`.litium.portal` alias in the merchant API, so today any other `name.litium.portal` answers 404. A
-dev-only rewrite that looks `name.litium.portal` up as `name.litium.store` is planned, so that any
-registered tenant can be browsed locally by name alone.
+installs a dnsmasq wildcard sending all of `*.litium.portal` to `127.0.0.1`, saving an
+`/etc/hosts` line per tenant.
+
+`.litium.portal` is a local-only convention, and the merchant API knows almost nothing under it,
+so the dev server rewrites the lookup: a request for `name.litium.portal` is resolved as
+`name.litium.store`, where a Geins tenant lives by default
+(`devLookupHostname` in `server/utils/dev-hostname.ts`, behind `import.meta.dev`). Any registered
+tenant is therefore browsable locally by name alone, with nothing to configure — and a name the
+merchant API does not know under either suffix still answers an honest 404. Only the lookup moves:
+the response is served under the `.litium.portal` host the browser asked for, and
+`event.context.tenant.hostname` keeps that name, so cookies, redirects, the tenant logger and the
+404 body all stay on it. The rewritten name surfaces in one place, the resolution line — the
+development 404 page shows it, and it is logged — where `[tenant] resolve host=…` names the
+`.litium.store` hostname that was actually looked up, not the one you typed. Production and the
+Azure dev environment receive real hostnames and rewrite nothing.
 
 ## Client-Side Usage
 

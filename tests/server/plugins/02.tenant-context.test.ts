@@ -60,6 +60,15 @@ vi.mock('../../../server/utils/tenant', () => ({
     mockResolvePreviewTenant(...args),
 }));
 
+// `devLookupHostname` runs for real; only the dev gate is mocked, so the test
+// covers the wiring rather than a stubbed rewrite. `import.meta.dev` is false
+// in the node tier, which would otherwise disable it.
+const mockIsDevMode = vi.fn(() => false);
+
+vi.mock('../../../server/utils/dev-mode', () => ({
+  isDevMode: mockIsDevMode,
+}));
+
 const mockBuildErrorResponse = vi.fn((_event: unknown, input: unknown) => ({
   statusCode: (input as { statusCode: number }).statusCode,
   statusMessage: 'mocked',
@@ -477,6 +486,60 @@ describe('server/plugins/02.tenant-context', () => {
 
       expect(mockResolveTenant).toHaveBeenCalledWith('test.localhost', event);
       expect(mockResolvePreviewTenant).not.toHaveBeenCalled();
+    });
+  });
+
+  // The dev-only rewrite (`server/utils/dev-hostname.ts`). What matters here is
+  // the split: the lookup gets the `.litium.store` name, the context keeps the
+  // `.litium.portal` one the browser asked for — cookies, redirects, the tenant
+  // logger and the 404 body all read the context field.
+  describe('dev hostname rewrite', () => {
+    beforeEach(() => {
+      mockIsDevMode.mockReturnValue(true);
+      mockGetRequestHost.mockReturnValue('example.litium.portal');
+    });
+
+    it('looks a page request up by the .litium.store name, keeping the asked-for host on the context', async () => {
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith(
+        'example.litium.store',
+        event,
+      );
+      expect((event.context.tenant as { hostname: string }).hostname).toBe(
+        'example.litium.portal',
+      );
+    });
+
+    it('rewrites the /api/ branch the same way', async () => {
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/api/products', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith(
+        'example.litium.store',
+        event,
+      );
+      expect((event.context.tenant as { hostname: string }).hostname).toBe(
+        'example.litium.portal',
+      );
+    });
+
+    it('does not rewrite outside dev', async () => {
+      mockIsDevMode.mockReturnValue(false);
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith(
+        'example.litium.portal',
+        event,
+      );
     });
   });
 
