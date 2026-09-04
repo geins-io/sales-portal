@@ -102,8 +102,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      PLAYWRIGHT_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://tenant-a.litium.portal:3000' }}
-      E2E_EXPECTED_TENANT_ID: ${{ vars.E2E_EXPECTED_TENANT_ID || 'tenant-a' }}
+      PLAYWRIGHT_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://sonoralab.litium.store:3000' }}
+      E2E_EXPECTED_TENANT_ID: ${{ vars.E2E_EXPECTED_TENANT_ID || 'sonoralab' }}
       E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
       E2E_EXTERNAL_SERVER: '1'
