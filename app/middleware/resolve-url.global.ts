@@ -28,6 +28,7 @@
 
 import type { ResolvedEntityUrl } from '~~/server/services/url-resolver';
 import { isSafeInternalPath } from '#shared/utils/redirect';
+import { internalFetch } from '~/utils/internal-fetch';
 
 /** Type-prefix segments that already have a page route: never engage on these. */
 const TYPED_PREFIXES = new Set(['c', 'p', 'b', 's']);
@@ -56,14 +57,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Prefix-less / unknown prefix: catch-all (Tier 1b) owns it.
   if (!WRONG_SHAPE_PREFIXES.has(prefix)) return;
 
-  // Engaged. Reach the cached resolver. On the server, forward cookie AND host
-  // so tenant resolution survives the self-fetch (internalFetch forwards cookie
-  // only, so host is added explicitly here).
-  const res = await $fetch<ResolvedEntityUrl>('/api/resolve-url', {
+  // Engaged. Reach the cached resolver. internalFetch forwards the request's
+  // headers on the server so tenant resolution survives the self-fetch.
+  const res = await internalFetch<ResolvedEntityUrl>('/api/resolve-url', {
     query: { path: to.path },
-    headers: import.meta.server
-      ? useRequestHeaders(['cookie', 'host'])
-      : undefined,
   }).catch(() => null);
 
   const resolvedPath =

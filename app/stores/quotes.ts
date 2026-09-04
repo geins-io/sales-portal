@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import type { Quote, QuoteListItem } from '#shared/types/quote';
+import { internalFetch } from '~/utils/internal-fetch';
 
 export const useQuotesStore = defineStore('quotes', () => {
   const quotes = ref<QuoteListItem[]>([]);
@@ -20,10 +21,10 @@ export const useQuotesStore = defineStore('quotes', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      const data = await $fetch<{ quotes: QuoteListItem[]; total: number }>(
-        '/api/quotes',
-        { query: { skip, take } },
-      );
+      const data = await internalFetch<{
+        quotes: QuoteListItem[];
+        total: number;
+      }>('/api/quotes', { query: { skip, take } });
       quotes.value = data.quotes;
       totalQuotes.value = data.total;
     } catch {
@@ -37,7 +38,7 @@ export const useQuotesStore = defineStore('quotes', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      const data = await $fetch<{ quote: Quote }>(`/api/quotes/${id}`);
+      const data = await internalFetch<{ quote: Quote }>(`/api/quotes/${id}`);
       currentQuote.value = data.quote;
     } catch {
       error.value = 'portal.quotations.load_failed';

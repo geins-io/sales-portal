@@ -78,10 +78,16 @@ export default defineNitroPlugin((nitroApp) => {
 
     // No config for a missing or inactive tenant, and for a merchant API
     // that could not be reached; the outcome tells the two apart.
+    //
+    // `/_i18n/` is the i18n module's own message route, fetched during SSR
+    // with a bare `$fetch` that carries no Host header (module code, not
+    // ours). Static per-locale JSON that needs no tenant: skipped like
+    // `/_nuxt/`, otherwise the lookup would run for `localhost`.
     if (
       !path.startsWith('/api/') &&
       !path.startsWith('/_nuxt/') &&
-      !path.startsWith('/__nuxt')
+      !path.startsWith('/__nuxt') &&
+      !path.startsWith('/_i18n/')
     ) {
       const { config: tenant, outcome } = await lookupTenant(
         hostname,
