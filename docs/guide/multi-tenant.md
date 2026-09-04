@@ -70,7 +70,7 @@ The tenant context is available in all server handlers via `event.context.tenant
 // In any server route/middleware
 export default defineEventHandler((event) => {
   const { hostname, tenantId, config } = event.context.tenant;
-  // hostname: what the browser asked for, port stripped (e.g. "tenant-a.localhost")
+  // hostname: what the browser asked for, port stripped (e.g. "tenant-a.litium.portal")
   // tenantId: the resolved tenant's own id (e.g. "tenant-a") — set for page routes,
   //           optional on API routes
   // config:   the full TenantConfig, resolved once per request
@@ -174,23 +174,22 @@ unknown name, however you start the server (`pnpm dev`, `pnpm local:dev`, or the
 web server). A 404 on a hostname you expected to work means that exact hostname is not
 registered — check the registration before anything else.
 
-Configs come from two places. **The merchant API** is the real one: `resolveTenant()`
-calls it over plain `fetch`, from a laptop exactly as from Azure, so any hostname it knows already
-works locally given DNS pointing at your machine. **The dev seed**
-(`server/plugins/99.dev-tenant-seed.ts`, a no-op outside dev) writes three fixtures at startup —
-`tenant-a`, `tenant-b` and `tenant-blank`, each claiming a `.localhost` hostname and the first two
-a `.litium.store` alias. `tenant-blank` has no CMS config and exercises the fallback paths.
+Configs come from one place. `resolveTenant()` calls the merchant API over plain `fetch`, from a
+laptop exactly as from Azure, so any hostname it knows already works locally given DNS pointing at
+your machine. Nothing in this repository seeds a tenant of its own — develop against the
+team-owned test tenant, whose hostname the e2e variables in `.env` already name
+(`PLAYWRIGHT_BASE_URL`, `E2E_EXPECTED_TENANT_ID`).
 
-To browse one, point its hostname at your machine and use the dev server's port:
+To browse a tenant, point the hostname it is registered under at your machine and use the dev
+server's port:
 
 ```
 # /etc/hosts
-127.0.0.1 tenant-a.localhost tenant-b.localhost tenant-blank.localhost
+127.0.0.1 <the hostname the merchant API knows>
 ```
 
-Then `http://tenant-a.localhost:3000`. For a tenant registered in the merchant API, use the
-hostname it is registered under: the lookup matches the exact full hostname and does no subdomain
-parsing. `pnpm local:setup` installs a dnsmasq wildcard sending all of `*.litium.portal` to
+The lookup matches the exact full hostname and does no subdomain parsing. `pnpm local:setup`
+installs a dnsmasq wildcard sending all of `*.litium.portal` to
 `127.0.0.1`, saving an `/etc/hosts` line per tenant — but only the two legacy test tenants carry a
 `.litium.portal` alias in the merchant API, so today any other `name.litium.portal` answers 404. A
 dev-only rewrite that looks `name.litium.portal` up as `name.litium.store` is planned, so that any
