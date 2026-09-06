@@ -316,7 +316,8 @@ route-rule headers before the redirect flushes, instead of throwing `ERR_HTTP_HE
 `resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{tenantId}` →
 merchant API. Cache hits are re-checked against the config's own hostname list, self-healing stale
 aliases. Missing or inactive tenants do not resolve, in every environment: the tenant plugin answers
-404 without rendering (see `server/plugins/02.tenant-context.ts`). In development every lookup logs
+404 without rendering, and 503 when the merchant API could not be reached at all (see
+`server/plugins/02.tenant-context.ts`). In development every lookup logs
 one `[tenant] resolve host=… kv=… api=… outcome=…` line, and the 404 page repeats it; the
 `outcome=` token separates `unknown-tenant` (the merchant API answered 404) from
 `transport-failure` (it could not be reached). Failed lookups log at warn; resolved ones at debug,
