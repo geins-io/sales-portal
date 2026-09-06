@@ -6,7 +6,7 @@
 
 set -e
 
-DOMAIN="litium.portal"
+DOMAIN="litium.test"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DNSMASQ_CONF="/opt/homebrew/etc/dnsmasq.conf"
 RESOLVER_FILE="/etc/resolver/$DOMAIN"

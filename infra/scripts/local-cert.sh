@@ -3,7 +3,7 @@
 # over https under test (`pnpm preview` with NITRO_SSL_CERT / NITRO_SSL_KEY,
 # wired up by playwright.config.ts).
 #
-# The target is a .litium.portal address in every mode, the production build
+# The target is a .litium.test address in every mode, the production build
 # included — the server looks such a host up under .litium.store, so nothing
 # has to be configured on the machine. *.litium.store is in the SAN only so a
 # target explicitly overridden to a tenant's real hostname still gets a
@@ -25,7 +25,7 @@
 
 set -euo pipefail
 
-DOMAIN="litium.portal"
+DOMAIN="litium.test"
 STORE_DOMAIN="litium.store"
 OUT_DIR="${1:-$(cd "$(dirname "$0")/../.." && pwd)/.certs}"
 CERT="$OUT_DIR/local.crt"
