@@ -6,8 +6,9 @@ import type { LocaleAlternateUrl } from '#shared/types/commerce';
 // Proves the cross-locale alternate data path END TO END for the PLP publisher:
 //   ProductList.vue calls setAlternates(pageInfo.alternativeUrls, { type:
 //   props.type }) where props.type is 'category' | 'brand'. Drives the real
-//   useLocaleAlternates composable (002) with the LIVE-VERIFIED tenant-a
-//   prefix-less category/brand shape and asserts hrefFor injects /c/ or /b/.
+//   useLocaleAlternates composable (002) with the LIVE-VERIFIED prefix-less
+//   category/brand shape from the legacy test tenant and asserts hrefFor
+//   injects /c/ or /b/.
 // Mocks mirror tests/composables/useLocaleAlternates.test.ts.
 // ---------------------------------------------------------------------------
 
@@ -64,7 +65,8 @@ vi.stubGlobal('useRouter', () => ({
 const { useLocaleAlternates } =
   await import('~/composables/useLocaleAlternates');
 
-// LIVE-VERIFIED tenant-a category shape: prefix-less pretty paths, SV + EN.
+// LIVE-VERIFIED category shape from the legacy test tenant: prefix-less
+// pretty paths, SV + EN.
 const categoryAlternativeUrls: LocaleAlternateUrl[] = [
   {
     language: 'en',

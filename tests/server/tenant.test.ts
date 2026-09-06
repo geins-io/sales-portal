@@ -312,8 +312,8 @@ describe('Tenant utilities', () => {
       overrides?: Partial<TenantConfig>,
     ): TenantConfig {
       return {
-        tenantId: 'tenant-a',
-        hostname: 'tenant-a.litium.portal',
+        tenantId: 'alpha',
+        hostname: 'alpha.example',
         geinsSettings: {
           apiKey: '',
           accountName: '',
@@ -326,8 +326,9 @@ describe('Tenant utilities', () => {
           availableMarkets: ['se'],
         },
         mode: 'commerce',
-        theme: createDefaultTheme('tenant-a'),
-        branding: { name: 'Tenant A', watermark: 'full' },
+        checkoutMode: 'custom',
+        theme: createDefaultTheme('alpha'),
+        branding: { name: 'Alpha', watermark: 'full' },
         features: {},
         css: '',
         isActive: true,
@@ -341,23 +342,23 @@ describe('Tenant utilities', () => {
       const config = createMinimalConfig();
       const hostnames = collectAllHostnames(config);
       expect(hostnames.size).toBe(1);
-      expect(hostnames.has('tenant-a.litium.portal')).toBe(true);
+      expect(hostnames.has('alpha.example')).toBe(true);
     });
 
     it('should include hostname and all aliases', () => {
       const config = createMinimalConfig({
-        aliases: ['tenant-a.localhost', 'tenant-a.sales-portal.geins.dev'],
+        aliases: ['alpha.localhost', 'alpha.sales-portal.geins.dev'],
       });
       const hostnames = collectAllHostnames(config);
       expect(hostnames.size).toBe(3);
-      expect(hostnames.has('tenant-a.litium.portal')).toBe(true);
-      expect(hostnames.has('tenant-a.localhost')).toBe(true);
-      expect(hostnames.has('tenant-a.sales-portal.geins.dev')).toBe(true);
+      expect(hostnames.has('alpha.example')).toBe(true);
+      expect(hostnames.has('alpha.localhost')).toBe(true);
+      expect(hostnames.has('alpha.sales-portal.geins.dev')).toBe(true);
     });
 
     it('should deduplicate when hostname appears in aliases', () => {
       const config = createMinimalConfig({
-        aliases: ['tenant-a.litium.portal', 'tenant-a.localhost'],
+        aliases: ['alpha.example', 'alpha.localhost'],
       });
       const hostnames = collectAllHostnames(config);
       expect(hostnames.size).toBe(2);
@@ -365,12 +366,12 @@ describe('Tenant utilities', () => {
 
     it('should skip empty/falsy alias entries', () => {
       const config = createMinimalConfig({
-        aliases: ['tenant-a.localhost', '', undefined as unknown as string],
+        aliases: ['alpha.localhost', '', undefined as unknown as string],
       });
       const hostnames = collectAllHostnames(config);
       expect(hostnames.size).toBe(2);
-      expect(hostnames.has('tenant-a.litium.portal')).toBe(true);
-      expect(hostnames.has('tenant-a.localhost')).toBe(true);
+      expect(hostnames.has('alpha.example')).toBe(true);
+      expect(hostnames.has('alpha.localhost')).toBe(true);
     });
 
     it('should return empty set when hostname is empty and no aliases', () => {
@@ -382,11 +383,11 @@ describe('Tenant utilities', () => {
 
   describe('buildTenantConfig theme.name fallback', () => {
     const baseSettings: StoreSettings = {
-      tenantId: 'boattools',
-      hostname: 'boattools.litium.store',
+      tenantId: 'delta',
+      hostname: 'delta.litium.store',
       geinsSettings: {
         apiKey: 'k',
-        accountName: 'boattools',
+        accountName: 'delta',
         channel: '1',
         tld: 'se',
         locale: 'sv-SE',
@@ -407,7 +408,7 @@ describe('Tenant utilities', () => {
           foreground: 'oklch(0.145 0 0)',
         },
       },
-      branding: { name: 'BoatTools', watermark: 'minimal' },
+      branding: { name: 'Delta', watermark: 'minimal' },
       features: {},
       isActive: true,
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -416,8 +417,8 @@ describe('Tenant utilities', () => {
 
     it('uses tenantId when theme.name is missing', () => {
       const built = buildTenantConfig(baseSettings);
-      expect(built.theme.name).toBe('boattools');
-      expect(built.css).toContain("[data-theme='boattools']");
+      expect(built.theme.name).toBe('delta');
+      expect(built.css).toContain("[data-theme='delta']");
     });
 
     it('preserves explicit theme.name when provided', () => {
@@ -611,7 +612,7 @@ describe('Tenant utilities', () => {
           priceVisibility: { enabled: false, access: 'all' },
           orderPlacement: { enabled: false, access: 'authenticated' },
         },
-        seo: { robots: 'noindex, nofollow' },
+        seo: { robots: 'noindex, nofollow', defaultKeywords: undefined },
         branding: {
           name: 'Explicit',
           watermark: 'minimal',
@@ -646,14 +647,33 @@ describe('Tenant utilities', () => {
 
     it('preserves an explicit branding.name', () => {
       const settings = minimalSettings();
-      settings.branding = { name: 'Tenant A Store', watermark: 'full' };
-      settings.geinsSettings.accountName = 'tenant-a';
+      settings.branding = { name: 'Alpha Store', watermark: 'full' };
+      settings.geinsSettings.accountName = 'alpha';
       const built = buildTenantConfig(settings);
-      expect(built.branding.name).toBe('Tenant A Store');
+      expect(built.branding.name).toBe('Alpha Store');
     });
   });
 
   describe('buildTenantConfig cms config deep-merge', () => {
+    // Both sections are optional on the type. Reading them through `?.` on the
+    // expected side too would make a missing default compare undefined to
+    // undefined and pass, so resolve them here and fail loudly instead.
+    function defaultMenu(
+      key: keyof NonNullable<typeof DEFAULT_CMS_CONFIG.menus>,
+    ) {
+      const menu = DEFAULT_CMS_CONFIG.menus?.[key];
+      if (!menu) throw new Error(`DEFAULT_CMS_CONFIG has no menu '${key}'`);
+      return menu;
+    }
+
+    function defaultSlot(
+      key: keyof NonNullable<typeof DEFAULT_CMS_CONFIG.slots>,
+    ) {
+      const slot = DEFAULT_CMS_CONFIG.slots?.[key];
+      if (!slot) throw new Error(`DEFAULT_CMS_CONFIG has no slot '${key}'`);
+      return slot;
+    }
+
     function settingsWithCms(cms?: StoreSettings['cms']): StoreSettings {
       return {
         tenantId: 'tenant-cms',
@@ -705,10 +725,10 @@ describe('Tenant utilities', () => {
         }),
       );
       expect(built.cms?.menus?.[CMS_MENUS.FOOTER_2]?.menuLocationId).toBe(
-        DEFAULT_CMS_CONFIG.menus[CMS_MENUS.FOOTER_2].menuLocationId,
+        defaultMenu(CMS_MENUS.FOOTER_2).menuLocationId,
       );
       expect(built.cms?.menus?.[CMS_MENUS.FOOTER_3]?.menuLocationId).toBe(
-        DEFAULT_CMS_CONFIG.menus[CMS_MENUS.FOOTER_3].menuLocationId,
+        defaultMenu(CMS_MENUS.FOOTER_3).menuLocationId,
       );
     });
 
@@ -754,7 +774,7 @@ describe('Tenant utilities', () => {
       });
       // A sibling default slot the tenant did not touch is still present
       expect(built.cms?.slots?.[CMS_SLOTS.PORTAL_HERO]).toEqual(
-        DEFAULT_CMS_CONFIG.slots[CMS_SLOTS.PORTAL_HERO],
+        defaultSlot(CMS_SLOTS.PORTAL_HERO),
       );
     });
   });
@@ -803,7 +823,7 @@ describe('Tenant utilities', () => {
 
     it('writes mappings for every hostname + alias in the config', async () => {
       const storage = makeStorage();
-      const config = makeConfigWithHostnames('tenant-a', 'a.example.com', [
+      const config = makeConfigWithHostnames('alpha', 'a.example.com', [
         'a.alt.com',
       ]);
       await writeHostnameMappings(
@@ -812,14 +832,14 @@ describe('Tenant utilities', () => {
         >,
         config,
       );
-      expect(storage.data.get(tenantIdKey('a.example.com'))).toBe('tenant-a');
-      expect(storage.data.get(tenantIdKey('a.alt.com'))).toBe('tenant-a');
+      expect(storage.data.get(tenantIdKey('a.example.com'))).toBe('alpha');
+      expect(storage.data.get(tenantIdKey('a.alt.com'))).toBe('alpha');
       expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
 
     it('does NOT warn when re-writing the same tenantId to the same hostname', async () => {
       const storage = makeStorage();
-      const config = makeConfigWithHostnames('tenant-a', 'a.example.com');
+      const config = makeConfigWithHostnames('alpha', 'a.example.com');
       await writeHostnameMappings(
         storage as unknown as ReturnType<
           typeof import('nitropack/runtime').useStorage
@@ -837,8 +857,8 @@ describe('Tenant utilities', () => {
 
     it('warns when a hostname is remapped to a DIFFERENT tenantId', async () => {
       const storage = makeStorage();
-      const configA = makeConfigWithHostnames('tenant-a', 'shared.example.com');
-      const configB = makeConfigWithHostnames('tenant-b', 'shared.example.com');
+      const configA = makeConfigWithHostnames('alpha', 'shared.example.com');
+      const configB = makeConfigWithHostnames('beta', 'shared.example.com');
 
       await writeHostnameMappings(
         storage as unknown as ReturnType<
@@ -857,26 +877,24 @@ describe('Tenant utilities', () => {
       expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
       const [msg, meta] = mockLoggerWarn.mock.calls[0]!;
       expect(msg).toContain('shared.example.com');
-      expect(msg).toContain('tenant-a');
-      expect(msg).toContain('tenant-b');
+      expect(msg).toContain('alpha');
+      expect(msg).toContain('beta');
       expect(meta).toMatchObject({
         hostname: 'shared.example.com',
-        previousTenantId: 'tenant-a',
-        newTenantId: 'tenant-b',
+        previousTenantId: 'alpha',
+        newTenantId: 'beta',
       });
 
-      // Last-writer-wins: the KV is now pointing at tenant-b.
-      expect(storage.data.get(tenantIdKey('shared.example.com'))).toBe(
-        'tenant-b',
-      );
+      // Last-writer-wins: the KV is now pointing at beta.
+      expect(storage.data.get(tenantIdKey('shared.example.com'))).toBe('beta');
     });
   });
 
   describe('parseStoreSettingsResilient', () => {
     function fullCandidate(): Record<string, unknown> {
       return {
-        tenantId: 'tenant-a',
-        hostname: 'tenant-a.example.com',
+        tenantId: 'alpha',
+        hostname: 'alpha.example',
         geinsSettings: {
           apiKey: 'k',
           accountName: 'a',
@@ -910,7 +928,7 @@ describe('Tenant utilities', () => {
     it('returns the strict-parsed value on a clean candidate', () => {
       const out = parseStoreSettingsResilient(fullCandidate(), 'h');
       expect(out).not.toBeNull();
-      expect(out?.tenantId).toBe('tenant-a');
+      expect(out?.tenantId).toBe('alpha');
     });
 
     it('salvages a candidate with an unknown mode value by defaulting to commerce', () => {
@@ -927,14 +945,14 @@ describe('Tenant utilities', () => {
       // mismatch.
       const candidate = fullCandidate();
       candidate.seo = {
-        defaultTitle: 'Tenant A Store',
-        titleTemplate: '%s | Tenant A Store',
-        defaultDescription: 'B2B sales portal for Tenant A',
+        defaultTitle: 'Alpha Store',
+        titleTemplate: '%s | Alpha Store',
+        defaultDescription: 'B2B sales portal for Alpha',
         defaultKeywords: 'shoes,boots,sneakers',
         robots: 'noindex, nofollow',
       };
       const out = parseStoreSettingsResilient(candidate, 'h');
-      expect(out?.seo?.defaultTitle).toBe('Tenant A Store');
+      expect(out?.seo?.defaultTitle).toBe('Alpha Store');
       expect(out?.seo?.defaultKeywords).toEqual(['shoes', 'boots', 'sneakers']);
     });
 
@@ -945,11 +963,11 @@ describe('Tenant utilities', () => {
       // as a type mismatch.
       const candidate = fullCandidate();
       candidate.seo = {
-        defaultTitle: 'Tenant A Store',
+        defaultTitle: 'Alpha Store',
         verification: 'test-verify-abc123',
       };
       const out = parseStoreSettingsResilient(candidate, 'h');
-      expect(out?.seo?.defaultTitle).toBe('Tenant A Store');
+      expect(out?.seo?.defaultTitle).toBe('Alpha Store');
       expect(out?.seo?.verification).toBe('test-verify-abc123');
     });
 
@@ -1002,10 +1020,10 @@ describe('Tenant utilities', () => {
       // it and buildTenantConfig overlays the PORTAL_FEATURE_DEFAULTS.
       const raw = {
         geinsSettings: {
-          defaultHostName: 'tinatest1.litium.store',
+          defaultHostName: 'gamma.litium.store',
           additionalHostNames: [],
-          apiKey: 'E0EB51F2-B663-457F-A7F9-A75693FD8469',
-          accountName: 'tinatest1',
+          apiKey: 'k',
+          accountName: 'gamma',
           channelId: '1|se',
           defaultLocale: 'sv-SE',
           defaultMarket: 'se',
@@ -1013,17 +1031,14 @@ describe('Tenant utilities', () => {
           markets: ['se'],
         },
         appSettings: {},
-        tenantId: 'tinatest1',
+        tenantId: 'gamma',
         isActive: true,
         updatedAt: '0001-01-01T00:00:00+00:00',
       };
       const candidate = adaptMerchantApiResponse(raw);
-      const out = parseStoreSettingsResilient(
-        candidate,
-        'tinatest1.litium.store',
-      );
+      const out = parseStoreSettingsResilient(candidate, 'gamma.litium.store');
       expect(out).not.toBeNull();
-      expect(out?.tenantId).toBe('tinatest1');
+      expect(out?.tenantId).toBe('gamma');
       expect(out?.features).toEqual({});
       const cfg = buildTenantConfig(out as StoreSettings);
       expect(cfg.features.registration?.enabled).toBe(true);
@@ -1324,9 +1339,9 @@ describe('Tenant utilities', () => {
     function rawApiResponse(overrides: Record<string, unknown> = {}) {
       return {
         geinsSettings: {
-          defaultHostName: 'tenant-b.sales-portal.geins.dev',
-          additionalHostNames: ['tenant-b.litium.portal'],
-          apiKey: 'C10CF115',
+          defaultHostName: 'beta.sales-portal.geins.dev',
+          additionalHostNames: ['beta.example'],
+          apiKey: 'k',
           accountName: 'monitor',
           channelId: '2|se',
           defaultLocale: 'sv-SE',
@@ -1358,7 +1373,7 @@ describe('Tenant utilities', () => {
 
     it('derives hostname from geinsSettings.defaultHostName when absent from appSettings', () => {
       const result = adaptMerchantApiResponse(rawApiResponse());
-      expect(result.hostname).toBe('tenant-b.sales-portal.geins.dev');
+      expect(result.hostname).toBe('beta.sales-portal.geins.dev');
     });
 
     it('lets appSettings.tenantId override root-level tenantId', () => {
@@ -1371,7 +1386,7 @@ describe('Tenant utilities', () => {
 
     it('takes aliases from additionalHostNames', () => {
       const result = adaptMerchantApiResponse(rawApiResponse());
-      expect(result.aliases).toEqual(['tenant-b.litium.portal']);
+      expect(result.aliases).toEqual(['beta.example']);
     });
 
     // Routing truth is geinsSettings alone: appSettings is free text the
@@ -1383,7 +1398,7 @@ describe('Tenant utilities', () => {
         'claimed.example.com',
       ];
       const result = adaptMerchantApiResponse(raw);
-      expect(result.aliases).toEqual(['tenant-b.litium.portal']);
+      expect(result.aliases).toEqual(['beta.example']);
       expect(result.aliases).not.toContain('claimed.example.com');
     });
 
@@ -1392,7 +1407,7 @@ describe('Tenant utilities', () => {
       (raw.appSettings as Record<string, unknown>).hostname =
         'claimed.example.com';
       const result = adaptMerchantApiResponse(raw);
-      expect(result.hostname).toBe('tenant-b.sales-portal.geins.dev');
+      expect(result.hostname).toBe('beta.sales-portal.geins.dev');
     });
 
     // `hostname` is required and fatal, so a tenant whose Geins record carries
@@ -1430,16 +1445,14 @@ describe('Tenant utilities', () => {
           typeof import('nitropack/runtime').useStorage
         >,
         {
-          tenantId: 'tenant-b',
+          tenantId: 'beta',
           hostname: adapted.hostname,
           aliases: adapted.aliases,
         } as unknown as TenantConfig,
       );
 
-      expect(data.get(tenantIdKey('tenant-b.sales-portal.geins.dev'))).toBe(
-        'tenant-b',
-      );
-      expect(data.get(tenantIdKey('tenant-b.litium.portal'))).toBe('tenant-b');
+      expect(data.get(tenantIdKey('beta.sales-portal.geins.dev'))).toBe('beta');
+      expect(data.get(tenantIdKey('beta.example'))).toBe('beta');
       expect(data.has(tenantIdKey('claimed.example.com'))).toBe(false);
     });
 
@@ -1464,14 +1477,14 @@ describe('Tenant utilities', () => {
       } = {},
     ): Record<string, unknown> {
       return {
-        tenantId: 'tenant-a',
+        tenantId: 'alpha',
         isActive: true,
         updatedAt: '2026-01-01T00:00:00.000Z',
         geinsSettings: {
-          defaultHostName: 'tenant-a.example.com',
+          defaultHostName: 'alpha.example',
           additionalHostNames: [],
-          apiKey: 'E0EB51F2-B663-457F-A7F9-A75693FD8469',
-          accountName: 'tenant-a',
+          apiKey: 'k',
+          accountName: 'alpha',
           channelId: '1|se',
           defaultLocale: 'sv-SE',
           defaultMarket: 'se',
@@ -1544,7 +1557,7 @@ describe('Tenant utilities', () => {
       });
       globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-      const result = await resolvePreviewTenant('tenant-a.example.com');
+      const result = await resolvePreviewTenant('alpha.example');
       expect(result).not.toBeNull();
       // Preview primary wins
       expect(result?.theme.colors.primary).toBe('oklch(0.7 0.2 300)');
@@ -1572,7 +1585,7 @@ describe('Tenant utilities', () => {
       });
       globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-      const pending = resolvePreviewTenant('tenant-a.example.com');
+      const pending = resolvePreviewTenant('alpha.example');
 
       // Both fetches must have been called before either resolved.
       expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -1600,7 +1613,7 @@ describe('Tenant utilities', () => {
       });
       globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-      const result = await resolvePreviewTenant('tenant-a.example.com');
+      const result = await resolvePreviewTenant('alpha.example');
       expect(result).not.toBeNull();
       expect(result?.branding.name).toBe('Live Brand');
       const previewWarnCalls = mockLoggerWarn.mock.calls.filter(
@@ -1609,7 +1622,7 @@ describe('Tenant utilities', () => {
           msg.includes('STORE_SETTINGS_PREVIEW_FETCH_FAILED'),
       );
       expect(previewWarnCalls).toHaveLength(1);
-      expect(previewWarnCalls[0]![0]).toContain('tenant-a.example.com');
+      expect(previewWarnCalls[0]![0]).toContain('alpha.example');
     });
 
     it('returns null when both fetches reject', async () => {
@@ -1618,7 +1631,7 @@ describe('Tenant utilities', () => {
       });
       globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-      const result = await resolvePreviewTenant('tenant-a.example.com');
+      const result = await resolvePreviewTenant('alpha.example');
       expect(result).toBeNull();
     });
 
@@ -1641,7 +1654,7 @@ describe('Tenant utilities', () => {
         hasItem: vi.fn(() => Promise.resolve(false)),
       });
 
-      const result = await resolvePreviewTenant('tenant-a.example.com');
+      const result = await resolvePreviewTenant('alpha.example');
       expect(result).not.toBeNull();
       expect(setItemSpy).not.toHaveBeenCalled();
       expect(removeItemSpy).not.toHaveBeenCalled();

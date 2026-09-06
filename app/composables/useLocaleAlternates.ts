@@ -21,15 +21,15 @@ import { alternateEntityPath } from '#shared/utils/route-helpers';
  * wrong-locale 404). SSR sets the state fresh each request, so the afterEach
  * clear is purely a client-side belt-and-suspenders.
  *
- * Live-verified facts (tenant-a.litium.portal:3000, real Geins data):
+ * Live-verified facts (the legacy test tenant, real Geins data):
  *  - `alternativeUrls` span MANY markets/channels (en-SE, en-FI, en-US, ...);
  *    the switcher must FILTER to the current market, else last-wins can land on
  *    the wrong market (e.g. /fi/en/...).
- *  - tenant-a alternates are "pretty" SEO paths WITHOUT our /p//c//b/ type
+ *  - its alternates are "pretty" SEO paths WITHOUT our /p//c//b/ type
  *    prefix (`/se/en/materials/branch-pipes/manifold-150-150-88`), so we inject
  *    the prefix after `/{market}/{locale}/`. Injecting it is routable and
  *    renders the correct target-language content.
- *  - other tenants (e.g. tinatest) DO carry the prefix
+ *  - other tenants DO carry the prefix
  *    (`/se/en/p/category-1/cutting-edge`); we leave those untouched (no /p/p/).
  *  - Geins may return `/l/` as the prefix for category alternates; this composable
  *    remaps those to the app `/c/` route via `alternateEntityPath`.

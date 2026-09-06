@@ -149,7 +149,7 @@ describe('resolveEntityUrl', () => {
     });
   });
 
-  it('keeps the canonical own prefix for a prefix-less request (tenant-a dev)', async () => {
+  it('keeps the canonical own prefix for a prefix-less request (canonical carries its own market/locale)', async () => {
     mockGetProduct.mockResolvedValue({
       canonicalUrl: '/se/sv/material/grenror',
     });

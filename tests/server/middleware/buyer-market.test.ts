@@ -61,13 +61,13 @@ function makeEvent(opts: EventOpts = {}): H3Event {
         opts.channel === undefined &&
         opts.tld === undefined
           ? {
-              id: 'tenantA',
+              id: 'alpha',
               config: {
                 geinsSettings: { channel: '1', tld: 'se' },
               },
             }
           : {
-              id: opts.tenantId ?? 'tenantA',
+              id: opts.tenantId ?? 'alpha',
               config: {
                 geinsSettings: {
                   channel: opts.channel ?? '1',
@@ -265,7 +265,7 @@ describe('server/middleware/01.buyer-market', () => {
     await handler(
       makeEvent({
         authCookie: 'shared-tok',
-        tenantId: 'tenantA',
+        tenantId: 'alpha',
         path: '/no/sv/portal',
         localeMarket: { market: 'no', locale: 'sv' },
       }),
@@ -273,7 +273,7 @@ describe('server/middleware/01.buyer-market', () => {
     await handler(
       makeEvent({
         authCookie: 'shared-tok',
-        tenantId: 'tenantB',
+        tenantId: 'beta',
         path: '/no/sv/portal',
         localeMarket: { market: 'no', locale: 'sv' },
       }),

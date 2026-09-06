@@ -139,8 +139,8 @@ export async function resolveEntityUrl(
   ]);
 
   // Recover in the locale/market the inbound path asked for. A prefix-less path
-  // (tenant-a dev) has no prefix, so requested is null and the canonical's own
-  // market/locale is kept (unchanged behaviour).
+  // (the legacy test tenant in dev) has no prefix, so requested is null and the
+  // canonical's own market/locale is kept (unchanged behaviour).
   const requested = parseLocaleMarketPrefix(args.path) ?? undefined;
 
   const order: EntityType[] = ['product', 'category', 'brand'];
