@@ -6,6 +6,8 @@ import {
   type TenantResolution,
 } from '../utils/tenant';
 import { lookupHostname } from '../utils/lookup-hostname';
+import { isLoopbackHost } from '../utils/loopback-host';
+import { isDevMode } from '../utils/dev-mode';
 import {
   buildErrorResponse,
   type ErrorResponse,
@@ -67,6 +69,27 @@ export default defineNitroPlugin((nitroApp) => {
         statusCode: 400,
         statusMessage: 'Bad Request',
         message: 'Missing host header',
+      };
+      return;
+    }
+
+    // A loopback host names this machine, not a tenant — but the merchant API
+    // answers `hostname=localhost` with a live customer, so a lookup here
+    // would silently serve that customer's storefront and cache its key.
+    // Answer with the setup page instead, before anything is fetched or
+    // cached. `isDevMode()` is a build-time constant, so a production build
+    // contains no branch; `getRequestHost` returns the raw header because
+    // `normalizeHostname` cannot express the IPv6 literal (see
+    // `isLoopbackHost`). Placed after the health/internal skip above: the
+    // container health check probes `http://localhost:3000/api/health`.
+    if (isDevMode() && isLoopbackHost(rawHostname ?? '')) {
+      event.context.tenant = { hostname };
+      event.context.tenantRefusal = {
+        statusCode: 404,
+        statusMessage: 'Not Found',
+        message:
+          'localhost does not name a store. Open http://<name>.litium.test:3000 instead.',
+        isDevSetup: true,
       };
       return;
     }

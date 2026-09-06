@@ -542,6 +542,99 @@ describe('server/plugins/02.tenant-context', () => {
     });
   });
 
+  // The merchant API answers `hostname=localhost` with a live customer, so a
+  // lookup for a loopback host would silently serve that customer's storefront.
+  describe('development setup page on a loopback host', () => {
+    beforeEach(() => {
+      mockIsDevMode.mockReturnValue(true);
+    });
+
+    it.each(['localhost', '127.0.0.1:3000', '[::1]:3000'])(
+      'refuses %s with the setup page and looks nothing up',
+      async (host) => {
+        mockGetRequestHost.mockReturnValue(host);
+        const event = createEvent('/se/sv/', {});
+
+        await handler(event);
+
+        expect(event.context.tenantRefusal).toMatchObject({
+          statusCode: 404,
+          isDevSetup: true,
+        });
+        expect(mockResolveTenant).not.toHaveBeenCalled();
+        expect(mockResolvePreviewTenant).not.toHaveBeenCalled();
+        expect(mockGetTenantCookie).not.toHaveBeenCalled();
+        expect(mockSetTenantCookie).not.toHaveBeenCalled();
+      },
+    );
+
+    // `[::1]:3000` above is the case that fails if the check is ever moved
+    // after `normalizeHostname`, which would hand it '['. The hostname left on
+    // the context is still the normalized one, as everywhere else.
+    it('keeps the normalized hostname on the context', async () => {
+      mockGetRequestHost.mockReturnValue('localhost:3000');
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect((event.context.tenant as { hostname: string }).hostname).toBe(
+        'localhost',
+      );
+    });
+
+    it('leaves a tenant hostname alone', async () => {
+      mockGetRequestHost.mockReturnValue('example.litium.test');
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith(
+        'example.litium.store',
+        event,
+      );
+      expect(event.context.tenantRefusal).toBeUndefined();
+    });
+
+    // The match is on the whole hostname: a name under `.localhost` is an
+    // ordinary tenant hostname, and the rest of this file uses one.
+    it('leaves test.localhost alone', async () => {
+      mockGetRequestHost.mockReturnValue('test.localhost');
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith('test.localhost', event);
+      expect(event.context.tenantRefusal).toBeUndefined();
+    });
+
+    it('has no branch in a production build', async () => {
+      mockIsDevMode.mockReturnValue(false);
+      mockGetRequestHost.mockReturnValue('localhost');
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith('localhost', event);
+      expect(event.context.tenantRefusal).toBeUndefined();
+    });
+
+    // The container health check probes `http://localhost:3000/api/health`.
+    // It returns on the health skip, before the hostname is read at all.
+    it('does not reach the page for /api/health', async () => {
+      mockGetRequestHost.mockReturnValue('localhost');
+      const event = createEvent('/api/health', {});
+
+      await handler(event);
+
+      expect(event.context.tenantRefusal).toBeUndefined();
+      expect(mockResolveTenant).not.toHaveBeenCalled();
+      expect((event.context.tenant as { hostname: string }).hostname).toBe('');
+    });
+  });
+
   describe('headersSent guard', () => {
     it('returns early without processing if headers already sent', async () => {
       const event = createEvent('/se/sv/products', {
