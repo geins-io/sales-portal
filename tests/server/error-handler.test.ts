@@ -110,7 +110,17 @@ function makeEvent(
 }
 
 function run(event: MockEvent, error: Error & { statusCode?: number }) {
-  errorHandler(error, event as unknown as Parameters<typeof errorHandler>[1]);
+  // Nitro passes a third argument carrying its own fallback renderer. Ours
+  // never delegates, so the stub throws if that ever changes.
+  errorHandler(
+    error as Parameters<typeof errorHandler>[0],
+    event as unknown as Parameters<typeof errorHandler>[1],
+    {
+      defaultHandler: () => {
+        throw new Error('errorHandler delegated to the Nitro default handler');
+      },
+    },
+  );
 }
 
 // --- Tests ---------------------------------------------------------------

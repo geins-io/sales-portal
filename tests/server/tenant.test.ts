@@ -326,8 +326,9 @@ describe('Tenant utilities', () => {
           availableMarkets: ['se'],
         },
         mode: 'commerce',
-        theme: createDefaultTheme('tenant-a'),
-        branding: { name: 'Tenant A', watermark: 'full' },
+        checkoutMode: 'custom',
+        theme: createDefaultTheme('alpha'),
+        branding: { name: 'Alpha', watermark: 'full' },
         features: {},
         css: '',
         isActive: true,
@@ -611,7 +612,7 @@ describe('Tenant utilities', () => {
           priceVisibility: { enabled: false, access: 'all' },
           orderPlacement: { enabled: false, access: 'authenticated' },
         },
-        seo: { robots: 'noindex, nofollow' },
+        seo: { robots: 'noindex, nofollow', defaultKeywords: undefined },
         branding: {
           name: 'Explicit',
           watermark: 'minimal',
@@ -646,14 +647,33 @@ describe('Tenant utilities', () => {
 
     it('preserves an explicit branding.name', () => {
       const settings = minimalSettings();
-      settings.branding = { name: 'Tenant A Store', watermark: 'full' };
-      settings.geinsSettings.accountName = 'tenant-a';
+      settings.branding = { name: 'Alpha Store', watermark: 'full' };
+      settings.geinsSettings.accountName = 'alpha';
       const built = buildTenantConfig(settings);
-      expect(built.branding.name).toBe('Tenant A Store');
+      expect(built.branding.name).toBe('Alpha Store');
     });
   });
 
   describe('buildTenantConfig cms config deep-merge', () => {
+    // Both sections are optional on the type. Reading them through `?.` on the
+    // expected side too would make a missing default compare undefined to
+    // undefined and pass, so resolve them here and fail loudly instead.
+    function defaultMenu(
+      key: keyof NonNullable<typeof DEFAULT_CMS_CONFIG.menus>,
+    ) {
+      const menu = DEFAULT_CMS_CONFIG.menus?.[key];
+      if (!menu) throw new Error(`DEFAULT_CMS_CONFIG has no menu '${key}'`);
+      return menu;
+    }
+
+    function defaultSlot(
+      key: keyof NonNullable<typeof DEFAULT_CMS_CONFIG.slots>,
+    ) {
+      const slot = DEFAULT_CMS_CONFIG.slots?.[key];
+      if (!slot) throw new Error(`DEFAULT_CMS_CONFIG has no slot '${key}'`);
+      return slot;
+    }
+
     function settingsWithCms(cms?: StoreSettings['cms']): StoreSettings {
       return {
         tenantId: 'tenant-cms',
@@ -705,10 +725,10 @@ describe('Tenant utilities', () => {
         }),
       );
       expect(built.cms?.menus?.[CMS_MENUS.FOOTER_2]?.menuLocationId).toBe(
-        DEFAULT_CMS_CONFIG.menus[CMS_MENUS.FOOTER_2].menuLocationId,
+        defaultMenu(CMS_MENUS.FOOTER_2).menuLocationId,
       );
       expect(built.cms?.menus?.[CMS_MENUS.FOOTER_3]?.menuLocationId).toBe(
-        DEFAULT_CMS_CONFIG.menus[CMS_MENUS.FOOTER_3].menuLocationId,
+        defaultMenu(CMS_MENUS.FOOTER_3).menuLocationId,
       );
     });
 
@@ -754,7 +774,7 @@ describe('Tenant utilities', () => {
       });
       // A sibling default slot the tenant did not touch is still present
       expect(built.cms?.slots?.[CMS_SLOTS.PORTAL_HERO]).toEqual(
-        DEFAULT_CMS_CONFIG.slots[CMS_SLOTS.PORTAL_HERO],
+        defaultSlot(CMS_SLOTS.PORTAL_HERO),
       );
     });
   });

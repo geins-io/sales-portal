@@ -34,8 +34,8 @@ vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal(
   'createAppError',
   vi.fn((_code: string, msg: string) => {
-    const err = new Error(msg);
-    (err as Record<string, unknown>).statusCode = 404;
+    const err: Error & { statusCode?: number } = new Error(msg);
+    err.statusCode = 404;
     return err;
   }),
 );
