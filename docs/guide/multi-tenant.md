@@ -183,6 +183,10 @@ your machine. Nothing in this repository seeds a tenant of its own.
 Open `http://<name>.litium.test:3000`, where `<name>` is the tenant's label under
 `.litium.store`.
 
+Not `localhost:3000` or `127.0.0.1:3000`: the merchant API resolves `localhost` to a live
+customer, so those addresses used to serve that customer's storefront. In `pnpm dev` they now
+answer a setup page carrying these same instructions instead, and no lookup is made for them.
+
 Nothing has to be configured for that name: the dnsmasq wildcard from `pnpm local:setup` sends
 `*.litium.test` to `127.0.0.1` and the server looks the name up under `.litium.store` (see
 below) — no `.env` entry, no `/etc/hosts` line. Pointing a run at another tenant is an environment
