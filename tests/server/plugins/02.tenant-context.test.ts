@@ -491,11 +491,11 @@ describe('server/plugins/02.tenant-context', () => {
 
   // The hostname rewrite (`server/utils/lookup-hostname.ts`). What matters
   // here is the split: the lookup gets the `.litium.store` name, the context
-  // keeps the `.litium.portal` one the browser asked for — cookies, redirects,
+  // keeps the `.litium.test` one the browser asked for — cookies, redirects,
   // the tenant logger and the 404 body all read the context field.
   describe('hostname rewrite', () => {
     beforeEach(() => {
-      mockGetRequestHost.mockReturnValue('example.litium.portal');
+      mockGetRequestHost.mockReturnValue('example.litium.test');
     });
 
     it('looks a page request up by the .litium.store name, keeping the asked-for host on the context', async () => {
@@ -509,7 +509,7 @@ describe('server/plugins/02.tenant-context', () => {
         event,
       );
       expect((event.context.tenant as { hostname: string }).hostname).toBe(
-        'example.litium.portal',
+        'example.litium.test',
       );
     });
 
@@ -524,7 +524,7 @@ describe('server/plugins/02.tenant-context', () => {
         event,
       );
       expect((event.context.tenant as { hostname: string }).hostname).toBe(
-        'example.litium.portal',
+        'example.litium.test',
       );
     });
 

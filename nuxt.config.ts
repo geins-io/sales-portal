@@ -413,7 +413,7 @@ export default defineNuxtConfig({
   // Vite configuration
   vite: {
     server: {
-      allowedHosts: ['.litium.portal'],
+      allowedHosts: ['.litium.test'],
     },
   },
 });
