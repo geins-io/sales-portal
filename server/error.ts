@@ -71,6 +71,8 @@ export interface ErrorResponseInput {
   data?: unknown;
   /** See {@link ErrorHtmlInput.isTenantNotProvisioned}. */
   isTenantNotProvisioned?: boolean;
+  /** See {@link ErrorHtmlInput.isDevSetup}. */
+  isDevSetup?: boolean;
 }
 
 /** Matches Nitro's `RenderResponse`, so it can be handed to `render:before`. */
@@ -92,7 +94,13 @@ export function buildErrorResponse(
   input: ErrorResponseInput,
 ): ErrorResponse {
   const { debugErrors } = readErrorHandlerConfig(event);
-  const { statusCode, statusMessage, message, isTenantNotProvisioned } = input;
+  const {
+    statusCode,
+    statusMessage,
+    message,
+    isTenantNotProvisioned,
+    isDevSetup,
+  } = input;
   // Prefer the ID minted by the request-logging plugin (same ID the
   // JSON log entry will carry), but mint a fallback here too — if an
   // error fires so early that even the logging plugin hasn't run,
@@ -147,6 +155,7 @@ export function buildErrorResponse(
         hostname,
         stack: debugErrors ? input.stack : undefined,
         isTenantNotProvisioned,
+        isDevSetup,
         resolution,
         themeName,
         themeCss,
@@ -207,6 +216,13 @@ export interface ErrorHtmlInput {
    */
   isTenantNotProvisioned?: boolean;
   /**
+   * When true, renders the development setup page instead of an error: the
+   * browser asked for the dev server itself (`localhost` and friends) rather
+   * than naming a tenant. Set by the tenant plugin, which gates it on
+   * `isDevMode()`, so a production build never reaches this branch.
+   */
+  isDevSetup?: boolean;
+  /**
    * Development only: the tenant resolution log line, shown verbatim in the
    * diagnostics block so the 404 page says why the hostname did not resolve.
    */
@@ -237,6 +253,22 @@ export function escapeHtml(input: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * The whole copy of the development setup page, in one place. Written for
+ * someone starting the project for the first time, who has no reason to know
+ * what a tenant or a loopback address is. Names no store: `<name>` is the
+ * label the developer fills in, so the page is the same for everyone and no
+ * hostname leaks into the repository.
+ */
+const DEV_SETUP_TITLE = 'The dev server is running. Now pick a store.';
+const DEV_SETUP_DESCRIPTION =
+  'This app serves many stores and chooses one from the hostname in the address bar. localhost does not name a store, so there is nothing to show here.';
+const DEV_SETUP_STEPS = [
+  "Open http://<name>.litium.test:3000, where <name> is the store's name in Geins, the part before .litium.store.",
+  "If the browser says the site can't be reached, run pnpm local:setup once. It adds a dnsmasq rule and a macOS resolver entry so every *.litium.test name points to 127.0.0.1, this machine. After that, plain pnpm dev is enough.",
+  'Want the address without :3000? Run pnpm local:dev instead of pnpm dev; it forwards port 80 to 3000. Run pnpm local:stop when you are done, otherwise port 3000 stops answering until you do.',
+];
+
 export function renderErrorHtml(input: ErrorHtmlInput): string {
   const {
     statusCode,
@@ -247,31 +279,42 @@ export function renderErrorHtml(input: ErrorHtmlInput): string {
     hostname,
     stack,
     isTenantNotProvisioned,
+    isDevSetup,
     resolution,
     themeName,
     themeCss,
     fontsUrl,
   } = input;
 
+  // Gated a second time, not only in the plugin that sets the flag: with
+  // `isDevMode()` folded to false at build time the whole setup branch — the
+  // copy above included — is dropped from the production bundle rather than
+  // shipped as unreachable strings.
+  const showDevSetup = Boolean(isDevSetup) && isDevMode();
+
   const is404 = statusCode === 404;
   const is500 = statusCode >= 500 && statusCode < 600;
 
-  // Tenant-not-provisioned takes precedence over the generic copy for the
-  // status code — same status code, cleaner message.
-  const friendlyTitle = isTenantNotProvisioned
-    ? 'Store not yet available'
-    : is404
-      ? 'Page not found'
-      : is500
-        ? 'Something went wrong'
-        : statusMessage || 'Error';
-  const friendlyDescription = isTenantNotProvisioned
-    ? 'This store is being configured. Please check back soon.'
-    : is404
-      ? 'The page you are looking for does not exist or has been moved.'
-      : is500
-        ? 'We hit an unexpected error. The technical team has been notified.'
-        : 'Please try again, or head back to the home page.';
+  // The setup page and tenant-not-provisioned both take precedence over the
+  // generic copy for the status code — same status code, cleaner message.
+  const friendlyTitle = showDevSetup
+    ? DEV_SETUP_TITLE
+    : isTenantNotProvisioned
+      ? 'Store not yet available'
+      : is404
+        ? 'Page not found'
+        : is500
+          ? 'Something went wrong'
+          : statusMessage || 'Error';
+  const friendlyDescription = showDevSetup
+    ? DEV_SETUP_DESCRIPTION
+    : isTenantNotProvisioned
+      ? 'This store is being configured. Please check back soon.'
+      : is404
+        ? 'The page you are looking for does not exist or has been moved.'
+        : is500
+          ? 'We hit an unexpected error. The technical team has been notified.'
+          : 'Please try again, or head back to the home page.';
 
   // Only show the raw error message when it's distinct from the
   // friendly copy — avoids "Something went wrong / Something went wrong".
@@ -281,8 +324,10 @@ export function renderErrorHtml(input: ErrorHtmlInput): string {
   // Diagnostics panel appears for 500s (always useful for bug reports)
   // and for any error that carries a correlation ID. 404s without a
   // correlation ID stay clean — they're expected user errors.
+  // The setup page is instructions, not a report: a correlation ID for a
+  // hostname the developer typed is noise.
   const showDiagnostics =
-    is500 || Boolean(correlationId) || Boolean(resolution);
+    !showDevSetup && (is500 || Boolean(correlationId) || Boolean(resolution));
   const showTenantRow = Boolean(tenantId && is500);
   const showHostRow = Boolean(hostname && hostname !== tenantId && is500);
 
@@ -315,6 +360,23 @@ ${
     ? `    <pre class="stack">${escapeHtml(stack)}</pre>`
     : '';
 
+  // The setup page replaces the status code and the Home/Back buttons with
+  // the numbered steps: on a loopback host "Home" only leads back here.
+  const codeBlock = showDevSetup
+    ? ''
+    : `    <p class="code">${escapeHtml(String(statusCode))}</p>\n`;
+  const buttonsBlock = showDevSetup
+    ? ''
+    : `    <div class="btns">
+      <a class="btn btn-primary" href="/">Home</a>
+      <a class="btn btn-outline" href="javascript:history.back()">Back</a>
+    </div>\n`;
+  const stepsBlock = showDevSetup
+    ? `    <ol class="steps">
+${DEV_SETUP_STEPS.map((step) => `      <li>${escapeHtml(step)}</li>`).join('\n')}
+    </ol>\n`
+    : '';
+
   // Tenant theme markup. `data-theme` scopes the custom-property block; the
   // tenant css (already sanitized by the caller) defines --primary,
   // --button-background, --font-family, etc.; the font links pull the tenant
@@ -338,7 +400,7 @@ ${
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>${escapeHtml(String(statusCode))} — ${escapeHtml(friendlyTitle)}</title>
+<title>${showDevSetup ? '' : `${escapeHtml(String(statusCode))} — `}${escapeHtml(friendlyTitle)}</title>
 <style>
   :root { color-scheme: light dark; }
   * { box-sizing: border-box; }
@@ -360,6 +422,8 @@ ${
   .code { font-family: var(--heading-font-family, inherit); font-size: 4.5rem; font-weight: 700; color: var(--primary, #0d9488); margin: 0; line-height: 1; }
   .title { font-family: var(--heading-font-family, inherit); font-size: 1.5rem; font-weight: 600; margin: 1rem 0 0.5rem; }
   .desc { color: var(--muted-foreground, #6b7280); margin: 0; }
+  .steps { margin: 1.75rem 0 0; padding-left: 1.5rem; text-align: left; font-size: 0.875rem; line-height: 1.6; }
+  .steps li { margin-bottom: 0.75rem; }
   .btns { margin-top: 2rem; display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
   .btn {
     display: inline-block;
@@ -420,14 +484,9 @@ ${tenantThemeStyle}
 </head>
 <body>
   <main class="wrap">
-    <p class="code">${escapeHtml(String(statusCode))}</p>
-    <h1 class="title">${escapeHtml(friendlyTitle)}</h1>
+${codeBlock}    <h1 class="title">${escapeHtml(friendlyTitle)}</h1>
     <p class="desc">${escapeHtml(friendlyDescription)}</p>
-    <div class="btns">
-      <a class="btn btn-primary" href="/">Home</a>
-      <a class="btn btn-outline" href="javascript:history.back()">Back</a>
-    </div>
-${diagnosticsBlock}
+${stepsBlock}${buttonsBlock}${diagnosticsBlock}
 ${stackBlock}
   </main>
 </body>
