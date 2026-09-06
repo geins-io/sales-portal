@@ -123,8 +123,9 @@ test.describe('Product Browsing', () => {
 
     await page.goto(`/p/${product.alias}`);
 
-    // Title should be visible
-    const heading = page.locator('h1');
+    // The product's own heading, not any h1: the header and the print header
+    // both render the brand name, so a bare `h1` is ambiguous.
+    const heading = page.locator('[data-testid="product-name"]');
     await expect(heading).toBeVisible({ timeout: 15000 });
     await expect(heading).not.toBeEmpty();
   });
@@ -362,8 +363,8 @@ test.describe('Product Browsing', () => {
     // Verify it's NOT the homepage (product click shouldn't redirect to home)
     expect(url).not.toMatch(/\/[a-z]{2}\/[a-z]{2}\/$/);
 
-    // Verify PDP content loads (product title visible)
-    const heading = page.locator('h1');
+    // Verify PDP content loads (the product's own heading)
+    const heading = page.locator('[data-testid="product-name"]');
     await expect(heading).toBeVisible({ timeout: 15000 });
     await expect(heading).not.toBeEmpty();
   });
@@ -385,12 +386,12 @@ test.describe('Product Browsing', () => {
     await productLink.click();
 
     // Wait for PDP to load
-    const heading = page.locator('h1');
+    const heading = page.locator('[data-testid="product-name"]');
     await expect(heading).toBeVisible({ timeout: 15000 });
 
     // The PDP is rendered once its breadcrumbs carry the category link; the
-    // category page's own h1 and crumbs stay in the DOM until then, so the h1
-    // check above alone does not prove the PDP is up.
+    // category page's crumbs stay in the DOM until then, so the heading check
+    // above alone does not prove the PDP is up.
     const categoryCrumb = page
       .locator('[data-testid="breadcrumbs"] a[href*="/c/"]')
       .last();

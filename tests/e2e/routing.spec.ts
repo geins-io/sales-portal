@@ -6,14 +6,14 @@
  * real browser against a running dev server using genuine Geins data.
  *
  * COVERAGE GAP (documented, not silently omitted):
- * The Geins /l/ inbound URL shape (categories arriving with an /l/ prefix
- * from production Geins canonical URLs) and the renamed-slug urlHistory 301
- * redirect are specific to tinatest (the production Geins tenant) and cannot
- * be reproduced on the prefix-less tenant-a dev fixture. Both scenarios are
+ * The Geins /l/ inbound URL shape (categories arriving with an /l/ prefix in
+ * their canonical URLs) and the renamed-slug urlHistory 301 redirect need a
+ * tenant whose catalogue carries that history, and cannot be reproduced on the
+ * prefix-less canonical URLs the configured tenant returns. Both scenarios are
  * covered by the in-suite resolver and middleware unit tests (specs 002, 003)
- * and are verified manually against tinatest during each release walkthrough.
- * The tests below cover tenant-a only: /c/ prefix shape on language switch
- * and URL stability on hard refresh.
+ * and are verified manually against such a tenant during each release
+ * walkthrough. The tests below cover the prefix-less shape only: /c/ prefix on
+ * language switch and URL stability on hard refresh.
  */
 
 import { test, expect, type Page } from '@playwright/test';

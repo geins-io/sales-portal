@@ -50,6 +50,22 @@ describe('BrandLogo avatar fallback', () => {
     expect(fallbackEl.text().trim().length).toBe(1);
   });
 
+  it('renders the brand name without a heading element', () => {
+    // The fallback renders in the header and in the mobile nav on every page.
+    // As a heading it competed with the page's own h1 — a product page ended up
+    // with three of them, which is what made this visible.
+    state.logoUrl = null;
+    const wrapper = mountComponent(BrandLogo);
+
+    const brandName = wrapper.find('[data-slot="brand-name"]');
+    expect(brandName.exists()).toBe(true);
+    expect(brandName.text()).toBe('Test Store');
+    expect(wrapper.find('h1').exists()).toBe(false);
+    for (const level of ['h2', 'h3', 'h4', 'h5', 'h6']) {
+      expect(wrapper.find(level).exists()).toBe(false);
+    }
+  });
+
   it('uppercases diacritics correctly in the avatar fallback', () => {
     state.logoUrl = null;
     state.name = 'östra butiken';

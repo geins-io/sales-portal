@@ -11,11 +11,13 @@ For testing multi-tenancy locally, we use:
 
 This allows you to access the app via URLs like:
 
-- `http://tenant-a.litium.portal/`
-- `http://tenant-b.litium.portal/`
+- `http://<tenant>.litium.portal/` — any tenant registered in the merchant API, by name
 
 Only hostnames registered in the merchant API resolve; any other name answers 404, locally as in
-production.
+production. A `<name>.litium.portal` host is looked up as `<name>.litium.store`
+(`server/utils/lookup-hostname.ts`), which is where a tenant lives by default — so no per-tenant
+configuration is needed, and the production build behaves the same way under test. See
+[docs/testing.md](../docs/testing.md) for the e2e target.
 
 ---
 
