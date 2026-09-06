@@ -341,8 +341,8 @@ The tenant context is available in all server handlers via `event.context.tenant
 // In any server route/middleware
 export default defineEventHandler((event) => {
   const { hostname, tenantId, config } = event.context.tenant;
-  // hostname: Request hostname (e.g., "tenant-a.litium.portal")
-  // tenantId: Resolved tenant ID (e.g., "tenant-a") — set for page routes, optional for API routes
+  // hostname: Request hostname (e.g., "example.litium.test")
+  // tenantId: Resolved tenant ID (e.g., "example") — set for page routes, optional for API routes
   // config: Full TenantConfig object (cached per-request, avoids redundant KV lookups)
 });
 ```

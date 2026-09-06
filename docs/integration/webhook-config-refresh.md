@@ -19,7 +19,7 @@ POST /api/internal/webhook/config-refresh
 ## Body
 
 ```json
-{ "hostname": "tenant-a.litium.portal" }
+{ "hostname": "example.litium.test" }
 ```
 
 - `hostname` (string, required) — the tenant hostname whose config changed
@@ -65,7 +65,7 @@ function sendConfigRefresh(webhookUrl, hostname, secret) {
 
 ```bash
 SECRET="your-shared-secret"
-HOSTNAME="tenant-a.litium.portal"
+HOSTNAME="example.litium.test"
 BODY="{\"hostname\":\"$HOSTNAME\"}"
 TIMESTAMP=$(date +%s)
 SIGNED_PAYLOAD="${TIMESTAMP}.${BODY}"

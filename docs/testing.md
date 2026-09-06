@@ -180,18 +180,18 @@ resolve a tenant. The target comes from the environment, read in one place (`tes
 
 Locally they live in `.env`; in CI in repository variables and secrets. Switching target is an
 environment change; the committed default names the team-owned test tenant, and it is one target
-in every mode: `<tenant>.litium.portal:3000` — http on the dev server, https for the production
+in every mode: `<name>.litium.test:3000` — http on the dev server, https for the production
 build.
 
 Nothing has to be configured on the machine for it. The dnsmasq wildcard sends all of
-`*.litium.portal` to `127.0.0.1`, and the server looks the tenant up under `.litium.store`
+`*.litium.test` to `127.0.0.1`, and the server looks the tenant up under `.litium.store`
 (`server/utils/lookup-hostname.ts`) in every mode, the production build included — so no
 `/etc/hosts` line, and no target name that could reach a deployed environment by accident. CI has
 no dnsmasq, so the job writes one hosts line for the target it was given, derived from
 `PLAYWRIGHT_BASE_URL`.
 
 **Preflight L0 resolves the target name and fails the run when it does not point at this
-machine**, naming the fix — for a `.litium.portal` name that means `pnpm local:setup` has not run.
+machine**, naming the fix — for a `.litium.test` name that means `pnpm local:setup` has not run.
 `E2E_REMOTE=1` is how you point the suite at a deployed environment on purpose; the check then
 declares itself out of scope.
 
@@ -292,12 +292,12 @@ successful login leaves no session. Both are correct in production and invisible
 which has neither.
 
 So the production-build path (`E2E_PROD=1 pnpm test:e2e` locally, always in CI) serves `pnpm preview`
-over https with a self-signed certificate. Its SAN covers `*.litium.portal` and `*.litium.store`, so
+over https with a self-signed certificate. Its SAN covers `*.litium.test` and `*.litium.store`, so
 it also fits a target pointed at a real hostname:
 
 ```bash
 infra/scripts/local-cert.sh    # writes .certs/local.{crt,key}; pnpm local:setup runs it too
-E2E_PROD=1 pnpm test:e2e       # build + preview over https://<tenant>.litium.portal:3000
+E2E_PROD=1 pnpm test:e2e       # build + preview over https://<name>.litium.test:3000
 ```
 
 `playwright.config.ts` reads the pair and hands it to `pnpm preview` as `NITRO_SSL_CERT` /

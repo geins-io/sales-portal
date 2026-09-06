@@ -70,7 +70,7 @@ The tenant context is available in all server handlers via `event.context.tenant
 // In any server route/middleware
 export default defineEventHandler((event) => {
   const { hostname, tenantId, config } = event.context.tenant;
-  // hostname: what the browser asked for, port stripped (e.g. "name.litium.portal")
+  // hostname: what the browser asked for, port stripped (e.g. "<name>.litium.test")
   // tenantId: the resolved tenant's own id (e.g. "name") — set for page routes,
   //           optional on API routes
   // config:   the full TenantConfig, resolved once per request
@@ -180,11 +180,11 @@ your machine. Nothing in this repository seeds a tenant of its own.
 
 ### Browsing a tenant
 
-Open `http://<name>.litium.portal:3000`, where `<name>` is the tenant's label under
+Open `http://<name>.litium.test:3000`, where `<name>` is the tenant's label under
 `.litium.store`.
 
 Nothing has to be configured for that name: the dnsmasq wildcard from `pnpm local:setup` sends
-`*.litium.portal` to `127.0.0.1` and the server looks the name up under `.litium.store` (see
+`*.litium.test` to `127.0.0.1` and the server looks the name up under `.litium.store` (see
 below) — no `.env` entry, no `/etc/hosts` line. Pointing a run at another tenant is an environment
 change, made only through the four `E2E_*` variables (which tenant the e2e suite targets:
 [Testing](/testing#e2e-tests)).
@@ -199,14 +199,14 @@ The one case that still needs a hosts line is a tenant whose registered hostname
 
 The lookup matches the exact full hostname and does no subdomain parsing.
 
-### The `.litium.portal` lookup rewrite
+### The `.litium.test` lookup rewrite
 
-`.litium.portal` is a local-only convention, and the merchant API knows almost nothing under it,
-so the lookup is rewritten: a request for `name.litium.portal` is resolved as `name.litium.store`,
+`.litium.test` is a local-only convention, and the merchant API knows almost nothing under it,
+so the lookup is rewritten: a request for `name.litium.test` is resolved as `name.litium.store`,
 where a Geins tenant lives by default (`lookupHostname` in
 `server/utils/lookup-hostname.ts`). Any registered tenant is therefore browsable by name alone,
 with nothing to configure — and a name the merchant API does not know under either suffix still
-answers an honest 404. Only the lookup moves: the response is served under the `.litium.portal`
+answers an honest 404. Only the lookup moves: the response is served under the `.litium.test`
 host the browser asked for, and `event.context.tenant.hostname` keeps that name, so cookies,
 redirects, the tenant logger and the 404 body all stay on it. The rewritten name surfaces in one
 place, the resolution line — the development 404 page shows it, and it is logged — where
@@ -215,11 +215,12 @@ one you typed.
 
 **This applies in every mode, the production build included**, because the production build is
 what CI and `E2E_PROD=1` test and they need the same name to work with nothing configured on the
-machine. Deployed environments are unaffected: `.portal` is not a real top-level domain, so a name
-under it cannot be resolved from the public internet and no deployed environment can ever receive
-one. The one thing the rewrite takes away is a tenant that registers `X.litium.portal` as an alias
-in Geins — it is no longer reachable under that exact name, since the lookup resolves
-`X.litium.store` instead, and only local and CI traffic can carry such a name anyway.
+machine. Deployed environments are unaffected: RFC 6761 reserves `.test` for testing, so it is
+never delegated — a name under it cannot be resolved from the public internet and no deployed
+environment can ever receive one. The one thing the rewrite takes away is a tenant that registers
+`X.litium.test` as an alias in Geins — it is no longer reachable under that exact name, since the
+lookup resolves `X.litium.store` instead, and only local and CI traffic can carry such a name
+anyway.
 
 ### Environment
 
