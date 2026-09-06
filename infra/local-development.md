@@ -128,22 +128,24 @@ sudo pfctl -ef /etc/pf.anchors/dev.local
 
 ## Running the Dev Server
 
-### 1. Configure Environment
-
-Make sure your `.env` file has:
+### 1. Start the Server
 
 ```bash
-# Bind to all interfaces (required for custom domains)
-HOST=0.0.0.0
+pnpm local:dev
 ```
 
-### 2. Start the Server
+The dev server binds `127.0.0.1`. It holds the resolved tenant's Geins storefront key in memory,
+so it is not served to the network by default; dnsmasq and the pf rule both point at `127.0.0.1`,
+so the wildcard domains work over loopback. Do not set `HOST` in `.env` — `pnpm local:dev` passes
+it explicitly.
+
+To reach the dev server from another device on the network — a phone, a tablet — opt in per run:
 
 ```bash
-pnpm dev
+pnpm local:dev --lan
 ```
 
-### 3. Access in Browser
+### 2. Access in Browser
 
 With port forwarding:
 
@@ -212,15 +214,16 @@ sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
 
 ### Connection refused
 
-1. Check dev server is running on correct interface:
+1. Check the dev server is listening:
 
    ```bash
-   lsof -i :3000
+   lsof -iTCP:3000 -sTCP:LISTEN
    ```
 
-   Should show `*:hbci` (all interfaces), not `localhost:hbci`
+   Should show `localhost:hbci`, or `*:hbci` after `pnpm local:dev --lan`.
 
-2. Make sure `HOST=0.0.0.0` is in your `.env`
+2. From another device on the network, `localhost:hbci` is the answer: restart with
+   `pnpm local:dev --lan`.
 
 ### Port 80 not working
 

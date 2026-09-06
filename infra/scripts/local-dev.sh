@@ -175,12 +175,14 @@ show_usage() {
     echo "  --stop        Stop port forwarding"
     echo "  --status      Check status of all services"
     echo "  --no-pf       Skip port forwarding (use port 3000)"
+    echo "  --lan         Bind the dev server to all interfaces (default: 127.0.0.1)"
     echo "  --help        Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0 --setup    # First-time setup"
     echo "  $0            # Start dev environment"
     echo "  $0 --no-pf    # Start without port forwarding"
+    echo "  $0 --lan      # Also serve to other devices on the network"
     echo ""
 }
 
@@ -273,6 +275,7 @@ generate_local_cert() {
 # Start dev environment
 start_dev() {
     local skip_pf=$1
+    local bind_lan=$2
 
     echo ""
     echo "=== Starting Local Development ==="
@@ -320,12 +323,21 @@ start_dev() {
     print_status "Starting Nuxt dev server..."
     echo ""
 
-    # Start the dev server with HOST=0.0.0.0
-    HOST=0.0.0.0 pnpm nuxt dev
+    # Loopback by default: the dev server holds the resolved tenant's Geins
+    # key in memory. dnsmasq and the pf rule both point at 127.0.0.1, so
+    # custom domains work either way.
+    local bind_host="127.0.0.1"
+    if [[ "$bind_lan" == "true" ]]; then
+        bind_host="0.0.0.0"
+        print_warning "Binding all interfaces — anything on the network can reach this server"
+    fi
+
+    HOST="$bind_host" pnpm nuxt dev
 }
 
 # Parse arguments
 SKIP_PF="false"
+BIND_LAN="false"
 ACTION="start"
 
 while [[ $# -gt 0 ]]; do
@@ -350,6 +362,10 @@ while [[ $# -gt 0 ]]; do
             SKIP_PF="true"
             shift
             ;;
+        --lan)
+            BIND_LAN="true"
+            shift
+            ;;
         --help|-h)
             show_usage
             exit 0
@@ -368,7 +384,7 @@ case $ACTION in
         run_setup
         ;;
     start)
-        start_dev "$SKIP_PF"
+        start_dev "$SKIP_PF" "$BIND_LAN"
         ;;
     stop)
         stop_services
