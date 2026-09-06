@@ -406,7 +406,7 @@ describe('00.locale-market URL validation against the tenant', () => {
 });
 
 /**
- * The canonicalisation table, in tenant-a terms: defaults se/sv, markets se/fi,
+ * The canonicalisation table, in the fixture's terms: defaults se/sv, markets se/fi,
  * locales sv/en/nb/fi/da.
  */
 describe('00.locale-market prefix canonicalisation', () => {

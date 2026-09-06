@@ -198,18 +198,18 @@ describe('GET /api/resolve-url', () => {
       canonicalAppPath: '/se/sv/p/grenror',
     });
 
-    const eventA = createMockEvent('tenant-a.example.com');
+    const eventA = createMockEvent('alpha.example');
     // Invoke handler so the module loads and capturedGetKey is populated by the stub.
     await handler(eventA);
     expect(capturedGetKey).not.toBeNull();
 
-    const eventB = createMockEvent('tenant-b.example.com');
+    const eventB = createMockEvent('beta.example');
     const keyA = capturedGetKey!(eventA);
     const keyB = capturedGetKey!(eventB);
 
     expect(keyA).not.toBe(keyB);
-    expect(keyA).toContain('tenant-a.example.com');
-    expect(keyB).toContain('tenant-b.example.com');
+    expect(keyA).toContain('alpha.example');
+    expect(keyB).toContain('beta.example');
     // Path must also be present in the key so a host-only key bug would fail.
     expect(keyA).toContain('/se/sv/grenror');
   });
@@ -223,7 +223,7 @@ describe('GET /api/resolve-url', () => {
       canonicalAppPath: '/se/sv/p/grenror',
     });
 
-    const event = createMockEvent('tenant-a.example.com');
+    const event = createMockEvent('alpha.example');
     await handler(event);
     expect(capturedGetKey).not.toBeNull();
 

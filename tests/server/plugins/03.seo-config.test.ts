@@ -47,8 +47,8 @@ function createCtx(
 }
 
 const TENANT = {
-  hostname: 'tenant-a.example',
-  branding: { name: 'Tenant A' },
+  hostname: 'alpha.example',
+  branding: { name: 'Alpha' },
   seo: { defaultDescription: 'desc', robots: undefined },
   geinsSettings: { locale: 'nb-NO' },
 };
@@ -70,7 +70,7 @@ describe('server/plugins/03.seo-config', () => {
     expect(pushed[0]).toMatchObject({
       currentLocale: 'fi-FI',
       defaultLocale: 'nb-NO',
-      url: 'https://tenant-a.example',
+      url: 'https://alpha.example',
     });
   });
 

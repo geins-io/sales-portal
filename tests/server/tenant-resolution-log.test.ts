@@ -94,7 +94,7 @@ function rawApiPayload(
     geinsSettings: {
       defaultHostName: hostname,
       additionalHostNames: options.additionalHostNames ?? [],
-      apiKey: 'E0EB51F2-B663-457F-A7F9-A75693FD8469',
+      apiKey: 'k',
       accountName: tenantId,
       channelId: '1|se',
       defaultLocale: 'sv-SE',

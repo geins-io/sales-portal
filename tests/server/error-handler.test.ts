@@ -77,13 +77,11 @@ function makeEvent(
       ? undefined
       : (overrides.correlationId ?? 'corr-abc');
   const tenantId =
-    overrides.tenantId === null
-      ? undefined
-      : (overrides.tenantId ?? 'boattools');
+    overrides.tenantId === null ? undefined : (overrides.tenantId ?? 'example');
   const hostname =
     overrides.hostname === null
       ? undefined
-      : (overrides.hostname ?? 'boattools.litium.store');
+      : (overrides.hostname ?? 'example.litium.store');
   return {
     method: 'GET',
     path: '/se/sv/',
@@ -138,15 +136,15 @@ describe('renderErrorHtml', () => {
       statusMessage: 'Internal Server Error',
       message: 'Nuxt I18n server context has not been set up yet.',
       correlationId: 'abc-123',
-      tenantId: 'boattools',
-      hostname: 'boattools.litium.store',
+      tenantId: 'example',
+      hostname: 'example.litium.store',
     });
     expect(html).toContain('500');
     expect(html).toContain('Something went wrong');
     expect(html).toContain('Reference ID:');
     expect(html).toContain('abc-123');
     expect(html).toContain('Tenant:');
-    expect(html).toContain('boattools');
+    expect(html).toContain('example');
     expect(html).toContain('Nuxt I18n server context has not been set up yet.');
   });
 
@@ -168,8 +166,8 @@ describe('renderErrorHtml', () => {
       statusMessage: 'Not Found',
       message: 'Not Found',
       correlationId: undefined,
-      tenantId: 'boattools',
-      hostname: 'boattools.litium.store',
+      tenantId: 'example',
+      hostname: 'example.litium.store',
     });
     expect(html).toContain('Page not found');
     expect(html).not.toContain('Reference ID');
@@ -255,8 +253,8 @@ describe('renderErrorHtml', () => {
       statusMessage: 'Not Found',
       message: 'Not Found',
       correlationId: 'x',
-      tenantId: 'tenant-a',
-      hostname: 'tenant-a.example',
+      tenantId: 'alpha',
+      hostname: 'alpha.example',
       themeName: 'teal',
       themeCss:
         "[data-theme='teal'] { --primary: #006f72; --button-background: #006f72; }",
@@ -313,7 +311,7 @@ describe('errorHandler (Nitro integration)', () => {
       'Nuxt I18n server context has not been set up yet.',
     );
     expect(event.node.res.body).toContain('corr-abc');
-    expect(event.node.res.body).toContain('boattools');
+    expect(event.node.res.body).toContain('example');
   });
 
   it('returns JSON when Accept does not include text/html', () => {
@@ -328,8 +326,8 @@ describe('errorHandler (Nitro integration)', () => {
       statusCode: 500,
       message: 'boom',
       correlationId: 'corr-abc',
-      tenantId: 'boattools',
-      hostname: 'boattools.litium.store',
+      tenantId: 'example',
+      hostname: 'example.litium.store',
     });
     expect(parsed.stack).toBeUndefined();
   });
@@ -367,7 +365,7 @@ describe('errorHandler (Nitro integration)', () => {
     run(event, err);
 
     expect(event.node.res.headers['x-correlation-id']).toBe('corr-abc');
-    expect(event.node.res.headers['x-tenant-id']).toBe('boattools');
+    expect(event.node.res.headers['x-tenant-id']).toBe('example');
   });
 
   it('omits tenant headers when tenant context was never set', () => {
@@ -436,7 +434,7 @@ describe('errorHandler (Nitro integration)', () => {
       expect.objectContaining({ message: 'kaboom' }),
       expect.objectContaining({
         correlationId: 'corr-abc',
-        tenantId: 'boattools',
+        tenantId: 'example',
       }),
     );
   });
@@ -617,7 +615,7 @@ describe('buildErrorResponse (unregistered hostname)', () => {
       const event = makeEvent({
         accept: 'application/json',
         tenantResolution:
-          '[tenant] resolve host=boattools.litium.store kv=hit api=skipped outcome=resolved tenant=boattools',
+          '[tenant] resolve host=example.litium.store kv=hit api=skipped outcome=resolved tenant=example',
       });
       const response = buildErrorResponse(
         event as unknown as Parameters<typeof buildErrorResponse>[0],

@@ -110,26 +110,26 @@ describe('CMS cache — locale isolation', () => {
   });
 
   it('isolates cache by tenant hostname', async () => {
-    const tenantAMenu = { id: 'main', menuItems: [{ title: 'Tenant A' }] };
-    const tenantBMenu = { id: 'main', menuItems: [{ title: 'Tenant B' }] };
+    const alphaMenu = { id: 'main', menuItems: [{ title: 'Alpha' }] };
+    const betaMenu = { id: 'main', menuItems: [{ title: 'Beta' }] };
 
     getRequestLocaleMock.mockReturnValue('sv-SE');
     getRequestMarketMock.mockReturnValue('se');
 
-    mockMenuGet.mockResolvedValue(tenantAMenu);
+    mockMenuGet.mockResolvedValue(alphaMenu);
     const result1 = await getMenu(
       { menuLocationId: 'main' },
-      mockEvent('tenant-a.com'),
+      mockEvent('alpha.example'),
     );
 
-    mockMenuGet.mockResolvedValue(tenantBMenu);
+    mockMenuGet.mockResolvedValue(betaMenu);
     const result2 = await getMenu(
       { menuLocationId: 'main' },
-      mockEvent('tenant-b.com'),
+      mockEvent('beta.example'),
     );
 
-    expect(result1).toEqual(tenantAMenu);
-    expect(result2).toEqual(tenantBMenu);
+    expect(result1).toEqual(alphaMenu);
+    expect(result2).toEqual(betaMenu);
     // SDK called twice — no cross-tenant cache hit
     expect(mockMenuGet).toHaveBeenCalledTimes(2);
   });

@@ -18,12 +18,12 @@ import { buildGoogleFontsUrl } from '#shared/utils/fonts';
 import type { ThemeColors } from '../../server/schemas/store-settings';
 
 // Full tenant mock configs inlined so tests are self-contained
-const TENANT_A_MOCK = {
-  tenantId: 'tenant-a',
-  hostname: 'tenant-a.litium.portal',
-  aliases: ['tenant-a.localhost'],
+const ALPHA_MOCK = {
+  tenantId: 'alpha',
+  hostname: 'alpha.example',
+  aliases: ['alpha.localhost'],
   geinsSettings: {
-    apiKey: 'C10CF115-04D8-486F-9B16-593045AC3C32',
+    apiKey: 'key',
     accountName: 'monitor',
     channel: '1',
     tld: 'se',
@@ -79,7 +79,7 @@ const TENANT_A_MOCK = {
     },
   },
   branding: {
-    name: 'Tenant A Store',
+    name: 'Alpha Store',
     watermark: 'minimal',
     logoUrl: 'https://placehold.co/200x60/0d9488/white?text=Tenant+A',
     logoDarkUrl: null,
@@ -101,9 +101,9 @@ const TENANT_A_MOCK = {
     mfa: { enabled: false },
   },
   seo: {
-    defaultTitle: 'Tenant A Store',
-    titleTemplate: '%s | Tenant A Store',
-    defaultDescription: 'B2B sales portal for Tenant A',
+    defaultTitle: 'Alpha Store',
+    titleTemplate: '%s | Alpha Store',
+    defaultDescription: 'B2B sales portal for Alpha',
     defaultKeywords: null,
     robots: 'noindex, nofollow',
     googleAnalyticsId: null,
@@ -111,7 +111,7 @@ const TENANT_A_MOCK = {
     verification: null,
   },
   contact: {
-    email: 'support@tenant-a.example.com',
+    email: 'support@alpha.example',
     phone: '+46 8 123 456',
     address: {
       street: 'Storgatan 1',
@@ -127,12 +127,12 @@ const TENANT_A_MOCK = {
   updatedAt: '2026-02-10T12:00:00.000Z',
 };
 
-const TENANT_B_MOCK = {
-  tenantId: 'tenant-b',
-  hostname: 'tenant-b.litium.portal',
-  aliases: ['tenant-b.localhost'],
+const BETA_MOCK = {
+  tenantId: 'beta',
+  hostname: 'beta.example',
+  aliases: ['beta.localhost'],
   geinsSettings: {
-    apiKey: 'C10CF115-04D8-486F-9B16-593045AC3C32',
+    apiKey: 'key',
     accountName: 'monitor',
     channel: '1',
     tld: 'se',
@@ -251,23 +251,23 @@ const TENANT_B_MOCK = {
 
 describe('StoreSettingsSchema', () => {
   describe('valid input', () => {
-    it('should validate tenant-a mock', () => {
-      const result = StoreSettingsSchema.safeParse(TENANT_A_MOCK);
+    it('should validate alpha mock', () => {
+      const result = StoreSettingsSchema.safeParse(ALPHA_MOCK);
       expect(result.success).toBe(true);
     });
 
-    it('should validate tenant-b mock', () => {
-      const result = StoreSettingsSchema.safeParse(TENANT_B_MOCK);
+    it('should validate beta mock', () => {
+      const result = StoreSettingsSchema.safeParse(BETA_MOCK);
       expect(result.success).toBe(true);
     });
 
     it('should accept a theme without `name` (merchant API dropped the field)', () => {
       const withoutThemeName = {
-        tenantId: 'boattools',
-        hostname: 'boattools.litium.store',
+        tenantId: 'gamma',
+        hostname: 'gamma.litium.store',
         geinsSettings: {
           apiKey: 'key',
-          accountName: 'boattools',
+          accountName: 'gamma',
           channel: '1',
           tld: 'se',
           locale: 'sv-SE',
@@ -288,7 +288,7 @@ describe('StoreSettingsSchema', () => {
           },
           radius: '0.625rem',
         },
-        branding: { name: 'BoatTools', watermark: 'minimal' },
+        branding: { name: 'Gamma', watermark: 'minimal' },
         features: {},
         isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
@@ -744,7 +744,7 @@ describe('SeoConfigSchema verification', () => {
 });
 
 describe('StoreSettingsSchema seo with real merchant API shape', () => {
-  // Mirrors the live merchant API payload observed for tinatest.litium.store:
+  // Mirrors the live merchant API payload observed for another tenant:
   // keywords sent as a comma string, blank description, empty title template.
   function withSeo(seo: unknown) {
     return {
@@ -816,10 +816,10 @@ describe('StoreSettingsSchema seo with real merchant API shape', () => {
     }
   });
 
-  it('parses the full tenant-a shape: flat verification token + analytics IDs', () => {
+  it('parses the full alpha shape: flat verification token + analytics IDs', () => {
     const result = StoreSettingsSchema.safeParse(
       withSeo({
-        defaultTitle: 'Tenant A Store',
+        defaultTitle: 'Alpha Store',
         defaultKeywords: 'test,test2,test3',
         googleAnalyticsId: 'G-TEST12345',
         googleTagManagerId: 'GTM-TEST99',
@@ -1080,9 +1080,9 @@ describe('parseOklch / formatOklch', () => {
 describe('transformGeinsSettings', () => {
   it('should transform platform shape to clean internal shape', () => {
     const platformShape = {
-      defaultHostName: 'tenant-b.sales-portal.geins.dev',
-      additionalHostNames: ['tenant-b.litium.portal'],
-      apiKey: 'C10CF115-04D8-486F-9B16-593045AC3C32',
+      defaultHostName: 'beta.sales-portal.geins.dev',
+      additionalHostNames: ['beta.example'],
+      apiKey: 'key',
       accountName: 'monitor',
       channelId: '2|se',
       defaultLocale: 'sv-SE',
@@ -1094,7 +1094,7 @@ describe('transformGeinsSettings', () => {
     const result = transformGeinsSettings(platformShape);
 
     expect(result).toEqual({
-      apiKey: 'C10CF115-04D8-486F-9B16-593045AC3C32',
+      apiKey: 'key',
       accountName: 'monitor',
       channel: '2',
       tld: 'se',

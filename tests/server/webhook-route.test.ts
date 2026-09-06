@@ -77,7 +77,7 @@ function createMockCacheStorage(): {
 
 function createRequest(overrides?: Partial<WebhookRequest>): WebhookRequest {
   const secret = 'test-secret';
-  const body = JSON.stringify({ hostname: 'tenant-a.litium.portal' });
+  const body = JSON.stringify({ hostname: 'alpha.example' });
   const sig = signStripe(body, secret);
 
   return {
@@ -99,7 +99,7 @@ describe('processConfigRefresh', () => {
 
   describe('open mode (no secret configured)', () => {
     it('accepts an unsigned request with valid body and invalidates the cache', async () => {
-      const body = JSON.stringify({ hostname: 'tenant-a.litium.portal' });
+      const body = JSON.stringify({ hostname: 'alpha.example' });
       const request = createRequest({
         secrets: [],
         rawBody: body,
@@ -134,7 +134,7 @@ describe('processConfigRefresh', () => {
 
     it('still enforces the rate limiter so unauth callers cannot loop', async () => {
       const make = () => {
-        const body = JSON.stringify({ hostname: 'tenant-a.litium.portal' });
+        const body = JSON.stringify({ hostname: 'alpha.example' });
         return createRequest({
           secrets: [],
           rawBody: body,
@@ -311,16 +311,16 @@ describe('processConfigRefresh', () => {
   });
 
   it('should invalidate all alias hostname mappings when config has aliases', async () => {
-    const hostname = 'tenant-a.litium.portal';
+    const hostname = 'alpha.example';
     const secret = 'test-secret';
     const body = JSON.stringify({ hostname });
     const sig = signStripe(body, secret);
     const webhookId = 'wh_valid_123';
 
     const tenantConfig = {
-      tenantId: 'tenant-a',
-      hostname: 'tenant-a.litium.portal',
-      aliases: ['tenant-a.localhost', 'tenant-a.sales-portal.geins.dev'],
+      tenantId: 'alpha',
+      hostname: 'alpha.example',
+      aliases: ['alpha.localhost', 'alpha.sales-portal.geins.dev'],
       isActive: true,
     };
 
@@ -338,8 +338,8 @@ describe('processConfigRefresh', () => {
       setItem: kvSetItem,
     } = createMockKvStorage({
       getItem: vi.fn().mockImplementation(async (key: string) => {
-        if (key === `tenant:id:${hostname}`) return 'tenant-a';
-        if (key === 'tenant:config:tenant-a') return tenantConfig;
+        if (key === `tenant:id:${hostname}`) return 'alpha';
+        if (key === 'tenant:config:alpha') return tenantConfig;
         return null;
       }),
     });
@@ -350,17 +350,15 @@ describe('processConfigRefresh', () => {
     expect(result).toEqual({ invalidated: true });
 
     // Should remove all hostname → tenantId mappings
+    expect(kvRemoveItem).toHaveBeenCalledWith('tenant:id:alpha.example');
+    expect(kvRemoveItem).toHaveBeenCalledWith('tenant:id:alpha.localhost');
     expect(kvRemoveItem).toHaveBeenCalledWith(
-      'tenant:id:tenant-a.litium.portal',
-    );
-    expect(kvRemoveItem).toHaveBeenCalledWith('tenant:id:tenant-a.localhost');
-    expect(kvRemoveItem).toHaveBeenCalledWith(
-      'tenant:id:tenant-a.sales-portal.geins.dev',
+      'tenant:id:alpha.sales-portal.geins.dev',
     );
     // Should remove config under tenantId
-    expect(kvRemoveItem).toHaveBeenCalledWith('tenant:config:tenant-a');
+    expect(kvRemoveItem).toHaveBeenCalledWith('tenant:config:alpha');
     expect(cacheRemoveItem).toHaveBeenCalledWith(
-      'nitro/handlers:_:tenantconfigtenanta.json',
+      'nitro/handlers:_:tenantconfigalpha.json',
     );
     expect(kvSetItem).toHaveBeenCalledWith(
       `webhook:processed:${webhookId}`,
@@ -396,7 +394,7 @@ describe('processConfigRefresh', () => {
   });
 
   it('removes the Nitro handler cache with the correct escaped key format', async () => {
-    const hostname = 'tenant-b.sales-portal.geins.dev';
+    const hostname = 'beta.sales-portal.geins.dev';
     const body = JSON.stringify({ hostname });
     const sig = signStripe(body, 'test-secret');
 
@@ -408,10 +406,10 @@ describe('processConfigRefresh', () => {
 
     const { storage: kv } = createMockKvStorage({
       getItem: vi.fn().mockImplementation(async (key: string) => {
-        if (key === `tenant:id:${hostname}`) return 'tenant-b';
-        if (key === 'tenant:config:tenant-b')
+        if (key === `tenant:id:${hostname}`) return 'beta';
+        if (key === 'tenant:config:beta')
           return {
-            tenantId: 'tenant-b',
+            tenantId: 'beta',
             hostname,
             aliases: [],
             isActive: true,
@@ -427,14 +425,14 @@ describe('processConfigRefresh', () => {
     // Nitro 2.x stores defineCachedEventHandler entries as:
     //   nitro/handlers:_:{escapeKey(configKey)}.json
     // escapeKey strips all non-word chars (\W) — colons, dots, hyphens removed.
-    // configKey = "tenant:config:tenant-b" → escaped = "tenantconfigtenantb"
+    // configKey = "tenant:config:beta" → escaped = "tenantconfigbeta"
     expect(cacheRemoveItem).toHaveBeenCalledWith(
-      'nitro/handlers:_:tenantconfigtenantb.json',
+      'nitro/handlers:_:tenantconfigbeta.json',
     );
   });
 
   it('should pass with key rotation: sign with key2, secrets=[key1,key2]', async () => {
-    const hostname = 'tenant-a.litium.portal';
+    const hostname = 'alpha.example';
     const body = JSON.stringify({ hostname });
     const sig = signStripe(body, 'old-key');
 
