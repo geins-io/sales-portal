@@ -32,12 +32,14 @@ CERT="$OUT_DIR/local.crt"
 KEY="$OUT_DIR/local.key"
 SAN="DNS:*.$DOMAIN,DNS:$DOMAIN,DNS:*.$STORE_DOMAIN,DNS:$STORE_DOMAIN,DNS:localhost,IP:127.0.0.1"
 
-# Unexpired is not enough: a cert generated before *.litium.store joined the
-# SAN would not match an overridden target. `-text` rather than `-ext`, which
-# stock macOS openssl (LibreSSL) does not implement — there it fails, the
-# check reads false, and the pair is regenerated on every run.
+# Unexpired is not enough, and neither wildcard alone is: a cert generated
+# under an earlier local suffix still carries *.litium.store, so checking only
+# that one reuses a cert the local hostname does not match. `-text` rather than
+# `-ext`, which stock macOS openssl (LibreSSL) does not implement — there it
+# fails, the check reads false, and the pair is regenerated on every run.
 if [[ -f "$CERT" && -f "$KEY" ]] &&
   openssl x509 -checkend 86400 -noout -in "$CERT" >/dev/null 2>&1 &&
+  openssl x509 -noout -text -in "$CERT" | grep -q "DNS:\*.$DOMAIN" &&
   openssl x509 -noout -text -in "$CERT" | grep -q "DNS:\*.$STORE_DOMAIN"; then
   echo "TLS cert for *.$DOMAIN and *.$STORE_DOMAIN already present in $OUT_DIR"
   exit 0
