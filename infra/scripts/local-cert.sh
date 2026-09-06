@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Generates a self-signed TLS certificate for *.litium.portal and
-# *.litium.store so the production build can be served over https under test
-# (`pnpm preview` with NITRO_SSL_CERT / NITRO_SSL_KEY, wired up by
-# playwright.config.ts). Both suffixes: the dev server is reached under
-# .litium.portal, the production build under the tenant's registered
-# .litium.store hostname.
+# Generates a self-signed TLS certificate so the production build can be served
+# over https under test (`pnpm preview` with NITRO_SSL_CERT / NITRO_SSL_KEY,
+# wired up by playwright.config.ts).
+#
+# The target is a .litium.portal address in every mode, the production build
+# included — the server looks such a host up under .litium.store, so nothing
+# has to be configured on the machine. *.litium.store is in the SAN only so a
+# target explicitly overridden to a tenant's real hostname still gets a
+# certificate that matches.
 #
 # Why: the production build sets `upgrade-insecure-requests` in its CSP and
 # marks auth cookies Secure. Over plain http the browser rewrites every
@@ -30,10 +33,12 @@ KEY="$OUT_DIR/local.key"
 SAN="DNS:*.$DOMAIN,DNS:$DOMAIN,DNS:*.$STORE_DOMAIN,DNS:$STORE_DOMAIN,DNS:localhost,IP:127.0.0.1"
 
 # Unexpired is not enough: a cert generated before *.litium.store joined the
-# SAN would keep the production-build target off the certificate.
+# SAN would not match an overridden target. `-text` rather than `-ext`, which
+# stock macOS openssl (LibreSSL) does not implement — there it fails, the
+# check reads false, and the pair is regenerated on every run.
 if [[ -f "$CERT" && -f "$KEY" ]] &&
   openssl x509 -checkend 86400 -noout -in "$CERT" >/dev/null 2>&1 &&
-  openssl x509 -noout -ext subjectAltName -in "$CERT" 2>/dev/null | grep -q "DNS:\*.$STORE_DOMAIN"; then
+  openssl x509 -noout -text -in "$CERT" | grep -q "DNS:\*.$STORE_DOMAIN"; then
   echo "TLS cert for *.$DOMAIN and *.$STORE_DOMAIN already present in $OUT_DIR"
   exit 0
 fi

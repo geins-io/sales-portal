@@ -334,7 +334,7 @@ The preflight layers are the canaries — they depend on almost nothing, so if _
 report names the layer; check the server before debugging code:
 
 ```bash
-curl "http://$(node tests/e2e/target-defaults.mjs --dev-host):3000/api/health"
+curl "http://$(node tests/e2e/target-defaults.mjs):3000/api/health"
 ```
 
 A 500 there means restart the dev server. For long sessions, start it with

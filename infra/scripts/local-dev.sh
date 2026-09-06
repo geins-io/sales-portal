@@ -138,20 +138,30 @@ flush_dns() {
     print_success "DNS cache flushed"
 }
 
-# Test DNS resolution, on the name the e2e suite itself will ask for
+# Test DNS resolution, on the name the e2e suite itself will ask for. Report
+# the address it actually resolves to: a target that answers from somewhere
+# else is the failure preflight L0 exists to catch, and saying "-> 127.0.0.1"
+# on any successful ping would hide exactly that.
 test_dns() {
-    local host
+    local host address
     host="$(e2e_target_host || true)"
     host="${host:-wildcard-check.$DOMAIN}"
 
     print_status "Testing DNS resolution..."
-    if ping -c 1 -t 2 "$host" &> /dev/null; then
-        print_success "DNS resolution working: $host -> 127.0.0.1"
-        return 0
-    else
-        print_warning "DNS resolution test failed. You may need to wait a moment or restart your browser."
+    address="$(dscacheutil -q host -a name "$host" | awk '/^ip_address:/ { print $2; exit }')"
+
+    if [[ -z "$address" ]]; then
+        print_warning "$host does not resolve. You may need to wait a moment or restart your browser."
         return 1
     fi
+
+    if [[ "$address" != "127.0.0.1" ]]; then
+        print_warning "$host resolves to $address, not this machine — an e2e run against it would test whatever answers there (preflight L0 refuses to)."
+        return 1
+    fi
+
+    print_success "DNS resolution working: $host -> $address"
+    return 0
 }
 
 # Show usage
