@@ -1,28 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import { lookupHostname } from '../../../server/utils/lookup-hostname';
 
+/**
+ * The function reads nothing but its argument — no mode, no config — so these
+ * cases are the whole contract. That it stays on in a production build is
+ * proved where it can actually be observed: "rewrites with dev mode off too"
+ * in tests/server/plugins/02.tenant-context.test.ts.
+ */
+
 describe('lookupHostname', () => {
   it('rewrites a .litium.portal host to .litium.store', () => {
     expect(lookupHostname('example.litium.portal')).toBe(
       'example.litium.store',
     );
-  });
-
-  it('rewrites in every mode, production included', () => {
-    // No mode gate: the production build is what CI and E2E_PROD=1 test, and a
-    // `.portal` name cannot be resolved from the public internet, so no
-    // deployed environment can receive one.
-    for (const mode of ['production', 'development', 'test']) {
-      const previous = process.env.NODE_ENV;
-      process.env.NODE_ENV = mode;
-      try {
-        expect(lookupHostname('example.litium.portal'), mode).toBe(
-          'example.litium.store',
-        );
-      } finally {
-        process.env.NODE_ENV = previous;
-      }
-    }
   });
 
   it('leaves a host that does not end in .litium.portal untouched', () => {

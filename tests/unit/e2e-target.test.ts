@@ -1,11 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import {
-  BASE_URL,
-  isLoopbackAddress,
-  targetHostname,
-} from '../e2e/target-defaults.mjs';
+import { isLoopbackAddress } from '../e2e/target-defaults.mjs';
 
 /**
  * The two pieces of the e2e target module that decide something on their own,
@@ -16,6 +12,26 @@ import {
  */
 
 const MODULE = resolve(import.meta.dirname, '../e2e/target-defaults.mjs');
+
+/**
+ * The hostname the module prints, from a child process with an explicit
+ * environment. The module reads the gitignored `.env` at import, so asserting
+ * on it in-process would make this test depend on the machine it runs on —
+ * a developer pointing `PLAYWRIGHT_BASE_URL` at a deployed environment would
+ * fail `pnpm test` with nothing wrong in the repo. This is also exactly how
+ * `infra/scripts/local-dev.sh` reads it.
+ */
+function printedHostname(overrides: Record<string, string> = {}): string {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env.E2E_REMOTE;
+  delete env.E2E_PROD;
+  Object.assign(env, { PLAYWRIGHT_BASE_URL: '', ...overrides });
+
+  return execFileSync(process.execPath, [MODULE], {
+    encoding: 'utf8',
+    env,
+  }).trim();
+}
 
 describe('isLoopbackAddress', () => {
   it.each([
@@ -51,29 +67,13 @@ describe('target hostname', () => {
     // One default, not one per mode: the hostname rewrite
     // (server/utils/lookup-hostname.ts) resolves it for the production build
     // too, so nothing on the machine has to be configured.
-    expect(targetHostname()).toMatch(/\.litium\.portal$/);
-    expect(targetHostname()).toBe(new URL(BASE_URL).hostname);
-
-    const perMode = ['', '1'].map((prod) =>
-      execFileSync(process.execPath, [MODULE], {
-        encoding: 'utf8',
-        env: { ...process.env, E2E_PROD: prod, PLAYWRIGHT_BASE_URL: '' },
-      }).trim(),
-    );
-    expect(perMode[0]).toBe(perMode[1]);
+    expect(printedHostname()).toMatch(/\.litium\.portal$/);
+    expect(printedHostname({ E2E_PROD: '1' })).toBe(printedHostname());
   });
 
   it('lets PLAYWRIGHT_BASE_URL override it', () => {
-    // Run as a child process: infra/scripts/local-dev.sh reads the hostname
-    // exactly this way, and the module resolves its target once at import.
-    const printed = execFileSync(process.execPath, [MODULE], {
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        PLAYWRIGHT_BASE_URL: 'https://elsewhere.example.com:3000',
-      },
-    }).trim();
-
-    expect(printed).toBe('elsewhere.example.com');
+    expect(
+      printedHostname({ PLAYWRIGHT_BASE_URL: 'https://elsewhere.example.com' }),
+    ).toBe('elsewhere.example.com');
   });
 });
