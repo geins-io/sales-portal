@@ -402,6 +402,14 @@ export default defineNuxtConfig({
     buildCache: true,
   },
 
+  // `nuxt dev` otherwise listens on the hostname `localhost`, which Node
+  // resolves to ::1 first — the dnsmasq wildcard answers 127.0.0.1, so local
+  // hostnames would reach nothing. HOST/NUXT_HOST/NITRO_HOST still override
+  // this, which is how `local:dev --lan` binds every interface.
+  devServer: {
+    host: '127.0.0.1',
+  },
+
   // Vite configuration
   vite: {
     server: {
