@@ -11,10 +11,10 @@ For testing multi-tenancy locally, we use:
 
 This allows you to access the app via URLs like:
 
-- `http://<tenant>.litium.portal/` — any tenant registered in the merchant API, by name
+- `http://<name>.litium.test/` — any tenant registered in the merchant API, by name
 
 Only hostnames registered in the merchant API resolve; any other name answers 404, locally as in
-production. A `<name>.litium.portal` host is looked up as `<name>.litium.store`
+production. A `<name>.litium.test` host is looked up as `<name>.litium.store`
 (`server/utils/lookup-hostname.ts`), which is where a tenant lives by default — so no per-tenant
 configuration is needed, and the production build behaves the same way under test. See
 [docs/testing.md](../docs/testing.md) for the e2e target.
@@ -40,10 +40,10 @@ brew install dnsmasq
 Add the wildcard rule to dnsmasq config:
 
 ```bash
-echo "address=/litium.portal/127.0.0.1" >> /opt/homebrew/etc/dnsmasq.conf
+echo "address=/litium.test/127.0.0.1" >> /opt/homebrew/etc/dnsmasq.conf
 ```
 
-> **Note:** This resolves `*.litium.portal` to `127.0.0.1`
+> **Note:** This resolves `*.litium.test` to `127.0.0.1`
 
 ## Step 3: Start dnsmasq
 
@@ -63,8 +63,13 @@ Create the resolver directory and file:
 
 ```bash
 sudo mkdir -p /etc/resolver
-echo "nameserver 127.0.0.1" | sudo tee /etc/resolver/litium.portal
+echo "nameserver 127.0.0.1" | sudo tee /etc/resolver/litium.test
 ```
+
+> **Note:** A machine configured under an earlier suffix keeps its old
+> `address=/…/127.0.0.1` line and `/etc/resolver/` file. Both are harmless — such a name still
+> resolves to loopback, but the server no longer rewrites it, so it answers 404 — and
+> `pnpm local:setup` adds the new entries beside them rather than replacing them.
 
 ## Step 5: Flush DNS Cache
 
@@ -75,13 +80,13 @@ sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
 ## Step 6: Test DNS Resolution
 
 ```bash
-ping -c 1 test.litium.portal
+ping -c 1 probe.litium.test
 ```
 
 Should show:
 
 ```
-PING test.litium.portal (127.0.0.1): 56 data bytes
+PING probe.litium.test (127.0.0.1): 56 data bytes
 ```
 
 ---
@@ -149,13 +154,11 @@ pnpm local:dev --lan
 
 With port forwarding:
 
-- `http://test.litium.portal/`
-- `http://demo.litium.portal/`
+- `http://example.litium.test/`
 
 Without port forwarding:
 
-- `http://test.litium.portal:3000/`
-- `http://demo.litium.portal:3000/`
+- `http://example.litium.test:3000/`
 
 ---
 
@@ -166,12 +169,12 @@ Run these once to set everything up:
 ```bash
 # Install and configure dnsmasq
 brew install dnsmasq
-echo "address=/litium.portal/127.0.0.1" >> /opt/homebrew/etc/dnsmasq.conf
+echo "address=/litium.test/127.0.0.1" >> /opt/homebrew/etc/dnsmasq.conf
 sudo brew services start dnsmasq
 
 # Configure macOS resolver
 sudo mkdir -p /etc/resolver
-echo "nameserver 127.0.0.1" | sudo tee /etc/resolver/litium.portal
+echo "nameserver 127.0.0.1" | sudo tee /etc/resolver/litium.test
 
 # Set up port forwarding (optional)
 sudo tee /etc/pf.anchors/dev.local << 'EOF'
@@ -198,13 +201,13 @@ sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
 2. Check resolver file exists:
 
    ```bash
-   cat /etc/resolver/litium.portal
+   cat /etc/resolver/litium.test
    ```
 
 3. Test DNS directly:
 
    ```bash
-   dig test.litium.portal @127.0.0.1 +short
+   dig probe.litium.test @127.0.0.1 +short
    ```
 
 4. Flush DNS cache:
@@ -245,7 +248,7 @@ Some browsers (especially Chrome) interpret custom TLDs as search queries.
 Solutions:
 
 - Always include `http://` in the URL
-- Add a trailing slash: `http://test.litium.portal/`
+- Add a trailing slash: `http://example.litium.test/`
 - Use Firefox or Safari which handle custom TLDs better
 
 ---
@@ -259,7 +262,7 @@ To completely remove the local development DNS setup:
 sudo brew services stop dnsmasq
 
 # Remove resolver
-sudo rm /etc/resolver/litium.portal
+sudo rm /etc/resolver/litium.test
 
 # Disable port forwarding
 sudo pfctl -d

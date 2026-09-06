@@ -27,7 +27,7 @@ const DEFAULT_TENANT_ID = 'sonoralab';
 
 /**
  * The host under test, in every mode. The dnsmasq wildcard sends all of
- * `*.litium.portal` to 127.0.0.1 and the server looks the tenant up under
+ * `*.litium.test` to 127.0.0.1 and the server looks the tenant up under
  * `.litium.store` (`server/utils/lookup-hostname.ts`), so a run needs nothing
  * configured on the machine — no `/etc/hosts` line, and no name that could
  * resolve to a deployed environment by accident.
@@ -35,7 +35,7 @@ const DEFAULT_TENANT_ID = 'sonoralab';
  * Spelled out rather than derived from the tenant id: the next tenant need not
  * follow the pattern, and the name stays greppable.
  */
-const DEFAULT_HOST = 'sonoralab.litium.portal';
+const DEFAULT_HOST = 'sonoralab.litium.test';
 
 const DEFAULT_PORT = 3000;
 

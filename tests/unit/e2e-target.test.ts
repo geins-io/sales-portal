@@ -67,7 +67,7 @@ describe('target hostname', () => {
     // One default, not one per mode: the hostname rewrite
     // (server/utils/lookup-hostname.ts) resolves it for the production build
     // too, so nothing on the machine has to be configured.
-    expect(printedHostname()).toMatch(/\.litium\.portal$/);
+    expect(printedHostname()).toMatch(/\.litium\.test$/);
     expect(printedHostname({ E2E_PROD: '1' })).toBe(printedHostname());
   });
 

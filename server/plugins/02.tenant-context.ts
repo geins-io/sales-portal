@@ -71,7 +71,7 @@ export default defineNitroPlugin((nitroApp) => {
       return;
     }
 
-    // A `.litium.portal` host is looked up as `.litium.store` — see
+    // A `.litium.test` host is looked up as `.litium.store` — see
     // `lookupHostname`. The context below keeps the hostname the browser asked
     // for; only the lookup moves.
     const lookupHost = lookupHostname(hostname);

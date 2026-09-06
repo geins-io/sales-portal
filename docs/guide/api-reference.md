@@ -16,12 +16,12 @@ GET /api/config
 
 ```json
 {
-  "tenantId": "tenant-a",
-  "hostname": "tenant-a.litium.portal",
+  "tenantId": "example",
+  "hostname": "example.litium.test",
   "mode": "commerce",
   "isActive": true,
   "theme": {
-    "name": "tenant-a",
+    "name": "example",
     "colors": {
       "primary": "oklch(0.47 0.13 195.71)",
       "primaryForeground": "oklch(0.985 0 0)",
@@ -33,7 +33,7 @@ GET /api/config
     "radius": "0.625rem"
   },
   "branding": {
-    "name": "Tenant A Inc",
+    "name": "Example Inc",
     "watermark": "full",
     "logoUrl": "https://example.com/logo.svg"
   },
@@ -42,7 +42,7 @@ GET /api/config
     "cart": { "enabled": true, "access": "authenticated" },
     "wishlist": { "enabled": false }
   },
-  "css": "[data-theme='tenant-a'] { --primary: oklch(0.47 0.13 195.71); ... }",
+  "css": "[data-theme='example'] { --primary: oklch(0.47 0.13 195.71); ... }",
   "locale": "sv-SE",
   "availableLocales": ["sv-SE"]
 }

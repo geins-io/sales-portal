@@ -17,7 +17,7 @@ import {
  * - pnpm test:e2e:debug   - Debug tests
  *
  * The target comes from the environment (tests/e2e/target.ts). One committed
- * default in every mode: `<tenant>.litium.portal`, which the wildcard resolver
+ * default in every mode: `<tenant>.litium.test`, which the wildcard resolver
  * sends to 127.0.0.1 and the server looks up under `.litium.store`.
  *   PLAYWRIGHT_BASE_URL     origin under test (default: the team tenant)
  *   E2E_EXPECTED_TENANT_ID  tenant that origin must resolve to

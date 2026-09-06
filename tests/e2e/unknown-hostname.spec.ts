@@ -13,7 +13,7 @@ import { test, expect } from '@playwright/test';
  * server, the server sees an unknown hostname.
  */
 
-const UNREGISTERED_HOST = 'unregistered-tenant.litium.portal';
+const UNREGISTERED_HOST = 'unregistered-tenant.litium.test';
 
 test.describe('Unregistered hostname', () => {
   test('answers browsers with the 404 page, not a 500', async ({ request }) => {
