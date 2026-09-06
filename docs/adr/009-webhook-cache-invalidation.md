@@ -92,7 +92,7 @@ Headers:
   x-webhook-id: <unique_string>
   content-type: application/json
 Body:
-  { "hostname": "tenant-a.litium.portal" }
+  { "hostname": "alpha.example" }
 ```
 
 - **Signed payload** = `${timestamp}.${rawBody}` — timestamp from header, NOT in body

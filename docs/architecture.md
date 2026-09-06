@@ -262,7 +262,7 @@ The system identifies tenants based on the request hostname. Each tenant is mapp
 
 ```
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│ tenant-a.com    │      │ tenant-b.com    │      │ tenant-c.com    │
+│ alpha.example   │      │ beta.example    │      │ gamma.example   │
 └────────┬────────┘      └────────┬────────┘      └────────┬────────┘
          │                        │                        │
          └────────────────────────┼────────────────────────┘
