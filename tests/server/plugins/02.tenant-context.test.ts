@@ -542,8 +542,8 @@ describe('server/plugins/02.tenant-context', () => {
     });
   });
 
-  // The merchant API answers `hostname=localhost` with a live customer, so a
-  // lookup for a loopback host would silently serve that customer's storefront.
+  // The point of these: a loopback host is answered without any lookup at
+  // all, so nothing is fetched or cached for a name that means this machine.
   describe('development setup page on a loopback host', () => {
     beforeEach(() => {
       mockIsDevMode.mockReturnValue(true);

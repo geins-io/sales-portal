@@ -73,11 +73,9 @@ export default defineNitroPlugin((nitroApp) => {
       return;
     }
 
-    // A loopback host names this machine, not a tenant — but the merchant API
-    // answers `hostname=localhost` with a live customer, so a lookup here
-    // would silently serve that customer's storefront and cache its key.
-    // Answer with the setup page instead, before anything is fetched or
-    // cached. `isDevMode()` is a build-time constant, so a production build
+    // A loopback host names this machine, not a tenant, so no lookup is made
+    // for it: nothing is fetched or cached, and the setup page answers
+    // instead. `isDevMode()` is a build-time constant, so a production build
     // contains no branch; `getRequestHost` returns the raw header because
     // `normalizeHostname` cannot express the IPv6 literal (see
     // `isLoopbackHost`). Placed after the health/internal skip above: the
