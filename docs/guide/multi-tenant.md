@@ -70,8 +70,8 @@ The tenant context is available in all server handlers via `event.context.tenant
 // In any server route/middleware
 export default defineEventHandler((event) => {
   const { hostname, tenantId, config } = event.context.tenant;
-  // hostname: what the browser asked for, port stripped (e.g. "tenant-a.litium.portal")
-  // tenantId: the resolved tenant's own id (e.g. "tenant-a") — set for page routes,
+  // hostname: what the browser asked for, port stripped (e.g. "name.litium.portal")
+  // tenantId: the resolved tenant's own id (e.g. "name") — set for page routes,
   //           optional on API routes
   // config:   the full TenantConfig, resolved once per request
 });
@@ -176,21 +176,30 @@ registered — check the registration before anything else.
 
 Configs come from one place. `resolveTenant()` calls the merchant API over plain `fetch`, from a
 laptop exactly as from Azure, so any hostname it knows already works locally given DNS pointing at
-your machine. Nothing in this repository seeds a tenant of its own — develop against the
-team-owned test tenant, whose hostname the e2e variables in `.env` already name
-(`PLAYWRIGHT_BASE_URL`, `E2E_EXPECTED_TENANT_ID`).
+your machine. Nothing in this repository seeds a tenant of its own.
 
-To browse a tenant, point the hostname it is registered under at your machine and use the dev
-server's port:
+### Browsing a tenant
+
+Open `http://<name>.litium.portal:3000`, where `<name>` is the tenant's label under
+`.litium.store`.
+
+Nothing has to be configured for that name: the dnsmasq wildcard from `pnpm local:setup` sends
+`*.litium.portal` to `127.0.0.1` and the server looks the name up under `.litium.store` (see
+below) — no `.env` entry, no `/etc/hosts` line. Pointing a run at another tenant is an environment
+change, made only through the four `E2E_*` variables (which tenant the e2e suite targets:
+[Testing](/testing#e2e-tests)).
+
+The one case that still needs a hosts line is a tenant whose registered hostname is not
+`<name>.litium.store`, since that is the only rewrite the wildcard pairs with:
 
 ```
 # /etc/hosts
 127.0.0.1 <the hostname the merchant API knows>
 ```
 
-The lookup matches the exact full hostname and does no subdomain parsing. `pnpm local:setup`
-installs a dnsmasq wildcard sending all of `*.litium.portal` to `127.0.0.1`, saving an
-`/etc/hosts` line per tenant.
+The lookup matches the exact full hostname and does no subdomain parsing.
+
+### The `.litium.portal` lookup rewrite
 
 `.litium.portal` is a local-only convention, and the merchant API knows almost nothing under it,
 so the lookup is rewritten: a request for `name.litium.portal` is resolved as `name.litium.store`,
@@ -211,6 +220,37 @@ under it cannot be resolved from the public internet and no deployed environment
 one. The one thing the rewrite takes away is a tenant that registers `X.litium.portal` as an alias
 in Geins — it is no longer reachable under that exact name, since the lookup resolves
 `X.litium.store` instead, and only local and CI traffic can carry such a name anyway.
+
+### Environment
+
+No environment variable is required to browse a tenant. `runtimeConfig.geins.tenantApiUrl` in
+`nuxt.config.ts` already points at the merchant API's store-settings endpoint, the only call
+resolution makes.
+
+The trap is the opposite of a missing variable: **a `NUXT_*` line set to an empty string overrides
+the built-in default instead of falling back to it**, because Nitro resolves each key as
+`destr(process.env[…]) ?? default` and an empty value is not `undefined`. A line in `.env` either
+carries a value or does not exist.
+
+Resolving the config is also what supplies the commerce credentials: `store-settings` returns the
+tenant's `geinsSettings` in the same response as its theme and branding, and `createTenantSDK()`
+(`server/services/_sdk.ts`) builds the storefront client from them. Nothing to paste in per
+tenant.
+
+### When it does not work
+
+In development every lookup logs one line, `[tenant] resolve host=… kv=… api=… outcome=…`, and the
+404 page repeats it. The `outcome=` token is what separates the cases below. Failed lookups log at
+warn and always show; resolved ones log at debug, which `nuxt dev` prints only with
+`CONSOLA_LEVEL=4`. A production build emits neither.
+
+| What you see                                         | `outcome=`          | Cause                                                                                                                                                                                                                                  |
+| ---------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 404, "Store not yet available"                       | `unknown-tenant`    | The merchant API does not know the hostname, or knows it and the tenant is switched off — the `api=` field then ends `(inactive)`.                                                                                                     |
+| The same 404                                         | `invalid-config`    | The merchant API answered 200 but the payload was unreadable or rejected by the schema — indistinguishable from the row above without the line.                                                                                        |
+| A 404 that persists after you fixed the registration | `negative-cache`    | A failed lookup from up to five minutes ago, replayed — the line names what it repeats and its age, `(unknown-tenant, 12s ago)`. Restart the server or wait it out.                                                                    |
+| 503, "temporarily unavailable"                       | `transport-failure` | The merchant API gave no answer: connection refused, DNS, timeout, or a non-404 status; never negative-cached, so the next request asks again. The 503 page shows no resolution line — read the server log, and see Environment above. |
+| Real branding, no products or prices                 | `resolved`          | The config resolved and the storefront calls failed: the `apiKey`, `accountName`, channel or market on the tenant's record is wrong.                                                                                                   |
 
 ## Client-Side Usage
 
