@@ -1,10 +1,11 @@
 import type { H3Event } from 'h3';
-import type { TenantConfig } from '#shared/types/tenant-config';
+import type { FeatureAccess, TenantConfig } from '#shared/types/tenant-config';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { CMS_MENUS } from '#shared/constants/cms';
 import type {
   StoreSettings,
   GeinsSettings,
+  FeatureAccessInput,
   FeatureConfig,
 } from '../schemas/store-settings';
 import { StoreSettingsSchema } from '../schemas/store-settings';
@@ -321,6 +322,49 @@ export function transformGeinsSettings(
 // Config building & fetching
 // ---------------------------------------------------------------------------
 
+/** Wire-only rules: accepted by the schema, absent from `FeatureAccess`. */
+const RETIRED_ACCESS_RULES = ['group', 'accountType', 'permission'] as const;
+
+/** An object rule with none of the retired keys is `{ role }`. */
+function isEvaluableAccess(
+  access: FeatureAccessInput | undefined,
+): access is FeatureAccess | undefined {
+  return (
+    access === undefined ||
+    typeof access === 'string' ||
+    !RETIRED_ACCESS_RULES.some((key) => key in access)
+  );
+}
+
+/**
+ * Rewrite a feature whose access rule the app cannot evaluate to
+ * `{ enabled: false }`, logging why. It happens here rather than in the schema
+ * because rejecting the rule would put the Zod issue on
+ * `features.<name>.access`; `parseStoreSettingsResilient` strips that leaf, and
+ * a feature with no `access` is open to everyone. See ADR-007.
+ */
+function normalizeFeatureAccess(
+  features: Record<string, FeatureConfig>,
+  hostname: string,
+): TenantConfig['features'] {
+  const normalized: TenantConfig['features'] = {};
+  for (const [name, { enabled, access }] of Object.entries(features)) {
+    if (isEvaluableAccess(access)) {
+      normalized[name] =
+        access === undefined ? { enabled } : { enabled, access };
+      continue;
+    }
+    const retired = RETIRED_ACCESS_RULES.filter((key) => key in access).join(
+      ', ',
+    );
+    logger.warn(
+      `[tenant] Feature "${name}" for ${hostname} uses the retired access rule "${retired}"; disabling the feature`,
+    );
+    normalized[name] = { enabled: false };
+  }
+  return normalized;
+}
+
 /**
  * Builds a TenantConfig from validated StoreSettings.
  * Derives colors, merges override features, generates CSS + hash.
@@ -338,15 +382,26 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   // stockStatus carry the {enabled, access} shape; the other 11 portal
   // features default to {enabled: true}). overrides.features takes final
   // precedence below.
-  const features: Record<string, FeatureConfig> = {
+  const rawFeatures: Record<string, FeatureConfig> = {
     ...STOREFRONT_SETTINGS_DEFAULTS.features,
     ...merged.features,
   };
   if (merged.overrides?.features) {
     for (const [key, value] of Object.entries(merged.overrides.features)) {
-      features[key] = value;
+      rawFeatures[key] = value;
     }
   }
+  const features = normalizeFeatureAccess(rawFeatures, merged.hostname);
+
+  // Server-only, but typed with the same narrowed FeatureAccess.
+  const overrides: TenantConfig['overrides'] = merged.overrides
+    ? {
+        ...merged.overrides,
+        features: merged.overrides.features
+          ? normalizeFeatureAccess(merged.overrides.features, merged.hostname)
+          : merged.overrides.features,
+      }
+    : merged.overrides;
 
   const themeName = merged.theme.name ?? merged.tenantId;
 
@@ -403,7 +458,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     features,
     seo: merged.seo,
     contact: merged.contact,
-    overrides: merged.overrides,
+    overrides,
     cms,
     css,
     themeHash,

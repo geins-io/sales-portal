@@ -97,7 +97,7 @@ export default defineEventHandler(async (event) => {
 Two levels of feature checks:
 
 - **`hasFeature(name)`** — simple "is it enabled?" check (`.enabled` only). Use in templates for UI visibility.
-- **`canAccess(name)`** — full access evaluation (`.enabled` + `.access` rules: auth, role, group, etc.). Use when access control matters.
+- **`canAccess(name)`** — full access evaluation (`.enabled` + `.access` rules: auth, role). Use when access control matters.
 
 ### Client-side — template gating
 
@@ -143,14 +143,14 @@ export default defineEventHandler(async (event) => {
 
 ### Access rule types
 
-| Rule                     | Behavior                                   |
-| ------------------------ | ------------------------------------------ |
-| `'all'`                  | Everyone                                   |
-| `'authenticated'`        | Logged-in users only                       |
-| `{ role: 'wholesale' }`  | Matches `user.customerType` from Geins     |
-| `{ group: 'staff' }`     | Not yet available in Geins API (safe deny) |
-| `{ accountType: 'ent' }` | Not yet available in Geins API (safe deny) |
-| _(no access field)_      | Defaults to `'all'`                        |
+| Rule                    | Behavior                               |
+| ----------------------- | -------------------------------------- |
+| `'all'`                 | Everyone                               |
+| `'authenticated'`       | Logged-in users only                   |
+| `{ role: 'wholesale' }` | Matches `user.customerType` from Geins |
+| _(no access field)_     | Defaults to `'all'`                    |
+
+A config carrying `{ group }`, `{ accountType }` or `{ permission }` still parses, but the feature is normalised to `{ enabled: false }` with a warn log — the app cannot evaluate those rules.
 
 ### Price and stock visibility
 

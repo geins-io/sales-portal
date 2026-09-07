@@ -17,14 +17,11 @@ export type {
 /**
  * Feature access control — who can access a feature.
  * Standalone type so shared/ utilities don't depend on server/schemas/.
+ *
+ * Only rules the app can evaluate. The wire shape (`FeatureAccessInput`) is
+ * wider; `normalizeFeatureAccess` in server/utils/tenant.ts retires the rest.
  */
-export type FeatureAccess =
-  | 'all'
-  | 'authenticated'
-  | { group: string }
-  | { role: string }
-  | { permission: string }
-  | { accountType: string };
+export type FeatureAccess = 'all' | 'authenticated' | { role: string };
 
 /**
  * Full tenant configuration — StoreSettings from API + computed fields.

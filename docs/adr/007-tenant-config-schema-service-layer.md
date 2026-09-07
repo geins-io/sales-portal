@@ -75,14 +75,15 @@ One exception, narrow and deliberate: when a Geins record carries no `defaultHos
 
 ### Feature access evaluation
 
-`FeatureAccess` is defined as a standalone type in `shared/types/tenant-config.ts` (not Zod-inferred) so shared utilities can import it without pulling in server/schema code. The Zod schema still validates the same shape.
+`FeatureAccess` is defined as a standalone type in `shared/types/tenant-config.ts` (not Zod-inferred) so shared utilities can import it without pulling in server/schema code.
 
 A strategy-pattern evaluator registry in `shared/utils/feature-access.ts` evaluates access rules:
 
 - `'all'` → everyone
 - `'authenticated'` → logged-in users
 - `{ role }` → matches `user.customerType` from Geins
-- `{ group }` / `{ accountType }` → safe deny (not yet available in Geins API)
+
+**Amended 2026-09-07:** `{ group }`, `{ accountType }` and `{ permission }` were removed from `FeatureAccess` — nothing in the Geins token carries a group, an account type or a permission list, so each rule could only ever deny. `FeatureAccessSchema` still accepts all three so a stored config stays valid, and `normalizeFeatureAccess` in `server/utils/tenant.ts` retires them per config: the feature becomes `{ enabled: false }` and the reason is logged at warn.
 
 Consumer API:
 
@@ -102,7 +103,7 @@ Adding a new rule type = adding one evaluator function + extending `UserContext`
 
 - **Runtime safety** — malformed API responses are caught at parse time with structured error messages
 - **Single source of truth** — Zod schema generates all types; no manual interface sync
-- **Access control** — features support granular access (group, role, accountType)
+- **Access control** — features support granular access (authenticated, role)
 - **Decoupled consumers** — components use the service layer, not raw config shape
 - **No secret leaks** — `PublicTenantConfig` physically can't contain `geinsSettings` or `overrides`
 

@@ -2,7 +2,6 @@ import type { H3Event } from 'h3';
 import type {
   TenantConfig,
   PublicTenantConfig,
-  FeatureConfig,
 } from '#shared/types/tenant-config';
 
 /**
@@ -35,9 +34,9 @@ export async function getBranding(
 
 export async function getFeatures(
   event: H3Event,
-): Promise<Record<string, FeatureConfig> | null> {
+): Promise<TenantConfig['features'] | null> {
   const config = await resolveConfig(event);
-  return (config?.features as Record<string, FeatureConfig>) ?? null;
+  return config?.features ?? null;
 }
 
 export async function getSeo(

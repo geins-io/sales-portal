@@ -129,12 +129,13 @@ export const BrandingConfigSchema = z.object({
 });
 
 /**
- * Feature access control — who can access a feature.
+ * Feature access control as it arrives on the wire — who can access a feature.
  * - "all": everyone
  * - "authenticated": logged-in users only
- * - { group: "staff" }: specific user group
  * - { role: "order_placer" }: specific role
- * - { accountType: "enterprise" }: specific account type
+ *
+ * `{ group }`, `{ accountType }` and `{ permission }` are accepted for
+ * backwards compatibility and retired in server/utils/tenant.ts.
  */
 export const FeatureAccessSchema = z.union([
   z.literal('all'),
@@ -306,7 +307,8 @@ export type ThemeConfig = z.infer<typeof ThemeConfigSchema>;
 export type ThemeTypography = z.infer<typeof ThemeTypographySchema>;
 export type GeinsSettings = z.infer<typeof GeinsSettingsSchema>;
 export type BrandingConfig = z.infer<typeof BrandingConfigSchema>;
-export type FeatureAccess = z.infer<typeof FeatureAccessSchema>;
+/** Wire shape, wider than the evaluable `FeatureAccess` in shared/types. */
+export type FeatureAccessInput = z.infer<typeof FeatureAccessSchema>;
 export type FeatureConfig = z.infer<typeof FeatureConfigSchema>;
 export type SeoConfig = z.infer<typeof SeoConfigSchema>;
 export type ContactConfig = z.infer<typeof ContactConfigSchema>;

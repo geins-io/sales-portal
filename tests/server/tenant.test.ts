@@ -14,6 +14,7 @@ import {
   resolvePreviewTenant,
   DEFAULT_CMS_CONFIG,
 } from '../../server/utils/tenant';
+import { canAccessFeature } from '../../shared/utils/feature-access';
 import { CMS_MENUS } from '../../shared/constants/cms';
 import { CMS_SLOTS } from '../../shared/types/cms-slots';
 import partialPayloadFixture from '../fixtures/store-settings/partial-payload.json';
@@ -517,6 +518,157 @@ describe('Tenant utilities', () => {
         overrides: { features: { applyForAccount: { enabled: false } } },
       });
       expect(built.features.applyForAccount?.enabled).toBe(false);
+    });
+  });
+
+  describe('buildTenantConfig retired access rules', () => {
+    const retiredSettings: StoreSettings = {
+      tenantId: 'tenant-r',
+      hostname: 'tenant-r.litium.store',
+      geinsSettings: {
+        apiKey: 'k',
+        accountName: 'tenant-r',
+        channel: '1',
+        tld: 'se',
+        locale: 'sv-SE',
+        market: 'se',
+        environment: 'production',
+        availableLocales: ['sv-SE'],
+        availableMarkets: ['se'],
+      },
+      mode: 'commerce',
+      checkoutMode: 'custom',
+      theme: {
+        colors: {
+          primary: 'oklch(0.55 0.03 235)',
+          primaryForeground: 'oklch(0.985 0 0)',
+          secondary: 'oklch(0.93 0.05 90)',
+          secondaryForeground: 'oklch(0.25 0.02 235)',
+          background: 'oklch(1 0 0)',
+          foreground: 'oklch(0.145 0 0)',
+        },
+      },
+      branding: { name: 'Tenant R', watermark: 'minimal' },
+      features: {},
+      isActive: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    // Still valid on the wire — FeatureAccessSchema accepts all three.
+    const retiredRules = [
+      ['group', { group: 'staff' }],
+      ['accountType', { accountType: 'enterprise' }],
+      ['permission', { permission: 'orders:create' }],
+    ] as const;
+
+    beforeEach(() => {
+      mockLoggerWarn.mockClear();
+    });
+
+    for (const [key, rule] of retiredRules) {
+      it(`disables a feature carrying { ${key} } and says why`, () => {
+        const built = buildTenantConfig({
+          ...retiredSettings,
+          features: { staffPricing: { enabled: true, access: rule } },
+        });
+
+        expect(built.features.staffPricing).toEqual({ enabled: false });
+        expect(built.features.staffPricing).not.toHaveProperty('access');
+
+        const warned = mockLoggerWarn.mock.calls.map(String).join('\n');
+        expect(warned).toContain('staffPricing');
+        expect(warned).toContain(key);
+        expect(warned).toContain('tenant-r.litium.store');
+      });
+
+      it(`denies { ${key} } for anonymous and signed-in alike after normalisation`, () => {
+        const built = buildTenantConfig({
+          ...retiredSettings,
+          features: { staffPricing: { enabled: true, access: rule } },
+        });
+        const feature = built.features.staffPricing;
+
+        // hasFeature() reads .enabled only, so it flips to false: UI gated on
+        // it alone is hidden rather than rendered and then denied.
+        expect(feature?.enabled).toBe(false);
+        expect(canAccessFeature(feature, { authenticated: false })).toBe(false);
+        expect(
+          canAccessFeature(feature, {
+            authenticated: true,
+            customerType: 'wholesale',
+          }),
+        ).toBe(false);
+      });
+
+      it(`parses a raw candidate carrying { ${key} } without stripping the leaf`, () => {
+        // The regression guard for the whole design: FeatureAccessSchema still
+        // accepts the rule, so the parse succeeds on the first attempt and
+        // stage 2 of the salvage never deletes features.<name>.access. A
+        // stripped leaf would leave { enabled: true } with no access, which
+        // canAccessFeature treats as "everyone".
+        const candidate: Record<string, unknown> = {
+          ...retiredSettings,
+          features: { staffPricing: { enabled: true, access: rule } },
+        };
+
+        const parsed = parseStoreSettingsResilient(candidate, 'tenant-r');
+        expect(parsed).not.toBeNull();
+        expect(parsed?.features.staffPricing).toEqual({
+          enabled: true,
+          access: rule,
+        });
+        expect(
+          mockLoggerWarn.mock.calls.some((call) =>
+            String(call[0]).includes('leaf-strip'),
+          ),
+        ).toBe(false);
+
+        const built = buildTenantConfig(parsed as StoreSettings);
+        expect(built.features.staffPricing).toEqual({ enabled: false });
+      });
+
+      it(`retires { ${key} } arriving through overrides.features`, () => {
+        const built = buildTenantConfig({
+          ...retiredSettings,
+          features: { staffPricing: { enabled: true } },
+          overrides: {
+            features: { staffPricing: { enabled: true, access: rule } },
+          },
+        });
+
+        expect(built.features.staffPricing).toEqual({ enabled: false });
+        expect(built.overrides?.features?.staffPricing).toEqual({
+          enabled: false,
+        });
+      });
+    }
+
+    it('leaves the evaluable rules and a rule-less feature untouched', () => {
+      const built = buildTenantConfig({
+        ...retiredSettings,
+        features: {
+          openToAll: { enabled: true, access: 'all' },
+          signedIn: { enabled: true, access: 'authenticated' },
+          byRole: { enabled: true, access: { role: 'wholesale' } },
+          plain: { enabled: true },
+        },
+      });
+
+      expect(built.features.openToAll).toEqual({
+        enabled: true,
+        access: 'all',
+      });
+      expect(built.features.signedIn).toEqual({
+        enabled: true,
+        access: 'authenticated',
+      });
+      expect(built.features.byRole).toEqual({
+        enabled: true,
+        access: { role: 'wholesale' },
+      });
+      expect(built.features.plain).toEqual({ enabled: true });
+      expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
   });
 

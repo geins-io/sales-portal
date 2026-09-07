@@ -891,7 +891,7 @@ The `useAnalyticsConsent()` composable stores consent per-tenant in localStorage
 The feature access system provides two levels of checks across client and server:
 
 - **`hasFeature(name)`** — simple "is it enabled?" (checks `.enabled` only). Use in templates for UI visibility.
-- **`canAccess(name)` / `canAccessFeatureServer()`** — full evaluation (`.enabled` + `.access` rules: auth, role, group). Use when authorization matters.
+- **`canAccess(name)` / `canAccessFeatureServer()`** — full evaluation (`.enabled` + `.access` rules: auth, role). Use when authorization matters.
 
 ### Architecture
 
@@ -904,14 +904,14 @@ app/middleware/feature.ts         → Route guard using canAccess()
 
 ### Access Rules
 
-| Rule                     | Behavior                                   |
-| ------------------------ | ------------------------------------------ |
-| `'all'`                  | Everyone                                   |
-| `'authenticated'`        | Logged-in users only                       |
-| `{ role: 'wholesale' }`  | Matches `user.customerType` from Geins     |
-| `{ group: 'staff' }`     | Not yet available in Geins API (safe deny) |
-| `{ accountType: 'ent' }` | Not yet available in Geins API (safe deny) |
-| _(no access field)_      | Defaults to `'all'`                        |
+| Rule                    | Behavior                               |
+| ----------------------- | -------------------------------------- |
+| `'all'`                 | Everyone                               |
+| `'authenticated'`       | Logged-in users only                   |
+| `{ role: 'wholesale' }` | Matches `user.customerType` from Geins |
+| _(no access field)_     | Defaults to `'all'`                    |
+
+`{ group }`, `{ accountType }` and `{ permission }` are retired: the app cannot evaluate them, so `FeatureAccess` no longer represents them. `FeatureAccessSchema` still accepts them so a stored config stays valid, and `normalizeFeatureAccess` (`server/utils/tenant.ts`) rewrites a feature carrying one to `{ enabled: false }` with a warn log.
 
 See [Patterns: Feature Access Control](patterns/README.md#feature-access-control) for implementation examples.
 
