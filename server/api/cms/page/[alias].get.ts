@@ -1,17 +1,18 @@
 import { CmsPageSchema } from '../../../schemas/api-input';
 import { getPage } from '../../../services/cms';
 import { sanitizeCmsPage } from '../../../utils/cms-sanitize';
+import { hasUserToken } from '../../../utils/request-identity';
 
 export default defineEventHandler(async (event) => {
   const alias = getRouterParam(event, 'alias');
   const { alias: validatedAlias } = CmsPageSchema.parse({ alias });
   const customerType = await getCustomerType(event);
 
-  if (customerType) {
-    setHeader(event, 'Cache-Control', 'private, no-store');
-  } else {
-    setHeader(event, 'Cache-Control', 'private, no-cache');
-  }
+  setHeader(
+    event,
+    'Cache-Control',
+    hasUserToken(event) ? 'private, no-store' : 'private, no-cache',
+  );
 
   return withErrorHandling(
     async () => {

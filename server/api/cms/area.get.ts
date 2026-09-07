@@ -2,6 +2,7 @@ import { CmsAreaSchema } from '../../schemas/api-input';
 import { getContentArea } from '../../services/cms';
 import { sanitizeCmsArea } from '../../utils/cms-sanitize';
 import { logger } from '../../utils/logger';
+import { hasUserToken } from '../../utils/request-identity';
 
 export default defineEventHandler(async (event) => {
   const { family, areaName } = await getValidatedQuery(
@@ -10,11 +11,11 @@ export default defineEventHandler(async (event) => {
   );
   const customerType = await getCustomerType(event);
 
-  if (customerType) {
-    setHeader(event, 'Cache-Control', 'private, no-store');
-  } else {
-    setHeader(event, 'Cache-Control', 'private, no-cache');
-  }
+  setHeader(
+    event,
+    'Cache-Control',
+    hasUserToken(event) ? 'private, no-store' : 'private, no-cache',
+  );
 
   return withErrorHandling(
     async () => {

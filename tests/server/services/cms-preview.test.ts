@@ -30,6 +30,7 @@ vi.mock('../../../server/services/_sdk', () => ({
 
 const getPreviewCookieMock = vi.fn().mockReturnValue(false);
 vi.stubGlobal('getPreviewCookie', getPreviewCookieMock);
+vi.stubGlobal('getCookie', () => undefined);
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));

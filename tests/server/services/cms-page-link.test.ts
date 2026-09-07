@@ -38,12 +38,18 @@ vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
 vi.stubGlobal('getRequestMarket', getRequestMarketMock);
 
+type CookieBag = { _cookies?: Record<string, string | undefined> };
+const getCookieStub = (event: CookieBag, name: string) =>
+  event?._cookies?.[name];
+vi.stubGlobal('getCookie', getCookieStub);
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function mockEvent(hostname = 'test.com') {
+function mockEvent(hostname = 'test.com', authToken?: string) {
   return {
     context: { tenant: { hostname } },
+    _cookies: { auth_token: authToken },
   } as unknown as import('h3').H3Event;
 }
 
@@ -62,6 +68,7 @@ describe('getPageLinkByTag', () => {
     vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
     vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
     vi.stubGlobal('getRequestMarket', getRequestMarketMock);
+    vi.stubGlobal('getCookie', getCookieStub);
 
     // Re-mock after resetModules
     vi.mock('../../../server/services/_sdk', () => ({
@@ -259,6 +266,48 @@ describe('getPageLinkByTag', () => {
     expect(result1).toBeNull();
     expect(result2).toBeNull();
     expect(mockQuery).toHaveBeenCalledTimes(1);
+  });
+
+  // This cache is deliberately keyed without a caller identity, unlike the menu
+  // and area caches: the cmsPages query is sent without a RequestContext, so
+  // the response cannot vary by caller and a per-caller key would only cost
+  // hit rate. The next two tests are what holds that reasoning together — if a
+  // context is ever added to the query, the second one fails and points at the
+  // key.
+  it('d. anonymous and signed-in callers share one entry', async () => {
+    mockQuery.mockResolvedValue({
+      cmsPages: [
+        { alias: 'kontakt', tags: ['contact'], canonicalUrl: '/se/sv/kontakt' },
+      ],
+    });
+
+    const anonymous = await getPageLinkByTag({ tag: 'contact' }, mockEvent());
+    const authed = await getPageLinkByTag(
+      { tag: 'contact' },
+      mockEvent('test.com', 'token-a'),
+    );
+
+    expect(anonymous).toBe('/se/sv/kontakt');
+    expect(authed).toBe('/se/sv/kontakt');
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('d. the query carries no user token and no request context', async () => {
+    mockQuery.mockResolvedValue({ cmsPages: [] });
+
+    await getPageLinkByTag(
+      { tag: 'contact' },
+      mockEvent('test.com', 'token-a'),
+    );
+
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    const [options, ...rest] = mockQuery.mock.calls[0] as [
+      Record<string, unknown>,
+      ...unknown[],
+    ];
+    expect(rest).toHaveLength(0);
+    expect(options).not.toHaveProperty('userToken');
+    expect(Object.keys(options).sort()).toEqual(['queryAsString', 'variables']);
   });
 
   it('f. defensive fallback: uses the first page when no row matches the requested tag', async () => {
