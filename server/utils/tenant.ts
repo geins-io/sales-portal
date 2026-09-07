@@ -1,10 +1,11 @@
 import type { H3Event } from 'h3';
-import type { TenantConfig } from '#shared/types/tenant-config';
+import type { FeatureAccess, TenantConfig } from '#shared/types/tenant-config';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { CMS_MENUS } from '#shared/constants/cms';
 import type {
   StoreSettings,
   GeinsSettings,
+  FeatureAccessInput,
   FeatureConfig,
 } from '../schemas/store-settings';
 import { StoreSettingsSchema } from '../schemas/store-settings';
@@ -322,6 +323,65 @@ export function transformGeinsSettings(
 // ---------------------------------------------------------------------------
 
 /**
+ * Access rules `FeatureAccessSchema` still accepts but `FeatureAccess` no
+ * longer represents: nothing in the Geins token or in /api/auth/me carries a
+ * group, an account type or a permission list, so each could only ever deny.
+ */
+const RETIRED_ACCESS_RULES = ['group', 'accountType', 'permission'] as const;
+
+/**
+ * Narrows the wire shape to the rules the evaluators in
+ * shared/utils/feature-access.ts accept. An object rule carrying none of the
+ * retired keys is `{ role }`, the only object member left in `FeatureAccess`.
+ */
+function isEvaluableAccess(
+  access: FeatureAccessInput | undefined,
+): access is FeatureAccess | undefined {
+  return (
+    access === undefined ||
+    typeof access === 'string' ||
+    !RETIRED_ACCESS_RULES.some((key) => key in access)
+  );
+}
+
+/**
+ * Retire features whose access rule the app cannot evaluate.
+ *
+ * The schema keeps accepting the old shapes so a stored config never becomes
+ * invalid — rejecting them at the schema boundary would make
+ * `parseStoreSettingsResilient` strip `features.<name>.access` as a bad leaf,
+ * and a feature with no `access` is open to everyone. So the retirement happens
+ * here instead, after the parse: the feature is rewritten to `{ enabled: false }`
+ * and the reason is logged.
+ *
+ * `canAccess` is unchanged by this — the rule denied everyone before and the
+ * disabled feature denies everyone now. `hasFeature`, which reads `.enabled`
+ * only, does flip from true to false, so UI gated on it alone is hidden rather
+ * than rendered and then denied.
+ */
+function normalizeFeatureAccess(
+  features: Record<string, FeatureConfig>,
+  hostname: string,
+): TenantConfig['features'] {
+  const normalized: TenantConfig['features'] = {};
+  for (const [name, { enabled, access }] of Object.entries(features)) {
+    if (isEvaluableAccess(access)) {
+      normalized[name] =
+        access === undefined ? { enabled } : { enabled, access };
+      continue;
+    }
+    const retired = RETIRED_ACCESS_RULES.filter((key) => key in access).join(
+      ', ',
+    );
+    logger.warn(
+      `[tenant] Feature "${name}" for ${hostname} uses the retired access rule "${retired}"; disabling the feature`,
+    );
+    normalized[name] = { enabled: false };
+  }
+  return normalized;
+}
+
+/**
  * Builds a TenantConfig from validated StoreSettings.
  * Derives colors, merges override features, generates CSS + hash.
  */
@@ -338,15 +398,28 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   // stockStatus carry the {enabled, access} shape; the other 11 portal
   // features default to {enabled: true}). overrides.features takes final
   // precedence below.
-  const features: Record<string, FeatureConfig> = {
+  const rawFeatures: Record<string, FeatureConfig> = {
     ...STOREFRONT_SETTINGS_DEFAULTS.features,
     ...merged.features,
   };
   if (merged.overrides?.features) {
     for (const [key, value] of Object.entries(merged.overrides.features)) {
-      features[key] = value;
+      rawFeatures[key] = value;
     }
   }
+  const features = normalizeFeatureAccess(rawFeatures, merged.hostname);
+
+  // `overrides` is server-only, but TenantConfig types its feature map with the
+  // same narrowed FeatureAccess, so it is retired the same way. The effective
+  // map above already carries the override values.
+  const overrides: TenantConfig['overrides'] = merged.overrides
+    ? {
+        ...merged.overrides,
+        features: merged.overrides.features
+          ? normalizeFeatureAccess(merged.overrides.features, merged.hostname)
+          : merged.overrides.features,
+      }
+    : merged.overrides;
 
   const themeName = merged.theme.name ?? merged.tenantId;
 
@@ -403,7 +476,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     features,
     seo: merged.seo,
     contact: merged.contact,
-    overrides: merged.overrides,
+    overrides,
     cms,
     css,
     themeHash,
