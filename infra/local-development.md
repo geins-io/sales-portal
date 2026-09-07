@@ -7,7 +7,7 @@ This guide explains how to set up your local environment for multi-tenant develo
 For testing multi-tenancy locally, we use:
 
 - **dnsmasq** - DNS server that supports wildcard domains
-- **pfctl** - macOS port forwarding (port 80 → 3000)
+- **pfctl** - forwards port 80 to 3000 while `pnpm local:dev` runs
 
 This allows you to access the app via URLs like:
 
@@ -93,41 +93,37 @@ PING probe.litium.test (127.0.0.1): 56 data bytes
 
 ## Port Forwarding (Optional)
 
-By default, Nuxt runs on port 3000. To access without specifying the port, set up port forwarding.
+`pnpm local:dev` forwards port 80 to 3000 so the URLs work without a port, and removes the
+forwarding when it exits, Ctrl-C included. `pnpm local:setup` sets up DNS and the certificate
+only.
 
-### Enable Port Forwarding
+While `pnpm local:dev` runs, direct connections to port 3000 time out; run `pnpm test:e2e`
+against a plain `pnpm dev`.
 
-Create the port forwarding rule:
+If a dev session is killed outright (closed window, `kill -9`), the rule stays and connections to
+port 3000 time out. `pnpm local:stop` removes it; preflight L0 names that command when it sees the
+state.
+
+### Doing it by hand
 
 ```bash
+# write the rule
 sudo tee /etc/pf.anchors/dev.local << 'EOF'
 rdr pass inet proto tcp from any to any port 80 -> 127.0.0.1 port 3000
 EOF
-```
 
-Enable it:
+# load it into its own anchor
+sudo pfctl -a com.apple/dev.local -f /etc/pf.anchors/dev.local
 
-```bash
-sudo pfctl -ef /etc/pf.anchors/dev.local
+# enable pf; prints a token to release it with
+sudo pfctl -E
+
+# remove the rule, then release the token
+sudo pfctl -a com.apple/dev.local -F all
+sudo pfctl -X <token>
 ```
 
 > **Note:** The warnings about ALTQ are normal and can be ignored.
-
-### Disable Port Forwarding
-
-When you're done:
-
-```bash
-sudo pfctl -d
-```
-
-### Re-enable Port Forwarding
-
-After a reboot or if disabled:
-
-```bash
-sudo pfctl -ef /etc/pf.anchors/dev.local
-```
 
 ---
 
@@ -176,11 +172,7 @@ sudo brew services start dnsmasq
 sudo mkdir -p /etc/resolver
 echo "nameserver 127.0.0.1" | sudo tee /etc/resolver/litium.test
 
-# Set up port forwarding (optional)
-sudo tee /etc/pf.anchors/dev.local << 'EOF'
-rdr pass inet proto tcp from any to any port 80 -> 127.0.0.1 port 3000
-EOF
-sudo pfctl -ef /etc/pf.anchors/dev.local
+# pnpm local:dev enables port forwarding while it runs and removes it on exit.
 
 # Flush DNS
 sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
@@ -233,13 +225,17 @@ sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
 1. Check port forwarding is enabled:
 
    ```bash
-   sudo pfctl -s rules | grep 3000
+   sudo pfctl -a com.apple/dev.local -s nat
    ```
 
-2. Re-enable if needed:
-   ```bash
-   sudo pfctl -ef /etc/pf.anchors/dev.local
-   ```
+   `rdr` rules are listed by `-s nat`.
+
+2. Re-enable by restarting `pnpm local:dev`, which owns the rule.
+
+### Port 3000 times out with the dev server running
+
+A forwarding rule outlived its dev session. `lsof -iTCP:3000 -sTCP:LISTEN` shows the listener;
+run `pnpm local:stop`.
 
 ### Browser shows search results instead of site
 
@@ -264,8 +260,8 @@ sudo brew services stop dnsmasq
 # Remove resolver
 sudo rm /etc/resolver/litium.test
 
-# Disable port forwarding
-sudo pfctl -d
+# Remove any port forwarding left behind
+pnpm local:stop
 
 # (Optional) Uninstall dnsmasq
 brew uninstall dnsmasq
