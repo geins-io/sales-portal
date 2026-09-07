@@ -32,6 +32,7 @@ vi.mock('../../../../server/utils/cms-sanitize', () => ({
 const getCustomerTypeMock = vi.fn();
 vi.stubGlobal('getCustomerType', getCustomerTypeMock);
 vi.stubGlobal('setHeader', vi.fn());
+vi.stubGlobal('getCookie', () => undefined);
 
 vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('createAppError', (code: string, msg: string) => {
@@ -73,6 +74,7 @@ describe('CMS page route — customerType threading', () => {
     // Re-stub globals after resetModules
     vi.stubGlobal('getCustomerType', getCustomerTypeMock);
     vi.stubGlobal('setHeader', vi.fn());
+    vi.stubGlobal('getCookie', () => undefined);
     vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) =>
       fn(),
     );
@@ -136,6 +138,7 @@ describe('CMS area route — customerType threading', () => {
     // Re-stub globals after resetModules
     vi.stubGlobal('getCustomerType', getCustomerTypeMock);
     vi.stubGlobal('setHeader', vi.fn());
+    vi.stubGlobal('getCookie', () => undefined);
     vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) =>
       fn(),
     );

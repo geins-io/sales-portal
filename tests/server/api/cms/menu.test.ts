@@ -39,6 +39,7 @@ vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
 vi.stubGlobal('setHeader', vi.fn());
+vi.stubGlobal('getCookie', () => undefined);
 vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 
 describe('GET /api/cms/menu', () => {
@@ -67,6 +68,7 @@ describe('GET /api/cms/menu', () => {
     vi.stubGlobal('getRequestLocale', vi.fn().mockReturnValue(undefined));
     vi.stubGlobal('getRequestMarket', vi.fn().mockReturnValue(undefined));
     vi.stubGlobal('setHeader', vi.fn());
+    vi.stubGlobal('getCookie', () => undefined);
     vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 
     (

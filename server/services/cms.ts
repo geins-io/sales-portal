@@ -13,6 +13,7 @@ import {
 } from './_sdk';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
+import { getRequestIdentity } from '../utils/request-identity';
 import { hasPageTag } from '#shared/utils/cms-tags';
 import { mergeContainersByVisibility } from '#shared/utils/cms-visibility';
 import { isSafeInternalPath } from '#shared/utils/redirect';
@@ -40,15 +41,33 @@ const PAGE_LINK_NULL_SENTINEL = '';
 const pageLinkCache = new LRUCache<string, string>({ max: 300 });
 
 /**
- * Build a cache key prefix from event context (tenant hostname, locale, market).
+ * Cache key prefix without an identity segment: tenant hostname, locale, market.
  * Uses getRequestLocale/getRequestMarket which handle both page routes
  * (resolvedLocaleMarket) and API routes (cookie fallback with BCP-47 expansion).
+ *
+ * Only for a read that sends no user token, so its response cannot vary by
+ * caller — today that is getPageLinkByTag, whose query goes out without a
+ * RequestContext. Giving such a read a context means moving it to
+ * buildCachePrefix in the same change.
  */
-function buildCachePrefix(event: H3Event): string {
+function buildAnonymousCachePrefix(event: H3Event): string {
   const hostname = event.context?.tenant?.hostname ?? 'default';
   const locale = getRequestLocale(event) ?? 'default';
   const market = getRequestMarket(event) ?? 'default';
   return `${hostname}::${locale}::${market}`;
+}
+
+/**
+ * Cache key prefix for a read that sends the caller's token.
+ *
+ * The Merchant API filters CMS collections by the account behind that token, so
+ * an entry populated under one token must never be served under another — in
+ * either direction: one account's content disclosed, or an account served the
+ * empty result a non-matching caller got. The identity segment lives here so
+ * every cache built on the prefix inherits it.
+ */
+function buildCachePrefix(event: H3Event): string {
+  return `${buildAnonymousCachePrefix(event)}::${getRequestIdentity(event)}`;
 }
 
 /**
@@ -298,10 +317,12 @@ export async function getContentArea(
   event: H3Event,
 ): Promise<CmsContentArea> {
   const preview = getPreviewCookie(event);
-  const isCacheable = !args.customerType && !preview;
-  const cacheKey = isCacheable
-    ? `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}`
-    : '';
+  const isCacheable = !preview;
+  // customerType is a query argument that changes the response, so it belongs
+  // in the key beside family and areaName. It is usually decoded from the token
+  // the identity segment already covers, but not always: a request carrying
+  // only a refresh cookie resolves a customer type while sending no token.
+  const cacheKey = `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}::${args.customerType ?? 'any'}`;
 
   if (isCacheable) {
     const cached = areaCache.get(cacheKey);
@@ -364,7 +385,7 @@ export async function getPageLinkByTag(
   const preview = getPreviewCookie(event);
   const isCacheable = !preview;
   // No preview variant: cmsPages has no preview arg; preview only disables caching here.
-  const cacheKey = `${buildCachePrefix(event)}::pagelink::${args.tag}`;
+  const cacheKey = `${buildAnonymousCachePrefix(event)}::pagelink::${args.tag}`;
 
   if (isCacheable && pageLinkCache.has(cacheKey)) {
     const cached = pageLinkCache.get(cacheKey);
