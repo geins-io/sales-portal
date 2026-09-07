@@ -133,7 +133,7 @@ Features are a record of feature flags with optional access control:
 // Feature flag with access control
 interface FeatureConfig {
   enabled: boolean;
-  access?: 'all' | 'authenticated' | { group: string } | { role: string } | { accountType: string };
+  access?: 'all' | 'authenticated' | { role: string };
 }
 
 // Example feature map
