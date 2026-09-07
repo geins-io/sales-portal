@@ -134,15 +134,8 @@ export const BrandingConfigSchema = z.object({
  * - "authenticated": logged-in users only
  * - { role: "order_placer" }: specific role
  *
- * `{ group }`, `{ accountType }` and `{ permission }` are retired. The app
- * cannot evaluate them (no group, account type or permission list exists in the
- * Geins token) so they are gone from `FeatureAccess`, but a stored config must
- * never become invalid: they are still accepted here and
- * `normalizeFeatureAccess` in server/utils/tenant.ts rewrites the feature
- * carrying one to `{ enabled: false }` with a warn log. Rejecting them here
- * instead would put the Zod issue on `features.<name>.access`;
- * `parseStoreSettingsResilient` strips that leaf, and a feature with no
- * `access` is open to everyone.
+ * `{ group }`, `{ accountType }` and `{ permission }` are accepted for
+ * backwards compatibility and retired in server/utils/tenant.ts.
  */
 export const FeatureAccessSchema = z.union([
   z.literal('all'),

@@ -322,18 +322,10 @@ export function transformGeinsSettings(
 // Config building & fetching
 // ---------------------------------------------------------------------------
 
-/**
- * Access rules `FeatureAccessSchema` still accepts but `FeatureAccess` no
- * longer represents: nothing in the Geins token or in /api/auth/me carries a
- * group, an account type or a permission list, so each could only ever deny.
- */
+/** Wire-only rules: accepted by the schema, absent from `FeatureAccess`. */
 const RETIRED_ACCESS_RULES = ['group', 'accountType', 'permission'] as const;
 
-/**
- * Narrows the wire shape to the rules the evaluators in
- * shared/utils/feature-access.ts accept. An object rule carrying none of the
- * retired keys is `{ role }`, the only object member left in `FeatureAccess`.
- */
+/** An object rule with none of the retired keys is `{ role }`. */
 function isEvaluableAccess(
   access: FeatureAccessInput | undefined,
 ): access is FeatureAccess | undefined {
@@ -345,19 +337,11 @@ function isEvaluableAccess(
 }
 
 /**
- * Retire features whose access rule the app cannot evaluate.
- *
- * The schema keeps accepting the old shapes so a stored config never becomes
- * invalid — rejecting them at the schema boundary would make
- * `parseStoreSettingsResilient` strip `features.<name>.access` as a bad leaf,
- * and a feature with no `access` is open to everyone. So the retirement happens
- * here instead, after the parse: the feature is rewritten to `{ enabled: false }`
- * and the reason is logged.
- *
- * `canAccess` is unchanged by this — the rule denied everyone before and the
- * disabled feature denies everyone now. `hasFeature`, which reads `.enabled`
- * only, does flip from true to false, so UI gated on it alone is hidden rather
- * than rendered and then denied.
+ * Rewrite a feature whose access rule the app cannot evaluate to
+ * `{ enabled: false }`, logging why. It happens here rather than in the schema
+ * because rejecting the rule would put the Zod issue on
+ * `features.<name>.access`; `parseStoreSettingsResilient` strips that leaf, and
+ * a feature with no `access` is open to everyone. See ADR-007.
  */
 function normalizeFeatureAccess(
   features: Record<string, FeatureConfig>,
@@ -409,9 +393,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   }
   const features = normalizeFeatureAccess(rawFeatures, merged.hostname);
 
-  // `overrides` is server-only, but TenantConfig types its feature map with the
-  // same narrowed FeatureAccess, so it is retired the same way. The effective
-  // map above already carries the override values.
+  // Server-only, but typed with the same narrowed FeatureAccess.
   const overrides: TenantConfig['overrides'] = merged.overrides
     ? {
         ...merged.overrides,

@@ -18,12 +18,8 @@ export type {
  * Feature access control — who can access a feature.
  * Standalone type so shared/ utilities don't depend on server/schemas/.
  *
- * Only rules the app can actually evaluate live here. `{ group }`,
- * `{ accountType }` and `{ permission }` were removed: nothing in the Geins
- * token or in /api/auth/me carries a group, an account type or a permission
- * list, so each of them could only ever deny. `FeatureAccessInput` (the wire
- * shape) still accepts them and `normalizeFeatureAccess` in
- * server/utils/tenant.ts retires them per config.
+ * Only rules the app can evaluate. The wire shape (`FeatureAccessInput`) is
+ * wider; `normalizeFeatureAccess` in server/utils/tenant.ts retires the rest.
  */
 export type FeatureAccess = 'all' | 'authenticated' | { role: string };
 
