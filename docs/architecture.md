@@ -458,7 +458,7 @@ The CMS service wraps Geins SDK calls for menus, pages, and widget areas with:
 - **Language fallback**: Widget areas and menus retry without `languageId` when content doesn't exist for the user's locale. Pages do not fallback (different aliases per language).
 - **Preview mode**: Detects `preview_mode` cookie and passes `preview: true` to SDK. Falls through to published content if preview returns empty.
 - **Display setting**: Passes `mobile`/`desktop` to widget area queries based on `User-Agent` header.
-- **LRU caching**: Menu and area results cached with 60s TTL. Cache bypassed in preview mode and for authenticated users.
+- **LRU caching**: Menu and area results cached with 60s TTL. The cache is bypassed in preview mode; a signed-in caller gets its own cache key rather than no cache (ADR-014).
 
 ### Caching
 

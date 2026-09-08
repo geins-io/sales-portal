@@ -2,7 +2,7 @@
 title: CMS Caching Strategy
 status: accepted
 created: 2026-03-31
-updated: 2026-08-27
+updated: 2026-09-08
 tags: [caching, cms, performance]
 ---
 
@@ -26,19 +26,26 @@ entirely.
 
 - In-process `LRUCache` in `server/services/cms.ts`
 - TTL: 60 seconds (`CACHE_TTL_MS = 60_000`)
-- Cache keys include tenant hostname, locale, and market (`buildCachePrefix()`)
+- Menu and area cache keys include tenant hostname, locale, market, and the caller's identity: a
+  16-char hash of the auth token, or a fixed anonymous marker (`buildCachePrefix()`). The key
+  carries the caller because the Merchant API filters CMS collections by the account behind the
+  token. The resolved page-link key omits that segment (`buildAnonymousCachePrefix()`) — its
+  query is sent without a request context, so its response cannot vary by caller
+- The area key carries `customerType` as its own segment: a request carrying only a refresh
+  cookie resolves a customer type while sending no token
 - Menus (`max: 200`), content areas (`max: 500`), resolved page links (`max: 300`)
 - Pages are not cached (they may be personalized by customer type or preview mode)
 
 ### Layer 2: CMS API responses are private
 
-CMS endpoints set `private, no-cache`, and `private, no-store` when a customer type is resolved.
+The area, page and menu endpoints set `private, no-cache`, and `private, no-store` when the
+request carries an auth token. The page-link endpoint always sets `private, no-cache`.
 No `Vary` header is set; `tests/server/api/cms/cms-cache-headers.test.ts` asserts its absence
 deliberately.
 
-Keeping CMS responses out of any shared cache means the locale/market dimension in the Layer 1
-key is the only thing that has to be right. The `public, s-maxage=60` headers elsewhere in the
-app apply to page HTML (ADR-010) and the product endpoints, not to CMS.
+Keeping CMS responses out of any shared cache means the Layer 1 key is the only thing that has to
+be right. The `public, s-maxage=60` headers elsewhere in the app apply to page HTML (ADR-010) and
+the product endpoints, not to CMS.
 
 ### Layer 3: Client-Side useFetch (locale-aware)
 
@@ -60,10 +67,11 @@ locale hits a different cache entry.
 - CMS content is never served from a shared cache, so a cross-tenant or cross-locale mix-up at
   that layer is impossible by construction
 - Preview mode bypasses all caching layers
-- Keys are `hostname::locale::market::…`, so the key space grows multiplicatively with tenant
-  count and a few hundred tenants would exceed the caps above. Whether that degrades the hit rate
-  in practice is untested — the 60-second TTL limits the live working set to recently active
-  tenants — so the caps are worth revisiting as tenant count grows
+- Keys are `hostname::locale::market::identity::…`, so the key space grows multiplicatively with
+  tenant count and, because the key carries the caller, with the number of active signed-in
+  sessions as well; a few hundred tenants would exceed the caps above. Whether that degrades the
+  hit rate in practice is untested — the 60-second TTL limits the live working set to recently
+  active tenants — so the caps are worth revisiting as tenant count grows
 - These TTLs and caps are tuned by reasoning rather than by measured hit rate
 - Tenant config caching is covered by ADR-009; page HTML by ADR-010. `/api/resolve-url` has its
   own SWR handler cache, which caches misses deliberately so a scanner cannot re-hammer Geins
