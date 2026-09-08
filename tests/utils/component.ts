@@ -4,13 +4,37 @@
  * Helpers for testing Vue components with @vue/test-utils
  */
 
+import { expect } from 'vitest';
 import { mount, shallowMount, type MountingOptions } from '@vue/test-utils';
 import type { Component } from 'vue';
+
+// `Stub`/`Stubs` are not re-exported from the package root, so derive them.
+// `Stubs` also allows a `string[]`; the record form is what the defaults use.
+type Stubs = NonNullable<
+  NonNullable<MountingOptions<unknown>['global']>['stubs']
+>;
+type StubRecord = Exclude<Stubs, string[]>;
+
+/**
+ * Exactly the options `mount<T>` accepts. `ComponentMountingOptions<T>` is not
+ * the same type: `mount` resolves its own component parameter through a
+ * conditional, so spelling the options out independently is not assignable to
+ * it while `T` is still generic.
+ */
+export type MountOptionsFor<T> = NonNullable<Parameters<typeof mount<T>>[1]>;
+
+/** Normalize the `string[]` form of `stubs` into the record form. */
+function toStubRecord(stubs: Stubs | undefined): StubRecord | undefined {
+  if (!Array.isArray(stubs)) return stubs;
+  return Object.fromEntries(stubs.map((name) => [name, true]));
+}
 
 /**
  * Default mounting options for component tests
  */
-export const defaultMountOptions: MountingOptions<unknown> = {
+export const defaultMountOptions: {
+  global: { stubs: StubRecord; mocks: Record<string, unknown> };
+} = {
   global: {
     stubs: {
       // Stub common components
@@ -66,20 +90,20 @@ export const defaultMountOptions: MountingOptions<unknown> = {
  */
 export function mountComponent<T extends Component>(
   component: T,
-  options: MountingOptions<unknown> = {},
+  options: MountOptionsFor<T> = {},
 ) {
-  return mount(component, {
+  return mount<T>(component, {
     ...defaultMountOptions,
     ...options,
     global: {
       ...defaultMountOptions.global,
       ...options.global,
       stubs: {
-        ...defaultMountOptions.global?.stubs,
-        ...options.global?.stubs,
+        ...defaultMountOptions.global.stubs,
+        ...toStubRecord(options.global?.stubs),
       },
       mocks: {
-        ...defaultMountOptions.global?.mocks,
+        ...defaultMountOptions.global.mocks,
         ...options.global?.mocks,
       },
     },
@@ -91,20 +115,20 @@ export function mountComponent<T extends Component>(
  */
 export function shallowMountComponent<T extends Component>(
   component: T,
-  options: MountingOptions<unknown> = {},
+  options: MountOptionsFor<T> = {},
 ) {
-  return shallowMount(component, {
+  return shallowMount<T>(component, {
     ...defaultMountOptions,
     ...options,
     global: {
       ...defaultMountOptions.global,
       ...options.global,
       stubs: {
-        ...defaultMountOptions.global?.stubs,
-        ...options.global?.stubs,
+        ...defaultMountOptions.global.stubs,
+        ...toStubRecord(options.global?.stubs),
       },
       mocks: {
-        ...defaultMountOptions.global?.mocks,
+        ...defaultMountOptions.global.mocks,
         ...options.global?.mocks,
       },
     },
@@ -117,7 +141,7 @@ export function shallowMountComponent<T extends Component>(
 export function renderWithSlot(
   component: Component,
   slotContent: string,
-  options: MountingOptions<unknown> = {},
+  options: MountOptionsFor<Component> = {},
 ) {
   return mountComponent(component, {
     ...options,
