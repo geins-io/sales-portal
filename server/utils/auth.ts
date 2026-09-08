@@ -73,6 +73,9 @@ export async function optionalAuth(event: H3Event): Promise<AuthTokens | null> {
 /**
  * Extracts the customer type from the current user's JWT payload.
  * Returns undefined for anonymous users, invalid tokens, or preview mode.
+ *
+ * The claim is `CustomerType`, PascalCase, and its value is a numeric enum:
+ * 1 is a private person, 2 an organisation, and 0 means unset.
  */
 export async function getCustomerType(
   event: H3Event,
@@ -88,19 +91,18 @@ export async function getCustomerType(
 
   try {
     const payload = decodeJwtPayload(auth.authToken);
-    if (!payload?.customerType) {
+    if (payload?.CustomerType === undefined || payload.CustomerType === null) {
       return undefined;
     }
 
-    const normalized = String(payload.customerType).toUpperCase();
-    if (normalized === GeinsCustomerType.OrganizationType) {
-      return GeinsCustomerType.OrganizationType;
+    switch (String(payload.CustomerType).trim()) {
+      case '1':
+        return GeinsCustomerType.PersonType;
+      case '2':
+        return GeinsCustomerType.OrganizationType;
+      default:
+        return undefined;
     }
-    if (normalized === GeinsCustomerType.PersonType) {
-      return GeinsCustomerType.PersonType;
-    }
-
-    return undefined;
   } catch {
     return undefined;
   }
