@@ -8,16 +8,15 @@ Testing strategy, architecture, and practices for the Sales Portal.
 
 ## Overview
 
-3687 unit/component tests across 277 files + 12 E2E spec files / 226 tests across three browser projects (portal, auth, cart, navigation, search, routing, etc.).
+3970 unit/component tests across 292 files + 13 E2E spec files and five preflight layers / 249 tests across three browser projects (portal, auth, cart, navigation, search, routing, etc.).
 
-Counts as of 2026-08-25. E2E has setup prerequisites — see [E2E Tests](#e2e-tests).
+Counts as of 2026-09-08. E2E has setup prerequisites — see [E2E Tests](#e2e-tests).
 
-| Level       | Tool                    | What it tests                            |
-| ----------- | ----------------------- | ---------------------------------------- |
-| Unit        | Vitest                  | Functions, utilities, stores, middleware |
-| Component   | Vitest + Vue Test Utils | Vue components in isolation              |
-| Integration | Vitest                  | Server services hitting real Geins API   |
-| E2E         | Playwright              | Complete user flows in a browser         |
+| Level     | Tool                    | What it tests                            |
+| --------- | ----------------------- | ---------------------------------------- |
+| Unit      | Vitest                  | Functions, utilities, stores, middleware |
+| Component | Vitest + Vue Test Utils | Vue components in isolation              |
+| E2E       | Playwright              | Complete user flows in a browser         |
 
 ## Test Stack
 
@@ -393,7 +392,6 @@ tests/
 │   ├── services/
 │   │   ├── _client.test.ts
 │   │   ├── sdk-services.test.ts
-│   │   ├── integration.test.ts           # Hits real Geins API
 │   │   └── graphql-loader.test.ts
 │   └── ...
 ├── stores/            # Pinia store tests (node tier)
@@ -512,10 +510,9 @@ restore();
 
 ### Service Layer Tests
 
-Two approaches in `tests/server/services/`:
-
-- **Unit tests** — mock SDK calls, test service logic in isolation
-- **Integration tests** — hit real Geins API with test credentials, gated by env vars
+Services are tested in `tests/server/services/` by mocking SDK calls and
+exercising the service logic in isolation. Journeys against a live Geins API are
+covered by the e2e suite, in a browser, against the team tenant.
 
 Mock data is always inlined in test files — never read from external paths (they don't exist in CI).
 
