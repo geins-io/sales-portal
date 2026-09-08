@@ -1,11 +1,19 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { ref, computed } from 'vue';
+import type { ComputedRef } from 'vue';
 
-const useFetchMock = vi.fn();
+// The signature is the one the composable calls useFetch with, so the URL and
+// the options object are checked rather than inferred as zero arguments.
+type PageLinkFetch = (
+  url: string,
+  options: { query: ComputedRef<Record<string, unknown>>; dedupe: string },
+) => unknown;
+
+const useFetchMock = vi.fn<PageLinkFetch>();
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => useFetchMock(...args),
+  useFetch: (...args: Parameters<PageLinkFetch>) => useFetchMock(...args),
 }));
 
 vi.stubGlobal('useFetch', useFetchMock);
@@ -120,7 +128,9 @@ describe('useCmsPageLink', () => {
 
     useCmsPageLink('contact');
 
-    const [url, opts] = useFetchMock.mock.calls[0];
+    const call = useFetchMock.mock.calls[0];
+    assert.isDefined(call);
+    const [url, opts] = call;
     expect(url).toBe('/api/cms/page-link');
     expect(opts.dedupe).toBe('defer');
     const query = opts.query.value;

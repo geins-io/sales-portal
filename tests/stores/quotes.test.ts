@@ -237,7 +237,7 @@ describe('useQuotesStore', () => {
       store.quotes = [{ ...mockQuoteListItem }];
       await store.acceptQuote('q-001');
 
-      expect(store.quotes[0].status).toBe('accepted');
+      expect(store.quotes[0]?.status).toBe('accepted');
     });
 
     it('sets error to the accept_failed i18n key on failure', async () => {
@@ -294,7 +294,7 @@ describe('useQuotesStore', () => {
       store.quotes = [{ ...mockQuoteListItem }];
       await store.rejectQuote('q-001');
 
-      expect(store.quotes[0].status).toBe('rejected');
+      expect(store.quotes[0]?.status).toBe('rejected');
     });
 
     it('sets error to the decline_failed i18n key on failure', async () => {

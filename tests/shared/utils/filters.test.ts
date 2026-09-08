@@ -164,7 +164,7 @@ describe('isPriceFacet', () => {
   });
 
   it('returns false for type "priced" (no substring match)', () => {
-    expect(isPriceFacet({ type: 'priced' })).toBe(false);
+    expect(isPriceFacet({ type: 'priced', filterId: 'priced' })).toBe(false);
   });
 
   it('returns true when group is "  Price " (leading/trailing whitespace)', () => {

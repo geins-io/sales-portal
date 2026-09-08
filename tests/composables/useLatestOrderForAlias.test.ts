@@ -1,12 +1,25 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { ref } from 'vue';
 
-const useFetchMock = vi.fn();
+// The signature is the one the composable calls useFetch with, so the url
+// factory and the options object are checked instead of inferred as zero
+// arguments.
+type LatestOrderFetch = (
+  url: () => string,
+  options: {
+    immediate: boolean;
+    lazy: boolean;
+    dedupe: string;
+    watch: unknown[];
+  },
+) => unknown;
+
+const useFetchMock = vi.fn<LatestOrderFetch>();
 const authStoreMock = { isAuthenticated: true };
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => useFetchMock(...args),
+  useFetch: (...args: Parameters<LatestOrderFetch>) => useFetchMock(...args),
 }));
 
 vi.stubGlobal('useFetch', useFetchMock);
@@ -34,7 +47,9 @@ describe('useLatestOrderForAlias', () => {
 
     useLatestOrderForAlias('grenror-150-150-88');
 
-    const [urlFactory] = useFetchMock.mock.calls[0];
+    const call = useFetchMock.mock.calls[0];
+    assert.isDefined(call);
+    const [urlFactory] = call;
     expect(typeof urlFactory).toBe('function');
     expect(urlFactory()).toBe(
       '/api/orders/products/by-alias/grenror-150-150-88',
@@ -52,7 +67,9 @@ describe('useLatestOrderForAlias', () => {
 
     useLatestOrderForAlias('foo');
 
-    const [, opts] = useFetchMock.mock.calls[0];
+    const call = useFetchMock.mock.calls[0];
+    assert.isDefined(call);
+    const [, opts] = call;
     expect(opts.immediate).toBe(false);
   });
 
@@ -66,7 +83,9 @@ describe('useLatestOrderForAlias', () => {
 
     useLatestOrderForAlias('');
 
-    const [, opts] = useFetchMock.mock.calls[0];
+    const call = useFetchMock.mock.calls[0];
+    assert.isDefined(call);
+    const [, opts] = call;
     expect(opts.immediate).toBe(false);
   });
 
