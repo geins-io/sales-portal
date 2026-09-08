@@ -43,10 +43,13 @@ Geins CMS (page tagged #contact)
    `isSafeInternalPath` at the boundary. It returns `null` only when neither a
    canonical URL nor a safe alias path is available. `cmsPages` localizes by an
    exact `languageId` match, so each locale gets its own page. Results are cached
-   in a short-TTL LRU keyed by `buildCachePrefix(event)::pagelink::<tag>`; a
-   confirmed miss is cached as an empty-string sentinel (distinguished from an
-   un-cached entry via `cache.has()`) so a missing page does not re-query every
-   render. Preview requests bypass the cache.
+   in a short-TTL LRU keyed by
+   `buildAnonymousCachePrefix(event)::pagelink::<tag>`: the query goes out
+   without a request context, so its response cannot vary by caller and the key
+   carries no identity segment. A confirmed miss is cached as an empty-string
+   sentinel (distinguished from an un-cached entry via `cache.has()`) so a
+   missing page does not re-query every render. Preview requests bypass the
+   cache.
 3. `server/api/cms/page-link.get.ts` validates `tag` with `CmsPageLinkSchema`
    (`^[a-z][a-z0-9-]*$`, max 50) and returns `{ url }`.
 4. `useCmsPageLink(tag)` (`app/composables/useCmsPageLink.ts`) takes the tag as
