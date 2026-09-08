@@ -167,9 +167,15 @@ Full guide in [CONTRIBUTING.md](CONTRIBUTING.md); rationale in [ADR-022](docs/ad
 1. `pnpm typecheck` — must pass
 2. `pnpm test` — all tests must pass
 3. `pnpm lint:fix` — no lint errors
-4. `docker build .` — Dockerfile must build successfully (if Dockerfile was modified)
+4. `docker build .` — must build successfully if the build configuration changed:
+   `Dockerfile`, `.dockerignore`, `tsconfig.json`, `nuxt.config.ts`, or a build script in
+   `package.json`
 
 If any of these fail, fix before pushing. Never push broken code to `main`.
+
+A green `pnpm build` does not stand in for `docker build .`. `.dockerignore` filters the
+build context, so the container compiles a different file set than the working tree — a
+config that resolves locally can be missing its target in the image.
 
 **AI assistants must never run `git push`.** Commit locally if asked, then stop and hand back —
 a human reviews the diff and pushes. This is not about trust in the change; it is that pushing is
