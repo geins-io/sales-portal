@@ -6,6 +6,24 @@ import {
   createTenantInactiveError,
   createValidationError,
 } from '../../server/utils/errors';
+import type { H3Error } from 'h3';
+
+/** The `data` payload `createAppError` builds: an error code, plus details in dev. */
+type AppErrorData = {
+  code?: string;
+  details?: Record<string, unknown>;
+};
+
+// `H3Error['data']` is untyped, so the shape these assertions read is named and
+// checked once here instead of at each site. Typing the return of
+// `createAppError` is product code and has its own ticket.
+function errorData(error: H3Error): AppErrorData {
+  const { data } = error;
+  if (typeof data !== 'object' || data === null) {
+    throw new TypeError(`error.data is ${typeof data}, expected an object`);
+  }
+  return data as AppErrorData;
+}
 
 vi.mock('../../server/utils/logger', () => ({
   logger: {
@@ -68,13 +86,13 @@ describe('Error utilities', () => {
         const error = createAppError(ErrorCode.NOT_FOUND, 'Not found', {
           resourceId: '123',
         });
-        expect(error.data?.details?.resourceId).toBe('123');
+        expect(errorData(error).details?.resourceId).toBe('123');
       });
 
       it('should include sensitive information in tenant errors', () => {
         const error = createTenantNotFoundError('secret-internal.example.com');
         expect(error.message).toContain('secret-internal.example.com');
-        expect(error.data?.details?.hostname).toBe(
+        expect(errorData(error).details?.hostname).toBe(
           'secret-internal.example.com',
         );
       });
@@ -104,8 +122,8 @@ describe('Error utilities', () => {
           resourceId: '123',
           internalPath: '/secret/path',
         });
-        expect(error.data?.code).toBe(ErrorCode.NOT_FOUND);
-        expect(error.data?.details).toBeUndefined();
+        expect(errorData(error).code).toBe(ErrorCode.NOT_FOUND);
+        expect(errorData(error).details).toBeUndefined();
       });
 
       it('should sanitize tenant not found errors', () => {
@@ -113,7 +131,7 @@ describe('Error utilities', () => {
         expect(error.statusCode).toBe(404);
         expect(error.message).toBe('Tenant not found');
         expect(error.message).not.toContain('secret-internal.example.com');
-        expect(error.data?.details).toBeUndefined();
+        expect(errorData(error).details).toBeUndefined();
       });
 
       it('should sanitize tenant inactive errors', () => {
@@ -121,7 +139,7 @@ describe('Error utilities', () => {
         expect(error.statusCode).toBe(403);
         expect(error.message).toBe('Tenant is inactive');
         expect(error.message).not.toContain('tenant-secret-123');
-        expect(error.data?.details).toBeUndefined();
+        expect(errorData(error).details).toBeUndefined();
       });
 
       it('should sanitize validation errors', () => {
@@ -132,7 +150,7 @@ describe('Error utilities', () => {
         expect(error.statusCode).toBe(422);
         expect(error.message).toBe('Validation failed');
         expect(error.message).not.toContain('Internal');
-        expect(error.data?.details).toBeUndefined();
+        expect(errorData(error).details).toBeUndefined();
       });
 
       it('should always include error code in response', () => {
@@ -141,10 +159,10 @@ describe('Error utilities', () => {
           'Database connection failed: connection string leaked',
           { connectionString: 'postgres://user:pass@host:5432/db' },
         );
-        expect(error.data?.code).toBe(ErrorCode.INTERNAL_ERROR);
+        expect(errorData(error).code).toBe(ErrorCode.INTERNAL_ERROR);
         expect(error.message).toBe('Internal server error');
         expect(error.message).not.toContain('Database');
-        expect(error.data?.details).toBeUndefined();
+        expect(errorData(error).details).toBeUndefined();
       });
     });
   });
@@ -162,7 +180,7 @@ describe('Error utilities', () => {
       const error = createTenantNotFoundError('example.com');
       expect(error.statusCode).toBe(404);
       expect(error.message).toContain('example.com');
-      expect(error.data?.code).toBe(ErrorCode.TENANT_NOT_FOUND);
+      expect(errorData(error).code).toBe(ErrorCode.TENANT_NOT_FOUND);
     });
   });
 
@@ -179,7 +197,7 @@ describe('Error utilities', () => {
       const error = createTenantInactiveError('tenant-123');
       expect(error.statusCode).toBe(403);
       expect(error.message).toContain('tenant-123');
-      expect(error.data?.code).toBe(ErrorCode.TENANT_INACTIVE);
+      expect(errorData(error).code).toBe(ErrorCode.TENANT_INACTIVE);
     });
   });
 
@@ -198,9 +216,13 @@ describe('Error utilities', () => {
         password: ['Password too short'],
       });
       expect(error.statusCode).toBe(422);
-      expect(error.data?.code).toBe(ErrorCode.VALIDATION_ERROR);
-      expect(error.data?.details?.validationErrors).toHaveProperty('email');
-      expect(error.data?.details?.validationErrors).toHaveProperty('password');
+      expect(errorData(error).code).toBe(ErrorCode.VALIDATION_ERROR);
+      expect(errorData(error).details?.validationErrors).toHaveProperty(
+        'email',
+      );
+      expect(errorData(error).details?.validationErrors).toHaveProperty(
+        'password',
+      );
     });
   });
 });

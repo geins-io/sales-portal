@@ -13,6 +13,8 @@ export const geinsSettings: GeinsSettings = {
   market: process.env.GEINS_MARKET!,
   environment:
     (process.env.GEINS_ENVIRONMENT as 'production' | 'staging') || 'production',
+  availableLocales: [process.env.GEINS_LOCALE!],
+  availableMarkets: [process.env.GEINS_MARKET!],
 };
 
 export const userCredentials = {

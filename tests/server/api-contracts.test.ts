@@ -469,7 +469,7 @@ describe('API Contracts', () => {
 
     beforeEach(async () => {
       vi.resetModules();
-      const module = await import('../../server/api/health.get.ts');
+      const module = await import('../../server/api/health.get');
       healthHandler = module.default as (event: H3Event) => Promise<unknown>;
     });
 

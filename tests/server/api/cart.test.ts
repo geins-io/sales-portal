@@ -72,9 +72,7 @@ vi.stubGlobal(
 vi.stubGlobal(
   'createAppError',
   vi.fn((_code: string, msg: string) => {
-    const err = new Error(msg);
-    (err as Record<string, unknown>).statusCode = 404;
-    return err;
+    return Object.assign(new Error(msg), { statusCode: 404 });
   }),
 );
 vi.stubGlobal('ErrorCode', {

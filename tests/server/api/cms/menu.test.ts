@@ -71,9 +71,7 @@ describe('GET /api/cms/menu', () => {
     vi.stubGlobal('getCookie', () => undefined);
     vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 
-    (
-      globalThis.getValidatedQuery as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
+    vi.mocked(getValidatedQuery).mockResolvedValue({
       menuLocationId: 'main-menu',
     });
   });
@@ -102,9 +100,7 @@ describe('GET /api/cms/menu', () => {
   });
 
   it('calls SDK with parsed menuLocationId', async () => {
-    (
-      globalThis.getValidatedQuery as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
+    vi.mocked(getValidatedQuery).mockResolvedValue({
       menuLocationId: 'footer-menu',
     });
     mockMenuGet.mockResolvedValue({ id: 'footer-menu', items: [] });
@@ -139,8 +135,10 @@ describe('GET /api/cms/menu', () => {
       .default;
     await handler(mockEvent);
 
-    expect(
-      globalThis.setHeader as ReturnType<typeof vi.fn>,
-    ).toHaveBeenCalledWith(mockEvent, 'Cache-Control', 'private, no-cache');
+    expect(vi.mocked(setHeader)).toHaveBeenCalledWith(
+      mockEvent,
+      'Cache-Control',
+      'private, no-cache',
+    );
   });
 });

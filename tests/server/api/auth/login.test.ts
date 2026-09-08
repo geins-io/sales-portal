@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { eventWithGeinsSettings } from '../../mock-event';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
@@ -91,9 +92,7 @@ describe('POST /api/auth/login', () => {
       remaining: 4,
       resetTime: 0,
     });
-    (
-      globalThis.readValidatedBody as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
+    vi.mocked(readValidatedBody).mockResolvedValue({
       username: 'user@example.com',
       password: 'password123',
     });
@@ -144,9 +143,7 @@ describe('POST /api/auth/login', () => {
   });
 
   it('passes rememberMe to setAuthCookies', async () => {
-    (
-      globalThis.readValidatedBody as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
+    vi.mocked(readValidatedBody).mockResolvedValue({
       username: 'user@example.com',
       password: 'password123',
       rememberMe: false,
@@ -273,15 +270,11 @@ describe('POST /api/auth/login', () => {
 
   it('switches a Finnish-company buyer off the default SE market to FI', async () => {
     mockGetMarketCookie.mockReturnValue('se');
-    const eventWithTenant = {
-      context: {
-        tenant: {
-          config: {
-            geinsSettings: { channel: '1', tld: 'se', market: 'se' },
-          },
-        },
-      },
-    } as import('h3').H3Event;
+    const eventWithTenant = eventWithGeinsSettings({
+      channel: '1',
+      tld: 'se',
+      market: 'se',
+    });
 
     mockAuthLogin.mockResolvedValue({
       succeeded: true,
@@ -322,15 +315,11 @@ describe('POST /api/auth/login', () => {
 
   it('leaves market unchanged when already on the company-country market', async () => {
     mockGetMarketCookie.mockReturnValue('fi');
-    const eventWithTenant = {
-      context: {
-        tenant: {
-          config: {
-            geinsSettings: { channel: '1', tld: 'se', market: 'se' },
-          },
-        },
-      },
-    } as import('h3').H3Event;
+    const eventWithTenant = eventWithGeinsSettings({
+      channel: '1',
+      tld: 'se',
+      market: 'se',
+    });
 
     mockAuthLogin.mockResolvedValue({
       succeeded: true,

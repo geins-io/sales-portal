@@ -122,7 +122,7 @@ describe('Product API Routes', () => {
 
     beforeEach(async () => {
       vi.resetModules();
-      const mod = await import('../../../server/api/products/[alias].get.ts');
+      const mod = await import('../../../server/api/products/[alias].get');
       handler = mod.default as Handler;
     });
 
@@ -223,7 +223,7 @@ describe('Product API Routes', () => {
     beforeEach(async () => {
       vi.resetModules();
       const mod =
-        await import('../../../server/api/products/[alias]/related.get.ts');
+        await import('../../../server/api/products/[alias]/related.get');
       handler = mod.default as Handler;
     });
 
@@ -254,7 +254,7 @@ describe('Product API Routes', () => {
     beforeEach(async () => {
       vi.resetModules();
       const mod =
-        await import('../../../server/api/products/[alias]/reviews.get.ts');
+        await import('../../../server/api/products/[alias]/reviews.get');
       handler = mod.default as Handler;
     });
 
@@ -299,7 +299,7 @@ describe('Product API Routes', () => {
     beforeEach(async () => {
       vi.resetModules();
       const mod =
-        await import('../../../server/api/products/[alias]/reviews.post.ts');
+        await import('../../../server/api/products/[alias]/reviews.post');
       handler = mod.default as Handler;
     });
 
@@ -357,7 +357,7 @@ describe('Product API Routes', () => {
     beforeEach(async () => {
       vi.resetModules();
       const mod =
-        await import('../../../server/api/products/[alias]/price-history.get.ts');
+        await import('../../../server/api/products/[alias]/price-history.get');
       handler = mod.default as Handler;
     });
 
@@ -388,7 +388,7 @@ describe('Product API Routes', () => {
     beforeEach(async () => {
       vi.resetModules();
       const mod =
-        await import('../../../server/api/products/monitor-availability.post.ts');
+        await import('../../../server/api/products/monitor-availability.post');
       handler = mod.default as Handler;
     });
 
@@ -432,8 +432,7 @@ describe('Product API Routes', () => {
 
     beforeEach(async () => {
       vi.resetModules();
-      const mod =
-        await import('../../../server/api/products/by-aliases.get.ts');
+      const mod = await import('../../../server/api/products/by-aliases.get');
       handler = mod.default as Handler;
     });
 
@@ -502,7 +501,10 @@ describe('Product API Routes', () => {
 
     it('sets private cache header for authenticated requests', async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'a' });
-      vi.mocked(optionalAuth).mockResolvedValue({ authToken: 'tok' });
+      vi.mocked(optionalAuth).mockResolvedValue({
+        authToken: 'tok',
+        refreshToken: 'refresh-tok',
+      });
       mockGraphqlQuery.mockResolvedValue({ product: { alias: 'a' } });
 
       await handler(fakeEvent);
@@ -553,7 +555,7 @@ describe('Product API Routes', () => {
 
     beforeEach(async () => {
       vi.resetModules();
-      const mod = await import('../../../server/api/products/by-ids.get.ts');
+      const mod = await import('../../../server/api/products/by-ids.get');
       handler = mod.default as Handler;
     });
 
@@ -638,7 +640,10 @@ describe('Product API Routes', () => {
 
     it('sets private cache header for authenticated requests', async () => {
       vi.mocked(getQuery).mockReturnValue({ ids: '1069' });
-      vi.mocked(optionalAuth).mockResolvedValue({ authToken: 'tok' });
+      vi.mocked(optionalAuth).mockResolvedValue({
+        authToken: 'tok',
+        refreshToken: 'refresh-tok',
+      });
       mockGraphqlQuery.mockResolvedValue({
         products: { products: [], count: 0 },
       });

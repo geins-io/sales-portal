@@ -51,9 +51,7 @@ vi.stubGlobal('setResponseHeader', vi.fn());
 let handler: (event: H3Event) => Promise<unknown>;
 
 // Access the mocked getRouterParam
-const mockedGetRouterParam = globalThis.getRouterParam as ReturnType<
-  typeof vi.fn
->;
+const mockedGetRouterParam = vi.mocked(getRouterParam);
 
 describe('GET /api/orders/[id]', () => {
   const mockEvent = {} as H3Event;

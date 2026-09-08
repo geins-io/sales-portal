@@ -75,7 +75,7 @@ describe('GET /api/search/products', () => {
     mockGraphqlQuery.mockResolvedValue({
       searchProducts: { products: [], count: 0 },
     });
-    const mod = await import('../../../server/api/search/products.get.ts');
+    const mod = await import('../../../server/api/search/products.get');
     handler = mod.default as (event: import('h3').H3Event) => Promise<unknown>;
   });
 

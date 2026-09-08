@@ -65,8 +65,8 @@ describe('LocaleAlternateUrl type shape', () => {
       alternativeUrls: [alt],
     };
 
-    expect(obj.alternativeUrls?.[0].culture).toBe('en-US');
-    expect(obj.alternativeUrls?.[0].url).toBe('/se/en/p/cutting-edge');
+    expect(obj.alternativeUrls?.[0]?.culture).toBe('en-US');
+    expect(obj.alternativeUrls?.[0]?.url).toBe('/se/en/p/cutting-edge');
   });
 
   it('allows a null country', () => {
