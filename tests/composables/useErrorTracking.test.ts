@@ -1,17 +1,50 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  assert,
+} from 'vitest';
 import { mockConsole } from '../utils';
 
-// Mock Sentry
-const mockSentryCapture = vi.fn();
-const mockSentrySetUser = vi.fn();
-const mockSentrySetTag = vi.fn();
-const mockSentryAddBreadcrumb = vi.fn();
+// Mock Sentry. Each signature is the one useErrorTracking() calls it with —
+// declared here rather than at the call sites, so the arguments and every
+// `mock.calls` read are checked instead of inferred as zero arguments.
+const mockSentryCapture = vi.fn<
+  (
+    error: Error,
+    hint: {
+      tags: Record<string, string | undefined>;
+      extra: Record<string, unknown>;
+    },
+  ) => void
+>();
+const mockSentrySetUser =
+  vi.fn<
+    (user: { id: string; email?: string; username?: string } | null) => void
+  >();
+const mockSentrySetTag = vi.fn<(key: string, value?: string) => void>();
+const mockSentryAddBreadcrumb =
+  vi.fn<
+    (breadcrumb: {
+      message: string;
+      category: string;
+      data?: Record<string, unknown>;
+      level: string;
+    }) => void
+  >();
 
 vi.mock('@sentry/nuxt', () => ({
-  captureException: (...args: unknown[]) => mockSentryCapture(...args),
-  setUser: (...args: unknown[]) => mockSentrySetUser(...args),
-  setTag: (...args: unknown[]) => mockSentrySetTag(...args),
-  addBreadcrumb: (...args: unknown[]) => mockSentryAddBreadcrumb(...args),
+  captureException: (...args: Parameters<typeof mockSentryCapture>) =>
+    mockSentryCapture(...args),
+  setUser: (...args: Parameters<typeof mockSentrySetUser>) =>
+    mockSentrySetUser(...args),
+  setTag: (...args: Parameters<typeof mockSentrySetTag>) =>
+    mockSentrySetTag(...args),
+  addBreadcrumb: (...args: Parameters<typeof mockSentryAddBreadcrumb>) =>
+    mockSentryAddBreadcrumb(...args),
 }));
 
 // Mock Nuxt composables
@@ -85,7 +118,8 @@ describe('useErrorTracking', () => {
         expect.any(Object),
       );
 
-      const capturedError = mockSentryCapture.mock.calls[0][0];
+      const capturedError = mockSentryCapture.mock.calls[0]?.[0];
+      assert.isDefined(capturedError);
       expect(capturedError.message).toBe('String error message');
     });
 
@@ -119,8 +153,10 @@ describe('useErrorTracking', () => {
       trackError(error);
 
       expect(errors.value.length).toBe(1);
-      expect(errors.value[0].message).toBe('Test error');
-      expect(errors.value[0].name).toBe('Error');
+      const tracked = errors.value[0];
+      assert.isDefined(tracked);
+      expect(tracked.message).toBe('Test error');
+      expect(tracked.name).toBe('Error');
     });
 
     it('should limit errors array to 50 items', () => {
@@ -133,7 +169,7 @@ describe('useErrorTracking', () => {
 
       expect(errors.value.length).toBe(50);
       // Most recent should be first
-      expect(errors.value[0].message).toBe('Error 54');
+      expect(errors.value[0]?.message).toBe('Error 54');
     });
 
     it('should include timestamp in error event', () => {
@@ -143,9 +179,11 @@ describe('useErrorTracking', () => {
       trackError(new Error('Test'));
 
       const afterTime = new Date().toISOString();
-      expect(errors.value[0].timestamp).toBeDefined();
-      expect(errors.value[0].timestamp >= beforeTime).toBe(true);
-      expect(errors.value[0].timestamp <= afterTime).toBe(true);
+      const tracked = errors.value[0];
+      assert.isDefined(tracked);
+      expect(tracked.timestamp).toBeDefined();
+      expect(tracked.timestamp >= beforeTime).toBe(true);
+      expect(tracked.timestamp <= afterTime).toBe(true);
     });
 
     it('should include route path in error context', () => {
@@ -154,8 +192,10 @@ describe('useErrorTracking', () => {
       trackError(new Error('Test'));
 
       // Route path is included in error context (actual path depends on test environment)
-      expect(errors.value[0].context).toHaveProperty('route');
-      expect(typeof errors.value[0].context.route).toBe('string');
+      const tracked = errors.value[0];
+      assert.isDefined(tracked);
+      expect(tracked.context).toHaveProperty('route');
+      expect(typeof tracked.context.route).toBe('string');
     });
 
     it('should not track when disabled', () => {
@@ -398,7 +438,7 @@ describe('useErrorTracking', () => {
       const recentErrors = getRecentErrors();
 
       expect(recentErrors.length).toBe(1);
-      expect(recentErrors[0].message).toBe('Test error');
+      expect(recentErrors[0]?.message).toBe('Test error');
     });
   });
 
@@ -410,7 +450,7 @@ describe('useErrorTracking', () => {
       instance1.trackError(new Error('Shared error'));
 
       expect(instance2.errors.value.length).toBe(1);
-      expect(instance2.errors.value[0].message).toBe('Shared error');
+      expect(instance2.errors.value[0]?.message).toBe('Shared error');
     });
 
     it('should share enabled state across instances', async () => {
@@ -613,9 +653,11 @@ describe('error formatting', () => {
 
     trackError(error);
 
-    expect(errors.value[0].message).toBe('Test error message');
-    expect(errors.value[0].name).toBe('CustomError');
-    expect(errors.value[0].stack).toBeDefined();
+    const tracked = errors.value[0];
+    assert.isDefined(tracked);
+    expect(tracked.message).toBe('Test error message');
+    expect(tracked.name).toBe('CustomError');
+    expect(tracked.stack).toBeDefined();
   });
 
   it('should format string error correctly', () => {
@@ -623,8 +665,10 @@ describe('error formatting', () => {
 
     trackError('Simple string error');
 
-    expect(errors.value[0].message).toBe('Simple string error');
-    expect(errors.value[0].name).toBe('Error');
+    const tracked = errors.value[0];
+    assert.isDefined(tracked);
+    expect(tracked.message).toBe('Simple string error');
+    expect(tracked.name).toBe('Error');
   });
 
   it('should format number error correctly', () => {
@@ -632,8 +676,10 @@ describe('error formatting', () => {
 
     trackError(404);
 
-    expect(errors.value[0].message).toBe('404');
-    expect(errors.value[0].name).toBe('Error');
+    const tracked = errors.value[0];
+    assert.isDefined(tracked);
+    expect(tracked.message).toBe('404');
+    expect(tracked.name).toBe('Error');
   });
 
   it('should format object error correctly', () => {
@@ -641,8 +687,10 @@ describe('error formatting', () => {
 
     trackError({ code: 500, reason: 'Internal error' });
 
-    expect(errors.value[0].message).toBe('[object Object]');
-    expect(errors.value[0].name).toBe('Error');
+    const tracked = errors.value[0];
+    assert.isDefined(tracked);
+    expect(tracked.message).toBe('[object Object]');
+    expect(tracked.name).toBe('Error');
   });
 
   it('should merge context with route path', () => {
@@ -650,10 +698,12 @@ describe('error formatting', () => {
 
     trackError(new Error('Test'), { component: 'TestComp' });
 
-    expect(errors.value[0].context.component).toBe('TestComp');
+    const tracked = errors.value[0];
+    assert.isDefined(tracked);
+    expect(tracked.context.component).toBe('TestComp');
     // Route path is included (actual value depends on test environment)
-    expect(errors.value[0].context).toHaveProperty('route');
-    expect(typeof errors.value[0].context.route).toBe('string');
+    expect(tracked.context).toHaveProperty('route');
+    expect(typeof tracked.context.route).toBe('string');
   });
 });
 

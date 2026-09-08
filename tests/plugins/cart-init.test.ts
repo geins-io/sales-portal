@@ -59,7 +59,10 @@ describe('cart-init plugin / initCart', () => {
 
   it('fires fetchCart without awaiting on the client when cart is null', async () => {
     const store = makeStore();
-    let resolveFetch: (() => void) | null = null;
+    // Declared without an initializer on purpose: `= null` narrows the type to
+    // `null` for the rest of the flow, since the only assignment happens inside
+    // the Promise executor and TypeScript does not track that.
+    let resolveFetch: (() => void) | undefined;
     store.fetchCart.mockImplementation(
       () =>
         new Promise<void>((resolve) => {
@@ -72,7 +75,7 @@ describe('cart-init plugin / initCart', () => {
     // fetchCart was invoked but the promise has not yet resolved, which
     // proves the plugin did not block hydration on the network round-trip.
     expect(store.fetchCart).toHaveBeenCalledTimes(1);
-    expect(resolveFetch).not.toBeNull();
+    expect(resolveFetch).not.toBeUndefined();
     resolveFetch?.();
   });
 });
