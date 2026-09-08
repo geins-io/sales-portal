@@ -4,33 +4,42 @@ export interface UserContext {
   authenticated: boolean;
 }
 
-type RuleEvaluator = (rule: FeatureAccess, user: UserContext) => boolean | null;
-
 /**
- * Ordered list of rule evaluators. First non-null result wins.
- * Adding a new access type = adding one evaluator function here.
+ * Deny a rule the switch below does not handle.
+ *
+ * The `never` parameter is the guarantee: a member added to `FeatureAccess`
+ * without a case fails `pnpm typecheck` here.
+ *
+ * It denies rather than throws because `FeatureAccessSchema` is a separate
+ * source of truth, so a literal added only to the schema reaches this branch at
+ * runtime and a throw would make it a 500 on both client and server.
  */
-const evaluators: RuleEvaluator[] = [
-  // 'all' — everyone can access
-  (rule) => (rule === 'all' ? true : null),
-
-  // 'authenticated' — logged-in users only
-  (rule, user) => (rule === 'authenticated' ? user.authenticated : null),
-];
+function denyUnhandledRule(rule: never): false {
+  // `rule` is unusable by construction and shared/ carries no logger.
+  void rule;
+  return false;
+}
 
 /**
  * Evaluate a single access rule against user context.
- * Returns the first non-null evaluator result, or false for unknown rules.
+ *
+ * Exhaustive over `FeatureAccess`: adding a member means adding a case here.
+ * Anything else denies.
  */
 export function evaluateAccess(
   rule: FeatureAccess,
   user: UserContext,
 ): boolean {
-  for (const evaluator of evaluators) {
-    const result = evaluator(rule, user);
-    if (result !== null) return result;
+  switch (rule) {
+    case 'all':
+      return true;
+
+    case 'authenticated':
+      return user.authenticated;
+
+    default:
+      return denyUnhandledRule(rule);
   }
-  return false;
 }
 
 /**

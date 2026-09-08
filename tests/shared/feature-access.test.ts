@@ -29,6 +29,30 @@ describe('evaluateAccess', () => {
       expect(evaluateAccess('authenticated', loggedIn)).toBe(true);
     });
   });
+
+  describe('rule outside the union', () => {
+    // The switch is exhaustive, so this value cannot exist in typed code — the
+    // cast constructs it deliberately to prove the runtime guard denies rather
+    // than throws. `FeatureAccessSchema` is a separate source of truth from
+    // `FeatureAccess`, so a literal added only to the schema arrives this way.
+    // tests/ is outside the typecheck today, so the cast documents intent; it
+    // becomes load-bearing once the directory is in the gate.
+    const unhandled = 'staff' as unknown as FeatureAccess;
+
+    it('denies access to anonymous users', () => {
+      expect(evaluateAccess(unhandled, anonymous)).toBe(false);
+    });
+
+    it('denies access to authenticated users', () => {
+      expect(evaluateAccess(unhandled, loggedIn)).toBe(false);
+    });
+
+    it('denies an enabled feature through canAccessFeature', () => {
+      const feature = { enabled: true, access: unhandled };
+      expect(canAccessFeature(feature, anonymous)).toBe(false);
+      expect(canAccessFeature(feature, loggedIn)).toBe(false);
+    });
+  });
 });
 
 describe('canAccessFeature', () => {

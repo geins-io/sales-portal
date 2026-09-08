@@ -25,7 +25,7 @@ import {
   generateOverrideCss,
   mergeThemes,
 } from '../../server/utils/tenant-css';
-import type { TenantConfig } from '#shared/types/tenant-config';
+import type { FeatureAccess, TenantConfig } from '#shared/types/tenant-config';
 import { deriveThemeColors } from '../../server/utils/theme';
 import type {
   ThemeColors,
@@ -639,6 +639,30 @@ describe('Tenant utilities', () => {
         });
       });
     }
+
+    it('retires a string rule outside the evaluable set and names it', () => {
+      // FeatureAccessSchema is a separate source of truth from FeatureAccess, so
+      // a literal added only to the schema would arrive as a string the app
+      // cannot evaluate. The cast constructs that state ahead of time: it must
+      // be retired like an object rule, not treated as evaluable.
+      const built = buildTenantConfig({
+        ...retiredSettings,
+        features: {
+          staffPricing: {
+            enabled: true,
+            access: 'staff' as unknown as FeatureAccess,
+          },
+        },
+      });
+
+      expect(built.features.staffPricing).toEqual({ enabled: false });
+      expect(built.features.staffPricing).not.toHaveProperty('access');
+
+      const warned = mockLoggerWarn.mock.calls.map(String).join('\n');
+      expect(warned).toContain('staffPricing');
+      // The rule's own name, not the character indices of the string.
+      expect(warned).toContain('"staff"');
+    });
 
     it('leaves the evaluable rules and a rule-less feature untouched', () => {
       const built = buildTenantConfig({
