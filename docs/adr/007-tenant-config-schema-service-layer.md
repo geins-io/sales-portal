@@ -81,9 +81,10 @@ A strategy-pattern evaluator registry in `shared/utils/feature-access.ts` evalua
 
 - `'all'` → everyone
 - `'authenticated'` → logged-in users
-- `{ role }` → matches `user.customerType` from Geins
 
 **Amended 2026-09-07:** `{ group }`, `{ accountType }` and `{ permission }` were removed from `FeatureAccess` — nothing in the Geins token carries a group, an account type or a permission list, so each rule could only ever deny. `FeatureAccessSchema` still accepts all three so a stored config stays valid, and `normalizeFeatureAccess` in `server/utils/tenant.ts` retires them per config: the feature becomes `{ enabled: false }` and the reason is logged at warn.
+
+**Amended 2026-09-08:** `{ role }` went the same way, leaving `FeatureAccess` as `'all' | 'authenticated'` — exactly what the merchant admin can configure. It was evaluated as `user.customerType === rule.role`, and `customerType` is the raw `CustomerType` claim (`"2"` for an organisation account), so a matching rule would have had to read `{ role: "2" }` — a value nothing in the admin can produce. The role-gated route path went with it: `hasRole` / `hasAnyRole` in the auth store, the role branch of `app/middleware/auth.ts` and the `roles` route meta all compared against that same raw claim, and no page set it. With no object member left in `FeatureAccess`, `isEvaluableAccess` is a `typeof` check the compiler verifies, and normalisation is fail-closed: an object rule added to the schema later is retired until the predicate is widened for it.
 
 Consumer API:
 
@@ -103,7 +104,7 @@ Adding a new rule type = adding one evaluator function + extending `UserContext`
 
 - **Runtime safety** — malformed API responses are caught at parse time with structured error messages
 - **Single source of truth** — Zod schema generates all types; no manual interface sync
-- **Access control** — features support granular access (authenticated, role)
+- **Access control** — features support granular access (authenticated)
 - **Decoupled consumers** — components use the service layer, not raw config shape
 - **No secret leaks** — `PublicTenantConfig` physically can't contain `geinsSettings` or `overrides`
 

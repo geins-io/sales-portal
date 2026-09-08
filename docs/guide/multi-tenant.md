@@ -133,14 +133,14 @@ Features are a record of feature flags with optional access control:
 // Feature flag with access control
 interface FeatureConfig {
   enabled: boolean;
-  access?: 'all' | 'authenticated' | { role: string };
+  access?: 'all' | 'authenticated';
 }
 
 // Example feature map
 features: {
   search: { enabled: true },
   cart: { enabled: true, access: 'authenticated' },
-  quotes: { enabled: true, access: { role: 'order_placer' } },
+  quotes: { enabled: true, access: 'authenticated' },
   wishlist: { enabled: false },
 }
 ```

@@ -80,7 +80,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   ├── composables/
 │   │   ├── useTenant.ts        # Tenant data access
 │   │   ├── useErrorTracking.ts # Error tracking & reporting
-│   │   ├── useFeatureAccess.ts # Feature access control (auth + role gating)
+│   │   ├── useFeatureAccess.ts # Feature access control (auth gating)
 │   │   ├── useAnalyticsConsent.ts # Per-tenant analytics consent (GDPR)
 │   │   ├── useImpersonation.ts    # Admin impersonation state (spoofed-by cookie)
 │   │   ├── useCmsPreview.ts       # CMS preview mode toggle
@@ -891,7 +891,7 @@ The `useAnalyticsConsent()` composable stores consent per-tenant in localStorage
 The feature access system provides two levels of checks across client and server:
 
 - **`hasFeature(name)`** — simple "is it enabled?" (checks `.enabled` only). Use in templates for UI visibility.
-- **`canAccess(name)` / `canAccessFeatureServer()`** — full evaluation (`.enabled` + `.access` rules: auth, role). Use when authorization matters.
+- **`canAccess(name)` / `canAccessFeatureServer()`** — full evaluation (`.enabled` + `.access` rules: auth). Use when authorization matters.
 
 ### Architecture
 
@@ -904,14 +904,13 @@ app/middleware/feature.ts         → Route guard using canAccess()
 
 ### Access Rules
 
-| Rule                    | Behavior                               |
-| ----------------------- | -------------------------------------- |
-| `'all'`                 | Everyone                               |
-| `'authenticated'`       | Logged-in users only                   |
-| `{ role: 'wholesale' }` | Matches `user.customerType` from Geins |
-| _(no access field)_     | Defaults to `'all'`                    |
+| Rule                | Behavior             |
+| ------------------- | -------------------- |
+| `'all'`             | Everyone             |
+| `'authenticated'`   | Logged-in users only |
+| _(no access field)_ | Defaults to `'all'`  |
 
-`{ group }`, `{ accountType }` and `{ permission }` are retired: the app cannot evaluate them, so `FeatureAccess` no longer represents them. `FeatureAccessSchema` still accepts them so a stored config stays valid, and `normalizeFeatureAccess` (`server/utils/tenant.ts`) rewrites a feature carrying one to `{ enabled: false }` with a warn log.
+`{ group }`, `{ accountType }`, `{ permission }` and `{ role }` are retired: the app cannot evaluate them, so `FeatureAccess` no longer represents them. `FeatureAccessSchema` still accepts them so a stored config stays valid, and `normalizeFeatureAccess` (`server/utils/tenant.ts`) rewrites a feature carrying one to `{ enabled: false }` with a warn log. Every object rule is retired now, so the check is fail-closed: a new one is denied until `isEvaluableAccess` is widened for it.
 
 See [Patterns: Feature Access Control](patterns/README.md#feature-access-control) for implementation examples.
 
