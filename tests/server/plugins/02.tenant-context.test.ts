@@ -491,56 +491,113 @@ describe('server/plugins/02.tenant-context', () => {
 
   // The hostname rewrite (`server/utils/lookup-hostname.ts`). What matters
   // here is the split: the lookup gets the `.litium.store` name, the context
-  // keeps the `.litium.test` one the browser asked for — cookies, redirects,
+  // keeps the local or staging host the browser asked for — cookies, redirects,
   // the tenant logger and the 404 body all read the context field.
-  describe('hostname rewrite', () => {
-    beforeEach(() => {
-      mockGetRequestHost.mockReturnValue('example.litium.test');
-    });
+  describe.each(['litium.test', 'staging.litium.store'])(
+    'hostname rewrite: %s',
+    (suffix) => {
+      const hostname = `example.${suffix}`;
 
-    it('looks a page request up by the .litium.store name, keeping the asked-for host on the context', async () => {
-      mockResolveTenant.mockResolvedValue(makeTenant());
-      const event = createEvent('/se/sv/', {});
+      beforeEach(() => {
+        mockGetRequestHost.mockReturnValue(hostname);
+      });
 
-      await handler(event);
+      it('looks a page request up by the .litium.store name, keeping the asked-for host on the context', async () => {
+        mockResolveTenant.mockResolvedValue(makeTenant());
+        const event = createEvent('/se/sv/', {});
 
-      expect(mockResolveTenant).toHaveBeenCalledWith(
-        'example.litium.store',
-        event,
+        await handler(event);
+
+        expect(mockResolveTenant).toHaveBeenCalledWith(
+          'example.litium.store',
+          event,
+        );
+        expect((event.context.tenant as { hostname: string }).hostname).toBe(
+          hostname,
+        );
+      });
+
+      it('rewrites the /api/ branch the same way', async () => {
+        mockResolveTenant.mockResolvedValue(makeTenant());
+        const event = createEvent('/api/config', {});
+
+        await handler(event);
+
+        expect(mockResolveTenant).toHaveBeenCalledWith(
+          'example.litium.store',
+          event,
+        );
+        expect((event.context.tenant as { hostname: string }).hostname).toBe(
+          hostname,
+        );
+      });
+
+      it('rewrites with dev mode off too — the production build is what CI tests', async () => {
+        mockIsDevMode.mockReturnValue(false);
+        mockResolveTenant.mockResolvedValue(makeTenant());
+        const event = createEvent('/se/sv/', {});
+
+        await handler(event);
+
+        expect(mockResolveTenant).toHaveBeenCalledWith(
+          'example.litium.store',
+          event,
+        );
+      });
+
+      it('strips the port before rewriting the lookup hostname', async () => {
+        mockGetRequestHost.mockReturnValue(`${hostname}:3000`);
+        mockResolveTenant.mockResolvedValue(makeTenant());
+        const event = createEvent('/api/config', {});
+
+        await handler(event);
+
+        expect(mockResolveTenant).toHaveBeenCalledWith(
+          'example.litium.store',
+          event,
+        );
+        expect(event.context.tenant).toMatchObject({ hostname });
+      });
+
+      it.each(['/se/sv/', '/api/config'])(
+        'rewrites preview lookups for %s',
+        async (path) => {
+          mockGetQuery.mockReturnValue({ preview: '1' });
+          mockResolvePreviewTenant.mockResolvedValue(makeTenant());
+          const event = createEvent(path, {});
+
+          await handler(event);
+
+          expect(mockResolvePreviewTenant).toHaveBeenCalledWith(
+            'example.litium.store',
+            event,
+          );
+          expect(mockResolveTenant).not.toHaveBeenCalled();
+          expect(event.context.tenant).toMatchObject({
+            hostname,
+            tenantId: 'test-tenant',
+          });
+        },
       );
-      expect((event.context.tenant as { hostname: string }).hostname).toBe(
-        'example.litium.test',
-      );
-    });
 
-    it('rewrites the /api/ branch the same way', async () => {
-      mockResolveTenant.mockResolvedValue(makeTenant());
-      const event = createEvent('/api/products', {});
+      it('keeps an unknown tenant on the requested host with a 404', async () => {
+        mockResolveTenant.mockResolvedValue(null);
+        const event = createEvent('/se/sv/', {});
 
-      await handler(event);
+        await handler(event);
 
-      expect(mockResolveTenant).toHaveBeenCalledWith(
-        'example.litium.store',
-        event,
-      );
-      expect((event.context.tenant as { hostname: string }).hostname).toBe(
-        'example.litium.test',
-      );
-    });
-
-    it('rewrites with dev mode off too — the production build is what CI tests', async () => {
-      mockIsDevMode.mockReturnValue(false);
-      mockResolveTenant.mockResolvedValue(makeTenant());
-      const event = createEvent('/se/sv/', {});
-
-      await handler(event);
-
-      expect(mockResolveTenant).toHaveBeenCalledWith(
-        'example.litium.store',
-        event,
-      );
-    });
-  });
+        expect(mockResolveTenant).toHaveBeenCalledWith(
+          'example.litium.store',
+          event,
+        );
+        expect(event.context.tenant).toMatchObject({
+          hostname,
+          resolution: 'unknown-tenant',
+        });
+        expect(event.context.tenantRefusal).toMatchObject({ statusCode: 404 });
+      });
+    },
+  );
 
   // The point of these: a loopback host is answered without any lookup at
   // all, so nothing is fetched or cached for a name that means this machine.

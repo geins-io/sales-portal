@@ -92,9 +92,8 @@ export default defineNitroPlugin((nitroApp) => {
       return;
     }
 
-    // A `.litium.test` host is looked up as `.litium.store` — see
-    // `lookupHostname`. The context below keeps the hostname the browser asked
-    // for; only the lookup moves.
+    // Local and staging hosts are looked up as `.litium.store` — see
+    // `lookupHostname`. The context keeps the hostname the browser asked for.
     const lookupHost = lookupHostname(hostname);
 
     // Preview is activated ONLY by `?preview=1`, never inferred from a cookie:

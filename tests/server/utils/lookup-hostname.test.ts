@@ -9,11 +9,7 @@ import { lookupHostname } from '../../../server/utils/lookup-hostname';
  */
 
 describe('lookupHostname', () => {
-  it('rewrites a .litium.test host to .litium.store', () => {
-    expect(lookupHostname('example.litium.test')).toBe('example.litium.store');
-  });
-
-  it('leaves a host that does not end in .litium.test untouched', () => {
+  it('leaves hosts outside the local and staging suffixes untouched', () => {
     for (const hostname of [
       'example.litium.store',
       'example.sales-portal.geins.dev',
@@ -24,18 +20,32 @@ describe('lookupHostname', () => {
     }
   });
 
-  it('matches the suffix at the end only', () => {
-    // The suffix appears, but the host belongs to someone else.
-    expect(lookupHostname('litium.test.example.com')).toBe(
-      'litium.test.example.com',
-    );
-    // The bare domain carries no tenant name to rewrite.
-    expect(lookupHostname('litium.test')).toBe('litium.test');
-  });
+  describe.each(['litium.test', 'staging.litium.store'])(
+    '%s suffix',
+    (suffix) => {
+      it('rewrites a tenant host to .litium.store', () => {
+        expect(lookupHostname(`example.${suffix}`)).toBe(
+          'example.litium.store',
+        );
+      });
 
-  it('swaps only the tail of a deeper name', () => {
-    expect(lookupHostname('preview.example.litium.test')).toBe(
-      'preview.example.litium.store',
-    );
-  });
+      it('matches the suffix at the end only', () => {
+        const hostname = `example.${suffix}.example.com`;
+        expect(lookupHostname(hostname)).toBe(hostname);
+        // The bare domain carries no tenant name to rewrite.
+        expect(lookupHostname(suffix)).toBe(suffix);
+      });
+
+      it('requires a dot before the suffix', () => {
+        const hostname = `example-${suffix}`;
+        expect(lookupHostname(hostname)).toBe(hostname);
+      });
+
+      it('swaps only the tail of a deeper name', () => {
+        expect(lookupHostname(`preview.example.${suffix}`)).toBe(
+          'preview.example.litium.store',
+        );
+      });
+    },
+  );
 });

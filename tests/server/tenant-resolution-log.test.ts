@@ -12,6 +12,7 @@ import {
   formatTenantResolution,
 } from '../../server/utils/tenant';
 import type { TenantResolutionTrace } from '../../server/utils/tenant';
+import { lookupHostname } from '../../server/utils/lookup-hostname';
 import type { TenantConfig } from '#shared/types/tenant-config';
 
 // Same auto-import shims as tests/server/tenant.test.ts: the tenant utils
@@ -435,6 +436,65 @@ describe.sequential('resolveTenantOutcome KV paths', () => {
     globalThis.fetch = originalFetch;
     resetStorage();
   });
+
+  it.each(['litium.test', 'staging.litium.store'])(
+    'shares the positive cache with the registered hostname for %s',
+    async (suffix) => {
+      const host = 'rewrite-cache.litium.store';
+      const requestedHost = `rewrite-cache.${suffix}`;
+      const storage = memoryStorage();
+      const fetchSpy = stubFetch(async () =>
+        httpResponse(200, rawApiPayload('rewrite-cache', host)),
+      );
+
+      const first = await resolveTenantOutcome(lookupHostname(requestedHost));
+      const second = await resolveTenantOutcome(host);
+
+      expect(first.config?.tenantId).toBe('rewrite-cache');
+      expect(second.config).toEqual(first.config);
+      expect(second.outcome).toBe('resolved');
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+        `${API_URL}?hostname=${host}`,
+      );
+      expect(storage.store.get(tenantIdKey(host))).toBe('rewrite-cache');
+      expect(storage.store.has(tenantIdKey(requestedHost))).toBe(false);
+      expect(storage.store.size).toBe(2);
+    },
+  );
+
+  it.each(['litium.test', 'staging.litium.store'])(
+    'shares and invalidates the negative cache by the registered hostname for %s',
+    async (suffix) => {
+      const host = 'rewrite-missing.litium.store';
+      const requestedHost = `rewrite-missing.${suffix}`;
+      const storage = memoryStorage();
+      const fetchSpy = stubFetch(async () => httpResponse(404));
+      clearNegativeCache(host);
+
+      try {
+        const first = await resolveTenantOutcome(lookupHostname(requestedHost));
+        const second = await resolveTenantOutcome(host);
+
+        expect(first).toEqual({ config: null, outcome: 'unknown-tenant' });
+        expect(second).toEqual({ config: null, outcome: 'negative-cache' });
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+        expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+          `${API_URL}?hostname=${host}`,
+        );
+        expect(storage.store.size).toBe(0);
+
+        clearNegativeCache(host);
+        const afterInvalidation = await resolveTenantOutcome(
+          lookupHostname(requestedHost),
+        );
+        expect(afterInvalidation.outcome).toBe('unknown-tenant');
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+      } finally {
+        clearNegativeCache(host);
+      }
+    },
+  );
 
   it('a resolved lookup writes the config under its tenantId and a mapping for every hostname', async () => {
     const host = 'primary.example';

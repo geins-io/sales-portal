@@ -5,6 +5,9 @@
  */
 const LOCAL_SUFFIX = '.litium.test';
 
+/** Hostnames routed to the staging slot for release verification. */
+const STAGING_SUFFIX = '.staging.litium.store';
+
 /** The suffix a tenant is actually registered under in the merchant API. */
 const LOOKUP_SUFFIX = '.litium.store';
 
@@ -26,16 +29,26 @@ const LOOKUP_SUFFIX = '.litium.store';
  * unreachable in production while being identical in the build under test —
  * which is the point.
  *
- * The one behaviour it takes away: a tenant that registers `X.litium.test` as
- * an alias in Geins is no longer reachable under that exact name, since the
- * lookup resolves `X.litium.store` instead. Only local and CI traffic can
- * carry such a name, and an unknown one still answers an honest 404.
+ * Staging names (`name.staging.litium.store`) use the same lookup rewrite,
+ * including in production builds: the staging slot runs the image that will
+ * be swapped into production. Isolation relies on routing: the DNS-only
+ * `*.staging.litium.store` CNAME points to the staging slot's own address,
+ * and hostname bindings stay with that slot across a swap. Production traffic
+ * therefore keeps its `.litium.store` Host and never matches this rewrite.
+ *
+ * Aliases registered under either rewritten suffix are ignored; the lookup
+ * always uses `.litium.store`. Unknown tenants still answer 404. Positive and
+ * negative tenant caches use the rewritten lookup name.
  *
  * Only the lookup moves. The response is still served under the host the
  * browser asked for: `event.context.tenant.hostname` keeps that name, so
  * cookies, redirects, the tenant logger and the 404 body all stay on it.
  */
 export function lookupHostname(hostname: string): string {
-  if (!hostname.endsWith(LOCAL_SUFFIX)) return hostname;
-  return hostname.slice(0, -LOCAL_SUFFIX.length) + LOOKUP_SUFFIX;
+  for (const suffix of [LOCAL_SUFFIX, STAGING_SUFFIX]) {
+    if (hostname.endsWith(suffix)) {
+      return hostname.slice(0, -suffix.length) + LOOKUP_SUFFIX;
+    }
+  }
+  return hostname;
 }
