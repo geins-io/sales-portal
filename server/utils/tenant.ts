@@ -323,14 +323,28 @@ export function transformGeinsSettings(
 // ---------------------------------------------------------------------------
 
 /**
- * Fail-closed, deliberately: an object rule added to `FeatureAccessSchema`
- * later is retired by default — even with an evaluator written for it — until
- * this predicate is widened too.
+ * The rules the app can evaluate, as a lookup. `satisfies` is what keeps it from
+ * drifting from the union: a member added to `FeatureAccess` is a compile error
+ * here until it is listed.
+ */
+const EVALUABLE_ACCESS = {
+  all: true,
+  authenticated: true,
+} satisfies Record<FeatureAccess, true>;
+
+/**
+ * Fail-closed, deliberately: any rule added to `FeatureAccessSchema` later is
+ * retired by default — even with an evaluator written for it — until it is
+ * listed in `EVALUABLE_ACCESS` too. That covers string literals as well as
+ * object rules.
  */
 function isEvaluableAccess(
   access: FeatureAccessInput | undefined,
 ): access is FeatureAccess | undefined {
-  return access === undefined || typeof access === 'string';
+  return (
+    access === undefined ||
+    (typeof access === 'string' && access in EVALUABLE_ACCESS)
+  );
 }
 
 /**
@@ -351,9 +365,11 @@ function normalizeFeatureAccess(
         access === undefined ? { enabled } : { enabled, access };
       continue;
     }
-    // Zod strips unknown keys, so the parsed object carries exactly the one key
-    // of the union member that matched.
-    const retired = Object.keys(access).join(', ');
+    // Zod strips unknown keys, so a parsed object carries exactly the one key of
+    // the union member that matched. A string rule is its own name — passing one
+    // to Object.keys() would name its character indices.
+    const retired =
+      typeof access === 'string' ? access : Object.keys(access).join(', ');
     logger.warn(
       `[tenant] Feature "${name}" for ${hostname} uses the retired access rule "${retired}"; disabling the feature`,
     );
