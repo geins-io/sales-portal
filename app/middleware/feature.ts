@@ -6,7 +6,7 @@ import { resolveLocalePrefix } from '~/utils/locale-prefix';
  * Feature Flag Middleware
  *
  * Checks if a required feature is accessible for the current user and tenant.
- * Evaluates both `.enabled` and `.access` rules (auth state, role, etc.).
+ * Evaluates both `.enabled` and `.access` rules (auth state).
  * Redirects to home if the feature is not available.
  *
  * This middleware waits for tenant data to be loaded before checking

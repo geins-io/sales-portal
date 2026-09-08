@@ -14,10 +14,7 @@ export function useFeatureAccess() {
   const auth = useAuthStore();
 
   function canAccess(featureName: string): boolean {
-    const user: UserContext = {
-      authenticated: auth.isAuthenticated,
-      customerType: auth.user?.customerType,
-    };
+    const user: UserContext = { authenticated: auth.isAuthenticated };
     return canAccessFeature(features.value?.[featureName], user);
   }
 

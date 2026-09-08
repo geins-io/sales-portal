@@ -8,10 +8,6 @@ import type { FeatureAccess } from '../../shared/types/tenant-config';
 
 const anonymous: UserContext = { authenticated: false };
 const loggedIn: UserContext = { authenticated: true };
-const withRole: UserContext = {
-  authenticated: true,
-  customerType: 'wholesale',
-};
 
 describe('evaluateAccess', () => {
   describe('rule: "all"', () => {
@@ -31,24 +27,6 @@ describe('evaluateAccess', () => {
 
     it('grants access to authenticated users', () => {
       expect(evaluateAccess('authenticated', loggedIn)).toBe(true);
-    });
-  });
-
-  describe('rule: { role }', () => {
-    it('grants access when customerType matches', () => {
-      expect(evaluateAccess({ role: 'wholesale' }, withRole)).toBe(true);
-    });
-
-    it('denies access when customerType does not match', () => {
-      expect(evaluateAccess({ role: 'enterprise' }, withRole)).toBe(false);
-    });
-
-    it('denies access when user has no customerType', () => {
-      expect(evaluateAccess({ role: 'wholesale' }, loggedIn)).toBe(false);
-    });
-
-    it('denies access to anonymous users', () => {
-      expect(evaluateAccess({ role: 'wholesale' }, anonymous)).toBe(false);
     });
   });
 });
@@ -82,14 +60,5 @@ describe('canAccessFeature', () => {
     const feature = { enabled: true, access: 'authenticated' as FeatureAccess };
     expect(canAccessFeature(feature, anonymous)).toBe(false);
     expect(canAccessFeature(feature, loggedIn)).toBe(true);
-  });
-
-  it('evaluates access: { role } correctly', () => {
-    const feature = {
-      enabled: true,
-      access: { role: 'wholesale' } as FeatureAccess,
-    };
-    expect(canAccessFeature(feature, withRole)).toBe(true);
-    expect(canAccessFeature(feature, loggedIn)).toBe(false);
   });
 });

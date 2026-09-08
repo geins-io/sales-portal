@@ -38,7 +38,7 @@ const mockTenantConfig: TenantConfig = {
     search: { enabled: true },
     cart: { enabled: true, access: 'authenticated' },
     wishlist: { enabled: false },
-    quotes: { enabled: true, access: { role: 'order_placer' } },
+    quotes: { enabled: true, access: 'authenticated' },
   },
   seo: {
     defaultTitle: 'Test Store',
@@ -50,7 +50,7 @@ const mockTenantConfig: TenantConfig = {
   },
   overrides: {
     css: { '--custom': 'value' },
-    features: { staffPricing: { enabled: true, access: { group: 'staff' } } },
+    features: { staffPricing: { enabled: true, access: 'authenticated' } },
   },
   css: '[data-theme=test] { --primary: oklch(0.5 0.1 200); }',
   themeHash: 'hash123',

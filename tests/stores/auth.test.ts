@@ -127,50 +127,6 @@ describe('useAuthStore', () => {
     });
   });
 
-  describe('hasRole getter', () => {
-    it('should return false when no user exists', () => {
-      const store = useAuthStore();
-
-      expect(store.hasRole('admin')).toBe(false);
-    });
-
-    it('should return true when user has the matching customerType', () => {
-      const store = useAuthStore();
-      store.user = { ...mockUser, customerType: 'admin' };
-
-      expect(store.hasRole('admin')).toBe(true);
-    });
-
-    it('should return false when customerType does not match', () => {
-      const store = useAuthStore();
-      store.user = { ...mockUser, customerType: 'regular' };
-
-      expect(store.hasRole('admin')).toBe(false);
-    });
-  });
-
-  describe('hasAnyRole getter', () => {
-    it('should return false when no user exists', () => {
-      const store = useAuthStore();
-
-      expect(store.hasAnyRole(['admin', 'premium'])).toBe(false);
-    });
-
-    it('should return true when customerType is in the list', () => {
-      const store = useAuthStore();
-      store.user = { ...mockUser, customerType: 'premium' };
-
-      expect(store.hasAnyRole(['admin', 'premium'])).toBe(true);
-    });
-
-    it('should return false when customerType is not in the list', () => {
-      const store = useAuthStore();
-      store.user = { ...mockUser, customerType: 'regular' };
-
-      expect(store.hasAnyRole(['admin', 'premium'])).toBe(false);
-    });
-  });
-
   describe('login action', () => {
     it('returns the user payload and reloads without mutating user.value', async () => {
       const store = useAuthStore();

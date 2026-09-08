@@ -97,7 +97,7 @@ export default defineEventHandler(async (event) => {
 Two levels of feature checks:
 
 - **`hasFeature(name)`** — simple "is it enabled?" check (`.enabled` only). Use in templates for UI visibility.
-- **`canAccess(name)`** — full access evaluation (`.enabled` + `.access` rules: auth, role). Use when access control matters.
+- **`canAccess(name)`** — full access evaluation (`.enabled` + `.access` rules: auth). Use when access control matters.
 
 ### Client-side — template gating
 
@@ -132,10 +132,7 @@ definePageMeta({
 ```typescript
 export default defineEventHandler(async (event) => {
   const tokens = await optionalAuth(event);
-  await assertFeatureAccess(event, 'quotes', {
-    authenticated: !!tokens,
-    customerType: tokens?.user?.customerType,
-  });
+  await assertFeatureAccess(event, 'quotes', { authenticated: !!tokens });
 
   // Feature is accessible — proceed
 });
@@ -143,14 +140,13 @@ export default defineEventHandler(async (event) => {
 
 ### Access rule types
 
-| Rule                    | Behavior                               |
-| ----------------------- | -------------------------------------- |
-| `'all'`                 | Everyone                               |
-| `'authenticated'`       | Logged-in users only                   |
-| `{ role: 'wholesale' }` | Matches `user.customerType` from Geins |
-| _(no access field)_     | Defaults to `'all'`                    |
+| Rule                | Behavior             |
+| ------------------- | -------------------- |
+| `'all'`             | Everyone             |
+| `'authenticated'`   | Logged-in users only |
+| _(no access field)_ | Defaults to `'all'`  |
 
-A config carrying `{ group }`, `{ accountType }` or `{ permission }` still parses, but the feature is normalised to `{ enabled: false }` with a warn log — the app cannot evaluate those rules.
+A config carrying `{ group }`, `{ accountType }`, `{ permission }` or `{ role }` still parses, but the feature is normalised to `{ enabled: false }` with a warn log — the app cannot evaluate those rules.
 
 ### Price and stock visibility
 
