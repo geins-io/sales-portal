@@ -613,6 +613,15 @@ V8 coverage provider. Reports: HTML (`coverage/index.html`), JSON, terminal text
 
 Excludes: `app/components/ui/**` (shadcn-vue), `*.d.ts`, `node_modules`, `.nuxt`
 
+### Config coverage map
+
+Line coverage says which code ran; it says nothing about which tenant _configuration_ was
+exercised. `tests/unit/config-coverage/map.ts` records that separately: one entry per value
+a tenant can set, naming a test that covers it, or the reason none does. A field added to
+`PublicTenantConfig` — or a value of a union field, or one of the three states of an
+optional string field — fails `pnpm typecheck` until it has an entry, and `pnpm test`
+prints the entries without a test on every run.
+
 ## CI/CD Integration
 
 See `.github/workflows/ci.yml`. It runs on **PRs into `main`/`production`** and on **pushes to
