@@ -8,6 +8,7 @@
 import './setup';
 import { vi, beforeEach } from 'vitest';
 import { ref, computed, type Ref } from 'vue';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { createPinia, setActivePinia } from 'pinia';
 
 // Exported ref so individual component tests can toggle catalog mode
@@ -150,12 +151,13 @@ vi.mock('../app/composables/useLocaleMarket', () => ({
 
 // Mock useTenant with the same data as setup-nuxt.ts registerEndpoint
 vi.mock('../app/composables/useTenant', () => {
-  const tenant = ref({
+  const tenant: Ref<PublicTenantConfig> = ref({
     tenantId: 'test-tenant',
     hostname: 'test.example.com',
     isActive: true,
     css: '',
     mode: 'commerce',
+    checkoutMode: 'custom',
     branding: {
       name: 'Test Store',
       watermark: 'full',
@@ -194,6 +196,8 @@ vi.mock('../app/composables/useTenant', () => {
     },
     locale: 'sv-SE',
     availableLocales: ['sv-SE'],
+    availableMarkets: [],
+    imageBaseUrl: 'https://monitor.commerce.services',
   });
 
   return {
@@ -254,7 +258,7 @@ vi.mock('../app/composables/useTenant', () => {
 // specific access behavior override this mock locally with vi.mock.
 vi.mock('../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({
-    canAccess: () => true,
+    canAccess: (_featureName: string) => true,
   }),
 }));
 

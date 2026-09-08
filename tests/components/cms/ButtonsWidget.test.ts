@@ -32,9 +32,9 @@ describe('ButtonsWidget', () => {
     });
     const links = wrapper.findAll('a');
     expect(links).toHaveLength(3);
-    expect(links[0].text()).toBe('Shop');
-    expect(links[1].text()).toBe('About');
-    expect(links[2].text()).toBe('Contact');
+    expect(links[0]?.text()).toBe('Shop');
+    expect(links[1]?.text()).toBe('About');
+    expect(links[2]?.text()).toBe('Contact');
   });
 
   it('renders nothing when buttons array is empty', () => {
@@ -76,6 +76,6 @@ describe('ButtonsWidget', () => {
     });
     const links = wrapper.findAll('a');
     expect(links).toHaveLength(1);
-    expect(links[0].text()).toBe('Buy Now');
+    expect(links[0]?.text()).toBe('Buy Now');
   });
 });

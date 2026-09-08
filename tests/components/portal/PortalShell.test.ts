@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { ref } from 'vue';
 import { mountComponent } from '../../utils/component';
 import PortalShell from '../../../app/components/portal/PortalShell.vue';
@@ -48,17 +48,17 @@ const mockUseFetch = vi.fn((_url: unknown, opts?: { query?: unknown }) => {
 
 // Mock at the module level — Nuxt auto-imports resolve to these internal modules
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => mockUseFetch(...args),
+  useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
 }));
 
 // Also stub globally for direct access
-vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+vi.stubGlobal('useFetch', mockUseFetch);
 
 // Stub navigateTo (Nuxt auto-import, not available in component tier)
 vi.stubGlobal('navigateTo', vi.fn());
 
 // Mock useFeatureAccess — default: all features denied (organisation tab hidden)
-const mockCanAccess = vi.fn(() => false);
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => false);
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
 }));
@@ -72,10 +72,12 @@ const stubs = { Icon: iconStub, NuxtIcon: iconStub };
 
 function enableWishlistFeature() {
   const { tenant } = useTenant();
+  const current = tenant.value;
+  assert.isDefined(current);
   tenant.value = {
-    ...tenant.value,
+    ...current,
     features: {
-      ...tenant.value?.features,
+      ...current.features,
       wishlist: { enabled: true },
     },
   };
@@ -83,10 +85,12 @@ function enableWishlistFeature() {
 
 function disableWishlistFeature() {
   const { tenant } = useTenant();
+  const current = tenant.value;
+  assert.isDefined(current);
   tenant.value = {
-    ...tenant.value,
+    ...current,
     features: {
-      ...tenant.value?.features,
+      ...current.features,
       wishlist: { enabled: false },
     },
   };

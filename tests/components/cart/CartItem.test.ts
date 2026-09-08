@@ -175,7 +175,7 @@ describe('CartItem', () => {
       });
       const badges = wrapper.findAll('[data-testid="cart-item-campaign"]');
       expect(badges.length).toBe(1);
-      expect(badges[0].text()).toBe('10% off');
+      expect(badges[0]?.text()).toBe('10% off');
     });
 
     it('hides campaigns with hideTitle true', () => {

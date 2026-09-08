@@ -101,7 +101,8 @@ vi.stubGlobal('navigateTo', vi.fn());
 vi.stubGlobal('createError', mockCreateError);
 
 vi.mock('#app/composables/error', () => ({
-  createError: mockCreateError,
+  createError: (...args: Parameters<typeof mockCreateError>) =>
+    mockCreateError(...args),
   showError: vi.fn(),
 }));
 
@@ -116,10 +117,10 @@ mockUseFetch.mockImplementation(() => ({
 }));
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => mockUseFetch(...args),
+  useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
 }));
 
-vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+vi.stubGlobal('useFetch', mockUseFetch);
 
 // Mock route with an id param
 vi.stubGlobal('useRoute', () => ({
@@ -154,7 +155,8 @@ vi.mock('#app/composables/router', async (importOriginal) => {
 // so the decline flow proceeds in tests; override per-test to assert cancel.
 const mockSafeConfirm = vi.fn(() => true);
 vi.mock('../../../app/utils/client-helpers', () => ({
-  safeConfirm: (...args: unknown[]) => mockSafeConfirm(...args),
+  safeConfirm: (...args: Parameters<typeof mockSafeConfirm>) =>
+    mockSafeConfirm(...args),
   safeScrollTo: vi.fn(),
   safeLocationRedirect: vi.fn(),
   safeHistoryBack: vi.fn(),
@@ -182,8 +184,10 @@ vi.mock('../../../app/stores/quotes', () => ({
     set error(value: string | null) {
       mockStoreError.value = value;
     },
-    acceptQuote: mockAcceptQuote,
-    rejectQuote: mockRejectQuote,
+    acceptQuote: (...args: Parameters<typeof mockAcceptQuote>) =>
+      mockAcceptQuote(...args),
+    rejectQuote: (...args: Parameters<typeof mockRejectQuote>) =>
+      mockRejectQuote(...args),
   }),
 }));
 

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { mountComponent } from '../../utils/component';
 import PriceDisplay from '../../../app/components/shared/PriceDisplay.vue';
 import { useTenant } from '../../../app/composables/useTenant';
@@ -8,7 +9,15 @@ import { mockShowIncVat } from '../../setup-components';
 // useTenant mock is provided by setup-components.ts — access tenant ref to control features
 const { tenant } = useTenant();
 
-const mockCanAccess = vi.fn(() => true);
+// `useTenant()` types `tenant` as nullable because the real composable fills it
+// from useFetch. The setup-components mock always provides one, so assert it
+// here once instead of reaching for `!` at each site.
+function setFeatures(features: PublicTenantConfig['features']) {
+  assert.isDefined(tenant.value);
+  tenant.value.features = features;
+}
+
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
@@ -33,7 +42,7 @@ function makePrice(overrides: Record<string, unknown> = {}) {
 
 describe('PriceDisplay', () => {
   beforeEach(() => {
-    tenant.value.features = {};
+    setFeatures({});
     mockCanAccess.mockReturnValue(true);
     mockShowIncVat.value = true;
   });
@@ -277,7 +286,7 @@ describe('PriceDisplay', () => {
 
   describe('feature flags', () => {
     it('shows price when pricing feature is not configured', () => {
-      tenant.value.features = {};
+      setFeatures({});
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice() },
@@ -286,7 +295,7 @@ describe('PriceDisplay', () => {
     });
 
     it('shows price when pricing feature allows access', () => {
-      tenant.value.features = { priceVisibility: { enabled: true } };
+      setFeatures({ priceVisibility: { enabled: true } });
       mockCanAccess.mockReturnValue(true);
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice() },
@@ -295,7 +304,7 @@ describe('PriceDisplay', () => {
     });
 
     it('renders nothing when pricing feature denies access', () => {
-      tenant.value.features = { priceVisibility: { enabled: true } };
+      setFeatures({ priceVisibility: { enabled: true } });
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(PriceDisplay, {
         props: { price: makePrice() },

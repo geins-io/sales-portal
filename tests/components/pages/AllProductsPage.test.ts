@@ -27,23 +27,28 @@ const mockFiltersData = ref<Record<string, unknown> | null>({
   filters: { facets: [] },
 });
 
-const mockUseFetch = vi.fn((...args: unknown[]) => {
-  const url =
-    typeof args[0] === 'function' ? (args[0] as () => string)() : args[0];
-  if (typeof url === 'string' && url.includes('/filters')) {
-    return { data: mockFiltersData, status: ref('success'), error: ref(null) };
-  }
-  return {
-    data: mockProductsData,
-    status: mockProductsStatus,
-    error: ref(null),
-  };
-});
+const mockUseFetch = vi.fn(
+  (urlOrFn: unknown, _options?: Record<string, unknown>) => {
+    const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
+    if (typeof url === 'string' && url.includes('/filters')) {
+      return {
+        data: mockFiltersData,
+        status: ref('success'),
+        error: ref(null),
+      };
+    }
+    return {
+      data: mockProductsData,
+      status: mockProductsStatus,
+      error: ref(null),
+    };
+  },
+);
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => mockUseFetch(...args),
+  useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
 }));
-vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+vi.stubGlobal('useFetch', mockUseFetch);
 
 const router = {
   push: vi.fn(),
@@ -81,9 +86,8 @@ vi.mock('../../../app/composables/useLocaleMarket', () => ({
   }),
 }));
 
-const { default: AllProductsPage } = await import(
-  '../../../app/pages/products/index.vue'
-);
+const { default: AllProductsPage } =
+  await import('../../../app/pages/products/index.vue');
 
 function lastReplacedQuery(): Record<string, string> | undefined {
   const calls = replaceMock.mock.calls;

@@ -35,7 +35,9 @@ function mountSort() {
 
 describe('SortDropdown mobile adjustments', () => {
   it('disables body lock so opening the dropdown does not shift the page', () => {
-    const content = mountSort().findComponent('[data-testid="sort-content"]');
+    // The stub is unique in this tree, so finding it by its definition gives a
+    // VueWrapper whose `props()` keys are the stub's own.
+    const content = mountSort().findComponent(selectStubs.SelectContent);
     expect(content.props('bodyLock')).toBe(false);
   });
 

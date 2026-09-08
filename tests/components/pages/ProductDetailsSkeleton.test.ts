@@ -46,7 +46,7 @@ describe('ProductDetailsSkeleton', () => {
     expect(tabs.exists()).toBe(true);
     // 4 tab placeholders in the tab bar (first child div)
     const tabBar = tabs.element.children[0];
-    expect(tabBar.children.length).toBe(4);
+    expect(tabBar?.children.length).toBe(4);
   });
 
   it('renders related products skeleton', () => {

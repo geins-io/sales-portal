@@ -1,25 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import SavedListsTable from '../../../app/components/portal/SavedListsTable.vue';
+import type { ProductList } from '@geins/crm';
 
 // Mirror of the SDK `ProductList` shape — id, name, items as product
 // alias strings, createdAt, updatedAt. SavedListsTable consumes this
 // directly now (was previously fed the server-stub `SavedList` shape
 // with rich item data).
-const mockLists = [
+const mockLists: ProductList[] = [
   {
     id: 'list-1',
     name: 'Office Supplies',
     items: ['pens', 'paper'],
-    createdAt: '2026-04-01T10:00:00Z',
-    updatedAt: '2026-04-15T14:30:00Z',
+    createdAt: Date.parse('2026-04-01T10:00:00Z'),
+    updatedAt: Date.parse('2026-04-15T14:30:00Z'),
   },
   {
     id: 'list-2',
     name: 'Empty List',
     items: [],
-    createdAt: '2026-04-10T09:00:00Z',
-    updatedAt: '2026-04-10T09:00:00Z',
+    createdAt: Date.parse('2026-04-10T09:00:00Z'),
+    updatedAt: Date.parse('2026-04-10T09:00:00Z'),
   },
 ];
 

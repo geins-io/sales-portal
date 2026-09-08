@@ -1,39 +1,42 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ref, defineComponent, h, Suspense } from 'vue';
-import { mount, flushPromises } from '@vue/test-utils';
-import { defaultMountOptions } from '../../utils/component';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  assert,
+} from 'vitest';
+import {
+  ref,
+  defineComponent,
+  h,
+  Suspense,
+  type PropType,
+  type Component,
+} from 'vue';
+import { flushPromises } from '@vue/test-utils';
+import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductList from '../../../app/components/pages/ProductList.vue';
 
 // ProductList uses `await useFetch(...)` so its setup is async. The top-level
 // await makes the component require a Suspense parent to render. Wrap it
 // here and flush promises so tests can observe the resolved state.
 async function mountProductList(
-  props: Record<string, unknown>,
-  mountOptions: Parameters<typeof mount>[1] = {},
+  props: { type: 'category' | 'brand'; alias: string },
+  mountOptions: MountOptionsFor<Component> = {},
 ) {
+  // The wrapper closes over `props` instead of redeclaring them through
+  // `Object.keys`, so they are checked against ProductList's own props.
   const Wrapper = defineComponent({
-    components: { ProductList },
-    props: Object.keys(props),
-    setup(wrapperProps) {
+    setup() {
       return () =>
         h(Suspense, null, {
-          default: () => h(ProductList, wrapperProps),
+          default: () => h(ProductList, props),
         });
     },
   });
-  const wrapper = mount(Wrapper, {
-    ...defaultMountOptions,
-    ...mountOptions,
-    props,
-    global: {
-      ...defaultMountOptions.global,
-      ...mountOptions.global,
-      stubs: {
-        ...(defaultMountOptions.global?.stubs ?? {}),
-        ...(mountOptions.global?.stubs ?? {}),
-      },
-    },
-  });
+  const wrapper = mountComponent(Wrapper, mountOptions);
   await flushPromises();
   return wrapper;
 }
@@ -57,55 +60,55 @@ const { navigateToMock, recoverEntityUrlMock, replaceMock } = vi.hoisted(
   }),
 );
 
-vi.stubGlobal('navigateTo', (...args: unknown[]) => navigateToMock(...args));
+vi.stubGlobal('navigateTo', navigateToMock);
 vi.mock('../../../app/composables/useEntityUrlRecovery', () => ({
-  recoverEntityUrl: (...args: [string]) => recoverEntityUrlMock(...args),
+  recoverEntityUrl: (...args: Parameters<typeof recoverEntityUrlMock>) =>
+    recoverEntityUrlMock(...args),
 }));
-vi.stubGlobal('recoverEntityUrl', (...args: [string]) =>
-  recoverEntityUrlMock(...args),
-);
+vi.stubGlobal('recoverEntityUrl', recoverEntityUrlMock);
 
 const mockProductsData = ref<Record<string, unknown> | null>(null);
 const mockFiltersData = ref<Record<string, unknown> | null>(null);
 const mockPageInfo = ref<Record<string, unknown> | null>(null);
 const mockProductsStatus = ref('idle');
 
-const mockUseFetch = vi.fn((...args: unknown[]) => {
-  const url =
-    typeof args[0] === 'function' ? (args[0] as () => string)() : args[0];
-  if (typeof url === 'string' && url.includes('/products')) {
+const mockUseFetch = vi.fn(
+  (urlOrFn: unknown, _options?: Record<string, unknown>) => {
+    const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
+    if (typeof url === 'string' && url.includes('/products')) {
+      return {
+        data: mockProductsData,
+        status: mockProductsStatus,
+        error: ref(null),
+        pending: ref(false),
+        refresh: vi.fn(),
+        execute: vi.fn(),
+      };
+    }
+    if (typeof url === 'string' && url.includes('/filters')) {
+      return {
+        data: mockFiltersData,
+        status: ref('idle'),
+        error: ref(null),
+        pending: ref(false),
+        refresh: vi.fn(),
+        execute: vi.fn(),
+      };
+    }
+    // pageInfo fetch
     return {
-      data: mockProductsData,
-      status: mockProductsStatus,
-      error: ref(null),
-      pending: ref(false),
-      refresh: vi.fn(),
-      execute: vi.fn(),
-    };
-  }
-  if (typeof url === 'string' && url.includes('/filters')) {
-    return {
-      data: mockFiltersData,
+      data: mockPageInfo,
       status: ref('idle'),
       error: ref(null),
       pending: ref(false),
       refresh: vi.fn(),
       execute: vi.fn(),
     };
-  }
-  // pageInfo fetch
-  return {
-    data: mockPageInfo,
-    status: ref('idle'),
-    error: ref(null),
-    pending: ref(false),
-    refresh: vi.fn(),
-    execute: vi.fn(),
-  };
-});
+  },
+);
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => mockUseFetch(...args),
+  useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
 }));
 
 // Override the global useLocaleMarket mock so localePath prepends the
@@ -135,7 +138,7 @@ vi.mock('#app/composables/head', () => ({
   injectHead: vi.fn(),
 }));
 
-vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+vi.stubGlobal('useFetch', mockUseFetch);
 // useState (used by useLocaleAlternates) needs a live Nuxt instance that the
 // component tier does not provide. Stub it with a plain ref-backed store so
 // the setup runs to completion and the canonical replaceState block executes.
@@ -156,20 +159,23 @@ vi.stubGlobal('useSchemaOrg', vi.fn());
 // @unhead/schema-org/vue, so the module mock and the global stub must share one
 // spy instance).
 const { defineItemListMock } = vi.hoisted(() => ({
-  defineItemListMock: vi.fn(() => ({})),
+  defineItemListMock: vi.fn(
+    (_input: {
+      itemListElement: () => Array<{ url?: string | undefined }>;
+    }) => ({}),
+  ),
 }));
 vi.stubGlobal(
   'defineBreadcrumb',
   vi.fn(() => ({})),
 );
-vi.stubGlobal('defineItemList', (...args: unknown[]) =>
-  defineItemListMock(...args),
-);
+vi.stubGlobal('defineItemList', defineItemListMock);
 
 // Mock @unhead/schema-org/vue helpers (auto-imported by Nuxt)
 vi.mock('@unhead/schema-org/vue', () => ({
   defineBreadcrumb: vi.fn(() => ({})),
-  defineItemList: (...args: unknown[]) => defineItemListMock(...args),
+  defineItemList: (...args: Parameters<typeof defineItemListMock>) =>
+    defineItemListMock(...args),
 }));
 
 // Mock nuxt-schema-org runtime composable (auto-imported by Nuxt unimport).
@@ -229,7 +235,8 @@ vi.mock('#app/composables/router', () => ({
     afterEach: vi.fn(),
   }),
   useRoute: () => plpRoute,
-  navigateTo: (...args: unknown[]) => navigateToMock(...args),
+  navigateTo: (...args: Parameters<typeof navigateToMock>) =>
+    navigateToMock(...args),
 }));
 vi.stubGlobal('useRoute', () => ({
   path: '/foder',
@@ -484,9 +491,8 @@ describe('ProductList.vue', () => {
 
       await mountProductList(categoryProps, { global: { stubs } });
 
-      const arg = defineItemListMock.mock.calls[0]?.[0] as {
-        itemListElement: () => Array<{ url?: string }>;
-      };
+      const arg = defineItemListMock.mock.calls[0]?.[0];
+      assert.isDefined(arg);
       const elements = arg.itemListElement();
       // productPath('/product-1') -> '/p/product-1', localePath -> '/se/sv/p/product-1'
       expect(elements[0]?.url).toBe('/se/sv/p/product-1');
@@ -657,17 +663,23 @@ describe('ProductList.vue', () => {
     });
 
     it('(a) excludes Price and StockStatus facets from ProductFilters when both are hidden', async () => {
-      const capturedProps: Array<Record<string, unknown>> = [];
+      const capturedProps: Array<{ facets: Array<{ filterId: string }> }> = [];
       const capturingStubs = {
         ...stubs,
-        ProductFilters: {
+        ProductFilters: defineComponent({
           template: '<div data-testid="plp-filters" />',
-          props: ['facets', 'modelValue'],
-          setup(props: { facets: Array<{ filterId: string }> }) {
+          props: {
+            facets: {
+              type: Array as PropType<Array<{ filterId: string }>>,
+              default: () => [],
+            },
+            modelValue: { type: Object, default: undefined },
+          },
+          setup(props) {
             capturedProps.push({ facets: props.facets });
             return {};
           },
-        },
+        }),
       };
 
       await mountProductList(categoryProps, {
@@ -676,10 +688,9 @@ describe('ProductList.vue', () => {
 
       // At least one render captured facets
       expect(capturedProps.length).toBeGreaterThan(0);
-      const lastCapture = capturedProps[capturedProps.length - 1]!;
-      const facetIds = (lastCapture.facets as Array<{ filterId: string }>).map(
-        (f) => f.filterId,
-      );
+      const lastCapture = capturedProps[capturedProps.length - 1];
+      assert.isDefined(lastCapture);
+      const facetIds = lastCapture.facets.map((f) => f.filterId);
 
       expect(facetIds).not.toContain('Price');
       expect(facetIds).not.toContain('StockStatus');
@@ -698,17 +709,25 @@ describe('ProductList.vue', () => {
       } as Record<string, string>;
 
       try {
-        const capturedFilters: Array<Record<string, unknown>> = [];
+        const capturedFilters: Array<{
+          filters: Record<string, string[]>;
+        }> = [];
         const capturingStubs = {
           ...stubs,
-          ProductActiveFilters: {
+          ProductActiveFilters: defineComponent({
             template: '<div data-testid="plp-active-filters" />',
-            props: ['filters', 'facets'],
-            setup(props: { filters: Record<string, string[]> }) {
+            props: {
+              filters: {
+                type: Object as PropType<Record<string, string[]>>,
+                default: () => ({}),
+              },
+              facets: { type: Array, default: () => [] },
+            },
+            setup(props) {
               capturedFilters.push({ filters: props.filters });
               return {};
             },
-          },
+          }),
         };
 
         await mountProductList(categoryProps, {
@@ -717,8 +736,9 @@ describe('ProductList.vue', () => {
 
         // stripHiddenFacetKeys runs at setup; Price and StockStatus must be gone
         if (capturedFilters.length > 0) {
-          const lastFilters = capturedFilters[capturedFilters.length - 1]!
-            .filters as Record<string, string[]>;
+          const lastEntry = capturedFilters[capturedFilters.length - 1];
+          assert.isDefined(lastEntry);
+          const lastFilters = lastEntry.filters;
           expect(Object.keys(lastFilters)).not.toContain('Price');
           expect(Object.keys(lastFilters)).not.toContain('StockStatus');
         }
@@ -731,17 +751,23 @@ describe('ProductList.vue', () => {
       mockShowPrice.value = true;
       mockShowStock.value = true;
 
-      const capturedProps: Array<Record<string, unknown>> = [];
+      const capturedProps: Array<{ facets: Array<{ filterId: string }> }> = [];
       const capturingStubs = {
         ...stubs,
-        ProductFilters: {
+        ProductFilters: defineComponent({
           template: '<div data-testid="plp-filters" />',
-          props: ['facets', 'modelValue'],
-          setup(props: { facets: Array<{ filterId: string }> }) {
+          props: {
+            facets: {
+              type: Array as PropType<Array<{ filterId: string }>>,
+              default: () => [],
+            },
+            modelValue: { type: Object, default: undefined },
+          },
+          setup(props) {
             capturedProps.push({ facets: props.facets });
             return {};
           },
-        },
+        }),
       };
 
       await mountProductList(categoryProps, {
@@ -749,10 +775,9 @@ describe('ProductList.vue', () => {
       });
 
       expect(capturedProps.length).toBeGreaterThan(0);
-      const lastCapture = capturedProps[capturedProps.length - 1]!;
-      const facetIds = (lastCapture.facets as Array<{ filterId: string }>).map(
-        (f) => f.filterId,
-      );
+      const lastCapture = capturedProps[capturedProps.length - 1];
+      assert.isDefined(lastCapture);
+      const facetIds = lastCapture.facets.map((f) => f.filterId);
 
       expect(facetIds).toContain('Price');
       expect(facetIds).toContain('StockStatus');
@@ -763,22 +788,25 @@ describe('ProductList.vue', () => {
       const captured: Array<Array<{ value: string }>> = [];
       const capturingStubs = {
         ...stubs,
-        ProductListToolbar: {
+        ProductListToolbar: defineComponent({
           template:
             '<div data-testid="plp-toolbar"><slot name="filters" /></div>',
-          props: [
-            'resultCount',
-            'sortValue',
-            'sortOptions',
-            'viewMode',
-            'filterText',
-            'hasActiveFilters',
-          ],
-          setup(props: { sortOptions: Array<{ value: string }> }) {
+          props: {
+            resultCount: { type: Number, default: 0 },
+            sortValue: { type: String, default: '' },
+            sortOptions: {
+              type: Array as PropType<Array<{ value: string }>>,
+              default: () => [],
+            },
+            viewMode: { type: String, default: 'grid' },
+            filterText: { type: String, default: '' },
+            hasActiveFilters: { type: Boolean, default: false },
+          },
+          setup(props) {
             captured.push(props.sortOptions);
             return {};
           },
-        },
+        }),
       };
       return { captured, capturingStubs };
     }
@@ -822,24 +850,27 @@ describe('ProductList.vue', () => {
       const captured: string[] = [];
       const capturingStubs = {
         ...stubs,
-        ProductListToolbar: {
+        ProductListToolbar: defineComponent({
           name: 'ProductListToolbar',
           template:
             '<div data-testid="plp-toolbar"><slot name="filters" /></div>',
-          props: [
-            'resultCount',
-            'sortValue',
-            'sortOptions',
-            'viewMode',
-            'filterText',
-            'hasActiveFilters',
-          ],
+          props: {
+            resultCount: { type: Number, default: 0 },
+            sortValue: { type: String, default: '' },
+            sortOptions: {
+              type: Array as PropType<Array<{ value: string }>>,
+              default: () => [],
+            },
+            viewMode: { type: String, default: 'grid' },
+            filterText: { type: String, default: '' },
+            hasActiveFilters: { type: Boolean, default: false },
+          },
           emits: ['update:sortValue', 'update:viewMode'],
-          setup(props: { sortValue: string }) {
+          setup(props) {
             captured.push(props.sortValue);
             return {};
           },
-        },
+        }),
       };
       return { captured, capturingStubs };
     }
