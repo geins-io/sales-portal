@@ -614,10 +614,11 @@ describe('StoreSettingsSchema', () => {
       expect(result.success).toBe(true);
     });
 
-    // Backwards compatibility: { group } and { accountType } are retired from
-    // FeatureAccess but must still parse, or parseStoreSettingsResilient would
-    // strip the access leaf and open the feature to everyone. They are
-    // normalised to { enabled: false } in buildTenantConfig instead.
+    // Backwards compatibility: { group }, { accountType }, { permission } and
+    // { role } are retired from FeatureAccess but must still parse, or
+    // parseStoreSettingsResilient would strip the access leaf and open the
+    // feature to everyone. They are normalised to { enabled: false } in
+    // buildTenantConfig instead.
     it('should accept features with object access', () => {
       const config = createMinimalConfig({
         features: {

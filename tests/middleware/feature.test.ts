@@ -8,10 +8,7 @@ import type { RouteLocationNormalized } from 'vue-router';
 const mockTenantData = ref<PublicTenantConfig | null>(null);
 
 // Mock auth state
-let mockAuth: {
-  isAuthenticated: boolean;
-  user: { customerType?: string } | null;
-};
+let mockAuth: { isAuthenticated: boolean };
 
 // Track suspense calls
 let suspenseResolve: () => void;
@@ -39,7 +36,6 @@ const mockUseFeatureAccess = vi.fn(() => ({
     const feature = mockTenantData.value?.features?.[featureName];
     return canAccessFeature(feature, {
       authenticated: mockAuth.isAuthenticated,
-      customerType: mockAuth.user?.customerType,
     });
   },
 }));
@@ -155,7 +151,7 @@ describe('feature middleware', () => {
 
   beforeEach(() => {
     mockTenantData.value = null;
-    mockAuth = { isAuthenticated: false, user: null };
+    mockAuth = { isAuthenticated: false };
     mockUseTenant.mockClear();
     mockUseFeatureAccess.mockClear();
     mockNavigateTo.mockClear();
@@ -273,45 +269,13 @@ describe('feature middleware', () => {
     });
 
     it('should allow access when feature requires auth and user is logged in', async () => {
-      mockAuth = { isAuthenticated: true, user: {} };
+      mockAuth = { isAuthenticated: true };
       mockTenantData.value = createMockTenantConfig({
         features: {
           cart: { enabled: true, access: 'authenticated' },
         },
       });
       const route = createMockRoute({ feature: 'cart' });
-
-      const result = await featureMiddleware(route);
-
-      expect(result).toBeUndefined();
-      expect(mockNavigateTo).not.toHaveBeenCalled();
-    });
-
-    it('should redirect when feature requires a role the user does not have', async () => {
-      mockAuth = { isAuthenticated: true, user: { customerType: 'retail' } };
-      mockTenantData.value = createMockTenantConfig({
-        features: {
-          quotes: { enabled: true, access: { role: 'wholesale' } },
-        },
-      });
-      const route = createMockRoute({ feature: 'quotes' });
-
-      await featureMiddleware(route);
-
-      expect(mockNavigateTo).toHaveBeenCalledWith('/');
-    });
-
-    it('should allow access when user has the required role', async () => {
-      mockAuth = {
-        isAuthenticated: true,
-        user: { customerType: 'wholesale' },
-      };
-      mockTenantData.value = createMockTenantConfig({
-        features: {
-          quotes: { enabled: true, access: { role: 'wholesale' } },
-        },
-      });
-      const route = createMockRoute({ feature: 'quotes' });
 
       const result = await featureMiddleware(route);
 

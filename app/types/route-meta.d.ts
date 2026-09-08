@@ -22,22 +22,6 @@ declare module '#app' {
      * ```
      */
     feature?: string;
-
-    /**
-     * Required user roles (customerType values) for accessing this route.
-     * Used by the auth middleware for role-based access control.
-     *
-     * @example
-     * ```vue
-     * <script setup>
-     * definePageMeta({
-     *   middleware: 'auth',
-     *   roles: ['wholesale']
-     * })
-     * </script>
-     * ```
-     */
-    roles?: string[];
   }
 }
 
@@ -47,11 +31,6 @@ declare module 'vue-router' {
      * The required feature flag for accessing this route.
      */
     feature?: string;
-
-    /**
-     * Required user roles (customerType values) for accessing this route.
-     */
-    roles?: string[];
   }
 }
 

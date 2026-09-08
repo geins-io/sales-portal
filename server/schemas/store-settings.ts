@@ -132,10 +132,9 @@ export const BrandingConfigSchema = z.object({
  * Feature access control as it arrives on the wire — who can access a feature.
  * - "all": everyone
  * - "authenticated": logged-in users only
- * - { role: "order_placer" }: specific role
  *
- * `{ group }`, `{ accountType }` and `{ permission }` are accepted for
- * backwards compatibility and retired in server/utils/tenant.ts.
+ * `{ group }`, `{ accountType }`, `{ permission }` and `{ role }` are accepted
+ * for backwards compatibility and retired in server/utils/tenant.ts.
  */
 export const FeatureAccessSchema = z.union([
   z.literal('all'),

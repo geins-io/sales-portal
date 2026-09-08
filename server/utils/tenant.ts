@@ -322,18 +322,15 @@ export function transformGeinsSettings(
 // Config building & fetching
 // ---------------------------------------------------------------------------
 
-/** Wire-only rules: accepted by the schema, absent from `FeatureAccess`. */
-const RETIRED_ACCESS_RULES = ['group', 'accountType', 'permission'] as const;
-
-/** An object rule with none of the retired keys is `{ role }`. */
+/**
+ * Fail-closed, deliberately: an object rule added to `FeatureAccessSchema`
+ * later is retired by default — even with an evaluator written for it — until
+ * this predicate is widened too.
+ */
 function isEvaluableAccess(
   access: FeatureAccessInput | undefined,
 ): access is FeatureAccess | undefined {
-  return (
-    access === undefined ||
-    typeof access === 'string' ||
-    !RETIRED_ACCESS_RULES.some((key) => key in access)
-  );
+  return access === undefined || typeof access === 'string';
 }
 
 /**
@@ -354,9 +351,9 @@ function normalizeFeatureAccess(
         access === undefined ? { enabled } : { enabled, access };
       continue;
     }
-    const retired = RETIRED_ACCESS_RULES.filter((key) => key in access).join(
-      ', ',
-    );
+    // Zod strips unknown keys, so the parsed object carries exactly the one key
+    // of the union member that matched.
+    const retired = Object.keys(access).join(', ');
     logger.warn(
       `[tenant] Feature "${name}" for ${hostname} uses the retired access rule "${retired}"; disabling the feature`,
     );

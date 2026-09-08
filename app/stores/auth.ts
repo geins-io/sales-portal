@@ -32,15 +32,6 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!user.value);
   const displayName = computed(() => user.value?.username ?? null);
 
-  function hasRole(role: string): boolean {
-    return user.value?.customerType === role;
-  }
-
-  function hasAnyRole(roles: string[]): boolean {
-    if (!user.value?.customerType) return false;
-    return roles.includes(user.value.customerType);
-  }
-
   // Actions
   async function login(credentials: {
     username: string;
@@ -218,8 +209,6 @@ export const useAuthStore = defineStore('auth', () => {
     // Getters
     isAuthenticated,
     displayName,
-    hasRole,
-    hasAnyRole,
     // Actions
     login,
     register,

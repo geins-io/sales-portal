@@ -555,11 +555,12 @@ describe('Tenant utilities', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
 
-    // Still valid on the wire — FeatureAccessSchema accepts all three.
+    // Still valid on the wire — FeatureAccessSchema accepts all four.
     const retiredRules = [
       ['group', { group: 'staff' }],
       ['accountType', { accountType: 'enterprise' }],
       ['permission', { permission: 'orders:create' }],
+      ['role', { role: 'order_placer' }],
     ] as const;
 
     beforeEach(() => {
@@ -593,12 +594,7 @@ describe('Tenant utilities', () => {
         // it alone is hidden rather than rendered and then denied.
         expect(feature?.enabled).toBe(false);
         expect(canAccessFeature(feature, { authenticated: false })).toBe(false);
-        expect(
-          canAccessFeature(feature, {
-            authenticated: true,
-            customerType: 'wholesale',
-          }),
-        ).toBe(false);
+        expect(canAccessFeature(feature, { authenticated: true })).toBe(false);
       });
 
       it(`parses a raw candidate carrying { ${key} } without stripping the leaf`, () => {
@@ -650,7 +646,6 @@ describe('Tenant utilities', () => {
         features: {
           openToAll: { enabled: true, access: 'all' },
           signedIn: { enabled: true, access: 'authenticated' },
-          byRole: { enabled: true, access: { role: 'wholesale' } },
           plain: { enabled: true },
         },
       });
@@ -662,10 +657,6 @@ describe('Tenant utilities', () => {
       expect(built.features.signedIn).toEqual({
         enabled: true,
         access: 'authenticated',
-      });
-      expect(built.features.byRole).toEqual({
-        enabled: true,
-        access: { role: 'wholesale' },
       });
       expect(built.features.plain).toEqual({ enabled: true });
       expect(mockLoggerWarn).not.toHaveBeenCalled();

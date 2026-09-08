@@ -2,7 +2,6 @@ import type { FeatureAccess } from '#shared/types/tenant-config';
 
 export interface UserContext {
   authenticated: boolean;
-  customerType?: string;
 }
 
 type RuleEvaluator = (rule: FeatureAccess, user: UserContext) => boolean | null;
@@ -17,14 +16,6 @@ const evaluators: RuleEvaluator[] = [
 
   // 'authenticated' — logged-in users only
   (rule, user) => (rule === 'authenticated' ? user.authenticated : null),
-
-  // { role } — matches user's customerType from Geins
-  (rule, user) => {
-    if (typeof rule === 'object' && 'role' in rule) {
-      return user.customerType === rule.role;
-    }
-    return null;
-  },
 ];
 
 /**
