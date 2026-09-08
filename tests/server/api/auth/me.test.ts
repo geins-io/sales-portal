@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { eventWithGeinsSettings } from '../../mock-event';
 
 type AnyFn = (...args: unknown[]) => unknown;
 
@@ -116,13 +117,11 @@ describe('GET /api/auth/me', () => {
       user: { id: 1, email: 'buyer@example.com' },
     });
     mockGetMarketCookie.mockReturnValue('se');
-    const eventWithTenant = {
-      context: {
-        tenant: {
-          config: { geinsSettings: { channel: '1', tld: 'se', market: 'se' } },
-        },
-      },
-    } as import('h3').H3Event;
+    const eventWithTenant = eventWithGeinsSettings({
+      channel: '1',
+      tld: 'se',
+      market: 'se',
+    });
     mockGetCompany.mockResolvedValue({
       addresses: [{ addressId: '37', country: 'FI', addressType: 'shipping' }],
     });
@@ -146,7 +145,7 @@ describe('GET /api/auth/me', () => {
     const result = await handler(eventWithTenant);
 
     expect(mockSetMarketCookie).toHaveBeenCalledWith(eventWithTenant, 'fi');
-    expect(result.market).toBe('fi');
+    expect(result).toMatchObject({ market: 'fi' });
   });
 
   it('returns null user when optionalAuth returns null', async () => {

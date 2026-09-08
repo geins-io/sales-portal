@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, assert } from 'vitest';
 import { ProductListSchema } from '../../../../server/schemas/api-input';
 
 describe('ProductListSchema filter parsing (regression)', () => {
@@ -17,9 +17,17 @@ describe('ProductListSchema filter parsing (regression)', () => {
     expect(result.filter).toEqual({
       facets: [{ filterId: 'color', values: ['red'] }],
     });
-    expect(result.filter!.facets).toBeInstanceOf(Array);
-    expect(result.filter!.facets[0]).toHaveProperty('filterId', 'color');
-    expect(result.filter!.facets[0]).toHaveProperty('values', ['red']);
+    const filter = result.filter;
+    assert.isDefined(filter);
+    const { facets } = filter;
+    expect(facets).toBeInstanceOf(Array);
+    // The schema types the filter's contents as unknown; Array.isArray is the
+    // check TypeScript follows, and it fails the test on the same condition.
+    if (!Array.isArray(facets)) {
+      throw new TypeError('filter.facets is not an array');
+    }
+    expect(facets[0]).toHaveProperty('filterId', 'color');
+    expect(facets[0]).toHaveProperty('values', ['red']);
   });
 
   it('parses filter with searchText from JSON string', () => {

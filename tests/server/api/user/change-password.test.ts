@@ -64,9 +64,7 @@ describe('POST /api/user/change-password', () => {
       refreshToken: 'test-refresh-token',
     });
     mockCheck.mockResolvedValue({ allowed: true, remaining: 4, resetTime: 0 });
-    (
-      globalThis.readValidatedBody as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
+    vi.mocked(readValidatedBody).mockResolvedValue({
       currentPassword: 'old123456',
       newPassword: 'new123456',
     });

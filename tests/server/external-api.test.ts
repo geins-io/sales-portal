@@ -1,4 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  assert,
+} from 'vitest';
 import type { H3Event } from 'h3';
 import { createExternalApiError } from '../../server/utils/errors';
 
@@ -84,7 +92,7 @@ describe('External API Proxy', () => {
 
     // Clear module cache and reimport
     vi.resetModules();
-    const module = await import('../../server/api/external/[...].ts');
+    const module = await import('../../server/api/external/[...]');
     handler = module.default as (event: H3Event) => Promise<unknown>;
   });
 
@@ -405,6 +413,7 @@ describe('External API Proxy', () => {
       await handler(event);
 
       const callArgs = mockSendProxy.mock.calls[0];
+      assert.isDefined(callArgs, 'sendProxy was not called');
       const options = callArgs[2];
       expect(options.headers).toEqual({
         'content-type': 'application/json',
@@ -422,6 +431,7 @@ describe('External API Proxy', () => {
       await handler(event);
 
       const callArgs = mockSendProxy.mock.calls[0];
+      assert.isDefined(callArgs, 'sendProxy was not called');
       const options = callArgs[2];
       expect(options.headers).toEqual({});
     });

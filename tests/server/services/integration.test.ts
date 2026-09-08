@@ -15,7 +15,7 @@
  * Requires GEINS_* env vars (loaded from .env).
  * Skipped automatically when credentials are not available.
  */
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, assert } from 'vitest';
 import type { H3Event } from 'h3';
 import {
   geinsSettings,
@@ -106,18 +106,14 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
         name: string;
         alias: string;
       }>;
-      if (catData.length > 0) {
-        discoveredCategory = catData[0];
-      }
+      discoveredCategory = catData[0] ?? null;
 
       // Discover a valid brand from the API (unwrapped: returns array directly)
       const brandData = (await brands.getBrands(event)) as Array<{
         name: string;
         alias: string;
       }>;
-      if (brandData.length > 0) {
-        discoveredBrand = brandData[0];
-      }
+      discoveredBrand = brandData[0] ?? null;
     });
 
     it('should list products with pagination', async () => {
@@ -138,9 +134,9 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
     });
 
     it('should filter products by category', async () => {
-      expect(discoveredCategory).not.toBeNull();
+      assert.isNotNull(discoveredCategory);
       const data = (await productLists.getProducts(
-        { categoryAlias: discoveredCategory!.alias, take: 5 },
+        { categoryAlias: discoveredCategory.alias, take: 5 },
         event,
       )) as { products: Array<Record<string, unknown>>; count: number };
       expect(data.count).toBeGreaterThanOrEqual(0);
@@ -148,9 +144,9 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
     });
 
     it('should filter products by brand', async () => {
-      expect(discoveredBrand).not.toBeNull();
+      assert.isNotNull(discoveredBrand);
       const data = (await productLists.getProducts(
-        { brandAlias: discoveredBrand!.alias, take: 5 },
+        { brandAlias: discoveredBrand.alias, take: 5 },
         event,
       )) as { products: Array<Record<string, unknown>>; count: number };
       expect(data.count).toBeGreaterThanOrEqual(0);
@@ -167,25 +163,25 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
     });
 
     it('should load category page with subcategories', async () => {
-      expect(discoveredCategory).not.toBeNull();
+      assert.isNotNull(discoveredCategory);
       // unwrapped: returns listPageInfo directly
       const data = (await productLists.getCategoryPage(
-        { alias: discoveredCategory!.alias },
+        { alias: discoveredCategory.alias },
         event,
       )) as { id: number; name: string; subCategories: unknown[] };
       expect(data).toBeTypeOf('object');
-      expect(data.name).toBe(discoveredCategory!.name);
+      expect(data.name).toBe(discoveredCategory.name);
       expect(Array.isArray(data.subCategories)).toBe(true);
     });
 
     it('should load brand page', async () => {
-      expect(discoveredBrand).not.toBeNull();
+      assert.isNotNull(discoveredBrand);
       const data = (await productLists.getBrandPage(
-        { alias: discoveredBrand!.alias },
+        { alias: discoveredBrand.alias },
         event,
       )) as { id: number; name: string };
       expect(data).toBeTypeOf('object');
-      expect(data.name).toBe(discoveredBrand!.name);
+      expect(data.name).toBe(discoveredBrand.name);
     });
   });
 
@@ -204,7 +200,12 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
       const data = (await productLists.getProducts({ take: 1 }, event)) as {
         products: Array<{ alias: string }>;
       };
-      productAlias = data.products[0].alias;
+      const firstProduct = data.products[0];
+      assert.isDefined(
+        firstProduct,
+        'API returned no products to take an alias from',
+      );
+      productAlias = firstProduct.alias;
     });
 
     it('should load full product with price, stock, SKUs, and meta', async () => {
@@ -258,8 +259,18 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
       const listData = (await productLists.getProducts({ take: 1 }, event)) as {
         products: Array<{ name: string }>;
       };
-      const words = listData.products[0].name.split(/\s+/);
-      searchTerm = words.find((w) => w.length >= 3) ?? words[0];
+      const firstProduct = listData.products[0];
+      assert.isDefined(
+        firstProduct,
+        'API returned no products to take a search term from',
+      );
+      const words = firstProduct.name.split(/\s+/);
+      const term = words.find((w) => w.length >= 3) ?? words[0];
+      assert.isDefined(
+        term,
+        `product name "${firstProduct.name}" yielded no words`,
+      );
+      searchTerm = term;
     });
 
     it('should find products by text query', async () => {
@@ -359,12 +370,12 @@ describe.skipIf(!runIntegration)('Sales portal service integration', () => {
     });
 
     it('should add an item to a cart', async () => {
-      expect(validSkuId).not.toBeNull();
+      assert.isNotNull(validSkuId);
       const newCart = (await cart.createCart(event)) as { id: string };
       expect(newCart.id).toBeTypeOf('string');
       const updated = (await cart.addItem(
         newCart.id,
-        { skuId: validSkuId!, quantity: 1 },
+        { skuId: validSkuId, quantity: 1 },
         event,
       )) as { id: string };
       expect(updated).toBeTypeOf('object');

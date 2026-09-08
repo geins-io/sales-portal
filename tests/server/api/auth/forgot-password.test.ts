@@ -55,9 +55,7 @@ describe('POST /api/auth/forgot-password', () => {
       remaining: 4,
       resetTime: 0,
     });
-    (
-      globalThis.readValidatedBody as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
+    vi.mocked(readValidatedBody).mockResolvedValue({
       email: 'user@example.com',
     });
   });

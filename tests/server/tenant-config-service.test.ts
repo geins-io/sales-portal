@@ -17,6 +17,7 @@ const mockTenantConfig: TenantConfig = {
     availableMarkets: ['se'],
   },
   mode: 'commerce',
+  checkoutMode: 'custom',
   theme: {
     name: 'test-theme',
     colors: {

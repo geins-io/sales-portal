@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { RateLimiter, getClientIp } from '../../server/utils/rate-limiter';
 import type { H3Event } from 'h3';
 
