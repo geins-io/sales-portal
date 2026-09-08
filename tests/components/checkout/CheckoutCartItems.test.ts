@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import CheckoutCartItems from '../../../app/components/checkout/CheckoutCartItems.vue';
 import type { CartItemType } from '@geins/types';
@@ -165,7 +165,7 @@ describe('CheckoutCartItems', () => {
     const wrapper = mountItems([createItem()]);
     const prices = wrapper.findAll('[data-testid="price-stub"]');
     expect(prices.length).toBeGreaterThan(0);
-    expect(prices[0].text()).toContain('100.00 SEK');
+    expect(prices[0]?.text()).toContain('100.00 SEK');
   });
 
   it('handles item with missing product data gracefully', () => {
@@ -179,11 +179,16 @@ describe('CheckoutCartItems', () => {
   });
 
   it('handles item with null product images gracefully', () => {
+    const baseProduct = createItem().product;
+    assert.isDefined(baseProduct);
     const item = createItem({
+      // `productImages` is required on the type, and absent images are exactly
+      // what this test drives through the component — so the impossible value
+      // is the point here, and the cast says so rather than hiding a mistake.
       product: {
-        ...createItem().product!,
+        ...baseProduct,
         productImages: undefined,
-      } as CartItemType['product'],
+      } as unknown as CartItemType['product'],
     });
     const wrapper = mountItems([item]);
     expect(wrapper.find('[data-testid="checkout-cart-item"]').exists()).toBe(

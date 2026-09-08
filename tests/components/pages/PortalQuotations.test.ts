@@ -13,19 +13,21 @@ const mockPending = ref(false);
 const mockError = ref<Error | null>(null);
 const mockRefresh = vi.fn();
 
-const useFetchMock = vi.fn(() => ({
-  data: mockData,
-  pending: mockPending,
-  error: mockError,
-  refresh: mockRefresh,
-}));
+const useFetchMock = vi.fn(
+  (_url: string | (() => string), _options?: Record<string, unknown>) => ({
+    data: mockData,
+    pending: mockPending,
+    error: mockError,
+    refresh: mockRefresh,
+  }),
+);
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => useFetchMock(...args),
+  useFetch: (...args: Parameters<typeof useFetchMock>) => useFetchMock(...args),
   $fetch: vi.fn(),
 }));
 
-vi.stubGlobal('useFetch', (...args: unknown[]) => useFetchMock(...args));
+vi.stubGlobal('useFetch', useFetchMock);
 vi.stubGlobal('definePageMeta', vi.fn());
 
 // Import AFTER mocks are set up

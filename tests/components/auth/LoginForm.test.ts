@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mountComponent } from '../../utils/component';
+import type { ComponentPublicInstance } from 'vue';
 import LoginForm from '../../../app/components/auth/LoginForm.vue';
 import { createPinia, setActivePinia } from 'pinia';
 import { useAuthStore } from '../../../app/stores/auth';
@@ -131,8 +132,10 @@ describe('LoginForm', () => {
     const wrapper = mountComponent(LoginForm, { global: { stubs } });
 
     // Set email/password via the stub's update:modelValue events
-    const emailInput = wrapper.findComponent('[data-testid="login-email"]');
-    const passwordInput = wrapper.findComponent(
+    const emailInput = wrapper.findComponent<ComponentPublicInstance>(
+      '[data-testid="login-email"]',
+    );
+    const passwordInput = wrapper.findComponent<ComponentPublicInstance>(
       '[data-testid="login-password"]',
     );
     emailInput.vm.$emit('update:modelValue', 'user@example.com');
@@ -153,13 +156,17 @@ describe('LoginForm', () => {
     const wrapper = mountComponent(LoginForm, { global: { stubs } });
 
     // Uncheck the checkbox via update:modelValue
-    const checkbox = wrapper.findComponent('[data-testid="login-remember-me"]');
+    const checkbox = wrapper.findComponent<ComponentPublicInstance>(
+      '[data-testid="login-remember-me"]',
+    );
     checkbox.vm.$emit('update:modelValue', false);
     await wrapper.vm.$nextTick();
 
     // Set email/password
-    const emailInput = wrapper.findComponent('[data-testid="login-email"]');
-    const passwordInput = wrapper.findComponent(
+    const emailInput = wrapper.findComponent<ComponentPublicInstance>(
+      '[data-testid="login-email"]',
+    );
+    const passwordInput = wrapper.findComponent<ComponentPublicInstance>(
       '[data-testid="login-password"]',
     );
     emailInput.vm.$emit('update:modelValue', 'user@example.com');

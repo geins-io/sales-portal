@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import type { ProductImageType } from '#shared/types/commerce';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ref } from 'vue';
@@ -51,7 +52,7 @@ const iconStub = {
   props: ['name'],
 };
 
-const stubs: Record<string, unknown> = {
+const stubs = {
   GeinsImage: geinsImageStub,
   SharedGeinsImage: geinsImageStub,
   Icon: iconStub,
@@ -66,11 +67,15 @@ const stubs: Record<string, unknown> = {
   },
 };
 
-type GalleryImage = { fileName: string; altText?: string | null };
+// The component takes `ProductImageType[]`; a narrower local shape only
+// looked valid because nothing type-checked this file.
+type GalleryImage = ProductImageType;
 
 function makeImages(count = 3): GalleryImage[] {
   return Array.from({ length: count }, (_, i) => ({
     fileName: `product-${i + 1}.jpg`,
+    url: `/i/product-${i + 1}.jpg`,
+    isPrimary: i === 0,
   }));
 }
 
@@ -164,9 +169,14 @@ describe('ProductGallery', () => {
 
     it('uses a manual PIM alt override verbatim, ignoring the format', () => {
       const images: GalleryImage[] = [
-        { fileName: 'a.jpg', altText: 'Drill bit close-up on a workbench' },
-        { fileName: 'b.jpg' },
-        { fileName: 'c.jpg' },
+        {
+          fileName: 'a.jpg',
+          url: '/i/a.jpg',
+          isPrimary: false,
+          altText: 'Drill bit close-up on a workbench',
+        },
+        { fileName: 'b.jpg', url: '/i/b.jpg', isPrimary: false },
+        { fileName: 'c.jpg', url: '/i/c.jpg', isPrimary: false },
       ];
       const wrapper = mountGallery(images, 'Bosch Rotary Hammer');
       expect(mainAlt(wrapper)).toBe('Drill bit close-up on a workbench');
@@ -175,8 +185,8 @@ describe('ProductGallery', () => {
 
     it('empty altText falls through to the generated counter (does not blank the image)', () => {
       const images: GalleryImage[] = [
-        { fileName: 'a.jpg', altText: '' },
-        { fileName: 'b.jpg' },
+        { fileName: 'a.jpg', url: '/i/a.jpg', isPrimary: false, altText: '' },
+        { fileName: 'b.jpg', url: '/i/b.jpg', isPrimary: false },
       ];
       const wrapper = mountGallery(images, 'Bosch Rotary Hammer');
       expect(mainAlt(wrapper)).toBe('Bosch Rotary Hammer (1 of 2)');

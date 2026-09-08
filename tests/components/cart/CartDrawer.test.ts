@@ -6,7 +6,7 @@ import { useCartStore } from '../../../app/stores/cart';
 import { createPinia, setActivePinia } from 'pinia';
 import { mockShowIncVat } from '../../setup-components';
 
-const mockCanAccess = vi.fn(() => true);
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
 }));

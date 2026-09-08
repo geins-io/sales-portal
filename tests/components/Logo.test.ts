@@ -86,8 +86,8 @@ describe('BrandLogo Component', () => {
 
       const imgs = wrapper.findAll('img');
       expect(imgs.length).toBe(2);
-      expect(imgs[0].classes()).toContain('dark:hidden');
-      expect(imgs[1].classes()).toContain('dark:block');
+      expect(imgs[0]?.classes()).toContain('dark:hidden');
+      expect(imgs[1]?.classes()).toContain('dark:block');
     });
   });
 
@@ -104,12 +104,12 @@ describe('BrandLogo Component', () => {
       expect(imgs.length).toBe(2);
 
       // Symbol: visible on small, hidden on md+
-      expect(imgs[0].classes()).toContain('block');
-      expect(imgs[0].classes()).toContain('md:hidden');
+      expect(imgs[0]?.classes()).toContain('block');
+      expect(imgs[0]?.classes()).toContain('md:hidden');
 
       // Full: hidden on small, visible on md+
-      expect(imgs[1].classes()).toContain('hidden');
-      expect(imgs[1].classes()).toContain('md:block');
+      expect(imgs[1]?.classes()).toContain('hidden');
+      expect(imgs[1]?.classes()).toContain('md:block');
     });
   });
 });

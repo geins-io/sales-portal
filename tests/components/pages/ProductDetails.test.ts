@@ -1,39 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref, defineComponent, h, Suspense } from 'vue';
-import { mount, flushPromises } from '@vue/test-utils';
-import { defaultMountOptions } from '../../utils/component';
+import { flushPromises } from '@vue/test-utils';
+import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
 
 // ProductDetails uses `await useFetch(...)` so the setup is async. Wrap it
 // in a Suspense boundary, mount full-depth (stubs provided via global.stubs
 // cover every heavy child), and flush the microtask queue before asserting.
 async function mountProductDetails(
-  props: Record<string, unknown>,
-  mountOptions: Parameters<typeof mount>[1] = {},
+  props: { alias: string },
+  mountOptions: MountOptionsFor<Component> = {},
 ) {
+  // The wrapper closes over `props` instead of redeclaring them through
+  // `Object.keys`, so they are checked against ProductDetails's own props.
   const Wrapper = defineComponent({
-    components: { ProductDetails },
-    props: Object.keys(props),
-    setup(wrapperProps) {
+    setup() {
       return () =>
         h(Suspense, null, {
-          default: () => h(ProductDetails, wrapperProps),
+          default: () => h(ProductDetails, props),
         });
     },
   });
-  const wrapper = mount(Wrapper, {
-    ...defaultMountOptions,
-    ...mountOptions,
-    props,
-    global: {
-      ...defaultMountOptions.global,
-      ...mountOptions.global,
-      stubs: {
-        ...(defaultMountOptions.global?.stubs ?? {}),
-        ...(mountOptions.global?.stubs ?? {}),
-      },
-    },
-  });
+  const wrapper = mountComponent(Wrapper, mountOptions);
   await flushPromises();
   return wrapper;
 }
@@ -45,19 +33,20 @@ async function mountProductDetails(
 // delegates content misses to recoverEntityUrl (spec 003). Both are mocked as
 // spies and asserted against; assertions watch the spies, never real navigation.
 const { navigateToMock, recoverEntityUrlMock } = vi.hoisted(() => ({
-  navigateToMock: vi.fn(() => Promise.resolve()),
-  recoverEntityUrlMock: vi.fn(() => Promise.resolve()),
+  navigateToMock: vi.fn<typeof navigateTo>(() => Promise.resolve()),
+  recoverEntityUrlMock: vi.fn<(path: string) => Promise<void>>(() =>
+    Promise.resolve(),
+  ),
 }));
 
-vi.stubGlobal('navigateTo', (...args: unknown[]) => navigateToMock(...args));
+vi.stubGlobal('navigateTo', navigateToMock);
 vi.mock('../../../app/composables/useEntityUrlRecovery', () => ({
-  recoverEntityUrl: (...args: [string]) => recoverEntityUrlMock(...args),
+  recoverEntityUrl: (...args: Parameters<typeof recoverEntityUrlMock>) =>
+    recoverEntityUrlMock(...args),
 }));
-vi.stubGlobal('recoverEntityUrl', (...args: [string]) =>
-  recoverEntityUrlMock(...args),
-);
+vi.stubGlobal('recoverEntityUrl', recoverEntityUrlMock);
 
-const mockCanAccess = vi.fn(() => true);
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
@@ -85,10 +74,10 @@ const mockUseFetch = vi.fn(() => ({
 }));
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => mockUseFetch(...args),
+  useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
 }));
 
-vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+vi.stubGlobal('useFetch', mockUseFetch);
 
 // useLocaleAlternates auto-imports useRouter/useRoute from #app/composables/router
 // (not the global stub) and registers an afterEach hook on the client; without an
@@ -115,7 +104,8 @@ vi.mock('#app/composables/router', () => ({
     afterEach: vi.fn(),
   }),
   useRoute: () => pdpRoute,
-  navigateTo: (...args: unknown[]) => navigateToMock(...args),
+  navigateTo: (...args: Parameters<typeof navigateToMock>) =>
+    navigateToMock(...args),
 }));
 
 // useState (used by useLocaleAlternates) needs a live Nuxt instance the

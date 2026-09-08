@@ -63,12 +63,14 @@ vi.stubGlobal('createError', mockCreateError);
 vi.stubGlobal('useHead', mockUseHead);
 
 vi.mock('#app/composables/error', () => ({
-  createError: mockCreateError,
-  showError: mockShowError,
+  createError: (...args: Parameters<typeof mockCreateError>) =>
+    mockCreateError(...args),
+  showError: (...args: Parameters<typeof mockShowError>) =>
+    mockShowError(...args),
 }));
 
 vi.mock('#app/composables/head', () => ({
-  useHead: mockUseHead,
+  useHead: (...args: Parameters<typeof mockUseHead>) => mockUseHead(...args),
   useHeadSafe: vi.fn(),
   useServerHead: vi.fn(),
   useServerHeadSafe: vi.fn(),
@@ -104,25 +106,28 @@ vi.mock('#app/composables/router', async (importOriginal) => {
       matched: [],
       meta: {},
     }),
-    navigateTo: (...args: unknown[]) => mockNavigateTo(...args),
+    navigateTo: (...args: Parameters<typeof mockNavigateTo>) =>
+      mockNavigateTo(...args),
   };
 });
 
 // Mock useFetch
-const mockUseFetch = vi.fn(() => ({
-  data: mockData,
-  error: mockError,
-  status: mockStatus,
-  pending: mockPending,
-  refresh: vi.fn(),
-  execute: vi.fn(),
-}));
+const mockUseFetch = vi.fn(
+  (_url: string | (() => string), _options?: Record<string, unknown>) => ({
+    data: mockData,
+    error: mockError,
+    status: mockStatus,
+    pending: mockPending,
+    refresh: vi.fn(),
+    execute: vi.fn(),
+  }),
+);
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => mockUseFetch(...args),
+  useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
 }));
 
-vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+vi.stubGlobal('useFetch', mockUseFetch);
 
 function makeOrder(overrides: Record<string, unknown> = {}) {
   return {

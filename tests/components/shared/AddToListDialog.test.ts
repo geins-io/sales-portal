@@ -118,9 +118,11 @@ describe('AddToListDialog', () => {
     );
 
     const wrapper = mount({ open: true });
-    const checkboxes = wrapper.findAll('input[type="checkbox"]');
-    expect(checkboxes[0]!.element.checked).toBe(false); // favorites
-    expect(checkboxes[1]!.element.checked).toBe(true); // l1
+    const checkboxes = wrapper.findAll<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
+    expect(checkboxes[0]?.element.checked).toBe(false); // favorites
+    expect(checkboxes[1]?.element.checked).toBe(true); // l1
   });
 
   it('calls addItemToList when an unchecked list is toggled on', async () => {

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { mountComponent } from '../../utils/component';
 import StockBadge from '../../../app/components/shared/StockBadge.vue';
 import { useTenant } from '../../../app/composables/useTenant';
@@ -6,7 +7,15 @@ import { useTenant } from '../../../app/composables/useTenant';
 // useTenant mock is provided by setup-components.ts — access tenant ref to control features
 const { tenant } = useTenant();
 
-const mockCanAccess = vi.fn(() => true);
+// `useTenant()` types `tenant` as nullable because the real composable fills it
+// from useFetch. The setup-components mock always provides one, so assert it
+// here once instead of reaching for `!` at each site.
+function setFeatures(features: PublicTenantConfig['features']) {
+  assert.isDefined(tenant.value);
+  tenant.value.features = features;
+}
+
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
@@ -34,7 +43,7 @@ function makeStock(overrides: Record<string, number> = {}) {
 
 describe('StockBadge', () => {
   beforeEach(() => {
-    tenant.value.features = {};
+    setFeatures({});
     mockCanAccess.mockReturnValue(true);
   });
 
@@ -91,7 +100,7 @@ describe('StockBadge', () => {
 
   describe('feature flags', () => {
     it('shows stock when stock feature is not configured', () => {
-      tenant.value.features = {};
+      setFeatures({});
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(StockBadge, {
         props: { stock: makeStock() },
@@ -101,7 +110,7 @@ describe('StockBadge', () => {
     });
 
     it('hides stock when stock feature denies access', () => {
-      tenant.value.features = { stockStatus: { enabled: true } };
+      setFeatures({ stockStatus: { enabled: true } });
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(StockBadge, {
         props: { stock: makeStock() },
@@ -111,7 +120,7 @@ describe('StockBadge', () => {
     });
 
     it('shows stock when stock feature allows access', () => {
-      tenant.value.features = { stockStatus: { enabled: true } };
+      setFeatures({ stockStatus: { enabled: true } });
       mockCanAccess.mockReturnValue(true);
       const wrapper = mountComponent(StockBadge, {
         props: { stock: makeStock() },
@@ -123,9 +132,9 @@ describe('StockBadge', () => {
     // Live tenant shape: explicit enabled:false with an access rule still
     // hides the badge. The enabled flag wins regardless of access.
     it('hides stock when stockStatus is enabled:false with access defined', () => {
-      tenant.value.features = {
+      setFeatures({
         stockStatus: { enabled: false, access: 'authenticated' },
-      };
+      });
       mockCanAccess.mockReturnValue(true);
       const wrapper = mountComponent(StockBadge, {
         props: { stock: makeStock() },

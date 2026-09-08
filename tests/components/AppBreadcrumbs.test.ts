@@ -48,7 +48,7 @@ describe('AppBreadcrumbs', () => {
     });
     const spans = wrapper.findAll('span');
     const lastSpan = spans[spans.length - 1];
-    expect(lastSpan.text()).toBe('Current Page');
+    expect(lastSpan?.text()).toBe('Current Page');
   });
 
   it('renders nothing when items is empty', () => {

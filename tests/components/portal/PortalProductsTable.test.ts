@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, assert } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import PortalProductsTable from '../../../app/components/portal/PortalProductsTable.vue';
 
@@ -99,7 +99,7 @@ describe('PortalProductsTable', () => {
     });
     const links = wrapper.find('table').findAll('[data-testid="order-link"]');
     expect(links.length).toBe(2);
-    expect(links[0].attributes('href')).toContain('order-abc-123');
+    expect(links[0]?.attributes('href')).toContain('order-abc-123');
   });
 
   it('displays all columns', () => {
@@ -119,8 +119,10 @@ describe('PortalProductsTable', () => {
   });
 
   it('falls back to raw price when priceExVatFormatted is missing', () => {
+    const firstProduct = mockProducts[0];
+    assert.isDefined(firstProduct);
     const productsNoFormatted = [
-      { ...mockProducts[0], priceExVatFormatted: undefined },
+      { ...firstProduct, priceExVatFormatted: undefined },
     ];
     const wrapper = mountComponent(PortalProductsTable, {
       props: {

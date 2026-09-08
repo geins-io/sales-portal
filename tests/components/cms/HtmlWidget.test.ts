@@ -15,7 +15,7 @@ vi.stubGlobal('useHead', vi.fn());
 
 describe('HtmlWidget', () => {
   const defaultProps = {
-    data: { html: '<p>Hello world</p>', css: '' },
+    data: { name: 'html', active: true, html: '<p>Hello world</p>', css: '' },
     config: {} as never,
     layout: 'default',
   };
@@ -31,7 +31,12 @@ describe('HtmlWidget', () => {
     const wrapper = mountComponent(HtmlWidget, {
       props: {
         ...defaultProps,
-        data: { html: '<p class="test">Some content</p>', css: '' },
+        data: {
+          name: 'html',
+          active: true,
+          html: '<p class="test">Some content</p>',
+          css: '',
+        },
       },
     });
     expect(wrapper.find('.rich-text').exists()).toBe(true);
@@ -42,7 +47,7 @@ describe('HtmlWidget', () => {
     const wrapper = mountComponent(HtmlWidget, {
       props: {
         ...defaultProps,
-        data: { html: '', css: '' },
+        data: { name: 'html', active: true, html: '', css: '' },
       },
     });
     expect(wrapper.find('.rich-text').exists()).toBe(false);
@@ -52,7 +57,12 @@ describe('HtmlWidget', () => {
     const wrapper = mountComponent(HtmlWidget, {
       props: {
         ...defaultProps,
-        data: { html: '<strong>Bold text</strong>', css: '' },
+        data: {
+          name: 'html',
+          active: true,
+          html: '<strong>Bold text</strong>',
+          css: '',
+        },
       },
     });
     expect(wrapper.find('.rich-text').exists()).toBe(true);
