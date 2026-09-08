@@ -1,4 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  assert,
+} from 'vitest';
+import type { FetchOptions } from 'ofetch';
 import {
   createApiClient,
   mergeHeaders,
@@ -10,10 +19,45 @@ import {
 } from '../../app/utils/api-client';
 
 // Mock $fetch.create
-const mockFetchCreate = vi.fn();
+const mockFetchCreate = vi.fn<(options: FetchOptions) => unknown>();
 const mockFetch = vi.fn();
 
 vi.stubGlobal('$fetch', Object.assign(mockFetch, { create: mockFetchCreate }));
+
+/** The options `createApiClient` handed to `$fetch.create`. */
+function createdOptions(): FetchOptions {
+  const options = mockFetchCreate.mock.calls[0]?.[0];
+  assert.isDefined(options);
+  return options;
+}
+
+/**
+ * The interceptor context these tests drive. A real `FetchContext` carries a
+ * whole `FetchResponse`, which cannot be written as a literal, so each test
+ * sets only the fields the interceptor under test reads.
+ */
+type DrivenContext = {
+  request?: string;
+  options?: Record<string, unknown>;
+  response?: { status: number; statusText?: string };
+  error?: Error;
+};
+
+/**
+ * Reads one interceptor back off those options. ofetch types every hook as
+ * `MaybeArray<FetchHook>` and `createApiClient` registers exactly one
+ * function, so the union and the partial context above are resolved once here
+ * instead of at each of the fourteen sites that drive a hook.
+ */
+function interceptor(
+  name: 'onRequest' | 'onResponse' | 'onRequestError' | 'onResponseError',
+): (context: DrivenContext) => Promise<void> {
+  const hook = createdOptions()[name];
+  if (typeof hook !== 'function') {
+    throw new Error(`createApiClient registered no single ${name} hook`);
+  }
+  return hook as unknown as (context: DrivenContext) => Promise<void>;
+}
 
 describe('api-client', () => {
   beforeEach(() => {
@@ -30,7 +74,7 @@ describe('api-client', () => {
       createApiClient();
 
       expect(mockFetchCreate).toHaveBeenCalledTimes(1);
-      const config = mockFetchCreate.mock.calls[0][0];
+      const config = createdOptions();
 
       expect(config.baseURL).toBeUndefined();
       expect(config.timeout).toBe(DEFAULT_API_CLIENT_CONFIG.timeout);
@@ -50,7 +94,7 @@ describe('api-client', () => {
       createApiClient(customConfig);
 
       expect(mockFetchCreate).toHaveBeenCalledTimes(1);
-      const config = mockFetchCreate.mock.calls[0][0];
+      const config = createdOptions();
 
       expect(config.baseURL).toBe('https://api.example.com');
       expect(config.timeout).toBe(60000);
@@ -62,10 +106,10 @@ describe('api-client', () => {
       const onRequest = vi.fn();
       createApiClient({ onRequest });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onRequest');
       const context = { options: {} };
 
-      await config.onRequest(context);
+      await hook(context);
 
       expect(onRequest).toHaveBeenCalledWith(context);
     });
@@ -74,10 +118,10 @@ describe('api-client', () => {
       const onResponse = vi.fn();
       createApiClient({ onResponse });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onResponse');
       const context = { response: { status: 200 } };
 
-      await config.onResponse(context);
+      await hook(context);
 
       expect(onResponse).toHaveBeenCalledWith(context);
     });
@@ -86,14 +130,14 @@ describe('api-client', () => {
       const onRequestError = vi.fn();
       createApiClient({ onRequestError, retry: 0 });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onRequestError');
       const context = {
         request: '/test',
         options: { method: 'POST' },
         error: new Error('Network error'),
       };
 
-      await config.onRequestError(context);
+      await hook(context);
 
       expect(onRequestError).toHaveBeenCalledWith(context);
     });
@@ -102,14 +146,14 @@ describe('api-client', () => {
       const onResponseError = vi.fn();
       createApiClient({ onResponseError, retry: 0 });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onResponseError');
       const context = {
         request: '/test',
         options: { method: 'POST' },
         response: { status: 500, statusText: 'Internal Server Error' },
       };
 
-      await config.onResponseError(context);
+      await hook(context);
 
       expect(onResponseError).toHaveBeenCalledWith(context);
     });
@@ -117,11 +161,11 @@ describe('api-client', () => {
     it('should initialize retry count on first request', async () => {
       createApiClient();
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onRequest');
       const options: Record<string, unknown> = {};
       const context = { options };
 
-      await config.onRequest(context);
+      await hook(context);
 
       expect(options._retryCount).toBe(0);
     });
@@ -129,11 +173,11 @@ describe('api-client', () => {
     it('should preserve existing retry count', async () => {
       createApiClient();
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onRequest');
       const options = { _retryCount: 2 };
       const context = { options };
 
-      await config.onRequest(context);
+      await hook(context);
 
       expect(options._retryCount).toBe(2);
     });
@@ -326,7 +370,7 @@ describe('api-client', () => {
     it('should not retry POST requests by default', async () => {
       createApiClient({ retry: 3 });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onResponseError');
       const context = {
         request: '/test',
         options: { method: 'POST', _retryCount: 0 },
@@ -334,7 +378,7 @@ describe('api-client', () => {
       };
 
       // Should not throw (which would indicate a retry attempt)
-      await config.onResponseError(context);
+      await hook(context);
 
       // Verify no retry was attempted (mockFetch not called)
       expect(mockFetch).not.toHaveBeenCalled();
@@ -347,14 +391,14 @@ describe('api-client', () => {
         shouldRetry: customShouldRetry,
       });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onResponseError');
       const context = {
         request: '/test',
         options: { method: 'GET', _retryCount: 0 },
         response: { status: 500, statusText: 'Internal Server Error' },
       };
 
-      await config.onResponseError(context);
+      await hook(context);
 
       expect(customShouldRetry).toHaveBeenCalledWith(expect.any(Error), {
         attempt: 0,
@@ -366,14 +410,14 @@ describe('api-client', () => {
     it('should not retry when max retries exceeded', async () => {
       createApiClient({ retry: 3 });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onResponseError');
       const context = {
         request: '/test',
         options: { method: 'GET', _retryCount: 3 },
         response: { status: 500, statusText: 'Internal Server Error' },
       };
 
-      await config.onResponseError(context);
+      await hook(context);
 
       // Verify no retry was attempted
       expect(mockFetch).not.toHaveBeenCalled();
@@ -382,7 +426,7 @@ describe('api-client', () => {
     it('should not retry 4xx errors except specific codes', async () => {
       createApiClient({ retry: 3 });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onResponseError');
 
       // Test 400 Bad Request - should not retry
       const context400 = {
@@ -391,7 +435,7 @@ describe('api-client', () => {
         response: { status: 400, statusText: 'Bad Request' },
       };
 
-      await config.onResponseError(context400);
+      await hook(context400);
       expect(mockFetch).not.toHaveBeenCalled();
 
       // Test 404 Not Found - should not retry
@@ -401,7 +445,7 @@ describe('api-client', () => {
         response: { status: 404, statusText: 'Not Found' },
       };
 
-      await config.onResponseError(context404);
+      await hook(context404);
       expect(mockFetch).not.toHaveBeenCalled();
     });
   });
@@ -410,7 +454,7 @@ describe('api-client', () => {
     it('should handle missing response in onResponseError', async () => {
       createApiClient({ retry: 3 });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onResponseError');
       const context = {
         request: '/test',
         options: { method: 'GET', _retryCount: 0 },
@@ -418,14 +462,14 @@ describe('api-client', () => {
       };
 
       // Should not throw
-      await config.onResponseError(context);
+      await hook(context);
     });
 
     it('should handle missing method in options (defaults to GET)', async () => {
       // Disable retry for this test to avoid recursive $fetch call
       createApiClient({ retry: 0 });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onResponseError');
       const context = {
         request: '/test',
         options: { _retryCount: 0 },
@@ -434,21 +478,21 @@ describe('api-client', () => {
 
       // Should treat as GET (idempotent) - verifies no error is thrown
       // Retry is disabled so it won't attempt a recursive call
-      await config.onResponseError(context);
+      await hook(context);
     });
 
     it('should call user callbacks even when retry is disabled', async () => {
       const onResponseError = vi.fn();
       createApiClient({ retry: 0, onResponseError });
 
-      const config = mockFetchCreate.mock.calls[0][0];
+      const hook = interceptor('onResponseError');
       const context = {
         request: '/test',
         options: { method: 'GET', _retryCount: 0 },
         response: { status: 500, statusText: 'Internal Server Error' },
       };
 
-      await config.onResponseError(context);
+      await hook(context);
 
       expect(onResponseError).toHaveBeenCalledWith(context);
     });

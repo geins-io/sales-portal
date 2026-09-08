@@ -17,11 +17,13 @@ const { mockGlobalFetch, mockRequestFetch, mockUseRequestFetch } = vi.hoisted(
 
 vi.stubGlobal('$fetch', mockGlobalFetch);
 vi.stubGlobal('useRequestFetch', mockUseRequestFetch);
+// Declared through `vi.hoisted`, so the factories can reference them directly
+// — no arrow needed to defer past hoisting.
 vi.mock('#app/composables/ssr', () => ({
-  useRequestFetch: (...args: unknown[]) => mockUseRequestFetch(...args),
+  useRequestFetch: mockUseRequestFetch,
 }));
 vi.mock('#app/composables/fetch', () => ({
-  $fetch: (...args: unknown[]) => mockGlobalFetch(...args),
+  $fetch: mockGlobalFetch,
 }));
 
 const { internalFetch, internalFetcher } =

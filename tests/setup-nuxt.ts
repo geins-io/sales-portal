@@ -55,8 +55,11 @@ const mockTenantConfig: PublicTenantConfig = {
     authentication: { enabled: true },
     cart: { enabled: true },
   },
+  checkoutMode: 'custom',
   locale: 'sv-SE',
   availableLocales: ['sv-SE'],
+  availableMarkets: ['se'],
+  imageBaseUrl: 'https://monitor.commerce.services',
 };
 
 registerEndpoint('/api/config', () => mockTenantConfig);
