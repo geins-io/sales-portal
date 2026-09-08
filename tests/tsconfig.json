@@ -3,6 +3,13 @@
   // path alias resolves. Extends the app project for its `paths` and pulls in
   // nuxt.d.ts for the auto-import globals. Playwright specs are excluded:
   // tests/e2e has its own config, deliberately WITHOUT these aliases.
+  //
+  // nuxt.node.d.ts is here because a spec imports nuxt.config.ts to assert the
+  // production security config, and an imported file is compiled by this
+  // project whatever `exclude` says. Its globals (defineNuxtConfig) live in
+  // `nuxt`, while nuxt.d.ts only brings in `nuxt/app`. That also puts the
+  // build-time globals in scope for every spec, so `pnpm test`, not the
+  // compiler, is what catches a spec reaching for one at runtime.
   "extends": "../.nuxt/tsconfig.app.json",
   "compilerOptions": {
     "types": ["node"]
@@ -10,6 +17,7 @@
   "include": [
     "./**/*.ts",
     "../.nuxt/nuxt.d.ts",
+    "../.nuxt/nuxt.node.d.ts",
     "../*.d.ts",
     "../app/**/*.d.ts"
   ],

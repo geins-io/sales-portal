@@ -1,11 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, assert } from 'vitest';
 import type {
   ContentPageType,
   ContentAreaType,
-  ContentContainerType,
   ContentType,
   ContentConfigType,
 } from '@geins/types';
+import type { CmsContentArea, CmsContentContainer } from '#shared/types/cms';
 
 import {
   sanitizeWidgetHtml,
@@ -39,6 +39,17 @@ function makeConfig(
   };
 }
 
+/** The data of the first widget in the first container of a sanitized result. */
+function firstWidgetData(
+  result: ContentPageType | ContentAreaType,
+): Record<string, unknown> {
+  const container = result.containers[0];
+  assert.isDefined(container);
+  const widget = container.content[0];
+  assert.isDefined(widget);
+  return widget.data as Record<string, unknown>;
+}
+
 function makeWidget(type: string, data: Record<string, unknown>): ContentType {
   return {
     config: makeConfig({ type }),
@@ -48,8 +59,8 @@ function makeWidget(type: string, data: Record<string, unknown>): ContentType {
 
 function makeContainer(
   content: ContentType[],
-  overrides: Partial<ContentContainerType> = {},
-): ContentContainerType {
+  overrides: Partial<CmsContentContainer> = {},
+): CmsContentContainer {
   return {
     id: '1',
     name: 'c1',
@@ -120,10 +131,7 @@ describe('sanitizeCmsPage', () => {
     };
 
     const result = sanitizeCmsPage(page);
-    const data = result.containers[0].content[0].data as Record<
-      string,
-      unknown
-    >;
+    const data = firstWidgetData(result);
     expect(data.text).not.toContain('<script');
     expect(data.text).toContain('<p>Hello</p>');
   });
@@ -148,10 +156,7 @@ describe('sanitizeCmsPage', () => {
     };
 
     const result = sanitizeCmsPage(page);
-    const data = result.containers[0].content[0].data as Record<
-      string,
-      unknown
-    >;
+    const data = firstWidgetData(result);
     expect(data.html).not.toContain('<script');
     expect(data.html).toContain('<p>content</p>');
     expect(data.css).not.toContain('<script');
@@ -187,10 +192,7 @@ describe('sanitizeCmsArea', () => {
     };
 
     const result = sanitizeCmsArea(area);
-    const data = result.containers[0].content[0].data as Record<
-      string,
-      unknown
-    >;
+    const data = firstWidgetData(result);
     expect(data.text).not.toContain('<script');
     expect(data.text).toContain('<p>Area text</p>');
   });
@@ -210,7 +212,7 @@ describe('sanitizeCmsArea', () => {
     // The visibility tag is attached by getContentArea after merging the two
     // display-setting legs. Sanitize must not strip it, or only-mobile blocks
     // lose their md:hidden class on the way to the client.
-    const area = {
+    const area: ContentAreaType = {
       meta: { title: 'Hero', description: '' },
       tags: [],
       containers: [
@@ -225,11 +227,9 @@ describe('sanitizeCmsArea', () => {
           { id: 'section-02', visibility: 'mobile' },
         ),
       ],
-    } as unknown as ContentAreaType;
-
-    const result = sanitizeCmsArea(area) as unknown as {
-      containers: Array<{ visibility?: string }>;
     };
+
+    const result = sanitizeCmsArea(area) as CmsContentArea;
     expect(result.containers[0]?.visibility).toBe('mobile');
   });
 });

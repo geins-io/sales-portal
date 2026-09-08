@@ -110,7 +110,7 @@ vi.mock('#app/composables/fetch', () => ({
 }));
 vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
 
-const navigateToMock = vi.fn(() => Promise.resolve());
+const navigateToMock = vi.fn<typeof navigateTo>(() => Promise.resolve());
 const createErrorMock = vi.fn((opts: unknown) => {
   const err = new Error('createError') as Error & { data?: unknown };
   err.data = opts;
@@ -174,7 +174,8 @@ vi.mock('#app/composables/router', () => ({
     replace: vi.fn(),
     afterEach: vi.fn(),
   }),
-  navigateTo: (...args: unknown[]) => navigateToMock(...args),
+  navigateTo: (...args: Parameters<typeof navigateToMock>) =>
+    navigateToMock(...args),
 }));
 vi.mock('#app/composables/error', () => ({
   createError: (opts: unknown) => {

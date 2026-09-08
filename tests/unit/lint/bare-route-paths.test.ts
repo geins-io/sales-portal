@@ -73,9 +73,7 @@ describe('bare route paths lint', () => {
       const content = readFileSync(filePath, 'utf-8');
       const lines = content.split('\n');
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-
+      for (const [i, line] of lines.entries()) {
         // Skip lines that already use localePath
         if (line.includes('localePath')) continue;
 

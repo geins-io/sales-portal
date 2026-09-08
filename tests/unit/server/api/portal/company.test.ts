@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { H3Event } from 'h3';
 import type { Company } from '../../../../../shared/types/company';
 
 // ---------------------------------------------------------------------------
@@ -77,6 +78,7 @@ const COMPANY: Company = {
   buyers: [
     {
       id: 'buyer-1',
+      internalId: '900123',
       firstName: 'Anna',
       lastName: 'Karlsson',
       phone: null,
@@ -90,7 +92,7 @@ const COMPANY: Company = {
 function mockEvent() {
   return {
     context: { tenant: { hostname: 'test.com' } },
-  } as unknown as import('h3').H3Event;
+  } as unknown as H3Event;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +100,7 @@ function mockEvent() {
 // ---------------------------------------------------------------------------
 
 describe('GET /api/portal/company', () => {
-  let handler: (event: unknown) => Promise<unknown>;
+  let handler: (event: H3Event) => Promise<unknown>;
 
   beforeEach(async () => {
     vi.clearAllMocks();

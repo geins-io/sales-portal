@@ -1,17 +1,26 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
+import type { H3Event } from 'h3';
+import type { CreateOrderOptions, CreateOrderResponseType } from '@geins/types';
 
 // ---------------------------------------------------------------------------
 // Mock external services at the SDK boundary
 // ---------------------------------------------------------------------------
 const mockGetCheckout = vi.fn();
 const mockValidateOrder = vi.fn();
-const mockCreateOrder = vi.fn();
+const mockCreateOrder =
+  vi.fn<
+    (
+      args: CreateOrderOptions,
+      event: H3Event,
+    ) => Promise<CreateOrderResponseType | undefined>
+  >();
 const mockGetSummary = vi.fn();
 
 vi.mock('../../../server/services/checkout', () => ({
   getCheckout: (...args: unknown[]) => mockGetCheckout(...args),
   validateOrder: (...args: unknown[]) => mockValidateOrder(...args),
-  createOrder: (...args: unknown[]) => mockCreateOrder(...args),
+  createOrder: (...args: Parameters<typeof mockCreateOrder>) =>
+    mockCreateOrder(...args),
   getSummary: (...args: unknown[]) => mockGetSummary(...args),
 }));
 
@@ -102,7 +111,7 @@ function mockEvent(
     __query: overrides.query,
     __body: overrides.body,
     node: { req: { socket: { remoteAddress: '127.0.0.1' } } },
-  } as unknown as import('h3').H3Event;
+  } as unknown as H3Event;
 }
 
 const AUTH_TOKENS = { authToken: 'tok', refreshToken: 'ref' };
@@ -124,7 +133,7 @@ describe('Checkout API routes', () => {
 
   // --- GET /api/checkout ---------------------------------------------------
   describe('GET /api/checkout', () => {
-    let handler: (event: unknown) => Promise<unknown>;
+    let handler: (event: H3Event) => Promise<unknown>;
 
     beforeEach(async () => {
       const mod = await import('../../../server/api/checkout/index.get');
@@ -160,7 +169,7 @@ describe('Checkout API routes', () => {
 
   // --- POST /api/checkout/validate -----------------------------------------
   describe('POST /api/checkout/validate', () => {
-    let handler: (event: unknown) => Promise<unknown>;
+    let handler: (event: H3Event) => Promise<unknown>;
 
     beforeEach(async () => {
       const mod = await import('../../../server/api/checkout/validate.post');
@@ -187,7 +196,7 @@ describe('Checkout API routes', () => {
 
   // --- POST /api/checkout/create-order -------------------------------------
   describe('POST /api/checkout/create-order', () => {
-    let handler: (event: unknown) => Promise<unknown>;
+    let handler: (event: H3Event) => Promise<unknown>;
 
     const validBody = {
       cartId: 'cart-1',
@@ -305,9 +314,11 @@ describe('Checkout API routes', () => {
       });
       await handler(event);
 
-      const passedOptions = mockCreateOrder.mock.calls[0][0];
-      const d = passedOptions.checkoutOptions.desiredDeliveryDate;
+      const call = mockCreateOrder.mock.calls[0];
+      assert.isDefined(call);
+      const d = call[0].checkoutOptions.desiredDeliveryDate;
       expect(d).toBeInstanceOf(Date);
+      assert.isDefined(d);
       expect(d.toISOString().startsWith('2026-08-20')).toBe(true);
     });
 
@@ -321,14 +332,15 @@ describe('Checkout API routes', () => {
       const event = mockEvent({ body: validBody });
       await handler(event);
 
-      const passedOptions = mockCreateOrder.mock.calls[0][0];
-      expect(passedOptions.checkoutOptions.desiredDeliveryDate).toBeUndefined();
+      const call = mockCreateOrder.mock.calls[0];
+      assert.isDefined(call);
+      expect(call[0].checkoutOptions.desiredDeliveryDate).toBeUndefined();
     });
   });
 
   // --- GET /api/checkout/summary -------------------------------------------
   describe('GET /api/checkout/summary', () => {
-    let handler: (event: unknown) => Promise<unknown>;
+    let handler: (event: H3Event) => Promise<unknown>;
 
     beforeEach(async () => {
       const mod = await import('../../../server/api/checkout/summary.get');
@@ -424,7 +436,7 @@ describe('Checkout API routes', () => {
         __query: overrides.query,
         __body: overrides.body,
         node: { req: { socket: { remoteAddress: '127.0.0.1' } } },
-      } as unknown as import('h3').H3Event;
+      } as unknown as H3Event;
     }
 
     it('POST /api/checkout/token returns 403 in catalog mode', async () => {
