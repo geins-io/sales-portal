@@ -1466,6 +1466,239 @@ describe('Tenant utilities', () => {
         expect(message).toContain(`theme.colors.${key}`);
       }
     });
+
+    /**
+     * `SafeUrlSchema` rejects `''`, so a merchant who clears a logo in the
+     * admin sends a value the schema refuses. What the tenant then gets is
+     * decided here rather than by the schema: `branding` and `contact` are
+     * outside `FATAL_PATHS`, and the issue path is more than one segment
+     * deep, so the salvager strips the single bad leaf instead of replacing
+     * the whole block with `SALVAGE_DEFAULTS`.
+     *
+     * That distinction is the whole point of the cases below. Swap
+     * leaf-stripping for top-level substitution and every assertion on the
+     * *survivors* goes red, which is what stops a cleared logo from taking
+     * the tenant's brand name with it.
+     */
+    describe('a cleared url is stripped as a leaf and takes nothing with it', () => {
+      const BRANDING_URLS = {
+        logoUrl: 'https://cdn.example.com/logo.svg',
+        logoDarkUrl: 'https://cdn.example.com/logo-dark.svg',
+        logoSymbolUrl: 'https://cdn.example.com/symbol.svg',
+        faviconUrl: 'https://cdn.example.com/favicon.ico',
+        ogImageUrl: 'https://cdn.example.com/og.png',
+      } as const;
+
+      const SOCIAL_URLS = {
+        facebook: 'https://facebook.com/alpha',
+        instagram: 'https://instagram.com/alpha',
+        twitter: 'https://twitter.com/alpha',
+        linkedin: 'https://linkedin.com/company/alpha',
+        youtube: 'https://youtube.com/@alpha',
+      } as const;
+
+      /** Every branding url set, so the survivors can be asserted by name. */
+      function brandedCandidate(): Record<string, unknown> {
+        const candidate = fullCandidate();
+        candidate.branding = { name: 'A', watermark: 'full', ...BRANDING_URLS };
+        return candidate;
+      }
+
+      function socialCandidate(): Record<string, unknown> {
+        const candidate = fullCandidate();
+        candidate.contact = {
+          email: 'hello@alpha.example',
+          social: { ...SOCIAL_URLS },
+        };
+        return candidate;
+      }
+
+      it('clears branding.logoUrl and keeps the name and the other urls', () => {
+        const candidate = brandedCandidate();
+        (candidate.branding as Record<string, unknown>).logoUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('logoUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoDarkUrl).toBe(BRANDING_URLS.logoDarkUrl);
+        expect(out?.branding?.logoSymbolUrl).toBe(BRANDING_URLS.logoSymbolUrl);
+        expect(out?.branding?.faviconUrl).toBe(BRANDING_URLS.faviconUrl);
+        expect(out?.branding?.ogImageUrl).toBe(BRANDING_URLS.ogImageUrl);
+      });
+
+      it('clears branding.logoDarkUrl and keeps the name and the other urls', () => {
+        const candidate = brandedCandidate();
+        (candidate.branding as Record<string, unknown>).logoDarkUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('logoDarkUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoUrl).toBe(BRANDING_URLS.logoUrl);
+        expect(out?.branding?.logoSymbolUrl).toBe(BRANDING_URLS.logoSymbolUrl);
+        expect(out?.branding?.faviconUrl).toBe(BRANDING_URLS.faviconUrl);
+        expect(out?.branding?.ogImageUrl).toBe(BRANDING_URLS.ogImageUrl);
+      });
+
+      it('clears branding.logoSymbolUrl and keeps the name and the other urls', () => {
+        const candidate = brandedCandidate();
+        (candidate.branding as Record<string, unknown>).logoSymbolUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('logoSymbolUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoUrl).toBe(BRANDING_URLS.logoUrl);
+        expect(out?.branding?.logoDarkUrl).toBe(BRANDING_URLS.logoDarkUrl);
+        expect(out?.branding?.faviconUrl).toBe(BRANDING_URLS.faviconUrl);
+        expect(out?.branding?.ogImageUrl).toBe(BRANDING_URLS.ogImageUrl);
+      });
+
+      it('clears branding.faviconUrl and keeps the name and the other urls', () => {
+        const candidate = brandedCandidate();
+        (candidate.branding as Record<string, unknown>).faviconUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('faviconUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoUrl).toBe(BRANDING_URLS.logoUrl);
+        expect(out?.branding?.logoDarkUrl).toBe(BRANDING_URLS.logoDarkUrl);
+        expect(out?.branding?.logoSymbolUrl).toBe(BRANDING_URLS.logoSymbolUrl);
+        expect(out?.branding?.ogImageUrl).toBe(BRANDING_URLS.ogImageUrl);
+      });
+
+      it('clears branding.ogImageUrl and keeps the name and the other urls', () => {
+        const candidate = brandedCandidate();
+        (candidate.branding as Record<string, unknown>).ogImageUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('ogImageUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoUrl).toBe(BRANDING_URLS.logoUrl);
+        expect(out?.branding?.logoDarkUrl).toBe(BRANDING_URLS.logoDarkUrl);
+        expect(out?.branding?.logoSymbolUrl).toBe(BRANDING_URLS.logoSymbolUrl);
+        expect(out?.branding?.faviconUrl).toBe(BRANDING_URLS.faviconUrl);
+      });
+
+      it('clears both logo urls at once and keeps the name and the rest', () => {
+        // Two cleared fields in one payload is what a merchant swapping a
+        // brand actually sends, and it is the case a single-strip
+        // implementation would get wrong: the loop has to converge, not
+        // strip once and give up.
+        const candidate = brandedCandidate();
+        const branding = candidate.branding as Record<string, unknown>;
+        branding.logoUrl = '';
+        branding.logoDarkUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('logoUrl');
+        expect(out?.branding).not.toHaveProperty('logoDarkUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoSymbolUrl).toBe(BRANDING_URLS.logoSymbolUrl);
+        expect(out?.branding?.faviconUrl).toBe(BRANDING_URLS.faviconUrl);
+        expect(out?.branding?.ogImageUrl).toBe(BRANDING_URLS.ogImageUrl);
+      });
+
+      it('clears contact.social.facebook and keeps the other social urls', () => {
+        const candidate = socialCandidate();
+        const social = (
+          candidate.contact as { social: Record<string, unknown> }
+        ).social;
+        social.facebook = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.contact?.social).not.toHaveProperty('facebook');
+        expect(out?.contact?.email).toBe('hello@alpha.example');
+        expect(out?.contact?.social?.instagram).toBe(SOCIAL_URLS.instagram);
+        expect(out?.contact?.social?.twitter).toBe(SOCIAL_URLS.twitter);
+        expect(out?.contact?.social?.linkedin).toBe(SOCIAL_URLS.linkedin);
+        expect(out?.contact?.social?.youtube).toBe(SOCIAL_URLS.youtube);
+      });
+
+      it('clears contact.social.instagram and keeps the other social urls', () => {
+        const candidate = socialCandidate();
+        const social = (
+          candidate.contact as { social: Record<string, unknown> }
+        ).social;
+        social.instagram = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.contact?.social).not.toHaveProperty('instagram');
+        expect(out?.contact?.email).toBe('hello@alpha.example');
+        expect(out?.contact?.social?.facebook).toBe(SOCIAL_URLS.facebook);
+        expect(out?.contact?.social?.twitter).toBe(SOCIAL_URLS.twitter);
+        expect(out?.contact?.social?.linkedin).toBe(SOCIAL_URLS.linkedin);
+        expect(out?.contact?.social?.youtube).toBe(SOCIAL_URLS.youtube);
+      });
+
+      it('clears contact.social.twitter and keeps the other social urls', () => {
+        const candidate = socialCandidate();
+        const social = (
+          candidate.contact as { social: Record<string, unknown> }
+        ).social;
+        social.twitter = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.contact?.social).not.toHaveProperty('twitter');
+        expect(out?.contact?.email).toBe('hello@alpha.example');
+        expect(out?.contact?.social?.facebook).toBe(SOCIAL_URLS.facebook);
+        expect(out?.contact?.social?.instagram).toBe(SOCIAL_URLS.instagram);
+        expect(out?.contact?.social?.linkedin).toBe(SOCIAL_URLS.linkedin);
+        expect(out?.contact?.social?.youtube).toBe(SOCIAL_URLS.youtube);
+      });
+
+      it('clears contact.social.linkedin and keeps the other social urls', () => {
+        const candidate = socialCandidate();
+        const social = (
+          candidate.contact as { social: Record<string, unknown> }
+        ).social;
+        social.linkedin = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.contact?.social).not.toHaveProperty('linkedin');
+        expect(out?.contact?.email).toBe('hello@alpha.example');
+        expect(out?.contact?.social?.facebook).toBe(SOCIAL_URLS.facebook);
+        expect(out?.contact?.social?.instagram).toBe(SOCIAL_URLS.instagram);
+        expect(out?.contact?.social?.twitter).toBe(SOCIAL_URLS.twitter);
+        expect(out?.contact?.social?.youtube).toBe(SOCIAL_URLS.youtube);
+      });
+
+      it('clears contact.social.youtube and keeps the other social urls', () => {
+        const candidate = socialCandidate();
+        const social = (
+          candidate.contact as { social: Record<string, unknown> }
+        ).social;
+        social.youtube = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.contact?.social).not.toHaveProperty('youtube');
+        expect(out?.contact?.email).toBe('hello@alpha.example');
+        expect(out?.contact?.social?.facebook).toBe(SOCIAL_URLS.facebook);
+        expect(out?.contact?.social?.instagram).toBe(SOCIAL_URLS.instagram);
+        expect(out?.contact?.social?.twitter).toBe(SOCIAL_URLS.twitter);
+        expect(out?.contact?.social?.linkedin).toBe(SOCIAL_URLS.linkedin);
+      });
+    });
   });
 
   describe('deleteAtPath', () => {
