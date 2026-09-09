@@ -126,8 +126,7 @@ const SERVER_LOCALE = 'tests/server/locale.test.ts';
 const LOCALE_MARKET_GLOBAL = 'tests/middleware/locale-market-global.test.ts';
 const AUTH_MIDDLEWARE = 'tests/middleware/auth.test.ts';
 const GUEST_MIDDLEWARE = 'tests/middleware/guest.test.ts';
-const FEATURE_MIDDLEWARE_PREFIX =
-  'tests/middleware/feature-redirect-prefix.test.ts';
+const FEATURE_MIDDLEWARE = 'tests/middleware/feature.test.ts';
 const STORE_SETTINGS_SCHEMA = 'tests/server/store-settings-schema.test.ts';
 const API_CONTRACTS = 'tests/server/api-contracts.test.ts';
 
@@ -277,6 +276,40 @@ interface FeatureRefs {
   denied?: TestRef[];
 }
 
+/**
+ * Consumer references hung directly on one cell, bypassing the
+ * `on`/`off`/`granted`/`denied` fan-out above.
+ *
+ * The fan-out exists for the composition case. A consumer test that received a
+ * mocked reader answer cannot say which cell produced that answer, so
+ * `granted` has to spread to every cell that yields a grant — `access.all`,
+ * `access.absent`, and the signed-in half of `access.authenticated`.
+ *
+ * A `drives: 'field'` test writes the configured values itself, so the fan-out
+ * would over-claim: an `access: 'all'` case would be credited for an absent
+ * rule it never wrote. Hence one list per cell.
+ *
+ * The rule for filling those lists is **hang a case on the cell it is about**,
+ * which is narrower than "every cell it discriminates". An access fixture has
+ * to write `enabled: true` before the access rule is reached at all, and
+ * flipping `enabled` would indeed fail it — but it is not hung on
+ * `enabled.true`, because `enabled.true` has a case of its own and a second
+ * reference to the same fact buys nothing.
+ *
+ * The one case on two cells is `enabled: true` with no access rule, hung on
+ * `enabled.true` and `access.absent`. That is the same editorial choice, not a
+ * stronger claim: an absent access rule cannot be written without also writing
+ * `enabled: true`, so there is no separate case to give `access.absent` and
+ * the two would otherwise be identical fixtures under different titles.
+ */
+interface FeatureCells {
+  enabledTrue?: TestRef[];
+  enabledFalse?: TestRef[];
+  accessAll?: TestRef[];
+  accessAuthenticated?: TestRef[];
+  accessAbsent?: TestRef[];
+}
+
 function namedFeature(
   refs: {
     consumer: string;
@@ -286,10 +319,13 @@ function namedFeature(
      * lists; they join the shared readers on each cell.
      */
     readers?: FeatureRefs;
+    /** Consumer tests that drive the field, hung on the cell each one sets. */
+    cells?: FeatureCells;
     note?: string;
   } & FeatureRefs,
 ): FeatureCoverage {
   const r = refs.readers ?? {};
+  const c = refs.cells ?? {};
   const granted = refs.granted ?? [];
   const denied = refs.denied ?? [];
   const rGranted = r.granted ?? [];
@@ -299,13 +335,13 @@ function namedFeature(
       true: featureCell(
         refs.consumer,
         [...READERS_ENABLED_TRUE, ...(r.on ?? [])],
-        refs.on,
+        [...(refs.on ?? []), ...(c.enabledTrue ?? [])],
         refs.note,
       ),
       false: featureCell(
         refs.consumer,
         [...READERS_ENABLED_FALSE, ...(r.off ?? []), ...rDenied],
-        [...(refs.off ?? []), ...denied],
+        [...(refs.off ?? []), ...denied, ...(c.enabledFalse ?? [])],
         refs.note,
       ),
     },
@@ -313,20 +349,58 @@ function namedFeature(
       all: featureCell(
         refs.consumer,
         [...READERS_ACCESS_ALL, ...rGranted],
-        granted,
+        [...granted, ...(c.accessAll ?? [])],
       ),
       authenticated: featureCell(
         refs.consumer,
         [...READERS_ACCESS_AUTHENTICATED, ...rGranted, ...rDenied],
-        [...granted, ...denied],
+        [...granted, ...denied, ...(c.accessAuthenticated ?? [])],
       ),
       absent: featureCell(
         refs.consumer,
         [...READERS_ACCESS_ABSENT, ...rGranted],
-        granted,
+        [...granted, ...(c.accessAbsent ?? [])],
         ACCESS_ABSENT_NOTE,
       ),
     },
+  };
+}
+
+/**
+ * The feature middleware's references for one key.
+ *
+ * `tests/middleware/feature.test.ts` runs the real middleware over a config
+ * fixture, through the real `useFeatureAccess` and the real
+ * `canAccessFeature` — nothing between the config and the redirect is mocked.
+ * So every case drives the field, and each is hung on the cell it is about
+ * rather than on every cell it would discriminate — see `FeatureCells`. The
+ * three access cases all write `enabled: true` to reach the access check and
+ * are not credited for it; the open-rule case is on two cells because
+ * `access.absent` cannot be written without `enabled: true`.
+ *
+ * The middleware is the consumer for these keys on `pages/cart.vue:2`,
+ * `pages/checkout.vue:26`, `portal/lists.vue:15`,
+ * `portal/saved-lists/[id].vue:18`, `portal/favorites.vue:10`,
+ * `portal/quotations/{index,[id]}.vue` and `portal/orders/{index,[id]}.vue`.
+ */
+function middlewareCells(key: string): FeatureCells {
+  const ref = (title: string): TestRef[] => [
+    { spec: FEATURE_MIDDLEWARE, title, kind: 'consumer', drives: 'field' },
+  ];
+  const openRule = ref(`allows ${key} when it is enabled with no access rule`);
+  return {
+    enabledTrue: openRule,
+    accessAbsent: openRule,
+    enabledFalse: ref(`redirects when ${key} is disabled`),
+    accessAll: ref(`allows ${key} when access is open to all`),
+    accessAuthenticated: [
+      ...ref(
+        `redirects when ${key} requires authentication and the user is anonymous`,
+      ),
+      ...ref(
+        `allows ${key} when it requires authentication and the user is signed in`,
+      ),
+    ],
   };
 }
 
@@ -1184,11 +1258,11 @@ export const CONFIG_COVERAGE_MAP = {
     cart: unconsumedFeature(
       'Seeded for every tenant and present in the live config, but no ' +
         'hasFeature, canAccess, isFeatureConfigured, constant or portal tab ' +
-        "reads it. The 'should check cart feature correctly' case in " +
-        'tests/middleware/feature.test.ts uses the name as an arbitrary string ' +
-        'to exercise the middleware, alongside `search` and `authentication` ' +
-        'which are not feature keys at all — mentioning is not asserting. ' +
-        'The cart page gates on orderPlacement instead.',
+        'reads it. The cart page gates on orderPlacement instead. The middleware ' +
+        'spec used to drive this key as an arbitrary string, alongside `search` ' +
+        'and `authentication` which are not feature keys at all; it now drives ' +
+        'the five keys the pages declare, so nothing in the suite mentions ' +
+        'this one either.',
     ),
     checkout: unconsumedFeature(
       'Seeded and present in the live config, read by nothing. The checkout ' +
@@ -1196,6 +1270,7 @@ export const CONFIG_COVERAGE_MAP = {
     ),
     lists: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
+      cells: middlewareCells('lists'),
       denied: [
         {
           spec: PORTAL_SHELL,
@@ -1241,6 +1316,7 @@ export const CONFIG_COVERAGE_MAP = {
     }),
     orderHistory: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
+      cells: middlewareCells('orderHistory'),
       denied: [
         {
           spec: PORTAL_SHELL,
@@ -1252,6 +1328,7 @@ export const CONFIG_COVERAGE_MAP = {
     }),
     orderPlacement: namedFeature({
       consumer: 'app/components/cart/CartDrawer.vue:19',
+      cells: middlewareCells('orderPlacement'),
       granted: [
         {
           spec: CART_DRAWER,
@@ -1374,6 +1451,7 @@ export const CONFIG_COVERAGE_MAP = {
     }),
     quotes: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
+      cells: middlewareCells('quotes'),
       denied: [
         {
           spec: PORTAL_SHELL,
@@ -1581,6 +1659,7 @@ export const CONFIG_COVERAGE_MAP = {
     }),
     wishlist: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:179',
+      cells: middlewareCells('wishlist'),
       on: [
         {
           spec: PORTAL_SHELL,
@@ -2085,7 +2164,7 @@ export const CONFIG_COVERAGE_MAP = {
         drives: 'field',
       },
       {
-        spec: FEATURE_MIDDLEWARE_PREFIX,
+        spec: FEATURE_MIDDLEWARE,
         title: 'falls back to cookies, then config, then the se/sv pair',
         kind: 'consumer',
         drives: 'field',
