@@ -53,7 +53,12 @@
  *     can receive, not what a merchant can set.
  */
 
-import type { ConfigCoverageMap } from './types';
+import type {
+  ConfigCoverageMap,
+  Coverage,
+  FeatureCoverage,
+  TestRef,
+} from './types';
 
 const USE_TENANT = 'tests/composables/useTenant.test.ts';
 const SERVER_TENANT = 'tests/server/tenant.test.ts';
@@ -82,6 +87,32 @@ const HEADER_ACTIONS =
   'tests/components/layout/LayoutHeaderActionButtons.test.ts';
 const SERVER_CHECKOUT = 'tests/unit/api/checkout.test.ts';
 const SERVER_CART = 'tests/server/api/cart.test.ts';
+const SERVER_REGISTER = 'tests/server/api/auth-register.test.ts';
+const AUTH_CARD = 'tests/components/auth/AuthCard.test.ts';
+const AUTH_SHEET = 'tests/components/auth/AuthSheet.test.ts';
+const BRAND_LOGO_FALLBACK = 'tests/components/BrandLogoFallback.test.ts';
+const HEADER_TOPBAR = 'tests/components/layout/LayoutHeaderTopbar.test.ts';
+const PORTAL_SHELL = 'tests/components/portal/PortalShell.test.ts';
+const PRICE_DISPLAY = 'tests/components/commerce/PriceDisplay.test.ts';
+const STOCK_BADGE = 'tests/components/commerce/StockBadge.test.ts';
+const STOCK_BADGE_UNIT = 'tests/unit/StockBadge.test.ts';
+const PRICE_VISIBILITY = 'tests/composables/usePriceVisibility.test.ts';
+const STOCK_VISIBILITY = 'tests/composables/useStockVisibility.test.ts';
+const NEWSLETTER_VISIBILITY =
+  'tests/composables/useNewsletterVisibility.test.ts';
+const CMS_SLOT = 'tests/composables/useCmsSlot.test.ts';
+const CMS_MENU = 'tests/composables/useCmsMenu.test.ts';
+const ANALYTICS_CONSENT = 'tests/composables/useAnalyticsConsent.test.ts';
+const FORMAT_LOCALE = 'tests/composables/useFormatLocale.test.ts';
+const LOCALE_ALTERNATES = 'tests/composables/useLocaleAlternates.test.ts';
+const SEO_LINKS = 'tests/composables/useSeoLinks.test.ts';
+const CLIENT_LOCALE_MARKET = 'tests/composables/useLocaleMarket.test.ts';
+const SERVER_LOCALE = 'tests/server/locale.test.ts';
+const LOCALE_MARKET_GLOBAL = 'tests/middleware/locale-market-global.test.ts';
+const AUTH_MIDDLEWARE = 'tests/middleware/auth.test.ts';
+const GUEST_MIDDLEWARE = 'tests/middleware/guest.test.ts';
+const FEATURE_MIDDLEWARE_PREFIX =
+  'tests/middleware/feature-redirect-prefix.test.ts';
 
 /**
  * The reader chain is the same for every feature: `hasFeature` gates the
@@ -125,6 +156,19 @@ const FEATURE_ACCESS_ABSENT = {
   note: 'An absent access rule means open to everyone, not closed.',
 } as const;
 
+/**
+ * `registration` is read for its `enabled` flag only — no consumer routes it
+ * through `canAccess`, so the access rule is carried and never consulted. That
+ * is a narrower gap than an unread feature: the on/off control works, the
+ * access control does not exist.
+ */
+const REGISTRATION_ACCESS = {
+  status: 'no-consumer',
+  note:
+    'All three consumers read `.enabled` directly; none calls canAccess for ' +
+    'this key, so an access rule on it changes nothing.',
+} as const;
+
 /** A feature the app reads: the shared reader assertions cover it. */
 const CONSUMED_FEATURE = {
   enabled: { true: FEATURE_ENABLED_TRUE, false: FEATURE_ENABLED_FALSE },
@@ -134,6 +178,54 @@ const CONSUMED_FEATURE = {
     absent: FEATURE_ACCESS_ABSENT,
   },
 } as const;
+
+/**
+ * Adds references to a shared entry instead of replacing it. The reader
+ * assertions prove the mechanism once for every feature; a per-feature spec
+ * proves that this key drives this behaviour. Both claims are worth keeping,
+ * so they stand as a list on the same entry.
+ */
+function withRefs(
+  base: { status: 'has-test'; test: TestRef; note?: string },
+  extra?: TestRef[],
+  note?: string,
+): Coverage {
+  if (!extra || extra.length === 0) {
+    return note
+      ? { ...base, note: [base.note, note].filter(Boolean).join(' ') }
+      : base;
+  }
+  const combined = [base.note, note].filter(Boolean).join(' ');
+  return {
+    status: 'has-test',
+    test: [base.test, ...extra],
+    ...(combined ? { note: combined } : {}),
+  };
+}
+
+/**
+ * A consumed feature whose key is named by a spec of its own. `on` and `off`
+ * take the `enabled` branches, `denied` the access denial — the branch a
+ * `canAccess` of false takes, whatever rule produced it.
+ */
+function namedFeature(refs: {
+  on?: TestRef[];
+  off?: TestRef[];
+  denied?: TestRef[];
+  note?: string;
+}): FeatureCoverage {
+  return {
+    enabled: {
+      true: withRefs(FEATURE_ENABLED_TRUE, refs.on, refs.note),
+      false: withRefs(FEATURE_ENABLED_FALSE, refs.off, refs.note),
+    },
+    access: {
+      all: FEATURE_ACCESS_ALL,
+      authenticated: withRefs(FEATURE_ACCESS_AUTHENTICATED, refs.denied),
+      absent: FEATURE_ACCESS_ABSENT,
+    },
+  };
+}
 
 /**
  * A feature seeded for every tenant and read by nothing. Toggling it in the
@@ -169,6 +261,26 @@ const COLOR_PRESENCE_ONLY = unassertedColor(
     'set value reaches the emitted CSS variable.',
 );
 
+/**
+ * The five branding URL fields are parsed by `SafeUrlSchema`, which rejects an
+ * empty string. Each is a depth-2 path, so the resilient parser strips the
+ * failing leaf and re-parses instead of substituting the whole block: the field
+ * arrives absent, never as `''`. The merchant API may well send an empty
+ * string; the app never receives one.
+ */
+function unreachableEmptyUrl(consumer: string) {
+  return {
+    status: 'no-test',
+    consumer,
+    note:
+      'Unreachable through the merchant API: SafeUrlSchema rejects an empty ' +
+      'string and the resilient parser strips the leaf, so the field arrives ' +
+      'absent and the `absent` row above is the one that matters. The strip ' +
+      "mechanism is asserted for the theme colours in 'strips multiple bad " +
+      "leaves and logs each one', not for this field.",
+  } as const;
+}
+
 /** A surface colour: forwarded end-to-end and emitted verbatim, both asserted. */
 const SURFACE_COLOR = {
   status: 'has-test',
@@ -183,7 +295,14 @@ export const CONFIG_COVERAGE_MAP = {
   // --- Identity -----------------------------------------------------------
   tenantId: {
     status: 'has-test',
-    test: { spec: USE_TENANT, title: 'should return tenantId from config' },
+    test: [
+      { spec: USE_TENANT, title: 'should return tenantId from config' },
+      {
+        spec: ANALYTICS_CONSENT,
+        title: 'uses different keys for different tenants',
+      },
+    ],
+    note: 'The getter, and the one place the value scopes stored state.',
   },
 
   hostname: {
@@ -501,10 +620,17 @@ export const CONFIG_COVERAGE_MAP = {
   branding: {
     name: {
       status: 'has-test',
-      test: {
-        spec: USE_TENANT,
-        title: 'should return brand name from branding',
-      },
+      test: [
+        {
+          spec: USE_TENANT,
+          title: 'should return brand name from branding',
+        },
+        {
+          spec: BRAND_LOGO_FALLBACK,
+          title: 'renders the brand name without a heading element',
+        },
+      ],
+      note: 'The getter and the one place the value is rendered as text.',
     },
 
     watermark: {
@@ -537,21 +663,22 @@ export const CONFIG_COVERAGE_MAP = {
       states: {
         absent: {
           status: 'has-test',
-          test: {
-            spec: USE_TENANT,
-            title: 'should return fallback /logo.svg when logoUrl is not set',
-          },
-        },
-        empty: {
-          status: 'no-test',
-          consumer: 'app/composables/useTenant.ts:52',
+          test: [
+            {
+              spec: USE_TENANT,
+              title: 'should return fallback /logo.svg when logoUrl is not set',
+            },
+            {
+              spec: BRAND_LOGO_FALLBACK,
+              title:
+                'renders the avatar fallback with single uppercase initial when logoUrl is empty',
+            },
+          ],
           note:
-            "`?? '/logo.svg'` does not fire on an empty string, so an empty " +
-            'logoUrl yields `""` and renders a broken image rather than the ' +
-            'placeholder. The live tenant sends this field as an empty string, ' +
-            'so this is the state the app actually receives and the one state ' +
-            'nothing asserts.',
+            'The second title says empty but the case drives an absent value, ' +
+            'so it belongs here rather than under empty.',
         },
+        empty: unreachableEmptyUrl('app/composables/useTenant.ts:52'),
         set: {
           status: 'has-test',
           test: {
@@ -573,11 +700,7 @@ export const CONFIG_COVERAGE_MAP = {
           },
           note: 'Reads back as null with no fallback; the component renders one image instead of two.',
         },
-        empty: {
-          status: 'no-test',
-          consumer: 'app/components/shared/BrandLogo.vue',
-          note: 'An empty string is truthy nowhere in this path but is not asserted either.',
-        },
+        empty: unreachableEmptyUrl('app/components/shared/BrandLogo.vue'),
         set: {
           status: 'has-test',
           test: {
@@ -596,11 +719,7 @@ export const CONFIG_COVERAGE_MAP = {
           consumer: 'app/composables/useTenant.ts:68',
           note: 'The set case is asserted; the absent case is not asserted separately.',
         },
-        empty: {
-          status: 'no-test',
-          consumer: 'app/composables/useTenant.ts:68',
-          note: 'Not asserted.',
-        },
+        empty: unreachableEmptyUrl('app/composables/useTenant.ts:68'),
         set: {
           status: 'has-test',
           test: {
@@ -620,13 +739,7 @@ export const CONFIG_COVERAGE_MAP = {
           consumer: 'app/composables/useTenant.ts:72',
           note: "Falls back to '/favicon.ico'; no test asserts it.",
         },
-        empty: {
-          status: 'no-test',
-          consumer: 'app/composables/useTenant.ts:72',
-          note:
-            'Same `??` problem as logoUrl: an empty string is returned verbatim ' +
-            'rather than falling back. The live tenant sends this field empty.',
-        },
+        empty: unreachableEmptyUrl('app/composables/useTenant.ts:72'),
         set: {
           status: 'no-test',
           consumer: 'app/composables/useTenant.ts:72',
@@ -643,11 +756,7 @@ export const CONFIG_COVERAGE_MAP = {
           consumer: 'app/plugins/tenant-seo.ts:79',
           note: 'The og:image meta tag is omitted; no test asserts either branch.',
         },
-        empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:79',
-          note: 'Not asserted.',
-        },
+        empty: unreachableEmptyUrl('app/plugins/tenant-seo.ts:79'),
         set: {
           status: 'no-test',
           consumer: 'app/plugins/tenant-seo.ts:79',
@@ -681,7 +790,26 @@ export const CONFIG_COVERAGE_MAP = {
   // --- Features ------------------------------------------------------------
   features: {
     analytics: CONSUMED_FEATURE,
-    applyForAccount: CONSUMED_FEATURE,
+    applyForAccount: namedFeature({
+      on: [
+        {
+          spec: AUTH_SHEET,
+          title:
+            'shows apply link when feature enabled and apply page resolved',
+        },
+        {
+          spec: HEADER_TOPBAR,
+          title:
+            '(c) apply anchor href equals CMS-resolved value when applyForAccount enabled and not authenticated',
+        },
+      ],
+      off: [
+        {
+          spec: AUTH_SHEET,
+          title: 'hides apply link when applyForAccount feature is disabled',
+        },
+      ],
+    }),
     cart: unconsumedFeature(
       'Seeded for every tenant and present in the live config, but no ' +
         'hasFeature, canAccess, isFeatureConfigured, constant or portal tab ' +
@@ -695,59 +823,273 @@ export const CONFIG_COVERAGE_MAP = {
       'Seeded and present in the live config, read by nothing. The checkout ' +
         'page gates on orderPlacement instead.',
     ),
-    lists: CONSUMED_FEATURE,
-    newsletterSignup: CONSUMED_FEATURE,
-    orderHistory: CONSUMED_FEATURE,
+    lists: namedFeature({
+      denied: [
+        {
+          spec: PORTAL_SHELL,
+          title: 'hides the lists tab when the lists feature is denied',
+        },
+      ],
+    }),
+    newsletterSignup: namedFeature({
+      on: [
+        {
+          spec: NEWSLETTER_VISIBILITY,
+          title:
+            'shows the newsletter when the feature is enabled: true with no access rule',
+        },
+      ],
+      off: [
+        {
+          spec: NEWSLETTER_VISIBILITY,
+          title:
+            'hides the newsletter when the feature is explicitly enabled: false',
+        },
+      ],
+      denied: [
+        {
+          spec: NEWSLETTER_VISIBILITY,
+          title:
+            'shows the newsletter only when authenticated for enabled + access: authenticated',
+        },
+      ],
+      note: 'The key is read through NEWSLETTER_FEATURE_KEY, not as a literal.',
+    }),
+    orderHistory: namedFeature({
+      denied: [
+        {
+          spec: PORTAL_SHELL,
+          title: 'hides the orders tab when the orderHistory feature is denied',
+        },
+      ],
+    }),
     orderPlacement: CONSUMED_FEATURE,
-    priceVisibility: CONSUMED_FEATURE,
-    quotes: CONSUMED_FEATURE,
-    registration: unconsumedFeature(
-      'Seeded and present in the live config, read by nothing.',
-    ),
+    priceVisibility: namedFeature({
+      on: [
+        {
+          spec: PRICE_VISIBILITY,
+          title:
+            'returns showPrice=true when priceVisibility feature enabled and canAccess returns true',
+        },
+        {
+          spec: PRICE_DISPLAY,
+          title: 'shows price when pricing feature allows access',
+        },
+      ],
+      off: [
+        {
+          spec: PRICE_VISIBILITY,
+          title:
+            'returns showPrice=false when priceVisibility feature is present but enabled: false',
+        },
+      ],
+      denied: [
+        {
+          spec: PRICE_VISIBILITY,
+          title:
+            'returns showPrice=false when priceVisibility feature enabled but canAccess returns false',
+        },
+        {
+          spec: PRICE_DISPLAY,
+          title: 'renders nothing when pricing feature denies access',
+        },
+      ],
+      note:
+        'An absent key falls open, asserted by the fail-open cases in both ' +
+        'specs; the three states below are the configured ones.',
+    }),
+    quotes: namedFeature({
+      denied: [
+        {
+          spec: PORTAL_SHELL,
+          title: 'hides the quotations tab when the quotes feature is denied',
+        },
+      ],
+    }),
+    registration: {
+      enabled: {
+        true: {
+          status: 'has-test',
+          test: [
+            {
+              spec: AUTH_CARD,
+              title:
+                'shows divider, business-info, and apply button when registration enabled and apply resolved',
+            },
+            {
+              spec: AUTH_CARD,
+              title:
+                'shows affordances (fail-open) when registration key is absent from features',
+            },
+            {
+              spec: AUTH_CARD,
+              title: 'shows affordances (fail-open) when features is undefined',
+            },
+            {
+              spec: SERVER_REGISTER,
+              title: 'returns user data when registration is enabled',
+            },
+            {
+              spec: SERVER_REGISTER,
+              title:
+                'proceeds (fail-open) when registration key is missing from features',
+            },
+            {
+              spec: SERVER_REGISTER,
+              title: 'proceeds (fail-open) when tenant context is absent',
+            },
+          ],
+          note:
+            'Read as `features.registration.enabled ?? true` in three places: ' +
+            'app/components/auth/AuthCard.vue:29, app/pages/login.vue:22 and ' +
+            'server/api/auth/register.post.ts:20. An absent key and an absent ' +
+            'features object both fall open to the same branch, which is why ' +
+            'the fail-open cases sit here, on the client and on the endpoint.',
+        },
+        false: {
+          status: 'has-test',
+          test: [
+            {
+              spec: AUTH_CARD,
+              title:
+                'hides divider, business-info, and apply button when registration disabled',
+            },
+            {
+              spec: AUTH_CARD,
+              title:
+                'forces login view when defaultView=register but registration disabled',
+            },
+            {
+              spec: SERVER_REGISTER,
+              title: 'throws 403 when registration is disabled',
+            },
+          ],
+          note: 'The client hides the affordance and the endpoint refuses the call.',
+        },
+      },
+      access: {
+        all: REGISTRATION_ACCESS,
+        authenticated: REGISTRATION_ACCESS,
+        absent: REGISTRATION_ACCESS,
+      },
+    },
     reorder: CONSUMED_FEATURE,
-    stockStatus: CONSUMED_FEATURE,
-    wishlist: CONSUMED_FEATURE,
+    stockStatus: namedFeature({
+      on: [
+        {
+          spec: STOCK_VISIBILITY,
+          title:
+            'returns showStock=true when stockStatus feature enabled and canAccess returns true',
+        },
+        {
+          spec: STOCK_BADGE,
+          title: 'shows stock when stock feature allows access',
+        },
+      ],
+      off: [
+        {
+          spec: STOCK_VISIBILITY,
+          title:
+            'returns showStock=false when stockStatus feature is present but enabled: false',
+        },
+        {
+          spec: STOCK_BADGE,
+          title:
+            'hides stock when stockStatus is enabled:false with access defined',
+        },
+      ],
+      denied: [
+        {
+          spec: STOCK_VISIBILITY,
+          title:
+            'returns showStock=false when stockStatus feature enabled but canAccess returns false',
+        },
+        {
+          spec: STOCK_BADGE,
+          title: 'hides stock when stock feature denies access',
+        },
+        {
+          spec: STOCK_BADGE_UNIT,
+          title: 'hides badge when canAccess returns false',
+        },
+      ],
+      note:
+        'The two OOS specs drive a mocked useStockVisibility rather than this ' +
+        'key, so what they prove is independence from the resolved boolean, ' +
+        'not behaviour for the value. They are deliberately not referenced.',
+    }),
+    wishlist: namedFeature({
+      on: [
+        {
+          spec: PORTAL_SHELL,
+          title: 'links to /portal/favorites when wishlist feature is enabled',
+        },
+      ],
+      off: [
+        {
+          spec: PORTAL_SHELL,
+          title: 'hides favorites quick link when wishlist feature is disabled',
+        },
+      ],
+    }),
   },
 
   // --- CMS registry --------------------------------------------------------
   cms: {
     slots: {
       portal_hero: {
-        status: 'no-test',
-        consumer: 'app/components/portal/PortalShell.vue:32',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_SLOT,
+            title: 'returns the slot config when fully configured',
+          },
+          {
+            spec: PORTAL_SHELL,
+            title: 'shows CMS hero banner when CMS area has containers',
+          },
+        ],
         note:
-          'The reader is asserted for an arbitrary key in useCmsSlot.test.ts; ' +
-          'no test asserts that this slot renders where it is configured.',
+          'useCmsSlot.test.ts drives this key throughout, not an arbitrary ' +
+          'one, so the reader is asserted for it; PortalShell.test.ts asserts ' +
+          'that the configured slot renders, and that an empty area renders ' +
+          'nothing.',
       },
       frontpage_content: {
         status: 'no-test',
         consumer: 'app/pages/index.vue:10',
-        note: 'Reader mechanism asserted key-agnostically; this key is not.',
+        note:
+          "A tenant override of this key is asserted to survive the merge ('a " +
+          "tenant slot override wins while sibling default slots are kept' in " +
+          'tests/server/tenant.test.ts), so the value arrives; nothing asserts ' +
+          'that the slot then renders.',
       },
       product_list_top: {
         status: 'no-test',
         consumer: 'app/components/pages/ProductList.vue:362',
-        note: 'Reader mechanism asserted key-agnostically; this key is not.',
+        note: 'The reader is asserted for portal_hero; this key is named nowhere in the suite.',
       },
       product_list_bottom: {
         status: 'no-test',
         consumer: 'app/components/pages/ProductList.vue:363',
-        note: 'Reader mechanism asserted key-agnostically; this key is not.',
+        note: 'The reader is asserted for portal_hero; this key is named nowhere in the suite.',
       },
       product_detail: {
         status: 'no-test',
         consumer: 'app/components/pages/ProductDetails.vue:361',
-        note: 'Reader mechanism asserted key-agnostically; this key is not.',
+        note: 'The reader is asserted for portal_hero; this key is named nowhere in the suite.',
       },
     },
 
     menus: {
       header_main: {
-        status: 'no-test',
-        consumer: 'app/components/layout/header/LayoutHeaderNav.vue:28',
+        status: 'has-test',
+        test: { spec: CMS_MENU, title: 'returns the menu config when present' },
         note:
-          'The reader is asserted for an arbitrary key in useCmsMenu.test.ts; ' +
-          'no test asserts that this menu renders where it is configured.',
+          'useCmsMenu.test.ts drives this key throughout, so the reader is ' +
+          'asserted for it, including the partial-config case where an empty ' +
+          'menuLocationId reads back as null. That the menu then renders in ' +
+          'LayoutHeaderNav is not asserted.',
       },
       footer: {
         status: 'has-test',
@@ -776,12 +1118,12 @@ export const CONFIG_COVERAGE_MAP = {
       mobile_drawer: {
         status: 'no-test',
         consumer: 'app/components/layout/MobileNavPanel.vue:30',
-        note: 'Reader mechanism asserted key-agnostically; this key is not.',
+        note: 'The reader is asserted for header_main; this key is named nowhere in the suite.',
       },
       sidebar_fallback: {
         status: 'no-test',
         consumer: 'app/pages/[...slug].vue:93',
-        note: 'Reader mechanism asserted key-agnostically; this key is not.',
+        note: 'The reader is asserted for header_main; this key is named nowhere in the suite.',
       },
     },
   },
@@ -1104,38 +1446,126 @@ export const CONFIG_COVERAGE_MAP = {
 
   locale: {
     status: 'has-test',
-    test: {
-      spec: LOCALE_MARKET,
-      title:
-        'redirects the cookieless root to the tenant config default locale when present',
-    },
+    test: [
+      {
+        spec: LOCALE_MARKET,
+        title:
+          'redirects the cookieless root to the tenant config default locale when present',
+      },
+      {
+        spec: AUTH_MIDDLEWARE,
+        title:
+          'falls back to the tenant config default locale when the cookie is absent',
+      },
+      {
+        spec: GUEST_MIDDLEWARE,
+        title:
+          'falls back to the tenant config default locale when the cookie is absent',
+      },
+      {
+        spec: FEATURE_MIDDLEWARE_PREFIX,
+        title: 'falls back to cookies, then config, then the se/sv pair',
+      },
+      {
+        spec: SERVER_LOCALE,
+        title:
+          'should fall back to the tenant config default locale when cookie is not set',
+      },
+    ],
+    note:
+      'The server middleware decides the redirect; the three client ' +
+      'middlewares build their own prefix and each asserts the config default ' +
+      "and the 'sv' last resort separately.",
   },
 
   market: {
     status: 'has-test',
-    test: {
-      spec: LOCALE_MARKET,
-      title:
-        'redirects the cookieless root to the tenant config default market when present',
-    },
+    test: [
+      {
+        spec: LOCALE_MARKET,
+        title:
+          'redirects the cookieless root to the tenant config default market when present',
+      },
+      {
+        spec: CLIENT_LOCALE_MARKET,
+        title: 'should fall back to the tenant default market when no cookie',
+      },
+      {
+        spec: AUTH_MIDDLEWARE,
+        title:
+          'falls back to the tenant config default market when the cookie is absent',
+      },
+      {
+        spec: GUEST_MIDDLEWARE,
+        title:
+          'falls back to the tenant config default market when the cookie is absent',
+      },
+      {
+        spec: SEO_LINKS,
+        title: 're-targets every hreflang value on a different market',
+      },
+    ],
+    note:
+      'The cookie wins over the config default, asserted alongside each ' +
+      "fallback; 'se' is the last resort.",
   },
 
   availableLocales: {
     status: 'has-test',
-    test: {
-      spec: LOCALE_SWITCHER,
-      title: 'should be false when only one locale available',
-    },
-    note: 'The switcher hides at length ≤ 1; the multi-locale case is asserted alongside it.',
+    test: [
+      {
+        spec: LOCALE_SWITCHER,
+        title: 'should be false when only one locale available',
+      },
+      {
+        spec: CLIENT_LOCALE_MARKET,
+        title: 'should not switch to a locale not in tenant available locales',
+      },
+      {
+        spec: FORMAT_LOCALE,
+        title: "expands the active locale to the tenant's own BCP-47 tag",
+      },
+      {
+        spec: SEO_LINKS,
+        title:
+          'falls back to the tenant BCP-47 tag when the market is not an ISO region',
+      },
+      {
+        spec: LOCALE_ALTERNATES,
+        title: 'drops locales not in tenant available short codes',
+      },
+      {
+        spec: SERVER_LOCALE,
+        title: 'should expand short locale to BCP-47 using tenant config',
+      },
+    ],
+    note:
+      'The switcher hides at length ≤ 1; the multi-locale case is asserted ' +
+      'alongside it. The list is also the allow-list for a locale switch, the ' +
+      'source of the BCP-47 tag for formatting and hreflang, and the filter on ' +
+      'incoming alternates.',
   },
 
   availableMarkets: {
     status: 'has-test',
-    test: {
-      spec: MARKET_SWITCHER,
-      title: 'should be false when only one market available',
-    },
-    note: 'The switcher hides at length ≤ 1, which is how the live tenant runs.',
+    test: [
+      {
+        spec: MARKET_SWITCHER,
+        title: 'should be false when only one market available',
+      },
+      {
+        spec: CLIENT_LOCALE_MARKET,
+        title: 'should not switch to a market not in tenant available markets',
+      },
+      {
+        spec: LOCALE_MARKET_GLOBAL,
+        title:
+          'does not write the market cookie for a market the tenant does not sell',
+      },
+    ],
+    note:
+      'The switcher hides at length ≤ 1, which is how the live tenant runs; ' +
+      'the list is also the allow-list for a market switch.',
   },
 
   imageBaseUrl: {

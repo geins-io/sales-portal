@@ -617,10 +617,20 @@ Excludes: `app/components/ui/**` (shadcn-vue), `*.d.ts`, `node_modules`, `.nuxt`
 
 Line coverage says which code ran; it says nothing about which tenant _configuration_ was
 exercised. `tests/unit/config-coverage/map.ts` records that separately: one entry per value
-a tenant can set, naming a test that covers it, or the reason none does. A field added to
-`PublicTenantConfig` — or a value of a union field, or one of the three states of an
+a tenant can set, naming the test or tests that cover it, or the reason none does. An entry
+names one reference or several — a value's getter and each consumer that branches on it are
+separate assertions, and a single slot would force one to overwrite the other. A field added
+to `PublicTenantConfig` — or a value of a union field, or one of the three states of an
 optional string field — fails `pnpm typecheck` until it has an entry, and `pnpm test`
 prints the entries without a test on every run.
+
+A test that asserts what the app does for a particular config value is registered in the map
+as part of the same change, with a reference that says what it proves — that the value
+arrives, or that a consumer acts on it. The entry's `note` carries that. A test that only
+carries the value in a fixture is not an assertion about it and stays out. Nothing detects an
+unregistered test: no spec declares which config value it covers, so this is an obligation on
+the change, not a gate. A full sweep of the suite against the map runs once per milestone that
+adds config tests.
 
 ## CI/CD Integration
 
