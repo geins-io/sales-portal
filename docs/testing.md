@@ -531,6 +531,25 @@ vi.stubGlobal(
 );
 ```
 
+**`vi.stubGlobal` does not reach an imported composable.** It answers what the
+component under test calls itself, because the SFC's auto-import compiles to a
+global lookup. A composable you `import` is transformed instead: its own
+auto-imports resolve to the composable module, so a global stub is invisible to
+it. Mock the module.
+
+```typescript
+// `useCmsMenu` calls `useTenant`. Importing the real composable to run it
+// against a fixture means mocking the module it resolves to, not the global.
+const { mockTenant } = vi.hoisted(() => ({ mockTenant: { value: null } }));
+vi.mock('../../../app/composables/useTenant', () => ({
+  useTenant: () => ({ tenant: mockTenant }),
+}));
+```
+
+This is worth the trouble when the point of the test is that the real
+composable runs: reimplementing it in the spec asserts the mirror, which proves
+nothing about the code the app executes.
+
 ## E2E Tests
 
 E2E tests run against the real dev server with real Geins API data — no mocks. Setup

@@ -1,9 +1,18 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  assert,
+} from 'vitest';
 import { ref, defineComponent, h, Suspense } from 'vue';
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
 import { mockIsCatalogMode } from '../../setup-components';
+import { useTenant } from '../../../app/composables/useTenant';
 
 // ProductDetails uses `await useFetch(...)` so the setup is async. Wrap it
 // in a Suspense boundary, mount full-depth (stubs provided via global.stubs
@@ -65,14 +74,49 @@ const mockProduct = ref<Record<string, unknown> | null>(null);
 const mockStatus = ref('success');
 const mockError = ref<Error | null>(null);
 
-const mockUseFetch = vi.fn(() => ({
-  data: mockProduct,
-  error: mockError,
-  status: mockStatus,
-  pending: ref(false),
-  refresh: vi.fn(),
-  execute: vi.fn(),
-}));
+// CMS areas keyed by the areaName the tenant config names for the PDP slot.
+// The mock took no arguments and answered every URL with the product, so the
+// CMS fetch got the product back and no area could ever render.
+const mockCmsAreas = new Map<string, { containers: unknown[] }>();
+
+type AreaQuery = { areaName?: string };
+
+function resolveAreaQuery(
+  options?: Record<string, unknown>,
+): AreaQuery | undefined {
+  const raw = options?.query;
+  if (raw != null && typeof raw === 'object' && 'value' in raw) {
+    return (raw as { value: AreaQuery }).value;
+  }
+  return raw as AreaQuery | undefined;
+}
+
+const mockUseFetch = vi.fn(
+  (urlOrFn?: unknown, options?: Record<string, unknown>) => {
+    const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
+    if (typeof url === 'string' && url.includes('/api/cms/area')) {
+      const areaName = resolveAreaQuery(options)?.areaName;
+      return {
+        data: ref(
+          areaName !== undefined ? (mockCmsAreas.get(areaName) ?? null) : null,
+        ),
+        error: ref(null),
+        status: ref('success'),
+        pending: ref(false),
+        refresh: vi.fn(),
+        execute: vi.fn(),
+      };
+    }
+    return {
+      data: mockProduct,
+      error: mockError,
+      status: mockStatus,
+      pending: ref(false),
+      refresh: vi.fn(),
+      execute: vi.fn(),
+    };
+  },
+);
 
 vi.mock('#app/composables/fetch', () => ({
   useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
@@ -268,6 +312,74 @@ describe('ProductDetails', () => {
     mockCanAccess.mockReturnValue(true);
     navigateToMock.mockClear();
     recoverEntityUrlMock.mockClear();
+    mockCmsAreas.clear();
+  });
+
+  /**
+   * The PDP resolves `CMS_SLOTS.PRODUCT_DETAIL` against the tenant config and
+   * fetches the area that slot names. The spec mounted the component but never
+   * configured the key, so no area rendered either way.
+   *
+   * `useCmsSlot` stays unmocked and the fetch stub answers on the areaName the
+   * config produced, so pointing the slot elsewhere turns the first case red.
+   */
+  describe('cms zone on the product detail page', () => {
+    const PDP_AREA = 'PDP Extra';
+
+    const cmsStubs = {
+      ...defaultStubs,
+      CmsWidgetArea: {
+        template: '<div class="cms-area" />',
+        props: ['containers'],
+      },
+    };
+
+    const originalCms = useTenant().tenant.value?.cms;
+
+    function configurePdpSlot(areaName: string) {
+      const { tenant } = useTenant();
+      const current = tenant.value;
+      assert.isDefined(current);
+      tenant.value = {
+        ...current,
+        cms: { slots: { product_detail: { family: 'Product', areaName } } },
+      };
+    }
+
+    afterEach(() => {
+      // The setup fixture is shared across this file, so put `cms` back rather
+      // than leaving later tests to run on whatever the last case configured.
+      const { tenant } = useTenant();
+      const current = tenant.value;
+      assert.isDefined(current);
+      tenant.value = { ...current, cms: originalCms };
+    });
+
+    it('renders the pdp zone for the area product_detail names', async () => {
+      mockProduct.value = makeProduct();
+      configurePdpSlot(PDP_AREA);
+      mockCmsAreas.set(PDP_AREA, { containers: [{ id: 'pdp' }] });
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: cmsStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-cms-area"]').exists()).toBe(true);
+    });
+
+    it('renders no pdp zone when product_detail names another area', async () => {
+      mockProduct.value = makeProduct();
+      configurePdpSlot('Somewhere Else');
+      mockCmsAreas.set(PDP_AREA, { containers: [{ id: 'pdp' }] });
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: cmsStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-cms-area"]').exists()).toBe(false);
+    });
   });
 
   describe('purchase actions per mode and access', () => {

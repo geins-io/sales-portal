@@ -6,7 +6,7 @@
  * types only: it re-tests nothing, and where a test exists the entry points at
  * it with a reference that says what the test proves (`kind` in `types.ts`).
  *
- * Three statuses, and they claim only what is checkable:
+ * Four statuses, and they claim only what is checkable:
  *
  *   - `has-test` — at least one `consumer` reference: a consumer of the value
  *     is asserted to do something different for it. Any consumer, not only
@@ -21,6 +21,12 @@
  *     names what is missing and the references what exists.
  *   - `no-consumer` — nothing reads the value. The open question is whether the
  *     field should exist, which is a decision rather than a missing test.
+ *   - `unreachable` — a consumer exists and the boundary refuses this state, so
+ *     no test at the consumer could assert it. It carries two references
+ *     instead of the usual list: `boundary.rejects` for the schema half and
+ *     `boundary.strips` for what the app then serves. Both are required by the
+ *     type, so the status cannot be claimed without the proof, and a cell with
+ *     only one leg is `no-test` with a note naming the missing one.
  *
  * What fails the gate:
  *
@@ -51,15 +57,28 @@
  *     binds it); a `no-test` entry whose references would qualify it; one
  *     (spec, title) carrying two kinds; a consumer reference on a feature cell
  *     whose title does not name the key → `pnpm test`;
- *   - a `no-test` or `no-consumer` entry with no reason → `pnpm typecheck`,
- *     because `note` is required on both of those variants.
+ *   - a `no-test`, `no-consumer` or `unreachable` entry with no reason →
+ *     `pnpm typecheck`, because `note` is required on all three variants;
+ *   - an `unreachable` entry missing `boundary.rejects` or `boundary.strips` →
+ *     `pnpm typecheck`, because both are required by the type rather than
+ *     counted at runtime. A cell that can show only one leg is `no-test` with
+ *     a note naming the missing one;
+ *   - an `unreachable` entry whose boundary references are not both `carrier`
+ *     → `pnpm test`. A `consumer` reference there would claim the app acts on
+ *     a value that, by the entry's own status, never arrives;
+ *   - any entry left as `no-test` → `pnpm test`, through the assertion
+ *     described below.
  *
- * What does not fail the gate: how many entries lack a test. `map.test.ts`
- * prints them on every run and passes. A threshold would be red the day this
- * landed, and a threshold pinned to today's count is a ratchet nobody chose
- * the value of. When the list can be zero, the print becomes
- * `expect(noTest).toHaveLength(0)` — one line, on the last of the tickets that
- * work from this map.
+ * How many entries lack a test used not to fail the gate: a threshold would
+ * have been red the day this landed, and one pinned to that day's count is a
+ * ratchet nobody chose the value of. The list is now zero and the print is an
+ * assertion, so a cell that quietly loses its test turns `pnpm test` red
+ * rather than adding a line to a printout nobody reads.
+ *
+ * `no-consumer` is deliberately still not asserted to zero. Those entries are
+ * an open question about whether the fields should exist at all — a decision,
+ * not a missing test — and pinning them here would turn that decision into a
+ * gate that the next person has to argue with instead of answer.
  *
  * Four limits worth knowing before reading the entries:
  *
@@ -97,6 +116,7 @@ import type {
   ConfigCoverageMap,
   Coverage,
   FeatureCoverage,
+  StringFieldCoverage,
   TestRef,
 } from './types';
 
@@ -119,6 +139,8 @@ const GEINS_IMAGE = 'tests/components/GeinsImage.test.ts';
 const CART_DRAWER = 'tests/components/cart/CartDrawer.test.ts';
 const PRODUCT_CARD = 'tests/components/commerce/ProductCard.test.ts';
 const PRODUCT_DETAILS = 'tests/components/pages/ProductDetails.test.ts';
+const PRODUCT_LIST = 'tests/components/pages/ProductList.test.ts';
+const INDEX_PAGE = 'tests/components/pages/IndexPage.test.ts';
 const ORDER_DETAIL = 'tests/components/pages/order-detail.test.ts';
 const SAVED_LIST_DETAIL = 'tests/components/portal/saved-list-detail.test.ts';
 const CART_ROUTE = 'tests/components/pages/cart.test.ts';
@@ -145,6 +167,8 @@ const NEWSLETTER_VISIBILITY =
   'tests/composables/useNewsletterVisibility.test.ts';
 const CMS_SLOT = 'tests/composables/useCmsSlot.test.ts';
 const CMS_MENU = 'tests/composables/useCmsMenu.test.ts';
+const HEADER_NAV = 'tests/components/layout/LayoutHeaderNav.test.ts';
+const SLUG_PAGE = 'tests/unit/pages/slug-catch-all.test.ts';
 const MOBILE_NAV = 'tests/components/layout/MobileNavPanel.test.ts';
 const ANALYTICS_CONSENT = 'tests/composables/useAnalyticsConsent.test.ts';
 const COOKIE_BANNER = 'tests/components/shared/CookieBanner.test.ts';
@@ -152,6 +176,7 @@ const FORMAT_LOCALE = 'tests/composables/useFormatLocale.test.ts';
 const LOCALE_ALTERNATES = 'tests/composables/useLocaleAlternates.test.ts';
 const SEO_LINKS = 'tests/composables/useSeoLinks.test.ts';
 const CLIENT_LOCALE_MARKET = 'tests/composables/useLocaleMarket.test.ts';
+const LOCALE_SWITCHER = 'tests/components/LocaleSwitcher.test.ts';
 const SERVER_LOCALE = 'tests/server/locale.test.ts';
 const LOCALE_MARKET_GLOBAL = 'tests/middleware/locale-market-global.test.ts';
 const AUTH_MIDDLEWARE = 'tests/middleware/auth.test.ts';
@@ -693,24 +718,59 @@ function requiredColor(): Coverage {
 }
 
 /**
- * The five branding URL fields are parsed by `SafeUrlSchema`, which rejects an
- * empty string. Each is a depth-2 path, so the resilient parser strips the
- * failing leaf and re-parses instead of substituting the whole block: the field
- * arrives absent, never as `''`. The merchant API may well send an empty
- * string; the app never receives one.
+ * The ten URL fields under `branding` and `contact.social` are parsed by
+ * `SafeUrlSchema`, which rejects an empty string. Each is a depth-2 path and
+ * neither block is in `FATAL_PATHS`, so the resilient parser strips the failing
+ * leaf and re-parses instead of substituting the whole block: the field arrives
+ * absent, never as `''`. The merchant API may well send an empty string; the
+ * app never receives one.
+ *
+ * Measured against the live merchant API on seven hosts: no branding URL is
+ * ever an empty string — every tenant sends a real URL or `null`. The empty
+ * strings production does send are all in `seo` and `contact`, which are plain
+ * strings and have real `empty` cells above.
+ *
+ * That measurement is not what makes the status safe, though. Seven tenants is
+ * not every tenant, and what Studio sends for a URL a merchant typed and then
+ * cleared is unmeasured. The two references are what makes it safe: `rejects`
+ * pins the schema half, `strips` pins what the app then serves. Swap
+ * leaf-stripping for branch substitution and `strips` goes red rather than a
+ * cleared logo silently taking the tenant's name with it.
  */
-function unreachableEmptyUrl(consumer: string) {
+function unreachableEmptyUrl(
+  consumer: string,
+  rejectsTitle: string,
+  stripsTitle: string,
+): Coverage {
   return {
-    status: 'no-test',
+    status: 'unreachable',
     consumer,
     note:
-      'Unreachable through the merchant API: SafeUrlSchema rejects an empty ' +
-      'string and the resilient parser strips the leaf, so the field arrives ' +
-      'absent and the `absent` row above is the one that matters. The strip ' +
-      "mechanism is asserted for the theme colours in 'strips multiple bad " +
-      "leaves and logs each one', not for this field.",
-  } as const;
+      'SafeUrlSchema rejects an empty string and the resilient parser strips ' +
+      'the leaf, so the field arrives absent and the `absent` row is the one ' +
+      'that matters. No test at the consumer could assert this state, because ' +
+      'the value never reaches it.',
+    boundary: {
+      rejects: {
+        spec: STORE_SETTINGS_SCHEMA,
+        title: rejectsTitle,
+        kind: 'carrier',
+      },
+      strips: { spec: SERVER_TENANT, title: stripsTitle, kind: 'carrier' },
+    },
+  };
 }
+
+/**
+ * The `rejects` leg for both blocks. Each is a `describe`: the `it` titles
+ * inside are template literals, which the reference check refuses because a
+ * generated string never appears in the source. A `carrier` reference may name
+ * a describe, and the loop is the right shape here — the fields are
+ * interchangeable for this one assertion, and `strips` pins each of them
+ * literally anyway.
+ */
+const BRANDING_URLS_REJECT = 'all five URL fields reject unsafe values';
+const SOCIAL_URLS_REJECT = 'all five social URL fields reject unsafe values';
 
 /**
  * The schema requires `branding.watermark`. Rejecting its absence holds for
@@ -750,10 +810,12 @@ const WATERMARK_NOTE =
  * state of all five at once and is shared the same way
  * `contact.email`/`contact.phone` share their null case.
  *
- * `''` is not a state here: `SafeUrlSchema` rejects an empty string and the
- * resilient parser strips the leaf, so the field arrives absent. The map gives
- * these leaves a bare `Coverage` rather than the three string states for that
- * reason.
+ * `''` used to be left out of this block entirely, on the sentence that
+ * `SafeUrlSchema` rejects an empty string and the resilient parser strips the
+ * leaf. The sentence is true and was untested, which is the shape this map
+ * exists to remove. The leaves now carry the three string states like every
+ * other optional string, and `empty` is `unreachable` with both legs of that
+ * sentence referenced.
  */
 /**
  * The plugin returns early on `!gaId && !gtmId`, so each absent/empty case sets
@@ -773,19 +835,40 @@ const SOCIAL_ABSENT: TestRef = {
   drives: 'field',
 };
 
-function socialLeaf(setCaseTitle: string): Coverage {
+/** A social URL leaf: `''` is unreachable, the other two states are asserted. */
+function socialUrlStates(
+  setCaseTitle: string,
+  stripsTitle: string,
+): StringFieldCoverage {
   return {
-    status: 'has-test',
-    test: [
-      {
-        spec: TENANT_SEO,
-        title: setCaseTitle,
-        kind: 'consumer',
-        drives: 'field',
+    // buildSocialLinksFromContact filters on `typeof v === 'string' &&
+    // v.length > 0` rather than falling back, so no operator applies.
+    fallback: 'none',
+    states: {
+      absent: {
+        status: 'has-test',
+        test: SOCIAL_ABSENT,
+        note: 'The shared absent case for the whole social block.',
       },
-      SOCIAL_ABSENT,
-    ],
-    note: 'The set case for this leaf, and the shared absent case for the whole block.',
+      empty: unreachableEmptyUrl(
+        'app/plugins/tenant-seo.ts:169',
+        SOCIAL_URLS_REJECT,
+        stripsTitle,
+      ),
+      set: {
+        status: 'has-test',
+        test: [
+          {
+            spec: TENANT_SEO,
+            title: setCaseTitle,
+            kind: 'consumer',
+            drives: 'field',
+          },
+          SOCIAL_ABSENT,
+        ],
+        note: 'The set case for this leaf, and the shared absent case for the whole block.',
+      },
+    },
   };
 }
 
@@ -1448,7 +1531,11 @@ export const CONFIG_COVERAGE_MAP = {
             'The second title says empty but the case drives an absent value, ' +
             'so it belongs here rather than under empty.',
         },
-        empty: unreachableEmptyUrl('app/composables/useTenant.ts:52'),
+        empty: unreachableEmptyUrl(
+          'app/composables/useTenant.ts:52',
+          BRANDING_URLS_REJECT,
+          'clears branding.logoUrl and keeps the name and the other urls',
+        ),
         set: {
           status: 'has-test',
           test: [
@@ -1482,7 +1569,11 @@ export const CONFIG_COVERAGE_MAP = {
           },
           note: PROP_VS_CONFIG_NOTE,
         },
-        empty: unreachableEmptyUrl('app/components/shared/BrandLogo.vue'),
+        empty: unreachableEmptyUrl(
+          'app/components/shared/BrandLogo.vue',
+          BRANDING_URLS_REJECT,
+          'clears branding.logoDarkUrl and keeps the name and the other urls',
+        ),
         set: {
           status: 'has-test',
           test: {
@@ -1511,7 +1602,11 @@ export const CONFIG_COVERAGE_MAP = {
           },
           note: PROP_VS_CONFIG_NOTE,
         },
-        empty: unreachableEmptyUrl('app/composables/useTenant.ts:68'),
+        empty: unreachableEmptyUrl(
+          'app/composables/useTenant.ts:68',
+          BRANDING_URLS_REJECT,
+          'clears branding.logoSymbolUrl and keeps the name and the other urls',
+        ),
         set: {
           status: 'has-test',
           test: {
@@ -1541,7 +1636,11 @@ export const CONFIG_COVERAGE_MAP = {
             "The getter's '/favicon.ico' fallback is a second consumer and is " +
             'still unasserted; the served document simply carries no icon link.',
         },
-        empty: unreachableEmptyUrl('server/plugins/04.tenant-css.ts:47'),
+        empty: unreachableEmptyUrl(
+          'server/plugins/04.tenant-css.ts:47',
+          BRANDING_URLS_REJECT,
+          'clears branding.faviconUrl and keeps the name and the other urls',
+        ),
         set: {
           status: 'has-test',
           test: {
@@ -1571,7 +1670,11 @@ export const CONFIG_COVERAGE_MAP = {
             drives: 'field',
           },
         },
-        empty: unreachableEmptyUrl('app/plugins/tenant-seo.ts:79'),
+        empty: unreachableEmptyUrl(
+          'app/plugins/tenant-seo.ts:79',
+          BRANDING_URLS_REJECT,
+          'clears branding.ogImageUrl and keeps the name and the other urls',
+        ),
         set: {
           status: 'has-test',
           test: {
@@ -2162,114 +2265,170 @@ export const CONFIG_COVERAGE_MAP = {
           'to the consumer ready-made.',
       },
       frontpage_content: {
-        status: 'no-test',
-        consumer: 'app/pages/index.vue:10',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_SLOT,
+            title:
+              'resolves the frontpage_content slot key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: INDEX_PAGE,
+            title: 'renders the frontpage area the configured slot names',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: INDEX_PAGE,
+            title: 'falls back when the configured slot names a different area',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
-          'The reader is asserted for this key, so config → decision holds. ' +
-          'The consumer has no spec at all. ' +
-          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
-          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
-          'fixture configures for the slot, and assert the area renders when ' +
-          'the config points at it and not when it points elsewhere. That ' +
-          'yields `field` directly and needs no composition. Note that the ' +
-          'setup fixture is shared and PortalShell.test.ts does not reset ' +
-          '`cms` per test, so a fixture change there is felt by every test ' +
-          'in the file.',
-        test: {
-          spec: CMS_SLOT,
-          title:
-            'resolves the frontpage_content slot key from the tenant config',
-          kind: 'reader',
-        },
+          'useCmsSlot.test.ts drives this key, so the reader is asserted for ' +
+          'it. The consumer spec leaves useCmsSlot unmocked and keys its ' +
+          'fetch stub on the areaName the config produced, so the configured ' +
+          "value travels the app's own path: the negative case points the " +
+          'slot at another area with the same area content available, and ' +
+          'goes red if the config stopped deciding. That is why this is ' +
+          '`field` rather than a decision handed to the consumer ' +
+          'ready-made.',
       },
       product_list_top: {
-        status: 'no-test',
-        consumer: 'app/components/pages/ProductList.vue:362',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_SLOT,
+            title:
+              'resolves the product_list_top slot key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: PRODUCT_LIST,
+            title: 'renders the top zone for the area product_list_top names',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: PRODUCT_LIST,
+            title:
+              'renders no top zone when product_list_top names another area',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
-          'The reader is asserted for this key, so config → decision holds. ' +
-          'The consumer has a spec that mounts it, but nothing in that spec ' +
-          'touches the CMS path: the key is never configured and no area is ' +
-          'ever rendered. ' +
-          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
-          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
-          'fixture configures for the slot, and assert the area renders when ' +
-          'the config points at it and not when it points elsewhere. That ' +
-          'yields `field` directly and needs no composition. Note that the ' +
-          'setup fixture is shared and PortalShell.test.ts does not reset ' +
-          '`cms` per test, so a fixture change there is felt by every test ' +
-          'in the file.',
-        test: {
-          spec: CMS_SLOT,
-          title:
-            'resolves the product_list_top slot key from the tenant config',
-          kind: 'reader',
-        },
+          'useCmsSlot.test.ts drives this key, so the reader is asserted for ' +
+          'it. The consumer spec leaves useCmsSlot unmocked and keys its ' +
+          'fetch stub on the areaName the config produced, so the configured ' +
+          "value travels the app's own path: the negative case points the " +
+          'slot at another area with the same area content available, and ' +
+          'goes red if the config stopped deciding. That is why this is ' +
+          '`field` rather than a decision handed to the consumer ' +
+          'ready-made.',
       },
       product_list_bottom: {
-        status: 'no-test',
-        consumer: 'app/components/pages/ProductList.vue:363',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_SLOT,
+            title:
+              'resolves the product_list_bottom slot key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: PRODUCT_LIST,
+            title:
+              'renders the bottom zone for the area product_list_bottom names',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: PRODUCT_LIST,
+            title:
+              'renders no bottom zone when product_list_bottom names another area',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
-          'The reader is asserted for this key, so config → decision holds. ' +
-          'The consumer has a spec that mounts it, but nothing in that spec ' +
-          'touches the CMS path: the key is never configured and no area is ' +
-          'ever rendered. ' +
-          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
-          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
-          'fixture configures for the slot, and assert the area renders when ' +
-          'the config points at it and not when it points elsewhere. That ' +
-          'yields `field` directly and needs no composition. Note that the ' +
-          'setup fixture is shared and PortalShell.test.ts does not reset ' +
-          '`cms` per test, so a fixture change there is felt by every test ' +
-          'in the file.',
-        test: {
-          spec: CMS_SLOT,
-          title:
-            'resolves the product_list_bottom slot key from the tenant config',
-          kind: 'reader',
-        },
+          'useCmsSlot.test.ts drives this key, so the reader is asserted for ' +
+          'it. The consumer spec leaves useCmsSlot unmocked and keys its ' +
+          'fetch stub on the areaName the config produced, so the configured ' +
+          "value travels the app's own path: the negative case points the " +
+          'slot at another area with the same area content available, and ' +
+          'goes red if the config stopped deciding. That is why this is ' +
+          '`field` rather than a decision handed to the consumer ' +
+          'ready-made.',
       },
       product_detail: {
-        status: 'no-test',
-        consumer: 'app/components/pages/ProductDetails.vue:361',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_SLOT,
+            title:
+              'resolves the product_detail slot key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: PRODUCT_DETAILS,
+            title: 'renders the pdp zone for the area product_detail names',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: PRODUCT_DETAILS,
+            title: 'renders no pdp zone when product_detail names another area',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
-          'The reader is asserted for this key, so config → decision holds. ' +
-          'The consumer has a spec that mounts it, but nothing in that spec ' +
-          'touches the CMS path: the key is never configured and no area is ' +
-          'ever rendered. ' +
-          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
-          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
-          'fixture configures for the slot, and assert the area renders when ' +
-          'the config points at it and not when it points elsewhere. That ' +
-          'yields `field` directly and needs no composition. Note that the ' +
-          'setup fixture is shared and PortalShell.test.ts does not reset ' +
-          '`cms` per test, so a fixture change there is felt by every test ' +
-          'in the file.',
-        test: {
-          spec: CMS_SLOT,
-          title: 'resolves the product_detail slot key from the tenant config',
-          kind: 'reader',
-        },
+          'useCmsSlot.test.ts drives this key, so the reader is asserted for ' +
+          'it. The consumer spec leaves useCmsSlot unmocked and keys its ' +
+          'fetch stub on the areaName the config produced, so the configured ' +
+          "value travels the app's own path: the negative case points the " +
+          'slot at another area with the same area content available, and ' +
+          'goes red if the config stopped deciding. That is why this is ' +
+          '`field` rather than a decision handed to the consumer ' +
+          'ready-made.',
       },
     },
 
     menus: {
       header_main: {
-        status: 'no-test',
-        consumer: 'app/components/layout/header/LayoutHeaderNav.vue:28',
-        test: {
-          spec: CMS_MENU,
-          title: 'returns the menu config when present',
-          kind: 'reader',
-        },
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title: 'returns the menu config when present',
+            kind: 'reader',
+          },
+          {
+            spec: HEADER_NAV,
+            title:
+              'renders the header_main menu from the configured menuLocationId',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: HEADER_NAV,
+            title:
+              'renders no nav when header_main names a different menuLocationId',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
           'useCmsMenu.test.ts drives this key throughout, so the reader is ' +
-          'asserted for it, including the partial-config case where an empty ' +
-          'menuLocationId reads back as null. LayoutHeaderNav.test.ts mounts ' +
-          'the consumer but mocks useFetch, which binds no key: the menu it ' +
-          'renders is the stubbed response whatever the config says, so there ' +
-          'is nothing to compose with. To lift the cell, stub useCmsMenuData ' +
-          'for this key alone instead of useFetch, the way ' +
-          'MobileNavPanel.test.ts does for mobile_drawer.',
+          'asserted for it. LayoutHeaderNav.test.ts used to stub useFetch ' +
+          'blanket, so the nav rendered the stubbed response whatever the ' +
+          'config said; the stub is now keyed on the menuLocationId the ' +
+          'config produced, which is the id useCmsMenuData puts in the ' +
+          'query. The negative case configures another id with the same menu ' +
+          'available, so the pair goes red if the config stopped deciding.',
       },
       footer: {
         status: 'has-test',
@@ -2358,20 +2517,35 @@ export const CONFIG_COVERAGE_MAP = {
           'that is what lets the consumer compose with the reader here.',
       },
       sidebar_fallback: {
-        status: 'no-test',
-        consumer: 'app/pages/[...slug].vue:93',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title:
+              'resolves the sidebar_fallback menu key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: SLUG_PAGE,
+            title:
+              'passes the menuLocationId cms.menus.sidebar_fallback configures to the sidebar nav',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: SLUG_PAGE,
+            title:
+              'renders no sidebar nav when the tenant configures no sidebar_fallback menu',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
-          'The reader is asserted for this key. The page spec stubs useCmsMenu ' +
-          'globally to return null for every key, so no consumer test exercises ' +
-          'the configured branch at all. To lift the cell, make that stub ' +
-          'key-aware and return a configured menu for this key, then assert the ' +
-          'sidebar nav renders it.',
-        test: {
-          spec: CMS_MENU,
-          title:
-            'resolves the sidebar_fallback menu key from the tenant config',
-          kind: 'reader',
-        },
+          'The page spec used to stub useCmsMenu to null for every key, so no ' +
+          'consumer ran the configured branch. It now runs the real ' +
+          'composable against a tenant fixture and asserts the id that ' +
+          'reaches PageSidebarNav, so the configured value travels the ' +
+          "app's own path rather than being handed over ready-made.",
       },
     },
   },
@@ -2794,20 +2968,25 @@ export const CONFIG_COVERAGE_MAP = {
       },
     },
     social: {
-      facebook: socialLeaf(
+      facebook: socialUrlStates(
         'includes the configured facebook URL in the Organization sameAs list',
+        'clears contact.social.facebook and keeps the other social urls',
       ),
-      instagram: socialLeaf(
+      instagram: socialUrlStates(
         'includes the configured instagram URL in the Organization sameAs list',
+        'clears contact.social.instagram and keeps the other social urls',
       ),
-      twitter: socialLeaf(
+      twitter: socialUrlStates(
         'includes the configured twitter URL in the Organization sameAs list',
+        'clears contact.social.twitter and keeps the other social urls',
       ),
-      linkedin: socialLeaf(
+      linkedin: socialUrlStates(
         'includes the configured linkedin URL in the Organization sameAs list',
+        'clears contact.social.linkedin and keeps the other social urls',
       ),
-      youtube: socialLeaf(
+      youtube: socialUrlStates(
         'includes the configured youtube URL in the Organization sameAs list',
+        'clears contact.social.youtube and keeps the other social urls',
       ),
     },
   },
@@ -2845,9 +3024,21 @@ export const CONFIG_COVERAGE_MAP = {
 
   isActive: {
     true: {
-      status: 'no-test',
-      consumer: 'server/utils/tenant.ts:1050',
-      note: 'The active path is every other test in the suite, and none of them asserts that an active config is the reason lookupTenant returns it.',
+      status: 'has-test',
+      test: {
+        spec: SERVER_TENANT_RESOLUTION,
+        title:
+          'returns the config only because isActive is true, on one otherwise identical config',
+        kind: 'consumer',
+        drives: 'field',
+      },
+      note:
+        'The active path used to be every other test in the suite, none of ' +
+        'which said that being active was the reason a config came back: ' +
+        '`kvConfig` defaults the flag to true, so the getTenantById case ' +
+        'depended on it by implication and its title did not say so. The ' +
+        'reference flips the flag between two otherwise identical configs at ' +
+        'the same key, which is what makes it an assertion about the field.',
     },
     false: {
       status: 'has-test',
@@ -2963,8 +3154,7 @@ export const CONFIG_COVERAGE_MAP = {
   },
 
   availableLocales: {
-    status: 'no-test',
-    consumer: 'app/components/shared/LocaleSwitcher.vue:70',
+    status: 'has-test',
     test: [
       {
         spec: CLIENT_LOCALE_MARKET,
@@ -2992,13 +3182,26 @@ export const CONFIG_COVERAGE_MAP = {
         title: 'should expand short locale to BCP-47 using tenant config',
         kind: 'reader',
       },
+      {
+        spec: LOCALE_SWITCHER,
+        title: 'renders one link per locale the tenant offers',
+        kind: 'consumer',
+        drives: 'field',
+      },
+      {
+        spec: LOCALE_SWITCHER,
+        title: 'renders nothing when the tenant offers a single locale',
+        kind: 'consumer',
+        drives: 'field',
+      },
     ],
     note:
-      'Every reference is a reader: the allow-list for a locale switch, the ' +
-      'source of the BCP-47 tag for formatting and hreflang, the filter on ' +
-      'incoming alternates. LocaleSwitcher.test.ts is not referenced: it ' +
-      "mirrors the switcher's computed inside the test file rather than " +
-      'mounting it, so it proves nothing about the component.',
+      'The readers are the allow-list for a locale switch, the source of the ' +
+      'BCP-47 tag for formatting and hreflang, and the filter on incoming ' +
+      'alternates. The consumer references are new: LocaleSwitcher.test.ts ' +
+      "used to mirror the switcher's computed inside the test file rather " +
+      'than mounting it, so it proved nothing about the component. It now ' +
+      'mounts the inline variant and drives this field through useTenant.',
   },
 
   availableMarkets: {
