@@ -39,8 +39,17 @@ const ENTRIES = walk(CONFIG_COVERAGE_MAP);
 /**
  * An entry carries one reference or a list of them; every check below wants
  * the list form, so the widening happens once here.
+ *
+ * An `unreachable` entry keeps its two references under `boundary` rather than
+ * `test`, because each is named for the half of the argument it carries. They
+ * are yielded here so they get every check an ordinary reference gets —
+ * existence, anchoring, not commented out, not skipped — and are additionally
+ * required to be `carrier` below.
  */
 function refsOf(coverage: Coverage): TestRef[] {
+  if (coverage.status === 'unreachable') {
+    return [coverage.boundary.rejects, coverage.boundary.strips];
+  }
   const ref = coverage.test;
   if (!ref) return [];
   return Array.isArray(ref) ? ref : [ref];
@@ -282,6 +291,26 @@ describe('tenant config coverage map', () => {
     expect(broken).toEqual([]);
   });
 
+  it('proves every unreachable entry with two carrier references', () => {
+    // The type already requires both legs to be present. What it cannot say is
+    // what they prove: a `consumer` reference under `boundary` would be a
+    // claim about the app acting on a value that, by the entry's own status,
+    // never arrives. Only `carrier` — the value is rejected, the leaf is
+    // dropped — is an argument about the boundary.
+    const wrong: string[] = [];
+
+    for (const { path, coverage } of ENTRIES) {
+      if (coverage.status !== 'unreachable') continue;
+      for (const [leg, ref] of Object.entries(coverage.boundary)) {
+        if (ref.kind !== 'carrier') {
+          wrong.push(`${path}: boundary.${leg} is ${ref.kind}, not carrier`);
+        }
+      }
+    }
+
+    expect(wrong).toEqual([]);
+  });
+
   it('no referenced spec skips, focuses or todoes a declaration', () => {
     // Hung on the file rather than the title: a `describe.skip` around a
     // referenced `it` leaves the `it` itself untouched, so no expression
@@ -303,8 +332,9 @@ describe('tenant config coverage map', () => {
   it('checks every reference of an entry that carries a list', () => {
     // Guards refsOf: were it to read only the first element, the widening
     // would silently stop verifying the references added alongside it.
-    const listed = ENTRIES.filter(({ coverage }) =>
-      Array.isArray(coverage.test),
+    const listed = ENTRIES.filter(
+      ({ coverage }) =>
+        coverage.status !== 'unreachable' && Array.isArray(coverage.test),
     );
 
     expect(listed.length).toBeGreaterThan(0);
@@ -415,7 +445,11 @@ describe('tenant config coverage map', () => {
     const noTest = ENTRIES.filter(
       ({ coverage }) => coverage.status === 'no-test',
     );
-    const hasTest = ENTRIES.length - noConsumer.length - noTest.length;
+    const unreachable = ENTRIES.filter(
+      ({ coverage }) => coverage.status === 'unreachable',
+    );
+    const hasTest =
+      ENTRIES.length - noConsumer.length - noTest.length - unreachable.length;
     const provedWeakly = noTest.filter(
       ({ coverage }) => refsOf(coverage).length > 0,
     ).length;
@@ -423,7 +457,7 @@ describe('tenant config coverage map', () => {
     const lines = [
       '',
       'Tenant config coverage map',
-      `  ${hasTest} with a consumer test · ${noTest.length} without one (${provedWeakly} of them proved only as carrier or reader) · ${noConsumer.length} without a consumer · ${ENTRIES.length} total`,
+      `  ${hasTest} with a consumer test · ${noTest.length} without one (${provedWeakly} of them proved only as carrier or reader) · ${unreachable.length} the boundary rejects · ${noConsumer.length} without a consumer · ${ENTRIES.length} total`,
     ];
 
     if (noConsumer.length > 0) {
@@ -436,6 +470,22 @@ describe('tenant config coverage map', () => {
         for (const ref of refsOf(coverage)) {
           lines.push(`      ${ref.kind} · ${ref.spec}`);
         }
+      }
+    }
+
+    if (unreachable.length > 0) {
+      // Listed, never folded into a footnote. The map may record that a value
+      // cannot arrive; it may not stop printing the cell, because the claim
+      // has to stay visible to be challenged.
+      lines.push(
+        '',
+        '  The boundary refuses these states, so no consumer test could assert them:',
+      );
+      for (const { path, coverage } of unreachable) {
+        if (coverage.status !== 'unreachable') continue;
+        lines.push(`    ${path} → ${coverage.consumer}`);
+        lines.push(`      rejects · ${coverage.boundary.rejects.spec}`);
+        lines.push(`      strips  · ${coverage.boundary.strips.spec}`);
       }
     }
 

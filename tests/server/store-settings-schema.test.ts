@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   StoreSettingsSchema,
   BrandingConfigSchema,
+  ContactConfigSchema,
   SeoConfigSchema,
 } from '../../server/schemas/store-settings';
 import {
@@ -943,6 +944,50 @@ describe('BrandingConfigSchema URL validation', () => {
         const result = BrandingConfigSchema.safeParse({
           ...basebranding,
           [field]: undefined,
+        });
+        expect(result.success).toBe(true);
+      });
+    }
+  });
+
+  // The five social URLs are parsed by the same `SafeUrlSchema` as the branding
+  // ones, so the same boundary holds for them — but nothing asserted it, and
+  // the coverage map records `contact.social.*.empty` as a state production
+  // cannot produce. That claim needs this, not a sentence.
+  describe('all five social URL fields reject unsafe values', () => {
+    const socialFields = [
+      'facebook',
+      'instagram',
+      'twitter',
+      'linkedin',
+      'youtube',
+    ] as const;
+
+    for (const field of socialFields) {
+      it(`social.${field}: rejects javascript: URL`, () => {
+        const result = ContactConfigSchema.safeParse({
+          social: { [field]: 'javascript:alert(1)' },
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it(`social.${field}: rejects empty string`, () => {
+        const result = ContactConfigSchema.safeParse({
+          social: { [field]: '' },
+        });
+        expect(result.success).toBe(false);
+      });
+
+      it(`social.${field}: accepts https URL`, () => {
+        const result = ContactConfigSchema.safeParse({
+          social: { [field]: 'https://example.com/alpha' },
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it(`social.${field}: accepts null`, () => {
+        const result = ContactConfigSchema.safeParse({
+          social: { [field]: null },
         });
         expect(result.success).toBe(true);
       });

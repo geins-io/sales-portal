@@ -97,6 +97,7 @@ import type {
   ConfigCoverageMap,
   Coverage,
   FeatureCoverage,
+  StringFieldCoverage,
   TestRef,
 } from './types';
 
@@ -693,24 +694,59 @@ function requiredColor(): Coverage {
 }
 
 /**
- * The five branding URL fields are parsed by `SafeUrlSchema`, which rejects an
- * empty string. Each is a depth-2 path, so the resilient parser strips the
- * failing leaf and re-parses instead of substituting the whole block: the field
- * arrives absent, never as `''`. The merchant API may well send an empty
- * string; the app never receives one.
+ * The ten URL fields under `branding` and `contact.social` are parsed by
+ * `SafeUrlSchema`, which rejects an empty string. Each is a depth-2 path and
+ * neither block is in `FATAL_PATHS`, so the resilient parser strips the failing
+ * leaf and re-parses instead of substituting the whole block: the field arrives
+ * absent, never as `''`. The merchant API may well send an empty string; the
+ * app never receives one.
+ *
+ * Measured against the live merchant API on seven hosts: no branding URL is
+ * ever an empty string — every tenant sends a real URL or `null`. The empty
+ * strings production does send are all in `seo` and `contact`, which are plain
+ * strings and have real `empty` cells above.
+ *
+ * That measurement is not what makes the status safe, though. Seven tenants is
+ * not every tenant, and what Studio sends for a URL a merchant typed and then
+ * cleared is unmeasured. The two references are what makes it safe: `rejects`
+ * pins the schema half, `strips` pins what the app then serves. Swap
+ * leaf-stripping for branch substitution and `strips` goes red rather than a
+ * cleared logo silently taking the tenant's name with it.
  */
-function unreachableEmptyUrl(consumer: string) {
+function unreachableEmptyUrl(
+  consumer: string,
+  rejectsTitle: string,
+  stripsTitle: string,
+): Coverage {
   return {
-    status: 'no-test',
+    status: 'unreachable',
     consumer,
     note:
-      'Unreachable through the merchant API: SafeUrlSchema rejects an empty ' +
-      'string and the resilient parser strips the leaf, so the field arrives ' +
-      'absent and the `absent` row above is the one that matters. The strip ' +
-      "mechanism is asserted for the theme colours in 'strips multiple bad " +
-      "leaves and logs each one', not for this field.",
-  } as const;
+      'SafeUrlSchema rejects an empty string and the resilient parser strips ' +
+      'the leaf, so the field arrives absent and the `absent` row is the one ' +
+      'that matters. No test at the consumer could assert this state, because ' +
+      'the value never reaches it.',
+    boundary: {
+      rejects: {
+        spec: STORE_SETTINGS_SCHEMA,
+        title: rejectsTitle,
+        kind: 'carrier',
+      },
+      strips: { spec: SERVER_TENANT, title: stripsTitle, kind: 'carrier' },
+    },
+  };
 }
+
+/**
+ * The `rejects` leg for both blocks. Each is a `describe`: the `it` titles
+ * inside are template literals, which the reference check refuses because a
+ * generated string never appears in the source. A `carrier` reference may name
+ * a describe, and the loop is the right shape here — the fields are
+ * interchangeable for this one assertion, and `strips` pins each of them
+ * literally anyway.
+ */
+const BRANDING_URLS_REJECT = 'all five URL fields reject unsafe values';
+const SOCIAL_URLS_REJECT = 'all five social URL fields reject unsafe values';
 
 /**
  * The schema requires `branding.watermark`. Rejecting its absence holds for
@@ -750,10 +786,12 @@ const WATERMARK_NOTE =
  * state of all five at once and is shared the same way
  * `contact.email`/`contact.phone` share their null case.
  *
- * `''` is not a state here: `SafeUrlSchema` rejects an empty string and the
- * resilient parser strips the leaf, so the field arrives absent. The map gives
- * these leaves a bare `Coverage` rather than the three string states for that
- * reason.
+ * `''` used to be left out of this block entirely, on the sentence that
+ * `SafeUrlSchema` rejects an empty string and the resilient parser strips the
+ * leaf. The sentence is true and was untested, which is the shape this map
+ * exists to remove. The leaves now carry the three string states like every
+ * other optional string, and `empty` is `unreachable` with both legs of that
+ * sentence referenced.
  */
 /**
  * The plugin returns early on `!gaId && !gtmId`, so each absent/empty case sets
@@ -773,19 +811,40 @@ const SOCIAL_ABSENT: TestRef = {
   drives: 'field',
 };
 
-function socialLeaf(setCaseTitle: string): Coverage {
+/** A social URL leaf: `''` is unreachable, the other two states are asserted. */
+function socialUrlStates(
+  setCaseTitle: string,
+  stripsTitle: string,
+): StringFieldCoverage {
   return {
-    status: 'has-test',
-    test: [
-      {
-        spec: TENANT_SEO,
-        title: setCaseTitle,
-        kind: 'consumer',
-        drives: 'field',
+    // buildSocialLinksFromContact filters on `typeof v === 'string' &&
+    // v.length > 0` rather than falling back, so no operator applies.
+    fallback: 'none',
+    states: {
+      absent: {
+        status: 'has-test',
+        test: SOCIAL_ABSENT,
+        note: 'The shared absent case for the whole social block.',
       },
-      SOCIAL_ABSENT,
-    ],
-    note: 'The set case for this leaf, and the shared absent case for the whole block.',
+      empty: unreachableEmptyUrl(
+        'app/plugins/tenant-seo.ts:169',
+        SOCIAL_URLS_REJECT,
+        stripsTitle,
+      ),
+      set: {
+        status: 'has-test',
+        test: [
+          {
+            spec: TENANT_SEO,
+            title: setCaseTitle,
+            kind: 'consumer',
+            drives: 'field',
+          },
+          SOCIAL_ABSENT,
+        ],
+        note: 'The set case for this leaf, and the shared absent case for the whole block.',
+      },
+    },
   };
 }
 
@@ -1448,7 +1507,11 @@ export const CONFIG_COVERAGE_MAP = {
             'The second title says empty but the case drives an absent value, ' +
             'so it belongs here rather than under empty.',
         },
-        empty: unreachableEmptyUrl('app/composables/useTenant.ts:52'),
+        empty: unreachableEmptyUrl(
+          'app/composables/useTenant.ts:52',
+          BRANDING_URLS_REJECT,
+          'clears branding.logoUrl and keeps the name and the other urls',
+        ),
         set: {
           status: 'has-test',
           test: [
@@ -1482,7 +1545,11 @@ export const CONFIG_COVERAGE_MAP = {
           },
           note: PROP_VS_CONFIG_NOTE,
         },
-        empty: unreachableEmptyUrl('app/components/shared/BrandLogo.vue'),
+        empty: unreachableEmptyUrl(
+          'app/components/shared/BrandLogo.vue',
+          BRANDING_URLS_REJECT,
+          'clears branding.logoDarkUrl and keeps the name and the other urls',
+        ),
         set: {
           status: 'has-test',
           test: {
@@ -1511,7 +1578,11 @@ export const CONFIG_COVERAGE_MAP = {
           },
           note: PROP_VS_CONFIG_NOTE,
         },
-        empty: unreachableEmptyUrl('app/composables/useTenant.ts:68'),
+        empty: unreachableEmptyUrl(
+          'app/composables/useTenant.ts:68',
+          BRANDING_URLS_REJECT,
+          'clears branding.logoSymbolUrl and keeps the name and the other urls',
+        ),
         set: {
           status: 'has-test',
           test: {
@@ -1541,7 +1612,11 @@ export const CONFIG_COVERAGE_MAP = {
             "The getter's '/favicon.ico' fallback is a second consumer and is " +
             'still unasserted; the served document simply carries no icon link.',
         },
-        empty: unreachableEmptyUrl('server/plugins/04.tenant-css.ts:47'),
+        empty: unreachableEmptyUrl(
+          'server/plugins/04.tenant-css.ts:47',
+          BRANDING_URLS_REJECT,
+          'clears branding.faviconUrl and keeps the name and the other urls',
+        ),
         set: {
           status: 'has-test',
           test: {
@@ -1571,7 +1646,11 @@ export const CONFIG_COVERAGE_MAP = {
             drives: 'field',
           },
         },
-        empty: unreachableEmptyUrl('app/plugins/tenant-seo.ts:79'),
+        empty: unreachableEmptyUrl(
+          'app/plugins/tenant-seo.ts:79',
+          BRANDING_URLS_REJECT,
+          'clears branding.ogImageUrl and keeps the name and the other urls',
+        ),
         set: {
           status: 'has-test',
           test: {
@@ -2794,20 +2873,25 @@ export const CONFIG_COVERAGE_MAP = {
       },
     },
     social: {
-      facebook: socialLeaf(
+      facebook: socialUrlStates(
         'includes the configured facebook URL in the Organization sameAs list',
+        'clears contact.social.facebook and keeps the other social urls',
       ),
-      instagram: socialLeaf(
+      instagram: socialUrlStates(
         'includes the configured instagram URL in the Organization sameAs list',
+        'clears contact.social.instagram and keeps the other social urls',
       ),
-      twitter: socialLeaf(
+      twitter: socialUrlStates(
         'includes the configured twitter URL in the Organization sameAs list',
+        'clears contact.social.twitter and keeps the other social urls',
       ),
-      linkedin: socialLeaf(
+      linkedin: socialUrlStates(
         'includes the configured linkedin URL in the Organization sameAs list',
+        'clears contact.social.linkedin and keeps the other social urls',
       ),
-      youtube: socialLeaf(
+      youtube: socialUrlStates(
         'includes the configured youtube URL in the Organization sameAs list',
+        'clears contact.social.youtube and keeps the other social urls',
       ),
     },
   },

@@ -134,7 +134,37 @@ export type Coverage =
    * this cell binds to the value — so that the status names what is missing
    * and the references what exists.
    */
-  | { status: 'no-test'; consumer: string; note: string; test?: TestRefs };
+  | { status: 'no-test'; consumer: string; note: string; test?: TestRefs }
+  /**
+   * The boundary refuses this state, so no test at the consumer could assert
+   * it: the value never arrives in this shape. `consumer` is still named — it
+   * is the code that *would* read the value, and what the note refers to.
+   *
+   * The two `boundary` references are the proof, and they are two because one
+   * of them alone is not an argument:
+   *
+   *   - `rejects` — the schema refuses the value. That says the parse fails,
+   *     and nothing about what the app then serves.
+   *   - `strips` — the resilient parser drops the failing *leaf* rather than
+   *     substituting its branch, so the surrounding fields survive. This is
+   *     the leg that decides what a merchant who clears the field actually
+   *     gets, and it is the one that goes red if leaf-stripping is ever
+   *     swapped for branch substitution.
+   *
+   * Both are required by the type rather than counted at runtime: a count is
+   * a proxy that two schema references would satisfy, and the names say which
+   * half each reference carries. An entry missing either leg fails
+   * `pnpm typecheck`, the way a missing `note` does.
+   *
+   * A cell that has only one leg is not `unreachable`. It is `no-test` with a
+   * note naming the leg that is missing.
+   */
+  | {
+      status: 'unreachable';
+      consumer: string;
+      note: string;
+      boundary: { rejects: TestRef; strips: TestRef };
+    };
 
 /**
  * The three states an optional string field can arrive in. Absent and empty
@@ -248,7 +278,7 @@ export type ContactCoverage = {
   [K in keyof Contact]-?: K extends 'address'
     ? { [A in keyof Address]-?: Coverage }
     : K extends 'social'
-      ? { [S in keyof Social]-?: Coverage }
+      ? { [S in keyof Social]-?: StringFieldCoverage }
       : StringFieldCoverage;
 };
 
