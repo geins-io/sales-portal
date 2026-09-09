@@ -61,7 +61,7 @@
  * `expect(noTest).toHaveLength(0)` — one line, on the last of the tickets that
  * work from this map.
  *
- * Three limits worth knowing before reading the entries:
+ * Four limits worth knowing before reading the entries:
  *
  *   - every level of nesting is enumerated from that level's own `keyof`, so a
  *     sub-key added to `branding` or `seo` fails the gate exactly as a new
@@ -81,6 +81,16 @@
  *     strips unknown keys, so they never reach `tenant-css.ts` and they are
  *     correctly absent from the 40 below. The forty keys here are what the app
  *     can receive, not what a merchant can set.
+ *   - retired access rules never reach the app: `normalizeFeatureAccess`
+ *     (`server/utils/tenant.ts:357-376`) rewrites a feature carrying
+ *     `{group}`, `{role}`, `{permission}` or `{accountType}` to
+ *     `{enabled: false}` before the config leaves the server, so those values
+ *     have no cell here. The boundary is asserted in
+ *     `tests/server/tenant.test.ts` under `buildTenantConfig retired access
+ *     rules`, named in prose rather than referenced: a reference would be a
+ *     coverage claim on a cell that does not exist. If `FeatureAccess` ever
+ *     regains one of those members the cell appears, and the test is already
+ *     there to point at.
  */
 
 import type {
