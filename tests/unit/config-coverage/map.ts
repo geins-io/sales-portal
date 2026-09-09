@@ -2148,15 +2148,18 @@ export const CONFIG_COVERAGE_MAP = {
             spec: PORTAL_SHELL,
             title: 'shows CMS hero banner when CMS area has containers',
             kind: 'consumer',
-            drives: 'reader',
+            drives: 'field',
           },
         ],
         note:
           'useCmsSlot.test.ts drives this key throughout, not an arbitrary ' +
-          'one, so the reader is asserted for it. PortalShell.test.ts drives ' +
-          'the fetched area rather than the slot config — flipping the slot ' +
-          'key would not fail it — so it is `reader`, and the composition ' +
-          'with the reader above is what makes this cell has-test.',
+          'one, so the reader is asserted for it. PortalShell.test.ts leaves ' +
+          'useCmsSlot unmocked and keys its fetch stub on the areaName the ' +
+          "fixture configures for this slot ('Above Content', " +
+          'tests/setup-components.ts): the configured value travels the ' +
+          "app's own path, and changing it in the fixture turns the hero " +
+          'test red. That is why this is `field` and not a decision handed ' +
+          'to the consumer ready-made.',
       },
       frontpage_content: {
         status: 'no-test',
@@ -2164,12 +2167,14 @@ export const CONFIG_COVERAGE_MAP = {
         note:
           'The reader is asserted for this key, so config → decision holds. ' +
           'The consumer has no spec at all. ' +
-          'To lift the cell, drive the slot through the tenant config and ' +
-          'assert the CMS area renders, then assert it does not when the slot ' +
-          'is absent. Both halves are needed: with no area rendered either ' +
-          'way, the absent case is green for the wrong reason. Driving the ' +
-          'fetched area instead of the slot config gives `reader`, not ' +
-          '`field` — see the note on portal_hero.',
+          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
+          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
+          'fixture configures for the slot, and assert the area renders when ' +
+          'the config points at it and not when it points elsewhere. That ' +
+          'yields `field` directly and needs no composition. Note that the ' +
+          'setup fixture is shared and PortalShell.test.ts does not reset ' +
+          '`cms` per test, so a fixture change there is felt by every test ' +
+          'in the file.',
         test: {
           spec: CMS_SLOT,
           title:
@@ -2185,12 +2190,14 @@ export const CONFIG_COVERAGE_MAP = {
           'The consumer has a spec that mounts it, but nothing in that spec ' +
           'touches the CMS path: the key is never configured and no area is ' +
           'ever rendered. ' +
-          'To lift the cell, drive the slot through the tenant config and ' +
-          'assert the CMS area renders, then assert it does not when the slot ' +
-          'is absent. Both halves are needed: with no area rendered either ' +
-          'way, the absent case is green for the wrong reason. Driving the ' +
-          'fetched area instead of the slot config gives `reader`, not ' +
-          '`field` — see the note on portal_hero.',
+          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
+          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
+          'fixture configures for the slot, and assert the area renders when ' +
+          'the config points at it and not when it points elsewhere. That ' +
+          'yields `field` directly and needs no composition. Note that the ' +
+          'setup fixture is shared and PortalShell.test.ts does not reset ' +
+          '`cms` per test, so a fixture change there is felt by every test ' +
+          'in the file.',
         test: {
           spec: CMS_SLOT,
           title:
@@ -2206,12 +2213,14 @@ export const CONFIG_COVERAGE_MAP = {
           'The consumer has a spec that mounts it, but nothing in that spec ' +
           'touches the CMS path: the key is never configured and no area is ' +
           'ever rendered. ' +
-          'To lift the cell, drive the slot through the tenant config and ' +
-          'assert the CMS area renders, then assert it does not when the slot ' +
-          'is absent. Both halves are needed: with no area rendered either ' +
-          'way, the absent case is green for the wrong reason. Driving the ' +
-          'fetched area instead of the slot config gives `reader`, not ' +
-          '`field` — see the note on portal_hero.',
+          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
+          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
+          'fixture configures for the slot, and assert the area renders when ' +
+          'the config points at it and not when it points elsewhere. That ' +
+          'yields `field` directly and needs no composition. Note that the ' +
+          'setup fixture is shared and PortalShell.test.ts does not reset ' +
+          '`cms` per test, so a fixture change there is felt by every test ' +
+          'in the file.',
         test: {
           spec: CMS_SLOT,
           title:
@@ -2227,12 +2236,14 @@ export const CONFIG_COVERAGE_MAP = {
           'The consumer has a spec that mounts it, but nothing in that spec ' +
           'touches the CMS path: the key is never configured and no area is ' +
           'ever rendered. ' +
-          'To lift the cell, drive the slot through the tenant config and ' +
-          'assert the CMS area renders, then assert it does not when the slot ' +
-          'is absent. Both halves are needed: with no area rendered either ' +
-          'way, the absent case is green for the wrong reason. Driving the ' +
-          'fetched area instead of the slot config gives `reader`, not ' +
-          '`field` — see the note on portal_hero.',
+          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
+          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
+          'fixture configures for the slot, and assert the area renders when ' +
+          'the config points at it and not when it points elsewhere. That ' +
+          'yields `field` directly and needs no composition. Note that the ' +
+          'setup fixture is shared and PortalShell.test.ts does not reset ' +
+          '`cms` per test, so a fixture change there is felt by every test ' +
+          'in the file.',
         test: {
           spec: CMS_SLOT,
           title: 'resolves the product_detail slot key from the tenant config',
