@@ -120,6 +120,8 @@ const GEINS_IMAGE = 'tests/components/GeinsImage.test.ts';
 const CART_DRAWER = 'tests/components/cart/CartDrawer.test.ts';
 const PRODUCT_CARD = 'tests/components/commerce/ProductCard.test.ts';
 const PRODUCT_DETAILS = 'tests/components/pages/ProductDetails.test.ts';
+const PRODUCT_LIST = 'tests/components/pages/ProductList.test.ts';
+const INDEX_PAGE = 'tests/components/pages/IndexPage.test.ts';
 const ORDER_DETAIL = 'tests/components/pages/order-detail.test.ts';
 const SAVED_LIST_DETAIL = 'tests/components/portal/saved-list-detail.test.ts';
 const CART_ROUTE = 'tests/components/pages/cart.test.ts';
@@ -2241,93 +2243,135 @@ export const CONFIG_COVERAGE_MAP = {
           'to the consumer ready-made.',
       },
       frontpage_content: {
-        status: 'no-test',
-        consumer: 'app/pages/index.vue:10',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_SLOT,
+            title:
+              'resolves the frontpage_content slot key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: INDEX_PAGE,
+            title: 'renders the frontpage area the configured slot names',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: INDEX_PAGE,
+            title: 'falls back when the configured slot names a different area',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
-          'The reader is asserted for this key, so config → decision holds. ' +
-          'The consumer has no spec at all. ' +
-          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
-          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
-          'fixture configures for the slot, and assert the area renders when ' +
-          'the config points at it and not when it points elsewhere. That ' +
-          'yields `field` directly and needs no composition. Note that the ' +
-          'setup fixture is shared and PortalShell.test.ts does not reset ' +
-          '`cms` per test, so a fixture change there is felt by every test ' +
-          'in the file.',
-        test: {
-          spec: CMS_SLOT,
-          title:
-            'resolves the frontpage_content slot key from the tenant config',
-          kind: 'reader',
-        },
+          'useCmsSlot.test.ts drives this key, so the reader is asserted for ' +
+          'it. The consumer spec leaves useCmsSlot unmocked and keys its ' +
+          'fetch stub on the areaName the config produced, so the configured ' +
+          "value travels the app's own path: the negative case points the " +
+          'slot at another area with the same area content available, and ' +
+          'goes red if the config stopped deciding. That is why this is ' +
+          '`field` rather than a decision handed to the consumer ' +
+          'ready-made.',
       },
       product_list_top: {
-        status: 'no-test',
-        consumer: 'app/components/pages/ProductList.vue:362',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_SLOT,
+            title:
+              'resolves the product_list_top slot key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: PRODUCT_LIST,
+            title: 'renders the top zone for the area product_list_top names',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: PRODUCT_LIST,
+            title:
+              'renders no top zone when product_list_top names another area',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
-          'The reader is asserted for this key, so config → decision holds. ' +
-          'The consumer has a spec that mounts it, but nothing in that spec ' +
-          'touches the CMS path: the key is never configured and no area is ' +
-          'ever rendered. ' +
-          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
-          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
-          'fixture configures for the slot, and assert the area renders when ' +
-          'the config points at it and not when it points elsewhere. That ' +
-          'yields `field` directly and needs no composition. Note that the ' +
-          'setup fixture is shared and PortalShell.test.ts does not reset ' +
-          '`cms` per test, so a fixture change there is felt by every test ' +
-          'in the file.',
-        test: {
-          spec: CMS_SLOT,
-          title:
-            'resolves the product_list_top slot key from the tenant config',
-          kind: 'reader',
-        },
+          'useCmsSlot.test.ts drives this key, so the reader is asserted for ' +
+          'it. The consumer spec leaves useCmsSlot unmocked and keys its ' +
+          'fetch stub on the areaName the config produced, so the configured ' +
+          "value travels the app's own path: the negative case points the " +
+          'slot at another area with the same area content available, and ' +
+          'goes red if the config stopped deciding. That is why this is ' +
+          '`field` rather than a decision handed to the consumer ' +
+          'ready-made.',
       },
       product_list_bottom: {
-        status: 'no-test',
-        consumer: 'app/components/pages/ProductList.vue:363',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_SLOT,
+            title:
+              'resolves the product_list_bottom slot key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: PRODUCT_LIST,
+            title:
+              'renders the bottom zone for the area product_list_bottom names',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: PRODUCT_LIST,
+            title:
+              'renders no bottom zone when product_list_bottom names another area',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
-          'The reader is asserted for this key, so config → decision holds. ' +
-          'The consumer has a spec that mounts it, but nothing in that spec ' +
-          'touches the CMS path: the key is never configured and no area is ' +
-          'ever rendered. ' +
-          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
-          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
-          'fixture configures for the slot, and assert the area renders when ' +
-          'the config points at it and not when it points elsewhere. That ' +
-          'yields `field` directly and needs no composition. Note that the ' +
-          'setup fixture is shared and PortalShell.test.ts does not reset ' +
-          '`cms` per test, so a fixture change there is felt by every test ' +
-          'in the file.',
-        test: {
-          spec: CMS_SLOT,
-          title:
-            'resolves the product_list_bottom slot key from the tenant config',
-          kind: 'reader',
-        },
+          'useCmsSlot.test.ts drives this key, so the reader is asserted for ' +
+          'it. The consumer spec leaves useCmsSlot unmocked and keys its ' +
+          'fetch stub on the areaName the config produced, so the configured ' +
+          "value travels the app's own path: the negative case points the " +
+          'slot at another area with the same area content available, and ' +
+          'goes red if the config stopped deciding. That is why this is ' +
+          '`field` rather than a decision handed to the consumer ' +
+          'ready-made.',
       },
       product_detail: {
-        status: 'no-test',
-        consumer: 'app/components/pages/ProductDetails.vue:361',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_SLOT,
+            title:
+              'resolves the product_detail slot key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: PRODUCT_DETAILS,
+            title: 'renders the pdp zone for the area product_detail names',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: PRODUCT_DETAILS,
+            title: 'renders no pdp zone when product_detail names another area',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
-          'The reader is asserted for this key, so config → decision holds. ' +
-          'The consumer has a spec that mounts it, but nothing in that spec ' +
-          'touches the CMS path: the key is never configured and no area is ' +
-          'ever rendered. ' +
-          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
-          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
-          'fixture configures for the slot, and assert the area renders when ' +
-          'the config points at it and not when it points elsewhere. That ' +
-          'yields `field` directly and needs no composition. Note that the ' +
-          'setup fixture is shared and PortalShell.test.ts does not reset ' +
-          '`cms` per test, so a fixture change there is felt by every test ' +
-          'in the file.',
-        test: {
-          spec: CMS_SLOT,
-          title: 'resolves the product_detail slot key from the tenant config',
-          kind: 'reader',
-        },
+          'useCmsSlot.test.ts drives this key, so the reader is asserted for ' +
+          'it. The consumer spec leaves useCmsSlot unmocked and keys its ' +
+          'fetch stub on the areaName the config produced, so the configured ' +
+          "value travels the app's own path: the negative case points the " +
+          'slot at another area with the same area content available, and ' +
+          'goes red if the config stopped deciding. That is why this is ' +
+          '`field` rather than a decision handed to the consumer ' +
+          'ready-made.',
       },
     },
 

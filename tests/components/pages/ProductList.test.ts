@@ -18,6 +18,7 @@ import {
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductList from '../../../app/components/pages/ProductList.vue';
+import { useTenant } from '../../../app/composables/useTenant';
 
 // ProductList uses `await useFetch(...)` so its setup is async. The top-level
 // await makes the component require a Suspense parent to render. Wrap it
@@ -37,9 +38,23 @@ async function mountProductList(
     },
   });
   const wrapper = mountComponent(Wrapper, mountOptions);
+  mountedWrappers.push(wrapper);
   await flushPromises();
   return wrapper;
 }
+
+/**
+ * Every wrapper this file mounts, so the afterEach below can take them down.
+ *
+ * A test that writes to the shared tenant ref (the CMS cases at the bottom do)
+ * makes every wrapper still mounted from an earlier test re-render, and a
+ * Suspense wrapper whose subtree has already been torn down throws
+ * `Cannot read properties of null (reading 'subTree')` when it does. Vitest
+ * reports those as unhandled errors, not failures: the run said `22 passed`
+ * and `42 errors`, and exited 1. Unmounting after each test is what keeps the
+ * exit code honest.
+ */
+const mountedWrappers: Array<{ unmount: () => void }> = [];
 
 // --- Mocks ---
 
@@ -72,9 +87,39 @@ const mockFiltersData = ref<Record<string, unknown> | null>(null);
 const mockPageInfo = ref<Record<string, unknown> | null>(null);
 const mockProductsStatus = ref('idle');
 
+// CMS areas keyed by the areaName the tenant config names for the slot. The
+// component builds that name from `tenant.cms.slots`, so answering on it is
+// what binds these assertions to the config rather than to a handed-over area.
+const mockCmsAreas = new Map<string, { containers: unknown[] }>();
+
+type AreaQuery = { areaName?: string };
+
+function resolveAreaQuery(
+  options?: Record<string, unknown>,
+): AreaQuery | undefined {
+  const raw = options?.query;
+  if (raw != null && typeof raw === 'object' && 'value' in raw) {
+    return (raw as { value: AreaQuery }).value;
+  }
+  return raw as AreaQuery | undefined;
+}
+
 const mockUseFetch = vi.fn(
   (urlOrFn: unknown, _options?: Record<string, unknown>) => {
     const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
+    if (typeof url === 'string' && url.includes('/api/cms/area')) {
+      const areaName = resolveAreaQuery(_options)?.areaName;
+      return {
+        data: ref(
+          areaName !== undefined ? (mockCmsAreas.get(areaName) ?? null) : null,
+        ),
+        status: ref('success'),
+        error: ref(null),
+        pending: ref(false),
+        refresh: vi.fn(),
+        execute: vi.fn(),
+      };
+    }
     if (typeof url === 'string' && url.includes('/products')) {
       return {
         data: mockProductsData,
@@ -350,6 +395,107 @@ describe('ProductList.vue', () => {
     navigateToMock.mockClear();
     recoverEntityUrlMock.mockClear();
     replaceMock.mockClear();
+    mockCmsAreas.clear();
+  });
+
+  afterEach(() => {
+    while (mountedWrappers.length > 0) mountedWrappers.pop()?.unmount();
+  });
+
+  /**
+   * The two CMS zones resolve `CMS_SLOTS.PRODUCT_LIST_TOP` / `_BOTTOM` against
+   * the tenant config and fetch whatever area those slots name. The spec
+   * mounted the component but never touched that path: the keys were never
+   * configured and no area ever rendered, so the "no zone" case was green for
+   * the wrong reason.
+   *
+   * `useCmsSlot` is left unmocked here and the fetch stub answers on the
+   * areaName the config produced, so pointing a slot elsewhere turns the
+   * matching case red. That is what makes these assertions about the config.
+   */
+  describe('cms zones above and below the grid', () => {
+    const TOP_AREA = 'PLP Top';
+    const BOTTOM_AREA = 'PLP Bottom';
+
+    const cmsStubs = {
+      ...stubs,
+      CmsWidgetArea: {
+        template: '<div class="cms-area" />',
+        props: ['containers'],
+      },
+    };
+
+    function configureSlots(slots: Record<string, unknown>) {
+      const { tenant } = useTenant();
+      const current = tenant.value;
+      assert.isDefined(current);
+      tenant.value = { ...current, cms: { slots } };
+    }
+
+    function configureBothZones() {
+      configureSlots({
+        product_list_top: { family: 'Category', areaName: TOP_AREA },
+        product_list_bottom: { family: 'Category', areaName: BOTTOM_AREA },
+      });
+    }
+
+    it('renders the top zone for the area product_list_top names', async () => {
+      configureBothZones();
+      mockCmsAreas.set(TOP_AREA, { containers: [{ id: 'top' }] });
+
+      const wrapper = await mountProductList(categoryProps, {
+        global: { stubs: cmsStubs },
+      });
+
+      expect(wrapper.find('[data-testid="plp-cms-top"]').exists()).toBe(true);
+      // The bottom slot is configured too, and its area has no content — so
+      // this also says the two zones are resolved separately.
+      expect(wrapper.find('[data-testid="plp-cms-bottom"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('renders no top zone when product_list_top names another area', async () => {
+      configureSlots({
+        product_list_top: { family: 'Category', areaName: 'Somewhere Else' },
+      });
+      mockCmsAreas.set(TOP_AREA, { containers: [{ id: 'top' }] });
+
+      const wrapper = await mountProductList(categoryProps, {
+        global: { stubs: cmsStubs },
+      });
+
+      expect(wrapper.find('[data-testid="plp-cms-top"]').exists()).toBe(false);
+    });
+
+    it('renders the bottom zone for the area product_list_bottom names', async () => {
+      configureBothZones();
+      mockCmsAreas.set(BOTTOM_AREA, { containers: [{ id: 'bottom' }] });
+
+      const wrapper = await mountProductList(categoryProps, {
+        global: { stubs: cmsStubs },
+      });
+
+      expect(wrapper.find('[data-testid="plp-cms-bottom"]').exists()).toBe(
+        true,
+      );
+      expect(wrapper.find('[data-testid="plp-cms-top"]').exists()).toBe(false);
+    });
+
+    it('renders no bottom zone when product_list_bottom names another area', async () => {
+      configureSlots({
+        product_list_bottom: { family: 'Category', areaName: 'Somewhere Else' },
+      });
+      mockCmsAreas.set(BOTTOM_AREA, { containers: [{ id: 'bottom' }] });
+
+      const wrapper = await mountProductList(categoryProps, {
+        global: { stubs: cmsStubs },
+      });
+
+      expect(wrapper.find('[data-testid="plp-cms-bottom"]').exists()).toBe(
+        false,
+      );
+    });
   });
 
   describe('content-miss recovery (Problem B)', () => {
