@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, assert } from 'vitest';
 
 import { CONFIG_COVERAGE_MAP } from './map';
 import type { Coverage, TestRef } from './types';
@@ -101,6 +101,109 @@ const KEY_IN_TITLE_EXEMPT: ReadonlyArray<{
   },
 ];
 
+const KEYWORDS = ['it', 'test', 'describe'] as const;
+type Keyword = (typeof KEYWORDS)[number];
+
+function isKeyword(value: string): value is Keyword {
+  return KEYWORDS.some((keyword) => keyword === value);
+}
+
+interface Declaration {
+  keyword: Keyword;
+  /** Whatever follows the dot: `skip`, `sequential`, `fails`, anything. */
+  modifier: string | undefined;
+  commentedOut: boolean;
+}
+
+/**
+ * Modifiers that change only how a test is scheduled, not whether it runs or
+ * what a pass means. `describe.sequential` is used four times in
+ * `tests/server/tenant-resolution-log.test.ts`, which the map references.
+ *
+ * Everything else is refused, unknown modifiers included: `.skip`, `.only` and
+ * `.todo` are not coverage, `.fails` inverts what a pass means, and a modifier
+ * nobody has thought about should stop the gate rather than be guessed at.
+ */
+const SCHEDULING_MODIFIERS = ['concurrent', 'sequential'];
+
+/**
+ * Every `it` / `test` / `describe` in the file that declares this exact title.
+ *
+ * Anchoring on the call closes what a substring match over the whole file
+ * leaves open: a title that appears only in prose; a short title that is the
+ * prefix of a longer one, which lets the map point at a different test than
+ * the one it names; and a generated title (`it.each`, a template literal),
+ * which never appears literally and so can never be referenced.
+ *
+ * The title is matched verbatim — `types.ts` says references are copied that
+ * way, and prettier never breaks a string literal, it moves the whole string
+ * to its own line, which `\(\s*` already covers.
+ *
+ * `(?<!\.)` keeps `foo.it(` and `/re/.test(` from reading as declarations, and
+ * the modifier is captured rather than allowed so the caller can refuse it by
+ * name against `SCHEDULING_MODIFIERS`. `it.each` needs no case: after `.each(`
+ * comes the table, not a quote.
+ *
+ * `commentedOut` is what the anchor alone does not catch. A title in prose has
+ * no call in front of it, but `// it('title', …)` — a test commented out to
+ * get a gate green — does. The line the match starts on is the evidence, so
+ * `//`, a jsdoc `*` or an opening `/*` in front of it is a rejection.
+ *
+ * A multi-line block comment whose continuation lines carry no `*` is the
+ * remaining boundary, and it stays. The one sharpening available — counting
+ * `/*` against `*\/` before the match — was tried and rejected: a glob string
+ * such as `'**\/*.ts'` carries both in the wrong order, so it would report a
+ * false comment in every spec that happens to hold a glob.
+ *
+ * All matches are returned, never the first: seven titles occur more than once
+ * across the referenced specs (`should return undefined when config is null`
+ * three times in one file), and silently taking the first would let the map
+ * name one test and be checked against another.
+ */
+function declarationsOf(source: string, title: string): Declaration[] {
+  const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(
+    `(?<!\\.)\\b(it|test|describe)(?:\\.(\\w+))?\\(\\s*(['"\`])${escaped}\\3`,
+    'g',
+  );
+  const declarations: Declaration[] = [];
+  for (const match of source.matchAll(pattern)) {
+    const keyword = match[1];
+    if (keyword === undefined || !isKeyword(keyword)) continue;
+    const lineStart = source.lastIndexOf('\n', match.index) + 1;
+    declarations.push({
+      keyword,
+      modifier: match[2],
+      commentedOut: /^\s*(\/\/|\*|\/\*)/.test(
+        source.slice(lineStart, match.index),
+      ),
+    });
+  }
+  return declarations;
+}
+
+/**
+ * A skipped or focused declaration anywhere in a referenced spec.
+ *
+ * The per-title check above refuses `it.skip` on the title itself, but a
+ * `describe.skip` — or `describe.skipIf(cond)` — wrapping it leaves the `it`
+ * untouched and is invisible to an expression anchored on that title. Scanning
+ * the file closes the class rather than the instance.
+ *
+ * It is hung on the file rather than on the referenced title on purpose: an
+ * unrelated `it.skip` in a referenced spec already breaks the project's rule
+ * that nothing is skipped, and no other gate sees it. `eslint.config.mjs`
+ * loads no vitest plugin, so there is no `no-disabled-tests` and no
+ * `no-focused-tests` anywhere in the repo.
+ *
+ * `skip`, `only` and `todo` require a quote after the paren so the conditional
+ * guard form — `test.skip(condition, reason)`, which `outOfScope()` uses —
+ * stays legal. `skipIf` and `runIf` take the condition first by definition, so
+ * they are flagged without one.
+ */
+const SKIPPED_DECLARATION =
+  /(?<!\.)\b(?:x(?:it|describe|test)\s*\(|(?:it|test|describe)\.(?:(?:skip|only|todo)\s*\(\s*['"`]|(?:skipIf|runIf)\s*\())/;
+
 /** Cache: the same spec is referenced by many entries. */
 const sourceCache = new Map<string, string | null>();
 
@@ -120,7 +223,7 @@ describe('tenant config coverage map', () => {
     expect(ENTRIES.length).toBeGreaterThan(100);
   });
 
-  it('every referenced spec exists and contains the referenced title', () => {
+  it('every reference names a declaration, and a consumer one names an assertion', () => {
     const broken: string[] = [];
 
     for (const { path, coverage } of ENTRIES) {
@@ -130,15 +233,71 @@ describe('tenant config coverage map', () => {
           broken.push(`${path}: no such file ${ref.spec}`);
           continue;
         }
-        if (!source.includes(ref.title)) {
+        const where = `${path}: ${ref.spec} · ${JSON.stringify(ref.title)}`;
+        if (ref.title.includes('${')) {
           broken.push(
-            `${path}: ${ref.spec} has no title ${JSON.stringify(ref.title)}`,
+            `${where} is a template literal. The generated string never appears in the source, so reference the enclosing describe (carrier/reader only) or write the test out.`,
+          );
+          continue;
+        }
+        const declarations = declarationsOf(source, ref.title);
+        if (declarations.length === 0) {
+          broken.push(`${where}: no it/test/describe declares this title`);
+          continue;
+        }
+        if (declarations.length > 1) {
+          broken.push(
+            `${where}: ambiguous, ${declarations.length} declarations carry this title`,
+          );
+          continue;
+        }
+        const [declaration] = declarations;
+        assert.isDefined(declaration);
+        if (declaration.commentedOut) {
+          broken.push(
+            `${where}: the declaration is commented out, so it asserts nothing`,
+          );
+          continue;
+        }
+        const { modifier } = declaration;
+        if (
+          modifier !== undefined &&
+          !SCHEDULING_MODIFIERS.includes(modifier)
+        ) {
+          broken.push(
+            `${where}: declared with .${modifier}; only ${SCHEDULING_MODIFIERS.join(' and ')} leave the test running as written`,
+          );
+          continue;
+        }
+        // A describe title pins no assertion, so it cannot carry the claim
+        // that a consumer acts on the value. The other two kinds may use one.
+        if (declaration.keyword === 'describe' && ref.kind === 'consumer') {
+          broken.push(
+            `${where}: is a describe; a consumer reference has to name the it that asserts the behaviour`,
           );
         }
       }
     }
 
     expect(broken).toEqual([]);
+  });
+
+  it('no referenced spec skips, focuses or todoes a declaration', () => {
+    // Hung on the file rather than the title: a `describe.skip` around a
+    // referenced `it` leaves the `it` itself untouched, so no expression
+    // anchored on that title could see it.
+    const skipped = [
+      ...new Set(
+        ENTRIES.flatMap(({ coverage }) => refsOf(coverage)).map(
+          (ref) => ref.spec,
+        ),
+      ),
+    ].filter((spec) => {
+      const source = readSpec(spec);
+      return source !== null && SKIPPED_DECLARATION.test(source);
+    });
+
+    expect(skipped).toEqual([]);
   });
 
   it('checks every reference of an entry that carries a list', () => {

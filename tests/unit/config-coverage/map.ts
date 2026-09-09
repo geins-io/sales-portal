@@ -29,8 +29,22 @@
  *     key → `pnpm typecheck`, through the `satisfies` below;
  *   - a reference without a `kind`, or a `consumer` reference without
  *     `drives` → `pnpm typecheck`, through `TestRef`;
- *   - an entry naming a spec or a title that does not exist → `pnpm test`,
- *     through the reference check in `map.test.ts`;
+ *   - an entry naming a spec that does not exist, or a title that no `it`,
+ *     `test` or `describe` in it declares → `pnpm test`, through the reference
+ *     check in `map.test.ts`. The match is anchored on the call and the title
+ *     is compared verbatim, so a title that appears only in prose, one that is
+ *     merely the prefix of a longer title, and a generated one (`it.each`, a
+ *     template literal) all fail rather than pass by accident;
+ *   - a reference whose title two declarations carry → `pnpm test`. The map
+ *     would name one and be checked against the other;
+ *   - a reference to a declaration that is commented out or declared with
+ *     `.skip`, `.only` or `.todo`, and any reference into a spec that skips or
+ *     focuses a declaration anywhere in it → `pnpm test`. A test that does not
+ *     run is not coverage, and a `describe.skip` is invisible to a check
+ *     anchored on the `it` inside it, so the whole spec is scanned as well;
+ *   - a `consumer` reference naming a `describe` → `pnpm test`. A describe
+ *     title pins no assertion, so it cannot carry the claim that a consumer
+ *     acts on the value; `carrier` and `reader` references may use one;
  *   - a `has-test` entry with no `consumer` reference, or one whose consumer
  *     tests all stub the reader with no `reader` reference on the same cell to
  *     bind the decision to the value (a blanket stub, `drives: 'stub'`, never
