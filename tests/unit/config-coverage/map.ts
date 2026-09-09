@@ -29,8 +29,22 @@
  *     key → `pnpm typecheck`, through the `satisfies` below;
  *   - a reference without a `kind`, or a `consumer` reference without
  *     `drives` → `pnpm typecheck`, through `TestRef`;
- *   - an entry naming a spec or a title that does not exist → `pnpm test`,
- *     through the reference check in `map.test.ts`;
+ *   - an entry naming a spec that does not exist, or a title that no `it`,
+ *     `test` or `describe` in it declares → `pnpm test`, through the reference
+ *     check in `map.test.ts`. The match is anchored on the call and the title
+ *     is compared verbatim, so a title that appears only in prose, one that is
+ *     merely the prefix of a longer title, and a generated one (`it.each`, a
+ *     template literal) all fail rather than pass by accident;
+ *   - a reference whose title two declarations carry → `pnpm test`. The map
+ *     would name one and be checked against the other;
+ *   - a reference to a declaration that is commented out or declared with
+ *     `.skip`, `.only` or `.todo`, and any reference into a spec that skips or
+ *     focuses a declaration anywhere in it → `pnpm test`. A test that does not
+ *     run is not coverage, and a `describe.skip` is invisible to a check
+ *     anchored on the `it` inside it, so the whole spec is scanned as well;
+ *   - a `consumer` reference naming a `describe` → `pnpm test`. A describe
+ *     title pins no assertion, so it cannot carry the claim that a consumer
+ *     acts on the value; `carrier` and `reader` references may use one;
  *   - a `has-test` entry with no `consumer` reference, or one whose consumer
  *     tests all stub the reader with no `reader` reference on the same cell to
  *     bind the decision to the value (a blanket stub, `drives: 'stub'`, never
@@ -47,7 +61,7 @@
  * `expect(noTest).toHaveLength(0)` — one line, on the last of the tickets that
  * work from this map.
  *
- * Three limits worth knowing before reading the entries:
+ * Four limits worth knowing before reading the entries:
  *
  *   - every level of nesting is enumerated from that level's own `keyof`, so a
  *     sub-key added to `branding` or `seo` fails the gate exactly as a new
@@ -67,6 +81,16 @@
  *     strips unknown keys, so they never reach `tenant-css.ts` and they are
  *     correctly absent from the 40 below. The forty keys here are what the app
  *     can receive, not what a merchant can set.
+ *   - retired access rules never reach the app:
+ *     `server/utils/tenant.ts:normalizeFeatureAccess` rewrites a feature
+ *     carrying `{group}`, `{role}`, `{permission}` or `{accountType}` to
+ *     `{enabled: false}` before the config leaves the server, so those values
+ *     have no cell here. The boundary is asserted in
+ *     `tests/server/tenant.test.ts` under `buildTenantConfig retired access
+ *     rules`, named in prose rather than referenced: a reference would be a
+ *     coverage claim on a cell that does not exist. If `FeatureAccess` ever
+ *     regains one of those members the cell appears, and the test is already
+ *     there to point at.
  */
 
 import type {
@@ -81,6 +105,7 @@ const SERVER_TENANT = 'tests/server/tenant.test.ts';
 const TENANT_CSS = 'tests/unit/server/utils/tenant-css.test.ts';
 const BRAND_LOGO = 'tests/components/Logo.test.ts';
 const FOOTER_MAIN = 'tests/components/layout/LayoutFooterMain.test.ts';
+const LAYOUT_FOOTER = 'tests/components/layout/LayoutFooter.test.ts';
 const FONTS = 'tests/shared/fonts.test.ts';
 const FEATURE_ACCESS_CLIENT = 'tests/composables/useFeatureAccess.test.ts';
 const FEATURE_ACCESS_SERVER = 'tests/server/feature-access.test.ts';
@@ -118,6 +143,7 @@ const NEWSLETTER_VISIBILITY =
 const CMS_SLOT = 'tests/composables/useCmsSlot.test.ts';
 const CMS_MENU = 'tests/composables/useCmsMenu.test.ts';
 const ANALYTICS_CONSENT = 'tests/composables/useAnalyticsConsent.test.ts';
+const COOKIE_BANNER = 'tests/components/shared/CookieBanner.test.ts';
 const FORMAT_LOCALE = 'tests/composables/useFormatLocale.test.ts';
 const LOCALE_ALTERNATES = 'tests/composables/useLocaleAlternates.test.ts';
 const SEO_LINKS = 'tests/composables/useSeoLinks.test.ts';
@@ -210,17 +236,45 @@ const ACCESS_ABSENT_NOTE =
   'An absent access rule means open to everyone, not closed.';
 
 /**
- * `registration` is read for its `enabled` flag only — no consumer routes it
- * through `canAccess`, so the access rule is carried and never consulted. That
- * is a narrower gap than an unread feature: the on/off control works, the
- * access control does not exist.
+ * Why the access dimension of a `hasFeature`-only key is unread. Shared by
+ * every such key: the mechanism is the same one, and stating it twice would be
+ * the second copy this file warns about.
+ *
+ * `registration` is not one of them. Its consumers read
+ * `features.registration.enabled` off the object rather than through
+ * `hasFeature`, so it carries its own note — a different fact, not a copy.
  */
-const REGISTRATION_ACCESS = {
-  status: 'no-consumer',
-  note:
-    'All three consumers read `.enabled` directly; none calls canAccess for ' +
+const HAS_FEATURE_ONLY_NOTE =
+  'Every consumer of this key asks hasFeature, which reads `.enabled` and ' +
+  'never looks at `.access`; none calls canAccess for it, so an access rule ' +
+  'on it changes nothing.';
+
+/**
+ * The `access` dimension of a feature that is read for its `enabled` flag
+ * only. No consumer routes the key through `canAccess`, so the access rule is
+ * carried and never consulted.
+ *
+ * That is a narrower gap than an unread feature and a different one from a
+ * missing test: the on/off control works, the access control does not exist,
+ * and there is nothing to assert because nothing reads the value. Writing a
+ * test here would be the over-claim this map exists to remove.
+ *
+ * `note` says why the value is unread, and it has two sources. A key whose
+ * consumers go through `hasFeature` takes `HAS_FEATURE_ONLY_NOTE`; a key read
+ * some other way carries its own sentence, because the mechanism is what
+ * differs and stating the wrong one would be worse than repeating the right
+ * one. The read sites themselves stay in the key's own `note`, where they are
+ * already listed.
+ */
+function accessNeverRead(note: string) {
+  const entry = { status: 'no-consumer', note } as const;
+  return { all: entry, authenticated: entry, absent: entry };
+}
+
+const REGISTRATION_ACCESS = accessNeverRead(
+  'All three consumers read `.enabled` directly; none calls canAccess for ' +
     'this key, so an access rule on it changes nothing.',
-} as const;
+);
 
 /**
  * One cell of a feature. The reader references prove cell → decision; a
@@ -321,6 +375,13 @@ function namedFeature(
     readers?: FeatureRefs;
     /** Consumer tests that drive the field, hung on the cell each one sets. */
     cells?: FeatureCells;
+    /**
+     * Replaces the whole access dimension. `accessNeverRead()` is what goes
+     * here: a key nothing routes through `canAccess` has no access cell worth
+     * a test, and the fan-out below would otherwise report three cells as
+     * missing a test that must not be written.
+     */
+    access?: FeatureCoverage['access'];
     note?: string;
   } & FeatureRefs,
 ): FeatureCoverage {
@@ -345,7 +406,7 @@ function namedFeature(
         refs.note,
       ),
     },
-    access: {
+    access: refs.access ?? {
       all: featureCell(
         refs.consumer,
         [...READERS_ACCESS_ALL, ...rGranted],
@@ -401,6 +462,44 @@ function middlewareCells(key: string): FeatureCells {
         `allows ${key} when it requires authentication and the user is signed in`,
       ),
     ],
+  };
+}
+
+/**
+ * The cells of a component spec that un-mocks `useFeatureAccess` and writes
+ * the configured value into the tenant fixture, so the real visibility
+ * composable and `canAccessFeature` run between the two. Every case therefore
+ * drives the field, and each is hung on the cell it is about rather than on
+ * every cell it would discriminate — see `FeatureCells`.
+ *
+ * `openRule` is on two cells because `access.absent` cannot be written without
+ * `enabled: true`; the other access cases write `enabled: true` to reach the
+ * access check and are not credited for it. `access.authenticated` takes both
+ * halves, the anonymous denial and the signed-in grant.
+ *
+ * A key omitted here has no case of that shape in the spec. `disabled` and
+ * `accessAll` are optional for that reason.
+ */
+function visibilityCells(
+  spec: string,
+  titles: {
+    openRule: string;
+    disabled?: string;
+    accessAll?: string;
+    anonymous: string;
+    signedIn: string;
+  },
+): FeatureCells {
+  const ref = (title: string): TestRef[] => [
+    { spec, title, kind: 'consumer', drives: 'field' },
+  ];
+  const openRule = ref(titles.openRule);
+  return {
+    enabledTrue: openRule,
+    accessAbsent: openRule,
+    ...(titles.disabled ? { enabledFalse: ref(titles.disabled) } : {}),
+    ...(titles.accessAll ? { accessAll: ref(titles.accessAll) } : {}),
+    accessAuthenticated: [...ref(titles.anonymous), ...ref(titles.signedIn)],
   };
 }
 
@@ -566,7 +665,7 @@ export const CONFIG_COVERAGE_MAP = {
     test: [
       {
         spec: SERVER_TENANT,
-        title: 'collectAllHostnames',
+        title: 'should include hostname and all aliases',
         kind: 'carrier',
       },
       {
@@ -1221,8 +1320,33 @@ export const CONFIG_COVERAGE_MAP = {
   // --- Features ------------------------------------------------------------
   features: {
     analytics: namedFeature({
-      consumer: 'app/plugins/tenant-analytics.ts:28',
-      note: 'Also read by app/components/shared/CookieBanner.vue:7; neither has a test file.',
+      consumer: 'app/components/shared/CookieBanner.vue:7',
+      on: [
+        {
+          spec: COOKIE_BANNER,
+          title: 'shows the cookie banner when analytics is enabled',
+          kind: 'consumer',
+          drives: 'field',
+        },
+      ],
+      off: [
+        {
+          spec: COOKIE_BANNER,
+          title: 'hides the cookie banner when analytics is disabled',
+          kind: 'consumer',
+          drives: 'field',
+        },
+      ],
+      access: accessNeverRead(HAS_FEATURE_ONLY_NOTE),
+      note:
+        'The banner reads the key through hasFeature over the tenant fixture, ' +
+        'so both cases write the configured value. The second consumer, ' +
+        'app/plugins/tenant-analytics.ts:28, has no test file: it sits behind ' +
+        'five gates and needs @nuxt/scripts mocked, which is a different kind ' +
+        'of work and buys no cell the banner does not already hold. ' +
+        'Storefront settings exposes no control for this key, so the value ' +
+        'reaches the app from the seeded defaults or a features override ' +
+        'rather than from anything a merchant sets.',
     }),
     applyForAccount: namedFeature({
       consumer: 'app/components/auth/AuthSheet.vue:75',
@@ -1232,7 +1356,7 @@ export const CONFIG_COVERAGE_MAP = {
           title:
             'shows apply link when applyForAccount enabled and apply page resolved',
           kind: 'consumer',
-          drives: 'reader',
+          drives: 'field',
         },
         {
           spec: HEADER_TOPBAR,
@@ -1247,13 +1371,24 @@ export const CONFIG_COVERAGE_MAP = {
           spec: AUTH_SHEET,
           title: 'hides apply link when applyForAccount feature is disabled',
           kind: 'consumer',
-          drives: 'stub',
+          drives: 'field',
         },
       ],
+      access: accessNeverRead(HAS_FEATURE_ONLY_NOTE),
       note:
-        'The two on-tests stub hasFeature in predicate form; the off-test ' +
-        'answers false for every key. The second call site is ' +
-        'app/components/layout/header/LayoutHeaderTopbar.vue:57.',
+        "AuthSheet's useTenant mock implements hasFeature over a features " +
+        'record the same way the real composable does, so both of its cases ' +
+        'write the configured value. That re-implementation is a copy of a ' +
+        'one-line function and has to follow useTenant.ts:44: were an absent ' +
+        'key to start counting as enabled there, this mock and the one in ' +
+        'setup-components.ts would both drift without anything turning red. ' +
+        'The topbar spec answers a predicate on ' +
+        'the key from an immutable set, so it stays a reader reference and has ' +
+        'no disabled case. The second call site is ' +
+        'app/components/layout/header/LayoutHeaderTopbar.vue:57. Storefront ' +
+        'settings exposes no control for this key, so the value reaches the ' +
+        'app from the seeded defaults or a features override rather than from ' +
+        'anything a merchant sets.',
     }),
     cart: unconsumedFeature(
       'Seeded for every tenant and present in the live config, but no ' +
@@ -1308,11 +1443,28 @@ export const CONFIG_COVERAGE_MAP = {
           },
         ],
       },
+      cells: visibilityCells(LAYOUT_FOOTER, {
+        openRule:
+          'shows the newsletter when newsletterSignup is enabled with no access rule',
+        disabled: 'hides the newsletter when newsletterSignup is disabled',
+        accessAll:
+          'shows the newsletter when newsletterSignup access is open to all',
+        anonymous:
+          'hides the newsletter when newsletterSignup requires authentication and the user is anonymous',
+        signedIn:
+          'shows the newsletter when newsletterSignup requires authentication and the user is signed in',
+      }),
       note:
         'The key is read through NEWSLETTER_FEATURE_KEY, not as a literal. ' +
         'useNewsletterVisibility.test.ts asserts the composable for all three ' +
-        'configured states, but the composable sits between the config and the ' +
-        'footer, so those are reader references and no cell reaches has-test.',
+        'configured states, and those stay reader references because the ' +
+        'composable sits between the config and the footer. The footer spec ' +
+        'un-mocks useFeatureAccess and writes the configured value into the ' +
+        'tenant fixture, so the real composable runs and the gate on ' +
+        'LayoutFooterTop is asserted per cell. Storefront settings offers no ' +
+        'access choice for this key, but useNewsletterVisibility does call ' +
+        'canAccess, so a rule arriving from the seeded defaults or a features ' +
+        'override is obeyed — which is why these are cells and not no-consumer.',
     }),
     orderHistory: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
@@ -1426,28 +1578,24 @@ export const CONFIG_COVERAGE_MAP = {
           },
         ],
       },
-      on: [
-        {
-          spec: PRICE_DISPLAY,
-          title: 'shows price when pricing feature allows access',
-          kind: 'consumer',
-          drives: 'stub',
-        },
-      ],
-      denied: [
-        {
-          spec: PRICE_DISPLAY,
-          title: 'renders nothing when pricing feature denies access',
-          kind: 'consumer',
-          drives: 'stub',
-        },
-      ],
+      cells: visibilityCells(PRICE_DISPLAY, {
+        openRule:
+          'shows the price when priceVisibility is enabled with no access rule',
+        disabled: 'renders nothing when priceVisibility is disabled',
+        accessAll: 'shows the price when priceVisibility access is open to all',
+        anonymous:
+          'renders nothing when priceVisibility requires authentication and the user is anonymous',
+        signedIn:
+          'shows the price when priceVisibility requires authentication and the user is signed in',
+      }),
       note:
         'usePriceVisibility.test.ts asserts the composable for every state; it ' +
         'sits between the config and PriceDisplay, so those are reader ' +
-        'references. The two PriceDisplay tests stub canAccess with a blanket ' +
-        '`mockReturnValue`, which binds no key. An absent key falls open, ' +
-        'asserted by the fail-open cases in both specs.',
+        'references. The PriceDisplay tests un-mock useFeatureAccess and write ' +
+        'the configured value into the tenant fixture, so the real ' +
+        'usePriceVisibility and canAccessFeature run and each test drives the ' +
+        'cell it is hung on. An absent key falls open, asserted by the ' +
+        'fail-open cases in both specs.',
     }),
     quotes: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
@@ -1540,34 +1688,35 @@ export const CONFIG_COVERAGE_MAP = {
           note: 'The client hides the affordance and the endpoint refuses the call.',
         },
       },
-      access: {
-        all: REGISTRATION_ACCESS,
-        authenticated: REGISTRATION_ACCESS,
-        absent: REGISTRATION_ACCESS,
-      },
+      access: REGISTRATION_ACCESS,
     },
     reorder: namedFeature({
       consumer: 'app/pages/portal/orders/[id].vue:23',
-      granted: [
-        {
-          spec: ORDER_DETAIL,
-          title:
-            'renders the reorder button in commerce mode with reorder access',
-          kind: 'consumer',
-          drives: 'stub',
-        },
-      ],
-      denied: [
-        {
-          spec: ORDER_DETAIL,
-          title: 'hides the reorder button when reorder access is denied',
-          kind: 'consumer',
-          drives: 'reader',
-        },
-      ],
+      cells: visibilityCells(ORDER_DETAIL, {
+        openRule:
+          'renders the reorder button in commerce mode with reorder access',
+        disabled: 'hides the reorder button when reorder is disabled',
+        accessAll:
+          'renders the reorder button when reorder access is open to all',
+        anonymous:
+          'hides the reorder button when reorder requires authentication and the user is anonymous',
+        signedIn:
+          'renders the reorder button when reorder requires authentication and the user is signed in',
+      }),
       note:
-        'The granted test runs under a blanket `mockReturnValue(true)`, so it ' +
-        'is a stub here and consumer proof on mode only.',
+        'The page gates on `canAccess(reorder) && !isCatalogMode`, so every ' +
+        'case pins the half it is not about: the access cases leave catalog ' +
+        'mode false, the catalog case leaves the rule permissive. The spec ' +
+        'un-mocks useFeatureAccess and writes the configured value into the ' +
+        'tenant fixture, so the real canAccessFeature runs. An absent key ' +
+        'denies here, with no isFeatureConfigured guard, and that is the ' +
+        'majority shape rather than an oddity: three consumers fall open (the ' +
+        'price, stock and newsletter composables) and eight deny (the feature ' +
+        'middleware, the PortalShell tabs, LayoutHeaderActionButtons, ' +
+        'ProductCard, CartDrawer, ProductDetails, saved-lists/[id] and this ' +
+        'page). What hides information falls open; what offers an action falls ' +
+        "closed. Hence the spec's default fixture is the seeded " +
+        '`{enabled: true}`.',
     }),
     stockStatus: namedFeature({
       consumer: 'app/components/shared/StockBadge.vue:15',
@@ -1597,14 +1746,14 @@ export const CONFIG_COVERAGE_MAP = {
           },
         ],
       },
-      on: [
-        {
-          spec: STOCK_BADGE,
-          title: 'shows stock when stock feature allows access',
-          kind: 'consumer',
-          drives: 'stub',
-        },
-      ],
+      cells: visibilityCells(STOCK_BADGE, {
+        openRule:
+          'shows the stock badge when stockStatus is enabled with no access rule',
+        anonymous:
+          'hides the stock badge when stockStatus requires authentication and the user is anonymous',
+        signedIn:
+          'shows the stock badge when stockStatus requires authentication and the user is signed in',
+      }),
       off: [
         {
           spec: STOCK_BADGE,
@@ -1636,12 +1785,6 @@ export const CONFIG_COVERAGE_MAP = {
       ],
       denied: [
         {
-          spec: STOCK_BADGE,
-          title: 'hides stock when stock feature denies access',
-          kind: 'consumer',
-          drives: 'stub',
-        },
-        {
           spec: STOCK_BADGE_UNIT,
           title: 'hides badge when canAccess returns false',
           kind: 'consumer',
@@ -1651,11 +1794,13 @@ export const CONFIG_COVERAGE_MAP = {
       note:
         'useStockVisibility.test.ts asserts the composable for every state; it ' +
         'sits between the config and StockBadge, so those are reader ' +
-        'references. The StockBadge tests that stub canAccess with a blanket ' +
-        '`mockReturnValue` bind no key; the two OOS specs stub ' +
-        'useStockVisibility itself and prove independence from its answer. ' +
-        "tests/unit/StockBadge.test.ts's 'shows badge when canAccess returns " +
-        "true' is the one predicate-form consumer test.",
+        'references. The StockBadge tests un-mock useFeatureAccess and write ' +
+        'the configured value into the tenant fixture, so the real ' +
+        'useStockVisibility and canAccessFeature run and each test drives the ' +
+        'cell it is hung on. The two OOS specs stub useStockVisibility itself ' +
+        'and prove independence from its answer. access.all keeps its ' +
+        'predicate-form reference from tests/unit/StockBadge.test.ts; a field ' +
+        'case there would add a fixture without adding a cell.',
     }),
     wishlist: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:179',

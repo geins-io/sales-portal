@@ -25,7 +25,12 @@ const vatGlobal = globalThis as unknown as { __mockShowIncVat?: Ref<boolean> };
 export const mockShowIncVat: Ref<boolean> = (vatGlobal.__mockShowIncVat ??=
   ref(true));
 
-// Create a fresh Pinia instance for each test so stores work without Nuxt
+// One Pinia instance, so stores work without Nuxt. This runs when the setup
+// file is evaluated, NOT before each test — the comment here used to say
+// otherwise — so every test in a file shares whatever a store holds. A spec
+// that writes store state (the auth user, say) has to reset it in beforeEach;
+// without that, a test passes or fails on whichever test ran before it, and
+// inserting a test in the middle changes the result of one it never touched.
 setActivePinia(createPinia());
 
 // Mock Nuxt head composables — they require a Nuxt instance that the
@@ -254,8 +259,18 @@ vi.mock('../app/composables/useTenant', () => {
   };
 });
 
-// Component tests default to permissive access. Tests that need to assert
-// specific access behavior override this mock locally with vi.mock.
+// Component tests default to permissive access: this answers true for every
+// feature key, so a spec that only needs a component to render does not have
+// to configure `features` at all.
+//
+// A spec that asserts what a feature value does must escape it, and the escape
+// is `vi.unmock('…/app/composables/useFeatureAccess')` at the top of that file
+// — which is file-scoped, so it changes nothing for anyone else. Replacing it
+// with another file-level vi.mock does not count: a blanket answer swapped for
+// a blanket answer binds no key and the fixture drives nothing. Un-mocked, a
+// `features` fixture reaches the component through the real useFeatureAccess
+// and canAccessFeature, which is what lets the coverage map hang
+// `drives: 'field'` on the test.
 vi.mock('../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({
     canAccess: (_featureName: string) => true,
