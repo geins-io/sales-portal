@@ -25,6 +25,7 @@
 
 import type { H3Event } from 'h3';
 import { createTimer, logger } from '../utils/logger';
+import { resolveMemoryGrading } from '../utils/health-memory';
 
 /**
  * Health check result for individual components
@@ -143,14 +144,16 @@ async function checkStorage(event: H3Event): Promise<ComponentHealth> {
  * Node.js heap starts small (~30MB) and grows dynamically up to ~1.5GB, so
  * heapUsedPercent is misleading for fresh processes.
  *
- * Thresholds are based on typical container limits:
- * - Degraded: RSS > 400MB (warning level)
- * - Unhealthy: RSS > 900MB (approaching typical 1GB container limit)
+ * Thresholds come from `runtimeConfig.health` and default to the production
+ * container's sizing. Where RSS says nothing about health — the dev server —
+ * the numbers are still reported and no status is derived from them
+ * (`../utils/health-memory`).
  */
-function checkMemory(): ComponentHealth {
-  // Configurable thresholds (in MB) - could be moved to runtime config
-  const RSS_DEGRADED_MB = 400;
-  const RSS_UNHEALTHY_MB = 900;
+function checkMemory(event: H3Event): ComponentHealth {
+  const config = useRuntimeConfig(event);
+  const { gradeRss, degradedMb, unhealthyMb } = resolveMemoryGrading(
+    config.health,
+  );
 
   try {
     const memUsage = process.memoryUsage();
@@ -165,10 +168,12 @@ function checkMemory(): ComponentHealth {
     let status: ComponentHealth['status'] = 'healthy';
     let message: string | undefined;
 
-    if (rssMB > RSS_UNHEALTHY_MB) {
+    if (!gradeRss) {
+      message = `Memory not graded outside a container (RSS: ${rssMB}MB)`;
+    } else if (rssMB > unhealthyMb) {
       status = 'unhealthy';
       message = `Critical memory pressure (RSS: ${rssMB}MB)`;
-    } else if (rssMB > RSS_DEGRADED_MB) {
+    } else if (rssMB > degradedMb) {
       status = 'degraded';
       message = `High memory usage (RSS: ${rssMB}MB)`;
     }
@@ -232,7 +237,7 @@ export default defineEventHandler(
       quickMode
         ? Promise.resolve({ status: 'healthy' as const })
         : checkStorage(event),
-      Promise.resolve(checkMemory()),
+      Promise.resolve(checkMemory(event)),
     ]);
 
     const checks = {

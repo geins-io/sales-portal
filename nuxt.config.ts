@@ -237,6 +237,17 @@ export default defineNuxtConfig({
    * NOTE: Values set here are defaults. Azure env vars override them at runtime.
    * Do NOT use process.env here - let Nuxt handle the mapping automatically.
    */
+  // Applies to `nuxt dev` only — a production build, the Azure dev environment
+  // included, keeps the values above. A dev server has no container limit to
+  // approach, so /api/health reports its memory without grading it.
+  $development: {
+    runtimeConfig: {
+      health: {
+        gradeRss: false,
+      },
+    },
+  },
+
   runtimeConfig: {
     // ── Private Config (server-side only, not exposed to client) ────────────
 
@@ -257,6 +268,16 @@ export default defineNuxtConfig({
     // Secret for accessing detailed health check metrics
     // Azure: NUXT_HEALTH_CHECK_SECRET=your-secret-here
     healthCheckSecret: '',
+
+    // How /api/health grades RSS. Sized for the production container; the
+    // `$development` block below reports the numbers without grading them.
+    // Azure: NUXT_HEALTH_GRADE_RSS, NUXT_HEALTH_RSS_DEGRADED_MB,
+    // NUXT_HEALTH_RSS_UNHEALTHY_MB
+    health: {
+      gradeRss: true,
+      rssDegradedMb: 400,
+      rssUnhealthyMb: 900,
+    },
 
     // External API base URL for the proxy
     // Azure: NUXT_EXTERNAL_API_BASE_URL=https://your-external-api.com
