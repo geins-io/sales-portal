@@ -105,6 +105,7 @@ const SERVER_TENANT = 'tests/server/tenant.test.ts';
 const TENANT_CSS = 'tests/unit/server/utils/tenant-css.test.ts';
 const FOOTER_MAIN = 'tests/components/layout/LayoutFooterMain.test.ts';
 const LAYOUT_FOOTER = 'tests/components/layout/LayoutFooter.test.ts';
+const LAYOUT_HEADER = 'tests/components/layout/LayoutHeader.test.ts';
 const FONTS = 'tests/shared/fonts.test.ts';
 const FEATURE_ACCESS_CLIENT = 'tests/composables/useFeatureAccess.test.ts';
 const FEATURE_ACCESS_SERVER = 'tests/server/feature-access.test.ts';
@@ -1589,19 +1590,37 @@ export const CONFIG_COVERAGE_MAP = {
   layout: {
     headerNavVariant: {
       grey: {
-        status: 'no-test',
-        consumer: 'app/components/layout/LayoutHeader.vue:11',
-        note: 'The default when layout is absent, which is how the live tenant runs. No test file mentions the field.',
+        status: 'has-test',
+        test: {
+          spec: LAYOUT_HEADER,
+          title:
+            'adds no shadow and hands down grey when headerNavVariant is grey',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: 'The default when layout is absent, which is how the live tenant runs.',
       },
       white: {
-        status: 'no-test',
-        consumer: 'app/components/layout/LayoutHeader.vue:11',
-        note: 'No test file mentions the field.',
+        status: 'has-test',
+        test: {
+          spec: LAYOUT_HEADER,
+          title:
+            'adds the separating shadow and hands down white when headerNavVariant is white',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: 'The only value that changes the header itself rather than only the nav below it.',
       },
       absent: {
-        status: 'no-test',
-        consumer: 'app/components/layout/LayoutHeader.vue:11',
-        note: "Resolves to 'grey' through `??`. No test file mentions the field.",
+        status: 'has-test',
+        test: {
+          spec: LAYOUT_HEADER,
+          title:
+            'falls back to grey when the tenant configures no headerNavVariant',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: "Resolves to 'grey' through `??`.",
       },
     },
   },
@@ -2551,11 +2570,15 @@ export const CONFIG_COVERAGE_MAP = {
           },
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/components/layout/footer/LayoutFooterMain.vue:45',
-          note:
-            'The gate is `!!(email || phone)`, so empty takes the same branch as ' +
-            'absent by construction — low risk, but no test passes an empty string.',
+          status: 'has-test',
+          test: {
+            spec: FOOTER_MAIN,
+            title:
+              'does not render the contact column when email is an empty string',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'The gate is `!!(email || phone)`, so empty takes the same branch as absent.',
         },
         set: {
           status: 'has-test',
@@ -2582,9 +2605,15 @@ export const CONFIG_COVERAGE_MAP = {
           },
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/components/layout/footer/LayoutFooterMain.vue:45',
-          note: 'Same truthiness gate as email; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: FOOTER_MAIN,
+            title:
+              'does not render the contact column when phone is an empty string',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'Same truthiness gate as email.',
         },
         set: {
           status: 'has-test',
