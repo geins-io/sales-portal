@@ -1654,26 +1654,31 @@ export const CONFIG_COVERAGE_MAP = {
     },
     reorder: namedFeature({
       consumer: 'app/pages/portal/orders/[id].vue:23',
-      granted: [
-        {
-          spec: ORDER_DETAIL,
-          title:
-            'renders the reorder button in commerce mode with reorder access',
-          kind: 'consumer',
-          drives: 'stub',
-        },
-      ],
-      denied: [
-        {
-          spec: ORDER_DETAIL,
-          title: 'hides the reorder button when reorder access is denied',
-          kind: 'consumer',
-          drives: 'reader',
-        },
-      ],
+      cells: visibilityCells(ORDER_DETAIL, {
+        openRule:
+          'renders the reorder button in commerce mode with reorder access',
+        disabled: 'hides the reorder button when reorder is disabled',
+        accessAll:
+          'renders the reorder button when reorder access is open to all',
+        anonymous:
+          'hides the reorder button when reorder requires authentication and the user is anonymous',
+        signedIn:
+          'renders the reorder button when reorder requires authentication and the user is signed in',
+      }),
       note:
-        'The granted test runs under a blanket `mockReturnValue(true)`, so it ' +
-        'is a stub here and consumer proof on mode only.',
+        'The page gates on `canAccess(reorder) && !isCatalogMode`, so every ' +
+        'case pins the half it is not about: the access cases leave catalog ' +
+        'mode false, the catalog case leaves the rule permissive. The spec ' +
+        'un-mocks useFeatureAccess and writes the configured value into the ' +
+        'tenant fixture, so the real canAccessFeature runs. An absent key ' +
+        'denies here, with no isFeatureConfigured guard, and that is the ' +
+        'majority shape rather than an oddity: three consumers fall open (the ' +
+        'price, stock and newsletter composables) and eight deny (the feature ' +
+        'middleware, the PortalShell tabs, LayoutHeaderActionButtons, ' +
+        'ProductCard, CartDrawer, ProductDetails, saved-lists/[id] and this ' +
+        'page). What hides information falls open; what offers an action falls ' +
+        "closed. Hence the spec's default fixture is the seeded " +
+        '`{enabled: true}`.',
     }),
     stockStatus: namedFeature({
       consumer: 'app/components/shared/StockBadge.vue:15',

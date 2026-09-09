@@ -1,14 +1,52 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  assert,
+} from 'vitest';
+import type { AuthUser } from '@geins/types';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { shallowMountComponent } from '../../utils/component';
 import OrderDetail from '../../../app/pages/portal/orders/[id].vue';
+import { useTenant } from '../../../app/composables/useTenant';
+import { useAuthStore } from '../../../app/stores/auth';
 import { mockIsCatalogMode } from '../../setup-components';
 
-// The page gates reorder on `canAccess('reorder')` — not orderPlacement — so
-// the file declares its own access mock instead of the permissive shared one.
-const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
-vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
-}));
+// Escapes the tier-wide mock, which answers true for every key; see
+// tests/setup-components.ts. The real chain then runs over the fixture below.
+vi.unmock('../../../app/composables/useFeatureAccess');
+
+// `isAuthenticated` is `!!user.value`, so identity is all this needs to carry.
+const SIGNED_IN: AuthUser = {
+  userId: '1',
+  username: 'buyer@example.com',
+};
+
+const { tenant } = useTenant();
+
+function setFeatures(features: PublicTenantConfig['features']) {
+  assert.isDefined(tenant.value);
+  tenant.value.features = features;
+}
+
+// File level, not inside a describe: both of these live for the whole file, so
+// a reset scoped to one block would leave the last test's signed-in user and
+// access rule in place for every block after it.
+//
+// The default is the seeded one, `reorder: { enabled: true }`. It cannot be an
+// empty features object: the page reads `canAccess('reorder')` with no
+// `isFeatureConfigured` guard, and `canAccessFeature(undefined, user)` denies,
+// so an unconfigured key takes the button away. That is how eight of the
+// eleven consumers behave — what offers an action falls closed, and only the
+// three composables that hide information fall open.
+beforeEach(() => {
+  setFeatures({ reorder: { enabled: true } });
+  // Sign out: the Pinia store is shared across this file's tests.
+  useAuthStore().user = null;
+});
 
 // Hoist mock state so it's available inside vi.mock factories
 const {
@@ -289,53 +327,61 @@ describe('OrderDetail', () => {
     mockAddItem.mockClear();
     mockNavigateTo.mockClear();
     mockAddItem.mockResolvedValue(undefined);
-    mockCanAccess.mockReset();
-    mockCanAccess.mockReturnValue(true);
   });
 
+  // canReorder is `canAccess('reorder') && !isCatalogMode`, so each test has to
+  // pin the half it is not about. Every case below leaves catalog mode at its
+  // default false and varies only the configured value of `reorder`, except
+  // the one catalog case, which does the opposite. One test per cell, each
+  // naming the key, registered in tests/unit/config-coverage/map.ts.
   describe('reorder per mode and access', () => {
-    // canReorder is `canAccess('reorder') && !isCatalogMode`. Either half alone
-    // must take the button away.
     afterEach(() => {
       mockIsCatalogMode.value = false;
     });
 
-    it('renders the reorder button in commerce mode with reorder access', () => {
+    function mountWithOrder() {
       mockData.value = makeOrder();
-
-      const wrapper = shallowMountComponent(OrderDetail, {
+      return shallowMountComponent(OrderDetail, {
         global: { stubs: defaultStubs },
       });
+    }
 
-      expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
-        true,
-      );
+    function hasReorderButton(): boolean {
+      return mountWithOrder().find('[data-testid="reorder-button"]').exists();
+    }
+
+    it('renders the reorder button in commerce mode with reorder access', () => {
+      setFeatures({ reorder: { enabled: true } });
+      expect(hasReorderButton()).toBe(true);
     });
 
     it('hides the reorder button when mode is catalog', () => {
+      // The access half is deliberately permissive, so only catalog mode can
+      // be what takes the button away.
+      setFeatures({ reorder: { enabled: true } });
       mockIsCatalogMode.value = true;
-      mockData.value = makeOrder();
-
-      const wrapper = shallowMountComponent(OrderDetail, {
-        global: { stubs: defaultStubs },
-      });
-
-      expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
-        false,
-      );
+      expect(hasReorderButton()).toBe(false);
     });
 
-    it('hides the reorder button when reorder access is denied', () => {
-      mockCanAccess.mockImplementation((name: string) => name !== 'reorder');
-      mockData.value = makeOrder();
+    it('hides the reorder button when reorder is disabled', () => {
+      setFeatures({ reorder: { enabled: false } });
+      expect(hasReorderButton()).toBe(false);
+    });
 
-      const wrapper = shallowMountComponent(OrderDetail, {
-        global: { stubs: defaultStubs },
-      });
+    it('renders the reorder button when reorder access is open to all', () => {
+      setFeatures({ reorder: { enabled: true, access: 'all' } });
+      expect(hasReorderButton()).toBe(true);
+    });
 
-      expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
-        false,
-      );
+    it('hides the reorder button when reorder requires authentication and the user is anonymous', () => {
+      setFeatures({ reorder: { enabled: true, access: 'authenticated' } });
+      expect(hasReorderButton()).toBe(false);
+    });
+
+    it('renders the reorder button when reorder requires authentication and the user is signed in', () => {
+      setFeatures({ reorder: { enabled: true, access: 'authenticated' } });
+      useAuthStore().user = SIGNED_IN;
+      expect(hasReorderButton()).toBe(true);
     });
   });
 
