@@ -2162,9 +2162,14 @@ export const CONFIG_COVERAGE_MAP = {
         status: 'no-test',
         consumer: 'app/pages/index.vue:10',
         note:
-          'The reader is asserted for this key, so config \u2192 decision holds. ' +
-          'No test mounts the consumer at all, so decision \u2192 behaviour is ' +
-          'missing and the composition cannot complete.',
+          'The reader is asserted for this key, so config → decision holds. ' +
+          'The consumer has no spec at all. ' +
+          'To lift the cell, drive the slot through the tenant config and ' +
+          'assert the CMS area renders, then assert it does not when the slot ' +
+          'is absent. Both halves are needed: with no area rendered either ' +
+          'way, the absent case is green for the wrong reason. Driving the ' +
+          'fetched area instead of the slot config gives `reader`, not ' +
+          '`field` — see the note on portal_hero.',
         test: {
           spec: CMS_SLOT,
           title:
@@ -2176,9 +2181,16 @@ export const CONFIG_COVERAGE_MAP = {
         status: 'no-test',
         consumer: 'app/components/pages/ProductList.vue:362',
         note:
-          'The reader is asserted for this key, so config \u2192 decision holds. ' +
-          'No test mounts the consumer at all, so decision \u2192 behaviour is ' +
-          'missing and the composition cannot complete.',
+          'The reader is asserted for this key, so config → decision holds. ' +
+          'The consumer has a spec that mounts it, but nothing in that spec ' +
+          'touches the CMS path: the key is never configured and no area is ' +
+          'ever rendered. ' +
+          'To lift the cell, drive the slot through the tenant config and ' +
+          'assert the CMS area renders, then assert it does not when the slot ' +
+          'is absent. Both halves are needed: with no area rendered either ' +
+          'way, the absent case is green for the wrong reason. Driving the ' +
+          'fetched area instead of the slot config gives `reader`, not ' +
+          '`field` — see the note on portal_hero.',
         test: {
           spec: CMS_SLOT,
           title:
@@ -2190,9 +2202,16 @@ export const CONFIG_COVERAGE_MAP = {
         status: 'no-test',
         consumer: 'app/components/pages/ProductList.vue:363',
         note:
-          'The reader is asserted for this key, so config \u2192 decision holds. ' +
-          'No test mounts the consumer at all, so decision \u2192 behaviour is ' +
-          'missing and the composition cannot complete.',
+          'The reader is asserted for this key, so config → decision holds. ' +
+          'The consumer has a spec that mounts it, but nothing in that spec ' +
+          'touches the CMS path: the key is never configured and no area is ' +
+          'ever rendered. ' +
+          'To lift the cell, drive the slot through the tenant config and ' +
+          'assert the CMS area renders, then assert it does not when the slot ' +
+          'is absent. Both halves are needed: with no area rendered either ' +
+          'way, the absent case is green for the wrong reason. Driving the ' +
+          'fetched area instead of the slot config gives `reader`, not ' +
+          '`field` — see the note on portal_hero.',
         test: {
           spec: CMS_SLOT,
           title:
@@ -2204,9 +2223,16 @@ export const CONFIG_COVERAGE_MAP = {
         status: 'no-test',
         consumer: 'app/components/pages/ProductDetails.vue:361',
         note:
-          'The reader is asserted for this key, so config \u2192 decision holds. ' +
-          'No test mounts the consumer at all, so decision \u2192 behaviour is ' +
-          'missing and the composition cannot complete.',
+          'The reader is asserted for this key, so config → decision holds. ' +
+          'The consumer has a spec that mounts it, but nothing in that spec ' +
+          'touches the CMS path: the key is never configured and no area is ' +
+          'ever rendered. ' +
+          'To lift the cell, drive the slot through the tenant config and ' +
+          'assert the CMS area renders, then assert it does not when the slot ' +
+          'is absent. Both halves are needed: with no area rendered either ' +
+          'way, the absent case is green for the wrong reason. Driving the ' +
+          'fetched area instead of the slot config gives `reader`, not ' +
+          '`field` — see the note on portal_hero.',
         test: {
           spec: CMS_SLOT,
           title: 'resolves the product_detail slot key from the tenant config',
@@ -2230,7 +2256,9 @@ export const CONFIG_COVERAGE_MAP = {
           'menuLocationId reads back as null. LayoutHeaderNav.test.ts mounts ' +
           'the consumer but mocks useFetch, which binds no key: the menu it ' +
           'renders is the stubbed response whatever the config says, so there ' +
-          'is nothing to compose with.',
+          'is nothing to compose with. To lift the cell, stub useCmsMenuData ' +
+          'for this key alone instead of useFetch, the way ' +
+          'MobileNavPanel.test.ts does for mobile_drawer.',
       },
       footer: {
         status: 'has-test',
@@ -2324,7 +2352,9 @@ export const CONFIG_COVERAGE_MAP = {
         note:
           'The reader is asserted for this key. The page spec stubs useCmsMenu ' +
           'globally to return null for every key, so no consumer test exercises ' +
-          'the configured branch at all.',
+          'the configured branch at all. To lift the cell, make that stub ' +
+          'key-aware and return a configured menu for this key, then assert the ' +
+          'sidebar nav renders it.',
         test: {
           spec: CMS_MENU,
           title:
