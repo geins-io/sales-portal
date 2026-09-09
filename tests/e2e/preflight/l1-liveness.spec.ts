@@ -1,11 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { noteOutOfScope } from '../helpers';
-import { PRODUCTION_BUILD } from '../target';
 
 /**
  * Preflight L1. The process serves requests: /api/health answers below 500
- * with a well-formed body. The dev server reports `unhealthy` (503) when its
- * own memory check trips, which says nothing about the code under test.
+ * with a well-formed body. The dev server reports its memory without grading
+ * it (`server/utils/health-memory.ts`), so a 503 here is a fault in every
+ * mode rather than Vite's resident set.
  */
 
 test('L1 liveness: /api/health answers', async ({ request }) => {
@@ -15,14 +14,6 @@ test('L1 liveness: /api/health answers', async ({ request }) => {
     status?: string;
     timestamp?: string;
   } | null;
-
-  if (status === 503 && body?.status === 'unhealthy' && !PRODUCTION_BUILD) {
-    noteOutOfScope(
-      'dev-server',
-      '/api/health answered 503 unhealthy (dev server memory check); liveness not asserted',
-    );
-    return;
-  }
 
   expect(
     status,
