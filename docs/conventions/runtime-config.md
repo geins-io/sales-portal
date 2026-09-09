@@ -88,6 +88,8 @@ See `nuxt.config.ts` for the full runtime config. Key values:
 
 - `externalApiBaseUrl` - External API URL
 - `healthCheckSecret` - Secret for detailed health metrics
+- `health.rssDegradedMb` / `health.rssUnhealthyMb` - RSS thresholds for
+  `/api/health` in MB, 400 and 900, sized for the production container
 - `geins.apiEndpoint` - Geins API endpoint
 - `geins.tenantApiUrl` - Tenant settings API
 - `storage.driver` - Storage driver (memory/redis)

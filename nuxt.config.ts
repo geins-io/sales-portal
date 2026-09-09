@@ -258,6 +258,14 @@ export default defineNuxtConfig({
     // Azure: NUXT_HEALTH_CHECK_SECRET=your-secret-here
     healthCheckSecret: '',
 
+    // RSS thresholds for /api/health, in MB. Sized for the production
+    // container; a different container size is the reason to change them.
+    // Azure: NUXT_HEALTH_RSS_DEGRADED_MB, NUXT_HEALTH_RSS_UNHEALTHY_MB
+    health: {
+      rssDegradedMb: 400,
+      rssUnhealthyMb: 900,
+    },
+
     // External API base URL for the proxy
     // Azure: NUXT_EXTERNAL_API_BASE_URL=https://your-external-api.com
     externalApiBaseUrl: 'https://api.app.com',

@@ -493,6 +493,8 @@ See [`.env.example`](https://github.com/geins-io/sales-portal/blob/main/.env.exa
 | `NUXT_STORAGE_DRIVER`            | KV storage driver (`memory`/`fs`/`redis`)                  | `memory`                               |
 | `NUXT_STORAGE_REDIS_URL`         | Redis connection URL                                       | —                                      |
 | `NUXT_HEALTH_CHECK_SECRET`       | Secret for detailed `/api/health` metrics                  | —                                      |
+| `NUXT_HEALTH_RSS_DEGRADED_MB`    | RSS above this reports `degraded`                          | `400`                                  |
+| `NUXT_HEALTH_RSS_UNHEALTHY_MB`   | RSS above this reports `unhealthy` (503)                   | `900`                                  |
 | `NUXT_WEBHOOK_SECRET`            | Webhook signature verification secret                      | —                                      |
 | `NUXT_SENTRY_DSN`                | Sentry DSN (server-only)                                   | —                                      |
 | `LOG_LEVEL`                      | Logging verbosity (`debug`/`info`/`warn`/`error`/`silent`) | `info`                                 |
