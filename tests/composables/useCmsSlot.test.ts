@@ -116,3 +116,69 @@ describe('useCmsSlot', () => {
     expect(slot.value).toEqual({ family: 'F', areaName: 'A' });
   });
 });
+
+/**
+ * One literal `it` per slot key, the reader half of the composition the map
+ * needs. Each case configures its own key and one foreign key, so a lookup
+ * that ignored the argument would resolve the wrong slot and fail.
+ */
+describe('useCmsSlot resolves each configured slot key', () => {
+  beforeEach(() => {
+    mockTenantData.value = null;
+  });
+
+  it('resolves the frontpage_content slot key from the tenant config', () => {
+    mockTenantData.value = makeTenant({
+      slots: {
+        [CMS_SLOTS.FRONTPAGE_CONTENT]: {
+          family: 'Frontpage',
+          areaName: 'Content',
+        },
+        [CMS_SLOTS.PORTAL_HERO]: { family: 'Other', areaName: 'Other' },
+      },
+    });
+    expect(useCmsSlot(CMS_SLOTS.FRONTPAGE_CONTENT).value).toEqual({
+      family: 'Frontpage',
+      areaName: 'Content',
+    });
+  });
+
+  it('resolves the product_list_top slot key from the tenant config', () => {
+    mockTenantData.value = makeTenant({
+      slots: {
+        [CMS_SLOTS.PRODUCT_LIST_TOP]: { family: 'PLP', areaName: 'Top' },
+        [CMS_SLOTS.PORTAL_HERO]: { family: 'Other', areaName: 'Other' },
+      },
+    });
+    expect(useCmsSlot(CMS_SLOTS.PRODUCT_LIST_TOP).value).toEqual({
+      family: 'PLP',
+      areaName: 'Top',
+    });
+  });
+
+  it('resolves the product_list_bottom slot key from the tenant config', () => {
+    mockTenantData.value = makeTenant({
+      slots: {
+        [CMS_SLOTS.PRODUCT_LIST_BOTTOM]: { family: 'PLP', areaName: 'Bottom' },
+        [CMS_SLOTS.PORTAL_HERO]: { family: 'Other', areaName: 'Other' },
+      },
+    });
+    expect(useCmsSlot(CMS_SLOTS.PRODUCT_LIST_BOTTOM).value).toEqual({
+      family: 'PLP',
+      areaName: 'Bottom',
+    });
+  });
+
+  it('resolves the product_detail slot key from the tenant config', () => {
+    mockTenantData.value = makeTenant({
+      slots: {
+        [CMS_SLOTS.PRODUCT_DETAIL]: { family: 'PDP', areaName: 'Detail' },
+        [CMS_SLOTS.PORTAL_HERO]: { family: 'Other', areaName: 'Other' },
+      },
+    });
+    expect(useCmsSlot(CMS_SLOTS.PRODUCT_DETAIL).value).toEqual({
+      family: 'PDP',
+      areaName: 'Detail',
+    });
+  });
+});

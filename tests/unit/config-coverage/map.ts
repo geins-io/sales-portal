@@ -103,15 +103,17 @@ import type {
 const USE_TENANT = 'tests/composables/useTenant.test.ts';
 const SERVER_TENANT = 'tests/server/tenant.test.ts';
 const TENANT_CSS = 'tests/unit/server/utils/tenant-css.test.ts';
-const BRAND_LOGO = 'tests/components/Logo.test.ts';
 const FOOTER_MAIN = 'tests/components/layout/LayoutFooterMain.test.ts';
 const LAYOUT_FOOTER = 'tests/components/layout/LayoutFooter.test.ts';
+const LAYOUT_HEADER = 'tests/components/layout/LayoutHeader.test.ts';
 const FONTS = 'tests/shared/fonts.test.ts';
 const FEATURE_ACCESS_CLIENT = 'tests/composables/useFeatureAccess.test.ts';
 const FEATURE_ACCESS_SERVER = 'tests/server/feature-access.test.ts';
 const TENANT_SEO = 'tests/plugins/tenant-seo.test.ts';
 const SERVER_TENANT_RESOLUTION = 'tests/server/tenant-resolution-log.test.ts';
 const SEO_CONFIG_PLUGIN = 'tests/server/plugins/03.seo-config.test.ts';
+const TENANT_CSS_PLUGIN = 'tests/server/plugins/04.tenant-css.test.ts';
+const TENANT_ANALYTICS = 'tests/plugins/tenant-analytics.test.ts';
 const LOCALE_MARKET = 'tests/server/middleware/locale-market.test.ts';
 const GEINS_IMAGE = 'tests/components/GeinsImage.test.ts';
 const CART_DRAWER = 'tests/components/cart/CartDrawer.test.ts';
@@ -129,6 +131,7 @@ const SERVER_REGISTER = 'tests/server/api/auth-register.test.ts';
 const AUTH_CARD = 'tests/components/auth/AuthCard.test.ts';
 const AUTH_SHEET = 'tests/components/auth/AuthSheet.test.ts';
 const BRAND_LOGO_FALLBACK = 'tests/components/BrandLogoFallback.test.ts';
+const POWERED_BY = 'tests/components/PoweredBy.test.ts';
 const HEADER_TOPBAR = 'tests/components/layout/LayoutHeaderTopbar.test.ts';
 const PORTAL_SHELL = 'tests/components/portal/PortalShell.test.ts';
 const PRICE_DISPLAY = 'tests/components/commerce/PriceDisplay.test.ts';
@@ -142,6 +145,7 @@ const NEWSLETTER_VISIBILITY =
   'tests/composables/useNewsletterVisibility.test.ts';
 const CMS_SLOT = 'tests/composables/useCmsSlot.test.ts';
 const CMS_MENU = 'tests/composables/useCmsMenu.test.ts';
+const MOBILE_NAV = 'tests/components/layout/MobileNavPanel.test.ts';
 const ANALYTICS_CONSENT = 'tests/composables/useAnalyticsConsent.test.ts';
 const COOKIE_BANNER = 'tests/components/shared/CookieBanner.test.ts';
 const FORMAT_LOCALE = 'tests/composables/useFormatLocale.test.ts';
@@ -518,24 +522,175 @@ function unconsumedFeature(note: string) {
 }
 
 /**
- * A colour the theme pipeline carries but no test follows to its CSS variable.
- * `deriveThemeColors` is asserted to return all 40 keys, and the resilient
- * parser is asserted to survive garbage in any of them, but neither says a
- * configured value reaches the emitted stylesheet.
+ * The group test that asserts a configured value for this colour reaches its
+ * own CSS variable. One test per colour group the type names; the fixture
+ * writes every key in the group and a separate assertion discriminates each
+ * one, so flipping one sentinel fails exactly that key's assertion. The proof
+ * was run once per group: seven flips, seven runs, one red each, the key named
+ * in the failure message.
  */
-function unassertedColor(note: string) {
+const CORE_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits each of the six core colours as its own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+const SEMANTIC_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title:
+    'emits each of the ten semantic surface colours as its own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+const EDGES_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits each of the three edge colours as its own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+const CHART_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits each of the five chart colours as its own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+const SIDEBAR_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title:
+    'emits each of the eight sidebar colours as its own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+const SURFACE_TEXT_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits both surface text colours as their own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+const FAMILY_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits each of the three typography families as its own variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+const BUILD_MERGE: TestRef = {
+  spec: SERVER_TENANT,
+  title:
+    'carries a configured colour, surface and font family through the merge into config.css',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+/**
+ * The absent side, one reference per derivation family (`theme.ts:129-188`).
+ * The three computed families carry two references each: a single fixture
+ * proves one branch and leaves the other unasserted — the background and
+ * foreground families branch on `L > 0.5`, and the primary family on
+ * `priC > 0.05`, where a greyscale core also flattens every chart colour to
+ * grey.
+ */
+const FIXED_FALLBACK: TestRef = {
+  spec: TENANT_CSS,
+  title:
+    'derives card, destructive and its foreground from fixed values that no core changes',
+  kind: 'consumer',
+  drives: 'field',
+};
+const COPY_FALLBACK: TestRef = {
+  spec: TENANT_CSS,
+  title: 'derives ten colours as a verbatim copy of the core colour each names',
+  kind: 'consumer',
+  drives: 'field',
+};
+const BG_FAMILY: TestRef[] = [
+  {
+    spec: TENANT_CSS,
+    title:
+      'derives the background family through the dark branch when background is dark',
+    kind: 'consumer',
+    drives: 'field',
+  },
+  {
+    spec: TENANT_CSS,
+    title:
+      'derives the background family through the light branch when background is light',
+    kind: 'consumer',
+    drives: 'field',
+  },
+];
+const FG_FAMILY: TestRef[] = [
+  {
+    spec: TENANT_CSS,
+    title:
+      'derives mutedForeground through the dark branch when foreground is dark',
+    kind: 'consumer',
+    drives: 'field',
+  },
+  {
+    spec: TENANT_CSS,
+    title:
+      'derives mutedForeground through the light branch when foreground is light',
+    kind: 'consumer',
+    drives: 'field',
+  },
+];
+const PRIMARY_FAMILY: TestRef[] = [
+  {
+    spec: TENANT_CSS,
+    title: 'derives ring and every chart colour from a chromatic primary',
+    kind: 'consumer',
+    drives: 'field',
+  },
+  {
+    spec: TENANT_CSS,
+    title:
+      'derives ring from the neutral fallback when primary carries no chroma',
+    kind: 'consumer',
+    drives: 'field',
+  },
+];
+const SURFACE_TEXT_FALLBACK: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits the documented fallback chain when no surface is set',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+/** A derived colour: its group test for the set value, its family for the unset one. */
+function derivedColor(
+  group: TestRef,
+  family: TestRef | TestRef[],
+  note?: string,
+): Coverage {
+  const fam = Array.isArray(family) ? family : [family];
   return {
-    status: 'no-test',
-    consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-    note,
-  } as const;
+    status: 'has-test',
+    test: [group, ...fam],
+    ...(note ? { note } : {}),
+  };
 }
 
-const COLOR_PRESENCE_ONLY = unassertedColor(
-  "Presence is asserted collectively ('returns 40 keys total (32 standard + 8 " +
-    "surfaces)' in tests/unit/server/utils/theme.test.ts); no test asserts a " +
-    'set value reaches the emitted CSS variable.',
-);
+/**
+ * The schema requires the six core colours. The test omits five of them and
+ * asserts rejection, which proves the requirement for each — and nothing about
+ * any value — so it hangs on those five as `carrier`.
+ */
+const COLOR_REQUIRED: TestRef = {
+  spec: API_CONTRACTS,
+  title: 'should reject TenantConfig with invalid theme colors',
+  kind: 'carrier',
+};
+
+/** A required colour: the group test for the value, the schema for the requirement. */
+function requiredColor(): Coverage {
+  return {
+    status: 'has-test',
+    test: [CORE_GROUP, COLOR_REQUIRED],
+    note: 'The group test for the emitted value, the schema for the requirement.',
+  };
+}
 
 /**
  * The five branding URL fields are parsed by `SafeUrlSchema`, which rejects an
@@ -558,58 +713,100 @@ function unreachableEmptyUrl(consumer: string) {
 }
 
 /**
- * The schema requires the six core colours. The test omits five of them and
- * asserts rejection, which proves the requirement for each — and nothing about
- * any value — so it hangs on those five as `carrier`.
- */
-const COLOR_REQUIRED: TestRef = {
-  spec: API_CONTRACTS,
-  title: 'should reject TenantConfig with invalid theme colors',
-  kind: 'carrier',
-};
-
-/** A required colour whose only proof is the requirement itself. */
-function requiredColor() {
-  return {
-    status: 'no-test',
-    consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-    note:
-      "Presence is asserted collectively ('returns 40 keys total (32 standard + 8 " +
-      "surfaces)' in tests/unit/server/utils/theme.test.ts) and the schema " +
-      'requirement individually; no test asserts a set value reaches the ' +
-      'emitted CSS variable.',
-    test: COLOR_REQUIRED,
-  } as const;
-}
-
-/**
  * The schema requires `branding.watermark`. Rejecting its absence holds for
  * every value, so the reference sits on all three cells and distinguishes none
  * of them.
  */
+/**
+ * Logo.test.ts drives `srcDark` and `srcSymbol` as props, but
+ * LayoutHeaderMain.vue:30 mounts `<BrandLogo class="shrink-0" />` with none, so
+ * `props.srcDark ?? logoDarkUrl.value` resolves through the config in the app
+ * and through the prop in those tests. The references here are the
+ * config-driven cases; the prop ones are the same over-claim the `drives` doc
+ * names for PoweredBy and are not referenced.
+ */
+const PROP_VS_CONFIG_NOTE =
+  'Driven through the tenant config, not through the prop: the app mounts ' +
+  'BrandLogo with no src props at all.';
+
 const WATERMARK_REQUIRED: TestRef = {
   spec: STORE_SETTINGS_SCHEMA,
   title: 'should reject missing branding.watermark',
   kind: 'carrier',
 };
 const WATERMARK_NOTE =
-  'The schema reference proves the field is required, not this value. ' +
-  'PoweredBy.test.ts passes `variant` as a prop, but the footer mounts ' +
-  '<PoweredBy /> without one and the component reads the config through ' +
-  '`props.variant ?? watermark.value` — the tested path is one the app never ' +
-  'takes, so those tests are not referenced. The getter is asserted by the ' +
-  'watermark describe in useTenant.test.ts.';
+  'The schema reference proves the field is required, not this value. The ' +
+  'consumer reference drives `branding.watermark` through useTenant and ' +
+  'mounts <PoweredBy /> with no props, which is how LayoutFooterBottom.vue:10 ' +
+  'mounts it; the prop-driven tests in the same spec exercise ' +
+  '`props.variant ?? watermark.value` from the other side and are not ' +
+  'referenced. The getter is asserted by the watermark describe in ' +
+  'useTenant.test.ts.';
 
-/** A surface colour: forwarded end-to-end and emitted verbatim, both asserted. */
+/**
+ * One `contact.social` leaf. Each has its own set case naming the key, so a
+ * component that switched to another leaf while its title stayed put would show
+ * up; the absent case is one fixture with `social: null`, which is the absent
+ * state of all five at once and is shared the same way
+ * `contact.email`/`contact.phone` share their null case.
+ *
+ * `''` is not a state here: `SafeUrlSchema` rejects an empty string and the
+ * resilient parser strips the leaf, so the field arrives absent. The map gives
+ * these leaves a bare `Coverage` rather than the three string states for that
+ * reason.
+ */
+/**
+ * The plugin returns early on `!gaId && !gtmId`, so each absent/empty case sets
+ * the sibling id and asserts it was registered. Without that the assertion
+ * would pass because the plugin bailed out rather than because the id was
+ * unset.
+ */
+const ANALYTICS_SIBLING_NOTE =
+  'The fixture sets the sibling id so the plugin reaches the per-id branch ' +
+  'rather than returning early on both being unset.';
+
+const SOCIAL_ABSENT: TestRef = {
+  spec: TENANT_SEO,
+  title:
+    'omits sameAs from the Organization schema when no social URL is configured',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+function socialLeaf(setCaseTitle: string): Coverage {
+  return {
+    status: 'has-test',
+    test: [
+      {
+        spec: TENANT_SEO,
+        title: setCaseTitle,
+        kind: 'consumer',
+        drives: 'field',
+      },
+      SOCIAL_ABSENT,
+    ],
+    note: 'The set case for this leaf, and the shared absent case for the whole block.',
+  };
+}
+
+/**
+ * A surface colour: forwarded end-to-end and emitted as converted sRGB, both
+ * asserted. The fixture writes OKLCH because that is the only shape the app
+ * receives — `CoercedColorSchema` normalises every colour through
+ * `coerceToOklch`, and `toSafariSafeColor` returns a non-oklch value untouched,
+ * so a hex fixture would prove the chain on a value format production cannot
+ * deliver.
+ */
 const SURFACE_COLOR = {
   status: 'has-test',
   test: {
     spec: TENANT_CSS,
-    title: 'emits all six surface vars verbatim when every surface is set',
+    title:
+      'emits all six surface vars as converted sRGB when every surface is set',
     kind: 'consumer',
     drives: 'field',
   },
-  note: "The unset case is asserted by 'emits the documented fallback chain when no surface is set'.",
+  note: "The unset case is asserted by 'emits the documented fallback chain when no surface is set', which covers all eight surface fallbacks including the two text ones.",
 } as const;
 
 export const CONFIG_COVERAGE_MAP = {
@@ -894,6 +1091,12 @@ export const CONFIG_COVERAGE_MAP = {
       status: 'has-test',
       test: [
         {
+          spec: TENANT_CSS_PLUGIN,
+          title: 'sets the data-theme attribute from the tenant theme name',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        {
           spec: SERVER_TENANT,
           title: 'should create theme with correct name',
           kind: 'carrier',
@@ -930,12 +1133,10 @@ export const CONFIG_COVERAGE_MAP = {
     colors: {
       // The six the merchant must set.
       primary: {
-        status: 'no-test',
-        consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-        note:
-          'The getter, the schema coercion and the schema requirement are ' +
-          'asserted; no test asserts a set value reaches the emitted CSS variable.',
+        status: 'has-test',
         test: [
+          CORE_GROUP,
+          BUILD_MERGE,
           {
             spec: USE_TENANT,
             title: 'should return primaryColor from theme',
@@ -948,13 +1149,18 @@ export const CONFIG_COVERAGE_MAP = {
           },
           COLOR_REQUIRED,
         ],
+        note:
+          'The core group test for the value, plus the getter and the schema ' +
+          "coercion. 'emits no oklch() in the color block so older Safari can " +
+          "parse every var' also pins --primary for a chromatic core, but it " +
+          'is referenced on `css` as `carrier` and a kind belongs to the test, ' +
+          'not to the entry, so it is not repeated here as a consumer.',
       },
       primaryForeground: requiredColor(),
       secondary: {
-        status: 'no-test',
-        consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-        note: 'Only the getter fallback and the schema requirement are asserted; no test sets a value and follows it to the emitted CSS variable.',
+        status: 'has-test',
         test: [
+          CORE_GROUP,
           {
             spec: USE_TENANT,
             title: 'should return secondaryColor with default fallback',
@@ -965,20 +1171,20 @@ export const CONFIG_COVERAGE_MAP = {
       },
       secondaryForeground: requiredColor(),
       background: {
-        status: 'no-test',
-        consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-        note: 'Only the getter fallback is asserted; no test sets a value and follows it to the emitted CSS variable.',
-        test: {
-          spec: USE_TENANT,
-          title: 'should return backgroundColor with default fallback',
-          kind: 'carrier',
-        },
+        status: 'has-test',
+        test: [
+          CORE_GROUP,
+          {
+            spec: USE_TENANT,
+            title: 'should return backgroundColor with default fallback',
+            kind: 'carrier',
+          },
+        ],
       },
       foreground: {
-        status: 'no-test',
-        consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-        note: 'Only the getter fallback and the schema requirement are asserted; no test sets a value and follows it to the emitted CSS variable.',
+        status: 'has-test',
         test: [
+          CORE_GROUP,
           {
             spec: USE_TENANT,
             title: 'should return foregroundColor with default fallback',
@@ -989,32 +1195,32 @@ export const CONFIG_COVERAGE_MAP = {
       },
 
       // The 26 the server derives when the merchant leaves them null.
-      card: COLOR_PRESENCE_ONLY,
-      cardForeground: COLOR_PRESENCE_ONLY,
-      popover: COLOR_PRESENCE_ONLY,
-      popoverForeground: COLOR_PRESENCE_ONLY,
-      muted: COLOR_PRESENCE_ONLY,
-      mutedForeground: COLOR_PRESENCE_ONLY,
-      accent: COLOR_PRESENCE_ONLY,
-      accentForeground: COLOR_PRESENCE_ONLY,
-      destructive: COLOR_PRESENCE_ONLY,
-      destructiveForeground: COLOR_PRESENCE_ONLY,
-      border: COLOR_PRESENCE_ONLY,
-      input: COLOR_PRESENCE_ONLY,
-      ring: COLOR_PRESENCE_ONLY,
-      chart1: COLOR_PRESENCE_ONLY,
-      chart2: COLOR_PRESENCE_ONLY,
-      chart3: COLOR_PRESENCE_ONLY,
-      chart4: COLOR_PRESENCE_ONLY,
-      chart5: COLOR_PRESENCE_ONLY,
-      sidebar: COLOR_PRESENCE_ONLY,
-      sidebarForeground: COLOR_PRESENCE_ONLY,
-      sidebarPrimary: COLOR_PRESENCE_ONLY,
-      sidebarPrimaryForeground: COLOR_PRESENCE_ONLY,
-      sidebarAccent: COLOR_PRESENCE_ONLY,
-      sidebarAccentForeground: COLOR_PRESENCE_ONLY,
-      sidebarBorder: COLOR_PRESENCE_ONLY,
-      sidebarRing: COLOR_PRESENCE_ONLY,
+      card: derivedColor(SEMANTIC_GROUP, [FIXED_FALLBACK, BUILD_MERGE]),
+      cardForeground: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
+      popover: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
+      popoverForeground: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
+      muted: derivedColor(SEMANTIC_GROUP, BG_FAMILY),
+      mutedForeground: derivedColor(SEMANTIC_GROUP, FG_FAMILY),
+      accent: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
+      accentForeground: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
+      destructive: derivedColor(SEMANTIC_GROUP, FIXED_FALLBACK),
+      destructiveForeground: derivedColor(SEMANTIC_GROUP, FIXED_FALLBACK),
+      border: derivedColor(EDGES_GROUP, BG_FAMILY),
+      input: derivedColor(EDGES_GROUP, BG_FAMILY),
+      ring: derivedColor(EDGES_GROUP, PRIMARY_FAMILY),
+      chart1: derivedColor(CHART_GROUP, PRIMARY_FAMILY),
+      chart2: derivedColor(CHART_GROUP, PRIMARY_FAMILY),
+      chart3: derivedColor(CHART_GROUP, PRIMARY_FAMILY),
+      chart4: derivedColor(CHART_GROUP, PRIMARY_FAMILY),
+      chart5: derivedColor(CHART_GROUP, PRIMARY_FAMILY),
+      sidebar: derivedColor(SIDEBAR_GROUP, BG_FAMILY),
+      sidebarForeground: derivedColor(SIDEBAR_GROUP, COPY_FALLBACK),
+      sidebarPrimary: derivedColor(SIDEBAR_GROUP, COPY_FALLBACK),
+      sidebarPrimaryForeground: derivedColor(SIDEBAR_GROUP, COPY_FALLBACK),
+      sidebarAccent: derivedColor(SIDEBAR_GROUP, COPY_FALLBACK),
+      sidebarAccentForeground: derivedColor(SIDEBAR_GROUP, COPY_FALLBACK),
+      sidebarBorder: derivedColor(SIDEBAR_GROUP, BG_FAMILY),
+      sidebarRing: derivedColor(SIDEBAR_GROUP, PRIMARY_FAMILY),
 
       // The eight surfaces, six of which the emitter is asserted on.
       topBarBackground: SURFACE_COLOR,
@@ -1032,15 +1238,15 @@ export const CONFIG_COVERAGE_MAP = {
         },
       },
       buttonPurchaseBackground: SURFACE_COLOR,
-      topBarText: unassertedColor(
-        'Named in the schema round-trip and in the resilience key list, but no ' +
-          'test asserts it emits a CSS variable. The six background surfaces ' +
-          'around it are asserted; these two text surfaces were not carried along.',
+      topBarText: derivedColor(
+        SURFACE_TEXT_GROUP,
+        [SURFACE_TEXT_FALLBACK, BUILD_MERGE],
+        'The unset case falls back to var(--primary-foreground), asserted with the other seven surfaces in the fallback-chain test.',
       ),
-      footerText: unassertedColor(
-        'Named in the schema round-trip and in the resilience key list, but no ' +
-          'test asserts it emits a CSS variable. The six background surfaces ' +
-          'around it are asserted; these two text surfaces were not carried along.',
+      footerText: derivedColor(
+        SURFACE_TEXT_GROUP,
+        SURFACE_TEXT_FALLBACK,
+        'The unset case falls back to a hardcoded oklch(0.85 0 0) that converts to #cecece, asserted in the fallback-chain test. That is why this key must never take sentinel L 0.85.',
       ),
     },
 
@@ -1071,60 +1277,85 @@ export const CONFIG_COVERAGE_MAP = {
     typography: {
       presence: {
         present: {
-          status: 'no-test',
-          consumer: 'app/error.vue:31',
+          status: 'has-test',
+          test: [
+            {
+              spec: TENANT_CSS_PLUGIN,
+              title:
+                'injects the google fonts stylesheet and preconnects when typography is configured',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: FONTS,
+              title: 'builds URL for a single font family',
+              kind: 'reader',
+            },
+          ],
           note:
-            'The URL builder is asserted; that its URL lands in a <link> here, ' +
-            'in server/error.ts:133 and in server/plugins/04.tenant-css.ts:55 is not.',
-          test: {
-            spec: FONTS,
-            title: 'builds URL for a single font family',
-            kind: 'reader',
-          },
+            'The URL builder, and the plugin that puts its URL in a <link>. ' +
+            'app/error.vue:31 and server/error.ts:133 read the same builder ' +
+            'and are still unasserted.',
         },
         absent: {
-          status: 'no-test',
-          consumer: 'app/error.vue:31',
-          note: 'The builder returns null; that the three consumers then emit no <link> is not asserted.',
-          test: {
-            spec: FONTS,
-            title: 'returns null for null typography',
-            kind: 'reader',
-          },
+          status: 'has-test',
+          test: [
+            {
+              spec: TENANT_CSS_PLUGIN,
+              title: 'injects no fonts link when the tenant has no typography',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: FONTS,
+              title: 'returns null for null typography',
+              kind: 'reader',
+            },
+          ],
+          note: 'The builder returns null, and the plugin emits no link of any kind.',
         },
       },
       families: {
         fontFamily: {
-          status: 'no-test',
-          consumer: 'server/utils/tenant-css.ts:162',
-          note: 'The only required family. The fonts URL is asserted; the CSS variable it becomes is not.',
-          test: {
-            spec: FONTS,
-            title: 'builds URL for a single font family',
-            kind: 'reader',
-          },
+          status: 'has-test',
+          test: [
+            FAMILY_GROUP,
+            BUILD_MERGE,
+            {
+              spec: FONTS,
+              title: 'builds URL for a single font family',
+              kind: 'reader',
+            },
+          ],
+          note: 'The only required family. The emitted CSS variable and the fonts URL.',
         },
         headingFontFamily: {
-          status: 'no-test',
-          consumer: 'server/utils/tenant-css.ts:169',
+          status: 'has-test',
+          test: [
+            FAMILY_GROUP,
+            {
+              spec: FONTS,
+              title: 'skips null heading and mono families',
+              kind: 'reader',
+            },
+          ],
           note:
-            'The fonts URL is asserted for both branches. The CSS side is not: ' +
-            'the consumer falls back to fontFamily through `??`, and no test covers that.',
-          test: {
-            spec: FONTS,
-            title: 'skips null heading and mono families',
-            kind: 'reader',
-          },
+            'Absent is not "no variable" here: the consumer falls back to ' +
+            'fontFamily through `??` (tenant-css.ts:169), so the variable is ' +
+            'still emitted carrying the body family. monoFontFamily absent ' +
+            'emits nothing at all — two different absent shapes in one group.',
         },
         monoFontFamily: {
-          status: 'no-test',
-          consumer: 'server/utils/tenant-css.ts:177',
-          note: 'Same as headingFontFamily: the fonts URL is asserted, the CSS variable is not.',
-          test: {
-            spec: FONTS,
-            title: 'skips null heading and mono families',
-            kind: 'reader',
-          },
+          status: 'has-test',
+          test: [
+            FAMILY_GROUP,
+            {
+              spec: FONTS,
+              title: 'skips null heading and mono families',
+              kind: 'reader',
+            },
+          ],
+          note: 'Unlike headingFontFamily, absent emits no variable at all.',
         },
       },
     },
@@ -1152,22 +1383,45 @@ export const CONFIG_COVERAGE_MAP = {
 
     watermark: {
       full: {
-        status: 'no-test',
-        consumer: 'app/components/shared/PoweredBy.vue:22',
+        status: 'has-test',
+        test: [
+          {
+            spec: POWERED_BY,
+            title:
+              'renders the icon and the label when branding.watermark is full',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          WATERMARK_REQUIRED,
+        ],
         note: WATERMARK_NOTE,
-        test: WATERMARK_REQUIRED,
       },
       minimal: {
-        status: 'no-test',
-        consumer: 'app/components/shared/PoweredBy.vue:22',
+        status: 'has-test',
+        test: [
+          {
+            spec: POWERED_BY,
+            title:
+              'renders the icon without the label when branding.watermark is minimal',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          WATERMARK_REQUIRED,
+        ],
         note: WATERMARK_NOTE,
-        test: WATERMARK_REQUIRED,
       },
       none: {
-        status: 'no-test',
-        consumer: 'app/components/shared/PoweredBy.vue:22',
+        status: 'has-test',
+        test: [
+          {
+            spec: POWERED_BY,
+            title: 'renders nothing at all when branding.watermark is none',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          WATERMARK_REQUIRED,
+        ],
         note: WATERMARK_NOTE,
-        test: WATERMARK_REQUIRED,
       },
     },
 
@@ -1219,22 +1473,26 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/components/shared/BrandLogo.vue:28',
-          note:
-            'Reads back as null with no fallback and the component renders one ' +
-            'image instead of two; the only srcDark test provides one, so it ' +
-            'proves the set case and nothing asserts this one.',
+          status: 'has-test',
+          test: {
+            spec: BRAND_LOGO_FALLBACK,
+            title: 'renders a single image when the tenant has no logoDarkUrl',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: PROP_VS_CONFIG_NOTE,
         },
         empty: unreachableEmptyUrl('app/components/shared/BrandLogo.vue'),
         set: {
           status: 'has-test',
           test: {
-            spec: BRAND_LOGO,
-            title: 'should render two images when srcDark is provided',
+            spec: BRAND_LOGO_FALLBACK,
+            title:
+              'renders a second image when the tenant configures logoDarkUrl',
             kind: 'consumer',
             drives: 'field',
           },
+          note: PROP_VS_CONFIG_NOTE,
         },
       },
     },
@@ -1243,20 +1501,27 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/composables/useTenant.ts:68',
-          note: 'The set case is asserted; the absent case is not asserted separately.',
+          status: 'has-test',
+          test: {
+            spec: BRAND_LOGO_FALLBACK,
+            title:
+              'renders no symbol image when the tenant has no logoSymbolUrl',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: PROP_VS_CONFIG_NOTE,
         },
         empty: unreachableEmptyUrl('app/composables/useTenant.ts:68'),
         set: {
           status: 'has-test',
           test: {
-            spec: BRAND_LOGO,
+            spec: BRAND_LOGO_FALLBACK,
             title:
-              'should render symbol image with responsive classes when srcSymbol is provided',
+              'renders the symbol image when the tenant configures logoSymbolUrl',
             kind: 'consumer',
             drives: 'field',
           },
+          note: PROP_VS_CONFIG_NOTE,
         },
       },
     },
@@ -1265,15 +1530,30 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: '??',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/composables/useTenant.ts:72',
-          note: "Falls back to '/favicon.ico'; no test asserts it.",
+          status: 'has-test',
+          test: {
+            spec: TENANT_CSS_PLUGIN,
+            title: 'injects no favicon link when faviconUrl is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note:
+            "The getter's '/favicon.ico' fallback is a second consumer and is " +
+            'still unasserted; the served document simply carries no icon link.',
         },
-        empty: unreachableEmptyUrl('app/composables/useTenant.ts:72'),
+        empty: unreachableEmptyUrl('server/plugins/04.tenant-css.ts:47'),
         set: {
-          status: 'no-test',
-          consumer: 'app/composables/useTenant.ts:72',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_CSS_PLUGIN,
+            title: 'injects a favicon link for the configured faviconUrl',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note:
+            'The value is emitted through sanitizeUrl, which allows only ' +
+            'https: and data:image/, asserted by the non-https case in the ' +
+            'same spec.',
         },
       },
     },
@@ -1282,15 +1562,26 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:79',
-          note: 'The og:image meta tag is omitted; no test asserts either branch.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'omits the og:image and twitter:image meta when ogImageUrl is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         empty: unreachableEmptyUrl('app/plugins/tenant-seo.ts:79'),
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:79',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'renders the configured ogImageUrl as both og:image and twitter:image',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'One value, two meta tags.',
         },
       },
     },
@@ -1300,19 +1591,37 @@ export const CONFIG_COVERAGE_MAP = {
   layout: {
     headerNavVariant: {
       grey: {
-        status: 'no-test',
-        consumer: 'app/components/layout/LayoutHeader.vue:11',
-        note: 'The default when layout is absent, which is how the live tenant runs. No test file mentions the field.',
+        status: 'has-test',
+        test: {
+          spec: LAYOUT_HEADER,
+          title:
+            'adds no shadow and hands down grey when headerNavVariant is grey',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: 'The default when layout is absent, which is how the live tenant runs.',
       },
       white: {
-        status: 'no-test',
-        consumer: 'app/components/layout/LayoutHeader.vue:11',
-        note: 'No test file mentions the field.',
+        status: 'has-test',
+        test: {
+          spec: LAYOUT_HEADER,
+          title:
+            'adds the separating shadow and hands down white when headerNavVariant is white',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: 'The only value that changes the header itself rather than only the nav below it.',
       },
       absent: {
-        status: 'no-test',
-        consumer: 'app/components/layout/LayoutHeader.vue:11',
-        note: "Resolves to 'grey' through `??`. No test file mentions the field.",
+        status: 'has-test',
+        test: {
+          spec: LAYOUT_HEADER,
+          title:
+            'falls back to grey when the tenant configures no headerNavVariant',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        note: "Resolves to 'grey' through `??`.",
       },
     },
   },
@@ -1844,33 +2153,102 @@ export const CONFIG_COVERAGE_MAP = {
         ],
         note:
           'useCmsSlot.test.ts drives this key throughout, not an arbitrary ' +
-          'one, so the reader is asserted for it; PortalShell.test.ts asserts ' +
-          'that the configured slot renders, and that an empty area renders ' +
-          'nothing.',
+          'one, so the reader is asserted for it. PortalShell.test.ts leaves ' +
+          'useCmsSlot unmocked and keys its fetch stub on the areaName the ' +
+          "fixture configures for this slot ('Above Content', " +
+          'tests/setup-components.ts): the configured value travels the ' +
+          "app's own path, and changing it in the fixture turns the hero " +
+          'test red. That is why this is `field` and not a decision handed ' +
+          'to the consumer ready-made.',
       },
       frontpage_content: {
         status: 'no-test',
         consumer: 'app/pages/index.vue:10',
         note:
-          "A tenant override of this key is asserted to survive the merge ('a " +
-          "tenant slot override wins while sibling default slots are kept' in " +
-          'tests/server/tenant.test.ts), so the value arrives; nothing asserts ' +
-          'that the slot then renders.',
+          'The reader is asserted for this key, so config → decision holds. ' +
+          'The consumer has no spec at all. ' +
+          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
+          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
+          'fixture configures for the slot, and assert the area renders when ' +
+          'the config points at it and not when it points elsewhere. That ' +
+          'yields `field` directly and needs no composition. Note that the ' +
+          'setup fixture is shared and PortalShell.test.ts does not reset ' +
+          '`cms` per test, so a fixture change there is felt by every test ' +
+          'in the file.',
+        test: {
+          spec: CMS_SLOT,
+          title:
+            'resolves the frontpage_content slot key from the tenant config',
+          kind: 'reader',
+        },
       },
       product_list_top: {
         status: 'no-test',
         consumer: 'app/components/pages/ProductList.vue:362',
-        note: 'The reader is asserted for portal_hero; this key is named nowhere in the suite.',
+        note:
+          'The reader is asserted for this key, so config → decision holds. ' +
+          'The consumer has a spec that mounts it, but nothing in that spec ' +
+          'touches the CMS path: the key is never configured and no area is ' +
+          'ever rendered. ' +
+          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
+          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
+          'fixture configures for the slot, and assert the area renders when ' +
+          'the config points at it and not when it points elsewhere. That ' +
+          'yields `field` directly and needs no composition. Note that the ' +
+          'setup fixture is shared and PortalShell.test.ts does not reset ' +
+          '`cms` per test, so a fixture change there is felt by every test ' +
+          'in the file.',
+        test: {
+          spec: CMS_SLOT,
+          title:
+            'resolves the product_list_top slot key from the tenant config',
+          kind: 'reader',
+        },
       },
       product_list_bottom: {
         status: 'no-test',
         consumer: 'app/components/pages/ProductList.vue:363',
-        note: 'The reader is asserted for portal_hero; this key is named nowhere in the suite.',
+        note:
+          'The reader is asserted for this key, so config → decision holds. ' +
+          'The consumer has a spec that mounts it, but nothing in that spec ' +
+          'touches the CMS path: the key is never configured and no area is ' +
+          'ever rendered. ' +
+          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
+          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
+          'fixture configures for the slot, and assert the area renders when ' +
+          'the config points at it and not when it points elsewhere. That ' +
+          'yields `field` directly and needs no composition. Note that the ' +
+          'setup fixture is shared and PortalShell.test.ts does not reset ' +
+          '`cms` per test, so a fixture change there is felt by every test ' +
+          'in the file.',
+        test: {
+          spec: CMS_SLOT,
+          title:
+            'resolves the product_list_bottom slot key from the tenant config',
+          kind: 'reader',
+        },
       },
       product_detail: {
         status: 'no-test',
         consumer: 'app/components/pages/ProductDetails.vue:361',
-        note: 'The reader is asserted for portal_hero; this key is named nowhere in the suite.',
+        note:
+          'The reader is asserted for this key, so config → decision holds. ' +
+          'The consumer has a spec that mounts it, but nothing in that spec ' +
+          'touches the CMS path: the key is never configured and no area is ' +
+          'ever rendered. ' +
+          'PortalShell.test.ts is the recipe: mount the consumer, leave ' +
+          'useCmsSlot unmocked, key the fetch stub on the areaName the ' +
+          'fixture configures for the slot, and assert the area renders when ' +
+          'the config points at it and not when it points elsewhere. That ' +
+          'yields `field` directly and needs no composition. Note that the ' +
+          'setup fixture is shared and PortalShell.test.ts does not reset ' +
+          '`cms` per test, so a fixture change there is felt by every test ' +
+          'in the file.',
+        test: {
+          spec: CMS_SLOT,
+          title: 'resolves the product_detail slot key from the tenant config',
+          kind: 'reader',
+        },
       },
     },
 
@@ -1886,63 +2264,114 @@ export const CONFIG_COVERAGE_MAP = {
         note:
           'useCmsMenu.test.ts drives this key throughout, so the reader is ' +
           'asserted for it, including the partial-config case where an empty ' +
-          'menuLocationId reads back as null. That the menu then renders in ' +
-          'LayoutHeaderNav is not asserted.',
+          'menuLocationId reads back as null. LayoutHeaderNav.test.ts mounts ' +
+          'the consumer but mocks useFetch, which binds no key: the menu it ' +
+          'renders is the stubbed response whatever the config says, so there ' +
+          'is nothing to compose with. To lift the cell, stub useCmsMenuData ' +
+          'for this key alone instead of useFetch, the way ' +
+          'MobileNavPanel.test.ts does for mobile_drawer.',
       },
       footer: {
-        status: 'no-test',
-        consumer: 'app/components/layout/footer/LayoutFooterMain.vue:15',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title: 'resolves the footer menu key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: FOOTER_MAIN,
+            title:
+              'renders three separate columns when all three menus have visible items',
+            kind: 'consumer',
+            drives: 'reader',
+          },
+        ],
         note:
-          'The footer renders what useCmsMenuData hands it, and the test stubs ' +
-          'that composable; no reader test binds this key to the menu it ' +
-          'returns, so the decision is asserted and the value is not.',
-        test: {
-          spec: FOOTER_MAIN,
-          title:
-            'renders three separate columns when all three menus have visible items',
-          kind: 'consumer',
-          drives: 'reader',
-        },
+          'The footer renders what useCmsMenuData hands it and the test stubs ' +
+          'that composable, so the consumer proves decision \u2192 behaviour. The ' +
+          'reader binds this key to the config, and only the two together say ' +
+          'the app obeys the value.',
       },
       footer_2: {
-        status: 'no-test',
-        consumer: 'app/components/layout/footer/LayoutFooterMain.vue:16',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title: 'resolves the footer_2 menu key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: FOOTER_MAIN,
+            title:
+              'renders three separate columns when all three menus have visible items',
+            kind: 'consumer',
+            drives: 'reader',
+          },
+        ],
         note:
-          'The footer renders what useCmsMenuData hands it, and the test stubs ' +
-          'that composable; no reader test binds this key to the menu it ' +
-          'returns, so the decision is asserted and the value is not.',
-        test: {
-          spec: FOOTER_MAIN,
-          title:
-            'renders three separate columns when all three menus have visible items',
-          kind: 'consumer',
-          drives: 'reader',
-        },
+          'The footer renders what useCmsMenuData hands it and the test stubs ' +
+          'that composable, so the consumer proves decision \u2192 behaviour. The ' +
+          'reader binds this key to the config, and only the two together say ' +
+          'the app obeys the value.',
       },
       footer_3: {
-        status: 'no-test',
-        consumer: 'app/components/layout/footer/LayoutFooterMain.vue:17',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title: 'resolves the footer_3 menu key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: FOOTER_MAIN,
+            title:
+              'renders three separate columns when all three menus have visible items',
+            kind: 'consumer',
+            drives: 'reader',
+          },
+        ],
         note:
-          'The footer renders what useCmsMenuData hands it, and the test stubs ' +
-          'that composable; no reader test binds this key to the menu it ' +
-          'returns, so the decision is asserted and the value is not.',
-        test: {
-          spec: FOOTER_MAIN,
-          title:
-            'renders three separate columns when all three menus have visible items',
-          kind: 'consumer',
-          drives: 'reader',
-        },
+          'The footer renders what useCmsMenuData hands it and the test stubs ' +
+          'that composable, so the consumer proves decision \u2192 behaviour. The ' +
+          'reader binds this key to the config, and only the two together say ' +
+          'the app obeys the value.',
       },
       mobile_drawer: {
-        status: 'no-test',
-        consumer: 'app/components/layout/MobileNavPanel.vue:30',
-        note: 'The reader is asserted for header_main; this key is named nowhere in the suite.',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title: 'resolves the mobile_drawer menu key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: MOBILE_NAV,
+            title: 'renders CMS menu items',
+            kind: 'consumer',
+            drives: 'reader',
+          },
+        ],
+        note:
+          'The panel spec stubs useCmsMenuData for this key alone rather than ' +
+          'blanket, so switching the component to another menu turns it red; ' +
+          'that is what lets the consumer compose with the reader here.',
       },
       sidebar_fallback: {
         status: 'no-test',
         consumer: 'app/pages/[...slug].vue:93',
-        note: 'The reader is asserted for header_main; this key is named nowhere in the suite.',
+        note:
+          'The reader is asserted for this key. The page spec stubs useCmsMenu ' +
+          'globally to return null for every key, so no consumer test exercises ' +
+          'the configured branch at all. To lift the cell, make that stub ' +
+          'key-aware and return a configured menu for this key, then assert the ' +
+          'sidebar nav renders it.',
+        test: {
+          spec: CMS_MENU,
+          title:
+            'resolves the sidebar_fallback menu key from the tenant config',
+          kind: 'reader',
+        },
       },
     },
   },
@@ -1955,19 +2384,34 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: '||',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:115',
-          note: 'Falls back to the brand name; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'falls back to the brand name as the title when defaultTitle is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:115',
-          note: '`||` makes empty behave as absent, which is correct here but unasserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'treats an empty defaultTitle as absent and titles the page with the brand name',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: '`||` makes empty behave as absent, and that is now the assertion.',
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:115',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title: 'titles the page with the configured defaultTitle',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
       },
     },
@@ -1975,19 +2419,34 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: '||',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:114',
-          note: "Falls back to '%s - <brand>'; not asserted.",
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'wraps a page title with the brand pattern when titleTemplate is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: "Falls back to '%s - <brand>', asserted by wrapping a page title through the template.",
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:114',
-          note: '`||` makes empty behave as absent, which is correct here but unasserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'treats an empty titleTemplate as absent and wraps with the brand pattern',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:114',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title: 'wraps a page title through the configured titleTemplate',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
       },
     },
@@ -1995,44 +2454,113 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:55',
-          note: 'The description meta tag is omitted; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'omits the description meta when defaultDescription is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:55',
-          note: 'Truthiness guard treats empty as absent; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'omits the description meta when defaultDescription is empty',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'Truthiness guard treats empty as absent, and both cases are asserted separately.',
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:55',
-          note: 'Also feeds the WebSite schema description; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'renders the configured defaultDescription as the description meta and the WebSite description',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'One test, two consumers: the description meta and the WebSite schema description.',
         },
       },
     },
     defaultKeywords: {
-      status: 'no-test',
-      consumer: 'app/plugins/tenant-seo.ts:63',
-      note: 'An array, not a string: the guard is on length, and no test covers either branch.',
+      status: 'has-test',
+      test: [
+        {
+          spec: TENANT_SEO,
+          title:
+            'renders configured defaultKeywords as a comma-separated keywords meta',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        {
+          spec: TENANT_SEO,
+          title:
+            'omits the keywords meta when defaultKeywords is an empty list',
+          kind: 'consumer',
+          drives: 'field',
+        },
+      ],
+      note:
+        'An array, not a string: the guard is on length, so the two branches ' +
+        'are the set list and the empty list. `normalizeKeywords` turns both ' +
+        "'' and ',' into [], so the empty list is the state that arrives.",
     },
     robots: {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:59',
-          note: 'The only seo leaf the live tenant does not send empty. Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title: 'omits the robots meta when robots is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'The only seo leaf the live tenant does not send empty.',
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:59',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title: 'omits the robots meta when robots is empty',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         set: {
-          status: 'no-test',
-          consumer: 'server/plugins/03.seo-config.ts:41',
-          note: 'Also drives `indexable` server-side through isIndexable; not asserted for a tenant value.',
+          status: 'has-test',
+          test: [
+            {
+              spec: TENANT_SEO,
+              title: 'renders the configured robots value as the robots meta',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SEO_CONFIG_PLUGIN,
+              title:
+                'pushes indexable false when the tenant robots value carries noindex',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SEO_CONFIG_PLUGIN,
+              title:
+                'pushes indexable true when the tenant robots value allows indexing',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
+          note:
+            'Both consumers: the client robots meta, and the server-side ' +
+            '`indexable` flag through isIndexable. The 03 spec used to stub ' +
+            'isIndexable to a constant, which is why neither branch was ' +
+            'asserted before.',
         },
       },
     },
@@ -2040,19 +2568,35 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:30',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title:
+              'omits the analytics script when googleAnalyticsId is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: ANALYTICS_SIBLING_NOTE,
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:30',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title: 'omits the analytics script when googleAnalyticsId is empty',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: ANALYTICS_SIBLING_NOTE,
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:30',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title:
+              'registers the analytics script with the configured googleAnalyticsId',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
       },
     },
@@ -2060,19 +2604,36 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:31',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title:
+              'omits the tag manager script when googleTagManagerId is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: ANALYTICS_SIBLING_NOTE,
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:31',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title:
+              'omits the tag manager script when googleTagManagerId is empty',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: ANALYTICS_SIBLING_NOTE,
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:31',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title:
+              'registers the tag manager script with the configured googleTagManagerId',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
       },
     },
@@ -2080,19 +2641,35 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:96',
-          note: 'The google-site-verification meta tag is omitted; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'omits the google-site-verification meta when verification is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:96',
-          note: 'Trimmed before the guard, so empty behaves as absent; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'omits the google-site-verification meta when verification is empty or whitespace',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'Trimmed before the guard, so the one test covers both empty and whitespace.',
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:96',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'renders the configured verification token as the google-site-verification meta',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
       },
     },
@@ -2114,11 +2691,15 @@ export const CONFIG_COVERAGE_MAP = {
           },
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/components/layout/footer/LayoutFooterMain.vue:45',
-          note:
-            'The gate is `!!(email || phone)`, so empty takes the same branch as ' +
-            'absent by construction — low risk, but no test passes an empty string.',
+          status: 'has-test',
+          test: {
+            spec: FOOTER_MAIN,
+            title:
+              'does not render the contact column when email is an empty string',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'The gate is `!!(email || phone)`, so empty takes the same branch as absent.',
         },
         set: {
           status: 'has-test',
@@ -2145,9 +2726,15 @@ export const CONFIG_COVERAGE_MAP = {
           },
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/components/layout/footer/LayoutFooterMain.vue:45',
-          note: 'Same truthiness gate as email; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: FOOTER_MAIN,
+            title:
+              'does not render the contact column when phone is an empty string',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'Same truthiness gate as email.',
         },
         set: {
           status: 'has-test',
@@ -2207,45 +2794,53 @@ export const CONFIG_COVERAGE_MAP = {
       },
     },
     social: {
-      facebook: {
-        status: 'no-test',
-        consumer: 'app/plugins/tenant-seo.ts:159',
-        note: 'Feeds the Organization schema sameAs list; no test asserts any social leaf.',
-      },
-      instagram: {
-        status: 'no-test',
-        consumer: 'app/plugins/tenant-seo.ts:159',
-        note: 'Feeds the Organization schema sameAs list; no test asserts any social leaf.',
-      },
-      twitter: {
-        status: 'no-test',
-        consumer: 'app/plugins/tenant-seo.ts:159',
-        note: 'Feeds the Organization schema sameAs list; no test asserts any social leaf.',
-      },
-      linkedin: {
-        status: 'no-test',
-        consumer: 'app/plugins/tenant-seo.ts:159',
-        note: 'Feeds the Organization schema sameAs list; no test asserts any social leaf.',
-      },
-      youtube: {
-        status: 'no-test',
-        consumer: 'app/plugins/tenant-seo.ts:159',
-        note: 'Feeds the Organization schema sameAs list; no test asserts any social leaf.',
-      },
+      facebook: socialLeaf(
+        'includes the configured facebook URL in the Organization sameAs list',
+      ),
+      instagram: socialLeaf(
+        'includes the configured instagram URL in the Organization sameAs list',
+      ),
+      twitter: socialLeaf(
+        'includes the configured twitter URL in the Organization sameAs list',
+      ),
+      linkedin: socialLeaf(
+        'includes the configured linkedin URL in the Organization sameAs list',
+      ),
+      youtube: socialLeaf(
+        'includes the configured youtube URL in the Organization sameAs list',
+      ),
     },
   },
 
   // --- Computed and derived ------------------------------------------------
   css: {
-    status: 'no-test',
-    consumer: 'server/plugins/04.tenant-css.ts:39',
-    note: 'The generator that produces the value is asserted here. Sanitising and injecting it into the served document is not, and is e2e territory rather than a unit concern.',
-    test: {
-      spec: TENANT_CSS,
-      title:
-        'emits no oklch() in the color block so older Safari can parse every var',
-      kind: 'carrier',
-    },
+    status: 'has-test',
+    test: [
+      {
+        spec: TENANT_CSS_PLUGIN,
+        title:
+          'injects the tenant css in a style tag tagged with the theme name',
+        kind: 'consumer',
+        drives: 'field',
+      },
+      {
+        spec: TENANT_CSS_PLUGIN,
+        title: 'strips a script tag out of the tenant css before injecting it',
+        kind: 'consumer',
+        drives: 'field',
+      },
+      {
+        spec: TENANT_CSS,
+        title:
+          'emits no oklch() in the color block so older Safari can parse every var',
+        kind: 'carrier',
+      },
+    ],
+    note:
+      'The generator that produces the value, and the plugin that sanitises ' +
+      'and injects it into the served document. The sanitise assertion is a ' +
+      'real one: the fixture carries a script payload that comes out as the ' +
+      'bare rule. Only the browser-side effect of the injected tag is e2e.',
   },
 
   isActive: {

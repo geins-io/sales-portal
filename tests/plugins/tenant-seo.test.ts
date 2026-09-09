@@ -82,11 +82,15 @@ const tenantRef = ref({
   hostname: 'test.example.com',
 });
 
+// `ogImageUrl` is a getter on useTenant rather than a field on the config, so
+// it cannot be driven through tenantRef the way `seo` and `contact` are.
+const ogImageUrlRef = ref<string | null>(null);
+
 const mockUseTenant = vi.fn(() => ({
   tenant: tenantRef,
   brandName: computed(() => 'Test Store'),
   hostname: computed(() => 'test.example.com'),
-  ogImageUrl: computed(() => null),
+  ogImageUrl: computed(() => ogImageUrlRef.value),
   suspense: () => Promise.resolve(),
 }));
 
@@ -494,6 +498,240 @@ describe('tenant-seo plugin / reactive locale', () => {
 
       i18nLocale.value = 'en';
       expect(inLangGetter()).toBe('en');
+    });
+  });
+});
+
+/**
+ * One literal `it` per config cell. The titles are written out rather than
+ * generated because the coverage map anchors a reference on the `it` call and
+ * compares the title verbatim (`tests/unit/config-coverage/map.test.ts`), so a
+ * title produced by `it.each` or a template literal can never be referenced.
+ *
+ * `empty` is a state of its own throughout `seo`: every leaf is
+ * `z.string().nullable().optional()` (`server/schemas/store-settings.ts`), so an
+ * empty string passes validation and reaches the plugin. Which operator absorbs
+ * it differs per field — `||` for the two title fields, a truthiness guard for
+ * the rest, and `?.trim()` for `verification` — and that is what these pairs
+ * pin down.
+ */
+describe('tenant-seo plugin / seo and contact fields', () => {
+  beforeEach(() => {
+    i18nLocales.value = [
+      { code: 'en', language: 'en', name: 'English' },
+      { code: 'sv', language: 'sv-SE', name: 'Svenska' },
+    ];
+    ogImageUrlRef.value = null;
+    tenantRef.value = {
+      isActive: true,
+      locale: 'sv-SE',
+      availableLocales: [],
+      seo: null,
+      contact: null,
+      branding: { name: 'Test Store', logoUrl: '/logo.svg' },
+      theme: { colors: { primary: '#000' } },
+      hostname: 'test.example.com',
+    };
+  });
+
+  /** The head entry that carries title/titleTemplate/meta. */
+  function metaEntry(): Record<string, unknown> {
+    return headEntryWithMeta();
+  }
+
+  function metaList(): Array<Record<string, string>> {
+    const meta = metaEntry().meta as ComputedRef<Array<Record<string, string>>>;
+    return meta.value;
+  }
+
+  function metaNamed(name: string): Record<string, string> | undefined {
+    return metaList().find((m) => m.name === name);
+  }
+
+  /** The template is a function of the page's own title. */
+  function wrap(pageTitle: string): string {
+    const template = metaEntry().titleTemplate as (t?: string | null) => string;
+    return template(pageTitle);
+  }
+
+  async function withSeo(seo: Record<string, unknown> | null) {
+    tenantRef.value = { ...tenantRef.value, seo };
+    await runSetup('sv');
+  }
+
+  async function withContact(contact: Record<string, unknown> | null) {
+    tenantRef.value = { ...tenantRef.value, contact };
+    await runSetup('sv');
+  }
+
+  describe('seo.defaultTitle', () => {
+    it('falls back to the brand name as the title when defaultTitle is absent', async () => {
+      await withSeo({});
+      expect(metaEntry().title).toBe('Test Store');
+    });
+
+    it('treats an empty defaultTitle as absent and titles the page with the brand name', async () => {
+      await withSeo({ defaultTitle: '' });
+      expect(metaEntry().title).toBe('Test Store');
+    });
+
+    it('titles the page with the configured defaultTitle', async () => {
+      await withSeo({ defaultTitle: 'Sentinel Default Title' });
+      expect(metaEntry().title).toBe('Sentinel Default Title');
+    });
+  });
+
+  describe('seo.titleTemplate', () => {
+    it('wraps a page title with the brand pattern when titleTemplate is absent', async () => {
+      await withSeo({});
+      expect(wrap('Sentinel Page')).toBe('Sentinel Page - Test Store');
+    });
+
+    it('treats an empty titleTemplate as absent and wraps with the brand pattern', async () => {
+      await withSeo({ titleTemplate: '' });
+      expect(wrap('Sentinel Page')).toBe('Sentinel Page - Test Store');
+    });
+
+    it('wraps a page title through the configured titleTemplate', async () => {
+      await withSeo({ titleTemplate: '%s :: Sentinel Suffix' });
+      expect(wrap('Sentinel Page')).toBe('Sentinel Page :: Sentinel Suffix');
+    });
+  });
+
+  describe('seo.defaultDescription', () => {
+    it('omits the description meta when defaultDescription is absent', async () => {
+      await withSeo({});
+      expect(metaNamed('description')).toBeUndefined();
+    });
+
+    it('omits the description meta when defaultDescription is empty', async () => {
+      await withSeo({ defaultDescription: '' });
+      expect(metaNamed('description')).toBeUndefined();
+    });
+
+    it('renders the configured defaultDescription as the description meta and the WebSite description', async () => {
+      await withSeo({ defaultDescription: 'Sentinel description' });
+      expect(metaNamed('description')?.content).toBe('Sentinel description');
+      // The same value is the only source of the WebSite schema description.
+      const webSite = capturedSchemaOrgArg[1] as Record<string, unknown>;
+      expect(webSite.description).toBe('Sentinel description');
+    });
+  });
+
+  describe('seo.defaultKeywords', () => {
+    it('renders configured defaultKeywords as a comma-separated keywords meta', async () => {
+      await withSeo({ defaultKeywords: ['sentinel-one', 'sentinel-two'] });
+      expect(metaNamed('keywords')?.content).toBe('sentinel-one, sentinel-two');
+    });
+
+    it('omits the keywords meta when defaultKeywords is an empty list', async () => {
+      // The schema normalises '' and ',' to [] before the plugin sees it, so
+      // the empty list is the state that actually arrives, not an empty string.
+      await withSeo({ defaultKeywords: [] });
+      expect(metaNamed('keywords')).toBeUndefined();
+    });
+  });
+
+  describe('seo.robots', () => {
+    it('omits the robots meta when robots is absent', async () => {
+      await withSeo({});
+      expect(metaNamed('robots')).toBeUndefined();
+    });
+
+    it('omits the robots meta when robots is empty', async () => {
+      await withSeo({ robots: '' });
+      expect(metaNamed('robots')).toBeUndefined();
+    });
+
+    it('renders the configured robots value as the robots meta', async () => {
+      await withSeo({ robots: 'noindex, nofollow' });
+      expect(metaNamed('robots')?.content).toBe('noindex, nofollow');
+    });
+  });
+
+  describe('seo.verification', () => {
+    it('omits the google-site-verification meta when verification is absent', async () => {
+      await withSeo({});
+      expect(metaNamed('google-site-verification')).toBeUndefined();
+    });
+
+    it('omits the google-site-verification meta when verification is empty or whitespace', async () => {
+      await withSeo({ verification: '' });
+      expect(metaNamed('google-site-verification')).toBeUndefined();
+      // Trimmed before the guard, so whitespace takes the same branch.
+      await withSeo({ verification: '   ' });
+      expect(metaNamed('google-site-verification')).toBeUndefined();
+    });
+
+    it('renders the configured verification token as the google-site-verification meta', async () => {
+      await withSeo({ verification: 'sentinel-gsc-token' });
+      expect(metaNamed('google-site-verification')?.content).toBe(
+        'sentinel-gsc-token',
+      );
+    });
+  });
+
+  describe('branding.ogImageUrl', () => {
+    function metaProp(prop: string): Record<string, string> | undefined {
+      return metaList().find((m) => m.property === prop);
+    }
+
+    it('omits the og:image and twitter:image meta when ogImageUrl is absent', async () => {
+      ogImageUrlRef.value = null;
+      await withSeo({});
+      expect(metaProp('og:image')).toBeUndefined();
+      expect(metaNamed('twitter:image')).toBeUndefined();
+      // The plugin ran: the unconditional Open Graph meta are there.
+      expect(metaProp('og:type')?.content).toBe('website');
+    });
+
+    it('renders the configured ogImageUrl as both og:image and twitter:image', async () => {
+      ogImageUrlRef.value = 'https://cdn.example.com/og.png';
+      await withSeo({});
+      expect(metaProp('og:image')?.content).toBe(
+        'https://cdn.example.com/og.png',
+      );
+      expect(metaNamed('twitter:image')?.content).toBe(
+        'https://cdn.example.com/og.png',
+      );
+    });
+  });
+
+  describe('contact.social', () => {
+    function sameAs(): string[] {
+      const org = capturedSchemaOrgArg[0] as Record<string, unknown>;
+      return (org.sameAs as string[] | undefined) ?? [];
+    }
+
+    it('includes the configured facebook URL in the Organization sameAs list', async () => {
+      await withContact({ social: { facebook: 'https://example.com/fb' } });
+      expect(sameAs()).toEqual(['https://example.com/fb']);
+    });
+
+    it('includes the configured instagram URL in the Organization sameAs list', async () => {
+      await withContact({ social: { instagram: 'https://example.com/ig' } });
+      expect(sameAs()).toEqual(['https://example.com/ig']);
+    });
+
+    it('includes the configured twitter URL in the Organization sameAs list', async () => {
+      await withContact({ social: { twitter: 'https://example.com/tw' } });
+      expect(sameAs()).toEqual(['https://example.com/tw']);
+    });
+
+    it('includes the configured linkedin URL in the Organization sameAs list', async () => {
+      await withContact({ social: { linkedin: 'https://example.com/li' } });
+      expect(sameAs()).toEqual(['https://example.com/li']);
+    });
+
+    it('includes the configured youtube URL in the Organization sameAs list', async () => {
+      await withContact({ social: { youtube: 'https://example.com/yt' } });
+      expect(sameAs()).toEqual(['https://example.com/yt']);
+    });
+
+    it('omits sameAs from the Organization schema when no social URL is configured', async () => {
+      await withContact({ social: null });
+      const org = capturedSchemaOrgArg[0] as Record<string, unknown>;
+      expect('sameAs' in org).toBe(false);
     });
   });
 });
