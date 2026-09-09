@@ -81,9 +81,9 @@
  *     strips unknown keys, so they never reach `tenant-css.ts` and they are
  *     correctly absent from the 40 below. The forty keys here are what the app
  *     can receive, not what a merchant can set.
- *   - retired access rules never reach the app: `normalizeFeatureAccess`
- *     (`server/utils/tenant.ts:357-376`) rewrites a feature carrying
- *     `{group}`, `{role}`, `{permission}` or `{accountType}` to
+ *   - retired access rules never reach the app:
+ *     `server/utils/tenant.ts:normalizeFeatureAccess` rewrites a feature
+ *     carrying `{group}`, `{role}`, `{permission}` or `{accountType}` to
  *     `{enabled: false}` before the config leaves the server, so those values
  *     have no cell here. The boundary is asserted in
  *     `tests/server/tenant.test.ts` under `buildTenantConfig retired access
@@ -1378,7 +1378,11 @@ export const CONFIG_COVERAGE_MAP = {
       note:
         "AuthSheet's useTenant mock implements hasFeature over a features " +
         'record the same way the real composable does, so both of its cases ' +
-        'write the configured value. The topbar spec answers a predicate on ' +
+        'write the configured value. That re-implementation is a copy of a ' +
+        'one-line function and has to follow useTenant.ts:44: were an absent ' +
+        'key to start counting as enabled there, this mock and the one in ' +
+        'setup-components.ts would both drift without anything turning red. ' +
+        'The topbar spec answers a predicate on ' +
         'the key from an immutable set, so it stays a reader reference and has ' +
         'no disabled case. The second call site is ' +
         'app/components/layout/header/LayoutHeaderTopbar.vue:57. Storefront ' +
