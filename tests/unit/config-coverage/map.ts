@@ -148,6 +148,8 @@ const NEWSLETTER_VISIBILITY =
   'tests/composables/useNewsletterVisibility.test.ts';
 const CMS_SLOT = 'tests/composables/useCmsSlot.test.ts';
 const CMS_MENU = 'tests/composables/useCmsMenu.test.ts';
+const HEADER_NAV = 'tests/components/layout/LayoutHeaderNav.test.ts';
+const SLUG_PAGE = 'tests/unit/pages/slug-catch-all.test.ts';
 const MOBILE_NAV = 'tests/components/layout/MobileNavPanel.test.ts';
 const ANALYTICS_CONSENT = 'tests/composables/useAnalyticsConsent.test.ts';
 const COOKIE_BANNER = 'tests/components/shared/CookieBanner.test.ts';
@@ -2377,22 +2379,36 @@ export const CONFIG_COVERAGE_MAP = {
 
     menus: {
       header_main: {
-        status: 'no-test',
-        consumer: 'app/components/layout/header/LayoutHeaderNav.vue:28',
-        test: {
-          spec: CMS_MENU,
-          title: 'returns the menu config when present',
-          kind: 'reader',
-        },
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title: 'returns the menu config when present',
+            kind: 'reader',
+          },
+          {
+            spec: HEADER_NAV,
+            title:
+              'renders the header_main menu from the configured menuLocationId',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: HEADER_NAV,
+            title:
+              'renders no nav when header_main names a different menuLocationId',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
           'useCmsMenu.test.ts drives this key throughout, so the reader is ' +
-          'asserted for it, including the partial-config case where an empty ' +
-          'menuLocationId reads back as null. LayoutHeaderNav.test.ts mounts ' +
-          'the consumer but mocks useFetch, which binds no key: the menu it ' +
-          'renders is the stubbed response whatever the config says, so there ' +
-          'is nothing to compose with. To lift the cell, stub useCmsMenuData ' +
-          'for this key alone instead of useFetch, the way ' +
-          'MobileNavPanel.test.ts does for mobile_drawer.',
+          'asserted for it. LayoutHeaderNav.test.ts used to stub useFetch ' +
+          'blanket, so the nav rendered the stubbed response whatever the ' +
+          'config said; the stub is now keyed on the menuLocationId the ' +
+          'config produced, which is the id useCmsMenuData puts in the ' +
+          'query. The negative case configures another id with the same menu ' +
+          'available, so the pair goes red if the config stopped deciding.',
       },
       footer: {
         status: 'has-test',
@@ -2481,20 +2497,35 @@ export const CONFIG_COVERAGE_MAP = {
           'that is what lets the consumer compose with the reader here.',
       },
       sidebar_fallback: {
-        status: 'no-test',
-        consumer: 'app/pages/[...slug].vue:93',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title:
+              'resolves the sidebar_fallback menu key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: SLUG_PAGE,
+            title:
+              'passes the menuLocationId cms.menus.sidebar_fallback configures to the sidebar nav',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: SLUG_PAGE,
+            title:
+              'renders no sidebar nav when the tenant configures no sidebar_fallback menu',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
         note:
-          'The reader is asserted for this key. The page spec stubs useCmsMenu ' +
-          'globally to return null for every key, so no consumer test exercises ' +
-          'the configured branch at all. To lift the cell, make that stub ' +
-          'key-aware and return a configured menu for this key, then assert the ' +
-          'sidebar nav renders it.',
-        test: {
-          spec: CMS_MENU,
-          title:
-            'resolves the sidebar_fallback menu key from the tenant config',
-          kind: 'reader',
-        },
+          'The page spec used to stub useCmsMenu to null for every key, so no ' +
+          'consumer ran the configured branch. It now runs the real ' +
+          'composable against a tenant fixture and asserts the id that ' +
+          'reaches PageSidebarNav, so the configured value travels the ' +
+          "app's own path rather than being handed over ready-made.",
       },
     },
   },
