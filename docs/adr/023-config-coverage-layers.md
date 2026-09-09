@@ -82,6 +82,9 @@ sets is that the compiler reads it.
 - The layers fail for different reasons: a red unit test means a behaviour is
   wrong for some config, a red e2e means the stack does not compose for the
   configured tenant.
+- A covered entry means the value is asserted at its consumer — a test of the
+  getter or of a shared reader alone leaves the entry uncovered, with those
+  tests recorded as what is known.
 
 **Trade-off:**
 
@@ -91,9 +94,10 @@ sets is that the compiler reads it.
   that a hostname resolves, a merchant API answers, or a theme reaches the
   browser.
 - Totality is per field, not per feature name: `features` is typed
-  `Record<string, ...>`, so the compiler can force one entry per field of
-  `PublicTenantConfig` but cannot enumerate feature names, and per-feature
-  coverage needs a hand-maintained key union.
+  `Record<string, ...>`, so the compiler cannot enumerate feature names from
+  `PublicTenantConfig`. Per-feature coverage is enumerated from the seeded
+  defaults object instead, which is a second source rather than a hand-written
+  list, and the map is only as total as that object.
 - The e2e target's config is deliberately not pinned as a baseline — e2e only
   ever runs the branch its tenant is in, so a snapshot would guard config
   identity rather than coverage, which lives in the unit layer.
