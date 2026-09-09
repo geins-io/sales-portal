@@ -26,6 +26,14 @@ export interface TestRef {
 }
 
 /**
+ * One reference, or several. A value is often read in more than one place —
+ * the composable getter that exposes it and the consumers that branch on it —
+ * and a single slot would force one to overwrite the other. map.test.ts checks
+ * every entry in a list.
+ */
+export type TestRefs = TestRef | TestRef[];
+
+/**
  * Why a value is or is not covered.
  *
  * `no-consumer` and `no-test` are deliberately separate. They lead to
@@ -39,13 +47,13 @@ export type Coverage =
    * exist — not that the assertion inside is correct or asserts the right
    * thing. The status says what is known, and no more.
    */
-  | { status: 'has-test'; test: TestRef; note?: string }
+  | { status: 'has-test'; test: TestRefs; note?: string }
   /**
    * Nothing in `app/` or `server/` reads this value. An optional `test` records
    * a transport assertion where one exists — the value is carried and merged
    * with proof, just never read.
    */
-  | { status: 'no-consumer'; note: string; test?: TestRef }
+  | { status: 'no-consumer'; note: string; test?: TestRefs }
   /** A consumer exists, named as `file:line`, and no test asserts it. */
   | { status: 'no-test'; consumer: string; note: string };
 

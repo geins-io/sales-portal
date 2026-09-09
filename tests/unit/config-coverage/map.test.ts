@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 
 import { CONFIG_COVERAGE_MAP } from './map';
-import type { Coverage } from './types';
+import type { Coverage, TestRef } from './types';
 
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
@@ -36,6 +36,19 @@ function walk(node: unknown, path: string[] = []): Entry[] {
 
 const ENTRIES = walk(CONFIG_COVERAGE_MAP);
 
+/**
+ * An entry carries one reference or a list of them; every check below wants
+ * the list form, so the widening happens once here.
+ */
+function refsOf(coverage: Coverage): TestRef[] {
+  const ref =
+    coverage.status === 'has-test' || coverage.status === 'no-consumer'
+      ? coverage.test
+      : undefined;
+  if (!ref) return [];
+  return Array.isArray(ref) ? ref : [ref];
+}
+
 /** Cache: the same spec is referenced by many entries. */
 const sourceCache = new Map<string, string | null>();
 
@@ -59,25 +72,37 @@ describe('tenant config coverage map', () => {
     const broken: string[] = [];
 
     for (const { path, coverage } of ENTRIES) {
-      const ref =
-        coverage.status === 'has-test' || coverage.status === 'no-consumer'
-          ? coverage.test
-          : undefined;
-      if (!ref) continue;
-
-      const source = readSpec(ref.spec);
-      if (source === null) {
-        broken.push(`${path}: no such file ${ref.spec}`);
-        continue;
-      }
-      if (!source.includes(ref.title)) {
-        broken.push(
-          `${path}: ${ref.spec} has no title ${JSON.stringify(ref.title)}`,
-        );
+      for (const ref of refsOf(coverage)) {
+        const source = readSpec(ref.spec);
+        if (source === null) {
+          broken.push(`${path}: no such file ${ref.spec}`);
+          continue;
+        }
+        if (!source.includes(ref.title)) {
+          broken.push(
+            `${path}: ${ref.spec} has no title ${JSON.stringify(ref.title)}`,
+          );
+        }
       }
     }
 
     expect(broken).toEqual([]);
+  });
+
+  it('checks every reference of an entry that carries a list', () => {
+    // Guards refsOf: were it to read only the first element, the widening
+    // would silently stop verifying the references added alongside it.
+    const listed = ENTRIES.filter(
+      ({ coverage }) =>
+        (coverage.status === 'has-test' || coverage.status === 'no-consumer') &&
+        Array.isArray(coverage.test),
+    );
+
+    expect(listed.length).toBeGreaterThan(0);
+    for (const { path, coverage } of listed) {
+      const refs = refsOf(coverage);
+      expect(refs.length, path).toBeGreaterThan(1);
+    }
   });
 
   it('every uncovered entry carries a reason', () => {
@@ -111,10 +136,8 @@ describe('tenant config coverage map', () => {
       );
       for (const { path, coverage } of noConsumer) {
         lines.push(`    ${path}`);
-        if (coverage.status === 'no-consumer' && coverage.test) {
-          lines.push(
-            `      carried, with transport asserted in ${coverage.test.spec}`,
-          );
+        for (const ref of refsOf(coverage)) {
+          lines.push(`      carried, with transport asserted in ${ref.spec}`);
         }
       }
     }

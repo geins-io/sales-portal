@@ -17,8 +17,8 @@ const { navigateToMock } = vi.hoisted(() => ({
 
 vi.stubGlobal('navigateTo', navigateToMock);
 
-// Mock the client-helpers module so safeLocationRedirect calls navigateTo
-// regardless of import.meta.client value (which is false in tests).
+// Mock the client-helpers module so the assertion watches navigateTo directly
+// rather than the real safeLocationRedirect's call into it.
 vi.mock('../../../app/utils/client-helpers', () => ({
   safeLocationRedirect: (url: string) =>
     navigateToMock(url, { external: true }),

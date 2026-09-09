@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref, defineComponent, h, Suspense } from 'vue';
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
+import { mockIsCatalogMode } from '../../setup-components';
 
 // ProductDetails uses `await useFetch(...)` so the setup is async. Wrap it
 // in a Suspense boundary, mount full-depth (stubs provided via global.stubs
@@ -267,6 +268,57 @@ describe('ProductDetails', () => {
     mockCanAccess.mockReturnValue(true);
     navigateToMock.mockClear();
     recoverEntityUrlMock.mockClear();
+  });
+
+  describe('purchase actions per mode and access', () => {
+    // canPurchase is `canAccess('orderPlacement') && !isCatalogMode`. Each half
+    // is asserted alone, so neither can start carrying the other.
+    afterEach(() => {
+      mockIsCatalogMode.value = false;
+    });
+
+    it('renders the add-to-cart action in commerce mode with orderPlacement access', async () => {
+      mockProduct.value = makeProduct();
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('hides the add-to-cart action when mode is catalog', async () => {
+      mockIsCatalogMode.value = true;
+      mockProduct.value = makeProduct();
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('hides the add-to-cart action when orderPlacement access is denied', async () => {
+      mockCanAccess.mockImplementation(
+        (name: string) => name !== 'orderPlacement',
+      );
+      mockProduct.value = makeProduct();
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(false);
+    });
   });
 
   describe('content-miss recovery (Problem B)', () => {

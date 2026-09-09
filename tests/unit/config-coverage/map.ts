@@ -66,10 +66,22 @@ const FONTS = 'tests/shared/fonts.test.ts';
 const FEATURE_ACCESS_CLIENT = 'tests/composables/useFeatureAccess.test.ts';
 const FEATURE_ACCESS_SERVER = 'tests/server/feature-access.test.ts';
 const TENANT_SEO = 'tests/plugins/tenant-seo.test.ts';
+const SERVER_TENANT_RESOLUTION = 'tests/server/tenant-resolution-log.test.ts';
 const LOCALE_MARKET = 'tests/server/middleware/locale-market.test.ts';
 const LOCALE_SWITCHER = 'tests/components/LocaleSwitcher.test.ts';
 const MARKET_SWITCHER = 'tests/components/MarketSwitcher.test.ts';
 const GEINS_IMAGE = 'tests/components/GeinsImage.test.ts';
+const CART_DRAWER = 'tests/components/cart/CartDrawer.test.ts';
+const PRODUCT_CARD = 'tests/components/commerce/ProductCard.test.ts';
+const PRODUCT_DETAILS = 'tests/components/pages/ProductDetails.test.ts';
+const ORDER_DETAIL = 'tests/components/pages/order-detail.test.ts';
+const SAVED_LIST_DETAIL = 'tests/components/portal/saved-list-detail.test.ts';
+const CART_ROUTE = 'tests/components/pages/cart.test.ts';
+const CHECKOUT_PAGE = 'tests/components/pages/checkout.test.ts';
+const HEADER_ACTIONS =
+  'tests/components/layout/LayoutHeaderActionButtons.test.ts';
+const SERVER_CHECKOUT = 'tests/unit/api/checkout.test.ts';
+const SERVER_CART = 'tests/server/api/cart.test.ts';
 
 /**
  * The reader chain is the same for every feature: `hasFeature` gates the
@@ -189,31 +201,141 @@ export const CONFIG_COVERAGE_MAP = {
   mode: {
     commerce: {
       status: 'has-test',
-      test: {
-        spec: USE_TENANT,
-        title: 'should be false when mode is commerce',
-      },
+      test: [
+        {
+          spec: USE_TENANT,
+          title: 'should be false when mode is commerce',
+        },
+        {
+          spec: CART_DRAWER,
+          title:
+            'renders the drawer when mode is commerce and orderPlacement access is granted',
+        },
+        {
+          spec: PRODUCT_DETAILS,
+          title:
+            'renders the add-to-cart action in commerce mode with orderPlacement access',
+        },
+        {
+          spec: ORDER_DETAIL,
+          title:
+            'renders the reorder button in commerce mode with reorder access',
+        },
+        {
+          spec: SAVED_LIST_DETAIL,
+          title:
+            'renders the add-to-cart controls in commerce mode with orderPlacement access',
+        },
+        {
+          spec: CART_ROUTE,
+          title: 'renders the cart and does not redirect when mode is commerce',
+        },
+        {
+          spec: CHECKOUT_PAGE,
+          title: 'renders the checkout and does not redirect in commerce mode',
+        },
+        { spec: PRODUCT_CARD, title: 'renders add-to-cart button' },
+        {
+          spec: HEADER_ACTIONS,
+          title: 'renders cart button when orderPlacement access is granted',
+        },
+      ],
+      note:
+        'The getter, then every consumer that branches on it. ' +
+        'Each consumer that also reads an access rule asserts that half separately.',
     },
     catalog: {
       status: 'has-test',
-      test: { spec: USE_TENANT, title: 'should be true when mode is catalog' },
+      test: [
+        { spec: USE_TENANT, title: 'should be true when mode is catalog' },
+        {
+          spec: CART_DRAWER,
+          title: 'does not render the drawer when mode is catalog',
+        },
+        {
+          spec: PRODUCT_DETAILS,
+          title: 'hides the add-to-cart action when mode is catalog',
+        },
+        {
+          spec: ORDER_DETAIL,
+          title: 'hides the reorder button when mode is catalog',
+        },
+        {
+          spec: SAVED_LIST_DETAIL,
+          title: 'hides the add-to-cart controls when mode is catalog',
+        },
+        {
+          spec: CART_ROUTE,
+          title: 'redirects to the start page when mode is catalog',
+        },
+        {
+          spec: CHECKOUT_PAGE,
+          title: 'redirects to the start page when mode is catalog',
+        },
+        {
+          spec: PRODUCT_CARD,
+          title:
+            'hides add-to-cart button in grid variant when catalog mode is active',
+        },
+        {
+          spec: PRODUCT_CARD,
+          title:
+            'hides add-to-cart button in list variant when catalog mode is active',
+        },
+        {
+          spec: HEADER_ACTIONS,
+          title: 'does not render cart button when catalog mode is active',
+        },
+        {
+          spec: SERVER_CHECKOUT,
+          title: 'POST /api/checkout/token returns 403 in catalog mode',
+        },
+        {
+          spec: SERVER_CART,
+          title: 'POST /api/cart returns 403 in catalog mode',
+        },
+      ],
+      note:
+        'Catalog mode is not UI-only: five endpoints reject it with 403, ' +
+        'and every client consumer hides its purchase affordance.',
     },
   },
 
   checkoutMode: {
     custom: {
       status: 'has-test',
-      test: {
-        spec: USE_TENANT,
-        title: 'should return custom checkoutMode when set to custom',
-      },
+      test: [
+        {
+          spec: USE_TENANT,
+          title: 'should return custom checkoutMode when set to custom',
+        },
+        {
+          spec: CHECKOUT_PAGE,
+          title:
+            'renders the in-app form and requests no token when checkoutMode is custom',
+        },
+      ],
     },
     hosted: {
       status: 'has-test',
-      test: {
-        spec: USE_TENANT,
-        title: 'should return checkoutMode from config',
-      },
+      test: [
+        {
+          spec: USE_TENANT,
+          title: 'should return checkoutMode from config',
+        },
+        {
+          spec: CHECKOUT_PAGE,
+          title:
+            'posts the cart id and redirects to the hosted checkout when checkoutMode is hosted',
+        },
+        {
+          spec: CHECKOUT_PAGE,
+          title: 'shows the redirect error when the token call fails',
+        },
+      ],
+      note:
+        'The hand-off is split: the client branch here, the token endpoint in ' +
+        'tests/server/api/checkout/token-post.test.ts.',
     },
   },
 
@@ -958,13 +1080,25 @@ export const CONFIG_COVERAGE_MAP = {
     },
     false: {
       status: 'has-test',
-      test: {
-        spec: TENANT_SEO,
-        title: 'does not call useHead when tenant is inactive',
-      },
+      test: [
+        {
+          spec: TENANT_SEO,
+          title: 'does not call useHead when tenant is inactive',
+        },
+        {
+          spec: SERVER_TENANT_RESOLUTION,
+          title:
+            'inactive tenant: unknown-tenant, negative-cached, nothing written to KV',
+        },
+        {
+          spec: SERVER_TENANT_RESOLUTION,
+          title: 'returns null for an inactive config and leaves it in KV',
+        },
+      ],
       note:
-        'One of the three bail-out consumers is asserted. ' +
-        'app/plugins/tenant-analytics.ts:21 and server/utils/tenant.ts are not.',
+        'The server is where the value decides anything: lookupTenant returns ' +
+        'null, so no config is emitted and the client never sees isActive false. ' +
+        'The bail-outs in the two client plugins are defensive only.',
     },
   },
 

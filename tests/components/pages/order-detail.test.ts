@@ -1,6 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { shallowMountComponent } from '../../utils/component';
 import OrderDetail from '../../../app/pages/portal/orders/[id].vue';
+import { mockIsCatalogMode } from '../../setup-components';
+
+// The page gates reorder on `canAccess('reorder')` — not orderPlacement — so
+// the file declares its own access mock instead of the permissive shared one.
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
+}));
 
 // Hoist mock state so it's available inside vi.mock factories
 const {
@@ -281,6 +289,54 @@ describe('OrderDetail', () => {
     mockAddItem.mockClear();
     mockNavigateTo.mockClear();
     mockAddItem.mockResolvedValue(undefined);
+    mockCanAccess.mockReset();
+    mockCanAccess.mockReturnValue(true);
+  });
+
+  describe('reorder per mode and access', () => {
+    // canReorder is `canAccess('reorder') && !isCatalogMode`. Either half alone
+    // must take the button away.
+    afterEach(() => {
+      mockIsCatalogMode.value = false;
+    });
+
+    it('renders the reorder button in commerce mode with reorder access', () => {
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('hides the reorder button when mode is catalog', () => {
+      mockIsCatalogMode.value = true;
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('hides the reorder button when reorder access is denied', () => {
+      mockCanAccess.mockImplementation((name: string) => name !== 'reorder');
+      mockData.value = makeOrder();
+
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
+        false,
+      );
+    });
   });
 
   describe('loading state', () => {
