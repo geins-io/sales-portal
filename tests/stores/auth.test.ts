@@ -53,14 +53,6 @@ function setLocation(path: string) {
   });
 }
 
-// Force `import.meta.client` to be truthy inside the store so the reload
-// branch runs in unit tests (vitest runs in node, but the store guards
-// the navigation block on this flag).
-Object.defineProperty(import.meta, 'client', {
-  value: true,
-  configurable: true,
-});
-
 describe('useAuthStore', () => {
   const mockUser: AuthUser = {
     authenticated: true,

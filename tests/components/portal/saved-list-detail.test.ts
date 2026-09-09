@@ -1,9 +1,16 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref, nextTick } from 'vue';
 import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import { mockShowIncVat } from '../../setup-components';
+import { mockShowIncVat, mockIsCatalogMode } from '../../setup-components';
+
+// The page's own access gate. The shared mock is permissive, so the denied
+// branch needs a mock this file controls.
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
+vi.mock('../../../app/composables/useFeatureAccess', () => ({
+  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
+}));
 
 // ---------------------------------------------------------------------------
 // Favorites store mock. getListById returns a fixed list regardless of the
@@ -121,6 +128,60 @@ const ListDetailPage =
 function mountPage() {
   return mount(ListDetailPage.default, { global: { stubs } });
 }
+
+describe('Saved list detail purchase actions per mode and access', () => {
+  // canPurchase is `canAccess('orderPlacement') && !isCatalogMode`, and it
+  // gates two separate controls: the bulk add-all button in the toolbar and
+  // the per-row add-to-cart. Both are asserted for each half.
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockCanAccess.mockReset();
+    mockCanAccess.mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    mockIsCatalogMode.value = false;
+  });
+
+  it('renders the add-to-cart controls in commerce mode with orderPlacement access', () => {
+    const wrapper = mountPage();
+
+    expect(wrapper.find('[data-testid="add-all-to-cart-btn"]').exists()).toBe(
+      true,
+    );
+    expect(
+      wrapper.findAll('[data-testid="list-item-add-to-cart"]'),
+    ).toHaveLength(2);
+  });
+
+  it('hides the add-to-cart controls when mode is catalog', () => {
+    mockIsCatalogMode.value = true;
+
+    const wrapper = mountPage();
+
+    expect(wrapper.find('[data-testid="add-all-to-cart-btn"]').exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper.findAll('[data-testid="list-item-add-to-cart"]'),
+    ).toHaveLength(0);
+  });
+
+  it('hides the add-to-cart controls when orderPlacement access is denied', () => {
+    mockCanAccess.mockImplementation(
+      (name: string) => name !== 'orderPlacement',
+    );
+
+    const wrapper = mountPage();
+
+    expect(wrapper.find('[data-testid="add-all-to-cart-btn"]').exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper.findAll('[data-testid="list-item-add-to-cart"]'),
+    ).toHaveLength(0);
+  });
+});
 
 describe('Saved list detail VAT toggle reactivity', () => {
   beforeEach(() => {
