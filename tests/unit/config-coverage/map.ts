@@ -601,6 +601,42 @@ const WATERMARK_NOTE =
   'watermark describe in useTenant.test.ts.';
 
 /**
+ * One `contact.social` leaf. Each has its own set case naming the key, so a
+ * component that switched to another leaf while its title stayed put would show
+ * up; the absent case is one fixture with `social: null`, which is the absent
+ * state of all five at once and is shared the same way
+ * `contact.email`/`contact.phone` share their null case.
+ *
+ * `''` is not a state here: `SafeUrlSchema` rejects an empty string and the
+ * resilient parser strips the leaf, so the field arrives absent. The map gives
+ * these leaves a bare `Coverage` rather than the three string states for that
+ * reason.
+ */
+const SOCIAL_ABSENT: TestRef = {
+  spec: TENANT_SEO,
+  title:
+    'omits sameAs from the Organization schema when no social URL is configured',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+function socialLeaf(setCaseTitle: string): Coverage {
+  return {
+    status: 'has-test',
+    test: [
+      {
+        spec: TENANT_SEO,
+        title: setCaseTitle,
+        kind: 'consumer',
+        drives: 'field',
+      },
+      SOCIAL_ABSENT,
+    ],
+    note: 'The set case for this leaf, and the shared absent case for the whole block.',
+  };
+}
+
+/**
  * A surface colour: forwarded end-to-end and emitted as converted sRGB, both
  * asserted. The fixture writes OKLCH because that is the only shape the app
  * receives — `CoercedColorSchema` normalises every colour through
@@ -1969,19 +2005,34 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: '||',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:115',
-          note: 'Falls back to the brand name; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'falls back to the brand name as the title when defaultTitle is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:115',
-          note: '`||` makes empty behave as absent, which is correct here but unasserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'treats an empty defaultTitle as absent and titles the page with the brand name',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: '`||` makes empty behave as absent, and that is now the assertion.',
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:115',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title: 'titles the page with the configured defaultTitle',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
       },
     },
@@ -1989,19 +2040,34 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: '||',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:114',
-          note: "Falls back to '%s - <brand>'; not asserted.",
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'wraps a page title with the brand pattern when titleTemplate is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: "Falls back to '%s - <brand>', asserted by wrapping a page title through the template.",
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:114',
-          note: '`||` makes empty behave as absent, which is correct here but unasserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'treats an empty titleTemplate as absent and wraps with the brand pattern',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:114',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title: 'wraps a page title through the configured titleTemplate',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
       },
     },
@@ -2009,44 +2075,96 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:55',
-          note: 'The description meta tag is omitted; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'omits the description meta when defaultDescription is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:55',
-          note: 'Truthiness guard treats empty as absent; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'omits the description meta when defaultDescription is empty',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'Truthiness guard treats empty as absent, and both cases are asserted separately.',
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:55',
-          note: 'Also feeds the WebSite schema description; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'renders the configured defaultDescription as the description meta and the WebSite description',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'One test, two consumers: the description meta and the WebSite schema description.',
         },
       },
     },
     defaultKeywords: {
-      status: 'no-test',
-      consumer: 'app/plugins/tenant-seo.ts:63',
-      note: 'An array, not a string: the guard is on length, and no test covers either branch.',
+      status: 'has-test',
+      test: [
+        {
+          spec: TENANT_SEO,
+          title:
+            'renders configured defaultKeywords as a comma-separated keywords meta',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        {
+          spec: TENANT_SEO,
+          title:
+            'omits the keywords meta when defaultKeywords is an empty list',
+          kind: 'consumer',
+          drives: 'field',
+        },
+      ],
+      note:
+        'An array, not a string: the guard is on length, so the two branches ' +
+        'are the set list and the empty list. `normalizeKeywords` turns both ' +
+        "'' and ',' into [], so the empty list is the state that arrives.",
     },
     robots: {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:59',
-          note: 'The only seo leaf the live tenant does not send empty. Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title: 'omits the robots meta when robots is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'The only seo leaf the live tenant does not send empty.',
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:59',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title: 'omits the robots meta when robots is empty',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         set: {
-          status: 'no-test',
-          consumer: 'server/plugins/03.seo-config.ts:41',
-          note: 'Also drives `indexable` server-side through isIndexable; not asserted for a tenant value.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title: 'renders the configured robots value as the robots meta',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note:
+            'The client meta is asserted here. The second consumer, ' +
+            'server/plugins/03.seo-config.ts:41, drives `indexable` through ' +
+            'isIndexable and is not yet asserted for a tenant value.',
         },
       },
     },
@@ -2094,19 +2212,35 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:96',
-          note: 'The google-site-verification meta tag is omitted; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'omits the google-site-verification meta when verification is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:96',
-          note: 'Trimmed before the guard, so empty behaves as absent; not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'omits the google-site-verification meta when verification is empty or whitespace',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'Trimmed before the guard, so the one test covers both empty and whitespace.',
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:96',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'renders the configured verification token as the google-site-verification meta',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
       },
     },
@@ -2221,31 +2355,21 @@ export const CONFIG_COVERAGE_MAP = {
       },
     },
     social: {
-      facebook: {
-        status: 'no-test',
-        consumer: 'app/plugins/tenant-seo.ts:159',
-        note: 'Feeds the Organization schema sameAs list; no test asserts any social leaf.',
-      },
-      instagram: {
-        status: 'no-test',
-        consumer: 'app/plugins/tenant-seo.ts:159',
-        note: 'Feeds the Organization schema sameAs list; no test asserts any social leaf.',
-      },
-      twitter: {
-        status: 'no-test',
-        consumer: 'app/plugins/tenant-seo.ts:159',
-        note: 'Feeds the Organization schema sameAs list; no test asserts any social leaf.',
-      },
-      linkedin: {
-        status: 'no-test',
-        consumer: 'app/plugins/tenant-seo.ts:159',
-        note: 'Feeds the Organization schema sameAs list; no test asserts any social leaf.',
-      },
-      youtube: {
-        status: 'no-test',
-        consumer: 'app/plugins/tenant-seo.ts:159',
-        note: 'Feeds the Organization schema sameAs list; no test asserts any social leaf.',
-      },
+      facebook: socialLeaf(
+        'includes the configured facebook URL in the Organization sameAs list',
+      ),
+      instagram: socialLeaf(
+        'includes the configured instagram URL in the Organization sameAs list',
+      ),
+      twitter: socialLeaf(
+        'includes the configured twitter URL in the Organization sameAs list',
+      ),
+      linkedin: socialLeaf(
+        'includes the configured linkedin URL in the Organization sameAs list',
+      ),
+      youtube: socialLeaf(
+        'includes the configured youtube URL in the Organization sameAs list',
+      ),
     },
   },
 
