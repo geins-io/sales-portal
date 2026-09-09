@@ -387,3 +387,141 @@ describe('generateTenantCss configured colours reach their CSS variable', () => 
     }
   });
 });
+
+/**
+ * The absent side of the 26 optional colours: one reference per derivation
+ * family rather than one test per key, because `deriveThemeColors` has six
+ * rules and 26 assertions of the same arithmetic would prove the arithmetic,
+ * not the field.
+ *
+ * The three *computed* families get two fixtures each, and this is not
+ * thoroughness for its own sake — a single fixture proves one branch and leaves
+ * the other unasserted:
+ *
+ *   - `muted`, `border`, `input`, `sidebar` and `sidebarBorder` branch on
+ *     `bgL > 0.5`, and `mutedForeground` on `fgL > 0.5` (`theme.ts:75/81/88`),
+ *     so a light and a dark core are two different code paths;
+ *   - `ring` branches on `priC > 0.05` (`:94`), and `chart1`/`chart2` scale
+ *     their chroma by `priC` (`:109/114`). On a greyscale core the whole
+ *     primary family degenerates: every chart colour comes out grey and the
+ *     hue rotation is invisible. The greyscale core is measurably useless for
+ *     the charts, which is why the chromatic one exists.
+ *
+ * `topBarText` and `footerText` are the sixth family and need nothing new:
+ * 'emits the documented fallback chain when no surface is set' above is their
+ * reference.
+ */
+const LIGHT_CORE: ThemeColors = {
+  ...CORE_SENTINELS,
+  background: 'oklch(0.90 0 0)',
+  foreground: 'oklch(0.85 0 0)',
+};
+
+const CHROMATIC_CORE: ThemeColors = {
+  ...CORE_SENTINELS,
+  primary: 'oklch(0.50 0.16 175)',
+};
+
+describe('deriveThemeColors fallbacks per derivation family', () => {
+  it('derives card, destructive and its foreground from fixed values that no core changes', () => {
+    // These three ignore the core entirely (theme.ts:139/147/148), so the same
+    // values must come out of two unrelated cores.
+    const fixed: Array<[key: string, expected: string]> = [
+      ['card', '--card: #ffffff;'],
+      ['destructive', '--destructive: #e7000b;'],
+      ['destructiveForeground', '--destructive-foreground: #fafafa;'],
+    ];
+    const dark = generateTenantCss('test', deriveThemeColors(CORE_SENTINELS));
+    const light = generateTenantCss('test', deriveThemeColors(LIGHT_CORE));
+    for (const [key, expected] of fixed) {
+      expect(dark, key).toContain(expected);
+      expect(light, key).toContain(expected);
+    }
+  });
+
+  it('derives ten colours as a verbatim copy of the core colour each names', () => {
+    // [key, its variable and expected value, the core it copies]
+    const copies: Array<[key: string, expected: string, from: string]> = [
+      ['cardForeground', '--card-foreground: #555555;', 'foreground'],
+      ['popover', '--popover: #484848;', 'background'],
+      ['popoverForeground', '--popover-foreground: #555555;', 'foreground'],
+      ['accent', '--accent: #2e2e2e;', 'secondary'],
+      [
+        'accentForeground',
+        '--accent-foreground: #3a3a3a;',
+        'secondaryForeground',
+      ],
+      ['sidebarForeground', '--sidebar-foreground: #555555;', 'foreground'],
+      ['sidebarPrimary', '--sidebar-primary: #161616;', 'primary'],
+      [
+        'sidebarPrimaryForeground',
+        '--sidebar-primary-foreground: #222222;',
+        'primaryForeground',
+      ],
+      ['sidebarAccent', '--sidebar-accent: #2e2e2e;', 'secondary'],
+      [
+        'sidebarAccentForeground',
+        '--sidebar-accent-foreground: #3a3a3a;',
+        'secondaryForeground',
+      ],
+    ];
+    const css = generateTenantCss('test', deriveThemeColors(CORE_SENTINELS));
+    for (const [key, expected, from] of copies) {
+      expect(css, `${key} copies ${from}`).toContain(expected);
+    }
+  });
+
+  it('derives the background family through the dark branch when background is dark', () => {
+    const css = generateTenantCss('test', deriveThemeColors(CORE_SENTINELS));
+    expect(css, 'muted').toContain('--muted: #505050;');
+    expect(css, 'border').toContain('--border: #5d5d5f;');
+    expect(css, 'input').toContain('--input: #5d5d5f;');
+    expect(css, 'sidebar').toContain('--sidebar: #4c4c4c;');
+    expect(css, 'sidebarBorder').toContain('--sidebar-border: #5d5d5f;');
+  });
+
+  it('derives the background family through the light branch when background is light', () => {
+    const css = generateTenantCss('test', deriveThemeColors(LIGHT_CORE));
+    expect(css, 'muted').toContain('--muted: #d4d4d5;');
+    expect(css, 'border').toContain('--border: #c4c4c7;');
+    expect(css, 'input').toContain('--input: #c4c4c7;');
+    expect(css, 'sidebar').toContain('--sidebar: #d9d9d9;');
+    expect(css, 'sidebarBorder').toContain('--sidebar-border: #c4c4c7;');
+  });
+
+  it('derives mutedForeground through the dark branch when foreground is dark', () => {
+    const css = generateTenantCss('test', deriveThemeColors(CORE_SENTINELS));
+    expect(css).toContain('--muted-foreground: #d0d0db;');
+  });
+
+  it('derives mutedForeground through the light branch when foreground is light', () => {
+    const css = generateTenantCss('test', deriveThemeColors(LIGHT_CORE));
+    expect(css).toContain('--muted-foreground: #adadb8;');
+  });
+
+  it('derives ring and every chart colour from a chromatic primary', () => {
+    const css = generateTenantCss('test', deriveThemeColors(CHROMATIC_CORE));
+    expect(css, 'ring').toContain('--ring: #00c49f;');
+    expect(css, 'sidebarRing').toContain('--sidebar-ring: #00c49f;');
+    expect(css, 'chart1').toContain('--chart-1: #00a7a0;');
+    expect(css, 'chart2').toContain('--chart-2: #008b5c;');
+    expect(css, 'chart3').toContain('--chart-3: #007e5e;');
+    expect(css, 'chart4').toContain('--chart-4: #006644;');
+    expect(css, 'chart5').toContain('--chart-5: #005128;');
+    // chart3 is an identity of primary rather than a rule of its own:
+    // formatOklch(priL, min(priC, 0.25), priH). Asserted as hex, not as the
+    // OKLCH string, which derivation re-formats to oklch(0.500 0.160 175.000).
+    expect(css, 'chart3 equals primary').toContain('--primary: #007e5e;');
+  });
+
+  it('derives ring from the neutral fallback when primary carries no chroma', () => {
+    const css = generateTenantCss('test', deriveThemeColors(CORE_SENTINELS));
+    expect(css, 'ring').toContain('--ring: #a1a1a1;');
+    expect(css, 'sidebarRing').toContain('--sidebar-ring: #a1a1a1;');
+    // The chart colours degenerate on this branch: chroma 0 leaves every
+    // rotation grey, which is why the chromatic core above is the one that
+    // proves the hue rotation at all.
+    expect(css, 'chart1').toContain('--chart-1: #3a3a3a;');
+    expect(css, 'chart5').toContain('--chart-5: #010101;');
+  });
+});

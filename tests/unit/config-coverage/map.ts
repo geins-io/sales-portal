@@ -572,9 +572,93 @@ const FAMILY_GROUP: TestRef = {
   drives: 'field',
 };
 
-/** A derived colour, asserted by its group test and nothing else. */
-function groupColor(group: TestRef, note?: string): Coverage {
-  return { status: 'has-test', test: group, ...(note ? { note } : {}) };
+/**
+ * The absent side, one reference per derivation family (`theme.ts:129-188`).
+ * The three computed families carry two references each: a single fixture
+ * proves one branch and leaves the other unasserted — the background and
+ * foreground families branch on `L > 0.5`, and the primary family on
+ * `priC > 0.05`, where a greyscale core also flattens every chart colour to
+ * grey.
+ */
+const FIXED_FALLBACK: TestRef = {
+  spec: TENANT_CSS,
+  title:
+    'derives card, destructive and its foreground from fixed values that no core changes',
+  kind: 'consumer',
+  drives: 'field',
+};
+const COPY_FALLBACK: TestRef = {
+  spec: TENANT_CSS,
+  title: 'derives ten colours as a verbatim copy of the core colour each names',
+  kind: 'consumer',
+  drives: 'field',
+};
+const BG_FAMILY: TestRef[] = [
+  {
+    spec: TENANT_CSS,
+    title:
+      'derives the background family through the dark branch when background is dark',
+    kind: 'consumer',
+    drives: 'field',
+  },
+  {
+    spec: TENANT_CSS,
+    title:
+      'derives the background family through the light branch when background is light',
+    kind: 'consumer',
+    drives: 'field',
+  },
+];
+const FG_FAMILY: TestRef[] = [
+  {
+    spec: TENANT_CSS,
+    title:
+      'derives mutedForeground through the dark branch when foreground is dark',
+    kind: 'consumer',
+    drives: 'field',
+  },
+  {
+    spec: TENANT_CSS,
+    title:
+      'derives mutedForeground through the light branch when foreground is light',
+    kind: 'consumer',
+    drives: 'field',
+  },
+];
+const PRIMARY_FAMILY: TestRef[] = [
+  {
+    spec: TENANT_CSS,
+    title: 'derives ring and every chart colour from a chromatic primary',
+    kind: 'consumer',
+    drives: 'field',
+  },
+  {
+    spec: TENANT_CSS,
+    title:
+      'derives ring from the neutral fallback when primary carries no chroma',
+    kind: 'consumer',
+    drives: 'field',
+  },
+];
+const SURFACE_TEXT_FALLBACK: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits the documented fallback chain when no surface is set',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+/** A derived colour: its group test for the set value, its family for the unset one. */
+function derivedColor(
+  group: TestRef,
+  family: TestRef | TestRef[],
+  note?: string,
+): Coverage {
+  const fam = Array.isArray(family) ? family : [family];
+  return {
+    status: 'has-test',
+    test: [group, ...fam],
+    ...(note ? { note } : {}),
+  };
 }
 
 /**
@@ -1080,32 +1164,32 @@ export const CONFIG_COVERAGE_MAP = {
       },
 
       // The 26 the server derives when the merchant leaves them null.
-      card: groupColor(SEMANTIC_GROUP),
-      cardForeground: groupColor(SEMANTIC_GROUP),
-      popover: groupColor(SEMANTIC_GROUP),
-      popoverForeground: groupColor(SEMANTIC_GROUP),
-      muted: groupColor(SEMANTIC_GROUP),
-      mutedForeground: groupColor(SEMANTIC_GROUP),
-      accent: groupColor(SEMANTIC_GROUP),
-      accentForeground: groupColor(SEMANTIC_GROUP),
-      destructive: groupColor(SEMANTIC_GROUP),
-      destructiveForeground: groupColor(SEMANTIC_GROUP),
-      border: groupColor(EDGES_GROUP),
-      input: groupColor(EDGES_GROUP),
-      ring: groupColor(EDGES_GROUP),
-      chart1: groupColor(CHART_GROUP),
-      chart2: groupColor(CHART_GROUP),
-      chart3: groupColor(CHART_GROUP),
-      chart4: groupColor(CHART_GROUP),
-      chart5: groupColor(CHART_GROUP),
-      sidebar: groupColor(SIDEBAR_GROUP),
-      sidebarForeground: groupColor(SIDEBAR_GROUP),
-      sidebarPrimary: groupColor(SIDEBAR_GROUP),
-      sidebarPrimaryForeground: groupColor(SIDEBAR_GROUP),
-      sidebarAccent: groupColor(SIDEBAR_GROUP),
-      sidebarAccentForeground: groupColor(SIDEBAR_GROUP),
-      sidebarBorder: groupColor(SIDEBAR_GROUP),
-      sidebarRing: groupColor(SIDEBAR_GROUP),
+      card: derivedColor(SEMANTIC_GROUP, FIXED_FALLBACK),
+      cardForeground: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
+      popover: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
+      popoverForeground: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
+      muted: derivedColor(SEMANTIC_GROUP, BG_FAMILY),
+      mutedForeground: derivedColor(SEMANTIC_GROUP, FG_FAMILY),
+      accent: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
+      accentForeground: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
+      destructive: derivedColor(SEMANTIC_GROUP, FIXED_FALLBACK),
+      destructiveForeground: derivedColor(SEMANTIC_GROUP, FIXED_FALLBACK),
+      border: derivedColor(EDGES_GROUP, BG_FAMILY),
+      input: derivedColor(EDGES_GROUP, BG_FAMILY),
+      ring: derivedColor(EDGES_GROUP, PRIMARY_FAMILY),
+      chart1: derivedColor(CHART_GROUP, PRIMARY_FAMILY),
+      chart2: derivedColor(CHART_GROUP, PRIMARY_FAMILY),
+      chart3: derivedColor(CHART_GROUP, PRIMARY_FAMILY),
+      chart4: derivedColor(CHART_GROUP, PRIMARY_FAMILY),
+      chart5: derivedColor(CHART_GROUP, PRIMARY_FAMILY),
+      sidebar: derivedColor(SIDEBAR_GROUP, BG_FAMILY),
+      sidebarForeground: derivedColor(SIDEBAR_GROUP, COPY_FALLBACK),
+      sidebarPrimary: derivedColor(SIDEBAR_GROUP, COPY_FALLBACK),
+      sidebarPrimaryForeground: derivedColor(SIDEBAR_GROUP, COPY_FALLBACK),
+      sidebarAccent: derivedColor(SIDEBAR_GROUP, COPY_FALLBACK),
+      sidebarAccentForeground: derivedColor(SIDEBAR_GROUP, COPY_FALLBACK),
+      sidebarBorder: derivedColor(SIDEBAR_GROUP, BG_FAMILY),
+      sidebarRing: derivedColor(SIDEBAR_GROUP, PRIMARY_FAMILY),
 
       // The eight surfaces, six of which the emitter is asserted on.
       topBarBackground: SURFACE_COLOR,
@@ -1123,12 +1207,14 @@ export const CONFIG_COVERAGE_MAP = {
         },
       },
       buttonPurchaseBackground: SURFACE_COLOR,
-      topBarText: groupColor(
+      topBarText: derivedColor(
         SURFACE_TEXT_GROUP,
+        SURFACE_TEXT_FALLBACK,
         'The unset case falls back to var(--primary-foreground), asserted with the other seven surfaces in the fallback-chain test.',
       ),
-      footerText: groupColor(
+      footerText: derivedColor(
         SURFACE_TEXT_GROUP,
+        SURFACE_TEXT_FALLBACK,
         'The unset case falls back to a hardcoded oklch(0.85 0 0) that converts to #cecece, asserted in the fallback-chain test. That is why this key must never take sentinel L 0.85.',
       ),
     },
