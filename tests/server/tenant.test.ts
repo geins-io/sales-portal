@@ -430,6 +430,46 @@ describe('Tenant utilities', () => {
       expect(built.theme.name).toBe('ocean');
       expect(built.css).toContain("[data-theme='ocean']");
     });
+
+    /**
+     * The group tests in tests/unit/server/utils/tenant-css.test.ts call the
+     * emitter directly. This one covers the hop above it: a configured value
+     * survives `mergeStorefrontSettings`, which deep-merges the canonical
+     * defaults *under* the API response, and still reaches `config.css`.
+     * One test, not 34 — the per-key discrimination is the group tests' job.
+     *
+     * `mergeStorefrontSettings` is the merge in this path, not
+     * `createDefaultTheme`: that one is reached through `backfillCoreColors`
+     * (tenant.ts:771 and :885), which runs inside the resilient parse and
+     * fills only core colours that arrived undefined.
+     */
+    it('carries a configured colour, surface and font family through the merge into config.css', () => {
+      const built = buildTenantConfig({
+        ...baseSettings,
+        theme: {
+          ...baseSettings.theme,
+          colors: {
+            ...baseSettings.theme.colors,
+            primary: 'oklch(0.20 0 0)',
+            card: 'oklch(0.50 0 0)',
+            topBarText: 'oklch(0.55 0 0)',
+          },
+          typography: { fontFamily: 'Sentinel Body' },
+        },
+      });
+
+      // A required core colour, an optional one the server would otherwise
+      // derive, a surface, and a typography family: four different code paths
+      // through the merge, all landing in the same emitted stylesheet.
+      expect(built.css, 'primary').toContain('--primary: #161616;');
+      expect(built.css, 'card').toContain('--card: #636363;');
+      expect(built.css, 'topBarText').toContain('--top-bar-text: #717171;');
+      expect(built.css, 'fontFamily').toContain(
+        "--font-family: 'Sentinel Body', ui-sans-serif, system-ui, sans-serif;",
+      );
+      // The merge must not rewrite the value it was handed.
+      expect(built.theme.colors.primary).toBe('oklch(0.20 0 0)');
+    });
   });
 
   describe('buildTenantConfig override.features resolution', () => {

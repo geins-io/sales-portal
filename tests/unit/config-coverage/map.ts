@@ -572,6 +572,14 @@ const FAMILY_GROUP: TestRef = {
   drives: 'field',
 };
 
+const BUILD_MERGE: TestRef = {
+  spec: SERVER_TENANT,
+  title:
+    'carries a configured colour, surface and font family through the merge into config.css',
+  kind: 'consumer',
+  drives: 'field',
+};
+
 /**
  * The absent side, one reference per derivation family (`theme.ts:129-188`).
  * The three computed families carry two references each: a single fixture
@@ -1106,6 +1114,7 @@ export const CONFIG_COVERAGE_MAP = {
         status: 'has-test',
         test: [
           CORE_GROUP,
+          BUILD_MERGE,
           {
             spec: USE_TENANT,
             title: 'should return primaryColor from theme',
@@ -1164,7 +1173,7 @@ export const CONFIG_COVERAGE_MAP = {
       },
 
       // The 26 the server derives when the merchant leaves them null.
-      card: derivedColor(SEMANTIC_GROUP, FIXED_FALLBACK),
+      card: derivedColor(SEMANTIC_GROUP, [FIXED_FALLBACK, BUILD_MERGE]),
       cardForeground: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
       popover: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
       popoverForeground: derivedColor(SEMANTIC_GROUP, COPY_FALLBACK),
@@ -1209,7 +1218,7 @@ export const CONFIG_COVERAGE_MAP = {
       buttonPurchaseBackground: SURFACE_COLOR,
       topBarText: derivedColor(
         SURFACE_TEXT_GROUP,
-        SURFACE_TEXT_FALLBACK,
+        [SURFACE_TEXT_FALLBACK, BUILD_MERGE],
         'The unset case falls back to var(--primary-foreground), asserted with the other seven surfaces in the fallback-chain test.',
       ),
       footerText: derivedColor(
@@ -1273,6 +1282,7 @@ export const CONFIG_COVERAGE_MAP = {
           status: 'has-test',
           test: [
             FAMILY_GROUP,
+            BUILD_MERGE,
             {
               spec: FONTS,
               title: 'builds URL for a single font family',
