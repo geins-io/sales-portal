@@ -580,7 +580,7 @@ export const CONFIG_COVERAGE_MAP = {
     test: [
       {
         spec: SERVER_TENANT,
-        title: 'collectAllHostnames',
+        title: 'should include hostname and all aliases',
         kind: 'carrier',
       },
       {
