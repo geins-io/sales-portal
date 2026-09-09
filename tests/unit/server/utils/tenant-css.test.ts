@@ -37,23 +37,33 @@ describe('generateTenantCss surface colors', () => {
     expect(css).not.toContain('oklch(0.7 0.1 20)');
   });
 
-  it('emits all six surface vars verbatim when every surface is set', () => {
+  // Sentinels are greyscale OKLCH with L in steps of 0.05, which makes each
+  // expected hex a pure function of L and keeps neighbours a clear byte apart.
+  // OKLCH rather than hex because that is the only shape the app receives: the
+  // store settings schema normalises every colour through coerceToOklch, and
+  // toSafariSafeColor returns a non-oklch value untouched, so a hex fixture
+  // would skip the conversion these vars depend on. L 0.20 and 0.25 are kept
+  // away from footerBackground, whose fallback #171717 sits next to L 0.20's
+  // #161616. Expected values are written literally: running the sentinel
+  // through the converter here would only prove the converter agrees with
+  // itself.
+  it('emits all six surface vars as converted sRGB when every surface is set', () => {
     const derived = deriveThemeColors({
       ...coreColors,
-      topBarBackground: '#111111',
-      footerBackground: '#222222',
-      navBarBackground: '#FFFFFF',
-      siteBackground: '#FAFAFA',
-      buttonBackground: '#824f4f',
-      buttonPurchaseBackground: '#4a497e',
+      topBarBackground: 'oklch(0.30 0 0)',
+      footerBackground: 'oklch(0.35 0 0)',
+      navBarBackground: 'oklch(0.40 0 0)',
+      siteBackground: 'oklch(0.45 0 0)',
+      buttonBackground: 'oklch(0.50 0 0)',
+      buttonPurchaseBackground: 'oklch(0.55 0 0)',
     });
     const css = generateTenantCss('test', derived);
-    expect(css).toContain('--top-bar-background: #111111;');
-    expect(css).toContain('--footer-background: #222222;');
-    expect(css).toContain('--nav-bar-background: #FFFFFF;');
-    expect(css).toContain('--site-background: #FAFAFA;');
-    expect(css).toContain('--button-background: #824f4f;');
-    expect(css).toContain('--button-purchase-background: #4a497e;');
+    expect(css).toContain('--top-bar-background: #2e2e2e;');
+    expect(css).toContain('--footer-background: #3a3a3a;');
+    expect(css).toContain('--nav-bar-background: #484848;');
+    expect(css).toContain('--site-background: #555555;');
+    expect(css).toContain('--button-background: #636363;');
+    expect(css).toContain('--button-purchase-background: #717171;');
   });
 
   it('emits the documented fallback chain when no surface is set', () => {
@@ -68,15 +78,19 @@ describe('generateTenantCss surface colors', () => {
     expect(css).toContain(
       '--button-purchase-background: var(--button-background);',
     );
+    // The two text surfaces fall back through the same chain: one to a var
+    // reference, one to a hardcoded OKLCH that is converted like any other.
+    expect(css).toContain('--top-bar-text: var(--primary-foreground);');
+    expect(css).toContain('--footer-text: #cecece;');
   });
 
   it('chains buttonPurchaseBackground through buttonBackground when only buttonBackground is set', () => {
     const derived = deriveThemeColors({
       ...coreColors,
-      buttonBackground: '#824f4f',
+      buttonBackground: 'oklch(0.50 0 0)',
     });
     const css = generateTenantCss('test', derived);
-    expect(css).toContain('--button-background: #824f4f;');
+    expect(css).toContain('--button-background: #636363;');
     expect(css).toContain(
       '--button-purchase-background: var(--button-background);',
     );
@@ -89,10 +103,12 @@ describe('generateTenantCss surface colors', () => {
   });
 
   it('emits no oklch() in the color block so older Safari can parse every var', () => {
+    // Both surfaces are OKLCH: a hex input satisfies the negative assertion
+    // below without the emitter having converted anything.
     const derived = deriveThemeColors({
       ...coreColors,
       topBarBackground: 'oklch(0.5 0.16 175)',
-      buttonBackground: '#824f4f',
+      buttonBackground: 'oklch(0.50 0 0)',
     });
     const css = generateTenantCss('test', derived);
     // No override.css here: every emitted color var must be sRGB.

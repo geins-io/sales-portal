@@ -600,16 +600,24 @@ const WATERMARK_NOTE =
   'takes, so those tests are not referenced. The getter is asserted by the ' +
   'watermark describe in useTenant.test.ts.';
 
-/** A surface colour: forwarded end-to-end and emitted verbatim, both asserted. */
+/**
+ * A surface colour: forwarded end-to-end and emitted as converted sRGB, both
+ * asserted. The fixture writes OKLCH because that is the only shape the app
+ * receives — `CoercedColorSchema` normalises every colour through
+ * `coerceToOklch`, and `toSafariSafeColor` returns a non-oklch value untouched,
+ * so a hex fixture would prove the chain on a value format production cannot
+ * deliver.
+ */
 const SURFACE_COLOR = {
   status: 'has-test',
   test: {
     spec: TENANT_CSS,
-    title: 'emits all six surface vars verbatim when every surface is set',
+    title:
+      'emits all six surface vars as converted sRGB when every surface is set',
     kind: 'consumer',
     drives: 'field',
   },
-  note: "The unset case is asserted by 'emits the documented fallback chain when no surface is set'.",
+  note: "The unset case is asserted by 'emits the documented fallback chain when no surface is set', which covers all eight surface fallbacks including the two text ones.",
 } as const;
 
 export const CONFIG_COVERAGE_MAP = {
@@ -1033,14 +1041,20 @@ export const CONFIG_COVERAGE_MAP = {
       },
       buttonPurchaseBackground: SURFACE_COLOR,
       topBarText: unassertedColor(
-        'Named in the schema round-trip and in the resilience key list, but no ' +
-          'test asserts it emits a CSS variable. The six background surfaces ' +
-          'around it are asserted; these two text surfaces were not carried along.',
+        "The unset case is asserted with the other seven surfaces in 'emits " +
+          "the documented fallback chain when no surface is set'; no test sets " +
+          'a value and follows it to the emitted CSS variable. Not referenced ' +
+          "yet: on the map's own kind rules an absent-state assertion at the " +
+          'emitter reads as consumer/field and would lift the cell, which is a ' +
+          'claim the set case should carry.',
       ),
       footerText: unassertedColor(
-        'Named in the schema round-trip and in the resilience key list, but no ' +
-          'test asserts it emits a CSS variable. The six background surfaces ' +
-          'around it are asserted; these two text surfaces were not carried along.',
+        "The unset case is asserted with the other seven surfaces in 'emits " +
+          "the documented fallback chain when no surface is set'; no test sets " +
+          'a value and follows it to the emitted CSS variable. Not referenced ' +
+          "yet: on the map's own kind rules an absent-state assertion at the " +
+          'emitter reads as consumer/field and would lift the cell, which is a ' +
+          'claim the set case should carry.',
       ),
     },
 
