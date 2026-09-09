@@ -519,24 +519,83 @@ function unconsumedFeature(note: string) {
 }
 
 /**
- * A colour the theme pipeline carries but no test follows to its CSS variable.
- * `deriveThemeColors` is asserted to return all 40 keys, and the resilient
- * parser is asserted to survive garbage in any of them, but neither says a
- * configured value reaches the emitted stylesheet.
+ * The group test that asserts a configured value for this colour reaches its
+ * own CSS variable. One test per colour group the type names; the fixture
+ * writes every key in the group and a separate assertion discriminates each
+ * one, so flipping one sentinel fails exactly that key's assertion. The proof
+ * was run once per group: seven flips, seven runs, one red each, the key named
+ * in the failure message.
  */
-function unassertedColor(note: string) {
-  return {
-    status: 'no-test',
-    consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-    note,
-  } as const;
+const CORE_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits each of the six core colours as its own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+const SEMANTIC_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title:
+    'emits each of the ten semantic surface colours as its own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+const EDGES_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits each of the three edge colours as its own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+const CHART_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits each of the five chart colours as its own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+const SIDEBAR_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title:
+    'emits each of the eight sidebar colours as its own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+const SURFACE_TEXT_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits both surface text colours as their own converted variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+const FAMILY_GROUP: TestRef = {
+  spec: TENANT_CSS,
+  title: 'emits each of the three typography families as its own variable',
+  kind: 'consumer',
+  drives: 'field',
+};
+
+/** A derived colour, asserted by its group test and nothing else. */
+function groupColor(group: TestRef, note?: string): Coverage {
+  return { status: 'has-test', test: group, ...(note ? { note } : {}) };
 }
 
-const COLOR_PRESENCE_ONLY = unassertedColor(
-  "Presence is asserted collectively ('returns 40 keys total (32 standard + 8 " +
-    "surfaces)' in tests/unit/server/utils/theme.test.ts); no test asserts a " +
-    'set value reaches the emitted CSS variable.',
-);
+/**
+ * The schema requires the six core colours. The test omits five of them and
+ * asserts rejection, which proves the requirement for each — and nothing about
+ * any value — so it hangs on those five as `carrier`.
+ */
+const COLOR_REQUIRED: TestRef = {
+  spec: API_CONTRACTS,
+  title: 'should reject TenantConfig with invalid theme colors',
+  kind: 'carrier',
+};
+
+/** A required colour: the group test for the value, the schema for the requirement. */
+function requiredColor(): Coverage {
+  return {
+    status: 'has-test',
+    test: [CORE_GROUP, COLOR_REQUIRED],
+    note: 'The group test for the emitted value, the schema for the requirement.',
+  };
+}
 
 /**
  * The five branding URL fields are parsed by `SafeUrlSchema`, which rejects an
@@ -555,31 +614,6 @@ function unreachableEmptyUrl(consumer: string) {
       'absent and the `absent` row above is the one that matters. The strip ' +
       "mechanism is asserted for the theme colours in 'strips multiple bad " +
       "leaves and logs each one', not for this field.",
-  } as const;
-}
-
-/**
- * The schema requires the six core colours. The test omits five of them and
- * asserts rejection, which proves the requirement for each — and nothing about
- * any value — so it hangs on those five as `carrier`.
- */
-const COLOR_REQUIRED: TestRef = {
-  spec: API_CONTRACTS,
-  title: 'should reject TenantConfig with invalid theme colors',
-  kind: 'carrier',
-};
-
-/** A required colour whose only proof is the requirement itself. */
-function requiredColor() {
-  return {
-    status: 'no-test',
-    consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-    note:
-      "Presence is asserted collectively ('returns 40 keys total (32 standard + 8 " +
-      "surfaces)' in tests/unit/server/utils/theme.test.ts) and the schema " +
-      'requirement individually; no test asserts a set value reaches the ' +
-      'emitted CSS variable.',
-    test: COLOR_REQUIRED,
   } as const;
 }
 
@@ -985,12 +1019,9 @@ export const CONFIG_COVERAGE_MAP = {
     colors: {
       // The six the merchant must set.
       primary: {
-        status: 'no-test',
-        consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-        note:
-          'The getter, the schema coercion and the schema requirement are ' +
-          'asserted; no test asserts a set value reaches the emitted CSS variable.',
+        status: 'has-test',
         test: [
+          CORE_GROUP,
           {
             spec: USE_TENANT,
             title: 'should return primaryColor from theme',
@@ -1003,13 +1034,18 @@ export const CONFIG_COVERAGE_MAP = {
           },
           COLOR_REQUIRED,
         ],
+        note:
+          'The core group test for the value, plus the getter and the schema ' +
+          "coercion. 'emits no oklch() in the color block so older Safari can " +
+          "parse every var' also pins --primary for a chromatic core, but it " +
+          'is referenced on `css` as `carrier` and a kind belongs to the test, ' +
+          'not to the entry, so it is not repeated here as a consumer.',
       },
       primaryForeground: requiredColor(),
       secondary: {
-        status: 'no-test',
-        consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-        note: 'Only the getter fallback and the schema requirement are asserted; no test sets a value and follows it to the emitted CSS variable.',
+        status: 'has-test',
         test: [
+          CORE_GROUP,
           {
             spec: USE_TENANT,
             title: 'should return secondaryColor with default fallback',
@@ -1020,20 +1056,20 @@ export const CONFIG_COVERAGE_MAP = {
       },
       secondaryForeground: requiredColor(),
       background: {
-        status: 'no-test',
-        consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-        note: 'Only the getter fallback is asserted; no test sets a value and follows it to the emitted CSS variable.',
-        test: {
-          spec: USE_TENANT,
-          title: 'should return backgroundColor with default fallback',
-          kind: 'carrier',
-        },
+        status: 'has-test',
+        test: [
+          CORE_GROUP,
+          {
+            spec: USE_TENANT,
+            title: 'should return backgroundColor with default fallback',
+            kind: 'carrier',
+          },
+        ],
       },
       foreground: {
-        status: 'no-test',
-        consumer: 'server/utils/tenant-css.ts:generateTenantCss',
-        note: 'Only the getter fallback and the schema requirement are asserted; no test sets a value and follows it to the emitted CSS variable.',
+        status: 'has-test',
         test: [
+          CORE_GROUP,
           {
             spec: USE_TENANT,
             title: 'should return foregroundColor with default fallback',
@@ -1044,32 +1080,32 @@ export const CONFIG_COVERAGE_MAP = {
       },
 
       // The 26 the server derives when the merchant leaves them null.
-      card: COLOR_PRESENCE_ONLY,
-      cardForeground: COLOR_PRESENCE_ONLY,
-      popover: COLOR_PRESENCE_ONLY,
-      popoverForeground: COLOR_PRESENCE_ONLY,
-      muted: COLOR_PRESENCE_ONLY,
-      mutedForeground: COLOR_PRESENCE_ONLY,
-      accent: COLOR_PRESENCE_ONLY,
-      accentForeground: COLOR_PRESENCE_ONLY,
-      destructive: COLOR_PRESENCE_ONLY,
-      destructiveForeground: COLOR_PRESENCE_ONLY,
-      border: COLOR_PRESENCE_ONLY,
-      input: COLOR_PRESENCE_ONLY,
-      ring: COLOR_PRESENCE_ONLY,
-      chart1: COLOR_PRESENCE_ONLY,
-      chart2: COLOR_PRESENCE_ONLY,
-      chart3: COLOR_PRESENCE_ONLY,
-      chart4: COLOR_PRESENCE_ONLY,
-      chart5: COLOR_PRESENCE_ONLY,
-      sidebar: COLOR_PRESENCE_ONLY,
-      sidebarForeground: COLOR_PRESENCE_ONLY,
-      sidebarPrimary: COLOR_PRESENCE_ONLY,
-      sidebarPrimaryForeground: COLOR_PRESENCE_ONLY,
-      sidebarAccent: COLOR_PRESENCE_ONLY,
-      sidebarAccentForeground: COLOR_PRESENCE_ONLY,
-      sidebarBorder: COLOR_PRESENCE_ONLY,
-      sidebarRing: COLOR_PRESENCE_ONLY,
+      card: groupColor(SEMANTIC_GROUP),
+      cardForeground: groupColor(SEMANTIC_GROUP),
+      popover: groupColor(SEMANTIC_GROUP),
+      popoverForeground: groupColor(SEMANTIC_GROUP),
+      muted: groupColor(SEMANTIC_GROUP),
+      mutedForeground: groupColor(SEMANTIC_GROUP),
+      accent: groupColor(SEMANTIC_GROUP),
+      accentForeground: groupColor(SEMANTIC_GROUP),
+      destructive: groupColor(SEMANTIC_GROUP),
+      destructiveForeground: groupColor(SEMANTIC_GROUP),
+      border: groupColor(EDGES_GROUP),
+      input: groupColor(EDGES_GROUP),
+      ring: groupColor(EDGES_GROUP),
+      chart1: groupColor(CHART_GROUP),
+      chart2: groupColor(CHART_GROUP),
+      chart3: groupColor(CHART_GROUP),
+      chart4: groupColor(CHART_GROUP),
+      chart5: groupColor(CHART_GROUP),
+      sidebar: groupColor(SIDEBAR_GROUP),
+      sidebarForeground: groupColor(SIDEBAR_GROUP),
+      sidebarPrimary: groupColor(SIDEBAR_GROUP),
+      sidebarPrimaryForeground: groupColor(SIDEBAR_GROUP),
+      sidebarAccent: groupColor(SIDEBAR_GROUP),
+      sidebarAccentForeground: groupColor(SIDEBAR_GROUP),
+      sidebarBorder: groupColor(SIDEBAR_GROUP),
+      sidebarRing: groupColor(SIDEBAR_GROUP),
 
       // The eight surfaces, six of which the emitter is asserted on.
       topBarBackground: SURFACE_COLOR,
@@ -1087,21 +1123,13 @@ export const CONFIG_COVERAGE_MAP = {
         },
       },
       buttonPurchaseBackground: SURFACE_COLOR,
-      topBarText: unassertedColor(
-        "The unset case is asserted with the other seven surfaces in 'emits " +
-          "the documented fallback chain when no surface is set'; no test sets " +
-          'a value and follows it to the emitted CSS variable. Not referenced ' +
-          "yet: on the map's own kind rules an absent-state assertion at the " +
-          'emitter reads as consumer/field and would lift the cell, which is a ' +
-          'claim the set case should carry.',
+      topBarText: groupColor(
+        SURFACE_TEXT_GROUP,
+        'The unset case falls back to var(--primary-foreground), asserted with the other seven surfaces in the fallback-chain test.',
       ),
-      footerText: unassertedColor(
-        "The unset case is asserted with the other seven surfaces in 'emits " +
-          "the documented fallback chain when no surface is set'; no test sets " +
-          'a value and follows it to the emitted CSS variable. Not referenced ' +
-          "yet: on the map's own kind rules an absent-state assertion at the " +
-          'emitter reads as consumer/field and would lift the cell, which is a ' +
-          'claim the set case should carry.',
+      footerText: groupColor(
+        SURFACE_TEXT_GROUP,
+        'The unset case falls back to a hardcoded oklch(0.85 0 0) that converts to #cecece, asserted in the fallback-chain test. That is why this key must never take sentinel L 0.85.',
       ),
     },
 
@@ -1156,36 +1184,44 @@ export const CONFIG_COVERAGE_MAP = {
       },
       families: {
         fontFamily: {
-          status: 'no-test',
-          consumer: 'server/utils/tenant-css.ts:162',
-          note: 'The only required family. The fonts URL is asserted; the CSS variable it becomes is not.',
-          test: {
-            spec: FONTS,
-            title: 'builds URL for a single font family',
-            kind: 'reader',
-          },
+          status: 'has-test',
+          test: [
+            FAMILY_GROUP,
+            {
+              spec: FONTS,
+              title: 'builds URL for a single font family',
+              kind: 'reader',
+            },
+          ],
+          note: 'The only required family. The emitted CSS variable and the fonts URL.',
         },
         headingFontFamily: {
-          status: 'no-test',
-          consumer: 'server/utils/tenant-css.ts:169',
+          status: 'has-test',
+          test: [
+            FAMILY_GROUP,
+            {
+              spec: FONTS,
+              title: 'skips null heading and mono families',
+              kind: 'reader',
+            },
+          ],
           note:
-            'The fonts URL is asserted for both branches. The CSS side is not: ' +
-            'the consumer falls back to fontFamily through `??`, and no test covers that.',
-          test: {
-            spec: FONTS,
-            title: 'skips null heading and mono families',
-            kind: 'reader',
-          },
+            'Absent is not "no variable" here: the consumer falls back to ' +
+            'fontFamily through `??` (tenant-css.ts:169), so the variable is ' +
+            'still emitted carrying the body family. monoFontFamily absent ' +
+            'emits nothing at all — two different absent shapes in one group.',
         },
         monoFontFamily: {
-          status: 'no-test',
-          consumer: 'server/utils/tenant-css.ts:177',
-          note: 'Same as headingFontFamily: the fonts URL is asserted, the CSS variable is not.',
-          test: {
-            spec: FONTS,
-            title: 'skips null heading and mono families',
-            kind: 'reader',
-          },
+          status: 'has-test',
+          test: [
+            FAMILY_GROUP,
+            {
+              spec: FONTS,
+              title: 'skips null heading and mono families',
+              kind: 'reader',
+            },
+          ],
+          note: 'Unlike headingFontFamily, absent emits no variable at all.',
         },
       },
     },

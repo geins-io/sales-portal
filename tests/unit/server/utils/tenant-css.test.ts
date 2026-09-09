@@ -195,3 +195,195 @@ describe('generateTenantCss override.css', () => {
     expect(css).toContain('--weird:   spaced  value  ;');
   });
 });
+
+/**
+ * One test per colour group the type names, seven groups over the 34 keys plus
+ * the three typography families.
+ *
+ * A test may hang on several cells only when the fixture writes each of them
+ * and a separate assertion discriminates each one: flip one sentinel and
+ * exactly that assertion falls. The assertions are driven off the same table
+ * the fixture is built from, so a key cannot be written without also being
+ * asserted — the flip proof shows the flipped key's assertion bites, and the
+ * table is what guarantees its siblings have one at all.
+ *
+ * Sentinels are greyscale OKLCH (chroma 0, hue 0) with L in steps of 0.05.
+ * Greyscale makes the emitted hex a pure function of L, so each expected value
+ * is checkable in one line. Do not tighten the step: two L values a hundredth
+ * apart can round to the same hex, and then an assertion passes on a
+ * neighbour's value. Each sentinel is also chosen to differ from the value its
+ * own key falls back to when unset — `footerText` must never get L 0.85,
+ * because its fallback `oklch(0.85 0 0)` converts to the same `#cecece` and the
+ * test would pass with the configured value dropped.
+ *
+ * Expected hex values are written literally. Running the sentinel through
+ * `toSafariSafeColor` inside the assertion would only prove the converter
+ * agrees with itself, and a conversion regression would keep it green.
+ */
+type ColorCase = [
+  key: keyof ThemeColors,
+  cssVar: string,
+  sentinel: string,
+  expected: string,
+];
+
+/** The shared core fixture every group below writes; the core group's own sentinels. */
+const CORE_CASES: ColorCase[] = [
+  ['primary', '--primary', 'oklch(0.20 0 0)', '#161616'],
+  ['primaryForeground', '--primary-foreground', 'oklch(0.25 0 0)', '#222222'],
+  ['secondary', '--secondary', 'oklch(0.30 0 0)', '#2e2e2e'],
+  [
+    'secondaryForeground',
+    '--secondary-foreground',
+    'oklch(0.35 0 0)',
+    '#3a3a3a',
+  ],
+  ['background', '--background', 'oklch(0.40 0 0)', '#484848'],
+  ['foreground', '--foreground', 'oklch(0.45 0 0)', '#555555'],
+];
+
+const CORE_SENTINELS: ThemeColors = {
+  primary: 'oklch(0.20 0 0)',
+  primaryForeground: 'oklch(0.25 0 0)',
+  secondary: 'oklch(0.30 0 0)',
+  secondaryForeground: 'oklch(0.35 0 0)',
+  background: 'oklch(0.40 0 0)',
+  foreground: 'oklch(0.45 0 0)',
+};
+
+function emitFor(cases: ColorCase[], base: ThemeColors = CORE_SENTINELS) {
+  const overrides: Partial<Record<keyof ThemeColors, string>> = {};
+  for (const [key, , sentinel] of cases) overrides[key] = sentinel;
+  return generateTenantCss(
+    'test',
+    deriveThemeColors({ ...base, ...overrides }),
+  );
+}
+
+function expectEachCase(css: string, cases: ColorCase[]) {
+  for (const [key, cssVar, , expected] of cases) {
+    expect(css, key).toContain(`${cssVar}: ${expected};`);
+  }
+}
+
+describe('generateTenantCss configured colours reach their CSS variable', () => {
+  it('emits each of the six core colours as its own converted variable', () => {
+    expectEachCase(emitFor(CORE_CASES), CORE_CASES);
+  });
+
+  it('emits each of the ten semantic surface colours as its own converted variable', () => {
+    const cases: ColorCase[] = [
+      ['card', '--card', 'oklch(0.50 0 0)', '#636363'],
+      ['cardForeground', '--card-foreground', 'oklch(0.55 0 0)', '#717171'],
+      ['popover', '--popover', 'oklch(0.60 0 0)', '#808080'],
+      [
+        'popoverForeground',
+        '--popover-foreground',
+        'oklch(0.65 0 0)',
+        '#8f8f8f',
+      ],
+      ['muted', '--muted', 'oklch(0.70 0 0)', '#9e9e9e'],
+      ['mutedForeground', '--muted-foreground', 'oklch(0.75 0 0)', '#aeaeae'],
+      ['accent', '--accent', 'oklch(0.80 0 0)', '#bebebe'],
+      ['accentForeground', '--accent-foreground', 'oklch(0.85 0 0)', '#cecece'],
+      ['destructive', '--destructive', 'oklch(0.90 0 0)', '#dedede'],
+      [
+        'destructiveForeground',
+        '--destructive-foreground',
+        'oklch(0.95 0 0)',
+        '#eeeeee',
+      ],
+    ];
+    expectEachCase(emitFor(cases), cases);
+  });
+
+  it('emits each of the three edge colours as its own converted variable', () => {
+    const cases: ColorCase[] = [
+      ['border', '--border', 'oklch(0.50 0 0)', '#636363'],
+      ['input', '--input', 'oklch(0.55 0 0)', '#717171'],
+      ['ring', '--ring', 'oklch(0.60 0 0)', '#808080'],
+    ];
+    expectEachCase(emitFor(cases), cases);
+  });
+
+  it('emits each of the five chart colours as its own converted variable', () => {
+    const cases: ColorCase[] = [
+      ['chart1', '--chart-1', 'oklch(0.50 0 0)', '#636363'],
+      ['chart2', '--chart-2', 'oklch(0.55 0 0)', '#717171'],
+      ['chart3', '--chart-3', 'oklch(0.60 0 0)', '#808080'],
+      ['chart4', '--chart-4', 'oklch(0.65 0 0)', '#8f8f8f'],
+      ['chart5', '--chart-5', 'oklch(0.70 0 0)', '#9e9e9e'],
+    ];
+    expectEachCase(emitFor(cases), cases);
+  });
+
+  it('emits each of the eight sidebar colours as its own converted variable', () => {
+    const cases: ColorCase[] = [
+      ['sidebar', '--sidebar', 'oklch(0.50 0 0)', '#636363'],
+      [
+        'sidebarForeground',
+        '--sidebar-foreground',
+        'oklch(0.55 0 0)',
+        '#717171',
+      ],
+      ['sidebarPrimary', '--sidebar-primary', 'oklch(0.60 0 0)', '#808080'],
+      [
+        'sidebarPrimaryForeground',
+        '--sidebar-primary-foreground',
+        'oklch(0.65 0 0)',
+        '#8f8f8f',
+      ],
+      ['sidebarAccent', '--sidebar-accent', 'oklch(0.70 0 0)', '#9e9e9e'],
+      [
+        'sidebarAccentForeground',
+        '--sidebar-accent-foreground',
+        'oklch(0.75 0 0)',
+        '#aeaeae',
+      ],
+      ['sidebarBorder', '--sidebar-border', 'oklch(0.80 0 0)', '#bebebe'],
+      ['sidebarRing', '--sidebar-ring', 'oklch(0.85 0 0)', '#cecece'],
+    ];
+    expectEachCase(emitFor(cases), cases);
+  });
+
+  it('emits both surface text colours as their own converted variable', () => {
+    // L 0.85 is deliberately absent here: it is footerText's own fallback.
+    const cases: ColorCase[] = [
+      ['topBarText', '--top-bar-text', 'oklch(0.50 0 0)', '#636363'],
+      ['footerText', '--footer-text', 'oklch(0.55 0 0)', '#717171'],
+    ];
+    expectEachCase(emitFor(cases), cases);
+  });
+
+  it('emits each of the three typography families as its own variable', () => {
+    // Font names, not colours, and each family has its own fallback stack.
+    const cases: Array<[key: string, expected: string]> = [
+      [
+        'fontFamily',
+        "--font-family: 'Sentinel Body', ui-sans-serif, system-ui, sans-serif;",
+      ],
+      [
+        'headingFontFamily',
+        "--heading-font-family: 'Sentinel Heading', ui-sans-serif, system-ui, sans-serif;",
+      ],
+      [
+        'monoFontFamily',
+        "--mono-font-family: 'Sentinel Mono', ui-monospace, 'SFMono-Regular', monospace;",
+      ],
+    ];
+    const css = generateTenantCss(
+      'test',
+      deriveThemeColors({ ...CORE_SENTINELS }),
+      null,
+      null,
+      {
+        fontFamily: 'Sentinel Body',
+        headingFontFamily: 'Sentinel Heading',
+        monoFontFamily: 'Sentinel Mono',
+      },
+    );
+    for (const [key, expected] of cases) {
+      expect(css, key).toContain(expected);
+    }
+  });
+});
