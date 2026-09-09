@@ -95,6 +95,7 @@ const SERVER_TENANT = 'tests/server/tenant.test.ts';
 const TENANT_CSS = 'tests/unit/server/utils/tenant-css.test.ts';
 const BRAND_LOGO = 'tests/components/Logo.test.ts';
 const FOOTER_MAIN = 'tests/components/layout/LayoutFooterMain.test.ts';
+const LAYOUT_FOOTER = 'tests/components/layout/LayoutFooter.test.ts';
 const FONTS = 'tests/shared/fonts.test.ts';
 const FEATURE_ACCESS_CLIENT = 'tests/composables/useFeatureAccess.test.ts';
 const FEATURE_ACCESS_SERVER = 'tests/server/feature-access.test.ts';
@@ -1404,11 +1405,28 @@ export const CONFIG_COVERAGE_MAP = {
           },
         ],
       },
+      cells: visibilityCells(LAYOUT_FOOTER, {
+        openRule:
+          'shows the newsletter when newsletterSignup is enabled with no access rule',
+        disabled: 'hides the newsletter when newsletterSignup is disabled',
+        accessAll:
+          'shows the newsletter when newsletterSignup access is open to all',
+        anonymous:
+          'hides the newsletter when newsletterSignup requires authentication and the user is anonymous',
+        signedIn:
+          'shows the newsletter when newsletterSignup requires authentication and the user is signed in',
+      }),
       note:
         'The key is read through NEWSLETTER_FEATURE_KEY, not as a literal. ' +
         'useNewsletterVisibility.test.ts asserts the composable for all three ' +
-        'configured states, but the composable sits between the config and the ' +
-        'footer, so those are reader references and no cell reaches has-test.',
+        'configured states, and those stay reader references because the ' +
+        'composable sits between the config and the footer. The footer spec ' +
+        'un-mocks useFeatureAccess and writes the configured value into the ' +
+        'tenant fixture, so the real composable runs and the gate on ' +
+        'LayoutFooterTop is asserted per cell. Storefront settings offers no ' +
+        'access choice for this key, but useNewsletterVisibility does call ' +
+        'canAccess, so a rule arriving from the seeded defaults or a features ' +
+        'override is obeyed — which is why these are cells and not no-consumer.',
     }),
     orderHistory: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
