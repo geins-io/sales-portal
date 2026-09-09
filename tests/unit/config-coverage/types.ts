@@ -14,16 +14,87 @@ import type { CmsSlotKey } from '~~/shared/types/cms-slots';
 import type { CmsMenuKey } from '~~/shared/constants/cms';
 
 /**
- * A pointer into the suite. `title` is a `describe` or `it` title copied
- * verbatim; map.test.ts checks that the file exists and contains the title,
- * so a rename or a move turns red instead of rotting.
+ * What a referenced test proves about the value it is hung on.
+ *
+ *   - `carrier` — the value arrives, survives, or is returned unchanged:
+ *     schema validation, the merge in `buildTenantConfig`, a getter.
+ *   - `reader` — a shared mechanism between the config and the consumer
+ *     produces a different result per value: `hasFeature`, `canAccess`,
+ *     `isCatalogMode`, the fonts-URL builder.
+ *   - `consumer` — the code the map names as this value's consumer does
+ *     something different: a component, an endpoint, middleware, the CSS
+ *     emitter.
  */
-export interface TestRef {
+export type TestRefKind = 'carrier' | 'reader' | 'consumer';
+
+/**
+ * How deep a `consumer` test's fixture goes.
+ *
+ *   - `field` — the consumer receives the configured value itself: a config
+ *     fixture, or a mocked getter returning the value. A prop counts only when
+ *     the named consumer is the component that reads the config into that
+ *     prop and the test drives it through the config. `PoweredBy` is the
+ *     counter-example: its tests pass `variant` as a prop, but the footer
+ *     mounts it without one and the component falls back to `watermark.value`
+ *     — the tests exercise a path the app never takes, and prove nothing
+ *     about the field.
+ *   - `reader` — the consumer receives a decision derived from the value and
+ *     the stub binds the key: `mockCanAccess.mockImplementation((name) =>
+ *     name === 'orderPlacement')`, `mockIsCatalogMode`. The field was never
+ *     read, so the test proves decision → behaviour; only a `reader` reference
+ *     on the same cell, which proves cell → decision, makes it a claim about
+ *     the cell. map.test.ts checks that composition.
+ *   - `stub` — the consumer receives a blanket decision that binds no key:
+ *     `mockCanAccess.mockReturnValue(true)`, a stubbed visibility composable.
+ *     Checked against disk like any reference, never proof for a cell: it
+ *     neither satisfies the consumer requirement nor lifts a cell to
+ *     `has-test`.
+ */
+export type ConsumerDrives = 'field' | 'reader' | 'stub';
+
+/**
+ * Set by reading what the test executes, never by what the function under
+ * test does. Two questions, in order:
+ *
+ *   1. Would the assertion pass unchanged with a different value in the
+ *      field? Yes → `carrier`. Identity, presence and validity are all
+ *      `carrier`: "returns 40 keys total" and "should return checkoutMode
+ *      from config" both prove the value came back, not that anything acted
+ *      on it.
+ *   2. Otherwise: is the test's subject the code the map names as the
+ *      consumer, or a function between the config and that consumer? The
+ *      consumer → `consumer`. In between → `reader`.
+ *
+ * When the test stubs the reader, question 1 has no answer as written — the
+ * field is never read. Ask it of the reader's decision instead, and hang the
+ * reference on every cell that produces that decision (`drives: 'reader'`).
+ *
+ * When neither question decides, the weaker kind wins — `carrier` over
+ * `reader`, `reader` over `consumer`. The map may under-claim; it may not
+ * over-claim.
+ *
+ * A kind is a property of the test, so the same (spec, title) carries the
+ * same kind on every entry it appears on; map.test.ts checks that.
+ */
+interface TestRefBase {
   /** Repo-relative path, e.g. `tests/composables/useTenant.test.ts`. */
   spec: string;
   /** A `describe` or `it` title inside that file, verbatim. */
   title: string;
 }
+
+/**
+ * A pointer into the suite. `title` is a `describe` or `it` title copied
+ * verbatim; map.test.ts checks that the file exists and contains the title,
+ * so a rename or a move turns red instead of rotting.
+ *
+ * `kind` is required with no default, so a reference that does not say what
+ * it proves fails `pnpm typecheck`. `drives` is required on `consumer` and
+ * not allowed on the other two — the union below is what expresses that.
+ */
+export type TestRef =
+  | (TestRefBase & { kind: 'carrier' | 'reader'; drives?: never })
+  | (TestRefBase & { kind: 'consumer'; drives: ConsumerDrives });
 
 /**
  * One reference, or several. A value is often read in more than one place —
@@ -43,19 +114,27 @@ export type TestRefs = TestRef | TestRef[];
  */
 export type Coverage =
   /**
-   * A test names this value. What is verified is that the spec and the title
-   * exist — not that the assertion inside is correct or asserts the right
-   * thing. The status says what is known, and no more.
+   * A test asserts this value at its consumer: at least one reference is
+   * `consumer`, checked in map.test.ts because the type cannot say "one member
+   * of this list has this property" without contortion. What is verified is
+   * that the spec and the title exist — not that the assertion inside is
+   * correct. The status says what is known, and no more.
    */
   | { status: 'has-test'; test: TestRefs; note?: string }
   /**
    * Nothing in `app/` or `server/` reads this value. An optional `test` records
-   * a transport assertion where one exists — the value is carried and merged
+   * a `carrier` assertion where one exists — the value is carried and merged
    * with proof, just never read.
    */
   | { status: 'no-consumer'; note: string; test?: TestRefs }
-  /** A consumer exists, named as `file:line`, and no test asserts it. */
-  | { status: 'no-test'; consumer: string; note: string };
+  /**
+   * A consumer exists, named as `file:line`, and no test asserts it there.
+   * The optional references say what *is* asserted — a `carrier`, a `reader`,
+   * or a `consumer` acting on a stubbed decision that no `reader` reference on
+   * this cell binds to the value — so that the status names what is missing
+   * and the references what exists.
+   */
+  | { status: 'no-test'; consumer: string; note: string; test?: TestRefs };
 
 /**
  * The three states an optional string field can arrive in. Absent and empty

@@ -116,7 +116,7 @@ describe('StockBadge (unit)', () => {
       expect(wrapper.text()).toBe('');
     });
 
-    it('shows badge when canAccess returns true', () => {
+    it('shows badge when canAccess returns true for stockStatus', () => {
       mockIsFeatureConfigured = (name) => name === 'stockStatus';
       mockHasFeature = (name) => name === 'stockStatus';
       mockCanAccess = (name) => name === 'stockStatus';

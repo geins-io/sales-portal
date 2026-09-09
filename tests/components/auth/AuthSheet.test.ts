@@ -76,7 +76,7 @@ describe('AuthSheet', () => {
   });
 
   describe('apply for account link', () => {
-    it('shows apply link when feature enabled and apply page resolved', () => {
+    it('shows apply link when applyForAccount enabled and apply page resolved', () => {
       const wrapper = mountAuthSheet();
       expect(wrapper.find('[data-testid="auth-sheet-apply"]').exists()).toBe(
         true,
