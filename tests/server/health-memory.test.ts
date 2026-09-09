@@ -1,10 +1,12 @@
 /**
- * `/api/health` grades RSS against thresholds from `runtimeConfig.health`.
+ * `/api/health` grades RSS against thresholds from `runtimeConfig.health`,
+ * except in the dev server, which reports the numbers ungraded.
  *
  * Two halves, and the second is the one that matters: the resolver's defaults
  * can be read off the source, but only the handler proves that the endpoint
  * acts on the configured numbers. Every verdict below is produced by changing
- * the configuration and re-reading the response, never by asserting the stub.
+ * the configuration — or the dev-mode answer — and re-reading the response,
+ * never by asserting the stub.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mockNuxtImport } from '@nuxt/test-utils/runtime';
@@ -12,13 +14,12 @@ import type { H3Event } from 'h3';
 import {
   DEFAULT_RSS_DEGRADED_MB,
   DEFAULT_RSS_UNHEALTHY_MB,
-  resolveMemoryGrading,
+  resolveRssThresholds,
 } from '../../server/utils/health-memory';
 
-describe('resolveMemoryGrading', () => {
-  it('grades at the production thresholds when nothing is configured', () => {
-    expect(resolveMemoryGrading()).toEqual({
-      gradeRss: true,
+describe('resolveRssThresholds', () => {
+  it('returns the production thresholds when nothing is configured', () => {
+    expect(resolveRssThresholds()).toEqual({
       degradedMb: 400,
       unhealthyMb: 900,
     });
@@ -31,13 +32,13 @@ describe('resolveMemoryGrading', () => {
 
   it('uses configured numbers', () => {
     expect(
-      resolveMemoryGrading({ rssDegradedMb: 1500, rssUnhealthyMb: 4000 }),
-    ).toEqual({ gradeRss: true, degradedMb: 1500, unhealthyMb: 4000 });
+      resolveRssThresholds({ rssDegradedMb: 1500, rssUnhealthyMb: 4000 }),
+    ).toEqual({ degradedMb: 1500, unhealthyMb: 4000 });
   });
 
   it('parses a threshold that arrives as a string', () => {
     // An env override Nuxt did not coerce, e.g. NUXT_HEALTH_RSS_DEGRADED_MB.
-    expect(resolveMemoryGrading({ rssDegradedMb: '1500' }).degradedMb).toBe(
+    expect(resolveRssThresholds({ rssDegradedMb: '1500' }).degradedMb).toBe(
       1500,
     );
   });
@@ -50,24 +51,12 @@ describe('resolveMemoryGrading', () => {
     ['null', null],
     ['undefined', undefined],
   ])('falls back to the production threshold for %s', (_case, value) => {
-    const grading = resolveMemoryGrading({
-      rssDegradedMb: value,
-      rssUnhealthyMb: value,
-    });
-
-    expect(grading).toEqual({
-      gradeRss: true,
-      degradedMb: 400,
-      unhealthyMb: 900,
-    });
-  });
-
-  it('grades unless grading is turned off explicitly', () => {
-    expect(resolveMemoryGrading({}).gradeRss).toBe(true);
-    expect(resolveMemoryGrading({ gradeRss: undefined }).gradeRss).toBe(true);
-    expect(resolveMemoryGrading({ gradeRss: false }).gradeRss).toBe(false);
-    // An env override arrives as a string.
-    expect(resolveMemoryGrading({ gradeRss: 'false' }).gradeRss).toBe(false);
+    // Nothing may disable the check: Azure's Health Check restarts an
+    // instance that answers 5xx, so `unhealthy` is how production recovers
+    // from a leaking container.
+    expect(
+      resolveRssThresholds({ rssDegradedMb: value, rssUnhealthyMb: value }),
+    ).toEqual({ degradedMb: 400, unhealthyMb: 900 });
   });
 });
 
@@ -77,15 +66,22 @@ describe('resolveMemoryGrading', () => {
  * place, and the real one happens to carry the production thresholds, so a
  * test written that way would pass without proving anything.
  */
-const { runtimeConfigMock, setResponseStatusMock } = vi.hoisted(() => ({
-  runtimeConfigMock: {
-    current: {} as Record<string, unknown>,
-  },
-  setResponseStatusMock: vi.fn<(event: unknown, code: number) => void>(),
-}));
+const { runtimeConfigMock, setResponseStatusMock, isDevModeMock } = vi.hoisted(
+  () => ({
+    runtimeConfigMock: {
+      current: {} as Record<string, unknown>,
+    },
+    setResponseStatusMock: vi.fn<(event: unknown, code: number) => void>(),
+    isDevModeMock: vi.fn<() => boolean>(),
+  }),
+);
 
 mockNuxtImport('useRuntimeConfig', () => () => runtimeConfigMock.current);
 mockNuxtImport('setResponseStatus', () => setResponseStatusMock);
+
+// `import.meta.dev` is a build-time constant, so the dev server's behaviour is
+// only reachable through the module that isolates it.
+vi.mock('../../server/utils/dev-mode', () => ({ isDevMode: isDevModeMock }));
 
 /** The `runtimeConfig.health` a request sees; `undefined` omits the key. */
 function setHealth(health: Record<string, unknown> | undefined): void {
@@ -136,6 +132,7 @@ describe('GET /api/health memory grading', () => {
   beforeEach(() => {
     vi.resetModules();
     setResponseStatusMock.mockClear();
+    isDevModeMock.mockReturnValue(false);
     setHealth(undefined);
     vi.stubGlobal(
       'defineEventHandler',
@@ -156,7 +153,7 @@ describe('GET /api/health memory grading', () => {
 
   describe('with the production configuration', () => {
     beforeEach(() => {
-      setHealth({ gradeRss: true, rssDegradedMb: 400, rssUnhealthyMb: 900 });
+      setHealth({ rssDegradedMb: 400, rssUnhealthyMb: 900 });
     });
 
     it('reports healthy below the degraded threshold', async () => {
@@ -179,6 +176,19 @@ describe('GET /api/health memory grading', () => {
       expect(response.checks.memory.status).toBe('unhealthy');
       expect(setResponseStatusMock).toHaveBeenCalledWith(event, 503);
     });
+
+    it('ignores a gradeRss key in the configuration', async () => {
+      // The invariant behind `const gradeRss = !isDevMode()`: no config key
+      // switches grading off in a built server. Azure's Health Check restarts
+      // an instance that answers 5xx, so a kill switch here would turn
+      // production's recovery from a leaking container into silence.
+      setHealth({ gradeRss: false, rssDegradedMb: 400, rssUnhealthyMb: 900 });
+
+      const response = await healthFor(1000);
+
+      expect(response.checks.memory.status).toBe('unhealthy');
+      expect(setResponseStatusMock).toHaveBeenCalledWith(event, 503);
+    });
   });
 
   it('applies the production thresholds when nothing is configured', async () => {
@@ -194,16 +204,17 @@ describe('GET /api/health memory grading', () => {
   it('moves its verdict when the configured thresholds move', async () => {
     // The same RSS, graded twice: proof that the endpoint reads the config
     // rather than its own constants.
-    setHealth({ gradeRss: true, rssDegradedMb: 400, rssUnhealthyMb: 900 });
+    setHealth({ rssDegradedMb: 400, rssUnhealthyMb: 900 });
     expect((await healthFor(1000)).checks.memory.status).toBe('unhealthy');
 
-    setHealth({ gradeRss: true, rssDegradedMb: 2000, rssUnhealthyMb: 4000 });
+    setHealth({ rssDegradedMb: 2000, rssUnhealthyMb: 4000 });
     expect((await healthFor(1000)).checks.memory.status).toBe('healthy');
   });
 
-  describe('with grading off, as the dev server has it', () => {
+  describe('in the dev server', () => {
     beforeEach(() => {
-      setHealth({ gradeRss: false, rssDegradedMb: 400, rssUnhealthyMb: 900 });
+      isDevModeMock.mockReturnValue(true);
+      setHealth({ rssDegradedMb: 400, rssUnhealthyMb: 900 });
     });
 
     it('stays healthy at an RSS that would be unhealthy in a container', async () => {

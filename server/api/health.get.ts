@@ -25,7 +25,8 @@
 
 import type { H3Event } from 'h3';
 import { createTimer, logger } from '../utils/logger';
-import { resolveMemoryGrading } from '../utils/health-memory';
+import { resolveRssThresholds } from '../utils/health-memory';
+import { isDevMode } from '../utils/dev-mode';
 
 /**
  * Health check result for individual components
@@ -145,15 +146,13 @@ async function checkStorage(event: H3Event): Promise<ComponentHealth> {
  * heapUsedPercent is misleading for fresh processes.
  *
  * Thresholds come from `runtimeConfig.health` and default to the production
- * container's sizing. Where RSS says nothing about health — the dev server —
- * the numbers are still reported and no status is derived from them
- * (`../utils/health-memory`).
+ * container's sizing. The dev server has no container limit to approach, so
+ * it reports the numbers ungraded (`../utils/health-memory`).
  */
 function checkMemory(event: H3Event): ComponentHealth {
   const config = useRuntimeConfig(event);
-  const { gradeRss, degradedMb, unhealthyMb } = resolveMemoryGrading(
-    config.health,
-  );
+  const { degradedMb, unhealthyMb } = resolveRssThresholds(config.health);
+  const gradeRss = !isDevMode();
 
   try {
     const memUsage = process.memoryUsage();

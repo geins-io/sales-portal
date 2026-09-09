@@ -100,7 +100,6 @@ See [`.env.example`](.env.example) for all available configuration. Key variable
 | `NUXT_GEINS_TENANT_API_URL`    | Geins Tenant API URL               | (see file) |
 | `NUXT_STORAGE_DRIVER`          | KV storage (`memory`/`fs`/`redis`) | `memory`   |
 | `NUXT_HEALTH_CHECK_SECRET`     | Secret for detailed `/api/health`  | —          |
-| `NUXT_HEALTH_GRADE_RSS`        | Grade `/api/health` on RSS         | `true`     |
 | `NUXT_HEALTH_RSS_DEGRADED_MB`  | RSS above this is `degraded`       | `400`      |
 | `NUXT_HEALTH_RSS_UNHEALTHY_MB` | RSS above this is `unhealthy`      | `900`      |
 | `LOG_LEVEL`                    | Logging verbosity                  | `info`     |

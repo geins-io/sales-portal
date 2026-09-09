@@ -1,19 +1,22 @@
 /**
- * How `/api/health` grades the process's memory use.
+ * The RSS thresholds `/api/health` grades the process against.
  *
- * The RSS thresholds model one thing: a container approaching its limit. They
- * are meaningful where that limit exists — the deployed app runs in a ~1 GB
- * container — and meaningless in a Nuxt dev server, which holds Vite, HMR and
- * source maps in the same process and has no limit but the machine's RAM.
+ * They model one thing: a container approaching its limit. Azure's Health
+ * Check points at `/api/health` (`infra/modules/webApp.bicep`) and takes an
+ * instance out of rotation and restarts it on a 5xx, so the `unhealthy` verdict
+ * is production's recovery from a leaking container rather than a report. That
+ * is why nothing here can switch grading off — only the sizes are configurable,
+ * for a container of a different size.
  *
- * Measured on one machine: a settled dev server sits at 651 MB, one e2e suite
- * takes it to 3529 MB, and a second suite against the same process peaks at
- * 3982 MB without ever returning below 2.9 GB. The floor rises with the work
- * done rather than settling, so no fixed number separates "out of memory"
- * from "normal Vite" there. Development therefore reports the numbers and
- * grades nothing (`gradeRss: false` in `$development`, `nuxt.config.ts`); a
- * dev server that has genuinely run out of memory stops answering, which the
- * e2e preflight sees as a dead process rather than as a 503 it must ignore.
+ * A Nuxt dev server has no such limit: it holds Vite, HMR and source maps in
+ * the same process, and measured on one machine it sits at 651 MB settled,
+ * reaches 3529 MB after one e2e suite and 3982 MB after a second against the
+ * same process, never returning below 2.9 GB. The floor rises with the work
+ * done, so no fixed number separates "out of memory" from "normal Vite" there.
+ * The dev server therefore reports its memory ungraded — decided by
+ * `isDevMode()`, a build-time constant, not by configuration — and a dev server
+ * that has genuinely run out of memory stops answering, which the e2e preflight
+ * sees as a dead process.
  */
 
 /** RSS above this is `degraded`. The production container's warning level. */
@@ -24,14 +27,11 @@ export const DEFAULT_RSS_UNHEALTHY_MB = 900;
 
 /** `runtimeConfig.health`, as it arrives — env overrides may be strings. */
 export interface HealthMemoryConfig {
-  gradeRss?: unknown;
   rssDegradedMb?: unknown;
   rssUnhealthyMb?: unknown;
 }
 
-export interface MemoryGrading {
-  /** Whether RSS decides the status at all. */
-  gradeRss: boolean;
+export interface RssThresholds {
   degradedMb: number;
   unhealthyMb: number;
 }
@@ -50,16 +50,14 @@ function thresholdMb(value: unknown, fallback: number): number {
 }
 
 /**
- * The grading that applies to a request. Everything absent, unparseable or
- * out of range falls back to the production values — a deployment that
- * configures nothing is graded exactly as it is today, and only an explicit
- * `false` turns grading off.
+ * The thresholds that apply to a request. Everything absent, unparseable or
+ * out of range falls back to the production values, so a deployment that
+ * configures nothing is graded exactly as it is today.
  */
-export function resolveMemoryGrading(
+export function resolveRssThresholds(
   health?: HealthMemoryConfig,
-): MemoryGrading {
+): RssThresholds {
   return {
-    gradeRss: health?.gradeRss !== false && health?.gradeRss !== 'false',
     degradedMb: thresholdMb(health?.rssDegradedMb, DEFAULT_RSS_DEGRADED_MB),
     unhealthyMb: thresholdMb(health?.rssUnhealthyMb, DEFAULT_RSS_UNHEALTHY_MB),
   };

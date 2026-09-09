@@ -1,9 +1,8 @@
 /**
- * The production memory grading lives in two places — `runtimeConfig.health`
- * in `nuxt.config.ts` and the fallbacks in `server/utils/health-memory.ts` —
+ * The production RSS thresholds live in two places — `runtimeConfig.health` in
+ * `nuxt.config.ts` and the fallbacks in `server/utils/health-memory.ts` —
  * because the endpoint must behave as production even when the config carries
- * nothing. This binds them so they cannot drift, and pins what `$development`
- * is allowed to change: whether RSS is graded, never how much is healthy.
+ * nothing. This binds them so they cannot drift.
  *
  * Read as source text, not imported: `defineNuxtConfig` is a Nuxt auto-import
  * that does not exist in a plain unit-test environment.
@@ -21,15 +20,6 @@ const configSource = readFileSync(
   'utf-8',
 );
 
-/** The `health: { ... }` block inside the `$development` override, if any. */
-function developmentHealthBlock(): string {
-  const block =
-    /\$development\s*:\s*\{[\s\S]*?health\s*:\s*\{([\s\S]*?)\}/.exec(
-      configSource,
-    );
-  return block?.[1] ?? '';
-}
-
 /** The `health: { ... }` block of the top-level `runtimeConfig`. */
 function runtimeConfigHealthBlock(): string {
   const source = configSource.slice(
@@ -44,9 +34,8 @@ function numberEntry(block: string, key: string): number | undefined {
   return match ? Number(match[1]) : undefined;
 }
 
-describe('nuxt.config.ts health memory grading', () => {
+describe('nuxt.config.ts health thresholds', () => {
   const base = runtimeConfigHealthBlock();
-  const development = developmentHealthBlock();
 
   it('parses a health block out of runtimeConfig', () => {
     expect(base).not.toBe('');
@@ -57,18 +46,15 @@ describe('nuxt.config.ts health memory grading', () => {
     expect(numberEntry(base, 'rssUnhealthyMb')).toBe(DEFAULT_RSS_UNHEALTHY_MB);
   });
 
-  it('grades RSS by default, so a build that overrides nothing grades it', () => {
-    expect(base).toMatch(/gradeRss\s*:\s*true/);
-  });
+  it('declares nothing but the two thresholds', () => {
+    // The decision gate, not the protection: a new key here should cost
+    // someone a decision rather than slide in. What actually makes a kill
+    // switch impossible is `const gradeRss = !isDevMode()` in the endpoint,
+    // proved as behaviour by `ignores a gradeRss key in the configuration`
+    // in tests/server/health-memory.test.ts — a regex over a config file
+    // could never see a switch that lives somewhere else.
+    const keys = [...base.matchAll(/^\s*([A-Za-z]\w*)\s*:/gm)].map((m) => m[1]);
 
-  it('turns grading off for the dev server', () => {
-    expect(development).toMatch(/gradeRss\s*:\s*false/);
-  });
-
-  it('leaves both thresholds alone in $development', () => {
-    // A raised dev threshold would be a number chosen from how much has been
-    // run rather than from what is healthy; the dev server is ungraded instead.
-    expect(numberEntry(development, 'rssDegradedMb')).toBeUndefined();
-    expect(numberEntry(development, 'rssUnhealthyMb')).toBeUndefined();
+    expect(keys).toEqual(['rssDegradedMb', 'rssUnhealthyMb']);
   });
 });
