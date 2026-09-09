@@ -625,12 +625,21 @@ optional string field — fails `pnpm typecheck` until it has an entry, and `pnp
 prints the entries without a test on every run.
 
 A test that asserts what the app does for a particular config value is registered in the map
-as part of the same change, with a reference that says what it proves — that the value
-arrives, or that a consumer acts on it. The entry's `note` carries that. A test that only
-carries the value in a fixture is not an assertion about it and stays out. Nothing detects an
-unregistered test: no spec declares which config value it covers, so this is an obligation on
-the change, not a gate. A full sweep of the suite against the map runs once per milestone that
-adds config tests.
+as part of the same change, with a reference whose `kind` says what it proves: `carrier` (the
+value arrives or is returned unchanged), `reader` (a shared mechanism such as `hasFeature`
+produces a different result per value) or `consumer` (the code the map names as the value's
+consumer does something different). Two questions decide it — would the assertion pass with a
+different value, and is the subject the consumer or something between the config and it — and
+they are written on the field in `tests/unit/config-coverage/types.ts`. `has-test` means a
+`consumer` reference exists; `no-test` means a consumer is named as `file:line` and nothing
+asserts it there, whatever carrier or reader references the entry lists. A consumer test that
+stubs the reader (`drives: 'reader'`) counts only together with a `reader` reference on the same
+cell, and one whose stub binds no key (`drives: 'stub'`) never counts; `map.test.ts` checks that
+composition, and the map header explains why it holds. A test
+that only carries the value in a fixture is not an assertion about it and stays out. Nothing
+detects an unregistered test: no spec declares which config value it covers, so this is an
+obligation on the change, not a gate. A full sweep of the suite against the map runs once per
+milestone that adds config tests.
 
 ## CI/CD Integration
 
