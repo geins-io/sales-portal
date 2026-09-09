@@ -1325,7 +1325,7 @@ export const CONFIG_COVERAGE_MAP = {
           title:
             'shows apply link when applyForAccount enabled and apply page resolved',
           kind: 'consumer',
-          drives: 'reader',
+          drives: 'field',
         },
         {
           spec: HEADER_TOPBAR,
@@ -1340,13 +1340,16 @@ export const CONFIG_COVERAGE_MAP = {
           spec: AUTH_SHEET,
           title: 'hides apply link when applyForAccount feature is disabled',
           kind: 'consumer',
-          drives: 'stub',
+          drives: 'field',
         },
       ],
       access: accessNeverRead(HAS_FEATURE_ONLY_NOTE),
       note:
-        'The two on-tests stub hasFeature in predicate form; the off-test ' +
-        'answers false for every key. The second call site is ' +
+        "AuthSheet's useTenant mock implements hasFeature over a features " +
+        'record the same way the real composable does, so both of its cases ' +
+        'write the configured value. The topbar spec answers a predicate on ' +
+        'the key from an immutable set, so it stays a reader reference and has ' +
+        'no disabled case. The second call site is ' +
         'app/components/layout/header/LayoutHeaderTopbar.vue:57. Storefront ' +
         'settings exposes no control for this key, so the value reaches the ' +
         'app from the seeded defaults or a features override rather than from ' +
