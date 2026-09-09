@@ -133,6 +133,7 @@ const NEWSLETTER_VISIBILITY =
 const CMS_SLOT = 'tests/composables/useCmsSlot.test.ts';
 const CMS_MENU = 'tests/composables/useCmsMenu.test.ts';
 const ANALYTICS_CONSENT = 'tests/composables/useAnalyticsConsent.test.ts';
+const COOKIE_BANNER = 'tests/components/shared/CookieBanner.test.ts';
 const FORMAT_LOCALE = 'tests/composables/useFormatLocale.test.ts';
 const LOCALE_ALTERNATES = 'tests/composables/useLocaleAlternates.test.ts';
 const SEO_LINKS = 'tests/composables/useSeoLinks.test.ts';
@@ -1309,13 +1310,33 @@ export const CONFIG_COVERAGE_MAP = {
   // --- Features ------------------------------------------------------------
   features: {
     analytics: namedFeature({
-      consumer: 'app/plugins/tenant-analytics.ts:28',
+      consumer: 'app/components/shared/CookieBanner.vue:7',
+      on: [
+        {
+          spec: COOKIE_BANNER,
+          title: 'shows the cookie banner when analytics is enabled',
+          kind: 'consumer',
+          drives: 'field',
+        },
+      ],
+      off: [
+        {
+          spec: COOKIE_BANNER,
+          title: 'hides the cookie banner when analytics is disabled',
+          kind: 'consumer',
+          drives: 'field',
+        },
+      ],
       access: accessNeverRead(HAS_FEATURE_ONLY_NOTE),
       note:
-        'Also read by app/components/shared/CookieBanner.vue:7; neither has a ' +
-        'test file. Storefront settings exposes no control for this key, so ' +
-        'the value reaches the app from the seeded defaults or a features ' +
-        'override rather than from anything a merchant sets.',
+        'The banner reads the key through hasFeature over the tenant fixture, ' +
+        'so both cases write the configured value. The second consumer, ' +
+        'app/plugins/tenant-analytics.ts:28, has no test file: it sits behind ' +
+        'five gates and needs @nuxt/scripts mocked, which is a different kind ' +
+        'of work and buys no cell the banner does not already hold. ' +
+        'Storefront settings exposes no control for this key, so the value ' +
+        'reaches the app from the seeded defaults or a features override ' +
+        'rather than from anything a merchant sets.',
     }),
     applyForAccount: namedFeature({
       consumer: 'app/components/auth/AuthSheet.vue:75',
