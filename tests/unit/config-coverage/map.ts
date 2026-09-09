@@ -112,6 +112,7 @@ const FEATURE_ACCESS_SERVER = 'tests/server/feature-access.test.ts';
 const TENANT_SEO = 'tests/plugins/tenant-seo.test.ts';
 const SERVER_TENANT_RESOLUTION = 'tests/server/tenant-resolution-log.test.ts';
 const SEO_CONFIG_PLUGIN = 'tests/server/plugins/03.seo-config.test.ts';
+const TENANT_ANALYTICS = 'tests/plugins/tenant-analytics.test.ts';
 const LOCALE_MARKET = 'tests/server/middleware/locale-market.test.ts';
 const GEINS_IMAGE = 'tests/components/GeinsImage.test.ts';
 const CART_DRAWER = 'tests/components/cart/CartDrawer.test.ts';
@@ -612,6 +613,16 @@ const WATERMARK_NOTE =
  * these leaves a bare `Coverage` rather than the three string states for that
  * reason.
  */
+/**
+ * The plugin returns early on `!gaId && !gtmId`, so each absent/empty case sets
+ * the sibling id and asserts it was registered. Without that the assertion
+ * would pass because the plugin bailed out rather than because the id was
+ * unset.
+ */
+const ANALYTICS_SIBLING_NOTE =
+  'The fixture sets the sibling id so the plugin reaches the per-id branch ' +
+  'rather than returning early on both being unset.';
+
 const SOCIAL_ABSENT: TestRef = {
   spec: TENANT_SEO,
   title:
@@ -2155,16 +2166,33 @@ export const CONFIG_COVERAGE_MAP = {
         },
         set: {
           status: 'has-test',
-          test: {
-            spec: TENANT_SEO,
-            title: 'renders the configured robots value as the robots meta',
-            kind: 'consumer',
-            drives: 'field',
-          },
+          test: [
+            {
+              spec: TENANT_SEO,
+              title: 'renders the configured robots value as the robots meta',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SEO_CONFIG_PLUGIN,
+              title:
+                'pushes indexable false when the tenant robots value carries noindex',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: SEO_CONFIG_PLUGIN,
+              title:
+                'pushes indexable true when the tenant robots value allows indexing',
+              kind: 'consumer',
+              drives: 'field',
+            },
+          ],
           note:
-            'The client meta is asserted here. The second consumer, ' +
-            'server/plugins/03.seo-config.ts:41, drives `indexable` through ' +
-            'isIndexable and is not yet asserted for a tenant value.',
+            'Both consumers: the client robots meta, and the server-side ' +
+            '`indexable` flag through isIndexable. The 03 spec used to stub ' +
+            'isIndexable to a constant, which is why neither branch was ' +
+            'asserted before.',
         },
       },
     },
@@ -2172,19 +2200,35 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:30',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title:
+              'omits the analytics script when googleAnalyticsId is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: ANALYTICS_SIBLING_NOTE,
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:30',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title: 'omits the analytics script when googleAnalyticsId is empty',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: ANALYTICS_SIBLING_NOTE,
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:30',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title:
+              'registers the analytics script with the configured googleAnalyticsId',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
       },
     },
@@ -2192,19 +2236,36 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:31',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title:
+              'omits the tag manager script when googleTagManagerId is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: ANALYTICS_SIBLING_NOTE,
         },
         empty: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:31',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title:
+              'omits the tag manager script when googleTagManagerId is empty',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: ANALYTICS_SIBLING_NOTE,
         },
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-analytics.ts:31',
-          note: 'app/plugins/tenant-analytics.ts has no test file at all.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_ANALYTICS,
+            title:
+              'registers the tag manager script with the configured googleTagManagerId',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
       },
     },
