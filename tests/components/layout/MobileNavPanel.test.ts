@@ -8,12 +8,17 @@ const mockMenu = ref<MenuType | null>(null);
 // MobileNavPanel migrated to useCmsMenuData (tenant-config-keyed menu
 // resolver). The component now resolves menuLocationId from tenant
 // config via CMS_MENUS.MOBILE_DRAWER. Mock the new composable.
+//
+// The stub answers for `mobile_drawer` only. A blanket stub would answer for
+// every key and bind none of them, so the tests below would stay green if the
+// component switched to another menu — which is the difference between a test
+// that proves this key reaches the panel and one that proves nothing about it.
 vi.mock('~/composables/useCmsMenuData', () => ({
-  useCmsMenuData: () => ({
-    menu: mockMenu,
+  useCmsMenuData: (key: string) => ({
+    menu: key === 'mobile_drawer' ? mockMenu : ref(null),
     pending: ref(false),
     error: ref(null),
-    isConfigured: ref(true),
+    isConfigured: ref(key === 'mobile_drawer'),
   }),
 }));
 

@@ -145,6 +145,7 @@ const NEWSLETTER_VISIBILITY =
   'tests/composables/useNewsletterVisibility.test.ts';
 const CMS_SLOT = 'tests/composables/useCmsSlot.test.ts';
 const CMS_MENU = 'tests/composables/useCmsMenu.test.ts';
+const MOBILE_NAV = 'tests/components/layout/MobileNavPanel.test.ts';
 const ANALYTICS_CONSENT = 'tests/composables/useAnalyticsConsent.test.ts';
 const COOKIE_BANNER = 'tests/components/shared/CookieBanner.test.ts';
 const FORMAT_LOCALE = 'tests/composables/useFormatLocale.test.ts';
@@ -2147,38 +2148,70 @@ export const CONFIG_COVERAGE_MAP = {
             spec: PORTAL_SHELL,
             title: 'shows CMS hero banner when CMS area has containers',
             kind: 'consumer',
-            drives: 'field',
+            drives: 'reader',
           },
         ],
         note:
           'useCmsSlot.test.ts drives this key throughout, not an arbitrary ' +
-          'one, so the reader is asserted for it; PortalShell.test.ts asserts ' +
-          'that the configured slot renders, and that an empty area renders ' +
-          'nothing.',
+          'one, so the reader is asserted for it. PortalShell.test.ts drives ' +
+          'the fetched area rather than the slot config — flipping the slot ' +
+          'key would not fail it — so it is `reader`, and the composition ' +
+          'with the reader above is what makes this cell has-test.',
       },
       frontpage_content: {
         status: 'no-test',
         consumer: 'app/pages/index.vue:10',
         note:
-          "A tenant override of this key is asserted to survive the merge ('a " +
-          "tenant slot override wins while sibling default slots are kept' in " +
-          'tests/server/tenant.test.ts), so the value arrives; nothing asserts ' +
-          'that the slot then renders.',
+          'The reader is asserted for this key, so config \u2192 decision holds. ' +
+          'No test mounts the consumer at all, so decision \u2192 behaviour is ' +
+          'missing and the composition cannot complete.',
+        test: {
+          spec: CMS_SLOT,
+          title:
+            'resolves the frontpage_content slot key from the tenant config',
+          kind: 'reader',
+        },
       },
       product_list_top: {
         status: 'no-test',
         consumer: 'app/components/pages/ProductList.vue:362',
-        note: 'The reader is asserted for portal_hero; this key is named nowhere in the suite.',
+        note:
+          'The reader is asserted for this key, so config \u2192 decision holds. ' +
+          'No test mounts the consumer at all, so decision \u2192 behaviour is ' +
+          'missing and the composition cannot complete.',
+        test: {
+          spec: CMS_SLOT,
+          title:
+            'resolves the product_list_top slot key from the tenant config',
+          kind: 'reader',
+        },
       },
       product_list_bottom: {
         status: 'no-test',
         consumer: 'app/components/pages/ProductList.vue:363',
-        note: 'The reader is asserted for portal_hero; this key is named nowhere in the suite.',
+        note:
+          'The reader is asserted for this key, so config \u2192 decision holds. ' +
+          'No test mounts the consumer at all, so decision \u2192 behaviour is ' +
+          'missing and the composition cannot complete.',
+        test: {
+          spec: CMS_SLOT,
+          title:
+            'resolves the product_list_bottom slot key from the tenant config',
+          kind: 'reader',
+        },
       },
       product_detail: {
         status: 'no-test',
         consumer: 'app/components/pages/ProductDetails.vue:361',
-        note: 'The reader is asserted for portal_hero; this key is named nowhere in the suite.',
+        note:
+          'The reader is asserted for this key, so config \u2192 decision holds. ' +
+          'No test mounts the consumer at all, so decision \u2192 behaviour is ' +
+          'missing and the composition cannot complete.',
+        test: {
+          spec: CMS_SLOT,
+          title: 'resolves the product_detail slot key from the tenant config',
+          kind: 'reader',
+        },
       },
     },
 
@@ -2194,63 +2227,110 @@ export const CONFIG_COVERAGE_MAP = {
         note:
           'useCmsMenu.test.ts drives this key throughout, so the reader is ' +
           'asserted for it, including the partial-config case where an empty ' +
-          'menuLocationId reads back as null. That the menu then renders in ' +
-          'LayoutHeaderNav is not asserted.',
+          'menuLocationId reads back as null. LayoutHeaderNav.test.ts mounts ' +
+          'the consumer but mocks useFetch, which binds no key: the menu it ' +
+          'renders is the stubbed response whatever the config says, so there ' +
+          'is nothing to compose with.',
       },
       footer: {
-        status: 'no-test',
-        consumer: 'app/components/layout/footer/LayoutFooterMain.vue:15',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title: 'resolves the footer menu key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: FOOTER_MAIN,
+            title:
+              'renders three separate columns when all three menus have visible items',
+            kind: 'consumer',
+            drives: 'reader',
+          },
+        ],
         note:
-          'The footer renders what useCmsMenuData hands it, and the test stubs ' +
-          'that composable; no reader test binds this key to the menu it ' +
-          'returns, so the decision is asserted and the value is not.',
-        test: {
-          spec: FOOTER_MAIN,
-          title:
-            'renders three separate columns when all three menus have visible items',
-          kind: 'consumer',
-          drives: 'reader',
-        },
+          'The footer renders what useCmsMenuData hands it and the test stubs ' +
+          'that composable, so the consumer proves decision \u2192 behaviour. The ' +
+          'reader binds this key to the config, and only the two together say ' +
+          'the app obeys the value.',
       },
       footer_2: {
-        status: 'no-test',
-        consumer: 'app/components/layout/footer/LayoutFooterMain.vue:16',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title: 'resolves the footer_2 menu key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: FOOTER_MAIN,
+            title:
+              'renders three separate columns when all three menus have visible items',
+            kind: 'consumer',
+            drives: 'reader',
+          },
+        ],
         note:
-          'The footer renders what useCmsMenuData hands it, and the test stubs ' +
-          'that composable; no reader test binds this key to the menu it ' +
-          'returns, so the decision is asserted and the value is not.',
-        test: {
-          spec: FOOTER_MAIN,
-          title:
-            'renders three separate columns when all three menus have visible items',
-          kind: 'consumer',
-          drives: 'reader',
-        },
+          'The footer renders what useCmsMenuData hands it and the test stubs ' +
+          'that composable, so the consumer proves decision \u2192 behaviour. The ' +
+          'reader binds this key to the config, and only the two together say ' +
+          'the app obeys the value.',
       },
       footer_3: {
-        status: 'no-test',
-        consumer: 'app/components/layout/footer/LayoutFooterMain.vue:17',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title: 'resolves the footer_3 menu key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: FOOTER_MAIN,
+            title:
+              'renders three separate columns when all three menus have visible items',
+            kind: 'consumer',
+            drives: 'reader',
+          },
+        ],
         note:
-          'The footer renders what useCmsMenuData hands it, and the test stubs ' +
-          'that composable; no reader test binds this key to the menu it ' +
-          'returns, so the decision is asserted and the value is not.',
-        test: {
-          spec: FOOTER_MAIN,
-          title:
-            'renders three separate columns when all three menus have visible items',
-          kind: 'consumer',
-          drives: 'reader',
-        },
+          'The footer renders what useCmsMenuData hands it and the test stubs ' +
+          'that composable, so the consumer proves decision \u2192 behaviour. The ' +
+          'reader binds this key to the config, and only the two together say ' +
+          'the app obeys the value.',
       },
       mobile_drawer: {
-        status: 'no-test',
-        consumer: 'app/components/layout/MobileNavPanel.vue:30',
-        note: 'The reader is asserted for header_main; this key is named nowhere in the suite.',
+        status: 'has-test',
+        test: [
+          {
+            spec: CMS_MENU,
+            title: 'resolves the mobile_drawer menu key from the tenant config',
+            kind: 'reader',
+          },
+          {
+            spec: MOBILE_NAV,
+            title: 'renders CMS menu items',
+            kind: 'consumer',
+            drives: 'reader',
+          },
+        ],
+        note:
+          'The panel spec stubs useCmsMenuData for this key alone rather than ' +
+          'blanket, so switching the component to another menu turns it red; ' +
+          'that is what lets the consumer compose with the reader here.',
       },
       sidebar_fallback: {
         status: 'no-test',
         consumer: 'app/pages/[...slug].vue:93',
-        note: 'The reader is asserted for header_main; this key is named nowhere in the suite.',
+        note:
+          'The reader is asserted for this key. The page spec stubs useCmsMenu ' +
+          'globally to return null for every key, so no consumer test exercises ' +
+          'the configured branch at all.',
+        test: {
+          spec: CMS_MENU,
+          title:
+            'resolves the sidebar_fallback menu key from the tenant config',
+          kind: 'reader',
+        },
       },
     },
   },
