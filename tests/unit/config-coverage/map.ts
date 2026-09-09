@@ -112,6 +112,7 @@ const FEATURE_ACCESS_SERVER = 'tests/server/feature-access.test.ts';
 const TENANT_SEO = 'tests/plugins/tenant-seo.test.ts';
 const SERVER_TENANT_RESOLUTION = 'tests/server/tenant-resolution-log.test.ts';
 const SEO_CONFIG_PLUGIN = 'tests/server/plugins/03.seo-config.test.ts';
+const TENANT_CSS_PLUGIN = 'tests/server/plugins/04.tenant-css.test.ts';
 const TENANT_ANALYTICS = 'tests/plugins/tenant-analytics.test.ts';
 const LOCALE_MARKET = 'tests/server/middleware/locale-market.test.ts';
 const GEINS_IMAGE = 'tests/components/GeinsImage.test.ts';
@@ -1075,6 +1076,12 @@ export const CONFIG_COVERAGE_MAP = {
       status: 'has-test',
       test: [
         {
+          spec: TENANT_CSS_PLUGIN,
+          title: 'sets the data-theme attribute from the tenant theme name',
+          kind: 'consumer',
+          drives: 'field',
+        },
+        {
           spec: SERVER_TENANT,
           title: 'should create theme with correct name',
           kind: 'carrier',
@@ -1255,26 +1262,42 @@ export const CONFIG_COVERAGE_MAP = {
     typography: {
       presence: {
         present: {
-          status: 'no-test',
-          consumer: 'app/error.vue:31',
+          status: 'has-test',
+          test: [
+            {
+              spec: TENANT_CSS_PLUGIN,
+              title:
+                'injects the google fonts stylesheet and preconnects when typography is configured',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: FONTS,
+              title: 'builds URL for a single font family',
+              kind: 'reader',
+            },
+          ],
           note:
-            'The URL builder is asserted; that its URL lands in a <link> here, ' +
-            'in server/error.ts:133 and in server/plugins/04.tenant-css.ts:55 is not.',
-          test: {
-            spec: FONTS,
-            title: 'builds URL for a single font family',
-            kind: 'reader',
-          },
+            'The URL builder, and the plugin that puts its URL in a <link>. ' +
+            'app/error.vue:31 and server/error.ts:133 read the same builder ' +
+            'and are still unasserted.',
         },
         absent: {
-          status: 'no-test',
-          consumer: 'app/error.vue:31',
-          note: 'The builder returns null; that the three consumers then emit no <link> is not asserted.',
-          test: {
-            spec: FONTS,
-            title: 'returns null for null typography',
-            kind: 'reader',
-          },
+          status: 'has-test',
+          test: [
+            {
+              spec: TENANT_CSS_PLUGIN,
+              title: 'injects no fonts link when the tenant has no typography',
+              kind: 'consumer',
+              drives: 'field',
+            },
+            {
+              spec: FONTS,
+              title: 'returns null for null typography',
+              kind: 'reader',
+            },
+          ],
+          note: 'The builder returns null, and the plugin emits no link of any kind.',
         },
       },
       families: {
@@ -1458,15 +1481,30 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: '??',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/composables/useTenant.ts:72',
-          note: "Falls back to '/favicon.ico'; no test asserts it.",
+          status: 'has-test',
+          test: {
+            spec: TENANT_CSS_PLUGIN,
+            title: 'injects no favicon link when faviconUrl is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note:
+            "The getter's '/favicon.ico' fallback is a second consumer and is " +
+            'still unasserted; the served document simply carries no icon link.',
         },
-        empty: unreachableEmptyUrl('app/composables/useTenant.ts:72'),
+        empty: unreachableEmptyUrl('server/plugins/04.tenant-css.ts:47'),
         set: {
-          status: 'no-test',
-          consumer: 'app/composables/useTenant.ts:72',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_CSS_PLUGIN,
+            title: 'injects a favicon link for the configured faviconUrl',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note:
+            'The value is emitted through sanitizeUrl, which allows only ' +
+            'https: and data:image/, asserted by the non-https case in the ' +
+            'same spec.',
         },
       },
     },
@@ -2568,15 +2606,33 @@ export const CONFIG_COVERAGE_MAP = {
 
   // --- Computed and derived ------------------------------------------------
   css: {
-    status: 'no-test',
-    consumer: 'server/plugins/04.tenant-css.ts:39',
-    note: 'The generator that produces the value is asserted here. Sanitising and injecting it into the served document is not, and is e2e territory rather than a unit concern.',
-    test: {
-      spec: TENANT_CSS,
-      title:
-        'emits no oklch() in the color block so older Safari can parse every var',
-      kind: 'carrier',
-    },
+    status: 'has-test',
+    test: [
+      {
+        spec: TENANT_CSS_PLUGIN,
+        title:
+          'injects the tenant css in a style tag tagged with the theme name',
+        kind: 'consumer',
+        drives: 'field',
+      },
+      {
+        spec: TENANT_CSS_PLUGIN,
+        title: 'strips a script tag out of the tenant css before injecting it',
+        kind: 'consumer',
+        drives: 'field',
+      },
+      {
+        spec: TENANT_CSS,
+        title:
+          'emits no oklch() in the color block so older Safari can parse every var',
+        kind: 'carrier',
+      },
+    ],
+    note:
+      'The generator that produces the value, and the plugin that sanitises ' +
+      'and injects it into the served document. The sanitise assertion is a ' +
+      'real one: the fixture carries a script payload that comes out as the ' +
+      'bare rule. Only the browser-side effect of the injected tag is e2e.',
   },
 
   isActive: {
