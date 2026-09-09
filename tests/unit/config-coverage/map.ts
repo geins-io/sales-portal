@@ -224,17 +224,45 @@ const ACCESS_ABSENT_NOTE =
   'An absent access rule means open to everyone, not closed.';
 
 /**
- * `registration` is read for its `enabled` flag only — no consumer routes it
- * through `canAccess`, so the access rule is carried and never consulted. That
- * is a narrower gap than an unread feature: the on/off control works, the
- * access control does not exist.
+ * Why the access dimension of a `hasFeature`-only key is unread. Shared by
+ * every such key: the mechanism is the same one, and stating it twice would be
+ * the second copy this file warns about.
+ *
+ * `registration` is not one of them. Its consumers read
+ * `features.registration.enabled` off the object rather than through
+ * `hasFeature`, so it carries its own note — a different fact, not a copy.
  */
-const REGISTRATION_ACCESS = {
-  status: 'no-consumer',
-  note:
-    'All three consumers read `.enabled` directly; none calls canAccess for ' +
+const HAS_FEATURE_ONLY_NOTE =
+  'Every consumer of this key asks hasFeature, which reads `.enabled` and ' +
+  'never looks at `.access`; none calls canAccess for it, so an access rule ' +
+  'on it changes nothing.';
+
+/**
+ * The `access` dimension of a feature that is read for its `enabled` flag
+ * only. No consumer routes the key through `canAccess`, so the access rule is
+ * carried and never consulted.
+ *
+ * That is a narrower gap than an unread feature and a different one from a
+ * missing test: the on/off control works, the access control does not exist,
+ * and there is nothing to assert because nothing reads the value. Writing a
+ * test here would be the over-claim this map exists to remove.
+ *
+ * `note` says why the value is unread, and it has two sources. A key whose
+ * consumers go through `hasFeature` takes `HAS_FEATURE_ONLY_NOTE`; a key read
+ * some other way carries its own sentence, because the mechanism is what
+ * differs and stating the wrong one would be worse than repeating the right
+ * one. The read sites themselves stay in the key's own `note`, where they are
+ * already listed.
+ */
+function accessNeverRead(note: string) {
+  const entry = { status: 'no-consumer', note } as const;
+  return { all: entry, authenticated: entry, absent: entry };
+}
+
+const REGISTRATION_ACCESS = accessNeverRead(
+  'All three consumers read `.enabled` directly; none calls canAccess for ' +
     'this key, so an access rule on it changes nothing.',
-} as const;
+);
 
 /**
  * One cell of a feature. The reader references prove cell → decision; a
@@ -335,6 +363,13 @@ function namedFeature(
     readers?: FeatureRefs;
     /** Consumer tests that drive the field, hung on the cell each one sets. */
     cells?: FeatureCells;
+    /**
+     * Replaces the whole access dimension. `accessNeverRead()` is what goes
+     * here: a key nothing routes through `canAccess` has no access cell worth
+     * a test, and the fan-out below would otherwise report three cells as
+     * missing a test that must not be written.
+     */
+    access?: FeatureCoverage['access'];
     note?: string;
   } & FeatureRefs,
 ): FeatureCoverage {
@@ -359,7 +394,7 @@ function namedFeature(
         refs.note,
       ),
     },
-    access: {
+    access: refs.access ?? {
       all: featureCell(
         refs.consumer,
         [...READERS_ACCESS_ALL, ...rGranted],
@@ -1236,7 +1271,12 @@ export const CONFIG_COVERAGE_MAP = {
   features: {
     analytics: namedFeature({
       consumer: 'app/plugins/tenant-analytics.ts:28',
-      note: 'Also read by app/components/shared/CookieBanner.vue:7; neither has a test file.',
+      access: accessNeverRead(HAS_FEATURE_ONLY_NOTE),
+      note:
+        'Also read by app/components/shared/CookieBanner.vue:7; neither has a ' +
+        'test file. Storefront settings exposes no control for this key, so ' +
+        'the value reaches the app from the seeded defaults or a features ' +
+        'override rather than from anything a merchant sets.',
     }),
     applyForAccount: namedFeature({
       consumer: 'app/components/auth/AuthSheet.vue:75',
@@ -1264,10 +1304,14 @@ export const CONFIG_COVERAGE_MAP = {
           drives: 'stub',
         },
       ],
+      access: accessNeverRead(HAS_FEATURE_ONLY_NOTE),
       note:
         'The two on-tests stub hasFeature in predicate form; the off-test ' +
         'answers false for every key. The second call site is ' +
-        'app/components/layout/header/LayoutHeaderTopbar.vue:57.',
+        'app/components/layout/header/LayoutHeaderTopbar.vue:57. Storefront ' +
+        'settings exposes no control for this key, so the value reaches the ' +
+        'app from the seeded defaults or a features override rather than from ' +
+        'anything a merchant sets.',
     }),
     cart: unconsumedFeature(
       'Seeded for every tenant and present in the live config, but no ' +
@@ -1554,11 +1598,7 @@ export const CONFIG_COVERAGE_MAP = {
           note: 'The client hides the affordance and the endpoint refuses the call.',
         },
       },
-      access: {
-        all: REGISTRATION_ACCESS,
-        authenticated: REGISTRATION_ACCESS,
-        absent: REGISTRATION_ACCESS,
-      },
+      access: REGISTRATION_ACCESS,
     },
     reorder: namedFeature({
       consumer: 'app/pages/portal/orders/[id].vue:23',
