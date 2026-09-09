@@ -454,6 +454,44 @@ function middlewareCells(key: string): FeatureCells {
 }
 
 /**
+ * The cells of a component spec that un-mocks `useFeatureAccess` and writes
+ * the configured value into the tenant fixture, so the real visibility
+ * composable and `canAccessFeature` run between the two. Every case therefore
+ * drives the field, and each is hung on the cell it is about rather than on
+ * every cell it would discriminate — see `FeatureCells`.
+ *
+ * `openRule` is on two cells because `access.absent` cannot be written without
+ * `enabled: true`; the other access cases write `enabled: true` to reach the
+ * access check and are not credited for it. `access.authenticated` takes both
+ * halves, the anonymous denial and the signed-in grant.
+ *
+ * A key omitted here has no case of that shape in the spec. `disabled` and
+ * `accessAll` are optional for that reason.
+ */
+function visibilityCells(
+  spec: string,
+  titles: {
+    openRule: string;
+    disabled?: string;
+    accessAll?: string;
+    anonymous: string;
+    signedIn: string;
+  },
+): FeatureCells {
+  const ref = (title: string): TestRef[] => [
+    { spec, title, kind: 'consumer', drives: 'field' },
+  ];
+  const openRule = ref(titles.openRule);
+  return {
+    enabledTrue: openRule,
+    accessAbsent: openRule,
+    ...(titles.disabled ? { enabledFalse: ref(titles.disabled) } : {}),
+    ...(titles.accessAll ? { accessAll: ref(titles.accessAll) } : {}),
+    accessAuthenticated: [...ref(titles.anonymous), ...ref(titles.signedIn)],
+  };
+}
+
+/**
  * A feature seeded for every tenant and read by nothing. Toggling it in the
  * admin changes nothing on the site, which is worse than an unused field: it
  * is a control that appears to work. Whether these should be removed or wired
@@ -1484,28 +1522,24 @@ export const CONFIG_COVERAGE_MAP = {
           },
         ],
       },
-      on: [
-        {
-          spec: PRICE_DISPLAY,
-          title: 'shows price when pricing feature allows access',
-          kind: 'consumer',
-          drives: 'stub',
-        },
-      ],
-      denied: [
-        {
-          spec: PRICE_DISPLAY,
-          title: 'renders nothing when pricing feature denies access',
-          kind: 'consumer',
-          drives: 'stub',
-        },
-      ],
+      cells: visibilityCells(PRICE_DISPLAY, {
+        openRule:
+          'shows the price when priceVisibility is enabled with no access rule',
+        disabled: 'renders nothing when priceVisibility is disabled',
+        accessAll: 'shows the price when priceVisibility access is open to all',
+        anonymous:
+          'renders nothing when priceVisibility requires authentication and the user is anonymous',
+        signedIn:
+          'shows the price when priceVisibility requires authentication and the user is signed in',
+      }),
       note:
         'usePriceVisibility.test.ts asserts the composable for every state; it ' +
         'sits between the config and PriceDisplay, so those are reader ' +
-        'references. The two PriceDisplay tests stub canAccess with a blanket ' +
-        '`mockReturnValue`, which binds no key. An absent key falls open, ' +
-        'asserted by the fail-open cases in both specs.',
+        'references. The PriceDisplay tests un-mock useFeatureAccess and write ' +
+        'the configured value into the tenant fixture, so the real ' +
+        'usePriceVisibility and canAccessFeature run and each test drives the ' +
+        'cell it is hung on. An absent key falls open, asserted by the ' +
+        'fail-open cases in both specs.',
     }),
     quotes: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
@@ -1651,14 +1685,14 @@ export const CONFIG_COVERAGE_MAP = {
           },
         ],
       },
-      on: [
-        {
-          spec: STOCK_BADGE,
-          title: 'shows stock when stock feature allows access',
-          kind: 'consumer',
-          drives: 'stub',
-        },
-      ],
+      cells: visibilityCells(STOCK_BADGE, {
+        openRule:
+          'shows the stock badge when stockStatus is enabled with no access rule',
+        anonymous:
+          'hides the stock badge when stockStatus requires authentication and the user is anonymous',
+        signedIn:
+          'shows the stock badge when stockStatus requires authentication and the user is signed in',
+      }),
       off: [
         {
           spec: STOCK_BADGE,
@@ -1690,12 +1724,6 @@ export const CONFIG_COVERAGE_MAP = {
       ],
       denied: [
         {
-          spec: STOCK_BADGE,
-          title: 'hides stock when stock feature denies access',
-          kind: 'consumer',
-          drives: 'stub',
-        },
-        {
           spec: STOCK_BADGE_UNIT,
           title: 'hides badge when canAccess returns false',
           kind: 'consumer',
@@ -1705,11 +1733,13 @@ export const CONFIG_COVERAGE_MAP = {
       note:
         'useStockVisibility.test.ts asserts the composable for every state; it ' +
         'sits between the config and StockBadge, so those are reader ' +
-        'references. The StockBadge tests that stub canAccess with a blanket ' +
-        '`mockReturnValue` bind no key; the two OOS specs stub ' +
-        'useStockVisibility itself and prove independence from its answer. ' +
-        "tests/unit/StockBadge.test.ts's 'shows badge when canAccess returns " +
-        "true' is the one predicate-form consumer test.",
+        'references. The StockBadge tests un-mock useFeatureAccess and write ' +
+        'the configured value into the tenant fixture, so the real ' +
+        'useStockVisibility and canAccessFeature run and each test drives the ' +
+        'cell it is hung on. The two OOS specs stub useStockVisibility itself ' +
+        'and prove independence from its answer. access.all keeps its ' +
+        'predicate-form reference from tests/unit/StockBadge.test.ts; a field ' +
+        'case there would add a fixture without adding a cell.',
     }),
     wishlist: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:179',
