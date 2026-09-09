@@ -6,7 +6,7 @@
  * types only: it re-tests nothing, and where a test exists the entry points at
  * it with a reference that says what the test proves (`kind` in `types.ts`).
  *
- * Three statuses, and they claim only what is checkable:
+ * Four statuses, and they claim only what is checkable:
  *
  *   - `has-test` — at least one `consumer` reference: a consumer of the value
  *     is asserted to do something different for it. Any consumer, not only
@@ -21,6 +21,12 @@
  *     names what is missing and the references what exists.
  *   - `no-consumer` — nothing reads the value. The open question is whether the
  *     field should exist, which is a decision rather than a missing test.
+ *   - `unreachable` — a consumer exists and the boundary refuses this state, so
+ *     no test at the consumer could assert it. It carries two references
+ *     instead of the usual list: `boundary.rejects` for the schema half and
+ *     `boundary.strips` for what the app then serves. Both are required by the
+ *     type, so the status cannot be claimed without the proof, and a cell with
+ *     only one leg is `no-test` with a note naming the missing one.
  *
  * What fails the gate:
  *
@@ -54,12 +60,16 @@
  *   - a `no-test` or `no-consumer` entry with no reason → `pnpm typecheck`,
  *     because `note` is required on both of those variants.
  *
- * What does not fail the gate: how many entries lack a test. `map.test.ts`
- * prints them on every run and passes. A threshold would be red the day this
- * landed, and a threshold pinned to today's count is a ratchet nobody chose
- * the value of. When the list can be zero, the print becomes
- * `expect(noTest).toHaveLength(0)` — one line, on the last of the tickets that
- * work from this map.
+ * How many entries lack a test used not to fail the gate: a threshold would
+ * have been red the day this landed, and one pinned to that day's count is a
+ * ratchet nobody chose the value of. The list is now zero and the print is an
+ * assertion, so a cell that quietly loses its test turns `pnpm test` red
+ * rather than adding a line to a printout nobody reads.
+ *
+ * `no-consumer` is deliberately still not asserted to zero. Those entries are
+ * an open question about whether the fields should exist at all — a decision,
+ * not a missing test — and pinning them here would turn that decision into a
+ * gate that the next person has to argue with instead of answer.
  *
  * Four limits worth knowing before reading the entries:
  *
@@ -157,6 +167,7 @@ const FORMAT_LOCALE = 'tests/composables/useFormatLocale.test.ts';
 const LOCALE_ALTERNATES = 'tests/composables/useLocaleAlternates.test.ts';
 const SEO_LINKS = 'tests/composables/useSeoLinks.test.ts';
 const CLIENT_LOCALE_MARKET = 'tests/composables/useLocaleMarket.test.ts';
+const LOCALE_SWITCHER = 'tests/components/LocaleSwitcher.test.ts';
 const SERVER_LOCALE = 'tests/server/locale.test.ts';
 const LOCALE_MARKET_GLOBAL = 'tests/middleware/locale-market-global.test.ts';
 const AUTH_MIDDLEWARE = 'tests/middleware/auth.test.ts';
@@ -3004,9 +3015,21 @@ export const CONFIG_COVERAGE_MAP = {
 
   isActive: {
     true: {
-      status: 'no-test',
-      consumer: 'server/utils/tenant.ts:1050',
-      note: 'The active path is every other test in the suite, and none of them asserts that an active config is the reason lookupTenant returns it.',
+      status: 'has-test',
+      test: {
+        spec: SERVER_TENANT_RESOLUTION,
+        title:
+          'returns the config only because isActive is true, on one otherwise identical config',
+        kind: 'consumer',
+        drives: 'field',
+      },
+      note:
+        'The active path used to be every other test in the suite, none of ' +
+        'which said that being active was the reason a config came back: ' +
+        '`kvConfig` defaults the flag to true, so the getTenantById case ' +
+        'depended on it by implication and its title did not say so. The ' +
+        'reference flips the flag between two otherwise identical configs at ' +
+        'the same key, which is what makes it an assertion about the field.',
     },
     false: {
       status: 'has-test',
@@ -3122,8 +3145,7 @@ export const CONFIG_COVERAGE_MAP = {
   },
 
   availableLocales: {
-    status: 'no-test',
-    consumer: 'app/components/shared/LocaleSwitcher.vue:70',
+    status: 'has-test',
     test: [
       {
         spec: CLIENT_LOCALE_MARKET,
@@ -3151,13 +3173,26 @@ export const CONFIG_COVERAGE_MAP = {
         title: 'should expand short locale to BCP-47 using tenant config',
         kind: 'reader',
       },
+      {
+        spec: LOCALE_SWITCHER,
+        title: 'renders one link per locale the tenant offers',
+        kind: 'consumer',
+        drives: 'field',
+      },
+      {
+        spec: LOCALE_SWITCHER,
+        title: 'renders nothing when the tenant offers a single locale',
+        kind: 'consumer',
+        drives: 'field',
+      },
     ],
     note:
-      'Every reference is a reader: the allow-list for a locale switch, the ' +
-      'source of the BCP-47 tag for formatting and hreflang, the filter on ' +
-      'incoming alternates. LocaleSwitcher.test.ts is not referenced: it ' +
-      "mirrors the switcher's computed inside the test file rather than " +
-      'mounting it, so it proves nothing about the component.',
+      'The readers are the allow-list for a locale switch, the source of the ' +
+      'BCP-47 tag for formatting and hreflang, and the filter on incoming ' +
+      'alternates. The consumer references are new: LocaleSwitcher.test.ts ' +
+      "used to mirror the switcher's computed inside the test file rather " +
+      'than mounting it, so it proved nothing about the component. It now ' +
+      'mounts the inline variant and drives this field through useTenant.',
   },
 
   availableMarkets: {

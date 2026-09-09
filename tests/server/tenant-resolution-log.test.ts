@@ -629,6 +629,24 @@ describe.sequential('getTenantById', () => {
     expect(storage.removeItem).not.toHaveBeenCalled();
     expect(storage.store.get(tenantConfigKey('t-off'))).toBe(config);
   });
+
+  it('returns the config only because isActive is true, on one otherwise identical config', async () => {
+    // The cases above each assert one half, and the active half asserts it
+    // only by implication: `kvConfig` defaults `isActive` to true, so the
+    // first test would fail if the flag stopped deciding, and its title would
+    // not say why. Here the flag is the single difference between two
+    // otherwise identical configs at the same key, which is what makes this
+    // an assertion about the field rather than about the lookup.
+    const active = kvConfig('t-flag', 't-flag.example', { isActive: true });
+    memoryStorage({ [tenantConfigKey('t-flag')]: active });
+    await expect(getTenantById('t-flag')).resolves.toBe(active);
+
+    resetStorage();
+
+    const inactive = kvConfig('t-flag', 't-flag.example', { isActive: false });
+    memoryStorage({ [tenantConfigKey('t-flag')]: inactive });
+    await expect(getTenantById('t-flag')).resolves.toBeNull();
+  });
 });
 
 describe.sequential('fetchTenantConfig', () => {

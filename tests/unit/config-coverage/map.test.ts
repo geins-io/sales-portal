@@ -505,8 +505,15 @@ describe('tenant config coverage map', () => {
     lines.push('');
     console.info(lines.join('\n'));
 
-    // Deliberately not an assertion on the count. See the header of map.ts:
-    // this becomes `expect(noTest).toHaveLength(0)` when it can be zero.
-    expect(ENTRIES.length).toBeGreaterThan(0);
+    // The assertion the header of map.ts promised. Every cell now either has a
+    // consumer test, has no consumer at all, or is a state the boundary
+    // refuses with both legs referenced — so a cell that quietly loses its
+    // test turns this red instead of adding a line nobody reads.
+    //
+    // `no-consumer` is deliberately not asserted to zero alongside it. Those
+    // twenty are an open question about whether the fields should exist, which
+    // is a decision rather than a missing test; pinning them here would turn a
+    // decision into a gate.
+    expect(noTest.map(({ path }) => path)).toEqual([]);
   });
 });
