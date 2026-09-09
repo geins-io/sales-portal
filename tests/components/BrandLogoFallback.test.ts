@@ -6,6 +6,8 @@ import BrandLogo from '../../app/components/shared/BrandLogo.vue';
 
 const state = vi.hoisted(() => ({
   logoUrl: '/logo.svg' as string | null,
+  logoDarkUrl: null as string | null,
+  logoSymbolUrl: null as string | null,
   name: 'Test Store' as string,
 }));
 
@@ -13,8 +15,8 @@ vi.mock('../../app/composables/useTenant', () => ({
   useTenant: () => ({
     logoUrl: computed(() => state.logoUrl ?? '/logo.svg'),
     rawLogoUrl: computed(() => state.logoUrl),
-    logoDarkUrl: computed(() => null),
-    logoSymbolUrl: computed(() => null),
+    logoDarkUrl: computed(() => state.logoDarkUrl),
+    logoSymbolUrl: computed(() => state.logoSymbolUrl),
     brandName: computed(() => state.name),
     tenant: ref({
       branding: { name: state.name, logoUrl: state.logoUrl },
@@ -25,6 +27,8 @@ vi.mock('../../app/composables/useTenant', () => ({
 describe('BrandLogo avatar fallback', () => {
   beforeEach(() => {
     state.logoUrl = '/logo.svg';
+    state.logoDarkUrl = null;
+    state.logoSymbolUrl = null;
     state.name = 'Test Store';
   });
 
@@ -84,5 +88,51 @@ describe('BrandLogo avatar fallback', () => {
     const img = wrapper.find('img');
     expect(img.exists()).toBe(true);
     expect(img.attributes('src')).toBe('/custom.png');
+  });
+});
+
+/**
+ * Driven through the config rather than through props. Logo.test.ts passes
+ * `srcDark` and `srcSymbol` as props, but LayoutHeaderMain.vue:30 mounts
+ * `<BrandLogo class="shrink-0" />` with none, so the app always reads these
+ * two off the tenant and the prop path is one it never takes.
+ */
+describe('BrandLogo dark and symbol variants from the tenant config', () => {
+  beforeEach(() => {
+    state.logoUrl = '/logo.svg';
+    state.logoDarkUrl = null;
+    state.logoSymbolUrl = null;
+    state.name = 'Test Store';
+  });
+
+  it('renders a second image when the tenant configures logoDarkUrl', () => {
+    state.logoDarkUrl = 'https://cdn.example.com/logo-dark.png';
+    const wrapper = mountComponent(BrandLogo);
+
+    const sources = wrapper.findAll('img').map((img) => img.attributes('src'));
+    expect(sources).toContain('https://cdn.example.com/logo-dark.png');
+    expect(sources.length).toBeGreaterThan(1);
+  });
+
+  it('renders a single image when the tenant has no logoDarkUrl', () => {
+    const wrapper = mountComponent(BrandLogo);
+
+    const sources = wrapper.findAll('img').map((img) => img.attributes('src'));
+    expect(sources).toEqual(['/logo.svg']);
+  });
+
+  it('renders the symbol image when the tenant configures logoSymbolUrl', () => {
+    state.logoSymbolUrl = 'https://cdn.example.com/logo-symbol.png';
+    const wrapper = mountComponent(BrandLogo);
+
+    const sources = wrapper.findAll('img').map((img) => img.attributes('src'));
+    expect(sources).toContain('https://cdn.example.com/logo-symbol.png');
+  });
+
+  it('renders no symbol image when the tenant has no logoSymbolUrl', () => {
+    const wrapper = mountComponent(BrandLogo);
+
+    const sources = wrapper.findAll('img').map((img) => img.attributes('src'));
+    expect(sources).toEqual(['/logo.svg']);
   });
 });

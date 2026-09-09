@@ -103,7 +103,6 @@ import type {
 const USE_TENANT = 'tests/composables/useTenant.test.ts';
 const SERVER_TENANT = 'tests/server/tenant.test.ts';
 const TENANT_CSS = 'tests/unit/server/utils/tenant-css.test.ts';
-const BRAND_LOGO = 'tests/components/Logo.test.ts';
 const FOOTER_MAIN = 'tests/components/layout/LayoutFooterMain.test.ts';
 const LAYOUT_FOOTER = 'tests/components/layout/LayoutFooter.test.ts';
 const FONTS = 'tests/shared/fonts.test.ts';
@@ -131,6 +130,7 @@ const SERVER_REGISTER = 'tests/server/api/auth-register.test.ts';
 const AUTH_CARD = 'tests/components/auth/AuthCard.test.ts';
 const AUTH_SHEET = 'tests/components/auth/AuthSheet.test.ts';
 const BRAND_LOGO_FALLBACK = 'tests/components/BrandLogoFallback.test.ts';
+const POWERED_BY = 'tests/components/PoweredBy.test.ts';
 const HEADER_TOPBAR = 'tests/components/layout/LayoutHeaderTopbar.test.ts';
 const PORTAL_SHELL = 'tests/components/portal/PortalShell.test.ts';
 const PRICE_DISPLAY = 'tests/components/commerce/PriceDisplay.test.ts';
@@ -715,18 +715,31 @@ function unreachableEmptyUrl(consumer: string) {
  * every value, so the reference sits on all three cells and distinguishes none
  * of them.
  */
+/**
+ * Logo.test.ts drives `srcDark` and `srcSymbol` as props, but
+ * LayoutHeaderMain.vue:30 mounts `<BrandLogo class="shrink-0" />` with none, so
+ * `props.srcDark ?? logoDarkUrl.value` resolves through the config in the app
+ * and through the prop in those tests. The references here are the
+ * config-driven cases; the prop ones are the same over-claim the `drives` doc
+ * names for PoweredBy and are not referenced.
+ */
+const PROP_VS_CONFIG_NOTE =
+  'Driven through the tenant config, not through the prop: the app mounts ' +
+  'BrandLogo with no src props at all.';
+
 const WATERMARK_REQUIRED: TestRef = {
   spec: STORE_SETTINGS_SCHEMA,
   title: 'should reject missing branding.watermark',
   kind: 'carrier',
 };
 const WATERMARK_NOTE =
-  'The schema reference proves the field is required, not this value. ' +
-  'PoweredBy.test.ts passes `variant` as a prop, but the footer mounts ' +
-  '<PoweredBy /> without one and the component reads the config through ' +
-  '`props.variant ?? watermark.value` — the tested path is one the app never ' +
-  'takes, so those tests are not referenced. The getter is asserted by the ' +
-  'watermark describe in useTenant.test.ts.';
+  'The schema reference proves the field is required, not this value. The ' +
+  'consumer reference drives `branding.watermark` through useTenant and ' +
+  'mounts <PoweredBy /> with no props, which is how LayoutFooterBottom.vue:10 ' +
+  'mounts it; the prop-driven tests in the same spec exercise ' +
+  '`props.variant ?? watermark.value` from the other side and are not ' +
+  'referenced. The getter is asserted by the watermark describe in ' +
+  'useTenant.test.ts.';
 
 /**
  * One `contact.social` leaf. Each has its own set case naming the key, so a
@@ -1368,22 +1381,45 @@ export const CONFIG_COVERAGE_MAP = {
 
     watermark: {
       full: {
-        status: 'no-test',
-        consumer: 'app/components/shared/PoweredBy.vue:22',
+        status: 'has-test',
+        test: [
+          {
+            spec: POWERED_BY,
+            title:
+              'renders the icon and the label when branding.watermark is full',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          WATERMARK_REQUIRED,
+        ],
         note: WATERMARK_NOTE,
-        test: WATERMARK_REQUIRED,
       },
       minimal: {
-        status: 'no-test',
-        consumer: 'app/components/shared/PoweredBy.vue:22',
+        status: 'has-test',
+        test: [
+          {
+            spec: POWERED_BY,
+            title:
+              'renders the icon without the label when branding.watermark is minimal',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          WATERMARK_REQUIRED,
+        ],
         note: WATERMARK_NOTE,
-        test: WATERMARK_REQUIRED,
       },
       none: {
-        status: 'no-test',
-        consumer: 'app/components/shared/PoweredBy.vue:22',
+        status: 'has-test',
+        test: [
+          {
+            spec: POWERED_BY,
+            title: 'renders nothing at all when branding.watermark is none',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          WATERMARK_REQUIRED,
+        ],
         note: WATERMARK_NOTE,
-        test: WATERMARK_REQUIRED,
       },
     },
 
@@ -1435,22 +1471,26 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/components/shared/BrandLogo.vue:28',
-          note:
-            'Reads back as null with no fallback and the component renders one ' +
-            'image instead of two; the only srcDark test provides one, so it ' +
-            'proves the set case and nothing asserts this one.',
+          status: 'has-test',
+          test: {
+            spec: BRAND_LOGO_FALLBACK,
+            title: 'renders a single image when the tenant has no logoDarkUrl',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: PROP_VS_CONFIG_NOTE,
         },
         empty: unreachableEmptyUrl('app/components/shared/BrandLogo.vue'),
         set: {
           status: 'has-test',
           test: {
-            spec: BRAND_LOGO,
-            title: 'should render two images when srcDark is provided',
+            spec: BRAND_LOGO_FALLBACK,
+            title:
+              'renders a second image when the tenant configures logoDarkUrl',
             kind: 'consumer',
             drives: 'field',
           },
+          note: PROP_VS_CONFIG_NOTE,
         },
       },
     },
@@ -1459,20 +1499,27 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/composables/useTenant.ts:68',
-          note: 'The set case is asserted; the absent case is not asserted separately.',
+          status: 'has-test',
+          test: {
+            spec: BRAND_LOGO_FALLBACK,
+            title:
+              'renders no symbol image when the tenant has no logoSymbolUrl',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: PROP_VS_CONFIG_NOTE,
         },
         empty: unreachableEmptyUrl('app/composables/useTenant.ts:68'),
         set: {
           status: 'has-test',
           test: {
-            spec: BRAND_LOGO,
+            spec: BRAND_LOGO_FALLBACK,
             title:
-              'should render symbol image with responsive classes when srcSymbol is provided',
+              'renders the symbol image when the tenant configures logoSymbolUrl',
             kind: 'consumer',
             drives: 'field',
           },
+          note: PROP_VS_CONFIG_NOTE,
         },
       },
     },
@@ -1513,15 +1560,26 @@ export const CONFIG_COVERAGE_MAP = {
       fallback: 'none',
       states: {
         absent: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:79',
-          note: 'The og:image meta tag is omitted; no test asserts either branch.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'omits the og:image and twitter:image meta when ogImageUrl is absent',
+            kind: 'consumer',
+            drives: 'field',
+          },
         },
         empty: unreachableEmptyUrl('app/plugins/tenant-seo.ts:79'),
         set: {
-          status: 'no-test',
-          consumer: 'app/plugins/tenant-seo.ts:79',
-          note: 'Not asserted.',
+          status: 'has-test',
+          test: {
+            spec: TENANT_SEO,
+            title:
+              'renders the configured ogImageUrl as both og:image and twitter:image',
+            kind: 'consumer',
+            drives: 'field',
+          },
+          note: 'One value, two meta tags.',
         },
       },
     },

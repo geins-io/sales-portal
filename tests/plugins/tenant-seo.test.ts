@@ -671,6 +671,32 @@ describe('tenant-seo plugin / seo and contact fields', () => {
     });
   });
 
+  describe('branding.ogImageUrl', () => {
+    function metaProp(prop: string): Record<string, string> | undefined {
+      return metaList().find((m) => m.property === prop);
+    }
+
+    it('omits the og:image and twitter:image meta when ogImageUrl is absent', async () => {
+      ogImageUrlRef.value = null;
+      await withSeo({});
+      expect(metaProp('og:image')).toBeUndefined();
+      expect(metaNamed('twitter:image')).toBeUndefined();
+      // The plugin ran: the unconditional Open Graph meta are there.
+      expect(metaProp('og:type')?.content).toBe('website');
+    });
+
+    it('renders the configured ogImageUrl as both og:image and twitter:image', async () => {
+      ogImageUrlRef.value = 'https://cdn.example.com/og.png';
+      await withSeo({});
+      expect(metaProp('og:image')?.content).toBe(
+        'https://cdn.example.com/og.png',
+      );
+      expect(metaNamed('twitter:image')?.content).toBe(
+        'https://cdn.example.com/og.png',
+      );
+    });
+  });
+
   describe('contact.social', () => {
     function sameAs(): string[] {
       const org = capturedSchemaOrgArg[0] as Record<string, unknown>;
