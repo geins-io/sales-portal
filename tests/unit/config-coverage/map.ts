@@ -57,8 +57,17 @@
  *     binds it); a `no-test` entry whose references would qualify it; one
  *     (spec, title) carrying two kinds; a consumer reference on a feature cell
  *     whose title does not name the key → `pnpm test`;
- *   - a `no-test` or `no-consumer` entry with no reason → `pnpm typecheck`,
- *     because `note` is required on both of those variants.
+ *   - a `no-test`, `no-consumer` or `unreachable` entry with no reason →
+ *     `pnpm typecheck`, because `note` is required on all three variants;
+ *   - an `unreachable` entry missing `boundary.rejects` or `boundary.strips` →
+ *     `pnpm typecheck`, because both are required by the type rather than
+ *     counted at runtime. A cell that can show only one leg is `no-test` with
+ *     a note naming the missing one;
+ *   - an `unreachable` entry whose boundary references are not both `carrier`
+ *     → `pnpm test`. A `consumer` reference there would claim the app acts on
+ *     a value that, by the entry's own status, never arrives;
+ *   - any entry left as `no-test` → `pnpm test`, through the assertion
+ *     described below.
  *
  * How many entries lack a test used not to fail the gate: a threshold would
  * have been red the day this landed, and one pinned to that day's count is a

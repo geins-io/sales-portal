@@ -23,6 +23,10 @@ const mockMenu = ref<MenuType | null>(null);
  * of them red rather than one. That is the dependency, not a brittle spec:
  * before this, not a single test in the file would have noticed the swap.
  */
+// Change this and seven tests go red, six of them rendering tests whose titles
+// say nothing about configuration. That is the binding working, not a broken
+// component: `renders the header_main menu from the configured menuLocationId`
+// falls alongside them and is the one that explains why.
 const HEADER_MENU_LOCATION = 'header-main-location';
 
 type MenuQuery = { menuLocationId?: string };
