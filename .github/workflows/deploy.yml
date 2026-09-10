@@ -451,7 +451,11 @@ jobs:
             # runs, and the release gate is the next thing to happen.
             echo "### Staging Slot Ready - Awaiting the Swap ⏸️" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Review https://${{ vars.SWAP_READINESS_HOST }} before approving the swap." >> $GITHUB_STEP_SUMMARY
+            echo "Review https://${{ vars.SWAP_READINESS_HOST }} and the readiness table above, then approve **Swap Production Slots** in this run." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            # Said here because the reviewer should not have to guess what a "no" costs.
+            # It costs nothing, and that is the property that makes the gate usable.
+            echo "Rejecting or cancelling costs nothing: production keeps the image it is serving, and the cleanup job resets the pending swap either way. Do not leave the gate unanswered - an approval has no deadline, and an unanswered one holds the pending swap on Azure and blocks the next deploy." >> $GITHUB_STEP_SUMMARY
           else
             echo "### Deployment Complete ✅" >> $GITHUB_STEP_SUMMARY
           fi
