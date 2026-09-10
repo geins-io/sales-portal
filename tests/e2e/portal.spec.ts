@@ -362,14 +362,33 @@ test.describe('Portal Quotations', () => {
     await expect(page.locator('[data-testid="quote-title"]')).toBeVisible();
     await expect(page.locator('[data-testid="status-badge"]')).toBeVisible();
 
-    // Items table with at least one line item row
-    await expect(
-      page.locator('[data-testid="line-items-table"]'),
-    ).toBeVisible();
-    const lineItemCount = await page
-      .locator('[data-testid="line-item-row"]')
-      .count();
-    expect(lineItemCount).toBeGreaterThan(0);
+    // The line items render as a desktop table (`hidden lg:block`) or, below
+    // lg, inside a sheet behind a trigger — the same split the order detail
+    // page has. Assert the shape this project can actually see and count the
+    // rows in it; the desktop-only assertion could not pass on Mobile Chrome.
+    // `lg` is 1024px (Tailwind), the breakpoint the page itself branches on.
+    const isNarrow = (page.viewportSize()?.width ?? 1280) < 1024;
+    if (isNarrow) {
+      const rowsTrigger = page.locator('[data-testid="view-rows-trigger"]');
+      await expect(rowsTrigger).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await rowsTrigger.click();
+      const sheetRows = page.locator('[data-testid="item-rows-row"]');
+      await expect(sheetRows.first()).toBeVisible({ timeout: PAGE_TIMEOUT });
+      expect(await sheetRows.count()).toBeGreaterThan(0);
+      // Close it again: an open sheet covers the back link asserted below.
+      await page.keyboard.press('Escape');
+      await expect(page.locator('[data-testid="item-rows-sheet"]')).toBeHidden({
+        timeout: PAGE_TIMEOUT,
+      });
+    } else {
+      await expect(
+        page.locator('[data-testid="line-items-table"]'),
+      ).toBeVisible();
+      const lineItemCount = await page
+        .locator('[data-testid="line-item-row"]')
+        .count();
+      expect(lineItemCount).toBeGreaterThan(0);
+    }
 
     // Sidebar summary
     await expect(page.locator('[data-testid="quote-summary"]')).toBeVisible();
