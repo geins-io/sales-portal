@@ -1,0 +1,321 @@
+# =============================================================================
+# SALES PORTAL - Roll Production Back to the Previous Build
+# =============================================================================
+# Swaps the staging slot back into production. After a release the slot holds
+# the image production was serving before, so going back is one swap rather
+# than a redeploy - but only until the next deploy overwrites the slot.
+#
+# The slot is *stopped* between releases: it shares production's plan, and an
+# idle slot still costs a Node process's memory and answers probes. So this
+# workflow starts it first and waits for it to report a build, which adds a
+# container start - about a minute - before the swap. Minutes, not seconds,
+# and still no redeploy.
+#
+# Rolling back to any *other* build is not this workflow: that is an ordinary
+# Deploy of an older v* tag or sha-<commit>, which goes to the slot, warms and
+# swaps like any release. Minutes instead of seconds, with no unreachable
+# period either way.
+#
+# Two things about it that are true and worth knowing before it is used:
+#
+#   - Production comes back correct but *cold*. The slot's process was restarted
+#     by the swap that put it there, so its caches are empty and the first
+#     renders pay the full cold cost - seventeen seconds, measured 2026-09-10.
+#     Correct and slow beats fast and broken, but do not expect it to be
+#     invisible.
+#   - While the two sides carry different app settings, the swap restarts both.
+#     That is warned about and never refused: refusing a rollback over a state
+#     that only exists until the next deploy would lock the emergency button for
+#     the wrong reason.
+#
+# Triggers:
+#   - Manual: workflow_dispatch only. There is no schedule and no push trigger.
+#     One required input, and it is a safety interlock rather than a choice -
+#     see current_production_build below.
+#
+# Both scripts this workflow runs speak HTTPS without -k, so the hostname in
+# SWAP_READINESS_HOST needs a valid certificate bound to the staging slot. That
+# is not incidental: a rollback that trusted any certificate would happily read
+# a build id off whatever answered. Do not "simplify" it away.
+#
+# There is deliberately NO guard on the ref this runs from, unlike deploy.yml.
+# There, the ref decides which image gets promoted. Here it decides nothing -
+# the swap is entirely Azure-side and moves two slots that already hold their
+# images, so the only thing a ref guard could do is block a dispatch from the
+# branch this is developed on, which is exactly when it has to be proved.
+#
+# There is also no approval. The reviewer sits on the prod-swap environment, in
+# front of a release; a rollback that queues behind an approval is not a
+# rollback. This job runs under prod, which carries the production subscription
+# id and no protection rules, for the same reason deploy.yml's cleanup job does.
+#
+# Required secrets:
+#   - AZURE_CLIENT_ID, AZURE_TENANT_ID: Azure OIDC credentials
+#   - HEALTH_CHECK_SECRET: reads the build id out of /api/health
+# Required environment secrets:
+#   - AZURE_SUBSCRIPTION_ID: on the prod environment; the repository-level
+#     value points at dev
+# Repository variables, the same three deploy.yml reads:
+#   - SWAP_READINESS_HOST, SWAP_VERIFY_HOST, SWAP_VERIFY_TENANT_ID
+# =============================================================================
+
+name: Rollback Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      current_production_build:
+        # The interlock against a double press. This workflow is a toggle: after it
+        # runs, the two sides still serve different builds, so a second dispatch
+        # swaps the broken release straight back in. The summary says so, but a
+        # summary is read afterwards, which is too late. Naming the build being
+        # rolled *away from* makes an accidental second dispatch fail - production
+        # serves the other build by then - while a deliberate one still works by
+        # pasting the new value. No state is kept anywhere, and the intent is
+        # recorded in the run's own history.
+        description: 'Full 40-character commit sha production serves RIGHT NOW (printed by the failed deploy run and by this workflow). A rollback refuses if it does not match.'
+        required: true
+        type: string
+
+env:
+  RESOURCE_GROUP: rg-sales-portal-prod
+  WEBAPP_SLOT: staging
+
+jobs:
+  rollback:
+    name: Swap Production Back
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check the rollback settings
+        env:
+          READINESS_HOST: ${{ vars.SWAP_READINESS_HOST }}
+          VERIFY_HOST: ${{ vars.SWAP_VERIFY_HOST }}
+          VERIFY_TENANT_ID: ${{ vars.SWAP_VERIFY_TENANT_ID }}
+          HEALTH_KEY: ${{ secrets.HEALTH_CHECK_SECRET }}
+          CURRENT_BUILD: ${{ inputs.current_production_build }}
+        run: |
+          # The shape of the input is checked here rather than at the comparison, so a
+          # typo fails before the Azure login instead of after two health requests.
+          if [[ ! "$CURRENT_BUILD" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::current_production_build is '${CURRENT_BUILD}', which is not a commit sha. Give the full 40 characters, lower case - the short sha-<7> form from an image tag is not enough to be sure which build is meant."
+            exit 1
+          fi
+
+          # Named before anything is read, because an unset variable would otherwise
+          # reach the scripts as "https://" and fail as a network error - which sends
+          # the reader to the app instead of to the repository settings.
+          MISSING=""
+          [[ -n "$READINESS_HOST" ]] || MISSING="${MISSING} SWAP_READINESS_HOST (variable)"
+          [[ -n "$VERIFY_HOST" ]] || MISSING="${MISSING} SWAP_VERIFY_HOST (variable)"
+          [[ -n "$VERIFY_TENANT_ID" ]] || MISSING="${MISSING} SWAP_VERIFY_TENANT_ID (variable)"
+          [[ -n "$HEALTH_KEY" ]] || MISSING="${MISSING} HEALTH_CHECK_SECRET (secret)"
+
+          if [[ -n "$MISSING" ]]; then
+            echo "::error::Not set under Settings > Secrets and variables > Actions:${MISSING}. Set it there and re-run."
+            exit 1
+          fi
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Refuse a rollback into a pending swap
+        id: slot
+        run: |
+          # A swap left in preview means a deploy is mid-flight or was killed before its
+          # cleanup ran: the slot is already carrying production's settings and the switch
+          # is half applied. Swapping on top of that state is not a rollback.
+          # The same script the deploy guard uses, so a failed lookup cannot read as
+          # "nothing pending" here either. It also hands back the web app name, which is
+          # the only place below that needs one.
+          if ! STATE=$(bash .github/scripts/pending-swap.sh); then
+            exit 1
+          fi
+
+          IFS=$'\t' read -r WEBAPP_NAME PENDING <<<"$STATE"
+
+          if [[ -z "$WEBAPP_NAME" ]]; then
+            echo "::error::No deployment 'main' in '${RESOURCE_GROUP}', so there is no production to roll back."
+            exit 1
+          fi
+
+          if [[ -n "$PENDING" ]]; then
+            echo "::error::The staging slot has a swap pending to '${PENDING}', so a deploy is mid-flight or was killed. Let it finish, or clear it: az webapp deployment slot swap --resource-group ${RESOURCE_GROUP} --name ${WEBAPP_NAME} --slot ${WEBAPP_SLOT} --action reset"
+            exit 1
+          fi
+
+          echo "webapp_name=${WEBAPP_NAME}" >> $GITHUB_OUTPUT
+          echo "$(date -u +%T) UTC - ${WEBAPP_NAME}: no swap pending, so the two sides can be compared."
+
+      - name: Start the staging slot
+        env:
+          WEBAPP_NAME: ${{ steps.slot.outputs.webapp_name }}
+        run: |
+          # Stopped since the last release verified (deploy.yml stops it). Idempotent on a
+          # slot that is already running. The build read below waits for it to answer.
+          echo "$(date -u +%T) UTC - starting the staging slot"
+          az webapp start \
+            --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot "$WEBAPP_SLOT" \
+            --output none
+          echo "$(date -u +%T) UTC - ✅ slot state: $(az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$WEBAPP_SLOT" --query state --output tsv)"
+
+      - name: Read the build each side serves
+        id: builds
+        env:
+          HEALTH_KEY: ${{ secrets.HEALTH_CHECK_SECRET }}
+          CURRENT_BUILD: ${{ inputs.current_production_build }}
+        run: |
+          # What each side *reports*, never linuxFxVersion. The configured image and the
+          # running one are different claims, and only the second is a reason to move
+          # customer traffic.
+          if ! PRODUCTION_SHA=$(BASE_URL="https://${{ vars.SWAP_VERIFY_HOST }}" \
+            LABEL=production \
+            bash .github/scripts/served-build.sh); then
+            exit 1
+          fi
+
+          # The interlock. On an accidental second dispatch production is already on the
+          # build the first one rolled back to, so this is the check that stops the
+          # broken release being swapped back in.
+          if [[ "$PRODUCTION_SHA" != "$CURRENT_BUILD" ]]; then
+            echo "::error::This dispatch says production serves ${CURRENT_BUILD}, but production reports ${PRODUCTION_SHA}. Nothing was swapped. If a rollback has already run, production is on the build it rolled back to and swapping again would put the previous one back - re-dispatch with ${PRODUCTION_SHA} only if that is what you mean."
+            {
+              echo "### Refused: Production Is Not on the Build You Named"
+              echo ""
+              echo "| Property | Value |"
+              echo "|----------|-------|"
+              echo "| You said production serves | \`${CURRENT_BUILD}\` |"
+              echo "| Production reports | \`${PRODUCTION_SHA}\` |"
+              echo ""
+              echo "Nothing was swapped."
+            } >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # The slot was just started, so this one waits: 24 x 10 s covers a container
+          # start on this plan with room to spare. The public health response before the
+          # process is up is treated as "not yet" here, unlike the production read above,
+          # which asks a running site what it serves right now.
+          if ! SLOT_SHA=$(BASE_URL="https://${{ vars.SWAP_READINESS_HOST }}" \
+            LABEL="staging slot" \
+            ATTEMPTS=24 INTERVAL=10 \
+            bash .github/scripts/served-build.sh); then
+            exit 1
+          fi
+
+          if [[ "$SLOT_SHA" == "$PRODUCTION_SHA" ]]; then
+            echo "::error::Both sides serve ${PRODUCTION_SHA}, so there is nothing to roll back to. The most likely reason is that a deploy has already overwritten the slot. Deploy the older v* tag or sha-<commit> instead - it goes to the slot, warms and swaps like any release."
+            {
+              echo "### Nothing to Roll Back To"
+              echo ""
+              echo "Production and the staging slot both serve \`${PRODUCTION_SHA}\`. Nothing was swapped."
+            } >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "production_sha=${PRODUCTION_SHA}" >> $GITHUB_OUTPUT
+          echo "slot_sha=${SLOT_SHA}" >> $GITHUB_OUTPUT
+          echo "$(date -u +%T) UTC - production serves ${PRODUCTION_SHA}, the slot holds ${SLOT_SHA}."
+
+      - name: Count the app settings on both sides
+        id: settings
+        env:
+          WEBAPP_NAME: ${{ steps.slot.outputs.webapp_name }}
+        run: |
+          # A swap moves routing only when both sides carry the same app settings. When
+          # they differ, Azure applies the other side's set and restarts - correct, but
+          # not the seconds a rollback is chosen for. The numbers are printed rather than
+          # asserted: a count that is shown stays true, and a claim about them does not.
+          # They become equal on the first deploy after the settings were shared across
+          # the site and the slot; before that the slot is short of production's.
+          # This warns and carries on. It must never refuse: a rollback blocked over a
+          # state that only exists until the next deploy is an emergency button locked
+          # for the wrong reason.
+          SITE_COUNT=$(az webapp config appsettings list \
+            --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --query 'length(@)' --output tsv)
+          SLOT_COUNT=$(az webapp config appsettings list \
+            --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$WEBAPP_SLOT" \
+            --query 'length(@)' --output tsv)
+
+          echo "site_count=${SITE_COUNT}" >> $GITHUB_OUTPUT
+          echo "slot_count=${SLOT_COUNT}" >> $GITHUB_OUTPUT
+
+          if [[ "$SITE_COUNT" == "$SLOT_COUNT" ]]; then
+            echo "$(date -u +%T) UTC - both sides carry ${SITE_COUNT} app settings; the swap moves routing only."
+          else
+            echo "::warning::Production carries ${SITE_COUNT} app settings and the slot ${SLOT_COUNT}. Azure will apply the other side's set, which restarts both - the rollback is still correct, but it is not instant."
+          fi
+
+      - name: Swap the slot back into production
+        id: swap
+        env:
+          WEBAPP_NAME: ${{ steps.slot.outputs.webapp_name }}
+        run: |
+          # One phase, no --action: the point of a rollback is that it is a single
+          # command. deploy.yml's two-phase preview exists to warm a cold image before it
+          # takes traffic, and neither side is cold here.
+          echo "$(date -u +%T) UTC - swapping ${WEBAPP_SLOT} into production"
+          az webapp deployment slot swap \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name "${WEBAPP_NAME}" \
+            --slot "${WEBAPP_SLOT}" \
+            --target-slot production
+
+          echo "$(date -u +%T) UTC - ✅ swap completed"
+
+      - name: Verify production on the previous build
+        env:
+          BASE_URL: https://${{ vars.SWAP_VERIFY_HOST }}
+          EXPECTED_TENANT_ID: ${{ vars.SWAP_VERIFY_TENANT_ID }}
+          EXPECTED_SHA: ${{ steps.builds.outputs.slot_sha }}
+          HEALTH_KEY: ${{ secrets.HEALTH_CHECK_SECRET }}
+          LABEL: production after the rollback
+        run: |
+          # The release gate's own script, with the build the slot was serving as the one
+          # to expect. It waits for liveness, asserts the served build and the tenant, and
+          # renders pages - a health probe alone would have passed here on 2026-09-10 while
+          # the site was unusable in a browser. TTFB is left at the script's own default:
+          # after a rollback the timings are worth recording, not worth gating on, and the
+          # swap has already happened by the time this runs.
+          bash .github/scripts/verify-deployment.sh
+
+      - name: Report a production that did not verify
+        if: failure() && steps.swap.outcome == 'success'
+        run: |
+          echo "::error::The rollback swapped but production did not verify on ${{ steps.builds.outputs.slot_sha }}. Nothing was undone: production is on the rolled-back build."
+          {
+            echo "### Rolled Back, but Production Did Not Verify ❌"
+            echo ""
+            echo "The swap completed, so production should be on \`${{ steps.builds.outputs.slot_sha }}\` and the staging slot on \`${{ steps.builds.outputs.production_sha }}\`. Verification did not confirm it. Read the log above before dispatching anything else - a second dispatch swaps the two back, and would need \`${{ steps.builds.outputs.slot_sha }}\` as its \`current_production_build\`."
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Create rollback summary
+        run: |
+          {
+            echo "### Rolled Back ✅"
+            echo ""
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| Verified | https://${{ vars.SWAP_VERIFY_HOST }} |"
+            echo "| Production served | \`${{ steps.builds.outputs.production_sha }}\` |"
+            echo "| Production now serves | \`${{ steps.builds.outputs.slot_sha }}\` |"
+            echo "| The staging slot now holds | \`${{ steps.builds.outputs.production_sha }}\` |"
+            echo "| App settings, site / slot | ${{ steps.settings.outputs.site_count }} / ${{ steps.settings.outputs.slot_count }} before the swap |"
+            echo ""
+            echo "**Production is correct but cold.** The swap that put this build on the slot restarted its process, so the caches are empty and the first renders pay the full cold cost - about seventeen seconds when that was last measured. It warms up on its own."
+            echo ""
+            echo "This workflow is a toggle, not a one-way button: the two sides still serve different builds, so dispatching it again swaps them back. It cannot tell forward from backward on its own - the \`current_production_build\` input is what stops an accidental second press, and it now has to be \`${{ steps.builds.outputs.slot_sha }}\`."
+          } >> $GITHUB_STEP_SUMMARY

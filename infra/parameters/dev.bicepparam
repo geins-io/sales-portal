@@ -8,9 +8,6 @@ param environment = 'dev'
 param location = 'westeurope'
 param appName = 'sales-portal'
 
-// Container image (set at deployment time via GitHub Actions)
-param containerImage = 'ghcr.io/geins-io/sales-portal:dev'
-
 // GitHub Container Registry credentials (set via GitHub Actions)
 param ghcrUsername = ''
 param ghcrToken = ''

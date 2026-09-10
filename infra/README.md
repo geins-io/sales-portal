@@ -382,9 +382,16 @@ az deployment group create \
   --resource-group rg-sales-portal-dev \
   --template-file infra/main.bicep \
   --parameters infra/parameters/dev.bicepparam \
-  --parameters containerImage="ghcr.io/geins-io/sales-portal:dev" \
-               ghcrUsername="<github-username>" \
+  --parameters ghcrUsername="<github-username>" \
                ghcrToken="<github-pat>"
+
+# The templates never carry an image, so this second command is not optional: a site or a
+# slot the template just created has no runtime until it has run. On prod, target the
+# staging slot (--slot staging) and let the swap promote it.
+az webapp config set \
+  --resource-group rg-sales-portal-dev \
+  --name sales-portal-dev-app \
+  --linux-fx-version "DOCKER|ghcr.io/geins-io/sales-portal:dev"
 ```
 
 ### Validate Templates
@@ -437,6 +444,59 @@ GEINS_TENANT_API_URL     →  geinsTenantApiUrl  →  NUXT_GEINS_TENANT_API_URL
 STORAGE_DRIVER           →  storageDriver      →  NUXT_STORAGE_DRIVER
 REDIS_URL                →  redisUrl           →  NUXT_STORAGE_REDIS_URL
 ```
+
+### The Container Image Is Not Infrastructure
+
+Neither `webApp.bicep` resource declares `linuxFxVersion`. The image is set after the deployment,
+by `deploy.yml` or by `infra/scripts/deploy.sh`, and on prod it is set on the staging slot only.
+
+The reason is ownership. A slot swap exchanges site configuration, and `linuxFxVersion` is site
+configuration, so a swap is what promotes an image to production. If the template also declared
+the image, the same value would have two owners: the swap would move the new image onto the
+production site, and the next deployment would write the parameter's value back over it. That is
+what made every release restart production twice - once when the site PUT stopped it, once when
+the new image landed - while the swap that followed exchanged two slots already running the same
+image and therefore did nothing.
+
+Two consequences to keep in mind:
+
+- After any Bicep run the image step is mandatory. A site or slot created by the template has no
+  runtime until it has run.
+- `deploy.yml` reads the site's image before and after the Bicep step and fails the run on prod if
+  it changed. If that check ever fires, something has put the image back into the templates.
+- That check also means the workflow cannot bootstrap a new environment: with no `main` deployment
+  in the resource group there is no before-value to compare, and a prod run stops rather than
+  guess. Set a new environment up with `infra/scripts/deploy.sh`, then deploy to it.
+
+### Slot Settings (Sticky Settings)
+
+`webApp.bicep` defines the app settings once, in the `sharedAppSettings` variable, and applies that
+same list to the production site and to the staging slot. A slot swap exchanges app settings, so a
+name declared on one side only arrives in production at the next swap — which is how production came
+to run without `NUXT_GEINS_TENANT_API_URL`, `NUXT_HEALTH_CHECK_SECRET` and `NUXT_PUBLIC_VERSION_X`
+after the release of 2026-09-03, on the code's defaults.
+
+**No setting is sticky.** `slotConfigNames` is not declared anywhere in `infra/`, and no setting is
+marked as a slot setting in Azure. That is deliberate: identical lists on both sides are the point,
+so a swap moves identical configuration, and a sticky marker would re-create exactly the divergence
+the shared list removes.
+
+If a future setting genuinely has to differ per slot, add its name to `slotConfigNames` **and write
+the reason next to it**. Anything sticky is a permitted difference between staging and production,
+so it needs to be readable as a decision rather than found later as drift.
+
+To check the two sides after a deployment (values hashed, so no secret is printed and a differing
+value cannot hide behind a matching name):
+
+```bash
+settings() {
+  az webapp config appsettings list -g rg-sales-portal-prod -n sales-portal-prod-app "$@" -o json \
+  | python3 -c 'import sys,json,hashlib as h; d=json.load(sys.stdin); [print(s["name"], h.sha256((s["value"] or "").encode()).hexdigest()[:12], s.get("slotSetting")) for s in sorted(d, key=lambda x: x["name"])]'
+}
+diff <(settings) <(settings --slot staging) && echo "identical"
+```
+
+`diff` prints nothing and every line ends in `False`.
 
 ## Re-running Setup
 

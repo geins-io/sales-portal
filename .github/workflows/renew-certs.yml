@@ -6,7 +6,10 @@
 # automated DNS-01 challenge validation.
 #
 # Triggers:
-#   - Scheduled: every 60 days
+#   - Scheduled: the 1st of January, March, May, July, September and November.
+#     Every run issues a brand-new certificate instead of renewing the previous
+#     one: the runner keeps no /etc/letsencrypt state, so certbot never finds a
+#     lineage and its "not yet due for renewal" branch is unreachable here.
 #   - Manual: workflow_dispatch
 #
 # Required secrets:
@@ -24,11 +27,15 @@ name: Renew Certificates
 
 on:
   schedule:
-    # Run every 60 days (Let's Encrypt certs expire after 90 days)
+    # 06:00 UTC on the 1st of every second month: Jan, Mar, May, Jul, Sep, Nov.
+    # At most 62 days apart, and each run issues a fresh 90-day certificate.
     - cron: '0 6 1 */2 *'
   workflow_dispatch:
     inputs:
       domain:
+        # prod-only covers the production app and its staging slot;
+        # staging-only covers the slot alone, leaving production's binding
+        # untouched.
         description: 'Which domain(s) to renew'
         required: true
         type: choice
@@ -36,6 +43,7 @@ on:
           - all
           - dev-only
           - prod-only
+          - staging-only
 
 env:
   CERT_EMAIL: ${{ vars.CERT_EMAIL }}
@@ -74,7 +82,7 @@ jobs:
           sudo certbot certonly \
             --dns-cloudflare \
             --dns-cloudflare-credentials ~/.secrets/cloudflare.ini \
-            --dns-cloudflare-propagation-seconds 30 \
+            --dns-cloudflare-propagation-seconds 60 \
             -d "*.sales-portal.geins.dev" \
             --email "${{ env.CERT_EMAIL }}" \
             --agree-tos \
@@ -196,7 +204,7 @@ jobs:
           sudo certbot certonly \
             --dns-cloudflare \
             --dns-cloudflare-credentials ~/.secrets/cloudflare.ini \
-            --dns-cloudflare-propagation-seconds 30 \
+            --dns-cloudflare-propagation-seconds 60 \
             -d "*.litium.store" \
             --email "${{ env.CERT_EMAIL }}" \
             --agree-tos \
@@ -244,43 +252,319 @@ jobs:
             --name sales-portal-prod-app \
             --resource-group rg-sales-portal-prod
 
+      # hostNameSslStates, not `hostname list`: the latter can report an empty
+      # thumbprint for a bound hostname, which is how a run went green against
+      # the wrong certificate on 2026-08-24.
       - name: Verify binding
         run: |
-          BOUND=$(az webapp config hostname list \
-            --webapp-name sales-portal-prod-app \
+          BOUND=$(az webapp show \
+            --name sales-portal-prod-app \
             --resource-group rg-sales-portal-prod \
-            --query "[?name=='*.litium.store'].thumbprint | [0]" \
+            --query "hostNameSslStates[?name=='*.litium.store'].thumbprint | [0]" \
             --output tsv)
           if [ "$BOUND" != "${{ steps.upload.outputs.thumbprint }}" ]; then
             echo "::error::Bound thumbprint ($BOUND) does not match uploaded cert"
             exit 1
           fi
 
+      # Matches on the exact subject so this job never considers the slot's
+      # *.staging.litium.store certificate, which lives in the same group.
       - name: Delete expired certificates
         run: |
           NOW=$(date -u +%Y-%m-%dT%H:%M:%S)
-          for T in $(az webapp config ssl list \
+          # Read the two bindings separately: in one substitution only the last
+          # command's exit status survives, so a failed read would leave a short
+          # list and this list is all that stands between the loop and delete.
+          SITE_BOUND=$(az webapp show \
+            --name sales-portal-prod-app \
             --resource-group rg-sales-portal-prod \
-            --query "[?contains(subjectName, 'litium.store') && expirationDate < '$NOW'].thumbprint" \
-            --output tsv); do
-            echo "Deleting expired cert $T"
+            --query "hostNameSslStates[?thumbprint!=null].thumbprint" \
+            --output tsv)
+          SLOT_BOUND=$(az webapp show \
+            --name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod \
+            --slot staging \
+            --query "hostNameSslStates[?thumbprint!=null].thumbprint" \
+            --output tsv)
+          BOUND=$(printf '%s\n%s\n' "$SITE_BOUND" "$SLOT_BOUND")
+          CANDIDATES=$(az webapp config ssl list \
+            --resource-group rg-sales-portal-prod \
+            --query "[?subjectName=='*.litium.store' && expirationDate < '$NOW'].[thumbprint,expirationDate]" \
+            --output tsv)
+          if [ -z "$CANDIDATES" ]; then
+            echo "No expired *.litium.store certificates"
+            exit 0
+          fi
+          # Log and check every candidate before deleting any of them, and use a
+          # here-string: a pipe would run the loop in a subshell where exit 1
+          # cannot fail the step.
+          FAIL=0
+          while read -r T EXPIRY; do
+            echo "Candidate $T (*.litium.store, expired $EXPIRY)"
+            if echo "$BOUND" | grep -qx "$T"; then
+              echo "::error::Expired certificate $T is still bound; refusing to delete"
+              FAIL=1
+            fi
+          done <<< "$CANDIDATES"
+          [ "$FAIL" -eq 0 ] || exit 1
+          while read -r T _; do
+            echo "Deleting $T"
             az webapp config ssl delete \
               --certificate-thumbprint "$T" \
               --resource-group rg-sales-portal-prod
-          done
+          done <<< "$CANDIDATES"
 
       - name: Clean up secrets
         if: always()
         run: sudo rm -f ~/.secrets/cloudflare.ini /tmp/litium-store.pfx
 
+      # Read what the hostname serves, not what was uploaded: an unregistered
+      # label under the wildcard reaches the same binding. -verify_hostname is
+      # what makes this a check — without it openssl reports a valid chain for a
+      # certificate issued to another name.
+      - name: Verify served certificate
+        id: served
+        run: |
+          HOST=cert-probe.litium.store
+          OUT=$(echo | openssl s_client -connect "$HOST:443" -servername "$HOST" \
+            -verify_hostname "$HOST" 2>&1)
+          if ! printf '%s\n' "$OUT" | grep -q 'Verify return code: 0 (ok)'; then
+            echo "::error::$HOST does not serve a trusted certificate for its own name"
+            printf '%s\n' "$OUT" | grep -E 'subject=|verify error' || true
+            exit 1
+          fi
+          PEM=$(echo | openssl s_client -connect "$HOST:443" -servername "$HOST" 2>/dev/null |
+            openssl x509)
+          SUBJECT=$(printf '%s\n' "$PEM" | openssl x509 -noout -subject | sed 's/^subject=//')
+          EXPIRY=$(printf '%s\n' "$PEM" | openssl x509 -noout -enddate | cut -d= -f2)
+          echo "subject=$SUBJECT" >> "$GITHUB_OUTPUT"
+          echo "expiry=$EXPIRY" >> "$GITHUB_OUTPUT"
+
       - name: Summary
         run: |
-          EXPIRY=$(az webapp config ssl list \
-            --resource-group rg-sales-portal-prod \
-            --query "[?thumbprint=='${{ steps.upload.outputs.thumbprint }}'].expirationDate | [0]" \
-            --output tsv)
           echo "### Prod Certificate Renewed" >> $GITHUB_STEP_SUMMARY
           echo "- **Domain:** \*.litium.store" >> $GITHUB_STEP_SUMMARY
           echo "- **Bound thumbprint:** ${{ steps.upload.outputs.thumbprint }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Expires:** ${EXPIRY}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Served subject:** ${{ steps.served.outputs.subject }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Served expiry:** ${{ steps.served.outputs.expiry }}" >> $GITHUB_STEP_SUMMARY
           echo "- **App:** sales-portal-prod-app" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Renew staging slot certificate: *.staging.litium.store
+  #
+  # A separate job so production is bound and verified before the slot is
+  # touched: a failure here can never leave production unrenewed. The job
+  # writes nothing to production and proves it, by reading the production
+  # binding before and after its own changes.
+  # ---------------------------------------------------------------------------
+  renew-staging:
+    name: Renew *.staging.litium.store
+    runs-on: ubuntu-latest
+    needs: renew-prod
+    # !cancelled() keeps this job alive when renew-prod is skipped, which is
+    # what staging-only does; a failed renew-prod still stops it.
+    if: >-
+      !cancelled() &&
+      needs.renew-prod.result != 'failure' &&
+      (github.event_name == 'schedule' ||
+      github.event.inputs.domain == 'all' ||
+      github.event.inputs.domain == 'prod-only' ||
+      github.event.inputs.domain == 'staging-only')
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Install certbot and Cloudflare plugin
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y certbot python3-certbot-dns-cloudflare
+
+      - name: Write Cloudflare credentials
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          mkdir -p ~/.secrets
+          printf 'dns_cloudflare_api_token = %s\n' "$CF_TOKEN" > ~/.secrets/cloudflare.ini
+          chmod 600 ~/.secrets/cloudflare.ini
+
+      # --cert-name fixes the lineage directory, so the export path below is
+      # given rather than derived from the -d argument.
+      - name: Obtain certificate
+        run: |
+          sudo certbot certonly \
+            --dns-cloudflare \
+            --dns-cloudflare-credentials ~/.secrets/cloudflare.ini \
+            --dns-cloudflare-propagation-seconds 60 \
+            --cert-name staging.litium.store \
+            -d "*.staging.litium.store" \
+            --email "${{ env.CERT_EMAIL }}" \
+            --agree-tos \
+            --non-interactive
+
+      - name: Export PFX
+        env:
+          PFX_PASSWORD: ${{ secrets.CERT_PFX_PASSWORD }}
+        run: |
+          sudo openssl pkcs12 -export \
+            -out /tmp/staging-litium-store.pfx \
+            -inkey /etc/letsencrypt/live/staging.litium.store/privkey.pem \
+            -in /etc/letsencrypt/live/staging.litium.store/fullchain.pem \
+            -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1 \
+            -passout "pass:${PFX_PASSWORD}"
+          sudo chmod 644 /tmp/staging-litium-store.pfx
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Capture production binding
+        id: prod-before
+        run: |
+          THUMBPRINT=$(az webapp show \
+            --name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod \
+            --query "hostNameSslStates[?name=='*.litium.store'].thumbprint | [0]" \
+            --output tsv)
+          test -n "$THUMBPRINT"
+          echo "Production binding before: $THUMBPRINT"
+          echo "thumbprint=$THUMBPRINT" >> "$GITHUB_OUTPUT"
+
+      # No --slot: certificates are resource-group scoped, only the binding
+      # belongs to the slot.
+      - name: Upload certificate to Azure
+        id: upload
+        env:
+          PFX_PASSWORD: ${{ secrets.CERT_PFX_PASSWORD }}
+        run: |
+          THUMBPRINT=$(az webapp config ssl upload \
+            --certificate-file /tmp/staging-litium-store.pfx \
+            --certificate-password "$PFX_PASSWORD" \
+            --name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod \
+            --query thumbprint \
+            --output tsv)
+          test -n "$THUMBPRINT"
+          echo "thumbprint=$THUMBPRINT" >> "$GITHUB_OUTPUT"
+
+      - name: Bind certificate to the staging slot
+        run: |
+          az webapp config ssl bind \
+            --certificate-thumbprint "${{ steps.upload.outputs.thumbprint }}" \
+            --ssl-type SNI \
+            --name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod \
+            --slot staging
+
+      - name: Verify binding
+        run: |
+          BOUND=$(az webapp show \
+            --name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod \
+            --slot staging \
+            --query "hostNameSslStates[?name=='*.staging.litium.store'].thumbprint | [0]" \
+            --output tsv)
+          if [ "$BOUND" != "${{ steps.upload.outputs.thumbprint }}" ]; then
+            echo "::error::Bound thumbprint ($BOUND) does not match uploaded cert"
+            exit 1
+          fi
+
+      - name: Assert production binding unchanged
+        run: |
+          AFTER=$(az webapp show \
+            --name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod \
+            --query "hostNameSslStates[?name=='*.litium.store'].thumbprint | [0]" \
+            --output tsv)
+          BEFORE="${{ steps.prod-before.outputs.thumbprint }}"
+          if [ "$AFTER" != "$BEFORE" ]; then
+            echo "::error::Production binding changed during this job ($BEFORE -> $AFTER)"
+            exit 1
+          fi
+          echo "Production binding unchanged: $AFTER"
+
+      # Matches on the exact subject so this job never considers production's
+      # *.litium.store certificate, which lives in the same group.
+      - name: Delete expired certificates
+        run: |
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%S)
+          # Read the two bindings separately: in one substitution only the last
+          # command's exit status survives, so a failed read would leave a short
+          # list and this list is all that stands between the loop and delete.
+          SITE_BOUND=$(az webapp show \
+            --name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod \
+            --query "hostNameSslStates[?thumbprint!=null].thumbprint" \
+            --output tsv)
+          SLOT_BOUND=$(az webapp show \
+            --name sales-portal-prod-app \
+            --resource-group rg-sales-portal-prod \
+            --slot staging \
+            --query "hostNameSslStates[?thumbprint!=null].thumbprint" \
+            --output tsv)
+          BOUND=$(printf '%s\n%s\n' "$SITE_BOUND" "$SLOT_BOUND")
+          CANDIDATES=$(az webapp config ssl list \
+            --resource-group rg-sales-portal-prod \
+            --query "[?subjectName=='*.staging.litium.store' && expirationDate < '$NOW'].[thumbprint,expirationDate]" \
+            --output tsv)
+          if [ -z "$CANDIDATES" ]; then
+            echo "No expired *.staging.litium.store certificates"
+            exit 0
+          fi
+          # Log and check every candidate before deleting any of them, and use a
+          # here-string: a pipe would run the loop in a subshell where exit 1
+          # cannot fail the step.
+          FAIL=0
+          while read -r T EXPIRY; do
+            echo "Candidate $T (*.staging.litium.store, expired $EXPIRY)"
+            if echo "$BOUND" | grep -qx "$T"; then
+              echo "::error::Expired certificate $T is still bound; refusing to delete"
+              FAIL=1
+            fi
+          done <<< "$CANDIDATES"
+          [ "$FAIL" -eq 0 ] || exit 1
+          while read -r T _; do
+            echo "Deleting $T"
+            az webapp config ssl delete \
+              --certificate-thumbprint "$T" \
+              --resource-group rg-sales-portal-prod
+          done <<< "$CANDIDATES"
+
+      - name: Clean up secrets
+        if: always()
+        run: sudo rm -f ~/.secrets/cloudflare.ini /tmp/staging-litium-store.pfx
+
+      # Read what each hostname serves, not what was uploaded: an unregistered
+      # label under the wildcard reaches the same binding. -verify_hostname is
+      # what makes this a check — without it openssl reports a valid chain for a
+      # certificate issued to another name. Production is probed here too, as
+      # the served-side half of the untouched-production proof.
+      - name: Verify and report served certificates
+        run: |
+          {
+            echo "### Staging Slot Certificate Bound"
+            echo "- **Domain:** \*.staging.litium.store"
+            echo "- **Bound thumbprint:** ${{ steps.upload.outputs.thumbprint }}"
+            echo "- **Slot:** staging (sales-portal-prod-app)"
+            echo "- **Production binding:** ${{ steps.prod-before.outputs.thumbprint }} (unchanged)"
+            echo ""
+            echo "| Hostname probed | Served subject | Served expiry |"
+            echo "| --- | --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for HOST in cert-probe.staging.litium.store cert-probe.litium.store; do
+            OUT=$(echo | openssl s_client -connect "$HOST:443" -servername "$HOST" \
+              -verify_hostname "$HOST" 2>&1)
+            if ! printf '%s\n' "$OUT" | grep -q 'Verify return code: 0 (ok)'; then
+              echo "::error::$HOST does not serve a trusted certificate for its own name"
+              printf '%s\n' "$OUT" | grep -E 'subject=|verify error' || true
+              exit 1
+            fi
+            PEM=$(echo | openssl s_client -connect "$HOST:443" -servername "$HOST" 2>/dev/null |
+              openssl x509)
+            SUBJECT=$(printf '%s\n' "$PEM" | openssl x509 -noout -subject | sed 's/^subject=//')
+            EXPIRY=$(printf '%s\n' "$PEM" | openssl x509 -noout -enddate | cut -d= -f2)
+            echo "| $HOST | $SUBJECT | $EXPIRY |" >> "$GITHUB_STEP_SUMMARY"
+          done
