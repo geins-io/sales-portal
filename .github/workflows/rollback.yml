@@ -5,8 +5,8 @@
 # the image production was serving before, so going back is one swap rather
 # than a redeploy - but only until the next deploy overwrites the slot.
 #
-# The slot is *stopped* between releases: it shares production's one core and
-# 1.75 GB, and an idle slot still costs a Node process's memory. So this
+# The slot is *stopped* between releases: it shares production's plan, and an
+# idle slot still costs a Node process's memory and answers probes. So this
 # workflow starts it first and waits for it to report a build, which adds a
 # container start - about a minute - before the swap. Minutes, not seconds,
 # and still no redeploy.
