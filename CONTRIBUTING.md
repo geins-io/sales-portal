@@ -6,12 +6,12 @@ operational guide.
 
 ## Branches
 
-| Branch       | Role                                            | Deploys to              |
-| ------------ | ----------------------------------------------- | ----------------------- |
-| `production` | What is live in prod. Hotfix base.              | prod, manual only       |
-| `main`       | The next release. Approved features collect here. | nothing directly      |
-| `dev`        | Disposable staging, rebuilt automatically.      | Azure dev env (staging) |
-| `dev-config` | Holds the staging manifest.                     | nothing                 |
+| Branch       | Role                                              | Deploys to              |
+| ------------ | ------------------------------------------------- | ----------------------- |
+| `production` | What is live in prod. Hotfix base.                | prod, manual only       |
+| `main`       | The next release. Approved features collect here. | nothing directly        |
+| `dev`        | Disposable staging, rebuilt automatically.        | Azure dev env (staging) |
+| `dev-config` | Holds the staging manifest.                       | nothing                 |
 
 The rule everyone remembers:
 
@@ -69,13 +69,78 @@ git fetch origin
 git tag v<X.Y.Z> origin/main && git push origin v<X.Y.Z>   # release marker + canonical image
 git push origin origin/main:production                      # fast-forward the prod pointer
 ```
+
 Then **Actions -> Deploy -> Run workflow**, `ref = v<X.Y.Z>`, `environment = prod`.
-It promotes the existing `sha-<commit>` image and swaps the prod slot.
+The run does not go straight to production. It writes the existing `sha-<commit>`
+image to the **staging slot**, applies production's settings to that slot, warms
+it and measures it — and then stops. Production is still serving the previous
+image at that point, and stays on it until someone approves the swap.
 
 If the `production` fast-forward is rejected, `production` carries a hotfix that
 was not yet forward-ported to `main`; forward-port it first (see Hotfix), then
 retry. Deploying from the `v*` tag (not a branch push) keeps this working once
 `production` is protected.
+
+## Release manager: the swap gate
+
+Every prod deploy waits for a person between "the new image is ready on the
+staging slot" and "production serves it". The `Swap Production Slots` job runs
+in the `prod-swap` GitHub environment, which has **required reviewers**; the run
+sits at `Review deployments` until one of them approves. **One approval is
+enough** — they do not all have to answer. Who they are is not listed here on
+purpose: the environment is the only source, under Settings → Environments →
+`prod-swap`, and a copy in this file would go stale the first time someone joins
+or leaves.
+
+**What to look at while it waits.** The run summary above the gate carries
+everything the decision needs: the staging hostname to open in a browser, the
+build id production is expected to serve, the build id the slot actually
+reports, and one row per rendered page with its warm response times and a
+verdict. Open the hostname, sign in, click through the pages you care about.
+The slot is already running with production's settings at that point, so what
+you are looking at is what production will be.
+
+**"Prevent self review" is off, and stays off.** The person who dispatches a
+release has to be able to approve it: with a group this size, requiring a second
+pair of eyes on paper would stop releases rather than improve them.
+
+**Do not walk away from the gate. Reject it if you are not releasing.** An
+approval has no deadline — an environment "wait timer" is a delay _before_ a job
+starts, not a limit on how long it may wait for a human. An unanswered gate holds
+the run for up to 30 days, and for all of that time the half-applied swap sits on
+Azure with the slot carrying production's settings, and the next deploy refuses
+to start. Rejecting is free: the cleanup job resets the pending swap and
+production never moved. **Cancelling the run does the same** — a cancellation
+reaches the cleanup job too — so that is the way out when nobody who can approve
+is around.
+
+**Admin bypass is on**, so an administrator can push the swap through without an
+approval. That is the escape hatch for a gate that is genuinely stuck, and it is
+worth being clear about the price: it promotes the release with nobody having
+looked at the slot, which is the one thing the gate exists to prevent. Cancelling
+costs nothing and leaves production untouched; bypassing costs the review. Prefer
+cancelling.
+
+**The environment puts no restriction on branches or tags.** That protection
+lives in `deploy.yml`, which refuses a prod deploy from anything but `production`
+or a `v*` tag. Do not add a second copy of it as an environment branch policy —
+two rules that have to agree will not, and a mis-set one blocks legitimate
+deploys with no useful error.
+
+**If the release turns out bad after the swap**, the slot still holds the image
+production was serving. Dispatch **Actions -> Rollback Production**. It asks for
+one value, `current_production_build`: the full commit sha production serves
+right now, which the failed deploy's own summary prints for you to paste. That
+is an interlock, not a choice — a rollback is a toggle, so pressing it twice
+would put the bad release straight back, and naming the build you are leaving
+makes the second press fail unless you meant it. The workflow then swaps once and
+verifies production on the previous build.
+
+Production comes back correct but **cold**: its process was restarted when that
+image was swapped onto the slot, so the first renders are slow until the caches
+fill. The rollback window also closes the moment the next deploy overwrites the
+slot; after that, going back means deploying the older `v*` tag through the
+normal path.
 
 ## Release manager: hotfix
 
@@ -94,6 +159,8 @@ without dragging the unreleased `main` batch.
    git tag v<X.Y.Z+1> production && git push origin v<X.Y.Z+1>   # build.yml builds this image
    ```
    **Actions -> Deploy -> Run workflow**, `ref = v<X.Y.Z+1>`, `environment = prod`.
+   A hotfix waits at the swap gate like any release — plan for the approval
+   rather than discovering it under pressure.
 4. **Forward-port** so the fix is in the next release and on staging:
    ```bash
    git checkout main && git merge --no-ff hotfix-<desc> && git push origin main

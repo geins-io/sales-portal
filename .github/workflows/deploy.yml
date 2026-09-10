@@ -451,7 +451,11 @@ jobs:
             # runs, and the release gate is the next thing to happen.
             echo "### Staging Slot Ready - Awaiting the Swap ⏸️" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Review https://${{ vars.SWAP_READINESS_HOST }} before approving the swap." >> $GITHUB_STEP_SUMMARY
+            echo "Review https://${{ vars.SWAP_READINESS_HOST }} and the readiness table above, then approve **Swap Production Slots** in this run." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            # Said here because the reviewer should not have to guess what a "no" costs.
+            # It costs nothing, and that is the property that makes the gate usable.
+            echo "Rejecting or cancelling costs nothing: production keeps the image it is serving, and the cleanup job resets the pending swap either way. Do not leave the gate unanswered - an approval has no deadline, and an unanswered one holds the pending swap on Azure and blocks the next deploy." >> $GITHUB_STEP_SUMMARY
           else
             echo "### Deployment Complete ✅" >> $GITHUB_STEP_SUMMARY
           fi
@@ -556,7 +560,13 @@ jobs:
           echo "::error::The swap completed but production did not verify on the new build. Nothing was rolled back."
           echo "### Production Did Not Verify ❌" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The staging slot holds the previous image. To go back:" >> $GITHUB_STEP_SUMMARY
+          echo "The staging slot holds the previous image. To go back, dispatch **Actions -> Rollback Production** with \`current_production_build\` set to the build production serves right now:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "That workflow refuses unless production is on that build and the two sides differ, then swaps and verifies production on the previous one." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "If that workflow is itself the thing that is broken, the same swap by hand:" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "az webapp deployment slot swap --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.get-webapp.outputs.webapp_name }} --slot staging --target-slot production" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

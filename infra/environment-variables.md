@@ -73,19 +73,20 @@ These are **non-sensitive configuration values** visible in the repository setti
 
 ### Variables the Workflow Reads Itself
 
-These three are **not** passed to Bicep and never become app settings: `deploy.yml` reads them to
-decide where to check that a release is ready, before and after the production slot swap. Nothing
-in the running app sees them, and changing one restarts nothing.
+These three are **not** passed to Bicep and never become app settings: `deploy.yml` and
+`rollback.yml` read them to decide where to check that a release is ready, before and after the
+production slot swap. Nothing in the running app sees them, and changing one restarts nothing.
 
-| Variable                | Value                                                          | Read by                                                  |
-| ----------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
-| `SWAP_READINESS_HOST`   | bare hostname, no scheme, e.g. `<tenant>.staging.litium.store` | the readiness check on the staging slot, before the swap |
-| `SWAP_VERIFY_HOST`      | bare hostname, no scheme, e.g. `<tenant>.litium.store`         | the verification of production, after the swap           |
-| `SWAP_VERIFY_TENANT_ID` | the tenant id `/api/config` reports on those hostnames         | the identity assertion in both checks                    |
+| Variable                | Value                                                          | Read by                                                                                                      |
+| ----------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `SWAP_READINESS_HOST`   | bare hostname, no scheme, e.g. `<tenant>.staging.litium.store` | the readiness check on the staging slot before the swap, and the slot's build id a rollback compares against |
+| `SWAP_VERIFY_HOST`      | bare hostname, no scheme, e.g. `<tenant>.litium.store`         | the verification of production, after a swap or a rollback                                                   |
+| `SWAP_VERIFY_TENANT_ID` | the tenant id `/api/config` reports on those hostnames         | the identity assertion in every one of those checks                                                          |
 
-- **A missing value stops the run.** The first step of the prod deploy job names the variable that
-  is not set and where to set it. Readiness is never skipped and never defaulted: a check that
-  quietly does nothing is worse than no check, because the run still says success.
+- **A missing value stops the run.** The first step of the prod deploy job, and of the rollback
+  job, names the variable that is not set and where to set it. Readiness is never skipped and never
+  defaulted: a check that quietly does nothing is worse than no check, because the run still says
+  success.
 - **Change them** when the hostname the release is verified on changes, when the verification moves
   to another tenant, or when a new environment gets a slot of its own.
 - The hostnames must carry no `https://`; the workflow builds the URL.
@@ -208,7 +209,8 @@ Copy the output values for the next step.
 - [ ] `SENTRY_ORG` - If using Sentry
 - [ ] `SENTRY_PROJECT` - If using Sentry
 - [ ] `SWAP_READINESS_HOST`, `SWAP_VERIFY_HOST`, `SWAP_VERIFY_TENANT_ID` - Required for a prod
-      deploy; read by the workflow, not passed to Bicep. See "Variables the Workflow Reads Itself"
+      deploy and for a rollback; read by the workflows, not passed to Bicep. See "Variables the
+      Workflow Reads Itself"
 
 ### 5. GitHub Environments
 
