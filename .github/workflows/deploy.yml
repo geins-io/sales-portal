@@ -556,7 +556,13 @@ jobs:
           echo "::error::The swap completed but production did not verify on the new build. Nothing was rolled back."
           echo "### Production Did Not Verify ❌" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "The staging slot holds the previous image. To go back:" >> $GITHUB_STEP_SUMMARY
+          echo "The staging slot holds the previous image. To go back, dispatch **Actions -> Rollback Production** with \`current_production_build\` set to the build production serves right now:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "That workflow refuses unless production is on that build and the two sides differ, then swaps and verifies production on the previous one." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "If that workflow is itself the thing that is broken, the same swap by hand:" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "az webapp deployment slot swap --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.get-webapp.outputs.webapp_name }} --slot staging --target-slot production" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
