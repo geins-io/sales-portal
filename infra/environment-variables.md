@@ -71,6 +71,35 @@ These are **non-sensitive configuration values** visible in the repository setti
 - **SENTRY_ORG** and **SENTRY_PROJECT** are only used at **build time** for source map uploads
 - The deploy workflow passes these to Bicep, which converts them to `NUXT_*` format in Azure
 
+### Variables the Workflow Reads Itself
+
+These three are **not** passed to Bicep and never become app settings: `deploy.yml` reads them to
+decide where to check that a release is ready, before and after the production slot swap. Nothing
+in the running app sees them, and changing one restarts nothing.
+
+| Variable                | Value                                                          | Read by                                                  |
+| ----------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| `SWAP_READINESS_HOST`   | bare hostname, no scheme, e.g. `<tenant>.staging.litium.store` | the readiness check on the staging slot, before the swap |
+| `SWAP_VERIFY_HOST`      | bare hostname, no scheme, e.g. `<tenant>.litium.store`         | the verification of production, after the swap           |
+| `SWAP_VERIFY_TENANT_ID` | the tenant id `/api/config` reports on those hostnames         | the identity assertion in both checks                    |
+
+- **A missing value stops the run.** The first step of the prod deploy job names the variable that
+  is not set and where to set it. Readiness is never skipped and never defaulted: a check that
+  quietly does nothing is worse than no check, because the run still says success.
+- **Change them** when the hostname the release is verified on changes, when the verification moves
+  to another tenant, or when a new environment gets a slot of its own.
+- The hostnames must carry no `https://`; the workflow builds the URL.
+
+Two things are deliberately **not** variables:
+
+- **The TTFB budget** (`TTFB_BUDGET_MS`, in `deploy.yml`'s `env:`) is a literal. It defines what
+  "ready" means, and moving that bar should show up in a reviewed diff rather than in a settings
+  field with no history.
+- **The pages that get rendered** are looked up at run time from `/api/__sitemap__/urls`, not
+  listed anywhere. A listed category path would tie the release gate to the catalogue: rename or
+  unpublish that category and a healthy deploy fails for a reason that has nothing to do with the
+  deploy.
+
 ---
 
 ## Azure App Service Settings
@@ -178,6 +207,8 @@ Copy the output values for the next step.
 - [ ] `LOG_LEVEL` - Adjust as needed (`silent` to disable all logging)
 - [ ] `SENTRY_ORG` - If using Sentry
 - [ ] `SENTRY_PROJECT` - If using Sentry
+- [ ] `SWAP_READINESS_HOST`, `SWAP_VERIFY_HOST`, `SWAP_VERIFY_TENANT_ID` - Required for a prod
+      deploy; read by the workflow, not passed to Bicep. See "Variables the Workflow Reads Itself"
 
 ### 5. GitHub Environments
 
