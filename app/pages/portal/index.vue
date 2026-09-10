@@ -219,12 +219,12 @@ function handleProductAddToCart(
         >
           {{ t('portal.overview.no_quotations') }}
         </div>
-        <template v-else>
+        <!-- One handle for the list, wrapping both responsive shapes below.
+             It sits on the `v-else` rather than around the whole block so its
+             presence still means "the list has rows". -->
+        <div v-else data-testid="pending-quotations-table">
           <!-- Mobile cards -->
-          <div
-            class="space-y-2 md:hidden"
-            data-testid="pending-quotations-table"
-          >
+          <div class="space-y-2 md:hidden">
             <NuxtLink
               v-for="quote in recentPendingQuotes"
               :key="quote.id"
@@ -253,10 +253,7 @@ function handleProductAddToCart(
           </div>
           <!-- Desktop table -->
           <div class="hidden overflow-x-auto md:block">
-            <table
-              data-testid="pending-quotations-table"
-              class="w-full text-sm"
-            >
+            <table class="w-full text-sm">
               <thead>
                 <tr class="border-border border-b text-left">
                   <th class="py-3 pr-4 font-medium">
@@ -306,7 +303,7 @@ function handleProductAddToCart(
               </tbody>
             </table>
           </div>
-        </template>
+        </div>
       </div>
 
       <!-- Your Lists mini-table -->
@@ -339,9 +336,10 @@ function handleProductAddToCart(
         >
           {{ t('portal.overview.no_lists') }}
         </div>
-        <template v-else>
+        <!-- Same wrapper rule as the pending quotations list above. -->
+        <div v-else data-testid="your-lists-table">
           <!-- Mobile cards -->
-          <div class="space-y-2 md:hidden" data-testid="your-lists-table">
+          <div class="space-y-2 md:hidden">
             <NuxtLink
               v-for="list in recentLists"
               :key="list.id"
@@ -361,7 +359,7 @@ function handleProductAddToCart(
           </div>
           <!-- Desktop table -->
           <div class="hidden overflow-x-auto md:block">
-            <table data-testid="your-lists-table" class="w-full text-sm">
+            <table class="w-full text-sm">
               <thead>
                 <tr class="border-border border-b text-left">
                   <th class="py-3 pr-4 font-medium">
@@ -396,7 +394,7 @@ function handleProductAddToCart(
               </tbody>
             </table>
           </div>
-        </template>
+        </div>
       </div>
     </div>
 

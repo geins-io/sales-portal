@@ -65,6 +65,14 @@ test.describe('Portal Overview', () => {
       .isVisible()
       .catch(() => false);
     expect(hasQuotations || hasQuotationsEmpty).toBe(true);
+    if (hasQuotations) {
+      // The wrapper is on the non-empty branch, so its presence means rows.
+      // Count the visible ones — both responsive shapes render N rows each.
+      const rows = quotationsTable.locator(
+        '[data-testid="pending-quote-row"]:visible',
+      );
+      expect(await rows.count()).toBeGreaterThan(0);
+    }
 
     // Your lists section
     const listsTable = page.locator('[data-testid="your-lists-table"]');
@@ -72,6 +80,10 @@ test.describe('Portal Overview', () => {
     const hasLists = await listsTable.isVisible().catch(() => false);
     const hasListsEmpty = await listsEmpty.isVisible().catch(() => false);
     expect(hasLists || hasListsEmpty).toBe(true);
+    if (hasLists) {
+      const rows = listsTable.locator('[data-testid="your-list-row"]:visible');
+      expect(await rows.count()).toBeGreaterThan(0);
+    }
 
     // Purchased products section
     const productsGrid = page.locator(
@@ -274,14 +286,30 @@ test.describe('Portal Quotations', () => {
     const hasTable = await quotationsTable.isVisible().catch(() => false);
     const hasEmpty = await quotationsEmpty.isVisible().catch(() => false);
 
-    expect(hasTable || hasEmpty).toBe(true);
+    // Exactly one of the two: `quotations-table` wraps the non-empty branch,
+    // so it exists only when the list has rows. This states the invariant more
+    // plainly than `hasTable || hasEmpty`; it does not catch more, since
+    // `v-if` / `v-else` already makes both-true impossible. What the rows and
+    // headers below assert is the part the old test never had.
+    expect(hasTable).not.toBe(hasEmpty);
 
-    // If table is visible, verify rows have expected structure
     if (hasTable) {
-      const headerCells = quotationsTable.locator('thead th');
-      const count = await headerCells.count();
-      // Expected columns: Quote number, Created, Contact, Total, Status, (actions)
-      expect(count).toBeGreaterThanOrEqual(5);
+      // Both responsive shapes sit in the DOM at once and CSS decides which
+      // one shows, so count what is visible. `md` is 768px (Tailwind), the
+      // same breakpoint the page's `md:hidden` / `hidden md:block` use.
+      const isNarrow = (page.viewportSize()?.width ?? 1280) < 768;
+
+      const visibleRows = quotationsTable.locator(
+        '[data-testid="quotation-row"]:visible',
+      );
+      expect(await visibleRows.count()).toBeGreaterThan(0);
+
+      if (!isNarrow) {
+        const headerCells = quotationsTable.locator('thead th:visible');
+        const count = await headerCells.count();
+        // Expected columns: Quote number, Created, Contact, Total, Status, (actions)
+        expect(count).toBeGreaterThanOrEqual(5);
+      }
     }
   });
 
