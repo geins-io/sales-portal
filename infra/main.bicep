@@ -98,9 +98,15 @@ var skuConfig = {
     tier: 'Standard'
     capacity: 1
   }
+  // P1v3 (2 vCPU, 8 GB), one instance. The staging slot shares this plan, and on
+  // S1's single core its container start and warm-up starved production: two
+  // release dry runs on 2026-09-10 each timed production out for about three
+  // minutes without a swap having happened. A second core lets the slot start
+  // beside production; a second *instance* would not, since the tenant cache is
+  // per instance and the config-refresh webhook reaches only one of them.
   prod: {
-    name: 'S1'
-    tier: 'Standard'
+    name: 'P1v3'
+    tier: 'PremiumV3'
     capacity: 1
   }
 }

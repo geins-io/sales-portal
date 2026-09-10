@@ -44,7 +44,12 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   }
   properties: {
     reserved: true // Required for Linux
-    zoneRedundant: skuTier == 'PremiumV3' ? true : false // Enable zone redundancy for production
+    // Off on purpose, also on PremiumV3. Zone redundancy needs several instances
+    // spread across zones, and this application runs one: its tenant cache lives in
+    // the process and the config-refresh webhook reaches a single instance, so more
+    // than one would serve different configuration. Turning it on here would also
+    // have tripled the instance count the first time prod moved to a v3 tier.
+    zoneRedundant: false
   }
 }
 
