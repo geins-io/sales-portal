@@ -1,0 +1,225 @@
+# =============================================================================
+# SALES PORTAL - Full E2E Suite (manual)
+# =============================================================================
+# Every spec in tests/e2e across chromium, Mobile Chrome and webkit, after the
+# five preflight layers. Triggered by hand, on any branch.
+#
+# The PR job in ci.yml runs four spec files on chromium. This runs all thirteen
+# on all three projects, and it is the only automated run webkit gets at all.
+#
+# The target is a production build on the runner, the same shape ci.yml uses:
+# it proves the code under test, not a deployed environment. Testing a deployed
+# environment is a different question and needs E2E_REMOTE=1 plus a target to
+# point at; it is deliberately not an input here.
+#
+# Wall-clock per project goes to the job summary. The PR gate that replaces the
+# four-spec job inherits those numbers and decides sharding from them.
+# =============================================================================
+
+name: E2E Full Suite
+
+on:
+  workflow_dispatch:
+
+# Serialised rather than cancelled: two runs at once would sign the shared test
+# account in twice within seconds, and the platform rate-limits that.
+concurrency:
+  group: ${{ github.workflow }}
+
+jobs:
+  e2e-full:
+    name: Full E2E Suite
+    runs-on: ubuntu-latest
+    # Generous on purpose. Phase one exists to learn the real number; the PR
+    # gate sets a tight timeout from what this measures.
+    timeout-minutes: 30
+    env:
+      # Empty repository variables fall through to the committed defaults in
+      # tests/e2e/target-defaults.mjs, which is the one place the target is
+      # spelled out.
+      PLAYWRIGHT_BASE_URL: ${{ vars.E2E_BASE_URL }}
+      E2E_EXPECTED_TENANT_ID: ${{ vars.E2E_EXPECTED_TENANT_ID }}
+      E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      E2E_EXTERNAL_SERVER: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # A key of its own, with the browser set in it. ci.yml caches the same
+      # path under a key that hashes the lockfile alone, and the entry it saved
+      # holds chromium only — reusing that key would restore a cache without
+      # webkit and, since entries are immutable, never be able to save one, so
+      # every run would pay the webkit download in silence.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-webkit-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # Mobile Chrome is a device profile on chromium, so it needs no download
+      # of its own.
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      # The hostname comes from the suite's own resolver rather than a literal,
+      # so the workflow cannot drift from tests/e2e/target-defaults.mjs.
+      - name: Point the target hostname at the runner
+        run: echo "127.0.0.1 $(node tests/e2e/target-defaults.mjs)" | sudo tee -a /etc/hosts
+
+      # The production build sets `upgrade-insecure-requests` and Secure auth
+      # cookies, so it only works over https. NITRO_SSL_CERT / NITRO_SSL_KEY
+      # hold PEM contents, not paths.
+      - name: Generate TLS cert for the preview server
+        run: ./infra/scripts/local-cert.sh
+
+      # Same key as ci.yml: restoring an entry it saved is a straight win.
+      - name: Cache Nuxt build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .nuxt
+            .output
+          key: nuxt-build-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'nuxt.config.ts', 'app/**', 'server/**', 'shared/**') }}
+
+      - name: Build application
+        run: pnpm build
+
+      # Output goes to a file: an open stdout would keep the step from ending.
+      - name: Start the preview server
+        run: |
+          NITRO_SSL_CERT="$(cat .certs/local.crt)" NITRO_SSL_KEY="$(cat .certs/local.key)" E2E=1 \
+            pnpm preview > preview.log 2>&1 &
+
+      # One step per layer so the step view names what broke, and `--no-deps`
+      # so each runs exactly once. L4 signs in and writes the session to disk;
+      # every browser project below reads that file, so a full run signs in
+      # once whatever the browser count. Splitting the projects across jobs or
+      # shards would repeat the preflight, and with it the sign-in.
+      - name: Preflight L0 · reachability
+        run: pnpm test:e2e --no-deps --project "L0 reachability"
+
+      - name: Preflight L1 · liveness
+        run: pnpm test:e2e --no-deps --project "L1 liveness"
+
+      - name: Preflight L2 · identity
+        run: pnpm test:e2e --no-deps --project "L2 identity"
+
+      - name: Preflight L3 · delivery
+        run: pnpm test:e2e --no-deps --project "L3 delivery"
+
+      - name: Preflight L4 · session
+        run: pnpm test:e2e --no-deps --project "L4 session"
+
+      - name: Start the wall-clock table
+        run: |
+          {
+            echo '## E2E projects'
+            echo
+            echo '| Project | Result | Wall-clock |'
+            echo '| --- | --- | --- |'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A project per step: in one invocation Playwright interleaves them
+      # across workers, so per-project wall-clock is not a number that exists.
+      # `continue-on-error` so a red project does not hide the other two's
+      # timings — the gate step below still fails the job. Each step moves its
+      # report aside, because the config writes both report paths fixed and the
+      # next invocation would overwrite them.
+      - name: Project · chromium
+        id: chromium
+        continue-on-error: true
+        env:
+          PROJECT: chromium
+          SLUG: chromium
+        run: |
+          mkdir -p reports results
+          start=$(date +%s)
+          pnpm test:e2e --no-deps --project="$PROJECT" && status=0 || status=$?
+          elapsed=$(( $(date +%s) - start ))
+          [ "$status" = 0 ] && result=pass || result=FAIL
+          printf '| %s | %s | %dm %02ds |\n' "$PROJECT" "$result" $(( elapsed / 60 )) $(( elapsed % 60 )) >> "$GITHUB_STEP_SUMMARY"
+          if [ -d playwright-report ]; then mv playwright-report "reports/$SLUG"; fi
+          if [ -d test-results ]; then mv test-results "results/$SLUG"; fi
+          exit $status
+
+      - name: Project · Mobile Chrome
+        id: mobile-chrome
+        continue-on-error: true
+        env:
+          PROJECT: Mobile Chrome
+          SLUG: mobile-chrome
+        run: |
+          mkdir -p reports results
+          start=$(date +%s)
+          pnpm test:e2e --no-deps --project="$PROJECT" && status=0 || status=$?
+          elapsed=$(( $(date +%s) - start ))
+          [ "$status" = 0 ] && result=pass || result=FAIL
+          printf '| %s | %s | %dm %02ds |\n' "$PROJECT" "$result" $(( elapsed / 60 )) $(( elapsed % 60 )) >> "$GITHUB_STEP_SUMMARY"
+          if [ -d playwright-report ]; then mv playwright-report "reports/$SLUG"; fi
+          if [ -d test-results ]; then mv test-results "results/$SLUG"; fi
+          exit $status
+
+      - name: Project · webkit
+        id: webkit
+        continue-on-error: true
+        env:
+          PROJECT: webkit
+          SLUG: webkit
+        run: |
+          mkdir -p reports results
+          start=$(date +%s)
+          pnpm test:e2e --no-deps --project="$PROJECT" && status=0 || status=$?
+          elapsed=$(( $(date +%s) - start ))
+          [ "$status" = 0 ] && result=pass || result=FAIL
+          printf '| %s | %s | %dm %02ds |\n' "$PROJECT" "$result" $(( elapsed / 60 )) $(( elapsed % 60 )) >> "$GITHUB_STEP_SUMMARY"
+          if [ -d playwright-report ]; then mv playwright-report "reports/$SLUG"; fi
+          if [ -d test-results ]; then mv test-results "results/$SLUG"; fi
+          exit $status
+
+      - name: Fail if any project failed
+        run: |
+          failed=""
+          [ "${{ steps.chromium.outcome }}" = success ] || failed="$failed chromium"
+          [ "${{ steps.mobile-chrome.outcome }}" = success ] || failed="$failed mobile-chrome"
+          [ "${{ steps.webkit.outcome }}" = success ] || failed="$failed webkit"
+          if [ -n "$failed" ]; then
+            echo "::error::Failed projects:$failed"
+            exit 1
+          fi
+
+      - name: Upload preview server log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview-log
+          path: preview.log
+          retention-days: 7
+
+      - name: Upload Playwright reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-reports
+          path: reports/
+          retention-days: 7
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: results/
+          retention-days: 7

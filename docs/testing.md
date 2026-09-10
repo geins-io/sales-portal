@@ -670,14 +670,16 @@ milestone that adds config tests.
 
 ## CI/CD Integration
 
-See `.github/workflows/ci.yml`. It runs on **PRs into `main`/`production`** and on **pushes to
-`dev`** — not on every push.
+Two workflows run tests; neither runs on a schedule.
 
-| Job               | When     | What                                                  |
-| ----------------- | -------- | ----------------------------------------------------- |
-| Lint & Type Check | both     | `pnpm lint`, `pnpm typecheck`                         |
-| Unit & Component  | both     | `pnpm test:coverage` (full vitest suite)              |
-| E2E               | PRs only | **Preflight, then a 4-file smoke subset on chromium** |
+| Workflow · Job                  | Trigger                                       | What                                                  |
+| ------------------------------- | --------------------------------------------- | ----------------------------------------------------- |
+| `ci.yml` · Lint & Type Check    | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck`                         |
+| `ci.yml` · Unit & Component     | same                                          | `pnpm test:coverage` (full vitest suite)              |
+| `ci.yml` · E2E                  | PRs only                                      | **Preflight, then a 4-file smoke subset on chromium** |
+| `e2e-full.yml` · Full E2E Suite | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**  |
+
+### The PR job (`ci.yml`)
 
 The E2E job builds the production build, starts `pnpm preview` once (over https, output in the
 `preview-log` artifact), then runs one step per preflight layer against it with
@@ -698,15 +700,30 @@ defaults when unset. Be aware of what this does and does not buy you:
 - The identity layer does fail against an unreachable merchant API (503) or an unregistered
   hostname, but the specs still pass against a Geins API that is down. A green E2E job is **not**
   evidence that the storefront works.
-- The other 9 spec files, and the `Mobile Chrome` / `webkit` projects, are ungated. They rot
-  silently; assume they are broken unless someone has run them locally.
-- `theme-colors.spec.ts` is a deliberate WebKit regression guard, but CI installs chromium only
-  and passes `--project=chromium`, so **it runs nowhere in CI** despite the comment in
-  `playwright.config.ts` implying otherwise.
+- The other 9 spec files, and the `Mobile Chrome` / `webkit` projects, are not gated on a PR: the
+  job installs chromium only and passes `--project=chromium`, so the WebKit regression guard in
+  `theme-colors.spec.ts` runs only in the full-suite workflow below.
 
-Running the full suite in CI would need a test account in GitHub Secrets (see
-[E2E Tests](#e2e-tests)). Until that exists, **run `pnpm test:e2e` locally before a PR that
-touches storefront behaviour** — the smoke subset will not catch it.
+**Run `pnpm test:e2e` locally before a PR that touches storefront behaviour** — the smoke subset
+will not catch it.
+
+### The full suite (`e2e-full.yml`)
+
+`workflow_dispatch` only, on any branch: `gh workflow run e2e-full.yml --ref <branch>`.
+
+Same target as the PR job — a production build on the runner — with chromium, webkit and the
+Mobile Chrome device profile. Each preflight layer and each browser project is its own step, and
+wall-clock per project goes to the job summary. No mutation gate is needed: the suite writes no
+lasting tenant data.
+
+A run signs in once however many browsers it drives — preflight L4 writes the session, every
+auth-dependent spec reads that file — so splitting the projects across jobs, or sharding, repeats
+the preflight and with it the sign-in against a rate-limited endpoint.
+
+Its Playwright browser cache has a key of its own, with the browser set in it. The PR job's key
+hashes the lockfile alone and the entry it saves holds chromium only; sharing it would restore a
+cache without webkit and, entries being immutable, never be able to save one — paying the webkit
+download on every run.
 
 ## Gotchas
 
