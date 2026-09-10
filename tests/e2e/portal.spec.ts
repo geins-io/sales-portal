@@ -334,17 +334,19 @@ test.describe('Portal Quotations', () => {
       'test account has no quotes — platform quotations are not available yet',
     );
 
-    // Click the first view link (desktop table preferred, falls back to mobile card)
-    const viewLink = page
-      .locator('[data-testid="quotation-view-link"]')
+    // Desktop puts a view link in the row, mobile makes the whole card the
+    // link; both are anchors into the quote, so match on the destination
+    // rather than on a testid only the desktop one carries. Both shapes are in
+    // the DOM at once and CSS decides which one shows, hence `:visible` — the
+    // old `.count()` branch saw the hidden desktop link on Mobile Chrome and
+    // clicked something nothing renders.
+    const quoteLink = page
+      .locator(
+        '[data-testid="quotations-table"] a[href*="/portal/quotations/"]:visible',
+      )
       .first();
-    const quotationRow = page.locator('[data-testid="quotation-row"]').first();
-    const linkCount = await viewLink.count();
-    if (linkCount > 0) {
-      await viewLink.click();
-    } else {
-      await quotationRow.click();
-    }
+    await expect(quoteLink).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await quoteLink.click();
 
     // Wait for navigation to the locale-prefixed detail URL (uuid segment)
     await page.waitForURL(/\/se\/sv\/portal\/quotations\/[\w-]+/, {
