@@ -5,6 +5,12 @@
 # the image production was serving before, so going back is one swap rather
 # than a redeploy - but only until the next deploy overwrites the slot.
 #
+# The slot is *stopped* between releases: it shares production's one core and
+# 1.75 GB, and an idle slot still costs a Node process's memory. So this
+# workflow starts it first and waits for it to report a build, which adds a
+# container start - about a minute - before the swap. Minutes, not seconds,
+# and still no redeploy.
+#
 # Rolling back to any *other* build is not this workflow: that is an ordinary
 # Deploy of an older v* tag or sha-<commit>, which goes to the slot, warms and
 # swaps like any release. Minutes instead of seconds, with no unreachable
@@ -145,12 +151,25 @@ jobs:
           fi
 
           if [[ -n "$PENDING" ]]; then
-            echo "::error::The staging slot has a swap pending to '${PENDING}', so a deploy is mid-flight or was killed. Let it finish, or clear it: az webapp deployment slot swap --resource-group ${RESOURCE_GROUP} --name ${WEBAPP_NAME} --slot ${WEBAPP_SLOT} --target-slot production --action reset"
+            echo "::error::The staging slot has a swap pending to '${PENDING}', so a deploy is mid-flight or was killed. Let it finish, or clear it: az webapp deployment slot swap --resource-group ${RESOURCE_GROUP} --name ${WEBAPP_NAME} --slot ${WEBAPP_SLOT} --action reset"
             exit 1
           fi
 
           echo "webapp_name=${WEBAPP_NAME}" >> $GITHUB_OUTPUT
           echo "$(date -u +%T) UTC - ${WEBAPP_NAME}: no swap pending, so the two sides can be compared."
+
+      - name: Start the staging slot
+        env:
+          WEBAPP_NAME: ${{ steps.slot.outputs.webapp_name }}
+        run: |
+          # Stopped since the last release verified (deploy.yml stops it). Idempotent on a
+          # slot that is already running. The build read below waits for it to answer.
+          echo "$(date -u +%T) UTC - starting the staging slot"
+          az webapp start \
+            --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot "$WEBAPP_SLOT" \
+            --output none
+          echo "$(date -u +%T) UTC - ✅ slot state: $(az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot "$WEBAPP_SLOT" --query state --output tsv)"
 
       - name: Read the build each side serves
         id: builds
@@ -185,8 +204,13 @@ jobs:
             exit 1
           fi
 
+          # The slot was just started, so this one waits: 24 x 10 s covers a container
+          # start on this plan with room to spare. The public health response before the
+          # process is up is treated as "not yet" here, unlike the production read above,
+          # which asks a running site what it serves right now.
           if ! SLOT_SHA=$(BASE_URL="https://${{ vars.SWAP_READINESS_HOST }}" \
             LABEL="staging slot" \
+            ATTEMPTS=24 INTERVAL=10 \
             bash .github/scripts/served-build.sh); then
             exit 1
           fi

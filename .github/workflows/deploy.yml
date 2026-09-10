@@ -185,7 +185,7 @@ jobs:
           fi
 
           if [[ -n "$PENDING" ]]; then
-            echo "::error::The staging slot has a swap pending to '${PENDING}'. Clear it and re-run: az webapp deployment slot swap --resource-group ${RESOURCE_GROUP} --name ${WEBAPP_NAME} --slot staging --target-slot production --action reset"
+            echo "::error::The staging slot has a swap pending to '${PENDING}'. Clear it and re-run: az webapp deployment slot swap --resource-group ${RESOURCE_GROUP} --name ${WEBAPP_NAME} --slot staging --action reset"
             exit 1
           fi
 
@@ -315,6 +315,22 @@ jobs:
 
           echo "✅ The production site's image is unchanged."
 
+      - name: Start the staging slot
+        if: needs.prepare.outputs.environment == 'prod'
+        run: |
+          # The slot is stopped between releases (the swap job stops it once production
+          # has verified): both sides share one S1 core and 1.75 GB, and an idle slot
+          # still holds a Node process's memory. Starting it here, before the image is
+          # written, is idempotent on a slot that is already running. The image change
+          # below restarts it anyway, so nothing is warmed twice.
+          echo "$(date -u +%T) UTC - starting the staging slot"
+          az webapp start \
+            --resource-group ${{ needs.prepare.outputs.resource_group }} \
+            --name ${{ steps.outputs.outputs.webapp_name }} \
+            --slot staging \
+            --output none
+          echo "$(date -u +%T) UTC - ✅ slot state: $(az webapp show --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.outputs.outputs.webapp_name }} --slot staging --query state --output tsv)"
+
       - name: Set the container image
         id: image
         run: |
@@ -362,52 +378,38 @@ jobs:
           echo "$(date -u +%T) UTC - ✅ image set to ${ACTUAL}"
           echo "health_url=https://${HEALTH_HOST}" >> $GITHUB_OUTPUT
 
-      - name: Wait for container to start
+      - name: Wait for the target to serve the new build
+        env:
+          BASE_URL: ${{ steps.image.outputs.health_url }}
+          EXPECT_SHA: ${{ github.sha }}
+          HEALTH_KEY: ${{ secrets.HEALTH_CHECK_SECRET }}
+          # 20 x 30 s. Pulling the image and starting Nuxt took about 2.5 minutes on this
+          # plan on 2026-09-10; a healthy target passes as soon as it is up, so the budget
+          # only costs time in a run that is already wrong.
+          ATTEMPTS: '20'
+          INTERVAL: '30'
+          LABEL: ${{ needs.prepare.outputs.environment == 'prod' && 'staging slot' || 'site' }}
         run: |
           # The target is whatever just received the image: the staging slot on prod, the
-          # site everywhere else. It checks that the target answers on its own hostname,
-          # where no tenant resolves and a rendered page gives 500, so it can only ever be
-          # liveness - which is what has to hold before a preview is spent on the slot.
-          # Which build it serves, and whether it renders, is the readiness step below.
-          echo "Waiting for container to start..."
-          sleep 30
-
-          WEBAPP_URL="${{ steps.image.outputs.health_url }}"
-          if [[ -n "$WEBAPP_URL" ]]; then
-            echo "Checking health at ${WEBAPP_URL}/api/health"
-            
-            # 20 attempts, 30 s apart: the target now has to pull a new image and start
-            # Nuxt on it, which took about three minutes on this plan the last time it was
-            # measured. The old three attempts only ever passed because production was
-            # answering on the image it already had. A healthy target passes on the first
-            # attempt, so the budget only ever costs time in a run that is already wrong.
-            ATTEMPTS=20
-
-            for ((i = 1; i <= ATTEMPTS; i++)); do
-              HTTP_CODE=$(curl -s -o /tmp/health_response.txt -w "%{http_code}" --max-time 30 "${WEBAPP_URL}/api/health" || echo "000")
-
-              if [[ "$HTTP_CODE" == "200" ]]; then
-                echo "$(date -u +%T) UTC - ✅ Health check passed on attempt $i/$ATTEMPTS"
-                cat /tmp/health_response.txt
-                exit 0
-              fi
-
-              echo "$(date -u +%T) UTC - ⏳ Attempt $i/$ATTEMPTS: HTTP $HTTP_CODE"
-
-              if [[ $i -lt $ATTEMPTS ]]; then
-                sleep 30
-              fi
-            done
-
-            echo "❌ Health check failed after $ATTEMPTS attempts"
+          # site everywhere else, on its own azurewebsites.net hostname. No tenant resolves
+          # there, so a rendered page would give 500 - but /api/health ignores the tenant
+          # and, with the key, reports the commit the running process was built from.
+          #
+          # That is the only thing worth waiting for. A 200 on /api/health is not: the
+          # previous container keeps answering 200 while the new image is still being
+          # pulled, and on 2026-09-10 a health-only wait passed after 30 s against the old
+          # process, two minutes before the new one existed. Readiness then ran against
+          # the old process too and failed a healthy release.
+          if [[ -z "$BASE_URL" ]]; then
+            echo "::error::No health URL was set, so nothing was checked. The image step must export health_url."
+            exit 1
+          fi
+          if ! bash .github/scripts/served-build.sh >/dev/null; then
             LOG_SLOT=""
             if [[ "${{ needs.prepare.outputs.environment }}" == "prod" ]]; then
               LOG_SLOT=" --slot staging"
             fi
             echo "Check logs: az webapp log tail --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.outputs.outputs.webapp_name }}${LOG_SLOT}"
-            exit 1
-          else
-            echo "::error::No health URL was set, so nothing was checked. The image step must export health_url."
             exit 1
           fi
 
@@ -551,6 +553,23 @@ jobs:
           # returned zero.
           bash .github/scripts/verify-deployment.sh
 
+      - name: Stop the staging slot
+        run: |
+          # Only reached when production has verified on the new build. The slot now holds
+          # the previous image, which is the rollback; stopped, it keeps that image and its
+          # settings but not its share of the one core and 1.75 GB the two sides share.
+          # The rollback workflow starts it again before it compares builds, which costs
+          # that path a container start - about a minute - and nothing else. The deploy
+          # job starts it before the next image is written. Left running, it is not
+          # reached here, so a production that did not verify keeps its fast way back.
+          echo "$(date -u +%T) UTC - stopping the staging slot"
+          az webapp stop \
+            --resource-group ${{ needs.prepare.outputs.resource_group }} \
+            --name ${{ steps.get-webapp.outputs.webapp_name }} \
+            --slot staging \
+            --output none
+          echo "$(date -u +%T) UTC - ✅ slot state: $(az webapp show --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.get-webapp.outputs.webapp_name }} --slot staging --query state --output tsv)"
+
       - name: Report a production that did not verify
         if: failure() && steps.swap.outcome == 'success'
         run: |
@@ -582,6 +601,7 @@ jobs:
           echo "| Verified | https://${{ vars.SWAP_VERIFY_HOST }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Image | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Staging slot | stopped, holding the previous image for a rollback |" >> $GITHUB_STEP_SUMMARY
 
   # ---------------------------------------------------------------------------
   # Clear a swap left pending (failure, rejection, cancellation)
@@ -641,10 +661,14 @@ jobs:
             exit 0
           fi
 
+          # No --target-slot here. For --action reset az treats that flag as the name of
+          # a second slot to reset, looks for a slot literally called "production", and
+          # fails ResourceNotFound before it has touched staging - which is how the first
+          # dry run on 2026-09-10 left its swap pending. Production is implied.
           echo "$(date -u +%T) UTC - resetting a swap pending to '${PENDING}'"
           az webapp deployment slot swap \
             --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
-            --slot staging --target-slot production \
+            --slot staging \
             --action reset
 
           # Re-read, because a reset that quietly did nothing would leave the next deploy
@@ -656,7 +680,7 @@ jobs:
           IFS=$'\t' read -r WEBAPP_NAME AFTER <<<"$STATE"
 
           if [[ -n "$AFTER" ]]; then
-            echo "::error::The reset ran but the slot still has a swap pending to '${AFTER}'. Clear it by hand: az webapp deployment slot swap --resource-group ${RESOURCE_GROUP} --name ${WEBAPP_NAME} --slot staging --target-slot production --action reset"
+            echo "::error::The reset ran but the slot still has a swap pending to '${AFTER}'. Clear it by hand: az webapp deployment slot swap --resource-group ${RESOURCE_GROUP} --name ${WEBAPP_NAME} --slot staging --action reset"
             exit 1
           fi
 

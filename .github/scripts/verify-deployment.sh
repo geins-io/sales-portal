@@ -28,7 +28,7 @@
 #   TTFB_BUDGET_MS      ceiling for the median warm TTFB per page (4000)
 #   ROUNDS              readiness attempts (3)
 #   ROUND_PAUSE         seconds between rounds (20)
-#   LIVENESS_ATTEMPTS   polls of /api/health before giving up (20)
+#   LIVENESS_ATTEMPTS   polls of /api/health until it reports EXPECTED_SHA (20)
 #   LIVENESS_INTERVAL   seconds between those polls (15)
 #   WARM_HITS           requests per page, the first discarded (4)
 #   HIT_PAUSE           seconds between hits on the same page (2)
@@ -144,24 +144,47 @@ median() {
 # The restart that --action preview causes lands here, so this is a wait, not a
 # verdict: /api/health answers in milliseconds on an instance whose pages are
 # still cold, which is why nothing below trusts it.
+#
+# It waits for the *build*, not for a 200. The previous container keeps
+# answering 200 while the new one is pulled and started - on 2026-09-10 the
+# staging slot did so for two minutes after the image was set, and a wait that
+# accepted the first 200 handed the checks below the old process, which had no
+# health key in its environment and failed the build id check. A public health
+# response here therefore means "not yet", and only the last attempt reads it
+# as a key problem.
 wait_for_liveness() {
-  local i result code
+  local i response code body sha public_answers=0 last=""
   for ((i = 1; i <= LIVENESS_ATTEMPTS; i++)); do
-    result=$(probe "${BASE_URL}/api/health")
-    code="${result%% *}"
+    response=$(fetch "${BASE_URL}/api/health?key=${HEALTH_KEY}")
+    code=$(printf '%s' "$response" | tail -n 1)
+    body=$(printf '%s' "$response" | sed '$d')
 
-    if [[ "$code" == "200" ]]; then
-      say "liveness: 200 on attempt ${i}/${LIVENESS_ATTEMPTS}"
-      return 0
+    if [[ "$code" != "200" ]]; then
+      say "liveness: HTTP ${code} on attempt ${i}/${LIVENESS_ATTEMPTS}"
+    else
+      sha=$(printf '%s' "$body" | jq -r '.commitSha // empty' 2>/dev/null)
+      if [[ -z "$sha" ]]; then
+        public_answers=$((public_answers + 1))
+        say "liveness: public health response (no commitSha) on attempt ${i}/${LIVENESS_ATTEMPTS}, waiting for ${EXPECTED_SHA}"
+      elif [[ "$sha" == "$EXPECTED_SHA" ]]; then
+        say "liveness: ${LABEL} serves ${sha} on attempt ${i}/${LIVENESS_ATTEMPTS}"
+        return 0
+      else
+        last="$sha"
+        say "liveness: ${LABEL} serves ${sha} on attempt ${i}/${LIVENESS_ATTEMPTS}, waiting for ${EXPECTED_SHA}"
+      fi
     fi
 
-    say "liveness: HTTP ${code} on attempt ${i}/${LIVENESS_ATTEMPTS}"
     if ((i < LIVENESS_ATTEMPTS)); then
       sleep "$LIVENESS_INTERVAL"
     fi
   done
 
-  err "${LABEL} never answered 200 on /api/health after ${LIVENESS_ATTEMPTS} attempts."
+  if [[ -z "$last" && "$public_answers" -gt 0 ]]; then
+    err "${LABEL} never reported a build in ${LIVENESS_ATTEMPTS} attempts: every 200 was the public health response. Either the new container never took over, or NUXT_HEALTH_CHECK_SECRET on the target does not match HEALTH_CHECK_SECRET here - the Bicep step of this workflow sets it, and a slot picks it up at that step or at --action preview."
+  else
+    err "${LABEL} never reported ${EXPECTED_SHA} after ${LIVENESS_ATTEMPTS} attempts; the last build it reported was ${last:-none}."
+  fi
   return 1
 }
 
@@ -207,8 +230,11 @@ check_build_id() {
 
   sha=$(printf '%s' "$body" | jq -r '.commitSha // empty' 2>/dev/null)
   if [[ -z "$sha" ]]; then
-    err "build id: ${LABEL} answered the public health response, which carries no commitSha, so nothing was compared. NUXT_HEALTH_CHECK_SECRET is missing on the target - the Bicep step of this workflow sets it, and a slot picks it up at that step or at --action preview. This is not a build mismatch."
-    return $HARD
+    # Liveness already saw this origin report EXPECTED_SHA, so a public answer now is
+    # a process without the key answering again - a restart in progress, not a wrong
+    # build. Retried; if it never comes back, the rounds run out and the log says so.
+    say "build id: public health response (no commitSha); a restart may be in progress"
+    return $SOFT
   fi
 
   SERVED_SHA="$sha"
