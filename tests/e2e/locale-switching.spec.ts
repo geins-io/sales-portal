@@ -103,8 +103,17 @@ const CONFIGURED_LOCALES: LocaleUnderTest[] = readConfiguredLocales().map(
 // Two locales sharing a probe string would let the wrong rendering pass, and
 // the commonest way that happens is a locale file reverted to English. Catch
 // it here — before any browser starts — and name the locales that collide.
+// `reduce` rather than `Map.groupBy`: this runs at module scope, and the Node
+// version the repo pins and ships does not have it — the suite would not load.
 const collisions = [
-  ...Map.groupBy(CONFIGURED_LOCALES, (l) => l.probeText).entries(),
+  ...CONFIGURED_LOCALES.reduce(
+    (groups, locale) =>
+      groups.set(locale.probeText, [
+        ...(groups.get(locale.probeText) ?? []),
+        locale,
+      ]),
+    new Map<string, LocaleUnderTest[]>(),
+  ).entries(),
 ]
   .filter(([, group]) => group.length > 1)
   .map(
