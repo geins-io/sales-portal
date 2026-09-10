@@ -118,6 +118,40 @@ jobs:
             --tags Environment=${{ needs.prepare.outputs.environment }} Application=sales-portal ManagedBy=Bicep \
             2>/dev/null || echo "Resource group already exists"
 
+      - name: Record the current container image
+        id: before
+        run: |
+          # The templates no longer declare linuxFxVersion, so the image on an existing site
+          # has to survive the deployment untouched. Read it here; the step after the
+          # deployment compares against these values. An empty value means the site is not
+          # there yet, which on prod is treated as a reason to stop rather than to guess.
+          echo "$(date -u +%T) UTC - reading the current image"
+          RG="${{ needs.prepare.outputs.resource_group }}"
+          WEBAPP_NAME=$(az deployment group show \
+            --resource-group "$RG" \
+            --name main \
+            --query properties.outputs.webAppName.value \
+            --output tsv 2>/dev/null || echo "")
+
+          SITE_IMAGE=""
+          SLOT_IMAGE=""
+          if [[ -n "$WEBAPP_NAME" ]]; then
+            SITE_IMAGE=$(az webapp config show \
+              --resource-group "$RG" --name "$WEBAPP_NAME" \
+              --query linuxFxVersion --output tsv 2>/dev/null || echo "")
+
+            if [[ "${{ needs.prepare.outputs.environment }}" == "prod" ]]; then
+              SLOT_IMAGE=$(az webapp config show \
+                --resource-group "$RG" --name "$WEBAPP_NAME" --slot staging \
+                --query linuxFxVersion --output tsv 2>/dev/null || echo "")
+            fi
+          fi
+
+          echo "site_image=${SITE_IMAGE}" >> $GITHUB_OUTPUT
+          echo "slot_image=${SLOT_IMAGE}" >> $GITHUB_OUTPUT
+          echo "Site image before the deployment: ${SITE_IMAGE:-<none>}"
+          echo "Slot image before the deployment: ${SLOT_IMAGE:-<none>}"
+
       - name: Deploy Bicep infrastructure
         id: deploy
         uses: azure/arm-deploy@v2
@@ -133,7 +167,6 @@ jobs:
           # ─────────────────────────────────────────────────────────────────────
           parameters: >-
             environment="${{ needs.prepare.outputs.environment }}"
-            containerImage="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}"
             ghcrUsername="${{ github.actor }}"
             ghcrToken="${{ secrets.GHCR_PAT }}"
             geinsApiEndpoint="${{ vars.GEINS_API_ENDPOINT }}"
@@ -165,33 +198,141 @@ jobs:
           echo "webapp_url=${WEBAPP_URL}" >> $GITHUB_OUTPUT
           echo "webapp_name=${WEBAPP_NAME}" >> $GITHUB_OUTPUT
 
+      - name: Verify the deployment left the image untouched
+        run: |
+          # The one guard this whole change exists for: if a future edit puts linuxFxVersion
+          # back into the templates, the deployment writes production's image again and the
+          # run must stop before the swap job can promote anything.
+          echo "$(date -u +%T) UTC - the deployment has finished; re-reading the image"
+          RG="${{ needs.prepare.outputs.resource_group }}"
+          WEBAPP_NAME="${{ steps.outputs.outputs.webapp_name }}"
+
+          # These reads are deliberately not silenced: a failing az call has to look like a
+          # failure in the log rather than become an empty string that reads as a changed image.
+          SITE_AFTER=$(az webapp config show \
+            --resource-group "$RG" --name "$WEBAPP_NAME" \
+            --query linuxFxVersion --output tsv || echo "")
+
+          SLOT_AFTER=""
+          if [[ "${{ needs.prepare.outputs.environment }}" == "prod" ]]; then
+            SLOT_AFTER=$(az webapp config show \
+              --resource-group "$RG" --name "$WEBAPP_NAME" --slot staging \
+              --query linuxFxVersion --output tsv || echo "")
+          fi
+
+          SITE_BEFORE="${{ steps.before.outputs.site_image }}"
+          SLOT_BEFORE="${{ steps.before.outputs.slot_image }}"
+          echo "Site: ${SITE_BEFORE:-<none>} -> ${SITE_AFTER:-<none>}"
+          echo "Slot: ${SLOT_BEFORE:-<none>} -> ${SLOT_AFTER:-<none>}"
+
+          if [[ "${{ needs.prepare.outputs.environment }}" != "prod" ]]; then
+            echo "Not prod: the image step below writes the site's image anyway."
+            exit 0
+          fi
+
+          if [[ -z "$SITE_BEFORE" ]]; then
+            echo "::error::No image was recorded before the deployment, so nothing can be compared. Refusing to continue on prod."
+            exit 1
+          fi
+
+          if [[ "$SITE_AFTER" != "$SITE_BEFORE" ]]; then
+            echo "::error::The deployment changed the production site's image from '${SITE_BEFORE}' to '${SITE_AFTER}'. The templates must not declare linuxFxVersion."
+            exit 1
+          fi
+
+          echo "✅ The production site's image is unchanged."
+
+      - name: Set the container image
+        id: image
+        run: |
+          # On prod only the staging slot is written, so that a swap stays the only thing
+          # that changes production's image. Dev has no slot, so the site is the target.
+          # az webapp config set is used rather than az webapp config container set: it
+          # writes this one property, where the container command would also rewrite the
+          # DOCKER_REGISTRY_SERVER_* app settings, which the Bicep templates own.
+          echo "$(date -u +%T) UTC - setting the image"
+          RG="${{ needs.prepare.outputs.resource_group }}"
+          WEBAPP_NAME="${{ steps.outputs.outputs.webapp_name }}"
+          FX="DOCKER|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}"
+
+          # $SLOT_ARGS is expanded unquoted on purpose: az needs --slot and staging as two
+          # arguments, and quoting would hand it one argument it rejects.
+          SLOT_ARGS=""
+          HEALTH_HOST=""
+          if [[ "${{ needs.prepare.outputs.environment }}" == "prod" ]]; then
+            SLOT_ARGS="--slot staging"
+            HEALTH_HOST=$(az webapp show \
+              --resource-group "$RG" --name "$WEBAPP_NAME" --slot staging \
+              --query defaultHostName --output tsv)
+          else
+            HEALTH_HOST=$(az webapp show \
+              --resource-group "$RG" --name "$WEBAPP_NAME" \
+              --query defaultHostName --output tsv)
+          fi
+
+          az webapp config set \
+            --resource-group "$RG" --name "$WEBAPP_NAME" $SLOT_ARGS \
+            --linux-fx-version "$FX" \
+            --output none
+
+          # Read back, because a step that quietly wrote nothing would leave the wait below
+          # passing against the previous image.
+          ACTUAL=$(az webapp config show \
+            --resource-group "$RG" --name "$WEBAPP_NAME" $SLOT_ARGS \
+            --query linuxFxVersion --output tsv)
+
+          if [[ "$ACTUAL" != "$FX" ]]; then
+            echo "::error::Expected the image to be '${FX}' but it is '${ACTUAL}'."
+            exit 1
+          fi
+
+          echo "$(date -u +%T) UTC - ✅ image set to ${ACTUAL}"
+          echo "health_url=https://${HEALTH_HOST}" >> $GITHUB_OUTPUT
+
       - name: Wait for container to start
         run: |
+          # The target is whatever just received the image: the staging slot on prod, the
+          # site everywhere else. It checks that the target answers, not which build it
+          # serves - that belongs to the preflight, not here.
           echo "Waiting for container to start..."
           sleep 30
 
-          WEBAPP_URL="${{ steps.outputs.outputs.webapp_url }}"
+          WEBAPP_URL="${{ steps.image.outputs.health_url }}"
           if [[ -n "$WEBAPP_URL" ]]; then
             echo "Checking health at ${WEBAPP_URL}/api/health"
             
-            for i in 1 2 3; do
+            # 20 attempts, 30 s apart: the target now has to pull a new image and start
+            # Nuxt on it, which took about three minutes on this plan the last time it was
+            # measured. The old three attempts only ever passed because production was
+            # answering on the image it already had. A healthy target passes on the first
+            # attempt, so the budget only ever costs time in a run that is already wrong.
+            ATTEMPTS=20
+
+            for ((i = 1; i <= ATTEMPTS; i++)); do
               HTTP_CODE=$(curl -s -o /tmp/health_response.txt -w "%{http_code}" --max-time 30 "${WEBAPP_URL}/api/health" || echo "000")
-              
+
               if [[ "$HTTP_CODE" == "200" ]]; then
-                echo "✅ Health check passed!"
+                echo "$(date -u +%T) UTC - ✅ Health check passed on attempt $i/$ATTEMPTS"
                 cat /tmp/health_response.txt
                 exit 0
               fi
-              
-              echo "⏳ Attempt $i/3: HTTP $HTTP_CODE"
-              
-              if [[ $i -lt 3 ]]; then
+
+              echo "$(date -u +%T) UTC - ⏳ Attempt $i/$ATTEMPTS: HTTP $HTTP_CODE"
+
+              if [[ $i -lt $ATTEMPTS ]]; then
                 sleep 30
               fi
             done
-            
-            echo "❌ Health check failed after 3 attempts"
-            echo "Check logs: az webapp log tail --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.outputs.outputs.webapp_name }}"
+
+            echo "❌ Health check failed after $ATTEMPTS attempts"
+            LOG_SLOT=""
+            if [[ "${{ needs.prepare.outputs.environment }}" == "prod" ]]; then
+              LOG_SLOT=" --slot staging"
+            fi
+            echo "Check logs: az webapp log tail --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.outputs.outputs.webapp_name }}${LOG_SLOT}"
+            exit 1
+          else
+            echo "::error::No health URL was set, so nothing was checked. The image step must export health_url."
             exit 1
           fi
 
@@ -205,6 +346,22 @@ jobs:
           echo "| Image | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Web App | ${{ steps.outputs.outputs.webapp_name }} |" >> $GITHUB_STEP_SUMMARY
           echo "| URL | ${{ steps.outputs.outputs.webapp_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Health checked | ${{ steps.image.outputs.health_url }}/api/health |" >> $GITHUB_STEP_SUMMARY
+
+          # Both sides, so the run itself records which one the image landed on.
+          RG="${{ needs.prepare.outputs.resource_group }}"
+          WEBAPP_NAME="${{ steps.outputs.outputs.webapp_name }}"
+          SITE_IMAGE=$(az webapp config show \
+            --resource-group "$RG" --name "$WEBAPP_NAME" \
+            --query linuxFxVersion --output tsv || echo "")
+          echo "| Site image | \`${SITE_IMAGE}\` |" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.prepare.outputs.environment }}" == "prod" ]]; then
+            SLOT_IMAGE=$(az webapp config show \
+              --resource-group "$RG" --name "$WEBAPP_NAME" --slot staging \
+              --query linuxFxVersion --output tsv || echo "")
+            echo "| Staging slot image | \`${SLOT_IMAGE}\` |" >> $GITHUB_STEP_SUMMARY
+          fi
 
   # ---------------------------------------------------------------------------
   # Production Slot Swap (only for production deployments)

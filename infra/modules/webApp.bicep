@@ -18,9 +18,6 @@ param location string
 @description('App Service Plan resource ID')
 param appServicePlanId string
 
-@description('Container image to deploy')
-param containerImage string
-
 @description('GitHub Container Registry username')
 @secure()
 param ghcrUsername string
@@ -196,6 +193,11 @@ var sharedAppSettings = [
 // Resources
 // -----------------------------------------------------------------------------
 
+// Neither resource declares linuxFxVersion. The image is set by the deploy workflow after this
+// template is applied - on prod against the staging slot only, so a swap is the only thing that
+// changes production's image. A property declared here would be written back over the swap on
+// the next deployment. A site or slot created by this template therefore has no runtime until
+// the workflow's image step has run.
 resource webApp 'Microsoft.Web/sites@2023-12-01' = {
   name: name
   location: location
@@ -209,7 +211,6 @@ resource webApp 'Microsoft.Web/sites@2023-12-01' = {
     httpsOnly: true
     clientAffinityEnabled: false
     siteConfig: {
-      linuxFxVersion: 'DOCKER|${containerImage}'
       alwaysOn: environment != 'dev' // Always On for staging and prod
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
@@ -235,7 +236,6 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = if (environment ==
     httpsOnly: true
     clientAffinityEnabled: false
     siteConfig: {
-      linuxFxVersion: 'DOCKER|${containerImage}'
       alwaysOn: true
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'

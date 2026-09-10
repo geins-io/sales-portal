@@ -173,22 +173,44 @@ deploy() {
     fi
     
     # Build parameters string
-    local params="containerImage=$container_image"
+    local params=""
     [[ -n "$ghcr_username" ]] && params+=" ghcrUsername=$ghcr_username"
     [[ -n "$ghcr_token" ]] && params+=" ghcrToken=$ghcr_token"
     [[ -n "$redis_url" ]] && params+=" redisUrl=$redis_url"
-    
+
     # Execute deployment
     $deploy_cmd \
         --resource-group "$resource_group" \
         --template-file "$template_file" \
         --parameters "$parameters_file" \
-        --parameters $params \
+        ${params:+--parameters $params} \
         --name "manual-deploy-$(date +%Y%m%d-%H%M%S)"
-    
+
     if [[ "$what_if" != true ]]; then
         log_success "Deployment complete!"
-        
+
+        # The template never carries the image, so it is set here, the same way the deploy
+        # workflow does it: on prod against the staging slot only, so that a swap stays the
+        # only thing that changes production's image.
+        # $slot_args is expanded unquoted on purpose: az needs --slot and staging as two
+        # arguments, and quoting would hand it one argument it rejects.
+        local slot_args=""
+        if [[ "$environment" == "prod" ]]; then
+            slot_args="--slot staging"
+        fi
+
+        # This rebuilds the app name from main.bicep's convention ({appName}-{environment}-app)
+        # and is therefore a second source of it; the deploy workflow reads it from the
+        # deployment outputs instead. Rename the resource in one place and this drifts.
+        log_info "Setting container image: $container_image"
+        az webapp config set \
+            --resource-group "$resource_group" \
+            --name "${APP_NAME}-${environment}-app" \
+            $slot_args \
+            --linux-fx-version "DOCKER|${container_image}" \
+            --output none
+        log_success "Container image set"
+
         # Get outputs
         log_info "Fetching deployment outputs..."
         local webapp_url=$(az deployment group show \

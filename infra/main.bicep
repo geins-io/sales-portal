@@ -24,9 +24,6 @@ param location string = resourceGroup().location
 @description('Base name for resources')
 param appName string = 'sales-portal'
 
-@description('Container image to deploy (e.g., ghcr.io/org/repo:tag)')
-param containerImage string
-
 @description('GitHub Container Registry credentials - username')
 @secure()
 param ghcrUsername string = ''
@@ -157,7 +154,6 @@ module webApp 'modules/webApp.bicep' = {
     name: '${resourcePrefix}-app'
     location: location
     appServicePlanId: appServicePlan.outputs.id
-    containerImage: containerImage
     ghcrUsername: ghcrUsername
     ghcrToken: ghcrToken
     environment: environment
