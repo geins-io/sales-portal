@@ -127,6 +127,20 @@ or a `v*` tag. Do not add a second copy of it as an environment branch policy �
 two rules that have to agree will not, and a mis-set one blocks legitimate
 deploys with no useful error.
 
+**The staging slot is stopped between releases.** Both sides share one S1 core
+and 1.75 GB of memory, and the first dry run showed that a slot starting on that
+core is enough to make production time out. Once production has verified, the
+swap job stops the slot; the next deploy starts it before writing the image, and
+the rollback starts it before comparing builds. Do not start it by hand to "have
+a look" — every minute it runs is a minute production shares its core.
+
+**During a release, production will be slower.** The slot's container start and
+the warm-up renders run on the same core production serves from. Expect pages
+around two to three times their usual time for one to two minutes; that is the
+price of a single core, not a defect. Release in a low-traffic window, and if you
+watch it, watch with one probe every 15 s at most — three probes every 5 s
+against a busy core were most of what took production down on 2026-09-10.
+
 **If the release turns out bad after the swap**, the slot still holds the image
 production was serving. Dispatch **Actions -> Rollback Production**. It asks for
 one value, `current_production_build`: the full commit sha production serves
@@ -136,11 +150,12 @@ would put the bad release straight back, and naming the build you are leaving
 makes the second press fail unless you meant it. The workflow then swaps once and
 verifies production on the previous build.
 
-Production comes back correct but **cold**: its process was restarted when that
-image was swapped onto the slot, so the first renders are slow until the caches
-fill. The rollback window also closes the moment the next deploy overwrites the
-slot; after that, going back means deploying the older `v*` tag through the
-normal path.
+Production comes back correct but **cold**: the slot was stopped, so the
+rollback starts it and waits for it to report its build (about a minute) before
+swapping, and the first renders after the swap are slow until the caches fill.
+The rollback window also closes the moment the next deploy overwrites the slot;
+after that, going back means deploying the older `v*` tag through the normal
+path.
 
 ## Release manager: hotfix
 
