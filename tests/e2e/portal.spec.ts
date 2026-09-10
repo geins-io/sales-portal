@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { waitForHydration, hasE2ECredentials, STORAGE_STATE } from './helpers';
+import {
+  waitForHydration,
+  hasE2ECredentials,
+  outOfScope,
+  STORAGE_STATE,
+} from './helpers';
 
 /**
  * Portal E2E Tests
@@ -11,9 +16,10 @@ import { waitForHydration, hasE2ECredentials, STORAGE_STATE } from './helpers';
  * account. Tests handle empty states since the account may have no data.
  */
 
-test.skip(
+outOfScope(
   !hasE2ECredentials(),
-  'No E2E test account configured (set E2E_USERNAME / E2E_PASSWORD in .env)',
+  'no-credentials',
+  'portal pages need a signed-in customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
 );
 
 // Per-test login would exceed the 5-per-minute login rate limit.
@@ -129,16 +135,27 @@ test.describe('Portal Orders', () => {
     const loading = page.locator('[data-testid="orders-loading"]');
     await expect(loading).toBeHidden({ timeout: PAGE_TIMEOUT });
 
-    // Check if there are any order view links
-    const viewLink = page.locator('[data-testid="order-view-link"]').first();
-    const hasViewLink = await viewLink.isVisible().catch(() => false);
+    // An account with no orders is a declared skip. It used to be a bare
+    // `return`, which left the test green, invisible to the scope reporter —
+    // and hid the wrong selector below for as long as no order existed.
+    const ordersEmpty = page.locator('[data-testid="orders-empty"]');
+    outOfScope(
+      await ordersEmpty.isVisible().catch(() => false),
+      'fixture-missing',
+      'test account has no orders',
+    );
 
-    if (!hasViewLink) {
-      // No orders — skip detail test
-      return;
-    }
-
-    await viewLink.click();
+    // Desktop puts a view link in the row, mobile makes the whole card the
+    // link; both are anchors into the order, so match on the destination
+    // rather than on a testid only the desktop one carries. Both shapes are in
+    // the DOM at once and CSS decides which one shows, hence `:visible`.
+    const orderLink = page
+      .locator(
+        '[data-testid="portal-orders-table"] a[href*="/portal/orders/"]:visible',
+      )
+      .first();
+    await expect(orderLink).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await orderLink.click();
     await page.waitForLoadState('load');
     await waitForHydration(page);
 
@@ -147,9 +164,10 @@ test.describe('Portal Orders', () => {
     const backLink = page.locator('[data-testid="back-link"]');
     await expect(backLink).toBeVisible({ timeout: PAGE_TIMEOUT });
 
-    // Action buttons should render
-    const actionButtons = page.locator('[data-testid="action-buttons"]');
-    await expect(actionButtons).toBeVisible({ timeout: PAGE_TIMEOUT });
+    // The toolbar carrying the back link and reorder button
+    // (app/pages/portal/orders/[id].vue).
+    const actionToolbar = page.locator('[data-testid="order-action-toolbar"]');
+    await expect(actionToolbar).toBeVisible({ timeout: PAGE_TIMEOUT });
 
     // Order items table or loading should be present
     const orderDetail = page.locator('[data-testid="order-detail"]');
@@ -159,9 +177,16 @@ test.describe('Portal Orders', () => {
     expect(hasDetail || hasLoading).toBe(true);
 
     if (hasDetail) {
-      // Items table should be present
-      const itemsTable = page.locator('[data-testid="order-items-table"]');
-      await expect(itemsTable).toBeVisible({ timeout: PAGE_TIMEOUT });
+      // The order rows live in a desktop table (`hidden lg:block`) or, below
+      // lg, behind a sheet trigger. Assert the one this project can see —
+      // before the fixture existed this branch never ran on mobile, so the
+      // desktop-only assertion looked fine.
+      // Both are in the DOM at once, so match on visibility rather than DOM
+      // order — the table comes first either way.
+      const orderRows = page.locator(
+        '[data-testid="order-items-table"]:visible, [data-testid="view-rows-trigger"]:visible',
+      );
+      await expect(orderRows.first()).toBeVisible({ timeout: PAGE_TIMEOUT });
     }
   });
 });
@@ -271,10 +296,15 @@ test.describe('Portal Quotations', () => {
     const loading = page.locator('[data-testid="quotations-loading"]');
     await expect(loading).toBeHidden({ timeout: PAGE_TIMEOUT });
 
-    // Skip if the test account has no quotes (empty state — data drift tolerant)
+    // The test account has no quotes, because quotations are not functional on
+    // the platform yet. Declared, not silently skipped.
     const empty = page.locator('[data-testid="quotations-empty"]');
     const hasEmpty = await empty.isVisible().catch(() => false);
-    test.skip(hasEmpty, 'Test account has no quotes — fixture required');
+    outOfScope(
+      hasEmpty,
+      'fixture-missing',
+      'test account has no quotes — platform quotations are not available yet',
+    );
 
     // Click the first view link (desktop table preferred, falls back to mobile card)
     const viewLink = page

@@ -42,7 +42,6 @@ describe('useFeatureAccess', () => {
     mockFeatures.value = {
       search: { enabled: true },
       cart: { enabled: true, access: 'authenticated' },
-      quotes: { enabled: true, access: { role: 'wholesale' } },
       disabled: { enabled: false },
     };
 
@@ -76,20 +75,6 @@ describe('useFeatureAccess', () => {
     mockAuthStore.user = {};
     const { canAccess } = useFeatureAccess();
     expect(canAccess('cart')).toBe(true);
-  });
-
-  it('denies role-gated feature when customerType does not match', () => {
-    mockAuthStore.isAuthenticated = true;
-    mockAuthStore.user = { customerType: 'retail' };
-    const { canAccess } = useFeatureAccess();
-    expect(canAccess('quotes')).toBe(false);
-  });
-
-  it('grants role-gated feature when customerType matches', () => {
-    mockAuthStore.isAuthenticated = true;
-    mockAuthStore.user = { customerType: 'wholesale' };
-    const { canAccess } = useFeatureAccess();
-    expect(canAccess('quotes')).toBe(true);
   });
 
   it('handles undefined features gracefully', () => {

@@ -32,11 +32,9 @@ const reInitSpy = vi.fn();
 const carouselApiStub = { reInit: reInitSpy };
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => mockUseFetch(...(args as [unknown])),
+  useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
 }));
-vi.stubGlobal('useFetch', (...args: unknown[]) =>
-  mockUseFetch(...(args as [unknown])),
-);
+vi.stubGlobal('useFetch', mockUseFetch);
 
 // Drive the Embla scroll state deterministically. jsdom has no layout, so the
 // real Carousel never computes snaps; mock the whole suite with stubs whose

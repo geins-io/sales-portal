@@ -19,11 +19,11 @@ const useFetchMock = vi.fn(() => ({
 }));
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => useFetchMock(...args),
+  useFetch: (...args: Parameters<typeof useFetchMock>) => useFetchMock(...args),
   $fetch: vi.fn(),
 }));
 
-vi.stubGlobal('useFetch', (...args: unknown[]) => useFetchMock(...args));
+vi.stubGlobal('useFetch', useFetchMock);
 vi.stubGlobal('definePageMeta', vi.fn());
 
 // Import AFTER mocks are set up

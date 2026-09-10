@@ -8,7 +8,7 @@ The system identifies tenants based on the request hostname. Each tenant is mapp
 
 ```
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│ tenant-a.com    │      │ tenant-b.com    │      │ tenant-c.com    │
+│ alpha.example   │      │ beta.example    │      │ gamma.example   │
 └────────┬────────┘      └────────┬────────┘      └────────┬────────┘
          │                        │                        │
          └────────────────────────┼────────────────────────┘
@@ -39,7 +39,7 @@ The server plugin (`server/plugins/02.tenant-context.ts`) extracts the hostname 
 negative cache, then KV storage, then the merchant API — the full order is in
 [Architecture](/architecture#request-flow). A cache hit is re-checked against the config's own
 hostname list, so a stale alias mapping heals itself. A hostname the merchant API does not know
-does not resolve, unless `autoCreateTenant` is on — see [Local Development](#local-development).
+does not resolve, and the tenant plugin answers 404 — see [Local Development](#local-development).
 
 The resolved config is written to `event.context.tenant.config` once per request. Downstream
 plugins, services and routes read it from context instead of resolving again.
@@ -70,8 +70,8 @@ The tenant context is available in all server handlers via `event.context.tenant
 // In any server route/middleware
 export default defineEventHandler((event) => {
   const { hostname, tenantId, config } = event.context.tenant;
-  // hostname: what the browser asked for, port stripped (e.g. "tenant-a.localhost")
-  // tenantId: the resolved tenant's own id (e.g. "tenant-a") — set for page routes,
+  // hostname: what the browser asked for, port stripped (e.g. "<name>.litium.test")
+  // tenantId: the resolved tenant's own id (e.g. "name") — set for page routes,
   //           optional on API routes
   // config:   the full TenantConfig, resolved once per request
 });
@@ -133,14 +133,14 @@ Features are a record of feature flags with optional access control:
 // Feature flag with access control
 interface FeatureConfig {
   enabled: boolean;
-  access?: 'all' | 'authenticated' | { group: string } | { role: string } | { accountType: string };
+  access?: 'all' | 'authenticated';
 }
 
 // Example feature map
 features: {
   search: { enabled: true },
   cart: { enabled: true, access: 'authenticated' },
-  quotes: { enabled: true, access: { role: 'order_placer' } },
+  quotes: { enabled: true, access: 'authenticated' },
   wishlist: { enabled: false },
 }
 ```
@@ -168,41 +168,94 @@ const config = await getPublicConfig(event);
 
 ## Local Development
 
-`autoCreateTenant` decides whether an unknown hostname resolves. With it on, any hostname the
-merchant API does not know is fabricated into an active tenant, so resolution can never fail. With
-it off, an unknown hostname does not resolve. Which applies depends on how you started the server:
+Tenant resolution works the same locally as in production: a hostname either exists in the
+merchant API or it answers 404. There is no development fallback that invents a tenant for an
+unknown name, however you start the server (`pnpm dev`, `pnpm local:dev`, or the Playwright
+web server). A 404 on a hostname you expected to work means that exact hostname is not
+registered — check the registration before anything else.
 
-| How you start                           | `autoCreateTenant`                                       |
-| --------------------------------------- | -------------------------------------------------------- |
-| `pnpm dev`, no `.env`                   | off — the `nuxt.config.ts` default                       |
-| `pnpm dev` after `cp .env.example .env` | on — `.env.example` ships `NUXT_AUTO_CREATE_TENANT=true` |
-| `pnpm local:dev`                        | on — hardcoded in `infra/scripts/local-dev.sh`           |
+Configs come from one place. `resolveTenant()` calls the merchant API over plain `fetch`, from a
+laptop exactly as from Azure, so any hostname it knows already works locally given DNS pointing at
+your machine. Nothing in this repository seeds a tenant of its own.
 
-Deployed environments set it nowhere, so they always resolve tenants honestly.
+### Browsing a tenant
 
-Check this before diagnosing anything else, because a fabricated tenant is not obviously
-fabricated: it carries the shared `DEFAULT_GEINS_SETTINGS` credentials from `GEINS_API_KEY` and
-`GEINS_ACCOUNT_NAME`, so with those unset the storefront renders completely and returns no
-products. Pages that render with every listing empty are the signature.
+Open `http://<name>.litium.test:3000`, where `<name>` is the tenant's label under
+`.litium.store`.
 
-Otherwise configs come from two places. **The merchant API** is the real one: `resolveTenant()`
-calls it over plain `fetch`, from a laptop exactly as from Azure, so any hostname it knows already
-works locally given DNS pointing at your machine. **The dev seed**
-(`server/plugins/99.dev-tenant-seed.ts`, a no-op outside dev) writes three fixtures at startup —
-`tenant-a`, `tenant-b` and `tenant-blank`, each claiming a `.localhost` hostname and the first two
-a `.litium.store` alias. `tenant-blank` has no CMS config and exercises the fallback paths.
+Not `localhost:3000` or `127.0.0.1:3000`: those addresses name the machine, not a store. In
+`pnpm dev` they answer a setup page carrying these same instructions, and no tenant lookup is
+made for them.
 
-To browse one, point its hostname at your machine and use the dev server's port:
+Nothing has to be configured for that name: the dnsmasq wildcard from `pnpm local:setup` sends
+`*.litium.test` to `127.0.0.1` and the server looks the name up under `.litium.store` (see
+below) — no `.env` entry, no `/etc/hosts` line. Pointing a run at another tenant is an environment
+change, made only through the four `E2E_*` variables (which tenant the e2e suite targets:
+[Testing](/testing#e2e-tests)).
+
+The one case that still needs a hosts line is a tenant whose registered hostname is not
+`<name>.litium.store`, since that is the only rewrite the wildcard pairs with:
 
 ```
 # /etc/hosts
-127.0.0.1 tenant-a.localhost tenant-b.localhost tenant-blank.localhost
+127.0.0.1 <the hostname the merchant API knows>
 ```
 
-Then `http://tenant-a.localhost:3000`. For a tenant registered in the merchant API, use the
-hostname it is registered under: the lookup matches the exact full hostname and does no subdomain
-parsing. `pnpm local:setup` installs a dnsmasq wildcard sending all of `*.litium.portal` to
-`127.0.0.1`, saving an `/etc/hosts` line per tenant.
+The lookup matches the exact full hostname and does no subdomain parsing.
+
+### The `.litium.test` lookup rewrite
+
+`.litium.test` is a local-only convention, and the merchant API knows almost nothing under it,
+so the lookup is rewritten: a request for `name.litium.test` is resolved as `name.litium.store`,
+where a Geins tenant lives by default (`lookupHostname` in
+`server/utils/lookup-hostname.ts`). Any registered tenant is therefore browsable by name alone,
+with nothing to configure — and a name the merchant API does not know under either suffix still
+answers an honest 404. Only the lookup moves: the response is served under the `.litium.test`
+host the browser asked for, and `event.context.tenant.hostname` keeps that name, so cookies,
+redirects, the tenant logger and the 404 body all stay on it. The rewritten name surfaces in one
+place, the resolution line — the development 404 page shows it, and it is logged — where
+`[tenant] resolve host=…` names the `.litium.store` hostname that was actually looked up, not the
+one you typed.
+
+**This applies in every mode, the production build included**, because the production build is
+what CI and `E2E_PROD=1` test and they need the same name to work with nothing configured on the
+machine. Deployed environments are unaffected: RFC 6761 reserves `.test` for testing, so it is
+never delegated — a name under it cannot be resolved from the public internet and no deployed
+environment can ever receive one. The one thing the rewrite takes away is a tenant that registers
+`X.litium.test` as an alias in Geins — it is no longer reachable under that exact name, since the
+lookup resolves `X.litium.store` instead, and only local and CI traffic can carry such a name
+anyway.
+
+### Environment
+
+No environment variable is required to browse a tenant. `runtimeConfig.geins.tenantApiUrl` in
+`nuxt.config.ts` already points at the merchant API's store-settings endpoint, the only call
+resolution makes.
+
+The trap is the opposite of a missing variable: **a `NUXT_*` line set to an empty string overrides
+the built-in default instead of falling back to it**, because Nitro resolves each key as
+`destr(process.env[…]) ?? default` and an empty value is not `undefined`. A line in `.env` either
+carries a value or does not exist.
+
+Resolving the config is also what supplies the commerce credentials: `store-settings` returns the
+tenant's `geinsSettings` in the same response as its theme and branding, and `createTenantSDK()`
+(`server/services/_sdk.ts`) builds the storefront client from them. Nothing to paste in per
+tenant.
+
+### When it does not work
+
+In development every lookup logs one line, `[tenant] resolve host=… kv=… api=… outcome=…`, and the
+404 page repeats it. The `outcome=` token is what separates the cases below. Failed lookups log at
+warn and always show; resolved ones log at debug, which `nuxt dev` prints only with
+`CONSOLA_LEVEL=4`. A production build emits neither.
+
+| What you see                                         | `outcome=`          | Cause                                                                                                                                                                                                                                  |
+| ---------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 404, "Store not yet available"                       | `unknown-tenant`    | The merchant API does not know the hostname, or knows it and the tenant is switched off — the `api=` field then ends `(inactive)`.                                                                                                     |
+| The same 404                                         | `invalid-config`    | The merchant API answered 200 but the payload was unreadable or rejected by the schema — indistinguishable from the row above without the line.                                                                                        |
+| A 404 that persists after you fixed the registration | `negative-cache`    | A failed lookup from up to five minutes ago, replayed — the line names what it repeats and its age, `(unknown-tenant, 12s ago)`. Restart the server or wait it out.                                                                    |
+| 503, "temporarily unavailable"                       | `transport-failure` | The merchant API gave no answer: connection refused, DNS, timeout, or a non-404 status; never negative-cached, so the next request asks again. The 503 page shows no resolution line — read the server log, and see Environment above. |
+| Real branding, no products or prices                 | `resolved`          | The config resolved and the storefront calls failed: the `apiKey`, `accountName`, channel or market on the tenant's record is wrong.                                                                                                   |
 
 ## Client-Side Usage
 

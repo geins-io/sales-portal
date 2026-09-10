@@ -1,41 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ref, computed, defineComponent, h, Suspense } from 'vue';
-import { mount, flushPromises } from '@vue/test-utils';
-import { defaultMountOptions } from '../../utils/component';
+import {
+  ref,
+  computed,
+  defineComponent,
+  h,
+  Suspense,
+  type Component,
+} from 'vue';
+import { flushPromises } from '@vue/test-utils';
+import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
 
 async function mountProductDetails(
-  props: Record<string, unknown>,
-  mountOptions: Parameters<typeof mount>[1] = {},
+  props: { alias: string },
+  mountOptions: MountOptionsFor<Component> = {},
 ) {
+  // The wrapper closes over `props` instead of redeclaring them through
+  // `Object.keys`, so they are checked against ProductDetails's own props.
   const Wrapper = defineComponent({
-    components: { ProductDetails },
-    props: Object.keys(props),
-    setup(wrapperProps) {
+    setup() {
       return () =>
         h(Suspense, null, {
-          default: () => h(ProductDetails, wrapperProps),
+          default: () => h(ProductDetails, props),
         });
     },
   });
-  const wrapper = mount(Wrapper, {
-    ...defaultMountOptions,
-    ...mountOptions,
-    props,
-    global: {
-      ...defaultMountOptions.global,
-      ...mountOptions.global,
-      stubs: {
-        ...(defaultMountOptions.global?.stubs ?? {}),
-        ...(mountOptions.global?.stubs ?? {}),
-      },
-    },
-  });
+  const wrapper = mountComponent(Wrapper, mountOptions);
   await flushPromises();
   return wrapper;
 }
 
-const mockCanAccess = vi.fn(() => true);
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
 }));
@@ -72,9 +67,9 @@ const mockUseFetch = vi.fn(() => ({
 }));
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => mockUseFetch(...args),
+  useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
 }));
-vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+vi.stubGlobal('useFetch', mockUseFetch);
 
 vi.mock('#app/composables/head', () => ({
   useHead: vi.fn(),

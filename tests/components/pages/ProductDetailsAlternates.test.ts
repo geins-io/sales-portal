@@ -6,8 +6,9 @@ import type { LocaleAlternateUrl } from '#shared/types/commerce';
 // Proves the cross-locale alternate data path END TO END for the PDP publisher:
 //   ProductDetails.vue calls setAlternates(product.alternativeUrls, { type:
 //   'product' }); LocaleSwitcher.vue reads hrefFor(loc). Here we drive the
-//   real useLocaleAlternates composable (002) with the LIVE-VERIFIED tenant-a
-//   product shape (prefix-less, multi-market) and assert hrefFor returns the
+//   real useLocaleAlternates composable (002) with the LIVE-VERIFIED product
+//   shape from the legacy test tenant (prefix-less, multi-market) and assert
+//   hrefFor returns the
 //   injected /p/ current-market path: the EN slug, not the SV slug, not /fi/.
 // Mocks mirror tests/composables/useCmsSlot.test.ts + useLocaleAlternates.test.ts.
 // ---------------------------------------------------------------------------
@@ -65,7 +66,8 @@ vi.stubGlobal('useRouter', () => ({
 const { useLocaleAlternates } =
   await import('~/composables/useLocaleAlternates');
 
-// LIVE-VERIFIED tenant-a product 1335 shape: prefix-less pretty paths spanning
+// LIVE-VERIFIED product 1335 shape from the legacy test tenant: prefix-less
+// pretty paths spanning
 // multiple markets (se, fi), with SV + EN cultures.
 const productAlternativeUrls: LocaleAlternateUrl[] = [
   {

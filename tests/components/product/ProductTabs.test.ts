@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import ProductTabs from '../../../app/components/product/ProductTabs.vue';
+import { makeListProduct } from '../../fixtures/product';
 
 const stubs = {
   Tabs: {
@@ -74,7 +75,6 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
           },
           {
             name: '',
-            value: null,
             show: true,
             identifier: 'empty',
           },
@@ -106,7 +106,7 @@ describe('ProductTabs', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: {
         product: makeProduct(),
-        related: [{ productId: 2, name: 'Other' }],
+        related: [makeListProduct({ productId: 2, name: 'Other' })],
       },
       global: { stubs },
     });
@@ -262,7 +262,7 @@ describe('ProductTabs', () => {
     const wrapper = mountComponent(ProductTabs, {
       props: {
         product: makeProduct(),
-        related: [{ productId: 2, name: 'Other' }],
+        related: [makeListProduct({ productId: 2, name: 'Other' })],
       },
       global: { stubs },
     });

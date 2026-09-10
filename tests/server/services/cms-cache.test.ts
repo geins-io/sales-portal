@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { GeinsCustomerType } from '@geins/types';
 
 // ---------------------------------------------------------------------------
 // Mock at the SDK boundary
@@ -31,19 +32,27 @@ vi.mock('../../../server/services/_sdk', () => ({
 const getRequestLocaleMock = vi.fn();
 const getRequestMarketMock = vi.fn();
 
+// The real getAuthCookies runs (that is what the identity segment is built
+// from), so getCookie has to answer from the mock event.
+type CookieBag = { _cookies?: Record<string, string | undefined> };
+const getCookieStub = (event: CookieBag, name: string) =>
+  event?._cookies?.[name];
+
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
 vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
 vi.stubGlobal('getRequestMarket', getRequestMarketMock);
 vi.stubGlobal('getCustomerType', vi.fn().mockResolvedValue(undefined));
 vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
+vi.stubGlobal('getCookie', getCookieStub);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-function mockEvent(hostname = 'test.com') {
+function mockEvent(hostname = 'test.com', authToken?: string) {
   return {
     context: { tenant: { hostname } },
+    _cookies: { auth_token: authToken },
   } as unknown as import('h3').H3Event;
 }
 
@@ -64,6 +73,7 @@ describe('CMS cache — locale isolation', () => {
     vi.stubGlobal('getRequestMarket', getRequestMarketMock);
     vi.stubGlobal('getCustomerType', vi.fn().mockResolvedValue(undefined));
     vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
+    vi.stubGlobal('getCookie', getCookieStub);
 
     const mod = await import('../../../server/services/cms');
     getMenu = mod.getMenu;
@@ -110,26 +120,26 @@ describe('CMS cache — locale isolation', () => {
   });
 
   it('isolates cache by tenant hostname', async () => {
-    const tenantAMenu = { id: 'main', menuItems: [{ title: 'Tenant A' }] };
-    const tenantBMenu = { id: 'main', menuItems: [{ title: 'Tenant B' }] };
+    const alphaMenu = { id: 'main', menuItems: [{ title: 'Alpha' }] };
+    const betaMenu = { id: 'main', menuItems: [{ title: 'Beta' }] };
 
     getRequestLocaleMock.mockReturnValue('sv-SE');
     getRequestMarketMock.mockReturnValue('se');
 
-    mockMenuGet.mockResolvedValue(tenantAMenu);
+    mockMenuGet.mockResolvedValue(alphaMenu);
     const result1 = await getMenu(
       { menuLocationId: 'main' },
-      mockEvent('tenant-a.com'),
+      mockEvent('alpha.example'),
     );
 
-    mockMenuGet.mockResolvedValue(tenantBMenu);
+    mockMenuGet.mockResolvedValue(betaMenu);
     const result2 = await getMenu(
       { menuLocationId: 'main' },
-      mockEvent('tenant-b.com'),
+      mockEvent('beta.example'),
     );
 
-    expect(result1).toEqual(tenantAMenu);
-    expect(result2).toEqual(tenantBMenu);
+    expect(result1).toEqual(alphaMenu);
+    expect(result2).toEqual(betaMenu);
     // SDK called twice — no cross-tenant cache hit
     expect(mockMenuGet).toHaveBeenCalledTimes(2);
   });
@@ -213,5 +223,226 @@ describe('CMS cache — locale isolation', () => {
     expect(result2.containers[0]).not.toMatchObject({
       widgets: [{ text: 'Hej' }],
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The Merchant API filters CMS collections by the account behind the caller's
+// token, so an entry populated under one token must never be served under
+// another — in either direction: one account's content disclosed to everyone,
+// or an account served the empty result a non-matching caller received.
+// ---------------------------------------------------------------------------
+describe('CMS cache — caller isolation', () => {
+  let getMenu: typeof import('../../../server/services/cms').getMenu;
+  let getContentArea: typeof import('../../../server/services/cms').getContentArea;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+
+    vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) =>
+      fn(),
+    );
+    vi.stubGlobal('getPreviewCookie', vi.fn().mockReturnValue(false));
+    vi.stubGlobal('getRequestLocale', getRequestLocaleMock);
+    vi.stubGlobal('getRequestMarket', getRequestMarketMock);
+    vi.stubGlobal('getCustomerType', vi.fn().mockResolvedValue(undefined));
+    vi.stubGlobal('getRequestHeader', vi.fn().mockReturnValue(undefined));
+    vi.stubGlobal('getCookie', getCookieStub);
+
+    getRequestLocaleMock.mockReturnValue('sv-SE');
+    getRequestMarketMock.mockReturnValue('se');
+
+    const mod = await import('../../../server/services/cms');
+    getMenu = mod.getMenu;
+    getContentArea = mod.getContentArea;
+  });
+
+  it('does not serve a signed-in caller’s menu to an anonymous one', async () => {
+    const accountMenu = { id: 'main', menuItems: [{ title: 'Account A' }] };
+    const publicMenu = { id: 'main', menuItems: [{ title: 'Public' }] };
+
+    mockMenuGet.mockResolvedValue(accountMenu);
+    const authed = await getMenu(
+      { menuLocationId: 'main' },
+      mockEvent('test.com', 'token-a'),
+    );
+
+    mockMenuGet.mockResolvedValue(publicMenu);
+    const anonymous = await getMenu({ menuLocationId: 'main' }, mockEvent());
+
+    expect(authed).toEqual(accountMenu);
+    expect(anonymous).toEqual(publicMenu);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not serve one signed-in caller’s menu to another', async () => {
+    const menuA = { id: 'main', menuItems: [{ title: 'Account A' }] };
+    const menuB = { id: 'main', menuItems: [{ title: 'Account B' }] };
+
+    mockMenuGet.mockResolvedValue(menuA);
+    const a = await getMenu(
+      { menuLocationId: 'main' },
+      mockEvent('test.com', 'token-a'),
+    );
+
+    mockMenuGet.mockResolvedValue(menuB);
+    const b = await getMenu(
+      { menuLocationId: 'main' },
+      mockEvent('test.com', 'token-b'),
+    );
+
+    expect(a).toEqual(menuA);
+    expect(b).toEqual(menuB);
+    expect(mockMenuGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('shares one menu entry between anonymous callers', async () => {
+    const publicMenu = { id: 'main', menuItems: [{ title: 'Public' }] };
+    mockMenuGet.mockResolvedValue(publicMenu);
+
+    await getMenu({ menuLocationId: 'main' }, mockEvent());
+    const second = await getMenu({ menuLocationId: 'main' }, mockEvent());
+
+    expect(second).toEqual(publicMenu);
+    expect(mockMenuGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves the same signed-in caller from the menu cache', async () => {
+    const accountMenu = { id: 'main', menuItems: [{ title: 'Account A' }] };
+    mockMenuGet.mockResolvedValue(accountMenu);
+
+    await getMenu({ menuLocationId: 'main' }, mockEvent('test.com', 'token-a'));
+    const second = await getMenu(
+      { menuLocationId: 'main' },
+      mockEvent('test.com', 'token-a'),
+    );
+
+    expect(second).toEqual(accountMenu);
+    expect(mockMenuGet).toHaveBeenCalledTimes(1);
+  });
+
+  // getContentArea fetches a desktop and a mobile leg, so one uncached call
+  // means two SDK calls.
+  it('does not serve a signed-in caller’s area to an anonymous one', async () => {
+    const accountArea = { containers: [{ content: [{ text: 'Account A' }] }] };
+    const publicArea = { containers: [{ content: [{ text: 'Public' }] }] };
+
+    mockAreaGet.mockResolvedValue(accountArea);
+    const authed = await getContentArea(
+      { family: 'Frontpage', areaName: 'Content' },
+      mockEvent('test.com', 'token-a'),
+    );
+
+    mockAreaGet.mockResolvedValue(publicArea);
+    const anonymous = await getContentArea(
+      { family: 'Frontpage', areaName: 'Content' },
+      mockEvent(),
+    );
+
+    expect(authed.containers[0]).toMatchObject({
+      content: [{ text: 'Account A' }],
+    });
+    expect(anonymous.containers[0]).toMatchObject({
+      content: [{ text: 'Public' }],
+    });
+    expect(mockAreaGet).toHaveBeenCalledTimes(4);
+  });
+
+  it('does not serve one signed-in caller’s area to another', async () => {
+    const areaA = { containers: [{ content: [{ text: 'Account A' }] }] };
+    const areaB = { containers: [{ content: [{ text: 'Account B' }] }] };
+
+    mockAreaGet.mockResolvedValue(areaA);
+    const a = await getContentArea(
+      { family: 'Frontpage', areaName: 'Content' },
+      mockEvent('test.com', 'token-a'),
+    );
+
+    mockAreaGet.mockResolvedValue(areaB);
+    const b = await getContentArea(
+      { family: 'Frontpage', areaName: 'Content' },
+      mockEvent('test.com', 'token-b'),
+    );
+
+    expect(a.containers[0]).toMatchObject({ content: [{ text: 'Account A' }] });
+    expect(b.containers[0]).toMatchObject({ content: [{ text: 'Account B' }] });
+    expect(mockAreaGet).toHaveBeenCalledTimes(4);
+  });
+
+  it('shares one area entry between anonymous callers', async () => {
+    const publicArea = { containers: [{ content: [{ text: 'Public' }] }] };
+    mockAreaGet.mockResolvedValue(publicArea);
+
+    await getContentArea(
+      { family: 'Frontpage', areaName: 'Content' },
+      mockEvent(),
+    );
+    const second = await getContentArea(
+      { family: 'Frontpage', areaName: 'Content' },
+      mockEvent(),
+    );
+
+    expect(second.containers[0]).toMatchObject({
+      content: [{ text: 'Public' }],
+    });
+    expect(mockAreaGet).toHaveBeenCalledTimes(2);
+  });
+
+  // The key carries the identity, so there is no reason left to refuse caching
+  // for a signed-in caller.
+  it('serves the same signed-in caller from the area cache', async () => {
+    const accountArea = { containers: [{ content: [{ text: 'Account A' }] }] };
+    mockAreaGet.mockResolvedValue(accountArea);
+
+    await getContentArea(
+      { family: 'Frontpage', areaName: 'Content' },
+      mockEvent('test.com', 'token-a'),
+    );
+    const second = await getContentArea(
+      { family: 'Frontpage', areaName: 'Content' },
+      mockEvent('test.com', 'token-a'),
+    );
+
+    expect(second.containers[0]).toMatchObject({
+      content: [{ text: 'Account A' }],
+    });
+    expect(mockAreaGet).toHaveBeenCalledTimes(2);
+  });
+
+  // customerType is usually decoded from the token the identity segment
+  // already covers, but a request carrying only a refresh cookie resolves one
+  // while sending no token — so it earns its own place in the key.
+  it('does not share an area entry between two customer types', async () => {
+    const personArea = { containers: [{ content: [{ text: 'Person' }] }] };
+    const orgArea = { containers: [{ content: [{ text: 'Organization' }] }] };
+
+    mockAreaGet.mockResolvedValue(personArea);
+    const person = await getContentArea(
+      {
+        family: 'Frontpage',
+        areaName: 'Content',
+        customerType: GeinsCustomerType.PersonType,
+      },
+      mockEvent(),
+    );
+
+    mockAreaGet.mockResolvedValue(orgArea);
+    const organization = await getContentArea(
+      {
+        family: 'Frontpage',
+        areaName: 'Content',
+        customerType: GeinsCustomerType.OrganizationType,
+      },
+      mockEvent(),
+    );
+
+    expect(person.containers[0]).toMatchObject({
+      content: [{ text: 'Person' }],
+    });
+    expect(organization.containers[0]).toMatchObject({
+      content: [{ text: 'Organization' }],
+    });
+    expect(mockAreaGet).toHaveBeenCalledTimes(4);
   });
 });

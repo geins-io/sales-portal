@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { listBuyerMarkets } from '../utils/buyer-market';
 import { loadUserForToken } from '../utils/load-user';
 import { isPagePath } from '../utils/is-page-path';
+import { hashToken } from '../utils/request-identity';
 
 /**
  * Server-side guard that intercepts deep-link requests where an authenticated
@@ -26,10 +26,6 @@ type CacheEntry = { markets: string[]; expires: number };
 const CACHE = new Map<string, CacheEntry>();
 const TTL_MS = 30_000;
 const LRU_CAP = 5000;
-
-function hashToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex').slice(0, 16);
-}
 
 function setCacheEntry(key: string, entry: CacheEntry): void {
   // Map preserves insertion order. Delete + set re-positions to most-recent.

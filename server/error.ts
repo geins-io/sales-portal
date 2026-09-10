@@ -1,7 +1,9 @@
 import type { NitroErrorHandler } from 'nitropack';
+import type { H3Event } from 'h3';
 import { getRequestHeader, setResponseHeader, setResponseStatus } from 'h3';
 import { logger } from './utils/logger';
 import { readErrorHandlerConfig } from './utils/error-config';
+import { isDevMode } from './utils/dev-mode';
 import { sanitizeTenantCss } from '#shared/utils/sanitize-css';
 import { buildGoogleFontsUrl } from '#shared/utils/fonts';
 
@@ -11,25 +13,94 @@ import { buildGoogleFontsUrl } from '#shared/utils/fonts';
  * Nitro's default handler scrubs 5xx messages to "Server Error" in
  * production and delegates rendering to Nuxt, which routes through
  * `app/error.vue`. That route depends on the Nuxt render pipeline
- * being fully booted — specifically on `@nuxtjs/i18n`'s per-request
- * context existing. When the error fires before i18n middleware has
- * had a chance to run (most commonly: tenant resolution throws in
- * `server/plugins/02.tenant-context.ts`), the render handler crashes
- * with "Nuxt I18n server context has not been set up yet.", Nitro
- * catches that second error, and falls back to its scrubbed default.
- * The user sees "Server Error" and nothing actionable.
+ * being fully booted, so an error raised before the Nuxt app exists
+ * cannot be rendered by it.
  *
  * This handler sidesteps the whole pipeline: it renders a
  * self-contained HTML response directly for browser clients and a
  * structured JSON response for API clients. It never invokes Nuxt
  * rendering and has no composable dependencies. That is the point.
  *
+ * `buildErrorResponse` is the same rendering without the transport,
+ * for callers that answer inside the response pipeline rather than
+ * from a thrown error — `server/plugins/02.tenant-context.ts` uses it
+ * to refuse unregistered hostnames with a 404.
+ *
  * Full rationale + options considered: see this file's git history.
  */
 const errorHandler: NitroErrorHandler = (error, event) => {
-  const { debugErrors } = readErrorHandlerConfig(event);
   const statusCode = error.statusCode ?? 500;
   const statusMessage = error.statusMessage ?? 'Error';
+  const message = error.message || statusMessage;
+
+  const response = buildErrorResponse(event, {
+    statusCode,
+    statusMessage,
+    message,
+    stack: error.stack,
+    data: error.data,
+  });
+
+  if (statusCode >= 500) {
+    logger.error(
+      `[error-handler] ${event.method ?? 'GET'} ${event.path} → ${statusCode}`,
+      error as Error,
+      {
+        correlationId: response.headers['x-correlation-id'],
+        tenantId: event.context.tenant?.tenantId,
+        hostname: event.context.tenant?.hostname,
+        path: event.path,
+      },
+    );
+  }
+
+  for (const [name, value] of Object.entries(response.headers)) {
+    setResponseHeader(event, name, value);
+  }
+  setResponseStatus(event, response.statusCode, response.statusMessage);
+  event.node.res.end(response.body);
+};
+
+export default errorHandler;
+
+export interface ErrorResponseInput {
+  statusCode: number;
+  statusMessage: string;
+  message: string;
+  stack?: string;
+  data?: unknown;
+  /** See {@link ErrorHtmlInput.isTenantNotProvisioned}. */
+  isTenantNotProvisioned?: boolean;
+  /** See {@link ErrorHtmlInput.isDevSetup}. */
+  isDevSetup?: boolean;
+}
+
+/** Matches Nitro's `RenderResponse`, so it can be handed to `render:before`. */
+export interface ErrorResponse {
+  statusCode: number;
+  statusMessage: string;
+  headers: Record<string, string>;
+  body: string;
+}
+
+/**
+ * Renders the error response for `event` without sending it: HTML for
+ * browser clients (Accept includes text/html), JSON otherwise. Carries
+ * the correlation ID, the tenant ID when one resolved, and the tenant
+ * theme when one is available.
+ */
+export function buildErrorResponse(
+  event: H3Event,
+  input: ErrorResponseInput,
+): ErrorResponse {
+  const { debugErrors } = readErrorHandlerConfig(event);
+  const {
+    statusCode,
+    statusMessage,
+    message,
+    isTenantNotProvisioned,
+    isDevSetup,
+  } = input;
   // Prefer the ID minted by the request-logging plugin (same ID the
   // JSON log entry will carry), but mint a fallback here too — if an
   // error fires so early that even the logging plugin hasn't run,
@@ -37,16 +108,22 @@ const errorHandler: NitroErrorHandler = (error, event) => {
   const correlationId = event.context.correlationId ?? mintFallbackId();
   const tenantId = event.context.tenant?.tenantId;
   const hostname = event.context.tenant?.hostname;
-  const message = error.message || statusMessage;
+  // The resolution log line, in development only: says whether the hostname
+  // is unknown to the merchant API or the API could not be reached, which
+  // the friendly copy deliberately does not.
+  const resolution =
+    isDevMode() && isTenantNotProvisioned
+      ? event.context.tenantResolution
+      : undefined;
 
   // The normal tenant theme is injected by the `render:html` Nitro hook
-  // (server/plugins/04.tenant-css.ts), but this handler renders its own HTML
-  // and never runs that pipeline, so the theme would otherwise be lost and the
-  // page would fall back to the hardcoded default palette and fonts. Pull the
-  // theme straight off the resolved tenant config (set by 02.tenant-context)
-  // and hand it to the template so the error page inherits the store colors,
-  // fonts and button styles. Missing when tenant resolution failed; the
-  // template then keeps its built-in fallbacks.
+  // (server/plugins/04.tenant-css.ts), but this response never runs that
+  // pipeline, so the theme would otherwise be lost and the page would fall
+  // back to the hardcoded default palette and fonts. Pull the theme straight
+  // off the resolved tenant config (set by 02.tenant-context) and hand it to
+  // the template so the error page inherits the store colors, fonts and
+  // button styles. Missing when tenant resolution failed; the template then
+  // keeps its built-in fallbacks.
   const tenantConfig = event.context.tenant?.config;
   const themeName = tenantConfig?.theme?.name?.toLowerCase() || undefined;
   const themeCss = tenantConfig?.css
@@ -55,64 +132,39 @@ const errorHandler: NitroErrorHandler = (error, event) => {
   const fontsUrl =
     buildGoogleFontsUrl(tenantConfig?.theme?.typography) ?? undefined;
 
-  // "Tenant not provisioned" detection:
-  //   1. No tenantId was ever attached to the event context — tenant
-  //      resolution either never ran or failed early.
-  //   2. The downstream error is `@nuxtjs/i18n`'s server-context
-  //      crash, which only fires when Nuxt tried to render error.vue
-  //      for an earlier thrown error before the i18n middleware
-  //      initialised the per-request context.
-  //
-  // When both hold, the actual root cause is that the tenant isn't
-  // in the merchant API yet — a config problem, not a code crash.
-  // Swap the user-facing copy to something meaningful; keep the raw
-  // message in the diagnostics block for support.
-  const isTenantNotProvisioned =
-    !tenantId &&
-    typeof message === 'string' &&
-    message.includes('Nuxt I18n server context has not been set up');
-
-  if (statusCode >= 500) {
-    logger.error(
-      `[error-handler] ${event.method ?? 'GET'} ${event.path} → ${statusCode}`,
-      error as Error,
-      { correlationId, tenantId, hostname, path: event.path },
-    );
-  }
-
-  if (correlationId) {
-    setResponseHeader(event, 'x-correlation-id', correlationId);
-  }
+  const headers: Record<string, string> = { 'x-correlation-id': correlationId };
   if (tenantId) {
-    setResponseHeader(event, 'x-tenant-id', tenantId);
+    headers['x-tenant-id'] = tenantId;
   }
-
-  setResponseStatus(event, statusCode, statusMessage);
 
   const accept = getRequestHeader(event, 'accept') ?? '';
   const wantsHtml = accept.includes('text/html');
 
   if (wantsHtml) {
-    setResponseHeader(event, 'content-type', 'text/html; charset=utf-8');
-    event.node.res.end(
-      renderErrorHtml({
+    headers['content-type'] = 'text/html; charset=utf-8';
+    return {
+      statusCode,
+      statusMessage,
+      headers,
+      body: renderErrorHtml({
         statusCode,
         statusMessage,
         message,
         correlationId,
         tenantId,
         hostname,
-        stack: debugErrors ? error.stack : undefined,
+        stack: debugErrors ? input.stack : undefined,
         isTenantNotProvisioned,
+        isDevSetup,
+        resolution,
         themeName,
         themeCss,
         fontsUrl,
       }),
-    );
-    return;
+    };
   }
 
-  setResponseHeader(event, 'content-type', 'application/json');
+  headers['content-type'] = 'application/json';
 
   const body: Record<string, unknown> = {
     error: true,
@@ -121,16 +173,15 @@ const errorHandler: NitroErrorHandler = (error, event) => {
     message,
     path: event.path,
   };
-  if (correlationId) body.correlationId = correlationId;
+  body.correlationId = correlationId;
   if (tenantId) body.tenantId = tenantId;
   if (hostname) body.hostname = hostname;
-  if (error.data !== undefined) body.data = error.data;
-  if (debugErrors && error.stack) body.stack = error.stack.split('\n');
+  if (input.data !== undefined) body.data = input.data;
+  if (resolution) body.resolution = resolution;
+  if (debugErrors && input.stack) body.stack = input.stack.split('\n');
 
-  event.node.res.end(JSON.stringify(body));
-};
-
-export default errorHandler;
+  return { statusCode, statusMessage, headers, body: JSON.stringify(body) };
+}
 
 /**
  * Fallback correlation ID used only when no request-logging plugin ran.
@@ -158,12 +209,24 @@ export interface ErrorHtmlInput {
   hostname: string | undefined;
   stack?: string;
   /**
-   * When true, overrides the 5xx "Something went wrong" copy with a
-   * clean "store not yet configured" message. Used when the error
-   * chain indicates the tenant isn't in the merchant API yet — a
-   * provisioning step, not a runtime crash the user caused.
+   * When true, replaces the generic copy with a clean "store not yet
+   * configured" message. Set by the tenant plugin when the hostname is
+   * not in the merchant API — a provisioning step, not a runtime crash
+   * the user caused.
    */
   isTenantNotProvisioned?: boolean;
+  /**
+   * When true, renders the development setup page instead of an error: the
+   * browser asked for the dev server itself (`localhost` and friends) rather
+   * than naming a tenant. Set by the tenant plugin, which gates it on
+   * `isDevMode()`, so a production build never reaches this branch.
+   */
+  isDevSetup?: boolean;
+  /**
+   * Development only: the tenant resolution log line, shown verbatim in the
+   * diagnostics block so the 404 page says why the hostname did not resolve.
+   */
+  resolution?: string;
   /**
    * Tenant theme assets. When present the error page inherits the store's
    * colors, fonts and button styles instead of the built-in fallbacks:
@@ -190,6 +253,22 @@ export function escapeHtml(input: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * The whole copy of the development setup page, in one place. Written for
+ * someone starting the project for the first time, who has no reason to know
+ * what a tenant or a loopback address is. Names no store: `<name>` is the
+ * label the developer fills in, so the page is the same for everyone and no
+ * hostname leaks into the repository.
+ */
+const DEV_SETUP_TITLE = 'The dev server is running. Now pick a store.';
+const DEV_SETUP_DESCRIPTION =
+  'This app serves many stores and chooses one from the hostname in the address bar. localhost does not name a store, so there is nothing to show here.';
+const DEV_SETUP_STEPS = [
+  "Open http://<name>.litium.test:3000, where <name> is the store's name in Geins, the part before .litium.store.",
+  "If the browser says the site can't be reached, run pnpm local:setup once. It adds a dnsmasq rule and a macOS resolver entry so every *.litium.test name points to 127.0.0.1, this machine. After that, plain pnpm dev is enough.",
+  'Want the address without :3000? Run pnpm local:dev instead of pnpm dev; it forwards port 80 to 3000. Run pnpm local:stop when you are done, otherwise port 3000 stops answering until you do.',
+];
+
 export function renderErrorHtml(input: ErrorHtmlInput): string {
   const {
     statusCode,
@@ -200,30 +279,42 @@ export function renderErrorHtml(input: ErrorHtmlInput): string {
     hostname,
     stack,
     isTenantNotProvisioned,
+    isDevSetup,
+    resolution,
     themeName,
     themeCss,
     fontsUrl,
   } = input;
 
+  // Gated a second time, not only in the plugin that sets the flag: with
+  // `isDevMode()` folded to false at build time the whole setup branch — the
+  // copy above included — is dropped from the production bundle rather than
+  // shipped as unreachable strings.
+  const showDevSetup = Boolean(isDevSetup) && isDevMode();
+
   const is404 = statusCode === 404;
   const is500 = statusCode >= 500 && statusCode < 600;
 
-  // Tenant-not-provisioned takes precedence over the generic 5xx copy —
-  // same status code, cleaner message.
-  const friendlyTitle = isTenantNotProvisioned
-    ? 'Store not yet available'
-    : is404
-      ? 'Page not found'
-      : is500
-        ? 'Something went wrong'
-        : statusMessage || 'Error';
-  const friendlyDescription = isTenantNotProvisioned
-    ? 'This store is being configured. Please check back soon.'
-    : is404
-      ? 'The page you are looking for does not exist or has been moved.'
-      : is500
-        ? 'We hit an unexpected error. The technical team has been notified.'
-        : 'Please try again, or head back to the home page.';
+  // The setup page and tenant-not-provisioned both take precedence over the
+  // generic copy for the status code — same status code, cleaner message.
+  const friendlyTitle = showDevSetup
+    ? DEV_SETUP_TITLE
+    : isTenantNotProvisioned
+      ? 'Store not yet available'
+      : is404
+        ? 'Page not found'
+        : is500
+          ? 'Something went wrong'
+          : statusMessage || 'Error';
+  const friendlyDescription = showDevSetup
+    ? DEV_SETUP_DESCRIPTION
+    : isTenantNotProvisioned
+      ? 'This store is being configured. Please check back soon.'
+      : is404
+        ? 'The page you are looking for does not exist or has been moved.'
+        : is500
+          ? 'We hit an unexpected error. The technical team has been notified.'
+          : 'Please try again, or head back to the home page.';
 
   // Only show the raw error message when it's distinct from the
   // friendly copy — avoids "Something went wrong / Something went wrong".
@@ -233,7 +324,10 @@ export function renderErrorHtml(input: ErrorHtmlInput): string {
   // Diagnostics panel appears for 500s (always useful for bug reports)
   // and for any error that carries a correlation ID. 404s without a
   // correlation ID stay clean — they're expected user errors.
-  const showDiagnostics = is500 || Boolean(correlationId);
+  // The setup page is instructions, not a report: a correlation ID for a
+  // hostname the developer typed is noise.
+  const showDiagnostics =
+    !showDevSetup && (is500 || Boolean(correlationId) || Boolean(resolution));
   const showTenantRow = Boolean(tenantId && is500);
   const showHostRow = Boolean(hostname && hostname !== tenantId && is500);
 
@@ -255,11 +349,32 @@ ${
         showMessage
           ? `      <p class="diag-msg">${escapeHtml(message)}</p>\n`
           : ''
+      }${
+        resolution
+          ? `      <p class="diag-msg">${escapeHtml(resolution)}</p>\n`
+          : ''
       }    </div>`
     : '';
 
   const stackBlock = stack
     ? `    <pre class="stack">${escapeHtml(stack)}</pre>`
+    : '';
+
+  // The setup page replaces the status code and the Home/Back buttons with
+  // the numbered steps: on a loopback host "Home" only leads back here.
+  const codeBlock = showDevSetup
+    ? ''
+    : `    <p class="code">${escapeHtml(String(statusCode))}</p>\n`;
+  const buttonsBlock = showDevSetup
+    ? ''
+    : `    <div class="btns">
+      <a class="btn btn-primary" href="/">Home</a>
+      <a class="btn btn-outline" href="javascript:history.back()">Back</a>
+    </div>\n`;
+  const stepsBlock = showDevSetup
+    ? `    <ol class="steps">
+${DEV_SETUP_STEPS.map((step) => `      <li>${escapeHtml(step)}</li>`).join('\n')}
+    </ol>\n`
     : '';
 
   // Tenant theme markup. `data-theme` scopes the custom-property block; the
@@ -285,7 +400,7 @@ ${
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>${escapeHtml(String(statusCode))} — ${escapeHtml(friendlyTitle)}</title>
+<title>${showDevSetup ? '' : `${escapeHtml(String(statusCode))} — `}${escapeHtml(friendlyTitle)}</title>
 <style>
   :root { color-scheme: light dark; }
   * { box-sizing: border-box; }
@@ -307,6 +422,8 @@ ${
   .code { font-family: var(--heading-font-family, inherit); font-size: 4.5rem; font-weight: 700; color: var(--primary, #0d9488); margin: 0; line-height: 1; }
   .title { font-family: var(--heading-font-family, inherit); font-size: 1.5rem; font-weight: 600; margin: 1rem 0 0.5rem; }
   .desc { color: var(--muted-foreground, #6b7280); margin: 0; }
+  .steps { margin: 1.75rem 0 0; padding-left: 1.5rem; text-align: left; font-size: 0.875rem; line-height: 1.6; }
+  .steps li { margin-bottom: 0.75rem; }
   .btns { margin-top: 2rem; display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
   .btn {
     display: inline-block;
@@ -367,14 +484,9 @@ ${tenantThemeStyle}
 </head>
 <body>
   <main class="wrap">
-    <p class="code">${escapeHtml(String(statusCode))}</p>
-    <h1 class="title">${escapeHtml(friendlyTitle)}</h1>
+${codeBlock}    <h1 class="title">${escapeHtml(friendlyTitle)}</h1>
     <p class="desc">${escapeHtml(friendlyDescription)}</p>
-    <div class="btns">
-      <a class="btn btn-primary" href="/">Home</a>
-      <a class="btn btn-outline" href="javascript:history.back()">Back</a>
-    </div>
-${diagnosticsBlock}
+${stepsBlock}${buttonsBlock}${diagnosticsBlock}
 ${stackBlock}
   </main>
 </body>

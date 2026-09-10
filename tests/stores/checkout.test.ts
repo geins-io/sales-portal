@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import type {
   CheckoutType,
@@ -9,19 +9,32 @@ import type {
   CreateOrderResponseType,
 } from '#shared/types/commerce';
 
-// Mock $fetch at module level
-let mockFetchImpl: ReturnType<typeof vi.fn> = vi.fn();
+// Mock $fetch at module level. The signature is the one the store calls it
+// with, so both the arguments and every `mock.calls` read are checked.
+type CheckoutFetchOptions = {
+  method?: string;
+  query?: Record<string, unknown>;
+  body?: Record<string, unknown>;
+};
+type CheckoutFetch = (
+  url: string,
+  options?: CheckoutFetchOptions,
+) => Promise<unknown>;
+
+let mockFetchImpl = vi.fn<CheckoutFetch>();
 
 vi.mock('#app/composables/fetch', () => ({
-  $fetch: (...args: unknown[]) => mockFetchImpl(...args),
+  $fetch: (...args: Parameters<CheckoutFetch>) => mockFetchImpl(...args),
 }));
 
-vi.stubGlobal('$fetch', (...args: unknown[]) => mockFetchImpl(...args));
+vi.stubGlobal('$fetch', (...args: Parameters<CheckoutFetch>) =>
+  mockFetchImpl(...args),
+);
 
 // Route the SSR-aware internalFetch helper to the same mock so tests can
 // inspect calls without caring about cookie forwarding.
 vi.mock('~/utils/internal-fetch', () => ({
-  internalFetch: (...args: unknown[]) => mockFetchImpl(...args),
+  internalFetch: (...args: Parameters<CheckoutFetch>) => mockFetchImpl(...args),
 }));
 
 // Mock useCookie for cart store dependency
@@ -63,6 +76,7 @@ const mockPaymentOptions: PaymentOptionType[] = [
     id: 1,
     displayName: 'Card',
     feeIncVat: 0,
+    feeExVat: 0,
     isDefault: false,
     isSelected: false,
   },
@@ -70,6 +84,7 @@ const mockPaymentOptions: PaymentOptionType[] = [
     id: 2,
     displayName: 'Invoice',
     feeIncVat: 29,
+    feeExVat: 23.2,
     isDefault: true,
     isSelected: false,
   },
@@ -80,6 +95,7 @@ const mockShippingOptions: ShippingOptionType[] = [
     id: 10,
     displayName: 'Standard',
     feeIncVat: 49,
+    feeExVat: 39.2,
     isDefault: true,
     isSelected: false,
     amountLeftToFreeShipping: 200,
@@ -88,6 +104,7 @@ const mockShippingOptions: ShippingOptionType[] = [
     id: 11,
     displayName: 'Express',
     feeIncVat: 99,
+    feeExVat: 79.2,
     isDefault: false,
     isSelected: false,
     amountLeftToFreeShipping: 0,
@@ -111,6 +128,13 @@ const mockConsents: ConsentType[] = [
   },
 ];
 
+// `checkoutStatus` is typed with an enum that @geins/types declares but does
+// not export, so no consumer can write the value literally. The widening lives
+// here instead of at each fixture; the store compares against the same strings.
+type CheckoutStatusValue = 'OK' | 'CUSTOMER_BLACKLISTED';
+const checkoutStatus = (status: CheckoutStatusValue) =>
+  status as CheckoutType['checkoutStatus'];
+
 const mockCheckout: CheckoutType = {
   email: 'checkout@example.com',
   billingAddress: {
@@ -132,7 +156,7 @@ const mockCheckout: CheckoutType = {
   paymentOptions: mockPaymentOptions,
   shippingOptions: mockShippingOptions,
   consents: mockConsents,
-  checkoutStatus: 'OK',
+  checkoutStatus: checkoutStatus('OK'),
 };
 
 const mockOrderResponse: CreateOrderResponseType = {
@@ -148,8 +172,10 @@ const mockOrderResponse: CreateOrderResponseType = {
 describe('useCheckoutStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    mockFetchImpl = vi.fn();
-    vi.stubGlobal('$fetch', (...args: unknown[]) => mockFetchImpl(...args));
+    mockFetchImpl = vi.fn<CheckoutFetch>();
+    vi.stubGlobal('$fetch', (...args: Parameters<CheckoutFetch>) =>
+      mockFetchImpl(...args),
+    );
     mockCartIdRef.value = 'cart-abc';
   });
 
@@ -304,7 +330,7 @@ describe('useCheckoutStore', () => {
         paymentOptions: mockPaymentOptions,
         shippingOptions: mockShippingOptions,
         consents: [],
-        checkoutStatus: 'OK',
+        checkoutStatus: checkoutStatus('OK'),
       };
       mockFetchImpl.mockResolvedValueOnce(freshCheckout);
 
@@ -335,7 +361,7 @@ describe('useCheckoutStore', () => {
     it('detects CUSTOMER_BLACKLISTED status', async () => {
       const checkout: CheckoutType = {
         ...mockCheckout,
-        checkoutStatus: 'CUSTOMER_BLACKLISTED',
+        checkoutStatus: checkoutStatus('CUSTOMER_BLACKLISTED'),
       };
       mockFetchImpl.mockResolvedValueOnce(checkout);
 
@@ -430,7 +456,8 @@ describe('useCheckoutStore', () => {
 
       await store.placeOrder('cart-abc');
 
-      const callBody = mockFetchImpl.mock.calls[0][1].body;
+      const callBody = mockFetchImpl.mock.calls[0]?.[1]?.body;
+      assert.isDefined(callBody);
       expect(callBody.shippingAddress).toEqual(separateAddress);
       expect(callBody.billingAddress).toEqual(mockAddress);
     });
@@ -448,7 +475,8 @@ describe('useCheckoutStore', () => {
 
       await store.placeOrder('cart-abc');
 
-      const callBody = mockFetchImpl.mock.calls[0][1].body;
+      const callBody = mockFetchImpl.mock.calls[0]?.[1]?.body;
+      assert.isDefined(callBody);
       expect(callBody.billingAddressId).toBe('42');
       expect(callBody.billingAddress).toBeUndefined();
     });
@@ -468,7 +496,8 @@ describe('useCheckoutStore', () => {
 
       await store.placeOrder('cart-abc');
 
-      const callBody = mockFetchImpl.mock.calls[0][1].body;
+      const callBody = mockFetchImpl.mock.calls[0]?.[1]?.body;
+      assert.isDefined(callBody);
       expect(callBody.shippingAddressId).toBe('99');
       expect(callBody.shippingAddress).toBeUndefined();
     });
@@ -538,7 +567,8 @@ describe('useCheckoutStore', () => {
 
       await store.placeOrder('cart-abc');
 
-      const callBody = mockFetchImpl.mock.calls[0][1].body;
+      const callBody = mockFetchImpl.mock.calls[0]?.[1]?.body;
+      assert.isDefined(callBody);
       expect(callBody.customerOrderNumber).toBe('PO-12345');
       expect(callBody.goodsLabel).toBe('Fragile');
       expect(callBody.desiredDeliveryDate).toBe('2026-07-01');
@@ -558,7 +588,8 @@ describe('useCheckoutStore', () => {
 
       await store.placeOrder('cart-abc');
 
-      const callBody = mockFetchImpl.mock.calls[0][1].body;
+      const callBody = mockFetchImpl.mock.calls[0]?.[1]?.body;
+      assert.isDefined(callBody);
       expect(callBody.goodsLabel).toBeUndefined();
       expect(callBody.desiredDeliveryDate).toBeUndefined();
     });

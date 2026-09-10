@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import type { ComponentPublicInstance } from 'vue';
 import { mountComponent } from '../../utils/component';
 
 import ProductFilters from '../../../app/components/product/ProductFilters.vue';
@@ -198,7 +199,9 @@ describe('ProductFilters', () => {
     // reka-ui fires an `openAutoFocus` event on the sheet content; the
     // component must call preventDefault so the filter-search input is not
     // focused (which would pop the soft keyboard and hide the filters).
-    const sheet = wrapper.findComponent('[data-testid="filter-sheet"]');
+    const sheet = wrapper.findComponent<ComponentPublicInstance>(
+      '[data-testid="filter-sheet"]',
+    );
     const event = new Event('focus', { cancelable: true });
     sheet.vm.$emit('openAutoFocus', event);
     expect(event.defaultPrevented).toBe(true);

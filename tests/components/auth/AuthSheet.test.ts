@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref } from 'vue';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { shallowMountComponent } from '../../utils/component';
 import AuthSheet from '../../../app/components/auth/AuthSheet.vue';
 
@@ -17,9 +18,22 @@ vi.mock('../../../app/stores/auth', () => ({
   useAuthStore: () => authStoreState,
 }));
 
-// useTenant mock, default: applyForAccount feature enabled
+// useTenant mock. `hasFeature` reads a configured value the same way the real
+// composable does — `features[name]?.enabled === true` (useTenant.ts:44) —
+// rather than answering a predicate on the key, so a test drives the feature
+// by writing the config the merchant would set.
+//
+// There is nothing to un-mock here: this component asks `hasFeature`, not
+// `canAccess`, so the tier-wide useFeatureAccess mock is not in the path at
+// all. That is also why the key has no access cells — see the map.
+let features: PublicTenantConfig['features'] = {};
+
+function setFeatures(next: PublicTenantConfig['features']) {
+  features = next;
+}
+
 const mockHasFeature = vi.fn(
-  (feature: string) => feature === 'applyForAccount',
+  (feature: string) => features?.[feature]?.enabled === true,
 );
 vi.mock('../../../app/composables/useTenant', () => ({
   useTenant: () => ({ hasFeature: mockHasFeature }),
@@ -59,9 +73,8 @@ describe('AuthSheet', () => {
     authStoreState.closeSheet.mockReset();
     mockApplyTo.value = '/se/sv/ansok-om-konto';
     mockApplyResolved.value = true;
-    mockHasFeature.mockImplementation(
-      (feature: string) => feature === 'applyForAccount',
-    );
+    // The seeded default for this key; individual tests override it.
+    setFeatures({ applyForAccount: { enabled: true } });
   });
 
   function mountAuthSheet() {
@@ -76,7 +89,7 @@ describe('AuthSheet', () => {
   });
 
   describe('apply for account link', () => {
-    it('shows apply link when feature enabled and apply page resolved', () => {
+    it('shows apply link when applyForAccount enabled and apply page resolved', () => {
       const wrapper = mountAuthSheet();
       expect(wrapper.find('[data-testid="auth-sheet-apply"]').exists()).toBe(
         true,
@@ -100,7 +113,7 @@ describe('AuthSheet', () => {
     });
 
     it('hides apply link when applyForAccount feature is disabled', () => {
-      mockHasFeature.mockImplementation(() => false);
+      setFeatures({ applyForAccount: { enabled: false } });
       const wrapper = mountAuthSheet();
       expect(wrapper.find('[data-testid="auth-sheet-apply"]').exists()).toBe(
         false,

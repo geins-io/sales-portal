@@ -5,16 +5,11 @@ import { resolveLocalePrefix } from '~/utils/locale-prefix';
  * Authentication Middleware
  *
  * Protects routes that require authentication.
- * Optionally checks user roles via route meta.
  *
  * @example
  * ```vue
  * <script setup>
- * // Any authenticated user
  * definePageMeta({ middleware: 'auth' })
- *
- * // Role-gated (portal users only)
- * definePageMeta({ middleware: 'auth', roles: ['wholesale'] })
  * </script>
  * ```
  */
@@ -40,11 +35,5 @@ export default defineNuxtRouteMiddleware(async (to) => {
       path: `${prefix}/login`,
       query: redirectPath !== '/' ? { redirect: redirectPath } : undefined,
     });
-  }
-
-  // Optional role check from route meta
-  const roles = to.meta.roles;
-  if (roles?.length && !authStore.hasAnyRole(roles)) {
-    return navigateTo({ path: `${prefix}/` });
   }
 });

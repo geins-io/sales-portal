@@ -65,16 +65,26 @@ All accessors call `getTenant()` internally (cached via KV storage + SWR).
 
 The Geins platform auto-injects `geinsSettings` into the store-settings API response in its own shape (`channelId: "2|se"`, `defaultLocale`, `locales[]`, etc.). `transformGeinsSettings()` in `server/utils/tenant.ts` normalizes this to our clean internal shape (`channel`, `tld`, `locale`, `availableLocales[]`, `availableMarkets[]`). Service layer consumers always see the internal shape.
 
+### Where hostname truth lives
+
+Routing comes from `geinsSettings` alone: `hostname` is `defaultHostName`, `aliases` is `additionalHostNames`. Those are the names the merchant API itself resolves, and `adaptMerchantApiResponse()` reads nothing else for them.
+
+`appSettings.hostname` and `appSettings.aliases` are legacy fields from before the merchant API had hostname fields of its own. Nothing writes them any more and they survive only on older records; the schema still accepts them — a stored config must never become invalid — but they are display data, never routing data. Reading them meant every name on such a record became a `hostname → tenantId` entry in KV (`collectAllHostnames()` → `writeHostnameMappings()`), routing hostnames the merchant API refuses, including another tenant's registered hostname, which then served the wrong storefront until the next restart. Which hostnames worked depended on what the running container had cached rather than on what was registered.
+
+One exception, narrow and deliberate: when a Geins record carries no `defaultHostName`, `appSettings.hostname` is the fallback. `hostname` is required and on the fatal path, so without it such a tenant would resolve to nothing at all.
+
 ### Feature access evaluation
 
-`FeatureAccess` is defined as a standalone type in `shared/types/tenant-config.ts` (not Zod-inferred) so shared utilities can import it without pulling in server/schema code. The Zod schema still validates the same shape.
+`FeatureAccess` is defined as a standalone type in `shared/types/tenant-config.ts` (not Zod-inferred) so shared utilities can import it without pulling in server/schema code.
 
 A strategy-pattern evaluator registry in `shared/utils/feature-access.ts` evaluates access rules:
 
 - `'all'` → everyone
 - `'authenticated'` → logged-in users
-- `{ role }` → matches `user.customerType` from Geins
-- `{ group }` / `{ accountType }` → safe deny (not yet available in Geins API)
+
+**Amended 2026-09-07:** `{ group }`, `{ accountType }` and `{ permission }` were removed from `FeatureAccess` — nothing in the Geins token carries a group, an account type or a permission list, so each rule could only ever deny. `FeatureAccessSchema` still accepts all three so a stored config stays valid, and `normalizeFeatureAccess` in `server/utils/tenant.ts` retires them per config: the feature becomes `{ enabled: false }` and the reason is logged at warn.
+
+**Amended 2026-09-08:** `{ role }` went the same way, leaving `FeatureAccess` as `'all' | 'authenticated'` — exactly what the merchant admin can configure. It was evaluated as `user.customerType === rule.role`, and `customerType` is the raw `CustomerType` claim (`"2"` for an organisation account), so a matching rule would have had to read `{ role: "2" }` — a value nothing in the admin can produce. The role-gated route path went with it: `hasRole` / `hasAnyRole` in the auth store, the role branch of `app/middleware/auth.ts` and the `roles` route meta all compared against that same raw claim, and no page set it. With no object member left in `FeatureAccess`, `isEvaluableAccess` is a `typeof` check the compiler verifies, and normalisation is fail-closed: an object rule added to the schema later is retired until the predicate is widened for it.
 
 Consumer API:
 
@@ -94,7 +104,7 @@ Adding a new rule type = adding one evaluator function + extending `UserContext`
 
 - **Runtime safety** — malformed API responses are caught at parse time with structured error messages
 - **Single source of truth** — Zod schema generates all types; no manual interface sync
-- **Access control** — features support granular access (group, role, accountType)
+- **Access control** — features support granular access (authenticated)
 - **Decoupled consumers** — components use the service layer, not raw config shape
 - **No secret leaks** — `PublicTenantConfig` physically can't contain `geinsSettings` or `overrides`
 

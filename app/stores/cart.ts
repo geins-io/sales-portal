@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import type { CartType } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { COOKIE_NAMES } from '#shared/constants/storage';
+import { internalFetch } from '~/utils/internal-fetch';
 
 export const useCartStore = defineStore('cart', () => {
   const cartId = useCookie<string | null>(COOKIE_NAMES.CART_ID, {
@@ -33,16 +34,8 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      // On SSR self-fetch, the Host header is not forwarded by default, so
-      // server/api/cart resolves to the wrong tenant and returns an empty
-      // cart. Forward cookie + host so tenant + auth context survive the
-      // internal hop.
-      const headers = import.meta.server
-        ? useRequestHeaders(['cookie', 'host'])
-        : undefined;
-      cart.value = await $fetch<CartType>('/api/cart', {
+      cart.value = await internalFetch<CartType>('/api/cart', {
         query: { cartId: cartId.value },
-        headers,
       });
     } catch {
       error.value = 'Failed to load cart';

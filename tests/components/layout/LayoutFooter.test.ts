@@ -1,7 +1,10 @@
 import { ref } from 'vue';
-import { describe, it, expect, vi } from 'vitest';
-import type { MenuType } from '@geins/types';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
+import type { AuthUser, MenuType } from '@geins/types';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { shallowMountComponent, mountComponent } from '../../utils/component';
+import { useTenant } from '../../../app/composables/useTenant';
+import { useAuthStore } from '../../../app/stores/auth';
 import LayoutFooter from '../../../app/components/layout/LayoutFooter.vue';
 import LayoutFooterTop from '../../../app/components/layout/footer/LayoutFooterTop.vue';
 import LayoutFooterMain from '../../../app/components/layout/footer/LayoutFooterMain.vue';
@@ -25,6 +28,32 @@ vi.mock('~/composables/useCmsMenuData', () => ({
 }));
 vi.stubGlobal('useRequestURL', () => new URL('https://test.example.com'));
 
+// Escapes the tier-wide mock, which answers true for every key; see
+// tests/setup-components.ts. The real chain then runs over the fixture below.
+vi.unmock('../../../app/composables/useFeatureAccess');
+
+// `isAuthenticated` is `!!user.value`, so identity is all this needs to carry.
+const SIGNED_IN: AuthUser = {
+  userId: '1',
+  username: 'buyer@example.com',
+};
+
+const { tenant } = useTenant();
+
+function setFeatures(features: PublicTenantConfig['features']) {
+  assert.isDefined(tenant.value);
+  tenant.value.features = features;
+}
+
+// File level, not inside a describe: both of these live for the whole file, so
+// a reset scoped to one block would leave the last test's signed-in user and
+// access rule in place for every sibling block after it.
+beforeEach(() => {
+  setFeatures({});
+  // Sign out: the Pinia store is shared across this file's tests.
+  useAuthStore().user = null;
+});
+
 describe('LayoutFooter root', () => {
   it('paints bg-footer-background on the outer footer (unified background)', () => {
     const wrapper = shallowMountComponent(LayoutFooter);
@@ -39,6 +68,54 @@ describe('LayoutFooter root', () => {
     const wrapper = shallowMountComponent(LayoutFooter);
     const footer = wrapper.find('footer');
     expect(footer.classes()).toContain('border-t');
+  });
+});
+
+// One test per configured value of `newsletterSignup`, each writing the value
+// itself rather than a decision derived from it. Registered in
+// tests/unit/config-coverage/map.ts, which requires the key in the title.
+//
+// The gate is `v-if="showNewsletter"` on LayoutFooterTop, so under a shallow
+// mount the assertion is whether the child's stub is in the tree at all.
+describe('newsletterSignup', () => {
+  const TOP = 'layout-footer-top-stub';
+
+  function mountFooter() {
+    return shallowMountComponent(LayoutFooter);
+  }
+
+  it('shows the newsletter when newsletterSignup is absent from features', () => {
+    expect(mountFooter().find(TOP).exists()).toBe(true);
+  });
+
+  it('shows the newsletter when newsletterSignup is enabled with no access rule', () => {
+    setFeatures({ newsletterSignup: { enabled: true } });
+    expect(mountFooter().find(TOP).exists()).toBe(true);
+  });
+
+  it('hides the newsletter when newsletterSignup is disabled', () => {
+    setFeatures({ newsletterSignup: { enabled: false } });
+    expect(mountFooter().find(TOP).exists()).toBe(false);
+  });
+
+  it('shows the newsletter when newsletterSignup access is open to all', () => {
+    setFeatures({ newsletterSignup: { enabled: true, access: 'all' } });
+    expect(mountFooter().find(TOP).exists()).toBe(true);
+  });
+
+  it('hides the newsletter when newsletterSignup requires authentication and the user is anonymous', () => {
+    setFeatures({
+      newsletterSignup: { enabled: true, access: 'authenticated' },
+    });
+    expect(mountFooter().find(TOP).exists()).toBe(false);
+  });
+
+  it('shows the newsletter when newsletterSignup requires authentication and the user is signed in', () => {
+    setFeatures({
+      newsletterSignup: { enabled: true, access: 'authenticated' },
+    });
+    useAuthStore().user = SIGNED_IN;
+    expect(mountFooter().find(TOP).exists()).toBe(true);
   });
 });
 

@@ -27,7 +27,10 @@ vi.mock('vue-i18n', () => ({
   }),
 }));
 
-const mockRoute = {
+const mockRoute: {
+  params: Record<string, string>;
+  query: Record<string, string>;
+} = {
   params: { id: 'quote-uuid-001' },
   query: { quoteNumber: 'Q-1001' },
 };

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import errorHandler, { escapeHtml, renderErrorHtml } from '../../server/error';
+import errorHandler, {
+  buildErrorResponse,
+  escapeHtml,
+  renderErrorHtml,
+} from '../../server/error';
 
 // --- Mocks ----------------------------------------------------------------
 
@@ -26,6 +30,13 @@ vi.mock('../../server/utils/error-config', () => ({
   readErrorHandlerConfig: mockReadConfig,
 }));
 
+const { mockIsDevMode } = vi.hoisted(() => ({
+  mockIsDevMode: vi.fn(() => false),
+}));
+vi.mock('../../server/utils/dev-mode', () => ({
+  isDevMode: mockIsDevMode,
+}));
+
 // --- Helpers -------------------------------------------------------------
 
 interface MockEvent {
@@ -34,6 +45,7 @@ interface MockEvent {
   context: {
     correlationId?: string;
     tenant?: { tenantId?: string; hostname?: string };
+    tenantResolution?: string;
   };
   headers: Map<string, string>;
   node: {
@@ -55,6 +67,7 @@ function makeEvent(
     correlationId?: string | null;
     tenantId?: string | null;
     hostname?: string | null;
+    tenantResolution?: string;
   } = {},
 ): MockEvent {
   const headers = new Map<string, string>();
@@ -64,19 +77,18 @@ function makeEvent(
       ? undefined
       : (overrides.correlationId ?? 'corr-abc');
   const tenantId =
-    overrides.tenantId === null
-      ? undefined
-      : (overrides.tenantId ?? 'boattools');
+    overrides.tenantId === null ? undefined : (overrides.tenantId ?? 'example');
   const hostname =
     overrides.hostname === null
       ? undefined
-      : (overrides.hostname ?? 'boattools.litium.store');
+      : (overrides.hostname ?? 'example.litium.store');
   return {
     method: 'GET',
     path: '/se/sv/',
     context: {
       correlationId,
       tenant: tenantId || hostname ? { tenantId, hostname } : undefined,
+      tenantResolution: overrides.tenantResolution,
     },
     headers,
     node: {
@@ -98,7 +110,17 @@ function makeEvent(
 }
 
 function run(event: MockEvent, error: Error & { statusCode?: number }) {
-  errorHandler(error, event as unknown as Parameters<typeof errorHandler>[1]);
+  // Nitro passes a third argument carrying its own fallback renderer. Ours
+  // never delegates, so the stub throws if that ever changes.
+  errorHandler(
+    error as Parameters<typeof errorHandler>[0],
+    event as unknown as Parameters<typeof errorHandler>[1],
+    {
+      defaultHandler: () => {
+        throw new Error('errorHandler delegated to the Nitro default handler');
+      },
+    },
+  );
 }
 
 // --- Tests ---------------------------------------------------------------
@@ -124,15 +146,15 @@ describe('renderErrorHtml', () => {
       statusMessage: 'Internal Server Error',
       message: 'Nuxt I18n server context has not been set up yet.',
       correlationId: 'abc-123',
-      tenantId: 'boattools',
-      hostname: 'boattools.litium.store',
+      tenantId: 'example',
+      hostname: 'example.litium.store',
     });
     expect(html).toContain('500');
     expect(html).toContain('Something went wrong');
     expect(html).toContain('Reference ID:');
     expect(html).toContain('abc-123');
     expect(html).toContain('Tenant:');
-    expect(html).toContain('boattools');
+    expect(html).toContain('example');
     expect(html).toContain('Nuxt I18n server context has not been set up yet.');
   });
 
@@ -154,8 +176,8 @@ describe('renderErrorHtml', () => {
       statusMessage: 'Not Found',
       message: 'Not Found',
       correlationId: undefined,
-      tenantId: 'boattools',
-      hostname: 'boattools.litium.store',
+      tenantId: 'example',
+      hostname: 'example.litium.store',
     });
     expect(html).toContain('Page not found');
     expect(html).not.toContain('Reference ID');
@@ -241,8 +263,8 @@ describe('renderErrorHtml', () => {
       statusMessage: 'Not Found',
       message: 'Not Found',
       correlationId: 'x',
-      tenantId: 'tenant-a',
-      hostname: 'tenant-a.example',
+      tenantId: 'alpha',
+      hostname: 'alpha.example',
       themeName: 'teal',
       themeCss:
         "[data-theme='teal'] { --primary: #006f72; --button-background: #006f72; }",
@@ -299,7 +321,7 @@ describe('errorHandler (Nitro integration)', () => {
       'Nuxt I18n server context has not been set up yet.',
     );
     expect(event.node.res.body).toContain('corr-abc');
-    expect(event.node.res.body).toContain('boattools');
+    expect(event.node.res.body).toContain('example');
   });
 
   it('returns JSON when Accept does not include text/html', () => {
@@ -314,8 +336,8 @@ describe('errorHandler (Nitro integration)', () => {
       statusCode: 500,
       message: 'boom',
       correlationId: 'corr-abc',
-      tenantId: 'boattools',
-      hostname: 'boattools.litium.store',
+      tenantId: 'example',
+      hostname: 'example.litium.store',
     });
     expect(parsed.stack).toBeUndefined();
   });
@@ -353,7 +375,7 @@ describe('errorHandler (Nitro integration)', () => {
     run(event, err);
 
     expect(event.node.res.headers['x-correlation-id']).toBe('corr-abc');
-    expect(event.node.res.headers['x-tenant-id']).toBe('boattools');
+    expect(event.node.res.headers['x-tenant-id']).toBe('example');
   });
 
   it('omits tenant headers when tenant context was never set', () => {
@@ -422,7 +444,7 @@ describe('errorHandler (Nitro integration)', () => {
       expect.objectContaining({ message: 'kaboom' }),
       expect.objectContaining({
         correlationId: 'corr-abc',
-        tenantId: 'boattools',
+        tenantId: 'example',
       }),
     );
   });
@@ -438,14 +460,10 @@ describe('errorHandler (Nitro integration)', () => {
     expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  // "Tenant not provisioned" is the chain we see when a hostname hits
-  // the storefront but the merchant API doesn't have a record for it.
-  // Plugin 02 throws 404, Nuxt tries to render error.vue, the render
-  // crashes in @nuxtjs/i18n (no per-request context set up), Nitro's
-  // error handler fires with the i18n crash as `error`. We detect the
-  // chain and show a friendly "store not yet configured" page instead
-  // of the raw technical message.
-  it('shows "Store not yet available" when tenant context never resolved AND message is the i18n crash', () => {
+  it('renders the generic 5xx copy for an early i18n crash; no message sniffing', () => {
+    // The unregistered-hostname case no longer reaches this handler (the
+    // tenant plugin answers it in render:before), so an i18n crash with no
+    // tenant is what it says it is: a crash.
     const event = makeEvent({
       accept: 'text/html',
       tenantId: null,
@@ -457,40 +475,265 @@ describe('errorHandler (Nitro integration)', () => {
     );
     run(event, err);
 
-    expect(event.node.res.body).toContain('Store not yet available');
-    expect(event.node.res.body).toContain('This store is being configured');
-    // Raw message still visible in the diagnostics block for support.
-    expect(event.node.res.body).toContain(
-      'Nuxt I18n server context has not been set up yet.',
-    );
-  });
-
-  it('does NOT swap copy when the tenant IS resolved (real crash, not provisioning)', () => {
-    // tenantId default is 'boattools' via makeEvent — this is the case
-    // where a known tenant's page render legitimately failed.
-    const event = makeEvent({ accept: 'text/html' });
-    const err = Object.assign(
-      new Error('Nuxt I18n server context has not been set up yet.'),
-      { statusCode: 500 },
-    );
-    run(event, err);
-
+    expect(event.node.res.statusCode).toBe(500);
     expect(event.node.res.body).toContain('Something went wrong');
     expect(event.node.res.body).not.toContain('Store not yet available');
   });
+});
 
-  it('does NOT swap copy when tenant is missing but message is unrelated', () => {
+// The tenant plugin answers an unregistered hostname with this response from
+// `render:before`, so the status code is decided by the caller, not sniffed
+// from an error message.
+describe('buildErrorResponse (unregistered hostname)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockReadConfig.mockReturnValue({ debugErrors: false });
+    mockIsDevMode.mockReturnValue(false);
+  });
+
+  const refusal = {
+    statusCode: 404,
+    statusMessage: 'Not Found',
+    message:
+      'This site is not available. If you believe this is an error, please contact support.',
+    isTenantNotProvisioned: true,
+  };
+
+  it('answers browsers with a 404 page carrying the friendly copy', () => {
     const event = makeEvent({
       accept: 'text/html',
       tenantId: null,
-      hostname: null,
+      hostname: 'unregistered.example',
     });
-    const err = Object.assign(new Error('database unreachable'), {
-      statusCode: 500,
-    });
-    run(event, err);
+    const response = buildErrorResponse(
+      event as unknown as Parameters<typeof buildErrorResponse>[0],
+      refusal,
+    );
 
-    expect(event.node.res.body).toContain('Something went wrong');
-    expect(event.node.res.body).not.toContain('Store not yet available');
+    expect(response.statusCode).toBe(404);
+    expect(response.statusMessage).toBe('Not Found');
+    expect(response.headers['content-type']).toMatch(/text\/html/);
+    expect(response.headers['x-correlation-id']).toBe('corr-abc');
+    expect(response.headers['x-tenant-id']).toBeUndefined();
+    expect(response.body).toContain(
+      '<title>404 — Store not yet available</title>',
+    );
+    expect(response.body).toContain('This store is being configured');
+    expect(response.body).toContain('This site is not available');
+  });
+
+  it('answers API clients with 404 JSON carrying the friendly message', () => {
+    const event = makeEvent({
+      accept: 'application/json',
+      tenantId: null,
+      hostname: 'unregistered.example',
+    });
+    const response = buildErrorResponse(
+      event as unknown as Parameters<typeof buildErrorResponse>[0],
+      refusal,
+    );
+
+    expect(response.statusCode).toBe(404);
+    expect(response.headers['content-type']).toBe('application/json');
+    expect(JSON.parse(response.body)).toEqual({
+      error: true,
+      statusCode: 404,
+      statusMessage: 'Not Found',
+      message: refusal.message,
+      path: '/se/sv/',
+      correlationId: 'corr-abc',
+      hostname: 'unregistered.example',
+    });
+  });
+
+  it('does not log; a refusal is not an error', async () => {
+    const { logger: importedLogger } =
+      await import('../../server/utils/logger');
+    const event = makeEvent({ accept: 'text/html', tenantId: null });
+    buildErrorResponse(
+      event as unknown as Parameters<typeof buildErrorResponse>[0],
+      refusal,
+    );
+    expect(importedLogger.error).not.toHaveBeenCalled();
+    expect(importedLogger.warn).not.toHaveBeenCalled();
+  });
+
+  // The resolution line is the same string resolveTenant() logged; the page
+  // repeats it verbatim, in development only.
+  describe('resolution diagnostics', () => {
+    const resolutionLine =
+      '[tenant] resolve host=unregistered.example kv=miss api=GET https://merchantapi.example/store-settings?hostname=unregistered.example → 404 outcome=unknown-tenant';
+
+    it('development: the HTML page carries the resolution line, escaped', () => {
+      mockIsDevMode.mockReturnValue(true);
+      const event = makeEvent({
+        accept: 'text/html',
+        tenantId: null,
+        hostname: 'unregistered.example',
+        tenantResolution: resolutionLine + ' <x>',
+      });
+      const response = buildErrorResponse(
+        event as unknown as Parameters<typeof buildErrorResponse>[0],
+        refusal,
+      );
+
+      expect(response.body).toContain(
+        `<p class="diag-msg">${resolutionLine} &lt;x&gt;</p>`,
+      );
+      expect(response.body).toContain('This site is not available');
+    });
+
+    it('development: the JSON body carries the resolution line', () => {
+      mockIsDevMode.mockReturnValue(true);
+      const event = makeEvent({
+        accept: 'application/json',
+        tenantId: null,
+        hostname: 'unregistered.example',
+        tenantResolution: resolutionLine,
+      });
+      const response = buildErrorResponse(
+        event as unknown as Parameters<typeof buildErrorResponse>[0],
+        refusal,
+      );
+
+      expect(JSON.parse(response.body)).toMatchObject({
+        statusCode: 404,
+        resolution: resolutionLine,
+      });
+    });
+
+    it('production build: the line never reaches the response, even when present on the event', () => {
+      mockIsDevMode.mockReturnValue(false);
+      for (const accept of ['text/html', 'application/json']) {
+        const event = makeEvent({
+          accept,
+          tenantId: null,
+          hostname: 'unregistered.example',
+          tenantResolution: resolutionLine,
+        });
+        const response = buildErrorResponse(
+          event as unknown as Parameters<typeof buildErrorResponse>[0],
+          refusal,
+        );
+        expect(response.body).not.toContain('outcome=');
+        expect(response.body).not.toContain('resolution');
+      }
+    });
+
+    it('development: the line is shown only for the tenant refusal, not for other errors', () => {
+      mockIsDevMode.mockReturnValue(true);
+      const event = makeEvent({
+        accept: 'application/json',
+        tenantResolution:
+          '[tenant] resolve host=example.litium.store kv=hit api=skipped outcome=resolved tenant=example',
+      });
+      const response = buildErrorResponse(
+        event as unknown as Parameters<typeof buildErrorResponse>[0],
+        { statusCode: 500, statusMessage: 'Error', message: 'boom' },
+      );
+      expect(JSON.parse(response.body).resolution).toBeUndefined();
+    });
+  });
+});
+
+// The plugin refuses a loopback host with this input in development; the page
+// is instructions rather than a report, so it drops the status code, the
+// buttons and the diagnostics block.
+describe('buildErrorResponse (development setup page)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockReadConfig.mockReturnValue({ debugErrors: false });
+    mockIsDevMode.mockReturnValue(true);
+  });
+
+  const setup = {
+    statusCode: 404,
+    statusMessage: 'Not Found',
+    message:
+      'localhost does not name a store. Open http://<name>.litium.test:3000 instead.',
+    isDevSetup: true,
+  };
+
+  function render(accept: string) {
+    const event = makeEvent({ accept, tenantId: null, hostname: 'localhost' });
+    return buildErrorResponse(
+      event as unknown as Parameters<typeof buildErrorResponse>[0],
+      setup,
+    );
+  }
+
+  it('carries the three steps and the setup title', () => {
+    const body = render('text/html').body;
+
+    expect(body).toContain('The dev server is running. Now pick a store.');
+    expect(body).toContain('http://&lt;name&gt;.litium.test:3000');
+    expect(body).toContain('pnpm local:setup');
+    expect(body).toContain('pnpm local:dev');
+    expect(body).toContain('pnpm local:stop');
+    expect((body.match(/<li>/g) ?? []).length).toBe(3);
+  });
+
+  // `pnpm local:dev` forwards port 80 only and the dev server is http; the
+  // certificate belongs to the production build under E2E_PROD.
+  it('promises no https and no port 443', () => {
+    const body = render('text/html').body;
+
+    expect(body).not.toContain('443');
+    expect(body).not.toContain('https://');
+  });
+
+  it('drops the status code, the buttons and the diagnostics block', () => {
+    const body = render('text/html').body;
+
+    expect(body).not.toContain('class="code"');
+    expect(body).not.toContain('class="btns"');
+    expect(body).not.toContain('class="diag"');
+    expect(body).not.toContain('corr-abc');
+    expect(body).toContain(
+      '<title>The dev server is running. Now pick a store.</title>',
+    );
+  });
+
+  // The page is the same for everyone: `<name>` is the placeholder the
+  // developer fills in, and no tenant hostname or id may reach it.
+  it('names no tenant', () => {
+    const body = render('text/html').body;
+    const hosts = body.match(/[\w-]+\.litium\.(store|test)/g) ?? [];
+
+    expect(hosts).toEqual([]);
+    expect(body).toContain('.litium.store');
+  });
+
+  it('answers a non-browser client with the one-line message', () => {
+    const response = render('application/json');
+
+    expect(JSON.parse(response.body)).toMatchObject({
+      statusCode: 404,
+      message: setup.message,
+      hostname: 'localhost',
+    });
+  });
+
+  // The plugin's branch is compiled away in a production build, so nothing
+  // can set the flag there. Gating the render on the same constant is what
+  // keeps the copy out of the shipped bundle rather than leaving it as
+  // unreachable strings; this pins that the second gate stays.
+  it('production build: falls back to the generic copy, page carries no setup text', () => {
+    mockIsDevMode.mockReturnValue(false);
+    const body = render('text/html').body;
+
+    expect(body).not.toContain('The dev server is running');
+    expect(body).not.toContain('pnpm local:setup');
+    expect(body).toContain('Page not found');
+    expect(body).toContain('class="code"');
+  });
+
+  it('does not log; the setup page is not an error', async () => {
+    const { logger: importedLogger } =
+      await import('../../server/utils/logger');
+    render('text/html');
+
+    expect(importedLogger.error).not.toHaveBeenCalled();
+    expect(importedLogger.warn).not.toHaveBeenCalled();
   });
 });

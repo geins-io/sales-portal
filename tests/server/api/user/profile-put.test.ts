@@ -49,9 +49,7 @@ describe('PUT /api/user/profile', () => {
       authToken: 'test-auth-token',
       refreshToken: 'test-refresh-token',
     });
-    (
-      globalThis.readValidatedBody as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
+    vi.mocked(readValidatedBody).mockResolvedValue({
       address: { firstName: 'Jane', lastName: 'Doe' },
     });
   });

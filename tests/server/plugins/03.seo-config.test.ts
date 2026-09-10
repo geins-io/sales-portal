@@ -7,10 +7,17 @@ vi.mock('../../../server/utils/locale', () => ({
   getRequestLocale: (...args: unknown[]) => mockGetRequestLocale(...args),
 }));
 
-vi.mock('../../../server/utils/seo', () => ({
-  buildSiteUrl: (hostname: string) => `https://${hostname}`,
-  isIndexable: () => true,
-}));
+// `buildSiteUrl` is stubbed to keep the URL assertions independent of protocol
+// and port handling. `isIndexable` is the real one: it is the only thing that
+// turns a tenant's `seo.robots` into the `indexable` flag pushed below, so a
+// stub returning a constant would make the robots cases prove nothing.
+vi.mock('../../../server/utils/seo', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    buildSiteUrl: (hostname: string) => `https://${hostname}`,
+  };
+});
 
 let hooks: Record<string, (ctx: unknown) => Promise<void> | void> = {};
 
@@ -47,8 +54,8 @@ function createCtx(
 }
 
 const TENANT = {
-  hostname: 'tenant-a.example',
-  branding: { name: 'Tenant A' },
+  hostname: 'alpha.example',
+  branding: { name: 'Alpha' },
   seo: { defaultDescription: 'desc', robots: undefined },
   geinsSettings: { locale: 'nb-NO' },
 };
@@ -70,7 +77,7 @@ describe('server/plugins/03.seo-config', () => {
     expect(pushed[0]).toMatchObject({
       currentLocale: 'fi-FI',
       defaultLocale: 'nb-NO',
-      url: 'https://tenant-a.example',
+      url: 'https://alpha.example',
     });
   });
 
@@ -96,6 +103,30 @@ describe('server/plugins/03.seo-config', () => {
     await hooks['site-config:init']!(ctx);
 
     expect(pushed[0]!.currentLocale).toBeTypeOf('string');
+  });
+
+  it('pushes indexable false when the tenant robots value carries noindex', async () => {
+    mockGetRequestLocale.mockReturnValue('sv-SE');
+    const { ctx, pushed } = createCtx({
+      ...TENANT,
+      seo: { defaultDescription: 'desc', robots: 'noindex, nofollow' },
+    });
+
+    await hooks['site-config:init']!(ctx);
+
+    expect(pushed[0]).toMatchObject({ indexable: false });
+  });
+
+  it('pushes indexable true when the tenant robots value allows indexing', async () => {
+    mockGetRequestLocale.mockReturnValue('sv-SE');
+    const { ctx, pushed } = createCtx({
+      ...TENANT,
+      seo: { defaultDescription: 'desc', robots: 'index, follow' },
+    });
+
+    await hooks['site-config:init']!(ctx);
+
+    expect(pushed[0]).toMatchObject({ indexable: true });
   });
 
   it('skips health check paths', async () => {

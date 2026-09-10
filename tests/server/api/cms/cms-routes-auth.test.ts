@@ -32,12 +32,11 @@ vi.mock('../../../../server/utils/cms-sanitize', () => ({
 const getCustomerTypeMock = vi.fn();
 vi.stubGlobal('getCustomerType', getCustomerTypeMock);
 vi.stubGlobal('setHeader', vi.fn());
+vi.stubGlobal('getCookie', () => undefined);
 
 vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
 vi.stubGlobal('createAppError', (code: string, msg: string) => {
-  const err = new Error(msg);
-  (err as Record<string, unknown>).statusCode = code;
-  return err;
+  return Object.assign(new Error(msg), { statusCode: code });
 });
 vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
 vi.stubGlobal(
@@ -73,13 +72,12 @@ describe('CMS page route — customerType threading', () => {
     // Re-stub globals after resetModules
     vi.stubGlobal('getCustomerType', getCustomerTypeMock);
     vi.stubGlobal('setHeader', vi.fn());
+    vi.stubGlobal('getCookie', () => undefined);
     vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) =>
       fn(),
     );
     vi.stubGlobal('createAppError', (code: string, msg: string) => {
-      const err = new Error(msg);
-      (err as Record<string, unknown>).statusCode = code;
-      return err;
+      return Object.assign(new Error(msg), { statusCode: code });
     });
     vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
     vi.stubGlobal(
@@ -136,13 +134,12 @@ describe('CMS area route — customerType threading', () => {
     // Re-stub globals after resetModules
     vi.stubGlobal('getCustomerType', getCustomerTypeMock);
     vi.stubGlobal('setHeader', vi.fn());
+    vi.stubGlobal('getCookie', () => undefined);
     vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) =>
       fn(),
     );
     vi.stubGlobal('createAppError', (code: string, msg: string) => {
-      const err = new Error(msg);
-      (err as Record<string, unknown>).statusCode = code;
-      return err;
+      return Object.assign(new Error(msg), { statusCode: code });
     });
     vi.stubGlobal('ErrorCode', { NOT_FOUND: 'NOT_FOUND' });
     vi.stubGlobal(

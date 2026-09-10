@@ -26,7 +26,8 @@ cp .env.example .env   # Configure environment variables
 pnpm dev               # http://localhost:3000
 ```
 
-Tenants are auto-created for any hostname when `NUXT_AUTO_CREATE_TENANT=true`.
+Only hostnames registered in the merchant API resolve, locally as in production; an unknown
+hostname answers 404. See [Multi-Tenant Architecture](docs/guide/multi-tenant.md#local-development).
 
 ### Scripts
 
@@ -93,14 +94,15 @@ See [docs/architecture.md](docs/architecture.md) for detailed documentation cove
 
 See [`.env.example`](.env.example) for all available configuration. Key variables:
 
-| Variable                    | Description                        | Default    |
-| --------------------------- | ---------------------------------- | ---------- |
-| `NUXT_AUTO_CREATE_TENANT`   | Auto-create unknown hostnames      | `false`    |
-| `NUXT_GEINS_API_ENDPOINT`   | Geins GraphQL endpoint             | (see file) |
-| `NUXT_GEINS_TENANT_API_URL` | Geins Tenant API URL               | (see file) |
-| `NUXT_STORAGE_DRIVER`       | KV storage (`memory`/`fs`/`redis`) | `memory`   |
-| `NUXT_HEALTH_CHECK_SECRET`  | Secret for detailed `/api/health`  | —          |
-| `LOG_LEVEL`                 | Logging verbosity                  | `info`     |
+| Variable                       | Description                        | Default    |
+| ------------------------------ | ---------------------------------- | ---------- |
+| `NUXT_GEINS_API_ENDPOINT`      | Geins GraphQL endpoint             | (see file) |
+| `NUXT_GEINS_TENANT_API_URL`    | Geins Tenant API URL               | (see file) |
+| `NUXT_STORAGE_DRIVER`          | KV storage (`memory`/`fs`/`redis`) | `memory`   |
+| `NUXT_HEALTH_CHECK_SECRET`     | Secret for detailed `/api/health`  | —          |
+| `NUXT_HEALTH_RSS_DEGRADED_MB`  | RSS above this is `degraded`       | `400`      |
+| `NUXT_HEALTH_RSS_UNHEALTHY_MB` | RSS above this is `unhealthy`      | `900`      |
+| `LOG_LEVEL`                    | Logging verbosity                  | `info`     |
 
 ## Health Check
 

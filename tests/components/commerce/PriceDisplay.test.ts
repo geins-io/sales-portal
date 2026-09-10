@@ -1,18 +1,33 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
+import type { AuthUser } from '@geins/types';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { mountComponent } from '../../utils/component';
 import PriceDisplay from '../../../app/components/shared/PriceDisplay.vue';
 import { useTenant } from '../../../app/composables/useTenant';
+import { useAuthStore } from '../../../app/stores/auth';
 // useVatDisplay is mocked in setup-components.ts; drive it via this shared ref.
 import { mockShowIncVat } from '../../setup-components';
 
 // useTenant mock is provided by setup-components.ts — access tenant ref to control features
 const { tenant } = useTenant();
 
-const mockCanAccess = vi.fn(() => true);
+// `useTenant()` types `tenant` as nullable because the real composable fills it
+// from useFetch. The setup-components mock always provides one, so assert it
+// here once instead of reaching for `!` at each site.
+function setFeatures(features: PublicTenantConfig['features']) {
+  assert.isDefined(tenant.value);
+  tenant.value.features = features;
+}
 
-vi.mock('../../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => ({ canAccess: mockCanAccess }),
-}));
+// Escapes the tier-wide mock, which answers true for every key; see
+// tests/setup-components.ts. The real chain then runs over the fixture below.
+vi.unmock('../../../app/composables/useFeatureAccess');
+
+// `isAuthenticated` is `!!user.value`, so identity is all this needs to carry.
+const SIGNED_IN: AuthUser = {
+  userId: '1',
+  username: 'buyer@example.com',
+};
 
 function makePrice(overrides: Record<string, unknown> = {}) {
   return {
@@ -33,8 +48,9 @@ function makePrice(overrides: Record<string, unknown> = {}) {
 
 describe('PriceDisplay', () => {
   beforeEach(() => {
-    tenant.value.features = {};
-    mockCanAccess.mockReturnValue(true);
+    setFeatures({});
+    // Sign out: the Pinia store is shared across this file's tests.
+    useAuthStore().user = null;
     mockShowIncVat.value = true;
   });
 
@@ -275,33 +291,47 @@ describe('PriceDisplay', () => {
     });
   });
 
-  describe('feature flags', () => {
-    it('shows price when pricing feature is not configured', () => {
-      tenant.value.features = {};
-      mockCanAccess.mockReturnValue(false);
-      const wrapper = mountComponent(PriceDisplay, {
-        props: { price: makePrice() },
-      });
-      expect(wrapper.text()).toContain('199,00 kr');
+  // One test per configured value of `priceVisibility`, each writing the value
+  // itself rather than a decision derived from it. Registered in
+  // tests/unit/config-coverage/map.ts, which requires the key in the title.
+  describe('priceVisibility', () => {
+    function mount() {
+      return mountComponent(PriceDisplay, { props: { price: makePrice() } });
+    }
+
+    it('shows the price when priceVisibility is absent from features', () => {
+      setFeatures({});
+      expect(mount().text()).toContain('199,00 kr');
     });
 
-    it('shows price when pricing feature allows access', () => {
-      tenant.value.features = { priceVisibility: { enabled: true } };
-      mockCanAccess.mockReturnValue(true);
-      const wrapper = mountComponent(PriceDisplay, {
-        props: { price: makePrice() },
-      });
-      expect(wrapper.text()).toContain('199,00 kr');
+    it('shows the price when priceVisibility is enabled with no access rule', () => {
+      setFeatures({ priceVisibility: { enabled: true } });
+      expect(mount().text()).toContain('199,00 kr');
     });
 
-    it('renders nothing when pricing feature denies access', () => {
-      tenant.value.features = { priceVisibility: { enabled: true } };
-      mockCanAccess.mockReturnValue(false);
-      const wrapper = mountComponent(PriceDisplay, {
-        props: { price: makePrice() },
+    it('renders nothing when priceVisibility is disabled', () => {
+      setFeatures({ priceVisibility: { enabled: false } });
+      expect(mount().text()).toBe('');
+    });
+
+    it('shows the price when priceVisibility access is open to all', () => {
+      setFeatures({ priceVisibility: { enabled: true, access: 'all' } });
+      expect(mount().text()).toContain('199,00 kr');
+    });
+
+    it('renders nothing when priceVisibility requires authentication and the user is anonymous', () => {
+      setFeatures({
+        priceVisibility: { enabled: true, access: 'authenticated' },
       });
-      expect(wrapper.text()).not.toContain('product.login_for_prices');
-      expect(wrapper.text()).not.toContain('199,00 kr');
+      expect(mount().text()).toBe('');
+    });
+
+    it('shows the price when priceVisibility requires authentication and the user is signed in', () => {
+      setFeatures({
+        priceVisibility: { enabled: true, access: 'authenticated' },
+      });
+      useAuthStore().user = SIGNED_IN;
+      expect(mount().text()).toContain('199,00 kr');
     });
   });
 });

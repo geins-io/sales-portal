@@ -317,6 +317,46 @@ describe('LayoutFooterMain', () => {
     expect(wrapper.find('[data-slot="footer-main"]').exists()).toBe(false);
   });
 
+  // The gate is `!!(email || phone)`, so an empty string takes the same branch
+  // as null by construction. Both fields are plain `z.string().nullable()
+  // .optional()` in the schema, so '' does reach the app — unlike the branding
+  // URL fields, where SafeUrlSchema rejects it and the leaf arrives absent.
+  // A menu is configured in both cases so the footer renders at all and the
+  // assertion is about the contact column rather than about the whole footer.
+  it('does not render the contact column when email is an empty string', () => {
+    mockContact.value = {
+      email: '',
+      phone: null,
+      address: null,
+      social: null,
+    };
+    footerMenus.footer.value = {
+      id: '1',
+      title: 'Nav',
+      menuItems: [{ id: 'a', label: 'Home', canonicalUrl: '/', order: 1 }],
+    };
+    const wrapper = mount();
+    expect(wrapper.find('[data-slot="footer-main"]').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('layout.contact');
+  });
+
+  it('does not render the contact column when phone is an empty string', () => {
+    mockContact.value = {
+      email: null,
+      phone: '',
+      address: null,
+      social: null,
+    };
+    footerMenus.footer.value = {
+      id: '1',
+      title: 'Nav',
+      menuItems: [{ id: 'a', label: 'Home', canonicalUrl: '/', order: 1 }],
+    };
+    const wrapper = mount();
+    expect(wrapper.find('[data-slot="footer-main"]').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('layout.contact');
+  });
+
   it('contact column absent when contact itself is null', () => {
     mockContact.value = null;
     footerMenus.footer.value = {

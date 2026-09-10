@@ -8,14 +8,6 @@ import type { FeatureAccess } from '../../shared/types/tenant-config';
 
 const anonymous: UserContext = { authenticated: false };
 const loggedIn: UserContext = { authenticated: true };
-const withRole: UserContext = {
-  authenticated: true,
-  customerType: 'wholesale',
-};
-const withPermissions: UserContext = {
-  authenticated: true,
-  permissions: ['orders:create', 'org:view'],
-};
 
 describe('evaluateAccess', () => {
   describe('rule: "all"', () => {
@@ -38,81 +30,27 @@ describe('evaluateAccess', () => {
     });
   });
 
-  describe('rule: { role }', () => {
-    it('grants access when customerType matches', () => {
-      expect(evaluateAccess({ role: 'wholesale' }, withRole)).toBe(true);
-    });
-
-    it('denies access when customerType does not match', () => {
-      expect(evaluateAccess({ role: 'enterprise' }, withRole)).toBe(false);
-    });
-
-    it('denies access when user has no customerType', () => {
-      expect(evaluateAccess({ role: 'wholesale' }, loggedIn)).toBe(false);
-    });
+  describe('rule outside the union', () => {
+    // The switch is exhaustive, so this value cannot exist in typed code — the
+    // cast constructs it deliberately to prove the runtime guard denies rather
+    // than throws. `FeatureAccessSchema` is a separate source of truth from
+    // `FeatureAccess`, so a literal added only to the schema arrives this way.
+    // tests/ is outside the typecheck today, so the cast documents intent; it
+    // becomes load-bearing once the directory is in the gate.
+    const unhandled = 'staff' as unknown as FeatureAccess;
 
     it('denies access to anonymous users', () => {
-      expect(evaluateAccess({ role: 'wholesale' }, anonymous)).toBe(false);
-    });
-  });
-
-  describe('rule: { permission }', () => {
-    it('grants access when user has the permission', () => {
-      expect(
-        evaluateAccess({ permission: 'orders:create' }, withPermissions),
-      ).toBe(true);
+      expect(evaluateAccess(unhandled, anonymous)).toBe(false);
     });
 
-    it('denies access when user lacks the permission', () => {
-      expect(evaluateAccess({ permission: 'org:edit' }, withPermissions)).toBe(
-        false,
-      );
+    it('denies access to authenticated users', () => {
+      expect(evaluateAccess(unhandled, loggedIn)).toBe(false);
     });
 
-    it('denies access when user has no permissions array', () => {
-      expect(evaluateAccess({ permission: 'orders:create' }, loggedIn)).toBe(
-        false,
-      );
-    });
-
-    it('denies access for anonymous users', () => {
-      expect(evaluateAccess({ permission: 'orders:create' }, anonymous)).toBe(
-        false,
-      );
-    });
-
-    it('denies access when permissions array is empty', () => {
-      const emptyPerms: UserContext = {
-        authenticated: true,
-        permissions: [],
-      };
-      expect(evaluateAccess({ permission: 'orders:create' }, emptyPerms)).toBe(
-        false,
-      );
-    });
-  });
-
-  describe('rule: { group } — not yet supported', () => {
-    it('denies access (safe deny) for any user', () => {
-      expect(evaluateAccess({ group: 'staff' }, loggedIn)).toBe(false);
-    });
-
-    it('denies access for anonymous users', () => {
-      expect(evaluateAccess({ group: 'staff' }, anonymous)).toBe(false);
-    });
-  });
-
-  describe('rule: { accountType } — not yet supported', () => {
-    it('denies access (safe deny) for any user', () => {
-      expect(evaluateAccess({ accountType: 'enterprise' }, loggedIn)).toBe(
-        false,
-      );
-    });
-
-    it('denies access for anonymous users', () => {
-      expect(evaluateAccess({ accountType: 'enterprise' }, anonymous)).toBe(
-        false,
-      );
+    it('denies an enabled feature through canAccessFeature', () => {
+      const feature = { enabled: true, access: unhandled };
+      expect(canAccessFeature(feature, anonymous)).toBe(false);
+      expect(canAccessFeature(feature, loggedIn)).toBe(false);
     });
   });
 });
@@ -146,40 +84,5 @@ describe('canAccessFeature', () => {
     const feature = { enabled: true, access: 'authenticated' as FeatureAccess };
     expect(canAccessFeature(feature, anonymous)).toBe(false);
     expect(canAccessFeature(feature, loggedIn)).toBe(true);
-  });
-
-  it('evaluates access: { role } correctly', () => {
-    const feature = {
-      enabled: true,
-      access: { role: 'wholesale' } as FeatureAccess,
-    };
-    expect(canAccessFeature(feature, withRole)).toBe(true);
-    expect(canAccessFeature(feature, loggedIn)).toBe(false);
-  });
-
-  it('evaluates access: { group } as safe deny', () => {
-    const feature = {
-      enabled: true,
-      access: { group: 'staff' } as FeatureAccess,
-    };
-    expect(canAccessFeature(feature, loggedIn)).toBe(false);
-  });
-
-  it('evaluates access: { accountType } as safe deny', () => {
-    const feature = {
-      enabled: true,
-      access: { accountType: 'enterprise' } as FeatureAccess,
-    };
-    expect(canAccessFeature(feature, loggedIn)).toBe(false);
-  });
-
-  it('evaluates access: { permission } correctly', () => {
-    const feature = {
-      enabled: true,
-      access: { permission: 'orders:create' } as FeatureAccess,
-    };
-    expect(canAccessFeature(feature, withPermissions)).toBe(true);
-    expect(canAccessFeature(feature, loggedIn)).toBe(false);
-    expect(canAccessFeature(feature, anonymous)).toBe(false);
   });
 });

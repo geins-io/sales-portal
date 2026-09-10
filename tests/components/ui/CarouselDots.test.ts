@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { ref, nextTick } from 'vue';
 import { mountComponent } from '../../utils/component';
 import CarouselDots from '../../../app/components/ui/carousel/CarouselDots.vue';
@@ -37,37 +37,45 @@ describe('CarouselDots', () => {
   it('marks the dot at selectedIndex as active via aria-current', () => {
     mockSelectedIndex.value = 1;
     const wrapper = mountComponent(CarouselDots);
-    const buttons = wrapper.findAll('button');
-    expect(buttons[0].attributes('aria-current')).toBeUndefined();
-    expect(buttons[1].attributes('aria-current')).toBe('true');
+    const [firstDot, secondDot] = wrapper.findAll('button');
+    assert.isDefined(firstDot);
+    assert.isDefined(secondDot);
+    expect(firstDot.attributes('aria-current')).toBeUndefined();
+    expect(secondDot.attributes('aria-current')).toBe('true');
   });
 
   it('sets data-active on the active dot only', () => {
     mockSelectedIndex.value = 0;
     const wrapper = mountComponent(CarouselDots);
-    const buttons = wrapper.findAll('button');
-    expect(buttons[0].attributes('data-active')).toBe('true');
-    expect(buttons[1].attributes('data-active')).toBeUndefined();
+    const [firstDot, secondDot] = wrapper.findAll('button');
+    assert.isDefined(firstDot);
+    assert.isDefined(secondDot);
+    expect(firstDot.attributes('data-active')).toBe('true');
+    expect(secondDot.attributes('data-active')).toBeUndefined();
   });
 
   it('calls scrollTo with the correct index when a dot is clicked', async () => {
     const wrapper = mountComponent(CarouselDots);
-    const buttons = wrapper.findAll('button');
-    await buttons[1].trigger('click');
+    const secondDot = wrapper.findAll('button')[1];
+    assert.isDefined(secondDot);
+    await secondDot.trigger('click');
     expect(mockScrollTo).toHaveBeenCalledOnce();
     expect(mockScrollTo).toHaveBeenCalledWith(1);
   });
 
   it('moves the active marker to the new selectedIndex after nextTick', async () => {
     const wrapper = mountComponent(CarouselDots);
-    let buttons = wrapper.findAll('button');
-    expect(buttons[0].attributes('aria-current')).toBe('true');
+    expect(wrapper.findAll('button')[0]?.attributes('aria-current')).toBe(
+      'true',
+    );
 
     mockSelectedIndex.value = 1;
     await nextTick();
 
-    buttons = wrapper.findAll('button');
-    expect(buttons[0].attributes('aria-current')).toBeUndefined();
-    expect(buttons[1].attributes('aria-current')).toBe('true');
+    const [firstDot, secondDot] = wrapper.findAll('button');
+    assert.isDefined(firstDot);
+    assert.isDefined(secondDot);
+    expect(firstDot.attributes('aria-current')).toBeUndefined();
+    expect(secondDot.attributes('aria-current')).toBe('true');
   });
 });

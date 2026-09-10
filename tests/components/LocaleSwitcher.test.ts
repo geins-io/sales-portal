@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { ref } from 'vue';
+import { mountComponent } from '../utils/component';
+import LocaleSwitcher from '../../app/components/shared/LocaleSwitcher.vue';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { orderLocalesByName } from '../../app/utils/order-locales';
@@ -307,5 +310,81 @@ describe('LocaleSwitcher trigger abbreviation', () => {
   it('is independent of the display-name map (full names stay in the dropdown)', () => {
     // "Svenska"/"English" are the dropdown item labels; the trigger is the abbr.
     expect(currentLocaleAbbr('sv')).not.toBe('Svenska');
+  });
+});
+
+/**
+ * Everything above tests re-implementations of the component's computeds — the
+ * file's own header says the SFC could not easily be mounted. It can: the
+ * composables it reaches for are all mockable at the module boundary, and the
+ * `inline` variant renders plain anchors that need no dropdown primitives.
+ *
+ * That matters because `availableLocales` is a tenant config field whose only
+ * consumer is this component, and a mirror of `locales.length > 1` proves
+ * nothing about it. These cases drive the field through `useTenant` and assert
+ * what the component renders.
+ */
+const mockAvailableLocales = ref<string[]>(['sv']);
+
+vi.mock('../../app/composables/useTenant', () => ({
+  useTenant: () => ({ availableLocales: mockAvailableLocales }),
+}));
+
+// The setup-tier vue-i18n mock has no `locales`, which the switcher reads to
+// build its display-name map. Override the module here, and the global too:
+// the SFC auto-imports useI18n and either path may be the one that resolves.
+const i18nStub = () => ({
+  t: (key: string) => key,
+  locale: { value: 'sv' },
+  locales: {
+    value: [
+      { code: 'sv', name: 'Svenska' },
+      { code: 'en', name: 'English' },
+      { code: 'nb', name: 'Norsk bokmal' },
+    ],
+  },
+});
+vi.mock('vue-i18n', () => ({ useI18n: () => i18nStub() }));
+vi.stubGlobal('useI18n', i18nStub);
+vi.stubGlobal('useLocaleMarket', () => ({
+  currentMarket: ref('se'),
+  getCleanPath: () => '/',
+}));
+vi.stubGlobal('useLocaleAlternates', () => ({ hrefFor: () => null }));
+vi.stubGlobal('useRoute', () => ({ fullPath: '/se/sv/' }));
+
+describe('LocaleSwitcher rendering the tenant availableLocales', () => {
+  function mountInline() {
+    return mountComponent(LocaleSwitcher, {
+      props: { variant: 'inline' as const },
+    });
+  }
+
+  function localeCodes(wrapper: ReturnType<typeof mountInline>): string[] {
+    return wrapper
+      .findAll('[data-testid="locale-switcher-link"]')
+      .map((link) => link.attributes('data-locale') ?? '');
+  }
+
+  it('renders nothing when the tenant offers a single locale', () => {
+    mockAvailableLocales.value = ['sv'];
+
+    expect(
+      mountInline().find('[data-testid="locale-switcher-link"]').exists(),
+    ).toBe(false);
+  });
+
+  it('renders one link per locale the tenant offers', () => {
+    mockAvailableLocales.value = ['sv', 'en'];
+
+    expect(localeCodes(mountInline())).toEqual(['en', 'sv']);
+  });
+
+  it('renders no link for a locale the tenant does not offer', () => {
+    // 'nb' is configured in i18n and absent from the tenant's list, so this
+    // says the tenant field decides the set rather than the i18n config.
+    mockAvailableLocales.value = ['sv', 'en'];
+
+    expect(localeCodes(mountInline())).not.toContain('nb');
   });
 });

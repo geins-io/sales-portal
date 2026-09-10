@@ -4,9 +4,8 @@ import { describe, it, expect, vi } from 'vitest';
  * Smoke tests for the service layer exports.
  *
  * Verifies that every public service function exists and is callable.
- * Behavioral coverage is provided by the API route tests (which mock at the
- * SDK boundary and let services execute for real) and by
- * integration.test.ts (which runs against the real Geins API).
+ * Behavioral coverage is provided by the API route tests, which mock at the
+ * SDK boundary and let services execute for real.
  */
 
 // Mock the SDK boundary so service modules can be imported

@@ -1,10 +1,11 @@
 import type { H3Event } from 'h3';
-import type { TenantConfig } from '#shared/types/tenant-config';
+import type { FeatureAccess, TenantConfig } from '#shared/types/tenant-config';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { CMS_MENUS } from '#shared/constants/cms';
 import type {
   StoreSettings,
   GeinsSettings,
+  FeatureAccessInput,
   FeatureConfig,
 } from '../schemas/store-settings';
 import { StoreSettingsSchema } from '../schemas/store-settings';
@@ -15,11 +16,11 @@ import {
 } from './storefront-settings-defaults';
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
 import { logger } from './logger';
+import { isDevMode } from './dev-mode';
 import {
   createDefaultTheme,
   generateTenantCss,
   generateThemeHash,
-  buildDerivedTheme,
 } from './tenant-css';
 
 /**
@@ -69,8 +70,7 @@ export const DEFAULT_CMS_CONFIG: NonNullable<TenantConfig['cms']> = {
 };
 
 /**
- * Default GeinsSettings for auto-created and fallback tenants.
- * Single source of truth — used in fetchTenantConfig and createTenant.
+ * Default GeinsSettings for tenants created through createTenant.
  */
 export const DEFAULT_GEINS_SETTINGS: GeinsSettings = {
   apiKey: process.env.GEINS_API_KEY || '',
@@ -92,33 +92,142 @@ export const DEFAULT_GEINS_SETTINGS: GeinsSettings = {
 /**
  * Negative cache — hostnames that resolved to inactive/missing tenants.
  * Prevents thundering herd of API calls for unknown hostnames (bots, scanners).
- * Entries expire after NEGATIVE_CACHE_TTL_MS.
+ * Entries expire after NEGATIVE_CACHE_TTL_MS. A transport failure is never
+ * cached: it says nothing about the hostname, and caching it would make a
+ * registered tenant answer 404 for the whole TTL after a short outage.
  */
 const NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const NEGATIVE_CACHE_MAX_SIZE = 1000;
-const negativeCache = new Map<string, number>();
 
-function isNegativelyCached(hostname: string): boolean {
-  const expiresAt = negativeCache.get(hostname);
-  if (!expiresAt) return false;
-  if (Date.now() > expiresAt) {
-    negativeCache.delete(hostname);
-    return false;
-  }
-  return true;
+interface NegativeCacheEntry {
+  expiresAt: number;
+  cachedAt: number;
+  /** Why the hostname was cached, so a later lookup can say what it repeats. */
+  outcome: TenantResolutionOutcome;
 }
 
-function addToNegativeCache(hostname: string): void {
+const negativeCache = new Map<string, NegativeCacheEntry>();
+
+function getNegativeCacheEntry(hostname: string): NegativeCacheEntry | null {
+  const entry = negativeCache.get(hostname);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    negativeCache.delete(hostname);
+    return null;
+  }
+  return entry;
+}
+
+function addToNegativeCache(
+  hostname: string,
+  outcome: TenantResolutionOutcome,
+): void {
   if (negativeCache.size >= NEGATIVE_CACHE_MAX_SIZE) {
     const oldest = negativeCache.keys().next().value;
     if (oldest !== undefined) negativeCache.delete(oldest);
   }
-  negativeCache.set(hostname, Date.now() + NEGATIVE_CACHE_TTL_MS);
+  const now = Date.now();
+  negativeCache.set(hostname, {
+    expiresAt: now + NEGATIVE_CACHE_TTL_MS,
+    cachedAt: now,
+    outcome,
+  });
 }
 
 /** Clears negative cache entries for a hostname (called on webhook invalidation). */
 export function clearNegativeCache(hostname: string): void {
   negativeCache.delete(hostname);
+}
+
+// ---------------------------------------------------------------------------
+// Resolution trace (development diagnostics)
+// ---------------------------------------------------------------------------
+
+/**
+ * How a lookup ended. The first token after `outcome=` in the log line, so
+ * the two failure modes can be told apart by filtering on one word:
+ *
+ * - `resolved`          a config was found (KV or merchant API)
+ * - `unknown-tenant`    the merchant API answered 404, or the tenant is inactive
+ * - `transport-failure` the merchant API gave no answer about the tenant:
+ *                       fetch threw (refused, DNS, timeout) or answered a
+ *                       non-404 error status
+ * - `invalid-config`    the merchant API answered 200 but the payload was
+ *                       unusable (unreadable body, rejected by the schema)
+ * - `negative-cache`    an earlier failed lookup is still cached; nothing was
+ *                       queried
+ */
+export type TenantResolutionOutcome =
+  | 'resolved'
+  | 'unknown-tenant'
+  | 'transport-failure'
+  | 'invalid-config'
+  | 'negative-cache';
+
+/** One lookup's path through `resolveTenant()`. Rendered by {@link formatTenantResolution}. */
+export interface TenantResolutionTrace {
+  hostname: string;
+  /** `stale` is a hit whose config no longer claims the hostname; the lookup then falls through. */
+  kv: 'hit' | 'stale' | 'miss' | 'skipped';
+  /** The merchant API call, when one was made: its URL and status or error. */
+  api?: { url: string; result: string };
+  outcome: TenantResolutionOutcome;
+  tenantId?: string;
+  /** Extra text appended to the outcome in parentheses (e.g. what the negative cache holds). */
+  detail?: string;
+}
+
+/**
+ * One line per lookup, constant field order so it can be grepped:
+ * `[tenant] resolve host=… kv=… api=… outcome=…`. The same string is
+ * shown in the development 404 page.
+ */
+export function formatTenantResolution(trace: TenantResolutionTrace): string {
+  const api = trace.api
+    ? `GET ${trace.api.url} → ${trace.api.result}`
+    : 'skipped';
+  let outcome = `outcome=${trace.outcome}`;
+  if (trace.tenantId) outcome += ` tenant=${trace.tenantId}`;
+  if (trace.detail) outcome += ` (${trace.detail})`;
+  return `[tenant] resolve host=${trace.hostname} kv=${trace.kv} api=${api} ${outcome}`;
+}
+
+/**
+ * Names a thrown fetch error by the code undici puts on `cause`
+ * (ECONNREFUSED, ENOTFOUND, UND_ERR_CONNECT_TIMEOUT, …), falling back to the
+ * error's own name (TimeoutError, AbortError), with the message after it.
+ */
+export function describeTransportError(error: unknown): string {
+  const err = error instanceof Error ? error : new Error(String(error));
+  const cause = (err as Error & { cause?: unknown }).cause;
+  const code =
+    cause && typeof cause === 'object' && 'code' in cause
+      ? (cause as { code?: unknown }).code
+      : undefined;
+  const label = typeof code === 'string' && code ? code : err.name;
+  const message =
+    cause instanceof Error && cause.message ? cause.message : err.message;
+  return message && message !== label ? `${label} (${message})` : label;
+}
+
+/**
+ * Development only: logs the lookup (debug when resolved, warn otherwise)
+ * and leaves the same line on the event for the 404 page. A no-op in a
+ * production build, so nothing about the merchant API call reaches its
+ * logs or responses.
+ */
+function reportTenantResolution(
+  trace: TenantResolutionTrace,
+  event?: H3Event,
+): void {
+  if (!isDevMode()) return;
+  const line = formatTenantResolution(trace);
+  if (trace.outcome === 'resolved') {
+    logger.debug(line);
+  } else {
+    logger.warn(line);
+  }
+  if (event) event.context.tenantResolution = line;
 }
 
 // ---------------------------------------------------------------------------
@@ -214,6 +323,62 @@ export function transformGeinsSettings(
 // ---------------------------------------------------------------------------
 
 /**
+ * The rules the app can evaluate, as a lookup. `satisfies` is what keeps it from
+ * drifting from the union: a member added to `FeatureAccess` is a compile error
+ * here until it is listed.
+ */
+const EVALUABLE_ACCESS = {
+  all: true,
+  authenticated: true,
+} satisfies Record<FeatureAccess, true>;
+
+/**
+ * Fail-closed, deliberately: any rule added to `FeatureAccessSchema` later is
+ * retired by default — even with an evaluator written for it — until it is
+ * listed in `EVALUABLE_ACCESS` too. That covers string literals as well as
+ * object rules.
+ */
+function isEvaluableAccess(
+  access: FeatureAccessInput | undefined,
+): access is FeatureAccess | undefined {
+  return (
+    access === undefined ||
+    (typeof access === 'string' && access in EVALUABLE_ACCESS)
+  );
+}
+
+/**
+ * Rewrite a feature whose access rule the app cannot evaluate to
+ * `{ enabled: false }`, logging why. It happens here rather than in the schema
+ * because rejecting the rule would put the Zod issue on
+ * `features.<name>.access`; `parseStoreSettingsResilient` strips that leaf, and
+ * a feature with no `access` is open to everyone. See ADR-007.
+ */
+function normalizeFeatureAccess(
+  features: Record<string, FeatureConfig>,
+  hostname: string,
+): TenantConfig['features'] {
+  const normalized: TenantConfig['features'] = {};
+  for (const [name, { enabled, access }] of Object.entries(features)) {
+    if (isEvaluableAccess(access)) {
+      normalized[name] =
+        access === undefined ? { enabled } : { enabled, access };
+      continue;
+    }
+    // Zod strips unknown keys, so a parsed object carries exactly the one key of
+    // the union member that matched. A string rule is its own name — passing one
+    // to Object.keys() would name its character indices.
+    const retired =
+      typeof access === 'string' ? access : Object.keys(access).join(', ');
+    logger.warn(
+      `[tenant] Feature "${name}" for ${hostname} uses the retired access rule "${retired}"; disabling the feature`,
+    );
+    normalized[name] = { enabled: false };
+  }
+  return normalized;
+}
+
+/**
  * Builds a TenantConfig from validated StoreSettings.
  * Derives colors, merges override features, generates CSS + hash.
  */
@@ -230,15 +395,26 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
   // stockStatus carry the {enabled, access} shape; the other 11 portal
   // features default to {enabled: true}). overrides.features takes final
   // precedence below.
-  const features: Record<string, FeatureConfig> = {
+  const rawFeatures: Record<string, FeatureConfig> = {
     ...STOREFRONT_SETTINGS_DEFAULTS.features,
     ...merged.features,
   };
   if (merged.overrides?.features) {
     for (const [key, value] of Object.entries(merged.overrides.features)) {
-      features[key] = value;
+      rawFeatures[key] = value;
     }
   }
+  const features = normalizeFeatureAccess(rawFeatures, merged.hostname);
+
+  // Server-only, but typed with the same narrowed FeatureAccess.
+  const overrides: TenantConfig['overrides'] = merged.overrides
+    ? {
+        ...merged.overrides,
+        features: merged.overrides.features
+          ? normalizeFeatureAccess(merged.overrides.features, merged.hostname)
+          : merged.overrides.features,
+      }
+    : merged.overrides;
 
   const themeName = merged.theme.name ?? merged.tenantId;
 
@@ -295,7 +471,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     features,
     seo: merged.seo,
     contact: merged.contact,
-    overrides: merged.overrides,
+    overrides,
     cms,
     css,
     themeHash,
@@ -320,16 +496,27 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
  *      `updatedAt`) as fallbacks — the API sometimes emits these outside
  *      `appSettings` (observed after a Geins admin reset). `appSettings`
  *      wins when both define a field.
- *   3. Derive `hostname` from `geinsSettings.defaultHostName` when not
- *      present in `appSettings`.
+ *   3. Take `hostname` from `geinsSettings.defaultHostName`, and `aliases`
+ *      from `geinsSettings.additionalHostNames` — see the routing note below.
  *   4. Convert `geinsSettings` from the API's "Geins API" shape (channelId,
  *      defaultLocale, locales) to our internal flat shape via
  *      `transformGeinsSettings`.
- *   5. Merge `geinsSettings.additionalHostNames` into `aliases` so any
- *      configured hostname resolves the right tenant on subsequent KV
- *      lookups (the API keeps these in two places — we want one).
- *   6. Drop a couple of legacy fields the API still emits but our schema
+ *   5. Drop a couple of legacy fields the API still emits but our schema
  *      doesn't care about (`id`, `geinsApiSettings`).
+ *
+ * Routing truth is `geinsSettings` alone. `appSettings.hostname` and
+ * `appSettings.aliases` are legacy fields from before the merchant API had
+ * hostname fields of its own; nothing writes them any more and they survive
+ * only on older records. Every name in this config becomes a
+ * `hostname → tenantId` routing entry (`collectAllHostnames` →
+ * `writeHostnameMappings`), so reading them routed hostnames the merchant API
+ * refuses — including another tenant's registered hostname, which then served
+ * the wrong storefront until the next restart. They are no longer read for
+ * routing; the schema still accepts them so no stored config becomes invalid.
+ *
+ * `appSettings.hostname` survives as a last resort only when Geins carries no
+ * `defaultHostName`: `hostname` is required and fatal (`FATAL_PATHS`), so
+ * without the fallback such a tenant would resolve to nothing at all.
  */
 export function adaptMerchantApiResponse(
   raw: Record<string, unknown>,
@@ -339,13 +526,14 @@ export function adaptMerchantApiResponse(
 
   const geinsSettings = rawGeins ? transformGeinsSettings(rawGeins) : undefined;
 
-  const additional = Array.isArray(rawGeins?.additionalHostNames)
-    ? (rawGeins.additionalHostNames as string[])
+  const aliases = Array.isArray(rawGeins?.additionalHostNames)
+    ? Array.from(new Set(rawGeins.additionalHostNames as string[]))
     : [];
-  const existing = Array.isArray(appSettings.aliases)
-    ? (appSettings.aliases as string[])
-    : [];
-  const aliases = Array.from(new Set([...existing, ...additional]));
+
+  const defaultHostName =
+    typeof rawGeins?.defaultHostName === 'string' && rawGeins.defaultHostName
+      ? rawGeins.defaultHostName
+      : undefined;
 
   const candidate: Record<string, unknown> = {
     // Root-level identity fields the API sometimes emits outside appSettings.
@@ -354,8 +542,10 @@ export function adaptMerchantApiResponse(
     isActive: raw.isActive,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
-    hostname: rawGeins?.defaultHostName,
     ...appSettings,
+    // After the spread: Geins owns routing, so its hostname wins over whatever
+    // the tenant saved. `appSettings.hostname` is only the fallback.
+    hostname: defaultHostName ?? appSettings.hostname,
     geinsSettings,
     aliases,
   };
@@ -714,85 +904,68 @@ export function parseStoreSettingsResilient(
   return parsed.data;
 }
 
+/**
+ * Fetches a hostname's settings from the merchant API. Returns null when
+ * the hostname does not resolve, for whatever reason; the reason itself is
+ * recorded on `trace` when one is passed, so `resolveTenant()` can tell an
+ * unknown hostname from an unreachable merchant API.
+ */
 export async function fetchTenantConfig(
   hostname: string,
   event?: H3Event,
+  trace?: TenantResolutionTrace,
 ): Promise<TenantConfig | null> {
   const config = useRuntimeConfig(event);
+  const url = `${config.geins.tenantApiUrl}?hostname=${hostname}`;
 
+  let response: Response;
   try {
-    const response = await fetch(
-      `${config.geins.tenantApiUrl}?hostname=${hostname}`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
+    response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
       },
-    );
-
-    if (response.ok) {
-      const raw = (await response.json()) as Record<string, unknown>;
-      const candidate = adaptMerchantApiResponse(raw);
-      const settings = parseStoreSettingsResilient(candidate, hostname);
-      if (settings) return buildTenantConfig(settings);
+    });
+  } catch (error) {
+    if (trace) {
+      trace.api = { url, result: describeTransportError(error) };
+      trace.outcome = 'transport-failure';
     }
+    return null;
+  }
+
+  if (trace) trace.api = { url, result: String(response.status) };
+
+  if (!response.ok) {
+    // 404 is the merchant API saying "no such hostname". Any other error
+    // status is the API failing to answer the question at all.
+    if (trace) {
+      trace.outcome =
+        response.status === 404 ? 'unknown-tenant' : 'transport-failure';
+    }
+    return null;
+  }
+
+  let raw: Record<string, unknown>;
+  try {
+    raw = (await response.json()) as Record<string, unknown>;
   } catch {
-    // External API unavailable — fall through to default handling
+    if (trace) {
+      trace.api = { url, result: `${response.status} (unreadable body)` };
+      trace.outcome = 'invalid-config';
+    }
+    return null;
   }
 
-  // If autoCreateTenant is enabled, create an active tenant for development/testing
-  if (config.autoCreateTenant) {
-    const defaultTheme = createDefaultTheme(hostname);
-    const { themeWithDerived, css } = buildDerivedTheme(defaultTheme);
-
-    return {
-      tenantId: hostname,
-      hostname,
-      geinsSettings: { ...DEFAULT_GEINS_SETTINGS },
-      mode: 'commerce' as const,
-      checkoutMode: 'hosted' as const,
-      theme: themeWithDerived,
-      css,
-      branding: {
-        name: hostname,
-        watermark: 'full' as const,
-      },
-      features: {
-        search: { enabled: true },
-        authentication: { enabled: true },
-        registration: { enabled: true },
-        cart: { enabled: true },
-        wishlist: { enabled: true },
-        applyForAccount: { enabled: true },
-      },
-      // Geins out-of-box CMS slots + menus. Single source of truth —
-      // see DEFAULT_CMS_CONFIG above. Tenants override by setting `cms`
-      // on their stored StoreSettings.
-      cms: DEFAULT_CMS_CONFIG,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+  const candidate = adaptMerchantApiResponse(raw);
+  const settings = parseStoreSettingsResilient(candidate, hostname);
+  if (!settings) {
+    // parseStoreSettingsResilient has already logged why.
+    if (trace) trace.outcome = 'invalid-config';
+    return null;
   }
 
-  // Default: return inactive config
-  return {
-    tenantId: 'no-tenant',
-    hostname: 'not-found',
-    geinsSettings: { ...DEFAULT_GEINS_SETTINGS },
-    mode: 'commerce' as const,
-    checkoutMode: 'hosted' as const,
-    theme: createDefaultTheme(hostname),
-    css: '',
-    branding: {
-      name: 'not-found',
-      watermark: 'none' as const,
-    },
-    features: {},
-    isActive: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  if (trace) trace.outcome = 'resolved';
+  return buildTenantConfig(settings);
 }
 
 /**
@@ -878,6 +1051,12 @@ export async function getTenantById(
   return config;
 }
 
+/** A lookup's config (null when none) and how it ended. */
+export interface TenantResolution {
+  config: TenantConfig | null;
+  outcome: TenantResolutionOutcome;
+}
+
 /**
  * Resolves a tenant config from a hostname using the 2-step KV model:
  *   1. tenant:id:{hostname} → tenantId
@@ -885,16 +1064,51 @@ export async function getTenantById(
  *
  * On cache miss, fetches from the API and writes both hostname mappings
  * and the config keyed by tenantId.
- *
- * Backwards compat: checks for legacy tenant:config:{hostname} and migrates.
  */
 export async function resolveTenant(
   hostname: string,
   event?: H3Event,
 ): Promise<TenantConfig | null> {
-  if (isNegativelyCached(hostname)) return null;
+  return (await resolveTenantOutcome(hostname, event)).config;
+}
+
+/**
+ * `resolveTenant()` plus the outcome, so a caller can answer 503 for a
+ * merchant API that could not be reached and 404 for a hostname it does
+ * not know.
+ */
+export async function resolveTenantOutcome(
+  hostname: string,
+  event?: H3Event,
+): Promise<TenantResolution> {
+  const trace: TenantResolutionTrace = {
+    hostname,
+    kv: 'skipped',
+    outcome: 'unknown-tenant',
+  };
+  try {
+    const config = await resolveTenantTraced(hostname, event, trace);
+    return { config, outcome: trace.outcome };
+  } finally {
+    reportTenantResolution(trace, event);
+  }
+}
+
+async function resolveTenantTraced(
+  hostname: string,
+  event: H3Event | undefined,
+  trace: TenantResolutionTrace,
+): Promise<TenantConfig | null> {
+  const cached = getNegativeCacheEntry(hostname);
+  if (cached) {
+    trace.outcome = 'negative-cache';
+    const ageSeconds = Math.round((Date.now() - cached.cachedAt) / 1000);
+    trace.detail = `${cached.outcome}, ${ageSeconds}s ago`;
+    return null;
+  }
 
   const storage = useStorage('kv');
+  trace.kv = 'miss';
 
   // Step 1: hostname → tenantId
   const tenantId = await storage.getItem<string>(tenantIdKey(hostname));
@@ -912,7 +1126,13 @@ export async function resolveTenant(
       // fall through to the fresh merchant-API fetch, which writes the
       // correct mapping. Costs one Set membership check per cache hit.
       const claimed = collectAllHostnames(config);
-      if (claimed.has(hostname)) return config;
+      if (claimed.has(hostname)) {
+        trace.kv = 'hit';
+        trace.outcome = 'resolved';
+        trace.tenantId = tenantId;
+        return config;
+      }
+      trace.kv = 'stale';
       logger.warn(
         `[tenant] Stale hostname mapping: "${hostname}" → "${tenantId}" ` +
           `but that tenant no longer claims the hostname. Busting KV and ` +
@@ -923,24 +1143,12 @@ export async function resolveTenant(
     }
   }
 
-  // Backwards compat: check for legacy tenant:config:{hostname}
-  const legacyConfig = await storage.getItem<TenantConfig>(
-    tenantConfigKey(hostname),
-  );
-  if (legacyConfig && legacyConfig.isActive) {
-    const tid = legacyConfig.tenantId || hostname;
-    if (tid !== hostname) {
-      await storage.setItem(tenantConfigKey(tid), legacyConfig);
-      await storage.removeItem(tenantConfigKey(hostname));
-    }
-    await writeHostnameMappings(storage, legacyConfig);
-    return legacyConfig;
-  }
-
   // Cache miss — fetch from API
-  const newConfig = await fetchTenantConfig(hostname, event);
+  const newConfig = await fetchTenantConfig(hostname, event, trace);
   if (!newConfig) {
-    addToNegativeCache(hostname);
+    if (trace.outcome !== 'transport-failure') {
+      addToNegativeCache(hostname, trace.outcome);
+    }
     return null;
   }
 
@@ -948,9 +1156,13 @@ export async function resolveTenant(
     const tid = newConfig.tenantId || hostname;
     await storage.setItem(tenantConfigKey(tid), newConfig);
     await writeHostnameMappings(storage, newConfig);
+    trace.tenantId = tid;
     return newConfig;
   }
 
-  addToNegativeCache(hostname);
+  // Registered but switched off in the merchant admin: does not resolve.
+  if (trace.api) trace.api.result += ' (inactive)';
+  trace.outcome = 'unknown-tenant';
+  addToNegativeCache(hostname, trace.outcome);
   return null;
 }

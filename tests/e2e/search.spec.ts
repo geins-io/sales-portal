@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   discoverProduct,
+  outOfScope,
   waitForHydration,
   setMobileViewport,
 } from './helpers';
@@ -25,7 +26,11 @@ test.describe('Search', () => {
     const product = await discoverProduct(page);
     const searchTerm = product.name.split(' ')[0] ?? 'test';
 
-    test.skip(isMobile, 'Header search is desktop-only (hidden below lg)');
+    outOfScope(
+      isMobile,
+      'mobile-project',
+      'header search is desktop-only (hidden below lg)',
+    );
 
     await page.goto('/');
     await page.waitForLoadState('load');
@@ -51,7 +56,11 @@ test.describe('Search', () => {
     const product = await discoverProduct(page);
     const searchTerm = product.name.split(' ')[0] ?? 'test';
 
-    test.skip(isMobile, 'Header search is desktop-only (hidden below lg)');
+    outOfScope(
+      isMobile,
+      'mobile-project',
+      'header search is desktop-only (hidden below lg)',
+    );
 
     await page.goto('/');
     await page.waitForLoadState('load');
@@ -139,7 +148,11 @@ test.describe('Search', () => {
     const product = await discoverProduct(page);
     const searchTerm = product.name.split(' ')[0] ?? 'test';
 
-    test.skip(isMobile, 'Header search is desktop-only (hidden below lg)');
+    outOfScope(
+      isMobile,
+      'mobile-project',
+      'header search is desktop-only (hidden below lg)',
+    );
 
     await page.goto('/');
     await page.waitForLoadState('load');

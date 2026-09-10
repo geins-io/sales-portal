@@ -6,7 +6,6 @@ import authMiddleware from '../../app/middleware/auth';
 
 let mockIsAuthenticated = false;
 let mockIsInitialized = true;
-let mockCustomerType: string | undefined = undefined;
 let mockLocaleCookie: string | null = 'en';
 let mockMarketCookie: string | null = 'se';
 let mockTenantLocale: string | undefined = undefined;
@@ -31,12 +30,7 @@ vi.mock('~/stores/auth', () => ({
     get isInitialized() {
       return mockIsInitialized;
     },
-    get user() {
-      return mockCustomerType ? { customerType: mockCustomerType } : null;
-    },
     fetchUser: mockFetchUser,
-    hasAnyRole: (roles: string[]) =>
-      mockCustomerType ? roles.includes(mockCustomerType) : false,
   }),
 }));
 
@@ -84,7 +78,6 @@ describe('auth middleware', () => {
   beforeEach(() => {
     mockIsAuthenticated = false;
     mockIsInitialized = true;
-    mockCustomerType = undefined;
     mockLocaleCookie = 'en';
     mockMarketCookie = 'se';
     mockTenantLocale = undefined;
@@ -106,32 +99,10 @@ describe('auth middleware', () => {
     expect(result).toEqual({ path: '/se/en/login', query: undefined });
   });
 
-  it('allows authenticated users through when no roles required', async () => {
+  it('allows authenticated users through', async () => {
     mockIsAuthenticated = true;
-    mockCustomerType = 'retail';
     const result = await run(createRoute());
     expect(result).toBeUndefined();
-  });
-
-  it('allows authenticated users with matching role', async () => {
-    mockIsAuthenticated = true;
-    mockCustomerType = 'wholesale';
-    const result = await run(createRoute({ meta: { roles: ['wholesale'] } }));
-    expect(result).toBeUndefined();
-  });
-
-  it('redirects authenticated users with wrong role to /', async () => {
-    mockIsAuthenticated = true;
-    mockCustomerType = 'retail';
-    const result = await run(createRoute({ meta: { roles: ['wholesale'] } }));
-    expect(result).toEqual({ path: '/se/en/' });
-  });
-
-  it('redirects authenticated users with no customerType when roles required', async () => {
-    mockIsAuthenticated = true;
-    mockCustomerType = undefined;
-    const result = await run(createRoute({ meta: { roles: ['wholesale'] } }));
-    expect(result).toEqual({ path: '/se/en/' });
   });
 
   it('falls back to the tenant config default locale when the cookie is absent', async () => {

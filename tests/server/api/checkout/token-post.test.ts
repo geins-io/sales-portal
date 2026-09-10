@@ -104,9 +104,7 @@ describe('POST /api/checkout/token', () => {
         { id: 2, isDefault: false, isSelected: false },
       ],
     });
-    (
-      globalThis.readValidatedBody as ReturnType<typeof vi.fn>
-    ).mockImplementation(
+    vi.mocked(readValidatedBody).mockImplementation(
       async (_event: unknown, parseFn: (input: unknown) => unknown) => {
         const event = _event as { __body?: Record<string, unknown> };
         return parseFn(event.__body ?? {});

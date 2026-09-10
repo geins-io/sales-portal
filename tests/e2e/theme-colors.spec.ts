@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { noteOutOfScope } from './helpers';
 
 /**
  * Tenant theme color application — Safari/WebKit regression guard.
@@ -124,10 +125,7 @@ test.describe('Tenant theme colors apply in WebKit', () => {
         'tenant <style> must carry exactly one nonce under CSP',
       ).toBe(1);
     } else {
-      test.info().annotations.push({
-        type: 'note',
-        description: 'CSP inactive (dev server) — nonce checks skipped',
-      });
+      noteOutOfScope('dev-server', 'CSP inactive — nonce checks not asserted');
     }
 
     // --- End-to-end painted check ---

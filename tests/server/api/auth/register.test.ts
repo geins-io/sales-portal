@@ -56,9 +56,7 @@ describe('POST /api/auth/register', () => {
       remaining: 4,
       resetTime: 0,
     });
-    (
-      globalThis.readValidatedBody as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
+    vi.mocked(readValidatedBody).mockResolvedValue({
       username: 'newuser@example.com',
       password: 'password123',
       user: { firstName: 'John', lastName: 'Doe' },

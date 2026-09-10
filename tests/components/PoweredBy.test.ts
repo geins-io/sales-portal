@@ -1,7 +1,26 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { computed, ref } from 'vue';
 import { mountComponent } from '../utils/component';
 import PoweredBy from '../../app/components/shared/PoweredBy.vue';
 import { poweredByVariants } from '../../app/lib/powered-by';
+
+/**
+ * The tests below that pass `variant` as a prop exercise a path the app never
+ * takes: the footer mounts `<PoweredBy />` with no props
+ * (LayoutFooterBottom.vue:10) and the component falls back to
+ * `watermark.value`. So the config cases drive `branding.watermark` through
+ * useTenant and mount the component the way the footer does.
+ */
+const state = vi.hoisted(() => ({
+  watermark: 'full' as 'full' | 'minimal' | 'none',
+}));
+
+vi.mock('../../app/composables/useTenant', () => ({
+  useTenant: () => ({
+    watermark: computed(() => state.watermark),
+    tenant: ref({ branding: { watermark: state.watermark } }),
+  }),
+}));
 
 describe('PoweredBy Component', () => {
   describe('rendering', () => {
@@ -88,5 +107,37 @@ describe('poweredByVariants', () => {
     const defaultClasses = poweredByVariants();
     const fullClasses = poweredByVariants({ variant: 'full' });
     expect(defaultClasses).toBe(fullClasses);
+  });
+});
+
+describe('PoweredBy driven by branding.watermark', () => {
+  beforeEach(() => {
+    state.watermark = 'full';
+  });
+
+  it('renders the icon and the label when branding.watermark is full', () => {
+    state.watermark = 'full';
+    const wrapper = mountComponent(PoweredBy);
+
+    expect(wrapper.find('[data-slot="powered-by"]').exists()).toBe(true);
+    expect(wrapper.find('svg').exists()).toBe(true);
+    expect(wrapper.text()).toContain('Powered by Litium');
+  });
+
+  it('renders the icon without the label when branding.watermark is minimal', () => {
+    state.watermark = 'minimal';
+    const wrapper = mountComponent(PoweredBy);
+
+    expect(wrapper.find('[data-slot="powered-by"]').exists()).toBe(true);
+    expect(wrapper.find('svg').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('Powered by Litium');
+  });
+
+  it('renders nothing at all when branding.watermark is none', () => {
+    state.watermark = 'none';
+    const wrapper = mountComponent(PoweredBy);
+
+    expect(wrapper.find('[data-slot="powered-by"]').exists()).toBe(false);
+    expect(wrapper.find('svg').exists()).toBe(false);
   });
 });

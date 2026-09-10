@@ -1,4 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  assert,
+} from 'vitest';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { mountComponent } from '../../utils/component';
 import ProductCard from '../../../app/components/shared/ProductCard.vue';
 import { useTenant } from '../../../app/composables/useTenant';
@@ -12,7 +21,15 @@ import { ref } from 'vue';
 // Access the tenant ref to mutate features in individual tests.
 const { tenant } = useTenant();
 
-const mockCanAccess = vi.fn(() => true);
+// `useTenant()` types `tenant` as nullable because the real composable fills it
+// from useFetch. The setup-components mock always provides one, so assert it
+// here once instead of reaching for `!` at each site.
+function setFeatures(features: PublicTenantConfig['features']) {
+  assert.isDefined(tenant.value);
+  tenant.value.features = features;
+}
+
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
@@ -238,7 +255,7 @@ describe('ProductCard', () => {
   });
 
   it('renders wishlist button when feature is enabled', () => {
-    tenant.value.features = { wishlist: { enabled: true } };
+    setFeatures({ wishlist: { enabled: true } });
     const wrapper = mountComponent(ProductCard, {
       props: { product: makeProduct() },
       global: { stubs },
@@ -300,7 +317,7 @@ describe('ProductCard', () => {
       });
       const badges = wrapper.findAll('[data-testid="campaign-badge"]');
       expect(badges.length).toBe(1);
-      expect(badges[0].text()).toBe('Summer Sale');
+      expect(badges[0]?.text()).toBe('Summer Sale');
     });
 
     it('hides campaigns with hideTitle true', () => {
@@ -352,17 +369,17 @@ describe('ProductCard', () => {
       });
       const badges = wrapper.findAll('[data-testid="campaign-badge"]');
       expect(badges.length).toBe(1);
-      expect(badges[0].text()).toBe('List Sale');
+      expect(badges[0]?.text()).toBe('List Sale');
     });
   });
 
   describe('wishlist', () => {
     afterEach(() => {
-      tenant.value.features = {};
+      setFeatures({});
     });
 
     it('hides wishlist button when feature is disabled', () => {
-      tenant.value.features = {};
+      setFeatures({});
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
         global: { stubs },
@@ -373,7 +390,7 @@ describe('ProductCard', () => {
     });
 
     it('hides wishlist button for unauthenticated users even when feature is enabled', () => {
-      tenant.value.features = { wishlist: { enabled: true } };
+      setFeatures({ wishlist: { enabled: true } });
       mockIsAuthenticated.value = false;
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
@@ -386,7 +403,7 @@ describe('ProductCard', () => {
     });
 
     it('shows wishlist button when feature is enabled', () => {
-      tenant.value.features = { wishlist: { enabled: true } };
+      setFeatures({ wishlist: { enabled: true } });
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
         global: { stubs },
@@ -397,7 +414,7 @@ describe('ProductCard', () => {
     });
 
     it('does not toggle favorites on click (opens picker dialog instead)', async () => {
-      tenant.value.features = { wishlist: { enabled: true } };
+      setFeatures({ wishlist: { enabled: true } });
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct({ alias: 'my-product' }) },
         global: { stubs },
@@ -409,7 +426,7 @@ describe('ProductCard', () => {
     });
 
     it('shows filled star when product is a favorite', () => {
-      tenant.value.features = { wishlist: { enabled: true } };
+      setFeatures({ wishlist: { enabled: true } });
       mockIsFavorite.mockReturnValue(true);
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
@@ -420,7 +437,7 @@ describe('ProductCard', () => {
     });
 
     it('shows unfilled star when product is not a favorite', () => {
-      tenant.value.features = { wishlist: { enabled: true } };
+      setFeatures({ wishlist: { enabled: true } });
       mockIsFavorite.mockReturnValue(false);
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
@@ -433,12 +450,12 @@ describe('ProductCard', () => {
 
   describe('feature flags', () => {
     afterEach(() => {
-      tenant.value.features = {};
+      setFeatures({});
       mockCanAccess.mockReturnValue(true);
     });
 
     it('shows add-to-cart when pricing is not configured', () => {
-      tenant.value.features = {};
+      setFeatures({});
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
         global: { stubs },
@@ -449,7 +466,7 @@ describe('ProductCard', () => {
     });
 
     it('hides add-to-cart when pricing is restricted', () => {
-      tenant.value.features = { priceVisibility: { enabled: true } };
+      setFeatures({ priceVisibility: { enabled: true } });
       mockCanAccess.mockReturnValue(false);
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },
@@ -461,7 +478,7 @@ describe('ProductCard', () => {
     });
 
     it('shows add-to-cart when pricing is accessible', () => {
-      tenant.value.features = { priceVisibility: { enabled: true } };
+      setFeatures({ priceVisibility: { enabled: true } });
       mockCanAccess.mockReturnValue(true);
       const wrapper = mountComponent(ProductCard, {
         props: { product: makeProduct() },

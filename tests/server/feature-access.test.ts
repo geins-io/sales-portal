@@ -34,7 +34,6 @@ describe('server feature-access', () => {
     mockFeatures.mockResolvedValue({
       search: { enabled: true },
       cart: { enabled: true, access: 'authenticated' },
-      quotes: { enabled: true, access: { role: 'wholesale' } },
       disabled: { enabled: false },
     });
 
@@ -105,10 +104,7 @@ describe('server feature-access', () => {
 
     it('passes with correct user context', async () => {
       await expect(
-        assertFeatureAccess(mockEvent, 'quotes', {
-          authenticated: true,
-          customerType: 'wholesale',
-        }),
+        assertFeatureAccess(mockEvent, 'cart', { authenticated: true }),
       ).resolves.toBeUndefined();
     });
   });

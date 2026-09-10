@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import type { FormWidgetData } from '#shared/types/cms';
 import FormWidget from '../../../app/components/cms/widgets/FormWidget.vue';
@@ -8,13 +8,17 @@ import FormWidget from '../../../app/components/cms/widgets/FormWidget.vue';
 // spying on navigateTo lets us assert the mailto URL without touching real
 // window.location.
 const { navigateToMock } = vi.hoisted(() => ({
-  navigateToMock: vi.fn(() => Promise.resolve()),
+  // Called only through the mocked `safeLocationRedirect` below, which passes
+  // a URL string; typing it so the assertions on that URL are checked.
+  navigateToMock: vi.fn<
+    (url: string, options?: { external?: boolean }) => Promise<void>
+  >(() => Promise.resolve()),
 }));
 
-vi.stubGlobal('navigateTo', (...args: unknown[]) => navigateToMock(...args));
+vi.stubGlobal('navigateTo', navigateToMock);
 
-// Mock the client-helpers module so safeLocationRedirect calls navigateTo
-// regardless of import.meta.client value (which is false in tests).
+// Mock the client-helpers module so the assertion watches navigateTo directly
+// rather than the real safeLocationRedirect's call into it.
 vi.mock('../../../app/utils/client-helpers', () => ({
   safeLocationRedirect: (url: string) =>
     navigateToMock(url, { external: true }),
@@ -217,7 +221,8 @@ describe('FormWidget', () => {
     await wrapper.vm.$nextTick();
 
     expect(navigateToMock).toHaveBeenCalledTimes(1);
-    const calledUrl: string = navigateToMock.mock.calls[0]?.[0] as string;
+    const calledUrl = navigateToMock.mock.calls[0]?.[0];
+    assert.isDefined(calledUrl);
     expect(calledUrl).toMatch(/^mailto:/);
 
     // Decode and verify subject equals the literal business-critical format.
@@ -240,9 +245,9 @@ describe('FormWidget', () => {
       .setValue('jane@acme.com');
     (wrapper.vm as unknown as { handleSubmit: () => void }).handleSubmit();
     await wrapper.vm.$nextTick();
-    const decoded = decodeURIComponent(
-      navigateToMock.mock.calls[0]?.[0] as string,
-    );
+    const calledUrl = navigateToMock.mock.calls[0]?.[0];
+    assert.isDefined(calledUrl);
+    const decoded = decodeURIComponent(calledUrl);
     expect(decoded).toContain('Contact Form');
   });
 

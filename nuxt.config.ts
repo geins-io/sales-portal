@@ -222,11 +222,9 @@ export default defineNuxtConfig({
    * ├─────────────────────────────────────────────────────────────────────────┤
    * │ AZURE APP SERVICE (runtime)     │ GITHUB SECRETS (build-time only)     │
    * │ ─────────────────────────────── │ ──────────────────────────────────── │
-   * │ NUXT_AUTO_CREATE_TENANT         │ SENTRY_AUTH_TOKEN                    │
-   * │ NUXT_GEINS_API_ENDPOINT         │ SENTRY_ORG                           │
-   * │ NUXT_GEINS_TENANT_API_URL       │ SENTRY_PROJECT                       │
-   * │ NUXT_GEINS_TENANT_API_KEY       │                                      │
-   * │ NUXT_STORAGE_DRIVER             │                                      │
+   * │ NUXT_GEINS_API_ENDPOINT         │ SENTRY_AUTH_TOKEN                    │
+   * │ NUXT_GEINS_TENANT_API_URL       │ SENTRY_ORG                           │
+   * │ NUXT_STORAGE_DRIVER             │ SENTRY_PROJECT                       │
    * │ NUXT_STORAGE_REDIS_URL          │                                      │
    * │ NUXT_HEALTH_CHECK_SECRET        │                                      │
    * │ NUXT_EXTERNAL_API_BASE_URL      │                                      │
@@ -242,12 +240,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // ── Private Config (server-side only, not exposed to client) ────────────
 
-    // Auto-create tenants for unknown hostnames
-    // Azure: NUXT_AUTO_CREATE_TENANT=true
-    autoCreateTenant: false,
-
     // Geins API configuration
-    // Azure: NUXT_GEINS_API_ENDPOINT, NUXT_GEINS_TENANT_API_URL, NUXT_GEINS_TENANT_API_KEY
+    // Azure: NUXT_GEINS_API_ENDPOINT, NUXT_GEINS_TENANT_API_URL
     geins: {
       apiEndpoint: 'https://merchantapi.geins.io/graphql',
       tenantApiUrl: 'https://merchantapi.geins.io/store-settings',
@@ -263,6 +257,14 @@ export default defineNuxtConfig({
     // Secret for accessing detailed health check metrics
     // Azure: NUXT_HEALTH_CHECK_SECRET=your-secret-here
     healthCheckSecret: '',
+
+    // RSS thresholds for /api/health, in MB. Sized for the production
+    // container; a different container size is the reason to change them.
+    // Azure: NUXT_HEALTH_RSS_DEGRADED_MB, NUXT_HEALTH_RSS_UNHEALTHY_MB
+    health: {
+      rssDegradedMb: 400,
+      rssUnhealthyMb: 900,
+    },
 
     // External API base URL for the proxy
     // Azure: NUXT_EXTERNAL_API_BASE_URL=https://your-external-api.com
@@ -408,10 +410,18 @@ export default defineNuxtConfig({
     buildCache: true,
   },
 
+  // `nuxt dev` otherwise listens on the hostname `localhost`, which Node
+  // resolves to ::1 first — the dnsmasq wildcard answers 127.0.0.1, so local
+  // hostnames would reach nothing. HOST/NUXT_HOST/NITRO_HOST still override
+  // this, which is how `local:dev --lan` binds every interface.
+  devServer: {
+    host: '127.0.0.1',
+  },
+
   // Vite configuration
   vite: {
     server: {
-      allowedHosts: ['.litium.portal'],
+      allowedHosts: ['.litium.test'],
     },
   },
 });

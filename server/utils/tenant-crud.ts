@@ -156,9 +156,6 @@ export async function deleteTenant(hostname: string): Promise<boolean> {
     }
 
     await storage.removeItem(tenantConfigKey(tid));
-    if (tid !== hostname) {
-      await storage.removeItem(tenantConfigKey(hostname));
-    }
 
     return true;
   } catch {

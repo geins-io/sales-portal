@@ -11,6 +11,11 @@ vi.mock('#app/composables/fetch', () => ({
 
 vi.stubGlobal('$fetch', (...args: unknown[]) => mockFetchImpl(...args));
 
+// The reads go through the SSR-aware internalFetch helper; same mock.
+vi.mock('~/utils/internal-fetch', () => ({
+  internalFetch: (...args: unknown[]) => mockFetchImpl(...args),
+}));
+
 // Import store after mocks
 const { useQuotesStore } = await import('../../app/stores/quotes');
 
@@ -232,7 +237,7 @@ describe('useQuotesStore', () => {
       store.quotes = [{ ...mockQuoteListItem }];
       await store.acceptQuote('q-001');
 
-      expect(store.quotes[0].status).toBe('accepted');
+      expect(store.quotes[0]?.status).toBe('accepted');
     });
 
     it('sets error to the accept_failed i18n key on failure', async () => {
@@ -289,7 +294,7 @@ describe('useQuotesStore', () => {
       store.quotes = [{ ...mockQuoteListItem }];
       await store.rejectQuote('q-001');
 
-      expect(store.quotes[0].status).toBe('rejected');
+      expect(store.quotes[0]?.status).toBe('rejected');
     });
 
     it('sets error to the decline_failed i18n key on failure', async () => {

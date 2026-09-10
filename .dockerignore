@@ -57,6 +57,10 @@ coverage/
 *.test.ts
 *.spec.ts
 tests/
+# Let the project file through: the root tsconfig.json references it so typecheck
+# covers the test directories, and the Nuxt build follows that reference. The build
+# only parses it; the specs themselves stay out.
+!tests/tsconfig.json
 
 # -----------------------------------------------------------------------------
 # Documentation

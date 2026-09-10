@@ -17,14 +17,12 @@ export type {
 /**
  * Feature access control — who can access a feature.
  * Standalone type so shared/ utilities don't depend on server/schemas/.
+ *
+ * Only rules the app can evaluate. The wire shape (`FeatureAccessInput`) is
+ * wider; `normalizeFeatureAccess` in server/utils/tenant.ts retires the rest.
+ * See ADR-007 for which rules were dropped and why.
  */
-export type FeatureAccess =
-  | 'all'
-  | 'authenticated'
-  | { group: string }
-  | { role: string }
-  | { permission: string }
-  | { accountType: string };
+export type FeatureAccess = 'all' | 'authenticated';
 
 /**
  * Full tenant configuration — StoreSettings from API + computed fields.
@@ -89,10 +87,9 @@ export interface TenantConfig {
   features: Record<string, { enabled: boolean; access?: FeatureAccess }>;
 
   // CMS slot + menu registry — see docs/patterns/cms-config.md for the
-  // design. Tenant config is the single source of truth; missing slots
-  // and menus resolve to null and consumers fall back gracefully.
-  // Auto-provisioned dev tenants are seeded with Geins out-of-box names
-  // in server/utils/tenant.ts.
+  // design. Tenant config wins per key over DEFAULT_CMS_CONFIG in
+  // server/utils/tenant.ts; slots and menus neither layer defines
+  // resolve to null and consumers fall back gracefully.
   cms?: {
     slots?: Partial<Record<CmsSlotKey, CmsSlotConfig>>;
     menus?: Partial<Record<CmsMenuKey, CmsMenuConfig>>;

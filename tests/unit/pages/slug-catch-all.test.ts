@@ -7,6 +7,7 @@ import {
   normalizeSlugToPath,
   stripLocaleMarketPrefix,
 } from '../../../shared/utils/locale-market';
+import { useCmsMenu } from '../../../app/composables/useCmsMenu';
 
 /**
  * Tests the key computation logic used by [...slug].vue to ensure
@@ -110,7 +111,7 @@ vi.mock('#app/composables/fetch', () => ({
 }));
 vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
 
-const navigateToMock = vi.fn(() => Promise.resolve());
+const navigateToMock = vi.fn<typeof navigateTo>(() => Promise.resolve());
 const createErrorMock = vi.fn((opts: unknown) => {
   const err = new Error('createError') as Error & { data?: unknown };
   err.data = opts;
@@ -174,7 +175,8 @@ vi.mock('#app/composables/router', () => ({
     replace: vi.fn(),
     afterEach: vi.fn(),
   }),
-  navigateTo: (...args: unknown[]) => navigateToMock(...args),
+  navigateTo: (...args: Parameters<typeof navigateToMock>) =>
+    navigateToMock(...args),
 }));
 vi.mock('#app/composables/error', () => ({
   createError: (opts: unknown) => {
@@ -205,10 +207,40 @@ vi.stubGlobal(
 );
 vi.stubGlobal('useSeoMeta', vi.fn());
 vi.stubGlobal('useHead', vi.fn());
-vi.stubGlobal(
-  'useCmsMenu',
-  vi.fn(() => ref(null)),
-);
+/**
+ * `useCmsMenu` was stubbed to `ref(null)` for every key, so no test ever ran
+ * the configured branch and `sidebarMenuId` was always null. Run the real
+ * composable against a tenant fixture instead: it reads
+ * `tenant.cms.menus[key]`, so the id that reaches PageSidebarNav is the
+ * configured one and pointing the config elsewhere turns the case below red.
+ *
+ * This tier has no `useTenant` mock — `setup-components.ts` is a components-tier
+ * setup file — so the global is stubbed here and the composable is imported
+ * rather than reimplemented. A reimplementation would assert the mirror, which
+ * is what the map calls a `reader` and not proof of the cell.
+ */
+// `useCmsMenu` reads `useTenant` through Nuxt's auto-import transform, which
+// resolves to the composable module rather than to a global — so the module is
+// what has to be mocked. Hoisted because `vi.mock` runs before the file body.
+const { mockTenant } = vi.hoisted(() => ({
+  mockTenant: { value: null as Record<string, unknown> | null },
+}));
+vi.mock('../../../app/composables/useTenant', () => ({
+  useTenant: () => ({ tenant: mockTenant }),
+}));
+vi.stubGlobal('useTenant', () => ({ tenant: mockTenant }));
+vi.stubGlobal('useCmsMenu', useCmsMenu);
+
+const SIDEBAR_MENU_LOCATION = 'sidebar-fallback-location';
+
+function configureSidebarMenu(menuLocationId: string | null) {
+  mockTenant.value = {
+    cms: {
+      menus:
+        menuLocationId === null ? {} : { sidebar_fallback: { menuLocationId } },
+    },
+  };
+}
 vi.mock('#app/composables/head', () => ({
   useHead: vi.fn(),
   useSeoMeta: vi.fn(),
@@ -222,7 +254,11 @@ const stubs = {
     template:
       '<div data-testid="cms-widget-area" :data-frame-rich-text="frameRichText" />',
   },
-  PageSidebarNav: { template: '<div data-testid="sidebar-nav" />' },
+  PageSidebarNav: {
+    props: ['menuLocationId'],
+    template:
+      '<div data-testid="sidebar-nav" :data-menu-location-id="menuLocationId" />',
+  },
   ErrorBoundary: { template: '<div><slot /></div>' },
   Skeleton: { template: '<div data-testid="skeleton" />' },
   EmptyState: { template: '<div data-testid="route-error" />' },
@@ -408,6 +444,7 @@ describe('[...slug] page: content frame', () => {
     createErrorMock.mockClear();
     recoverEntityUrlMock.mockClear();
     mockUseFetch.mockClear();
+    configureSidebarMenu(SIDEBAR_MENU_LOCATION);
   });
 
   it(
@@ -422,6 +459,47 @@ describe('[...slug] page: content frame', () => {
       const wrapper = await mountCatchAll();
 
       expect(wrapper.find('.bg-white').exists()).toBe(true);
+    },
+    MOUNT_TIMEOUT,
+  );
+
+  it(
+    'passes the menuLocationId cms.menus.sidebar_fallback configures to the sidebar nav',
+    async () => {
+      configureSidebarMenu(SIDEBAR_MENU_LOCATION);
+      mockCmsData.value = {
+        id: 1,
+        containers: [{ name: 'main' }],
+        tags: ['menu'],
+      };
+
+      const wrapper = await mountCatchAll();
+
+      const nav = wrapper.find('[data-testid="sidebar-nav"]');
+      expect(nav.exists()).toBe(true);
+      expect(nav.attributes('data-menu-location-id')).toBe(
+        SIDEBAR_MENU_LOCATION,
+      );
+    },
+    MOUNT_TIMEOUT,
+  );
+
+  it(
+    'renders no sidebar nav when the tenant configures no sidebar_fallback menu',
+    async () => {
+      // A tagged page with no configured menu: `sidebarMenuId` is null and the
+      // ErrorBoundary around the nav never renders. Without this half the case
+      // above would pass on any config at all.
+      configureSidebarMenu(null);
+      mockCmsData.value = {
+        id: 1,
+        containers: [{ name: 'main' }],
+        tags: ['menu'],
+      };
+
+      const wrapper = await mountCatchAll();
+
+      expect(wrapper.find('[data-testid="sidebar-nav"]').exists()).toBe(false);
     },
     MOUNT_TIMEOUT,
   );

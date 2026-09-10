@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import type { VariantDimensionType, VariantType } from '@geins/types';
+import type { ComponentPublicInstance } from 'vue';
 import { mountComponent } from '../../utils/component';
 import VariantSelector from '../../../app/components/product/VariantSelector.vue';
 
@@ -149,7 +151,9 @@ describe('VariantSelector', () => {
     // The variant-search input is the first focusable element in the sheet;
     // letting reka-ui auto-focus it on open would pop the soft keyboard and
     // hide the variant options, so the component must preventDefault.
-    const sheet = wrapper.findComponent('[data-testid="variant-sheet"]');
+    const sheet = wrapper.findComponent<ComponentPublicInstance>(
+      '[data-testid="variant-sheet"]',
+    );
     const event = new Event('focus', { cancelable: true });
     sheet.vm.$emit('openAutoFocus', event);
     expect(event.defaultPrevented).toBe(true);
@@ -207,6 +211,11 @@ describe('VariantSelector', () => {
 describe('VariantSelector per-variant name and article number', () => {
   // One variantDimensions row (the active product's own value) + the full
   // sibling set in variantGroup.variants, mirroring real Geins payloads.
+  // The component declares `VariantDimensionType[]`/`VariantType[]` but casts
+  // both props to the GraphQL row shape in its own setup, and its comment says
+  // it tolerates that shape deliberately. These fixtures carry what the API
+  // really sends, so the cast below is the point of the test; the declared prop
+  // type is the thing that is wrong, and that is product code.
   const siblingDimensions = [{ dimension: 'Variant', value: '88' }];
   const siblingVariants = [
     {
@@ -253,8 +262,9 @@ describe('VariantSelector per-variant name and article number', () => {
   function openSiblingSheet() {
     const wrapper = mountComponent(VariantSelector, {
       props: {
-        variantDimensions: siblingDimensions,
-        variants: siblingVariants,
+        variantDimensions:
+          siblingDimensions as unknown as VariantDimensionType[],
+        variants: siblingVariants as unknown as VariantType[],
         modelValue: { Variant: '88' },
         productName: 'Grenrör 150/150-88',
         productArticleNumber: 'S1-243-088',
@@ -324,8 +334,8 @@ describe('VariantSelector per-variant name and article number', () => {
     ];
     const wrapper = mountComponent(VariantSelector, {
       props: {
-        variantDimensions: oosDimensions,
-        variants: oosVariants,
+        variantDimensions: oosDimensions as unknown as VariantDimensionType[],
+        variants: oosVariants as unknown as VariantType[],
         modelValue: { Variant: 'm 20 / 5-8' },
         productName: 'Metallförskruvning M20x1,5',
       },

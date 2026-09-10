@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, assert } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import PortalOrdersTable from '../../../app/components/portal/PortalOrdersTable.vue';
 
@@ -35,6 +35,10 @@ const mockOrders = [
   },
 ];
 
+const [firstOrder, secondOrder] = mockOrders;
+assert.isDefined(firstOrder);
+assert.isDefined(secondOrder);
+
 describe('PortalOrdersTable', () => {
   it('renders table headers', () => {
     const wrapper = mountComponent(PortalOrdersTable, {
@@ -63,7 +67,7 @@ describe('PortalOrdersTable', () => {
   it('renders placedBy when resolved from the company buyer roster', () => {
     const wrapper = mountComponent(PortalOrdersTable, {
       props: {
-        orders: [{ ...mockOrders[0], placedBy: 'Anna Nilsson' }],
+        orders: [{ ...firstOrder, placedBy: 'Anna Nilsson' }],
       },
     });
     expect(wrapper.text()).toContain('Anna Nilsson');
@@ -73,8 +77,8 @@ describe('PortalOrdersTable', () => {
     const wrapper = mountComponent(PortalOrdersTable, {
       props: {
         orders: [
-          { ...mockOrders[0], placedBy: 'Anna Nilsson' },
-          { ...mockOrders[1], placedBy: 'Bea Karlsson' },
+          { ...firstOrder, placedBy: 'Anna Nilsson' },
+          { ...secondOrder, placedBy: 'Bea Karlsson' },
         ],
       },
     });
@@ -126,7 +130,7 @@ describe('PortalOrdersTable', () => {
   });
 
   it('view link falls back to id when publicId is missing', () => {
-    const ordersWithoutPublicId = [{ ...mockOrders[0], publicId: undefined }];
+    const ordersWithoutPublicId = [{ ...firstOrder, publicId: undefined }];
     const wrapper = mountComponent(PortalOrdersTable, {
       props: { orders: ordersWithoutPublicId },
     });

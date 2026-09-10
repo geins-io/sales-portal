@@ -14,6 +14,7 @@ import {
   resolvePreviewTenant,
   DEFAULT_CMS_CONFIG,
 } from '../../server/utils/tenant';
+import { canAccessFeature } from '../../shared/utils/feature-access';
 import { CMS_MENUS } from '../../shared/constants/cms';
 import { CMS_SLOTS } from '../../shared/types/cms-slots';
 import partialPayloadFixture from '../fixtures/store-settings/partial-payload.json';
@@ -24,7 +25,7 @@ import {
   generateOverrideCss,
   mergeThemes,
 } from '../../server/utils/tenant-css';
-import type { TenantConfig } from '#shared/types/tenant-config';
+import type { FeatureAccess, TenantConfig } from '#shared/types/tenant-config';
 import { deriveThemeColors } from '../../server/utils/theme';
 import type {
   ThemeColors,
@@ -312,8 +313,8 @@ describe('Tenant utilities', () => {
       overrides?: Partial<TenantConfig>,
     ): TenantConfig {
       return {
-        tenantId: 'tenant-a',
-        hostname: 'tenant-a.litium.portal',
+        tenantId: 'alpha',
+        hostname: 'alpha.example',
         geinsSettings: {
           apiKey: '',
           accountName: '',
@@ -326,8 +327,9 @@ describe('Tenant utilities', () => {
           availableMarkets: ['se'],
         },
         mode: 'commerce',
-        theme: createDefaultTheme('tenant-a'),
-        branding: { name: 'Tenant A', watermark: 'full' },
+        checkoutMode: 'custom',
+        theme: createDefaultTheme('alpha'),
+        branding: { name: 'Alpha', watermark: 'full' },
         features: {},
         css: '',
         isActive: true,
@@ -341,23 +343,23 @@ describe('Tenant utilities', () => {
       const config = createMinimalConfig();
       const hostnames = collectAllHostnames(config);
       expect(hostnames.size).toBe(1);
-      expect(hostnames.has('tenant-a.litium.portal')).toBe(true);
+      expect(hostnames.has('alpha.example')).toBe(true);
     });
 
     it('should include hostname and all aliases', () => {
       const config = createMinimalConfig({
-        aliases: ['tenant-a.localhost', 'tenant-a.sales-portal.geins.dev'],
+        aliases: ['alpha.localhost', 'alpha.sales-portal.geins.dev'],
       });
       const hostnames = collectAllHostnames(config);
       expect(hostnames.size).toBe(3);
-      expect(hostnames.has('tenant-a.litium.portal')).toBe(true);
-      expect(hostnames.has('tenant-a.localhost')).toBe(true);
-      expect(hostnames.has('tenant-a.sales-portal.geins.dev')).toBe(true);
+      expect(hostnames.has('alpha.example')).toBe(true);
+      expect(hostnames.has('alpha.localhost')).toBe(true);
+      expect(hostnames.has('alpha.sales-portal.geins.dev')).toBe(true);
     });
 
     it('should deduplicate when hostname appears in aliases', () => {
       const config = createMinimalConfig({
-        aliases: ['tenant-a.litium.portal', 'tenant-a.localhost'],
+        aliases: ['alpha.example', 'alpha.localhost'],
       });
       const hostnames = collectAllHostnames(config);
       expect(hostnames.size).toBe(2);
@@ -365,12 +367,12 @@ describe('Tenant utilities', () => {
 
     it('should skip empty/falsy alias entries', () => {
       const config = createMinimalConfig({
-        aliases: ['tenant-a.localhost', '', undefined as unknown as string],
+        aliases: ['alpha.localhost', '', undefined as unknown as string],
       });
       const hostnames = collectAllHostnames(config);
       expect(hostnames.size).toBe(2);
-      expect(hostnames.has('tenant-a.litium.portal')).toBe(true);
-      expect(hostnames.has('tenant-a.localhost')).toBe(true);
+      expect(hostnames.has('alpha.example')).toBe(true);
+      expect(hostnames.has('alpha.localhost')).toBe(true);
     });
 
     it('should return empty set when hostname is empty and no aliases', () => {
@@ -382,11 +384,11 @@ describe('Tenant utilities', () => {
 
   describe('buildTenantConfig theme.name fallback', () => {
     const baseSettings: StoreSettings = {
-      tenantId: 'boattools',
-      hostname: 'boattools.litium.store',
+      tenantId: 'delta',
+      hostname: 'delta.litium.store',
       geinsSettings: {
         apiKey: 'k',
-        accountName: 'boattools',
+        accountName: 'delta',
         channel: '1',
         tld: 'se',
         locale: 'sv-SE',
@@ -407,7 +409,7 @@ describe('Tenant utilities', () => {
           foreground: 'oklch(0.145 0 0)',
         },
       },
-      branding: { name: 'BoatTools', watermark: 'minimal' },
+      branding: { name: 'Delta', watermark: 'minimal' },
       features: {},
       isActive: true,
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -416,8 +418,8 @@ describe('Tenant utilities', () => {
 
     it('uses tenantId when theme.name is missing', () => {
       const built = buildTenantConfig(baseSettings);
-      expect(built.theme.name).toBe('boattools');
-      expect(built.css).toContain("[data-theme='boattools']");
+      expect(built.theme.name).toBe('delta');
+      expect(built.css).toContain("[data-theme='delta']");
     });
 
     it('preserves explicit theme.name when provided', () => {
@@ -427,6 +429,46 @@ describe('Tenant utilities', () => {
       });
       expect(built.theme.name).toBe('ocean');
       expect(built.css).toContain("[data-theme='ocean']");
+    });
+
+    /**
+     * The group tests in tests/unit/server/utils/tenant-css.test.ts call the
+     * emitter directly. This one covers the hop above it: a configured value
+     * survives `mergeStorefrontSettings`, which deep-merges the canonical
+     * defaults *under* the API response, and still reaches `config.css`.
+     * One test, not 34 — the per-key discrimination is the group tests' job.
+     *
+     * `mergeStorefrontSettings` is the merge in this path, not
+     * `createDefaultTheme`: that one is reached through `backfillCoreColors`
+     * (tenant.ts:771 and :885), which runs inside the resilient parse and
+     * fills only core colours that arrived undefined.
+     */
+    it('carries a configured colour, surface and font family through the merge into config.css', () => {
+      const built = buildTenantConfig({
+        ...baseSettings,
+        theme: {
+          ...baseSettings.theme,
+          colors: {
+            ...baseSettings.theme.colors,
+            primary: 'oklch(0.20 0 0)',
+            card: 'oklch(0.50 0 0)',
+            topBarText: 'oklch(0.55 0 0)',
+          },
+          typography: { fontFamily: 'Sentinel Body' },
+        },
+      });
+
+      // A required core colour, an optional one the server would otherwise
+      // derive, a surface, and a typography family: four different code paths
+      // through the merge, all landing in the same emitted stylesheet.
+      expect(built.css, 'primary').toContain('--primary: #161616;');
+      expect(built.css, 'card').toContain('--card: #636363;');
+      expect(built.css, 'topBarText').toContain('--top-bar-text: #717171;');
+      expect(built.css, 'fontFamily').toContain(
+        "--font-family: 'Sentinel Body', ui-sans-serif, system-ui, sans-serif;",
+      );
+      // The merge must not rewrite the value it was handed.
+      expect(built.theme.colors.primary).toBe('oklch(0.20 0 0)');
     });
   });
 
@@ -516,6 +558,172 @@ describe('Tenant utilities', () => {
         overrides: { features: { applyForAccount: { enabled: false } } },
       });
       expect(built.features.applyForAccount?.enabled).toBe(false);
+    });
+  });
+
+  describe('buildTenantConfig retired access rules', () => {
+    const retiredSettings: StoreSettings = {
+      tenantId: 'tenant-r',
+      hostname: 'tenant-r.litium.store',
+      geinsSettings: {
+        apiKey: 'k',
+        accountName: 'tenant-r',
+        channel: '1',
+        tld: 'se',
+        locale: 'sv-SE',
+        market: 'se',
+        environment: 'production',
+        availableLocales: ['sv-SE'],
+        availableMarkets: ['se'],
+      },
+      mode: 'commerce',
+      checkoutMode: 'custom',
+      theme: {
+        colors: {
+          primary: 'oklch(0.55 0.03 235)',
+          primaryForeground: 'oklch(0.985 0 0)',
+          secondary: 'oklch(0.93 0.05 90)',
+          secondaryForeground: 'oklch(0.25 0.02 235)',
+          background: 'oklch(1 0 0)',
+          foreground: 'oklch(0.145 0 0)',
+        },
+      },
+      branding: { name: 'Tenant R', watermark: 'minimal' },
+      features: {},
+      isActive: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    // Still valid on the wire — FeatureAccessSchema accepts all four.
+    const retiredRules = [
+      ['group', { group: 'staff' }],
+      ['accountType', { accountType: 'enterprise' }],
+      ['permission', { permission: 'orders:create' }],
+      ['role', { role: 'order_placer' }],
+    ] as const;
+
+    beforeEach(() => {
+      mockLoggerWarn.mockClear();
+    });
+
+    for (const [key, rule] of retiredRules) {
+      it(`disables a feature carrying { ${key} } and says why`, () => {
+        const built = buildTenantConfig({
+          ...retiredSettings,
+          features: { staffPricing: { enabled: true, access: rule } },
+        });
+
+        expect(built.features.staffPricing).toEqual({ enabled: false });
+        expect(built.features.staffPricing).not.toHaveProperty('access');
+
+        const warned = mockLoggerWarn.mock.calls.map(String).join('\n');
+        expect(warned).toContain('staffPricing');
+        expect(warned).toContain(key);
+        expect(warned).toContain('tenant-r.litium.store');
+      });
+
+      it(`denies { ${key} } for anonymous and signed-in alike after normalisation`, () => {
+        const built = buildTenantConfig({
+          ...retiredSettings,
+          features: { staffPricing: { enabled: true, access: rule } },
+        });
+        const feature = built.features.staffPricing;
+
+        // hasFeature() reads .enabled only, so it flips to false: UI gated on
+        // it alone is hidden rather than rendered and then denied.
+        expect(feature?.enabled).toBe(false);
+        expect(canAccessFeature(feature, { authenticated: false })).toBe(false);
+        expect(canAccessFeature(feature, { authenticated: true })).toBe(false);
+      });
+
+      it(`parses a raw candidate carrying { ${key} } without stripping the leaf`, () => {
+        // The regression guard for the whole design: FeatureAccessSchema still
+        // accepts the rule, so the parse succeeds on the first attempt and
+        // stage 2 of the salvage never deletes features.<name>.access. A
+        // stripped leaf would leave { enabled: true } with no access, which
+        // canAccessFeature treats as "everyone".
+        const candidate: Record<string, unknown> = {
+          ...retiredSettings,
+          features: { staffPricing: { enabled: true, access: rule } },
+        };
+
+        const parsed = parseStoreSettingsResilient(candidate, 'tenant-r');
+        expect(parsed).not.toBeNull();
+        expect(parsed?.features.staffPricing).toEqual({
+          enabled: true,
+          access: rule,
+        });
+        expect(
+          mockLoggerWarn.mock.calls.some((call) =>
+            String(call[0]).includes('leaf-strip'),
+          ),
+        ).toBe(false);
+
+        const built = buildTenantConfig(parsed as StoreSettings);
+        expect(built.features.staffPricing).toEqual({ enabled: false });
+      });
+
+      it(`retires { ${key} } arriving through overrides.features`, () => {
+        const built = buildTenantConfig({
+          ...retiredSettings,
+          features: { staffPricing: { enabled: true } },
+          overrides: {
+            features: { staffPricing: { enabled: true, access: rule } },
+          },
+        });
+
+        expect(built.features.staffPricing).toEqual({ enabled: false });
+        expect(built.overrides?.features?.staffPricing).toEqual({
+          enabled: false,
+        });
+      });
+    }
+
+    it('retires a string rule outside the evaluable set and names it', () => {
+      // FeatureAccessSchema is a separate source of truth from FeatureAccess, so
+      // a literal added only to the schema would arrive as a string the app
+      // cannot evaluate. The cast constructs that state ahead of time: it must
+      // be retired like an object rule, not treated as evaluable.
+      const built = buildTenantConfig({
+        ...retiredSettings,
+        features: {
+          staffPricing: {
+            enabled: true,
+            access: 'staff' as unknown as FeatureAccess,
+          },
+        },
+      });
+
+      expect(built.features.staffPricing).toEqual({ enabled: false });
+      expect(built.features.staffPricing).not.toHaveProperty('access');
+
+      const warned = mockLoggerWarn.mock.calls.map(String).join('\n');
+      expect(warned).toContain('staffPricing');
+      // The rule's own name, not the character indices of the string.
+      expect(warned).toContain('"staff"');
+    });
+
+    it('leaves the evaluable rules and a rule-less feature untouched', () => {
+      const built = buildTenantConfig({
+        ...retiredSettings,
+        features: {
+          openToAll: { enabled: true, access: 'all' },
+          signedIn: { enabled: true, access: 'authenticated' },
+          plain: { enabled: true },
+        },
+      });
+
+      expect(built.features.openToAll).toEqual({
+        enabled: true,
+        access: 'all',
+      });
+      expect(built.features.signedIn).toEqual({
+        enabled: true,
+        access: 'authenticated',
+      });
+      expect(built.features.plain).toEqual({ enabled: true });
+      expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
   });
 
@@ -611,7 +819,7 @@ describe('Tenant utilities', () => {
           priceVisibility: { enabled: false, access: 'all' },
           orderPlacement: { enabled: false, access: 'authenticated' },
         },
-        seo: { robots: 'noindex, nofollow' },
+        seo: { robots: 'noindex, nofollow', defaultKeywords: undefined },
         branding: {
           name: 'Explicit',
           watermark: 'minimal',
@@ -646,14 +854,33 @@ describe('Tenant utilities', () => {
 
     it('preserves an explicit branding.name', () => {
       const settings = minimalSettings();
-      settings.branding = { name: 'Tenant A Store', watermark: 'full' };
-      settings.geinsSettings.accountName = 'tenant-a';
+      settings.branding = { name: 'Alpha Store', watermark: 'full' };
+      settings.geinsSettings.accountName = 'alpha';
       const built = buildTenantConfig(settings);
-      expect(built.branding.name).toBe('Tenant A Store');
+      expect(built.branding.name).toBe('Alpha Store');
     });
   });
 
   describe('buildTenantConfig cms config deep-merge', () => {
+    // Both sections are optional on the type. Reading them through `?.` on the
+    // expected side too would make a missing default compare undefined to
+    // undefined and pass, so resolve them here and fail loudly instead.
+    function defaultMenu(
+      key: keyof NonNullable<typeof DEFAULT_CMS_CONFIG.menus>,
+    ) {
+      const menu = DEFAULT_CMS_CONFIG.menus?.[key];
+      if (!menu) throw new Error(`DEFAULT_CMS_CONFIG has no menu '${key}'`);
+      return menu;
+    }
+
+    function defaultSlot(
+      key: keyof NonNullable<typeof DEFAULT_CMS_CONFIG.slots>,
+    ) {
+      const slot = DEFAULT_CMS_CONFIG.slots?.[key];
+      if (!slot) throw new Error(`DEFAULT_CMS_CONFIG has no slot '${key}'`);
+      return slot;
+    }
+
     function settingsWithCms(cms?: StoreSettings['cms']): StoreSettings {
       return {
         tenantId: 'tenant-cms',
@@ -705,10 +932,10 @@ describe('Tenant utilities', () => {
         }),
       );
       expect(built.cms?.menus?.[CMS_MENUS.FOOTER_2]?.menuLocationId).toBe(
-        DEFAULT_CMS_CONFIG.menus[CMS_MENUS.FOOTER_2].menuLocationId,
+        defaultMenu(CMS_MENUS.FOOTER_2).menuLocationId,
       );
       expect(built.cms?.menus?.[CMS_MENUS.FOOTER_3]?.menuLocationId).toBe(
-        DEFAULT_CMS_CONFIG.menus[CMS_MENUS.FOOTER_3].menuLocationId,
+        defaultMenu(CMS_MENUS.FOOTER_3).menuLocationId,
       );
     });
 
@@ -754,7 +981,7 @@ describe('Tenant utilities', () => {
       });
       // A sibling default slot the tenant did not touch is still present
       expect(built.cms?.slots?.[CMS_SLOTS.PORTAL_HERO]).toEqual(
-        DEFAULT_CMS_CONFIG.slots[CMS_SLOTS.PORTAL_HERO],
+        defaultSlot(CMS_SLOTS.PORTAL_HERO),
       );
     });
   });
@@ -803,7 +1030,7 @@ describe('Tenant utilities', () => {
 
     it('writes mappings for every hostname + alias in the config', async () => {
       const storage = makeStorage();
-      const config = makeConfigWithHostnames('tenant-a', 'a.example.com', [
+      const config = makeConfigWithHostnames('alpha', 'a.example.com', [
         'a.alt.com',
       ]);
       await writeHostnameMappings(
@@ -812,14 +1039,14 @@ describe('Tenant utilities', () => {
         >,
         config,
       );
-      expect(storage.data.get(tenantIdKey('a.example.com'))).toBe('tenant-a');
-      expect(storage.data.get(tenantIdKey('a.alt.com'))).toBe('tenant-a');
+      expect(storage.data.get(tenantIdKey('a.example.com'))).toBe('alpha');
+      expect(storage.data.get(tenantIdKey('a.alt.com'))).toBe('alpha');
       expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
 
     it('does NOT warn when re-writing the same tenantId to the same hostname', async () => {
       const storage = makeStorage();
-      const config = makeConfigWithHostnames('tenant-a', 'a.example.com');
+      const config = makeConfigWithHostnames('alpha', 'a.example.com');
       await writeHostnameMappings(
         storage as unknown as ReturnType<
           typeof import('nitropack/runtime').useStorage
@@ -837,8 +1064,8 @@ describe('Tenant utilities', () => {
 
     it('warns when a hostname is remapped to a DIFFERENT tenantId', async () => {
       const storage = makeStorage();
-      const configA = makeConfigWithHostnames('tenant-a', 'shared.example.com');
-      const configB = makeConfigWithHostnames('tenant-b', 'shared.example.com');
+      const configA = makeConfigWithHostnames('alpha', 'shared.example.com');
+      const configB = makeConfigWithHostnames('beta', 'shared.example.com');
 
       await writeHostnameMappings(
         storage as unknown as ReturnType<
@@ -857,26 +1084,24 @@ describe('Tenant utilities', () => {
       expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
       const [msg, meta] = mockLoggerWarn.mock.calls[0]!;
       expect(msg).toContain('shared.example.com');
-      expect(msg).toContain('tenant-a');
-      expect(msg).toContain('tenant-b');
+      expect(msg).toContain('alpha');
+      expect(msg).toContain('beta');
       expect(meta).toMatchObject({
         hostname: 'shared.example.com',
-        previousTenantId: 'tenant-a',
-        newTenantId: 'tenant-b',
+        previousTenantId: 'alpha',
+        newTenantId: 'beta',
       });
 
-      // Last-writer-wins: the KV is now pointing at tenant-b.
-      expect(storage.data.get(tenantIdKey('shared.example.com'))).toBe(
-        'tenant-b',
-      );
+      // Last-writer-wins: the KV is now pointing at beta.
+      expect(storage.data.get(tenantIdKey('shared.example.com'))).toBe('beta');
     });
   });
 
   describe('parseStoreSettingsResilient', () => {
     function fullCandidate(): Record<string, unknown> {
       return {
-        tenantId: 'tenant-a',
-        hostname: 'tenant-a.example.com',
+        tenantId: 'alpha',
+        hostname: 'alpha.example',
         geinsSettings: {
           apiKey: 'k',
           accountName: 'a',
@@ -910,7 +1135,7 @@ describe('Tenant utilities', () => {
     it('returns the strict-parsed value on a clean candidate', () => {
       const out = parseStoreSettingsResilient(fullCandidate(), 'h');
       expect(out).not.toBeNull();
-      expect(out?.tenantId).toBe('tenant-a');
+      expect(out?.tenantId).toBe('alpha');
     });
 
     it('salvages a candidate with an unknown mode value by defaulting to commerce', () => {
@@ -927,14 +1152,14 @@ describe('Tenant utilities', () => {
       // mismatch.
       const candidate = fullCandidate();
       candidate.seo = {
-        defaultTitle: 'Tenant A Store',
-        titleTemplate: '%s | Tenant A Store',
-        defaultDescription: 'B2B sales portal for Tenant A',
+        defaultTitle: 'Alpha Store',
+        titleTemplate: '%s | Alpha Store',
+        defaultDescription: 'B2B sales portal for Alpha',
         defaultKeywords: 'shoes,boots,sneakers',
         robots: 'noindex, nofollow',
       };
       const out = parseStoreSettingsResilient(candidate, 'h');
-      expect(out?.seo?.defaultTitle).toBe('Tenant A Store');
+      expect(out?.seo?.defaultTitle).toBe('Alpha Store');
       expect(out?.seo?.defaultKeywords).toEqual(['shoes', 'boots', 'sneakers']);
     });
 
@@ -945,11 +1170,11 @@ describe('Tenant utilities', () => {
       // as a type mismatch.
       const candidate = fullCandidate();
       candidate.seo = {
-        defaultTitle: 'Tenant A Store',
+        defaultTitle: 'Alpha Store',
         verification: 'test-verify-abc123',
       };
       const out = parseStoreSettingsResilient(candidate, 'h');
-      expect(out?.seo?.defaultTitle).toBe('Tenant A Store');
+      expect(out?.seo?.defaultTitle).toBe('Alpha Store');
       expect(out?.seo?.verification).toBe('test-verify-abc123');
     });
 
@@ -1002,10 +1227,10 @@ describe('Tenant utilities', () => {
       // it and buildTenantConfig overlays the PORTAL_FEATURE_DEFAULTS.
       const raw = {
         geinsSettings: {
-          defaultHostName: 'tinatest1.litium.store',
+          defaultHostName: 'gamma.litium.store',
           additionalHostNames: [],
-          apiKey: 'E0EB51F2-B663-457F-A7F9-A75693FD8469',
-          accountName: 'tinatest1',
+          apiKey: 'k',
+          accountName: 'gamma',
           channelId: '1|se',
           defaultLocale: 'sv-SE',
           defaultMarket: 'se',
@@ -1013,17 +1238,14 @@ describe('Tenant utilities', () => {
           markets: ['se'],
         },
         appSettings: {},
-        tenantId: 'tinatest1',
+        tenantId: 'gamma',
         isActive: true,
         updatedAt: '0001-01-01T00:00:00+00:00',
       };
       const candidate = adaptMerchantApiResponse(raw);
-      const out = parseStoreSettingsResilient(
-        candidate,
-        'tinatest1.litium.store',
-      );
+      const out = parseStoreSettingsResilient(candidate, 'gamma.litium.store');
       expect(out).not.toBeNull();
-      expect(out?.tenantId).toBe('tinatest1');
+      expect(out?.tenantId).toBe('gamma');
       expect(out?.features).toEqual({});
       const cfg = buildTenantConfig(out as StoreSettings);
       expect(cfg.features.registration?.enabled).toBe(true);
@@ -1244,6 +1466,239 @@ describe('Tenant utilities', () => {
         expect(message).toContain(`theme.colors.${key}`);
       }
     });
+
+    /**
+     * `SafeUrlSchema` rejects `''`, so a merchant who clears a logo in the
+     * admin sends a value the schema refuses. What the tenant then gets is
+     * decided here rather than by the schema: `branding` and `contact` are
+     * outside `FATAL_PATHS`, and the issue path is more than one segment
+     * deep, so the salvager strips the single bad leaf instead of replacing
+     * the whole block with `SALVAGE_DEFAULTS`.
+     *
+     * That distinction is the whole point of the cases below. Swap
+     * leaf-stripping for top-level substitution and every assertion on the
+     * *survivors* goes red, which is what stops a cleared logo from taking
+     * the tenant's brand name with it.
+     */
+    describe('a cleared url is stripped as a leaf and takes nothing with it', () => {
+      const BRANDING_URLS = {
+        logoUrl: 'https://cdn.example.com/logo.svg',
+        logoDarkUrl: 'https://cdn.example.com/logo-dark.svg',
+        logoSymbolUrl: 'https://cdn.example.com/symbol.svg',
+        faviconUrl: 'https://cdn.example.com/favicon.ico',
+        ogImageUrl: 'https://cdn.example.com/og.png',
+      } as const;
+
+      const SOCIAL_URLS = {
+        facebook: 'https://facebook.com/alpha',
+        instagram: 'https://instagram.com/alpha',
+        twitter: 'https://twitter.com/alpha',
+        linkedin: 'https://linkedin.com/company/alpha',
+        youtube: 'https://youtube.com/@alpha',
+      } as const;
+
+      /** Every branding url set, so the survivors can be asserted by name. */
+      function brandedCandidate(): Record<string, unknown> {
+        const candidate = fullCandidate();
+        candidate.branding = { name: 'A', watermark: 'full', ...BRANDING_URLS };
+        return candidate;
+      }
+
+      function socialCandidate(): Record<string, unknown> {
+        const candidate = fullCandidate();
+        candidate.contact = {
+          email: 'hello@alpha.example',
+          social: { ...SOCIAL_URLS },
+        };
+        return candidate;
+      }
+
+      it('clears branding.logoUrl and keeps the name and the other urls', () => {
+        const candidate = brandedCandidate();
+        (candidate.branding as Record<string, unknown>).logoUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('logoUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoDarkUrl).toBe(BRANDING_URLS.logoDarkUrl);
+        expect(out?.branding?.logoSymbolUrl).toBe(BRANDING_URLS.logoSymbolUrl);
+        expect(out?.branding?.faviconUrl).toBe(BRANDING_URLS.faviconUrl);
+        expect(out?.branding?.ogImageUrl).toBe(BRANDING_URLS.ogImageUrl);
+      });
+
+      it('clears branding.logoDarkUrl and keeps the name and the other urls', () => {
+        const candidate = brandedCandidate();
+        (candidate.branding as Record<string, unknown>).logoDarkUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('logoDarkUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoUrl).toBe(BRANDING_URLS.logoUrl);
+        expect(out?.branding?.logoSymbolUrl).toBe(BRANDING_URLS.logoSymbolUrl);
+        expect(out?.branding?.faviconUrl).toBe(BRANDING_URLS.faviconUrl);
+        expect(out?.branding?.ogImageUrl).toBe(BRANDING_URLS.ogImageUrl);
+      });
+
+      it('clears branding.logoSymbolUrl and keeps the name and the other urls', () => {
+        const candidate = brandedCandidate();
+        (candidate.branding as Record<string, unknown>).logoSymbolUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('logoSymbolUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoUrl).toBe(BRANDING_URLS.logoUrl);
+        expect(out?.branding?.logoDarkUrl).toBe(BRANDING_URLS.logoDarkUrl);
+        expect(out?.branding?.faviconUrl).toBe(BRANDING_URLS.faviconUrl);
+        expect(out?.branding?.ogImageUrl).toBe(BRANDING_URLS.ogImageUrl);
+      });
+
+      it('clears branding.faviconUrl and keeps the name and the other urls', () => {
+        const candidate = brandedCandidate();
+        (candidate.branding as Record<string, unknown>).faviconUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('faviconUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoUrl).toBe(BRANDING_URLS.logoUrl);
+        expect(out?.branding?.logoDarkUrl).toBe(BRANDING_URLS.logoDarkUrl);
+        expect(out?.branding?.logoSymbolUrl).toBe(BRANDING_URLS.logoSymbolUrl);
+        expect(out?.branding?.ogImageUrl).toBe(BRANDING_URLS.ogImageUrl);
+      });
+
+      it('clears branding.ogImageUrl and keeps the name and the other urls', () => {
+        const candidate = brandedCandidate();
+        (candidate.branding as Record<string, unknown>).ogImageUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('ogImageUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoUrl).toBe(BRANDING_URLS.logoUrl);
+        expect(out?.branding?.logoDarkUrl).toBe(BRANDING_URLS.logoDarkUrl);
+        expect(out?.branding?.logoSymbolUrl).toBe(BRANDING_URLS.logoSymbolUrl);
+        expect(out?.branding?.faviconUrl).toBe(BRANDING_URLS.faviconUrl);
+      });
+
+      it('clears both logo urls at once and keeps the name and the rest', () => {
+        // Two cleared fields in one payload is what a merchant swapping a
+        // brand actually sends, and it is the case a single-strip
+        // implementation would get wrong: the loop has to converge, not
+        // strip once and give up.
+        const candidate = brandedCandidate();
+        const branding = candidate.branding as Record<string, unknown>;
+        branding.logoUrl = '';
+        branding.logoDarkUrl = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.branding).not.toHaveProperty('logoUrl');
+        expect(out?.branding).not.toHaveProperty('logoDarkUrl');
+        expect(out?.branding?.name).toBe('A');
+        expect(out?.branding?.logoSymbolUrl).toBe(BRANDING_URLS.logoSymbolUrl);
+        expect(out?.branding?.faviconUrl).toBe(BRANDING_URLS.faviconUrl);
+        expect(out?.branding?.ogImageUrl).toBe(BRANDING_URLS.ogImageUrl);
+      });
+
+      it('clears contact.social.facebook and keeps the other social urls', () => {
+        const candidate = socialCandidate();
+        const social = (
+          candidate.contact as { social: Record<string, unknown> }
+        ).social;
+        social.facebook = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.contact?.social).not.toHaveProperty('facebook');
+        expect(out?.contact?.email).toBe('hello@alpha.example');
+        expect(out?.contact?.social?.instagram).toBe(SOCIAL_URLS.instagram);
+        expect(out?.contact?.social?.twitter).toBe(SOCIAL_URLS.twitter);
+        expect(out?.contact?.social?.linkedin).toBe(SOCIAL_URLS.linkedin);
+        expect(out?.contact?.social?.youtube).toBe(SOCIAL_URLS.youtube);
+      });
+
+      it('clears contact.social.instagram and keeps the other social urls', () => {
+        const candidate = socialCandidate();
+        const social = (
+          candidate.contact as { social: Record<string, unknown> }
+        ).social;
+        social.instagram = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.contact?.social).not.toHaveProperty('instagram');
+        expect(out?.contact?.email).toBe('hello@alpha.example');
+        expect(out?.contact?.social?.facebook).toBe(SOCIAL_URLS.facebook);
+        expect(out?.contact?.social?.twitter).toBe(SOCIAL_URLS.twitter);
+        expect(out?.contact?.social?.linkedin).toBe(SOCIAL_URLS.linkedin);
+        expect(out?.contact?.social?.youtube).toBe(SOCIAL_URLS.youtube);
+      });
+
+      it('clears contact.social.twitter and keeps the other social urls', () => {
+        const candidate = socialCandidate();
+        const social = (
+          candidate.contact as { social: Record<string, unknown> }
+        ).social;
+        social.twitter = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.contact?.social).not.toHaveProperty('twitter');
+        expect(out?.contact?.email).toBe('hello@alpha.example');
+        expect(out?.contact?.social?.facebook).toBe(SOCIAL_URLS.facebook);
+        expect(out?.contact?.social?.instagram).toBe(SOCIAL_URLS.instagram);
+        expect(out?.contact?.social?.linkedin).toBe(SOCIAL_URLS.linkedin);
+        expect(out?.contact?.social?.youtube).toBe(SOCIAL_URLS.youtube);
+      });
+
+      it('clears contact.social.linkedin and keeps the other social urls', () => {
+        const candidate = socialCandidate();
+        const social = (
+          candidate.contact as { social: Record<string, unknown> }
+        ).social;
+        social.linkedin = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.contact?.social).not.toHaveProperty('linkedin');
+        expect(out?.contact?.email).toBe('hello@alpha.example');
+        expect(out?.contact?.social?.facebook).toBe(SOCIAL_URLS.facebook);
+        expect(out?.contact?.social?.instagram).toBe(SOCIAL_URLS.instagram);
+        expect(out?.contact?.social?.twitter).toBe(SOCIAL_URLS.twitter);
+        expect(out?.contact?.social?.youtube).toBe(SOCIAL_URLS.youtube);
+      });
+
+      it('clears contact.social.youtube and keeps the other social urls', () => {
+        const candidate = socialCandidate();
+        const social = (
+          candidate.contact as { social: Record<string, unknown> }
+        ).social;
+        social.youtube = '';
+
+        const out = parseStoreSettingsResilient(candidate, 'h');
+
+        expect(out).not.toBeNull();
+        expect(out?.contact?.social).not.toHaveProperty('youtube');
+        expect(out?.contact?.email).toBe('hello@alpha.example');
+        expect(out?.contact?.social?.facebook).toBe(SOCIAL_URLS.facebook);
+        expect(out?.contact?.social?.instagram).toBe(SOCIAL_URLS.instagram);
+        expect(out?.contact?.social?.twitter).toBe(SOCIAL_URLS.twitter);
+        expect(out?.contact?.social?.linkedin).toBe(SOCIAL_URLS.linkedin);
+      });
+    });
   });
 
   describe('deleteAtPath', () => {
@@ -1324,9 +1779,9 @@ describe('Tenant utilities', () => {
     function rawApiResponse(overrides: Record<string, unknown> = {}) {
       return {
         geinsSettings: {
-          defaultHostName: 'tenant-b.sales-portal.geins.dev',
-          additionalHostNames: ['tenant-b.litium.portal'],
-          apiKey: 'C10CF115',
+          defaultHostName: 'beta.sales-portal.geins.dev',
+          additionalHostNames: ['beta.example'],
+          apiKey: 'k',
           accountName: 'monitor',
           channelId: '2|se',
           defaultLocale: 'sv-SE',
@@ -1358,7 +1813,7 @@ describe('Tenant utilities', () => {
 
     it('derives hostname from geinsSettings.defaultHostName when absent from appSettings', () => {
       const result = adaptMerchantApiResponse(rawApiResponse());
-      expect(result.hostname).toBe('tenant-b.sales-portal.geins.dev');
+      expect(result.hostname).toBe('beta.sales-portal.geins.dev');
     });
 
     it('lets appSettings.tenantId override root-level tenantId', () => {
@@ -1369,9 +1824,76 @@ describe('Tenant utilities', () => {
       expect(result.tenantId).toBe('from-app-settings');
     });
 
-    it('merges additionalHostNames into aliases', () => {
+    it('takes aliases from additionalHostNames', () => {
       const result = adaptMerchantApiResponse(rawApiResponse());
-      expect(result.aliases).toContain('tenant-b.litium.portal');
+      expect(result.aliases).toEqual(['beta.example']);
+    });
+
+    // Routing truth is geinsSettings alone: appSettings is free text the
+    // tenant saved, and every name that reaches the config becomes a routing
+    // entry.
+    it('ignores appSettings.aliases', () => {
+      const raw = rawApiResponse();
+      (raw.appSettings as Record<string, unknown>).aliases = [
+        'claimed.example.com',
+      ];
+      const result = adaptMerchantApiResponse(raw);
+      expect(result.aliases).toEqual(['beta.example']);
+      expect(result.aliases).not.toContain('claimed.example.com');
+    });
+
+    it('does not let appSettings.hostname override defaultHostName', () => {
+      const raw = rawApiResponse();
+      (raw.appSettings as Record<string, unknown>).hostname =
+        'claimed.example.com';
+      const result = adaptMerchantApiResponse(raw);
+      expect(result.hostname).toBe('beta.sales-portal.geins.dev');
+    });
+
+    // `hostname` is required and fatal, so a tenant whose Geins record carries
+    // no defaultHostName would resolve to nothing without this fallback.
+    it('falls back to appSettings.hostname when Geins carries no defaultHostName', () => {
+      const raw = rawApiResponse();
+      delete (raw.geinsSettings as Record<string, unknown>).defaultHostName;
+      (raw.appSettings as Record<string, unknown>).hostname =
+        'only.example.com';
+      const result = adaptMerchantApiResponse(raw);
+      expect(result.hostname).toBe('only.example.com');
+    });
+
+    // The clause this ticket exists for: a hostname a tenant claims only in
+    // appSettings must not become a routing entry, so it never resolves.
+    it('writes no routing entry for a hostname claimed only in appSettings', async () => {
+      const raw = rawApiResponse();
+      (raw.appSettings as Record<string, unknown>).aliases = [
+        'claimed.example.com',
+      ];
+      const adapted = adaptMerchantApiResponse(raw);
+
+      const data = new Map<string, unknown>();
+      const storage = {
+        getItem: <T = unknown>(k: string) =>
+          Promise.resolve((data.get(k) ?? null) as T | null),
+        setItem: (k: string, v: unknown) => {
+          data.set(k, v);
+          return Promise.resolve();
+        },
+      };
+
+      await writeHostnameMappings(
+        storage as unknown as ReturnType<
+          typeof import('nitropack/runtime').useStorage
+        >,
+        {
+          tenantId: 'beta',
+          hostname: adapted.hostname,
+          aliases: adapted.aliases,
+        } as unknown as TenantConfig,
+      );
+
+      expect(data.get(tenantIdKey('beta.sales-portal.geins.dev'))).toBe('beta');
+      expect(data.get(tenantIdKey('beta.example'))).toBe('beta');
+      expect(data.has(tenantIdKey('claimed.example.com'))).toBe(false);
     });
 
     it('strips the id field from appSettings', () => {
@@ -1395,14 +1917,14 @@ describe('Tenant utilities', () => {
       } = {},
     ): Record<string, unknown> {
       return {
-        tenantId: 'tenant-a',
+        tenantId: 'alpha',
         isActive: true,
         updatedAt: '2026-01-01T00:00:00.000Z',
         geinsSettings: {
-          defaultHostName: 'tenant-a.example.com',
+          defaultHostName: 'alpha.example',
           additionalHostNames: [],
-          apiKey: 'E0EB51F2-B663-457F-A7F9-A75693FD8469',
-          accountName: 'tenant-a',
+          apiKey: 'k',
+          accountName: 'alpha',
           channelId: '1|se',
           defaultLocale: 'sv-SE',
           defaultMarket: 'se',
@@ -1475,7 +1997,7 @@ describe('Tenant utilities', () => {
       });
       globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-      const result = await resolvePreviewTenant('tenant-a.example.com');
+      const result = await resolvePreviewTenant('alpha.example');
       expect(result).not.toBeNull();
       // Preview primary wins
       expect(result?.theme.colors.primary).toBe('oklch(0.7 0.2 300)');
@@ -1503,7 +2025,7 @@ describe('Tenant utilities', () => {
       });
       globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-      const pending = resolvePreviewTenant('tenant-a.example.com');
+      const pending = resolvePreviewTenant('alpha.example');
 
       // Both fetches must have been called before either resolved.
       expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -1531,7 +2053,7 @@ describe('Tenant utilities', () => {
       });
       globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-      const result = await resolvePreviewTenant('tenant-a.example.com');
+      const result = await resolvePreviewTenant('alpha.example');
       expect(result).not.toBeNull();
       expect(result?.branding.name).toBe('Live Brand');
       const previewWarnCalls = mockLoggerWarn.mock.calls.filter(
@@ -1540,7 +2062,7 @@ describe('Tenant utilities', () => {
           msg.includes('STORE_SETTINGS_PREVIEW_FETCH_FAILED'),
       );
       expect(previewWarnCalls).toHaveLength(1);
-      expect(previewWarnCalls[0]![0]).toContain('tenant-a.example.com');
+      expect(previewWarnCalls[0]![0]).toContain('alpha.example');
     });
 
     it('returns null when both fetches reject', async () => {
@@ -1549,7 +2071,7 @@ describe('Tenant utilities', () => {
       });
       globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-      const result = await resolvePreviewTenant('tenant-a.example.com');
+      const result = await resolvePreviewTenant('alpha.example');
       expect(result).toBeNull();
     });
 
@@ -1572,7 +2094,7 @@ describe('Tenant utilities', () => {
         hasItem: vi.fn(() => Promise.resolve(false)),
       });
 
-      const result = await resolvePreviewTenant('tenant-a.example.com');
+      const result = await resolvePreviewTenant('alpha.example');
       expect(result).not.toBeNull();
       expect(setItemSpy).not.toHaveBeenCalled();
       expect(removeItemSpy).not.toHaveBeenCalled();

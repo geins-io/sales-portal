@@ -1,11 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import ProfileForm from '../../../app/components/portal/ProfileForm.vue';
+import type { GeinsUserType } from '@geins/types';
 
-vi.stubGlobal(
-  '$fetch',
-  vi.fn(() => Promise.resolve({ profile: {} })),
-);
+// Named so the tests can drive it without casting the `$fetch` global, whose
+// declared type is Nitro's `$Fetch` and not a mock.
+const fetchMock = vi.fn(() => Promise.resolve({ profile: {} }));
+vi.stubGlobal('$fetch', fetchMock);
 
 const stubs = {
   Label: { template: '<label><slot /></label>', props: ['for'] },
@@ -28,19 +29,23 @@ const stubs = {
   },
 };
 
-const mockProfile = {
+const mockProfile: GeinsUserType = {
   id: 1,
   email: 'user@example.com',
   address: {
     firstName: 'John',
     lastName: 'Doe',
     company: 'Acme Inc',
+    careOf: '',
+    entryCode: '',
     phone: '123456',
     mobile: '',
     addressLine1: 'Main St 1',
     addressLine2: '',
+    addressLine3: '',
     zip: '12345',
     city: 'Stockholm',
+    state: '',
     country: 'Sweden',
   },
 };
@@ -77,7 +82,7 @@ describe('ProfileForm', () => {
   });
 
   it('emits saved event on successful submit', async () => {
-    (globalThis.$fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       profile: mockProfile,
     });
 
@@ -117,7 +122,7 @@ describe('ProfileForm', () => {
   });
 
   it('calling exposed submit() triggers form submission and emits saved', async () => {
-    (globalThis.$fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       profile: mockProfile,
     });
 
@@ -133,7 +138,7 @@ describe('ProfileForm', () => {
   });
 
   it('submit() works when hideSubmitButton is true (account.vue integration)', async () => {
-    (globalThis.$fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       profile: mockProfile,
     });
 

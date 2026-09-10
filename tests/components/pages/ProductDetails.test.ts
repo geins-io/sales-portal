@@ -1,39 +1,37 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  assert,
+} from 'vitest';
 import { ref, defineComponent, h, Suspense } from 'vue';
-import { mount, flushPromises } from '@vue/test-utils';
-import { defaultMountOptions } from '../../utils/component';
+import { flushPromises } from '@vue/test-utils';
+import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
+import { mockIsCatalogMode } from '../../setup-components';
+import { useTenant } from '../../../app/composables/useTenant';
 
 // ProductDetails uses `await useFetch(...)` so the setup is async. Wrap it
 // in a Suspense boundary, mount full-depth (stubs provided via global.stubs
 // cover every heavy child), and flush the microtask queue before asserting.
 async function mountProductDetails(
-  props: Record<string, unknown>,
-  mountOptions: Parameters<typeof mount>[1] = {},
+  props: { alias: string },
+  mountOptions: MountOptionsFor<Component> = {},
 ) {
+  // The wrapper closes over `props` instead of redeclaring them through
+  // `Object.keys`, so they are checked against ProductDetails's own props.
   const Wrapper = defineComponent({
-    components: { ProductDetails },
-    props: Object.keys(props),
-    setup(wrapperProps) {
+    setup() {
       return () =>
         h(Suspense, null, {
-          default: () => h(ProductDetails, wrapperProps),
+          default: () => h(ProductDetails, props),
         });
     },
   });
-  const wrapper = mount(Wrapper, {
-    ...defaultMountOptions,
-    ...mountOptions,
-    props,
-    global: {
-      ...defaultMountOptions.global,
-      ...mountOptions.global,
-      stubs: {
-        ...(defaultMountOptions.global?.stubs ?? {}),
-        ...(mountOptions.global?.stubs ?? {}),
-      },
-    },
-  });
+  const wrapper = mountComponent(Wrapper, mountOptions);
   await flushPromises();
   return wrapper;
 }
@@ -45,19 +43,20 @@ async function mountProductDetails(
 // delegates content misses to recoverEntityUrl (spec 003). Both are mocked as
 // spies and asserted against; assertions watch the spies, never real navigation.
 const { navigateToMock, recoverEntityUrlMock } = vi.hoisted(() => ({
-  navigateToMock: vi.fn(() => Promise.resolve()),
-  recoverEntityUrlMock: vi.fn(() => Promise.resolve()),
+  navigateToMock: vi.fn<typeof navigateTo>(() => Promise.resolve()),
+  recoverEntityUrlMock: vi.fn<(path: string) => Promise<void>>(() =>
+    Promise.resolve(),
+  ),
 }));
 
-vi.stubGlobal('navigateTo', (...args: unknown[]) => navigateToMock(...args));
+vi.stubGlobal('navigateTo', navigateToMock);
 vi.mock('../../../app/composables/useEntityUrlRecovery', () => ({
-  recoverEntityUrl: (...args: [string]) => recoverEntityUrlMock(...args),
+  recoverEntityUrl: (...args: Parameters<typeof recoverEntityUrlMock>) =>
+    recoverEntityUrlMock(...args),
 }));
-vi.stubGlobal('recoverEntityUrl', (...args: [string]) =>
-  recoverEntityUrlMock(...args),
-);
+vi.stubGlobal('recoverEntityUrl', recoverEntityUrlMock);
 
-const mockCanAccess = vi.fn(() => true);
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
@@ -75,20 +74,55 @@ const mockProduct = ref<Record<string, unknown> | null>(null);
 const mockStatus = ref('success');
 const mockError = ref<Error | null>(null);
 
-const mockUseFetch = vi.fn(() => ({
-  data: mockProduct,
-  error: mockError,
-  status: mockStatus,
-  pending: ref(false),
-  refresh: vi.fn(),
-  execute: vi.fn(),
-}));
+// CMS areas keyed by the areaName the tenant config names for the PDP slot.
+// The mock took no arguments and answered every URL with the product, so the
+// CMS fetch got the product back and no area could ever render.
+const mockCmsAreas = new Map<string, { containers: unknown[] }>();
+
+type AreaQuery = { areaName?: string };
+
+function resolveAreaQuery(
+  options?: Record<string, unknown>,
+): AreaQuery | undefined {
+  const raw = options?.query;
+  if (raw != null && typeof raw === 'object' && 'value' in raw) {
+    return (raw as { value: AreaQuery }).value;
+  }
+  return raw as AreaQuery | undefined;
+}
+
+const mockUseFetch = vi.fn(
+  (urlOrFn?: unknown, options?: Record<string, unknown>) => {
+    const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
+    if (typeof url === 'string' && url.includes('/api/cms/area')) {
+      const areaName = resolveAreaQuery(options)?.areaName;
+      return {
+        data: ref(
+          areaName !== undefined ? (mockCmsAreas.get(areaName) ?? null) : null,
+        ),
+        error: ref(null),
+        status: ref('success'),
+        pending: ref(false),
+        refresh: vi.fn(),
+        execute: vi.fn(),
+      };
+    }
+    return {
+      data: mockProduct,
+      error: mockError,
+      status: mockStatus,
+      pending: ref(false),
+      refresh: vi.fn(),
+      execute: vi.fn(),
+    };
+  },
+);
 
 vi.mock('#app/composables/fetch', () => ({
-  useFetch: (...args: unknown[]) => mockUseFetch(...args),
+  useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
 }));
 
-vi.stubGlobal('useFetch', (...args: unknown[]) => mockUseFetch(...args));
+vi.stubGlobal('useFetch', mockUseFetch);
 
 // useLocaleAlternates auto-imports useRouter/useRoute from #app/composables/router
 // (not the global stub) and registers an afterEach hook on the client; without an
@@ -115,7 +149,8 @@ vi.mock('#app/composables/router', () => ({
     afterEach: vi.fn(),
   }),
   useRoute: () => pdpRoute,
-  navigateTo: (...args: unknown[]) => navigateToMock(...args),
+  navigateTo: (...args: Parameters<typeof navigateToMock>) =>
+    navigateToMock(...args),
 }));
 
 // useState (used by useLocaleAlternates) needs a live Nuxt instance the
@@ -277,6 +312,125 @@ describe('ProductDetails', () => {
     mockCanAccess.mockReturnValue(true);
     navigateToMock.mockClear();
     recoverEntityUrlMock.mockClear();
+    mockCmsAreas.clear();
+  });
+
+  /**
+   * The PDP resolves `CMS_SLOTS.PRODUCT_DETAIL` against the tenant config and
+   * fetches the area that slot names. The spec mounted the component but never
+   * configured the key, so no area rendered either way.
+   *
+   * `useCmsSlot` stays unmocked and the fetch stub answers on the areaName the
+   * config produced, so pointing the slot elsewhere turns the first case red.
+   */
+  describe('cms zone on the product detail page', () => {
+    const PDP_AREA = 'PDP Extra';
+
+    const cmsStubs = {
+      ...defaultStubs,
+      CmsWidgetArea: {
+        template: '<div class="cms-area" />',
+        props: ['containers'],
+      },
+    };
+
+    const originalCms = useTenant().tenant.value?.cms;
+
+    function configurePdpSlot(areaName: string) {
+      const { tenant } = useTenant();
+      const current = tenant.value;
+      assert.isDefined(current);
+      tenant.value = {
+        ...current,
+        cms: { slots: { product_detail: { family: 'Product', areaName } } },
+      };
+    }
+
+    afterEach(() => {
+      // The setup fixture is shared across this file, so put `cms` back rather
+      // than leaving later tests to run on whatever the last case configured.
+      const { tenant } = useTenant();
+      const current = tenant.value;
+      assert.isDefined(current);
+      tenant.value = { ...current, cms: originalCms };
+    });
+
+    it('renders the pdp zone for the area product_detail names', async () => {
+      mockProduct.value = makeProduct();
+      configurePdpSlot(PDP_AREA);
+      mockCmsAreas.set(PDP_AREA, { containers: [{ id: 'pdp' }] });
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: cmsStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-cms-area"]').exists()).toBe(true);
+    });
+
+    it('renders no pdp zone when product_detail names another area', async () => {
+      mockProduct.value = makeProduct();
+      configurePdpSlot('Somewhere Else');
+      mockCmsAreas.set(PDP_AREA, { containers: [{ id: 'pdp' }] });
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: cmsStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-cms-area"]').exists()).toBe(false);
+    });
+  });
+
+  describe('purchase actions per mode and access', () => {
+    // canPurchase is `canAccess('orderPlacement') && !isCatalogMode`. Each half
+    // is asserted alone, so neither can start carrying the other.
+    afterEach(() => {
+      mockIsCatalogMode.value = false;
+    });
+
+    it('renders the add-to-cart action in commerce mode with orderPlacement access', async () => {
+      mockProduct.value = makeProduct();
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('hides the add-to-cart action when mode is catalog', async () => {
+      mockIsCatalogMode.value = true;
+      mockProduct.value = makeProduct();
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('hides the add-to-cart action when orderPlacement access is denied', async () => {
+      mockCanAccess.mockImplementation(
+        (name: string) => name !== 'orderPlacement',
+      );
+      mockProduct.value = makeProduct();
+
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
+
+      expect(wrapper.find('[data-testid="pdp-actions"]').exists()).toBe(false);
+    });
   });
 
   describe('content-miss recovery (Problem B)', () => {

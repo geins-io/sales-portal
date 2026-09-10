@@ -48,11 +48,37 @@ vi.stubGlobal('defineNitroPlugin', (fn: (nitroApp: unknown) => void) => {
 // ---------------------------------------------------------------------------
 const mockResolveTenant = vi.fn();
 const mockResolvePreviewTenant = vi.fn();
+// Why the lookup returned null; `resolveTenantOutcome` reports it beside the config.
+let mockOutcome = 'unknown-tenant';
 
 vi.mock('../../../server/utils/tenant', () => ({
-  resolveTenant: (...args: unknown[]) => mockResolveTenant(...args),
+  resolveTenantOutcome: async (...args: unknown[]) => {
+    const config = await mockResolveTenant(...args);
+    return { config, outcome: config ? 'resolved' : mockOutcome };
+  },
   resolvePreviewTenant: (...args: unknown[]) =>
     mockResolvePreviewTenant(...args),
+}));
+
+// `lookupHostname` runs for real, so these tests cover the wiring rather than
+// a stubbed rewrite. `isDevMode` is still mocked because other branches of the
+// plugin read it.
+const mockIsDevMode = vi.fn(() => false);
+
+vi.mock('../../../server/utils/dev-mode', () => ({
+  isDevMode: mockIsDevMode,
+}));
+
+const mockBuildErrorResponse = vi.fn((_event: unknown, input: unknown) => ({
+  statusCode: (input as { statusCode: number }).statusCode,
+  statusMessage: 'mocked',
+  headers: { 'content-type': 'text/html; charset=utf-8' },
+  body: '<!doctype html>mocked',
+}));
+
+vi.mock('../../../server/error', () => ({
+  buildErrorResponse: (...args: unknown[]) =>
+    mockBuildErrorResponse(args[0], args[1]),
 }));
 
 vi.mock('#shared/constants/storage', () => ({
@@ -118,8 +144,14 @@ function createEvent(
 // Tests
 // ---------------------------------------------------------------------------
 
+interface RenderContext {
+  event: MockEvent;
+  response?: unknown;
+}
+
 describe('server/plugins/02.tenant-context', () => {
   let handler: (event: MockEvent) => Promise<unknown>;
+  let renderBefore: (ctx: RenderContext) => unknown;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -131,6 +163,7 @@ describe('server/plugins/02.tenant-context', () => {
     mockGetTenantCookie.mockReturnValue(undefined);
     // Default: no preview query
     mockGetQuery.mockReturnValue({});
+    mockOutcome = 'unknown-tenant';
 
     const mod = await import('../../../server/plugins/02.tenant-context');
     const hooks = mod.default as unknown as Record<
@@ -138,6 +171,158 @@ describe('server/plugins/02.tenant-context', () => {
       (event: unknown) => Promise<unknown>
     >;
     handler = hooks.request as (event: MockEvent) => Promise<unknown>;
+    renderBefore = hooks['render:before'] as unknown as (
+      ctx: RenderContext,
+    ) => unknown;
+  });
+
+  // A throw inside the Nitro `request` hook is captured, not answered; the
+  // request would go on into the renderer and fail there as a 500. The plugin
+  // therefore records the refusal and answers it in `render:before`.
+  describe('refuses requests that have no tenant', () => {
+    it('does not throw for an unregistered hostname; records a 404 refusal', async () => {
+      mockResolveTenant.mockResolvedValue(null);
+      const event = createEvent('/se/sv/', {});
+
+      await expect(handler(event)).resolves.toBeUndefined();
+
+      expect(mockCreateError).not.toHaveBeenCalled();
+      expect(event.context.tenantRefusal).toMatchObject({
+        statusCode: 404,
+        statusMessage: 'Not Found',
+        isTenantNotProvisioned: true,
+      });
+      expect(
+        (event.context.tenantRefusal as { message: string }).message,
+      ).toContain('This site is not available');
+      expect(
+        (event.context.tenant as { tenantId?: string }).tenantId,
+      ).toBeUndefined();
+      expect(mockSetTenantCookie).not.toHaveBeenCalled();
+    });
+
+    it('answers the refusal in render:before without rendering', async () => {
+      mockResolveTenant.mockResolvedValue(null);
+      const event = createEvent('/se/sv/', {});
+      await handler(event);
+
+      const ctx: RenderContext = { event };
+      renderBefore(ctx);
+
+      expect(mockBuildErrorResponse).toHaveBeenCalledWith(
+        event,
+        event.context.tenantRefusal,
+      );
+      expect(ctx.response).toMatchObject({ statusCode: 404 });
+    });
+
+    it('records a 503 refusal when the merchant API could not be reached', async () => {
+      mockResolveTenant.mockResolvedValue(null);
+      mockOutcome = 'transport-failure';
+      const event = createEvent('/se/sv/', {});
+
+      await expect(handler(event)).resolves.toBeUndefined();
+
+      expect(event.context.tenantRefusal).toMatchObject({
+        statusCode: 503,
+        statusMessage: 'Service Unavailable',
+      });
+      expect(
+        (event.context.tenantRefusal as { isTenantNotProvisioned?: boolean })
+          .isTenantNotProvisioned,
+      ).toBeUndefined();
+      expect((event.context.tenant as { resolution?: string }).resolution).toBe(
+        'transport-failure',
+      );
+    });
+
+    it('leaves the outcome on the context for /api/ requests without a tenant', async () => {
+      mockResolveTenant.mockResolvedValue(null);
+      mockOutcome = 'transport-failure';
+      const event = createEvent('/api/config', {});
+
+      await handler(event);
+
+      expect(event.context.tenantRefusal).toBeUndefined();
+      expect(event.context.tenant).toMatchObject({
+        hostname: 'test.localhost',
+        resolution: 'transport-failure',
+      });
+    });
+
+    it('records a 400 refusal when the host header is missing', async () => {
+      mockGetRequestHost.mockReturnValue('');
+      const event = createEvent('/se/sv/', {});
+
+      await expect(handler(event)).resolves.toBeUndefined();
+
+      expect(event.context.tenantRefusal).toMatchObject({
+        statusCode: 400,
+        message: 'Missing host header',
+      });
+      expect(mockResolveTenant).not.toHaveBeenCalled();
+    });
+
+    it('leaves render:before alone when the tenant resolved', async () => {
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+      await handler(event);
+
+      const ctx: RenderContext = { event };
+      renderBefore(ctx);
+
+      expect(event.context.tenantRefusal).toBeUndefined();
+      expect(ctx.response).toBeUndefined();
+      expect(mockBuildErrorResponse).not.toHaveBeenCalled();
+    });
+
+    it('does not refuse /api/ requests; their handlers own the missing tenant', async () => {
+      mockResolveTenant.mockResolvedValue(null);
+      const event = createEvent('/api/config', {});
+
+      await handler(event);
+
+      expect(event.context.tenantRefusal).toBeUndefined();
+    });
+  });
+
+  // Server-internal fetches reach this hook as their own requests. The lookup
+  // must run for the hostname they carry (internalFetch forwards it), and not
+  // at all for routes that cannot carry one.
+  describe('internal requests', () => {
+    it('looks up /api/ requests by the hostname they carry', async () => {
+      mockGetRequestHost.mockReturnValue('tenant-x.example');
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/api/auth/me', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledTimes(1);
+      expect(mockResolveTenant.mock.calls[0]?.[0]).toBe('tenant-x.example');
+      expect(mockGetRequestHost).toHaveBeenCalledWith(event, {
+        xForwardedHost: false,
+      });
+    });
+
+    it('does no tenant lookup for the i18n message route', async () => {
+      const event = createEvent('/_i18n/abc123/sv/messages.json', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).not.toHaveBeenCalled();
+      expect(mockResolvePreviewTenant).not.toHaveBeenCalled();
+      expect(event.context.tenantRefusal).toBeUndefined();
+      expect(event.context.tenant).toEqual({ hostname: 'test.localhost' });
+    });
+
+    it('does no tenant lookup for build assets', async () => {
+      for (const path of ['/_nuxt/entry.js', '/__nuxt_error']) {
+        const event = createEvent(path, {});
+        await handler(event);
+        expect(mockResolveTenant).not.toHaveBeenCalled();
+        expect(event.context.tenantRefusal).toBeUndefined();
+      }
+    });
   });
 
   // Validation moved to server/middleware/00.locale-market.ts, which is the
@@ -301,6 +486,152 @@ describe('server/plugins/02.tenant-context', () => {
 
       expect(mockResolveTenant).toHaveBeenCalledWith('test.localhost', event);
       expect(mockResolvePreviewTenant).not.toHaveBeenCalled();
+    });
+  });
+
+  // The hostname rewrite (`server/utils/lookup-hostname.ts`). What matters
+  // here is the split: the lookup gets the `.litium.store` name, the context
+  // keeps the `.litium.test` one the browser asked for — cookies, redirects,
+  // the tenant logger and the 404 body all read the context field.
+  describe('hostname rewrite', () => {
+    beforeEach(() => {
+      mockGetRequestHost.mockReturnValue('example.litium.test');
+    });
+
+    it('looks a page request up by the .litium.store name, keeping the asked-for host on the context', async () => {
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith(
+        'example.litium.store',
+        event,
+      );
+      expect((event.context.tenant as { hostname: string }).hostname).toBe(
+        'example.litium.test',
+      );
+    });
+
+    it('rewrites the /api/ branch the same way', async () => {
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/api/products', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith(
+        'example.litium.store',
+        event,
+      );
+      expect((event.context.tenant as { hostname: string }).hostname).toBe(
+        'example.litium.test',
+      );
+    });
+
+    it('rewrites with dev mode off too — the production build is what CI tests', async () => {
+      mockIsDevMode.mockReturnValue(false);
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith(
+        'example.litium.store',
+        event,
+      );
+    });
+  });
+
+  // The point of these: a loopback host is answered without any lookup at
+  // all, so nothing is fetched or cached for a name that means this machine.
+  describe('development setup page on a loopback host', () => {
+    beforeEach(() => {
+      mockIsDevMode.mockReturnValue(true);
+    });
+
+    it.each(['localhost', '127.0.0.1:3000', '[::1]:3000'])(
+      'refuses %s with the setup page and looks nothing up',
+      async (host) => {
+        mockGetRequestHost.mockReturnValue(host);
+        const event = createEvent('/se/sv/', {});
+
+        await handler(event);
+
+        expect(event.context.tenantRefusal).toMatchObject({
+          statusCode: 404,
+          isDevSetup: true,
+        });
+        expect(mockResolveTenant).not.toHaveBeenCalled();
+        expect(mockResolvePreviewTenant).not.toHaveBeenCalled();
+        expect(mockGetTenantCookie).not.toHaveBeenCalled();
+        expect(mockSetTenantCookie).not.toHaveBeenCalled();
+      },
+    );
+
+    // `[::1]:3000` above is the case that fails if the check is ever moved
+    // after `normalizeHostname`, which would hand it '['. The hostname left on
+    // the context is still the normalized one, as everywhere else.
+    it('keeps the normalized hostname on the context', async () => {
+      mockGetRequestHost.mockReturnValue('localhost:3000');
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect((event.context.tenant as { hostname: string }).hostname).toBe(
+        'localhost',
+      );
+    });
+
+    it('leaves a tenant hostname alone', async () => {
+      mockGetRequestHost.mockReturnValue('example.litium.test');
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith(
+        'example.litium.store',
+        event,
+      );
+      expect(event.context.tenantRefusal).toBeUndefined();
+    });
+
+    // The match is on the whole hostname: a name under `.localhost` is an
+    // ordinary tenant hostname, and the rest of this file uses one.
+    it('leaves test.localhost alone', async () => {
+      mockGetRequestHost.mockReturnValue('test.localhost');
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith('test.localhost', event);
+      expect(event.context.tenantRefusal).toBeUndefined();
+    });
+
+    it('has no branch in a production build', async () => {
+      mockIsDevMode.mockReturnValue(false);
+      mockGetRequestHost.mockReturnValue('localhost');
+      mockResolveTenant.mockResolvedValue(makeTenant());
+      const event = createEvent('/se/sv/', {});
+
+      await handler(event);
+
+      expect(mockResolveTenant).toHaveBeenCalledWith('localhost', event);
+      expect(event.context.tenantRefusal).toBeUndefined();
+    });
+
+    // The container health check probes `http://localhost:3000/api/health`.
+    // It returns on the health skip, before the hostname is read at all.
+    it('does not reach the page for /api/health', async () => {
+      mockGetRequestHost.mockReturnValue('localhost');
+      const event = createEvent('/api/health', {});
+
+      await handler(event);
+
+      expect(event.context.tenantRefusal).toBeUndefined();
+      expect(mockResolveTenant).not.toHaveBeenCalled();
+      expect((event.context.tenant as { hostname: string }).hostname).toBe('');
     });
   });
 

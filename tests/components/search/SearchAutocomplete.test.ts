@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, assert } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import SearchAutocomplete from '../../../app/components/search/SearchAutocomplete.vue';
+import { makeListProduct } from '../../fixtures/product';
+import type { ListProduct } from '#shared/types/commerce';
 
-function makeProduct(overrides: Record<string, unknown> = {}) {
-  return {
-    productId: 1,
+function makeProduct(overrides: Partial<ListProduct> = {}): ListProduct {
+  return makeListProduct({
     name: 'Test Product',
     alias: 'test-product',
     canonicalUrl: '/p/test-product',
@@ -20,12 +21,12 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
       discountPercentage: 25,
       currency: { code: 'SEK' },
     },
-    productImages: [{ fileName: 'test.jpg', tags: [] }],
-    totalStock: { totalStock: 10, inStock: 10, static: 0 },
-    skus: [],
-    discountCampaigns: [],
+    productImages: [
+      { fileName: 'test.jpg', url: '/i/test.jpg', isPrimary: true },
+    ],
+    totalStock: { totalStock: 10, inStock: 10, oversellable: 0, static: 0 },
     ...overrides,
-  };
+  });
 }
 
 const stubs = {
@@ -204,9 +205,11 @@ describe('SearchAutocomplete', () => {
       global: { stubs },
     });
 
-    const items = wrapper.findAll('[role="option"]');
-    expect(items[0].attributes('aria-selected')).toBeUndefined();
-    expect(items[1].attributes('aria-selected')).toBe('true');
+    const [firstItem, secondItem] = wrapper.findAll('[role="option"]');
+    assert.isDefined(firstItem);
+    assert.isDefined(secondItem);
+    expect(firstItem.attributes('aria-selected')).toBeUndefined();
+    expect(secondItem.attributes('aria-selected')).toBe('true');
   });
 
   it('items have id attributes for aria-activedescendant', () => {
@@ -224,8 +227,8 @@ describe('SearchAutocomplete', () => {
     });
 
     const items = wrapper.findAll('[role="option"]');
-    expect(items[0].attributes('id')).toBe('search-result-0');
-    expect(items[1].attributes('id')).toBe('search-result-1');
+    expect(items[0]?.attributes('id')).toBe('search-result-0');
+    expect(items[1]?.attributes('id')).toBe('search-result-1');
   });
 
   it('no item has aria-selected when activeIndex is -1', () => {
@@ -239,7 +242,8 @@ describe('SearchAutocomplete', () => {
       global: { stubs },
     });
 
-    const items = wrapper.findAll('[role="option"]');
-    expect(items[0].attributes('aria-selected')).toBeUndefined();
+    const [firstItem] = wrapper.findAll('[role="option"]');
+    assert.isDefined(firstItem);
+    expect(firstItem.attributes('aria-selected')).toBeUndefined();
   });
 });

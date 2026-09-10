@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { defineComponent, h, Suspense, type VNode } from 'vue';
+import {
+  defineComponent,
+  h,
+  Suspense,
+  type VNode,
+  type FunctionalComponent,
+} from 'vue';
 import { mount, flushPromises } from '@vue/test-utils';
 import AddressBlock from '../../../app/components/shared/AddressBlock.vue';
 import type { QuoteAddress } from '../../../shared/types/quote';
@@ -23,7 +29,7 @@ const defaultStubs = {
 
 async function mountBlock(props: {
   label: string;
-  icon?: string;
+  icon?: FunctionalComponent;
   address: QuoteAddress;
 }) {
   const Wrapper = defineComponent({
@@ -31,7 +37,7 @@ async function mountBlock(props: {
     setup() {
       return () =>
         h(Suspense, null, {
-          default: () => h(AddressBlock, props as never),
+          default: () => h(AddressBlock, props),
           fallback: () => h('div', { 'data-testid': 'suspense-fallback' }),
         });
     },

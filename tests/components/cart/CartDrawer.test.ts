@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { shallowMountComponent } from '../../utils/component';
 import CartDrawer from '../../../app/components/cart/CartDrawer.vue';
 import type { CartType } from '../../../shared/types/commerce';
 import { useCartStore } from '../../../app/stores/cart';
 import { createPinia, setActivePinia } from 'pinia';
-import { mockShowIncVat } from '../../setup-components';
+import { mockShowIncVat, mockIsCatalogMode } from '../../setup-components';
 
-const mockCanAccess = vi.fn(() => true);
+const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
 }));
@@ -18,6 +18,55 @@ describe('CartDrawer', () => {
     mockCanAccess.mockReset();
     mockCanAccess.mockReturnValue(true);
     mockShowIncVat.value = true;
+  });
+
+  describe('catalog mode', () => {
+    // The two halves of showDrawer are independent: either one alone must keep
+    // the purchase funnel off the screen.
+    const sheetStubs = {
+      Sheet: {
+        template: '<div data-testid="cart-sheet"><slot /></div>',
+        props: ['open'],
+      },
+      SheetContent: { template: '<div><slot /></div>' },
+      SheetHeader: { template: '<div><slot /></div>' },
+      SheetTitle: { template: '<div><slot /></div>' },
+      SheetDescription: { template: '<div><slot /></div>' },
+      SheetFooter: { template: '<div><slot /></div>' },
+      CartItem: true,
+      CartPromoCodeInput: true,
+    };
+
+    afterEach(() => {
+      mockIsCatalogMode.value = false;
+    });
+
+    it('does not render the drawer when mode is catalog', () => {
+      const store = useCartStore();
+      store.isOpen = true;
+      mockIsCatalogMode.value = true;
+
+      const wrapper = shallowMountComponent(CartDrawer, {
+        global: { stubs: sheetStubs },
+      });
+
+      expect(wrapper.find('[data-testid="cart-sheet"]').exists()).toBe(false);
+    });
+
+    it('renders the drawer when mode is commerce and orderPlacement access is granted', () => {
+      const store = useCartStore();
+      store.isOpen = true;
+      mockIsCatalogMode.value = false;
+      mockCanAccess.mockImplementation(
+        (name: string) => name === 'orderPlacement',
+      );
+
+      const wrapper = shallowMountComponent(CartDrawer, {
+        global: { stubs: sheetStubs },
+      });
+
+      expect(wrapper.find('[data-testid="cart-sheet"]').exists()).toBe(true);
+    });
   });
 
   it('does not render the drawer when orderPlacement access is denied', () => {

@@ -7,9 +7,29 @@ import { defaultMountOptions } from '../../utils/component';
 // ---------------------------------------------------------------------------
 // Nuxt auto-import stubs
 // ---------------------------------------------------------------------------
+// Hoisted so the same spy instance backs the global stub, the module mock and
+// the assertions — the page reaches each of these through a different import.
+const { mockNavigateTo, mockSafeLocationRedirect, mockFetch } = vi.hoisted(
+  () => ({
+    mockNavigateTo: vi.fn<typeof navigateTo>(() => Promise.resolve()),
+    mockSafeLocationRedirect: vi.fn<(url: string) => void>(),
+    mockFetch: vi.fn(),
+  }),
+);
+
 vi.stubGlobal('definePageMeta', vi.fn());
-vi.stubGlobal('navigateTo', vi.fn().mockResolvedValue(undefined));
-vi.stubGlobal('safeLocationRedirect', vi.fn());
+vi.stubGlobal('navigateTo', mockNavigateTo);
+vi.stubGlobal('safeLocationRedirect', mockSafeLocationRedirect);
+vi.stubGlobal('$fetch', mockFetch);
+
+// safeLocationRedirect is auto-imported from app/utils, so the global stub
+// alone does not intercept it.
+vi.mock('../../../app/utils/client-helpers', () => ({
+  safeLocationRedirect: (url: string) => mockSafeLocationRedirect(url),
+  safeConfirm: vi.fn(() => true),
+  safeScrollTo: vi.fn(),
+  safeHistoryBack: vi.fn(),
+}));
 vi.stubGlobal(
   'formatPrice',
   vi.fn(() => ''),
@@ -28,7 +48,8 @@ vi.mock('#app/composables/once', () => ({
 vi.mock('#app/composables/router', () => ({
   useRoute: () => ({ params: {}, query: {}, path: '/se/en/checkout' }),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  navigateTo: vi.fn().mockResolvedValue(undefined),
+  navigateTo: (...args: Parameters<typeof mockNavigateTo>) =>
+    mockNavigateTo(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -74,11 +95,16 @@ vi.stubGlobal(
 // ---------------------------------------------------------------------------
 // Override useTenant for checkout mode — provides checkoutMode needed by page
 // ---------------------------------------------------------------------------
+// Both fields the page branches on are refs the tests drive; the page reads
+// them during setup, so each test sets them before mounting.
+const mockCheckoutMode = ref<'custom' | 'hosted'>('custom');
+const mockIsCatalogMode = ref(false);
+
 vi.mock('../../../app/composables/useTenant', () => ({
   useTenant: () => ({
     tenant: ref({ locale: 'en' }),
-    checkoutMode: ref('custom'),
-    isCatalogMode: computed(() => false),
+    checkoutMode: mockCheckoutMode,
+    isCatalogMode: computed(() => mockIsCatalogMode.value),
     hasFeature: vi.fn(() => true),
     suspense: vi.fn().mockResolvedValue(undefined),
     tenantId: computed(() => 'test-tenant'),
@@ -132,12 +158,56 @@ vi.mock('../../../app/stores/checkout', () => ({
     selectedPaymentId: null,
     selectedShippingId: null,
     checkout: null,
-    placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
+    placeOrder: (...args: Parameters<typeof mockPlaceOrder>) =>
+      mockPlaceOrder(...args),
     toggleConsent: vi.fn(),
-    fetchCheckout: mockFetchCheckout,
+    fetchCheckout: (...args: Parameters<typeof mockFetchCheckout>) =>
+      mockFetchCheckout(...args),
     prefillFromCompany: vi.fn(),
   })),
 }));
+
+type CheckoutStore = ReturnType<
+  typeof import('../../../app/stores/checkout').useCheckoutStore
+>;
+
+/**
+ * A checkout-store stand-in for `mockReturnValueOnce`. A Pinia `Store` also
+ * carries `$state`/`$patch`/`$subscribe`, which none of these tests touch, so
+ * the one widening that needs lives here rather than at each call site. The
+ * fields a test varies go through `Partial<CheckoutStore>` and are checked.
+ */
+function checkoutStoreStub(overrides: Partial<CheckoutStore>): CheckoutStore {
+  return {
+    isLoading: false,
+    isPlacingOrder: false,
+    isBlacklisted: false,
+    canPlaceOrder: true,
+    error: null,
+    orderResult: null,
+    quoteResult: null,
+    email: '',
+    identityNumber: '',
+    customerOrderNumber: '',
+    goodsLabel: '',
+    desiredDeliveryDate: '',
+    billingAddress: {},
+    billingAddressId: null,
+    shippingAddress: {},
+    useSeparateShipping: false,
+    message: '',
+    paymentOptions: [],
+    shippingOptions: [],
+    consents: [],
+    acceptedConsents: [],
+    selectedPaymentId: null,
+    selectedShippingId: null,
+    checkout: null,
+    toggleConsent: vi.fn(),
+    prefillFromCompany: vi.fn(),
+    ...overrides,
+  } as unknown as CheckoutStore;
+}
 
 vi.mock('../../../app/stores/cart', () => ({
   useCartStore: vi.fn(() => ({
@@ -290,6 +360,91 @@ describe('checkout page', () => {
     mockCompanyData.value = null;
     mockAuthStore.isAuthenticated = false;
     mockAuthStore.user = null;
+    mockCheckoutMode.value = 'custom';
+    mockIsCatalogMode.value = false;
+    mockNavigateTo.mockClear();
+    mockSafeLocationRedirect.mockClear();
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue({
+      token: 'tok-123',
+      checkoutUrl: 'https://checkout.geins.services/tok-123',
+    });
+  });
+
+  describe('catalog mode', () => {
+    // Only the redirect is asserted, not the absence of the page: navigateTo is
+    // a resolving spy here, so setup runs on past it and the template still
+    // renders. Asserting it away would be asserting the mock.
+    it('redirects to the start page when mode is catalog', async () => {
+      mockIsCatalogMode.value = true;
+
+      await mountCheckoutPage();
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/se/en/', {
+        replace: true,
+      });
+    });
+
+    it('renders the checkout and does not redirect in commerce mode', async () => {
+      const wrapper = await mountCheckoutPage();
+
+      expect(mockNavigateTo).not.toHaveBeenCalledWith('/se/en/', {
+        replace: true,
+      });
+      expect(wrapper.find('[data-testid="checkout-page"]').exists()).toBe(true);
+    });
+  });
+
+  describe('checkout mode', () => {
+    // In hosted mode the checkout is not ours to render: the page trades the
+    // cart id for a token during setup and hands the buyer to Geins.
+    it('posts the cart id and redirects to the hosted checkout when checkoutMode is hosted', async () => {
+      mockCheckoutMode.value = 'hosted';
+
+      const wrapper = await mountCheckoutPage();
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/checkout/token', {
+        method: 'POST',
+        body: { cartId: 'cart-test-001' },
+      });
+      expect(mockSafeLocationRedirect).toHaveBeenCalledWith(
+        'https://checkout.geins.services/tok-123',
+      );
+      expect(wrapper.find('[data-testid="checkout-hosted"]').exists()).toBe(
+        true,
+      );
+      expect(
+        wrapper.find('[data-testid="checkout-redirecting"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="checkout-address-form"]').exists(),
+      ).toBe(false);
+    });
+
+    it('shows the redirect error when the token call fails', async () => {
+      mockCheckoutMode.value = 'hosted';
+      mockFetch.mockRejectedValue(new Error('token service down'));
+
+      const wrapper = await mountCheckoutPage();
+
+      expect(mockSafeLocationRedirect).not.toHaveBeenCalled();
+      expect(
+        wrapper.find('[data-testid="checkout-redirect-error"]').exists(),
+      ).toBe(true);
+    });
+
+    it('renders the in-app form and requests no token when checkoutMode is custom', async () => {
+      const wrapper = await mountCheckoutPage();
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockSafeLocationRedirect).not.toHaveBeenCalled();
+      expect(wrapper.find('[data-testid="checkout-hosted"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="checkout-address-form"]').exists(),
+      ).toBe(true);
+    });
   });
 
   it('renders checkout page container', async () => {
@@ -321,36 +476,36 @@ describe('checkout page', () => {
     // with an empty customerOrderNumber. The PO number is optional, so with terms
     // auto-accepted the order places successfully.
     const { useCheckoutStore } = await import('../../../app/stores/checkout');
-    vi.mocked(useCheckoutStore).mockReturnValueOnce({
-      isLoading: false,
-      isPlacingOrder: false,
-      isBlacklisted: false,
-      canPlaceOrder: true,
-      error: null,
-      orderResult: null,
-      quoteResult: null,
-      email: 'buyer@company.com',
-      identityNumber: '',
-      customerOrderNumber: '',
-      goodsLabel: '',
-      desiredDeliveryDate: '',
-      billingAddress: {},
-      billingAddressId: 'addr-b2b-1',
-      shippingAddress: {},
-      useSeparateShipping: false,
-      message: '',
-      paymentOptions: [],
-      shippingOptions: [],
-      consents: [],
-      acceptedConsents: [],
-      selectedPaymentId: 1,
-      selectedShippingId: 1,
-      checkout: null,
-      placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
-      toggleConsent: vi.fn(),
-      fetchCheckout: mockFetchCheckout,
-      prefillFromCompany: vi.fn(),
-    } as ReturnType<typeof useCheckoutStore>);
+    vi.mocked(useCheckoutStore).mockReturnValueOnce(
+      checkoutStoreStub({
+        isLoading: false,
+        isPlacingOrder: false,
+        isBlacklisted: false,
+        canPlaceOrder: true,
+        error: null,
+        orderResult: null,
+        quoteResult: null,
+        email: 'buyer@company.com',
+        identityNumber: '',
+        customerOrderNumber: '',
+        goodsLabel: '',
+        desiredDeliveryDate: '',
+        billingAddressId: 'addr-b2b-1',
+        useSeparateShipping: false,
+        message: '',
+        paymentOptions: [],
+        shippingOptions: [],
+        consents: [],
+        acceptedConsents: [],
+        selectedPaymentId: 1,
+        selectedShippingId: 1,
+        checkout: null,
+        placeOrder: mockPlaceOrder,
+        toggleConsent: vi.fn(),
+        fetchCheckout: mockFetchCheckout,
+        prefillFromCompany: vi.fn(),
+      }),
+    );
 
     mockAuthStore.isAuthenticated = true;
     mockAuthStore.user = { username: 'buyer@company.com' };
@@ -374,36 +529,36 @@ describe('checkout page', () => {
     // B2B happy path: billingAddressId is set, customerOrderNumber is non-empty,
     // and terms are accepted. All gates pass and placeOrder is called.
     const { useCheckoutStore } = await import('../../../app/stores/checkout');
-    vi.mocked(useCheckoutStore).mockReturnValueOnce({
-      isLoading: false,
-      isPlacingOrder: false,
-      isBlacklisted: false,
-      canPlaceOrder: true,
-      error: null,
-      orderResult: null,
-      quoteResult: null,
-      email: 'buyer@company.com',
-      identityNumber: '',
-      customerOrderNumber: 'PO-B2B-001',
-      goodsLabel: '',
-      desiredDeliveryDate: '',
-      billingAddress: {},
-      billingAddressId: 'addr-b2b-1',
-      shippingAddress: {},
-      useSeparateShipping: false,
-      message: '',
-      paymentOptions: [],
-      shippingOptions: [],
-      consents: [],
-      acceptedConsents: [],
-      selectedPaymentId: 1,
-      selectedShippingId: 1,
-      checkout: null,
-      placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
-      toggleConsent: vi.fn(),
-      fetchCheckout: mockFetchCheckout,
-      prefillFromCompany: vi.fn(),
-    } as ReturnType<typeof useCheckoutStore>);
+    vi.mocked(useCheckoutStore).mockReturnValueOnce(
+      checkoutStoreStub({
+        isLoading: false,
+        isPlacingOrder: false,
+        isBlacklisted: false,
+        canPlaceOrder: true,
+        error: null,
+        orderResult: null,
+        quoteResult: null,
+        email: 'buyer@company.com',
+        identityNumber: '',
+        customerOrderNumber: 'PO-B2B-001',
+        goodsLabel: '',
+        desiredDeliveryDate: '',
+        billingAddressId: 'addr-b2b-1',
+        useSeparateShipping: false,
+        message: '',
+        paymentOptions: [],
+        shippingOptions: [],
+        consents: [],
+        acceptedConsents: [],
+        selectedPaymentId: 1,
+        selectedShippingId: 1,
+        checkout: null,
+        placeOrder: mockPlaceOrder,
+        toggleConsent: vi.fn(),
+        fetchCheckout: mockFetchCheckout,
+        prefillFromCompany: vi.fn(),
+      }),
+    );
 
     mockAuthStore.isAuthenticated = true;
     mockAuthStore.user = { username: 'buyer@company.com' };
@@ -428,35 +583,35 @@ describe('checkout page', () => {
     // false. The PO gate must NOT fire — placeOrder should be called when
     // canPlaceOrder is true and terms are accepted.
     const { useCheckoutStore } = await import('../../../app/stores/checkout');
-    vi.mocked(useCheckoutStore).mockReturnValueOnce({
-      isLoading: false,
-      isPlacingOrder: false,
-      isBlacklisted: false,
-      canPlaceOrder: true,
-      error: null,
-      orderResult: null,
-      quoteResult: null,
-      email: 'consumer@example.com',
-      identityNumber: '',
-      customerOrderNumber: '',
-      goodsLabel: '',
-      desiredDeliveryDate: '',
-      billingAddress: {},
-      shippingAddress: {},
-      useSeparateShipping: false,
-      message: '',
-      paymentOptions: [],
-      shippingOptions: [],
-      consents: [],
-      acceptedConsents: [],
-      selectedPaymentId: 1,
-      selectedShippingId: 1,
-      checkout: null,
-      placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
-      toggleConsent: vi.fn(),
-      fetchCheckout: mockFetchCheckout,
-      prefillFromCompany: vi.fn(),
-    } as ReturnType<typeof useCheckoutStore>);
+    vi.mocked(useCheckoutStore).mockReturnValueOnce(
+      checkoutStoreStub({
+        isLoading: false,
+        isPlacingOrder: false,
+        isBlacklisted: false,
+        canPlaceOrder: true,
+        error: null,
+        orderResult: null,
+        quoteResult: null,
+        email: 'consumer@example.com',
+        identityNumber: '',
+        customerOrderNumber: '',
+        goodsLabel: '',
+        desiredDeliveryDate: '',
+        useSeparateShipping: false,
+        message: '',
+        paymentOptions: [],
+        shippingOptions: [],
+        consents: [],
+        acceptedConsents: [],
+        selectedPaymentId: 1,
+        selectedShippingId: 1,
+        checkout: null,
+        placeOrder: mockPlaceOrder,
+        toggleConsent: vi.fn(),
+        fetchCheckout: mockFetchCheckout,
+        prefillFromCompany: vi.fn(),
+      }),
+    );
 
     const wrapper = await mountCheckoutPage();
 
@@ -471,35 +626,35 @@ describe('checkout page', () => {
     // the store mock provides a non-empty customerOrderNumber, so all gates
     // pass and placeOrder is called.
     const { useCheckoutStore } = await import('../../../app/stores/checkout');
-    vi.mocked(useCheckoutStore).mockReturnValueOnce({
-      isLoading: false,
-      isPlacingOrder: false,
-      isBlacklisted: false,
-      canPlaceOrder: true,
-      error: null,
-      orderResult: null,
-      quoteResult: null,
-      email: 'buyer@example.com',
-      identityNumber: '',
-      customerOrderNumber: 'PO-TEST',
-      goodsLabel: '',
-      desiredDeliveryDate: '',
-      billingAddress: {},
-      shippingAddress: {},
-      useSeparateShipping: false,
-      message: '',
-      paymentOptions: [],
-      shippingOptions: [],
-      consents: [],
-      acceptedConsents: [],
-      selectedPaymentId: 1,
-      selectedShippingId: 1,
-      checkout: null,
-      placeOrder: (...args: unknown[]) => mockPlaceOrder(...args),
-      toggleConsent: vi.fn(),
-      fetchCheckout: mockFetchCheckout,
-      prefillFromCompany: vi.fn(),
-    } as ReturnType<typeof useCheckoutStore>);
+    vi.mocked(useCheckoutStore).mockReturnValueOnce(
+      checkoutStoreStub({
+        isLoading: false,
+        isPlacingOrder: false,
+        isBlacklisted: false,
+        canPlaceOrder: true,
+        error: null,
+        orderResult: null,
+        quoteResult: null,
+        email: 'buyer@example.com',
+        identityNumber: '',
+        customerOrderNumber: 'PO-TEST',
+        goodsLabel: '',
+        desiredDeliveryDate: '',
+        useSeparateShipping: false,
+        message: '',
+        paymentOptions: [],
+        shippingOptions: [],
+        consents: [],
+        acceptedConsents: [],
+        selectedPaymentId: 1,
+        selectedShippingId: 1,
+        checkout: null,
+        placeOrder: mockPlaceOrder,
+        toggleConsent: vi.fn(),
+        fetchCheckout: mockFetchCheckout,
+        prefillFromCompany: vi.fn(),
+      }),
+    );
 
     const wrapper = await mountCheckoutPage();
 

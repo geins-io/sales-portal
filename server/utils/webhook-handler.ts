@@ -177,11 +177,6 @@ export async function processConfigRefresh(
   // Remove config under tenantId key
   await kvStorage.removeItem(configKey);
 
-  // Also remove legacy config under hostname key if different
-  if (tid !== hostname) {
-    await kvStorage.removeItem(tenantConfigKey(hostname));
-  }
-
   // 13. Invalidate in-memory caches (SDK instances + negative tenant cache)
   clearSdkCache(tid);
   clearNegativeCache(hostname);

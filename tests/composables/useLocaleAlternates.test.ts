@@ -86,7 +86,7 @@ function entry(over: Partial<LocaleAlternateUrl>): LocaleAlternateUrl {
 // ---------------------------------------------------------------------------
 
 describe('normalizeAlternatePath', () => {
-  it('injects /p/ into a prefix-less product path (tenant-a shape)', () => {
+  it('injects /p/ into a prefix-less product path (alternates without the /p/ prefix)', () => {
     expect(
       normalizeAlternatePath(
         '/se/en/materials/branch-pipes/manifold-150-150-88',
@@ -101,7 +101,7 @@ describe('normalizeAlternatePath', () => {
     );
   });
 
-  it('leaves an already-prefixed path unchanged (tinatest shape, no /p/p/)', () => {
+  it('leaves an already-prefixed path unchanged (alternates that already carry /p/)', () => {
     expect(
       normalizeAlternatePath('/se/en/p/category-1/cutting-edge', 'p'),
     ).toBe('/se/en/p/category-1/cutting-edge');

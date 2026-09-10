@@ -80,7 +80,7 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   ├── composables/
 │   │   ├── useTenant.ts        # Tenant data access
 │   │   ├── useErrorTracking.ts # Error tracking & reporting
-│   │   ├── useFeatureAccess.ts # Feature access control (auth + role gating)
+│   │   ├── useFeatureAccess.ts # Feature access control (auth gating)
 │   │   ├── useAnalyticsConsent.ts # Per-tenant analytics consent (GDPR)
 │   │   ├── useImpersonation.ts    # Admin impersonation state (spoofed-by cookie)
 │   │   ├── useCmsPreview.ts       # CMS preview mode toggle
@@ -262,7 +262,7 @@ The system identifies tenants based on the request hostname. Each tenant is mapp
 
 ```
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│ tenant-a.com    │      │ tenant-b.com    │      │ tenant-c.com    │
+│ alpha.example   │      │ beta.example    │      │ gamma.example   │
 └────────┬────────┘      └────────┬────────┘      └────────┬────────┘
          │                        │                        │
          └────────────────────────┼────────────────────────┘
@@ -313,10 +313,16 @@ phase, because `site-config:init` is fired from nuxt-site-config's own middlewar
 `00.locale-market.ts` is middleware deliberately — `sendRedirect` there lets `nuxt-security` apply
 route-rule headers before the redirect flushes, instead of throwing `ERR_HTTP_HEADERS_SENT`.
 
-`resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{tenantId}` → legacy key →
+`resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{tenantId}` →
 merchant API. Cache hits are re-checked against the config's own hostname list, self-healing stale
-aliases. Missing or inactive tenants do not resolve. **`NUXT_AUTO_CREATE_TENANT` inverts this** — the API step
-then never returns `null`, so every unknown hostname resolves to a fabricated tenant.
+aliases. Missing or inactive tenants do not resolve, in every environment: the tenant plugin answers
+404 without rendering, and 503 when the merchant API could not be reached at all (see
+`server/plugins/02.tenant-context.ts`). In development every lookup logs
+one `[tenant] resolve host=… kv=… api=… outcome=…` line, and the 404 page repeats it; the
+`outcome=` token separates `unknown-tenant` (the merchant API answered 404) from
+`transport-failure` (it could not be reached). Failed lookups log at warn; resolved ones at debug,
+which `nuxt dev` only prints with `CONSOLA_LEVEL=4` (the CLI wraps `console` in consola, whose
+default level drops `console.debug`). A production build emits neither.
 
 Two hostnames, easily confused:
 
@@ -335,8 +341,8 @@ The tenant context is available in all server handlers via `event.context.tenant
 // In any server route/middleware
 export default defineEventHandler((event) => {
   const { hostname, tenantId, config } = event.context.tenant;
-  // hostname: Request hostname (e.g., "tenant-a.localhost")
-  // tenantId: Resolved tenant ID (e.g., "tenant-a") — set for page routes, optional for API routes
+  // hostname: Request hostname (e.g., "example.litium.test")
+  // tenantId: Resolved tenant ID (e.g., "example") — set for page routes, optional for API routes
   // config: Full TenantConfig object (cached per-request, avoids redundant KV lookups)
 });
 ```
@@ -452,7 +458,7 @@ The CMS service wraps Geins SDK calls for menus, pages, and widget areas with:
 - **Language fallback**: Widget areas and menus retry without `languageId` when content doesn't exist for the user's locale. Pages do not fallback (different aliases per language).
 - **Preview mode**: Detects `preview_mode` cookie and passes `preview: true` to SDK. Falls through to published content if preview returns empty.
 - **Display setting**: Passes `mobile`/`desktop` to widget area queries based on `User-Agent` header.
-- **LRU caching**: Menu and area results cached with 60s TTL. Cache bypassed in preview mode and for authenticated users.
+- **LRU caching**: Menu and area results cached with 60s TTL. The cache is bypassed in preview mode; a signed-in caller gets its own cache key rather than no cache (ADR-014).
 
 ### Caching
 
@@ -482,12 +488,13 @@ See [`.env.example`](https://github.com/geins-io/sales-portal/blob/main/.env.exa
 
 | Variable                         | Description                                                | Default                                |
 | -------------------------------- | ---------------------------------------------------------- | -------------------------------------- |
-| `NUXT_AUTO_CREATE_TENANT`        | Auto-create tenants for unknown hostnames                  | `false`                                |
 | `NUXT_GEINS_API_ENDPOINT`        | Geins GraphQL endpoint                                     | `https://merchantapi.geins.io/graphql` |
 | `NUXT_GEINS_TENANT_API_URL`      | Geins Tenant API URL (server-only)                         | —                                      |
 | `NUXT_STORAGE_DRIVER`            | KV storage driver (`memory`/`fs`/`redis`)                  | `memory`                               |
 | `NUXT_STORAGE_REDIS_URL`         | Redis connection URL                                       | —                                      |
 | `NUXT_HEALTH_CHECK_SECRET`       | Secret for detailed `/api/health` metrics                  | —                                      |
+| `NUXT_HEALTH_RSS_DEGRADED_MB`    | RSS above this reports `degraded`                          | `400`                                  |
+| `NUXT_HEALTH_RSS_UNHEALTHY_MB`   | RSS above this reports `unhealthy` (503)                   | `900`                                  |
 | `NUXT_WEBHOOK_SECRET`            | Webhook signature verification secret                      | —                                      |
 | `NUXT_SENTRY_DSN`                | Sentry DSN (server-only)                                   | —                                      |
 | `LOG_LEVEL`                      | Logging verbosity (`debug`/`info`/`warn`/`error`/`silent`) | `info`                                 |
@@ -785,11 +792,12 @@ Configure via environment variables:
 
 A tenant exists when the merchant API returns settings for its hostname. Registration happens
 there, in the merchant admin — not in this repository, and not in a database this application
-owns. `resolveTenant()` looks the hostname up on demand and caches the result in KV.
+owns. `resolveTenant()` looks the hostname up on demand and caches the result in KV. The merchant
+API's store-settings endpoint is unauthenticated and answers per hostname (confirmed 2026-08-25 and
+2026-09-03): no key is sent, and the tenant's storefront API key arrives in the response.
 
-Locally, `NUXT_AUTO_CREATE_TENANT` fabricates a tenant for any unregistered hostname, and the dev
-seed writes three fixtures at startup. Both are development conveniences; see
-[Multi-Tenant Architecture](guide/multi-tenant.md#local-development) for which applies when.
+The same rule holds locally: only a hostname the merchant API knows renders, and an unknown one
+answers 404; see [Multi-Tenant Architecture](guide/multi-tenant.md#local-development).
 
 ### Creating Components
 
@@ -885,7 +893,7 @@ The `useAnalyticsConsent()` composable stores consent per-tenant in localStorage
 The feature access system provides two levels of checks across client and server:
 
 - **`hasFeature(name)`** — simple "is it enabled?" (checks `.enabled` only). Use in templates for UI visibility.
-- **`canAccess(name)` / `canAccessFeatureServer()`** — full evaluation (`.enabled` + `.access` rules: auth, role, group). Use when authorization matters.
+- **`canAccess(name)` / `canAccessFeatureServer()`** — full evaluation (`.enabled` + `.access` rules: auth). Use when authorization matters.
 
 ### Architecture
 
@@ -898,14 +906,13 @@ app/middleware/feature.ts         → Route guard using canAccess()
 
 ### Access Rules
 
-| Rule                     | Behavior                                   |
-| ------------------------ | ------------------------------------------ |
-| `'all'`                  | Everyone                                   |
-| `'authenticated'`        | Logged-in users only                       |
-| `{ role: 'wholesale' }`  | Matches `user.customerType` from Geins     |
-| `{ group: 'staff' }`     | Not yet available in Geins API (safe deny) |
-| `{ accountType: 'ent' }` | Not yet available in Geins API (safe deny) |
-| _(no access field)_      | Defaults to `'all'`                        |
+| Rule                | Behavior             |
+| ------------------- | -------------------- |
+| `'all'`             | Everyone             |
+| `'authenticated'`   | Logged-in users only |
+| _(no access field)_ | Defaults to `'all'`  |
+
+`{ group }`, `{ accountType }`, `{ permission }` and `{ role }` are retired: the app cannot evaluate them, so `FeatureAccess` no longer represents them. `FeatureAccessSchema` still accepts them so a stored config stays valid, and `normalizeFeatureAccess` (`server/utils/tenant.ts`) rewrites a feature carrying one to `{ enabled: false }` with a warn log. Every object rule is retired now, so the check is fail-closed: a new one is denied until `isEvaluableAccess` is widened for it.
 
 See [Patterns: Feature Access Control](patterns/README.md#feature-access-control) for implementation examples.
 

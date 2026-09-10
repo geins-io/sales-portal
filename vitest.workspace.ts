@@ -13,6 +13,7 @@ const nuxtTestFiles = [
   'tests/components/layout/LayoutHeaderMain.test.ts',
   'tests/components/layout/MobileNavPanel.test.ts',
   'tests/server/api-contracts.test.ts',
+  'tests/server/health-memory.test.ts',
   'tests/server/external-api.test.ts',
   'tests/middleware/locale-market-global.test.ts',
 ];

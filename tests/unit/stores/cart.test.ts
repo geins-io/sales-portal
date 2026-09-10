@@ -8,17 +8,13 @@ vi.mock('#app/composables/cookie', () => ({
   useCookie: vi.fn(() => mockCartIdRef),
 }));
 
-// Mock $fetch
+// Mock $fetch, and route the SSR-aware internalFetch helper to the same mock
+// so the store's calls can be asserted on one spy.
 const mockFetch = vi.fn();
 vi.stubGlobal('$fetch', mockFetch);
-
-// useRequestHeaders is only invoked from the SSR branch of fetchCart.
-// import.meta.server is bundle-time replaced and not runtime-mockable in the
-// node test env, so the SSR path is verified by live SSR curl during dev.
-vi.stubGlobal(
-  'useRequestHeaders',
-  vi.fn(() => ({})),
-);
+vi.mock('~/utils/internal-fetch', () => ({
+  internalFetch: (...args: unknown[]) => mockFetch(...args),
+}));
 
 // Must import after mocks are set up
 const { useCartStore } = await import('../../../app/stores/cart');

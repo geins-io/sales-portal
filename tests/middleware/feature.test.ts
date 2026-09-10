@@ -1,19 +1,45 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref, computed } from 'vue';
-import { canAccessFeature } from '../../shared/utils/feature-access';
-import type { PublicTenantConfig } from '#shared/types/tenant-config';
+import type {
+  PublicTenantConfig,
+  FeatureAccess,
+} from '#shared/types/tenant-config';
 import type { RouteLocationNormalized } from 'vue-router';
 
-// Create mock tenant data
+// Exercises the REAL middleware module, and with it the real
+// `useFeatureAccess` composable and the real `canAccessFeature` evaluator:
+// only `useTenant`, the auth store, the cookies and `navigateTo` are mocked.
+// A config fixture therefore reaches the redirect decision through the code
+// the app runs, which is what lets the coverage map hang `drives: 'field'`
+// references on this file.
+//
+// The cost is deliberate: real code from two modules runs here, so a red test
+// does not name one of them on its own. Both keep their own isolating specs
+// (tests/composables/useFeatureAccess.test.ts, tests/shared/feature-access.test.ts),
+// so red here with those two green points at the middleware.
+import featureMiddleware from '../../app/middleware/feature';
+
 const mockTenantData = ref<PublicTenantConfig | null>(null);
 
-// Mock auth state
-let mockAuth: {
-  isAuthenticated: boolean;
-  user: { customerType?: string } | null;
+/**
+ * One shared mutable object, and it has to be exactly one: the middleware
+ * awaits `fetchUser()` and the composable reads `isAuthenticated` off its own
+ * `useAuthStore()` call a line later. Two objects would hide the flip, and the
+ * readiness guard could not be asserted at all.
+ *
+ * Being shared, it leaks between tests unless every field is reset in
+ * `beforeEach` — see below.
+ */
+const mockAuthStore = {
+  isInitialized: true,
+  isAuthenticated: false,
+  fetchUser: vi.fn(),
 };
 
-// Track suspense calls
+let mockMarketCookie: string | null = null;
+let mockLocaleCookie: string | null = null;
+
+// Held open so a test can assert the middleware waits before deciding.
 let suspenseResolve: () => void;
 let suspensePromise: Promise<void>;
 
@@ -23,53 +49,60 @@ const resetSuspensePromise = () => {
   });
 };
 
-// Initialize suspense promise
 resetSuspensePromise();
 
-// Create mock useTenant function (new features shape: Record<string, { enabled, access? }>)
+// `features` is required, not optional decoration: the real composable
+// destructures it off `useTenant()`.
 const mockUseTenant = vi.fn(() => ({
   tenant: computed(() => mockTenantData.value),
   features: computed(() => mockTenantData.value?.features),
   suspense: () => suspensePromise,
 }));
 
-// Create mock useFeatureAccess
-const mockUseFeatureAccess = vi.fn(() => ({
-  canAccess: (featureName: string) => {
-    const feature = mockTenantData.value?.features?.[featureName];
-    return canAccessFeature(feature, {
-      authenticated: mockAuth.isAuthenticated,
-      customerType: mockAuth.user?.customerType,
-    });
-  },
-}));
-
-// Mock navigateTo
-const mockNavigateTo = vi.fn((path: string) => {
-  return { path };
-});
-
-// Mock the Nuxt auto-imports at module level
-vi.mock('#app', () => ({
-  navigateTo: (path: string) => mockNavigateTo(path),
-}));
-
-vi.mock('#imports', () => ({
-  navigateTo: (path: string) => mockNavigateTo(path),
-  useTenant: () => mockUseTenant(),
-  useFeatureAccess: () => mockUseFeatureAccess(),
-}));
-
-// Mock the composables modules
-vi.mock('../../app/composables/useTenant', () => ({
+vi.mock('~/composables/useTenant', () => ({
   useTenant: () => mockUseTenant(),
 }));
 
-vi.mock('../../app/composables/useFeatureAccess', () => ({
-  useFeatureAccess: () => mockUseFeatureAccess(),
+// `~/composables/useFeatureAccess` is deliberately NOT mocked.
+
+vi.mock('~/stores/auth', () => ({
+  useAuthStore: () => mockAuthStore,
 }));
 
-// Create mock tenant config for tests
+vi.mock('~/utils/logger', () => ({
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
+const mockNavigateTo = vi.fn(
+  (path: string, options?: Record<string, unknown>) => ({ path, options }),
+);
+
+vi.mock('#app/composables/router', () => ({
+  navigateTo: (path: string, options?: Record<string, unknown>) =>
+    mockNavigateTo(path, options),
+  defineNuxtRouteMiddleware: (fn: (to: RouteLocationNormalized) => unknown) =>
+    fn,
+}));
+
+vi.mock('#app/composables/cookie', () => ({
+  useCookie: (name: string) => ({
+    value:
+      name === 'market'
+        ? mockMarketCookie
+        : name === 'locale'
+          ? mockLocaleCookie
+          : null,
+  }),
+}));
+
+/**
+ * Where the middleware sends a denied visitor under this file's defaults: no
+ * cookies, an unprefixed route path and no locale or market in the config, so
+ * `resolveLocalePrefix` reaches its 'se'/'sv' last resort. The prefix block
+ * below drives the earlier sources.
+ */
+const HOME = '/se/sv/';
+
 function createMockTenantConfig(
   overrides: Partial<PublicTenantConfig> = {},
 ): PublicTenantConfig {
@@ -96,11 +129,13 @@ function createMockTenantConfig(
       watermark: 'full',
       logoUrl: 'https://example.com/logo.svg',
     },
+    // The five keys the pages actually declare, all open by default.
     features: {
-      search: { enabled: true },
-      authentication: { enabled: true },
-      cart: { enabled: false },
+      orderPlacement: { enabled: true },
+      lists: { enabled: true },
       wishlist: { enabled: true },
+      quotes: { enabled: true },
+      orderHistory: { enabled: true },
     },
     css: '',
     isActive: true,
@@ -112,9 +147,8 @@ function createMockTenantConfig(
   return Object.assign(base, overrides);
 }
 
-// Helper to create mock route
-function createMockRoute(
-  meta: Record<string, unknown> = {},
+function createRoute(
+  overrides: Partial<RouteLocationNormalized> = {},
 ): RouteLocationNormalized {
   return {
     path: '/test',
@@ -125,47 +159,65 @@ function createMockRoute(
     fullPath: '/test',
     matched: [],
     redirectedFrom: undefined,
-    meta,
+    meta: {},
+    ...overrides,
   };
 }
 
+/** A route declaring `feature` in its meta, or none when called with nothing. */
+const routeFor = (feature?: string): RouteLocationNormalized =>
+  createRoute({ meta: feature === undefined ? {} : { feature } });
+
+// The middleware is typed as Nuxt's RouteMiddleware, which takes (to, from).
+// Only `to` is read, so `from` mirrors it.
+const run = (to: RouteLocationNormalized) => featureMiddleware(to, to);
+
+type FeatureRule = { enabled: boolean; access?: FeatureAccess };
+
+/**
+ * The two shapes every case in the key block takes. A helper rather than 25
+ * copies of the same four lines; the assertions are still the test's own.
+ */
+async function expectAllowed(
+  key: string,
+  rule: FeatureRule,
+  signedIn = false,
+): Promise<void> {
+  mockTenantData.value = createMockTenantConfig({ features: { [key]: rule } });
+  mockAuthStore.isAuthenticated = signedIn;
+
+  const result = await run(routeFor(key));
+
+  expect(result).toBeUndefined();
+  expect(mockNavigateTo).not.toHaveBeenCalled();
+}
+
+async function expectRedirected(
+  key: string,
+  rule: FeatureRule,
+  signedIn = false,
+): Promise<void> {
+  mockTenantData.value = createMockTenantConfig({ features: { [key]: rule } });
+  mockAuthStore.isAuthenticated = signedIn;
+
+  await run(routeFor(key));
+
+  expect(mockNavigateTo).toHaveBeenCalledWith(HOME, { replace: true });
+}
+
 describe('feature middleware', () => {
-  const createFeatureMiddleware = () => {
-    return async (to: RouteLocationNormalized) => {
-      const requiredFeature = to.meta.feature as string | undefined;
-
-      if (!requiredFeature) {
-        return;
-      }
-
-      const { tenant, suspense } = mockUseTenant();
-      const { canAccess } = mockUseFeatureAccess();
-
-      if (!tenant.value) {
-        await suspense();
-      }
-
-      if (!canAccess(requiredFeature)) {
-        return mockNavigateTo('/');
-      }
-    };
-  };
-
-  let featureMiddleware: ReturnType<typeof createFeatureMiddleware>;
-
   beforeEach(() => {
     mockTenantData.value = null;
-    mockAuth = { isAuthenticated: false, user: null };
+    // Every field of the shared store, every time. Anything left standing is a
+    // dependency on which test ran before this one.
+    mockAuthStore.isInitialized = true;
+    mockAuthStore.isAuthenticated = false;
+    mockAuthStore.fetchUser = vi.fn();
+    mockMarketCookie = null;
+    mockLocaleCookie = null;
     mockUseTenant.mockClear();
-    mockUseFeatureAccess.mockClear();
     mockNavigateTo.mockClear();
     resetSuspensePromise();
-
-    featureMiddleware = createFeatureMiddleware();
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
   });
 
   describe('when tenant data is already loaded', () => {
@@ -174,26 +226,24 @@ describe('feature middleware', () => {
     });
 
     it('should allow access when feature is enabled', async () => {
-      const route = createMockRoute({ feature: 'search' });
-
-      const result = await featureMiddleware(route);
+      const result = await run(routeFor('wishlist'));
 
       expect(result).toBeUndefined();
       expect(mockNavigateTo).not.toHaveBeenCalled();
     });
 
     it('should redirect when feature is disabled', async () => {
-      const route = createMockRoute({ feature: 'cart' });
+      mockTenantData.value = createMockTenantConfig({
+        features: { orderPlacement: { enabled: false } },
+      });
 
-      await featureMiddleware(route);
+      await run(routeFor('orderPlacement'));
 
-      expect(mockNavigateTo).toHaveBeenCalledWith('/');
+      expect(mockNavigateTo).toHaveBeenCalledWith(HOME, { replace: true });
     });
 
     it('should allow access when no feature is required', async () => {
-      const route = createMockRoute();
-
-      const result = await featureMiddleware(route);
+      const result = await run(routeFor());
 
       expect(result).toBeUndefined();
       expect(mockNavigateTo).not.toHaveBeenCalled();
@@ -201,11 +251,9 @@ describe('feature middleware', () => {
     });
 
     it('should redirect when feature does not exist in config', async () => {
-      const route = createMockRoute({ feature: 'nonexistent' });
+      await run(routeFor('nonexistent'));
 
-      await featureMiddleware(route);
-
-      expect(mockNavigateTo).toHaveBeenCalledWith('/');
+      expect(mockNavigateTo).toHaveBeenCalledWith(HOME, { replace: true });
     });
   });
 
@@ -213,9 +261,7 @@ describe('feature middleware', () => {
     it('should wait for tenant data before checking feature', async () => {
       mockTenantData.value = null;
 
-      const route = createMockRoute({ feature: 'search' });
-
-      const middlewarePromise = featureMiddleware(route);
+      const middlewarePromise = run(routeFor('wishlist'));
 
       expect(mockNavigateTo).not.toHaveBeenCalled();
 
@@ -231,26 +277,22 @@ describe('feature middleware', () => {
     it('should redirect after loading if feature is disabled', async () => {
       mockTenantData.value = null;
 
-      const route = createMockRoute({ feature: 'cart' });
-
-      const middlewarePromise = featureMiddleware(route);
+      const middlewarePromise = run(routeFor('orderPlacement'));
 
       mockTenantData.value = createMockTenantConfig({
-        features: { cart: { enabled: false } },
+        features: { orderPlacement: { enabled: false } },
       });
       suspenseResolve();
 
       await middlewarePromise;
 
-      expect(mockNavigateTo).toHaveBeenCalledWith('/');
+      expect(mockNavigateTo).toHaveBeenCalledWith(HOME, { replace: true });
     });
 
     it('should not wait if route has no feature requirement', async () => {
       mockTenantData.value = null;
 
-      const route = createMockRoute();
-
-      const result = await featureMiddleware(route);
+      const result = await run(routeFor());
 
       expect(result).toBeUndefined();
       expect(mockNavigateTo).not.toHaveBeenCalled();
@@ -262,61 +304,77 @@ describe('feature middleware', () => {
     it('should redirect when feature requires auth and user is anonymous', async () => {
       mockTenantData.value = createMockTenantConfig({
         features: {
-          cart: { enabled: true, access: 'authenticated' },
+          orderPlacement: { enabled: true, access: 'authenticated' },
         },
       });
-      const route = createMockRoute({ feature: 'cart' });
 
-      await featureMiddleware(route);
+      await run(routeFor('orderPlacement'));
 
-      expect(mockNavigateTo).toHaveBeenCalledWith('/');
+      expect(mockNavigateTo).toHaveBeenCalledWith(HOME, { replace: true });
     });
 
     it('should allow access when feature requires auth and user is logged in', async () => {
-      mockAuth = { isAuthenticated: true, user: {} };
+      mockAuthStore.isAuthenticated = true;
       mockTenantData.value = createMockTenantConfig({
         features: {
-          cart: { enabled: true, access: 'authenticated' },
+          orderPlacement: { enabled: true, access: 'authenticated' },
         },
       });
-      const route = createMockRoute({ feature: 'cart' });
 
-      const result = await featureMiddleware(route);
+      const result = await run(routeFor('orderPlacement'));
 
       expect(result).toBeUndefined();
       expect(mockNavigateTo).not.toHaveBeenCalled();
     });
+  });
 
-    it('should redirect when feature requires a role the user does not have', async () => {
-      mockAuth = { isAuthenticated: true, user: { customerType: 'retail' } };
+  /**
+   * The middleware resolves the auth store before deciding. An
+   * `access: 'authenticated'` rule reads that store, so an unresolved one
+   * makes a signed-in shopper look anonymous and redirects them off the page
+   * they are entitled to. Nothing exercised the guard before this file did.
+   */
+  describe('auth readiness', () => {
+    beforeEach(() => {
       mockTenantData.value = createMockTenantConfig({
-        features: {
-          quotes: { enabled: true, access: { role: 'wholesale' } },
-        },
+        features: { quotes: { enabled: true, access: 'authenticated' } },
       });
-      const route = createMockRoute({ feature: 'quotes' });
-
-      await featureMiddleware(route);
-
-      expect(mockNavigateTo).toHaveBeenCalledWith('/');
     });
 
-    it('should allow access when user has the required role', async () => {
-      mockAuth = {
-        isAuthenticated: true,
-        user: { customerType: 'wholesale' },
-      };
-      mockTenantData.value = createMockTenantConfig({
-        features: {
-          quotes: { enabled: true, access: { role: 'wholesale' } },
-        },
+    it('resolves the auth store before deciding when quotes requires authentication', async () => {
+      mockAuthStore.isInitialized = false;
+      mockAuthStore.fetchUser = vi.fn(async () => {
+        mockAuthStore.isAuthenticated = true;
+        mockAuthStore.isInitialized = true;
       });
-      const route = createMockRoute({ feature: 'quotes' });
 
-      const result = await featureMiddleware(route);
+      const result = await run(routeFor('quotes'));
 
+      expect(mockAuthStore.fetchUser).toHaveBeenCalled();
       expect(result).toBeUndefined();
       expect(mockNavigateTo).not.toHaveBeenCalled();
+    });
+
+    it('redirects when the resolved store is still anonymous', async () => {
+      mockAuthStore.isInitialized = false;
+      mockAuthStore.fetchUser = vi.fn(async () => {
+        mockAuthStore.isInitialized = true;
+      });
+
+      await run(routeFor('quotes'));
+
+      expect(mockAuthStore.fetchUser).toHaveBeenCalled();
+      expect(mockNavigateTo).toHaveBeenCalledWith(HOME, { replace: true });
+    });
+
+    it('does not refetch the user when the store is already initialised', async () => {
+      mockAuthStore.isInitialized = true;
+      mockAuthStore.isAuthenticated = true;
+
+      const result = await run(routeFor('quotes'));
+
+      expect(mockAuthStore.fetchUser).not.toHaveBeenCalled();
+      expect(result).toBeUndefined();
     });
   });
 
@@ -325,18 +383,16 @@ describe('feature middleware', () => {
       mockTenantData.value = createMockTenantConfig({
         features: undefined,
       } as Partial<PublicTenantConfig>);
-      const route = createMockRoute({ feature: 'search' });
 
-      await featureMiddleware(route);
+      await run(routeFor('wishlist'));
 
-      expect(mockNavigateTo).toHaveBeenCalledWith('/');
+      expect(mockNavigateTo).toHaveBeenCalledWith(HOME, { replace: true });
     });
 
     it('should handle empty feature meta', async () => {
       mockTenantData.value = createMockTenantConfig();
-      const route = createMockRoute({ feature: '' });
 
-      const result = await featureMiddleware(route);
+      const result = await run(routeFor(''));
 
       expect(result).toBeUndefined();
       expect(mockNavigateTo).not.toHaveBeenCalled();
@@ -345,57 +401,272 @@ describe('feature middleware', () => {
     it('should handle null tenant config after loading', async () => {
       mockTenantData.value = null;
 
-      const route = createMockRoute({ feature: 'search' });
-
-      const middlewarePromise = featureMiddleware(route);
+      const middlewarePromise = run(routeFor('wishlist'));
       suspenseResolve();
       await middlewarePromise;
 
-      expect(mockNavigateTo).toHaveBeenCalledWith('/');
+      expect(mockNavigateTo).toHaveBeenCalledWith(HOME, { replace: true });
     });
   });
 
-  describe('feature types', () => {
-    beforeEach(() => {
-      mockTenantData.value = createMockTenantConfig({
-        features: {
-          search: { enabled: true },
-          authentication: { enabled: true },
-          cart: { enabled: false },
-          wishlist: { enabled: true },
-        },
+  /**
+   * The five keys `definePageMeta` declares, each through the five states its
+   * config cell can be in. Titles name their key because the coverage map
+   * requires it, and they are written out rather than generated because
+   * map.test.ts matches a referenced title as a substring of this file.
+   */
+  describe('the feature keys the pages declare', () => {
+    describe('orderPlacement', () => {
+      it('allows orderPlacement when it is enabled with no access rule', async () => {
+        await expectAllowed('orderPlacement', { enabled: true });
+      });
+
+      it('redirects when orderPlacement is disabled', async () => {
+        await expectRedirected('orderPlacement', { enabled: false });
+      });
+
+      it('allows orderPlacement when access is open to all', async () => {
+        await expectAllowed('orderPlacement', { enabled: true, access: 'all' });
+      });
+
+      it('redirects when orderPlacement requires authentication and the user is anonymous', async () => {
+        await expectRedirected('orderPlacement', {
+          enabled: true,
+          access: 'authenticated',
+        });
+      });
+
+      it('allows orderPlacement when it requires authentication and the user is signed in', async () => {
+        await expectAllowed(
+          'orderPlacement',
+          { enabled: true, access: 'authenticated' },
+          true,
+        );
       });
     });
 
-    it('should check search feature correctly', async () => {
-      const route = createMockRoute({ feature: 'search' });
-      const result = await featureMiddleware(route);
+    describe('lists', () => {
+      it('allows lists when it is enabled with no access rule', async () => {
+        await expectAllowed('lists', { enabled: true });
+      });
+
+      it('redirects when lists is disabled', async () => {
+        await expectRedirected('lists', { enabled: false });
+      });
+
+      it('allows lists when access is open to all', async () => {
+        await expectAllowed('lists', { enabled: true, access: 'all' });
+      });
+
+      it('redirects when lists requires authentication and the user is anonymous', async () => {
+        await expectRedirected('lists', {
+          enabled: true,
+          access: 'authenticated',
+        });
+      });
+
+      it('allows lists when it requires authentication and the user is signed in', async () => {
+        await expectAllowed(
+          'lists',
+          { enabled: true, access: 'authenticated' },
+          true,
+        );
+      });
+    });
+
+    describe('wishlist', () => {
+      it('allows wishlist when it is enabled with no access rule', async () => {
+        await expectAllowed('wishlist', { enabled: true });
+      });
+
+      it('redirects when wishlist is disabled', async () => {
+        await expectRedirected('wishlist', { enabled: false });
+      });
+
+      it('allows wishlist when access is open to all', async () => {
+        await expectAllowed('wishlist', { enabled: true, access: 'all' });
+      });
+
+      it('redirects when wishlist requires authentication and the user is anonymous', async () => {
+        await expectRedirected('wishlist', {
+          enabled: true,
+          access: 'authenticated',
+        });
+      });
+
+      it('allows wishlist when it requires authentication and the user is signed in', async () => {
+        await expectAllowed(
+          'wishlist',
+          { enabled: true, access: 'authenticated' },
+          true,
+        );
+      });
+    });
+
+    describe('quotes', () => {
+      it('allows quotes when it is enabled with no access rule', async () => {
+        await expectAllowed('quotes', { enabled: true });
+      });
+
+      it('redirects when quotes is disabled', async () => {
+        await expectRedirected('quotes', { enabled: false });
+      });
+
+      it('allows quotes when access is open to all', async () => {
+        await expectAllowed('quotes', { enabled: true, access: 'all' });
+      });
+
+      it('redirects when quotes requires authentication and the user is anonymous', async () => {
+        await expectRedirected('quotes', {
+          enabled: true,
+          access: 'authenticated',
+        });
+      });
+
+      it('allows quotes when it requires authentication and the user is signed in', async () => {
+        await expectAllowed(
+          'quotes',
+          { enabled: true, access: 'authenticated' },
+          true,
+        );
+      });
+    });
+
+    describe('orderHistory', () => {
+      it('allows orderHistory when it is enabled with no access rule', async () => {
+        await expectAllowed('orderHistory', { enabled: true });
+      });
+
+      it('redirects when orderHistory is disabled', async () => {
+        await expectRedirected('orderHistory', { enabled: false });
+      });
+
+      it('allows orderHistory when access is open to all', async () => {
+        await expectAllowed('orderHistory', { enabled: true, access: 'all' });
+      });
+
+      it('redirects when orderHistory requires authentication and the user is anonymous', async () => {
+        await expectRedirected('orderHistory', {
+          enabled: true,
+          access: 'authenticated',
+        });
+      });
+
+      it('allows orderHistory when it requires authentication and the user is signed in', async () => {
+        await expectAllowed(
+          'orderHistory',
+          { enabled: true, access: 'authenticated' },
+          true,
+        );
+      });
+    });
+  });
+
+  /**
+   * Where a denied visitor is sent. Moved here from
+   * tests/middleware/feature-redirect-prefix.test.ts, which existed only
+   * because this file used to re-implement the middleware and hardcode '/'.
+   */
+  describe('redirect prefix', () => {
+    beforeEach(() => {
+      mockLocaleCookie = 'en';
+      mockMarketCookie = 'se';
+      mockTenantData.value = createMockTenantConfig({
+        features: { wishlist: { enabled: false } },
+      });
+    });
+
+    const favorites = (
+      overrides: Partial<RouteLocationNormalized> = {},
+    ): RouteLocationNormalized =>
+      createRoute({
+        path: '/portal/favorites',
+        name: 'favorites',
+        fullPath: '/portal/favorites',
+        meta: { feature: 'wishlist' },
+        ...overrides,
+      });
+
+    it('passes the route through when the feature is accessible', async () => {
+      mockTenantData.value = createMockTenantConfig();
+
+      const result = await run(favorites());
 
       expect(result).toBeUndefined();
       expect(mockNavigateTo).not.toHaveBeenCalled();
     });
 
-    it('should check authentication feature correctly', async () => {
-      const route = createMockRoute({ feature: 'authentication' });
-      const result = await featureMiddleware(route);
+    it('does nothing when the route declares no feature', async () => {
+      const result = await run(favorites({ meta: {} }));
 
       expect(result).toBeUndefined();
       expect(mockNavigateTo).not.toHaveBeenCalled();
     });
 
-    it('should check cart feature correctly', async () => {
-      const route = createMockRoute({ feature: 'cart' });
-      await featureMiddleware(route);
+    it('takes the locale from the URL, not the cookie, when they disagree', async () => {
+      mockLocaleCookie = 'sv';
 
-      expect(mockNavigateTo).toHaveBeenCalledWith('/');
+      await run(
+        favorites({
+          path: '/se/nb/portal/favorites',
+          fullPath: '/se/nb/portal/favorites',
+          params: { market: 'se', locale: 'nb' },
+        }),
+      );
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/se/nb/', { replace: true });
     });
 
-    it('should check wishlist feature correctly', async () => {
-      const route = createMockRoute({ feature: 'wishlist' });
-      const result = await featureMiddleware(route);
+    it('keeps the URL language on a cookieless deep link', async () => {
+      mockLocaleCookie = null;
+      mockMarketCookie = null;
 
-      expect(result).toBeUndefined();
-      expect(mockNavigateTo).not.toHaveBeenCalled();
+      await run(
+        favorites({
+          path: '/se/nb/portal/favorites',
+          fullPath: '/se/nb/portal/favorites',
+          params: { market: 'se', locale: 'nb' },
+        }),
+      );
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/se/nb/', { replace: true });
+    });
+
+    it('recovers the pair from the path when the route carries no params', async () => {
+      mockLocaleCookie = null;
+      mockMarketCookie = null;
+
+      await run(
+        favorites({
+          path: '/fi/da/portal/favorites',
+          fullPath: '/fi/da/portal/favorites',
+        }),
+      );
+
+      expect(mockNavigateTo).toHaveBeenCalledWith('/fi/da/', { replace: true });
+    });
+
+    it('falls back to cookies, then config, then the se/sv pair', async () => {
+      await run(favorites());
+      expect(mockNavigateTo).toHaveBeenCalledWith('/se/en/', { replace: true });
+
+      mockNavigateTo.mockClear();
+      mockLocaleCookie = null;
+      mockMarketCookie = null;
+      mockTenantData.value = createMockTenantConfig({
+        features: { wishlist: { enabled: false } },
+        locale: 'da-DK',
+        market: 'dk',
+      });
+      await run(favorites());
+      expect(mockNavigateTo).toHaveBeenCalledWith('/dk/da/', { replace: true });
+
+      mockNavigateTo.mockClear();
+      mockTenantData.value = createMockTenantConfig({
+        features: { wishlist: { enabled: false } },
+      });
+      await run(favorites());
+      expect(mockNavigateTo).toHaveBeenCalledWith('/se/sv/', { replace: true });
     });
   });
 });

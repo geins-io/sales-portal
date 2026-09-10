@@ -1,4 +1,7 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { e2eCredentials, hasE2ECredentials } from './target';
+
+export { e2eCredentials, hasE2ECredentials };
 
 /**
  * E2E Test Helpers
@@ -14,6 +17,65 @@ import { expect, type Page } from '@playwright/test';
  * market/locale prefixes (e.g. `/se/sv/material`) which must be stripped and
  * have the correct type prefix added before navigation.
  */
+
+// ---------- Declared scope ----------
+
+/**
+ * Every reason a test may legitimately not run, as a closed list. A skipped
+ * test that carries none of these is "unknown" and fails the run
+ * (tests/e2e/reporters/scope-reporter.ts). Adding a reason here is a reviewed
+ * change; a bare `test.skip()` / `test.fixme()` in a spec is a lint error.
+ *
+ * - `no-credentials`: E2E_USERNAME / E2E_PASSWORD not set.
+ * - `mobile-project`: the feature is desktop-only (hidden below `lg`).
+ * - `dev-server`: the assertion needs the production build (CSP header).
+ * - `fixture-missing`: the test account lacks the data (quotes, saved lists) —
+ *   data the platform cannot produce yet, not a tenant nobody seeded.
+ * - `tenant-config`: the tenant's configuration does not exercise this path
+ *   (single locale, no CMS apply page). The dangerous one — "passes on the
+ *   configured tenant" says nothing about other tenants. Deriving these from
+ *   `/api/config` as assertions is a later step; until then the reporter lists
+ *   every instance so they stay visible.
+ * - `remote-target`: `E2E_REMOTE=1` — the target is a deployed environment on
+ *   purpose, so preflight L0's locality check does not apply.
+ */
+export type ScopeReason =
+  | 'no-credentials'
+  | 'mobile-project'
+  | 'dev-server'
+  | 'fixture-missing'
+  | 'tenant-config'
+  | 'remote-target';
+
+/**
+ * Skip the current test — or, called at file/describe level, every test in
+ * the block — as declared out of scope. The only sanctioned way to skip in
+ * this suite. Playwright records it as a `skip` annotation whose description
+ * starts with the reason; the reporter keys on that prefix, so it works both
+ * inside a test and at describe level (where `test.info()` is unavailable).
+ */
+export function outOfScope(
+  condition: boolean,
+  reason: ScopeReason,
+  detail: string,
+): void {
+  test.skip(condition, `${reason}: ${detail}`);
+}
+
+/** Annotation type for a test that ran with part of its assertions off. */
+export const SCOPE_NOTE_ANNOTATION = 'scope';
+
+/**
+ * Same declaration for a test that still runs but with part of its
+ * assertions off (e.g. no CSP header on the dev server). Shows up in the
+ * run summary; does not skip.
+ */
+export function noteOutOfScope(reason: ScopeReason, detail: string): void {
+  test.info().annotations.push({
+    type: SCOPE_NOTE_ANNOTATION,
+    description: `${reason}: ${detail}`,
+  });
+}
 
 // ---------- Data Discovery ----------
 
@@ -167,19 +229,8 @@ export async function discoverCategory(
 
 // ---------- Authentication ----------
 
-/** Test-account credentials from .env (loaded by playwright.config.ts). */
-export const e2eCredentials = {
-  username: process.env.E2E_USERNAME ?? '',
-  password: process.env.E2E_PASSWORD ?? '',
-};
-
-/** Session persisted by auth.setup.ts. Opt in via `test.use`. */
+/** Session persisted by the preflight session layer. Opt in via `test.use`. */
 export const STORAGE_STATE = 'playwright/.auth/user.json';
-
-/** Auth-dependent specs skip when false. Mirrors `hasGeinsCredentials()`. */
-export function hasE2ECredentials(): boolean {
-  return !!(e2eCredentials.username && e2eCredentials.password);
-}
 
 /** Sign in. Asserts the response so a bad credential fails here, not later. */
 export async function login(
@@ -300,30 +351,6 @@ export async function addToCart(page: Page, productAlias: string) {
     `addToCart failed for "${productAlias}" after 3 attempts ` +
       `(touch=${hasTouch}):\n  ${failures.join('\n  ')}`,
   );
-}
-
-/**
- * Remove all items from the cart via the cart page.
- */
-export async function clearCart(page: Page) {
-  await page.goto('/cart');
-  await page.waitForLoadState('domcontentloaded');
-
-  // Remove items one by one
-  let removeButton = page.locator('[data-testid="cart-item-remove"]').first();
-  while (await removeButton.isVisible().catch(() => false)) {
-    await removeButton.click();
-    // Wait for the cart API response after removing the item
-    await page
-      .waitForResponse(
-        (resp) => resp.url().includes('/api/cart') && resp.status() !== 0,
-        { timeout: 5000 },
-      )
-      .catch(() => {
-        // Fallback: DOM may update without an API call in edge cases
-      });
-    removeButton = page.locator('[data-testid="cart-item-remove"]').first();
-  }
 }
 
 /**

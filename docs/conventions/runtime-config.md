@@ -86,9 +86,10 @@ See `nuxt.config.ts` for the full runtime config. Key values:
 
 **Server-only (private):**
 
-- `autoCreateTenant` - Auto-create active tenant when API is unavailable (for E2E/dev)
 - `externalApiBaseUrl` - External API URL
 - `healthCheckSecret` - Secret for detailed health metrics
+- `health.rssDegradedMb` / `health.rssUnhealthyMb` - RSS thresholds for
+  `/api/health` in MB, 400 and 900, sized for the production container
 - `geins.apiEndpoint` - Geins API endpoint
 - `geins.tenantApiUrl` - Tenant settings API
 - `storage.driver` - Storage driver (memory/redis)

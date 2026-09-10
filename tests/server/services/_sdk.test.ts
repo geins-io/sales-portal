@@ -273,8 +273,8 @@ describe('server/services/_sdk', () => {
         }),
       );
 
-      const sdk1 = await getTenantSDK(createEvent('tenant-a.com'));
-      const sdk2 = await getTenantSDK(createEvent('tenant-b.com'));
+      const sdk1 = await getTenantSDK(createEvent('alpha.example'));
+      const sdk2 = await getTenantSDK(createEvent('beta.example'));
 
       expect(sdk1).not.toBe(sdk2);
       expect(mockGeinsCore).toHaveBeenCalledTimes(2);

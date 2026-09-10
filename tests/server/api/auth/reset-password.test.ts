@@ -46,9 +46,7 @@ describe('POST /api/auth/reset-password', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (
-      globalThis.readValidatedBody as ReturnType<typeof vi.fn>
-    ).mockResolvedValue({
+    vi.mocked(readValidatedBody).mockResolvedValue({
       resetKey: 'key123',
       password: 'newpass88',
     });
