@@ -560,11 +560,19 @@ prerequisites are in [Running Tests → E2E Tests](#e2e-tests-1).
 Most historical E2E failures in this repo were not application bugs. They were these, so check
 them before concluding the app is broken:
 
-- **Ambiguous locators.** Playwright fails a locator matching more than one element, and reports
-  it as **"element(s) not found" / "not visible"** — not as a strict-mode error. Several
-  `data-testid`s legitimately appear twice: `search-input` (header + page), `cart-drawer`,
-  `[role="tabpanel"]` (Reka UI mounts one per tab). Scope to a container (`main`,
-  `[data-testid="mobile-search-panel"]`) rather than reaching for `.first()`.
+- **Ambiguous locators.** Playwright fails a locator matching more than one element, and the
+  usual cause is the responsive split below: a page renders a mobile shape _and_ a desktop
+  shape, both in the DOM, so a `data-testid` placed on each matches twice.
+  **The rule: one test id on a single wrapper around both branches, and scope anything inside
+  it to the visible branch** (`:visible`, or a container) rather than reaching for `.first()`.
+  `PortalOrdersTable.vue` is the shape to copy, with one correction — put the wrapper on the
+  non-empty branch, not around the empty state too, or its presence stops meaning "there is a
+  list". Row ids inside a `v-for` stay duplicated by design: both branches really do render N
+  rows, so a count must scope to what is visible. Ids that appear twice for unrelated reasons:
+  `search-input` (header + page), `cart-drawer`, `[role="tabpanel"]` (Reka UI mounts one per
+  tab). It does not always fail as a strict-mode error: `isVisible().catch(() => false)` turns
+  any locator error into a plain `false`, so an unexpected `false` there means suspect an
+  ambiguous locator before missing data.
 - **`role="dialog"` is not unique.** `CookieBanner.vue` carries it, so it collides with any sheet
   or filter panel. The consent state is pre-seeded in `playwright.config.ts` so the banner never
   renders — if you add another persistent dialog, expect the same class of collision.

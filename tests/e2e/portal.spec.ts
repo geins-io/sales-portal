@@ -65,6 +65,14 @@ test.describe('Portal Overview', () => {
       .isVisible()
       .catch(() => false);
     expect(hasQuotations || hasQuotationsEmpty).toBe(true);
+    if (hasQuotations) {
+      // The wrapper is on the non-empty branch, so its presence means rows.
+      // Count the visible ones — both responsive shapes render N rows each.
+      const rows = quotationsTable.locator(
+        '[data-testid="pending-quote-row"]:visible',
+      );
+      expect(await rows.count()).toBeGreaterThan(0);
+    }
 
     // Your lists section
     const listsTable = page.locator('[data-testid="your-lists-table"]');
@@ -72,6 +80,10 @@ test.describe('Portal Overview', () => {
     const hasLists = await listsTable.isVisible().catch(() => false);
     const hasListsEmpty = await listsEmpty.isVisible().catch(() => false);
     expect(hasLists || hasListsEmpty).toBe(true);
+    if (hasLists) {
+      const rows = listsTable.locator('[data-testid="your-list-row"]:visible');
+      expect(await rows.count()).toBeGreaterThan(0);
+    }
 
     // Purchased products section
     const productsGrid = page.locator(
@@ -274,14 +286,30 @@ test.describe('Portal Quotations', () => {
     const hasTable = await quotationsTable.isVisible().catch(() => false);
     const hasEmpty = await quotationsEmpty.isVisible().catch(() => false);
 
-    expect(hasTable || hasEmpty).toBe(true);
+    // Exactly one of the two: `quotations-table` wraps the non-empty branch,
+    // so it exists only when the list has rows. This states the invariant more
+    // plainly than `hasTable || hasEmpty`; it does not catch more, since
+    // `v-if` / `v-else` already makes both-true impossible. What the rows and
+    // headers below assert is the part the old test never had.
+    expect(hasTable).not.toBe(hasEmpty);
 
-    // If table is visible, verify rows have expected structure
     if (hasTable) {
-      const headerCells = quotationsTable.locator('thead th');
-      const count = await headerCells.count();
-      // Expected columns: Quote number, Created, Contact, Total, Status, (actions)
-      expect(count).toBeGreaterThanOrEqual(5);
+      // Both responsive shapes sit in the DOM at once and CSS decides which
+      // one shows, so count what is visible. `md` is 768px (Tailwind), the
+      // same breakpoint the page's `md:hidden` / `hidden md:block` use.
+      const isNarrow = (page.viewportSize()?.width ?? 1280) < 768;
+
+      const visibleRows = quotationsTable.locator(
+        '[data-testid="quotation-row"]:visible',
+      );
+      expect(await visibleRows.count()).toBeGreaterThan(0);
+
+      if (!isNarrow) {
+        const headerCells = quotationsTable.locator('thead th:visible');
+        const count = await headerCells.count();
+        // Expected columns: Quote number, Created, Contact, Total, Status, (actions)
+        expect(count).toBeGreaterThanOrEqual(5);
+      }
     }
   });
 
@@ -306,17 +334,19 @@ test.describe('Portal Quotations', () => {
       'test account has no quotes — platform quotations are not available yet',
     );
 
-    // Click the first view link (desktop table preferred, falls back to mobile card)
-    const viewLink = page
-      .locator('[data-testid="quotation-view-link"]')
+    // Desktop puts a view link in the row, mobile makes the whole card the
+    // link; both are anchors into the quote, so match on the destination
+    // rather than on a testid only the desktop one carries. Both shapes are in
+    // the DOM at once and CSS decides which one shows, hence `:visible` — the
+    // old `.count()` branch saw the hidden desktop link on Mobile Chrome and
+    // clicked something nothing renders.
+    const quoteLink = page
+      .locator(
+        '[data-testid="quotations-table"] a[href*="/portal/quotations/"]:visible',
+      )
       .first();
-    const quotationRow = page.locator('[data-testid="quotation-row"]').first();
-    const linkCount = await viewLink.count();
-    if (linkCount > 0) {
-      await viewLink.click();
-    } else {
-      await quotationRow.click();
-    }
+    await expect(quoteLink).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await quoteLink.click();
 
     // Wait for navigation to the locale-prefixed detail URL (uuid segment)
     await page.waitForURL(/\/se\/sv\/portal\/quotations\/[\w-]+/, {
@@ -332,14 +362,33 @@ test.describe('Portal Quotations', () => {
     await expect(page.locator('[data-testid="quote-title"]')).toBeVisible();
     await expect(page.locator('[data-testid="status-badge"]')).toBeVisible();
 
-    // Items table with at least one line item row
-    await expect(
-      page.locator('[data-testid="line-items-table"]'),
-    ).toBeVisible();
-    const lineItemCount = await page
-      .locator('[data-testid="line-item-row"]')
-      .count();
-    expect(lineItemCount).toBeGreaterThan(0);
+    // The line items render as a desktop table (`hidden lg:block`) or, below
+    // lg, inside a sheet behind a trigger — the same split the order detail
+    // page has. Assert the shape this project can actually see and count the
+    // rows in it; the desktop-only assertion could not pass on Mobile Chrome.
+    // `lg` is 1024px (Tailwind), the breakpoint the page itself branches on.
+    const isNarrow = (page.viewportSize()?.width ?? 1280) < 1024;
+    if (isNarrow) {
+      const rowsTrigger = page.locator('[data-testid="view-rows-trigger"]');
+      await expect(rowsTrigger).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await rowsTrigger.click();
+      const sheetRows = page.locator('[data-testid="item-rows-row"]');
+      await expect(sheetRows.first()).toBeVisible({ timeout: PAGE_TIMEOUT });
+      expect(await sheetRows.count()).toBeGreaterThan(0);
+      // Close it again: an open sheet covers the back link asserted below.
+      await page.keyboard.press('Escape');
+      await expect(page.locator('[data-testid="item-rows-sheet"]')).toBeHidden({
+        timeout: PAGE_TIMEOUT,
+      });
+    } else {
+      await expect(
+        page.locator('[data-testid="line-items-table"]'),
+      ).toBeVisible();
+      const lineItemCount = await page
+        .locator('[data-testid="line-item-row"]')
+        .count();
+      expect(lineItemCount).toBeGreaterThan(0);
+    }
 
     // Sidebar summary
     await expect(page.locator('[data-testid="quote-summary"]')).toBeVisible();
