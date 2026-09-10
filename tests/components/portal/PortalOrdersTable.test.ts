@@ -113,6 +113,24 @@ describe('PortalOrdersTable', () => {
     expect(wrapper.find('[data-testid="orders-empty"]').exists()).toBe(true);
   });
 
+  it('does not render the table wrapper when there are no orders', () => {
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: { orders: [] },
+    });
+    expect(wrapper.find('[data-testid="portal-orders-table"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it('renders the table wrapper when there are orders', () => {
+    const wrapper = mountComponent(PortalOrdersTable, {
+      props: { orders: mockOrders },
+    });
+    expect(wrapper.find('[data-testid="portal-orders-table"]').exists()).toBe(
+      true,
+    );
+  });
+
   it('shows view link for each order', () => {
     const wrapper = mountComponent(PortalOrdersTable, {
       props: { orders: mockOrders },

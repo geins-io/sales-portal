@@ -47,10 +47,16 @@ test.describe('Portal Overview', () => {
       .catch(() => false);
     // The heading text comes from i18n — accept either translated or the section existing
     if (!hasLatestOrders) {
-      // Fallback: check that portal-orders-table exists (rendered by PortalOrdersTable)
+      // Fallback: the section renders PortalOrdersTable, whose wrapper sits on
+      // the non-empty branch, so assert which of the two states rendered.
+      // `hasTable || hasLatestOrders` could not fail — the second operand is
+      // false by construction inside this branch, and the wrapper used to be
+      // present at every state.
       const ordersTable = page.locator('[data-testid="portal-orders-table"]');
+      const ordersEmpty = page.locator('[data-testid="orders-empty"]');
       const hasTable = await ordersTable.isVisible().catch(() => false);
-      expect(hasTable || hasLatestOrders).toBe(true);
+      const hasEmpty = await ordersEmpty.isVisible().catch(() => false);
+      expect(hasTable).not.toBe(hasEmpty);
     }
 
     // Pending quotations section
@@ -125,7 +131,11 @@ test.describe('Portal Orders', () => {
     const hasTable = await ordersTable.isVisible().catch(() => false);
     const hasEmpty = await ordersEmpty.isVisible().catch(() => false);
 
-    expect(hasTable || hasEmpty).toBe(true);
+    // Exactly one of the two: `portal-orders-table` wraps the non-empty
+    // branch, so it exists only when the list has rows. The or-form accepted
+    // either, and while the wrapper covered the empty state too it could not
+    // fail at all.
+    expect(hasTable).not.toBe(hasEmpty);
 
     // If table is visible, verify table headers exist
     if (hasTable) {

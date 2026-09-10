@@ -106,7 +106,7 @@ function handleSortCreated() {
 </script>
 
 <template>
-  <div data-testid="portal-orders-table">
+  <div>
     <!-- Empty state -->
     <div
       v-if="!orders.length"
@@ -116,7 +116,12 @@ function handleSortCreated() {
       {{ t('portal.overview.no_orders') }}
     </div>
 
-    <template v-else>
+    <!-- One handle for the list, wrapping both responsive shapes below. It
+         sits on the `v-else` rather than around the whole component so its
+         presence still means "the list has rows" — a wrapper that also
+         covered the empty state would match on an empty account and assert
+         nothing. -->
+    <div v-else data-testid="portal-orders-table">
       <!-- Mobile card view -->
       <div class="space-y-3 md:hidden">
         <NuxtLink
@@ -202,6 +207,6 @@ function handleSortCreated() {
           </tr>
         </tbody>
       </table>
-    </template>
+    </div>
   </div>
 </template>
