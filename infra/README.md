@@ -199,12 +199,11 @@ These secrets are shared across all environments:
 
 These secrets can be configured per GitHub Environment if needed:
 
-| Secret                 | Description                                 | How to Get Value             |
-| ---------------------- | ------------------------------------------- | ---------------------------- |
-| `GEINS_TENANT_API_KEY` | Geins Tenant API key (server-only)          | Geins admin portal           |
-| `REDIS_URL`            | Redis connection URL                        | From your Redis provider     |
-| `SENTRY_DSN`           | Sentry DSN for error tracking (server-only) | From Sentry project settings |
-| `SENTRY_AUTH_TOKEN`    | Sentry auth token for source maps           | From Sentry auth tokens page |
+| Secret              | Description                                 | How to Get Value             |
+| ------------------- | ------------------------------------------- | ---------------------------- |
+| `REDIS_URL`         | Redis connection URL                        | From your Redis provider     |
+| `SENTRY_DSN`        | Sentry DSN for error tracking (server-only) | From Sentry project settings |
+| `SENTRY_AUTH_TOKEN` | Sentry auth token for source maps           | From Sentry auth tokens page |
 
 **How to add an environment secret:**
 
@@ -417,11 +416,11 @@ pnpm infra:validate -- --env dev
 
 ### Quick Summary
 
-| Where                 | What to Set                                                                                                                                         |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **GitHub Secrets**    | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `GEINS_TENANT_API_KEY`, `REDIS_URL`, `SENTRY_DSN` (server-only), `SENTRY_AUTH_TOKEN` |
-| **GitHub Variables**  | `GEINS_API_ENDPOINT`, `GEINS_TENANT_API_URL`, `STORAGE_DRIVER`, `ENABLE_ANALYTICS`, `LOG_LEVEL`, `SENTRY_ORG`, `SENTRY_PROJECT`                     |
-| **Azure App Service** | ⚠️ Don't set manually - Bicep handles this automatically                                                                                            |
+| Where                 | What to Set                                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub Secrets**    | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `REDIS_URL`, `SENTRY_DSN` (server-only), `SENTRY_AUTH_TOKEN`     |
+| **GitHub Variables**  | `GEINS_API_ENDPOINT`, `GEINS_TENANT_API_URL`, `STORAGE_DRIVER`, `ENABLE_ANALYTICS`, `LOG_LEVEL`, `SENTRY_ORG`, `SENTRY_PROJECT` |
+| **Azure App Service** | ⚠️ Don't set manually - Bicep handles this automatically                                                                        |
 
 ### How It Works
 
@@ -435,10 +434,39 @@ GitHub Variable          →  Bicep Parameter    →  Azure App Setting
 ───────────────────────────────────────────────────────────────────
 GEINS_API_ENDPOINT       →  geinsApiEndpoint   →  NUXT_GEINS_API_ENDPOINT
 GEINS_TENANT_API_URL     →  geinsTenantApiUrl  →  NUXT_GEINS_TENANT_API_URL
-GEINS_TENANT_API_KEY     →  geinsTenantApiKey  →  NUXT_GEINS_TENANT_API_KEY
 STORAGE_DRIVER           →  storageDriver      →  NUXT_STORAGE_DRIVER
 REDIS_URL                →  redisUrl           →  NUXT_STORAGE_REDIS_URL
 ```
+
+### Slot Settings (Sticky Settings)
+
+`webApp.bicep` defines the app settings once, in the `sharedAppSettings` variable, and applies that
+same list to the production site and to the staging slot. A slot swap exchanges app settings, so a
+name declared on one side only arrives in production at the next swap — which is how production came
+to run without `NUXT_GEINS_TENANT_API_URL`, `NUXT_HEALTH_CHECK_SECRET` and `NUXT_PUBLIC_VERSION_X`
+after the release of 2026-09-03, on the code's defaults.
+
+**No setting is sticky.** `slotConfigNames` is not declared anywhere in `infra/`, and no setting is
+marked as a slot setting in Azure. That is deliberate: identical lists on both sides are the point,
+so a swap moves identical configuration, and a sticky marker would re-create exactly the divergence
+the shared list removes.
+
+If a future setting genuinely has to differ per slot, add its name to `slotConfigNames` **and write
+the reason next to it**. Anything sticky is a permitted difference between staging and production,
+so it needs to be readable as a decision rather than found later as drift.
+
+To check the two sides after a deployment (values hashed, so no secret is printed and a differing
+value cannot hide behind a matching name):
+
+```bash
+settings() {
+  az webapp config appsettings list -g rg-sales-portal-prod -n sales-portal-prod-app "$@" -o json \
+  | python3 -c 'import sys,json,hashlib as h; d=json.load(sys.stdin); [print(s["name"], h.sha256((s["value"] or "").encode()).hexdigest()[:12], s.get("slotSetting")) for s in sorted(d, key=lambda x: x["name"])]'
+}
+diff <(settings) <(settings --slot staging) && echo "identical"
+```
+
+`diff` prints nothing and every line ends in `False`.
 
 ## Re-running Setup
 
