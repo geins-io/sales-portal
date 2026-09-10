@@ -8,6 +8,13 @@
 # - Manual workflow dispatch → Dev and Prod environments
 #
 # NOTE: Staging deployment is SUSPENDED during development.
+#
+# Repository variables this workflow reads itself - not passed to Bicep, so they
+# never become app settings. A prod deploy stops on the first missing one.
+# See infra/environment-variables.md, "Variables the Workflow Reads Itself".
+# - SWAP_READINESS_HOST    hostname the staging slot is checked on before the swap
+# - SWAP_VERIFY_HOST       hostname production is verified on after the swap
+# - SWAP_VERIFY_TENANT_ID  tenant id /api/config must report on both
 # =============================================================================
 
 name: Deploy
@@ -27,6 +34,12 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # What "ready" means. Literal on purpose: a narrower budget moves the release
+  # bar, and that belongs in a reviewed diff rather than in a settings field
+  # nobody sees. The hostnames are repository variables instead, because they
+  # differ per environment. Which pages are rendered is neither - the readiness
+  # script reads them out of the sitemap at run time.
+  TTFB_BUDGET_MS: '4000'
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -92,6 +105,11 @@ jobs:
     name: Deploy to ${{ needs.prepare.outputs.environment }}
     runs-on: ubuntu-latest
     needs: prepare
+    outputs:
+      # Passed to the cleanup job as a cross-check: if that job's login cannot see
+      # this web app, it is looking at another subscription and must not report the
+      # slot as clean.
+      webapp_name: ${{ steps.outputs.outputs.webapp_name }}
     environment:
       name: ${{ needs.prepare.outputs.environment }}
       url: ${{ steps.deploy.outputs.webapp_url }}
@@ -102,6 +120,32 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Check the release settings
+        if: needs.prepare.outputs.environment == 'prod'
+        env:
+          READINESS_HOST: ${{ vars.SWAP_READINESS_HOST }}
+          VERIFY_HOST: ${{ vars.SWAP_VERIFY_HOST }}
+          VERIFY_TENANT_ID: ${{ vars.SWAP_VERIFY_TENANT_ID }}
+          HEALTH_KEY: ${{ secrets.HEALTH_CHECK_SECRET }}
+          # Bare hostnames, no scheme: the readiness steps below build the URL.
+        run: |
+          # A missing value is a reason to stop before anything is written, because the
+          # readiness check is never skipped and never defaulted. An unset variable would
+          # otherwise reach the script as "https://" and fail as a network error, which
+          # sends the reader to the app instead of to the repository settings.
+          MISSING=""
+          [[ -n "$READINESS_HOST" ]] || MISSING="${MISSING} SWAP_READINESS_HOST (variable)"
+          [[ -n "$VERIFY_HOST" ]] || MISSING="${MISSING} SWAP_VERIFY_HOST (variable)"
+          [[ -n "$VERIFY_TENANT_ID" ]] || MISSING="${MISSING} SWAP_VERIFY_TENANT_ID (variable)"
+          [[ -n "$HEALTH_KEY" ]] || MISSING="${MISSING} HEALTH_CHECK_SECRET (secret)"
+
+          if [[ -n "$MISSING" ]]; then
+            echo "::error::Not set under Settings > Secrets and variables > Actions:${MISSING}. Set it there and re-run."
+            exit 1
+          fi
+
+          echo "Readiness will run against ${READINESS_HOST}, verification against ${VERIFY_HOST}, expecting tenant ${VERIFY_TENANT_ID}."
 
       - name: Log in to Azure
         uses: azure/login@v2
@@ -117,6 +161,35 @@ jobs:
             --location westeurope \
             --tags Environment=${{ needs.prepare.outputs.environment }} Application=sales-portal ManagedBy=Bicep \
             2>/dev/null || echo "Resource group already exists"
+
+      - name: Refuse a deploy into a pending swap
+        if: needs.prepare.outputs.environment == 'prod'
+        env:
+          RESOURCE_GROUP: ${{ needs.prepare.outputs.resource_group }}
+        run: |
+          # Between --action preview and --action swap the slot runs with production's
+          # settings and the switch is half applied. Writing a new image into that state
+          # is not safe, and the cleanup job below clears it on every other path - so a
+          # pending swap here means a previous run was killed before its cleanup ran.
+          # The lookup is a script because the cleanup job asks the same question, and a
+          # failed az call must not read as "nothing pending" in either place.
+          if ! STATE=$(bash .github/scripts/pending-swap.sh); then
+            exit 1
+          fi
+
+          IFS=$'\t' read -r WEBAPP_NAME PENDING <<<"$STATE"
+
+          if [[ -z "$WEBAPP_NAME" ]]; then
+            echo "No web app deployed yet, so no swap can be pending."
+            exit 0
+          fi
+
+          if [[ -n "$PENDING" ]]; then
+            echo "::error::The staging slot has a swap pending to '${PENDING}'. Clear it and re-run: az webapp deployment slot swap --resource-group ${RESOURCE_GROUP} --name ${WEBAPP_NAME} --slot staging --target-slot production --action reset"
+            exit 1
+          fi
+
+          echo "$(date -u +%T) UTC - no swap pending on the staging slot."
 
       - name: Record the current container image
         id: before
@@ -292,8 +365,10 @@ jobs:
       - name: Wait for container to start
         run: |
           # The target is whatever just received the image: the staging slot on prod, the
-          # site everywhere else. It checks that the target answers, not which build it
-          # serves - that belongs to the preflight, not here.
+          # site everywhere else. It checks that the target answers on its own hostname,
+          # where no tenant resolves and a rendered page gives 500, so it can only ever be
+          # liveness - which is what has to hold before a preview is spent on the slot.
+          # Which build it serves, and whether it renders, is the readiness step below.
           echo "Waiting for container to start..."
           sleep 30
 
@@ -336,9 +411,50 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare the swap
+        if: needs.prepare.outputs.environment == 'prod'
+        run: |
+          # --action preview applies production's app settings to the slot, restarts it if
+          # they differ, and leaves the swap pending without moving any traffic. Readiness
+          # runs after this and never before: a warm-up against the slot's own settings
+          # warms a configuration that is about to be replaced, and the restart would throw
+          # the warm caches away anyway.
+          echo "$(date -u +%T) UTC - applying production's settings to the slot (preview)"
+          az webapp deployment slot swap \
+            --resource-group ${{ needs.prepare.outputs.resource_group }} \
+            --name ${{ steps.outputs.outputs.webapp_name }} \
+            --slot staging \
+            --target-slot production \
+            --action preview
+
+          echo "$(date -u +%T) UTC - swap is pending; the cleanup job resets it unless the swap completes."
+
+      - name: Warm up the slot and check readiness
+        if: needs.prepare.outputs.environment == 'prod'
+        env:
+          BASE_URL: https://${{ vars.SWAP_READINESS_HOST }}
+          EXPECTED_TENANT_ID: ${{ vars.SWAP_VERIFY_TENANT_ID }}
+          EXPECTED_SHA: ${{ github.sha }}
+          HEALTH_KEY: ${{ secrets.HEALTH_CHECK_SECRET }}
+          LABEL: staging slot
+        run: |
+          # The requests that prove the app renders are the ones that fill its caches, so
+          # this step is the warm-up and the gate at the same time. A health-only gate
+          # would pass here in under a second on an instance that needs seventeen to draw
+          # a page, which is what happened on 2026-09-10.
+          bash .github/scripts/verify-deployment.sh
+
       - name: Create deployment summary
         run: |
-          echo "### Deployment Complete ✅" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ needs.prepare.outputs.environment }}" == "prod" ]]; then
+            # Not "complete": production is still serving the old image until the swap job
+            # runs, and the release gate is the next thing to happen.
+            echo "### Staging Slot Ready - Awaiting the Swap ⏸️" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Review https://${{ vars.SWAP_READINESS_HOST }} before approving the swap." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### Deployment Complete ✅" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -346,7 +462,7 @@ jobs:
           echo "| Image | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Web App | ${{ steps.outputs.outputs.webapp_name }} |" >> $GITHUB_STEP_SUMMARY
           echo "| URL | ${{ steps.outputs.outputs.webapp_url }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Health checked | ${{ steps.image.outputs.health_url }}/api/health |" >> $GITHUB_STEP_SUMMARY
+          echo "| Liveness checked | ${{ steps.image.outputs.health_url }}/api/health |" >> $GITHUB_STEP_SUMMARY
 
           # Both sides, so the run itself records which one the image landed on.
           RG="${{ needs.prepare.outputs.resource_group }}"
@@ -378,6 +494,11 @@ jobs:
       id-token: write
       contents: read
     steps:
+      # The approval on this environment holds the job here, before its first step, which
+      # is what turns the pause between preview and swap into something a person controls.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Log in to Azure
         uses: azure/login@v2
         with:
@@ -395,18 +516,141 @@ jobs:
             --output tsv)
           echo "webapp_name=${WEBAPP_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Swap staging slot to production
+      - name: Complete the swap
         id: swap
         run: |
-          echo "Swapping staging slot to production..."
+          # Second phase only. The slot has been running with production's settings since
+          # the preview, and readiness was measured on that configuration, so this moves
+          # routing and nothing else.
+          echo "$(date -u +%T) UTC - completing the pending swap"
           az webapp deployment slot swap \
             --resource-group ${{ needs.prepare.outputs.resource_group }} \
             --name ${{ steps.get-webapp.outputs.webapp_name }} \
             --slot staging \
-            --target-slot production
+            --target-slot production \
+            --action swap
 
           WEBAPP_URL="https://${{ steps.get-webapp.outputs.webapp_name }}.azurewebsites.net"
           echo "production_url=${WEBAPP_URL}" >> $GITHUB_OUTPUT
+          echo "$(date -u +%T) UTC - ✅ swap completed"
 
-          echo "### Production Slot Swap Complete ✅" >> $GITHUB_STEP_SUMMARY
-          echo "Production URL: ${WEBAPP_URL}" >> $GITHUB_STEP_SUMMARY
+      - name: Verify production on the new build
+        env:
+          BASE_URL: https://${{ vars.SWAP_VERIFY_HOST }}
+          EXPECTED_TENANT_ID: ${{ vars.SWAP_VERIFY_TENANT_ID }}
+          EXPECTED_SHA: ${{ github.sha }}
+          HEALTH_KEY: ${{ secrets.HEALTH_CHECK_SECRET }}
+          LABEL: production
+        run: |
+          # The same checks as before the swap, against the tenant hostname that customers
+          # use. Until this passes, the only thing the run has proved is that a command
+          # returned zero.
+          bash .github/scripts/verify-deployment.sh
+
+      - name: Report a production that did not verify
+        if: failure() && steps.swap.outcome == 'success'
+        run: |
+          # Nothing is rolled back automatically: an automatic reverse swap on a slow
+          # measurement would take the release down twice for one bad reading. The slot
+          # now holds the previous image, so one swap puts it back.
+          echo "::error::The swap completed but production did not verify on the new build. Nothing was rolled back."
+          echo "### Production Did Not Verify ❌" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The staging slot holds the previous image. To go back:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "az webapp deployment slot swap --resource-group ${{ needs.prepare.outputs.resource_group }} --name ${{ steps.get-webapp.outputs.webapp_name }} --slot staging --target-slot production" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Create deployment summary
+        run: |
+          # "Complete" is written here and nowhere else: production has reported the build
+          # this run deployed, on the hostname a customer uses.
+          echo "### Deployment Complete ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Verified | https://${{ vars.SWAP_VERIFY_HOST }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.prepare.outputs.image_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Clear a swap left pending (failure, rejection, cancellation)
+  # ---------------------------------------------------------------------------
+  reset-pending-swap:
+    name: Clear a Pending Swap
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy, swap-slots]
+    # always() so a cancelled run and a rejected approval reach this job too. It is
+    # deliberately not gated on an output of the deploy job: a run cancelled between
+    # preview and the next step leaves the pending swap on Azure but may lose the output,
+    # and reading the state is both cheaper and more honest than remembering it.
+    if: always() && needs.prepare.outputs.environment == 'prod' && needs.swap-slots.result != 'success'
+    # prod, not prod-swap: the subscription id lives on the environment, and the
+    # repository-level one points at dev - a login there would read the prod group as
+    # absent and report a half-done swap as clean. prod-swap is wrong for the opposite
+    # reason: a reviewer is being added to it, and cleanup must never wait for an
+    # approval that may never come.
+    environment:
+      name: prod
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Reset the swap if one is pending
+        env:
+          RESOURCE_GROUP: ${{ needs.prepare.outputs.resource_group }}
+          EXPECTED_WEBAPP_NAME: ${{ needs.deploy.outputs.webapp_name }}
+        run: |
+          # A swap left in preview is a state on Azure, not a step in this workflow: the
+          # slot keeps production's settings and the next deploy refuses to touch it. So
+          # every path that does not complete the swap ends here.
+          if ! STATE=$(bash .github/scripts/pending-swap.sh); then
+            exit 1
+          fi
+
+          IFS=$'\t' read -r WEBAPP_NAME PENDING <<<"$STATE"
+
+          if [[ -z "$WEBAPP_NAME" ]]; then
+            echo "No web app, so nothing can be pending."
+            exit 0
+          fi
+
+          if [[ -z "$PENDING" ]]; then
+            echo "$(date -u +%T) UTC - no swap pending; nothing to reset."
+            echo "### No Pending Swap" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          echo "$(date -u +%T) UTC - resetting a swap pending to '${PENDING}'"
+          az webapp deployment slot swap \
+            --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot staging --target-slot production \
+            --action reset
+
+          # Re-read, because a reset that quietly did nothing would leave the next deploy
+          # refusing to start with no explanation of why.
+          if ! STATE=$(bash .github/scripts/pending-swap.sh); then
+            exit 1
+          fi
+
+          IFS=$'\t' read -r WEBAPP_NAME AFTER <<<"$STATE"
+
+          if [[ -n "$AFTER" ]]; then
+            echo "::error::The reset ran but the slot still has a swap pending to '${AFTER}'. Clear it by hand: az webapp deployment slot swap --resource-group ${RESOURCE_GROUP} --name ${WEBAPP_NAME} --slot staging --target-slot production --action reset"
+            exit 1
+          fi
+
+          echo "$(date -u +%T) UTC - ✅ the slot has no pending swap"
+          echo "### Pending Swap Cleared ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Production keeps the image it was serving; the staging slot keeps the new one." >> $GITHUB_STEP_SUMMARY
