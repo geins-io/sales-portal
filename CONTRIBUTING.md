@@ -127,19 +127,21 @@ or a `v*` tag. Do not add a second copy of it as an environment branch policy �
 two rules that have to agree will not, and a mis-set one blocks legitimate
 deploys with no useful error.
 
-**The staging slot is stopped between releases.** Both sides share one S1 core
-and 1.75 GB of memory, and the first dry run showed that a slot starting on that
-core is enough to make production time out. Once production has verified, the
-swap job stops the slot; the next deploy starts it before writing the image, and
-the rollback starts it before comparing builds. Do not start it by hand to "have
-a look" — every minute it runs is a minute production shares its core.
+**The staging slot is stopped between releases.** It shares production's App
+Service plan, and the two dry runs on 2026-09-10 showed that on a single-core
+plan a slot starting or warming up is enough to make production time out. The
+plan is P1v3 (two cores) for that reason, and the slot is still kept stopped when
+it has no job: once production has verified, the swap job stops it; the cleanup
+job stops it after a failed run; the next deploy starts it before writing the
+image, and the rollback starts it before comparing builds. Do not start it by
+hand to "have a look" — every minute it runs is a minute it shares the plan.
 
-**During a release, production will be slower.** The slot's container start and
-the warm-up renders run on the same core production serves from. Expect pages
-around two to three times their usual time for one to two minutes; that is the
-price of a single core, not a defect. Release in a low-traffic window, and if you
-watch it, watch with one probe every 15 s at most — three probes every 5 s
-against a busy core were most of what took production down on 2026-09-10.
+**During a release, production may still be slower.** The slot's container start
+and the warm-up renders run on the same plan production serves from. Release in
+a low-traffic window, and if you watch it, watch with one probe every 15 s at
+most — three probes every 5 s against a busy plan were a large part of what took
+production down on 2026-09-10. Read the plan's CPU metric afterwards rather than
+trusting the probe alone.
 
 **If the release turns out bad after the swap**, the slot still holds the image
 production was serving. Dispatch **Actions -> Rollback Production**. It asks for

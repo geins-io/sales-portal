@@ -319,8 +319,8 @@ jobs:
         if: needs.prepare.outputs.environment == 'prod'
         run: |
           # The slot is stopped between releases (the swap job stops it once production
-          # has verified): both sides share one S1 core and 1.75 GB, and an idle slot
-          # still holds a Node process's memory. Starting it here, before the image is
+          # has verified): both sides share production's plan, and an idle slot still
+          # holds a Node process's memory and answers Azure's own probes. Starting it here, before the image is
           # written, is idempotent on a slot that is already running. The image change
           # below restarts it anyway, so nothing is warmed twice.
           echo "$(date -u +%T) UTC - starting the staging slot"
@@ -557,7 +557,7 @@ jobs:
         run: |
           # Only reached when production has verified on the new build. The slot now holds
           # the previous image, which is the rollback; stopped, it keeps that image and its
-          # settings but not its share of the one core and 1.75 GB the two sides share.
+          # settings but takes nothing from the plan it shares with production.
           # The rollback workflow starts it again before it compares builds, which costs
           # that path a container start - about a minute - and nothing else. The deploy
           # job starts it before the next image is written. Left running, it is not
@@ -686,5 +686,16 @@ jobs:
 
           echo "$(date -u +%T) UTC - ✅ the slot has no pending swap"
           echo "### Pending Swap Cleared ✅" >> $GITHUB_STEP_SUMMARY
+
+          # The reset itself restarts the slot: on 2026-09-10 the slot was seen
+          # re-pulling its image right after the reset, which on a shared plan is a third
+          # cold start beside production in one failed run. Stopped, it holds the
+          # candidate image and costs nothing; the next deploy starts it again.
+          echo "$(date -u +%T) UTC - stopping the staging slot"
+          az webapp stop \
+            --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --slot staging \
+            --output none
+          echo "$(date -u +%T) UTC - ✅ slot state: $(az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --slot staging --query state --output tsv)"
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Production keeps the image it was serving; the staging slot keeps the new one." >> $GITHUB_STEP_SUMMARY
