@@ -136,8 +136,7 @@ validate_what_if() {
     az deployment group what-if \
         --resource-group "$resource_group" \
         --template-file "$template_file" \
-        --parameters "$parameters_file" \
-        --parameters containerImage="ghcr.io/geins-io/sales-portal:validate"
+        --parameters "$parameters_file"
     
     log_success "What-if validation complete for $environment"
 }
