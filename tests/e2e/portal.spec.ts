@@ -5,10 +5,14 @@ import {
   outOfScope,
   fetchOrder,
   fetchOrders,
+  fetchQuote,
+  fetchQuoteList,
+  fetchQuotes,
   parsePrice,
   readPrice,
   STORAGE_STATE,
   type ApiOrder,
+  type ApiQuote,
 } from './helpers';
 
 /**
@@ -626,15 +630,14 @@ test.describe('Portal Quotations', () => {
     const loading = page.locator('[data-testid="quotations-loading"]');
     await expect(loading).toBeHidden({ timeout: PAGE_TIMEOUT });
 
-    // The test account has no quotes, because quotations are not functional on
-    // the platform yet. Declared, not silently skipped.
-    const empty = page.locator('[data-testid="quotations-empty"]');
-    const hasEmpty = await empty.isVisible().catch(() => false);
-    outOfScope(
-      hasEmpty,
-      'fixture-missing',
-      'test account has no quotes — platform quotations are not available yet',
-    );
+    // Requesting a quotation is the half the platform does not offer; reading
+    // one it already holds works, and that is what this test covers. So an
+    // empty list here is a broken fixture rather than a scope boundary — it
+    // used to be declared as one, which hid every selector below.
+    await expect(
+      page.locator('[data-testid="quotations-table"]'),
+      'the quotations list rendered its empty state — the test account lost its quotations',
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
 
     // Desktop puts a view link in the row, mobile makes the whole card the
     // link; both are anchors into the quote, so match on the destination
@@ -726,5 +729,295 @@ test.describe('Portal Quotations', () => {
     await expect(page.locator('[data-testid="quotations-table"]')).toBeVisible({
       timeout: PAGE_TIMEOUT,
     });
+  });
+});
+
+/**
+ * Portal Quotation Values
+ *
+ * Every amount the quotation surfaces show, against the numbers `/api/quotes`
+ * answered with. Numbers, never strings: the list and the detail format the
+ * same total with a different number of decimals, and both use a non-breaking
+ * space and a decimal comma.
+ *
+ * This is the only surface where unit price x quantity can be asserted at all.
+ * Every order line the storefront produces carries quantity 1, so there the
+ * multiplication has no data; a quotation carries lines of 50 and 12. The
+ * multiplication is asserted on the API's raw numbers: 12 x 14.875 is 178.50,
+ * while 12 x the rendered 14,88 is 178.56, so multiplying what the screen
+ * shows would assert the defect rather than catch it.
+ *
+ * Quotations are chosen by what they contain — a unit price that needs more
+ * than two decimals, a quantity above one — never by a fixed id, which would
+ * rot the day the account is reseeded.
+ */
+test.describe('Portal Quotation Values', () => {
+  /** What one rendered amount may be off by: the screen rounds to two decimals, the API does not. */
+  const ROUNDING = 0.005;
+
+  /**
+   * Slack on every tolerance below. 14.88 - 14.875 is 0.005000000000000782 in
+   * binary floating point, so a tie against half a cent fails a comparison
+   * written exactly.
+   */
+  const SLACK = 1e-9;
+
+  /** True for a number the screen cannot show exactly, e.g. a unit price of 14.875. */
+  function isUnrounded(value: number): boolean {
+    return Math.abs(value * 100 - Math.round(value * 100)) > SLACK;
+  }
+
+  /**
+   * A rendered amount against the raw number behind it.
+   *
+   * `toBeCloseTo(value, 2)` is the wrong tool here: it demands a difference
+   * below half a cent, and a unit price of 14.875 rounds to 14,88 — exactly
+   * half a cent away. That is correct rendering, so the tolerance includes it.
+   */
+  function expectRendered(rendered: number, raw: number, what: string) {
+    expect(
+      Math.abs(rendered - raw),
+      `${what}: the screen shows ${rendered}, the API says ${raw}`,
+    ).toBeLessThanOrEqual(ROUNDING + SLACK);
+  }
+
+  /**
+   * The quotation priced in more than two decimals — the one where a page
+   * that rounds before it multiplies lands on a different number than one
+   * that multiplies first. Without it the run proves nothing about rounding,
+   * so its absence fails rather than passes quietly.
+   */
+  async function unroundedQuote(page: Page): Promise<ApiQuote> {
+    const quotes = await fetchQuotes(page);
+    const quote = quotes.find((candidate) =>
+      candidate.items.some((line) => isUnrounded(line.unitPrice)),
+    );
+    expect(
+      quote,
+      'no quotation the account can read is priced in more than two decimals, ' +
+        'so this run cannot show a page that rounds a unit price before it ' +
+        'multiplies. Give a quotation line a unit price like 14.875.',
+    ).toBeDefined();
+    return quote!;
+  }
+
+  async function openQuotationsList(page: Page) {
+    await page.goto('/se/sv/portal/quotations');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="quotations-loading"]')).toBeHidden(
+      {
+        timeout: PAGE_TIMEOUT,
+      },
+    );
+    await expect(
+      page.locator('[data-testid="quotations-table"]'),
+      'the quotations list rendered its empty state — the test account lost its quotations',
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
+  }
+
+  async function openQuotationDetail(page: Page, id: string) {
+    await page.goto(`/se/sv/portal/quotations/${id}`);
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+  }
+
+  /** One rendered quotation line: the three numbers a line shows. */
+  interface ScreenLine {
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }
+
+  /**
+   * The lines as the running project can see them. Above `lg` they are the
+   * desktop table; below it that table is hidden and the rows live in the
+   * sheet behind `view-rows-trigger`. Both carry the same three numbers per
+   * line, so no project has to leave the line assertions off.
+   */
+  async function readQuoteLines(page: Page): Promise<ScreenLine[]> {
+    const onDesktop = await page
+      .locator('[data-testid="line-items-table"]')
+      .isVisible()
+      .catch(() => false);
+
+    if (!onDesktop) {
+      await page.locator('[data-testid="view-rows-trigger"]').click();
+      await expect(page.locator('[data-testid="item-rows-sheet"]')).toBeVisible(
+        {
+          timeout: PAGE_TIMEOUT,
+        },
+      );
+    }
+
+    const prefix = onDesktop ? 'line-item' : 'item-rows';
+    const rows = page.locator(
+      onDesktop
+        ? '[data-testid="line-item-row"]'
+        : '[data-testid="item-rows-row"]',
+    );
+
+    const lines: ScreenLine[] = [];
+    for (let index = 0; index < (await rows.count()); index++) {
+      const row = rows.nth(index);
+      const quantity = (
+        await row.locator(`[data-testid="${prefix}-quantity"]`).innerText()
+      ).trim();
+      lines.push({
+        quantity: Number(quantity),
+        unitPrice: await readPrice(
+          row.locator(`[data-testid="${prefix}-unit-price"]`),
+        ),
+        totalPrice: await readPrice(
+          row.locator(`[data-testid="${prefix}-total-price"]`),
+        ),
+      });
+      expect(
+        Number.isFinite(lines[index]!.quantity),
+        `line ${index} shows no quantity: ${JSON.stringify(quantity)}`,
+      ).toBe(true);
+    }
+    return lines;
+  }
+
+  test('the list, the detail page and the API agree on a quotation total', async ({
+    page,
+  }) => {
+    await openQuotationsList(page);
+
+    // Both list shapes are in the DOM at once and CSS decides which one shows.
+    const row = page.locator('[data-testid="quotation-row"]:visible').first();
+    await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
+
+    // Desktop puts the view link in a cell of the row, mobile makes the card
+    // itself the link. Its href carries the id both endpoints key on, which is
+    // the only thing pairing this row's amount with a quotation.
+    const innerLink = row.locator('a[href*="/portal/quotations/"]');
+    const href = (await innerLink.count())
+      ? await innerLink.first().getAttribute('href')
+      : await row.getAttribute('href');
+    const id = href?.split('/').filter(Boolean).pop();
+    expect(id, `no quotation id in the row's link: ${href}`).toBeTruthy();
+
+    const listTotal = await readPrice(
+      row.locator('[data-testid="quotation-total"]'),
+    );
+
+    const listed = (await fetchQuoteList(page)).find(
+      (quote) => quote.id === id,
+    );
+    expect(
+      listed,
+      `the list endpoint does not report the quotation the row links to: ${id}`,
+    ).toBeDefined();
+    expectRendered(listTotal, listed!.total, 'the list total');
+
+    const api = await fetchQuote(page, id!);
+    // Both endpoints computed this amount; the strings they format it into
+    // differ in decimals, the numbers must not.
+    expect(listed!.total).toBeCloseTo(api.total, 2);
+
+    await openQuotationDetail(page, api.id);
+
+    expectRendered(
+      await readPrice(page.locator('[data-testid="quote-summary-total"]')),
+      api.total,
+      'the detail total',
+    );
+    expectRendered(
+      await readPrice(page.locator('[data-testid="quote-summary-subtotal"]')),
+      api.subtotal,
+      'the subtotal',
+    );
+    // `tax` maps from the subtotal's VAT while subtotal and total are both
+    // inc-VAT, so subtotal + tax + shipping is not the total on this page.
+    // Each amount is held to the API on its own; an identity between them
+    // would fail a correct page.
+    expectRendered(
+      await readPrice(page.locator('[data-testid="quote-summary-tax"]')),
+      api.tax,
+      'the tax',
+    );
+
+    // The row renders only for a priced shipping option, so a quotation
+    // without one must show no fee at all rather than a zero.
+    if (api.shipping > 0) {
+      expectRendered(
+        await readPrice(page.locator('[data-testid="quote-summary-shipping"]')),
+        api.shipping,
+        'the shipping fee',
+      );
+    } else {
+      await expect(page.locator('[data-testid="shipping-row"]')).toHaveCount(0);
+    }
+  });
+
+  test('the quotation lines add up to the subtotal it shows', async ({
+    page,
+  }) => {
+    const api = await unroundedQuote(page);
+
+    const apiSum = api.items.reduce((sum, line) => sum + line.totalPrice, 0);
+    expect(apiSum).toBeCloseTo(api.subtotal, 2);
+
+    await openQuotationDetail(page, api.id);
+    const lines = await readQuoteLines(page);
+    expect(lines.length).toBe(api.items.length);
+
+    const screenSubtotal = await readPrice(
+      page.locator('[data-testid="quote-summary-subtotal"]'),
+    );
+    const screenSum = lines.reduce((sum, line) => sum + line.totalPrice, 0);
+    // Every rendered amount carries its own rounding, the subtotal included.
+    expect(Math.abs(screenSum - screenSubtotal)).toBeLessThanOrEqual(
+      (lines.length + 1) * ROUNDING + SLACK,
+    );
+  });
+
+  test('a line priced in more than two decimals still multiplies out', async ({
+    page,
+  }) => {
+    const api = await unroundedQuote(page);
+    expect(
+      api.items.filter((line) => line.quantity > 1).length,
+      'every line of the quotation carries quantity 1, which makes the ' +
+        'multiplication below unfalsifiable — 12 of a product must stay one ' +
+        'line of twelve.',
+    ).toBeGreaterThan(0);
+
+    await openQuotationDetail(page, api.id);
+    const lines = await readQuoteLines(page);
+    expect(lines.length).toBe(api.items.length);
+
+    for (const [index, line] of lines.entries()) {
+      const apiLine = api.items[index]!;
+      expect(line.quantity).toBe(apiLine.quantity);
+      expectRendered(
+        line.unitPrice,
+        apiLine.unitPrice,
+        `line ${index} unit price`,
+      );
+      expectRendered(
+        line.totalPrice,
+        apiLine.totalPrice,
+        `line ${index} total`,
+      );
+
+      // The multiplication itself, on the raw numbers: 12 x 14.875 = 178.50
+      // exactly. On screen the unit price is already rounded to two decimals,
+      // so its product drifts with the quantity and gets the tolerance — the
+      // rendered line total is the one held to the API above.
+      expect(apiLine.totalPrice).toBeCloseTo(
+        apiLine.unitPrice * apiLine.quantity,
+        2,
+      );
+      if (apiLine.quantity <= 1) continue;
+      expect(
+        Math.abs(line.totalPrice - line.unitPrice * line.quantity),
+      ).toBeLessThanOrEqual((apiLine.quantity + 1) * ROUNDING + SLACK);
+    }
   });
 });
