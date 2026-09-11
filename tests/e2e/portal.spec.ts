@@ -8,11 +8,14 @@ import {
   fetchQuote,
   fetchQuoteList,
   fetchQuotes,
+  fetchProductListRows,
+  fetchProductsByAliases,
   parsePrice,
   readPrice,
   STORAGE_STATE,
   type ApiOrder,
   type ApiQuote,
+  type ProductListRow,
 } from './helpers';
 
 /**
@@ -1019,5 +1022,210 @@ test.describe('Portal Quotation Values', () => {
         Math.abs(line.totalPrice - line.unitPrice * line.quantity),
       ).toBeLessThanOrEqual((apiLine.quantity + 1) * ROUNDING + SLACK);
     }
+  });
+});
+
+/**
+ * Portal Saved List Total
+ *
+ * The one total in the portal the app computes itself: the list page reduces
+ * over the prices `/api/products/by-aliases` returned and formats the sum once
+ * at two decimals. Every other amount in this file arrives finished from the
+ * API, so this is the only number that can be wrong through our own
+ * arithmetic rather than the platform's.
+ *
+ * The list under test is built here, through the app's own UI. Saved lists
+ * have no server API at all — they live in the browser's localStorage via the
+ * SDK's ListsSession (`docs/patterns/lists.md`) — so "a list the account owns"
+ * means a list this browser context owns, and the signed-in state the suite
+ * restores carries none. The context is thrown away with the test, so nothing
+ * is left behind and no two tests can see each other's list.
+ */
+test.describe('Portal Saved List Total', () => {
+  /** The screen rounds the sum to two decimals; the prices it sums are not rounded. */
+  const ROUNDING = 0.005;
+
+  /** Binary floating point puts a tie a hair outside an exactly written tolerance. */
+  const SLACK = 1e-9;
+
+  function isUnrounded(value: number): boolean {
+    return Math.abs(value * 100 - Math.round(value * 100)) > SLACK;
+  }
+
+  /** The sum of prices each rounded to two decimals first. */
+  function sumOfRounded(prices: number[]): number {
+    return prices.reduce(
+      (sum, price) => sum + Math.round(price * 100) / 100,
+      0,
+    );
+  }
+
+  /**
+   * Two catalogue products chosen by price, never by alias: both priced in
+   * more than two decimals, and the pair must round differently depending on
+   * when the rounding happens — 249.504 + 44.904 is 294.41 rounded once and
+   * 294.40 rounded twice. A pair without that property would pass a page that
+   * rounds every row before adding, which is the defect worth catching.
+   */
+  async function pickUnroundedPair(page: Page): Promise<ProductListRow[]> {
+    const unrounded = (await fetchProductListRows(page))
+      .filter((row) => isUnrounded(row.exVat))
+      .sort((a, b) => b.exVat - a.exVat);
+    expect(
+      unrounded.length,
+      'fewer than two catalogue products are priced in more than two decimals, ' +
+        'so a list of them cannot show the difference between rounding each ' +
+        'price and rounding the sum',
+    ).toBeGreaterThanOrEqual(2);
+
+    const pair = unrounded.slice(0, 2);
+    const exact = pair.reduce((sum, row) => sum + row.exVat, 0);
+    expect(
+      Math.abs(
+        Math.round(exact * 100) / 100 - sumOfRounded(pair.map((p) => p.exVat)),
+      ),
+      `${pair.map((p) => p.exVat).join(' + ')} rounds the same either way, so ` +
+        'the pair cannot tell the two implementations apart',
+    ).toBeGreaterThan(0);
+    return pair;
+  }
+
+  /**
+   * A saved list holding these aliases, created the way a buyer creates one:
+   * the portal's create sheet, then the add-to-list dialog on each PDP. The
+   * sheet navigates straight to the new list, which is where its id comes from.
+   */
+  async function createListWith(
+    page: Page,
+    aliases: string[],
+    name: string,
+  ): Promise<string> {
+    await page.goto('/se/sv/portal/lists');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    await page.locator('[data-testid="saved-lists-create"]').click();
+    await page.locator('[data-testid="create-list-name"]').fill(name);
+    await page.locator('[data-testid="create-list-submit"]').click();
+    await page.waitForURL(/\/portal\/saved-lists\/[\w-]+/, {
+      timeout: PAGE_TIMEOUT,
+    });
+    const listId = new URL(page.url()).pathname
+      .split('/')
+      .filter(Boolean)
+      .pop();
+    expect(listId, `no list id in ${page.url()}`).toBeTruthy();
+
+    for (const alias of aliases) {
+      await page.goto(`/p/${alias}`);
+      await page.waitForLoadState('load');
+      await waitForHydration(page);
+
+      const trigger = page.locator('[data-testid="pdp-add-to-lists"]');
+      await expect(
+        trigger,
+        'the PDP offers no add-to-list button — the tenant has the wishlist feature off',
+      ).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await trigger.click();
+
+      const row = page.locator(
+        `[data-testid="add-to-list-row"][data-list-id="${listId}"]`,
+      );
+      await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await row.click();
+      // The dialog writes to localStorage with no request to wait for, so the
+      // checkbox state is what says the product reached the list.
+      await expect(row.locator('[data-slot="checkbox"]')).toHaveAttribute(
+        'data-state',
+        'checked',
+      );
+      await page.locator('[data-testid="add-to-list-done"]').click();
+    }
+
+    return listId!;
+  }
+
+  async function openList(page: Page, listId: string) {
+    await page.goto(`/se/sv/portal/saved-lists/${listId}`);
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    // The products are fetched client-side after the list loads, so the card
+    // carrying the total is the signal, not the page load.
+    await expect(page.locator('[data-testid="list-loading"]')).toBeHidden({
+      timeout: PAGE_TIMEOUT,
+    });
+    await expect(page.locator('[data-testid="list-total-card"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+  }
+
+  async function readListTotal(page: Page): Promise<number> {
+    return readPrice(page.locator('[data-testid="list-total-amount"]'));
+  }
+
+  test('the list total is the sum of the prices the API returned, in both VAT modes', async ({
+    page,
+  }) => {
+    await page.goto('/se/sv/portal/lists');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    const pair = await pickUnroundedPair(page);
+    const aliases = pair.map((product) => product.alias);
+    const listId = await createListWith(page, aliases, 'Value check');
+
+    await openList(page, listId);
+
+    const api = await fetchProductsByAliases(page, aliases);
+    // `by-aliases` drops an alias it cannot resolve instead of failing, and the
+    // page sums what came back. Without these two counts a list that quietly
+    // lost a member would still match its own smaller sum.
+    expect(
+      api.length,
+      'the products endpoint returned fewer products than the list has members',
+    ).toBe(aliases.length);
+    expect(await page.locator('[data-testid="list-item-row"]').count()).toBe(
+      aliases.length,
+    );
+
+    const exSum = api.reduce((sum, product) => sum + product.exVat, 0);
+    const incSum = api.reduce((sum, product) => sum + product.incVat, 0);
+
+    // Ex VAT is what the stored session carries (`vat_display=ex`).
+    const exTotal = await readListTotal(page);
+    expect(Math.abs(exTotal - exSum)).toBeLessThanOrEqual(ROUNDING + SLACK);
+
+    // The half the pair was chosen for: a page that rounded each row before
+    // adding would land here instead, and every assertion above would still
+    // pass.
+    expect(
+      Math.abs(exTotal - sumOfRounded(api.map((product) => product.exVat))),
+      'the total matches the sum of the rounded prices, so the page rounds ' +
+        'before it adds',
+    ).toBeGreaterThan(ROUNDING);
+
+    // The toggle is a cookie read during render, so it is set and the page
+    // re-rendered rather than clicked.
+    await page.context().addCookies([
+      {
+        name: 'vat_display',
+        value: 'inc',
+        url: page.url(),
+      },
+    ]);
+    await page.reload();
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="list-total-card"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+
+    const incTotal = await readListTotal(page);
+    expect(Math.abs(incTotal - incSum)).toBeLessThanOrEqual(ROUNDING + SLACK);
+    // The deny direction: the toggle must change which field is summed, not
+    // merely re-label the same number.
+    expect(
+      Math.abs(incTotal - exTotal),
+      'the inc-VAT total equals the ex-VAT one, so the toggle changed nothing',
+    ).toBeGreaterThan(ROUNDING);
   });
 });

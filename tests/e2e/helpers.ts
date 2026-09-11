@@ -1040,3 +1040,54 @@ export async function fetchQuotes(page: Page): Promise<ApiQuote[]> {
   }
   return quotes;
 }
+
+// ---------- Saved lists ----------
+
+/** One product's two prices, as `/api/products/by-aliases` reports them. */
+export interface ApiAliasPrice {
+  alias: string;
+  exVat: number;
+  incVat: number;
+}
+
+/**
+ * The products behind a saved list's aliases, read through the endpoint the
+ * list page itself fetches.
+ *
+ * The endpoint drops an alias it cannot resolve instead of failing the batch
+ * (`getProductsByAliases`), so the caller is told which aliases came back and
+ * can hold the page to the same count — a list that silently lost a member
+ * would otherwise show a lower total that still matches this sum.
+ */
+export async function fetchProductsByAliases(
+  page: Page,
+  aliases: string[],
+): Promise<ApiAliasPrice[]> {
+  const response = await page.request.get('/api/products/by-aliases', {
+    params: { aliases: aliases.join(',') },
+  });
+  expect(response.ok(), '/api/products/by-aliases did not answer 200').toBe(
+    true,
+  );
+
+  const products: {
+    alias?: string;
+    unitPrice?: { sellingPriceExVat?: number; sellingPriceIncVat?: number };
+  }[] = (await response.json())?.products ?? [];
+
+  return products.map((product) => {
+    const price: ApiAliasPrice = {
+      alias: product.alias ?? '',
+      exVat: product.unitPrice?.sellingPriceExVat as number,
+      incVat: product.unitPrice?.sellingPriceIncVat as number,
+    };
+    expect(price.alias, 'a product arrived without an alias').toBeTruthy();
+    for (const field of ['exVat', 'incVat'] as const) {
+      expect(
+        Number.isFinite(price[field]),
+        `${price.alias} ${field} is not a number: ${JSON.stringify(price[field])}`,
+      ).toBe(true);
+    }
+    return price;
+  });
+}
