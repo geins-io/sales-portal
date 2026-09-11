@@ -608,6 +608,7 @@ useSchemaOrg([
             :discount-type="product.discountType"
             :campaign-names="visibleCampaigns.map((c) => c.name)"
             class="text-2xl font-bold"
+            testid="pdp-price"
           />
 
           <!-- Text 3: extra detail copy under the price -->

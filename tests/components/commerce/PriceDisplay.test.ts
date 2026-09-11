@@ -61,6 +61,28 @@ describe('PriceDisplay', () => {
     expect(wrapper.text()).toContain('199,00 kr');
   });
 
+  describe('testid prop', () => {
+    it('puts the given test id on the element carrying the amount', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice(), testid: 'pdp-price' },
+      });
+      const el = wrapper.find('[data-testid="pdp-price"]');
+      expect(el.exists()).toBe(true);
+      expect(el.text()).toContain('199,00 kr');
+    });
+
+    it('renders no data-testid at all when the prop is omitted', () => {
+      // The six call sites that pass nothing must not gain an id, or a shared
+      // component puts the same one on every surface at once.
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice() },
+      });
+      const amount = wrapper.find('.font-semibold');
+      expect(amount.text()).toContain('199,00 kr');
+      expect(amount.attributes('data-testid')).toBeUndefined();
+    });
+  });
+
   it('renders selling price ex VAT when showVat is false', () => {
     const wrapper = mountComponent(PriceDisplay, {
       props: { price: makePrice(), showVat: false },

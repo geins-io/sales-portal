@@ -568,7 +568,11 @@ them before concluding the app is broken:
   `PortalOrdersTable.vue` is the shape to copy, with one correction — put the wrapper on the
   non-empty branch, not around the empty state too, or its presence stops meaning "there is a
   list". Row ids inside a `v-for` stay duplicated by design: both branches really do render N
-  rows, so a count must scope to what is visible. Ids that appear twice for unrelated reasons:
+  rows, so a count must scope to what is visible. Mutually exclusive branches may share an id
+  without tripping strict mode, but that is not the same as it being safe: a shared id makes
+  any assertion about **absence** ambiguous, because it says no element with that id rendered
+  rather than which branch stayed away. Where the branches mean different things — a gated and
+  an ungated price, say — give them different ids. Ids that appear twice for unrelated reasons:
   `search-input` (header + page), `cart-drawer`, `[role="tabpanel"]` (Reka UI mounts one per
   tab). It does not always fail as a strict-mode error: `isVisible().catch(() => false)` turns
   any locator error into a plain `false`, so an unexpected `false` there means suspect an

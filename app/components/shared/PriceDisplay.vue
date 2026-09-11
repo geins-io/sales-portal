@@ -16,6 +16,14 @@ const props = withDefaults(
     lowestPrice?: LowestPriceInfo;
     discountType?: ProductDiscountType;
     campaignNames?: string[];
+    /**
+     * Test id for the rendered amount. Passed in rather than fixed: this
+     * component renders several times on one page (a PDP shows it for the
+     * product and again for every related card), so a built-in id would
+     * resolve to more than one element. Only the caller knows what the value
+     * means on its own surface.
+     */
+    testid?: string;
   }>(),
   {
     // Explicit undefined default: suppresses Vue's "absent Boolean prop => false"
@@ -114,6 +122,7 @@ const lowestPriceFormatted = computed(() => {
       <span
         class="font-semibold"
         :class="isDiscounted ? 'text-destructive' : ''"
+        :data-testid="testid"
       >
         {{ sellingPrice }}
       </span>
