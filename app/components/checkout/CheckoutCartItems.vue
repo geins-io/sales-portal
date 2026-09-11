@@ -124,6 +124,7 @@ function handleRemove(item: CartItemType) {
               v-if="item.totalPrice"
               :price="item.totalPrice"
               :show-vat="true"
+              testid="checkout-line-total"
               class="text-base font-semibold"
             />
             <p

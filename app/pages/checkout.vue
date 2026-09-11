@@ -129,10 +129,10 @@ const subtotal = computed(
   () => cartStore.cart?.summary?.subTotal?.sellingPriceIncVatFormatted ?? '',
 );
 const shippingFee = computed(
-  () => cartStore.cart?.summary?.shipping?.feeIncVatFormatted ?? null,
+  () => cartStore.cart?.summary?.shipping?.feeIncVatFormatted || null,
 );
 const tax = computed(
-  () => cartStore.cart?.summary?.total?.vatFormatted ?? null,
+  () => cartStore.cart?.summary?.total?.vatFormatted || null,
 );
 const total = computed(
   () => cartStore.cart?.summary?.total?.sellingPriceIncVatFormatted ?? '',

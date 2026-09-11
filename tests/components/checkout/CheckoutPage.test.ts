@@ -210,7 +210,65 @@ describe('CheckoutOrderSummary', () => {
     ).toBe(false);
   });
 
-  it('shows placeholder when values are missing', () => {
+  // The cart API sends an empty fee string until a shipping option is selected,
+  // and nothing at all when it has no value. Both mean "no number yet", and
+  // both render as an empty cell — no placeholder, and nothing that reads as a
+  // number. Subtotal and total keep theirs; they always have a value.
+  it.each([
+    ['empty strings', '' as string | null],
+    ['null', null],
+  ])('leaves the shipping and tax cells empty for %s', (_label, value) => {
+    const wrapper = mountComponent(CheckoutOrderSummary, {
+      props: {
+        itemCount: 3,
+        subtotal: '500,00 kr',
+        shippingFee: value,
+        tax: value,
+        total: '625,00 kr',
+        canPlaceOrder: true,
+        isPlacingOrder: false,
+        termsAccepted: false,
+      },
+      global: { stubs },
+    });
+
+    expect(
+      wrapper.find('[data-testid="checkout-summary-shipping"]').text(),
+    ).toBe('');
+    expect(wrapper.find('[data-testid="checkout-summary-tax"]').text()).toBe(
+      '',
+    );
+    // Paired with a present value on the same render: an empty cell proves
+    // nothing on a summary that rendered nothing.
+    expect(
+      wrapper.find('[data-testid="checkout-summary-subtotal"]').text(),
+    ).toBe('500,00 kr');
+  });
+
+  it('shows the shipping and tax values when the API sends them', () => {
+    const wrapper = mountComponent(CheckoutOrderSummary, {
+      props: {
+        itemCount: 3,
+        subtotal: '500,00 kr',
+        shippingFee: '49,00 kr',
+        tax: '109,80 kr',
+        total: '625,00 kr',
+        canPlaceOrder: true,
+        isPlacingOrder: false,
+        termsAccepted: false,
+      },
+      global: { stubs },
+    });
+
+    expect(
+      wrapper.find('[data-testid="checkout-summary-shipping"]').text(),
+    ).toBe('49,00 kr');
+    expect(wrapper.find('[data-testid="checkout-summary-tax"]').text()).toBe(
+      '109,80 kr',
+    );
+  });
+
+  it('shows the placeholder for a missing subtotal and total only', () => {
     const wrapper = mountComponent(CheckoutOrderSummary, {
       props: {
         itemCount: 0,
@@ -228,7 +286,20 @@ describe('CheckoutOrderSummary', () => {
     expect(
       wrapper.find('[data-testid="checkout-order-summary"]').exists(),
     ).toBe(true);
-    expect(wrapper.text()).toContain('--');
+    expect(
+      wrapper.find('[data-testid="checkout-summary-subtotal"]').text(),
+    ).toBe('--');
+    expect(wrapper.find('[data-testid="checkout-summary-total"]').text()).toBe(
+      '--',
+    );
+    // Shipping and tax are the exception: no value yet renders as no cell
+    // content, so nothing on screen claims to be a number.
+    expect(
+      wrapper.find('[data-testid="checkout-summary-shipping"]').text(),
+    ).toBe('');
+    expect(wrapper.find('[data-testid="checkout-summary-tax"]').text()).toBe(
+      '',
+    );
   });
 });
 

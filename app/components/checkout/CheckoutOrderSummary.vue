@@ -52,7 +52,11 @@ const emit = defineEmits<{
         data-testid="checkout-summary-discount"
       >
         <span class="text-destructive">{{ t('checkout.discount') }}</span>
-        <span class="text-destructive font-medium">-{{ props.discount }}</span>
+        <span
+          class="text-destructive font-medium"
+          data-testid="checkout-summary-discount-amount"
+          >-{{ props.discount }}</span
+        >
       </div>
 
       <!-- Shipping -->
@@ -61,7 +65,7 @@ const emit = defineEmits<{
           {{ t('checkout.shipping') }}
         </span>
         <span data-testid="checkout-summary-shipping">
-          {{ props.shippingFee ?? '--' }}
+          {{ props.shippingFee }}
         </span>
       </div>
 
@@ -71,7 +75,7 @@ const emit = defineEmits<{
           {{ t('checkout.tax') }}
         </span>
         <span data-testid="checkout-summary-tax">
-          {{ props.tax ?? '--' }}
+          {{ props.tax }}
         </span>
       </div>
     </div>
