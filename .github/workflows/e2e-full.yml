@@ -4,16 +4,19 @@
 # Every spec in tests/e2e across chromium, Mobile Chrome and webkit, after the
 # five preflight layers. Triggered by hand, on any branch.
 #
-# The PR job in ci.yml runs four spec files on chromium. This runs all thirteen
-# on all three projects, and it is the only automated run webkit gets at all.
+# The PR job in ci.yml runs the same specs on the same three projects. This one
+# differs in what it is for: it can be dispatched on any branch without a PR,
+# and it continues past a failing project because three wall-clock numbers are
+# its deliverable, where the gate stops at the first red project.
 #
 # The target is a production build on the runner, the same shape ci.yml uses:
 # it proves the code under test, not a deployed environment. Testing a deployed
 # environment is a different question and needs E2E_REMOTE=1 plus a target to
 # point at; it is deliberately not an input here.
 #
-# Wall-clock per project goes to the job summary. The PR gate that replaces the
-# four-spec job inherits those numbers and decides sharding from them.
+# Wall-clock per project goes to the job summary. Those numbers are what the PR
+# gate was sized from: one job, projects sequential, no sharding, because
+# splitting them repeats the preflight sign-in.
 # =============================================================================
 
 name: E2E Full Suite
@@ -58,11 +61,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # A key of its own, with the browser set in it. ci.yml caches the same
-      # path under a key that hashes the lockfile alone, and the entry it saved
-      # holds chromium only — reusing that key would restore a cache without
-      # webkit and, since entries are immutable, never be able to save one, so
-      # every run would pay the webkit download in silence.
+      # Same key as ci.yml, browser set included; see docs/testing.md.
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:

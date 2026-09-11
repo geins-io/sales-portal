@@ -115,8 +115,12 @@ export default defineConfig({
   // Fail build on CI if tests are incomplete
   forbidOnly: !!process.env.CI,
 
-  // Retry failed tests in CI
-  retries: process.env.CI ? 2 : 0,
+  // No retries anywhere. A test that failed twice and passed on the third
+  // attempt used to be reported green, which made "green in CI" a weaker
+  // claim than "green locally". Retrying preflight was worse still: a
+  // misconfigured tenant does not become correct on the second attempt, and
+  // retrying a rate-limited sign-in makes the rate limit worse.
+  retries: 0,
 
   // Run tests in parallel — CI runners have 2 vCPUs
   workers: process.env.CI ? 2 : undefined,
@@ -155,14 +159,17 @@ export default defineConfig({
     // The production build is served with a self-signed cert (see above).
     ignoreHTTPSErrors: PRODUCTION_BUILD,
 
-    // Collect trace on failure
-    trace: 'on-first-retry',
+    // Retries are zero, so `on-first-retry` would never record anything —
+    // a red run would leave only the text log and a screenshot.
+    trace: 'retain-on-failure',
 
     // Screenshot on failure
     screenshot: 'only-on-failure',
 
-    // Video on failure
-    video: 'on-first-retry',
+    // Off rather than `retain-on-failure`: the trace already carries the
+    // screenshots, the DOM and the network for a failed test, and video is
+    // the expensive half of that.
+    video: 'off',
 
     // Extra HTTP headers
     extraHTTPHeaders: {
