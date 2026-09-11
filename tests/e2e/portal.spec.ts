@@ -5,10 +5,17 @@ import {
   outOfScope,
   fetchOrder,
   fetchOrders,
+  fetchQuote,
+  fetchQuoteList,
+  fetchQuotes,
+  fetchProductListRows,
+  fetchProductsByAliases,
   parsePrice,
   readPrice,
   STORAGE_STATE,
   type ApiOrder,
+  type ApiQuote,
+  type ProductListRow,
 } from './helpers';
 
 /**
@@ -626,15 +633,14 @@ test.describe('Portal Quotations', () => {
     const loading = page.locator('[data-testid="quotations-loading"]');
     await expect(loading).toBeHidden({ timeout: PAGE_TIMEOUT });
 
-    // The test account has no quotes, because quotations are not functional on
-    // the platform yet. Declared, not silently skipped.
-    const empty = page.locator('[data-testid="quotations-empty"]');
-    const hasEmpty = await empty.isVisible().catch(() => false);
-    outOfScope(
-      hasEmpty,
-      'fixture-missing',
-      'test account has no quotes — platform quotations are not available yet',
-    );
+    // Requesting a quotation is the half the platform does not offer; reading
+    // one it already holds works, and that is what this test covers. So an
+    // empty list here is a broken fixture rather than a scope boundary — it
+    // used to be declared as one, which hid every selector below.
+    await expect(
+      page.locator('[data-testid="quotations-table"]'),
+      'the quotations list rendered its empty state — the test account lost its quotations',
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
 
     // Desktop puts a view link in the row, mobile makes the whole card the
     // link; both are anchors into the quote, so match on the destination
@@ -726,5 +732,500 @@ test.describe('Portal Quotations', () => {
     await expect(page.locator('[data-testid="quotations-table"]')).toBeVisible({
       timeout: PAGE_TIMEOUT,
     });
+  });
+});
+
+/**
+ * Portal Quotation Values
+ *
+ * Every amount the quotation surfaces show, against the numbers `/api/quotes`
+ * answered with. Numbers, never strings: the list and the detail format the
+ * same total with a different number of decimals, and both use a non-breaking
+ * space and a decimal comma.
+ *
+ * This is the only surface where unit price x quantity can be asserted at all.
+ * Every order line the storefront produces carries quantity 1, so there the
+ * multiplication has no data; a quotation carries lines of 50 and 12. The
+ * multiplication is asserted on the API's raw numbers: 12 x 14.875 is 178.50,
+ * while 12 x the rendered 14,88 is 178.56, so multiplying what the screen
+ * shows would assert the defect rather than catch it.
+ *
+ * Quotations are chosen by what they contain — a unit price that needs more
+ * than two decimals, a quantity above one — never by a fixed id, which would
+ * rot the day the account is reseeded.
+ */
+test.describe('Portal Quotation Values', () => {
+  /** What one rendered amount may be off by: the screen rounds to two decimals, the API does not. */
+  const ROUNDING = 0.005;
+
+  /**
+   * Slack on every tolerance below. 14.88 - 14.875 is 0.005000000000000782 in
+   * binary floating point, so a tie against half a cent fails a comparison
+   * written exactly.
+   */
+  const SLACK = 1e-9;
+
+  /** True for a number the screen cannot show exactly, e.g. a unit price of 14.875. */
+  function isUnrounded(value: number): boolean {
+    return Math.abs(value * 100 - Math.round(value * 100)) > SLACK;
+  }
+
+  /**
+   * A rendered amount against the raw number behind it.
+   *
+   * `toBeCloseTo(value, 2)` is the wrong tool here: it demands a difference
+   * below half a cent, and a unit price of 14.875 rounds to 14,88 — exactly
+   * half a cent away. That is correct rendering, so the tolerance includes it.
+   */
+  function expectRendered(rendered: number, raw: number, what: string) {
+    expect(
+      Math.abs(rendered - raw),
+      `${what}: the screen shows ${rendered}, the API says ${raw}`,
+    ).toBeLessThanOrEqual(ROUNDING + SLACK);
+  }
+
+  /**
+   * The quotation priced in more than two decimals — the one where a page
+   * that rounds before it multiplies lands on a different number than one
+   * that multiplies first. Without it the run proves nothing about rounding,
+   * so its absence fails rather than passes quietly.
+   */
+  async function unroundedQuote(page: Page): Promise<ApiQuote> {
+    const quotes = await fetchQuotes(page);
+    const quote = quotes.find((candidate) =>
+      candidate.items.some((line) => isUnrounded(line.unitPrice)),
+    );
+    expect(
+      quote,
+      'no quotation the account can read is priced in more than two decimals, ' +
+        'so this run cannot show a page that rounds a unit price before it ' +
+        'multiplies. Give a quotation line a unit price like 14.875.',
+    ).toBeDefined();
+    return quote!;
+  }
+
+  async function openQuotationsList(page: Page) {
+    await page.goto('/se/sv/portal/quotations');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="quotations-loading"]')).toBeHidden(
+      {
+        timeout: PAGE_TIMEOUT,
+      },
+    );
+    await expect(
+      page.locator('[data-testid="quotations-table"]'),
+      'the quotations list rendered its empty state — the test account lost its quotations',
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
+  }
+
+  async function openQuotationDetail(page: Page, id: string) {
+    await page.goto(`/se/sv/portal/quotations/${id}`);
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="quote-detail"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+  }
+
+  /** One rendered quotation line: the three numbers a line shows. */
+  interface ScreenLine {
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }
+
+  /**
+   * The lines as the running project can see them. Above `lg` they are the
+   * desktop table; below it that table is hidden and the rows live in the
+   * sheet behind `view-rows-trigger`. Both carry the same three numbers per
+   * line, so no project has to leave the line assertions off.
+   */
+  async function readQuoteLines(page: Page): Promise<ScreenLine[]> {
+    const onDesktop = await page
+      .locator('[data-testid="line-items-table"]')
+      .isVisible()
+      .catch(() => false);
+
+    if (!onDesktop) {
+      await page.locator('[data-testid="view-rows-trigger"]').click();
+      await expect(page.locator('[data-testid="item-rows-sheet"]')).toBeVisible(
+        {
+          timeout: PAGE_TIMEOUT,
+        },
+      );
+    }
+
+    const prefix = onDesktop ? 'line-item' : 'item-rows';
+    const rows = page.locator(
+      onDesktop
+        ? '[data-testid="line-item-row"]'
+        : '[data-testid="item-rows-row"]',
+    );
+
+    const lines: ScreenLine[] = [];
+    for (let index = 0; index < (await rows.count()); index++) {
+      const row = rows.nth(index);
+      const quantity = (
+        await row.locator(`[data-testid="${prefix}-quantity"]`).innerText()
+      ).trim();
+      lines.push({
+        quantity: Number(quantity),
+        unitPrice: await readPrice(
+          row.locator(`[data-testid="${prefix}-unit-price"]`),
+        ),
+        totalPrice: await readPrice(
+          row.locator(`[data-testid="${prefix}-total-price"]`),
+        ),
+      });
+      expect(
+        Number.isFinite(lines[index]!.quantity),
+        `line ${index} shows no quantity: ${JSON.stringify(quantity)}`,
+      ).toBe(true);
+    }
+    return lines;
+  }
+
+  test('the list, the detail page and the API agree on a quotation total', async ({
+    page,
+  }) => {
+    await openQuotationsList(page);
+
+    // Both list shapes are in the DOM at once and CSS decides which one shows.
+    const row = page.locator('[data-testid="quotation-row"]:visible').first();
+    await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
+
+    // Desktop puts the view link in a cell of the row, mobile makes the card
+    // itself the link. Its href carries the id both endpoints key on, which is
+    // the only thing pairing this row's amount with a quotation.
+    const innerLink = row.locator('a[href*="/portal/quotations/"]');
+    const href = (await innerLink.count())
+      ? await innerLink.first().getAttribute('href')
+      : await row.getAttribute('href');
+    const id = href?.split('/').filter(Boolean).pop();
+    expect(id, `no quotation id in the row's link: ${href}`).toBeTruthy();
+
+    const listTotal = await readPrice(
+      row.locator('[data-testid="quotation-total"]'),
+    );
+
+    const listed = (await fetchQuoteList(page)).find(
+      (quote) => quote.id === id,
+    );
+    expect(
+      listed,
+      `the list endpoint does not report the quotation the row links to: ${id}`,
+    ).toBeDefined();
+    expectRendered(listTotal, listed!.total, 'the list total');
+
+    const api = await fetchQuote(page, id!);
+    // Both endpoints computed this amount; the strings they format it into
+    // differ in decimals, the numbers must not.
+    expect(listed!.total).toBeCloseTo(api.total, 2);
+
+    await openQuotationDetail(page, api.id);
+
+    expectRendered(
+      await readPrice(page.locator('[data-testid="quote-summary-total"]')),
+      api.total,
+      'the detail total',
+    );
+    expectRendered(
+      await readPrice(page.locator('[data-testid="quote-summary-subtotal"]')),
+      api.subtotal,
+      'the subtotal',
+    );
+    // `tax` maps from the subtotal's VAT while subtotal and total are both
+    // inc-VAT, so subtotal + tax + shipping is not the total on this page.
+    // Each amount is held to the API on its own; an identity between them
+    // would fail a correct page.
+    expectRendered(
+      await readPrice(page.locator('[data-testid="quote-summary-tax"]')),
+      api.tax,
+      'the tax',
+    );
+
+    // The row renders only for a priced shipping option, so a quotation
+    // without one must show no fee at all rather than a zero.
+    if (api.shipping > 0) {
+      expectRendered(
+        await readPrice(page.locator('[data-testid="quote-summary-shipping"]')),
+        api.shipping,
+        'the shipping fee',
+      );
+    } else {
+      await expect(page.locator('[data-testid="shipping-row"]')).toHaveCount(0);
+    }
+  });
+
+  test('the quotation lines add up to the subtotal it shows', async ({
+    page,
+  }) => {
+    const api = await unroundedQuote(page);
+
+    const apiSum = api.items.reduce((sum, line) => sum + line.totalPrice, 0);
+    expect(apiSum).toBeCloseTo(api.subtotal, 2);
+
+    await openQuotationDetail(page, api.id);
+    const lines = await readQuoteLines(page);
+    expect(lines.length).toBe(api.items.length);
+
+    const screenSubtotal = await readPrice(
+      page.locator('[data-testid="quote-summary-subtotal"]'),
+    );
+    const screenSum = lines.reduce((sum, line) => sum + line.totalPrice, 0);
+    // Every rendered amount carries its own rounding, the subtotal included.
+    expect(Math.abs(screenSum - screenSubtotal)).toBeLessThanOrEqual(
+      (lines.length + 1) * ROUNDING + SLACK,
+    );
+  });
+
+  test('a line priced in more than two decimals still multiplies out', async ({
+    page,
+  }) => {
+    const api = await unroundedQuote(page);
+    expect(
+      api.items.filter((line) => line.quantity > 1).length,
+      'every line of the quotation carries quantity 1, which makes the ' +
+        'multiplication below unfalsifiable — 12 of a product must stay one ' +
+        'line of twelve.',
+    ).toBeGreaterThan(0);
+
+    await openQuotationDetail(page, api.id);
+    const lines = await readQuoteLines(page);
+    expect(lines.length).toBe(api.items.length);
+
+    for (const [index, line] of lines.entries()) {
+      const apiLine = api.items[index]!;
+      expect(line.quantity).toBe(apiLine.quantity);
+      expectRendered(
+        line.unitPrice,
+        apiLine.unitPrice,
+        `line ${index} unit price`,
+      );
+      expectRendered(
+        line.totalPrice,
+        apiLine.totalPrice,
+        `line ${index} total`,
+      );
+
+      // The multiplication itself, on the raw numbers: 12 x 14.875 = 178.50
+      // exactly. On screen the unit price is already rounded to two decimals,
+      // so its product drifts with the quantity and gets the tolerance — the
+      // rendered line total is the one held to the API above.
+      expect(apiLine.totalPrice).toBeCloseTo(
+        apiLine.unitPrice * apiLine.quantity,
+        2,
+      );
+      if (apiLine.quantity <= 1) continue;
+      expect(
+        Math.abs(line.totalPrice - line.unitPrice * line.quantity),
+      ).toBeLessThanOrEqual((apiLine.quantity + 1) * ROUNDING + SLACK);
+    }
+  });
+});
+
+/**
+ * Portal Saved List Total
+ *
+ * The one total in the portal the app computes itself: the list page reduces
+ * over the prices `/api/products/by-aliases` returned and formats the sum once
+ * at two decimals. Every other amount in this file arrives finished from the
+ * API, so this is the only number that can be wrong through our own
+ * arithmetic rather than the platform's.
+ *
+ * The list under test is built here, through the app's own UI. Saved lists
+ * have no server API at all — they live in the browser's localStorage via the
+ * SDK's ListsSession (`docs/patterns/lists.md`) — so "a list the account owns"
+ * means a list this browser context owns, and the signed-in state the suite
+ * restores carries none. The context is thrown away with the test, so nothing
+ * is left behind and no two tests can see each other's list.
+ */
+test.describe('Portal Saved List Total', () => {
+  /** The screen rounds the sum to two decimals; the prices it sums are not rounded. */
+  const ROUNDING = 0.005;
+
+  /** Binary floating point puts a tie a hair outside an exactly written tolerance. */
+  const SLACK = 1e-9;
+
+  function isUnrounded(value: number): boolean {
+    return Math.abs(value * 100 - Math.round(value * 100)) > SLACK;
+  }
+
+  /** The sum of prices each rounded to two decimals first. */
+  function sumOfRounded(prices: number[]): number {
+    return prices.reduce(
+      (sum, price) => sum + Math.round(price * 100) / 100,
+      0,
+    );
+  }
+
+  /**
+   * Two catalogue products chosen by price, never by alias: both priced in
+   * more than two decimals, and the pair must round differently depending on
+   * when the rounding happens — 249.504 + 44.904 is 294.41 rounded once and
+   * 294.40 rounded twice. A pair without that property would pass a page that
+   * rounds every row before adding, which is the defect worth catching.
+   */
+  async function pickUnroundedPair(page: Page): Promise<ProductListRow[]> {
+    const unrounded = (await fetchProductListRows(page))
+      .filter((row) => isUnrounded(row.exVat))
+      .sort((a, b) => b.exVat - a.exVat);
+    expect(
+      unrounded.length,
+      'fewer than two catalogue products are priced in more than two decimals, ' +
+        'so a list of them cannot show the difference between rounding each ' +
+        'price and rounding the sum',
+    ).toBeGreaterThanOrEqual(2);
+
+    const pair = unrounded.slice(0, 2);
+    const exact = pair.reduce((sum, row) => sum + row.exVat, 0);
+    expect(
+      Math.abs(
+        Math.round(exact * 100) / 100 - sumOfRounded(pair.map((p) => p.exVat)),
+      ),
+      `${pair.map((p) => p.exVat).join(' + ')} rounds the same either way, so ` +
+        'the pair cannot tell the two implementations apart',
+    ).toBeGreaterThan(0);
+    return pair;
+  }
+
+  /**
+   * A saved list holding these aliases, created the way a buyer creates one:
+   * the portal's create sheet, then the add-to-list dialog on each PDP. The
+   * sheet navigates straight to the new list, which is where its id comes from.
+   */
+  async function createListWith(
+    page: Page,
+    aliases: string[],
+    name: string,
+  ): Promise<string> {
+    await page.goto('/se/sv/portal/lists');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    await page.locator('[data-testid="saved-lists-create"]').click();
+    await page.locator('[data-testid="create-list-name"]').fill(name);
+    await page.locator('[data-testid="create-list-submit"]').click();
+    await page.waitForURL(/\/portal\/saved-lists\/[\w-]+/, {
+      timeout: PAGE_TIMEOUT,
+    });
+    const listId = new URL(page.url()).pathname
+      .split('/')
+      .filter(Boolean)
+      .pop();
+    expect(listId, `no list id in ${page.url()}`).toBeTruthy();
+
+    for (const alias of aliases) {
+      await page.goto(`/p/${alias}`);
+      await page.waitForLoadState('load');
+      await waitForHydration(page);
+
+      const trigger = page.locator('[data-testid="pdp-add-to-lists"]');
+      await expect(
+        trigger,
+        'the PDP offers no add-to-list button — the tenant has the wishlist feature off',
+      ).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await trigger.click();
+
+      const row = page.locator(
+        `[data-testid="add-to-list-row"][data-list-id="${listId}"]`,
+      );
+      await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
+      await row.click();
+      // The dialog writes to localStorage with no request to wait for, so the
+      // checkbox state is what says the product reached the list.
+      await expect(row.locator('[data-slot="checkbox"]')).toHaveAttribute(
+        'data-state',
+        'checked',
+      );
+      await page.locator('[data-testid="add-to-list-done"]').click();
+    }
+
+    return listId!;
+  }
+
+  async function openList(page: Page, listId: string) {
+    await page.goto(`/se/sv/portal/saved-lists/${listId}`);
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    // The products are fetched client-side after the list loads, so the card
+    // carrying the total is the signal, not the page load.
+    await expect(page.locator('[data-testid="list-loading"]')).toBeHidden({
+      timeout: PAGE_TIMEOUT,
+    });
+    await expect(page.locator('[data-testid="list-total-card"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+  }
+
+  async function readListTotal(page: Page): Promise<number> {
+    return readPrice(page.locator('[data-testid="list-total-amount"]'));
+  }
+
+  test('the list total is the sum of the prices the API returned, in both VAT modes', async ({
+    page,
+  }) => {
+    await page.goto('/se/sv/portal/lists');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    const pair = await pickUnroundedPair(page);
+    const aliases = pair.map((product) => product.alias);
+    const listId = await createListWith(page, aliases, 'Value check');
+
+    await openList(page, listId);
+
+    const api = await fetchProductsByAliases(page, aliases);
+    // `by-aliases` drops an alias it cannot resolve instead of failing, and the
+    // page sums what came back. Without these two counts a list that quietly
+    // lost a member would still match its own smaller sum.
+    expect(
+      api.length,
+      'the products endpoint returned fewer products than the list has members',
+    ).toBe(aliases.length);
+    expect(await page.locator('[data-testid="list-item-row"]').count()).toBe(
+      aliases.length,
+    );
+
+    const exSum = api.reduce((sum, product) => sum + product.exVat, 0);
+    const incSum = api.reduce((sum, product) => sum + product.incVat, 0);
+
+    // Ex VAT is what the stored session carries (`vat_display=ex`).
+    const exTotal = await readListTotal(page);
+    expect(Math.abs(exTotal - exSum)).toBeLessThanOrEqual(ROUNDING + SLACK);
+
+    // The half the pair was chosen for: a page that rounded each row before
+    // adding would land here instead, and every assertion above would still
+    // pass.
+    expect(
+      Math.abs(exTotal - sumOfRounded(api.map((product) => product.exVat))),
+      'the total matches the sum of the rounded prices, so the page rounds ' +
+        'before it adds',
+    ).toBeGreaterThan(ROUNDING);
+
+    // The toggle is a cookie read during render, so it is set and the page
+    // re-rendered rather than clicked.
+    await page.context().addCookies([
+      {
+        name: 'vat_display',
+        value: 'inc',
+        url: page.url(),
+      },
+    ]);
+    await page.reload();
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="list-total-card"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+
+    const incTotal = await readListTotal(page);
+    expect(Math.abs(incTotal - incSum)).toBeLessThanOrEqual(ROUNDING + SLACK);
+    // The deny direction: the toggle must change which field is summed, not
+    // merely re-label the same number.
+    expect(
+      Math.abs(incTotal - exTotal),
+      'the inc-VAT total equals the ex-VAT one, so the toggle changed nothing',
+    ).toBeGreaterThan(ROUNDING);
   });
 });

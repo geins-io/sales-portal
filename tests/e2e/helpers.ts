@@ -911,3 +911,183 @@ export async function setMobileViewport(page: Page) {
 export async function setDesktopViewport(page: Page) {
   await page.setViewportSize({ width: 1440, height: 900 });
 }
+
+// ---------- Quotes ----------
+
+/** One quotation line, in the numbers the quotes API computed for it. */
+export interface ApiQuoteLine {
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+/**
+ * One quotation as `/api/quotes/<id>` reports it.
+ *
+ * Inc-VAT throughout, and there is no ex-VAT number anywhere on this path:
+ * every amount maps from `sellingPriceIncVat`. `tax` is the subtotal's VAT
+ * rather than a component of the total, so subtotal + tax + shipping is not
+ * the total and must never be asserted as one.
+ */
+export interface ApiQuote {
+  id: string;
+  subtotal: number;
+  tax: number;
+  shipping: number;
+  total: number;
+  items: ApiQuoteLine[];
+}
+
+/** One quotation as the list endpoint reports it, alongside its rendered row. */
+export interface ApiQuoteListItem {
+  id: string;
+  total: number;
+  itemCount: number;
+}
+
+/** One quotation, read through the endpoint the detail page fetches. */
+export async function fetchQuote(page: Page, id: string): Promise<ApiQuote> {
+  const response = await page.request.get(`/api/quotes/${id}`);
+  expect(response.ok(), `/api/quotes/${id} did not answer 200`).toBe(true);
+
+  const quote = (await response.json())?.quote;
+  const result: ApiQuote = {
+    id,
+    subtotal: quote?.subtotal,
+    tax: quote?.tax,
+    shipping: quote?.shipping,
+    total: quote?.total,
+    items: (quote?.lineItems ?? []).map(
+      (item: {
+        quantity?: number;
+        unitPrice?: number;
+        totalPrice?: number;
+      }) => ({
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+      }),
+    ),
+  };
+
+  for (const field of ['subtotal', 'tax', 'shipping', 'total'] as const) {
+    expect(
+      Number.isFinite(result[field]),
+      `quotation ${id} ${field} is not a number: ${JSON.stringify(result[field])}`,
+    ).toBe(true);
+  }
+  expect(
+    result.items.length,
+    `quotation ${id} reports no lines`,
+  ).toBeGreaterThan(0);
+  for (const [index, line] of result.items.entries()) {
+    for (const [field, value] of Object.entries(line)) {
+      expect(
+        Number.isFinite(value),
+        `quotation ${id} line ${index} ${field} is not a number: ${JSON.stringify(value)}`,
+      ).toBe(true);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * The quotations the signed-in account can read, as the list endpoint sends
+ * them. The list carries a total per quotation but no lines, so it is the
+ * side to compare a list row against — the detail comes from `fetchQuote`.
+ */
+export async function fetchQuoteList(page: Page): Promise<ApiQuoteListItem[]> {
+  const response = await page.request.get('/api/quotes');
+  expect(response.ok(), '/api/quotes did not answer 200').toBe(true);
+
+  const quotes: { id?: string; total?: number; itemCount?: number }[] =
+    (await response.json())?.quotes ?? [];
+  expect(
+    quotes.length,
+    'the test account can read no quotations, so there is nothing to compare against',
+  ).toBeGreaterThan(0);
+
+  return quotes.map((quote) => {
+    expect(
+      quote.id,
+      'a quotation arrived without an id, which is the key the detail endpoint takes',
+    ).toBeTruthy();
+    expect(
+      Number.isFinite(quote.total),
+      `quotation ${quote.id} list total is not a number: ${JSON.stringify(quote.total)}`,
+    ).toBe(true);
+    return {
+      id: quote.id!,
+      total: quote.total!,
+      itemCount: quote.itemCount ?? 0,
+    };
+  });
+}
+
+/**
+ * Every quotation the account can read, each read in full.
+ *
+ * Not memoised, and never picked by a fixed id: the account is reseeded from
+ * time to time, so a quotation is chosen by what it contains — the line whose
+ * unit price needs more than two decimals, the one with a quantity above one.
+ */
+export async function fetchQuotes(page: Page): Promise<ApiQuote[]> {
+  const list = await fetchQuoteList(page);
+  const quotes: ApiQuote[] = [];
+  for (const item of list) {
+    quotes.push(await fetchQuote(page, item.id));
+  }
+  return quotes;
+}
+
+// ---------- Saved lists ----------
+
+/** One product's two prices, as `/api/products/by-aliases` reports them. */
+export interface ApiAliasPrice {
+  alias: string;
+  exVat: number;
+  incVat: number;
+}
+
+/**
+ * The products behind a saved list's aliases, read through the endpoint the
+ * list page itself fetches.
+ *
+ * The endpoint drops an alias it cannot resolve instead of failing the batch
+ * (`getProductsByAliases`), so the caller is told which aliases came back and
+ * can hold the page to the same count — a list that silently lost a member
+ * would otherwise show a lower total that still matches this sum.
+ */
+export async function fetchProductsByAliases(
+  page: Page,
+  aliases: string[],
+): Promise<ApiAliasPrice[]> {
+  const response = await page.request.get('/api/products/by-aliases', {
+    params: { aliases: aliases.join(',') },
+  });
+  expect(response.ok(), '/api/products/by-aliases did not answer 200').toBe(
+    true,
+  );
+
+  const products: {
+    alias?: string;
+    unitPrice?: { sellingPriceExVat?: number; sellingPriceIncVat?: number };
+  }[] = (await response.json())?.products ?? [];
+
+  return products.map((product) => {
+    const price: ApiAliasPrice = {
+      alias: product.alias ?? '',
+      exVat: product.unitPrice?.sellingPriceExVat as number,
+      incVat: product.unitPrice?.sellingPriceIncVat as number,
+    };
+    expect(price.alias, 'a product arrived without an alias').toBeTruthy();
+    for (const field of ['exVat', 'incVat'] as const) {
+      expect(
+        Number.isFinite(price[field]),
+        `${price.alias} ${field} is not a number: ${JSON.stringify(price[field])}`,
+      ).toBe(true);
+    }
+    return price;
+  });
+}

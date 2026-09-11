@@ -190,11 +190,22 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                     <td class="text-muted-foreground px-4 py-3">
                       {{ item.articleNumber }}
                     </td>
-                    <td class="px-4 py-3 text-right">{{ item.quantity }}</td>
-                    <td class="px-4 py-3 text-right">
+                    <td
+                      data-testid="line-item-quantity"
+                      class="px-4 py-3 text-right"
+                    >
+                      {{ item.quantity }}
+                    </td>
+                    <td
+                      data-testid="line-item-unit-price"
+                      class="px-4 py-3 text-right"
+                    >
                       {{ item.unitPriceFormatted }}
                     </td>
-                    <td class="px-4 py-3 text-right font-medium">
+                    <td
+                      data-testid="line-item-total-price"
+                      class="px-4 py-3 text-right font-medium"
+                    >
                       {{ item.totalPriceFormatted }}
                     </td>
                   </tr>
@@ -251,7 +262,9 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                       count: quote?.lineItems?.length ?? 0,
                     })
                   }}</span>
-                  <span>{{ quote.subtotalFormatted }}</span>
+                  <span data-testid="quote-summary-subtotal">{{
+                    quote.subtotalFormatted
+                  }}</span>
                 </div>
                 <div
                   v-if="(quote?.shipping ?? 0) > 0"
@@ -261,19 +274,25 @@ const quoteTotals = computed<PortalItemTotal[]>(() => {
                   <span class="text-muted-foreground">{{
                     t('portal.quotations.shipping')
                   }}</span>
-                  <span>{{ quote.shippingFormatted }}</span>
+                  <span data-testid="quote-summary-shipping">{{
+                    quote.shippingFormatted
+                  }}</span>
                 </div>
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">{{
                     t('portal.quotations.tax')
                   }}</span>
-                  <span>{{ quote.taxFormatted }}</span>
+                  <span data-testid="quote-summary-tax">{{
+                    quote.taxFormatted
+                  }}</span>
                 </div>
                 <div
                   class="border-border mt-2 flex justify-between border-t pt-2 font-semibold"
                 >
                   <span>{{ t('portal.quotations.grand_total') }}</span>
-                  <span>{{ quote.totalFormatted }}</span>
+                  <span data-testid="quote-summary-total">{{
+                    quote.totalFormatted
+                  }}</span>
                 </div>
               </div>
 

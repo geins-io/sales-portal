@@ -164,9 +164,11 @@ function getStatusLabel(status: QuoteStatus): string {
             <div class="text-muted-foreground space-y-1 text-sm">
               <div class="flex justify-between">
                 <span>{{ formatDate(quote.createdAt) }}</span>
-                <span class="text-foreground font-medium">{{
-                  quote.totalFormatted
-                }}</span>
+                <span
+                  data-testid="quotation-total"
+                  class="text-foreground font-medium"
+                  >{{ quote.totalFormatted }}</span
+                >
               </div>
               <div>{{ quote.contactName }}</div>
             </div>
@@ -206,7 +208,9 @@ function getStatusLabel(status: QuoteStatus): string {
                 <td class="py-3 pr-4">{{ quote.quoteNumber || '—' }}</td>
                 <td class="py-3 pr-4">{{ formatDate(quote.createdAt) }}</td>
                 <td class="py-3 pr-4">{{ quote.contactName }}</td>
-                <td class="py-3 pr-4">{{ quote.totalFormatted }}</td>
+                <td data-testid="quotation-total" class="py-3 pr-4">
+                  {{ quote.totalFormatted }}
+                </td>
                 <td class="py-3 pr-4">
                   <span
                     data-testid="quote-status-badge"
