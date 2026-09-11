@@ -150,7 +150,11 @@ const maxQuantity = computed(() => {
       >
         <span>
           {{ t('cart.unit_price_prefix') }}
-          <PriceDisplay :price="item.unitPrice" class="inline text-sm" />
+          <PriceDisplay
+            :price="item.unitPrice"
+            testid="cart-item-unit-price"
+            class="inline text-sm"
+          />
         </span>
       </div>
 
@@ -159,7 +163,11 @@ const maxQuantity = computed(() => {
         v-if="showPrice && item.totalPrice"
         class="shrink-0 text-right font-semibold whitespace-nowrap"
       >
-        <PriceDisplay :price="item.totalPrice" class="text-sm font-semibold" />
+        <PriceDisplay
+          :price="item.totalPrice"
+          testid="cart-item-total-price"
+          class="text-sm font-semibold"
+        />
       </div>
     </div>
   </div>
