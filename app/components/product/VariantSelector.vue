@@ -36,7 +36,8 @@ const props = defineProps<{
   // falling back to a name-only row.
   skus?: SkuType[];
   productImages?: ProductImageType[];
-  priceFormatted?: string | null;
+  priceIncVatFormatted?: string | null;
+  priceExVatFormatted?: string | null;
   productName?: string;
   // Fallback art-nr for single-variant wrapper products where the SKU
   // doesn't carry one of its own (Geins returns a "DefaultProduct"
@@ -49,7 +50,8 @@ const props = defineProps<{
   variantProducts?: Record<
     string,
     | {
-        priceFormatted?: string | null;
+        priceIncVatFormatted?: string | null;
+        priceExVatFormatted?: string | null;
         articleNumber?: string | null;
         name?: string | null;
       }
@@ -128,7 +130,8 @@ function variantInfoFor(
 ): {
   articleNumber?: string;
   stockTotal: number;
-  priceFormatted?: string | null;
+  priceIncVatFormatted?: string | null;
+  priceExVatFormatted?: string | null;
   name?: string | null;
 } | null {
   const matchingVariant = props.variants.find((variant) => {
@@ -162,13 +165,20 @@ function variantInfoFor(
     undefined;
   const stockTotal =
     matchingVariant?.stock?.totalStock ?? sku?.stock?.totalStock ?? 0;
-  const priceFormatted = sibling?.priceFormatted ?? null;
+  const priceIncVatFormatted = sibling?.priceIncVatFormatted ?? null;
+  const priceExVatFormatted = sibling?.priceExVatFormatted ?? null;
   // Sibling-variant products each carry their own product name; fall
   // back to the parent product name for internal multi-SKU products
   // where every row shares one name.
   const name = sibling?.name ?? props.productName ?? undefined;
   if (!articleNumber && !matchingVariant) return null;
-  return { articleNumber, stockTotal, priceFormatted, name };
+  return {
+    articleNumber,
+    stockTotal,
+    priceIncVatFormatted,
+    priceExVatFormatted,
+    name,
+  };
 }
 
 // First row of each sheet item: the product name. Sibling variants are
@@ -191,6 +201,28 @@ const primaryImage = computed(() => {
   const images = props.productImages ?? [];
   return images.find((i) => i.isPrimary) ?? images[0] ?? null;
 });
+
+const { showIncVat } = useVatDisplay();
+
+/**
+ * Row price in the buyer's chosen VAT mode. Falls back source by source, not
+ * field by field: a sibling that carries no price hands the row over to the
+ * parent's price rather than to its own other VAT variant.
+ */
+function rowPriceFormatted(
+  dimensionName: string,
+  value: string,
+): string | null {
+  const info = variantInfoFor(dimensionName, value);
+  const sibling = showIncVat.value
+    ? info?.priceIncVatFormatted
+    : info?.priceExVatFormatted;
+  if (sibling) return sibling;
+  const parent = showIncVat.value
+    ? props.priceIncVatFormatted
+    : props.priceExVatFormatted;
+  return parent || null;
+}
 
 const { buildProductImageAlt } = useProductImageAlt();
 
@@ -436,16 +468,12 @@ const { showPrice } = usePriceVisibility();
                 <span
                   v-if="
                     showPrice &&
-                    (variantInfoFor(activeDimension.dimensionName, value)
-                      ?.priceFormatted ||
-                      priceFormatted)
+                    rowPriceFormatted(activeDimension.dimensionName, value)
                   "
                   class="shrink-0 text-sm font-medium"
+                  data-testid="variant-row-price"
                 >
-                  {{
-                    variantInfoFor(activeDimension.dimensionName, value)
-                      ?.priceFormatted || priceFormatted
-                  }}
+                  {{ rowPriceFormatted(activeDimension.dimensionName, value) }}
                 </span>
 
                 <Check
