@@ -153,7 +153,9 @@ function goToCheckout() {
                   <dt class="text-muted-foreground">
                     {{ $t('cart.subtotal') }}
                   </dt>
-                  <dd>{{ subTotalFormatted }}</dd>
+                  <dd data-testid="cart-summary-subtotal">
+                    {{ subTotalFormatted }}
+                  </dd>
                 </div>
                 <div
                   v-if="cartStore.discountAmount"
@@ -163,7 +165,10 @@ function goToCheckout() {
                   <dt class="text-destructive">
                     {{ $t('discount.discount') }}
                   </dt>
-                  <dd class="text-destructive font-medium">
+                  <dd
+                    class="text-destructive font-medium"
+                    data-testid="cart-summary-discount-amount"
+                  >
                     -{{ discountFormatted }}
                   </dd>
                 </div>
@@ -174,7 +179,7 @@ function goToCheckout() {
                   <dt class="text-muted-foreground">
                     {{ $t('cart.shipping') }}
                   </dt>
-                  <dd>{{ shippingFee }}</dd>
+                  <dd data-testid="cart-summary-shipping">{{ shippingFee }}</dd>
                 </div>
                 <div
                   v-if="taxFormatted"
@@ -183,7 +188,7 @@ function goToCheckout() {
                   <dt class="text-muted-foreground">
                     {{ $t('cart.tax_estimated') }}
                   </dt>
-                  <dd>{{ taxFormatted }}</dd>
+                  <dd data-testid="cart-summary-tax">{{ taxFormatted }}</dd>
                 </div>
                 <div
                   v-if="cartStore.visibleCartCampaigns.length"
@@ -202,7 +207,9 @@ function goToCheckout() {
                 <div class="border-border border-t pt-3">
                   <div class="flex items-center justify-between font-semibold">
                     <dt>{{ $t('cart.total') }}</dt>
-                    <dd>{{ totalFormatted }}</dd>
+                    <dd data-testid="cart-summary-total">
+                      {{ totalFormatted }}
+                    </dd>
                   </div>
                 </div>
               </dl>

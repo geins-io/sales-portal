@@ -455,10 +455,18 @@ export async function login(
 /**
  * Navigate to a product's PDP and add it to cart by clicking the add-to-cart button.
  *
+ * `quantity` steps the PDP's quantity control before the click, so the cart
+ * holds a known number rather than one of everything — the only way a line
+ * sum (quantity x unit price) is a real multiplication.
+ *
  * Because hydration mismatch patching can leave event handlers temporarily
  * unattached, we retry the click up to 3 times if the cart drawer doesn't open.
  */
-export async function addToCart(page: Page, productAlias: string) {
+export async function addToCart(
+  page: Page,
+  productAlias: string,
+  quantity = 1,
+) {
   await page.goto(`/p/${productAlias}`);
   await page.waitForLoadState('load');
   await waitForHydration(page);
@@ -467,6 +475,22 @@ export async function addToCart(page: Page, productAlias: string) {
   await expect(addButton).toBeVisible({ timeout: 20000 });
   await expect(addButton).toBeEnabled({ timeout: 10000 });
   await addButton.scrollIntoViewIfNeeded();
+
+  if (quantity > 1) {
+    const field = page.locator('[data-testid="quantity-input"]').first();
+    const amount = field.locator('input');
+    const increment = field.locator('button:last-of-type');
+    for (let step = 1; step < quantity; step++) {
+      await increment.click();
+    }
+    // The control is capped at the SKU's stock, so a silent stop short of the
+    // asked-for number would send a different quantity than the test asserts.
+    await expect(
+      amount,
+      `the PDP quantity control did not reach ${quantity} for "${productAlias}" ` +
+        `— stock caps it at its max`,
+    ).toHaveValue(String(quantity));
+  }
 
   const drawer = page.locator('[data-testid="cart-drawer"]');
 
@@ -531,6 +555,97 @@ export async function addToCart(page: Page, productAlias: string) {
     `addToCart failed for "${productAlias}" after 3 attempts ` +
       `(touch=${hasTouch}):\n  ${failures.join('\n  ')}`,
   );
+}
+
+/** One cart line, in the numbers the cart APIs computed for it. */
+export interface ApiCartLine {
+  quantity: number;
+  unitPriceExVat: number;
+  totalPriceExVat: number;
+}
+
+/** The cart `/api/cart` reports, as numbers. */
+export interface ApiCart {
+  subTotalExVat: number;
+  totalExVat: number;
+  vat: number;
+  /**
+   * The shipping fee as the API formats it, `''` until a shipping option is
+   * selected. A string rather than a number: before checkout there is no fee
+   * to compare against, and the surfaces render a fallback instead.
+   */
+  shippingFeeFormatted: string;
+  discountIncVat: number;
+  items: ApiCartLine[];
+}
+
+/**
+ * The cart the server computed, read through the same endpoint the page uses.
+ *
+ * The cart is identified by the `cart_id` cookie (`shared/constants/storage.ts`),
+ * not by the signed-in account, so this reads the caller's own cart and two
+ * tests never see each other's. Every number is asserted finite before it is
+ * returned: a helper that hands back `undefined` turns the assertions built on
+ * it into a comparison of two undefineds, which passes.
+ */
+export async function fetchCart(page: Page): Promise<ApiCart> {
+  const cartId = (await page.context().cookies()).find(
+    (cookie) => cookie.name === 'cart_id',
+  )?.value;
+  expect(
+    cartId,
+    'no cart_id cookie — nothing reached the cart, so there is no cart to read',
+  ).toBeTruthy();
+
+  const response = await page.request.get('/api/cart', {
+    params: { cartId: cartId! },
+  });
+  expect(response.ok(), '/api/cart did not answer 200').toBe(true);
+
+  const body = await response.json();
+  const summary = body?.summary;
+
+  const cart: ApiCart = {
+    subTotalExVat: summary?.subTotal?.sellingPriceExVat,
+    totalExVat: summary?.total?.sellingPriceExVat,
+    vat: summary?.total?.vat,
+    shippingFeeFormatted: summary?.shipping?.feeIncVatFormatted ?? '',
+    discountIncVat: summary?.fixedAmountDiscountIncVat,
+    items: (body?.items ?? []).map(
+      (item: {
+        quantity?: number;
+        unitPrice?: { sellingPriceExVat?: number };
+        totalPrice?: { sellingPriceExVat?: number };
+      }) => ({
+        quantity: item.quantity,
+        unitPriceExVat: item.unitPrice?.sellingPriceExVat,
+        totalPriceExVat: item.totalPrice?.sellingPriceExVat,
+      }),
+    ),
+  };
+
+  for (const [field, value] of Object.entries(cart)) {
+    if (field === 'shippingFeeFormatted' || field === 'items') continue;
+    expect(
+      Number.isFinite(value),
+      `cart summary ${field} is not a number: ${JSON.stringify(value)}`,
+    ).toBe(true);
+  }
+  expect(
+    typeof cart.shippingFeeFormatted,
+    'the shipping fee arrived as something other than a string',
+  ).toBe('string');
+  expect(cart.items.length, '/api/cart reports no lines').toBeGreaterThan(0);
+  for (const [index, line] of cart.items.entries()) {
+    for (const [field, value] of Object.entries(line)) {
+      expect(
+        Number.isFinite(value),
+        `cart line ${index} ${field} is not a number: ${JSON.stringify(value)}`,
+      ).toBe(true);
+    }
+  }
+
+  return cart;
 }
 
 /**

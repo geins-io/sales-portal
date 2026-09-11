@@ -164,7 +164,9 @@ function goToCheckout() {
                   <span class="text-destructive">{{
                     $t('discount.discount')
                   }}</span>
-                  <span class="text-destructive font-medium"
+                  <span
+                    class="text-destructive font-medium"
+                    data-testid="cart-summary-discount-amount"
                     >-{{ discountFormatted }}</span
                   >
                 </div>
