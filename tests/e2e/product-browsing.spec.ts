@@ -279,17 +279,22 @@ test.describe('Product Browsing', () => {
     }) => {
       // Identify the card through the article number, which the grid renders
       // and the list endpoint returns. Two things that do not work: the
-      // product `discoverProduct` picks need not be on the page (the endpoint
-      // applies no stable ordering and the grid pages at 24), and the card's
-      // link carries the canonical URL, not the alias `/api/products` takes.
-      const rows = await fetchProductListRows(page);
-      expect(rows.length, 'no product-list row has a price').toBeGreaterThan(0);
-
+      // product `discoverProduct` picks need not be on the page, and the
+      // card's link carries the canonical URL, not the alias `/api/products`
+      // takes.
       await page.goto('/products');
       await waitForHydration(page);
 
       const cards = page.locator('[data-testid="product-card"]');
       await expect(cards.first()).toBeVisible({ timeout: 20000 });
+
+      // Read the catalogue after navigating, so the helper can take the market
+      // and locale off the page's own URL and read what the grid read. Whole
+      // catalogue rather than a page: the endpoint's ordering drifts between
+      // calls, so two partial reads are two draws, and their overlap has
+      // measured as low as zero.
+      const rows = await fetchProductListRows(page);
+      expect(rows.length, 'no product-list row has a price').toBeGreaterThan(0);
 
       // Match on the card's own article-number node, not on the whole card
       // text: one article number can be a prefix of another, and a substring
@@ -301,10 +306,7 @@ test.describe('Product Browsing', () => {
       const row = rows.find((r) =>
         shown.some((text) => text.includes(r.articleNumber)),
       );
-      expect(
-        row,
-        'no product-list row matched a card on the first grid page',
-      ).toBeTruthy();
+      expect(row, 'no catalogue row matched any card on the grid').toBeTruthy();
 
       const card = cards
         .filter({
