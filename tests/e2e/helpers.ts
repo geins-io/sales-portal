@@ -557,17 +557,25 @@ export async function addToCart(
   );
 }
 
-/** One cart line, in the numbers the cart APIs computed for it. */
+/**
+ * One cart line, in the numbers the cart APIs computed for it. Both VAT sides:
+ * the cart surfaces follow the buyer's `vat_display` preference, the checkout
+ * is pinned to inc-VAT, and each must be compared against its own side.
+ */
 export interface ApiCartLine {
   quantity: number;
   unitPriceExVat: number;
+  unitPriceIncVat: number;
   totalPriceExVat: number;
+  totalPriceIncVat: number;
 }
 
 /** The cart `/api/cart` reports, as numbers. */
 export interface ApiCart {
   subTotalExVat: number;
+  subTotalIncVat: number;
   totalExVat: number;
+  totalIncVat: number;
   vat: number;
   /**
    * The shipping fee as the API formats it, `''` until a shipping option is
@@ -607,19 +615,26 @@ export async function fetchCart(page: Page): Promise<ApiCart> {
 
   const cart: ApiCart = {
     subTotalExVat: summary?.subTotal?.sellingPriceExVat,
+    subTotalIncVat: summary?.subTotal?.sellingPriceIncVat,
     totalExVat: summary?.total?.sellingPriceExVat,
+    totalIncVat: summary?.total?.sellingPriceIncVat,
     vat: summary?.total?.vat,
     shippingFeeFormatted: summary?.shipping?.feeIncVatFormatted ?? '',
     discountIncVat: summary?.fixedAmountDiscountIncVat,
     items: (body?.items ?? []).map(
       (item: {
         quantity?: number;
-        unitPrice?: { sellingPriceExVat?: number };
-        totalPrice?: { sellingPriceExVat?: number };
+        unitPrice?: { sellingPriceExVat?: number; sellingPriceIncVat?: number };
+        totalPrice?: {
+          sellingPriceExVat?: number;
+          sellingPriceIncVat?: number;
+        };
       }) => ({
         quantity: item.quantity,
         unitPriceExVat: item.unitPrice?.sellingPriceExVat,
+        unitPriceIncVat: item.unitPrice?.sellingPriceIncVat,
         totalPriceExVat: item.totalPrice?.sellingPriceExVat,
+        totalPriceIncVat: item.totalPrice?.sellingPriceIncVat,
       }),
     ),
   };
