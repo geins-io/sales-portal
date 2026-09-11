@@ -313,7 +313,12 @@ function addToCart(product: ListProduct) {
               <p class="text-sm font-semibold">
                 {{ t('portal.saved_list_detail.list_total_label') }}
               </p>
-              <p class="mt-1 text-2xl font-bold">{{ listTotalFormatted }}</p>
+              <p
+                data-testid="list-total-amount"
+                class="mt-1 text-2xl font-bold"
+              >
+                {{ listTotalFormatted }}
+              </p>
               <p class="text-muted-foreground mt-1 text-xs">
                 {{ t('portal.saved_list_detail.list_total_caption') }}
               </p>
