@@ -98,13 +98,14 @@ test.describe('Navigation', () => {
       // Fallback: networkidle may not fire if long-polling is active
     });
 
+    // The test's name is the claim, so it carries it. Wrapping the assertion
+    // in "if the breadcrumbs are there" made the one outcome worth reporting
+    // — no breadcrumbs — the outcome that passes.
     const breadcrumbs = page.locator('[data-testid="breadcrumbs"]');
+    await expect(breadcrumbs).toBeVisible({ timeout: 15000 });
 
-    if (await breadcrumbs.isVisible().catch(() => false)) {
-      const items = breadcrumbs.locator('li');
-      const count = await items.count();
-      expect(count).toBeGreaterThanOrEqual(1);
-    }
+    const items = breadcrumbs.locator('li');
+    expect(await items.count()).toBeGreaterThanOrEqual(1);
   });
 
   test('should have clickable footer links', async ({ page }) => {

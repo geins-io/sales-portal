@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { e2eCredentials, hasE2ECredentials } from './target';
 
 export { e2eCredentials, hasE2ECredentials };
@@ -83,6 +83,8 @@ export interface DiscoveredProduct {
   alias: string;
   skuId: number;
   name: string;
+  /** Rendered on every product card, so it links a card to this API row. */
+  articleNumber: string | null;
 }
 
 export interface DiscoveredCategory {
@@ -94,6 +96,7 @@ interface RawProduct {
   skus?: { skuId: number }[];
   alias?: string;
   name?: string;
+  articleNumber?: string | null;
 }
 
 /**
@@ -119,6 +122,7 @@ async function fetchProductCandidates(
       alias: p.alias,
       skuId: p.skus![0]!.skuId,
       name: p.name ?? p.alias,
+      articleNumber: p.articleNumber ?? null,
     }))
     .sort((a, b) => a.alias.localeCompare(b.alias));
 }
@@ -131,6 +135,133 @@ export async function discoverProduct(page: Page): Promise<DiscoveredProduct> {
     'no product with a SKU and alias found',
   ).toBeGreaterThan(0);
   return candidates[0]!;
+}
+
+// ---------- Prices ----------
+
+/** The unit price an API response carries, as numbers rather than copy. */
+export interface ApiPrice {
+  exVat: number;
+  incVat: number;
+  vat: number;
+}
+
+/**
+ * The unit price `/api/products/<alias>` returns, as numbers.
+ *
+ * Uses the caller's browser context, so the signed-in and the anonymous run
+ * each get what that caller is actually served. Every field is asserted to be
+ * a finite number before it is returned: a helper that hands back `undefined`
+ * turns the assertions built on it into a comparison of two undefineds, which
+ * passes.
+ */
+export async function fetchProductPrice(
+  page: Page,
+  alias: string,
+): Promise<ApiPrice> {
+  const response = await page.request.get(`/api/products/${alias}`);
+  expect(response.ok(), `/api/products/${alias} did not answer 200`).toBe(true);
+
+  // `/api/products/<alias>` returns the product object itself, not a wrapper.
+  const unitPrice = (await response.json())?.unitPrice;
+
+  const price: ApiPrice = {
+    exVat: unitPrice?.sellingPriceExVat,
+    incVat: unitPrice?.sellingPriceIncVat,
+    vat: unitPrice?.vat,
+  };
+
+  for (const [field, value] of Object.entries(price)) {
+    expect(
+      Number.isFinite(value),
+      `unitPrice.${field} for "${alias}" is not a number: ${JSON.stringify(value)}`,
+    ).toBe(true);
+  }
+
+  return price;
+}
+
+/** One row of the product-list endpoint, with the fields a grid test needs. */
+export interface ProductListRow {
+  alias: string;
+  articleNumber: string;
+  exVat: number;
+}
+
+/**
+ * Rows from `/api/product-lists/products`, the endpoint the `/products` grid
+ * renders from. Use these to identify a card: the endpoint applies no stable
+ * ordering, so "the first API product" is not "the first card", and a card's
+ * link carries the canonical URL rather than the alias the product endpoint
+ * takes. The article number is on both sides and identifies the pair.
+ */
+export async function fetchProductListRows(
+  page: Page,
+  take = 24,
+): Promise<ProductListRow[]> {
+  const response = await page.request.get('/api/product-lists/products', {
+    params: { take: String(take) },
+  });
+  expect(response.ok(), '/api/product-lists/products did not answer 200').toBe(
+    true,
+  );
+
+  const products = (await response.json())?.products ?? [];
+  return products
+    .filter(
+      (p: {
+        alias?: string;
+        articleNumber?: string;
+        unitPrice?: { sellingPriceExVat?: number };
+      }) =>
+        !!p.alias &&
+        !!p.articleNumber &&
+        Number.isFinite(p.unitPrice?.sellingPriceExVat),
+    )
+    .map(
+      (p: {
+        alias: string;
+        articleNumber: string;
+        unitPrice: { sellingPriceExVat: number };
+      }) => ({
+        alias: p.alias,
+        articleNumber: p.articleNumber,
+        exVat: p.unitPrice.sellingPriceExVat,
+      }),
+    );
+}
+
+/**
+ * The number inside a rendered price, ignoring currency and separators.
+ *
+ * Never compare formatted price strings. The same amount reaches the DOM as
+ * two different strings depending on which path ran: `PriceDisplay` prefers
+ * the API's pre-formatted value ("600 kr") and falls back to `formatPrice`,
+ * an `Intl.NumberFormat` currency format ("600,00 kr" with a non-breaking
+ * space). Asserting the string asserts which path ran, not what the price is.
+ *
+ * Throws on text with no digits rather than returning `NaN`, which compares
+ * false against everything and would read as a wrong price instead of a
+ * missing element.
+ *
+ * Assumes the sv-SE convention the app formats in: comma decimal mark, space
+ * thousands separator. A locale that groups with periods would need this to
+ * know which separator it is looking at.
+ */
+export function parsePrice(text: string): number {
+  const digits = text.replace(/[^\d,.]/g, '');
+  if (!/\d/.test(digits)) {
+    throw new Error(`no number in rendered price: ${JSON.stringify(text)}`);
+  }
+  // Comma is the decimal mark in sv-SE; the thousands separator is a space,
+  // already dropped above.
+  return Number.parseFloat(digits.replace(',', '.'));
+}
+
+/** Reads a rendered price off the page and returns it as a number. */
+export async function readPrice(locator: Locator): Promise<number> {
+  await expect(locator).toBeVisible({ timeout: 15000 });
+  return parsePrice((await locator.innerText()).trim());
 }
 
 /** Memoised per worker — probing costs a page load + hydration wait each. */

@@ -77,14 +77,16 @@ test.describe('Search', () => {
     const autocomplete = page.locator('[data-testid="search-autocomplete"]');
     await expect(autocomplete).toBeVisible({ timeout: 15000 });
 
-    // Results should have list items with images
-    const items = autocomplete.locator('[role="option"], li');
-    const count = await items.count();
+    // The panel opens on the loading state too (`v-if="open"`), so waiting
+    // for the container proves nothing about results — counting straight
+    // after it counts the spinner. Wait for an option, which retries past
+    // loading; the search term comes from a product discoverProduct just
+    // returned, so one is expected.
+    const items = autocomplete.locator('li[role="option"]');
+    await expect(items.first()).toBeVisible({ timeout: 15000 });
 
-    if (count > 0) {
-      const images = autocomplete.locator('img');
-      await expect(images.first()).toBeVisible({ timeout: 5000 });
-    }
+    const images = autocomplete.locator('img');
+    await expect(images.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should render a usable search input on the bare /search page', async ({

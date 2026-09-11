@@ -163,10 +163,17 @@ test.describe('Cart', () => {
     await waitForHydration(page);
 
     // Click the first add-to-cart button on the PLP (grid view shows "Köp", list shows "Lägg i varukorg")
+    // canPurchase depends on auth, catalog mode and stock, so a category
+    // whose first cards offer no button is a real state — the suite already
+    // treats this as something to probe (discoverPurchasableProduct).
     const addButton = page
       .locator('[data-testid="add-to-cart-button"]')
       .first();
-    if (!(await addButton.isVisible().catch(() => false))) return;
+    outOfScope(
+      !(await addButton.isVisible().catch(() => false)),
+      'fixture-missing',
+      'no product card in the discovered category offers add-to-cart',
+    );
 
     await addButton.click();
 
