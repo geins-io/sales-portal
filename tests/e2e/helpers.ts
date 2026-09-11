@@ -181,6 +181,30 @@ export async function fetchProductPrice(
   return price;
 }
 
+/**
+ * The `market` / `locale` pair a locale-prefixed URL carries, in the shape the
+ * product APIs take. `/se/sv/products` → `{ market: 'se', locale: 'sv' }`.
+ *
+ * Asserts the prefix rather than falling back to sending nothing. On an
+ * unprefixed page the grid still sends both — `useLocaleMarket` reads the
+ * market from a cookie, the tenant, then a hardcoded `'se'`, and the locale
+ * from i18n state, none of it from the route — so a silent `{}` here would
+ * read a different catalogue than the page while the completeness assertion
+ * passed anyway. `page.goto` follows the server-side redirect to the prefixed
+ * path, so this holds today; the assertion is what keeps it holding.
+ */
+function localeQueryFrom(url: string): Record<string, string> {
+  const [market, locale] = new URL(url).pathname.split('/').filter(Boolean);
+  const isCode = (v?: string) => !!v && /^[a-z]{2}$/.test(v);
+  expect(
+    isCode(market) && isCode(locale),
+    `expected a locale-prefixed URL like /se/sv/…, got ${url}. Read the ` +
+      `catalogue after navigating, or it is read for a different market and ` +
+      `locale than the page used.`,
+  ).toBe(true);
+  return { market: market!, locale: locale! };
+}
+
 /** One row of the product-list endpoint, with the fields a grid test needs. */
 export interface ProductListRow {
   alias: string;
@@ -189,24 +213,49 @@ export interface ProductListRow {
 }
 
 /**
- * Rows from `/api/product-lists/products`, the endpoint the `/products` grid
- * renders from. Use these to identify a card: the endpoint applies no stable
- * ordering, so "the first API product" is not "the first card", and a card's
- * link carries the canonical URL rather than the alias the product endpoint
- * takes. The article number is on both sides and identifies the pair.
+ * The whole catalogue from `/api/product-lists/products`, the endpoint the
+ * `/products` grid renders from. Use these to identify a card: a card's link
+ * carries the canonical URL rather than the alias the product endpoint takes,
+ * while the article number is on both sides and identifies the pair.
+ *
+ * It reads everything rather than a page, because a partial read cannot be
+ * matched against the grid. The endpoint applies no stable ordering — four
+ * calls seconds apart returned four different first products — and the page
+ * sends locale parameters this helper does not, so any two partial reads are
+ * two different draws from the same catalogue. Measured overlap between one
+ * such pair, four samples: 9, 4, 0 and 18 rows of 24. At zero the caller finds
+ * no matching card and fails for a reason that has nothing to do with prices.
+ *
+ * `take` is capped at 100 by `ProductListSchema` (`server/schemas/api-input.ts`),
+ * so a catalogue above that cannot be read in one call and this function
+ * throws rather than quietly going back to comparing two draws.
+ *
+ * It requires the page to be on a locale-prefixed URL, and says so by
+ * asserting it. The market and locale are read from that URL and sent along,
+ * because the grid sends them too (`useLocaleMarket`'s `localeQuery`): reading
+ * the same catalogue the page reads is what makes "the whole set" mean the
+ * same thing on both sides, and it stays true if those parameters ever start
+ * filtering rather than only ordering.
  */
 export async function fetchProductListRows(
   page: Page,
-  take = 24,
+  take = 100,
 ): Promise<ProductListRow[]> {
   const response = await page.request.get('/api/product-lists/products', {
-    params: { take: String(take) },
+    params: { take: String(take), ...localeQueryFrom(page.url()) },
   });
   expect(response.ok(), '/api/product-lists/products did not answer 200').toBe(
     true,
   );
 
-  const products = (await response.json())?.products ?? [];
+  const body = await response.json();
+  const products = body?.products ?? [];
+  expect(
+    products.length,
+    `read ${products.length} of ${body?.count} products. The catalogue has grown past ` +
+      `the endpoint's take cap of 100, so a single call no longer returns all of it — ` +
+      `matching a grid card against a partial read is a coin toss, not an identity.`,
+  ).toBe(body?.count);
   return products
     .filter(
       (p: {
