@@ -91,9 +91,24 @@ function resolveAreaQuery(
   return raw as AreaQuery | undefined;
 }
 
+// Sibling-variant products, as /api/products/by-ids answers them. Without a
+// branch of its own the mock returned the product for this URL too, so
+// `products` was always undefined and the variant price map stayed empty.
+const mockSiblingProducts = ref<{ products: unknown[] } | null>(null);
+
 const mockUseFetch = vi.fn(
   (urlOrFn?: unknown, options?: Record<string, unknown>) => {
     const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
+    if (typeof url === 'string' && url.includes('/api/products/by-ids')) {
+      return {
+        data: mockSiblingProducts,
+        error: ref(null),
+        status: ref('success'),
+        pending: ref(false),
+        refresh: vi.fn(),
+        execute: vi.fn(),
+      };
+    }
     if (typeof url === 'string' && url.includes('/api/cms/area')) {
       const areaName = resolveAreaQuery(options)?.areaName;
       return {
@@ -313,6 +328,7 @@ describe('ProductDetails', () => {
     navigateToMock.mockClear();
     recoverEntityUrlMock.mockClear();
     mockCmsAreas.clear();
+    mockSiblingProducts.value = null;
   });
 
   /**
@@ -773,6 +789,108 @@ describe('ProductDetails', () => {
       expect(
         wrapper.find('[data-testid="negotiated-price-banner"]').exists(),
       ).toBe(false);
+    });
+  });
+
+  // The variant sheet renders one price per row, and the row must answer to the
+  // inc/ex VAT switcher. The parent owns half of that: it resolves each sibling
+  // product and hands the row its price. Passing a single pre-picked string here
+  // makes the preference unreachable inside the selector, whatever the selector
+  // does with it.
+  describe('variant price data handed to the selector', () => {
+    function captureProps(sink: { value: Record<string, unknown> }) {
+      return defineComponent({
+        props: [
+          'modelValue',
+          'variantDimensions',
+          'variants',
+          'variantProducts',
+          'priceIncVatFormatted',
+          'priceExVatFormatted',
+        ],
+        setup(p) {
+          return () => {
+            sink.value = { ...p };
+            return h('div', { 'data-testid': 'variant-selector-stub' });
+          };
+        },
+      });
+    }
+
+    it('passes both VAT variants of each sibling price, not one pre-picked string', async () => {
+      const sink = { value: {} as Record<string, unknown> };
+      mockProduct.value = makeProduct({
+        alias: 'grenror-150-150-88',
+        variantDimensions: [{ dimension: 'Variant', value: '88' }],
+        variantGroup: {
+          variants: [
+            { alias: 'grenror-150-150-88', dimension: 'Variant', value: '88' },
+            { alias: 'grenror-150-150-90', dimension: 'Variant', value: '90' },
+          ],
+        },
+      });
+      mockSiblingProducts.value = {
+        products: [
+          {
+            productId: 2,
+            alias: 'grenror-150-150-90',
+            name: 'Grenrör 150/150-90',
+            articleNumber: 'S1-233-090',
+            unitPrice: {
+              sellingPriceIncVatFormatted: '950 kr',
+              sellingPriceExVatFormatted: '760 kr',
+            },
+          },
+        ],
+      };
+
+      await mountProductDetails(
+        { alias: 'grenror-150-150-88' },
+        {
+          global: {
+            stubs: { ...defaultStubs, VariantSelector: captureProps(sink) },
+          },
+        },
+      );
+
+      expect(sink.value.variantProducts).toMatchObject({
+        'grenror-150-150-90': {
+          priceIncVatFormatted: '950 kr',
+          priceExVatFormatted: '760 kr',
+        },
+      });
+    });
+
+    it('passes both VAT variants of the parent fallback price', async () => {
+      const sink = { value: {} as Record<string, unknown> };
+      mockProduct.value = makeProduct({
+        alias: 'grenror-150-150-88',
+        variantDimensions: [{ dimension: 'Variant', value: '88' }],
+        variantGroup: {
+          variants: [
+            { alias: 'grenror-150-150-88', dimension: 'Variant', value: '88' },
+            { alias: 'grenror-150-150-90', dimension: 'Variant', value: '90' },
+          ],
+        },
+        unitPrice: {
+          sellingPriceIncVat: 1200,
+          sellingPriceIncVatFormatted: '1 200 kr',
+          sellingPriceExVatFormatted: '960 kr',
+          isDiscounted: false,
+        },
+      });
+
+      await mountProductDetails(
+        { alias: 'grenror-150-150-88' },
+        {
+          global: {
+            stubs: { ...defaultStubs, VariantSelector: captureProps(sink) },
+          },
+        },
+      );
+
+      expect(sink.value.priceIncVatFormatted).toBe('1 200 kr');
+      expect(sink.value.priceExVatFormatted).toBe('960 kr');
     });
   });
 
