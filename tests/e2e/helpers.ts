@@ -648,6 +648,138 @@ export async function fetchCart(page: Page): Promise<ApiCart> {
   return cart;
 }
 
+/** One order line, in the numbers the orders API computed for it. */
+export interface ApiOrderLine {
+  quantity: number;
+  unitPriceIncVat: number;
+  totalPriceIncVat: number;
+}
+
+/**
+ * One order as the orders API reports it, inc-VAT throughout.
+ *
+ * Inc-VAT because that is the only mode the portal's order surfaces render:
+ * the list shows `sellingPriceIncVatFormatted` and every value on the detail
+ * page is an inc-VAT or VAT string, with no ex-VAT cell anywhere. `totalExVat`
+ * is carried so the three can be checked against each other on the API side,
+ * which is the only place ex-VAT exists.
+ */
+export interface ApiOrder {
+  publicId: string;
+  subTotalIncVat: number;
+  totalIncVat: number;
+  totalExVat: number;
+  vat: number;
+  /**
+   * The shipping fee as the API formats it, `''` when no option was priced —
+   * which is every order on the account today. A string rather than a number
+   * for the same reason as the cart's: there is no fee to compare against and
+   * the surface renders the empty string.
+   */
+  shippingFeeFormatted: string;
+  /** The order-level total, alongside the cart summary's. Both are sent today. */
+  orderTotalIncVat: number | undefined;
+  items: ApiOrderLine[];
+}
+
+/** One order, read through the endpoint the detail page fetches. */
+export async function fetchOrder(
+  page: Page,
+  publicId: string,
+): Promise<ApiOrder> {
+  const response = await page.request.get(`/api/orders/${publicId}`);
+  expect(response.ok(), `/api/orders/${publicId} did not answer 200`).toBe(
+    true,
+  );
+
+  const order = (await response.json())?.order;
+  const summary = order?.cart?.summary;
+
+  const result: ApiOrder = {
+    publicId,
+    subTotalIncVat: summary?.subTotal?.sellingPriceIncVat,
+    totalIncVat: summary?.total?.sellingPriceIncVat,
+    totalExVat: summary?.total?.sellingPriceExVat,
+    vat: summary?.total?.vat,
+    shippingFeeFormatted: summary?.shipping?.feeIncVatFormatted ?? '',
+    orderTotalIncVat: order?.orderTotal?.sellingPriceIncVat,
+    items: (order?.cart?.items ?? []).map(
+      (item: {
+        quantity?: number;
+        unitPrice?: { sellingPriceIncVat?: number };
+        totalPrice?: { sellingPriceIncVat?: number };
+      }) => ({
+        quantity: item.quantity,
+        unitPriceIncVat: item.unitPrice?.sellingPriceIncVat,
+        totalPriceIncVat: item.totalPrice?.sellingPriceIncVat,
+      }),
+    ),
+  };
+
+  for (const field of [
+    'subTotalIncVat',
+    'totalIncVat',
+    'totalExVat',
+    'vat',
+  ] as const) {
+    expect(
+      Number.isFinite(result[field]),
+      `order ${publicId} summary ${field} is not a number: ${JSON.stringify(result[field])}`,
+    ).toBe(true);
+  }
+  expect(
+    typeof result.shippingFeeFormatted,
+    `order ${publicId} shipping fee arrived as something other than a string`,
+  ).toBe('string');
+  expect(
+    result.items.length,
+    `order ${publicId} reports no lines`,
+  ).toBeGreaterThan(0);
+  for (const [index, line] of result.items.entries()) {
+    for (const [field, value] of Object.entries(line)) {
+      expect(
+        Number.isFinite(value),
+        `order ${publicId} line ${index} ${field} is not a number: ${JSON.stringify(value)}`,
+      ).toBe(true);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Every order the signed-in account owns, each read in full.
+ *
+ * The list endpoint carries only the inc-VAT total and no lines, so choosing
+ * an order by what it contains means reading each one. It is deliberately not
+ * memoised: an order placed during the run would make a cached list describe
+ * a different account than the one on screen.
+ *
+ * Pick from the result by property — most lines, a total that does not
+ * terminate in two decimals — never by a fixed id. The account is reseeded
+ * from time to time and a hardcoded order is a test that rots silently.
+ */
+export async function fetchOrders(page: Page): Promise<ApiOrder[]> {
+  const response = await page.request.get('/api/orders');
+  expect(response.ok(), '/api/orders did not answer 200').toBe(true);
+
+  const orders: { publicId?: string }[] = (await response.json())?.orders ?? [];
+  expect(
+    orders.length,
+    'the test account owns no orders, so there is nothing to compare against',
+  ).toBeGreaterThan(0);
+
+  const result: ApiOrder[] = [];
+  for (const order of orders) {
+    expect(
+      order.publicId,
+      'an order arrived without a publicId, which is the key the detail endpoint takes',
+    ).toBeTruthy();
+    result.push(await fetchOrder(page, order.publicId!));
+  }
+  return result;
+}
+
 /**
  * Fill the login form fields without submitting.
  */

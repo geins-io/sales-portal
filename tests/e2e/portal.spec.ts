@@ -1,9 +1,14 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   waitForHydration,
   hasE2ECredentials,
   outOfScope,
+  fetchOrder,
+  fetchOrders,
+  parsePrice,
+  readPrice,
   STORAGE_STATE,
+  type ApiOrder,
 } from './helpers';
 
 /**
@@ -157,15 +162,15 @@ test.describe('Portal Orders', () => {
     const loading = page.locator('[data-testid="orders-loading"]');
     await expect(loading).toBeHidden({ timeout: PAGE_TIMEOUT });
 
-    // An account with no orders is a declared skip. It used to be a bare
-    // `return`, which left the test green, invisible to the scope reporter —
-    // and hid the wrong selector below for as long as no order existed.
-    const ordersEmpty = page.locator('[data-testid="orders-empty"]');
-    outOfScope(
-      await ordersEmpty.isVisible().catch(() => false),
-      'fixture-missing',
-      'test account has no orders',
-    );
+    // The account owns orders, so an empty list is a broken fixture rather
+    // than a scope boundary: `fixture-missing` means data the platform cannot
+    // produce (helpers.ts), which an unseeded account is not. This used to
+    // declare the skip and before that to `return`, and both hid the wrong
+    // selector below for as long as no order existed.
+    await expect(
+      page.locator('[data-testid="portal-orders-table"]'),
+      'the orders list rendered its empty state — the test account lost its orders',
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
 
     // Desktop puts a view link in the row, mobile makes the whole card the
     // link; both are anchors into the order, so match on the destination
@@ -209,6 +214,293 @@ test.describe('Portal Orders', () => {
         '[data-testid="order-items-table"]:visible, [data-testid="view-rows-trigger"]:visible',
       );
       await expect(orderRows.first()).toBeVisible({ timeout: PAGE_TIMEOUT });
+    }
+  });
+});
+
+/**
+ * Portal Order Values
+ *
+ * Every amount on the orders surfaces, against the numbers the orders API
+ * answered with. Numbers, never strings: the same order's total is
+ * "1 125 kr" from the list endpoint and "1 125,00 kr" from the detail one, so
+ * a string comparison across the two views fails on a correct application.
+ *
+ * Orders are chosen by what they contain — most lines, amounts that do not
+ * terminate in two decimals — never by a fixed id, which would rot the day
+ * the account is reseeded.
+ */
+test.describe('Portal Order Values', () => {
+  /** What one rendered amount may be off by: the screen rounds to two decimals, the API does not. */
+  const ROUNDING = 0.005;
+
+  /** True for a number the screen cannot show exactly, e.g. 7.904 VAT. */
+  function isUnrounded(value: number): boolean {
+    return Math.abs(value * 100 - Math.round(value * 100)) > 1e-9;
+  }
+
+  function withMostLines(orders: ApiOrder[]): ApiOrder {
+    return orders.reduce((a, b) => (b.items.length > a.items.length ? b : a));
+  }
+
+  /**
+   * The order whose amounts do not terminate in two decimals. The screen must
+   * round while the API does not, so this is where a rounding defect shows —
+   * and where an assertion against the raw number without a tolerance would
+   * fail a correct page.
+   */
+  function withUnroundedAmounts(orders: ApiOrder[]): ApiOrder | undefined {
+    return orders.find(
+      (order) =>
+        isUnrounded(order.vat) ||
+        isUnrounded(order.totalExVat) ||
+        order.items.some(
+          (line) =>
+            isUnrounded(line.unitPriceIncVat) ||
+            isUnrounded(line.totalPriceIncVat),
+        ),
+    );
+  }
+
+  /** How many lines of an order carry a quantity above one. */
+  function multiQuantityLines(order: ApiOrder): number {
+    return order.items.filter((line) => line.quantity > 1).length;
+  }
+
+  function withMostMultiQuantityLines(orders: ApiOrder[]): ApiOrder {
+    return orders.reduce((a, b) =>
+      multiQuantityLines(b) > multiQuantityLines(a) ? b : a,
+    );
+  }
+
+  async function openOrdersList(page: Page) {
+    await page.goto('/se/sv/portal/orders');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="orders-loading"]')).toBeHidden({
+      timeout: PAGE_TIMEOUT,
+    });
+    await expect(
+      page.locator('[data-testid="portal-orders-table"]'),
+      'the orders list rendered its empty state — the test account lost its orders',
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
+  }
+
+  async function openOrderDetail(page: Page, publicId: string) {
+    await page.goto(`/se/sv/portal/orders/${publicId}`);
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="order-detail"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+  }
+
+  /** One rendered order line: the three numbers a line shows. */
+  interface ScreenLine {
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }
+
+  /**
+   * The lines as the running project can see them. Above `lg` they are the
+   * desktop table; below it that table is hidden and the rows live in the
+   * sheet behind `view-rows-trigger`. Both carry the same three numbers per
+   * line, so no project has to leave the line assertions off.
+   */
+  async function readOrderLines(page: Page): Promise<ScreenLine[]> {
+    const onDesktop = await page
+      .locator('[data-testid="order-items-table"]')
+      .isVisible()
+      .catch(() => false);
+
+    if (!onDesktop) {
+      await page.locator('[data-testid="view-rows-trigger"]').click();
+      await expect(page.locator('[data-testid="item-rows-sheet"]')).toBeVisible(
+        {
+          timeout: PAGE_TIMEOUT,
+        },
+      );
+    }
+
+    const prefix = onDesktop ? 'order-item' : 'item-rows';
+    const rows = page.locator(
+      onDesktop
+        ? '[data-testid="order-item-row"]'
+        : '[data-testid="item-rows-row"]',
+    );
+
+    const lines: ScreenLine[] = [];
+    for (let index = 0; index < (await rows.count()); index++) {
+      const row = rows.nth(index);
+      const quantity = (
+        await row.locator(`[data-testid="${prefix}-quantity"]`).innerText()
+      ).trim();
+      lines.push({
+        quantity: Number(quantity),
+        unitPrice: await readPrice(
+          row.locator(`[data-testid="${prefix}-unit-price"]`),
+        ),
+        totalPrice: await readPrice(
+          row.locator(`[data-testid="${prefix}-total-price"]`),
+        ),
+      });
+      expect(
+        Number.isFinite(lines[index]!.quantity),
+        `line ${index} shows no quantity: ${JSON.stringify(quantity)}`,
+      ).toBe(true);
+    }
+    return lines;
+  }
+
+  test('the list, the detail page and the API agree on an order total', async ({
+    page,
+  }) => {
+    await openOrdersList(page);
+
+    // Both list shapes are in the DOM at once and CSS decides which one shows.
+    const row = page.locator('[data-testid="order-row"]:visible').first();
+    await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
+
+    // Desktop puts the link in a cell of the row, mobile makes the row itself
+    // the link. Its href is what pairs the amount in this row with the order
+    // the detail endpoint answers for: that endpoint keys on `publicId`, not
+    // on the numeric id the row displays.
+    const innerLink = row.locator('a[href*="/portal/orders/"]');
+    const href = (await innerLink.count())
+      ? await innerLink.first().getAttribute('href')
+      : await row.getAttribute('href');
+    const publicId = href?.split('/').filter(Boolean).pop();
+    expect(publicId, `no order id in the row's link: ${href}`).toBeTruthy();
+
+    const listTotal = await readPrice(
+      row.locator('[data-testid="order-total"]'),
+    );
+
+    const api = await fetchOrder(page, publicId!);
+    expect(listTotal).toBeCloseTo(api.totalIncVat, 2);
+
+    await openOrderDetail(page, api.publicId);
+
+    expect(
+      await readPrice(page.locator('[data-testid="order-summary-total"]')),
+    ).toBeCloseTo(api.totalIncVat, 2);
+
+    // Two fields for one amount, both sent today. A page that reads either
+    // must land on the same number.
+    if (api.orderTotalIncVat !== undefined) {
+      expect(api.orderTotalIncVat).toBeCloseTo(api.totalIncVat, 2);
+    }
+
+    // Ex-VAT reaches no cell on this page — subtotal, tax and total are all
+    // inc-VAT strings — so the three amounts are held to each other where
+    // ex-VAT exists at all, in the API's own numbers.
+    expect(api.totalIncVat - api.totalExVat).toBeCloseTo(api.vat, 2);
+    expect(
+      await readPrice(page.locator('[data-testid="order-summary-tax"]')),
+    ).toBeCloseTo(api.vat, 2);
+
+    // Subtotal equals total on every order the account owns, because none
+    // carries a shipping fee. The assertion holds the subtotal to the API,
+    // but on this data it cannot tell the two cells apart: a passing run is
+    // not evidence that the subtotal cell reads the subtotal.
+    expect(
+      await readPrice(page.locator('[data-testid="order-summary-subtotal"]')),
+    ).toBeCloseTo(api.subTotalIncVat, 2);
+
+    // No order has a priced shipping option, so the API sends an empty fee
+    // string. Asserting the rendered fallback would assert the active locale;
+    // the absence of a number is the assertion.
+    const shipping = page.locator('[data-testid="order-summary-shipping"]');
+    if (api.shippingFeeFormatted === '') {
+      const text = (await shipping.innerText()).trim();
+      expect(
+        /\d/.test(text),
+        `the API sent no shipping fee, so the cell must not show a number: ${JSON.stringify(text)}`,
+      ).toBe(false);
+    } else {
+      expect(await readPrice(shipping)).toBeCloseTo(
+        parsePrice(api.shippingFeeFormatted),
+        2,
+      );
+    }
+
+    // The desktop table repeats the total in its footer: two renderings of one
+    // number on one page, which must not drift apart.
+    const footerTotal = page.locator(
+      '[data-testid="order-items-footer-total"]',
+    );
+    if (await footerTotal.isVisible().catch(() => false)) {
+      expect(await readPrice(footerTotal)).toBeCloseTo(api.totalIncVat, 2);
+    }
+  });
+
+  test('the line totals add up to the total the order shows', async ({
+    page,
+  }) => {
+    const orders = await fetchOrders(page);
+    const unrounded = withUnroundedAmounts(orders);
+    expect(
+      unrounded,
+      'no order on the account has an amount that needs rounding, so the run ' +
+        'cannot show a rounding defect. Place one with a price that does not ' +
+        'terminate in two decimals.',
+    ).toBeDefined();
+
+    for (const api of [withMostLines(orders), unrounded!]) {
+      const apiSum = api.items.reduce(
+        (sum, line) => sum + line.totalPriceIncVat,
+        0,
+      );
+      expect(apiSum).toBeCloseTo(api.totalIncVat, 2);
+
+      await openOrderDetail(page, api.publicId);
+      const lines = await readOrderLines(page);
+      expect(lines.length).toBe(api.items.length);
+
+      const screenTotal = await readPrice(
+        page.locator('[data-testid="order-summary-total"]'),
+      );
+      const screenSum = lines.reduce((sum, line) => sum + line.totalPrice, 0);
+      // Every rendered amount carries its own rounding, the total included.
+      expect(Math.abs(screenSum - screenTotal)).toBeLessThanOrEqual(
+        (lines.length + 1) * ROUNDING,
+      );
+    }
+  });
+
+  test('a line with a quantity above one shows quantity x unit price as its total', async ({
+    page,
+  }) => {
+    const orders = await fetchOrders(page);
+    const api = withMostMultiQuantityLines(orders);
+    expect(
+      multiQuantityLines(api),
+      'every line on every order carries quantity 1. Orders used to arrive ' +
+        'with their lines expanded that way, which makes the multiplication ' +
+        'below unfalsifiable — three of a product must stay one line of three.',
+    ).toBeGreaterThan(0);
+
+    await openOrderDetail(page, api.publicId);
+    const lines = await readOrderLines(page);
+    expect(lines.length).toBe(api.items.length);
+
+    for (const [index, line] of lines.entries()) {
+      const apiLine = api.items[index]!;
+      expect(line.quantity).toBe(apiLine.quantity);
+      expect(line.unitPrice).toBeCloseTo(apiLine.unitPriceIncVat, 2);
+      expect(line.totalPrice).toBeCloseTo(apiLine.totalPriceIncVat, 2);
+
+      if (apiLine.quantity <= 1) continue;
+      // The multiplication on both sides. On screen the tolerance grows with
+      // the quantity: a unit price rounded to two decimals is multiplied by it.
+      expect(
+        Math.abs(line.totalPrice - line.unitPrice * line.quantity),
+      ).toBeLessThanOrEqual((line.quantity + 1) * ROUNDING);
+      expect(apiLine.totalPriceIncVat).toBeCloseTo(
+        apiLine.unitPriceIncVat * apiLine.quantity,
+        2,
+      );
     }
   });
 });
