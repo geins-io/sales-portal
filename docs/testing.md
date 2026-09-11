@@ -684,9 +684,9 @@ Two workflows run tests; neither runs on a schedule.
 | `e2e-full.yml` · Full E2E Suite | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects** |
 
 `retries` is zero everywhere (`playwright.config.ts`), so a red run in either workflow is a real
-failure rather than one that survived three attempts. Both run the production build only; the
-dev-server mode runs locally, which is why `pnpm test:e2e` in both modes is still what to run
-before a PR.
+failure rather than one that survived three attempts. Both run the production build, so before a
+PR run `pnpm test:e2e` locally in dev mode — the one mode nothing else covers; the PR job covers
+the production build.
 
 ### The PR job (`ci.yml`)
 
