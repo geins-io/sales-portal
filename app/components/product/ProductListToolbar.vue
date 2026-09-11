@@ -57,6 +57,7 @@ const { t } = useI18n();
           :model-value="filterText ?? ''"
           :placeholder="t('product.quick_filter_placeholder')"
           class="bg-white pl-9 shadow-none"
+          data-testid="quick-filter-input"
           @update:model-value="emit('update:filterText', String($event))"
         />
       </div>

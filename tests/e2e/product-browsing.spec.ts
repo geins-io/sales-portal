@@ -45,18 +45,18 @@ test.describe('Product Browsing', () => {
       page.locator('[data-testid="product-card"]').first(),
     ).toBeVisible({ timeout: 20000 });
 
+    // The toolbar renders ViewToggle with no `v-if`, so the guard this used
+    // to sit behind could never be false — and hid whether the toggle works.
     const viewToggle = page.locator('[data-testid="view-toggle"]');
+    await expect(viewToggle).toBeVisible({ timeout: 15000 });
 
-    if (await viewToggle.isVisible().catch(() => false)) {
-      // Click list view button
-      const listButton = viewToggle.locator('button').nth(1);
-      await listButton.click();
+    const listButton = viewToggle.locator('button').nth(1);
+    await listButton.click();
 
-      // Product cards should still be visible (in list layout)
-      await expect(
-        page.locator('[data-testid="product-card"]').first(),
-      ).toBeVisible();
-    }
+    // Product cards should still be visible (in list layout)
+    await expect(
+      page.locator('[data-testid="product-card"]').first(),
+    ).toBeVisible();
   });
 
   test('should have a sort dropdown', async ({ page }) => {
@@ -71,24 +71,25 @@ test.describe('Product Browsing', () => {
     // Wait for hydration so Select component is interactive
     await waitForHydration(page);
 
+    // Rendered unconditionally by ProductListToolbar; the old guard made a
+    // missing dropdown indistinguishable from a passing test.
     const sortDropdown = page.locator('[data-testid="sort-dropdown"]');
+    await expect(sortDropdown).toBeVisible({ timeout: 15000 });
 
-    if (await sortDropdown.isVisible().catch(() => false)) {
-      // Retry click — hydration mismatch patching can cause first click to miss
-      const options = page.locator('[role="option"]');
-      for (let attempt = 0; attempt < 3; attempt++) {
-        await sortDropdown.click();
-        const visible = await options
-          .first()
-          .waitFor({ state: 'visible', timeout: 3000 })
-          .then(() => true)
-          .catch(() => false);
-        if (visible) break;
-        // Close the dropdown if it opened empty, then retry
-        await page.keyboard.press('Escape');
-      }
-      await expect(options.first()).toBeVisible({ timeout: 5000 });
+    // Retry click — hydration mismatch patching can cause first click to miss
+    const options = page.locator('[role="option"]');
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await sortDropdown.click();
+      const visible = await options
+        .first()
+        .waitFor({ state: 'visible', timeout: 3000 })
+        .then(() => true)
+        .catch(() => false);
+      if (visible) break;
+      // Close the dropdown if it opened empty, then retry
+      await page.keyboard.press('Escape');
     }
+    await expect(options.first()).toBeVisible({ timeout: 5000 });
   });
 
   test('should have a filter button', async ({ page }) => {
@@ -103,14 +104,20 @@ test.describe('Product Browsing', () => {
     // The sheet opens via a Vue handler — unhydrated, the click is inert.
     await waitForHydration(page);
 
+    // ProductFilters renders only `v-if="facets && facets.length > 0"`
+    // (ProductList.vue), so a category with no facets has no filter button.
+    // A real state, declared rather than returned from silently.
     const filterButton = page.locator('[data-testid="product-filters"]');
+    outOfScope(
+      !(await filterButton.isVisible().catch(() => false)),
+      'fixture-missing',
+      'discovered category exposes no facets, so no filter button renders',
+    );
 
-    if (await filterButton.isVisible().catch(() => false)) {
-      await filterButton.click();
+    await filterButton.click();
 
-      const filterSheet = page.locator('[role="dialog"]');
-      await expect(filterSheet).toBeVisible({ timeout: 5000 });
-    }
+    const filterSheet = page.locator('[role="dialog"]');
+    await expect(filterSheet).toBeVisible({ timeout: 5000 });
   });
 
   test('should navigate to PDP from product card', async ({ page }) => {
@@ -141,8 +148,12 @@ test.describe('Product Browsing', () => {
     await page.waitForLoadState('load');
     await waitForHydration(page);
 
+    // ProductTabs.vue has no `v-if` on its root, and the documents tab and
+    // its accordion item render unconditionally — so the container always has
+    // content. The guard this test used to open with could never be true,
+    // which left "should render product tabs" asserting nothing at all.
     const tabs = page.locator('[data-testid="product-tabs"]');
-    if (!(await tabs.isVisible().catch(() => false))) return;
+    await expect(tabs).toBeVisible({ timeout: 15000 });
 
     // ProductTabs renders Tabs at >= md and an Accordion below, hiding one by
     // CSS. Both stay in the DOM, so branch on what is actually visible.
@@ -158,20 +169,19 @@ test.describe('Product Browsing', () => {
       // One panel per tab, so an unscoped locator fails strict mode.
       const tabPanel = tabs.locator('[role="tabpanel"]').first();
       await expect(tabPanel).toBeVisible({ timeout: 5000 });
-      return;
+    } else {
+      // Mobile accordion: expanding a section is the equivalent affordance.
+      // The documents item is unconditional, so there is always one.
+      const sections = tabs.locator('button[aria-expanded]');
+      await expect(sections.first()).toBeVisible({ timeout: 5000 });
+
+      const firstSection = sections.first();
+      await expect(firstSection).toHaveAttribute('aria-expanded', 'false');
+      await firstSection.click();
+      await expect(firstSection).toHaveAttribute('aria-expanded', 'true', {
+        timeout: 5000,
+      });
     }
-
-    // Mobile accordion: expanding a section is the equivalent affordance.
-    const sections = tabs.locator('button[aria-expanded]');
-    // A product with no description/specs/documents renders nothing here.
-    if ((await sections.count()) === 0) return;
-
-    const firstSection = sections.first();
-    await expect(firstSection).toHaveAttribute('aria-expanded', 'false');
-    await firstSection.click();
-    await expect(firstSection).toHaveAttribute('aria-expanded', 'true', {
-      timeout: 5000,
-    });
   });
 
   // Own block so the surrounding tests stay anonymous — only this one needs
@@ -372,15 +382,24 @@ test.describe('Product Browsing', () => {
 
     // Open filter panel
     const filterButton = page.locator('[data-testid="product-filters"]');
-    if (!(await filterButton.isVisible().catch(() => false))) return;
+    outOfScope(
+      !(await filterButton.isVisible().catch(() => false)),
+      'fixture-missing',
+      'discovered category exposes no facets, so no filter button renders',
+    );
 
     await filterButton.click();
     const filterSheet = page.locator('[role="dialog"]');
     await expect(filterSheet).toBeVisible({ timeout: 5000 });
 
-    // Find and click a price filter checkbox
+    // Find and click a price filter checkbox. A facet can be a range rather
+    // than a checkbox list, so its absence is a real state, not a defect.
     const checkbox = filterSheet.locator('[role="checkbox"]').first();
-    if (!(await checkbox.isVisible().catch(() => false))) return;
+    outOfScope(
+      !(await checkbox.isVisible().catch(() => false)),
+      'fixture-missing',
+      'category facets offer no checkbox filter to toggle',
+    );
 
     await checkbox.click();
 
@@ -451,11 +470,11 @@ test.describe('Product Browsing', () => {
       .locator('[data-testid="product-card"]')
       .count();
 
-    // Type in the quick filter input
-    const searchInput = page.getByPlaceholder(
-      'Filtrera på art nr eller produktnamn',
-    );
-    if (!(await searchInput.isVisible().catch(() => false))) return;
+    // Rendered unconditionally by ProductListToolbar. Located by test id
+    // rather than by placeholder: the placeholder is translated copy, so a
+    // locale change would break the locator and read as a missing input.
+    const searchInput = page.locator('[data-testid="quick-filter-input"]');
+    await expect(searchInput).toBeVisible({ timeout: 15000 });
 
     await searchInput.fill('test');
 
