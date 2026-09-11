@@ -302,7 +302,10 @@ interface VariantMetaProduct {
   alias?: string | null;
   name?: string | null;
   articleNumber?: string | null;
-  unitPrice?: { sellingPriceIncVatFormatted?: string | null } | null;
+  unitPrice?: {
+    sellingPriceIncVatFormatted?: string | null;
+    sellingPriceExVatFormatted?: string | null;
+  } | null;
 }
 
 const { data: siblingProducts, execute: fetchSiblings } = useFetch<{
@@ -324,28 +327,23 @@ watch(
   { immediate: true },
 );
 
-const variantProductsByAlias = computed<
-  Record<
-    string,
-    {
-      priceFormatted?: string | null;
-      articleNumber?: string | null;
-      name?: string | null;
-    }
-  >
->(() => {
-  const map: Record<
-    string,
-    {
-      priceFormatted?: string | null;
-      articleNumber?: string | null;
-      name?: string | null;
-    }
-  > = {};
+// Both VAT variants travel to the sheet: the row picks between them from the
+// buyer's switcher, so deciding here would put the rows out of step with the
+// main price on the same page.
+type VariantRowMeta = {
+  priceIncVatFormatted?: string | null;
+  priceExVatFormatted?: string | null;
+  articleNumber?: string | null;
+  name?: string | null;
+};
+
+const variantProductsByAlias = computed<Record<string, VariantRowMeta>>(() => {
+  const map: Record<string, VariantRowMeta> = {};
   for (const p of siblingProducts.value?.products ?? []) {
     if (!p?.alias) continue;
     map[p.alias] = {
-      priceFormatted: p.unitPrice?.sellingPriceIncVatFormatted ?? null,
+      priceIncVatFormatted: p.unitPrice?.sellingPriceIncVatFormatted ?? null,
+      priceExVatFormatted: p.unitPrice?.sellingPriceExVatFormatted ?? null,
       articleNumber: p.articleNumber ?? null,
       name: p.name ?? null,
     };
@@ -662,8 +660,11 @@ useSchemaOrg([
             :skus="product.skus ?? []"
             :product-images="product.productImages ?? []"
             :product-name="product.name ?? ''"
-            :price-formatted="
+            :price-inc-vat-formatted="
               product.unitPrice?.sellingPriceIncVatFormatted ?? null
+            "
+            :price-ex-vat-formatted="
+              product.unitPrice?.sellingPriceExVatFormatted ?? null
             "
             :product-article-number="product.articleNumber ?? null"
             :variant-products="variantProductsByAlias"
