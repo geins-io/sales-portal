@@ -676,40 +676,41 @@ milestone that adds config tests.
 
 Two workflows run tests; neither runs on a schedule.
 
-| Workflow · Job                  | Trigger                                       | What                                                  |
-| ------------------------------- | --------------------------------------------- | ----------------------------------------------------- |
-| `ci.yml` · Lint & Type Check    | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck`                         |
-| `ci.yml` · Unit & Component     | same                                          | `pnpm test:coverage` (full vitest suite)              |
-| `ci.yml` · E2E                  | PRs only                                      | **Preflight, then a 4-file smoke subset on chromium** |
-| `e2e-full.yml` · Full E2E Suite | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**  |
+| Workflow · Job                  | Trigger                                       | What                                                 |
+| ------------------------------- | --------------------------------------------- | ---------------------------------------------------- |
+| `ci.yml` · Lint & Type Check    | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck`                        |
+| `ci.yml` · Unit & Component     | same                                          | `pnpm test:coverage` (full vitest suite)             |
+| `ci.yml` · E2E                  | PRs only                                      | **Preflight, then every spec on all three projects** |
+| `e2e-full.yml` · Full E2E Suite | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects** |
+
+`retries` is zero everywhere (`playwright.config.ts`), so a red run in either workflow is a real
+failure rather than one that survived three attempts. Both run the production build, so before a
+PR run `pnpm test:e2e` locally in dev mode — the one mode nothing else covers; the PR job covers
+the production build.
 
 ### The PR job (`ci.yml`)
 
 The E2E job builds the production build, starts `pnpm preview` once (over https, output in the
 `preview-log` artifact), then runs one step per preflight layer against it with
 `E2E_EXTERNAL_SERVER=1` and `--no-deps` — `Preflight L0 · reachability` … `L4 · session` — and
-finally the specs:
+then every spec, one step per browser project:
 
 ```
---no-deps --project=chromium app.spec.ts homepage.spec.ts csp-policy.spec.ts unknown-hostname.spec.ts
+--no-deps --project=chromium        # then "Mobile Chrome", then webkit
 ```
 
-A red run stops at the layer that broke and the later steps are skipped, so the step view names
-the layer. The target and account come from repository variables (`E2E_BASE_URL`,
+A red run stops at the layer or project that broke and the later steps are skipped, so the step
+view names it. The target and account come from repository variables (`E2E_BASE_URL`,
 `E2E_EXPECTED_TENANT_ID`) and secrets (`E2E_USERNAME`, `E2E_PASSWORD`), with the committed
-defaults when unset. Be aware of what this does and does not buy you:
+defaults when unset.
 
-- The four spec files make no data-discovery calls and need no test account, which is why they
-  were chosen. Without credentials the session layer is out of scope, not red.
-- The identity layer does fail against an unreachable merchant API (503) or an unregistered
-  hostname, but the specs still pass against a Geins API that is down. A green E2E job is **not**
-  evidence that the storefront works.
-- The other 9 spec files, and the `Mobile Chrome` / `webkit` projects, are not gated on a PR: the
-  job installs chromium only and passes `--project=chromium`, so the WebKit regression guard in
-  `theme-colors.spec.ts` runs only in the full-suite workflow below.
+**The gate stops at the first failing browser project; the full-suite workflow continues.** The
+gate answers one question — is the branch safe to merge — and the answer is settled once a
+project goes red, while the manual run exists to measure and needs all three numbers.
 
-**Run `pnpm test:e2e` locally before a PR that touches storefront behaviour** — the smoke subset
-will not catch it.
+A green run is still not evidence that the Geins backend is healthy: the identity layer fails
+against an unreachable merchant API (503) or an unregistered hostname, but the specs run
+against whatever that API returns.
 
 ### The full suite (`e2e-full.yml`)
 
@@ -724,10 +725,11 @@ A run signs in once however many browsers it drives — preflight L4 writes the 
 auth-dependent spec reads that file — so splitting the projects across jobs, or sharding, repeats
 the preflight and with it the sign-in against a rate-limited endpoint.
 
-Its Playwright browser cache has a key of its own, with the browser set in it. The PR job's key
-hashes the lockfile alone and the entry it saves holds chromium only; sharing it would restore a
-cache without webkit and, entries being immutable, never be able to save one — paying the webkit
-download on every run.
+Both workflows name the browser set in their Playwright cache key, because cache entries are
+immutable: a key that cannot express which browsers an entry holds would restore a chromium-only
+cache forever and pay the webkit download on every run. Two things that cache does not buy —
+`--with-deps` runs `apt-get` every time and that is never cached, and an entry only saves from a
+green job, so the first runs after a key changes look slower than the steady state.
 
 ## Gotchas
 

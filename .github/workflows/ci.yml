@@ -100,7 +100,7 @@ jobs:
     # Pushes to dev run the light lint/types/unit jobs only.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       PLAYWRIGHT_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://sonoralab.litium.test:3000' }}
       E2E_EXPECTED_TENANT_ID: ${{ vars.E2E_EXPECTED_TENANT_ID || 'sonoralab' }}
@@ -123,14 +123,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The browser set is in the key, and what that buys is in
+      # docs/testing.md under "The full suite".
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: playwright-${{ runner.os }}-chromium-webkit-${{ hashFiles('pnpm-lock.yaml') }}
 
+      # Mobile Chrome is a device profile on chromium, so it needs no download.
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium webkit
 
       # The target: an origin, the tenant it must resolve to, and a test
       # account. Repository variables/secrets override the committed defaults.
@@ -178,8 +181,20 @@ jobs:
       - name: Preflight L4 · session
         run: pnpm test:e2e --no-deps --project "L4 session"
 
-      - name: Run E2E smoke tests
-        run: pnpm test:e2e --no-deps --project=chromium tests/e2e/app.spec.ts tests/e2e/homepage.spec.ts tests/e2e/csp-policy.spec.ts tests/e2e/unknown-hostname.spec.ts
+      # One step per browser project, every spec. No `continue-on-error`: this
+      # gate answers whether the branch is safe to merge, and the answer is
+      # settled once the first project goes red — unlike e2e-full.yml, which
+      # continues because three wall-clock numbers are its deliverable.
+      # `--no-deps` because the preflight layers above already ran; L4 wrote
+      # the session file every project reads, so the job signs in once.
+      - name: Project · chromium
+        run: pnpm test:e2e --no-deps --project=chromium
+
+      - name: Project · Mobile Chrome
+        run: pnpm test:e2e --no-deps --project="Mobile Chrome"
+
+      - name: Project · webkit
+        run: pnpm test:e2e --no-deps --project=webkit
 
       - name: Upload preview server log
         uses: actions/upload-artifact@v4
