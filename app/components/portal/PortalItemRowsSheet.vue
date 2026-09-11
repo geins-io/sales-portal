@@ -74,10 +74,19 @@ const open = ref(false);
                   {{ item.articleNumber }}
                 </p>
                 <p class="text-muted-foreground mt-1 text-sm">
-                  {{ item.quantity }} &times; {{ item.unitPriceFormatted }}
+                  <span data-testid="item-rows-quantity">{{
+                    item.quantity
+                  }}</span>
+                  &times;
+                  <span data-testid="item-rows-unit-price">{{
+                    item.unitPriceFormatted
+                  }}</span>
                 </p>
               </div>
-              <div class="shrink-0 text-right text-sm font-medium">
+              <div
+                data-testid="item-rows-total-price"
+                class="shrink-0 text-right text-sm font-medium"
+              >
                 {{ item.totalPriceFormatted }}
               </div>
             </li>
