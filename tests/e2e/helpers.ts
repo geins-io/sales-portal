@@ -105,14 +105,16 @@ interface RawProduct {
 }
 
 /**
- * Candidates with a usable alias and SKU, sorted by alias — the products API
- * applies no stable ordering, so an unsorted "first one" differs per call.
+ * Candidates with a usable alias and SKU. The `sort` makes the twenty rows the
+ * same twenty every call: without it, four reads 2.5 seconds apart returned
+ * four different sets from a catalogue of 98. Not `LATEST`, which orders on a
+ * timestamp the response does not carry. The alias sort only breaks ties.
  */
 async function fetchProductCandidates(
   page: Page,
 ): Promise<DiscoveredProduct[]> {
   const response = await page.request.get('/api/product-lists/products', {
-    params: { take: '20' },
+    params: { take: '20', filter: JSON.stringify({ sort: 'ALPHABETICAL' }) },
   });
   expect(response.ok()).toBe(true);
 
@@ -377,8 +379,8 @@ function stripMarketLocalePrefix(path: string): string {
 }
 
 /**
- * Discover a category by resolving a known route pattern.
- * Falls back to fetching the menu and picking the first category link.
+ * The first category in the tenant's main menu, measured stable over four
+ * reads — unlike the product endpoint, this one needs no sort.
  *
  * Returns alias with `/c/` type prefix (e.g. `c/material`) so tests can
  * navigate with `page.goto(`/${category.alias}`)`.
