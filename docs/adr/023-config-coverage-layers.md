@@ -27,9 +27,16 @@ merchant API that answered, a browser that rendered.
 Where the first question can be answered _provably_ is constrained by the type
 gate. `pnpm typecheck` checks the four generated projects referenced from the
 root `tsconfig.json`. `shared/` is inside that reach — `tsconfig.shared.json`
-includes `shared/**/*`. `tests/` is outside it: `tests/tsconfig.json` is
-referenced by nothing, so no file under `tests/` is type-checked by the gate. A
-coverage map is a gate only where the compiler reads it.
+includes `shared/**/*`. `tests/` was outside it when this was decided, and is
+not any longer. The root `tsconfig.json` now references `tests/tsconfig.json`,
+which covers every directory under `tests/` except `e2e/`; `pnpm typecheck`
+then chains a second compile for that one. So the map sits inside the gate's
+reach by construction rather than by luck. A coverage map is a gate only where
+the compiler reads it.
+
+_Amended 2026-09-13: the two changes that moved `tests/` inside the gate landed
+after this decision was written. The reasoning below is unchanged — it is the
+reason those changes were made._
 
 ## Decision
 
