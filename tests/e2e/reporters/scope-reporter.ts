@@ -27,7 +27,9 @@ import type {
  */
 
 // Mirrors ScopeReason in tests/e2e/helpers.ts. The reporter is loaded by
-// Playwright before the specs, so it keeps its own copy of the list.
+// Playwright before the specs, so it keeps its own copy of the list — which
+// means the vocabulary lives in two files and a new reason has to be added to
+// both, or a declared skip reads as undeclared and fails the run.
 const SCOPE_REASONS = [
   'no-credentials',
   'mobile-project',
@@ -35,6 +37,7 @@ const SCOPE_REASONS = [
   'fixture-missing',
   'tenant-config',
   'remote-target',
+  'mutation-gate',
 ] as const;
 const DECLARED = new RegExp(`^(${SCOPE_REASONS.join('|')}): `);
 const SCOPE_NOTE_ANNOTATION = 'scope';

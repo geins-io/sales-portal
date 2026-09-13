@@ -22,6 +22,12 @@ export const BASE_URL: string = target.BASE_URL;
 /** The tenant `/api/config` must resolve for that origin. */
 export const EXPECTED_TENANT_ID: string = target.EXPECTED_TENANT_ID;
 
+/**
+ * The tenant a run may place a real order on, or `''`. Compared for exact
+ * equality against the tenant the origin resolves to; see the order spec.
+ */
+export const ALLOW_ORDERS_FOR: string = target.ALLOW_ORDERS_FOR;
+
 /** Test-account credentials. Auth-dependent specs are out of scope without them. */
 export const e2eCredentials: { username: string; password: string } =
   target.e2eCredentials;

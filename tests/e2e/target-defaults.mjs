@@ -61,6 +61,16 @@ export const BASE_URL =
 export const EXPECTED_TENANT_ID =
   process.env.E2E_EXPECTED_TENANT_ID || DEFAULT_TENANT_ID;
 
+/**
+ * The tenant a run is allowed to place a real order on, as a name rather than
+ * a flag. The order spec places one only when this is exactly equal to the
+ * tenant `/api/config` resolves for the origin under test, so `1` and `true`
+ * match nothing and a copied `.env` pointed at another tenant names the wrong
+ * one. Trimmed, because a name pasted into a workflow input with a trailing
+ * space would otherwise miss the exact match.
+ */
+export const ALLOW_ORDERS_FOR = (process.env.E2E_ALLOW_ORDERS_FOR ?? '').trim();
+
 /** Test-account credentials. Auth-dependent specs are out of scope without them. */
 export const e2eCredentials = {
   username: process.env.E2E_USERNAME ?? '',
