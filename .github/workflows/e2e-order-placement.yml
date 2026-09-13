@@ -1,0 +1,169 @@
+# =============================================================================
+# SALES PORTAL - E2E Order Placement (manual, mutating)
+# =============================================================================
+# The only workflow in this repository that writes to the backend. It runs the
+# `orders` Playwright project, which places ONE REAL ORDER on the tenant named
+# in the `tenant` input. Nothing deletes that order; the test account's order
+# list simply grows, and five specs read it.
+#
+# Never on a pull request, in any form. Running it automatically would mean the
+# tenant name living permanently in GitHub as a repository variable, which is
+# exactly the configuration the safety design exists to prevent. Here the name
+# exists for the length of one run and is typed by whoever starts it.
+#
+# One step, without `--no-deps`: Playwright resolves the five preflight layers
+# as project dependencies. The other two workflows split them into a step each
+# for layer-by-layer visibility, which a focused two-to-three-minute order run
+# does not need.
+#
+# What this file does duplicate, honestly: checkout, pnpm, Node, install, the
+# Playwright cache, the hostname line, the TLS cert, the build cache, the build
+# and the preview server are a third copy of the same setup as ci.yml and
+# e2e-full.yml. That duplication — not the preflight steps — is what would one
+# day justify a composite action.
+# =============================================================================
+
+name: E2E Order Placement
+
+on:
+  workflow_dispatch:
+    inputs:
+      tenant:
+        description: 'Tenant name to place a real order on. Must equal the tenant the target resolves to, exactly.'
+        required: true
+        type: string
+
+# Serialised, like e2e-full.yml: two runs of this workflow at once would place
+# two orders and sign the shared test account in twice within seconds. A group
+# separate from that workflow's is deliberate — no measured platform limit is
+# known to be shared across runners (our own login rate limiter is per process,
+# in memory, so it never is), and forcing a shared group would mean editing
+# another workflow for a problem nobody has measured.
+concurrency:
+  group: ${{ github.workflow }}
+
+jobs:
+  place-order:
+    name: Place one real order
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Empty repository variables fall through to the committed defaults in
+      # tests/e2e/target-defaults.mjs, which is the one place the target is
+      # spelled out.
+      PLAYWRIGHT_BASE_URL: ${{ vars.E2E_BASE_URL }}
+      E2E_EXPECTED_TENANT_ID: ${{ vars.E2E_EXPECTED_TENANT_ID }}
+      E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      E2E_EXTERNAL_SERVER: '1'
+      # The mutation gate. The spec places an order only when this is exactly
+      # equal to the tenant /api/config resolves for the origin under test.
+      E2E_ALLOW_ORDERS_FOR: ${{ inputs.tenant }}
+    steps:
+      # First, before anything is installed. `required: true` is a check on the
+      # dispatch form and the API accepts an empty string for a required input
+      # on some paths; without this guard such a run would reach the spec, be
+      # declared out of scope, and finish GREEN having placed nothing — a green
+      # row for a workflow whose entire purpose is to place an order.
+      - name: Require a tenant name
+        env:
+          # Through the environment, never interpolated into the script: a
+          # dispatch input is attacker-controllable text and `${{ }}` inside a
+          # run block is substituted before the shell ever sees it.
+          TENANT: ${{ inputs.tenant }}
+        run: |
+          if [ -z "$TENANT" ]; then
+            echo "::error::This workflow places a real order. Enter the tenant name the target resolves to."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Chromium only: the `orders` project runs one desktop Chrome context, so
+      # webkit is never downloaded. Hence a cache key of its own — entries are
+      # immutable, and a key shared with the other workflows would restore a
+      # chromium-only entry to jobs that need webkit too.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-chromium-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      # The hostname comes from the suite's own resolver rather than a literal,
+      # so the workflow cannot drift from tests/e2e/target-defaults.mjs.
+      - name: Point the target hostname at the runner
+        run: echo "127.0.0.1 $(node tests/e2e/target-defaults.mjs)" | sudo tee -a /etc/hosts
+
+      # The production build sets `upgrade-insecure-requests` and Secure auth
+      # cookies, so it only works over https. NITRO_SSL_CERT / NITRO_SSL_KEY
+      # hold PEM contents, not paths.
+      - name: Generate TLS cert for the preview server
+        run: ./infra/scripts/local-cert.sh
+
+      # Same key as ci.yml: restoring an entry it saved is a straight win.
+      - name: Cache Nuxt build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .nuxt
+            .output
+          key: nuxt-build-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'nuxt.config.ts', 'app/**', 'server/**', 'shared/**') }}
+
+      - name: Build application
+        run: pnpm build
+
+      # Output goes to a file: an open stdout would keep the step from ending.
+      - name: Start the preview server
+        run: |
+          NITRO_SSL_CERT="$(cat .certs/local.crt)" NITRO_SSL_KEY="$(cat .certs/local.key)" E2E=1 \
+            pnpm preview > preview.log 2>&1 &
+
+      # No `--no-deps`: the preflight layers run as this project's dependencies,
+      # inside this step. Retries are pinned to zero on the project itself — a
+      # retry here would be a second real order.
+      - name: Place the order
+        run: pnpm test:e2e --project=orders
+
+      - name: Upload preview server log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview-log
+          path: preview.log
+          retention-days: 7
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      # The trace lives here (`outputDir` in playwright.config.ts). It matters
+      # more for this workflow than for any other: a red run cannot be repeated
+      # for free, because every rerun places another real order. Whatever the
+      # one run recorded is all the evidence there will be.
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7

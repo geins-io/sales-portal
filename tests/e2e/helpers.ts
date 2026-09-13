@@ -38,6 +38,10 @@ export { e2eCredentials, hasE2ECredentials };
  *   every instance so they stay visible.
  * - `remote-target`: `E2E_REMOTE=1` — the target is a deployed environment on
  *   purpose, so preflight L0's locality check does not apply.
+ * - `mutation-gate`: `E2E_ALLOW_ORDERS_FOR` does not name the tenant this
+ *   origin resolves to, so the run places no order. The only reason here that
+ *   describes a *choice* not to assert; the other six describe an assertion
+ *   that cannot be made.
  */
 export type ScopeReason =
   | 'no-credentials'
@@ -45,7 +49,8 @@ export type ScopeReason =
   | 'dev-server'
   | 'fixture-missing'
   | 'tenant-config'
-  | 'remote-target';
+  | 'remote-target'
+  | 'mutation-gate';
 
 /**
  * Skip the current test — or, called at file/describe level, every test in
@@ -563,6 +568,10 @@ export async function addToCart(
  * is pinned to inc-VAT, and each must be compared against its own side.
  */
 export interface ApiCartLine {
+  /** Identifies the line against an order's, which is where the two are paired. */
+  skuId: number;
+  /** Rendered on the order detail page, so it pairs a screen row with an API row. */
+  articleNumber: string;
   quantity: number;
   unitPriceExVat: number;
   unitPriceIncVat: number;
@@ -623,6 +632,8 @@ export async function fetchCart(page: Page): Promise<ApiCart> {
     discountIncVat: summary?.fixedAmountDiscountIncVat,
     items: (body?.items ?? []).map(
       (item: {
+        skuId?: number;
+        product?: { articleNumber?: string };
         quantity?: number;
         unitPrice?: { sellingPriceExVat?: number; sellingPriceIncVat?: number };
         totalPrice?: {
@@ -630,6 +641,8 @@ export async function fetchCart(page: Page): Promise<ApiCart> {
           sellingPriceIncVat?: number;
         };
       }) => ({
+        skuId: item.skuId,
+        articleNumber: item.product?.articleNumber,
         quantity: item.quantity,
         unitPriceExVat: item.unitPrice?.sellingPriceExVat,
         unitPriceIncVat: item.unitPrice?.sellingPriceIncVat,
@@ -653,6 +666,13 @@ export async function fetchCart(page: Page): Promise<ApiCart> {
   expect(cart.items.length, '/api/cart reports no lines').toBeGreaterThan(0);
   for (const [index, line] of cart.items.entries()) {
     for (const [field, value] of Object.entries(line)) {
+      if (field === 'articleNumber') {
+        expect(
+          value,
+          `cart line ${index} carries no article number, so it cannot be paired with an order line`,
+        ).toBeTruthy();
+        continue;
+      }
       expect(
         Number.isFinite(value),
         `cart line ${index} ${field} is not a number: ${JSON.stringify(value)}`,
@@ -665,6 +685,10 @@ export async function fetchCart(page: Page): Promise<ApiCart> {
 
 /** One order line, in the numbers the orders API computed for it. */
 export interface ApiOrderLine {
+  /** Identifies the line against a cart's, which is where the two are paired. */
+  skuId: number;
+  /** Rendered in the article-number cell, so it pairs a screen row with this one. */
+  articleNumber: string;
   quantity: number;
   unitPriceIncVat: number;
   totalPriceIncVat: number;
@@ -720,10 +744,14 @@ export async function fetchOrder(
     orderTotalIncVat: order?.orderTotal?.sellingPriceIncVat,
     items: (order?.cart?.items ?? []).map(
       (item: {
+        skuId?: number;
+        product?: { articleNumber?: string };
         quantity?: number;
         unitPrice?: { sellingPriceIncVat?: number };
         totalPrice?: { sellingPriceIncVat?: number };
       }) => ({
+        skuId: item.skuId,
+        articleNumber: item.product?.articleNumber,
         quantity: item.quantity,
         unitPriceIncVat: item.unitPrice?.sellingPriceIncVat,
         totalPriceIncVat: item.totalPrice?.sellingPriceIncVat,
@@ -752,6 +780,13 @@ export async function fetchOrder(
   ).toBeGreaterThan(0);
   for (const [index, line] of result.items.entries()) {
     for (const [field, value] of Object.entries(line)) {
+      if (field === 'articleNumber') {
+        expect(
+          value,
+          `order ${publicId} line ${index} carries no article number, so it cannot be paired with a cart line`,
+        ).toBeTruthy();
+        continue;
+      }
       expect(
         Number.isFinite(value),
         `order ${publicId} line ${index} ${field} is not a number: ${JSON.stringify(value)}`,

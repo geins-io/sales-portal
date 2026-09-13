@@ -47,6 +47,7 @@ const orderSummary = computed(() => data.value?.order ?? null);
       :is-loading="pending"
       :payment-method="paymentMethod"
       :order-number="orderNumber"
+      :public-order-id="orderId"
     />
   </div>
 </template>

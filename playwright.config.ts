@@ -25,6 +25,8 @@ import {
  *   E2E_PROD=1              build and test the production build (CI always does)
  *   E2E_EXTERNAL_SERVER=1   the target is already running; start nothing
  *   E2E_REMOTE=1            the target is a deployed environment on purpose
+ *   E2E_ALLOW_ORDERS_FOR    tenant name the `orders` project may place a real
+ *                           order on; see that project below
  *
  * Prerequisites (local development): `pnpm local:setup`, for the wildcard
  * resolver. Preflight L0 checks that the target resolves to this machine, so a
@@ -41,6 +43,10 @@ import {
  * session. Each lists every layer below it as a dependency, so when one
  * fails the scope reporter counts everything above it as blocked by that
  * layer. See docs/testing.md.
+ *
+ * The `orders` project is separate from all of this: it places a real order on
+ * the tenant under test, so it runs only from e2e-order-placement.yml, by hand,
+ * and the three browser projects ignore its folder. See docs/testing.md.
  *
  * @see https://playwright.dev/docs/test-configuration
  */
@@ -104,6 +110,14 @@ const preflightProjects: Project[] = PREFLIGHT_LAYERS.map((layer, index) => ({
 }));
 
 const PREFLIGHT_FILES = /preflight\//;
+
+// The order-placement spec, which mutates the real backend. Its own project in
+// its own folder is the structural half of the mutation gate: the three browser
+// projects ignore the folder, and both workflows select projects by name, so no
+// ordinary run can collect it whatever the environment says. Anchored on
+// `e2e/orders/` rather than a bare `orders/` because Playwright matches these
+// against the absolute file path.
+const ORDERS_FILES = /e2e\/orders\//;
 
 export default defineConfig({
   // Test directory
@@ -182,13 +196,13 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: PREFLIGHT_FILES,
+      testIgnore: [PREFLIGHT_FILES, ORDERS_FILES],
       dependencies: PREFLIGHT_PROJECT_NAMES,
     },
     {
       name: 'Mobile Chrome',
       use: { ...devices['Pixel 5'] },
-      testIgnore: PREFLIGHT_FILES,
+      testIgnore: [PREFLIGHT_FILES, ORDERS_FILES],
       dependencies: PREFLIGHT_PROJECT_NAMES,
     },
     // WebKit is Safari's engine. Some CSP/nonce defects (e.g. a duplicate
@@ -199,8 +213,28 @@ export default defineConfig({
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
-      testIgnore: PREFLIGHT_FILES,
+      testIgnore: [PREFLIGHT_FILES, ORDERS_FILES],
       dependencies: PREFLIGHT_PROJECT_NAMES,
+    },
+    // Places a real order on the tenant under test. Never run by ci.yml or
+    // e2e-full.yml — only by e2e-order-placement.yml, by hand, and only when
+    // E2E_ALLOW_ORDERS_FOR names the tenant the origin resolves to.
+    {
+      name: 'orders',
+      testMatch: /e2e\/orders\/.*\.spec\.ts$/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: PREFLIGHT_PROJECT_NAMES,
+      // Restated rather than inherited from the global zero: here a retry is a
+      // second real order, so a later change to the global must not take this
+      // project with it without someone reading this line.
+      retries: 0,
+      // The spec gives the platform 120s to make the order readable, and the
+      // rest of the journey — discovering a product, the cart, checkout, the
+      // confirmation, the list and the order detail — costs another 40 to 60s.
+      // At 180000 Playwright would kill the test before the budget could be
+      // exceeded, reporting its own timeout instead of the measured wait, which
+      // is the one number the run exists to produce. Moves when the budget moves.
+      timeout: 300000,
     },
   ],
 

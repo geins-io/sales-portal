@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OrderListItem } from '#shared/types/commerce';
+import { useIntervalFn } from '@vueuse/core';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 
@@ -9,11 +10,139 @@ definePageMeta({
 });
 
 const { t } = useI18n();
+const route = useRoute();
+const router = useRouter();
 
-const { data, pending, error, refresh } = useFetch<{
-  orders: OrderListItem[];
-  total: number;
-}>('/api/orders', { dedupe: 'defer' });
+type OrderListResponse = { orders: OrderListItem[]; total: number };
+
+const { data, pending, error, refresh } = useFetch<OrderListResponse>(
+  '/api/orders',
+  { dedupe: 'defer' },
+);
+
+/**
+ * Waiting for a just-placed order to become readable.
+ *
+ * The platform makes an order readable 5 to 47 seconds after confirming it was
+ * created (five samples, 2026-09-13), so a buyer who follows the confirmation
+ * link arrives before their order exists on this list. `?awaiting=<publicId>`
+ * is set by that link and names the order to wait for. Nothing polls without
+ * it, and nothing polls if the order is already in the first response.
+ *
+ * Silent by design: the row simply appears. The page says nothing about
+ * waiting, so there is no state to explain and nothing to dismiss.
+ */
+const awaitingId = computed(() => {
+  const value = route.query.awaiting;
+  return typeof value === 'string' && value ? value : null;
+});
+
+/**
+ * Drop `?awaiting=` once the wait is over, either way it ended.
+ *
+ * `replace` rather than `push`, and the path is unchanged, so this rewrites the
+ * address without a navigation and without leaving a back-button step. Clearing
+ * it after the bound too means a reload does not start a fresh wait for an order
+ * that is already known to be slow.
+ */
+async function clearAwaitingParam() {
+  if (!awaitingId.value) return;
+  const { awaiting: _dropped, ...rest } = route.query;
+  await router.replace({ query: rest });
+}
+
+/** 120s, and the order-placement e2e spec gives the platform exactly the same
+ * number. Two different bounds would disagree about a platform that landed
+ * between them — one calling it healthy while the other called it late. It
+ * rests on five samples measured 2026-09-13 with a 46.7s maximum, so roughly
+ * two and a half times the worst seen. Raising it needs new measurements. */
+const AWAITING_BOUND_MS = 120000;
+
+/** The window is 5-47s, so tighter buys nothing and looser wastes the wait. */
+const AWAITING_INTERVAL_MS = 2500;
+
+let awaitingStartedAt = 0;
+let pollInFlight = false;
+
+function hasAwaitedOrder(
+  response: OrderListResponse | null | undefined,
+): boolean {
+  const id = awaitingId.value;
+  if (!id) return true;
+  return (response?.orders ?? []).some((order) => order.publicId === id);
+}
+
+/**
+ * One refetch while waiting, with the browser cache bypassed.
+ *
+ * `/api/orders` answers `Cache-Control: private, max-age=30`, which the
+ * browser's fetch honours — so an ordinary refetch would be served the same
+ * order-less list from cache for up to thirty seconds and never reach the
+ * server. `cache: 'no-store'` is scoped to this call rather than put on the
+ * `useFetch` above, because that header is right for every other visit to this
+ * page and `refresh()` would reuse those options.
+ */
+async function pollForAwaitedOrder() {
+  // The bound is checked before the in-flight guard, so a request that never
+  // comes back cannot postpone it for ever.
+  if (Date.now() - awaitingStartedAt > AWAITING_BOUND_MS) {
+    stopAwaiting();
+    await clearAwaitingParam();
+    return;
+  }
+
+  // The interval fires on a timer, not on the previous response, so without
+  // this two requests overlap once `/api/orders` outlasts the interval.
+  if (pollInFlight) return;
+  pollInFlight = true;
+
+  try {
+    const fresh = await $fetch<OrderListResponse>('/api/orders', {
+      cache: 'no-store',
+    });
+    // The wait may have ended while this was out — stopped at the bound, or
+    // the page unmounted. Either way its answer is no longer wanted, which is
+    // also what makes a request still in flight at unmount a non-issue.
+    if (!pollIsActive.value) return;
+    data.value = fresh;
+    if (hasAwaitedOrder(fresh)) {
+      stopAwaiting();
+      // After the row is on screen, not before — the parameter is what keeps
+      // the wait alive, so dropping it early would end the wait it describes.
+      await nextTick();
+      await clearAwaitingParam();
+    }
+  } catch {
+    // A failed poll is not a failed order — the next tick tries again, and the
+    // bound above ends it either way.
+  } finally {
+    pollInFlight = false;
+  }
+}
+
+const {
+  pause: stopAwaiting,
+  resume: startAwaiting,
+  isActive: pollIsActive,
+} = useIntervalFn(pollForAwaitedOrder, AWAITING_INTERVAL_MS, {
+  immediate: false,
+});
+
+// Starts only once the first response has arrived and does not contain the
+// order. `useIntervalFn` is paused on scope dispose, so leaving the page stops
+// it without any teardown of our own.
+watch(
+  () => pending.value,
+  (isPending) => {
+    // Explicit rather than implied: this never runs on the server. Nothing
+    // would start there today, but that rests on facts elsewhere in the file.
+    if (!import.meta.client) return;
+    if (isPending || !awaitingId.value || hasAwaitedOrder(data.value)) return;
+    awaitingStartedAt = Date.now();
+    startAwaiting();
+  },
+  { immediate: true },
+);
 
 const searchQuery = ref('');
 const sortDirection = ref<'asc' | 'desc'>('desc');

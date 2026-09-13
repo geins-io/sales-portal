@@ -8,9 +8,9 @@ Testing strategy, architecture, and practices for the Sales Portal.
 
 ## Overview
 
-3970 unit/component tests across 292 files + 13 E2E spec files and five preflight layers / 249 tests across three browser projects (portal, auth, cart, navigation, search, routing, etc.).
+3970 unit/component tests across 292 files + 13 E2E spec files and five preflight layers / 249 tests across three browser projects (portal, auth, cart, navigation, search, routing, etc.), plus one order-placement spec in a fourth project that only ever runs by hand.
 
-Counts as of 2026-09-08. E2E has setup prerequisites — see [E2E Tests](#e2e-tests).
+Counts as of 2026-09-08; the order-placement project was added 2026-09-13 and is not part of them, because no ordinary run collects it — see [Placing a real order](#placing-a-real-order-e2e-order-placementyml). E2E has setup prerequisites — see [E2E Tests](#e2e-tests).
 
 | Level     | Tool                    | What it tests                            |
 | --------- | ----------------------- | ---------------------------------------- |
@@ -168,14 +168,15 @@ application bugs.
 Tests run against a tenant hostname, not `localhost`, so the multi-tenant server plugin can
 resolve a tenant. The target comes from the environment, read in one place (`tests/e2e/target.ts`):
 
-| Variable                        | Default         | Meaning                                              |
-| ------------------------------- | --------------- | ---------------------------------------------------- |
-| `PLAYWRIGHT_BASE_URL`           | the team tenant | Origin under test (https when `E2E_PROD=1` or in CI) |
-| `E2E_EXPECTED_TENANT_ID`        | the team tenant | Tenant `/api/config` must resolve to                 |
-| `E2E_USERNAME` / `E2E_PASSWORD` | unset           | Test account (see 2.)                                |
-| `E2E_PROD`                      | unset           | `1`: build and test the production build over https  |
-| `E2E_EXTERNAL_SERVER`           | unset           | `1`: the target is already running, start nothing    |
-| `E2E_REMOTE`                    | unset           | `1`: the target is a deployed environment on purpose |
+| Variable                        | Default         | Meaning                                                                                     |
+| ------------------------------- | --------------- | ------------------------------------------------------------------------------------------- |
+| `PLAYWRIGHT_BASE_URL`           | the team tenant | Origin under test (https when `E2E_PROD=1` or in CI)                                        |
+| `E2E_EXPECTED_TENANT_ID`        | the team tenant | Tenant `/api/config` must resolve to                                                        |
+| `E2E_USERNAME` / `E2E_PASSWORD` | unset           | Test account (see 2.)                                                                       |
+| `E2E_PROD`                      | unset           | `1`: build and test the production build over https                                         |
+| `E2E_EXTERNAL_SERVER`           | unset           | `1`: the target is already running, start nothing                                           |
+| `E2E_REMOTE`                    | unset           | `1`: the target is a deployed environment on purpose                                        |
+| `E2E_ALLOW_ORDERS_FOR`          | unset           | Tenant name the `orders` project may place a real order on. Command line only, never `.env` |
 
 Locally they live in `.env`; in CI in repository variables and secrets. Switching target is an
 environment change; the committed default names the team-owned test tenant, and it is one target
@@ -222,8 +223,13 @@ you simply get less coverage, and the run summary says so.
 A test that does not run says why, or the run fails. `test.skip()` / `test.fixme()` are lint errors
 in `tests/e2e/`; the one sanctioned way is `outOfScope(condition, reason, detail)` from
 `tests/e2e/helpers.ts`, where `reason` is a closed list (`ScopeReason`): `no-credentials`,
-`mobile-project`, `dev-server`, `fixture-missing`, `tenant-config`. A test that runs with part of its
-assertions off (no CSP header on the dev server) declares that with `noteOutOfScope()`.
+`mobile-project`, `dev-server`, `fixture-missing`, `tenant-config`, `remote-target`,
+`mutation-gate`. A test that runs with part of its assertions off (no CSP header on the dev server)
+declares that with `noteOutOfScope()`.
+
+The list lives in **two** files. `tests/e2e/reporters/scope-reporter.ts` keeps its own copy, because
+Playwright loads a reporter before the specs and it cannot import the spec-side type. A new reason
+added to only one of them reads as undeclared and fails the run.
 
 `tests/e2e/reporters/scope-reporter.ts` prints one block at the end of every run:
 
@@ -308,11 +314,22 @@ local production build yourself without a warning, `mkcert -install` is optional
 #### Commands
 
 ```bash
-pnpm test:e2e          # Headless, all projects (chromium, Mobile Chrome, webkit)
+pnpm test:e2e          # Headless, EVERY project — the three browsers and `orders`
 pnpm test:e2e:ui       # Playwright UI
 pnpm test:e2e:debug    # Debug mode
 pnpm test:e2e:report   # View last report
 ```
+
+> **`E2E_ALLOW_ORDERS_FOR` never goes in `.env`.** A bare `pnpm test:e2e` selects no project, so it
+> runs every one of them, `orders` included. The project separation stops `ci.yml` and
+> `e2e-full.yml`, which name their projects — it does not stop a full local run. With the flag in
+> `.env` that run would place a real order, every time. Pass it inline, for the one invocation that
+> should place one:
+>
+> ```bash
+> pnpm test:e2e                                                   # the suite; orders declares itself out of scope
+> E2E_ALLOW_ORDERS_FOR=<tenant> pnpm test:e2e --project=orders     # and this places one real order
+> ```
 
 #### Writing helpers
 
@@ -376,6 +393,7 @@ tests/
 │   ├── target.ts           # The environment the suite reads: origin, tenant, account
 │   ├── helpers.ts          # Shared: discoverProduct, waitForHydration, addToCart
 │   ├── preflight/          # L0–L4, one spec per layer, one project per spec
+│   ├── orders/             # Mutating. Own project, ignored by the browser projects (1)
 │   ├── app.spec.ts         # App health, responsive, accessibility, perf (10)
 │   ├── auth.spec.ts        # Login, register, validation, view switching (8)
 │   ├── cart.spec.ts        # Add-to-cart, cart page, remove, promo (5)
@@ -674,14 +692,15 @@ milestone that adds config tests.
 
 ## CI/CD Integration
 
-Two workflows run tests; neither runs on a schedule.
+Three workflows run tests; none runs on a schedule, and only the third writes anything.
 
-| Workflow · Job                  | Trigger                                       | What                                                 |
-| ------------------------------- | --------------------------------------------- | ---------------------------------------------------- |
-| `ci.yml` · Lint & Type Check    | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck`                        |
-| `ci.yml` · Unit & Component     | same                                          | `pnpm test:coverage` (full vitest suite)             |
-| `ci.yml` · E2E                  | PRs only                                      | **Preflight, then every spec on all three projects** |
-| `e2e-full.yml` · Full E2E Suite | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects** |
+| Workflow · Job                              | Trigger                                       | What                                                             |
+| ------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------- |
+| `ci.yml` · Lint & Type Check                | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck`                                    |
+| `ci.yml` · Unit & Component                 | same                                          | `pnpm test:coverage` (full vitest suite)                         |
+| `ci.yml` · E2E                              | PRs only                                      | **Preflight, then every spec on all three projects**             |
+| `e2e-full.yml` · Full E2E Suite             | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**             |
+| `e2e-order-placement.yml` · Order Placement | `workflow_dispatch` only, with a tenant name  | **Preflight, then the `orders` project — places one real order** |
 
 `retries` is zero everywhere (`playwright.config.ts`), so a red run in either workflow is a real
 failure rather than one that survived three attempts. Both run the production build, so before a
@@ -718,16 +737,77 @@ against whatever that API returns.
 
 Same target as the PR job — a production build on the runner — with chromium, webkit and the
 Mobile Chrome device profile. Each preflight layer and each browser project is its own step, and
-wall-clock per project goes to the job summary. No mutation gate is needed: the suite writes no
-lasting tenant data.
+wall-clock per project goes to the job summary. This workflow needs no mutation gate, but not
+because the suite writes nothing — see [What a run leaves behind](#what-a-run-leaves-behind). It
+needs none because the three browser projects cannot collect the one spec that places an order.
 
 A run signs in once however many browsers it drives — preflight L4 writes the session, every
 auth-dependent spec reads that file — so splitting the projects across jobs, or sharding, repeats
 the preflight and with it the sign-in against a rate-limited endpoint.
 
-Both workflows name the browser set in their Playwright cache key, because cache entries are
+### What a run leaves behind
+
+**Every full-suite run creates about 45 real carts and abandons them.** `cart.spec.ts` builds a cart
+in twelve of its tests and `checkout.spec.ts` in three, each test gets a fresh browser context with
+no `cart_id` cookie, and nothing empties them afterwards — so that is 15 carts per browser project,
+45 across the three. They are real carts on the tenant, they simply have no order and no owner
+looking at them.
+
+That is worth knowing before reading the next section: the order spec is not the first thing in this
+suite to write to the backend. It is the first to leave something **lasting and visible** — an order
+on the account's order list, which five specs read and nothing deletes.
+
+### Placing a real order (`e2e-order-placement.yml`)
+
+The only workflow here that writes to the backend. `workflow_dispatch` only, with one required
+input — the **tenant name** — and never on a pull request in any form:
+
+```
+gh workflow run e2e-order-placement.yml --ref <branch> -f tenant=<tenant name>
+```
+
+It runs the `orders` Playwright project, one step, without `--no-deps` so the five preflight layers
+run as project dependencies. Two to three minutes.
+
+**Every run leaves a real order on the test account, and nothing deletes it.** That is the price of
+the run, and it is worth knowing in advance rather than discovering. The account holds 18 orders as
+of 2026-09-13. Five specs read that list and every one of them picks an order by property rather
+than by id, so a new order displaces nothing — the list simply grows, and `fetchOrders` reads one
+more order in full on every invocation.
+
+Two structural locks make an accidental order impossible, which is why this can live in an
+open-source repository:
+
+1. **The spec has its own project in its own folder** (`tests/e2e/orders/`), which the `chromium`,
+   `Mobile Chrome` and `webkit` projects ignore exactly as they ignore `preflight/`. The PR job and
+   the full-suite workflow both select projects by name, so neither can collect it. An invocation
+   that names no project — a bare `pnpm test:e2e` — runs every project and does collect it, which
+   is what the second lock is for.
+2. **`E2E_ALLOW_ORDERS_FOR` carries a tenant name, not a boolean.** This is the lock that matters
+   locally, because the first one does not cover a bare `pnpm test:e2e` — see the warning under
+   [Commands](#commands). The spec places an order only
+   when that value is _exactly equal_ to the tenant `/api/config` resolves for the origin under
+   test. So `=1` and `=true` match nothing, and a copied `.env` pointed at another tenant names the
+   wrong one. Unset: the spec declares itself out of scope (`mutation-gate`) and the run is green
+   having placed nothing. Set but naming a tenant the origin does not resolve to: the test is red,
+   still having placed nothing — the flag was set deliberately and names the wrong thing, and
+   silence would be a worse answer than showing both tenant names.
+
+The workflow adds a third layer for its own sake: a guard step fails the job on an empty input,
+because `required: true` is a check on the dispatch form and a run that reached the spec with no
+flag would finish green having done nothing.
+
+One order per run, on chromium, with `retries: 0` restated on the project —
+`/api/checkout/create-order` rate-limits order creation to 5 per 60 seconds per IP, and a retry here
+would be a second real order. The spec waits up to 120 s for `/api/orders/<publicId>` to answer 200
+and records the measured wait; that budget rests on five samples measured 2026-09-13 (5.2 s to
+46.7 s, the widest being this spec's own first real run), and exceeding it fails the test with the
+number rather than widening the wait.
+
+Every workflow names its browser set in its Playwright cache key, because cache entries are
 immutable: a key that cannot express which browsers an entry holds would restore a chromium-only
-cache forever and pay the webkit download on every run. Two things that cache does not buy —
+cache forever and pay the webkit download on every run. That is also why the order workflow, which
+needs chromium alone, carries a key of its own rather than sharing the other two's. Two things that cache does not buy —
 `--with-deps` runs `apt-get` every time and that is never cached, and an entry only saves from a
 green job, so the first runs after a key changes look slower than the steady state.
 

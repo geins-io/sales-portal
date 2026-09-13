@@ -283,7 +283,10 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                         >
                       </div>
                     </td>
-                    <td class="text-muted-foreground h-24 px-4 py-2">
+                    <td
+                      data-testid="order-item-article-number"
+                      class="text-muted-foreground h-24 px-4 py-2"
+                    >
                       {{ item?.product?.articleNumber }}
                     </td>
                     <td
