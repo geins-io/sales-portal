@@ -16,8 +16,6 @@ flowchart LR
     PR["Pull request into main or production"] --> LINT
     PR --> UNIT
     PR --> E2E
-    DEV["Push to dev"] --> LINT
-    DEV --> UNIT
 
     subgraph LINT["Job: Lint &amp; Type Check"]
         direction TB
@@ -62,8 +60,7 @@ the end counts them as blocked by the layer that failed. In CI there is nothing 
 workflow skipped those steps.
 
 **Every spec runs on every pull request**, on all three browser projects, against a production
-build served over TLS. The E2E job is the one job here that a push to `dev` does not start; lint
-and unit run there too.
+build served over TLS.
 
 ### Two workflows you start yourself
 
@@ -289,3 +286,5 @@ answered at all.
 - [Testing](/testing) — how to run each layer, the fixtures, and the e2e target
 - [ADR-023](/adr/023-config-coverage-layers) — why config coverage is asserted at unit level and
   e2e assertions are derived from the tenant's own config
+- [Contributing → The documentation site](/guide/contributing#the-documentation-site) — how to
+  read these diagrams rendered, locally

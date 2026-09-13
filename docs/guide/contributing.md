@@ -51,6 +51,31 @@ repository root.** That file is the source of truth for the flow; this page does
    pnpm dev
    ```
 
+### The documentation site
+
+This site is VitePress. Build it and serve the build:
+
+```bash
+pnpm docs:build && pnpm docs:preview
+```
+
+**Not `pnpm docs:dev`.** It starts and answers, but `http://localhost:5173/docs/` stays blank.
+This is what the terminal prints:
+
+```
+Failed to resolve dependency: @braintree/sanitize-url, present in 'optimizeDeps.include'
+Failed to resolve dependency: dayjs, present in 'optimizeDeps.include'
+Failed to resolve dependency: debug, present in 'optimizeDeps.include'
+Failed to resolve dependency: cytoscape-cose-bilkent, present in 'optimizeDeps.include'
+Failed to resolve dependency: cytoscape, present in 'optimizeDeps.include'
+```
+
+The Mermaid plugin asks Vite to pre-bundle those five by name. They are Mermaid's own transitive
+dependencies, and pnpm does not hoist them to the root `node_modules/` — they exist only under
+`.pnpm/`, where Vite does not look, so none of them resolves and the page never renders.
+`docs:build` is unaffected: `optimizeDeps` is a dev-server concept, and the production build
+resolves through Rollup and the import graph rather than through that list.
+
 ## Code Standards
 
 Conventions live in [`docs/conventions/`](/conventions/README) — component structure, composables,
