@@ -73,12 +73,12 @@ After creating a test, add its path to the appropriate list in `vitest.workspace
 
 ### Performance tuning
 
-| Setting                     | Where            | Why                                                         |
-| --------------------------- | ---------------- | ----------------------------------------------------------- |
-| `isolate: false`            | node, components | Reuses module cache across files — no per-file worker setup |
-| `sequence.concurrent: true` | all tiers        | Runs tests within a file concurrently                       |
-| `getVitestConfigFromNuxt()` | node, components | Shares Nuxt's Vite config without booting Nuxt              |
-| `happy-dom` over `jsdom`    | components       | ~3s faster for 10 component files                           |
+| Setting                     | Where            | Why                                                           |
+| --------------------------- | ---------------- | ------------------------------------------------------------- |
+| `isolate: false`            | node, components | Reuses module cache across files — no per-file worker setup   |
+| `sequence.concurrent: true` | all tiers        | Runs tests within a file concurrently                         |
+| `getVitestConfigFromNuxt()` | node, components | Boots Nuxt once for its Vite config; no Nuxt runtime per tier |
+| `happy-dom` over `jsdom`    | components       | ~3s faster for 10 component files                             |
 
 ### Performance benchmarks
 

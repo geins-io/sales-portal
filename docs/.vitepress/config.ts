@@ -1,117 +1,126 @@
 import { defineConfig } from 'vitepress';
+import { withMermaid } from 'vitepress-plugin-mermaid';
 
 // https://vitepress.dev/reference/site-config
-export default defineConfig({
-  title: 'Sales Portal',
-  description:
-    'Documentation for the Sales Portal - Multi-tenant Storefront Application',
+// `withMermaid` wraps the config so ```mermaid fences render as diagrams rather
+// than as code blocks. Without it the page still builds — the fence just stays
+// a code block — so this is presentation, not a build dependency.
+export default withMermaid(
+  defineConfig({
+    title: 'Sales Portal',
+    description:
+      'Documentation for the Sales Portal - Multi-tenant Storefront Application',
 
-  // Use /docs/ as the base path for GitHub Pages deployment
-  base: '/docs/',
+    // Use /docs/ as the base path for GitHub Pages deployment
+    base: '/docs/',
 
-  // Source directory is the docs folder itself
-  srcDir: '.',
+    // Source directory is the docs folder itself
+    srcDir: '.',
 
-  // Exclude VitePress config from being processed as content
-  srcExclude: ['.vitepress/**/*'],
+    // Exclude VitePress config from being processed as content
+    srcExclude: ['.vitepress/**/*'],
 
-  // Theme configuration
-  themeConfig: {
-    // Logo and site title
-    logo: '/logo.svg',
-    siteTitle: 'Sales Portal',
+    // Theme configuration
+    themeConfig: {
+      // Logo and site title
+      logo: '/logo.svg',
+      siteTitle: 'Sales Portal',
 
-    // Navigation bar
-    nav: [
-      { text: 'Home', link: '/' },
-      { text: 'Guide', link: '/guide/getting-started' },
-      { text: 'Architecture', link: '/architecture' },
-      { text: 'Testing', link: '/testing' },
-    ],
+      // Navigation bar
+      nav: [
+        { text: 'Home', link: '/' },
+        { text: 'Guide', link: '/guide/getting-started' },
+        { text: 'Architecture', link: '/architecture' },
+        { text: 'Testing', link: '/testing' },
+        { text: 'Test layers', link: '/test-layers' },
+      ],
 
-    // Sidebar configuration
-    sidebar: [
-      {
-        text: 'Introduction',
-        items: [
-          { text: 'What is Sales Portal?', link: '/' },
-          { text: 'Getting Started', link: '/guide/getting-started' },
-        ],
+      // Sidebar configuration
+      sidebar: [
+        {
+          text: 'Introduction',
+          items: [
+            { text: 'What is Sales Portal?', link: '/' },
+            { text: 'Getting Started', link: '/guide/getting-started' },
+          ],
+        },
+        {
+          text: 'Architecture',
+          items: [
+            { text: 'Overview', link: '/architecture' },
+            { text: 'Multi-Tenant System', link: '/guide/multi-tenant' },
+            { text: 'Theming System', link: '/guide/theming' },
+          ],
+        },
+        {
+          text: 'Development',
+          items: [
+            { text: 'Testing', link: '/testing' },
+            { text: 'Test layers', link: '/test-layers' },
+            { text: 'API Reference', link: '/guide/api-reference' },
+            { text: 'Contributing', link: '/guide/contributing' },
+          ],
+        },
+      ],
+
+      // Social links
+      socialLinks: [
+        { icon: 'github', link: 'https://github.com/geins-io/sales-portal' },
+      ],
+
+      // Search
+      search: {
+        provider: 'local',
       },
-      {
-        text: 'Architecture',
-        items: [
-          { text: 'Overview', link: '/architecture' },
-          { text: 'Multi-Tenant System', link: '/guide/multi-tenant' },
-          { text: 'Theming System', link: '/guide/theming' },
-        ],
-      },
-      {
-        text: 'Development',
-        items: [
-          { text: 'Testing', link: '/testing' },
-          { text: 'API Reference', link: '/guide/api-reference' },
-          { text: 'Contributing', link: '/guide/contributing' },
-        ],
-      },
-    ],
 
-    // Social links
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/geins-io/sales-portal' },
-    ],
+      // Footer
+      footer: {
+        message: 'Built with VitePress',
+        copyright: 'Copyright © 2026 Litium',
+      },
 
-    // Search
-    search: {
-      provider: 'local',
+      // Edit link configuration
+      editLink: {
+        pattern:
+          'https://github.com/geins-io/sales-portal/edit/main/docs/:path',
+        text: 'Edit this page on GitHub',
+      },
+
+      // Last updated
+      lastUpdated: {
+        text: 'Updated at',
+        formatOptions: {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        },
+      },
     },
 
-    // Footer
-    footer: {
-      message: 'Built with VitePress',
-      copyright: 'Copyright © 2026 Litium',
+    // Markdown configuration
+    markdown: {
+      lineNumbers: true,
     },
 
-    // Edit link configuration
-    editLink: {
-      pattern: 'https://github.com/geins-io/sales-portal/edit/main/docs/:path',
-      text: 'Edit this page on GitHub',
-    },
+    // Build configuration
+    lastUpdated: true,
 
-    // Last updated
-    lastUpdated: {
-      text: 'Updated at',
-      formatOptions: {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      },
-    },
-  },
+    // Clean URLs (remove .html extension)
+    cleanUrls: true,
 
-  // Markdown configuration
-  markdown: {
-    lineNumbers: true,
-  },
-
-  // Build configuration
-  lastUpdated: true,
-
-  // Clean URLs (remove .html extension)
-  cleanUrls: true,
-
-  // Head configuration
-  head: [
-    ['link', { rel: 'icon', href: '/docs/favicon.ico' }],
-    ['meta', { name: 'theme-color', content: '#3eaf7c' }],
-    ['meta', { property: 'og:type', content: 'website' }],
-    ['meta', { property: 'og:title', content: 'Sales Portal Documentation' }],
-    [
-      'meta',
-      {
-        property: 'og:description',
-        content:
-          'Documentation for the Sales Portal - Multi-tenant Storefront Application',
-      },
+    // Head configuration
+    head: [
+      ['link', { rel: 'icon', href: '/docs/favicon.ico' }],
+      ['meta', { name: 'theme-color', content: '#3eaf7c' }],
+      ['meta', { property: 'og:type', content: 'website' }],
+      ['meta', { property: 'og:title', content: 'Sales Portal Documentation' }],
+      [
+        'meta',
+        {
+          property: 'og:description',
+          content:
+            'Documentation for the Sales Portal - Multi-tenant Storefront Application',
+        },
+      ],
     ],
-  ],
-});
+  }),
+);
