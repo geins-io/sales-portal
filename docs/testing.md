@@ -692,15 +692,17 @@ milestone that adds config tests.
 
 ## CI/CD Integration
 
-Three workflows run tests; none runs on a schedule, and only the third writes anything.
+Three workflows run tests; none runs on a schedule, and only the third writes something
+nothing deletes — every run leaves carts behind, see
+[What a run leaves behind](#what-a-run-leaves-behind).
 
-| Workflow · Job                              | Trigger                                       | What                                                             |
-| ------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------- |
-| `ci.yml` · Lint & Type Check                | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck`                                    |
-| `ci.yml` · Unit & Component                 | same                                          | `pnpm test:coverage` (full vitest suite)                         |
-| `ci.yml` · E2E                              | PRs only                                      | **Preflight, then every spec on all three projects**             |
-| `e2e-full.yml` · Full E2E Suite             | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**             |
-| `e2e-order-placement.yml` · Order Placement | `workflow_dispatch` only, with a tenant name  | **Preflight, then the `orders` project — places one real order** |
+| Workflow · Job                                             | Trigger                                       | What                                                             |
+| ---------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------- |
+| `ci.yml` · Lint & Type Check                               | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck`                                    |
+| `ci.yml` · Unit & Component                                | same                                          | `pnpm test:coverage` (full vitest suite)                         |
+| `ci.yml` · E2E Suite                                       | PRs only                                      | **Preflight, then every spec on all three projects**             |
+| `e2e-full.yml` · E2E Suite (manual)                        | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**             |
+| `e2e-order-placement.yml` · E2E Order Placement (mutating) | `workflow_dispatch` only, with a tenant name  | **Preflight, then the `orders` project — places one real order** |
 
 `retries` is zero everywhere (`playwright.config.ts`), so a red run in either workflow is a real
 failure rather than one that survived three attempts. Both run the production build, so before a
@@ -723,7 +725,7 @@ view names it. The target and account come from repository variables (`E2E_BASE_
 `E2E_EXPECTED_TENANT_ID`) and secrets (`E2E_USERNAME`, `E2E_PASSWORD`), with the committed
 defaults when unset.
 
-**The gate stops at the first failing browser project; the full-suite workflow continues.** The
+**The gate stops at the first failing browser project; the manual workflow continues.** The
 gate answers one question — is the branch safe to merge — and the answer is settled once a
 project goes red, while the manual run exists to measure and needs all three numbers.
 
@@ -731,7 +733,7 @@ A green run is still not evidence that the Geins backend is healthy: the identit
 against an unreachable merchant API (503) or an unregistered hostname, but the specs run
 against whatever that API returns.
 
-### The full suite (`e2e-full.yml`)
+### The manual run (`e2e-full.yml`)
 
 `workflow_dispatch` only, on any branch: `gh workflow run e2e-full.yml --ref <branch>`.
 
@@ -747,7 +749,7 @@ the preflight and with it the sign-in against a rate-limited endpoint.
 
 ### What a run leaves behind
 
-**Every full-suite run creates about 45 real carts and abandons them.** `cart.spec.ts` builds a cart
+**Every suite run creates about 45 real carts and abandons them.** `cart.spec.ts` builds a cart
 in twelve of its tests and `checkout.spec.ts` in three, each test gets a fresh browser context with
 no `cart_id` cookie, and nothing empties them afterwards — so that is 15 carts per browser project,
 45 across the three. They are real carts on the tenant, they simply have no order and no owner
@@ -780,7 +782,7 @@ open-source repository:
 
 1. **The spec has its own project in its own folder** (`tests/e2e/orders/`), which the `chromium`,
    `Mobile Chrome` and `webkit` projects ignore exactly as they ignore `preflight/`. The PR job and
-   the full-suite workflow both select projects by name, so neither can collect it. An invocation
+   the manual workflow both select projects by name, so neither can collect it. An invocation
    that names no project — a bare `pnpm test:e2e` — runs every project and does collect it, which
    is what the second lock is for.
 2. **`E2E_ALLOW_ORDERS_FOR` carries a tenant name, not a boolean.** This is the lock that matters

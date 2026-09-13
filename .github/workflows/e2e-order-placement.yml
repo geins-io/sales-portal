@@ -1,10 +1,11 @@
 # =============================================================================
 # SALES PORTAL - E2E Order Placement (manual, mutating)
 # =============================================================================
-# The only workflow in this repository that writes to the backend. It runs the
-# `orders` Playwright project, which places ONE REAL ORDER on the tenant named
-# in the `tenant` input. Nothing deletes that order; the test account's order
-# list simply grows, and five specs read it.
+# The only workflow whose writes outlive the run. It runs the `orders` Playwright
+# project, which places ONE REAL ORDER on the tenant named in the `tenant` input.
+# Nothing deletes that order; the test account's order list simply grows, and
+# five specs read it. Every ordinary suite run writes too — it leaves abandoned
+# carts (docs/testing.md, "What a run leaves behind") — but nothing lasting.
 #
 # Never on a pull request, in any form. Running it automatically would mean the
 # tenant name living permanently in GitHub as a repository variable, which is
@@ -23,7 +24,7 @@
 # day justify a composite action.
 # =============================================================================
 
-name: E2E Order Placement
+name: E2E Order Placement (mutating)
 
 on:
   workflow_dispatch:

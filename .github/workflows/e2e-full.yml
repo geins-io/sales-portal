@@ -1,5 +1,5 @@
 # =============================================================================
-# SALES PORTAL - Full E2E Suite (manual)
+# SALES PORTAL - E2E Suite (manual)
 # =============================================================================
 # Every spec in tests/e2e across chromium, Mobile Chrome and webkit, after the
 # five preflight layers. Triggered by hand, on any branch.
@@ -19,7 +19,7 @@
 # splitting them repeats the preflight sign-in.
 # =============================================================================
 
-name: E2E Full Suite
+name: E2E Suite (manual)
 
 on:
   workflow_dispatch:
@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   e2e-full:
-    name: Full E2E Suite
+    name: E2E Suite
     runs-on: ubuntu-latest
     # Generous on purpose. Phase one exists to learn the real number; the PR
     # gate sets a tight timeout from what this measures.

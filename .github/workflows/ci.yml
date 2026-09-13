@@ -95,7 +95,7 @@ jobs:
   # E2E Tests
   # ---------------------------------------------------------------------------
   test-e2e:
-    name: E2E Tests
+    name: E2E Suite
     # e2e is the heavier gate, reserved for the PR into main (the prod gate).
     # Pushes to dev run the light lint/types/unit jobs only.
     if: github.event_name == 'pull_request'
@@ -124,7 +124,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # The browser set is in the key, and what that buys is in
-      # docs/testing.md under "The full suite".
+      # docs/testing.md under "The manual run".
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
