@@ -353,6 +353,101 @@ describe('Orders page — awaiting a just-placed order', () => {
     expect(mockPollFetch.mock.calls.length).toBe(callsWhenFound);
   });
 
+  it('never lets two list requests overlap, however slow one is', async () => {
+    mockQuery.value = { awaiting: AWAITED };
+    const withoutIt = listWith(makeOrder({ publicId: 'some-older-order' }));
+    const withIt = listWith(
+      makeOrder({ publicId: 'some-older-order' }),
+      makeOrder({ publicId: AWAITED }),
+    );
+    mockData.value = withoutIt;
+
+    // The interval fires on a timer, not on the previous response. Without a
+    // guard, a request slower than the interval is overtaken by the next one —
+    // and whichever lands last writes the list. A stale answer arriving after
+    // the order had appeared would wipe the row with no wait left to restore it.
+    let resolveSlow: (value: unknown) => void = () => {};
+    mockPollFetch.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSlow = resolve;
+      }),
+    );
+
+    const wrapper = mount();
+    await wrapper.vm.$nextTick();
+
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(mockPollFetch.mock.calls.length).toBe(1);
+
+    // Three more intervals pass while the first request is still out.
+    await vi.advanceTimersByTimeAsync(7500);
+    expect(
+      mockPollFetch.mock.calls.length,
+      'a second list request started while the first was still in flight',
+    ).toBe(1);
+
+    // It lands without the order; the wait carries on from there.
+    mockPollFetch.mockResolvedValue(withIt);
+    resolveSlow(withoutIt);
+    await vi.advanceTimersByTimeAsync(2500);
+    await wrapper.vm.$nextTick();
+
+    expect(mockData.value?.orders.some((o) => o.publicId === AWAITED)).toBe(
+      true,
+    );
+  });
+
+  it('ignores a response that lands after the component is gone', async () => {
+    mockQuery.value = { awaiting: AWAITED };
+    const withoutIt = listWith(makeOrder({ publicId: 'some-older-order' }));
+    mockData.value = withoutIt;
+
+    let resolveSlow: (value: unknown) => void = () => {};
+    mockPollFetch.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSlow = resolve;
+      }),
+    );
+
+    const wrapper = mount();
+    await wrapper.vm.$nextTick();
+    await vi.advanceTimersByTimeAsync(2500);
+
+    wrapper.unmount();
+    mockData.value = null;
+
+    // The request was still out when the page went away. Its answer must not
+    // be written anywhere — which is what makes an in-flight request at
+    // unmount a non-issue rather than a leak.
+    resolveSlow(listWith(makeOrder({ publicId: 'whatever' })));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(
+      mockData.value,
+      'a response that arrived after unmount still wrote to the list',
+    ).toBeNull();
+  });
+
+  it('makes no further calls once the component is unmounted', async () => {
+    mockQuery.value = { awaiting: AWAITED };
+    const withoutIt = listWith(makeOrder({ publicId: 'some-older-order' }));
+    mockData.value = withoutIt;
+    mockPollFetch.mockResolvedValue(withoutIt);
+    const wrapper = mount();
+    await wrapper.vm.$nextTick();
+
+    await vi.advanceTimersByTimeAsync(5000);
+    const callsBeforeUnmount = mockPollFetch.mock.calls.length;
+    expect(callsBeforeUnmount).toBeGreaterThan(0);
+
+    wrapper.unmount();
+
+    // The timer is paused on scope dispose by `useIntervalFn`; this is the only
+    // test that proves the guarantee rather than restating it.
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(mockPollFetch.mock.calls.length).toBe(callsBeforeUnmount);
+  });
+
   it('stops at the bound and clears the parameter so a reload starts no new wait', async () => {
     mockQuery.value = { awaiting: AWAITED };
     const withoutIt = listWith(makeOrder({ publicId: 'some-older-order' }));

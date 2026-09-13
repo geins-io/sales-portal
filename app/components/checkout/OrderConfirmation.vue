@@ -33,6 +33,8 @@ const displayOrderNumber = computed(
  * them to reload by hand. `publicOrderId` is the same id the confirmation page
  * was handed, so the link carries it whether or not the summary arrived.
  */
+const { localePath } = useLocaleMarket();
+
 const viewOrderLink = computed(() => {
   if (props.summary?.orderId) {
     return localePath(`/portal/orders/${props.summary.orderId}`);
@@ -45,7 +47,6 @@ const viewOrderLink = computed(() => {
 
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
-const { localePath } = useLocaleMarket();
 
 const COLLAPSED_ROW_LIMIT = 3;
 

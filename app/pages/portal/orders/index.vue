@@ -62,6 +62,7 @@ const AWAITING_BOUND_MS = 120000;
 const AWAITING_INTERVAL_MS = 2500;
 
 let awaitingStartedAt = 0;
+let pollInFlight = false;
 
 function hasAwaitedOrder(
   response: OrderListResponse | null | undefined,
@@ -82,15 +83,27 @@ function hasAwaitedOrder(
  * page and `refresh()` would reuse those options.
  */
 async function pollForAwaitedOrder() {
+  // The bound is checked before the in-flight guard, so a request that never
+  // comes back cannot postpone it for ever.
   if (Date.now() - awaitingStartedAt > AWAITING_BOUND_MS) {
     stopAwaiting();
     await clearAwaitingParam();
     return;
   }
+
+  // The interval fires on a timer, not on the previous response, so without
+  // this two requests overlap once `/api/orders` outlasts the interval.
+  if (pollInFlight) return;
+  pollInFlight = true;
+
   try {
     const fresh = await $fetch<OrderListResponse>('/api/orders', {
       cache: 'no-store',
     });
+    // The wait may have ended while this was out — stopped at the bound, or
+    // the page unmounted. Either way its answer is no longer wanted, which is
+    // also what makes a request still in flight at unmount a non-issue.
+    if (!pollIsActive.value) return;
     data.value = fresh;
     if (hasAwaitedOrder(fresh)) {
       stopAwaiting();
@@ -102,14 +115,18 @@ async function pollForAwaitedOrder() {
   } catch {
     // A failed poll is not a failed order — the next tick tries again, and the
     // bound above ends it either way.
+  } finally {
+    pollInFlight = false;
   }
 }
 
-const { pause: stopAwaiting, resume: startAwaiting } = useIntervalFn(
-  pollForAwaitedOrder,
-  AWAITING_INTERVAL_MS,
-  { immediate: false },
-);
+const {
+  pause: stopAwaiting,
+  resume: startAwaiting,
+  isActive: pollIsActive,
+} = useIntervalFn(pollForAwaitedOrder, AWAITING_INTERVAL_MS, {
+  immediate: false,
+});
 
 // Starts only once the first response has arrived and does not contain the
 // order. `useIntervalFn` is paused on scope dispose, so leaving the page stops
@@ -117,6 +134,9 @@ const { pause: stopAwaiting, resume: startAwaiting } = useIntervalFn(
 watch(
   () => pending.value,
   (isPending) => {
+    // Explicit rather than implied: this never runs on the server. Nothing
+    // would start there today, but that rests on facts elsewhere in the file.
+    if (!import.meta.client) return;
     if (isPending || !awaitingId.value || hasAwaitedOrder(data.value)) return;
     awaitingStartedAt = Date.now();
     startAwaiting();
