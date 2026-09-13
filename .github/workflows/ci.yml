@@ -102,8 +102,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      PLAYWRIGHT_BASE_URL: ${{ vars.E2E_BASE_URL || 'https://sonoralab.litium.test:3000' }}
-      E2E_EXPECTED_TENANT_ID: ${{ vars.E2E_EXPECTED_TENANT_ID || 'sonoralab' }}
+      # Empty repository variables fall through to the committed defaults in
+      # tests/e2e/target-defaults.mjs, the one place the target is spelled out.
+      PLAYWRIGHT_BASE_URL: ${{ vars.E2E_BASE_URL }}
+      E2E_EXPECTED_TENANT_ID: ${{ vars.E2E_EXPECTED_TENANT_ID }}
       E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
       E2E_EXTERNAL_SERVER: '1'
@@ -140,8 +142,11 @@ jobs:
       # E2E_EXTERNAL_SERVER: the job starts the preview once (below) and runs
       # each preflight layer against it as its own step, so the step view
       # names the layer that broke; playwright.config.ts then starts nothing.
+      # Hostname from the suite's resolver, not from the variable: with the
+      # variable unset, `new URL('')` throws inside a command substitution,
+      # which leaves the step green and writes a hosts line with no hostname.
       - name: Point the target hostname at the runner
-        run: echo "127.0.0.1 $(node -e 'console.log(new URL(process.env.PLAYWRIGHT_BASE_URL).hostname)')" | sudo tee -a /etc/hosts
+        run: echo "127.0.0.1 $(node tests/e2e/target-defaults.mjs)" | sudo tee -a /etc/hosts
 
       # The production build sets `upgrade-insecure-requests` and Secure auth
       # cookies, so it only works over https. NITRO_SSL_CERT / NITRO_SSL_KEY
