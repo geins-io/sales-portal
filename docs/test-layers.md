@@ -254,13 +254,18 @@ That last row is the mechanism. A bare `test.skip` is a lint error, and a skip t
 reporter undeclared turns the run red — so the suite can never quietly shrink. The reasons a
 test may legitimately declare are a closed list, and adding to it means editing two files.
 
-**Six say an assertion cannot be made:** no credentials; the feature is desktop-only and this is
+**Seven say an assertion cannot be made:** no credentials; the feature is desktop-only and this is
 the mobile project; the assertion needs the production build; the test account lacks data the
-platform cannot produce yet; the target is a deployed environment on purpose; or the tenant's own
-configuration never exercises this path.
+platform cannot produce yet; the target is a deployed environment on purpose; the tenant's own
+configuration never exercises this path; or no template in the app renders the affordance, for any
+tenant.
 
 **One says we chose not to:** the mutation gate — the run has not been told which tenant it may
 place a real order on, so it places none.
+
+**One of them is capped.** A `fixture-missing` declaration names data the test tenant is supposed
+to hold, so the reporter carries the number a run may contain — zero — and fails a run above it.
+Otherwise a tenant that lost its data keeps the gate green while proving less.
 
 **One of them is the dangerous one.** "The tenant's configuration does not exercise this path" is
 honest and green and says nothing about any other tenant. So the reporter prints those by name,

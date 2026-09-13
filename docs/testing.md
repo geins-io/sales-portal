@@ -241,6 +241,14 @@ added to only one of them reads as undeclared and fails the run.
   failed.
 - **unknown** — skipped with no declaration. The run fails, even if every test that ran passed.
 
+`fixture-missing` is capped on top of that. `EXPECTED_FIXTURE_MISSING` in the reporter is how many
+such declarations a run may contain — zero — and a run above it fails even when every test that ran
+passed: each one names data the test tenant is supposed to hold, so one appearing means a green
+build that proves less than the build before it. The count spans both lists, so moving a
+declaration from `outOfScope()` to `noteOutOfScope()` does not slip under it. `mobile-project` is
+not capped; those are permanent, and a cap on the total would have to move every time a responsive
+test was added.
+
 A permanently skipped test is deleted, not parked; the decision it was waiting on goes in a ticket.
 
 > Logging in inside each test is not viable: `loginRateLimiter` allows 5 logins per minute per IP
