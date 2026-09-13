@@ -943,25 +943,31 @@ export async function expectNoConsoleErrors(
 // ---------- Hydration ----------
 
 /**
- * Wait for Nuxt/Vue to hydrate the page.
- * SSR renders static HTML immediately, but event handlers and reactivity
- * are only attached after Vue hydrates on the client. We detect hydration
- * by checking for the `__vue_app__` property on the Nuxt root element,
- * then wait for a tick to allow hydration mismatch patching to complete.
+ * Wait for Nuxt/Vue to hydrate: mounted, then finished patching.
+ *
+ * The timeout belongs in the third argument — `waitForFunction(fn, arg,
+ * options)`. Passed second it set no limit at all: `actionTimeout` is 0.
  */
 export async function waitForHydration(page: Page, timeout = 15000) {
   await page.waitForFunction(
     () => {
       const nuxtRoot = document.getElementById('__nuxt');
-      return !!(
-        nuxtRoot && (nuxtRoot as unknown as Record<string, unknown>).__vue_app__
-      );
+      if (
+        !nuxtRoot ||
+        !(nuxtRoot as unknown as Record<string, unknown>).__vue_app__
+      ) {
+        return false;
+      }
+      const nuxtApp = (
+        window as unknown as {
+          useNuxtApp?: () => { isHydrating?: boolean } | undefined;
+        }
+      ).useNuxtApp?.();
+      return nuxtApp?.isHydrating === false;
     },
+    undefined,
     { timeout },
   );
-
-  // Allow Vue to finish hydration mismatch patching and re-attach event handlers
-  await page.waitForTimeout(300);
 }
 
 // ---------- Viewport ----------
