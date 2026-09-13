@@ -1,0 +1,14 @@
+/*
+ * Mermaid measures each label box from the `line-height: 1.5` it sets inline on
+ * the label wrapper — 24px at the default 16px text. `.vp-doc p` then overrides
+ * that to 28px, so every wrapped line renders 4px taller than the box was sized
+ * for. Up to three lines the box padding absorbs it; a four-line label overflows
+ * by 16px and its last line is cut in half by the bottom edge.
+ *
+ * Restoring inheritance puts the rendered line-height back to the one the box
+ * was measured with. Scoped to `.mermaid` so nothing else on the page moves.
+ */
+.vp-doc .mermaid p {
+  line-height: inherit;
+  margin: 0;
+}
