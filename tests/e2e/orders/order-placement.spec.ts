@@ -393,66 +393,96 @@ test('a placed order carries the cart it was built from all the way to the porta
 
   // ---------- 8. The detail page, against its own API ----------
 
-  await page.goto(`/se/sv/portal/orders/${publicId}`);
-  await page.waitForLoadState('load');
-  await waitForHydration(page);
-  await expect(page.locator('[data-testid="order-detail"]')).toBeVisible({
-    timeout: PAGE_TIMEOUT,
+  await test.step('the order detail page renders what the orders API reports', async () => {
+    // Followed rather than typed: the buyer's own route, and it keeps the
+    // locale out of the spec — the prefix belongs to the tenant's
+    // configuration, and a hardcoded one asserts that configuration by accident.
+    await row.locator(`a[href$="/portal/orders/${publicId}"]`).click();
+    await page.waitForURL(new RegExp(`/portal/orders/${publicId}$`), {
+      timeout: PAGE_TIMEOUT,
+    });
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="order-detail"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+
+    const screenLines = await readOrderLines(page);
+    expect(screenLines.length).toBe(order.items.length);
+    for (const [index, line] of order.items.entries()) {
+      const screen = screenLines[index]!;
+      const where = `order line ${index} (article ${line.articleNumber}), rendered on the order detail page`;
+      expect(screen.articleNumber, `${where}: wrong article number`).toBe(
+        line.articleNumber,
+      );
+      expect(screen.quantity, `${where}: wrong quantity`).toBe(line.quantity);
+      expect(screen.unitPrice, `${where}: wrong unit price`).toBeCloseTo(
+        line.unitPriceIncVat,
+        2,
+      );
+      expect(screen.totalPrice, `${where}: wrong line total`).toBeCloseTo(
+        line.totalPriceIncVat,
+        2,
+      );
+      // The multiplication itself, on both sides.
+      expect(
+        screen.totalPrice,
+        `${where}: the rendered total is not quantity x unit price`,
+      ).toBeCloseTo(screen.unitPrice * screen.quantity, 2);
+      expect(
+        line.totalPriceIncVat,
+        `${where}: the API's own total is not quantity x unit price`,
+      ).toBeCloseTo(line.unitPriceIncVat * line.quantity, 2);
+    }
+
+    expect(
+      await readPrice(page.locator('[data-testid="order-summary-subtotal"]')),
+    ).toBeCloseTo(order.subTotalIncVat, 2);
+    expect(
+      await readPrice(page.locator('[data-testid="order-summary-tax"]')),
+    ).toBeCloseTo(order.vat, 2);
+    expect(
+      await readPrice(page.locator('[data-testid="order-summary-total"]')),
+    ).toBeCloseTo(order.totalIncVat, 2);
   });
-
-  const screenLines = await readOrderLines(page);
-  expect(screenLines.length).toBe(order.items.length);
-  for (const [index, line] of order.items.entries()) {
-    const screen = screenLines[index]!;
-    expect(screen.articleNumber).toBe(line.articleNumber);
-    expect(screen.quantity).toBe(line.quantity);
-    expect(screen.unitPrice).toBeCloseTo(line.unitPriceIncVat, 2);
-    expect(screen.totalPrice).toBeCloseTo(line.totalPriceIncVat, 2);
-    // The multiplication itself, on both sides.
-    expect(screen.totalPrice).toBeCloseTo(
-      screen.unitPrice * screen.quantity,
-      2,
-    );
-    expect(line.totalPriceIncVat).toBeCloseTo(
-      line.unitPriceIncVat * line.quantity,
-      2,
-    );
-  }
-
-  expect(
-    await readPrice(page.locator('[data-testid="order-summary-subtotal"]')),
-  ).toBeCloseTo(order.subTotalIncVat, 2);
-  expect(
-    await readPrice(page.locator('[data-testid="order-summary-tax"]')),
-  ).toBeCloseTo(order.vat, 2);
-  expect(
-    await readPrice(page.locator('[data-testid="order-summary-total"]')),
-  ).toBeCloseTo(order.totalIncVat, 2);
 
   // ---------- 9. The two API views against each other ----------
 
-  // Where product identity is proved. The cart renders ex-VAT by default and
-  // the order detail is inc-VAT throughout, so the rendered numbers of the two
-  // screens are not comparable — but their APIs are.
-  expect(order.items.length).toBe(cart.items.length);
+  await test.step('the order carries the same lines and amounts as the cart', async () => {
+    // Where product identity is proved. The cart renders ex-VAT by default and
+    // the order detail is inc-VAT throughout, so the rendered numbers of the
+    // two screens are not comparable — but their APIs are.
+    expect(order.items.length).toBe(cart.items.length);
 
-  // Paired on skuId rather than on position: nothing promises the order's lines
-  // arrive in the cart's order, and a positional comparison that happened to
-  // pass would be asserting the sort, not the amounts.
-  const cartBySku = new Map(cart.items.map((line) => [line.skuId, line]));
-  for (const line of order.items) {
-    const source = cartBySku.get(line.skuId);
+    // Paired on skuId rather than on position: nothing promises the order's
+    // lines arrive in the cart's order, and a positional comparison that
+    // happened to pass would be asserting the sort, not the amounts.
+    const cartBySku = new Map(cart.items.map((line) => [line.skuId, line]));
+    for (const line of order.items) {
+      const source = cartBySku.get(line.skuId);
+      expect(
+        source,
+        `order line for SKU ${line.skuId} has no matching cart line — the order is not the cart that was placed`,
+      ).toBeDefined();
+      const where = `SKU ${line.skuId} (article ${line.articleNumber}), order API against cart API`;
+      expect(line.articleNumber, `${where}: wrong article number`).toBe(
+        source!.articleNumber,
+      );
+      expect(line.quantity, `${where}: wrong quantity`).toBe(source!.quantity);
+      // Line by line, both numbers. Two errors can cancel out in a sum.
+      expect(line.unitPriceIncVat, `${where}: wrong unit price`).toBeCloseTo(
+        source!.unitPriceIncVat,
+        2,
+      );
+      expect(line.totalPriceIncVat, `${where}: wrong line total`).toBeCloseTo(
+        source!.totalPriceIncVat,
+        2,
+      );
+    }
     expect(
-      source,
-      `order line for SKU ${line.skuId} has no matching cart line — the order is not the cart that was placed`,
-    ).toBeDefined();
-    expect(line.articleNumber).toBe(source!.articleNumber);
-    expect(line.quantity).toBe(source!.quantity);
-    // Line by line, both numbers. Two errors can cancel out in a sum.
-    expect(line.unitPriceIncVat).toBeCloseTo(source!.unitPriceIncVat, 2);
-    expect(line.totalPriceIncVat).toBeCloseTo(source!.totalPriceIncVat, 2);
-  }
-  expect(order.totalIncVat).toBeCloseTo(cart.totalIncVat, 2);
+      order.totalIncVat,
+      "the order's total does not match the cart it was placed from",
+    ).toBeCloseTo(cart.totalIncVat, 2);
+  });
 
   // ---------- 10. The buyer's session no longer holds the cart ----------
 

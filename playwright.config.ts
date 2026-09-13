@@ -228,11 +228,13 @@ export default defineConfig({
       // second real order, so a later change to the global must not take this
       // project with it without someone reading this line.
       retries: 0,
-      // Three times the spec's 90s wait for the platform to make the order
-      // readable. The global 60s would kill the test before that budget could
-      // be exceeded, which would report a Playwright timeout instead of the
-      // measured wait. Moves when the budget moves.
-      timeout: 180000,
+      // The spec gives the platform 120s to make the order readable, and the
+      // rest of the journey — discovering a product, the cart, checkout, the
+      // confirmation, the list and the order detail — costs another 40 to 60s.
+      // At 180000 Playwright would kill the test before the budget could be
+      // exceeded, reporting its own timeout instead of the measured wait, which
+      // is the one number the run exists to produce. Moves when the budget moves.
+      timeout: 300000,
     },
   ],
 
