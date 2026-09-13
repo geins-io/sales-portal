@@ -23,7 +23,7 @@
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
     "test:all": "pnpm test && pnpm test:e2e",
-    "typecheck": "nuxt typecheck",
+    "typecheck": "nuxt typecheck && tsc -p tests/e2e/tsconfig.json --noEmit",
     "prepare": "husky",
     "infra:setup": "./infra/scripts/setup.sh",
     "infra:setup:rg": "./infra/scripts/setup.sh --rg-only",

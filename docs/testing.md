@@ -331,6 +331,11 @@ pnpm test:e2e:report   # View last report
 > E2E_ALLOW_ORDERS_FOR=<tenant> pnpm test:e2e --project=orders     # and this places one real order
 > ```
 
+`tests/e2e/` compiles under its own `tsconfig.json`, deliberately without the Nuxt aliases so a spec
+cannot import `app/` or `server/` code. `pnpm typecheck` runs it as a second step after
+`nuxt typecheck`, so a type error in a spec, a helper or the reporter fails the same gate as the
+rest of the repo.
+
 #### Writing helpers
 
 A helper that navigates (`page.goto`) must wait for hydration (`waitForHydration`) before it
@@ -698,7 +703,7 @@ nothing deletes — every run leaves carts behind, see
 
 | Workflow · Job                                             | Trigger                                       | What                                                             |
 | ---------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------- |
-| `ci.yml` · Lint & Type Check                               | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck`                                    |
+| `ci.yml` · Lint & Type Check                               | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck` (app, `tests/`, `tests/e2e/`)      |
 | `ci.yml` · Unit & Component                                | same                                          | `pnpm test:coverage` (full vitest suite)                         |
 | `ci.yml` · E2E Suite                                       | PRs only                                      | **Preflight, then every spec on all three projects**             |
 | `e2e-full.yml` · E2E Suite (manual)                        | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**             |

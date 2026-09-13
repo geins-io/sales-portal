@@ -55,7 +55,11 @@ class ScopeReporter implements Reporter {
     this.suite = suite;
   }
 
-  onEnd(result: FullResult): { status?: FullResult['status'] } | undefined {
+  // Playwright's `onEnd` accepts a status object only through a promise —
+  // returning one synchronously does not satisfy the interface.
+  async onEnd(
+    result: FullResult,
+  ): Promise<{ status?: FullResult['status'] } | undefined> {
     const failedProjects = new Set<string>();
     for (const test of this.suite.allTests()) {
       if (
