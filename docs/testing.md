@@ -626,7 +626,7 @@ import { waitForHydration } from './helpers';
 
 await page.goto('/some-page');
 await page.waitForLoadState('load');
-await waitForHydration(page); // Checks __vue_app__ + 1s stabilization
+await waitForHydration(page); // Waits for __vue_app__, then for isHydrating to clear
 ```
 
 **pressSequentially for v-model** — `fill()` sets values programmatically and may not trigger Vue's watch chain. Use `pressSequentially()` for search inputs and other watched fields:
@@ -772,10 +772,11 @@ It runs the `orders` Playwright project, one step, without `--no-deps` so the fi
 run as project dependencies. Two to three minutes.
 
 **Every run leaves a real order on the test account, and nothing deletes it.** That is the price of
-the run, and it is worth knowing in advance rather than discovering. The account holds 18 orders as
+the run, and it is worth knowing in advance rather than discovering. The account holds 26 orders as
 of 2026-09-13. Five specs read that list and every one of them picks an order by property rather
-than by id, so a new order displaces nothing — the list simply grows, and `fetchOrders` reads one
-more order in full on every invocation.
+than by id, so a new order displaces nothing — the list simply grows. `fetchOrders` reads a fixed
+window of it: the oldest twelve, sorted on `createdAt`, because that is where the orders those
+specs select on sit and new orders arrive at the other end.
 
 Two structural locks make an accidental order impossible, which is why this can live in an
 open-source repository:
@@ -828,7 +829,9 @@ const stubs = {
 
 ### CSP + COOP in E2E
 
-Filter CSP inline style violations and COOP header warnings in E2E console error assertions.
+Filter COOP header warnings in E2E console error assertions: the dev server is http, so Chromium
+reports the header as ignored. CSP violations are not filtered — they are the class
+`theme-colors.spec.ts` guards, and the production build produces none.
 
 ### `destr` type coercion
 
