@@ -51,30 +51,8 @@ test.describe('Application', () => {
     await expect(page).toHaveTitle(title);
   });
 
-  test('should not have any console errors on load', async ({ page }) => {
-    const consoleErrors: string[] = [];
-
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        consoleErrors.push(msg.text());
-      }
-    });
-
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-
-    // Filter out expected warnings/errors (e.g., 404s for missing resources in dev)
-    const criticalErrors = consoleErrors.filter(
-      (error) =>
-        !error.includes('favicon') &&
-        !error.includes('404') &&
-        !error.includes('Failed to load resource') &&
-        !error.includes('Cross-Origin-Opener-Policy') &&
-        !error.includes('Content Security Policy'),
-    );
-
-    expect(criticalErrors).toHaveLength(0);
-  });
+  // The console-error check for this page lives in `homepage.spec.ts`; this
+  // file used to carry a second one with a filter of its own.
 });
 
 test.describe('Navigation', () => {

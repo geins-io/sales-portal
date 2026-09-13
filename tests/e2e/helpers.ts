@@ -910,7 +910,18 @@ export async function expectTestId(page: Page, testId: string) {
 }
 
 /**
- * Collect console errors during a page action, filtering out known noise.
+ * Measured the only console output on the home page in dev (Chromium rejects
+ * the COOP header over http) and none at all against the production build. The
+ * entries dropped from this list — `favicon`, `404`, `Failed to load resource`,
+ * `Content Security Policy` — caught nothing in either mode and all four name
+ * real defects.
+ */
+const EXPECTED_CONSOLE_NOISE = ['Cross-Origin-Opener-Policy'];
+
+/**
+ * Assert an action produces no console errors, through hydration: `goto`
+ * resolves at `domcontentloaded`, before the application runs. `pageerror` too,
+ * which is how WebKit reports an uncaught exception.
  */
 export async function expectNoConsoleErrors(
   page: Page,
@@ -918,26 +929,33 @@ export async function expectNoConsoleErrors(
 ) {
   const errors: string[] = [];
 
-  const handler = (msg: { type: () => string; text: () => string }) => {
+  const onConsole = (msg: { type: () => string; text: () => string }) => {
     if (msg.type() === 'error') {
       errors.push(msg.text());
     }
   };
+  const onPageError = (error: Error) => {
+    errors.push(error.message);
+  };
 
-  page.on('console', handler);
-  await action();
-  page.removeListener('console', handler);
+  page.on('console', onConsole);
+  page.on('pageerror', onPageError);
+  try {
+    await action();
+    await waitForHydration(page);
+  } finally {
+    page.removeListener('console', onConsole);
+    page.removeListener('pageerror', onPageError);
+  }
 
   const critical = errors.filter(
-    (e) =>
-      !e.includes('favicon') &&
-      !e.includes('404') &&
-      !e.includes('Failed to load resource') &&
-      !e.includes('Cross-Origin-Opener-Policy') &&
-      !e.includes('Content Security Policy'),
+    (e) => !EXPECTED_CONSOLE_NOISE.some((noise) => e.includes(noise)),
   );
 
-  expect(critical).toHaveLength(0);
+  expect(
+    critical,
+    `console errors during the action:\n${critical.join('\n')}`,
+  ).toHaveLength(0);
 }
 
 // ---------- Hydration ----------
