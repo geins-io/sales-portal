@@ -52,24 +52,16 @@ test.describe('Portal Overview', () => {
     const statGrid = page.locator('.grid.grid-cols-2.lg\\:grid-cols-4');
     await expect(statGrid).toBeVisible({ timeout: PAGE_TIMEOUT });
 
-    // Latest orders section
-    const latestOrdersHeading = page.getByText('Senaste beställningar');
-    const hasLatestOrders = await latestOrdersHeading
-      .isVisible()
-      .catch(() => false);
-    // The heading text comes from i18n — accept either translated or the section existing
-    if (!hasLatestOrders) {
-      // Fallback: the section renders PortalOrdersTable, whose wrapper sits on
-      // the non-empty branch, so assert which of the two states rendered.
-      // `hasTable || hasLatestOrders` could not fail — the second operand is
-      // false by construction inside this branch, and the wrapper used to be
-      // present at every state.
-      const ordersTable = page.locator('[data-testid="portal-orders-table"]');
-      const ordersEmpty = page.locator('[data-testid="orders-empty"]');
-      const hasTable = await ordersTable.isVisible().catch(() => false);
-      const hasEmpty = await ordersEmpty.isVisible().catch(() => false);
-      expect(hasTable).not.toBe(hasEmpty);
-    }
+    // Latest orders section. This used to sit inside `if (!hasLatestOrders)`,
+    // guarded by a lookup for the section heading — a branch that never runs,
+    // because the heading does render, so the assertion below never executed.
+    // PortalOrdersTable's wrapper sits on the non-empty branch and
+    // `orders-empty` on the other, so exactly one of the two is in the DOM.
+    const ordersTable = page.locator('[data-testid="portal-orders-table"]');
+    const ordersEmpty = page.locator('[data-testid="orders-empty"]');
+    const hasTable = await ordersTable.isVisible().catch(() => false);
+    const hasEmpty = await ordersEmpty.isVisible().catch(() => false);
+    expect(hasTable).not.toBe(hasEmpty);
 
     // Pending quotations section
     const quotationsTable = page.locator(
@@ -150,12 +142,25 @@ test.describe('Portal Orders', () => {
     // fail at all.
     expect(hasTable).not.toBe(hasEmpty);
 
-    // If table is visible, verify table headers exist
     if (hasTable) {
-      const headerCells = ordersTable.locator('thead th');
-      const count = await headerCells.count();
-      // Expected columns: Id, Skapad, Lagd av, Typ, Summa, Status, (actions)
-      expect(count).toBeGreaterThanOrEqual(6);
+      // Both responsive shapes sit in the DOM at once and CSS decides which
+      // one shows, so count what is visible. `md` is 768px (Tailwind), the
+      // same breakpoint the table's `md:hidden` / `hidden md:table` use.
+      // Without the branch, `thead th` counted the desktop headers on Mobile
+      // Chrome too, where none of them is rendered.
+      const isNarrow = (page.viewportSize()?.width ?? 1280) < 768;
+
+      const visibleRows = ordersTable.locator(
+        '[data-testid="order-row"]:visible',
+      );
+      expect(await visibleRows.count()).toBeGreaterThan(0);
+
+      if (!isNarrow) {
+        const headerCells = ordersTable.locator('thead th:visible');
+        const count = await headerCells.count();
+        // Expected columns: Id, Skapad, Lagd av, Typ, Summa, Status, (actions)
+        expect(count).toBeGreaterThanOrEqual(6);
+      }
     }
   });
 
