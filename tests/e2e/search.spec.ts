@@ -114,8 +114,12 @@ test.describe('Search', () => {
     const cards = page.locator('[data-testid="product-card"]');
     const emptyState = page.locator('[data-testid="search-empty"]');
 
-    // Wait for either products or empty state
-    await expect(cards.first().or(emptyState)).toBeVisible({ timeout: 15000 });
+    // The term is the first word of a product the catalogue API just
+    // returned, so an empty result is not a state this search reaches.
+    // `cards.first().or(emptyState)` accepted it — the same defect as the
+    // or-assertion below, written with Playwright's `.or()`.
+    await expect(cards.first()).toBeVisible({ timeout: 15000 });
+    await expect(emptyState).toBeHidden();
   });
 
   test('should show search results page with products', async ({ page }) => {
@@ -134,13 +138,11 @@ test.describe('Search', () => {
     const cards = page.locator('[data-testid="product-card"]');
     const emptyState = page.locator('[data-testid="search-empty"]');
 
-    const hasCards = await cards
-      .first()
-      .isVisible()
-      .catch(() => false);
-    const hasEmpty = await emptyState.isVisible().catch(() => false);
-
-    expect(hasCards || hasEmpty).toBe(true);
+    // The term is the first word of a product the catalogue API just
+    // returned, so an empty result is not a state this search reaches:
+    // `hasCards || hasEmpty` passed on a search that found nothing.
+    await expect(cards.first()).toBeVisible({ timeout: 15000 });
+    await expect(emptyState).toBeHidden();
   });
 
   test('should close autocomplete when input is cleared', async ({

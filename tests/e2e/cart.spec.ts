@@ -52,11 +52,11 @@ test.describe('Cart', () => {
     );
     const cartItem = page.locator('[data-testid="cart-item"]');
 
-    // Either empty state is shown or no cart items exist
-    const hasEmpty = await emptyState.isVisible().catch(() => false);
-    const hasItems = await cartItem.isVisible().catch(() => false);
-
-    expect(hasEmpty || !hasItems).toBe(true);
+    // The context carries no cart cookie, so this cart is empty by
+    // construction — the empty state is the one state this test reaches.
+    // `hasEmpty || !hasItems` restated its first operand and passed either way.
+    await expect(emptyState).toBeVisible();
+    await expect(cartItem).toHaveCount(0);
   });
 
   test('should add a product to cart from PDP', async ({ page }) => {

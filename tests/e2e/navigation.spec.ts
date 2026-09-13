@@ -153,21 +153,24 @@ test.describe('Mobile Navigation', () => {
     // A top-level category with children renders as a collapsible button, so
     // its `a[href]` only exists once expanded; one without children renders as
     // a plain link. Which shape appears is the tenant's category tree, not a
-    // property of the app — so branch on what the menu produced. Both shapes
-    // must end with a reachable category link.
+    // property of the app — so expand first when the tree produced sections.
+    // Measured on the tenant under test: six links, no section.
     const sections = dialog.locator('button[aria-expanded]');
     const links = dialog.locator('a[href]');
-
-    await expect(
-      sections.or(links).first(),
-      'the mobile panel showed neither a category link nor an expandable section',
-    ).toBeVisible({ timeout: 5000 });
 
     if ((await sections.count()) > 0) {
       await sections.first().click();
     }
 
-    await expect(links.first()).toBeVisible({ timeout: 5000 });
+    // A `sections.or(links).first()` check used to run before the expansion.
+    // It passed on a panel that showed only a section, which is a state this
+    // assertion rules out anyway — and on a tenant whose top level carries no
+    // children, `sections` never matched, so it only ever restated the line
+    // below.
+    await expect(
+      links.first(),
+      'the mobile panel showed no category link',
+    ).toBeVisible({ timeout: 5000 });
   });
 
   test('should close mobile nav on navigation', async ({ page }) => {

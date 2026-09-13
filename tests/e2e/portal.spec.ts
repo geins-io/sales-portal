@@ -103,16 +103,17 @@ test.describe('Portal Overview', () => {
       expect(await rows.count()).toBeGreaterThan(0);
     }
 
-    // Purchased products section
+    // Purchased products section. The account has purchased products (measured
+    // against /api/orders/products), so the empty state is not a state this
+    // tenant reaches and `hasProducts || hasProductsEmpty` accepted it anyway.
     const productsGrid = page.locator(
       '[data-testid="purchased-products-grid"]',
     );
     const productsEmpty = page.locator(
       '[data-testid="purchased-products-empty"]',
     );
-    const hasProducts = await productsGrid.isVisible().catch(() => false);
-    const hasProductsEmpty = await productsEmpty.isVisible().catch(() => false);
-    expect(hasProducts || hasProductsEmpty).toBe(true);
+    await expect(productsGrid).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await expect(productsEmpty).toBeHidden();
   });
 });
 
@@ -203,25 +204,24 @@ test.describe('Portal Orders', () => {
     const actionToolbar = page.locator('[data-testid="order-action-toolbar"]');
     await expect(actionToolbar).toBeVisible({ timeout: PAGE_TIMEOUT });
 
-    // Order items table or loading should be present
+    // The detail page finishes loading. `hasDetail || hasLoading` accepted one
+    // that never did, and put the row assertion below inside `if (hasDetail)`,
+    // so a page stuck on its spinner passed without a row ever being read.
     const orderDetail = page.locator('[data-testid="order-detail"]');
     const orderLoading = page.locator('[data-testid="order-loading"]');
-    const hasDetail = await orderDetail.isVisible().catch(() => false);
-    const hasLoading = await orderLoading.isVisible().catch(() => false);
-    expect(hasDetail || hasLoading).toBe(true);
+    await expect(orderDetail).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await expect(orderLoading).toBeHidden();
 
-    if (hasDetail) {
-      // The order rows live in a desktop table (`hidden lg:block`) or, below
-      // lg, behind a sheet trigger. Assert the one this project can see —
-      // before the fixture existed this branch never ran on mobile, so the
-      // desktop-only assertion looked fine.
-      // Both are in the DOM at once, so match on visibility rather than DOM
-      // order — the table comes first either way.
-      const orderRows = page.locator(
-        '[data-testid="order-items-table"]:visible, [data-testid="view-rows-trigger"]:visible',
-      );
-      await expect(orderRows.first()).toBeVisible({ timeout: PAGE_TIMEOUT });
-    }
+    // The order rows live in a desktop table (`hidden lg:block`) or, below
+    // lg, behind a sheet trigger. Assert the one this project can see —
+    // before the fixture existed this branch never ran on mobile, so the
+    // desktop-only assertion looked fine.
+    // Both are in the DOM at once, so match on visibility rather than DOM
+    // order — the table comes first either way.
+    const orderRows = page.locator(
+      '[data-testid="order-items-table"]:visible, [data-testid="view-rows-trigger"]:visible',
+    );
+    await expect(orderRows.first()).toBeVisible({ timeout: PAGE_TIMEOUT });
   });
 });
 
@@ -530,20 +530,16 @@ test.describe('Portal Purchased Products', () => {
     const loading = page.locator('[data-testid="products-loading"]');
     await expect(loading).toBeHidden({ timeout: PAGE_TIMEOUT });
 
-    // Either products table or empty state
+    // The account has purchased products, so the pagination footer is the
+    // state this tenant reaches — it renders whenever there is data, even on a
+    // single page. `hasEmpty || hasPagination` accepted the empty list too.
     const productsEmpty = page.locator('[data-testid="products-empty"]');
     const productsPagination = page.locator(
       '[data-testid="products-pagination"]',
     );
 
-    const hasEmpty = await productsEmpty.isVisible().catch(() => false);
-    const hasPagination = await productsPagination
-      .isVisible()
-      .catch(() => false);
-
-    // One of these states should be true: empty state, or content with pagination footer
-    // (pagination footer always renders when there's data, even if single page)
-    expect(hasEmpty || hasPagination).toBe(true);
+    await expect(productsPagination).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await expect(productsEmpty).toBeHidden();
   });
 });
 
