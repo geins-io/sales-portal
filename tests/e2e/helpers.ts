@@ -800,33 +800,58 @@ export async function fetchOrder(
 }
 
 /**
- * Every order the signed-in account owns, each read in full.
+ * Twelve, from the oldest end: of the 26 orders on the account the first with
+ * several lines is 16th from the newest end and the first unrounded 18th, but
+ * 2nd and 4th from the oldest. New orders arrive at the new end.
+ */
+const ORDERS_READ_IN_FULL = 12;
+
+/**
+ * The oldest {@link ORDERS_READ_IN_FULL} orders the account owns, each read in
+ * full.
  *
  * The list endpoint carries only the inc-VAT total and no lines, so choosing
  * an order by what it contains means reading each one. It is deliberately not
  * memoised: an order placed during the run would make a cached list describe
  * a different account than the one on screen.
  *
+ * Sorted on `createdAt` rather than the order the endpoint returns, which
+ * nothing asserts.
+ *
  * Pick from the result by property — most lines, a total that does not
  * terminate in two decimals — never by a fixed id. The account is reseeded
  * from time to time and a hardcoded order is a test that rots silently.
  */
-export async function fetchOrders(page: Page): Promise<ApiOrder[]> {
+export async function fetchOrders(
+  page: Page,
+  limit = ORDERS_READ_IN_FULL,
+): Promise<ApiOrder[]> {
   const response = await page.request.get('/api/orders');
   expect(response.ok(), '/api/orders did not answer 200').toBe(true);
 
-  const orders: { publicId?: string }[] = (await response.json())?.orders ?? [];
+  const orders: { publicId?: string; createdAt?: string }[] =
+    (await response.json())?.orders ?? [];
   expect(
     orders.length,
     'the test account owns no orders, so there is nothing to compare against',
   ).toBeGreaterThan(0);
-
-  const result: ApiOrder[] = [];
   for (const order of orders) {
     expect(
       order.publicId,
       'an order arrived without a publicId, which is the key the detail endpoint takes',
     ).toBeTruthy();
+    expect(
+      order.createdAt,
+      'an order arrived without a createdAt, so the oldest ones cannot be told apart',
+    ).toBeTruthy();
+  }
+
+  const oldestFirst = [...orders]
+    .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''))
+    .slice(0, limit);
+
+  const result: ApiOrder[] = [];
+  for (const order of oldestFirst) {
     result.push(await fetchOrder(page, order.publicId!));
   }
   return result;
