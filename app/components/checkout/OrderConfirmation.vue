@@ -13,11 +13,35 @@ const props = defineProps<{
    * checkout summary hasn't propagated yet.
    */
   orderNumber?: string;
+  /**
+   * The order's public id, which is the key the portal's order endpoints take.
+   * Distinct from `orderNumber`, which is the numeric id shown to the buyer.
+   */
+  publicOrderId?: string;
 }>();
 
 const displayOrderNumber = computed(
   () => props.summary?.orderId || props.orderNumber || '',
 );
+
+/**
+ * Where "view order in the portal" goes.
+ *
+ * A freshly placed order is not readable for several seconds, so the list this
+ * falls back to would otherwise render without it. `awaiting` names the order
+ * the buyer is looking for; the list waits for that one rather than leaving
+ * them to reload by hand. `publicOrderId` is the same id the confirmation page
+ * was handed, so the link carries it whether or not the summary arrived.
+ */
+const viewOrderLink = computed(() => {
+  if (props.summary?.orderId) {
+    return localePath(`/portal/orders/${props.summary.orderId}`);
+  }
+  const list = localePath('/portal/orders');
+  return props.publicOrderId
+    ? `${list}?awaiting=${encodeURIComponent(props.publicOrderId)}`
+    : list;
+});
 
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
@@ -325,11 +349,7 @@ function lineTotal(row: {
 
         <!-- Full-width CTA -->
         <NuxtLink
-          :to="
-            summary?.orderId
-              ? localePath(`/portal/orders/${summary.orderId}`)
-              : localePath('/portal/orders')
-          "
+          :to="viewOrderLink"
           class="bg-button-background text-primary-foreground hover:bg-button-background/90 mt-8 flex w-full items-center justify-center rounded-md px-6 py-3 text-sm font-semibold transition-colors"
           data-testid="view-order-cta"
         >
