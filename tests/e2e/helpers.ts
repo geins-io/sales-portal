@@ -38,9 +38,13 @@ export { e2eCredentials, hasE2ECredentials };
  *   every instance so they stay visible.
  * - `remote-target`: `E2E_REMOTE=1` — the target is a deployed environment on
  *   purpose, so preflight L0's locality check does not apply.
+ * - `feature-hidden`: no template in the app renders the affordance, for any
+ *   tenant — the backend and the component are still there, the markup that
+ *   mounts it is not. Narrower than `tenant-config` (which is about one
+ *   tenant's settings) and than `fixture-missing` (which is about data).
  * - `mutation-gate`: `E2E_ALLOW_ORDERS_FOR` does not name the tenant this
  *   origin resolves to, so the run places no order. The only reason here that
- *   describes a *choice* not to assert; the other six describe an assertion
+ *   describes a *choice* not to assert; the other seven describe an assertion
  *   that cannot be made.
  */
 export type ScopeReason =
@@ -50,6 +54,7 @@ export type ScopeReason =
   | 'fixture-missing'
   | 'tenant-config'
   | 'remote-target'
+  | 'feature-hidden'
   | 'mutation-gate';
 
 /**

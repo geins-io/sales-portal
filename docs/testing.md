@@ -224,8 +224,8 @@ A test that does not run says why, or the run fails. `test.skip()` / `test.fixme
 in `tests/e2e/`; the one sanctioned way is `outOfScope(condition, reason, detail)` from
 `tests/e2e/helpers.ts`, where `reason` is a closed list (`ScopeReason`): `no-credentials`,
 `mobile-project`, `dev-server`, `fixture-missing`, `tenant-config`, `remote-target`,
-`mutation-gate`. A test that runs with part of its assertions off (no CSP header on the dev server)
-declares that with `noteOutOfScope()`.
+`feature-hidden`, `mutation-gate`. A test that runs with part of its assertions off (no CSP
+header on the dev server) declares that with `noteOutOfScope()`.
 
 The list lives in **two** files. `tests/e2e/reporters/scope-reporter.ts` keeps its own copy, because
 Playwright loads a reporter before the specs and it cannot import the spec-side type. A new reason

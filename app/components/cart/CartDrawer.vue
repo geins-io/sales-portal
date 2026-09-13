@@ -214,7 +214,11 @@ function goToCheckout() {
                 </div>
               </dl>
 
-              <p v-if="cartStore.error" class="text-destructive text-sm">
+              <p
+                v-if="cartStore.error"
+                class="text-destructive text-sm"
+                data-testid="cart-error"
+              >
                 {{ cartStore.error }}
               </p>
 

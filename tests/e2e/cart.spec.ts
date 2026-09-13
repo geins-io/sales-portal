@@ -132,26 +132,27 @@ test.describe('Cart', () => {
     const promoInput = drawer.locator('[data-testid="promo-input"]');
     const promoApply = drawer.locator('[data-testid="promo-apply"]');
 
-    if (await promoInput.isVisible().catch(() => false)) {
-      await promoInput.fill('INVALID_PROMO_12345');
-      await promoApply.click();
+    // Declared on the measured state rather than on `true`: `/api/cart/promo`,
+    // the store action and `PromoCodeInput` all still exist — only the markup
+    // that mounts the component is gone, parked on a design decision. Written
+    // this way the test wakes up on its own the day the field comes back.
+    outOfScope(
+      !(await promoInput.isVisible().catch(() => false)),
+      'feature-hidden',
+      'no surface renders the promo field, so no code can be submitted',
+    );
 
-      // Wait for the promo code API response
-      await page
-        .waitForResponse(
-          (resp) =>
-            resp.url().includes('/api/cart/promo') && resp.status() !== 0,
-          { timeout: 10000 },
-        )
-        .catch(() => {
-          // Fallback: API may not fire if validation is client-side
-        });
+    await promoInput.fill('INVALID_PROMO_12345');
+    await promoApply.click();
 
-      // The promo code should not be applied — no active promo visible
-      const promoRemove = drawer.locator('[data-testid="promo-remove"]');
-      const hasActivePromo = await promoRemove.isVisible().catch(() => false);
-      expect(hasActivePromo).toBe(false);
-    }
+    // The rejection the test is named for. Asserting only "no active promo" is
+    // true of a drawer that was never sent a code — which is what this used to
+    // assert, inside a branch it never entered. The error element retries, so
+    // it also serves as the wait for the response.
+    await expect(drawer.locator('[data-testid="cart-error"]')).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(drawer.locator('[data-testid="promo-remove"]')).toHaveCount(0);
   });
 
   test('should add product from PLP grid add-to-cart button', async ({
