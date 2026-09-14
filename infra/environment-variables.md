@@ -118,6 +118,9 @@ The `deploy.yml` workflow passes GitHub variables to Bicep, which sets these in 
 | `NUXT_STORAGE_REDIS_URL`         | `secrets.REDIS_URL`               | `runtimeConfig.storage.redisUrl`          |
 | `NUXT_PUBLIC_FEATURES_ANALYTICS` | `vars.ENABLE_ANALYTICS`           | `runtimeConfig.public.features.analytics` |
 | `NUXT_SENTRY_DSN`                | `secrets.SENTRY_DSN`              | `runtimeConfig.sentry.dsn` (server-only)  |
+| `SENTRY_ENVIRONMENT`             | Set by Bicep based on environment | `process.env.SENTRY_ENVIRONMENT`          |
+| `NUXT_PUBLIC_SENTRY_ENVIRONMENT` | Set by Bicep based on environment | `runtimeConfig.public.sentry.environment` |
+| `NUXT_PUBLIC_SENTRY_DSN`         | `secrets.SENTRY_DSN`              | `runtimeConfig.public.sentry.dsn`         |
 | `NITRO_HOST`                     | Hardcoded `0.0.0.0`               | Required for Azure containers             |
 | `NITRO_PORT`                     | Hardcoded `3000`                  | Container port                            |
 | `WEBSITES_PORT`                  | Hardcoded `3000`                  | Azure port mapping                        |
@@ -133,7 +136,18 @@ NUXT_API_SECRET                   →  apiSecret
 NUXT_GEINS_API_ENDPOINT           →  geins.apiEndpoint
 NUXT_STORAGE_REDIS_URL            →  storage.redisUrl
 NUXT_SENTRY_DSN                   →  sentry.dsn (server-only)
+NUXT_PUBLIC_SENTRY_DSN            →  public.sentry.dsn
 ```
+
+The mapping only fires for keys that already exist in `runtimeConfig`. Nitro's
+`applyEnv` walks the declared object and overrides what it finds; it never
+creates a missing key. An env var for an undeclared nested key is read and
+silently discarded, with no warning — which is why `public.sentry` is declared
+with empty defaults rather than left out.
+
+`SENTRY_ENVIRONMENT` is the exception that carries no prefix: it is read
+straight from `process.env` in `sentry.server.config.ts`, which runs before the
+Nuxt runtime config exists.
 
 **Without the `NUXT_` prefix, Nuxt ignores the variable at runtime!**
 

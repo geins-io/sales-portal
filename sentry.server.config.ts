@@ -4,9 +4,9 @@
  * This file initializes Sentry for server-side error tracking
  * and performance monitoring in the Nuxt server/Nitro runtime.
  *
- * Note: Server-side monitoring doesn't work in development mode.
- * To test, build the application and run:
- * node --import ./.output/server/sentry.server.config.mjs .output/server/index.mjs
+ * nuxt.config.ts sets autoInjectServerSentry, so the built server entry imports
+ * this file itself: run the build with plain `node .output/server/index.mjs`.
+ * Adding a --import flag for this file on top of that initialises Sentry twice.
  *
  * @see https://docs.sentry.io/platforms/javascript/guides/nuxt/
  */
@@ -16,8 +16,13 @@ import * as Sentry from '@sentry/nuxt';
 // useRuntimeConfig() is not available at initialization time
 // DSN is now server-only (NUXT_SENTRY_DSN) to avoid exposing configuration to clients
 const dsn = process.env.NUXT_SENTRY_DSN || '';
-const environment = process.env.NODE_ENV || 'development';
-const isProduction = environment === 'production';
+// SENTRY_ENVIRONMENT names the deployment, NODE_ENV names the build mode, and
+// the two do not line up: webApp.bicep maps the `staging` environment to
+// NODE_ENV=production, so without this every staging event would arrive tagged
+// `production` and be indistinguishable from a real prod incident.
+const environment =
+  process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development';
+const isProduction = environment === 'prod' || environment === 'production';
 // Disable console logging if SENTRY_SILENT is set to 'true'
 const silent = process.env.SENTRY_SILENT === 'true';
 

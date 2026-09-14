@@ -4,11 +4,11 @@
  * This file initializes Sentry for browser-side error tracking,
  * performance monitoring, and session replay.
  *
- * NOTE: Client-side Sentry is DISABLED by default for security hardening.
- * The Sentry DSN is now stored in server-only runtime config (NUXT_SENTRY_DSN).
- *
- * If you need client-side error tracking, you can optionally set
- * NUXT_PUBLIC_SENTRY_DSN to enable browser error reporting.
+ * Runs only when NUXT_PUBLIC_SENTRY_DSN is set. Azure sets it from the same
+ * secret as the server DSN, so browser reporting is on in every deployed
+ * environment; locally it is opt-in. A DSN is a write-only ingest key and is
+ * public by design — the privacy guards are sendDefaultPii, the replay masking
+ * and the beforeSend filtering below, not the DSN's secrecy.
  *
  * @see https://docs.sentry.io/platforms/javascript/guides/nuxt/
  */
@@ -16,13 +16,16 @@ import * as Sentry from '@sentry/nuxt';
 
 const config = useRuntimeConfig();
 // Client-side DSN is optional and must be explicitly set via NUXT_PUBLIC_SENTRY_DSN.
-// Not declared in runtimeConfig.public (server-only by default), so Nuxt auto-creates
-// the nested object from the env var. Access via index signature to avoid `as any`.
-const dsn = (
-  config.public as Record<string, Record<string, string> | undefined>
-).sentry?.dsn;
-const environment = config.public.environment || 'development';
-const isProduction = environment === 'production';
+// The key is declared in runtimeConfig.public so the env var actually reaches
+// the browser — see the note there.
+const dsn = config.public.sentry.dsn;
+// Falls back to public.environment, which carries NODE_ENV and so cannot tell
+// staging from prod. See the matching note in sentry.server.config.ts.
+const environment =
+  config.public.sentry.environment ||
+  config.public.environment ||
+  'development';
+const isProduction = environment === 'prod' || environment === 'production';
 // Disable Sentry debug logging in the browser
 // Set to true only when actively debugging Sentry integration issues
 const debug = false;

@@ -193,6 +193,13 @@ export default defineNuxtConfig({
     project: process.env.SENTRY_PROJECT || '',
     // Auth token for source map uploads (optional - if not set, source maps won't be uploaded)
     authToken: process.env.SENTRY_AUTH_TOKEN || '',
+    // Without this the built server entry never imports sentry.server.config.mjs,
+    // so the SDK is shipped in the image but never initialises and nothing is
+    // reported from Azure. `nuxt dev` loads it either way, which is what makes
+    // the gap invisible locally. The alternative is a --import flag on the
+    // Dockerfile CMD, which breaks the moment anyone changes how the container
+    // starts; this keeps it in the build.
+    autoInjectServerSentry: 'top-level-import',
   },
 
   // Enable client-side source maps for better error stack traces
@@ -230,6 +237,9 @@ export default defineNuxtConfig({
    * │ NUXT_HEALTH_CHECK_SECRET        │                                      │
    * │ NUXT_EXTERNAL_API_BASE_URL      │                                      │
    * │ NUXT_SENTRY_DSN                 │                                      │
+   * │ SENTRY_ENVIRONMENT              │                                      │
+   * │ NUXT_PUBLIC_SENTRY_DSN          │                                      │
+   * │ NUXT_PUBLIC_SENTRY_ENVIRONMENT  │                                      │
    * │ NUXT_WEBHOOK_SECRET              │                                      │
    * │ NUXT_LOGGING_VERBOSE_REQUESTS   │                                      │
    * │ NUXT_PUBLIC_FEATURES_ANALYTICS  │                                      │
@@ -320,6 +330,16 @@ export default defineNuxtConfig({
       api: {
         baseUrl: '/api',
         timeout: 30000,
+      },
+
+      // Sentry (browser). These keys must be declared here even though both
+      // default to empty: Nitro's applyEnv walks only keys that already
+      // exist, so an undeclared nested key means NUXT_PUBLIC_SENTRY_* is
+      // read and silently dropped, and Sentry.init never runs client-side.
+      // Azure: NUXT_PUBLIC_SENTRY_DSN, NUXT_PUBLIC_SENTRY_ENVIRONMENT
+      sentry: {
+        dsn: '',
+        environment: '',
       },
     },
   },

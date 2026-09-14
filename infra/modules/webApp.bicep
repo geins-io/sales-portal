@@ -61,9 +61,9 @@ param geinsTenantApiUrl string
 param healthCheckSecret string
 
 // Sentry configuration
-// NOTE: Only DSN is needed at runtime. Org/Project/AuthToken are build-time only.
-// DSN is now server-only (NUXT_SENTRY_DSN) for security hardening.
-@description('Sentry DSN for error tracking (server-side runtime)')
+// NOTE: Only the DSN is needed at runtime. Org/Project/AuthToken are build-time
+// only, consumed by the source map upload in build.yml.
+@description('Sentry DSN for error tracking, server and browser')
 @secure()
 param sentryDsn string = ''
 
@@ -166,11 +166,38 @@ var sharedAppSettings = [
     value: logLevel
   }
   // Sentry Configuration
-  // NUXT_SENTRY_DSN = runtime (server-side error tracking only)
-  // SENTRY_* = build-time only (source map uploads) - not needed in Azure
-  // Note: DSN is server-only for security hardening
+  // The same DSN is handed to the server and the browser below; the build-time
+  // SENTRY_ORG/PROJECT/AUTH_TOKEN are not needed in Azure.
   {
     name: 'NUXT_SENTRY_DSN'
+    value: sentryDsn
+  }
+  // Names the deployment for Sentry, independently of NODE_ENV: `staging`
+  // builds run with NODE_ENV=production above, so NODE_ENV cannot separate
+  // staging events from prod ones. Both the server and the browser SDK read
+  // their own variable.
+  {
+    name: 'SENTRY_ENVIRONMENT'
+    value: environment
+  }
+  {
+    name: 'NUXT_PUBLIC_SENTRY_ENVIRONMENT'
+    value: environment
+  }
+  // Outside prod sentry.server.config.ts turns the SDK's debug logging on, which
+  // lands in the container log stream where it drowns the application's own
+  // lines and nothing reads it. Set on every environment: prod suppresses the
+  // logging anyway, so one value keeps it unambiguous.
+  {
+    name: 'SENTRY_SILENT'
+    value: 'true'
+  }
+  // Same DSN, handed to the browser so errors that never reach the server are
+  // reported too. A public DSN is visible in the page source by design: it can
+  // only be used to send events in, so the exposure is quota abuse, not data
+  // loss. Remove this setting to turn browser reporting off again.
+  {
+    name: 'NUXT_PUBLIC_SENTRY_DSN'
     value: sentryDsn
   }
   // Application Insights Configuration

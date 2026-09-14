@@ -29,6 +29,19 @@ FROM node:20-alpine AS builder
 # Build argument for commit SHA (injected at build time)
 ARG COMMIT_SHA=n/a
 
+# Sentry source map upload. All three are optional: an empty org or token makes
+# the upload plugin a no-op and the build still succeeds.
+#
+# The token is an ARG rather than a BuildKit secret mount because `docker build`
+# here still runs the legacy builder, where --mount fails outright and takes the
+# pre-push gate in CLAUDE.md with it. The token therefore lands in this stage's
+# layer metadata, which is exported to the GHA cache but never to the pushed
+# image: only the runtime stage is published. Move it to a secret mount if this
+# repo ever requires BuildKit.
+ARG SENTRY_ORG=
+ARG SENTRY_PROJECT=
+ARG SENTRY_AUTH_TOKEN=
+
 WORKDIR /app
 
 # Copy package.json so corepack can read the packageManager field
@@ -43,9 +56,15 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source code
 COPY . .
 
-# Set commit SHA for Nuxt build (GITHUB_SHA is what nuxt.config.ts reads)
+# Set commit SHA for Nuxt build (GITHUB_SHA is what nuxt.config.ts reads).
+# GITHUB_SHA also names the Sentry release: .git is dockerignored, so the
+# bundler plugin cannot read the sha from git and falls back to this variable.
+# Drop it and every event loses its release, with no error at build time.
 ENV COMMIT_SHA=${COMMIT_SHA}
 ENV GITHUB_SHA=${COMMIT_SHA}
+ENV SENTRY_ORG=${SENTRY_ORG}
+ENV SENTRY_PROJECT=${SENTRY_PROJECT}
+ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
 
 # Build the Nuxt application
 # This creates the .output directory with the production build
