@@ -41,11 +41,13 @@ export default defineNuxtPlugin({
       },
     );
 
-    // Set initial user context
+    // Id only, no email. username is the customer's login address, and sending
+    // it would put a personal detail in Sentry for every error, in exchange for
+    // a lookup we can do in the merchant admin when a support case actually
+    // needs the identity.
     if (authStore.user) {
       setUser({
         id: authStore.user.userId ?? 'unknown',
-        email: authStore.user.username,
       });
     }
 
@@ -56,7 +58,6 @@ export default defineNuxtPlugin({
         if (newUser) {
           setUser({
             id: newUser.userId ?? 'unknown',
-            email: newUser.username,
           });
           addBreadcrumb('User logged in', 'auth', {
             userId: newUser.userId ?? 'unknown',
