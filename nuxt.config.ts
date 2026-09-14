@@ -160,6 +160,7 @@ export default defineNuxtConfig({
       { code: 'nb', language: 'nb-NO', name: 'Norsk', file: 'nb.json' },
       { code: 'fi', language: 'fi-FI', name: 'Suomi', file: 'fi.json' },
       { code: 'da', language: 'da-DK', name: 'Dansk', file: 'da.json' },
+      { code: 'de', language: 'de-DE', name: 'Deutsch', file: 'de.json' },
     ],
     langDir: 'locales',
     strategy: 'no_prefix',

@@ -535,10 +535,10 @@ describe('useTenant', () => {
 
   describe('availableLocales', () => {
     it('exposes only the locales this build ships, as short codes', () => {
-      // 'de-DE' is tenant-configured but has no message bundle in this build;
+      // 'fr-FR' is tenant-configured but has no message bundle in this build;
       // surfacing it would render a switcher entry the server 302s right back.
       mockData.value = createMockTenantConfig({
-        availableLocales: ['sv-SE', 'de-DE', 'en-GB'],
+        availableLocales: ['sv-SE', 'fr-FR', 'en-GB'],
       });
 
       const { availableLocales } = useTenant();

@@ -170,7 +170,14 @@ export function interpretLocaleMarketPrefix(
  * maintained by hand alongside it — adding a locale means editing both, and
  * `tests/unit/nuxt-config-locales.test.ts` asserts they stay in step.
  */
-export const SUPPORTED_LOCALE_CODES = ['en', 'sv', 'nb', 'fi', 'da'] as const;
+export const SUPPORTED_LOCALE_CODES = [
+  'en',
+  'sv',
+  'nb',
+  'fi',
+  'da',
+  'de',
+] as const;
 
 /** Union type of supported locale codes. */
 export type SupportedLocale = (typeof SUPPORTED_LOCALE_CODES)[number];
