@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import type {
+  ConfigurationChange,
+  CreateConfigurationInput,
+} from '#shared/types/configurator';
 
 export const LoginSchema = z.object({
   username: z.string().min(1),
@@ -328,3 +332,50 @@ export const CmsPageLinkSchema = z.object({
     .max(50),
 });
 export type CmsPageLinkInput = z.infer<typeof CmsPageLinkSchema>;
+
+// ---------------------------------------------------------------------------
+// Configurator
+//
+// Annotated with the contract types rather than inferred: the schemas and
+// `shared/types/configurator.ts` describe the same wire shape, and the
+// annotation is what makes a drift between them a typecheck failure instead of
+// a route that quietly accepts something the backend cannot read.
+// ---------------------------------------------------------------------------
+const configurationQuantity = z.number().int().min(1).max(999);
+
+export const CreateConfigurationSchema: z.ZodType<CreateConfigurationInput> =
+  z.object({
+    productId: z.string().min(1),
+    quantity: configurationQuantity,
+  });
+
+const ConfigurationChangeSchema: z.ZodType<ConfigurationChange> =
+  z.discriminatedUnion('type', [
+    z.object({
+      type: z.literal('variable'),
+      variableId: z.string().min(1),
+      value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+    }),
+    z.object({
+      type: z.literal('option'),
+      optionId: z.string().min(1),
+      instanceId: z.string().min(1),
+      selected: z.boolean(),
+      quantity: configurationQuantity,
+      lock: z.enum(['none', 'lock', 'unlock']),
+    }),
+    z.object({
+      type: z.literal('quantity'),
+      quantity: configurationQuantity,
+    }),
+  ]);
+
+// The cap is the batch a UI can produce in one interaction with room to spare,
+// not a contract figure: a larger batch is a client bug, and the engine
+// evaluates the whole batch before it writes anything.
+export const ConfigurationChangesSchema = z.object({
+  changes: z.array(ConfigurationChangeSchema).min(1).max(100),
+});
+export type ConfigurationChangesInput = z.infer<
+  typeof ConfigurationChangesSchema
+>;
