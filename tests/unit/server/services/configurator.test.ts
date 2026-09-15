@@ -8,6 +8,7 @@ import {
   type ConfiguratorContext,
 } from '../../../../server/services/configurator';
 import type { Configuration } from '../../../../shared/types/configurator';
+import { ARBETSBORD_PRO_ID } from '../../../../server/services/configurator-fixture/seed';
 
 // ---------------------------------------------------------------------------
 // Stubs
@@ -141,35 +142,22 @@ describe('getConfiguratorBackend', () => {
   });
 
   describe('with the key set to fixture', () => {
-    it('creates a configuration document', async () => {
+    it('returns a configuration for the requested product', async () => {
       const backend = withBackend('fixture');
       const configuration: Configuration = await backend.create(
-        { productId: 'p1', quantity: 2 },
+        { productId: ARBETSBORD_PRO_ID, quantity: 2 },
         CTX,
       );
 
+      // What the seam owes its callers: a live document for the product that
+      // was asked for. Its shape belongs to the fixture engine's own tests.
       expect(configuration.configurationId).toBeTruthy();
-      expect(configuration.productId).toBe('p1');
+      expect(configuration.productId).toBe(ARBETSBORD_PRO_ID);
       expect(configuration.quantity).toBe(2);
       expect(Date.parse(configuration.expiresAt)).toBeGreaterThan(Date.now());
+      expect(configuration.sections.length).toBeGreaterThan(0);
 
-      // The stub's minimum: one section, one variable, one option group with
-      // one option carrying its embedded product.
-      expect(configuration.sections).toHaveLength(1);
-      const section = configuration.sections[0]!;
-      expect(section.variables).toHaveLength(1);
-      expect(section.optionGroups).toHaveLength(1);
-      const group = section.optionGroups[0]!;
-      expect(group.options).toHaveLength(1);
-      expect(group.options[0]!.product.productId).toBeGreaterThan(0);
-    });
-
-    it('answers 404 from the methods the stub does not implement yet', async () => {
-      const backend = withBackend('fixture');
-      for (const [name, call] of allCalls(backend)) {
-        if (name === 'create') continue;
-        expect(await statusOf(call), name).toBe(404);
-      }
+      await backend.release(configuration.configurationId, CTX);
     });
   });
 });

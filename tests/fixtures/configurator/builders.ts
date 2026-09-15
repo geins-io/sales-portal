@@ -5,7 +5,6 @@ import type {
   ConfigurationSection,
   ConfigurationVariable,
 } from '#shared/types/configurator';
-import { makeListProduct } from '../product';
 
 // ---------------------------------------------------------------------------
 // Shared plumbing for the example configuration documents.
@@ -16,36 +15,6 @@ import { makeListProduct } from '../product';
 // ---------------------------------------------------------------------------
 
 export const CURRENCY = 'SEK';
-
-/**
- * A full option row. Defaults describe an untouched, single-select row, which
- * is what most rows in the seed are; override at the call site, never here.
- */
-export function makeConfigurationOption(
-  overrides: Partial<ConfigurationOption> = {},
-): ConfigurationOption {
-  const id = overrides.id ?? 'option';
-  const product = overrides.product ?? makeListProduct();
-  return {
-    id,
-    instanceId: '0',
-    // The provider's part id is Int64 on the wire and is not the catalogue
-    // product id; they are deliberately different numbers here.
-    productId: String(900_000_000_000 + product.productId),
-    selected: false,
-    available: true,
-    selectionSource: 'none',
-    quantity: 1,
-    defaultQuantity: 1,
-    minQuantity: 1,
-    maxQuantity: 1,
-    unitPrice: { net: 0, currency: CURRENCY },
-    discountPercent: 0,
-    messages: [],
-    product,
-    ...overrides,
-  };
-}
 
 function everySection(config: Configuration): ConfigurationSection[] {
   const collect = (sections: ConfigurationSection[]): ConfigurationSection[] =>

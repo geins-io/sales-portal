@@ -1,135 +1,153 @@
-import type { ListProduct } from '#shared/types/commerce';
+import { randomUUID } from 'node:crypto';
 import type {
+  CommittedConfiguration,
   Configuration,
+  ConfigurationChange,
   CreateConfigurationInput,
-  Money,
 } from '#shared/types/configurator';
 import type { ConfiguratorBackend, ConfiguratorContext } from '../configurator';
+import { applyChangeBatch } from './changes';
+import { createSessionState, evaluate } from './evaluate';
+import { findSeed } from './seed';
+import { createSessionStore, type StoredSession } from './store';
+import { buildSummary } from './summary';
 
 // ---------------------------------------------------------------------------
-// Fixture backend — stub.
+// Fixture backend.
 //
-// The seam and its switch land before the engine, so this module exists to
-// give `configurator.backend=fixture` something to answer with. The engine
-// ticket replaces the internals and keeps the export; nothing above the seam
-// changes. No Geins SDK import belongs here.
+// A small in-memory stand-in for the CPQ service: start a session, post every
+// choice as a batch, get the whole re-evaluated document back. It exists so the
+// portal can build routes and UI against the real flow before the SDK can reach
+// the service, and it is meant to be deleted whole when the SDK lands. No Geins
+// SDK import belongs in this folder.
 // ---------------------------------------------------------------------------
 
-/** How long a session the stub hands out lives. */
-const SESSION_MINUTES = 30;
+/** How long a session lives from its last change. */
+export const SESSION_MINUTES = 20;
 
-const CURRENCY = 'SEK';
+/** How long a finished session answers 410 before the id goes back to 404. */
+export const DEPARTED_RETENTION_HOURS = 24;
 
-function money(net: number): Money {
-  return { net, currency: CURRENCY };
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+
+export interface FixtureConfiguratorBackend extends ConfiguratorBackend {
+  /** What a committed configuration froze, for a cart line to read back. */
+  readCommitted(
+    id: string,
+    ctx: ConfiguratorContext,
+  ): CommittedConfiguration | undefined;
 }
 
-function stubProduct(): ListProduct {
+export function createFixtureConfiguratorBackend({
+  now = Date.now,
+}: { now?: () => number } = {}): FixtureConfiguratorBackend {
+  const store = createSessionStore(now, DEPARTED_RETENTION_HOURS * HOUR);
+  const committed = new Map<string, CommittedConfiguration>();
+
+  const expiry = () => now() + SESSION_MINUTES * MINUTE;
+
+  const identityOf = (id: string, session: StoredSession) => ({
+    configurationId: id,
+    expiresAt: new Date(session.expiresAt).toISOString(),
+  });
+
+  const documentOf = (id: string, session: StoredSession): Configuration =>
+    evaluate(session.seed, session.state, identityOf(id, session));
+
   return {
-    productId: 1,
-    name: 'Fixture option',
-    alias: 'fixture-option',
-    canonicalUrl: '/products/fixture-option',
-    articleNumber: 'FIXTURE-1',
-    brand: { name: 'Fixture' },
-    primaryCategory: { name: 'Fixture' },
-    unitPrice: {
-      sellingPriceIncVat: 1250,
-      sellingPriceIncVatFormatted: '1 250 kr',
-      isDiscounted: false,
+    async create(
+      input: CreateConfigurationInput,
+      ctx: ConfiguratorContext,
+    ): Promise<Configuration> {
+      const seed = findSeed(input.productId);
+      if (!seed) {
+        throw createAppError(
+          ErrorCode.NOT_FOUND,
+          `'${input.productId}' is not a configurable product`,
+        );
+      }
+
+      const id = randomUUID();
+      const session: StoredSession = {
+        seed,
+        state: createSessionState(input.quantity),
+        expiresAt: expiry(),
+      };
+      store.put(ctx.hostname, id, session);
+      return documentOf(id, session);
     },
-    productImages: [],
-    totalStock: { inStock: 10, oversellable: 0, totalStock: 10, static: 0 },
-    skus: [],
-    discountCampaigns: [],
+
+    async get(id: string, ctx: ConfiguratorContext): Promise<Configuration> {
+      return documentOf(id, store.require(ctx.hostname, id));
+    },
+
+    async applyChanges(
+      id: string,
+      changes: ConfigurationChange[],
+      ctx: ConfiguratorContext,
+    ): Promise<Configuration> {
+      const session = store.require(ctx.hostname, id);
+      session.state = applyChangeBatch(
+        session.seed,
+        session.state,
+        identityOf(id, session),
+        changes,
+      );
+      session.expiresAt = expiry();
+      return documentOf(id, session);
+    },
+
+    async renew(
+      id: string,
+      ctx: ConfiguratorContext,
+    ): Promise<{ expiresAt: string }> {
+      const session = store.require(ctx.hostname, id);
+      session.expiresAt = expiry();
+      return { expiresAt: new Date(session.expiresAt).toISOString() };
+    },
+
+    async release(id: string, ctx: ConfiguratorContext): Promise<void> {
+      store.require(ctx.hostname, id).departedAt = now();
+    },
+
+    async commit(
+      id: string,
+      ctx: ConfiguratorContext,
+    ): Promise<CommittedConfiguration> {
+      const session = store.require(ctx.hostname, id);
+      const config = documentOf(id, session);
+      if (!config.isValid) {
+        throw createAppError(
+          ErrorCode.VALIDATION_ERROR,
+          'The configuration is not complete',
+        );
+      }
+
+      const record: CommittedConfiguration = {
+        committedConfigurationId: randomUUID(),
+        configurationId: id,
+        productId: config.productId,
+        quantity: config.quantity,
+        // Frozen: the session departs with this call, so nothing can move the
+        // price under a cart line that references the record.
+        unitPrice: config.unitPrice,
+        summary: buildSummary(config, session.seed),
+      };
+      committed.set(
+        `${ctx.hostname}|${record.committedConfigurationId}`,
+        record,
+      );
+      session.departedAt = now();
+      return record;
+    },
+
+    readCommitted(id: string, ctx: ConfiguratorContext) {
+      return committed.get(`${ctx.hostname}|${id}`);
+    },
   };
 }
 
-function stubConfiguration(input: CreateConfigurationInput): Configuration {
-  return {
-    configurationId: `fixture-${Date.now()}`,
-    expiresAt: new Date(Date.now() + SESSION_MINUTES * 60_000).toISOString(),
-    isValid: true,
-    productId: input.productId,
-    quantity: input.quantity,
-    unitPrice: money(1000),
-    discountPercent: 0,
-    templateId: 'fixture-template',
-    templateVersion: '1',
-    messages: [],
-    sections: [
-      {
-        id: 'section-1',
-        name: 'Fixture section',
-        visible: true,
-        sections: [],
-        variables: [
-          {
-            id: 'variable-1',
-            name: 'Fixture variable',
-            description: '',
-            valueType: 'number',
-            value: 1,
-            defaultValue: 1,
-            required: false,
-            available: true,
-            selectionSource: 'none',
-            valueSource: 'initial',
-            messages: [],
-          },
-        ],
-        optionGroups: [
-          {
-            id: 'group-1',
-            code: 'fixture-group',
-            name: 'Fixture group',
-            available: true,
-            maxSelections: 1,
-            quantityEditable: false,
-            optionGroups: [],
-            options: [
-              {
-                id: 'option-1',
-                instanceId: 'option-1-1',
-                productId: '1',
-                selected: false,
-                available: true,
-                selectionSource: 'none',
-                quantity: 1,
-                defaultQuantity: 1,
-                unitPrice: money(1250),
-                discountPercent: 0,
-                messages: [],
-                product: stubProduct(),
-              },
-            ],
-            messages: [],
-          },
-        ],
-        messages: [],
-      },
-    ],
-  };
-}
-
-/** What the engine ticket has not replaced yet. */
-async function notYetImplemented(): Promise<never> {
-  throw createAppError(
-    ErrorCode.NOT_FOUND,
-    'The configurator fixture holds no sessions yet',
-  );
-}
-
-export const fixtureConfiguratorBackend: ConfiguratorBackend = {
-  async create(
-    input: CreateConfigurationInput,
-    _ctx: ConfiguratorContext,
-  ): Promise<Configuration> {
-    return stubConfiguration(input);
-  },
-  get: notYetImplemented,
-  applyChanges: notYetImplemented,
-  renew: notYetImplemented,
-  release: notYetImplemented,
-  commit: notYetImplemented,
-};
+/** The instance the seam hands out, on the real clock. */
+export const fixtureConfiguratorBackend: FixtureConfiguratorBackend =
+  createFixtureConfiguratorBackend();
