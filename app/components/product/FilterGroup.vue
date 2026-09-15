@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FilterFacet } from '#shared/types/commerce';
+import { useId } from 'vue';
 import {
   Accordion,
   AccordionContent,
@@ -19,6 +20,21 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+const groupId = useId();
+
+/**
+ * `reka-ui`'s CheckboxRoot resolves its aria-label with
+ * `document.querySelector('[for="<id>"]')`, so a raw facet value carrying a
+ * quote (`10"`) closes the selector string and takes the whole page down.
+ * Percent-encoding is injective — `%` is encoded too — so two values can never
+ * share an id. A row index would be selector-safe as well, but the lookup is
+ * cached against a non-reactive DOM: when a refetch hides a value the rows
+ * shift, the checkbox reads its new id before the label's `for` is patched,
+ * and the stale aria-label sticks.
+ */
+const checkboxId = (valueId: string) =>
+  `${groupId}-${encodeURIComponent(valueId)}`;
 
 const visibleValues = computed(() =>
   props.facet.values.filter((v) => !v.hidden),
@@ -85,7 +101,7 @@ function isChecked(valueId: string) {
           <label
             v-for="value in visibleValues"
             :key="value._id"
-            :for="`filter-${facet.filterId}-${value._id}`"
+            :for="checkboxId(value._id)"
             class="flex items-center gap-3 py-3"
             :class="
               value.count === 0
@@ -94,7 +110,7 @@ function isChecked(valueId: string) {
             "
           >
             <Checkbox
-              :id="`filter-${facet.filterId}-${value._id}`"
+              :id="checkboxId(value._id)"
               :model-value="isChecked(value.facetId)"
               :disabled="value.count === 0"
               class="data-[state=checked]:border-button-background data-[state=checked]:bg-button-background dark:data-[state=checked]:bg-button-background"

@@ -40,7 +40,7 @@ const stubs = {
   },
   AccordionContent: { template: '<div><slot /></div>' },
   Checkbox: {
-    template: '<input type="checkbox" />',
+    template: '<input type="checkbox" :id="id" />',
     props: ['id', 'modelValue', 'disabled'],
   },
 };
@@ -114,6 +114,78 @@ describe('FilterGroup', () => {
     );
     expect(wrapper.find('[data-stub="accordion"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('Small');
+  });
+
+  describe('checkbox ids', () => {
+    // Values taken from a live Geins Sku facet: an inch measurement, a plain
+    // number, a phrase with spaces, and an en dash with å/ä. The quote used to
+    // crash the whole page; the rest are there so the next awkward value the
+    // catalogue grows is covered too.
+    const awkward = [
+      makeValue({ _id: 'sku_10"_1', facetId: 'sku_10"', label: '10"' }),
+      makeValue({ _id: 'sku_10_1', facetId: 'sku_10', label: '10' }),
+      makeValue({
+        _id: 'sku_Borrset HSS 19 delar_1',
+        facetId: 'sku_Borrset HSS 19 delar',
+        label: 'Borrset HSS 19 delar',
+      }),
+      makeValue({
+        _id: 'sku_Momentnyckel 40–200 Nm_1',
+        facetId: 'sku_Momentnyckel 40–200 Nm',
+        label: 'Momentnyckel 40–200 Nm',
+      }),
+    ];
+
+    it('keeps label and checkbox associated for awkward facet values', () => {
+      const wrapper = mountFilterGroup(makeFacet(awkward));
+      const labels = wrapper.findAll('label');
+      const boxes = wrapper.findAll('input[type="checkbox"]');
+      expect(labels).toHaveLength(awkward.length);
+      for (const [i, label] of labels.entries()) {
+        expect(label.attributes('for')).toBe(boxes[i]!.attributes('id'));
+      }
+    });
+
+    it('gives distinct ids to values that differ only in punctuation', () => {
+      const wrapper = mountFilterGroup(makeFacet(awkward));
+      const ids = wrapper
+        .findAll('input[type="checkbox"]')
+        .map((box) => box.attributes('id'));
+      expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it('builds ids a browser accepts in a selector', () => {
+      // `reka-ui` resolves a checkbox's aria-label with
+      // `document.querySelector('[for="<id>"]')`. A quote in the id throws
+      // there in a browser and takes the whole page down; happy-dom parses the
+      // same selector leniently, so assert the id shape instead. The alphabet
+      // is what `encodeURIComponent` can emit; none of it closes a
+      // double-quoted CSS string.
+      const wrapper = mountFilterGroup(makeFacet(awkward));
+      for (const box of wrapper.findAll('input[type="checkbox"]')) {
+        expect(box.attributes('id')).toMatch(/^[A-Za-z][\w%.~!*'()-]*$/);
+      }
+    });
+
+    it('keeps every id when a refetch hides the value above it', async () => {
+      // reka-ui caches the label text it finds for an id, and the DOM it
+      // searches is not reactive. An id that moves with the row would leave
+      // every checkbox below a hidden value announcing its neighbour's label.
+      const wrapper = mountFilterGroup(makeFacet(awkward));
+      const before = wrapper
+        .findAll('input[type="checkbox"]')
+        .map((box) => box.attributes('id'));
+      await wrapper.setProps({
+        facet: makeFacet([
+          { ...awkward[0]!, hidden: true },
+          ...awkward.slice(1),
+        ]),
+      });
+      const after = wrapper
+        .findAll('input[type="checkbox"]')
+        .map((box) => box.attributes('id'));
+      expect(after).toEqual(before.slice(1));
+    });
   });
 
   it('gives each option row py-3 touch padding and tightens the row gap to gap-1', () => {
