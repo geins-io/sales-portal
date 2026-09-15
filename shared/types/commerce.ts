@@ -171,6 +171,11 @@ export interface ListProduct {
   lowestPrice?: LowestPriceInfo;
   discountType?: ProductDiscountType;
   alternativeUrls?: LocaleAlternateUrl[];
+  /**
+   * Set when the product is configured through the CPQ service. The portal-side
+   * name is ours and stays stable whatever the API calls the field.
+   */
+  configurable?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +198,11 @@ export interface DetailProduct extends Omit<
   // Overrides the inherited narrow SDK `alternativeUrls` shape with the
   // actual GraphQL response shape (channelId/country/culture/language/url).
   alternativeUrls?: LocaleAlternateUrl[];
+  /**
+   * Set when the product is configured through the CPQ service. The portal-side
+   * name is ours and stays stable whatever the API calls the field.
+   */
+  configurable?: boolean;
 }
 
 // ---------------------------------------------------------------------------

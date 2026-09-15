@@ -1,0 +1,207 @@
+// ---------------------------------------------------------------------------
+// CPQ product configuration document
+//
+// Mirrors the `Configuration` document of the CPQ service (Configure, Price,
+// Quote), which is the authority for every name here. The nested types carry a
+// `Configuration` prefix because every export from shared/types is auto-imported
+// as an ambient global: a bare `Option` would shadow the DOM's.
+//
+// The rule engine is not on the wire and cannot be replicated client-side. The
+// UI derives everything it needs from the outcome instead: disabled from
+// `available: false`, read-only from `selectionSource: locked |
+// temporarilyLocked`, hidden from `visible: false`, and the reason from
+// `messages`. Every change returns the whole re-evaluated document — replace
+// local state, never patch it.
+// ---------------------------------------------------------------------------
+import type { ListProduct } from './commerce';
+
+/** Net price. No tax fields; the consumer applies VAT. */
+export interface Money {
+  net: number;
+  currency: string;
+}
+
+// ---------------------------------------------------------------------------
+// Provenance
+// ---------------------------------------------------------------------------
+/**
+ * Why an option is selected or not. `none` is the resting value of an untouched
+ * row and the most common value on the wire.
+ */
+export type SelectionSource =
+  | 'none'
+  | 'initial'
+  | 'manual'
+  | 'ruleSelected'
+  | 'ruleDeselected'
+  | 'groupRule'
+  | 'locked'
+  | 'temporarilyLocked'
+  | 'unknown';
+
+/** Why a variable holds the value it holds. */
+export type ValueSource =
+  | 'initial'
+  | 'manual'
+  | 'formula'
+  | 'linked'
+  | 'fallback'
+  | 'unknown';
+
+// ---------------------------------------------------------------------------
+// Messages
+// ---------------------------------------------------------------------------
+/** The provider's `Valid` kind is dropped upstream, so only these two arrive. */
+export interface ConfigurationMessage {
+  severity: 'warning' | 'error';
+  text: string;
+}
+
+// ---------------------------------------------------------------------------
+// Variables
+// ---------------------------------------------------------------------------
+export type ConfigurationValueType = 'string' | 'number' | 'boolean' | 'date';
+
+/** A `date` arrives as an ISO 8601 string; `null` means unset. */
+export type ConfigurationValue = string | number | boolean | null;
+
+export interface ConfigurationVariable {
+  id: string;
+  name: string;
+  description: string;
+  valueType: ConfigurationValueType;
+  value: ConfigurationValue;
+  defaultValue: ConfigurationValue;
+  required: boolean;
+  available: boolean;
+  /** The provider narrows these by rule and returns the narrowed bounds. */
+  min?: number;
+  max?: number;
+  step?: number;
+  decimals?: number;
+  unit?: string;
+  selectionSource: SelectionSource;
+  /** The provider's own value, which a string union cannot carry. */
+  selectionSourceRaw?: string;
+  valueSource: ValueSource;
+  valueSourceRaw?: string;
+  messages: ConfigurationMessage[];
+}
+
+// ---------------------------------------------------------------------------
+// Options
+// ---------------------------------------------------------------------------
+export interface ConfigurationOption {
+  id: string;
+  /** Distinguishes the rows of a group that can hold the same part twice. */
+  instanceId: string;
+  /** The provider's part id, Int64 on the wire — not `product.productId`. */
+  productId: string;
+  selected: boolean;
+  available: boolean;
+  selectionSource: SelectionSource;
+  selectionSourceRaw?: string;
+  quantity: number;
+  defaultQuantity: number;
+  minQuantity?: number;
+  maxQuantity?: number;
+  unitPrice: Money;
+  discountPercent: number;
+  messages: ConfigurationMessage[];
+  /** The catalogue product, embedded on the row so no second lookup is needed. */
+  product: ListProduct;
+}
+
+export interface ConfigurationOptionGroup {
+  id: string;
+  code: string;
+  name: string;
+  available: boolean;
+  minSelections?: number;
+  /** `1` means single-select. */
+  maxSelections?: number;
+  minQuantity?: number;
+  maxQuantity?: number;
+  quantityEditable: boolean;
+  optionGroups: ConfigurationOptionGroup[];
+  options: ConfigurationOption[];
+  messages: ConfigurationMessage[];
+}
+
+// ---------------------------------------------------------------------------
+// Sections
+// ---------------------------------------------------------------------------
+export interface ConfigurationSection {
+  id: string;
+  name: string;
+  visible: boolean;
+  sections: ConfigurationSection[];
+  variables: ConfigurationVariable[];
+  optionGroups: ConfigurationOptionGroup[];
+  messages: ConfigurationMessage[];
+}
+
+// ---------------------------------------------------------------------------
+// The document
+// ---------------------------------------------------------------------------
+export interface Configuration {
+  configurationId: string;
+  /** ISO 8601. A session expires; an expired one answers 410. */
+  expiresAt: string;
+  isValid: boolean;
+  productId: string;
+  quantity: number;
+  unitPrice: Money;
+  discountPercent: number;
+  weightPerUnit?: number;
+  /** Provider template and version, opaque to callers. */
+  templateId: string;
+  templateVersion: string;
+  messages: ConfigurationMessage[];
+  sections: ConfigurationSection[];
+}
+
+// ---------------------------------------------------------------------------
+// Changes
+//
+// Applied as one batch; the response is the whole new document.
+// ---------------------------------------------------------------------------
+export type ConfigurationChange =
+  | { type: 'variable'; variableId: string; value: ConfigurationValue }
+  | {
+      type: 'option';
+      optionId: string;
+      instanceId: string;
+      selected: boolean;
+      quantity: number;
+      lock: 'none' | 'lock' | 'unlock';
+    }
+  | { type: 'quantity'; quantity: number };
+
+// ---------------------------------------------------------------------------
+// Session boundaries
+// ---------------------------------------------------------------------------
+/** Customer, company and currency are resolved server-side from the session. */
+export interface CreateConfigurationInput {
+  productId: string;
+  quantity: number;
+}
+
+export interface ConfigurationSummaryLine {
+  label: string;
+  value: string;
+  price?: Money;
+}
+
+/**
+ * A frozen snapshot a cart line references. A configured result has no article
+ * number of its own; it is a row referencing the configurable product.
+ */
+export interface CommittedConfiguration {
+  committedConfigurationId: string;
+  configurationId: string;
+  productId: string;
+  quantity: number;
+  unitPrice: Money;
+  summary: ConfigurationSummaryLine[];
+}
