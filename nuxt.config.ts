@@ -243,6 +243,7 @@ export default defineNuxtConfig({
    * │ NUXT_WEBHOOK_SECRET              │                                      │
    * │ NUXT_LOGGING_VERBOSE_REQUESTS   │                                      │
    * │ NUXT_PUBLIC_FEATURES_ANALYTICS  │                                      │
+   * │ NUXT_CONFIGURATOR_BACKEND       │                                      │
    * └─────────────────────────────────────────────────────────────────────────┘
    *
    * NOTE: Values set here are defaults. Azure env vars override them at runtime.
@@ -298,6 +299,14 @@ export default defineNuxtConfig({
       // When true, request logs include full headers (sanitized).
       // Useful for debugging but can be noisy in production.
       verboseRequests: false,
+    },
+
+    // Which implementation answers a product-configuration request.
+    // 'off' | 'fixture' | 'sdk'; anything else, an empty string included, is
+    // read as 'off' (see server/services/configurator.ts).
+    // Azure: NUXT_CONFIGURATOR_BACKEND=fixture
+    configurator: {
+      backend: 'off',
     },
 
     // When true, 500 responses include the error stack trace.
