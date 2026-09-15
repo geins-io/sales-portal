@@ -235,7 +235,7 @@ export function lifecycleCases(spec: {
       expect(getConfiguratorBackend).not.toHaveBeenCalled();
     });
 
-    it('answers 404 when the feature is off, before the body is read', async () => {
+    it('answers 404 when configurator is off, before the body is read', async () => {
       configuratorFeature({ enabled: false });
       // Unparseable for every schema here, so a route that read it first would
       // answer 400 and fail this case rather than pass it by accident.
@@ -256,7 +256,16 @@ export function lifecycleCases(spec: {
       expect(headersOf(event)['Cache-Control']).toBe('private, no-store');
     });
 
-    it("lets an anonymous request through when access is 'all'", async () => {
+    it('lets a request through when configurator is enabled with no access rule', async () => {
+      configuratorFeature({ enabled: true });
+      reach();
+
+      await spec.handler()(spec.event());
+
+      expect(backend[spec.method]).toHaveBeenCalled();
+    });
+
+    it("lets an anonymous request through when configurator access is 'all'", async () => {
       configuratorFeature({ enabled: true, access: 'all' });
       reach();
 
@@ -265,7 +274,7 @@ export function lifecycleCases(spec: {
       expect(backend[spec.method]).toHaveBeenCalled();
     });
 
-    it("answers 404 for an anonymous request when access is 'authenticated'", async () => {
+    it("answers 404 for an anonymous request when configurator access is 'authenticated'", async () => {
       configuratorFeature({ enabled: true, access: 'authenticated' });
       const event = spec.event();
 
@@ -275,7 +284,7 @@ export function lifecycleCases(spec: {
       expect(bodyReads).not.toHaveBeenCalled();
     });
 
-    it("lets a signed-in request through when access is 'authenticated'", async () => {
+    it("lets a signed-in request through when configurator access is 'authenticated'", async () => {
       configuratorFeature({ enabled: true, access: 'authenticated' });
       reach();
 

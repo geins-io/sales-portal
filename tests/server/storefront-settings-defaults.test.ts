@@ -40,6 +40,13 @@ describe('storefront-settings-defaults', () => {
       });
     });
 
+    it('defaults configurator to enabled:false with access:authenticated', () => {
+      expect(STOREFRONT_SETTINGS_DEFAULTS.features.configurator).toEqual({
+        enabled: false,
+        access: 'authenticated',
+      });
+    });
+
     it('defaults baseline storefront flags (cart, checkout, lists, wishlist, etc.) to enabled:true', () => {
       for (const key of [
         'analytics',

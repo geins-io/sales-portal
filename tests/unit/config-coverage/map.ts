@@ -150,6 +150,7 @@ const HEADER_ACTIONS =
 const SERVER_CHECKOUT = 'tests/unit/api/checkout.test.ts';
 const SERVER_CART = 'tests/server/api/cart.test.ts';
 const SERVER_REGISTER = 'tests/server/api/auth-register.test.ts';
+const CONFIGURATOR_ROUTES = 'tests/unit/server/api/configurations/harness.ts';
 const AUTH_CARD = 'tests/components/auth/AuthCard.test.ts';
 const AUTH_SHEET = 'tests/components/auth/AuthSheet.test.ts';
 const BRAND_LOGO_FALLBACK = 'tests/components/BrandLogoFallback.test.ts';
@@ -531,6 +532,21 @@ function visibilityCells(
     accessAuthenticated: [...ref(titles.anonymous), ...ref(titles.signedIn)],
   };
 }
+
+/**
+ * The one gate case that writes `enabled: true` with no access rule and asserts
+ * the request reaches the backend. Hung on two cells for the reason
+ * `FeatureCells` gives: an absent access rule cannot be written without also
+ * writing `enabled: true`, so the two would otherwise be the same fixture under
+ * two titles.
+ */
+const CONFIGURATOR_OPEN_RULE: TestRef = {
+  spec: CONFIGURATOR_ROUTES,
+  title:
+    'lets a request through when configurator is enabled with no access rule',
+  kind: 'consumer',
+  drives: 'field',
+};
 
 /**
  * A feature seeded for every tenant and read by nothing. Toggling it in the
@@ -1815,6 +1831,57 @@ export const CONFIG_COVERAGE_MAP = {
       'Seeded and present in the live config, read by nothing. The checkout ' +
         'page gates on orderPlacement instead.',
     ),
+    configurator: namedFeature({
+      consumer: 'server/utils/configurator-route.ts:35',
+      cells: {
+        enabledTrue: [CONFIGURATOR_OPEN_RULE],
+        accessAbsent: [CONFIGURATOR_OPEN_RULE],
+        enabledFalse: [
+          {
+            spec: CONFIGURATOR_ROUTES,
+            title:
+              'answers 404 when configurator is off, before the body is read',
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
+        accessAll: [
+          {
+            spec: CONFIGURATOR_ROUTES,
+            title:
+              "lets an anonymous request through when configurator access is 'all'",
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
+        accessAuthenticated: [
+          {
+            spec: CONFIGURATOR_ROUTES,
+            title:
+              "answers 404 for an anonymous request when configurator access is 'authenticated'",
+            kind: 'consumer',
+            drives: 'field',
+          },
+          {
+            spec: CONFIGURATOR_ROUTES,
+            title:
+              "lets a signed-in request through when configurator access is 'authenticated'",
+            kind: 'consumer',
+            drives: 'field',
+          },
+        ],
+      },
+      note:
+        'The first consumer in this map that is server code rather than a ' +
+        'component: the gate is a route util every configuration route calls ' +
+        'before it reads a body. The cases are declared once, in the harness ' +
+        'the six route specs share, which is why every reference points at ' +
+        'that one file. The harness mocks the backend and the features ' +
+        'lookup and runs the real canAccessFeatureServer over the configured ' +
+        'value, so each case drives the field. The merchant toggle is per ' +
+        'channel in the storefront-settings schema, so a channel without the ' +
+        'field sits on the seeded default and the routes answer 404.',
+    }),
     lists: namedFeature({
       consumer: 'app/components/portal/PortalShell.vue:116',
       cells: middlewareCells('lists'),
