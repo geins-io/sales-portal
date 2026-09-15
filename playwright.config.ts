@@ -257,7 +257,10 @@ export default defineConfig({
         // E2E=1 disables the dev overlays (see nuxt.config.ts). Only applies when
         // Playwright starts the server — otherwise use `E2E=1 pnpm dev`.
         // The TLS pair makes `pnpm preview` serve https (see tlsEnv above).
-        env: { E2E: '1', ...tlsEnv() },
+        // The configurator fixture: the suite runs against the same backend
+        // the dev environment does, whether the server is a dev boot or a
+        // production build (E2E_PROD).
+        env: { E2E: '1', NUXT_CONFIGURATOR_BACKEND: 'fixture', ...tlsEnv() },
         reuseExistingServer: !process.env.CI,
         // A local production build (E2E_PROD) needs much longer than a dev boot.
         timeout: process.env.E2E_PROD ? 360000 : 120000,

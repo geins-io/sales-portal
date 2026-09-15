@@ -61,6 +61,7 @@ These are **non-sensitive configuration values** visible in the repository setti
 | `GEINS_TENANT_API_URL` | _(empty)_                      | Geins Tenant API URL (server-only) | Any valid URL                              |
 | `STORAGE_DRIVER`       | `fs`                           | Storage backend for tenant config  | `memory`, `fs`, `redis`                    |
 | `ENABLE_ANALYTICS`     | `false`                        | Enable client-side analytics       | `true`, `false`                            |
+| `CONFIGURATOR_BACKEND` | `off`                          | Backend for product configuration  | `off`, `fixture`, `sdk`                    |
 | `LOG_LEVEL`            | `info`                         | Server log verbosity               | `debug`, `info`, `warn`, `error`, `silent` |
 | `SENTRY_ORG`           | _(empty)_                      | Sentry organization slug           | Your Sentry org name                       |
 | `SENTRY_PROJECT`       | _(empty)_                      | Sentry project slug                | Your Sentry project name                   |
@@ -117,6 +118,7 @@ The `deploy.yml` workflow passes GitHub variables to Bicep, which sets these in 
 | `NUXT_STORAGE_DRIVER`            | `vars.STORAGE_DRIVER`             | `runtimeConfig.storage.driver`            |
 | `NUXT_STORAGE_REDIS_URL`         | `secrets.REDIS_URL`               | `runtimeConfig.storage.redisUrl`          |
 | `NUXT_PUBLIC_FEATURES_ANALYTICS` | `vars.ENABLE_ANALYTICS`           | `runtimeConfig.public.features.analytics` |
+| `NUXT_CONFIGURATOR_BACKEND`      | `vars.CONFIGURATOR_BACKEND`       | `runtimeConfig.configurator.backend`      |
 | `NUXT_SENTRY_DSN`                | `secrets.SENTRY_DSN`              | `runtimeConfig.sentry.dsn` (server-only)  |
 | `SENTRY_ENVIRONMENT`             | Set by Bicep based on environment | `process.env.SENTRY_ENVIRONMENT`          |
 | `NUXT_PUBLIC_SENTRY_ENVIRONMENT` | Set by Bicep based on environment | `runtimeConfig.public.sentry.environment` |
@@ -219,6 +221,8 @@ Copy the output values for the next step.
 - [ ] `GEINS_TENANT_API_URL` - Geins Tenant API URL
 - [ ] `STORAGE_DRIVER` - Set to `redis` for production
 - [ ] `ENABLE_ANALYTICS` - Set to `true` if needed
+- [ ] `CONFIGURATOR_BACKEND` - Set to `fixture` on an environment that should serve product
+      configuration. An unset variable arrives as an empty string, which reads as `off`.
 - [ ] `LOG_LEVEL` - Adjust as needed (`silent` to disable all logging)
 - [ ] `SENTRY_ORG` - If using Sentry
 - [ ] `SENTRY_PROJECT` - If using Sentry

@@ -53,6 +53,9 @@ param redisUrl string = ''
 @description('Enable analytics')
 param enableAnalytics string = ''
 
+@description('Configurator backend: off, fixture or sdk. Anything else reads as off.')
+param configuratorBackend string = 'off'
+
 @description('Log level')
 param logLevel string = 'info'
 
@@ -171,6 +174,7 @@ module webApp 'modules/webApp.bicep' = {
     storageDriver: storageDriver
     redisUrl: redisUrl
     enableAnalytics: enableAnalytics
+    configuratorBackend: configuratorBackend
     logLevel: logLevel
     versionX: versionX
     // Sentry (runtime only - build-time vars are in GitHub Actions)

@@ -248,6 +248,7 @@ jobs:
             storageDriver="${{ vars.STORAGE_DRIVER }}"
             redisUrl="${{ secrets.REDIS_URL }}"
             enableAnalytics="${{ vars.ENABLE_ANALYTICS }}"
+            configuratorBackend="${{ vars.CONFIGURATOR_BACKEND }}"
             logLevel="${{ vars.LOG_LEVEL }}"
             sentryDsn="${{ secrets.SENTRY_DSN }}"
             versionX="${{ secrets.VERSION_X }}"

@@ -47,6 +47,9 @@ param redisUrl string
 @description('Enable analytics')
 param enableAnalytics string
 
+@description('Configurator backend: off, fixture or sdk. Anything else reads as off.')
+param configuratorBackend string = 'off'
+
 @description('Log level')
 param logLevel string
 
@@ -160,6 +163,13 @@ var sharedAppSettings = [
   {
     name: 'NUXT_PUBLIC_FEATURES_ANALYTICS'
     value: enableAnalytics
+  }
+  // An absent GitHub variable arrives here as an empty string, which the
+  // service reads as 'off' — the same answer as an environment that never set
+  // the variable at all. See server/services/configurator.ts.
+  {
+    name: 'NUXT_CONFIGURATOR_BACKEND'
+    value: configuratorBackend
   }
   {
     name: 'LOG_LEVEL'
