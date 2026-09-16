@@ -64,6 +64,25 @@ const CATEGORY = {
   parentCategoryId: 0,
   name: 'Epoxy',
   alias: 'epoxy',
+  canonicalUrl: '/se/sv/c/epoxy',
+};
+
+/** Nested, with the routing prefix — the shape sonoralab returns. */
+const NESTED_CATEGORY = {
+  categoryId: 2,
+  parentCategoryId: 1,
+  name: 'Resin',
+  alias: 'resin',
+  canonicalUrl: '/se/sv/c/epoxy/resin',
+};
+
+/** Nested, WITHOUT the routing prefix — the shape some merchants return. */
+const PREFIXLESS_CATEGORY = {
+  categoryId: 3,
+  parentCategoryId: 1,
+  name: 'Hardener',
+  alias: 'hardener',
+  canonicalUrl: '/se/sv/epoxy/hardener',
 };
 
 beforeEach(() => {
@@ -82,9 +101,10 @@ describe('sitemap urls', () => {
 
   it('publishes NOTHING for a locale with no tree of its own', async () => {
     // The category tree is shared with the breadcrumb. When that fetcher fell
-    // back to the default language, tenant-a's sitemap grew by 80 URLs: Swedish
-    // aliases advertised under its fi and nb prefixes. The breadcrumb falls back
-    // in its own caller so this endpoint stays honest about what is published.
+    // back to the default language, one tenant's sitemap grew by 80 URLs:
+    // Swedish aliases advertised under its fi and nb prefixes. The breadcrumb
+    // falls back in its own caller so this endpoint stays honest about what is
+    // published.
     treePerLanguage({ 'sv-SE': [CATEGORY] });
 
     const locs = (await handler(event)).map((e) => e.loc);
@@ -93,5 +113,38 @@ describe('sitemap urls', () => {
     expect(locs).not.toContain('/se/fi/c/epoxy');
     // The locale's own root entry is unaffected — only its categories go.
     expect(locs).toContain('/se/fi/');
+  });
+
+  it('publishes a nested category at its full path, not its bare alias', async () => {
+    treePerLanguage({ 'sv-SE': [CATEGORY, NESTED_CATEGORY] });
+
+    const locs = (await handler(event)).map((e) => e.loc);
+
+    expect(locs).toContain('/se/sv/c/epoxy/resin');
+    expect(locs).not.toContain('/se/sv/c/resin');
+  });
+
+  it('publishes the full path when the canonical carries no type prefix', async () => {
+    treePerLanguage({ 'sv-SE': [CATEGORY, PREFIXLESS_CATEGORY] });
+
+    const locs = (await handler(event)).map((e) => e.loc);
+
+    expect(locs).toContain('/se/sv/c/epoxy/hardener');
+    expect(locs).not.toContain('/se/sv/c/hardener');
+  });
+
+  it("prefixes the loop's market and locale, not the canonical's own", async () => {
+    // A tree fetched for one market carries canonicals in that market's own
+    // prefix (measured: /fi/sv/... for the fi market, /se/de/... for a de-DE
+    // tree). The sitemap enumerates market x locale itself, so the canonical's
+    // own prefix must never leak into the loc.
+    treePerLanguage({
+      'fi-FI': [{ ...CATEGORY, canonicalUrl: '/se/sv/c/epoxy/resin' }],
+    });
+
+    const locs = (await handler(event)).map((e) => e.loc);
+
+    expect(locs).toContain('/se/fi/c/epoxy/resin');
+    expect(locs).not.toContain('/se/sv/c/epoxy/resin');
   });
 });
