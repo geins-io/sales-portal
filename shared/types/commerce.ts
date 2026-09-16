@@ -6,6 +6,7 @@ import type {
   SkuType,
   MetadataType,
 } from '@geins/types';
+import type { CategoryAncestor } from '../utils/breadcrumb-trail';
 
 export type {
   ProductType,
@@ -203,6 +204,13 @@ export interface DetailProduct extends Omit<
    * name is ours and stays stable whatever the API calls the field.
    */
   configurable?: boolean;
+  /**
+   * Ancestor categories of the product's PRIMARY category, root first, walked
+   * server-side in `/api/products/[alias]` out of the category closure the Geins
+   * response carries. Empty when the primary category is top-level, or when the
+   * chain could not be resolved in full — see `ancestorsFromCategories`.
+   */
+  ancestors?: CategoryAncestor[];
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +254,8 @@ export interface ListPageInfo {
   meta: MetadataType;
   subCategories?: { name: string; alias: string; canonicalUrl: string }[];
   alternativeUrls?: LocaleAlternateUrl[];
+  /** Ancestor categories, root first. See `DetailProduct.ancestors`. */
+  ancestors?: CategoryAncestor[];
 }
 
 // ---------------------------------------------------------------------------

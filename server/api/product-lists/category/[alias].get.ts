@@ -20,7 +20,15 @@ export default defineEventHandler(async (event) => {
         throw createAppError(ErrorCode.NOT_FOUND, 'Category page not found');
       }
 
-      return page;
+      // `listPageInfo.id` IS the categoryId — verified on both tenants
+      // (fastelement 1, testkategori-l6 12, skyddsutrustning 17). The trail is
+      // walked out of the cached category tree rather than derived from
+      // canonicalUrl, which Geins caps at MaxCategoryDepth segments.
+      const ancestors = await resolveEntityAncestors(
+        (page as { id?: number }).id,
+        event,
+      );
+      return { ...page, ancestors };
     },
     { operation: 'product-lists.category.get' },
   );

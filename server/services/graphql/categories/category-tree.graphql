@@ -1,0 +1,19 @@
+# The whole category tree for one channel/language/market, flat.
+#
+# Both consumers — the breadcrumb walk and the sitemap — read this one query.
+# `alias` is here because the sitemap needs it; `order` is absent because
+# neither does, and on the largest tenant measured (1564 categories) the
+# response is already 341 KiB.
+query categoryTree($channelId: String, $languageId: String, $marketId: String) {
+  categories(
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    categoryId
+    parentCategoryId
+    name
+    alias
+    canonicalUrl
+  }
+}

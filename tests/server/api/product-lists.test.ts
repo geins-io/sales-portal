@@ -77,6 +77,14 @@ vi.stubGlobal(
   }),
 );
 vi.stubGlobal('setResponseHeader', vi.fn());
+
+// Breadcrumb ancestors are resolved by a server/utils auto-import. These tests
+// mock at the SDK boundary, so stub it to the empty chain — a top-level entity
+// resolves to exactly that and issues no query of its own.
+vi.stubGlobal(
+  'resolveEntityAncestors',
+  vi.fn(async () => []),
+);
 vi.stubGlobal('defineEventHandler', (fn: (event: H3Event) => unknown) => fn);
 vi.stubGlobal('optionalAuth', vi.fn().mockResolvedValue(null));
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
@@ -234,7 +242,11 @@ describe('Product List API Routes', () => {
       const event = createMockEvent();
       const result = await handler(event);
 
-      expect(result).toEqual({ name: 'Shoes', subCategories: [] });
+      expect(result).toEqual({
+        name: 'Shoes',
+        subCategories: [],
+        ancestors: [],
+      });
     });
 
     it('should throw NOT_FOUND when SDK returns null in default locale', async () => {
@@ -279,7 +291,7 @@ describe('Product List API Routes', () => {
       const event = createMockEvent();
       try {
         const result = await handler(event);
-        expect(result).toEqual({ name: 'Kategori 1', id: 1 });
+        expect(result).toEqual({ name: 'Kategori 1', id: 1, ancestors: [] });
         expect(mockGraphqlQuery).toHaveBeenCalledTimes(2);
         expect(mockGraphqlQuery.mock.calls[0]?.[0].variables.languageId).toBe(
           'en-US',
