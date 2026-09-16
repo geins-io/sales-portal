@@ -59,6 +59,15 @@
   --color-footer-text: var(--footer-text);
 }
 
+/* Tailwind 4.1.18 emits nothing for this candidate — verified by compiling it.
+   `PortalShell.vue` has used the class since it was written. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer base {
   :root {
     --font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
@@ -139,7 +148,7 @@
     font-family: var(--font-family);
   }
   .rich-text :where(h1, h2, h3, h4, h5, h6) {
-    @apply mt-6 mb-2 font-bold leading-tight;
+    @apply mt-6 mb-2 leading-tight font-bold;
     font-family: var(--heading-font-family);
   }
   .rich-text :where(h1, h2, h3, h4, h5, h6):first-child {

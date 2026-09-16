@@ -78,6 +78,23 @@ const mockBreadcrumbs = [
   { label: 'MacBook Pro' },
 ];
 const shortBreadcrumbs = [{ label: 'Home', href: '/' }, { label: 'About Us' }];
+// Deep enough to overflow every viewport, so the scroll strip, the pinned first
+// crumb and the fade are visible here without a deep catalogue behind the page.
+const deepBreadcrumbs = [
+  { label: 'Home', href: '/' },
+  { label: 'Electronics', href: '/category/electronics' },
+  { label: 'Computers', href: '/category/electronics/computers' },
+  { label: 'Laptops', href: '/category/electronics/computers/laptops' },
+  {
+    label: 'Ultrabooks',
+    href: '/category/electronics/computers/laptops/ultrabooks',
+  },
+  {
+    label: '13 inch',
+    href: '/category/electronics/computers/laptops/ultrabooks/13-inch',
+  },
+  { label: 'MacBook Pro 13" M3 512GB Space Black' },
+];
 
 // Mock data for navigation menu demo
 const mockMenuItems = [
@@ -521,10 +538,14 @@ const mockProductOutOfStock = {
           <AppBreadcrumbs :items="shortBreadcrumbs" />
         </div>
         <div>
-          <p class="text-muted-foreground mb-2 text-sm">
-            Long (4 items, collapses on mobile)
-          </p>
+          <p class="text-muted-foreground mb-2 text-sm">Medium (4 items)</p>
           <AppBreadcrumbs :items="mockBreadcrumbs" />
+        </div>
+        <div>
+          <p class="text-muted-foreground mb-2 text-sm">
+            Deep (7 items — scrolls sideways, first crumb stays pinned)
+          </p>
+          <AppBreadcrumbs :items="deepBreadcrumbs" />
         </div>
       </div>
     </section>
