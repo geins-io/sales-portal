@@ -36,9 +36,34 @@ vi.mock('../../../server/services/graphql/unwrap', () => ({
 }));
 
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
+
+/** The options `categories.ts` hands Nitro, kept so they can be asserted. */
+let cacheOptions:
+  | {
+      name?: string;
+      base?: string;
+      swr?: boolean;
+      maxAge?: number;
+      getKey?: (tenantKey: string, vars: ChannelVars) => string;
+    }
+  | undefined;
+
 // defineCachedFunction is a Nitro auto-import. Pass the function straight
-// through so the fetch stays observable; the cache KEY is asserted directly.
-vi.stubGlobal('defineCachedFunction', (fn: unknown) => fn);
+// through so the fetch stays observable; the cache KEY and the caching options
+// are asserted directly, since a pass-through stub applies neither.
+vi.stubGlobal(
+  'defineCachedFunction',
+  (fn: unknown, options: typeof cacheOptions) => {
+    cacheOptions = options;
+    return fn;
+  },
+);
+
+interface ChannelVars {
+  channelId: string;
+  languageId: string;
+  marketId: string;
+}
 
 const { getCategoryTree, categoryTreeCacheKey, resolveTenantCacheKey } =
   await import('../../../server/services/categories');
@@ -107,6 +132,32 @@ describe('categoryTreeCacheKey', () => {
     expect(key).not.toMatch(/[:/]/);
   });
 
+  it('spells the key out in full', () => {
+    // The parts and their separator are the contract: without one, tenant `a`
+    // with language `bc` and tenant `ab` with language `c` produce the same
+    // key and serve each other's trees.
+    expect(
+      categoryTreeCacheKey(
+        resolveTenantCacheKey(eventFor({ tenantId: 't1' })),
+        vars,
+      ),
+    ).toBe('tenant_config_t1_categories_sv-SE_se');
+  });
+
+  it('is registered with the caching options it relies on', () => {
+    // A pass-through stub applies none of these, so nothing else in this file
+    // would notice one being dropped. `swr` is what keeps a stale tree serving
+    // while a refresh runs, and 60 s is the window measured against the
+    // 0.21-0.28 s fetch it replaces.
+    expect(cacheOptions?.name).toBe('category-tree');
+    expect(cacheOptions?.base).toBe('cache');
+    expect(cacheOptions?.swr).toBe(true);
+    expect(cacheOptions?.maxAge).toBe(60);
+    expect(cacheOptions?.getKey?.('tenant_config_t1', vars)).toBe(
+      'tenant_config_t1_categories_sv-SE_se',
+    );
+  });
+
   it('keys on tenantId, falling back to hostname', () => {
     // Two hostnames for one tenant must warm ONE entry, not one each.
     expect(
@@ -153,7 +204,7 @@ describe('getCategoryTree', () => {
 
   it('does NOT fall back to another language', async () => {
     // The sitemap shares this fetcher. Retrying into the default language made
-    // tenant-a publish 80 Swedish-alias URLs under its fi and nb prefixes.
+    // one tenant publish 80 Swedish-alias URLs under its fi and nb prefixes.
     requestedLanguageId = 'de-DE';
     mockGraphqlQuery.mockResolvedValue([]);
 
@@ -175,13 +226,20 @@ describe('getCategoryTree', () => {
 });
 
 describe('resolveEntityAncestors', () => {
-  const loadWithTree = async (getCategoryTreeImpl: () => unknown) => {
+  const loadWithTree = async (
+    getCategoryTreeImpl: () => unknown,
+    context: { languageId?: string; defaultLanguageId?: string } = {},
+  ) => {
     vi.resetModules();
     vi.doMock('../../../server/services/categories', () => ({
       getCategoryTree: vi.fn(getCategoryTreeImpl),
       getChannelContext: vi.fn(async () => ({
-        vars: { channelId: '1', languageId: 'de-DE', marketId: 'se' },
-        defaultLanguageId: 'sv-SE',
+        vars: {
+          channelId: '1',
+          languageId: context.languageId ?? 'de-DE',
+          marketId: 'se',
+        },
+        defaultLanguageId: context.defaultLanguageId ?? 'sv-SE',
       })),
     }));
     const mod = await import('../../../server/utils/breadcrumb-ancestors');
@@ -212,6 +270,33 @@ describe('resolveEntityAncestors', () => {
     await expect(resolveEntityAncestors(2, eventWithTenant)).resolves.toEqual([
       { name: 'A', canonicalUrl: '/se/sv/c/a' },
     ]);
+  });
+
+  it('stops at the requested tree when that tree answers', async () => {
+    // The fallback is a second full tree read. Every other test here would
+    // still pass if the chain from the first one were thrown away, because the
+    // fallback tree answers the same; only the call count shows it.
+    const spy = vi.fn(async () => DEEP);
+    const resolveEntityAncestors = await loadWithTree(spy);
+
+    await expect(resolveEntityAncestors(2, eventWithTenant)).resolves.toEqual([
+      { name: 'A', canonicalUrl: '/se/sv/c/a' },
+    ]);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not re-read the tree when the request IS the default language', async () => {
+    // Same tree, so a second read could only return the same nothing.
+    const spy = vi.fn(async () => [DEEP[1]]);
+    const resolveEntityAncestors = await loadWithTree(spy, {
+      languageId: 'sv-SE',
+      defaultLanguageId: 'sv-SE',
+    });
+
+    await expect(resolveEntityAncestors(2, eventWithTenant)).resolves.toEqual(
+      [],
+    );
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it('yields no crumbs for a top-level category', async () => {

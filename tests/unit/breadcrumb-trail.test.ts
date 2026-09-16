@@ -84,8 +84,8 @@ describe('ancestorsFromCategories', () => {
   });
 
   it('ignores order, because it differs between tenants', () => {
-    // sonoralab returns root-first, tenant-a leaf-first. Reading positionally
-    // would be right on one tenant and wrong on the other.
+    // sonoralab returns root-first, another tenant leaf-first. Reading it
+    // positionally would be right on one tenant and wrong on the other.
     expect(
       ancestorsFromCategories([...CLOSURE].reverse(), 9).map((a) => a.name),
     ).toEqual(['Fästelement', 'Testkategori']);
@@ -151,6 +151,18 @@ describe('ancestorsFromCategories', () => {
       { categoryId: 2, parentCategoryId: 1, name: 'B', canonicalUrl: '/b' },
     ];
     expect(ancestorsFromCategories(cyclic, 1)).toEqual([]);
+  });
+
+  it('refuses a cycle that closes ABOVE the primary category', () => {
+    // The primary is outside the loop, so the id seeded into `seen` is never
+    // revisited: only the ids added DURING the walk can end it. Without that,
+    // this input spins forever rather than returning a partial chain.
+    const cyclic: CategoryNode[] = [
+      { categoryId: 3, parentCategoryId: 2, name: 'C', canonicalUrl: '/c' },
+      { categoryId: 2, parentCategoryId: 1, name: 'B', canonicalUrl: '/b' },
+      { categoryId: 1, parentCategoryId: 2, name: 'A', canonicalUrl: '/a' },
+    ];
+    expect(ancestorsFromCategories(cyclic, 3)).toEqual([]);
   });
 
   it('returns nothing when the primary category is absent or unknown', () => {
