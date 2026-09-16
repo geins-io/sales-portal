@@ -115,7 +115,7 @@ export function useConfiguratorSession() {
       }
       return undefined;
     } finally {
-      if (inFlight === controller) inFlight = null;
+      inFlight = null;
       busy.value = false;
     }
   }

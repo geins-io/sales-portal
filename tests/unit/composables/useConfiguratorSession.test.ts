@@ -166,6 +166,58 @@ describe('useConfiguratorSession', () => {
         message: 'No configurator here',
       });
     });
+
+    // Three shapes of the same rejection, because ofetch does not guarantee one:
+    // the status sits on `statusCode` or on `status`, the text under `data` or
+    // on the error itself, and a request that never reached the server has
+    // neither. The last one is the one that bites — reading `data.message`
+    // without the optional chain throws inside the catch.
+    it.each([
+      [
+        'only a status',
+        Object.assign(new Error('failed'), {
+          status: 502,
+          data: { statusMessage: 'Bad gateway' },
+        }),
+        { status: 502, message: 'Bad gateway' },
+      ],
+      [
+        'no body at all',
+        new Error('Failed to fetch'),
+        { status: 0, message: 'Failed to fetch' },
+      ],
+      [
+        'nothing that is an Error',
+        { status: 500 },
+        { status: 500, message: 'the request failed' },
+      ],
+    ])('reads a rejection with %s', async (_shape, thrown, expected) => {
+      mockFetch.mockRejectedValue(thrown);
+      const session = open();
+
+      await session.start(PRODUCT_ID);
+
+      expect(session.error.value).toEqual(expected);
+      expect(session.status.value).toBe('idle');
+    });
+
+    it('opens no second session while one is active', async () => {
+      mockFetch.mockResolvedValue(makeInitialConfiguration());
+      const session = open();
+      await session.start(PRODUCT_ID);
+      mockFetch.mockReset();
+
+      await session.start(PRODUCT_ID);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('has nothing to count down before it starts', () => {
+      const session = open();
+
+      expect(session.expiresAt.value).toBeNull();
+      expect(session.remainingMs.value).toBe(0);
+    });
   });
 
   describe('applyChanges', () => {
@@ -200,6 +252,18 @@ describe('useConfiguratorSession', () => {
         `/api/configurations/${cascaded.configurationId}/changes`,
       );
       expect(options.method).toBe('POST');
+      expect(options.body).toEqual({
+        changes: [
+          {
+            type: 'option',
+            optionId: 'legs-electric',
+            instanceId: '0',
+            selected: true,
+            quantity: 1,
+            lock: 'none',
+          },
+        ],
+      });
       expect(session.configuration.value).toEqual(cascaded);
     });
 
@@ -261,9 +325,9 @@ describe('useConfiguratorSession', () => {
 
       await session.renew();
 
-      expect(lastRequest().url).toBe(
-        `/api/configurations/${initial.configurationId}/renew`,
-      );
+      const { url, options } = lastRequest();
+      expect(url).toBe(`/api/configurations/${initial.configurationId}/renew`);
+      expect(options.method).toBe('POST');
       expect(session.expiresAt.value).toBe(extended);
       expect(session.remainingMs.value).toBe(900_000);
       expect(session.configuration.value?.sections).toEqual(initial.sections);
@@ -311,6 +375,7 @@ describe('useConfiguratorSession', () => {
 
     it('turns a 410 into the expired state, not an error', async () => {
       const session = await started();
+      const held = session.configuration.value;
       mockFetch.mockRejectedValue(fetchError(410, 'The configuration expired'));
 
       await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
@@ -318,6 +383,8 @@ describe('useConfiguratorSession', () => {
       expect(session.status.value).toBe('expired');
       expect(session.busy.value).toBe(false);
       expect(session.error.value).toBeNull();
+      // The page still renders what the buyer chose, next to the way back.
+      expect(session.configuration.value).toEqual(held);
     });
 
     it('expires on a 410 from renew as well', async () => {
@@ -386,9 +453,9 @@ describe('useConfiguratorSession', () => {
 
       await session.commit();
 
-      expect(lastRequest().url).toBe(
-        `/api/configurations/${initial.configurationId}/commit`,
-      );
+      const { url, options } = lastRequest();
+      expect(url).toBe(`/api/configurations/${initial.configurationId}/commit`);
+      expect(options.method).toBe('POST');
       expect(session.committed.value).toEqual(committed);
       expect(session.status.value).toBe('closed');
     });
@@ -420,6 +487,15 @@ describe('useConfiguratorSession', () => {
 
       expect(mockFetch).not.toHaveBeenCalled();
       expect(session.status.value).toBe('closed');
+    });
+
+    it('stays open when the release fails', async () => {
+      const { session } = await started();
+      mockFetch.mockRejectedValue(fetchError(500, 'Nope'));
+
+      await session.release();
+
+      expect(session.status.value).toBe('active');
     });
 
     it('reports a 410 raised by the commit itself as expired', async () => {
