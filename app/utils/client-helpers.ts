@@ -50,3 +50,15 @@ export function safeHistoryBack(fallbackPath?: string): void {
     navigateTo(fallbackPath);
   }
 }
+
+/**
+ * Whether this is running in the browser.
+ *
+ * A guard written as `import.meta.client` cannot be tested: Vite replaces it at
+ * build time, and the unit tier compiles it to `true`. Behind a function the
+ * same check is mockable, so a rule like "never open a session during SSR" can
+ * be asserted rather than only read.
+ */
+export function isBrowser(): boolean {
+  return import.meta.client;
+}
