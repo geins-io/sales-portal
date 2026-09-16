@@ -3,8 +3,11 @@
  * Product Details Page (PDP)
  *
  * Matches: /{market}/{locale}/p/{...alias}
- * The last segment of the catch-all is the product alias.
- * Earlier segments are the category path (used for breadcrumbs/SEO).
+ * The last segment of the catch-all is the product alias. Earlier segments are
+ * the category path and are deliberately NOT read: the 301 to the canonical is
+ * skipped when the canonical crosses locales, so they can be stale.
+ * Breadcrumbs come from the product's own canonicalUrl instead, resolved in
+ * /api/products/[alias].
  *
  * No resolve-route API call needed — the /p/ prefix tells us it's a product.
  */

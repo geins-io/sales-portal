@@ -20,6 +20,7 @@ import {
   canonicalListRedirectTarget,
   productPath,
 } from '#shared/utils/route-helpers';
+import { ancestorCrumbs } from '#shared/utils/breadcrumb-trail';
 import { recoverEntityUrl } from '~/composables/useEntityUrlRecovery';
 
 const props = defineProps<{
@@ -234,10 +235,18 @@ const showingFrom = computed(() => {
 });
 const showingTo = computed(() => Math.min(skip.value + take, totalCount.value));
 
+// The ancestor chain is resolved server-side from the page's own canonicalUrl
+// and arrives with pageInfo, so there is no request here. It is empty for a
+// top-level category, for brands, and whenever the chain could not be resolved
+// in full — a trail with a gap would be indistinguishable from the truncated
+// one this replaced.
 const breadcrumbs = computed<BreadcrumbItem[]>(() => {
   const items: BreadcrumbItem[] = [
     { label: t('common.home'), href: localePath('/') },
   ];
+  if (!isBrand.value) {
+    items.push(...ancestorCrumbs(pageInfo.value?.ancestors, localePath));
+  }
   if (pageInfo.value?.name) {
     items.push({ label: pageInfo.value.name, current: true });
   }

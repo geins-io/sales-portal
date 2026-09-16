@@ -19,6 +19,7 @@ import {
   productPath as buildProductPath,
   categoryPath,
 } from '#shared/utils/route-helpers';
+import { ancestorCrumbs } from '#shared/utils/breadcrumb-trail';
 import { recoverEntityUrl } from '~/composables/useEntityUrlRecovery';
 
 const props = defineProps<{
@@ -423,18 +424,29 @@ const visibleCampaigns = computed(() =>
 // Breadcrumbs
 const { t } = useI18n();
 
+// The trail follows the PRIMARY category's path, always — not the category the
+// visitor navigated in from. A product has one place it lives, so the trail,
+// the canonical URL and the structured data agree; a visitor arriving from a
+// secondary category sees a trail that does not mention it, deliberately.
+//
+// Ancestors are walked server-side out of the category closure the product
+// response already carries, so there is no request here. The category's own
+// href comes from its canonicalUrl: rebuilding it from the bare alias produced
+// `/c/<alias>`, which answers 301 on every nested category.
 const breadcrumbItems = computed(() => {
   const items: { label: string; href?: string }[] = [
     { label: t('common.home'), href: localePath('/') },
   ];
 
-  // Extract category from the product's primaryCategory if available
+  items.push(...ancestorCrumbs(product.value?.ancestors, localePath));
+
   const category = product.value?.primaryCategory;
   if (category?.name) {
-    const catAlias = category.alias || category.name.toLowerCase();
     items.push({
       label: category.name,
-      href: localePath(categoryPath(`/${catAlias}`)),
+      href: localePath(
+        categoryPath(category.canonicalUrl || `/${category.alias ?? ''}`),
+      ),
     });
   }
 

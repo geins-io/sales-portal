@@ -215,15 +215,21 @@ vi.stubGlobal(
   'defineProduct',
   vi.fn(() => ({})),
 );
-vi.stubGlobal(
-  'defineBreadcrumb',
-  vi.fn(() => ({})),
-);
+// One shared spy so a breadcrumb assertion reads the same call whichever
+// resolution path the component takes for this auto-import.
+const { defineBreadcrumbMock } = vi.hoisted(() => ({
+  defineBreadcrumbMock: vi.fn(
+    (_input: {
+      itemListElement: () => Array<{ name: string; item?: string }>;
+    }) => ({}),
+  ),
+}));
+vi.stubGlobal('defineBreadcrumb', defineBreadcrumbMock);
 
 // Mock @unhead/schema-org/vue helpers (auto-imported by Nuxt)
 vi.mock('@unhead/schema-org/vue', () => ({
   defineProduct: vi.fn(() => ({})),
-  defineBreadcrumb: vi.fn(() => ({})),
+  defineBreadcrumb: defineBreadcrumbMock,
 }));
 
 // Mock nuxt-schema-org runtime composable (auto-imported by Nuxt unimport).
@@ -621,6 +627,140 @@ describe('ProductDetails', () => {
       } finally {
         restore();
       }
+    });
+  });
+
+  describe('breadcrumbs', () => {
+    const crumbs = async (product: Record<string, unknown>) => {
+      mockProduct.value = makeProduct(product);
+      const wrapper = await mountProductDetails(
+        { alias: 'test-product' },
+        { global: { stubs: defaultStubs } },
+      );
+      return wrapper
+        .findComponent({ name: 'AppBreadcrumbs' })
+        .props('items') as Array<{ label: string; href?: string }>;
+    };
+
+    it('renders the full trail: Home, ancestors, primary category, product', async () => {
+      const items = await crumbs({
+        name: 'Insexskruv',
+        canonicalUrl: '/se/sv/p/fastelement/testkategori/insexskruv',
+        ancestors: [
+          { name: 'Fästelement', canonicalUrl: '/se/sv/c/fastelement' },
+        ],
+        primaryCategory: {
+          name: 'Testkategori',
+          alias: 'testkategori',
+          canonicalUrl: '/se/sv/c/fastelement/testkategori',
+        },
+      });
+
+      expect(items.map((i) => i.label)).toEqual([
+        'common.home',
+        'Fästelement',
+        'Testkategori',
+        'Insexskruv',
+      ]);
+    });
+
+    it('links the category crumb to its canonical, not the 301-ing short alias', async () => {
+      // `/se/sv/c/testkategori` — what categoryPath('/' + alias) produced —
+      // answers 301 to the nested canonical on every nested category.
+      const items = await crumbs({
+        ancestors: [
+          { name: 'Fästelement', canonicalUrl: '/se/sv/c/fastelement' },
+        ],
+        primaryCategory: {
+          name: 'Testkategori',
+          alias: 'testkategori',
+          canonicalUrl: '/se/sv/c/fastelement/testkategori',
+        },
+      });
+
+      expect(items.find((i) => i.label === 'Testkategori')?.href).toBe(
+        '/se/sv/c/fastelement/testkategori',
+      );
+      expect(items.find((i) => i.label === 'Fästelement')?.href).toBe(
+        '/se/sv/c/fastelement',
+      );
+    });
+
+    it('normalizes the prefix-less canonical shape other tenants return', async () => {
+      const items = await crumbs({
+        ancestors: [
+          {
+            name: 'Säkerhet och övrigt',
+            canonicalUrl: '/se/sv/sakerhet-och-ovrigt',
+          },
+        ],
+        primaryCategory: {
+          name: 'Skyddsutrustning',
+          alias: 'skyddsutrustning',
+          canonicalUrl: '/se/sv/sakerhet-och-ovrigt/skyddsutrustning',
+        },
+      });
+
+      expect(items.map((i) => i.href)).toEqual([
+        '/se/sv/',
+        '/se/sv/c/sakerhet-och-ovrigt',
+        '/se/sv/c/sakerhet-och-ovrigt/skyddsutrustning',
+        undefined,
+      ]);
+    });
+
+    it('falls back to the short trail when no ancestors were resolved', async () => {
+      // An unresolvable chain arrives as [], never partially, so the page
+      // renders what it can prove rather than a trail with a gap.
+      const items = await crumbs({
+        name: 'Insexskruv',
+        ancestors: [],
+        primaryCategory: {
+          name: 'Testkategori',
+          alias: 'testkategori',
+          canonicalUrl: '/se/sv/c/fastelement/testkategori',
+        },
+      });
+
+      expect(items.map((i) => i.label)).toEqual([
+        'common.home',
+        'Testkategori',
+        'Insexskruv',
+      ]);
+    });
+
+    it('feeds the same items to the JSON-LD BreadcrumbList', async () => {
+      // The structured data maps over this array, so a truncated trail would
+      // reach crawlers too. Asserting the items is asserting both.
+      const items = await crumbs({
+        name: 'Insexskruv',
+        ancestors: [
+          { name: 'Fästelement', canonicalUrl: '/se/sv/c/fastelement' },
+        ],
+        primaryCategory: {
+          name: 'Testkategori',
+          alias: 'testkategori',
+          canonicalUrl: '/se/sv/c/fastelement/testkategori',
+        },
+      });
+
+      const lastCall = defineBreadcrumbMock.mock.calls.at(-1);
+      assert(lastCall, 'defineBreadcrumb was never called');
+      const breadcrumbArg = lastCall[0].itemListElement();
+
+      expect(breadcrumbArg.map((e) => e.name)).toEqual([
+        'common.home',
+        'Fästelement',
+        'Testkategori',
+        'Insexskruv',
+      ]);
+      // ...and stays in step with what the page renders.
+      expect(breadcrumbArg.map((e) => e.name)).toEqual(
+        items.map((i) => i.label),
+      );
+      expect(breadcrumbArg.map((e) => e.item)).toEqual(
+        items.map((i) => i.href),
+      );
     });
   });
 
