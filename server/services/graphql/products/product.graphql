@@ -33,8 +33,18 @@ query product(
       fileName
     }
     primaryCategory {
+      categoryId
       name
       alias
+      canonicalUrl
+    }
+    # The breadcrumb ancestors. This is the closure of every assigned category
+    # plus their ancestors, in no stable order, so it is walked by
+    # parentCategoryId from primaryCategory — never read positionally.
+    categories {
+      categoryId
+      parentCategoryId
+      name
       canonicalUrl
     }
     unitPrice {

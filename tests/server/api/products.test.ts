@@ -134,7 +134,7 @@ describe('Product API Routes', () => {
 
       const result = await handler(fakeEvent);
 
-      expect(result).toEqual({ id: 1, name: 'My Product' });
+      expect(result).toEqual({ id: 1, name: 'My Product', ancestors: [] });
     });
 
     it('throws NOT_FOUND when SDK returns null in default locale', async () => {
@@ -174,7 +174,11 @@ describe('Product API Routes', () => {
       try {
         const result = await handler(fakeEvent);
 
-        expect(result).toEqual({ alias: 'wood-screw-se', name: 'Trä SE' });
+        expect(result).toEqual({
+          alias: 'wood-screw-se',
+          name: 'Trä SE',
+          ancestors: [],
+        });
         expect(mockGraphqlQuery).toHaveBeenCalledTimes(2);
         expect(mockGraphqlQuery.mock.calls[0]?.[0].variables.languageId).toBe(
           'en-US',
