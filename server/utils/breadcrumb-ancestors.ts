@@ -14,8 +14,8 @@ import { createTenantLogger } from './logger';
  * The language fallback lives here, not in the fetcher. Per-language
  * publication is per category — sonoralab's de-DE tree holds 7 of 12 — so a
  * partial tree looks healthy to the fetcher, and the sitemap shares that
- * fetcher: falling back there made tenant-a advertise 80 Swedish-alias URLs
- * under its fi and nb prefixes.
+ * fetcher: falling back there made one merchant's sitemap advertise 80
+ * Swedish-alias URLs under its fi and nb prefixes.
  *
  * Never throws. A breadcrumb must not turn a rendering page into an error.
  */

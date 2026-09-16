@@ -37,8 +37,8 @@ export interface CategoryNode {
  * The trail follows the PRIMARY category's path, never the one the visitor
  * navigated in from. Indexed by id and walked up `parentCategoryId`, never read
  * positionally: the source array is the closure of every assigned category plus
- * their ancestors, and its order differs between tenants (sonoralab root-first,
- * tenant-a leaf-first).
+ * their ancestors, and its order differs between merchants: root-first on one,
+ * leaf-first on another.
  *
  * Returns an EMPTY chain the moment the walk cannot continue — a missing
  * parent, a non-number parent, an entry without name or canonicalUrl, a cycle.

@@ -79,9 +79,9 @@ const fetchCategoryTree = defineCachedFunction(
     ).then(unwrapGraphQL);
 
     // No language fallback here: the sitemap shares this fetcher, and retrying
-    // into the default language made tenant-a advertise 80 Swedish-alias URLs
-    // under its fi and nb prefixes. The breadcrumb falls back in
-    // `resolveEntityAncestors` instead.
+    // into the default language made one merchant's sitemap advertise 80
+    // Swedish-alias URLs under its fi and nb prefixes. The breadcrumb falls
+    // back in `resolveEntityAncestors` instead.
     //
     // Thrown, not returned: Nitro caches a returned value, so one empty
     // response would erase every breadcrumb on the tenant for the whole
