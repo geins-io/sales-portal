@@ -139,6 +139,25 @@ async function fetchProductCandidates(
     .sort((a, b) => a.alias.localeCompare(b.alias));
 }
 
+/**
+ * Whether `/p/<alias>` renders the configurator instead of the ordinary PDP.
+ *
+ * Asked per candidate because the list payload does not carry `configurable`:
+ * it is derived in `/api/products/<alias>`. The first candidate alphabetically
+ * is a configurable product on the team tenant, and the configurator page has
+ * no gallery, no product heading and no tabs — so a spec about the ordinary
+ * PDP that takes the first row finds none of them.
+ *
+ * Not cached: the answer depends on the caller's session, since the feature
+ * carries an access rule, and a cache would hand the anonymous run what the
+ * signed-in one resolved.
+ */
+async function isConfigurable(page: Page, alias: string): Promise<boolean> {
+  const response = await page.request.get(`/api/products/${alias}`);
+  if (!response.ok()) return false;
+  return (await response.json())?.configurable === true;
+}
+
 /** A product with a valid SKU. Use `discoverPurchasableProduct` to buy. */
 export async function discoverProduct(page: Page): Promise<DiscoveredProduct> {
   const candidates = await fetchProductCandidates(page);
@@ -146,7 +165,16 @@ export async function discoverProduct(page: Page): Promise<DiscoveredProduct> {
     candidates.length,
     'no product with a SKU and alias found',
   ).toBeGreaterThan(0);
-  return candidates[0]!;
+
+  for (const candidate of candidates) {
+    if (!(await isConfigurable(page, candidate.alias))) return candidate;
+  }
+
+  throw new Error(
+    `Every candidate is a configurable product (tried: ${candidates
+      .map((c) => c.alias)
+      .join(', ')}), so no ordinary product page can be reached.`,
+  );
 }
 
 // ---------- Prices ----------
@@ -347,7 +375,11 @@ export async function discoverPurchasableProduct(
 
   const tried: string[] = [];
 
-  for (const candidate of candidates.slice(0, maxAttempts)) {
+  for (const candidate of candidates) {
+    if (tried.length >= maxAttempts) break;
+    // A configurable product has no add-to-cart button, so trying one spends
+    // an attempt to learn what one request already answers.
+    if (await isConfigurable(page, candidate.alias)) continue;
     tried.push(candidate.alias);
 
     await page.goto(`/p/${candidate.alias}`);
