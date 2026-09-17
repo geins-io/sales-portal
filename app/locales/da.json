@@ -308,6 +308,21 @@
     "on_demand": "Efter bestilling",
     "no_image": "Intet billede tilgængeligt"
   },
+  "configurator": {
+    "required": "Påkrævet",
+    "read_only": "Angives af konfigurationen",
+    "unavailable": "Ikke tilgængeligt med dine nuværende valg",
+    "bounds": "{min}–{max} {unit}",
+    "choose_one": "Vælg ét",
+    "choose_many": "Vælg ingen eller flere",
+    "quantity": "Antal",
+    "yes": "Ja",
+    "no": "Nej",
+    "severity": {
+      "error": "Fejl",
+      "warning": "Advarsel"
+    }
+  },
   "account": {
     "my_account": "Min konto",
     "profile": "Profil",

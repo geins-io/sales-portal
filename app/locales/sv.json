@@ -308,6 +308,21 @@
     "on_demand": "På begäran",
     "no_image": "Ingen bild tillgänglig"
   },
+  "configurator": {
+    "required": "Obligatoriskt",
+    "read_only": "Sätts av konfigurationen",
+    "unavailable": "Inte tillgängligt med dina nuvarande val",
+    "bounds": "{min}–{max} {unit}",
+    "choose_one": "Välj ett",
+    "choose_many": "Välj noll eller flera",
+    "quantity": "Antal",
+    "yes": "Ja",
+    "no": "Nej",
+    "severity": {
+      "error": "Fel",
+      "warning": "Varning"
+    }
+  },
   "account": {
     "my_account": "Mitt konto",
     "profile": "Profil",

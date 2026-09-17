@@ -308,6 +308,21 @@
     "on_demand": "Tilauksesta",
     "no_image": "Ei kuvaa saatavilla"
   },
+  "configurator": {
+    "required": "Pakollinen",
+    "read_only": "Määräytyy kokoonpanon mukaan",
+    "unavailable": "Ei käytettävissä nykyisillä valinnoilla",
+    "bounds": "{min}–{max} {unit}",
+    "choose_one": "Valitse yksi",
+    "choose_many": "Valitse ei yhtään tai useampi",
+    "quantity": "Määrä",
+    "yes": "Kyllä",
+    "no": "Ei",
+    "severity": {
+      "error": "Virhe",
+      "warning": "Varoitus"
+    }
+  },
   "account": {
     "my_account": "Oma tili",
     "profile": "Profiili",

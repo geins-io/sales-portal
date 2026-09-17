@@ -308,6 +308,21 @@
     "on_demand": "On demand",
     "no_image": "No image available"
   },
+  "configurator": {
+    "required": "Required",
+    "read_only": "Set by the configuration",
+    "unavailable": "Not available with your current choices",
+    "bounds": "{min}–{max} {unit}",
+    "choose_one": "Choose one",
+    "choose_many": "Choose none or more",
+    "quantity": "Quantity",
+    "yes": "Yes",
+    "no": "No",
+    "severity": {
+      "error": "Error",
+      "warning": "Warning"
+    }
+  },
   "account": {
     "my_account": "My Account",
     "profile": "Profile",

@@ -308,6 +308,21 @@
     "on_demand": "Auf Anfrage",
     "no_image": "Kein Bild verfügbar"
   },
+  "configurator": {
+    "required": "Pflichtfeld",
+    "read_only": "Wird von der Konfiguration festgelegt",
+    "unavailable": "Mit Ihrer aktuellen Auswahl nicht verfügbar",
+    "bounds": "{min}–{max} {unit}",
+    "choose_one": "Eine Option wählen",
+    "choose_many": "Keine oder mehrere wählen",
+    "quantity": "Menge",
+    "yes": "Ja",
+    "no": "Nein",
+    "severity": {
+      "error": "Fehler",
+      "warning": "Warnung"
+    }
+  },
   "account": {
     "my_account": "Mein Konto",
     "profile": "Profil",
