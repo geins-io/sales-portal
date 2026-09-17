@@ -87,14 +87,31 @@ describe('ConfiguratorSection', () => {
     ).toBe('(1200 mm · 700 mm · 0 pcs · 0 %)');
   });
 
-  it('heads the section with the same bar its groups carry', () => {
+  it('heads the section as a heading, not as one more grey bar', () => {
     const cabinet = makeCabinetConfiguration();
 
     const wrapper = mountSection(sectionOf(cabinet.sections, 'cabinet'));
 
+    // The grey bars belong to the groups and the measurements inside the
+    // section; a section that carried one too would read as another block
+    // beside them rather than as what holds them.
     const header = wrapper.find('[data-testid="configurator-section-header"]');
     expect(header.text()).toBe('Cabinet');
-    expect(header.classes()).toContain('bg-muted');
+    expect(header.classes()).not.toContain('bg-muted');
+    expect(header.find('h3').classes()).toContain('font-heading');
+  });
+
+  it('writes no description line, because the contract carries none', () => {
+    const cabinet = makeCabinetConfiguration();
+
+    const wrapper = mountSection(sectionOf(cabinet.sections, 'cabinet'));
+
+    // Not an empty element and no reserved space: with the prototype's data
+    // the line would be there, with ours it is absent.
+    expect(
+      wrapper.find('[data-testid="configurator-section-header"]').element
+        .children,
+    ).toHaveLength(1);
   });
 
   it('renders a nested section inside its parent, one heading level down', () => {

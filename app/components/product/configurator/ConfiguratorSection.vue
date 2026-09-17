@@ -42,16 +42,19 @@ const summary = computed(
     :data-section-id="section.id"
     class="space-y-4"
   >
-    <!-- The same grey bar the groups inside it carry, so the form reads as one
-         stack of headed blocks rather than two kinds of heading. -->
-    <div
-      class="bg-muted rounded-md px-3 py-2.5"
-      data-testid="configurator-section-header"
-    >
-      <component :is="heading" class="text-base font-medium">
+    <!-- A section is a heading, not a bar: the grey bars below it are the
+         groups and the measurements, and a section that carried one too would
+         read as another block beside them rather than what holds them.
+         The contract has no section description, so no line is written for
+         one. -->
+    <header class="mb-6" data-testid="configurator-section-header">
+      <component
+        :is="heading"
+        class="font-heading text-xl leading-tight font-bold"
+      >
         {{ section.name }}
       </component>
-    </div>
+    </header>
 
     <ConfiguratorMessages :messages="section.messages" />
 
