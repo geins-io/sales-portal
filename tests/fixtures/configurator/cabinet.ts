@@ -1,7 +1,7 @@
 import type { Configuration } from '#shared/types/configurator';
 import {
   createSeedDocument,
-  SKAPSEKTION_PRO_ID,
+  SKAPSEKTION_PRO_GEINS_ID,
 } from '../../../server/services/configurator-fixture/seed';
 
 // ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ export function makeCabinetConfiguration(
   overrides: Partial<Configuration> = {},
 ): Configuration {
   return {
-    ...createSeedDocument(SKAPSEKTION_PRO_ID, {
+    ...createSeedDocument(SKAPSEKTION_PRO_GEINS_ID, {
       configurationId: CONFIGURATION_ID,
       expiresAt: CABINET_EXPIRES_AT,
     }),
