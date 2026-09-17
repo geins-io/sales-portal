@@ -152,7 +152,10 @@ async function fetchProductCandidates(
  * carries an access rule, and a cache would hand the anonymous run what the
  * signed-in one resolved.
  */
-async function isConfigurable(page: Page, alias: string): Promise<boolean> {
+export async function isConfigurable(
+  page: Page,
+  alias: string,
+): Promise<boolean> {
   const response = await page.request.get(`/api/products/${alias}`);
   if (!response.ok()) return false;
   return (await response.json())?.configurable === true;

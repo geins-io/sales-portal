@@ -5,11 +5,13 @@ import {
   discoverPurchasableProduct,
   fetchProductListRows,
   fetchProductPrice,
+  isConfigurable,
   readPrice,
   waitForHydration,
   hasE2ECredentials,
   outOfScope,
   STORAGE_STATE,
+  type ProductListRow,
 } from './helpers';
 import { BASE_URL } from './target';
 
@@ -303,9 +305,19 @@ test.describe('Product Browsing', () => {
         .locator('[data-testid="article-number"]')
         .allInnerTexts();
 
-      const row = rows.find((r) =>
-        shown.some((text) => text.includes(r.articleNumber)),
-      );
+      // Skipping the configurable products as well: their page is the
+      // configurator, which carries no `pdp-price` at all — the price lives in
+      // the configuration. Which row matches first depends on the grid's
+      // ordering, so without this the test passes or fails on the draw.
+      let row: ProductListRow | undefined;
+      for (const candidate of rows) {
+        if (!shown.some((text) => text.includes(candidate.articleNumber))) {
+          continue;
+        }
+        if (await isConfigurable(page, candidate.alias)) continue;
+        row = candidate;
+        break;
+      }
       expect(row, 'no catalogue row matched any card on the grid').toBeTruthy();
 
       const card = cards
