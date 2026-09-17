@@ -409,80 +409,19 @@ const breadcrumbItems = computed(() => {
 });
 
 // SEO
-const plainDescription = computed(
-  () =>
-    product.value?.texts?.text1?.replace(/<[^>]*>/g, '').slice(0, 160) ?? '',
-);
-
-const primaryImageUrl = computed(
-  () =>
-    product.value?.productImages?.find((i) => i.isPrimary)?.url ??
-    product.value?.productImages?.[0]?.url ??
-    '',
-);
-
 const productPath = computed(() => `/p/${slug.value}`);
 // localeAlternates holds the real per-locale slugs published by setAlternates
 // above (populated with immediate:true so the watch fires before this line).
 // It is useState-backed (SSR-safe, no window) and reactive so hreflang stays
 // correct after client-side navigation without any hydration mismatch.
-const { seoLinks } = useSeoLinks(productPath, localeAlternates);
-
-useHead({
-  title: () => product.value?.name ?? '',
+useProductSeo({
+  product: () => product.value,
+  path: () => productPath.value,
+  breadcrumbs: () => breadcrumbItems.value,
+  localeAlternates,
+  sku: () => resolvedSku.value?.skuId?.toString() ?? '',
+  withOffers: true,
 });
-
-useSeoMeta({
-  description: () => plainDescription.value,
-  ogTitle: () => product.value?.name ?? '',
-  ogDescription: () => plainDescription.value,
-  ogImage: () => primaryImageUrl.value || undefined,
-  ogUrl: () => seoLinks.value.find((l) => l.rel === 'canonical')?.href ?? '',
-});
-
-// JSON-LD structured data (Schema.org Product + BreadcrumbList)
-useSchemaOrg([
-  defineProduct({
-    name: () => product.value?.name ?? '',
-    description: () => plainDescription.value,
-    image: () =>
-      product.value?.productImages?.map((img) => img.url).filter(Boolean) ?? [],
-    brand: () =>
-      product.value?.brand?.name
-        ? { '@type': 'Brand', name: product.value.brand.name }
-        : undefined,
-    sku: () => resolvedSku.value?.skuId?.toString() ?? '',
-    offers: () =>
-      product.value?.unitPrice
-        ? {
-            '@type': 'Offer' as const,
-            price: product.value.unitPrice.sellingPriceIncVat ?? 0,
-            priceCurrency: product.value.unitPrice.currency?.code ?? 'SEK',
-            availability: product.value.totalStock?.inStock
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
-            itemCondition: 'https://schema.org/NewCondition',
-          }
-        : undefined,
-    aggregateRating: () =>
-      product.value?.rating?.reviewCount
-        ? {
-            '@type': 'AggregateRating' as const,
-            ratingValue: product.value.rating.averageRating ?? 0,
-            reviewCount: product.value.rating.reviewCount,
-          }
-        : undefined,
-  }),
-  defineBreadcrumb({
-    itemListElement: () =>
-      breadcrumbItems.value.map((bc, i) => ({
-        '@type': 'ListItem' as const,
-        position: i + 1,
-        name: bc.label,
-        item: bc.href,
-      })),
-  }),
-]);
 </script>
 
 <template>
@@ -495,54 +434,8 @@ useSchemaOrg([
       <!-- Breadcrumbs -->
       <AppBreadcrumbs v-if="breadcrumbItems.length" :items="breadcrumbItems" />
 
-      <!-- PDP top area: 3-column layout per Figma
-         lg+: gallery (max 400) | main info | right card
-         md:  gallery + info on first row, right card below
-         mobile: stacked single column -->
-      <div
-        class="bg-card grid gap-6 rounded-lg border p-4 md:p-6 lg:grid-cols-[400px_1fr_265px] lg:gap-10"
-        data-testid="pdp-top-area"
-      >
-        <!-- Left: Gallery -->
-        <ErrorBoundary section="product-gallery">
-          <ProductGallery
-            v-if="product.productImages?.length"
-            :images="product.productImages"
-            :product-name="product.name ?? ''"
-            class="w-full max-w-[400px]"
-          />
-        </ErrorBoundary>
-
-        <!-- Middle: Product info -->
-        <div class="flex flex-col gap-6">
-          <!-- Product name + meta -->
-          <div class="flex flex-col gap-1">
-            <h1
-              class="font-heading my-[15px] text-3xl leading-tight font-bold"
-              data-testid="product-name"
-            >
-              {{ product.name }}
-            </h1>
-
-            <!-- Article number -->
-            <p
-              v-if="product.articleNumber"
-              class="text-muted-foreground text-[20px]"
-              data-testid="product-article-number"
-            >
-              Art nr. {{ product.articleNumber }}
-            </p>
-
-            <!-- Brand -->
-            <p
-              v-if="product.brand?.name"
-              class="text-muted-foreground"
-              data-testid="product-brand"
-            >
-              {{ product.brand.name }}
-            </p>
-          </div>
-
+      <ProductTopArea :product="product">
+        <template #info>
           <!-- Price: sits above the long-form description so the dominant
              commerce signal anchors the column. -->
           <PriceDisplay
@@ -615,10 +508,9 @@ useSchemaOrg([
             :product-article-number="product.articleNumber ?? null"
             :variant-products="variantProductsByAlias"
           />
-        </div>
+        </template>
 
-        <!-- Right: actions + info card -->
-        <aside class="flex flex-col gap-4">
+        <template #aside>
           <!-- Quantity + Add to cart + Wishlist -->
           <template v-if="canPurchase">
             <OutOfStockBlock v-if="isOutOfStock" />
@@ -718,8 +610,8 @@ useSchemaOrg([
               </span>
             </NuxtLink>
           </div>
-        </aside>
-      </div>
+        </template>
+      </ProductTopArea>
 
       <!-- Product tabs (full width) -->
       <ErrorBoundary section="product-tabs">

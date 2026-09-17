@@ -7,91 +7,36 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '~/components/ui/accordion';
-import { adminText } from '~/utils/product-texts';
+import {
+  defaultProductTab,
+  productDescriptionTexts,
+  visibleParameterGroups,
+} from '~/utils/product-tabs';
 
 const props = defineProps<{
   product: DetailProduct;
   related?: ListProduct[] | null;
 }>();
 
-// True when the HTML carries visible copy, not just empty editor markup
-// (e.g. `<p><br></p>`), so a blank field never shows an empty block.
-function hasRenderableHtml(html: string | undefined): html is string {
-  return !!html && html.replace(/<[^>]*>/g, '').trim().length > 0;
-}
-
-// The details tab shows the merchant's admin "Text 2" copy first, then
-// "Text 3", each capped at max-w-3xl. `adminText` maps the PIM box numbers
-// onto the offset Merchant API fields (see ~/utils/product-texts).
-const detailsText2 = computed(() => {
-  const html = adminText(props.product.texts, 2);
-  return hasRenderableHtml(html) ? html : undefined;
-});
-const detailsText3 = computed(() => {
-  const html = adminText(props.product.texts, 3);
-  return hasRenderableHtml(html) ? html : undefined;
-});
+const descriptionTexts = computed(() => productDescriptionTexts(props.product));
 const hasDescription = computed(
-  () => !!(detailsText2.value || detailsText3.value),
+  () => !!(descriptionTexts.value.text2 || descriptionTexts.value.text3),
 );
-const HIDDEN_PARAMETER_GROUPS = /^monitor$/i;
 const visibleGroups = computed(() =>
-  (props.product.parameterGroups ?? [])
-    .filter((g) => !HIDDEN_PARAMETER_GROUPS.test(g.name ?? ''))
-    .map((g) => ({
-      ...g,
-      parameters: (g.parameters ?? []).filter(
-        (p) => (p.name || p.label) && p.value != null,
-      ),
-    }))
-    .filter((g) => g.parameters.length > 0),
+  visibleParameterGroups(props.product.parameterGroups),
 );
 const hasSpecs = computed(() => visibleGroups.value.length > 0);
 const hasRelated = computed(() => (props.related?.length ?? 0) > 0);
 
-const defaultTab = computed(() => {
-  if (hasDescription.value) return 'description';
-  if (hasSpecs.value) return 'specifications';
-  if (hasRelated.value) return 'related';
-  return 'documents';
-});
+const defaultTab = computed(() =>
+  defaultProductTab({
+    hasDescription: hasDescription.value,
+    hasSpecs: hasSpecs.value,
+    hasRelated: hasRelated.value,
+  }),
+);
 
-// Print expansion: radix Tabs sets the `hidden` HTML attribute on
-// inactive panels. The `[hidden]` reset lives in Tailwind's @layer base
-// with !important, and unlayered overrides cannot beat that because
-// CSS cascade-layers reverses layer order for !important. The simplest
-// reliable answer is to drop the attribute on `beforeprint` for the
-// panels we want printed, and put it back on `afterprint`.
-onMounted(() => {
-  if (typeof window === 'undefined') return;
-  const PRINT_VISIBLE = ['description', 'specifications'];
-  const restoredHidden: HTMLElement[] = [];
-  const onBeforePrint = () => {
-    document
-      .querySelectorAll<HTMLElement>(
-        '[data-testid="product-tabs"] [data-print]',
-      )
-      .forEach((el) => {
-        const key = el.getAttribute('data-print');
-        if (key && PRINT_VISIBLE.includes(key) && el.hasAttribute('hidden')) {
-          el.removeAttribute('hidden');
-          restoredHidden.push(el);
-        }
-      });
-  };
-  const onAfterPrint = () => {
-    while (restoredHidden.length) {
-      const el = restoredHidden.pop()!;
-      el.setAttribute('hidden', '');
-    }
-  };
-  window.addEventListener('beforeprint', onBeforePrint);
-  window.addEventListener('afterprint', onAfterPrint);
-  onBeforeUnmount(() => {
-    window.removeEventListener('beforeprint', onBeforePrint);
-    window.removeEventListener('afterprint', onAfterPrint);
-  });
-});
+useProductTabPrint();
 </script>
 
 <template>
@@ -120,23 +65,10 @@ onMounted(() => {
         force-mount
         class="bg-card mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
       >
-        <h3 class="font-heading mb-4 text-2xl font-bold">
-          {{ $t('product.details') }}
-        </h3>
-        <!-- eslint-disable vue/no-v-html -->
-        <div class="max-w-3xl space-y-6">
-          <div
-            v-if="detailsText2"
-            class="prose max-w-none"
-            v-html="detailsText2"
-          />
-          <div
-            v-if="detailsText3"
-            class="prose max-w-none"
-            v-html="detailsText3"
-          />
-        </div>
-        <!-- eslint-enable vue/no-v-html -->
+        <ProductDescriptionPanel
+          :text2="descriptionTexts.text2"
+          :text3="descriptionTexts.text3"
+        />
       </TabsContent>
 
       <TabsContent
@@ -146,43 +78,7 @@ onMounted(() => {
         force-mount
         class="bg-card mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
       >
-        <h3 class="font-heading mb-6 text-2xl font-bold">
-          {{ $t('product.specifications') }}
-        </h3>
-        <div class="grid gap-8 md:grid-cols-2">
-          <div
-            v-for="group in visibleGroups"
-            :key="group.name ?? group.parameterGroupId"
-            class="flex flex-col gap-3"
-          >
-            <h4
-              data-testid="spec-group-title"
-              class="font-heading text-xl font-semibold"
-            >
-              {{ group.name }}
-            </h4>
-            <p
-              v-if="group.parameters?.[0]?.description"
-              class="text-muted-foreground text-sm"
-            >
-              {{ group.parameters[0].description }}
-            </p>
-            <table class="w-full text-sm" data-testid="spec-table">
-              <tbody>
-                <tr
-                  v-for="(param, idx) in group.parameters"
-                  :key="param.identifier ?? param.name ?? idx"
-                  class="border-border odd:bg-muted/40 border-b"
-                >
-                  <td class="text-muted-foreground px-3 py-3 pr-4">
-                    {{ param.name ?? param.label ?? '' }}
-                  </td>
-                  <td class="px-3 py-3 text-right">{{ param.value }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ProductSpecificationsPanel :groups="visibleGroups" />
       </TabsContent>
 
       <TabsContent
@@ -190,12 +86,7 @@ onMounted(() => {
         data-print="documents"
         class="bg-card mt-6 rounded-lg border p-6"
       >
-        <h3 class="font-heading mb-4 text-2xl font-bold">
-          {{ $t('product.documents') }}
-        </h3>
-        <p class="text-muted-foreground text-sm">
-          {{ $t('product.no_documents') }}
-        </p>
+        <ProductDocumentsPanel />
       </TabsContent>
 
       <TabsContent
@@ -204,10 +95,7 @@ onMounted(() => {
         data-print="related"
         class="bg-card mt-6 rounded-lg border p-6"
       >
-        <h3 class="font-heading mb-4 text-2xl font-bold">
-          {{ $t('product.related') }}
-        </h3>
-        <RelatedProducts :products="related ?? []" :hide-heading="true" />
+        <ProductRelatedPanel :products="related ?? []" />
       </TabsContent>
     </Tabs>
 
@@ -221,14 +109,14 @@ onMounted(() => {
           <!-- eslint-disable vue/no-v-html -->
           <div class="max-w-3xl space-y-6">
             <div
-              v-if="detailsText2"
+              v-if="descriptionTexts.text2"
               class="prose max-w-none"
-              v-html="detailsText2"
+              v-html="descriptionTexts.text2"
             />
             <div
-              v-if="detailsText3"
+              v-if="descriptionTexts.text3"
               class="prose max-w-none"
-              v-html="detailsText3"
+              v-html="descriptionTexts.text3"
             />
           </div>
           <!-- eslint-enable vue/no-v-html -->
