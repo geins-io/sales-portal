@@ -321,6 +321,16 @@
     "severity": {
       "error": "Fehler",
       "warning": "Warnung"
+    },
+    "header": {
+      "valid": "Die Konfiguration ist vollständig.",
+      "invalid": "Das fehlt noch, bevor Sie fortfahren können:",
+      "recomputing": "Wird neu berechnet…",
+      "time_left": "{time} verbleibend",
+      "renew": "Sitzung verlängern",
+      "renew_failed": "Die Sitzung konnte nicht verlängert werden.",
+      "expired": "Die Konfigurationssitzung ist abgelaufen.",
+      "start_over": "Neu beginnen"
     }
   },
   "account": {

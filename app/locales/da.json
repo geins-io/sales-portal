@@ -321,6 +321,16 @@
     "severity": {
       "error": "Fejl",
       "warning": "Advarsel"
+    },
+    "header": {
+      "valid": "Konfigurationen er komplet.",
+      "invalid": "Dette mangler, før du kan fortsætte:",
+      "recomputing": "Beregner igen…",
+      "time_left": "{time} tilbage",
+      "renew": "Forlæng session",
+      "renew_failed": "Sessionen kunne ikke forlænges.",
+      "expired": "Konfigurationssessionen er udløbet.",
+      "start_over": "Start forfra"
     }
   },
   "account": {

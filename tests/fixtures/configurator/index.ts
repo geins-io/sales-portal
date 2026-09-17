@@ -4,3 +4,4 @@ export * from './cascaded';
 export * from './invalid';
 export * from './cabinet';
 export * from './derived';
+export * from './valid';

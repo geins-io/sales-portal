@@ -321,6 +321,16 @@
     "severity": {
       "error": "Error",
       "warning": "Warning"
+    },
+    "header": {
+      "valid": "The configuration is complete.",
+      "invalid": "This is missing before you can continue:",
+      "recomputing": "Recalculating…",
+      "time_left": "{time} left",
+      "renew": "Extend session",
+      "renew_failed": "The session could not be extended.",
+      "expired": "The configuration session has expired.",
+      "start_over": "Start over"
     }
   },
   "account": {

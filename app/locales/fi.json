@@ -321,6 +321,16 @@
     "severity": {
       "error": "Virhe",
       "warning": "Varoitus"
+    },
+    "header": {
+      "valid": "Kokoonpano on valmis.",
+      "invalid": "Tämä puuttuu, ennen kuin voit jatkaa:",
+      "recomputing": "Lasketaan uudelleen…",
+      "time_left": "{time} jäljellä",
+      "renew": "Jatka istuntoa",
+      "renew_failed": "Istuntoa ei voitu jatkaa.",
+      "expired": "Kokoonpanoistunto on vanhentunut.",
+      "start_over": "Aloita alusta"
     }
   },
   "account": {
