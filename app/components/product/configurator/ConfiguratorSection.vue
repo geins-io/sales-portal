@@ -34,9 +34,16 @@ const heading = computed(() => `h${Math.min(level, 6)}`);
     :data-section-id="section.id"
     class="space-y-4"
   >
-    <component :is="heading" class="text-lg font-semibold">
-      {{ section.name }}
-    </component>
+    <!-- The same grey bar the groups inside it carry, so the form reads as one
+         stack of headed blocks rather than two kinds of heading. -->
+    <div
+      class="bg-muted rounded-md px-3 py-2.5"
+      data-testid="configurator-section-header"
+    >
+      <component :is="heading" class="text-base font-medium">
+        {{ section.name }}
+      </component>
+    </div>
 
     <ConfiguratorMessages :messages="section.messages" />
 

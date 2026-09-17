@@ -45,6 +45,16 @@ describe('ConfiguratorSection', () => {
     ).toHaveLength(3);
   });
 
+  it('heads the section with the same bar its groups carry', () => {
+    const cabinet = makeCabinetConfiguration();
+
+    const wrapper = mountSection(sectionOf(cabinet.sections, 'cabinet'));
+
+    const header = wrapper.find('[data-testid="configurator-section-header"]');
+    expect(header.text()).toBe('Cabinet');
+    expect(header.classes()).toContain('bg-muted');
+  });
+
   it('renders a nested section inside its parent, one heading level down', () => {
     const workbench = makeInitialConfiguration();
 

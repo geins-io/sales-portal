@@ -22,7 +22,6 @@ describe('ConfiguratorOptionGroup', () => {
 
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(true);
     expect(wrapper.findAll('[role="radio"]')).toHaveLength(3);
-    expect(wrapper.text()).toContain('configurator.choose_one');
   });
 
   it('renders a multi-choice group as checkboxes', () => {
@@ -35,14 +34,50 @@ describe('ConfiguratorOptionGroup', () => {
     expect(wrapper.text()).toContain('configurator.choose_many');
   });
 
-  it('marks a group that must be answered', () => {
+  // The header says what the buyer has to do with the group, on one line and in
+  // one place: the requirement outranks the shape of the choice, so a required
+  // group says so rather than how many rows it takes.
+  it('says a required group must be answered', () => {
     const workbench = makeInitialConfiguration();
 
-    const required = mountGroup(findOptionGroup(workbench, 'top'));
-    const optional = mountGroup(findOptionGroup(workbench, 'accessories'));
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
 
-    expect(required.text()).toContain('configurator.required');
-    expect(optional.text()).not.toContain('configurator.required');
+    expect(wrapper.find('[data-testid="configurator-group-hint"]').text()).toBe(
+      'configurator.required',
+    );
+  });
+
+  it('says how many rows an optional group takes', () => {
+    const workbench = makeInitialConfiguration();
+    // Every single-choice group in this seed is also required, so the one case
+    // the seed cannot show is built from the group it would otherwise be.
+    const optionalSingle = {
+      ...findOptionGroup(workbench, 'top'),
+      minSelections: undefined,
+    };
+
+    const multi = mountGroup(findOptionGroup(workbench, 'accessories'));
+    const single = mountGroup(optionalSingle);
+
+    expect(multi.find('[data-testid="configurator-group-hint"]').text()).toBe(
+      'configurator.choose_many',
+    );
+    expect(single.find('[data-testid="configurator-group-hint"]').text()).toBe(
+      'configurator.choose_one',
+    );
+    expect(multi.text()).not.toContain('configurator.required');
+  });
+
+  it('heads the group with a name and nothing to decorate it', () => {
+    const workbench = makeInitialConfiguration();
+
+    const header = mountGroup(findOptionGroup(workbench, 'top')).find(
+      '[data-testid="configurator-group-header"]',
+    );
+
+    expect(header.text()).toContain('Table top');
+    // The asterisk this replaced said "required" in a colour and a glyph only.
+    expect(header.text()).not.toContain('*');
   });
 
   it('shows the error an unanswered required group carries', () => {

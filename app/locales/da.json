@@ -318,9 +318,16 @@
     "quantity": "Antal",
     "yes": "Ja",
     "no": "Nej",
+    "commit": "Færdiggør konfigurationen",
+    "starting": "Starter konfigurationen…",
+    "failed": "Noget gik galt. Genindlæs siden, og prøv igen.",
     "severity": {
       "error": "Fejl",
       "warning": "Advarsel"
+    },
+    "committed": {
+      "heading": "Konfigurationen er færdig",
+      "unit_price": "Pris pr. enhed"
     },
     "header": {
       "valid": "Konfigurationen er komplet.",

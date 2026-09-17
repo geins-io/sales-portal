@@ -35,9 +35,33 @@ describe('ConfiguratorOptionRow', () => {
 
     const price = wrapper.find('[data-testid="configurator-option-price"]');
     // The option's own net price, formatted by Intl for the locale the
-    // component tier mocks — not the product's incl-VAT selling price.
+    // component tier mocks — not the product's incl-VAT selling price. Signed,
+    // because what the row shows is what choosing it adds.
     expect(price.text()).toContain('1,400');
     expect(price.text()).toContain('SEK');
+    expect(price.text().startsWith('+')).toBe(true);
+  });
+
+  it('shows no price on a row that adds nothing', () => {
+    const workbench = makeInitialConfiguration();
+
+    // Every group would otherwise carry a column of zeroes: the laminate top
+    // and most of the RAL colours are included in the base price.
+    const wrapper = mountRow(findOption(workbench, 'top-laminate'));
+
+    expect(
+      wrapper.find('[data-testid="configurator-option-price"]').exists(),
+    ).toBe(false);
+  });
+
+  it('renders no image for a part that has none', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountRow(findOption(workbench, 'top-wood'));
+
+    // The parts of a configuration have no catalogue image; a placeholder on
+    // every row is noise, and a file name that resolves to nothing is worse.
+    expect(wrapper.find('img').exists()).toBe(false);
   });
 
   it('disables a row the rules made unavailable and shows the reason', () => {

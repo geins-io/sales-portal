@@ -98,3 +98,30 @@ export function dateInputValue(value: ConfigurationValue): string {
 export function dateChangeValue(raw: string): ConfigurationValue {
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : null;
 }
+
+/**
+ * The requirement text a group's header carries on its right: what the buyer
+ * must do with it, not a decoration on its name. A group the provider requires
+ * says so; anything else says how many rows may be picked.
+ */
+export function groupHintKey(
+  group: Pick<ConfigurationOptionGroup, 'minSelections' | 'maxSelections'>,
+): string {
+  if ((group.minSelections ?? 0) > 0) return 'configurator.required';
+  return isSingleSelect(group)
+    ? 'configurator.choose_one'
+    : 'configurator.choose_many';
+}
+
+/**
+ * How an option row's price reads beside the row.
+ *
+ * A row priced at zero shows nothing: every untouched group would otherwise
+ * carry a column of "0 kr" that says only that the provider has no surcharge
+ * for it. `null` means render nothing; a string is the prefix the amount takes,
+ * which is a sign only where the amount does not carry one itself.
+ */
+export function optionPricePrefix(net: number): string | null {
+  if (net === 0) return null;
+  return net > 0 ? '+' : '';
+}

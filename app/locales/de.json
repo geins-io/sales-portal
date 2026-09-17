@@ -318,9 +318,16 @@
     "quantity": "Menge",
     "yes": "Ja",
     "no": "Nein",
+    "commit": "Konfiguration abschließen",
+    "starting": "Konfiguration wird gestartet…",
+    "failed": "Etwas ist schiefgelaufen. Laden Sie die Seite neu und versuchen Sie es erneut.",
     "severity": {
       "error": "Fehler",
       "warning": "Warnung"
+    },
+    "committed": {
+      "heading": "Die Konfiguration ist fertig",
+      "unit_price": "Preis pro Einheit"
     },
     "header": {
       "valid": "Die Konfiguration ist vollständig.",

@@ -4,7 +4,11 @@ import type {
   ConfigurationOption,
 } from '#shared/types/configurator';
 import { formatPrice } from '#shared/types/commerce';
-import { blockingMessage, isReadOnly } from '~/utils/configurator-form';
+import {
+  blockingMessage,
+  isReadOnly,
+  optionPricePrefix,
+} from '~/utils/configurator-form';
 import { Checkbox } from '~/components/ui/checkbox';
 import { RadioGroupItem } from '~/components/ui/radio-group';
 
@@ -49,13 +53,16 @@ const reason = computed(() => {
     : t('configurator.unavailable');
 });
 
-const price = computed(() =>
-  formatPrice(
+/** What the row adds to the configuration, or nothing when it adds nothing. */
+const price = computed(() => {
+  const prefix = optionPricePrefix(option.unitPrice.net);
+  if (prefix === null) return '';
+  return `${prefix}${formatPrice(
     option.unitPrice.net,
     option.unitPrice.currency,
     formatLocale.value,
-  ),
-);
+  )}`;
+});
 
 const image = computed(
   () => option.product.productImages?.find((i) => i.isPrimary)?.fileName,
@@ -129,7 +136,7 @@ function onQuantity(quantity: number) {
             </p>
           </div>
           <p
-            v-if="showPrice"
+            v-if="showPrice && price"
             data-testid="configurator-option-price"
             class="text-muted-foreground shrink-0 text-sm tabular-nums"
           >

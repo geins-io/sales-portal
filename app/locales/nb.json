@@ -318,9 +318,16 @@
     "quantity": "Antall",
     "yes": "Ja",
     "no": "Nei",
+    "commit": "Fullfør konfigurasjonen",
+    "starting": "Starter konfigurasjonen…",
+    "failed": "Noe gikk galt. Last inn siden på nytt og prøv igjen.",
     "severity": {
       "error": "Feil",
       "warning": "Advarsel"
+    },
+    "committed": {
+      "heading": "Konfigurasjonen er ferdig",
+      "unit_price": "Pris per enhet"
     },
     "header": {
       "valid": "Konfigurasjonen er komplett.",

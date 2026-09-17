@@ -318,9 +318,16 @@
     "quantity": "Quantity",
     "yes": "Yes",
     "no": "No",
+    "commit": "Complete configuration",
+    "starting": "Starting the configuration…",
+    "failed": "Something went wrong. Reload the page and try again.",
     "severity": {
       "error": "Error",
       "warning": "Warning"
+    },
+    "committed": {
+      "heading": "The configuration is complete",
+      "unit_price": "Unit price"
     },
     "header": {
       "valid": "The configuration is complete.",

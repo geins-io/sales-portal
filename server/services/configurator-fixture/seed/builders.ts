@@ -42,9 +42,10 @@ export function seedProduct(spec: {
       sellingPriceIncVatFormatted: `${incVat} kr`,
       isDiscounted: false,
     },
-    productImages: [
-      { fileName: `${spec.id}.jpg`, url: `/i/${spec.id}.jpg`, isPrimary: true },
-    ],
+    // No image. The parts a configuration is built from — a table top, a RAL
+    // colour — have none in the catalogue, and a file name that resolves to
+    // nothing renders as a broken-image placeholder on every row.
+    productImages: [],
     totalStock: { inStock: 10, oversellable: 0, totalStock: 10, static: 0 },
     skus: [],
     discountCampaigns: [],

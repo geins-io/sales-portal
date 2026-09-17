@@ -3,7 +3,7 @@ import type {
   ConfigurationChange,
   ConfigurationOptionGroup,
 } from '#shared/types/configurator';
-import { isSingleSelect } from '~/utils/configurator-form';
+import { groupHintKey, isSingleSelect } from '~/utils/configurator-form';
 import { RadioGroup } from '~/components/ui/radio-group';
 
 /**
@@ -31,7 +31,7 @@ const { t } = useI18n();
 
 const heading = computed(() => `h${Math.min(level, 6)}`);
 const single = computed(() => isSingleSelect(group));
-const required = computed(() => (group.minSelections ?? 0) > 0);
+const hint = computed(() => groupHintKey(group));
 const locked = computed(() => disabled || !group.available);
 
 /** No row carries an empty id, so an empty model checks nothing. */
@@ -59,18 +59,20 @@ function onPick(value: unknown) {
     :data-group-id="group.id"
     class="space-y-2"
   >
-    <div class="flex items-baseline justify-between gap-3">
-      <component :is="heading" class="text-sm font-semibold">
+    <!-- A grey bar rather than a bold line with a red asterisk: the name on the
+         left, what the buyer has to do with the group on the right. -->
+    <div
+      class="bg-muted flex items-baseline justify-between gap-3 rounded-md px-3 py-2.5"
+      data-testid="configurator-group-header"
+    >
+      <component :is="heading" class="text-base font-medium">
         {{ group.name }}
-        <span v-if="required" class="text-destructive">
-          <span aria-hidden="true">*</span>
-          <span class="sr-only">{{ t('configurator.required') }}</span>
-        </span>
       </component>
-      <span class="text-muted-foreground shrink-0 text-xs">
-        {{
-          single ? t('configurator.choose_one') : t('configurator.choose_many')
-        }}
+      <span
+        class="text-muted-foreground shrink-0 text-xs"
+        data-testid="configurator-group-hint"
+      >
+        {{ t(hint) }}
       </span>
     </div>
 

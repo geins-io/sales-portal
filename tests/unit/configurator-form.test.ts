@@ -4,8 +4,10 @@ import {
   boundsParams,
   dateChangeValue,
   dateInputValue,
+  groupHintKey,
   isReadOnly,
   isSingleSelect,
+  optionPricePrefix,
   variableControl,
 } from '../../app/utils/configurator-form';
 import {
@@ -147,5 +149,40 @@ describe('dateChangeValue', () => {
     expect(dateChangeValue('2026-09')).toBeNull();
     expect(dateChangeValue('2026-09-17T00:00:00.000Z')).toBeNull();
     expect(dateChangeValue('week of 2026-09-17')).toBeNull();
+  });
+});
+
+describe('groupHintKey', () => {
+  it('says a required group must be answered, whatever its shape', () => {
+    expect(groupHintKey({ minSelections: 1, maxSelections: 1 })).toBe(
+      'configurator.required',
+    );
+    expect(groupHintKey({ minSelections: 2, maxSelections: undefined })).toBe(
+      'configurator.required',
+    );
+  });
+
+  it('says how many rows an optional group takes', () => {
+    expect(groupHintKey({ minSelections: 0, maxSelections: 1 })).toBe(
+      'configurator.choose_one',
+    );
+    expect(groupHintKey({ maxSelections: undefined })).toBe(
+      'configurator.choose_many',
+    );
+    expect(groupHintKey({ maxSelections: 3 })).toBe('configurator.choose_many');
+  });
+});
+
+describe('optionPricePrefix', () => {
+  it('signs a surcharge', () => {
+    expect(optionPricePrefix(1400)).toBe('+');
+  });
+
+  it('leaves an amount that carries its own sign alone', () => {
+    expect(optionPricePrefix(-250)).toBe('');
+  });
+
+  it('renders nothing for a row that adds nothing', () => {
+    expect(optionPricePrefix(0)).toBeNull();
   });
 });

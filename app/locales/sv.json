@@ -318,9 +318,16 @@
     "quantity": "Antal",
     "yes": "Ja",
     "no": "Nej",
+    "commit": "Slutför konfigurationen",
+    "starting": "Startar konfigurationen…",
+    "failed": "Något gick fel. Ladda om sidan och försök igen.",
     "severity": {
       "error": "Fel",
       "warning": "Varning"
+    },
+    "committed": {
+      "heading": "Konfigurationen är klar",
+      "unit_price": "Pris per enhet"
     },
     "header": {
       "valid": "Konfigurationen är komplett.",

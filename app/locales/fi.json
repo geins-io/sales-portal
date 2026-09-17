@@ -318,9 +318,16 @@
     "quantity": "Määrä",
     "yes": "Kyllä",
     "no": "Ei",
+    "commit": "Viimeistele kokoonpano",
+    "starting": "Aloitetaan kokoonpanoa…",
+    "failed": "Jokin meni vikaan. Lataa sivu uudelleen ja yritä uudestaan.",
     "severity": {
       "error": "Virhe",
       "warning": "Varoitus"
+    },
+    "committed": {
+      "heading": "Kokoonpano on valmis",
+      "unit_price": "Yksikköhinta"
     },
     "header": {
       "valid": "Kokoonpano on valmis.",
