@@ -321,6 +321,10 @@
     "commit": "Viimeistele kokoonpano",
     "starting": "Aloitetaan kokoonpanoa…",
     "failed": "Jokin meni vikaan. Lataa sivu uudelleen ja yritä uudestaan.",
+    "configure_product": "Määritä tuote",
+    "product_configuration": "Tuotemääritys",
+    "reset": "Palauta",
+    "page_note": "Tämä on määritettävä tuote. Rakenna oma versiosi alla kohdassa {tab} — hinta ja voimassaolo lasketaan jatkuvasti.",
     "severity": {
       "error": "Virhe",
       "warning": "Varoitus"

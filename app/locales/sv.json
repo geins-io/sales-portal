@@ -321,6 +321,10 @@
     "commit": "Slutför konfigurationen",
     "starting": "Startar konfigurationen…",
     "failed": "Något gick fel. Ladda om sidan och försök igen.",
+    "configure_product": "Konfigurera produkt",
+    "product_configuration": "Produktkonfiguration",
+    "reset": "Återställ",
+    "page_note": "Detta är en konfiguratorprodukt. Bygg din variant under {tab} nedan — pris och giltighet räknas fram löpande.",
     "severity": {
       "error": "Fel",
       "warning": "Varning"

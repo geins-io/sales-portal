@@ -8,6 +8,7 @@ import {
   type Mock,
 } from 'vitest';
 import { nextTick, type Ref } from 'vue';
+import { flushPromises } from '@vue/test-utils';
 import { mountComponent } from '../../utils/component';
 import ConfiguratorProduct from '../../../app/components/pages/ConfiguratorProduct.vue';
 import type { DetailProduct } from '../../../shared/types/commerce';
@@ -25,6 +26,7 @@ import {
   makeInvalidConfiguration,
   makeValidConfiguration,
 } from '../../fixtures/configurator';
+import { CONFIGURATION_TAB_ID } from '../../../app/utils/product-tabs';
 
 // ---------------------------------------------------------------------------
 // The configurator page.
@@ -96,6 +98,76 @@ vi.mock('../../../app/composables/useLocaleMarket', () => ({
   }),
 }));
 
+// The page asks for what every product page asks for: the related row and the
+// PDP's CMS area. Both are answered empty here; the frame's own tests drive the
+// tab row from the product instead.
+const mockRelated = ref<unknown[] | null>(null);
+const mockCmsArea = ref<{ containers: unknown[] } | null>(null);
+
+const mockUseFetch = vi.fn((urlOrFn?: unknown) => {
+  const url = typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn;
+  const data =
+    typeof url === 'string' && url.includes('/related')
+      ? mockRelated
+      : typeof url === 'string' && url.includes('/api/cms/area')
+        ? mockCmsArea
+        : ref(null);
+  return {
+    data,
+    error: ref(null),
+    status: ref('success'),
+    pending: ref(false),
+    refresh: vi.fn(),
+    execute: vi.fn(),
+  };
+});
+
+vi.mock('#app/composables/fetch', () => ({
+  useFetch: (...args: Parameters<typeof mockUseFetch>) => mockUseFetch(...args),
+}));
+vi.stubGlobal('useFetch', mockUseFetch);
+
+// useState (used by useLocaleAlternates) needs a live Nuxt instance the
+// component tier does not provide; back it with a plain { value } box.
+const { stubUseState } = vi.hoisted(() => ({
+  stubUseState: (_key: string, init?: () => unknown) => ({
+    value: typeof init === 'function' ? init() : undefined,
+  }),
+}));
+vi.stubGlobal('useState', stubUseState);
+vi.mock('#app/composables/state', () => ({ useState: stubUseState }));
+
+// The head the page publishes is asserted in useProductSeo's own tier; here it
+// only has to not need Nuxt.
+vi.stubGlobal('useSchemaOrg', vi.fn());
+vi.stubGlobal(
+  'defineProduct',
+  vi.fn(() => ({})),
+);
+vi.stubGlobal(
+  'defineBreadcrumb',
+  vi.fn(() => ({})),
+);
+vi.mock('@unhead/schema-org/vue', () => ({
+  defineProduct: vi.fn(() => ({})),
+  defineBreadcrumb: vi.fn(() => ({})),
+}));
+// Mock the nuxt-schema-org runtime composable the auto-import resolves to.
+// Resolve the path dynamically so the mock isn't tied to a pnpm store hash.
+const { schemaOrgComposablePath } = vi.hoisted(() => {
+  const nodeModule = require.resolve('nuxt-schema-org/schema');
+  const pkgRoot = nodeModule.replace(/\/dist\/schema\..*$/, '');
+  return {
+    schemaOrgComposablePath: `${pkgRoot}/dist/runtime/app/composables/useSchemaOrg`,
+  };
+});
+vi.mock(schemaOrgComposablePath, () => ({ useSchemaOrg: vi.fn() }));
+
+vi.stubGlobal(
+  'useRequestURL',
+  () => new URL('https://example.test/se/sv/p/arbetsbord-pro'),
+);
+
 interface MockSession {
   configuration: Ref<Configuration | null>;
   committed: Ref<CommittedConfiguration | null>;
@@ -123,6 +195,23 @@ const stubs = {
   GeinsImage: {
     template: '<img data-testid="product-image" :alt="alt" :src="fileName" />',
     props: ['fileName', 'alt', 'type', 'loading', 'fit', 'aspectRatio'],
+  },
+  ProductGallery: {
+    template: '<div data-testid="product-gallery" />',
+    props: ['images', 'productName'],
+  },
+  ErrorBoundary: {
+    template: '<div><slot /></div>',
+    props: ['section'],
+  },
+  // vue-i18n is mocked at the tier, so its component is not registered either.
+  'i18n-t': {
+    template: '<p><slot name="tab" /></p>',
+    props: ['keypath', 'tag'],
+  },
+  SharedErrorBoundary: {
+    template: '<div><slot /></div>',
+    props: ['section'],
   },
   ConfigurationHeader: {
     template: `<div data-testid="header" :data-status="status"
@@ -167,7 +256,7 @@ function makeProduct(overrides: Record<string, unknown> = {}): DetailProduct {
 
 function mountPage(product: DetailProduct = makeProduct()) {
   return mountComponent(ConfiguratorProduct, {
-    props: { product },
+    props: { product, alias: product.alias ?? '' },
     global: { stubs },
   });
 }
@@ -210,25 +299,12 @@ afterEach(() => {
 });
 
 describe('ConfiguratorProduct', () => {
-  it('renders the primary image through the component that is registered', () => {
+  it('renders the shared top card with the gallery', () => {
     const wrapper = mountPage();
 
-    const image = wrapper.find('[data-testid="product-image"]');
-    expect(image.exists()).toBe(true);
-    expect(image.attributes('src')).toBe('workbench.jpg');
-    expect(image.attributes('alt')).toBe('Arbetsbord Pro');
-  });
-
-  it('falls back to the first image when none is marked primary', () => {
-    const wrapper = mountPage(
-      makeProduct({
-        productImages: [{ fileName: 'first.jpg', isPrimary: false, url: '' }],
-      }),
-    );
-
-    expect(
-      wrapper.find('[data-testid="product-image"]').attributes('src'),
-    ).toBe('first.jpg');
+    const card = wrapper.find('[data-testid="pdp-top-area"]');
+    expect(card.exists()).toBe(true);
+    expect(card.find('[data-testid="product-gallery"]').exists()).toBe(true);
   });
 
   it('names no component Vue cannot resolve', async () => {
@@ -493,5 +569,148 @@ describe('ConfiguratorProduct errors', () => {
     expect(
       wrapper.find('[data-testid="configurator-form-error"]').exists(),
     ).toBe(true);
+  });
+});
+
+describe('ConfiguratorProduct frame', () => {
+  // happy-dom has no layout, so the scroll the call to action performs is a
+  // no-op that must still not throw.
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  function productWithTabContent(): DetailProduct {
+    return makeProduct({
+      texts: { text1: 'Lead', text2: 'Text 3 body', text3: 'Text 1 body' },
+      parameterGroups: [
+        {
+          name: 'Mått',
+          parameterGroupId: 1,
+          parameters: [{ name: 'Bredd', value: '1400 mm', show: true }],
+        },
+      ],
+    });
+  }
+
+  it('opens the row with the configuration tab, before the product tabs', () => {
+    const triggers = mountPage(productWithTabContent()).findAll(
+      '[data-testid^="configurator-tab-"]',
+    );
+
+    expect(triggers.map((t) => t.attributes('data-testid'))).toEqual([
+      'configurator-tab-configuration',
+      'configurator-tab-description',
+      'configurator-tab-specifications',
+      'configurator-tab-documents',
+    ]);
+  });
+
+  it('leaves out the tabs the product has no content for', () => {
+    const triggers = mountPage().findAll('[data-testid^="configurator-tab-"]');
+
+    expect(triggers.map((t) => t.attributes('data-testid'))).toEqual([
+      'configurator-tab-configuration',
+      'configurator-tab-documents',
+    ]);
+  });
+
+  it('carries the anchor the call to action scrolls to', () => {
+    // The scroll itself is browser behaviour; what a test can hold is that the
+    // element the handler looks up by id is the tab row.
+    const wrapper = mountPage();
+
+    expect(wrapper.find(`#${CONFIGURATION_TAB_ID}`).exists()).toBe(true);
+    expect(
+      wrapper.find(`#${CONFIGURATION_TAB_ID}`).attributes('data-testid'),
+    ).toBe('product-tabs');
+  });
+
+  it('shows the configuration tab first', () => {
+    const wrapper = mountPage(productWithTabContent());
+
+    expect(
+      wrapper
+        .find('[data-testid="configurator-tab-configuration"]')
+        .attributes('data-state'),
+    ).toBe('active');
+  });
+
+  it('brings the buyer back to the configuration from another tab', async () => {
+    const wrapper = mountPage(productWithTabContent());
+
+    // reka-ui selects a tab on pointer down, not on click.
+    await wrapper
+      .find('[data-testid="configurator-tab-documents"]')
+      .trigger('mousedown');
+    expect(
+      wrapper
+        .find('[data-testid="configurator-tab-configuration"]')
+        .attributes('data-state'),
+    ).toBe('inactive');
+
+    await wrapper.find('[data-testid="configurator-cta"]').trigger('click');
+
+    expect(
+      wrapper
+        .find('[data-testid="configurator-tab-configuration"]')
+        .attributes('data-state'),
+    ).toBe('active');
+  });
+
+  it('offsets the scroll target by the sticky header', () => {
+    // Without this the call to action scrolls the tab row under the header.
+    const wrapper = mountPage();
+
+    expect(wrapper.find(`#${CONFIGURATION_TAB_ID}`).classes()).toContain(
+      'scroll-mt-44',
+    );
+  });
+
+  it('keeps the form mounted while another tab is on screen', async () => {
+    const wrapper = mountPage(productWithTabContent());
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    const before = wrapper.find('[data-testid="section"]').element;
+
+    await wrapper
+      .find('[data-testid="configurator-tab-documents"]')
+      .trigger('mousedown');
+
+    // Still the same element: the fields hold state the document does not
+    // carry back, so a look at another tab must not remount them.
+    const after = wrapper.find('[data-testid="section"]').element;
+    expect(after).toBe(before);
+  });
+
+  it('restarts the session from the reset button in the tab heading', async () => {
+    const wrapper = mountPage();
+
+    await wrapper.find('[data-testid="configurator-reset"]').trigger('click');
+    await flushPromises();
+
+    expect(session.release).toHaveBeenCalled();
+    expect(session.start).toHaveBeenCalledWith('1101');
+  });
+
+  it('offers the data sheet the ordinary product page offers, and nothing else', () => {
+    const wrapper = mountPage();
+    const printSpy = vi.fn();
+    vi.stubGlobal('print', printSpy);
+
+    const rows = wrapper.findAll('[data-testid="pdp-info-card"] button');
+    expect(rows).toHaveLength(1);
+
+    rows[0]!.trigger('click');
+    expect(printSpy).toHaveBeenCalled();
+  });
+
+  it('renders the tenant CMS zone under the tabs', async () => {
+    mockCmsArea.value = { containers: [{ id: 'pdp' }] };
+    const wrapper = mountPage();
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="pdp-cms-area"]').exists()).toBe(true);
+    mockCmsArea.value = null;
   });
 });

@@ -120,6 +120,7 @@ const pageType = computed(() =>
   <ConfiguratorProduct
     v-else-if="product && pageType === 'configurable'"
     :product="product"
+    :alias="productAlias"
   />
 
   <ProductDetails

@@ -321,6 +321,10 @@
     "commit": "Fullfør konfigurasjonen",
     "starting": "Starter konfigurasjonen…",
     "failed": "Noe gikk galt. Last inn siden på nytt og prøv igjen.",
+    "configure_product": "Konfigurer produkt",
+    "product_configuration": "Produktkonfigurasjon",
+    "reset": "Tilbakestill",
+    "page_note": "Dette er et konfiguratorprodukt. Bygg varianten din under {tab} nedenfor — pris og gyldighet beregnes fortløpende.",
     "severity": {
       "error": "Feil",
       "warning": "Advarsel"
