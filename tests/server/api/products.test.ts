@@ -44,6 +44,18 @@ vi.mock('../../../server/services/graphql/unwrap', () => ({
   }),
 }));
 
+// The configurator seam. The route asks it whether a product is configurable;
+// what the answer depends on — the backend switch and the seeds — belongs to
+// the seam's own tests, and reaching it from here would pull `useRuntimeConfig`
+// into a tier that has no Nuxt instance.
+const mockIsConfigurableProduct = vi.fn<(...args: unknown[]) => boolean>(
+  () => false,
+);
+vi.mock('../../../server/services/configurator', () => ({
+  isConfigurableProduct: (...args: unknown[]) =>
+    mockIsConfigurableProduct(...args),
+}));
+
 // Rate limiter — uses useStorage('kv'), must stay mocked
 vi.mock('../../../server/utils/rate-limiter', () => ({
   reviewPostRateLimiter: {
@@ -112,6 +124,9 @@ const fakeEvent = {} as unknown as H3Event;
 describe('Product API Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // `clearAllMocks` clears calls, not return values, so an answer set in one
+    // case would otherwise travel into the next.
+    mockIsConfigurableProduct.mockReturnValue(false);
   });
 
   // =======================================================================
@@ -203,6 +218,55 @@ describe('Product API Routes', () => {
       await expect(handler(fakeEvent)).rejects.toThrow('Product not found');
 
       expect(mockGraphqlQuery).toHaveBeenCalledTimes(1);
+    });
+
+    // -------------------------------------------------------------------
+    // The configurable flag
+    //
+    // Which page component a product gets is decided from this flag, so the
+    // route is where the portal-side name is attached. The question goes to
+    // the seam: the day the merchant API carries a field of its own, only the
+    // seam changes.
+    // -------------------------------------------------------------------
+    it('marks a product the configurator stands behind', async () => {
+      vi.mocked(getRouterParam).mockReturnValue('arbetsbord-pro');
+      mockIsConfigurableProduct.mockReturnValue(true);
+      mockGraphqlQuery.mockResolvedValue({
+        product: { productId: 1101, name: 'Arbetsbord Pro' },
+      });
+
+      const result = await handler(fakeEvent);
+
+      expect(result).toEqual({
+        productId: 1101,
+        name: 'Arbetsbord Pro',
+        ancestors: [],
+        configurable: true,
+      });
+    });
+
+    it('asks the seam with the product id as a string', async () => {
+      vi.mocked(getRouterParam).mockReturnValue('arbetsbord-pro');
+      mockGraphqlQuery.mockResolvedValue({
+        product: { productId: 1101, name: 'Arbetsbord Pro' },
+      });
+
+      await handler(fakeEvent);
+
+      expect(mockIsConfigurableProduct).toHaveBeenCalledWith(fakeEvent, '1101');
+    });
+
+    it('leaves the payload of an ordinary product untouched', async () => {
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      mockGraphqlQuery.mockResolvedValue({
+        product: { productId: 42, name: 'My Product' },
+      });
+
+      const result = await handler(fakeEvent);
+
+      // Absent, not `false`: an ordinary product's response stays what it was
+      // before the configurator existed.
+      expect(result).not.toHaveProperty('configurable');
     });
 
     it('throws ZodError for empty alias', async () => {

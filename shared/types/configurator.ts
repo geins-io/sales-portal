@@ -181,7 +181,13 @@ export type ConfigurationChange =
 // ---------------------------------------------------------------------------
 // Session boundaries
 // ---------------------------------------------------------------------------
-/** Customer, company and currency are resolved server-side from the session. */
+/**
+ * Customer, company and currency are resolved server-side from the session.
+ *
+ * `productId` is the Geins product id — the id the portal knows a product by
+ * everywhere. Translating it to the provider's own part id is the backend's
+ * job, never the caller's.
+ */
 export interface CreateConfigurationInput {
   productId: string;
   quantity: number;

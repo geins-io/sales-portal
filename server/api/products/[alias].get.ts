@@ -1,6 +1,7 @@
 import type { CategoryNode } from '#shared/utils/breadcrumb-trail';
 import { ancestorsFromCategories } from '#shared/utils/breadcrumb-trail';
 import { ProductAliasSchema } from '../../schemas/api-input';
+import { isConfigurableProduct } from '../../services/configurator';
 import { getProduct } from '../../services/products';
 import { sanitizeWidgetHtml } from '../../utils/cms-sanitize';
 
@@ -51,6 +52,7 @@ export default defineEventHandler(async (event) => {
       // client-side reads it, and it is 339 B on the smallest tenant measured,
       // 909 B on the largest.
       const { categories, ...withoutClosure } = product as {
+        productId?: number;
         primaryCategory?: { categoryId?: number };
         categories?: (CategoryNode | null)[];
         texts?: { text1?: string; text2?: string; text3?: string };
@@ -60,7 +62,21 @@ export default defineEventHandler(async (event) => {
         categories,
         withoutClosure.primaryCategory?.categoryId,
       );
-      return { ...sanitizeProductTexts(withoutClosure), ancestors };
+
+      // The portal-side name for a product the configurator stands behind; the
+      // question goes to the seam, which is the one place that changes when the
+      // merchant API carries a field of its own. Spread only when true, so an
+      // ordinary product's response is what it was before the configurator.
+      const configurable = isConfigurableProduct(
+        event,
+        String(withoutClosure.productId),
+      );
+
+      return {
+        ...sanitizeProductTexts(withoutClosure),
+        ancestors,
+        ...(configurable ? { configurable } : {}),
+      };
     },
     { operation: 'products.get' },
   );

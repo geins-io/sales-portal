@@ -31,6 +31,7 @@ export const backend: Record<
   keyof ConfiguratorBackend,
   ReturnType<typeof vi.fn>
 > = {
+  isConfigurable: vi.fn(),
   create: vi.fn(),
   get: vi.fn(),
   applyChanges: vi.fn(),

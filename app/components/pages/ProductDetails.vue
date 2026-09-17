@@ -5,7 +5,6 @@ import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
 import {
-  AlertTriangle as AlertTriangleIcon,
   BadgeCheck,
   Download,
   ListPlus,
@@ -20,12 +19,23 @@ import {
   categoryPath,
 } from '#shared/utils/route-helpers';
 import { ancestorCrumbs } from '#shared/utils/breadcrumb-trail';
-import { recoverEntityUrl } from '~/composables/useEntityUrlRecovery';
 
 const props = defineProps<{
+  product: DetailProduct;
+  /**
+   * The alias from the URL, which is not always the loaded product's own:
+   * under a locale fallback the default-language product answers at the
+   * requested address. Every request built below keeps asking under the
+   * address the visitor is on.
+   */
   alias: string;
 }>();
 
+// The route loads the product and hands it down. It keeps the name `product`
+// so everything below reads as it did when the fetch lived here — and it is a
+// computed, so a locale switch that swaps the product inside this same
+// instance still moves the watches. A different alias remounts the page.
+const product = computed(() => props.product);
 const slug = computed(() => props.alias);
 
 const { localeQuery, localePath } = useLocaleMarket();
@@ -35,65 +45,6 @@ const { localeQuery, localePath } = useLocaleMarket();
 // selector. Gating here keeps those blocks out of the layout entirely.
 const { showPrice } = usePriceVisibility();
 const { showStock } = useStockVisibility();
-
-const {
-  data: product,
-  error,
-  status,
-} = await useFetch<DetailProduct>(() => `/api/products/${slug.value}`, {
-  query: localeQuery,
-  dedupe: 'defer',
-});
-
-// On a content miss (missing product or fetch error) the old slug may be a
-// renamed/old product that should 301 to its canonical instead of 404ing
-// (Problem B). recoverEntityUrl consults the resolver, 301s to the canonical
-// (or a urlHistory redirect), and throws a fatal 404 only on a terminal miss.
-// Kept in the setup await position so the redirect/404 carries a real SSR
-// status before render. Without this, crawlers would index phantom URLs.
-if (error.value || !product.value?.productId) {
-  await recoverEntityUrl(useRoute().path);
-}
-
-const isLoading = computed(() => status.value === 'pending');
-
-// When the loaded product's canonicalUrl differs from the URL the user is
-// on, issue a real 301 to the canonical. Geins returns prefix-less
-// canonicals (e.g. /se/sv/material/grenror/grenror-150-150-88) that 404 on
-// refresh, so we normalize the canonical to the ROUTABLE /p/ form via the
-// route helper rather than redirecting to the raw value. navigateTo is
-// SSR-safe and crawler-grade (a single clean render at the final URL with no
-// hydration risk), so this replaces the former client-only
-// history.replaceState. Only fires when the canonical stays in the same
-// /market/locale/ prefix; a fallback that crossed locales (server served
-// default-language content on a missing-translation request) must not yank the
-// user back out of the locale they asked for, so samePrefix is checked on the
-// RAW canonical before normalizing. No-op when the routable target equals the
-// current path (loop guard).
-{
-  const canonical = product.value?.canonicalUrl;
-  const path = useRoute().path;
-  if (
-    canonical &&
-    typeof canonical === 'string' &&
-    samePrefix(canonical, path)
-  ) {
-    const routable = localePath(buildProductPath(canonical));
-    if (routable !== path) {
-      await navigateTo(routable, { redirectCode: 301, replace: true });
-    }
-  }
-}
-
-// Returns true when both paths share the same /market/locale/ prefix, or
-// when either is too short to have one. Used to suppress the canonical 301
-// when a locale fallback returned a canonicalUrl in a different locale.
-function samePrefix(a: string, b: string): boolean {
-  const aSeg = a.split('/').slice(1, 3);
-  const bSeg = b.split('/').slice(1, 3);
-  if (aSeg.length < 2 || bSeg.length < 2) return true;
-  return aSeg[0] === bSeg[0] && aSeg[1] === bSeg[1];
-}
 
 const { data: related } = useFetch<ListProduct[]>(
   () => `/api/products/${slug.value}/related`,
@@ -535,24 +486,7 @@ useSchemaOrg([
 </script>
 
 <template>
-  <!-- Loading skeleton -->
-  <ProductDetailsSkeleton
-    v-if="isLoading && !product"
-    data-testid="pdp-loading"
-  />
-
-  <!-- Error state -->
-  <EmptyState
-    v-else-if="error"
-    :icon="AlertTriangleIcon"
-    :title="$t('product.failed_to_load')"
-    :description="$t('common.something_went_wrong')"
-    action-label="Home"
-    :action-to="localePath('/')"
-    data-testid="pdp-error"
-  />
-
-  <div v-else-if="product" class="px-4 py-8 lg:px-6">
+  <div class="px-4 py-8 lg:px-6">
     <div class="mx-auto max-w-7xl space-y-8">
       <!-- Print-only header: store logo + timestamp + product URL.
          Hidden on screen, shown via @media print. -->

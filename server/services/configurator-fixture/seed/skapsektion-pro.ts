@@ -20,6 +20,9 @@ import type { Seed } from './types';
 
 export const SKAPSEKTION_PRO_ID = '900000000000124';
 
+/** The catalogue product on the team tenant, alias `skapsektion-pro`. */
+export const SKAPSEKTION_PRO_GEINS_ID = '1102';
+
 const ARTICLE = 'KONF-1002';
 const BASE_PRICE = 5400;
 const CATEGORY = 'Cabinets';
@@ -151,6 +154,7 @@ function buildSections(): ConfigurationSection[] {
 
 export const skapsektionPro: Seed = {
   productId: SKAPSEKTION_PRO_ID,
+  geinsProductId: SKAPSEKTION_PRO_GEINS_ID,
   templateId: `TPL-${ARTICLE}`,
   templateVersion: '2',
   basePrice: BASE_PRICE,

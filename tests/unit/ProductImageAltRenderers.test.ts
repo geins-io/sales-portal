@@ -20,6 +20,10 @@ describe('PDP image-alt renderer source guard', () => {
     resolve(__dirname, '../../app/components/pages/ProductDetails.vue'),
     'utf-8',
   );
+  const configuratorProduct = readFileSync(
+    resolve(__dirname, '../../app/components/pages/ConfiguratorProduct.vue'),
+    'utf-8',
+  );
 
   describe('ProductGallery.vue', () => {
     it('references useProductImageAlt', () => {
@@ -46,6 +50,16 @@ describe('PDP image-alt renderer source guard', () => {
 
     it('does not bind :alt inline as productName ?? value', () => {
       expect(variantSelector).not.toMatch(/:alt="productName \?\? value"/);
+    });
+  });
+
+  describe('ConfiguratorProduct.vue', () => {
+    it('references buildProductImageAlt', () => {
+      expect(configuratorProduct).toContain('buildProductImageAlt');
+    });
+
+    it('does not bind :alt inline as the product name', () => {
+      expect(configuratorProduct).not.toMatch(/:alt="product\.name/);
     });
   });
 

@@ -3,12 +3,16 @@ import { createAppError, ErrorCode } from '../../../../server/utils/errors';
 import {
   buildConfiguratorContext,
   getConfiguratorBackend,
+  isConfigurableProduct,
   resolveConfiguratorBackendName,
   type ConfiguratorBackend,
   type ConfiguratorContext,
 } from '../../../../server/services/configurator';
 import type { Configuration } from '../../../../shared/types/configurator';
-import { ARBETSBORD_PRO_ID } from '../../../../server/services/configurator-fixture/seed';
+import {
+  ARBETSBORD_PRO_GEINS_ID,
+  ARBETSBORD_PRO_ID,
+} from '../../../../server/services/configurator-fixture/seed';
 
 // ---------------------------------------------------------------------------
 // Stubs
@@ -145,12 +149,15 @@ describe('getConfiguratorBackend', () => {
     it('returns a configuration for the requested product', async () => {
       const backend = withBackend('fixture');
       const configuration: Configuration = await backend.create(
-        { productId: ARBETSBORD_PRO_ID, quantity: 2 },
+        { productId: ARBETSBORD_PRO_GEINS_ID, quantity: 2 },
         CTX,
       );
 
       // What the seam owes its callers: a live document for the product that
       // was asked for. Its shape belongs to the fixture engine's own tests.
+      //
+      // Asked for by the Geins product id, answered with a document carrying
+      // the provider's part id: the translation the backend owes the portal.
       expect(configuration.configurationId).toBeTruthy();
       expect(configuration.productId).toBe(ARBETSBORD_PRO_ID);
       expect(configuration.quantity).toBe(2);
@@ -214,5 +221,69 @@ describe('error codes added for the configurator', () => {
     const error = createAppError(ErrorCode.NOT_IMPLEMENTED);
     expect(error.statusCode).toBe(501);
     expect(error.statusMessage).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Is this product configurable?
+//
+// The question the product route asks before it decides which page a product
+// gets. It is asked of the seam, not of the fixture, so the day the merchant
+// API carries the field the answer moves here and the route does not change.
+//
+// It answers, it never throws: a product is being described, not configured.
+// ---------------------------------------------------------------------------
+
+describe('isConfigurableProduct', () => {
+  // A real-shaped event: the seam builds the context from it, exactly as it
+  // does for every other call.
+  const EVENT_WITH_TENANT = {
+    context: { tenant: { hostname: 'tenant.example.com' } },
+  } as unknown as Parameters<typeof isConfigurableProduct>[0];
+
+  function answerWith(value: unknown, productId: string): boolean {
+    mockReadBackendValue.mockReturnValue(value);
+    return isConfigurableProduct(EVENT_WITH_TENANT, productId);
+  }
+
+  it('says yes on the fixture backend for a product a seed stands for', () => {
+    expect(answerWith('fixture', ARBETSBORD_PRO_GEINS_ID)).toBe(true);
+  });
+
+  it('says no on the fixture backend for a product no seed stands for', () => {
+    expect(answerWith('fixture', '999999')).toBe(false);
+  });
+
+  it("says no for the provider's own part id, which is not a catalogue product", () => {
+    expect(answerWith('fixture', ARBETSBORD_PRO_ID)).toBe(false);
+  });
+
+  it.each([
+    ['off', 'off'],
+    ['an unknown value', 'nonsense'],
+    ['the key absent', undefined],
+  ])('says no with the backend %s', (_label, value) => {
+    expect(answerWith(value, ARBETSBORD_PRO_GEINS_ID)).toBe(false);
+  });
+
+  it('says no on the sdk backend, where the field is not known yet', () => {
+    expect(answerWith('sdk', ARBETSBORD_PRO_GEINS_ID)).toBe(false);
+  });
+
+  it('answers rather than throws on a backend that rejects every verb', () => {
+    expect(() => answerWith('off', ARBETSBORD_PRO_GEINS_ID)).not.toThrow();
+  });
+
+  it('builds the context from the event, tenant or no tenant', () => {
+    // The context is built the same way as for every other call, so a request
+    // that resolved no tenant must answer rather than throw on the way in.
+    mockReadBackendValue.mockReturnValue('fixture');
+    const withoutTenant = { context: {} } as Parameters<
+      typeof isConfigurableProduct
+    >[0];
+
+    expect(isConfigurableProduct(withoutTenant, ARBETSBORD_PRO_GEINS_ID)).toBe(
+      true,
+    );
   });
 });

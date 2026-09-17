@@ -11,7 +11,9 @@ import {
   DEPARTED_RETENTION_HOURS,
 } from '../../../../server/services/configurator-fixture';
 import {
+  ARBETSBORD_PRO_GEINS_ID,
   ARBETSBORD_PRO_ID,
+  SKAPSEKTION_PRO_GEINS_ID,
   SKAPSEKTION_PRO_ID,
   createSeedDocument,
 } from '../../../../server/services/configurator-fixture/seed';
@@ -67,7 +69,7 @@ async function statusOf(call: () => Promise<unknown>) {
 }
 
 async function start(
-  productId = ARBETSBORD_PRO_ID,
+  productId = ARBETSBORD_PRO_GEINS_ID,
   quantity = 1,
 ): Promise<Configuration> {
   return backend.create({ productId, quantity }, CTX);
@@ -112,7 +114,7 @@ async function withElectricLegs(): Promise<Configuration> {
 
 describe('create', () => {
   it('returns the seeded document and echoes the requested quantity', async () => {
-    const config = await start(ARBETSBORD_PRO_ID, 3);
+    const config = await start(ARBETSBORD_PRO_GEINS_ID, 3);
 
     expect(config.productId).toBe(ARBETSBORD_PRO_ID);
     expect(config.quantity).toBe(3);
@@ -145,7 +147,20 @@ describe('create', () => {
   });
 
   it('answers 404 for a product that is not seeded', async () => {
-    expect(await statusOf(() => start('900000000000999'))).toBe(404);
+    expect(await statusOf(() => start('999999'))).toBe(404);
+  });
+
+  // The portal identifies a product by its Geins product id everywhere, and
+  // translating that to the provider's part id is the backend's job. Asked for
+  // by the catalogue product, the document comes back carrying the part id.
+  it('resolves the second seed by its Geins product id too', async () => {
+    const config = await start(SKAPSEKTION_PRO_GEINS_ID);
+
+    expect(config.productId).toBe(SKAPSEKTION_PRO_ID);
+  });
+
+  it("answers 404 for the provider's part id, which is not a catalogue product", async () => {
+    expect(await statusOf(() => start(ARBETSBORD_PRO_ID))).toBe(404);
   });
 
   it('hands out a separate session per call', async () => {
@@ -429,7 +444,7 @@ describe('a batch of changes', () => {
   });
 
   it('rejects a change aimed at a locked option', async () => {
-    const config = await start(SKAPSEKTION_PRO_ID);
+    const config = await start(SKAPSEKTION_PRO_GEINS_ID);
 
     expect(
       await statusOf(() =>
@@ -508,7 +523,7 @@ describe('a batch of changes', () => {
   });
 
   it('rejects a change aimed at a formula variable', async () => {
-    const config = await start(SKAPSEKTION_PRO_ID);
+    const config = await start(SKAPSEKTION_PRO_GEINS_ID);
 
     expect(
       await statusOf(() =>
@@ -547,7 +562,7 @@ describe('the price the mock computes', () => {
   });
 
   it('prices the second product from its own base and rates', async () => {
-    const config = await start(SKAPSEKTION_PRO_ID);
+    const config = await start(SKAPSEKTION_PRO_GEINS_ID);
     // Base, the locked mounting rail and the glass doors that come with it.
     expect(config.unitPrice.net).toBe(5400 + 450);
 
@@ -704,7 +719,7 @@ describe('release', () => {
 
 describe('commit', () => {
   async function completed(): Promise<Configuration> {
-    const config = await start(ARBETSBORD_PRO_ID, 2);
+    const config = await start(ARBETSBORD_PRO_GEINS_ID, 2);
     return backend.applyChanges(
       config.configurationId,
       [
@@ -771,7 +786,7 @@ describe('commit', () => {
   });
 
   it('leaves a variable the provider computes without a price', async () => {
-    const config = await start(SKAPSEKTION_PRO_ID);
+    const config = await start(SKAPSEKTION_PRO_GEINS_ID);
     const committed = await backend.commit(config.configurationId, CTX);
     const area = committed.summary.find((line) => line.label === 'Front area');
 
@@ -833,7 +848,7 @@ describe('commit', () => {
 
 describe('the second seeded product', () => {
   it('has a section the UI must not show', async () => {
-    const config = await start(SKAPSEKTION_PRO_ID);
+    const config = await start(SKAPSEKTION_PRO_GEINS_ID);
     const hidden = config.sections.filter((section) => !section.visible);
 
     expect(hidden).toHaveLength(1);
@@ -841,14 +856,17 @@ describe('the second seeded product', () => {
   });
 
   it('has an option no change can touch', async () => {
-    const mount = findOption(await start(SKAPSEKTION_PRO_ID), 'mount-wall');
+    const mount = findOption(
+      await start(SKAPSEKTION_PRO_GEINS_ID),
+      'mount-wall',
+    );
 
     expect(mount.selected).toBe(true);
     expect(mount.selectionSource).toBe('locked');
   });
 
   it('has a string variable the buyer may set', async () => {
-    const config = await start(SKAPSEKTION_PRO_ID);
+    const config = await start(SKAPSEKTION_PRO_GEINS_ID);
     const changed = await backend.applyChanges(
       config.configurationId,
       [setVariable('pallet-code', 'PAL-120')],
@@ -868,7 +886,7 @@ describe('the second seeded product', () => {
   });
 
   it('computes the formula variable from the others', async () => {
-    const config = await start(SKAPSEKTION_PRO_ID);
+    const config = await start(SKAPSEKTION_PRO_GEINS_ID);
     const area = findVariable(config, 'front-area');
 
     expect(area.valueSource).toBe('formula');
@@ -892,7 +910,7 @@ describe('the second seeded product', () => {
 describe('the default instance', () => {
   it('runs on the real clock', async () => {
     const config = await fixtureConfiguratorBackend.create(
-      { productId: ARBETSBORD_PRO_ID, quantity: 1 },
+      { productId: ARBETSBORD_PRO_GEINS_ID, quantity: 1 },
       CTX,
     );
 
@@ -905,10 +923,42 @@ describe('the default instance', () => {
 // The seed a caller outside a session builds on
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// The catalogue products the seeds stand for
+// ---------------------------------------------------------------------------
+
+describe("the seeds' catalogue reference", () => {
+  // These two ids are the only part of the fixture that points at something
+  // outside it — the products on the team tenant, created for this. Getting one
+  // wrong makes the page render an ordinary product with no way to tell why, and
+  // nothing else in the suite would notice: every other test asks by the
+  // constant, so it would follow the constant into being wrong.
+  it.each([
+    ['Arbetsbord Pro', ARBETSBORD_PRO_GEINS_ID, '1101'],
+    ['Skåpsektion Pro', SKAPSEKTION_PRO_GEINS_ID, '1102'],
+  ])('has %s standing for catalogue product %s', (_label, declared, id) => {
+    expect(declared).toBe(id);
+  });
+
+  it('keeps the provider part ids distinct from the catalogue ids', () => {
+    expect(ARBETSBORD_PRO_ID).not.toBe(ARBETSBORD_PRO_GEINS_ID);
+    expect(SKAPSEKTION_PRO_ID).not.toBe(SKAPSEKTION_PRO_GEINS_ID);
+  });
+});
+
 describe('createSeedDocument', () => {
+  it('builds the document from the Geins product id, as create does', () => {
+    const document = createSeedDocument(ARBETSBORD_PRO_GEINS_ID, {
+      configurationId: 'c1',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+    });
+
+    expect(document.productId).toBe(ARBETSBORD_PRO_ID);
+  });
+
   it('refuses a product it has no seed for', () => {
     expect(() =>
-      createSeedDocument('900000000000999', {
+      createSeedDocument('999999', {
         configurationId: 'c1',
         expiresAt: '2030-01-01T00:00:00.000Z',
       }),

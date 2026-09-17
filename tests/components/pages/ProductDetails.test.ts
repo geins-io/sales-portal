@@ -11,14 +11,16 @@ import { ref, defineComponent, h, Suspense } from 'vue';
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
+import type { DetailProduct } from '../../../shared/types/commerce';
 import { mockIsCatalogMode } from '../../setup-components';
 import { useTenant } from '../../../app/composables/useTenant';
 
-// ProductDetails uses `await useFetch(...)` so the setup is async. Wrap it
-// in a Suspense boundary, mount full-depth (stubs provided via global.stubs
-// cover every heavy child), and flush the microtask queue before asserting.
+// The product arrives as a prop from the page — ProductDetails makes no
+// request for it. Setup is still async (the related, sibling and CMS fetches
+// run in it), so mount inside a Suspense boundary, full depth with the stubs
+// below, and flush the microtask queue before asserting.
 async function mountProductDetails(
-  props: { alias: string },
+  props: { product: DetailProduct; alias: string },
   mountOptions: MountOptionsFor<Component> = {},
 ) {
   // The wrapper closes over `props` instead of redeclaring them through
@@ -38,23 +40,14 @@ async function mountProductDetails(
 
 // useTenant mock is provided by setup-components.ts
 
-// navigateTo + recoverEntityUrl are the redirect/recovery boundaries. The PDP
-// issues a real 301 (navigateTo) for a same-prefix differing canonical and
-// delegates content misses to recoverEntityUrl (spec 003). Both are mocked as
-// spies and asserted against; assertions watch the spies, never real navigation.
-const { navigateToMock, recoverEntityUrlMock } = vi.hoisted(() => ({
+// navigateTo is still asserted here: the variant selector navigates to the
+// picked sibling's URL. The canonical 301 and the content-miss recovery moved
+// to the page with the fetch, and so did their cases.
+const { navigateToMock } = vi.hoisted(() => ({
   navigateToMock: vi.fn<typeof navigateTo>(() => Promise.resolve()),
-  recoverEntityUrlMock: vi.fn<(path: string) => Promise<void>>(() =>
-    Promise.resolve(),
-  ),
 }));
 
 vi.stubGlobal('navigateTo', navigateToMock);
-vi.mock('../../../app/composables/useEntityUrlRecovery', () => ({
-  recoverEntityUrl: (...args: Parameters<typeof recoverEntityUrlMock>) =>
-    recoverEntityUrlMock(...args),
-}));
-vi.stubGlobal('recoverEntityUrl', recoverEntityUrlMock);
 
 const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
 
@@ -69,10 +62,10 @@ vi.mock('~/stores/cart', () => ({
   }),
 }));
 
-// Mock useFetch to return controlled product data
-const mockProduct = ref<Record<string, unknown> | null>(null);
-const mockStatus = ref('success');
-const mockError = ref<Error | null>(null);
+// The product is a prop now. What is left to control here are the fetches
+// ProductDetails still owns: the sibling products, the CMS area, and the
+// related row. Anything asking for a product by alias is a regression — the
+// page owns that call — and the last case in this file watches for it.
 
 // CMS areas keyed by the areaName the tenant config names for the PDP slot.
 // The mock took no arguments and answered every URL with the product, so the
@@ -123,9 +116,9 @@ const mockUseFetch = vi.fn(
       };
     }
     return {
-      data: mockProduct,
-      error: mockError,
-      status: mockStatus,
+      data: ref(null),
+      error: ref(null),
+      status: ref('success'),
       pending: ref(false),
       refresh: vi.fn(),
       execute: vi.fn(),
@@ -245,7 +238,7 @@ vi.mock(schemaOrgComposablePath, () => ({
   useSchemaOrg: vi.fn(),
 }));
 
-function makeProduct(overrides: Record<string, unknown> = {}) {
+function makeProduct(overrides: Record<string, unknown> = {}): DetailProduct {
   return {
     productId: 1,
     name: 'Test Product',
@@ -265,7 +258,7 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
     discountCampaigns: [],
     discountType: 'NONE',
     ...overrides,
-  };
+  } as unknown as DetailProduct;
 }
 
 const defaultStubs = {
@@ -327,12 +320,9 @@ const defaultStubs = {
 
 describe('ProductDetails', () => {
   beforeEach(() => {
-    mockProduct.value = null;
-    mockStatus.value = 'success';
-    mockError.value = null;
     mockCanAccess.mockReturnValue(true);
+    mockUseFetch.mockClear();
     navigateToMock.mockClear();
-    recoverEntityUrlMock.mockClear();
     mockCmsAreas.clear();
     mockSiblingProducts.value = null;
   });
@@ -378,12 +368,12 @@ describe('ProductDetails', () => {
     });
 
     it('renders the pdp zone for the area product_detail names', async () => {
-      mockProduct.value = makeProduct();
+      const product = makeProduct();
       configurePdpSlot(PDP_AREA);
       mockCmsAreas.set(PDP_AREA, { containers: [{ id: 'pdp' }] });
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: cmsStubs } },
       );
 
@@ -391,12 +381,12 @@ describe('ProductDetails', () => {
     });
 
     it('renders no pdp zone when product_detail names another area', async () => {
-      mockProduct.value = makeProduct();
+      const product = makeProduct();
       configurePdpSlot('Somewhere Else');
       mockCmsAreas.set(PDP_AREA, { containers: [{ id: 'pdp' }] });
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: cmsStubs } },
       );
 
@@ -412,10 +402,10 @@ describe('ProductDetails', () => {
     });
 
     it('renders the add-to-cart action in commerce mode with orderPlacement access', async () => {
-      mockProduct.value = makeProduct();
+      const product = makeProduct();
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
 
@@ -427,10 +417,10 @@ describe('ProductDetails', () => {
 
     it('hides the add-to-cart action when mode is catalog', async () => {
       mockIsCatalogMode.value = true;
-      mockProduct.value = makeProduct();
+      const product = makeProduct();
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
 
@@ -444,10 +434,10 @@ describe('ProductDetails', () => {
       mockCanAccess.mockImplementation(
         (name: string) => name !== 'orderPlacement',
       );
-      mockProduct.value = makeProduct();
+      const product = makeProduct();
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
 
@@ -455,186 +445,11 @@ describe('ProductDetails', () => {
     });
   });
 
-  describe('content-miss recovery (Problem B)', () => {
-    async function setRoutePath(path: string): Promise<{
-      restore: () => void;
-    }> {
-      const router = (
-        (await import('#app/composables/router')) as unknown as {
-          useRoute: () => { path: string };
-        }
-      ).useRoute() as { path: string };
-      const originalPath = router.path;
-      router.path = path;
-      return { restore: () => (router.path = originalPath) };
-    }
-
-    it('calls recoverEntityUrl with the route path when the product is missing', async () => {
-      // A renamed/old product slug must 301 to canonical via recoverEntityUrl
-      // instead of throwing a bare 404. recoverEntityUrl is mocked to resolve,
-      // so the setup continues; we only assert it was consulted with the path.
-      const { restore } = await setRoutePath('/se/sv/p/old-slug');
-      mockProduct.value = null;
-
-      try {
-        await mountProductDetails(
-          { alias: 'old-slug' },
-          { global: { stubs: defaultStubs } },
-        );
-        expect(recoverEntityUrlMock).toHaveBeenCalledTimes(1);
-        expect(recoverEntityUrlMock).toHaveBeenCalledWith('/se/sv/p/old-slug');
-      } finally {
-        restore();
-      }
-    });
-
-    it('calls recoverEntityUrl when the fetch errors', async () => {
-      const { restore } = await setRoutePath('/se/sv/p/boom');
-      mockProduct.value = null;
-      mockError.value = new Error('fetch failed');
-
-      try {
-        await mountProductDetails(
-          { alias: 'boom' },
-          { global: { stubs: defaultStubs } },
-        );
-        expect(recoverEntityUrlMock).toHaveBeenCalledWith('/se/sv/p/boom');
-      } finally {
-        restore();
-      }
-    });
-
-    it('does not call recoverEntityUrl when the product loads', async () => {
-      // Route path must equal the normalized canonical so the canonical-correction
-      // block is a genuine no-op (routable === path). Without this, samePrefix
-      // returns true and the correction fires navigateTo as a side effect, meaning
-      // the test no longer verifies "normal load = zero navigation".
-      //
-      // localePath(buildProductPath('/se/sv/test-product'))
-      //   -> localePath('/p/test-product')  -> '/se/sv/p/test-product'
-      const { restore } = await setRoutePath('/se/sv/p/test-product');
-      mockProduct.value = makeProduct({ canonicalUrl: '/se/sv/test-product' });
-
-      try {
-        await mountProductDetails(
-          { alias: 'test-product' },
-          { global: { stubs: defaultStubs } },
-        );
-
-        expect(recoverEntityUrlMock).not.toHaveBeenCalled();
-        expect(navigateToMock).not.toHaveBeenCalled();
-      } finally {
-        restore();
-      }
-    });
-  });
-
-  describe('canonical URL self-correction (real 301)', () => {
-    async function setRoutePath(path: string): Promise<{
-      restore: () => void;
-    }> {
-      const router = (
-        (await import('#app/composables/router')) as unknown as {
-          useRoute: () => { path: string };
-        }
-      ).useRoute() as { path: string };
-      const originalPath = router.path;
-      router.path = path;
-      return { restore: () => (router.path = originalPath) };
-    }
-
-    it('301s to the routable /p/ form when a prefix-less canonical differs', async () => {
-      // Geins returns a canonicalUrl without our `/p/` product-route segment
-      // (e.g. /se/sv/material/grenror/grenror-150-150-88). It must be a real
-      // 301 to the routable /p/ path, not written raw (the raw form 404s on
-      // refresh or in-app nav) and not a client-only history.replaceState.
-      const { restore } = await setRoutePath('/se/sv/p/grenror-150-150-88');
-      mockProduct.value = makeProduct({
-        canonicalUrl: '/se/sv/material/grenror/grenror-150-150-88',
-      });
-
-      try {
-        await mountProductDetails(
-          { alias: 'grenror-150-150-88' },
-          { global: { stubs: defaultStubs } },
-        );
-        expect(navigateToMock).toHaveBeenCalledTimes(1);
-        expect(navigateToMock).toHaveBeenCalledWith(
-          '/se/sv/p/material/grenror/grenror-150-150-88',
-          { redirectCode: 301, replace: true },
-        );
-      } finally {
-        restore();
-      }
-    });
-
-    it('301s to the routable /p/ form when canonicalUrl differs in the same prefix', async () => {
-      const { restore } = await setRoutePath(
-        '/se/sv/p/wood-screw-stainless-steel-10-mm-se',
-      );
-      mockProduct.value = makeProduct({
-        canonicalUrl: '/se/sv/p/wood-screw-stainless-steel-10-mm-en',
-      });
-
-      try {
-        await mountProductDetails(
-          { alias: 'wood-screw-stainless-steel-10-mm-se' },
-          { global: { stubs: defaultStubs } },
-        );
-        expect(navigateToMock).toHaveBeenCalledTimes(1);
-        expect(navigateToMock).toHaveBeenCalledWith(
-          '/se/sv/p/wood-screw-stainless-steel-10-mm-en',
-          { redirectCode: 301, replace: true },
-        );
-      } finally {
-        restore();
-      }
-    });
-
-    it('does not redirect when the routable target equals the route path (loop guard)', async () => {
-      const { restore } = await setRoutePath('/se/sv/p/test-product');
-      mockProduct.value = makeProduct({ canonicalUrl: '/se/sv/test-product' });
-
-      try {
-        await mountProductDetails(
-          { alias: 'test-product' },
-          { global: { stubs: defaultStubs } },
-        );
-        expect(navigateToMock).not.toHaveBeenCalled();
-      } finally {
-        restore();
-      }
-    });
-
-    it('does not redirect when the canonical URL is in a different locale (cross-locale guard)', async () => {
-      // Cross-locale: route is /se/en/... but canonical came back as /se/sv/...
-      // because the locale fallback served default-language content. Redirecting
-      // would yank the user out of EN, defeating their intent. samePrefix is
-      // evaluated on the RAW canonical before normalizing, so this is a no-op.
-      const { restore } = await setRoutePath(
-        '/se/en/p/wood-screw-stainless-steel-10-mm-se',
-      );
-      mockProduct.value = makeProduct({
-        canonicalUrl: '/se/sv/p/kategori-1/wood-screw-stainless-steel-10-mm-se',
-      });
-
-      try {
-        await mountProductDetails(
-          { alias: 'wood-screw-stainless-steel-10-mm-se' },
-          { global: { stubs: defaultStubs } },
-        );
-        expect(navigateToMock).not.toHaveBeenCalled();
-      } finally {
-        restore();
-      }
-    });
-  });
-
   describe('breadcrumbs', () => {
-    const crumbs = async (product: Record<string, unknown>) => {
-      mockProduct.value = makeProduct(product);
+    const crumbs = async (overrides: Record<string, unknown>) => {
+      const product = makeProduct(overrides);
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
       return wrapper
@@ -766,13 +581,13 @@ describe('ProductDetails', () => {
 
   describe('migrated entity-URL hrefs', () => {
     it('builds the breadcrumb category href via categoryPath', async () => {
-      mockProduct.value = makeProduct({
+      const product = makeProduct({
         canonicalUrl: '/se/sv/test-product',
         primaryCategory: { name: 'Material', alias: 'material' },
       });
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
 
@@ -790,7 +605,7 @@ describe('ProductDetails', () => {
     });
 
     it('navigates to the productPath-built variant URL on variant change', async () => {
-      mockProduct.value = makeProduct({
+      const product = makeProduct({
         alias: 'grenror-150-150-88',
         canonicalUrl: '/se/sv/p/grenror-150-150-88',
         variantDimensions: [{ dimension: 'Variant', value: '88' }],
@@ -820,7 +635,7 @@ describe('ProductDetails', () => {
       });
 
       const wrapper = await mountProductDetails(
-        { alias: 'grenror-150-150-88' },
+        { product, alias: product.alias },
         {
           global: { stubs: { ...defaultStubs, VariantSelector: Selector } },
         },
@@ -841,12 +656,12 @@ describe('ProductDetails', () => {
 
   describe('campaign badges', () => {
     it('shows campaign badges when product has visible campaigns', async () => {
-      mockProduct.value = makeProduct({
+      const product = makeProduct({
         discountCampaigns: [{ name: 'Spring Sale', hideTitle: false }],
       });
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
 
@@ -856,12 +671,12 @@ describe('ProductDetails', () => {
     });
 
     it('hides campaign badges when all campaigns have hideTitle true', async () => {
-      mockProduct.value = makeProduct({
+      const product = makeProduct({
         discountCampaigns: [{ name: 'Hidden', hideTitle: true }],
       });
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
 
@@ -871,10 +686,10 @@ describe('ProductDetails', () => {
     });
 
     it('shows no badges when discountCampaigns is empty', async () => {
-      mockProduct.value = makeProduct({ discountCampaigns: [] });
+      const product = makeProduct({ discountCampaigns: [] });
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
 
@@ -886,7 +701,7 @@ describe('ProductDetails', () => {
 
   describe('negotiated price banner', () => {
     it('shows info banner when discountType is EXTERNAL', async () => {
-      mockProduct.value = makeProduct({
+      const product = makeProduct({
         discountType: 'EXTERNAL',
         unitPrice: {
           sellingPriceIncVat: 150,
@@ -896,7 +711,7 @@ describe('ProductDetails', () => {
       });
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
 
@@ -906,10 +721,10 @@ describe('ProductDetails', () => {
     });
 
     it('does not show banner for SALE_PRICE', async () => {
-      mockProduct.value = makeProduct({ discountType: 'SALE_PRICE' });
+      const product = makeProduct({ discountType: 'SALE_PRICE' });
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
 
@@ -919,10 +734,10 @@ describe('ProductDetails', () => {
     });
 
     it('does not show banner for NONE', async () => {
-      mockProduct.value = makeProduct({ discountType: 'NONE' });
+      const product = makeProduct({ discountType: 'NONE' });
 
       const wrapper = await mountProductDetails(
-        { alias: 'test-product' },
+        { product, alias: product.alias },
         { global: { stubs: defaultStubs } },
       );
 
@@ -959,7 +774,7 @@ describe('ProductDetails', () => {
 
     it('passes both VAT variants of each sibling price, not one pre-picked string', async () => {
       const sink = { value: {} as Record<string, unknown> };
-      mockProduct.value = makeProduct({
+      const product = makeProduct({
         alias: 'grenror-150-150-88',
         variantDimensions: [{ dimension: 'Variant', value: '88' }],
         variantGroup: {
@@ -985,7 +800,7 @@ describe('ProductDetails', () => {
       };
 
       await mountProductDetails(
-        { alias: 'grenror-150-150-88' },
+        { product, alias: product.alias },
         {
           global: {
             stubs: { ...defaultStubs, VariantSelector: captureProps(sink) },
@@ -1003,7 +818,7 @@ describe('ProductDetails', () => {
 
     it('passes both VAT variants of the parent fallback price', async () => {
       const sink = { value: {} as Record<string, unknown> };
-      mockProduct.value = makeProduct({
+      const product = makeProduct({
         alias: 'grenror-150-150-88',
         variantDimensions: [{ dimension: 'Variant', value: '88' }],
         variantGroup: {
@@ -1021,7 +836,7 @@ describe('ProductDetails', () => {
       });
 
       await mountProductDetails(
-        { alias: 'grenror-150-150-88' },
+        { product, alias: product.alias },
         {
           global: {
             stubs: { ...defaultStubs, VariantSelector: captureProps(sink) },
@@ -1058,7 +873,7 @@ describe('ProductDetails', () => {
 
     it('seeds the selector with the active sibling variant', async () => {
       const sink = { value: {} as Record<string, string> };
-      mockProduct.value = makeProduct({
+      const product = makeProduct({
         alias: 'grenror-150-150-88',
         variantDimensions: [{ dimension: 'Variant', value: '88' }],
         variantGroup: {
@@ -1070,7 +885,7 @@ describe('ProductDetails', () => {
       });
 
       await mountProductDetails(
-        { alias: 'grenror-150-150-88' },
+        { product, alias: product.alias },
         { global: { stubs: stubsWith(sink) } },
       );
 
@@ -1079,7 +894,7 @@ describe('ProductDetails', () => {
 
     it('falls back to the variant label when value is absent', async () => {
       const sink = { value: {} as Record<string, string> };
-      mockProduct.value = makeProduct({
+      const product = makeProduct({
         alias: 'grenror-150-150-88',
         variantDimensions: [{ dimension: 'Variant', value: '88' }],
         variantGroup: {
@@ -1091,7 +906,7 @@ describe('ProductDetails', () => {
       });
 
       await mountProductDetails(
-        { alias: 'grenror-150-150-88' },
+        { product, alias: product.alias },
         { global: { stubs: stubsWith(sink) } },
       );
 
@@ -1100,7 +915,7 @@ describe('ProductDetails', () => {
 
     it('leaves the selection empty when no variant alias matches the product', async () => {
       const sink = { value: { seeded: 'no' } as Record<string, string> };
-      mockProduct.value = makeProduct({
+      const product = makeProduct({
         alias: 'parent-product',
         variantDimensions: [{ dimension: 'Variant', value: 'A' }],
         variantGroup: {
@@ -1112,11 +927,51 @@ describe('ProductDetails', () => {
       });
 
       await mountProductDetails(
-        { alias: 'parent-product' },
+        { product, alias: product.alias },
         { global: { stubs: stubsWith(sink) } },
       );
 
       expect(sink.value).toEqual({});
+    });
+  });
+
+  // The page loads the product and hands it down. If this component ever asks
+  // for one again, every PDP pays for two requests — so the mock is watched for
+  // a product-by-alias url rather than trusted not to see one.
+  describe('the product it is given', () => {
+    it('makes no request for the product', async () => {
+      const product = makeProduct();
+
+      await mountProductDetails(
+        { product, alias: product.alias },
+        { global: { stubs: defaultStubs } },
+      );
+
+      // The by-ids and related endpoints live under the same prefix, so the
+      // check is for this product's own url, not for the prefix.
+      const urls = mockUseFetch.mock.calls.map(([urlOrFn]) =>
+        typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn,
+      );
+      expect(urls).not.toContain(`/api/products/${product.alias}`);
+    });
+
+    it("builds its own requests from the URL alias, not the product's", async () => {
+      // A locale fallback answers the requested address with the
+      // default-language product, whose own alias is a different one. Asking
+      // under the product's alias would quietly move every follow-up request
+      // to the other locale's product.
+      const product = makeProduct({ alias: 'wood-screw-sv' });
+
+      await mountProductDetails(
+        { product, alias: 'wood-screw-se' },
+        { global: { stubs: defaultStubs } },
+      );
+
+      const urls = mockUseFetch.mock.calls.map(([urlOrFn]) =>
+        typeof urlOrFn === 'function' ? urlOrFn() : urlOrFn,
+      );
+      expect(urls).toContain('/api/products/wood-screw-se/related');
+      expect(urls).not.toContain('/api/products/wood-screw-sv/related');
     });
   });
 });

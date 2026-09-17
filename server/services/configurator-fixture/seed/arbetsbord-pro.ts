@@ -25,6 +25,9 @@ import type { Seed } from './types';
 
 export const ARBETSBORD_PRO_ID = '900000000000123';
 
+/** The catalogue product on the team tenant, alias `arbetsbord-pro`. */
+export const ARBETSBORD_PRO_GEINS_ID = '1101';
+
 const ARTICLE = 'KONF-1001';
 const BASE_PRICE = 3200;
 const CATEGORY = 'Workbenches';
@@ -267,6 +270,7 @@ function steelTopNarrowsTheWidth(config: Configuration): void {
 
 export const arbetsbordPro: Seed = {
   productId: ARBETSBORD_PRO_ID,
+  geinsProductId: ARBETSBORD_PRO_GEINS_ID,
   templateId: `TPL-${ARTICLE}`,
   templateVersion: '4',
   basePrice: BASE_PRICE,

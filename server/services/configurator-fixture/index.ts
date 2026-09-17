@@ -56,6 +56,13 @@ export function createFixtureConfiguratorBackend({
     evaluate(session.seed, session.state, identityOf(id, session));
 
   return {
+    // The fixture is one catalogue for every tenant, so the context is not
+    // read here; the seam passes it because a backend that asks the platform
+    // will need it.
+    isConfigurable(productId: string): boolean {
+      return findSeed(productId) !== undefined;
+    },
+
     async create(
       input: CreateConfigurationInput,
       ctx: ConfiguratorContext,

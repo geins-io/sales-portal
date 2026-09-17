@@ -9,7 +9,16 @@ import type {
  * variables the provider computes, and the rules it re-runs after every change.
  */
 export interface Seed {
+  /** The provider's part id: what the document and every option row carry. */
   productId: string;
+  /**
+   * The catalogue product this seed stands for, as its Geins product id. The
+   * portal names a product by that id everywhere, and translating it to the
+   * part id above is the backend's job — here, this field. It is also what
+   * tells the products service the product is configurable while the merchant
+   * API has no field of its own.
+   */
+  geinsProductId: string;
   templateId: string;
   templateVersion: string;
   basePrice: number;

@@ -53,15 +53,16 @@ if (!canAccess('configurator')) {
 // The seeded products
 // ---------------------------------------------------------------------------
 /**
- * `?product=` takes the provider's product id, which is what the create route
- * resolves a seed by. The article number is the readable half of the label and
- * is not a key — nothing maps one to the other.
+ * `?product=` takes the Geins product id, which is what the create route
+ * resolves a seed by — the same id the catalogue knows the product as. The
+ * article number is the readable half of the label and is not a key; nothing
+ * maps one to the other.
  */
-const WORKBENCH = '900000000000123';
+const WORKBENCH = '1101';
 
 const PRODUCTS: { productId: string; label: string }[] = [
   { productId: WORKBENCH, label: 'Arbetsbord Pro · KONF-1001' },
-  { productId: '900000000000124', label: 'Skåpsektion Pro · KONF-1002' },
+  { productId: '1102', label: 'Skåpsektion Pro · KONF-1002' },
 ];
 
 const route = useRoute();

@@ -10,9 +10,10 @@ import {
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
+import type { DetailProduct } from '../../../shared/types/commerce';
 
 async function mountProductDetails(
-  props: { alias: string },
+  props: { product: DetailProduct; alias: string },
   mountOptions: MountOptionsFor<Component> = {},
 ) {
   // The wrapper closes over `props` instead of redeclaring them through
@@ -53,14 +54,12 @@ vi.mock('../../../app/composables/useStockVisibility', () => ({
   useStockVisibility: () => ({ showStock: computed(() => showStockRef.value) }),
 }));
 
-const mockProduct = ref<Record<string, unknown> | null>(null);
-const mockStatus = ref('success');
-const mockError = ref<Error | null>(null);
-
+// The product is a prop now; what is left for this mock are the fetches the
+// component still owns (related, siblings, CMS), none of which this file reads.
 const mockUseFetch = vi.fn(() => ({
-  data: mockProduct,
-  error: mockError,
-  status: mockStatus,
+  data: ref(null),
+  error: ref(null),
+  status: ref('success'),
   pending: ref(false),
   refresh: vi.fn(),
   execute: vi.fn(),
@@ -108,7 +107,7 @@ vi.mock(schemaOrgComposablePath, () => ({
   useSchemaOrg: vi.fn(),
 }));
 
-function makeProduct(overrides: Record<string, unknown> = {}) {
+function makeProduct(overrides: Record<string, unknown> = {}): DetailProduct {
   return {
     productId: 1,
     name: 'Test Product',
@@ -128,7 +127,7 @@ function makeProduct(overrides: Record<string, unknown> = {}) {
     discountCampaigns: [],
     discountType: 'NONE',
     ...overrides,
-  };
+  } as unknown as DetailProduct;
 }
 
 const defaultStubs = {
@@ -179,20 +178,17 @@ const defaultStubs = {
 
 describe('ProductDetails out-of-stock', () => {
   beforeEach(() => {
-    mockProduct.value = null;
-    mockStatus.value = 'success';
-    mockError.value = null;
     mockCanAccess.mockReturnValue(true);
     showStockRef.value = true;
   });
 
   it('OOS PDP hides qty + add-to-cart and shows OOS block', async () => {
-    mockProduct.value = makeProduct({
+    const product = makeProduct({
       totalStock: { inStock: 0, oversellable: 0, totalStock: 0, static: 0 },
     });
 
     const wrapper = await mountProductDetails(
-      { alias: 'test-product' },
+      { product, alias: product.alias },
       { global: { stubs: defaultStubs } },
     );
 
@@ -206,12 +202,12 @@ describe('ProductDetails out-of-stock', () => {
   });
 
   it('in-stock PDP shows qty + add-to-cart and hides OOS block', async () => {
-    mockProduct.value = makeProduct({
+    const product = makeProduct({
       totalStock: { inStock: 5, oversellable: 0, totalStock: 5, static: 0 },
     });
 
     const wrapper = await mountProductDetails(
-      { alias: 'test-product' },
+      { product, alias: product.alias },
       { global: { stubs: defaultStubs } },
     );
 
@@ -223,12 +219,12 @@ describe('ProductDetails out-of-stock', () => {
     // showStock controls the in-stock badge, not purchase gating. OOS UI
     // must always fire when the product is truly unavailable.
     showStockRef.value = false;
-    mockProduct.value = makeProduct({
+    const product = makeProduct({
       totalStock: { inStock: 0, oversellable: 0, totalStock: 0, static: 0 },
     });
 
     const wrapper = await mountProductDetails(
-      { alias: 'test-product' },
+      { product, alias: product.alias },
       { global: { stubs: defaultStubs } },
     );
 
@@ -237,12 +233,12 @@ describe('ProductDetails out-of-stock', () => {
   });
 
   it('on-demand product (static stock > 0) renders normal actions', async () => {
-    mockProduct.value = makeProduct({
+    const product = makeProduct({
       totalStock: { inStock: 0, oversellable: 0, totalStock: 0, static: 1 },
     });
 
     const wrapper = await mountProductDetails(
-      { alias: 'test-product' },
+      { product, alias: product.alias },
       { global: { stubs: defaultStubs } },
     );
 
@@ -255,13 +251,13 @@ describe('ProductDetails out-of-stock', () => {
     // so effective remaining is 0. Per Ralph's pattern, the product is not
     // out-of-stock — it has 1 unit, just not for this user right now. Keep
     // the action row visible, disable both stepper + button.
-    mockProduct.value = makeProduct({
+    const product = makeProduct({
       totalStock: { inStock: 1, oversellable: 0, totalStock: 1, static: 0 },
     });
     mockCartValue = { items: [{ skuId: 101, quantity: 1 }] };
 
     const wrapper = await mountProductDetails(
-      { alias: 'test-product' },
+      { product, alias: product.alias },
       { global: { stubs: defaultStubs } },
     );
 

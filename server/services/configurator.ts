@@ -27,6 +27,14 @@ export interface ConfiguratorContext {
 }
 
 export interface ConfiguratorBackend {
+  /**
+   * Whether this backend configures the given catalogue product. Asked of a
+   * product being described, not of a request to configure one, so it answers
+   * rather than throws. It takes the context like every other method: a Geins
+   * product id belongs to one account, so an implementation that asks the
+   * platform has to know which tenant is asking.
+   */
+  isConfigurable(productId: string, ctx: ConfiguratorContext): boolean;
   create(
     input: CreateConfigurationInput,
     ctx: ConfiguratorContext,
@@ -75,6 +83,7 @@ function rejectingBackend(
     throw createAppError(code, reason);
   };
   return {
+    isConfigurable: () => false,
     create: reject,
     get: reject,
     applyChanges: reject,
@@ -101,4 +110,23 @@ export function getConfiguratorBackend(event: H3Event): ConfiguratorBackend {
   return BACKENDS[
     resolveConfiguratorBackendName(readConfiguratorBackendValue(event))
   ]();
+}
+
+/**
+ * Whether a product is configured through the configurator, by its Geins
+ * product id. The product route asks this to set the portal-side `configurable`
+ * flag, which is what decides the page a product gets.
+ *
+ * It goes through the seam because the derivation is temporary: the fixture
+ * answers from its seeds, and the day the merchant API carries a field the
+ * answer moves to the SDK backend and no caller changes.
+ */
+export function isConfigurableProduct(
+  event: H3Event,
+  productId: string,
+): boolean {
+  return getConfiguratorBackend(event).isConfigurable(
+    productId,
+    buildConfiguratorContext(event),
+  );
 }

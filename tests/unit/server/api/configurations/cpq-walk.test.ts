@@ -17,8 +17,9 @@ import {
   DEPARTED_RETENTION_HOURS,
 } from '../../../../../server/services/configurator-fixture';
 import {
+  ARBETSBORD_PRO_GEINS_ID,
   ARBETSBORD_PRO_ID,
-  SKAPSEKTION_PRO_ID,
+  SKAPSEKTION_PRO_GEINS_ID,
 } from '../../../../../server/services/configurator-fixture/seed';
 import type { ConfiguratorContext } from '../../../../../server/services/configurator';
 import {
@@ -258,7 +259,7 @@ describe.sequential('the CPQ verification walk against the fixture', () => {
     clock = START;
     backend = createFixtureConfiguratorBackend({ now: () => clock });
 
-    latest = await createConfiguration(ARBETSBORD_PRO_ID, 2);
+    latest = await createConfiguration(ARBETSBORD_PRO_GEINS_ID, 2);
     workbench = latest.configurationId;
 
     expect(latest.productId).toBe(ARBETSBORD_PRO_ID);
@@ -314,7 +315,7 @@ describe.sequential('the CPQ verification walk against the fixture', () => {
   });
 
   it('4. reports the second product as computed, locked and hidden', async () => {
-    const cabinet = await createConfiguration(SKAPSEKTION_PRO_ID);
+    const cabinet = await createConfiguration(SKAPSEKTION_PRO_GEINS_ID);
 
     expect(findSection(cabinet, 'logistics').visible).toBe(false);
 
@@ -347,7 +348,7 @@ describe.sequential('the CPQ verification walk against the fixture', () => {
   });
 
   it('7. answers 410 on a released session until the retention runs out', async () => {
-    const released = await createConfiguration(ARBETSBORD_PRO_ID);
+    const released = await createConfiguration(ARBETSBORD_PRO_GEINS_ID);
     await deleteConfiguration(released.configurationId);
 
     // 410 rather than 404: the id was this buyer's, and the UI says so.
@@ -363,7 +364,7 @@ describe.sequential('the CPQ verification walk against the fixture', () => {
   });
 
   it('8. extends a session on renew and lets it expire after', async () => {
-    const renewed = await createConfiguration(ARBETSBORD_PRO_ID);
+    const renewed = await createConfiguration(ARBETSBORD_PRO_GEINS_ID);
     const first = Date.parse(renewed.expiresAt);
     // The clock has to move, or the renewed expiry is the one create returned.
     advance(SESSION_MINUTES - 5);

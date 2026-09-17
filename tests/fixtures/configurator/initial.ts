@@ -1,6 +1,6 @@
 import type { Configuration } from '#shared/types/configurator';
 import {
-  ARBETSBORD_PRO_ID,
+  ARBETSBORD_PRO_GEINS_ID,
   createSeedDocument,
 } from '../../../server/services/configurator-fixture/seed';
 
@@ -44,7 +44,7 @@ export function makeInitialConfiguration(
   overrides: Partial<Configuration> = {},
 ): Configuration {
   return {
-    ...createSeedDocument(ARBETSBORD_PRO_ID, {
+    ...createSeedDocument(ARBETSBORD_PRO_GEINS_ID, {
       configurationId: CONFIGURATION_ID,
       expiresAt: EXPIRES_AT,
     }),
