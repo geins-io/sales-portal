@@ -5,6 +5,7 @@ import type {
   ConfigurationVariable,
 } from '#shared/types/configurator';
 import {
+  boundsNarrowed,
   boundsParams,
   dateChangeValue,
   dateInputValue,
@@ -44,6 +45,15 @@ const blocked = computed(
   () => disabled || readOnly.value || !variable.available,
 );
 const bounds = computed(() => boundsParams(variable));
+
+/**
+ * The range this field was first given, kept as a plain value so a later
+ * document can be compared against it. Sections and variables are keyed by id,
+ * so the instance — and with it this baseline — survives the document replace
+ * that every change brings back.
+ */
+const firstBounds = { min: variable.min, max: variable.max };
+const narrowed = computed(() => boundsNarrowed(firstBounds, variable));
 
 const draft = ref<ConfigurationValue>(variable.value);
 watch(
@@ -158,6 +168,15 @@ function onDate(event: Event) {
       class="text-muted-foreground text-xs"
     >
       {{ t('configurator.bounds', bounds) }}
+      <!-- Amber is hardcoded for the reason quote-status.ts gives for its
+           orange: the design system has no warning token. -->
+      <span
+        v-if="narrowed"
+        data-testid="configurator-bounds-narrowed"
+        class="text-amber-600 dark:text-amber-500"
+      >
+        · {{ t('configurator.bounds_narrowed') }}
+      </span>
     </p>
 
     <p v-if="variable.description" class="text-muted-foreground text-xs">

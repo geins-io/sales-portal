@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mountComponent } from '../../../utils/component';
+import { OPTION_PREVIEW_LIMIT } from '../../../../app/utils/configurator-form';
 import ConfiguratorSection from '../../../../app/components/product/configurator/ConfiguratorSection.vue';
 import type { ConfigurationSection } from '#shared/types/configurator';
 import {
@@ -43,6 +44,47 @@ describe('ConfiguratorSection', () => {
     expect(
       wrapper.findAll('[data-testid="configurator-variable"]'),
     ).toHaveLength(3);
+  });
+
+  it('puts the choices before the measurements', () => {
+    const cabinet = makeCabinetConfiguration();
+
+    const wrapper = mountSection(sectionOf(cabinet.sections, 'cabinet'));
+
+    // The contract gives a section two lists and no order between them, so
+    // this is the design reference's order, pinned so a refactor cannot
+    // quietly swap it back.
+    const first = wrapper.find(
+      '[data-testid="configurator-group"], [data-testid="configurator-variable"]',
+    );
+    expect(first.attributes('data-testid')).toBe('configurator-group');
+  });
+
+  it('heads the measurements as a block of their own', () => {
+    const cabinet = makeCabinetConfiguration();
+
+    const wrapper = mountSection(sectionOf(cabinet.sections, 'cabinet'));
+
+    // A column of lone fields under the choices reads as leftovers; the
+    // measurements get the same headed, foldable block a group gets.
+    const header = wrapper.find(
+      '[data-testid="configurator-measurements-header"]',
+    );
+    expect(header.text()).toContain('configurator.measurements');
+    expect(header.attributes('aria-expanded')).toBe('true');
+  });
+
+  it('summarises the measurements it holds once folded', async () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));
+    await wrapper
+      .find('[data-testid="configurator-measurements-header"]')
+      .trigger('click');
+
+    expect(
+      wrapper.find('[data-testid="configurator-measurements-summary"]').text(),
+    ).toBe('(1200 mm · 700 mm · 0 pcs · 0 %)');
   });
 
   it('heads the section with the same bar its groups carry', () => {
@@ -96,7 +138,8 @@ describe('ConfiguratorSection', () => {
     const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));
 
     // Every node the document carries, and nothing invented: four variables,
-    // five groups, and a row per option including the 26 colours.
+    // five groups, and a row per option — except the 26-colour group, which
+    // shows five and keeps the rest in its panel.
     expect(
       wrapper.findAll('[data-testid="configurator-variable"]'),
     ).toHaveLength(4);
@@ -104,7 +147,7 @@ describe('ConfiguratorSection', () => {
       5,
     );
     expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
-      38,
+      38 - 26 + OPTION_PREVIEW_LIMIT,
     );
   });
 

@@ -198,4 +198,61 @@ describe('ConfiguratorVariableField', () => {
 
     expect(wrapper.find('input').element.value).toBe('PAL-200');
   });
+
+  // ---------------------------------------------------------------------
+  // The range a rule narrowed
+  // ---------------------------------------------------------------------
+  it('says nothing about a range that is the one it started with', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountField(findVariable(workbench, 'width'));
+
+    expect(
+      wrapper.find('[data-testid="configurator-bounds-narrowed"]').exists(),
+    ).toBe(false);
+  });
+
+  it('marks the range a later document narrowed', async () => {
+    const workbench = makeInitialConfiguration();
+    const cascaded = makeCascadedConfiguration();
+
+    // The same field, given the document that comes back once a steel top
+    // caps the width — which is the only way the narrowing is observable: the
+    // document carries the range that holds now and never the one before it.
+    const wrapper = mountField(findVariable(workbench, 'width'));
+    await wrapper.setProps({ variable: findVariable(cascaded, 'width') });
+
+    expect(
+      wrapper.find('[data-testid="configurator-bounds-narrowed"]').text(),
+    ).toBe('· configurator.bounds_narrowed');
+    expect(
+      wrapper.find('[data-testid="configurator-bounds"]').text(),
+    ).toContain('configurator.bounds');
+  });
+
+  it('says nothing when a later document leaves the range alone', async () => {
+    const workbench = makeInitialConfiguration();
+    const again = makeInitialConfiguration();
+
+    const wrapper = mountField(findVariable(workbench, 'width'));
+    await wrapper.setProps({ variable: findVariable(again, 'width') });
+
+    expect(
+      wrapper.find('[data-testid="configurator-bounds-narrowed"]').exists(),
+    ).toBe(false);
+  });
+
+  it('starts from the range it is first given, not from the widest seen', async () => {
+    const workbench = makeInitialConfiguration();
+    const cascaded = makeCascadedConfiguration();
+
+    // A field mounted on an already-narrowed document has nothing to compare
+    // against and says nothing, even once the cap is lifted again.
+    const wrapper = mountField(findVariable(cascaded, 'width'));
+    await wrapper.setProps({ variable: findVariable(workbench, 'width') });
+
+    expect(
+      wrapper.find('[data-testid="configurator-bounds-narrowed"]').exists(),
+    ).toBe(false);
+  });
 });
