@@ -23,7 +23,9 @@ import {
   type ConfiguratorSessionStatus,
 } from '../../../app/composables/useConfiguratorSession';
 import {
+  makeCabinetConfiguration,
   makeInvalidConfiguration,
+  makeSectionTreeConfiguration,
   makeValidConfiguration,
 } from '../../fixtures/configurator';
 import { CONFIGURATION_TAB_ID } from '../../../app/utils/product-tabs';
@@ -241,7 +243,7 @@ const stubs = {
       :data-disabled="String(disabled)">
       <button data-testid="section-change" @click="$emit('change', change)"></button>
     </section>`,
-    props: ['section', 'level', 'disabled'],
+    props: ['section', 'disabled'],
     emits: ['change'],
     setup: () => ({ change: CHANGE }),
   },
@@ -395,17 +397,16 @@ describe('ConfiguratorProduct session', () => {
     );
   });
 
-  it('renders one section per root section of the document', async () => {
+  it('renders one section at a time, starting on the first of the rail', async () => {
     const wrapper = mountPage();
-    const document = makeValidConfiguration();
-    activeWith(document);
+    activeWith(makeSectionTreeConfiguration());
     await nextTick();
 
     expect(
       wrapper
         .findAll('[data-testid="section"]')
         .map((section) => section.attributes('data-section-id')),
-    ).toEqual(document.sections.map((section) => section.id));
+    ).toEqual(['frame']);
   });
 
   it('sends a change from the form as a batch of one', async () => {
@@ -729,5 +730,262 @@ describe('ConfiguratorProduct frame', () => {
 
     expect(wrapper.find('[data-testid="pdp-cms-area"]').exists()).toBe(true);
     mockCmsArea.value = null;
+  });
+});
+
+describe('ConfiguratorProduct sections rail', () => {
+  const railIds = (
+    wrapper: ReturnType<typeof mountPage>,
+  ): (string | undefined)[] =>
+    wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')
+      .map((entry) => entry.attributes('data-section-id'));
+
+  const activeSectionId = (
+    wrapper: ReturnType<typeof mountPage>,
+  ): string | undefined =>
+    wrapper.find('[data-testid="section"]').attributes('data-section-id');
+
+  async function mountTree() {
+    const wrapper = mountPage();
+    activeWith(makeSectionTreeConfiguration());
+    await nextTick();
+    return wrapper;
+  }
+
+  it('lists every visible section of the document, in document order', async () => {
+    expect(railIds(await mountTree())).toEqual([
+      'frame',
+      'finish',
+      'edge-trim',
+      'cable-mgmt',
+      'extras',
+    ]);
+  });
+
+  it('gives each entry one indentation step per level', async () => {
+    const wrapper = await mountTree();
+
+    expect(
+      wrapper
+        .findAll('[data-testid="configurator-rail-entry"]')
+        .map((entry) => entry.attributes('data-depth')),
+    ).toEqual(['0', '1', '2', '0', '0']);
+  });
+
+  it('leaves out a hidden section and the visible child under it', async () => {
+    const ids = railIds(await mountTree());
+
+    expect(ids).not.toContain('warehouse');
+    expect(ids).not.toContain('pallet-store');
+  });
+
+  it('marks the first entry when the document arrives', async () => {
+    const wrapper = await mountTree();
+
+    expect(
+      wrapper
+        .findAll('[data-testid="configurator-rail-entry"]')
+        .filter((entry) => entry.attributes('data-active') === 'true')
+        .map((entry) => entry.attributes('data-section-id')),
+    ).toEqual(['frame']);
+  });
+
+  it('switches the body and moves the mark when an entry is clicked', async () => {
+    const wrapper = await mountTree();
+
+    await wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')[2]!
+      .trigger('click');
+
+    expect(activeSectionId(wrapper)).toBe('edge-trim');
+    expect(
+      wrapper
+        .findAll('[data-testid="configurator-rail-entry"]')
+        .filter((entry) => entry.attributes('data-active') === 'true')
+        .map((entry) => entry.attributes('data-section-id')),
+    ).toEqual(['edge-trim']);
+  });
+
+  it('reaches a nested section from the rail, not only a top-level one', async () => {
+    const wrapper = await mountTree();
+
+    await wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')[1]!
+      .trigger('click');
+
+    expect(activeSectionId(wrapper)).toBe('finish');
+  });
+
+  it('moves the mark with Next, as a click does', async () => {
+    const wrapper = await mountTree();
+
+    await wrapper.find('[data-testid="configurator-next"]').trigger('click');
+
+    expect(activeSectionId(wrapper)).toBe('finish');
+    expect(
+      wrapper
+        .findAll('[data-testid="configurator-rail-entry"]')
+        .filter((entry) => entry.attributes('data-active') === 'true')
+        .map((entry) => entry.attributes('data-section-id')),
+    ).toEqual(['finish']);
+  });
+
+  it('steps back with Previous', async () => {
+    const wrapper = await mountTree();
+
+    await wrapper.find('[data-testid="configurator-next"]').trigger('click');
+    await wrapper.find('[data-testid="configurator-prev"]').trigger('click');
+
+    expect(activeSectionId(wrapper)).toBe('frame');
+  });
+
+  it('offers no step back from the first entry', async () => {
+    const wrapper = await mountTree();
+
+    expect(
+      wrapper.find('[data-testid="configurator-prev"]').attributes('disabled'),
+    ).toBeDefined();
+  });
+
+  it('offers no step forward from the last entry', async () => {
+    const wrapper = await mountTree();
+
+    await wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')[4]!
+      .trigger('click');
+
+    expect(
+      wrapper.find('[data-testid="configurator-next"]').attributes('disabled'),
+    ).toBeDefined();
+  });
+
+  it('never locks the step forward on a section being complete', async () => {
+    const wrapper = await mountTree();
+
+    // `finish` is the section with an outstanding choice, and the buyer walks
+    // past it without making one.
+    await wrapper.find('[data-testid="configurator-next"]').trigger('click');
+    await wrapper.find('[data-testid="configurator-next"]').trigger('click');
+
+    expect(activeSectionId(wrapper)).toBe('edge-trim');
+  });
+
+  it('badges the section with an outstanding choice and no other', async () => {
+    const wrapper = await mountTree();
+
+    expect(
+      wrapper
+        .findAll('[data-testid="configurator-rail-entry"]')
+        .filter((entry) =>
+          entry.find('[data-testid="configurator-rail-remaining"]').exists(),
+        )
+        .map((entry) => entry.attributes('data-section-id')),
+    ).toEqual(['finish']);
+  });
+
+  it('drops the badge once the document says the choice was made', async () => {
+    const wrapper = await mountTree();
+    const answered = makeSectionTreeConfiguration();
+    const colour = answered.sections[0]!.sections[0]!.optionGroups.find(
+      (group) => group.id === 'color',
+    )!;
+    colour.options[0]!.selected = true;
+
+    session.configuration.value = answered;
+    await nextTick();
+
+    expect(
+      wrapper.findAll('[data-testid="configurator-rail-remaining"]'),
+    ).toHaveLength(0);
+  });
+
+  it('renders a one-item rail for a document with a single visible section', async () => {
+    // The cabinet seed carries two visible sections and one hidden one, so the
+    // one-section shape is made here rather than taken from a seed: a layout
+    // that switched on a count is the rule this replaced.
+    const single = makeCabinetConfiguration();
+    single.sections = single.sections.filter(
+      (section) => section.id !== 'interior',
+    );
+
+    const wrapper = mountPage();
+    activeWith(single);
+    await nextTick();
+
+    expect(railIds(wrapper)).toEqual(['cabinet']);
+    expect(activeSectionId(wrapper)).toBe('cabinet');
+    expect(
+      wrapper.find('[data-testid="configurator-prev"]').attributes('disabled'),
+    ).toBeDefined();
+    expect(
+      wrapper.find('[data-testid="configurator-next"]').attributes('disabled'),
+    ).toBeDefined();
+  });
+
+  it('renders no rail and no pager for a document with no visible section', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration({ sections: [] }));
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="configurator-rail"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('[data-testid="configurator-next"]').exists()).toBe(
+      false,
+    );
+    expect(wrapper.find('[data-testid="section"]').exists()).toBe(false);
+  });
+
+  it('keeps the buyer where they are when the replaced document still has the section', async () => {
+    const wrapper = await mountTree();
+    await wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')[3]!
+      .trigger('click');
+
+    session.configuration.value = makeSectionTreeConfiguration();
+    await nextTick();
+
+    expect(activeSectionId(wrapper)).toBe('cable-mgmt');
+  });
+
+  it('falls back to the section before it when the replaced document dropped it', async () => {
+    const wrapper = await mountTree();
+    // `cable-mgmt` is the fourth entry; `edge-trim` is the one above it.
+    await wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')[3]!
+      .trigger('click');
+
+    const replaced = makeSectionTreeConfiguration();
+    replaced.sections = replaced.sections.filter(
+      (section) => section.id !== 'cable-mgmt',
+    );
+    session.configuration.value = replaced;
+    await nextTick();
+
+    expect(activeSectionId(wrapper)).toBe('edge-trim');
+  });
+
+  it('badges a section whose group the provider put an error on', async () => {
+    const wrapper = await mountTree();
+    const objected = makeSectionTreeConfiguration();
+    // `extras` requires nothing and has no unmet choice, so a badge on it can
+    // only have come from the message.
+    const extras = objected.sections.find((s) => s.id === 'extras')!;
+    extras.optionGroups[0]!.messages = [
+      { severity: 'error', text: 'Not available with this frame.' },
+    ];
+
+    session.configuration.value = objected;
+    await nextTick();
+
+    expect(
+      wrapper
+        .findAll('[data-testid="configurator-rail-entry"]')
+        .filter((entry) =>
+          entry.find('[data-testid="configurator-rail-remaining"]').exists(),
+        )
+        .map((entry) => entry.attributes('data-section-id')),
+    ).toEqual(['finish', 'extras']);
   });
 });

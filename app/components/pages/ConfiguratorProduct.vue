@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
   Download,
   RotateCcw,
   SlidersHorizontal,
@@ -20,6 +22,15 @@ import {
   headerError,
   type ConfiguratorAction,
 } from '~/utils/configurator-page';
+import {
+  activeIndex,
+  flattenVisibleSections,
+  hasNext,
+  hasPrevious,
+  railIndent,
+  resolveActiveId,
+  stepId,
+} from '~/utils/configurator-sections';
 import {
   CONFIGURATION_TAB_ID,
   configuratorTabs,
@@ -215,6 +226,58 @@ const ownError = computed(() =>
   stage.value === 'form' && lastAction.value !== 'renew' ? error.value : null,
 );
 
+// ---------------------------------------------------------------------------
+// The rail
+//
+// One section at a time, with every visible section of the tree beside it. The
+// entries are empty unless a document is on screen, so the loading, error,
+// expired and committed faces render exactly as they did.
+// ---------------------------------------------------------------------------
+const railEntries = computed(() =>
+  stage.value === 'form' && configuration.value
+    ? flattenVisibleSections(configuration.value.sections)
+    : [],
+);
+
+const activeSectionId = ref<string | null>(null);
+
+// Every change batch returns a whole new document, so the section the buyer
+// stands on can arrive hidden or gone; `resolveActiveId` answers where to stand
+// then. Clicking an entry does not run this: the entries are unchanged.
+watch(
+  railEntries,
+  (entries, previous) => {
+    // The rail as it was is what says which entry came before the one that
+    // vanished; on the first run there is none, and the first entry is right.
+    activeSectionId.value = resolveActiveId(
+      entries,
+      activeSectionId.value,
+      previous ?? [],
+    );
+  },
+  { immediate: true },
+);
+
+const activeRailIndex = computed(() =>
+  activeIndex(railEntries.value, activeSectionId.value),
+);
+
+const activeEntry = computed(() => railEntries.value[activeRailIndex.value]);
+
+const canStepBack = computed(() => hasPrevious(activeRailIndex.value));
+
+const canStepForward = computed(() =>
+  hasNext(activeRailIndex.value, railEntries.value.length),
+);
+
+function step(delta: number): void {
+  activeSectionId.value = stepId(
+    railEntries.value,
+    activeRailIndex.value,
+    delta,
+  );
+}
+
 /** One change, one batch: the response is the whole document either way. */
 function onChange(change: ConfigurationChange): void {
   lastAction.value = 'change';
@@ -330,86 +393,217 @@ async function onRestart(): Promise<void> {
           class="bg-card mt-6 rounded-lg border p-6 data-[state=inactive]:hidden"
         >
           <!--
-            Source order is the prototype's: heading, form, status panel, which
-            is how a phone stacks them. The explicit placements put the panel
-            back in the right column on a wide screen, and `row-span-2` with
-            `self-start` is what lets it stick — the cell it is placed in
-            reaches the bottom of the form, while the card keeps its own height
-            and travels inside it.
+            Source order is the prototype's: heading, rail and form, status
+            panel, which is how a phone stacks them. The heading spans the rail
+            as well as the form, so the left side is one column holding a
+            heading and an inner grid rather than three cells placed by hand.
           -->
-          <div class="grid gap-x-8 gap-y-6 lg:grid-cols-[1fr_26rem]">
-            <div
-              class="flex items-center justify-between gap-3 lg:col-start-1 lg:row-start-1"
-            >
-              <h3 class="font-heading text-2xl font-bold">
-                {{ t('configurator.product_configuration') }}
-              </h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                class="text-muted-foreground shrink-0 gap-1.5"
-                data-testid="configurator-reset"
-                @click="onRestart"
+          <div class="grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
+            <div class="min-w-0">
+              <div
+                class="border-border mb-6 flex items-center justify-between gap-3 border-b pb-4"
               >
-                <RotateCcw class="size-4" />
-                {{ t('configurator.reset') }}
-              </Button>
-            </div>
-
-            <div
-              class="space-y-6 lg:col-start-1 lg:row-start-2"
-              data-testid="configurator-form-slot"
-            >
-              <p
-                v-if="stage === 'loading'"
-                class="text-muted-foreground text-sm"
-                data-testid="configurator-loading"
-              >
-                {{ t('configurator.starting') }}
-              </p>
-
-              <!-- No retry button: a session that could not be created is a
-                   reload, not a second POST from a page holding half a state. -->
-              <p
-                v-else-if="stage === 'error'"
-                class="text-destructive flex items-start gap-2 text-sm"
-                data-testid="configurator-error"
-              >
-                <AlertCircle class="mt-0.5 size-4 shrink-0" />
-                {{ t('configurator.failed') }}
-              </p>
-
-              <ConfiguratorCommitted
-                v-else-if="stage === 'committed' && committed"
-                :committed="committed"
-              />
-
-              <template v-else-if="stage === 'form' && configuration">
-                <p
-                  v-if="ownError"
-                  class="text-destructive flex items-start gap-2 text-sm"
-                  data-testid="configurator-form-error"
+                <h3 class="font-heading text-2xl font-bold">
+                  {{ t('configurator.product_configuration') }}
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="text-muted-foreground shrink-0 gap-1.5"
+                  data-testid="configurator-reset"
+                  @click="onRestart"
                 >
-                  <AlertCircle class="mt-0.5 size-4 shrink-0" />
-                  {{ t('configurator.failed') }}
-                </p>
+                  <RotateCcw class="size-4" />
+                  {{ t('configurator.reset') }}
+                </Button>
+              </div>
 
-                <ConfiguratorSection
-                  v-for="section in configuration.sections"
-                  :key="section.id"
-                  :section="section"
-                  :disabled="busy"
-                  @change="onChange"
-                />
-              </template>
+              <div class="grid gap-6 lg:grid-cols-[13rem_1fr] lg:items-start">
+                <!-- Below lg the rail is hidden and the pager carries
+                     navigation. No rail when there is nothing to list: a
+                     document with no visible section has nothing to configure,
+                     and an empty rail would be a frame around nothing. -->
+                <nav
+                  v-if="railEntries.length"
+                  class="hidden lg:sticky lg:top-48 lg:block"
+                  data-testid="configurator-rail"
+                >
+                  <p
+                    class="text-muted-foreground mb-2 px-2 text-[11px] font-medium tracking-wider uppercase"
+                  >
+                    {{ t('configurator.sections') }}
+                  </p>
+                  <ul class="space-y-0.5">
+                    <li
+                      v-for="(entry, index) in railEntries"
+                      :key="entry.section.id"
+                    >
+                      <!-- The indent is a style rather than a class, because
+                           the tree's depth has no ceiling and a lookup table
+                           would silently stop indenting at its last step. -->
+                      <button
+                        type="button"
+                        class="flex w-full items-center justify-between gap-2 rounded-md py-1.5 pr-2 text-left text-sm transition-colors"
+                        :class="
+                          entry.section.id === activeSectionId
+                            ? 'bg-muted text-foreground font-medium'
+                            : 'text-muted-foreground hover:bg-muted/60'
+                        "
+                        :style="{ paddingLeft: railIndent(entry.depth) }"
+                        data-testid="configurator-rail-entry"
+                        :data-section-id="entry.section.id"
+                        :data-depth="entry.depth"
+                        :data-active="
+                          String(entry.section.id === activeSectionId)
+                        "
+                        @click="activeSectionId = entry.section.id"
+                      >
+                        <span class="flex min-w-0 items-center gap-2">
+                          <span
+                            class="text-muted-foreground text-[11px] tabular-nums"
+                          >
+                            {{ index + 1 }}
+                          </span>
+                          <span class="truncate">{{ entry.section.name }}</span>
+                        </span>
+                        <span
+                          v-if="entry.remaining"
+                          class="bg-warning/10 text-warning shrink-0 rounded-full px-1.5 text-[10px] font-medium"
+                          data-testid="configurator-rail-remaining"
+                        >
+                          {{
+                            t('configurator.remaining', {
+                              count: entry.remaining,
+                            })
+                          }}
+                        </span>
+                      </button>
+                    </li>
+                  </ul>
+                </nav>
+
+                <!-- The rule down the left is the prototype's frame around the
+                     active section. It goes when the rail does: with nothing to
+                     navigate it would frame a loading line. -->
+                <div
+                  class="min-w-0"
+                  :class="
+                    railEntries.length
+                      ? 'border-border space-y-8 border-l pl-6 lg:min-h-[calc(100vh-16rem)]'
+                      : 'space-y-6'
+                  "
+                  data-testid="configurator-form-slot"
+                >
+                  <p
+                    v-if="stage === 'loading'"
+                    class="text-muted-foreground text-sm"
+                    data-testid="configurator-loading"
+                  >
+                    {{ t('configurator.starting') }}
+                  </p>
+
+                  <!-- No retry button: a session that could not be created is a
+                   reload, not a second POST from a page holding half a state. -->
+                  <p
+                    v-else-if="stage === 'error'"
+                    class="text-destructive flex items-start gap-2 text-sm"
+                    data-testid="configurator-error"
+                  >
+                    <AlertCircle class="mt-0.5 size-4 shrink-0" />
+                    {{ t('configurator.failed') }}
+                  </p>
+
+                  <ConfiguratorCommitted
+                    v-else-if="stage === 'committed' && committed"
+                    :committed="committed"
+                  />
+
+                  <template v-else-if="stage === 'form' && configuration">
+                    <p
+                      v-if="ownError"
+                      class="text-destructive flex items-start gap-2 text-sm"
+                      data-testid="configurator-form-error"
+                    >
+                      <AlertCircle class="mt-0.5 size-4 shrink-0" />
+                      {{ t('configurator.failed') }}
+                    </p>
+
+                    <!-- The key remounts the fields on a switch, as the prototype
+                     does: a measurement typed but never blurred belongs to the
+                     section it was typed in. -->
+                    <div v-if="activeEntry" :key="activeEntry.section.id">
+                      <header class="mb-6 flex items-center gap-3">
+                        <span
+                          class="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums"
+                        >
+                          {{ activeRailIndex + 1 }}
+                        </span>
+                        <!-- The prototype writes a description under the name; the
+                         contract carries no section description, so no line is
+                         written rather than an empty one. -->
+                        <h4
+                          class="font-heading min-w-0 text-xl leading-tight font-bold"
+                        >
+                          {{ activeEntry.section.name }}
+                        </h4>
+                      </header>
+
+                      <ConfiguratorSection
+                        :section="activeEntry.section"
+                        :disabled="busy"
+                        @change="onChange"
+                      />
+
+                      <!-- Free movement, not a wizard: the rail jumps anywhere and
+                       neither button asks whether the section was answered. -->
+                      <div
+                        class="border-border mt-6 flex items-center justify-between border-t pt-6"
+                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          :disabled="!canStepBack"
+                          data-testid="configurator-prev"
+                          @click="step(-1)"
+                        >
+                          <ChevronLeft class="size-4" />
+                          {{ t('configurator.previous') }}
+                        </Button>
+                        <span
+                          class="text-muted-foreground text-xs tabular-nums"
+                          data-testid="configurator-position"
+                        >
+                          {{
+                            t('configurator.section_position', {
+                              current: activeRailIndex + 1,
+                              total: railEntries.length,
+                            })
+                          }}
+                        </span>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          :disabled="!canStepForward"
+                          data-testid="configurator-next"
+                          @click="step(1)"
+                        >
+                          {{ t('configurator.next') }}
+                          <ChevronRight class="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
             </div>
 
             <!-- top-48 is the measured header plus 1rem of air: the portal's
                  sticky header is 176px = 11rem at every width from 1024 up
-                 (topbar, main row, nav), measured 2026-09-17. -->
+                 (topbar, main row, nav), measured 2026-09-17. `items-start` on
+                 the grid is what lets it stick. -->
             <aside
               v-if="stage !== 'committed'"
-              class="lg:sticky lg:top-48 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-h-[calc(100vh-13rem)] lg:self-start lg:overflow-y-auto"
+              class="lg:sticky lg:top-48 lg:max-h-[calc(100vh-13rem)] lg:overflow-y-auto"
             >
               <!-- The card is the aside itself and every block inside pads
                    itself, so the specification fills the column rather than

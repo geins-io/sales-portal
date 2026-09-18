@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { mountComponent } from '../../../utils/component';
-import { OPTION_PREVIEW_LIMIT } from '../../../../app/utils/configurator-form';
 import ConfiguratorSection from '../../../../app/components/product/configurator/ConfiguratorSection.vue';
 import type { ConfigurationSection } from '#shared/types/configurator';
 import {
@@ -35,15 +34,25 @@ describe('ConfiguratorSection', () => {
     expect(wrapper.text()).not.toContain('Pallet code');
   });
 
-  it('renders a visible section with its name and its variables', () => {
+  it('renders a visible section with its variables', () => {
     const cabinet = makeCabinetConfiguration();
 
     const wrapper = mountSection(sectionOf(cabinet.sections, 'cabinet'));
 
-    expect(wrapper.find('h3').text()).toBe('Cabinet');
     expect(
       wrapper.findAll('[data-testid="configurator-variable"]'),
     ).toHaveLength(3);
+  });
+
+  it('writes no heading of its own, because the page numbers the section', () => {
+    const cabinet = makeCabinetConfiguration();
+
+    const wrapper = mountSection(sectionOf(cabinet.sections, 'cabinet'));
+
+    // The rail gives the section its number and the page renders the `h4` that
+    // carries it; a second heading here would say the name twice.
+    expect(wrapper.text()).not.toContain('Cabinet');
+    expect(wrapper.find('h4').exists()).toBe(false);
   });
 
   it('puts the choices before the measurements', () => {
@@ -87,88 +96,55 @@ describe('ConfiguratorSection', () => {
     ).toBe('(1200 mm · 700 mm · 0 pcs · 0 %)');
   });
 
-  it('heads the section as a heading, not as one more grey bar', () => {
-    const cabinet = makeCabinetConfiguration();
-
-    const wrapper = mountSection(sectionOf(cabinet.sections, 'cabinet'));
-
-    // The grey bars belong to the groups and the measurements inside the
-    // section; a section that carried one too would read as another block
-    // beside them rather than as what holds them.
-    const header = wrapper.find('[data-testid="configurator-section-header"]');
-    expect(header.text()).toBe('Cabinet');
-    expect(header.classes()).not.toContain('bg-muted');
-    expect(header.find('h3').classes()).toContain('font-heading');
-  });
-
-  it('writes no description line, because the contract carries none', () => {
-    const cabinet = makeCabinetConfiguration();
-
-    const wrapper = mountSection(sectionOf(cabinet.sections, 'cabinet'));
-
-    // Not an empty element and no reserved space: with the prototype's data
-    // the line would be there, with ours it is absent.
-    expect(
-      wrapper.find('[data-testid="configurator-section-header"]').element
-        .children,
-    ).toHaveLength(1);
-  });
-
-  it('renders a nested section inside its parent, one heading level down', () => {
+  it('renders its own content only, never a child section\u2019s', () => {
     const workbench = makeInitialConfiguration();
 
+    // `Finish` sits inside `Frame` and is an entry of its own in the rail.
+    // Rendering it here would put its content on two pages at once.
     const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));
 
-    const sections = wrapper.findAll('[data-testid="configurator-section"]');
-    expect(sections.map((s) => s.attributes('data-section-id'))).toEqual([
-      'frame',
-      'finish',
-    ]);
-    expect(wrapper.find('h3').text()).toBe('Frame');
-    expect(sections[1]?.find('h4').text()).toBe('Finish');
-    // The nested section's own groups sit a level below it, so a group never
-    // outranks the section it belongs to.
-    expect(sections[1]?.find('[data-group-id="top"] h5').text()).toContain(
-      'Table top',
+    expect(
+      wrapper
+        .findAll('[data-testid="configurator-section"]')
+        .map((s) => s.attributes('data-section-id')),
+    ).toEqual(['frame']);
+    expect(
+      wrapper
+        .findAll('[data-testid="configurator-group"]')
+        .map((g) => g.attributes('data-group-id')),
+    ).toEqual(['legs', 'industrial']);
+  });
+
+  it('puts a group one level under the heading the page renders', () => {
+    const workbench = makeInitialConfiguration();
+
+    // The page's section heading is an `h4`, so a group never outranks the
+    // section it belongs to.
+    const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));
+
+    expect(wrapper.find('[data-group-id="legs"] h5').text()).toContain(
+      'Leg frame',
     );
   });
 
-  it('renders the option groups of both levels', () => {
+  it('renders every node of the section it was given, and nothing invented', () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));
 
-    const groups = wrapper.findAll('[data-testid="configurator-group"]');
-    expect(groups.map((g) => g.attributes('data-group-id'))).toEqual([
-      'legs',
-      'industrial',
-      'top',
-      'color',
-      'accessories',
-    ]);
-  });
-
-  it('renders the whole seeded workbench document as one form', () => {
-    const workbench = makeInitialConfiguration();
-    expect(workbench.sections).toHaveLength(1);
-
-    const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));
-
-    // Every node the document carries, and nothing invented: four variables,
-    // five groups, and a row per option — except the 26-colour group, which
-    // shows five and keeps the rest in its panel.
+    // Four variables, two groups, and a row per option of those two.
     expect(
       wrapper.findAll('[data-testid="configurator-variable"]'),
     ).toHaveLength(4);
     expect(wrapper.findAll('[data-testid="configurator-group"]')).toHaveLength(
-      5,
+      2,
     );
     expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
-      38 - 26 + OPTION_PREVIEW_LIMIT,
+      5,
     );
   });
 
-  it('passes a change from a nested section up untouched', async () => {
+  it('passes a change from a group up untouched', async () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));

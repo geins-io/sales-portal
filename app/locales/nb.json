@@ -334,6 +334,11 @@
     "configure_product": "Konfigurer produkt",
     "product_configuration": "Produktkonfigurasjon",
     "reset": "Tilbakestill",
+    "sections": "Seksjoner",
+    "remaining": "{count} igjen",
+    "previous": "Forrige",
+    "next": "Neste",
+    "section_position": "Seksjon {current} av {total}",
     "page_note": "Dette er et konfiguratorprodukt. Bygg varianten din under {tab} nedenfor — pris og gyldighet beregnes fortløpende.",
     "severity": {
       "error": "Feil",

@@ -334,6 +334,11 @@
     "configure_product": "Produkt konfigurieren",
     "product_configuration": "Produktkonfiguration",
     "reset": "Zurücksetzen",
+    "sections": "Abschnitte",
+    "remaining": "{count} offen",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "section_position": "Abschnitt {current} von {total}",
     "page_note": "Dies ist ein konfigurierbares Produkt. Stellen Sie Ihre Variante unten unter {tab} zusammen — Preis und Gültigkeit werden laufend berechnet.",
     "severity": {
       "error": "Fehler",

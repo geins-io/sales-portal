@@ -6,7 +6,7 @@ import {
 
 // ---------------------------------------------------------------------------
 // "Skåpsektion Pro" as the configurator returns it on create: article
-// KONF-1002, two sections, one of which arrives invisible.
+// KONF-1002, three sections, one of which arrives invisible.
 //
 // It is here for the three states the workbench never reaches, all of them
 // seeded rather than derived:

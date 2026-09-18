@@ -6,28 +6,25 @@ import type {
 import { variablesSummary } from '~/utils/configurator-form';
 
 /**
- * One `ConfigurationSection` and the sections nested inside it.
+ * One `ConfigurationSection`'s own content — its groups and its variables.
+ *
+ * Not its children: a nested section is an entry of its own in the rail, so
+ * rendering `section.sections` here would put a child's content on two pages at
+ * once. The heading is the page's too, because it carries the section's number
+ * in the rail.
  *
  * `visible: false` renders nothing at all. The provider keeps data on the
  * document that is not the buyer's to see — warehouse fields, for instance —
  * and the UI hides what arrives invisible rather than deciding for itself.
  */
-const {
-  section,
-  level = 3,
-  disabled = false,
-} = defineProps<{
+const { section, disabled = false } = defineProps<{
   section: ConfigurationSection;
-  /** Heading level, so a nested section does not restart the outline. */
-  level?: number;
   disabled?: boolean;
 }>();
 
 const emit = defineEmits<{ change: [ConfigurationChange] }>();
 
 const { t } = useI18n();
-
-const heading = computed(() => `h${Math.min(level, 6)}`);
 
 /** Empty rather than a bare separator when nothing readable is set yet. */
 const summary = computed(
@@ -42,30 +39,17 @@ const summary = computed(
     :data-section-id="section.id"
     class="space-y-4"
   >
-    <!-- A section is a heading, not a bar: the grey bars below it are the
-         groups and the measurements, and a section that carried one too would
-         read as another block beside them rather than what holds them.
-         The contract has no section description, so no line is written for
-         one. -->
-    <header class="mb-6" data-testid="configurator-section-header">
-      <component
-        :is="heading"
-        class="font-heading text-xl leading-tight font-bold"
-      >
-        {{ section.name }}
-      </component>
-    </header>
-
     <ConfiguratorMessages :messages="section.messages" />
 
     <!-- Choices first, measurements last. The contract puts variables and
          option groups in two lists and says nothing about which comes first,
-         so the order follows the design reference until it does. -->
+         so the order follows the design reference until it does.
+         `5` is one below the `h4` the page renders over this section. -->
     <ConfiguratorOptionGroup
       v-for="group in section.optionGroups"
       :key="group.id"
       :group="group"
-      :level="level + 1"
+      :level="5"
       :disabled="disabled"
       @change="emit('change', $event)"
     />
@@ -78,7 +62,7 @@ const summary = computed(
       name="configurator-measurements"
       :title="t('configurator.measurements')"
       :summary="summary"
-      :level="level + 1"
+      :level="5"
     >
       <div class="grid gap-4 sm:grid-cols-2">
         <ConfiguratorVariableField
@@ -90,15 +74,5 @@ const summary = computed(
         />
       </div>
     </ConfiguratorFoldable>
-
-    <ConfiguratorSection
-      v-for="nested in section.sections"
-      :key="nested.id"
-      :section="nested"
-      :level="level + 1"
-      :disabled="disabled"
-      class="border-muted border-l pl-4"
-      @change="emit('change', $event)"
-    />
   </section>
 </template>

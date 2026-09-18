@@ -1,4 +1,7 @@
-import type { Configuration } from '#shared/types/configurator';
+import type {
+  Configuration,
+  ConfigurationSection,
+} from '#shared/types/configurator';
 import { findOptionGroup, findVariable } from './builders';
 import { makeInitialConfiguration } from './initial';
 
@@ -72,6 +75,83 @@ export function makeNestedGroupConfiguration(
     (group) => group.id !== industrial.id,
   );
   findOptionGroup(config, 'legs').optionGroups = [industrial];
+
+  return { ...config, ...overrides };
+}
+
+/**
+ * The section tree the seeds do not have: three visible top-level sections, one
+ * of them two levels deep, and a hidden section holding a visible child.
+ *
+ * The workbench nests `Finish` inside `Frame` and stops there, and the cabinet
+ * has siblings and no depth at all. The rail is built from this tree, so it
+ * needs a document where depth, document order and the hidden-parent case are
+ * all present at once.
+ *
+ * Nothing new is invented: every group and variable below is one of the initial
+ * document's, moved. A fixture that made up option rows would be a second
+ * opinion about what a provider sends.
+ */
+export function makeSectionTreeConfiguration(
+  overrides: Partial<Configuration> = {},
+): Configuration {
+  const config = makeInitialConfiguration();
+
+  const frame = config.sections[0];
+  const finish = frame?.sections[0];
+  if (!frame || !finish) {
+    throw new Error('The initial document lost its nested sections');
+  }
+
+  const section = (
+    id: string,
+    name: string,
+    parts: Partial<ConfigurationSection> = {},
+  ): ConfigurationSection => ({
+    id,
+    name,
+    visible: true,
+    sections: [],
+    variables: [],
+    optionGroups: [],
+    messages: [],
+    ...parts,
+  });
+
+  const industrial = findOptionGroup(config, 'industrial');
+  const accessories = findOptionGroup(config, 'accessories');
+  const shelves = findVariable(config, 'shelves');
+  const oversize = findVariable(config, 'oversize');
+
+  frame.optionGroups = frame.optionGroups.filter(
+    (group) => group.id !== industrial.id,
+  );
+  frame.variables = frame.variables.filter(
+    (variable) => variable.id !== shelves.id && variable.id !== oversize.id,
+  );
+  finish.optionGroups = finish.optionGroups.filter(
+    (group) => group.id !== accessories.id,
+  );
+
+  // The grandchild, which is the entry the flattening has to reach.
+  finish.sections = [
+    section('edge-trim', 'Edge trim', { optionGroups: [industrial] }),
+  ];
+
+  config.sections = [
+    frame,
+    section('cable-mgmt', 'Cable management', {
+      variables: [shelves, oversize],
+    }),
+    section('extras', 'Extras', { optionGroups: [accessories] }),
+    // Hidden, and its child is visible: a rail that listed the child would show
+    // a section whose messages the panel drops and whose requirements the
+    // banner refuses to name.
+    section('warehouse', 'Warehouse', {
+      visible: false,
+      sections: [section('pallet-store', 'Pallet store')],
+    }),
+  ];
 
   return { ...config, ...overrides };
 }

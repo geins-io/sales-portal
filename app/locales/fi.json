@@ -334,6 +334,11 @@
     "configure_product": "Määritä tuote",
     "product_configuration": "Tuotemääritys",
     "reset": "Palauta",
+    "sections": "Osiot",
+    "remaining": "{count} jäljellä",
+    "previous": "Edellinen",
+    "next": "Seuraava",
+    "section_position": "Osio {current}/{total}",
     "page_note": "Tämä on määritettävä tuote. Rakenna oma versiosi alla kohdassa {tab} — hinta ja voimassaolo lasketaan jatkuvasti.",
     "severity": {
       "error": "Virhe",
