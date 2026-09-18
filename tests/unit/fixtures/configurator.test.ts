@@ -57,9 +57,9 @@ describe('the initial configuration', () => {
     expect(config.isValid).toBe(false);
     expect(colour.minSelections).toBe(1);
     expect(colour.options.some((option) => option.selected)).toBe(false);
-    expect(colour.messages).toContainEqual(
-      expect.objectContaining({ severity: 'error' }),
-    );
+    // The requirement is the whole reason, and it is the group's own property:
+    // nothing is written under a group the buyer has not reached yet.
+    expect(colour.messages).toEqual([]);
   });
 
   it('is priced and has a live session', () => {
@@ -105,16 +105,14 @@ describe('the cascaded configuration', () => {
 });
 
 describe('the invalid configuration', () => {
-  it('has a required option group emptied, with the error on the group', () => {
+  it('has a required option group emptied, and says so through the requirement', () => {
     const config = makeInvalidConfiguration();
     const top = findOptionGroup(config, 'top');
 
     expect(config.isValid).toBe(false);
     expect(top.minSelections).toBe(1);
     expect(top.options.some((option) => option.selected)).toBe(false);
-    expect(top.messages).toContainEqual(
-      expect.objectContaining({ severity: 'error' }),
-    );
+    expect(top.messages).toEqual([]);
   });
 
   it('carries no message on the root or on any section', () => {

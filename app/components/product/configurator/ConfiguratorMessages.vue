@@ -23,11 +23,9 @@ const { t } = useI18n();
       :class="
         message.severity === 'error'
           ? 'bg-destructive/10 text-destructive'
-          : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+          : 'bg-warning/10 text-warning'
       "
     >
-      <!-- Warning keeps a hardcoded amber: the design system has no warning
-           token, the same reason quote-status.ts gives for its orange. -->
       <CircleAlert
         v-if="message.severity === 'error'"
         class="mt-0.5 size-3.5 shrink-0"

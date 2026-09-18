@@ -411,29 +411,35 @@ async function onRestart(): Promise<void> {
               v-if="stage !== 'committed'"
               class="lg:sticky lg:top-48 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:max-h-[calc(100vh-13rem)] lg:self-start lg:overflow-y-auto"
             >
-              <!-- The committed summary carries the price it was committed at,
-                   so the header stands down rather than show a second one. -->
-              <Card class="gap-4 p-4">
-                <ConfigurationHeader
+              <!-- The card is the aside itself and every block inside pads
+                   itself, so the specification fills the column rather than
+                   sitting as a small box inside a larger one. The committed
+                   summary carries the price it was committed at, so the card
+                   stands down rather than show a second one. -->
+              <Card class="divide-border gap-0 divide-y p-0">
+                <ConfigurationPanel
                   :configuration="configuration"
                   :status="status"
                   :busy="busy"
-                  :remaining-ms="remainingMs"
-                  :error="forHeader"
-                  @renew="onRenew"
+                  :product-name="product.name ?? ''"
+                  :article-number="product.articleNumber ?? ''"
                   @restart="onRestart"
                 />
 
-                <Button
+                <ConfigurationAction
                   v-if="stage === 'form'"
-                  class="w-full"
-                  size="lg"
-                  :disabled="!commitEnabled"
-                  data-testid="configurator-commit"
-                  @click="onCommit"
-                >
-                  {{ t('configurator.commit') }}
-                </Button>
+                  :can-commit="commitEnabled"
+                  :busy="busy"
+                  @commit="onCommit"
+                />
+
+                <ConfigurationSession
+                  v-if="stage === 'form'"
+                  :remaining-ms="remainingMs"
+                  :busy="busy"
+                  :error="forHeader"
+                  @renew="onRenew"
+                />
               </Card>
             </aside>
           </div>

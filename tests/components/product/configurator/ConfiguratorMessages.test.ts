@@ -19,16 +19,21 @@ describe('ConfiguratorMessages', () => {
     );
   });
 
-  it('renders the error a required group carries', () => {
+  it('renders the error a rule put on a group', () => {
     const invalid = makeInvalidConfiguration();
+    const top = findOptionGroup(invalid, 'top');
+    top.messages = [
+      { severity: 'error', text: 'That table top is out of production.' },
+    ];
+
     const wrapper = mountComponent(ConfiguratorMessages, {
-      props: { messages: findOptionGroup(invalid, 'top').messages },
+      props: { messages: top.messages },
     });
 
     const rows = wrapper.findAll('[data-testid="configurator-message"]');
     expect(rows).toHaveLength(1);
     expect(rows[0]?.attributes('data-severity')).toBe('error');
-    expect(rows[0]?.text()).toContain('Select a table top.');
+    expect(rows[0]?.text()).toContain('That table top is out of production.');
   });
 
   it('renders a warning as a warning', () => {

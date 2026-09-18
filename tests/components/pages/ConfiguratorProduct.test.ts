@@ -213,14 +213,28 @@ const stubs = {
     template: '<div><slot /></div>',
     props: ['section'],
   },
-  ConfigurationHeader: {
-    template: `<div data-testid="header" :data-status="status"
-      :data-error="error ? 'yes' : 'no'">
-      <button data-testid="header-renew" @click="$emit('renew')"></button>
-      <button data-testid="header-restart" @click="$emit('restart')"></button>
+  ConfigurationPanel: {
+    template: `<div data-testid="panel" :data-status="status"
+      :data-article="articleNumber">
+      <button data-testid="panel-restart" @click="$emit('restart')"></button>
     </div>`,
-    props: ['configuration', 'status', 'busy', 'remainingMs', 'error'],
-    emits: ['renew', 'restart'],
+    props: ['configuration', 'status', 'busy', 'productName', 'articleNumber'],
+    emits: ['restart'],
+  },
+  ConfigurationAction: {
+    template: `<div data-testid="action">
+      <button data-testid="configurator-commit" :disabled="!canCommit"
+        @click="$emit('commit')"></button>
+    </div>`,
+    props: ['canCommit', 'busy'],
+    emits: ['commit'],
+  },
+  ConfigurationSession: {
+    template: `<div data-testid="session" :data-error="error ? 'yes' : 'no'">
+      <button data-testid="session-renew" @click="$emit('renew')"></button>
+    </div>`,
+    props: ['remainingMs', 'busy', 'error'],
+    emits: ['renew'],
   },
   ConfiguratorSection: {
     template: `<section data-testid="section" :data-section-id="section.id"
@@ -439,12 +453,12 @@ describe('ConfiguratorProduct session', () => {
     ).toEqual(replaced.sections.map((section) => section.id));
   });
 
-  it('renews the session from the header', async () => {
+  it('renews the session from the session row', async () => {
     const wrapper = mountPage();
     activeWith(makeValidConfiguration());
     await nextTick();
 
-    await wrapper.find('[data-testid="header-renew"]').trigger('click');
+    await wrapper.find('[data-testid="session-renew"]').trigger('click');
 
     expect(session.renew).toHaveBeenCalledTimes(1);
   });
@@ -456,14 +470,14 @@ describe('ConfiguratorProduct session', () => {
     await nextTick();
     session.start.mockClear();
 
-    await wrapper.find('[data-testid="header-restart"]').trigger('click');
+    await wrapper.find('[data-testid="panel-restart"]').trigger('click');
     await nextTick();
 
     expect(session.release).toHaveBeenCalledTimes(1);
     expect(session.start).toHaveBeenCalledWith('1101');
   });
 
-  it('shows no form and no commit button once the session has expired', async () => {
+  it('shows no form, no action and no countdown once the session has expired', async () => {
     const wrapper = mountPage();
     session.configuration.value = makeValidConfiguration();
     session.status.value = 'expired';
@@ -473,6 +487,9 @@ describe('ConfiguratorProduct session', () => {
     expect(wrapper.find('[data-testid="configurator-commit"]').exists()).toBe(
       false,
     );
+    // The panel says the session is gone; a countdown beside it would be
+    // counting down something that has already run out.
+    expect(wrapper.find('[data-testid="session"]').exists()).toBe(false);
   });
 });
 
@@ -530,31 +547,31 @@ describe('ConfiguratorProduct commit', () => {
     expect(wrapper.find('[data-testid="configurator-commit"]').exists()).toBe(
       false,
     );
-    // The summary carries the committed price; a header beside it would be a
+    // The summary carries the committed price; a panel beside it would be a
     // second price for the same thing.
-    expect(wrapper.find('[data-testid="header"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="panel"]').exists()).toBe(false);
   });
 });
 
 describe('ConfiguratorProduct errors', () => {
-  it('gives the header a failed renew, which is the failure its message names', async () => {
+  it('gives the session row a failed renew, which is the failure its message names', async () => {
     const wrapper = mountPage();
     activeWith(makeValidConfiguration());
     await nextTick();
 
-    await wrapper.find('[data-testid="header-renew"]').trigger('click');
+    await wrapper.find('[data-testid="session-renew"]').trigger('click');
     session.error.value = { status: 500, message: 'boom' };
     await nextTick();
 
     expect(
-      wrapper.find('[data-testid="header"]').attributes('data-error'),
+      wrapper.find('[data-testid="session"]').attributes('data-error'),
     ).toBe('yes');
     expect(
       wrapper.find('[data-testid="configurator-form-error"]').exists(),
     ).toBe(false);
   });
 
-  it('keeps a failed change batch out of the header and reports it itself', async () => {
+  it('keeps a failed change batch out of the session row and reports it itself', async () => {
     const wrapper = mountPage();
     activeWith(makeValidConfiguration());
     await nextTick();
@@ -564,7 +581,7 @@ describe('ConfiguratorProduct errors', () => {
     await nextTick();
 
     expect(
-      wrapper.find('[data-testid="header"]').attributes('data-error'),
+      wrapper.find('[data-testid="session"]').attributes('data-error'),
     ).toBe('no');
     expect(
       wrapper.find('[data-testid="configurator-form-error"]').exists(),

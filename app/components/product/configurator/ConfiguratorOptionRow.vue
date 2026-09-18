@@ -131,7 +131,7 @@ function onRow() {
     :data-selected="option.selected"
     class="rounded-lg border p-3 transition-colors"
     :class="[
-      option.selected ? 'border-primary/60 bg-primary/5' : '',
+      option.selected ? 'border-selected/60 bg-selected/5' : '',
       blocked ? 'opacity-50' : 'hover:bg-accent/50 cursor-pointer',
       readOnly ? 'cursor-default' : '',
     ]"
@@ -139,12 +139,16 @@ function onRow() {
   >
     <div class="flex gap-3" :class="stacked ? 'items-center' : 'items-start'">
       <div class="flex min-w-0 flex-1 items-start gap-3">
+        <!-- The chosen mark is the one colour the tenant theme does not get to
+             decide: a tenant whose primary is a near-black neutral would mark
+             its choices in grey. Written here rather than in the shared
+             controls, which every other form in the portal uses. -->
         <RadioGroupItem
           v-if="single"
           :value="option.id"
           :disabled="blocked"
           :title="reason"
-          class="mt-0.5"
+          class="data-[state=checked]:border-selected [&_svg]:fill-selected mt-0.5"
           @click.stop
         />
         <Checkbox
@@ -152,7 +156,7 @@ function onRow() {
           :model-value="option.selected"
           :disabled="blocked"
           :title="reason"
-          class="mt-0.5"
+          class="data-[state=checked]:border-selected data-[state=checked]:bg-selected mt-0.5"
           @click.stop
           @update:model-value="onToggle"
         />

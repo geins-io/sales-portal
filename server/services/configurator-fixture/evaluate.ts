@@ -2,7 +2,17 @@ import type {
   Configuration,
   ConfigurationValue,
 } from '#shared/types/configurator';
-import { everyGroup, everyOption, everyVariable, optionKey } from './document';
+import {
+  isGroupUnmet,
+  isVariableUnmet,
+} from '#shared/utils/configurator-requirement';
+import {
+  everyGroup,
+  everyOption,
+  everySection,
+  everyVariable,
+  optionKey,
+} from './document';
 import { CURRENCY } from './seed/builders';
 import type { Seed } from './seed/types';
 
@@ -100,28 +110,36 @@ function price(config: Configuration, seed: Seed): number {
 }
 
 /**
- * An unmet required group is the only thing that invalidates a document here,
- * and the message sits on the group: the provider has no source for messages
- * on the root or on a section, so a consumer reading them there finds nothing.
+ * What makes a document invalid: a requirement still unmet, or an error the
+ * rules put on any node of the tree.
+ *
+ * An unmet requirement carries no message of its own. It is a property of the
+ * node, which every consumer reads for itself (`isGroupUnmet`,
+ * `isVariableUnmet`), and a red box under a group the buyer has not reached yet
+ * says only that they have not reached it. Messages are left for what the rules
+ * actually have to say — and an error among them still blocks, whatever node it
+ * sits on.
+ *
+ * Hidden sections are weighed too. This is the document's own verdict, not what
+ * a page can show: a rule that fires out of sight still decides whether the
+ * configuration can be committed.
  */
 function validate(config: Configuration): void {
-  for (const group of everyGroup(config.sections)) {
-    const required = group.minSelections ?? 0;
-    const selected = group.options.filter((option) => option.selected).length;
-    if (required > 0 && selected < required) {
-      group.messages = [
-        ...group.messages,
-        {
-          severity: 'error',
-          text: `Select a ${group.name.toLowerCase()}.`,
-        },
-      ];
-    }
-  }
-
-  config.isValid = !everyGroup(config.sections).some((group) =>
-    group.messages.some((message) => message.severity === 'error'),
+  const sections = config.sections;
+  const hasError = [
+    config.messages,
+    ...everySection(sections).map((section) => section.messages),
+    ...everyVariable(sections).map((variable) => variable.messages),
+    ...everyGroup(sections).map((group) => group.messages),
+    ...everyOption(sections).map((option) => option.messages),
+  ].some((messages) =>
+    messages.some((message) => message.severity === 'error'),
   );
+
+  config.isValid =
+    !everyGroup(sections).some(isGroupUnmet) &&
+    !everyVariable(sections).some(isVariableUnmet) &&
+    !hasError;
 }
 
 export function evaluate(

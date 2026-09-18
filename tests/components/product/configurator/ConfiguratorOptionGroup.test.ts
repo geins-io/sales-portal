@@ -98,14 +98,21 @@ describe('ConfiguratorOptionGroup', () => {
     expect(header.text()).not.toContain('*');
   });
 
-  it('shows the error an unanswered required group carries', () => {
+  it('shows the error a rule put on a group', () => {
+    // Written here rather than taken from a document: an unmet requirement is
+    // a property of the group and carries no message, so a group's error is
+    // always something a rule had to say.
     const invalid = makeInvalidConfiguration();
+    const top = findOptionGroup(invalid, 'top');
+    top.messages = [
+      { severity: 'error', text: 'That table top is out of production.' },
+    ];
 
-    const wrapper = mountGroup(findOptionGroup(invalid, 'top'));
+    const wrapper = mountGroup(top);
 
     const message = wrapper.find('[data-testid="configurator-message"]');
     expect(message.attributes('data-severity')).toBe('error');
-    expect(message.text()).toContain('Select a table top.');
+    expect(message.text()).toContain('That table top is out of production.');
   });
 
   it('emits one change for the row picked, not a deselect for the one it replaces', async () => {
@@ -249,8 +256,12 @@ describe('ConfiguratorOptionGroup', () => {
 
   it('keeps a blocking message visible while the group is folded', async () => {
     const invalid = makeInvalidConfiguration();
+    const top = findOptionGroup(invalid, 'top');
+    top.messages = [
+      { severity: 'error', text: 'That table top is out of production.' },
+    ];
 
-    const wrapper = mountGroup(findOptionGroup(invalid, 'top'));
+    const wrapper = mountGroup(top);
     await wrapper
       .find('[data-testid="configurator-group-header"]')
       .trigger('click');
@@ -258,7 +269,7 @@ describe('ConfiguratorOptionGroup', () => {
     // The message is why the configuration is not finished. A buyer may fold
     // the rows away; the reason they are being asked for stays.
     expect(wrapper.find('[data-testid="configurator-message"]').text()).toBe(
-      'Select a table top.',
+      'That table top is out of production.',
     );
   });
 

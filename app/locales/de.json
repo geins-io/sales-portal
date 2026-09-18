@@ -343,15 +343,28 @@
       "heading": "Die Konfiguration ist fertig",
       "unit_price": "Preis pro Einheit"
     },
-    "header": {
-      "valid": "Die Konfiguration ist vollständig.",
-      "invalid": "Das fehlt noch, bevor Sie fortfahren können:",
+    "panel": {
+      "valid": "Die Konfiguration ist vollständig und bestellbar.",
+      "invalid": "Fehlt noch, bevor Sie fortfahren können: {items}.",
+      "invalid_unspecified": "Die Konfiguration ist nicht vollständig.",
       "recomputing": "Wird neu berechnet…",
       "time_left": "{time} verbleibend",
       "renew": "Sitzung verlängern",
       "renew_failed": "Die Sitzung konnte nicht verlängert werden.",
       "expired": "Die Konfigurationssitzung ist abgelaufen.",
-      "start_over": "Neu beginnen"
+      "start_over": "Neu beginnen",
+      "title": "Spezifikation",
+      "prices_ex_vat": "Preise exkl. MwSt.",
+      "customer_type": {
+        "person": "Privatkunde",
+        "organization": "Geschäftskunde"
+      },
+      "net_price": "Nettopreis",
+      "quantity_suffix": "{count} Stk.",
+      "indicative": "Richtpreis. Der Preis wird im Angebot bestätigt.",
+      "copy": "Spezifikation kopieren",
+      "copied": "Kopiert",
+      "copy_quantity": "Menge: {count} Stk."
     }
   },
   "account": {

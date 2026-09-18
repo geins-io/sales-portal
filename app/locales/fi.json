@@ -343,15 +343,28 @@
       "heading": "Kokoonpano on valmis",
       "unit_price": "Yksikköhinta"
     },
-    "header": {
-      "valid": "Kokoonpano on valmis.",
-      "invalid": "Tämä puuttuu, ennen kuin voit jatkaa:",
+    "panel": {
+      "valid": "Kokoonpano on valmis ja tilattavissa.",
+      "invalid": "Puuttuu, ennen kuin voit jatkaa: {items}.",
+      "invalid_unspecified": "Kokoonpano ei ole valmis.",
       "recomputing": "Lasketaan uudelleen…",
       "time_left": "{time} jäljellä",
       "renew": "Jatka istuntoa",
       "renew_failed": "Istuntoa ei voitu jatkaa.",
       "expired": "Kokoonpanoistunto on vanhentunut.",
-      "start_over": "Aloita alusta"
+      "start_over": "Aloita alusta",
+      "title": "Erittely",
+      "prices_ex_vat": "hinnat ilman alv:tä",
+      "customer_type": {
+        "person": "Yksityisasiakas",
+        "organization": "Yritysasiakas"
+      },
+      "net_price": "Nettohinta",
+      "quantity_suffix": "{count} kpl",
+      "indicative": "Suuntaa antava hinta. Hinta vahvistetaan tarjouksessa.",
+      "copy": "Kopioi erittely",
+      "copied": "Kopioitu",
+      "copy_quantity": "Määrä: {count} kpl"
     }
   },
   "account": {

@@ -343,15 +343,28 @@
       "heading": "Konfigurationen er færdig",
       "unit_price": "Pris pr. enhed"
     },
-    "header": {
-      "valid": "Konfigurationen er komplet.",
-      "invalid": "Dette mangler, før du kan fortsætte:",
+    "panel": {
+      "valid": "Konfigurationen er komplet og kan bestilles.",
+      "invalid": "Mangler, før du kan fortsætte: {items}.",
+      "invalid_unspecified": "Konfigurationen er ikke komplet.",
       "recomputing": "Beregner igen…",
       "time_left": "{time} tilbage",
       "renew": "Forlæng session",
       "renew_failed": "Sessionen kunne ikke forlænges.",
       "expired": "Konfigurationssessionen er udløbet.",
-      "start_over": "Start forfra"
+      "start_over": "Start forfra",
+      "title": "Specifikation",
+      "prices_ex_vat": "priser ekskl. moms",
+      "customer_type": {
+        "person": "Privatkunde",
+        "organization": "Erhvervskunde"
+      },
+      "net_price": "Nettopris",
+      "quantity_suffix": "{count} stk.",
+      "indicative": "Vejledende pris. Prisen bekræftes i tilbuddet.",
+      "copy": "Kopiér specifikation",
+      "copied": "Kopieret",
+      "copy_quantity": "Antal: {count} stk."
     }
   },
   "account": {

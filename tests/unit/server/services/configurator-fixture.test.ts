@@ -19,6 +19,11 @@ import {
 } from '../../../../server/services/configurator-fixture/seed';
 import type { ConfiguratorContext } from '../../../../server/services/configurator';
 import {
+  createSessionState,
+  evaluate,
+} from '../../../../server/services/configurator-fixture/evaluate';
+import { arbetsbordPro } from '../../../../server/services/configurator-fixture/seed/arbetsbord-pro';
+import {
   findOption,
   findOptionGroup,
   findVariable,
@@ -121,11 +126,10 @@ describe('create', () => {
     expect(config.templateId).toBe('TPL-KONF-1001');
     expect(config.unitPrice).toEqual({ net: 3200, currency: 'SEK' });
     // A required option group is empty in the seed, so a fresh document is
-    // never valid.
+    // never valid — through the requirement itself, with nothing written under
+    // a group the buyer has not reached yet.
     expect(config.isValid).toBe(false);
-    expect(findOptionGroup(config, 'color').messages).toContainEqual(
-      expect.objectContaining({ severity: 'error' }),
-    );
+    expect(findOptionGroup(config, 'color').messages).toEqual([]);
   });
 
   it('gives the session the configured lifetime', async () => {
@@ -141,9 +145,10 @@ describe('create', () => {
     expect(config.weightPerUnit).toBe(38.5);
     expect(legs.selected).toBe(true);
     expect(legs.selectionSource).toBe('initial');
-    expect(findOptionGroup(config, 'color').messages).toEqual([
-      { severity: 'error', text: 'Select a colour.' },
-    ]);
+    const colour = findOptionGroup(config, 'color');
+    expect(colour.minSelections).toBe(1);
+    expect(colour.options.some((option) => option.selected)).toBe(false);
+    expect(colour.messages).toEqual([]);
   });
 
   it('answers 404 for a product that is not seeded', async () => {
@@ -284,6 +289,76 @@ describe('the cascades of the seeded workbench', () => {
 // Applying a batch
 // ---------------------------------------------------------------------------
 
+describe('what makes a document invalid', () => {
+  // The three paths are separate on purpose: a requirement nobody has answered
+  // yet, a required variable left empty, and a rule that actually objects.
+  function evaluateWith(
+    mutate: (config: Configuration) => void,
+  ): Configuration {
+    return evaluate(
+      { ...arbetsbordPro, cascades: [...arbetsbordPro.cascades, mutate] },
+      createSessionState(1),
+      { configurationId: 'test', expiresAt: '2030-01-01T00:00:00.000Z' },
+    );
+  }
+
+  it('blocks on an unmet requirement and writes no message for it', () => {
+    const config = evaluateWith(() => {});
+
+    expect(config.isValid).toBe(false);
+    expect(findOptionGroup(config, 'color').messages).toEqual([]);
+  });
+
+  it('blocks on an error a rule put on a group, with every requirement met', () => {
+    const config = evaluateWith((document) => {
+      const colour = findOption(document, 'ral-9005');
+      colour.selected = true;
+      findOptionGroup(document, 'color').messages = [
+        { severity: 'error', text: 'That finish is out of production.' },
+      ];
+    });
+
+    expect(config.isValid).toBe(false);
+  });
+
+  it('is valid once the requirement is met and nothing objects', () => {
+    const config = evaluateWith((document) => {
+      findOption(document, 'ral-9005').selected = true;
+    });
+
+    expect(config.isValid).toBe(true);
+  });
+
+  it('lets a warning stand without blocking', () => {
+    // Every rule the seeds have says its piece as a warning; none of them is a
+    // reason to refuse the configuration.
+    const config = evaluateWith((document) => {
+      findOption(document, 'ral-9005').selected = true;
+      findOption(document, 'acc-power').messages = [
+        { severity: 'warning', text: 'Electric legs require a power strip.' },
+      ];
+    });
+
+    expect(config.isValid).toBe(true);
+  });
+
+  it('blocks on a required variable left empty, and not on one resting at zero', () => {
+    // Every seeded variable starts at 0 and is required: counting a zero as
+    // missing would make the whole catalogue invalid on arrival.
+    const atZero = evaluateWith((document) => {
+      findOption(document, 'ral-9005').selected = true;
+    });
+    expect(findVariable(atZero, 'shelves').value).toBe(0);
+    expect(atZero.isValid).toBe(true);
+
+    const emptied = evaluateWith((document) => {
+      findOption(document, 'ral-9005').selected = true;
+      findVariable(document, 'width').value = null;
+    });
+    expect(emptied.isValid).toBe(false);
+  });
+});
+
 describe('a batch of changes', () => {
   it('applies a selection and a deselection in one response', async () => {
     const config = await start();
@@ -296,9 +371,8 @@ describe('a batch of changes', () => {
     expect(findOption(changed, 'ral-9005').selected).toBe(true);
     expect(findOptionGroup(changed, 'color').messages).toEqual([]);
     expect(findOption(changed, 'top-laminate').selected).toBe(false);
-    expect(findOptionGroup(changed, 'top').messages).toContainEqual(
-      expect.objectContaining({ severity: 'error' }),
-    );
+    // The emptied group blocks the document without saying anything about it.
+    expect(findOptionGroup(changed, 'top').messages).toEqual([]);
     expect(changed.isValid).toBe(false);
   });
 

@@ -38,6 +38,7 @@ const { variable, disabled = false } = defineProps<{
 const emit = defineEmits<{ change: [ConfigurationChange] }>();
 
 const { t } = useI18n();
+const { formatLocale } = useFormatLocale();
 
 const control = computed(() => variableControl(variable));
 const readOnly = computed(() => isReadOnly(variable.selectionSource));
@@ -104,11 +105,20 @@ function onDate(event: Event) {
     </label>
 
     <div v-if="control === 'number'" class="flex items-center gap-2">
+      <!-- The locale and the decimals are given rather than left to the
+           component's own default of `en`: the specification panel writes the
+           same number beside the same unit, and the two must not disagree on a
+           separator. -->
       <NumberField
         :model-value="typeof draft === 'number' ? draft : 0"
         :min="variable.min"
         :max="variable.max"
         :step="variable.step ?? 1"
+        :locale="formatLocale"
+        :format-options="{
+          minimumFractionDigits: variable.decimals ?? 0,
+          maximumFractionDigits: variable.decimals ?? 0,
+        }"
         :disabled="blocked"
         :title="blocked ? t('configurator.read_only') : undefined"
         class="w-auto"
@@ -168,12 +178,10 @@ function onDate(event: Event) {
       class="text-muted-foreground text-xs"
     >
       {{ t('configurator.bounds', bounds) }}
-      <!-- Amber is hardcoded for the reason quote-status.ts gives for its
-           orange: the design system has no warning token. -->
       <span
         v-if="narrowed"
         data-testid="configurator-bounds-narrowed"
-        class="text-amber-600 dark:text-amber-500"
+        class="text-warning"
       >
         · {{ t('configurator.bounds_narrowed') }}
       </span>

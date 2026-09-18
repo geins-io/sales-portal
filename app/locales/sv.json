@@ -343,15 +343,28 @@
       "heading": "Konfigurationen är klar",
       "unit_price": "Pris per enhet"
     },
-    "header": {
-      "valid": "Konfigurationen är komplett.",
-      "invalid": "Det här saknas innan du kan gå vidare:",
+    "panel": {
+      "valid": "Konfigurationen är komplett och beställningsbar.",
+      "invalid": "Saknas innan du kan gå vidare: {items}.",
+      "invalid_unspecified": "Konfigurationen är inte komplett.",
       "recomputing": "Räknar om…",
       "time_left": "{time} kvar",
       "renew": "Förläng sessionen",
       "renew_failed": "Sessionen kunde inte förlängas.",
       "expired": "Konfigurationssessionen har gått ut.",
-      "start_over": "Börja om"
+      "start_over": "Börja om",
+      "title": "Specifikation",
+      "prices_ex_vat": "priser exkl. moms",
+      "customer_type": {
+        "person": "Privatkund",
+        "organization": "Företagskund"
+      },
+      "net_price": "Nettopris",
+      "quantity_suffix": "{count} st",
+      "indicative": "Indikativt pris. Priset bekräftas i offerten.",
+      "copy": "Kopiera specifikation",
+      "copied": "Kopierad",
+      "copy_quantity": "Antal: {count} st"
     }
   },
   "account": {

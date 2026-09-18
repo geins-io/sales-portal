@@ -343,15 +343,28 @@
       "heading": "The configuration is complete",
       "unit_price": "Unit price"
     },
-    "header": {
-      "valid": "The configuration is complete.",
-      "invalid": "This is missing before you can continue:",
+    "panel": {
+      "valid": "The configuration is complete and can be ordered.",
+      "invalid": "Missing before you can continue: {items}.",
+      "invalid_unspecified": "The configuration is not complete.",
       "recomputing": "Recalculating…",
       "time_left": "{time} left",
       "renew": "Extend session",
       "renew_failed": "The session could not be extended.",
       "expired": "The configuration session has expired.",
-      "start_over": "Start over"
+      "start_over": "Start over",
+      "title": "Specification",
+      "prices_ex_vat": "prices excl. VAT",
+      "customer_type": {
+        "person": "Private customer",
+        "organization": "Business customer"
+      },
+      "net_price": "Net price",
+      "quantity_suffix": "{count} pcs",
+      "indicative": "Indicative price. The price is confirmed in the quotation.",
+      "copy": "Copy specification",
+      "copied": "Copied",
+      "copy_quantity": "Quantity: {count} pcs"
     }
   },
   "account": {
