@@ -248,7 +248,7 @@ function localeQueryFrom(url: string): Record<string, string> {
   return { market: market!, locale: locale! };
 }
 
-/** One row of the product-list endpoint, with the fields a grid test needs. */
+/** One row of the product-list endpoint, with the fields a price test needs. */
 export interface ProductListRow {
   alias: string;
   articleNumber: string;
@@ -256,31 +256,22 @@ export interface ProductListRow {
 }
 
 /**
- * The whole catalogue from `/api/product-lists/products`, the endpoint the
- * `/products` grid renders from. Use these to identify a card: a card's link
- * carries the canonical URL rather than the alias the product endpoint takes,
- * while the article number is on both sides and identifies the pair.
+ * A sample of up to `take` catalogue rows from `/api/product-lists/products`,
+ * for a caller that picks products by a property and then addresses them by
+ * alias.
  *
- * It reads everything rather than a page, because a partial read cannot be
- * matched against the grid. The endpoint applies no stable ordering — four
- * calls seconds apart returned four different first products — and the page
- * sends locale parameters this helper does not, so any two partial reads are
- * two different draws from the same catalogue. Measured overlap between one
- * such pair, four samples: 9, 4, 0 and 18 rows of 24. At zero the caller finds
- * no matching card and fails for a reason that has nothing to do with prices.
+ * A sample, never the catalogue: the endpoint applies no stable ordering (four
+ * calls seconds apart returned four different first products), so two calls
+ * are two draws, and `take` is capped at 100 by `ProductListSchema`. Nothing
+ * from here may be matched against what the `/products` grid rendered — a card
+ * on the grid and a row in this sample are drawn separately, and their overlap
+ * measured 9, 4, 0 and 18 rows of 24. To read a card's price from the API, take
+ * the alias off the card's own link and ask `/api/products/<alias>`.
  *
- * `take` is capped at 100 by `ProductListSchema` (`server/schemas/api-input.ts`),
- * so a catalogue above that cannot be read in one call and this function
- * throws rather than quietly going back to comparing two draws.
- *
- * It requires the page to be on a locale-prefixed URL, and says so by
- * asserting it. The market and locale are read from that URL and sent along,
- * because the grid sends them too (`useLocaleMarket`'s `localeQuery`): reading
- * the same catalogue the page reads is what makes "the whole set" mean the
- * same thing on both sides, and it stays true if those parameters ever start
- * filtering rather than only ordering.
+ * Requires a locale-prefixed URL and sends its market and locale along, as the
+ * grid does, so a sample is drawn from the same catalogue the page shows.
  */
-export async function fetchProductListRows(
+export async function fetchProductListSample(
   page: Page,
   take = 100,
 ): Promise<ProductListRow[]> {
@@ -291,14 +282,7 @@ export async function fetchProductListRows(
     true,
   );
 
-  const body = await response.json();
-  const products = body?.products ?? [];
-  expect(
-    products.length,
-    `read ${products.length} of ${body?.count} products. The catalogue has grown past ` +
-      `the endpoint's take cap of 100, so a single call no longer returns all of it — ` +
-      `matching a grid card against a partial read is a coin toss, not an identity.`,
-  ).toBe(body?.count);
+  const products = (await response.json())?.products ?? [];
   return products
     .filter(
       (p: {

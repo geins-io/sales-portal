@@ -3,7 +3,6 @@ import {
   discoverCategory,
   discoverProduct,
   discoverPurchasableProduct,
-  fetchProductListRows,
   fetchProductPrice,
   isConfigurable,
   readPrice,
@@ -11,7 +10,6 @@ import {
   hasE2ECredentials,
   outOfScope,
   STORAGE_STATE,
-  type ProductListRow,
 } from './helpers';
 import { BASE_URL } from './target';
 
@@ -279,60 +277,46 @@ test.describe('Product Browsing', () => {
     test('PLP card and PDP show the same ex-VAT amount as the API', async ({
       page,
     }) => {
-      // Identify the card through the article number, which the grid renders
-      // and the list endpoint returns. Two things that do not work: the
-      // product `discoverProduct` picks need not be on the page, and the
-      // card's link carries the canonical URL, not the alias `/api/products`
-      // takes.
+      // The card's own link is the identity. Its last segment is what the
+      // detail page fetches `/api/products/<alias>` with, so reading that
+      // alias reads exactly what the PDP will read — no catalogue, no matching
+      // of a grid draw against a list draw (the list endpoint has no stable
+      // ordering, and the product `discoverProduct` picks need not be on the
+      // page).
       await page.goto('/products');
       await waitForHydration(page);
 
       const cards = page.locator('[data-testid="product-card"]');
       await expect(cards.first()).toBeVisible({ timeout: 20000 });
 
-      // Read the catalogue after navigating, so the helper can take the market
-      // and locale off the page's own URL and read what the grid read. Whole
-      // catalogue rather than a page: the endpoint's ordering drifts between
-      // calls, so two partial reads are two draws, and their overlap has
-      // measured as low as zero.
-      const rows = await fetchProductListRows(page);
-      expect(rows.length, 'no product-list row has a price').toBeGreaterThan(0);
-
-      // Match on the card's own article-number node, not on the whole card
-      // text: one article number can be a prefix of another, and a substring
-      // match over the card would then pick the wrong card silently.
-      const shown = await cards
-        .locator('[data-testid="article-number"]')
-        .allInnerTexts();
-
-      // Skipping the configurable products as well: their page is the
-      // configurator, which carries no `pdp-price` at all — the price lives in
-      // the configuration. Which row matches first depends on the grid's
-      // ordering, so without this the test passes or fails on the draw.
-      let row: ProductListRow | undefined;
-      for (const candidate of rows) {
-        if (!shown.some((text) => text.includes(candidate.articleNumber))) {
-          continue;
-        }
-        if (await isConfigurable(page, candidate.alias)) continue;
-        row = candidate;
+      // Configurable products are skipped: their page is the configurator,
+      // which carries no `pdp-price` at all — the price lives in the
+      // configuration. Which card comes first depends on the grid's ordering,
+      // so without this the test passes or fails on the draw.
+      let picked: { href: string; alias: string; index: number } | undefined;
+      for (let index = 0; index < (await cards.count()); index++) {
+        const href = await cards
+          .nth(index)
+          .locator('a[href]')
+          .first()
+          .getAttribute('href');
+        if (!href) continue;
+        const alias = decodeURIComponent(
+          href.split('/').filter(Boolean).at(-1) ?? '',
+        );
+        if (!alias || (await isConfigurable(page, alias))) continue;
+        picked = { href, alias, index };
         break;
       }
-      expect(row, 'no catalogue row matched any card on the grid').toBeTruthy();
+      expect(picked, 'no ordinary product card on the grid').toBeTruthy();
 
-      const card = cards
-        .filter({
-          has: page.locator('[data-testid="article-number"]', {
-            hasText: row!.articleNumber,
-          }),
-        })
-        .first();
+      const expected = await fetchProductPrice(page, picked!.alias);
       const onGrid = await readPrice(
-        card.locator('[data-testid="card-price"]'),
+        cards.nth(picked!.index).locator('[data-testid="card-price"]'),
       );
-      expect(onGrid).toBeCloseTo(row!.exVat, 2);
+      expect(onGrid).toBeCloseTo(expected.exVat, 2);
 
-      await page.goto(`/p/${row!.alias}`);
+      await page.goto(picked!.href);
       await waitForHydration(page);
       const onDetail = await readPrice(
         page.locator('[data-testid="pdp-price"]'),
@@ -340,7 +324,7 @@ test.describe('Product Browsing', () => {
 
       // The grid and the detail page format independently; the number must
       // survive both, and both must equal what the API returned.
-      expect(onDetail).toBeCloseTo(row!.exVat, 2);
+      expect(onDetail).toBeCloseTo(expected.exVat, 2);
       expect(onDetail).toBeCloseTo(onGrid, 2);
     });
   });

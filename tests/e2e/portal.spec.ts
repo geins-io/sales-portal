@@ -8,7 +8,7 @@ import {
   fetchQuote,
   fetchQuoteList,
   fetchQuotes,
-  fetchProductListRows,
+  fetchProductListSample,
   fetchProductsByAliases,
   parsePrice,
   readPrice,
@@ -1069,7 +1069,7 @@ test.describe('Portal Saved List Total', () => {
    * rounds every row before adding, which is the defect worth catching.
    */
   async function pickUnroundedPair(page: Page): Promise<ProductListRow[]> {
-    const unrounded = (await fetchProductListRows(page))
+    const unrounded = (await fetchProductListSample(page))
       .filter((row) => isUnrounded(row.exVat))
       .sort((a, b) => b.exVat - a.exVat);
     expect(
