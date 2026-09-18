@@ -6,6 +6,11 @@ import {
   ARBETSBORD_PRO_ID,
 } from './arbetsbord-pro';
 import {
+  monteringsstationPro,
+  MONTERINGSSTATION_PRO_GEINS_ID,
+  MONTERINGSSTATION_PRO_ID,
+} from './monteringsstation-pro';
+import {
   skapsektionPro,
   SKAPSEKTION_PRO_GEINS_ID,
   SKAPSEKTION_PRO_ID,
@@ -24,12 +29,14 @@ import type { Seed } from './types';
 export {
   ARBETSBORD_PRO_GEINS_ID,
   ARBETSBORD_PRO_ID,
+  MONTERINGSSTATION_PRO_GEINS_ID,
+  MONTERINGSSTATION_PRO_ID,
   SKAPSEKTION_PRO_GEINS_ID,
   SKAPSEKTION_PRO_ID,
 };
 export type { Seed };
 
-const SEEDS: Seed[] = [arbetsbordPro, skapsektionPro];
+const SEEDS: Seed[] = [arbetsbordPro, skapsektionPro, monteringsstationPro];
 
 /**
  * Resolved by the Geins product id the seed declares, never by the provider's

@@ -63,6 +63,7 @@ const WORKBENCH = '1101';
 const PRODUCTS: { productId: string; label: string }[] = [
   { productId: WORKBENCH, label: 'Arbetsbord Pro · KONF-1001' },
   { productId: '1102', label: 'Skåpsektion Pro · KONF-1002' },
+  { productId: '1103', label: 'Monteringsstation Pro · KONF-1003' },
 ];
 
 const route = useRoute();

@@ -13,6 +13,8 @@ import {
 import {
   ARBETSBORD_PRO_GEINS_ID,
   ARBETSBORD_PRO_ID,
+  MONTERINGSSTATION_PRO_GEINS_ID,
+  MONTERINGSSTATION_PRO_ID,
   SKAPSEKTION_PRO_GEINS_ID,
   SKAPSEKTION_PRO_ID,
   createSeedDocument,
@@ -22,6 +24,7 @@ import {
   createSessionState,
   evaluate,
 } from '../../../../server/services/configurator-fixture/evaluate';
+import { everySection } from '../../../../server/services/configurator-fixture/document';
 import { arbetsbordPro } from '../../../../server/services/configurator-fixture/seed/arbetsbord-pro';
 import {
   findOption,
@@ -978,6 +981,153 @@ describe('the second seeded product', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The third seed
+//
+// It exists for the two shapes no other seeded document has: a tree three
+// levels deep, and a hidden section holding a section that says it is visible.
+// A layout that pages a configuration by section is judged on those, and until
+// this seed they could only be built by hand in a test.
+// ---------------------------------------------------------------------------
+
+describe('the third seeded product', () => {
+  /** Every section of the document, parents before children. */
+  const flatten = (
+    sections: Configuration['sections'],
+    depth = 0,
+  ): { id: string; depth: number; visible: boolean }[] =>
+    sections.flatMap((section) => [
+      { id: section.id, depth, visible: section.visible },
+      ...flatten(section.sections, depth + 1),
+    ]);
+
+  it('nests three levels deep', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const sections = flatten(config.sections);
+
+    // Named, not counted: a tree that lost its middle level would still reach
+    // depth 2 through some other branch and a maximum would not notice.
+    expect(sections.find((s) => s.id === 'structure')?.depth).toBe(0);
+    expect(sections.find((s) => s.id === 'worktop')?.depth).toBe(1);
+    expect(sections.find((s) => s.id === 'edge')?.depth).toBe(2);
+  });
+
+  it('has three visible sections at the top and one that is hidden', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+
+    expect(config.sections.filter((s) => s.visible).map((s) => s.id)).toEqual([
+      'structure',
+      'storage',
+      'power',
+    ]);
+    expect(config.sections.filter((s) => !s.visible).map((s) => s.id)).toEqual([
+      'logistics',
+    ]);
+  });
+
+  it('hides a section whose child says it is visible', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const logistics = config.sections.find((s) => s.id === 'logistics');
+    const packaging = logistics?.sections[0];
+
+    // The document states the contradiction; resolving it is the consumer's
+    // job, and every consumer resolves it by not descending into a hidden
+    // parent at all. Without this pair the rule has nothing to run against.
+    expect(logistics?.visible).toBe(false);
+    expect(packaging?.id).toBe('packaging');
+    expect(packaging?.visible).toBe(true);
+  });
+
+  it('gives every visible section something to show', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const visible = flatten(config.sections).filter((s) => s.visible);
+    const contentOf = (id: string) => {
+      const found = everySection(config.sections).find((s) => s.id === id)!;
+      return found.optionGroups.length + found.variables.length;
+    };
+
+    expect(visible.length).toBeGreaterThan(0);
+    for (const section of visible) {
+      expect(contentOf(section.id)).toBeGreaterThan(0);
+    }
+  });
+
+  it('is valid on arrival', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+
+    // A page that cannot be committed from the start is a page nobody can
+    // judge. The hidden branch counts too: `validate` weighs the whole tree.
+    expect(config.isValid).toBe(true);
+    expect(
+      everySection(config.sections)
+        .flatMap((s) => s.optionGroups)
+        .some((group) => group.options.some((option) => option.selected)),
+    ).toBe(true);
+  });
+
+  it('computes the packed volume inside the hidden branch', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const volume = findVariable(config, 'crate-volume');
+
+    // (2400+120) × (900+120) × 400 mm³ = 1028.2 l
+    expect(volume.valueSource).toBe('formula');
+    expect(volume.value).toBe(1028.2);
+  });
+
+  it('adds the third leg pair once the station is long enough', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    expect(findOption(config, 'legs-third').selected).toBe(false);
+
+    const changed = await backend.applyChanges(
+      config.configurationId,
+      [setVariable('length', 3200)],
+      CTX,
+    );
+    const third = findOption(changed, 'legs-third');
+
+    expect(third.selected).toBe(true);
+    expect(third.selectionSource).toBe('groupRule');
+  });
+
+  it('adds it at the length the rule names, not one step past it', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const changed = await backend.applyChanges(
+      config.configurationId,
+      [setVariable('length', 3000)],
+      CTX,
+    );
+
+    // The boundary itself: "3000 mm or more" is what the message says, and a
+    // rule that fired one step late would say something else.
+    expect(findOption(changed, 'legs-third').selected).toBe(true);
+  });
+
+  it('narrows the edge trim two levels down from the worktop', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const chosen = await backend.applyChanges(
+      config.configurationId,
+      [selectOption('edge-beech')],
+      CTX,
+    );
+    expect(findOption(chosen, 'edge-beech').selected).toBe(true);
+
+    const steel = await backend.applyChanges(
+      config.configurationId,
+      [selectOption('top-steel')],
+      CTX,
+    );
+
+    // The rule reaches from a group in the second level into a group in the
+    // third, which is the direction only a nested document has.
+    expect(findOption(steel, 'edge-beech').available).toBe(false);
+    expect(findOption(steel, 'edge-beech').selected).toBe(false);
+    expect(findOption(steel, 'edge-abs').selected).toBe(true);
+    // The group it emptied is required, so the document must not have gone
+    // invalid on a change the buyer made somewhere else.
+    expect(steel.isValid).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The exported instance
 // ---------------------------------------------------------------------------
 
@@ -1010,6 +1160,7 @@ describe("the seeds' catalogue reference", () => {
   it.each([
     ['Arbetsbord Pro', ARBETSBORD_PRO_GEINS_ID, '1101'],
     ['Skåpsektion Pro', SKAPSEKTION_PRO_GEINS_ID, '1102'],
+    ['Monteringsstation Pro', MONTERINGSSTATION_PRO_GEINS_ID, '1103'],
   ])('has %s standing for catalogue product %s', (_label, declared, id) => {
     expect(declared).toBe(id);
   });
@@ -1017,6 +1168,7 @@ describe("the seeds' catalogue reference", () => {
   it('keeps the provider part ids distinct from the catalogue ids', () => {
     expect(ARBETSBORD_PRO_ID).not.toBe(ARBETSBORD_PRO_GEINS_ID);
     expect(SKAPSEKTION_PRO_ID).not.toBe(SKAPSEKTION_PRO_GEINS_ID);
+    expect(MONTERINGSSTATION_PRO_ID).not.toBe(MONTERINGSSTATION_PRO_GEINS_ID);
   });
 });
 
