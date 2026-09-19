@@ -306,7 +306,12 @@
     "max_in_cart": "Enimmäismäärä korissa",
     "max_quantity_info": "Varaston enimmäismäärä on lisätty ostoskoriin.",
     "on_demand": "Tilauksesta",
-    "no_image": "Ei kuvaa saatavilla"
+    "no_image": "Ei kuvaa saatavilla",
+    "measurements": "Mitat ja paino",
+    "length": "Pituus",
+    "width": "Leveys",
+    "height": "Korkeus",
+    "weight": "Paino"
   },
   "configurator": {
     "required": "Pakollinen",

@@ -57,9 +57,10 @@ let resolver: typeof import('../../../server/services/url-resolver');
  * event.context.resolvedLocaleMarket internally. We expose that field here so
  * per-locale tests can assert the event is forwarded as-is.
  */
-function makeEvent(
-  resolvedLocaleMarket?: { market: string; locale: string },
-): H3Event {
+function makeEvent(resolvedLocaleMarket?: {
+  market: string;
+  locale: string;
+}): H3Event {
   return {
     context: {
       tenant: { tenantId: 't1', hostname: 'test.example.com' },
@@ -233,10 +234,7 @@ describe('resolveEntityUrl: semantic CMS-slug branch', () => {
   });
 
   it('skips the semantic branch for an empty alias', async () => {
-    await resolver.resolveEntityUrl(
-      { path: '/', alias: '' },
-      makeEvent(),
-    );
+    await resolver.resolveEntityUrl({ path: '/', alias: '' }, makeEvent());
 
     expect(mockGetPageLinkByTag).not.toHaveBeenCalled();
   });

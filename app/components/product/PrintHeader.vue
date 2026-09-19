@@ -7,6 +7,7 @@ defineProps<{
 
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
+const { timezone } = useTenant();
 
 // Render time has to be reactive against the actual print invocation —
 // the `beforeprint` event is the only reliable hook for "user just hit
@@ -23,6 +24,7 @@ function formatNow(): string {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: timezone.value,
   });
 }
 

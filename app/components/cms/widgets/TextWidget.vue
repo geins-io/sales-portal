@@ -69,11 +69,17 @@ const renderedText = computed(() => {
     <component
       :is="headingTag"
       v-if="title"
-      :class="headingTag === 'h1' ? 'mb-8 text-4xl font-bold' : 'mb-4 font-bold'"
+      :class="
+        headingTag === 'h1' ? 'mb-8 text-4xl font-bold' : 'mb-4 font-bold'
+      "
     >
       {{ title }}
     </component>
     <!-- eslint-disable-next-line vue/no-v-html -->
-    <div v-if="renderedText" class="rich-text max-w-none" v-html="renderedText" />
+    <div
+      v-if="renderedText"
+      class="rich-text max-w-none"
+      v-html="renderedText"
+    />
   </div>
 </template>

@@ -202,10 +202,7 @@ function bannerPlacementClasses(placement?: string): string {
               >
                 {{ item.heading }}
               </h3>
-              <p
-                v-if="item.description"
-                class="text-muted-foreground text-sm"
-              >
+              <p v-if="item.description" class="text-muted-foreground text-sm">
                 {{ item.description }}
               </p>
               <NuxtLink

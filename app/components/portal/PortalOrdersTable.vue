@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Badge } from '~/components/ui/badge';
+import { formatTenantDate } from '~/utils/tenant-date';
 
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { localePath } = useLocaleMarket();
+const { timezone } = useTenant();
 
 defineProps<{
   orders: Array<{
@@ -34,16 +36,7 @@ const emit = defineEmits<{
 }>();
 
 function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '-';
-  try {
-    return new Date(dateStr).toLocaleDateString(formatLocale.value, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  } catch {
-    return dateStr;
-  }
+  return formatTenantDate(dateStr, timezone.value, formatLocale.value);
 }
 
 function getPlacedBy(order: { placedBy?: string | null }): string {

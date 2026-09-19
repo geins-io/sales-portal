@@ -606,6 +606,20 @@ describe('ConfiguratorProduct frame', () => {
           parameterGroupId: 1,
           parameters: [{ name: 'Bredd', value: '1400 mm', show: true }],
         },
+        {
+          // The documents tab renders real media now, so a product only has
+          // content for it when it carries a media parameter.
+          name: 'Dokumentation',
+          parameterGroupId: 2,
+          parameters: [
+            {
+              name: 'Manual',
+              identifier: 'manual',
+              value: 'https://cdn.example.com/manual.pdf',
+              show: true,
+            },
+          ],
+        },
       ],
     });
   }
@@ -626,9 +640,10 @@ describe('ConfiguratorProduct frame', () => {
   it('leaves out the tabs the product has no content for', () => {
     const triggers = mountPage().findAll('[data-testid^="configurator-tab-"]');
 
+    // Documents is in this list no longer: it renders a product's media
+    // parameters, and this fixture carries none.
     expect(triggers.map((t) => t.attributes('data-testid'))).toEqual([
       'configurator-tab-configuration',
-      'configurator-tab-documents',
     ]);
   });
 

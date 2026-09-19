@@ -33,7 +33,10 @@ export interface ChannelMarketSource {
 
 interface RawAvailableChannel {
   channelId?: string | null;
-  availableMarkets?: Array<{ id?: string | null; alias?: string | null } | null> | null;
+  availableMarkets?: Array<{
+    id?: string | null;
+    alias?: string | null;
+  } | null> | null;
 }
 
 /** The subset of a Geins user payload the deep-link guard reads. */

@@ -18,6 +18,7 @@ const mockTenantConfig: TenantConfig = {
   },
   mode: 'commerce',
   checkoutMode: 'custom',
+  timezone: 'Europe/Stockholm',
   theme: {
     name: 'test-theme',
     colors: {
@@ -210,6 +211,37 @@ describe('Tenant Config Service', () => {
     it('should include mode', async () => {
       const pub = await service.getPublicConfig(createMockEvent());
       expect(pub?.mode).toBe('commerce');
+    });
+
+    it('should include timezone', async () => {
+      const pub = await service.getPublicConfig(createMockEvent());
+      expect(pub?.timezone).toBe('Europe/Stockholm');
+    });
+
+    it('should derive imageBaseUrl from accountName when no override is set', async () => {
+      const pub = await service.getPublicConfig(createMockEvent());
+      expect(pub?.imageBaseUrl).toBe('https://test-account.commerce.services');
+    });
+
+    it('should prefer an explicit geinsSettings.imageBaseUrl over the accountName-derived default', async () => {
+      const overriddenEvent = {
+        context: {
+          tenant: {
+            hostname: 'test.example.com',
+            tenantId: 'test-tenant',
+            config: {
+              ...mockTenantConfig,
+              geinsSettings: {
+                ...mockTenantConfig.geinsSettings,
+                imageBaseUrl: 'https://cdn.example.com',
+              },
+            },
+          },
+        },
+      } as unknown as H3Event;
+
+      const pub = await service.getPublicConfig(overriddenEvent);
+      expect(pub?.imageBaseUrl).toBe('https://cdn.example.com');
     });
   });
 });

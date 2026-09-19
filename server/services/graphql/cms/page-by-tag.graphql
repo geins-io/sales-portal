@@ -1,5 +1,15 @@
-query pagesByTag($includeTags: [String], $channelId: String, $languageId: String, $marketId: String) {
-  cmsPages(includeTags: $includeTags, channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+query pagesByTag(
+  $includeTags: [String]
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  cmsPages(
+    includeTags: $includeTags
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
     id
     alias
     tags

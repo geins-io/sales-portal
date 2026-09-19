@@ -98,6 +98,7 @@ describe('defaultProductTab', () => {
       defaultProductTab({
         hasDescription: true,
         hasSpecs: true,
+        hasDocuments: false,
         hasRelated: true,
       }),
     ).toBe('description');
@@ -105,6 +106,7 @@ describe('defaultProductTab', () => {
       defaultProductTab({
         hasDescription: false,
         hasSpecs: true,
+        hasDocuments: false,
         hasRelated: true,
       }),
     ).toBe('specifications');
@@ -112,16 +114,32 @@ describe('defaultProductTab', () => {
       defaultProductTab({
         hasDescription: false,
         hasSpecs: false,
+        hasDocuments: false,
         hasRelated: true,
       }),
     ).toBe('related');
   });
 
-  it('falls back to documents, which every product has', () => {
+  it('names no tab when the product has no content for any', () => {
+    // Documents used to be the unconditional fallback, from when that tab
+    // always rendered. It is conditional now, so naming it would open the
+    // page on a tab that is not there.
     expect(
       defaultProductTab({
         hasDescription: false,
         hasSpecs: false,
+        hasDocuments: false,
+        hasRelated: false,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('opens on documents when that is the only tab with content', () => {
+    expect(
+      defaultProductTab({
+        hasDescription: false,
+        hasSpecs: false,
+        hasDocuments: true,
         hasRelated: false,
       }),
     ).toBe('documents');
@@ -134,6 +152,7 @@ describe('configuratorTabs', () => {
       configuratorTabs({
         hasDescription: true,
         hasSpecs: true,
+        hasDocuments: true,
         hasRelated: true,
       }).map((tab) => tab.value),
     ).toEqual([
@@ -145,20 +164,24 @@ describe('configuratorTabs', () => {
     ]);
   });
 
-  it('keeps the configuration and documents when the product has nothing else', () => {
+  it('keeps only the configuration when the product has nothing else', () => {
+    // The configuration tab is what the page is for, so it is always there;
+    // documents is not, now that it renders real media or nothing.
     expect(
       configuratorTabs({
         hasDescription: false,
         hasSpecs: false,
+        hasDocuments: false,
         hasRelated: false,
       }).map((tab) => tab.value),
-    ).toEqual(['configuration', 'documents']);
+    ).toEqual(['configuration']);
   });
 
   it('names every tab through an i18n key, never a literal', () => {
     for (const tab of configuratorTabs({
       hasDescription: true,
       hasSpecs: true,
+      hasDocuments: false,
       hasRelated: true,
     })) {
       expect(tab.labelKey).toMatch(/^(product|configurator)\./);

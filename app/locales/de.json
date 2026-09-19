@@ -306,7 +306,12 @@
     "max_in_cart": "Max. im Warenkorb",
     "max_quantity_info": "Maximale Menge in den Warenkorb gelegt",
     "on_demand": "Auf Anfrage",
-    "no_image": "Kein Bild verfügbar"
+    "no_image": "Kein Bild verfügbar",
+    "measurements": "Maße und Gewicht",
+    "length": "Länge",
+    "width": "Breite",
+    "height": "Höhe",
+    "weight": "Gewicht"
   },
   "configurator": {
     "required": "Pflichtfeld",

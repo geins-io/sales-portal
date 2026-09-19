@@ -129,9 +129,9 @@ describe('getFilterGroupLabel', () => {
   // English ("Brand", "Category", "Sku") through on Swedish storefronts.
   describe('system filters resolve via type / filterId when group is null', () => {
     it('resolves type "Brand" to brands when group is null', () => {
-      expect(getFilterGroupLabel(facet({ group: null, type: 'Brand' }), t)).toBe(
-        '[product.filter_groups.brands]',
-      );
+      expect(
+        getFilterGroupLabel(facet({ group: null, type: 'Brand' }), t),
+      ).toBe('[product.filter_groups.brands]');
     });
 
     it('resolves type "Category" to categories when group is null', () => {
@@ -141,9 +141,9 @@ describe('getFilterGroupLabel', () => {
     });
 
     it('resolves type "Price" to price when group is null', () => {
-      expect(getFilterGroupLabel(facet({ group: null, type: 'Price' }), t)).toBe(
-        '[product.filter_groups.price]',
-      );
+      expect(
+        getFilterGroupLabel(facet({ group: null, type: 'Price' }), t),
+      ).toBe('[product.filter_groups.price]');
     });
 
     it('resolves type "Sku" to skus when group is null', () => {

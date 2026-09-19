@@ -90,18 +90,6 @@ export const ThemeConfigSchema = z.object({
   typography: ThemeTypographySchema.nullable().optional(),
 });
 
-export const GeinsSettingsSchema = z.object({
-  apiKey: z.string(),
-  accountName: z.string(),
-  channel: z.string(),
-  tld: z.string(),
-  locale: z.string(),
-  market: z.string(),
-  environment: z.enum(['production', 'staging']).default('production'),
-  availableLocales: z.array(z.string()).default([]),
-  availableMarkets: z.array(z.string()).default([]),
-});
-
 /**
  * URL validator that accepts only HTTP(S) URLs.
  * Rejects javascript:, data:, and other non-HTTP protocols.
@@ -116,6 +104,56 @@ const SafeUrlSchema = z.string().refine(
     }
   },
   { message: 'Must be a valid HTTP(S) URL' },
+);
+
+export const GeinsSettingsSchema = z.object({
+  apiKey: z.string(),
+  accountName: z.string(),
+  channel: z.string(),
+  tld: z.string(),
+  locale: z.string(),
+  market: z.string(),
+  environment: z.enum(['production', 'staging']).default('production'),
+  availableLocales: z.array(z.string()).default([]),
+  availableMarkets: z.array(z.string()).default([]),
+  // Override for tenants whose image subdomain is not their account name.
+  // Without a field here zod strips it, so the value a tenant record carries
+  // never survives validation and the derived
+  // `https://{accountName}.commerce.services` fallback always wins — see
+  // getPublicConfig in server/services/tenant-config.ts.
+  imageBaseUrl: SafeUrlSchema.optional(),
+});
+
+/**
+ * IANA timezone identifier (e.g. 'Europe/Stockholm', 'UTC'), never a raw
+ * UTC offset — an offset doesn't shift for daylight saving. Validated by
+ * attempting construction rather than checking against
+ * Intl.supportedValuesOf('timeZone'), which omits 'UTC' itself even
+ * though the runtime accepts it as a real timeZone value. Rejects both
+ * offsets ('GMT+1') and plausible-looking nonsense ('Ohio/United-States').
+ * See docs/adr/024-tenant-operating-timezone.md for why 'UTC' — not
+ * 'Etc/UTC' (functionally identical) or a tenant-specific guess — is the
+ * default everywhere this schema is used.
+ */
+export const TimezoneSchema = z.string().refine(
+  (val) => {
+    // Intl treats an offset ("+01:00", "-0500", "+01") as a valid timeZone,
+    // but an offset cannot express DST — a tenant stored as "+01:00" reads
+    // an hour wrong for the whole CEST half of the year, which is exactly
+    // the failure a named zone exists to prevent. Only "GMT+1" is rejected
+    // by Intl itself, so the other spellings have to be refused here.
+    if (/^[+-]/.test(val)) return false;
+    try {
+      new Intl.DateTimeFormat(undefined, { timeZone: val });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  {
+    message:
+      'Must be a valid IANA timezone identifier, e.g. "Europe/Stockholm"',
+  },
 );
 
 export const BrandingConfigSchema = z.object({
@@ -244,7 +282,7 @@ export const OverrideConfigSchema = z
  * block. Loosely typed here (record-of-record) — the strict shape lives in
  * `shared/types/cms-slots.ts` and `shared/constants/cms.ts`.
  */
-const CmsConfigSchema = z
+export const CmsConfigSchema = z
   .object({
     slots: z
       .record(
@@ -264,6 +302,15 @@ const CmsConfigSchema = z
       )
       .optional(),
   })
+  .optional();
+
+/**
+ * Product-parameter → media-kind mapping carried through the merchant
+ * API's `appSettings.productMediaParameters` block — same shape and
+ * reasoning as CmsConfigSchema above, for shared/constants/product-media.ts.
+ */
+const ProductMediaParametersSchema = z
+  .record(z.string(), z.enum(['video', 'document']))
   .optional();
 
 /**
@@ -287,6 +334,10 @@ export const StoreSettingsSchema = z.object({
   geinsSettings: GeinsSettingsSchema,
   mode: TenantModeSchema,
   checkoutMode: z.enum(['custom', 'hosted']).default('custom'),
+  // Not a field the Geins platform sends; defaults generic (UTC) rather
+  // than guessing a tenant-specific value. See
+  // docs/adr/024-tenant-operating-timezone.md.
+  timezone: TimezoneSchema.default('UTC'),
   theme: ThemeConfigSchema,
   branding: BrandingConfigSchema,
   features: z.record(z.string(), FeatureConfigInputSchema).default({}),
@@ -294,6 +345,7 @@ export const StoreSettingsSchema = z.object({
   contact: ContactConfigSchema.nullable().optional(),
   overrides: OverrideConfigSchema,
   cms: CmsConfigSchema,
+  productMediaParameters: ProductMediaParametersSchema,
   isActive: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),

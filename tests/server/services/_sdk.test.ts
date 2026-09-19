@@ -61,19 +61,34 @@ vi.mock('@geins/types', () => ({
 
 // Mock Nitro auto-imports
 const mockResolveTenant = vi.fn();
-const mockCreateAppError = vi.fn((_code: string, message: string) => {
-  const err = new Error(message);
-  (err as Error & { statusCode: number }).statusCode = 400;
-  return err;
-});
+const mockCreateAppError = vi.fn(
+  (code: string, message: string, details?: Record<string, unknown>) => {
+    const err = new Error(message) as Error & {
+      statusCode: number;
+      data: { code: string; details?: Record<string, unknown> };
+    };
+    err.statusCode = 400;
+    err.data = { code, details };
+    return err;
+  },
+);
+const mockCreateTenantConfigInvalidError = vi.fn(
+  (message: string, details?: Record<string, unknown>) =>
+    mockCreateAppError('TENANT_CONFIG_INVALID', message, details),
+);
 
 const mockGetRequestLocale = vi.fn();
 const mockGetRequestMarket = vi.fn();
 
 vi.stubGlobal('resolveTenant', mockResolveTenant);
 vi.stubGlobal('createAppError', mockCreateAppError);
+vi.stubGlobal(
+  'createTenantConfigInvalidError',
+  mockCreateTenantConfigInvalidError,
+);
 vi.stubGlobal('ErrorCode', {
   BAD_REQUEST: 'BAD_REQUEST',
+  TENANT_CONFIG_INVALID: 'TENANT_CONFIG_INVALID',
 });
 type AuthCookies = { authToken?: string; refreshToken?: string };
 const mockGetAuthCookies = vi.fn((): AuthCookies => ({}));
@@ -164,13 +179,52 @@ describe('server/services/_sdk', () => {
       );
     });
 
-    it('should default to prod when environment is undefined', () => {
+    // Regression: this used to silently default to 'prod' — the opposite
+    // of a safe fallback for bad data (e.g. a stale/malformed KV record).
+    it('should throw when environment is undefined rather than default to prod', () => {
       const settings = { ...MOCK_GEINS_SETTINGS };
       delete (settings as Partial<GeinsSettings>).environment;
-      createTenantSDK(settings);
 
-      expect(mockGeinsCore).toHaveBeenCalledWith(
-        expect.objectContaining({ environment: 'prod' }),
+      expect(() => createTenantSDK(settings)).toThrow(
+        'Unknown Geins environment',
+      );
+    });
+
+    it('should throw on an unrecognized environment value instead of defaulting to prod', () => {
+      const settings = {
+        ...MOCK_GEINS_SETTINGS,
+        environment: 'dev',
+      } as unknown as GeinsSettings;
+
+      expect(() => createTenantSDK(settings)).toThrow(
+        'Unknown Geins environment: "dev"',
+      );
+    });
+
+    // Downstream call sites (server/api/auth/me.get.ts,
+    // server/utils/load-user.ts, server/api/__sitemap__/urls.ts) need to
+    // tell this apart from their own pre-existing failure case (expired
+    // session, fail-open lookup miss, unreachable API), so the thrown
+    // error must carry an identifiable code rather than being a bare Error.
+    it('should throw an error identifiable as TENANT_CONFIG_INVALID for an unrecognized environment', () => {
+      const settings = {
+        ...MOCK_GEINS_SETTINGS,
+        environment: 'dev',
+      } as unknown as GeinsSettings;
+
+      let thrown: unknown;
+      try {
+        createTenantSDK(settings);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toMatchObject({
+        data: { code: 'TENANT_CONFIG_INVALID' },
+      });
+      expect(mockCreateTenantConfigInvalidError).toHaveBeenCalledWith(
+        expect.stringContaining('dev'),
+        { environment: 'dev' },
       );
     });
 

@@ -21,7 +21,11 @@ import {
 
 describe('productPath idempotency', () => {
   const cases = [
-    { label: 'bare alias (no slash)', input: 'bare-alias', expected: '/p/bare-alias' },
+    {
+      label: 'bare alias (no slash)',
+      input: 'bare-alias',
+      expected: '/p/bare-alias',
+    },
     { label: 'already /p/-prefixed', input: '/p/x', expected: '/p/x' },
     {
       label: 'market/locale + /p/ prefix',
@@ -68,7 +72,11 @@ describe('categoryPath idempotency', () => {
 
 describe('brandPath idempotency', () => {
   const cases = [
-    { label: 'already /b/-prefixed', input: '/b/brand-x', expected: '/b/brand-x' },
+    {
+      label: 'already /b/-prefixed',
+      input: '/b/brand-x',
+      expected: '/b/brand-x',
+    },
     {
       label: 'market/locale-prefixed without type',
       input: '/se/sv/brand-x',
@@ -103,7 +111,9 @@ describe('no double-prefix', () => {
 
   it('productPath strips a mismatched /l/ rather than prepending /p/ on top', () => {
     // Geins list prefix must be stripped and replaced, not stacked.
-    expect(productPath('/se/sv/l/some-list/product')).toBe('/p/some-list/product');
+    expect(productPath('/se/sv/l/some-list/product')).toBe(
+      '/p/some-list/product',
+    );
     expect(productPath('/p/some-list/product')).toBe('/p/some-list/product');
   });
 });
@@ -188,7 +198,10 @@ describe('alternateEntityPath preserves the input market/locale', () => {
 
   it('keeps "sv" locale from the alternate URL', () => {
     expect(
-      alternateEntityPath('/se/sv/material/grenror/grenror-150-150-88', 'product'),
+      alternateEntityPath(
+        '/se/sv/material/grenror/grenror-150-150-88',
+        'product',
+      ),
     ).toBe('/se/sv/p/material/grenror/grenror-150-150-88');
   });
 });

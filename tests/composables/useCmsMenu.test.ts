@@ -17,6 +17,7 @@ function makeTenant(cms?: PublicTenantConfig['cms']): PublicTenantConfig {
   return {
     tenantId: 'monitor',
     hostname: 'localhost',
+    timezone: 'UTC',
     mode: 'commerce',
     checkoutMode: 'hosted',
     theme: { name: 'monitor', colors: {} },

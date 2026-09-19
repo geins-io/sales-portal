@@ -28,6 +28,7 @@ vi.mock('../app/composables/useLocaleMarket', () => ({
 const mockTenantConfig: PublicTenantConfig = {
   tenantId: 'test-tenant',
   hostname: 'test.example.com',
+  timezone: 'UTC',
   isActive: true,
   css: '',
   mode: 'commerce',

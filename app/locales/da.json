@@ -306,7 +306,12 @@
     "max_in_cart": "Alt i kurven",
     "max_quantity_info": "Det maksimale antal på lager er lagt i kurven.",
     "on_demand": "Efter bestilling",
-    "no_image": "Intet billede tilgængeligt"
+    "no_image": "Intet billede tilgængeligt",
+    "measurements": "Mål og vægt",
+    "length": "Længde",
+    "width": "Bredde",
+    "height": "Højde",
+    "weight": "Vægt"
   },
   "configurator": {
     "required": "Påkrævet",

@@ -1,5 +1,9 @@
 query GetCompany($channelId: String, $languageId: String, $marketId: String) {
-  getCompany(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+  getCompany(
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
     id
     name
     vatNumber

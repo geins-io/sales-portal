@@ -10,7 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select';
-import type { ContentConfigType, FormWidgetData, FormWidgetField } from '#shared/types/cms';
+import type {
+  ContentConfigType,
+  FormWidgetData,
+  FormWidgetField,
+} from '#shared/types/cms';
 import type { SupportedLocale } from '#shared/utils/locale-market';
 import { getCountryOptions } from '~/utils/country-options';
 import { buildMailto } from '~/utils/mailto';
@@ -164,7 +168,8 @@ function selectOptionsFor(field: FormWidgetField) {
           v-if="field.required"
           class="text-destructive ms-0.5"
           aria-hidden="true"
-        >*</span>
+          >*</span
+        >
       </Label>
 
       <!-- Select field -->
@@ -179,7 +184,9 @@ function selectOptionsFor(field: FormWidgetField) {
             :id="`form-field-input-${field.name}`"
             class="w-full"
             :aria-invalid="
-              touched[field.name] && !!fieldErrors[field.name] ? 'true' : undefined
+              touched[field.name] && !!fieldErrors[field.name]
+                ? 'true'
+                : undefined
             "
             :aria-describedby="
               touched[field.name] && fieldErrors[field.name]
@@ -209,7 +216,9 @@ function selectOptionsFor(field: FormWidgetField) {
           v-model="formValues[field.name]"
           class="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-[80px] w-full rounded-md border bg-white px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           :aria-invalid="
-            touched[field.name] && !!fieldErrors[field.name] ? 'true' : undefined
+            touched[field.name] && !!fieldErrors[field.name]
+              ? 'true'
+              : undefined
           "
           :aria-describedby="
             touched[field.name] && fieldErrors[field.name]
@@ -228,7 +237,9 @@ function selectOptionsFor(field: FormWidgetField) {
           v-model="formValues[field.name]"
           :type="field.type === 'email' ? 'email' : 'text'"
           :aria-invalid="
-            touched[field.name] && !!fieldErrors[field.name] ? 'true' : undefined
+            touched[field.name] && !!fieldErrors[field.name]
+              ? 'true'
+              : undefined
           "
           :aria-describedby="
             touched[field.name] && fieldErrors[field.name]
@@ -266,7 +277,8 @@ function selectOptionsFor(field: FormWidgetField) {
             <a
               :href="`mailto:${data.sendFormToEmail}`"
               class="text-primary underline underline-offset-2"
-            >{{ data.sendFormToEmail }}</a>
+              >{{ data.sendFormToEmail }}</a
+            >
           </template>
         </i18n-t>
       </p>

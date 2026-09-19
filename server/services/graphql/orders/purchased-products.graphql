@@ -3,7 +3,11 @@ query getCompanyOrdersForPurchasedProducts(
   $languageId: String
   $marketId: String
 ) {
-  getCompanyOrders(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+  getCompanyOrders(
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
     id
     publicId
     createdAt

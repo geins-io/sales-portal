@@ -5,8 +5,8 @@ import {
   processConfigRefresh,
   type WebhookRequest,
   type KvStorage,
-  type CacheStorage,
 } from '../../server/utils/webhook-handler';
+import type { TenantCacheStorage } from '../../server/utils/tenant';
 import { MAX_WEBHOOK_BODY_SIZE } from '../../server/utils/webhook';
 
 // Mock useStorage for KV-backed rate limiter
@@ -65,7 +65,7 @@ function createMockKvStorage(overrides?: Partial<KvStorage>): {
 }
 
 function createMockCacheStorage(): {
-  storage: CacheStorage;
+  storage: TenantCacheStorage;
   removeItem: ReturnType<typeof vi.fn>;
 } {
   const removeItem = vi.fn();

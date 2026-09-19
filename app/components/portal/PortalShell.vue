@@ -131,7 +131,6 @@ function isActiveTab(tab: PortalTab): boolean {
   }
   return route.path.startsWith(prefixedPath);
 }
-
 </script>
 
 <template>

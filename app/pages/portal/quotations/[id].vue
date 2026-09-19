@@ -15,6 +15,7 @@ const { formatLocale } = useFormatLocale();
 const route = useRoute();
 const store = useQuotesStore();
 const { localePath } = useLocaleMarket();
+const { timezone } = useTenant();
 
 const quoteId = computed(() => route.params.id as string);
 
@@ -70,6 +71,7 @@ function formatDate(iso: string): string {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: timezone.value,
   });
 }
 

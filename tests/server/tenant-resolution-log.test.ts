@@ -8,10 +8,15 @@ import {
   tenantIdKey,
   tenantConfigKey,
   clearNegativeCache,
+  collectAllHostnames,
+  invalidateTenantCaches,
   describeTransportError,
   formatTenantResolution,
 } from '../../server/utils/tenant';
-import type { TenantResolutionTrace } from '../../server/utils/tenant';
+import type {
+  TenantResolutionTrace,
+  TenantCacheStorage,
+} from '../../server/utils/tenant';
 import type { TenantConfig } from '#shared/types/tenant-config';
 
 // Same auto-import shims as tests/server/tenant.test.ts: the tenant utils
@@ -320,6 +325,40 @@ describe.sequential('resolveTenant resolution log', () => {
     );
   });
 
+  it('clears the negative cache for an alias, not only the hostname given', async () => {
+    // An alias looked up before the tenant existed is negative-cached.
+    // resolveTenantTraced checks that cache before KV, so unless onboarding
+    // clears every hostname the tenant claims, the alias keeps 404ing for
+    // the rest of the TTL with the config already in storage.
+    const primary = 'primary.example';
+    const alias = 'alias.example';
+    stubFetch(async () => httpResponse(404));
+    await resolveTenant(alias);
+
+    const config = {
+      tenantId: 't-alias',
+      hostname: primary,
+      aliases: [alias],
+      isActive: true,
+    } as unknown as TenantConfig;
+
+    await invalidateTenantCaches('t-alias', collectAllHostnames(config), {
+      removeItem: vi.fn(),
+    } as unknown as TenantCacheStorage);
+
+    memoryStorage({
+      [tenantIdKey(alias)]: 't-alias',
+      [tenantConfigKey('t-alias')]: config,
+    });
+
+    await expect(resolveTenant(alias)).resolves.toMatchObject({
+      tenantId: 't-alias',
+    });
+
+    clearNegativeCache(primary);
+    clearNegativeCache(alias);
+  });
+
   it('a transport failure is not negative-cached: the next lookup asks the merchant API again', async () => {
     const host = 'flaky.example';
     let calls = 0;
@@ -606,7 +645,13 @@ describe.sequential('getTenantById', () => {
     const config = kvConfig('t-1', 't-1.example');
     const storage = memoryStorage({ [tenantConfigKey('t-1')]: config });
 
-    await expect(getTenantById('t-1')).resolves.toBe(config);
+    // A raw KV read is not re-validated against the schema, so
+    // withTenantConfigDefaults() backfills `timezone` on the way out — the
+    // returned object is a copy, not the stored reference.
+    await expect(getTenantById('t-1')).resolves.toEqual({
+      ...config,
+      timezone: 'UTC',
+    });
     expect(storage.getItem).toHaveBeenCalledWith(tenantConfigKey('t-1'));
     expect(storage.getItem).toHaveBeenCalledTimes(1);
   });
@@ -639,7 +684,7 @@ describe.sequential('getTenantById', () => {
     // an assertion about the field rather than about the lookup.
     const active = kvConfig('t-flag', 't-flag.example', { isActive: true });
     memoryStorage({ [tenantConfigKey('t-flag')]: active });
-    await expect(getTenantById('t-flag')).resolves.toBe(active);
+    await expect(getTenantById('t-flag')).resolves.toMatchObject(active);
 
     resetStorage();
 

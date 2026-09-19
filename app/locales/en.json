@@ -306,7 +306,12 @@
     "max_in_cart": "Max in cart",
     "max_quantity_info": "Max quantity added to cart",
     "on_demand": "On demand",
-    "no_image": "No image available"
+    "no_image": "No image available",
+    "measurements": "Dimensions and weight",
+    "length": "Length",
+    "width": "Width",
+    "height": "Height",
+    "weight": "Weight"
   },
   "configurator": {
     "required": "Required",

@@ -58,12 +58,34 @@ query product(
     parameterGroups {
       name
       parameterGroupId
+      # `label` is the merchant's localized display name, resolved against
+      # the languageId passed above; `name` is the technical PIM key and is
+      # the same in every language. Consumers prefer label, fall back to name.
+      #
+      # Two neighbouring fields are deliberately NOT selected, both verified
+      # against live data rather than assumed:
+      #   description — returns a byte-identical copy of `value`, not prose.
+      #                 Selecting it makes the spec table render a parameter's
+      #                 value as its group's description.
+      #   type        — queryable, but null on every parameter we have seen,
+      #                 so it can't be used to tell media from plain specs.
       parameters {
         name
+        label
         value
         show
         identifier
       }
+    }
+    # Physical measurements live on the product record, not among the
+    # parameters, and the spec table renders them as their own group. Geins
+    # stores dimensions in millimetres and weight in grams, and returns 0 for
+    # "never set" rather than null — the component drops zero rows.
+    weight
+    dimensions {
+      length
+      width
+      height
     }
     skus {
       ...Sku

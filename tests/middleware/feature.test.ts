@@ -111,6 +111,7 @@ function createMockTenantConfig(
   const base: PublicTenantConfig = {
     tenantId: 'test-tenant',
     hostname: 'test.example.com',
+    timezone: 'UTC',
     mode: 'commerce',
     theme: {
       name: 'test-theme',

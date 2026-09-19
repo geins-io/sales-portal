@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   StoreSettingsSchema,
+  GeinsSettingsSchema,
   BrandingConfigSchema,
   ContactConfigSchema,
   SeoConfigSchema,
@@ -334,6 +335,119 @@ describe('StoreSettingsSchema', () => {
       const result = StoreSettingsSchema.safeParse(config);
       expect(result.success).toBe(true);
       if (result.success) expect(result.data.mode).toBe('catalog');
+    });
+
+    it('defaults timezone to UTC when the merchant API response omits it', () => {
+      const config = {
+        tenantId: 'tz-default',
+        hostname: 'tz-default.example.com',
+        geinsSettings: {
+          apiKey: 'key',
+          accountName: 'acct',
+          channel: '1',
+          tld: 'se',
+          locale: 'sv-SE',
+          market: 'se',
+          environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
+        },
+        mode: 'commerce',
+        theme: {
+          colors: {
+            primary: 'oklch(0.5 0.1 200)',
+            primaryForeground: 'oklch(0.9 0 0)',
+            secondary: 'oklch(0.8 0 0)',
+            secondaryForeground: 'oklch(0.2 0 0)',
+            background: 'oklch(1 0 0)',
+            foreground: 'oklch(0.1 0 0)',
+          },
+        },
+        branding: { name: 'Test', watermark: 'full' },
+        features: {},
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        // timezone deliberately omitted
+      };
+      const result = StoreSettingsSchema.safeParse(config);
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.timezone).toBe('UTC');
+    });
+
+    it('preserves an explicit timezone rather than overriding it with UTC', () => {
+      const config = {
+        tenantId: 'tz-explicit',
+        hostname: 'tz-explicit.example.com',
+        geinsSettings: {
+          apiKey: 'key',
+          accountName: 'acct',
+          channel: '1',
+          tld: 'se',
+          locale: 'sv-SE',
+          market: 'se',
+          environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
+        },
+        mode: 'commerce',
+        timezone: 'Europe/Stockholm',
+        theme: {
+          colors: {
+            primary: 'oklch(0.5 0.1 200)',
+            primaryForeground: 'oklch(0.9 0 0)',
+            secondary: 'oklch(0.8 0 0)',
+            secondaryForeground: 'oklch(0.2 0 0)',
+            background: 'oklch(1 0 0)',
+            foreground: 'oklch(0.1 0 0)',
+          },
+        },
+        branding: { name: 'Test', watermark: 'full' },
+        features: {},
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+      const result = StoreSettingsSchema.safeParse(config);
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.timezone).toBe('Europe/Stockholm');
+    });
+
+    it('rejects a raw UTC offset instead of an IANA timezone identifier', () => {
+      const config = {
+        tenantId: 'tz-offset',
+        hostname: 'tz-offset.example.com',
+        geinsSettings: {
+          apiKey: 'key',
+          accountName: 'acct',
+          channel: '1',
+          tld: 'se',
+          locale: 'sv-SE',
+          market: 'se',
+          environment: 'production',
+          availableLocales: ['sv-SE'],
+          availableMarkets: ['se'],
+        },
+        mode: 'commerce',
+        timezone: 'GMT+1',
+        theme: {
+          colors: {
+            primary: 'oklch(0.5 0.1 200)',
+            primaryForeground: 'oklch(0.9 0 0)',
+            secondary: 'oklch(0.8 0 0)',
+            secondaryForeground: 'oklch(0.2 0 0)',
+            background: 'oklch(1 0 0)',
+            foreground: 'oklch(0.1 0 0)',
+          },
+        },
+        branding: { name: 'Test', watermark: 'full' },
+        features: {},
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      };
+      const result = StoreSettingsSchema.safeParse(config);
+      expect(result.success).toBe(false);
     });
 
     it('should validate minimal required config', () => {
@@ -1354,3 +1468,39 @@ function createMinimalConfig(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe('GeinsSettingsSchema imageBaseUrl', () => {
+  const base = {
+    apiKey: 'k',
+    accountName: 'acct',
+    channel: '1',
+    tld: 'se',
+    locale: 'sv-SE',
+    market: 'se',
+    environment: 'production' as const,
+  };
+
+  it('keeps the override so it can reach the public config', () => {
+    // With no field on the schema zod strips it, and the derived
+    // https://{accountName}.commerce.services fallback wins every time —
+    // the override is declared on the type but unreachable.
+    const parsed = GeinsSettingsSchema.parse({
+      ...base,
+      imageBaseUrl: 'https://images.example.com',
+    });
+    expect(parsed.imageBaseUrl).toBe('https://images.example.com');
+  });
+
+  it('rejects a non-http override rather than carrying it through', () => {
+    expect(() =>
+      GeinsSettingsSchema.parse({
+        ...base,
+        imageBaseUrl: 'javascript:alert(1)',
+      }),
+    ).toThrow();
+  });
+
+  it('stays optional', () => {
+    expect(GeinsSettingsSchema.parse(base).imageBaseUrl).toBeUndefined();
+  });
+});

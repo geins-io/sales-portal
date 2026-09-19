@@ -122,6 +122,8 @@ import type {
 
 const USE_TENANT = 'tests/composables/useTenant.test.ts';
 const SERVER_TENANT = 'tests/server/tenant.test.ts';
+const TENANT_DATE = 'tests/unit/tenant-date.test.ts';
+const PRODUCT_TABS = 'tests/components/product/ProductTabs.test.ts';
 const TENANT_CSS = 'tests/unit/server/utils/tenant-css.test.ts';
 const FOOTER_MAIN = 'tests/components/layout/LayoutFooterMain.test.ts';
 const LAYOUT_FOOTER = 'tests/components/layout/LayoutFooter.test.ts';
@@ -1182,6 +1184,63 @@ export const CONFIG_COVERAGE_MAP = {
         'The hand-off is split: the client branch here, the token endpoint in ' +
         'tests/server/api/checkout/token-post.test.ts.',
     },
+  },
+
+  // --- Operating timezone --------------------------------------------------
+  timezone: {
+    status: 'has-test',
+    test: [
+      {
+        spec: USE_TENANT,
+        title: 'should return timezone from config',
+        kind: 'carrier',
+      },
+      {
+        spec: TENANT_DATE,
+        title: 'formats using the given timezone, not the process timezone',
+        kind: 'consumer',
+        drives: 'field',
+      },
+    ],
+    note:
+      'The consumer test drives formatTenantDate directly. The portal tables ' +
+      'that call it (PortalOrdersTable, SavedListsTable, PortalProductsTable) ' +
+      'have tests, but none of them vary the tenant timezone, so the ' +
+      'config-to-rendered-date path is proven in two halves, not end to end.',
+  },
+
+  // --- Product media parameters --------------------------------------------
+  productMediaParameters: {
+    status: 'has-test',
+    test: [
+      {
+        spec: SERVER_TENANT,
+        title: 'unconfigured tenant resolves to the code defaults',
+        kind: 'carrier',
+      },
+      {
+        spec: SERVER_TENANT,
+        title: 'an explicit tenant override wins over the default for that key',
+        kind: 'carrier',
+      },
+      {
+        spec: PRODUCT_TABS,
+        title:
+          'renders a VideoURL parameter as an embedded video, not a spec row',
+        kind: 'consumer',
+        drives: 'field',
+      },
+      {
+        spec: PRODUCT_TABS,
+        title: 'renders Manual and ProductSpec parameters as document links',
+        kind: 'consumer',
+        drives: 'field',
+      },
+    ],
+    note:
+      'The map from a Geins parameter name to a media kind. Carrier side ' +
+      'proves the tenant override merges over the code defaults; consumer ' +
+      'side proves each kind renders as its own control.',
   },
 
   // --- Theme ---------------------------------------------------------------

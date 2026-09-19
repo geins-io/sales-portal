@@ -306,7 +306,12 @@
     "max_in_cart": "Allt i varukorg",
     "max_quantity_info": "Maxantal i lager har lagts till i varukorgen.",
     "on_demand": "På begäran",
-    "no_image": "Ingen bild tillgänglig"
+    "no_image": "Ingen bild tillgänglig",
+    "measurements": "Mått och vikt",
+    "length": "Längd",
+    "width": "Bredd",
+    "height": "Höjd",
+    "weight": "Vikt"
   },
   "configurator": {
     "required": "Obligatoriskt",

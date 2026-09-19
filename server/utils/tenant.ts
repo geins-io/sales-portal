@@ -2,6 +2,7 @@ import type { H3Event } from 'h3';
 import type { FeatureAccess, TenantConfig } from '#shared/types/tenant-config';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { CMS_MENUS } from '#shared/constants/cms';
+import { PRODUCT_MEDIA_PARAMETER_DEFAULTS } from '#shared/constants/product-media';
 import type {
   StoreSettings,
   GeinsSettings,
@@ -16,6 +17,8 @@ import {
 } from './storefront-settings-defaults';
 import { KV_STORAGE_KEYS } from '#shared/constants/storage';
 import { logger } from './logger';
+import { createTenantConfigInvalidError } from './errors';
+import { clearSdkCache } from '../services/_sdk';
 import { isDevMode } from './dev-mode';
 import {
   createDefaultTheme,
@@ -70,20 +73,60 @@ export const DEFAULT_CMS_CONFIG: NonNullable<TenantConfig['cms']> = {
 };
 
 /**
- * Default GeinsSettings for tenants created through createTenant.
+ * Validates and resolves `GEINS_ENVIRONMENT` for the default/fallback Geins
+ * settings below.
+ *
+ * The previous `(process.env.GEINS_ENVIRONMENT as 'production' | 'staging')
+ * || 'production'` cast trusted the env var's shape instead of checking it —
+ * the exact "a cast hides the drift" anti-pattern CLAUDE.md calls out. A
+ * typo'd value here (e.g. the SDK-style "prod" instead of our "production")
+ * used to sail through silently at boot and only surface much later as a
+ * throw from `mapEnvironment()` in server/services/_sdk.ts — on every single
+ * `getTenantSDK()` call for any tenant that falls back to these defaults,
+ * not just once. Validating here fails loud a single time, at module load
+ * (this file is imported eagerly by the `02.tenant-context` Nitro plugin, so
+ * this runs before any request is served), turning a silent-then-per-request
+ * failure into one clear boot-time error.
  */
-export const DEFAULT_GEINS_SETTINGS: GeinsSettings = {
-  apiKey: process.env.GEINS_API_KEY || '',
-  accountName: process.env.GEINS_ACCOUNT_NAME || '',
-  channel: process.env.GEINS_CHANNEL || '1',
-  tld: process.env.GEINS_TLD || 'se',
-  locale: process.env.GEINS_LOCALE || 'sv-SE',
-  market: process.env.GEINS_MARKET || 'se',
-  environment:
-    (process.env.GEINS_ENVIRONMENT as 'production' | 'staging') || 'production',
-  availableLocales: [process.env.GEINS_LOCALE || 'sv-SE'],
-  availableMarkets: [process.env.GEINS_MARKET || 'se'],
-};
+function isValidGeinsEnvironment(
+  value: string,
+): value is GeinsSettings['environment'] {
+  return value === 'production' || value === 'staging';
+}
+
+export function resolveDefaultGeinsEnvironment(): GeinsSettings['environment'] {
+  const raw = process.env.GEINS_ENVIRONMENT;
+  if (!raw) return 'production';
+  if (isValidGeinsEnvironment(raw)) return raw;
+  throw createTenantConfigInvalidError(
+    `Invalid GEINS_ENVIRONMENT env var: "${raw}". Expected "production" or "staging".`,
+    { value: raw },
+  );
+}
+
+/**
+ * Default GeinsSettings for tenants created through createTenant.
+ *
+ * A function rather than a const because resolveDefaultGeinsEnvironment()
+ * throws on an unrecognized GEINS_ENVIRONMENT, and `prod` — the Geins SDK's
+ * own spelling — is an easy thing to put there. Evaluated at module scope
+ * that throw escapes from the import itself, so it would take down the
+ * 02.tenant-context plugin and with it every tenant on the deployment,
+ * over a default only createTenant reads. Now it fails where it is used.
+ */
+export function defaultGeinsSettings(): GeinsSettings {
+  return {
+    apiKey: process.env.GEINS_API_KEY || '',
+    accountName: process.env.GEINS_ACCOUNT_NAME || '',
+    channel: process.env.GEINS_CHANNEL || '1',
+    tld: process.env.GEINS_TLD || 'se',
+    locale: process.env.GEINS_LOCALE || 'sv-SE',
+    market: process.env.GEINS_MARKET || 'se',
+    environment: resolveDefaultGeinsEnvironment(),
+    availableLocales: [process.env.GEINS_LOCALE || 'sv-SE'],
+    availableMarkets: [process.env.GEINS_MARKET || 'se'],
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Negative cache
@@ -240,6 +283,46 @@ export function tenantIdKey(hostname: string): string {
 
 export function tenantConfigKey(tenantId: string): string {
   return `${KV_STORAGE_KEYS.TENANT_CONFIG_PREFIX}${tenantId}`;
+}
+
+export interface TenantCacheStorage {
+  removeItem(key: string): Promise<void>;
+}
+
+/**
+ * Invalidates every cache that can serve stale data for a tenant after its
+ * config changes: the per-tenant Geins SDK client, the hostname
+ * negative-resolution cache, and the /api/config response cache.
+ *
+ * Nitro 2.x stores defineCachedEventHandler entries at
+ * `{group}:{name}:{escapeKey(getKey())}.json`, where group="nitro/handlers",
+ * name="_" (default), and escapeKey strips all non-word characters (\W).
+ * The leading /cache: base is absorbed by the useStorage("cache") namespace,
+ * so the key removed here is `nitro/handlers:_:{stripped configKey}.json`
+ * — see server/api/config.get.ts for the handler this targets.
+ *
+ * Called by both writers of tenant config today — the Geins Studio webhook
+ * (server/utils/webhook-handler.ts) and the admin onboarding endpoint
+ * (server/utils/tenant-crud.ts) — so a third writer gets this for free
+ * instead of needing to remember three separate cache invalidations.
+ */
+export async function invalidateTenantCaches(
+  tenantId: string,
+  hostnames: Iterable<string>,
+  cacheStorage: TenantCacheStorage,
+): Promise<void> {
+  clearSdkCache(tenantId);
+  // Every hostname the tenant answers on, not just the one that triggered
+  // this. resolveTenantTraced consults the negative cache before KV, so an
+  // alias looked up while the tenant was still unknown keeps 404ing for the
+  // rest of its TTL even though the config is now sitting in storage.
+  for (const hostname of hostnames) {
+    clearNegativeCache(hostname);
+  }
+
+  const escapedConfigKey = tenantConfigKey(tenantId).replace(/\W/g, '');
+  const nitroCacheKey = `nitro/handlers:_:${escapedConfigKey}.json`;
+  await cacheStorage.removeItem(nitroCacheKey);
 }
 
 // ---------------------------------------------------------------------------
@@ -459,6 +542,19 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     menus: { ...DEFAULT_CMS_CONFIG.menus, ...(tenantCms?.menus ?? {}) },
   };
 
+  // Same reasoning as cms above: a flat name→kind map, so a plain spread
+  // (tenant value wins per key) is enough — no nested sub-objects to merge
+  // individually.
+  const tenantProductMediaParameters = (
+    merged as {
+      productMediaParameters?: TenantConfig['productMediaParameters'];
+    }
+  ).productMediaParameters;
+  const productMediaParameters: TenantConfig['productMediaParameters'] = {
+    ...PRODUCT_MEDIA_PARAMETER_DEFAULTS,
+    ...tenantProductMediaParameters,
+  };
+
   return {
     tenantId: merged.tenantId,
     hostname: merged.hostname,
@@ -466,6 +562,10 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     geinsSettings: merged.geinsSettings,
     mode: merged.mode,
     checkoutMode: merged.checkoutMode,
+    // Defensive fallback, not just the schema default — this function also
+    // runs on hand-built configs that never go through
+    // StoreSettingsSchema.parse().
+    timezone: merged.timezone ?? 'UTC',
     theme,
     branding,
     features,
@@ -473,6 +573,7 @@ export function buildTenantConfig(settings: StoreSettings): TenantConfig {
     contact: merged.contact,
     overrides,
     cms,
+    productMediaParameters,
     css,
     themeHash,
     isActive: merged.isActive,
@@ -728,6 +829,13 @@ export function parseStoreSettingsResilient(
     contact: null,
     overrides: null,
     cms: undefined,
+    // Both are presentation config: a bad value must degrade to the default,
+    // never fail the parse. Without an entry here the issue path is a single
+    // segment, which skips the leaf-strip branch and returns null — and a
+    // null resolution is negative-cached, so one malformed date field takes
+    // the whole storefront down for the TTL.
+    timezone: 'UTC',
+    productMediaParameters: undefined,
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -1038,6 +1146,20 @@ export async function resolvePreviewTenant(
 // ---------------------------------------------------------------------------
 
 /**
+ * Backfills `timezone` on a config read straight from KV. A raw read isn't
+ * re-validated against the schema, so a record stored before this field
+ * existed comes back without it — used by every call site that returns a
+ * stored config directly rather than through buildTenantConfig(). See
+ * docs/adr/024-tenant-operating-timezone.md.
+ */
+export function withTenantConfigDefaults(config: TenantConfig): TenantConfig {
+  return {
+    ...config,
+    timezone: config.timezone ?? 'UTC',
+  };
+}
+
+/**
  * Retrieves a tenant config directly by tenantId (no hostname lookup).
  * Returns null for missing or inactive configs without side-effects —
  * invalidation is handled exclusively by the webhook handler.
@@ -1048,7 +1170,7 @@ export async function getTenantById(
   const storage = useStorage('kv');
   const config = await storage.getItem<TenantConfig>(tenantConfigKey(tenantId));
   if (!config || !config.isActive) return null;
-  return config;
+  return withTenantConfigDefaults(config);
 }
 
 /** A lookup's config (null when none) and how it ended. */

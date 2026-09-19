@@ -130,8 +130,22 @@ Add to the tenant's stored config:
 }
 ```
 
-Only entries a tenant wants to override need to appear. Entries not in
-the map resolve to `null`; their consumers fall back gracefully:
+Only entries a tenant wants to override need to appear — via the admin
+create/update endpoint (`server/api/admin/tenants.post.ts`), each slot/menu
+key merges independently onto the tenant's existing `cms` config
+(`mergeCmsConfig` in `server/utils/tenant-crud.ts`): a key you send
+overwrites just that key, a key you omit is left untouched, and a key set
+to `null` removes it entirely (reverting that slot/menu to
+`DEFAULT_CMS_CONFIG`). This is _not_ how the top-level `cms` object itself
+behaves — the rest of `TenantConfig` merges as a plain shallow spread,
+where omitting a nested object field entirely leaves it alone but any
+value you do send for it replaces the whole thing; `cms.slots`/`cms.menus`
+are deliberately carved out of that as the one nested field with
+merge-and-delete-per-key semantics, since they're open-ended keyed maps
+rather than a handful of named fields.
+
+Entries not in the map (deleted or never configured) resolve to `null`;
+their consumers fall back gracefully:
 
 - `FRONTPAGE_CONTENT` unconfigured → `pages/index.vue` renders
   `FrontpageFallback` (branded welcome hero).

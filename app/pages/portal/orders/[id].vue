@@ -18,7 +18,7 @@ const route = useRoute();
 const { localePath } = useLocaleMarket();
 const { formatLocale } = useFormatLocale();
 const cartStore = useCartStore();
-const { isCatalogMode } = useTenant();
+const { isCatalogMode, timezone } = useTenant();
 const { canAccess } = useFeatureAccess();
 const canReorder = computed(() => canAccess('reorder') && !isCatalogMode.value);
 
@@ -112,6 +112,7 @@ function formatDate(iso?: string): string {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: timezone.value,
   });
 }
 

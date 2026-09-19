@@ -35,7 +35,7 @@ defineProps<{ groups: ParameterGroupType[] }>();
             class="border-border odd:bg-muted/40 border-b"
           >
             <td class="text-muted-foreground px-3 py-3 pr-4">
-              {{ param.name ?? param.label ?? '' }}
+              {{ param.label ?? param.name ?? '' }}
             </td>
             <td class="px-3 py-3 text-right">{{ param.value }}</td>
           </tr>

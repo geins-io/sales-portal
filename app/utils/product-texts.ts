@@ -20,7 +20,9 @@ export type ProductTextField = 'text1' | 'text2' | 'text3';
 export type AdminTextBox = 1 | 2 | 3;
 
 /** Maps each PIM "Text N" box onto the API field that actually holds it. */
-export type AdminTextFieldMap = Readonly<Record<AdminTextBox, ProductTextField>>;
+export type AdminTextFieldMap = Readonly<
+  Record<AdminTextBox, ProductTextField>
+>;
 
 /** Observed Geins offset (PIM box -> Merchant API field). */
 export const GEINS_ADMIN_TEXT_FIELD_MAP: AdminTextFieldMap = {

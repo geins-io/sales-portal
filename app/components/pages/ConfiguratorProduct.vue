@@ -61,7 +61,7 @@ const { product, alias } = defineProps<{
 const { localePath, localeQuery, currentLocale, currentMarket } =
   useLocaleMarket();
 const { buildProductImageAlt } = useProductImageAlt();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const { data: related } = useFetch<ListProduct[]>(
   () => `/api/products/${alias}/related`,
@@ -152,16 +152,39 @@ const descriptionTexts = computed(() => productDescriptionTexts(product));
 const hasDescription = computed(
   () => !!(descriptionTexts.value.text2 || descriptionTexts.value.text3),
 );
-const visibleGroups = computed(() =>
-  visibleParameterGroups(product.parameterGroups),
+const { productMediaParameters } = useTenant();
+
+const media = computed(() =>
+  classifyProductMedia(product, productMediaParameters.value),
 );
+
+const parameterGroups = computed(() =>
+  visibleParameterGroups(product.parameterGroups, media.value.mediaKeys),
+);
+
+const visibleGroups = computed(() => {
+  const measurements = measurementGroup(
+    product,
+    parameterGroups.value,
+    t,
+    locale.value,
+  );
+  return measurements
+    ? [...parameterGroups.value, measurements]
+    : parameterGroups.value;
+});
+
 const hasSpecs = computed(() => visibleGroups.value.length > 0);
+const hasDocuments = computed(
+  () => media.value.videos.length > 0 || media.value.documents.length > 0,
+);
 const hasRelated = computed(() => (related.value?.length ?? 0) > 0);
 
 const tabs = computed(() =>
   configuratorTabs({
     hasDescription: hasDescription.value,
     hasSpecs: hasSpecs.value,
+    hasDocuments: hasDocuments.value,
     hasRelated: hasRelated.value,
   }),
 );
@@ -663,11 +686,15 @@ async function onRestart(): Promise<void> {
         </TabsContent>
 
         <TabsContent
+          v-if="hasDocuments"
           value="documents"
           data-print="documents"
           class="bg-card mt-6 rounded-lg border p-6"
         >
-          <ProductDocumentsPanel />
+          <ProductDocumentsPanel
+            :videos="media.videos"
+            :documents="media.documents"
+          />
         </TabsContent>
 
         <TabsContent

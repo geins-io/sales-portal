@@ -29,6 +29,18 @@ vi.mock('../../../../server/utils/cookies', () => ({
   getMarketCookie: (...args: unknown[]) => mockGetMarketCookie(...args),
 }));
 
+// me.get.ts imports logger directly (not via Nitro auto-import), so mock it
+// to keep test output clean and to assert on the distinct-logging behavior.
+const mockLoggerError = vi.fn();
+vi.mock('../../../../server/utils/logger', () => ({
+  logger: {
+    error: mockLoggerError,
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
 // ---------------------------------------------------------------------------
 // Stub Nitro / h3 auto-imports
 // ---------------------------------------------------------------------------
@@ -154,6 +166,55 @@ describe('GET /api/auth/me', () => {
     const result = await handler(mockEvent);
 
     expect(result).toEqual({ user: null });
+  });
+
+  // -----------------------------------------------------------------------
+  // getUser failure — session invalid vs. broken tenant config
+  //
+  // Both cases must still end the session (fail safe) — the only
+  // difference is whether the failure gets logged distinctly.
+  // -----------------------------------------------------------------------
+  it('ends the session without extra logging on an ordinary getUser failure', async () => {
+    mockOptionalAuth.mockResolvedValue({
+      authToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
+    mockGetUser.mockRejectedValue(new Error('refresh token invalid'));
+
+    const result = await handler(mockEvent);
+
+    expect(result).toEqual({ user: null });
+    expect(mockClearAuthCookies).toHaveBeenCalledWith(mockEvent);
+    expect(mockLoggerError).not.toHaveBeenCalled();
+  });
+
+  it('still ends the session but logs distinctly when getUser fails with a broken tenant config', async () => {
+    mockOptionalAuth.mockResolvedValue({
+      authToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
+    const tenantConfigError = new Error(
+      'Unknown Geins environment: "dev". Expected "production" or "staging".',
+    ) as Error & { statusCode: number; data: { code: string } };
+    tenantConfigError.statusCode = 500;
+    tenantConfigError.data = { code: 'TENANT_CONFIG_INVALID' };
+    mockGetUser.mockRejectedValue(tenantConfigError);
+
+    const eventWithTenant = {
+      context: { tenant: { hostname: 'broken-tenant.example.com' } },
+    } as unknown as import('h3').H3Event;
+
+    const result = await handler(eventWithTenant);
+
+    // Same user-facing outcome as any other getUser failure — session ends.
+    expect(result).toEqual({ user: null });
+    expect(mockClearAuthCookies).toHaveBeenCalledWith(eventWithTenant);
+    // But logged distinctly, unlike routine session expiry above.
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.stringContaining('Tenant config invalid'),
+      tenantConfigError,
+      expect.objectContaining({ hostname: 'broken-tenant.example.com' }),
+    );
   });
 
   // -----------------------------------------------------------------------

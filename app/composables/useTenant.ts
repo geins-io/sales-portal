@@ -1,4 +1,5 @@
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
+import { PRODUCT_MEDIA_PARAMETER_DEFAULTS } from '#shared/constants/product-media';
 import { resolvableLocaleCodes } from '#shared/utils/locale-market';
 
 /**
@@ -33,7 +34,14 @@ export function useTenant() {
   const mode = computed(() => tenant.value?.mode ?? 'commerce');
   const isCatalogMode = computed(() => mode.value === 'catalog');
   const checkoutMode = computed(() => tenant.value?.checkoutMode ?? 'custom');
+  const timezone = computed(() => tenant.value?.timezone ?? 'UTC');
   const watermark = computed(() => tenant.value?.branding?.watermark ?? 'full');
+  // Falls back to the same defaults server/utils/tenant.ts merges in for an
+  // unconfigured tenant — only relevant here before `tenant` has loaded.
+  const productMediaParameters = computed(
+    () =>
+      tenant.value?.productMediaParameters ?? PRODUCT_MEDIA_PARAMETER_DEFAULTS,
+  );
 
   /**
    * Check if a feature is enabled.
@@ -121,7 +129,9 @@ export function useTenant() {
     mode,
     isCatalogMode,
     checkoutMode,
+    timezone,
     watermark,
+    productMediaParameters,
     availableLocales,
     availableMarkets,
     market,

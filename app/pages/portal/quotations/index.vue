@@ -2,6 +2,7 @@
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { getQuoteStatusPillClass } from '~/utils/quote-status';
+import { formatTenantDate } from '~/utils/tenant-date';
 import type { QuoteListItem, QuoteStatus } from '#shared/types/quote';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
@@ -9,6 +10,7 @@ definePageMeta({ middleware: ['auth', 'feature'], feature: 'quotes' });
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { localePath } = useLocaleMarket();
+const { timezone } = useTenant();
 
 const { data, pending, error, refresh } = useFetch<{
   quotes: QuoteListItem[];
@@ -48,15 +50,7 @@ const paginationSummary = usePaginationSummary(
 );
 
 function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString(formatLocale.value, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  } catch {
-    return dateStr;
-  }
+  return formatTenantDate(dateStr, timezone.value, formatLocale.value);
 }
 
 function getStatusLabel(status: QuoteStatus): string {

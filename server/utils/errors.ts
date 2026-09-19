@@ -25,6 +25,7 @@ export enum ErrorCode {
   SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
   EXTERNAL_API_ERROR = 'EXTERNAL_API_ERROR',
   STORAGE_ERROR = 'STORAGE_ERROR',
+  TENANT_CONFIG_INVALID = 'TENANT_CONFIG_INVALID',
 }
 
 /**
@@ -48,6 +49,7 @@ const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
   [ErrorCode.SERVICE_UNAVAILABLE]: 503,
   [ErrorCode.EXTERNAL_API_ERROR]: 502,
   [ErrorCode.STORAGE_ERROR]: 500,
+  [ErrorCode.TENANT_CONFIG_INVALID]: 500,
 };
 
 /**
@@ -71,6 +73,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.SERVICE_UNAVAILABLE]: 'Service temporarily unavailable',
   [ErrorCode.EXTERNAL_API_ERROR]: 'External API error',
   [ErrorCode.STORAGE_ERROR]: 'Storage error',
+  [ErrorCode.TENANT_CONFIG_INVALID]: 'Tenant configuration is invalid',
 };
 
 /**
@@ -183,6 +186,41 @@ export function createStorageError(
       operation,
       originalMessage: originalError?.message,
     },
+  );
+}
+
+/**
+ * Create a tenant config invalid error.
+ *
+ * Distinguishes a broken/malformed tenant Geins config (e.g. an
+ * unrecognized `environment` value reaching `mapEnvironment()` in
+ * server/services/_sdk.ts) from the unrelated failure each catch site
+ * would otherwise mistake it for — an expired session, a fail-open lookup
+ * miss, an unreachable external API. Callers should check
+ * `isErrorCode(error, ErrorCode.TENANT_CONFIG_INVALID)` to log this
+ * distinctly while still failing safe the way they already do for their
+ * original case.
+ */
+export function createTenantConfigInvalidError(
+  message: string,
+  details?: Record<string, unknown>,
+): H3Error {
+  return createAppError(ErrorCode.TENANT_CONFIG_INVALID, message, details);
+}
+
+/**
+ * Type guard for a caught value that is an H3Error carrying a specific
+ * ErrorCode in its `.data.code`. Lets a catch block written for one
+ * failure mode (e.g. "session expired") detect when it's actually seeing
+ * a different, unrelated failure (e.g. broken tenant config) so it can
+ * log it distinctly instead of silently misattributing it.
+ */
+export function isErrorCode(error: unknown, code: ErrorCode): boolean {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    'statusCode' in error &&
+    (error as { data?: { code?: string } }).data?.code === code
   );
 }
 

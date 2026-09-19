@@ -10,9 +10,9 @@ import {
   tenantIdKey,
   tenantConfigKey,
   collectAllHostnames,
-  clearNegativeCache,
+  invalidateTenantCaches,
+  type TenantCacheStorage,
 } from './tenant';
-import { clearSdkCache } from '../services/_sdk';
 import type { TenantConfig } from '#shared/types/tenant-config';
 import { KV_STORAGE_KEYS } from '../../shared/constants/storage';
 import { logger } from './logger';
@@ -35,10 +35,6 @@ export interface WebhookRequest {
 export interface KvStorage {
   getItem<T>(key: string): Promise<T | null>;
   setItem(key: string, value: unknown): Promise<void>;
-  removeItem(key: string): Promise<void>;
-}
-
-export interface CacheStorage {
   removeItem(key: string): Promise<void>;
 }
 
@@ -65,7 +61,7 @@ export interface CacheStorage {
 export async function processConfigRefresh(
   request: WebhookRequest,
   kvStorage: KvStorage,
-  cacheStorage: CacheStorage,
+  cacheStorage: TenantCacheStorage,
 ): Promise<{ invalidated: true }> {
   // 1. Rate limit (always on — primary defence in open mode, secondary in signed mode)
   const rateResult = await rateLimiter.check(request.clientIp);
@@ -163,34 +159,19 @@ export async function processConfigRefresh(
   // Load config to find all hostnames (primary + aliases)
   const config = await kvStorage.getItem<TenantConfig>(configKey);
 
-  if (config) {
-    // Remove all hostname → tenantId mappings
-    const hostnames = collectAllHostnames(config);
-    await Promise.all(
-      [...hostnames].map((h) => kvStorage.removeItem(tenantIdKey(h))),
-    );
-  } else {
-    // No config found — at least remove the mapping for this hostname
-    await kvStorage.removeItem(tenantIdKey(hostname));
-  }
+  // Every hostname the tenant answers on, or just the one asked about when
+  // there is no config to read them from.
+  const hostnames = config ? collectAllHostnames(config) : new Set([hostname]);
+  await Promise.all(
+    [...hostnames].map((h) => kvStorage.removeItem(tenantIdKey(h))),
+  );
 
   // Remove config under tenantId key
   await kvStorage.removeItem(configKey);
 
-  // 13. Invalidate in-memory caches (SDK instances + negative tenant cache)
-  clearSdkCache(tid);
-  clearNegativeCache(hostname);
-
-  // 14. Invalidate Nitro handler cache.
-  // Nitro 2.x stores defineCachedEventHandler entries at:
-  //   {group}:{name}:{escapeKey(getKey())}.json
-  // where group="nitro/handlers", name="_" (default), and escapeKey strips
-  // all non-word characters (\W). The leading /cache: base is absorbed by
-  // the useStorage("cache") namespace, so the key we remove here is:
-  //   nitro/handlers:_:{stripped configKey}.json
-  const escapedConfigKey = configKey.replace(/\W/g, '');
-  const nitroCacheKey = `nitro/handlers:_:${escapedConfigKey}.json`;
-  await cacheStorage.removeItem(nitroCacheKey);
+  // 13. Invalidate SDK client cache, negative-resolution cache, and the
+  // /api/config response cache — see invalidateTenantCaches in ./tenant.
+  await invalidateTenantCaches(tid, hostnames, cacheStorage);
 
   // 12. Store webhook ID for deduplication (only when one was supplied)
   if (webhookId) {

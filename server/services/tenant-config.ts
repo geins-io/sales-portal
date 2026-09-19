@@ -92,11 +92,13 @@ export async function getPublicConfig(
     aliases: config.aliases,
     mode: config.mode,
     checkoutMode: config.checkoutMode,
+    timezone: config.timezone ?? 'UTC',
     theme: config.theme,
     branding: config.branding,
     layout: config.layout,
     features: config.features,
     cms: config.cms,
+    productMediaParameters: config.productMediaParameters,
     seo: config.seo,
     contact: config.contact,
     css: config.css,
@@ -105,8 +107,10 @@ export async function getPublicConfig(
     market: config.geinsSettings?.market,
     availableLocales: config.geinsSettings?.availableLocales ?? [],
     availableMarkets: config.geinsSettings?.availableMarkets ?? [],
-    imageBaseUrl: config.geinsSettings?.accountName
-      ? `https://${config.geinsSettings.accountName}.commerce.services`
-      : '',
+    imageBaseUrl:
+      config.geinsSettings?.imageBaseUrl ||
+      (config.geinsSettings?.accountName
+        ? `https://${config.geinsSettings.accountName}.commerce.services`
+        : ''),
   };
 }

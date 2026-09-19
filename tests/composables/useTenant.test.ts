@@ -67,6 +67,7 @@ function createMockTenantConfig(
   return {
     tenantId: 'test-tenant',
     hostname: 'test.example.com',
+    timezone: 'UTC',
     mode: 'commerce',
     checkoutMode: 'custom',
     theme: {
@@ -188,6 +189,24 @@ describe('useTenant', () => {
       const { tenantId } = useTenant();
 
       expect(tenantId.value).toBe('my-tenant');
+    });
+
+    it('should return timezone from config', () => {
+      mockData.value = createMockTenantConfig({
+        timezone: 'Europe/Stockholm',
+      });
+
+      const { timezone } = useTenant();
+
+      expect(timezone.value).toBe('Europe/Stockholm');
+    });
+
+    it('should fall back to UTC when config is null', () => {
+      mockData.value = null;
+
+      const { timezone } = useTenant();
+
+      expect(timezone.value).toBe('UTC');
     });
 
     it('should return empty string when config is null', () => {
