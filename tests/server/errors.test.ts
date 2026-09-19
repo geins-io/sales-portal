@@ -4,6 +4,8 @@ import {
   createAppError,
   createTenantNotFoundError,
   createTenantInactiveError,
+  createTenantConfigInvalidError,
+  isErrorCode,
   createValidationError,
 } from '../../server/utils/errors';
 import type { H3Error } from 'h3';
@@ -224,5 +226,36 @@ describe('Error utilities', () => {
         'password',
       );
     });
+  });
+});
+
+describe('createTenantConfigInvalidError', () => {
+  it('carries the code its call sites match on', () => {
+    // The downstream handlers tell this apart from their own failure cases
+    // through isErrorCode, so the factory and the predicate have to agree —
+    // and the call-site tests hand-build errors rather than exercise either.
+    const error = createTenantConfigInvalidError('Unknown Geins environment');
+
+    expect(isErrorCode(error, ErrorCode.TENANT_CONFIG_INVALID)).toBe(true);
+    expect((error.data as AppErrorData).code).toBe(
+      ErrorCode.TENANT_CONFIG_INVALID,
+    );
+    // The message stays the generic public one; the specific text is for
+    // the log, not the response.
+    expect(error.message).toBe('Tenant configuration is invalid');
+  });
+
+  it('is not mistaken for another code', () => {
+    const error = createTenantConfigInvalidError('bad');
+
+    expect(isErrorCode(error, ErrorCode.UNAUTHORIZED)).toBe(false);
+  });
+
+  it('says false for a plain Error and for a non-object', () => {
+    expect(
+      isErrorCode(new Error('nope'), ErrorCode.TENANT_CONFIG_INVALID),
+    ).toBe(false);
+    expect(isErrorCode(null, ErrorCode.TENANT_CONFIG_INVALID)).toBe(false);
+    expect(isErrorCode('string', ErrorCode.TENANT_CONFIG_INVALID)).toBe(false);
   });
 });

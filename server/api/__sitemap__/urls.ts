@@ -5,6 +5,8 @@ import { getTenantSDK, getChannelVariables } from '../../services/_sdk';
 import { getCategoryTree } from '../../services/categories';
 import { loadQuery } from '../../services/graphql/loader';
 import { unwrapGraphQL } from '../../services/graphql/unwrap';
+import { ErrorCode, isErrorCode } from '../../utils/errors';
+import { logger } from '../../utils/logger';
 
 interface SitemapEntry {
   loc: string;
@@ -113,9 +115,22 @@ export default defineEventHandler(async (event) => {
         }
       }
     }
-  } catch {
-    // If the API is unreachable, return root entries only.
-    // The sitemap will be regenerated on the next request.
+  } catch (error) {
+    if (isErrorCode(error, ErrorCode.TENANT_CONFIG_INVALID)) {
+      // Not an unreachable API — the tenant's stored Geins config is
+      // broken (see mapEnvironment in server/services/_sdk.ts). Falling
+      // back to root-only entries below is still the right move, but this
+      // is an ongoing SEO regression for this tenant until the config is
+      // fixed, so log it distinctly instead of treating it as routine API
+      // flakiness.
+      logger.error(
+        'Tenant config invalid while generating sitemap; falling back to root-only entries',
+        error instanceof Error ? error : undefined,
+        { hostname: event.context.tenant?.hostname },
+      );
+    }
+    // If the API is unreachable (or tenant config is broken), return root
+    // entries only. The sitemap will be regenerated on the next request.
   }
 
   // TODO: Add individual product URLs when a lightweight product listing

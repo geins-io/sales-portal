@@ -1,5 +1,7 @@
 import * as authService from '../../services/auth';
 import { resolveBuyerMarket } from '../../utils/buyer-market-resolver';
+import { ErrorCode, isErrorCode } from '../../utils/errors';
+import { logger } from '../../utils/logger';
 
 const NAME_CLAIM = 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name';
 
@@ -65,8 +67,21 @@ export default defineEventHandler(async (event) => {
         market: resolvedMarket,
       };
     }
-  } catch {
-    // getUser failed — session invalid
+  } catch (error) {
+    if (isErrorCode(error, ErrorCode.TENANT_CONFIG_INVALID)) {
+      // Not an expired session — the tenant's stored Geins config is
+      // broken (see mapEnvironment in server/services/_sdk.ts). We still
+      // fail safe and end the session below, same as any other getUser
+      // failure, but log this distinctly so it doesn't read as routine
+      // session expiry.
+      logger.error(
+        'Tenant config invalid while fetching session user',
+        error instanceof Error ? error : undefined,
+        { hostname: event.context.tenant?.hostname },
+      );
+    }
+    // getUser failed — session invalid (or tenant config broken; either
+    // way the session ends below)
   }
 
   // Failed — clear cookies

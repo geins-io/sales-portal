@@ -21,6 +21,22 @@ export interface TenantSDK {
 /**
  * Maps our tenant environment values to SDK environment values.
  * Our config uses 'production'/'staging', SDK expects 'prod'/'qa'/'dev'.
+ *
+ * `geinsSettings` ultimately comes from KV storage via a bare type
+ * assertion (`storage.getItem<TenantConfig>(...)`, no runtime validation),
+ * so a malformed or stale record can reach here with an `environment` value
+ * outside the type. Throwing on anything but the two known values is
+ * deliberate: silently falling through to 'prod' — the previous
+ * behavior — is exactly backwards, since it means the failure mode for bad
+ * data is "quietly talk to production" rather than "stop and get fixed."
+ *
+ * Throws via `createTenantConfigInvalidError` (ErrorCode.TENANT_CONFIG_INVALID)
+ * rather than a raw `Error` so callers of `getTenantSDK()` — currently
+ * server/api/auth/me.get.ts, server/utils/load-user.ts, and
+ * server/api/__sitemap__/urls.ts — can tell this apart from the unrelated
+ * failure their catch block was originally written for (expired session,
+ * fail-open lookup miss, unreachable API) via `isErrorCode(error,
+ * ErrorCode.TENANT_CONFIG_INVALID)`, instead of silently misattributing it.
  */
 function mapEnvironment(
   env?: TenantGeinsSettings['environment'],
@@ -29,8 +45,12 @@ function mapEnvironment(
     case 'staging':
       return 'qa';
     case 'production':
-    default:
       return 'prod';
+    default:
+      throw createTenantConfigInvalidError(
+        `Unknown Geins environment: "${env}". Expected "production" or "staging".`,
+        { environment: env },
+      );
   }
 }
 
@@ -199,14 +219,24 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
   // where tenantId may not be resolved yet)
   const cacheKey = event.context.tenant.tenantId || hostname;
 
+  // The environment is checked before the cache is consulted, not only when
+  // an SDK is built. A cached instance outlives the record it was built
+  // from, so a config that later goes malformed would keep being served by
+  // an SDK still pointed at the environment it used to name — the stale-data
+  // case this whole change exists for. Reading it is free: the plugin has
+  // already put the config on the event.
+  const resolved = event.context.tenant.config;
+  if (resolved?.geinsSettings) {
+    mapEnvironment(resolved.geinsSettings.environment);
+  }
+
   const cached = tenants.get(cacheKey);
   if (cached) {
     return cached;
   }
 
   // Prefer the config already resolved by 02.tenant-context plugin
-  const tenant =
-    event.context.tenant.config ?? (await resolveTenant(hostname, event));
+  const tenant = resolved ?? (await resolveTenant(hostname, event));
   if (!tenant?.geinsSettings) {
     throw createAppError(
       ErrorCode.BAD_REQUEST,
