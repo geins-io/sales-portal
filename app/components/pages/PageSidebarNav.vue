@@ -35,13 +35,21 @@ function itemUrl(
   canonicalUrl: string | undefined,
   item?: Parameters<typeof addCategoryPrefix>[1],
 ): string {
-  let normalized = normalizeMenuUrl(canonicalUrl);
+  let normalized = normalizeMenuUrl(canonicalUrl, undefined, item?.type);
   if (normalized && item) normalized = addCategoryPrefix(normalized, item);
   return normalized ? localePath(normalized) : '';
 }
 
-function isActive(canonicalUrl: string | undefined): boolean {
-  const normalized = normalizeMenuUrl(canonicalUrl);
+// Takes the item for the same reason itemUrl does: the type decides the
+// route prefix, so resolving without it compares a brand item's /c/ URL
+// against the /b/ path it actually links to. They never match, and the item
+// silently loses its active styling and its parent stops auto-expanding.
+function isActive(
+  canonicalUrl: string | undefined,
+  item?: Parameters<typeof addCategoryPrefix>[1],
+): boolean {
+  let normalized = normalizeMenuUrl(canonicalUrl, undefined, item?.type);
+  if (normalized && item) normalized = addCategoryPrefix(normalized, item);
   if (normalized === '') return false;
   // route.path carries the /{market}/{locale} prefix; strip it the same way
   // normalizeMenuUrl strips it from the menu URL so the two compare like-for-like.
@@ -76,10 +84,10 @@ const activeLabel = computed<string | null>(() => {
     const children = visibleChildren(item.children);
     if (children.length > 0) {
       const activeChild = children.find((child) =>
-        isActive(child.canonicalUrl),
+        isActive(child.canonicalUrl, child),
       );
       if (activeChild) return getMenuLabel(activeChild);
-    } else if (isActive(item.canonicalUrl)) {
+    } else if (isActive(item.canonicalUrl, item)) {
       return getMenuLabel(item);
     }
   }
@@ -110,11 +118,11 @@ const activeLabel = computed<string | null>(() => {
               <NuxtLink
                 :to="itemUrl(child.canonicalUrl, child)"
                 :aria-current="
-                  isActive(child.canonicalUrl) ? 'page' : undefined
+                  isActive(child.canonicalUrl, child) ? 'page' : undefined
                 "
                 class="block rounded-md py-1.5 ps-3 text-sm transition-colors"
                 :class="
-                  isActive(child.canonicalUrl)
+                  isActive(child.canonicalUrl, child)
                     ? 'bg-accent text-accent-foreground font-medium'
                     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                 "
@@ -127,10 +135,12 @@ const activeLabel = computed<string | null>(() => {
         <template v-else>
           <NuxtLink
             :to="itemUrl(item.canonicalUrl, item)"
-            :aria-current="isActive(item.canonicalUrl) ? 'page' : undefined"
+            :aria-current="
+              isActive(item.canonicalUrl, item) ? 'page' : undefined
+            "
             class="block p-[15px] text-sm transition-colors"
             :class="
-              isActive(item.canonicalUrl)
+              isActive(item.canonicalUrl, item)
                 ? 'bg-accent text-accent-foreground font-medium'
                 : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
             "
@@ -179,11 +189,13 @@ const activeLabel = computed<string | null>(() => {
                       <NuxtLink
                         :to="itemUrl(child.canonicalUrl, child)"
                         :aria-current="
-                          isActive(child.canonicalUrl) ? 'page' : undefined
+                          isActive(child.canonicalUrl, child)
+                            ? 'page'
+                            : undefined
                         "
                         class="block py-3 ps-8 pe-4 text-sm transition-colors"
                         :class="
-                          isActive(child.canonicalUrl)
+                          isActive(child.canonicalUrl, child)
                             ? 'bg-accent text-accent-foreground font-medium'
                             : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                         "
@@ -197,11 +209,11 @@ const activeLabel = computed<string | null>(() => {
                   <NuxtLink
                     :to="itemUrl(item.canonicalUrl, item)"
                     :aria-current="
-                      isActive(item.canonicalUrl) ? 'page' : undefined
+                      isActive(item.canonicalUrl, item) ? 'page' : undefined
                     "
                     class="block px-4 py-3 text-sm transition-colors"
                     :class="
-                      isActive(item.canonicalUrl)
+                      isActive(item.canonicalUrl, item)
                         ? 'bg-accent text-accent-foreground font-medium'
                         : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                     "

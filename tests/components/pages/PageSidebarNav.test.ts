@@ -204,6 +204,48 @@ describe('PageSidebarNav', () => {
     expect(contactLink?.attributes('aria-current')).toBeUndefined();
   });
 
+  it('links a brand item to /b/ and highlights it on that page', () => {
+    // The `l` indicator is ambiguous, so the item's own type decides the
+    // route. Asserted here and not only on stripGeinsPrefix because both
+    // itemUrl and isActive have to pass the type through: if either one
+    // stops, the link quietly points at /c/ or the highlight disappears.
+    mockRoutePath.value = '/b/volvo-penta';
+    mockMenu.value = {
+      id: '1',
+      title: 'Sidebar',
+      menuItems: [
+        {
+          id: '1',
+          label: 'Volvo Penta',
+          canonicalUrl: '/se/sv/l/volvo-penta',
+          type: 'brand',
+          order: 1,
+        },
+        {
+          id: '2',
+          label: 'Epoxi',
+          canonicalUrl: '/se/sv/l/epoxi',
+          order: 2,
+        },
+      ],
+    } as unknown as MenuType;
+
+    const wrapper = mountComponent(PageSidebarNav, {
+      props: { menuLocationId: 'sidebar' },
+      global: { stubs },
+    });
+
+    const links = wrapper.findAll('a');
+    const brandLink = links.find((l) => l.text() === 'Volvo Penta');
+    expect(brandLink?.attributes('href')).toContain('/b/volvo-penta');
+    expect(brandLink?.attributes('aria-current')).toBe('page');
+
+    // A category item with the same indicator still routes to /c/.
+    const categoryLink = links.find((l) => l.text() === 'Epoxi');
+    expect(categoryLink?.attributes('href')).toContain('/c/epoxi');
+    expect(categoryLink?.attributes('aria-current')).toBeUndefined();
+  });
+
   it('highlights parent link when on a child page', () => {
     mockRoutePath.value = '/about/team';
     mockMenu.value = {

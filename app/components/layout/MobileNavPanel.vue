@@ -48,7 +48,7 @@ function linkTag(item: MenuItemType) {
 }
 
 function linkAttrs(item: MenuItemType): Record<string, string | undefined> {
-  let url = normalizeMenuUrl(item.canonicalUrl, currentHost.value);
+  let url = normalizeMenuUrl(item.canonicalUrl, currentHost.value, item.type);
   const ext = isExternal(item);
   if (!ext) url = addCategoryPrefix(url, item);
   const href = ext ? url || '/' : localePath(url || '/');

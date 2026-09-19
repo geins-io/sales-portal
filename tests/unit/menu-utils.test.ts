@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizeMenuUrl,
   stripGeinsPrefix,
+  addCategoryPrefix,
   getMenuLabel,
   getVisibleItems,
   isExternalUrl,
@@ -11,6 +12,24 @@ import type { MenuItemType } from '../../shared/types/cms';
 describe('stripGeinsPrefix', () => {
   it('maps Geins /l/ type indicator to /c/ (category)', () => {
     expect(stripGeinsPrefix('/se/sv/l/epoxi')).toBe('/c/epoxi');
+  });
+
+  // Regression: Geins' /l/ ("list") indicator is ambiguous — a brand's
+  // canonicalUrl uses it too (e.g. /se/sv/l/sensar-marine), not just
+  // categories. Confirmed against boattools' real header menu data: the
+  // "Sensar Marine" item had canonicalUrl /se/sv/l/sensar-marine AND
+  // type: 'brand' on the same object. Without the itemType override, that
+  // link resolved to /c/sensar-marine, which app/pages/c/[...category].vue
+  // looks up as a category unconditionally — "sensar-marine" isn't a
+  // category, so the page rendered with zero products.
+  it('maps Geins /l/ type indicator to /b/ (brand) when itemType is brand', () => {
+    expect(stripGeinsPrefix('/se/sv/l/sensar-marine', 'brand')).toBe(
+      '/b/sensar-marine',
+    );
+  });
+
+  it('still maps /l/ to /c/ when itemType is category (unchanged)', () => {
+    expect(stripGeinsPrefix('/se/sv/l/epoxi', 'category')).toBe('/c/epoxi');
   });
 
   it('strips market/locale prefix from CMS page URL (no type indicator)', () => {
@@ -91,6 +110,12 @@ describe('stripGeinsPrefix', () => {
 describe('normalizeMenuUrl', () => {
   it('returns route-prefixed path for category URL', () => {
     expect(normalizeMenuUrl('/se/sv/l/epoxi')).toBe('/c/epoxi');
+  });
+
+  it('threads itemType through to override the ambiguous /l/ indicator for a brand', () => {
+    expect(normalizeMenuUrl('/se/sv/l/sensar-marine', undefined, 'brand')).toBe(
+      '/b/sensar-marine',
+    );
   });
 
   it('returns simple relative path as-is', () => {
@@ -238,5 +263,49 @@ describe('isExternalUrl', () => {
 
   it('returns true for absolute URL without currentHost', () => {
     expect(isExternalUrl('https://example.com/page')).toBe(true);
+  });
+});
+
+describe('addCategoryPrefix', () => {
+  it('adds /b/ for a prefix-less brand item (symmetric with the category/children cases below)', () => {
+    const item: Partial<MenuItemType> = { type: 'brand' };
+    expect(addCategoryPrefix('/sensar-marine', item)).toBe('/b/sensar-marine');
+  });
+
+  it('adds /c/ for an item with children (existing category-detection behavior, unchanged)', () => {
+    const item: Partial<MenuItemType> = {
+      children: [{ id: '1' } as MenuItemType],
+    };
+    expect(addCategoryPrefix('/epoxi', item)).toBe('/c/epoxi');
+  });
+
+  it('adds /c/ for an item explicitly typed category (existing behavior, unchanged)', () => {
+    const item: Partial<MenuItemType> = { type: 'category' };
+    expect(addCategoryPrefix('/epoxi', item)).toBe('/c/epoxi');
+  });
+
+  it('leaves a URL that already has a known prefix untouched', () => {
+    const item: Partial<MenuItemType> = { type: 'brand' };
+    expect(addCategoryPrefix('/b/sensar-marine', item)).toBe(
+      '/b/sensar-marine',
+    );
+  });
+});
+
+describe('stripGeinsPrefix brand override scope', () => {
+  it("routes a brand item's ambiguous list URL to the brand page", () => {
+    expect(stripGeinsPrefix('/se/sv/l/volvo-penta', 'brand')).toBe(
+      '/b/volvo-penta',
+    );
+  });
+
+  it('leaves an unambiguous indicator alone even for a brand item', () => {
+    // The URL already says which page it wants; only 'l' is the guess.
+    expect(stripGeinsPrefix('/se/sv/p/cat/impeller', 'brand')).toBe(
+      '/p/cat/impeller',
+    );
+    expect(stripGeinsPrefix('/se/sv/dc/spring-sale', 'brand')).toBe(
+      '/dc/spring-sale',
+    );
   });
 });
