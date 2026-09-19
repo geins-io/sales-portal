@@ -968,6 +968,7 @@
     "fallback_email": "Falls sich nichts öffnet, schreiben Sie uns an {recipient}",
     "field_required": "Dieses Feld ist erforderlich.",
     "invalid_email": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
-    "country_placeholder": "Land auswählen"
+    "country_placeholder": "Land auswählen",
+    "checkbox_checked": "Ja"
   }
 }

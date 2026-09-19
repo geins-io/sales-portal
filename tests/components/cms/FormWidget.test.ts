@@ -302,3 +302,105 @@ describe('FormWidget', () => {
     expect(wrapper.find('[data-testid="form-fallback"]').exists()).toBe(false);
   });
 });
+
+describe('FormWidget checkbox fields', () => {
+  const interests: FormWidgetData['fields'] = [
+    {
+      label: 'Power',
+      name: 'interest',
+      value: 'Power',
+      groupLabel: 'Interested in',
+      required: false,
+      type: 'checkbox',
+    },
+    {
+      label: 'Monitoring',
+      name: 'interest',
+      value: 'Monitoring',
+      required: false,
+      type: 'checkbox',
+    },
+    {
+      label: 'I accept the terms',
+      name: 'terms',
+      required: true,
+      type: 'checkbox',
+    },
+  ];
+
+  function decodedBody(): string {
+    const url = String(navigateToMock.mock.calls[0]?.[0] ?? '');
+    return decodeURIComponent(url.split('&body=')[1] ?? '');
+  }
+
+  beforeEach(() => navigateToMock.mockClear());
+
+  it('renders a checkbox rather than a text input', () => {
+    const wrapper = mountWidget({ fields: interests });
+
+    expect(wrapper.findAll('input[type="checkbox"]').length).toBe(3);
+    expect(wrapper.findAll('input[type="text"]').length).toBe(0);
+  });
+
+  it('reports a group on one line under its group label', async () => {
+    const wrapper = mountWidget({ fields: interests });
+    const boxes = wrapper.findAll('input[type="checkbox"]');
+
+    await boxes[0]!.setValue(true);
+    await boxes[1]!.setValue(true);
+    await boxes[2]!.setValue(true);
+    await wrapper.find('form').trigger('submit');
+
+    // One line for the pair, not one per ticked option repeating the answer.
+    expect(decodedBody()).toContain('Interested in: Power, Monitoring');
+    expect(decodedBody()).not.toContain('Monitoring: Power');
+  });
+
+  it('reports a standalone tick under its own label', async () => {
+    const wrapper = mountWidget({ fields: interests });
+    const boxes = wrapper.findAll('input[type="checkbox"]');
+
+    await boxes[2]!.setValue(true);
+    await wrapper.find('form').trigger('submit');
+
+    expect(decodedBody()).toContain('I accept the terms:');
+  });
+
+  it('omits unticked boxes from the body', async () => {
+    const wrapper = mountWidget({ fields: interests });
+    const boxes = wrapper.findAll('input[type="checkbox"]');
+
+    await boxes[2]!.setValue(true);
+    await wrapper.find('form').trigger('submit');
+
+    expect(decodedBody()).not.toContain('Interested in');
+  });
+
+  it('blocks submit until a required checkbox is ticked', async () => {
+    const wrapper = mountWidget({ fields: interests });
+
+    await wrapper.find('form').trigger('submit');
+    expect(navigateToMock).not.toHaveBeenCalled();
+
+    await wrapper.findAll('input[type="checkbox"]')[2]!.setValue(true);
+    await wrapper.find('form').trigger('submit');
+    expect(navigateToMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves an unfilled optional text field out of the body', async () => {
+    // Every field was reported unconditionally before, so an optional field
+    // left blank contributed a bare "Label:" line.
+    const wrapper = mountWidget({
+      fields: [
+        { label: 'Company', name: 'company', required: true, type: 'input' },
+        { label: 'Phone', name: 'phone', required: false, type: 'input' },
+      ],
+    });
+
+    await wrapper.find('input[type="text"]').setValue('Acme');
+    await wrapper.find('form').trigger('submit');
+
+    expect(decodedBody()).toContain('Company: Acme');
+    expect(decodedBody()).not.toContain('Phone:');
+  });
+});

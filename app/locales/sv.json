@@ -968,6 +968,7 @@
     "fallback_email": "Om inget öppnas, maila oss på {recipient}",
     "field_required": "Detta fält är obligatoriskt.",
     "invalid_email": "Ange en giltig e-postadress.",
-    "country_placeholder": "Välj land"
+    "country_placeholder": "Välj land",
+    "checkbox_checked": "Ja"
   }
 }

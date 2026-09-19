@@ -113,7 +113,12 @@ export interface VideoWidgetData {
   image?: WidgetImage;
 }
 
-export type FormFieldType = 'input' | 'email' | 'textarea' | 'select';
+export type FormFieldType =
+  | 'input'
+  | 'email'
+  | 'textarea'
+  | 'select'
+  | 'checkbox';
 
 export interface FormWidgetField {
   label: string;
@@ -121,6 +126,19 @@ export interface FormWidgetField {
   required: boolean;
   type: FormFieldType;
   options?: { value: string; label: string }[];
+  /**
+   * Submitted value for a checkbox. Boxes sharing a `name` and differing by
+   * `value` are one multi-select group, reported on a single line under
+   * `groupLabel`. A box with no `value` stands alone — a consent tick, whose
+   * own `label` is the question.
+   */
+  value?: string;
+  /**
+   * Heading for a checkbox group, taken from the first box that carries one.
+   * Without it the group is reported under the first box's own label, which
+   * reads as though that option were the question.
+   */
+  groupLabel?: string;
 }
 
 export interface FormWidgetData {

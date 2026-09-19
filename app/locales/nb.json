@@ -968,6 +968,7 @@
     "fallback_email": "Hvis ingenting åpnes, send oss e-post på {recipient}",
     "field_required": "Dette feltet er obligatorisk.",
     "invalid_email": "Oppgi en gyldig e-postadresse.",
-    "country_placeholder": "Velg land"
+    "country_placeholder": "Velg land",
+    "checkbox_checked": "Ja"
   }
 }

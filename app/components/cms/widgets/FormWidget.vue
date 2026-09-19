@@ -10,7 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select';
-import type { ContentConfigType, FormWidgetData, FormWidgetField } from '#shared/types/cms';
+import type {
+  ContentConfigType,
+  FormWidgetData,
+  FormWidgetField,
+} from '#shared/types/cms';
 import type { SupportedLocale } from '#shared/utils/locale-market';
 import { getCountryOptions } from '~/utils/country-options';
 import { buildMailto } from '~/utils/mailto';
@@ -30,6 +34,18 @@ const countryOptions = computed(() =>
 );
 
 const formValues = reactive<Record<string, string>>({});
+// Checkboxes are kept apart from the text map: a group shares one name and
+// holds several values at once, which a flat string map cannot express.
+const checkedValues = reactive<Record<string, boolean>>({});
+
+/**
+ * Identity of one checkbox. A group shares `name` and differs by `value`, so
+ * state is keyed by both — keyed by name alone, ticking one would untick its
+ * siblings.
+ */
+function checkboxKey(field: FormWidgetField): string {
+  return field.value ? `${field.name}:${field.value}` : field.name;
+}
 const fieldErrors = reactive<Record<string, string>>({});
 const touched = reactive<Record<string, boolean>>({});
 
@@ -46,6 +62,10 @@ watchEffect(() => {
 const fieldSchemaMap = computed(() => {
   const map: Record<string, z.ZodTypeAny> = {};
   for (const field of props.data?.fields ?? []) {
+    if (field.type === 'checkbox') {
+      // Ticked state is a boolean, not a string; validated in validateAll.
+      continue;
+    }
     if (field.type === 'email') {
       // Apply email format validation regardless of required so partial fills
       // that contain an invalid address still show an error.
@@ -95,6 +115,15 @@ function handleSelectChange(name: string, val: string) {
 function validateAll(): boolean {
   for (const field of props.data?.fields ?? []) {
     touched[field.name] = true;
+    if (field.type === 'checkbox') {
+      // A required checkbox is a consent tick: it has to be ticked, where a
+      // required text field only has to be non-empty.
+      fieldErrors[field.name] =
+        field.required && !checkedValues[checkboxKey(field)]
+          ? 'form.field_required'
+          : '';
+      continue;
+    }
     validateField(field.name);
   }
   return Object.values(fieldErrors).every((v) => !v);
@@ -117,15 +146,55 @@ function resolveSubject(): string {
   return props.data?.templateName?.trim() || t('form.default_subject');
 }
 
+/**
+ * One reported line per field, in the order the form declares them.
+ *
+ * Checkboxes sharing a `name` are one group and report on a single line, so a
+ * three-option multi-select reads "Interested in: A, B" rather than repeating
+ * the whole answer under each option's own label. Fields left empty are
+ * omitted: an unfilled optional field would otherwise contribute a bare
+ * "Label:" line, and a long form is mostly optional fields.
+ */
+function buildMailtoFields(
+  fields: FormWidgetField[],
+): { label: string; value: string }[] {
+  const lines: { label: string; value: string }[] = [];
+  const groupIndex = new Map<string, number>();
+
+  for (const field of fields) {
+    if (field.type === 'checkbox') {
+      if (!checkedValues[checkboxKey(field)]) continue;
+      // A box with no `value` is a standalone tick, so its own label is the
+      // question and the answer is simply that it was ticked.
+      const answer = field.value ?? t('form.checkbox_checked');
+      const existing = groupIndex.get(field.name);
+      if (existing !== undefined) {
+        const line = lines[existing];
+        if (line) line.value = `${line.value}, ${answer}`;
+        continue;
+      }
+      groupIndex.set(field.name, lines.length);
+      lines.push({
+        label: field.value ? (field.groupLabel ?? field.label) : field.label,
+        value: answer,
+      });
+      continue;
+    }
+
+    const value = (formValues[field.name] ?? '').trim();
+    if (!value) continue;
+    lines.push({ label: field.label, value });
+  }
+
+  return lines;
+}
+
 function handleSubmit() {
   if (!validateAll()) return;
 
   const fields = props.data?.fields ?? [];
 
-  const mailtoFields = fields.map((f: FormWidgetField) => ({
-    label: f.label,
-    value: formValues[f.name] ?? '',
-  }));
+  const mailtoFields = buildMailtoFields(fields);
 
   const url = buildMailto({
     recipient: props.data?.sendFormToEmail ?? '',
@@ -158,17 +227,53 @@ function selectOptionsFor(field: FormWidgetField) {
       class="space-y-2"
       :data-testid="`form-field-${field.name}`"
     >
-      <Label :for="`form-field-input-${field.name}`">
+      <Label
+        v-if="field.type !== 'checkbox'"
+        :for="`form-field-input-${field.name}`"
+      >
         {{ field.label }}
         <span
           v-if="field.required"
           class="text-destructive ms-0.5"
           aria-hidden="true"
-        >*</span>
+          >*</span
+        >
       </Label>
 
+      <!-- Checkbox: one of a named group, or a standalone consent tick -->
+      <template v-if="field.type === 'checkbox'">
+        <label class="flex items-start gap-2 text-sm">
+          <input
+            :id="`form-field-input-${field.name}`"
+            v-model="checkedValues[checkboxKey(field)]"
+            type="checkbox"
+            class="border-input accent-primary mt-0.5 size-4 rounded border"
+            :aria-invalid="
+              touched[field.name] && !!fieldErrors[field.name]
+                ? 'true'
+                : undefined
+            "
+            :aria-describedby="
+              touched[field.name] && fieldErrors[field.name]
+                ? `form-field-${field.name}-error`
+                : undefined
+            "
+            :aria-required="field.required ? 'true' : undefined"
+          />
+          <span>
+            {{ field.label }}
+            <span
+              v-if="field.required"
+              class="text-destructive ms-0.5"
+              aria-hidden="true"
+              >*</span
+            >
+          </span>
+        </label>
+      </template>
+
       <!-- Select field -->
-      <template v-if="field.type === 'select'">
+      <template v-else-if="field.type === 'select'">
         <Select
           :model-value="formValues[field.name] ?? ''"
           @update:model-value="
@@ -179,7 +284,9 @@ function selectOptionsFor(field: FormWidgetField) {
             :id="`form-field-input-${field.name}`"
             class="w-full"
             :aria-invalid="
-              touched[field.name] && !!fieldErrors[field.name] ? 'true' : undefined
+              touched[field.name] && !!fieldErrors[field.name]
+                ? 'true'
+                : undefined
             "
             :aria-describedby="
               touched[field.name] && fieldErrors[field.name]
@@ -209,7 +316,9 @@ function selectOptionsFor(field: FormWidgetField) {
           v-model="formValues[field.name]"
           class="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-[80px] w-full rounded-md border bg-white px-3 py-2 text-sm shadow-xs focus-visible:ring-[3px] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           :aria-invalid="
-            touched[field.name] && !!fieldErrors[field.name] ? 'true' : undefined
+            touched[field.name] && !!fieldErrors[field.name]
+              ? 'true'
+              : undefined
           "
           :aria-describedby="
             touched[field.name] && fieldErrors[field.name]
@@ -228,7 +337,9 @@ function selectOptionsFor(field: FormWidgetField) {
           v-model="formValues[field.name]"
           :type="field.type === 'email' ? 'email' : 'text'"
           :aria-invalid="
-            touched[field.name] && !!fieldErrors[field.name] ? 'true' : undefined
+            touched[field.name] && !!fieldErrors[field.name]
+              ? 'true'
+              : undefined
           "
           :aria-describedby="
             touched[field.name] && fieldErrors[field.name]
@@ -266,7 +377,8 @@ function selectOptionsFor(field: FormWidgetField) {
             <a
               :href="`mailto:${data.sendFormToEmail}`"
               class="text-primary underline underline-offset-2"
-            >{{ data.sendFormToEmail }}</a>
+              >{{ data.sendFormToEmail }}</a
+            >
           </template>
         </i18n-t>
       </p>
