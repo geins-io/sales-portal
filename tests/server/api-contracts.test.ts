@@ -195,6 +195,10 @@ const mockStorage = {
   getItem: vi.fn(),
   setItem: vi.fn(),
   removeItem: vi.fn(),
+  keys: vi.fn(async () => [] as string[]),
+  // The health check reports the mounted driver rather than the
+  // runtimeConfig label, so the mock has to answer for one.
+  getMount: vi.fn(() => ({ base: 'kv', driver: { name: 'memory' } })),
 };
 
 // Mock response object for h3 events

@@ -259,11 +259,14 @@ export default defineNuxtConfig({
       tenantApiUrl: 'https://merchantapi.geins.io/store-settings',
     },
 
-    // Storage configuration (memory for dev, redis for production)
-    // Azure: NUXT_STORAGE_DRIVER=redis, NUXT_STORAGE_REDIS_URL=redis://...
+    // Kept so NUXT_STORAGE_DRIVER still has a runtimeConfig home, but no
+    // longer the value health reports: this one is overridable per
+    // environment and so could claim 'redis' while the real mount is
+    // memory. server/api/health.get.ts asks the mounted driver instead.
+    // redisUrl is deliberately not mirrored here — the connection string
+    // has no reader outside server/plugins/00.kv-storage.ts.
     storage: {
       driver: 'memory',
-      redisUrl: '',
     },
 
     // Secret for accessing detailed health check metrics
@@ -355,6 +358,9 @@ export default defineNuxtConfig({
 
   nitro: {
     storage: {
+      // Startup default only. server/plugins/00.kv-storage.ts re-mounts this
+      // to Redis when the running container asks for it — the value here is
+      // frozen into the build and cannot see runtime configuration.
       kv: {
         driver: 'memory',
       },
