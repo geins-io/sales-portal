@@ -34,6 +34,17 @@ export interface CmsContentArea extends Omit<ContentAreaType, 'containers'> {
   containers: CmsContentContainer[];
 }
 
+/**
+ * The page a content area is being fetched for, used to resolve the container
+ * filters a merchant sets in admin. See `buildAreaFilters` in
+ * `server/services/cms.ts` for what Geins does with it.
+ */
+export interface CmsAreaContext {
+  productAlias?: string;
+  brandAlias?: string;
+  categoryIds?: number[];
+}
+
 export interface WidgetImage {
   /** CMS configuration uses lowercase `filename` */
   filename: string;

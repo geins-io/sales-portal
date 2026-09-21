@@ -17,7 +17,8 @@ import { getRequestIdentity } from '../utils/request-identity';
 import { hasPageTag } from '#shared/utils/cms-tags';
 import { mergeContainersByVisibility } from '#shared/utils/cms-visibility';
 import { isSafeInternalPath } from '#shared/utils/redirect';
-import type { CmsContentArea } from '#shared/types/cms';
+import type { CmsAreaContext, CmsContentArea } from '#shared/types/cms';
+import { CMS_AREA_MAX_CATEGORY_IDS } from '../schemas/api-input';
 
 // =============================================================================
 // Cache Configuration
@@ -203,6 +204,63 @@ export async function getPage(
   );
 }
 
+/** One entry of the Geins `filters` argument (PageWidgetCollectionFilterInputType). */
+interface CmsWidgetFilter {
+  key: 'Product' | 'Brand' | 'Category';
+  value: string;
+}
+
+/**
+ * Translates the page context into the Geins `filters` argument.
+ *
+ * Returns undefined rather than an empty array when there is no context, so a
+ * surface without one (start page, portal hero) sends the query it sends today.
+ *
+ * Measured on the sonoralab test tenant 2026-09-21:
+ * - A `Product` entry does not make Geins resolve that product's categories, so
+ *   the whole closure from `product.categories` is sent, not the primary one —
+ *   a container's filter may sit on any ancestor.
+ * - Geins returns the single best-matching container, and a matching filtered
+ *   container REPLACES an unfiltered one in the same area rather than stacking
+ *   with it. An entry that matches nothing changes nothing.
+ * - `Category` and `Brand` accept an alias as well as a numeric id; ids are used
+ *   because `product.categories` carries ids and no alias.
+ */
+function buildAreaFilters(
+  context: CmsAreaContext | undefined,
+): CmsWidgetFilter[] | undefined {
+  if (!context) return undefined;
+
+  const filters: CmsWidgetFilter[] = [];
+  if (context.productAlias) {
+    filters.push({ key: 'Product', value: context.productAlias });
+  }
+  if (context.brandAlias) {
+    filters.push({ key: 'Brand', value: context.brandAlias });
+  }
+  for (const id of (context.categoryIds ?? []).slice(
+    0,
+    CMS_AREA_MAX_CATEGORY_IDS,
+  )) {
+    filters.push({ key: 'Category', value: String(id) });
+  }
+
+  return filters.length ? filters : undefined;
+}
+
+/**
+ * Stable cache-key segment for a filter set. Sorted so two callers that list
+ * the same categories in a different order share one entry, and never empty so
+ * a context-less fetch cannot collide with a filtered one.
+ */
+function filtersCacheSegment(filters: CmsWidgetFilter[] | undefined): string {
+  if (!filters?.length) return 'none';
+  return filters
+    .map((f) => `${f.key}:${f.value}`)
+    .sort()
+    .join('|');
+}
+
 /**
  * Fetches one display-setting "leg" of a content area: the containers Geins
  * returns for the given `displaySetting` filter (a desktop leg returns the
@@ -220,6 +278,7 @@ async function fetchAreaLeg(
     family: string;
     areaName: string;
     customerType?: GeinsCustomerType;
+    filters?: CmsWidgetFilter[];
   },
   channelVars: ReturnType<typeof getRequestChannelVariables>,
   ctx: ReturnType<typeof buildRequestContext>,
@@ -313,16 +372,23 @@ export async function getContentArea(
     family: string;
     areaName: string;
     customerType?: GeinsCustomerType;
+    context?: CmsAreaContext;
   },
   event: H3Event,
 ): Promise<CmsContentArea> {
   const preview = getPreviewCookie(event);
   const isCacheable = !preview;
+  const filters = buildAreaFilters(args.context);
   // customerType is a query argument that changes the response, so it belongs
   // in the key beside family and areaName. It is usually decoded from the token
   // the identity segment already covers, but not always: a request carrying
   // only a refresh cookie resolves a customer type while sending no token.
-  const cacheKey = `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}::${args.customerType ?? 'any'}`;
+  //
+  // The filters segment is what keeps one product's area out of the next
+  // product's response: the same family/areaName now answers differently per
+  // page, so without it the first PDP to populate the entry would serve every
+  // other PDP for the whole TTL.
+  const cacheKey = `${buildCachePrefix(event)}::area::${args.family}::${args.areaName}::${args.customerType ?? 'any'}::${filtersCacheSegment(filters)}`;
 
   if (isCacheable) {
     const cached = areaCache.get(cacheKey);
@@ -335,6 +401,17 @@ export async function getContentArea(
   const channelVars = getRequestChannelVariables(sdk, event);
   const ctx = buildRequestContext(event);
 
+  // `context` is our own shape and must not reach the query — only the
+  // `filters` it was translated into. Putting filters in the leg args (rather
+  // than passing them separately) is what carries them through the language
+  // fallback, which rebuilds its variables from the same object.
+  const legArgs = {
+    family: args.family,
+    areaName: args.areaName,
+    ...(args.customerType && { customerType: args.customerType }),
+    ...(filters && { filters }),
+  };
+
   // Geins enforces the per-container "Display settings" server-side via the
   // `displaySetting` filter and never returns mobile-only and desktop-only
   // containers in the same response. Fetch both legs and merge so every
@@ -343,8 +420,8 @@ export async function getContentArea(
   // not User-Agent based). The mobile leg is best-effort: if it fails we still
   // render the desktop set rather than blanking the area.
   const [desktopArea, mobileArea] = await Promise.all([
-    fetchAreaLeg(sdk, args, channelVars, ctx, preview, 'desktop'),
-    fetchAreaLeg(sdk, args, channelVars, ctx, preview, 'mobile').catch(
+    fetchAreaLeg(sdk, legArgs, channelVars, ctx, preview, 'desktop'),
+    fetchAreaLeg(sdk, legArgs, channelVars, ctx, preview, 'mobile').catch(
       () => null,
     ),
   ]);

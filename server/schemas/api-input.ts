@@ -50,10 +50,30 @@ export const CmsPageSchema = z.object({
   alias: z.string().min(1).max(200),
 });
 
+/**
+ * Page context for a CMS content area, used to resolve the container filters
+ * a merchant sets in admin ("show this only on product X").
+ *
+ * Typed scalars rather than a client-supplied `filters` array: the server owns
+ * which Geins filter keys may be sent. `categoryIds` is a comma-separated list
+ * because a product belongs to a closure of categories and a filter may sit on
+ * any of them; it is capped so a crafted query cannot inflate the upstream
+ * request or the cache key.
+ */
 export const CmsAreaSchema = z.object({
   family: z.string().min(1).max(100),
   areaName: z.string().min(1).max(100),
+  productAlias: z.string().min(1).max(200).optional(),
+  brandAlias: z.string().min(1).max(200).optional(),
+  categoryIds: z
+    .string()
+    .max(200)
+    .regex(/^\d+(,\d+)*$/, 'categoryIds must be a comma-separated list of ids')
+    .optional(),
 });
+
+/** Upper bound on category ids forwarded as filters, enforced after parsing. */
+export const CMS_AREA_MAX_CATEGORY_IDS = 20;
 
 export type CmsPageInput = z.infer<typeof CmsPageSchema>;
 export type CmsAreaInput = z.infer<typeof CmsAreaSchema>;

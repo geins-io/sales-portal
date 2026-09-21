@@ -152,6 +152,40 @@ describe('Product API Routes', () => {
       expect(result).toEqual({ id: 1, name: 'My Product', ancestors: [] });
     });
 
+    it('forwards the category closure as ids, dropping the closure itself', async () => {
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      mockGraphqlQuery.mockResolvedValue({
+        product: {
+          id: 1,
+          name: 'My Product',
+          primaryCategory: { categoryId: 12 },
+          categories: [
+            { categoryId: 1, parentCategoryId: 0 },
+            { categoryId: 7, parentCategoryId: 1 },
+            { categoryId: 12, parentCategoryId: 7 },
+          ],
+        },
+      });
+
+      const result = (await handler(fakeEvent)) as Record<string, unknown>;
+
+      // The ids reach the client for the CMS area's Category filters; the
+      // closure they came from does not.
+      expect(result.categoryIds).toEqual([1, 7, 12]);
+      expect(result).not.toHaveProperty('categories');
+    });
+
+    it('omits categoryIds when the product carries no closure', async () => {
+      vi.mocked(getRouterParam).mockReturnValue('my-product');
+      mockGraphqlQuery.mockResolvedValue({
+        product: { id: 1, name: 'My Product' },
+      });
+
+      const result = (await handler(fakeEvent)) as Record<string, unknown>;
+
+      expect(result).not.toHaveProperty('categoryIds');
+    });
+
     it('throws NOT_FOUND when SDK returns null in default locale', async () => {
       vi.mocked(getRouterParam).mockReturnValue('missing');
       mockGraphqlQuery.mockResolvedValue({ product: null });

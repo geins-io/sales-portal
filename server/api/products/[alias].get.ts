@@ -48,9 +48,10 @@ export default defineEventHandler(async (event) => {
       // closure this same response already carries — no second round trip. The
       // list page has no such payload and resolves its ancestors by alias
       // instead; the asymmetry is deliberate, see docs on the two helpers.
-      // `categories` is destructured off rather than passed on: nothing
-      // client-side reads it, and it is 339 B on the smallest tenant measured,
-      // 909 B on the largest.
+      // `categories` is destructured off rather than passed on: it is 339 B on
+      // the smallest tenant measured, 909 B on the largest, and the only thing
+      // client-side that needs it is the CMS area's category filters, which
+      // need the ids alone — forwarded below as `categoryIds`.
       const { categories, ...withoutClosure } = product as {
         productId?: number;
         primaryCategory?: { categoryId?: number };
@@ -62,6 +63,13 @@ export default defineEventHandler(async (event) => {
         categories,
         withoutClosure.primaryCategory?.categoryId,
       );
+
+      // The whole closure, not just the primary category: a CMS container's
+      // Category filter may sit on any category the product is assigned to, or
+      // on an ancestor of one, and Geins does not derive them from the product.
+      const categoryIds = (categories ?? [])
+        .map((c) => c?.categoryId)
+        .filter((id): id is number => typeof id === 'number');
 
       // The portal-side name for a product the configurator stands behind; the
       // question goes to the seam, which is the one place that changes when the
@@ -75,6 +83,7 @@ export default defineEventHandler(async (event) => {
       return {
         ...sanitizeProductTexts(withoutClosure),
         ancestors,
+        ...(categoryIds.length ? { categoryIds } : {}),
         ...(configurable ? { configurable } : {}),
       };
     },

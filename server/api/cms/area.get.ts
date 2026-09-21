@@ -5,11 +5,18 @@ import { logger } from '../../utils/logger';
 import { hasUserToken } from '../../utils/request-identity';
 
 export default defineEventHandler(async (event) => {
-  const { family, areaName } = await getValidatedQuery(
-    event,
-    CmsAreaSchema.parse,
-  );
+  const { family, areaName, productAlias, brandAlias, categoryIds } =
+    await getValidatedQuery(event, CmsAreaSchema.parse);
   const customerType = await getCustomerType(event);
+
+  // The page a container's admin filter is evaluated against. Absent on
+  // surfaces that have no such context (start page, portal hero), which then
+  // query exactly as before.
+  const context = {
+    ...(productAlias && { productAlias }),
+    ...(brandAlias && { brandAlias }),
+    ...(categoryIds && { categoryIds: categoryIds.split(',').map(Number) }),
+  };
 
   setHeader(
     event,
@@ -20,7 +27,12 @@ export default defineEventHandler(async (event) => {
   return withErrorHandling(
     async () => {
       const area = await getContentArea(
-        { family, areaName, customerType },
+        {
+          family,
+          areaName,
+          customerType,
+          ...(Object.keys(context).length && { context }),
+        },
         event,
       );
 

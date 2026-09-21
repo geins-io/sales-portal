@@ -1,4 +1,5 @@
 import type {
+  BrandType,
   PriceType,
   ProductImageType,
   ProductType,
@@ -183,6 +184,17 @@ export interface ListProduct {
 // Detail Product (ProductType with enriched pricing fields from GraphQL)
 // ---------------------------------------------------------------------------
 /**
+ * The brand fields `products/product.graphql` actually selects. The SDK's
+ * `BrandType` stops at brandId/name/logoUrl; the query also asks for `alias`
+ * and `canonicalUrl`, and the alias is what a CMS container's Brand filter
+ * matches on.
+ */
+export interface DetailBrand extends BrandType {
+  alias?: string;
+  canonicalUrl?: string;
+}
+
+/**
  * Extends the SDK ProductType with fields that come from our enriched
  * GraphQL product queries (discount campaigns, discount type, lowest price).
  * The SDK types use different shapes (e.g. DiscountType enum vs string,
@@ -190,8 +202,13 @@ export interface ListProduct {
  */
 export interface DetailProduct extends Omit<
   ProductType,
-  'discountType' | 'lowestPrice' | 'parameterGroups' | 'alternativeUrls'
+  | 'discountType'
+  | 'lowestPrice'
+  | 'parameterGroups'
+  | 'alternativeUrls'
+  | 'brand'
 > {
+  brand?: DetailBrand;
   parameterGroups?: ParameterGroupType[];
   discountCampaigns?: { name: string; hideTitle: boolean }[];
   lowestPrice?: LowestPriceInfo;
@@ -211,6 +228,13 @@ export interface DetailProduct extends Omit<
    * chain could not be resolved in full — see `ancestorsFromCategories`.
    */
   ancestors?: CategoryAncestor[];
+  /**
+   * Ids of every category the product is assigned to, ancestors included, from
+   * the closure the Geins response carries. Only the ids are forwarded — the
+   * closure itself is dropped in `/api/products/[alias]` for payload size — and
+   * they exist for the CMS content area's Category filters.
+   */
+  categoryIds?: number[];
 }
 
 // ---------------------------------------------------------------------------

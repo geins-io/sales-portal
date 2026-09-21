@@ -128,12 +128,24 @@ const additionalImages = computed(() => {
 
 const pdpSlot = useCmsSlot(CMS_SLOTS.PRODUCT_DETAIL);
 
+// Page context for the CMS container filters, resolved as in ProductDetails.
+// The loaded product's own alias is what the filter references, not the URL
+// `alias`, which under a locale fallback belongs to the default-language sibling.
+const cmsCategoryIds = computed(() => (product.categoryIds ?? []).join(','));
+
+const pdpCmsContext = computed(() => ({
+  ...(product.alias ? { productAlias: product.alias } : {}),
+  ...(product.brand?.alias ? { brandAlias: product.brand.alias } : {}),
+  ...(cmsCategoryIds.value ? { categoryIds: cmsCategoryIds.value } : {}),
+}));
+
 const { data: pdpCmsArea } = useFetch<ContentAreaType>('/api/cms/area', {
   query: computed(() =>
     pdpSlot.value
       ? {
           family: pdpSlot.value.family,
           areaName: pdpSlot.value.areaName,
+          ...pdpCmsContext.value,
           ...(currentLocale.value ? { locale: currentLocale.value } : {}),
           ...(currentMarket.value ? { market: currentMarket.value } : {}),
         }
