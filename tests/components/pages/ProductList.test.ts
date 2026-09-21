@@ -92,7 +92,11 @@ const mockProductsStatus = ref('idle');
 // what binds these assertions to the config rather than to a handed-over area.
 const mockCmsAreas = new Map<string, { containers: unknown[] }>();
 
-type AreaQuery = { areaName?: string };
+type AreaQuery = {
+  areaName?: string;
+  categoryIds?: string;
+  brandAlias?: string;
+};
 
 function resolveAreaQuery(
   options?: Record<string, unknown>,
@@ -480,6 +484,52 @@ describe('ProductList.vue', () => {
         true,
       );
       expect(wrapper.find('[data-testid="plp-cms-top"]').exists()).toBe(false);
+    });
+
+    /** The CMS query has to carry the page, or a filtered container never
+     *  resolves. Geins matches the exact category id and does not walk up, so
+     *  the ancestors must be listed alongside the category's own id. */
+    it('sends the category id and its ancestors as page context', async () => {
+      configureBothZones();
+      mockPageInfo.value = {
+        ...VALID_PAGE_INFO,
+        id: 12,
+        ancestors: [
+          { categoryId: 1, name: 'A', canonicalUrl: '/se/sv/c/a' },
+          { categoryId: 7, name: 'B', canonicalUrl: '/se/sv/c/a/b' },
+        ],
+      };
+
+      await mountProductList(categoryProps, { global: { stubs: cmsStubs } });
+
+      const areaCalls = mockUseFetch.mock.calls.filter(
+        ([url]) => typeof url === 'string' && url.includes('/api/cms/area'),
+      );
+      expect(areaCalls.length).toBeGreaterThan(0);
+      for (const [, options] of areaCalls) {
+        const query = resolveAreaQuery(options);
+        expect(query?.categoryIds).toBe('1,7,12');
+        expect(query?.brandAlias).toBeUndefined();
+      }
+    });
+
+    it('sends the brand alias as page context on a brand list', async () => {
+      configureBothZones();
+
+      await mountProductList(
+        { type: 'brand' as const, alias: 'kraftbo' },
+        { global: { stubs: cmsStubs } },
+      );
+
+      const areaCalls = mockUseFetch.mock.calls.filter(
+        ([url]) => typeof url === 'string' && url.includes('/api/cms/area'),
+      );
+      expect(areaCalls.length).toBeGreaterThan(0);
+      for (const [, options] of areaCalls) {
+        const query = resolveAreaQuery(options);
+        expect(query?.brandAlias).toBe('kraftbo');
+        expect(query?.categoryIds).toBeUndefined();
+      }
     });
 
     it('renders no bottom zone when product_list_bottom names another area', async () => {

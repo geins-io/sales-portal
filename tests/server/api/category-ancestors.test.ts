@@ -268,7 +268,7 @@ describe('resolveEntityAncestors', () => {
   it('walks the tree from the category id', async () => {
     const resolveEntityAncestors = await loadWithTree(async () => DEEP);
     await expect(resolveEntityAncestors(2, eventWithTenant)).resolves.toEqual([
-      { name: 'A', canonicalUrl: '/se/sv/c/a' },
+      { categoryId: 1, name: 'A', canonicalUrl: '/se/sv/c/a' },
     ]);
   });
 
@@ -280,7 +280,7 @@ describe('resolveEntityAncestors', () => {
     const resolveEntityAncestors = await loadWithTree(spy);
 
     await expect(resolveEntityAncestors(2, eventWithTenant)).resolves.toEqual([
-      { name: 'A', canonicalUrl: '/se/sv/c/a' },
+      { categoryId: 1, name: 'A', canonicalUrl: '/se/sv/c/a' },
     ]);
     expect(spy).toHaveBeenCalledTimes(1);
   });
@@ -317,7 +317,7 @@ describe('resolveEntityAncestors', () => {
     );
 
     await expect(resolveEntityAncestors(2, eventWithTenant)).resolves.toEqual([
-      { name: 'A', canonicalUrl: '/se/sv/c/a' },
+      { categoryId: 1, name: 'A', canonicalUrl: '/se/sv/c/a' },
     ]);
     expect(spy).toHaveBeenCalledTimes(2);
   });
@@ -334,7 +334,7 @@ describe('resolveEntityAncestors', () => {
     );
 
     await expect(resolveEntityAncestors(2, eventWithTenant)).resolves.toEqual([
-      { name: 'A', canonicalUrl: '/se/sv/c/a' },
+      { categoryId: 1, name: 'A', canonicalUrl: '/se/sv/c/a' },
     ]);
     expect(spy).toHaveBeenCalledTimes(2);
     expect((spy.mock.calls[1]?.[1] as { languageId: string }).languageId).toBe(

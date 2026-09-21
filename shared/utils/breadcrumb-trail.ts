@@ -1,8 +1,15 @@
 import type { BreadcrumbItem } from '../types/common';
 import { categoryPath } from './route-helpers';
 
-/** A resolved ancestor category, as the breadcrumb needs it. */
+/**
+ * A resolved ancestor category. The breadcrumb reads name and canonicalUrl; the
+ * id is what a CMS container's Category filter matches on, and Geins matches
+ * only the exact id — it does not walk up the tree (measured 2026-09-21: a
+ * container filtered to Fästelement is returned for id 1 and for no descendant
+ * of it).
+ */
 export interface CategoryAncestor {
+  categoryId: number;
   name: string;
   canonicalUrl: string;
 }
@@ -73,7 +80,11 @@ export function ancestorsFromCategories(
     const parent = byId.get(parentId);
     if (!parent?.name || !parent.canonicalUrl) return [];
     seen.add(parentId);
-    chain.push({ name: parent.name, canonicalUrl: parent.canonicalUrl });
+    chain.push({
+      categoryId: parentId,
+      name: parent.name,
+      canonicalUrl: parent.canonicalUrl,
+    });
     current = parent;
   }
 

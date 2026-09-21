@@ -12,7 +12,7 @@ const stubs = {
 
 function makePageInfo(overrides: Partial<ListPageInfo> = {}): ListPageInfo {
   return {
-    id: '1',
+    id: 1,
     name: 'Förbrukningsmaterial',
     hideTitle: false,
     hideDescription: false,

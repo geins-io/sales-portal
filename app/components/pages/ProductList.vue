@@ -371,12 +371,27 @@ function clearAllFilters() {
 const topSlot = useCmsSlot(CMS_SLOTS.PRODUCT_LIST_TOP);
 const bottomSlot = useCmsSlot(CMS_SLOTS.PRODUCT_LIST_BOTTOM);
 
+// Page context for the CMS container filters; see buildAreaFilters in
+// server/services/cms.ts. A brand list sends the brand, a category list sends
+// its own id AND its ancestors' — Geins matches the exact id and never walks up,
+// so a container filtered to a parent category needs the parent listed too.
+const listCmsContext = computed(() => {
+  if (isBrand.value) return { brandAlias: listSlug.value };
+
+  const own = pageInfo.value?.id;
+  const ids = (pageInfo.value?.ancestors ?? []).map((a) => a.categoryId);
+  if (own) ids.push(own);
+
+  return ids.length ? { categoryIds: ids.join(',') } : {};
+});
+
 function buildAreaQuery(slot: typeof topSlot) {
   return computed(() =>
     slot.value
       ? {
           family: slot.value.family,
           areaName: slot.value.areaName,
+          ...listCmsContext.value,
           ...(currentLocale.value ? { locale: currentLocale.value } : {}),
           ...(currentMarket.value ? { market: currentMarket.value } : {}),
         }

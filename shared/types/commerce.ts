@@ -269,7 +269,8 @@ export interface ListPageInfo {
   canonicalUrl: string;
   primaryImage: string;
   name: string;
-  id: string;
+  /** The categoryId; `/api/product-lists/category/[alias]` relies on that. */
+  id: number;
   primaryDescription: string;
   secondaryDescription: string;
   hideTitle: boolean;
