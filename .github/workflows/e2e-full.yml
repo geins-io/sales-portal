@@ -97,10 +97,13 @@ jobs:
         run: pnpm build
 
       # Output goes to a file: an open stdout would keep the step from ending.
+      # NUXT_CONFIGURATOR_BACKEND: the configurator suite runs against the
+      # fixture, as the dev environment does. The variable goes when the
+      # configurator reads the merchant API instead.
       - name: Start the preview server
         run: |
           NITRO_SSL_CERT="$(cat .certs/local.crt)" NITRO_SSL_KEY="$(cat .certs/local.key)" E2E=1 \
-            pnpm preview > preview.log 2>&1 &
+            NUXT_CONFIGURATOR_BACKEND=fixture pnpm preview > preview.log 2>&1 &
 
       # One step per layer so the step view names what broke, and `--no-deps`
       # so each runs exactly once. L4 signs in and writes the session to disk;
