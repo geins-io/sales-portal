@@ -314,7 +314,6 @@
     "unavailable": "Not available with your current choices",
     "bounds": "{min}–{max} {unit}",
     "optional": "Optional",
-    "measurements": "Measurements & variables",
     "choose_many": "Choose none or more",
     "quantity": "Quantity",
     "show_all": "Show all {count} options",

@@ -314,7 +314,6 @@
     "unavailable": "Inte tillgängligt med dina nuvarande val",
     "bounds": "{min}–{max} {unit}",
     "optional": "Valfritt",
-    "measurements": "Mått & variabler",
     "choose_many": "Välj noll eller flera",
     "quantity": "Antal",
     "show_all": "Visa alla {count} val",

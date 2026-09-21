@@ -15,6 +15,7 @@ import {
   findOption,
   findOptionGroup,
   findVariable,
+  makeCabinetConfiguration,
   makeInitialConfiguration,
   makeInvalidConfiguration,
   makeValidConfiguration,
@@ -169,6 +170,24 @@ describe('collectBlockingNames', () => {
     expect(collectBlockingNames(makeInvalidConfiguration())).toEqual([
       'Table top',
       'Colour',
+    ]);
+  });
+
+  it('names what is missing in the order the page shows it', () => {
+    const config = makeCabinetConfiguration();
+    findOption(config, 'mount-wall').selected = false;
+    findOption(config, 'door-glass').selected = false;
+    findVariable(config, 'cab-width').value = null;
+    findVariable(config, 'cab-height').value = null;
+
+    // The seed interleaves this section, so the order below is neither of the
+    // two lists: groups first would read Mounting, Doors, Width, Height. A
+    // buyer working down the banner meets them where they sit on the page.
+    expect(collectBlockingNames(config)).toEqual([
+      'Mounting',
+      'Width',
+      'Height',
+      'Doors',
     ]);
   });
 
@@ -374,6 +393,16 @@ describe('specificationRows', () => {
       ['Finish', 'Table top'],
       ['Finish', 'Colour'],
     ]);
+  });
+
+  it('reads an interleaved section in the order the indices give', () => {
+    const rows = specificationRows(makeCabinetConfiguration());
+
+    // A list, two fields, a list, a field — the arrangement the merchant
+    // built, not the two arrays the document happens to carry it in.
+    expect(
+      rows.filter((row) => row.group === 'Cabinet').map((row) => row.label),
+    ).toEqual(['Mounting', 'Width', 'Height', 'Doors', 'Front area']);
   });
 
   it('carries the option name, its quantity and its price', () => {

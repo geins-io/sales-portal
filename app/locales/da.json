@@ -314,7 +314,6 @@
     "unavailable": "Ikke tilgængeligt med dine nuværende valg",
     "bounds": "{min}–{max} {unit}",
     "optional": "Valgfrit",
-    "measurements": "Mål & variabler",
     "choose_many": "Vælg ingen eller flere",
     "quantity": "Antal",
     "show_all": "Vis alle {count} valg",

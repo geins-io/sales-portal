@@ -15,7 +15,6 @@ import {
   optionPricePrefix,
   previewOptions,
   variableControl,
-  variablesSummary,
 } from '../../app/utils/configurator-form';
 import {
   findOption,
@@ -416,43 +415,5 @@ describe('boundsNarrowed', () => {
         { min: undefined, max: undefined },
       ),
     ).toBe(false);
-  });
-});
-
-describe('variablesSummary', () => {
-  it('reads the seeded measurements with their units, in document order', () => {
-    const workbench = makeInitialConfiguration();
-    const frame = workbench.sections[0]!;
-
-    expect(variablesSummary(frame.variables)).toBe(
-      '1200 mm · 700 mm · 0 pcs · 0 %',
-    );
-  });
-
-  it('leaves out a variable with no value', () => {
-    const cabinet = makeCabinetConfiguration();
-    const code = findVariable(cabinet, 'pallet-code');
-    code.value = null;
-
-    expect(variablesSummary([code])).toBe('');
-  });
-
-  it('leaves out a boolean, whose reading the locale files own', () => {
-    // 'true' is not what the field shows, and a pure function cannot reach
-    // the translation that says Ja.
-    expect(variablesSummary([{ value: true, unit: undefined }])).toBe('');
-  });
-
-  it('leaves out an unset text value rather than writing its unit alone', () => {
-    expect(
-      variablesSummary([
-        { value: '', unit: 'mm' },
-        { value: 700, unit: 'mm' },
-      ]),
-    ).toBe('700 mm');
-  });
-
-  it('writes a value that has no unit on its own', () => {
-    expect(variablesSummary([{ value: 'EPAL', unit: undefined }])).toBe('EPAL');
   });
 });

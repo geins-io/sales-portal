@@ -68,6 +68,14 @@ export type ConfigurationValue = string | number | boolean | null;
 export interface ConfigurationVariable {
   id: string;
   name: string;
+  /**
+   * Orders this node against every other member of the same parent — a
+   * section's variables, option groups and child sections share one sequence.
+   * Null sorts last. `ConfigurationOption` has none and cannot: the provider
+   * numbers a row inside its own group, so there is no number to place a row
+   * against a nested group on.
+   */
+  sortIndex?: number | null;
   description: string;
   valueType: ConfigurationValueType;
   value: ConfigurationValue;
@@ -116,6 +124,7 @@ export interface ConfigurationOptionGroup {
   id: string;
   code: string;
   name: string;
+  sortIndex?: number | null;
   available: boolean;
   minSelections?: number;
   /** `1` means single-select. */
@@ -134,6 +143,7 @@ export interface ConfigurationOptionGroup {
 export interface ConfigurationSection {
   id: string;
   name: string;
+  sortIndex?: number | null;
   visible: boolean;
   sections: ConfigurationSection[];
   variables: ConfigurationVariable[];

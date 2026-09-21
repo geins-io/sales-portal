@@ -314,7 +314,6 @@
     "unavailable": "Ei käytettävissä nykyisillä valinnoilla",
     "bounds": "{min}–{max} {unit}",
     "optional": "Valinnainen",
-    "measurements": "Mitat ja muuttujat",
     "choose_many": "Valitse ei yhtään tai useampi",
     "quantity": "Määrä",
     "show_all": "Näytä kaikki {count} vaihtoehtoa",

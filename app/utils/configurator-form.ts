@@ -175,31 +175,6 @@ export function boundsNarrowed(
 }
 
 /**
- * What the measurements block says it holds while it is folded: the values, in
- * the document's order, each with its unit.
- *
- * Only a number or a text value is readable without a translation — a boolean
- * reads as a word the locale files own and a pure function cannot produce — so
- * the rest are left out rather than rendered as `true`.
- */
-export function variablesSummary(
-  variables: Pick<ConfigurationVariable, 'value' | 'unit'>[],
-): string {
-  return variables
-    .filter(
-      (variable) =>
-        typeof variable.value === 'number' ||
-        (typeof variable.value === 'string' && variable.value !== ''),
-    )
-    .map((variable) =>
-      variable.unit
-        ? `${variable.value} ${variable.unit}`
-        : `${variable.value}`,
-    )
-    .join(' · ');
-}
-
-/**
  * A date input speaks `yyyy-mm-dd` while the document carries ISO 8601, which
  * may or may not have a time part. Anything else — a number, a boolean, an
  * unset value — leaves the field empty rather than showing a half-parsed date.

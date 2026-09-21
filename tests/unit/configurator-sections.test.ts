@@ -142,6 +142,24 @@ describe('flattenVisibleSections', () => {
     expect(ids(tree)).toEqual(['a', 'a1', 'b']);
   });
 
+  it('orders siblings by the index, at every level', () => {
+    const tree = [
+      section('b', {
+        sortIndex: 4,
+        sections: [
+          section('b2', { sortIndex: 7 }),
+          section('b1', { sortIndex: 6 }),
+        ],
+      }),
+      section('a', { sortIndex: 1 }),
+    ];
+
+    // The rail is the page order read downwards, so a provider that sends a
+    // list out of index order must not give the buyer a different sequence
+    // from the one the sections themselves are shown in.
+    expect(ids(tree)).toEqual(['a', 'b', 'b1', 'b2']);
+  });
+
   it('leaves out an invisible section', () => {
     expect(
       ids([section('shown'), section('hidden', { visible: false })]),

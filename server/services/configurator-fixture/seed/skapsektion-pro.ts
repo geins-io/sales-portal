@@ -19,6 +19,10 @@ import type { Seed } from './types';
 //
 // No rules: what is being exercised here is how a state renders, not how it
 // comes about.
+//
+// The Cabinet section interleaves its fields between its two option lists, so
+// the component tests that mount it measure the merge and not one list after
+// the other.
 // ---------------------------------------------------------------------------
 
 export const SKAPSEKTION_PRO_ID = '900000000000124';
@@ -55,6 +59,7 @@ function buildSections(): ConfigurationSection[] {
     {
       id: 'cabinet',
       name: 'Cabinet',
+      sortIndex: 1,
       visible: true,
       sections: [],
       messages: [],
@@ -62,6 +67,7 @@ function buildSections(): ConfigurationSection[] {
         seedVariable({
           id: 'cab-width',
           name: 'Width',
+          sortIndex: 3,
           description: 'Outer width of the cabinet.',
           value: 800,
           defaultValue: 800,
@@ -73,6 +79,7 @@ function buildSections(): ConfigurationSection[] {
         seedVariable({
           id: 'cab-height',
           name: 'Height',
+          sortIndex: 4,
           description: 'Outer height of the cabinet.',
           value: 2000,
           defaultValue: 2000,
@@ -84,6 +91,7 @@ function buildSections(): ConfigurationSection[] {
         seedVariable({
           id: 'front-area',
           name: 'Front area',
+          sortIndex: 6,
           description: 'Painted area, computed from the outer dimensions.',
           required: false,
           decimals: 2,
@@ -99,6 +107,7 @@ function buildSections(): ConfigurationSection[] {
           id: 'mount',
           code: 'MOUNT',
           name: 'Mounting',
+          sortIndex: 2,
           minSelections: 1,
           maxSelections: 1,
           options: [
@@ -118,6 +127,7 @@ function buildSections(): ConfigurationSection[] {
           id: 'doors',
           code: 'DOORS',
           name: 'Doors',
+          sortIndex: 5,
           minSelections: 1,
           maxSelections: 1,
           options: [
@@ -137,6 +147,7 @@ function buildSections(): ConfigurationSection[] {
       // create, which is not what this seed is here to show.
       id: 'interior',
       name: 'Interior',
+      sortIndex: 7,
       visible: true,
       sections: [],
       messages: [],
@@ -146,6 +157,7 @@ function buildSections(): ConfigurationSection[] {
           id: 'shelving',
           code: 'SHELVING',
           name: 'Shelving',
+          sortIndex: 8,
           minSelections: 1,
           maxSelections: 1,
           options: [
@@ -160,6 +172,7 @@ function buildSections(): ConfigurationSection[] {
           id: 'interior-extras',
           code: 'INTERIOR_EXTRAS',
           name: 'Interior extras',
+          sortIndex: 9,
           quantityEditable: true,
           options: [
             option('int-drawer', 'Drawer unit', 1200, 906_006, {
@@ -178,6 +191,7 @@ function buildSections(): ConfigurationSection[] {
       // buyer should not see.
       id: 'logistics',
       name: 'Logistics',
+      sortIndex: 10,
       visible: false,
       sections: [],
       optionGroups: [],
@@ -186,6 +200,7 @@ function buildSections(): ConfigurationSection[] {
         seedVariable({
           id: 'pallet-code',
           name: 'Pallet code',
+          sortIndex: 11,
           description: 'Packaging the cabinet ships on.',
           valueType: 'string',
           value: 'PAL-80',

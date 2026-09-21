@@ -6,6 +6,7 @@ import {
   isGroupUnmet,
   isVariableUnmet,
 } from '#shared/utils/configurator-requirement';
+import { orderedSections } from '~/utils/configurator-order';
 
 // ---------------------------------------------------------------------------
 // The rail, and where in it the buyer stands.
@@ -81,7 +82,7 @@ export function sectionRemaining(section: ConfigurationSection): number {
 }
 
 /**
- * Every visible section, in document order, depth-first, with its depth.
+ * Every visible section, in `sortIndex` order, depth-first, with its depth.
  *
  * An invisible section takes its whole subtree with it. The page's other walks
  * already do that (`collectBlockingMessages`, the banner's), so a rail entry
@@ -95,7 +96,7 @@ export function flattenVisibleSections(
   const entries: SectionEntry[] = [];
 
   const walk = (level: ConfigurationSection[], depth: number): void => {
-    for (const section of level) {
+    for (const section of orderedSections(level)) {
       if (!section.visible) continue;
       entries.push({ section, depth, remaining: sectionRemaining(section) });
       walk(section.sections, depth + 1);

@@ -10,6 +10,7 @@ import {
   isGroupUnmet,
   isVariableUnmet,
 } from '#shared/utils/configurator-requirement';
+import { orderedSections, sectionMembers } from '~/utils/configurator-order';
 
 // ---------------------------------------------------------------------------
 // The derivations the configuration panel renders.
@@ -44,20 +45,20 @@ function everyBlockingMessage(config: Configuration): ConfigurationMessage[] {
     }
   };
 
-  const walkGroups = (groups: ConfigurationOptionGroup[]): void => {
-    for (const group of groups) {
-      take(group.messages);
-      walkGroups(group.optionGroups);
-      for (const option of group.options) take(option.messages);
-    }
+  const walkGroup = (group: ConfigurationOptionGroup): void => {
+    take(group.messages);
+    for (const nested of group.optionGroups) walkGroup(nested);
+    for (const option of group.options) take(option.messages);
   };
 
   const walkSections = (sections: ConfigurationSection[]): void => {
-    for (const section of sections) {
+    for (const section of orderedSections(sections)) {
       if (!section.visible) continue;
       take(section.messages);
-      for (const variable of section.variables) take(variable.messages);
-      walkGroups(section.optionGroups);
+      for (const member of sectionMembers(section)) {
+        if (member.kind === 'group') walkGroup(member.group);
+        else take(member.variable.messages);
+      }
       walkSections(section.sections);
     }
   };
@@ -108,20 +109,20 @@ function unmetNodes(config: Configuration): {
     messages.push(...carried);
   };
 
-  const walkGroups = (groups: ConfigurationOptionGroup[]): void => {
-    for (const group of groups) {
-      if (isGroupUnmet(group)) take(group.name, group.messages);
-      walkGroups(group.optionGroups);
-    }
+  const walkGroup = (group: ConfigurationOptionGroup): void => {
+    if (isGroupUnmet(group)) take(group.name, group.messages);
+    for (const nested of group.optionGroups) walkGroup(nested);
   };
 
   const walkSections = (sections: ConfigurationSection[]): void => {
-    for (const section of sections) {
+    for (const section of orderedSections(sections)) {
       if (!section.visible) continue;
-      for (const variable of section.variables) {
-        if (isVariableUnmet(variable)) take(variable.name, variable.messages);
+      for (const member of sectionMembers(section)) {
+        if (member.kind === 'group') walkGroup(member.group);
+        else if (isVariableUnmet(member.variable)) {
+          take(member.variable.name, member.variable.messages);
+        }
       }
-      walkGroups(section.optionGroups);
       walkSections(section.sections);
     }
   };
@@ -267,21 +268,23 @@ function groupRows(
 function sectionRows(sections: ConfigurationSection[]): SpecificationRow[] {
   const rows: SpecificationRow[] = [];
 
-  for (const section of sections) {
+  for (const section of orderedSections(sections)) {
     if (!section.visible) continue;
 
-    // Choices first, measurements last, nested sections after both: the order
-    // `ConfiguratorSection` renders, so the specification reads in the order
-    // the form was filled in.
-    rows.push(...groupRows(section.optionGroups, section.name));
-
-    for (const variable of section.variables) {
-      const value = variableValue(variable);
+    // The order `ConfiguratorSection` renders, so the specification reads in
+    // the order the form was filled in. Nested sections follow both, because
+    // the form cannot put a child's page inside its parent's.
+    for (const member of sectionMembers(section)) {
+      if (member.kind === 'group') {
+        rows.push(...groupRows([member.group], section.name));
+        continue;
+      }
+      const value = variableValue(member.variable);
       if (!value) continue;
       rows.push({
-        id: `variable:${variable.id}`,
+        id: `variable:${member.variable.id}`,
         group: section.name,
-        label: variable.name,
+        label: member.variable.name,
         values: [value],
       });
     }
