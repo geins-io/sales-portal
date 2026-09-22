@@ -486,17 +486,18 @@ describe('ProductList.vue', () => {
       expect(wrapper.find('[data-testid="plp-cms-top"]').exists()).toBe(false);
     });
 
-    /** The CMS query has to carry the page, or a filtered container never
-     *  resolves. Geins matches the exact category id and does not walk up, so
-     *  the ancestors must be listed alongside the category's own id. */
-    it('sends the category id and its ancestors as page context', async () => {
+    /** The CMS query has to carry the page, or a filtered collection never
+     *  resolves. Only this page's own category goes out: Geins returns one
+     *  collection and the lowest id wins, so sending an ancestor lets a parent's
+     *  collection shadow the one filtered to this category. */
+    it('sends its own category id, never its ancestors', async () => {
       configureBothZones();
       mockPageInfo.value = {
         ...VALID_PAGE_INFO,
         id: 12,
         ancestors: [
-          { categoryId: 1, name: 'A', canonicalUrl: '/se/sv/c/a' },
-          { categoryId: 7, name: 'B', canonicalUrl: '/se/sv/c/a/b' },
+          { name: 'A', canonicalUrl: '/se/sv/c/a' },
+          { name: 'B', canonicalUrl: '/se/sv/c/a/b' },
         ],
       };
 
@@ -508,7 +509,7 @@ describe('ProductList.vue', () => {
       expect(areaCalls.length).toBeGreaterThan(0);
       for (const [, options] of areaCalls) {
         const query = resolveAreaQuery(options);
-        expect(query?.categoryIds).toBe('1,7,12');
+        expect(query?.categoryIds).toBe('12');
         expect(query?.brandAlias).toBeUndefined();
       }
     });

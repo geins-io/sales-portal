@@ -10,19 +10,13 @@ import {
 const localizeSeSv = (path: string) => `/se/sv${path}`;
 
 const INDEX: Record<string, CategoryAncestor> = {
-  fastelement: {
-    categoryId: 1,
-    name: 'Fästelement',
-    canonicalUrl: '/se/sv/c/fastelement',
-  },
+  fastelement: { name: 'Fästelement', canonicalUrl: '/se/sv/c/fastelement' },
   testkategori: {
-    categoryId: 7,
     name: 'Testkategori',
     canonicalUrl: '/se/sv/c/fastelement/testkategori',
   },
   // The prefix-less shape other tenants return.
   'sakerhet-och-ovrigt': {
-    categoryId: 20,
     name: 'Säkerhet och övrigt',
     canonicalUrl: '/se/sv/sakerhet-och-ovrigt',
   },
@@ -182,12 +176,6 @@ describe('ancestorsFromCategories', () => {
   it('tolerates null entries and entries with no id', () => {
     expect(
       ancestorsFromCategories([null, undefined, { name: 'x' }, ...CLOSURE], 7),
-    ).toEqual([
-      {
-        categoryId: 1,
-        name: 'Fästelement',
-        canonicalUrl: '/se/sv/c/fastelement',
-      },
-    ]);
+    ).toEqual([{ name: 'Fästelement', canonicalUrl: '/se/sv/c/fastelement' }]);
   });
 });
