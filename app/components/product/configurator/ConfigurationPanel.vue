@@ -13,7 +13,6 @@ import { formatPrice } from '#shared/types/commerce';
 import type { Configuration, Money } from '#shared/types/configurator';
 import type { ConfiguratorSessionStatus } from '~/composables/useConfiguratorSession';
 import { Button } from '~/components/ui/button';
-import { useAuthStore } from '~/stores/auth';
 import { optionPricePrefix } from '~/utils/configurator-form';
 import {
   collectBlockingNames,
@@ -49,21 +48,6 @@ const emit = defineEmits<{ restart: [] }>();
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { showPrice } = usePriceVisibility();
-const auth = useAuthStore();
-
-/**
- * Who this is being configured for. The buyer's company is not on the session —
- * it is only on the profile the portal fetches elsewhere — so the line carries
- * what this page knows and nothing more.
- */
-const customerType = computed(() => {
-  const type = auth.user?.customerType;
-  if (type === 'PERSON') return t('configurator.panel.customer_type.person');
-  if (type === 'ORGANIZATION') {
-    return t('configurator.panel.customer_type.organization');
-  }
-  return '';
-});
 
 const rows = computed(() =>
   configuration ? specificationRows(configuration) : [],
@@ -190,24 +174,10 @@ const canCopy = computed(() => mounted.value && isSupported.value);
 
   <template v-else-if="configuration">
     <header class="px-4 py-3" data-testid="configurator-panel-header">
-      <div class="flex items-start justify-between gap-3">
-        <h3 class="flex items-center gap-2 text-sm font-semibold">
-          <FileText class="size-4" />
-          {{ t('configurator.panel.title') }}
-        </h3>
-        <span class="text-muted-foreground shrink-0 font-mono text-[11px]">
-          {{ articleNumber }}
-        </span>
-      </div>
-      <!--
-        The price mode says exclusive whatever the buyer's VAT switch says: the
-        document carries a net price and no rate, so inclusive prices are not
-        something this page can state.
-      -->
-      <p class="text-muted-foreground mt-1 text-xs">
-        <template v-if="customerType">{{ customerType }} · </template>
-        {{ t('configurator.panel.prices_ex_vat') }}
-      </p>
+      <h3 class="flex items-center gap-2 text-sm font-semibold">
+        <FileText class="size-4" />
+        {{ t('configurator.panel.title') }}
+      </h3>
     </header>
 
     <!-- The specification itself. The value is the content and the price is an
@@ -292,9 +262,6 @@ const canCopy = computed(() => mounted.value && isSupported.value);
           </span>
         </span>
       </div>
-      <p class="text-muted-foreground mt-2 text-[11px]">
-        {{ t('configurator.panel.indicative') }}
-      </p>
     </div>
 
     <div v-if="canCopy" class="px-4 py-2">

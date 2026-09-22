@@ -83,33 +83,13 @@ describe('ConfigurationPanel', () => {
   });
 
   describe('header', () => {
-    it('names the specification and the article it configures', () => {
+    it('names the specification and nothing else', () => {
+      useAuthStore().user = { ...SIGNED_IN, customerType: 'ORGANIZATION' };
       const header = mountPanel().find(
         '[data-testid="configurator-panel-header"]',
       );
-      expect(header.text()).toContain('configurator.panel.title');
-      expect(header.text()).toContain('KONF-1001');
-    });
-
-    it('says prices are exclusive of VAT, which is all the document can say', () => {
-      // The document carries a net price and no rate, so an inclusive price is
-      // not something this page could state whatever the buyer's switch says.
-      expect(
-        mountPanel().find('[data-testid="configurator-panel-header"]').text(),
-      ).toContain('configurator.panel.prices_ex_vat');
-    });
-
-    it('names the customer type of a signed-in buyer', () => {
-      useAuthStore().user = { ...SIGNED_IN, customerType: 'ORGANIZATION' };
-      expect(
-        mountPanel().find('[data-testid="configurator-panel-header"]').text(),
-      ).toContain('configurator.panel.customer_type.organization');
-    });
-
-    it('leaves the customer type out when the session carries none', () => {
-      expect(
-        mountPanel().find('[data-testid="configurator-panel-header"]').text(),
-      ).not.toContain('configurator.panel.customer_type');
+      expect(header.text()).toBe('configurator.panel.title');
+      expect(header.text()).not.toContain('KONF-1001');
     });
   });
 
@@ -218,10 +198,10 @@ describe('ConfigurationPanel', () => {
       ).toContain('€1,000.00');
     });
 
-    it('says the price is indicative until the quotation confirms it', () => {
+    it('leaves the indicative note to the copied text', () => {
       expect(
         mountPanel().find('[data-testid="configurator-panel-price"]').text(),
-      ).toContain('configurator.panel.indicative');
+      ).not.toContain('configurator.panel.indicative');
     });
 
     it('names the quantity only when more than one is being configured', () => {
@@ -424,6 +404,7 @@ describe('ConfigurationPanel', () => {
 
       const copied = writeText.mock.calls[0]?.[0] as string;
       expect(copied).toContain('Arbetsbord Pro (KONF-1001)');
+      expect(copied).toContain('configurator.panel.indicative');
       expect(copied).toContain('FRAME');
       expect(copied).toContain('  Colour:');
       expect(copied).toContain('Black (RAL 9005)');

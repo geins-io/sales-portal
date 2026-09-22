@@ -360,11 +360,6 @@
       "expired": "Konfigurationssessionen har gått ut.",
       "start_over": "Börja om",
       "title": "Specifikation",
-      "prices_ex_vat": "priser exkl. moms",
-      "customer_type": {
-        "person": "Privatkund",
-        "organization": "Företagskund"
-      },
       "net_price": "Nettopris",
       "quantity_suffix": "{count} st",
       "indicative": "Indikativt pris. Priset bekräftas i offerten.",

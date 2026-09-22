@@ -360,11 +360,6 @@
       "expired": "Kokoonpanoistunto on vanhentunut.",
       "start_over": "Aloita alusta",
       "title": "Erittely",
-      "prices_ex_vat": "hinnat ilman alv:tä",
-      "customer_type": {
-        "person": "Yksityisasiakas",
-        "organization": "Yritysasiakas"
-      },
       "net_price": "Nettohinta",
       "quantity_suffix": "{count} kpl",
       "indicative": "Suuntaa antava hinta. Hinta vahvistetaan tarjouksessa.",

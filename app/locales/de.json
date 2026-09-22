@@ -360,11 +360,6 @@
       "expired": "Die Konfigurationssitzung ist abgelaufen.",
       "start_over": "Neu beginnen",
       "title": "Spezifikation",
-      "prices_ex_vat": "Preise exkl. MwSt.",
-      "customer_type": {
-        "person": "Privatkunde",
-        "organization": "Geschäftskunde"
-      },
       "net_price": "Nettopreis",
       "quantity_suffix": "{count} Stk.",
       "indicative": "Richtpreis. Der Preis wird im Angebot bestätigt.",

@@ -360,11 +360,6 @@
       "expired": "The configuration session has expired.",
       "start_over": "Start over",
       "title": "Specification",
-      "prices_ex_vat": "prices excl. VAT",
-      "customer_type": {
-        "person": "Private customer",
-        "organization": "Business customer"
-      },
       "net_price": "Net price",
       "quantity_suffix": "{count} pcs",
       "indicative": "Indicative price. The price is confirmed in the quotation.",
