@@ -198,6 +198,33 @@ test.describe('Checkout summary', () => {
     }
   });
 
+  test('removing the last line switches the page to the empty-cart state', async ({
+    page,
+  }) => {
+    await openCheckout(page);
+
+    // Removed one row at a time, waiting for each removal to land: that is the
+    // buyer's path, and it covers both "one by one" and "all of them".
+    const rows = page.locator('[data-testid="checkout-cart-item"]');
+    for (let remaining = await rows.count(); remaining > 0; remaining--) {
+      await page
+        .locator('[data-testid="checkout-remove-item"]')
+        .first()
+        .click();
+      await expect(rows).toHaveCount(remaining - 1);
+    }
+
+    await expect(page.locator('[data-testid="checkout-empty"]')).toBeVisible({
+      timeout: 20000,
+    });
+    await expect(
+      page.locator('[data-testid="checkout-order-summary"]'),
+    ).toHaveCount(0);
+    await expect(
+      page.locator('[data-testid="place-order-button"]'),
+    ).toHaveCount(0);
+  });
+
   test('the discount line carries what the API reports', async ({ page }) => {
     const cart = await openCheckout(page);
 
