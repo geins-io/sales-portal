@@ -147,6 +147,20 @@ const discountFormatted = computed(() => {
   );
 });
 
+// A cart the store has read and that has no lines. `cartStore.isEmpty` is also
+// true before the first fetch and again after placeOrder nulls the cart on the
+// way to the confirmation page, and both would flash a false empty state.
+const isCartEmpty = computed(() => {
+  const items = cartStore.cart?.items;
+  return Array.isArray(items) && items.length === 0;
+});
+
+// EMPTY_CART: the cart was emptied elsewhere and the server refused the order,
+// so this page's cart copy is stale.
+const showEmptyCart = computed(
+  () => isCartEmpty.value || checkoutStore.errorCode === 'EMPTY_CART',
+);
+
 // Hosted checkout state
 const isRedirecting = ref(false);
 const redirectError = ref<string | null>(null);
@@ -252,229 +266,245 @@ async function handlePlaceOrder() {
       <template v-else>
         <!-- Error -->
         <div
-          v-if="checkoutStore.error"
+          v-if="checkoutStore.error && !showEmptyCart"
           class="bg-destructive/10 text-destructive mb-6 rounded-md p-4 text-sm"
           data-testid="checkout-error"
         >
           {{ checkoutStore.error }}
         </div>
 
-        <!-- Blacklisted warning -->
-        <div
-          v-if="checkoutStore.isBlacklisted"
-          class="mb-6 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800"
-          data-testid="checkout-blacklisted"
-        >
-          {{ t('checkout.blacklisted') }}
-        </div>
+        <CartEmptyState v-if="showEmptyCart" data-testid="checkout-empty" />
 
-        <!-- Page heading -->
-        <h1 class="mb-6 text-2xl font-semibold" data-testid="checkout-heading">
-          {{ t('checkout.heading') }}
-        </h1>
-
-        <!-- Loading state -->
-        <div
-          v-if="checkoutStore.isLoading"
-          class="flex items-center justify-center py-24"
-          data-testid="checkout-loading"
-        >
-          <Loader2 class="text-muted-foreground size-8 animate-spin" />
-        </div>
-
-        <!-- Main content -->
-        <div v-else class="flex flex-col gap-8 lg:flex-row lg:items-start">
-          <!-- LEFT: Checkout form -->
-          <div class="min-w-0 flex-1 space-y-6">
-            <!-- Cart Items Summary -->
-            <CheckoutCartItems
-              :items="cartStore.cart?.items ?? []"
-              :is-editable="!isQuotationMode"
-            />
-
-            <!-- Contact Information: company users see read-only company card -->
-            <CheckoutCompanyInfo
-              v-if="isCompanyUser && companyData"
-              :company="companyData"
-              :buyer-email="authStore.user?.username ?? undefined"
-              :customer-order-number="checkoutStore.customerOrderNumber"
-              :disabled="checkoutStore.isPlacingOrder"
-              @update:customer-order-number="
-                checkoutStore.customerOrderNumber = $event
-              "
-            />
-            <Card v-else>
-              <CheckoutCardHeader :icon="Mail" :title="t('checkout.email')" />
-              <CardContent class="space-y-4 px-6">
-                <div class="space-y-2">
-                  <Label for="checkout-email">{{ t('checkout.email') }}</Label>
-                  <Input
-                    id="checkout-email"
-                    :model-value="checkoutStore.email"
-                    type="email"
-                    autocomplete="email"
-                    data-testid="checkout-email"
-                    @update:model-value="checkoutStore.email = $event as string"
-                  />
-                </div>
-                <div class="space-y-2">
-                  <Label for="checkout-identity">{{
-                    t('checkout.identity_number')
-                  }}</Label>
-                  <Input
-                    id="checkout-identity"
-                    :model-value="checkoutStore.identityNumber"
-                    type="text"
-                    data-testid="checkout-identity"
-                    @update:model-value="
-                      checkoutStore.identityNumber = $event as string
-                    "
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <!-- Billing Address: hidden for company users (included in company card) -->
-            <Card v-if="!isCompanyUser">
-              <CheckoutCardHeader
-                :icon="MapPin"
-                :title="t('checkout.billing_address')"
-              />
-              <CardContent class="px-6">
-                <CheckoutAddressForm
-                  :model-value="checkoutStore.billingAddress"
-                  prefix="billing"
-                  :disabled="checkoutStore.isPlacingOrder"
-                  :readonly="isBillingAddressReadonly"
-                  @update:model-value="
-                    Object.assign(checkoutStore.billingAddress, $event)
-                  "
-                />
-              </CardContent>
-            </Card>
-
-            <!-- Shipping Address: company users see read-only delivery card -->
-            <CheckoutDeliveryInfo
-              v-if="isCompanyUser && companyData"
-              :company="companyData"
-              :desired-delivery-date="checkoutStore.desiredDeliveryDate"
-              :goods-label="checkoutStore.goodsLabel"
-              :disabled="checkoutStore.isPlacingOrder"
-              :today-iso="todayIso"
-              @update:desired-delivery-date="
-                checkoutStore.desiredDeliveryDate = $event
-              "
-              @update:goods-label="checkoutStore.goodsLabel = $event"
-            />
-            <Card v-else-if="!isCompanyUser">
-              <CheckoutCardHeader
-                :icon="Truck"
-                :title="t('checkout.shipping_address')"
-              />
-              <CardContent class="space-y-4 px-6">
-                <div class="flex items-center gap-3">
-                  <Checkbox
-                    id="separate-shipping"
-                    :model-value="checkoutStore.useSeparateShipping"
-                    data-testid="separate-shipping-toggle"
-                    @update:model-value="
-                      checkoutStore.useSeparateShipping = $event === true
-                    "
-                  />
-                  <Label for="separate-shipping" class="cursor-pointer text-sm">
-                    {{ t('checkout.use_different_shipping') }}
-                  </Label>
-                </div>
-                <CheckoutAddressForm
-                  v-if="checkoutStore.useSeparateShipping"
-                  :model-value="checkoutStore.shippingAddress"
-                  prefix="shipping"
-                  :disabled="checkoutStore.isPlacingOrder"
-                  :readonly="isShippingAddressReadonly"
-                  @update:model-value="
-                    Object.assign(checkoutStore.shippingAddress, $event)
-                  "
-                />
-              </CardContent>
-            </Card>
-
-            <!-- Payment Method -->
-            <Card>
-              <CheckoutCardHeader
-                :icon="CreditCard"
-                :title="t('checkout.payment_method')"
-              />
-              <CardContent class="px-6">
-                <CheckoutPaymentOptions
-                  :options="checkoutStore.paymentOptions"
-                  :model-value="checkoutStore.selectedPaymentId"
-                  :disabled="checkoutStore.isPlacingOrder"
-                  @update:model-value="checkoutStore.selectedPaymentId = $event"
-                />
-              </CardContent>
-            </Card>
-
-            <!-- Order Message -->
-            <Card>
-              <CheckoutCardHeader
-                :icon="MessageSquare"
-                :title="t('checkout.order_message')"
-              />
-              <CardContent class="px-6">
-                <textarea
-                  id="checkout-message"
-                  :value="checkoutStore.message"
-                  :placeholder="t('checkout.order_message_placeholder')"
-                  :disabled="checkoutStore.isPlacingOrder"
-                  class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                  data-testid="checkout-message"
-                  @input="
-                    checkoutStore.message = (
-                      $event.target as HTMLTextAreaElement
-                    ).value
-                  "
-                />
-              </CardContent>
-            </Card>
-
-            <!-- Consents: only rendered when there are non-auto-accepted consents -->
-            <Card v-if="checkoutStore.consents?.some((c) => !c.autoAccept)">
-              <CheckoutCardHeader
-                :icon="FileCheck"
-                :title="t('checkout.consents')"
-              />
-              <CardContent class="px-6">
-                <CheckoutConsents
-                  :consents="checkoutStore.consents"
-                  :accepted="checkoutStore.acceptedConsents"
-                  :disabled="checkoutStore.isPlacingOrder"
-                  @toggle="checkoutStore.toggleConsent($event)"
-                />
-              </CardContent>
-            </Card>
+        <template v-else>
+          <!-- Blacklisted warning -->
+          <div
+            v-if="checkoutStore.isBlacklisted"
+            class="mb-6 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800"
+            data-testid="checkout-blacklisted"
+          >
+            {{ t('checkout.blacklisted') }}
           </div>
 
-          <!-- RIGHT: Order Summary Sidebar. self-stretch on desktop lets the
-               column match the form height so the summary's sticky positioning
-               has room to engage while scrolling. -->
-          <div class="w-full lg:w-80 lg:shrink-0 lg:self-stretch">
-            <CheckoutOrderSummary
-              :item-count="cartStore.itemCount"
-              :subtotal="subtotal"
-              :shipping-fee="shippingFee"
-              :tax="tax"
-              :total="total"
-              :discount="discountFormatted || undefined"
-              :can-place-order="
-                checkoutStore.canPlaceOrder && !checkoutStore.isBlacklisted
-              "
-              :terms-accepted="acceptedTerms"
-              :is-placing-order="checkoutStore.isPlacingOrder"
-              @place-order="handlePlaceOrder"
-              @update:terms-accepted="acceptedTerms = $event"
-            />
+          <!-- Page heading -->
+          <h1
+            class="mb-6 text-2xl font-semibold"
+            data-testid="checkout-heading"
+          >
+            {{ t('checkout.heading') }}
+          </h1>
+
+          <!-- Loading state -->
+          <div
+            v-if="checkoutStore.isLoading"
+            class="flex items-center justify-center py-24"
+            data-testid="checkout-loading"
+          >
+            <Loader2 class="text-muted-foreground size-8 animate-spin" />
           </div>
-        </div>
+
+          <!-- Main content -->
+          <div v-else class="flex flex-col gap-8 lg:flex-row lg:items-start">
+            <!-- LEFT: Checkout form -->
+            <div class="min-w-0 flex-1 space-y-6">
+              <!-- Cart Items Summary -->
+              <CheckoutCartItems
+                :items="cartStore.cart?.items ?? []"
+                :is-editable="!isQuotationMode"
+              />
+
+              <!-- Contact Information: company users see read-only company card -->
+              <CheckoutCompanyInfo
+                v-if="isCompanyUser && companyData"
+                :company="companyData"
+                :buyer-email="authStore.user?.username ?? undefined"
+                :customer-order-number="checkoutStore.customerOrderNumber"
+                :disabled="checkoutStore.isPlacingOrder"
+                @update:customer-order-number="
+                  checkoutStore.customerOrderNumber = $event
+                "
+              />
+              <Card v-else>
+                <CheckoutCardHeader :icon="Mail" :title="t('checkout.email')" />
+                <CardContent class="space-y-4 px-6">
+                  <div class="space-y-2">
+                    <Label for="checkout-email">{{
+                      t('checkout.email')
+                    }}</Label>
+                    <Input
+                      id="checkout-email"
+                      :model-value="checkoutStore.email"
+                      type="email"
+                      autocomplete="email"
+                      data-testid="checkout-email"
+                      @update:model-value="
+                        checkoutStore.email = $event as string
+                      "
+                    />
+                  </div>
+                  <div class="space-y-2">
+                    <Label for="checkout-identity">{{
+                      t('checkout.identity_number')
+                    }}</Label>
+                    <Input
+                      id="checkout-identity"
+                      :model-value="checkoutStore.identityNumber"
+                      type="text"
+                      data-testid="checkout-identity"
+                      @update:model-value="
+                        checkoutStore.identityNumber = $event as string
+                      "
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <!-- Billing Address: hidden for company users (included in company card) -->
+              <Card v-if="!isCompanyUser">
+                <CheckoutCardHeader
+                  :icon="MapPin"
+                  :title="t('checkout.billing_address')"
+                />
+                <CardContent class="px-6">
+                  <CheckoutAddressForm
+                    :model-value="checkoutStore.billingAddress"
+                    prefix="billing"
+                    :disabled="checkoutStore.isPlacingOrder"
+                    :readonly="isBillingAddressReadonly"
+                    @update:model-value="
+                      Object.assign(checkoutStore.billingAddress, $event)
+                    "
+                  />
+                </CardContent>
+              </Card>
+
+              <!-- Shipping Address: company users see read-only delivery card -->
+              <CheckoutDeliveryInfo
+                v-if="isCompanyUser && companyData"
+                :company="companyData"
+                :desired-delivery-date="checkoutStore.desiredDeliveryDate"
+                :goods-label="checkoutStore.goodsLabel"
+                :disabled="checkoutStore.isPlacingOrder"
+                :today-iso="todayIso"
+                @update:desired-delivery-date="
+                  checkoutStore.desiredDeliveryDate = $event
+                "
+                @update:goods-label="checkoutStore.goodsLabel = $event"
+              />
+              <Card v-else-if="!isCompanyUser">
+                <CheckoutCardHeader
+                  :icon="Truck"
+                  :title="t('checkout.shipping_address')"
+                />
+                <CardContent class="space-y-4 px-6">
+                  <div class="flex items-center gap-3">
+                    <Checkbox
+                      id="separate-shipping"
+                      :model-value="checkoutStore.useSeparateShipping"
+                      data-testid="separate-shipping-toggle"
+                      @update:model-value="
+                        checkoutStore.useSeparateShipping = $event === true
+                      "
+                    />
+                    <Label
+                      for="separate-shipping"
+                      class="cursor-pointer text-sm"
+                    >
+                      {{ t('checkout.use_different_shipping') }}
+                    </Label>
+                  </div>
+                  <CheckoutAddressForm
+                    v-if="checkoutStore.useSeparateShipping"
+                    :model-value="checkoutStore.shippingAddress"
+                    prefix="shipping"
+                    :disabled="checkoutStore.isPlacingOrder"
+                    :readonly="isShippingAddressReadonly"
+                    @update:model-value="
+                      Object.assign(checkoutStore.shippingAddress, $event)
+                    "
+                  />
+                </CardContent>
+              </Card>
+
+              <!-- Payment Method -->
+              <Card>
+                <CheckoutCardHeader
+                  :icon="CreditCard"
+                  :title="t('checkout.payment_method')"
+                />
+                <CardContent class="px-6">
+                  <CheckoutPaymentOptions
+                    :options="checkoutStore.paymentOptions"
+                    :model-value="checkoutStore.selectedPaymentId"
+                    :disabled="checkoutStore.isPlacingOrder"
+                    @update:model-value="
+                      checkoutStore.selectedPaymentId = $event
+                    "
+                  />
+                </CardContent>
+              </Card>
+
+              <!-- Order Message -->
+              <Card>
+                <CheckoutCardHeader
+                  :icon="MessageSquare"
+                  :title="t('checkout.order_message')"
+                />
+                <CardContent class="px-6">
+                  <textarea
+                    id="checkout-message"
+                    :value="checkoutStore.message"
+                    :placeholder="t('checkout.order_message_placeholder')"
+                    :disabled="checkoutStore.isPlacingOrder"
+                    class="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                    data-testid="checkout-message"
+                    @input="
+                      checkoutStore.message = (
+                        $event.target as HTMLTextAreaElement
+                      ).value
+                    "
+                  />
+                </CardContent>
+              </Card>
+
+              <!-- Consents: only rendered when there are non-auto-accepted consents -->
+              <Card v-if="checkoutStore.consents?.some((c) => !c.autoAccept)">
+                <CheckoutCardHeader
+                  :icon="FileCheck"
+                  :title="t('checkout.consents')"
+                />
+                <CardContent class="px-6">
+                  <CheckoutConsents
+                    :consents="checkoutStore.consents"
+                    :accepted="checkoutStore.acceptedConsents"
+                    :disabled="checkoutStore.isPlacingOrder"
+                    @toggle="checkoutStore.toggleConsent($event)"
+                  />
+                </CardContent>
+              </Card>
+            </div>
+
+            <!-- RIGHT: Order Summary Sidebar. self-stretch on desktop lets the
+                 column match the form height so the summary's sticky positioning
+                 has room to engage while scrolling. -->
+            <div class="w-full lg:w-80 lg:shrink-0 lg:self-stretch">
+              <CheckoutOrderSummary
+                :item-count="cartStore.itemCount"
+                :subtotal="subtotal"
+                :shipping-fee="shippingFee"
+                :tax="tax"
+                :total="total"
+                :discount="discountFormatted || undefined"
+                :can-place-order="
+                  checkoutStore.canPlaceOrder && !checkoutStore.isBlacklisted
+                "
+                :terms-accepted="acceptedTerms"
+                :is-placing-order="checkoutStore.isPlacingOrder"
+                @place-order="handlePlaceOrder"
+                @update:terms-accepted="acceptedTerms = $event"
+              />
+            </div>
+          </div>
+        </template>
       </template>
     </div>
   </div>

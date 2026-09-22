@@ -24,6 +24,11 @@ vi.mock('../../../server/services/checkout', () => ({
   getSummary: (...args: unknown[]) => mockGetSummary(...args),
 }));
 
+const mockGetCart = vi.fn();
+vi.mock('../../../server/services/cart', () => ({
+  getCart: (...args: unknown[]) => mockGetCart(...args),
+}));
+
 const mockRequireAuth = vi.fn();
 const mockOptionalAuth = vi.fn();
 vi.mock('../../../server/utils/auth', () => ({
@@ -57,12 +62,19 @@ vi.stubGlobal(
     return err;
   },
 );
+vi.stubGlobal('logger', {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+});
 vi.stubGlobal('createAppError', (code: string, message?: string) => {
   const statusMap: Record<string, number> = {
     NOT_FOUND: 404,
     BAD_REQUEST: 400,
     RATE_LIMITED: 429,
     UNAUTHORIZED: 401,
+    EMPTY_CART: 409,
   };
   const error = new Error(message || code) as Error & {
     statusCode: number;
@@ -77,6 +89,7 @@ vi.stubGlobal('ErrorCode', {
   BAD_REQUEST: 'BAD_REQUEST',
   RATE_LIMITED: 'RATE_LIMITED',
   UNAUTHORIZED: 'UNAUTHORIZED',
+  EMPTY_CART: 'EMPTY_CART',
 });
 vi.stubGlobal(
   'getValidatedQuery',
@@ -215,6 +228,7 @@ describe('Checkout API routes', () => {
     };
 
     beforeEach(async () => {
+      mockGetCart.mockResolvedValue({ items: [{ id: 'line-1' }] });
       const mod =
         await import('../../../server/api/checkout/create-order.post');
       handler = mod.default;
@@ -244,6 +258,46 @@ describe('Checkout API routes', () => {
         event,
       );
       expect(result).toEqual({ orderId: '123', publicId: 'pub-123' });
+    });
+
+    it('rejects a cart the platform reports as empty', async () => {
+      mockGetCart.mockResolvedValue({ items: [] });
+
+      const event = mockEvent({ body: validBody });
+      await expect(handler(event)).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'EMPTY_CART',
+      });
+      expect(mockCreateOrder).not.toHaveBeenCalled();
+    });
+
+    it('places the order when the cart read fails', async () => {
+      // Fail-open: a transient read error must not block a paying customer.
+      mockGetCart.mockRejectedValue(new Error('cart read failed'));
+      mockCreateOrder.mockResolvedValue({
+        created: true,
+        orderId: '124',
+        publicId: 'pub-124',
+      });
+
+      const result = await handler(mockEvent({ body: validBody }));
+
+      expect(mockCreateOrder).toHaveBeenCalled();
+      expect(result).toEqual({ orderId: '124', publicId: 'pub-124' });
+    });
+
+    it('places the order when the cart carries no items field', async () => {
+      mockGetCart.mockResolvedValue({});
+      mockCreateOrder.mockResolvedValue({
+        created: true,
+        orderId: '125',
+        publicId: 'pub-125',
+      });
+
+      const result = await handler(mockEvent({ body: validBody }));
+
+      expect(mockCreateOrder).toHaveBeenCalled();
+      expect(result).toEqual({ orderId: '125', publicId: 'pub-125' });
     });
 
     it('throws on failed creation', async () => {

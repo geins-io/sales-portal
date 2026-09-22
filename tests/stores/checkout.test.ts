@@ -549,8 +549,28 @@ describe('useCheckoutStore', () => {
       await store.placeOrder('cart-abc');
 
       expect(store.error).toBe('Failed to place order');
+      expect(store.errorCode).toBeNull();
       expect(store.isPlacingOrder).toBe(false);
       expect(store.orderResult).toBeNull();
+    });
+
+    it('keeps the server error code so the page can act on it', async () => {
+      // The shape $fetch rejects with: the response body under `data`, and the
+      // handler's own payload under `data.data`.
+      mockFetchImpl.mockRejectedValueOnce(
+        Object.assign(new Error('Conflict'), {
+          data: { statusCode: 409, data: { code: 'EMPTY_CART' } },
+        }),
+      );
+
+      const store = useCheckoutStore();
+      store.email = 'order@example.com';
+      store.billingAddress = { ...mockAddress };
+      store.selectedPaymentId = 2;
+
+      await store.placeOrder('cart-abc');
+
+      expect(store.errorCode).toBe('EMPTY_CART');
     });
 
     it('sends customerOrderNumber, goodsLabel, and desiredDeliveryDate when set', async () => {
@@ -660,6 +680,30 @@ describe('useCheckoutStore', () => {
       store.isPlacingOrder = true;
 
       expect(store.canPlaceOrder).toBe(false);
+    });
+
+    it('is false when the cart has been read and holds no lines', () => {
+      const store = useCheckoutStore();
+      const cartStore = useCartStore();
+      cartStore.cart = { items: [] } as unknown as typeof cartStore.cart;
+      store.email = 'test@example.com';
+      store.billingAddress = { ...mockAddress };
+      store.selectedPaymentId = 2;
+
+      expect(store.canPlaceOrder).toBe(false);
+    });
+
+    it('is true when the cart has not been read yet', () => {
+      // Fail-open, like the server guard: an unread cart is not a cart known
+      // to be empty, and blocking the button there strands a paying customer.
+      const store = useCheckoutStore();
+      const cartStore = useCartStore();
+      cartStore.cart = null;
+      store.email = 'test@example.com';
+      store.billingAddress = { ...mockAddress };
+      store.selectedPaymentId = 2;
+
+      expect(store.canPlaceOrder).toBe(true);
     });
 
     it('is true when all required fields are present', () => {

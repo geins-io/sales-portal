@@ -12,6 +12,13 @@ import { checkoutAddressFields } from '#shared/utils/checkout-address';
 import { useCartStore } from '~/stores/cart';
 import { useAuthStore } from '~/stores/auth';
 
+/** The `ErrorCode` a failed server call carries, or null. */
+function serverErrorCode(err: unknown): string | null {
+  const code = (err as { data?: { data?: { code?: unknown } } })?.data?.data
+    ?.code;
+  return typeof code === 'string' ? code : null;
+}
+
 function emptyAddress(): AddressInputType {
   return {
     firstName: '',
@@ -32,6 +39,7 @@ function emptyAddress(): AddressInputType {
 }
 
 export const useCheckoutStore = defineStore('checkout', () => {
+  const cartStore = useCartStore();
   const checkout = ref<CheckoutType | null>(null);
   const billingAddress = ref<AddressInputType>(emptyAddress());
   const shippingAddress = ref<AddressInputType>(emptyAddress());
@@ -53,6 +61,9 @@ export const useCheckoutStore = defineStore('checkout', () => {
   const isLoading = ref(false);
   const isPlacingOrder = ref(false);
   const error = ref<string | null>(null);
+  // The server's ErrorCode for the last failure, kept alongside the message so
+  // a caller can tell EMPTY_CART from any other rejection.
+  const errorCode = ref<string | null>(null);
   const orderResult = ref<{ orderId: string; publicId: string } | null>(null);
   const quoteMessage = ref('');
   const isRequestingQuote = ref(false);
@@ -92,8 +103,15 @@ export const useCheckoutStore = defineStore('checkout', () => {
       addr.zip
     );
   });
+  // Fail-open like the server guard: a cart that has not been read yet, or one
+  // whose read failed, is not a cart known to be empty.
+  const hasNoCartLines = computed(() => {
+    const items = cartStore.cart?.items;
+    return Array.isArray(items) && items.length === 0;
+  });
   const canPlaceOrder = computed(() => {
     if (isLoading.value || isPlacingOrder.value) return false;
+    if (hasNoCartLines.value) return false;
     if (!email.value) return false;
     if (!isAddressComplete.value) return false;
     if (!selectedPaymentId.value) return false;
@@ -188,6 +206,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
   async function placeOrder(cartId: string) {
     isPlacingOrder.value = true;
     error.value = null;
+    errorCode.value = null;
     try {
       const response = await $fetch<CreateOrderResponseType>(
         '/api/checkout/create-order',
@@ -230,10 +249,10 @@ export const useCheckoutStore = defineStore('checkout', () => {
       };
 
       // Clear cart store — cart no longer exists after order
-      const cartStore = useCartStore();
       cartStore.cart = null;
       cartStore.cartId = null;
-    } catch {
+    } catch (err) {
+      errorCode.value = serverErrorCode(err);
       error.value = 'Failed to place order';
     } finally {
       isPlacingOrder.value = false;
@@ -346,6 +365,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
     isLoading.value = false;
     isPlacingOrder.value = false;
     error.value = null;
+    errorCode.value = null;
     orderResult.value = null;
     quoteMessage.value = '';
     isRequestingQuote.value = false;
@@ -371,6 +391,7 @@ export const useCheckoutStore = defineStore('checkout', () => {
     isLoading,
     isPlacingOrder,
     error,
+    errorCode,
     orderResult,
     paymentOptions,
     shippingOptions,

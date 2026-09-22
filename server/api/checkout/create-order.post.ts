@@ -1,9 +1,36 @@
 import type { CreateOrderOptions, CustomerType } from '@geins/types';
+import type { H3Event } from 'h3';
 import { checkoutAddressFields } from '#shared/utils/checkout-address';
 import { PlaceOrderSchema } from '../../schemas/api-input';
+import { getCart } from '../../services/cart';
 import { createOrder } from '../../services/checkout';
 import { requireAuth } from '../../utils/auth';
 import { createOrderRateLimiter, getClientIp } from '../../utils/rate-limiter';
+
+/**
+ * Reject an order for a cart the platform reports as having no lines.
+ *
+ * Fail-open on purpose: only a cart read that positively returns a list of
+ * zero lines rejects. A missing field or a failed read places the order as
+ * before — blocking a paying customer on a transient read error is worse than
+ * the empty order this guards against.
+ */
+async function rejectEmptyCart(cartId: string, event: H3Event): Promise<void> {
+  let items: unknown;
+  try {
+    items = (await getCart(cartId, event))?.items;
+  } catch (error) {
+    logger.warn('Cart read before order creation failed; order not blocked', {
+      cartId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return;
+  }
+
+  if (Array.isArray(items) && items.length === 0) {
+    throw createAppError(ErrorCode.EMPTY_CART, 'Cart has no items', { cartId });
+  }
+}
 
 export default defineEventHandler(async (event) => {
   if (event.context.tenant?.config?.mode === 'catalog') {
@@ -25,6 +52,8 @@ export default defineEventHandler(async (event) => {
 
   return withErrorHandling(
     async () => {
+      await rejectEmptyCart(body.cartId, event);
+
       // @geins/types doesn't yet expose billingAddressId / shippingAddressId
       // on CheckoutInputType, but the live Geins GraphQL schema accepts
       // both (verified via introspection — required for company / B2B

@@ -13,6 +13,7 @@ export enum ErrorCode {
   NOT_FOUND = 'NOT_FOUND',
   RATE_LIMITED = 'RATE_LIMITED',
   CONFLICT = 'CONFLICT',
+  EMPTY_CART = 'EMPTY_CART',
   PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   GONE = 'GONE',
@@ -38,6 +39,9 @@ const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
   [ErrorCode.NOT_FOUND]: 404,
   [ErrorCode.RATE_LIMITED]: 429,
   [ErrorCode.CONFLICT]: 409,
+  // 409 rather than 400: the same endpoint answers 400 when order creation
+  // itself fails, so the status alone tells the two apart.
+  [ErrorCode.EMPTY_CART]: 409,
   [ErrorCode.PAYLOAD_TOO_LARGE]: 413,
   [ErrorCode.VALIDATION_ERROR]: 422,
   [ErrorCode.GONE]: 410,
@@ -61,6 +65,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.NOT_FOUND]: 'Resource not found',
   [ErrorCode.RATE_LIMITED]: 'Too many requests',
   [ErrorCode.CONFLICT]: 'Already processed',
+  [ErrorCode.EMPTY_CART]: 'Cart has no items',
   [ErrorCode.PAYLOAD_TOO_LARGE]: 'Payload too large',
   [ErrorCode.VALIDATION_ERROR]: 'Validation failed',
   [ErrorCode.GONE]: 'Resource is no longer available',

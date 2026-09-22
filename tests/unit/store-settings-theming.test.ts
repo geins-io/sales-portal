@@ -20,7 +20,7 @@ describe('store-settings button color on standalone CTAs', () => {
   const ctaFiles = [
     'app/components/checkout/OrderConfirmation.vue',
     'app/components/shared/EmptyState.vue',
-    'app/components/pages/CartPage.vue',
+    'app/components/cart/CartEmptyState.vue',
     'app/pages/quote-confirmation/[id].vue',
   ];
 

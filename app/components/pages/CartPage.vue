@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ShoppingCart, Tag, X } from 'lucide-vue-next';
+import { Tag, X } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import { formatPrice } from '#shared/types/commerce';
@@ -94,25 +94,10 @@ function goToCheckout() {
       />
 
       <!-- Empty state -->
-      <div
+      <CartEmptyState
         v-else-if="cartStore.isEmpty"
-        class="flex flex-col items-center justify-center gap-4 py-24"
         data-testid="cart-page-empty"
-      >
-        <ShoppingCart class="text-muted-foreground size-16" />
-        <p class="text-muted-foreground text-lg">
-          {{ $t('cart.empty_cart') }}
-        </p>
-        <p class="text-muted-foreground text-sm">
-          {{ $t('cart.empty_cart_message') }}
-        </p>
-        <NuxtLink
-          :to="localePath('/')"
-          class="bg-button-background text-primary-foreground hover:bg-button-background/90 mt-2 rounded-md px-6 py-2.5 text-sm font-medium transition-colors"
-        >
-          {{ $t('cart.continue_shopping') }}
-        </NuxtLink>
-      </div>
+      />
 
       <!-- Cart content: items + summary -->
       <div v-else class="flex flex-col gap-8 lg:flex-row lg:items-start">

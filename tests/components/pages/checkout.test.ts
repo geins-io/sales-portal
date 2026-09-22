@@ -139,6 +139,7 @@ vi.mock('../../../app/stores/checkout', () => ({
     isBlacklisted: false,
     canPlaceOrder: true,
     error: null,
+    errorCode: null,
     orderResult: null,
     quoteResult: null,
     email: '',
@@ -184,6 +185,7 @@ function checkoutStoreStub(overrides: Partial<CheckoutStore>): CheckoutStore {
     isBlacklisted: false,
     canPlaceOrder: true,
     error: null,
+    errorCode: null,
     orderResult: null,
     quoteResult: null,
     email: '',
@@ -209,13 +211,15 @@ function checkoutStoreStub(overrides: Partial<CheckoutStore>): CheckoutStore {
   } as unknown as CheckoutStore;
 }
 
+const mockCartStore = {
+  cart: null as { items: unknown[] } | null,
+  cartId: 'cart-test-001' as string | null,
+  itemCount: 0,
+  discountAmount: 0,
+};
+
 vi.mock('../../../app/stores/cart', () => ({
-  useCartStore: vi.fn(() => ({
-    cart: null,
-    cartId: 'cart-test-001',
-    itemCount: 0,
-    discountAmount: 0,
-  })),
+  useCartStore: vi.fn(() => mockCartStore),
 }));
 
 const mockAuthStore = {
@@ -239,6 +243,7 @@ vi.mock('#shared/constants/storage', () => ({
 const stubs = {
   ...defaultMountOptions.global?.stubs,
   CheckoutCartItems: { template: '<div data-testid="checkout-cart-items" />' },
+  CartEmptyState: { template: '<div />' },
   CheckoutCompanyInfo: {
     template: '<div data-testid="checkout-company-info" />',
     props: ['company', 'buyerEmail', 'customerOrderNumber', 'disabled'],
@@ -354,6 +359,9 @@ describe('checkout page', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     mockCartIdCookie.value = 'cart-test-001';
+    mockCartStore.cart = null;
+    mockCartStore.cartId = 'cart-test-001';
+    mockCartStore.itemCount = 0;
     mockFetchCheckout.mockClear();
     mockPlaceOrder = vi.fn().mockResolvedValue(undefined);
     // Reset to non-company state between tests
@@ -392,6 +400,66 @@ describe('checkout page', () => {
         replace: true,
       });
       expect(wrapper.find('[data-testid="checkout-page"]').exists()).toBe(true);
+    });
+  });
+
+  describe('empty cart', () => {
+    it('replaces the form with the empty state when the cart holds no lines', async () => {
+      mockCartStore.cart = { items: [] };
+
+      const wrapper = await mountCheckoutPage();
+
+      expect(wrapper.find('[data-testid="checkout-empty"]').exists()).toBe(
+        true,
+      );
+      expect(wrapper.find('[data-testid="checkout-heading"]').exists()).toBe(
+        false,
+      );
+      expect(
+        wrapper.find('[data-testid="checkout-order-summary"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="checkout-address-form"]').exists(),
+      ).toBe(false);
+    });
+
+    it('renders the form while the cart has not been read yet', async () => {
+      // cart === null is "not fetched" or "the fetch failed", not "empty";
+      // treating it as empty flashes the empty state on every first paint.
+      mockCartStore.cart = null;
+
+      const wrapper = await mountCheckoutPage();
+
+      expect(wrapper.find('[data-testid="checkout-empty"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.find('[data-testid="checkout-heading"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('shows the empty state instead of the error when the order was rejected as EMPTY_CART', async () => {
+      // The cart was emptied elsewhere, so this page's copy still has lines and
+      // only the server's rejection knows better.
+      mockCartStore.cart = { items: [{ id: 'line-1' }] };
+      const { useCheckoutStore } = await import('../../../app/stores/checkout');
+      vi.mocked(useCheckoutStore).mockReturnValueOnce(
+        checkoutStoreStub({
+          error: 'Failed to place order',
+          errorCode: 'EMPTY_CART',
+          fetchCheckout: mockFetchCheckout,
+          placeOrder: mockPlaceOrder,
+        } as Partial<CheckoutStore>),
+      );
+
+      const wrapper = await mountCheckoutPage();
+
+      expect(wrapper.find('[data-testid="checkout-empty"]').exists()).toBe(
+        true,
+      );
+      expect(wrapper.find('[data-testid="checkout-error"]').exists()).toBe(
+        false,
+      );
     });
   });
 
