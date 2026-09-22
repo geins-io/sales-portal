@@ -21,6 +21,9 @@ import type { Seed } from './types';
 //     `Packaging` inside it does not: the document says show one and not the
 //     other, and the rule that a hidden parent takes its whole subtree with it
 //     had no data behind it until now.
+//   * a section that is a way in rather than a page. `Accessories` has two
+//     visible children and nothing of its own, and `Tool holding` inside it has
+//     one child and nothing of its own. Neither shape existed in a document.
 //   * option groups inside option groups, in `Storage`: `Drawer unit` holds
 //     one nested list and `Small parts storage` holds three. The contract
 //     nests them and no seed did, so the shape was only ever unit-tested.
@@ -226,6 +229,94 @@ function logisticsSection(): ConfigurationSection {
                 selectionSource: 'locked',
               }),
               option('crate-steel', 'Returnable steel rack', 0, 907_021),
+            ],
+          }),
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * A section that is a way in rather than a page: no groups and no variables of
+ * its own, two visible children. The document had no such shape, and both the
+ * subsection menu and the fallback under it are rules no seed could show.
+ *
+ * `Tool holding` is the fallback's data — one child and nothing of its own to
+ * answer — and `Waste handling` is the ordinary page beside it.
+ *
+ * It sits last in the array, numbered from 31: the seed runs one counter
+ * through the whole document and nothing is free between `Power and lighting`'s
+ * last member and `Logistics`. Order comes from `sortIndex`, and `Logistics` is
+ * invisible, so the buyer still reads this as the fourth section.
+ */
+function accessoriesSection(): ConfigurationSection {
+  return {
+    id: 'accessories',
+    name: 'Accessories',
+    sortIndex: 31,
+    visible: true,
+    messages: [],
+    variables: [],
+    optionGroups: [],
+    sections: [
+      {
+        id: 'tool-holding',
+        name: 'Tool holding',
+        sortIndex: 32,
+        visible: true,
+        messages: [],
+        variables: [],
+        optionGroups: [],
+        sections: [
+          {
+            id: 'tool-rails',
+            name: 'Tool rails',
+            sortIndex: 33,
+            visible: true,
+            sections: [],
+            messages: [],
+            variables: [],
+            optionGroups: [
+              seedGroup({
+                id: 'rail-length',
+                code: 'RAIL',
+                name: 'Rail length',
+                sortIndex: 34,
+                minSelections: 1,
+                maxSelections: 1,
+                options: [
+                  option('rail-half', 'Half the worktop length', 0, 907_070, {
+                    selected: true,
+                    selectionSource: 'initial',
+                  }),
+                  option('rail-full', 'Full worktop length', 460, 907_071),
+                ],
+              }),
+            ],
+          },
+        ],
+      },
+      {
+        id: 'waste',
+        name: 'Waste handling',
+        sortIndex: 35,
+        visible: true,
+        sections: [],
+        messages: [],
+        variables: [],
+        optionGroups: [
+          seedGroup({
+            id: 'waste-bin',
+            code: 'WASTE',
+            name: 'Waste bin',
+            sortIndex: 36,
+            quantityEditable: true,
+            options: [
+              option('waste-chute', 'Worktop chute with bin', 890, 907_072),
+              option('waste-sorter', 'Two-way sorting frame', 1340, 907_073, {
+                maxQuantity: 2,
+              }),
             ],
           }),
         ],
@@ -486,6 +577,7 @@ function buildSections(): ConfigurationSection[] {
       ],
     },
     logisticsSection(),
+    accessoriesSection(),
   ];
 }
 

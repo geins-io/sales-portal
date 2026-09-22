@@ -1011,13 +1011,14 @@ describe('the third seeded product', () => {
     expect(sections.find((s) => s.id === 'edge')?.depth).toBe(2);
   });
 
-  it('has three visible sections at the top and one that is hidden', async () => {
+  it('has four visible sections at the top and one that is hidden', async () => {
     const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
 
     expect(config.sections.filter((s) => s.visible).map((s) => s.id)).toEqual([
       'structure',
       'storage',
       'power',
+      'accessories',
     ]);
     expect(config.sections.filter((s) => !s.visible).map((s) => s.id)).toEqual([
       'logistics',
@@ -1040,15 +1041,48 @@ describe('the third seeded product', () => {
   it('gives every visible section something to show', async () => {
     const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
     const visible = flatten(config.sections).filter((s) => s.visible);
-    const contentOf = (id: string) => {
+    const showsOf = (id: string) => {
       const found = everySection(config.sections).find((s) => s.id === id)!;
-      return found.optionGroups.length + found.variables.length;
+      return (
+        found.optionGroups.length +
+        found.variables.length +
+        found.sections.filter((child) => child.visible).length
+      );
     };
 
+    // Choices of its own, or the children it is a way in to. A section with
+    // neither would be a heading over an empty column, and that is the one
+    // shape this document must not carry.
     expect(visible.length).toBeGreaterThan(0);
     for (const section of visible) {
-      expect(contentOf(section.id)).toBeGreaterThan(0);
+      expect(showsOf(section.id)).toBeGreaterThan(0);
     }
+  });
+
+  it('carries a section that is a way in rather than a page', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const accessories = config.sections.find((s) => s.id === 'accessories')!;
+
+    // Two visible children and nothing of its own: the page shows the menu and
+    // none of the section's own content, which no other seed could exercise.
+    expect(accessories.optionGroups).toEqual([]);
+    expect(accessories.variables).toEqual([]);
+    expect(
+      accessories.sections.filter((child) => child.visible).map((c) => c.id),
+    ).toEqual(['tool-holding', 'waste']);
+  });
+
+  it('carries a middle level with one child and nothing of its own', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const tools = everySection(config.sections).find(
+      (s) => s.id === 'tool-holding',
+    )!;
+
+    // One child is no choice to make, so the page renders the section and
+    // offers the way on below it rather than as a menu.
+    expect(tools.optionGroups).toEqual([]);
+    expect(tools.variables).toEqual([]);
+    expect(tools.sections.map((child) => child.id)).toEqual(['tool-rails']);
   });
 
   it('is valid on arrival', async () => {
