@@ -72,11 +72,9 @@ function buildCachePrefix(event: H3Event): string {
 }
 
 /**
- * Check if a widget area result has actual content. A container with zero
- * widgets counts as empty — the CMS can provision empty container shells in
- * one language while the translated sibling stays populated, and we want
- * the language fallback to kick in when the current language only returns
- * shells.
+ * Whether a widget area result carries anything worth rendering. A container
+ * with zero widgets counts as empty: the CMS can provision empty container
+ * shells, so the containers alone do not say whether an area has content.
  */
 function hasContent(area: ContentAreaType | null | undefined): boolean {
   const containers = area?.containers ?? [];
@@ -265,12 +263,11 @@ function filtersCacheSegment(filters: CmsWidgetFilter[] | undefined): string {
  * Fetches one display-setting "leg" of a content area: the containers Geins
  * returns for the given `displaySetting` filter (a desktop leg returns the
  * always-visible plus desktop-only containers; a mobile leg returns the
- * always-visible plus mobile-only). Handles preview and the language fallback;
- * getContentArea fetches both legs and merges them.
+ * always-visible plus mobile-only). Handles preview; getContentArea fetches
+ * both legs and merges them.
  *
- * Must strip languageId from BOTH query vars AND RequestContext on fallback —
- * the SDK merges context after vars, so context.languageId would override the
- * strip.
+ * The query always carries `languageId`, so an area Geins filters to another
+ * language stays empty instead of resolving to the account's default language.
  */
 async function fetchAreaLeg(
   sdk: Awaited<ReturnType<typeof getTenantSDK>>,
@@ -308,63 +305,10 @@ async function fetchAreaLeg(
     }
   }
 
-  let result = (await wrapServiceCall(
+  return (await wrapServiceCall(
     () => sdk.cms.area.get(queryArgs, ctx) as Promise<ContentAreaType>,
     'cms',
   )) as ContentAreaType;
-
-  // Fallback: if no content for this language, retry without languageId override
-  // so the SDK uses its default locale. Handles CMS content that was created
-  // for a single language but should be visible to all users.
-  // Preserves preview flag so draft content still works in fallback.
-  if (!hasContent(result) && channelVars.languageId) {
-    const { languageId: _v, ...varsWithoutLang } = channelVars;
-    const { languageId: _c, ...ctxWithoutLang } = ctx ?? {};
-    const fallbackBase = {
-      ...args,
-      ...varsWithoutLang,
-      displaySetting,
-      ...(args.customerType && { customerType: args.customerType }),
-    };
-    const fallbackCtx = Object.keys(ctxWithoutLang).length
-      ? ctxWithoutLang
-      : undefined;
-
-    // Try with preview first (if in preview mode), then without
-    if (preview) {
-      try {
-        const pResult = (await wrapServiceCall(
-          () =>
-            sdk.cms.area.get(
-              { ...fallbackBase, preview: true },
-              fallbackCtx,
-            ) as Promise<ContentAreaType>,
-          'cms',
-        )) as ContentAreaType;
-        if (hasContent(pResult)) {
-          result = pResult;
-        }
-      } catch {
-        // Preview fallback failed — continue to non-preview fallback
-      }
-    }
-
-    if (!hasContent(result)) {
-      const fbResult = (await wrapServiceCall(
-        () =>
-          sdk.cms.area.get(
-            fallbackBase,
-            fallbackCtx,
-          ) as Promise<ContentAreaType>,
-        'cms',
-      )) as ContentAreaType;
-      if (hasContent(fbResult)) {
-        result = fbResult;
-      }
-    }
-  }
-
-  return result;
 }
 
 export async function getContentArea(
