@@ -581,11 +581,16 @@ useProductSeo({
             <button
               v-if="hasFeature('wishlist') && authStore.isAuthenticated"
               type="button"
-              class="text-muted-foreground hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
+              class="hover:text-foreground flex items-center gap-2 py-2.5 text-left text-[13px] transition-colors"
+              :class="isFavorited ? 'text-foreground' : 'text-muted-foreground'"
               data-testid="pdp-save-favourite"
+              :data-favorited="isFavorited"
               @click="toggleFavourite"
             >
-              <Star class="size-4" />
+              <Star
+                class="size-4"
+                :fill="isFavorited ? 'currentColor' : 'none'"
+              />
               <span>
                 {{
                   isFavorited

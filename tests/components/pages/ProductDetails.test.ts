@@ -12,6 +12,7 @@ import { flushPromises } from '@vue/test-utils';
 import { mountComponent, type MountOptionsFor } from '../../utils/component';
 import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
 import type { DetailProduct } from '../../../shared/types/commerce';
+import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { mockIsCatalogMode } from '../../setup-components';
 import { useTenant } from '../../../app/composables/useTenant';
 
@@ -59,6 +60,33 @@ vi.mock('~/stores/cart', () => ({
   useCartStore: () => ({
     addItem: vi.fn(),
     isLoading: false,
+  }),
+}));
+
+const mockIsAuthenticated = ref(true);
+const mockIsFavorite = vi.fn(() => false);
+const mockToggleFavorite = vi.fn();
+
+vi.mock('~/stores/auth', () => ({
+  useAuthStore: () => ({
+    get isAuthenticated() {
+      return mockIsAuthenticated.value;
+    },
+  }),
+}));
+
+vi.mock('~/stores/favorites', () => ({
+  useFavoritesStore: () => ({
+    toggle: mockToggleFavorite,
+    isFavorite: mockIsFavorite,
+    items: [],
+    count: 0,
+    lists: [],
+    favorites: null,
+    productListIds: () => [],
+    addItemToList: vi.fn(),
+    removeItemFromList: vi.fn(),
+    createList: vi.fn(),
   }),
 }));
 
@@ -972,6 +1000,60 @@ describe('ProductDetails', () => {
       );
       expect(urls).toContain('/api/products/wood-screw-se/related');
       expect(urls).not.toContain('/api/products/wood-screw-sv/related');
+    });
+  });
+
+  // The star is the only thing on this row with an on/off state, and its fill
+  // is what carries it. ProductCard asserts the same pair on its own button.
+  describe('the favourite star', () => {
+    let originalFeatures: PublicTenantConfig['features'];
+
+    beforeEach(() => {
+      const { tenant } = useTenant();
+      assert.isDefined(tenant.value);
+      originalFeatures = tenant.value.features;
+      tenant.value.features = {
+        ...originalFeatures,
+        wishlist: { enabled: true },
+      };
+      mockIsAuthenticated.value = true;
+      mockIsFavorite.mockReturnValue(false);
+    });
+
+    afterEach(() => {
+      const { tenant } = useTenant();
+      assert.isDefined(tenant.value);
+      tenant.value.features = originalFeatures;
+    });
+
+    // The star reaches the DOM through lucide's inner `Icon`, which
+    // defaultStubs replaces. `fill` is not one of the stub's props, so it
+    // lands as an attribute and the binding under test stays assertable.
+    async function mountFavouriteButton() {
+      const product = makeProduct();
+      const wrapper = await mountProductDetails(
+        { product, alias: product.alias },
+        { global: { stubs: defaultStubs } },
+      );
+      return wrapper.get('[data-testid="pdp-save-favourite"]');
+    }
+
+    it('fills the star when the product is a favourite', async () => {
+      mockIsFavorite.mockReturnValue(true);
+
+      const button = await mountFavouriteButton();
+
+      expect(button.attributes('data-favorited')).toBe('true');
+      expect(button.get('[data-name="star"]').attributes('fill')).toBe(
+        'currentColor',
+      );
+    });
+
+    it('leaves the star outlined when the product is not a favourite', async () => {
+      const button = await mountFavouriteButton();
+
+      expect(button.attributes('data-favorited')).toBe('false');
+      expect(button.get('[data-name="star"]').attributes('fill')).toBe('none');
     });
   });
 });
