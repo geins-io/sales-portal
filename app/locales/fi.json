@@ -338,6 +338,8 @@
     "previous": "Edellinen",
     "next": "Seuraava",
     "section_position": "Osio {current}/{total}",
+    "choose_subsection": "Valitse aliosio jatkaaksesi.",
+    "subsections_only": "Tässä osiossa on aliosioita. Valitse yksi jatkaaksesi.",
     "page_note": "Tämä on määritettävä tuote. Rakenna oma versiosi alla kohdassa {tab} — hinta ja voimassaolo lasketaan jatkuvasti.",
     "severity": {
       "error": "Virhe",

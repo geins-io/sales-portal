@@ -763,14 +763,38 @@ describe('ConfiguratorProduct sections rail', () => {
     ]);
   });
 
-  it('gives each entry one indentation step per level', async () => {
+  it('puts the depth in the number rather than in an indent', async () => {
     const wrapper = await mountTree();
 
+    const entries = wrapper.findAll('[data-testid="configurator-rail-entry"]');
+
+    expect(entries.map((entry) => entry.attributes('data-number'))).toEqual([
+      '1',
+      '1.1',
+      '1.1.1',
+      '2',
+      '3',
+    ]);
     expect(
       wrapper
-        .findAll('[data-testid="configurator-rail-entry"]')
-        .map((entry) => entry.attributes('data-depth')),
-    ).toEqual(['0', '1', '2', '0', '0']);
+        .findAll('[data-testid="configurator-rail-number"]')
+        .map((number) => number.text()),
+    ).toEqual(['1', '1.1', '1.1.1', '2', '3']);
+    // Nothing indents any more, at any depth: the number is the only thing
+    // that says where an entry sits.
+    expect(entries.map((entry) => entry.attributes('style'))).toEqual(
+      entries.map(() => undefined),
+    );
+  });
+
+  it('marks the active entry with a left border and nothing else moves', async () => {
+    const wrapper = await mountTree();
+
+    const entries = wrapper.findAll('[data-testid="configurator-rail-entry"]');
+
+    expect(entries[0]!.classes()).toContain('border-primary');
+    expect(entries[1]!.classes()).toContain('border-transparent');
+    expect(entries[1]!.classes()).not.toContain('border-primary');
   });
 
   it('leaves out a hidden section and the visible child under it', async () => {
@@ -987,5 +1011,196 @@ describe('ConfiguratorProduct sections rail', () => {
         )
         .map((entry) => entry.attributes('data-section-id')),
     ).toEqual(['finish', 'extras']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The section page: its trail, its number and the two shapes it takes when the
+// section is a way in rather than a page of its own.
+// ---------------------------------------------------------------------------
+
+describe('ConfiguratorProduct section trail', () => {
+  async function mountTree() {
+    const wrapper = mountPage();
+    activeWith(makeSectionTreeConfiguration());
+    await nextTick();
+    return wrapper;
+  }
+
+  const crumbNames = (wrapper: ReturnType<typeof mountPage>): string[] =>
+    wrapper
+      .findAll('[data-testid="configurator-crumb"]')
+      .map((crumb) => crumb.text());
+
+  it('writes no trail at the top level, where it would repeat the heading', async () => {
+    const wrapper = await mountTree();
+
+    expect(wrapper.find('[data-testid="configurator-crumbs"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it('names the ancestors of a nested section, itself last', async () => {
+    const wrapper = await mountTree();
+
+    await wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')[2]!
+      .trigger('click');
+
+    expect(crumbNames(wrapper)).toEqual(['Frame', 'Finish', 'Edge trim']);
+  });
+
+  it('opens the ancestor the buyer clicks in the trail', async () => {
+    const wrapper = await mountTree();
+
+    await wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')[2]!
+      .trigger('click');
+    await wrapper
+      .findAll('[data-testid="configurator-crumb"]')[0]!
+      .trigger('click');
+
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-section-id'),
+    ).toBe('frame');
+  });
+
+  it('numbers the header with the section\u2019s place in the tree', async () => {
+    const wrapper = await mountTree();
+
+    await wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')[2]!
+      .trigger('click');
+
+    expect(
+      wrapper.find('[data-testid="configurator-section-number"]').text(),
+    ).toBe('1.1.1');
+  });
+
+  it('keeps the position line a flat count of the rail', async () => {
+    const wrapper = await mountTree();
+
+    await wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')[2]!
+      .trigger('click');
+
+    // Where the buyer stands in the walk, not where the section sits in the
+    // tree; the number in the header already says the second thing.
+    expect(wrapper.find('[data-testid="configurator-position"]').text()).toBe(
+      'configurator.section_position',
+    );
+  });
+});
+
+describe('ConfiguratorProduct subsection menu', () => {
+  /** `Frame` gains a second child, which is what makes it a way in. */
+  function withTwoChildren(): Configuration {
+    const config = makeSectionTreeConfiguration();
+    const frame = config.sections[0]!;
+    frame.sections = [
+      ...frame.sections,
+      {
+        id: 'castors',
+        name: 'Castors',
+        visible: true,
+        sections: [],
+        variables: [],
+        optionGroups: [],
+        messages: [],
+      },
+    ];
+    return config;
+  }
+
+  async function mountWith(config: Configuration) {
+    const wrapper = mountPage();
+    activeWith(config);
+    await nextTick();
+    return wrapper;
+  }
+
+  const subsectionIds = (
+    wrapper: ReturnType<typeof mountPage>,
+  ): (string | undefined)[] =>
+    wrapper
+      .findAll('[data-testid="configurator-subsection"]')
+      .map((button) => button.attributes('data-section-id'));
+
+  it('offers the children of a section with two of them', async () => {
+    const wrapper = await mountWith(withTwoChildren());
+
+    expect(subsectionIds(wrapper)).toEqual(['finish', 'castors']);
+  });
+
+  it('renders none of that section\u2019s own content', async () => {
+    const wrapper = await mountWith(withTwoChildren());
+
+    // The first thing to do there is pick a branch; the groups and fields
+    // belong to the page the buyer has not reached yet.
+    expect(wrapper.find('[data-testid="section"]').exists()).toBe(false);
+  });
+
+  it('opens the child the buyer picks', async () => {
+    const wrapper = await mountWith(withTwoChildren());
+
+    await wrapper
+      .findAll('[data-testid="configurator-subsection"]')[1]!
+      .trigger('click');
+
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-section-id'),
+    ).toBe('castors');
+  });
+
+  it('leaves out a hidden child, which the rail leaves out too', async () => {
+    const config = withTwoChildren();
+    const frame = config.sections[0]!;
+    frame.sections = [
+      ...frame.sections,
+      {
+        id: 'warehouse-prep',
+        name: 'Warehouse prep',
+        visible: false,
+        sections: [],
+        variables: [],
+        optionGroups: [],
+        messages: [],
+      },
+    ];
+
+    expect(subsectionIds(await mountWith(config))).toEqual([
+      'finish',
+      'castors',
+    ]);
+  });
+
+  it('is not a menu with one child: the section renders itself', async () => {
+    const wrapper = await mountWith(makeSectionTreeConfiguration());
+
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-section-id'),
+    ).toBe('frame');
+    expect(subsectionIds(wrapper)).toEqual([]);
+  });
+
+  it('lists the one child of a section that has nothing of its own to answer', async () => {
+    const config = makeSectionTreeConfiguration();
+    const frame = config.sections[0]!;
+    frame.optionGroups = [];
+    frame.variables = [];
+
+    const wrapper = await mountWith(config);
+
+    // Its own page would otherwise be a heading over an empty column.
+    expect(subsectionIds(wrapper)).toEqual(['finish']);
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-section-id'),
+    ).toBe('frame');
+  });
+
+  it('lists nothing extra under a section that has content and one child', async () => {
+    const wrapper = await mountWith(makeSectionTreeConfiguration());
+
+    expect(subsectionIds(wrapper)).toEqual([]);
   });
 });

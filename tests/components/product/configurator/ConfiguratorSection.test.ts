@@ -91,22 +91,27 @@ describe('ConfiguratorSection', () => {
     expect(wrapper.text()).not.toContain('configurator.measurements');
   });
 
-  it('gives fields that sit together one grid and lets a group break the run', () => {
+  it('gives every field a row of its own, never a shared grid', () => {
     const cabinet = makeCabinetConfiguration();
 
     const wrapper = mountSection(sectionOf(cabinet.sections, 'cabinet'));
 
-    // Two grids: the pair between the lists, and the lone field after them.
-    // The lone one keeps the box it would have had as the odd one out, rather
-    // than stretching across a column a stepper does not need.
+    // A date, a free text and a measurement side by side would say they belong
+    // together. They are the section's own fields and nothing more, so each one
+    // gets a rule and air of its own across the full width.
+    const rows = wrapper.findAll('[data-testid="configurator-variable-row"]');
+
+    expect(rows).toHaveLength(
+      wrapper.findAll('[data-testid="configurator-variable"]').length,
+    );
     expect(
-      wrapper
-        .findAll('[data-testid="configurator-variables"]')
-        .map(
-          (grid) =>
-            grid.findAll('[data-testid="configurator-variable"]').length,
-        ),
-    ).toEqual([2, 1]);
+      rows.map(
+        (row) => row.findAll('[data-testid="configurator-variable"]').length,
+      ),
+    ).toEqual(rows.map(() => 1));
+    expect(
+      wrapper.find('[data-testid="configurator-variables"]').exists(),
+    ).toBe(false);
   });
 
   it('renders its own content only, never a child section\u2019s', () => {

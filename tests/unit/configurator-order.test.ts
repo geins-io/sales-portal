@@ -4,11 +4,7 @@ import type {
   ConfigurationSection,
   ConfigurationVariable,
 } from '#shared/types/configurator';
-import {
-  orderedSections,
-  sectionBlocks,
-  sectionMembers,
-} from '~/utils/configurator-order';
+import { orderedSections, sectionMembers } from '~/utils/configurator-order';
 
 // ---------------------------------------------------------------------------
 // Minimal nodes rather than a seeded document: what is measured here is the
@@ -173,57 +169,6 @@ describe('sectionMembers', () => {
     // A child is a page of its own in the rail, so its groups are never part
     // of the parent's page however Monitor numbered them.
     expect(names(sectionMembers(frame))).toEqual(['g:legs']);
-  });
-});
-
-describe('sectionBlocks', () => {
-  it('folds a run of variables into one block and lets a group break it', () => {
-    const frame = section('frame', {
-      optionGroups: [group('legs', 1), group('industrial', 4)],
-      variables: [variable('width', 2), variable('depth', 3)],
-    });
-
-    expect(
-      sectionBlocks(frame).map((block) =>
-        block.kind === 'group'
-          ? `g:${block.group.id}`
-          : `v:${block.variables.map((each) => each.id).join(',')}`,
-      ),
-    ).toEqual(['g:legs', 'v:width,depth', 'g:industrial']);
-  });
-
-  it('gives a lone variable between two groups a block of its own', () => {
-    const frame = section('frame', {
-      optionGroups: [group('legs', 1), group('industrial', 3)],
-      variables: [variable('width', 2)],
-    });
-
-    const blocks = sectionBlocks(frame);
-
-    expect(blocks).toHaveLength(3);
-    expect(blocks[1]).toEqual({
-      kind: 'variables',
-      variables: [expect.any(Object)],
-    });
-  });
-
-  it('opens with a grid where the first member is a field', () => {
-    const logistics = section('logistics', {
-      variables: [variable('pallet-code', 1), variable('weight', 2)],
-    });
-
-    // A section can hold no list at all, and the run then starts against an
-    // empty result rather than after a group.
-    expect(sectionBlocks(logistics)).toEqual([
-      {
-        kind: 'variables',
-        variables: [expect.any(Object), expect.any(Object)],
-      },
-    ]);
-  });
-
-  it('is empty for a section that holds neither', () => {
-    expect(sectionBlocks(section('empty'))).toEqual([]);
   });
 });
 

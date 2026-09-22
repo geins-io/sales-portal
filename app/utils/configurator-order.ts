@@ -22,10 +22,6 @@ export type SectionMember =
   | { kind: 'group'; group: ConfigurationOptionGroup }
   | { kind: 'variable'; variable: ConfigurationVariable };
 
-export type SectionBlock =
-  | { kind: 'group'; group: ConfigurationOptionGroup }
-  | { kind: 'variables'; variables: ConfigurationVariable[] };
-
 type Index = number | null | undefined;
 
 /** Null last, and spelled out rather than left to `Infinity - Infinity`. */
@@ -75,32 +71,6 @@ export function sectionMembers(section: ConfigurationSection): SectionMember[] {
       ? member.group.sortIndex
       : member.variable.sortIndex,
   );
-}
-
-/**
- * The same order as blocks to render: a group, or a run of variables that sit
- * next to each other.
- *
- * A run shares one two-column grid, so a section whose fields arrive together
- * looks as it did when they were gathered under a heading, and a lone field
- * between two groups gets the box it would have had as the odd one out. Built
- * here rather than in the template because Stryker instruments a file before
- * the Vue compiler runs: a rule written in a template is one nothing proves.
- */
-export function sectionBlocks(section: ConfigurationSection): SectionBlock[] {
-  const blocks: SectionBlock[] = [];
-
-  for (const member of sectionMembers(section)) {
-    if (member.kind === 'group') {
-      blocks.push({ kind: 'group', group: member.group });
-      continue;
-    }
-    const last = blocks.at(-1);
-    if (last?.kind === 'variables') last.variables.push(member.variable);
-    else blocks.push({ kind: 'variables', variables: [member.variable] });
-  }
-
-  return blocks;
 }
 
 /** Sibling sections in index order — identity where the provider sent them so. */

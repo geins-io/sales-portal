@@ -3,7 +3,7 @@ import type {
   ConfigurationChange,
   ConfigurationSection,
 } from '#shared/types/configurator';
-import { sectionBlocks } from '~/utils/configurator-order';
+import { sectionMembers } from '~/utils/configurator-order';
 
 /**
  * One `ConfigurationSection`'s own content — its groups and its variables, in
@@ -28,7 +28,7 @@ const { section, disabled = false } = defineProps<{
 
 const emit = defineEmits<{ change: [ConfigurationChange] }>();
 
-const blocks = computed(() => sectionBlocks(section));
+const members = computed(() => sectionMembers(section));
 </script>
 
 <template>
@@ -44,29 +44,28 @@ const blocks = computed(() => sectionBlocks(section));
          heading is invented over them: a variable is the section's own field
          and the section is already named. `5` is one below the `h4` the page
          renders over this section. -->
-    <template v-for="(block, index) in blocks">
+    <template v-for="member in members">
       <ConfiguratorOptionGroup
-        v-if="block.kind === 'group'"
-        :key="block.group.id"
-        :group="block.group"
+        v-if="member.kind === 'group'"
+        :key="member.group.id"
+        :group="member.group"
         :level="5"
         :disabled="disabled"
         @change="emit('change', $event)"
       />
 
-      <!-- Fields that sit next to each other share the grid; a group between
-           them starts a new one, so a lone field keeps the box it would have
-           had as the odd one out of a longer run. -->
+      <!-- A field with no group over it gets a rule and air of its own, which
+           is all the framing it has. One field per row and never a shared grid:
+           a date, a free text and a measurement side by side would say they
+           belong together, and a section's fields are only its own. -->
       <div
         v-else
-        :key="`variables:${index}`"
-        data-testid="configurator-variables"
-        class="grid gap-4 sm:grid-cols-2"
+        :key="member.variable.id"
+        data-testid="configurator-variable-row"
+        class="border-border border-t py-5"
       >
         <ConfiguratorVariableField
-          v-for="variable in block.variables"
-          :key="variable.id"
-          :variable="variable"
+          :variable="member.variable"
           :disabled="disabled"
           @change="emit('change', $event)"
         />

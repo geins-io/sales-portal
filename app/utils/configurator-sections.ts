@@ -26,6 +26,8 @@ export interface SectionEntry {
   section: ConfigurationSection;
   /** 0 for a top-level section, one step per level below it. */
   depth: number;
+  /** Where it sits in the tree, spelled out: `1`, `2`, `2.1`, `2.1.1`. */
+  number: string;
   /** Its own outstanding choices. A child's are the child's. */
   remaining: number;
 }
@@ -82,30 +84,97 @@ export function sectionRemaining(section: ConfigurationSection): number {
 }
 
 /**
- * Every visible section, in `sortIndex` order, depth-first, with its depth.
+ * Every visible section, in `sortIndex` order, depth-first, with its depth and
+ * the number the rail prints in front of it.
  *
  * An invisible section takes its whole subtree with it. The page's other walks
  * already do that (`collectBlockingMessages`, the banner's), so a rail entry
  * under a hidden parent would be a section whose error messages the panel drops
  * and whose requirements the banner refuses to name — two parts of one page
  * disagreeing about what is on screen.
+ *
+ * The counter steps for a section that is shown, not for one the document
+ * holds: a hidden `Logistics` between two visible sections would otherwise
+ * leave a hole in the numbering, and a buyer counting `1, 2, 4` is looking for
+ * a page nothing lists.
  */
 export function flattenVisibleSections(
   sections: ConfigurationSection[],
 ): SectionEntry[] {
   const entries: SectionEntry[] = [];
 
-  const walk = (level: ConfigurationSection[], depth: number): void => {
+  const walk = (
+    level: ConfigurationSection[],
+    depth: number,
+    prefix: string,
+  ): void => {
+    let shown = 0;
     for (const section of orderedSections(level)) {
       if (!section.visible) continue;
-      entries.push({ section, depth, remaining: sectionRemaining(section) });
-      walk(section.sections, depth + 1);
+      shown += 1;
+      const number = `${prefix}${shown}`;
+      entries.push({
+        section,
+        depth,
+        number,
+        remaining: sectionRemaining(section),
+      });
+      walk(section.sections, depth + 1, `${number}.`);
     }
   };
 
-  walk(sections, 0);
+  walk(sections, 0, '');
 
   return entries;
+}
+
+/**
+ * The trail to an entry: its ancestors outermost first, the entry itself last.
+ *
+ * Read off the flattened list rather than off the tree, because the list is
+ * pre-order — every ancestor of an entry sits before it, and the nearest entry
+ * above it at each shallower depth is the one. An id the list does not hold
+ * answers empty, which is the loading face and the rail with nothing in it.
+ *
+ * Not a field on `SectionEntry`: only the active entry's trail is ever read,
+ * and carrying one on every entry would rebuild the whole tree's on every
+ * document.
+ */
+export function sectionCrumbs(
+  entries: SectionEntry[],
+  activeId: string | null,
+): SectionEntry[] {
+  const index = entries.findIndex((entry) => entry.section.id === activeId);
+  const active = entries[index];
+  if (!active) return [];
+
+  const crumbs = [active];
+  let wanted = active.depth - 1;
+  for (let step = index - 1; step >= 0 && wanted >= 0; step--) {
+    const entry = entries[step];
+    if (entry && entry.depth === wanted) {
+      crumbs.unshift(entry);
+      wanted -= 1;
+    }
+  }
+
+  return crumbs;
+}
+
+/**
+ * A section's child sections as the page may offer them: index order, the ones
+ * the document hides left out.
+ *
+ * Both the test that makes a section a menu and the menu itself read this, so a
+ * hidden child can neither turn its parent into a menu nor appear as a way into
+ * a page the rail does not list. The design reference has no hidden section and
+ * cannot answer this; the rail has listed visible sections only since it was
+ * built.
+ */
+export function visibleChildren(
+  section: ConfigurationSection,
+): ConfigurationSection[] {
+  return orderedSections(section.sections).filter((child) => child.visible);
 }
 
 /**
@@ -171,11 +240,4 @@ export function stepId(
 ): string | null {
   const target = Math.min(Math.max(index + delta, 0), entries.length - 1);
   return entries[target]?.section.id ?? null;
-}
-
-/** The indent of a rail entry: the button's own padding plus one step per level. */
-export function railIndent(depth: number): string {
-  const BASE_REM = 0.5;
-  const STEP_REM = 0.75;
-  return `${BASE_REM + depth * STEP_REM}rem`;
 }

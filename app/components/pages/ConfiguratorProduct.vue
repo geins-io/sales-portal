@@ -27,9 +27,10 @@ import {
   flattenVisibleSections,
   hasNext,
   hasPrevious,
-  railIndent,
   resolveActiveId,
+  sectionCrumbs,
   stepId,
+  visibleChildren,
 } from '~/utils/configurator-sections';
 import {
   CONFIGURATION_TAB_ID,
@@ -276,6 +277,41 @@ const activeRailIndex = computed(() =>
 
 const activeEntry = computed(() => railEntries.value[activeRailIndex.value]);
 
+/** The trail to the active section, its own entry last. */
+const crumbs = computed(() =>
+  sectionCrumbs(railEntries.value, activeSectionId.value),
+);
+
+/**
+ * The pages under the active section, and whether the section is a way in
+ * rather than a page of its own.
+ *
+ * Two or more, and the section's own content stays unrendered: the first thing
+ * to do there is pick a branch, and offering the choices under a form the buyer
+ * has not reached yet buries them. One child is no choice to make, so the
+ * section renders itself and `Next` carries on into it.
+ */
+const activeChildren = computed(() =>
+  activeEntry.value ? visibleChildren(activeEntry.value.section) : [],
+);
+
+const isMenu = computed(() => activeChildren.value.length >= 2);
+
+/**
+ * A middle level with children and nothing of its own to answer. Without the
+ * list the page would be a heading over an empty column, so the children are
+ * offered the way the menu offers them.
+ */
+const listsChildrenInstead = computed(() => {
+  const section = activeEntry.value?.section;
+  if (!section || isMenu.value) return false;
+  return (
+    activeChildren.value.length > 0 &&
+    section.optionGroups.length === 0 &&
+    section.variables.length === 0
+  );
+});
+
 const canStepBack = computed(() => hasPrevious(activeRailIndex.value));
 
 const canStepForward = computed(() =>
@@ -410,7 +446,7 @@ async function onRestart(): Promise<void> {
             as well as the form, so the left side is one column holding a
             heading and an inner grid rather than three cells placed by hand.
           -->
-          <div class="grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
+          <div class="grid gap-6 lg:grid-cols-[1fr_306px] lg:items-start">
             <div class="min-w-0">
               <div
                 class="border-border mb-6 flex items-center justify-between gap-3 border-b pb-4"
@@ -430,7 +466,7 @@ async function onRestart(): Promise<void> {
                 </Button>
               </div>
 
-              <div class="grid gap-6 lg:grid-cols-[13rem_1fr] lg:items-start">
+              <div class="grid gap-6 lg:grid-cols-[254px_1fr] lg:items-start">
                 <!-- Below lg the rail is hidden and the pager carries
                      navigation. No rail when there is nothing to list: a
                      document with no visible section has nothing to configure,
@@ -446,25 +482,22 @@ async function onRestart(): Promise<void> {
                     {{ t('configurator.sections') }}
                   </p>
                   <ul class="space-y-0.5">
-                    <li
-                      v-for="(entry, index) in railEntries"
-                      :key="entry.section.id"
-                    >
-                      <!-- The indent is a style rather than a class, because
-                           the tree's depth has no ceiling and a lookup table
-                           would silently stop indenting at its last step. -->
+                    <li v-for="entry in railEntries" :key="entry.section.id">
+                      <!-- Depth is in the number, not in an indent: the number
+                           sits in a fixed column and every title starts at the
+                           same edge, so the width never runs out however deep
+                           the tree goes. -->
                       <button
                         type="button"
-                        class="flex w-full items-center justify-between gap-2 rounded-md py-1.5 pr-2 text-left text-sm transition-colors"
+                        class="flex w-full items-center justify-between gap-2 rounded-md border-l-2 py-1.5 pr-2 pl-2 text-left text-sm transition-colors"
                         :class="
                           entry.section.id === activeSectionId
-                            ? 'bg-muted text-foreground font-medium'
-                            : 'text-muted-foreground hover:bg-muted/60'
+                            ? 'border-primary bg-muted text-foreground font-medium'
+                            : 'text-muted-foreground hover:bg-muted/60 border-transparent'
                         "
-                        :style="{ paddingLeft: railIndent(entry.depth) }"
                         data-testid="configurator-rail-entry"
                         :data-section-id="entry.section.id"
-                        :data-depth="entry.depth"
+                        :data-number="entry.number"
                         :data-active="
                           String(entry.section.id === activeSectionId)
                         "
@@ -472,9 +505,10 @@ async function onRestart(): Promise<void> {
                       >
                         <span class="flex min-w-0 items-center gap-2">
                           <span
-                            class="text-muted-foreground text-[11px] tabular-nums"
+                            class="w-8 shrink-0 text-[11px] tabular-nums"
+                            data-testid="configurator-rail-number"
                           >
-                            {{ index + 1 }}
+                            {{ entry.number }}
                           </span>
                           <span class="truncate">{{ entry.section.name }}</span>
                         </span>
@@ -540,6 +574,39 @@ async function onRestart(): Promise<void> {
                       {{ t('configurator.failed') }}
                     </p>
 
+                    <!-- Above the header and outside the remount: the trail
+                     to the active section, hidden at the top level where it
+                     would only repeat the heading below it. -->
+                    <nav
+                      v-if="crumbs.length > 1"
+                      class="text-muted-foreground mb-5 flex flex-wrap items-center gap-1 text-xs"
+                      data-testid="configurator-crumbs"
+                    >
+                      <template
+                        v-for="(crumb, index) in crumbs"
+                        :key="crumb.section.id"
+                      >
+                        <ChevronRight
+                          v-if="index > 0"
+                          class="size-3.5 shrink-0 opacity-60"
+                        />
+                        <button
+                          type="button"
+                          class="rounded px-1 py-0.5 transition-colors"
+                          :class="
+                            index === crumbs.length - 1
+                              ? 'text-muted-foreground font-semibold'
+                              : 'hover:text-foreground hover:underline'
+                          "
+                          data-testid="configurator-crumb"
+                          :data-section-id="crumb.section.id"
+                          @click="activeSectionId = crumb.section.id"
+                        >
+                          {{ crumb.section.name }}
+                        </button>
+                      </template>
+                    </nav>
+
                     <!-- The key remounts the fields on a switch, as the prototype
                      does: a measurement typed but never blurred belongs to the
                      section it was typed in. -->
@@ -547,24 +614,64 @@ async function onRestart(): Promise<void> {
                       <header class="mb-6 flex items-center gap-3">
                         <span
                           class="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums"
+                          data-testid="configurator-section-number"
                         >
-                          {{ activeRailIndex + 1 }}
+                          {{ activeEntry.number }}
                         </span>
                         <!-- The prototype writes a description under the name; the
                          contract carries no section description, so no line is
-                         written rather than an empty one. -->
+                         written rather than an empty one. The text-box trim
+                         centres the title optically against the number's circle. -->
                         <h4
-                          class="font-heading min-w-0 text-xl leading-tight font-bold"
+                          class="font-heading min-w-0 text-2xl leading-none font-bold [text-box:trim-both_cap_alphabetic]"
                         >
                           {{ activeEntry.section.name }}
                         </h4>
                       </header>
 
+                      <!-- Two or more children and the section renders none
+                       of its own content: the first thing to do there is pick a
+                       branch, and a form above the branches would bury them. -->
                       <ConfiguratorSection
+                        v-if="!isMenu"
                         :section="activeEntry.section"
                         :disabled="busy"
                         @change="onChange"
                       />
+
+                      <!-- The same list either way — as the landing of a
+                       section that is only a way in, or under one that has a
+                       child and nothing of its own to answer. `Next` would
+                       reach the child, but a heading over an empty column
+                       would not do. -->
+                      <div
+                        v-if="isMenu || listsChildrenInstead"
+                        class="space-y-2"
+                      >
+                        <p class="text-muted-foreground mb-3 text-sm">
+                          {{
+                            isMenu
+                              ? t('configurator.choose_subsection')
+                              : t('configurator.subsections_only')
+                          }}
+                        </p>
+                        <button
+                          v-for="child in activeChildren"
+                          :key="child.id"
+                          type="button"
+                          class="border-border hover:bg-accent/50 flex w-full items-center justify-between gap-2 rounded-lg border p-3 text-left transition-colors"
+                          data-testid="configurator-subsection"
+                          :data-section-id="child.id"
+                          @click="activeSectionId = child.id"
+                        >
+                          <span class="text-foreground text-sm font-medium">
+                            {{ child.name }}
+                          </span>
+                          <ChevronRight
+                            class="text-muted-foreground size-4 shrink-0"
+                          />
+                        </button>
+                      </div>
 
                       <!-- Free movement, not a wizard: the rail jumps anywhere and
                        neither button asks whether the section was answered. -->

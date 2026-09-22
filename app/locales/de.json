@@ -338,6 +338,8 @@
     "previous": "Zurück",
     "next": "Weiter",
     "section_position": "Abschnitt {current} von {total}",
+    "choose_subsection": "Wählen Sie einen Unterabschnitt, um fortzufahren.",
+    "subsections_only": "Dieser Abschnitt hat Unterabschnitte. Wählen Sie einen, um fortzufahren.",
     "page_note": "Dies ist ein konfigurierbares Produkt. Stellen Sie Ihre Variante unten unter {tab} zusammen — Preis und Gültigkeit werden laufend berechnet.",
     "severity": {
       "error": "Fehler",

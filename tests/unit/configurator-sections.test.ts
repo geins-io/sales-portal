@@ -11,10 +11,11 @@ import {
   flattenVisibleSections,
   hasNext,
   hasPrevious,
-  railIndent,
   resolveActiveId,
+  sectionCrumbs,
   sectionRemaining,
   stepId,
+  visibleChildren,
 } from '../../app/utils/configurator-sections';
 import { makeSectionTreeConfiguration } from '../fixtures/configurator';
 
@@ -535,17 +536,183 @@ describe('stepId', () => {
   });
 });
 
-describe('railIndent', () => {
-  it('gives a top-level entry the button\u2019s own padding', () => {
-    expect(railIndent(0)).toBe('0.5rem');
+describe('flattenVisibleSections numbers', () => {
+  const numbers = (sections: ConfigurationSection[]): string[] =>
+    flattenVisibleSections(sections).map((entry) => entry.number);
+
+  it('numbers the tree by level, a child under its parent\u2019s number', () => {
+    const config = makeSectionTreeConfiguration();
+
+    expect(numbers(config.sections)).toEqual(['1', '1.1', '1.1.1', '2', '3']);
   });
 
-  it('adds one step per level, so depth is readable at a glance', () => {
-    expect(railIndent(1)).toBe('1.25rem');
-    expect(railIndent(2)).toBe('2rem');
+  it('restarts the count inside every parent', () => {
+    const tree = [
+      section('a', { sections: [section('a1'), section('a2')] }),
+      section('b', { sections: [section('b1')] }),
+    ];
+
+    expect(numbers(tree)).toEqual(['1', '1.1', '1.2', '2', '2.1']);
   });
 
-  it('keeps stepping past the depths the seeds have, rather than capping', () => {
-    expect(railIndent(5)).toBe('4.25rem');
+  it('numbers by the index the sections are shown in, not the order given', () => {
+    const tree = [
+      section('b', { sortIndex: 4 }),
+      section('a', { sortIndex: 1 }),
+    ];
+
+    expect(
+      flattenVisibleSections(tree).map((entry) => entry.section.id),
+    ).toEqual(['a', 'b']);
+    expect(numbers(tree)).toEqual(['1', '2']);
+  });
+
+  it('leaves no hole where a hidden section sits between two visible ones', () => {
+    const tree = [
+      section('first'),
+      section('hidden', { visible: false }),
+      section('third'),
+    ];
+
+    // A buyer reading 1, 3 would be looking for a page the rail does not list.
+    expect(numbers(tree)).toEqual(['1', '2']);
+  });
+
+  it('leaves no hole among children either', () => {
+    const tree = [
+      section('a', {
+        sections: [
+          section('a1'),
+          section('hidden', { visible: false }),
+          section('a2'),
+        ],
+      }),
+    ];
+
+    expect(numbers(tree)).toEqual(['1', '1.1', '1.2']);
+  });
+
+  it('keeps numbering past the depth the seeds reach', () => {
+    const tree = [
+      section('a', {
+        sections: [
+          section('a1', {
+            sections: [section('a11', { sections: [section('a111')] })],
+          }),
+        ],
+      }),
+    ];
+
+    expect(numbers(tree)).toEqual(['1', '1.1', '1.1.1', '1.1.1.1']);
+  });
+});
+
+describe('sectionCrumbs', () => {
+  const crumbIds = (
+    sections: ConfigurationSection[],
+    activeId: string | null,
+  ): string[] =>
+    sectionCrumbs(flattenVisibleSections(sections), activeId).map(
+      (entry) => entry.section.id,
+    );
+
+  it('is the section alone at the top level, which is what hides the trail', () => {
+    const config = makeSectionTreeConfiguration();
+
+    expect(crumbIds(config.sections, 'frame')).toEqual(['frame']);
+  });
+
+  it('names every ancestor of a grandchild, outermost first, itself last', () => {
+    const config = makeSectionTreeConfiguration();
+
+    expect(crumbIds(config.sections, 'edge-trim')).toEqual([
+      'frame',
+      'finish',
+      'edge-trim',
+    ]);
+  });
+
+  it('takes the ancestor above the entry, not the first section at that depth', () => {
+    const tree = [
+      section('a', { sections: [section('a1')] }),
+      section('b', { sections: [section('b1')] }),
+    ];
+
+    expect(crumbIds(tree, 'b1')).toEqual(['b', 'b1']);
+  });
+
+  it('looks backwards from the entry, never forwards', () => {
+    const tree = [
+      section('a', { sections: [section('a1')] }),
+      section('b', { sections: [section('b1')] }),
+    ];
+
+    // `b` sits directly after `a1` at the depth `a1`'s parent has. A walk that
+    // read forwards would name the next top-level section as the ancestor.
+    expect(crumbIds(tree, 'a1')).toEqual(['a', 'a1']);
+  });
+
+  it('skips the deeper entries between a section and its parent', () => {
+    const tree = [
+      section('a', {
+        sections: [
+          section('a1', { sections: [section('a11')] }),
+          section('a2'),
+        ],
+      }),
+    ];
+
+    // Between `a2` and `a` lie a sibling and that sibling's child. Only the
+    // entry one level up is an ancestor; the two below it are cousins.
+    expect(crumbIds(tree, 'a2')).toEqual(['a', 'a2']);
+  });
+
+  it('is empty for an id the rail does not list', () => {
+    const config = makeSectionTreeConfiguration();
+
+    expect(crumbIds(config.sections, 'pallet-store')).toEqual([]);
+    expect(crumbIds(config.sections, null)).toEqual([]);
+  });
+
+  it('is empty for an empty rail, which is the loading face', () => {
+    expect(sectionCrumbs([], 'frame')).toEqual([]);
+  });
+});
+
+describe('visibleChildren', () => {
+  it('is empty for a section with no children', () => {
+    expect(visibleChildren(section('a'))).toEqual([]);
+  });
+
+  it('gives the children in index order, not the order sent', () => {
+    const parent = section('a', {
+      sections: [
+        section('a2', { sortIndex: 7 }),
+        section('a1', { sortIndex: 3 }),
+      ],
+    });
+
+    expect(visibleChildren(parent).map((child) => child.id)).toEqual([
+      'a1',
+      'a2',
+    ]);
+  });
+
+  it('leaves out a hidden child, which the rail leaves out too', () => {
+    const parent = section('a', {
+      sections: [section('shown'), section('hidden', { visible: false })],
+    });
+
+    // A menu built from these would otherwise offer a way into a page the rail
+    // does not list.
+    expect(visibleChildren(parent).map((child) => child.id)).toEqual(['shown']);
+  });
+
+  it('never descends: a grandchild is the child\u2019s business', () => {
+    const parent = section('a', {
+      sections: [section('a1', { sections: [section('a11')] })],
+    });
+
+    expect(visibleChildren(parent).map((child) => child.id)).toEqual(['a1']);
   });
 });
