@@ -84,9 +84,6 @@ const { data, pending, refresh } = useFetch<{ products: ListProduct[] }>(
 
 const products = computed<ListProduct[]>(() => data.value?.products ?? []);
 
-// Per-item quantity tracker
-const qty = ref<Record<string, number>>({});
-
 if (import.meta.client) {
   watch(
     () => list.value?.items,
@@ -98,14 +95,6 @@ if (import.meta.client) {
     { immediate: true, deep: true },
   );
 }
-
-watch(products, (newProducts) => {
-  for (const p of newProducts) {
-    if (p.alias) {
-      qty.value[p.alias] = qty.value[p.alias] ?? 1;
-    }
-  }
-});
 
 // --- Per-row price (follows the inc/ex VAT toggle) ---
 function rowPriceFormatted(product: ListProduct): string {
@@ -122,7 +111,7 @@ const listTotal = computed(() =>
     const selling = showIncVat.value
       ? p.unitPrice?.sellingPriceIncVat
       : p.unitPrice?.sellingPriceExVat;
-    return sum + (selling ?? 0);
+    return sum + (selling ?? 0) * getQty(p.alias);
   }, 0),
 );
 
@@ -155,7 +144,7 @@ async function addAllToCart() {
     for (const product of products.value) {
       const firstSku = product.skus?.find((s) => s?.skuId != null);
       if (firstSku?.skuId) {
-        await cartStore.addItem(firstSku.skuId, 1);
+        await cartStore.addItem(firstSku.skuId, getQty(product.alias));
       }
     }
   } finally {
@@ -202,15 +191,15 @@ function openAddToList(alias: string) {
   showAddToList.value = true;
 }
 
-// --- Qty helpers (typed wrappers to avoid index-signature undefined) ---
+// --- Qty helpers ---
 function getQty(alias: string | null | undefined): number {
   if (!alias) return 1;
-  return qty.value[alias] ?? 1;
+  return favoritesStore.getQuantity(listId.value, alias);
 }
 
 function setQty(alias: string | null | undefined, value: number) {
   if (!alias) return;
-  qty.value[alias] = value;
+  favoritesStore.setQuantity(listId.value, alias, value);
 }
 
 function addToCart(product: ListProduct) {

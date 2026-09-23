@@ -23,10 +23,14 @@ abstraction lets us upgrade without changing consumer code.
   employees of the same org have different scratchpads.
 - **localStorage limits.** Effectively unbounded for any reasonable
   list count. Lost when the user clears browser storage.
-- **No item-level metadata.** Items are product alias strings only —
-  no stored quantity, no price snapshot, no item description. UI fetches
-  fresh product data when rendering, and prices change at cart-add
-  time anyway.
+- **Item metadata lives beside the list, not in it.** The SDK stores items
+  as product alias strings only. The one thing we keep per item is a
+  quantity, under our own `saved-list-quantities` key
+  (`{ [listId]: { [alias]: qty } }`), never inside the SDK's `geins-lists`
+  format. Only quantities other than 1 are stored, so a missing entry —
+  including every list saved before quantities existed — reads as 1. No
+  price snapshot, no item description: the UI fetches fresh product data
+  when rendering, and prices change at cart-add time anyway.
 
 ## What's exposed
 
@@ -52,20 +56,26 @@ store.deleteList(id);
 store.addItemToList(listId, alias);
 store.removeItemFromList(listId, alias);
 store.productListIds(alias); // string[] — lists containing this product
+
+// Per-item quantities (saved-list detail)
+store.getQuantity(listId, alias); // number, 1 when nothing is stored
+store.setQuantity(listId, alias, qty); // 1 removes the stored entry
 ```
 
 All operations are synchronous (localStorage). The store auto-syncs
-its reactive state from the SDK after each mutation.
+its reactive state from the SDK after each mutation, and the same sync
+drops the quantity of any item or list that no longer exists — so a
+removed and re-added item starts at 1 again.
 
 ## Consumers
 
-| Location                                                                            | Purpose                                                                                                                                                               |
-| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/components/cms/AddToListDialog.vue` (used by `ProductCard` + `ProductDetails`) | Star button on product cards opens this; pick which list(s) the product belongs to, including a one-click "Create new list" path.                                     |
-| `app/pages/portal/favorites.vue`                                                    | Renders the built-in favorites list as a product grid.                                                                                                                |
-| `app/pages/portal/lists.vue`                                                        | Lists overview — search by name, create new list.                                                                                                                     |
-| `app/pages/portal/saved-lists/[id].vue`                                             | List detail — items as ProductCards, rename / delete / add-all-to-cart / remove individual items. Items render via `/api/products/by-aliases` for fresh product data. |
-| `app/pages/portal/index.vue`                                                        | Portal landing page widget — "Your Lists" with the 5 most recent.                                                                                                     |
+| Location                                                                               | Purpose                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/components/shared/AddToListDialog.vue` (used by `ProductCard` + `ProductDetails`) | Star button on product cards opens this; pick which list(s) the product belongs to, including a one-click "Create new list" path.                                                                               |
+| `app/pages/portal/favorites.vue`                                                       | Renders the built-in favorites list as a product grid.                                                                                                                                                          |
+| `app/pages/portal/lists.vue`                                                           | Lists overview — search by name, create new list.                                                                                                                                                               |
+| `app/pages/portal/saved-lists/[id].vue`                                                | List detail — items as rows with a stored quantity, rename / delete / add-all-to-cart / remove individual items. The total and both cart actions use the quantity. Items render via `/api/products/by-aliases`. |
+| `app/pages/portal/index.vue`                                                           | Portal landing page widget — "Your Lists" with the 5 most recent.                                                                                                                                               |
 
 ## SSR behaviour
 
@@ -89,6 +99,8 @@ if (import.meta.client) {
 In Nuxt with Pinia, the factory runs on the client AFTER SSR but BEFORE Pinia restores the serialised SSR payload (`nuxtApp.payload.pinia`). Whatever the factory writes to refs gets clobbered moments later by the empty server state. The visible symptom is "data appears only after the first mutation" — the first mutation triggers a fresh sync, which finally lands.
 
 Canonical fix: a `*.client.ts` Nuxt plugin that calls the store's `initialize()` action. Plugins run after Pinia is fully hydrated, so reads from `localStorage` (or any client-only source) stick. See `app/plugins/favorites-init.client.ts` for the reference shape — apply the same pattern to any future client-storage-backed Pinia store.
+
+One exception: a VueUse `useStorage` ref reads `localStorage` at factory time on purpose. The saved-list quantities are one, and the store returns it through Pinia's `skipHydrate()`. Without it, the payload restore overwrites the ref with the server's empty object and `useStorage` writes that back, wiping every stored quantity on each page load.
 
 ## Why this is NOT in the merchant API config layer
 

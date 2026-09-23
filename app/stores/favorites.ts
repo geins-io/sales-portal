@@ -1,7 +1,9 @@
-import { defineStore } from 'pinia';
+import { defineStore, skipHydrate } from 'pinia';
+import { useStorage } from '@vueuse/core';
 import { ListsSession, FAVORITES_LIST_ID } from '@geins/crm';
 import type { ProductList } from '@geins/crm';
 import type { StorageInterface } from '@geins/core';
+import { LOCAL_STORAGE_KEYS } from '#shared/constants/storage';
 
 class LocalStorageAdapter implements StorageInterface {
   get(key: string): string | undefined {
@@ -28,6 +30,12 @@ export const useFavoritesStore = defineStore('favorites', () => {
   const lists = ref<ProductList[]>([]);
   const favorites = ref<ProductList | null>(null);
 
+  // Only quantities other than 1 are stored; a missing entry reads as 1.
+  const quantities = useStorage<Record<string, Record<string, number>>>(
+    LOCAL_STORAGE_KEYS.SAVED_LIST_QUANTITIES,
+    {},
+  );
+
   let session: ListsSession | null = null;
 
   function getSession(): ListsSession | null {
@@ -49,7 +57,25 @@ export const useFavoritesStore = defineStore('favorites', () => {
     const fav = s.favorites;
     favorites.value = fav;
     items.value = fav.items;
-    lists.value = s.getLists().filter((l) => l.id !== FAVORITES_LIST_ID);
+    const allLists = s.getLists();
+    lists.value = allLists.filter((l) => l.id !== FAVORITES_LIST_ID);
+    pruneQuantities(allLists);
+  }
+
+  function pruneQuantities(allLists: ProductList[]) {
+    const kept: Record<string, Record<string, number>> = {};
+    let changed = false;
+    for (const [listId, byAlias] of Object.entries(quantities.value ?? {})) {
+      const list = allLists.find((l) => l.id === listId);
+      const keptAliases: Record<string, number> = {};
+      for (const [alias, qty] of Object.entries(byAlias ?? {})) {
+        if (list?.items.includes(alias)) keptAliases[alias] = qty;
+        else changed = true;
+      }
+      if (Object.keys(keptAliases).length > 0) kept[listId] = keptAliases;
+      else changed = true;
+    }
+    if (changed) quantities.value = kept;
   }
 
   function initialize() {
@@ -161,6 +187,31 @@ export const useFavoritesStore = defineStore('favorites', () => {
     syncFromSession();
   }
 
+  function getQuantity(listId: string, productId: string): number {
+    const qty = quantities.value?.[listId]?.[productId];
+    return typeof qty === 'number' && Number.isInteger(qty) && qty >= 1
+      ? qty
+      : 1;
+  }
+
+  function setQuantity(listId: string, productId: string, qty: number) {
+    const value = Number.isFinite(qty) ? Math.max(1, Math.floor(qty)) : 1;
+    const siblings = Object.entries(quantities.value?.[listId] ?? {}).filter(
+      ([alias]) => alias !== productId,
+    );
+    const byAlias = Object.fromEntries(
+      value === 1 ? siblings : [...siblings, [productId, value]],
+    );
+    const otherLists = Object.entries(quantities.value ?? {}).filter(
+      ([id]) => id !== listId,
+    );
+    quantities.value = Object.fromEntries(
+      Object.keys(byAlias).length > 0
+        ? [...otherLists, [listId, byAlias]]
+        : otherLists,
+    );
+  }
+
   /** Look up a single list by id (favorites or custom). */
   function getListById(listId: string): ProductList | null {
     if (listId === FAVORITES_LIST_ID) return favorites.value;
@@ -193,6 +244,9 @@ export const useFavoritesStore = defineStore('favorites', () => {
     count,
     lists,
     favorites,
+    // Returned as Pinia state, the SSR payload's empty object would overwrite
+    // the stored value on hydration and useStorage would persist that wipe.
+    quantities: skipHydrate(quantities),
     initialize,
     toggle,
     add,
@@ -206,6 +260,8 @@ export const useFavoritesStore = defineStore('favorites', () => {
     deleteList,
     renameList,
     getListById,
+    getQuantity,
+    setQuantity,
     pruneStaleAliases,
   };
 });

@@ -22,8 +22,18 @@ const mockList = {
   items: ['alpha', 'beta'],
 };
 
+// Stands in for the store's stored quantities: reactive, so the page's total
+// recomputes the way it does against the real useStorage ref.
+const mockQuantities = ref<Record<string, number>>({});
+
 const mockFavoritesStore = {
   getListById: vi.fn(() => mockList),
+  getQuantity: vi.fn(
+    (_listId: string, alias: string) => mockQuantities.value[alias] ?? 1,
+  ),
+  setQuantity: vi.fn((_listId: string, alias: string, qty: number) => {
+    mockQuantities.value = { ...mockQuantities.value, [alias]: qty };
+  }),
   removeItemFromList: vi.fn(),
   renameList: vi.fn(),
   deleteList: vi.fn(),
@@ -52,6 +62,7 @@ const mockFetchProducts = [
     alias: 'alpha',
     name: 'Product Alpha',
     articleNumber: 'A-1',
+    skus: [{ skuId: 11 }],
     unitPrice: {
       sellingPriceIncVat: 1500,
       sellingPriceIncVatFormatted: '1 500 kr',
@@ -63,6 +74,7 @@ const mockFetchProducts = [
     alias: 'beta',
     name: 'Product Beta',
     articleNumber: 'B-2',
+    skus: [{ skuId: 22 }],
     unitPrice: {
       sellingPriceIncVat: 730,
       sellingPriceIncVatFormatted: '730 kr',
@@ -113,7 +125,11 @@ const stubs = {
   DialogTitle: { template: '<div><slot /></div>' },
   DialogDescription: { template: '<div><slot /></div>' },
   DialogFooter: { template: '<div><slot /></div>' },
-  QuantityStepper: { template: '<div></div>', props: ['modelValue', 'min'] },
+  QuantityStepper: {
+    name: 'QuantityStepper',
+    template: '<div data-testid="qty-stepper"></div>',
+    props: ['modelValue', 'min'],
+  },
   ProductThumbnail: {
     template: '<div></div>',
     props: ['fileName', 'alt', 'size', 'radius'],
@@ -218,5 +234,74 @@ describe('Saved list detail VAT toggle reactivity', () => {
     const totalCard = wrapper.find('[data-testid="list-total-card"]');
     expect(totalCard.text()).toContain(EX_TOTAL);
     expect(totalCard.text()).not.toContain(INC_TOTAL);
+  });
+});
+
+describe('Saved list detail quantities', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockShowIncVat.value = true;
+    mockCanAccess.mockReturnValue(true);
+    mockQuantities.value = {};
+    mockCartStore.addItem.mockClear();
+  });
+
+  function stepper(wrapper: ReturnType<typeof mountPage>, index: number) {
+    return wrapper.findAllComponents({ name: 'QuantityStepper' })[index]!;
+  }
+
+  function totalText(wrapper: ReturnType<typeof mountPage>) {
+    return wrapper.find('[data-testid="list-total-amount"]').text();
+  }
+
+  it('multiplies each row by its stored quantity in the total', () => {
+    mockQuantities.value = { alpha: 3 };
+
+    const wrapper = mountPage();
+
+    expect(stepper(wrapper, 0).props('modelValue')).toBe(3);
+    expect(totalText(wrapper)).toBe(asTotal(1500 * 3 + 730));
+  });
+
+  it('updates the total as the stepper goes up and back down', async () => {
+    const wrapper = mountPage();
+    expect(totalText(wrapper)).toBe(INC_TOTAL);
+
+    stepper(wrapper, 1).vm.$emit('update:modelValue', 4);
+    await nextTick();
+    // The route mock carries no params, so only alias and quantity are checked.
+    expect(mockFavoritesStore.setQuantity.mock.calls.at(-1)?.slice(1)).toEqual([
+      'beta',
+      4,
+    ]);
+    expect(totalText(wrapper)).toBe(asTotal(1500 + 730 * 4));
+
+    stepper(wrapper, 1).vm.$emit('update:modelValue', 2);
+    await nextTick();
+    expect(totalText(wrapper)).toBe(asTotal(1500 + 730 * 2));
+  });
+
+  it('adds every row to the cart with its stored quantity', async () => {
+    mockQuantities.value = { alpha: 3 };
+    const wrapper = mountPage();
+
+    await wrapper.find('[data-testid="add-all-to-cart-btn"]').trigger('click');
+    await nextTick();
+
+    expect(mockCartStore.addItem.mock.calls).toEqual([
+      [11, 3],
+      [22, 1],
+    ]);
+  });
+
+  it('adds a single row to the cart with its stored quantity', async () => {
+    mockQuantities.value = { beta: 5 };
+    const wrapper = mountPage();
+
+    await wrapper
+      .findAll('[data-testid="list-item-add-to-cart"]')[1]!
+      .trigger('click');
+
+    expect(mockCartStore.addItem).toHaveBeenCalledWith(22, 5);
   });
 });

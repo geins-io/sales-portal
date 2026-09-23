@@ -1229,4 +1229,57 @@ test.describe('Portal Saved List Total', () => {
       'the inc-VAT total equals the ex-VAT one, so the toggle changed nothing',
     ).toBeGreaterThan(ROUNDING);
   });
+
+  test('the list total follows a row quantity, and the quantity survives a reload', async ({
+    page,
+  }) => {
+    await page.goto('/se/sv/portal/lists');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    const aliases = (await pickUnroundedPair(page)).map(
+      (product) => product.alias,
+    );
+    const listId = await createListWith(page, aliases, 'Quantity check');
+
+    await openList(page, listId);
+
+    const api = await fetchProductsByAliases(page, aliases);
+    expect(api.length).toBe(aliases.length);
+    const [target, other] = api as [(typeof api)[number], (typeof api)[number]];
+
+    const row = page.locator('[data-testid="list-item-row"]').filter({
+      has: page.locator(
+        `[data-testid="list-item-product-link"][href*="${target.alias}"]`,
+      ),
+    });
+    await expect(row).toHaveCount(1);
+    const value = row.locator('[data-testid="qty-value"]');
+
+    const expectTotal = async (qty: number) => {
+      const expected = target.exVat * qty + other.exVat;
+      await expect
+        .poll(async () => Math.abs((await readListTotal(page)) - expected))
+        .toBeLessThanOrEqual(ROUNDING + SLACK);
+    };
+
+    await row.locator('[data-testid="qty-increment"]').click();
+    await row.locator('[data-testid="qty-increment"]').click();
+    await expect(value).toHaveText('3');
+    await expectTotal(3);
+
+    await row.locator('[data-testid="qty-decrement"]').click();
+    await expect(value).toHaveText('2');
+    await expectTotal(2);
+
+    // The quantity lives in localStorage beside the list; a reload is what
+    // proves it was saved rather than held in the page.
+    await page.reload();
+    await waitForHydration(page);
+    await expect(page.locator('[data-testid="list-total-card"]')).toBeVisible({
+      timeout: PAGE_TIMEOUT,
+    });
+    await expect(value).toHaveText('2');
+    await expectTotal(2);
+  });
 });

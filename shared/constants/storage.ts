@@ -31,6 +31,8 @@ export type KvStorageKeys = typeof KV_STORAGE_KEYS;
 export const LOCAL_STORAGE_KEYS = {
   /** Prefix for per-tenant analytics consent flag */
   ANALYTICS_CONSENT_PREFIX: 'analytics-consent-',
+  /** Per-row quantities for saved lists, keyed by list id then product alias */
+  SAVED_LIST_QUANTITIES: 'saved-list-quantities',
 } as const;
 
 /**
