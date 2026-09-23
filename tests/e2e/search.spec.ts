@@ -1,9 +1,13 @@
 import { test, expect } from '@playwright/test';
 import {
   discoverProduct,
+  discoverPurchasableProduct,
+  fetchCart,
+  hasE2ECredentials,
   outOfScope,
   waitForHydration,
   setMobileViewport,
+  STORAGE_STATE,
 } from './helpers';
 
 /**
@@ -256,5 +260,42 @@ test.describe('Mobile search overlay', () => {
       position: { x: box!.width / 2, y: box!.height - 20 },
     });
     await expect(panel).toBeHidden({ timeout: 5000 });
+  });
+});
+
+test.describe('Search results add to cart', () => {
+  test.use({ storageState: STORAGE_STATE });
+
+  test('a search result card adds its product to the cart', async ({
+    page,
+  }) => {
+    outOfScope(
+      !hasE2ECredentials(),
+      'no-credentials',
+      'add-to-cart needs an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
+    );
+
+    const product = await discoverPurchasableProduct(page);
+    await page.goto(`/search?q=${encodeURIComponent(product.name)}`);
+
+    const card = page
+      .locator('[data-testid="product-card"]')
+      .filter({ hasText: product.articleNumber ?? product.name })
+      .first();
+    await expect(card).toBeVisible({ timeout: 15000 });
+    await waitForHydration(page);
+
+    // The card disables its button when the search payload carries no SKU.
+    const addButton = card.locator('[data-testid="add-to-cart-button"]');
+    await expect(addButton).toBeEnabled();
+    await addButton.click();
+
+    const drawer = page.locator('[data-testid="cart-drawer"]');
+    await expect(
+      drawer.locator('[data-testid="cart-item"]').first(),
+    ).toBeVisible({ timeout: 10000 });
+
+    const cart = await fetchCart(page);
+    expect(cart.items.map((item) => item.skuId)).toContain(product.skuId);
   });
 });
