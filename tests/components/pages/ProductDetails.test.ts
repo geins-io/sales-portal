@@ -14,6 +14,7 @@ import ProductDetails from '../../../app/components/pages/ProductDetails.vue';
 import type { DetailProduct } from '../../../shared/types/commerce';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { mockIsCatalogMode } from '../../setup-components';
+import { twoDimensionTree } from '../../fixtures/variant-trees';
 import { useTenant } from '../../../app/composables/useTenant';
 
 // The product arrives as a prop from the page — ProductDetails makes no
@@ -960,6 +961,122 @@ describe('ProductDetails', () => {
       );
 
       expect(sink.value).toEqual({});
+    });
+  });
+
+  // Two variant dimensions arrive as a tree: the alias sits under an
+  // alias-less node, so nothing on the top level can be navigated to.
+  describe('two-dimension variant tree', () => {
+    const m12 = () =>
+      makeProduct({
+        productId: 1008,
+        alias: 'sexkantskruv-m12x60-din-933-rostfri-a2',
+        variantDimensions: [
+          { dimension: 'Längd', value: '60 mm' },
+          { dimension: 'Gänga', value: 'm12' },
+        ],
+        variantGroup: { variants: twoDimensionTree },
+      });
+
+    function pickingSelector(
+      sink: { value: Record<string, unknown> },
+      pick: Record<string, string>,
+    ) {
+      return defineComponent({
+        props: ['modelValue', 'variantDimensions', 'variants', 'combinations'],
+        emits: ['update:modelValue'],
+        setup(p, { emit }) {
+          return () => {
+            sink.value = { ...p };
+            return h('button', {
+              'data-testid': 'pick-variant',
+              onClick: () =>
+                emit('update:modelValue', {
+                  ...(p.modelValue as Record<string, string>),
+                  ...pick,
+                }),
+            });
+          };
+        },
+      });
+    }
+
+    async function mountPicking(pick: Record<string, string>) {
+      const sink = { value: {} as Record<string, unknown> };
+      const product = m12();
+      pdpRoute.params = {
+        alias: [
+          'testkategori-l3',
+          'testkategori-l6',
+          'sexkantskruv-m12x60-din-933-rostfri-a2',
+        ],
+      };
+      const wrapper = await mountProductDetails(
+        { product, alias: product.alias },
+        {
+          global: {
+            stubs: {
+              ...defaultStubs,
+              VariantSelector: pickingSelector(sink, pick),
+            },
+          },
+        },
+      );
+      navigateToMock.mockClear();
+      return { wrapper, sink };
+    }
+
+    afterEach(() => {
+      pdpRoute.params = {};
+    });
+
+    it('seeds both dimensions from the current product', async () => {
+      const { sink } = await mountPicking({});
+
+      expect(sink.value.modelValue).toEqual({ Gänga: 'm12', Längd: '60 mm' });
+    });
+
+    it("navigates to the picked sibling's own canonical", async () => {
+      mockSiblingProducts.value = {
+        products: [
+          {
+            productId: 1007,
+            alias: 'sexkantskruv-m10x50-din-933-rostfri-a2',
+            canonicalUrl:
+              '/se/sv/fastelement/sexkantskruv-m10x50-din-933-rostfri-a2',
+          },
+        ],
+      };
+      const { wrapper } = await mountPicking({ Gänga: 'm10' });
+
+      await wrapper.find('[data-testid="pick-variant"]').trigger('click');
+      await flushPromises();
+
+      expect(navigateToMock).toHaveBeenCalledWith(
+        '/se/sv/p/fastelement/sexkantskruv-m10x50-din-933-rostfri-a2',
+      );
+    });
+
+    it('swaps the last segment while the sibling data has not landed', async () => {
+      const { wrapper } = await mountPicking({ Längd: '40 mm' });
+
+      await wrapper.find('[data-testid="pick-variant"]').trigger('click');
+      await flushPromises();
+
+      expect(navigateToMock).toHaveBeenCalledWith(
+        '/se/sv/p/testkategori-l3/testkategori-l6/sexkantskruv-m8x40-din-933-rostfri-a2',
+      );
+    });
+
+    it('asks for every sibling below the top level, not the top nodes', async () => {
+      await mountPicking({});
+
+      const byIds = mockUseFetch.mock.calls.find(
+        ([url]) => url === '/api/products/by-ids',
+      );
+      const query = (byIds?.[1] as { query: { value: { ids: string } } }).query
+        .value;
+      expect(query.ids).toBe('1007,1006');
     });
   });
 

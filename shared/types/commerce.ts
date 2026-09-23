@@ -6,6 +6,8 @@ import type {
   StockType,
   SkuType,
   MetadataType,
+  VariantGroupType,
+  VariantType,
 } from '@geins/types';
 import type { CategoryAncestor } from '../utils/breadcrumb-trail';
 
@@ -195,6 +197,24 @@ export interface DetailBrand extends BrandType {
 }
 
 /**
+ * A node of `variantGroup.variants` as the GraphQL query returns it: a tree one
+ * level per variant dimension, top dimension first. The node carrying `alias`
+ * is the variant's product (`level` 1); below it hang its SKUs (`level` 0,
+ * dimension "DefaultSku"). With one dimension the top node is the product node.
+ */
+export interface VariantNode {
+  alias?: string | null;
+  dimension?: string | null;
+  value?: string | null;
+  label?: string | null;
+  level?: number | null;
+  productId?: number | null;
+  skuId?: number | null;
+  stock?: StockType | null;
+  variants?: VariantNode[] | null;
+}
+
+/**
  * Extends the SDK ProductType with fields that come from our enriched
  * GraphQL product queries (discount campaigns, discount type, lowest price).
  * The SDK types use different shapes (e.g. DiscountType enum vs string,
@@ -207,8 +227,12 @@ export interface DetailProduct extends Omit<
   | 'parameterGroups'
   | 'alternativeUrls'
   | 'brand'
+  | 'variantGroup'
 > {
   brand?: DetailBrand;
+  variantGroup?: Omit<VariantGroupType, 'variants'> & {
+    variants: (VariantType & VariantNode)[];
+  };
   parameterGroups?: ParameterGroupType[];
   discountCampaigns?: { name: string; hideTitle: boolean }[];
   lowestPrice?: LowestPriceInfo;

@@ -15,6 +15,7 @@ query productsByIds(
     products {
       productId
       alias
+      canonicalUrl
       name
       articleNumber
       unitPrice {

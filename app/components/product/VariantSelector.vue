@@ -6,6 +6,11 @@ import type {
   ProductImageType,
 } from '#shared/types/commerce';
 import type { SkuType } from '@geins/types';
+import {
+  dimensionsOf,
+  resolveCombination,
+  type VariantCombination,
+} from '~/utils/variant-tree';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import {
@@ -30,6 +35,10 @@ const props = defineProps<{
   variantDimensions: VariantDimensionType[];
   variants: VariantType[];
   modelValue: Record<string, string>;
+  // The variant tree flattened by the parent. When given, it is the source of
+  // the dimensions, labels and per-row variant; the two props above remain the
+  // fallback for payloads that arrive without a tree.
+  combinations?: VariantCombination[];
   // Optional product-level data threaded through so each sheet row can
   // surface the variant's article number, stock and price + the product
   // image as a thumbnail. Sheet still renders correctly without these,
@@ -64,7 +73,24 @@ interface GroupedDimension {
   values: string[];
 }
 
+const treeDimensions = computed(() =>
+  props.combinations?.length ? dimensionsOf(props.combinations) : null,
+);
+
+function labelFor(dimensionName: string, value: string): string {
+  const dim = treeDimensions.value?.find(
+    (d) => d.dimensionName === dimensionName,
+  );
+  return dim?.values.find((v) => v.value === value)?.label || value;
+}
+
 const groupedDimensions = computed<GroupedDimension[]>(() => {
+  if (treeDimensions.value) {
+    return treeDimensions.value.map((d) => ({
+      dimensionName: d.dimensionName,
+      values: d.values.map((v) => v.value),
+    }));
+  }
   const rows = props.variantDimensions as unknown as RawDimensionRow[];
   const map = new Map<string, Set<string>>();
   for (const row of rows ?? []) {
@@ -114,10 +140,12 @@ function closeSheet() {
   openDimension.value = null;
 }
 
-function filteredValues(values: string[]): string[] {
+function filteredValues(dimensionName: string, values: string[]): string[] {
   const q = searchQuery.value.trim().toLowerCase();
   if (!q) return values;
-  return values.filter((v) => v.toLowerCase().includes(q));
+  return values.filter((v) =>
+    labelFor(dimensionName, v).toLowerCase().includes(q),
+  );
 }
 
 // Resolve the first variant matching (dimension, value) and its sku so
@@ -134,6 +162,24 @@ function variantInfoFor(
   priceExVatFormatted?: string | null;
   name?: string | null;
 } | null {
+  if (props.combinations?.length) {
+    const combo = resolveCombination(
+      props.combinations,
+      props.modelValue,
+      dimensionName,
+      value,
+    );
+    if (!combo) return null;
+    const meta = props.variantProducts?.[combo.alias];
+    return {
+      articleNumber:
+        meta?.articleNumber || props.productArticleNumber || undefined,
+      stockTotal: combo.stock?.totalStock ?? 0,
+      priceIncVatFormatted: meta?.priceIncVatFormatted ?? null,
+      priceExVatFormatted: meta?.priceExVatFormatted ?? null,
+      name: meta?.name ?? props.productName ?? undefined,
+    };
+  }
   const matchingVariant = props.variants.find((variant) => {
     const dim = (variant as { dimension?: string }).dimension;
     const val = (variant as { value?: string | null }).value;
@@ -266,6 +312,7 @@ function attrValue(attr: {
 // single-dimension products carry no attributes, so every listed value is a
 // real sibling and always selectable.
 function isValueSelectable(dimensionName: string, value: string): boolean {
+  if (props.combinations?.length) return true;
   return props.variants.some((variant) => {
     const attrs = Array.isArray(variant.attributes) ? variant.attributes : [];
     if (attrs.length === 0) return true;
@@ -323,8 +370,12 @@ const { showPrice } = usePriceVisibility();
       >
         <span class="truncate">
           {{
-            modelValue[dimension.dimensionName] ||
-            $t('product.select_variant_placeholder')
+            modelValue[dimension.dimensionName]
+              ? labelFor(
+                  dimension.dimensionName,
+                  modelValue[dimension.dimensionName]!,
+                )
+              : $t('product.select_variant_placeholder')
           }}
         </span>
         <ChevronDown class="size-4 shrink-0 opacity-50" />
@@ -376,11 +427,16 @@ const { showPrice } = usePriceVisibility();
         >
           <ul class="flex flex-col gap-2">
             <li
-              v-for="value in filteredValues(activeDimension.values)"
+              v-for="value in filteredValues(
+                activeDimension.dimensionName,
+                activeDimension.values,
+              )"
               :key="value"
             >
               <button
                 type="button"
+                data-testid="variant-option"
+                :data-value="value"
                 :disabled="
                   !isValueSelectable(activeDimension.dimensionName, value)
                 "
@@ -418,7 +474,7 @@ const { showPrice } = usePriceVisibility();
                     {{ rowProductName(activeDimension.dimensionName, value) }}
                   </div>
                   <div class="text-muted-foreground truncate text-sm">
-                    {{ value }}
+                    {{ labelFor(activeDimension.dimensionName, value) }}
                   </div>
                   <div
                     v-if="

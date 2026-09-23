@@ -19,6 +19,7 @@ import {
   categoryPath,
 } from '#shared/utils/route-helpers';
 import { ancestorCrumbs } from '#shared/utils/breadcrumb-trail';
+import { resolveCombination, variantCombinations } from '~/utils/variant-tree';
 
 const props = defineProps<{
   product: DetailProduct;
@@ -57,6 +58,9 @@ const { data: related } = useFetch<ListProduct[]>(
 
 // Variant state
 const selectedVariants = ref<Record<string, string>>({});
+const combinations = computed(() =>
+  variantCombinations(product.value?.variantGroup?.variants),
+);
 
 // Seed the selector with the product's own active variant so the trigger
 // shows the current variant name and the matching row is highlighted in
@@ -69,6 +73,8 @@ const selectedVariants = ref<Record<string, string>>({});
 function currentVariantSelection(
   p: DetailProduct | null | undefined,
 ): Record<string, string> | null {
+  const own = combinations.value.find((c) => c.alias === p?.alias);
+  if (own) return { ...own.selection };
   const variants = p?.variantGroup?.variants ?? [];
   const current = variants.find(
     (v) => (v as { alias?: string | null }).alias === p?.alias,
@@ -224,7 +230,10 @@ const showVariantSelector = computed(() => {
   const dims = product.value?.variantDimensions ?? [];
   if (!dims.length) return false;
   const skuCount = product.value?.skus?.length ?? 0;
-  const siblingCount = product.value?.variantGroup?.variants?.length ?? 0;
+  const siblingCount = Math.max(
+    combinations.value.length,
+    product.value?.variantGroup?.variants?.length ?? 0,
+  );
   return skuCount > 1 || siblingCount > 1;
 });
 
@@ -238,10 +247,9 @@ const showVariantSelector = computed(() => {
 // size cap and resolved to nothing; a single id-filtered query (up to Geins's
 // 600 cap, no nested variantGroup payload) is both correct and scalable.
 const siblingProductIds = computed<number[]>(() => {
-  const variants = product.value?.variantGroup?.variants ?? [];
   const currentId = product.value?.productId;
-  const ids = variants
-    .map((v) => (v as { productId?: number | null }).productId)
+  const ids = combinations.value
+    .map((c) => c.productId)
     .filter((id): id is number => typeof id === 'number' && id > 0)
     .filter((id) => id !== currentId);
   return [...new Set(ids)];
@@ -252,6 +260,7 @@ const siblingProductIds = computed<number[]>(() => {
 interface VariantMetaProduct {
   productId: number;
   alias?: string | null;
+  canonicalUrl?: string | null;
   name?: string | null;
   articleNumber?: string | null;
   unitPrice?: {
@@ -283,6 +292,7 @@ watch(
 // buyer's switcher, so deciding here would put the rows out of step with the
 // main price on the same page.
 type VariantRowMeta = {
+  canonicalUrl?: string | null;
   priceIncVatFormatted?: string | null;
   priceExVatFormatted?: string | null;
   articleNumber?: string | null;
@@ -294,6 +304,7 @@ const variantProductsByAlias = computed<Record<string, VariantRowMeta>>(() => {
   for (const p of siblingProducts.value?.products ?? []) {
     if (!p?.alias) continue;
     map[p.alias] = {
+      canonicalUrl: p.canonicalUrl ?? null,
       priceIncVatFormatted: p.unitPrice?.sellingPriceIncVatFormatted ?? null,
       priceExVatFormatted: p.unitPrice?.sellingPriceExVatFormatted ?? null,
       articleNumber: p.articleNumber ?? null,
@@ -349,30 +360,26 @@ async function addToCart() {
 // Sibling-variant products list each variant as its own product alias
 // in variantGroup.variants. When the user picks a different variant in
 // the selector, navigate to that variant's PDP rather than mutating
-// state in place. Keeps the path prefix segments (e.g. /material/grenror)
-// and swaps the last segment for the picked variant's alias.
+// state in place, at the sibling's own canonical: siblings are not always
+// in the current product's category. Until the sibling data has landed the
+// last path segment is swapped instead, and the page's canonical 301
+// corrects the category part.
 const route = useRoute();
 watch(
   selectedVariants,
-  async (sel) => {
-    const variants = product.value?.variantGroup?.variants ?? [];
-    if (!variants.length || !product.value?.alias) return;
-    const picked = variants.find((v) => {
-      const dim = (v as { dimension?: string }).dimension;
-      const val = (v as { value?: string | null }).value;
-      if (dim && val != null) return sel[dim] === val;
-      const attrs = Array.isArray(v.attributes) ? v.attributes : [];
-      return attrs.every((attr) => {
-        const k =
-          (attr as { attributeName?: string; key?: string }).attributeName ??
-          (attr as { key?: string }).key;
-        const a =
-          (attr as { attributeValue?: string; value?: string })
-            .attributeValue ?? (attr as { value?: string }).value;
-        return k ? sel[k] === a : true;
-      });
-    }) as { alias?: string } | undefined;
+  async (sel, prev) => {
+    if (!product.value?.alias) return;
+    const changed = Object.keys(sel).find((d) => sel[d] !== prev?.[d]);
+    const picked =
+      changed && combinations.value.length
+        ? resolveCombination(combinations.value, sel, changed, sel[changed]!)
+        : legacyPickedVariant(sel);
     if (!picked?.alias || picked.alias === product.value.alias) return;
+    const canonical = variantProductsByAlias.value[picked.alias]?.canonicalUrl;
+    if (canonical) {
+      await navigateTo(localePath(buildProductPath(canonical)));
+      return;
+    }
     const raw = route.params.alias;
     const segs = Array.isArray(raw) ? [...raw] : raw ? [raw as string] : [];
     if (segs.length) segs[segs.length - 1] = picked.alias;
@@ -381,6 +388,27 @@ watch(
   },
   { deep: true },
 );
+
+function legacyPickedVariant(
+  sel: Record<string, string>,
+): { alias?: string | null } | undefined {
+  const variants = product.value?.variantGroup?.variants ?? [];
+  return variants.find((v) => {
+    const dim = (v as { dimension?: string }).dimension;
+    const val = (v as { value?: string | null }).value;
+    if (dim && val != null) return sel[dim] === val;
+    const attrs = Array.isArray(v.attributes) ? v.attributes : [];
+    return attrs.every((attr) => {
+      const k =
+        (attr as { attributeName?: string; key?: string }).attributeName ??
+        (attr as { key?: string }).key;
+      const a =
+        (attr as { attributeValue?: string; value?: string }).attributeValue ??
+        (attr as { value?: string }).value;
+      return k ? sel[k] === a : true;
+    });
+  });
+}
 
 // Discount campaigns
 const visibleCampaigns = computed(() =>
@@ -511,6 +539,7 @@ useProductSeo({
             v-model="selectedVariants"
             :variant-dimensions="product.variantDimensions ?? []"
             :variants="product.variantGroup?.variants ?? []"
+            :combinations="combinations"
             :skus="product.skus ?? []"
             :product-images="product.productImages ?? []"
             :product-name="product.name ?? ''"

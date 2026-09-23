@@ -5,6 +5,9 @@ import type { ComponentPublicInstance } from 'vue';
 import { mountComponent } from '../../utils/component';
 import VariantSelector from '../../../app/components/product/VariantSelector.vue';
 import { mockShowIncVat } from '../../setup-components';
+import type { VariantNode } from '#shared/types/commerce';
+import { variantCombinations } from '../../../app/utils/variant-tree';
+import { twoDimensionTree } from '../../fixtures/variant-trees';
 
 const dimensions = [
   { dimensionName: 'Color', values: ['Red', 'Blue'] },
@@ -269,9 +272,16 @@ describe('VariantSelector per-variant name and article number', () => {
       ? `Art nr. ${params.number}`
       : key;
 
-  function openSiblingSheet() {
+  function openSiblingSheet(withTree = false) {
     const wrapper = mountComponent(VariantSelector, {
       props: {
+        ...(withTree
+          ? {
+              combinations: variantCombinations(
+                siblingVariants as unknown as VariantNode[],
+              ),
+            }
+          : {}),
         variantDimensions:
           siblingDimensions as unknown as VariantDimensionType[],
         variants: siblingVariants as unknown as VariantType[],
@@ -320,6 +330,32 @@ describe('VariantSelector per-variant name and article number', () => {
     // No row should mirror the active product's art-nr onto a sibling.
     expect(items[1]!.text()).not.toContain('S1-243-088');
     expect(items[2]!.text()).not.toContain('S1-243-088');
+  });
+
+  // The page always passes the flattened tree; one dimension must render the
+  // same rows through it as through the legacy props above.
+  it('renders the same sibling rows through the tree the page passes', async () => {
+    const wrapper = openSiblingSheet(true);
+    await wrapper
+      .find('[data-testid="variant-trigger-Variant"]')
+      .trigger('click');
+    const items = wrapper
+      .find('[data-testid="variant-sheet-options"]')
+      .findAll('li');
+    expect(items.map((li) => li.find('.font-medium').text())).toEqual([
+      'Grenrör 150/150-88',
+      'Grenrör 100/100-90',
+      'Grenrör 100/75-45',
+    ]);
+    expect(items[0]!.text()).toContain('Art nr. S1-243-088');
+    expect(items[1]!.text()).toContain('Art nr. S1-233-090');
+    expect(items[2]!.text()).toContain('Art nr. S1-232-045');
+    expect(
+      items.map((li) => li.find('[data-testid="variant-row-price"]').text()),
+    ).toEqual(['1 200 kr', '950 kr', '850 kr']);
+    expect(items.every((li) => !li.find('button').attributes('disabled'))).toBe(
+      true,
+    );
   });
 
   // SAL-270 kickback: a sibling group where every variant is out of stock
@@ -442,5 +478,126 @@ describe('VariantSelector row price follows the VAT preference', () => {
     await nextTick();
 
     expect(rowPrices(wrapper)).toEqual(['960 kr', '760 kr', '680 kr']);
+  });
+});
+
+// The legacy path put the current product's own value first, so the list
+// reshuffled from one sibling page to the next. Through the tree the order is
+// the payload's, the same on every sibling page.
+describe('VariantSelector value order on one dimension', () => {
+  it('lists values in tree order even when the current product is not first', async () => {
+    const node = (value: string) => ({
+      alias: `glidlager-brons-${value.replace(' ', '-')}`,
+      dimension: 'Dimension',
+      value,
+      label: value,
+      level: 1,
+    });
+    const tree: VariantNode[] = [node('20 mm'), node('25 mm'), node('30 mm')];
+    const wrapper = mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: [
+          { dimension: 'Dimension', value: '25 mm' },
+        ] as unknown as VariantDimensionType[],
+        variants: tree as unknown as VariantType[],
+        combinations: variantCombinations(tree),
+        modelValue: { Dimension: '25 mm' },
+      },
+      global: { stubs: sheetStubs },
+    });
+    await wrapper
+      .find('[data-testid="variant-trigger-Dimension"]')
+      .trigger('click');
+
+    const values = wrapper
+      .findAll('[data-testid="variant-option"]')
+      .map((b) => b.attributes('data-value'));
+    expect(values).toEqual(['20 mm', '25 mm', '30 mm']);
+  });
+});
+
+describe('VariantSelector on a two-dimension variant tree', () => {
+  const combinations = variantCombinations(twoDimensionTree);
+
+  function mountTree(modelValue: Record<string, string>) {
+    return mountComponent(VariantSelector, {
+      props: {
+        variantDimensions: [] as VariantDimensionType[],
+        variants: [] as VariantType[],
+        combinations,
+        modelValue,
+        productName: 'Sexkantskruv M12x60',
+        variantProducts: {
+          'sexkantskruv-m10x50-din-933-rostfri-a2': {
+            name: 'Sexkantskruv M10x50',
+          },
+          'sexkantskruv-m8x40-din-933-rostfri-a2': {
+            name: 'Sexkantskruv M8x40',
+          },
+        },
+      },
+      global: { stubs: sheetStubs },
+    });
+  }
+
+  it('shows the current variant by label on both triggers', () => {
+    const wrapper = mountTree({ Gänga: 'm12', Längd: '60 mm' });
+
+    expect(wrapper.find('[data-testid="variant-trigger-Gänga"]').text()).toBe(
+      'M12',
+    );
+    expect(wrapper.find('[data-testid="variant-trigger-Längd"]').text()).toBe(
+      '60 mm',
+    );
+  });
+
+  it('lists the second dimension across every top node', async () => {
+    const wrapper = mountTree({ Gänga: 'm12', Längd: '60 mm' });
+    await wrapper
+      .find('[data-testid="variant-trigger-Längd"]')
+      .trigger('click');
+
+    const rows = wrapper
+      .find('[data-testid="variant-sheet-options"]')
+      .findAll('li');
+    expect(
+      rows.map((li) => li.find('.text-sm.text-muted-foreground').text()),
+    ).toEqual(['50 mm', '60 mm', '40 mm']);
+    expect(rows.map((li) => li.find('.font-medium').text())).toEqual([
+      'Sexkantskruv M10x50',
+      'Sexkantskruv M12x60',
+      'Sexkantskruv M8x40',
+    ]);
+  });
+
+  it('shows labels in the sheet and emits the value', async () => {
+    const wrapper = mountTree({ Gänga: 'm12', Längd: '60 mm' });
+    await wrapper
+      .find('[data-testid="variant-trigger-Gänga"]')
+      .trigger('click');
+
+    const rows = wrapper
+      .find('[data-testid="variant-sheet-options"]')
+      .findAll('li');
+    expect(rows[0]!.text()).toContain('M10');
+    await rows[0]!.find('button').trigger('click');
+
+    expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([
+      { Gänga: 'm10', Längd: '60 mm' },
+    ]);
+  });
+
+  it('searches on the label', async () => {
+    const wrapper = mountTree({ Gänga: 'm12', Längd: '60 mm' });
+    await wrapper
+      .find('[data-testid="variant-trigger-Gänga"]')
+      .trigger('click');
+    await wrapper.find('[data-testid="variant-sheet-search"]').setValue('M8');
+
+    const rows = wrapper
+      .find('[data-testid="variant-sheet-options"]')
+      .findAll('li');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.find('.font-medium').text()).toBe('Sexkantskruv M8x40');
   });
 });
