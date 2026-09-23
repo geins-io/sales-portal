@@ -907,14 +907,14 @@
       "rename_save": "Gem",
       "delete_list": "Slet liste",
       "delete_confirm": "Dette sletter listen og alle produkter i den permanent. Det kan ikke fortrydes.",
-      "remove_item": "Fjern fra liste",
+      "remove_item": "Fjern produktet fra listen",
       "quick_filter_placeholder": "Hurtigfilter på varenr. eller produktnavn",
       "list_name_label": "Listenavn",
       "list_internal_note": "Kun til intern brug",
       "list_total_label": "Listesum",
       "list_total_caption": "Sum for alle produkter på listen",
       "add_to_cart": "Læg i kurv",
-      "add_to_list": "Føj til liste"
+      "add_to_list": "Føj til endnu en liste"
     },
     "saved_lists": {
       "title": "Gemte lister",

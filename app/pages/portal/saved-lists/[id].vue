@@ -428,7 +428,9 @@ function addToCart(product: ListProduct) {
                   v-if="canPurchase && product.alias"
                   variant="ghost"
                   size="icon"
+                  class="cursor-pointer"
                   :aria-label="t('portal.saved_list_detail.add_to_cart')"
+                  :title="t('portal.saved_list_detail.add_to_cart')"
                   data-testid="list-item-add-to-cart"
                   @click="addToCart(product)"
                 >
@@ -440,7 +442,9 @@ function addToCart(product: ListProduct) {
                   v-if="product.alias"
                   variant="ghost"
                   size="icon"
+                  class="cursor-pointer"
                   :aria-label="t('portal.saved_list_detail.add_to_list')"
+                  :title="t('portal.saved_list_detail.add_to_list')"
                   data-testid="list-item-add-to-list"
                   @click="openAddToList(product.alias)"
                 >
@@ -451,7 +455,9 @@ function addToCart(product: ListProduct) {
                 <Button
                   variant="ghost"
                   size="icon"
+                  class="cursor-pointer"
                   :aria-label="t('portal.saved_list_detail.remove_item')"
+                  :title="t('portal.saved_list_detail.remove_item')"
                   data-testid="list-item-remove"
                   @click="removeItem(product.alias)"
                 >

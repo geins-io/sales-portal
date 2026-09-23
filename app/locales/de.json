@@ -907,14 +907,14 @@
       "rename_save": "Speichern",
       "delete_list": "Liste löschen",
       "delete_confirm": "Dadurch werden die Liste und alle ihre Artikel dauerhaft gelöscht. Das lässt sich nicht rückgängig machen.",
-      "remove_item": "Aus Liste entfernen",
+      "remove_item": "Produkt aus der Liste entfernen",
       "quick_filter_placeholder": "Schnellfilter nach Art.-Nr. oder Produktname",
       "list_name_label": "Listenname",
       "list_internal_note": "Nur für den internen Gebrauch",
       "list_total_label": "Listensumme",
       "list_total_caption": "Summe aller Produkte in der Liste",
       "add_to_cart": "In den Warenkorb",
-      "add_to_list": "Zur Liste hinzufügen"
+      "add_to_list": "Zu einer weiteren Liste hinzufügen"
     },
     "saved_lists": {
       "title": "Gespeicherte Listen",

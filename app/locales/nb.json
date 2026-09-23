@@ -907,14 +907,14 @@
       "rename_save": "Lagre",
       "delete_list": "Slett liste",
       "delete_confirm": "Dette sletter listen og alle produktene i den permanent. Det kan ikke angres.",
-      "remove_item": "Fjern fra liste",
+      "remove_item": "Fjern produktet fra listen",
       "quick_filter_placeholder": "Hurtigfilter på art.nr eller produktnavn",
       "list_name_label": "Listenavn",
       "list_internal_note": "Kun til internt bruk",
       "list_total_label": "Listesum",
       "list_total_caption": "Sum for alle produkter i listen",
       "add_to_cart": "Legg i handlekurv",
-      "add_to_list": "Legg til i liste"
+      "add_to_list": "Legg til i enda en liste"
     },
     "saved_lists": {
       "title": "Lagrede lister",

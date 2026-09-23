@@ -907,14 +907,14 @@
       "rename_save": "Tallenna",
       "delete_list": "Poista lista",
       "delete_confirm": "Tämä poistaa listan ja kaikki sen tuotteet pysyvästi. Toimintoa ei voi kumota.",
-      "remove_item": "Poista listalta",
+      "remove_item": "Poista tuote listalta",
       "quick_filter_placeholder": "Pikasuodatus tuotenumerolla tai tuotenimellä",
       "list_name_label": "Listan nimi",
       "list_internal_note": "Vain sisäiseen käyttöön",
       "list_total_label": "Listan summa",
       "list_total_caption": "Listan kaikkien tuotteiden summa",
       "add_to_cart": "Lisää ostoskoriin",
-      "add_to_list": "Lisää listalle"
+      "add_to_list": "Lisää toiseen listaan"
     },
     "saved_lists": {
       "title": "Tallennetut listat",

@@ -305,3 +305,21 @@ describe('Saved list detail quantities', () => {
     expect(mockCartStore.addItem).toHaveBeenCalledWith(22, 5);
   });
 });
+
+describe('Saved list detail row action titles', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockCanAccess.mockReturnValue(true);
+  });
+
+  it.each([
+    ['list-item-add-to-cart', 'portal.saved_list_detail.add_to_cart'],
+    ['list-item-add-to-list', 'portal.saved_list_detail.add_to_list'],
+    ['list-item-remove', 'portal.saved_list_detail.remove_item'],
+  ])('gives %s a translated title matching its label', (testId, key) => {
+    const button = mountPage().find(`[data-testid="${testId}"]`);
+
+    expect(button.attributes('title')).toBe(key);
+    expect(button.attributes('aria-label')).toBe(key);
+  });
+});
