@@ -43,6 +43,7 @@ function variable(
     defaultValue: null,
     required: true,
     available: true,
+    readOnly: false,
     selectionSource: 'none',
     valueSource: 'initial',
     messages: [],
@@ -75,6 +76,7 @@ function group(
     id,
     code: id,
     name: id,
+    description: '',
     available: true,
     minSelections: 1,
     quantityEditable: false,
@@ -92,6 +94,7 @@ function section(
   return {
     id,
     name: id,
+    description: '',
     visible: true,
     sections: [],
     variables: [],
