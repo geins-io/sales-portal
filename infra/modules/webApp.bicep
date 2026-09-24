@@ -47,7 +47,7 @@ param redisUrl string
 @description('Enable analytics')
 param enableAnalytics string
 
-@description('Configurator backend: off, fixture or sdk. Anything else reads as off.')
+@description('Configurator backend: off, fixture, merchant-api or composite. Anything else reads as off.')
 param configuratorBackend string = 'off'
 
 @description('Log level')
