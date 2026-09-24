@@ -303,4 +303,30 @@ describe('GET /api/resolve-url', () => {
     expect(resolved!.locale).toBe('sv');
     expect(resolved!.localeBcp47).toBe('sv-SE');
   });
+
+  it('resolves anonymously even when the request has a session, because the key has no identity', async () => {
+    // Nitro hands the cached handler the incoming event's context, so a session
+    // the middleware decided is visible in here.
+    (getQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      path: '/se/sv/grenror',
+    });
+    (optionalAuth as ReturnType<typeof vi.fn>).mockResolvedValue({
+      authToken: 'buyer-token',
+      refreshToken: 'buyer-refresh',
+    });
+    mockResolveEntityUrl.mockResolvedValue({
+      type: 'product',
+      canonicalAppPath: '/se/sv/p/grenror',
+    });
+
+    const event = createMockEvent();
+    (event.context as unknown as Record<string, unknown>).session = {
+      status: 'active',
+      tokens: { authToken: 'buyer-token', refreshToken: 'buyer-refresh' },
+    };
+    await handler(event);
+
+    expect(mockResolveEntityUrl).toHaveBeenCalledTimes(1);
+    expect(mockResolveEntityUrl.mock.calls[0]![0].userToken).toBeUndefined();
+  });
 });

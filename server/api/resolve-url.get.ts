@@ -12,9 +12,11 @@ import type { TenantConfig } from '#shared/types/tenant-config';
  * Caching behaviour:
  *  - Wrapped in `defineCachedEventHandler` with SWR (stale-while-revalidate).
  *  - Cache key: `{host}::{normalizedPath}` where host is tenant-specific so two
- *    tenants sharing a path never collide. Security note: URL->canonical mapping
- *    is auth-independent (the same URL resolves to the same canonical for all
- *    users), so keying on host+path (not auth token) is safe.
+ *    tenants sharing a path never collide. The key has no identity, so the
+ *    lookup runs anonymously, deliberately: Nitro copies the incoming context
+ *    into the cached handler, and a session read in here would populate an
+ *    entry every caller shares. If the mapping ever differs for signed-in
+ *    callers, the key needs an identity segment first.
  *  - Trailing-slash policy: the path is lower-cased and trailing slashes are
  *    stripped so `/Se/Sv/Grenror/` and `/se/sv/grenror` share one cache entry.
  *
@@ -70,7 +72,6 @@ function getResolverHost(event: Parameters<typeof getRequestHost>[0]): string {
 const cachedResolver = defineCachedEventHandler(
   async (event): Promise<ResolverCacheResult> => {
     const { path } = ResolveUrlSchema.parse(getQuery(event));
-    const auth = await optionalAuth(event);
 
     // Resolve in the URL's OWN market/locale, not the request default.
     // getRequestLocale/getRequestMarket read event.context.resolvedLocaleMarket
@@ -96,10 +97,7 @@ const cachedResolver = defineCachedEventHandler(
     const segments = path.split('/').filter(Boolean);
     const alias = segments[segments.length - 1] ?? '';
 
-    const result = await resolveEntityUrl(
-      { path, alias, userToken: auth?.authToken },
-      event,
-    );
+    const result = await resolveEntityUrl({ path, alias }, event);
 
     if (!result) {
       // Negative-cache: return the marker so Nitro caches the miss. Do NOT

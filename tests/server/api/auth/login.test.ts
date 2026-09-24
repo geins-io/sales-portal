@@ -138,7 +138,7 @@ describe('POST /api/auth/login', () => {
       token: 'access-token',
       refreshToken: 'refresh-token',
       expiresIn: 3600,
-      rememberMe: undefined,
+      rememberMe: true,
     });
   });
 

@@ -1,10 +1,10 @@
 import { getPreviewCookie } from '../utils/cookies';
+import { getSessionToken } from '../utils/session';
 
 /**
  * CDN-ready cache headers for page routes: per-host via Vary, stale for 10min
- * while revalidating. Only preview and non-page paths are exempt, so
- * authenticated routes must be added to the exemptions before any shared cache
- * is placed in front of the app. See ADR-010.
+ * while revalidating. Exempt: non-page paths, preview, and any request with a
+ * session token — its HTML carries the buyer's own data. See ADR-010.
  *
  * Preview requests must never be cached at the CDN. Their HTML is rendered
  * against unpublished overlays that would otherwise leak to every other
@@ -25,7 +25,10 @@ export default defineEventHandler((event) => {
   const query = getQuery(event);
   const isPreview = query.preview === '1' || getPreviewCookie(event);
 
-  if (isPreview) {
+  // Runs after 00.session, so a request it rotated already counts; an expired
+  // one carries the cookie deletions.
+  const expired = event.context.session?.status === 'expired';
+  if (isPreview || expired || getSessionToken(event)) {
     setHeader(event, 'Cache-Control', 'private, no-store');
     return;
   }

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { H3Event } from 'h3';
-import { getAuthCookies } from './cookies';
+import { getSessionToken } from './session';
 
 /** Cache-key segment for a request that sends no user token. */
 export const ANONYMOUS_IDENTITY = 'anon';
@@ -15,12 +15,12 @@ export function hashToken(token: string): string {
 }
 
 /**
- * Whether the request carries the auth cookie — that is, whether the Merchant
- * API will be queried as a signed-in caller. `buildRequestContext` reads the
- * same cookie, so this answers exactly "is a user token sent".
+ * Whether the Merchant API will be queried as a signed-in caller.
+ * `buildRequestContext` reads the same session token, so this answers exactly
+ * "is a user token sent".
  */
 export function hasUserToken(event: H3Event): boolean {
-  return Boolean(getAuthCookies(event).authToken);
+  return Boolean(getSessionToken(event));
 }
 
 /**
@@ -32,6 +32,6 @@ export function hasUserToken(event: H3Event): boolean {
  * customer group, or anything added later.
  */
 export function getRequestIdentity(event: H3Event): string {
-  const { authToken } = getAuthCookies(event);
+  const authToken = getSessionToken(event);
   return authToken ? hashToken(authToken) : ANONYMOUS_IDENTITY;
 }

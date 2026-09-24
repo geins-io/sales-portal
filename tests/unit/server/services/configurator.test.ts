@@ -39,6 +39,12 @@ vi.stubGlobal('ErrorCode', ErrorCode);
 vi.stubGlobal('getAuthCookies', (...args: unknown[]) =>
   mockGetAuthCookies(...args),
 );
+vi.stubGlobal(
+  'getSessionToken',
+  (...args: unknown[]) =>
+    (mockGetAuthCookies(...args) as { authToken?: string } | undefined)
+      ?.authToken,
+);
 
 const EVENT = {} as Parameters<typeof getConfiguratorBackend>[0];
 const CTX: ConfiguratorContext = { hostname: 'tenant.example.com' };

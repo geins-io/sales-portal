@@ -27,13 +27,8 @@ export async function requireConfigurator(
   // A configuration is per session and priced per customer.
   setResponseHeader(event, 'Cache-Control', 'private, no-store');
 
-  // Read from the request cookies, the same source the seam reads, rather than
-  // through `optionalAuth`: its refresh writes a response cookie the seam
-  // cannot see in this request, so the two would disagree about the user.
-  const { authToken } = getAuthCookies(event);
-
   const allowed = await canAccessFeatureServer(event, 'configurator', {
-    authenticated: !!authToken,
+    authenticated: !!getSessionToken(event),
   });
   if (!allowed) {
     // 404 rather than 403, for the access rule as well as for the flag: a

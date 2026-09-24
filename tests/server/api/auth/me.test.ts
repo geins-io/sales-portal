@@ -53,8 +53,10 @@ vi.stubGlobal('ErrorCode', {
 });
 
 // decodeJwtPayload is exported from auth.ts — stub it globally for the handler
-const { decodeJwtPayload } = await import('../../../../server/utils/auth');
+const { decodeJwtPayload, isExpiringSoon, EXPIRES_SOON_SECONDS } =
+  await import('../../../../server/utils/auth');
 vi.stubGlobal('decodeJwtPayload', decodeJwtPayload);
+vi.stubGlobal('isExpiringSoon', isExpiringSoon);
 
 // ---------------------------------------------------------------------------
 // Import handler AFTER mocks are wired
@@ -73,13 +75,78 @@ function fakeJwt(payload: Record<string, unknown>): string {
   return `${header}.${body}.fake-sig`;
 }
 
-const mockEvent = {} as import('h3').H3Event;
+let mockEvent = { context: {} } as import('h3').H3Event;
+
+function jwtWithSecondsLeft(secondsLeft: number): string {
+  return fakeJwt({ exp: Math.floor(Date.now() / 1000) + secondsLeft });
+}
 
 describe('GET /api/auth/me', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEvent = { context: {} } as import('h3').H3Event;
     mockGetPreviewCookie.mockReturnValue(false);
     mockGetSpoofedByCookie.mockReturnValue(undefined);
+  });
+
+  // -----------------------------------------------------------------------
+  // The SDK's getUser refreshes on its own below EXPIRES_SOON_SECONDS and
+  // this handler would discard what it got back
+  // -----------------------------------------------------------------------
+  it('answers from the rotation when this request rotated, without calling getUser', async () => {
+    const rotated = jwtWithSecondsLeft(900);
+    mockEvent.context.session = {
+      status: 'active',
+      tokens: { authToken: rotated, refreshToken: 'rotated-refresh' },
+      rotation: {
+        succeeded: true,
+        tokens: { expiresIn: 900 },
+        user: { id: 1, email: 'buyer@example.com' },
+      },
+    };
+    mockOptionalAuth.mockResolvedValue({
+      authToken: rotated,
+      refreshToken: 'rotated-refresh',
+    });
+
+    const result = await handler(mockEvent);
+
+    expect(mockGetUser).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      user: { id: 1, email: 'buyer@example.com' },
+      expiresAt: expect.any(String),
+    });
+  });
+
+  it('calls getUser for a token with time left', async () => {
+    const token = jwtWithSecondsLeft(EXPIRES_SOON_SECONDS + 60);
+    mockOptionalAuth.mockResolvedValue({
+      authToken: token,
+      refreshToken: 'refresh-token',
+    });
+    mockGetUser.mockResolvedValue({
+      succeeded: true,
+      tokens: { expiresIn: 600 },
+      user: { id: 1 },
+    });
+
+    await handler(mockEvent);
+
+    expect(mockGetUser).toHaveBeenCalledWith('refresh-token', token, mockEvent);
+  });
+
+  it('never hands getUser a token about to expire, and keeps the cookies', async () => {
+    // Only reachable when the rotation could not be decided (internal error).
+    mockOptionalAuth.mockResolvedValue({
+      authToken: jwtWithSecondsLeft(EXPIRES_SOON_SECONDS - 1),
+      refreshToken: 'refresh-token',
+    });
+
+    const result = await handler(mockEvent);
+
+    expect(mockGetUser).not.toHaveBeenCalled();
+    expect(mockClearAuthCookies).not.toHaveBeenCalled();
+    expect(result).toEqual({ user: null });
   });
 
   // -----------------------------------------------------------------------
@@ -146,6 +213,30 @@ describe('GET /api/auth/me', () => {
 
     expect(mockSetMarketCookie).toHaveBeenCalledWith(eventWithTenant, 'fi');
     expect(result).toMatchObject({ market: 'fi' });
+  });
+
+  it('clears the cookies when getUser does not succeed', async () => {
+    mockOptionalAuth.mockResolvedValue({
+      authToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
+    mockGetUser.mockResolvedValue({ succeeded: false, user: { id: 1 } });
+
+    const result = await handler(mockEvent);
+
+    expect(result).toEqual({ user: null });
+    expect(mockClearAuthCookies).toHaveBeenCalled();
+  });
+
+  it('clears the cookies when getUser answers nothing', async () => {
+    mockOptionalAuth.mockResolvedValue({
+      authToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
+    mockGetUser.mockResolvedValue(undefined);
+
+    expect(await handler(mockEvent)).toEqual({ user: null });
+    expect(mockClearAuthCookies).toHaveBeenCalled();
   });
 
   it('returns null user when optionalAuth returns null', async () => {

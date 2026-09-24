@@ -39,12 +39,20 @@ export default defineEventHandler(async (event) => {
     return { user: null };
   }
 
+  // crm.auth.getUser renews on its own below EXPIRES_SOON_SECONDS and the new
+  // pair would be lost with the response, consuming the browser's refresh
+  // token. A request that rotated already holds the user; one that could not
+  // rotate a token that close to expiry answers signed out for this load.
+  const session = event.context.session;
+  const rotation = session?.status === 'active' ? session.rotation : undefined;
+  if (!rotation && isExpiringSoon(tokens.authToken)) {
+    return { user: null };
+  }
+
   try {
-    const result = await authService.getUser(
-      tokens.refreshToken,
-      tokens.authToken,
-      event,
-    );
+    const result =
+      rotation ??
+      (await authService.getUser(tokens.refreshToken, tokens.authToken, event));
 
     if (result?.succeeded && result.user) {
       // Re-affirm the market on session restore: pick the market matching the

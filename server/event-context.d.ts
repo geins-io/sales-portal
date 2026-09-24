@@ -1,6 +1,7 @@
 import type { TenantConfig } from '#shared/types/tenant-config';
 import type { ResolvedLocaleMarket } from '#shared/utils/locale-market';
 import type { TenantResolutionOutcome } from './utils/tenant';
+import type { SessionState } from './utils/session';
 
 declare module 'h3' {
   interface H3EventContext {
@@ -27,6 +28,8 @@ declare module 'h3' {
     localeMarket: { market: string; locale: string } | undefined;
     /** Validated locale/market with BCP-47 expansion, set by middleware 00. */
     resolvedLocaleMarket: ResolvedLocaleMarket | undefined;
+    /** The session `resolveSession` decided for this request; see `SessionState`. */
+    session?: SessionState;
   }
 }
 

@@ -34,7 +34,8 @@ export default defineEventHandler(async (event) => {
     token: tokens.token!,
     refreshToken: tokens.refreshToken!,
     expiresIn: tokens.expiresIn,
-    rememberMe: body.rememberMe,
+    // Explicit either way, so a mark left by an earlier sign-in is replaced.
+    rememberMe: body.rememberMe !== false,
   });
 
   // Copy the guest cart into a new authenticated cart so the logged-in

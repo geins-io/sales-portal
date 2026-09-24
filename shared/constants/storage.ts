@@ -41,6 +41,8 @@ export const LOCAL_STORAGE_KEYS = {
 export const COOKIE_NAMES = {
   AUTH_TOKEN: 'auth_token',
   REFRESH_TOKEN: 'refresh_token',
+  /** Set at sign-in without "remember me", so every rotation keeps that choice. */
+  SESSION_ONLY: 'session_only',
   TENANT_ID: 'tenant_id',
   LOCALE: 'locale',
   MARKET: 'market',

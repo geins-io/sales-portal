@@ -33,7 +33,7 @@ vi.mock('../../server/services/auth', () => ({
 
 const { getCustomerType } = await import('../../server/utils/auth');
 
-const mockEvent = {} as H3Event;
+let mockEvent = { context: {} } as H3Event;
 
 /** Signs the caller in with a token carrying the given claims. */
 function signedInWith(payload: Record<string, unknown>): void {
@@ -46,6 +46,7 @@ function signedInWith(payload: Record<string, unknown>): void {
 describe('getCustomerType', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEvent = { context: {} } as H3Event;
     getPreviewCookieMock.mockReturnValue(false);
   });
 

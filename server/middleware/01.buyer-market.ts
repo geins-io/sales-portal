@@ -1,8 +1,8 @@
-import { COOKIE_NAMES } from '#shared/constants/storage';
 import { listBuyerMarkets } from '../utils/buyer-market';
 import { loadUserForToken } from '../utils/load-user';
 import { isPagePath } from '../utils/is-page-path';
 import { hashToken } from '../utils/request-identity';
+import { getSessionToken } from '../utils/session';
 
 /**
  * Server-side guard that intercepts deep-link requests where an authenticated
@@ -12,8 +12,8 @@ import { hashToken } from '../utils/request-identity';
  * pages until the client-side self-heal fires a full reload.
  *
  * Runs AFTER `00.locale-market.ts` (filename order), so `event.context.localeMarket`
- * has already been populated for prefixed URLs. Anonymous users (no auth
- * cookie) pass straight through. Cache hits short-circuit the SDK lookup so
+ * has already been populated for prefixed URLs. Anonymous users (no session
+ * token) pass straight through. Cache hits short-circuit the SDK lookup so
  * cost is bounded.
  *
  * Module-scope cache is keyed by SHA-256(token) + tenantId + channelId to
@@ -64,7 +64,7 @@ export default defineEventHandler(async (event) => {
   const accept = getHeader(event, 'accept') || '';
   if (!accept.includes('text/html')) return;
 
-  const token = getCookie(event, COOKIE_NAMES.AUTH_TOKEN);
+  const token = getSessionToken(event);
   if (!token) return;
 
   const ctx = event.context as {

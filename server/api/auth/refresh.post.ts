@@ -1,5 +1,5 @@
-import * as authService from '../../services/auth';
 import { refreshRateLimiter, getClientIp } from '../../utils/rate-limiter';
+import { rotateOnce } from '../../utils/refresh-rotation';
 
 export default defineEventHandler(async (event) => {
   const clientIp = getClientIp(event);
@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     throw createAppError(ErrorCode.UNAUTHORIZED, 'No refresh token');
   }
 
-  const result = await authService.refresh(refreshToken, event);
+  const result = await rotateOnce(refreshToken, event);
 
   if (
     !result?.succeeded ||

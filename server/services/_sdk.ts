@@ -241,7 +241,7 @@ export function buildRequestContext(
 ): RequestContext | undefined {
   const languageId = getRequestLocale(event);
   const marketId = getRequestMarket(event);
-  const { authToken } = getAuthCookies(event);
+  const authToken = getSessionToken(event);
   if (!languageId && !marketId && !authToken) return undefined;
   const ctx: RequestContext = {};
   if (languageId) ctx.languageId = languageId;

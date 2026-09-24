@@ -81,6 +81,8 @@ const mockGetAuthCookies = vi.fn((): AuthCookies => ({}));
 vi.stubGlobal('getRequestLocale', mockGetRequestLocale);
 vi.stubGlobal('getRequestMarket', mockGetRequestMarket);
 vi.stubGlobal('getAuthCookies', mockGetAuthCookies);
+const mockGetSessionToken = vi.fn();
+vi.stubGlobal('getSessionToken', mockGetSessionToken);
 
 const MOCK_GEINS_SETTINGS: GeinsSettings = {
   apiKey: 'test-api-key',
@@ -414,6 +416,7 @@ describe('server/services/_sdk', () => {
 
       expect(ctx).toEqual({ marketId: 'se' });
       expect(ctx && 'languageId' in ctx).toBe(false);
+      expect(ctx && 'userToken' in ctx).toBe(false);
     });
 
     it('omits marketId entirely when no market was requested', () => {
@@ -439,10 +442,21 @@ describe('server/services/_sdk', () => {
     it('builds a context for an auth token alone', () => {
       mockGetRequestLocale.mockReturnValue(undefined);
       mockGetRequestMarket.mockReturnValue(undefined);
-      mockGetAuthCookies.mockReturnValue({ authToken: 'token-123' });
+      mockGetSessionToken.mockReturnValue('token-123');
 
       expect(buildRequestContext(createEvent('test.com'))).toEqual({
         userToken: 'token-123',
+      });
+    });
+
+    it('reads the session token, not the request cookie', () => {
+      mockGetRequestLocale.mockReturnValue(undefined);
+      mockGetRequestMarket.mockReturnValue(undefined);
+      mockGetAuthCookies.mockReturnValue({ authToken: 'stale-cookie' });
+      mockGetSessionToken.mockReturnValue('rotated');
+
+      expect(buildRequestContext(createEvent('test.com'))).toEqual({
+        userToken: 'rotated',
       });
     });
   });

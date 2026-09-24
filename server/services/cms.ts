@@ -324,9 +324,8 @@ export async function getContentArea(
   const isCacheable = !preview;
   const filters = buildAreaFilters(args.context);
   // customerType is a query argument that changes the response, so it belongs
-  // in the key beside family and areaName. It is usually decoded from the token
-  // the identity segment already covers, but not always: a request carrying
-  // only a refresh cookie resolves a customer type while sending no token.
+  // in the key beside family and areaName, even though it is decoded from the
+  // token the identity segment already covers.
   //
   // The filters segment is what keeps one product's area out of the next
   // product's response: the same family/areaName now answers differently per

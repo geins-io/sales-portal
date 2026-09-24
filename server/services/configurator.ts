@@ -85,7 +85,7 @@ export function resolveConfiguratorBackendName(
 }
 
 export function buildConfiguratorContext(event: H3Event): ConfiguratorContext {
-  const { authToken } = getAuthCookies(event);
+  const authToken = getSessionToken(event);
   return {
     hostname: event.context.tenant?.hostname ?? '',
     ...(authToken ? { userToken: authToken } : {}),

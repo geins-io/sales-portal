@@ -172,6 +172,23 @@ describe('server/middleware/01.buyer-market', () => {
     expect(sendRedirectMock).not.toHaveBeenCalled();
   });
 
+  it('reads the rotated token when the session middleware refreshed this request', async () => {
+    loadUserMock.mockResolvedValue(makeUser(['se']));
+    const handler = await importHandler();
+    const event = makeEvent({
+      authCookie: null,
+      path: '/no/sv/portal',
+      localeMarket: { market: 'no', locale: 'sv' },
+    });
+    (event.context as unknown as Record<string, unknown>).session = {
+      status: 'active',
+      tokens: { authToken: 'rotated', refreshToken: 'rotated-refresh' },
+    };
+    await handler(event);
+    expect(loadUserMock).toHaveBeenCalledWith(event, 'rotated');
+    expect(sendRedirectMock).toHaveBeenCalledWith(event, '/se/sv/portal', 302);
+  });
+
   it('f) redirects to allowed market preserving rest path', async () => {
     loadUserMock.mockResolvedValue(makeUser(['se']));
     const handler = await importHandler();

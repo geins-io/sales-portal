@@ -19,6 +19,8 @@ vi.stubGlobal('setHeader', setHeaderMock);
 vi.mock('#shared/constants/storage', () => ({
   COOKIE_NAMES: {
     PREVIEW_MODE: 'preview_mode',
+    AUTH_TOKEN: 'auth_token',
+    REFRESH_TOKEN: 'refresh_token',
   },
 }));
 
@@ -35,8 +37,8 @@ beforeEach(async () => {
     .default as unknown as (event: H3Event) => unknown;
 });
 
-function run(path: string) {
-  return middleware({ path } as unknown as H3Event);
+function run(path: string, context: Record<string, unknown> = {}) {
+  return middleware({ path, context } as unknown as H3Event);
 }
 
 describe('cache-headers middleware', () => {
@@ -76,6 +78,37 @@ describe('cache-headers middleware', () => {
   it('marks ?preview=1 requests as uncacheable even without cookie', () => {
     query = { preview: '1' };
     run('/sv/sv/');
+    expect(headers['cache-control']).toBe('private, no-store');
+  });
+
+  it('marks a page request with a session as uncacheable', () => {
+    run('/se/sv/portal', {
+      session: {
+        status: 'active',
+        tokens: { authToken: 'buyer-token', refreshToken: 'buyer-refresh' },
+      },
+    });
+    expect(headers['cache-control']).toBe('private, no-store');
+    expect(headers['vary']).toBeUndefined();
+  });
+
+  it('marks a page request carrying an auth cookie as uncacheable when the session was not decided', () => {
+    cookies.auth_token = 'buyer-token';
+    run('/se/sv/portal');
+    expect(headers['cache-control']).toBe('private, no-store');
+  });
+
+  it('keeps the CDN headers for an anonymous page request', () => {
+    run('/se/sv/', { session: { status: 'anonymous' } });
+    expect(headers['cache-control']).toBe(
+      'public, s-maxage=60, stale-while-revalidate=600',
+    );
+    expect(headers['vary']).toBe('host, accept-encoding');
+  });
+
+  it('marks an expired session as uncacheable: the response carries the cookie deletions', () => {
+    cookies.refresh_token = 'dead-refresh';
+    run('/se/sv/', { session: { status: 'expired' } });
     expect(headers['cache-control']).toBe('private, no-store');
   });
 });

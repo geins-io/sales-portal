@@ -149,6 +149,10 @@ vi.stubGlobal('getAuthCookies', (event: H3Event) => ({
   refreshToken: undefined,
 }));
 vi.stubGlobal(
+  'getSessionToken',
+  (event: H3Event) => asRouteEvent(event).authToken,
+);
+vi.stubGlobal(
   'setResponseHeader',
   (event: H3Event, name: string, value: string) => {
     asRouteEvent(event).headers[name] = value;

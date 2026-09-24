@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { H3Event } from 'h3';
 
 // Stub Nitro auto-imports that requireAuth depends on.
@@ -27,7 +27,24 @@ vi.mock('../../server/services/auth', () => ({
 
 const { requireAuth, optionalAuth } = await import('../../server/utils/auth');
 
-const mockEvent = {} as H3Event;
+let mockEvent = {} as H3Event;
+
+// Each test runs a minute after the previous one, so a rotation settled in one
+// test is past its grace window in the next.
+let clock = Date.UTC(2026, 8, 24, 12, 0, 0);
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  clock += 60_000;
+  vi.setSystemTime(clock);
+  mockEvent = {
+    context: { tenant: { hostname: 'shop.example' } },
+  } as unknown as H3Event;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 interface ThrownError {
   statusCode: number;
@@ -51,18 +68,23 @@ describe('requireAuth session refresh', () => {
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
-  it('throws SESSION_EXPIRED with statusCode 401 when the refresh service rejects', async () => {
+  it('throws UNAUTHORIZED and keeps the cookies when the refresh service throws', async () => {
+    // @geins/crm answers every refresh failure with { succeeded: false }; a
+    // throw comes from our own layer (no tenant, SDK not configured), which
+    // says nothing about the session.
     getAuthCookiesMock.mockReturnValue({
       authToken: '',
       refreshToken: 'rt-expired',
     });
-    refreshMock.mockRejectedValue(new Error('refresh token invalid'));
+    refreshMock.mockRejectedValue(
+      new Error('Tenant has no Geins SDK configuration'),
+    );
 
     await expect(requireAuth(mockEvent)).rejects.toMatchObject({
       statusCode: 401,
-      data: { code: 'SESSION_EXPIRED' },
+      data: { code: 'UNAUTHORIZED' },
     });
-    expect(clearAuthCookiesMock).toHaveBeenCalledWith(mockEvent);
+    expect(clearAuthCookiesMock).not.toHaveBeenCalled();
   });
 
   it('throws SESSION_EXPIRED when refresh succeeds but returns an unsuccessful result', async () => {
@@ -144,7 +166,20 @@ describe('optionalAuth', () => {
     vi.clearAllMocks();
   });
 
-  it('returns null instead of throwing when refresh fails', async () => {
+  it('returns null and clears the cookies when Geins rejects the refresh', async () => {
+    getAuthCookiesMock.mockReturnValue({
+      authToken: '',
+      refreshToken: 'rt',
+    });
+    refreshMock.mockResolvedValue({ succeeded: false });
+
+    const result = await optionalAuth(mockEvent);
+
+    expect(result).toBeNull();
+    expect(clearAuthCookiesMock).toHaveBeenCalled();
+  });
+
+  it('returns null and keeps the cookies when the refresh service throws', async () => {
     getAuthCookiesMock.mockReturnValue({
       authToken: '',
       refreshToken: 'rt',
@@ -154,6 +189,6 @@ describe('optionalAuth', () => {
     const result = await optionalAuth(mockEvent);
 
     expect(result).toBeNull();
-    expect(clearAuthCookiesMock).toHaveBeenCalled();
+    expect(clearAuthCookiesMock).not.toHaveBeenCalled();
   });
 });

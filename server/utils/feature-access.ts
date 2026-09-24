@@ -23,8 +23,9 @@ export async function canAccessFeatureServer(
  *
  * @example
  * ```ts
- * const tokens = await optionalAuth(event);
- * await assertFeatureAccess(event, 'quotes', { authenticated: !!tokens });
+ * await assertFeatureAccess(event, 'quotes', {
+ *   authenticated: !!getSessionToken(event),
+ * });
  * ```
  */
 export async function assertFeatureAccess(

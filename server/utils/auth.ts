@@ -1,45 +1,131 @@
 import type { H3Event } from 'h3';
+import type { AuthResponse } from '@geins/types';
 import { GeinsCustomerType } from '@geins/types';
-import * as authService from '../services/auth';
+import { logger } from './logger';
+import { rotateOnce } from './refresh-rotation';
+import type { AuthTokens, SessionState } from './session';
 
-export interface AuthTokens {
-  authToken: string;
-  refreshToken: string;
+/**
+ * `@geins/crm` renews the refresh token inside `getUser` when the auth token
+ * has less than this left, and its caller never sees the new pair. The SDK
+ * does not export the value; `tests/server/utils/sdk-expires-soon.test.ts`
+ * pins it to the installed version.
+ */
+export const EXPIRES_SOON_SECONDS = 90;
+
+/** Whole seconds left on a token, as the SDK counts them; NaN when unreadable. */
+function secondsLeft(token: string): number {
+  return Number(decodeJwtPayload(token)?.exp) - Math.floor(Date.now() / 1000);
+}
+
+export function isExpiringSoon(token: string): boolean {
+  return secondsLeft(token) < EXPIRES_SOON_SECONDS;
+}
+
+function isRotated(result: AuthResponse | undefined): result is AuthResponse & {
+  tokens: { token: string; refreshToken: string };
+} {
+  return Boolean(
+    result?.succeeded && result.tokens?.token && result.tokens.refreshToken,
+  );
+}
+
+async function decideSession(
+  event: H3Event,
+): Promise<SessionState | undefined> {
+  const { authToken, refreshToken } = getAuthCookies(event);
+
+  // Preview and impersonation tokens come without a refresh token.
+  if (authToken && !refreshToken) {
+    return { status: 'active', tokens: { authToken, refreshToken: '' } };
+  }
+  if (authToken && refreshToken && !isExpiringSoon(authToken)) {
+    return { status: 'active', tokens: { authToken, refreshToken } };
+  }
+  if (!refreshToken) return { status: 'anonymous' };
+
+  let rotation: AuthResponse | undefined;
+  try {
+    rotation = await rotateOnce(refreshToken, event);
+  } catch (error) {
+    // @geins/crm answers every refresh failure, a Geins outage included, with
+    // { succeeded: false }; a throw comes from our own layer and says nothing
+    // about the session.
+    logger.warn('Session not decided: refresh threw', {
+      hostname: event.context.tenant?.hostname,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return undefined;
+  }
+
+  if (!isRotated(rotation)) {
+    // A refused early renewal leaves a token that still works: a Geins hiccup
+    // or a dropped response must not sign the buyer out. The request after it
+    // runs out decides.
+    if (authToken && secondsLeft(authToken) > 0) {
+      return { status: 'active', tokens: { authToken, refreshToken } };
+    }
+    clearAuthCookies(event);
+    return { status: 'expired' };
+  }
+
+  setAuthCookies(event, {
+    token: rotation.tokens.token,
+    refreshToken: rotation.tokens.refreshToken,
+    expiresIn: rotation.tokens.expiresIn,
+  });
+  return {
+    status: 'active',
+    tokens: {
+      authToken: rotation.tokens.token,
+      refreshToken: rotation.tokens.refreshToken,
+    },
+    rotation,
+  };
 }
 
 /**
- * Reads auth cookies and ensures tokens are valid.
- * If the auth token is missing but a refresh token exists, performs a
- * transparent refresh and rotates both cookies.
- *
- * Call this at the top of any authenticated API route:
+ * Decides the session once per request and leaves it on `event.context`.
+ * Rotates when the auth cookie is gone or about to expire; never throws.
+ * `undefined` means not decided, and the request cookie stays the source.
+ */
+export async function resolveSession(
+  event: H3Event,
+): Promise<SessionState | undefined> {
+  if (event.context.session) return event.context.session;
+  const session = await decideSession(event);
+  if (session) event.context.session = session;
+  return session;
+}
+
+function tokensOf(
+  event: H3Event,
+  session: SessionState | undefined,
+): AuthTokens | null {
+  if (session) return session.status === 'active' ? session.tokens : null;
+  const { authToken, refreshToken } = getAuthCookies(event);
+  return authToken ? { authToken, refreshToken: refreshToken ?? '' } : null;
+}
+
+/**
+ * The session tokens for an authenticated API route:
  * ```ts
  * const { authToken, refreshToken } = await requireAuth(event);
  * ```
  *
- * @throws 401 if no valid session exists
+ * @throws 401 SESSION_EXPIRED when Geins refused the refresh — the only code
+ *   the client redirects to login on; 401 UNAUTHORIZED otherwise
  */
 export async function requireAuth(event: H3Event): Promise<AuthTokens> {
-  const { authToken, refreshToken } = getAuthCookies(event);
-
-  // Have both tokens — return them (SDK will reject if auth token is truly expired)
-  if (authToken && refreshToken) {
-    return { authToken, refreshToken };
+  const session = await resolveSession(event);
+  if (session?.status === 'expired') {
+    throw createAppError(ErrorCode.SESSION_EXPIRED, 'Session expired');
   }
-
-  // Auth token without refresh token — impersonation/preview tokens from admin
-  if (authToken && !refreshToken) {
-    return { authToken, refreshToken: '' };
+  const tokens = tokensOf(event, session);
+  if (!tokens) {
+    throw createAppError(ErrorCode.UNAUTHORIZED, 'Authentication required');
   }
-
-  // No auth token but have refresh token — try to refresh
-  if (!authToken && refreshToken) {
-    return await refreshAndRotate(event, refreshToken);
-  }
-
-  // No tokens at all
-  clearAuthCookies(event);
-  throw createAppError(ErrorCode.UNAUTHORIZED, 'Authentication required');
+  return tokens;
 }
 
 /**
@@ -47,27 +133,7 @@ export async function requireAuth(event: H3Event): Promise<AuthTokens> {
  * Useful for routes that work for both authenticated and anonymous users.
  */
 export async function optionalAuth(event: H3Event): Promise<AuthTokens | null> {
-  const { authToken, refreshToken } = getAuthCookies(event);
-
-  if (authToken && refreshToken) {
-    return { authToken, refreshToken };
-  }
-
-  // Auth token without refresh token (preview/impersonation tokens)
-  if (authToken && !refreshToken) {
-    return { authToken, refreshToken: '' };
-  }
-
-  if (!authToken && refreshToken) {
-    try {
-      return await refreshAndRotate(event, refreshToken);
-    } catch {
-      clearAuthCookies(event);
-      return null;
-    }
-  }
-
-  return null;
+  return tokensOf(event, await resolveSession(event));
 }
 
 /**
@@ -118,50 +184,5 @@ export function decodeJwtPayload(
     return JSON.parse(atob(base64));
   } catch {
     return null;
-  }
-}
-
-async function refreshAndRotate(
-  event: H3Event,
-  refreshToken: string,
-): Promise<AuthTokens> {
-  try {
-    const result = await authService.refresh(refreshToken, event);
-
-    if (
-      !result?.succeeded ||
-      !result.tokens?.token ||
-      !result.tokens?.refreshToken
-    ) {
-      clearAuthCookies(event);
-      throw createAppError(ErrorCode.SESSION_EXPIRED, 'Session expired');
-    }
-
-    const { tokens } = result;
-
-    setAuthCookies(event, {
-      token: tokens.token!,
-      refreshToken: tokens.refreshToken!,
-      expiresIn: tokens.expiresIn,
-    });
-
-    return {
-      authToken: tokens.token!,
-      refreshToken: tokens.refreshToken!,
-    };
-  } catch (error) {
-    clearAuthCookies(event);
-    // Any failure to refresh (SDK error, expired refresh token, network error,
-    // etc.) is surfaced as SESSION_EXPIRED so the client can redirect to login
-    // gracefully instead of rendering a generic 401 error blob.
-    if (
-      error &&
-      typeof error === 'object' &&
-      'statusCode' in error &&
-      (error as { data?: { code?: string } }).data?.code === 'SESSION_EXPIRED'
-    ) {
-      throw error; // Already SESSION_EXPIRED — preserve
-    }
-    throw createAppError(ErrorCode.SESSION_EXPIRED, 'Session expired');
   }
 }

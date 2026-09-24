@@ -34,5 +34,15 @@ export default defineEventHandler(async (event) => {
     throw createAppError(ErrorCode.BAD_REQUEST, 'Password change failed');
   }
 
+  // The password endpoint takes the refresh token and answers with a new pair,
+  // the same exchange as a refresh; the old one is spent.
+  if (result.tokens?.token && result.tokens.refreshToken) {
+    setAuthCookies(event, {
+      token: result.tokens.token,
+      refreshToken: result.tokens.refreshToken,
+      expiresIn: result.tokens.expiresIn,
+    });
+  }
+
   return { success: true };
 });

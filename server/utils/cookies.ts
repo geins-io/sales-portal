@@ -40,6 +40,11 @@ function cookieDefaults() {
 
 // --- Auth cookies (om nom nom) ---
 
+/**
+ * `rememberMe` is the sign-in choice. Left out — a rotation, a password change
+ * — the choice already made for this session stands: a cookie's max-age never
+ * reaches the server, so the choice travels as the `session_only` mark.
+ */
 export function setAuthCookies(
   event: H3Event,
   tokens: {
@@ -49,7 +54,13 @@ export function setAuthCookies(
     rememberMe?: boolean;
   },
 ) {
-  const persist = tokens.rememberMe !== false;
+  const persist =
+    tokens.rememberMe ?? getCookie(event, COOKIE_NAMES.SESSION_ONLY) !== '1';
+  if (tokens.rememberMe === false) {
+    setCookie(event, COOKIE_NAMES.SESSION_ONLY, '1', cookieDefaults());
+  } else if (tokens.rememberMe === true) {
+    deleteCookie(event, COOKIE_NAMES.SESSION_ONLY, { path: '/' });
+  }
   setCookie(event, COOKIE_NAMES.AUTH_TOKEN, tokens.token, {
     ...cookieDefaults(),
     ...(persist ? { maxAge: tokens.expiresIn ?? 3600 } : {}),
@@ -71,6 +82,7 @@ export function getAuthCookies(event: H3Event) {
 export function clearAuthCookies(event: H3Event) {
   deleteCookie(event, COOKIE_NAMES.AUTH_TOKEN, { path: '/' });
   deleteCookie(event, COOKIE_NAMES.REFRESH_TOKEN, { path: '/' });
+  deleteCookie(event, COOKIE_NAMES.SESSION_ONLY, { path: '/' });
 }
 
 // --- Tenant cookie ---
