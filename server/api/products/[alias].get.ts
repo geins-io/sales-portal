@@ -52,8 +52,11 @@ export default defineEventHandler(async (event) => {
       // the smallest tenant measured, 909 B on the largest, and the only thing
       // client-side that needs it is the CMS area's category filters, which
       // need the ids alone — forwarded below as `categoryIds`.
-      const { categories, ...withoutClosure } = product as {
+      // `type` goes to the seam below and no further: `configurable` is the
+      // client's one signal.
+      const { categories, type, ...withoutClosure } = product as {
         productId?: number;
+        type?: string | null;
         primaryCategory?: { categoryId?: number };
         categories?: (CategoryNode | null)[];
         texts?: { text1?: string; text2?: string; text3?: string };
@@ -72,13 +75,13 @@ export default defineEventHandler(async (event) => {
         .filter((id): id is number => typeof id === 'number');
 
       // The portal-side name for a product the configurator stands behind; the
-      // question goes to the seam, which is the one place that changes when the
-      // merchant API carries a field of its own. Spread only when true, so an
-      // ordinary product's response is what it was before the configurator.
-      const configurable = isConfigurableProduct(
-        event,
-        String(withoutClosure.productId),
-      );
+      // question goes to the seam, because whether the product's own type is
+      // enough depends on the backend. Spread only when true, so an ordinary
+      // product's response is what it was before the configurator.
+      const configurable = isConfigurableProduct(event, {
+        productId: String(withoutClosure.productId),
+        type,
+      });
 
       return {
         ...sanitizeProductTexts(withoutClosure),

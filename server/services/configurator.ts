@@ -27,6 +27,16 @@ export interface ConfiguratorContext {
   userToken?: string;
 }
 
+/**
+ * The catalogue product the configurable question is asked about: its Geins
+ * product id, and the product's own `type` as the merchant API sends it
+ * (`"configurable"` when the Monitor sync stamped it, `"product"` otherwise).
+ */
+export interface ConfigurableCandidate {
+  productId: string;
+  type?: string | null;
+}
+
 export interface ConfiguratorBackend {
   /**
    * Whether this backend configures the given catalogue product. Asked of a
@@ -34,8 +44,15 @@ export interface ConfiguratorBackend {
    * rather than throws. It takes the context like every other method: a Geins
    * product id belongs to one account, so an implementation that asks the
    * platform has to know which tenant is asking.
+   *
+   * The product's `type` is passed, not acted on here: a backend that cannot
+   * configure (production's `off`) must answer no for a `"configurable"`
+   * product too, or the page would dispatch to a configurator that fails.
    */
-  isConfigurable(productId: string, ctx: ConfiguratorContext): boolean;
+  isConfigurable(
+    product: ConfigurableCandidate,
+    ctx: ConfiguratorContext,
+  ): boolean;
   create(
     input: CreateConfigurationInput,
     ctx: ConfiguratorContext,
@@ -116,20 +133,20 @@ export function getConfiguratorBackend(event: H3Event): ConfiguratorBackend {
 }
 
 /**
- * Whether a product is configured through the configurator, by its Geins
- * product id. The product route asks this to set the portal-side `configurable`
- * flag, which is what decides the page a product gets.
+ * Whether a product is configured through the configurator. The product route
+ * asks this to set the portal-side `configurable` flag, which is what decides
+ * the page a product gets.
  *
- * It goes through the seam because the derivation is temporary: the fixture
- * answers from its seeds, and the day the merchant API carries a field the
- * answer moves to the SDK backend and no caller changes.
+ * It goes through the seam because the answer depends on the backend: the
+ * fixture answers from its seeds, the rejecting backends answer no, and a
+ * backend that reaches the real contract reads the product's `type`.
  */
 export function isConfigurableProduct(
   event: H3Event,
-  productId: string,
+  product: ConfigurableCandidate,
 ): boolean {
   return getConfiguratorBackend(event).isConfigurable(
-    productId,
+    product,
     buildConfiguratorContext(event),
   );
 }

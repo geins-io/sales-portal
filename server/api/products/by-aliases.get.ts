@@ -42,7 +42,14 @@ export default defineEventHandler(async (event) => {
         { aliases, userToken: auth?.authToken },
         event,
       );
-      return { products };
+      // The query is shared with the product page, which reads `type` for the
+      // configurator seam; a list item keeps the shape it had without it.
+      return {
+        products: products.map((product) => {
+          const { type: _type, ...rest } = product as Record<string, unknown>;
+          return rest;
+        }),
+      };
     },
     { operation: 'products.by-aliases' },
   );

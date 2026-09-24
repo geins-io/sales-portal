@@ -9,6 +9,7 @@ import {
   type ConfiguratorContext,
 } from '../../../../server/services/configurator';
 import type { Configuration } from '../../../../shared/types/configurator';
+import { fixtureConfiguratorBackend } from '../../../../server/services/configurator-fixture';
 import {
   ARBETSBORD_PRO_GEINS_ID,
   ARBETSBORD_PRO_ID,
@@ -241,37 +242,79 @@ describe('isConfigurableProduct', () => {
     context: { tenant: { hostname: 'tenant.example.com' } },
   } as unknown as Parameters<typeof isConfigurableProduct>[0];
 
-  function answerWith(value: unknown, productId: string): boolean {
+  // Measured 2026-09-24: an ordinary product and the seeds' own catalogue
+  // products answer `"product"`; the Monitor sync stamps `"configurable"`.
+  const ORDINARY_TYPE = 'product';
+  const CONFIGURABLE_TYPE = 'configurable';
+
+  function answerWith(
+    value: unknown,
+    productId: string,
+    type?: string | null,
+  ): boolean {
     mockReadBackendValue.mockReturnValue(value);
-    return isConfigurableProduct(EVENT_WITH_TENANT, productId);
+    return isConfigurableProduct(EVENT_WITH_TENANT, { productId, type });
   }
 
-  it('says yes on the fixture backend for a product a seed stands for', () => {
-    expect(answerWith('fixture', ARBETSBORD_PRO_GEINS_ID)).toBe(true);
-  });
+  it.each([
+    ['its measured ordinary type', ORDINARY_TYPE],
+    ['the configurable type', CONFIGURABLE_TYPE],
+    ['no type', undefined],
+  ])(
+    'says yes on the fixture backend for a product a seed stands for, with %s',
+    (_label, type) => {
+      expect(answerWith('fixture', ARBETSBORD_PRO_GEINS_ID, type)).toBe(true);
+    },
+  );
 
   it('says no on the fixture backend for a product no seed stands for', () => {
-    expect(answerWith('fixture', '999999')).toBe(false);
+    expect(answerWith('fixture', '999999', ORDINARY_TYPE)).toBe(false);
+  });
+
+  it('says no on the fixture backend for a configurable type no seed stands for', () => {
+    // The fixture can only configure its seeds; a Monitor-typed product is the
+    // real backend's to answer.
+    expect(answerWith('fixture', '1359', CONFIGURABLE_TYPE)).toBe(false);
   });
 
   it("says no for the provider's own part id, which is not a catalogue product", () => {
-    expect(answerWith('fixture', ARBETSBORD_PRO_ID)).toBe(false);
+    expect(answerWith('fixture', ARBETSBORD_PRO_ID, ORDINARY_TYPE)).toBe(false);
   });
 
   it.each([
     ['off', 'off'],
+    ['sdk', 'sdk'],
     ['an unknown value', 'nonsense'],
     ['the key absent', undefined],
-  ])('says no with the backend %s', (_label, value) => {
-    expect(answerWith(value, ARBETSBORD_PRO_GEINS_ID)).toBe(false);
-  });
+  ])(
+    'says no with the backend %s, even for a configurable type',
+    (_label, value) => {
+      // Production runs `off`: a Monitor-typed product must not be sent to a
+      // configurator page that would fail at create.
+      expect(answerWith(value, '1359', CONFIGURABLE_TYPE)).toBe(false);
+      expect(answerWith(value, ARBETSBORD_PRO_GEINS_ID, ORDINARY_TYPE)).toBe(
+        false,
+      );
+    },
+  );
 
-  it('says no on the sdk backend, where the field is not known yet', () => {
-    expect(answerWith('sdk', ARBETSBORD_PRO_GEINS_ID)).toBe(false);
+  it('passes the product through to the backend unchanged', () => {
+    mockReadBackendValue.mockReturnValue('fixture');
+    const product = { productId: '1359', type: CONFIGURABLE_TYPE };
+    const spy = vi.spyOn(fixtureConfiguratorBackend, 'isConfigurable');
+
+    isConfigurableProduct(EVENT_WITH_TENANT, product);
+
+    expect(spy).toHaveBeenCalledWith(product, {
+      hostname: 'tenant.example.com',
+    });
+    spy.mockRestore();
   });
 
   it('answers rather than throws on a backend that rejects every verb', () => {
-    expect(() => answerWith('off', ARBETSBORD_PRO_GEINS_ID)).not.toThrow();
+    expect(() =>
+      answerWith('off', ARBETSBORD_PRO_GEINS_ID, ORDINARY_TYPE),
+    ).not.toThrow();
   });
 
   it('builds the context from the event, tenant or no tenant', () => {
@@ -282,8 +325,11 @@ describe('isConfigurableProduct', () => {
       typeof isConfigurableProduct
     >[0];
 
-    expect(isConfigurableProduct(withoutTenant, ARBETSBORD_PRO_GEINS_ID)).toBe(
-      true,
-    );
+    expect(
+      isConfigurableProduct(withoutTenant, {
+        productId: ARBETSBORD_PRO_GEINS_ID,
+        type: ORDINARY_TYPE,
+      }),
+    ).toBe(true);
   });
 });

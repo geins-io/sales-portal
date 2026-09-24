@@ -279,7 +279,21 @@ describe('Product API Routes', () => {
       });
     });
 
-    it('asks the seam with the product id as a string', async () => {
+    it("asks the seam with the product id as a string and the product's own type", async () => {
+      vi.mocked(getRouterParam).mockReturnValue('digging-bucket');
+      mockGraphqlQuery.mockResolvedValue({
+        product: { productId: 1359, type: 'configurable', name: 'Bucket' },
+      });
+
+      await handler(fakeEvent);
+
+      expect(mockIsConfigurableProduct).toHaveBeenCalledWith(fakeEvent, {
+        productId: '1359',
+        type: 'configurable',
+      });
+    });
+
+    it('asks the seam with no type when the response carries none', async () => {
       vi.mocked(getRouterParam).mockReturnValue('arbetsbord-pro');
       mockGraphqlQuery.mockResolvedValue({
         product: { productId: 1101, name: 'Arbetsbord Pro' },
@@ -287,20 +301,43 @@ describe('Product API Routes', () => {
 
       await handler(fakeEvent);
 
-      expect(mockIsConfigurableProduct).toHaveBeenCalledWith(fakeEvent, '1101');
+      expect(mockIsConfigurableProduct).toHaveBeenCalledWith(fakeEvent, {
+        productId: '1101',
+        type: undefined,
+      });
+    });
+
+    it('keeps the type out of the response, configurable or not', async () => {
+      vi.mocked(getRouterParam).mockReturnValue('arbetsbord-pro');
+      mockIsConfigurableProduct.mockReturnValue(true);
+      mockGraphqlQuery.mockResolvedValue({
+        product: { productId: 1101, type: 'product', name: 'Arbetsbord Pro' },
+      });
+
+      // `configurable` is the client's one signal; the type goes to the seam.
+      expect(await handler(fakeEvent)).toEqual({
+        productId: 1101,
+        name: 'Arbetsbord Pro',
+        ancestors: [],
+        configurable: true,
+      });
     });
 
     it('leaves the payload of an ordinary product untouched', async () => {
       vi.mocked(getRouterParam).mockReturnValue('my-product');
       mockGraphqlQuery.mockResolvedValue({
-        product: { productId: 42, name: 'My Product' },
+        product: { productId: 42, type: 'product', name: 'My Product' },
       });
 
       const result = await handler(fakeEvent);
 
       // Absent, not `false`: an ordinary product's response stays what it was
       // before the configurator existed.
-      expect(result).not.toHaveProperty('configurable');
+      expect(result).toEqual({
+        productId: 42,
+        name: 'My Product',
+        ancestors: [],
+      });
     });
 
     it('throws ZodError for empty alias', async () => {
@@ -551,6 +588,21 @@ describe('Product API Routes', () => {
           { alias: 'a', name: 'A' },
           { alias: 'b', name: 'B' },
         ],
+      });
+    });
+
+    it("keeps each product's type out of the response", async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'a,b' });
+      mockGraphqlQuery
+        .mockResolvedValueOnce({ product: { alias: 'a', type: 'product' } })
+        .mockResolvedValueOnce({
+          product: { alias: 'b', type: 'configurable' },
+        });
+
+      // The query is shared with the product page, which needs the type for
+      // the seam; a favourites list does not, so its items stay as they were.
+      expect(await handler(fakeEvent)).toEqual({
+        products: [{ alias: 'a' }, { alias: 'b' }],
       });
     });
 

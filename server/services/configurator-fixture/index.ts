@@ -5,7 +5,11 @@ import type {
   ConfigurationChange,
   CreateConfigurationInput,
 } from '#shared/types/configurator';
-import type { ConfiguratorBackend, ConfiguratorContext } from '../configurator';
+import type {
+  ConfigurableCandidate,
+  ConfiguratorBackend,
+  ConfiguratorContext,
+} from '../configurator';
 import { applyChangeBatch } from './changes';
 import { createSessionState, evaluate } from './evaluate';
 import { findSeed } from './seed';
@@ -58,8 +62,9 @@ export function createFixtureConfiguratorBackend({
   return {
     // The fixture is one catalogue for every tenant, so the context is not
     // read here; the seam passes it because a backend that asks the platform
-    // will need it.
-    isConfigurable(productId: string): boolean {
+    // will need it. The type is not read either: the seeds stand for ordinary
+    // catalogue products, typed `"product"`.
+    isConfigurable({ productId }: ConfigurableCandidate): boolean {
       return findSeed(productId) !== undefined;
     },
 

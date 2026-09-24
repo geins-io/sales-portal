@@ -11,6 +11,7 @@ query product(
     marketId: $marketId
   ) {
     productId
+    type
     articleNumber
     alias
     canonicalUrl
