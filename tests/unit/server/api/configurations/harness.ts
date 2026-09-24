@@ -42,13 +42,13 @@ export const backend: Record<
 
 export const getFeatures = vi.fn();
 export const getConfiguratorBackend = vi.fn();
-export const buildConfiguratorContext = vi.fn();
+export const buildConfiguratorRequestContext = vi.fn();
 
 vi.mock('../../../../../server/services/configurator', () => ({
   getConfiguratorBackend: (...args: unknown[]) =>
     getConfiguratorBackend(...args),
-  buildConfiguratorContext: (...args: unknown[]) =>
-    buildConfiguratorContext(...args),
+  buildConfiguratorRequestContext: (...args: unknown[]) =>
+    buildConfiguratorRequestContext(...args),
 }));
 
 vi.mock('../../../../../server/services/tenant-config', () => ({
@@ -198,7 +198,7 @@ export function resetHarness(): void {
   errorContexts.length = 0;
   configuratorFeature({ enabled: true });
   getConfiguratorBackend.mockReturnValue(backend);
-  buildConfiguratorContext.mockReturnValue(CTX);
+  buildConfiguratorRequestContext.mockResolvedValue(CTX);
 }
 
 // ---------------------------------------------------------------------------

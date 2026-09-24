@@ -12,3 +12,8 @@ import type { H3Event } from 'h3';
 export function readConfiguratorBackendValue(event: H3Event): unknown {
   return useRuntimeConfig(event).configurator?.backend;
 }
+
+/** Reads the raw `configurator.merchantApiUrl` runtime key, unparsed like the one above. */
+export function readConfiguratorMerchantApiUrl(event: H3Event): unknown {
+  return useRuntimeConfig(event).configurator?.merchantApiUrl;
+}

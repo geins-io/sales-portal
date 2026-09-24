@@ -1,0 +1,19 @@
+fragment CpqGroupFields on CpqOptionGroupType {
+  id
+  code
+  name
+  description
+  available
+  minSelections
+  maxSelections
+  minQuantity
+  maxQuantity
+  quantityEditable
+  sortIndex
+  options {
+    ...CpqOption
+  }
+  messages {
+    ...CpqMessage
+  }
+}

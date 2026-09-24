@@ -27,6 +27,8 @@ export interface SessionStore {
   put(hostname: string, id: string, session: StoredSession): void;
   /** The live session, or the 404/410 the caller should answer with. */
   require(hostname: string, id: string): StoredSession;
+  /** Whether `require` would answer anything but 404 for this id. */
+  has(hostname: string, id: string): boolean;
 }
 
 export function createSessionStore(
@@ -35,6 +37,9 @@ export function createSessionStore(
 ): SessionStore {
   const sessions = new Map<string, StoredSession>();
   const key = (hostname: string, id: string) => `${hostname}|${id}`;
+  const forgotten = (session: StoredSession) =>
+    session.departedAt !== undefined &&
+    now() >= session.departedAt + retentionMs;
 
   return {
     put(hostname, id, session) {
@@ -46,17 +51,21 @@ export function createSessionStore(
       if (!session) {
         throw createAppError(ErrorCode.NOT_FOUND, 'No such configuration');
       }
+      if (forgotten(session)) {
+        sessions.delete(at);
+        throw createAppError(ErrorCode.NOT_FOUND, 'No such configuration');
+      }
       if (session.departedAt !== undefined) {
-        if (now() >= session.departedAt + retentionMs) {
-          sessions.delete(at);
-          throw createAppError(ErrorCode.NOT_FOUND, 'No such configuration');
-        }
         throw createAppError(ErrorCode.GONE, 'The configuration is finished');
       }
       if (now() >= session.expiresAt) {
         throw createAppError(ErrorCode.GONE, 'The configuration has expired');
       }
       return session;
+    },
+    has(hostname, id) {
+      const session = sessions.get(key(hostname, id));
+      return session !== undefined && !forgotten(session);
     },
   };
 }

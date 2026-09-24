@@ -41,7 +41,7 @@ const configuration: Configuration = {
   configurationId: '3f2504e0-4f89-11d3-9a0c-0305e82c3301',
   expiresAt: '2026-09-15T13:45:00Z',
   isValid: false,
-  productId: '900000000001',
+  articleNumber: '900000000001',
   quantity: 5,
   unitPrice: { sellingPriceExVat: 18400, currency: { code: 'SEK' } },
   discountPercent: 12.5,
@@ -156,7 +156,7 @@ describe('CPQ configuration document types', () => {
     const committed: CommittedConfiguration = {
       committedConfigurationId: 'cc-1',
       configurationId: configuration.configurationId,
-      productId: configuration.productId,
+      productId: configuration.articleNumber,
       quantity: configuration.quantity,
       unitPrice: configuration.unitPrice,
       summary: [

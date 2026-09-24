@@ -2,9 +2,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createAppError, ErrorCode } from '../../../../server/utils/errors';
 import {
   buildConfiguratorContext,
+  buildConfiguratorRequestContext,
   getConfiguratorBackend,
   isConfigurableProduct,
+  MERCHANT_API_DEFAULT_URL,
   resolveConfiguratorBackendName,
+  resolveMerchantApiUrl,
   type ConfiguratorBackend,
   type ConfiguratorContext,
 } from '../../../../server/services/configurator';
@@ -27,11 +30,22 @@ import {
 // ---------------------------------------------------------------------------
 
 const mockReadBackendValue = vi.fn();
+const mockReadMerchantApiUrl = vi.fn();
 const mockGetAuthCookies = vi.fn();
+const mockGetTenantSDK = vi.fn();
+const mockGetRequestChannelVariables = vi.fn();
 
 vi.mock('../../../../server/services/configurator-config', () => ({
   readConfiguratorBackendValue: (...args: unknown[]) =>
     mockReadBackendValue(...args),
+  readConfiguratorMerchantApiUrl: (...args: unknown[]) =>
+    mockReadMerchantApiUrl(...args),
+}));
+
+vi.mock('../../../../server/services/_sdk', () => ({
+  getTenantSDK: (...args: unknown[]) => mockGetTenantSDK(...args),
+  getRequestChannelVariables: (...args: unknown[]) =>
+    mockGetRequestChannelVariables(...args),
 }));
 
 vi.stubGlobal('createAppError', createAppError);
@@ -98,9 +112,14 @@ async function statusOf(
 // ---------------------------------------------------------------------------
 
 describe('resolveConfiguratorBackendName', () => {
-  it('accepts the two implemented names', () => {
+  it('accepts the implemented names', () => {
     expect(resolveConfiguratorBackendName('fixture')).toBe('fixture');
-    expect(resolveConfiguratorBackendName('sdk')).toBe('sdk');
+    expect(resolveConfiguratorBackendName('merchant-api')).toBe('merchant-api');
+    expect(resolveConfiguratorBackendName('composite')).toBe('composite');
+  });
+
+  it('reads the retired sdk name as off', () => {
+    expect(resolveConfiguratorBackendName('sdk')).toBe('off');
   });
 
   it('reads off as off', () => {
@@ -117,6 +136,29 @@ describe('resolveConfiguratorBackendName', () => {
     ['a padded value', ' fixture '],
   ])('reads %s as off', (_label, value) => {
     expect(resolveConfiguratorBackendName(value)).toBe('off');
+  });
+});
+
+describe('resolveMerchantApiUrl', () => {
+  it('takes a set URL as it is', () => {
+    expect(resolveMerchantApiUrl('https://cpq.example.test/graphql')).toBe(
+      'https://cpq.example.test/graphql',
+    );
+  });
+
+  it.each([
+    ['an empty string', ''],
+    ['undefined', undefined],
+    ['null', null],
+    ['a non-string', 42],
+  ])('reads %s as the ordinary merchant-api endpoint', (_label, value) => {
+    expect(resolveMerchantApiUrl(value)).toBe(MERCHANT_API_DEFAULT_URL);
+  });
+
+  it('defaults to the endpoint the SDK itself talks to', () => {
+    expect(MERCHANT_API_DEFAULT_URL).toBe(
+      'https://merchantapi.geins.io/graphql',
+    );
   });
 });
 
@@ -145,12 +187,27 @@ describe('getConfiguratorBackend', () => {
     }
   });
 
-  it('answers 501 from every method with the key set to sdk', async () => {
+  it('answers 404 from every method with the retired key sdk', async () => {
     const backend = withBackend('sdk');
     for (const [name, call] of allCalls(backend)) {
-      expect(await statusOf(call), name).toBe(501);
+      expect(await statusOf(call), name).toBe(404);
     }
   });
+
+  it.each(['merchant-api', 'composite'])(
+    'answers 500 on %s when the context carries no merchant-api target',
+    async (value) => {
+      // Only the product route builds the narrow context, and it never
+      // creates; reaching the real backend without a target is a wiring bug.
+      const backend = withBackend(value);
+      expect(
+        await statusOf(() =>
+          backend.create({ productId: '1359', quantity: 1 }, CTX),
+        ),
+      ).toBe(500);
+      expect(await statusOf(() => backend.get('c1', CTX))).toBe(500);
+    },
+  );
 
   describe('with the key set to fixture', () => {
     it('returns a configuration for the requested product', async () => {
@@ -166,7 +223,7 @@ describe('getConfiguratorBackend', () => {
       // Asked for by the Geins product id, answered with a document carrying
       // the provider's part id: the translation the backend owes the portal.
       expect(configuration.configurationId).toBeTruthy();
-      expect(configuration.productId).toBe(ARBETSBORD_PRO_ID);
+      expect(configuration.articleNumber).toBe(ARBETSBORD_PRO_ID);
       expect(configuration.quantity).toBe(2);
       expect(Date.parse(configuration.expiresAt)).toBeGreaterThan(Date.now());
       expect(configuration.sections.length).toBeGreaterThan(0);
@@ -210,6 +267,82 @@ describe('buildConfiguratorContext', () => {
 
   it('falls back to an empty hostname when no tenant resolved', () => {
     expect(buildConfiguratorContext(eventWith()).hostname).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The context a configuration route hands across the seam
+//
+// Everything the real backend needs from the request, read here so no backend
+// reads the event itself.
+// ---------------------------------------------------------------------------
+
+describe('buildConfiguratorRequestContext', () => {
+  const SDK = { sdk: true };
+  const CHANNEL = { channelId: '1|se', languageId: 'sv-SE', marketId: 'se' };
+  const TARGET_URL = 'https://cpq.example.test/graphql';
+
+  function eventWith(tenant?: Record<string, unknown>) {
+    return { context: tenant ? { tenant } : {} } as unknown as Parameters<
+      typeof buildConfiguratorRequestContext
+    >[0];
+  }
+
+  const TENANT = {
+    hostname: 'tenant.example.com',
+    config: { geinsSettings: { apiKey: 'key-1' } },
+  };
+
+  beforeEach(() => {
+    mockReadMerchantApiUrl.mockReset();
+    mockReadMerchantApiUrl.mockReturnValue(TARGET_URL);
+    mockGetTenantSDK.mockReset();
+    mockGetTenantSDK.mockResolvedValue(SDK);
+    mockGetRequestChannelVariables.mockReset();
+    mockGetRequestChannelVariables.mockReturnValue(CHANNEL);
+  });
+
+  it('carries the narrow context plus the merchant-api target', async () => {
+    mockGetAuthCookies.mockReturnValue({ authToken: 'token-1' });
+    const event = eventWith(TENANT);
+
+    expect(await buildConfiguratorRequestContext(event)).toEqual({
+      hostname: 'tenant.example.com',
+      userToken: 'token-1',
+      merchantApi: { url: TARGET_URL, apiKey: 'key-1', ...CHANNEL },
+    });
+    expect(mockReadMerchantApiUrl).toHaveBeenCalledWith(event);
+    expect(mockGetRequestChannelVariables).toHaveBeenCalledWith(SDK, event);
+  });
+
+  it("uses the tenant's own API key, with no secret of its own", async () => {
+    const ctx = await buildConfiguratorRequestContext(
+      eventWith({
+        ...TENANT,
+        config: { geinsSettings: { apiKey: 'another-key' } },
+      }),
+    );
+    expect(ctx.merchantApi?.apiKey).toBe('another-key');
+  });
+
+  it('falls back to the ordinary endpoint when the key is empty', async () => {
+    mockReadMerchantApiUrl.mockReturnValue('');
+    const ctx = await buildConfiguratorRequestContext(eventWith(TENANT));
+    expect(ctx.merchantApi?.url).toBe(MERCHANT_API_DEFAULT_URL);
+  });
+
+  it('carries an empty key rather than failing when the tenant has none', async () => {
+    const ctx = await buildConfiguratorRequestContext(
+      eventWith({ hostname: 'tenant.example.com' }),
+    );
+    expect(ctx.merchantApi?.apiKey).toBe('');
+  });
+
+  it('carries an empty key when the config has no Geins settings', async () => {
+    const ctx = await buildConfiguratorRequestContext(
+      eventWith({ hostname: 'tenant.example.com', config: {} }),
+    );
+    expect(ctx.merchantApi?.apiKey).toBe('');
   });
 });
 
@@ -285,6 +418,22 @@ describe('isConfigurableProduct', () => {
 
   it("says no for the provider's own part id, which is not a catalogue product", () => {
     expect(answerWith('fixture', ARBETSBORD_PRO_ID, ORDINARY_TYPE)).toBe(false);
+  });
+
+  it('says yes on the merchant-api backend for the configurable type only', () => {
+    expect(answerWith('merchant-api', '1359', CONFIGURABLE_TYPE)).toBe(true);
+    expect(answerWith('merchant-api', '1359', ORDINARY_TYPE)).toBe(false);
+    expect(answerWith('merchant-api', ARBETSBORD_PRO_GEINS_ID, undefined)).toBe(
+      false,
+    );
+  });
+
+  it('says yes on the composite backend for a seed and for the configurable type', () => {
+    expect(
+      answerWith('composite', ARBETSBORD_PRO_GEINS_ID, ORDINARY_TYPE),
+    ).toBe(true);
+    expect(answerWith('composite', '1359', CONFIGURABLE_TYPE)).toBe(true);
+    expect(answerWith('composite', '1359', ORDINARY_TYPE)).toBe(false);
   });
 
   it.each([

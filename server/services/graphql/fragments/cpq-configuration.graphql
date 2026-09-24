@@ -1,0 +1,42 @@
+# Fragments cannot recurse: sections are selected four levels deep.
+fragment CpqConfiguration on CpqConfigurationType {
+  configurationId
+  expiresAt
+  isValid
+  articleNumber
+  quantity
+  unitPrice {
+    ...Price
+  }
+  discountPercent
+  weightPerUnit
+  templateId
+  templateVersion
+  messages {
+    ...CpqMessage
+  }
+  sections {
+    ...CpqSectionFields
+    optionGroups {
+      ...CpqGroupTree
+    }
+    sections {
+      ...CpqSectionFields
+      optionGroups {
+        ...CpqGroupTree
+      }
+      sections {
+        ...CpqSectionFields
+        optionGroups {
+          ...CpqGroupTree
+        }
+        sections {
+          ...CpqSectionFields
+          optionGroups {
+            ...CpqGroupTree
+          }
+        }
+      }
+    }
+  }
+}

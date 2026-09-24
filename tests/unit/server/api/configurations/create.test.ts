@@ -4,7 +4,7 @@ import {
   CTX,
   backend,
   bodyReads,
-  buildConfiguratorContext,
+  buildConfiguratorRequestContext,
   headersOf,
   lifecycleCases,
   makeEvent,
@@ -44,7 +44,7 @@ describe('POST /api/configurations', () => {
 
     expect(result).toBe(CONFIGURATION);
     expect(backend.create).toHaveBeenCalledWith(VALID, CTX);
-    expect(buildConfiguratorContext).toHaveBeenCalledWith(event);
+    expect(buildConfiguratorRequestContext).toHaveBeenCalledWith(event);
     expect(headersOf(event)['Cache-Control']).toBe('private, no-store');
   });
 

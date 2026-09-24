@@ -66,7 +66,7 @@ function advance(minutes: number): void {
 
 vi.mock('../../../../../server/services/configurator', () => ({
   getConfiguratorBackend: () => backend,
-  buildConfiguratorContext: () => CTX,
+  buildConfiguratorRequestContext: async () => CTX,
 }));
 
 vi.mock('../../../../../server/services/tenant-config', () => ({
@@ -266,7 +266,7 @@ describe.sequential('the CPQ verification walk against the fixture', () => {
     latest = await createConfiguration(ARBETSBORD_PRO_GEINS_ID, 2);
     workbench = latest.configurationId;
 
-    expect(latest.productId).toBe(ARBETSBORD_PRO_ID);
+    expect(latest.articleNumber).toBe(ARBETSBORD_PRO_ID);
     expect(latest.quantity).toBe(2);
     // The colour group arrives empty, and that unmet requirement is what makes
     // a fresh document invalid.

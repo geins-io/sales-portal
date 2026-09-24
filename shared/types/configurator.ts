@@ -165,7 +165,8 @@ export interface Configuration {
   /** ISO 8601. A session expires; an expired one answers 410. */
   expiresAt: string;
   isValid: boolean;
-  productId: string;
+  /** The provider's part number for the configured product, as the document carries it. */
+  articleNumber: string;
   quantity: number;
   unitPrice: PriceType;
   discountPercent: number;

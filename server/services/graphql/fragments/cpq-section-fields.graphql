@@ -1,0 +1,13 @@
+fragment CpqSectionFields on CpqSectionType {
+  id
+  name
+  description
+  visible
+  sortIndex
+  variables {
+    ...CpqVariable
+  }
+  messages {
+    ...CpqMessage
+  }
+}

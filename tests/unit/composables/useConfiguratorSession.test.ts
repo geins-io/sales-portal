@@ -78,7 +78,7 @@ function committedFrom(config: Configuration): CommittedConfiguration {
   return {
     committedConfigurationId: 'committed-1',
     configurationId: config.configurationId,
-    productId: config.productId,
+    productId: config.articleNumber,
     quantity: config.quantity,
     unitPrice: config.unitPrice,
     summary: [{ label: 'Table top', value: 'Stainless steel' }],
