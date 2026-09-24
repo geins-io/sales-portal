@@ -128,8 +128,11 @@ function finishSection(): ConfigurationSection {
         sortIndex: 11,
         quantityEditable: true,
         options: [
+          // The provider's price is already net of the discount: 1,200 less
+          // 25 %. The percentage travels beside it as information.
           option('acc-pegboard', 'Tool pegboard', 900, 904_001, {
             maxQuantity: 2,
+            discountPercent: 25,
           }),
           option('acc-light', 'LED light bar', 700, 904_002, {
             maxQuantity: 2,

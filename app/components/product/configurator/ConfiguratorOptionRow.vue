@@ -79,7 +79,11 @@ const messages = computed(() =>
   messagesBesides(option.messages, promoted.value),
 );
 
-/** What the row adds to the configuration, or nothing when it adds nothing. */
+/**
+ * What the row adds to the configuration, or nothing when it adds nothing.
+ * `unitPrice` arrives already discounted; the percentage beside it is
+ * information, never arithmetic.
+ */
 const price = computed(() => {
   const prefix = optionPricePrefix(option.unitPrice.net);
   if (prefix === null) return '';
@@ -186,9 +190,16 @@ function onRow() {
             <p
               v-if="!stacked && showPrice && price"
               data-testid="configurator-option-price"
-              class="text-muted-foreground shrink-0 text-sm tabular-nums"
+              class="text-muted-foreground flex shrink-0 items-center gap-1.5 text-sm tabular-nums"
             >
               {{ price }}
+              <span
+                v-if="option.discountPercent > 0"
+                data-testid="configurator-option-discount"
+                class="bg-primary/10 text-primary rounded-full px-1.5 text-[10px] font-medium"
+              >
+                −{{ option.discountPercent }}%
+              </span>
             </p>
           </div>
 
@@ -202,9 +213,16 @@ function onRow() {
           <p
             v-if="stacked && showPrice && price"
             data-testid="configurator-option-price"
-            class="text-muted-foreground mt-0.5 text-sm tabular-nums"
+            class="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-sm tabular-nums"
           >
             {{ price }}
+            <span
+              v-if="option.discountPercent > 0"
+              data-testid="configurator-option-discount"
+              class="bg-primary/10 text-primary rounded-full px-1.5 text-[10px] font-medium"
+            >
+              −{{ option.discountPercent }}%
+            </span>
           </p>
 
           <!-- A row the rules refuse states why in the colour of a refusal; one

@@ -323,18 +323,6 @@ export function groupSpecificationRows(
   return [...groups.entries()];
 }
 
-/**
- * What the buyer pays per unit once a discount is applied.
- *
- * Rounded to whole units of the currency, as the price the provider confirms
- * is: a discount that lands on half an öre is a rendering artefact, not a
- * price.
- */
-export function discountedNet(net: number, discountPercent: number): number {
-  if (discountPercent <= 0) return net;
-  return Math.round(net * (1 - discountPercent / 100));
-}
-
 export interface SpecificationTextInput {
   productName: string;
   articleNumber: string;

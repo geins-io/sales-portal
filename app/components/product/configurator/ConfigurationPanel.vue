@@ -16,7 +16,6 @@ import { Button } from '~/components/ui/button';
 import { optionPricePrefix } from '~/utils/configurator-form';
 import {
   collectBlockingNames,
-  discountedNet,
   groupSpecificationRows,
   specificationRows,
   specificationText,
@@ -70,13 +69,12 @@ function money(net: number): string {
   );
 }
 
+/**
+ * `unitPrice` arrives with the discount already taken off, so the percentage is
+ * information beside it and never arithmetic on it.
+ */
 const discountPercent = computed(() => configuration?.discountPercent ?? 0);
-const listPrice = computed(() => money(configuration?.unitPrice.net ?? 0));
-const price = computed(() =>
-  money(
-    discountedNet(configuration?.unitPrice.net ?? 0, discountPercent.value),
-  ),
-);
+const price = computed(() => money(configuration?.unitPrice.net ?? 0));
 
 /**
  * A number is written the way the field the buyer typed it in writes it, down
@@ -245,14 +243,6 @@ const canCopy = computed(() => mounted.value && isSupported.value);
           class="flex items-baseline gap-2 text-xl font-semibold tabular-nums transition-opacity"
           :class="busy ? 'opacity-40' : ''"
         >
-          <!-- A discounted price is shown against the one it replaces, so the
-               figure is not mistaken for the list price. -->
-          <span
-            v-if="discountPercent > 0"
-            class="text-muted-foreground text-xs font-normal line-through"
-          >
-            {{ listPrice }}
-          </span>
           {{ price }}
           <span
             v-if="discountPercent > 0"

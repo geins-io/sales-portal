@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   collectBlockingMessages,
   collectBlockingNames,
-  discountedNet,
   formatRemaining,
   groupSpecificationRows,
   specificationRows,
@@ -618,30 +617,6 @@ describe('groupSpecificationRows', () => {
       ['Finish', ['Colour', 'Table top']],
       ['Frame', ['Legs']],
     ]);
-  });
-});
-
-describe('discountedNet', () => {
-  it('leaves an undiscounted price alone', () => {
-    expect(discountedNet(3200, 0)).toBe(3200);
-  });
-
-  it('takes the percentage off', () => {
-    expect(discountedNet(3200, 25)).toBe(2400);
-  });
-
-  it('leaves a price with decimals untouched when there is no discount', () => {
-    // Not the same as multiplying by one and rounding: a currency with cents
-    // would lose them.
-    expect(discountedNet(3200.5, 0)).toBe(3200.5);
-  });
-
-  it('rounds to a whole unit of the currency', () => {
-    expect(discountedNet(999, 33)).toBe(669);
-  });
-
-  it('ignores a negative percentage rather than raising the price', () => {
-    expect(discountedNet(3200, -10)).toBe(3200);
   });
 });
 

@@ -42,6 +42,43 @@ describe('ConfiguratorOptionRow', () => {
     expect(price.text().startsWith('+')).toBe(true);
   });
 
+  it('shows a discounted row at the price it arrives with and its percentage', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountRow(findOption(workbench, 'acc-pegboard'));
+
+    // The seed's 900 is already 25 % off; the row does no arithmetic on it.
+    const price = wrapper.find('[data-testid="configurator-option-price"]');
+    expect(price.text()).toContain('900');
+    expect(price.text()).not.toContain('675');
+    expect(
+      wrapper.find('[data-testid="configurator-option-discount"]').text(),
+    ).toBe('−25%');
+  });
+
+  it('keeps the percentage with the price when the price moves under the name', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'acc-pegboard');
+    option.selected = true;
+
+    const wrapper = mountRow(option, { quantityEditable: true });
+
+    const badge = wrapper.find('[data-testid="configurator-option-discount"]');
+    expect(badge.element.parentElement).toBe(
+      wrapper.find('[data-testid="configurator-option-price"]').element,
+    );
+  });
+
+  it('shows no percentage on a row without a discount', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountRow(findOption(workbench, 'top-wood'));
+
+    expect(
+      wrapper.find('[data-testid="configurator-option-discount"]').exists(),
+    ).toBe(false);
+  });
+
   it('shows no price on a row that adds nothing', () => {
     const workbench = makeInitialConfiguration();
 

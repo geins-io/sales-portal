@@ -218,19 +218,20 @@ describe('ConfigurationPanel', () => {
       ).toContain('configurator.panel.quantity_suffix 4');
     });
 
-    it('shows a discounted price against the one it replaces', () => {
-      // No example document carries a discount, so the case builds one.
+    it('shows a discounted price as it arrives, with its percentage beside it', () => {
+      // `unitPrice` already has the discount taken off; taking it off again
+      // would show 2,400 against the 3,200 commit freezes.
       const config = makeValidConfiguration();
       config.discountPercent = 25;
 
+      const wrapper = mountPanel({ configuration: config });
       const price = plainText(
-        mountPanel({ configuration: config })
-          .find('[data-testid="configurator-panel-price"]')
-          .text(),
+        wrapper.find('[data-testid="configurator-panel-price"]').text(),
       );
       expect(price).toContain('SEK 3,200.00');
-      expect(price).toContain('SEK 2,400.00');
+      expect(price).not.toContain('SEK 2,400.00');
       expect(price).toContain('25%');
+      expect(wrapper.find('.line-through').exists()).toBe(false);
     });
   });
 
