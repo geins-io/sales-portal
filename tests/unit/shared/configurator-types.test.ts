@@ -19,9 +19,12 @@ import { makeListProduct } from '../../fixtures/product';
 const option: ConfigurationOption = {
   id: '102',
   instanceId: '0',
-  productId: '900123456789',
+  articleNumber: 'FR-COL-RAL9005',
+  name: 'Jet black',
+  description: '',
   selected: true,
   available: true,
+  readOnly: false,
   selectionSource: 'manual',
   selectionSourceRaw: '10',
   quantity: 2,
@@ -50,6 +53,7 @@ const configuration: Configuration = {
     {
       id: '1',
       name: 'Frame',
+      description: '',
       visible: true,
       variables: [
         {
@@ -61,6 +65,7 @@ const configuration: Configuration = {
           defaultValue: 1000,
           required: true,
           available: true,
+          readOnly: false,
           min: 400,
           max: 2400,
           step: 10,
@@ -76,6 +81,7 @@ const configuration: Configuration = {
           id: '55',
           code: 'COLOUR',
           name: 'Colour',
+          description: '',
           available: true,
           minSelections: 1,
           maxSelections: 1,
@@ -89,6 +95,7 @@ const configuration: Configuration = {
         {
           id: '1.1',
           name: 'Surface',
+          description: '',
           visible: false,
           sections: [],
           variables: [],
@@ -118,14 +125,15 @@ describe('CPQ configuration document types', () => {
   it('nests sections, option groups and the embedded product', () => {
     const section = configuration.sections[0]!;
     expect(section.sections[0]!.visible).toBe(false);
-    expect(section.optionGroups[0]!.options[0]!.product.productId).toBe(42);
+    expect(section.optionGroups[0]!.options[0]!.product?.productId).toBe(42);
   });
 
-  it('keeps the provider part id separate from the Geins product id', () => {
-    // `productId` is the provider's part id (string, Int64 on the wire);
-    // `product.productId` is the Geins product id (number).
-    expect(option.productId).toBe('900123456789');
-    expect(option.product.productId).toBe(42);
+  it('names a row by its own fields, with or without an embedded product', () => {
+    // The provider knows a part by its article number; the Geins product is
+    // embedded only when the part is a sellable article.
+    const bare: ConfigurationOption = { ...option, product: null };
+    expect(bare.name).toBe('Jet black');
+    expect(bare.articleNumber).toBe('FR-COL-RAL9005');
   });
 
   it('narrows a change on its type discriminant', () => {

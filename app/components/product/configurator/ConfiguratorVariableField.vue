@@ -41,7 +41,7 @@ const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 
 const control = computed(() => variableControl(variable));
-const readOnly = computed(() => isReadOnly(variable.selectionSource));
+const readOnly = computed(() => isReadOnly(variable));
 const blocked = computed(
   () => disabled || readOnly.value || !variable.available,
 );

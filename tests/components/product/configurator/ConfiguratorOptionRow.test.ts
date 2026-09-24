@@ -394,4 +394,83 @@ describe('ConfiguratorOptionRow', () => {
       wrapper.find('[data-testid="configurator-option-reason"]').exists(),
     ).toBe(false);
   });
+
+  it('names the row from the option, not from the embedded product', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.name = 'Beech top, provider name';
+    option.articleNumber = 'ERP-4711';
+
+    const wrapper = mountRow(option);
+
+    expect(wrapper.text()).toContain('Beech top, provider name');
+    expect(wrapper.text()).toContain('ERP-4711');
+    expect(wrapper.text()).not.toContain('Solid beech top');
+  });
+
+  it('renders a row without a product from the option alone, with no image', () => {
+    const workbench = makeInitialConfiguration();
+    const withProduct = findOption(workbench, 'top-wood');
+    withProduct.product!.productImages = [
+      { fileName: 'beech.jpg', isPrimary: true, url: '' },
+    ];
+    const withoutProduct = { ...withProduct, product: null };
+
+    expect(mountRow(withProduct).find('img').exists()).toBe(true);
+
+    const wrapper = mountRow(withoutProduct);
+    expect(wrapper.text()).toContain('Solid beech top');
+    expect(wrapper.text()).toContain('KONF-1001-TOP-WOOD');
+    expect(wrapper.find('img').exists()).toBe(false);
+  });
+
+  it('writes the description under the name, above the article number', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.description = 'Oiled, 40 mm.';
+
+    const wrapper = mountRow(option);
+
+    const description = wrapper.find(
+      '[data-testid="configurator-option-description"]',
+    );
+    expect(description.text()).toBe('Oiled, 40 mm.');
+    const text = wrapper.text();
+    expect(text.indexOf('Solid beech top')).toBeLessThan(
+      text.indexOf('Oiled, 40 mm.'),
+    );
+    expect(text.indexOf('Oiled, 40 mm.')).toBeLessThan(
+      text.indexOf('KONF-1001-TOP-WOOD'),
+    );
+  });
+
+  it('renders nothing for an empty description', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountRow(findOption(workbench, 'top-wood'));
+
+    expect(
+      wrapper.find('[data-testid="configurator-option-description"]').exists(),
+    ).toBe(false);
+  });
+
+  it('treats a read-only row as a locked one', async () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.readOnly = true;
+
+    const wrapper = mountRow(option);
+
+    expect(
+      wrapper.find('[data-testid="configurator-option-lock"]').exists(),
+    ).toBe(true);
+    expect(
+      wrapper.find('[role="checkbox"]').attributes('disabled'),
+    ).toBeDefined();
+    expect(
+      wrapper.find('[data-testid="configurator-option-reason"]').text(),
+    ).toBe('configurator.read_only');
+    await wrapper.find('[data-testid="configurator-option"]').trigger('click');
+    expect(wrapper.emitted('change')).toBeUndefined();
+  });
 });

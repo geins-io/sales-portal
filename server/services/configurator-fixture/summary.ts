@@ -26,7 +26,7 @@ export function buildSummary(
   const options = everyOption(config.sections)
     .filter((option) => option.selected)
     .map((option) => ({
-      label: option.product.name,
+      label: option.name,
       value: display(option.quantity),
       price: seedPrice(
         exVatAmount(option.unitPrice) * option.quantity,

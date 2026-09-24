@@ -334,7 +334,7 @@ function pushGroups(
         key: `option:${option.id}:${rows.length}`,
         depth: depth + 1,
         kind: 'option',
-        name: option.product.name,
+        name: option.name,
         id: option.id,
         facts: facts([
           `selected ${option.selected}`,

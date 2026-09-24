@@ -94,11 +94,12 @@ export function seedOption(
   },
   overrides: Partial<ConfigurationOption> = {},
 ): ConfigurationOption {
+  const articleNumber = `${spec.article}-${spec.id.toUpperCase()}`;
   const product = seedProduct({
     id: spec.id,
     name: spec.name,
     productId: spec.productId,
-    articleNumber: `${spec.article}-${spec.id.toUpperCase()}`,
+    articleNumber,
     net: spec.net,
     category: spec.category,
   });
@@ -106,11 +107,12 @@ export function seedOption(
   return {
     id: spec.id,
     instanceId: '0',
-    // The provider's part id is Int64 on the wire and is not the catalogue
-    // product id; they are deliberately different numbers here.
-    productId: String(900_000_000_000 + product.productId),
+    articleNumber,
+    name: spec.name,
+    description: '',
     selected: false,
     available: true,
+    readOnly: false,
     selectionSource: 'none',
     quantity: 1,
     defaultQuantity: 1,
@@ -129,6 +131,7 @@ export function seedVariable(
 ): ConfigurationVariable {
   return {
     description: '',
+    readOnly: false,
     valueType: 'number',
     value: 0,
     defaultValue: 0,
@@ -150,6 +153,7 @@ export function seedGroup(
   },
 ): ConfigurationOptionGroup {
   return {
+    description: '',
     available: true,
     quantityEditable: false,
     optionGroups: [],

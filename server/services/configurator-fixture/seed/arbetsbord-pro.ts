@@ -98,6 +98,7 @@ function finishSection(): ConfigurationSection {
     id: 'finish',
     name: 'Finish',
     sortIndex: 8,
+    description: '',
     visible: true,
     sections: [],
     variables: [],
@@ -160,6 +161,7 @@ function buildSections(): ConfigurationSection[] {
       id: 'frame',
       name: 'Frame',
       sortIndex: 1,
+      description: '',
       visible: true,
       messages: [],
       variables: [

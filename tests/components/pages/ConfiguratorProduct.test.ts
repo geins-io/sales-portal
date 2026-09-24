@@ -1106,6 +1106,7 @@ describe('ConfiguratorProduct subsection menu', () => {
       {
         id: 'castors',
         name: 'Castors',
+        description: '',
         visible: true,
         sections: [],
         variables: [],
@@ -1205,6 +1206,7 @@ describe('ConfiguratorProduct subsection menu', () => {
       {
         id: 'warehouse-prep',
         name: 'Warehouse prep',
+        description: '',
         visible: false,
         sections: [],
         variables: [],

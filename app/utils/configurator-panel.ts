@@ -253,7 +253,7 @@ function groupRows(
         group: section,
         label: group.name,
         values: selected.map((option) => ({
-          text: option.product.name,
+          text: option.name,
           quantity: option.quantity,
           price: option.unitPrice,
         })),

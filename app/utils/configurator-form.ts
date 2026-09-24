@@ -4,7 +4,6 @@ import type {
   ConfigurationOptionGroup,
   ConfigurationValue,
   ConfigurationVariable,
-  SelectionSource,
 } from '#shared/types/configurator';
 
 // ---------------------------------------------------------------------------
@@ -38,8 +37,17 @@ export function variableControl(
  * The provider owns the value and the buyer may not change it. Both sources
  * mean the same thing to the UI; only the provider knows which one it is.
  */
-export function isReadOnly(source: SelectionSource): boolean {
-  return source === 'locked' || source === 'temporarilyLocked';
+export function isReadOnly(
+  node: Pick<
+    ConfigurationOption | ConfigurationVariable,
+    'selectionSource' | 'readOnly'
+  >,
+): boolean {
+  return (
+    node.readOnly ||
+    node.selectionSource === 'locked' ||
+    node.selectionSource === 'temporarilyLocked'
+  );
 }
 
 /** An absent `maxSelections` is an unbounded group, not a single-choice one. */
@@ -80,7 +88,7 @@ export function groupSummary(
   const selected = group.options.filter((option) => option.selected);
   const first = selected[0];
   if (!first) return { kind: 'none' };
-  if (selected.length === 1) return { kind: 'one', name: first.product.name };
+  if (selected.length === 1) return { kind: 'one', name: first.name };
   return { kind: 'many', count: selected.length };
 }
 
@@ -106,13 +114,13 @@ export function previewOptions<T extends Pick<ConfigurationOption, 'selected'>>(
  * searched: a buyer who knows the article number types that, not the name.
  */
 export function matchesOptionQuery(
-  option: Pick<ConfigurationOption, 'product'>,
+  option: Pick<ConfigurationOption, 'name' | 'articleNumber'>,
   query: string,
 ): boolean {
   const needle = query.trim().toLowerCase();
   return (
-    option.product.name.toLowerCase().includes(needle) ||
-    option.product.articleNumber.toLowerCase().includes(needle)
+    option.name.toLowerCase().includes(needle) ||
+    option.articleNumber.toLowerCase().includes(needle)
   );
 }
 

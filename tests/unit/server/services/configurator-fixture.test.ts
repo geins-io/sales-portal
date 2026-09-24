@@ -24,7 +24,12 @@ import {
   createSessionState,
   evaluate,
 } from '../../../../server/services/configurator-fixture/evaluate';
-import { everySection } from '../../../../server/services/configurator-fixture/document';
+import {
+  everyGroup,
+  everyOption,
+  everySection,
+  everyVariable,
+} from '../../../../server/services/configurator-fixture/document';
 import { arbetsbordPro } from '../../../../server/services/configurator-fixture/seed/arbetsbord-pro';
 import {
   findOption,
@@ -1053,6 +1058,29 @@ describe('the second seeded product', () => {
 // ---------------------------------------------------------------------------
 
 describe('the third seeded product', () => {
+  it('carries a row with no catalogue product, named from the option itself', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const withoutProduct = everyOption(config.sections).filter(
+      (option) => option.product === null,
+    );
+
+    expect(withoutProduct.map((option) => option.id)).toEqual(['treat-oil']);
+    expect(withoutProduct[0]).toMatchObject({
+      name: 'Oiled finish',
+      articleNumber: 'KONF-1003-TREAT-OIL',
+    });
+  });
+
+  it('marks one variable read-only', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+
+    expect(
+      everyVariable(config.sections)
+        .filter((variable) => variable.readOnly)
+        .map((variable) => variable.id),
+    ).toEqual(['overhang']);
+  });
+
   /** Every section of the document, parents before children. */
   const flatten = (
     sections: Configuration['sections'],
@@ -1270,6 +1298,36 @@ describe("the seeds' catalogue reference", () => {
     expect(SKAPSEKTION_PRO_ID).not.toBe(SKAPSEKTION_PRO_GEINS_ID);
     expect(MONTERINGSSTATION_PRO_ID).not.toBe(MONTERINGSSTATION_PRO_GEINS_ID);
   });
+});
+
+describe('the fields every node carries', () => {
+  it.each([
+    ARBETSBORD_PRO_GEINS_ID,
+    SKAPSEKTION_PRO_GEINS_ID,
+    MONTERINGSSTATION_PRO_GEINS_ID,
+  ])(
+    'fills them on every node of %s, as the real contract does',
+    async (id) => {
+      const config = await start(id);
+
+      for (const option of everyOption(config.sections)) {
+        expect(option.name).not.toBe('');
+        expect(option.articleNumber).toMatch(/^KONF-100\d-/);
+        expect(option.description).toBe('');
+        expect(option).not.toHaveProperty('productId');
+        expect(typeof option.readOnly).toBe('boolean');
+      }
+      for (const variable of everyVariable(config.sections)) {
+        expect(typeof variable.readOnly).toBe('boolean');
+      }
+      for (const section of everySection(config.sections)) {
+        expect(section.description).toBe('');
+      }
+      for (const group of everyGroup(config.sections)) {
+        expect(group.description).toBe('');
+      }
+    },
+  );
 });
 
 describe('createSeedDocument', () => {

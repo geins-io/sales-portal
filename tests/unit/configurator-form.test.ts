@@ -43,22 +43,31 @@ describe('variableControl', () => {
 describe('isReadOnly', () => {
   it('is true for the provider-owned variable in the cabinet', () => {
     const cabinet = makeCabinetConfiguration();
-    expect(
-      isReadOnly(findVariable(cabinet, 'front-area').selectionSource),
-    ).toBe(true);
+    expect(isReadOnly(findVariable(cabinet, 'front-area'))).toBe(true);
   });
 
   it('covers temporarilyLocked, which no seed produces', () => {
-    expect(isReadOnly('temporarilyLocked')).toBe(true);
+    expect(
+      isReadOnly({ selectionSource: 'temporarilyLocked', readOnly: false }),
+    ).toBe(true);
+  });
+
+  it('is true for a node the provider marks read-only, whatever its source', () => {
+    expect(isReadOnly({ selectionSource: 'none', readOnly: true })).toBe(true);
+    expect(isReadOnly({ selectionSource: 'manual', readOnly: true })).toBe(
+      true,
+    );
   });
 
   it('is false for every other source', () => {
     const workbench = makeInitialConfiguration();
-    expect(isReadOnly(findVariable(workbench, 'width').selectionSource)).toBe(
+    expect(isReadOnly(findVariable(workbench, 'width'))).toBe(false);
+    expect(isReadOnly({ selectionSource: 'groupRule', readOnly: false })).toBe(
       false,
     );
-    expect(isReadOnly('groupRule')).toBe(false);
-    expect(isReadOnly('manual')).toBe(false);
+    expect(isReadOnly({ selectionSource: 'manual', readOnly: false })).toBe(
+      false,
+    );
   });
 });
 
@@ -212,6 +221,16 @@ describe('groupSummary', () => {
     });
   });
 
+  it("names the chosen row by the option's own name", () => {
+    const workbench = makeInitialConfiguration();
+    const group = findOptionGroup(workbench, 'top');
+    const laminate = group.options.find((option) => option.selected)!;
+    laminate.name = 'Provider name';
+    laminate.product = null;
+
+    expect(groupSummary(group)).toEqual({ kind: 'one', name: 'Provider name' });
+  });
+
   it('counts the rows when there are several', () => {
     const workbench = makeInitialConfiguration();
     const group = findOptionGroup(workbench, 'accessories');
@@ -322,8 +341,19 @@ describe('matchesOptionQuery', () => {
     const workbench = makeInitialConfiguration();
     const wood = findOption(workbench, 'top-wood');
 
-    expect(wood.product.name).not.toContain('TOP-WOOD');
+    expect(wood.name).not.toContain('TOP-WOOD');
     expect(matchesOptionQuery(wood, 'top-wood')).toBe(true);
+  });
+
+  it("searches the option's own name and article number, with no product", () => {
+    const workbench = makeInitialConfiguration();
+    const wood = { ...findOption(workbench, 'top-wood'), product: null };
+    wood.name = 'Provider name';
+    wood.articleNumber = 'ERP-4711';
+
+    expect(matchesOptionQuery(wood, 'provider')).toBe(true);
+    expect(matchesOptionQuery(wood, 'erp-47')).toBe(true);
+    expect(matchesOptionQuery(wood, 'beech')).toBe(false);
   });
 });
 

@@ -76,6 +76,8 @@ export interface ConfigurationVariable {
   defaultValue: ConfigurationValue;
   required: boolean;
   available: boolean;
+  /** The provider's own flag, apart from `selectionSource`; either makes it read-only. */
+  readOnly: boolean;
   /** The provider narrows these by rule and returns the narrowed bounds. */
   min?: number;
   max?: number;
@@ -97,10 +99,14 @@ export interface ConfigurationOption {
   id: string;
   /** Distinguishes the rows of a group that can hold the same part twice. */
   instanceId: string;
-  /** The provider's part id, Int64 on the wire — not `product.productId`. */
-  productId: string;
+  /** The provider's part number — how the provider knows the row's part. */
+  articleNumber: string;
+  name: string;
+  description: string;
   selected: boolean;
   available: boolean;
+  /** The provider's own flag, apart from `selectionSource`; either makes it read-only. */
+  readOnly: boolean;
   selectionSource: SelectionSource;
   selectionSourceRaw?: string;
   quantity: number;
@@ -111,14 +117,18 @@ export interface ConfigurationOption {
   unitPrice: PriceType;
   discountPercent: number;
   messages: ConfigurationMessage[];
-  /** The catalogue product, embedded on the row so no second lookup is needed. */
-  product: ListProduct;
+  /**
+   * The catalogue product, embedded so no second lookup is needed. Null when
+   * the part is not a sellable article, which is most rows on a real product.
+   */
+  product: ListProduct | null;
 }
 
 export interface ConfigurationOptionGroup {
   id: string;
   code: string;
   name: string;
+  description: string;
   sortIndex?: number | null;
   available: boolean;
   minSelections?: number;
@@ -138,6 +148,7 @@ export interface ConfigurationOptionGroup {
 export interface ConfigurationSection {
   id: string;
   name: string;
+  description: string;
   sortIndex?: number | null;
   visible: boolean;
   sections: ConfigurationSection[];

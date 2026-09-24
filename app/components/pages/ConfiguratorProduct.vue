@@ -609,10 +609,9 @@ async function onRestart(): Promise<void> {
                         >
                           {{ activeEntry.number }}
                         </span>
-                        <!-- The prototype writes a description under the name; the
-                         contract carries no section description, so no line is
-                         written rather than an empty one. The text-box trim
-                         centres the title optically against the number's circle. -->
+                        <!-- The section's description is not written: the prototype
+                         hides it here on purpose. The text-box trim centres the
+                         title optically against the number's circle. -->
                         <h4
                           class="font-heading min-w-0 text-2xl leading-none font-bold [text-box:trim-both_cap_alphabetic]"
                         >

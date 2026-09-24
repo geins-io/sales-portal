@@ -255,4 +255,21 @@ describe('ConfiguratorVariableField', () => {
       wrapper.find('[data-testid="configurator-bounds-narrowed"]').exists(),
     ).toBe(false);
   });
+
+  it('treats a read-only variable as one the provider owns', async () => {
+    const workbench = makeInitialConfiguration();
+    const variable = findVariable(workbench, 'width');
+    variable.readOnly = true;
+
+    const wrapper = mountField(variable);
+    const input = wrapper.find('input');
+    expect(input.attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[title]').attributes('title')).toBe(
+      'configurator.read_only',
+    );
+
+    await input.setValue('1500');
+    await input.trigger('blur');
+    expect(wrapper.emitted('change')).toBeUndefined();
+  });
 });

@@ -110,6 +110,7 @@ export function makeSectionTreeConfiguration(
   ): ConfigurationSection => ({
     id,
     name,
+    description: '',
     visible: true,
     sections: [],
     variables: [],

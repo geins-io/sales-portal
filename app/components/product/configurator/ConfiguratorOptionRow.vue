@@ -16,8 +16,9 @@ import { Checkbox } from '~/components/ui/checkbox';
 import { RadioGroupItem } from '~/components/ui/radio-group';
 
 /**
- * One `ConfigurationOption`: the choice, the catalogue product embedded on the
- * row, and whatever the provider said about it.
+ * One `ConfigurationOption`: the choice, named by the option itself, the
+ * catalogue product's image when a product is embedded, and whatever the
+ * provider said about it.
  *
  * A single-choice row renders a `RadioGroupItem` and does not emit — the
  * `RadioGroup` in the enclosing group owns the selection and emits for it. A
@@ -48,7 +49,7 @@ const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { showPrice } = usePriceVisibility();
 
-const readOnly = computed(() => isReadOnly(option.selectionSource));
+const readOnly = computed(() => isReadOnly(option));
 
 /**
  * A row of a quantity-editable group is laid out as the prototype lays that
@@ -97,7 +98,7 @@ const price = computed(() => {
 });
 
 const image = computed(
-  () => option.product.productImages?.find((i) => i.isPrimary)?.fileName,
+  () => option.product?.productImages?.find((i) => i.isPrimary)?.fileName,
 );
 
 function change(selected: boolean, quantity: number): ConfigurationChange {
@@ -171,14 +172,14 @@ function onRow() {
           v-if="image"
           :file-name="image"
           type="product"
-          :alt="option.product.name ?? ''"
+          :alt="option.name"
           class="bg-muted size-10 shrink-0 rounded object-contain"
         />
 
         <div class="min-w-0 flex-1">
           <div class="flex items-center justify-between gap-2">
             <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-              {{ option.product.name }}
+              {{ option.name }}
               <Lock
                 v-if="readOnly"
                 data-testid="configurator-option-lock"
@@ -206,10 +207,15 @@ function onRow() {
           </div>
 
           <p
-            v-if="option.product.articleNumber"
+            v-if="option.description"
+            data-testid="configurator-option-description"
             class="text-muted-foreground text-xs"
           >
-            {{ option.product.articleNumber }}
+            {{ option.description }}
+          </p>
+
+          <p v-if="option.articleNumber" class="text-muted-foreground text-xs">
+            {{ option.articleNumber }}
           </p>
 
           <p

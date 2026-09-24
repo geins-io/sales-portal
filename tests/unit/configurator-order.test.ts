@@ -27,6 +27,7 @@ function variable(
     defaultValue: 0,
     required: false,
     available: true,
+    readOnly: false,
     selectionSource: 'none',
     valueSource: 'initial',
     messages: [],
@@ -41,6 +42,7 @@ function group(
     id,
     code: id.toUpperCase(),
     name: id,
+    description: '',
     sortIndex,
     available: true,
     quantityEditable: false,
@@ -57,6 +59,7 @@ function section(
   return {
     id,
     name: id,
+    description: '',
     visible: true,
     sections: [],
     variables: [],
