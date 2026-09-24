@@ -30,7 +30,9 @@ export default defineEventHandler(async (event) => {
     event,
   );
 
-  if (!result) {
+  // @geins/crm answers every failure, a wrong current password included, with
+  // { succeeded: false }.
+  if (!result?.succeeded) {
     throw createAppError(ErrorCode.BAD_REQUEST, 'Password change failed');
   }
 

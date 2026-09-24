@@ -101,6 +101,18 @@ describe('POST /api/user/change-password', () => {
     await expect(handler(mockEvent)).rejects.toThrow('RATE_LIMITED');
   });
 
+  it('throws BAD_REQUEST when the platform refuses the change', async () => {
+    // @geins/crm answers a wrong current password, a Geins error and a timeout
+    // alike with { succeeded: false }.
+    mockPasswordChange.mockResolvedValue({ succeeded: false });
+
+    const handler = (
+      await import('../../../../server/api/user/change-password.post')
+    ).default;
+    await expect(handler(mockEvent)).rejects.toThrow('BAD_REQUEST');
+    expect(mockSetAuthCookies).not.toHaveBeenCalled();
+  });
+
   it('throws BAD_REQUEST when SDK returns undefined', async () => {
     mockPasswordChange.mockResolvedValue(undefined);
 
