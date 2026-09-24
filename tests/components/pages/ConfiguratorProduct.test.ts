@@ -1093,7 +1093,7 @@ describe('ConfiguratorProduct section trail', () => {
 });
 
 describe('ConfiguratorProduct subsection menu', () => {
-  /** `Frame` gains a second child, which is what makes it a way in. */
+  /** `Frame` gains a second child, and keeps its own groups and fields. */
   function withTwoChildren(): Configuration {
     const config = makeSectionTreeConfiguration();
     const frame = config.sections[0]!;
@@ -1112,6 +1112,14 @@ describe('ConfiguratorProduct subsection menu', () => {
     return config;
   }
 
+  /** `Frame` with nothing of its own, so its children are all it offers. */
+  function emptied(config: Configuration): Configuration {
+    const frame = config.sections[0]!;
+    frame.optionGroups = [];
+    frame.variables = [];
+    return config;
+  }
+
   async function mountWith(config: Configuration) {
     const wrapper = mountPage();
     activeWith(config);
@@ -1126,22 +1134,55 @@ describe('ConfiguratorProduct subsection menu', () => {
       .findAll('[data-testid="configurator-subsection"]')
       .map((button) => button.attributes('data-section-id'));
 
-  it('offers the children of a section with two of them', async () => {
-    const wrapper = await mountWith(withTwoChildren());
+  it('offers both children of a section with nothing of its own', async () => {
+    const wrapper = await mountWith(emptied(withTwoChildren()));
 
     expect(subsectionIds(wrapper)).toEqual(['finish', 'castors']);
-  });
-
-  it('renders none of that section\u2019s own content', async () => {
-    const wrapper = await mountWith(withTwoChildren());
-
-    // The first thing to do there is pick a branch; the groups and fields
-    // belong to the page the buyer has not reached yet.
     expect(wrapper.find('[data-testid="section"]').exists()).toBe(false);
   });
 
-  it('opens the child the buyer picks', async () => {
+  it('offers the one child of a section with nothing of its own', async () => {
+    const wrapper = await mountWith(emptied(makeSectionTreeConfiguration()));
+
+    // One entry is still a menu: a heading over an empty column is no page.
+    expect(subsectionIds(wrapper)).toEqual(['finish']);
+    expect(wrapper.find('[data-testid="section"]').exists()).toBe(false);
+  });
+
+  it('renders the content of a section with two children and choices of its own', async () => {
     const wrapper = await mountWith(withTwoChildren());
+
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-section-id'),
+    ).toBe('frame');
+    expect(subsectionIds(wrapper)).toEqual([]);
+  });
+
+  it('renders the content of a section with one child and choices of its own', async () => {
+    const wrapper = await mountWith(makeSectionTreeConfiguration());
+
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-section-id'),
+    ).toBe('frame');
+    expect(subsectionIds(wrapper)).toEqual([]);
+  });
+
+  it('counts a message as no content, and still shows it over the menu', async () => {
+    const config = emptied(makeSectionTreeConfiguration());
+    config.sections[0]!.messages = [
+      { severity: 'warning', text: 'Castors are fitted at the factory.' },
+    ];
+
+    const wrapper = await mountWith(config);
+
+    expect(subsectionIds(wrapper)).toEqual(['finish']);
+    expect(wrapper.find('[data-testid="configurator-message"]').text()).toBe(
+      'Castors are fitted at the factory.',
+    );
+  });
+
+  it('opens the child the buyer picks', async () => {
+    const wrapper = await mountWith(emptied(withTwoChildren()));
 
     await wrapper
       .findAll('[data-testid="configurator-subsection"]')[1]!
@@ -1153,7 +1194,7 @@ describe('ConfiguratorProduct subsection menu', () => {
   });
 
   it('leaves out a hidden child, which the rail leaves out too', async () => {
-    const config = withTwoChildren();
+    const config = emptied(withTwoChildren());
     const frame = config.sections[0]!;
     frame.sections = [
       ...frame.sections,
@@ -1174,33 +1215,15 @@ describe('ConfiguratorProduct subsection menu', () => {
     ]);
   });
 
-  it('is not a menu with one child: the section renders itself', async () => {
-    const wrapper = await mountWith(makeSectionTreeConfiguration());
-
-    expect(
-      wrapper.find('[data-testid="section"]').attributes('data-section-id'),
-    ).toBe('frame');
-    expect(subsectionIds(wrapper)).toEqual([]);
-  });
-
-  it('lists the one child of a section that has nothing of its own to answer', async () => {
-    const config = makeSectionTreeConfiguration();
-    const frame = config.sections[0]!;
-    frame.optionGroups = [];
-    frame.variables = [];
+  it('is no menu when every child is hidden', async () => {
+    const config = emptied(makeSectionTreeConfiguration());
+    config.sections[0]!.sections[0]!.visible = false;
 
     const wrapper = await mountWith(config);
 
-    // Its own page would otherwise be a heading over an empty column.
-    expect(subsectionIds(wrapper)).toEqual(['finish']);
+    expect(subsectionIds(wrapper)).toEqual([]);
     expect(
       wrapper.find('[data-testid="section"]').attributes('data-section-id'),
     ).toBe('frame');
-  });
-
-  it('lists nothing extra under a section that has content and one child', async () => {
-    const wrapper = await mountWith(makeSectionTreeConfiguration());
-
-    expect(subsectionIds(wrapper)).toEqual([]);
   });
 });

@@ -21,9 +21,11 @@ import type { Seed } from './types';
 //     `Packaging` inside it does not: the document says show one and not the
 //     other, and the rule that a hidden parent takes its whole subtree with it
 //     had no data behind it until now.
-//   * a section that is a way in rather than a page. `Accessories` has two
-//     visible children and nothing of its own, and `Tool holding` inside it has
-//     one child and nothing of its own. Neither shape existed in a document.
+//   * a section with choices of its own and two visible children, and a
+//     section that is a way in rather than a page. `Accessories` carries a
+//     group and two children, so it renders its group and no menu; `Tool
+//     holding` inside it has one child and nothing of its own, so it is the
+//     menu. Neither shape existed in a document.
 //   * option groups inside option groups, in `Storage`: `Drawer unit` holds
 //     one nested list and `Small parts storage` holds three. The contract
 //     nests them and no seed did, so the shape was only ever unit-tested.
@@ -238,11 +240,10 @@ function logisticsSection(): ConfigurationSection {
 }
 
 /**
- * A section that is a way in rather than a page: no groups and no variables of
- * its own, two visible children. The document had no such shape, and both the
- * subsection menu and the fallback under it are rules no seed could show.
+ * A section with a group of its own and two visible children: it renders the
+ * group, not a menu, and the rail and `Next` reach the children.
  *
- * `Tool holding` is the fallback's data — one child and nothing of its own to
+ * `Tool holding` is the menu's data — one child and nothing of its own to
  * answer — and `Waste handling` is the ordinary page beside it.
  *
  * It sits last in the array, numbered from 31: the seed runs one counter
@@ -258,12 +259,23 @@ function accessoriesSection(): ConfigurationSection {
     visible: true,
     messages: [],
     variables: [],
-    optionGroups: [],
+    optionGroups: [
+      seedGroup({
+        id: 'work-mat',
+        code: 'MAT',
+        name: 'Floor mat',
+        sortIndex: 32,
+        options: [
+          option('mat-comfort', 'Anti-fatigue mat', 690, 907_074),
+          option('mat-esd', 'ESD floor mat', 1180, 907_075),
+        ],
+      }),
+    ],
     sections: [
       {
         id: 'tool-holding',
         name: 'Tool holding',
-        sortIndex: 32,
+        sortIndex: 33,
         visible: true,
         messages: [],
         variables: [],
@@ -272,7 +284,7 @@ function accessoriesSection(): ConfigurationSection {
           {
             id: 'tool-rails',
             name: 'Tool rails',
-            sortIndex: 33,
+            sortIndex: 34,
             visible: true,
             sections: [],
             messages: [],
@@ -282,7 +294,7 @@ function accessoriesSection(): ConfigurationSection {
                 id: 'rail-length',
                 code: 'RAIL',
                 name: 'Rail length',
-                sortIndex: 34,
+                sortIndex: 35,
                 minSelections: 1,
                 maxSelections: 1,
                 options: [
@@ -300,7 +312,7 @@ function accessoriesSection(): ConfigurationSection {
       {
         id: 'waste',
         name: 'Waste handling',
-        sortIndex: 35,
+        sortIndex: 36,
         visible: true,
         sections: [],
         messages: [],
@@ -310,7 +322,7 @@ function accessoriesSection(): ConfigurationSection {
             id: 'waste-bin',
             code: 'WASTE',
             name: 'Waste bin',
-            sortIndex: 36,
+            sortIndex: 37,
             quantityEditable: true,
             options: [
               option('waste-chute', 'Worktop chute with bin', 890, 907_072),

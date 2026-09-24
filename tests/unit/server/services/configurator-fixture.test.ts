@@ -1059,13 +1059,17 @@ describe('the third seeded product', () => {
     }
   });
 
-  it('carries a section that is a way in rather than a page', async () => {
+  it('carries a section with choices of its own and two children', async () => {
     const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
     const accessories = config.sections.find((s) => s.id === 'accessories')!;
 
-    // Two visible children and nothing of its own: the page shows the menu and
-    // none of the section's own content, which no other seed could exercise.
-    expect(accessories.optionGroups).toEqual([]);
+    // Its own group renders and no menu hides it; the children stay reachable
+    // through the rail and `Next`. No other seed carries both at once.
+    expect(accessories.optionGroups.map((g) => g.id)).toEqual(['work-mat']);
+    expect(accessories.optionGroups[0]!.options.map((o) => o.id)).toEqual([
+      'mat-comfort',
+      'mat-esd',
+    ]);
     expect(accessories.variables).toEqual([]);
     expect(
       accessories.sections.filter((child) => child.visible).map((c) => c.id),
@@ -1078,8 +1082,7 @@ describe('the third seeded product', () => {
       (s) => s.id === 'tool-holding',
     )!;
 
-    // One child is no choice to make, so the page renders the section and
-    // offers the way on below it rather than as a menu.
+    // Children and nothing of its own: the page is the menu, with one entry.
     expect(tools.optionGroups).toEqual([]);
     expect(tools.variables).toEqual([]);
     expect(tools.sections.map((child) => child.id)).toEqual(['tool-rails']);

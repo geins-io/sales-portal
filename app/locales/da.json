@@ -339,7 +339,6 @@
     "next": "Næste",
     "section_position": "Sektion {current} af {total}",
     "choose_subsection": "Vælg en undersektion for at fortsætte.",
-    "subsections_only": "Denne sektion har undersektioner. Vælg en for at fortsætte.",
     "page_note": "Dette er et konfiguratorprodukt. Byg din variant under {tab} nedenfor — pris og gyldighed beregnes løbende.",
     "severity": {
       "error": "Fejl",

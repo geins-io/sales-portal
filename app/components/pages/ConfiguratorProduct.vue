@@ -284,27 +284,18 @@ const crumbs = computed(() =>
 
 /**
  * The pages under the active section, and whether the section is a way in
- * rather than a page of its own.
- *
- * Two or more, and the section's own content stays unrendered: the first thing
- * to do there is pick a branch, and offering the choices under a form the buyer
- * has not reached yet buries them. One child is no choice to make, so the
- * section renders itself and `Next` carries on into it.
+ * rather than a page of its own: children and nothing of its own to answer.
+ * Without the list such a page would be a heading over an empty column. A
+ * section with choices of its own renders them however many children it has,
+ * and `Next` carries on into the children.
  */
 const activeChildren = computed(() =>
   activeEntry.value ? visibleChildren(activeEntry.value.section) : [],
 );
 
-const isMenu = computed(() => activeChildren.value.length >= 2);
-
-/**
- * A middle level with children and nothing of its own to answer. Without the
- * list the page would be a heading over an empty column, so the children are
- * offered the way the menu offers them.
- */
-const listsChildrenInstead = computed(() => {
+const isMenu = computed(() => {
   const section = activeEntry.value?.section;
-  if (!section || isMenu.value) return false;
+  if (!section) return false;
   return (
     activeChildren.value.length > 0 &&
     section.optionGroups.length === 0 &&
@@ -629,9 +620,6 @@ async function onRestart(): Promise<void> {
                         </h4>
                       </header>
 
-                      <!-- Two or more children and the section renders none
-                       of its own content: the first thing to do there is pick a
-                       branch, and a form above the branches would bury them. -->
                       <ConfiguratorSection
                         v-if="!isMenu"
                         :section="activeEntry.section"
@@ -639,21 +627,15 @@ async function onRestart(): Promise<void> {
                         @change="onChange"
                       />
 
-                      <!-- The same list either way — as the landing of a
-                       section that is only a way in, or under one that has a
-                       child and nothing of its own to answer. `Next` would
-                       reach the child, but a heading over an empty column
-                       would not do. -->
-                      <div
-                        v-if="isMenu || listsChildrenInstead"
-                        class="space-y-2"
-                      >
+                      <!-- A way in renders no section body, but what the
+                       provider says about the section is still said. -->
+                      <div v-else class="space-y-2">
+                        <ConfiguratorMessages
+                          :messages="activeEntry.section.messages"
+                          class="mb-3"
+                        />
                         <p class="text-muted-foreground mb-3 text-sm">
-                          {{
-                            isMenu
-                              ? t('configurator.choose_subsection')
-                              : t('configurator.subsections_only')
-                          }}
+                          {{ t('configurator.choose_subsection') }}
                         </p>
                         <button
                           v-for="child in activeChildren"
