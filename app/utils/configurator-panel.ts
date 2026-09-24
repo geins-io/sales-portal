@@ -4,8 +4,8 @@ import type {
   ConfigurationOptionGroup,
   ConfigurationSection,
   ConfigurationVariable,
-  Money,
 } from '#shared/types/configurator';
+import type { PriceType } from '#shared/types/commerce';
 import {
   isGroupUnmet,
   isVariableUnmet,
@@ -197,7 +197,7 @@ export interface SpecificationValue {
   /** How many of this option; rendered only above one. */
   quantity?: number;
   /** The option's own price. A variable has none: see `specificationRows`. */
-  price?: Money;
+  price?: PriceType;
 }
 
 export interface SpecificationRow {
@@ -332,7 +332,7 @@ export interface SpecificationTextInput {
   /** What a value reads as on screen, so the text and the panel agree. */
   formatValue: (value: SpecificationValue) => string;
   /** `null` where the panel renders no price either. */
-  formatPrice: (price: Money) => string | null;
+  formatPrice: (price: PriceType) => string | null;
   /** Absent when the buyer may not see prices. */
   price?: { label: string; amount: string; note: string };
 }

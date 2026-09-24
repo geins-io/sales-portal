@@ -1,4 +1,4 @@
-import type { ListProduct } from '#shared/types/commerce';
+import type { ListProduct, PriceType } from '#shared/types/commerce';
 import type {
   ConfigurationOption,
   ConfigurationOptionGroup,
@@ -14,6 +14,36 @@ import type {
 // ---------------------------------------------------------------------------
 
 export const CURRENCY = 'SEK';
+
+/** Money arithmetic on floats needs a rounding step, or 1.5 × 3 drifts. */
+export function round(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
+/**
+ * A price in the shape the real contract sends every price in. The fixture
+ * knows only the ex-VAT selling price; the rest follows from the seed's VAT
+ * rate and, for a discounted row, from the list price the discount came off.
+ */
+export function seedPrice(
+  exVat: number,
+  vatRate: number,
+  discountPercent = 0,
+): PriceType {
+  const incVat = (amount: number) => round(amount * (1 + vatRate / 100));
+  const regularPriceExVat = round(exVat / (1 - discountPercent / 100));
+  const sellingPriceIncVat = incVat(exVat);
+  return {
+    sellingPriceExVat: exVat,
+    sellingPriceIncVat,
+    regularPriceExVat,
+    regularPriceIncVat: incVat(regularPriceExVat),
+    vat: round(sellingPriceIncVat - exVat),
+    isDiscounted: discountPercent > 0,
+    discountPercentage: discountPercent,
+    currency: { code: CURRENCY, symbol: 'kr' },
+  };
+}
 
 /**
  * The catalogue product carried on an option row. A real option row embeds the
@@ -60,6 +90,7 @@ export function seedOption(
     productId: number;
     article: string;
     category: string;
+    vatRate: number;
   },
   overrides: Partial<ConfigurationOption> = {},
 ): ConfigurationOption {
@@ -71,6 +102,7 @@ export function seedOption(
     net: spec.net,
     category: spec.category,
   });
+  const discountPercent = overrides.discountPercent ?? 0;
   return {
     id: spec.id,
     instanceId: '0',
@@ -84,8 +116,8 @@ export function seedOption(
     defaultQuantity: 1,
     minQuantity: 1,
     maxQuantity: 1,
-    unitPrice: { net: spec.net, currency: CURRENCY },
-    discountPercent: 0,
+    unitPrice: seedPrice(spec.net, spec.vatRate, discountPercent),
+    discountPercent,
     messages: [],
     product,
     ...overrides,

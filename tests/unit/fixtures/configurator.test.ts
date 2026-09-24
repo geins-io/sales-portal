@@ -65,7 +65,10 @@ describe('the initial configuration', () => {
   it('is priced and has a live session', () => {
     const config = makeInitialConfiguration();
 
-    expect(config.unitPrice).toEqual({ net: 3200, currency: 'SEK' });
+    expect(config.unitPrice).toMatchObject({
+      sellingPriceExVat: 3200,
+      currency: { code: 'SEK' },
+    });
     expect(Date.parse(config.expiresAt)).toBeGreaterThan(Date.now());
   });
 
@@ -150,7 +153,7 @@ function withoutCascadedNodes(config: Configuration): Configuration {
     option.messages = [];
   }
   delete findVariable(copy, 'width').max;
-  copy.unitPrice = { net: 0, currency: copy.unitPrice.currency };
+  copy.unitPrice = {};
 
   return copy;
 }

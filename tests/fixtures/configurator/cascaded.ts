@@ -1,5 +1,8 @@
 import type { Configuration } from '#shared/types/configurator';
-import { CURRENCY, findOption, findVariable } from './builders';
+import { exVatAmount } from '../../../shared/utils/configurator-price';
+import { arbetsbordPro } from '../../../server/services/configurator-fixture/seed/arbetsbord-pro';
+import { seedPrice } from '../../../server/services/configurator-fixture/seed/builders';
+import { findOption, findVariable } from './builders';
 import { BASE_PRICE, makeInitialConfiguration } from './initial';
 
 // ---------------------------------------------------------------------------
@@ -67,14 +70,13 @@ export function makeCascadedConfiguration(
 
   findVariable(config, 'width').max = 1600;
 
-  config.unitPrice = {
-    net:
-      BASE_PRICE +
-      legsElectric.unitPrice.net +
-      power.unitPrice.net +
-      topSteel.unitPrice.net,
-    currency: CURRENCY,
-  };
+  config.unitPrice = seedPrice(
+    BASE_PRICE +
+      exVatAmount(legsElectric.unitPrice) +
+      exVatAmount(power.unitPrice) +
+      exVatAmount(topSteel.unitPrice),
+    arbetsbordPro.vatRate,
+  );
 
   return { ...config, ...overrides };
 }

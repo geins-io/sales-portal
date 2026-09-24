@@ -16,7 +16,7 @@ const COMMITTED: CommittedConfiguration = {
   configurationId: 'session-1',
   productId: '1101',
   quantity: 1,
-  unitPrice: { net: 3200, currency: 'SEK' },
+  unitPrice: { sellingPriceExVat: 3200, currency: { code: 'SEK' } },
   summary: [],
 };
 

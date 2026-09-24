@@ -28,7 +28,7 @@ const option: ConfigurationOption = {
   defaultQuantity: 1,
   minQuantity: 1,
   maxQuantity: 10,
-  unitPrice: { net: 1250, currency: 'SEK' },
+  unitPrice: { sellingPriceExVat: 1250, currency: { code: 'SEK' } },
   discountPercent: 0,
   messages: [],
   product: makeListProduct({ productId: 42 }),
@@ -40,7 +40,7 @@ const configuration: Configuration = {
   isValid: false,
   productId: '900000000001',
   quantity: 5,
-  unitPrice: { net: 18400, currency: 'SEK' },
+  unitPrice: { sellingPriceExVat: 18400, currency: { code: 'SEK' } },
   discountPercent: 12.5,
   weightPerUnit: 4.2,
   templateId: 'TPL-77',
@@ -156,10 +156,10 @@ describe('CPQ configuration document types', () => {
         {
           label: 'Colour',
           value: 'Anthracite',
-          price: { net: 1250, currency: 'SEK' },
+          price: { sellingPriceExVat: 1250, currency: { code: 'SEK' } },
         },
       ],
     };
-    expect(committed.summary[1]!.price?.currency).toBe('SEK');
+    expect(committed.summary[1]!.price?.currency?.code).toBe('SEK');
   });
 });

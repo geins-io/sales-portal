@@ -267,7 +267,10 @@ describe.sequential('the CPQ verification walk against the fixture', () => {
     // The colour group arrives empty, and that unmet requirement is what makes
     // a fresh document invalid.
     expect(latest.isValid).toBe(false);
-    expect(latest.unitPrice).toEqual({ net: 3200, currency: 'SEK' });
+    expect(latest.unitPrice).toMatchObject({
+      sellingPriceExVat: 3200,
+      currency: { code: 'SEK' },
+    });
     expect(Date.parse(latest.expiresAt)).toBeGreaterThan(clock);
 
     const sources = everySection(latest)

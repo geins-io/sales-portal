@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { CheckCircle2 } from 'lucide-vue-next';
-import { formatPrice } from '#shared/types/commerce';
+import { formatPrice, type PriceType } from '#shared/types/commerce';
 import type { CommittedConfiguration } from '#shared/types/configurator';
+import { currencyCode, exVatAmount } from '#shared/utils/configurator-price';
 
 /**
  * What the buyer ends with: the committed configuration, read-only.
@@ -16,13 +17,15 @@ const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 const { showPrice } = usePriceVisibility();
 
-function money(net: number, currency: string): string {
-  return formatPrice(net, currency, formatLocale.value);
+function money(price: PriceType): string {
+  return formatPrice(
+    exVatAmount(price),
+    currencyCode(price),
+    formatLocale.value,
+  );
 }
 
-const unitPrice = computed(() =>
-  money(committed.unitPrice.net, committed.unitPrice.currency),
-);
+const unitPrice = computed(() => money(committed.unitPrice));
 </script>
 
 <template>
@@ -44,7 +47,7 @@ const unitPrice = computed(() =>
         <dd class="flex items-baseline gap-3 text-sm">
           <span>{{ line.value }}</span>
           <span v-if="showPrice && line.price" class="tabular-nums">
-            {{ money(line.price.net, line.price.currency) }}
+            {{ money(line.price) }}
           </span>
         </dd>
       </div>

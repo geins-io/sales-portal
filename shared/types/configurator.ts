@@ -13,13 +13,7 @@
 // `messages`. Every change returns the whole re-evaluated document — replace
 // local state, never patch it.
 // ---------------------------------------------------------------------------
-import type { ListProduct } from './commerce';
-
-/** Net price. No tax fields; the consumer applies VAT. */
-export interface Money {
-  net: number;
-  currency: string;
-}
+import type { ListProduct, PriceType } from './commerce';
 
 // ---------------------------------------------------------------------------
 // Provenance
@@ -113,7 +107,8 @@ export interface ConfigurationOption {
   defaultQuantity: number;
   minQuantity?: number;
   maxQuantity?: number;
-  unitPrice: Money;
+  /** Already net of `discountPercent`, which travels beside it as information. */
+  unitPrice: PriceType;
   discountPercent: number;
   messages: ConfigurationMessage[];
   /** The catalogue product, embedded on the row so no second lookup is needed. */
@@ -161,7 +156,7 @@ export interface Configuration {
   isValid: boolean;
   productId: string;
   quantity: number;
-  unitPrice: Money;
+  unitPrice: PriceType;
   discountPercent: number;
   weightPerUnit?: number;
   /** Provider template and version, opaque to callers. */
@@ -206,7 +201,7 @@ export interface CreateConfigurationInput {
 export interface ConfigurationSummaryLine {
   label: string;
   value: string;
-  price?: Money;
+  price?: PriceType;
 }
 
 /**
@@ -218,6 +213,6 @@ export interface CommittedConfiguration {
   configurationId: string;
   productId: string;
   quantity: number;
-  unitPrice: Money;
+  unitPrice: PriceType;
   summary: ConfigurationSummaryLine[];
 }

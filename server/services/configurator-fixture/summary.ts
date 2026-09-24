@@ -3,7 +3,8 @@ import type {
   ConfigurationSummaryLine,
 } from '#shared/types/configurator';
 import { everyOption, everyVariable } from './document';
-import { CURRENCY } from './seed/builders';
+import { exVatAmount } from '#shared/utils/configurator-price';
+import { seedPrice } from './seed/builders';
 import type { Seed } from './seed/types';
 
 // ---------------------------------------------------------------------------
@@ -27,10 +28,11 @@ export function buildSummary(
     .map((option) => ({
       label: option.product.name,
       value: display(option.quantity),
-      price: {
-        net: option.unitPrice.net * option.quantity,
-        currency: CURRENCY,
-      },
+      price: seedPrice(
+        exVatAmount(option.unitPrice) * option.quantity,
+        seed.vatRate,
+        option.discountPercent,
+      ),
     }));
 
   const variables = everyVariable(config.sections)
@@ -46,7 +48,7 @@ export function buildSummary(
       return {
         label: variable.name,
         value: display(variable.value, variable.unit),
-        ...(delta === 0 ? {} : { price: { net: delta, currency: CURRENCY } }),
+        ...(delta === 0 ? {} : { price: seedPrice(delta, seed.vatRate) }),
       };
     });
 

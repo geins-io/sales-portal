@@ -14,8 +14,6 @@ import type {
 // named nodes changed, and the specs address the same nodes the same way.
 // ---------------------------------------------------------------------------
 
-export const CURRENCY = 'SEK';
-
 function everySection(config: Configuration): ConfigurationSection[] {
   const collect = (sections: ConfigurationSection[]): ConfigurationSection[] =>
     sections.flatMap((section) => [section, ...collect(section.sections)]);

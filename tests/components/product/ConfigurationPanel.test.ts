@@ -189,7 +189,7 @@ describe('ConfigurationPanel', () => {
 
     it('takes the currency from the document rather than a default', () => {
       const config = makeValidConfiguration();
-      config.unitPrice = { net: 1000, currency: 'EUR' };
+      config.unitPrice = { sellingPriceExVat: 1000, currency: { code: 'EUR' } };
       const wrapper = mountPanel({ configuration: config });
       expect(
         plainText(

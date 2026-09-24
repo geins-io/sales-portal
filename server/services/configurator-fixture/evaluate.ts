@@ -13,7 +13,8 @@ import {
   everyVariable,
   optionKey,
 } from './document';
-import { CURRENCY } from './seed/builders';
+import { exVatAmount } from '#shared/utils/configurator-price';
+import { round, seedPrice } from './seed/builders';
 import type { Seed } from './seed/types';
 
 // ---------------------------------------------------------------------------
@@ -55,11 +56,6 @@ export function cloneSessionState(state: SessionState): SessionState {
   };
 }
 
-/** Money arithmetic on floats needs a rounding step, or 1.5 × 3 drifts. */
-function round(net: number): number {
-  return Math.round(net * 100) / 100;
-}
-
 function applyState(config: Configuration, state: SessionState): void {
   for (const option of everyOption(config.sections)) {
     const chosen = state.options.get(optionKey(option.id, option.instanceId));
@@ -92,7 +88,10 @@ function applyFormulas(config: Configuration, seed: Seed): void {
 function price(config: Configuration, seed: Seed): number {
   const options = everyOption(config.sections)
     .filter((option) => option.selected)
-    .reduce((net, option) => net + option.unitPrice.net * option.quantity, 0);
+    .reduce(
+      (net, option) => net + exVatAmount(option.unitPrice) * option.quantity,
+      0,
+    );
 
   const variables = everyVariable(config.sections).reduce((net, variable) => {
     const rate = seed.variableRates[variable.id];
@@ -153,7 +152,7 @@ export function evaluate(
     isValid: true,
     productId: seed.productId,
     quantity: state.quantity,
-    unitPrice: { net: seed.basePrice, currency: CURRENCY },
+    unitPrice: seedPrice(seed.basePrice, seed.vatRate),
     discountPercent: 0,
     weightPerUnit: seed.weightPerUnit,
     templateId: seed.templateId,
@@ -165,7 +164,7 @@ export function evaluate(
   applyState(config, state);
   applyFormulas(config, seed);
   for (const cascade of seed.cascades) cascade(config);
-  config.unitPrice = { net: price(config, seed), currency: CURRENCY };
+  config.unitPrice = seedPrice(price(config, seed), seed.vatRate);
   validate(config);
 
   return config;

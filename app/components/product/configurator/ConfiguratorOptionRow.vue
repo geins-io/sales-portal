@@ -4,6 +4,7 @@ import type {
   ConfigurationOption,
 } from '#shared/types/configurator';
 import { formatPrice } from '#shared/types/commerce';
+import { currencyCode, exVatAmount } from '#shared/utils/configurator-price';
 import { Lock } from 'lucide-vue-next';
 import {
   blockingMessage,
@@ -85,11 +86,12 @@ const messages = computed(() =>
  * information, never arithmetic.
  */
 const price = computed(() => {
-  const prefix = optionPricePrefix(option.unitPrice.net);
+  const net = exVatAmount(option.unitPrice);
+  const prefix = optionPricePrefix(net);
   if (prefix === null) return '';
   return `${prefix}${formatPrice(
-    option.unitPrice.net,
-    option.unitPrice.currency,
+    net,
+    currencyCode(option.unitPrice),
     formatLocale.value,
   )}`;
 });

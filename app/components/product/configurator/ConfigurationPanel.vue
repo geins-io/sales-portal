@@ -9,8 +9,9 @@ import {
   RotateCcw,
 } from 'lucide-vue-next';
 import { useClipboard } from '@vueuse/core';
-import { formatPrice } from '#shared/types/commerce';
-import type { Configuration, Money } from '#shared/types/configurator';
+import { formatPrice, type PriceType } from '#shared/types/commerce';
+import type { Configuration } from '#shared/types/configurator';
+import { currencyCode, exVatAmount } from '#shared/utils/configurator-price';
 import type { ConfiguratorSessionStatus } from '~/composables/useConfiguratorSession';
 import { Button } from '~/components/ui/button';
 import { optionPricePrefix } from '~/utils/configurator-form';
@@ -64,7 +65,7 @@ const blockingMessages = computed(() =>
 function money(net: number): string {
   return formatPrice(
     net,
-    configuration?.unitPrice.currency,
+    currencyCode(configuration?.unitPrice),
     formatLocale.value,
   );
 }
@@ -74,7 +75,7 @@ function money(net: number): string {
  * information beside it and never arithmetic on it.
  */
 const discountPercent = computed(() => configuration?.discountPercent ?? 0);
-const price = computed(() => money(configuration?.unitPrice.net ?? 0));
+const price = computed(() => money(exVatAmount(configuration?.unitPrice)));
 
 /**
  * A number is written the way the field the buyer typed it in writes it, down
@@ -105,11 +106,12 @@ function valueText(value: SpecificationValue): string {
  * A price, or nothing. The rule is the option row's: a choice the provider
  * charges nothing for says nothing, rather than a column of zeroes.
  */
-function priceText(price: Money): string | null {
+function priceText(price: PriceType): string | null {
   if (!showPrice.value) return null;
-  const prefix = optionPricePrefix(price.net);
+  const net = exVatAmount(price);
+  const prefix = optionPricePrefix(net);
   if (prefix === null) return null;
-  return `${prefix}${money(price.net)}`;
+  return `${prefix}${money(net)}`;
 }
 
 function valuePrice(value: SpecificationValue): string | null {

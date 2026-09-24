@@ -27,9 +27,13 @@ function makeCommitted(
     configurationId: 'session-1',
     productId: '1101',
     quantity: 1,
-    unitPrice: { net: 4100, currency: 'SEK' },
+    unitPrice: { sellingPriceExVat: 4100, currency: { code: 'SEK' } },
     summary: [
-      { label: 'Steel top', value: '1', price: { net: 900, currency: 'SEK' } },
+      {
+        label: 'Steel top',
+        value: '1',
+        price: { sellingPriceExVat: 900, currency: { code: 'SEK' } },
+      },
       { label: 'Width', value: '1400 mm' },
     ],
     ...overrides,
@@ -67,7 +71,7 @@ describe('ConfiguratorCommitted', () => {
         {
           label: 'Steel top',
           value: '1',
-          price: { net: 900, currency: 'EUR' },
+          price: { sellingPriceExVat: 900, currency: { code: 'EUR' } },
         },
       ],
     });

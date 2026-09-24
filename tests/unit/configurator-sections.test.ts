@@ -105,7 +105,7 @@ function optionRow(
     selectionSource: 'none',
     quantity: 1,
     defaultQuantity: 1,
-    unitPrice: { net: 0, currency: 'SEK' },
+    unitPrice: { sellingPriceExVat: 0, currency: { code: 'SEK' } },
     discountPercent: 0,
     messages: [],
     product: { productId: 1 } as ConfigurationOption['product'],

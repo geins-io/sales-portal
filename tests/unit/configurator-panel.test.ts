@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { PriceType } from '#shared/types/commerce';
 import {
   collectBlockingMessages,
   collectBlockingNames,
@@ -405,7 +406,8 @@ describe('specificationRows', () => {
   });
 
   it('carries the option name, its quantity and its price', () => {
-    const rows = specificationRows(makeValidConfiguration());
+    const config = makeValidConfiguration();
+    const rows = specificationRows(config);
     expect(rows.find((row) => row.label === 'Colour')).toEqual({
       id: 'group:color',
       group: 'Finish',
@@ -414,7 +416,7 @@ describe('specificationRows', () => {
         {
           text: 'Black (RAL 9005)',
           quantity: 1,
-          price: { net: 0, currency: 'SEK' },
+          price: findOption(config, 'ral-9005').unitPrice,
         },
       ],
     });
@@ -434,12 +436,12 @@ describe('specificationRows', () => {
       {
         text: 'Tool pegboard',
         quantity: 2,
-        price: { net: 900, currency: 'SEK' },
+        price: pegboard.unitPrice,
       },
       {
         text: 'LED light bar',
         quantity: 1,
-        price: { net: 700, currency: 'SEK' },
+        price: findOption(config, 'acc-light').unitPrice,
       },
     ]);
   });
@@ -627,7 +629,10 @@ describe('specificationText', () => {
       group: 'Frame',
       label: 'Leg frame',
       values: [
-        { text: 'Electric height legs', price: { net: 4200, currency: 'SEK' } },
+        {
+          text: 'Electric height legs',
+          price: { sellingPriceExVat: 4200, currency: { code: 'SEK' } },
+        },
       ],
     },
     {
@@ -641,14 +646,17 @@ describe('specificationText', () => {
       group: 'Finish',
       label: 'Colour',
       values: [
-        { text: 'Black (RAL 9005)', price: { net: 0, currency: 'SEK' } },
+        {
+          text: 'Black (RAL 9005)',
+          price: { sellingPriceExVat: 0, currency: { code: 'SEK' } },
+        },
       ],
     },
   ];
 
   const formatValue = (value: SpecificationValue) => value.text ?? '';
-  const formatPrice = (price: { net: number }) =>
-    price.net === 0 ? null : `+${price.net} kr`;
+  const formatPrice = (price: PriceType) =>
+    price.sellingPriceExVat ? `+${price.sellingPriceExVat} kr` : null;
 
   it('writes the product, the quantity, the groups and their rows', () => {
     const text = specificationText({

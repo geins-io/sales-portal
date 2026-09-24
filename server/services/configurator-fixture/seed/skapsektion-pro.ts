@@ -33,6 +33,7 @@ export const SKAPSEKTION_PRO_GEINS_ID = '1102';
 const ARTICLE = 'KONF-1002';
 const BASE_PRICE = 5400;
 const CATEGORY = 'Cabinets';
+const VAT_RATE = 25;
 
 const SQUARE_MM_PER_SQUARE_M = 1_000_000;
 
@@ -44,7 +45,15 @@ function option(
   overrides: Partial<ConfigurationOption> = {},
 ): ConfigurationOption {
   return seedOption(
-    { id, name, net, productId, article: ARTICLE, category: CATEGORY },
+    {
+      id,
+      name,
+      net,
+      productId,
+      article: ARTICLE,
+      category: CATEGORY,
+      vatRate: VAT_RATE,
+    },
     overrides,
   );
 }
@@ -218,6 +227,7 @@ export const skapsektionPro: Seed = {
   templateId: `TPL-${ARTICLE}`,
   templateVersion: '2',
   basePrice: BASE_PRICE,
+  vatRate: VAT_RATE,
   weightPerUnit: 64,
   variableRates: { 'cab-width': 2, 'cab-height': 1.5 },
   formulas: {

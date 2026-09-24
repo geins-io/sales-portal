@@ -46,6 +46,7 @@ export const MONTERINGSSTATION_PRO_GEINS_ID = '1103';
 const ARTICLE = 'KONF-1003';
 const BASE_PRICE = 7400;
 const CATEGORY = 'Assembly stations';
+const VAT_RATE = 25;
 
 /** The length above which a station needs the third leg pair. */
 const THIRD_LEG_LENGTH = 3000;
@@ -60,7 +61,15 @@ function option(
   overrides: Partial<ConfigurationOption> = {},
 ): ConfigurationOption {
   return seedOption(
-    { id, name, net, productId, article: ARTICLE, category: CATEGORY },
+    {
+      id,
+      name,
+      net,
+      productId,
+      article: ARTICLE,
+      category: CATEGORY,
+      vatRate: VAT_RATE,
+    },
     overrides,
   );
 }
@@ -646,6 +655,7 @@ export const monteringsstationPro: Seed = {
   templateId: `TPL-${ARTICLE}`,
   templateVersion: '1',
   basePrice: BASE_PRICE,
+  vatRate: VAT_RATE,
   weightPerUnit: 92,
   variableRates: {
     length: 1.8,

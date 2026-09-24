@@ -127,7 +127,10 @@ describe('create', () => {
     expect(config.productId).toBe(ARBETSBORD_PRO_ID);
     expect(config.quantity).toBe(3);
     expect(config.templateId).toBe('TPL-KONF-1001');
-    expect(config.unitPrice).toEqual({ net: 3200, currency: 'SEK' });
+    expect(config.unitPrice).toMatchObject({
+      sellingPriceExVat: 3200,
+      currency: { code: 'SEK' },
+    });
     // A required option group is empty in the seed, so a fresh document is
     // never valid — through the requirement itself, with nothing written under
     // a group the buyer has not reached yet.
@@ -631,24 +634,27 @@ describe('the price the mock computes', () => {
       CTX,
     );
 
-    const electric = findOption(changed, 'legs-electric').unitPrice.net;
-    const power = findOption(changed, 'acc-power').unitPrice.net;
+    const electric = findOption(changed, 'legs-electric').unitPrice
+      .sellingPriceExVat!;
+    const power = findOption(changed, 'acc-power').unitPrice.sellingPriceExVat!;
 
-    expect(changed.unitPrice.net).toBe(3200 + electric + power + 2 * 450);
-    expect(changed.unitPrice.currency).toBe('SEK');
+    expect(changed.unitPrice.sellingPriceExVat).toBe(
+      3200 + electric + power + 2 * 450,
+    );
+    expect(changed.unitPrice.currency?.code).toBe('SEK');
   });
 
   it('prices the second product from its own base and rates', async () => {
     const config = await start(SKAPSEKTION_PRO_GEINS_ID);
     // Base, the locked mounting rail and the glass doors that come with it.
-    expect(config.unitPrice.net).toBe(5400 + 450);
+    expect(config.unitPrice.sellingPriceExVat).toBe(5400 + 450);
 
     const wider = await backend.applyChanges(
       config.configurationId,
       [setVariable('cab-width', 1000)],
       CTX,
     );
-    expect(wider.unitPrice.net).toBe(5400 + 450 + 2 * 200);
+    expect(wider.unitPrice.sellingPriceExVat).toBe(5400 + 450 + 2 * 200);
   });
 
   it('counts an option quantity above one', async () => {
@@ -670,7 +676,40 @@ describe('the price the mock computes', () => {
 
     const power = findOption(changed, 'acc-power');
     expect(power.quantity).toBe(3);
-    expect(changed.unitPrice.net).toBe(3200 + 3 * power.unitPrice.net);
+    expect(changed.unitPrice.sellingPriceExVat).toBe(
+      3200 + 3 * power.unitPrice.sellingPriceExVat!,
+    );
+  });
+
+  it('sends the document price in the full Geins shape, VAT from the seed', async () => {
+    const config = await start();
+    const exVat = config.unitPrice.sellingPriceExVat!;
+
+    expect(config.unitPrice).toEqual({
+      sellingPriceExVat: exVat,
+      sellingPriceIncVat: exVat * 1.25,
+      regularPriceExVat: exVat,
+      regularPriceIncVat: exVat * 1.25,
+      vat: exVat * 0.25,
+      isDiscounted: false,
+      discountPercentage: 0,
+      currency: { code: 'SEK', symbol: 'kr' },
+    });
+  });
+
+  it('prices a discounted row from a list price above the selling price', async () => {
+    const config = await start();
+
+    expect(findOption(config, 'acc-pegboard').unitPrice).toEqual({
+      sellingPriceExVat: 900,
+      sellingPriceIncVat: 1125,
+      regularPriceExVat: 1200,
+      regularPriceIncVat: 1500,
+      vat: 225,
+      isDiscounted: true,
+      discountPercentage: 25,
+      currency: { code: 'SEK', symbol: 'kr' },
+    });
   });
 });
 
@@ -840,13 +879,19 @@ describe('commit', () => {
 
     const shelves = committed.summary.find((line) => line.label === 'Shelves');
     expect(shelves?.value).toBe('2 pcs');
-    expect(shelves?.price).toEqual({ net: 2 * 450, currency: 'SEK' });
+    expect(shelves?.price).toMatchObject({
+      sellingPriceExVat: 2 * 450,
+      currency: { code: 'SEK' },
+    });
 
     const power = committed.summary.find(
       (line) => line.label === 'Power strip',
     );
     expect(power?.value).toBe('1');
-    expect(power?.price).toEqual({ net: 550, currency: 'SEK' });
+    expect(power?.price).toMatchObject({
+      sellingPriceExVat: 550,
+      currency: { code: 'SEK' },
+    });
   });
 
   it('keeps the frozen record readable after the session is gone', async () => {
@@ -891,9 +936,27 @@ describe('commit', () => {
     const width = committed.summary.find((line) => line.label === 'Width');
 
     expect(pegboard?.value).toBe('2');
-    expect(pegboard?.price).toEqual({ net: 2 * 900, currency: 'SEK' });
+    expect(pegboard?.price).toEqual({
+      sellingPriceExVat: 2 * 900,
+      sellingPriceIncVat: 2 * 1125,
+      regularPriceExVat: 2 * 1200,
+      regularPriceIncVat: 2 * 1500,
+      vat: 2 * 225,
+      isDiscounted: true,
+      discountPercentage: 25,
+      currency: { code: 'SEK', symbol: 'kr' },
+    });
     expect(width?.value).toBe('1400 mm');
-    expect(width?.price).toEqual({ net: 1.5 * 200, currency: 'SEK' });
+    expect(width?.price).toEqual({
+      sellingPriceExVat: 300,
+      sellingPriceIncVat: 375,
+      regularPriceExVat: 300,
+      regularPriceIncVat: 375,
+      vat: 75,
+      isDiscounted: false,
+      discountPercentage: 0,
+      currency: { code: 'SEK', symbol: 'kr' },
+    });
   });
 
   it('departs the session, so the id answers 410 afterwards', async () => {
