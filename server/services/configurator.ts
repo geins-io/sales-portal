@@ -7,6 +7,7 @@ import type {
 } from '#shared/types/configurator';
 import { readConfiguratorBackendValue } from './configurator-config';
 import { fixtureConfiguratorBackend } from './configurator-fixture';
+import { withoutRestatedRequirements } from './configurator-messages';
 
 // ---------------------------------------------------------------------------
 // The seam between the portal and whatever produces a configuration.
@@ -107,9 +108,11 @@ const BACKENDS: Record<ConfiguratorBackendName, () => ConfiguratorBackend> = {
 };
 
 export function getConfiguratorBackend(event: H3Event): ConfiguratorBackend {
-  return BACKENDS[
-    resolveConfiguratorBackendName(readConfiguratorBackendValue(event))
-  ]();
+  return withoutRestatedRequirements(
+    BACKENDS[
+      resolveConfiguratorBackendName(readConfiguratorBackendValue(event))
+    ](),
+  );
 }
 
 /**
