@@ -490,7 +490,7 @@ See [`.env.example`](https://github.com/geins-io/sales-portal/blob/main/.env.exa
 | -------------------------------- | ---------------------------------------------------------- | -------------------------------------- |
 | `NUXT_GEINS_API_ENDPOINT`        | Geins GraphQL endpoint                                     | `https://merchantapi.geins.io/graphql` |
 | `NUXT_GEINS_TENANT_API_URL`      | Geins Tenant API URL (server-only)                         | —                                      |
-| `NUXT_STORAGE_DRIVER`            | KV storage driver (`memory`/`fs`/`redis`)                  | `memory`                               |
+| `NUXT_STORAGE_DRIVER`            | KV storage driver (`memory`/`redis`)                  | `memory`                               |
 | `NUXT_STORAGE_REDIS_URL`         | Redis connection URL                                       | —                                      |
 | `NUXT_HEALTH_CHECK_SECRET`       | Secret for detailed `/api/health` metrics                  | —                                      |
 | `NUXT_HEALTH_RSS_DEGRADED_MB`    | RSS above this reports `degraded`                          | `400`                                  |

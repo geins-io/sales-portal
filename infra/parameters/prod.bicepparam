@@ -14,7 +14,7 @@ param ghcrToken = ''
 
 // Application settings - Production configuration
 param geinsApiEndpoint = 'https://api.geins.io/graphql'
-param storageDriver = 'redis'
+param storageDriver = 'memory'
 param redisUrl = ''
 param enableAnalytics = true
 param logLevel = 'warn'

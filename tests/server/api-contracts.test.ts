@@ -190,11 +190,32 @@ vi.mock('../../server/utils/logger', () => ({
   }),
 }));
 
-// Mock storage
+// Mock storage.
+//
+// `useStorage('kv')` and `useStorage()` are deliberately not the same object,
+// because in unstorage they are not: the first is a prefixStorage view whose
+// getMount() resolves the *root* mount, and only the second can be asked about
+// 'kv:' specifically. A mock that answered identically for both would report a
+// passing health check no matter which one the endpoint called, which is the
+// exact bug this distinction exists to catch.
+const kvMountDriver = { name: 'memory' };
+
 const mockStorage = {
   getItem: vi.fn(),
   setItem: vi.fn(),
   removeItem: vi.fn(),
+  keys: vi.fn(async () => [] as string[]),
+  // The prefixed view: resolves the root mount, never the kv one.
+  getMount: vi.fn(() => ({ base: '', driver: { name: 'memory' } })),
+};
+
+const mockRootStorage = {
+  ...mockStorage,
+  getMount: vi.fn((base?: string) =>
+    base === 'kv:'
+      ? { base: 'kv:', driver: kvMountDriver }
+      : { base: '', driver: { name: 'memory' } },
+  ),
 };
 
 // Mock response object for h3 events
@@ -207,7 +228,9 @@ const createMockRes = () => ({
 });
 
 // Stub Nuxt globals
-vi.stubGlobal('useStorage', () => mockStorage);
+vi.stubGlobal('useStorage', (base?: string) =>
+  base === undefined ? mockRootStorage : mockStorage,
+);
 vi.stubGlobal('useRuntimeConfig', () => ({
   public: {
     appVersion: '1.0.0',
