@@ -497,7 +497,7 @@ const { showPrice } = usePriceVisibility();
                     class="mt-1 flex items-center gap-1 text-xs"
                     :class="
                       isValueInStock(activeDimension.dimensionName, value)
-                        ? 'text-emerald-600 dark:text-emerald-400'
+                        ? 'text-success'
                         : 'text-muted-foreground'
                     "
                   >
@@ -505,7 +505,7 @@ const { showPrice } = usePriceVisibility();
                       class="size-1.5 rounded-full"
                       :class="
                         isValueInStock(activeDimension.dimensionName, value)
-                          ? 'bg-emerald-500'
+                          ? 'bg-success'
                           : 'bg-muted-foreground'
                       "
                     />

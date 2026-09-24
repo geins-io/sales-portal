@@ -57,7 +57,7 @@ async function handleSubscribe() {
             {{ $t('layout.subscribe') }}
           </Button>
         </div>
-        <p v-if="status === 'success'" class="text-sm text-green-600">
+        <p v-if="status === 'success'" class="text-success text-sm">
           {{ $t('layout.subscribe_success') }}
         </p>
         <p v-if="status === 'error'" class="text-destructive text-sm">

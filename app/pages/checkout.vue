@@ -279,7 +279,7 @@ async function handlePlaceOrder() {
           <!-- Blacklisted warning -->
           <div
             v-if="checkoutStore.isBlacklisted"
-            class="mb-6 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800"
+            class="border-warning/30 bg-warning/10 text-warning mb-6 rounded-md border p-4 text-sm"
             data-testid="checkout-blacklisted"
           >
             {{ t('checkout.blacklisted') }}

@@ -34,14 +34,18 @@ const label = computed(() => {
   }
 });
 
+// `bg-x/10 text-x` is the tinted-state pattern already used for `destructive`
+// and by the configurator components. `on-demand` stays on literals: it is an
+// informational state and there is no token for it — see the note in
+// tailwind.css about the three states the tenant theme carries.
 const badgeClass = computed(() => {
   switch (status.value) {
     case 'in-stock':
-      return 'bg-green-100 text-green-800 border-green-200';
+      return 'bg-success/10 text-success border-success/20';
     case 'low-stock':
-      return 'bg-amber-100 text-amber-800 border-amber-200';
+      return 'bg-warning/10 text-warning border-warning/20';
     case 'out-of-stock':
-      return 'bg-red-100 text-red-800 border-red-200';
+      return 'bg-destructive/10 text-destructive border-destructive/20';
     case 'on-demand':
       return 'bg-blue-100 text-blue-800 border-blue-200';
     default:
@@ -52,11 +56,11 @@ const badgeClass = computed(() => {
 const dotColor = computed(() => {
   switch (status.value) {
     case 'in-stock':
-      return 'border-green-600';
+      return 'border-success';
     case 'low-stock':
-      return 'border-amber-600';
+      return 'border-warning';
     case 'out-of-stock':
-      return 'border-red-600';
+      return 'border-destructive';
     case 'on-demand':
       return 'border-blue-600';
     default:
