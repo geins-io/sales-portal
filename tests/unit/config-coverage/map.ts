@@ -947,14 +947,14 @@ export const CONFIG_COVERAGE_MAP = {
       {
         spec: SERVER_TENANT_RESOLUTION,
         title:
-          'a resolved lookup writes the config under its tenantId and a mapping for every hostname',
+          'a resolved lookup writes the config under its account and channel and a mapping for every hostname',
         kind: 'consumer',
         drives: 'field',
       },
     ],
     note:
       'The canonical site URL (server/plugins/03.seo-config.ts:36) and the ' +
-      'hostname → tenantId mapping are asserted. Still unasserted: the error ' +
+      'hostname → storefront mapping are asserted. Still unasserted: the error ' +
       'page header in server/error.ts:110 and the request log.',
   },
 
@@ -969,7 +969,7 @@ export const CONFIG_COVERAGE_MAP = {
       {
         spec: SERVER_TENANT_RESOLUTION,
         title:
-          'a resolved lookup writes the config under its tenantId and a mapping for every hostname',
+          'a resolved lookup writes the config under its account and channel and a mapping for every hostname',
         kind: 'consumer',
         drives: 'field',
       },

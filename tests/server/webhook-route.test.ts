@@ -51,6 +51,8 @@ vi.mock('../../server/services/_sdk', () => ({
   clearSdkCache: vi.fn(),
 }));
 
+const hex = (key: string) => Buffer.from(key).toString('hex');
+
 function signStripe(body: string, secret: string, timestamp?: number): string {
   const ts = timestamp ?? Math.floor(Date.now() / 1000);
   const signedPayload = `${ts}.${body}`;
@@ -370,7 +372,7 @@ describe('processConfigRefresh', () => {
     // Should remove config under tenantId
     expect(kvRemoveItem).toHaveBeenCalledWith('tenant:config:alpha');
     expect(cacheRemoveItem).toHaveBeenCalledWith(
-      'nitro/handlers:_:tenantconfigalpha.json',
+      `nitro/handlers:_:${hex('tenant:config:alpha')}.json`,
     );
     expect(kvSetItem).toHaveBeenCalledWith(
       `webhook:processed:${webhookId}`,
@@ -401,7 +403,7 @@ describe('processConfigRefresh', () => {
     expect(kvRemoveItem).toHaveBeenCalledWith(`tenant:id:${hostname}`);
     expect(kvRemoveItem).toHaveBeenCalledWith(`tenant:config:${hostname}`);
     expect(cacheRemoveItem).toHaveBeenCalledWith(
-      'nitro/handlers:_:tenantconfignewtenantexamplecom.json',
+      `nitro/handlers:_:${hex(`tenant:config:${hostname}`)}.json`,
     );
   });
 
@@ -435,11 +437,11 @@ describe('processConfigRefresh', () => {
     await processConfigRefresh(request, kv, cache);
 
     // Nitro 2.x stores defineCachedEventHandler entries as:
-    //   nitro/handlers:_:{escapeKey(configKey)}.json
-    // escapeKey strips all non-word chars (\W) — colons, dots, hyphens removed.
-    // configKey = "tenant:config:beta" → escaped = "tenantconfigbeta"
+    //   nitro/handlers:_:{escapeKey(getKey())}.json
+    // getKey is the hex of configKey, which escapeKey leaves unchanged.
+    // configKey = "tenant:config:beta" → hex below
     expect(cacheRemoveItem).toHaveBeenCalledWith(
-      'nitro/handlers:_:tenantconfigbeta.json',
+      'nitro/handlers:_:74656e616e743a636f6e6669673a62657461.json',
     );
   });
 

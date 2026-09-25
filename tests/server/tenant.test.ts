@@ -1039,12 +1039,14 @@ describe('Tenant utilities', () => {
         >,
         config,
       );
-      expect(storage.data.get(tenantIdKey('a.example.com'))).toBe('alpha');
-      expect(storage.data.get(tenantIdKey('a.alt.com'))).toBe('alpha');
+      expect(storage.data.get(tenantIdKey('a.example.com'))).toBe(
+        'a.example.com',
+      );
+      expect(storage.data.get(tenantIdKey('a.alt.com'))).toBe('a.example.com');
       expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
 
-    it('does NOT warn when re-writing the same tenantId to the same hostname', async () => {
+    it('does NOT warn when re-writing the same storefront to the same hostname', async () => {
       const storage = makeStorage();
       const config = makeConfigWithHostnames('alpha', 'a.example.com');
       await writeHostnameMappings(
@@ -1062,10 +1064,14 @@ describe('Tenant utilities', () => {
       expect(mockLoggerWarn).not.toHaveBeenCalled();
     });
 
-    it('warns when a hostname is remapped to a DIFFERENT tenantId', async () => {
+    it('warns when a hostname is remapped to a DIFFERENT storefront', async () => {
       const storage = makeStorage();
-      const configA = makeConfigWithHostnames('alpha', 'shared.example.com');
-      const configB = makeConfigWithHostnames('beta', 'shared.example.com');
+      const configA = makeConfigWithHostnames('alpha', 'a.example.com', [
+        'shared.example.com',
+      ]);
+      const configB = makeConfigWithHostnames('beta', 'b.example.com', [
+        'shared.example.com',
+      ]);
 
       await writeHostnameMappings(
         storage as unknown as ReturnType<
@@ -1084,16 +1090,18 @@ describe('Tenant utilities', () => {
       expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
       const [msg, meta] = mockLoggerWarn.mock.calls[0]!;
       expect(msg).toContain('shared.example.com');
-      expect(msg).toContain('alpha');
-      expect(msg).toContain('beta');
+      expect(msg).toContain('a.example.com');
+      expect(msg).toContain('b.example.com');
       expect(meta).toMatchObject({
         hostname: 'shared.example.com',
-        previousTenantId: 'alpha',
-        newTenantId: 'beta',
+        previousStorefront: 'a.example.com',
+        newStorefront: 'b.example.com',
       });
 
       // Last-writer-wins: the KV is now pointing at beta.
-      expect(storage.data.get(tenantIdKey('shared.example.com'))).toBe('beta');
+      expect(storage.data.get(tenantIdKey('shared.example.com'))).toBe(
+        'b.example.com',
+      );
     });
   });
 
@@ -1922,8 +1930,12 @@ describe('Tenant utilities', () => {
         } as unknown as TenantConfig,
       );
 
-      expect(data.get(tenantIdKey('beta.sales-portal.geins.dev'))).toBe('beta');
-      expect(data.get(tenantIdKey('beta.example'))).toBe('beta');
+      expect(data.get(tenantIdKey('beta.sales-portal.geins.dev'))).toBe(
+        'beta.sales-portal.geins.dev',
+      );
+      expect(data.get(tenantIdKey('beta.example'))).toBe(
+        'beta.sales-portal.geins.dev',
+      );
       expect(data.has(tenantIdKey('claimed.example.com'))).toBe(false);
     });
 

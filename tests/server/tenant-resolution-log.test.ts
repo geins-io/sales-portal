@@ -436,7 +436,7 @@ describe.sequential('resolveTenantOutcome KV paths', () => {
     resetStorage();
   });
 
-  it('a resolved lookup writes the config under its tenantId and a mapping for every hostname', async () => {
+  it('a resolved lookup writes the config under its account and channel and a mapping for every hostname', async () => {
     const host = 'primary.example';
     const aliases = ['alias.example', 'www.primary.example'];
     const storage = memoryStorage();
@@ -451,12 +451,12 @@ describe.sequential('resolveTenantOutcome KV paths', () => {
 
     expect(outcome).toBe('resolved');
     expect(config?.tenantId).toBe('multi-host');
-    expect(storage.store.get(tenantConfigKey('multi-host'))).toBe(config);
+    expect(storage.store.get(tenantConfigKey('multi-host:1|se'))).toBe(config);
     for (const h of [host, ...aliases]) {
-      expect(storage.store.get(tenantIdKey(h))).toBe('multi-host');
+      expect(storage.store.get(tenantIdKey(h))).toBe('multi-host:1|se');
     }
-    // Nothing is stored under the hostname-keyed config key.
-    expect(storage.store.has(tenantConfigKey(host))).toBe(false);
+    // Nothing is stored under the account-keyed config key.
+    expect(storage.store.has(tenantConfigKey('multi-host'))).toBe(false);
     expect(storage.store.size).toBe(1 + 1 + aliases.length);
   });
 
@@ -504,8 +504,8 @@ describe.sequential('resolveTenantOutcome KV paths', () => {
     // The stale key was removed before the fetch, so the rewrite is a plain
     // write and not a remap between two tenants.
     expect(storage.removeItem).toHaveBeenCalledWith(tenantIdKey(host));
-    expect(storage.store.get(tenantIdKey(host))).toBe('new-tenant');
-    expect(storage.store.get(tenantConfigKey('new-tenant'))).toBe(config);
+    expect(storage.store.get(tenantIdKey(host))).toBe('new-tenant:1|se');
+    expect(storage.store.get(tenantConfigKey('new-tenant:1|se'))).toBe(config);
     // The other tenant's own config is left alone.
     expect(storage.store.get(tenantConfigKey('old-tenant'))).toBe(staleConfig);
 
@@ -529,7 +529,7 @@ describe.sequential('resolveTenantOutcome KV paths', () => {
     expect(outcome).toBe('resolved');
     expect(config?.tenantId).toBe('vanished');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(storage.store.get(tenantConfigKey('vanished'))).toBe(config);
+    expect(storage.store.get(tenantConfigKey('vanished:1|se'))).toBe(config);
     expect(debugLinesFor(host)[0]).toContain('kv=miss api=GET');
   });
 

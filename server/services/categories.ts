@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3';
 import type { CategoryNode } from '#shared/utils/breadcrumb-trail';
-import { tenantConfigKey } from '../utils/tenant';
+import { storefrontCacheKey, tenantConfigKey } from '../utils/tenant';
 import { getTenantSDK, getRequestChannelVariables } from './_sdk';
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
@@ -36,8 +36,7 @@ export function categoryTreeCacheKey(
 }
 
 export function resolveTenantCacheKey(event: H3Event): string {
-  const tenant = event.context.tenant;
-  return tenantConfigKey(tenant?.tenantId || tenant?.hostname || 'unknown');
+  return tenantConfigKey(storefrontCacheKey(event));
 }
 
 /**

@@ -238,8 +238,42 @@ export function tenantIdKey(hostname: string): string {
   return `${KV_STORAGE_KEYS.TENANT_ID_PREFIX}${hostname}`;
 }
 
-export function tenantConfigKey(tenantId: string): string {
-  return `${KV_STORAGE_KEYS.TENANT_CONFIG_PREFIX}${tenantId}`;
+export function tenantConfigKey(storefrontKey: string): string {
+  return `${KV_STORAGE_KEYS.TENANT_CONFIG_PREFIX}${storefrontKey}`;
+}
+
+/**
+ * Identifies one storefront in every per-tenant cache: Geins account and
+ * channel (`monitor:1|se`), which every alias shares and a domain change
+ * keeps. Not `tenantId`: the merchant API answers the account name there, so
+ * two channels on one account would share one entry and serve each other's
+ * config. The schema lets these fields through empty, hence the hostname
+ * fallback.
+ */
+export function storefrontKey(
+  config: Pick<TenantConfig, 'hostname' | 'geinsSettings'> | null | undefined,
+  requestHostname: string,
+): string {
+  const geins = config?.geinsSettings;
+  if (geins?.accountName && geins.channel && geins.tld) {
+    return `${geins.accountName}:${geins.channel}|${geins.tld}`;
+  }
+  return config?.hostname || requestHostname;
+}
+
+/**
+ * The `/api/config` response-cache key for a storefront. Hex, because Nitro
+ * strips every non-word character from a handler key: `shop1:2|se` and
+ * `shop:12|se` would otherwise both be stored as `shop12se`.
+ */
+export function configResponseCacheKey(storefront: string): string {
+  return Buffer.from(tenantConfigKey(storefront)).toString('hex');
+}
+
+/** {@link storefrontKey} for the tenant on this request. */
+export function storefrontCacheKey(event: H3Event): string {
+  const tenant = event.context.tenant;
+  return storefrontKey(tenant?.config, tenant?.hostname || 'unknown');
 }
 
 // ---------------------------------------------------------------------------
@@ -262,10 +296,10 @@ export function collectAllHostnames(config: TenantConfig): Set<string> {
 }
 
 /**
- * Writes hostname → tenantId mappings for all hostnames in the config.
+ * Writes hostname → storefront key mappings for all hostnames in the config.
  *
  * Logs a loud warning when a hostname is being remapped from one
- * tenantId to another — this usually means two merchant-API tenant
+ * storefront to another — this usually means two merchant-API tenant
  * configs claim the same alias (tenant misconfiguration, e.g. a copy
  * paste bug in the admin). We still perform the write so recoverable
  * reconfigurations work, but the warning makes the misconfig visible.
@@ -273,20 +307,20 @@ export function collectAllHostnames(config: TenantConfig): Set<string> {
 export async function writeHostnameMappings(
   storage: ReturnType<typeof useStorage>,
   config: TenantConfig,
+  key: string = storefrontKey(config, config.hostname),
 ): Promise<void> {
   const hostnames = collectAllHostnames(config);
-  const tid = config.tenantId;
   await Promise.all(
     [...hostnames].map(async (h) => {
       const existing = await storage.getItem<string>(tenantIdKey(h));
-      if (existing && existing !== tid) {
+      if (existing && existing !== key) {
         logger.warn(
-          `[tenant] Hostname "${h}" remapped ${existing} → ${tid}. ` +
+          `[tenant] Hostname "${h}" remapped ${existing} → ${key}. ` +
             `Two tenant configs may claim the same alias.`,
-          { hostname: h, previousTenantId: existing, newTenantId: tid },
+          { hostname: h, previousStorefront: existing, newStorefront: key },
         );
       }
-      await storage.setItem(tenantIdKey(h), tid);
+      await storage.setItem(tenantIdKey(h), key);
     }),
   );
 }
@@ -1044,15 +1078,17 @@ export async function resolvePreviewTenant(
 // ---------------------------------------------------------------------------
 
 /**
- * Retrieves a tenant config directly by tenantId (no hostname lookup).
+ * Retrieves a tenant config by its storefront key (no hostname lookup).
  * Returns null for missing or inactive configs without side-effects —
  * invalidation is handled exclusively by the webhook handler.
  */
 export async function getTenantById(
-  tenantId: string,
+  storefrontKey: string,
 ): Promise<TenantConfig | null> {
   const storage = useStorage('kv');
-  const config = await storage.getItem<TenantConfig>(tenantConfigKey(tenantId));
+  const config = await storage.getItem<TenantConfig>(
+    tenantConfigKey(storefrontKey),
+  );
   if (!config || !config.isActive) return null;
   return config;
 }
@@ -1065,11 +1101,11 @@ export interface TenantResolution {
 
 /**
  * Resolves a tenant config from a hostname using the 2-step KV model:
- *   1. tenant:id:{hostname} → tenantId
- *   2. tenant:config:{tenantId} → TenantConfig
+ *   1. tenant:id:{hostname} → storefront key (`storefrontKey`)
+ *   2. tenant:config:{storefront key} → TenantConfig
  *
  * On cache miss, fetches from the API and writes both hostname mappings
- * and the config keyed by tenantId.
+ * and the config keyed by the storefront key.
  */
 export async function resolveTenant(
   hostname: string,
@@ -1116,11 +1152,11 @@ async function resolveTenantTraced(
   const storage = useStorage('kv');
   trace.kv = 'miss';
 
-  // Step 1: hostname → tenantId
-  const tenantId = await storage.getItem<string>(tenantIdKey(hostname));
+  // Step 1: hostname → storefront key
+  const storefront = await storage.getItem<string>(tenantIdKey(hostname));
 
-  if (tenantId) {
-    const config = await getTenantById(tenantId);
+  if (storefront) {
+    const config = await getTenantById(storefront);
     if (config) {
       // Defensive re-validation: make sure the config we loaded actually
       // claims the hostname we were asked about. If two tenants claimed
@@ -1135,15 +1171,15 @@ async function resolveTenantTraced(
       if (claimed.has(hostname)) {
         trace.kv = 'hit';
         trace.outcome = 'resolved';
-        trace.tenantId = tenantId;
+        trace.tenantId = config.tenantId;
         return config;
       }
       trace.kv = 'stale';
       logger.warn(
-        `[tenant] Stale hostname mapping: "${hostname}" → "${tenantId}" ` +
+        `[tenant] Stale hostname mapping: "${hostname}" → "${storefront}" ` +
           `but that tenant no longer claims the hostname. Busting KV and ` +
           `re-fetching.`,
-        { hostname, staleTenantId: tenantId },
+        { hostname, staleStorefront: storefront },
       );
       await storage.removeItem(tenantIdKey(hostname));
     }
@@ -1159,10 +1195,10 @@ async function resolveTenantTraced(
   }
 
   if (newConfig.isActive) {
-    const tid = newConfig.tenantId || hostname;
-    await storage.setItem(tenantConfigKey(tid), newConfig);
-    await writeHostnameMappings(storage, newConfig);
-    trace.tenantId = tid;
+    const key = storefrontKey(newConfig, hostname);
+    await storage.setItem(tenantConfigKey(key), newConfig);
+    await writeHostnameMappings(storage, newConfig, key);
+    trace.tenantId = newConfig.tenantId || hostname;
     return newConfig;
   }
 
