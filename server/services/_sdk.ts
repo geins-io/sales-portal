@@ -9,6 +9,7 @@ import type {
 } from '@geins/types';
 import type { H3Event } from 'h3';
 import { LRUCache } from 'lru-cache';
+import { storefrontCacheKey, storefrontKey } from '../utils/tenant';
 import type { GeinsSettings as TenantGeinsSettings } from '#shared/types/tenant-config';
 
 export interface TenantSDK {
@@ -34,22 +35,22 @@ function mapEnvironment(
   }
 }
 
-/** Per-tenant singleton cache. Same tenant reuses the same SDK instance. */
+/** Per-storefront singleton cache, keyed by `storefrontCacheKey`. */
 const tenants = new LRUCache<string, TenantSDK>({ max: 100 });
 
 /**
- * Clears cached SDK instances for a tenant.
+ * Clears cached SDK instances for a storefront.
  * Called by the webhook handler on config invalidation so the next request
  * creates a fresh SDK with up-to-date geinsSettings.
  */
-export function clearSdkCache(tenantId: string): void {
-  const target = tenants.get(tenantId);
+export function clearSdkCache(storefrontKey: string): void {
+  const target = tenants.get(storefrontKey);
   if (!target) {
     // Try direct delete in case only hostname key exists
-    tenants.delete(tenantId);
+    tenants.delete(storefrontKey);
     return;
   }
-  // Remove all keys pointing to the same SDK instance (tenantId + hostname aliases)
+  // Remove all keys pointing to the same SDK instance (storefront key + request hostnames)
   const keysToDelete: string[] = [];
   for (const [key, sdk] of tenants) {
     if (sdk === target) keysToDelete.push(key);
@@ -186,8 +187,8 @@ export function getRequestChannelVariables(
  * Returns a per-tenant singleton Geins SDK instance.
  * Same tenant reuses the same instance across requests — the stateless SDK
  * (NO_CACHE fetch policy, per-operation tokens) makes this safe.
- * Different tenants get different instances (isolated by tenantId).
- * Multiple hostnames for the same tenant share one SDK instance.
+ * Different storefronts get different instances, also two channels on one
+ * account. Every alias of a storefront shares one SDK instance.
  */
 export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
   const hostname = event.context.tenant?.hostname;
@@ -195,9 +196,9 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
     throw createAppError(ErrorCode.BAD_REQUEST, 'No tenant context on request');
   }
 
-  // Use tenantId for cache key (falls back to hostname for API routes
-  // where tenantId may not be resolved yet)
-  const cacheKey = event.context.tenant.tenantId || hostname;
+  // Falls back to the request hostname for API routes where the config may
+  // not be resolved yet
+  const cacheKey = storefrontCacheKey(event);
 
   const cached = tenants.get(cacheKey);
   if (cached) {
@@ -214,9 +215,9 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
     );
   }
 
-  // Check again with the resolved tenantId — another hostname for
-  // the same tenant may have already created the SDK instance
-  const tid = tenant.tenantId || hostname;
+  // Check again with the resolved storefront — another hostname for
+  // the same storefront may have already created the SDK instance
+  const tid = storefrontKey(tenant, hostname);
   const existing = tenants.get(tid);
   if (existing) {
     // Also cache under the current lookup key for fast path next time
@@ -225,7 +226,7 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
   }
 
   const sdk = createTenantSDK(tenant.geinsSettings);
-  // Cache under both tenantId and the lookup key (hostname or tenantId)
+  // Cache under both the storefront key and the lookup key
   tenants.set(tid, sdk);
   if (cacheKey !== tid) tenants.set(cacheKey, sdk);
   return sdk;

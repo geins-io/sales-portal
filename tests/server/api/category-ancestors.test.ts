@@ -126,7 +126,7 @@ describe('categoryTreeCacheKey', () => {
     // way; flat keys just make a stale entry findable and deletable, which
     // matters because `swr: true` never expires one on its own.
     const key = categoryTreeCacheKey(
-      resolveTenantCacheKey(eventFor({ tenantId: 't1' })),
+      resolveTenantCacheKey(eventFor({ hostname: 'a.example.com' })),
       vars,
     );
     expect(key).not.toMatch(/[:/]/);
@@ -138,10 +138,10 @@ describe('categoryTreeCacheKey', () => {
     // key and serve each other's trees.
     expect(
       categoryTreeCacheKey(
-        resolveTenantCacheKey(eventFor({ tenantId: 't1' })),
+        resolveTenantCacheKey(eventFor({ hostname: 'a.example.com' })),
         vars,
       ),
-    ).toBe('tenant_config_t1_categories_sv-SE_se');
+    ).toBe('tenant_config_a.example.com_categories_sv-SE_se');
   });
 
   it('is registered with the caching options it relies on', () => {
@@ -158,20 +158,47 @@ describe('categoryTreeCacheKey', () => {
     );
   });
 
-  it('keys on tenantId, falling back to hostname', () => {
-    // Two hostnames for one tenant must warm ONE entry, not one each.
+  it('keys on account and channel, falling back to the request hostname', () => {
+    // Two hostnames for one storefront must warm ONE entry, not one each.
+    const storefront = {
+      hostname: 'a.example.com',
+      geinsSettings: { accountName: 't1', channel: '1', tld: 'se' },
+    };
     expect(
       resolveTenantCacheKey(
-        eventFor({ tenantId: 't1', hostname: 'a.example.com' }),
+        eventFor({
+          tenantId: 't1',
+          hostname: 'a.example.com',
+          config: storefront,
+        }),
       ),
     ).toBe(
       resolveTenantCacheKey(
-        eventFor({ tenantId: 't1', hostname: 'b.example.com' }),
+        eventFor({
+          tenantId: 't1',
+          hostname: 'b.example.com',
+          config: storefront,
+        }),
       ),
     );
     expect(
       resolveTenantCacheKey(eventFor({ hostname: 'c.example.com' })),
     ).toContain('c.example.com');
+  });
+
+  it('separates two channels on one account', () => {
+    // The merchant API answers the account name as tenantId for every channel.
+    const onChannel = (channel: string) =>
+      eventFor({
+        tenantId: 't1',
+        config: {
+          hostname: `${channel}.example.com`,
+          geinsSettings: { accountName: 't1', channel, tld: 'se' },
+        },
+      });
+    expect(resolveTenantCacheKey(onChannel('1'))).not.toBe(
+      resolveTenantCacheKey(onChannel('2')),
+    );
   });
 });
 

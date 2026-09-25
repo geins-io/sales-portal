@@ -1,20 +1,19 @@
 import type { H3Event } from 'h3';
-import { tenantConfigKey } from '../utils/tenant';
+import { configResponseCacheKey, storefrontCacheKey } from '../utils/tenant';
 import { getPublicConfig } from '../services/tenant-config';
 import { createTenantLogger } from '../utils/logger';
 
 /**
- * Computes the Nitro response-cache key for /api/config. The base key uses
- * tenantId (so multiple hostnames for one tenant share a cache entry) and
- * falls back to hostname. Only ?preview=1 bypasses the cache by appending a
- * per-request suffix so every preview render rebuilds against the latest
- * unpublished appSettings. A stale preview cookie must NEVER produce a preview
- * key, otherwise it would poison the shared live cache entry for the tenant.
+ * Computes the Nitro response-cache key for /api/config. The base key is the
+ * storefront key (so every alias of one storefront shares a cache entry),
+ * hex-encoded by `configResponseCacheKey`. Only ?preview=1 bypasses the cache
+ * by appending a per-request suffix so every preview render rebuilds against
+ * the latest unpublished appSettings. A stale preview cookie must NEVER produce
+ * a preview key, otherwise it would poison the shared live cache entry for the
+ * tenant.
  */
 export function resolveConfigCacheKey(event: H3Event): string {
-  const base = tenantConfigKey(
-    event.context.tenant.tenantId || event.context.tenant.hostname,
-  );
+  const base = configResponseCacheKey(storefrontCacheKey(event));
   return getQuery(event).preview === '1'
     ? `${base}:settings-preview:${Date.now()}`
     : base;

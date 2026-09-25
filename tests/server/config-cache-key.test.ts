@@ -33,7 +33,14 @@ beforeEach(async () => {
 
 function createEvent(
   cookies: Record<string, string> = {},
-  tenant: { tenantId?: string; hostname?: string } = {
+  tenant: {
+    tenantId?: string;
+    hostname?: string;
+    config?: {
+      hostname: string;
+      geinsSettings?: { accountName: string; channel: string; tld: string };
+    };
+  } = {
     tenantId: 'acme',
     hostname: 'acme.localhost',
   },
@@ -53,15 +60,80 @@ function serializeCookies(cookies: Record<string, string>): string {
 }
 
 describe('resolveConfigCacheKey', () => {
-  const base = 'tenant-config:acme';
+  const hex = (key: string) => Buffer.from(key).toString('hex');
+  const base = hex('tenant-config:acme.localhost');
 
   it('returns the plain base key for a clean request (no query)', () => {
     expect(resolveConfigCacheKey(createEvent())).toBe(base);
   });
 
-  it('falls back to hostname when tenantId is absent', () => {
-    const event = createEvent({}, { hostname: 'acme.localhost' });
-    expect(resolveConfigCacheKey(event)).toBe('tenant-config:acme.localhost');
+  const storefront = (channel: string) => ({
+    hostname: 'acme.localhost',
+    geinsSettings: { accountName: 'acme', channel, tld: 'se' },
+  });
+
+  it('keys by account and channel, so an alias shares the storefront entry', () => {
+    const viaHost = createEvent(
+      {},
+      { tenantId: 'acme', hostname: 'acme.localhost', config: storefront('1') },
+    );
+    const viaAlias = createEvent(
+      {},
+      {
+        tenantId: 'acme',
+        hostname: 'www.acme.localhost',
+        config: storefront('1'),
+      },
+    );
+    expect(resolveConfigCacheKey(viaHost)).toBe(hex('tenant-config:acme:1|se'));
+    expect(resolveConfigCacheKey(viaAlias)).toBe(
+      hex('tenant-config:acme:1|se'),
+    );
+  });
+
+  it('does not key by tenantId: two channels on one account get two entries', () => {
+    const one = createEvent(
+      {},
+      {
+        tenantId: 'acme',
+        hostname: 'one.acme.localhost',
+        config: storefront('1'),
+      },
+    );
+    const two = createEvent(
+      {},
+      {
+        tenantId: 'acme',
+        hostname: 'two.acme.localhost',
+        config: storefront('2'),
+      },
+    );
+    expect(resolveConfigCacheKey(one)).not.toBe(resolveConfigCacheKey(two));
+  });
+
+  it('keys that differ only in separators stay distinct once Nitro stores them', () => {
+    // Nitro's escapeKey (nitropack runtime/internal/cache) strips every \W
+    // character from a handler key before it reaches storage.
+    const stored = (key: string) => key.replace(/\W/g, '');
+    const on = (accountName: string, channel: string) =>
+      createEvent(
+        {},
+        {
+          tenantId: accountName,
+          hostname: `${accountName}.localhost`,
+          config: {
+            hostname: `${accountName}.localhost`,
+            geinsSettings: { accountName, channel, tld: 'se' },
+          },
+        },
+      );
+    expect(stored(resolveConfigCacheKey(on('shop1', '2')))).not.toBe(
+      stored(resolveConfigCacheKey(on('shop', '12'))),
+    );
+  });
+
+  it('falls back to the request hostname without a resolved config', () => {
+    expect(resolveConfigCacheKey(createEvent())).toBe(base);
   });
 
   it('two clean requests produce the identical stable key (cache-hit-rate guarantee)', () => {

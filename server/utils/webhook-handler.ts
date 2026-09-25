@@ -9,6 +9,7 @@ import {
 import {
   tenantIdKey,
   tenantConfigKey,
+  configResponseCacheKey,
   collectAllHostnames,
   clearNegativeCache,
 } from './tenant';
@@ -156,8 +157,8 @@ export async function processConfigRefresh(
 
   // 12. Invalidate KV storage — clean up all hostname aliases
   const hostname = body.hostname;
-  const tenantId = await kvStorage.getItem<string>(tenantIdKey(hostname));
-  const tid = tenantId || hostname;
+  const storefront = await kvStorage.getItem<string>(tenantIdKey(hostname));
+  const tid = storefront || hostname;
   const configKey = tenantConfigKey(tid);
 
   // Load config to find all hostnames (primary + aliases)
@@ -176,7 +177,7 @@ export async function processConfigRefresh(
     [...hostnames].map((h) => kvStorage.removeItem(tenantIdKey(h))),
   );
 
-  // Remove config under tenantId key
+  // Remove config under the storefront key
   await kvStorage.removeItem(configKey);
 
   // 13. Invalidate in-memory caches (SDK instances + negative tenant cache)
@@ -195,9 +196,9 @@ export async function processConfigRefresh(
   // where group="nitro/handlers", name="_" (default), and escapeKey strips
   // all non-word characters (\W). The leading /cache: base is absorbed by
   // the useStorage("cache") namespace, so the key we remove here is:
-  //   nitro/handlers:_:{stripped configKey}.json
-  const escapedConfigKey = configKey.replace(/\W/g, '');
-  const nitroCacheKey = `nitro/handlers:_:${escapedConfigKey}.json`;
+  //   nitro/handlers:_:{configResponseCacheKey}.json
+  // (hex, so escapeKey leaves it unchanged).
+  const nitroCacheKey = `nitro/handlers:_:${configResponseCacheKey(tid)}.json`;
   await cacheStorage.removeItem(nitroCacheKey);
 
   // 12. Store webhook ID for deduplication (only when one was supplied)
@@ -207,7 +208,7 @@ export async function processConfigRefresh(
   }
 
   logger.info(
-    `[webhook] Config cache invalidated for ${hostname} (tenantId: ${tid})`,
+    `[webhook] Config cache invalidated for ${hostname} (storefront: ${tid})`,
   );
 
   return { invalidated: true };

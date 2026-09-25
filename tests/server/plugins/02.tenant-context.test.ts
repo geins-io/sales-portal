@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { H3Event } from 'h3';
 
 // ---------------------------------------------------------------------------
 // Mock Nitro/h3 auto-imports before any module is loaded
@@ -302,6 +303,33 @@ describe('server/plugins/02.tenant-context', () => {
       expect(mockGetRequestHost).toHaveBeenCalledWith(event, {
         xForwardedHost: false,
       });
+    });
+
+    it('leaves the resolved config on /api/ requests, so their caches key by the storefront', async () => {
+      // Every per-storefront cache reads the account and channel from
+      // `context.tenant.config`; without it they fall back to the hostname.
+      const tenant = {
+        ...makeTenant(),
+        geinsSettings: {
+          ...makeGeinsSettings(),
+          accountName: 'acct',
+          channel: '2',
+          tld: 'se',
+        },
+      };
+      mockResolveTenant.mockResolvedValue(tenant);
+      const event = createEvent('/api/config', {});
+
+      await handler(event);
+
+      const { storefrontCacheKey } = await vi.importActual<
+        typeof import('../../../server/utils/tenant')
+      >('../../../server/utils/tenant');
+      expect(event.context.tenant).toMatchObject({
+        tenantId: 'test-tenant',
+        config: tenant,
+      });
+      expect(storefrontCacheKey(event as unknown as H3Event)).toBe('acct:2|se');
     });
 
     it('does no tenant lookup for the i18n message route', async () => {
