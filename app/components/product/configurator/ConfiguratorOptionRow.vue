@@ -97,9 +97,8 @@ const price = computed(() => {
   )}`;
 });
 
-const image = computed(
-  () => option.product?.productImages?.find((i) => i.isPrimary)?.fileName,
-);
+/** The first image, as the product card: the list fragment selects no `isPrimary`. */
+const image = computed(() => option.product?.productImages?.[0]?.fileName);
 
 function change(selected: boolean, quantity: number): ConfigurationChange {
   return {

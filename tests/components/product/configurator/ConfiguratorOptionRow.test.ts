@@ -412,7 +412,7 @@ describe('ConfiguratorOptionRow', () => {
     const workbench = makeInitialConfiguration();
     const withProduct = findOption(workbench, 'top-wood');
     withProduct.product!.productImages = [
-      { fileName: 'beech.jpg', isPrimary: true, url: '' },
+      { fileName: 'beech.jpg', isPrimary: false, url: '' },
     ];
     const withoutProduct = { ...withProduct, product: null };
 
@@ -422,6 +422,33 @@ describe('ConfiguratorOptionRow', () => {
     expect(wrapper.text()).toContain('Solid beech top');
     expect(wrapper.text()).toContain('KONF-1001-TOP-WOOD');
     expect(wrapper.find('img').exists()).toBe(false);
+  });
+
+  it('renders the first image of the product, as the product card does', () => {
+    // The list fragment the option's product arrives through selects no
+    // `isPrimary`, so a lookup on the flag would never match.
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.product!.productImages = [
+      { fileName: 'beech-front.jpg', isPrimary: false, url: '' },
+      { fileName: 'beech-side.jpg', isPrimary: false, url: '' },
+    ];
+
+    const wrapper = mountRow(option);
+
+    const images = wrapper.findAllComponents({ name: 'GeinsImage' });
+    expect(images).toHaveLength(1);
+    expect(images[0]!.props('fileName')).toBe('beech-front.jpg');
+  });
+
+  it('renders no image for a product without images', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.product!.productImages = [];
+
+    const wrapper = mountRow(option);
+
+    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(false);
   });
 
   it('writes the description under the name, above the article number', () => {
