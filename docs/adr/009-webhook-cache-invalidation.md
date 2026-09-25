@@ -2,7 +2,7 @@
 title: Webhook-based config cache invalidation
 status: accepted
 created: 2026-02-16
-updated: 2026-08-27
+updated: 2026-09-25
 tags: [caching, webhooks, security]
 ---
 
@@ -12,7 +12,7 @@ tags: [caching, webhooks, security]
 
 Tenant configuration is cached in two layers:
 
-1. **KV storage** — `tenant:id:<hostname>` and `tenant:config:<tenantId>` entries
+1. **KV storage** — `tenant:id:<hostname>` and `tenant:config:<storefront key>` entries
 2. **Nitro handler cache** — SWR with 1-hour TTL on `/api/config`
 
 When a merchant updates store settings in Geins Studio, stale config can persist for up to an hour. We need a way for Studio to notify us so we can bust the cache immediately.
@@ -70,7 +70,7 @@ Requests older than 5 minutes are rejected. This prevents replay attacks with ca
 On a valid webhook, we invalidate:
 
 1. KV storage: `tenant:id:<hostname>` for every hostname the config claims, plus
-   `tenant:config:<tenantId>`
+   `tenant:config:<storefront key>`
 2. Nitro handler cache for `/api/config`
 3. In-process: Geins SDK instances (`clearSdkCache`) and the negative tenant cache
    (`clearNegativeCache`) — note this clears only the hostname in the payload, not the aliases
@@ -79,9 +79,17 @@ On a valid webhook, we invalidate:
 The CMS LRUs and `/api/resolve-url` are left to their own short TTLs.
 
 The Nitro key is derived in `server/utils/webhook-handler.ts` from a Nitro internal
-(`nitro/handlers:_:<config key with non-word characters stripped>.json`), so a Nitro major
-upgrade should re-verify it — a mismatch fails silently and serves stale settings for up to the
-one-hour TTL.
+(`nitro/handlers:_:<configResponseCacheKey>.json`, the hex of the config key, which Nitro's
+non-word stripping leaves unchanged), so a Nitro major upgrade should re-verify it — a mismatch
+fails silently and serves stale settings for up to the one-hour TTL.
+
+**Amended 2026-09-25:** the storefront key replaced `tenantId` in every key above. The merchant
+API answers the Geins account name as `tenantId` for every channel of an account, so two channels
+shared one KV entry, one `/api/config` entry and one SDK instance, and a webhook for one cleared
+the other. The key is now `{accountName}:{channel}|{tld}` (`storefrontKey()` in
+`server/utils/tenant.ts`), falling back to the hostname when account or channel is empty. The
+`/api/config` handler key is hex-encoded because Nitro strips non-word characters, which would
+otherwise store `shop1:2|se` and `shop:12|se` as one entry.
 
 ### Payload contract
 

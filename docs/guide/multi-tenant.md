@@ -79,13 +79,17 @@ export default defineEventHandler((event) => {
 
 ## Storage Keys
 
-A tenant with several hostnames (primary plus aliases) stores its config once, behind a two-step
-lookup — `hostname` → `tenantId` → `TenantConfig`:
+A storefront with several hostnames (primary plus aliases) stores its config once, behind a
+two-step lookup — `hostname` → storefront key → `TenantConfig`:
 
-| Key Pattern                | Purpose                    |
-| -------------------------- | -------------------------- |
-| `tenant:id:{hostname}`     | Maps hostname to tenant ID |
-| `tenant:config:{tenantId}` | Full tenant configuration  |
+| Key Pattern                      | Purpose                         |
+| -------------------------------- | ------------------------------- |
+| `tenant:id:{hostname}`           | Maps hostname to storefront key |
+| `tenant:config:{storefront key}` | Full tenant configuration       |
+
+The storefront key is the Geins account and channel, `{accountName}:{channel}|{tld}`, so two
+channels on one account get separate entries. It falls back to the hostname when account or
+channel is empty.
 
 ## Tenant Configuration
 

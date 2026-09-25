@@ -176,7 +176,6 @@ The Sales Portal is a multi-tenant storefront application built on Nuxt 4, desig
 │   ├── utils/
 │   │   ├── tenant.ts           # Tenant resolution, fetching, hostname mapping, negative cache
 │   │   ├── tenant-css.ts       # CSS/theme generation (colors, radius, fonts, override CSS)
-│   │   ├── tenant-crud.ts      # Tenant CRUD operations (create, update, delete)
 │   │   ├── theme.ts            # OKLCH color derivation
 │   │   ├── cookies.ts          # Cookie helpers (auth, tenant, cart, preview, locale)
 │   │   ├── errors.ts           # Error codes, createAppError, wrapServiceCall
@@ -313,7 +312,7 @@ phase, because `site-config:init` is fired from nuxt-site-config's own middlewar
 `00.locale-market.ts` is middleware deliberately — `sendRedirect` there lets `nuxt-security` apply
 route-rule headers before the redirect flushes, instead of throwing `ERR_HTTP_HEADERS_SENT`.
 
-`resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{tenantId}` →
+`resolveTenant()`: negative cache → `tenant:id:{hostname}` → `tenant:config:{storefront key}` →
 merchant API. Cache hits are re-checked against the config's own hostname list, self-healing stale
 aliases. Missing or inactive tenants do not resolve, in every environment: the tenant plugin answers
 404 without rendering, and 503 when the merchant API could not be reached at all (see
@@ -351,12 +350,14 @@ Plugin `02.tenant-context.ts` resolves the tenant once per request and stores th
 
 ### Storage Keys
 
-Tenant data uses a 2-step KV lookup model so a tenant with multiple hostnames (primary, aliases) stores its config only once:
+Tenant data uses a 2-step KV lookup model so a storefront with multiple hostnames (primary, aliases) stores its config only once:
 
-- `tenant:id:{hostname}` → tenantId (string) — one entry per hostname
-- `tenant:config:{tenantId}` → Full tenant configuration (JSON) — stored once
+- `tenant:id:{hostname}` → storefront key (string) — one entry per hostname
+- `tenant:config:{storefront key}` → Full tenant configuration (JSON) — stored once
 
-Lookup: `hostname` → `tenantId` → `TenantConfig`. On cache miss, `resolveTenant()` fetches from the API and writes all hostname mappings + config under the tenantId key.
+The storefront key is the Geins account and channel, `{accountName}:{channel}|{tld}` (e.g. `acme:1|se`), from `storefrontKey()` in `server/utils/tenant.ts`. Not `tenantId`: the merchant API answers the account name there for every channel of an account, so two channels would share one entry. When account or channel is empty, the key falls back to the config's hostname, then the requested hostname. The `/api/config` response cache, the per-storefront SDK instance and the category tree use the same key.
+
+Lookup: `hostname` → storefront key → `TenantConfig`. On cache miss, `resolveTenant()` fetches from the API and writes all hostname mappings + config under the storefront key.
 
 ---
 
