@@ -4,7 +4,6 @@ import { CMS_SLOTS } from '#shared/types/cms-slots';
 import { CMS_MENUS } from '#shared/constants/cms';
 import type {
   StoreSettings,
-  GeinsSettings,
   FeatureAccessInput,
   FeatureConfig,
 } from '../schemas/store-settings';
@@ -67,22 +66,6 @@ export const DEFAULT_CMS_CONFIG: NonNullable<TenantConfig['cms']> = {
     [CMS_MENUS.MOBILE_DRAWER]: { menuLocationId: 'main' },
     [CMS_MENUS.SIDEBAR_FALLBACK]: { menuLocationId: 'info-pages' },
   },
-};
-
-/**
- * Default GeinsSettings for tenants created through createTenant.
- */
-export const DEFAULT_GEINS_SETTINGS: GeinsSettings = {
-  apiKey: process.env.GEINS_API_KEY || '',
-  accountName: process.env.GEINS_ACCOUNT_NAME || '',
-  channel: process.env.GEINS_CHANNEL || '1',
-  tld: process.env.GEINS_TLD || 'se',
-  locale: process.env.GEINS_LOCALE || 'sv-SE',
-  market: process.env.GEINS_MARKET || 'se',
-  environment:
-    (process.env.GEINS_ENVIRONMENT as 'production' | 'staging') || 'production',
-  availableLocales: [process.env.GEINS_LOCALE || 'sv-SE'],
-  availableMarkets: [process.env.GEINS_MARKET || 'se'],
 };
 
 // ---------------------------------------------------------------------------

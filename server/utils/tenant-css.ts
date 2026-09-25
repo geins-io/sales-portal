@@ -274,7 +274,7 @@ export function generateTenantCss(
 
 /**
  * Creates a default theme for tenants created without one (dev fixtures,
- * createTenant, salvage backfill).
+ * salvage backfill).
  * Uses brand teal colors for localhost, zinc defaults for other hostnames
  */
 export function createDefaultTheme(tenantId: string): TenantConfig['theme'] {
