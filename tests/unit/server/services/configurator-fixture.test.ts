@@ -129,7 +129,7 @@ describe('create', () => {
   it('returns the seeded document and echoes the requested quantity', async () => {
     const config = await start(ARBETSBORD_PRO_GEINS_ID, 3);
 
-    expect(config.productId).toBe(ARBETSBORD_PRO_ID);
+    expect(config.articleNumber).toBe(ARBETSBORD_PRO_ID);
     expect(config.quantity).toBe(3);
     expect(config.templateId).toBe('TPL-KONF-1001');
     expect(config.unitPrice).toMatchObject({
@@ -172,7 +172,7 @@ describe('create', () => {
   it('resolves the second seed by its Geins product id too', async () => {
     const config = await start(SKAPSEKTION_PRO_GEINS_ID);
 
-    expect(config.productId).toBe(SKAPSEKTION_PRO_ID);
+    expect(config.articleNumber).toBe(SKAPSEKTION_PRO_ID);
   });
 
   it("answers 404 for the provider's part id, which is not a catalogue product", async () => {
@@ -835,6 +835,50 @@ describe('release', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Ownership
+//
+// The composite backend asks this before it routes a call that carries only an
+// id. Every id the fixture would answer 410 for is still its own, so an expired
+// fixture session is not handed to the real backend as an unknown id.
+// ---------------------------------------------------------------------------
+
+describe('owns', () => {
+  it('owns a live session', async () => {
+    const config = await start();
+    expect(backend.owns(config.configurationId, CTX)).toBe(true);
+  });
+
+  it('still owns an expired session', async () => {
+    const config = await start();
+    advance(SESSION_MINUTES + 1);
+    expect(backend.owns(config.configurationId, CTX)).toBe(true);
+  });
+
+  it('still owns a departed session inside the retention window', async () => {
+    const config = await start();
+    await backend.release(config.configurationId, CTX);
+    advance(DEPARTED_RETENTION_HOURS * 60 - 1);
+    expect(backend.owns(config.configurationId, CTX)).toBe(true);
+  });
+
+  it('lets a departed session go once the retention window passes', async () => {
+    const config = await start();
+    await backend.release(config.configurationId, CTX);
+    advance(DEPARTED_RETENTION_HOURS * 60);
+    expect(backend.owns(config.configurationId, CTX)).toBe(false);
+  });
+
+  it('does not own an id it never handed out', () => {
+    expect(backend.owns('no-such-id', CTX)).toBe(false);
+  });
+
+  it("does not own another tenant's session", async () => {
+    const config = await start();
+    expect(backend.owns(config.configurationId, OTHER_TENANT)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Commit
 // ---------------------------------------------------------------------------
 
@@ -1337,7 +1381,7 @@ describe('createSeedDocument', () => {
       expiresAt: '2030-01-01T00:00:00.000Z',
     });
 
-    expect(document.productId).toBe(ARBETSBORD_PRO_ID);
+    expect(document.articleNumber).toBe(ARBETSBORD_PRO_ID);
   });
 
   it('refuses a product it has no seed for', () => {

@@ -1,0 +1,10 @@
+# Fragments cannot recurse: option groups are selected three levels deep.
+fragment CpqGroupTree on CpqOptionGroupType {
+  ...CpqGroupFields
+  optionGroups {
+    ...CpqGroupFields
+    optionGroups {
+      ...CpqGroupFields
+    }
+  }
+}

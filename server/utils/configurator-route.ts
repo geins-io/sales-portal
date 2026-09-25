@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3';
 import {
-  buildConfiguratorContext,
+  buildConfiguratorRequestContext,
   getConfiguratorBackend,
   type ConfiguratorBackend,
   type ConfiguratorContext,
@@ -45,7 +45,7 @@ export async function requireConfigurator(
 
   return {
     backend: getConfiguratorBackend(event),
-    ctx: buildConfiguratorContext(event),
+    ctx: await buildConfiguratorRequestContext(event),
   };
 }
 

@@ -302,11 +302,15 @@ export default defineNuxtConfig({
     },
 
     // Which implementation answers a product-configuration request.
-    // 'off' | 'fixture' | 'sdk'; anything else, an empty string included, is
-    // read as 'off' (see server/services/configurator.ts).
+    // 'off' | 'fixture' | 'merchant-api' | 'composite'; anything else, an empty
+    // string included, is read as 'off' (see server/services/configurator.ts).
     // Azure: NUXT_CONFIGURATOR_BACKEND=fixture
+    // The merchant-api GraphQL URL the CPQ area is reached on; empty means the
+    // ordinary endpoint.
+    // Azure: NUXT_CONFIGURATOR_MERCHANT_API_URL=
     configurator: {
       backend: 'off',
+      merchantApiUrl: '',
     },
 
     // When true, 500 responses include the error stack trace.

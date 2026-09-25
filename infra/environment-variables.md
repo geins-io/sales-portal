@@ -55,16 +55,16 @@ These are **sensitive values** that must be kept secret. They are encrypted by G
 
 These are **non-sensitive configuration values** visible in the repository settings.
 
-| Variable               | Default                        | Description                        | Options                                    |
-| ---------------------- | ------------------------------ | ---------------------------------- | ------------------------------------------ |
-| `GEINS_API_ENDPOINT`   | `https://api.geins.io/graphql` | Geins GraphQL API URL              | Any valid URL                              |
-| `GEINS_TENANT_API_URL` | _(empty)_                      | Geins Tenant API URL (server-only) | Any valid URL                              |
-| `STORAGE_DRIVER`       | `fs`                           | Storage backend for tenant config  | `memory`, `fs`, `redis`                    |
-| `ENABLE_ANALYTICS`     | `false`                        | Enable client-side analytics       | `true`, `false`                            |
-| `CONFIGURATOR_BACKEND` | `off`                          | Backend for product configuration  | `off`, `fixture`, `sdk`                    |
-| `LOG_LEVEL`            | `info`                         | Server log verbosity               | `debug`, `info`, `warn`, `error`, `silent` |
-| `SENTRY_ORG`           | _(empty)_                      | Sentry organization slug           | Your Sentry org name                       |
-| `SENTRY_PROJECT`       | _(empty)_                      | Sentry project slug                | Your Sentry project name                   |
+| Variable               | Default                        | Description                        | Options                                       |
+| ---------------------- | ------------------------------ | ---------------------------------- | --------------------------------------------- |
+| `GEINS_API_ENDPOINT`   | `https://api.geins.io/graphql` | Geins GraphQL API URL              | Any valid URL                                 |
+| `GEINS_TENANT_API_URL` | _(empty)_                      | Geins Tenant API URL (server-only) | Any valid URL                                 |
+| `STORAGE_DRIVER`       | `fs`                           | Storage backend for tenant config  | `memory`, `fs`, `redis`                       |
+| `ENABLE_ANALYTICS`     | `false`                        | Enable client-side analytics       | `true`, `false`                               |
+| `CONFIGURATOR_BACKEND` | `off`                          | Backend for product configuration  | `off`, `fixture`, `merchant-api`, `composite` |
+| `LOG_LEVEL`            | `info`                         | Server log verbosity               | `debug`, `info`, `warn`, `error`, `silent`    |
+| `SENTRY_ORG`           | _(empty)_                      | Sentry organization slug           | Your Sentry org name                          |
+| `SENTRY_PROJECT`       | _(empty)_                      | Sentry project slug                | Your Sentry project name                      |
 
 ### Notes on Variables
 

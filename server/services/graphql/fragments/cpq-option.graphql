@@ -1,0 +1,25 @@
+fragment CpqOption on CpqOptionType {
+  id
+  instanceId
+  articleNumber
+  name
+  description
+  selected
+  available
+  readOnly
+  selectionSource
+  quantity
+  defaultQuantity
+  minQuantity
+  maxQuantity
+  unitPrice {
+    ...Price
+  }
+  discountPercent
+  product {
+    ...ListProduct
+  }
+  messages {
+    ...CpqMessage
+  }
+}

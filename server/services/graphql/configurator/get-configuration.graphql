@@ -1,0 +1,15 @@
+query getConfiguration(
+  $configurationId: String!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  getConfiguration(
+    configurationId: $configurationId
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    ...CpqConfiguration
+  }
+}

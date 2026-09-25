@@ -36,6 +36,12 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 
 export interface FixtureConfiguratorBackend extends ConfiguratorBackend {
+  /**
+   * Whether the id is one of this fixture's sessions, finished ones included.
+   * The composite backend routes an id-only call by it, so it answers and
+   * never throws.
+   */
+  owns(id: string, ctx: ConfiguratorContext): boolean;
   /** What a committed configuration froze, for a cart line to read back. */
   readCommitted(
     id: string,
@@ -139,7 +145,7 @@ export function createFixtureConfiguratorBackend({
       const record: CommittedConfiguration = {
         committedConfigurationId: randomUUID(),
         configurationId: id,
-        productId: config.productId,
+        productId: config.articleNumber,
         quantity: config.quantity,
         // Frozen: the session departs with this call, so nothing can move the
         // price under a cart line that references the record.
@@ -152,6 +158,10 @@ export function createFixtureConfiguratorBackend({
       );
       session.departedAt = now();
       return record;
+    },
+
+    owns(id: string, ctx: ConfiguratorContext): boolean {
+      return store.has(ctx.hostname, id);
     },
 
     readCommitted(id: string, ctx: ConfiguratorContext) {

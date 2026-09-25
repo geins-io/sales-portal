@@ -1,0 +1,17 @@
+mutation createConfiguration(
+  $productId: Int!
+  $quantity: Decimal!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  createConfiguration(
+    productId: $productId
+    quantity: $quantity
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    ...CpqConfiguration
+  }
+}

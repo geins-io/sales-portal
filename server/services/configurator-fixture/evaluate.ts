@@ -150,7 +150,7 @@ export function evaluate(
     configurationId: session.configurationId,
     expiresAt: session.expiresAt,
     isValid: true,
-    productId: seed.productId,
+    articleNumber: seed.productId,
     quantity: state.quantity,
     unitPrice: seedPrice(seed.basePrice, seed.vatRate),
     discountPercent: 0,

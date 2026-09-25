@@ -5,16 +5,22 @@ import type {
   ConfigurationChange,
   CreateConfigurationInput,
 } from '#shared/types/configurator';
-import { readConfiguratorBackendValue } from './configurator-config';
+import { getRequestChannelVariables, getTenantSDK } from './_sdk';
+import { createCompositeConfiguratorBackend } from './configurator-composite';
+import {
+  readConfiguratorBackendValue,
+  readConfiguratorMerchantApiUrl,
+} from './configurator-config';
 import { fixtureConfiguratorBackend } from './configurator-fixture';
+import { merchantApiConfiguratorBackend } from './configurator-merchant-api';
 import { withoutRestatedRequirements } from './configurator-messages';
 
 // ---------------------------------------------------------------------------
 // The seam between the portal and whatever produces a configuration.
 //
-// Routes and UI never learn which implementation answered. M4 adds the SDK
-// implementation here and nothing above this file changes. No Geins SDK
-// import belongs in this module or in the fixture folder.
+// Routes and UI never learn which implementation answered. The Geins SDK does
+// not carry the CPQ area: the real backend speaks GraphQL to merchant-api
+// itself, and the SDK is used here only to read the request's channel.
 // ---------------------------------------------------------------------------
 
 /**
@@ -25,6 +31,21 @@ import { withoutRestatedRequirements } from './configurator-messages';
 export interface ConfiguratorContext {
   hostname: string;
   userToken?: string;
+  /**
+   * Set on the configuration routes only. The product route asks
+   * `isConfigurable` with the narrow context, which never reaches the wire.
+   */
+  merchantApi?: MerchantApiTarget;
+}
+
+/** Where and as whom the merchant-api backend asks. */
+export interface MerchantApiTarget {
+  url: string;
+  /** The account's own key from the tenant config; never logged. */
+  apiKey: string;
+  channelId: string;
+  languageId: string;
+  marketId: string;
 }
 
 /**
@@ -68,20 +89,47 @@ export interface ConfiguratorBackend {
   commit(id: string, ctx: ConfiguratorContext): Promise<CommittedConfiguration>;
 }
 
-export type ConfiguratorBackendName = 'off' | 'fixture' | 'sdk';
+/**
+ * `composite` is dev's: the fixture for its seeds, merchant-api for every
+ * other product. It goes when the fixture does.
+ */
+export type ConfiguratorBackendName =
+  | 'off'
+  | 'fixture'
+  | 'merchant-api'
+  | 'composite';
+
+const IMPLEMENTED: readonly ConfiguratorBackendName[] = [
+  'fixture',
+  'merchant-api',
+  'composite',
+];
 
 /**
  * Reads the runtime key strictly. A GitHub variable that does not exist arrives
  * as an empty string, and an empty `NUXT_*` value overrides the default in
  * nuxt.config.ts instead of falling back to it. So an environment that never
  * heard of this key has to reach `off` by the same path as one that set `off`
- * deliberately: only the two implemented names are accepted, and every other
- * value — empty string included — is `off`.
+ * deliberately: only the implemented names are accepted, and every other
+ * value — empty string and the retired `sdk` included — is `off`.
  */
 export function resolveConfiguratorBackendName(
   value: unknown,
 ): ConfiguratorBackendName {
-  return value === 'fixture' || value === 'sdk' ? value : 'off';
+  return IMPLEMENTED.find((name) => name === value) ?? 'off';
+}
+
+/** The endpoint the SDK itself talks to, where the CPQ area ships eventually. */
+export const MERCHANT_API_DEFAULT_URL = 'https://merchantapi.geins.io/graphql';
+
+/**
+ * The CPQ area is on its own host until it ships in the ordinary endpoint, so
+ * an environment may point elsewhere. Empty for the same reason as above.
+ */
+export function resolveMerchantApiUrl(value: unknown): string {
+  return typeof value === 'string' && value !== ''
+    ? value
+    : MERCHANT_API_DEFAULT_URL;
 }
 
 export function buildConfiguratorContext(event: H3Event): ConfiguratorContext {
@@ -89,6 +137,21 @@ export function buildConfiguratorContext(event: H3Event): ConfiguratorContext {
   return {
     hostname: event.context.tenant?.hostname ?? '',
     ...(authToken ? { userToken: authToken } : {}),
+  };
+}
+
+/** The narrow context plus what the merchant-api backend sends. */
+export async function buildConfiguratorRequestContext(
+  event: H3Event,
+): Promise<ConfiguratorContext> {
+  const sdk = await getTenantSDK(event);
+  return {
+    ...buildConfiguratorContext(event),
+    merchantApi: {
+      url: resolveMerchantApiUrl(readConfiguratorMerchantApiUrl(event)),
+      apiKey: event.context.tenant?.config?.geinsSettings?.apiKey ?? '',
+      ...getRequestChannelVariables(sdk, event),
+    },
   };
 }
 
@@ -117,10 +180,11 @@ function rejectingBackend(
 const BACKENDS: Record<ConfiguratorBackendName, () => ConfiguratorBackend> = {
   off: () => rejectingBackend(ErrorCode.NOT_FOUND, 'The configurator is off'),
   fixture: () => fixtureConfiguratorBackend,
-  sdk: () =>
-    rejectingBackend(
-      ErrorCode.NOT_IMPLEMENTED,
-      'The configurator SDK backend lands with the SDK support',
+  'merchant-api': () => merchantApiConfiguratorBackend,
+  composite: () =>
+    createCompositeConfiguratorBackend(
+      fixtureConfiguratorBackend,
+      merchantApiConfiguratorBackend,
     ),
 };
 
@@ -138,8 +202,8 @@ export function getConfiguratorBackend(event: H3Event): ConfiguratorBackend {
  * the page a product gets.
  *
  * It goes through the seam because the answer depends on the backend: the
- * fixture answers from its seeds, the rejecting backends answer no, and a
- * backend that reaches the real contract reads the product's `type`.
+ * fixture answers from its seeds, the rejecting backends answer no, and the
+ * merchant-api backend reads the product's `type`.
  */
 export function isConfigurableProduct(
   event: H3Event,
