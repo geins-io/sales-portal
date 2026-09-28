@@ -150,6 +150,8 @@ export function createFixtureConfiguratorBackend({
         // Frozen: the session departs with this call, so nothing can move the
         // price under a cart line that references the record.
         unitPrice: config.unitPrice,
+        discountPercent: config.discountPercent,
+        weightPerUnit: config.weightPerUnit,
         summary: buildSummary(config, session.seed),
       };
       committed.set(

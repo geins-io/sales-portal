@@ -17,6 +17,8 @@ mutation commitConfiguration(
     unitPrice {
       ...Price
     }
+    discountPercent
+    weightPerUnit
     summary {
       label
       value

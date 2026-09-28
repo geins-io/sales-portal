@@ -50,6 +50,9 @@ param enableAnalytics string
 @description('Configurator backend: off, fixture, merchant-api or composite. Anything else reads as off.')
 param configuratorBackend string = 'off'
 
+@description('Configurator merchant-api URL. Empty adds no app setting.')
+param configuratorMerchantApiUrl string = ''
+
 @description('Log level')
 param logLevel string
 
@@ -87,10 +90,7 @@ var registryServer = 'ghcr.io'
 // Node environment based on deployment environment
 var nodeEnv = environment == 'prod' ? 'production' : environment == 'staging' ? 'production' : 'development'
 
-// App settings for the site and the staging slot. One definition on purpose: a slot swap
-// exchanges app settings, so a name declared on one side only lands in production at the
-// next swap. Nothing here is a slot setting - see infra/README.md.
-var sharedAppSettings = [
+var appSettingsAlways = [
   // Container Registry Configuration
   {
     name: 'DOCKER_REGISTRY_SERVER_URL'
@@ -225,6 +225,22 @@ var sharedAppSettings = [
     value: '~0'
   }
 ]
+
+// Only when set: a new app setting restarts production in place during the Bicep step,
+// so an environment without the URL keeps exactly the settings it has.
+var configuratorMerchantApiUrlSetting = empty(configuratorMerchantApiUrl)
+  ? []
+  : [
+      {
+        name: 'NUXT_CONFIGURATOR_MERCHANT_API_URL'
+        value: configuratorMerchantApiUrl
+      }
+    ]
+
+// App settings for the site and the staging slot. One definition on purpose: a slot swap
+// exchanges app settings, so a name declared on one side only lands in production at the
+// next swap. Nothing here is a slot setting - see infra/README.md.
+var sharedAppSettings = concat(appSettingsAlways, configuratorMerchantApiUrlSetting)
 
 // -----------------------------------------------------------------------------
 // Resources

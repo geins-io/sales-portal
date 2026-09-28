@@ -135,5 +135,7 @@ export interface WireCommittedConfiguration {
   articleNumber: string | null;
   quantity: WireDecimal;
   unitPrice: PriceType | null;
+  discountPercent: WireDecimal | null;
+  weightPerUnit: WireDecimal | null;
   summary: WireList<WireSummaryLine>;
 }

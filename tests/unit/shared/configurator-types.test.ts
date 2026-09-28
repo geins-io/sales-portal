@@ -159,6 +159,7 @@ describe('CPQ configuration document types', () => {
       articleNumber: configuration.articleNumber,
       quantity: configuration.quantity,
       unitPrice: configuration.unitPrice,
+      discountPercent: configuration.discountPercent,
       summary: [
         { label: 'Width', value: '1250 mm' },
         {

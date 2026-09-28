@@ -55,16 +55,17 @@ These are **sensitive values** that must be kept secret. They are encrypted by G
 
 These are **non-sensitive configuration values** visible in the repository settings.
 
-| Variable               | Default                        | Description                        | Options                                       |
-| ---------------------- | ------------------------------ | ---------------------------------- | --------------------------------------------- |
-| `GEINS_API_ENDPOINT`   | `https://api.geins.io/graphql` | Geins GraphQL API URL              | Any valid URL                                 |
-| `GEINS_TENANT_API_URL` | _(empty)_                      | Geins Tenant API URL (server-only) | Any valid URL                                 |
-| `STORAGE_DRIVER`       | `fs`                           | Storage backend for tenant config  | `memory`, `fs`, `redis`                       |
-| `ENABLE_ANALYTICS`     | `false`                        | Enable client-side analytics       | `true`, `false`                               |
-| `CONFIGURATOR_BACKEND` | `off`                          | Backend for product configuration  | `off`, `fixture`, `merchant-api`, `composite` |
-| `LOG_LEVEL`            | `info`                         | Server log verbosity               | `debug`, `info`, `warn`, `error`, `silent`    |
-| `SENTRY_ORG`           | _(empty)_                      | Sentry organization slug           | Your Sentry org name                          |
-| `SENTRY_PROJECT`       | _(empty)_                      | Sentry project slug                | Your Sentry project name                      |
+| Variable                        | Default                        | Description                                | Options                                       |
+| ------------------------------- | ------------------------------ | ------------------------------------------ | --------------------------------------------- |
+| `GEINS_API_ENDPOINT`            | `https://api.geins.io/graphql` | Geins GraphQL API URL                      | Any valid URL                                 |
+| `GEINS_TENANT_API_URL`          | _(empty)_                      | Geins Tenant API URL (server-only)         | Any valid URL                                 |
+| `STORAGE_DRIVER`                | `fs`                           | Storage backend for tenant config          | `memory`, `fs`, `redis`                       |
+| `ENABLE_ANALYTICS`              | `false`                        | Enable client-side analytics               | `true`, `false`                               |
+| `CONFIGURATOR_BACKEND`          | `off`                          | Backend for product configuration          | `off`, `fixture`, `merchant-api`, `composite` |
+| `CONFIGURATOR_MERCHANT_API_URL` | _(empty)_                      | Merchant-api URL the CPQ area is served on | Any valid URL; empty adds no app setting      |
+| `LOG_LEVEL`                     | `info`                         | Server log verbosity                       | `debug`, `info`, `warn`, `error`, `silent`    |
+| `SENTRY_ORG`                    | _(empty)_                      | Sentry organization slug                   | Your Sentry org name                          |
+| `SENTRY_PROJECT`                | _(empty)_                      | Sentry project slug                        | Your Sentry project name                      |
 
 ### Notes on Variables
 
@@ -110,22 +111,23 @@ Two things are deliberately **not** variables:
 
 The `deploy.yml` workflow passes GitHub variables to Bicep, which sets these in Azure App Service:
 
-| Azure App Setting                | Source                            | Maps to nuxt.config.ts                    |
-| -------------------------------- | --------------------------------- | ----------------------------------------- |
-| `NODE_ENV`                       | Set by Bicep based on environment | `process.env.NODE_ENV`                    |
-| `NUXT_GEINS_API_ENDPOINT`        | `vars.GEINS_API_ENDPOINT`         | `runtimeConfig.geins.apiEndpoint`         |
-| `NUXT_GEINS_TENANT_API_URL`      | `vars.GEINS_TENANT_API_URL`       | `runtimeConfig.geins.tenantApiUrl`        |
-| `NUXT_STORAGE_DRIVER`            | `vars.STORAGE_DRIVER`             | `runtimeConfig.storage.driver`            |
-| `NUXT_STORAGE_REDIS_URL`         | `secrets.REDIS_URL`               | `runtimeConfig.storage.redisUrl`          |
-| `NUXT_PUBLIC_FEATURES_ANALYTICS` | `vars.ENABLE_ANALYTICS`           | `runtimeConfig.public.features.analytics` |
-| `NUXT_CONFIGURATOR_BACKEND`      | `vars.CONFIGURATOR_BACKEND`       | `runtimeConfig.configurator.backend`      |
-| `NUXT_SENTRY_DSN`                | `secrets.SENTRY_DSN`              | `runtimeConfig.sentry.dsn` (server-only)  |
-| `SENTRY_ENVIRONMENT`             | Set by Bicep based on environment | `process.env.SENTRY_ENVIRONMENT`          |
-| `NUXT_PUBLIC_SENTRY_ENVIRONMENT` | Set by Bicep based on environment | `runtimeConfig.public.sentry.environment` |
-| `NUXT_PUBLIC_SENTRY_DSN`         | `secrets.SENTRY_DSN`              | `runtimeConfig.public.sentry.dsn`         |
-| `NITRO_HOST`                     | Hardcoded `0.0.0.0`               | Required for Azure containers             |
-| `NITRO_PORT`                     | Hardcoded `3000`                  | Container port                            |
-| `WEBSITES_PORT`                  | Hardcoded `3000`                  | Azure port mapping                        |
+| Azure App Setting                    | Source                                               | Maps to nuxt.config.ts                      |
+| ------------------------------------ | ---------------------------------------------------- | ------------------------------------------- |
+| `NODE_ENV`                           | Set by Bicep based on environment                    | `process.env.NODE_ENV`                      |
+| `NUXT_GEINS_API_ENDPOINT`            | `vars.GEINS_API_ENDPOINT`                            | `runtimeConfig.geins.apiEndpoint`           |
+| `NUXT_GEINS_TENANT_API_URL`          | `vars.GEINS_TENANT_API_URL`                          | `runtimeConfig.geins.tenantApiUrl`          |
+| `NUXT_STORAGE_DRIVER`                | `vars.STORAGE_DRIVER`                                | `runtimeConfig.storage.driver`              |
+| `NUXT_STORAGE_REDIS_URL`             | `secrets.REDIS_URL`                                  | `runtimeConfig.storage.redisUrl`            |
+| `NUXT_PUBLIC_FEATURES_ANALYTICS`     | `vars.ENABLE_ANALYTICS`                              | `runtimeConfig.public.features.analytics`   |
+| `NUXT_CONFIGURATOR_BACKEND`          | `vars.CONFIGURATOR_BACKEND`                          | `runtimeConfig.configurator.backend`        |
+| `NUXT_CONFIGURATOR_MERCHANT_API_URL` | `vars.CONFIGURATOR_MERCHANT_API_URL` (only when set) | `runtimeConfig.configurator.merchantApiUrl` |
+| `NUXT_SENTRY_DSN`                    | `secrets.SENTRY_DSN`                                 | `runtimeConfig.sentry.dsn` (server-only)    |
+| `SENTRY_ENVIRONMENT`                 | Set by Bicep based on environment                    | `process.env.SENTRY_ENVIRONMENT`            |
+| `NUXT_PUBLIC_SENTRY_ENVIRONMENT`     | Set by Bicep based on environment                    | `runtimeConfig.public.sentry.environment`   |
+| `NUXT_PUBLIC_SENTRY_DSN`             | `secrets.SENTRY_DSN`                                 | `runtimeConfig.public.sentry.dsn`           |
+| `NITRO_HOST`                         | Hardcoded `0.0.0.0`                                  | Required for Azure containers               |
+| `NITRO_PORT`                         | Hardcoded `3000`                                     | Container port                              |
+| `WEBSITES_PORT`                      | Hardcoded `3000`                                     | Azure port mapping                          |
 
 ### Why the NUXT\_ Prefix?
 
@@ -223,6 +225,9 @@ Copy the output values for the next step.
 - [ ] `ENABLE_ANALYTICS` - Set to `true` if needed
 - [ ] `CONFIGURATOR_BACKEND` - Set to `fixture` on an environment that should serve product
       configuration. An unset variable arrives as an empty string, which reads as `off`.
+- [ ] `CONFIGURATOR_MERCHANT_API_URL` - Set only on an environment whose configurator backend
+      reaches the CPQ area on another host. Unset, Bicep adds no app setting at all, so the
+      environment's settings stay as they are and the ordinary merchant-api endpoint is used.
 - [ ] `LOG_LEVEL` - Adjust as needed (`silent` to disable all logging)
 - [ ] `SENTRY_ORG` - If using Sentry
 - [ ] `SENTRY_PROJECT` - If using Sentry

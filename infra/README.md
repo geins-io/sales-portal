@@ -219,16 +219,17 @@ These secrets can be configured per GitHub Environment if needed:
 
 **Navigate to:** Repository Settings → Secrets and variables → Actions → Variables
 
-| Variable               | Description                        | Default Value                  |
-| ---------------------- | ---------------------------------- | ------------------------------ |
-| `GEINS_API_ENDPOINT`   | Geins GraphQL API endpoint         | `https://api.geins.io/graphql` |
-| `GEINS_TENANT_API_URL` | Geins Tenant API URL (server-only) | (empty)                        |
-| `STORAGE_DRIVER`       | Storage driver (`fs` or `redis`)   | `fs`                           |
-| `ENABLE_ANALYTICS`     | Enable analytics                   | `false`                        |
-| `CONFIGURATOR_BACKEND` | Backend for product configuration  | `off`                          |
-| `LOG_LEVEL`            | Log level (`silent` to disable)    | `info`                         |
-| `SENTRY_ORG`           | Sentry organization slug           | (empty - Sentry disabled)      |
-| `SENTRY_PROJECT`       | Sentry project slug                | (empty - Sentry disabled)      |
+| Variable                        | Description                                                  | Default Value                  |
+| ------------------------------- | ------------------------------------------------------------ | ------------------------------ |
+| `GEINS_API_ENDPOINT`            | Geins GraphQL API endpoint                                   | `https://api.geins.io/graphql` |
+| `GEINS_TENANT_API_URL`          | Geins Tenant API URL (server-only)                           | (empty)                        |
+| `STORAGE_DRIVER`                | Storage driver (`fs` or `redis`)                             | `fs`                           |
+| `ENABLE_ANALYTICS`              | Enable analytics                                             | `false`                        |
+| `CONFIGURATOR_BACKEND`          | Backend for product configuration                            | `off`                          |
+| `CONFIGURATOR_MERCHANT_API_URL` | Merchant-api URL for the CPQ area; unset adds no app setting | (empty)                        |
+| `LOG_LEVEL`                     | Log level (`silent` to disable)                              | `info`                         |
+| `SENTRY_ORG`                    | Sentry organization slug                                     | (empty - Sentry disabled)      |
+| `SENTRY_PROJECT`                | Sentry project slug                                          | (empty - Sentry disabled)      |
 
 ### Step 4: Create GitHub Environments
 
@@ -424,11 +425,11 @@ pnpm infra:validate -- --env dev
 
 ### Quick Summary
 
-| Where                 | What to Set                                                                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **GitHub Secrets**    | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `REDIS_URL`, `SENTRY_DSN` (server-only), `SENTRY_AUTH_TOKEN`                             |
-| **GitHub Variables**  | `GEINS_API_ENDPOINT`, `GEINS_TENANT_API_URL`, `STORAGE_DRIVER`, `ENABLE_ANALYTICS`, `CONFIGURATOR_BACKEND`, `LOG_LEVEL`, `SENTRY_ORG`, `SENTRY_PROJECT` |
-| **Azure App Service** | ⚠️ Don't set manually - Bicep handles this automatically                                                                                                |
+| Where                 | What to Set                                                                                                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub Secrets**    | `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `REDIS_URL`, `SENTRY_DSN` (server-only), `SENTRY_AUTH_TOKEN`                                                              |
+| **GitHub Variables**  | `GEINS_API_ENDPOINT`, `GEINS_TENANT_API_URL`, `STORAGE_DRIVER`, `ENABLE_ANALYTICS`, `CONFIGURATOR_BACKEND`, `CONFIGURATOR_MERCHANT_API_URL`, `LOG_LEVEL`, `SENTRY_ORG`, `SENTRY_PROJECT` |
+| **Azure App Service** | ⚠️ Don't set manually - Bicep handles this automatically                                                                                                                                 |
 
 ### How It Works
 

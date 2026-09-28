@@ -53,8 +53,11 @@ param redisUrl string = ''
 @description('Enable analytics')
 param enableAnalytics string = ''
 
-@description('Configurator backend: off, fixture or sdk. Anything else reads as off.')
+@description('Configurator backend: off, fixture, merchant-api or composite. Anything else reads as off.')
 param configuratorBackend string = 'off'
+
+@description('Configurator merchant-api URL. Empty adds no app setting.')
+param configuratorMerchantApiUrl string = ''
 
 @description('Log level')
 param logLevel string = 'info'
@@ -175,6 +178,7 @@ module webApp 'modules/webApp.bicep' = {
     redisUrl: redisUrl
     enableAnalytics: enableAnalytics
     configuratorBackend: configuratorBackend
+    configuratorMerchantApiUrl: configuratorMerchantApiUrl
     logLevel: logLevel
     versionX: versionX
     // Sentry (runtime only - build-time vars are in GitHub Actions)

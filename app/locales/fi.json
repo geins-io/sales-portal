@@ -343,7 +343,8 @@
     "page_note": "Tämä on määritettävä tuote. Rakenna oma versiosi alla kohdassa {tab} — hinta ja voimassaolo lasketaan jatkuvasti.",
     "severity": {
       "error": "Virhe",
-      "warning": "Varoitus"
+      "warning": "Varoitus",
+      "info": "Tiedoksi"
     },
     "committed": {
       "heading": "Kokoonpano on valmis",

@@ -909,6 +909,15 @@ describe('commit', () => {
     expect(committed.unitPrice).toEqual(config.unitPrice);
   });
 
+  it('freezes the discount and the weight the document carried', async () => {
+    const config = await completed();
+
+    const committed = await backend.commit(config.configurationId, CTX);
+
+    expect(committed.discountPercent).toBe(config.discountPercent);
+    expect(committed.weightPerUnit).toBe(arbetsbordPro.weightPerUnit);
+  });
+
   it('summarises every selected option and every changed variable', async () => {
     const committed = await backend.commit(
       (await completed()).configurationId,

@@ -343,7 +343,8 @@
     "page_note": "Dette er et konfiguratorprodukt. Bygg varianten din under {tab} nedenfor — pris og gyldighet beregnes fortløpende.",
     "severity": {
       "error": "Feil",
-      "warning": "Advarsel"
+      "warning": "Advarsel",
+      "info": "Informasjon"
     },
     "committed": {
       "heading": "Konfigurasjonen er ferdig",

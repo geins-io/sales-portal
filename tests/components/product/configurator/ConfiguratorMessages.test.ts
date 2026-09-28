@@ -47,6 +47,44 @@ describe('ConfiguratorMessages', () => {
     expect(row.text()).toContain('Electric legs require a power strip.');
   });
 
+  it('renders an info message in the neutral style, not as a warning', () => {
+    const wrapper = mountComponent(ConfiguratorMessages, {
+      props: {
+        messages: [{ severity: 'info', text: 'Delivered pre-assembled.' }],
+      },
+    });
+
+    const row = wrapper.find('[data-testid="configurator-message"]');
+    expect(row.attributes('data-severity')).toBe('info');
+    expect(row.classes()).toEqual(
+      expect.arrayContaining(['bg-muted', 'text-muted-foreground']),
+    );
+    expect(row.classes()).not.toContain('text-warning');
+    expect(row.find('[aria-label]').attributes('aria-label')).toBe(
+      'configurator.severity.info',
+    );
+    expect(row.text()).toContain('Delivered pre-assembled.');
+  });
+
+  it('labels an error and a warning by their severity', () => {
+    const wrapper = mountComponent(ConfiguratorMessages, {
+      props: {
+        messages: [
+          { severity: 'error', text: 'one' },
+          { severity: 'warning', text: 'two' },
+        ],
+      },
+    });
+
+    const labels = wrapper
+      .findAll('[data-testid="configurator-message"] [aria-label]')
+      .map((icon) => icon.attributes('aria-label'));
+    expect(labels).toEqual([
+      'configurator.severity.error',
+      'configurator.severity.warning',
+    ]);
+  });
+
   it('renders one row per message', () => {
     const wrapper = mountComponent(ConfiguratorMessages, {
       props: {

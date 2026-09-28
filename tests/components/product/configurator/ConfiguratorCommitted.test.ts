@@ -28,6 +28,7 @@ function makeCommitted(
     articleNumber: '1101',
     quantity: 1,
     unitPrice: { sellingPriceExVat: 4100, currency: { code: 'SEK' } },
+    discountPercent: 0,
     summary: [
       {
         label: 'Steel top',

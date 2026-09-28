@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ConfigurationMessage } from '#shared/types/configurator';
-import { CircleAlert, TriangleAlert } from 'lucide-vue-next';
+import { CircleAlert, Info, TriangleAlert } from 'lucide-vue-next';
 
 /**
  * The `messages[]` of any node in a configuration document. The provider writes
@@ -10,6 +10,12 @@ import { CircleAlert, TriangleAlert } from 'lucide-vue-next';
 defineProps<{ messages: ConfigurationMessage[] }>();
 
 const { t } = useI18n();
+
+const tone: Record<ConfigurationMessage['severity'], string> = {
+  error: 'bg-destructive/10 text-destructive',
+  warning: 'bg-warning/10 text-warning',
+  info: 'bg-muted text-muted-foreground',
+};
 </script>
 
 <template>
@@ -20,11 +26,7 @@ const { t } = useI18n();
       data-testid="configurator-message"
       :data-severity="message.severity"
       class="flex items-start gap-2 rounded-md px-3 py-2 text-xs"
-      :class="
-        message.severity === 'error'
-          ? 'bg-destructive/10 text-destructive'
-          : 'bg-warning/10 text-warning'
-      "
+      :class="tone[message.severity]"
     >
       <CircleAlert
         v-if="message.severity === 'error'"
@@ -32,9 +34,14 @@ const { t } = useI18n();
         :aria-label="t('configurator.severity.error')"
       />
       <TriangleAlert
-        v-else
+        v-else-if="message.severity === 'warning'"
         class="mt-0.5 size-3.5 shrink-0"
         :aria-label="t('configurator.severity.warning')"
+      />
+      <Info
+        v-else
+        class="mt-0.5 size-3.5 shrink-0"
+        :aria-label="t('configurator.severity.info')"
       />
       <span>{{ message.text }}</span>
     </li>

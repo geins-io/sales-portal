@@ -623,12 +623,19 @@ describe('mapConfiguration', () => {
       ]);
     });
 
-    it('drops INFO and UNKNOWN, which the document type cannot carry', () => {
+    it('keeps INFO as info', () => {
+      const config = mapConfiguration(
+        wireConfiguration({ messages: [{ severity: 'INFO', text: 'i' }] }),
+      );
+      expect(config.messages).toEqual([{ severity: 'info', text: 'i' }]);
+    });
+
+    it('drops UNKNOWN and any severity it does not know', () => {
       const config = mapConfiguration(
         wireConfiguration({
           messages: [
-            { severity: 'INFO', text: 'i' },
             { severity: 'UNKNOWN', text: 'u' },
+            { severity: 'NOTICE', text: 'n' },
             { severity: 'ERROR', text: 'e' },
           ],
         }),
@@ -932,6 +939,8 @@ function wireCommitted(
     articleNumber: '001-2',
     quantity: 1,
     unitPrice: PRICE,
+    discountPercent: 25,
+    weightPerUnit: 12.5,
     summary: [
       { label: 'Machine weight (7-20)', value: '12' },
       { label: 'Adapter', value: 'S50' },
@@ -948,11 +957,22 @@ describe('mapCommittedConfiguration', () => {
       articleNumber: '001-2',
       quantity: 1,
       unitPrice: PRICE,
+      discountPercent: 25,
+      weightPerUnit: 12.5,
       summary: [
         { label: 'Machine weight (7-20)', value: '12' },
         { label: 'Adapter', value: 'S50' },
       ],
     });
+  });
+
+  it('reads a Decimal discount and weight sent as strings', () => {
+    const committed = mapCommittedConfiguration(
+      wireCommitted({ discountPercent: '7.5', weightPerUnit: '38.25' }),
+      'cfg-1',
+    );
+    expect(committed.discountPercent).toBe(7.5);
+    expect(committed.weightPerUnit).toBe(38.25);
   });
 
   it('keeps the summary in the order it was sent', () => {
@@ -979,10 +999,14 @@ describe('mapCommittedConfiguration', () => {
         configurationId: null,
         articleNumber: null,
         unitPrice: null,
+        discountPercent: null,
+        weightPerUnit: null,
         summary: [null, { label: null, value: null }],
       }),
       'cfg-asked',
     );
+    expect(committed.discountPercent).toBe(0);
+    expect(committed).not.toHaveProperty('weightPerUnit');
     expect(committed.configurationId).toBe('cfg-asked');
     expect(committed.articleNumber).toBe('');
     expect(committed.unitPrice).toEqual(
