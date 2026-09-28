@@ -10,6 +10,7 @@ import {
   isGroupUnmet,
   isVariableUnmet,
 } from '#shared/utils/configurator-requirement';
+import { offersNoneRow } from '~/utils/configurator-form';
 import { orderedSections, sectionMembers } from '~/utils/configurator-order';
 
 // ---------------------------------------------------------------------------
@@ -192,6 +193,8 @@ export interface SpecificationValue {
   decimals?: number;
   /** A boolean variable's value, which only the locale files can word. */
   boolValue?: boolean;
+  /** An optional single choice left at "nothing chosen", worded the same way. */
+  none?: boolean;
   /** Written after the value, as the field writes it beside the input. */
   unit?: string;
   /** How many of this option; rendered only above one. */
@@ -247,16 +250,23 @@ function groupRows(
     // A selected option the rules made unavailable is still part of the
     // configuration, exactly as a collapsed group counts it.
     const selected = group.options.filter((option) => option.selected);
-    if (selected.length) {
+    // "Nothing chosen" is a choice in a group that offers it, so it is
+    // specified like one; a required group with nothing chosen is not.
+    const values: SpecificationValue[] = selected.length
+      ? selected.map((option) => ({
+          text: option.name,
+          quantity: option.quantity,
+          price: option.unitPrice,
+        }))
+      : offersNoneRow(group)
+        ? [{ none: true }]
+        : [];
+    if (values.length) {
       rows.push({
         id: `group:${group.id}`,
         group: section,
         label: group.name,
-        values: selected.map((option) => ({
-          text: option.name,
-          quantity: option.quantity,
-          price: option.unitPrice,
-        })),
+        values,
       });
     }
     rows.push(...groupRows(group.optionGroups, section));

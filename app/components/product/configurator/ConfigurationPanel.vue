@@ -113,11 +113,13 @@ function numberText(value: number, decimals: number | undefined): string {
 
 /** A value reads the same on screen and in the copied text. */
 function valueText(value: SpecificationValue): string {
-  const written = value.boolValue
-    ? t('configurator.yes')
-    : value.number !== undefined
-      ? numberText(value.number, value.decimals)
-      : (value.text ?? '');
+  const written = value.none
+    ? t('configurator.none_option')
+    : value.boolValue
+      ? t('configurator.yes')
+      : value.number !== undefined
+        ? numberText(value.number, value.decimals)
+        : (value.text ?? '');
   const text = value.unit ? `${written} ${value.unit}` : written;
   if (!value.quantity || value.quantity <= 1) return text;
   return `${text} · ${t('configurator.panel.quantity_suffix', { count: value.quantity })}`;

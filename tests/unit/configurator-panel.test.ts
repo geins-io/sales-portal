@@ -466,6 +466,50 @@ describe('specificationRows', () => {
     expect(rows.map((row) => row.label)).not.toContain('Accessories');
   });
 
+  // The prototype preselects "Inget valt" in a group the buyer may skip, so
+  // its specification names that choice rather than leaving the group out.
+  it('specifies an optional single choice left at nothing chosen as "none"', () => {
+    const config = makeValidConfiguration();
+    const top = findOptionGroup(config, 'top');
+    top.minSelections = undefined;
+    for (const option of top.options) option.selected = false;
+
+    expect(
+      specificationRows(config).find((row) => row.label === 'Table top'),
+    ).toEqual({
+      id: 'group:top',
+      group: 'Finish',
+      label: 'Table top',
+      values: [{ none: true }],
+    });
+  });
+
+  it('specifies the chosen option of an optional single choice, not "none"', () => {
+    const config = makeValidConfiguration();
+    findOptionGroup(config, 'top').minSelections = 0;
+
+    expect(
+      specificationRows(config).find((row) => row.label === 'Table top')
+        ?.values,
+    ).toEqual([
+      {
+        text: 'Laminate top',
+        quantity: 1,
+        price: findOption(config, 'top-laminate').unitPrice,
+      },
+    ]);
+  });
+
+  it('leaves out a required single choice nothing is chosen in', () => {
+    const config = makeValidConfiguration();
+    for (const option of findOptionGroup(config, 'top').options)
+      option.selected = false;
+
+    expect(specificationRows(config).map((row) => row.label)).not.toContain(
+      'Table top',
+    );
+  });
+
   it('gives a group inside a group a row of its own', () => {
     const config = makeValidConfiguration();
     const legs = findOptionGroup(config, 'legs');

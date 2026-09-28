@@ -3,7 +3,7 @@ import type {
   ConfigurationOption,
   ConfigurationSection,
 } from '#shared/types/configurator';
-import { findOption, findVariable } from '../document';
+import { findGroupOf, findOption, findVariable } from '../document';
 import { seedGroup, seedOption, seedVariable } from './builders';
 import type { Seed } from './types';
 
@@ -167,11 +167,14 @@ function worktopSection(): ConfigurationSection {
           option('top-steel', 'Stainless steel, 1.5 mm on ply', 3400, 907_012),
         ],
       }),
+      // The one single choice the buyer may skip, so the form has a group
+      // to lead with "nothing chosen".
       seedGroup({
         id: 'top-treatment',
         code: 'TREATMENT',
         name: 'Surface treatment',
         sortIndex: 9,
+        maxSelections: 1,
         options: [
           option('treat-esd', 'ESD-dissipative coating', 1250, 907_013),
           // A treatment is a part number, not a sellable article: the real
@@ -661,6 +664,16 @@ function steelTopRestrictsTheEdgeTrim(config: Configuration): void {
   if (!band) return;
   band.selected = true;
   band.selectionSource = 'groupRule';
+  // The real provider speaks on the group, not the row, so the group says
+  // what the rule did as well.
+  const profile = findGroupOf(config, 'edge-abs');
+  if (!profile) return;
+  profile.messages = [
+    {
+      severity: 'info',
+      text: 'Only the ABS edge band fits a stainless steel top.',
+    },
+  ];
 }
 
 export const monteringsstationPro: Seed = {

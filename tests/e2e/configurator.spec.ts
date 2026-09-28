@@ -68,9 +68,12 @@ test.use({ storageState: STORAGE_STATE });
  * no session is created to probe it. Asking them the other way round would
  * read a backend that is off as a feature that is off.
  */
-async function unavailableReason(page: Page): Promise<string | null> {
-  if (!(await isConfigurable(page, SEED_ALIAS))) {
-    return `the configurator backend is off on this target, or ${SEED_ALIAS} is missing from the catalogue`;
+async function unavailableReason(
+  page: Page,
+  alias = SEED_ALIAS,
+): Promise<string | null> {
+  if (!(await isConfigurable(page, alias))) {
+    return `the configurator backend is off on this target, or ${alias} is missing from the catalogue`;
   }
 
   const gate = await page.request.post('/api/configurations', { data: {} });
@@ -82,8 +85,8 @@ async function unavailableReason(page: Page): Promise<string | null> {
 }
 
 /** The form after the session has been created, whatever the document holds. */
-async function openConfigurator(page: Page): Promise<void> {
-  await page.goto(`/p/${SEED_ALIAS}`);
+async function openConfigurator(page: Page, alias = SEED_ALIAS): Promise<void> {
+  await page.goto(`/p/${alias}`);
   await waitForHydration(page);
 
   // Both of these belong to the configurator page alone. `product-tabs` does
@@ -271,5 +274,76 @@ test.describe('Configurator', () => {
     await expect(
       sheet.locator(`[data-option-id="${OTHER_COLOUR}"]`),
     ).toHaveAttribute('data-selected', 'false');
+  });
+});
+
+/**
+ * The third seed, for the one rule that speaks on a group: a steel worktop
+ * leaves the edge profile two levels down with a note beside its title.
+ */
+const DEEP_ALIAS = 'monteringsstation-pro';
+const EDGE_NOTE = 'Only the ABS edge band fits a stainless steel top.';
+
+test.describe('Configurator group message', () => {
+  test('shows a group message as an icon whose tooltip opens by pointer and by focus', async ({
+    page,
+    isMobile,
+  }) => {
+    const unavailable = await unavailableReason(page, DEEP_ALIAS);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    await openConfigurator(page, DEEP_ALIAS);
+    await openSection(page, 'worktop');
+
+    const worktop = page.locator(
+      '[data-testid="configurator-group"][data-group-id="top"]',
+    );
+    await worktop.getByTestId('configurator-group-chooser').click();
+    const sheet = page.getByTestId('configurator-group-sheet');
+    await expect(sheet).toBeInViewport({ ratio: 1 });
+    const changed = changeResponse(page);
+    await sheet.locator('[data-option-id="top-steel"]').click();
+    await changed;
+    await expect(page.getByTestId('configurator-panel-busy')).toBeHidden();
+
+    await openSection(page, 'edge');
+    const info = page
+      .locator(
+        '[data-testid="configurator-group"][data-group-id="edge-profile"]',
+      )
+      .getByTestId('configurator-group-info');
+    await expect(info).toHaveAttribute('data-severity', 'info');
+    // An icon, not the box the message used to be.
+    await expect(page.getByText(EDGE_NOTE)).toBeHidden();
+
+    const tooltip = page.getByTestId('configurator-group-info-content');
+    if (isMobile) {
+      await info.tap();
+    } else {
+      await info.hover();
+    }
+    await expect(tooltip).toContainText(EDGE_NOTE);
+
+    // Away and back by keyboard: the text a screen reader hears arrives the
+    // same way.
+    await page.keyboard.press('Escape');
+    await expect(tooltip).toBeHidden();
+    // A tap leaves the button focused, and focusing it again fires nothing.
+    await info.blur();
+    await info.focus();
+    await expect(tooltip).toContainText(EDGE_NOTE);
+    // The primitive puts the text a second time in a visually hidden element
+    // with role="tooltip" and, from its `VisuallyHidden` default,
+    // aria-hidden="true", so it is out of the accessibility tree. It is still
+    // what `aria-describedby` points at, and a reference is read even when
+    // hidden, so what the button is described by is the question to ask.
+    const describedBy = await info.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    await expect(page.locator(`[id="${describedBy}"]`)).toContainText(
+      EDGE_NOTE,
+    );
+    await expect(info).toHaveAccessibleDescription(
+      new RegExp(EDGE_NOTE.replace(/\./g, '\\.')),
+    );
   });
 });

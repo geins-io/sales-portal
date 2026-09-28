@@ -314,6 +314,8 @@
     "unavailable": "Mit Ihrer aktuellen Auswahl nicht verfügbar",
     "bounds": "{min}–{max} {unit}",
     "optional": "Optional",
+    "none_option": "Keine Auswahl",
+    "group_info": "Hinweis zu {name}",
     "choose_many": "Keine oder mehrere wählen",
     "quantity": "Menge",
     "choose_in_group": "{name} wählen",
