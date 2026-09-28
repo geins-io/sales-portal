@@ -1,9 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { mountComponent } from '../../../utils/component';
-import { OPTION_PREVIEW_LIMIT } from '../../../../app/utils/configurator-form';
 import ConfiguratorOptionGroup from '../../../../app/components/product/configurator/ConfiguratorOptionGroup.vue';
-import type { ConfigurationOptionGroup } from '#shared/types/configurator';
+import type {
+  ConfigurationOption,
+  ConfigurationOptionGroup,
+} from '#shared/types/configurator';
 import {
+  findOption,
   findOptionGroup,
   makeCabinetConfiguration,
   makeInitialConfiguration,
@@ -32,23 +35,40 @@ function mountGroup(group: ConfigurationOptionGroup) {
   return mountComponent(ConfiguratorOptionGroup, { props: { group } });
 }
 
-describe('ConfiguratorOptionGroup', () => {
-  it('renders a single-choice group as a radio group', () => {
-    const workbench = makeInitialConfiguration();
+const CHOOSER = '[data-testid="configurator-group-chooser"]';
+const ADD = '[data-testid="configurator-group-add"]';
+const SHEET = '[data-testid="configurator-group-sheet"]';
+const IMAGE = '[data-testid="configurator-option-image"]';
+const PLACEHOLDER = '[data-testid="configurator-option-image-placeholder"]';
 
-    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+function withImage(option: ConfigurationOption, fileName: string) {
+  option.product!.productImages = [{ fileName, isPrimary: false, url: '' }];
+  return option;
+}
+
+/**
+ * A seeded group cut down to its first option: the only shape still listed
+ * inline, since every group of two or more is chosen from its list.
+ */
+function oneOption(groupId: string): ConfigurationOptionGroup {
+  const group = findOptionGroup(makeInitialConfiguration(), groupId);
+  group.options = group.options.slice(0, 1);
+  return group;
+}
+
+describe('ConfiguratorOptionGroup', () => {
+  it('renders a single-choice group of one as a radio group', () => {
+    const wrapper = mountGroup(oneOption('top'));
 
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(true);
-    expect(wrapper.findAll('[role="radio"]')).toHaveLength(3);
+    expect(wrapper.findAll('[role="radio"]')).toHaveLength(1);
   });
 
-  it('renders a multi-choice group as checkboxes', () => {
-    const workbench = makeInitialConfiguration();
-
-    const wrapper = mountGroup(findOptionGroup(workbench, 'industrial'));
+  it('renders a multi-choice group of one as a checkbox', () => {
+    const wrapper = mountGroup(oneOption('industrial'));
 
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false);
-    expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(2);
+    expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(1);
     expect(wrapper.text()).toContain('configurator.choose_many');
   });
 
@@ -120,8 +140,9 @@ describe('ConfiguratorOptionGroup', () => {
     const top = findOptionGroup(workbench, 'top');
 
     const wrapper = mountGroup(top);
+    await wrapper.find(CHOOSER).trigger('click');
     await wrapper
-      .find('[data-option-id="top-steel"] [role="radio"]')
+      .find(`${SHEET} [data-option-id="top-steel"] [role="radio"]`)
       .trigger('click');
 
     expect(wrapper.emitted('change')).toHaveLength(1);
@@ -135,12 +156,18 @@ describe('ConfiguratorOptionGroup', () => {
     });
   });
 
-  it('checks the row the document says is selected', () => {
+  it('checks the row the document says is selected', async () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    expect(wrapper.find(CHOOSER).attributes('data-option-id')).toBe(
+      'top-laminate',
+    );
+    await wrapper.find(CHOOSER).trigger('click');
 
-    const checked = wrapper.findAll('[role="radio"][aria-checked="true"]');
+    const checked = wrapper.findAll(
+      `${SHEET} [role="radio"][aria-checked="true"]`,
+    );
     expect(checked).toHaveLength(1);
     expect(
       checked[0]?.element
@@ -177,8 +204,11 @@ describe('ConfiguratorOptionGroup', () => {
     const nested = makeNestedGroupConfiguration();
 
     const wrapper = mountGroup(findOptionGroup(nested, 'legs'));
+    await wrapper.find(`[data-group-id="industrial"] ${ADD}`).trigger('click');
     await wrapper
-      .find('[data-option-id="ind-heavy"] [role="checkbox"]')
+      .find(
+        `[data-group-id="industrial"] ${SHEET} [data-option-id="ind-heavy"] [role="checkbox"]`,
+      )
       .trigger('click');
 
     expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
@@ -204,8 +234,10 @@ describe('ConfiguratorOptionGroup', () => {
 
   it('keeps the rows mounted while the group is folded', async () => {
     const workbench = makeInitialConfiguration();
+    const accessories = findOptionGroup(workbench, 'accessories');
+    findOption(workbench, 'acc-light').selected = true;
 
-    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    const wrapper = mountGroup(accessories);
     await wrapper
       .find('[data-testid="configurator-group-header"]')
       .trigger('click');
@@ -213,8 +245,9 @@ describe('ConfiguratorOptionGroup', () => {
     // Hidden, not dropped: an unsent draft and the panel's state belong to the
     // rows, and folding a group is not a reason to lose them.
     expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
-      3,
+      1,
     );
+    expect(wrapper.find(ADD).exists()).toBe(true);
   });
 
   it('names the one chosen row while folded, and nothing while open', async () => {
@@ -274,60 +307,308 @@ describe('ConfiguratorOptionGroup', () => {
   });
 
   // ---------------------------------------------------------------------
-  // The full list
+  // The chooser: a group of more than three is chosen from a list
   // ---------------------------------------------------------------------
-  it('shows five of the twenty-six colours and offers the rest', () => {
-    const workbench = makeInitialConfiguration();
-
-    const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
+  it('lists a group of one inline, with no chooser', () => {
+    const wrapper = mountGroup(oneOption('top'));
 
     expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
-      OPTION_PREVIEW_LIMIT,
+      1,
     );
-    expect(
-      wrapper.find('[data-testid="configurator-group-show-all"]').exists(),
-    ).toBe(true);
+    expect(wrapper.find(CHOOSER).exists()).toBe(false);
+    expect(wrapper.find(ADD).exists()).toBe(false);
   });
 
-  it('offers no full list for a group that fits', () => {
+  it('offers a multi choice of two from an add row', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'industrial'));
+
+    expect(wrapper.find(ADD).exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
+      0,
+    );
+  });
+
+  it('offers a single choice of three from one row instead of the rows', () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
 
-    expect(
-      wrapper.find('[data-testid="configurator-group-show-all"]').exists(),
-    ).toBe(false);
+    expect(wrapper.find(CHOOSER).exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
+      0,
+    );
   });
 
-  it('opens the panel on every row of the group', async () => {
+  it('offers a multi choice of four from an add row instead of the rows', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'accessories'));
+
+    expect(wrapper.find(ADD).exists()).toBe(true);
+    expect(wrapper.find(CHOOSER).exists()).toBe(false);
+    expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
+      0,
+    );
+  });
+
+  it('asks for a single choice and counts the rows while nothing is chosen', () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
-    expect(
-      wrapper.find('[data-testid="configurator-group-sheet"]').exists(),
-    ).toBe(false);
 
+    const chooser = wrapper.find(CHOOSER);
+    expect(chooser.text()).toContain('configurator.choose_in_group');
+    expect(chooser.text()).toContain('configurator.option_count');
+    expect(chooser.attributes('data-option-id')).toBeUndefined();
+    expect(chooser.attributes('data-selected')).toBe('false');
+  });
+
+  it('shows the chosen row in the chooser: name, price and article number', () => {
+    const workbench = makeInitialConfiguration();
+    const colours = findOptionGroup(workbench, 'color');
+    findOption(workbench, 'ral-7016').selected = true;
+
+    const wrapper = mountGroup(colours);
+
+    const chooser = wrapper.find(CHOOSER);
+    expect(chooser.text()).toContain('Anthracite grey (RAL 7016)');
+    expect(chooser.text()).toContain(
+      findOption(workbench, 'ral-7016').articleNumber,
+    );
+    expect(
+      chooser.find('[data-testid="configurator-option-price"]').text(),
+    ).toMatch(/^\+.*150/);
+    expect(chooser.text()).not.toContain('configurator.option_count');
+    expect(chooser.attributes('data-option-id')).toBe('ral-7016');
+    expect(chooser.attributes('data-selected')).toBe('true');
+  });
+
+  // Centred at the right edge like the option rows, not on the name's line as
+  // the prototype has it.
+  it('puts the chosen price on the centre line at the right, before the chevron', () => {
+    const workbench = makeInitialConfiguration();
+    findOption(workbench, 'top-laminate').selected = false;
+    findOption(workbench, 'top-wood').selected = true;
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+
+    const chooser = wrapper.find(CHOOSER).element;
+    const price = wrapper
+      .find(CHOOSER)
+      .find('[data-testid="configurator-option-price"]').element;
+    // On the row's own line, and followed only by the chevron.
+    expect(price.parentElement).toBe(chooser);
+    expect(price.nextElementSibling).toBe(chooser.lastElementChild);
+  });
+
+  it('shows no price in the chooser for a chosen row that adds nothing', () => {
+    const workbench = makeInitialConfiguration();
+    findOption(workbench, 'ral-9005').selected = true;
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
+
+    expect(
+      wrapper.find('[data-testid="configurator-option-price"]').exists(),
+    ).toBe(false);
+  });
+
+  // The chooser row shows the price as the rows do, as sent: a discounted
+  // choice carries no struck price and no percentage in either.
+  it('shows a discounted chosen row at its price as sent in the chooser', () => {
+    const workbench = makeInitialConfiguration();
+    const chosen = findOption(workbench, 'ral-7016');
+    const pegboard = findOption(workbench, 'acc-pegboard');
+    chosen.selected = true;
+    chosen.unitPrice = pegboard.unitPrice;
+    chosen.discountPercent = pegboard.discountPercent;
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
+
+    const price = wrapper
+      .find(CHOOSER)
+      .find('[data-testid="configurator-option-price"]');
+    expect(price.text()).toMatch(/^\+.*900/);
+    expect(price.text()).not.toContain('1,200');
+    expect(price.text()).not.toContain('%');
+  });
+
+  it('marks a chosen row the provider owns, and says why, in the chooser', () => {
+    const workbench = makeInitialConfiguration();
+    const chosen = findOption(workbench, 'ral-7016');
+    chosen.selected = true;
+    chosen.selectionSource = 'locked';
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
+
+    const chooser = wrapper.find(CHOOSER);
+    expect(
+      chooser.find('[data-testid="configurator-chooser-lock"]').exists(),
+    ).toBe(true);
+    expect(
+      chooser.find('[data-testid="configurator-chooser-reason"]').text(),
+    ).toBe('configurator.read_only');
+  });
+
+  it("gives a chosen row's blocking message as its reason in the chooser", () => {
+    const workbench = makeInitialConfiguration();
+    const chosen = findOption(workbench, 'ral-7016');
+    chosen.selected = true;
+    chosen.available = false;
+    chosen.messages = [
+      { severity: 'error', text: 'Not available with a steel top.' },
+    ];
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
+
+    const reason = wrapper.find('[data-testid="configurator-chooser-reason"]');
+    expect(reason.text()).toBe('Not available with a steel top.');
+    expect(reason.classes()).toContain('text-destructive');
+    expect(
+      wrapper.find('[data-testid="configurator-chooser-lock"]').exists(),
+    ).toBe(false);
+  });
+
+  it('asks for a first multi choice with nothing chosen', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'accessories'));
+
+    expect(wrapper.find(ADD).text()).toBe('configurator.choose_in_group');
+  });
+
+  it('shows the chosen multi rows, ticked, and offers more', () => {
+    const workbench = makeInitialConfiguration();
+    const accessories = findOptionGroup(workbench, 'accessories');
+    findOption(workbench, 'acc-light').selected = true;
+    findOption(workbench, 'acc-castors').selected = true;
+
+    const wrapper = mountGroup(accessories);
+
+    const rows = wrapper.findAll('[data-testid="configurator-option"]');
+    expect(rows.map((row) => row.attributes('data-option-id'))).toEqual([
+      'acc-light',
+      'acc-castors',
+    ]);
+    expect(
+      wrapper.findAll('[role="checkbox"][aria-checked="true"]'),
+    ).toHaveLength(2);
+    expect(wrapper.find(ADD).text()).toBe('configurator.add_more');
+  });
+
+  it('offers nothing more once every multi row is chosen', () => {
+    const workbench = makeInitialConfiguration();
+    const accessories = findOptionGroup(workbench, 'accessories');
+    for (const option of accessories.options) option.selected = true;
+
+    const wrapper = mountGroup(accessories);
+
+    expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
+      4,
+    );
+    expect(wrapper.find(ADD).exists()).toBe(false);
+  });
+
+  it('unticks a chosen multi row on a click', async () => {
+    const workbench = makeInitialConfiguration();
+    const accessories = findOptionGroup(workbench, 'accessories');
+    findOption(workbench, 'acc-light').selected = true;
+
+    const wrapper = mountGroup(accessories);
     await wrapper
-      .find('[data-testid="configurator-group-show-all"]')
+      .find('[data-option-id="acc-light"] [role="checkbox"]')
       .trigger('click');
 
-    const sheet = wrapper.find('[data-testid="configurator-group-sheet"]');
+    expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
+      optionId: 'acc-light',
+      selected: false,
+    });
+  });
+
+  it('keeps the stepper on a chosen row of a quantity-editable group', () => {
+    const workbench = makeInitialConfiguration();
+    findOption(workbench, 'acc-power').selected = true;
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'accessories'));
+
+    expect(
+      wrapper
+        .find('[data-option-id="acc-power"]')
+        .find('[data-testid="configurator-option-quantity"]')
+        .exists(),
+    ).toBe(true);
+  });
+
+  it('renders the nested groups beside a chooser, each deciding for its own rows', () => {
+    const nested = makeNestedGroupConfiguration();
+    const legs = findOptionGroup(nested, 'legs');
+    findOptionGroup(nested, 'industrial').options.splice(1);
+
+    const wrapper = mountGroup(legs);
+
+    expect(wrapper.find(CHOOSER).exists()).toBe(true);
+    const groups = wrapper.findAll('[data-testid="configurator-group"]');
+    expect(groups.map((g) => g.attributes('data-group-id'))).toEqual([
+      'legs',
+      'industrial',
+    ]);
+    // Cut down to one row, the nested group lists it inline.
+    expect(
+      groups[1]!.findAll('[data-testid="configurator-option"]'),
+    ).toHaveLength(1);
+  });
+
+  it('opens the panel on every row of the group from the chooser', async () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
+    expect(wrapper.find(SHEET).exists()).toBe(false);
+
+    await wrapper.find(CHOOSER).trigger('click');
+
+    const sheet = wrapper.find(SHEET);
     expect(sheet.findAll('[data-testid="configurator-option"]')).toHaveLength(
       26,
     );
+  });
+
+  it('opens the panel from the add row', async () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'accessories'));
+    await wrapper.find(ADD).trigger('click');
+
+    expect(
+      wrapper.find(SHEET).findAll('[data-testid="configurator-option"]'),
+    ).toHaveLength(4);
+  });
+
+  // Opening the list sends nothing, so it stays open to a buyer while a batch
+  // is in flight; the rows inside carry the lock.
+  it('opens the panel while the form is locked, with its rows locked', async () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountComponent(ConfiguratorOptionGroup, {
+      props: { group: findOptionGroup(workbench, 'color'), disabled: true },
+    });
+    await wrapper.find(CHOOSER).trigger('click');
+
+    const radio = wrapper.find(
+      `${SHEET} [data-option-id="ral-7016"] [role="radio"]`,
+    );
+    expect(radio.attributes('disabled')).toBeDefined();
   });
 
   it('filters the panel and says when nothing is left', async () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
-    await wrapper
-      .find('[data-testid="configurator-group-show-all"]')
-      .trigger('click');
+    await wrapper.find(CHOOSER).trigger('click');
 
     const search = wrapper.find('[data-testid="configurator-group-search"]');
     await search.setValue('grey');
-    const sheet = wrapper.find('[data-testid="configurator-group-sheet"]');
+    const sheet = wrapper.find(SHEET);
     expect(sheet.findAll('[data-testid="configurator-option"]')).toHaveLength(
       4,
     );
@@ -349,46 +630,138 @@ describe('ConfiguratorOptionGroup', () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
-    await wrapper
-      .find('[data-testid="configurator-group-show-all"]')
-      .trigger('click');
-    await wrapper
-      .find(
-        '[data-testid="configurator-group-sheet"] [data-option-id="ral-4008"]',
-      )
-      .trigger('click');
+    await wrapper.find(CHOOSER).trigger('click');
+    await wrapper.find(`${SHEET} [data-option-id="ral-4008"]`).trigger('click');
 
     expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
       optionId: 'ral-4008',
       selected: true,
     });
     // One choice is made once: the panel has done its job.
-    expect(
-      wrapper.find('[data-testid="configurator-group-sheet"]').exists(),
-    ).toBe(false);
+    expect(wrapper.find(SHEET).exists()).toBe(false);
   });
 
   it('keeps the panel open while several choices are made', async () => {
     const workbench = makeInitialConfiguration();
-    const colours = findOptionGroup(workbench, 'color');
-    // The seed has no long multi-choice group; a group that takes three is the
-    // shape this rule is about, and the rows are the same rows.
-    colours.maxSelections = 3;
-    colours.minSelections = 0;
 
-    const wrapper = mountGroup(colours);
+    const wrapper = mountGroup(findOptionGroup(workbench, 'accessories'));
+    await wrapper.find(ADD).trigger('click');
     await wrapper
-      .find('[data-testid="configurator-group-show-all"]')
-      .trigger('click');
-    await wrapper
-      .find(
-        '[data-testid="configurator-group-sheet"] [data-option-id="ral-4008"]',
-      )
+      .find(`${SHEET} [data-option-id="acc-light"]`)
       .trigger('click');
 
     expect(wrapper.emitted('change')).toHaveLength(1);
+    expect(wrapper.find(SHEET).exists()).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------
+  // The image column: decided per group, from the group's own options
+  // ---------------------------------------------------------------------
+  it('shows no image box anywhere in a group where no option has an image', async () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    expect(wrapper.find(CHOOSER).find(IMAGE).exists()).toBe(false);
+    await wrapper.find(CHOOSER).trigger('click');
+
+    expect(wrapper.find(SHEET).findAll(IMAGE)).toHaveLength(0);
+  });
+
+  it('gives every row a box when one option has an image, a placeholder where it is missing', async () => {
+    const workbench = makeInitialConfiguration();
+    withImage(findOption(workbench, 'top-wood'), 'beech.jpg');
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    await wrapper.find(CHOOSER).trigger('click');
+
+    const sheet = wrapper.find(SHEET);
+    expect(sheet.findAll(IMAGE)).toHaveLength(3);
+    expect(sheet.findAll(PLACEHOLDER)).toHaveLength(2);
     expect(
-      wrapper.find('[data-testid="configurator-group-sheet"]').exists(),
+      sheet
+        .find('[data-option-id="top-wood"]')
+        .findComponent({ name: 'GeinsImage' })
+        .props('fileName'),
+    ).toBe('beech.jpg');
+  });
+
+  it('shows an image on every row when every option has one', async () => {
+    const workbench = makeInitialConfiguration();
+    for (const option of findOptionGroup(workbench, 'top').options) {
+      withImage(option, `${option.id}.jpg`);
+    }
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    await wrapper.find(CHOOSER).trigger('click');
+
+    const sheet = wrapper.find(SHEET);
+    expect(sheet.findAll(IMAGE)).toHaveLength(3);
+    expect(sheet.findAll(PLACEHOLDER)).toHaveLength(0);
+  });
+
+  it("shows the chosen option's image in the chooser row", () => {
+    const workbench = makeInitialConfiguration();
+    withImage(findOption(workbench, 'top-laminate'), 'laminate.jpg');
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+
+    const chooser = wrapper.find(CHOOSER);
+    expect(
+      chooser.findComponent({ name: 'GeinsImage' }).props('fileName'),
+    ).toBe('laminate.jpg');
+    expect(chooser.find(PLACEHOLDER).exists()).toBe(false);
+  });
+
+  it('shows the placeholder in the chooser row for a chosen option without an image', () => {
+    const workbench = makeInitialConfiguration();
+    withImage(findOption(workbench, 'top-wood'), 'beech.jpg');
+
+    // Laminate, preselected by the provider, has no image of its own.
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+
+    expect(wrapper.find(CHOOSER).find(PLACEHOLDER).exists()).toBe(true);
+  });
+
+  it('shows the placeholder in the chooser row while nothing is chosen', () => {
+    const workbench = makeInitialConfiguration();
+    withImage(findOption(workbench, 'ral-7016'), 'anthracite.jpg');
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
+
+    expect(wrapper.find(CHOOSER).find(PLACEHOLDER).exists()).toBe(true);
+  });
+
+  it('gives the chosen rows of a multi choice the column too', () => {
+    const workbench = makeInitialConfiguration();
+    withImage(findOption(workbench, 'acc-light'), 'light.jpg');
+    findOption(workbench, 'acc-castors').selected = true;
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'accessories'));
+
+    expect(
+      wrapper.find('[data-option-id="acc-castors"]').find(PLACEHOLDER).exists(),
     ).toBe(true);
+  });
+
+  it('gives a lone inline row the column when it has an image', () => {
+    const group = oneOption('top');
+    withImage(group.options[0]!, 'laminate.jpg');
+
+    const wrapper = mountGroup(group);
+
+    expect(wrapper.findAll(IMAGE)).toHaveLength(1);
+    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(true);
+  });
+
+  it("decides a nested group's column from its own options", () => {
+    const nested = makeNestedGroupConfiguration();
+    withImage(findOption(nested, 'legs-fixed'), 'legs.jpg');
+    findOptionGroup(nested, 'industrial').options.splice(1);
+
+    const wrapper = mountGroup(findOptionGroup(nested, 'legs'));
+
+    const groups = wrapper.findAll('[data-testid="configurator-group"]');
+    expect(groups[0]!.find(CHOOSER).find(IMAGE).exists()).toBe(true);
+    expect(groups[1]!.find(IMAGE).exists()).toBe(false);
   });
 });

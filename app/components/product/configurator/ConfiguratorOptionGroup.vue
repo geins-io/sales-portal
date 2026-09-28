@@ -3,13 +3,14 @@ import type {
   ConfigurationChange,
   ConfigurationOptionGroup,
 } from '#shared/types/configurator';
-import { List, Search } from 'lucide-vue-next';
+import { ChevronRight, Plus, Search } from 'lucide-vue-next';
 import {
   groupHintKey,
   groupSummary,
+  hasImageColumn,
   isSingleSelect,
   matchesOptionQuery,
-  previewOptions,
+  usesChooser,
 } from '~/utils/configurator-form';
 import { Input } from '~/components/ui/input';
 import { RadioGroup } from '~/components/ui/radio-group';
@@ -59,10 +60,14 @@ const summary = computed(() => {
   return t('configurator.summary.none');
 });
 
-// A long group shows a few rows and offers the rest in a panel: a list of
-// every RAL colour pushes everything after it off the page.
-const preview = computed(() => previewOptions(group.options));
-const hasMore = computed(() => preview.value.length < group.options.length);
+// A group with a choice to make is chosen from a panel rather than listed, as
+// the prototype's option layouts: a single choice shows one row for it, a
+// multi choice shows what is chosen and a row that adds more.
+const chooser = computed(() => usesChooser(group.options));
+const imageColumn = computed(() => hasImageColumn(group.options));
+const chosen = computed(() =>
+  group.options.filter((option) => option.selected),
+);
 
 const sheetOpen = ref(false);
 const query = ref('');
@@ -125,19 +130,61 @@ function onSheetPick(value: unknown) {
         <ConfiguratorMessages :messages="group.messages" />
       </template>
 
+      <ConfiguratorOptionChooser
+        v-if="chooser && single"
+        :chosen="chosen[0]"
+        :group-name="group.name"
+        :count="group.options.length"
+        :image-column="imageColumn"
+        :disabled="locked"
+        @open="openSheet"
+      />
+
+      <div v-else-if="chooser" class="space-y-2">
+        <ConfiguratorOptionRow
+          v-for="option in chosen"
+          :key="`${option.id}-${option.instanceId}`"
+          :option="option"
+          :single="false"
+          :quantity-editable="group.quantityEditable"
+          :image-column="imageColumn"
+          :disabled="locked"
+          @change="emit('change', $event)"
+        />
+
+        <button
+          v-if="chosen.length < group.options.length"
+          type="button"
+          data-testid="configurator-group-add"
+          class="text-primary hover:bg-accent/50 hover:text-primary/80 flex w-full items-center justify-between gap-3 rounded-lg border border-dashed p-3 text-left text-sm font-medium transition-colors"
+          @click="openSheet"
+        >
+          <span class="flex items-center gap-2">
+            <Plus class="size-4" />
+            {{
+              chosen.length
+                ? t('configurator.add_more', { name: group.name })
+                : t('configurator.choose_in_group', { name: group.name })
+            }}
+          </span>
+          <ChevronRight class="size-5 shrink-0" />
+        </button>
+      </div>
+
       <RadioGroup
-        v-if="single"
+        v-else-if="single"
         :model-value="selectedId"
         :disabled="locked"
         class="gap-2"
         @update:model-value="onPick"
       >
         <ConfiguratorOptionRow
-          v-for="option in preview"
+          v-for="option in group.options"
           :key="`${option.id}-${option.instanceId}`"
           :option="option"
           single
           :quantity-editable="group.quantityEditable"
+          :image-column="imageColumn"
           :disabled="locked"
           @change="emit('change', $event)"
         />
@@ -145,28 +192,16 @@ function onSheetPick(value: unknown) {
 
       <div v-else class="space-y-2">
         <ConfiguratorOptionRow
-          v-for="option in preview"
+          v-for="option in group.options"
           :key="`${option.id}-${option.instanceId}`"
           :option="option"
           :single="false"
           :quantity-editable="group.quantityEditable"
+          :image-column="imageColumn"
           :disabled="locked"
           @change="emit('change', $event)"
         />
       </div>
-
-      <!-- An action, not a heading: no grey fill and no box, so it is not read
-           as one of the rows above it. -->
-      <button
-        v-if="hasMore"
-        type="button"
-        data-testid="configurator-group-show-all"
-        class="text-primary hover:text-primary/80 flex w-full items-center justify-center gap-1.5 py-2 text-sm font-medium"
-        @click="openSheet"
-      >
-        <List class="size-4" />
-        {{ t('configurator.show_all', { count: group.options.length }) }}
-      </button>
 
       <ConfiguratorOptionGroup
         v-for="nested in group.optionGroups"
@@ -224,6 +259,7 @@ function onSheetPick(value: unknown) {
               :option="option"
               single
               :quantity-editable="group.quantityEditable"
+              :image-column="imageColumn"
               :disabled="locked"
               @change="onSheetChange"
             />
@@ -236,6 +272,7 @@ function onSheetPick(value: unknown) {
               :option="option"
               :single="false"
               :quantity-editable="group.quantityEditable"
+              :image-column="imageColumn"
               :disabled="locked"
               @change="onSheetChange"
             />

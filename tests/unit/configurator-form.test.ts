@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { formatPrice } from '#shared/types/commerce';
 import {
   blockingMessage,
   boundsNarrowed,
@@ -7,13 +8,17 @@ import {
   dateInputValue,
   groupHintKey,
   groupSummary,
+  hasImageColumn,
   isReadOnly,
   isSingleSelect,
   matchesOptionQuery,
   messagesBesides,
-  OPTION_PREVIEW_LIMIT,
+  OPTION_CHOOSER_ABOVE,
+  optionBlockReason,
+  optionImage,
   optionPricePrefix,
-  previewOptions,
+  signedOptionPrice,
+  usesChooser,
   variableControl,
 } from '../../app/utils/configurator-form';
 import {
@@ -255,64 +260,138 @@ describe('groupSummary', () => {
   });
 });
 
-describe('previewOptions', () => {
-  it('leaves a group at the limit in the order the provider sent it', () => {
-    const options = Array.from({ length: OPTION_PREVIEW_LIMIT }, (_, i) => ({
-      id: i,
-      selected: i === OPTION_PREVIEW_LIMIT - 1,
-    }));
-
-    // A group that fits is shown as it arrived: pulling the chosen row to the
-    // front would reorder a list nobody asked to have reordered.
-    expect(previewOptions(options)).toEqual(options);
+describe('usesChooser', () => {
+  it('lists a group of one inline', () => {
+    expect(OPTION_CHOOSER_ABOVE).toBe(1);
+    expect(usesChooser([{}])).toBe(false);
   });
 
-  it('cuts one row past the limit down to it', () => {
-    const options = Array.from(
-      { length: OPTION_PREVIEW_LIMIT + 1 },
-      (_, i) => ({
-        id: i,
-        selected: false,
-      }),
-    );
-
-    expect(previewOptions(options)).toEqual(
-      options.slice(0, OPTION_PREVIEW_LIMIT),
-    );
+  it('offers a group of two from a chooser', () => {
+    expect(usesChooser([{}, {}])).toBe(true);
   });
 
-  it('shows a chosen row once, not twice', () => {
-    const options = Array.from(
-      { length: OPTION_PREVIEW_LIMIT + 1 },
-      (_, i) => ({
-        id: i,
-        selected: i === 0,
-      }),
-    );
-
-    expect(previewOptions(options)).toEqual(
-      options.slice(0, OPTION_PREVIEW_LIMIT),
-    );
-  });
-
-  it('keeps a chosen row on screen wherever it sits in the list', () => {
+  it('offers the twenty-six colours from a chooser', () => {
     const workbench = makeInitialConfiguration();
-    const colours = findOptionGroup(workbench, 'color');
-    const last = colours.options[colours.options.length - 1]!;
-    last.selected = true;
 
-    const preview = previewOptions(colours.options);
+    expect(usesChooser(findOptionGroup(workbench, 'color').options)).toBe(true);
+  });
+});
 
-    expect(preview).toHaveLength(OPTION_PREVIEW_LIMIT);
-    expect(preview[0]).toBe(last);
+describe('optionImage', () => {
+  it("reads the first image of the option's product, as the product card does", () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.product!.productImages = [
+      { fileName: 'beech-front.jpg', isPrimary: false, url: '' },
+      { fileName: 'beech-side.jpg', isPrimary: false, url: '' },
+    ];
+
+    expect(optionImage(option)).toBe('beech-front.jpg');
   });
 
-  it("keeps the provider's order among the rows that are not chosen", () => {
+  it('has none for an option without a product, or a product without images', () => {
     const workbench = makeInitialConfiguration();
-    const colours = findOptionGroup(workbench, 'color');
+    const option = findOption(workbench, 'top-wood');
 
-    expect(previewOptions(colours.options)).toEqual(
-      colours.options.slice(0, OPTION_PREVIEW_LIMIT),
+    expect(optionImage(option)).toBeUndefined();
+    expect(optionImage({ ...option, product: null })).toBeUndefined();
+  });
+
+  it('has none for an image without a file name', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.product!.productImages = [
+      { fileName: '', isPrimary: false, url: '' },
+    ];
+
+    expect(optionImage(option)).toBeUndefined();
+  });
+});
+
+describe('hasImageColumn', () => {
+  it('is false when no option in the group has an image', () => {
+    const workbench = makeInitialConfiguration();
+
+    expect(hasImageColumn(findOptionGroup(workbench, 'top').options)).toBe(
+      false,
+    );
+  });
+
+  it('is true when one option in the group has an image', () => {
+    const workbench = makeInitialConfiguration();
+    const top = findOptionGroup(workbench, 'top');
+    top.options[1]!.product!.productImages = [
+      { fileName: 'beech.jpg', isPrimary: false, url: '' },
+    ];
+
+    expect(hasImageColumn(top.options)).toBe(true);
+  });
+});
+
+describe('optionBlockReason', () => {
+  it('says nothing about a row the buyer may use', () => {
+    const workbench = makeInitialConfiguration();
+
+    expect(
+      optionBlockReason(findOption(workbench, 'top-wood'), false),
+    ).toBeUndefined();
+  });
+
+  it('says nothing while the form is locked: a batch in flight is not a fact about the row', () => {
+    const cabinet = makeCabinetConfiguration();
+
+    expect(
+      optionBlockReason(findOption(cabinet, 'mount-wall'), true),
+    ).toBeUndefined();
+  });
+
+  it('names a read-only row as read only', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.selectionSource = 'locked';
+
+    expect(optionBlockReason(option, false)).toEqual({ kind: 'read_only' });
+  });
+
+  it('names a row the rules refuse as unavailable', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.available = false;
+
+    expect(optionBlockReason(option, false)).toEqual({ kind: 'unavailable' });
+  });
+
+  it("gives a blocked row's blocking message as its reason", () => {
+    const cabinet = makeCabinetConfiguration();
+    const option = findOption(cabinet, 'mount-wall');
+
+    expect(optionBlockReason(option, false)).toEqual({
+      kind: 'message',
+      message: blockingMessage(option.messages),
+    });
+  });
+});
+
+describe('signedOptionPrice', () => {
+  it('signs a surcharge', () => {
+    expect(signedOptionPrice(1400, 'SEK', 'en-US')).toBe(
+      `+${formatPrice(1400, 'SEK', 'en-US')}`,
+    );
+  });
+
+  it('leaves a reduction to the sign the amount carries', () => {
+    expect(signedOptionPrice(-250, 'SEK', 'en-US')).toBe(
+      formatPrice(-250, 'SEK', 'en-US'),
+    );
+  });
+
+  it('shows nothing for a row that adds nothing', () => {
+    expect(signedOptionPrice(0, 'SEK', 'en-US')).toBe('');
+  });
+
+  it('falls back to the default currency when the price names none', () => {
+    expect(signedOptionPrice(150, undefined, 'en-US')).toBe(
+      `+${formatPrice(150, 'SEK', 'en-US')}`,
     );
   });
 });

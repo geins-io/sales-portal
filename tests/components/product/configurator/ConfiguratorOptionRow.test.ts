@@ -11,11 +11,25 @@ import {
 
 function mountRow(
   option: ConfigurationOption,
-  props: { single?: boolean; quantityEditable?: boolean } = {},
+  props: {
+    single?: boolean;
+    quantityEditable?: boolean;
+    imageColumn?: boolean;
+  } = {},
 ) {
   return mountComponent(ConfiguratorOptionRow, {
-    props: { option, single: false, ...props },
+    props: { option, single: false, imageColumn: false, ...props },
   });
+}
+
+const IMAGE = '[data-testid="configurator-option-image"]';
+/** The one line a row lays its parts out on. */
+const LINE = '[data-testid="configurator-option"] > div';
+const PLACEHOLDER = '[data-testid="configurator-option-image-placeholder"]';
+
+function withImage(option: ConfigurationOption, fileName: string) {
+  option.product!.productImages = [{ fileName, isPrimary: false, url: '' }];
+  return option;
 }
 
 describe('ConfiguratorOptionRow', () => {
@@ -42,7 +56,10 @@ describe('ConfiguratorOptionRow', () => {
     expect(price.text().startsWith('+')).toBe(true);
   });
 
-  it('shows a discounted row at the price it arrives with, the regular price struck through and its percentage', () => {
+  // As the prototype's option layouts: the price the row adds, as sent. A
+  // discount is already in it, and the row strikes nothing through and shows
+  // no percentage beside it.
+  it('shows a discounted row at the price it arrives with, and nothing else', () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountRow(findOption(workbench, 'acc-pegboard'));
@@ -50,75 +67,26 @@ describe('ConfiguratorOptionRow', () => {
     // The seed's 900 is already 25 % off 1,200; the row does no arithmetic on it.
     const price = wrapper.find('[data-testid="configurator-option-price"]');
     expect(price.text()).toContain('900');
+    expect(price.text().startsWith('+')).toBe(true);
     expect(price.text()).not.toContain('675');
-    const regular = wrapper.find(
-      '[data-testid="configurator-option-regular-price"]',
-    );
-    expect(regular.text()).toContain('1,200');
-    expect(regular.text().startsWith('+')).toBe(true);
-    expect(regular.classes()).toContain('line-through');
-    expect(
-      wrapper.find('[data-testid="configurator-option-discount"]').text(),
-    ).toBe('−25%');
+    expect(price.text()).not.toContain('1,200');
+    expect(price.text()).not.toContain('%');
+    expect(price.find('.line-through').exists()).toBe(false);
   });
 
-  it('writes the struck price, the selling price and the percentage in that order', () => {
-    const workbench = makeInitialConfiguration();
-
-    const text = mountRow(findOption(workbench, 'acc-pegboard'))
-      .find('[data-testid="configurator-option-price"]')
-      .text();
-
-    expect(text.indexOf('1,200')).toBeGreaterThanOrEqual(0);
-    expect(text.indexOf('1,200')).toBeLessThan(text.indexOf('900'));
-    expect(text.indexOf('900')).toBeLessThan(text.indexOf('−25%'));
-  });
-
-  it('keeps the struck price and the percentage with the price when the price moves under the name', () => {
+  it('shows the same price whether the row stands alone or has a stepper', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'acc-pegboard');
     option.selected = true;
 
-    const wrapper = mountRow(option, { quantityEditable: true });
+    const plain = mountRow(option)
+      .find('[data-testid="configurator-option-price"]')
+      .text();
+    const stepped = mountRow(option, { quantityEditable: true })
+      .find('[data-testid="configurator-option-price"]')
+      .text();
 
-    const price = wrapper.find('[data-testid="configurator-option-price"]');
-    for (const testid of [
-      'configurator-option-regular-price',
-      'configurator-option-discount',
-    ]) {
-      expect(
-        wrapper.find(`[data-testid="${testid}"]`).element.parentElement,
-      ).toBe(price.element);
-    }
-  });
-
-  it('shows no struck price and no percentage on a row without a discount', () => {
-    const workbench = makeInitialConfiguration();
-
-    const wrapper = mountRow(findOption(workbench, 'top-wood'));
-
-    expect(
-      wrapper
-        .find('[data-testid="configurator-option-regular-price"]')
-        .exists(),
-    ).toBe(false);
-    expect(
-      wrapper.find('[data-testid="configurator-option-discount"]').exists(),
-    ).toBe(false);
-  });
-
-  it('strikes nothing through when the regular price is not above the selling price', () => {
-    const workbench = makeInitialConfiguration();
-    const option = findOption(workbench, 'acc-pegboard');
-    option.unitPrice = { ...option.unitPrice, regularPriceExVat: 900 };
-
-    const wrapper = mountRow(option);
-
-    expect(
-      wrapper
-        .find('[data-testid="configurator-option-regular-price"]')
-        .exists(),
-    ).toBe(false);
+    expect(stepped).toBe(plain);
   });
 
   it('shows no price on a row that adds nothing', () => {
@@ -133,14 +101,29 @@ describe('ConfiguratorOptionRow', () => {
     ).toBe(false);
   });
 
-  it('renders no image for a part that has none', () => {
+  // The group decides whether its rows have an image column, so every row of
+  // a group is the same shape: one with an image shows it, one without shows
+  // a placeholder the same size, and a group where no row has one has none.
+  it('renders no image box when the group has no image column', () => {
+    const workbench = makeInitialConfiguration();
+    const option = withImage(findOption(workbench, 'top-wood'), 'beech.jpg');
+
+    const wrapper = mountRow(option, { imageColumn: false });
+
+    expect(wrapper.find(IMAGE).exists()).toBe(false);
+    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(false);
+  });
+
+  it('renders a placeholder for a part without an image in a group with an image column', () => {
     const workbench = makeInitialConfiguration();
 
-    const wrapper = mountRow(findOption(workbench, 'top-wood'));
+    const wrapper = mountRow(findOption(workbench, 'top-wood'), {
+      imageColumn: true,
+    });
 
-    // The parts of a configuration have no catalogue image; a placeholder on
-    // every row is noise, and a file name that resolves to nothing is worse.
-    expect(wrapper.find('img').exists()).toBe(false);
+    expect(wrapper.find(IMAGE).exists()).toBe(true);
+    expect(wrapper.find(PLACEHOLDER).exists()).toBe(true);
+    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(false);
   });
 
   it('disables a row the rules made unavailable and shows the reason', () => {
@@ -309,6 +292,7 @@ describe('ConfiguratorOptionRow', () => {
       props: {
         option: findOption(workbench, 'ind-esd'),
         single: false,
+        imageColumn: false,
         disabled: true,
       },
     });
@@ -376,34 +360,88 @@ describe('ConfiguratorOptionRow', () => {
     ).toBe(true);
   });
 
-  it('gives the right edge to the stepper and moves the price under the name', () => {
+  // As the prototype's option layouts: [indicator][image][name][stepper][price],
+  // the price at the right edge whether or not the row has a stepper.
+  it('puts the stepper left of the price and the price at the right edge', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'acc-power');
     option.selected = true;
 
     const wrapper = mountRow(option, { quantityEditable: true });
 
-    // The stepper is a sibling of the whole content column, not a line inside
-    // it, and the price has left the name's row for the column below it.
-    const row = wrapper.find('[data-testid="configurator-option"] > div');
+    const line = wrapper.find(LINE).element;
     const stepper = wrapper.find(
       '[data-testid="configurator-option-quantity"]',
-    );
+    ).element;
     const price = wrapper.find('[data-testid="configurator-option-price"]');
-    expect(stepper.element.parentElement).toBe(row.element);
-    expect(price.element.parentElement).not.toBe(
-      wrapper.find('p.font-medium').element.parentElement,
-    );
+    expect(price.element.parentElement).toBe(line);
+    expect(line.lastElementChild).toBe(price.element);
+    expect(stepper.parentElement).toBe(line);
+    expect(stepper.nextElementSibling).toBe(price.element);
   });
 
-  it('keeps the price beside the name on a row with no quantity', () => {
+  it('puts the price at the right edge of a row with no quantity', () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountRow(findOption(workbench, 'top-wood'));
 
+    const line = wrapper.find(LINE).element;
     const price = wrapper.find('[data-testid="configurator-option-price"]');
-    const name = wrapper.find('p.font-medium');
-    expect(price.element.parentElement).toBe(name.element.parentElement);
+    expect(line.lastElementChild).toBe(price.element);
+  });
+
+  it('writes the price once, with or without a stepper', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'acc-power');
+    option.selected = true;
+
+    for (const quantityEditable of [false, true]) {
+      expect(
+        mountRow(option, { quantityEditable }).findAll(
+          '[data-testid="configurator-option-price"]',
+        ),
+      ).toHaveLength(1);
+    }
+  });
+
+  // Indicator, image, text, stepper and price sit on one centre line, with
+  // or without a stepper.
+  it('centres the indicator, the image and the text on the row', () => {
+    const workbench = makeInitialConfiguration();
+    const option = withImage(findOption(workbench, 'acc-pegboard'), 'peg.jpg');
+    option.selected = true;
+
+    for (const quantityEditable of [false, true]) {
+      const wrapper = mountRow(option, { quantityEditable, imageColumn: true });
+      const line = wrapper.find(LINE);
+      expect(line.classes()).toContain('items-center');
+      expect(wrapper.find(IMAGE).element.parentElement).toBe(line.element);
+      expect(wrapper.find('.items-start').exists()).toBe(false);
+      expect(wrapper.find('[role="checkbox"]').classes()).not.toContain(
+        'mt-0.5',
+      );
+    }
+  });
+
+  it('keeps the radio of a single choice off any top margin', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountComponent(ConfiguratorOptionRow, {
+      props: {
+        option: findOption(workbench, 'top-wood'),
+        single: true,
+        imageColumn: false,
+      },
+      global: {
+        stubs: {
+          RadioGroupItem: {
+            template: '<button role="radio" v-bind="$attrs" />',
+          },
+        },
+      },
+    });
+
+    expect(wrapper.find('[role="radio"]').classes()).not.toContain('mt-0.5');
   });
 
   it('states nothing on a row that can simply be chosen', () => {
@@ -428,6 +466,7 @@ describe('ConfiguratorOptionRow', () => {
       props: {
         option: findOption(workbench, 'ind-esd'),
         single: false,
+        imageColumn: false,
         disabled: true,
       },
     });
@@ -450,20 +489,25 @@ describe('ConfiguratorOptionRow', () => {
     expect(wrapper.text()).not.toContain('Solid beech top');
   });
 
-  it('renders a row without a product from the option alone, with no image', () => {
+  it('renders a row without a product from the option alone, with a placeholder for the image', () => {
     const workbench = makeInitialConfiguration();
-    const withProduct = findOption(workbench, 'top-wood');
-    withProduct.product!.productImages = [
-      { fileName: 'beech.jpg', isPrimary: false, url: '' },
-    ];
+    const withProduct = withImage(
+      findOption(workbench, 'top-wood'),
+      'beech.jpg',
+    );
     const withoutProduct = { ...withProduct, product: null };
 
-    expect(mountRow(withProduct).find('img').exists()).toBe(true);
+    expect(
+      mountRow(withProduct, { imageColumn: true })
+        .findComponent({ name: 'GeinsImage' })
+        .exists(),
+    ).toBe(true);
 
-    const wrapper = mountRow(withoutProduct);
+    const wrapper = mountRow(withoutProduct, { imageColumn: true });
     expect(wrapper.text()).toContain('Solid beech top');
     expect(wrapper.text()).toContain('KONF-1001-TOP-WOOD');
-    expect(wrapper.find('img').exists()).toBe(false);
+    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(false);
+    expect(wrapper.find(PLACEHOLDER).exists()).toBe(true);
   });
 
   it('renders the first image of the product, as the product card does', () => {
@@ -476,21 +520,29 @@ describe('ConfiguratorOptionRow', () => {
       { fileName: 'beech-side.jpg', isPrimary: false, url: '' },
     ];
 
-    const wrapper = mountRow(option);
+    const wrapper = mountRow(option, { imageColumn: true });
 
     const images = wrapper.findAllComponents({ name: 'GeinsImage' });
     expect(images).toHaveLength(1);
     expect(images[0]!.props('fileName')).toBe('beech-front.jpg');
+    expect(wrapper.find(PLACEHOLDER).exists()).toBe(false);
   });
 
-  it('renders no image for a product without images', () => {
+  it('renders the image on a white box and the placeholder on a grey one, with no border', () => {
     const workbench = makeInitialConfiguration();
-    const option = findOption(workbench, 'top-wood');
-    option.product!.productImages = [];
+    const option = withImage(findOption(workbench, 'top-wood'), 'beech.jpg');
 
-    const wrapper = mountRow(option);
+    const pictured = mountRow(option, { imageColumn: true }).find(IMAGE);
+    const empty = mountRow(findOption(workbench, 'top-steel'), {
+      imageColumn: true,
+    }).find(IMAGE);
 
-    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(false);
+    for (const box of [pictured, empty]) {
+      expect(box.classes()).toContain('size-10');
+      expect(box.classes()).not.toContain('border');
+    }
+    expect(pictured.classes()).toContain('bg-background');
+    expect(empty.classes()).toContain('bg-muted');
   });
 
   it('writes the description under the name, above the article number', () => {

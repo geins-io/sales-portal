@@ -3,7 +3,6 @@ import {
   currencyCode,
   exVatAmount,
   incVatAmount,
-  regularExVatAmount,
   vatAmount,
   vatRatePercent,
 } from '../../../shared/utils/configurator-price';
@@ -81,58 +80,5 @@ describe('vatRatePercent', () => {
 
   it('reads a VAT-free price as zero percent', () => {
     expect(vatRatePercent({ sellingPriceExVat: 100, vat: 0 })).toBe(0);
-  });
-});
-
-describe('regularExVatAmount', () => {
-  it('reads the regular price of a discounted price', () => {
-    expect(
-      regularExVatAmount({
-        sellingPriceExVat: 900,
-        regularPriceExVat: 1200,
-        isDiscounted: true,
-      }),
-    ).toBe(1200);
-  });
-
-  it('has none for a price that is not discounted', () => {
-    expect(
-      regularExVatAmount({
-        sellingPriceExVat: 900,
-        regularPriceExVat: 1200,
-        isDiscounted: false,
-      }),
-    ).toBeNull();
-    expect(
-      regularExVatAmount({ sellingPriceExVat: 900, regularPriceExVat: 1200 }),
-    ).toBeNull();
-  });
-
-  it('has none when the regular price is not above the selling price', () => {
-    // A struck price equal to the one beside it says nothing.
-    expect(
-      regularExVatAmount({
-        sellingPriceExVat: 900,
-        regularPriceExVat: 900,
-        isDiscounted: true,
-      }),
-    ).toBeNull();
-    expect(
-      regularExVatAmount({
-        sellingPriceExVat: 900,
-        regularPriceExVat: 800,
-        isDiscounted: true,
-      }),
-    ).toBeNull();
-  });
-
-  it('has none when either amount is absent', () => {
-    expect(regularExVatAmount(undefined)).toBeNull();
-    expect(
-      regularExVatAmount({ sellingPriceExVat: 900, isDiscounted: true }),
-    ).toBeNull();
-    expect(
-      regularExVatAmount({ regularPriceExVat: 1200, isDiscounted: true }),
-    ).toBeNull();
   });
 });

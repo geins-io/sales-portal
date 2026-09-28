@@ -3,26 +3,20 @@ import type {
   ConfigurationChange,
   ConfigurationOption,
 } from '#shared/types/configurator';
-import { formatPrice } from '#shared/types/commerce';
-import {
-  currencyCode,
-  exVatAmount,
-  regularExVatAmount,
-} from '#shared/utils/configurator-price';
 import { Lock } from 'lucide-vue-next';
 import {
-  blockingMessage,
   isReadOnly,
   messagesBesides,
-  optionPricePrefix,
+  optionBlockReason,
+  optionImage,
 } from '~/utils/configurator-form';
 import { Checkbox } from '~/components/ui/checkbox';
 import { RadioGroupItem } from '~/components/ui/radio-group';
 
 /**
  * One `ConfigurationOption`: the choice, named by the option itself, the
- * catalogue product's image when a product is embedded, and whatever the
- * provider said about it.
+ * catalogue product's image, or a placeholder, when its group has an image
+ * column, and whatever the provider said about it.
  *
  * A single-choice row renders a `RadioGroupItem` and does not emit — the
  * `RadioGroup` in the enclosing group owns the selection and emits for it. A
@@ -38,11 +32,14 @@ const {
   option,
   single,
   quantityEditable = false,
+  imageColumn,
   disabled = false,
 } = defineProps<{
   option: ConfigurationOption;
   single: boolean;
   quantityEditable?: boolean;
+  /** The group's: every row has an image box, or none has. */
+  imageColumn: boolean;
   /** The parent locks every control while a change batch is in flight. */
   disabled?: boolean;
 }>();
@@ -50,32 +47,21 @@ const {
 const emit = defineEmits<{ change: [ConfigurationChange] }>();
 
 const { t } = useI18n();
-const { formatLocale } = useFormatLocale();
-const { showPrice } = usePriceVisibility();
 
 const readOnly = computed(() => isReadOnly(option));
 
-/**
- * A row of a quantity-editable group is laid out as the prototype lays that
- * row out: the stepper owns the right edge, so the price moves under the name.
- * It follows the group's flag, not the row's selection, so nothing moves when
- * a buyer ticks the row.
- */
-const stacked = computed(() => quantityEditable);
 const blocked = computed(() => disabled || readOnly.value || !option.available);
 
-/**
- * Why the row cannot be used. Nothing while the page has the form locked: a
- * batch in flight is not a fact about this row.
- */
+const block = computed(() => optionBlockReason(option, disabled));
 const promoted = computed(() =>
-  blocked.value && !disabled ? blockingMessage(option.messages) : undefined,
+  block.value?.kind === 'message' ? block.value.message : undefined,
 );
 
+/** Why the row cannot be used. */
 const reason = computed(() => {
-  if (!blocked.value || disabled) return undefined;
-  if (promoted.value) return promoted.value.text;
-  return readOnly.value
+  if (!block.value) return undefined;
+  if (block.value.kind === 'message') return block.value.message.text;
+  return block.value.kind === 'read_only'
     ? t('configurator.read_only')
     : t('configurator.unavailable');
 });
@@ -85,31 +71,7 @@ const messages = computed(() =>
   messagesBesides(option.messages, promoted.value),
 );
 
-function signed(net: number): string {
-  const prefix = optionPricePrefix(net);
-  if (prefix === null) return '';
-  return `${prefix}${formatPrice(
-    net,
-    currencyCode(option.unitPrice),
-    formatLocale.value,
-  )}`;
-}
-
-/**
- * What the row adds to the configuration, or nothing when it adds nothing.
- * `unitPrice` arrives already discounted; the percentage beside it is
- * information, never arithmetic.
- */
-const price = computed(() => signed(exVatAmount(option.unitPrice)));
-
-/** The regular price, struck through beside a discounted one, as sent. */
-const regularPrice = computed(() => {
-  const regular = regularExVatAmount(option.unitPrice);
-  return regular === null ? '' : signed(regular);
-});
-
-/** The first image, as the product card: the list fragment selects no `isPrimary`. */
-const image = computed(() => option.product?.productImages?.[0]?.fileName);
+const image = computed(() => optionImage(option));
 
 function change(selected: boolean, quantity: number): ConfigurationChange {
   return {
@@ -154,128 +116,78 @@ function onRow() {
     ]"
     @click="onRow"
   >
-    <div class="flex gap-3" :class="stacked ? 'items-center' : 'items-start'">
-      <div class="flex min-w-0 flex-1 items-start gap-3">
-        <!-- The chosen mark is the one colour the tenant theme does not get to
-             decide: a tenant whose primary is a near-black neutral would mark
-             its choices in grey. Written here rather than in the shared
-             controls, which every other form in the portal uses. -->
-        <RadioGroupItem
-          v-if="single"
-          :value="option.id"
-          :disabled="blocked"
-          :title="reason"
-          class="data-[state=checked]:border-selected [&_svg]:fill-selected mt-0.5"
-          @click.stop
-        />
-        <Checkbox
-          v-else
-          :model-value="option.selected"
-          :disabled="blocked"
-          :title="reason"
-          class="data-[state=checked]:border-selected data-[state=checked]:bg-selected mt-0.5"
-          @click.stop
-          @update:model-value="onToggle"
-        />
+    <!-- One centre line, as the prototype's option layouts: indicator, image,
+         text, stepper, and the price at the right edge. -->
+    <div class="flex items-center gap-3">
+      <!-- The chosen mark is the one colour the tenant theme does not get to
+           decide: a tenant whose primary is a near-black neutral would mark
+           its choices in grey. Written here rather than in the shared
+           controls, which every other form in the portal uses. -->
+      <RadioGroupItem
+        v-if="single"
+        :value="option.id"
+        :disabled="blocked"
+        :title="reason"
+        class="data-[state=checked]:border-selected [&_svg]:fill-selected"
+        @click.stop
+      />
+      <Checkbox
+        v-else
+        :model-value="option.selected"
+        :disabled="blocked"
+        :title="reason"
+        class="data-[state=checked]:border-selected data-[state=checked]:bg-selected"
+        @click.stop
+        @update:model-value="onToggle"
+      />
 
-        <GeinsImage
-          v-if="image"
-          :file-name="image"
-          type="product"
-          :alt="option.name"
-          class="bg-muted size-10 shrink-0 rounded object-contain"
-        />
+      <ConfiguratorOptionImage
+        v-if="imageColumn"
+        :file-name="image"
+        :alt="option.name"
+      />
 
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center justify-between gap-2">
-            <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-              {{ option.name }}
-              <Lock
-                v-if="readOnly"
-                data-testid="configurator-option-lock"
-                class="text-muted-foreground size-3 shrink-0"
-                :aria-label="t('configurator.read_only')"
-              />
-            </p>
-            <!-- The price is written twice on purpose: a row with a quantity
-                 gives its right edge to the stepper and reads its price under
-                 the name instead. -->
-            <p
-              v-if="!stacked && showPrice && price"
-              data-testid="configurator-option-price"
-              class="text-muted-foreground flex shrink-0 items-center gap-1.5 text-sm tabular-nums"
-            >
-              <span
-                v-if="regularPrice"
-                data-testid="configurator-option-regular-price"
-                class="text-xs line-through"
-              >
-                {{ regularPrice }}
-              </span>
-              {{ price }}
-              <span
-                v-if="option.discountPercent > 0"
-                data-testid="configurator-option-discount"
-                class="bg-primary/10 text-primary rounded-full px-1.5 text-[10px] font-medium"
-              >
-                −{{ option.discountPercent }}%
-              </span>
-            </p>
-          </div>
+      <div class="min-w-0 flex-1">
+        <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+          {{ option.name }}
+          <Lock
+            v-if="readOnly"
+            data-testid="configurator-option-lock"
+            class="text-muted-foreground size-3 shrink-0"
+            :aria-label="t('configurator.read_only')"
+          />
+        </p>
 
-          <p
-            v-if="option.description"
-            data-testid="configurator-option-description"
-            class="text-muted-foreground text-xs"
-          >
-            {{ option.description }}
-          </p>
+        <p
+          v-if="option.description"
+          data-testid="configurator-option-description"
+          class="text-muted-foreground text-xs"
+        >
+          {{ option.description }}
+        </p>
 
-          <p v-if="option.articleNumber" class="text-muted-foreground text-xs">
-            {{ option.articleNumber }}
-          </p>
+        <p v-if="option.articleNumber" class="text-muted-foreground text-xs">
+          {{ option.articleNumber }}
+        </p>
 
-          <p
-            v-if="stacked && showPrice && price"
-            data-testid="configurator-option-price"
-            class="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-sm tabular-nums"
-          >
-            <span
-              v-if="regularPrice"
-              data-testid="configurator-option-regular-price"
-              class="text-xs line-through"
-            >
-              {{ regularPrice }}
-            </span>
-            {{ price }}
-            <span
-              v-if="option.discountPercent > 0"
-              data-testid="configurator-option-discount"
-              class="bg-primary/10 text-primary rounded-full px-1.5 text-[10px] font-medium"
-            >
-              −{{ option.discountPercent }}%
-            </span>
-          </p>
+        <!-- A row the rules refuse states why in the colour of a refusal; one
+             the provider owns states it in the colour of a note. -->
+        <p
+          v-if="reason"
+          data-testid="configurator-option-reason"
+          class="text-xs"
+          :class="
+            option.available ? 'text-muted-foreground' : 'text-destructive'
+          "
+        >
+          {{ reason }}
+        </p>
 
-          <!-- A row the rules refuse states why in the colour of a refusal; one
-               the provider owns states it in the colour of a note. -->
-          <p
-            v-if="reason"
-            data-testid="configurator-option-reason"
-            class="text-xs"
-            :class="
-              option.available ? 'text-muted-foreground' : 'text-destructive'
-            "
-          >
-            {{ reason }}
-          </p>
-
-          <ConfiguratorMessages :messages="messages" class="mt-2" />
-        </div>
+        <ConfiguratorMessages :messages="messages" class="mt-2" />
       </div>
 
       <QuantityStepper
-        v-if="stacked && option.selected"
+        v-if="quantityEditable && option.selected"
         data-testid="configurator-option-quantity"
         :model-value="option.quantity"
         :min="option.minQuantity ?? 1"
@@ -286,6 +198,8 @@ function onRow() {
         @click.stop
         @update:model-value="onQuantity"
       />
+
+      <ConfiguratorOptionPrice :option="option" class="shrink-0" />
     </div>
   </div>
 </template>
