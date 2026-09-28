@@ -397,34 +397,31 @@ describe('what makes a document invalid', () => {
   it.each([arbetsbordPro, skapsektionPro, monteringsstationPro])(
     'keeps every variable and group of $productId available, whatever is chosen',
     (seed) => {
-      for (const [selected, atMax] of [
-        [false, false],
-        [false, true],
-        [true, false],
-        [true, true],
-      ]) {
-        const state = createSessionState(1);
-        const sections = seed.buildSections();
-        for (const option of everyOption(sections)) {
-          state.options.set(optionKey(option.id, option.instanceId), {
-            selected,
-            quantity: 1,
-          });
-        }
-        for (const variable of everyVariable(sections)) {
-          if (atMax && variable.valueType === 'number' && variable.max) {
-            state.variables.set(variable.id, variable.max);
+      for (const selected of [false, true]) {
+        for (const atMax of [false, true]) {
+          const state = createSessionState(1);
+          const sections = seed.buildSections();
+          for (const option of everyOption(sections)) {
+            state.options.set(optionKey(option.id, option.instanceId), {
+              selected,
+              quantity: 1,
+            });
           }
+          for (const variable of everyVariable(sections)) {
+            if (atMax && variable.valueType === 'number' && variable.max) {
+              state.variables.set(variable.id, variable.max);
+            }
+          }
+          const config = evaluate(seed, state, {
+            configurationId: 'test',
+            expiresAt: '2030-01-01T00:00:00.000Z',
+          });
+          const taken = [
+            ...everyVariable(config.sections),
+            ...everyGroup(config.sections),
+          ].filter((node) => !node.available);
+          expect(taken.map((node) => node.id)).toEqual([]);
         }
-        const config = evaluate(seed, state, {
-          configurationId: 'test',
-          expiresAt: '2030-01-01T00:00:00.000Z',
-        });
-        const taken = [
-          ...everyVariable(config.sections),
-          ...everyGroup(config.sections),
-        ].filter((node) => !node.available);
-        expect(taken.map((node) => node.id)).toEqual([]);
       }
     },
   );
