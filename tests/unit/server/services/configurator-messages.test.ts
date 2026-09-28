@@ -29,6 +29,10 @@ const WARNING: ConfigurationMessage = {
   severity: 'warning',
   text: 'Check this',
 };
+const INFO: ConfigurationMessage = {
+  severity: 'info',
+  text: 'Good to know',
+};
 
 function variable(
   id: string,
@@ -197,6 +201,15 @@ describe('dropRestatedRequirements', () => {
       ]);
     });
 
+    it('keeps an info message on a required variable with no value', () => {
+      const config = document([
+        section('s', { variables: [variable('v', { messages: [INFO] })] }),
+      ]);
+      expect(onlyVariable(dropRestatedRequirements(config)).messages).toEqual([
+        INFO,
+      ]);
+    });
+
     it('drops only the error when an unmet variable carries both', () => {
       const config = document([
         section('s', {
@@ -239,6 +252,15 @@ describe('dropRestatedRequirements', () => {
       ]);
       expect(onlyGroup(dropRestatedRequirements(config)).messages).toEqual([
         WARNING,
+      ]);
+    });
+
+    it('keeps an info message on a group short of its selections', () => {
+      const config = document([
+        section('s', { optionGroups: [group('g', { messages: [INFO] })] }),
+      ]);
+      expect(onlyGroup(dropRestatedRequirements(config)).messages).toEqual([
+        INFO,
       ]);
     });
 

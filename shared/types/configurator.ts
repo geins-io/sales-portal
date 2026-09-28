@@ -45,9 +45,9 @@ export type ValueSource =
 // ---------------------------------------------------------------------------
 // Messages
 // ---------------------------------------------------------------------------
-/** The provider's `Valid` kind is dropped upstream, so only these two arrive. */
+/** The provider's `Valid` and `UNKNOWN` kinds are dropped upstream. */
 export interface ConfigurationMessage {
-  severity: 'warning' | 'error';
+  severity: 'info' | 'warning' | 'error';
   text: string;
 }
 

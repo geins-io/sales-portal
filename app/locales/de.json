@@ -343,7 +343,8 @@
     "page_note": "Dies ist ein konfigurierbares Produkt. Stellen Sie Ihre Variante unten unter {tab} zusammen — Preis und Gültigkeit werden laufend berechnet.",
     "severity": {
       "error": "Fehler",
-      "warning": "Warnung"
+      "warning": "Warnung",
+      "info": "Hinweis"
     },
     "committed": {
       "heading": "Die Konfiguration ist fertig",

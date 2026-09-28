@@ -623,12 +623,19 @@ describe('mapConfiguration', () => {
       ]);
     });
 
-    it('drops INFO and UNKNOWN, which the document type cannot carry', () => {
+    it('keeps INFO as info', () => {
+      const config = mapConfiguration(
+        wireConfiguration({ messages: [{ severity: 'INFO', text: 'i' }] }),
+      );
+      expect(config.messages).toEqual([{ severity: 'info', text: 'i' }]);
+    });
+
+    it('drops UNKNOWN and any severity it does not know', () => {
       const config = mapConfiguration(
         wireConfiguration({
           messages: [
-            { severity: 'INFO', text: 'i' },
             { severity: 'UNKNOWN', text: 'u' },
+            { severity: 'NOTICE', text: 'n' },
             { severity: 'ERROR', text: 'e' },
           ],
         }),

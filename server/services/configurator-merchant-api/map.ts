@@ -118,7 +118,7 @@ function addressable<W extends { id: string | null; name: string | null }>(
 function messages(list: (WireMessage | null)[] | null): ConfigurationMessage[] {
   return nodes(list, (message) => {
     const severity = camel(message.severity);
-    return severity === 'error' || severity === 'warning'
+    return severity === 'error' || severity === 'warning' || severity === 'info'
       ? { severity, text: message.text ?? '' }
       : undefined;
   });
