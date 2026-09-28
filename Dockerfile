@@ -2,13 +2,17 @@
 # SALES PORTAL - Multi-stage Docker Build
 # =============================================================================
 # Optimized multi-stage build for Nuxt application
-# Base image: Node.js 20 Alpine for minimal footprint
+# Base image: Node.js Alpine for minimal footprint
 # =============================================================================
+
+# The Node major, kept equal to .nvmrc by hand: Docker cannot read that file.
+# A major, never `current` or `latest` — corepack below is gone from Node 25.
+ARG NODE_VERSION=24
 
 # -----------------------------------------------------------------------------
 # Stage 1: Dependencies
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:${NODE_VERSION}-alpine AS deps
 
 WORKDIR /app
 
@@ -24,7 +28,7 @@ RUN pnpm install --frozen-lockfile
 # -----------------------------------------------------------------------------
 # Stage 2: Builder
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:${NODE_VERSION}-alpine AS builder
 
 # Build argument for commit SHA (injected at build time)
 ARG COMMIT_SHA=n/a
@@ -68,12 +72,15 @@ ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
 
 # Build the Nuxt application
 # This creates the .output directory with the production build
-RUN pnpm build
+# The build's live heap sits at V8's default limit, which depends on the
+# machine's memory (measured 2026-09-28: ~2.2 GB on Node 24 against a 2.24 GB
+# default). An explicit limit makes it machine-independent; peak RSS ~4.5 GB.
+RUN NODE_OPTIONS=--max-old-space-size=4096 pnpm build
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Runtime
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:${NODE_VERSION}-alpine AS runner
 
 WORKDIR /app
 

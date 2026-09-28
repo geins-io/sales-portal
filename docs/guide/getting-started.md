@@ -6,7 +6,7 @@ This guide will help you set up the Sales Portal development environment and get
 
 Before you begin, ensure you have the following installed:
 
-- **Node.js 20 or newer** — Required for running the development server
+- **Node.js 24** — the version in `.nvmrc`, which CI and the container image run too
 - **PNPM 9+** — Package manager (recommended to match `pnpm-lock.yaml`)
 - **GitHub CLI (`gh`)** — Optional. Not needed to run, build or test the app. The AI agent
   instructions in `AGENTS.md` use it for pull request and workflow operations, so those
