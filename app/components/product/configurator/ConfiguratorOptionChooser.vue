@@ -67,26 +67,19 @@ const reason = computed(() => {
       :alt="chosen?.name ?? ''"
     />
     <span class="min-w-0 flex-1">
-      <span class="flex items-center justify-between gap-2">
-        <span
-          class="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium"
-        >
-          {{
-            chosen
-              ? chosen.name
-              : t('configurator.choose_in_group', { name: groupName })
-          }}
-          <Lock
-            v-if="readOnly"
-            data-testid="configurator-chooser-lock"
-            class="text-muted-foreground size-3 shrink-0"
-            :aria-label="t('configurator.read_only')"
-          />
-        </span>
-        <ConfiguratorOptionPrice
-          v-if="chosen"
-          :option="chosen"
-          class="shrink-0"
+      <span
+        class="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium"
+      >
+        {{
+          chosen
+            ? chosen.name
+            : t('configurator.choose_in_group', { name: groupName })
+        }}
+        <Lock
+          v-if="readOnly"
+          data-testid="configurator-chooser-lock"
+          class="text-muted-foreground size-3 shrink-0"
+          :aria-label="t('configurator.read_only')"
         />
       </span>
       <span class="text-muted-foreground block text-xs">
@@ -107,6 +100,9 @@ const reason = computed(() => {
         {{ reason }}
       </span>
     </span>
+    <!-- Centred at the right edge like the option rows, not on the name's
+         line as the prototype has it. -->
+    <ConfiguratorOptionPrice v-if="chosen" :option="chosen" class="shrink-0" />
     <ChevronRight class="text-muted-foreground size-5 shrink-0" />
   </button>
 </template>

@@ -23,6 +23,8 @@ function mountRow(
 }
 
 const IMAGE = '[data-testid="configurator-option-image"]';
+/** The one line a row lays its parts out on. */
+const LINE = '[data-testid="configurator-option"] > div';
 const PLACEHOLDER = '[data-testid="configurator-option-image-placeholder"]';
 
 function withImage(option: ConfigurationOption, fileName: string) {
@@ -358,34 +360,88 @@ describe('ConfiguratorOptionRow', () => {
     ).toBe(true);
   });
 
-  it('gives the right edge to the stepper and moves the price under the name', () => {
+  // As the prototype's option layouts: [indicator][image][name][stepper][price],
+  // the price at the right edge whether or not the row has a stepper.
+  it('puts the stepper left of the price and the price at the right edge', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'acc-power');
     option.selected = true;
 
     const wrapper = mountRow(option, { quantityEditable: true });
 
-    // The stepper is a sibling of the whole content column, not a line inside
-    // it, and the price has left the name's row for the column below it.
-    const row = wrapper.find('[data-testid="configurator-option"] > div');
+    const line = wrapper.find(LINE).element;
     const stepper = wrapper.find(
       '[data-testid="configurator-option-quantity"]',
-    );
+    ).element;
     const price = wrapper.find('[data-testid="configurator-option-price"]');
-    expect(stepper.element.parentElement).toBe(row.element);
-    expect(price.element.parentElement).not.toBe(
-      wrapper.find('p.font-medium').element.parentElement,
-    );
+    expect(price.element.parentElement).toBe(line);
+    expect(line.lastElementChild).toBe(price.element);
+    expect(stepper.parentElement).toBe(line);
+    expect(stepper.nextElementSibling).toBe(price.element);
   });
 
-  it('keeps the price beside the name on a row with no quantity', () => {
+  it('puts the price at the right edge of a row with no quantity', () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountRow(findOption(workbench, 'top-wood'));
 
+    const line = wrapper.find(LINE).element;
     const price = wrapper.find('[data-testid="configurator-option-price"]');
-    const name = wrapper.find('p.font-medium');
-    expect(price.element.parentElement).toBe(name.element.parentElement);
+    expect(line.lastElementChild).toBe(price.element);
+  });
+
+  it('writes the price once, with or without a stepper', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'acc-power');
+    option.selected = true;
+
+    for (const quantityEditable of [false, true]) {
+      expect(
+        mountRow(option, { quantityEditable }).findAll(
+          '[data-testid="configurator-option-price"]',
+        ),
+      ).toHaveLength(1);
+    }
+  });
+
+  // Indicator, image, text, stepper and price sit on one centre line, with
+  // or without a stepper.
+  it('centres the indicator, the image and the text on the row', () => {
+    const workbench = makeInitialConfiguration();
+    const option = withImage(findOption(workbench, 'acc-pegboard'), 'peg.jpg');
+    option.selected = true;
+
+    for (const quantityEditable of [false, true]) {
+      const wrapper = mountRow(option, { quantityEditable, imageColumn: true });
+      const line = wrapper.find(LINE);
+      expect(line.classes()).toContain('items-center');
+      expect(wrapper.find(IMAGE).element.parentElement).toBe(line.element);
+      expect(wrapper.find('.items-start').exists()).toBe(false);
+      expect(wrapper.find('[role="checkbox"]').classes()).not.toContain(
+        'mt-0.5',
+      );
+    }
+  });
+
+  it('keeps the radio of a single choice off any top margin', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountComponent(ConfiguratorOptionRow, {
+      props: {
+        option: findOption(workbench, 'top-wood'),
+        single: true,
+        imageColumn: false,
+      },
+      global: {
+        stubs: {
+          RadioGroupItem: {
+            template: '<button role="radio" v-bind="$attrs" />',
+          },
+        },
+      },
+    });
+
+    expect(wrapper.find('[role="radio"]').classes()).not.toContain('mt-0.5');
   });
 
   it('states nothing on a row that can simply be chosen', () => {

@@ -385,6 +385,24 @@ describe('ConfiguratorOptionGroup', () => {
     expect(chooser.attributes('data-selected')).toBe('true');
   });
 
+  // Centred at the right edge like the option rows, not on the name's line as
+  // the prototype has it.
+  it('puts the chosen price on the centre line at the right, before the chevron', () => {
+    const workbench = makeInitialConfiguration();
+    findOption(workbench, 'top-laminate').selected = false;
+    findOption(workbench, 'top-wood').selected = true;
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+
+    const chooser = wrapper.find(CHOOSER).element;
+    const price = wrapper
+      .find(CHOOSER)
+      .find('[data-testid="configurator-option-price"]').element;
+    // On the row's own line, and followed only by the chevron.
+    expect(price.parentElement).toBe(chooser);
+    expect(price.nextElementSibling).toBe(chooser.lastElementChild);
+  });
+
   it('shows no price in the chooser for a chosen row that adds nothing', () => {
     const workbench = makeInitialConfiguration();
     findOption(workbench, 'ral-9005').selected = true;

@@ -50,13 +50,6 @@ const { t } = useI18n();
 
 const readOnly = computed(() => isReadOnly(option));
 
-/**
- * A row of a quantity-editable group is laid out as the prototype lays that
- * row out: the stepper owns the right edge, so the price moves under the name.
- * It follows the group's flag, not the row's selection, so nothing moves when
- * a buyer ticks the row.
- */
-const stacked = computed(() => quantityEditable);
 const blocked = computed(() => disabled || readOnly.value || !option.available);
 
 const block = computed(() => optionBlockReason(option, disabled));
@@ -123,94 +116,78 @@ function onRow() {
     ]"
     @click="onRow"
   >
-    <div class="flex gap-3" :class="stacked ? 'items-center' : 'items-start'">
-      <div class="flex min-w-0 flex-1 items-start gap-3">
-        <!-- The chosen mark is the one colour the tenant theme does not get to
-             decide: a tenant whose primary is a near-black neutral would mark
-             its choices in grey. Written here rather than in the shared
-             controls, which every other form in the portal uses. -->
-        <RadioGroupItem
-          v-if="single"
-          :value="option.id"
-          :disabled="blocked"
-          :title="reason"
-          class="data-[state=checked]:border-selected [&_svg]:fill-selected mt-0.5"
-          @click.stop
-        />
-        <Checkbox
-          v-else
-          :model-value="option.selected"
-          :disabled="blocked"
-          :title="reason"
-          class="data-[state=checked]:border-selected data-[state=checked]:bg-selected mt-0.5"
-          @click.stop
-          @update:model-value="onToggle"
-        />
+    <!-- One centre line, as the prototype's option layouts: indicator, image,
+         text, stepper, and the price at the right edge. -->
+    <div class="flex items-center gap-3">
+      <!-- The chosen mark is the one colour the tenant theme does not get to
+           decide: a tenant whose primary is a near-black neutral would mark
+           its choices in grey. Written here rather than in the shared
+           controls, which every other form in the portal uses. -->
+      <RadioGroupItem
+        v-if="single"
+        :value="option.id"
+        :disabled="blocked"
+        :title="reason"
+        class="data-[state=checked]:border-selected [&_svg]:fill-selected"
+        @click.stop
+      />
+      <Checkbox
+        v-else
+        :model-value="option.selected"
+        :disabled="blocked"
+        :title="reason"
+        class="data-[state=checked]:border-selected data-[state=checked]:bg-selected"
+        @click.stop
+        @update:model-value="onToggle"
+      />
 
-        <ConfiguratorOptionImage
-          v-if="imageColumn"
-          :file-name="image"
-          :alt="option.name"
-        />
+      <ConfiguratorOptionImage
+        v-if="imageColumn"
+        :file-name="image"
+        :alt="option.name"
+      />
 
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center justify-between gap-2">
-            <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-              {{ option.name }}
-              <Lock
-                v-if="readOnly"
-                data-testid="configurator-option-lock"
-                class="text-muted-foreground size-3 shrink-0"
-                :aria-label="t('configurator.read_only')"
-              />
-            </p>
-            <!-- The price is written twice on purpose: a row with a quantity
-                 gives its right edge to the stepper and reads its price under
-                 the name instead. -->
-            <ConfiguratorOptionPrice
-              v-if="!stacked"
-              :option="option"
-              class="shrink-0"
-            />
-          </div>
-
-          <p
-            v-if="option.description"
-            data-testid="configurator-option-description"
-            class="text-muted-foreground text-xs"
-          >
-            {{ option.description }}
-          </p>
-
-          <p v-if="option.articleNumber" class="text-muted-foreground text-xs">
-            {{ option.articleNumber }}
-          </p>
-
-          <ConfiguratorOptionPrice
-            v-if="stacked"
-            :option="option"
-            class="mt-0.5"
+      <div class="min-w-0 flex-1">
+        <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+          {{ option.name }}
+          <Lock
+            v-if="readOnly"
+            data-testid="configurator-option-lock"
+            class="text-muted-foreground size-3 shrink-0"
+            :aria-label="t('configurator.read_only')"
           />
+        </p>
 
-          <!-- A row the rules refuse states why in the colour of a refusal; one
-               the provider owns states it in the colour of a note. -->
-          <p
-            v-if="reason"
-            data-testid="configurator-option-reason"
-            class="text-xs"
-            :class="
-              option.available ? 'text-muted-foreground' : 'text-destructive'
-            "
-          >
-            {{ reason }}
-          </p>
+        <p
+          v-if="option.description"
+          data-testid="configurator-option-description"
+          class="text-muted-foreground text-xs"
+        >
+          {{ option.description }}
+        </p>
 
-          <ConfiguratorMessages :messages="messages" class="mt-2" />
-        </div>
+        <p v-if="option.articleNumber" class="text-muted-foreground text-xs">
+          {{ option.articleNumber }}
+        </p>
+
+        <!-- A row the rules refuse states why in the colour of a refusal; one
+             the provider owns states it in the colour of a note. -->
+        <p
+          v-if="reason"
+          data-testid="configurator-option-reason"
+          class="text-xs"
+          :class="
+            option.available ? 'text-muted-foreground' : 'text-destructive'
+          "
+        >
+          {{ reason }}
+        </p>
+
+        <ConfiguratorMessages :messages="messages" class="mt-2" />
       </div>
 
       <QuantityStepper
-        v-if="stacked && option.selected"
+        v-if="quantityEditable && option.selected"
         data-testid="configurator-option-quantity"
         :model-value="option.quantity"
         :min="option.minQuantity ?? 1"
@@ -221,6 +198,8 @@ function onRow() {
         @click.stop
         @update:model-value="onQuantity"
       />
+
+      <ConfiguratorOptionPrice :option="option" class="shrink-0" />
     </div>
   </div>
 </template>
