@@ -3,8 +3,13 @@ import { createAppError, ErrorCode } from '../../../../server/utils/errors';
 import { logger } from '../../../../server/utils/logger';
 import type { ConfiguratorContext } from '../../../../server/services/configurator';
 import { createMerchantApiConfiguratorBackend } from '../../../../server/services/configurator-merchant-api';
-import { mapConfiguration } from '../../../../server/services/configurator-merchant-api/map';
+import { toWireChange } from '../../../../server/services/configurator-merchant-api/changes';
+import {
+  mapCommittedConfiguration,
+  mapConfiguration,
+} from '../../../../server/services/configurator-merchant-api/map';
 import type {
+  WireCommittedConfiguration,
   WireConfiguration,
   WireOption,
   WireOptionGroup,
@@ -845,6 +850,156 @@ describe('mapConfiguration', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The change batch, as the canary's input type declares it
+// ---------------------------------------------------------------------------
+
+describe('toWireChange', () => {
+  it('sends a variable change with its value as it is', () => {
+    // 1359's "Machine weight (7–20)", a NUMBER.
+    expect(
+      toWireChange({ type: 'variable', variableId: 'MW', value: 12 }),
+    ).toEqual({ type: 'VARIABLE', variableId: 'MW', value: 12 });
+  });
+
+  it.each([
+    ['a string', 'RAL 9005'],
+    ['a boolean', true],
+    ['a date', '2026-10-01'],
+    ['an unset value', null],
+  ])('passes %s through as the CpqValue', (_label, value) => {
+    expect(toWireChange({ type: 'variable', variableId: 'V', value })).toEqual({
+      type: 'VARIABLE',
+      variableId: 'V',
+      value,
+    });
+  });
+
+  it('sends an option change with the selection and the lock in one', () => {
+    // A select and a lock travel in one change (transcript step 6b).
+    expect(
+      toWireChange({
+        type: 'option',
+        optionId: '100004',
+        instanceId: '0',
+        selected: true,
+        quantity: 1,
+        lock: 'lock',
+      }),
+    ).toEqual({
+      type: 'OPTION',
+      optionId: '100004',
+      instanceId: '0',
+      selected: true,
+      quantity: 1,
+      lock: 'LOCK',
+    });
+  });
+
+  it.each([
+    ['none', 'NONE'],
+    ['lock', 'LOCK'],
+    ['unlock', 'UNLOCK'],
+  ] as const)('sends the lock %s as %s', (lock, wire) => {
+    const change = toWireChange({
+      type: 'option',
+      optionId: 'o',
+      instanceId: '1',
+      selected: false,
+      quantity: 0,
+      lock,
+    });
+    expect(change).toMatchObject({ type: 'OPTION', lock: wire });
+  });
+
+  it("sends the configuration's own quantity", () => {
+    expect(toWireChange({ type: 'quantity', quantity: 3 })).toEqual({
+      type: 'QUANTITY',
+      quantity: 3,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The committed configuration, as `CpqCommittedConfigurationType` declares it
+// ---------------------------------------------------------------------------
+
+function wireCommitted(
+  over: Partial<WireCommittedConfiguration> = {},
+): WireCommittedConfiguration {
+  return {
+    committedConfigurationId: 'committed-1',
+    configurationId: 'cfg-1',
+    articleNumber: '001-2',
+    quantity: 1,
+    unitPrice: PRICE,
+    summary: [
+      { label: 'Machine weight (7-20)', value: '12' },
+      { label: 'Adapter', value: 'S50' },
+    ],
+    ...over,
+  };
+}
+
+describe('mapCommittedConfiguration', () => {
+  it('maps the record the commit froze', () => {
+    expect(mapCommittedConfiguration(wireCommitted(), 'cfg-1')).toEqual({
+      committedConfigurationId: 'committed-1',
+      configurationId: 'cfg-1',
+      articleNumber: '001-2',
+      quantity: 1,
+      unitPrice: PRICE,
+      summary: [
+        { label: 'Machine weight (7-20)', value: '12' },
+        { label: 'Adapter', value: 'S50' },
+      ],
+    });
+  });
+
+  it('keeps the summary in the order it was sent', () => {
+    const summary = [
+      { label: 'b', value: '2' },
+      { label: 'a', value: '1' },
+      { label: 'c', value: '3' },
+    ];
+    expect(
+      mapCommittedConfiguration(wireCommitted({ summary }), 'cfg-1').summary,
+    ).toEqual(summary);
+  });
+
+  it('reads a Decimal quantity sent as a string', () => {
+    expect(
+      mapCommittedConfiguration(wireCommitted({ quantity: '2' }), 'cfg-1')
+        .quantity,
+    ).toBe(2);
+  });
+
+  it('fills the nullable fields with their resting values', () => {
+    const committed = mapCommittedConfiguration(
+      wireCommitted({
+        configurationId: null,
+        articleNumber: null,
+        unitPrice: null,
+        summary: [null, { label: null, value: null }],
+      }),
+      'cfg-asked',
+    );
+    expect(committed.configurationId).toBe('cfg-asked');
+    expect(committed.articleNumber).toBe('');
+    expect(committed.unitPrice).toEqual(
+      mapConfiguration(wireConfiguration({ unitPrice: null })).unitPrice,
+    );
+    expect(committed.summary).toEqual([{ label: '', value: '' }]);
+  });
+
+  it('keeps an absent summary as an empty one', () => {
+    expect(
+      mapCommittedConfiguration(wireCommitted({ summary: null }), 'cfg-1')
+        .summary,
+    ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The backend over the wire
 // ---------------------------------------------------------------------------
 
@@ -1006,16 +1161,243 @@ describe('the merchant-api backend', () => {
     });
   });
 
+  describe('applyChanges', () => {
+    it('sends the batch translated, with the channel and the buyer', async () => {
+      const wire = wireConfiguration({ configurationId: 'cfg-7' });
+      fetchMock.mockResolvedValue(
+        answer({ data: { applyConfigurationChanges: wire } }),
+      );
+
+      const config = await backend.applyChanges(
+        'cfg-7',
+        [
+          { type: 'variable', variableId: 'MW', value: 12 },
+          {
+            type: 'option',
+            optionId: '100004',
+            instanceId: '0',
+            selected: true,
+            quantity: 2,
+            lock: 'unlock',
+          },
+          { type: 'quantity', quantity: 4 },
+        ],
+        CTX,
+      );
+
+      const { body, headers } = sentRequest();
+      expect(body.query).toBe(
+        loadQuery('configurator/apply-configuration-changes.graphql'),
+      );
+      expect(body.variables).toEqual({
+        configurationId: 'cfg-7',
+        changes: [
+          { type: 'VARIABLE', variableId: 'MW', value: 12 },
+          {
+            type: 'OPTION',
+            optionId: '100004',
+            instanceId: '0',
+            selected: true,
+            quantity: 2,
+            lock: 'UNLOCK',
+          },
+          { type: 'QUANTITY', quantity: 4 },
+        ],
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(config).toEqual(mapConfiguration(wire));
+    });
+
+    it('answers 502 when the batch returns no document', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { applyConfigurationChanges: null } }),
+      );
+      const failure = await failureOf(() =>
+        backend.applyChanges('cfg-7', [{ type: 'quantity', quantity: 1 }], CTX),
+      );
+      expect(failure.statusCode).toBe(502);
+    });
+
+    it("answers 422 for a batch the provider rejects, keeping the provider's reason in the log", async () => {
+      const reason =
+        'Variable MACHINE_TYPE is read-only: the provider sets its value';
+      fetchMock.mockResolvedValue(
+        answer({
+          data: null,
+          errors: [
+            { message: reason, extensions: { code: 'ConfigurationFailed' } },
+          ],
+        }),
+      );
+
+      const failure = await failureOf(() =>
+        backend.applyChanges(
+          'cfg-7',
+          [{ type: 'variable', variableId: 'MACHINE_TYPE', value: 'X' }],
+          CTX,
+        ),
+      );
+
+      expect(failure.statusCode).toBe(422);
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Client error: The provider rejected the change',
+        expect.anything(),
+      );
+      expect(
+        JSON.stringify({
+          message: failure.message,
+          statusMessage: failure.statusMessage,
+          data: failure.data,
+        }),
+      ).not.toContain(reason);
+      const warned = JSON.stringify(
+        vi.mocked(logger.warn).mock.calls as unknown[],
+      );
+      expect(warned).toContain(reason);
+      expect(warned).toContain('ConfigurationFailed');
+    });
+  });
+
+  describe('renew', () => {
+    it('extends the session and answers the new expiry', async () => {
+      fetchMock.mockResolvedValue(
+        answer({
+          data: {
+            renewConfiguration: { expiresAt: '2026-09-28T12:00:00+00:00' },
+          },
+        }),
+      );
+
+      expect(await backend.renew('cfg-1', CTX)).toEqual({
+        expiresAt: '2026-09-28T12:00:00+00:00',
+      });
+
+      const { body, headers } = sentRequest();
+      expect(body.query).toBe(
+        loadQuery('configurator/renew-configuration.graphql'),
+      );
+      expect(body.variables).toEqual({
+        configurationId: 'cfg-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+    });
+
+    it('answers 502 when the renewal comes back empty', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { renewConfiguration: null } }),
+      );
+      expect(
+        (await failureOf(() => backend.renew('cfg-1', CTX))).statusCode,
+      ).toBe(502);
+    });
+  });
+
+  describe('release', () => {
+    it('deletes the session', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { deleteConfiguration: true } }),
+      );
+
+      await expect(backend.release('cfg-1', CTX)).resolves.toBeUndefined();
+
+      const { body } = sentRequest();
+      expect(body.query).toBe(
+        loadQuery('configurator/delete-configuration.graphql'),
+      );
+      expect(body.variables).toEqual({
+        configurationId: 'cfg-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+    });
+
+    it.each([
+      ['false', false],
+      ['null', null],
+    ])(
+      'answers 502 when the provider says %s, never a silent success',
+      async (_label, deleted) => {
+        fetchMock.mockResolvedValue(
+          answer({ data: { deleteConfiguration: deleted } }),
+        );
+        expect(
+          (await failureOf(() => backend.release('cfg-1', CTX))).statusCode,
+        ).toBe(502);
+      },
+    );
+  });
+
+  describe('commit', () => {
+    it('commits and answers the frozen record', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { commitConfiguration: wireCommitted() } }),
+      );
+
+      const committed = await backend.commit('cfg-1', CTX);
+
+      const { body, headers } = sentRequest();
+      expect(body.query).toBe(
+        loadQuery('configurator/commit-configuration.graphql'),
+      );
+      expect(body.variables).toEqual({
+        configurationId: 'cfg-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(committed).toEqual(
+        mapCommittedConfiguration(wireCommitted(), 'cfg-1'),
+      );
+    });
+
+    it('answers 502 when the commit comes back empty', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { commitConfiguration: null } }),
+      );
+      expect(
+        (await failureOf(() => backend.commit('cfg-1', CTX))).statusCode,
+      ).toBe(502);
+    });
+
+    it('answers 410 for a second commit on the same session', async () => {
+      fetchMock.mockResolvedValue(graphqlError('ConfigurationGone'));
+      expect(
+        (await failureOf(() => backend.commit('cfg-1', CTX))).statusCode,
+      ).toBe(410);
+    });
+  });
+
   describe('failures', () => {
     const calls: [string, () => Promise<unknown>][] = [
       ['create', () => backend.create({ productId: '1359', quantity: 1 }, CTX)],
       ['get', () => backend.get('cfg-1', CTX)],
+      [
+        'applyChanges',
+        () =>
+          backend.applyChanges(
+            'cfg-1',
+            [{ type: 'quantity', quantity: 1 }],
+            CTX,
+          ),
+      ],
+      ['renew', () => backend.renew('cfg-1', CTX)],
+      ['release', () => backend.release('cfg-1', CTX)],
+      ['commit', () => backend.commit('cfg-1', CTX)],
     ];
 
     it.each([
       ['ConfigurationNotFound', 404],
       ['ConfigurationGone', 410],
       ['MissingCustomerNumber', 403],
+      ['ConfigurationFailed', 422],
       ['SomethingElse', 502],
     ])('maps the error code %s to %i', async (code, status) => {
       for (const [name, call] of calls) {
@@ -1023,6 +1405,22 @@ describe('the merchant-api backend', () => {
         expect((await failureOf(call)).statusCode, name).toBe(status);
       }
     });
+
+    it.each([
+      'ConfigurationNotFound',
+      'ConfigurationGone',
+      'MissingCustomerNumber',
+    ])(
+      'logs nothing for %s, which is an answer rather than a refusal',
+      async (code) => {
+        fetchMock.mockResolvedValue(graphqlError(code));
+        await failureOf(calls[1]![1]);
+        const lines = vi.mocked(logger.warn).mock.calls.map(([line]) => line);
+        expect(lines.some((line) => line.startsWith('[configurator]'))).toBe(
+          false,
+        );
+      },
+    );
 
     it('finds a known code behind an unknown one', async () => {
       fetchMock.mockResolvedValue(
@@ -1147,18 +1545,6 @@ describe('the merchant-api backend', () => {
       expect(sentRequest().init.signal).toBeInstanceOf(AbortSignal);
     });
   });
-
-  describe('the verbs that land later', () => {
-    it.each([
-      ['applyChanges', () => backend.applyChanges('c1', [], CTX)],
-      ['renew', () => backend.renew('c1', CTX)],
-      ['release', () => backend.release('c1', CTX)],
-      ['commit', () => backend.commit('c1', CTX)],
-    ])('%s answers 501 without calling out', async (_name, call) => {
-      expect((await failureOf(call)).statusCode).toBe(501);
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1177,6 +1563,10 @@ describe('the configuration queries', () => {
   it.each([
     ['configurator/create-configuration.graphql', 'createConfiguration('],
     ['configurator/get-configuration.graphql', 'getConfiguration('],
+    [
+      'configurator/apply-configuration-changes.graphql',
+      'applyConfigurationChanges(',
+    ],
   ])('%s selects the document to the agreed depth', (path, operation) => {
     const query = loadQuery(path);
 
@@ -1198,6 +1588,47 @@ describe('the configuration queries', () => {
     ]) {
       expect(query, fragment).toContain(`fragment ${fragment}`);
     }
+  });
+
+  it.each([
+    ['configurator/renew-configuration.graphql', 'renewConfiguration('],
+    ['configurator/delete-configuration.graphql', 'deleteConfiguration('],
+    ['configurator/commit-configuration.graphql', 'commitConfiguration('],
+  ])('%s sends the session and the channel', (path, operation) => {
+    const query = loadQuery(path);
+    expect(query).toContain(operation);
+    for (const variable of [
+      '$configurationId: String!',
+      '$channelId: String',
+      '$languageId: String',
+      '$marketId: String',
+    ]) {
+      expect(query, variable).toContain(variable);
+    }
+  });
+
+  it('selects every field of the committed record', () => {
+    const query = loadQuery('configurator/commit-configuration.graphql');
+    for (const field of [
+      'committedConfigurationId',
+      'configurationId',
+      'articleNumber',
+      'quantity',
+      'unitPrice',
+      'summary',
+      'label',
+      'value',
+    ]) {
+      expect(query, field).toContain(field);
+    }
+    expect(query).toContain('fragment Price on PriceType');
+  });
+
+  it('declares the change list as the schema does', () => {
+    // A variable typed looser than the argument fails GraphQL validation
+    // (VARIABLES_IN_ALLOWED_POSITION) before the provider sees the batch.
+    const query = loadQuery('configurator/apply-configuration-changes.graphql');
+    expect(query).toContain('$changes: [CpqConfigurationChangeInputType!]!');
   });
 
   it('creates by product id, not by article number', () => {

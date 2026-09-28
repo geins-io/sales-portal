@@ -330,6 +330,7 @@
     "commit": "Viimeistele kokoonpano",
     "starting": "Aloitetaan kokoonpanoa…",
     "failed": "Jokin meni vikaan. Lataa sivu uudelleen ja yritä uudestaan.",
+    "sign_in_required": "Kirjaudu sisään yritystilillä konfiguroidaksesi tuotteen.",
     "configure_product": "Määritä tuote",
     "product_configuration": "Tuotemääritys",
     "reset": "Palauta",

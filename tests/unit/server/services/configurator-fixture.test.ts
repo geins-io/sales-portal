@@ -904,7 +904,7 @@ describe('commit', () => {
 
     expect(committed.committedConfigurationId).toBeTruthy();
     expect(committed.configurationId).toBe(config.configurationId);
-    expect(committed.productId).toBe(ARBETSBORD_PRO_ID);
+    expect(committed.articleNumber).toBe(ARBETSBORD_PRO_ID);
     expect(committed.quantity).toBe(2);
     expect(committed.unitPrice).toEqual(config.unitPrice);
   });

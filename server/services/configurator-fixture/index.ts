@@ -145,7 +145,7 @@ export function createFixtureConfiguratorBackend({
       const record: CommittedConfiguration = {
         committedConfigurationId: randomUUID(),
         configurationId: id,
-        productId: config.articleNumber,
+        articleNumber: config.articleNumber,
         quantity: config.quantity,
         // Frozen: the session departs with this call, so nothing can move the
         // price under a cart line that references the record.

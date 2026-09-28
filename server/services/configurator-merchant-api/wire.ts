@@ -108,3 +108,32 @@ export interface WireConfiguration {
   messages: WireList<WireMessage>;
   sections: WireList<WireSection>;
 }
+
+/** `CpqConfigurationChangeInputType`: one input type for every kind of change. */
+export type WireChange =
+  | { type: 'VARIABLE'; variableId: string; value: WireValue }
+  | {
+      type: 'OPTION';
+      optionId: string;
+      instanceId: string;
+      selected: boolean;
+      quantity: number;
+      lock: 'NONE' | 'LOCK' | 'UNLOCK';
+    }
+  | { type: 'QUANTITY'; quantity: number };
+
+/** `CpqCommittedConfigurationLineType`: one row of the frozen summary. */
+export interface WireSummaryLine {
+  label: string | null;
+  value: string | null;
+}
+
+/** `CpqCommittedConfigurationType`, as far as the commit mutation selects it. */
+export interface WireCommittedConfiguration {
+  committedConfigurationId: string;
+  configurationId: string | null;
+  articleNumber: string | null;
+  quantity: WireDecimal;
+  unitPrice: PriceType | null;
+  summary: WireList<WireSummaryLine>;
+}

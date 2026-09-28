@@ -330,6 +330,7 @@
     "commit": "Færdiggør konfigurationen",
     "starting": "Starter konfigurationen…",
     "failed": "Noget gik galt. Genindlæs siden, og prøv igen.",
+    "sign_in_required": "Log ind med en virksomhedskonto for at konfigurere produktet.",
     "configure_product": "Konfigurer produkt",
     "product_configuration": "Produktkonfiguration",
     "reset": "Nulstil",

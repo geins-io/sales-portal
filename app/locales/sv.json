@@ -330,6 +330,7 @@
     "commit": "Slutför konfigurationen",
     "starting": "Startar konfigurationen…",
     "failed": "Något gick fel. Ladda om sidan och försök igen.",
+    "sign_in_required": "Logga in med ett företagskonto för att konfigurera produkten.",
     "configure_product": "Konfigurera produkt",
     "product_configuration": "Produktkonfiguration",
     "reset": "Återställ",

@@ -1,0 +1,13 @@
+mutation deleteConfiguration(
+  $configurationId: String!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  deleteConfiguration(
+    configurationId: $configurationId
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  )
+}

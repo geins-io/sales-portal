@@ -200,6 +200,69 @@ describe('ConfiguratorVariableField', () => {
   });
 
   // ---------------------------------------------------------------------
+  // A number the provider has not set (1359's required "Machine weight")
+  // ---------------------------------------------------------------------
+  function unsetNumber(): ConfigurationVariable {
+    return {
+      ...findVariable(makeInitialConfiguration(), 'width'),
+      value: null,
+    };
+  }
+
+  it('renders an unset number as an empty field, not as 0', () => {
+    const wrapper = mountField(unsetNumber());
+
+    const input = wrapper.find('input');
+    expect(input.element.value).toBe('');
+    expect(input.attributes('aria-valuenow')).toBeUndefined();
+  });
+
+  it('emits a value typed into an unset number', async () => {
+    const wrapper = mountField(unsetNumber());
+    const input = wrapper.find('input');
+    await input.setValue('1500');
+    await input.trigger('keydown.enter');
+
+    expect(wrapper.emitted('change')?.[0]?.[0]).toEqual({
+      type: 'variable',
+      variableId: 'width',
+      value: 1500,
+    });
+  });
+
+  it('shows the document again after a batch that failed and left it unchanged', async () => {
+    const wrapper = mountComponent(ConfiguratorVariableField, {
+      props: { variable: unsetNumber(), disabled: false },
+    });
+    const input = wrapper.find('input');
+    await input.setValue('1500');
+    await input.trigger('keydown.enter');
+    expect(wrapper.emitted('change')).toHaveLength(1);
+
+    // The page locks every field while the batch is in flight. It fails, so
+    // the same document stays on screen and no value watch can fire.
+    await wrapper.setProps({ disabled: true });
+    await wrapper.setProps({ disabled: false });
+
+    expect(wrapper.find('input').element.value).toBe('');
+  });
+
+  it('shows the document again after a failed text change too', async () => {
+    const variable = findVariable(makeCabinetConfiguration(), 'pallet-code');
+    const wrapper = mountComponent(ConfiguratorVariableField, {
+      props: { variable, disabled: false },
+    });
+    const input = wrapper.find('input');
+    await input.setValue('PAL-120');
+    await input.trigger('blur');
+
+    await wrapper.setProps({ disabled: true });
+    await wrapper.setProps({ disabled: false });
+
+    expect(wrapper.find('input').element.value).toBe('PAL-80');
+  });
+
+  // ---------------------------------------------------------------------
   // The range a rule narrowed
   // ---------------------------------------------------------------------
   it('says nothing about a range that is the one it started with', () => {

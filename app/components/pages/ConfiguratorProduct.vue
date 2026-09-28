@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import {
   canCommit,
   configuratorStage,
+  failureKey,
   headerError,
   type ConfiguratorAction,
 } from '~/utils/configurator-page';
@@ -547,7 +548,7 @@ async function onRestart(): Promise<void> {
                     data-testid="configurator-error"
                   >
                     <AlertCircle class="mt-0.5 size-4 shrink-0" />
-                    {{ t('configurator.failed') }}
+                    {{ t(failureKey(error)) }}
                   </p>
 
                   <ConfiguratorCommitted
@@ -562,7 +563,7 @@ async function onRestart(): Promise<void> {
                       data-testid="configurator-form-error"
                     >
                       <AlertCircle class="mt-0.5 size-4 shrink-0" />
-                      {{ t('configurator.failed') }}
+                      {{ t(failureKey(ownError)) }}
                     </p>
 
                     <!-- Above the header and outside the remount: the trail

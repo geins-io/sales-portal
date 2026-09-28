@@ -83,3 +83,16 @@ export function headerError(
 ): ConfiguratorSessionError | null {
   return lastAction === 'renew' ? error : null;
 }
+
+/**
+ * The copy for a failure the page renders itself. A 403 is the provider's
+ * `MissingCustomerNumber`: the buyer is signed out, or their company has no
+ * customer number, and either way a company account is what fixes it.
+ */
+export function failureKey(
+  error: ConfiguratorSessionError | null,
+): 'configurator.sign_in_required' | 'configurator.failed' {
+  return error?.status === 403
+    ? 'configurator.sign_in_required'
+    : 'configurator.failed';
+}

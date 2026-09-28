@@ -1,0 +1,25 @@
+mutation commitConfiguration(
+  $configurationId: String!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  commitConfiguration(
+    configurationId: $configurationId
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    committedConfigurationId
+    configurationId
+    articleNumber
+    quantity
+    unitPrice {
+      ...Price
+    }
+    summary {
+      label
+      value
+    }
+  }
+}
