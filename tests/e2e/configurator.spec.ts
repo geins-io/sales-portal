@@ -37,9 +37,9 @@ const COLOUR_GROUP_NAME = 'Colour';
 const COLOUR_SECTION = 'finish';
 
 /**
- * The fourth of the five rows the colour group previews, and the first that
- * costs anything: the three before it are free, so choosing one of those would
- * leave the price assertion comparing a number to itself.
+ * The first colour in the seed's list that costs anything: the three before it
+ * are free, so choosing one of those would leave the price assertion comparing
+ * a number to itself.
  */
 const PRICED_COLOUR = 'ral-7016';
 const PRICED_COLOUR_NET = 150;
@@ -128,11 +128,23 @@ async function openSection(page: Page, sectionId: string): Promise<void> {
 }
 
 /** The colour group as it renders in the form, never as the full-list sheet
- * renders it: the sheet repeats the same `data-option-id` values. */
+ * renders it: the sheet repeats the same `data-option-id` values. Twenty-six
+ * colours are chosen from the sheet, so the form holds one chooser row, which
+ * carries the chosen colour's id. */
 function colourGroup(page: Page) {
   return page.locator(
     `[data-testid="configurator-group"][data-group-id="${COLOUR_GROUP}"]`,
   );
+}
+
+/** The colour group's full list, opened from its chooser row. */
+async function openColourSheet(page: Page) {
+  await colourGroup(page).getByTestId('configurator-group-chooser').click();
+  const sheet = page.getByTestId('configurator-group-sheet');
+  // In place, not only visible: the sheet slides in, and a forced click skips
+  // the wait for a row to stop moving.
+  await expect(sheet).toBeInViewport({ ratio: 1 });
+  return sheet;
 }
 
 function changeResponse(page: Page) {
@@ -165,7 +177,7 @@ test.describe('Configurator', () => {
     await openSection(page, COLOUR_SECTION);
 
     const changed = changeResponse(page);
-    await colourGroup(page)
+    await (await openColourSheet(page))
       .locator(`[data-option-id="${PRICED_COLOUR}"]`)
       .click();
     await changed;
@@ -208,9 +220,13 @@ test.describe('Configurator', () => {
     outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
 
     // The fixture answers in milliseconds, so the locked form is not
-    // observable without holding the response.
+    // observable without holding the response. Held until the second click
+    // is made rather than for a fixed time: reopening the sheet takes longer
+    // than a second and a half on the mobile project.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
     await page.route('**/api/configurations/*/changes', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await held;
       await route.continue();
     });
 
@@ -228,17 +244,20 @@ test.describe('Configurator', () => {
     await openSection(page, COLOUR_SECTION);
 
     const changed = changeResponse(page);
-    await colourGroup(page)
+    await (await openColourSheet(page))
       .locator(`[data-option-id="${PRICED_COLOUR}"]`)
       .click();
     await expect(page.getByTestId('configurator-panel-busy')).toBeVisible();
 
-    // `force` because the row is disabled while the batch is in flight, and
-    // Playwright would otherwise wait for it to come back rather than click.
-    await colourGroup(page)
+    // The sheet closed behind the first choice and opens again while the batch
+    // is in flight. `force` because the row is disabled until it comes back,
+    // and Playwright would otherwise wait for it rather than click.
+    const sheet = await openColourSheet(page);
+    await sheet
       .locator(`[data-option-id="${OTHER_COLOUR}"]`)
       .click({ force: true });
 
+    release();
     await changed;
     await expect(page.getByTestId('configurator-panel-busy')).toBeHidden();
 
@@ -250,7 +269,7 @@ test.describe('Configurator', () => {
       colourGroup(page).locator(`[data-option-id="${PRICED_COLOUR}"]`),
     ).toHaveAttribute('data-selected', 'true');
     await expect(
-      colourGroup(page).locator(`[data-option-id="${OTHER_COLOUR}"]`),
+      sheet.locator(`[data-option-id="${OTHER_COLOUR}"]`),
     ).toHaveAttribute('data-selected', 'false');
   });
 });
