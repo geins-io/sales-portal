@@ -259,13 +259,13 @@ describe('groupSummary', () => {
 });
 
 describe('usesChooser', () => {
-  it('lists a group of three inline', () => {
-    expect(OPTION_CHOOSER_ABOVE).toBe(3);
-    expect(usesChooser([{}, {}, {}])).toBe(false);
+  it('lists a group of one inline', () => {
+    expect(OPTION_CHOOSER_ABOVE).toBe(1);
+    expect(usesChooser([{}])).toBe(false);
   });
 
-  it('offers a group of four from a chooser', () => {
-    expect(usesChooser([{}, {}, {}, {}])).toBe(true);
+  it('offers a group of two from a chooser', () => {
+    expect(usesChooser([{}, {}])).toBe(true);
   });
 
   it('offers the twenty-six colours from a chooser', () => {

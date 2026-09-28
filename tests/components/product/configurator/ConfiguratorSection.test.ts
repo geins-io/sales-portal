@@ -3,6 +3,7 @@ import { mountComponent } from '../../../utils/component';
 import ConfiguratorSection from '../../../../app/components/product/configurator/ConfiguratorSection.vue';
 import type { ConfigurationSection } from '#shared/types/configurator';
 import {
+  findOption,
   makeCabinetConfiguration,
   makeInitialConfiguration,
 } from '../../../fixtures/configurator';
@@ -150,20 +151,27 @@ describe('ConfiguratorSection', () => {
 
     const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));
 
-    // Four variables, two groups, and a row per option of those two.
+    // Four variables and two groups. Both groups hold more than one option,
+    // so each is chosen from its list: the single choice by its chooser row,
+    // the multi choice, with nothing chosen yet, by its add row.
     expect(
       wrapper.findAll('[data-testid="configurator-variable"]'),
     ).toHaveLength(4);
     expect(wrapper.findAll('[data-testid="configurator-group"]')).toHaveLength(
       2,
     );
-    expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
-      5,
-    );
+    expect(
+      wrapper.findAll('[data-testid="configurator-group-chooser"]'),
+    ).toHaveLength(1);
+    expect(
+      wrapper.findAll('[data-testid="configurator-group-add"]'),
+    ).toHaveLength(1);
   });
 
   it('passes a change from a group up untouched', async () => {
     const workbench = makeInitialConfiguration();
+    // A chosen multi row stays on the page, where a click unticks it.
+    findOption(workbench, 'ind-esd').selected = true;
 
     const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));
     await wrapper
@@ -173,7 +181,7 @@ describe('ConfiguratorSection', () => {
     expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
       type: 'option',
       optionId: 'ind-esd',
-      selected: true,
+      selected: false,
     });
   });
 });

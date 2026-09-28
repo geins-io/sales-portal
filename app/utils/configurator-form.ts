@@ -93,8 +93,12 @@ export function groupSummary(
   return { kind: 'many', count: selected.length };
 }
 
-/** Above this many rows a group is chosen from its full list, not inline. */
-export const OPTION_CHOOSER_ABOVE = 3;
+/**
+ * Above this many rows a group is chosen from its full list, not inline: a
+ * group with a choice to make is chosen from a list, and only a lone row is
+ * shown as it is.
+ */
+export const OPTION_CHOOSER_ABOVE = 1;
 
 export function usesChooser(options: unknown[]): boolean {
   return options.length > OPTION_CHOOSER_ABOVE;

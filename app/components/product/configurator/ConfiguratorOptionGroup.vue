@@ -59,9 +59,9 @@ const summary = computed(() => {
   return t('configurator.summary.none');
 });
 
-// A long group is chosen from a panel rather than listed: a list of every RAL
-// colour pushes everything after it off the page. A single choice shows one
-// row for it; a multi choice shows what is chosen and a row that adds more.
+// A group with a choice to make is chosen from a panel rather than listed, as
+// the prototype's option layouts: a single choice shows one row for it, a
+// multi choice shows what is chosen and a row that adds more.
 const chooser = computed(() => usesChooser(group.options));
 const chosen = computed(() =>
   group.options.filter((option) => option.selected),

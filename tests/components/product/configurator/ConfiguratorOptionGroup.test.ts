@@ -36,30 +36,29 @@ const CHOOSER = '[data-testid="configurator-group-chooser"]';
 const ADD = '[data-testid="configurator-group-add"]';
 const SHEET = '[data-testid="configurator-group-sheet"]';
 
-/** The table top group with a fourth row, one past the inline limit. */
-function fourTops(): ConfigurationOptionGroup {
-  const top = findOptionGroup(makeInitialConfiguration(), 'top');
-  top.options.push({ ...top.options[2]!, id: 'top-glass', selected: false });
-  return top;
+/**
+ * A seeded group cut down to its first option: the only shape still listed
+ * inline, since every group of two or more is chosen from its list.
+ */
+function oneOption(groupId: string): ConfigurationOptionGroup {
+  const group = findOptionGroup(makeInitialConfiguration(), groupId);
+  group.options = group.options.slice(0, 1);
+  return group;
 }
 
 describe('ConfiguratorOptionGroup', () => {
-  it('renders a single-choice group as a radio group', () => {
-    const workbench = makeInitialConfiguration();
-
-    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+  it('renders a single-choice group of one as a radio group', () => {
+    const wrapper = mountGroup(oneOption('top'));
 
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(true);
-    expect(wrapper.findAll('[role="radio"]')).toHaveLength(3);
+    expect(wrapper.findAll('[role="radio"]')).toHaveLength(1);
   });
 
-  it('renders a multi-choice group as checkboxes', () => {
-    const workbench = makeInitialConfiguration();
-
-    const wrapper = mountGroup(findOptionGroup(workbench, 'industrial'));
+  it('renders a multi-choice group of one as a checkbox', () => {
+    const wrapper = mountGroup(oneOption('industrial'));
 
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false);
-    expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(2);
+    expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(1);
     expect(wrapper.text()).toContain('configurator.choose_many');
   });
 
@@ -131,8 +130,9 @@ describe('ConfiguratorOptionGroup', () => {
     const top = findOptionGroup(workbench, 'top');
 
     const wrapper = mountGroup(top);
+    await wrapper.find(CHOOSER).trigger('click');
     await wrapper
-      .find('[data-option-id="top-steel"] [role="radio"]')
+      .find(`${SHEET} [data-option-id="top-steel"] [role="radio"]`)
       .trigger('click');
 
     expect(wrapper.emitted('change')).toHaveLength(1);
@@ -146,12 +146,18 @@ describe('ConfiguratorOptionGroup', () => {
     });
   });
 
-  it('checks the row the document says is selected', () => {
+  it('checks the row the document says is selected', async () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    expect(wrapper.find(CHOOSER).attributes('data-option-id')).toBe(
+      'top-laminate',
+    );
+    await wrapper.find(CHOOSER).trigger('click');
 
-    const checked = wrapper.findAll('[role="radio"][aria-checked="true"]');
+    const checked = wrapper.findAll(
+      `${SHEET} [role="radio"][aria-checked="true"]`,
+    );
     expect(checked).toHaveLength(1);
     expect(
       checked[0]?.element
@@ -188,8 +194,11 @@ describe('ConfiguratorOptionGroup', () => {
     const nested = makeNestedGroupConfiguration();
 
     const wrapper = mountGroup(findOptionGroup(nested, 'legs'));
+    await wrapper.find(`[data-group-id="industrial"] ${ADD}`).trigger('click');
     await wrapper
-      .find('[data-option-id="ind-heavy"] [role="checkbox"]')
+      .find(
+        `[data-group-id="industrial"] ${SHEET} [data-option-id="ind-heavy"] [role="checkbox"]`,
+      )
       .trigger('click');
 
     expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
@@ -215,8 +224,10 @@ describe('ConfiguratorOptionGroup', () => {
 
   it('keeps the rows mounted while the group is folded', async () => {
     const workbench = makeInitialConfiguration();
+    const accessories = findOptionGroup(workbench, 'accessories');
+    findOption(workbench, 'acc-light').selected = true;
 
-    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    const wrapper = mountGroup(accessories);
     await wrapper
       .find('[data-testid="configurator-group-header"]')
       .trigger('click');
@@ -224,8 +235,9 @@ describe('ConfiguratorOptionGroup', () => {
     // Hidden, not dropped: an unsent draft and the panel's state belong to the
     // rows, and folding a group is not a reason to lose them.
     expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
-      3,
+      1,
     );
+    expect(wrapper.find(ADD).exists()).toBe(true);
   });
 
   it('names the one chosen row while folded, and nothing while open', async () => {
@@ -287,20 +299,31 @@ describe('ConfiguratorOptionGroup', () => {
   // ---------------------------------------------------------------------
   // The chooser: a group of more than three is chosen from a list
   // ---------------------------------------------------------------------
-  it('lists a group of three inline, with no chooser', () => {
-    const workbench = makeInitialConfiguration();
-
-    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+  it('lists a group of one inline, with no chooser', () => {
+    const wrapper = mountGroup(oneOption('top'));
 
     expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
-      3,
+      1,
     );
     expect(wrapper.find(CHOOSER).exists()).toBe(false);
     expect(wrapper.find(ADD).exists()).toBe(false);
   });
 
-  it('offers a single choice of four from one row instead of the rows', () => {
-    const wrapper = mountGroup(fourTops());
+  it('offers a multi choice of two from an add row', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'industrial'));
+
+    expect(wrapper.find(ADD).exists()).toBe(true);
+    expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
+      0,
+    );
+  });
+
+  it('offers a single choice of three from one row instead of the rows', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
 
     expect(wrapper.find(CHOOSER).exists()).toBe(true);
     expect(wrapper.findAll('[data-testid="configurator-option"]')).toHaveLength(
@@ -489,10 +512,10 @@ describe('ConfiguratorOptionGroup', () => {
     ).toBe(true);
   });
 
-  it('renders the nested groups beside a chooser', () => {
+  it('renders the nested groups beside a chooser, each deciding for its own rows', () => {
     const nested = makeNestedGroupConfiguration();
     const legs = findOptionGroup(nested, 'legs');
-    legs.options.push({ ...legs.options[2]!, id: 'legs-castor' });
+    findOptionGroup(nested, 'industrial').options.splice(1);
 
     const wrapper = mountGroup(legs);
 
@@ -502,10 +525,10 @@ describe('ConfiguratorOptionGroup', () => {
       'legs',
       'industrial',
     ]);
-    // The nested group has two rows of its own and lists them inline.
+    // Cut down to one row, the nested group lists it inline.
     expect(
       groups[1]!.findAll('[data-testid="configurator-option"]'),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
   });
 
   it('opens the panel on every row of the group from the chooser', async () => {
