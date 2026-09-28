@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { formatPrice } from '#shared/types/commerce';
 import {
   blockingMessage,
   boundsNarrowed,
@@ -11,9 +12,11 @@ import {
   isSingleSelect,
   matchesOptionQuery,
   messagesBesides,
-  OPTION_PREVIEW_LIMIT,
+  OPTION_CHOOSER_ABOVE,
+  optionBlockReason,
   optionPricePrefix,
-  previewOptions,
+  signedOptionPrice,
+  usesChooser,
   variableControl,
 } from '../../app/utils/configurator-form';
 import {
@@ -255,64 +258,87 @@ describe('groupSummary', () => {
   });
 });
 
-describe('previewOptions', () => {
-  it('leaves a group at the limit in the order the provider sent it', () => {
-    const options = Array.from({ length: OPTION_PREVIEW_LIMIT }, (_, i) => ({
-      id: i,
-      selected: i === OPTION_PREVIEW_LIMIT - 1,
-    }));
-
-    // A group that fits is shown as it arrived: pulling the chosen row to the
-    // front would reorder a list nobody asked to have reordered.
-    expect(previewOptions(options)).toEqual(options);
+describe('usesChooser', () => {
+  it('lists a group of three inline', () => {
+    expect(OPTION_CHOOSER_ABOVE).toBe(3);
+    expect(usesChooser([{}, {}, {}])).toBe(false);
   });
 
-  it('cuts one row past the limit down to it', () => {
-    const options = Array.from(
-      { length: OPTION_PREVIEW_LIMIT + 1 },
-      (_, i) => ({
-        id: i,
-        selected: false,
-      }),
-    );
-
-    expect(previewOptions(options)).toEqual(
-      options.slice(0, OPTION_PREVIEW_LIMIT),
-    );
+  it('offers a group of four from a chooser', () => {
+    expect(usesChooser([{}, {}, {}, {}])).toBe(true);
   });
 
-  it('shows a chosen row once, not twice', () => {
-    const options = Array.from(
-      { length: OPTION_PREVIEW_LIMIT + 1 },
-      (_, i) => ({
-        id: i,
-        selected: i === 0,
-      }),
-    );
-
-    expect(previewOptions(options)).toEqual(
-      options.slice(0, OPTION_PREVIEW_LIMIT),
-    );
-  });
-
-  it('keeps a chosen row on screen wherever it sits in the list', () => {
+  it('offers the twenty-six colours from a chooser', () => {
     const workbench = makeInitialConfiguration();
-    const colours = findOptionGroup(workbench, 'color');
-    const last = colours.options[colours.options.length - 1]!;
-    last.selected = true;
 
-    const preview = previewOptions(colours.options);
+    expect(usesChooser(findOptionGroup(workbench, 'color').options)).toBe(true);
+  });
+});
 
-    expect(preview).toHaveLength(OPTION_PREVIEW_LIMIT);
-    expect(preview[0]).toBe(last);
+describe('optionBlockReason', () => {
+  it('says nothing about a row the buyer may use', () => {
+    const workbench = makeInitialConfiguration();
+
+    expect(
+      optionBlockReason(findOption(workbench, 'top-wood'), false),
+    ).toBeUndefined();
   });
 
-  it("keeps the provider's order among the rows that are not chosen", () => {
-    const workbench = makeInitialConfiguration();
-    const colours = findOptionGroup(workbench, 'color');
+  it('says nothing while the form is locked: a batch in flight is not a fact about the row', () => {
+    const cabinet = makeCabinetConfiguration();
 
-    expect(previewOptions(colours.options)).toEqual(
-      colours.options.slice(0, OPTION_PREVIEW_LIMIT),
+    expect(
+      optionBlockReason(findOption(cabinet, 'mount-wall'), true),
+    ).toBeUndefined();
+  });
+
+  it('names a read-only row as read only', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.selectionSource = 'locked';
+
+    expect(optionBlockReason(option, false)).toEqual({ kind: 'read_only' });
+  });
+
+  it('names a row the rules refuse as unavailable', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.available = false;
+
+    expect(optionBlockReason(option, false)).toEqual({ kind: 'unavailable' });
+  });
+
+  it("gives a blocked row's blocking message as its reason", () => {
+    const cabinet = makeCabinetConfiguration();
+    const option = findOption(cabinet, 'mount-wall');
+
+    expect(optionBlockReason(option, false)).toEqual({
+      kind: 'message',
+      message: blockingMessage(option.messages),
+    });
+  });
+});
+
+describe('signedOptionPrice', () => {
+  it('signs a surcharge', () => {
+    expect(signedOptionPrice(1400, 'SEK', 'en-US')).toBe(
+      `+${formatPrice(1400, 'SEK', 'en-US')}`,
+    );
+  });
+
+  it('leaves a reduction to the sign the amount carries', () => {
+    expect(signedOptionPrice(-250, 'SEK', 'en-US')).toBe(
+      formatPrice(-250, 'SEK', 'en-US'),
+    );
+  });
+
+  it('shows nothing for a row that adds nothing', () => {
+    expect(signedOptionPrice(0, 'SEK', 'en-US')).toBe('');
+  });
+
+  it('falls back to the default currency when the price names none', () => {
+    expect(signedOptionPrice(150, undefined, 'en-US')).toBe(
+      `+${formatPrice(150, 'SEK', 'en-US')}`,
     );
   });
 });

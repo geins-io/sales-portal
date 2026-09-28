@@ -3,18 +3,11 @@ import type {
   ConfigurationChange,
   ConfigurationOption,
 } from '#shared/types/configurator';
-import { formatPrice } from '#shared/types/commerce';
-import {
-  currencyCode,
-  exVatAmount,
-  regularExVatAmount,
-} from '#shared/utils/configurator-price';
 import { Lock } from 'lucide-vue-next';
 import {
-  blockingMessage,
   isReadOnly,
   messagesBesides,
-  optionPricePrefix,
+  optionBlockReason,
 } from '~/utils/configurator-form';
 import { Checkbox } from '~/components/ui/checkbox';
 import { RadioGroupItem } from '~/components/ui/radio-group';
@@ -50,8 +43,6 @@ const {
 const emit = defineEmits<{ change: [ConfigurationChange] }>();
 
 const { t } = useI18n();
-const { formatLocale } = useFormatLocale();
-const { showPrice } = usePriceVisibility();
 
 const readOnly = computed(() => isReadOnly(option));
 
@@ -64,18 +55,16 @@ const readOnly = computed(() => isReadOnly(option));
 const stacked = computed(() => quantityEditable);
 const blocked = computed(() => disabled || readOnly.value || !option.available);
 
-/**
- * Why the row cannot be used. Nothing while the page has the form locked: a
- * batch in flight is not a fact about this row.
- */
+const block = computed(() => optionBlockReason(option, disabled));
 const promoted = computed(() =>
-  blocked.value && !disabled ? blockingMessage(option.messages) : undefined,
+  block.value?.kind === 'message' ? block.value.message : undefined,
 );
 
+/** Why the row cannot be used. */
 const reason = computed(() => {
-  if (!blocked.value || disabled) return undefined;
-  if (promoted.value) return promoted.value.text;
-  return readOnly.value
+  if (!block.value) return undefined;
+  if (block.value.kind === 'message') return block.value.message.text;
+  return block.value.kind === 'read_only'
     ? t('configurator.read_only')
     : t('configurator.unavailable');
 });
@@ -84,29 +73,6 @@ const reason = computed(() => {
 const messages = computed(() =>
   messagesBesides(option.messages, promoted.value),
 );
-
-function signed(net: number): string {
-  const prefix = optionPricePrefix(net);
-  if (prefix === null) return '';
-  return `${prefix}${formatPrice(
-    net,
-    currencyCode(option.unitPrice),
-    formatLocale.value,
-  )}`;
-}
-
-/**
- * What the row adds to the configuration, or nothing when it adds nothing.
- * `unitPrice` arrives already discounted; the percentage beside it is
- * information, never arithmetic.
- */
-const price = computed(() => signed(exVatAmount(option.unitPrice)));
-
-/** The regular price, struck through beside a discounted one, as sent. */
-const regularPrice = computed(() => {
-  const regular = regularExVatAmount(option.unitPrice);
-  return regular === null ? '' : signed(regular);
-});
 
 /** The first image, as the product card: the list fragment selects no `isPrimary`. */
 const image = computed(() => option.product?.productImages?.[0]?.fileName);
@@ -200,27 +166,11 @@ function onRow() {
             <!-- The price is written twice on purpose: a row with a quantity
                  gives its right edge to the stepper and reads its price under
                  the name instead. -->
-            <p
-              v-if="!stacked && showPrice && price"
-              data-testid="configurator-option-price"
-              class="text-muted-foreground flex shrink-0 items-center gap-1.5 text-sm tabular-nums"
-            >
-              <span
-                v-if="regularPrice"
-                data-testid="configurator-option-regular-price"
-                class="text-xs line-through"
-              >
-                {{ regularPrice }}
-              </span>
-              {{ price }}
-              <span
-                v-if="option.discountPercent > 0"
-                data-testid="configurator-option-discount"
-                class="bg-primary/10 text-primary rounded-full px-1.5 text-[10px] font-medium"
-              >
-                −{{ option.discountPercent }}%
-              </span>
-            </p>
+            <ConfiguratorOptionPrice
+              v-if="!stacked"
+              :option="option"
+              class="shrink-0"
+            />
           </div>
 
           <p
@@ -235,27 +185,11 @@ function onRow() {
             {{ option.articleNumber }}
           </p>
 
-          <p
-            v-if="stacked && showPrice && price"
-            data-testid="configurator-option-price"
-            class="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-sm tabular-nums"
-          >
-            <span
-              v-if="regularPrice"
-              data-testid="configurator-option-regular-price"
-              class="text-xs line-through"
-            >
-              {{ regularPrice }}
-            </span>
-            {{ price }}
-            <span
-              v-if="option.discountPercent > 0"
-              data-testid="configurator-option-discount"
-              class="bg-primary/10 text-primary rounded-full px-1.5 text-[10px] font-medium"
-            >
-              −{{ option.discountPercent }}%
-            </span>
-          </p>
+          <ConfiguratorOptionPrice
+            v-if="stacked"
+            :option="option"
+            class="mt-0.5"
+          />
 
           <!-- A row the rules refuse states why in the colour of a refusal; one
                the provider owns states it in the colour of a note. -->

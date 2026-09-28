@@ -5,6 +5,7 @@ import type {
   ConfigurationValue,
   ConfigurationVariable,
 } from '#shared/types/configurator';
+import { formatPrice } from '#shared/types/commerce';
 
 // ---------------------------------------------------------------------------
 // The decisions the configurator form makes about a document node.
@@ -92,21 +93,50 @@ export function groupSummary(
   return { kind: 'many', count: selected.length };
 }
 
-/** Above this many rows a group folds to a preview and offers the full list. */
-export const OPTION_PREVIEW_LIMIT = 5;
+/** Above this many rows a group is chosen from its full list, not inline. */
+export const OPTION_CHOOSER_ABOVE = 3;
+
+export function usesChooser(options: unknown[]): boolean {
+  return options.length > OPTION_CHOOSER_ABOVE;
+}
 
 /**
- * The rows a long group shows inline. The selected ones lead, so a choice made
- * in the full list is still on screen once the list closes.
+ * Why a row cannot be used: the blocking message the provider put on it, or
+ * else what the document says about it.
  */
-export function previewOptions<T extends Pick<ConfigurationOption, 'selected'>>(
-  options: T[],
-): T[] {
-  if (options.length <= OPTION_PREVIEW_LIMIT) return options;
-  return [
-    ...options.filter((option) => option.selected),
-    ...options.filter((option) => !option.selected),
-  ].slice(0, OPTION_PREVIEW_LIMIT);
+export type OptionBlockReason =
+  | { kind: 'message'; message: ConfigurationMessage }
+  | { kind: 'read_only' }
+  | { kind: 'unavailable' };
+
+/**
+ * Nothing while the form is locked: a batch in flight is not a fact about the
+ * row.
+ */
+export function optionBlockReason(
+  option: Pick<
+    ConfigurationOption,
+    'available' | 'messages' | 'readOnly' | 'selectionSource'
+  >,
+  formLocked: boolean,
+): OptionBlockReason | undefined {
+  if (formLocked) return undefined;
+  const readOnly = isReadOnly(option);
+  if (!readOnly && option.available) return undefined;
+  const message = blockingMessage(option.messages);
+  if (message) return { kind: 'message', message };
+  return { kind: readOnly ? 'read_only' : 'unavailable' };
+}
+
+/** What a row adds to the configuration, signed, or `''` when it adds nothing. */
+export function signedOptionPrice(
+  net: number,
+  currency: string | undefined,
+  locale: string,
+): string {
+  const prefix = optionPricePrefix(net);
+  if (prefix === null) return '';
+  return `${prefix}${formatPrice(net, currency, locale)}`;
 }
 
 /**
