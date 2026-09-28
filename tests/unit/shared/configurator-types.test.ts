@@ -156,7 +156,7 @@ describe('CPQ configuration document types', () => {
     const committed: CommittedConfiguration = {
       committedConfigurationId: 'cc-1',
       configurationId: configuration.configurationId,
-      productId: configuration.articleNumber,
+      articleNumber: configuration.articleNumber,
       quantity: configuration.quantity,
       unitPrice: configuration.unitPrice,
       summary: [

@@ -16,7 +16,7 @@ const ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
 const COMMITTED: CommittedConfiguration = {
   committedConfigurationId: '9c5b94b1-35ad-49bb-b118-8e8fc24abf80',
   configurationId: ID,
-  productId: 'arbetsbord-pro',
+  articleNumber: 'arbetsbord-pro',
   quantity: 2,
   unitPrice: { sellingPriceExVat: 3200, currency: { code: 'SEK' } },
   summary: [{ label: 'Bredd', value: '1600 mm' }],

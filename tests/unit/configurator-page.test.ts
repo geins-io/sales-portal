@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   canCommit,
   configuratorStage,
+  failureKey,
   headerError,
   type ConfiguratorPageState,
 } from '../../app/utils/configurator-page';
@@ -14,7 +15,7 @@ import {
 const COMMITTED: CommittedConfiguration = {
   committedConfigurationId: 'committed-1',
   configurationId: 'session-1',
-  productId: '1101',
+  articleNumber: '1101',
   quantity: 1,
   unitPrice: { sellingPriceExVat: 3200, currency: { code: 'SEK' } },
   summary: [],
@@ -142,5 +143,25 @@ describe('headerError', () => {
 
   it('passes nothing on when nothing failed', () => {
     expect(headerError('renew', null)).toBeNull();
+  });
+});
+
+describe('failureKey', () => {
+  it('asks a buyer without a company account to sign in with one', () => {
+    // MissingCustomerNumber: signed out, or a company with no customer number.
+    expect(failureKey({ status: 403, message: 'x' })).toBe(
+      'configurator.sign_in_required',
+    );
+  });
+
+  it.each([0, 404, 410, 422, 500, 502])(
+    'keeps the general copy for %i',
+    (status) => {
+      expect(failureKey({ status, message: 'x' })).toBe('configurator.failed');
+    },
+  );
+
+  it('keeps the general copy when nothing failed', () => {
+    expect(failureKey(null)).toBe('configurator.failed');
   });
 });

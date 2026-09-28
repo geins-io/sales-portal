@@ -25,7 +25,7 @@ function makeCommitted(
   return {
     committedConfigurationId: 'committed-1',
     configurationId: 'session-1',
-    productId: '1101',
+    articleNumber: '1101',
     quantity: 1,
     unitPrice: { sellingPriceExVat: 4100, currency: { code: 'SEK' } },
     summary: [

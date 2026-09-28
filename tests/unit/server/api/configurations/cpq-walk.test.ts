@@ -344,7 +344,7 @@ describe.sequential('the CPQ verification walk against the fixture', () => {
 
     expect(committed.committedConfigurationId).toBeTruthy();
     expect(committed.configurationId).toBe(workbench);
-    expect(committed.productId).toBe(ARBETSBORD_PRO_ID);
+    expect(committed.articleNumber).toBe(ARBETSBORD_PRO_ID);
     expect(committed.quantity).toBe(latest.quantity);
     expect(committed.unitPrice).toEqual(latest.unitPrice);
     expect(committed.summary.length).toBeGreaterThan(0);

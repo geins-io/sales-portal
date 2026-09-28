@@ -223,7 +223,8 @@ export interface ConfigurationSummaryLine {
 export interface CommittedConfiguration {
   committedConfigurationId: string;
   configurationId: string;
-  productId: string;
+  /** The provider's part number, as the committed configuration carries it. */
+  articleNumber: string;
   quantity: number;
   unitPrice: PriceType;
   summary: ConfigurationSummaryLine[];

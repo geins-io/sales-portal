@@ -1,5 +1,6 @@
 import type { PriceType } from '#shared/types/commerce';
 import type {
+  CommittedConfiguration,
   Configuration,
   ConfigurationMessage,
   ConfigurationOption,
@@ -13,6 +14,7 @@ import type {
 } from '#shared/types/configurator';
 import { logger } from '../../utils/logger';
 import type {
+  WireCommittedConfiguration,
   WireConfiguration,
   WireDecimal,
   WireMessage,
@@ -260,5 +262,23 @@ export function mapConfiguration(wire: WireConfiguration): Configuration {
     templateVersion: wire.templateVersion ?? '',
     messages: messages(wire.messages),
     sections: nodes(wire.sections, section),
+  };
+}
+
+/** `id` is the session the commit was asked for, should the record omit it. */
+export function mapCommittedConfiguration(
+  wire: WireCommittedConfiguration,
+  id: string,
+): CommittedConfiguration {
+  return {
+    committedConfigurationId: wire.committedConfigurationId,
+    configurationId: wire.configurationId ?? id,
+    articleNumber: wire.articleNumber ?? '',
+    quantity: Number(wire.quantity),
+    unitPrice: price(wire.unitPrice),
+    summary: nodes(wire.summary, (line) => ({
+      label: line.label ?? '',
+      value: line.value ?? '',
+    })),
   };
 }

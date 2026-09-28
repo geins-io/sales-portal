@@ -1,0 +1,15 @@
+mutation renewConfiguration(
+  $configurationId: String!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  renewConfiguration(
+    configurationId: $configurationId
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    expiresAt
+  }
+}

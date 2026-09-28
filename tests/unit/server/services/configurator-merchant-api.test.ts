@@ -4,8 +4,12 @@ import { logger } from '../../../../server/utils/logger';
 import type { ConfiguratorContext } from '../../../../server/services/configurator';
 import { createMerchantApiConfiguratorBackend } from '../../../../server/services/configurator-merchant-api';
 import { toWireChange } from '../../../../server/services/configurator-merchant-api/changes';
-import { mapConfiguration } from '../../../../server/services/configurator-merchant-api/map';
+import {
+  mapCommittedConfiguration,
+  mapConfiguration,
+} from '../../../../server/services/configurator-merchant-api/map';
 import type {
+  WireCommittedConfiguration,
   WireConfiguration,
   WireOption,
   WireOptionGroup,
@@ -916,6 +920,86 @@ describe('toWireChange', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The committed configuration, as `CpqCommittedConfigurationType` declares it
+// ---------------------------------------------------------------------------
+
+function wireCommitted(
+  over: Partial<WireCommittedConfiguration> = {},
+): WireCommittedConfiguration {
+  return {
+    committedConfigurationId: 'committed-1',
+    configurationId: 'cfg-1',
+    articleNumber: '001-2',
+    quantity: 1,
+    unitPrice: PRICE,
+    summary: [
+      { label: 'Machine weight (7-20)', value: '12' },
+      { label: 'Adapter', value: 'S50' },
+    ],
+    ...over,
+  };
+}
+
+describe('mapCommittedConfiguration', () => {
+  it('maps the record the commit froze', () => {
+    expect(mapCommittedConfiguration(wireCommitted(), 'cfg-1')).toEqual({
+      committedConfigurationId: 'committed-1',
+      configurationId: 'cfg-1',
+      articleNumber: '001-2',
+      quantity: 1,
+      unitPrice: PRICE,
+      summary: [
+        { label: 'Machine weight (7-20)', value: '12' },
+        { label: 'Adapter', value: 'S50' },
+      ],
+    });
+  });
+
+  it('keeps the summary in the order it was sent', () => {
+    const summary = [
+      { label: 'b', value: '2' },
+      { label: 'a', value: '1' },
+      { label: 'c', value: '3' },
+    ];
+    expect(
+      mapCommittedConfiguration(wireCommitted({ summary }), 'cfg-1').summary,
+    ).toEqual(summary);
+  });
+
+  it('reads a Decimal quantity sent as a string', () => {
+    expect(
+      mapCommittedConfiguration(wireCommitted({ quantity: '2' }), 'cfg-1')
+        .quantity,
+    ).toBe(2);
+  });
+
+  it('fills the nullable fields with their resting values', () => {
+    const committed = mapCommittedConfiguration(
+      wireCommitted({
+        configurationId: null,
+        articleNumber: null,
+        unitPrice: null,
+        summary: [null, { label: null, value: null }],
+      }),
+      'cfg-asked',
+    );
+    expect(committed.configurationId).toBe('cfg-asked');
+    expect(committed.articleNumber).toBe('');
+    expect(committed.unitPrice).toEqual(
+      mapConfiguration(wireConfiguration({ unitPrice: null })).unitPrice,
+    );
+    expect(committed.summary).toEqual([{ label: '', value: '' }]);
+  });
+
+  it('keeps an absent summary as an empty one', () => {
+    expect(
+      mapCommittedConfiguration(wireCommitted({ summary: null }), 'cfg-1')
+        .summary,
+    ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The backend over the wire
 // ---------------------------------------------------------------------------
 
@@ -1177,6 +1261,120 @@ describe('the merchant-api backend', () => {
     });
   });
 
+  describe('renew', () => {
+    it('extends the session and answers the new expiry', async () => {
+      fetchMock.mockResolvedValue(
+        answer({
+          data: {
+            renewConfiguration: { expiresAt: '2026-09-28T12:00:00+00:00' },
+          },
+        }),
+      );
+
+      expect(await backend.renew('cfg-1', CTX)).toEqual({
+        expiresAt: '2026-09-28T12:00:00+00:00',
+      });
+
+      const { body, headers } = sentRequest();
+      expect(body.query).toBe(
+        loadQuery('configurator/renew-configuration.graphql'),
+      );
+      expect(body.variables).toEqual({
+        configurationId: 'cfg-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+    });
+
+    it('answers 502 when the renewal comes back empty', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { renewConfiguration: null } }),
+      );
+      expect(
+        (await failureOf(() => backend.renew('cfg-1', CTX))).statusCode,
+      ).toBe(502);
+    });
+  });
+
+  describe('release', () => {
+    it('deletes the session', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { deleteConfiguration: true } }),
+      );
+
+      await expect(backend.release('cfg-1', CTX)).resolves.toBeUndefined();
+
+      const { body } = sentRequest();
+      expect(body.query).toBe(
+        loadQuery('configurator/delete-configuration.graphql'),
+      );
+      expect(body.variables).toEqual({
+        configurationId: 'cfg-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+    });
+
+    it.each([
+      ['false', false],
+      ['null', null],
+    ])(
+      'answers 502 when the provider says %s, never a silent success',
+      async (_label, deleted) => {
+        fetchMock.mockResolvedValue(
+          answer({ data: { deleteConfiguration: deleted } }),
+        );
+        expect(
+          (await failureOf(() => backend.release('cfg-1', CTX))).statusCode,
+        ).toBe(502);
+      },
+    );
+  });
+
+  describe('commit', () => {
+    it('commits and answers the frozen record', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { commitConfiguration: wireCommitted() } }),
+      );
+
+      const committed = await backend.commit('cfg-1', CTX);
+
+      const { body, headers } = sentRequest();
+      expect(body.query).toBe(
+        loadQuery('configurator/commit-configuration.graphql'),
+      );
+      expect(body.variables).toEqual({
+        configurationId: 'cfg-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(committed).toEqual(
+        mapCommittedConfiguration(wireCommitted(), 'cfg-1'),
+      );
+    });
+
+    it('answers 502 when the commit comes back empty', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { commitConfiguration: null } }),
+      );
+      expect(
+        (await failureOf(() => backend.commit('cfg-1', CTX))).statusCode,
+      ).toBe(502);
+    });
+
+    it('answers 410 for a second commit on the same session', async () => {
+      fetchMock.mockResolvedValue(graphqlError('ConfigurationGone'));
+      expect(
+        (await failureOf(() => backend.commit('cfg-1', CTX))).statusCode,
+      ).toBe(410);
+    });
+  });
+
   describe('failures', () => {
     const calls: [string, () => Promise<unknown>][] = [
       ['create', () => backend.create({ productId: '1359', quantity: 1 }, CTX)],
@@ -1190,6 +1388,9 @@ describe('the merchant-api backend', () => {
             CTX,
           ),
       ],
+      ['renew', () => backend.renew('cfg-1', CTX)],
+      ['release', () => backend.release('cfg-1', CTX)],
+      ['commit', () => backend.commit('cfg-1', CTX)],
     ];
 
     it.each([
@@ -1344,17 +1545,6 @@ describe('the merchant-api backend', () => {
       expect(sentRequest().init.signal).toBeInstanceOf(AbortSignal);
     });
   });
-
-  describe('the verbs that land later', () => {
-    it.each([
-      ['renew', () => backend.renew('c1', CTX)],
-      ['release', () => backend.release('c1', CTX)],
-      ['commit', () => backend.commit('c1', CTX)],
-    ])('%s answers 501 without calling out', async (_name, call) => {
-      expect((await failureOf(call)).statusCode).toBe(501);
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1398,6 +1588,40 @@ describe('the configuration queries', () => {
     ]) {
       expect(query, fragment).toContain(`fragment ${fragment}`);
     }
+  });
+
+  it.each([
+    ['configurator/renew-configuration.graphql', 'renewConfiguration('],
+    ['configurator/delete-configuration.graphql', 'deleteConfiguration('],
+    ['configurator/commit-configuration.graphql', 'commitConfiguration('],
+  ])('%s sends the session and the channel', (path, operation) => {
+    const query = loadQuery(path);
+    expect(query).toContain(operation);
+    for (const variable of [
+      '$configurationId: String!',
+      '$channelId: String',
+      '$languageId: String',
+      '$marketId: String',
+    ]) {
+      expect(query, variable).toContain(variable);
+    }
+  });
+
+  it('selects every field of the committed record', () => {
+    const query = loadQuery('configurator/commit-configuration.graphql');
+    for (const field of [
+      'committedConfigurationId',
+      'configurationId',
+      'articleNumber',
+      'quantity',
+      'unitPrice',
+      'summary',
+      'label',
+      'value',
+    ]) {
+      expect(query, field).toContain(field);
+    }
+    expect(query).toContain('fragment Price on PriceType');
   });
 
   it('declares the change list as the schema does', () => {

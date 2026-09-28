@@ -330,6 +330,7 @@
     "commit": "Konfiguration abschließen",
     "starting": "Konfiguration wird gestartet…",
     "failed": "Etwas ist schiefgelaufen. Laden Sie die Seite neu und versuchen Sie es erneut.",
+    "sign_in_required": "Melden Sie sich mit einem Firmenkonto an, um das Produkt zu konfigurieren.",
     "configure_product": "Produkt konfigurieren",
     "product_configuration": "Produktkonfiguration",
     "reset": "Zurücksetzen",

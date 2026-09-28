@@ -7,14 +7,11 @@ import type {
 import { loadQuery } from '../graphql/loader';
 import { toWireChange } from './changes';
 import { requestMerchantApi } from './client';
-import { mapConfiguration } from './map';
-import type { WireConfiguration } from './wire';
+import { mapCommittedConfiguration, mapConfiguration } from './map';
+import type { WireCommittedConfiguration, WireConfiguration } from './wire';
 
 // ---------------------------------------------------------------------------
 // The real backend: the CPQ area of merchant-api, over GraphQL.
-//
-// Create, read and the change batch land here; renew, release and commit land
-// with the ticket that builds them on the page.
 // ---------------------------------------------------------------------------
 
 /** A Geins product id: a positive integer, as the create mutation's `Int`. */
@@ -34,24 +31,19 @@ function channelOf({ channelId, languageId, marketId }: MerchantApiTarget) {
   return { channelId, languageId, marketId };
 }
 
+function upstream(reason: string) {
+  return createAppError(
+    ErrorCode.EXTERNAL_API_ERROR,
+    `The configurator backend ${reason}`,
+  );
+}
+
 function documentOf(wire: WireConfiguration | null): Configuration {
-  if (!wire) {
-    throw createAppError(
-      ErrorCode.EXTERNAL_API_ERROR,
-      'The configurator backend answered without a document',
-    );
-  }
+  if (!wire) throw upstream('answered without a document');
   return mapConfiguration(wire);
 }
 
 export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
-  const later = async (): Promise<never> => {
-    throw createAppError(
-      ErrorCode.NOT_IMPLEMENTED,
-      'Not on the merchant-api configurator backend yet',
-    );
-  };
-
   return {
     isConfigurable: ({ type }) => type === 'configurable',
 
@@ -108,9 +100,51 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
       return documentOf(data.applyConfigurationChanges);
     },
 
-    renew: later,
-    release: later,
-    commit: later,
+    async renew(id, ctx) {
+      const target = targetOf(ctx);
+      const data = await requestMerchantApi<{
+        renewConfiguration: { expiresAt: string } | null;
+      }>(
+        target,
+        ctx.userToken,
+        loadQuery('configurator/renew-configuration.graphql'),
+        { configurationId: id, ...channelOf(target) },
+      );
+      if (!data.renewConfiguration)
+        throw upstream('answered without an expiry');
+      return { expiresAt: data.renewConfiguration.expiresAt };
+    },
+
+    async release(id, ctx) {
+      const target = targetOf(ctx);
+      const data = await requestMerchantApi<{
+        deleteConfiguration: boolean | null;
+      }>(
+        target,
+        ctx.userToken,
+        loadQuery('configurator/delete-configuration.graphql'),
+        { configurationId: id, ...channelOf(target) },
+      );
+      if (data.deleteConfiguration !== true) {
+        throw upstream('answered that nothing was released');
+      }
+    },
+
+    async commit(id, ctx) {
+      const target = targetOf(ctx);
+      const data = await requestMerchantApi<{
+        commitConfiguration: WireCommittedConfiguration | null;
+      }>(
+        target,
+        ctx.userToken,
+        loadQuery('configurator/commit-configuration.graphql'),
+        { configurationId: id, ...channelOf(target) },
+      );
+      if (!data.commitConfiguration) {
+        throw upstream('answered without a committed configuration');
+      }
+      return mapCommittedConfiguration(data.commitConfiguration, id);
+    },
   };
 }
 

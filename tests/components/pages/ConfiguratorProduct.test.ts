@@ -56,7 +56,7 @@ const CHANGE: ConfigurationChange = {
 const COMMITTED: CommittedConfiguration = {
   committedConfigurationId: 'committed-1',
   configurationId: 'session-1',
-  productId: '1101',
+  articleNumber: '1101',
   quantity: 1,
   unitPrice: { sellingPriceExVat: 4100, currency: { code: 'SEK' } },
   summary: [
@@ -401,6 +401,26 @@ describe('ConfiguratorProduct session', () => {
     );
   });
 
+  it('asks a buyer the provider refused for want of a company account to sign in', async () => {
+    const wrapper = mountPage();
+    session.error.value = { status: 403, message: 'forbidden' };
+    await nextTick();
+
+    const error = wrapper.find('[data-testid="configurator-error"]');
+    expect(error.text()).toContain('configurator.sign_in_required');
+    expect(error.text()).not.toContain('configurator.failed');
+  });
+
+  it('keeps the general copy for any other failure to start', async () => {
+    const wrapper = mountPage();
+    session.error.value = { status: 502, message: 'unreachable' };
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="configurator-error"]').text()).toContain(
+      'configurator.failed',
+    );
+  });
+
   it('renders one section at a time, starting on the first of the rail', async () => {
     const wrapper = mountPage();
     activeWith(makeSectionTreeConfiguration());
@@ -591,6 +611,20 @@ describe('ConfiguratorProduct errors', () => {
     expect(
       wrapper.find('[data-testid="configurator-form-error"]').exists(),
     ).toBe(true);
+  });
+
+  it('asks for a company account on the form too', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    await wrapper.find('[data-testid="section-change"]').trigger('click');
+    session.error.value = { status: 403, message: 'forbidden' };
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="configurator-form-error"]').text(),
+    ).toContain('configurator.sign_in_required');
   });
 });
 
