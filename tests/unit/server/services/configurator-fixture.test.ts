@@ -1316,6 +1316,32 @@ describe('the third seeded product', () => {
     // invalid on a change the buyer made somewhere else.
     expect(steel.isValid).toBe(true);
   });
+
+  it('says on the edge trim group what the steel top did to it, and only then', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const profile = (doc: Configuration) =>
+      everyGroup(doc.sections).find((group) => group.id === 'edge-profile');
+    expect(profile(config)?.messages).toEqual([]);
+
+    const steel = await backend.applyChanges(
+      config.configurationId,
+      [selectOption('top-steel')],
+      CTX,
+    );
+    expect(profile(steel)?.messages).toEqual([
+      {
+        severity: 'info',
+        text: 'Only the ABS edge band fits a stainless steel top.',
+      },
+    ]);
+
+    const laminate = await backend.applyChanges(
+      config.configurationId,
+      [selectOption('top-laminate')],
+      CTX,
+    );
+    expect(profile(laminate)?.messages).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@ import type {
   ConfigurationOption,
   ConfigurationSection,
 } from '#shared/types/configurator';
-import { findOption, findVariable } from '../document';
+import { findGroupOf, findOption, findVariable } from '../document';
 import { seedGroup, seedOption, seedVariable } from './builders';
 import type { Seed } from './types';
 
@@ -664,6 +664,16 @@ function steelTopRestrictsTheEdgeTrim(config: Configuration): void {
   if (!band) return;
   band.selected = true;
   band.selectionSource = 'groupRule';
+  // The real provider speaks on the group, not the row, so the group says
+  // what the rule did as well.
+  const profile = findGroupOf(config, 'edge-abs');
+  if (!profile) return;
+  profile.messages = [
+    {
+      severity: 'info',
+      text: 'Only the ABS edge band fits a stainless steel top.',
+    },
+  ];
 }
 
 export const monteringsstationPro: Seed = {

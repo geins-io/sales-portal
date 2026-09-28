@@ -315,6 +315,7 @@
     "bounds": "{min}–{max} {unit}",
     "optional": "Valfritt",
     "none_option": "Inget valt",
+    "group_info": "Information om {name}",
     "choose_many": "Välj noll eller flera",
     "quantity": "Antal",
     "choose_in_group": "Välj {name}",

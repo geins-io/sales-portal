@@ -37,8 +37,8 @@ import {
  * chosen whenever no real option is. Choosing it is the one deselect the group
  * sends: the provider has nothing to replace the option with.
  *
- * The folding, the header and where the group's own messages sit are
- * `ConfiguratorFoldable`'s, shared with the measurements block of a section.
+ * The folding and the header are `ConfiguratorFoldable`'s. The group's own
+ * messages sit beside its title as an icon, as the prototype.
  */
 const {
   group,
@@ -173,8 +173,11 @@ function onSheetPick(value: unknown) {
       :summary="summary"
       :level="level"
     >
-      <template #notice>
-        <ConfiguratorMessages :messages="group.messages" />
+      <template v-if="group.messages.length" #info>
+        <ConfiguratorGroupInfo
+          :messages="group.messages"
+          :group-name="group.name"
+        />
       </template>
 
       <ConfiguratorOptionChooser

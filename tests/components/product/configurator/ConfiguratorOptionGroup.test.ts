@@ -31,11 +31,25 @@ vi.mock('../../../../app/components/ui/sheet', () => ({
   SheetTitle: { template: '<div data-testid="sheet-title"><slot /></div>' },
 }));
 
+// The tooltip's content inline and always there, so what the icon carries can
+// be read without driving the primitive. Opening it is
+// ConfiguratorGroupInfo.test.ts's business.
+vi.mock('../../../../app/components/ui/tooltip', () => ({
+  TooltipProvider: { template: '<div><slot /></div>' },
+  Tooltip: { template: '<div><slot /></div>', props: ['open'] },
+  TooltipTrigger: { template: '<div><slot /></div>' },
+  TooltipContent: {
+    template:
+      '<div data-testid="configurator-group-info-content"><slot /></div>',
+  },
+}));
+
 function mountGroup(group: ConfigurationOptionGroup) {
   return mountComponent(ConfiguratorOptionGroup, { props: { group } });
 }
 
 const CHOOSER = '[data-testid="configurator-group-chooser"]';
+const INFO = '[data-testid="configurator-group-info"]';
 const ADD = '[data-testid="configurator-group-add"]';
 const SHEET = '[data-testid="configurator-group-sheet"]';
 const IMAGE = '[data-testid="configurator-option-image"]';
@@ -118,7 +132,7 @@ describe('ConfiguratorOptionGroup', () => {
     expect(header.text()).not.toContain('*');
   });
 
-  it('shows the error a rule put on a group', () => {
+  it('shows the error a rule put on a group as an icon beside its title', () => {
     // Written here rather than taken from a document: an unmet requirement is
     // a property of the group and carries no message, so a group's error is
     // always something a rule had to say.
@@ -130,9 +144,17 @@ describe('ConfiguratorOptionGroup', () => {
 
     const wrapper = mountGroup(top);
 
+    const info = wrapper.find(INFO);
+    expect(info.attributes('data-severity')).toBe('error');
+    expect(info.attributes('aria-label')).toBe('configurator.group_info');
+    // In the header, after the title, and not inside the fold button.
+    const header = wrapper.find('[data-testid="configurator-group-header"]');
+    expect(header.find(INFO).exists()).toBe(false);
+    expect(header.element.parentElement!.contains(info.element)).toBe(true);
     const message = wrapper.find('[data-testid="configurator-message"]');
     expect(message.attributes('data-severity')).toBe('error');
     expect(message.text()).toContain('That table top is out of production.');
+    expect(message.element.closest('li.rounded-md')).toBeNull();
   });
 
   it('emits one change for the row picked, not a deselect for the one it replaces', async () => {
@@ -287,7 +309,7 @@ describe('ConfiguratorOptionGroup', () => {
     ).toBe('(configurator.summary.many)');
   });
 
-  it('keeps a blocking message visible while the group is folded', async () => {
+  it('keeps the icon of a blocking message in sight while the group is folded', async () => {
     const invalid = makeInvalidConfiguration();
     const top = findOptionGroup(invalid, 'top');
     top.messages = [
@@ -301,9 +323,62 @@ describe('ConfiguratorOptionGroup', () => {
 
     // The message is why the configuration is not finished. A buyer may fold
     // the rows away; the reason they are being asked for stays.
-    expect(wrapper.find('[data-testid="configurator-message"]').text()).toBe(
-      'That table top is out of production.',
+    expect(wrapper.find(INFO).isVisible()).toBe(true);
+    expect(
+      wrapper.find('[data-testid="configurator-message"]').text(),
+    ).toContain('That table top is out of production.');
+  });
+
+  it('gives a group without messages no icon', () => {
+    const wrapper = mountGroup(
+      findOptionGroup(makeInitialConfiguration(), 'top'),
     );
+
+    expect(wrapper.find(INFO).exists()).toBe(false);
+  });
+
+  it('takes the glyph and colour of each severity from the theme', () => {
+    const cases = [
+      ['info', 'text-muted-foreground', 'info'],
+      ['warning', 'text-warning', 'triangle-alert'],
+      ['error', 'text-destructive', 'circle-alert'],
+    ] as const;
+    for (const [severity, token, glyph] of cases) {
+      const top = findOptionGroup(makeInitialConfiguration(), 'top');
+      top.messages = [{ severity, text: `A ${severity}.` }];
+
+      const info = mountGroup(top).find(INFO);
+
+      expect(info.attributes('data-severity')).toBe(severity);
+      expect(info.classes()).toContain(token);
+      // The tier stubs lucide icons as a span carrying the icon's name.
+      expect(info.find(`[data-name="${glyph}"]`).exists()).toBe(true);
+    }
+  });
+
+  it('lists several messages under one icon, in the colour of the most severe', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    top.messages = [
+      { severity: 'info', text: 'Fitted at the factory.' },
+      { severity: 'warning', text: 'Long lead time.' },
+    ];
+
+    const wrapper = mountGroup(top);
+
+    expect(wrapper.findAll(INFO)).toHaveLength(1);
+    expect(wrapper.find(INFO).attributes('data-severity')).toBe('warning');
+    const messages = wrapper.findAll('[data-testid="configurator-message"]');
+    expect(
+      messages.map((message) => message.attributes('data-severity')),
+    ).toEqual(['info', 'warning']);
+    // The severity is read out before each text, since the glyph alone says
+    // nothing to a screen reader.
+    expect(
+      messages.map((message) => message.text().replace(/\s+/g, ' ')),
+    ).toEqual([
+      'configurator.severity.info: Fitted at the factory.',
+      'configurator.severity.warning: Long lead time.',
+    ]);
   });
 
   // ---------------------------------------------------------------------

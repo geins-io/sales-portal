@@ -7,6 +7,7 @@ import {
   dateChangeValue,
   dateInputValue,
   groupHintKey,
+  groupInfoSeverity,
   groupRowCount,
   groupSummary,
   hasImageColumn,
@@ -259,6 +260,29 @@ describe('groupSummary', () => {
       kind: 'many',
       count: 2,
     });
+  });
+});
+
+describe('groupInfoSeverity', () => {
+  const error = { severity: 'error', text: 'Out of production.' } as const;
+  const warning = { severity: 'warning', text: 'Long lead time.' } as const;
+  const info = { severity: 'info', text: 'Fitted at the factory.' } as const;
+
+  it('has none without a message', () => {
+    expect(groupInfoSeverity([])).toBeUndefined();
+  });
+
+  it('takes the one message it has', () => {
+    expect(groupInfoSeverity([info])).toBe('info');
+    expect(groupInfoSeverity([warning])).toBe('warning');
+    expect(groupInfoSeverity([error])).toBe('error');
+  });
+
+  it('takes the most severe of several, wherever it stands', () => {
+    expect(groupInfoSeverity([info, warning])).toBe('warning');
+    expect(groupInfoSeverity([warning, info])).toBe('warning');
+    expect(groupInfoSeverity([info, error, warning])).toBe('error');
+    expect(groupInfoSeverity([info, info])).toBe('info');
   });
 });
 

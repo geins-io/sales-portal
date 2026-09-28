@@ -105,6 +105,19 @@ export function blockingMessage(
 }
 
 /**
+ * The severity a group's info icon takes: the most severe of its messages,
+ * so a note beside an error does not soften it. `undefined` without any.
+ */
+export function groupInfoSeverity(
+  messages: ConfigurationMessage[],
+): ConfigurationMessage['severity'] | undefined {
+  if (messages.some((message) => message.severity === 'error')) return 'error';
+  if (messages.some((message) => message.severity === 'warning'))
+    return 'warning';
+  return messages.length ? 'info' : undefined;
+}
+
+/**
  * What a collapsed group says about itself in parentheses.
  *
  * A selected row the rules made unavailable still counts: it is part of the
