@@ -18,6 +18,7 @@ const COMMITTED: CommittedConfiguration = {
   articleNumber: '1101',
   quantity: 1,
   unitPrice: { sellingPriceExVat: 3200, currency: { code: 'SEK' } },
+  discountPercent: 0,
   summary: [],
 };
 

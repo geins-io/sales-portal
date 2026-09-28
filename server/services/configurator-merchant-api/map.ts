@@ -276,6 +276,8 @@ export function mapCommittedConfiguration(
     articleNumber: wire.articleNumber ?? '',
     quantity: Number(wire.quantity),
     unitPrice: price(wire.unitPrice),
+    discountPercent: decimal(wire.discountPercent) ?? 0,
+    ...optional('weightPerUnit', decimal(wire.weightPerUnit)),
     summary: nodes(wire.summary, (line) => ({
       label: line.label ?? '',
       value: line.value ?? '',

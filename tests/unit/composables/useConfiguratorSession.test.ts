@@ -81,6 +81,7 @@ function committedFrom(config: Configuration): CommittedConfiguration {
     articleNumber: config.articleNumber,
     quantity: config.quantity,
     unitPrice: config.unitPrice,
+    discountPercent: config.discountPercent,
     summary: [{ label: 'Table top', value: 'Stainless steel' }],
   };
 }

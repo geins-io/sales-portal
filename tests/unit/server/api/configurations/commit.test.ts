@@ -19,6 +19,7 @@ const COMMITTED: CommittedConfiguration = {
   articleNumber: 'arbetsbord-pro',
   quantity: 2,
   unitPrice: { sellingPriceExVat: 3200, currency: { code: 'SEK' } },
+  discountPercent: 0,
   summary: [{ label: 'Bredd', value: '1600 mm' }],
 };
 

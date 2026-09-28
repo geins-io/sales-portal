@@ -227,5 +227,7 @@ export interface CommittedConfiguration {
   articleNumber: string;
   quantity: number;
   unitPrice: PriceType;
+  discountPercent: number;
+  weightPerUnit?: number;
   summary: ConfigurationSummaryLine[];
 }
