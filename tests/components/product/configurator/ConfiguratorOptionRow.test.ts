@@ -42,7 +42,10 @@ describe('ConfiguratorOptionRow', () => {
     expect(price.text().startsWith('+')).toBe(true);
   });
 
-  it('shows a discounted row at the price it arrives with, the regular price struck through and its percentage', () => {
+  // As the prototype's option layouts: the price the row adds, as sent. A
+  // discount is already in it, and the row strikes nothing through and shows
+  // no percentage beside it.
+  it('shows a discounted row at the price it arrives with, and nothing else', () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountRow(findOption(workbench, 'acc-pegboard'));
@@ -50,75 +53,26 @@ describe('ConfiguratorOptionRow', () => {
     // The seed's 900 is already 25 % off 1,200; the row does no arithmetic on it.
     const price = wrapper.find('[data-testid="configurator-option-price"]');
     expect(price.text()).toContain('900');
+    expect(price.text().startsWith('+')).toBe(true);
     expect(price.text()).not.toContain('675');
-    const regular = wrapper.find(
-      '[data-testid="configurator-option-regular-price"]',
-    );
-    expect(regular.text()).toContain('1,200');
-    expect(regular.text().startsWith('+')).toBe(true);
-    expect(regular.classes()).toContain('line-through');
-    expect(
-      wrapper.find('[data-testid="configurator-option-discount"]').text(),
-    ).toBe('−25%');
+    expect(price.text()).not.toContain('1,200');
+    expect(price.text()).not.toContain('%');
+    expect(price.find('.line-through').exists()).toBe(false);
   });
 
-  it('writes the struck price, the selling price and the percentage in that order', () => {
-    const workbench = makeInitialConfiguration();
-
-    const text = mountRow(findOption(workbench, 'acc-pegboard'))
-      .find('[data-testid="configurator-option-price"]')
-      .text();
-
-    expect(text.indexOf('1,200')).toBeGreaterThanOrEqual(0);
-    expect(text.indexOf('1,200')).toBeLessThan(text.indexOf('900'));
-    expect(text.indexOf('900')).toBeLessThan(text.indexOf('−25%'));
-  });
-
-  it('keeps the struck price and the percentage with the price when the price moves under the name', () => {
+  it('shows the same price whether the row stands alone or has a stepper', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'acc-pegboard');
     option.selected = true;
 
-    const wrapper = mountRow(option, { quantityEditable: true });
+    const plain = mountRow(option)
+      .find('[data-testid="configurator-option-price"]')
+      .text();
+    const stepped = mountRow(option, { quantityEditable: true })
+      .find('[data-testid="configurator-option-price"]')
+      .text();
 
-    const price = wrapper.find('[data-testid="configurator-option-price"]');
-    for (const testid of [
-      'configurator-option-regular-price',
-      'configurator-option-discount',
-    ]) {
-      expect(
-        wrapper.find(`[data-testid="${testid}"]`).element.parentElement,
-      ).toBe(price.element);
-    }
-  });
-
-  it('shows no struck price and no percentage on a row without a discount', () => {
-    const workbench = makeInitialConfiguration();
-
-    const wrapper = mountRow(findOption(workbench, 'top-wood'));
-
-    expect(
-      wrapper
-        .find('[data-testid="configurator-option-regular-price"]')
-        .exists(),
-    ).toBe(false);
-    expect(
-      wrapper.find('[data-testid="configurator-option-discount"]').exists(),
-    ).toBe(false);
-  });
-
-  it('strikes nothing through when the regular price is not above the selling price', () => {
-    const workbench = makeInitialConfiguration();
-    const option = findOption(workbench, 'acc-pegboard');
-    option.unitPrice = { ...option.unitPrice, regularPriceExVat: 900 };
-
-    const wrapper = mountRow(option);
-
-    expect(
-      wrapper
-        .find('[data-testid="configurator-option-regular-price"]')
-        .exists(),
-    ).toBe(false);
+    expect(stepped).toBe(plain);
   });
 
   it('shows no price on a row that adds nothing', () => {

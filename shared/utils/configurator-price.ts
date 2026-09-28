@@ -39,17 +39,3 @@ export function vatRatePercent(price: PriceType | undefined): number | null {
   if (!exVat || typeof vat !== 'number') return null;
   return Math.round((vat / exVat) * 100);
 }
-
-/**
- * The regular price to strike through, only when the price says it is
- * discounted and the regular price is above it; `null` otherwise.
- */
-export function regularExVatAmount(
-  price: PriceType | undefined,
-): number | null {
-  const regular = price?.regularPriceExVat;
-  const selling = price?.sellingPriceExVat;
-  if (!price?.isDiscounted) return null;
-  if (typeof regular !== 'number' || typeof selling !== 'number') return null;
-  return regular > selling ? regular : null;
-}

@@ -344,14 +344,9 @@ describe('ConfiguratorOptionGroup', () => {
     expect(chooser.text()).toContain(
       findOption(workbench, 'ral-7016').articleNumber,
     );
-    const price = chooser.find('[data-testid="configurator-option-price"]');
-    expect(price.text()).toMatch(/^\+.*150/);
     expect(
-      price.find('[data-testid="configurator-option-regular-price"]').exists(),
-    ).toBe(false);
-    expect(
-      price.find('[data-testid="configurator-option-discount"]').exists(),
-    ).toBe(false);
+      chooser.find('[data-testid="configurator-option-price"]').text(),
+    ).toMatch(/^\+.*150/);
     expect(chooser.text()).not.toContain('configurator.option_count');
     expect(chooser.attributes('data-option-id')).toBe('ral-7016');
     expect(chooser.attributes('data-selected')).toBe('true');
@@ -368,9 +363,9 @@ describe('ConfiguratorOptionGroup', () => {
     ).toBe(false);
   });
 
-  // The chooser row shows the price as the rows do: a discounted choice looks
-  // the same whether it is read in the list or in the row that stands for it.
-  it('shows a discounted chosen row with its struck price and percentage in the chooser', () => {
+  // The chooser row shows the price as the rows do, as sent: a discounted
+  // choice carries no struck price and no percentage in either.
+  it('shows a discounted chosen row at its price as sent in the chooser', () => {
     const workbench = makeInitialConfiguration();
     const chosen = findOption(workbench, 'ral-7016');
     const pegboard = findOption(workbench, 'acc-pegboard');
@@ -383,15 +378,9 @@ describe('ConfiguratorOptionGroup', () => {
     const price = wrapper
       .find(CHOOSER)
       .find('[data-testid="configurator-option-price"]');
-    expect(price.text()).toContain('900');
-    const regular = price.find(
-      '[data-testid="configurator-option-regular-price"]',
-    );
-    expect(regular.text()).toContain('1,200');
-    expect(regular.classes()).toContain('line-through');
-    expect(
-      price.find('[data-testid="configurator-option-discount"]').text(),
-    ).toBe('−25%');
+    expect(price.text()).toMatch(/^\+.*900/);
+    expect(price.text()).not.toContain('1,200');
+    expect(price.text()).not.toContain('%');
   });
 
   it('marks a chosen row the provider owns, and says why, in the chooser', () => {
