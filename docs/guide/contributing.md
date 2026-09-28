@@ -10,7 +10,7 @@ repository root.** That file is the source of truth for the flow; this page does
 
 ### Prerequisites
 
-- Node.js 20 or newer
+- Node.js 24, the version in `.nvmrc` — it guards only if your shell switches to it (`nvm use`, or automatic switching)
 - PNPM 9+
 - Git
 - GitHub CLI (`gh`) — optional; used by the AI agent instructions in `AGENTS.md`

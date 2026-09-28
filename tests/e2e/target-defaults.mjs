@@ -6,9 +6,9 @@ import { pathToFileURL } from 'node:url';
  * The one place the e2e suite reads its environment, and the one place the
  * committed target is spelled out.
  *
- * Plain ESM rather than TypeScript because `infra/scripts/local-dev.sh` runs
- * this file with node to learn which hostname a run targets, and Node 20 —
- * CI's version and this package's floor — cannot load a `.ts` file.
+ * Plain ESM rather than TypeScript because `infra/scripts/local-dev.sh` and
+ * the e2e workflows run this file directly with node to learn which hostname
+ * a run targets.
  * `tests/e2e/target.ts` re-exports everything below with types; the specs and
  * `playwright.config.ts` import that.
  *

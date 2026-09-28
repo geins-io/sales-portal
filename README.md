@@ -15,7 +15,7 @@ Multi-tenant storefront application built on Nuxt 4. Serves multiple merchants/b
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 24 (`.nvmrc`)
 - PNPM 9+
 
 ### Setup
