@@ -35,38 +35,15 @@ describe('store-settings button color on standalone CTAs', () => {
 });
 
 /**
- * Store-settings theme inheritance on the error pages.
+ * Store-settings theme inheritance on the server error page.
  *
- * The Nitro `render:html` hook that injects the tenant theme does not run on
- * either error render path, so both must re-inject the theme themselves:
- *  - `server/error.ts` renders the self-contained HTML for server-side errors
- *    (hard-nav 404/500). Behavior is asserted in error-handler.test.ts; here we
- *    guard that it still wires the theme inputs at the source level.
- *  - `app/error.vue` renders client-caught errors and re-injects the theme via
- *    useHead from the resolved tenant config.
- *
- * Both inject the `data-theme` attribute, the sanitized tenant css block and
- * the Google Fonts link, so neither path falls back to the hardcoded palette.
+ * The Nitro `render:html` hook that injects the tenant theme does not run for
+ * `server/error.ts`, which renders the self-contained HTML for server-side
+ * errors (hard-nav 404/500). Behavior is asserted in error-handler.test.ts;
+ * here we guard that it still wires the theme inputs at the source level.
+ * The client error page (`app/error.vue`) keeps the theme the server already
+ * wrote into the document — covered end to end in tests/e2e/error-page.spec.ts.
  */
-describe('client error page (error.vue) inherits store-settings theme', () => {
-  const source = read('app/error.vue');
-
-  it('injects the data-theme attribute and tenant css style block', () => {
-    expect(source).toContain('data-theme');
-    expect(source).toContain('data-tenant-theme');
-    expect(source).toContain('htmlAttrs');
-  });
-
-  it('sanitizes the tenant css before injecting it', () => {
-    expect(source).toContain('sanitizeTenantCss');
-  });
-
-  it('injects the tenant Google Fonts stylesheet', () => {
-    expect(source).toContain('buildGoogleFontsUrl');
-    expect(source).toContain('fonts.googleapis.com');
-  });
-});
-
 describe('server error handler (error.ts) inherits store-settings theme', () => {
   const source = read('server/error.ts');
 
