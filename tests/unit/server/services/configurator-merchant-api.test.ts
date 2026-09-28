@@ -3,6 +3,7 @@ import { createAppError, ErrorCode } from '../../../../server/utils/errors';
 import { logger } from '../../../../server/utils/logger';
 import type { ConfiguratorContext } from '../../../../server/services/configurator';
 import { createMerchantApiConfiguratorBackend } from '../../../../server/services/configurator-merchant-api';
+import { toWireChange } from '../../../../server/services/configurator-merchant-api/changes';
 import { mapConfiguration } from '../../../../server/services/configurator-merchant-api/map';
 import type {
   WireConfiguration,
@@ -845,6 +846,76 @@ describe('mapConfiguration', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The change batch, as the canary's input type declares it
+// ---------------------------------------------------------------------------
+
+describe('toWireChange', () => {
+  it('sends a variable change with its value as it is', () => {
+    // 1359's "Machine weight (7–20)", a NUMBER.
+    expect(
+      toWireChange({ type: 'variable', variableId: 'MW', value: 12 }),
+    ).toEqual({ type: 'VARIABLE', variableId: 'MW', value: 12 });
+  });
+
+  it.each([
+    ['a string', 'RAL 9005'],
+    ['a boolean', true],
+    ['a date', '2026-10-01'],
+    ['an unset value', null],
+  ])('passes %s through as the CpqValue', (_label, value) => {
+    expect(toWireChange({ type: 'variable', variableId: 'V', value })).toEqual({
+      type: 'VARIABLE',
+      variableId: 'V',
+      value,
+    });
+  });
+
+  it('sends an option change with the selection and the lock in one', () => {
+    // A select and a lock travel in one change (transcript step 6b).
+    expect(
+      toWireChange({
+        type: 'option',
+        optionId: '100004',
+        instanceId: '0',
+        selected: true,
+        quantity: 1,
+        lock: 'lock',
+      }),
+    ).toEqual({
+      type: 'OPTION',
+      optionId: '100004',
+      instanceId: '0',
+      selected: true,
+      quantity: 1,
+      lock: 'LOCK',
+    });
+  });
+
+  it.each([
+    ['none', 'NONE'],
+    ['lock', 'LOCK'],
+    ['unlock', 'UNLOCK'],
+  ] as const)('sends the lock %s as %s', (lock, wire) => {
+    const change = toWireChange({
+      type: 'option',
+      optionId: 'o',
+      instanceId: '1',
+      selected: false,
+      quantity: 0,
+      lock,
+    });
+    expect(change).toMatchObject({ type: 'OPTION', lock: wire });
+  });
+
+  it("sends the configuration's own quantity", () => {
+    expect(toWireChange({ type: 'quantity', quantity: 3 })).toEqual({
+      type: 'QUANTITY',
+      quantity: 3,
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The backend over the wire
 // ---------------------------------------------------------------------------
 
@@ -1006,16 +1077,126 @@ describe('the merchant-api backend', () => {
     });
   });
 
+  describe('applyChanges', () => {
+    it('sends the batch translated, with the channel and the buyer', async () => {
+      const wire = wireConfiguration({ configurationId: 'cfg-7' });
+      fetchMock.mockResolvedValue(
+        answer({ data: { applyConfigurationChanges: wire } }),
+      );
+
+      const config = await backend.applyChanges(
+        'cfg-7',
+        [
+          { type: 'variable', variableId: 'MW', value: 12 },
+          {
+            type: 'option',
+            optionId: '100004',
+            instanceId: '0',
+            selected: true,
+            quantity: 2,
+            lock: 'unlock',
+          },
+          { type: 'quantity', quantity: 4 },
+        ],
+        CTX,
+      );
+
+      const { body, headers } = sentRequest();
+      expect(body.query).toBe(
+        loadQuery('configurator/apply-configuration-changes.graphql'),
+      );
+      expect(body.variables).toEqual({
+        configurationId: 'cfg-7',
+        changes: [
+          { type: 'VARIABLE', variableId: 'MW', value: 12 },
+          {
+            type: 'OPTION',
+            optionId: '100004',
+            instanceId: '0',
+            selected: true,
+            quantity: 2,
+            lock: 'UNLOCK',
+          },
+          { type: 'QUANTITY', quantity: 4 },
+        ],
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(config).toEqual(mapConfiguration(wire));
+    });
+
+    it('answers 502 when the batch returns no document', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { applyConfigurationChanges: null } }),
+      );
+      const failure = await failureOf(() =>
+        backend.applyChanges('cfg-7', [{ type: 'quantity', quantity: 1 }], CTX),
+      );
+      expect(failure.statusCode).toBe(502);
+    });
+
+    it("answers 422 for a batch the provider rejects, keeping the provider's reason in the log", async () => {
+      const reason =
+        'Variable MACHINE_TYPE is read-only: the provider sets its value';
+      fetchMock.mockResolvedValue(
+        answer({
+          data: null,
+          errors: [
+            { message: reason, extensions: { code: 'ConfigurationFailed' } },
+          ],
+        }),
+      );
+
+      const failure = await failureOf(() =>
+        backend.applyChanges(
+          'cfg-7',
+          [{ type: 'variable', variableId: 'MACHINE_TYPE', value: 'X' }],
+          CTX,
+        ),
+      );
+
+      expect(failure.statusCode).toBe(422);
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Client error: The provider rejected the change',
+        expect.anything(),
+      );
+      expect(
+        JSON.stringify({
+          message: failure.message,
+          statusMessage: failure.statusMessage,
+          data: failure.data,
+        }),
+      ).not.toContain(reason);
+      const warned = JSON.stringify(
+        vi.mocked(logger.warn).mock.calls as unknown[],
+      );
+      expect(warned).toContain(reason);
+      expect(warned).toContain('ConfigurationFailed');
+    });
+  });
+
   describe('failures', () => {
     const calls: [string, () => Promise<unknown>][] = [
       ['create', () => backend.create({ productId: '1359', quantity: 1 }, CTX)],
       ['get', () => backend.get('cfg-1', CTX)],
+      [
+        'applyChanges',
+        () =>
+          backend.applyChanges(
+            'cfg-1',
+            [{ type: 'quantity', quantity: 1 }],
+            CTX,
+          ),
+      ],
     ];
 
     it.each([
       ['ConfigurationNotFound', 404],
       ['ConfigurationGone', 410],
       ['MissingCustomerNumber', 403],
+      ['ConfigurationFailed', 422],
       ['SomethingElse', 502],
     ])('maps the error code %s to %i', async (code, status) => {
       for (const [name, call] of calls) {
@@ -1023,6 +1204,22 @@ describe('the merchant-api backend', () => {
         expect((await failureOf(call)).statusCode, name).toBe(status);
       }
     });
+
+    it.each([
+      'ConfigurationNotFound',
+      'ConfigurationGone',
+      'MissingCustomerNumber',
+    ])(
+      'logs nothing for %s, which is an answer rather than a refusal',
+      async (code) => {
+        fetchMock.mockResolvedValue(graphqlError(code));
+        await failureOf(calls[1]![1]);
+        const lines = vi.mocked(logger.warn).mock.calls.map(([line]) => line);
+        expect(lines.some((line) => line.startsWith('[configurator]'))).toBe(
+          false,
+        );
+      },
+    );
 
     it('finds a known code behind an unknown one', async () => {
       fetchMock.mockResolvedValue(
@@ -1150,7 +1347,6 @@ describe('the merchant-api backend', () => {
 
   describe('the verbs that land later', () => {
     it.each([
-      ['applyChanges', () => backend.applyChanges('c1', [], CTX)],
       ['renew', () => backend.renew('c1', CTX)],
       ['release', () => backend.release('c1', CTX)],
       ['commit', () => backend.commit('c1', CTX)],
@@ -1177,6 +1373,10 @@ describe('the configuration queries', () => {
   it.each([
     ['configurator/create-configuration.graphql', 'createConfiguration('],
     ['configurator/get-configuration.graphql', 'getConfiguration('],
+    [
+      'configurator/apply-configuration-changes.graphql',
+      'applyConfigurationChanges(',
+    ],
   ])('%s selects the document to the agreed depth', (path, operation) => {
     const query = loadQuery(path);
 
@@ -1198,6 +1398,13 @@ describe('the configuration queries', () => {
     ]) {
       expect(query, fragment).toContain(`fragment ${fragment}`);
     }
+  });
+
+  it('declares the change list as the schema does', () => {
+    // A variable typed looser than the argument fails GraphQL validation
+    // (VARIABLES_IN_ALLOWED_POSITION) before the provider sees the batch.
+    const query = loadQuery('configurator/apply-configuration-changes.graphql');
+    expect(query).toContain('$changes: [CpqConfigurationChangeInputType!]!');
   });
 
   it('creates by product id, not by article number', () => {

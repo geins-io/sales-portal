@@ -64,6 +64,16 @@ watch(
   },
 );
 
+// The page disables every field while a batch is in flight. A failed batch
+// leaves the same document on screen, so the watch above never fires and the
+// sent draft would stay; when the lock lifts, the document wins either way.
+watch(
+  () => disabled,
+  (now, was) => {
+    if (was && !now) draft.value = variable.value;
+  },
+);
+
 function send(value: ConfigurationValue) {
   emit('change', { type: 'variable', variableId: variable.id, value });
 }
@@ -110,7 +120,7 @@ function onDate(event: Event) {
            same number beside the same unit, and the two must not disagree on a
            separator. -->
       <NumberField
-        :model-value="typeof draft === 'number' ? draft : 0"
+        :model-value="typeof draft === 'number' ? draft : null"
         :min="variable.min"
         :max="variable.max"
         :step="variable.step ?? 1"

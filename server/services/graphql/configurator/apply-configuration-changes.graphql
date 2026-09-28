@@ -1,0 +1,17 @@
+mutation applyConfigurationChanges(
+  $configurationId: String!
+  $changes: [CpqConfigurationChangeInputType!]!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  applyConfigurationChanges(
+    configurationId: $configurationId
+    changes: $changes
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    ...CpqConfiguration
+  }
+}

@@ -108,3 +108,16 @@ export interface WireConfiguration {
   messages: WireList<WireMessage>;
   sections: WireList<WireSection>;
 }
+
+/** `CpqConfigurationChangeInputType`: one input type for every kind of change. */
+export type WireChange =
+  | { type: 'VARIABLE'; variableId: string; value: WireValue }
+  | {
+      type: 'OPTION';
+      optionId: string;
+      instanceId: string;
+      selected: boolean;
+      quantity: number;
+      lock: 'NONE' | 'LOCK' | 'UNLOCK';
+    }
+  | { type: 'QUANTITY'; quantity: number };

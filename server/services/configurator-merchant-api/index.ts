@@ -5,6 +5,7 @@ import type {
   MerchantApiTarget,
 } from '../configurator';
 import { loadQuery } from '../graphql/loader';
+import { toWireChange } from './changes';
 import { requestMerchantApi } from './client';
 import { mapConfiguration } from './map';
 import type { WireConfiguration } from './wire';
@@ -12,8 +13,8 @@ import type { WireConfiguration } from './wire';
 // ---------------------------------------------------------------------------
 // The real backend: the CPQ area of merchant-api, over GraphQL.
 //
-// Create and read land here; the change batch, renew, release and commit land
-// with the tickets that build them on the page.
+// Create, read and the change batch land here; renew, release and commit land
+// with the ticket that builds them on the page.
 // ---------------------------------------------------------------------------
 
 /** A Geins product id: a positive integer, as the create mutation's `Int`. */
@@ -90,7 +91,23 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
       return documentOf(data.getConfiguration);
     },
 
-    applyChanges: later,
+    async applyChanges(id, changes, ctx) {
+      const target = targetOf(ctx);
+      const data = await requestMerchantApi<{
+        applyConfigurationChanges: WireConfiguration | null;
+      }>(
+        target,
+        ctx.userToken,
+        loadQuery('configurator/apply-configuration-changes.graphql'),
+        {
+          configurationId: id,
+          changes: changes.map(toWireChange),
+          ...channelOf(target),
+        },
+      );
+      return documentOf(data.applyConfigurationChanges);
+    },
+
     renew: later,
     release: later,
     commit: later,
