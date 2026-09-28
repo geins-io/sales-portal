@@ -667,8 +667,11 @@ describe('specificationText', () => {
       formatValue,
       formatPrice,
       price: {
-        label: 'Nettopris',
-        amount: '7 400 kr',
+        lines: [
+          { label: 'Nettopris', amount: '7 400 kr' },
+          { label: 'Moms (25%)', amount: '1 850 kr' },
+          { label: 'Inkl. moms', amount: '9 250 kr' },
+        ],
         note: 'Indikativt pris.',
       },
     });
@@ -689,6 +692,8 @@ describe('specificationText', () => {
         '    Black (RAL 9005)',
         '',
         'Nettopris: 7 400 kr',
+        'Moms (25%): 1 850 kr',
+        'Inkl. moms: 9 250 kr',
         'Indikativt pris.',
       ].join('\n'),
     );

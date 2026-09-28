@@ -218,11 +218,17 @@ describe('ConfigurationPanel', () => {
       ).toContain('configurator.panel.quantity_suffix 4');
     });
 
-    it('shows a discounted price as it arrives, with its percentage beside it', () => {
+    it('shows a discounted price as it arrives, with no percentage and nothing struck through', () => {
       // `unitPrice` already has the discount taken off; taking it off again
-      // would show 2,400 against the 3,200 commit freezes.
+      // would show 2,400 against the 3,200 commit freezes. The prototype's
+      // total carries neither a badge nor a struck price.
       const config = makeValidConfiguration();
       config.discountPercent = 25;
+      config.unitPrice = {
+        ...config.unitPrice,
+        regularPriceExVat: 4266.67,
+        isDiscounted: true,
+      };
 
       const wrapper = mountPanel({ configuration: config });
       const price = plainText(
@@ -230,8 +236,72 @@ describe('ConfigurationPanel', () => {
       );
       expect(price).toContain('SEK 3,200.00');
       expect(price).not.toContain('SEK 2,400.00');
-      expect(price).toContain('25%');
+      expect(price).not.toContain('4,266.67');
+      expect(price).not.toContain('25%');
       expect(wrapper.find('.line-through').exists()).toBe(false);
+    });
+
+    it('writes net, VAT and the total in that order, as the prototype', () => {
+      const wrapper = mountPanel();
+
+      const rows = wrapper
+        .findAll('[data-testid="configurator-panel-price-row"]')
+        .map((row) => plainText(row.text()));
+
+      expect(rows).toHaveLength(3);
+      expect(rows[0]).toContain('configurator.panel.net_price');
+      expect(rows[0]).toContain('SEK 3,200.00');
+      expect(rows[1]).toContain('configurator.panel.vat 25');
+      expect(rows[1]).toContain('SEK 800.00');
+      expect(rows[2]).toContain('configurator.panel.inc_vat');
+      expect(rows[2]).toContain('SEK 4,000.00');
+    });
+
+    it('leads with the net figure', () => {
+      expect(
+        plainText(
+          mountPanel().find('[data-testid="configurator-panel-net"]').text(),
+        ),
+      ).toBe('SEK 3,200.00');
+    });
+
+    it('reads every row from the price as sent, never from each other', () => {
+      // Amounts that do not add up prove no row is derived from another.
+      const config = makeValidConfiguration();
+      config.unitPrice = {
+        sellingPriceExVat: 1000,
+        sellingPriceIncVat: 1300,
+        vat: 120,
+        currency: { code: 'SEK' },
+      };
+
+      const rows = mountPanel({ configuration: config })
+        .findAll('[data-testid="configurator-panel-price-row"]')
+        .map((row) => plainText(row.text()));
+
+      expect(rows[0]).toContain('SEK 1,000.00');
+      expect(rows[1]).toContain('configurator.panel.vat 12');
+      expect(rows[1]).toContain('SEK 120.00');
+      expect(rows[2]).toContain('SEK 1,300.00');
+    });
+
+    it('writes all three rows at zero for a price of zero, VAT without a rate', () => {
+      const config = makeValidConfiguration();
+      config.unitPrice = {
+        sellingPriceExVat: 0,
+        sellingPriceIncVat: 0,
+        vat: 0,
+        currency: { code: 'SEK' },
+      };
+
+      const rows = mountPanel({ configuration: config })
+        .findAll('[data-testid="configurator-panel-price-row"]')
+        .map((row) => plainText(row.text()));
+
+      expect(rows).toHaveLength(3);
+      expect(rows.every((row) => row.includes('SEK 0.00'))).toBe(true);
+      expect(rows[1]).toContain('configurator.panel.vat_no_rate');
+      expect(rows[1]).not.toContain('configurator.panel.vat ');
     });
   });
 
@@ -409,6 +479,13 @@ describe('ConfigurationPanel', () => {
       expect(copied).toContain('FRAME');
       expect(copied).toContain('  Colour:');
       expect(copied).toContain('Black (RAL 9005)');
+      // The same three price lines the panel shows, in its order.
+      const lines = copied.split('\n').map(plainText);
+      const net = lines.indexOf('configurator.panel.net_price: SEK 3,200.00');
+      expect(net).toBeGreaterThanOrEqual(0);
+      expect(lines[net + 1]).toBe('configurator.panel.vat 25: SEK 800.00');
+      expect(lines[net + 2]).toBe('configurator.panel.inc_vat: SEK 4,000.00');
+      expect(lines[net + 3]).toBe('configurator.panel.indicative');
     });
   });
 

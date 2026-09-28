@@ -4,7 +4,11 @@ import type {
   ConfigurationOption,
 } from '#shared/types/configurator';
 import { formatPrice } from '#shared/types/commerce';
-import { currencyCode, exVatAmount } from '#shared/utils/configurator-price';
+import {
+  currencyCode,
+  exVatAmount,
+  regularExVatAmount,
+} from '#shared/utils/configurator-price';
 import { Lock } from 'lucide-vue-next';
 import {
   blockingMessage,
@@ -81,13 +85,7 @@ const messages = computed(() =>
   messagesBesides(option.messages, promoted.value),
 );
 
-/**
- * What the row adds to the configuration, or nothing when it adds nothing.
- * `unitPrice` arrives already discounted; the percentage beside it is
- * information, never arithmetic.
- */
-const price = computed(() => {
-  const net = exVatAmount(option.unitPrice);
+function signed(net: number): string {
   const prefix = optionPricePrefix(net);
   if (prefix === null) return '';
   return `${prefix}${formatPrice(
@@ -95,6 +93,19 @@ const price = computed(() => {
     currencyCode(option.unitPrice),
     formatLocale.value,
   )}`;
+}
+
+/**
+ * What the row adds to the configuration, or nothing when it adds nothing.
+ * `unitPrice` arrives already discounted; the percentage beside it is
+ * information, never arithmetic.
+ */
+const price = computed(() => signed(exVatAmount(option.unitPrice)));
+
+/** The regular price, struck through beside a discounted one, as sent. */
+const regularPrice = computed(() => {
+  const regular = regularExVatAmount(option.unitPrice);
+  return regular === null ? '' : signed(regular);
 });
 
 /** The first image, as the product card: the list fragment selects no `isPrimary`. */
@@ -194,6 +205,13 @@ function onRow() {
               data-testid="configurator-option-price"
               class="text-muted-foreground flex shrink-0 items-center gap-1.5 text-sm tabular-nums"
             >
+              <span
+                v-if="regularPrice"
+                data-testid="configurator-option-regular-price"
+                class="text-xs line-through"
+              >
+                {{ regularPrice }}
+              </span>
               {{ price }}
               <span
                 v-if="option.discountPercent > 0"
@@ -222,6 +240,13 @@ function onRow() {
             data-testid="configurator-option-price"
             class="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-sm tabular-nums"
           >
+            <span
+              v-if="regularPrice"
+              data-testid="configurator-option-regular-price"
+              class="text-xs line-through"
+            >
+              {{ regularPrice }}
+            </span>
             {{ price }}
             <span
               v-if="option.discountPercent > 0"

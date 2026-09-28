@@ -334,7 +334,7 @@ export interface SpecificationTextInput {
   /** `null` where the panel renders no price either. */
   formatPrice: (price: PriceType) => string | null;
   /** Absent when the buyer may not see prices. */
-  price?: { label: string; amount: string; note: string };
+  price?: { lines: { label: string; amount: string }[]; note: string };
 }
 
 /**
@@ -364,7 +364,9 @@ export function specificationText(input: SpecificationTextInput): string {
   }
 
   if (input.price) {
-    lines.push(`${input.price.label}: ${input.price.amount}`);
+    for (const line of input.price.lines) {
+      lines.push(`${line.label}: ${line.amount}`);
+    }
     lines.push(input.price.note);
   }
 

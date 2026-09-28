@@ -159,7 +159,7 @@ test.describe('Configurator', () => {
     await expect(page.getByTestId('configurator-commit')).toBeDisabled();
 
     const priceBefore = await readPrice(
-      page.getByTestId('configurator-panel-price'),
+      page.getByTestId('configurator-panel-net'),
     );
 
     await openSection(page, COLOUR_SECTION);
@@ -178,7 +178,7 @@ test.describe('Configurator', () => {
     // The whole document comes back re-evaluated, so the price and the
     // validity are the server's answer to the one choice that was sent.
     await expect
-      .poll(() => readPrice(page.getByTestId('configurator-panel-price')))
+      .poll(() => readPrice(page.getByTestId('configurator-panel-net')))
       .toBe(priceBefore + PRICED_COLOUR_NET);
     await expect(validity).not.toContainText(COLOUR_GROUP_NAME);
 
