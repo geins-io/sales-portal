@@ -17,3 +17,39 @@ export function exVatAmount(price: PriceType | undefined): number {
 export function currencyCode(price: PriceType | undefined): string | undefined {
   return price?.currency?.code;
 }
+
+/** The selling price with VAT. */
+export function incVatAmount(price: PriceType | undefined): number {
+  return price?.sellingPriceIncVat ?? 0;
+}
+
+/** The VAT the selling price carries. */
+export function vatAmount(price: PriceType | undefined): number {
+  return price?.vat ?? 0;
+}
+
+/**
+ * The provider's own VAT amount restated as a whole percentage of the price
+ * before VAT. `null` where there is nothing to divide by: included parts
+ * arrive at 0.00.
+ */
+export function vatRatePercent(price: PriceType | undefined): number | null {
+  const exVat = price?.sellingPriceExVat;
+  const vat = price?.vat;
+  if (!exVat || typeof vat !== 'number') return null;
+  return Math.round((vat / exVat) * 100);
+}
+
+/**
+ * The regular price to strike through, only when the price says it is
+ * discounted and the regular price is above it; `null` otherwise.
+ */
+export function regularExVatAmount(
+  price: PriceType | undefined,
+): number | null {
+  const regular = price?.regularPriceExVat;
+  const selling = price?.sellingPriceExVat;
+  if (!price?.isDiscounted) return null;
+  if (typeof regular !== 'number' || typeof selling !== 'number') return null;
+  return regular > selling ? regular : null;
+}

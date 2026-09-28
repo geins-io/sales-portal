@@ -11,7 +11,13 @@ import {
 import { useClipboard } from '@vueuse/core';
 import { formatPrice, type PriceType } from '#shared/types/commerce';
 import type { Configuration } from '#shared/types/configurator';
-import { currencyCode, exVatAmount } from '#shared/utils/configurator-price';
+import {
+  currencyCode,
+  exVatAmount,
+  incVatAmount,
+  vatAmount,
+  vatRatePercent,
+} from '#shared/utils/configurator-price';
 import type { ConfiguratorSessionStatus } from '~/composables/useConfiguratorSession';
 import { Button } from '~/components/ui/button';
 import { optionPricePrefix } from '~/utils/configurator-form';
@@ -71,11 +77,26 @@ function money(net: number): string {
 }
 
 /**
- * `unitPrice` arrives with the discount already taken off, so the percentage is
- * information beside it and never arithmetic on it.
+ * Net leads and VAT and the total support it, as the prototype. Every figure is
+ * the unit price as sent, already net of any discount; none is derived from
+ * another.
  */
-const discountPercent = computed(() => configuration?.discountPercent ?? 0);
 const price = computed(() => money(exVatAmount(configuration?.unitPrice)));
+
+const vatLabel = computed(() => {
+  const rate = vatRatePercent(configuration?.unitPrice);
+  return rate === null
+    ? t('configurator.panel.vat_no_rate')
+    : t('configurator.panel.vat', { rate });
+});
+
+const supportingRows = computed(() => [
+  { label: vatLabel.value, amount: money(vatAmount(configuration?.unitPrice)) },
+  {
+    label: t('configurator.panel.inc_vat'),
+    amount: money(incVatAmount(configuration?.unitPrice)),
+  },
+]);
 
 /**
  * A number is written the way the field the buyer typed it in writes it, down
@@ -131,8 +152,10 @@ const asText = computed(() =>
     ...(showPrice.value
       ? {
           price: {
-            label: t('configurator.panel.net_price'),
-            amount: price.value,
+            lines: [
+              { label: t('configurator.panel.net_price'), amount: price.value },
+              ...supportingRows.value,
+            ],
             note: t('configurator.panel.indicative'),
           },
         }
@@ -229,7 +252,10 @@ const canCopy = computed(() => mounted.value && isSupported.value);
       class="px-4 py-3"
       data-testid="configurator-panel-price"
     >
-      <div class="flex items-baseline justify-between gap-3">
+      <div
+        class="flex items-baseline justify-between gap-3"
+        data-testid="configurator-panel-price-row"
+      >
         <span class="text-muted-foreground text-xs">
           {{ t('configurator.panel.net_price') }}
           <template v-if="configuration.quantity > 1">
@@ -242,17 +268,22 @@ const canCopy = computed(() => mounted.value && isSupported.value);
           </template>
         </span>
         <span
-          class="flex items-baseline gap-2 text-xl font-semibold tabular-nums transition-opacity"
+          class="text-xl font-semibold tabular-nums transition-opacity"
           :class="busy ? 'opacity-40' : ''"
+          data-testid="configurator-panel-net"
         >
           {{ price }}
-          <span
-            v-if="discountPercent > 0"
-            class="bg-primary/10 text-primary rounded-full px-1.5 text-[10px] font-medium"
-          >
-            −{{ discountPercent }}%
-          </span>
         </span>
+      </div>
+      <div
+        v-for="(row, index) in supportingRows"
+        :key="index"
+        class="text-muted-foreground flex justify-between gap-3 text-[11px]"
+        :class="index === 0 ? 'mt-1' : ''"
+        data-testid="configurator-panel-price-row"
+      >
+        <span>{{ row.label }}</span>
+        <span class="tabular-nums">{{ row.amount }}</span>
       </div>
     </div>
 

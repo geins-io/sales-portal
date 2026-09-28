@@ -42,40 +42,82 @@ describe('ConfiguratorOptionRow', () => {
     expect(price.text().startsWith('+')).toBe(true);
   });
 
-  it('shows a discounted row at the price it arrives with and its percentage', () => {
+  it('shows a discounted row at the price it arrives with, the regular price struck through and its percentage', () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountRow(findOption(workbench, 'acc-pegboard'));
 
-    // The seed's 900 is already 25 % off; the row does no arithmetic on it.
+    // The seed's 900 is already 25 % off 1,200; the row does no arithmetic on it.
     const price = wrapper.find('[data-testid="configurator-option-price"]');
     expect(price.text()).toContain('900');
     expect(price.text()).not.toContain('675');
+    const regular = wrapper.find(
+      '[data-testid="configurator-option-regular-price"]',
+    );
+    expect(regular.text()).toContain('1,200');
+    expect(regular.text().startsWith('+')).toBe(true);
+    expect(regular.classes()).toContain('line-through');
     expect(
       wrapper.find('[data-testid="configurator-option-discount"]').text(),
     ).toBe('−25%');
   });
 
-  it('keeps the percentage with the price when the price moves under the name', () => {
+  it('writes the struck price, the selling price and the percentage in that order', () => {
+    const workbench = makeInitialConfiguration();
+
+    const text = mountRow(findOption(workbench, 'acc-pegboard'))
+      .find('[data-testid="configurator-option-price"]')
+      .text();
+
+    expect(text.indexOf('1,200')).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf('1,200')).toBeLessThan(text.indexOf('900'));
+    expect(text.indexOf('900')).toBeLessThan(text.indexOf('−25%'));
+  });
+
+  it('keeps the struck price and the percentage with the price when the price moves under the name', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'acc-pegboard');
     option.selected = true;
 
     const wrapper = mountRow(option, { quantityEditable: true });
 
-    const badge = wrapper.find('[data-testid="configurator-option-discount"]');
-    expect(badge.element.parentElement).toBe(
-      wrapper.find('[data-testid="configurator-option-price"]').element,
-    );
+    const price = wrapper.find('[data-testid="configurator-option-price"]');
+    for (const testid of [
+      'configurator-option-regular-price',
+      'configurator-option-discount',
+    ]) {
+      expect(
+        wrapper.find(`[data-testid="${testid}"]`).element.parentElement,
+      ).toBe(price.element);
+    }
   });
 
-  it('shows no percentage on a row without a discount', () => {
+  it('shows no struck price and no percentage on a row without a discount', () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountRow(findOption(workbench, 'top-wood'));
 
     expect(
+      wrapper
+        .find('[data-testid="configurator-option-regular-price"]')
+        .exists(),
+    ).toBe(false);
+    expect(
       wrapper.find('[data-testid="configurator-option-discount"]').exists(),
+    ).toBe(false);
+  });
+
+  it('strikes nothing through when the regular price is not above the selling price', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'acc-pegboard');
+    option.unitPrice = { ...option.unitPrice, regularPriceExVat: 900 };
+
+    const wrapper = mountRow(option);
+
+    expect(
+      wrapper
+        .find('[data-testid="configurator-option-regular-price"]')
+        .exists(),
     ).toBe(false);
   });
 
@@ -412,7 +454,7 @@ describe('ConfiguratorOptionRow', () => {
     const workbench = makeInitialConfiguration();
     const withProduct = findOption(workbench, 'top-wood');
     withProduct.product!.productImages = [
-      { fileName: 'beech.jpg', isPrimary: true, url: '' },
+      { fileName: 'beech.jpg', isPrimary: false, url: '' },
     ];
     const withoutProduct = { ...withProduct, product: null };
 
@@ -422,6 +464,33 @@ describe('ConfiguratorOptionRow', () => {
     expect(wrapper.text()).toContain('Solid beech top');
     expect(wrapper.text()).toContain('KONF-1001-TOP-WOOD');
     expect(wrapper.find('img').exists()).toBe(false);
+  });
+
+  it('renders the first image of the product, as the product card does', () => {
+    // The list fragment the option's product arrives through selects no
+    // `isPrimary`, so a lookup on the flag would never match.
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.product!.productImages = [
+      { fileName: 'beech-front.jpg', isPrimary: false, url: '' },
+      { fileName: 'beech-side.jpg', isPrimary: false, url: '' },
+    ];
+
+    const wrapper = mountRow(option);
+
+    const images = wrapper.findAllComponents({ name: 'GeinsImage' });
+    expect(images).toHaveLength(1);
+    expect(images[0]!.props('fileName')).toBe('beech-front.jpg');
+  });
+
+  it('renders no image for a product without images', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.product!.productImages = [];
+
+    const wrapper = mountRow(option);
+
+    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(false);
   });
 
   it('writes the description under the name, above the article number', () => {
