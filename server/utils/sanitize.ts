@@ -1,6 +1,3 @@
-// `sanitizeTenantCss` lives in `#shared/utils/sanitize-css` so the client error
-// page can harden the same tenant css string the server plugin injects.
-
 export function sanitizeHtmlAttr(value: string): string {
   return value
     .replace(/&/g, '&amp;')

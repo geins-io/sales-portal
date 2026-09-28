@@ -1254,7 +1254,7 @@ export const CONFIG_COVERAGE_MAP = {
         'Synthesized from the tenant id when the API omits it. The CSS ' +
         'emitter is asserted to scope the stylesheet under the name. Still ' +
         'unasserted: the consumers that lower-case it into a theme class — ' +
-        'server/plugins/04.tenant-css.ts:23, app/error.vue:25, server/error.ts:128.',
+        'server/plugins/04.tenant-css.ts:23, server/error.ts:128.',
     },
 
     displayName: {
@@ -1436,8 +1436,8 @@ export const CONFIG_COVERAGE_MAP = {
           ],
           note:
             'The URL builder, and the plugin that puts its URL in a <link>. ' +
-            'app/error.vue:31 and server/error.ts:133 read the same builder ' +
-            'and are still unasserted.',
+            'server/error.ts:133 reads the same builder and is still ' +
+            'unasserted.',
         },
         absent: {
           status: 'has-test',
