@@ -249,6 +249,7 @@ jobs:
             redisUrl="${{ secrets.REDIS_URL }}"
             enableAnalytics="${{ vars.ENABLE_ANALYTICS }}"
             configuratorBackend="${{ vars.CONFIGURATOR_BACKEND }}"
+            configuratorMerchantApiUrl="${{ vars.CONFIGURATOR_MERCHANT_API_URL }}"
             logLevel="${{ vars.LOG_LEVEL }}"
             sentryDsn="${{ secrets.SENTRY_DSN }}"
             versionX="${{ secrets.VERSION_X }}"
