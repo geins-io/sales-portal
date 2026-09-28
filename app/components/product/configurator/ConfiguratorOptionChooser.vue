@@ -10,19 +10,24 @@ import {
 /**
  * The one row a long single-choice group shows in place of its rows: what to
  * choose while nothing is, or the chosen row once something is. The whole row
- * opens the group's full list.
+ * opens the group's full list. A group the buyer may skip has "nothing chosen"
+ * chosen rather than nothing, so it reads that, as the none row does: no image
+ * box, no article number, no price.
  *
  * It stays openable while a batch is in flight: opening a list sends nothing,
  * and the rows in it carry the form's lock.
  */
 const {
   chosen,
+  none = false,
   groupName,
   count,
   imageColumn,
   disabled = false,
 } = defineProps<{
   chosen: ConfigurationOption | undefined;
+  /** The group offers "nothing chosen", which stands in when nothing is. */
+  none?: boolean;
   groupName: string;
   /** Every row of the group, for the line under the prompt. */
   count: number;
@@ -37,6 +42,8 @@ const emit = defineEmits<{ open: [] }>();
 const { t } = useI18n();
 
 const readOnly = computed(() => !!chosen && isReadOnly(chosen));
+
+const showsNone = computed(() => !chosen && none);
 
 const block = computed(() =>
   chosen ? optionBlockReason(chosen, disabled) : undefined,
@@ -57,12 +64,13 @@ const reason = computed(() => {
     data-testid="configurator-group-chooser"
     :data-option-id="chosen?.id"
     :data-selected="!!chosen"
+    :data-none="showsNone"
     class="hover:bg-accent/50 flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors"
-    :class="chosen ? 'border-selected/60 bg-selected/5' : ''"
+    :class="chosen || showsNone ? 'border-selected/60 bg-selected/5' : ''"
     @click="emit('open')"
   >
     <ConfiguratorOptionImage
-      v-if="imageColumn"
+      v-if="imageColumn && !showsNone"
       :file-name="chosen ? optionImage(chosen) : undefined"
       :alt="chosen?.name ?? ''"
     />
@@ -73,7 +81,9 @@ const reason = computed(() => {
         {{
           chosen
             ? chosen.name
-            : t('configurator.choose_in_group', { name: groupName })
+            : showsNone
+              ? t('configurator.none_option')
+              : t('configurator.choose_in_group', { name: groupName })
         }}
         <Lock
           v-if="readOnly"
@@ -82,7 +92,7 @@ const reason = computed(() => {
           :aria-label="t('configurator.read_only')"
         />
       </span>
-      <span class="text-muted-foreground block text-xs">
+      <span v-if="!showsNone" class="text-muted-foreground block text-xs">
         {{
           chosen
             ? chosen.articleNumber

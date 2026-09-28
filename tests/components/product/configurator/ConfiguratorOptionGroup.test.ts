@@ -764,4 +764,200 @@ describe('ConfiguratorOptionGroup', () => {
     expect(groups[0]!.find(CHOOSER).find(IMAGE).exists()).toBe(true);
     expect(groups[1]!.find(IMAGE).exists()).toBe(false);
   });
+
+  // ---------------------------------------------------------------------
+  // "Inget valt": an optional single choice leads with "nothing chosen"
+  // ---------------------------------------------------------------------
+  describe('an optional single choice', () => {
+    const NONE = `${SHEET} [data-testid="configurator-option-none"]`;
+
+    /** The seeded table top, made optional. */
+    function optionalTop(chosenId?: string) {
+      const workbench = makeInitialConfiguration();
+      const top = findOptionGroup(workbench, 'top');
+      top.minSelections = undefined;
+      for (const option of top.options)
+        option.selected = option.id === chosenId;
+      return { workbench, top };
+    }
+
+    it('reads "nothing chosen" in the chooser while nothing is chosen', () => {
+      const { top } = optionalTop();
+
+      const chooser = mountGroup(top).find(CHOOSER);
+
+      expect(chooser.text()).toContain('configurator.none_option');
+      expect(chooser.text()).not.toContain('configurator.choose_in_group');
+      expect(chooser.text()).not.toContain('configurator.option_count');
+      expect(chooser.attributes('data-none')).toBe('true');
+      expect(chooser.attributes('data-selected')).toBe('false');
+      expect(chooser.classes()).toContain('bg-selected/5');
+    });
+
+    it('lists "nothing chosen" first in the sheet, and checked', async () => {
+      const { top } = optionalTop();
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+
+      const radios = wrapper.findAll(`${SHEET} [role="radio"]`);
+      expect(radios).toHaveLength(4);
+      expect(wrapper.find(`${NONE} [role="radio"]`).element).toBe(
+        radios[0]!.element,
+      );
+      expect(radios[0]!.attributes('aria-checked')).toBe('true');
+      expect(
+        wrapper.findAll(`${SHEET} [role="radio"][aria-checked="true"]`),
+      ).toHaveLength(1);
+      expect(wrapper.find(NONE).text()).toBe('configurator.none_option');
+    });
+
+    it('sends nothing when "nothing chosen" is chosen again', async () => {
+      const { top } = optionalTop();
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+      await wrapper.find(NONE).trigger('click');
+
+      expect(wrapper.emitted('change')).toBeUndefined();
+      expect(wrapper.find(SHEET).exists()).toBe(false);
+    });
+
+    it('shows the chosen option in the chooser, and leaves "nothing chosen" unchecked', async () => {
+      const { top } = optionalTop('top-wood');
+
+      const wrapper = mountGroup(top);
+      const chooser = wrapper.find(CHOOSER);
+      expect(chooser.attributes('data-option-id')).toBe('top-wood');
+      expect(chooser.attributes('data-none')).toBe('false');
+      expect(chooser.text()).not.toContain('configurator.none_option');
+
+      await chooser.trigger('click');
+      expect(
+        wrapper.find(`${NONE} [role="radio"]`).attributes('aria-checked'),
+      ).toBe('false');
+    });
+
+    it('deselects the chosen option in one change when "nothing chosen" is chosen', async () => {
+      const { top } = optionalTop('top-wood');
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+      await wrapper.find(`${NONE} [role="radio"]`).trigger('click');
+
+      expect(wrapper.emitted('change')).toHaveLength(1);
+      expect(wrapper.emitted('change')?.[0]?.[0]).toEqual({
+        type: 'option',
+        optionId: 'top-wood',
+        instanceId: '0',
+        selected: false,
+        quantity: 1,
+        lock: 'none',
+      });
+      // A single choice is made once, "nothing chosen" included.
+      expect(wrapper.find(SHEET).exists()).toBe(false);
+    });
+
+    it('deselects from a click anywhere on the row, once', async () => {
+      const { top } = optionalTop('top-wood');
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+      await wrapper.find(NONE).trigger('click');
+
+      expect(wrapper.emitted('change')).toHaveLength(1);
+      expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
+        optionId: 'top-wood',
+        selected: false,
+      });
+    });
+
+    it('cannot deselect an option the provider holds', async () => {
+      const { top } = optionalTop('top-wood');
+      top.options[1]!.selectionSource = 'locked';
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+      expect(
+        wrapper.find(`${NONE} [role="radio"]`).attributes('disabled'),
+      ).toBeDefined();
+      await wrapper.find(NONE).trigger('click');
+
+      expect(wrapper.emitted('change')).toBeUndefined();
+    });
+
+    it('gives "nothing chosen" no image box where the other rows carry one', async () => {
+      const { workbench, top } = optionalTop();
+      withImage(findOption(workbench, 'top-wood'), 'beech.jpg');
+
+      const wrapper = mountGroup(top);
+      expect(wrapper.find(CHOOSER).find(IMAGE).exists()).toBe(false);
+      await wrapper.find(CHOOSER).trigger('click');
+
+      expect(wrapper.find(NONE).find(IMAGE).exists()).toBe(false);
+      expect(wrapper.find(SHEET).findAll(IMAGE)).toHaveLength(3);
+    });
+
+    it('finds "nothing chosen" by its label, and drops it from other searches', async () => {
+      const { top } = optionalTop();
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+      const search = wrapper.find('[data-testid="configurator-group-search"]');
+
+      await search.setValue('beech');
+      expect(wrapper.find(NONE).exists()).toBe(false);
+
+      await search.setValue('none_option');
+      expect(wrapper.find(NONE).exists()).toBe(true);
+      expect(
+        wrapper.find('[data-testid="configurator-group-no-matches"]').exists(),
+      ).toBe(false);
+    });
+
+    it('says "nothing chosen" while folded', async () => {
+      const { top } = optionalTop();
+
+      const wrapper = mountGroup(top);
+      await wrapper
+        .find('[data-testid="configurator-group-header"]')
+        .trigger('click');
+
+      expect(
+        wrapper.find('[data-testid="configurator-group-summary"]').text(),
+      ).toBe('(configurator.none_option)');
+    });
+
+    // One real option and "nothing chosen" is a choice of two.
+    it('opens a group of one real option from the chooser', () => {
+      const { top } = optionalTop();
+      top.options = top.options.slice(0, 1);
+
+      const wrapper = mountGroup(top);
+
+      expect(wrapper.find(CHOOSER).exists()).toBe(true);
+      expect(
+        wrapper.findAll('[data-testid="configurator-option"]'),
+      ).toHaveLength(0);
+    });
+  });
+
+  it('gives a required single choice no "nothing chosen"', async () => {
+    const workbench = makeInitialConfiguration();
+    const top = findOptionGroup(workbench, 'top');
+    for (const option of top.options) option.selected = false;
+
+    const wrapper = mountGroup(top);
+    const chooser = wrapper.find(CHOOSER);
+    expect(chooser.text()).toContain('configurator.choose_in_group');
+    expect(chooser.attributes('data-none')).toBe('false');
+    await chooser.trigger('click');
+
+    expect(
+      wrapper
+        .find(`${SHEET} [data-testid="configurator-option-none"]`)
+        .exists(),
+    ).toBe(false);
+    expect(wrapper.findAll(`${SHEET} [role="radio"]`)).toHaveLength(3);
+  });
 });

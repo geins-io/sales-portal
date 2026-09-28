@@ -7,12 +7,14 @@ import {
   dateChangeValue,
   dateInputValue,
   groupHintKey,
+  groupRowCount,
   groupSummary,
   hasImageColumn,
   isReadOnly,
   isSingleSelect,
   matchesOptionQuery,
   messagesBesides,
+  offersNoneRow,
   OPTION_CHOOSER_ABOVE,
   optionBlockReason,
   optionImage,
@@ -263,17 +265,66 @@ describe('groupSummary', () => {
 describe('usesChooser', () => {
   it('lists a group of one inline', () => {
     expect(OPTION_CHOOSER_ABOVE).toBe(1);
-    expect(usesChooser([{}])).toBe(false);
+    expect(usesChooser(1)).toBe(false);
   });
 
   it('offers a group of two from a chooser', () => {
-    expect(usesChooser([{}, {}])).toBe(true);
+    expect(usesChooser(2)).toBe(true);
   });
 
   it('offers the twenty-six colours from a chooser', () => {
     const workbench = makeInitialConfiguration();
 
-    expect(usesChooser(findOptionGroup(workbench, 'color').options)).toBe(true);
+    expect(
+      usesChooser(groupRowCount(findOptionGroup(workbench, 'color'))),
+    ).toBe(true);
+  });
+});
+
+describe('offersNoneRow', () => {
+  it('leads an optional single choice with "nothing chosen"', () => {
+    expect(offersNoneRow({ maxSelections: 1 })).toBe(true);
+    expect(offersNoneRow({ maxSelections: 1, minSelections: 0 })).toBe(true);
+  });
+
+  it('gives a required single choice none', () => {
+    expect(offersNoneRow({ maxSelections: 1, minSelections: 1 })).toBe(false);
+  });
+
+  it('gives a multi choice none, required or not', () => {
+    expect(offersNoneRow({})).toBe(false);
+    expect(offersNoneRow({ maxSelections: 2 })).toBe(false);
+    expect(offersNoneRow({ maxSelections: 3, minSelections: 1 })).toBe(false);
+  });
+});
+
+describe('groupRowCount', () => {
+  it('counts "nothing chosen" as a row of an optional single choice', () => {
+    const options = findOptionGroup(makeInitialConfiguration(), 'top').options;
+
+    expect(groupRowCount({ options, maxSelections: 1 })).toBe(4);
+    expect(groupRowCount({ options, maxSelections: 1, minSelections: 1 })).toBe(
+      3,
+    );
+    expect(groupRowCount({ options })).toBe(3);
+  });
+
+  // One real option and "nothing chosen" is a choice of two, so it is made
+  // from the chooser like any other.
+  it('opens an optional single choice of one real option from the chooser', () => {
+    const options = findOptionGroup(
+      makeInitialConfiguration(),
+      'top',
+    ).options.slice(0, 1);
+
+    expect(usesChooser(groupRowCount({ options, maxSelections: 1 }))).toBe(
+      true,
+    );
+    expect(
+      usesChooser(
+        groupRowCount({ options, maxSelections: 1, minSelections: 1 }),
+      ),
+    ).toBe(false);
   });
 });
 

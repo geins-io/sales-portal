@@ -1124,6 +1124,16 @@ describe('the third seeded product', () => {
     });
   });
 
+  it('carries one single choice the buyer may skip, with nothing chosen', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+
+    const optional = everyGroup(config.sections).filter(
+      (group) => group.maxSelections === 1 && !group.minSelections,
+    );
+    expect(optional.map((group) => group.id)).toEqual(['top-treatment']);
+    expect(optional[0]!.options.some((option) => option.selected)).toBe(false);
+  });
+
   it('marks one variable read-only', async () => {
     const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
 

@@ -17,6 +17,7 @@ import { useTenant } from '../../../app/composables/useTenant';
 import { useAuthStore } from '../../../app/stores/auth';
 import {
   findOption,
+  findOptionGroup,
   makeInvalidConfiguration,
   makeValidConfiguration,
 } from '../../fixtures/configurator';
@@ -435,7 +436,7 @@ describe('ConfigurationPanel', () => {
       Reflect.deleteProperty(navigator, 'permissions');
     });
 
-    it('copies the specification as plain text', async () => {
+    function grantClipboard() {
       const writeText = vi.fn().mockResolvedValue(undefined);
       // jsdom has neither a clipboard nor a permission to write to it, and
       // without both `useClipboard` reports the feature unsupported, renders
@@ -460,6 +461,19 @@ describe('ConfigurationPanel', () => {
         },
         configurable: true,
       });
+      return writeText;
+    }
+
+    async function copyText(wrapper: ReturnType<typeof mountPanel>) {
+      await flushPromises();
+      await wrapper
+        .find('[data-testid="configurator-panel-copy"]')
+        .trigger('click');
+      await flushPromises();
+    }
+
+    it('copies the specification as plain text', async () => {
+      const writeText = grantClipboard();
 
       const wrapper = mountPanel();
       await flushPromises();
@@ -486,6 +500,26 @@ describe('ConfigurationPanel', () => {
       expect(lines[net + 1]).toBe('configurator.panel.vat 25: SEK 800.00');
       expect(lines[net + 2]).toBe('configurator.panel.inc_vat: SEK 4,000.00');
       expect(lines[net + 3]).toBe('configurator.panel.indicative');
+    });
+
+    // As the prototype's "Ytbehandling": the group is specified by its
+    // "Inget valt", on screen and in the copy alike.
+    it('writes an optional single choice left at nothing chosen as "none"', async () => {
+      const writeText = grantClipboard();
+      const configuration = makeValidConfiguration();
+      const top = findOptionGroup(configuration, 'top');
+      top.minSelections = undefined;
+      for (const option of top.options) option.selected = false;
+
+      const wrapper = mountPanel({ configuration });
+      const row = wrapper
+        .findAll('[data-testid="configurator-panel-rows"] dl > div')
+        .find((candidate) => candidate.find('dt').text() === 'Table top');
+      expect(row?.find('dd').text()).toBe('configurator.none_option');
+
+      await copyText(wrapper);
+      const copied = writeText.mock.calls[0]?.[0] as string;
+      expect(copied).toContain('  Table top:\n    configurator.none_option\n');
     });
   });
 

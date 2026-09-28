@@ -6,10 +6,14 @@ import type {
 import { ChevronRight, Plus, Search } from 'lucide-vue-next';
 import {
   groupHintKey,
+  groupRowCount,
   groupSummary,
   hasImageColumn,
+  isReadOnly,
   isSingleSelect,
   matchesOptionQuery,
+  NONE_ROW_VALUE,
+  offersNoneRow,
   usesChooser,
 } from '~/utils/configurator-form';
 import { Input } from '~/components/ui/input';
@@ -28,6 +32,10 @@ import {
  * not a deselect for the row it replaces: the provider drops the siblings when
  * it re-evaluates, and a client that sent both would be guessing at a rule it
  * cannot see.
+ *
+ * A single choice the buyer may skip leads with "nothing chosen", which is
+ * chosen whenever no real option is. Choosing it is the one deselect the group
+ * sends: the provider has nothing to replace the option with.
  *
  * The folding, the header and where the group's own messages sit are
  * `ConfiguratorFoldable`'s, shared with the measurements block of a section.
@@ -50,6 +58,7 @@ const { t } = useI18n();
 const single = computed(() => isSingleSelect(group));
 const hint = computed(() => groupHintKey(group));
 const locked = computed(() => disabled || !group.available);
+const none = computed(() => offersNoneRow(group));
 
 /** What the header says the group holds while it is folded. */
 const summary = computed(() => {
@@ -57,13 +66,15 @@ const summary = computed(() => {
   if (chosen.kind === 'one') return chosen.name;
   if (chosen.kind === 'many')
     return t('configurator.summary.many', { count: chosen.count });
-  return t('configurator.summary.none');
+  return none.value
+    ? t('configurator.none_option')
+    : t('configurator.summary.none');
 });
 
 // A group with a choice to make is chosen from a panel rather than listed, as
 // the prototype's option layouts: a single choice shows one row for it, a
 // multi choice shows what is chosen and a row that adds more.
-const chooser = computed(() => usesChooser(group.options));
+const chooser = computed(() => usesChooser(groupRowCount(group)));
 const imageColumn = computed(() => hasImageColumn(group.options));
 const chosen = computed(() =>
   group.options.filter((option) => option.selected),
@@ -74,6 +85,15 @@ const query = ref('');
 const matches = computed(() =>
   group.options.filter((option) => matchesOptionQuery(option, query.value)),
 );
+/** Searched by its label, as any row is by what it shows. */
+const noneMatches = computed(
+  () =>
+    none.value &&
+    matchesOptionQuery(
+      { name: t('configurator.none_option'), articleNumber: '' },
+      query.value,
+    ),
+);
 
 function openSheet() {
   query.value = '';
@@ -83,6 +103,14 @@ function openSheet() {
 /** No row carries an empty id, so an empty model checks nothing. */
 const selectedId = computed(
   () => group.options.find((option) => option.selected)?.id ?? '',
+);
+const sheetValue = computed(
+  () => selectedId.value || (none.value ? NONE_ROW_VALUE : ''),
+);
+
+/** A choice the provider holds cannot be undone from here. */
+const noneLocked = computed(
+  () => locked.value || (!!chosen.value[0] && isReadOnly(chosen.value[0])),
 );
 
 function onPick(value: unknown) {
@@ -107,7 +135,26 @@ function onSheetChange(change: ConfigurationChange) {
   if (single.value) sheetOpen.value = false;
 }
 
+/** Deselects the chosen option; with nothing chosen there is nothing to send. */
+function pickNone() {
+  const current = chosen.value[0];
+  sheetOpen.value = false;
+  if (!current || noneLocked.value) return;
+  emit('change', {
+    type: 'option',
+    optionId: current.id,
+    instanceId: current.instanceId,
+    selected: false,
+    quantity: current.quantity,
+    lock: 'none',
+  });
+}
+
 function onSheetPick(value: unknown) {
+  if (value === NONE_ROW_VALUE) {
+    pickNone();
+    return;
+  }
   onPick(value);
   sheetOpen.value = false;
 }
@@ -133,6 +180,7 @@ function onSheetPick(value: unknown) {
       <ConfiguratorOptionChooser
         v-if="chooser && single"
         :chosen="chosen[0]"
+        :none="none"
         :group-name="group.name"
         :count="group.options.length"
         :image-column="imageColumn"
@@ -248,11 +296,17 @@ function onSheetPick(value: unknown) {
         <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <RadioGroup
             v-if="single"
-            :model-value="selectedId"
+            :model-value="sheetValue"
             :disabled="locked"
             class="gap-2"
             @update:model-value="onSheetPick"
           >
+            <ConfiguratorNoneRow
+              v-if="noneMatches"
+              :selected="!selectedId"
+              :disabled="noneLocked"
+              @pick="pickNone"
+            />
             <ConfiguratorOptionRow
               v-for="option in matches"
               :key="`${option.id}-${option.instanceId}`"
@@ -279,7 +333,7 @@ function onSheetPick(value: unknown) {
           </div>
 
           <p
-            v-if="!matches.length"
+            v-if="!matches.length && !noneMatches"
             data-testid="configurator-group-no-matches"
             class="text-muted-foreground py-8 text-center text-sm"
           >

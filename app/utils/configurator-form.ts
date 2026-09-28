@@ -58,6 +58,39 @@ export function isSingleSelect(
   return group.maxSelections === 1;
 }
 
+function isRequiredGroup(
+  group: Pick<ConfigurationOptionGroup, 'minSelections'>,
+): boolean {
+  return (group.minSelections ?? 0) > 0;
+}
+
+/**
+ * Whether a group leads with the portal's own "nothing chosen" row: a single
+ * choice the buyer may skip has no other way to say "none" once a real option
+ * is chosen. The row is the portal's; the document never carries it.
+ */
+export function offersNoneRow(
+  group: Pick<ConfigurationOptionGroup, 'minSelections' | 'maxSelections'>,
+): boolean {
+  return isSingleSelect(group) && !isRequiredGroup(group);
+}
+
+/**
+ * The radio value of the "nothing chosen" row. It stays inside the form's
+ * radio group and is never sent.
+ */
+export const NONE_ROW_VALUE = 'configurator:none';
+
+/** The rows a group offers, the "nothing chosen" row included. */
+export function groupRowCount(
+  group: Pick<
+    ConfigurationOptionGroup,
+    'options' | 'minSelections' | 'maxSelections'
+  >,
+): number {
+  return group.options.length + (offersNoneRow(group) ? 1 : 0);
+}
+
 /**
  * The one message a disabled or read-only row shows as its reason. An error
  * outranks a warning; beyond that the provider's order stands.
@@ -100,8 +133,8 @@ export function groupSummary(
  */
 export const OPTION_CHOOSER_ABOVE = 1;
 
-export function usesChooser(options: unknown[]): boolean {
-  return options.length > OPTION_CHOOSER_ABOVE;
+export function usesChooser(rowCount: number): boolean {
+  return rowCount > OPTION_CHOOSER_ABOVE;
 }
 
 /**
@@ -260,7 +293,7 @@ export function dateChangeValue(raw: string): ConfigurationValue {
 export function groupHintKey(
   group: Pick<ConfigurationOptionGroup, 'minSelections' | 'maxSelections'>,
 ): string {
-  if ((group.minSelections ?? 0) > 0) return 'configurator.required';
+  if (isRequiredGroup(group)) return 'configurator.required';
   return isSingleSelect(group)
     ? 'configurator.optional'
     : 'configurator.choose_many';

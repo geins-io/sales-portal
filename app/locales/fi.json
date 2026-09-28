@@ -314,6 +314,7 @@
     "unavailable": "Ei käytettävissä nykyisillä valinnoilla",
     "bounds": "{min}–{max} {unit}",
     "optional": "Valinnainen",
+    "none_option": "Ei valintaa",
     "choose_many": "Valitse ei yhtään tai useampi",
     "quantity": "Määrä",
     "choose_in_group": "Valitse {name}",

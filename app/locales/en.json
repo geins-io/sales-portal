@@ -314,6 +314,7 @@
     "unavailable": "Not available with your current choices",
     "bounds": "{min}–{max} {unit}",
     "optional": "Optional",
+    "none_option": "None",
     "choose_many": "Choose none or more",
     "quantity": "Quantity",
     "choose_in_group": "Choose {name}",

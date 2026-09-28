@@ -167,11 +167,14 @@ function worktopSection(): ConfigurationSection {
           option('top-steel', 'Stainless steel, 1.5 mm on ply', 3400, 907_012),
         ],
       }),
+      // The one single choice the buyer may skip, so the form has a group
+      // to lead with "nothing chosen".
       seedGroup({
         id: 'top-treatment',
         code: 'TREATMENT',
         name: 'Surface treatment',
         sortIndex: 9,
+        maxSelections: 1,
         options: [
           option('treat-esd', 'ESD-dissipative coating', 1250, 907_013),
           // A treatment is a part number, not a sellable article: the real

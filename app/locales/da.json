@@ -314,6 +314,7 @@
     "unavailable": "Ikke tilgængeligt med dine nuværende valg",
     "bounds": "{min}–{max} {unit}",
     "optional": "Valgfrit",
+    "none_option": "Intet valgt",
     "choose_many": "Vælg ingen eller flere",
     "quantity": "Antal",
     "choose_in_group": "Vælg {name}",
