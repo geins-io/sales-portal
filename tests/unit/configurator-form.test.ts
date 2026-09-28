@@ -8,12 +8,14 @@ import {
   dateInputValue,
   groupHintKey,
   groupSummary,
+  hasImageColumn,
   isReadOnly,
   isSingleSelect,
   matchesOptionQuery,
   messagesBesides,
   OPTION_CHOOSER_ABOVE,
   optionBlockReason,
+  optionImage,
   optionPricePrefix,
   signedOptionPrice,
   usesChooser,
@@ -272,6 +274,57 @@ describe('usesChooser', () => {
     const workbench = makeInitialConfiguration();
 
     expect(usesChooser(findOptionGroup(workbench, 'color').options)).toBe(true);
+  });
+});
+
+describe('optionImage', () => {
+  it("reads the first image of the option's product, as the product card does", () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.product!.productImages = [
+      { fileName: 'beech-front.jpg', isPrimary: false, url: '' },
+      { fileName: 'beech-side.jpg', isPrimary: false, url: '' },
+    ];
+
+    expect(optionImage(option)).toBe('beech-front.jpg');
+  });
+
+  it('has none for an option without a product, or a product without images', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+
+    expect(optionImage(option)).toBeUndefined();
+    expect(optionImage({ ...option, product: null })).toBeUndefined();
+  });
+
+  it('has none for an image without a file name', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.product!.productImages = [
+      { fileName: '', isPrimary: false, url: '' },
+    ];
+
+    expect(optionImage(option)).toBeUndefined();
+  });
+});
+
+describe('hasImageColumn', () => {
+  it('is false when no option in the group has an image', () => {
+    const workbench = makeInitialConfiguration();
+
+    expect(hasImageColumn(findOptionGroup(workbench, 'top').options)).toBe(
+      false,
+    );
+  });
+
+  it('is true when one option in the group has an image', () => {
+    const workbench = makeInitialConfiguration();
+    const top = findOptionGroup(workbench, 'top');
+    top.options[1]!.product!.productImages = [
+      { fileName: 'beech.jpg', isPrimary: false, url: '' },
+    ];
+
+    expect(hasImageColumn(top.options)).toBe(true);
   });
 });
 

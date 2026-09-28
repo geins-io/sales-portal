@@ -11,11 +11,23 @@ import {
 
 function mountRow(
   option: ConfigurationOption,
-  props: { single?: boolean; quantityEditable?: boolean } = {},
+  props: {
+    single?: boolean;
+    quantityEditable?: boolean;
+    imageColumn?: boolean;
+  } = {},
 ) {
   return mountComponent(ConfiguratorOptionRow, {
-    props: { option, single: false, ...props },
+    props: { option, single: false, imageColumn: false, ...props },
   });
+}
+
+const IMAGE = '[data-testid="configurator-option-image"]';
+const PLACEHOLDER = '[data-testid="configurator-option-image-placeholder"]';
+
+function withImage(option: ConfigurationOption, fileName: string) {
+  option.product!.productImages = [{ fileName, isPrimary: false, url: '' }];
+  return option;
 }
 
 describe('ConfiguratorOptionRow', () => {
@@ -87,14 +99,29 @@ describe('ConfiguratorOptionRow', () => {
     ).toBe(false);
   });
 
-  it('renders no image for a part that has none', () => {
+  // The group decides whether its rows have an image column, so every row of
+  // a group is the same shape: one with an image shows it, one without shows
+  // a placeholder the same size, and a group where no row has one has none.
+  it('renders no image box when the group has no image column', () => {
+    const workbench = makeInitialConfiguration();
+    const option = withImage(findOption(workbench, 'top-wood'), 'beech.jpg');
+
+    const wrapper = mountRow(option, { imageColumn: false });
+
+    expect(wrapper.find(IMAGE).exists()).toBe(false);
+    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(false);
+  });
+
+  it('renders a placeholder for a part without an image in a group with an image column', () => {
     const workbench = makeInitialConfiguration();
 
-    const wrapper = mountRow(findOption(workbench, 'top-wood'));
+    const wrapper = mountRow(findOption(workbench, 'top-wood'), {
+      imageColumn: true,
+    });
 
-    // The parts of a configuration have no catalogue image; a placeholder on
-    // every row is noise, and a file name that resolves to nothing is worse.
-    expect(wrapper.find('img').exists()).toBe(false);
+    expect(wrapper.find(IMAGE).exists()).toBe(true);
+    expect(wrapper.find(PLACEHOLDER).exists()).toBe(true);
+    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(false);
   });
 
   it('disables a row the rules made unavailable and shows the reason', () => {
@@ -263,6 +290,7 @@ describe('ConfiguratorOptionRow', () => {
       props: {
         option: findOption(workbench, 'ind-esd'),
         single: false,
+        imageColumn: false,
         disabled: true,
       },
     });
@@ -382,6 +410,7 @@ describe('ConfiguratorOptionRow', () => {
       props: {
         option: findOption(workbench, 'ind-esd'),
         single: false,
+        imageColumn: false,
         disabled: true,
       },
     });
@@ -404,20 +433,25 @@ describe('ConfiguratorOptionRow', () => {
     expect(wrapper.text()).not.toContain('Solid beech top');
   });
 
-  it('renders a row without a product from the option alone, with no image', () => {
+  it('renders a row without a product from the option alone, with a placeholder for the image', () => {
     const workbench = makeInitialConfiguration();
-    const withProduct = findOption(workbench, 'top-wood');
-    withProduct.product!.productImages = [
-      { fileName: 'beech.jpg', isPrimary: false, url: '' },
-    ];
+    const withProduct = withImage(
+      findOption(workbench, 'top-wood'),
+      'beech.jpg',
+    );
     const withoutProduct = { ...withProduct, product: null };
 
-    expect(mountRow(withProduct).find('img').exists()).toBe(true);
+    expect(
+      mountRow(withProduct, { imageColumn: true })
+        .findComponent({ name: 'GeinsImage' })
+        .exists(),
+    ).toBe(true);
 
-    const wrapper = mountRow(withoutProduct);
+    const wrapper = mountRow(withoutProduct, { imageColumn: true });
     expect(wrapper.text()).toContain('Solid beech top');
     expect(wrapper.text()).toContain('KONF-1001-TOP-WOOD');
-    expect(wrapper.find('img').exists()).toBe(false);
+    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(false);
+    expect(wrapper.find(PLACEHOLDER).exists()).toBe(true);
   });
 
   it('renders the first image of the product, as the product card does', () => {
@@ -430,21 +464,29 @@ describe('ConfiguratorOptionRow', () => {
       { fileName: 'beech-side.jpg', isPrimary: false, url: '' },
     ];
 
-    const wrapper = mountRow(option);
+    const wrapper = mountRow(option, { imageColumn: true });
 
     const images = wrapper.findAllComponents({ name: 'GeinsImage' });
     expect(images).toHaveLength(1);
     expect(images[0]!.props('fileName')).toBe('beech-front.jpg');
+    expect(wrapper.find(PLACEHOLDER).exists()).toBe(false);
   });
 
-  it('renders no image for a product without images', () => {
+  it('renders the image on a white box and the placeholder on a grey one, with no border', () => {
     const workbench = makeInitialConfiguration();
-    const option = findOption(workbench, 'top-wood');
-    option.product!.productImages = [];
+    const option = withImage(findOption(workbench, 'top-wood'), 'beech.jpg');
 
-    const wrapper = mountRow(option);
+    const pictured = mountRow(option, { imageColumn: true }).find(IMAGE);
+    const empty = mountRow(findOption(workbench, 'top-steel'), {
+      imageColumn: true,
+    }).find(IMAGE);
 
-    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(false);
+    for (const box of [pictured, empty]) {
+      expect(box.classes()).toContain('size-10');
+      expect(box.classes()).not.toContain('border');
+    }
+    expect(pictured.classes()).toContain('bg-background');
+    expect(empty.classes()).toContain('bg-muted');
   });
 
   it('writes the description under the name, above the article number', () => {

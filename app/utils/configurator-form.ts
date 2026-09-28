@@ -105,6 +105,26 @@ export function usesChooser(options: unknown[]): boolean {
 }
 
 /**
+ * The first image of the option's product, as the product card: the list
+ * fragment selects no `isPrimary`.
+ */
+export function optionImage(
+  option: Pick<ConfigurationOption, 'product'>,
+): string | undefined {
+  return option.product?.productImages?.[0]?.fileName || undefined;
+}
+
+/**
+ * Whether a group's rows carry an image column: all of them when one option
+ * has an image, so every row is the same shape, and none when no option has.
+ */
+export function hasImageColumn(
+  options: Pick<ConfigurationOption, 'product'>[],
+): boolean {
+  return options.some((option) => optionImage(option) !== undefined);
+}
+
+/**
  * Why a row cannot be used: the blocking message the provider put on it, or
  * else what the document says about it.
  */

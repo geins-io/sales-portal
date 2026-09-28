@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { mountComponent } from '../../../utils/component';
 import ConfiguratorOptionGroup from '../../../../app/components/product/configurator/ConfiguratorOptionGroup.vue';
-import type { ConfigurationOptionGroup } from '#shared/types/configurator';
+import type {
+  ConfigurationOption,
+  ConfigurationOptionGroup,
+} from '#shared/types/configurator';
 import {
   findOption,
   findOptionGroup,
@@ -35,6 +38,13 @@ function mountGroup(group: ConfigurationOptionGroup) {
 const CHOOSER = '[data-testid="configurator-group-chooser"]';
 const ADD = '[data-testid="configurator-group-add"]';
 const SHEET = '[data-testid="configurator-group-sheet"]';
+const IMAGE = '[data-testid="configurator-option-image"]';
+const PLACEHOLDER = '[data-testid="configurator-option-image-placeholder"]';
+
+function withImage(option: ConfigurationOption, fileName: string) {
+  option.product!.productImages = [{ fileName, isPrimary: false, url: '' }];
+  return option;
+}
 
 /**
  * A seeded group cut down to its first option: the only shape still listed
@@ -624,5 +634,116 @@ describe('ConfiguratorOptionGroup', () => {
 
     expect(wrapper.emitted('change')).toHaveLength(1);
     expect(wrapper.find(SHEET).exists()).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------
+  // The image column: decided per group, from the group's own options
+  // ---------------------------------------------------------------------
+  it('shows no image box anywhere in a group where no option has an image', async () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    expect(wrapper.find(CHOOSER).find(IMAGE).exists()).toBe(false);
+    await wrapper.find(CHOOSER).trigger('click');
+
+    expect(wrapper.find(SHEET).findAll(IMAGE)).toHaveLength(0);
+  });
+
+  it('gives every row a box when one option has an image, a placeholder where it is missing', async () => {
+    const workbench = makeInitialConfiguration();
+    withImage(findOption(workbench, 'top-wood'), 'beech.jpg');
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    await wrapper.find(CHOOSER).trigger('click');
+
+    const sheet = wrapper.find(SHEET);
+    expect(sheet.findAll(IMAGE)).toHaveLength(3);
+    expect(sheet.findAll(PLACEHOLDER)).toHaveLength(2);
+    expect(
+      sheet
+        .find('[data-option-id="top-wood"]')
+        .findComponent({ name: 'GeinsImage' })
+        .props('fileName'),
+    ).toBe('beech.jpg');
+  });
+
+  it('shows an image on every row when every option has one', async () => {
+    const workbench = makeInitialConfiguration();
+    for (const option of findOptionGroup(workbench, 'top').options) {
+      withImage(option, `${option.id}.jpg`);
+    }
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    await wrapper.find(CHOOSER).trigger('click');
+
+    const sheet = wrapper.find(SHEET);
+    expect(sheet.findAll(IMAGE)).toHaveLength(3);
+    expect(sheet.findAll(PLACEHOLDER)).toHaveLength(0);
+  });
+
+  it("shows the chosen option's image in the chooser row", () => {
+    const workbench = makeInitialConfiguration();
+    withImage(findOption(workbench, 'top-laminate'), 'laminate.jpg');
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+
+    const chooser = wrapper.find(CHOOSER);
+    expect(
+      chooser.findComponent({ name: 'GeinsImage' }).props('fileName'),
+    ).toBe('laminate.jpg');
+    expect(chooser.find(PLACEHOLDER).exists()).toBe(false);
+  });
+
+  it('shows the placeholder in the chooser row for a chosen option without an image', () => {
+    const workbench = makeInitialConfiguration();
+    withImage(findOption(workbench, 'top-wood'), 'beech.jpg');
+
+    // Laminate, preselected by the provider, has no image of its own.
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+
+    expect(wrapper.find(CHOOSER).find(PLACEHOLDER).exists()).toBe(true);
+  });
+
+  it('shows the placeholder in the chooser row while nothing is chosen', () => {
+    const workbench = makeInitialConfiguration();
+    withImage(findOption(workbench, 'ral-7016'), 'anthracite.jpg');
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
+
+    expect(wrapper.find(CHOOSER).find(PLACEHOLDER).exists()).toBe(true);
+  });
+
+  it('gives the chosen rows of a multi choice the column too', () => {
+    const workbench = makeInitialConfiguration();
+    withImage(findOption(workbench, 'acc-light'), 'light.jpg');
+    findOption(workbench, 'acc-castors').selected = true;
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'accessories'));
+
+    expect(
+      wrapper.find('[data-option-id="acc-castors"]').find(PLACEHOLDER).exists(),
+    ).toBe(true);
+  });
+
+  it('gives a lone inline row the column when it has an image', () => {
+    const group = oneOption('top');
+    withImage(group.options[0]!, 'laminate.jpg');
+
+    const wrapper = mountGroup(group);
+
+    expect(wrapper.findAll(IMAGE)).toHaveLength(1);
+    expect(wrapper.findComponent({ name: 'GeinsImage' }).exists()).toBe(true);
+  });
+
+  it("decides a nested group's column from its own options", () => {
+    const nested = makeNestedGroupConfiguration();
+    withImage(findOption(nested, 'legs-fixed'), 'legs.jpg');
+    findOptionGroup(nested, 'industrial').options.splice(1);
+
+    const wrapper = mountGroup(findOptionGroup(nested, 'legs'));
+
+    const groups = wrapper.findAll('[data-testid="configurator-group"]');
+    expect(groups[0]!.find(CHOOSER).find(IMAGE).exists()).toBe(true);
+    expect(groups[1]!.find(IMAGE).exists()).toBe(false);
   });
 });

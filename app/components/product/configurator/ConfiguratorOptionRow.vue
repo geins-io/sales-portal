@@ -8,14 +8,15 @@ import {
   isReadOnly,
   messagesBesides,
   optionBlockReason,
+  optionImage,
 } from '~/utils/configurator-form';
 import { Checkbox } from '~/components/ui/checkbox';
 import { RadioGroupItem } from '~/components/ui/radio-group';
 
 /**
  * One `ConfigurationOption`: the choice, named by the option itself, the
- * catalogue product's image when a product is embedded, and whatever the
- * provider said about it.
+ * catalogue product's image, or a placeholder, when its group has an image
+ * column, and whatever the provider said about it.
  *
  * A single-choice row renders a `RadioGroupItem` and does not emit — the
  * `RadioGroup` in the enclosing group owns the selection and emits for it. A
@@ -31,11 +32,14 @@ const {
   option,
   single,
   quantityEditable = false,
+  imageColumn,
   disabled = false,
 } = defineProps<{
   option: ConfigurationOption;
   single: boolean;
   quantityEditable?: boolean;
+  /** The group's: every row has an image box, or none has. */
+  imageColumn: boolean;
   /** The parent locks every control while a change batch is in flight. */
   disabled?: boolean;
 }>();
@@ -74,8 +78,7 @@ const messages = computed(() =>
   messagesBesides(option.messages, promoted.value),
 );
 
-/** The first image, as the product card: the list fragment selects no `isPrimary`. */
-const image = computed(() => option.product?.productImages?.[0]?.fileName);
+const image = computed(() => optionImage(option));
 
 function change(selected: boolean, quantity: number): ConfigurationChange {
   return {
@@ -144,12 +147,10 @@ function onRow() {
           @update:model-value="onToggle"
         />
 
-        <GeinsImage
-          v-if="image"
+        <ConfiguratorOptionImage
+          v-if="imageColumn"
           :file-name="image"
-          type="product"
           :alt="option.name"
-          class="bg-muted size-10 shrink-0 rounded object-contain"
         />
 
         <div class="min-w-0 flex-1">

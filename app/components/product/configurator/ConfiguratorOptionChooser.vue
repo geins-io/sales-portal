@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { ConfigurationOption } from '#shared/types/configurator';
 import { ChevronRight, Lock } from 'lucide-vue-next';
-import { isReadOnly, optionBlockReason } from '~/utils/configurator-form';
+import {
+  isReadOnly,
+  optionBlockReason,
+  optionImage,
+} from '~/utils/configurator-form';
 
 /**
  * The one row a long single-choice group shows in place of its rows: what to
@@ -15,12 +19,15 @@ const {
   chosen,
   groupName,
   count,
+  imageColumn,
   disabled = false,
 } = defineProps<{
   chosen: ConfigurationOption | undefined;
   groupName: string;
   /** Every row of the group, for the line under the prompt. */
   count: number;
+  /** The group's: the chosen option's image or a placeholder, or no box. */
+  imageColumn: boolean;
   /** The form's lock, which keeps a batch in flight out of the reason. */
   disabled?: boolean;
 }>();
@@ -54,6 +61,11 @@ const reason = computed(() => {
     :class="chosen ? 'border-selected/60 bg-selected/5' : ''"
     @click="emit('open')"
   >
+    <ConfiguratorOptionImage
+      v-if="imageColumn"
+      :file-name="chosen ? optionImage(chosen) : undefined"
+      :alt="chosen?.name ?? ''"
+    />
     <span class="min-w-0 flex-1">
       <span class="flex items-center justify-between gap-2">
         <span

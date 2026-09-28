@@ -7,6 +7,7 @@ import { ChevronRight, Plus, Search } from 'lucide-vue-next';
 import {
   groupHintKey,
   groupSummary,
+  hasImageColumn,
   isSingleSelect,
   matchesOptionQuery,
   usesChooser,
@@ -63,6 +64,7 @@ const summary = computed(() => {
 // the prototype's option layouts: a single choice shows one row for it, a
 // multi choice shows what is chosen and a row that adds more.
 const chooser = computed(() => usesChooser(group.options));
+const imageColumn = computed(() => hasImageColumn(group.options));
 const chosen = computed(() =>
   group.options.filter((option) => option.selected),
 );
@@ -133,6 +135,7 @@ function onSheetPick(value: unknown) {
         :chosen="chosen[0]"
         :group-name="group.name"
         :count="group.options.length"
+        :image-column="imageColumn"
         :disabled="locked"
         @open="openSheet"
       />
@@ -144,6 +147,7 @@ function onSheetPick(value: unknown) {
           :option="option"
           :single="false"
           :quantity-editable="group.quantityEditable"
+          :image-column="imageColumn"
           :disabled="locked"
           @change="emit('change', $event)"
         />
@@ -180,6 +184,7 @@ function onSheetPick(value: unknown) {
           :option="option"
           single
           :quantity-editable="group.quantityEditable"
+          :image-column="imageColumn"
           :disabled="locked"
           @change="emit('change', $event)"
         />
@@ -192,6 +197,7 @@ function onSheetPick(value: unknown) {
           :option="option"
           :single="false"
           :quantity-editable="group.quantityEditable"
+          :image-column="imageColumn"
           :disabled="locked"
           @change="emit('change', $event)"
         />
@@ -253,6 +259,7 @@ function onSheetPick(value: unknown) {
               :option="option"
               single
               :quantity-editable="group.quantityEditable"
+              :image-column="imageColumn"
               :disabled="locked"
               @change="onSheetChange"
             />
@@ -265,6 +272,7 @@ function onSheetPick(value: unknown) {
               :option="option"
               :single="false"
               :quantity-editable="group.quantityEditable"
+              :image-column="imageColumn"
               :disabled="locked"
               @change="onSheetChange"
             />
