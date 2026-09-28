@@ -260,6 +260,24 @@ describe('collectBlockingNames', () => {
     expect(collectBlockingNames(config)).toEqual([]);
   });
 
+  it('does not name a required variable the provider made unavailable', () => {
+    // Measured on the real provider: a requirement that does not apply to the
+    // current choices arrives empty and unavailable, in a valid document.
+    const config = makeValidConfiguration();
+    const width = findVariable(config, 'width');
+    width.value = null;
+    width.available = false;
+    expect(collectBlockingNames(config)).toEqual([]);
+  });
+
+  it('does not name an unavailable group short of its minimum', () => {
+    const config = makeInitialConfiguration();
+    expect(collectBlockingNames(config)).toEqual(['Colour']);
+
+    findOptionGroup(config, 'color').available = false;
+    expect(collectBlockingNames(config)).toEqual([]);
+  });
+
   it('names nothing for an error the document carries itself', () => {
     // A message names nothing at all now; `unnamedBlockingMessages` shows it.
     const config = makeValidConfiguration({

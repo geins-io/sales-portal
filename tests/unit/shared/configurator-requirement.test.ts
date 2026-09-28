@@ -5,7 +5,9 @@ import type {
   ConfigurationVariable,
 } from '#shared/types/configurator';
 import {
+  isGroupShortOfMinimum,
   isGroupUnmet,
+  isRequiredVariableEmpty,
   isVariableUnmet,
 } from '../../../shared/utils/configurator-requirement';
 
@@ -19,8 +21,10 @@ import {
 function group(
   options: Pick<ConfigurationOption, 'selected'>[],
   minSelections?: number,
-): Pick<ConfigurationOptionGroup, 'minSelections' | 'options'> {
+  available = true,
+): Pick<ConfigurationOptionGroup, 'available' | 'minSelections' | 'options'> {
   return {
+    available,
     minSelections,
     options: options as ConfigurationOption[],
   };
@@ -29,8 +33,9 @@ function group(
 function variable(
   value: ConfigurationVariable['value'],
   required = true,
-): Pick<ConfigurationVariable, 'required' | 'value'> {
-  return { required, value };
+  available = true,
+): Pick<ConfigurationVariable, 'available' | 'required' | 'value'> {
+  return { available, required, value };
 }
 
 describe('isGroupUnmet', () => {
@@ -67,6 +72,23 @@ describe('isGroupUnmet', () => {
       isGroupUnmet(group([{ selected: true }, { selected: true }], 2)),
     ).toBe(false);
   });
+
+  it('is never unmet once the provider made the group unavailable', () => {
+    // The provider's requirement no longer applies to the current choices, and
+    // the document it sends is valid without it.
+    expect(isGroupUnmet(group([{ selected: false }], 1, false))).toBe(false);
+  });
+});
+
+describe('isGroupShortOfMinimum', () => {
+  it('reads the minimum whether the group is available or not', () => {
+    expect(isGroupShortOfMinimum(group([{ selected: false }], 1, false))).toBe(
+      true,
+    );
+    expect(isGroupShortOfMinimum(group([{ selected: true }], 1, false))).toBe(
+      false,
+    );
+  });
 });
 
 describe('isVariableUnmet', () => {
@@ -90,5 +112,21 @@ describe('isVariableUnmet', () => {
     expect(isVariableUnmet(variable(1200))).toBe(false);
     expect(isVariableUnmet(variable('Engraved'))).toBe(false);
     expect(isVariableUnmet(variable(true))).toBe(false);
+  });
+
+  it('is never unmet once the provider made the variable unavailable', () => {
+    // Measured on the real provider: a required variable arrives empty and
+    // unavailable while the document calls itself valid.
+    expect(isVariableUnmet(variable(null, true, false))).toBe(false);
+    expect(isVariableUnmet(variable('', true, false))).toBe(false);
+  });
+});
+
+describe('isRequiredVariableEmpty', () => {
+  it('reads required and empty whether the variable is available or not', () => {
+    expect(isRequiredVariableEmpty(variable(null, true, false))).toBe(true);
+    expect(isRequiredVariableEmpty(variable('', true, false))).toBe(true);
+    expect(isRequiredVariableEmpty(variable(0, true, false))).toBe(false);
+    expect(isRequiredVariableEmpty(variable(null, false, false))).toBe(false);
   });
 });

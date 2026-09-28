@@ -99,6 +99,20 @@ describe('ConfiguratorOptionGroup', () => {
     );
   });
 
+  it('shows no requirement on a group the provider made unavailable', () => {
+    const top = {
+      ...findOptionGroup(makeInitialConfiguration(), 'top'),
+      available: false,
+    };
+
+    const wrapper = mountGroup(top);
+
+    expect(
+      wrapper.find('[data-testid="configurator-group-hint"]').exists(),
+    ).toBe(false);
+    expect(wrapper.text()).not.toContain('configurator.required');
+  });
+
   it('says how many rows an optional group takes', () => {
     const workbench = makeInitialConfiguration();
     // Every single-choice group in this seed is also required, so the one case

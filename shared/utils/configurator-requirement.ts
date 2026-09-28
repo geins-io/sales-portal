@@ -15,7 +15,7 @@ import type {
 // ---------------------------------------------------------------------------
 
 /**
- * Whether the group is still short of the selections it requires.
+ * Whether the group holds fewer selections than its minimum, available or not.
  *
  * An absent `minSelections` is a group that requires nothing. A selected option
  * the rules made unavailable still counts as chosen, exactly as the
@@ -26,7 +26,7 @@ import type {
  * missing anything, the UI cannot produce one, and a provider that objects says
  * so in a message.
  */
-export function isGroupUnmet(
+export function isGroupShortOfMinimum(
   group: Pick<ConfigurationOptionGroup, 'minSelections' | 'options'>,
 ): boolean {
   const required = group.minSelections ?? 0;
@@ -37,7 +37,7 @@ export function isGroupUnmet(
 }
 
 /**
- * Whether a required variable is still empty.
+ * Whether a required variable is empty, available or not.
  *
  * Empty is `null` or the empty string, and nothing else. `0` and `false` are
  * answers: every seeded variable starts at `0` and is required, so counting a
@@ -47,9 +47,29 @@ export function isGroupUnmet(
  * The panel hides a `0`, a `false` and an empty string from the specification;
  * that is a rule about what is worth writing down, not about what is missing.
  */
-export function isVariableUnmet(
+export function isRequiredVariableEmpty(
   variable: Pick<ConfigurationVariable, 'required' | 'value'>,
 ): boolean {
   if (!variable.required) return false;
   return variable.value === null || variable.value === '';
+}
+
+// An unavailable node is one whose requirement does not apply to the current
+// choices: the provider does not count it, and its document is valid without it.
+
+/** Whether the group is still short of the selections it requires. */
+export function isGroupUnmet(
+  group: Pick<
+    ConfigurationOptionGroup,
+    'available' | 'minSelections' | 'options'
+  >,
+): boolean {
+  return group.available && isGroupShortOfMinimum(group);
+}
+
+/** Whether a required variable is still empty. */
+export function isVariableUnmet(
+  variable: Pick<ConfigurationVariable, 'available' | 'required' | 'value'>,
+): boolean {
+  return variable.available && isRequiredVariableEmpty(variable);
 }

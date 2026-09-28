@@ -394,6 +394,70 @@ describe('sectionRemaining', () => {
   it('is zero for a section with nothing in it', () => {
     expect(sectionRemaining(section('a'))).toBe(0);
   });
+
+  // Measured on the real provider: a required variable whose requirement does
+  // not apply to the current choices arrives empty and unavailable, and the
+  // document calls itself valid.
+  it('does not count a required variable the provider made unavailable', () => {
+    expect(
+      sectionRemaining(
+        section('a', { variables: [variable('v', { available: false })] }),
+      ),
+    ).toBe(0);
+  });
+
+  it('does not count an unavailable group short of its minimum', () => {
+    expect(
+      sectionRemaining(
+        section('a', {
+          optionGroups: [group('g', { minSelections: 1, available: false })],
+        }),
+      ),
+    ).toBe(0);
+  });
+
+  it('still counts an error the provider put on an unavailable node', () => {
+    expect(
+      sectionRemaining(
+        section('a', {
+          optionGroups: [
+            group('g', {
+              minSelections: 1,
+              available: false,
+              messages: [ERROR],
+            }),
+          ],
+          variables: [variable('v', { available: false, messages: [ERROR] })],
+        }),
+      ),
+    ).toBe(2);
+  });
+
+  // The server drops an error on an empty node, so the case that reaches the
+  // rail on real data is one that is answered and still refused.
+  it('counts an error on an unavailable node that is answered', () => {
+    expect(
+      sectionRemaining(
+        section('a', {
+          optionGroups: [
+            group('g', {
+              minSelections: 1,
+              available: false,
+              messages: [ERROR],
+              options: [optionRow('o', { selected: true })],
+            }),
+          ],
+          variables: [
+            variable('v', {
+              value: 'set',
+              available: false,
+              messages: [ERROR],
+            }),
+          ],
+        }),
+      ),
+    ).toBe(2);
+  });
 });
 
 describe('resolveActiveId', () => {

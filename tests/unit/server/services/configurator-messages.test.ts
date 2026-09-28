@@ -220,9 +220,38 @@ describe('dropRestatedRequirements', () => {
         WARNING,
       ]);
     });
+
+    // An unavailable node is never unmet, so the page no longer marks it. Its
+    // error would then be the only thing counted, and the rail would report a
+    // field the buyer cannot fill.
+    it('drops an error on an empty required variable the provider made unavailable', () => {
+      const config = document([
+        section('s', {
+          variables: [
+            variable('v', { available: false, messages: [ERROR, WARNING] }),
+          ],
+        }),
+      ]);
+      expect(onlyVariable(dropRestatedRequirements(config)).messages).toEqual([
+        WARNING,
+      ]);
+    });
   });
 
   describe('on an option group', () => {
+    it('drops an error on an unavailable group short of its selections', () => {
+      const config = document([
+        section('s', {
+          optionGroups: [
+            group('g', { available: false, messages: [ERROR, WARNING] }),
+          ],
+        }),
+      ]);
+      expect(onlyGroup(dropRestatedRequirements(config)).messages).toEqual([
+        WARNING,
+      ]);
+    });
+
     it('drops an error on a group short of its selections', () => {
       const config = document([
         section('s', { optionGroups: [group('g', { messages: [ERROR] })] }),

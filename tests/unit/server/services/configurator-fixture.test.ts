@@ -29,8 +29,11 @@ import {
   everyOption,
   everySection,
   everyVariable,
+  optionKey,
 } from '../../../../server/services/configurator-fixture/document';
 import { arbetsbordPro } from '../../../../server/services/configurator-fixture/seed/arbetsbord-pro';
+import { monteringsstationPro } from '../../../../server/services/configurator-fixture/seed/monteringsstation-pro';
+import { skapsektionPro } from '../../../../server/services/configurator-fixture/seed/skapsektion-pro';
 import {
   findOption,
   findOptionGroup,
@@ -368,6 +371,63 @@ describe('what makes a document invalid', () => {
     });
     expect(emptied.isValid).toBe(false);
   });
+
+  it('does not block on an empty required variable the rules made unavailable', () => {
+    const config = evaluateWith((document) => {
+      findOption(document, 'ral-9005').selected = true;
+      const width = findVariable(document, 'width');
+      width.value = null;
+      width.available = false;
+    });
+    expect(config.isValid).toBe(true);
+  });
+
+  it('does not block on an unavailable group short of its minimum', () => {
+    const config = evaluateWith((document) => {
+      findOptionGroup(document, 'color').available = false;
+    });
+    expect(config.isValid).toBe(true);
+  });
+
+  // Availability now decides validity, so the seeds' verdicts stay what they
+  // were only while no rule takes a variable or a group away. Every rule runs
+  // with every row chosen and with none, each time with the numbers as seeded
+  // and at their maximum, which fires each trigger a seed has: the rows' rules
+  // read a selection, the long station's reads a length above the seeded one.
+  it.each([arbetsbordPro, skapsektionPro, monteringsstationPro])(
+    'keeps every variable and group of $productId available, whatever is chosen',
+    (seed) => {
+      for (const [selected, atMax] of [
+        [false, false],
+        [false, true],
+        [true, false],
+        [true, true],
+      ]) {
+        const state = createSessionState(1);
+        const sections = seed.buildSections();
+        for (const option of everyOption(sections)) {
+          state.options.set(optionKey(option.id, option.instanceId), {
+            selected,
+            quantity: 1,
+          });
+        }
+        for (const variable of everyVariable(sections)) {
+          if (atMax && variable.valueType === 'number' && variable.max) {
+            state.variables.set(variable.id, variable.max);
+          }
+        }
+        const config = evaluate(seed, state, {
+          configurationId: 'test',
+          expiresAt: '2030-01-01T00:00:00.000Z',
+        });
+        const taken = [
+          ...everyVariable(config.sections),
+          ...everyGroup(config.sections),
+        ].filter((node) => !node.available);
+        expect(taken.map((node) => node.id)).toEqual([]);
+      }
+    },
+  );
 });
 
 describe('a batch of changes', () => {
