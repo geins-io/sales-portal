@@ -3,6 +3,7 @@ import { createAppError, ErrorCode } from '../../../../server/utils/errors';
 import {
   buildConfiguratorContext,
   buildConfiguratorRequestContext,
+  configurableCheck,
   getConfiguratorBackend,
   isConfigurableProduct,
   MERCHANT_API_DEFAULT_URL,
@@ -10,6 +11,7 @@ import {
   resolveMerchantApiUrl,
   type ConfiguratorBackend,
   type ConfiguratorContext,
+  withConfigurableFlags,
 } from '../../../../server/services/configurator';
 import type { Configuration } from '../../../../shared/types/configurator';
 import { fixtureConfiguratorBackend } from '../../../../server/services/configurator-fixture';
@@ -486,5 +488,135 @@ describe('isConfigurableProduct', () => {
         type: ORDINARY_TYPE,
       }),
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The same question for a whole list
+//
+// The list, search and purchased-products routes feed product cards, which
+// need the flag the product page has. One backend resolution per list, one
+// in-memory answer per product.
+// ---------------------------------------------------------------------------
+
+describe('configurableCheck', () => {
+  const EVENT_WITH_TENANT = {
+    context: { tenant: { hostname: 'tenant.example.com' } },
+  } as unknown as Parameters<typeof configurableCheck>[0];
+
+  it('answers per product as isConfigurableProduct does', () => {
+    mockReadBackendValue.mockReturnValue('fixture');
+    const isConfigurable = configurableCheck(EVENT_WITH_TENANT);
+
+    expect(isConfigurable({ productId: ARBETSBORD_PRO_GEINS_ID })).toBe(true);
+    expect(isConfigurable({ productId: '999999', type: 'product' })).toBe(
+      false,
+    );
+  });
+
+  it('resolves the backend once, however many products it is asked about', () => {
+    mockReadBackendValue.mockReturnValue('fixture');
+    const isConfigurable = configurableCheck(EVENT_WITH_TENANT);
+    isConfigurable({ productId: '1' });
+    isConfigurable({ productId: '2' });
+    isConfigurable({ productId: '3' });
+
+    expect(mockReadBackendValue).toHaveBeenCalledOnce();
+  });
+
+  it('asks the backend with the context built from the event', () => {
+    mockReadBackendValue.mockReturnValue('fixture');
+    const spy = vi.spyOn(fixtureConfiguratorBackend, 'isConfigurable');
+    const product = { productId: '1359', type: 'configurable' };
+
+    configurableCheck(EVENT_WITH_TENANT)(product);
+
+    expect(spy).toHaveBeenCalledWith(product, {
+      hostname: 'tenant.example.com',
+    });
+    spy.mockRestore();
+  });
+});
+
+describe('withConfigurableFlags', () => {
+  const EVENT_WITH_TENANT = {
+    context: { tenant: { hostname: 'tenant.example.com' } },
+  } as unknown as Parameters<typeof withConfigurableFlags>[0];
+
+  // The list queries return `productId` as an Int.
+  const seed = {
+    productId: Number(ARBETSBORD_PRO_GEINS_ID),
+    alias: 'arbetsbord-pro',
+    type: 'product',
+  };
+  const monitorTyped = {
+    productId: 1359,
+    alias: 'machine',
+    type: 'configurable',
+  };
+  const ordinary = { productId: 42, alias: 'wood-screw', type: 'product' };
+
+  function flag(
+    value: unknown,
+    products: Parameters<typeof withConfigurableFlags>[1],
+  ) {
+    mockReadBackendValue.mockReturnValue(value);
+    return withConfigurableFlags(EVENT_WITH_TENANT, products);
+  }
+
+  it('flags a seed on the fixture backend by its id', () => {
+    expect(flag('fixture', [seed, ordinary])).toEqual([
+      {
+        productId: seed.productId,
+        alias: 'arbetsbord-pro',
+        configurable: true,
+      },
+      { productId: 42, alias: 'wood-screw' },
+    ]);
+  });
+
+  it('flags a Monitor-typed product on the merchant-api backend by its type', () => {
+    expect(flag('merchant-api', [monitorTyped, ordinary])).toEqual([
+      { productId: 1359, alias: 'machine', configurable: true },
+      { productId: 42, alias: 'wood-screw' },
+    ]);
+  });
+
+  it('flags both kinds on the composite backend', () => {
+    expect(
+      flag('composite', [seed, monitorTyped, ordinary]).map(
+        (p) => p?.configurable,
+      ),
+    ).toEqual([true, true, undefined]);
+  });
+
+  it('flags nothing when the backend is off, even a configurable type', () => {
+    // Production runs `off`: a card must not send the buyer to a
+    // configurator page that would fail at create.
+    expect(flag('off', [seed, monitorTyped])).toEqual([
+      { productId: seed.productId, alias: 'arbetsbord-pro' },
+      { productId: 1359, alias: 'machine' },
+    ]);
+  });
+
+  it('drops `type` from every product and adds no key to an ordinary one', () => {
+    const [result] = flag('fixture', [ordinary]);
+    expect(Object.keys(result ?? {})).toEqual(['productId', 'alias']);
+  });
+
+  it('passes a null entry through', () => {
+    expect(flag('fixture', [null, seed])).toEqual([
+      null,
+      {
+        productId: seed.productId,
+        alias: 'arbetsbord-pro',
+        configurable: true,
+      },
+    ]);
+  });
+
+  it('resolves the backend once for the whole list', () => {
+    flag('fixture', [seed, monitorTyped, ordinary]);
+    expect(mockReadBackendValue).toHaveBeenCalledOnce();
   });
 });

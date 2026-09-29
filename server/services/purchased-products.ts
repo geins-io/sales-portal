@@ -9,6 +9,7 @@ import {
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 import { getCompany } from './company';
+import { configurableCheck } from './configurator';
 
 interface RawOrder {
   id?: number | string | null;
@@ -31,6 +32,8 @@ interface RawOrderItem {
     sellingPriceExVatFormatted?: string | null;
   } | null;
   product?: {
+    productId?: number | null;
+    type?: string | null;
     articleNumber?: string | null;
     name?: string | null;
     alias?: string | null;
@@ -89,6 +92,8 @@ export async function getPurchasedProducts(
     }
   }
 
+  const isConfigurable = configurableCheck(event);
+
   const productMap = new Map<
     string,
     PurchasedProduct & { _latestTime: number }
@@ -132,6 +137,10 @@ export async function getPurchasedProducts(
       const existing = productMap.get(articleNumber);
 
       if (!existing) {
+        const configurable = isConfigurable({
+          productId: String(item.product?.productId),
+          type: item.product?.type,
+        });
         productMap.set(articleNumber, {
           name,
           articleNumber,
@@ -144,6 +153,7 @@ export async function getPurchasedProducts(
           latestOrderId: orderId,
           latestOrderPublicId: orderPublicId,
           latestBuyerName: buyerName,
+          ...(configurable ? { configurable } : {}),
           _latestTime: orderTime,
         });
       } else {

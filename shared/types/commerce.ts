@@ -386,6 +386,8 @@ export interface PurchasedProduct {
   latestOrderId: string;
   latestOrderPublicId: string | null;
   latestBuyerName: string;
+  /** Set when the product is configured through the CPQ service. */
+  configurable?: boolean;
 }
 
 // ---------------------------------------------------------------------------

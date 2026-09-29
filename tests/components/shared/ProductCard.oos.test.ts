@@ -104,6 +104,26 @@ describe('ProductCard out-of-stock', () => {
     showStockRef.value = true;
   });
 
+  // The configurator page does not gate on the base product's stock, so the
+  // card that leads there does not either.
+  it.each(['grid', 'list'] as const)(
+    '%s: an OOS configurable product offers the configure link, not the OOS block',
+    (variant) => {
+      const product = makeFullProduct({
+        configurable: true,
+        totalStock: { totalStock: 0, inStock: 0, oversellable: 0, static: 0 },
+      });
+      const wrapper = mountComponent(ProductCard, {
+        props: { product, variant },
+        global: { stubs },
+      });
+      expect(
+        wrapper.find('[data-testid="configure-product-link"]').exists(),
+      ).toBe(true);
+      expect(wrapper.find('[data-testid="oos-block"]').exists()).toBe(false);
+    },
+  );
+
   it('grid: OOS product hides add-to-cart and shows OOS block', () => {
     const product = makeFullProduct({
       totalStock: { totalStock: 0, inStock: 0, oversellable: 0, static: 0 },

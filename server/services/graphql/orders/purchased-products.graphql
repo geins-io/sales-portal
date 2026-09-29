@@ -3,7 +3,11 @@ query getCompanyOrdersForPurchasedProducts(
   $languageId: String
   $marketId: String
 ) {
-  getCompanyOrders(channelId: $channelId, languageId: $languageId, marketId: $marketId) {
+  getCompanyOrders(
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
     id
     publicId
     createdAt
@@ -20,6 +24,9 @@ query getCompanyOrdersForPurchasedProducts(
           sellingPriceExVatFormatted
         }
         product {
+          # For the configurator seam only; neither reaches the response.
+          productId
+          type
           articleNumber
           name
           alias

@@ -5,6 +5,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ---------------------------------------------------------------------------
 const mockGraphqlQuery = vi.fn();
 
+// The configurator seam. What the flag depends on belongs to the seam's own
+// tests; here the fake marks what it was handed, so the test sees which list
+// went through it.
+const mockWithConfigurableFlags = vi.fn(
+  (_event: unknown, products: Array<Record<string, unknown> | null>) =>
+    products.map((p) => (p ? { ...p, flagged: true } : p)),
+);
+vi.mock('../../../server/services/configurator', () => ({
+  withConfigurableFlags: (event: unknown, products: never) =>
+    mockWithConfigurableFlags(event, products),
+}));
+
 const mockSDK = {
   core: {
     geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' },
@@ -86,6 +98,38 @@ describe('GET /api/search/products', () => {
 
     expect(mockGraphqlQuery).toHaveBeenCalledOnce();
     expect(result).toEqual({ products: [], count: 0 });
+  });
+
+  it('sends every result through the configurable flag', async () => {
+    vi.mocked(getQuery).mockReturnValue({ query: 'arbetsbord' });
+    const raw = [
+      { productId: 1101, alias: 'arbetsbord-pro', type: 'product' },
+      { productId: 42, alias: 'wood-screw', type: 'product' },
+    ];
+    mockGraphqlQuery.mockResolvedValue({
+      searchProducts: { products: raw, count: 2 },
+    });
+
+    const result = await handler(fakeEvent);
+
+    expect(mockWithConfigurableFlags).toHaveBeenCalledWith(fakeEvent, raw);
+    expect(result).toEqual({
+      products: [
+        { ...raw[0], flagged: true },
+        { ...raw[1], flagged: true },
+      ],
+      count: 2,
+    });
+  });
+
+  it('returns a response without a product list as it came', async () => {
+    vi.mocked(getQuery).mockReturnValue({ query: 'arbetsbord' });
+    mockGraphqlQuery.mockResolvedValue({ searchProducts: null });
+
+    const result = await handler(fakeEvent);
+
+    expect(result).toBeNull();
+    expect(mockWithConfigurableFlags).not.toHaveBeenCalled();
   });
 
   it('includes skip and take in SDK query when provided', async () => {

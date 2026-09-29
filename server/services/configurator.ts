@@ -209,8 +209,37 @@ export function isConfigurableProduct(
   event: H3Event,
   product: ConfigurableCandidate,
 ): boolean {
-  return getConfiguratorBackend(event).isConfigurable(
-    product,
-    buildConfiguratorContext(event),
-  );
+  return configurableCheck(event)(product);
+}
+
+/**
+ * `isConfigurableProduct` for a list: the backend and the context are resolved
+ * once, and every product after that is an in-memory answer.
+ */
+export function configurableCheck(
+  event: H3Event,
+): (product: ConfigurableCandidate) => boolean {
+  const backend = getConfiguratorBackend(event);
+  const ctx = buildConfiguratorContext(event);
+  return (product) => backend.isConfigurable(product, ctx);
+}
+
+/**
+ * A product list as the cards need it: `type` goes to the seam and no further,
+ * and `configurable` is spread only when true, as the product route does.
+ */
+export function withConfigurableFlags<
+  T extends { productId?: number | string | null; type?: string | null },
+>(
+  event: H3Event,
+  products: readonly (T | null)[],
+): ((Omit<T, 'type'> & { configurable?: true }) | null)[] {
+  const isConfigurable = configurableCheck(event);
+  return products.map((product) => {
+    if (!product) return product;
+    const { type, ...rest } = product;
+    return isConfigurable({ productId: String(rest.productId), type })
+      ? { ...rest, configurable: true }
+      : rest;
+  });
 }

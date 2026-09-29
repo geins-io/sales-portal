@@ -128,6 +128,7 @@ function mapPurchasedProduct(product: PurchasedProduct): ProductCardItem {
     articleNumber: product.articleNumber,
     imageFileName: product.imageFileName ?? null,
     alias: product.alias ?? null,
+    configurable: product.configurable,
   };
 }
 

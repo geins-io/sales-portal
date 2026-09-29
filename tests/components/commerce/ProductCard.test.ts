@@ -490,6 +490,134 @@ describe('ProductCard', () => {
     });
   });
 
+  // A configurable product cannot be bought without a configuration, and a
+  // plain add of one is accepted upstream as a bare line at catalogue price.
+  describe('configurable product', () => {
+    afterEach(() => {
+      mockCanAccess.mockReset().mockReturnValue(true);
+    });
+
+    const configurable = () => makeProduct({ configurable: true });
+
+    it.each(['grid', 'list'] as const)(
+      'offers "Konfigurera produkt" linking to the product page in the %s variant',
+      (variant) => {
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: configurable(), variant },
+          global: { stubs },
+        });
+        const link = wrapper.find('[data-testid="configure-product-link"]');
+        expect(link.exists()).toBe(true);
+        expect(link.element.tagName).toBe('A');
+        expect(link.attributes('href')).toBe('/se/en/p/products/test-product');
+        expect(link.text()).toContain('configurator.configure_product');
+      },
+    );
+
+    it.each(['grid', 'list'] as const)(
+      'renders no quantity input and no add-to-cart in the %s variant',
+      (variant) => {
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: configurable(), variant },
+          global: { stubs },
+        });
+        expect(wrapper.find('.quantity-input').exists()).toBe(false);
+        expect(
+          wrapper.find('[data-testid="add-to-cart-button"]').exists(),
+        ).toBe(false);
+      },
+    );
+
+    it('is an ordinary card for a buyer the configurator access rule refuses', () => {
+      mockCanAccess.mockImplementation((feature) => feature !== 'configurator');
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: configurable() },
+        global: { stubs },
+      });
+      expect(mockCanAccess).toHaveBeenCalledWith('configurator');
+      expect(
+        wrapper.find('[data-testid="configure-product-link"]').exists(),
+      ).toBe(false);
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        true,
+      );
+    });
+
+    it('offers nothing to buy where purchase is not allowed', () => {
+      mockIsCatalogMode.value = true;
+      try {
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: configurable() },
+          global: { stubs },
+        });
+        expect(
+          wrapper.find('[data-testid="configure-product-link"]').exists(),
+        ).toBe(false);
+        expect(
+          wrapper.find('[data-testid="add-to-cart-button"]').exists(),
+        ).toBe(false);
+        // The product itself stays reachable: image and title still link to
+        // its page, which is where the configurator is.
+        expect(wrapper.text()).toContain('Test Product');
+        const links = wrapper.findAll('a');
+        expect(links.length).toBe(2);
+        links.forEach((link) => {
+          expect(link.attributes('href')).toBe(
+            '/se/en/p/products/test-product',
+          );
+        });
+      } finally {
+        mockIsCatalogMode.value = false;
+      }
+    });
+
+    it.each(['grid', 'list'] as const)(
+      'leaves an ordinary product unchanged in the %s variant',
+      (variant) => {
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: makeProduct(), variant },
+          global: { stubs },
+        });
+        expect(
+          wrapper.find('[data-testid="configure-product-link"]').exists(),
+        ).toBe(false);
+        expect(
+          wrapper.find('[data-testid="add-to-cart-button"]').exists(),
+        ).toBe(true);
+        expect(wrapper.find('.quantity-input').exists()).toBe(true);
+      },
+    );
+
+    it('reads the flag as true only, as the page does', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: { product: makeProduct({ configurable: 'true' }) },
+        global: { stubs },
+      });
+      expect(
+        wrapper.find('[data-testid="configure-product-link"]').exists(),
+      ).toBe(false);
+    });
+
+    it('offers the link on the brief card shape too', () => {
+      const wrapper = mountComponent(ProductCard, {
+        props: {
+          product: {
+            name: 'Arbetsbord',
+            alias: 'arbetsbord-pro',
+            price: '3 200 kr',
+            configurable: true,
+          },
+        },
+        global: { stubs },
+      });
+      const link = wrapper.find('[data-testid="configure-product-link"]');
+      expect(link.attributes('href')).toBe('/se/en/p/arbetsbord-pro');
+      expect(wrapper.find('[data-testid="add-to-cart-button"]').exists()).toBe(
+        false,
+      );
+    });
+  });
+
   describe('catalog mode', () => {
     afterEach(() => {
       mockIsCatalogMode.value = false;

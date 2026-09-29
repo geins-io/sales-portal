@@ -3,7 +3,13 @@ import type { DetailProduct, ListProduct } from '#shared/types/commerce';
 import { filterVisibleCampaigns, getStockStatus } from '#shared/types/commerce';
 import { productPath } from '#shared/utils/route-helpers';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
-import { ShoppingCart, Star, AlertCircle } from 'lucide-vue-next';
+import { resolveProductPageType } from '~/utils/product-page-type';
+import {
+  ShoppingCart,
+  SlidersHorizontal,
+  Star,
+  AlertCircle,
+} from 'lucide-vue-next';
 import { useAuthStore } from '~/stores/auth';
 import { useCartStore } from '~/stores/cart';
 import { useFavoritesStore } from '~/stores/favorites';
@@ -26,6 +32,7 @@ export interface ProductCardItem {
   salePrice?: string | number | null;
   articleNumber?: string | null;
   alias?: string | null;
+  configurable?: boolean;
 }
 
 type ProductCardProp = ProductCardItem | ListProduct | DetailProduct;
@@ -57,6 +64,15 @@ const { hasFeature, isCatalogMode } = useTenant();
 const { canAccess } = useFeatureAccess();
 const canPurchase = computed(
   () => canAccess('orderPlacement') && !isCatalogMode.value,
+);
+// A configurable product cannot be bought without a configuration, so where
+// the card would offer add to cart it links to the page that makes one. The
+// page's own rule picks the product, so the card never links a buyer to a
+// configurator the page would not show.
+const isConfigurable = computed(
+  () =>
+    resolveProductPageType(props.product, canAccess('configurator')) ===
+    'configurable',
 );
 const isOutOfStock = computed(() => {
   if (!isFullProduct(props.product)) return false;
@@ -298,7 +314,17 @@ async function addToCart() {
       </div>
 
       <template v-if="canPurchase">
-        <OutOfStockBlock v-if="isOutOfStock" class="mt-auto pt-3" />
+        <div v-if="isConfigurable" class="mt-auto flex pt-3">
+          <Button v-if="productUrl" as-child class="h-9 min-w-0 flex-1 px-4">
+            <NuxtLink :to="productUrl" data-testid="configure-product-link">
+              <SlidersHorizontal class="size-4 shrink-0" />
+              <span class="truncate">
+                {{ t('configurator.configure_product') }}
+              </span>
+            </NuxtLink>
+          </Button>
+        </div>
+        <OutOfStockBlock v-else-if="isOutOfStock" class="mt-auto pt-3" />
         <div v-else class="mt-auto flex items-center gap-3 pt-3">
           <QuantityInput
             v-if="isFullProduct(product)"
@@ -441,7 +467,15 @@ async function addToCart() {
 
       <template v-if="canPurchase">
         <div class="flex shrink-0 items-center gap-2">
-          <OutOfStockBlock v-if="isOutOfStock" class="shrink-0" />
+          <template v-if="isConfigurable">
+            <Button v-if="productUrl" as-child class="h-9 px-4">
+              <NuxtLink :to="productUrl" data-testid="configure-product-link">
+                <SlidersHorizontal class="size-4 shrink-0" />
+                {{ t('configurator.configure_product') }}
+              </NuxtLink>
+            </Button>
+          </template>
+          <OutOfStockBlock v-else-if="isOutOfStock" class="shrink-0" />
           <template v-else>
             <QuantityInput
               v-if="isFullProduct(product)"
