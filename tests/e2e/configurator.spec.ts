@@ -395,3 +395,62 @@ test.describe('Configurator group message', () => {
     );
   });
 });
+
+/**
+ * The same seed's open number with a refusal the range cannot say: zero is
+ * refused, as the real provider refuses it beside a length.
+ */
+const TRANSPORT_TIME = 'transport-time';
+
+test.describe('Configurator refused change', () => {
+  test('steps an empty field up to the first step and says so at the field when a value is refused', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page, DEEP_ALIAS);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    await openConfigurator(page, DEEP_ALIAS);
+    await openSection(page, 'structure');
+
+    const field = page.locator(
+      `[data-testid="configurator-variable"][data-variable-id="${TRANSPORT_TIME}"]`,
+    );
+    const input = field.locator('input');
+    const refused = field.getByTestId('configurator-change-refused');
+    const busy = page.getByTestId('configurator-panel-busy');
+    await expect(input).toHaveValue('');
+
+    // The first step from empty is one step up from zero, not zero itself.
+    let changed = changeResponse(page);
+    await field.getByRole('button', { name: 'Increase' }).click();
+    let response = await changed;
+    expect(response.status()).toBe(200);
+    expect(response.request().postDataJSON()).toEqual({
+      changes: [{ type: 'variable', variableId: TRANSPORT_TIME, value: 1 }],
+    });
+    await expect(busy).toBeHidden();
+    await expect(input).toHaveAttribute('aria-valuenow', '1');
+    await expect(page.getByTestId('configurator-form-error')).toBeHidden();
+
+    // A value the range allows and the provider refuses.
+    changed = changeResponse(page);
+    await input.fill('0');
+    await input.press('Enter');
+    response = await changed;
+    expect(response.status()).toBe(422);
+    await expect(busy).toBeHidden();
+    await expect(refused).toBeVisible();
+    await expect(input).toHaveAttribute('aria-valuenow', '1');
+    await expect(page.getByTestId('configurator-form-error')).toBeHidden();
+
+    // The form is still the buyer's, and the next value goes through.
+    changed = changeResponse(page);
+    await input.fill('2');
+    await input.press('Enter');
+    response = await changed;
+    expect(response.status()).toBe(200);
+    await expect(busy).toBeHidden();
+    await expect(input).toHaveAttribute('aria-valuenow', '2');
+    await expect(refused).toBeHidden();
+  });
+});

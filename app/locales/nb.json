@@ -333,6 +333,8 @@
     "commit": "Fullfør konfigurasjonen",
     "starting": "Starter konfigurasjonen…",
     "failed": "Noe gikk galt. Last inn siden på nytt og prøv igjen.",
+    "change_refused_value": "Verdien ble ikke godtatt. Prøv en annen verdi.",
+    "change_refused_option": "Valget ble ikke godtatt. Prøv et annet valg.",
     "sign_in_required": "Logg inn med en bedriftskonto for å konfigurere produktet.",
     "configure_product": "Konfigurer produkt",
     "product_configuration": "Produktkonfigurasjon",

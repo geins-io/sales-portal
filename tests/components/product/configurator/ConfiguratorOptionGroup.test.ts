@@ -1049,4 +1049,63 @@ describe('ConfiguratorOptionGroup', () => {
     ).toBe(false);
     expect(wrapper.findAll(`${SHEET} [role="radio"]`)).toHaveLength(3);
   });
+
+  // ---------------------------------------------------------------------
+  // A refused change
+  // ---------------------------------------------------------------------
+  const REFUSED = '[data-testid="configurator-change-refused"]';
+
+  function pickOf(optionId: string, instanceId = '0') {
+    return {
+      type: 'option',
+      optionId,
+      instanceId,
+      selected: true,
+      quantity: 1,
+      lock: 'none',
+    } as const;
+  }
+
+  it('says the choice was not accepted when one of its options was refused', () => {
+    const workbench = makeInitialConfiguration();
+    const legs = findOptionGroup(workbench, 'legs');
+    const refused = pickOf('legs-electric', legs.options[2]!.instanceId);
+
+    const wrapper = mountComponent(ConfiguratorOptionGroup, {
+      props: { group: legs, refused },
+    });
+
+    expect(wrapper.find(REFUSED).text()).toBe(
+      'configurator.change_refused_option',
+    );
+  });
+
+  it("says nothing about another group's refused option", () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountComponent(ConfiguratorOptionGroup, {
+      props: {
+        group: findOptionGroup(workbench, 'legs'),
+        refused: pickOf('top-oak'),
+      },
+    });
+
+    expect(wrapper.find(REFUSED).exists()).toBe(false);
+  });
+
+  it('lets a nested group answer for its own option, and only it', () => {
+    const nested = makeNestedGroupConfiguration();
+    const industrial = findOptionGroup(nested, 'industrial');
+    const refused = pickOf('ind-heavy', industrial.options[1]!.instanceId);
+
+    const wrapper = mountComponent(ConfiguratorOptionGroup, {
+      props: { group: findOptionGroup(nested, 'legs'), refused },
+    });
+
+    const lines = wrapper.findAll(REFUSED);
+    expect(lines).toHaveLength(1);
+    expect(
+      wrapper.find(`[data-group-id="industrial"] ${REFUSED}`).exists(),
+    ).toBe(true);
+  });
 });

@@ -3,10 +3,15 @@ import {
   canCommit,
   configuratorStage,
   failureKey,
+  formError,
   headerError,
+  refusedChange,
   type ConfiguratorPageState,
 } from '../../app/utils/configurator-page';
-import type { CommittedConfiguration } from '../../shared/types/configurator';
+import type {
+  CommittedConfiguration,
+  ConfigurationChange,
+} from '../../shared/types/configurator';
 import {
   makeInvalidConfiguration,
   makeValidConfiguration,
@@ -164,5 +169,89 @@ describe('failureKey', () => {
 
   it('keeps the general copy when nothing failed', () => {
     expect(failureKey(null)).toBe('configurator.failed');
+  });
+});
+
+const REFUSAL = { status: 422, message: 'x', code: 'VALIDATION_ERROR' };
+const WIDTH: ConfigurationChange = {
+  type: 'variable',
+  variableId: 'width',
+  value: 0,
+};
+
+describe('refusedChange', () => {
+  it('names the change a refused batch carried', () => {
+    expect(refusedChange('change', REFUSAL, WIDTH)).toEqual(WIDTH);
+  });
+
+  it('names an option change as well', () => {
+    const pick: ConfigurationChange = {
+      type: 'option',
+      optionId: 'oak',
+      instanceId: '1',
+      selected: true,
+      quantity: 1,
+      lock: 'none',
+    };
+    expect(refusedChange('change', REFUSAL, pick)).toEqual(pick);
+  });
+
+  it('is nothing when the change failed for another reason', () => {
+    expect(
+      refusedChange('change', { status: 500, message: 'x' }, WIDTH),
+    ).toBeNull();
+    // The status alone is not the refusal: the code says the provider said no.
+    expect(
+      refusedChange('change', { status: 422, message: 'x' }, WIDTH),
+    ).toBeNull();
+    expect(
+      refusedChange(
+        'change',
+        { status: 400, message: 'x', code: 'VALIDATION_ERROR' },
+        WIDTH,
+      ),
+    ).toBeNull();
+  });
+
+  it('is nothing when the refused verb was not a change', () => {
+    expect(refusedChange('commit', REFUSAL, WIDTH)).toBeNull();
+    expect(refusedChange('start', REFUSAL, WIDTH)).toBeNull();
+  });
+
+  it('is nothing when nothing failed or nothing was sent', () => {
+    expect(refusedChange('change', null, WIDTH)).toBeNull();
+    expect(refusedChange('change', REFUSAL, null)).toBeNull();
+  });
+
+  it('is nothing for a quantity change, which no node on the form owns', () => {
+    expect(
+      refusedChange('change', REFUSAL, { type: 'quantity', quantity: 0 }),
+    ).toBeNull();
+  });
+});
+
+describe('formError', () => {
+  const FAILURE = { status: 500, message: 'x' };
+
+  it('shows a failure on the form', () => {
+    expect(formError('change', 'form', FAILURE, null)).toEqual(FAILURE);
+    expect(formError('commit', 'form', FAILURE, null)).toEqual(FAILURE);
+  });
+
+  it('leaves a refused change to the node it was aimed at', () => {
+    expect(formError('change', 'form', REFUSAL, WIDTH)).toBeNull();
+  });
+
+  it('leaves a failed renew to the header', () => {
+    expect(formError('renew', 'form', FAILURE, null)).toBeNull();
+  });
+
+  it('shows nothing off the form', () => {
+    expect(formError('start', 'error', FAILURE, null)).toBeNull();
+    expect(formError('change', 'expired', FAILURE, null)).toBeNull();
+  });
+
+  it('shows nothing when nothing failed', () => {
+    expect(formError('change', 'form', null, null)).toBeNull();
   });
 });

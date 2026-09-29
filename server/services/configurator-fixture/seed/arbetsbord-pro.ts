@@ -309,6 +309,7 @@ export const arbetsbordPro: Seed = {
   weightPerUnit: 38.5,
   variableRates: { width: 1.5, depth: 1, shelves: 450, oversize: 120 },
   formulas: {},
+  refusals: {},
   cascades: [
     powerStripFollowsElectricLegs,
     castorsClashWithElectricLegs,

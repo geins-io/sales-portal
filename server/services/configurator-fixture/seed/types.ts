@@ -1,12 +1,14 @@
 import type {
   Configuration,
   ConfigurationSection,
+  ConfigurationValue,
 } from '#shared/types/configurator';
 
 /**
- * A seeded configurable product: the document it starts as, plus the three
+ * A seeded configurable product: the document it starts as, plus the four
  * things the document itself cannot carry — what a variable costs, which
- * variables the provider computes, and the rules it re-runs after every change.
+ * variables the provider computes, which values it refuses, and the rules it
+ * re-runs after every change.
  */
 export interface Seed {
   /** The provider's part id, which the document carries. */
@@ -33,6 +35,12 @@ export interface Seed {
   variableRates: Record<string, number>;
   /** Variables the provider owns. A change aimed at one is refused. */
   formulas: Record<string, (config: Configuration) => number>;
+  /**
+   * Values the provider refuses although the range allows them, by variable:
+   * the reason, or undefined for a value it takes. The document cannot say
+   * this in advance, so the buyer learns it only from the refused change.
+   */
+  refusals: Record<string, (value: ConfigurationValue) => string | undefined>;
   /** Applied in order, on a freshly built document, after every change batch. */
   cascades: ((config: Configuration) => void)[];
   /** A new set of nodes on every call — the engine mutates what it gets. */

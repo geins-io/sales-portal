@@ -3,6 +3,7 @@ import type {
   ConfigurationChange,
   ConfigurationSection,
 } from '#shared/types/configurator';
+import { refusesVariable } from '~/utils/configurator-form';
 import { sectionMembers } from '~/utils/configurator-order';
 
 /**
@@ -21,9 +22,15 @@ import { sectionMembers } from '~/utils/configurator-order';
  * document that is not the buyer's to see — warehouse fields, for instance —
  * and the UI hides what arrives invisible rather than deciding for itself.
  */
-const { section, disabled = false } = defineProps<{
+const {
+  section,
+  disabled = false,
+  refused = null,
+} = defineProps<{
   section: ConfigurationSection;
   disabled?: boolean;
+  /** The change the provider refused last, for the node it was aimed at. */
+  refused?: ConfigurationChange | null;
 }>();
 
 const emit = defineEmits<{ change: [ConfigurationChange] }>();
@@ -51,6 +58,7 @@ const members = computed(() => sectionMembers(section));
         :group="member.group"
         :level="5"
         :disabled="disabled"
+        :refused="refused"
         @change="emit('change', $event)"
       />
 
@@ -67,6 +75,7 @@ const members = computed(() => sectionMembers(section));
         <ConfiguratorVariableField
           :variable="member.variable"
           :disabled="disabled"
+          :refused="refusesVariable(refused, member.variable.id)"
           @change="emit('change', $event)"
         />
       </div>

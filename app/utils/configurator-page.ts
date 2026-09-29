@@ -1,6 +1,7 @@
 import type {
   CommittedConfiguration,
   Configuration,
+  ConfigurationChange,
 } from '#shared/types/configurator';
 import type {
   ConfiguratorSessionError,
@@ -95,4 +96,37 @@ export function failureKey(
   return error?.status === 403
     ? 'configurator.sign_in_required'
     : 'configurator.failed';
+}
+
+/**
+ * The change the provider refused, when the last change batch was refused.
+ *
+ * The page sends one change per batch, so a refusal is always about the change
+ * it sent last. The status alone does not say the provider refused: the code
+ * does, and survives the production error body. A quantity change has no node
+ * on the form to carry the message, so it stays a general failure.
+ */
+export function refusedChange(
+  lastAction: ConfiguratorAction,
+  error: ConfiguratorSessionError | null,
+  lastChange: ConfigurationChange | null,
+): ConfigurationChange | null {
+  if (lastAction !== 'change' || lastChange?.type === 'quantity') return null;
+  return error?.status === 422 && error.code === 'VALIDATION_ERROR'
+    ? lastChange
+    : null;
+}
+
+/**
+ * The failure the page writes above the form: anything on the form that is
+ * neither the header's failed renew nor a refusal, which its own node shows.
+ */
+export function formError(
+  lastAction: ConfiguratorAction,
+  stage: ConfiguratorStage,
+  error: ConfiguratorSessionError | null,
+  refused: ConfigurationChange | null,
+): ConfiguratorSessionError | null {
+  if (stage !== 'form' || lastAction === 'renew' || refused) return null;
+  return error;
 }

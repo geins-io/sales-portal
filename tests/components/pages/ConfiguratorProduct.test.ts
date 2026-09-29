@@ -245,10 +245,11 @@ const stubs = {
   },
   ConfiguratorSection: {
     template: `<section data-testid="section" :data-section-id="section.id"
-      :data-disabled="String(disabled)">
+      :data-disabled="String(disabled)"
+      :data-refused="refused ? JSON.stringify(refused) : ''">
       <button data-testid="section-change" @click="$emit('change', change)"></button>
     </section>`,
-    props: ['section', 'disabled'],
+    props: ['section', 'disabled', 'refused'],
     emits: ['change'],
     setup: () => ({ change: CHANGE }),
   },
@@ -626,6 +627,62 @@ describe('ConfiguratorProduct errors', () => {
     expect(
       wrapper.find('[data-testid="configurator-form-error"]').text(),
     ).toContain('configurator.sign_in_required');
+  });
+
+  const REFUSAL = { status: 422, message: 'x', code: 'VALIDATION_ERROR' };
+
+  it('hands a refused change to the form and reports no failure above it', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    await wrapper.find('[data-testid="section-change"]').trigger('click');
+    session.error.value = REFUSAL;
+    await nextTick();
+
+    expect(
+      JSON.parse(
+        wrapper.find('[data-testid="section"]').attributes('data-refused')!,
+      ),
+    ).toEqual(CHANGE);
+    expect(
+      wrapper.find('[data-testid="configurator-form-error"]').exists(),
+    ).toBe(false);
+  });
+
+  it('keeps the general copy for a change that failed for another reason', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    await wrapper.find('[data-testid="section-change"]').trigger('click');
+    session.error.value = { status: 502, message: 'bad gateway' };
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-refused'),
+    ).toBe('');
+    expect(
+      wrapper.find('[data-testid="configurator-form-error"]').text(),
+    ).toContain('configurator.failed');
+  });
+
+  it('drops the refusal once the next batch clears the failure', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    await wrapper.find('[data-testid="section-change"]').trigger('click');
+    session.error.value = REFUSAL;
+    await nextTick();
+
+    // What `run()` does as the next batch goes out.
+    await wrapper.find('[data-testid="section-change"]').trigger('click');
+    session.error.value = null;
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-refused'),
+    ).toBe('');
   });
 });
 

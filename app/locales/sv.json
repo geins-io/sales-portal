@@ -333,6 +333,8 @@
     "commit": "Slutför konfigurationen",
     "starting": "Startar konfigurationen…",
     "failed": "Något gick fel. Ladda om sidan och försök igen.",
+    "change_refused_value": "Värdet godtogs inte. Prova ett annat värde.",
+    "change_refused_option": "Valet godtogs inte. Prova ett annat val.",
     "sign_in_required": "Logga in med ett företagskonto för att konfigurera produkten.",
     "configure_product": "Konfigurera produkt",
     "product_configuration": "Produktkonfiguration",

@@ -24,6 +24,7 @@ function refuse(reason: string): never {
 }
 
 function checkVariable(
+  seed: Seed,
   config: Configuration,
   change: Extract<ConfigurationChange, { type: 'variable' }>,
 ): ConfigurationVariable {
@@ -45,6 +46,8 @@ function checkVariable(
     const above = variable.max !== undefined && change.value > variable.max;
     if (below || above) refuse(`'${variable.id}' is out of range`);
   }
+  const reason = seed.refusals[variable.id]?.(change.value);
+  if (reason) refuse(reason);
   return variable;
 }
 
@@ -102,11 +105,12 @@ type CheckedChange =
     };
 
 function check(
+  seed: Seed,
   config: Configuration,
   change: ConfigurationChange,
 ): CheckedChange {
   if (change.type === 'variable') {
-    const variable = checkVariable(config, change);
+    const variable = checkVariable(seed, config, change);
     return { kind: 'variable', id: variable.id, value: change.value };
   }
   if (change.type === 'option') {
@@ -128,7 +132,7 @@ export function applyChangeBatch(
   changes: ConfigurationChange[],
 ): SessionState {
   const config = evaluate(seed, state, session);
-  const checked = changes.map((change) => check(config, change));
+  const checked = changes.map((change) => check(seed, config, change));
 
   const next = cloneSessionState(state);
   for (const change of checked) {

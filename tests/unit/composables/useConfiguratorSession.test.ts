@@ -232,6 +232,56 @@ describe('useConfiguratorSession', () => {
       return session;
     }
 
+    it('keeps the document and reads the code when the provider refuses a batch', async () => {
+      const session = await started();
+      const held = session.configuration.value;
+      // What the route answers for the seam's VALIDATION_ERROR: Nitro's error
+      // body, with the code under `data` where production still sends it.
+      mockFetch.mockRejectedValue(
+        Object.assign(new Error('[POST] 422 Validation failed'), {
+          status: 422,
+          statusCode: 422,
+          data: {
+            statusCode: 422,
+            statusMessage: 'Validation failed',
+            message: 'Validation failed',
+            data: { code: 'VALIDATION_ERROR' },
+          },
+        }),
+      );
+
+      await session.applyChanges([
+        { type: 'variable', variableId: 'width', value: 0 },
+      ]);
+
+      expect(session.error.value).toEqual({
+        status: 422,
+        message: 'Validation failed',
+        code: 'VALIDATION_ERROR',
+      });
+      expect(session.configuration.value).toBe(held);
+      expect(session.status.value).toBe('active');
+    });
+
+    it('reads no code that is not a string', async () => {
+      const session = await started();
+      mockFetch.mockRejectedValue(
+        Object.assign(new Error('failed'), {
+          status: 422,
+          data: { message: 'Validation failed', data: { code: 422 } },
+        }),
+      );
+
+      await session.applyChanges([
+        { type: 'variable', variableId: 'width', value: 0 },
+      ]);
+
+      expect(session.error.value).toStrictEqual({
+        status: 422,
+        message: 'Validation failed',
+      });
+    });
+
     it('posts the batch to the session and replaces the whole document', async () => {
       const session = await started();
       const cascaded = makeCascadedConfiguration();

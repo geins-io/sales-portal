@@ -184,4 +184,40 @@ describe('ConfiguratorSection', () => {
       selected: false,
     });
   });
+
+  it('hands a refused change to the field and the group it was aimed at', () => {
+    const workbench = makeInitialConfiguration();
+    const frame = sectionOf(workbench.sections, 'frame');
+    const REFUSED = '[data-testid="configurator-change-refused"]';
+
+    const onField = mountComponent(ConfiguratorSection, {
+      props: {
+        section: frame,
+        refused: { type: 'variable', variableId: 'depth', value: 0 },
+      },
+    });
+    expect(onField.find(`[data-variable-id="depth"] ${REFUSED}`).exists()).toBe(
+      true,
+    );
+    expect(onField.findAll(REFUSED)).toHaveLength(1);
+
+    const legs = findOption(workbench, 'legs-manual');
+    const onGroup = mountComponent(ConfiguratorSection, {
+      props: {
+        section: frame,
+        refused: {
+          type: 'option',
+          optionId: legs.id,
+          instanceId: legs.instanceId,
+          selected: true,
+          quantity: 1,
+          lock: 'none',
+        },
+      },
+    });
+    expect(onGroup.find(`[data-group-id="legs"] ${REFUSED}`).exists()).toBe(
+      true,
+    );
+    expect(onGroup.findAll(REFUSED)).toHaveLength(1);
+  });
 });

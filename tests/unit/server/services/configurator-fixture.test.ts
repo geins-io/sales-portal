@@ -1495,3 +1495,89 @@ describe('createSeedDocument', () => {
     ).toThrow(/No seeded product/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// A value the provider refuses
+// ---------------------------------------------------------------------------
+
+describe('a value the rules refuse', () => {
+  // The canary's own case: a time next to a length, where zero leaves the
+  // provider nothing to compute a speed from. The range cannot say it, so the
+  // refusal arrives only on the answer.
+  it('carries an open time next to the station length', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const structure = config.sections.find((s) => s.id === 'structure')!;
+    const time = structure.variables.find((v) => v.id === 'transport-time');
+
+    expect(time).toMatchObject({
+      name: 'Max transport time',
+      description: 'Longest time a part may take along the station.',
+      unit: 's',
+      valueType: 'number',
+      value: null,
+      required: false,
+      decimals: 2,
+    });
+    expect(time?.min).toBeUndefined();
+    expect(time?.max).toBeUndefined();
+    expect(time?.step).toBeUndefined();
+  });
+
+  it('refuses a time of zero and keeps the state it had', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const id = config.configurationId;
+
+    expect(
+      await statusOf(() =>
+        backend.applyChanges(id, [setVariable('transport-time', 0)], CTX),
+      ),
+    ).toBe(422);
+
+    const after = await backend.get(id, CTX);
+    expect(findVariable(after, 'transport-time').value).toBeNull();
+  });
+
+  it('refuses the whole batch a refused time is part of', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    const id = config.configurationId;
+
+    expect(
+      await statusOf(() =>
+        backend.applyChanges(
+          id,
+          [setVariable('length', 3000), setVariable('transport-time', 0)],
+          CTX,
+        ),
+      ),
+    ).toBe(422);
+
+    const after = await backend.get(id, CTX);
+    expect(findVariable(after, 'length').value).toBe(2400);
+  });
+
+  it('takes any other time and leaves the document as valid as it was', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+
+    const updated = await backend.applyChanges(
+      config.configurationId,
+      [setVariable('transport-time', 1)],
+      CTX,
+    );
+
+    expect(findVariable(updated, 'transport-time').value).toBe(1);
+    expect(updated.isValid).toBe(config.isValid);
+    expect(updated.unitPrice).toEqual(config.unitPrice);
+  });
+
+  it('refuses nothing on a seed without the rule', async () => {
+    const config = await start();
+
+    const updated = await backend.applyChanges(
+      config.configurationId,
+      [setVariable('shelves', 0)],
+      CTX,
+    );
+
+    expect(findVariable(updated, 'shelves').value).toBe(0);
+  });
+});
