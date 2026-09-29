@@ -142,11 +142,12 @@ async function fetchProductCandidates(
 /**
  * Whether `/p/<alias>` renders the configurator instead of the ordinary PDP.
  *
- * Asked per candidate because the list payload does not carry `configurable`:
- * it is derived in `/api/products/<alias>`. The first candidate alphabetically
- * is a configurable product on the team tenant, and the configurator page has
- * no gallery, no product heading and no tabs — so a spec about the ordinary
- * PDP that takes the first row finds none of them.
+ * The list payload carries `configurable` too, but this still asks
+ * `/api/products/<alias>` per candidate: that is the route `/p/<alias>` itself
+ * reads. The first candidate alphabetically is a configurable product on the
+ * team tenant, and the configurator page has no gallery, no product heading
+ * and no tabs — so a spec about the ordinary PDP that takes the first row finds
+ * none of them.
  *
  * Not cached: the answer depends on the caller's session, since the feature
  * carries an access rule, and a cache would hand the anonymous run what the

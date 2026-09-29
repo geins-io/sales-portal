@@ -29,6 +29,18 @@ vi.mock('../../../server/services/company', () => ({
   getCompany: (...args: unknown[]) => mockGetCompany(...args),
 }));
 
+// The configurator seam. What the answer depends on belongs to the seam's own
+// tests; this fake says yes for one product id.
+const CONFIGURABLE_ID = '1101';
+const mockIsConfigurable = vi.fn(
+  (product: { productId: string; type?: string | null }) =>
+    product.productId === CONFIGURABLE_ID,
+);
+const mockConfigurableCheck = vi.fn((_event: unknown) => mockIsConfigurable);
+vi.mock('../../../server/services/configurator', () => ({
+  configurableCheck: (event: unknown) => mockConfigurableCheck(event),
+}));
+
 vi.stubGlobal(
   'wrapServiceCall',
   vi.fn(async (fn: () => Promise<unknown>) => fn()),
@@ -47,6 +59,8 @@ function makeOrder(overrides: {
   customerEmail?: string | null;
   billingAddress?: { firstName?: string; lastName?: string } | null;
   items?: Array<{
+    productId?: number;
+    type?: string;
     articleNumber?: string;
     name?: string;
     quantity?: number;
@@ -82,6 +96,8 @@ function makeOrder(overrides: {
                   item.sellingPriceExVatFormatted ?? '100 kr',
               },
               product: {
+                productId: item.productId ?? 1,
+                type: item.type ?? 'product',
                 articleNumber: item.articleNumber ?? 'ART-001',
                 name: item.name ?? 'Test Product',
               },
@@ -142,6 +158,51 @@ describe('getPurchasedProducts', () => {
     expect(result.products).toHaveLength(2);
     expect(result.products[0]!.articleNumber).toBe('ART-002');
     expect(result.products[1]!.articleNumber).toBe('ART-001');
+  });
+
+  it('flags a product the configurator stands behind, and only that one', async () => {
+    withOrders([
+      makeOrder({
+        items: [
+          { articleNumber: 'KONF-1001', productId: Number(CONFIGURABLE_ID) },
+          { articleNumber: 'ART-001', productId: 42 },
+        ],
+      }),
+    ]);
+
+    const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+    const byArticle = new Map(result.products.map((p) => [p.articleNumber, p]));
+
+    expect(byArticle.get('KONF-1001')?.configurable).toBe(true);
+    expect(byArticle.get('ART-001')).not.toHaveProperty('configurable');
+    expect(mockConfigurableCheck).toHaveBeenCalledOnce();
+    expect(mockConfigurableCheck).toHaveBeenCalledWith(mockEvent);
+  });
+
+  it('asks the seam with the product id and type the order line carries', async () => {
+    withOrders([
+      makeOrder({
+        items: [
+          { articleNumber: 'M-1359', productId: 1359, type: 'configurable' },
+        ],
+      }),
+    ]);
+
+    await purchasedProducts.getPurchasedProducts(mockEvent);
+
+    expect(mockIsConfigurable).toHaveBeenCalledWith({
+      productId: '1359',
+      type: 'configurable',
+    });
+  });
+
+  it('never exposes the product id or type in the response', async () => {
+    withOrders([makeOrder({ items: [{ articleNumber: 'ART-001' }] })]);
+
+    const result = await purchasedProducts.getPurchasedProducts(mockEvent);
+
+    expect(result.products[0]).not.toHaveProperty('productId');
+    expect(result.products[0]).not.toHaveProperty('type');
   });
 
   it('passes userToken from requestContext to the GraphQL call', async () => {

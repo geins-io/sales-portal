@@ -1,5 +1,10 @@
 import { ProductListSchema } from '../../schemas/api-input';
+import { withConfigurableFlags } from '../../services/configurator';
 import { getProducts } from '../../services/product-lists';
+
+type ProductListResult = {
+  products?: { productId?: number; type?: string | null }[] | null;
+} | null;
 
 export default defineEventHandler(async (event) => {
   const validated = await getValidatedQuery(event, ProductListSchema.parse);
@@ -15,10 +20,13 @@ export default defineEventHandler(async (event) => {
 
   return withErrorHandling(
     async () => {
-      return await getProducts(
+      const list = (await getProducts(
         { ...validated, userToken: auth?.authToken },
         event,
-      );
+      )) as ProductListResult;
+      return list?.products
+        ? { ...list, products: withConfigurableFlags(event, list.products) }
+        : list;
     },
     { operation: 'product-lists.products.get' },
   );

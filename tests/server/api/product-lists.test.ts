@@ -7,6 +7,18 @@ import type { H3Event } from 'h3';
 // ---------------------------------------------------------------------------
 const mockGraphqlQuery = vi.fn();
 
+// The configurator seam. What the flag depends on belongs to the seam's own
+// tests; here the fake marks what it was handed, so the test sees which list
+// went through it.
+const mockWithConfigurableFlags = vi.fn(
+  (_event: unknown, products: Array<Record<string, unknown> | null>) =>
+    products.map((p) => (p ? { ...p, flagged: true } : p)),
+);
+vi.mock('../../../server/services/configurator', () => ({
+  withConfigurableFlags: (event: unknown, products: never) =>
+    mockWithConfigurableFlags(event, products),
+}));
+
 const mockSDK = {
   core: {
     geinsSettings: { channel: '1', locale: 'sv-SE', market: 'se' },
@@ -139,6 +151,39 @@ describe('Product List API Routes', () => {
       const result = await handler(event);
 
       expect(result).toEqual({ products: [], count: 0 });
+    });
+
+    it('sends every listed product through the configurable flag', async () => {
+      (getQuery as ReturnType<typeof vi.fn>).mockReturnValue({});
+      const raw = [
+        { productId: 1101, alias: 'arbetsbord-pro', type: 'product' },
+        { productId: 42, alias: 'wood-screw', type: 'product' },
+      ];
+      mockGraphqlQuery.mockResolvedValue({
+        products: { products: raw, count: 2 },
+      });
+
+      const event = createMockEvent();
+      const result = await handler(event);
+
+      expect(mockWithConfigurableFlags).toHaveBeenCalledWith(event, raw);
+      expect(result).toEqual({
+        products: [
+          { ...raw[0], flagged: true },
+          { ...raw[1], flagged: true },
+        ],
+        count: 2,
+      });
+    });
+
+    it('returns a response without a product list as it came', async () => {
+      (getQuery as ReturnType<typeof vi.fn>).mockReturnValue({});
+      mockGraphqlQuery.mockResolvedValue({ products: null });
+
+      const result = await handler(createMockEvent());
+
+      expect(result).toBeNull();
+      expect(mockWithConfigurableFlags).not.toHaveBeenCalled();
     });
 
     it('should accept empty query (all optional)', async () => {

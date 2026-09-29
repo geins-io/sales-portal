@@ -478,6 +478,30 @@ describe('Portal Overview page', () => {
     expect(card.attributes('data-price')).toBe('SEK 49.95');
   });
 
+  it("passes a purchased product's configurable flag to ProductCard", () => {
+    mockProductsData = {
+      products: [
+        {
+          name: 'Arbetsbord',
+          articleNumber: 'KONF-1001',
+          alias: 'arbetsbord-pro',
+          priceExVat: 3200,
+          totalQuantity: 1,
+          latestOrderDate: '2026-03-01T00:00:00Z',
+          latestOrderId: 'o1',
+          latestOrderPublicId: 'pub-o1',
+          latestBuyerName: 'Jane',
+          configurable: true,
+        },
+      ],
+    };
+    const wrapper = mount(PortalOverviewPage.default, {
+      global: { stubs },
+    });
+    const card = wrapper.findComponent({ name: 'ProductCard' });
+    expect(card.props('product')).toMatchObject({ configurable: true });
+  });
+
   it('shows purchased products loading state', () => {
     mockProductsPending = true;
     const wrapper = mount(PortalOverviewPage.default, {

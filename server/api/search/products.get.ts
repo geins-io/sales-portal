@@ -1,5 +1,10 @@
 import { SearchProductsSchema } from '../../schemas/api-input';
+import { withConfigurableFlags } from '../../services/configurator';
 import { searchProducts } from '../../services/search';
+
+type SearchResult = {
+  products?: { productId?: number; type?: string | null }[] | null;
+} | null;
 
 export default defineEventHandler(async (event) => {
   const validated = await getValidatedQuery(event, SearchProductsSchema.parse);
@@ -12,7 +17,7 @@ export default defineEventHandler(async (event) => {
         searchText: validated.query,
       };
 
-      return searchProducts(
+      const result = (await searchProducts(
         {
           filter,
           skip: validated.skip,
@@ -20,7 +25,10 @@ export default defineEventHandler(async (event) => {
           userToken: auth?.authToken,
         },
         event,
-      );
+      )) as SearchResult;
+      return result?.products
+        ? { ...result, products: withConfigurableFlags(event, result.products) }
+        : result;
     },
     { operation: 'search.products.get' },
   );
