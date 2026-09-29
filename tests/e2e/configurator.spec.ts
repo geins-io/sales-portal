@@ -218,6 +218,54 @@ test.describe('Configurator', () => {
     await expect(page.getByTestId('configurator-panel-price')).toBeHidden();
   });
 
+  test('a list card leads to the configurator, never to the cart', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    // The seed's own list page, read from the product rather than named: the
+    // category is the catalogue's, not the fixture's.
+    const product = await (
+      await page.request.get(`/api/products/${SEED_ALIAS}`)
+    ).json();
+    const listUrl: string | undefined = product?.primaryCategory?.canonicalUrl;
+    expect(listUrl, `${SEED_ALIAS} has no primary category`).toBeTruthy();
+
+    // Any write to the cart, from the card or from anything it leads to.
+    const cartWrites: string[] = [];
+    page.on('request', (request) => {
+      if (
+        request.method() !== 'GET' &&
+        new URL(request.url()).pathname.startsWith('/api/cart')
+      ) {
+        cartWrites.push(`${request.method()} ${request.url()}`);
+      }
+    });
+
+    await page.goto(listUrl!);
+    await waitForHydration(page);
+
+    const card = page
+      .getByTestId('product-card')
+      .filter({ hasText: product.name })
+      .first();
+    await expect(card).toBeVisible({ timeout: 20000 });
+    await expect(card.getByTestId('add-to-cart-button')).toHaveCount(0);
+
+    const link = card.getByTestId('configure-product-link');
+    await expect(link).toBeVisible();
+    await link.click();
+
+    await expect(page.getByTestId('configurator-product')).toBeVisible({
+      timeout: 20000,
+    });
+    await expect(
+      page.locator('[data-testid="configurator-section"]').first(),
+    ).toBeVisible({ timeout: 20000 });
+    expect(cartWrites).toEqual([]);
+  });
+
   test('sends no second batch while one is pending', async ({ page }) => {
     const unavailable = await unavailableReason(page);
     outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
