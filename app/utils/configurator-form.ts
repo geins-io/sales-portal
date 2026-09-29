@@ -1,4 +1,5 @@
 import type {
+  ConfigurationChange,
   ConfigurationMessage,
   ConfigurationOption,
   ConfigurationOptionGroup,
@@ -329,4 +330,51 @@ export function groupHintKey(
 export function optionPricePrefix(net: number): string | null {
   if (net === 0) return null;
   return net > 0 ? '+' : '';
+}
+
+export type StepDirection = 'up' | 'down';
+
+/**
+ * What a stepper press sends from an empty number field: the field counts as
+ * 0, and the step from there is clamped into the range. A step that would pass
+ * a bound is not offered, as the stepper does for a filled field, so `null`
+ * means the button is disabled.
+ *
+ * The stepper's own answer from empty is the floor, or 0 without one, for
+ * either button — a value the buyer never chose, and one the provider may
+ * refuse outright.
+ */
+export function emptyStep(
+  variable: Pick<ConfigurationVariable, 'min' | 'max' | 'step'>,
+  direction: StepDirection,
+): number | null {
+  const min = variable.min ?? -Infinity;
+  const max = variable.max ?? Infinity;
+  const step = variable.step ?? 1;
+  if (direction === 'up') return step > max ? null : Math.max(step, min);
+  return -step < min ? null : Math.min(-step, max);
+}
+
+/** Whether the change the provider refused was aimed at this variable. */
+export function refusesVariable(
+  refused: ConfigurationChange | null,
+  variableId: string,
+): boolean {
+  return refused?.type === 'variable' && refused.variableId === variableId;
+}
+
+/**
+ * Whether the change the provider refused was aimed at one of this group's own
+ * options. A nested group answers for its own rows.
+ */
+export function refusesOptionIn(
+  refused: ConfigurationChange | null,
+  group: { options: Pick<ConfigurationOption, 'id' | 'instanceId'>[] },
+): boolean {
+  if (refused?.type !== 'option') return false;
+  return group.options.some(
+    (option) =>
+      option.id === refused.optionId &&
+      option.instanceId === refused.instanceId,
+  );
 }

@@ -6,6 +6,7 @@ import {
   boundsParams,
   dateChangeValue,
   dateInputValue,
+  emptyStep,
   groupHintKey,
   groupInfoSeverity,
   groupRowCount,
@@ -20,6 +21,8 @@ import {
   optionBlockReason,
   optionImage,
   optionPricePrefix,
+  refusesOptionIn,
+  refusesVariable,
   signedOptionPrice,
   usesChooser,
   variableControl,
@@ -625,5 +628,126 @@ describe('boundsNarrowed', () => {
         { min: undefined, max: undefined },
       ),
     ).toBe(false);
+  });
+});
+
+describe('emptyStep', () => {
+  // An empty field counts as 0, and a step from there is clamped to the range.
+  it('steps up from zero by one when the variable has no step', () => {
+    expect(emptyStep({}, 'up')).toBe(1);
+  });
+
+  it('steps down from zero by one when negatives are allowed', () => {
+    expect(emptyStep({}, 'down')).toBe(-1);
+  });
+
+  it("steps by the variable's own step", () => {
+    expect(emptyStep({ step: 0.5 }, 'up')).toBe(0.5);
+    expect(emptyStep({ step: 0.5 }, 'down')).toBe(-0.5);
+  });
+
+  it('clamps a step up into a floor above it', () => {
+    expect(emptyStep({ min: 5 }, 'up')).toBe(5);
+    expect(emptyStep({ min: 800, step: 100 }, 'up')).toBe(800);
+  });
+
+  it('clamps a step down into a ceiling below it', () => {
+    expect(emptyStep({ max: -5 }, 'down')).toBe(-5);
+  });
+
+  it('leaves a step inside the range alone', () => {
+    expect(emptyStep({ min: -10, max: 10 }, 'up')).toBe(1);
+    expect(emptyStep({ min: -10, max: 10 }, 'down')).toBe(-1);
+    expect(emptyStep({ max: 0.5 }, 'down')).toBe(-1);
+  });
+
+  it('steps up from a floor of zero to the first step', () => {
+    expect(emptyStep({ min: 0 }, 'up')).toBe(1);
+    expect(emptyStep({ min: 0, max: 1000, step: 10 }, 'up')).toBe(10);
+  });
+
+  it('has no step down past a floor, as a filled field has none', () => {
+    expect(emptyStep({ min: 0 }, 'down')).toBeNull();
+    expect(emptyStep({ min: 5 }, 'down')).toBeNull();
+  });
+
+  it('has no step up past a ceiling', () => {
+    expect(emptyStep({ max: 0 }, 'up')).toBeNull();
+    expect(emptyStep({ max: 0.5 }, 'up')).toBeNull();
+  });
+
+  it('steps onto a bound exactly', () => {
+    expect(emptyStep({ min: -1 }, 'down')).toBe(-1);
+    expect(emptyStep({ max: 1 }, 'up')).toBe(1);
+  });
+});
+
+describe('refusesVariable', () => {
+  const refused = {
+    type: 'variable',
+    variableId: 'width',
+    value: 0,
+  } as const;
+
+  it('names the variable the refused change was aimed at', () => {
+    expect(refusesVariable(refused, 'width')).toBe(true);
+  });
+
+  it('names no other variable', () => {
+    expect(refusesVariable(refused, 'depth')).toBe(false);
+  });
+
+  it('names nothing when an option or nothing was refused', () => {
+    expect(
+      refusesVariable(
+        {
+          type: 'option',
+          optionId: 'width',
+          instanceId: '1',
+          selected: true,
+          quantity: 1,
+          lock: 'none',
+        },
+        'width',
+      ),
+    ).toBe(false);
+    expect(refusesVariable(null, 'width')).toBe(false);
+  });
+});
+
+describe('refusesOptionIn', () => {
+  const group = {
+    options: [
+      { id: 'oak', instanceId: '1' },
+      { id: 'ash', instanceId: '1' },
+    ],
+  };
+  const pick = (optionId: string, instanceId = '1') =>
+    ({
+      type: 'option',
+      optionId,
+      instanceId,
+      selected: true,
+      quantity: 1,
+      lock: 'none',
+    }) as const;
+
+  it('answers for a group holding the refused option', () => {
+    expect(refusesOptionIn(pick('ash'), group)).toBe(true);
+  });
+
+  it('matches the instance too, not only the option id', () => {
+    expect(refusesOptionIn(pick('ash', '2'), group)).toBe(false);
+  });
+
+  it("does not answer for another group's option", () => {
+    expect(refusesOptionIn(pick('steel'), group)).toBe(false);
+  });
+
+  it('does not answer for a refused variable or for nothing', () => {
+    expect(
+      refusesOptionIn({ type: 'variable', variableId: 'oak', value: 1 }, group),
+    ).toBe(false);
+    expect(refusesOptionIn(null, group)).toBe(false);
   });
 });

@@ -20,7 +20,9 @@ import {
   canCommit,
   configuratorStage,
   failureKey,
+  formError,
   headerError,
+  refusedChange,
   type ConfiguratorAction,
 } from '~/utils/configurator-page';
 import {
@@ -235,9 +237,16 @@ const commitEnabled = computed(() =>
 
 const forHeader = computed(() => headerError(lastAction.value, error.value));
 
-/** What the page shows itself: everything the header's renew message is not. */
+/** The change sent last, which a refusal is about: one change per batch. */
+const lastChange = ref<ConfigurationChange | null>(null);
+
+const refused = computed(() =>
+  refusedChange(lastAction.value, error.value, lastChange.value),
+);
+
+/** What the page shows itself: everything the header and the form's nodes do not. */
 const ownError = computed(() =>
-  stage.value === 'form' && lastAction.value !== 'renew' ? error.value : null,
+  formError(lastAction.value, stage.value, error.value, refused.value),
 );
 
 // ---------------------------------------------------------------------------
@@ -321,6 +330,7 @@ function step(delta: number): void {
 /** One change, one batch: the response is the whole document either way. */
 function onChange(change: ConfigurationChange): void {
   lastAction.value = 'change';
+  lastChange.value = change;
   void applyChanges([change]);
 }
 
@@ -624,6 +634,7 @@ async function onRestart(): Promise<void> {
                         v-if="!isMenu"
                         :section="activeEntry.section"
                         :disabled="busy"
+                        :refused="refused"
                         @change="onChange"
                       />
 

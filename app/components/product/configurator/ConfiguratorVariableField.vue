@@ -4,13 +4,16 @@ import type {
   ConfigurationValue,
   ConfigurationVariable,
 } from '#shared/types/configurator';
+import { AlertCircle } from 'lucide-vue-next';
 import {
   boundsNarrowed,
   boundsParams,
   dateChangeValue,
   dateInputValue,
+  emptyStep,
   isReadOnly,
   variableControl,
+  type StepDirection,
 } from '~/utils/configurator-form';
 import { Input } from '~/components/ui/input';
 import { Switch } from '~/components/ui/switch';
@@ -29,10 +32,17 @@ import {
  * change is a round trip that replaces the whole document, so a keystroke is
  * not a change. A stepper click is, and sends on the click. A new document
  * always wins over an unsent draft — the watch below resets it.
+ *
+ * `refused` is set when the provider refused the last change sent from here.
  */
-const { variable, disabled = false } = defineProps<{
+const {
+  variable,
+  disabled = false,
+  refused = false,
+} = defineProps<{
   variable: ConfigurationVariable;
   disabled?: boolean;
+  refused?: boolean;
 }>();
 
 const emit = defineEmits<{ change: [ConfigurationChange] }>();
@@ -82,6 +92,38 @@ function send(value: ConfigurationValue) {
 function commit() {
   if (blocked.value || draft.value === variable.value) return;
   send(draft.value);
+}
+
+/**
+ * The stepper button a press is on, recorded in the capture phase so it is
+ * known before the stepper answers the same `pointerdown`. From an empty field
+ * the stepper's own answer is replaced (see `emptyStep`); once the field holds
+ * a number, its answer stands. The stepper steps in its own listener for the
+ * same event, so the record is dropped when that task is over — not on a
+ * microtask, which a browser runs between the two listeners. A press the
+ * stepper ignored must not rewrite a value typed later.
+ */
+let pressed: StepDirection | null = null;
+
+const empty = computed(() => typeof draft.value !== 'number');
+
+function stepBlocked(direction: StepDirection): boolean {
+  return empty.value && emptyStep(variable, direction) === null;
+}
+
+function onPress(event: PointerEvent, direction: StepDirection) {
+  if (event.button !== 0 || stepBlocked(direction)) return;
+  pressed = direction;
+  setTimeout(() => {
+    pressed = null;
+  });
+}
+
+function onNumber(value: number | undefined) {
+  const direction = pressed;
+  pressed = null;
+  draft.value =
+    direction && empty.value ? emptyStep(variable, direction) : (value ?? null);
 }
 
 function onStep() {
@@ -135,16 +177,26 @@ function onDate(event: Event) {
         :disabled="blocked"
         :title="blocked ? t('configurator.read_only') : undefined"
         class="w-auto"
-        @update:model-value="(value) => (draft = value ?? null)"
+        @update:model-value="onNumber"
       >
         <NumberFieldContent class="h-10">
-          <NumberFieldDecrement class="w-10" @click="onStep" />
+          <NumberFieldDecrement
+            class="w-10"
+            :disabled="stepBlocked('down')"
+            @pointerdown.capture="onPress($event, 'down')"
+            @click="onStep"
+          />
           <NumberFieldInput
             class="w-20 font-medium tabular-nums"
             @blur="commit"
             @keydown.enter="commit"
           />
-          <NumberFieldIncrement class="w-10" @click="onStep" />
+          <NumberFieldIncrement
+            class="w-10"
+            :disabled="stepBlocked('up')"
+            @pointerdown.capture="onPress($event, 'up')"
+            @click="onStep"
+          />
         </NumberFieldContent>
       </NumberField>
       <span v-if="variable.unit" class="text-muted-foreground text-sm">
@@ -184,6 +236,15 @@ function onDate(event: Event) {
       @blur="commit"
       @keydown.enter="commit"
     />
+
+    <p
+      v-if="refused"
+      class="text-destructive flex items-start gap-2 text-sm"
+      data-testid="configurator-change-refused"
+    >
+      <AlertCircle class="mt-0.5 size-4 shrink-0" />
+      {{ t('configurator.change_refused_value') }}
+    </p>
 
     <p
       v-if="bounds"

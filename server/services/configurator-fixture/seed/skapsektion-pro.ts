@@ -240,6 +240,7 @@ export const skapsektionPro: Seed = {
           SQUARE_MM_PER_SQUARE_M,
       ) / 100,
   },
+  refusals: {},
   cascades: [],
   buildSections,
 };

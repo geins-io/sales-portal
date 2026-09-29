@@ -31,6 +31,8 @@ export type ConfiguratorSessionStatus =
 export interface ConfiguratorSessionError {
   status: number;
   message: string;
+  /** The portal's error code, which the production body keeps. */
+  code?: string;
 }
 
 interface RequestFailure {
@@ -38,7 +40,11 @@ interface RequestFailure {
   message?: string;
   status?: number;
   statusCode?: number;
-  data?: { message?: string; statusMessage?: string };
+  data?: {
+    message?: string;
+    statusMessage?: string;
+    data?: { code?: unknown };
+  };
 }
 
 /** An abandoned request is not a failure the page should be told about. */
@@ -48,6 +54,7 @@ function wasAborted(cause: unknown): boolean {
 
 function describe(cause: unknown): ConfiguratorSessionError {
   const failed = cause as RequestFailure;
+  const code = failed.data?.data?.code;
   return {
     status: failed.statusCode ?? failed.status ?? 0,
     message:
@@ -55,6 +62,7 @@ function describe(cause: unknown): ConfiguratorSessionError {
       failed.data?.statusMessage ??
       failed.message ??
       'the request failed',
+    ...(typeof code === 'string' ? { code } : {}),
   };
 }
 

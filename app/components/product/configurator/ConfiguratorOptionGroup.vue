@@ -3,7 +3,7 @@ import type {
   ConfigurationChange,
   ConfigurationOptionGroup,
 } from '#shared/types/configurator';
-import { ChevronRight, Plus, Search } from 'lucide-vue-next';
+import { AlertCircle, ChevronRight, Plus, Search } from 'lucide-vue-next';
 import {
   groupHintKey,
   groupRowCount,
@@ -14,6 +14,7 @@ import {
   matchesOptionQuery,
   NONE_ROW_VALUE,
   offersNoneRow,
+  refusesOptionIn,
   usesChooser,
 } from '~/utils/configurator-form';
 import { Input } from '~/components/ui/input';
@@ -39,16 +40,23 @@ import {
  *
  * The folding and the header are `ConfiguratorFoldable`'s. The group's own
  * messages sit beside its title as an icon, as the prototype.
+ *
+ * A refused choice is said once for the group, above its rows: a group with
+ * more than one option picks from a panel that has closed by the time the
+ * answer comes, and the refused row is not the one on show.
  */
 const {
   group,
   level = 4,
   disabled = false,
+  refused = null,
 } = defineProps<{
   group: ConfigurationOptionGroup;
   /** Heading level, one below the section the group sits in. */
   level?: number;
   disabled?: boolean;
+  /** The change the provider refused last, whichever node it was aimed at. */
+  refused?: ConfigurationChange | null;
 }>();
 
 const emit = defineEmits<{ change: [ConfigurationChange] }>();
@@ -58,6 +66,7 @@ const { t } = useI18n();
 const single = computed(() => isSingleSelect(group));
 const hint = computed(() => groupHintKey(group));
 const locked = computed(() => disabled || !group.available);
+const refusedHere = computed(() => refusesOptionIn(refused, group));
 const none = computed(() => offersNoneRow(group));
 
 /** What the header says the group holds while it is folded. */
@@ -180,6 +189,15 @@ function onSheetPick(value: unknown) {
         />
       </template>
 
+      <p
+        v-if="refusedHere"
+        class="text-destructive flex items-start gap-2 text-sm"
+        data-testid="configurator-change-refused"
+      >
+        <AlertCircle class="mt-0.5 size-4 shrink-0" />
+        {{ t('configurator.change_refused_option') }}
+      </p>
+
       <ConfiguratorOptionChooser
         v-if="chooser && single"
         :chosen="chosen[0]"
@@ -260,6 +278,7 @@ function onSheetPick(value: unknown) {
         :group="nested"
         :level="level + 1"
         :disabled="locked"
+        :refused="refused"
         class="border-muted ml-3 border-l pl-3"
         @change="emit('change', $event)"
       />

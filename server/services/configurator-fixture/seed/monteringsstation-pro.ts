@@ -29,6 +29,9 @@ import type { Seed } from './types';
 //   * option groups inside option groups, in `Storage`: `Drawer unit` holds
 //     one nested list and `Small parts storage` holds three. The contract
 //     nests them and no seed did, so the shape was only ever unit-tested.
+//   * a value the range allows and the provider refuses. `Max transport time`
+//     is an open number beside the length, and zero is refused, as the real
+//     provider refuses it on a product that computes a speed from the two.
 //
 // Every section carries real choices, so no page of it is empty, and every
 // required group arrives with a selection — the document is valid at `create`
@@ -406,6 +409,17 @@ function buildSections(): ConfigurationSection[] {
           step: 50,
           unit: 'mm',
         }),
+        seedVariable({
+          id: 'transport-time',
+          name: 'Max transport time',
+          sortIndex: 38,
+          description: 'Longest time a part may take along the station.',
+          value: null,
+          defaultValue: null,
+          required: false,
+          decimals: 2,
+          unit: 's',
+        }),
       ],
       optionGroups: [
         seedGroup({
@@ -701,6 +715,10 @@ export const monteringsstationPro: Seed = {
           10) /
           LITRES_PER_CUBIC_MM,
       ) / 10,
+  },
+  refusals: {
+    'transport-time': (value) =>
+      value === 0 ? 'A speed cannot be computed from no time' : undefined,
   },
   cascades: [longStationNeedsTheThirdLegPair, steelTopRestrictsTheEdgeTrim],
   buildSections,

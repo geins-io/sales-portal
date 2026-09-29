@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { flushPromises, type VueWrapper } from '@vue/test-utils';
 import { mountComponent } from '../../../utils/component';
 import ConfiguratorVariableField from '../../../../app/components/product/configurator/ConfiguratorVariableField.vue';
 import type { ConfigurationVariable } from '#shared/types/configurator';
@@ -346,5 +347,172 @@ describe('ConfiguratorVariableField', () => {
     await input.setValue('1500');
     await input.trigger('blur');
     expect(wrapper.emitted('change')).toBeUndefined();
+  });
+
+  // -------------------------------------------------------------------
+  // The stepper from an empty field
+  // -------------------------------------------------------------------
+
+  /** A width with nothing set and no range, as "Max transport time" arrives. */
+  function openNumber(
+    over: Partial<ConfigurationVariable> = {},
+  ): ConfigurationVariable {
+    return {
+      ...findVariable(makeInitialConfiguration(), 'width'),
+      value: null,
+      min: undefined,
+      max: undefined,
+      step: undefined,
+      ...over,
+    };
+  }
+
+  /**
+   * A press as a pointer makes it: down on the button, up anywhere, click. The
+   * down is a real `PointerEvent`, because the stepper ignores any press whose
+   * `button` is not 0 and `trigger` does not carry one.
+   */
+  async function press(wrapper: VueWrapper, label: 'Increase' | 'Decrease') {
+    // The stepper listens once it has found its element, a tick after mount.
+    await flushPromises();
+    const button = wrapper.find(`button[aria-label="${label}"]`);
+    button.element.dispatchEvent(
+      new PointerEvent('pointerdown', { button: 0, bubbles: true }),
+    );
+    window.dispatchEvent(new Event('pointerup'));
+    await button.trigger('click');
+    await flushPromises();
+  }
+
+  it('steps an empty field up from zero by one, not to zero', async () => {
+    const wrapper = mountField(openNumber());
+
+    await press(wrapper, 'Increase');
+
+    expect(wrapper.emitted('change')).toEqual([
+      [{ type: 'variable', variableId: 'width', value: 1 }],
+    ]);
+  });
+
+  it('steps an empty field up by its own step', async () => {
+    const wrapper = mountField(openNumber({ step: 0.5, decimals: 1 }));
+
+    await press(wrapper, 'Increase');
+
+    expect(wrapper.emitted('change')).toEqual([
+      [{ type: 'variable', variableId: 'width', value: 0.5 }],
+    ]);
+  });
+
+  it('steps an empty field down from zero when negatives are allowed', async () => {
+    const wrapper = mountField(openNumber());
+
+    await press(wrapper, 'Decrease');
+
+    expect(wrapper.emitted('change')).toEqual([
+      [{ type: 'variable', variableId: 'width', value: -1 }],
+    ]);
+  });
+
+  it('steps an empty field up to a floor above the first step', async () => {
+    const wrapper = mountField(openNumber({ min: 800, step: 100 }));
+
+    await press(wrapper, 'Increase');
+
+    expect(wrapper.emitted('change')).toEqual([
+      [{ type: 'variable', variableId: 'width', value: 800 }],
+    ]);
+  });
+
+  it('steps an empty field with a floor of zero up to the first step', async () => {
+    const wrapper = mountField(openNumber({ min: 0 }));
+
+    await press(wrapper, 'Increase');
+
+    expect(wrapper.emitted('change')).toEqual([
+      [{ type: 'variable', variableId: 'width', value: 1 }],
+    ]);
+  });
+
+  it('disables a step down from an empty field that the floor rules out', async () => {
+    const wrapper = mountField(openNumber({ min: 0 }));
+
+    const down = wrapper.find('button[aria-label="Decrease"]');
+    expect(down.attributes('disabled')).toBeDefined();
+    expect(
+      wrapper.find('button[aria-label="Increase"]').attributes('disabled'),
+    ).toBeUndefined();
+
+    await press(wrapper, 'Decrease');
+    expect(wrapper.emitted('change')).toBeUndefined();
+    expect(wrapper.find('input').element.value).toBe('');
+  });
+
+  it('disables a step up from an empty field that the ceiling rules out', () => {
+    const wrapper = mountField(openNumber({ max: 0 }));
+
+    expect(
+      wrapper.find('button[aria-label="Increase"]').attributes('disabled'),
+    ).toBeDefined();
+  });
+
+  it('keeps a typed value after a press the stepper did not act on', async () => {
+    // Locked while a batch is in flight: the press reaches the button, the
+    // stepper ignores it, and no step follows to use it up.
+    const wrapper = mountComponent(ConfiguratorVariableField, {
+      props: { variable: openNumber(), disabled: true },
+    });
+    await flushPromises();
+    wrapper
+      .find('button[aria-label="Increase"]')
+      .element.dispatchEvent(
+        new PointerEvent('pointerdown', { button: 0, bubbles: true }),
+      );
+    window.dispatchEvent(new Event('pointerup'));
+    // Typing is a later task than the press, never the same one.
+    await new Promise((resolve) => setTimeout(resolve));
+    await wrapper.setProps({ disabled: false });
+
+    const input = wrapper.find('input');
+    await input.setValue('5');
+    await input.trigger('keydown.enter');
+
+    expect(wrapper.emitted('change')).toEqual([
+      [{ type: 'variable', variableId: 'width', value: 5 }],
+    ]);
+  });
+
+  it('steps a set value by its step as before', async () => {
+    const wrapper = mountField(
+      findVariable(makeInitialConfiguration(), 'width'),
+    );
+
+    await press(wrapper, 'Increase');
+
+    expect(wrapper.emitted('change')).toEqual([
+      [{ type: 'variable', variableId: 'width', value: 1300 }],
+    ]);
+  });
+
+  // -------------------------------------------------------------------
+  // A refused change
+  // -------------------------------------------------------------------
+
+  it('says the value was not accepted when its change was refused', () => {
+    const wrapper = mountComponent(ConfiguratorVariableField, {
+      props: { variable: openNumber(), refused: true },
+    });
+
+    expect(
+      wrapper.find('[data-testid="configurator-change-refused"]').text(),
+    ).toBe('configurator.change_refused_value');
+  });
+
+  it('says nothing about a refusal that was not its own', () => {
+    const wrapper = mountField(openNumber());
+
+    expect(
+      wrapper.find('[data-testid="configurator-change-refused"]').exists(),
+    ).toBe(false);
   });
 });
