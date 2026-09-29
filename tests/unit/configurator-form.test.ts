@@ -113,6 +113,13 @@ describe('blockingMessage', () => {
   it('is undefined when there is nothing to say', () => {
     expect(blockingMessage([])).toBeUndefined();
   });
+
+  it('passes over an info message, which blocks nothing', () => {
+    const info = { severity: 'info' as const, text: 'Good to know.' };
+    const warning = { severity: 'warning' as const, text: 'Check this.' };
+    expect(blockingMessage([info, warning])).toBe(warning);
+    expect(blockingMessage([info])).toBeUndefined();
+  });
 });
 
 describe('boundsParams', () => {
@@ -177,22 +184,41 @@ describe('dateChangeValue', () => {
 
 describe('groupHintKey', () => {
   it('says a required group must be answered, whatever its shape', () => {
-    expect(groupHintKey({ minSelections: 1, maxSelections: 1 })).toBe(
-      'configurator.required',
-    );
-    expect(groupHintKey({ minSelections: 2, maxSelections: undefined })).toBe(
-      'configurator.required',
-    );
+    expect(
+      groupHintKey({ available: true, minSelections: 1, maxSelections: 1 }),
+    ).toBe('configurator.required');
+    expect(
+      groupHintKey({
+        available: true,
+        minSelections: 2,
+        maxSelections: undefined,
+      }),
+    ).toBe('configurator.required');
   });
 
   it('calls a skippable single choice optional and counts the rest', () => {
-    expect(groupHintKey({ minSelections: 0, maxSelections: 1 })).toBe(
-      'configurator.optional',
-    );
-    expect(groupHintKey({ maxSelections: undefined })).toBe(
+    expect(
+      groupHintKey({ available: true, minSelections: 0, maxSelections: 1 }),
+    ).toBe('configurator.optional');
+    expect(groupHintKey({ available: true, maxSelections: undefined })).toBe(
       'configurator.choose_many',
     );
-    expect(groupHintKey({ maxSelections: 3 })).toBe('configurator.choose_many');
+    expect(groupHintKey({ available: true, maxSelections: 3 })).toBe(
+      'configurator.choose_many',
+    );
+  });
+
+  it('says nothing of a requirement the provider made unavailable', () => {
+    // The buyer cannot answer the group, so it asks nothing of them.
+    expect(
+      groupHintKey({ available: false, minSelections: 1, maxSelections: 1 }),
+    ).toBeUndefined();
+  });
+
+  it('keeps the hint of an unavailable group that requires nothing', () => {
+    expect(
+      groupHintKey({ available: false, minSelections: 0, maxSelections: 1 }),
+    ).toBe('configurator.optional');
   });
 });
 

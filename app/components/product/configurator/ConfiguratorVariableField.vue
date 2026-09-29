@@ -108,7 +108,10 @@ function onDate(event: Event) {
   >
     <label class="flex items-center gap-1 text-sm font-medium">
       {{ variable.name }}
-      <span v-if="variable.required" class="text-destructive">
+      <span
+        v-if="variable.required && variable.available"
+        class="text-destructive"
+      >
         <span aria-hidden="true">*</span>
         <span class="sr-only">{{ t('configurator.required') }}</span>
       </span>

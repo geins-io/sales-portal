@@ -301,12 +301,18 @@ export function dateChangeValue(raw: string): ConfigurationValue {
  * The requirement text a group's header carries on its right: what the buyer
  * must do with it, not a decoration on its name. A group the provider requires
  * says so; a single choice the buyer may skip says it is optional, and a group
- * that takes several says so.
+ * that takes several says so. A required group the provider made unavailable
+ * asks nothing of the buyer, so it carries no hint.
  */
 export function groupHintKey(
-  group: Pick<ConfigurationOptionGroup, 'minSelections' | 'maxSelections'>,
-): string {
-  if (isRequiredGroup(group)) return 'configurator.required';
+  group: Pick<
+    ConfigurationOptionGroup,
+    'available' | 'minSelections' | 'maxSelections'
+  >,
+): string | undefined {
+  if (isRequiredGroup(group)) {
+    return group.available ? 'configurator.required' : undefined;
+  }
   return isSingleSelect(group)
     ? 'configurator.optional'
     : 'configurator.choose_many';

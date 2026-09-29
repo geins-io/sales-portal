@@ -90,6 +90,18 @@ describe('ConfiguratorVariableField', () => {
     expect(optional.text()).not.toContain('configurator.required');
   });
 
+  it('does not mark a required variable the provider made unavailable', () => {
+    const width = {
+      ...findVariable(makeInitialConfiguration(), 'width'),
+      available: false,
+    };
+
+    const wrapper = mountField(width);
+
+    expect(wrapper.text()).not.toContain('configurator.required');
+    expect(wrapper.text()).not.toContain('*');
+  });
+
   it('does not emit while the buyer is typing', async () => {
     const cabinet = makeCabinetConfiguration();
 

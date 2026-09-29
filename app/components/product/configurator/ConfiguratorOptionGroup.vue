@@ -169,7 +169,7 @@ function onSheetPick(value: unknown) {
     <ConfiguratorFoldable
       name="configurator-group"
       :title="group.name"
-      :hint="t(hint)"
+      :hint="hint && t(hint)"
       :summary="summary"
       :level="level"
     >

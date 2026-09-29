@@ -6,8 +6,8 @@ import type {
   ConfigurationVariable,
 } from '#shared/types/configurator';
 import {
-  isGroupUnmet,
-  isVariableUnmet,
+  isGroupShortOfMinimum,
+  isRequiredVariableEmpty,
 } from '#shared/utils/configurator-requirement';
 import type { ConfiguratorBackend } from './configurator';
 
@@ -19,6 +19,10 @@ import type { ConfiguratorBackend } from './configurator';
 // derives "unmet" from the node itself and names it in the banner, so the same
 // fact would show twice. Recognised by the node, never by the text: the text is
 // the provider's, localised, and can change.
+//
+// Availability is not consulted. An unavailable node is never unmet, so its
+// error would be the only thing the rail counted, for a field the buyer cannot
+// fill.
 // ---------------------------------------------------------------------------
 
 const withoutErrors = (messages: ConfigurationMessage[]) =>
@@ -27,7 +31,7 @@ const withoutErrors = (messages: ConfigurationMessage[]) =>
 function filterVariable(
   variable: ConfigurationVariable,
 ): ConfigurationVariable {
-  if (!isVariableUnmet(variable)) return variable;
+  if (!isRequiredVariableEmpty(variable)) return variable;
   return { ...variable, messages: withoutErrors(variable.messages) };
 }
 
@@ -36,7 +40,7 @@ function filterGroup(
 ): ConfigurationOptionGroup {
   return {
     ...group,
-    messages: isGroupUnmet(group)
+    messages: isGroupShortOfMinimum(group)
       ? withoutErrors(group.messages)
       : group.messages,
     optionGroups: group.optionGroups.map(filterGroup),
@@ -55,8 +59,8 @@ function filterSection(section: ConfigurationSection): ConfigurationSection {
 }
 
 /**
- * Drops an error on a variable or option group that is unmet by the shared
- * rule. Every other message, and `isValid`, is left as the provider sent it.
+ * Drops an error on a required variable left empty or an option group short of
+ * its minimum. Every other message, and `isValid`, is left as the provider sent it.
  */
 export function dropRestatedRequirements(config: Configuration): Configuration {
   return { ...config, sections: config.sections.map(filterSection) };
