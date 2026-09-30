@@ -56,6 +56,8 @@ export function isRequiredVariableEmpty(
 
 // An unavailable node is one whose requirement does not apply to the current
 // choices: the provider does not count it, and its document is valid without it.
+// A read-only variable is the provider's to fill, so it is never the buyer's
+// outstanding choice either.
 
 /** Whether the group is still short of the selections it requires. */
 export function isGroupUnmet(
@@ -69,7 +71,14 @@ export function isGroupUnmet(
 
 /** Whether a required variable is still empty. */
 export function isVariableUnmet(
-  variable: Pick<ConfigurationVariable, 'available' | 'required' | 'value'>,
+  variable: Pick<
+    ConfigurationVariable,
+    'available' | 'readOnly' | 'required' | 'value'
+  >,
 ): boolean {
-  return variable.available && isRequiredVariableEmpty(variable);
+  return (
+    variable.available &&
+    !variable.readOnly &&
+    isRequiredVariableEmpty(variable)
+  );
 }
