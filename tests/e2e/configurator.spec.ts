@@ -252,6 +252,8 @@ test.describe('Configurator', () => {
       .first();
     await expect(card).toBeVisible({ timeout: 20000 });
     await expect(card.getByTestId('add-to-cart-button')).toHaveCount(0);
+    await expect(card.getByTestId('card-price-on-configuration')).toBeVisible();
+    await expect(card.getByTestId('card-price')).toHaveCount(0);
 
     const link = card.getByTestId('configure-product-link');
     await expect(link).toBeVisible();
