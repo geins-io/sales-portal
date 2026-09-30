@@ -337,6 +337,7 @@
     "change_refused_option": "The choice was not accepted. Try another choice.",
     "sign_in_required": "Sign in with a company account to configure this product.",
     "configure_product": "Configure product",
+    "price_on_configuration": "Price calculated on configuration",
     "product_configuration": "Product configuration",
     "reset": "Reset",
     "sections": "Sections",

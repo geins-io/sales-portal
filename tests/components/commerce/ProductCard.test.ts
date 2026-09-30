@@ -616,6 +616,143 @@ describe('ProductCard', () => {
         false,
       );
     });
+
+    // The catalogue price has no relation to what a configuration costs, so
+    // the card says where the price comes from instead of showing one.
+    describe('price', () => {
+      afterEach(() => {
+        setFeatures({});
+      });
+
+      function hidePrices() {
+        setFeatures({ priceVisibility: { enabled: true } });
+        mockCanAccess.mockImplementation(
+          (feature) => feature !== 'priceVisibility',
+        );
+      }
+
+      const brief = (configurable: boolean) => ({
+        name: 'Arbetsbord',
+        alias: 'arbetsbord-pro',
+        price: '3 200 kr',
+        configurable,
+      });
+
+      it.each(['grid', 'list'] as const)(
+        'shows the configuration text and no price in the %s variant',
+        (variant) => {
+          const wrapper = mountComponent(ProductCard, {
+            props: { product: configurable(), variant },
+            global: { stubs },
+          });
+          const note = wrapper.find(
+            '[data-testid="card-price-on-configuration"]',
+          );
+          expect(note.exists()).toBe(true);
+          expect(note.text()).toBe('configurator.price_on_configuration');
+          expect(wrapper.find('.price-display').exists()).toBe(false);
+          expect(wrapper.text()).not.toContain('common.vat_excl');
+        },
+      );
+
+      it.each(['grid', 'list'] as const)(
+        'shows neither text nor price when prices are hidden in the %s variant',
+        (variant) => {
+          hidePrices();
+          const wrapper = mountComponent(ProductCard, {
+            props: { product: configurable(), variant },
+            global: { stubs },
+          });
+          expect(
+            wrapper
+              .find('[data-testid="card-price-on-configuration"]')
+              .exists(),
+          ).toBe(false);
+          expect(wrapper.find('.price-display').exists()).toBe(false);
+        },
+      );
+
+      // Below md the row is `justify-between`: without a left child the
+      // configure button would move to the left edge.
+      it('keeps the left slot of the list row when prices are hidden', () => {
+        hidePrices();
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: configurable(), variant: 'list' },
+          global: { stubs },
+        });
+        const row = wrapper.find('.justify-between');
+        const buttons = wrapper
+          .find('[data-testid="configure-product-link"]')
+          .element.closest('.shrink-0.items-center');
+        expect(row.element.children).toHaveLength(2);
+        expect(row.element.lastElementChild).toBe(buttons);
+      });
+
+      it.each(['grid', 'list'] as const)(
+        'keeps the price on an ordinary product in the %s variant',
+        (variant) => {
+          const wrapper = mountComponent(ProductCard, {
+            props: { product: makeProduct(), variant },
+            global: { stubs },
+          });
+          expect(wrapper.find('.price-display').exists()).toBe(true);
+          expect(
+            wrapper
+              .find('[data-testid="card-price-on-configuration"]')
+              .exists(),
+          ).toBe(false);
+        },
+      );
+
+      it('keeps the price for a buyer the configurator access rule refuses', () => {
+        mockCanAccess.mockImplementation(
+          (feature) => feature !== 'configurator',
+        );
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: configurable() },
+          global: { stubs },
+        });
+        expect(wrapper.find('.price-display').exists()).toBe(true);
+        expect(
+          wrapper.find('[data-testid="card-price-on-configuration"]').exists(),
+        ).toBe(false);
+      });
+
+      it('shows the configuration text and no price on the brief card shape', () => {
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: brief(true) },
+          global: { stubs },
+        });
+        expect(
+          wrapper.find('[data-testid="card-price-on-configuration"]').text(),
+        ).toBe('configurator.price_on_configuration');
+        expect(wrapper.find('[data-testid="price"]').exists()).toBe(false);
+        expect(wrapper.text()).not.toContain('3 200 kr');
+      });
+
+      it('shows neither text nor price on the brief card shape when prices are hidden', () => {
+        hidePrices();
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: brief(true) },
+          global: { stubs },
+        });
+        expect(
+          wrapper.find('[data-testid="card-price-on-configuration"]').exists(),
+        ).toBe(false);
+        expect(wrapper.text()).not.toContain('3 200 kr');
+      });
+
+      it('keeps the price on an ordinary brief card', () => {
+        const wrapper = mountComponent(ProductCard, {
+          props: { product: brief(false) },
+          global: { stubs },
+        });
+        expect(wrapper.find('[data-testid="price"]').text()).toBe('3 200 kr');
+        expect(
+          wrapper.find('[data-testid="card-price-on-configuration"]').exists(),
+        ).toBe(false);
+      });
+    });
   });
 
   describe('catalog mode', () => {

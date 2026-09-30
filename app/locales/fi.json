@@ -337,6 +337,7 @@
     "change_refused_option": "Valintaa ei hyväksytty. Kokeile toista valintaa.",
     "sign_in_required": "Kirjaudu sisään yritystilillä konfiguroidaksesi tuotteen.",
     "configure_product": "Määritä tuote",
+    "price_on_configuration": "Hinta lasketaan konfiguroinnin yhteydessä",
     "product_configuration": "Tuotemääritys",
     "reset": "Palauta",
     "sections": "Osiot",
