@@ -546,6 +546,81 @@ test.describe('Portal Purchased Products', () => {
     await expect(productsPagination).toBeVisible({ timeout: PAGE_TIMEOUT });
     await expect(productsEmpty).toBeHidden();
   });
+
+  test('sorts by latest order by default and by total ordered on click', async ({
+    page,
+  }) => {
+    const response = await page.request.get('/api/orders/products');
+    expect(response.ok(), '/api/orders/products did not answer 200').toBe(true);
+    const products: {
+      articleNumber: string;
+      totalQuantity: number;
+      latestOrderDate: string;
+    }[] = (await response.json())?.products ?? [];
+    // An order is only observable across differing values; with fewer, every
+    // monotonic check below would pass on any order at all.
+    expect(
+      new Set(products.map((p) => p.totalQuantity)).size,
+      'the test account needs purchased products with at least two different quantities',
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      new Set(products.map((p) => p.latestOrderDate)).size,
+      'the test account needs purchased products with at least two different latest-order dates',
+    ).toBeGreaterThanOrEqual(2);
+    const byArticle = new Map(products.map((p) => [p.articleNumber, p]));
+
+    await page.goto('/se/sv/portal/products');
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+    await expect(
+      page.locator('[data-testid="products-pagination"]'),
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await page.locator('[data-testid="products-page-size"]').selectOption('50');
+
+    // Cards and table rows are both in the DOM; CSS decides which one shows.
+    const rows = page.locator(
+      '[data-testid="portal-products-table"] [data-testid="product-row"]:visible',
+    );
+    await expect(rows).toHaveCount(Math.min(products.length, 50), {
+      timeout: PAGE_TIMEOUT,
+    });
+    async function renderedProducts() {
+      const articles = await rows.evaluateAll((els) =>
+        els.map((el) => el.getAttribute('data-article-number') ?? ''),
+      );
+      return articles.map((a) => {
+        const product = byArticle.get(a);
+        expect(product, `row ${a} is not in /api/orders/products`).toBeTruthy();
+        return product!;
+      });
+    }
+    // No date sorts last, so it counts as the lowest value here.
+    const time = (date: string) => new Date(date).getTime() || 0;
+
+    const byDefault = (await renderedProducts()).map((p) =>
+      time(p.latestOrderDate),
+    );
+    expect(byDefault).toEqual([...byDefault].sort((a, b) => b - a));
+
+    // Mobile keeps the default order and has no sort control.
+    const isNarrow = (page.viewportSize()?.width ?? 1280) < 768;
+    if (isNarrow) return;
+
+    const totalHeader = page.locator('[data-testid="sort-total-ordered"]');
+    const latestHeader = page.locator('[data-testid="sort-latest-order"]');
+    await expect(latestHeader).toHaveAttribute('aria-sort', 'descending');
+
+    await totalHeader.locator('button').click();
+    await expect(totalHeader).toHaveAttribute('aria-sort', 'descending');
+    await expect(latestHeader).toHaveAttribute('aria-sort', 'none');
+    const highestFirst = (await renderedProducts()).map((p) => p.totalQuantity);
+    expect(highestFirst).toEqual([...highestFirst].sort((a, b) => b - a));
+
+    await totalHeader.locator('button').click();
+    await expect(totalHeader).toHaveAttribute('aria-sort', 'ascending');
+    const lowestFirst = (await renderedProducts()).map((p) => p.totalQuantity);
+    expect(lowestFirst).toEqual([...lowestFirst].sort((a, b) => a - b));
+  });
 });
 
 test.describe('Portal Saved Lists', () => {
