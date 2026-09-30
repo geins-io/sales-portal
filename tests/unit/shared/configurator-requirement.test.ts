@@ -34,8 +34,12 @@ function variable(
   value: ConfigurationVariable['value'],
   required = true,
   available = true,
-): Pick<ConfigurationVariable, 'available' | 'required' | 'value'> {
-  return { available, required, value };
+  readOnly = false,
+): Pick<
+  ConfigurationVariable,
+  'available' | 'readOnly' | 'required' | 'value'
+> {
+  return { available, readOnly, required, value };
 }
 
 describe('isGroupUnmet', () => {
@@ -120,6 +124,17 @@ describe('isVariableUnmet', () => {
     expect(isVariableUnmet(variable(null, true, false))).toBe(false);
     expect(isVariableUnmet(variable('', true, false))).toBe(false);
   });
+
+  it('is never unmet while the provider computes the value', () => {
+    // Measured on the real provider: a required formula variable arrives empty
+    // and read-only until the buyer's own choices produce it.
+    expect(isVariableUnmet(variable(null, true, true, true))).toBe(false);
+    expect(isVariableUnmet(variable('', true, true, true))).toBe(false);
+  });
+
+  it('still asks the buyer for a required variable they can edit', () => {
+    expect(isVariableUnmet(variable(null, true, true, false))).toBe(true);
+  });
 });
 
 describe('isRequiredVariableEmpty', () => {
@@ -128,5 +143,13 @@ describe('isRequiredVariableEmpty', () => {
     expect(isRequiredVariableEmpty(variable('', true, false))).toBe(true);
     expect(isRequiredVariableEmpty(variable(0, true, false))).toBe(false);
     expect(isRequiredVariableEmpty(variable(null, false, false))).toBe(false);
+  });
+
+  it('reads required and empty whether the variable is read-only or not', () => {
+    // The message filter reads this one: the provider's error on an empty
+    // computed value is still dropped.
+    expect(isRequiredVariableEmpty(variable(null, true, true, true))).toBe(
+      true,
+    );
   });
 });
