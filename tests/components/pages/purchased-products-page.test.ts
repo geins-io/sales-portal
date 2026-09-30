@@ -298,25 +298,192 @@ describe('Purchased products page', () => {
   });
 
   describe('sort', () => {
-    it('toggles sort direction on sort event from table', async () => {
-      mockData.value = { products: [makeProduct()], total: 1 };
-      const wrapper = mountComponent(ProductsPage, {
-        global: {
-          stubs: {
-            ...defaultStubs,
-            PortalProductsTable: {
-              template:
-                '<div data-testid="portal-products-table" @click="$emit(\'sort\', \'name\')"><slot /></div>',
-              props: ['products', 'sortColumn', 'sortDirection'],
-              emits: ['sort'],
-            },
-          },
-        },
-      });
+    // Renders the order the page hands the table, plus one button per column.
+    const sortStubs = {
+      ...defaultStubs,
+      PortalProductsTable: {
+        template: `<div data-testid="portal-products-table"
+            :data-sort-column="sortColumn" :data-sort-direction="sortDirection">
+          <span v-for="p in products" :key="p.articleNumber" data-testid="stub-row">{{ p.articleNumber }}</span>
+          <button data-testid="stub-sort-name" @click="$emit('sort', 'name')" />
+          <button data-testid="stub-sort-totalQuantity" @click="$emit('sort', 'totalQuantity')" />
+          <button data-testid="stub-sort-latestOrderDate" @click="$emit('sort', 'latestOrderDate')" />
+        </div>`,
+        props: ['products', 'sortColumn', 'sortDirection'],
+        emits: ['sort'],
+      },
+    };
+
+    function mountSorted(products: Array<Record<string, unknown>>) {
+      mockData.value = { products, total: products.length };
+      return mountComponent(ProductsPage, { global: { stubs: sortStubs } });
+    }
+
+    function rowOrder(wrapper: ReturnType<typeof mountSorted>) {
+      return wrapper
+        .findAll('[data-testid="stub-row"]')
+        .map((row) => row.text());
+    }
+
+    function sortState(wrapper: ReturnType<typeof mountSorted>) {
       const table = wrapper.find('[data-testid="portal-products-table"]');
-      await table.trigger('click');
-      // sortDirection should toggle (default is asc, so now desc)
-      // Just verify the component doesn't error — deep assertion on prop would need real component
+      return [
+        table.attributes('data-sort-column'),
+        table.attributes('data-sort-direction'),
+      ];
+    }
+
+    async function clickSort(
+      wrapper: ReturnType<typeof mountSorted>,
+      column: string,
+    ) {
+      await wrapper
+        .find(`[data-testid="stub-sort-${column}"]`)
+        .trigger('click');
+    }
+
+    // Two products share one order (same timestamp) and one has no date.
+    const byDate = [
+      makeProduct({
+        name: 'Beta',
+        articleNumber: 'B',
+        latestOrderDate: '2026-09-13T10:00:00Z',
+      }),
+      makeProduct({ name: 'Undated', articleNumber: 'U', latestOrderDate: '' }),
+      makeProduct({
+        name: 'Oldest',
+        articleNumber: 'O',
+        latestOrderDate: '2026-09-10T08:00:00Z',
+      }),
+      makeProduct({
+        name: 'alpha',
+        articleNumber: 'A',
+        latestOrderDate: '2026-09-13T10:00:00Z',
+      }),
+      makeProduct({
+        name: 'Newest',
+        articleNumber: 'N',
+        latestOrderDate: '2026-09-28T12:00:00Z',
+      }),
+    ];
+
+    it('defaults to latest order, newest first, undated last', () => {
+      const wrapper = mountSorted(byDate);
+      expect(sortState(wrapper)).toEqual(['latestOrderDate', 'desc']);
+      expect(rowOrder(wrapper)).toEqual(['N', 'A', 'B', 'O', 'U']);
+    });
+
+    it('flips latest order to oldest first, undated still last', async () => {
+      const wrapper = mountSorted(byDate);
+      await clickSort(wrapper, 'latestOrderDate');
+      expect(sortState(wrapper)).toEqual(['latestOrderDate', 'asc']);
+      expect(rowOrder(wrapper)).toEqual(['O', 'A', 'B', 'N', 'U']);
+    });
+
+    it('treats an unparseable date as no date, undated rows by name', () => {
+      const wrapper = mountSorted([
+        makeProduct({
+          name: 'Zulu',
+          articleNumber: 'X',
+          latestOrderDate: 'not a date',
+        }),
+        makeProduct({ name: 'Echo', articleNumber: 'E', latestOrderDate: '' }),
+        makeProduct({
+          articleNumber: 'D',
+          latestOrderDate: '2026-09-10T08:00:00Z',
+        }),
+      ]);
+      expect(rowOrder(wrapper)).toEqual(['D', 'E', 'X']);
+    });
+
+    const byQuantity = [
+      makeProduct({ name: 'Mid', articleNumber: 'M', totalQuantity: 6 }),
+      makeProduct({ name: 'beta', articleNumber: 'B', totalQuantity: 12 }),
+      makeProduct({ name: 'Low', articleNumber: 'L', totalQuantity: 1 }),
+      makeProduct({ name: 'Alpha', articleNumber: 'A', totalQuantity: 12 }),
+    ];
+
+    it('sorts total ordered highest first on the first click', async () => {
+      const wrapper = mountSorted(byQuantity);
+      await clickSort(wrapper, 'totalQuantity');
+      expect(sortState(wrapper)).toEqual(['totalQuantity', 'desc']);
+      expect(rowOrder(wrapper)).toEqual(['A', 'B', 'M', 'L']);
+    });
+
+    it('sorts total ordered lowest first on the second click, names still ascending', async () => {
+      const wrapper = mountSorted(byQuantity);
+      await clickSort(wrapper, 'totalQuantity');
+      await clickSort(wrapper, 'totalQuantity');
+      expect(sortState(wrapper)).toEqual(['totalQuantity', 'asc']);
+      expect(rowOrder(wrapper)).toEqual(['L', 'M', 'A', 'B']);
+    });
+
+    it('sorts product A to Z on the first click and Z to A on the second', async () => {
+      const wrapper = mountSorted(byQuantity);
+      await clickSort(wrapper, 'name');
+      expect(sortState(wrapper)).toEqual(['name', 'asc']);
+      expect(rowOrder(wrapper)).toEqual(['A', 'B', 'L', 'M']);
+      await clickSort(wrapper, 'name');
+      expect(sortState(wrapper)).toEqual(['name', 'desc']);
+      expect(rowOrder(wrapper)).toEqual(['M', 'L', 'B', 'A']);
+    });
+
+    it('starts a newly clicked column in its own first direction', async () => {
+      const wrapper = mountSorted(byQuantity);
+      await clickSort(wrapper, 'name');
+      await clickSort(wrapper, 'name');
+      await clickSort(wrapper, 'latestOrderDate');
+      expect(sortState(wrapper)).toEqual(['latestOrderDate', 'desc']);
+    });
+
+    it('returns to page 1 when the active column flips direction', async () => {
+      const products = Array.from({ length: 15 }, (_, i) =>
+        makeProduct({
+          name: `Product ${i}`,
+          articleNumber: `ART-${i}`,
+          totalQuantity: i,
+        }),
+      );
+      const wrapper = mountSorted(products);
+      await clickSort(wrapper, 'totalQuantity');
+      await wrapper.find('[data-testid="products-next"]').trigger('click');
+      expect(
+        wrapper
+          .find('[data-testid="products-previous"]')
+          .attributes('disabled'),
+      ).toBeUndefined();
+      await clickSort(wrapper, 'totalQuantity');
+      expect(sortState(wrapper)).toEqual(['totalQuantity', 'asc']);
+      expect(
+        wrapper
+          .find('[data-testid="products-previous"]')
+          .attributes('disabled'),
+      ).toBeDefined();
+      expect(rowOrder(wrapper)[0]).toBe('ART-0');
+    });
+
+    it('returns to page 1 when the sort changes', async () => {
+      const products = Array.from({ length: 15 }, (_, i) =>
+        makeProduct({
+          name: `Product ${i}`,
+          articleNumber: `ART-${i}`,
+          totalQuantity: i,
+        }),
+      );
+      const wrapper = mountSorted(products);
+      await wrapper.find('[data-testid="products-next"]').trigger('click');
+      expect(
+        wrapper
+          .find('[data-testid="products-previous"]')
+          .attributes('disabled'),
+      ).toBeUndefined();
+      await clickSort(wrapper, 'totalQuantity');
+      expect(
+        wrapper
+          .find('[data-testid="products-previous"]')
+          .attributes('disabled'),
+      ).toBeDefined();
+      expect(rowOrder(wrapper)[0]).toBe('ART-14');
     });
   });
 });

@@ -390,6 +390,12 @@ export interface PurchasedProduct {
   configurable?: boolean;
 }
 
+/** The portal Products columns a buyer can sort by. */
+export type PurchasedProductSortColumn =
+  | 'name'
+  | 'totalQuantity'
+  | 'latestOrderDate';
+
 // ---------------------------------------------------------------------------
 // Checkout & Order types (re-exported from SDK)
 // ---------------------------------------------------------------------------

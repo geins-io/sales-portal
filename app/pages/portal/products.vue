@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
-import type { PurchasedProduct } from '#shared/types/commerce';
+import type {
+  PurchasedProduct,
+  PurchasedProductSortColumn,
+} from '#shared/types/commerce';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 
@@ -16,7 +19,15 @@ const { data, pending, error, refresh } = useFetch<{
 const searchQuery = ref('');
 const pageSize = ref(10);
 const pageSizeOptions = [10, 25, 50];
-const sortDirection = ref<'asc' | 'desc'>('asc');
+const sortColumn = ref<PurchasedProductSortColumn>('latestOrderDate');
+const sortDirection = ref<'asc' | 'desc'>('desc');
+
+/** The direction a column starts in when it is first clicked. */
+const firstDirection: Record<PurchasedProductSortColumn, 'asc' | 'desc'> = {
+  name: 'asc',
+  totalQuantity: 'desc',
+  latestOrderDate: 'desc',
+};
 
 const allProducts = computed(() => data.value?.products ?? []);
 
@@ -30,14 +41,34 @@ const filteredProducts = computed(() => {
   );
 });
 
+function compareNames(a: PurchasedProduct, b: PurchasedProduct): number {
+  return (a.name ?? '')
+    .toLowerCase()
+    .localeCompare((b.name ?? '').toLowerCase());
+}
+
+/** NaN for an empty or unparseable date. */
+function orderTime(product: PurchasedProduct): number {
+  return new Date(product.latestOrderDate).getTime();
+}
+
 const sortedProducts = computed(() => {
+  const sign = sortDirection.value === 'asc' ? 1 : -1;
   const products = [...filteredProducts.value];
   products.sort((a, b) => {
-    const nameA = (a.name ?? '').toLowerCase();
-    const nameB = (b.name ?? '').toLowerCase();
-    return sortDirection.value === 'asc'
-      ? nameA.localeCompare(nameB)
-      : nameB.localeCompare(nameA);
+    if (sortColumn.value === 'name') return sign * compareNames(a, b);
+    let diff: number;
+    if (sortColumn.value === 'totalQuantity') {
+      diff = a.totalQuantity - b.totalQuantity;
+    } else {
+      const timeA = orderTime(a);
+      const timeB = orderTime(b);
+      const undatedA = Number.isNaN(timeA);
+      // Undated rows go last whichever way the column runs.
+      if (undatedA !== Number.isNaN(timeB)) return undatedA ? 1 : -1;
+      diff = undatedA ? 0 : timeA - timeB;
+    }
+    return sign * diff || compareNames(a, b);
   });
   return products;
 });
@@ -51,11 +82,20 @@ const {
 } = usePagination<PurchasedProduct>({
   source: () => sortedProducts.value,
   pageSize,
-  resetOn: [() => searchQuery.value],
+  resetOn: [
+    () => searchQuery.value,
+    () => sortColumn.value,
+    () => sortDirection.value,
+  ],
 });
 
-function handleSort(_column: string) {
-  sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+function handleSort(column: PurchasedProductSortColumn) {
+  if (column === sortColumn.value) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn.value = column;
+    sortDirection.value = firstDirection[column];
+  }
 }
 </script>
 
@@ -134,7 +174,7 @@ function handleSort(_column: string) {
       <template v-else>
         <PortalProductsTable
           :products="paginatedProducts"
-          sort-column="name"
+          :sort-column="sortColumn"
           :sort-direction="sortDirection"
           @sort="handleSort"
         />

@@ -50,44 +50,54 @@ describe('PortalProductsTable', () => {
     expect(wrapper.find('table').exists()).toBe(false);
   });
 
-  it('emits sort event on product column click', async () => {
-    const wrapper = mountComponent(PortalProductsTable, {
-      props: {
-        products: mockProducts,
-        sortColumn: 'name',
-        sortDirection: 'asc',
-      },
-    });
-    const sortHeader = wrapper.find('[data-testid="sort-product"]');
-    expect(sortHeader.exists()).toBe(true);
-    await sortHeader.trigger('click');
-    expect(wrapper.emitted('sort')).toBeTruthy();
-    expect(wrapper.emitted('sort')![0]).toEqual(['name']);
-  });
+  const SORT_HEADERS = [
+    ['sort-product', 'name'],
+    ['sort-total-ordered', 'totalQuantity'],
+    ['sort-latest-order', 'latestOrderDate'],
+  ] as const;
 
-  it('shows ascending sort indicator when sortDirection is asc', () => {
-    const wrapper = mountComponent(PortalProductsTable, {
-      props: {
-        products: mockProducts,
-        sortColumn: 'name',
-        sortDirection: 'asc',
-      },
-    });
-    const sortHeader = wrapper.find('[data-testid="sort-product"]');
-    expect(sortHeader.text()).toContain('\u25B2');
-  });
+  it.each(SORT_HEADERS)(
+    'emits sort with its column when %s is clicked',
+    async (testId, column) => {
+      const wrapper = mountComponent(PortalProductsTable, {
+        props: {
+          products: mockProducts,
+          sortColumn: 'latestOrderDate',
+          sortDirection: 'desc',
+        },
+      });
+      await wrapper.find(`[data-testid="${testId}"] button`).trigger('click');
+      expect(wrapper.emitted('sort')).toEqual([[column]]);
+    },
+  );
 
-  it('shows descending sort indicator when sortDirection is desc', () => {
-    const wrapper = mountComponent(PortalProductsTable, {
-      props: {
-        products: mockProducts,
-        sortColumn: 'name',
-        sortDirection: 'desc',
-      },
-    });
-    const sortHeader = wrapper.find('[data-testid="sort-product"]');
-    expect(sortHeader.text()).toContain('\u25BC');
-  });
+  it.each(SORT_HEADERS)(
+    'puts the indicator and aria-sort only on %s when it is active',
+    (activeTestId, column) => {
+      for (const [direction, arrow, ariaSort] of [
+        ['asc', '\u25B2', 'ascending'],
+        ['desc', '\u25BC', 'descending'],
+      ] as const) {
+        const wrapper = mountComponent(PortalProductsTable, {
+          props: {
+            products: mockProducts,
+            sortColumn: column,
+            sortDirection: direction,
+          },
+        });
+        for (const [testId] of SORT_HEADERS) {
+          const header = wrapper.find(`[data-testid="${testId}"]`);
+          if (testId === activeTestId) {
+            expect(header.text()).toContain(arrow);
+            expect(header.attributes('aria-sort')).toBe(ariaSort);
+          } else {
+            expect(header.text()).not.toMatch(/[\u25B2\u25BC]/);
+            expect(header.attributes('aria-sort')).toBe('none');
+          }
+        }
+      }
+    },
+  );
 
   it('renders order link with correct localePath', () => {
     const wrapper = mountComponent(PortalProductsTable, {
