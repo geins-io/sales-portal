@@ -337,6 +337,7 @@
     "change_refused_option": "Valget ble ikke godtatt. Prøv et annet valg.",
     "sign_in_required": "Logg inn med en bedriftskonto for å konfigurere produktet.",
     "configure_product": "Konfigurer produkt",
+    "price_on_configuration": "Pris beregnes ved konfigurasjon",
     "product_configuration": "Produktkonfigurasjon",
     "reset": "Tilbakestill",
     "sections": "Seksjoner",

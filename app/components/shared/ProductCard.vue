@@ -74,6 +74,7 @@ const isConfigurable = computed(
     resolveProductPageType(props.product, canAccess('configurator')) ===
     'configurable',
 );
+const { showPrice } = usePriceVisibility();
 const isOutOfStock = computed(() => {
   if (!isFullProduct(props.product)) return false;
   const stock = props.product.totalStock;
@@ -278,9 +279,16 @@ async function addToCart() {
         size="sm"
       />
 
+      <!-- The catalogue price is not what a configuration costs. -->
+      <div v-if="isConfigurable" class="text-sm font-semibold">
+        <p v-if="showPrice" data-testid="card-price-on-configuration">
+          {{ t('configurator.price_on_configuration') }}
+        </p>
+      </div>
+
       <!-- Price (full Geins shape) -->
       <PriceDisplay
-        v-if="isFullProduct(product) && product.unitPrice"
+        v-else-if="isFullProduct(product) && product.unitPrice"
         :price="product.unitPrice"
         :lowest-price="product.lowestPrice"
         :discount-type="product.discountType"
@@ -452,11 +460,27 @@ async function addToCart() {
       </div>
     </div>
 
+    <!-- Below md the configuration text is too long to share the row with
+         the buttons, so it takes a line of its own above them. -->
     <div
-      class="flex items-center justify-between gap-3 md:contents md:justify-end"
+      class="flex items-center gap-3 md:contents md:justify-end"
+      :class="
+        isConfigurable && showPrice
+          ? 'flex-wrap justify-end'
+          : 'justify-between'
+      "
     >
+      <!-- Kept when empty: it holds the left slot, as PriceDisplay's root does. -->
+      <div
+        v-if="isConfigurable"
+        class="basis-full text-sm font-semibold md:shrink-0 md:basis-auto"
+      >
+        <p v-if="showPrice" data-testid="card-price-on-configuration">
+          {{ t('configurator.price_on_configuration') }}
+        </p>
+      </div>
       <PriceDisplay
-        v-if="isFullProduct(product) && product.unitPrice"
+        v-else-if="isFullProduct(product) && product.unitPrice"
         :price="product.unitPrice"
         :lowest-price="product.lowestPrice"
         :discount-type="product.discountType"

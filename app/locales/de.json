@@ -337,6 +337,7 @@
     "change_refused_option": "Die Auswahl wurde nicht akzeptiert. Versuchen Sie eine andere Auswahl.",
     "sign_in_required": "Melden Sie sich mit einem Firmenkonto an, um das Produkt zu konfigurieren.",
     "configure_product": "Produkt konfigurieren",
+    "price_on_configuration": "Preis wird bei der Konfiguration berechnet",
     "product_configuration": "Produktkonfiguration",
     "reset": "Zurücksetzen",
     "sections": "Abschnitte",

@@ -337,6 +337,7 @@
     "change_refused_option": "Valet godtogs inte. Prova ett annat val.",
     "sign_in_required": "Logga in med ett företagskonto för att konfigurera produkten.",
     "configure_product": "Konfigurera produkt",
+    "price_on_configuration": "Pris beräknas vid konfiguration",
     "product_configuration": "Produktkonfiguration",
     "reset": "Återställ",
     "sections": "Sektioner",
