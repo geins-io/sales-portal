@@ -175,6 +175,32 @@ describe('ProductCard', () => {
     expect(wrapper.find('.stock-badge').exists()).toBe(true);
   });
 
+  it('renders the on-demand badge when only static stock remains', () => {
+    const badgeStub = { template: '<span><slot /></span>' };
+    const wrapper = mountComponent(ProductCard, {
+      props: {
+        product: makeProduct({
+          totalStock: {
+            inStock: 0,
+            oversellable: 0,
+            totalStock: 10,
+            static: 10,
+          },
+        }),
+      },
+      global: {
+        stubs: {
+          ...stubs,
+          StockBadge: false,
+          SharedStockBadge: false,
+          Badge: badgeStub,
+          UiBadge: badgeStub,
+        },
+      },
+    });
+    expect(wrapper.text()).toContain('product.on_demand');
+  });
+
   it('renders GeinsImage with first product image', () => {
     const wrapper = mountComponent(ProductCard, {
       props: { product: makeProduct() },

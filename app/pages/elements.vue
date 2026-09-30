@@ -65,7 +65,7 @@ const mockStockInStock = {
 const mockStockLow = { totalStock: 3, inStock: 3, oversellable: 0, static: 0 };
 const mockStockOut = { totalStock: 0, inStock: 0, oversellable: 0, static: 0 };
 const mockStockOnDemand = {
-  totalStock: 0,
+  totalStock: 5,
   inStock: 0,
   oversellable: 0,
   static: 5,

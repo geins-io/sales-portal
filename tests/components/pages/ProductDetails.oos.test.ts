@@ -234,7 +234,7 @@ describe('ProductDetails out-of-stock', () => {
 
   it('on-demand product (static stock > 0) renders normal actions', async () => {
     const product = makeProduct({
-      totalStock: { inStock: 0, oversellable: 0, totalStock: 0, static: 1 },
+      totalStock: { inStock: 0, oversellable: 0, totalStock: 1, static: 1 },
     });
 
     const wrapper = await mountProductDetails(

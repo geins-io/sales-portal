@@ -64,7 +64,7 @@ export function getStockStatus(
   stock: { totalStock: number; inStock: number; static: number },
   threshold = 5,
 ): StockStatus {
-  if (stock.totalStock === 0 && stock.static > 0) return 'on-demand';
+  if (stock.inStock === 0 && stock.static > 0) return 'on-demand';
   if (stock.totalStock === 0) return 'out-of-stock';
   if (stock.totalStock <= threshold) return 'low-stock';
   return 'in-stock';

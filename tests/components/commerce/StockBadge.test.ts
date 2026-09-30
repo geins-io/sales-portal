@@ -80,7 +80,7 @@ describe('StockBadge', () => {
 
   it('renders on-demand state when static > 0 and inStock === 0', () => {
     const wrapper = mountComponent(StockBadge, {
-      props: { stock: makeStock({ totalStock: 0, inStock: 0, static: 10 }) },
+      props: { stock: makeStock({ totalStock: 10, inStock: 0, static: 10 }) },
       global: { stubs },
     });
     expect(wrapper.text()).toContain('product.on_demand');

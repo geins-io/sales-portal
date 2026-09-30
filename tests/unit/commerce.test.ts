@@ -14,14 +14,22 @@ describe('getStockStatus', () => {
     );
   });
 
+  it('returns low-stock when totalStock equals the threshold', () => {
+    expect(getStockStatus({ totalStock: 5, inStock: 5, static: 0 })).toBe(
+      'low-stock',
+    );
+  });
+
   it('returns out-of-stock when totalStock === 0', () => {
     expect(getStockStatus({ totalStock: 0, inStock: 0, static: 0 })).toBe(
       'out-of-stock',
     );
   });
 
-  it('returns on-demand when static > 0 and totalStock === 0', () => {
-    expect(getStockStatus({ totalStock: 0, inStock: 0, static: 10 })).toBe(
+  // The Merchant API folds static stock into totalStock, so every fixture
+  // below keeps totalStock = inStock + static.
+  it('returns on-demand when static > 0 and inStock === 0', () => {
+    expect(getStockStatus({ totalStock: 10, inStock: 0, static: 10 })).toBe(
       'on-demand',
     );
   });
@@ -35,9 +43,15 @@ describe('getStockStatus', () => {
     );
   });
 
-  it('on-demand takes priority over out-of-stock', () => {
-    expect(getStockStatus({ totalStock: 0, inStock: 0, static: 5 })).toBe(
+  it('on-demand takes priority over low-stock', () => {
+    expect(getStockStatus({ totalStock: 5, inStock: 0, static: 5 })).toBe(
       'on-demand',
+    );
+  });
+
+  it('reads totalStock, static included, when real stock remains', () => {
+    expect(getStockStatus({ totalStock: 13, inStock: 3, static: 10 })).toBe(
+      'in-stock',
     );
   });
 });
