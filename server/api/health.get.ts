@@ -142,7 +142,7 @@ async function checkStorage(event: H3Event): Promise<ComponentHealth> {
  * Check memory usage
  *
  * Uses RSS (Resident Set Size) for health determination rather than heap percentage.
- * Node.js heap starts small (~30MB) and grows dynamically up to ~1.5GB, so
+ * Node.js heap starts small (~30MB) and grows dynamically toward its limit, so
  * heapUsedPercent is misleading for fresh processes.
  *
  * Thresholds come from `runtimeConfig.health` and default to the production

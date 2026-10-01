@@ -128,6 +128,7 @@ The `deploy.yml` workflow passes GitHub variables to Bicep, which sets these in 
 | `NITRO_HOST`                         | Hardcoded `0.0.0.0`                                  | Required for Azure containers               |
 | `NITRO_PORT`                         | Hardcoded `3000`                                     | Container port                              |
 | `WEBSITES_PORT`                      | Hardcoded `3000`                                     | Azure port mapping                          |
+| `NODE_OPTIONS`                       | Hardcoded `--max-old-space-size=512`                 | Caps V8's heap so it collects early         |
 
 ### Why the NUXT\_ Prefix?
 
