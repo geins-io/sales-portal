@@ -344,7 +344,7 @@
     "product_configuration": "Produktkonfigurasjon",
     "reset": "Tilbakestill",
     "sections": "Seksjoner",
-    "remaining": "{count} igjen",
+    "remaining_required": "{count} obligatorisk valg mangler | {count} obligatoriske valg mangler",
     "previous": "Forrige",
     "next": "Neste",
     "section_position": "Seksjon {current} av {total}",

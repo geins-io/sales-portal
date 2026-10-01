@@ -344,7 +344,7 @@
     "product_configuration": "Product configuration",
     "reset": "Reset",
     "sections": "Sections",
-    "remaining": "{count} left",
+    "remaining_required": "{count} required choice missing | {count} required choices missing",
     "previous": "Previous",
     "next": "Next",
     "section_position": "Section {current} of {total}",

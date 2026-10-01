@@ -556,15 +556,15 @@ async function onRestart(): Promise<void> {
                         </span>
                         <span
                           v-if="entry.remaining"
-                          class="bg-warning/10 text-warning shrink-0 rounded-full px-1.5 text-[10px] font-medium"
-                          data-testid="configurator-rail-remaining"
-                        >
-                          {{
-                            t('configurator.remaining', {
+                          class="bg-warning mr-1 size-1.5 shrink-0 rounded-full"
+                          role="img"
+                          :aria-label="
+                            t('configurator.remaining_required', {
                               count: entry.remaining,
                             })
-                          }}
-                        </span>
+                          "
+                          data-testid="configurator-rail-remaining"
+                        />
                       </button>
                     </li>
                   </ul>

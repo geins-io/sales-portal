@@ -93,6 +93,16 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
   return { useConfiguratorSession: () => session };
 });
 
+// The shared passthrough drops a count the key does not spell out; this one
+// keeps it visible so the rail mark's spoken count can be read.
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key} ${JSON.stringify(params)}` : key,
+    locale: ref('en'),
+  }),
+}));
+
 vi.mock('../../../app/composables/useLocaleMarket', () => ({
   useLocaleMarket: () => ({
     currentMarket: { value: 'se' },
@@ -1133,7 +1143,7 @@ describe('ConfiguratorProduct sections rail', () => {
     expect(activeSectionId(wrapper)).toBe('edge-trim');
   });
 
-  it('badges the section with an outstanding choice and no other', async () => {
+  it('marks the section with an outstanding choice and no other', async () => {
     const wrapper = await mountTree();
 
     expect(
@@ -1146,7 +1156,22 @@ describe('ConfiguratorProduct sections rail', () => {
     ).toEqual(['finish']);
   });
 
-  it('drops the badge once the document says the choice was made', async () => {
+  it('marks the outstanding section with a dot that only a screen reader reads', async () => {
+    const wrapper = await mountTree();
+    const finish = wrapper
+      .findAll('[data-testid="configurator-rail-entry"]')
+      .find((entry) => entry.attributes('data-section-id') === 'finish')!;
+    const dot = finish.find('[data-testid="configurator-rail-remaining"]');
+
+    expect(dot.attributes('role')).toBe('img');
+    expect(dot.attributes('aria-label')).toBe(
+      'configurator.remaining_required {"count":1}',
+    );
+    expect(dot.text()).toBe('');
+    expect(finish.text()).not.toContain('configurator.remaining');
+  });
+
+  it('drops the mark once the document says the choice was made', async () => {
     const wrapper = await mountTree();
     const answered = makeSectionTreeConfiguration();
     const colour = answered.sections[0]!.sections[0]!.optionGroups.find(
@@ -1228,7 +1253,7 @@ describe('ConfiguratorProduct sections rail', () => {
     expect(activeSectionId(wrapper)).toBe('edge-trim');
   });
 
-  it('badges a section whose group the provider put an error on', async () => {
+  it('marks a section whose group the provider put an error on', async () => {
     const wrapper = await mountTree();
     const objected = makeSectionTreeConfiguration();
     // `extras` requires nothing and has no unmet choice, so a badge on it can
@@ -1325,7 +1350,7 @@ describe('ConfiguratorProduct section trail', () => {
     // Where the buyer stands in the walk, not where the section sits in the
     // tree; the number in the header already says the second thing.
     expect(wrapper.find('[data-testid="configurator-position"]').text()).toBe(
-      'configurator.section_position',
+      'configurator.section_position {"current":3,"total":5}',
     );
   });
 });

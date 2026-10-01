@@ -344,7 +344,7 @@
     "product_configuration": "Produktkonfiguration",
     "reset": "Återställ",
     "sections": "Sektioner",
-    "remaining": "{count} kvar",
+    "remaining_required": "{count} obligatoriskt val saknas | {count} obligatoriska val saknas",
     "previous": "Föregående",
     "next": "Nästa",
     "section_position": "Sektion {current} av {total}",

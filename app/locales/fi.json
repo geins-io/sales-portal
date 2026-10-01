@@ -344,7 +344,7 @@
     "product_configuration": "Tuotemääritys",
     "reset": "Palauta",
     "sections": "Osiot",
-    "remaining": "{count} jäljellä",
+    "remaining_required": "{count} pakollinen valinta puuttuu | {count} pakollista valintaa puuttuu",
     "previous": "Edellinen",
     "next": "Seuraava",
     "section_position": "Osio {current}/{total}",

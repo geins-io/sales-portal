@@ -344,7 +344,7 @@
     "product_configuration": "Produktkonfiguration",
     "reset": "Zurücksetzen",
     "sections": "Abschnitte",
-    "remaining": "{count} offen",
+    "remaining_required": "{count} Pflichtauswahl fehlt | {count} Pflichtauswahlen fehlen",
     "previous": "Zurück",
     "next": "Weiter",
     "section_position": "Abschnitt {current} von {total}",
