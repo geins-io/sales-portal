@@ -393,6 +393,137 @@ describe('ConfiguratorProduct session', () => {
     expect(wrapper.find('[data-testid="section"]').exists()).toBe(false);
   });
 
+  it('shows a spinner and the loading copy while the session starts', () => {
+    const wrapper = mountPage();
+
+    const loading = wrapper.find('[data-testid="configurator-loading"]');
+    expect(loading.find('.animate-spin').exists()).toBe(true);
+    expect(loading.text()).toContain('configurator.starting');
+  });
+
+  // The configurator area starts below the fold on a laptop, so the loader in
+  // it is off screen for its whole life; the top card is where the buyer is.
+  it('spins the call to action while the configurator loads', () => {
+    const wrapper = mountPage();
+
+    const cta = wrapper.find('[data-testid="configurator-cta"]');
+    expect(cta.find('.animate-spin').exists()).toBe(true);
+    expect(cta.attributes('disabled')).toBeUndefined();
+  });
+
+  it('drops the loading state from the call to action once the form is there', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="configurator-cta"] .animate-spin').exists(),
+    ).toBe(false);
+  });
+
+  it('puts the loader at the top of the area, not in its middle', () => {
+    // Centred, it sat half the area's min height further down the page.
+    const slot = mountPage().find('[data-testid="configurator-form-slot"]');
+
+    expect(slot.classes()).not.toContain('items-center');
+    expect(slot.classes()).not.toContain('justify-center');
+  });
+
+  // Without the rail the slot is the inner grid's first item, which is the
+  // 254px rail column; the form then arrives in the wide one.
+  it('keeps the loading area in the form column at the form height', () => {
+    const slot = mountPage().find('[data-testid="configurator-form-slot"]');
+
+    expect(slot.classes()).toContain('lg:col-start-2');
+    expect(slot.classes()).toContain('lg:min-h-[calc(100vh-16rem)]');
+    // Below lg the form has no min height, but the loader still needs room.
+    expect(slot.classes()).toContain('min-h-64');
+  });
+
+  it('draws the form frame around the loader, so it is there before the form', () => {
+    const slot = mountPage().find('[data-testid="configurator-form-slot"]');
+
+    expect(slot.classes()).toEqual(
+      expect.arrayContaining(['border-border', 'border-l', 'pl-6']),
+    );
+  });
+
+  it('keeps a session that could not be created in the form column', async () => {
+    const wrapper = mountPage();
+    session.error.value = { status: 503, message: 'the request failed' };
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="configurator-form-slot"]').classes(),
+    ).toContain('lg:col-start-2');
+  });
+
+  it('places the form after the rail, not in a column of its own', async () => {
+    const wrapper = mountPage();
+    activeWith(makeSectionTreeConfiguration());
+    await nextTick();
+
+    const slot = wrapper.find('[data-testid="configurator-form-slot"]');
+    expect(slot.classes()).not.toContain('lg:col-start-2');
+    expect(slot.classes()).not.toContain('lg:col-span-2');
+  });
+
+  it('gives the committed summary both columns, with no rail and no aside beside it', async () => {
+    const wrapper = mountPage();
+    session.committed.value = COMMITTED;
+    session.status.value = 'closed';
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="configurator-form-slot"]').classes(),
+    ).toContain('lg:col-span-2');
+  });
+
+  it('renders the specification card while loading, with nothing to act on yet', () => {
+    const wrapper = mountPage();
+
+    expect(wrapper.find('[data-slot="card"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="panel"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="action"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="session"]').exists()).toBe(false);
+  });
+
+  it('puts the action and the session in the card once the form is there', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="action"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="session"]').exists()).toBe(true);
+  });
+
+  it('renders no card beside a session that could not be created', async () => {
+    // The panel would be a header over nothing: there is no document coming.
+    const wrapper = mountPage();
+    session.error.value = { status: 503, message: 'the request failed' };
+    await nextTick();
+
+    expect(wrapper.find('[data-slot="card"]').exists()).toBe(false);
+  });
+
+  it('renders the card once a document arrives', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    expect(wrapper.find('[data-slot="card"]').exists()).toBe(true);
+  });
+
+  it('renders the card for an expired session, which the panel reports', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    session.status.value = 'expired';
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="panel"]').exists()).toBe(true);
+  });
+
   it('reports a session that could not be created', async () => {
     const wrapper = mountPage();
     session.error.value = { status: 503, message: 'the request failed' };

@@ -332,7 +332,7 @@
     "yes": "Yes",
     "no": "No",
     "commit": "Complete configuration",
-    "starting": "Starting the configuration…",
+    "starting": "Loading the product configurator",
     "failed": "Something went wrong. Reload the page and try again.",
     "change_refused_value": "The value was not accepted. Try another value.",
     "change_refused_option": "The choice was not accepted. Try another choice.",

@@ -332,7 +332,7 @@
     "yes": "Ja",
     "no": "Nej",
     "commit": "Slutför konfigurationen",
-    "starting": "Startar konfigurationen…",
+    "starting": "Laddar in produktkonfiguratorn",
     "failed": "Något gick fel. Ladda om sidan och försök igen.",
     "change_refused_value": "Värdet godtogs inte. Prova ett annat värde.",
     "change_refused_option": "Valet godtogs inte. Prova ett annat val.",

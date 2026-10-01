@@ -75,12 +75,39 @@ describe('ConfigurationPanel', () => {
     useAuthStore().user = null;
   });
 
-  it('renders nothing before a session exists', () => {
-    const wrapper = mountPanel({ configuration: null, status: 'idle' });
-    expect(
-      wrapper.find('[data-testid="configurator-panel-price"]').exists(),
-    ).toBe(false);
-    expect(wrapper.text()).toBe('');
+  describe('before a document arrives', () => {
+    const empty = (wrapper: ReturnType<typeof mountPanel>) =>
+      wrapper.findAll('[data-testid="configurator-card-empty"]');
+
+    it('renders the header over one empty body, with no text and nothing in it', () => {
+      const wrapper = mountPanel({ configuration: null, status: 'idle' });
+
+      expect(
+        wrapper.find('[data-testid="configurator-panel-header"]').text(),
+      ).toBe('configurator.panel.title');
+      // One block, so the card's dividers draw nothing inside it.
+      expect(empty(wrapper)).toHaveLength(1);
+      expect(empty(wrapper)[0]!.element.children).toHaveLength(0);
+      expect(wrapper.text()).toBe('configurator.panel.title');
+    });
+
+    it("holds the loaded sections' height, less the price where none shows", () => {
+      const shown = mountPanel({ configuration: null, status: 'idle' });
+      setFeatures({ priceVisibility: { enabled: false } });
+      const hidden = mountPanel({ configuration: null, status: 'idle' });
+
+      expect(empty(shown)[0]!.classes()).toContain('min-h-[480px]');
+      expect(empty(hidden)[0]!.classes()).toContain('min-h-[390px]');
+    });
+
+    it('renders no empty body once the document is there', () => {
+      expect(empty(mountPanel())).toHaveLength(0);
+    });
+
+    it('renders no empty body for an expired session', () => {
+      const wrapper = mountPanel({ configuration: null, status: 'expired' });
+      expect(empty(wrapper)).toHaveLength(0);
+    });
   });
 
   describe('header', () => {

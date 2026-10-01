@@ -197,14 +197,26 @@ const canCopy = computed(() => mounted.value && isSupported.value);
     </Button>
   </div>
 
-  <template v-else-if="configuration">
-    <header class="px-4 py-3" data-testid="configurator-panel-header">
-      <h3 class="flex items-center gap-2 text-sm font-semibold">
-        <FileText class="size-4" />
-        {{ t('configurator.panel.title') }}
-      </h3>
-    </header>
+  <!-- The header stands before the document does, so the card is in place
+       while the session starts; everything under it waits for the document. -->
+  <header v-else class="px-4 py-3" data-testid="configurator-panel-header">
+    <h3 class="flex items-center gap-2 text-sm font-semibold">
+      <FileText class="size-4" />
+      {{ t('configurator.panel.title') }}
+    </h3>
+  </header>
 
+  <!-- While the session starts the card is its header over an empty body, as
+       tall as a loaded card's sections (Bookcase, 1440 wide: rows from 96, price
+       90, validity 173, action 65, session 56), so it grows little when the
+       document arrives. One block, so the card draws no dividers inside it. -->
+  <div
+    v-if="status !== 'expired' && !configuration"
+    :class="showPrice ? 'min-h-[480px]' : 'min-h-[390px]'"
+    data-testid="configurator-card-empty"
+  />
+
+  <template v-if="status !== 'expired' && configuration">
     <!-- The specification itself. The value is the content and the price is an
          annotation, so the value leads and a price appears only where there is
          one. -->

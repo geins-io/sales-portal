@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Loader2,
   RotateCcw,
   SlidersHorizontal,
 } from 'lucide-vue-next';
@@ -263,6 +264,26 @@ const railEntries = computed(() =>
     : [],
 );
 
+/**
+ * The rule down the left is the prototype's frame around the active section;
+ * loading draws it too, so the frame is there before the form. Without the rail
+ * the slot would be the grid's first item and sit in the rail's column, so
+ * every other face is placed in the form's column, and the committed summary,
+ * which has no aside beside it either, takes both. Loading holds the form's
+ * height so nothing jumps when the form arrives, with the loader at its top
+ * where the form's first line will be.
+ */
+const formSlotClass = computed(() => {
+  if (railEntries.value.length) {
+    return 'border-border space-y-8 border-l pl-6 lg:min-h-[calc(100vh-16rem)]';
+  }
+  if (stage.value === 'committed') return 'space-y-6 lg:col-span-2';
+  if (stage.value === 'loading') {
+    return 'border-border min-h-64 border-l pl-6 lg:col-start-2 lg:min-h-[calc(100vh-16rem)]';
+  }
+  return 'space-y-6 lg:col-start-2';
+});
+
 const activeSectionId = ref<string | null>(null);
 
 // Every change batch returns a whole new document, so the section the buyer
@@ -361,13 +382,16 @@ async function onRestart(): Promise<void> {
 
       <ProductTopArea :product="product">
         <template #aside>
+          <!-- The spinner is here because the configurator area starts below
+               the fold on a laptop, so its own loader is off screen. -->
           <Button
             variant="purchase"
             class="w-full gap-2"
             data-testid="configurator-cta"
             @click="showConfiguration"
           >
-            <SlidersHorizontal class="size-4" />
+            <Loader2 v-if="stage === 'loading'" class="size-4 animate-spin" />
+            <SlidersHorizontal v-else class="size-4" />
             {{ t('configurator.configure_product') }}
           </Button>
 
@@ -525,23 +549,17 @@ async function onRestart(): Promise<void> {
                   </ul>
                 </nav>
 
-                <!-- The rule down the left is the prototype's frame around the
-                     active section. It goes when the rail does: with nothing to
-                     navigate it would frame a loading line. -->
                 <div
                   class="min-w-0"
-                  :class="
-                    railEntries.length
-                      ? 'border-border space-y-8 border-l pl-6 lg:min-h-[calc(100vh-16rem)]'
-                      : 'space-y-6'
-                  "
+                  :class="formSlotClass"
                   data-testid="configurator-form-slot"
                 >
                   <p
                     v-if="stage === 'loading'"
-                    class="text-muted-foreground text-sm"
+                    class="text-muted-foreground flex items-center gap-2 text-sm"
                     data-testid="configurator-loading"
                   >
+                    <Loader2 class="size-5 animate-spin" />
                     {{ t('configurator.starting') }}
                   </p>
 
@@ -717,7 +735,12 @@ async function onRestart(): Promise<void> {
                    sitting as a small box inside a larger one. The committed
                    summary carries the price it was committed at, so the card
                    stands down rather than show a second one. -->
-              <Card class="divide-border gap-0 divide-y p-0">
+              <!-- While loading the card stands with its header alone. A start
+                   that failed has no document coming, so no card. -->
+              <Card
+                v-if="stage !== 'error'"
+                class="divide-border gap-0 divide-y p-0"
+              >
                 <ConfigurationPanel
                   :configuration="configuration"
                   :status="status"
