@@ -857,6 +857,174 @@ describe('ConfiguratorOptionGroup', () => {
   // ---------------------------------------------------------------------
   // "Inget valt": an optional single choice leads with "nothing chosen"
   // ---------------------------------------------------------------------
+  describe('a group with nothing to choose', () => {
+    const NOTHING = '[data-testid="configurator-group-nothing"]';
+    const REASON = '[data-testid="configurator-option-reason"]';
+
+    function unavailableTop() {
+      const workbench = makeInitialConfiguration();
+      const top = findOptionGroup(workbench, 'top');
+      top.available = false;
+      for (const option of top.options) option.selected = false;
+      return top;
+    }
+
+    it('says so in the chooser instead of asking for a choice and counting', () => {
+      const wrapper = mountGroup(unavailableTop());
+
+      const chooser = wrapper.find(CHOOSER);
+      expect(chooser.text()).toContain('configurator.nothing_to_choose');
+      expect(chooser.text()).not.toContain('configurator.choose_in_group');
+      expect(chooser.text()).not.toContain('configurator.option_count');
+    });
+
+    it('still opens, every row disabled with its reason', async () => {
+      const top = unavailableTop();
+      const wrapper = mountGroup(top);
+
+      await wrapper.find(CHOOSER).trigger('click');
+
+      const rows = wrapper
+        .find(SHEET)
+        .findAll('[data-testid="configurator-option"]');
+      expect(rows).toHaveLength(top.options.length);
+      for (const row of rows) {
+        expect(row.find('[role="radio"]').attributes('disabled')).toBeDefined();
+        expect(row.find(REASON).text()).toBe('configurator.unavailable');
+      }
+    });
+
+    it('reads the same when the group is available but every row is not', async () => {
+      const workbench = makeInitialConfiguration();
+      const top = findOptionGroup(workbench, 'top');
+      for (const option of top.options) {
+        option.available = false;
+        option.selected = false;
+        option.messages = [];
+      }
+
+      const wrapper = mountGroup(top);
+      expect(wrapper.find(CHOOSER).text()).toContain(
+        'configurator.nothing_to_choose',
+      );
+
+      await wrapper.find(CHOOSER).trigger('click');
+      const rows = wrapper
+        .find(SHEET)
+        .findAll('[data-testid="configurator-option"]');
+      expect(rows).toHaveLength(top.options.length);
+      for (const row of rows) {
+        expect(row.find(REASON).text()).toBe('configurator.unavailable');
+      }
+    });
+
+    it('asks for a choice while one row is still available', () => {
+      const workbench = makeInitialConfiguration();
+      const top = findOptionGroup(workbench, 'top');
+      for (const option of top.options.slice(1)) option.available = false;
+
+      const wrapper = mountGroup(top);
+
+      expect(wrapper.find(CHOOSER).text()).not.toContain(
+        'configurator.nothing_to_choose',
+      );
+    });
+
+    it('says so on the add row of a multi choice, which still opens', async () => {
+      const workbench = makeInitialConfiguration();
+      const accessories = findOptionGroup(workbench, 'accessories');
+      accessories.available = false;
+
+      const wrapper = mountGroup(accessories);
+      expect(wrapper.find(ADD).text()).toBe('configurator.nothing_to_choose');
+
+      await wrapper.find(ADD).trigger('click');
+      const rows = wrapper
+        .find(SHEET)
+        .findAll('[data-testid="configurator-option"]');
+      expect(rows).toHaveLength(accessories.options.length);
+      for (const row of rows) {
+        expect(row.find(REASON).text()).toBe('configurator.unavailable');
+      }
+    });
+
+    it('says so under a lone row, which gives its reason', () => {
+      const top = oneOption('top');
+      top.available = false;
+
+      const wrapper = mountGroup(top);
+
+      expect(wrapper.find(NOTHING).text()).toBe(
+        'configurator.nothing_to_choose',
+      );
+      expect(wrapper.find(REASON).text()).toBe('configurator.unavailable');
+    });
+
+    it('says nothing under a lone row the buyer may choose', () => {
+      const wrapper = mountGroup(oneOption('top'));
+
+      expect(wrapper.find(NOTHING).exists()).toBe(false);
+    });
+
+    it('says so rather than "nothing chosen" in an optional single choice', () => {
+      const top = unavailableTop();
+      top.minSelections = undefined;
+
+      const wrapper = mountGroup(top);
+
+      const chooser = wrapper.find(CHOOSER);
+      expect(chooser.text()).toContain('configurator.nothing_to_choose');
+      expect(chooser.text()).not.toContain('configurator.none_option');
+      expect(chooser.attributes('data-none')).toBe('false');
+    });
+
+    it('keeps showing an option already chosen, with its reason', () => {
+      const top = unavailableTop();
+      const first = top.options[0]!;
+      first.selected = true;
+
+      const wrapper = mountGroup(top);
+
+      const chooser = wrapper.find(CHOOSER);
+      expect(chooser.attributes('data-option-id')).toBe(first.id);
+      expect(chooser.text()).toContain(first.name);
+      expect(chooser.text()).not.toContain('configurator.nothing_to_choose');
+      expect(
+        chooser.find('[data-testid="configurator-chooser-reason"]').text(),
+      ).toBe('configurator.unavailable');
+    });
+
+    it('gives the rows of a group nested in an unavailable one their reason', () => {
+      const nested = makeNestedGroupConfiguration();
+      const legs = findOptionGroup(nested, 'legs');
+      legs.available = false;
+      const industrial = findOptionGroup(nested, 'industrial');
+      industrial.options.splice(1);
+
+      const wrapper = mountGroup(legs);
+
+      const inner = wrapper.find('[data-group-id="industrial"]');
+      expect(inner.find(REASON).text()).toBe('configurator.unavailable');
+      expect(
+        inner.find('[role="checkbox"]').attributes('disabled'),
+      ).toBeDefined();
+    });
+
+    it('gives no reason while the form is locked for a batch', async () => {
+      const wrapper = mountComponent(ConfiguratorOptionGroup, {
+        props: { group: unavailableTop(), disabled: true },
+      });
+
+      await wrapper.find(CHOOSER).trigger('click');
+
+      const sheet = wrapper.find(SHEET);
+      expect(
+        sheet.findAll('[data-testid="configurator-option"]').length,
+      ).toBeGreaterThan(0);
+      expect(sheet.find(REASON).exists()).toBe(false);
+    });
+  });
+
   describe('an optional single choice', () => {
     const NONE = `${SHEET} [data-testid="configurator-option-none"]`;
 

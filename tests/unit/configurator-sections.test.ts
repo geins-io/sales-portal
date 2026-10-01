@@ -11,6 +11,7 @@ import {
   flattenVisibleSections,
   hasNext,
   hasPrevious,
+  isMenuSection,
   resolveActiveId,
   sectionCrumbs,
   sectionRemaining,
@@ -784,5 +785,59 @@ describe('visibleChildren', () => {
     });
 
     expect(visibleChildren(parent).map((child) => child.id)).toEqual(['a1']);
+  });
+});
+
+describe('isMenuSection', () => {
+  it('is a menu when it holds children and nothing of its own', () => {
+    expect(isMenuSection(section('a', { sections: [section('a1')] }))).toBe(
+      true,
+    );
+  });
+
+  it('is no menu without a visible child', () => {
+    expect(isMenuSection(section('a'))).toBe(false);
+    expect(
+      isMenuSection(
+        section('a', { sections: [section('a1', { visible: false })] }),
+      ),
+    ).toBe(false);
+  });
+
+  it('is no menu with a group or a field of its own', () => {
+    const child = [section('a1')];
+
+    expect(
+      isMenuSection(
+        section('a', { sections: child, optionGroups: [group('g')] }),
+      ),
+    ).toBe(false);
+    expect(
+      isMenuSection(
+        section('a', { sections: child, variables: [variable('v')] }),
+      ),
+    ).toBe(false);
+  });
+
+  it('is a menu when its only fields are unavailable, which the page hides', () => {
+    expect(
+      isMenuSection(
+        section('a', {
+          sections: [section('a1')],
+          variables: [variable('v', { available: false })],
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('is no menu when its only group is unavailable, which the page still shows', () => {
+    expect(
+      isMenuSection(
+        section('a', {
+          sections: [section('a1')],
+          optionGroups: [group('g', { available: false })],
+        }),
+      ),
+    ).toBe(false);
   });
 });

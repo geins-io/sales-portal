@@ -312,6 +312,7 @@
     "required": "Pakollinen",
     "read_only": "Määräytyy kokoonpanon mukaan",
     "unavailable": "Ei käytettävissä nykyisillä valinnoilla",
+    "nothing_to_choose": "Ei valittavaa nykyisillä valinnoilla",
     "bounds": "{min}–{max} {unit}",
     "optional": "Valinnainen",
     "none_option": "Ei valintaa",

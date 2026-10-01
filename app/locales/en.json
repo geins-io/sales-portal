@@ -312,6 +312,7 @@
     "required": "Required",
     "read_only": "Set by the configuration",
     "unavailable": "Not available with your current choices",
+    "nothing_to_choose": "Nothing to choose with your current choices",
     "bounds": "{min}–{max} {unit}",
     "optional": "Optional",
     "none_option": "None",

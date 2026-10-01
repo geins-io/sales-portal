@@ -476,6 +476,42 @@ describe('ConfiguratorOptionRow', () => {
     ).toBe(false);
   });
 
+  it('disables a row of an unavailable group and says why, in the colour of a refusal', () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountComponent(ConfiguratorOptionRow, {
+      props: {
+        option: findOption(workbench, 'ind-esd'),
+        single: false,
+        imageColumn: false,
+        unavailable: true,
+      },
+    });
+
+    expect(
+      wrapper.find('[role="checkbox"]').attributes('disabled'),
+    ).toBeDefined();
+    const reason = wrapper.find('[data-testid="configurator-option-reason"]');
+    expect(reason.text()).toBe('configurator.unavailable');
+    expect(reason.classes()).toContain('text-destructive');
+  });
+
+  it('emits nothing when a row of an unavailable group is clicked', async () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountComponent(ConfiguratorOptionRow, {
+      props: {
+        option: findOption(workbench, 'ind-esd'),
+        single: false,
+        imageColumn: false,
+        unavailable: true,
+      },
+    });
+    await wrapper.find('[data-testid="configurator-option"]').trigger('click');
+
+    expect(wrapper.emitted('change')).toBeUndefined();
+  });
+
   it('names the row from the option, not from the embedded product', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'top-wood');

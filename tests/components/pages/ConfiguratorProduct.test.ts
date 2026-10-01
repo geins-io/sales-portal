@@ -1264,6 +1264,20 @@ describe('ConfiguratorProduct subsection menu', () => {
     expect(subsectionIds(wrapper)).toEqual([]);
   });
 
+  it('offers the children of a section whose only fields are unavailable', async () => {
+    const config = makeSectionTreeConfiguration();
+    const frame = config.sections[0]!;
+    frame.optionGroups = [];
+    for (const variable of frame.variables) variable.available = false;
+
+    const wrapper = await mountWith(config);
+
+    // The fields are hidden, so the page would otherwise be an empty column.
+    expect(frame.variables.length).toBeGreaterThan(0);
+    expect(subsectionIds(wrapper)).toEqual(['finish']);
+    expect(wrapper.find('[data-testid="section"]').exists()).toBe(false);
+  });
+
   it('counts a message as no content, and still shows it over the menu', async () => {
     const config = emptied(makeSectionTreeConfiguration());
     config.sections[0]!.messages = [

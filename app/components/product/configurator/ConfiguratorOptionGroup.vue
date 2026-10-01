@@ -9,6 +9,7 @@ import {
   groupRowCount,
   groupSummary,
   hasImageColumn,
+  hasNothingToChoose,
   isReadOnly,
   isSingleSelect,
   matchesOptionQuery,
@@ -41,6 +42,11 @@ import {
  * The folding and the header are `ConfiguratorFoldable`'s. The group's own
  * messages sit beside its title as an icon, as the prototype.
  *
+ * A group with nothing to choose says so, and its rows stay on show, disabled,
+ * each with the reason: the buyer sees what the earlier choices ruled out.
+ * The form's lock is kept apart from that, because a batch in flight is not a
+ * reason.
+ *
  * A refused choice is said once for the group, above its rows: a group with
  * more than one option picks from a panel that has closed by the time the
  * answer comes, and the refused row is not the one on show.
@@ -49,12 +55,16 @@ const {
   group,
   level = 4,
   disabled = false,
+  parentUnavailable = false,
   refused = null,
 } = defineProps<{
   group: ConfigurationOptionGroup;
   /** Heading level, one below the section the group sits in. */
   level?: number;
+  /** The form's lock while a change batch is in flight. */
   disabled?: boolean;
+  /** The group this one is nested in is unavailable, so this one is too. */
+  parentUnavailable?: boolean;
   /** The change the provider refused last, whichever node it was aimed at. */
   refused?: ConfigurationChange | null;
 }>();
@@ -65,7 +75,9 @@ const { t } = useI18n();
 
 const single = computed(() => isSingleSelect(group));
 const hint = computed(() => groupHintKey(group));
-const locked = computed(() => disabled || !group.available);
+const unavailable = computed(() => parentUnavailable || !group.available);
+const locked = computed(() => disabled || unavailable.value);
+const nothing = computed(() => unavailable.value || hasNothingToChoose(group));
 const refusedHere = computed(() => refusesOptionIn(refused, group));
 const none = computed(() => offersNoneRow(group));
 
@@ -205,7 +217,9 @@ function onSheetPick(value: unknown) {
         :group-name="group.name"
         :count="group.options.length"
         :image-column="imageColumn"
-        :disabled="locked"
+        :disabled="disabled"
+        :unavailable="unavailable"
+        :nothing-to-choose="nothing"
         @open="openSheet"
       />
 
@@ -217,7 +231,8 @@ function onSheetPick(value: unknown) {
           :single="false"
           :quantity-editable="group.quantityEditable"
           :image-column="imageColumn"
-          :disabled="locked"
+          :disabled="disabled"
+          :unavailable="unavailable"
           @change="emit('change', $event)"
         />
 
@@ -231,9 +246,11 @@ function onSheetPick(value: unknown) {
           <span class="flex items-center gap-2">
             <Plus class="size-4" />
             {{
-              chosen.length
-                ? t('configurator.add_more', { name: group.name })
-                : t('configurator.choose_in_group', { name: group.name })
+              nothing
+                ? t('configurator.nothing_to_choose')
+                : chosen.length
+                  ? t('configurator.add_more', { name: group.name })
+                  : t('configurator.choose_in_group', { name: group.name })
             }}
           </span>
           <ChevronRight class="size-5 shrink-0" />
@@ -254,7 +271,8 @@ function onSheetPick(value: unknown) {
           single
           :quantity-editable="group.quantityEditable"
           :image-column="imageColumn"
-          :disabled="locked"
+          :disabled="disabled"
+          :unavailable="unavailable"
           @change="emit('change', $event)"
         />
       </RadioGroup>
@@ -267,17 +285,27 @@ function onSheetPick(value: unknown) {
           :single="false"
           :quantity-editable="group.quantityEditable"
           :image-column="imageColumn"
-          :disabled="locked"
+          :disabled="disabled"
+          :unavailable="unavailable"
           @change="emit('change', $event)"
         />
       </div>
+
+      <p
+        v-if="!chooser && nothing"
+        data-testid="configurator-group-nothing"
+        class="text-muted-foreground text-sm"
+      >
+        {{ t('configurator.nothing_to_choose') }}
+      </p>
 
       <ConfiguratorOptionGroup
         v-for="nested in group.optionGroups"
         :key="nested.id"
         :group="nested"
         :level="level + 1"
-        :disabled="locked"
+        :disabled="disabled"
+        :parent-unavailable="unavailable"
         :refused="refused"
         class="border-muted ml-3 border-l pl-3"
         @change="emit('change', $event)"
@@ -336,7 +364,8 @@ function onSheetPick(value: unknown) {
               single
               :quantity-editable="group.quantityEditable"
               :image-column="imageColumn"
-              :disabled="locked"
+              :disabled="disabled"
+              :unavailable="unavailable"
               @change="onSheetChange"
             />
           </RadioGroup>
@@ -349,7 +378,8 @@ function onSheetPick(value: unknown) {
               :single="false"
               :quantity-editable="group.quantityEditable"
               :image-column="imageColumn"
-              :disabled="locked"
+              :disabled="disabled"
+              :unavailable="unavailable"
               @change="onSheetChange"
             />
           </div>

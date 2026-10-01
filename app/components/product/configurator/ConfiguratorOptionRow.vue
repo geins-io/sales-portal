@@ -34,6 +34,7 @@ const {
   quantityEditable = false,
   imageColumn,
   disabled = false,
+  unavailable = false,
 } = defineProps<{
   option: ConfigurationOption;
   single: boolean;
@@ -42,6 +43,8 @@ const {
   imageColumn: boolean;
   /** The parent locks every control while a change batch is in flight. */
   disabled?: boolean;
+  /** The group is unavailable, so the row is too, whatever it says itself. */
+  unavailable?: boolean;
 }>();
 
 const emit = defineEmits<{ change: [ConfigurationChange] }>();
@@ -50,9 +53,11 @@ const { t } = useI18n();
 
 const readOnly = computed(() => isReadOnly(option));
 
-const blocked = computed(() => disabled || readOnly.value || !option.available);
+const available = computed(() => option.available && !unavailable);
 
-const block = computed(() => optionBlockReason(option, disabled));
+const blocked = computed(() => disabled || readOnly.value || !available.value);
+
+const block = computed(() => optionBlockReason(option, disabled, unavailable));
 const promoted = computed(() =>
   block.value?.kind === 'message' ? block.value.message : undefined,
 );
@@ -176,9 +181,7 @@ function onRow() {
           v-if="reason"
           data-testid="configurator-option-reason"
           class="text-xs"
-          :class="
-            option.available ? 'text-muted-foreground' : 'text-destructive'
-          "
+          :class="available ? 'text-muted-foreground' : 'text-destructive'"
         >
           {{ reason }}
         </p>

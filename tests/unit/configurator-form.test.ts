@@ -12,10 +12,12 @@ import {
   groupRowCount,
   groupSummary,
   hasImageColumn,
+  hasNothingToChoose,
   isReadOnly,
   isSingleSelect,
   matchesOptionQuery,
   messagesBesides,
+  NONE_ROW_VALUE,
   offersNoneRow,
   OPTION_CHOOSER_ABOVE,
   optionBlockReason,
@@ -351,6 +353,14 @@ describe('offersNoneRow', () => {
   });
 });
 
+describe('NONE_ROW_VALUE', () => {
+  // An empty model checks nothing in the group's radio group, so the row that
+  // stands for "nothing chosen" must be checked by a value of its own.
+  it('is a value of its own, never the empty model', () => {
+    expect(NONE_ROW_VALUE).not.toBe('');
+  });
+});
+
 describe('groupRowCount', () => {
   it('counts "nothing chosen" as a row of an optional single choice', () => {
     const options = findOptionGroup(makeInitialConfiguration(), 'top').options;
@@ -399,6 +409,11 @@ describe('optionImage', () => {
 
     expect(optionImage(option)).toBeUndefined();
     expect(optionImage({ ...option, product: null })).toBeUndefined();
+  });
+
+  it('has none for a product the API sent without an image list', () => {
+    expect(optionImage({ product: { productImages: null } })).toBeUndefined();
+    expect(optionImage({ product: {} })).toBeUndefined();
   });
 
   it('has none for an image without a file name', () => {
@@ -473,6 +488,79 @@ describe('optionBlockReason', () => {
       kind: 'message',
       message: blockingMessage(option.messages),
     });
+  });
+
+  it('names a row of an unavailable group as unavailable, though the row itself is available', () => {
+    const workbench = makeInitialConfiguration();
+
+    expect(
+      optionBlockReason(findOption(workbench, 'top-wood'), false, true),
+    ).toEqual({ kind: 'unavailable' });
+  });
+
+  it('keeps a read-only row read only inside an unavailable group', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.selectionSource = 'locked';
+
+    expect(optionBlockReason(option, false, true)).toEqual({
+      kind: 'read_only',
+    });
+  });
+
+  it("gives an unavailable group's row its blocking message first", () => {
+    const cabinet = makeCabinetConfiguration();
+    const option = findOption(cabinet, 'mount-wall');
+
+    expect(optionBlockReason(option, false, true)).toEqual({
+      kind: 'message',
+      message: blockingMessage(option.messages),
+    });
+  });
+
+  it('says nothing about a row of an unavailable group while the form is locked', () => {
+    const workbench = makeInitialConfiguration();
+
+    expect(
+      optionBlockReason(findOption(workbench, 'top-wood'), true, true),
+    ).toBeUndefined();
+  });
+});
+
+describe('hasNothingToChoose', () => {
+  it('is false for a group with a row the buyer may choose', () => {
+    const workbench = makeInitialConfiguration();
+
+    expect(hasNothingToChoose(findOptionGroup(workbench, 'top'))).toBe(false);
+  });
+
+  it('is true for a group the provider made unavailable, whatever its rows say', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    top.available = false;
+
+    expect(hasNothingToChoose(top)).toBe(true);
+  });
+
+  it('is true for an available group whose every row is unavailable', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    for (const option of top.options) option.available = false;
+
+    expect(hasNothingToChoose(top)).toBe(true);
+  });
+
+  it('is false while one row is still available', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    for (const option of top.options.slice(1)) option.available = false;
+
+    expect(hasNothingToChoose(top)).toBe(false);
+  });
+
+  it('is false for an available group with no rows of its own, only nested groups', () => {
+    expect(hasNothingToChoose({ available: true, options: [] })).toBe(false);
+  });
+
+  it('is true for an unavailable group with no rows of its own', () => {
+    expect(hasNothingToChoose({ available: false, options: [] })).toBe(true);
   });
 });
 

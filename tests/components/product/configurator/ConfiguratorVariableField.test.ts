@@ -103,6 +103,19 @@ describe('ConfiguratorVariableField', () => {
     expect(wrapper.text()).not.toContain('*');
   });
 
+  it('does not call a field the provider made unavailable "set by the configuration"', () => {
+    const width = {
+      ...findVariable(makeInitialConfiguration(), 'width'),
+      available: false,
+    };
+
+    const wrapper = mountField(width);
+
+    expect(wrapper.find('input').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[title]').exists()).toBe(false);
+    expect(wrapper.html()).not.toContain('configurator.read_only');
+  });
+
   it('does not emit while the buyer is typing', async () => {
     const cabinet = makeCabinetConfiguration();
 

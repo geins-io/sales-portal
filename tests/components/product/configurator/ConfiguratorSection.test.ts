@@ -45,6 +45,38 @@ describe('ConfiguratorSection', () => {
     ).toHaveLength(3);
   });
 
+  it('leaves out a variable the provider made unavailable, row and all', () => {
+    const cabinet = makeCabinetConfiguration();
+    const section = sectionOf(cabinet.sections, 'cabinet');
+    section.variables[0]!.available = false;
+    const hidden = section.variables[0]!.id;
+
+    const wrapper = mountSection(section);
+
+    // The row goes with the field, or its rule is left behind on its own.
+    expect(
+      wrapper.findAll('[data-testid="configurator-variable-row"]'),
+    ).toHaveLength(2);
+    expect(wrapper.find(`[data-variable-id="${hidden}"]`).exists()).toBe(false);
+  });
+
+  it('shows the variable once a choice makes it available, and hides it again', async () => {
+    const cabinet = makeCabinetConfiguration();
+    const closed = structuredClone(sectionOf(cabinet.sections, 'cabinet'));
+    closed.variables[0]!.available = false;
+    const open = sectionOf(cabinet.sections, 'cabinet');
+    const id = open.variables[0]!.id;
+
+    const wrapper = mountSection(closed);
+    expect(wrapper.find(`[data-variable-id="${id}"]`).exists()).toBe(false);
+
+    await wrapper.setProps({ section: open });
+    expect(wrapper.find(`[data-variable-id="${id}"]`).exists()).toBe(true);
+
+    await wrapper.setProps({ section: closed });
+    expect(wrapper.find(`[data-variable-id="${id}"]`).exists()).toBe(false);
+  });
+
   it('writes no heading of its own, because the page numbers the section', () => {
     const cabinet = makeCabinetConfiguration();
 

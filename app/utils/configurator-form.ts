@@ -6,7 +6,7 @@ import type {
   ConfigurationValue,
   ConfigurationVariable,
 } from '#shared/types/configurator';
-import { formatPrice } from '#shared/types/commerce';
+import { formatPrice, type ProductImageType } from '#shared/types/commerce';
 
 // ---------------------------------------------------------------------------
 // The decisions the configurator form makes about a document node.
@@ -141,6 +141,22 @@ export function groupSummary(
 }
 
 /**
+ * Whether the buyer can choose nothing in a group with the choices made so
+ * far: the provider made the group unavailable, or every row in it. A group
+ * with no rows of its own holds only nested groups, which answer for
+ * themselves.
+ */
+export function hasNothingToChoose(
+  group: Pick<ConfigurationOptionGroup, 'available' | 'options'>,
+): boolean {
+  if (!group.available) return true;
+  return (
+    group.options.length > 0 &&
+    group.options.every((option) => !option.available)
+  );
+}
+
+/**
  * Above this many rows a group is chosen from its full list, not inline: a
  * group with a choice to make is chosen from a list, and only a lone row is
  * shown as it is.
@@ -153,11 +169,14 @@ export function usesChooser(rowCount: number): boolean {
 
 /**
  * The first image of the option's product, as the product card: the list
- * fragment selects no `isPrimary`.
+ * fragment selects no `isPrimary`. Typed for what the API may send, which is
+ * no image list at all, rather than for `ListProduct`'s promise of one.
  */
-export function optionImage(
-  option: Pick<ConfigurationOption, 'product'>,
-): string | undefined {
+export function optionImage(option: {
+  product: {
+    productImages?: Pick<ProductImageType, 'fileName'>[] | null;
+  } | null;
+}): string | undefined {
   return option.product?.productImages?.[0]?.fileName || undefined;
 }
 
@@ -182,7 +201,7 @@ export type OptionBlockReason =
 
 /**
  * Nothing while the form is locked: a batch in flight is not a fact about the
- * row.
+ * row. A row of an unavailable group is unavailable whatever it says itself.
  */
 export function optionBlockReason(
   option: Pick<
@@ -190,10 +209,11 @@ export function optionBlockReason(
     'available' | 'messages' | 'readOnly' | 'selectionSource'
   >,
   formLocked: boolean,
+  groupUnavailable = false,
 ): OptionBlockReason | undefined {
   if (formLocked) return undefined;
   const readOnly = isReadOnly(option);
-  if (!readOnly && option.available) return undefined;
+  if (!readOnly && option.available && !groupUnavailable) return undefined;
   const message = blockingMessage(option.messages);
   if (message) return { kind: 'message', message };
   return { kind: readOnly ? 'read_only' : 'unavailable' };

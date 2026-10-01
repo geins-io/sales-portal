@@ -312,6 +312,7 @@
     "required": "Påkrævet",
     "read_only": "Angives af konfigurationen",
     "unavailable": "Ikke tilgængeligt med dine nuværende valg",
+    "nothing_to_choose": "Intet at vælge med dine nuværende valg",
     "bounds": "{min}–{max} {unit}",
     "optional": "Valgfrit",
     "none_option": "Intet valgt",
