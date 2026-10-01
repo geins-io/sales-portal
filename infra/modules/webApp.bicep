@@ -131,6 +131,12 @@ var appSettingsAlways = [
     name: 'NODE_ENV'
     value: nodeEnv
   }
+  // Without a cap V8 sizes its heap from the plan's memory and postpones full collections,
+  // so the heap climbs with garbage it has not collected. A fixed cap makes it collect early.
+  {
+    name: 'NODE_OPTIONS'
+    value: '--max-old-space-size=512'
+  }
   // ─────────────────────────────────────────────────────────────────────
   // NUXT RUNTIME CONFIG OVERRIDES
   // These MUST use NUXT_ prefix for Nuxt to pick them up at runtime.
