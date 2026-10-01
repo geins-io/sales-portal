@@ -141,10 +141,27 @@ export function groupSummary(
 }
 
 /**
+ * The options a group shows the buyer: one with neither a name nor an article
+ * number says nothing a buyer could choose by, so it is left out, unless the
+ * provider has it selected, because a selection is never hidden. What is
+ * chosen and what is required keep reading the document.
+ */
+export function shownOptions<
+  T extends Pick<ConfigurationOption, 'name' | 'articleNumber' | 'selected'>,
+>(group: { options: T[] }): T[] {
+  return group.options.filter(
+    (option) =>
+      option.selected ||
+      option.name.trim() !== '' ||
+      option.articleNumber.trim() !== '',
+  );
+}
+
+/**
  * Whether the buyer can choose nothing in a group with the choices made so
- * far: the provider made the group unavailable, or every row in it. A group
- * with no rows of its own holds only nested groups, which answer for
- * themselves.
+ * far: the provider made the group unavailable, or every row the buyer is
+ * shown, which holds when none is shown at all. A group with no rows of its
+ * own holds only nested groups, which answer for themselves.
  */
 export function hasNothingToChoose(
   group: Pick<ConfigurationOptionGroup, 'available' | 'options'>,
@@ -152,7 +169,7 @@ export function hasNothingToChoose(
   if (!group.available) return true;
   return (
     group.options.length > 0 &&
-    group.options.every((option) => !option.available)
+    shownOptions(group).every((option) => !option.available)
   );
 }
 

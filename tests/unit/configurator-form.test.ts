@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { ConfigurationOption } from '#shared/types/configurator';
 import { formatPrice } from '#shared/types/commerce';
 import {
   blockingMessage,
@@ -25,6 +26,7 @@ import {
   optionPricePrefix,
   refusesOptionIn,
   refusesVariable,
+  shownOptions,
   signedOptionPrice,
   usesChooser,
   variableControl,
@@ -527,6 +529,55 @@ describe('optionBlockReason', () => {
   });
 });
 
+describe('shownOptions', () => {
+  function blankOf(id: string, parts: Partial<ConfigurationOption> = {}) {
+    const option = findOption(makeInitialConfiguration(), id);
+    return { ...option, name: '', articleNumber: '', ...parts };
+  }
+
+  it('leaves out an option with neither a name nor an article number', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    const real = top.options.map((option) => option.id);
+    top.options.push(blankOf('top-wood', { id: 'blank' }));
+
+    expect(shownOptions(top).map((option) => option.id)).toEqual(real);
+  });
+
+  it('keeps an option with a name only, or an article number only', () => {
+    const named = blankOf('top-wood', { id: 'named', name: 'Beech' });
+    const numbered = blankOf('top-wood', {
+      id: 'numbered',
+      articleNumber: 'F-1',
+    });
+
+    expect(
+      shownOptions({ options: [named, numbered] }).map((option) => option.id),
+    ).toEqual(['named', 'numbered']);
+  });
+
+  it('treats a name and an article number of only spaces as blank', () => {
+    const spaces = blankOf('top-wood', { name: '  ', articleNumber: ' ' });
+
+    expect(shownOptions({ options: [spaces] })).toEqual([]);
+  });
+
+  it('keeps a blank option the provider has selected, so a selection is never hidden', () => {
+    const selected = blankOf('top-wood', { selected: true });
+
+    expect(shownOptions({ options: [selected] })).toEqual([selected]);
+  });
+
+  it('leaves the group it was given untouched', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    top.options.push(blankOf('top-wood', { id: 'blank' }));
+    const count = top.options.length;
+
+    shownOptions(top);
+
+    expect(top.options).toHaveLength(count);
+  });
+});
+
 describe('hasNothingToChoose', () => {
   it('is false for a group with a row the buyer may choose', () => {
     const workbench = makeInitialConfiguration();
@@ -561,6 +612,33 @@ describe('hasNothingToChoose', () => {
 
   it('is true for an unavailable group with no rows of its own', () => {
     expect(hasNothingToChoose({ available: false, options: [] })).toBe(true);
+  });
+
+  it('is true when every row is one the buyer is not shown', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    for (const option of top.options) {
+      option.name = '';
+      option.articleNumber = '';
+      option.selected = false;
+    }
+
+    expect(top.options.every((option) => option.available)).toBe(true);
+    expect(hasNothingToChoose(top)).toBe(true);
+  });
+
+  it('ignores a blank row while the shown rows are all unavailable', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    for (const option of top.options) option.available = false;
+    top.options.push({
+      ...top.options[0]!,
+      id: 'blank',
+      name: '',
+      articleNumber: '',
+      selected: false,
+      available: true,
+    });
+
+    expect(hasNothingToChoose(top)).toBe(true);
   });
 });
 
