@@ -107,6 +107,14 @@ describe('nuxt-security configuration', () => {
       expect(frameAncestors).toContain('https://*.litium.io');
     });
 
+    it('allows framing only the YouTube and Vimeo embed hosts', () => {
+      expect(csp['frame-src']).toEqual([
+        "'self'",
+        'https://www.youtube.com',
+        'https://player.vimeo.com',
+      ]);
+    });
+
     it('restricts base-uri to none', () => {
       expect(csp['base-uri']).toEqual(["'none'"]);
     });
@@ -143,6 +151,18 @@ describe('nuxt-security configuration', () => {
 
     it('sets Referrer-Policy to strict-origin-when-cross-origin', () => {
       expect(headers.referrerPolicy).toBe('strict-origin-when-cross-origin');
+    });
+
+    it('allows fullscreen only for self and the two video embed hosts', () => {
+      // Only fullscreen is overridden; nuxt-security merges its other
+      // Permissions-Policy defaults (camera, microphone, ...) back in.
+      expect(headers.permissionsPolicy).toEqual({
+        fullscreen: [
+          'self',
+          '"https://www.youtube.com"',
+          '"https://player.vimeo.com"',
+        ],
+      });
     });
 
     it('disables Cross-Origin-Embedder-Policy', () => {
