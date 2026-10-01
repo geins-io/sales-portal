@@ -912,6 +912,7 @@
       "no_items": "Diese Liste enthält noch keine Artikel. Fügen Sie Produkte aus dem Katalog hinzu.",
       "not_found": "Diese Liste existiert nicht mehr oder wurde auf diesem Gerät nicht erstellt.",
       "add_all_to_cart": "Alle in den Warenkorb",
+      "add_all_skipped_configurable": "{count} Produkt muss konfiguriert werden und wurde nicht in den Warenkorb gelegt | {count} Produkte müssen konfiguriert werden und wurden nicht in den Warenkorb gelegt",
       "rename_list": "Umbenennen",
       "rename_description": "Wählen Sie einen neuen Namen für diese Liste.",
       "rename_save": "Speichern",
@@ -923,6 +924,7 @@
       "list_internal_note": "Nur für den internen Gebrauch",
       "list_total_label": "Listensumme",
       "list_total_caption": "Summe aller Produkte in der Liste",
+      "list_total_excludes_configurable": "Produkte, die konfiguriert werden, sind nicht enthalten",
       "add_to_cart": "In den Warenkorb",
       "add_to_list": "Zu einer weiteren Liste hinzufügen"
     },

@@ -9,11 +9,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
-import { ListPlus, Search, ShoppingCart, Trash2, X } from 'lucide-vue-next';
+import {
+  ListPlus,
+  Search,
+  ShoppingCart,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from 'lucide-vue-next';
 import type { StockType } from '#shared/types/commerce';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
 import { productPath } from '#shared/utils/route-helpers';
+import { resolveProductPageType } from '~/utils/product-page-type';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'lists' });
 
@@ -40,6 +48,7 @@ interface ListProduct {
     sellingPriceExVatFormatted?: string | null;
   } | null;
   skus?: Array<{ skuId?: number | null } | null> | null;
+  configurable?: boolean;
 }
 
 const { t } = useI18n();
@@ -52,6 +61,16 @@ const { canAccess } = useFeatureAccess();
 const canPurchase = computed(
   () => canAccess('orderPlacement') && !isCatalogMode.value,
 );
+const { showPrice } = usePriceVisibility();
+
+// A configurable product cannot be bought without a configuration, so its row
+// links to the page that makes one, under the same rule as its product card.
+function isConfigurable(product: ListProduct): boolean {
+  return (
+    resolveProductPageType(product, canAccess('configurator')) ===
+    'configurable'
+  );
+}
 
 const favoritesStore = useFavoritesStore();
 const cartStore = useCartStore();
@@ -108,12 +127,16 @@ function rowPriceFormatted(product: ListProduct): string {
 // --- List total (follows the inc/ex VAT toggle) ---
 const listTotal = computed(() =>
   products.value.reduce((sum, p) => {
+    if (isConfigurable(p)) return sum;
     const selling = showIncVat.value
       ? p.unitPrice?.sellingPriceIncVat
       : p.unitPrice?.sellingPriceExVat;
     return sum + (selling ?? 0) * getQty(p.alias);
   }, 0),
 );
+
+const hasConfigurable = computed(() => products.value.some(isConfigurable));
+const hasTotal = computed(() => products.value.some((p) => !isConfigurable(p)));
 
 const listTotalFormatted = computed(() =>
   listTotal.value.toLocaleString(formatLocale.value, {
@@ -137,11 +160,17 @@ const filteredProducts = computed(() => {
 
 // --- Add all to cart ---
 const isAddingAll = ref(false);
+const skippedConfigurable = ref(0);
 async function addAllToCart() {
   if (isAddingAll.value || products.value.length === 0) return;
   isAddingAll.value = true;
+  skippedConfigurable.value = 0;
   try {
     for (const product of products.value) {
+      if (isConfigurable(product)) {
+        skippedConfigurable.value++;
+        continue;
+      }
       const firstSku = product.skus?.find((s) => s?.skuId != null);
       if (firstSku?.skuId) {
         await cartStore.addItem(firstSku.skuId, getQty(product.alias));
@@ -268,6 +297,18 @@ function addToCart(product: ListProduct) {
             </div>
           </div>
 
+          <p
+            v-if="skippedConfigurable > 0"
+            data-testid="add-all-skipped-configurable"
+            class="text-muted-foreground px-6 pb-4 text-right text-sm"
+          >
+            {{
+              t('portal.saved_list_detail.add_all_skipped_configurable', {
+                count: skippedConfigurable,
+              })
+            }}
+          </p>
+
           <!-- List name + list total -->
           <div
             class="border-border flex items-start justify-between gap-6 border-t p-6"
@@ -295,7 +336,7 @@ function addToCart(product: ListProduct) {
               </p>
             </div>
             <div
-              v-if="products.length > 0"
+              v-if="hasTotal"
               class="bg-card border-border w-56 shrink-0 rounded-md border p-4"
               data-testid="list-total-card"
             >
@@ -310,6 +351,15 @@ function addToCart(product: ListProduct) {
               </p>
               <p class="text-muted-foreground mt-1 text-xs">
                 {{ t('portal.saved_list_detail.list_total_caption') }}
+              </p>
+              <p
+                v-if="hasConfigurable"
+                data-testid="list-total-configurable-note"
+                class="text-muted-foreground mt-1 text-xs"
+              >
+                {{
+                  t('portal.saved_list_detail.list_total_excludes_configurable')
+                }}
               </p>
             </div>
           </div>
@@ -410,14 +460,22 @@ function addToCart(product: ListProduct) {
 
               <!-- Right side: action row -->
               <div class="flex shrink-0 items-center gap-4 px-4 py-3">
-                <!-- Price -->
-                <span class="w-28 shrink-0 text-center font-semibold">{{
+                <!-- The catalogue price is not what a configuration costs. -->
+                <span
+                  v-if="isConfigurable(product)"
+                  class="shrink-0 text-sm font-semibold whitespace-nowrap"
+                >
+                  <template v-if="showPrice">
+                    {{ t('configurator.price_on_configuration') }}
+                  </template>
+                </span>
+                <span v-else class="w-28 shrink-0 text-center font-semibold">{{
                   rowPriceFormatted(product)
                 }}</span>
 
                 <!-- Qty stepper -->
                 <QuantityStepper
-                  v-if="product.alias"
+                  v-if="product.alias && !isConfigurable(product)"
                   :model-value="getQty(product.alias)"
                   :min="1"
                   class="shrink-0"
@@ -425,7 +483,20 @@ function addToCart(product: ListProduct) {
                 />
 
                 <Button
-                  v-if="canPurchase && product.alias"
+                  v-if="canPurchase && product.alias && isConfigurable(product)"
+                  as-child
+                  class="h-9 px-4"
+                >
+                  <NuxtLink
+                    :to="localePath(productPath(product.alias))"
+                    data-testid="list-item-configure-link"
+                  >
+                    <SlidersHorizontal class="size-4 shrink-0" />
+                    {{ t('configurator.configure_product') }}
+                  </NuxtLink>
+                </Button>
+                <Button
+                  v-else-if="canPurchase && product.alias"
                   variant="ghost"
                   size="icon"
                   class="cursor-pointer"

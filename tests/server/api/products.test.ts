@@ -51,9 +51,21 @@ vi.mock('../../../server/services/graphql/unwrap', () => ({
 const mockIsConfigurableProduct = vi.fn<(...args: unknown[]) => boolean>(
   () => false,
 );
+// The list form stands in for the seam's contract: `type` goes no further, and
+// `configurable` is spread only for a configurable product.
+const mockWithConfigurableFlags = vi.fn(
+  (_event: unknown, products: Array<Record<string, unknown> | null>) =>
+    products.map((p) => {
+      if (!p) return p;
+      const { type, ...rest } = p;
+      return type === 'configurable' ? { ...rest, configurable: true } : rest;
+    }),
+);
 vi.mock('../../../server/services/configurator', () => ({
   isConfigurableProduct: (...args: unknown[]) =>
     mockIsConfigurableProduct(...args),
+  withConfigurableFlags: (event: unknown, products: never) =>
+    mockWithConfigurableFlags(event, products),
 }));
 
 // Rate limiter — uses useStorage('kv'), must stay mocked
@@ -74,7 +86,10 @@ vi.mock('../../../server/utils/rate-limiter', () => ({
 // ---------------------------------------------------------------------------
 // Stub Nitro / h3 auto-imports
 // ---------------------------------------------------------------------------
-vi.stubGlobal('withErrorHandling', async (fn: () => Promise<unknown>) => fn());
+vi.stubGlobal(
+  'withErrorHandling',
+  vi.fn(async (fn: () => Promise<unknown>) => fn()),
+);
 vi.stubGlobal(
   'createAppError',
   vi.fn((_code: string, msg: string) => {
@@ -591,6 +606,41 @@ describe('Product API Routes', () => {
       });
     });
 
+    it('flags a configurable favourite and leaves an ordinary one as it was', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'bookcase,wood-screw' });
+      mockGraphqlQuery
+        .mockResolvedValueOnce({
+          product: { productId: 1359, alias: 'bookcase', type: 'configurable' },
+        })
+        .mockResolvedValueOnce({
+          product: { productId: 42, alias: 'wood-screw', type: 'product' },
+        });
+
+      const result = await handler(fakeEvent);
+
+      expect(mockWithConfigurableFlags).toHaveBeenCalledWith(fakeEvent, [
+        { productId: 1359, alias: 'bookcase', type: 'configurable' },
+        { productId: 42, alias: 'wood-screw', type: 'product' },
+      ]);
+      expect(result).toEqual({
+        products: [
+          { productId: 1359, alias: 'bookcase', configurable: true },
+          { productId: 42, alias: 'wood-screw' },
+        ],
+      });
+    });
+
+    it('names its operation for the error handler', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'a' });
+      mockGraphqlQuery.mockResolvedValue({ product: { alias: 'a' } });
+
+      await handler(fakeEvent);
+
+      expect(withErrorHandling).toHaveBeenCalledWith(expect.any(Function), {
+        operation: 'products.by-aliases',
+      });
+    });
+
     it("keeps each product's type out of the response", async () => {
       vi.mocked(getQuery).mockReturnValue({ aliases: 'a,b' });
       mockGraphqlQuery
@@ -600,7 +650,18 @@ describe('Product API Routes', () => {
         });
 
       // The query is shared with the product page, which needs the type for
-      // the seam; a favourites list does not, so its items stay as they were.
+      // the seam; a favourites item carries the portal-side flag instead.
+      expect(await handler(fakeEvent)).toEqual({
+        products: [{ alias: 'a' }, { alias: 'b', configurable: true }],
+      });
+    });
+
+    it('skips empty entries between commas', async () => {
+      vi.mocked(getQuery).mockReturnValue({ aliases: 'a,,b' });
+      mockGraphqlQuery
+        .mockResolvedValueOnce({ product: { alias: 'a' } })
+        .mockResolvedValueOnce({ product: { alias: 'b' } });
+
       expect(await handler(fakeEvent)).toEqual({
         products: [{ alias: 'a' }, { alias: 'b' }],
       });

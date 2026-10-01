@@ -1,5 +1,8 @@
 import { z } from 'zod';
+import { withConfigurableFlags } from '../../services/configurator';
 import { getProductsByAliases } from '../../services/products';
+
+type FavoriteProducts = { productId?: number; type?: string | null }[];
 
 // Aliases come from client-stored favorites and are forwarded to GraphQL as
 // variables (not concatenated into the query). Matches the single-product
@@ -38,18 +41,11 @@ export default defineEventHandler(async (event) => {
 
   return withErrorHandling(
     async () => {
-      const products = await getProductsByAliases(
+      const products = (await getProductsByAliases(
         { aliases, userToken: auth?.authToken },
         event,
-      );
-      // The query is shared with the product page, which reads `type` for the
-      // configurator seam; a list item keeps the shape it had without it.
-      return {
-        products: products.map((product) => {
-          const { type: _type, ...rest } = product as Record<string, unknown>;
-          return rest;
-        }),
-      };
+      )) as FavoriteProducts;
+      return { products: withConfigurableFlags(event, products) };
     },
     { operation: 'products.by-aliases' },
   );

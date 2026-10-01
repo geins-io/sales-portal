@@ -1,30 +1,15 @@
 <script setup lang="ts">
 import { Star, LayoutGrid, List } from 'lucide-vue-next';
-import ProductCard, {
-  type ProductCardItem,
-} from '~/components/shared/ProductCard.vue';
+import ProductCard from '~/components/shared/ProductCard.vue';
 import { Input } from '~/components/ui/input';
 import { useFavoritesStore } from '~/stores/favorites';
 import { useCartStore } from '~/stores/cart';
+import {
+  toFavoriteCardItem,
+  type FavoriteProduct,
+} from '~/utils/favorite-card-item';
 
 definePageMeta({ middleware: ['auth', 'feature'], feature: 'wishlist' });
-
-// Minimal product shape returned by /api/products/by-aliases. We only need
-// the fields consumed by the card + add-to-cart handler.
-interface FavoriteProduct {
-  alias?: string | null;
-  name?: string | null;
-  articleNumber?: string | null;
-  productImages?: Array<{ fileName?: string | null } | null> | null;
-  unitPrice?: {
-    isDiscounted?: boolean | null;
-    regularPriceIncVat?: number | null;
-    regularPriceIncVatFormatted?: string | null;
-    sellingPriceIncVat?: number | null;
-    sellingPriceIncVatFormatted?: string | null;
-  } | null;
-  skus?: Array<{ skuId?: number | null } | null> | null;
-}
 
 const { t } = useI18n();
 const { localePath } = useLocaleMarket();
@@ -81,28 +66,6 @@ if (import.meta.client) {
       .filter((a): a is string => typeof a === 'string' && a.length > 0);
     favoritesStore.pruneStaleAliases(returnedAliases);
   });
-}
-
-function mapToCardItem(product: FavoriteProduct): ProductCardItem {
-  const unitPrice = product.unitPrice;
-  const regular = unitPrice?.regularPriceIncVat ?? null;
-  const selling = unitPrice?.sellingPriceIncVat ?? null;
-  const hasDiscount =
-    unitPrice?.isDiscounted === true ||
-    (regular != null && selling != null && regular > selling);
-
-  return {
-    name: product.name ?? '',
-    imageFileName: product.productImages?.[0]?.fileName ?? null,
-    price: hasDiscount
-      ? (unitPrice?.regularPriceIncVatFormatted ?? null)
-      : (unitPrice?.sellingPriceIncVatFormatted ?? null),
-    salePrice: hasDiscount
-      ? (unitPrice?.sellingPriceIncVatFormatted ?? null)
-      : null,
-    articleNumber: product.articleNumber ?? null,
-    alias: product.alias ?? null,
-  };
 }
 
 async function handleAddToCart(
@@ -216,7 +179,7 @@ async function handleAddToCart(
             data-testid="favorite-card"
           >
             <ProductCard
-              :product="mapToCardItem(product)"
+              :product="toFavoriteCardItem(product)"
               :variant="viewMode"
               @add-to-cart="handleAddToCart(product, $event)"
             />

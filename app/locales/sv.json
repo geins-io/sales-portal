@@ -912,6 +912,7 @@
       "no_items": "Den här listan har inga produkter ännu. Lägg till produkter från katalogen för att komma igång.",
       "not_found": "Listan finns inte längre eller har inte skapats på den här enheten.",
       "add_all_to_cart": "Lägg alla i varukorgen",
+      "add_all_skipped_configurable": "{count} produkt kräver konfiguration och lades inte i varukorgen | {count} produkter kräver konfiguration och lades inte i varukorgen",
       "rename_list": "Byt namn",
       "rename_description": "Välj ett nytt namn för listan.",
       "rename_save": "Spara",
@@ -923,6 +924,7 @@
       "list_internal_note": "Endast för internt bruk",
       "list_total_label": "Listsumma",
       "list_total_caption": "Summa för alla produkter i listan",
+      "list_total_excludes_configurable": "Produkter som konfigureras ingår inte",
       "add_to_cart": "Lägg i varukorg",
       "add_to_list": "Lägg till i ytterligare en lista"
     },
