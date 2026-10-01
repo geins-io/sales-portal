@@ -220,7 +220,6 @@ function onSheetPick(value: unknown) {
         v-if="chooser && single"
         :chosen="chosen[0]"
         :none="none"
-        :group-name="group.name"
         :count="shown.options.length"
         :image-column="imageColumn"
         :disabled="disabled"
@@ -255,8 +254,8 @@ function onSheetPick(value: unknown) {
               nothing
                 ? t('configurator.nothing_to_choose')
                 : chosen.length
-                  ? t('configurator.add_more', { name: group.name })
-                  : t('configurator.choose_in_group', { name: group.name })
+                  ? t('configurator.add_more')
+                  : t('configurator.choose')
             }}
           </span>
           <ChevronRight class="size-5 shrink-0" />

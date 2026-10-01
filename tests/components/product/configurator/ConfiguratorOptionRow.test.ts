@@ -232,6 +232,75 @@ describe('ConfiguratorOptionRow', () => {
     ).toBe(false);
   });
 
+  describe('a quantity the buyer cannot change', () => {
+    const STEPPER = '[data-testid="configurator-option-quantity"]';
+    const FIXED = '[data-testid="configurator-option-fixed-quantity"]';
+
+    function chosen(parts: Partial<ConfigurationOption>): ConfigurationOption {
+      const option = findOption(makeInitialConfiguration(), 'acc-power');
+      return { ...option, selected: true, ...parts };
+    }
+
+    it('shows no stepper when fixed at one, and no quantity either', () => {
+      const wrapper = mountRow(
+        chosen({ minQuantity: 1, maxQuantity: 1, quantity: 1 }),
+        { quantityEditable: true },
+      );
+
+      expect(wrapper.find(STEPPER).exists()).toBe(false);
+      expect(wrapper.find(FIXED).exists()).toBe(false);
+    });
+
+    it('shows a quantity fixed above one as text beside the name', () => {
+      const wrapper = mountRow(
+        chosen({ minQuantity: 2, maxQuantity: 2, quantity: 2 }),
+        { quantityEditable: true },
+      );
+
+      expect(wrapper.find(STEPPER).exists()).toBe(false);
+      expect(wrapper.find(FIXED).text()).toBe(
+        'configurator.panel.quantity_suffix',
+      );
+      expect(wrapper.find(FIXED).element.parentElement?.textContent).toContain(
+        'Power strip',
+      );
+    });
+
+    it('keeps the stepper across an open range', () => {
+      const wrapper = mountRow(
+        chosen({ minQuantity: 1, maxQuantity: 5, quantity: 2 }),
+        { quantityEditable: true },
+      );
+
+      expect(wrapper.find(STEPPER).exists()).toBe(true);
+      expect(wrapper.find(FIXED).exists()).toBe(false);
+    });
+
+    it('keeps the stepper when the maximum is missing', () => {
+      const wrapper = mountRow(
+        chosen({ minQuantity: 1, maxQuantity: undefined, quantity: 1 }),
+        { quantityEditable: true },
+      );
+
+      expect(wrapper.find(STEPPER).exists()).toBe(true);
+    });
+
+    it('shows no quantity on a row that is not chosen', () => {
+      const wrapper = mountRow(
+        chosen({
+          selected: false,
+          minQuantity: 2,
+          maxQuantity: 2,
+          quantity: 2,
+        }),
+        { quantityEditable: true },
+      );
+
+      expect(wrapper.find(STEPPER).exists()).toBe(false);
+      expect(wrapper.find(FIXED).exists()).toBe(false);
+    });
+  });
+
   it('emits the new quantity, keeping the row selected', async () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'acc-power');

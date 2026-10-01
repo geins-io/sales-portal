@@ -477,8 +477,10 @@ describe('ConfiguratorOptionGroup', () => {
 
     const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
 
+    // The heading above already names the group, so the prompt does not.
     const chooser = wrapper.find(CHOOSER);
-    expect(chooser.text()).toContain('configurator.choose_in_group');
+    expect(chooser.text()).toMatch(/configurator\.choose(?!_)/);
+    expect(chooser.text()).not.toContain('configurator.choose_in_group');
     expect(chooser.text()).toContain('configurator.option_count');
     expect(chooser.attributes('data-option-id')).toBeUndefined();
     expect(chooser.attributes('data-selected')).toBe('false');
@@ -594,7 +596,20 @@ describe('ConfiguratorOptionGroup', () => {
 
     const wrapper = mountGroup(findOptionGroup(workbench, 'accessories'));
 
-    expect(wrapper.find(ADD).text()).toBe('configurator.choose_in_group');
+    expect(wrapper.find(ADD).text()).toBe('configurator.choose');
+  });
+
+  it('names the group in the panel title, where its heading is out of sight', async () => {
+    const workbench = makeInitialConfiguration();
+
+    for (const id of ['color', 'accessories']) {
+      const wrapper = mountGroup(findOptionGroup(workbench, id));
+      await wrapper.find(`${CHOOSER}, ${ADD}`).trigger('click');
+
+      expect(wrapper.find('[data-testid="sheet-title"]').text()).toBe(
+        'configurator.choose_in_group',
+      );
+    }
   });
 
   it('shows the chosen multi rows, ticked, and offers more', () => {
@@ -1177,7 +1192,46 @@ describe('ConfiguratorOptionGroup', () => {
       expect(chooser.text()).not.toContain('configurator.option_count');
       expect(chooser.attributes('data-none')).toBe('true');
       expect(chooser.attributes('data-selected')).toBe('false');
+    });
+
+    // Green means a real choice; "nothing chosen" is none.
+    it('marks "nothing chosen" in the chooser without the selected colour', () => {
+      const { top } = optionalTop();
+
+      const chooser = mountGroup(top).find(CHOOSER);
+
+      expect(chooser.classes()).not.toContain('border-selected/60');
+      expect(chooser.classes()).not.toContain('bg-selected/5');
+    });
+
+    it('keeps the selected colour on a real chosen option in the same group', () => {
+      const { top } = optionalTop(
+        findOptionGroup(makeInitialConfiguration(), 'top').options[0]!.id,
+      );
+
+      const chooser = mountGroup(top).find(CHOOSER);
+
+      expect(chooser.classes()).toContain('border-selected/60');
       expect(chooser.classes()).toContain('bg-selected/5');
+    });
+
+    it('gives the "nothing chosen" row in the sheet no selected colour, checked or not', async () => {
+      for (const chosenId of [
+        undefined,
+        findOptionGroup(makeInitialConfiguration(), 'top').options[0]!.id,
+      ]) {
+        const { top } = optionalTop(chosenId);
+        const wrapper = mountGroup(top);
+        await wrapper.find(CHOOSER).trigger('click');
+
+        const row = wrapper.find(NONE);
+        expect(row.attributes('data-selected')).toBe(String(!chosenId));
+        expect(row.classes()).not.toContain('border-selected/60');
+        expect(row.classes()).not.toContain('bg-selected/5');
+        const radio = row.find('[role="radio"]');
+        expect(radio.attributes('aria-checked')).toBe(String(!chosenId));
+        expect(radio.classes().join(' ')).not.toContain('selected');
+      }
     });
 
     it('lists "nothing chosen" first in the sheet, and checked', async () => {
@@ -1335,7 +1389,7 @@ describe('ConfiguratorOptionGroup', () => {
 
     const wrapper = mountGroup(top);
     const chooser = wrapper.find(CHOOSER);
-    expect(chooser.text()).toContain('configurator.choose_in_group');
+    expect(chooser.text()).toMatch(/configurator\.choose(?!_)/);
     expect(chooser.attributes('data-none')).toBe('false');
     await chooser.trigger('click');
 

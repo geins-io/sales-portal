@@ -24,6 +24,7 @@ import {
   optionBlockReason,
   optionImage,
   optionPricePrefix,
+  quantityIsFixed,
   refusesOptionIn,
   refusesVariable,
   shownOptions,
@@ -716,6 +717,37 @@ describe('hasNothingToChoose', () => {
     });
 
     expect(hasNothingToChoose(top)).toBe(true);
+  });
+});
+
+describe('quantityIsFixed', () => {
+  it('is open when neither bound is set', () => {
+    expect(quantityIsFixed({})).toBe(false);
+  });
+
+  it('is open across a range', () => {
+    expect(quantityIsFixed({ minQuantity: 1, maxQuantity: 5 })).toBe(false);
+  });
+
+  it('is fixed at one when both bounds are one', () => {
+    expect(quantityIsFixed({ minQuantity: 1, maxQuantity: 1 })).toBe(true);
+  });
+
+  it('is fixed above one when both bounds meet there', () => {
+    expect(quantityIsFixed({ minQuantity: 2, maxQuantity: 2 })).toBe(true);
+  });
+
+  it('reads a missing minimum as one, as the stepper does', () => {
+    expect(quantityIsFixed({ maxQuantity: 1 })).toBe(true);
+    expect(quantityIsFixed({ maxQuantity: 2 })).toBe(false);
+  });
+
+  it('reads a missing maximum as unbounded', () => {
+    expect(quantityIsFixed({ minQuantity: 3 })).toBe(false);
+  });
+
+  it('calls a maximum below the minimum fixed: nothing can be stepped to', () => {
+    expect(quantityIsFixed({ minQuantity: 3, maxQuantity: 2 })).toBe(true);
   });
 });
 
