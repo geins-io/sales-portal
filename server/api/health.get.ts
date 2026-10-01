@@ -23,9 +23,13 @@
  * - Application Insights availability tests (public or detailed)
  */
 
+import v8 from 'node:v8';
 import type { H3Event } from 'h3';
 import { createTimer, logger } from '../utils/logger';
-import { resolveRssThresholds } from '../utils/health-memory';
+import {
+  countActiveResources,
+  resolveRssThresholds,
+} from '../utils/health-memory';
 import { isDevMode } from '../utils/dev-mode';
 
 /**
@@ -162,6 +166,13 @@ function checkMemory(event: H3Event): ComponentHealth {
     const heapUsedPercent = Math.round(
       (memUsage.heapUsed / memUsage.heapTotal) * 100,
     );
+    // ≈ 540 under the deployed --max-old-space-size=512, ≈ 2 000 without it.
+    const heapLimitMB = Math.round(
+      v8.getHeapStatistics().heap_size_limit / 1024 / 1024,
+    );
+    const activeHandles = countActiveResources(
+      process.getActiveResourcesInfo(),
+    );
 
     // Use RSS for health determination - it reflects actual memory consumption
     let status: ComponentHealth['status'] = 'healthy';
@@ -186,6 +197,8 @@ function checkMemory(event: H3Event): ComponentHealth {
         rssMB,
         heapUsedPercent,
         externalMB: Math.round(memUsage.external / 1024 / 1024),
+        heapLimitMB,
+        activeHandles,
       },
     };
   } catch {

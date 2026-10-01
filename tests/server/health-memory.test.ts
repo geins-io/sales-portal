@@ -11,9 +11,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mockNuxtImport } from '@nuxt/test-utils/runtime';
 import type { H3Event } from 'h3';
+import v8 from 'node:v8';
 import {
   DEFAULT_RSS_DEGRADED_MB,
   DEFAULT_RSS_UNHEALTHY_MB,
+  countActiveResources,
   resolveRssThresholds,
 } from '../../server/utils/health-memory';
 
@@ -50,6 +52,7 @@ describe('resolveRssThresholds', () => {
     ['a negative number', -1],
     ['null', null],
     ['undefined', undefined],
+    ['a boolean', true],
   ])('falls back to the production threshold for %s', (_case, value) => {
     // Nothing may disable the check: Azure's Health Check restarts an
     // instance that answers 5xx, so `unhealthy` is how production recovers
@@ -57,6 +60,24 @@ describe('resolveRssThresholds', () => {
     expect(
       resolveRssThresholds({ rssDegradedMb: value, rssUnhealthyMb: value }),
     ).toEqual({ degradedMb: 400, unhealthyMb: 900 });
+  });
+});
+
+describe('countActiveResources', () => {
+  it('counts each resource type', () => {
+    expect(
+      countActiveResources([
+        'TCPSocketWrap',
+        'Timeout',
+        'TCPSocketWrap',
+        'FSReqCallback',
+        'TCPSocketWrap',
+      ]),
+    ).toEqual({ TCPSocketWrap: 3, Timeout: 1, FSReqCallback: 1 });
+  });
+
+  it('returns no counts for no resources', () => {
+    expect(countActiveResources([])).toEqual({});
   });
 });
 
@@ -97,7 +118,7 @@ describe('GET /api/health memory grading', () => {
   interface MemoryCheck {
     status: string;
     message?: string;
-    details?: Record<string, number>;
+    details?: Record<string, unknown>;
   }
   interface HealthResponse {
     status: string;
@@ -209,6 +230,47 @@ describe('GET /api/health memory grading', () => {
 
     setHealth({ rssDegradedMb: 2000, rssUnhealthyMb: 4000 });
     expect((await healthFor(1000)).checks.memory.status).toBe('healthy');
+  });
+
+  describe('process diagnostics', () => {
+    it('reports the heap limit in MB', async () => {
+      vi.spyOn(v8, 'getHeapStatistics').mockReturnValue({
+        ...v8.getHeapStatistics(),
+        heap_size_limit: 540.4 * 1024 * 1024,
+      });
+
+      const response = await healthFor(300);
+
+      expect(response.checks.memory.details?.heapLimitMB).toBe(540);
+    });
+
+    it('reports the active resources as a count per type', async () => {
+      vi.spyOn(process, 'getActiveResourcesInfo').mockReturnValue([
+        'TCPSocketWrap',
+        'Timeout',
+        'TCPSocketWrap',
+      ]);
+
+      const response = await healthFor(300);
+
+      expect(response.checks.memory.details?.activeHandles).toEqual({
+        TCPSocketWrap: 2,
+        Timeout: 1,
+      });
+    });
+
+    it('degrades the memory check when the resource list cannot be read', async () => {
+      vi.spyOn(process, 'getActiveResourcesInfo').mockImplementation(() => {
+        throw new Error('not available');
+      });
+
+      const response = await healthFor(300);
+
+      expect(response.checks.memory).toEqual({
+        status: 'degraded',
+        message: 'Unable to read memory metrics',
+      });
+    });
   });
 
   describe('in the dev server', () => {

@@ -62,3 +62,17 @@ export function resolveRssThresholds(
     unhealthyMb: thresholdMb(health?.rssUnhealthyMb, DEFAULT_RSS_UNHEALTHY_MB),
   };
 }
+
+/**
+ * `process.getActiveResourcesInfo()` as a count per type. A `TCPSocketWrap`
+ * count that only climbs is a connection, in or out, that never closes.
+ */
+export function countActiveResources(
+  resources: readonly string[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const type of resources) {
+    counts[type] = (counts[type] ?? 0) + 1;
+  }
+  return counts;
+}
