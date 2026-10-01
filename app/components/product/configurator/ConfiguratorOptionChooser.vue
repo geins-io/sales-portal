@@ -23,7 +23,6 @@ import {
 const {
   chosen,
   none = false,
-  groupName,
   count,
   imageColumn,
   disabled = false,
@@ -33,7 +32,6 @@ const {
   chosen: ConfigurationOption | undefined;
   /** The group offers "nothing chosen", which stands in when nothing is. */
   none?: boolean;
-  groupName: string;
   /** Every row of the group, for the line under the prompt. */
   count: number;
   /** The group's: the chosen option's image or a placeholder, or no box. */
@@ -96,7 +94,7 @@ const reason = computed(() => {
               ? t('configurator.nothing_to_choose')
               : showsNone
                 ? t('configurator.none_option')
-                : t('configurator.choose_in_group', { name: groupName })
+                : t('configurator.choose')
         }}
         <Lock
           v-if="readOnly"
