@@ -16,29 +16,28 @@ import { ChevronDown } from 'lucide-vue-next';
 const {
   name,
   title,
-  hint,
+  required = false,
   summary,
   level = 4,
 } = defineProps<{
   /** Prefix for the block's test ids, so each caller stays identifiable. */
   name: string;
   title: string;
-  /** What the buyer has to do with the block, on the right of its name. */
-  hint?: string;
+  /** A red asterisk after the name, read aloud as required. */
+  required?: boolean;
   /** What the block holds, shown in parentheses while it is folded. */
   summary?: string;
   /** Heading level, one below whatever the block sits in. */
   level?: number;
 }>();
 
+const { t } = useI18n();
 const heading = computed(() => `h${Math.min(level, 6)}`);
 const open = ref(true);
 </script>
 
 <template>
   <div class="space-y-2">
-    <!-- A grey bar rather than a bold line with a red asterisk: the name on the
-         left, what the buyer has to do with it on the right. -->
     <component
       :is="heading"
       class="bg-muted relative flex items-center gap-3 rounded-md px-3 py-2.5"
@@ -52,6 +51,14 @@ const open = ref(true);
           @click="open = !open"
         >
           {{ title }}
+          <span
+            v-if="required"
+            class="text-destructive"
+            :data-testid="`${name}-required`"
+          >
+            <span aria-hidden="true">*</span>
+            <span class="sr-only">{{ t('configurator.required') }}</span>
+          </span>
         </button>
         <span v-if="$slots.info" class="relative z-10 inline-flex">
           <slot name="info" />
@@ -63,13 +70,6 @@ const open = ref(true);
         >
           ({{ summary }})
         </span>
-      </span>
-      <span
-        v-if="hint"
-        :data-testid="`${name}-hint`"
-        class="text-muted-foreground shrink-0 text-xs"
-      >
-        {{ hint }}
       </span>
       <ChevronDown
         class="text-muted-foreground size-5 shrink-0 transition-transform"

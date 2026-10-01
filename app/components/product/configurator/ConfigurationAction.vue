@@ -12,9 +12,11 @@ import { useAuthStore } from '~/stores/auth';
  * configured cart line is being edited — while everything else in the card
  * stays as it is.
  */
-const { canCommit, busy } = defineProps<{
+const { canCommit, busy, incomplete } = defineProps<{
   canCommit: boolean;
   busy: boolean;
+  /** The provider says required choices are still missing. */
+  incomplete: boolean;
 }>();
 
 const emit = defineEmits<{ commit: [] }>();
@@ -38,8 +40,8 @@ const auth = useAuthStore();
       {{ t('product.login_for_prices') }}
     </Button>
 
-    <!-- Never dead without a reason: what is missing is listed in the panel
-         above. -->
+    <!-- Never dead without a reason: the label says required choices remain,
+         and the page lists which. -->
     <Button
       v-else
       class="w-full"
@@ -50,7 +52,9 @@ const auth = useAuthStore();
       @click="emit('commit')"
     >
       <Loader2 v-if="busy" class="size-4 animate-spin" />
-      {{ t('configurator.commit') }}
+      {{
+        t(incomplete ? 'configurator.commit_incomplete' : 'configurator.commit')
+      }}
     </Button>
   </div>
 </template>
