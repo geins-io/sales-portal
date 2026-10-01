@@ -912,6 +912,7 @@
       "no_items": "This list has no items yet. Add products from the catalogue to start.",
       "not_found": "This list no longer exists or hasn't been created on this device.",
       "add_all_to_cart": "Add all to cart",
+      "add_all_skipped_configurable": "{count} product needs configuring and was not added to the cart | {count} products need configuring and were not added to the cart",
       "rename_list": "Rename",
       "rename_description": "Pick a new name for this list.",
       "rename_save": "Save",
@@ -923,6 +924,7 @@
       "list_internal_note": "For internal use only",
       "list_total_label": "List Total",
       "list_total_caption": "Sum for all products in list",
+      "list_total_excludes_configurable": "Products that are configured are not included",
       "add_to_cart": "Add to cart",
       "add_to_list": "Add to additional list"
     },

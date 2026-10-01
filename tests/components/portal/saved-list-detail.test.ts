@@ -5,6 +5,16 @@ import { mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { mockShowIncVat, mockIsCatalogMode } from '../../setup-components';
 
+// The shared passthrough drops a count the key does not spell out; this one
+// keeps it visible so the skipped line's number can be read.
+vi.mock('vue-i18n', () => ({
+  useI18n: () => ({
+    t: (key: string, params?: Record<string, unknown>) =>
+      params ? `${key} ${JSON.stringify(params)}` : key,
+    locale: ref('en'),
+  }),
+}));
+
 // The page's own access gate. The shared mock is permissive, so the denied
 // branch needs a mock this file controls.
 const mockCanAccess = vi.fn<(featureName: string) => boolean>(() => true);
@@ -306,6 +316,24 @@ describe('Saved list detail quantities', () => {
   });
 });
 
+describe('Saved list detail total without a configurable product', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockShowIncVat.value = true;
+    mockCanAccess.mockReturnValue(true);
+    mockQuantities.value = {};
+  });
+
+  it('shows the total with no note about configured products', () => {
+    const wrapper = mountPage();
+
+    expect(wrapper.find('[data-testid="list-total-card"]').exists()).toBe(true);
+    expect(
+      wrapper.find('[data-testid="list-total-configurable-note"]').exists(),
+    ).toBe(false);
+  });
+});
+
 describe('Saved list detail row action titles', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
@@ -321,5 +349,157 @@ describe('Saved list detail row action titles', () => {
 
     expect(button.attributes('title')).toBe(key);
     expect(button.attributes('aria-label')).toBe(key);
+  });
+});
+
+describe('Saved list detail with a configurable product', () => {
+  // A configurable product cannot be bought without a configuration, so its
+  // row links to the page that makes one, the way its product card does.
+  const BOOKCASE = {
+    alias: 'bookcase',
+    name: 'Bookcase',
+    articleNumber: 'BC-1',
+    skus: [{ skuId: 33 }],
+    configurable: true,
+    unitPrice: {
+      sellingPriceIncVat: 9990,
+      sellingPriceIncVatFormatted: '9 990 kr',
+      sellingPriceExVat: 7992,
+      sellingPriceExVatFormatted: '7 992 kr',
+    },
+  };
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    mockShowIncVat.value = true;
+    mockCanAccess.mockReset();
+    mockCanAccess.mockReturnValue(true);
+    mockQuantities.value = {};
+    mockCartStore.addItem.mockClear();
+    mockFetchProducts.push(BOOKCASE);
+  });
+
+  afterEach(() => {
+    mockFetchProducts.splice(mockFetchProducts.indexOf(BOOKCASE), 1);
+  });
+
+  function row(wrapper: ReturnType<typeof mountPage>, index: number) {
+    return wrapper.findAll('[data-testid="list-item-row"]')[index]!;
+  }
+
+  it('links a configurable row to its product page instead of adding it to the cart', () => {
+    const bookcase = row(mountPage(), 2);
+
+    const link = bookcase.find('[data-testid="list-item-configure-link"]');
+    expect(link.attributes('href')).toBe('/se/en/p/bookcase');
+    expect(link.attributes('href')).toBe(
+      bookcase
+        .find('[data-testid="list-item-product-link"]')
+        .attributes('href'),
+    );
+    expect(link.text()).toBe('configurator.configure_product');
+    expect(
+      bookcase.find('[data-testid="list-item-add-to-cart"]').exists(),
+    ).toBe(false);
+    expect(bookcase.find('[data-testid="qty-stepper"]').exists()).toBe(false);
+  });
+
+  it('shows the configuration note instead of the catalogue price on a configurable row', () => {
+    const bookcase = row(mountPage(), 2);
+
+    expect(bookcase.text()).toContain('configurator.price_on_configuration');
+    expect(bookcase.text()).not.toContain('9 990 kr');
+  });
+
+  it('keeps an ordinary row as it was', () => {
+    const alpha = row(mountPage(), 0);
+
+    expect(alpha.find('[data-testid="list-item-add-to-cart"]').exists()).toBe(
+      true,
+    );
+    expect(alpha.find('[data-testid="qty-stepper"]').exists()).toBe(true);
+    expect(
+      alpha.find('[data-testid="list-item-configure-link"]').exists(),
+    ).toBe(false);
+    expect(alpha.text()).toContain('1 500 kr');
+  });
+
+  it('leaves a configurable row out of the list total', () => {
+    const wrapper = mountPage();
+
+    expect(wrapper.find('[data-testid="list-total-amount"]').text()).toBe(
+      INC_TOTAL,
+    );
+  });
+
+  it('says under the total that configured products are not in it', () => {
+    const wrapper = mountPage();
+
+    expect(wrapper.find('[data-testid="list-total-amount"]').text()).toBe(
+      INC_TOTAL,
+    );
+    expect(
+      wrapper.find('[data-testid="list-total-configurable-note"]').text(),
+    ).toBe('portal.saved_list_detail.list_total_excludes_configurable');
+  });
+
+  it('renders no total card when every row is configurable', () => {
+    // Holds BOOKCASE too, which the afterEach takes out again.
+    const rows = mockFetchProducts.splice(0, mockFetchProducts.length);
+    mockFetchProducts.push(BOOKCASE, { ...BOOKCASE, alias: 'bookcase-1' });
+    try {
+      const wrapper = mountPage();
+
+      expect(wrapper.findAll('[data-testid="list-item-row"]')).toHaveLength(2);
+      expect(wrapper.find('[data-testid="list-total-card"]').exists()).toBe(
+        false,
+      );
+    } finally {
+      mockFetchProducts.splice(0, mockFetchProducts.length, ...rows);
+    }
+  });
+
+  it('adds only the ordinary rows on add all and says how many it skipped', async () => {
+    const wrapper = mountPage();
+    expect(
+      wrapper.find('[data-testid="add-all-skipped-configurable"]').exists(),
+    ).toBe(false);
+
+    await wrapper.find('[data-testid="add-all-to-cart-btn"]').trigger('click');
+    await nextTick();
+
+    expect(mockCartStore.addItem.mock.calls).toEqual([
+      [11, 1],
+      [22, 1],
+    ]);
+    expect(
+      wrapper.find('[data-testid="add-all-skipped-configurable"]').text(),
+    ).toBe('portal.saved_list_detail.add_all_skipped_configurable {"count":1}');
+  });
+
+  it('treats a configurable product as ordinary for a buyer the configurator refuses', async () => {
+    mockCanAccess.mockImplementation((feature) => feature !== 'configurator');
+    const wrapper = mountPage();
+    const bookcase = row(wrapper, 2);
+
+    expect(
+      bookcase.find('[data-testid="list-item-add-to-cart"]').exists(),
+    ).toBe(true);
+    expect(
+      bookcase.find('[data-testid="list-item-configure-link"]').exists(),
+    ).toBe(false);
+    expect(bookcase.text()).toContain('9 990 kr');
+
+    await wrapper.find('[data-testid="add-all-to-cart-btn"]').trigger('click');
+    await nextTick();
+
+    expect(mockCartStore.addItem.mock.calls).toEqual([
+      [11, 1],
+      [22, 1],
+      [33, 1],
+    ]);
+    expect(
+      wrapper.find('[data-testid="add-all-skipped-configurable"]').exists(),
+    ).toBe(false);
   });
 });

@@ -10,6 +10,7 @@ import {
   fetchQuotes,
   fetchProductListSample,
   fetchProductsByAliases,
+  isConfigurable,
   parsePrice,
   readPrice,
   STORAGE_STATE,
@@ -1072,14 +1073,20 @@ test.describe('Portal Saved List Total', () => {
     const unrounded = (await fetchProductListSample(page))
       .filter((row) => isUnrounded(row.exVat))
       .sort((a, b) => b.exVat - a.exVat);
+    // The list total leaves a configurable product out, so neither of the
+    // two whose sum is read may be one.
+    const pair: ProductListRow[] = [];
+    for (const row of unrounded) {
+      if (pair.length === 2) break;
+      if (!(await isConfigurable(page, row.alias))) pair.push(row);
+    }
     expect(
-      unrounded.length,
-      'fewer than two catalogue products are priced in more than two decimals, ' +
-        'so a list of them cannot show the difference between rounding each ' +
-        'price and rounding the sum',
-    ).toBeGreaterThanOrEqual(2);
+      pair.length,
+      'fewer than two non-configurable catalogue products are priced in more ' +
+        'than two decimals, so a list of them cannot show the difference ' +
+        'between rounding each price and rounding the sum',
+    ).toBe(2);
 
-    const pair = unrounded.slice(0, 2);
     const exact = pair.reduce((sum, row) => sum + row.exVat, 0);
     expect(
       Math.abs(
