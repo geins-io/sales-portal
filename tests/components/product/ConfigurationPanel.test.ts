@@ -75,12 +75,39 @@ describe('ConfigurationPanel', () => {
     useAuthStore().user = null;
   });
 
-  it('renders nothing before a session exists', () => {
-    const wrapper = mountPanel({ configuration: null, status: 'idle' });
-    expect(
-      wrapper.find('[data-testid="configurator-panel-price"]').exists(),
-    ).toBe(false);
-    expect(wrapper.text()).toBe('');
+  describe('before a document arrives', () => {
+    const empty = (wrapper: ReturnType<typeof mountPanel>) =>
+      wrapper.findAll('[data-testid="configurator-card-empty"]');
+
+    it('renders the header over one empty body, with no text and nothing in it', () => {
+      const wrapper = mountPanel({ configuration: null, status: 'idle' });
+
+      expect(
+        wrapper.find('[data-testid="configurator-panel-header"]').text(),
+      ).toBe('configurator.panel.title');
+      // One block, so the card's dividers draw nothing inside it.
+      expect(empty(wrapper)).toHaveLength(1);
+      expect(empty(wrapper)[0]!.element.children).toHaveLength(0);
+      expect(wrapper.text()).toBe('configurator.panel.title');
+    });
+
+    it("holds the loaded sections' height, less the price where none shows", () => {
+      const shown = mountPanel({ configuration: null, status: 'idle' });
+      setFeatures({ priceVisibility: { enabled: false } });
+      const hidden = mountPanel({ configuration: null, status: 'idle' });
+
+      expect(empty(shown)[0]!.classes()).toContain('min-h-[480px]');
+      expect(empty(hidden)[0]!.classes()).toContain('min-h-[390px]');
+    });
+
+    it('renders no empty body once the document is there', () => {
+      expect(empty(mountPanel())).toHaveLength(0);
+    });
+
+    it('renders no empty body for an expired session', () => {
+      const wrapper = mountPanel({ configuration: null, status: 'expired' });
+      expect(empty(wrapper)).toHaveLength(0);
+    });
   });
 
   describe('header', () => {
@@ -380,11 +407,70 @@ describe('ConfigurationPanel', () => {
       const validity = wrapper.find(
         '[data-testid="configurator-panel-validity"]',
       );
-      expect(validity.text()).toContain(
-        'configurator.panel.invalid Table top, Colour',
-      );
+      expect(validity.text()).toContain('configurator.panel.invalid');
       expect(validity.text()).not.toContain('Select a table top.');
-      expect(validity.findAll('li')).toHaveLength(0);
+      expect(
+        validity.find('[data-testid="configurator-panel-messages"]').exists(),
+      ).toBe(false);
+    });
+
+    it('lists what is missing one per line, under a heading', () => {
+      const validity = mountPanel({
+        configuration: makeInvalidConfiguration(),
+      }).find('[data-testid="configurator-panel-validity"]');
+
+      // The heading is the key alone: no names folded into a sentence.
+      expect(validity.find('p').text()).toBe('configurator.panel.invalid');
+      expect(
+        validity
+          .findAll('[data-testid="configurator-panel-missing-item"]')
+          .map((item) => item.text()),
+      ).toEqual(['Table top', 'Colour']);
+    });
+
+    it('makes every missing item a button to where it is', () => {
+      const items = mountPanel({
+        configuration: makeInvalidConfiguration(),
+      }).findAll('[data-testid="configurator-panel-missing-item"]');
+
+      expect(items.map((item) => item.element.tagName)).toEqual([
+        'BUTTON',
+        'BUTTON',
+      ]);
+      expect(items.map((item) => item.attributes('type'))).toEqual([
+        'button',
+        'button',
+      ]);
+    });
+
+    it('emits the section and the node of the item clicked', async () => {
+      const wrapper = mountPanel({
+        configuration: makeInvalidConfiguration(),
+      });
+
+      await wrapper
+        .findAll('[data-testid="configurator-panel-missing-item"]')[1]!
+        .trigger('click');
+
+      expect(wrapper.emitted('go-to')).toEqual([
+        [
+          {
+            name: 'Colour',
+            sectionId: 'finish',
+            kind: 'group',
+            nodeId: 'color',
+          },
+        ],
+      ]);
+    });
+
+    it('sets the box one size smaller than body text', () => {
+      const validity = mountPanel({
+        configuration: makeInvalidConfiguration(),
+      }).find('[data-testid="configurator-panel-validity"]');
+
+      expect(validity.classes()).toContain('text-xs');
+      expect(validity.classes()).not.toContain('text-sm');
     });
 
     it('shows a blocking message no name stands for', () => {
@@ -398,9 +484,11 @@ describe('ConfigurationPanel', () => {
       const validity = wrapper.find(
         '[data-testid="configurator-panel-validity"]',
       );
-      expect(validity.findAll('li').map((item) => item.text())).toEqual([
-        'The template is out of date.',
-      ]);
+      expect(
+        validity
+          .findAll('[data-testid="configurator-panel-messages"] li')
+          .map((item) => item.text()),
+      ).toEqual(['The template is out of date.']);
     });
 
     it('says the configuration is incomplete when the document gives no reason', () => {

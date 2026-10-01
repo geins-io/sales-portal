@@ -332,7 +332,7 @@
     "yes": "Ja",
     "no": "Nej",
     "commit": "Færdiggør konfigurationen",
-    "starting": "Starter konfigurationen…",
+    "starting": "Indlæser produktkonfiguratoren",
     "failed": "Noget gik galt. Genindlæs siden, og prøv igen.",
     "change_refused_value": "Værdien blev ikke accepteret. Prøv en anden værdi.",
     "change_refused_option": "Valget blev ikke accepteret. Prøv et andet valg.",
@@ -359,7 +359,7 @@
     },
     "panel": {
       "valid": "Konfigurationen er komplet og kan bestilles.",
-      "invalid": "Mangler, før du kan fortsætte: {items}.",
+      "invalid": "Mangler, før du kan fortsætte:",
       "invalid_unspecified": "Konfigurationen er ikke komplet.",
       "recomputing": "Beregner igen…",
       "time_left": "{time} tilbage",

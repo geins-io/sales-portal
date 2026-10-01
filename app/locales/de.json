@@ -332,7 +332,7 @@
     "yes": "Ja",
     "no": "Nein",
     "commit": "Konfiguration abschließen",
-    "starting": "Konfiguration wird gestartet…",
+    "starting": "Der Produktkonfigurator wird geladen",
     "failed": "Etwas ist schiefgelaufen. Laden Sie die Seite neu und versuchen Sie es erneut.",
     "change_refused_value": "Der Wert wurde nicht akzeptiert. Versuchen Sie einen anderen Wert.",
     "change_refused_option": "Die Auswahl wurde nicht akzeptiert. Versuchen Sie eine andere Auswahl.",
@@ -359,7 +359,7 @@
     },
     "panel": {
       "valid": "Die Konfiguration ist vollständig und bestellbar.",
-      "invalid": "Fehlt noch, bevor Sie fortfahren können: {items}.",
+      "invalid": "Fehlt noch, bevor Sie fortfahren können:",
       "invalid_unspecified": "Die Konfiguration ist nicht vollständig.",
       "recomputing": "Wird neu berechnet…",
       "time_left": "{time} verbleibend",

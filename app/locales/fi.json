@@ -332,7 +332,7 @@
     "yes": "Kyllä",
     "no": "Ei",
     "commit": "Viimeistele kokoonpano",
-    "starting": "Aloitetaan kokoonpanoa…",
+    "starting": "Ladataan tuotekonfiguraattoria",
     "failed": "Jokin meni vikaan. Lataa sivu uudelleen ja yritä uudestaan.",
     "change_refused_value": "Arvoa ei hyväksytty. Kokeile toista arvoa.",
     "change_refused_option": "Valintaa ei hyväksytty. Kokeile toista valintaa.",
@@ -359,7 +359,7 @@
     },
     "panel": {
       "valid": "Kokoonpano on valmis ja tilattavissa.",
-      "invalid": "Puuttuu, ennen kuin voit jatkaa: {items}.",
+      "invalid": "Puuttuu, ennen kuin voit jatkaa:",
       "invalid_unspecified": "Kokoonpano ei ole valmis.",
       "recomputing": "Lasketaan uudelleen…",
       "time_left": "{time} jäljellä",
