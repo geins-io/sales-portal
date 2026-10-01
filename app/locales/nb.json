@@ -311,6 +311,7 @@
   "configurator": {
     "required": "Obligatorisk",
     "read_only": "Settes av konfigurasjonen",
+    "set_automatically": "Settes automatisk",
     "unavailable": "Ikke tilgjengelig med dine nåværende valg",
     "nothing_to_choose": "Ingenting å velge med dine nåværende valg",
     "bounds": "{min}–{max} {unit}",

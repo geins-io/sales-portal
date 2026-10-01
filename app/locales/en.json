@@ -311,6 +311,7 @@
   "configurator": {
     "required": "Required",
     "read_only": "Set by the configuration",
+    "set_automatically": "Set automatically",
     "unavailable": "Not available with your current choices",
     "nothing_to_choose": "Nothing to choose with your current choices",
     "bounds": "{min}–{max} {unit}",

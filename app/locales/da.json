@@ -311,6 +311,7 @@
   "configurator": {
     "required": "Påkrævet",
     "read_only": "Angives af konfigurationen",
+    "set_automatically": "Sættes automatisk",
     "unavailable": "Ikke tilgængeligt med dine nuværende valg",
     "nothing_to_choose": "Intet at vælge med dine nuværende valg",
     "bounds": "{min}–{max} {unit}",

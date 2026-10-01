@@ -311,6 +311,7 @@
   "configurator": {
     "required": "Pakollinen",
     "read_only": "Määräytyy kokoonpanon mukaan",
+    "set_automatically": "Asetetaan automaattisesti",
     "unavailable": "Ei käytettävissä nykyisillä valinnoilla",
     "nothing_to_choose": "Ei valittavaa nykyisillä valinnoilla",
     "bounds": "{min}–{max} {unit}",

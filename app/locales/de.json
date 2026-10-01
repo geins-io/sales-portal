@@ -311,6 +311,7 @@
   "configurator": {
     "required": "Pflichtfeld",
     "read_only": "Wird von der Konfiguration festgelegt",
+    "set_automatically": "Wird automatisch gesetzt",
     "unavailable": "Mit Ihrer aktuellen Auswahl nicht verfügbar",
     "nothing_to_choose": "Mit Ihrer aktuellen Auswahl gibt es nichts zu wählen",
     "bounds": "{min}–{max} {unit}",

@@ -33,6 +33,9 @@ import {
  * not a change. A stepper click is, and sends on the click. A new document
  * always wins over an unsent draft — the watch below resets it.
  *
+ * A value the provider sets is shown in its disabled control with a line that
+ * says so, and asks nothing of the buyer, so it carries no asterisk.
+ *
  * `refused` is set when the provider refused the last change sent from here.
  */
 const {
@@ -151,7 +154,7 @@ function onDate(event: Event) {
     <label class="flex items-center gap-1 text-sm font-medium">
       {{ variable.name }}
       <span
-        v-if="variable.required && variable.available"
+        v-if="variable.required && variable.available && !readOnly"
         class="text-destructive"
       >
         <span aria-hidden="true">*</span>
@@ -175,7 +178,6 @@ function onDate(event: Event) {
           maximumFractionDigits: variable.decimals ?? 0,
         }"
         :disabled="blocked"
-        :title="readOnly ? t('configurator.read_only') : undefined"
         class="w-auto"
         @update:model-value="onNumber"
       >
@@ -208,7 +210,6 @@ function onDate(event: Event) {
       <Switch
         :model-value="draft === true"
         :disabled="blocked"
-        :title="readOnly ? t('configurator.read_only') : undefined"
         @update:model-value="onSwitch"
       />
       <span class="text-muted-foreground text-sm">
@@ -221,7 +222,6 @@ function onDate(event: Event) {
       type="date"
       :model-value="dateInputValue(variable.value)"
       :disabled="blocked"
-      :title="readOnly ? t('configurator.read_only') : undefined"
       class="max-w-xs"
       @change="onDate"
     />
@@ -230,12 +230,19 @@ function onDate(event: Event) {
       v-else
       :model-value="typeof draft === 'string' ? draft : ''"
       :disabled="blocked"
-      :title="readOnly ? t('configurator.read_only') : undefined"
       class="max-w-xs"
       @update:model-value="(value) => (draft = String(value))"
       @blur="commit"
       @keydown.enter="commit"
     />
+
+    <p
+      v-if="readOnly"
+      data-testid="configurator-set-automatically"
+      class="text-muted-foreground text-xs"
+    >
+      {{ t('configurator.set_automatically') }}
+    </p>
 
     <p
       v-if="refused"

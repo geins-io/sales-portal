@@ -311,6 +311,7 @@
   "configurator": {
     "required": "Obligatoriskt",
     "read_only": "Sätts av konfigurationen",
+    "set_automatically": "Sätts automatiskt",
     "unavailable": "Inte tillgängligt med dina nuvarande val",
     "nothing_to_choose": "Inget att välja med dina nuvarande val",
     "bounds": "{min}–{max} {unit}",
