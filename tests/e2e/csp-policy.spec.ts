@@ -66,6 +66,36 @@ test.describe('Content-Security-Policy', () => {
       scriptSrc,
       "script-src must not allow 'unsafe-inline'",
     ).not.toContain("'unsafe-inline'");
+
+    // Frames: the CMS Video widget embeds YouTube and Vimeo, nothing else.
+    expect(
+      csp['frame-src'],
+      'frame-src must allow exactly self and the two video embed hosts',
+    ).toEqual([
+      "'self'",
+      'https://www.youtube.com',
+      'https://player.vimeo.com',
+    ]);
+  });
+
+  test('allows fullscreen only for the video embeds', async ({ request }) => {
+    const res = await request.get('/se/sv/');
+    const header = res.headers()['permissions-policy'];
+    expect(header, 'Permissions-Policy header must be served').toBeTruthy();
+
+    const policy = Object.fromEntries(
+      (header ?? '').split(',').map((part) => {
+        const [feature, allowlist] = part.trim().split('=');
+        return [feature, allowlist];
+      }),
+    );
+    expect(policy).toEqual({
+      camera: '()',
+      'display-capture': '()',
+      fullscreen: '(self "https://www.youtube.com" "https://player.vimeo.com")',
+      geolocation: '()',
+      microphone: '()',
+    });
   });
 
   test('server-rendered markup has no inline event handlers', async ({

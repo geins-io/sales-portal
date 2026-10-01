@@ -119,7 +119,12 @@ export default defineNuxtConfig({
                 'https://*.geins.io',
                 'https://*.litium.io',
               ],
-              'frame-src': ["'self'"],
+              // The two hosts VideoWidget.vue embeds.
+              'frame-src': [
+                "'self'",
+                'https://www.youtube.com',
+                'https://player.vimeo.com',
+              ],
               'base-uri': ["'none'"],
               'form-action': ["'self'"],
               'object-src': ["'none'"],
@@ -133,6 +138,14 @@ export default defineNuxtConfig({
       xFrameOptions: false,
       referrerPolicy: 'strict-origin-when-cross-origin',
       crossOriginEmbedderPolicy: false,
+      // Merged into the module's defaults, which keep the other features off.
+      permissionsPolicy: {
+        fullscreen: [
+          'self',
+          '"https://www.youtube.com"',
+          '"https://player.vimeo.com"',
+        ],
+      },
     },
     rateLimiter: false,
     requestSizeLimiter: false,
