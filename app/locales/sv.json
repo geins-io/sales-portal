@@ -310,6 +310,11 @@
   },
   "configurator": {
     "required": "Obligatoriskt",
+    "required_status": {
+      "remaining": "Återstående obligatoriska val:",
+      "all_done": "Alla obligatoriska val är gjorda",
+      "unspecified": "Konfigurationen är inte komplett."
+    },
     "read_only": "Sätts av konfigurationen",
     "set_automatically": "Sätts automatiskt",
     "unavailable": "Inte tillgängligt med dina nuvarande val",
@@ -359,9 +364,6 @@
       "unit_price": "Pris per enhet"
     },
     "panel": {
-      "valid": "Konfigurationen är komplett och beställningsbar.",
-      "invalid": "Saknas innan du kan gå vidare:",
-      "invalid_unspecified": "Konfigurationen är inte komplett.",
       "recomputing": "Räknar om…",
       "time_left": "{time} kvar",
       "renew": "Förläng sessionen",
@@ -377,6 +379,7 @@
       "indicative": "Indikativt pris. Priset bekräftas i offerten.",
       "copy": "Kopiera specifikation",
       "copied": "Kopierad",
+      "expand": "Öppna specifikationen i större vy",
       "copy_quantity": "Antal: {count} st"
     }
   },

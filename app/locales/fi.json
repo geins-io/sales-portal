@@ -310,6 +310,11 @@
   },
   "configurator": {
     "required": "Pakollinen",
+    "required_status": {
+      "remaining": "Jäljellä olevat pakolliset valinnat:",
+      "all_done": "Kaikki pakolliset valinnat on tehty",
+      "unspecified": "Kokoonpano ei ole valmis."
+    },
     "read_only": "Määräytyy kokoonpanon mukaan",
     "set_automatically": "Asetetaan automaattisesti",
     "unavailable": "Ei käytettävissä nykyisillä valinnoilla",
@@ -359,9 +364,6 @@
       "unit_price": "Yksikköhinta"
     },
     "panel": {
-      "valid": "Kokoonpano on valmis ja tilattavissa.",
-      "invalid": "Puuttuu, ennen kuin voit jatkaa:",
-      "invalid_unspecified": "Kokoonpano ei ole valmis.",
       "recomputing": "Lasketaan uudelleen…",
       "time_left": "{time} jäljellä",
       "renew": "Jatka istuntoa",
@@ -377,6 +379,7 @@
       "indicative": "Suuntaa antava hinta. Hinta vahvistetaan tarjouksessa.",
       "copy": "Kopioi erittely",
       "copied": "Kopioitu",
+      "expand": "Avaa erittely suuremmassa näkymässä",
       "copy_quantity": "Määrä: {count} kpl"
     }
   },

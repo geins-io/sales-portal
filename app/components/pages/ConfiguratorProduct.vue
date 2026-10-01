@@ -8,6 +8,7 @@ import {
   RotateCcw,
   SlidersHorizontal,
 } from 'lucide-vue-next';
+import { useElementBounding, useWindowSize } from '@vueuse/core';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
@@ -25,6 +26,7 @@ import {
   formError,
   headerError,
   refusedChange,
+  stickyBoxMaxHeight,
   type ConfiguratorAction,
 } from '~/utils/configurator-page';
 import {
@@ -33,6 +35,7 @@ import {
   hasNext,
   hasPrevious,
   isMenuSection,
+  nearestScrollTop,
   resolveActiveId,
   sectionCrumbs,
   stepId,
@@ -333,7 +336,25 @@ const isMenu = computed(() =>
 const formSlot = useTemplateRef<HTMLElement>('formSlot');
 
 /**
- * A missing item in the panel: the same move as its section in the rail, then
+ * The left column, measured rather than the grid: the grid grows with the
+ * aside, the column does not.
+ */
+const leftColumn = useTemplateRef<HTMLElement>('leftColumn');
+const { bottom: leftBottom } = useElementBounding(leftColumn);
+const { width: viewportWidth, height: viewportHeight } = useWindowSize();
+
+const boxMaxHeight = computed(() =>
+  leftColumn.value
+    ? stickyBoxMaxHeight({
+        viewportWidth: viewportWidth.value,
+        viewportHeight: viewportHeight.value,
+        leftBottom: leftBottom.value,
+      })
+    : undefined,
+);
+
+/**
+ * A missing item under the rail: the same move as its section in the rail, then
  * the node itself into view once that section has rendered. It scrolls even
  * when the section is already open, since the buyer may have scrolled away.
  * Scoped to the slot: a chooser's sheet is teleported, and its rows are not the
@@ -349,6 +370,26 @@ async function goToMissing(item: BlockingItem): Promise<void> {
   node.style.scrollMarginTop = '11rem';
   node.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+const railList = useTemplateRef<HTMLElement>('railList');
+
+/**
+ * From lg up the section list is capped and scrolls inside, so whichever way
+ * the buyer moves, the active entry is brought into the list, never the page.
+ */
+watch(activeSectionId, async () => {
+  await nextTick();
+  const list = railList.value;
+  const entry = list?.querySelector<HTMLElement>('[data-active="true"]');
+  if (!list || !entry) return;
+  const box = entry.getBoundingClientRect();
+  list.scrollTop = nearestScrollTop({
+    scrollTop: list.scrollTop,
+    viewHeight: list.clientHeight,
+    itemTop: box.top - list.getBoundingClientRect().top + list.scrollTop,
+    itemHeight: box.height,
+  });
+});
 
 const canStepBack = computed(() => hasPrevious(activeRailIndex.value));
 
@@ -489,7 +530,11 @@ async function onRestart(): Promise<void> {
             heading and an inner grid rather than three cells placed by hand.
           -->
           <div class="grid gap-6 lg:grid-cols-[1fr_306px] lg:items-start">
-            <div class="min-w-0">
+            <div
+              ref="leftColumn"
+              class="min-w-0"
+              data-testid="configurator-left"
+            >
               <div
                 class="border-border mb-6 flex items-center justify-between gap-3 border-b pb-4"
               >
@@ -510,65 +555,89 @@ async function onRestart(): Promise<void> {
 
               <div class="grid gap-6 lg:grid-cols-[254px_1fr] lg:items-start">
                 <!-- Below lg the rail is hidden and the pager carries
-                     navigation. No rail when there is nothing to list: a
-                     document with no visible section has nothing to configure,
-                     and an empty rail would be a frame around nothing. -->
-                <nav
-                  v-if="railEntries.length"
-                  class="hidden lg:sticky lg:top-48 lg:block"
-                  data-testid="configurator-rail"
+                     navigation; the status under it stays, above the form. No
+                     rail when there is nothing to list: a document with no
+                     visible section has nothing to configure, and an empty
+                     rail would be a frame around nothing. The status stays even
+                     then, as the only reason beside a disabled action. -->
+                <div
+                  v-if="stage === 'form' && configuration"
+                  class="lg:sticky lg:top-48"
                 >
-                  <p
-                    class="text-muted-foreground mb-2 px-2 text-[11px] font-medium tracking-wider uppercase"
+                  <nav
+                    v-if="railEntries.length"
+                    class="hidden lg:block"
+                    data-testid="configurator-rail"
                   >
-                    {{ t('configurator.sections') }}
-                  </p>
-                  <ul class="space-y-0.5">
-                    <li v-for="entry in railEntries" :key="entry.section.id">
-                      <!-- Depth is in the number, not in an indent: the number
+                    <p
+                      class="text-muted-foreground mb-2 px-2 text-[11px] font-medium tracking-wider uppercase"
+                    >
+                      {{ t('configurator.sections') }}
+                    </p>
+                    <!-- The cap is an addition to the prototype: a long tree
+                         would otherwise push the status under it off screen. -->
+                    <ul
+                      ref="railList"
+                      class="space-y-0.5 lg:max-h-[30vh] lg:overflow-y-auto"
+                      data-testid="configurator-rail-list"
+                    >
+                      <li v-for="entry in railEntries" :key="entry.section.id">
+                        <!-- Depth is in the number, not in an indent: the number
                            sits in a fixed column and every title starts at the
                            same edge, so the width never runs out however deep
                            the tree goes. -->
-                      <button
-                        type="button"
-                        class="flex w-full items-center justify-between gap-2 rounded-md border-l-2 py-1.5 pr-2 pl-2 text-left text-sm transition-colors"
-                        :class="
-                          entry.section.id === activeSectionId
-                            ? 'border-primary bg-muted text-foreground font-medium'
-                            : 'text-muted-foreground hover:bg-muted/60 border-transparent'
-                        "
-                        data-testid="configurator-rail-entry"
-                        :data-section-id="entry.section.id"
-                        :data-number="entry.number"
-                        :data-active="
-                          String(entry.section.id === activeSectionId)
-                        "
-                        @click="activeSectionId = entry.section.id"
-                      >
-                        <span class="flex min-w-0 items-center gap-2">
-                          <span
-                            class="w-8 shrink-0 text-[11px] tabular-nums"
-                            data-testid="configurator-rail-number"
-                          >
-                            {{ entry.number }}
-                          </span>
-                          <span class="truncate">{{ entry.section.name }}</span>
-                        </span>
-                        <span
-                          v-if="entry.remaining"
-                          class="bg-warning mr-1 size-1.5 shrink-0 rounded-full"
-                          role="img"
-                          :aria-label="
-                            t('configurator.remaining_required', {
-                              count: entry.remaining,
-                            })
+                        <button
+                          type="button"
+                          class="focus-visible:ring-ring flex w-full items-center justify-between gap-2 rounded-md border-l-2 py-1.5 pr-2 pl-2 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+                          :class="
+                            entry.section.id === activeSectionId
+                              ? 'border-primary bg-muted text-foreground font-medium'
+                              : 'text-muted-foreground hover:bg-muted/60 border-transparent'
                           "
-                          data-testid="configurator-rail-remaining"
-                        />
-                      </button>
-                    </li>
-                  </ul>
-                </nav>
+                          data-testid="configurator-rail-entry"
+                          :data-section-id="entry.section.id"
+                          :data-number="entry.number"
+                          :data-active="
+                            String(entry.section.id === activeSectionId)
+                          "
+                          @click="activeSectionId = entry.section.id"
+                        >
+                          <span class="flex min-w-0 items-center gap-2">
+                            <span
+                              class="w-8 shrink-0 text-[11px] tabular-nums"
+                              data-testid="configurator-rail-number"
+                            >
+                              {{ entry.number }}
+                            </span>
+                            <span class="truncate">{{
+                              entry.section.name
+                            }}</span>
+                          </span>
+                          <span
+                            v-if="entry.remaining"
+                            class="bg-warning mr-1 size-1.5 shrink-0 rounded-full"
+                            role="img"
+                            :aria-label="
+                              t('configurator.remaining_required', {
+                                count: entry.remaining,
+                              })
+                            "
+                            data-testid="configurator-rail-remaining"
+                          />
+                        </button>
+                      </li>
+                    </ul>
+                  </nav>
+
+                  <div
+                    v-if="railEntries.length"
+                    class="border-border mt-6 hidden border-t pt-6 lg:block"
+                  />
+                  <ConfiguratorRequiredStatus
+                    :configuration="configuration"
+                    @go-to="goToMissing"
+                  />
+                </div>
 
                 <div
                   ref="formSlot"
@@ -747,22 +816,28 @@ async function onRestart(): Promise<void> {
             <!-- top-48 is the measured header plus 1rem of air: the portal's
                  sticky header is 176px = 11rem at every width from 1024 up
                  (topbar, main row, nav), measured 2026-09-17. `items-start` on
-                 the grid is what lets it stick. -->
+                 the grid is what lets it stick. The box does not scroll as a
+                 whole: its height follows the viewport and the left column,
+                 and only the specification inside it scrolls. -->
             <aside
               v-if="stage !== 'committed'"
-              class="lg:sticky lg:top-48 lg:max-h-[calc(100vh-13rem)] lg:overflow-y-auto"
+              class="lg:sticky lg:top-48 lg:flex lg:flex-col"
+              data-testid="configurator-aside"
+              :style="boxMaxHeight ? { maxHeight: boxMaxHeight } : undefined"
             >
               <!-- The card is the aside itself and every block inside pads
                    itself, so the specification fills the column rather than
                    sitting as a small box inside a larger one. The committed
                    summary carries the price it was committed at, so the card
                    stands down rather than show a second one. -->
-              <!-- While loading the card stands with its header alone. A start
+              <!-- While loading the card holds its loaded shape, empty. A start
                    that failed has no document coming, so no card. -->
               <Card
                 v-if="stage !== 'error'"
-                class="divide-border gap-0 divide-y p-0"
+                class="divide-border min-h-0 gap-0 divide-y p-0 lg:flex-1"
               >
+                <!-- The session row has no place in the prototype; it stays
+                     under the action, in view with it. -->
                 <ConfigurationPanel
                   :configuration="configuration"
                   :status="status"
@@ -770,24 +845,25 @@ async function onRestart(): Promise<void> {
                   :product-name="product.name ?? ''"
                   :article-number="product.articleNumber ?? ''"
                   @restart="onRestart"
-                  @go-to="goToMissing"
-                />
+                >
+                  <ConfigurationAction
+                    v-if="stage === 'form'"
+                    class="shrink-0"
+                    :can-commit="commitEnabled"
+                    :busy="busy"
+                    :incomplete="configuration?.isValid === false"
+                    @commit="onCommit"
+                  />
 
-                <ConfigurationAction
-                  v-if="stage === 'form'"
-                  :can-commit="commitEnabled"
-                  :busy="busy"
-                  :incomplete="configuration?.isValid === false"
-                  @commit="onCommit"
-                />
-
-                <ConfigurationSession
-                  v-if="stage === 'form'"
-                  :remaining-ms="remainingMs"
-                  :busy="busy"
-                  :error="forHeader"
-                  @renew="onRenew"
-                />
+                  <ConfigurationSession
+                    v-if="stage === 'form'"
+                    class="shrink-0"
+                    :remaining-ms="remainingMs"
+                    :busy="busy"
+                    :error="forHeader"
+                    @renew="onRenew"
+                  />
+                </ConfigurationPanel>
               </Card>
             </aside>
           </div>

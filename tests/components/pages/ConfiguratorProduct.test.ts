@@ -202,7 +202,7 @@ interface MockSession {
 
 const session = useConfiguratorSession() as unknown as MockSession;
 
-/** What the panel stub hands the page when its missing item is clicked. */
+/** What the status stub hands the page when its missing item is clicked. */
 const goToTarget = ref<BlockingItem | null>(null);
 
 const stubs = {
@@ -238,11 +238,19 @@ const stubs = {
     template: `<div data-testid="panel" :data-status="status"
       :data-article="articleNumber">
       <button data-testid="panel-restart" @click="$emit('restart')"></button>
-      <button data-testid="panel-go-to"
-        @click="$emit('go-to', goToTarget)"></button>
+      <div data-testid="panel-slot"><slot /></div>
     </div>`,
     props: ['configuration', 'status', 'busy', 'productName', 'articleNumber'],
-    emits: ['restart', 'go-to'],
+    emits: ['restart'],
+  },
+  ConfiguratorRequiredStatus: {
+    template: `<div data-testid="required-status"
+      :data-valid="String(configuration.isValid)">
+      <button data-testid="required-go-to"
+        @click="$emit('go-to', goToTarget)"></button>
+    </div>`,
+    props: ['configuration'],
+    emits: ['go-to'],
     setup: () => ({ goToTarget }),
   },
   ConfigurationAction: {
@@ -516,6 +524,40 @@ describe('ConfiguratorProduct session', () => {
 
     expect(wrapper.find('[data-testid="action"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="session"]').exists()).toBe(true);
+  });
+
+  it("hands the action and then the session to the panel's slot", async () => {
+    // The panel places them between the price and the specification.
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    const slot = wrapper.find('[data-testid="panel-slot"]');
+    expect(
+      slot.findAll(':scope > div').map((el) => el.attributes('data-testid')),
+    ).toEqual(['action', 'session']);
+  });
+
+  it('makes the aside one sticky column that does not scroll as a whole', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    const aside = wrapper.find('[data-testid="configurator-aside"]');
+    expect(aside.classes()).toEqual(
+      expect.arrayContaining([
+        'lg:sticky',
+        'lg:top-48',
+        'lg:flex',
+        'lg:flex-col',
+      ]),
+    );
+    expect(aside.classes()).not.toContain('lg:overflow-y-auto');
+    expect(aside.classes().some((c) => c.startsWith('lg:max-h-'))).toBe(false);
+    // The card fills the column and lets the specification shrink inside it.
+    expect(wrapper.find('[data-slot="card"]').classes()).toEqual(
+      expect.arrayContaining(['min-h-0', 'lg:flex-1']),
+    );
   });
 
   it('renders no card beside a session that could not be created', async () => {
@@ -1529,6 +1571,301 @@ describe('ConfiguratorProduct subsection menu', () => {
   });
 });
 
+describe('ConfiguratorProduct sticky box height', () => {
+  let rectSpy: ReturnType<typeof vi.spyOn>;
+  const size = { width: window.innerWidth, height: window.innerHeight };
+
+  function setViewport(width: number, height: number) {
+    Object.defineProperty(window, 'innerWidth', {
+      value: width,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: height,
+      configurable: true,
+    });
+    window.dispatchEvent(new Event('resize'));
+  }
+
+  beforeEach(() => {
+    // Only the left column's bottom matters: it is what the box stops at.
+    rectSpy = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: Element) {
+        return this.matches('[data-testid="configurator-left"]')
+          ? new DOMRect(0, 0, 900, 700)
+          : new DOMRect(0, 0, 0, 0);
+      });
+  });
+
+  afterEach(() => {
+    rectSpy.mockRestore();
+    setViewport(size.width, size.height);
+  });
+
+  async function mountForm() {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await flushPromises();
+    window.dispatchEvent(new Event('resize'));
+    await flushPromises();
+    return wrapper;
+  }
+
+  it('caps the box at the left column from lg up, below the sticky offset', async () => {
+    setViewport(1440, 900);
+    const wrapper = await mountForm();
+    // The column ends at 700 before the viewport does at 884; less 192.
+    expect(
+      (
+        wrapper.find('[data-testid="configurator-aside"]')
+          .element as HTMLElement
+      ).style.maxHeight,
+    ).toBe('508px');
+  });
+
+  it('caps the box at the viewport when the column runs past it', async () => {
+    setViewport(1440, 600);
+    const wrapper = await mountForm();
+    // 600 less the 16 px of air is 584; less 192.
+    expect(
+      (
+        wrapper.find('[data-testid="configurator-aside"]')
+          .element as HTMLElement
+      ).style.maxHeight,
+    ).toBe('392px');
+  });
+
+  it('sets no height below lg, where the box stacks under the form', async () => {
+    setViewport(800, 900);
+    const wrapper = await mountForm();
+    expect(
+      (
+        wrapper.find('[data-testid="configurator-aside"]')
+          .element as HTMLElement
+      ).style.maxHeight,
+    ).toBe('');
+  });
+});
+
+describe('ConfiguratorProduct rail scroll', () => {
+  // Entries 30 tall in a list that shows 60 of them: two at a time.
+  const ENTRY = 30;
+  const SHOWN = 60;
+  let rectSpy: ReturnType<typeof vi.spyOn>;
+  let windowScroll: Mock;
+  let intoView: Mock;
+  const originals = {
+    scrollTo: window.scrollTo,
+    scrollBy: window.scrollBy,
+    scrollIntoView: Element.prototype.scrollIntoView,
+  };
+
+  beforeEach(() => {
+    rectSpy = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: Element) {
+        const list = this.closest('[data-testid="configurator-rail-list"]');
+        if (!list || this === list) return new DOMRect(0, 0, 254, SHOWN);
+        const index = [
+          ...list.querySelectorAll('[data-testid="configurator-rail-entry"]'),
+        ].indexOf(this);
+        return new DOMRect(0, index * ENTRY - list.scrollTop, 254, ENTRY);
+      });
+    windowScroll = vi.fn();
+    window.scrollTo = windowScroll as unknown as typeof window.scrollTo;
+    window.scrollBy = windowScroll as unknown as typeof window.scrollBy;
+    intoView = vi.fn();
+    Element.prototype.scrollIntoView = intoView;
+  });
+
+  afterEach(() => {
+    rectSpy.mockRestore();
+    window.scrollTo = originals.scrollTo;
+    window.scrollBy = originals.scrollBy;
+    Element.prototype.scrollIntoView = originals.scrollIntoView;
+  });
+
+  async function mountList() {
+    const wrapper = mountPage();
+    activeWith(makeSectionTreeConfiguration());
+    await nextTick();
+    const list = wrapper.find('[data-testid="configurator-rail-list"]');
+    Object.defineProperty(list.element, 'clientHeight', { value: SHOWN });
+    return { wrapper, list: list.element as HTMLElement };
+  }
+
+  async function click(wrapper: ReturnType<typeof mountPage>, id: string) {
+    await wrapper
+      .find(`[data-testid="configurator-rail-entry"][data-section-id="${id}"]`)
+      .trigger('click');
+    await flushPromises();
+  }
+
+  it('caps the section list at lg and lets it scroll inside', async () => {
+    const { list } = await mountList();
+    expect(list.tagName).toBe('UL');
+    expect([...list.classList]).toEqual(
+      expect.arrayContaining(['lg:max-h-[30vh]', 'lg:overflow-y-auto']),
+    );
+    // Below lg the cap is not there: the classes carry the breakpoint.
+    expect(list.classList.contains('max-h-[30vh]')).toBe(false);
+    expect(list.classList.contains('overflow-y-auto')).toBe(false);
+  });
+
+  it('draws the focus ring inside each entry, where the list cannot clip it', async () => {
+    const { wrapper } = await mountList();
+    for (const entry of wrapper.findAll(
+      '[data-testid="configurator-rail-entry"]',
+    )) {
+      expect(entry.classes()).toEqual(
+        expect.arrayContaining([
+          'focus-visible:outline-none',
+          'focus-visible:ring-2',
+          'focus-visible:ring-inset',
+        ]),
+      );
+    }
+  });
+
+  it('scrolls the list to an active entry below what it shows', async () => {
+    const { wrapper, list } = await mountList();
+    await click(wrapper, 'edge-trim');
+    // The third entry runs 60 to 90; the list shows 0 to 60.
+    expect(list.scrollTop).toBe(30);
+  });
+
+  it('scrolls the list back up to an active entry above what it shows', async () => {
+    const { wrapper, list } = await mountList();
+    await click(wrapper, 'extras');
+    expect(list.scrollTop).toBe(90);
+    await click(wrapper, 'finish');
+    expect(list.scrollTop).toBe(30);
+  });
+
+  it('leaves the list where it is when the active entry is in view', async () => {
+    const { wrapper, list } = await mountList();
+    await click(wrapper, 'finish');
+    expect(list.scrollTop).toBe(0);
+  });
+
+  it('follows Next as it follows a click', async () => {
+    const { wrapper, list } = await mountList();
+    await wrapper.find('[data-testid="configurator-next"]').trigger('click');
+    await wrapper.find('[data-testid="configurator-next"]').trigger('click');
+    await flushPromises();
+    expect(list.scrollTop).toBe(30);
+  });
+
+  it('scrolls neither the window nor any element into view', async () => {
+    const { wrapper } = await mountList();
+    await click(wrapper, 'extras');
+    await wrapper.find('[data-testid="configurator-prev"]').trigger('click');
+    await flushPromises();
+    expect(windowScroll).not.toHaveBeenCalled();
+    expect(intoView).not.toHaveBeenCalled();
+  });
+});
+
+describe('ConfiguratorProduct required status', () => {
+  async function formWith(configuration: Configuration) {
+    const wrapper = mountPage();
+    activeWith(configuration);
+    await nextTick();
+    return wrapper;
+  }
+
+  it('renders the status once, after the rail, sticky with it', async () => {
+    const wrapper = await formWith(makeSectionTreeConfiguration());
+    const statuses = wrapper.findAll('[data-testid="required-status"]');
+    expect(statuses).toHaveLength(1);
+
+    const status = statuses[0]!.element;
+    const rail = wrapper.find('[data-testid="configurator-rail"]').element;
+    expect(status.closest('[data-testid="configurator-rail"]')).toBeNull();
+    expect(
+      rail.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    // One sticky wrapper holds both, so the status stays under the rail.
+    const holder = status.parentElement!;
+    expect(holder.contains(rail)).toBe(true);
+    expect(holder.className).toContain('lg:sticky');
+    expect(holder.className).toContain('lg:top-48');
+  });
+
+  it('shows the status at every width, while the rail is hidden below lg', async () => {
+    // Below lg the holder is the first cell of the form grid, so the status
+    // stands above the form.
+    const wrapper = await formWith(makeSectionTreeConfiguration());
+    const status = wrapper.find('[data-testid="required-status"]').element;
+    const rail = wrapper.find('[data-testid="configurator-rail"]');
+    expect(rail.classes()).toEqual(
+      expect.arrayContaining(['hidden', 'lg:block']),
+    );
+
+    for (
+      let node = status;
+      node !== wrapper.element;
+      node = node.parentElement!
+    ) {
+      expect(node.classList.contains('hidden')).toBe(false);
+    }
+    expect(
+      status.parentElement!.compareDocumentPosition(
+        wrapper.find('[data-testid="configurator-form-slot"]').element,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('hands the status the document on screen', async () => {
+    const valid = await formWith(makeSectionTreeConfiguration());
+    expect(
+      valid.find('[data-testid="required-status"]').attributes('data-valid'),
+    ).toBe(String(makeSectionTreeConfiguration().isValid));
+  });
+
+  it('keeps the status for a document with no visible section', async () => {
+    // With no rail and no form the status is the only reason the action is
+    // disabled.
+    const wrapper = await formWith(
+      makeValidConfiguration({ sections: [], isValid: false }),
+    );
+    expect(wrapper.find('[data-testid="configurator-rail"]').exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper.find('[data-testid="required-status"]').attributes('data-valid'),
+    ).toBe('false');
+  });
+
+  it('renders no status while the session starts', () => {
+    const wrapper = mountPage();
+    expect(wrapper.find('[data-testid="required-status"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it('renders no status beside the committed summary', async () => {
+    const wrapper = await formWith(makeSectionTreeConfiguration());
+    session.committed.value = COMMITTED;
+    session.status.value = 'closed';
+    await nextTick();
+    expect(wrapper.find('[data-testid="required-status"]').exists()).toBe(
+      false,
+    );
+  });
+
+  it('renders no status once the session has expired', async () => {
+    const wrapper = await formWith(makeSectionTreeConfiguration());
+    session.status.value = 'expired';
+    await nextTick();
+    expect(wrapper.find('[data-testid="required-status"]').exists()).toBe(
+      false,
+    );
+  });
+});
+
 describe('ConfiguratorProduct missing items', () => {
   let scrolled: { element: Element; options: unknown }[] = [];
 
@@ -1547,7 +1884,7 @@ describe('ConfiguratorProduct missing items', () => {
     activeWith(makeSectionTreeConfiguration());
     await nextTick();
     goToTarget.value = item;
-    await wrapper.find('[data-testid="panel-go-to"]').trigger('click');
+    await wrapper.find('[data-testid="required-go-to"]').trigger('click');
     await flushPromises();
     return wrapper;
   }

@@ -310,6 +310,11 @@
   },
   "configurator": {
     "required": "Pflichtfeld",
+    "required_status": {
+      "remaining": "Verbleibende Pflichtauswahlen:",
+      "all_done": "Alle Pflichtauswahlen sind getroffen",
+      "unspecified": "Die Konfiguration ist nicht vollständig."
+    },
     "read_only": "Wird von der Konfiguration festgelegt",
     "set_automatically": "Wird automatisch gesetzt",
     "unavailable": "Mit Ihrer aktuellen Auswahl nicht verfügbar",
@@ -359,9 +364,6 @@
       "unit_price": "Preis pro Einheit"
     },
     "panel": {
-      "valid": "Die Konfiguration ist vollständig und bestellbar.",
-      "invalid": "Fehlt noch, bevor Sie fortfahren können:",
-      "invalid_unspecified": "Die Konfiguration ist nicht vollständig.",
       "recomputing": "Wird neu berechnet…",
       "time_left": "{time} verbleibend",
       "renew": "Sitzung verlängern",
@@ -377,6 +379,7 @@
       "indicative": "Richtpreis. Der Preis wird im Angebot bestätigt.",
       "copy": "Spezifikation kopieren",
       "copied": "Kopiert",
+      "expand": "Spezifikation in größerer Ansicht öffnen",
       "copy_quantity": "Menge: {count} Stk."
     }
   },

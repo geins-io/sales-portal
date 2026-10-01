@@ -310,6 +310,11 @@
   },
   "configurator": {
     "required": "Required",
+    "required_status": {
+      "remaining": "Required choices remaining:",
+      "all_done": "All required choices are made",
+      "unspecified": "The configuration is not complete."
+    },
     "read_only": "Set by the configuration",
     "set_automatically": "Set automatically",
     "unavailable": "Not available with your current choices",
@@ -359,9 +364,6 @@
       "unit_price": "Unit price"
     },
     "panel": {
-      "valid": "The configuration is complete and can be ordered.",
-      "invalid": "Missing before you can continue:",
-      "invalid_unspecified": "The configuration is not complete.",
       "recomputing": "Recalculating…",
       "time_left": "{time} left",
       "renew": "Extend session",
@@ -377,6 +379,7 @@
       "indicative": "Indicative price. The price is confirmed in the quotation.",
       "copy": "Copy specification",
       "copied": "Copied",
+      "expand": "Open the specification in a larger view",
       "copy_quantity": "Quantity: {count} pcs"
     }
   },

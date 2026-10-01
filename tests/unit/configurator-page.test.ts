@@ -6,6 +6,7 @@ import {
   formError,
   headerError,
   refusedChange,
+  stickyBoxMaxHeight,
   type ConfiguratorPageState,
 } from '../../app/utils/configurator-page';
 import type {
@@ -253,5 +254,72 @@ describe('formError', () => {
 
   it('shows nothing when nothing failed', () => {
     expect(formError('change', 'form', null, null)).toBeNull();
+  });
+});
+
+describe('stickyBoxMaxHeight', () => {
+  // The box sticks at top-48 (192 px) and keeps 16 px of air below.
+  it('sets no height below lg, where the box does not stick', () => {
+    expect(
+      stickyBoxMaxHeight({
+        viewportWidth: 1023,
+        viewportHeight: 900,
+        leftBottom: 2000,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('fills the viewport under the sticky offset on a long page', () => {
+    expect(
+      stickyBoxMaxHeight({
+        viewportWidth: 1024,
+        viewportHeight: 900,
+        leftBottom: 2000,
+      }),
+    ).toBe('692px');
+  });
+
+  it('stops at the left column, so the box is never pushed up at the end', () => {
+    expect(
+      stickyBoxMaxHeight({
+        viewportWidth: 1440,
+        viewportHeight: 900,
+        leftBottom: 700,
+      }),
+    ).toBe('508px');
+  });
+
+  it('takes whichever ends first when the two meet', () => {
+    expect(
+      stickyBoxMaxHeight({
+        viewportWidth: 1440,
+        viewportHeight: 900,
+        leftBottom: 884,
+      }),
+    ).toBe('692px');
+  });
+
+  it('never shrinks below 240 px', () => {
+    expect(
+      stickyBoxMaxHeight({
+        viewportWidth: 1440,
+        viewportHeight: 900,
+        leftBottom: 300,
+      }),
+    ).toBe('240px');
+    expect(
+      stickyBoxMaxHeight({
+        viewportWidth: 1440,
+        viewportHeight: 900,
+        leftBottom: 432,
+      }),
+    ).toBe('240px');
+    expect(
+      stickyBoxMaxHeight({
+        viewportWidth: 1440,
+        viewportHeight: 900,
+        leftBottom: 433,
+      }),
+    ).toBe('241px');
   });
 });

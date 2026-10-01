@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import {
-  AlertCircle,
-  CheckCircle2,
   ClipboardCheck,
   Copy,
   FileText,
   Loader2,
+  PanelRightOpen,
   RotateCcw,
 } from 'lucide-vue-next';
-import { useClipboard } from '@vueuse/core';
+import { createReusableTemplate, useClipboard } from '@vueuse/core';
 import { formatPrice, type PriceType } from '#shared/types/commerce';
 import type { Configuration } from '#shared/types/configurator';
 import {
@@ -20,26 +19,40 @@ import {
 } from '#shared/utils/configurator-price';
 import type { ConfiguratorSessionStatus } from '~/composables/useConfiguratorSession';
 import { Button } from '~/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '~/components/ui/sheet';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '~/components/ui/tooltip';
 import { optionPricePrefix } from '~/utils/configurator-form';
 import {
-  collectBlockingItems,
   groupSpecificationRows,
   specificationRows,
   specificationText,
-  unnamedBlockingMessages,
-  type BlockingItem,
   type SpecificationValue,
 } from '~/utils/configurator-panel';
 
 /**
  * The configuration as a specification rather than a receipt: what has been
  * chosen, grouped by the section it was chosen in, with the price built up
- * underneath and whether the whole thing is complete.
+ * underneath. What is still missing is listed under the section rail.
+ *
+ * The price leads and the specification follows, scrolling inside its own
+ * block, as the prototype; the default slot is where the page puts the action
+ * and the session, between the two. The page owns them because the action is
+ * replaced wholesale in a later milestone.
  *
  * Flat props rather than the session composable's return object: the panel must
  * mount without a session for its tests, and a spread object hides which fields
- * it reads. The action and the countdown are siblings in the card, not blocks
- * here — the action is replaced wholesale in a later milestone.
+ * it reads.
  */
 const { configuration, status, busy, productName, articleNumber } =
   defineProps<{
@@ -50,7 +63,7 @@ const { configuration, status, busy, productName, articleNumber } =
     articleNumber: string;
   }>();
 
-const emit = defineEmits<{ restart: []; 'go-to': [item: BlockingItem] }>();
+const emit = defineEmits<{ restart: [] }>();
 
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
@@ -60,14 +73,6 @@ const rows = computed(() =>
   configuration ? specificationRows(configuration) : [],
 );
 const grouped = computed(() => groupSpecificationRows(rows.value));
-
-/** What is missing, each with where it is, and whatever they do not cover. */
-const blockingItems = computed(() =>
-  configuration ? collectBlockingItems(configuration) : [],
-);
-const blockingMessages = computed(() =>
-  configuration ? unnamedBlockingMessages(configuration) : [],
-);
 
 function money(net: number): string {
   return formatPrice(
@@ -179,9 +184,124 @@ onMounted(() => {
   mounted.value = true;
 });
 const canCopy = computed(() => mounted.value && isSupported.value);
+
+const copyLabel = computed(() =>
+  copied.value ? t('configurator.panel.copied') : t('configurator.panel.copy'),
+);
+
+const sheetOpen = ref(false);
+
+/**
+ * The rows and the price, each written once and used at two sizes: the column
+ * and the expanded sheet, as the prototype's two copies of the same markup.
+ */
+const [DefineRows, ReuseRows] = createReusableTemplate<{ large: boolean }>();
+const [DefinePrice, ReusePrice] = createReusableTemplate<{
+  prefix: string;
+  size: 'summary' | 'foot' | 'sheet';
+}>();
+
+const netClass = {
+  summary: 'text-xl',
+  foot: 'text-base',
+  sheet: 'text-xl',
+} as const;
 </script>
 
 <template>
+  <DefineRows v-slot="{ large }">
+    <div
+      v-for="[group, groupRows] in grouped"
+      :key="group"
+      :class="large ? '' : 'mb-3 last:mb-0'"
+    >
+      <h4
+        :class="
+          large
+            ? 'bg-muted text-foreground px-6 py-2.5 text-sm font-medium'
+            : 'text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase'
+        "
+      >
+        {{ group }}
+      </h4>
+      <dl class="divide-border/60 divide-y" :class="large ? 'px-6 pb-2' : ''">
+        <div
+          v-for="row in groupRows"
+          :key="row.id"
+          :class="large ? 'space-y-1.5 py-3' : 'py-1.5'"
+        >
+          <dt
+            class="text-muted-foreground"
+            :class="large ? 'text-sm' : 'text-[11px]'"
+          >
+            {{ row.label }}
+          </dt>
+          <dd
+            v-for="(value, index) in row.values"
+            :key="index"
+            class="flex items-baseline justify-between gap-3"
+          >
+            <!-- Provider part names are long compounds that do not break on
+                 their own, and an unbreakable word would spill out of the
+                 column. -->
+            <span
+              class="leading-snug break-words hyphens-auto"
+              :class="large ? 'text-sm' : 'text-[13px]'"
+            >
+              {{ valueText(value) }}
+            </span>
+            <span
+              v-if="valuePrice(value)"
+              class="text-muted-foreground shrink-0 tabular-nums"
+              :class="large ? 'text-xs' : 'text-[11px]'"
+            >
+              {{ valuePrice(value) }}
+            </span>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </DefineRows>
+
+  <DefinePrice v-slot="{ prefix, size }">
+    <div
+      class="flex items-baseline justify-between gap-3"
+      :data-testid="`${prefix}-price-row`"
+    >
+      <span class="text-muted-foreground text-xs">
+        {{ t('configurator.panel.net_price') }}
+        <template v-if="configuration && configuration.quantity > 1">
+          ·
+          {{
+            t('configurator.panel.quantity_suffix', {
+              count: configuration.quantity,
+            })
+          }}
+        </template>
+      </span>
+      <span
+        class="font-semibold tabular-nums transition-opacity"
+        :class="[netClass[size], busy && size !== 'sheet' ? 'opacity-40' : '']"
+        :data-testid="`${prefix}-net`"
+      >
+        {{ price }}
+      </span>
+    </div>
+    <div
+      v-for="(row, index) in supportingRows"
+      :key="index"
+      class="text-muted-foreground flex justify-between gap-3"
+      :class="[
+        size === 'sheet' ? 'text-xs' : 'text-[11px]',
+        index === 0 ? 'mt-1' : '',
+      ]"
+      :data-testid="`${prefix}-price-row`"
+    >
+      <span>{{ row.label }}</span>
+      <span class="tabular-nums">{{ row.amount }}</span>
+    </div>
+  </DefinePrice>
+
   <!--
     An expired session is a state, not a failure: it says so and offers the way
     back, with no specification and no price left to report.
@@ -198,181 +318,153 @@ const canCopy = computed(() => mounted.value && isSupported.value);
     </Button>
   </div>
 
-  <!-- The header stands before the document does, so the card is in place
-       while the session starts; everything under it waits for the document. -->
-  <header v-else class="px-4 py-3" data-testid="configurator-panel-header">
-    <h3 class="flex items-center gap-2 text-sm font-semibold">
-      <FileText class="size-4" />
-      {{ t('configurator.panel.title') }}
-    </h3>
-  </header>
+  <template v-else>
+    <template v-if="configuration">
+      <div
+        v-if="showPrice"
+        class="shrink-0 px-4 py-3"
+        data-testid="configurator-panel-price"
+      >
+        <ReusePrice prefix="configurator-panel" size="summary" />
+      </div>
 
-  <!-- While the session starts the card is its header over an empty body, as
-       tall as a loaded card's sections (Bookcase, 1440 wide: rows from 96, price
-       90, validity 173, action 65, session 56), so it grows little when the
-       document arrives. One block, so the card draws no dividers inside it. -->
-  <div
-    v-if="status !== 'expired' && !configuration"
-    :class="showPrice ? 'min-h-[480px]' : 'min-h-[390px]'"
-    data-testid="configurator-card-empty"
-  />
+      <p
+        v-if="busy"
+        class="text-muted-foreground flex shrink-0 items-center gap-2 px-4 py-2 text-sm"
+        data-testid="configurator-panel-busy"
+      >
+        <Loader2 class="size-4 animate-spin" />
+        {{ t('configurator.panel.recomputing') }}
+      </p>
+    </template>
 
-  <template v-if="status !== 'expired' && configuration">
-    <!-- The specification itself. The value is the content and the price is an
-         annotation, so the value leads and a price appears only where there is
-         one. -->
+    <!-- While the session starts, the space the price, the action and the
+         session will take (each block carries the divider under it), so the
+         specification header is already where it will stay. -->
     <div
-      v-if="grouped.length"
-      class="px-4 py-3"
-      data-testid="configurator-panel-rows"
+      v-if="!configuration"
+      :class="showPrice ? 'h-[212px]' : 'h-[122px]'"
+      class="shrink-0"
+      data-testid="configurator-card-top-empty"
+    />
+
+    <slot />
+
+    <!-- The specification takes the height left in the box and scrolls inside
+         it, so the price and the action above never leave the screen. -->
+    <section
+      class="flex min-h-0 flex-col lg:flex-1"
+      data-testid="configurator-panel-spec"
     >
-      <div
-        v-for="[group, groupRows] in grouped"
-        :key="group"
-        class="mb-3 last:mb-0"
+      <!-- The header stands before the document does, so the card is in place
+           while the session starts; everything under it waits for the
+           document. -->
+      <header
+        class="border-border shrink-0 border-b px-4 py-3"
+        data-testid="configurator-panel-header"
       >
-        <h4
-          class="text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase"
-        >
-          {{ group }}
-        </h4>
-        <dl class="divide-border/60 divide-y">
-          <div v-for="row in groupRows" :key="row.id" class="py-1.5">
-            <dt class="text-muted-foreground text-[11px]">{{ row.label }}</dt>
-            <dd
-              v-for="(value, index) in row.values"
-              :key="index"
-              class="flex items-baseline justify-between gap-3"
-            >
-              <!-- Provider part names are long compounds that do not break on
-                   their own, and an unbreakable word would spill out of the
-                   column. -->
-              <span class="text-[13px] leading-snug break-words hyphens-auto">
-                {{ valueText(value) }}
-              </span>
-              <span
-                v-if="valuePrice(value)"
-                class="text-muted-foreground shrink-0 text-[11px] tabular-nums"
-              >
-                {{ valuePrice(value) }}
-              </span>
-            </dd>
-          </div>
-        </dl>
-      </div>
-    </div>
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="flex items-center gap-2 text-sm font-semibold">
+            <FileText class="size-4" />
+            {{ t('configurator.panel.title') }}
+          </h3>
+          <TooltipProvider v-if="configuration" :delay-duration="150">
+            <div class="flex shrink-0 items-center gap-3">
+              <Tooltip v-if="canCopy">
+                <TooltipTrigger as-child>
+                  <button
+                    type="button"
+                    class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+                    :aria-label="copyLabel"
+                    data-testid="configurator-panel-copy"
+                    @click="copy()"
+                  >
+                    <ClipboardCheck v-if="copied" class="text-success size-4" />
+                    <Copy v-else class="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{{ copyLabel }}</TooltipContent>
+              </Tooltip>
 
-    <div
-      v-if="showPrice"
-      class="px-4 py-3"
-      data-testid="configurator-panel-price"
-    >
-      <div
-        class="flex items-baseline justify-between gap-3"
-        data-testid="configurator-panel-price-row"
-      >
-        <span class="text-muted-foreground text-xs">
-          {{ t('configurator.panel.net_price') }}
-          <template v-if="configuration.quantity > 1">
-            ·
-            {{
-              t('configurator.panel.quantity_suffix', {
-                count: configuration.quantity,
-              })
-            }}
-          </template>
-        </span>
-        <span
-          class="text-xl font-semibold tabular-nums transition-opacity"
-          :class="busy ? 'opacity-40' : ''"
-          data-testid="configurator-panel-net"
-        >
-          {{ price }}
-        </span>
-      </div>
-      <div
-        v-for="(row, index) in supportingRows"
-        :key="index"
-        class="text-muted-foreground flex justify-between gap-3 text-[11px]"
-        :class="index === 0 ? 'mt-1' : ''"
-        data-testid="configurator-panel-price-row"
-      >
-        <span>{{ row.label }}</span>
-        <span class="tabular-nums">{{ row.amount }}</span>
-      </div>
-    </div>
-
-    <div v-if="canCopy" class="px-4 py-2">
-      <button
-        type="button"
-        class="text-primary hover:text-primary/80 inline-flex items-center gap-1.5 text-xs font-medium"
-        data-testid="configurator-panel-copy"
-        @click="copy()"
-      >
-        <ClipboardCheck v-if="copied" class="text-success size-3.5" />
-        <Copy v-else class="size-3.5" />
-        {{
-          copied ? t('configurator.panel.copied') : t('configurator.panel.copy')
-        }}
-      </button>
-    </div>
-
-    <p
-      v-if="busy"
-      class="text-muted-foreground flex items-center gap-2 px-4 py-2 text-sm"
-      data-testid="configurator-panel-busy"
-    >
-      <Loader2 class="size-4 animate-spin" />
-      {{ t('configurator.panel.recomputing') }}
-    </p>
-
-    <!-- Complete, or incomplete with what is missing. The action is never dead
-         without a reason beside it. -->
-    <div class="px-4 py-3">
-      <div
-        class="flex items-start gap-2 rounded-md px-3 py-2 text-xs"
-        :class="
-          configuration.isValid
-            ? 'bg-success/10 text-success'
-            : 'bg-warning/10 text-warning'
-        "
-        data-testid="configurator-panel-validity"
-      >
-        <CheckCircle2 v-if="configuration.isValid" class="size-4 shrink-0" />
-        <AlertCircle v-else class="size-4 shrink-0" />
-        <p v-if="configuration.isValid">{{ t('configurator.panel.valid') }}</p>
-        <div v-else class="space-y-1">
-          <template v-if="blockingItems.length">
-            <p>{{ t('configurator.panel.invalid') }}</p>
-            <!-- One line each, as a way there: the page opens the item's
-                 section and brings the node into view. -->
-            <ul data-testid="configurator-panel-missing">
-              <li v-for="item in blockingItems" :key="item.name">
-                <button
-                  type="button"
-                  class="text-left underline underline-offset-2 hover:no-underline"
-                  data-testid="configurator-panel-missing-item"
-                  @click="emit('go-to', item)"
-                >
-                  {{ item.name }}
-                </button>
-              </li>
-            </ul>
-          </template>
-          <p v-else-if="!blockingMessages.length">
-            {{ t('configurator.panel.invalid_unspecified') }}
-          </p>
-          <!-- A message no name stands for is a whole sentence of its own, so
-               these are listed rather than folded into the one above. -->
-          <ul
-            v-if="blockingMessages.length"
-            class="list-inside list-disc"
-            data-testid="configurator-panel-messages"
-          >
-            <li v-for="text in blockingMessages" :key="text">{{ text }}</li>
-          </ul>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <button
+                    type="button"
+                    class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+                    :aria-label="t('configurator.panel.expand')"
+                    data-testid="configurator-panel-expand"
+                    @click="sheetOpen = true"
+                  >
+                    <PanelRightOpen class="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {{ t('configurator.panel.expand') }}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
-      </div>
-    </div>
+      </header>
+
+      <!-- Under the header an empty body as tall as the loaded rows and price
+           (Bookcase, 1440 wide: 265 and 85), so nothing moves when the
+           document arrives. From lg it is held inside the box's cap: 192
+           offset, 16 air, the card's borders, the top space, the header. -->
+      <div
+        v-if="!configuration"
+        :class="
+          showPrice
+            ? 'min-h-[350px] lg:min-h-[min(350px,calc(100vh-467px))]'
+            : 'min-h-[265px] lg:min-h-[min(265px,calc(100vh-377px))]'
+        "
+        data-testid="configurator-card-empty"
+      />
+
+      <template v-else>
+        <!-- The value is the content and the price is an annotation, so the
+             value leads and a price appears only where there is one. -->
+        <div
+          v-if="grouped.length"
+          class="min-h-0 flex-1 overflow-y-auto px-4 py-3"
+          data-testid="configurator-panel-rows"
+        >
+          <ReuseRows :large="false" />
+        </div>
+
+        <div
+          v-if="showPrice"
+          class="border-border shrink-0 border-t px-4 py-3"
+          data-testid="configurator-spec-price"
+        >
+          <ReusePrice prefix="configurator-spec" size="foot" />
+        </div>
+      </template>
+    </section>
+
+    <!-- The whole specification larger, from the right at the sign-in
+         sheet's width. -->
+    <Sheet v-if="configuration" v-model:open="sheetOpen">
+      <SheetContent
+        side="right"
+        class="flex w-full flex-col gap-0 p-0 sm:max-w-md"
+        data-testid="configurator-spec-sheet"
+      >
+        <SheetHeader class="border-b px-6 py-4">
+          <SheetTitle class="text-2xl font-semibold tracking-tight">
+            {{ t('configurator.panel.title') }}
+          </SheetTitle>
+          <SheetDescription>{{ productName }}</SheetDescription>
+        </SheetHeader>
+
+        <div class="flex-1 overflow-y-auto">
+          <ReuseRows :large="true" />
+        </div>
+
+        <div v-if="showPrice" class="border-border border-t px-6 py-4">
+          <ReusePrice prefix="configurator-sheet" size="sheet" />
+        </div>
+      </SheetContent>
+    </Sheet>
   </template>
 </template>

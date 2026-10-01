@@ -39,6 +39,34 @@ vi.mock('vue-i18n', () => ({
   }),
 }));
 
+// The sheet's content inline rather than in a portal, keeping the `open` gate:
+// a closed sheet renders nothing, as the real one does. The tooltip's content
+// inline and always there, so the label it carries can be read.
+vi.mock('../../../app/components/ui/sheet', () => ({
+  Sheet: {
+    template: '<div><slot v-if="open" /></div>',
+    props: ['open'],
+  },
+  SheetContent: {
+    template: '<div data-testid="configurator-spec-sheet"><slot /></div>',
+    props: ['side'],
+  },
+  SheetHeader: { template: '<div><slot /></div>' },
+  SheetTitle: { template: '<h2 data-testid="sheet-title"><slot /></h2>' },
+  SheetDescription: {
+    template: '<p data-testid="sheet-description"><slot /></p>',
+  },
+}));
+
+vi.mock('../../../app/components/ui/tooltip', () => ({
+  TooltipProvider: { template: '<div><slot /></div>' },
+  Tooltip: { template: '<div><slot /></div>' },
+  TooltipTrigger: { template: '<div><slot /></div>' },
+  TooltipContent: {
+    template: '<span data-testid="tooltip"><slot /></span>',
+  },
+}));
+
 const { tenant } = useTenant();
 
 function setFeatures(features: PublicTenantConfig['features']) {
@@ -55,8 +83,12 @@ function plainText(text: string): string {
   return text.replace(/\u00a0/g, ' ');
 }
 
-function mountPanel(props: Record<string, unknown> = {}) {
+function mountPanel(
+  props: Record<string, unknown> = {},
+  slots: Record<string, string> = {},
+) {
   return mountComponent(ConfigurationPanel, {
+    slots,
     props: {
       configuration: makeValidConfiguration(),
       status: 'active',
@@ -91,13 +123,53 @@ describe('ConfigurationPanel', () => {
       expect(wrapper.text()).toBe('configurator.panel.title');
     });
 
+    const top = (wrapper: ReturnType<typeof mountPanel>) =>
+      wrapper.findAll('[data-testid="configurator-card-top-empty"]');
+
+    it('holds the space of the price, the action and the session above the header', () => {
+      // Measured on the loaded box: price 90, action 65, session 57, each
+      // carrying the divider under it. One block, so no dividers inside.
+      const shown = mountPanel({ configuration: null, status: 'idle' });
+      setFeatures({ priceVisibility: { enabled: false } });
+      const hidden = mountPanel({ configuration: null, status: 'idle' });
+
+      expect(top(shown)).toHaveLength(1);
+      expect(top(shown)[0]!.classes()).toEqual(['h-[212px]', 'shrink-0']);
+      expect(top(shown)[0]!.element.children).toHaveLength(0);
+      expect(top(hidden)[0]!.classes()).toEqual(['h-[122px]', 'shrink-0']);
+
+      const spec = shown.find('[data-testid="configurator-panel-spec"]');
+      expect(
+        top(shown)[0]!.element.compareDocumentPosition(spec.element) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(spec.element.contains(top(shown)[0]!.element)).toBe(false);
+    });
+
+    it('holds no top space once the document is there, nor for an expired session', () => {
+      expect(top(mountPanel())).toHaveLength(0);
+      expect(
+        top(mountPanel({ configuration: null, status: 'expired' })),
+      ).toHaveLength(0);
+    });
+
     it("holds the loaded sections' height, less the price where none shows", () => {
       const shown = mountPanel({ configuration: null, status: 'idle' });
       setFeatures({ priceVisibility: { enabled: false } });
       const hidden = mountPanel({ configuration: null, status: 'idle' });
 
-      expect(empty(shown)[0]!.classes()).toContain('min-h-[480px]');
-      expect(empty(hidden)[0]!.classes()).toContain('min-h-[390px]');
+      // Bookcase, 1440 wide: the loaded specification is its 45 px header
+      // over 265 of rows and an 85 px price. From lg the box is capped under
+      // the sticky offset, so the body is too: 192 offset, 16 air, the card's
+      // two borders, the top space and the header.
+      expect(empty(shown)[0]!.classes()).toEqual([
+        'min-h-[350px]',
+        'lg:min-h-[min(350px,calc(100vh-467px))]',
+      ]);
+      expect(empty(hidden)[0]!.classes()).toEqual([
+        'min-h-[265px]',
+        'lg:min-h-[min(265px,calc(100vh-377px))]',
+      ]);
     });
 
     it('renders no empty body once the document is there', () => {
@@ -110,14 +182,185 @@ describe('ConfigurationPanel', () => {
     });
   });
 
+  describe('the box', () => {
+    const SLOT = { default: '<div data-testid="slot-probe" />' };
+
+    function follows(a: Element, b: Element): boolean {
+      return !!(
+        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
+      );
+    }
+
+    it('puts the price on top, then the slot, then the specification', () => {
+      const wrapper = mountPanel({ busy: true }, SLOT);
+      const price = wrapper.find('[data-testid="configurator-panel-price"]');
+      const busy = wrapper.find('[data-testid="configurator-panel-busy"]');
+      const probe = wrapper.find('[data-testid="slot-probe"]');
+      const spec = wrapper.find('[data-testid="configurator-panel-spec"]');
+
+      expect(follows(price.element, busy.element)).toBe(true);
+      expect(follows(busy.element, probe.element)).toBe(true);
+      expect(follows(probe.element, spec.element)).toBe(true);
+      // The slot is the page's: the panel only gives it its place.
+      expect(spec.element.contains(probe.element)).toBe(false);
+    });
+
+    it('scrolls the rows inside the specification, under its header', () => {
+      const spec = mountPanel().find('[data-testid="configurator-panel-spec"]');
+      expect(spec.classes()).toEqual(
+        expect.arrayContaining(['flex', 'min-h-0', 'flex-col']),
+      );
+      const rows = spec.find('[data-testid="configurator-panel-rows"]');
+      expect(rows.classes()).toEqual(
+        expect.arrayContaining(['min-h-0', 'flex-1', 'overflow-y-auto']),
+      );
+      const header = spec.find('[data-testid="configurator-panel-header"]');
+      expect(header.classes()).toContain('shrink-0');
+      expect(follows(header.element, rows.element)).toBe(true);
+    });
+
+    it('repeats the price at the foot of the specification, smaller', () => {
+      const wrapper = mountPanel();
+      const spec = wrapper.find('[data-testid="configurator-panel-spec"]');
+      const foot = spec.find('[data-testid="configurator-spec-price"]');
+      const rows = spec.find('[data-testid="configurator-panel-rows"]');
+
+      expect(follows(rows.element, foot.element)).toBe(true);
+      expect(foot.classes()).toContain('shrink-0');
+      expect(plainText(foot.text())).toContain('SEK 3,200.00');
+      expect(
+        wrapper.find('[data-testid="configurator-panel-net"]').classes(),
+      ).toContain('text-xl');
+      expect(
+        foot.find('[data-testid="configurator-spec-net"]').classes(),
+      ).toContain('text-base');
+      // The summary on top stays outside the specification.
+      expect(
+        spec.find('[data-testid="configurator-panel-price"]').exists(),
+      ).toBe(false);
+    });
+
+    it('drops both prices where the buyer may not see one', () => {
+      setFeatures({ priceVisibility: { enabled: false } });
+      const wrapper = mountPanel();
+      expect(
+        wrapper.find('[data-testid="configurator-panel-price"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="configurator-spec-price"]').exists(),
+      ).toBe(false);
+    });
+
+    it('keeps the loading state the header over one empty body, in the specification', () => {
+      const wrapper = mountPanel({ configuration: null, status: 'idle' });
+      const spec = wrapper.find('[data-testid="configurator-panel-spec"]');
+      expect(
+        spec.find('[data-testid="configurator-panel-header"]').exists(),
+      ).toBe(true);
+      expect(
+        spec.find('[data-testid="configurator-card-empty"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="configurator-panel-expand"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="configurator-panel-copy"]').exists(),
+      ).toBe(false);
+    });
+  });
+
+  describe('expand', () => {
+    it('is an icon button in the header, labelled by its tooltip', () => {
+      const header = mountPanel().find(
+        '[data-testid="configurator-panel-header"]',
+      );
+      const expand = header.find('[data-testid="configurator-panel-expand"]');
+      expect(expand.element.tagName).toBe('BUTTON');
+      expect(expand.attributes('aria-label')).toBe('configurator.panel.expand');
+      expect(
+        header.findAll('[data-testid="tooltip"]').map((t) => t.text()),
+      ).toContain('configurator.panel.expand');
+    });
+
+    it('opens nothing until it is pressed', () => {
+      expect(
+        mountPanel().find('[data-testid="configurator-spec-sheet"]').exists(),
+      ).toBe(false);
+    });
+
+    it('opens the whole specification in a sheet, with the price', async () => {
+      const wrapper = mountPanel();
+      await wrapper
+        .find('[data-testid="configurator-panel-expand"]')
+        .trigger('click');
+      const sheet = wrapper.find('[data-testid="configurator-spec-sheet"]');
+
+      expect(sheet.find('[data-testid="sheet-title"]').text()).toBe(
+        'configurator.panel.title',
+      );
+      expect(sheet.find('[data-testid="sheet-description"]').text()).toBe(
+        'Arbetsbord Pro',
+      );
+      expect(sheet.findAll('h4').map((h) => h.text())).toEqual([
+        'Frame',
+        'Finish',
+      ]);
+      expect(sheet.findAll('dt').map((term) => term.text())).toEqual([
+        'Leg frame',
+        'Width',
+        'Depth',
+        'Table top',
+        'Colour',
+      ]);
+      expect(sheet.text()).toContain('Fixed height legs');
+      expect(
+        plainText(sheet.find('[data-testid="configurator-sheet-net"]').text()),
+      ).toBe('SEK 3,200.00');
+      expect(
+        sheet.findAll('[data-testid="configurator-sheet-price-row"]'),
+      ).toHaveLength(3);
+    });
+
+    it('writes the sheet larger than the column, group headings on a muted band', async () => {
+      const wrapper = mountPanel();
+      await wrapper
+        .find('[data-testid="configurator-panel-expand"]')
+        .trigger('click');
+      const sheet = wrapper.find('[data-testid="configurator-spec-sheet"]');
+
+      expect(sheet.find('h4').classes()).toEqual(
+        expect.arrayContaining(['bg-muted', 'text-sm']),
+      );
+      expect(sheet.find('dt').classes()).toContain('text-sm');
+      expect(
+        sheet.find('[data-testid="configurator-sheet-net"]').classes(),
+      ).toContain('text-xl');
+    });
+
+    it('leaves the price out of the sheet where the buyer may not see one', async () => {
+      setFeatures({ priceVisibility: { enabled: false } });
+      const wrapper = mountPanel();
+      await wrapper
+        .find('[data-testid="configurator-panel-expand"]')
+        .trigger('click');
+      expect(
+        wrapper.find('[data-testid="configurator-sheet-net"]').exists(),
+      ).toBe(false);
+    });
+  });
+
   describe('header', () => {
     it('names the specification and nothing else', () => {
       useAuthStore().user = { ...SIGNED_IN, customerType: 'ORGANIZATION' };
       const header = mountPanel().find(
         '[data-testid="configurator-panel-header"]',
       );
-      expect(header.text()).toBe('configurator.panel.title');
+      // The title, then the two icons and nothing else.
+      expect(header.find('h3').text()).toBe('configurator.panel.title');
       expect(header.text()).not.toContain('KONF-1001');
+      expect(
+        header.findAll('button').map((b) => b.attributes('data-testid')),
+      ).toEqual(['configurator-panel-expand']);
     });
   });
 
@@ -380,125 +623,28 @@ describe('ConfigurationPanel', () => {
       expect(plainText(wrapper.text())).toContain('SEK 3,200.00');
     });
 
-    it('still renders the specification and the validity when the price is hidden', () => {
+    it('still renders the specification when the price is hidden', () => {
       setFeatures({ priceVisibility: { enabled: false } });
       const wrapper = mountPanel();
       expect(wrapper.text()).toContain('Fixed height legs');
-      expect(wrapper.text()).toContain('configurator.panel.valid');
     });
   });
 
   describe('validity', () => {
-    it('confirms a complete configuration', () => {
-      const wrapper = mountPanel();
-      const validity = wrapper.find(
-        '[data-testid="configurator-panel-validity"]',
-      );
-      expect(validity.text()).toContain('configurator.panel.valid');
-      expect(validity.text()).not.toContain('configurator.panel.invalid');
-    });
-
-    it('names what an incomplete configuration is still waiting on', () => {
-      // The provider's own sentences stand beside their groups in the form;
-      // repeating them here put the same text on screen twice.
-      const wrapper = mountPanel({
-        configuration: makeInvalidConfiguration(),
-      });
-      const validity = wrapper.find(
-        '[data-testid="configurator-panel-validity"]',
-      );
-      expect(validity.text()).toContain('configurator.panel.invalid');
-      expect(validity.text()).not.toContain('Select a table top.');
-      expect(
-        validity.find('[data-testid="configurator-panel-messages"]').exists(),
-      ).toBe(false);
-    });
-
-    it('lists what is missing one per line, under a heading', () => {
-      const validity = mountPanel({
-        configuration: makeInvalidConfiguration(),
-      }).find('[data-testid="configurator-panel-validity"]');
-
-      // The heading is the key alone: no names folded into a sentence.
-      expect(validity.find('p').text()).toBe('configurator.panel.invalid');
-      expect(
-        validity
-          .findAll('[data-testid="configurator-panel-missing-item"]')
-          .map((item) => item.text()),
-      ).toEqual(['Table top', 'Colour']);
-    });
-
-    it('makes every missing item a button to where it is', () => {
-      const items = mountPanel({
-        configuration: makeInvalidConfiguration(),
-      }).findAll('[data-testid="configurator-panel-missing-item"]');
-
-      expect(items.map((item) => item.element.tagName)).toEqual([
-        'BUTTON',
-        'BUTTON',
-      ]);
-      expect(items.map((item) => item.attributes('type'))).toEqual([
-        'button',
-        'button',
-      ]);
-    });
-
-    it('emits the section and the node of the item clicked', async () => {
-      const wrapper = mountPanel({
-        configuration: makeInvalidConfiguration(),
-      });
-
-      await wrapper
-        .findAll('[data-testid="configurator-panel-missing-item"]')[1]!
-        .trigger('click');
-
-      expect(wrapper.emitted('go-to')).toEqual([
-        [
-          {
-            name: 'Colour',
-            sectionId: 'finish',
-            kind: 'group',
-            nodeId: 'color',
-          },
-        ],
-      ]);
-    });
-
-    it('sets the box one size smaller than body text', () => {
-      const validity = mountPanel({
-        configuration: makeInvalidConfiguration(),
-      }).find('[data-testid="configurator-panel-validity"]');
-
-      expect(validity.classes()).toContain('text-xs');
-      expect(validity.classes()).not.toContain('text-sm');
-    });
-
-    it('shows a blocking message no name stands for', () => {
-      const wrapper = mountPanel({
-        configuration: makeInvalidConfiguration({
-          messages: [
-            { severity: 'error', text: 'The template is out of date.' },
-          ],
-        }),
-      });
-      const validity = wrapper.find(
-        '[data-testid="configurator-panel-validity"]',
-      );
-      expect(
-        validity
-          .findAll('[data-testid="configurator-panel-messages"] li')
-          .map((item) => item.text()),
-      ).toEqual(['The template is out of date.']);
-    });
-
-    it('says the configuration is incomplete when the document gives no reason', () => {
-      const config = makeValidConfiguration({ isValid: false });
-      const validity = mountPanel({ configuration: config }).find(
-        '[data-testid="configurator-panel-validity"]',
-      );
-      expect(validity.text()).toContain(
-        'configurator.panel.invalid_unspecified',
-      );
+    // What is missing is listed under the section rail, by the page.
+    it('lists nothing that is missing, complete or not', () => {
+      for (const configuration of [
+        makeValidConfiguration(),
+        makeInvalidConfiguration(),
+      ]) {
+        const wrapper = mountPanel({ configuration });
+        expect(
+          wrapper.find('[data-testid="configurator-panel-rows"]').exists(),
+        ).toBe(true);
+        expect(wrapper.text()).not.toMatch(/configurator\.panel\.(in)?valid/);
+        expect(wrapper.find('[data-testid*="missing"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid*="validity"]').exists()).toBe(false);
+      }
     });
   });
 
@@ -567,13 +713,25 @@ describe('ConfigurationPanel', () => {
       await flushPromises();
       const button = wrapper.find('[data-testid="configurator-panel-copy"]');
       expect(button.exists()).toBe(true);
+      expect(button.attributes('aria-label')).toBe('configurator.panel.copy');
+      expect(
+        button.element.closest('[data-testid="configurator-panel-header"]'),
+      ).not.toBeNull();
       await button.trigger('click');
       await flushPromises();
 
-      // The confirmation the button flashes is the one state a reader looks
-      // for, so it is the success colour rather than the button's own.
-      expect(button.text()).toContain('configurator.panel.copied');
+      // An icon alone: the label and the tooltip say what it does, and what
+      // it did. The confirmation is the success colour rather than the
+      // button's own.
+      expect(button.text()).toBe('');
+      expect(button.attributes('aria-label')).toBe('configurator.panel.copied');
       expect(button.find('.text-success').exists()).toBe(true);
+      expect(
+        wrapper
+          .find('[data-testid="configurator-panel-header"]')
+          .findAll('[data-testid="tooltip"]')
+          .map((t) => t.text()),
+      ).toContain('configurator.panel.copied');
 
       const copied = writeText.mock.calls[0]?.[0] as string;
       expect(copied).toContain('Arbetsbord Pro (KONF-1001)');
@@ -621,9 +779,9 @@ describe('ConfigurationPanel', () => {
       expect(expired.text()).toContain('configurator.panel.start_over');
     });
 
-    it('drops the specification, the price and the validity', () => {
+    it('drops the specification and the price', () => {
       const wrapper = mountPanel({ status: 'expired' });
-      for (const region of ['header', 'rows', 'price', 'validity', 'busy']) {
+      for (const region of ['header', 'rows', 'price', 'busy']) {
         expect(
           wrapper.find(`[data-testid="configurator-panel-${region}"]`).exists(),
         ).toBe(false);
