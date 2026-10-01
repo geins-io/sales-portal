@@ -1,5 +1,6 @@
 import { H3Error, createError } from 'h3';
 import { logger } from './logger';
+import { describeSdkError, isSdkClientFault } from './sdk-error';
 
 /**
  * Error codes for the Sales Portal
@@ -97,6 +98,7 @@ export function createAppError(
   code: ErrorCode,
   message?: string,
   details?: Record<string, unknown>,
+  cause?: unknown,
 ): H3Error {
   const isDev = process.env.NODE_ENV === 'development';
   const statusCode = ERROR_STATUS_CODES[code];
@@ -120,6 +122,8 @@ export function createAppError(
     message: publicMessage,
     // In production, strip internal details from response
     data: isDev ? { code, details } : { code },
+    // Not serialised into the response; Sentry links it as the chained error.
+    cause,
   });
 }
 
@@ -163,6 +167,7 @@ export function createValidationError(
 export function createExternalApiError(
   service: string,
   originalError?: Error,
+  details?: Record<string, unknown>,
 ): H3Error {
   return createAppError(
     ErrorCode.EXTERNAL_API_ERROR,
@@ -170,7 +175,9 @@ export function createExternalApiError(
     {
       service,
       originalMessage: originalError?.message,
+      ...details,
     },
+    originalError,
   );
 }
 
@@ -193,14 +200,15 @@ export function createStorageError(
 
 /**
  * Wrap a service call with standardized error handling.
- * Re-throws H3Errors, maps known SDK errors to the given errorCode,
- * and wraps anything else as EXTERNAL_API_ERROR.
+ * Re-throws H3Errors. At a site that names a `knownError`, an SDK error whose
+ * code shows a client fault maps to `errorCode`; everything else becomes
+ * EXTERNAL_API_ERROR. The SDK error's code and cause are logged either way.
+ * `knownError` only opts the site in: the SDK's ES5 build breaks `instanceof`.
  */
 export async function wrapServiceCall<T>(
   fn: () => Promise<T>,
   service: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  knownError?: { new (...args: any[]): Error },
+  knownError?: new (...args: never[]) => Error,
   errorCode: ErrorCode = ErrorCode.BAD_REQUEST,
 ): Promise<T> {
   try {
@@ -209,12 +217,18 @@ export async function wrapServiceCall<T>(
     if (error instanceof H3Error) {
       throw error;
     }
-    if (knownError && error instanceof knownError) {
-      throw createAppError(errorCode, (error as Error).message);
+    const sdkError = describeSdkError(error);
+    if (knownError && isSdkClientFault(error)) {
+      throw createAppError(
+        errorCode,
+        error instanceof Error ? error.message : undefined,
+        { service, sdkError },
+      );
     }
     throw createExternalApiError(
       service,
       error instanceof Error ? error : undefined,
+      { sdkError },
     );
   }
 }
