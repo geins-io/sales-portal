@@ -265,13 +265,13 @@ lowest first. A failure at one layer reports every layer above it, and every spe
 by that layer — a stopped server, a dead merchant API and a wrong tenant no longer all look like
 "no products".
 
-| Layer             | Checks                                                               | Fails when                                                                                                                                               |
-| ----------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `L0 reachability` | the origin answers at all (polls for 20 s)                           | connection refused, DNS, nothing listening                                                                                                               |
-| `L1 liveness`     | `/api/health` answers below 500 with a well-formed body              | any 5xx. Exception: on the dev server a 503 whose body says `unhealthy` is its memory check (RSS > 900 MB), declared `dev-server` with the assertion off |
-| `L2 identity`     | `/api/config` answers 200 with `tenantId` = `E2E_EXPECTED_TENANT_ID` | 503: merchant API unreachable from the server; 204/404: hostname not registered; 200 with another id: wrong tenant                                       |
-| `L3 delivery`     | the client bundle loads and Vue mounts on `#__nuxt`                  | a build whose JavaScript never runs (the CSP upgrade over plain http)                                                                                    |
-| `L4 session`      | the configured account signs in; saves the session                   | bad credentials, login broken. Out of scope (`no-credentials`) when none are configured                                                                  |
+| Layer             | Checks                                                                                                            | Fails when                                                                                                                                                                                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `L0 reachability` | the origin answers at all (polls for 20 s)                                                                        | connection refused, DNS, nothing listening                                                                                                                                                                                                                   |
+| `L1 liveness`     | `/api/health` answers below 500 with a well-formed body; the production-build preview keeps idle connections open | any 5xx. Exception: on the dev server a 503 whose body says `unhealthy` is its memory check (RSS > 900 MB), declared `dev-server` with the assertion off. A `Keep-Alive: timeout=` header: the preview was started without `tests/e2e/preview-keepalive.mjs` |
+| `L2 identity`     | `/api/config` answers 200 with `tenantId` = `E2E_EXPECTED_TENANT_ID`                                              | 503: merchant API unreachable from the server; 204/404: hostname not registered; 200 with another id: wrong tenant                                                                                                                                           |
+| `L3 delivery`     | the client bundle loads and Vue mounts on `#__nuxt`                                                               | a build whose JavaScript never runs (the CSP upgrade over plain http)                                                                                                                                                                                        |
+| `L4 session`      | the configured account signs in; saves the session                                                                | bad credentials, login broken. Out of scope (`no-credentials`) when none are configured                                                                                                                                                                      |
 
 Each project lists every layer below it as a dependency, which is what lets the scope reporter
 attribute the blocked count to the lowest failed layer without any special casing. In CI each layer
@@ -721,6 +721,12 @@ nothing deletes — every run leaves carts behind, see
 failure rather than one that survived three attempts. Both run the production build, so before a
 PR run `pnpm test:e2e` locally in dev mode — the one mode nothing else covers; the PR job covers
 the production build.
+
+All three workflows that start `pnpm preview` (`ci.yml`, `e2e-full.yml`,
+`e2e-order-placement.yml`) preload `tests/e2e/preview-keepalive.mjs` through `NODE_OPTIONS`, as
+`playwright.config.ts` does for a local `E2E_PROD=1` run. Without it the server closes idle sockets
+that Playwright's API client still holds, and a request sent at that moment is reset. Preflight L1
+fails when it is missing.
 
 ### The PR job (`ci.yml`)
 
