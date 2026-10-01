@@ -318,7 +318,7 @@
     "optional": "Optional",
     "none_option": "None",
     "group_info": "Information about {name}",
-    "choose_many": "Choose none or more",
+    "choose_many": "Optional · choose one or more",
     "quantity": "Quantity",
     "choose_in_group": "Choose {name}",
     "option_count": "{count} options",

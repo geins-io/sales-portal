@@ -318,7 +318,7 @@
     "optional": "Valfritt",
     "none_option": "Inget valt",
     "group_info": "Information om {name}",
-    "choose_many": "Välj noll eller flera",
+    "choose_many": "Valfritt · välj en eller flera",
     "quantity": "Antal",
     "choose_in_group": "Välj {name}",
     "option_count": "{count} val",

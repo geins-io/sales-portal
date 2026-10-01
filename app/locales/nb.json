@@ -318,7 +318,7 @@
     "optional": "Valgfritt",
     "none_option": "Ingen valgt",
     "group_info": "Informasjon om {name}",
-    "choose_many": "Velg ingen eller flere",
+    "choose_many": "Valgfritt · velg en eller flere",
     "quantity": "Antall",
     "choose_in_group": "Velg {name}",
     "option_count": "{count} valg",

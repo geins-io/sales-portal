@@ -84,7 +84,36 @@ describe('ConfiguratorOptionGroup', () => {
 
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false);
     expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(1);
-    expect(wrapper.text()).toContain('configurator.choose_many');
+  });
+
+  // The hint follows how many choices the group can hold in practice; the
+  // control and the none row keep following the provider's maximum.
+  it('calls an optional multi-choice group of one optional, and keeps its checkbox', () => {
+    const group = { ...oneOption('industrial'), maxSelections: 99 };
+
+    const wrapper = mountGroup(group);
+
+    expect(wrapper.find('[data-testid="configurator-group-hint"]').text()).toBe(
+      'configurator.optional',
+    );
+    expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(1);
+    expect(
+      wrapper.find('[data-testid="configurator-option-none"]').exists(),
+    ).toBe(false);
+  });
+
+  it('counts only the shown options for the hint', () => {
+    const group = { ...oneOption('industrial'), maxSelections: 99 };
+    group.options = [
+      ...group.options,
+      { ...group.options[0]!, id: 'blank', name: '', articleNumber: '' },
+    ];
+
+    const wrapper = mountGroup(group);
+
+    expect(wrapper.find('[data-testid="configurator-group-hint"]').text()).toBe(
+      'configurator.optional',
+    );
   });
 
   // The header says what the buyer has to do with the group, on one line and in

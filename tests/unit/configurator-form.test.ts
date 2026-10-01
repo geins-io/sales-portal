@@ -190,41 +190,118 @@ describe('dateChangeValue', () => {
 });
 
 describe('groupHintKey', () => {
+  /** `count` options a buyer is shown: each has a name. */
+  function options(count: number) {
+    return Array.from({ length: count }, (_, index) => ({
+      name: `Option ${index + 1}`,
+      articleNumber: '',
+      selected: false,
+    }));
+  }
+
   it('says a required group must be answered, whatever its shape', () => {
     expect(
-      groupHintKey({ available: true, minSelections: 1, maxSelections: 1 }),
+      groupHintKey({
+        available: true,
+        minSelections: 1,
+        maxSelections: 1,
+        options: options(3),
+      }),
     ).toBe('configurator.required');
     expect(
       groupHintKey({
         available: true,
         minSelections: 2,
         maxSelections: undefined,
+        options: options(3),
       }),
     ).toBe('configurator.required');
   });
 
-  it('calls a skippable single choice optional and counts the rest', () => {
+  it('calls an optional group that takes one choice optional', () => {
     expect(
-      groupHintKey({ available: true, minSelections: 0, maxSelections: 1 }),
+      groupHintKey({
+        available: true,
+        minSelections: 0,
+        maxSelections: 1,
+        options: options(3),
+      }),
     ).toBe('configurator.optional');
-    expect(groupHintKey({ available: true, maxSelections: undefined })).toBe(
-      'configurator.choose_many',
-    );
-    expect(groupHintKey({ available: true, maxSelections: 3 })).toBe(
-      'configurator.choose_many',
-    );
+  });
+
+  it('calls an optional group of one option optional, whatever its maximum', () => {
+    expect(
+      groupHintKey({ available: true, maxSelections: 99, options: options(1) }),
+    ).toBe('configurator.optional');
+    expect(
+      groupHintKey({
+        available: true,
+        maxSelections: undefined,
+        options: options(1),
+      }),
+    ).toBe('configurator.optional');
+  });
+
+  it('says one or more may be chosen when several options fit under the maximum', () => {
+    expect(
+      groupHintKey({ available: true, maxSelections: 99, options: options(7) }),
+    ).toBe('configurator.choose_many');
+    expect(
+      groupHintKey({
+        available: true,
+        maxSelections: undefined,
+        options: options(2),
+      }),
+    ).toBe('configurator.choose_many');
+    expect(
+      groupHintKey({ available: true, maxSelections: 2, options: options(2) }),
+    ).toBe('configurator.choose_many');
+  });
+
+  it('counts only the options the buyer is shown', () => {
+    const shown = options(1);
+    const blank = { name: '', articleNumber: '', selected: false };
+
+    expect(
+      groupHintKey({
+        available: true,
+        maxSelections: 99,
+        options: [...shown, blank],
+      }),
+    ).toBe('configurator.optional');
+  });
+
+  it('keeps the provider maximum for a group with no options of its own', () => {
+    // It holds only nested groups; a count of zero would call it optional
+    // over a list of sub-groups.
+    expect(
+      groupHintKey({ available: true, maxSelections: undefined, options: [] }),
+    ).toBe('configurator.choose_many');
+    expect(
+      groupHintKey({ available: true, maxSelections: 1, options: [] }),
+    ).toBe('configurator.optional');
   });
 
   it('says nothing of a requirement the provider made unavailable', () => {
     // The buyer cannot answer the group, so it asks nothing of them.
     expect(
-      groupHintKey({ available: false, minSelections: 1, maxSelections: 1 }),
+      groupHintKey({
+        available: false,
+        minSelections: 1,
+        maxSelections: 1,
+        options: options(3),
+      }),
     ).toBeUndefined();
   });
 
   it('keeps the hint of an unavailable group that requires nothing', () => {
     expect(
-      groupHintKey({ available: false, minSelections: 0, maxSelections: 1 }),
+      groupHintKey({
+        available: false,
+        minSelections: 0,
+        maxSelections: 1,
+        options: options(3),
+      }),
     ).toBe('configurator.optional');
   });
 });

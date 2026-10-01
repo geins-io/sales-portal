@@ -338,22 +338,27 @@ export function dateChangeValue(raw: string): ConfigurationValue {
 /**
  * The requirement text a group's header carries on its right: what the buyer
  * must do with it, not a decoration on its name. A group the provider requires
- * says so; a single choice the buyer may skip says it is optional, and a group
- * that takes several says so. A required group the provider made unavailable
- * asks nothing of the buyer, so it carries no hint.
+ * says so. An optional group says it is optional when it can hold one choice in
+ * practice (the smaller of its maximum and the options the buyer is shown),
+ * and that one or more may be chosen otherwise. A group with no options of its
+ * own holds only nested groups, so its maximum alone decides. A required group
+ * the provider made unavailable asks nothing of the buyer, so it carries no
+ * hint.
  */
 export function groupHintKey(
   group: Pick<
     ConfigurationOptionGroup,
     'available' | 'minSelections' | 'maxSelections'
-  >,
+  > & {
+    options: Pick<ConfigurationOption, 'name' | 'articleNumber' | 'selected'>[];
+  },
 ): string | undefined {
   if (isRequiredGroup(group)) {
     return group.available ? 'configurator.required' : undefined;
   }
-  return isSingleSelect(group)
-    ? 'configurator.optional'
-    : 'configurator.choose_many';
+  const shown = shownOptions(group).length;
+  const most = Math.min(group.maxSelections ?? Infinity, shown || Infinity);
+  return most <= 1 ? 'configurator.optional' : 'configurator.choose_many';
 }
 
 /**

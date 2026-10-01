@@ -318,7 +318,7 @@
     "optional": "Valinnainen",
     "none_option": "Ei valintaa",
     "group_info": "Tietoa: {name}",
-    "choose_many": "Valitse ei yhtään tai useampi",
+    "choose_many": "Valinnainen · valitse yksi tai useampi",
     "quantity": "Määrä",
     "choose_in_group": "Valitse {name}",
     "option_count": "{count} vaihtoehtoa",
