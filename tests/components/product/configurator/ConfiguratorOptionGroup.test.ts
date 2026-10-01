@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { mountComponent } from '../../../utils/component';
+import ConfiguratorOptionChooser from '../../../../app/components/product/configurator/ConfiguratorOptionChooser.vue';
 import ConfiguratorOptionGroup from '../../../../app/components/product/configurator/ConfiguratorOptionGroup.vue';
 import type {
   ConfigurationOption,
@@ -83,7 +84,36 @@ describe('ConfiguratorOptionGroup', () => {
 
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false);
     expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(1);
-    expect(wrapper.text()).toContain('configurator.choose_many');
+  });
+
+  // The hint follows how many choices the group can hold in practice; the
+  // control and the none row keep following the provider's maximum.
+  it('calls an optional multi-choice group of one optional, and keeps its checkbox', () => {
+    const group = { ...oneOption('industrial'), maxSelections: 99 };
+
+    const wrapper = mountGroup(group);
+
+    expect(wrapper.find('[data-testid="configurator-group-hint"]').text()).toBe(
+      'configurator.optional',
+    );
+    expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(1);
+    expect(
+      wrapper.find('[data-testid="configurator-option-none"]').exists(),
+    ).toBe(false);
+  });
+
+  it('counts only the shown options for the hint', () => {
+    const group = { ...oneOption('industrial'), maxSelections: 99 };
+    group.options = [
+      ...group.options,
+      { ...group.options[0]!, id: 'blank', name: '', articleNumber: '' },
+    ];
+
+    const wrapper = mountGroup(group);
+
+    expect(wrapper.find('[data-testid="configurator-group-hint"]').text()).toBe(
+      'configurator.optional',
+    );
   });
 
   // The header says what the buyer has to do with the group, on one line and in
@@ -857,6 +887,105 @@ describe('ConfiguratorOptionGroup', () => {
   // ---------------------------------------------------------------------
   // "Inget valt": an optional single choice leads with "nothing chosen"
   // ---------------------------------------------------------------------
+  describe('an option with neither a name nor an article number', () => {
+    const ROW = '[data-testid="configurator-option"]';
+
+    function blank(
+      from: ConfigurationOption,
+      parts: Partial<ConfigurationOption> = {},
+    ): ConfigurationOption {
+      return {
+        ...from,
+        id: 'blank',
+        name: '',
+        articleNumber: '',
+        selected: false,
+        ...parts,
+      };
+    }
+
+    /** The seeded table top, with a blank row added after its real ones. */
+    function topWithBlank(parts: Partial<ConfigurationOption> = {}) {
+      const top = findOptionGroup(makeInitialConfiguration(), 'top');
+      for (const option of top.options) option.selected = false;
+      top.options.push(blank(top.options[0]!, parts));
+      return top;
+    }
+
+    it('is left out of the panel, its search and its count', async () => {
+      const top = topWithBlank();
+      const wrapper = mountGroup(top);
+
+      expect(
+        wrapper.findComponent(ConfiguratorOptionChooser).props('count'),
+      ).toBe(top.options.length - 1);
+      await wrapper.find(CHOOSER).trigger('click');
+
+      const ids = wrapper
+        .find(SHEET)
+        .findAll(ROW)
+        .map((row) => row.attributes('data-option-id'));
+      expect(ids).toHaveLength(top.options.length - 1);
+      expect(ids).not.toContain('blank');
+    });
+
+    it('does not count toward the chooser decision', () => {
+      const top = findOptionGroup(makeInitialConfiguration(), 'top');
+      top.options = [top.options[0]!, blank(top.options[0]!)];
+
+      const wrapper = mountGroup(top);
+
+      // One real row: listed inline, as a group of one is.
+      expect(wrapper.find(CHOOSER).exists()).toBe(false);
+      expect(wrapper.findAll(ROW)).toHaveLength(1);
+    });
+
+    it('does not keep a group from saying it has nothing to choose', () => {
+      const top = findOptionGroup(makeInitialConfiguration(), 'top');
+      for (const option of top.options) {
+        option.available = false;
+        option.selected = false;
+        option.messages = [];
+      }
+      top.options.push(blank(top.options[0]!, { available: true }));
+
+      const wrapper = mountGroup(top);
+
+      expect(wrapper.find(CHOOSER).text()).toContain(
+        'configurator.nothing_to_choose',
+      );
+    });
+
+    it('is listed, and checked, when the provider has it selected', async () => {
+      const top = topWithBlank({ selected: true });
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+
+      const row = wrapper.find(`${SHEET} ${ROW}[data-option-id="blank"]`);
+      expect(row.exists()).toBe(true);
+      expect(row.find('[role="radio"]').attributes('aria-checked')).toBe(
+        'true',
+      );
+    });
+
+    it('says there is nothing to choose when every option is blank', () => {
+      const top = findOptionGroup(makeInitialConfiguration(), 'top');
+      top.options = top.options.map((option) =>
+        blank(option, { id: option.id }),
+      );
+
+      const wrapper = mountGroup(top);
+
+      // Nothing to list leaves no chooser: the line stands where the rows
+      // would, as it does under a lone row.
+      expect(wrapper.findAll(ROW)).toHaveLength(0);
+      expect(
+        wrapper.find('[data-testid="configurator-group-nothing"]').text(),
+      ).toBe('configurator.nothing_to_choose');
+    });
+  });
+
   describe('a group with nothing to choose', () => {
     const NOTHING = '[data-testid="configurator-group-nothing"]';
     const REASON = '[data-testid="configurator-option-reason"]';

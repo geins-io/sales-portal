@@ -12,6 +12,8 @@ import {
   makeInitialConfiguration,
 } from '../../../fixtures/configurator';
 
+const SET_AUTOMATICALLY = '[data-testid="configurator-set-automatically"]';
+
 function mountField(variable: ConfigurationVariable) {
   return mountComponent(ConfiguratorVariableField, { props: { variable } });
 }
@@ -69,16 +71,78 @@ describe('ConfiguratorVariableField', () => {
     expect(wrapper.find('input').attributes('aria-valuemax')).toBe('1600');
   });
 
-  it('disables a variable the provider owns and says why', () => {
+  it('disables a variable the provider owns and says it is set automatically', () => {
     const cabinet = makeCabinetConfiguration();
 
     const wrapper = mountField(findVariable(cabinet, 'front-area'));
 
     const input = wrapper.find('input');
     expect(input.attributes('disabled')).toBeDefined();
-    expect(wrapper.find('[title]').attributes('title')).toBe(
-      'configurator.read_only',
+    expect(wrapper.find(SET_AUTOMATICALLY).text()).toBe(
+      'configurator.set_automatically',
     );
+    expect(wrapper.find('[title]').exists()).toBe(false);
+  });
+
+  describe('a read-only variable of each control', () => {
+    const cases: [string, () => ConfigurationVariable][] = [
+      ['number', () => findVariable(makeInitialConfiguration(), 'width')],
+      ['text', () => findVariable(makeCabinetConfiguration(), 'pallet-code')],
+      [
+        'boolean',
+        () => findVariable(makeBooleanVariableConfiguration(), 'shelves'),
+      ],
+      ['date', () => findVariable(makeDateVariableConfiguration(), 'shelves')],
+    ];
+
+    for (const [control, make] of cases) {
+      it(`says a ${control} field is set automatically, with no asterisk and no tooltip`, () => {
+        const variable = { ...make(), readOnly: true, required: true };
+
+        const wrapper = mountField(variable);
+
+        expect(wrapper.attributes('data-control')).toBe(control);
+        expect(wrapper.find(SET_AUTOMATICALLY).text()).toBe(
+          'configurator.set_automatically',
+        );
+        expect(wrapper.text()).not.toContain('configurator.required');
+        expect(wrapper.text()).not.toContain('*');
+        expect(wrapper.find('[title]').exists()).toBe(false);
+      });
+    }
+
+    it('says the same of a value a rule locked', () => {
+      const variable = {
+        ...findVariable(makeInitialConfiguration(), 'width'),
+        selectionSource: 'temporarilyLocked' as const,
+      };
+
+      const wrapper = mountField(variable);
+
+      expect(wrapper.find(SET_AUTOMATICALLY).exists()).toBe(true);
+      expect(wrapper.text()).not.toContain('configurator.required');
+    });
+
+    it('says nothing of the kind on a field the buyer fills in', () => {
+      const wrapper = mountField(
+        findVariable(makeInitialConfiguration(), 'width'),
+      );
+
+      expect(wrapper.find(SET_AUTOMATICALLY).exists()).toBe(false);
+      expect(wrapper.text()).toContain('configurator.required');
+    });
+
+    it('says nothing of the kind, and shows no tooltip, while a batch is in flight', () => {
+      const wrapper = mountComponent(ConfiguratorVariableField, {
+        props: {
+          variable: findVariable(makeInitialConfiguration(), 'width'),
+          disabled: true,
+        },
+      });
+
+      expect(wrapper.find(SET_AUTOMATICALLY).exists()).toBe(false);
+      expect(wrapper.find('[title]').exists()).toBe(false);
+    });
   });
 
   it('marks a required variable', () => {
@@ -353,9 +417,7 @@ describe('ConfiguratorVariableField', () => {
     const wrapper = mountField(variable);
     const input = wrapper.find('input');
     expect(input.attributes('disabled')).toBeDefined();
-    expect(wrapper.find('[title]').attributes('title')).toBe(
-      'configurator.read_only',
-    );
+    expect(wrapper.find(SET_AUTOMATICALLY).exists()).toBe(true);
 
     await input.setValue('1500');
     await input.trigger('blur');

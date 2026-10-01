@@ -141,10 +141,27 @@ export function groupSummary(
 }
 
 /**
+ * The options a group shows the buyer: one with neither a name nor an article
+ * number says nothing a buyer could choose by, so it is left out, unless the
+ * provider has it selected, because a selection is never hidden. What is
+ * chosen and what is required keep reading the document.
+ */
+export function shownOptions<
+  T extends Pick<ConfigurationOption, 'name' | 'articleNumber' | 'selected'>,
+>(group: { options: T[] }): T[] {
+  return group.options.filter(
+    (option) =>
+      option.selected ||
+      option.name.trim() !== '' ||
+      option.articleNumber.trim() !== '',
+  );
+}
+
+/**
  * Whether the buyer can choose nothing in a group with the choices made so
- * far: the provider made the group unavailable, or every row in it. A group
- * with no rows of its own holds only nested groups, which answer for
- * themselves.
+ * far: the provider made the group unavailable, or every row the buyer is
+ * shown, which holds when none is shown at all. A group with no rows of its
+ * own holds only nested groups, which answer for themselves.
  */
 export function hasNothingToChoose(
   group: Pick<ConfigurationOptionGroup, 'available' | 'options'>,
@@ -152,7 +169,7 @@ export function hasNothingToChoose(
   if (!group.available) return true;
   return (
     group.options.length > 0 &&
-    group.options.every((option) => !option.available)
+    shownOptions(group).every((option) => !option.available)
   );
 }
 
@@ -321,22 +338,27 @@ export function dateChangeValue(raw: string): ConfigurationValue {
 /**
  * The requirement text a group's header carries on its right: what the buyer
  * must do with it, not a decoration on its name. A group the provider requires
- * says so; a single choice the buyer may skip says it is optional, and a group
- * that takes several says so. A required group the provider made unavailable
- * asks nothing of the buyer, so it carries no hint.
+ * says so. An optional group says it is optional when it can hold one choice in
+ * practice (the smaller of its maximum and the options the buyer is shown),
+ * and that one or more may be chosen otherwise. A group with no options of its
+ * own holds only nested groups, so its maximum alone decides. A required group
+ * the provider made unavailable asks nothing of the buyer, so it carries no
+ * hint.
  */
 export function groupHintKey(
   group: Pick<
     ConfigurationOptionGroup,
     'available' | 'minSelections' | 'maxSelections'
-  >,
+  > & {
+    options: Pick<ConfigurationOption, 'name' | 'articleNumber' | 'selected'>[];
+  },
 ): string | undefined {
   if (isRequiredGroup(group)) {
     return group.available ? 'configurator.required' : undefined;
   }
-  return isSingleSelect(group)
-    ? 'configurator.optional'
-    : 'configurator.choose_many';
+  const shown = shownOptions(group).length;
+  const most = Math.min(group.maxSelections ?? Infinity, shown || Infinity);
+  return most <= 1 ? 'configurator.optional' : 'configurator.choose_many';
 }
 
 /**

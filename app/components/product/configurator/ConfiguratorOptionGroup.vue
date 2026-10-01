@@ -16,6 +16,7 @@ import {
   NONE_ROW_VALUE,
   offersNoneRow,
   refusesOptionIn,
+  shownOptions,
   usesChooser,
 } from '~/utils/configurator-form';
 import { Input } from '~/components/ui/input';
@@ -73,6 +74,9 @@ const emit = defineEmits<{ change: [ConfigurationChange] }>();
 
 const { t } = useI18n();
 
+/** The group as the buyer sees it: its blank options left out. */
+const shown = computed(() => ({ ...group, options: shownOptions(group) }));
+
 const single = computed(() => isSingleSelect(group));
 const hint = computed(() => groupHintKey(group));
 const unavailable = computed(() => parentUnavailable || !group.available);
@@ -95,8 +99,8 @@ const summary = computed(() => {
 // A group with a choice to make is chosen from a panel rather than listed, as
 // the prototype's option layouts: a single choice shows one row for it, a
 // multi choice shows what is chosen and a row that adds more.
-const chooser = computed(() => usesChooser(groupRowCount(group)));
-const imageColumn = computed(() => hasImageColumn(group.options));
+const chooser = computed(() => usesChooser(groupRowCount(shown.value)));
+const imageColumn = computed(() => hasImageColumn(shown.value.options));
 const chosen = computed(() =>
   group.options.filter((option) => option.selected),
 );
@@ -104,7 +108,9 @@ const chosen = computed(() =>
 const sheetOpen = ref(false);
 const query = ref('');
 const matches = computed(() =>
-  group.options.filter((option) => matchesOptionQuery(option, query.value)),
+  shown.value.options.filter((option) =>
+    matchesOptionQuery(option, query.value),
+  ),
 );
 /** Searched by its label, as any row is by what it shows. */
 const noneMatches = computed(
@@ -215,7 +221,7 @@ function onSheetPick(value: unknown) {
         :chosen="chosen[0]"
         :none="none"
         :group-name="group.name"
-        :count="group.options.length"
+        :count="shown.options.length"
         :image-column="imageColumn"
         :disabled="disabled"
         :unavailable="unavailable"
@@ -237,7 +243,7 @@ function onSheetPick(value: unknown) {
         />
 
         <button
-          v-if="chosen.length < group.options.length"
+          v-if="chosen.length < shown.options.length"
           type="button"
           data-testid="configurator-group-add"
           class="text-primary hover:bg-accent/50 hover:text-primary/80 flex w-full items-center justify-between gap-3 rounded-lg border border-dashed p-3 text-left text-sm font-medium transition-colors"
@@ -265,7 +271,7 @@ function onSheetPick(value: unknown) {
         @update:model-value="onPick"
       >
         <ConfiguratorOptionRow
-          v-for="option in group.options"
+          v-for="option in shown.options"
           :key="`${option.id}-${option.instanceId}`"
           :option="option"
           single
@@ -279,7 +285,7 @@ function onSheetPick(value: unknown) {
 
       <div v-else class="space-y-2">
         <ConfiguratorOptionRow
-          v-for="option in group.options"
+          v-for="option in shown.options"
           :key="`${option.id}-${option.instanceId}`"
           :option="option"
           :single="false"

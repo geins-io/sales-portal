@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { ConfigurationOption } from '#shared/types/configurator';
 import { formatPrice } from '#shared/types/commerce';
 import {
   blockingMessage,
@@ -25,6 +26,7 @@ import {
   optionPricePrefix,
   refusesOptionIn,
   refusesVariable,
+  shownOptions,
   signedOptionPrice,
   usesChooser,
   variableControl,
@@ -188,41 +190,118 @@ describe('dateChangeValue', () => {
 });
 
 describe('groupHintKey', () => {
+  /** `count` options a buyer is shown: each has a name. */
+  function options(count: number) {
+    return Array.from({ length: count }, (_, index) => ({
+      name: `Option ${index + 1}`,
+      articleNumber: '',
+      selected: false,
+    }));
+  }
+
   it('says a required group must be answered, whatever its shape', () => {
     expect(
-      groupHintKey({ available: true, minSelections: 1, maxSelections: 1 }),
+      groupHintKey({
+        available: true,
+        minSelections: 1,
+        maxSelections: 1,
+        options: options(3),
+      }),
     ).toBe('configurator.required');
     expect(
       groupHintKey({
         available: true,
         minSelections: 2,
         maxSelections: undefined,
+        options: options(3),
       }),
     ).toBe('configurator.required');
   });
 
-  it('calls a skippable single choice optional and counts the rest', () => {
+  it('calls an optional group that takes one choice optional', () => {
     expect(
-      groupHintKey({ available: true, minSelections: 0, maxSelections: 1 }),
+      groupHintKey({
+        available: true,
+        minSelections: 0,
+        maxSelections: 1,
+        options: options(3),
+      }),
     ).toBe('configurator.optional');
-    expect(groupHintKey({ available: true, maxSelections: undefined })).toBe(
-      'configurator.choose_many',
-    );
-    expect(groupHintKey({ available: true, maxSelections: 3 })).toBe(
-      'configurator.choose_many',
-    );
+  });
+
+  it('calls an optional group of one option optional, whatever its maximum', () => {
+    expect(
+      groupHintKey({ available: true, maxSelections: 99, options: options(1) }),
+    ).toBe('configurator.optional');
+    expect(
+      groupHintKey({
+        available: true,
+        maxSelections: undefined,
+        options: options(1),
+      }),
+    ).toBe('configurator.optional');
+  });
+
+  it('says one or more may be chosen when several options fit under the maximum', () => {
+    expect(
+      groupHintKey({ available: true, maxSelections: 99, options: options(7) }),
+    ).toBe('configurator.choose_many');
+    expect(
+      groupHintKey({
+        available: true,
+        maxSelections: undefined,
+        options: options(2),
+      }),
+    ).toBe('configurator.choose_many');
+    expect(
+      groupHintKey({ available: true, maxSelections: 2, options: options(2) }),
+    ).toBe('configurator.choose_many');
+  });
+
+  it('counts only the options the buyer is shown', () => {
+    const shown = options(1);
+    const blank = { name: '', articleNumber: '', selected: false };
+
+    expect(
+      groupHintKey({
+        available: true,
+        maxSelections: 99,
+        options: [...shown, blank],
+      }),
+    ).toBe('configurator.optional');
+  });
+
+  it('keeps the provider maximum for a group with no options of its own', () => {
+    // It holds only nested groups; a count of zero would call it optional
+    // over a list of sub-groups.
+    expect(
+      groupHintKey({ available: true, maxSelections: undefined, options: [] }),
+    ).toBe('configurator.choose_many');
+    expect(
+      groupHintKey({ available: true, maxSelections: 1, options: [] }),
+    ).toBe('configurator.optional');
   });
 
   it('says nothing of a requirement the provider made unavailable', () => {
     // The buyer cannot answer the group, so it asks nothing of them.
     expect(
-      groupHintKey({ available: false, minSelections: 1, maxSelections: 1 }),
+      groupHintKey({
+        available: false,
+        minSelections: 1,
+        maxSelections: 1,
+        options: options(3),
+      }),
     ).toBeUndefined();
   });
 
   it('keeps the hint of an unavailable group that requires nothing', () => {
     expect(
-      groupHintKey({ available: false, minSelections: 0, maxSelections: 1 }),
+      groupHintKey({
+        available: false,
+        minSelections: 0,
+        maxSelections: 1,
+        options: options(3),
+      }),
     ).toBe('configurator.optional');
   });
 });
@@ -527,6 +606,55 @@ describe('optionBlockReason', () => {
   });
 });
 
+describe('shownOptions', () => {
+  function blankOf(id: string, parts: Partial<ConfigurationOption> = {}) {
+    const option = findOption(makeInitialConfiguration(), id);
+    return { ...option, name: '', articleNumber: '', ...parts };
+  }
+
+  it('leaves out an option with neither a name nor an article number', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    const real = top.options.map((option) => option.id);
+    top.options.push(blankOf('top-wood', { id: 'blank' }));
+
+    expect(shownOptions(top).map((option) => option.id)).toEqual(real);
+  });
+
+  it('keeps an option with a name only, or an article number only', () => {
+    const named = blankOf('top-wood', { id: 'named', name: 'Beech' });
+    const numbered = blankOf('top-wood', {
+      id: 'numbered',
+      articleNumber: 'F-1',
+    });
+
+    expect(
+      shownOptions({ options: [named, numbered] }).map((option) => option.id),
+    ).toEqual(['named', 'numbered']);
+  });
+
+  it('treats a name and an article number of only spaces as blank', () => {
+    const spaces = blankOf('top-wood', { name: '  ', articleNumber: ' ' });
+
+    expect(shownOptions({ options: [spaces] })).toEqual([]);
+  });
+
+  it('keeps a blank option the provider has selected, so a selection is never hidden', () => {
+    const selected = blankOf('top-wood', { selected: true });
+
+    expect(shownOptions({ options: [selected] })).toEqual([selected]);
+  });
+
+  it('leaves the group it was given untouched', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    top.options.push(blankOf('top-wood', { id: 'blank' }));
+    const count = top.options.length;
+
+    shownOptions(top);
+
+    expect(top.options).toHaveLength(count);
+  });
+});
+
 describe('hasNothingToChoose', () => {
   it('is false for a group with a row the buyer may choose', () => {
     const workbench = makeInitialConfiguration();
@@ -561,6 +689,33 @@ describe('hasNothingToChoose', () => {
 
   it('is true for an unavailable group with no rows of its own', () => {
     expect(hasNothingToChoose({ available: false, options: [] })).toBe(true);
+  });
+
+  it('is true when every row is one the buyer is not shown', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    for (const option of top.options) {
+      option.name = '';
+      option.articleNumber = '';
+      option.selected = false;
+    }
+
+    expect(top.options.every((option) => option.available)).toBe(true);
+    expect(hasNothingToChoose(top)).toBe(true);
+  });
+
+  it('ignores a blank row while the shown rows are all unavailable', () => {
+    const top = findOptionGroup(makeInitialConfiguration(), 'top');
+    for (const option of top.options) option.available = false;
+    top.options.push({
+      ...top.options[0]!,
+      id: 'blank',
+      name: '',
+      articleNumber: '',
+      selected: false,
+      available: true,
+    });
+
+    expect(hasNothingToChoose(top)).toBe(true);
   });
 });
 
