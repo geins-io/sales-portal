@@ -130,9 +130,13 @@ jobs:
         run: pnpm build
 
       # Output goes to a file: an open stdout would keep the step from ending.
+      # The preload stops the server closing idle sockets under Playwright's
+      # pooled API requests (tests/e2e/preview-keepalive.mjs). Absolute path:
+      # `nuxt preview` starts the server with `.output` as its cwd.
       - name: Start the preview server
         run: |
           NITRO_SSL_CERT="$(cat .certs/local.crt)" NITRO_SSL_KEY="$(cat .certs/local.key)" E2E=1 \
+            NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--import=$PWD/tests/e2e/preview-keepalive.mjs" \
             pnpm preview > preview.log 2>&1 &
 
       # No `--no-deps`: the preflight layers run as this project's dependencies,

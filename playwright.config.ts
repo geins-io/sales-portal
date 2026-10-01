@@ -71,6 +71,21 @@ function tlsEnv(): Record<string, string> {
   };
 }
 
+// The preview's keep-alive preload, appended to any NODE_OPTIONS already set.
+// Why it exists: tests/e2e/preview-keepalive.mjs. Preflight L1 checks it.
+function keepAliveEnv(): Record<string, string> {
+  if (!PRODUCTION_BUILD) return {};
+  const preload = resolve(
+    import.meta.dirname,
+    'tests/e2e/preview-keepalive.mjs',
+  );
+  return {
+    NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${preload}`]
+      .filter(Boolean)
+      .join(' '),
+  };
+}
+
 // Pre-accepted consent so CookieBanner never renders: it is fixed to the
 // bottom (intercepting taps) and carries `role="dialog"` (colliding with every
 // sheet a test selects). Key format from `useAnalyticsConsent`.
@@ -256,11 +271,17 @@ export default defineConfig({
         ignoreHTTPSErrors: PRODUCTION_BUILD,
         // E2E=1 disables the dev overlays (see nuxt.config.ts). Only applies when
         // Playwright starts the server — otherwise use `E2E=1 pnpm dev`.
-        // The TLS pair makes `pnpm preview` serve https (see tlsEnv above).
+        // The TLS pair makes `pnpm preview` serve https (see tlsEnv above);
+        // keepAliveEnv adds the preview's keep-alive preload.
         // The configurator fixture: the suite runs against the same backend
         // the dev environment does, whether the server is a dev boot or a
         // production build (E2E_PROD).
-        env: { E2E: '1', NUXT_CONFIGURATOR_BACKEND: 'fixture', ...tlsEnv() },
+        env: {
+          E2E: '1',
+          NUXT_CONFIGURATOR_BACKEND: 'fixture',
+          ...tlsEnv(),
+          ...keepAliveEnv(),
+        },
         reuseExistingServer: !process.env.CI,
         // A local production build (E2E_PROD) needs much longer than a dev boot.
         timeout: process.env.E2E_PROD ? 360000 : 120000,
