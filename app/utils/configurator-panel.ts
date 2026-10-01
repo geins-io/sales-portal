@@ -103,29 +103,48 @@ export function collectBlockingMessages(config: Configuration): string[] {
  * `invalid_unspecified` is for.
  */
 function unmetNodes(config: Configuration): {
-  names: string[];
+  items: BlockingItem[];
   messages: ConfigurationMessage[];
 } {
-  const names: string[] = [];
+  const items: BlockingItem[] = [];
+  const named = new Set<string>();
   const messages: ConfigurationMessage[] = [];
 
-  const take = (name: string, carried: ConfigurationMessage[]): void => {
-    names.push(name);
+  const take = (item: BlockingItem, carried: ConfigurationMessage[]): void => {
+    if (!named.has(item.name)) items.push(item);
+    named.add(item.name);
     messages.push(...carried);
   };
 
-  const walkGroup = (group: ConfigurationOptionGroup): void => {
-    if (isGroupUnmet(group)) take(group.name, group.messages);
-    for (const nested of group.optionGroups) walkGroup(nested);
+  const walkGroup = (
+    group: ConfigurationOptionGroup,
+    sectionId: string,
+  ): void => {
+    if (isGroupUnmet(group)) {
+      take(
+        { name: group.name, sectionId, kind: 'group', nodeId: group.id },
+        group.messages,
+      );
+    }
+    for (const nested of group.optionGroups) walkGroup(nested, sectionId);
   };
 
   const walkSections = (sections: ConfigurationSection[]): void => {
     for (const section of orderedSections(sections)) {
       if (!section.visible) continue;
       for (const member of sectionMembers(section)) {
-        if (member.kind === 'group') walkGroup(member.group);
+        if (member.kind === 'group') walkGroup(member.group, section.id);
         else if (isVariableUnmet(member.variable)) {
-          take(member.variable.name, member.variable.messages);
+          const { variable } = member;
+          take(
+            {
+              name: variable.name,
+              sectionId: section.id,
+              kind: 'variable',
+              nodeId: variable.id,
+            },
+            variable.messages,
+          );
         }
       }
       walkSections(section.sections);
@@ -134,12 +153,26 @@ function unmetNodes(config: Configuration): {
 
   walkSections(config.sections);
 
-  return { names: [...new Set(names)], messages };
+  return { items, messages };
 }
 
-/** What the banner names as missing, in document order and without repeats. */
-export function collectBlockingNames(config: Configuration): string[] {
-  return unmetNodes(config).names;
+/**
+ * One missing node, and where the page shows it: the section is the innermost
+ * visible one holding it, because a nested section is a page of its own.
+ */
+export interface BlockingItem {
+  name: string;
+  sectionId: string;
+  kind: 'group' | 'variable';
+  nodeId: string;
+}
+
+/**
+ * What the banner lists as missing, in document order. One item per name: two
+ * nodes with the same name would be the same line twice, so the first stands.
+ */
+export function collectBlockingItems(config: Configuration): BlockingItem[] {
+  return unmetNodes(config).items;
 }
 
 /**

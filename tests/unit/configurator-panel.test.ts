@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { PriceType } from '#shared/types/commerce';
+import type { Configuration } from '#shared/types/configurator';
 import {
+  collectBlockingItems,
   collectBlockingMessages,
-  collectBlockingNames,
   formatRemaining,
   groupSpecificationRows,
   specificationRows,
@@ -18,6 +19,7 @@ import {
   makeCabinetConfiguration,
   makeInitialConfiguration,
   makeInvalidConfiguration,
+  makeSectionTreeConfiguration,
   makeValidConfiguration,
 } from '../fixtures/configurator';
 
@@ -159,15 +161,18 @@ describe('collectBlockingMessages', () => {
   });
 });
 
-describe('collectBlockingNames', () => {
+/** The banner's lines, by name alone, for the cases where only that matters. */
+function blockingNames(config: Configuration): string[] {
+  return collectBlockingItems(config).map((item) => item.name);
+}
+
+describe('collectBlockingItems, what is named', () => {
   it('names the group a fresh document is waiting on', () => {
-    expect(collectBlockingNames(makeInitialConfiguration())).toEqual([
-      'Colour',
-    ]);
+    expect(blockingNames(makeInitialConfiguration())).toEqual(['Colour']);
   });
 
   it('names both empty groups of an incomplete document, in document order', () => {
-    expect(collectBlockingNames(makeInvalidConfiguration())).toEqual([
+    expect(blockingNames(makeInvalidConfiguration())).toEqual([
       'Table top',
       'Colour',
     ]);
@@ -183,7 +188,7 @@ describe('collectBlockingNames', () => {
     // The seed interleaves this section, so the order below is neither of the
     // two lists: groups first would read Mounting, Doors, Width, Height. A
     // buyer working down the banner meets them where they sit on the page.
-    expect(collectBlockingNames(config)).toEqual([
+    expect(blockingNames(config)).toEqual([
       'Mounting',
       'Width',
       'Height',
@@ -192,16 +197,16 @@ describe('collectBlockingNames', () => {
   });
 
   it('names nothing in a complete document', () => {
-    expect(collectBlockingNames(makeValidConfiguration())).toEqual([]);
+    expect(blockingNames(makeValidConfiguration())).toEqual([]);
   });
 
   it('names a required variable left empty, and not one resting at zero', () => {
     const config = makeValidConfiguration();
     expect(findVariable(config, 'shelves').value).toBe(0);
-    expect(collectBlockingNames(config)).toEqual([]);
+    expect(blockingNames(config)).toEqual([]);
 
     findVariable(config, 'width').value = null;
-    expect(collectBlockingNames(config)).toEqual(['Width']);
+    expect(blockingNames(config)).toEqual(['Width']);
   });
 
   it('names a group inside a group', () => {
@@ -218,7 +223,7 @@ describe('collectBlockingNames', () => {
         messages: [],
       },
     ];
-    expect(collectBlockingNames(config)).toEqual(['Mounting']);
+    expect(blockingNames(config)).toEqual(['Mounting']);
   });
 
   it('does not name a group that has what it asks for, whatever it says', () => {
@@ -228,7 +233,7 @@ describe('collectBlockingNames', () => {
     findOptionGroup(config, 'color').messages = [
       { severity: 'error', text: 'That finish is out of production.' },
     ];
-    expect(collectBlockingNames(config)).toEqual([]);
+    expect(blockingNames(config)).toEqual([]);
   });
 
   it('counts a selected option the rules made unavailable as an answer', () => {
@@ -236,7 +241,7 @@ describe('collectBlockingNames', () => {
     // for something that is already there.
     const config = makeValidConfiguration();
     findOption(config, 'ral-9005').available = false;
-    expect(collectBlockingNames(config)).toEqual([]);
+    expect(blockingNames(config)).toEqual([]);
   });
 
   it('does not name a group that has too many selections', () => {
@@ -246,7 +251,7 @@ describe('collectBlockingNames', () => {
     const colour = findOptionGroup(config, 'color');
     colour.maxSelections = 1;
     findOption(config, 'ral-9010').selected = true;
-    expect(collectBlockingNames(config)).toEqual([]);
+    expect(blockingNames(config)).toEqual([]);
   });
 
   it('names nothing inside a section the provider hid', () => {
@@ -254,10 +259,10 @@ describe('collectBlockingNames', () => {
     // banner points at what is on screen, and naming a hidden group would ask
     // the buyer to fix something they cannot reach.
     const config = makeInitialConfiguration();
-    expect(collectBlockingNames(config)).toEqual(['Colour']);
+    expect(blockingNames(config)).toEqual(['Colour']);
 
     config.sections[0]!.sections[0]!.visible = false;
-    expect(collectBlockingNames(config)).toEqual([]);
+    expect(blockingNames(config)).toEqual([]);
   });
 
   it('does not name a required variable the provider made unavailable', () => {
@@ -267,15 +272,15 @@ describe('collectBlockingNames', () => {
     const width = findVariable(config, 'width');
     width.value = null;
     width.available = false;
-    expect(collectBlockingNames(config)).toEqual([]);
+    expect(blockingNames(config)).toEqual([]);
   });
 
   it('does not name an unavailable group short of its minimum', () => {
     const config = makeInitialConfiguration();
-    expect(collectBlockingNames(config)).toEqual(['Colour']);
+    expect(blockingNames(config)).toEqual(['Colour']);
 
     findOptionGroup(config, 'color').available = false;
-    expect(collectBlockingNames(config)).toEqual([]);
+    expect(blockingNames(config)).toEqual([]);
   });
 
   it('names nothing for an error the document carries itself', () => {
@@ -283,7 +288,94 @@ describe('collectBlockingNames', () => {
     const config = makeValidConfiguration({
       messages: [{ severity: 'error', text: 'The template is out of date.' }],
     });
-    expect(collectBlockingNames(config)).toEqual([]);
+    expect(blockingNames(config)).toEqual([]);
+  });
+});
+
+describe('collectBlockingItems, where each item is', () => {
+  it('names a group with the section that holds it, however deep', () => {
+    // Colour sits in Finish, which nests inside Frame: the link opens the
+    // page the group is on, not its parent.
+    expect(collectBlockingItems(makeInitialConfiguration())).toEqual([
+      { name: 'Colour', sectionId: 'finish', kind: 'group', nodeId: 'color' },
+    ]);
+  });
+
+  it('names a variable with its section and its own id', () => {
+    const config = makeValidConfiguration();
+    findVariable(config, 'width').value = null;
+
+    expect(collectBlockingItems(config)).toEqual([
+      { name: 'Width', sectionId: 'frame', kind: 'variable', nodeId: 'width' },
+    ]);
+  });
+
+  it('takes the section of the innermost page, two levels down', () => {
+    const config = makeSectionTreeConfiguration();
+    const industrial = findOptionGroup(config, 'industrial');
+    industrial.minSelections = 1;
+    for (const option of industrial.options) option.selected = false;
+
+    expect(
+      collectBlockingItems(config).find((item) => item.nodeId === 'industrial'),
+    ).toEqual({
+      name: industrial.name,
+      sectionId: 'edge-trim',
+      kind: 'group',
+      nodeId: 'industrial',
+    });
+  });
+
+  it("names a group inside a group by its own id, in the outer group's section", () => {
+    const config = makeValidConfiguration();
+    const legs = findOptionGroup(config, 'legs');
+    legs.optionGroups = [
+      {
+        ...legs,
+        id: 'legs-mounting',
+        name: 'Mounting',
+        minSelections: 1,
+        optionGroups: [],
+        options: [],
+        messages: [],
+      },
+    ];
+
+    expect(collectBlockingItems(config)).toEqual([
+      {
+        name: 'Mounting',
+        sectionId: 'frame',
+        kind: 'group',
+        nodeId: 'legs-mounting',
+      },
+    ]);
+  });
+
+  it('lists every missing node in the order the page shows them', () => {
+    expect(
+      collectBlockingItems(makeInvalidConfiguration()).map(
+        (item) => item.nodeId,
+      ),
+    ).toEqual(['top', 'color']);
+  });
+
+  it('skips a section the provider hid', () => {
+    const config = makeInitialConfiguration();
+    config.sections[0]!.sections[0]!.visible = false;
+
+    expect(collectBlockingItems(config)).toEqual([]);
+  });
+
+  it('keeps the first of two nodes that share a name', () => {
+    // One line per name, as the sentence had; the link goes to the first.
+    const config = makeInitialConfiguration();
+    const width = findVariable(config, 'width');
+    width.value = null;
+    width.name = 'Colour';
+
+    expect(collectBlockingItems(config)).toEqual([
+      { name: 'Colour', sectionId: 'frame', kind: 'variable', nodeId: 'width' },
+    ]);
   });
 });
 
@@ -300,7 +392,7 @@ describe('unnamedBlockingMessages', () => {
       { severity: 'error', text: 'Selection required' },
     ];
 
-    expect(collectBlockingNames(config)).toEqual(['Colour']);
+    expect(blockingNames(config)).toEqual(['Colour']);
     expect(unnamedBlockingMessages(config)).toEqual(['Selection required']);
   });
 
@@ -321,7 +413,7 @@ describe('unnamedBlockingMessages', () => {
     findOptionGroup(config, 'top').messages = [
       { severity: 'error', text: 'Pick a variant.' },
     ];
-    expect(collectBlockingNames(config)).toEqual(['Table top', 'Colour']);
+    expect(blockingNames(config)).toEqual(['Table top', 'Colour']);
     expect(unnamedBlockingMessages(config)).toEqual([]);
   });
 
@@ -369,7 +461,7 @@ describe('unnamedBlockingMessages', () => {
     findVariable(config, 'width').messages = [
       { severity: 'error', text: 'The width is out of range.' },
     ];
-    expect(collectBlockingNames(config)).toEqual([]);
+    expect(blockingNames(config)).toEqual([]);
     expect(unnamedBlockingMessages(config)).toEqual([
       'The width is out of range.',
     ]);

@@ -17,6 +17,7 @@ import { categoryPath } from '#shared/utils/route-helpers';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
+import type { BlockingItem } from '~/utils/configurator-panel';
 import {
   canCommit,
   configuratorStage,
@@ -329,6 +330,26 @@ const isMenu = computed(() =>
   activeEntry.value ? isMenuSection(activeEntry.value.section) : false,
 );
 
+const formSlot = useTemplateRef<HTMLElement>('formSlot');
+
+/**
+ * A missing item in the panel: the same move as its section in the rail, then
+ * the node itself into view once that section has rendered. It scrolls even
+ * when the section is already open, since the buyer may have scrolled away.
+ * Scoped to the slot: a chooser's sheet is teleported, and its rows are not the
+ * node. The margin is the sticky header's 11rem, as on the tab row.
+ */
+async function goToMissing(item: BlockingItem): Promise<void> {
+  activeSectionId.value = item.sectionId;
+  await nextTick();
+  const node = formSlot.value?.querySelector<HTMLElement>(
+    `[data-${item.kind}-id="${CSS.escape(item.nodeId)}"]`,
+  );
+  if (!node) return;
+  node.style.scrollMarginTop = '11rem';
+  node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 const canStepBack = computed(() => hasPrevious(activeRailIndex.value));
 
 const canStepForward = computed(() =>
@@ -550,6 +571,7 @@ async function onRestart(): Promise<void> {
                 </nav>
 
                 <div
+                  ref="formSlot"
                   class="min-w-0"
                   :class="formSlotClass"
                   data-testid="configurator-form-slot"
@@ -748,6 +770,7 @@ async function onRestart(): Promise<void> {
                   :product-name="product.name ?? ''"
                   :article-number="product.articleNumber ?? ''"
                   @restart="onRestart"
+                  @go-to="goToMissing"
                 />
 
                 <ConfigurationAction

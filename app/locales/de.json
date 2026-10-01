@@ -359,7 +359,7 @@
     },
     "panel": {
       "valid": "Die Konfiguration ist vollständig und bestellbar.",
-      "invalid": "Fehlt noch, bevor Sie fortfahren können: {items}.",
+      "invalid": "Fehlt noch, bevor Sie fortfahren können:",
       "invalid_unspecified": "Die Konfiguration ist nicht vollständig.",
       "recomputing": "Wird neu berechnet…",
       "time_left": "{time} verbleibend",

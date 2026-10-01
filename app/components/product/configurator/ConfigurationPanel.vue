@@ -22,11 +22,12 @@ import type { ConfiguratorSessionStatus } from '~/composables/useConfiguratorSes
 import { Button } from '~/components/ui/button';
 import { optionPricePrefix } from '~/utils/configurator-form';
 import {
-  collectBlockingNames,
+  collectBlockingItems,
   groupSpecificationRows,
   specificationRows,
   specificationText,
   unnamedBlockingMessages,
+  type BlockingItem,
   type SpecificationValue,
 } from '~/utils/configurator-panel';
 
@@ -49,7 +50,7 @@ const { configuration, status, busy, productName, articleNumber } =
     articleNumber: string;
   }>();
 
-const emit = defineEmits<{ restart: [] }>();
+const emit = defineEmits<{ restart: []; 'go-to': [item: BlockingItem] }>();
 
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
@@ -60,9 +61,9 @@ const rows = computed(() =>
 );
 const grouped = computed(() => groupSpecificationRows(rows.value));
 
-/** What is missing, by name, and whatever the names do not cover. */
-const blockingNames = computed(() =>
-  configuration ? collectBlockingNames(configuration) : [],
+/** What is missing, each with where it is, and whatever they do not cover. */
+const blockingItems = computed(() =>
+  configuration ? collectBlockingItems(configuration) : [],
 );
 const blockingMessages = computed(() =>
   configuration ? unnamedBlockingMessages(configuration) : [],
@@ -329,7 +330,7 @@ const canCopy = computed(() => mounted.value && isSupported.value);
          without a reason beside it. -->
     <div class="px-4 py-3">
       <div
-        class="flex items-start gap-2 rounded-md px-3 py-2 text-sm"
+        class="flex items-start gap-2 rounded-md px-3 py-2 text-xs"
         :class="
           configuration.isValid
             ? 'bg-success/10 text-success'
@@ -337,26 +338,37 @@ const canCopy = computed(() => mounted.value && isSupported.value);
         "
         data-testid="configurator-panel-validity"
       >
-        <CheckCircle2
-          v-if="configuration.isValid"
-          class="mt-0.5 size-4 shrink-0"
-        />
-        <AlertCircle v-else class="mt-0.5 size-4 shrink-0" />
+        <CheckCircle2 v-if="configuration.isValid" class="size-4 shrink-0" />
+        <AlertCircle v-else class="size-4 shrink-0" />
         <p v-if="configuration.isValid">{{ t('configurator.panel.valid') }}</p>
         <div v-else class="space-y-1">
-          <p v-if="blockingNames.length">
-            {{
-              t('configurator.panel.invalid', {
-                items: blockingNames.join(', '),
-              })
-            }}
-          </p>
+          <template v-if="blockingItems.length">
+            <p>{{ t('configurator.panel.invalid') }}</p>
+            <!-- One line each, as a way there: the page opens the item's
+                 section and brings the node into view. -->
+            <ul data-testid="configurator-panel-missing">
+              <li v-for="item in blockingItems" :key="item.name">
+                <button
+                  type="button"
+                  class="text-left underline underline-offset-2 hover:no-underline"
+                  data-testid="configurator-panel-missing-item"
+                  @click="emit('go-to', item)"
+                >
+                  {{ item.name }}
+                </button>
+              </li>
+            </ul>
+          </template>
           <p v-else-if="!blockingMessages.length">
             {{ t('configurator.panel.invalid_unspecified') }}
           </p>
           <!-- A message no name stands for is a whole sentence of its own, so
                these are listed rather than folded into the one above. -->
-          <ul v-if="blockingMessages.length" class="list-inside list-disc">
+          <ul
+            v-if="blockingMessages.length"
+            class="list-inside list-disc"
+            data-testid="configurator-panel-messages"
+          >
             <li v-for="text in blockingMessages" :key="text">{{ text }}</li>
           </ul>
         </div>

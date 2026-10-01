@@ -359,7 +359,7 @@
     },
     "panel": {
       "valid": "The configuration is complete and can be ordered.",
-      "invalid": "Missing before you can continue: {items}.",
+      "invalid": "Missing before you can continue:",
       "invalid_unspecified": "The configuration is not complete.",
       "recomputing": "Recalculating…",
       "time_left": "{time} left",

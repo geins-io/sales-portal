@@ -359,7 +359,7 @@
     },
     "panel": {
       "valid": "Kokoonpano on valmis ja tilattavissa.",
-      "invalid": "Puuttuu, ennen kuin voit jatkaa: {items}.",
+      "invalid": "Puuttuu, ennen kuin voit jatkaa:",
       "invalid_unspecified": "Kokoonpano ei ole valmis.",
       "recomputing": "Lasketaan uudelleen…",
       "time_left": "{time} jäljellä",

@@ -359,7 +359,7 @@
     },
     "panel": {
       "valid": "Konfigurationen er komplet og kan bestilles.",
-      "invalid": "Mangler, før du kan fortsætte: {items}.",
+      "invalid": "Mangler, før du kan fortsætte:",
       "invalid_unspecified": "Konfigurationen er ikke komplet.",
       "recomputing": "Beregner igen…",
       "time_left": "{time} tilbage",

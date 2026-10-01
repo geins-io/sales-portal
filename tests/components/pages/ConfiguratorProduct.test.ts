@@ -7,7 +7,7 @@ import {
   afterEach,
   type Mock,
 } from 'vitest';
-import { nextTick, type Ref } from 'vue';
+import { nextTick, ref, type Ref } from 'vue';
 import { flushPromises } from '@vue/test-utils';
 import { mountComponent } from '../../utils/component';
 import ConfiguratorProduct from '../../../app/components/pages/ConfiguratorProduct.vue';
@@ -29,6 +29,7 @@ import {
   makeValidConfiguration,
 } from '../../fixtures/configurator';
 import { CONFIGURATION_TAB_ID } from '../../../app/utils/product-tabs';
+import type { BlockingItem } from '../../../app/utils/configurator-panel';
 
 // ---------------------------------------------------------------------------
 // The configurator page.
@@ -191,6 +192,9 @@ interface MockSession {
 
 const session = useConfiguratorSession() as unknown as MockSession;
 
+/** What the panel stub hands the page when its missing item is clicked. */
+const goToTarget = ref<BlockingItem | null>(null);
+
 const stubs = {
   AppBreadcrumbs: {
     // Real anchors: an item without an href must be distinguishable from one
@@ -224,9 +228,12 @@ const stubs = {
     template: `<div data-testid="panel" :data-status="status"
       :data-article="articleNumber">
       <button data-testid="panel-restart" @click="$emit('restart')"></button>
+      <button data-testid="panel-go-to"
+        @click="$emit('go-to', goToTarget)"></button>
     </div>`,
     props: ['configuration', 'status', 'busy', 'productName', 'articleNumber'],
-    emits: ['restart'],
+    emits: ['restart', 'go-to'],
+    setup: () => ({ goToTarget }),
   },
   ConfigurationAction: {
     template: `<div data-testid="action">
@@ -248,6 +255,10 @@ const stubs = {
       :data-disabled="String(disabled)"
       :data-refused="refused ? JSON.stringify(refused) : ''">
       <button data-testid="section-change" @click="$emit('change', change)"></button>
+      <div v-for="group in section.optionGroups" :key="group.id"
+        :data-group-id="group.id" />
+      <div v-for="variable in section.variables" :key="variable.id"
+        :data-variable-id="variable.id" />
     </section>`,
     props: ['section', 'disabled', 'refused'],
     emits: ['change'],
@@ -1468,5 +1479,94 @@ describe('ConfiguratorProduct subsection menu', () => {
     expect(
       wrapper.find('[data-testid="section"]').attributes('data-section-id'),
     ).toBe('frame');
+  });
+});
+
+describe('ConfiguratorProduct missing items', () => {
+  let scrolled: { element: Element; options: unknown }[] = [];
+
+  beforeEach(() => {
+    scrolled = [];
+    Element.prototype.scrollIntoView = vi.fn(function (
+      this: Element,
+      options?: unknown,
+    ) {
+      scrolled.push({ element: this, options });
+    });
+  });
+
+  async function goTo(item: BlockingItem) {
+    const wrapper = mountPage();
+    activeWith(makeSectionTreeConfiguration());
+    await nextTick();
+    goToTarget.value = item;
+    await wrapper.find('[data-testid="panel-go-to"]').trigger('click');
+    await flushPromises();
+    return wrapper;
+  }
+
+  it('opens the section a missing item is in', async () => {
+    const wrapper = await goTo({
+      name: 'Industrial',
+      sectionId: 'edge-trim',
+      kind: 'group',
+      nodeId: 'industrial',
+    });
+
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-section-id'),
+    ).toBe('edge-trim');
+  });
+
+  it('brings the group into view, its top below the sticky header', async () => {
+    await goTo({
+      name: 'Industrial',
+      sectionId: 'edge-trim',
+      kind: 'group',
+      nodeId: 'industrial',
+    });
+
+    expect(scrolled).toHaveLength(1);
+    expect(scrolled[0]!.element.getAttribute('data-group-id')).toBe(
+      'industrial',
+    );
+    expect(scrolled[0]!.options).toEqual({
+      behavior: 'smooth',
+      block: 'start',
+    });
+    // The offset is the element's own: the header is 11rem, as on the tab row.
+    expect((scrolled[0]!.element as HTMLElement).style.scrollMarginTop).toBe(
+      '11rem',
+    );
+  });
+
+  it('brings a variable into view by its own attribute', async () => {
+    await goTo({
+      name: 'Width',
+      sectionId: 'frame',
+      kind: 'variable',
+      nodeId: 'width',
+    });
+
+    expect(
+      scrolled.map((s) => s.element.getAttribute('data-variable-id')),
+    ).toEqual(['width']);
+  });
+
+  it('scrolls when the section is the one already open', async () => {
+    // Frame is the first entry, so nothing changes but the scroll.
+    const wrapper = await goTo({
+      name: 'Legs',
+      sectionId: 'frame',
+      kind: 'group',
+      nodeId: 'legs',
+    });
+
+    expect(
+      wrapper.find('[data-testid="section"]').attributes('data-section-id'),
+    ).toBe('frame');
+    expect(
+      scrolled.map((s) => s.element.getAttribute('data-group-id')),
+    ).toEqual(['legs']);
   });
 });
