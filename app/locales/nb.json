@@ -310,6 +310,11 @@
   },
   "configurator": {
     "required": "Obligatorisk",
+    "required_status": {
+      "remaining": "Gjenstående obligatoriske valg:",
+      "all_done": "Alle obligatoriske valg er gjort",
+      "unspecified": "Konfigurasjonen er ikke komplett."
+    },
     "read_only": "Settes av konfigurasjonen",
     "set_automatically": "Settes automatisk",
     "unavailable": "Ikke tilgjengelig med dine nåværende valg",
@@ -359,9 +364,6 @@
       "unit_price": "Pris per enhet"
     },
     "panel": {
-      "valid": "Konfigurasjonen er komplett og kan bestilles.",
-      "invalid": "Mangler før du kan gå videre:",
-      "invalid_unspecified": "Konfigurasjonen er ikke komplett.",
       "recomputing": "Regner om…",
       "time_left": "{time} igjen",
       "renew": "Forleng økten",

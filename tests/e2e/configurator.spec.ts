@@ -169,7 +169,7 @@ test.describe('Configurator', () => {
 
     // A fresh document is invalid on the colour group alone; every other
     // required group arrives preselected.
-    const validity = page.getByTestId('configurator-panel-validity');
+    const validity = page.getByTestId('configurator-required-status');
     await expect(validity).toContainText(COLOUR_GROUP_NAME);
     await expect(page.getByTestId('configurator-commit')).toBeDisabled();
 

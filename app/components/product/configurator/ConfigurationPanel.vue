@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import {
-  AlertCircle,
-  CheckCircle2,
   ClipboardCheck,
   Copy,
   FileText,
@@ -22,19 +20,16 @@ import type { ConfiguratorSessionStatus } from '~/composables/useConfiguratorSes
 import { Button } from '~/components/ui/button';
 import { optionPricePrefix } from '~/utils/configurator-form';
 import {
-  collectBlockingItems,
   groupSpecificationRows,
   specificationRows,
   specificationText,
-  unnamedBlockingMessages,
-  type BlockingItem,
   type SpecificationValue,
 } from '~/utils/configurator-panel';
 
 /**
  * The configuration as a specification rather than a receipt: what has been
  * chosen, grouped by the section it was chosen in, with the price built up
- * underneath and whether the whole thing is complete.
+ * underneath. What is still missing is listed under the section rail.
  *
  * Flat props rather than the session composable's return object: the panel must
  * mount without a session for its tests, and a spread object hides which fields
@@ -50,7 +45,7 @@ const { configuration, status, busy, productName, articleNumber } =
     articleNumber: string;
   }>();
 
-const emit = defineEmits<{ restart: []; 'go-to': [item: BlockingItem] }>();
+const emit = defineEmits<{ restart: [] }>();
 
 const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
@@ -60,14 +55,6 @@ const rows = computed(() =>
   configuration ? specificationRows(configuration) : [],
 );
 const grouped = computed(() => groupSpecificationRows(rows.value));
-
-/** What is missing, each with where it is, and whatever they do not cover. */
-const blockingItems = computed(() =>
-  configuration ? collectBlockingItems(configuration) : [],
-);
-const blockingMessages = computed(() =>
-  configuration ? unnamedBlockingMessages(configuration) : [],
-);
 
 function money(net: number): string {
   return formatPrice(
@@ -325,54 +312,5 @@ const canCopy = computed(() => mounted.value && isSupported.value);
       <Loader2 class="size-4 animate-spin" />
       {{ t('configurator.panel.recomputing') }}
     </p>
-
-    <!-- Complete, or incomplete with what is missing. The action is never dead
-         without a reason beside it. -->
-    <div class="px-4 py-3">
-      <div
-        class="flex items-start gap-2 rounded-md px-3 py-2 text-xs"
-        :class="
-          configuration.isValid
-            ? 'bg-success/10 text-success'
-            : 'bg-warning/10 text-warning'
-        "
-        data-testid="configurator-panel-validity"
-      >
-        <CheckCircle2 v-if="configuration.isValid" class="size-4 shrink-0" />
-        <AlertCircle v-else class="size-4 shrink-0" />
-        <p v-if="configuration.isValid">{{ t('configurator.panel.valid') }}</p>
-        <div v-else class="space-y-1">
-          <template v-if="blockingItems.length">
-            <p>{{ t('configurator.panel.invalid') }}</p>
-            <!-- One line each, as a way there: the page opens the item's
-                 section and brings the node into view. -->
-            <ul data-testid="configurator-panel-missing">
-              <li v-for="item in blockingItems" :key="item.name">
-                <button
-                  type="button"
-                  class="text-left underline underline-offset-2 hover:no-underline"
-                  data-testid="configurator-panel-missing-item"
-                  @click="emit('go-to', item)"
-                >
-                  {{ item.name }}
-                </button>
-              </li>
-            </ul>
-          </template>
-          <p v-else-if="!blockingMessages.length">
-            {{ t('configurator.panel.invalid_unspecified') }}
-          </p>
-          <!-- A message no name stands for is a whole sentence of its own, so
-               these are listed rather than folded into the one above. -->
-          <ul
-            v-if="blockingMessages.length"
-            class="list-inside list-disc"
-            data-testid="configurator-panel-messages"
-          >
-            <li v-for="text in blockingMessages" :key="text">{{ text }}</li>
-          </ul>
-        </div>
-      </div>
-    </div>
   </template>
 </template>

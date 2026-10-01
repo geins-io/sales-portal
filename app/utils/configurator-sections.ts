@@ -252,3 +252,27 @@ export function stepId(
   const target = Math.min(Math.max(index + delta, 0), entries.length - 1);
   return entries[target]?.section.id ?? null;
 }
+
+/**
+ * Where a scrolling list stands so an item is inside it, moving as little as
+ * possible: `scrollIntoView`'s `nearest`, for one container only. That method
+ * scrolls every scrollable ancestor, the window included, so the rail would
+ * move the page and cut short the smooth scroll a missing item starts.
+ */
+export function nearestScrollTop({
+  scrollTop,
+  viewHeight,
+  itemTop,
+  itemHeight,
+}: {
+  scrollTop: number;
+  viewHeight: number;
+  itemTop: number;
+  itemHeight: number;
+}): number {
+  if (itemTop < scrollTop || itemHeight > viewHeight) return itemTop;
+  if (itemTop + itemHeight > scrollTop + viewHeight) {
+    return itemTop + itemHeight - viewHeight;
+  }
+  return scrollTop;
+}

@@ -380,125 +380,28 @@ describe('ConfigurationPanel', () => {
       expect(plainText(wrapper.text())).toContain('SEK 3,200.00');
     });
 
-    it('still renders the specification and the validity when the price is hidden', () => {
+    it('still renders the specification when the price is hidden', () => {
       setFeatures({ priceVisibility: { enabled: false } });
       const wrapper = mountPanel();
       expect(wrapper.text()).toContain('Fixed height legs');
-      expect(wrapper.text()).toContain('configurator.panel.valid');
     });
   });
 
   describe('validity', () => {
-    it('confirms a complete configuration', () => {
-      const wrapper = mountPanel();
-      const validity = wrapper.find(
-        '[data-testid="configurator-panel-validity"]',
-      );
-      expect(validity.text()).toContain('configurator.panel.valid');
-      expect(validity.text()).not.toContain('configurator.panel.invalid');
-    });
-
-    it('names what an incomplete configuration is still waiting on', () => {
-      // The provider's own sentences stand beside their groups in the form;
-      // repeating them here put the same text on screen twice.
-      const wrapper = mountPanel({
-        configuration: makeInvalidConfiguration(),
-      });
-      const validity = wrapper.find(
-        '[data-testid="configurator-panel-validity"]',
-      );
-      expect(validity.text()).toContain('configurator.panel.invalid');
-      expect(validity.text()).not.toContain('Select a table top.');
-      expect(
-        validity.find('[data-testid="configurator-panel-messages"]').exists(),
-      ).toBe(false);
-    });
-
-    it('lists what is missing one per line, under a heading', () => {
-      const validity = mountPanel({
-        configuration: makeInvalidConfiguration(),
-      }).find('[data-testid="configurator-panel-validity"]');
-
-      // The heading is the key alone: no names folded into a sentence.
-      expect(validity.find('p').text()).toBe('configurator.panel.invalid');
-      expect(
-        validity
-          .findAll('[data-testid="configurator-panel-missing-item"]')
-          .map((item) => item.text()),
-      ).toEqual(['Table top', 'Colour']);
-    });
-
-    it('makes every missing item a button to where it is', () => {
-      const items = mountPanel({
-        configuration: makeInvalidConfiguration(),
-      }).findAll('[data-testid="configurator-panel-missing-item"]');
-
-      expect(items.map((item) => item.element.tagName)).toEqual([
-        'BUTTON',
-        'BUTTON',
-      ]);
-      expect(items.map((item) => item.attributes('type'))).toEqual([
-        'button',
-        'button',
-      ]);
-    });
-
-    it('emits the section and the node of the item clicked', async () => {
-      const wrapper = mountPanel({
-        configuration: makeInvalidConfiguration(),
-      });
-
-      await wrapper
-        .findAll('[data-testid="configurator-panel-missing-item"]')[1]!
-        .trigger('click');
-
-      expect(wrapper.emitted('go-to')).toEqual([
-        [
-          {
-            name: 'Colour',
-            sectionId: 'finish',
-            kind: 'group',
-            nodeId: 'color',
-          },
-        ],
-      ]);
-    });
-
-    it('sets the box one size smaller than body text', () => {
-      const validity = mountPanel({
-        configuration: makeInvalidConfiguration(),
-      }).find('[data-testid="configurator-panel-validity"]');
-
-      expect(validity.classes()).toContain('text-xs');
-      expect(validity.classes()).not.toContain('text-sm');
-    });
-
-    it('shows a blocking message no name stands for', () => {
-      const wrapper = mountPanel({
-        configuration: makeInvalidConfiguration({
-          messages: [
-            { severity: 'error', text: 'The template is out of date.' },
-          ],
-        }),
-      });
-      const validity = wrapper.find(
-        '[data-testid="configurator-panel-validity"]',
-      );
-      expect(
-        validity
-          .findAll('[data-testid="configurator-panel-messages"] li')
-          .map((item) => item.text()),
-      ).toEqual(['The template is out of date.']);
-    });
-
-    it('says the configuration is incomplete when the document gives no reason', () => {
-      const config = makeValidConfiguration({ isValid: false });
-      const validity = mountPanel({ configuration: config }).find(
-        '[data-testid="configurator-panel-validity"]',
-      );
-      expect(validity.text()).toContain(
-        'configurator.panel.invalid_unspecified',
-      );
+    // What is missing is listed under the section rail, by the page.
+    it('lists nothing that is missing, complete or not', () => {
+      for (const configuration of [
+        makeValidConfiguration(),
+        makeInvalidConfiguration(),
+      ]) {
+        const wrapper = mountPanel({ configuration });
+        expect(
+          wrapper.find('[data-testid="configurator-panel-rows"]').exists(),
+        ).toBe(true);
+        expect(wrapper.text()).not.toMatch(/configurator\.panel\.(in)?valid/);
+        expect(wrapper.find('[data-testid*="missing"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid*="validity"]').exists()).toBe(false);
+      }
     });
   });
 
@@ -621,9 +524,9 @@ describe('ConfigurationPanel', () => {
       expect(expired.text()).toContain('configurator.panel.start_over');
     });
 
-    it('drops the specification, the price and the validity', () => {
+    it('drops the specification and the price', () => {
       const wrapper = mountPanel({ status: 'expired' });
-      for (const region of ['header', 'rows', 'price', 'validity', 'busy']) {
+      for (const region of ['header', 'rows', 'price', 'busy']) {
         expect(
           wrapper.find(`[data-testid="configurator-panel-${region}"]`).exists(),
         ).toBe(false);

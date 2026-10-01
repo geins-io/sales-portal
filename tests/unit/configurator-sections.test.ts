@@ -12,6 +12,7 @@ import {
   hasNext,
   hasPrevious,
   isMenuSection,
+  nearestScrollTop,
   resolveActiveId,
   sectionCrumbs,
   sectionRemaining,
@@ -839,5 +840,58 @@ describe('isMenuSection', () => {
         }),
       ),
     ).toBe(false);
+  });
+});
+
+describe('nearestScrollTop', () => {
+  // A list 100 tall, scrolled 50 down: it shows 50 to 150.
+  const view = { scrollTop: 50, viewHeight: 100 };
+
+  it('stays put when the item is inside', () => {
+    expect(nearestScrollTop({ ...view, itemTop: 60, itemHeight: 20 })).toBe(50);
+  });
+
+  it('stays put when the item touches both edges exactly', () => {
+    expect(nearestScrollTop({ ...view, itemTop: 50, itemHeight: 100 })).toBe(
+      50,
+    );
+  });
+
+  it('brings an item above into view at the top', () => {
+    expect(nearestScrollTop({ ...view, itemTop: 10, itemHeight: 20 })).toBe(10);
+  });
+
+  it('brings an item cut at the top into view at the top', () => {
+    expect(nearestScrollTop({ ...view, itemTop: 40, itemHeight: 20 })).toBe(40);
+  });
+
+  it('brings an item below into view at the bottom', () => {
+    expect(nearestScrollTop({ ...view, itemTop: 200, itemHeight: 30 })).toBe(
+      130,
+    );
+  });
+
+  it('brings an item cut at the bottom into view at the bottom', () => {
+    expect(nearestScrollTop({ ...view, itemTop: 140, itemHeight: 20 })).toBe(
+      60,
+    );
+  });
+
+  it('shows the top of an item taller than the list', () => {
+    expect(nearestScrollTop({ ...view, itemTop: 200, itemHeight: 150 })).toBe(
+      200,
+    );
+  });
+
+  it('leaves a list with no height where it is', () => {
+    // Below lg the rail is not displayed and measures zero.
+    expect(
+      nearestScrollTop({
+        scrollTop: 0,
+        viewHeight: 0,
+        itemTop: 0,
+        itemHeight: 0,
+      }),
+    ).toBe(0);
   });
 });
