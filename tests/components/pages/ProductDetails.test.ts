@@ -57,9 +57,11 @@ vi.mock('../../../app/composables/useFeatureAccess', () => ({
   useFeatureAccess: () => ({ canAccess: mockCanAccess }),
 }));
 
+const { mockAddItem } = vi.hoisted(() => ({ mockAddItem: vi.fn() }));
+
 vi.mock('~/stores/cart', () => ({
   useCartStore: () => ({
-    addItem: vi.fn(),
+    addItem: mockAddItem,
     isLoading: false,
   }),
 }));
@@ -680,6 +682,128 @@ describe('ProductDetails', () => {
         '/se/sv/p/material/grenror/grenror-150-150-90',
       );
       pdpRoute.params = {};
+    });
+  });
+
+  // The new URL commits before the picked variant's page has its data, and the
+  // old page stays mounted until then with the pick already in its selector.
+  describe('add to cart while a variant switch is loading', () => {
+    const product = makeProduct({
+      alias: 'grenror-150-150-88',
+      canonicalUrl: '/se/sv/p/grenror-150-150-88',
+      variantDimensions: [{ dimension: 'Variant', value: '88' }],
+      variantGroup: {
+        variants: [
+          { alias: 'grenror-150-150-88', dimension: 'Variant', value: '88' },
+          { alias: 'grenror-150-150-90', dimension: 'Variant', value: '90' },
+          { alias: 'grenror-150-150-92', dimension: 'Variant', value: '92' },
+        ],
+      },
+    });
+
+    const Selector = defineComponent({
+      props: ['modelValue', 'variantDimensions', 'variants'],
+      emits: ['update:modelValue'],
+      setup(p, { emit }) {
+        return () =>
+          h('div', { 'data-testid': 'selection' }, [
+            JSON.stringify(p.modelValue),
+            ...['90', '92'].map((value) =>
+              h('button', {
+                'data-testid': `pick-${value}`,
+                onClick: () => emit('update:modelValue', { Variant: value }),
+              }),
+            ),
+          ]);
+      },
+    });
+
+    async function mountAndPick(value: string) {
+      const wrapper = await mountProductDetails(
+        { product, alias: product.alias },
+        {
+          global: {
+            stubs: { ...defaultStubs, VariantSelector: Selector },
+            config: { errorHandler },
+          },
+        },
+      );
+      await wrapper.find(`[data-testid="pick-${value}"]`).trigger('click');
+      await flushPromises();
+      return wrapper;
+    }
+
+    const errorHandler = vi.fn();
+
+    const addButton = (wrapper: Awaited<ReturnType<typeof mountAndPick>>) =>
+      wrapper.find('[data-testid="add-to-cart-button"]');
+
+    beforeEach(() => {
+      mockAddItem.mockClear();
+      errorHandler.mockClear();
+      pdpRoute.params = { alias: ['grenror-150-150-88'] };
+    });
+
+    afterEach(() => {
+      navigateToMock.mockImplementation(() => Promise.resolve());
+      pdpRoute.params = {};
+    });
+
+    it('disables the add-to-cart button until the picked variant replaces this page', async () => {
+      navigateToMock.mockImplementation(() => new Promise(() => {}));
+
+      const wrapper = await mountAndPick('90');
+
+      expect(addButton(wrapper).attributes('disabled')).toBeDefined();
+    });
+
+    const thrown = new Error('navigation threw');
+
+    it.each([
+      [
+        'answers with a navigation failure',
+        () => Promise.resolve({ type: 4 }),
+        [],
+      ],
+      ['throws', () => Promise.reject(thrown), [thrown]],
+    ])(
+      're-enables add-to-cart and restores the selection when the switch %s',
+      async (_, outcome, reported) => {
+        navigateToMock.mockImplementation(outcome as never);
+
+        const wrapper = await mountAndPick('90');
+
+        expect(addButton(wrapper).attributes('disabled')).toBeUndefined();
+        expect(wrapper.find('[data-testid="selection"]').text()).toBe(
+          JSON.stringify({ Variant: '88' }),
+        );
+        await addButton(wrapper).trigger('click');
+        expect(mockAddItem).toHaveBeenCalledWith(101, 1);
+        // A thrown navigation still reaches the app's error handler.
+        expect(errorHandler.mock.calls.map(([error]) => error)).toEqual(
+          reported,
+        );
+      },
+    );
+
+    it('keeps add-to-cart disabled when an earlier switch fails under a newer one', async () => {
+      let failFirst!: () => void;
+      navigateToMock
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              failFirst = () => resolve({ type: 8 } as never);
+            }),
+        )
+        .mockImplementationOnce(() => new Promise(() => {}));
+
+      const wrapper = await mountAndPick('90');
+      await wrapper.find('[data-testid="pick-92"]').trigger('click');
+      await flushPromises();
+      failFirst();
+      await flushPromises();
+
+      expect(addButton(wrapper).attributes('disabled')).toBeDefined();
     });
   });
 
