@@ -353,7 +353,7 @@ const { data: pdpCmsArea } = useFetch<ContentAreaType>('/api/cms/area', {
 });
 
 async function addToCart() {
-  if (!resolvedSku.value?.skuId) return;
+  if (switchingVariant.value || !resolvedSku.value?.skuId) return;
   await cartStore.addItem(resolvedSku.value.skuId, quantity.value);
 }
 
@@ -365,6 +365,28 @@ async function addToCart() {
 // last path segment is swapped instead, and the page's canonical 301
 // corrects the category part.
 const route = useRoute();
+
+// The picked variant's URL commits before its page has its data, and this page
+// stays on screen until then, its selector already showing the pick and
+// `resolvedSku` back on this product's own SKU. Add-to-cart waits it out. A
+// switch that lands remounts the page; one that fails hands it back, unless a
+// newer pick is still under way.
+const switchingVariant = ref(false);
+let switchId = 0;
+async function switchVariant(path: string) {
+  const id = ++switchId;
+  switchingVariant.value = true;
+  let failed = true;
+  try {
+    failed = !!(await navigateTo(path));
+  } finally {
+    if (failed && id === switchId) {
+      switchingVariant.value = false;
+      selectedVariants.value = currentVariantSelection(product.value) ?? {};
+    }
+  }
+}
+
 watch(
   selectedVariants,
   async (sel, prev) => {
@@ -377,14 +399,14 @@ watch(
     if (!picked?.alias || picked.alias === product.value.alias) return;
     const canonical = variantProductsByAlias.value[picked.alias]?.canonicalUrl;
     if (canonical) {
-      await navigateTo(localePath(buildProductPath(canonical)));
+      await switchVariant(localePath(buildProductPath(canonical)));
       return;
     }
     const raw = route.params.alias;
     const segs = Array.isArray(raw) ? [...raw] : raw ? [raw as string] : [];
     if (segs.length) segs[segs.length - 1] = picked.alias;
     else segs.push(picked.alias);
-    await navigateTo(localePath(buildProductPath(`/${segs.join('/')}`)));
+    await switchVariant(localePath(buildProductPath(`/${segs.join('/')}`)));
   },
   { deep: true },
 );
@@ -567,14 +589,14 @@ useProductSeo({
                 v-model="quantity"
                 :min="1"
                 :max="maxQuantity"
-                :disabled="cartIsFull"
+                :disabled="cartIsFull || switchingVariant"
                 class="h-9 shrink-0"
               />
               <Button
                 variant="purchase"
                 data-testid="add-to-cart-button"
                 class="h-9 flex-1 gap-2 px-4"
-                :disabled="cartIsFull"
+                :disabled="cartIsFull || switchingVariant"
                 @click="addToCart"
               >
                 <ShoppingCart class="size-4" />

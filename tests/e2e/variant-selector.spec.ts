@@ -162,6 +162,7 @@ test.describe('Variant selector', () => {
     page,
   }) => {
     await page.goto('/');
+    await waitForHydration(page);
     const product = await productOf(page, 'one');
     const own = product.variants.find((v) => v.alias === product.alias)!;
     const [dimension] = Object.keys(own.selection) as [string];
@@ -191,6 +192,7 @@ test.describe('Variant selector', () => {
     page,
   }) => {
     await page.goto('/');
+    await waitForHydration(page);
     const product = await productOf(page, 'several');
     const own = product.variants.find((v) => v.alias === product.alias)!;
     const dimensions = Object.keys(own.selection);
@@ -245,10 +247,10 @@ test.describe('Variant selector and the cart', () => {
   );
   test.use({ storageState: STORAGE_STATE });
 
-  test('the cart receives the picked variant, not the page it was picked on', async ({
-    page,
-  }) => {
+  /** A variant on another value of the first dimension, and its article. */
+  async function cartTarget(page: Page) {
     await page.goto('/');
+    await waitForHydration(page);
     const product = await productOf(page, 'several');
     const own = product.variants.find((v) => v.alias === product.alias)!;
     const [dimension] = Object.keys(own.selection) as [string];
@@ -260,6 +262,14 @@ test.describe('Variant selector and the cart', () => {
     const targetBody = await targetRes.json();
     const articleNumber = (targetBody.product ?? targetBody).skus[0]
       .articleNumber as string;
+    return { product, dimension, target, expected, articleNumber };
+  }
+
+  test('the cart receives the picked variant, not the page it was picked on', async ({
+    page,
+  }) => {
+    const { product, dimension, target, expected, articleNumber } =
+      await cartTarget(page);
 
     await openProduct(page, product.alias);
     const nav = await pick(page, dimension, target.selection[dimension]!);
@@ -288,6 +298,62 @@ test.describe('Variant selector and the cart', () => {
       true,
     );
     await expect(page.locator('[data-testid="cart-drawer"]')).toBeVisible();
+
+    const cart = await fetchCart(page);
+    expect(cart.items.map((i) => i.articleNumber)).toEqual([articleNumber]);
+  });
+  // The URL commits before the picked variant's page has its data, and the
+  // page it was picked on stays on screen until then. Holding that data open
+  // makes the window as wide as a slow phone network does.
+  test('add-to-cart waits while the picked variant is still loading', async ({
+    page,
+  }) => {
+    const { product, dimension, target, expected, articleNumber } =
+      await cartTarget(page);
+
+    await openProduct(page, product.alias);
+    let held = 0;
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => (release = resolve));
+    await page.route(`**/api/products/${target.alias}?**`, async (route) => {
+      held++;
+      await released;
+      await route.continue();
+    });
+
+    const nav = await pick(page, dimension, target.selection[dimension]!);
+    await expect(page).toHaveURL((url) => url.pathname === expected);
+    nav.stop();
+    await expect
+      .poll(() => held, 'the picked variant was not requested')
+      .toBe(1);
+
+    const addButton = page
+      .locator('[data-testid="add-to-cart-button"]')
+      .first();
+    await expect(addButton).toBeDisabled();
+
+    release();
+    await expect(
+      page.locator(`[data-testid="variant-trigger-${dimension}"]`),
+    ).toHaveText(target.labels[dimension]!);
+    outOfScope(
+      !(await addButton.isVisible().catch(() => false)),
+      'fixture-missing',
+      `the picked variant ${target.alias} has no add-to-cart button (out of stock?)`,
+    );
+    await expect(addButton).toBeEnabled({ timeout: 10000 });
+    const [added] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes('/api/cart/items') &&
+          r.request().method() === 'POST',
+      ),
+      addButton.click(),
+    ]);
+    expect(added.ok(), `POST /api/cart/items answered ${added.status()}`).toBe(
+      true,
+    );
 
     const cart = await fetchCart(page);
     expect(cart.items.map((i) => i.articleNumber)).toEqual([articleNumber]);
