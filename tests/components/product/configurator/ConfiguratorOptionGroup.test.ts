@@ -50,11 +50,18 @@ function mountGroup(group: ConfigurationOptionGroup) {
 }
 
 const CHOOSER = '[data-testid="configurator-group-chooser"]';
+const MARK = '[data-testid="configurator-group-required"]';
 const INFO = '[data-testid="configurator-group-info"]';
 const ADD = '[data-testid="configurator-group-add"]';
 const SHEET = '[data-testid="configurator-group-sheet"]';
 const IMAGE = '[data-testid="configurator-option-image"]';
 const PLACEHOLDER = '[data-testid="configurator-option-image-placeholder"]';
+
+/** Everything the group's heading says, mark and hint included. */
+function headingText(wrapper: ReturnType<typeof mountGroup>): string {
+  const header = wrapper.find('[data-testid="configurator-group-header"]');
+  return header.element.closest('h1, h2, h3, h4, h5, h6')!.textContent!.trim();
+}
 
 function withImage(option: ConfigurationOption, fileName: string) {
   option.product!.productImages = [{ fileName, isPrimary: false, url: '' }];
@@ -86,46 +93,36 @@ describe('ConfiguratorOptionGroup', () => {
     expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(1);
   });
 
-  // The hint follows how many choices the group can hold in practice; the
-  // control and the none row keep following the provider's maximum.
-  it('calls an optional multi-choice group of one optional, and keeps its checkbox', () => {
+  it('keeps the checkbox of an optional multi-choice group of one, with no none row', () => {
     const group = { ...oneOption('industrial'), maxSelections: 99 };
 
     const wrapper = mountGroup(group);
 
-    expect(wrapper.find('[data-testid="configurator-group-hint"]').text()).toBe(
-      'configurator.optional',
-    );
     expect(wrapper.findAll('[role="checkbox"]')).toHaveLength(1);
     expect(
       wrapper.find('[data-testid="configurator-option-none"]').exists(),
     ).toBe(false);
   });
 
-  it('counts only the shown options for the hint', () => {
-    const group = { ...oneOption('industrial'), maxSelections: 99 };
-    group.options = [
-      ...group.options,
-      { ...group.options[0]!, id: 'blank', name: '', articleNumber: '' },
-    ];
+  it('marks a required group with an asterisk beside its title, said aloud as required', () => {
+    const header = mountGroup(
+      findOptionGroup(makeInitialConfiguration(), 'top'),
+    ).find('[data-testid="configurator-group-header"]');
+    const mark = header.find(MARK);
 
-    const wrapper = mountGroup(group);
-
-    expect(wrapper.find('[data-testid="configurator-group-hint"]').text()).toBe(
-      'configurator.optional',
-    );
+    expect(header.text()).toMatch(/^Table top/);
+    expect(mark.classes()).toContain('text-destructive');
+    expect(mark.find('[aria-hidden="true"]').text()).toBe('*');
+    expect(mark.find('.sr-only').text()).toBe('configurator.required');
   });
 
-  // The header says what the buyer has to do with the group, on one line and in
-  // one place: the requirement outranks the shape of the choice, so a required
-  // group says so rather than how many rows it takes.
-  it('says a required group must be answered', () => {
-    const workbench = makeInitialConfiguration();
+  it("puts nothing in a required group's heading beyond its title and mark", () => {
+    const wrapper = mountGroup(
+      findOptionGroup(makeInitialConfiguration(), 'top'),
+    );
 
-    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
-
-    expect(wrapper.find('[data-testid="configurator-group-hint"]').text()).toBe(
-      'configurator.required',
+    expect(headingText(wrapper)).toBe(
+      wrapper.find('[data-testid="configurator-group-header"]').text(),
     );
   });
 
@@ -137,13 +134,12 @@ describe('ConfiguratorOptionGroup', () => {
 
     const wrapper = mountGroup(top);
 
-    expect(
-      wrapper.find('[data-testid="configurator-group-hint"]').exists(),
-    ).toBe(false);
+    expect(wrapper.find(MARK).exists()).toBe(false);
     expect(wrapper.text()).not.toContain('configurator.required');
+    expect(wrapper.text()).not.toContain('*');
   });
 
-  it('says how many rows an optional group takes', () => {
+  it('heads an optional group with its name alone, however many it takes', () => {
     const workbench = makeInitialConfiguration();
     // Every single-choice group in this seed is also required, so the one case
     // the seed cannot show is built from the group it would otherwise be.
@@ -151,29 +147,10 @@ describe('ConfiguratorOptionGroup', () => {
       ...findOptionGroup(workbench, 'top'),
       minSelections: undefined,
     };
+    const multi = findOptionGroup(workbench, 'accessories');
 
-    const multi = mountGroup(findOptionGroup(workbench, 'accessories'));
-    const single = mountGroup(optionalSingle);
-
-    expect(multi.find('[data-testid="configurator-group-hint"]').text()).toBe(
-      'configurator.choose_many',
-    );
-    expect(single.find('[data-testid="configurator-group-hint"]').text()).toBe(
-      'configurator.optional',
-    );
-    expect(multi.text()).not.toContain('configurator.required');
-  });
-
-  it('heads the group with a name and nothing to decorate it', () => {
-    const workbench = makeInitialConfiguration();
-
-    const header = mountGroup(findOptionGroup(workbench, 'top')).find(
-      '[data-testid="configurator-group-header"]',
-    );
-
-    expect(header.text()).toContain('Table top');
-    // The asterisk this replaced said "required" in a colour and a glyph only.
-    expect(header.text()).not.toContain('*');
+    expect(headingText(mountGroup(multi))).toBe(multi.name);
+    expect(headingText(mountGroup(optionalSingle))).toBe(optionalSingle.name);
   });
 
   it('shows the error a rule put on a group as an icon beside its title', () => {

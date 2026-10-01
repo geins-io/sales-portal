@@ -5,7 +5,6 @@ import type {
 } from '#shared/types/configurator';
 import { AlertCircle, ChevronRight, Plus, Search } from 'lucide-vue-next';
 import {
-  groupHintKey,
   groupRowCount,
   groupSummary,
   hasImageColumn,
@@ -17,6 +16,7 @@ import {
   offersNoneRow,
   refusesOptionIn,
   shownOptions,
+  showsRequiredMark,
   usesChooser,
 } from '~/utils/configurator-form';
 import { Input } from '~/components/ui/input';
@@ -78,7 +78,7 @@ const { t } = useI18n();
 const shown = computed(() => ({ ...group, options: shownOptions(group) }));
 
 const single = computed(() => isSingleSelect(group));
-const hint = computed(() => groupHintKey(group));
+const required = computed(() => showsRequiredMark(group));
 const unavailable = computed(() => parentUnavailable || !group.available);
 const locked = computed(() => disabled || unavailable.value);
 const nothing = computed(() => unavailable.value || hasNothingToChoose(group));
@@ -196,7 +196,7 @@ function onSheetPick(value: unknown) {
     <ConfiguratorFoldable
       name="configurator-group"
       :title="group.name"
-      :hint="hint && t(hint)"
+      :required="required"
       :summary="summary"
       :level="level"
     >
