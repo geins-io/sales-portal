@@ -423,6 +423,19 @@ describe('specificationRows', () => {
     ).toEqual(['Mounting', 'Width', 'Height', 'Doors', 'Front area']);
   });
 
+  it('leaves out a variable the provider made unavailable, even one holding a value', () => {
+    // The form hides the field, so the panel must not show what it held: a
+    // provider can send a placeholder mask as the value of a closed field.
+    const config = makeValidConfiguration();
+    const width = findVariable(config, 'width');
+    width.available = false;
+
+    const labels = specificationRows(config).map((row) => row.label);
+    expect(width.value).not.toBeNull();
+    expect(labels).not.toContain('Width');
+    expect(labels).toContain('Depth');
+  });
+
   it('carries the option name, its quantity and its price', () => {
     const config = makeValidConfiguration();
     const rows = specificationRows(config);

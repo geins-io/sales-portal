@@ -4,7 +4,7 @@ import type {
   ConfigurationSection,
 } from '#shared/types/configurator';
 import { refusesVariable } from '~/utils/configurator-form';
-import { sectionMembers } from '~/utils/configurator-order';
+import { shownMembers } from '~/utils/configurator-order';
 
 /**
  * One `ConfigurationSection`'s own content — its groups and its variables, in
@@ -17,6 +17,9 @@ import { sectionMembers } from '~/utils/configurator-order';
  * cannot hold half of another page. A limit of the page model, not an ordering
  * bug. The heading is the page's too, because it carries the section's number
  * in the rail.
+ *
+ * A variable the provider made unavailable is left out, row and all, until a
+ * choice opens it.
  *
  * `visible: false` renders nothing at all. The provider keeps data on the
  * document that is not the buyer's to see — warehouse fields, for instance —
@@ -35,7 +38,7 @@ const {
 
 const emit = defineEmits<{ change: [ConfigurationChange] }>();
 
-const members = computed(() => sectionMembers(section));
+const members = computed(() => shownMembers(section));
 </script>
 
 <template>

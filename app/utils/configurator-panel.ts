@@ -11,7 +11,11 @@ import {
   isVariableUnmet,
 } from '#shared/utils/configurator-requirement';
 import { offersNoneRow } from '~/utils/configurator-form';
-import { orderedSections, sectionMembers } from '~/utils/configurator-order';
+import {
+  orderedSections,
+  sectionMembers,
+  shownMembers,
+} from '~/utils/configurator-order';
 
 // ---------------------------------------------------------------------------
 // The derivations the configuration panel renders.
@@ -281,10 +285,10 @@ function sectionRows(sections: ConfigurationSection[]): SpecificationRow[] {
   for (const section of orderedSections(sections)) {
     if (!section.visible) continue;
 
-    // The order `ConfiguratorSection` renders, so the specification reads in
-    // the order the form was filled in. Nested sections follow both, because
+    // What `ConfiguratorSection` renders, in its order, so the specification
+    // reads as the form was filled in. Nested sections follow both, because
     // the form cannot put a child's page inside its parent's.
-    for (const member of sectionMembers(section)) {
+    for (const member of shownMembers(section)) {
       if (member.kind === 'group') {
         rows.push(...groupRows([member.group], section.name));
         continue;

@@ -312,6 +312,7 @@
     "required": "Pflichtfeld",
     "read_only": "Wird von der Konfiguration festgelegt",
     "unavailable": "Mit Ihrer aktuellen Auswahl nicht verfügbar",
+    "nothing_to_choose": "Mit Ihrer aktuellen Auswahl gibt es nichts zu wählen",
     "bounds": "{min}–{max} {unit}",
     "optional": "Optional",
     "none_option": "Keine Auswahl",

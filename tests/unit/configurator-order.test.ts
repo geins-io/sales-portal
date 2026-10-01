@@ -4,7 +4,11 @@ import type {
   ConfigurationSection,
   ConfigurationVariable,
 } from '#shared/types/configurator';
-import { orderedSections, sectionMembers } from '~/utils/configurator-order';
+import {
+  orderedSections,
+  sectionMembers,
+  shownMembers,
+} from '~/utils/configurator-order';
 
 // ---------------------------------------------------------------------------
 // Minimal nodes rather than a seeded document: what is measured here is the
@@ -172,6 +176,32 @@ describe('sectionMembers', () => {
     // A child is a page of its own in the rail, so its groups are never part
     // of the parent's page however Monitor numbered them.
     expect(names(sectionMembers(frame))).toEqual(['g:legs']);
+  });
+});
+
+describe('shownMembers', () => {
+  it('leaves out a variable the provider made unavailable, in the same order', () => {
+    const frame = section('frame', {
+      optionGroups: [group('legs', 2), group('industrial', 5)],
+      variables: [variable('width', 3), variable('depth', 4)],
+    });
+    frame.variables[0]!.available = false;
+
+    expect(names(shownMembers(frame))).toEqual([
+      'g:legs',
+      'v:depth',
+      'g:industrial',
+    ]);
+  });
+
+  it('keeps a group the provider made unavailable: it says so itself', () => {
+    const frame = section('frame', {
+      optionGroups: [group('legs', 1)],
+      variables: [variable('width', 2)],
+    });
+    frame.optionGroups[0]!.available = false;
+
+    expect(names(shownMembers(frame))).toEqual(['g:legs', 'v:width']);
   });
 });
 

@@ -30,6 +30,7 @@ import {
   flattenVisibleSections,
   hasNext,
   hasPrevious,
+  isMenuSection,
   resolveActiveId,
   sectionCrumbs,
   stepId,
@@ -303,15 +304,9 @@ const activeChildren = computed(() =>
   activeEntry.value ? visibleChildren(activeEntry.value.section) : [],
 );
 
-const isMenu = computed(() => {
-  const section = activeEntry.value?.section;
-  if (!section) return false;
-  return (
-    activeChildren.value.length > 0 &&
-    section.optionGroups.length === 0 &&
-    section.variables.length === 0
-  );
-});
+const isMenu = computed(() =>
+  activeEntry.value ? isMenuSection(activeEntry.value.section) : false,
+);
 
 const canStepBack = computed(() => hasPrevious(activeRailIndex.value));
 

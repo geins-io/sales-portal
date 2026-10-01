@@ -312,6 +312,7 @@
     "required": "Obligatorisk",
     "read_only": "Settes av konfigurasjonen",
     "unavailable": "Ikke tilgjengelig med dine nåværende valg",
+    "nothing_to_choose": "Ingenting å velge med dine nåværende valg",
     "bounds": "{min}–{max} {unit}",
     "optional": "Valgfritt",
     "none_option": "Ingen valgt",

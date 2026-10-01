@@ -73,6 +73,17 @@ export function sectionMembers(section: ConfigurationSection): SectionMember[] {
   );
 }
 
+/**
+ * The members a section's page shows: a variable the provider made unavailable
+ * is left out until a choice opens it. A group stays, and says itself that it
+ * has nothing to choose.
+ */
+export function shownMembers(section: ConfigurationSection): SectionMember[] {
+  return sectionMembers(section).filter(
+    (member) => member.kind === 'group' || member.variable.available,
+  );
+}
+
 /** Sibling sections in index order — identity where the provider sent them so. */
 export function orderedSections(
   sections: ConfigurationSection[],

@@ -312,6 +312,7 @@
     "required": "Obligatoriskt",
     "read_only": "Sätts av konfigurationen",
     "unavailable": "Inte tillgängligt med dina nuvarande val",
+    "nothing_to_choose": "Inget att välja med dina nuvarande val",
     "bounds": "{min}–{max} {unit}",
     "optional": "Valfritt",
     "none_option": "Inget valt",

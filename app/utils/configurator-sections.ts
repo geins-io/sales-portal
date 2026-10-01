@@ -6,7 +6,7 @@ import {
   isGroupUnmet,
   isVariableUnmet,
 } from '#shared/utils/configurator-requirement';
-import { orderedSections } from '~/utils/configurator-order';
+import { orderedSections, shownMembers } from '~/utils/configurator-order';
 
 // ---------------------------------------------------------------------------
 // The rail, and where in it the buyer stands.
@@ -175,6 +175,17 @@ export function visibleChildren(
   section: ConfigurationSection,
 ): ConfigurationSection[] {
   return orderedSections(section.sections).filter((child) => child.visible);
+}
+
+/**
+ * Whether a section is a way into its children rather than a page of its own:
+ * it has children and shows nothing of its own. A field the page hides does
+ * not count, or the page would be a heading over an empty column.
+ */
+export function isMenuSection(section: ConfigurationSection): boolean {
+  return (
+    visibleChildren(section).length > 0 && shownMembers(section).length === 0
+  );
 }
 
 /**

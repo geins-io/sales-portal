@@ -14,6 +14,9 @@ import {
  * chosen rather than nothing, so it reads that, as the none row does: no image
  * box, no article number, no price.
  *
+ * A group with nothing to choose says so in place of the prompt, and still
+ * opens: the buyer sees what the earlier choices ruled out.
+ *
  * It stays openable while a batch is in flight: opening a list sends nothing,
  * and the rows in it carry the form's lock.
  */
@@ -24,6 +27,8 @@ const {
   count,
   imageColumn,
   disabled = false,
+  unavailable = false,
+  nothingToChoose = false,
 } = defineProps<{
   chosen: ConfigurationOption | undefined;
   /** The group offers "nothing chosen", which stands in when nothing is. */
@@ -35,6 +40,10 @@ const {
   imageColumn: boolean;
   /** The form's lock, which keeps a batch in flight out of the reason. */
   disabled?: boolean;
+  /** The group is unavailable, so a chosen row is too. */
+  unavailable?: boolean;
+  /** Said in place of the prompt while nothing is chosen. */
+  nothingToChoose?: boolean;
 }>();
 
 const emit = defineEmits<{ open: [] }>();
@@ -43,10 +52,12 @@ const { t } = useI18n();
 
 const readOnly = computed(() => !!chosen && isReadOnly(chosen));
 
-const showsNone = computed(() => !chosen && none);
+const showsNothing = computed(() => !chosen && nothingToChoose);
+
+const showsNone = computed(() => !chosen && !nothingToChoose && none);
 
 const block = computed(() =>
-  chosen ? optionBlockReason(chosen, disabled) : undefined,
+  chosen ? optionBlockReason(chosen, disabled, unavailable) : undefined,
 );
 
 const reason = computed(() => {
@@ -81,9 +92,11 @@ const reason = computed(() => {
         {{
           chosen
             ? chosen.name
-            : showsNone
-              ? t('configurator.none_option')
-              : t('configurator.choose_in_group', { name: groupName })
+            : showsNothing
+              ? t('configurator.nothing_to_choose')
+              : showsNone
+                ? t('configurator.none_option')
+                : t('configurator.choose_in_group', { name: groupName })
         }}
         <Lock
           v-if="readOnly"
@@ -92,7 +105,10 @@ const reason = computed(() => {
           :aria-label="t('configurator.read_only')"
         />
       </span>
-      <span v-if="!showsNone" class="text-muted-foreground block text-xs">
+      <span
+        v-if="!showsNone && !showsNothing"
+        class="text-muted-foreground block text-xs"
+      >
         {{
           chosen
             ? chosen.articleNumber
@@ -104,7 +120,9 @@ const reason = computed(() => {
         data-testid="configurator-chooser-reason"
         class="block text-xs"
         :class="
-          chosen?.available ? 'text-muted-foreground' : 'text-destructive'
+          chosen?.available && !unavailable
+            ? 'text-muted-foreground'
+            : 'text-destructive'
         "
       >
         {{ reason }}
