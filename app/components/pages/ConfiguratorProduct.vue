@@ -8,6 +8,7 @@ import {
   RotateCcw,
   SlidersHorizontal,
 } from 'lucide-vue-next';
+import { useElementBounding, useWindowSize } from '@vueuse/core';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
@@ -25,6 +26,7 @@ import {
   formError,
   headerError,
   refusedChange,
+  stickyBoxMaxHeight,
   type ConfiguratorAction,
 } from '~/utils/configurator-page';
 import {
@@ -334,6 +336,24 @@ const isMenu = computed(() =>
 const formSlot = useTemplateRef<HTMLElement>('formSlot');
 
 /**
+ * The left column, measured rather than the grid: the grid grows with the
+ * aside, the column does not.
+ */
+const leftColumn = useTemplateRef<HTMLElement>('leftColumn');
+const { bottom: leftBottom } = useElementBounding(leftColumn);
+const { width: viewportWidth, height: viewportHeight } = useWindowSize();
+
+const boxMaxHeight = computed(() =>
+  leftColumn.value
+    ? stickyBoxMaxHeight({
+        viewportWidth: viewportWidth.value,
+        viewportHeight: viewportHeight.value,
+        leftBottom: leftBottom.value,
+      })
+    : undefined,
+);
+
+/**
  * A missing item under the rail: the same move as its section in the rail, then
  * the node itself into view once that section has rendered. It scrolls even
  * when the section is already open, since the buyer may have scrolled away.
@@ -510,7 +530,11 @@ async function onRestart(): Promise<void> {
             heading and an inner grid rather than three cells placed by hand.
           -->
           <div class="grid gap-6 lg:grid-cols-[1fr_306px] lg:items-start">
-            <div class="min-w-0">
+            <div
+              ref="leftColumn"
+              class="min-w-0"
+              data-testid="configurator-left"
+            >
               <div
                 class="border-border mb-6 flex items-center justify-between gap-3 border-b pb-4"
               >
@@ -792,22 +816,28 @@ async function onRestart(): Promise<void> {
             <!-- top-48 is the measured header plus 1rem of air: the portal's
                  sticky header is 176px = 11rem at every width from 1024 up
                  (topbar, main row, nav), measured 2026-09-17. `items-start` on
-                 the grid is what lets it stick. -->
+                 the grid is what lets it stick. The box does not scroll as a
+                 whole: its height follows the viewport and the left column,
+                 and only the specification inside it scrolls. -->
             <aside
               v-if="stage !== 'committed'"
-              class="lg:sticky lg:top-48 lg:max-h-[calc(100vh-13rem)] lg:overflow-y-auto"
+              class="lg:sticky lg:top-48 lg:flex lg:flex-col"
+              data-testid="configurator-aside"
+              :style="boxMaxHeight ? { maxHeight: boxMaxHeight } : undefined"
             >
               <!-- The card is the aside itself and every block inside pads
                    itself, so the specification fills the column rather than
                    sitting as a small box inside a larger one. The committed
                    summary carries the price it was committed at, so the card
                    stands down rather than show a second one. -->
-              <!-- While loading the card stands with its header alone. A start
+              <!-- While loading the card holds its loaded shape, empty. A start
                    that failed has no document coming, so no card. -->
               <Card
                 v-if="stage !== 'error'"
-                class="divide-border gap-0 divide-y p-0"
+                class="divide-border min-h-0 gap-0 divide-y p-0 lg:flex-1"
               >
+                <!-- The session row has no place in the prototype; it stays
+                     under the action, in view with it. -->
                 <ConfigurationPanel
                   :configuration="configuration"
                   :status="status"
@@ -815,23 +845,25 @@ async function onRestart(): Promise<void> {
                   :product-name="product.name ?? ''"
                   :article-number="product.articleNumber ?? ''"
                   @restart="onRestart"
-                />
+                >
+                  <ConfigurationAction
+                    v-if="stage === 'form'"
+                    class="shrink-0"
+                    :can-commit="commitEnabled"
+                    :busy="busy"
+                    :incomplete="configuration?.isValid === false"
+                    @commit="onCommit"
+                  />
 
-                <ConfigurationAction
-                  v-if="stage === 'form'"
-                  :can-commit="commitEnabled"
-                  :busy="busy"
-                  :incomplete="configuration?.isValid === false"
-                  @commit="onCommit"
-                />
-
-                <ConfigurationSession
-                  v-if="stage === 'form'"
-                  :remaining-ms="remainingMs"
-                  :busy="busy"
-                  :error="forHeader"
-                  @renew="onRenew"
-                />
+                  <ConfigurationSession
+                    v-if="stage === 'form'"
+                    class="shrink-0"
+                    :remaining-ms="remainingMs"
+                    :busy="busy"
+                    :error="forHeader"
+                    @renew="onRenew"
+                  />
+                </ConfigurationPanel>
               </Card>
             </aside>
           </div>

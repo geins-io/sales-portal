@@ -379,6 +379,7 @@
       "indicative": "Richtpreis. Der Preis wird im Angebot bestätigt.",
       "copy": "Spezifikation kopieren",
       "copied": "Kopiert",
+      "expand": "Spezifikation in größerer Ansicht öffnen",
       "copy_quantity": "Menge: {count} Stk."
     }
   },

@@ -130,3 +130,28 @@ export function formError(
   if (stage !== 'form' || lastAction === 'renew' || refused) return null;
   return error;
 }
+
+/** `lg:top-48`, where the box sticks, and Tailwind's `lg` breakpoint. */
+const STICKY_TOP_PX = 192;
+const LG_PX = 1024;
+
+/**
+ * How tall the sticky right column may be, as the prototype measures it: the
+ * viewport under the sticky offset, but never past the bottom of the left
+ * column. A fixed `calc` lets the grid end under a box that is still the
+ * viewport's height, and the box then slides up under the header with the
+ * price and the action on it. Below lg the box stacks and has no cap.
+ */
+export function stickyBoxMaxHeight({
+  viewportWidth,
+  viewportHeight,
+  leftBottom,
+}: {
+  viewportWidth: number;
+  viewportHeight: number;
+  leftBottom: number;
+}): string | undefined {
+  if (viewportWidth < LG_PX) return undefined;
+  const bottom = Math.min(viewportHeight - 16, leftBottom);
+  return `${Math.max(240, bottom - STICKY_TOP_PX)}px`;
+}

@@ -379,6 +379,7 @@
       "indicative": "Vejledende pris. Prisen bekræftes i tilbuddet.",
       "copy": "Kopiér specifikation",
       "copied": "Kopieret",
+      "expand": "Åbn specifikationen i en større visning",
       "copy_quantity": "Antal: {count} stk."
     }
   },

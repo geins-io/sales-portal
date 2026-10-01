@@ -238,6 +238,7 @@ const stubs = {
     template: `<div data-testid="panel" :data-status="status"
       :data-article="articleNumber">
       <button data-testid="panel-restart" @click="$emit('restart')"></button>
+      <div data-testid="panel-slot"><slot /></div>
     </div>`,
     props: ['configuration', 'status', 'busy', 'productName', 'articleNumber'],
     emits: ['restart'],
@@ -523,6 +524,40 @@ describe('ConfiguratorProduct session', () => {
 
     expect(wrapper.find('[data-testid="action"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="session"]').exists()).toBe(true);
+  });
+
+  it("hands the action and then the session to the panel's slot", async () => {
+    // The panel places them between the price and the specification.
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    const slot = wrapper.find('[data-testid="panel-slot"]');
+    expect(
+      slot.findAll(':scope > div').map((el) => el.attributes('data-testid')),
+    ).toEqual(['action', 'session']);
+  });
+
+  it('makes the aside one sticky column that does not scroll as a whole', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    const aside = wrapper.find('[data-testid="configurator-aside"]');
+    expect(aside.classes()).toEqual(
+      expect.arrayContaining([
+        'lg:sticky',
+        'lg:top-48',
+        'lg:flex',
+        'lg:flex-col',
+      ]),
+    );
+    expect(aside.classes()).not.toContain('lg:overflow-y-auto');
+    expect(aside.classes().some((c) => c.startsWith('lg:max-h-'))).toBe(false);
+    // The card fills the column and lets the specification shrink inside it.
+    expect(wrapper.find('[data-slot="card"]').classes()).toEqual(
+      expect.arrayContaining(['min-h-0', 'lg:flex-1']),
+    );
   });
 
   it('renders no card beside a session that could not be created', async () => {
@@ -1533,6 +1568,83 @@ describe('ConfiguratorProduct subsection menu', () => {
     expect(
       wrapper.find('[data-testid="section"]').attributes('data-section-id'),
     ).toBe('frame');
+  });
+});
+
+describe('ConfiguratorProduct sticky box height', () => {
+  let rectSpy: ReturnType<typeof vi.spyOn>;
+  const size = { width: window.innerWidth, height: window.innerHeight };
+
+  function setViewport(width: number, height: number) {
+    Object.defineProperty(window, 'innerWidth', {
+      value: width,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: height,
+      configurable: true,
+    });
+    window.dispatchEvent(new Event('resize'));
+  }
+
+  beforeEach(() => {
+    // Only the left column's bottom matters: it is what the box stops at.
+    rectSpy = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: Element) {
+        return this.matches('[data-testid="configurator-left"]')
+          ? new DOMRect(0, 0, 900, 700)
+          : new DOMRect(0, 0, 0, 0);
+      });
+  });
+
+  afterEach(() => {
+    rectSpy.mockRestore();
+    setViewport(size.width, size.height);
+  });
+
+  async function mountForm() {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await flushPromises();
+    window.dispatchEvent(new Event('resize'));
+    await flushPromises();
+    return wrapper;
+  }
+
+  it('caps the box at the left column from lg up, below the sticky offset', async () => {
+    setViewport(1440, 900);
+    const wrapper = await mountForm();
+    // The column ends at 700 before the viewport does at 884; less 192.
+    expect(
+      (
+        wrapper.find('[data-testid="configurator-aside"]')
+          .element as HTMLElement
+      ).style.maxHeight,
+    ).toBe('508px');
+  });
+
+  it('caps the box at the viewport when the column runs past it', async () => {
+    setViewport(1440, 600);
+    const wrapper = await mountForm();
+    // 600 less the 16 px of air is 584; less 192.
+    expect(
+      (
+        wrapper.find('[data-testid="configurator-aside"]')
+          .element as HTMLElement
+      ).style.maxHeight,
+    ).toBe('392px');
+  });
+
+  it('sets no height below lg, where the box stacks under the form', async () => {
+    setViewport(800, 900);
+    const wrapper = await mountForm();
+    expect(
+      (
+        wrapper.find('[data-testid="configurator-aside"]')
+          .element as HTMLElement
+      ).style.maxHeight,
+    ).toBe('');
   });
 });
 

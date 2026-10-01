@@ -379,6 +379,7 @@
       "indicative": "Indicative price. The price is confirmed in the quotation.",
       "copy": "Copy specification",
       "copied": "Copied",
+      "expand": "Open the specification in a larger view",
       "copy_quantity": "Quantity: {count} pcs"
     }
   },

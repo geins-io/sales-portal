@@ -379,6 +379,7 @@
       "indicative": "Indikativt pris. Priset bekräftas i offerten.",
       "copy": "Kopiera specifikation",
       "copied": "Kopierad",
+      "expand": "Öppna specifikationen i större vy",
       "copy_quantity": "Antal: {count} st"
     }
   },

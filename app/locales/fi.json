@@ -379,6 +379,7 @@
       "indicative": "Suuntaa antava hinta. Hinta vahvistetaan tarjouksessa.",
       "copy": "Kopioi erittely",
       "copied": "Kopioitu",
+      "expand": "Avaa erittely suuremmassa näkymässä",
       "copy_quantity": "Määrä: {count} kpl"
     }
   },
