@@ -9,6 +9,7 @@ import {
   messagesBesides,
   optionBlockReason,
   optionImage,
+  quantityIsFixed,
 } from '~/utils/configurator-form';
 import { Checkbox } from '~/components/ui/checkbox';
 import { RadioGroupItem } from '~/components/ui/radio-group';
@@ -77,6 +78,22 @@ const messages = computed(() =>
 );
 
 const image = computed(() => optionImage(option));
+
+/**
+ * A quantity the buyer cannot change gets no stepper. Fixed above one, it is
+ * still said, beside the name, so the buyer sees how many are included.
+ */
+const fixedQuantity = computed(() => quantityIsFixed(option));
+const steppable = computed(
+  () => quantityEditable && option.selected && !fixedQuantity.value,
+);
+const shownQuantity = computed(
+  () =>
+    quantityEditable &&
+    option.selected &&
+    fixedQuantity.value &&
+    option.quantity > 1,
+);
 
 function change(selected: boolean, quantity: number): ConfigurationChange {
   return {
@@ -155,6 +172,17 @@ function onRow() {
       <div class="min-w-0 flex-1">
         <p class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
           {{ option.name }}
+          <span
+            v-if="shownQuantity"
+            data-testid="configurator-option-fixed-quantity"
+            class="text-muted-foreground shrink-0 font-normal"
+          >
+            {{
+              t('configurator.panel.quantity_suffix', {
+                count: option.quantity,
+              })
+            }}
+          </span>
           <Lock
             v-if="readOnly"
             data-testid="configurator-option-lock"
@@ -190,7 +218,7 @@ function onRow() {
       </div>
 
       <QuantityStepper
-        v-if="quantityEditable && option.selected"
+        v-if="steppable"
         data-testid="configurator-option-quantity"
         :model-value="option.quantity"
         :min="option.minQuantity ?? 1"

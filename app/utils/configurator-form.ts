@@ -236,6 +236,17 @@ export function optionBlockReason(
   return { kind: readOnly ? 'read_only' : 'unavailable' };
 }
 
+/**
+ * Whether an option's quantity can only be one value, so a stepper would offer
+ * nothing to press. A missing minimum is 1, as the stepper reads it; a missing
+ * maximum is unbounded.
+ */
+export function quantityIsFixed(
+  option: Pick<ConfigurationOption, 'minQuantity' | 'maxQuantity'>,
+): boolean {
+  return (option.maxQuantity ?? Infinity) <= (option.minQuantity ?? 1);
+}
+
 /** What a row adds to the configuration, signed, or `''` when it adds nothing. */
 export function signedOptionPrice(
   net: number,
