@@ -10,7 +10,8 @@ import { RadioGroupItem } from '~/components/ui/radio-group';
  *
  * Its `RadioGroupItem` belongs to the group's `RadioGroup`, which emits for it.
  * No image box, even where the other rows carry one, no article number and no
- * price.
+ * price. Chosen, it keeps the neutral colour: the selected colour marks a real
+ * option only.
  */
 const { selected, disabled = false } = defineProps<{
   selected: boolean;
@@ -32,17 +33,13 @@ function onRow() {
     data-testid="configurator-option-none"
     :data-selected="selected"
     class="rounded-lg border p-3 transition-colors"
-    :class="[
-      selected ? 'border-selected/60 bg-selected/5' : '',
-      disabled ? 'opacity-50' : 'hover:bg-accent/50 cursor-pointer',
-    ]"
+    :class="disabled ? 'opacity-50' : 'hover:bg-accent/50 cursor-pointer'"
     @click="onRow"
   >
     <div class="flex items-center gap-3">
       <RadioGroupItem
         :value="NONE_ROW_VALUE"
         :disabled="disabled"
-        class="data-[state=checked]:border-selected [&_svg]:fill-selected"
         @click.stop
       />
       <p class="min-w-0 flex-1 text-sm font-medium">
