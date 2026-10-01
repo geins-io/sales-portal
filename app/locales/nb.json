@@ -334,6 +334,7 @@
     "yes": "Ja",
     "no": "Nei",
     "commit": "Fullfør konfigurasjonen",
+    "commit_incomplete": "Obligatoriske valg gjenstår",
     "starting": "Laster inn produktkonfiguratoren",
     "failed": "Noe gikk galt. Last inn siden på nytt og prøv igjen.",
     "change_refused_value": "Verdien ble ikke godtatt. Prøv en annen verdi.",

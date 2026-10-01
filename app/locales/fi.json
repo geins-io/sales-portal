@@ -334,6 +334,7 @@
     "yes": "Kyllä",
     "no": "Ei",
     "commit": "Viimeistele kokoonpano",
+    "commit_incomplete": "Pakollisia valintoja puuttuu",
     "starting": "Ladataan tuotekonfiguraattoria",
     "failed": "Jokin meni vikaan. Lataa sivu uudelleen ja yritä uudestaan.",
     "change_refused_value": "Arvoa ei hyväksytty. Kokeile toista arvoa.",

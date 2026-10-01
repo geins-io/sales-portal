@@ -334,6 +334,7 @@
     "yes": "Yes",
     "no": "No",
     "commit": "Complete configuration",
+    "commit_incomplete": "Required choices remain",
     "starting": "Loading the product configurator",
     "failed": "Something went wrong. Reload the page and try again.",
     "change_refused_value": "The value was not accepted. Try another value.",

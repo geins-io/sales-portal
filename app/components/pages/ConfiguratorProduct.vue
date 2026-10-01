@@ -777,6 +777,7 @@ async function onRestart(): Promise<void> {
                   v-if="stage === 'form'"
                   :can-commit="commitEnabled"
                   :busy="busy"
+                  :incomplete="configuration?.isValid === false"
                   @commit="onCommit"
                 />
 

@@ -246,11 +246,11 @@ const stubs = {
     setup: () => ({ goToTarget }),
   },
   ConfigurationAction: {
-    template: `<div data-testid="action">
+    template: `<div data-testid="action" :data-incomplete="incomplete">
       <button data-testid="configurator-commit" :disabled="!canCommit"
         @click="$emit('commit')"></button>
     </div>`,
-    props: ['canCommit', 'busy'],
+    props: ['canCommit', 'busy', 'incomplete'],
     emits: ['commit'],
   },
   ConfigurationSession: {
@@ -683,6 +683,28 @@ describe('ConfiguratorProduct commit', () => {
         .find('[data-testid="configurator-commit"]')
         .attributes('disabled'),
     ).toBeDefined();
+  });
+
+  it('tells the action the configuration is incomplete', async () => {
+    const wrapper = mountPage();
+    activeWith(makeInvalidConfiguration());
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="action"]').attributes('data-incomplete'),
+    ).toBe('true');
+  });
+
+  it('tells the action nothing is missing once the document is valid', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    session.busy.value = true;
+    await nextTick();
+
+    // In flight is not incomplete: the action keeps the finish label.
+    expect(
+      wrapper.find('[data-testid="action"]').attributes('data-incomplete'),
+    ).toBe('false');
   });
 
   it('refuses a commit while a batch is in flight', async () => {

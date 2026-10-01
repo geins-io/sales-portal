@@ -334,6 +334,7 @@
     "yes": "Ja",
     "no": "Nej",
     "commit": "Færdiggør konfigurationen",
+    "commit_incomplete": "Påkrævede valg mangler",
     "starting": "Indlæser produktkonfiguratoren",
     "failed": "Noget gik galt. Genindlæs siden, og prøv igen.",
     "change_refused_value": "Værdien blev ikke accepteret. Prøv en anden værdi.",

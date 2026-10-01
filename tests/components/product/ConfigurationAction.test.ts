@@ -27,7 +27,7 @@ function setFeatures(features: PublicTenantConfig['features']) {
 
 function mountAction(props: Record<string, unknown> = {}) {
   return mountComponent(ConfigurationAction, {
-    props: { canCommit: true, busy: false, ...props },
+    props: { canCommit: true, busy: false, incomplete: false, ...props },
   });
 }
 
@@ -43,7 +43,7 @@ describe('ConfigurationAction', () => {
   it('offers to finish the configuration', async () => {
     const wrapper = mountAction();
     const button = wrapper.find('[data-testid="configurator-commit"]');
-    expect(button.text()).toContain('configurator.commit');
+    expect(button.text()).toBe('configurator.commit');
     expect(button.attributes('disabled')).toBeUndefined();
 
     await button.trigger('click');
@@ -59,11 +59,49 @@ describe('ConfigurationAction', () => {
     expect(wrapper.emitted('commit')).toBeUndefined();
   });
 
+  it('says required choices remain while the configuration is incomplete', () => {
+    const wrapper = mountAction({ canCommit: false, incomplete: true });
+    const button = wrapper.find('[data-testid="configurator-commit"]');
+
+    expect(button.text()).toBe('configurator.commit_incomplete');
+    expect(button.attributes('disabled')).toBeDefined();
+  });
+
+  it('keeps the finish label and the spinner while a change is in flight', () => {
+    const wrapper = mountAction({ canCommit: false, busy: true });
+    const button = wrapper.find('[data-testid="configurator-commit"]');
+
+    expect(button.text()).toBe('configurator.commit');
+    expect(button.attributes('disabled')).toBeDefined();
+    expect(button.find('.animate-spin').exists()).toBe(true);
+  });
+
+  it('spins beside the incomplete label when a change is in flight', () => {
+    // The document in hand is still incomplete until the batch answers.
+    const wrapper = mountAction({
+      canCommit: false,
+      busy: true,
+      incomplete: true,
+    });
+    const button = wrapper.find('[data-testid="configurator-commit"]');
+
+    expect(button.text()).toBe('configurator.commit_incomplete');
+    expect(button.find('.animate-spin').exists()).toBe(true);
+  });
+
+  it('shows no spinner at rest', () => {
+    expect(
+      mountAction()
+        .find('[data-testid="configurator-commit"] .animate-spin')
+        .exists(),
+    ).toBe(false);
+  });
+
   it('prompts to sign in when priceVisibility requires authentication and the user is anonymous', () => {
     setFeatures({
       priceVisibility: { enabled: true, access: 'authenticated' },
     });
-    const wrapper = mountAction();
+    const wrapper = mountAction({ canCommit: false, incomplete: true });
     expect(
       wrapper.find('[data-testid="configurator-signin"]').text(),
     ).toContain('product.login_for_prices');
