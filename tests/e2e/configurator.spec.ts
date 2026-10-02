@@ -14,7 +14,9 @@ import {
  * The whole configurator stack in one browser journey: the page dispatcher
  * picks the configurator, a session is created, a choice is posted as a change
  * batch, the re-evaluated document turns the configuration valid, and the
- * commit freezes it. A green run says route, service, fixture and form agree;
+ * action commits it, adds the committed line to the cart and carries on in a
+ * session reopened from that line. A green run says route, service, fixture and
+ * form agree;
  * the component tests say only that each half works alone.
  *
  * The product is named rather than discovered. `discoverProduct` answers "any
@@ -158,8 +160,36 @@ function changeResponse(page: Page) {
   );
 }
 
+/** The cart lines behind the `cart_id` cookie, none when there is no cart. */
+async function cartLineIds(page: Page): Promise<string[]> {
+  const cartId = (await page.context().cookies()).find(
+    (cookie) => cookie.name === 'cart_id',
+  )?.value;
+  if (!cartId) return [];
+  const response = await page.request.get('/api/cart', {
+    params: { cartId },
+  });
+  if (!response.ok()) return [];
+  const body = (await response.json()) as { items?: { id: string }[] };
+  return (body.items ?? []).map((item) => item.id);
+}
+
+/** Removes the lines the test added, so the shared account's cart stays as it was. */
+async function removeCartLines(page: Page, keep: string[]): Promise<void> {
+  const cartId = (await page.context().cookies()).find(
+    (cookie) => cookie.name === 'cart_id',
+  )?.value;
+  if (!cartId) return;
+  for (const itemId of await cartLineIds(page)) {
+    if (keep.includes(itemId)) continue;
+    await page.request.delete('/api/cart/items', {
+      params: { cartId, itemId },
+    });
+  }
+}
+
 test.describe('Configurator', () => {
-  test('configures the seeded product to valid and commits it', async ({
+  test('configures the seeded product to valid and adds it to the cart', async ({
     page,
   }) => {
     const unavailable = await unavailableReason(page);
@@ -200,22 +230,47 @@ test.describe('Configurator', () => {
     const commit = page.getByTestId('configurator-commit');
     await expect(commit).toBeEnabled();
 
-    const committed = page.waitForResponse(
-      (response) =>
-        /\/api\/configurations\/[^/]+\/commit$/.test(response.url()) &&
-        response.request().method() === 'POST',
-    );
-    await commit.click();
-    await committed;
+    const linesBefore = await cartLineIds(page);
+    try {
+      const committed = page.waitForResponse(
+        (response) =>
+          /\/api\/configurations\/[^/]+\/commit$/.test(response.url()) &&
+          response.request().method() === 'POST',
+      );
+      const added = page.waitForResponse(
+        (response) =>
+          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          response.request().method() === 'POST',
+      );
+      await commit.click();
+      expect((await committed).status()).toBe(200);
+      expect((await added).status()).toBe(200);
 
-    await expect(page.getByTestId('configurator-committed')).toBeVisible();
-    // Quantity is one, so the unit price the commit froze is the price the
-    // panel showed before it.
-    expect(
-      await readPrice(page.getByTestId('configurator-committed-price')),
-    ).toBe(priceBefore + PRICED_COLOUR_NET);
-    // The specification card stands down behind the committed summary.
-    await expect(page.getByTestId('configurator-panel-price')).toBeHidden();
+      // The drawer opens as it does for any product, with one line more.
+      await expect(page.getByTestId('cart-drawer')).toBeVisible();
+      expect((await cartLineIds(page)).length).toBe(linesBefore.length + 1);
+
+      // The page carries on as it was: the form, reopened from the new line,
+      // holds the buyer's choice and its price, and the action is live again.
+      await expect(
+        page.locator('[data-testid="configurator-section"]').first(),
+      ).toBeVisible({ timeout: 20000 });
+      // The drawer is modal; the buyer closes it to go on configuring.
+      await page.keyboard.press('Escape');
+      await expect(page.getByTestId('cart-drawer')).toBeHidden();
+      await openSection(page, COLOUR_SECTION);
+      await expect(
+        colourGroup(page).locator(`[data-option-id="${PRICED_COLOUR}"]`),
+      ).toHaveAttribute('data-selected', 'true');
+      await expect
+        .poll(() => readPrice(page.getByTestId('configurator-panel-net')))
+        .toBe(priceBefore + PRICED_COLOUR_NET);
+      await expect(page.getByTestId('configurator-commit')).toBeEnabled();
+      await expect(page.getByTestId('configurator-committed')).toHaveCount(0);
+      await expect(page.getByTestId('configurator-add-failed')).toHaveCount(0);
+    } finally {
+      await removeCartLines(page, linesBefore);
+    }
   });
 
   test('a list card leads to the configurator, never to the cart', async ({
