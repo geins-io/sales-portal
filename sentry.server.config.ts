@@ -11,6 +11,10 @@
  * @see https://docs.sentry.io/platforms/javascript/guides/nuxt/
  */
 import * as Sentry from '@sentry/nuxt';
+import {
+  SENTRY_TRANSPORT_IDLE_TIMEOUT_MS,
+  createIdleTimeoutHttpModule,
+} from './server/sentry-transport';
 
 // Server-side Sentry must use process.env directly since
 // useRuntimeConfig() is not available at initialization time
@@ -42,6 +46,16 @@ if (dsn) {
 
     // Only enable debug mode in development, unless silenced
     debug: !silent && !isProduction,
+
+    // Replaces the Http integration @sentry/nuxt adds by default. Its response
+    // hook holds a Vercel lambda open until events are sent; here only the
+    // waitUntil is a no-op, so it adds a pending flush per request, which a
+    // stalled ingest request keeps alive together with that request's scope.
+    integrations: [Sentry.httpIntegration()],
+
+    transportOptions: {
+      httpModule: createIdleTimeoutHttpModule(SENTRY_TRANSPORT_IDLE_TIMEOUT_MS),
+    },
 
     // Before sending events, filter out sensitive data
     beforeSend(event) {
