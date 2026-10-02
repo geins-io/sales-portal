@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { effectScope, type EffectScope } from 'vue';
+import { effectScope, watch, type EffectScope } from 'vue';
 import type {
   CommittedConfiguration,
   Configuration,
@@ -557,6 +557,482 @@ describe('useConfiguratorSession', () => {
 
       expect(session.status.value).toBe('expired');
       expect(session.committed.value).toBeNull();
+    });
+  });
+
+  describe('adding the committed configuration to the cart', () => {
+    const LINE = { cartId: 'cart-1', itemId: 'item-1' };
+    const addLine =
+      vi.fn<(committed: CommittedConfiguration) => Promise<unknown>>();
+
+    /**
+     * Answers by route, so the order of the calls is the composable's own. A
+     * promise every time, as `$fetch` answers.
+     */
+    function answering(routes: {
+      commit?: () => unknown;
+      reopen?: () => unknown;
+      create?: () => unknown;
+    }): void {
+      mockFetch.mockImplementation(async (url) => {
+        if (url.endsWith('/commit')) return (routes.commit ?? never)();
+        if (url === '/api/configurations/reopen')
+          return (routes.reopen ?? never)();
+        if (url === '/api/configurations') return (routes.create ?? never)();
+        return never();
+      });
+    }
+
+    function never(): never {
+      throw new Error('unexpected request');
+    }
+
+    function urls(): string[] {
+      return mockFetch.mock.calls.map(([url]) => url);
+    }
+
+    async function startedWithCart(): Promise<{
+      session: ReturnType<typeof useConfiguratorSession>;
+      initial: Configuration;
+    }> {
+      const initial = makeInitialConfiguration();
+      mockFetch.mockResolvedValue(initial);
+      const scope = effectScope();
+      const session = scope.run(() =>
+        useConfiguratorSession({
+          addLine: addLine as (
+            committed: CommittedConfiguration,
+          ) => Promise<{ cartId: string; itemId: string } | null>,
+        }),
+      );
+      if (!session) throw new Error('The scope produced no session');
+      scopes.push(scope);
+      await session.start(PRODUCT_ID, 2);
+      mockFetch.mockReset();
+      return { session, initial };
+    }
+
+    function reopenedDocument(): Configuration {
+      return { ...makeCascadedConfiguration(), configurationId: 'reopened-1' };
+    }
+
+    beforeEach(() => {
+      addLine.mockReset().mockResolvedValue(LINE);
+    });
+
+    it('commits, adds the record, then holds a session reopened from the new line', async () => {
+      const { session, initial } = await startedWithCart();
+      const committed = committedFrom(initial);
+      const reopened = reopenedDocument();
+      answering({ commit: () => committed, reopen: () => reopened });
+
+      await session.commit();
+
+      expect(addLine).toHaveBeenCalledWith(committed);
+      expect(urls()).toEqual([
+        `/api/configurations/${initial.configurationId}/commit`,
+        '/api/configurations/reopen',
+      ]);
+      expect(lastRequest().options).toMatchObject({
+        method: 'POST',
+        body: LINE,
+      });
+      expect(session.configuration.value).toEqual(reopened);
+      expect(session.status.value).toBe('active');
+      expect(session.committed.value).toBeNull();
+      expect(session.error.value).toBeNull();
+    });
+
+    it('keeps the form busy, with nothing committed on screen, until the add has answered', async () => {
+      const { session, initial } = await startedWithCart();
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => reopenedDocument(),
+      });
+      const add = deferred<unknown>();
+      addLine.mockReturnValue(add.promise);
+
+      const submitted = session.commit();
+      await vi.waitFor(() => expect(addLine).toHaveBeenCalled());
+
+      expect(session.configuration.value).toEqual(initial);
+      expect(session.committed.value).toBeNull();
+      expect(session.status.value).toBe('active');
+      expect(session.busy.value).toBe(true);
+
+      add.resolve(LINE);
+      await submitted;
+      expect(session.busy.value).toBe(false);
+    });
+
+    it('holds neither a document nor a summary while the reopen runs, which the page shows as loading', async () => {
+      const { session, initial } = await startedWithCart();
+      const reopen = deferred<Configuration>();
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => reopen.promise,
+      });
+
+      const submitted = session.commit();
+      await vi.waitFor(() =>
+        expect(urls()).toContain('/api/configurations/reopen'),
+      );
+
+      expect(session.configuration.value).toBeNull();
+      expect(session.committed.value).toBeNull();
+      expect(session.error.value).toBeNull();
+
+      reopen.resolve(reopenedDocument());
+      await submitted;
+      expect(session.status.value).toBe('active');
+    });
+
+    it('sends nothing else to the session while the add is under way', async () => {
+      const { session, initial } = await startedWithCart();
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => reopenedDocument(),
+      });
+      const add = deferred<unknown>();
+      addLine.mockReturnValue(add.promise);
+
+      const submitted = session.commit();
+      await vi.waitFor(() => expect(addLine).toHaveBeenCalled());
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+      await session.renew();
+      await session.release();
+      await session.commit();
+      await session.retryAdd();
+      add.resolve(LINE);
+      await submitted;
+
+      expect(addLine).toHaveBeenCalledOnce();
+      expect(urls().filter((url) => url.endsWith('/commit'))).toHaveLength(1);
+    });
+
+    it('starts a fresh session for the same product when the reopen fails', async () => {
+      const { session, initial } = await startedWithCart();
+      const fresh = makeInitialConfiguration();
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => {
+          throw fetchError(422, 'The configuration cannot be reopened');
+        },
+        create: () => fresh,
+      });
+
+      await session.commit();
+
+      expect(urls().at(-1)).toBe('/api/configurations');
+      expect(lastRequest().options.body).toEqual({
+        productId: PRODUCT_ID,
+        quantity: 2,
+      });
+      expect(session.configuration.value).toEqual(fresh);
+      expect(session.status.value).toBe('active');
+      expect(session.committed.value).toBeNull();
+      expect(session.error.value).toBeNull();
+    });
+
+    it('shows no failure while it falls back from a failed reopen', async () => {
+      const { session, initial } = await startedWithCart();
+      const create = deferred<Configuration>();
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => Promise.reject(fetchError(503, 'unavailable')),
+        create: () => create.promise,
+      });
+
+      // Every value the error takes, before any render could pick it up.
+      const seen: unknown[] = [];
+      watch(session.error, (value) => seen.push(value), { flush: 'sync' });
+
+      const submitted = session.commit();
+      await vi.waitFor(() => expect(urls().at(-1)).toBe('/api/configurations'));
+
+      expect(seen.filter((value) => value !== null)).toEqual([]);
+      expect(session.configuration.value).toBeNull();
+      create.resolve(makeInitialConfiguration());
+      await submitted;
+    });
+
+    it('starts nothing once the page has gone while the reopen ran', async () => {
+      const initial = makeInitialConfiguration();
+      mockFetch.mockResolvedValue(initial);
+      const scope = effectScope();
+      const session = scope.run(() =>
+        useConfiguratorSession({ addLine: async () => LINE }),
+      )!;
+      await session.start(PRODUCT_ID);
+      mockFetch.mockReset();
+      mockFetch.mockImplementation((url, options) => {
+        if (url.endsWith('/commit')) return committedFrom(initial);
+        // What ofetch does once the signal fires.
+        return new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () =>
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+          );
+        });
+      });
+
+      const submitted = session.commit();
+      await vi.waitFor(() =>
+        expect(urls()).toContain('/api/configurations/reopen'),
+      );
+      scope.stop();
+      await submitted;
+
+      expect(urls().filter((url) => url === '/api/configurations')).toEqual([]);
+    });
+
+    it.each([
+      ['a line to reopen', { cartId: 'cart-1', itemId: 'item-1' }],
+      ['no line, which would start afresh', null],
+    ])(
+      'sends nothing and runs no clock once the page has gone while the add ran, with %s',
+      async (_case, line) => {
+        const initial = makeInitialConfiguration();
+        mockFetch.mockResolvedValue(initial);
+        const add = deferred<{ cartId: string; itemId: string } | null>();
+        const scope = effectScope();
+        const session = scope.run(() =>
+          useConfiguratorSession({ addLine: () => add.promise }),
+        )!;
+        await session.start(PRODUCT_ID);
+        mockFetch.mockReset();
+        mockFetch.mockImplementation(async (url) =>
+          url.endsWith('/commit') ? committedFrom(initial) : initial,
+        );
+
+        const submitted = session.commit();
+        await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledOnce());
+        await Promise.resolve();
+        scope.stop();
+        add.resolve(line);
+        await submitted;
+
+        expect(urls()).toEqual([
+          `/api/configurations/${initial.configurationId}/commit`,
+        ]);
+        expect(vi.getTimerCount()).toBe(0);
+      },
+    );
+
+    it('waits out a slow reopen and holds what it answers, saying nothing was lost', async () => {
+      const { session, initial } = await startedWithCart();
+      const reopen = deferred<Configuration>();
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => reopen.promise,
+      });
+
+      const submitted = session.commit();
+      await vi.waitFor(() =>
+        expect(urls()).toContain('/api/configurations/reopen'),
+      );
+      // A long change log: the provider takes its time.
+      await vi.advanceTimersByTimeAsync(30_000);
+      reopen.resolve(reopenedDocument());
+      await submitted;
+
+      expect(session.configuration.value?.configurationId).toBe('reopened-1');
+      expect(session.notReopened.value).toBe(false);
+    });
+
+    it('says nothing of the kind before any add', async () => {
+      const { session } = await startedWithCart();
+
+      expect(session.notReopened.value).toBe(false);
+    });
+
+    it('says the choices were not brought back when it fell back to a fresh session', async () => {
+      const { session, initial } = await startedWithCart();
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => {
+          throw fetchError(502, 'replay over budget');
+        },
+        create: () => makeInitialConfiguration(),
+      });
+
+      await session.commit();
+
+      expect(session.status.value).toBe('active');
+      expect(session.notReopened.value).toBe(true);
+    });
+
+    it('says the same when the add answered no line to reopen', async () => {
+      const { session, initial } = await startedWithCart();
+      answering({
+        commit: () => committedFrom(initial),
+        create: () => makeInitialConfiguration(),
+      });
+      addLine.mockResolvedValue(null);
+
+      await session.commit();
+
+      expect(session.notReopened.value).toBe(true);
+    });
+
+    it('forgets the notice on the next add, and on a restart', async () => {
+      const { session, initial } = await startedWithCart();
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => {
+          throw fetchError(502, 'replay over budget');
+        },
+        create: () => makeInitialConfiguration(),
+      });
+      await session.commit();
+      expect(session.notReopened.value).toBe(true);
+
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => reopenedDocument(),
+      });
+      await session.commit();
+      expect(session.notReopened.value).toBe(false);
+
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => {
+          throw fetchError(502, 'replay over budget');
+        },
+        create: () => makeInitialConfiguration(),
+      });
+      await session.commit();
+      mockFetch.mockResolvedValue(null);
+      await session.release();
+      expect(session.notReopened.value).toBe(false);
+    });
+
+    it('starts a fresh session when the add answers no line to reopen', async () => {
+      const { session, initial } = await startedWithCart();
+      const fresh = makeInitialConfiguration();
+      answering({ commit: () => committedFrom(initial), create: () => fresh });
+      addLine.mockResolvedValue(null);
+
+      await session.commit();
+
+      expect(urls()).not.toContain('/api/configurations/reopen');
+      expect(session.configuration.value).toEqual(fresh);
+      expect(session.status.value).toBe('active');
+    });
+
+    it('keeps the committed record and says the add failed when only the add fails', async () => {
+      const { session, initial } = await startedWithCart();
+      const committed = committedFrom(initial);
+      answering({ commit: () => committed });
+      addLine.mockRejectedValue(
+        fetchError(409, 'The configured line was not added'),
+      );
+
+      await session.commit();
+
+      expect(session.committed.value).toEqual(committed);
+      expect(session.status.value).toBe('closed');
+      expect(session.error.value).toMatchObject({
+        status: 409,
+        message: 'The configured line was not added',
+      });
+      expect(urls()).not.toContain('/api/configurations/reopen');
+    });
+
+    it('does not call a committed session expired when its add answers 410', async () => {
+      const { session, initial } = await startedWithCart();
+      answering({ commit: () => committedFrom(initial) });
+      addLine.mockRejectedValue(fetchError(410, 'gone'));
+
+      await session.commit();
+
+      expect(session.status.value).toBe('closed');
+      expect(session.error.value).toMatchObject({ status: 410 });
+    });
+
+    it('adds nothing when the commit fails', async () => {
+      const { session } = await startedWithCart();
+      answering({
+        commit: () => {
+          throw fetchError(422, 'Not complete');
+        },
+      });
+
+      await session.commit();
+
+      expect(addLine).not.toHaveBeenCalled();
+      expect(session.committed.value).toBeNull();
+      expect(session.status.value).toBe('active');
+    });
+
+    it('retries the add with the record it kept, never commits again, then reopens', async () => {
+      const { session, initial } = await startedWithCart();
+      const committed = committedFrom(initial);
+      const reopened = reopenedDocument();
+      answering({ commit: () => committed, reopen: () => reopened });
+      addLine.mockRejectedValueOnce(fetchError(502, 'unreachable'));
+      await session.commit();
+
+      await session.retryAdd();
+
+      expect(addLine).toHaveBeenCalledTimes(2);
+      expect(addLine).toHaveBeenLastCalledWith(committed);
+      expect(urls().filter((url) => url.endsWith('/commit'))).toHaveLength(1);
+      expect(session.configuration.value).toEqual(reopened);
+      expect(session.committed.value).toBeNull();
+      expect(session.status.value).toBe('active');
+    });
+
+    it('keeps the record when the retry fails too', async () => {
+      const { session, initial } = await startedWithCart();
+      const committed = committedFrom(initial);
+      answering({ commit: () => committed });
+      addLine.mockRejectedValue(fetchError(502, 'unreachable'));
+      await session.commit();
+
+      await session.retryAdd();
+
+      expect(addLine).toHaveBeenCalledTimes(2);
+      expect(session.committed.value).toEqual(committed);
+      expect(session.error.value).toMatchObject({ status: 502 });
+    });
+
+    it('adds nothing on a retry before anything is committed', async () => {
+      const { session } = await startedWithCart();
+
+      await session.retryAdd();
+
+      expect(addLine).not.toHaveBeenCalled();
+    });
+
+    it('posts the next change to the reopened session', async () => {
+      const { session, initial } = await startedWithCart();
+      answering({
+        commit: () => committedFrom(initial),
+        reopen: () => reopenedDocument(),
+      });
+      await session.commit();
+      mockFetch.mockReset();
+      mockFetch.mockResolvedValue(reopenedDocument());
+
+      await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+
+      expect(lastRequest().url).toBe('/api/configurations/reopened-1/changes');
+    });
+
+    it('only commits, and holds the record, when it was given no way to add', async () => {
+      const initial = makeInitialConfiguration();
+      mockFetch.mockResolvedValue(initial);
+      const session = open();
+      await session.start(PRODUCT_ID);
+      mockFetch.mockResolvedValue(committedFrom(initial));
+
+      await session.commit();
+      await session.retryAdd();
+
+      expect(session.committed.value).not.toBeNull();
+      expect(session.status.value).toBe('closed');
+      expect(session.error.value).toBeNull();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 

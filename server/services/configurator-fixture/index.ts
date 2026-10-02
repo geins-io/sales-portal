@@ -9,9 +9,10 @@ import type {
   ConfigurableCandidate,
   ConfiguratorBackend,
   ConfiguratorContext,
+  ConfiguredCartLine,
 } from '../configurator';
 import { applyChangeBatch } from './changes';
-import { createSessionState, evaluate } from './evaluate';
+import { cloneSessionState, createSessionState, evaluate } from './evaluate';
 import { findSeed } from './seed';
 import { createSessionStore, type StoredSession } from './store';
 import { buildSummary } from './summary';
@@ -47,6 +48,8 @@ export interface FixtureConfiguratorBackend extends ConfiguratorBackend {
     id: string,
     ctx: ConfiguratorContext,
   ): CommittedConfiguration | undefined;
+  /** Whether the cart line is one this fixture added, so it can reopen it. */
+  ownsLine(cartId: string, itemId: string, ctx: ConfiguratorContext): boolean;
 }
 
 export function createFixtureConfiguratorBackend({
@@ -54,6 +57,15 @@ export function createFixtureConfiguratorBackend({
 }: { now?: () => number } = {}): FixtureConfiguratorBackend {
   const store = createSessionStore(now, DEPARTED_RETENTION_HOURS * HOUR);
   const committed = new Map<string, CommittedConfiguration>();
+  /** The state each record was committed from, so a line can be reopened. */
+  const committedStates = new Map<
+    string,
+    Pick<StoredSession, 'seed' | 'state'>
+  >();
+  /** Which record each added line carries: `hostname|cartId|itemId`. */
+  const lines = new Map<string, string>();
+  const lineKey = (ctx: ConfiguratorContext, cartId: string, itemId: string) =>
+    `${ctx.hostname}|${cartId}|${itemId}`;
 
   const expiry = () => now() + SESSION_MINUTES * MINUTE;
 
@@ -154,12 +166,74 @@ export function createFixtureConfiguratorBackend({
         weightPerUnit: config.weightPerUnit,
         summary: buildSummary(config, session.seed),
       };
-      committed.set(
-        `${ctx.hostname}|${record.committedConfigurationId}`,
-        record,
-      );
+      const key = `${ctx.hostname}|${record.committedConfigurationId}`;
+      committed.set(key, record);
+      committedStates.set(key, {
+        seed: session.seed,
+        state: cloneSessionState(session.state),
+      });
       session.departedAt = now();
       return record;
+    },
+
+    // There is no configured cart behind the fixture, so the line goes in as a
+    // plain one: what the buyer sees is the SKU, at its catalogue price.
+    async addToCart(
+      cartId: string,
+      line: ConfiguredCartLine,
+      ctx: ConfiguratorContext,
+    ): Promise<{ itemId: string | null }> {
+      const key = `${ctx.hostname}|${line.committedConfigurationId}`;
+      if (!committed.has(key)) {
+        throw createAppError(
+          ErrorCode.NOT_FOUND,
+          'No such committed configuration',
+        );
+      }
+      if (!ctx.cart) {
+        throw createAppError(
+          ErrorCode.INTERNAL_ERROR,
+          'The configurator context carries no cart',
+        );
+      }
+      const cart = await ctx.cart.addPlainItem(cartId, {
+        skuId: line.skuId,
+        quantity: line.quantity,
+      });
+      // A plain add of a SKU already in the cart lands on that line, which then
+      // reopens as the latest configuration added to it.
+      const itemId =
+        cart.items?.find((item) => item.skuId === line.skuId)?.id ?? null;
+      if (itemId) lines.set(lineKey(ctx, cartId, itemId), key);
+      return { itemId };
+    },
+
+    async reopen(
+      cartId: string,
+      itemId: string,
+      ctx: ConfiguratorContext,
+    ): Promise<Configuration> {
+      const from = committedStates.get(
+        lines.get(lineKey(ctx, cartId, itemId)) ?? '',
+      );
+      if (!from) {
+        throw createAppError(
+          ErrorCode.NOT_FOUND,
+          'No configured line to reopen',
+        );
+      }
+      const id = randomUUID();
+      const session: StoredSession = {
+        seed: from.seed,
+        state: cloneSessionState(from.state),
+        expiresAt: expiry(),
+      };
+      store.put(ctx.hostname, id, session);
+      return documentOf(id, session);
+    },
+
+    ownsLine(cartId: string, itemId: string, ctx: ConfiguratorContext) {
+      return lines.has(lineKey(ctx, cartId, itemId));
     },
 
     owns(id: string, ctx: ConfiguratorContext): boolean {

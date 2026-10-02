@@ -9,7 +9,9 @@ import { isBrowser } from '~/utils/client-helpers';
 
 // ---------------------------------------------------------------------------
 // One configuration session: create it, post every choice as a batch, renew it,
-// commit or release it.
+// commit or release it. Given a way to add a line, a commit also puts the
+// committed configuration in the cart and carries on in a session reopened from
+// that line, so the page stays a live configurator after every add.
 //
 // The rule engine runs server-side and is not on the wire, so nothing here
 // interprets a document. A change response is the whole re-evaluated state and
@@ -66,9 +68,34 @@ function describe(cause: unknown): ConfiguratorSessionError {
   };
 }
 
-export function useConfiguratorSession() {
+/** A configured cart line, by its cart and its own id. */
+export interface CartLineRef {
+  cartId: string;
+  itemId: string;
+}
+
+export interface ConfiguratorSessionOptions {
+  /**
+   * Puts a committed configuration in the cart and answers the line, or none
+   * when the cart does not say. Throws when the add fails.
+   */
+  addLine?: (committed: CommittedConfiguration) => Promise<CartLineRef | null>;
+}
+
+export function useConfiguratorSession({
+  addLine,
+}: ConfiguratorSessionOptions = {}) {
   const configuration = ref<Configuration | null>(null);
+  /**
+   * A committed configuration the page holds: one whose add failed, kept for
+   * the retry, or one committed without a way to add.
+   */
   const committed = ref<CommittedConfiguration | null>(null);
+  /**
+   * Set when the session after an add is a fresh one rather than the line
+   * reopened, so the page can say the buyer's choices did not come back.
+   */
+  const notReopened = ref(false);
   const status = ref<ConfiguratorSessionStatus>('idle');
   const busy = ref(false);
   const error = ref<ConfiguratorSessionError | null>(null);
@@ -91,7 +118,14 @@ export function useConfiguratorSession() {
 
   let inFlight: AbortController | null = null;
 
+  /**
+   * Set once the page has gone. A step that was not in flight then, such as the
+   * reopen after an add the page left behind, must not send anything after it.
+   */
+  let disposed = false;
+
   onScopeDispose(() => {
+    disposed = true;
     inFlight?.abort();
   });
 
@@ -103,7 +137,7 @@ export function useConfiguratorSession() {
   async function run<T>(
     task: (signal: AbortSignal) => Promise<T>,
   ): Promise<T | undefined> {
-    if (busy.value) return undefined;
+    if (busy.value || disposed) return undefined;
 
     const controller = new AbortController();
     inFlight = controller;
@@ -115,7 +149,9 @@ export function useConfiguratorSession() {
     } catch (cause) {
       if (wasAborted(cause)) return undefined;
       const failure = describe(cause);
-      if (failure.status === 410) {
+      // With a record held the session is finished; a 410 then belongs to the
+      // add and is a failure like any other.
+      if (failure.status === 410 && !committed.value) {
         status.value = 'expired';
         clock.pause();
       } else {
@@ -144,8 +180,20 @@ export function useConfiguratorSession() {
    * Never during SSR: the same POST runs again after hydration and every page
    * load would leak a session.
    */
+  /** What the last start asked for, which a failed reopen starts again. */
+  let started: { productId: string; quantity: number } | null = null;
+
+  function hold(document: Configuration): void {
+    configuration.value = document;
+    committed.value = null;
+    status.value = 'active';
+    now.value = Date.now();
+    clock.resume();
+  }
+
   async function start(productId: string, quantity = 1): Promise<void> {
     if (!isBrowser() || status.value === 'active') return;
+    started = { productId, quantity };
 
     const created = await run((signal) =>
       $fetch<Configuration>('/api/configurations', {
@@ -154,13 +202,7 @@ export function useConfiguratorSession() {
         signal,
       }),
     );
-    if (!created) return;
-
-    configuration.value = created;
-    committed.value = null;
-    status.value = 'active';
-    now.value = Date.now();
-    clock.resume();
+    if (created) hold(created);
   }
 
   /** The caller decides when — a measurement field on blur, an option at once. */
@@ -194,20 +236,82 @@ export function useConfiguratorSession() {
     }
   }
 
+  /**
+   * Adds the record. Once it is in, the document goes too, which the page shows
+   * as loading until `carryOn` has a session again. A failed add keeps the
+   * record instead, so the retry adds it rather than committing again, which
+   * the finished session would refuse.
+   */
+  async function add(
+    record: CommittedConfiguration,
+    addTo: NonNullable<ConfiguratorSessionOptions['addLine']>,
+  ): Promise<{ line: CartLineRef | null }> {
+    try {
+      const line = await addTo(record);
+      committed.value = null;
+      configuration.value = null;
+      close();
+      return { line };
+    } catch (cause) {
+      committed.value = record;
+      close();
+      throw cause;
+    }
+  }
+
+  /**
+   * The page after an add: the session reopened from the new line, with the
+   * buyer's choices, or a fresh one when there is no line or the reopen fails.
+   * Either way the form and its action are back for another add.
+   */
+  async function carryOn(line: CartLineRef | null): Promise<void> {
+    if (line) {
+      // A failed reopen is not the buyer's failure: it answers null rather than
+      // an error, which would show for a moment before the fresh start. Once
+      // the page has gone, `run` sends nothing, the start included.
+      const reopened = await run((signal) =>
+        $fetch<Configuration>('/api/configurations/reopen', {
+          method: 'POST',
+          body: line,
+          signal,
+        }).catch(() => null),
+      );
+      if (reopened) return hold(reopened);
+    }
+    notReopened.value = true;
+    if (started) await start(started.productId, started.quantity);
+  }
+
+  /**
+   * Commit, then add the line, in one request window: a second press in between
+   * would add the same committed id twice, and that gives two lines. The form
+   * stays on screen, busy, until the add has answered, so the buyer sees
+   * progress from the press to the drawer.
+   */
   async function commit(): Promise<void> {
     const id = liveId();
     if (!id) return;
+    notReopened.value = false;
 
-    const result = await run((signal) =>
-      $fetch<CommittedConfiguration>(`/api/configurations/${id}/commit`, {
-        method: 'POST',
-        signal,
-      }),
-    );
-    if (!result) return;
+    const added = await run(async (signal) => {
+      const result = await $fetch<CommittedConfiguration>(
+        `/api/configurations/${id}/commit`,
+        { method: 'POST', signal },
+      );
+      if (addLine) return add(result, addLine);
+      committed.value = result;
+      close();
+      return undefined;
+    });
+    if (added) await carryOn(added.line);
+  }
 
-    committed.value = result;
-    close();
+  async function retryAdd(): Promise<void> {
+    const record = committed.value;
+    if (!addLine || !record) return;
+
+    const added = await run(() => add(record, addLine));
+    if (added) await carryOn(added.line);
   }
 
   async function release(): Promise<void> {
@@ -224,12 +328,16 @@ export function useConfiguratorSession() {
       });
       return true;
     });
-    if (released) close();
+    if (released) {
+      notReopened.value = false;
+      close();
+    }
   }
 
   return {
     configuration,
     committed,
+    notReopened,
     status,
     busy,
     error,
@@ -239,6 +347,7 @@ export function useConfiguratorSession() {
     applyChanges,
     renew,
     commit,
+    retryAdd,
     release,
   };
 }

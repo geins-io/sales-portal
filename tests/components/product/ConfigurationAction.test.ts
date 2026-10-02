@@ -40,14 +40,46 @@ describe('ConfigurationAction', () => {
     auth.closeSheet();
   });
 
-  it('offers to finish the configuration', async () => {
+  it('offers to put the configuration in the cart', async () => {
     const wrapper = mountAction();
     const button = wrapper.find('[data-testid="configurator-commit"]');
-    expect(button.text()).toBe('configurator.commit');
+    expect(button.text()).toBe('product.add_to_cart');
     expect(button.attributes('disabled')).toBeUndefined();
 
     await button.trigger('click');
-    expect(wrapper.emitted('commit')).toHaveLength(1);
+    expect(wrapper.emitted('submit')).toHaveLength(1);
+  });
+
+  it('shows the cart icon at rest and the spinner in its place while busy', () => {
+    const rest = mountAction().find('[data-testid="configurator-commit"]');
+    expect(rest.find('[data-testid="configurator-cart-icon"]').exists()).toBe(
+      true,
+    );
+
+    const busy = mountAction({ canCommit: false, busy: true }).find(
+      '[data-testid="configurator-commit"]',
+    );
+    expect(busy.find('[data-testid="configurator-cart-icon"]').exists()).toBe(
+      false,
+    );
+    expect(busy.find('.animate-spin').exists()).toBe(true);
+  });
+
+  it('says why the action cannot be taken when the page gives a reason', () => {
+    const wrapper = mountAction({
+      canCommit: false,
+      error: 'configurator.failed',
+    });
+
+    expect(
+      wrapper.find('[data-testid="configurator-action-error"]').text(),
+    ).toBe('configurator.failed');
+  });
+
+  it('shows no reason when the page gives none', () => {
+    expect(
+      mountAction().find('[data-testid="configurator-action-error"]').exists(),
+    ).toBe(false);
   });
 
   it('refuses a commit the page has not allowed', async () => {
@@ -56,7 +88,7 @@ describe('ConfigurationAction', () => {
     expect(button.attributes('disabled')).toBeDefined();
 
     await button.trigger('click');
-    expect(wrapper.emitted('commit')).toBeUndefined();
+    expect(wrapper.emitted('submit')).toBeUndefined();
   });
 
   it('says required choices remain while the configuration is incomplete', () => {
@@ -67,11 +99,11 @@ describe('ConfigurationAction', () => {
     expect(button.attributes('disabled')).toBeDefined();
   });
 
-  it('keeps the finish label and the spinner while a change is in flight', () => {
+  it('keeps the cart label and the spinner while a request is in flight', () => {
     const wrapper = mountAction({ canCommit: false, busy: true });
     const button = wrapper.find('[data-testid="configurator-commit"]');
 
-    expect(button.text()).toBe('configurator.commit');
+    expect(button.text()).toBe('product.add_to_cart');
     expect(button.attributes('disabled')).toBeDefined();
     expect(button.find('.animate-spin').exists()).toBe(true);
   });

@@ -66,6 +66,40 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
+  /**
+   * A committed configuration as a cart line, answering the line it landed on.
+   * Unlike `addItem` it throws: the configurator says at its own action why the
+   * add failed, and offers a retry.
+   */
+  async function addConfiguredItem(
+    committedConfigurationId: string,
+    skuId: number,
+    quantity: number,
+  ): Promise<{ cartId: string; itemId: string } | null> {
+    isLoading.value = true;
+    try {
+      let id = cartId.value;
+      if (!id) {
+        id = (await $fetch<CartType>('/api/cart', { method: 'POST' })).id;
+        cartId.value = id;
+      }
+      const answer = await $fetch<{
+        cart: CartType | null;
+        itemId: string | null;
+      }>(`/api/configurations/${committedConfigurationId}/cart`, {
+        method: 'POST',
+        body: { cartId: id, skuId, quantity },
+      });
+      // The line is in even when the route could not read the cart back.
+      if (answer.cart) cart.value = answer.cart;
+      else await fetchCart();
+      isOpen.value = true;
+      return answer.itemId ? { cartId: id, itemId: answer.itemId } : null;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   async function updateQuantity(itemId: string, quantity: number) {
     if (!cartId.value) return;
     isLoading.value = true;
@@ -137,6 +171,7 @@ export const useCartStore = defineStore('cart', () => {
     visibleCartCampaigns,
     fetchCart,
     addItem,
+    addConfiguredItem,
     updateQuantity,
     removeItem,
     applyPromoCode,

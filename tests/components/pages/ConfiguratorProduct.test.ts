@@ -79,6 +79,7 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
   const session = {
     configuration: ref<Configuration | null>(null),
     committed: ref<CommittedConfiguration | null>(null),
+    notReopened: ref(false),
     status: ref<ConfiguratorSessionStatus>('idle'),
     busy: ref(false),
     error: ref<ConfiguratorSessionError | null>(null),
@@ -88,10 +89,27 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     applyChanges: vi.fn(async () => {}),
     renew: vi.fn(async () => {}),
     commit: vi.fn(async () => {}),
+    retryAdd: vi.fn(async () => {}),
     release: vi.fn(async () => {}),
+    /** What the page passed in, so its add can be called directly. */
+    options: null as unknown,
   };
-  return { useConfiguratorSession: () => session };
+  return {
+    useConfiguratorSession: (options: unknown) => {
+      session.options = options;
+      return session;
+    },
+  };
 });
+
+const cartStore = vi.hoisted(() => ({
+  addConfiguredItem: vi.fn(
+    async (): Promise<{ cartId: string; itemId: string } | null> => null,
+  ),
+}));
+vi.mock('../../../app/stores/cart', () => ({
+  useCartStore: () => cartStore,
+}));
 
 // The shared passthrough drops a count the key does not spell out; this one
 // keeps it visible so the rail mark's spoken count can be read.
@@ -189,6 +207,7 @@ vi.stubGlobal(
 interface MockSession {
   configuration: Ref<Configuration | null>;
   committed: Ref<CommittedConfiguration | null>;
+  notReopened: Ref<boolean>;
   status: Ref<ConfiguratorSessionStatus>;
   busy: Ref<boolean>;
   error: Ref<ConfiguratorSessionError | null>;
@@ -197,10 +216,16 @@ interface MockSession {
   applyChanges: Mock;
   renew: Mock;
   commit: Mock;
+  retryAdd: Mock;
   release: Mock;
+  options: {
+    addLine: (
+      committed: CommittedConfiguration,
+    ) => Promise<{ cartId: string; itemId: string } | null>;
+  };
 }
 
-const session = useConfiguratorSession() as unknown as MockSession;
+const session = useConfiguratorSession({}) as unknown as MockSession;
 
 /** What the status stub hands the page when its missing item is clicked. */
 const goToTarget = ref<BlockingItem | null>(null);
@@ -254,12 +279,21 @@ const stubs = {
     setup: () => ({ goToTarget }),
   },
   ConfigurationAction: {
-    template: `<div data-testid="action" :data-incomplete="incomplete">
+    template: `<div data-testid="action" :data-incomplete="incomplete"
+      :data-error="error ?? ''">
       <button data-testid="configurator-commit" :disabled="!canCommit"
-        @click="$emit('commit')"></button>
+        @click="$emit('submit')"></button>
     </div>`,
-    props: ['canCommit', 'busy', 'incomplete'],
-    emits: ['commit'],
+    props: ['canCommit', 'busy', 'incomplete', 'error'],
+    emits: ['submit'],
+  },
+  ConfiguratorAddRetry: {
+    template: `<div data-testid="add-retry" :data-message="message ?? ''"
+      :data-can-retry="String(canRetry)">
+      <button data-testid="add-retry-button" @click="$emit('retry')"></button>
+    </div>`,
+    props: ['message', 'canRetry', 'busy'],
+    emits: ['retry'],
   },
   ConfigurationSession: {
     template: `<div data-testid="session" :data-error="error ? 'yes' : 'no'">
@@ -295,6 +329,7 @@ function makeProduct(overrides: Record<string, unknown> = {}): DetailProduct {
     name: 'Arbetsbord Pro',
     alias: 'arbetsbord-pro',
     articleNumber: 'KONF-1001',
+    skus: [{ skuId: 5001 }],
     productImages: [{ fileName: 'workbench.jpg', isPrimary: true, url: '' }],
     primaryCategory: {
       name: 'Arbetsplatsinredning',
@@ -324,6 +359,7 @@ let warnSpy: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   session.configuration.value = null;
   session.committed.value = null;
+  session.notReopened.value = false;
   session.status.value = 'idle';
   session.busy.value = false;
   session.error.value = null;
@@ -332,10 +368,12 @@ beforeEach(() => {
     'applyChanges',
     'renew',
     'commit',
+    'retryAdd',
     'release',
   ] as const) {
     session[verb].mockClear();
   }
+  cartStore.addConfiguredItem.mockClear();
 
   warnings = [];
   warnSpy = vi
@@ -793,6 +831,158 @@ describe('ConfiguratorProduct commit', () => {
     // The summary carries the committed price; a panel beside it would be a
     // second price for the same thing.
     expect(wrapper.find('[data-testid="panel"]').exists()).toBe(false);
+  });
+});
+
+describe('ConfiguratorProduct add to cart', () => {
+  function committedWith(
+    over: { error?: ConfiguratorSessionError | null } = {},
+  ): void {
+    session.committed.value = COMMITTED;
+    session.status.value = 'closed';
+    session.error.value = over.error ?? null;
+  }
+
+  it("adds the committed record as the product's one SKU, at the committed quantity, and hands back the line", async () => {
+    mountPage(makeProduct({ skus: [{ skuId: 1652 }] }));
+    const line = { cartId: 'cart-1', itemId: 'item-1' };
+    cartStore.addConfiguredItem.mockResolvedValueOnce(line);
+
+    await expect(
+      session.options.addLine({ ...COMMITTED, quantity: 3 }),
+    ).resolves.toEqual(line);
+
+    expect(cartStore.addConfiguredItem).toHaveBeenCalledWith(
+      'committed-1',
+      1652,
+      3,
+    );
+  });
+
+  it.each([
+    ['no SKU', []],
+    ['more than one SKU', [{ skuId: 1 }, { skuId: 2 }]],
+  ])(
+    'refuses the action and says so for a product with %s',
+    async (_case, skus) => {
+      const wrapper = mountPage(makeProduct({ skus }));
+      activeWith(makeValidConfiguration());
+      await nextTick();
+
+      expect(
+        wrapper
+          .find('[data-testid="configurator-commit"]')
+          .attributes('disabled'),
+      ).toBeDefined();
+      expect(
+        wrapper.find('[data-testid="action"]').attributes('data-error'),
+      ).toBe('configurator.failed');
+    },
+  );
+
+  it('gives the action no reason when the product has its one SKU', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="action"]').attributes('data-error'),
+    ).toBe('');
+  });
+
+  it('says at the top of the form that the choices did not come back, when they did not', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    session.notReopened.value = true;
+    await nextTick();
+
+    const notice = wrapper.find('[data-testid="configurator-not-reopened"]');
+    expect(notice.text()).toBe('configurator.not_reopened');
+    // Above the form, not somewhere below it.
+    const slot = wrapper.find('[data-testid="configurator-form-slot"]');
+    expect(slot.element.contains(notice.element)).toBe(true);
+    expect(
+      notice.element.compareDocumentPosition(
+        wrapper.find('[data-testid="section"]').element,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('says nothing of the kind when the line was reopened, or off the form', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    expect(
+      wrapper.find('[data-testid="configurator-not-reopened"]').exists(),
+    ).toBe(false);
+
+    session.notReopened.value = true;
+    session.configuration.value = null;
+    session.status.value = 'closed';
+    await nextTick();
+    expect(
+      wrapper.find('[data-testid="configurator-not-reopened"]').exists(),
+    ).toBe(false);
+  });
+
+  it('shows the loading face and the right column, never the summary, while the session is reopened', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    // What the session holds between a successful add and the reopen's answer.
+    session.configuration.value = null;
+    session.status.value = 'closed';
+    session.busy.value = true;
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="configurator-loading"]').exists()).toBe(
+      true,
+    );
+    expect(wrapper.find('[data-testid="configurator-aside"]').exists()).toBe(
+      true,
+    );
+    expect(wrapper.find('[data-testid="committed"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="add-retry"]').exists()).toBe(false);
+  });
+
+  it.each([
+    [409, 'CONFLICT', 'configurator.add_not_added'],
+    [401, 'UNAUTHORIZED', 'configurator.sign_in_required'],
+    [403, 'FORBIDDEN', 'configurator.add_failed'],
+    [502, 'EXTERNAL_API_ERROR', 'configurator.add_failed'],
+  ])(
+    'says why a %i add failed above the committed summary and offers a retry',
+    async (status, code, key) => {
+      const wrapper = mountPage();
+      committedWith({ error: { status, message: 'x', code } });
+      await nextTick();
+
+      const retry = wrapper.find('[data-testid="add-retry"]');
+      expect(retry.attributes('data-message')).toBe(key);
+      expect(retry.attributes('data-can-retry')).toBe('true');
+      expect(wrapper.find('[data-testid="committed"]').exists()).toBe(true);
+    },
+  );
+
+  it('retries the add, and keeps the retry on screen while it runs', async () => {
+    const wrapper = mountPage();
+    committedWith({ error: { status: 502, message: 'x' } });
+    await nextTick();
+
+    await wrapper.find('[data-testid="add-retry-button"]').trigger('click');
+    expect(session.retryAdd).toHaveBeenCalledTimes(1);
+    expect(session.commit).not.toHaveBeenCalled();
+
+    // What the session does while the retry is in flight.
+    session.error.value = null;
+    session.busy.value = true;
+    await nextTick();
+
+    const retry = wrapper.find('[data-testid="add-retry"]');
+    expect(retry.exists()).toBe(true);
+    expect(retry.attributes('data-message')).toBe('');
+    expect(retry.attributes('data-can-retry')).toBe('false');
   });
 });
 

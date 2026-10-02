@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Info,
   Loader2,
   RotateCcw,
   SlidersHorizontal,
@@ -19,13 +20,19 @@ import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs';
 import type { BlockingItem } from '~/utils/configurator-panel';
+import { useCartStore } from '~/stores/cart';
 import {
+  addError,
+  addFailureKey,
   canCommit,
+  canRetryAdd,
   configuratorStage,
+  configuredSkuId,
   failureKey,
   formError,
   headerError,
   refusedChange,
+  showsAddRetry,
   stickyBoxMaxHeight,
   type ConfiguratorAction,
 } from '~/utils/configurator-page';
@@ -203,9 +210,15 @@ function showConfiguration(): void {
 // ---------------------------------------------------------------------------
 // The session
 // ---------------------------------------------------------------------------
+const cart = useCartStore();
+
+/** What the configured line is added as; the action stays shut without one. */
+const skuId = computed(() => configuredSkuId(product.skus ?? []));
+
 const {
   configuration,
   committed,
+  notReopened,
   status,
   busy,
   error,
@@ -214,8 +227,19 @@ const {
   applyChanges,
   renew,
   commit,
+  retryAdd,
   release,
-} = useConfiguratorSession();
+} = useConfiguratorSession({
+  addLine: (record) => {
+    // Unreachable: `canCommit` refuses a commit without a SKU.
+    if (skuId.value === null) throw new Error('No SKU to add the line as');
+    return cart.addConfiguredItem(
+      record.committedConfigurationId,
+      skuId.value,
+      record.quantity,
+    );
+  },
+});
 
 /** Which verb failed last; see `headerError`. */
 const lastAction = ref<ConfiguratorAction>('start');
@@ -237,6 +261,29 @@ const commitEnabled = computed(() =>
   canCommit({
     status: status.value,
     configuration: configuration.value,
+    busy: busy.value,
+    skuId: skuId.value,
+  }),
+);
+
+/** Said at the action when the product has no single SKU to add. */
+const actionError = computed(() =>
+  skuId.value === null ? t('configurator.failed') : null,
+);
+
+const failedAdd = computed(() => addError(stage.value, error.value));
+
+const addRetryShown = computed(() =>
+  showsAddRetry({
+    stage: stage.value,
+    error: error.value,
+    busy: busy.value,
+  }),
+);
+
+const addRetryEnabled = computed(() =>
+  canRetryAdd({
+    committed: committed.value,
     busy: busy.value,
   }),
 );
@@ -417,9 +464,15 @@ function onRenew(): void {
   void renew();
 }
 
-function onCommit(): void {
+/** Commit, then add the committed line: one press, one request window. */
+function onSubmit(): void {
   lastAction.value = 'commit';
   void commit();
+}
+
+function onRetryAdd(): void {
+  lastAction.value = 'add';
+  void retryAdd();
 }
 
 /**
@@ -665,12 +718,28 @@ async function onRestart(): Promise<void> {
                     {{ t(failureKey(error)) }}
                   </p>
 
-                  <ConfiguratorCommitted
-                    v-else-if="stage === 'committed' && committed"
-                    :committed="committed"
-                  />
+                  <template v-else-if="stage === 'committed' && committed">
+                    <ConfiguratorAddRetry
+                      v-if="addRetryShown"
+                      :message="failedAdd ? t(addFailureKey(failedAdd)) : null"
+                      :can-retry="addRetryEnabled"
+                      :busy="busy"
+                      @retry="onRetryAdd"
+                    />
+                    <ConfiguratorCommitted :committed="committed" />
+                  </template>
 
                   <template v-else-if="stage === 'form' && configuration">
+                    <!-- The line is in the cart, but the session after it is a
+                         fresh one: never a silent reset of the buyer's choices. -->
+                    <p
+                      v-if="notReopened"
+                      class="bg-warning/10 text-warning mb-4 flex items-start gap-2 rounded-md px-3 py-2 text-sm"
+                      data-testid="configurator-not-reopened"
+                    >
+                      <Info class="mt-0.5 size-4 shrink-0" />
+                      {{ t('configurator.not_reopened') }}
+                    </p>
                     <p
                       v-if="ownError"
                       class="text-destructive flex items-start gap-2 text-sm"
@@ -852,7 +921,8 @@ async function onRestart(): Promise<void> {
                     :can-commit="commitEnabled"
                     :busy="busy"
                     :incomplete="configuration?.isValid === false"
-                    @commit="onCommit"
+                    :error="actionError"
+                    @submit="onSubmit"
                   />
 
                   <ConfigurationSession

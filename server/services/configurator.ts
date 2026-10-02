@@ -36,6 +36,26 @@ export interface ConfiguratorContext {
    * `isConfigurable` with the narrow context, which never reaches the wire.
    */
   merchantApi?: MerchantApiTarget;
+  /**
+   * Set on the cart route only: the portal's ordinary add, for a backend with
+   * no configured cart behind it.
+   */
+  cart?: PlainCartAdd;
+}
+
+export interface PlainCartAdd {
+  /** Answers the cart, so the caller can tell which line the SKU landed on. */
+  addPlainItem(
+    cartId: string,
+    item: { skuId: number; quantity: number },
+  ): Promise<{ items?: { id?: string; skuId?: number | null }[] | null }>;
+}
+
+/** A committed configuration as a cart line: the SKU it is sold as, and how many. */
+export interface ConfiguredCartLine {
+  committedConfigurationId: string;
+  skuId: number;
+  quantity: number;
 }
 
 /** Where and as whom the merchant-api backend asks. */
@@ -87,6 +107,25 @@ export interface ConfiguratorBackend {
   renew(id: string, ctx: ConfiguratorContext): Promise<{ expiresAt: string }>;
   release(id: string, ctx: ConfiguratorContext): Promise<void>;
   commit(id: string, ctx: ConfiguratorContext): Promise<CommittedConfiguration>;
+  /**
+   * Adds a committed configuration to the cart and answers the line it landed
+   * on, or none when the cart does not say. The cart itself is read back the
+   * portal's ordinary way, so the caller keeps one cart shape.
+   */
+  addToCart(
+    cartId: string,
+    line: ConfiguredCartLine,
+    ctx: ConfiguratorContext,
+  ): Promise<{ itemId: string | null }>;
+  /**
+   * Opens a new session from a configured cart line, holding the choices it
+   * was committed with. The line itself is not touched.
+   */
+  reopen(
+    cartId: string,
+    itemId: string,
+    ctx: ConfiguratorContext,
+  ): Promise<Configuration>;
 }
 
 /**
@@ -171,6 +210,8 @@ function rejectingBackend(
     renew: reject,
     release: reject,
     commit: reject,
+    addToCart: reject,
+    reopen: reject,
   };
 }
 

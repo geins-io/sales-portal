@@ -1,0 +1,21 @@
+mutation addConfiguredCartItem(
+  $id: String!
+  $item: CartItemInputType!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  addToCart(
+    id: $id
+    item: $item
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    id
+    items {
+      id
+      configurationId
+    }
+  }
+}

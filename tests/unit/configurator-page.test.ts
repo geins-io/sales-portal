@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
+  addError,
+  addFailureKey,
   canCommit,
+  canRetryAdd,
   configuratorStage,
+  showsAddRetry,
+  configuredSkuId,
   failureKey,
   formError,
   headerError,
@@ -102,6 +107,14 @@ describe('configuratorStage', () => {
 describe('canCommit', () => {
   it('allows a commit on a complete configuration', () => {
     expect(canCommit({ ...state(), busy: false })).toBe(true);
+  });
+
+  it('refuses when there is no SKU to add the line as', () => {
+    expect(canCommit({ ...state(), busy: false, skuId: null })).toBe(false);
+  });
+
+  it('allows a commit with a SKU to add the line as', () => {
+    expect(canCommit({ ...state(), busy: false, skuId: 1652 })).toBe(true);
   });
 
   it('refuses an incomplete configuration', () => {
@@ -321,5 +334,108 @@ describe('stickyBoxMaxHeight', () => {
         leftBottom: 433,
       }),
     ).toBe('241px');
+  });
+});
+
+describe('configuredSkuId', () => {
+  it("is the product's one SKU", () => {
+    expect(configuredSkuId([{ skuId: 1652 }])).toBe(1652);
+  });
+
+  it('is nothing for a product without a SKU', () => {
+    expect(configuredSkuId([])).toBeNull();
+  });
+
+  it('is nothing for a product with more than one, rather than a guess', () => {
+    expect(configuredSkuId([{ skuId: 1 }, { skuId: 2 }])).toBeNull();
+  });
+});
+
+describe('canRetryAdd', () => {
+  it('offers a retry for a committed configuration that did not reach the cart', () => {
+    expect(canRetryAdd({ committed: COMMITTED, busy: false })).toBe(true);
+  });
+
+  it('offers none while a request is in flight', () => {
+    expect(canRetryAdd({ committed: COMMITTED, busy: true })).toBe(false);
+  });
+
+  it('offers none when nothing is held', () => {
+    expect(canRetryAdd({ committed: null, busy: false })).toBe(false);
+  });
+});
+
+describe('addError', () => {
+  const FAILURE = { status: 502, message: 'x' };
+
+  it('shows a failed add on the committed summary', () => {
+    expect(addError('committed', FAILURE)).toBe(FAILURE);
+  });
+
+  it('leaves a failure on the form to the form', () => {
+    expect(addError('form', FAILURE)).toBeNull();
+  });
+
+  it('shows nothing when nothing failed', () => {
+    expect(addError('committed', null)).toBeNull();
+  });
+});
+
+describe('addFailureKey', () => {
+  it('asks a buyer the cart wants signed in to sign in with a company account', () => {
+    expect(
+      addFailureKey({ status: 401, message: 'x', code: 'UNAUTHORIZED' }),
+    ).toBe('configurator.sign_in_required');
+  });
+
+  it('does not ask a signed-in buyer whose company may not use the cart to sign in', () => {
+    expect(
+      addFailureKey({ status: 403, message: 'x', code: 'FORBIDDEN' }),
+    ).toBe('configurator.add_failed');
+  });
+
+  it('says the line was not added when the cart dropped it', () => {
+    expect(addFailureKey({ status: 409, message: 'x' })).toBe(
+      'configurator.add_not_added',
+    );
+  });
+
+  it.each([0, 404, 410, 422, 500, 502])(
+    'says the add failed for %i',
+    (status) => {
+      expect(addFailureKey({ status, message: 'x' })).toBe(
+        'configurator.add_failed',
+      );
+    },
+  );
+
+  it('says the add failed when nothing more is known', () => {
+    expect(addFailureKey(null)).toBe('configurator.add_failed');
+  });
+});
+
+describe('showsAddRetry', () => {
+  const FAILURE = { status: 502, message: 'x' };
+  const base = {
+    stage: 'committed' as const,
+    error: FAILURE,
+    busy: false,
+  };
+
+  it('shows the retry once the add has failed', () => {
+    expect(showsAddRetry(base)).toBe(true);
+  });
+
+  it('keeps it on screen while the retry is under way', () => {
+    expect(showsAddRetry({ ...base, error: null, busy: true })).toBe(true);
+  });
+
+  it('does not show it off the committed summary', () => {
+    expect(showsAddRetry({ ...base, stage: 'form' })).toBe(false);
+    expect(showsAddRetry({ ...base, stage: 'loading' })).toBe(false);
+  });
+
+  it('does not show it when nothing failed and nothing is running', () => {
+    expect(showsAddRetry({ ...base, error: null })).toBe(false);
   });
 });

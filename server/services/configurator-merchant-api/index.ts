@@ -6,7 +6,7 @@ import type {
 } from '../configurator';
 import { loadQuery } from '../graphql/loader';
 import { toWireChange } from './changes';
-import { requestMerchantApi } from './client';
+import { REOPEN_TIMEOUT_MS, requestMerchantApi } from './client';
 import { mapCommittedConfiguration, mapConfiguration } from './map';
 import type { WireCommittedConfiguration, WireConfiguration } from './wire';
 
@@ -144,6 +144,55 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
         throw upstream('answered without a committed configuration');
       }
       return mapCommittedConfiguration(data.commitConfiguration, id);
+    },
+
+    async addToCart(cartId, line, ctx) {
+      const target = targetOf(ctx);
+      const data = await requestMerchantApi<{
+        addToCart: {
+          items?:
+            | ({ id: string; configurationId?: string | null } | null)[]
+            | null;
+        } | null;
+      }>(
+        target,
+        ctx.userToken,
+        loadQuery('configurator/add-configured-cart-item.graphql'),
+        {
+          id: cartId,
+          item: {
+            skuId: line.skuId,
+            quantity: line.quantity,
+            configurationId: line.committedConfigurationId,
+          },
+          ...channelOf(target),
+        },
+      );
+      // A line short of stock is dropped with a 200 and no error.
+      const added = (data.addToCart?.items ?? []).find(
+        (item) => item?.configurationId === line.committedConfigurationId,
+      );
+      if (!added) {
+        throw createAppError(
+          ErrorCode.CONFLICT,
+          'The configured line was not added',
+        );
+      }
+      return { itemId: added.id };
+    },
+
+    async reopen(cartId, itemId, ctx) {
+      const target = targetOf(ctx);
+      const data = await requestMerchantApi<{
+        reopenCartItemConfiguration: WireConfiguration | null;
+      }>(
+        target,
+        ctx.userToken,
+        loadQuery('configurator/reopen-cart-item-configuration.graphql'),
+        { cartId, itemId, ...channelOf(target) },
+        { timeoutMs: REOPEN_TIMEOUT_MS },
+      );
+      return documentOf(data.reopenCartItemConfiguration);
     },
   };
 }
