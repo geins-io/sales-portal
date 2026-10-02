@@ -1,25 +1,31 @@
 <script setup lang="ts">
-import { LogIn, Loader2 } from 'lucide-vue-next';
+import { AlertCircle, LogIn, Loader2, ShoppingCart } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import { useAuthStore } from '~/stores/auth';
 
 /**
  * What the buyer does with the configuration: sign in to see what it costs, or
- * finish it.
+ * put it in the cart, which commits it and adds the committed line.
  *
- * Its own component because the next milestone replaces it wholesale — an
- * add-to-cart and a request-quote path, and update / revert / cancel when a
- * configured cart line is being edited — while everything else in the card
- * stays as it is.
+ * Its own component because what follows replaces parts of it — a
+ * request-quote path, and update / revert / cancel when a configured cart line
+ * is being edited — while everything else in the card stays as it is.
  */
-const { canCommit, busy, incomplete } = defineProps<{
+const {
+  canCommit,
+  busy,
+  incomplete,
+  error = null,
+} = defineProps<{
   canCommit: boolean;
   busy: boolean;
   /** The provider says required choices are still missing. */
   incomplete: boolean;
+  /** Why the action cannot be taken, when it is not the missing choices. */
+  error?: string | null;
 }>();
 
-const emit = defineEmits<{ commit: [] }>();
+const emit = defineEmits<{ submit: [] }>();
 
 const { t } = useI18n();
 const { showPrice, canUnlockByAuth } = usePriceVisibility();
@@ -49,12 +55,26 @@ const auth = useAuthStore();
       variant="purchase"
       :disabled="!canCommit"
       data-testid="configurator-commit"
-      @click="emit('commit')"
+      @click="emit('submit')"
     >
       <Loader2 v-if="busy" class="size-4 animate-spin" />
+      <ShoppingCart
+        v-else
+        class="size-4"
+        data-testid="configurator-cart-icon"
+      />
       {{
-        t(incomplete ? 'configurator.commit_incomplete' : 'configurator.commit')
+        t(incomplete ? 'configurator.commit_incomplete' : 'product.add_to_cart')
       }}
     </Button>
+
+    <p
+      v-if="error"
+      class="text-destructive mt-2 flex items-start gap-2 text-sm"
+      data-testid="configurator-action-error"
+    >
+      <AlertCircle class="mt-0.5 size-4 shrink-0" />
+      {{ error }}
+    </p>
   </div>
 </template>

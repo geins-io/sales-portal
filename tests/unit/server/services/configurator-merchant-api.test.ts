@@ -1399,6 +1399,145 @@ describe('the merchant-api backend', () => {
     });
   });
 
+  describe('addToCart', () => {
+    const COMMITTED_ID = 'committed-1';
+    const LINE = {
+      committedConfigurationId: COMMITTED_ID,
+      skuId: 1652,
+      quantity: 2,
+    };
+
+    function cartWith(...configurationIds: (string | null)[]) {
+      return answer({
+        data: {
+          addToCart: {
+            id: 'cart-1',
+            items: configurationIds.map((configurationId, index) => ({
+              id: `item-${index}`,
+              configurationId,
+            })),
+          },
+        },
+      });
+    }
+
+    it('adds the line by its committed id, with the channel and the buyer', async () => {
+      fetchMock.mockResolvedValue(cartWith(COMMITTED_ID));
+
+      await backend.addToCart('cart-1', LINE, CTX);
+
+      const { url, body, headers } = sentRequest();
+      expect(url).toBe(URL);
+      expect(body.query).toBe(
+        loadQuery('configurator/add-configured-cart-item.graphql'),
+      );
+      expect(body.variables).toEqual({
+        id: 'cart-1',
+        item: { skuId: 1652, quantity: 2, configurationId: COMMITTED_ID },
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+    });
+
+    it('answers the id of the line that carries the committed id, among others', async () => {
+      fetchMock.mockResolvedValue(cartWith(null, 'another', COMMITTED_ID));
+
+      await expect(backend.addToCart('cart-1', LINE, CTX)).resolves.toEqual({
+        itemId: 'item-2',
+      });
+    });
+
+    it('reads past a null entry in the items', async () => {
+      fetchMock.mockResolvedValue(
+        answer({
+          data: {
+            addToCart: {
+              id: 'cart-1',
+              items: [null, { id: 'item-1', configurationId: COMMITTED_ID }],
+            },
+          },
+        }),
+      );
+
+      await expect(backend.addToCart('cart-1', LINE, CTX)).resolves.toEqual({
+        itemId: 'item-1',
+      });
+    });
+
+    it.each([
+      ['an empty cart', () => cartWith()],
+      ['a cart without the line', () => cartWith(null, 'another')],
+      ['no cart', () => answer({ data: { addToCart: null } })],
+    ])(
+      'answers 409 for %s, which is how a line dropped for stock arrives',
+      async (_case, respond) => {
+        fetchMock.mockResolvedValue(respond());
+
+        const failure = await failureOf(() =>
+          backend.addToCart('cart-1', LINE, CTX),
+        );
+        expect(failure.statusCode).toBe(409);
+      },
+    );
+  });
+
+  describe('reopen', () => {
+    it('opens a session from the cart line, with the channel and the buyer', async () => {
+      fetchMock.mockResolvedValue(
+        answer({
+          data: { reopenCartItemConfiguration: wireConfiguration() },
+        }),
+      );
+
+      const config = await backend.reopen('cart-1', 'item-1', CTX);
+
+      const { url, body, headers } = sentRequest();
+      expect(url).toBe(URL);
+      expect(body.query).toBe(
+        loadQuery('configurator/reopen-cart-item-configuration.graphql'),
+      );
+      expect(body.variables).toEqual({
+        cartId: 'cart-1',
+        itemId: 'item-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(config).toEqual(mapConfiguration(wireConfiguration()));
+    });
+
+    it("gives the reopen 45 s, past the provider's own replay budget, and every other call 15 s", async () => {
+      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      fetchMock.mockImplementation(async () =>
+        answer({
+          data: {
+            reopenCartItemConfiguration: wireConfiguration(),
+            getConfiguration: wireConfiguration(),
+          },
+        }),
+      );
+
+      await backend.reopen('cart-1', 'item-1', CTX);
+      await backend.get('cfg-1', CTX);
+
+      expect(timeout.mock.calls).toEqual([[45_000], [15_000]]);
+      timeout.mockRestore();
+    });
+
+    it('answers 502 when the reopen comes back without a document', async () => {
+      fetchMock.mockResolvedValue(
+        answer({ data: { reopenCartItemConfiguration: null } }),
+      );
+      expect(
+        (await failureOf(() => backend.reopen('cart-1', 'item-1', CTX)))
+          .statusCode,
+      ).toBe(502);
+    });
+  });
+
   describe('failures', () => {
     const calls: [string, () => Promise<unknown>][] = [
       ['create', () => backend.create({ productId: '1359', quantity: 1 }, CTX)],
@@ -1415,6 +1554,16 @@ describe('the merchant-api backend', () => {
       ['renew', () => backend.renew('cfg-1', CTX)],
       ['release', () => backend.release('cfg-1', CTX)],
       ['commit', () => backend.commit('cfg-1', CTX)],
+      [
+        'addToCart',
+        () =>
+          backend.addToCart(
+            'cart-1',
+            { committedConfigurationId: 'c1', skuId: 1, quantity: 1 },
+            CTX,
+          ),
+      ],
+      ['reopen', () => backend.reopen('cart-1', 'item-1', CTX)],
     ];
 
     it.each([
@@ -1422,6 +1571,11 @@ describe('the merchant-api backend', () => {
       ['ConfigurationGone', 410],
       ['MissingCustomerNumber', 403],
       ['ConfigurationFailed', 422],
+      ['ConfigurationMismatch', 422],
+      ['LoginRequired', 401],
+      ['CartBelongsToAnotherCompany', 403],
+      ['ConfigurationNotReopenable', 422],
+      ['CartItemNotConfigured', 404],
       ['SomethingElse', 502],
     ])('maps the error code %s to %i', async (code, status) => {
       for (const [name, call] of calls) {

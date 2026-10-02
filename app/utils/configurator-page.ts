@@ -17,7 +17,12 @@ import type {
 // ---------------------------------------------------------------------------
 
 /** The verbs the page calls, so a failure can be told apart afterwards. */
-export type ConfiguratorAction = 'start' | 'change' | 'renew' | 'commit';
+export type ConfiguratorAction =
+  | 'start'
+  | 'change'
+  | 'renew'
+  | 'commit'
+  | 'add';
 
 export type ConfiguratorStage =
   | 'committed'
@@ -60,13 +65,75 @@ export function configuratorStage(
 export function canCommit(
   state: Pick<ConfiguratorPageState, 'status' | 'configuration'> & {
     busy: boolean;
+    /** What the line is added as; a commit with nothing to add would strand it. */
+    skuId?: number | null;
   },
 ): boolean {
   return (
     state.status === 'active' &&
     state.configuration?.isValid === true &&
-    !state.busy
+    !state.busy &&
+    state.skuId !== null
   );
+}
+
+/**
+ * The SKU a configured line is added as: the product's only one. A product with
+ * none or several has no answer here, and the page does not guess.
+ */
+export function configuredSkuId(
+  skus: readonly { skuId: number }[],
+): number | null {
+  return skus.length === 1 ? skus[0]!.skuId : null;
+}
+
+/**
+ * A held record is one whose add failed (the page always passes an add), so it
+ * can be sent again.
+ */
+export function canRetryAdd(state: {
+  committed: CommittedConfiguration | null;
+  busy: boolean;
+}): boolean {
+  return state.committed !== null && !state.busy;
+}
+
+/** A failed add, which the committed summary shows, since the form is gone. */
+export function addError(
+  stage: ConfiguratorStage,
+  error: ConfiguratorSessionError | null,
+): ConfiguratorSessionError | null {
+  return stage === 'committed' ? error : null;
+}
+
+/**
+ * Whether the committed summary shows the retry: after a failed add, and while
+ * a retry runs, so the button does not vanish under the buyer's click. The
+ * first add runs before the summary shows, on the action's own spinner.
+ */
+export function showsAddRetry(state: {
+  stage: ConfiguratorStage;
+  error: ConfiguratorSessionError | null;
+  busy: boolean;
+}): boolean {
+  return state.stage === 'committed' && (state.error !== null || state.busy);
+}
+
+/**
+ * The copy for a failed add. `UNAUTHORIZED` is the cart's `LoginRequired`, read
+ * by code as `refusedChange` does; a 403 is a signed-in buyer the cart refuses,
+ * whom the sign-in copy would mislead. 409 is a line the cart dropped, which it
+ * does without an error when stock is short.
+ */
+export function addFailureKey(
+  error: ConfiguratorSessionError | null,
+):
+  | 'configurator.sign_in_required'
+  | 'configurator.add_not_added'
+  | 'configurator.add_failed' {
+  if (error?.code === 'UNAUTHORIZED') return 'configurator.sign_in_required';
+  if (error?.status === 409) return 'configurator.add_not_added';
+  return 'configurator.add_failed';
 }
 
 /**

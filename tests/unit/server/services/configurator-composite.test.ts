@@ -49,6 +49,8 @@ beforeEach(() => {
     renew: vi.fn(async () => ({ expiresAt: 'later' })),
     release: vi.fn(async () => undefined),
     commit: vi.fn(async () => ({})),
+    addToCart: vi.fn(async () => ({ itemId: 'real-line' })),
+    reopen: vi.fn(async () => REAL_DOCUMENT),
   };
   composite = createCompositeConfiguratorBackend(
     fixture,
@@ -170,5 +172,143 @@ describe('the calls that carry only an id', () => {
 
     await composite.get(id, other);
     expect(real.get).toHaveBeenCalledWith(id, other);
+  });
+});
+
+describe('addToCart', () => {
+  const addPlainItem = vi.fn(async () => ({
+    items: [{ id: 'fixture-line', skuId: 42 }],
+  }));
+  const WITH_CART: ConfiguratorContext = { ...CTX, cart: { addPlainItem } };
+
+  async function fixtureCommittedId(): Promise<string> {
+    const { configurationId: id } = await composite.create(
+      { productId: ARBETSBORD_PRO_GEINS_ID, quantity: 1 },
+      CTX,
+    );
+    await composite.applyChanges(
+      id,
+      [
+        {
+          type: 'option',
+          optionId: 'legs-electric',
+          instanceId: '0',
+          selected: true,
+          quantity: 1,
+          lock: 'none',
+        },
+        {
+          type: 'option',
+          optionId: 'ral-9005',
+          instanceId: '0',
+          selected: true,
+          quantity: 1,
+          lock: 'none',
+        },
+        { type: 'variable', variableId: 'shelves', value: 2 },
+      ],
+      CTX,
+    );
+    return (await composite.commit(id, CTX)).committedConfigurationId;
+  }
+
+  it('sends an id the fixture committed to the fixture', async () => {
+    const id = await fixtureCommittedId();
+    const line = { committedConfigurationId: id, skuId: 42, quantity: 1 };
+
+    await composite.addToCart('cart-1', line, WITH_CART);
+
+    expect(addPlainItem).toHaveBeenCalledWith('cart-1', {
+      skuId: 42,
+      quantity: 1,
+    });
+    expect(real.addToCart).not.toHaveBeenCalled();
+  });
+
+  it('sends every other committed id to the real backend', async () => {
+    const line = {
+      committedConfigurationId: 'real-committed-1',
+      skuId: 1652,
+      quantity: 1,
+    };
+
+    await composite.addToCart('cart-1', line, WITH_CART);
+
+    expect(real.addToCart).toHaveBeenCalledWith('cart-1', line, WITH_CART);
+  });
+
+  it('sends a session id the fixture owns, not a committed one, to the real backend', async () => {
+    const { configurationId: sessionId } = await composite.create(
+      { productId: ARBETSBORD_PRO_GEINS_ID, quantity: 1 },
+      CTX,
+    );
+    const line = { committedConfigurationId: sessionId, skuId: 1, quantity: 1 };
+
+    await composite.addToCart('cart-1', line, WITH_CART);
+
+    expect(real.addToCart).toHaveBeenCalledWith('cart-1', line, WITH_CART);
+  });
+});
+
+describe('reopen', () => {
+  async function fixtureLine(): Promise<void> {
+    const { configurationId: id } = await composite.create(
+      { productId: ARBETSBORD_PRO_GEINS_ID, quantity: 1 },
+      CTX,
+    );
+    await composite.applyChanges(
+      id,
+      [
+        {
+          type: 'option',
+          optionId: 'legs-electric',
+          instanceId: '0',
+          selected: true,
+          quantity: 1,
+          lock: 'none',
+        },
+        {
+          type: 'option',
+          optionId: 'ral-9005',
+          instanceId: '0',
+          selected: true,
+          quantity: 1,
+          lock: 'none',
+        },
+        { type: 'variable', variableId: 'shelves', value: 2 },
+      ],
+      CTX,
+    );
+    const { committedConfigurationId } = await composite.commit(id, CTX);
+    await composite.addToCart(
+      'cart-1',
+      { committedConfigurationId, skuId: 42, quantity: 1 },
+      {
+        ...CTX,
+        cart: {
+          addPlainItem: async () => ({
+            items: [{ id: 'fixture-line', skuId: 42 }],
+          }),
+        },
+      },
+    );
+  }
+
+  it('sends a line the fixture added to the fixture', async () => {
+    await fixtureLine();
+
+    const reopened = await composite.reopen('cart-1', 'fixture-line', CTX);
+
+    expect(reopened.articleNumber).toBe(ARBETSBORD_PRO_ID);
+    expect(real.reopen).not.toHaveBeenCalled();
+  });
+
+  it('sends every other line to the real backend', async () => {
+    await fixtureLine();
+
+    expect(await composite.reopen('cart-1', 'real-line', CTX)).toBe(
+      REAL_DOCUMENT,
+    );
+    expect(real.reopen).toHaveBeenCalledWith('cart-1', 'real-line', CTX);
   });
 });

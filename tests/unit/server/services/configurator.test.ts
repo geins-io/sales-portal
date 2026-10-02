@@ -91,6 +91,16 @@ function allCalls(
     ['renew', () => backend.renew('c1', CTX)],
     ['release', () => backend.release('c1', CTX)],
     ['commit', () => backend.commit('c1', CTX)],
+    [
+      'addToCart',
+      () =>
+        backend.addToCart(
+          'cart-1',
+          { committedConfigurationId: 'c1', skuId: 1, quantity: 1 },
+          CTX,
+        ),
+    ],
+    ['reopen', () => backend.reopen('cart-1', 'item-1', CTX)],
   ];
 }
 

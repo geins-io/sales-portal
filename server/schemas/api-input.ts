@@ -399,3 +399,16 @@ export const ConfigurationChangesSchema = z.object({
 export type ConfigurationChangesInput = z.infer<
   typeof ConfigurationChangesSchema
 >;
+
+/** The committed id is the route's; the body names the cart and the line. */
+export const ConfiguredCartItemSchema = z.object({
+  cartId: z.string().min(1),
+  skuId: z.number().int(),
+  quantity: configurationQuantity,
+});
+
+/** A configured cart line, named by its cart and its own id. */
+export const ReopenCartItemSchema = z.object({
+  cartId: z.string().min(1),
+  itemId: z.string().min(1),
+});

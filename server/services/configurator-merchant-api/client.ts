@@ -13,6 +13,13 @@ import type { MerchantApiTarget } from '../configurator';
 /** Measured 1–3 s per canary round trip; a hung request fails well after. */
 const TIMEOUT_MS = 15_000;
 
+/**
+ * A reopen replays the session's change log, measured at 2 s for one change
+ * and 17 s for forty. The provider gives up itself at about 35 s with a 503, so
+ * this waits past that and the provider's answer always arrives first.
+ */
+export const REOPEN_TIMEOUT_MS = 45_000;
+
 interface GraphQLBody<T> {
   data?: T | null;
   errors?:
@@ -37,6 +44,33 @@ function knownFailure(code: string) {
         ErrorCode.VALIDATION_ERROR,
         'The provider rejected the change',
       );
+    case 'ConfigurationMismatch':
+      return createAppError(
+        ErrorCode.VALIDATION_ERROR,
+        'The committed configuration is not for this article',
+      );
+    // Two codes, because a signed-in buyer of another company must not be
+    // told to sign in.
+    case 'LoginRequired':
+      return createAppError(
+        ErrorCode.UNAUTHORIZED,
+        'The cart needs a signed-in buyer',
+      );
+    case 'ConfigurationNotReopenable':
+      return createAppError(
+        ErrorCode.VALIDATION_ERROR,
+        'The configuration cannot be reopened',
+      );
+    case 'CartItemNotConfigured':
+      return createAppError(
+        ErrorCode.NOT_FOUND,
+        'The cart line carries no configuration',
+      );
+    case 'CartBelongsToAnotherCompany':
+      return createAppError(
+        ErrorCode.FORBIDDEN,
+        "The cart is another company's",
+      );
     default:
       return undefined;
   }
@@ -54,6 +88,7 @@ export async function requestMerchantApi<T>(
   userToken: string | undefined,
   query: string,
   variables: Record<string, unknown>,
+  { timeoutMs = TIMEOUT_MS }: { timeoutMs?: number } = {},
 ): Promise<T> {
   let response: Response;
   try {
@@ -66,7 +101,7 @@ export async function requestMerchantApi<T>(
         ...(userToken ? { Authorization: `Bearer ${userToken}` } : {}),
       },
       body: JSON.stringify({ query, variables }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
     throw failed('could not be reached');

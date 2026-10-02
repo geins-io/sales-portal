@@ -1581,3 +1581,252 @@ describe('a value the rules refuse', () => {
     expect(findVariable(updated, 'shelves').value).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The cart
+// ---------------------------------------------------------------------------
+
+describe('addToCart', () => {
+  async function committedId(): Promise<string> {
+    const config = await backend.applyChanges(
+      (await start(ARBETSBORD_PRO_GEINS_ID, 2)).configurationId,
+      [
+        selectOption('legs-electric'),
+        selectOption('ral-9005'),
+        setVariable('shelves', 2),
+      ],
+      CTX,
+    );
+    return (await backend.commit(config.configurationId, CTX))
+      .committedConfigurationId;
+  }
+
+  function withCart(
+    ctx: ConfiguratorContext,
+    items: { id: string; skuId?: number | null }[] = [
+      { id: 'other-line', skuId: 7 },
+      { id: 'line-42', skuId: 42 },
+    ],
+  ) {
+    const addPlainItem = vi.fn(async () => ({ items }));
+    return { ctx: { ...ctx, cart: { addPlainItem } }, addPlainItem };
+  }
+
+  it('adds the SKU as a plain line, there being no configured cart behind the fixture', async () => {
+    const id = await committedId();
+    const { ctx, addPlainItem } = withCart(CTX);
+
+    await backend.addToCart(
+      'cart-1',
+      { committedConfigurationId: id, skuId: 42, quantity: 2 },
+      ctx,
+    );
+
+    expect(addPlainItem).toHaveBeenCalledOnce();
+    expect(addPlainItem).toHaveBeenCalledWith('cart-1', {
+      skuId: 42,
+      quantity: 2,
+    });
+  });
+
+  it('answers the line the SKU landed on', async () => {
+    const id = await committedId();
+    const { ctx } = withCart(CTX);
+
+    await expect(
+      backend.addToCart(
+        'cart-1',
+        { committedConfigurationId: id, skuId: 42, quantity: 1 },
+        ctx,
+      ),
+    ).resolves.toEqual({ itemId: 'line-42' });
+  });
+
+  it('answers no line when the cart shows none for the SKU', async () => {
+    const id = await committedId();
+    const { ctx } = withCart(CTX, [{ id: 'other-line', skuId: 7 }]);
+
+    await expect(
+      backend.addToCart(
+        'cart-1',
+        { committedConfigurationId: id, skuId: 42, quantity: 1 },
+        ctx,
+      ),
+    ).resolves.toEqual({ itemId: null });
+  });
+
+  it('answers no line, and records none, when the cart comes back without items', async () => {
+    const id = await committedId();
+    const ctx = {
+      ...CTX,
+      cart: { addPlainItem: vi.fn(async () => ({ items: null })) },
+    };
+
+    await expect(
+      backend.addToCart(
+        'cart-1',
+        { committedConfigurationId: id, skuId: 42, quantity: 1 },
+        ctx,
+      ),
+    ).resolves.toEqual({ itemId: null });
+    // Nothing keyed by the missing id, in any spelling of it.
+    expect(backend.ownsLine('cart-1', 'null', CTX)).toBe(false);
+    expect(backend.ownsLine('cart-1', '', CTX)).toBe(false);
+  });
+
+  it('answers no line when the cart says nothing at all', async () => {
+    const id = await committedId();
+    const ctx = { ...CTX, cart: { addPlainItem: vi.fn(async () => ({})) } };
+
+    await expect(
+      backend.addToCart(
+        'cart-1',
+        { committedConfigurationId: id, skuId: 42, quantity: 1 },
+        ctx,
+      ),
+    ).resolves.toEqual({ itemId: null });
+  });
+
+  it('answers 404 for a committed id it never handed out, adding nothing', async () => {
+    const { ctx, addPlainItem } = withCart(CTX);
+
+    expect(
+      await statusOf(() =>
+        backend.addToCart(
+          'cart-1',
+          { committedConfigurationId: 'no-such-id', skuId: 42, quantity: 1 },
+          ctx,
+        ),
+      ),
+    ).toBe(404);
+    expect(addPlainItem).not.toHaveBeenCalled();
+  });
+
+  it("answers 404 for another storefront's committed id", async () => {
+    const id = await committedId();
+    const { ctx, addPlainItem } = withCart(OTHER_TENANT);
+
+    expect(
+      await statusOf(() =>
+        backend.addToCart(
+          'cart-1',
+          { committedConfigurationId: id, skuId: 42, quantity: 1 },
+          ctx,
+        ),
+      ),
+    ).toBe(404);
+    expect(addPlainItem).not.toHaveBeenCalled();
+  });
+
+  it('answers 500 when the context carries no cart to add to', async () => {
+    const id = await committedId();
+
+    expect(
+      await statusOf(() =>
+        backend.addToCart(
+          'cart-1',
+          { committedConfigurationId: id, skuId: 42, quantity: 1 },
+          CTX,
+        ),
+      ),
+    ).toBe(500);
+  });
+});
+
+describe('reopen', () => {
+  /** A configuration with choices away from the defaults, committed and added. */
+  async function addedLine(ctx = CTX) {
+    const config = await backend.applyChanges(
+      (await start(ARBETSBORD_PRO_GEINS_ID, 2)).configurationId,
+      [
+        selectOption('legs-electric'),
+        selectOption('ral-9005'),
+        setVariable('shelves', 2),
+      ],
+      ctx,
+    );
+    const committed = await backend.commit(config.configurationId, ctx);
+    await backend.addToCart(
+      'cart-1',
+      {
+        committedConfigurationId: committed.committedConfigurationId,
+        skuId: 42,
+        quantity: 2,
+      },
+      {
+        ...ctx,
+        cart: {
+          addPlainItem: async () => ({ items: [{ id: 'line-42', skuId: 42 }] }),
+        },
+      },
+    );
+    return { config, committed };
+  }
+
+  it('opens a new session holding the choices the line was committed with', async () => {
+    const { config } = await addedLine();
+
+    const reopened = await backend.reopen('cart-1', 'line-42', CTX);
+
+    expect(reopened.configurationId).not.toBe(config.configurationId);
+    expect(reopened.isValid).toBe(true);
+    expect(reopened.quantity).toBe(2);
+    expect(reopened.unitPrice).toEqual(config.unitPrice);
+    expect(reopened.sections).toEqual(config.sections);
+  });
+
+  it('answers changes on the reopened session', async () => {
+    await addedLine();
+    const reopened = await backend.reopen('cart-1', 'line-42', CTX);
+
+    const changed = await backend.applyChanges(
+      reopened.configurationId,
+      [setVariable('shelves', 3)],
+      CTX,
+    );
+
+    expect(findVariable(changed, 'shelves').value).toBe(3);
+  });
+
+  it('opens a fresh session on every reopen, none of them sharing state', async () => {
+    await addedLine();
+    const first = await backend.reopen('cart-1', 'line-42', CTX);
+    await backend.applyChanges(
+      first.configurationId,
+      [setVariable('shelves', 3)],
+      CTX,
+    );
+
+    const second = await backend.reopen('cart-1', 'line-42', CTX);
+
+    expect(second.configurationId).not.toBe(first.configurationId);
+    expect(findVariable(second, 'shelves').value).toBe(2);
+  });
+
+  it('answers 404 for a line it never added', async () => {
+    await addedLine();
+
+    expect(await statusOf(() => backend.reopen('cart-1', 'no-line', CTX))).toBe(
+      404,
+    );
+    expect(await statusOf(() => backend.reopen('cart-2', 'line-42', CTX))).toBe(
+      404,
+    );
+  });
+
+  it("answers 404 for another storefront's line", async () => {
+    await addedLine();
+
+    expect(
+      await statusOf(() => backend.reopen('cart-1', 'line-42', OTHER_TENANT)),
+    ).toBe(404);
+  });
+
+  it('owns the line it added, and no other', async () => {
+    await addedLine();
+
+    expect(backend.ownsLine('cart-1', 'line-42', CTX)).toBe(true);
+    expect(backend.ownsLine('cart-1', 'no-line', CTX)).toBe(false);
+    expect(backend.ownsLine('cart-1', 'line-42', OTHER_TENANT)).toBe(false);
+  });
+});

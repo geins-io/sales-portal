@@ -31,5 +31,17 @@ export function createCompositeConfiguratorBackend(
     renew: (id, ctx) => byId(id, ctx).renew(id, ctx),
     release: (id, ctx) => byId(id, ctx).release(id, ctx),
     commit: (id, ctx) => byId(id, ctx).commit(id, ctx),
+    // A committed id is not a session id, so it is routed by the record.
+    addToCart: (cartId, line, ctx) =>
+      (fixture.readCommitted(line.committedConfigurationId, ctx)
+        ? fixture
+        : real
+      ).addToCart(cartId, line, ctx),
+    reopen: (cartId, itemId, ctx) =>
+      (fixture.ownsLine(cartId, itemId, ctx) ? fixture : real).reopen(
+        cartId,
+        itemId,
+        ctx,
+      ),
   };
 }

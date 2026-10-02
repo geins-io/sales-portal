@@ -1,0 +1,17 @@
+mutation reopenCartItemConfiguration(
+  $cartId: String!
+  $itemId: String!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  reopenCartItemConfiguration(
+    cartId: $cartId
+    itemId: $itemId
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    ...CpqConfiguration
+  }
+}

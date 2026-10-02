@@ -11,7 +11,7 @@ import type {
 } from '../../../../../server/services/configurator';
 
 // ---------------------------------------------------------------------------
-// What the six lifecycle routes are tested against.
+// What the configuration routes are tested against.
 //
 // The backend and the tenant's feature map are mocked; everything else is the
 // real implementation, the access rule included — `canAccessFeatureServer` runs
@@ -38,6 +38,8 @@ export const backend: Record<
   renew: vi.fn(),
   release: vi.fn(),
   commit: vi.fn(),
+  addToCart: vi.fn(),
+  reopen: vi.fn(),
 };
 
 export const getFeatures = vi.fn();
@@ -205,7 +207,7 @@ export function resetHarness(): void {
 // The cases every lifecycle route answers the same way
 //
 // Written once because the gate and the pass-through are the same code in all
-// six routes: a case that only held for the one route somebody remembered to
+// routes: a case that only held for the one route somebody remembered to
 // write it for would be the bug worth catching.
 // ---------------------------------------------------------------------------
 
