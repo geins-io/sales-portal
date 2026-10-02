@@ -70,10 +70,13 @@ const firstBounds = { min: variable.min, max: variable.max };
 const narrowed = computed(() => boundsNarrowed(firstBounds, variable));
 
 const draft = ref<ConfigurationValue>(variable.value);
+/** The value sent and not yet answered, so a second path does not send it again. */
+let sent: { value: ConfigurationValue } | null = null;
 watch(
   () => variable.value,
   (value) => {
     draft.value = value;
+    sent = null;
   },
 );
 
@@ -83,7 +86,10 @@ watch(
 watch(
   () => disabled,
   (now, was) => {
-    if (was && !now) draft.value = variable.value;
+    if (was && !now) {
+      draft.value = variable.value;
+      sent = null;
+    }
   },
 );
 
@@ -94,6 +100,8 @@ function send(value: ConfigurationValue) {
 /** Nothing is sent when the draft is what the document already holds. */
 function commit() {
   if (blocked.value || draft.value === variable.value) return;
+  if (sent && sent.value === draft.value) return;
+  sent = { value: draft.value };
   send(draft.value);
 }
 
@@ -127,6 +135,12 @@ function onNumber(value: number | undefined) {
   pressed = null;
   draft.value =
     direction && empty.value ? emptyStep(variable, direction) : (value ?? null);
+  // A step onto a bound disables its own button before the click that would
+  // send it, so the value is sent here. A typed bound goes the same way; the
+  // blur that also sends it finds the field locked or the value already sent.
+  if (draft.value === variable.min || draft.value === variable.max) {
+    nextTick(commit);
+  }
 }
 
 function onStep() {

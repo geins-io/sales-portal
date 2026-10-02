@@ -455,6 +455,9 @@ describe('ConfiguratorVariableField', () => {
       new PointerEvent('pointerdown', { button: 0, bubbles: true }),
     );
     window.dispatchEvent(new Event('pointerup'));
+    // A browser renders between the down and the click, so a button the step
+    // disabled is disabled by the time the click would land.
+    await flushPromises();
     await button.trigger('click');
     await flushPromises();
   }
@@ -566,6 +569,49 @@ describe('ConfiguratorVariableField', () => {
 
     expect(wrapper.emitted('change')).toEqual([
       [{ type: 'variable', variableId: 'width', value: 1300 }],
+    ]);
+  });
+
+  /** The width one step short of a bound, so the next press lands on it. */
+  function widthNextTo(bound: 'min' | 'max'): ConfigurationVariable {
+    const width = findVariable(makeInitialConfiguration(), 'width');
+    const step = width.step ?? 1;
+    return {
+      ...width,
+      value: bound === 'max' ? width.max! - step : width.min! + step,
+    };
+  }
+
+  // The stepper disables its button as the value reaches the bound, before the
+  // click that would send it, and a disabled button gets no click.
+  it.each([
+    ['up to the ceiling', 'max', 'Increase'],
+    ['down to the floor', 'min', 'Decrease'],
+  ] as const)(
+    'sends the step %s, which no click follows',
+    async (_case, bound, label) => {
+      const variable = widthNextTo(bound);
+      const wrapper = mountField(variable);
+
+      await press(wrapper, label);
+
+      expect(wrapper.emitted('change')).toEqual([
+        [{ type: 'variable', variableId: 'width', value: variable[bound] }],
+      ]);
+    },
+  );
+
+  it('sends a bound typed into the field once', async () => {
+    const variable = widthNextTo('max');
+    const wrapper = mountField(variable);
+    const input = wrapper.find('input');
+
+    await input.setValue(String(variable.max));
+    await input.trigger('blur');
+    await flushPromises();
+
+    expect(wrapper.emitted('change')).toEqual([
+      [{ type: 'variable', variableId: 'width', value: variable.max }],
     ]);
   });
 
