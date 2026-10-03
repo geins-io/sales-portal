@@ -112,10 +112,11 @@ If no mail client opens, a fallback line `If nothing opens, email us at
 
 ## Apply-for-account page
 
-`app/pages/apply-for-account.vue` keeps its `hasFeature('applyForAccount')`
-404 gate and renders only the CMS area for the `APPLY_FOR_ACCOUNT` slot.
-The widget supplies the entire form; there is no server endpoint behind
-it. Self-registration (`/api/auth/register`, `RegisterForm`, the
+There is no `/apply-for-account` route: the page is an ordinary CMS page
+served by the catch-all and found by its `apply` tag, the same way the
+contact page is. `hasFeature('applyForAccount')` gates the controls that
+link to it, not the page itself. The widget supplies the entire form; there
+is no server endpoint behind it. Self-registration (`/api/auth/register`, `RegisterForm`, the
 `registration` feature flag) is a separate flow and is unchanged.
 
 ## Contact page
@@ -140,11 +141,12 @@ not via an area fetch.
 ## Related files
 
 - `shared/types/cms.ts`: `FormWidgetData` / `FormWidgetField` types.
-- `shared/types/cms-slots.ts`: `CMS_SLOTS.APPLY_FOR_ACCOUNT` slot key.
+- `shared/constants/cms.ts`: `CMS_TAGS.APPLY_PAGE` (`'apply'`) — the tag the
+  entry points resolve the page by.
 - `app/composables/useCmsSlot.ts`: slot resolver.
 - `app/components/cms/widgets/JsonWidget.vue`: form-shape routing.
 - `app/components/cms/widgets/FormWidget.vue`: the form renderer.
 - `app/utils/mailto.ts`: `buildMailto`.
 - `app/utils/country-options.ts`: `getCountryOptions`.
-- `app/pages/apply-for-account.vue`: apply page (feature-gated CMS area).
-- `app/pages/[...slug].vue`: catch-all that renders the contact-form CMS page.
+- `app/pages/[...slug].vue`: catch-all that renders both the contact-form
+  and apply CMS pages.

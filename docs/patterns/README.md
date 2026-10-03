@@ -185,7 +185,7 @@ The storefront recognises the following keys from `appSettings.features` on the 
 | `quotes`            | `enabled` + `access` | `/portal/quotations`, `/portal/quotations/[id]`                   |
 | `reorder`           | `enabled` + `access` | Reorder button on order detail                                    |
 | `newsletter`        | `enabled` only       | Footer newsletter signup block                                    |
-| `applyForAccount`   | `enabled` only       | `/apply-for-account` page, topbar link, auth-sheet tab            |
+| `applyForAccount`   | `enabled` only       | topbar apply link, auth-screen CTA (AuthCard / AuthSheet)         |
 | `registration`      | `enabled` only       | Auth-sheet sign-up tab, `/api/auth/register` endpoint             |
 | `search`            | `enabled` only       | Search bar in header (when wired)                                 |
 | `productComparison` | `enabled` only       | Reserved for a compare feature (not yet implemented)              |
