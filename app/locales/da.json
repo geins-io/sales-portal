@@ -346,6 +346,7 @@
     "add_not_added": "Konfigurationen kunne ikke lægges i kurven. Den er muligvis ikke på lager.",
     "add_retry": "Prøv igen",
     "not_reopened": "Dine valg kunne ikke indlæses igen. Konfigurationen ligger i kurven.",
+    "not_replayed": "Valgene fra ordren kunne ikke indlæses. Du ser standardvalgene.",
     "starting": "Indlæser produktkonfiguratoren",
     "failed": "Noget gik galt. Genindlæs siden, og prøv igen.",
     "change_refused_value": "Værdien blev ikke accepteret. Prøv en anden værdi.",

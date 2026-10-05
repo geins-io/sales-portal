@@ -102,6 +102,7 @@ function allCalls(
     ],
     ['reopen', () => backend.reopen('cart-1', 'item-1', CTX)],
     ['replaceLine', () => backend.replaceLine('cart-1', 'item-1', 'c1', CTX)],
+    ['orderLineChoices', () => backend.orderLineChoices('order-1', 0, CTX)],
   ];
 }
 
@@ -246,6 +247,16 @@ describe('getConfiguratorBackend', () => {
       fetchSpy.mockRestore();
     },
   );
+
+  it('answers no order-row choices on the fixture, whose orders carry none, without a request', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    await expect(
+      withBackend('fixture').orderLineChoices('order-1', 0, CTX),
+    ).resolves.toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
 
   it.each(['merchant-api', 'composite'])(
     'answers 500 on %s when the context carries no merchant-api target',

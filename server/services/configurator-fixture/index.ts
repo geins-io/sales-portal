@@ -265,6 +265,10 @@ export function createFixtureConfiguratorBackend({
       return new Map();
     },
 
+    async orderLineChoices() {
+      return null;
+    },
+
     ownsLine(cartId: string, itemId: string, ctx: ConfiguratorContext) {
       return lines.has(lineKey(ctx, cartId, itemId));
     },

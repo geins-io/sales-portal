@@ -163,3 +163,44 @@ export interface WireOrderLine {
 export interface WireOrderLines {
   cart: { items: WireList<WireOrderLine> } | null;
 }
+
+/** `CpqCommittedVariableType`: the value in invariant culture, without the unit. */
+export interface WireCommittedVariable {
+  id: string | null;
+  /** `STRING` | `NUMBER` | `BOOLEAN` | `DATE` | `UNKNOWN` */
+  valueType: string;
+  value: string | null;
+}
+
+/** `CpqCommittedOptionType`, as far as the replay read selects it. */
+export interface WireCommittedOption {
+  id: string | null;
+  instanceId: string | null;
+  quantity: WireDecimal;
+}
+
+/** `CpqCommittedOptionGroupType`: only groups holding a selection. */
+export interface WireCommittedOptionGroup {
+  id: string | null;
+  options: WireList<WireCommittedOption>;
+  optionGroups?: WireList<WireCommittedOptionGroup>;
+}
+
+/** `CpqCommittedSectionType`: only what the buyer saw and chose. */
+export interface WireCommittedSection {
+  id: string | null;
+  variables: WireList<WireCommittedVariable>;
+  optionGroups: WireList<WireCommittedOptionGroup>;
+  sections?: WireList<WireCommittedSection>;
+}
+
+/** An order's `CartItemType`, as far as the replay read selects it. */
+export interface WireOrderChoiceLine {
+  product?: { productId: number | null } | null;
+  configuration: { sections: WireList<WireCommittedSection> } | null;
+}
+
+/** `OrderType`, as far as the replay read selects it. */
+export interface WireOrderChoiceLines {
+  cart: { items: WireList<WireOrderChoiceLine> } | null;
+}

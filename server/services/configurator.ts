@@ -7,6 +7,7 @@ import type {
   CommittedConfiguration,
   Configuration,
   ConfigurationChange,
+  ConfigurationValue,
   CreateConfigurationInput,
 } from '#shared/types/configurator';
 import { getRequestChannelVariables, getTenantSDK } from './_sdk';
@@ -60,6 +61,16 @@ export interface ConfiguredCartLine {
   committedConfigurationId: string;
   skuId: number;
   quantity: number;
+}
+
+/**
+ * What a configured order row was committed with, as a replay sends it: every
+ * variable that carried a value and every selected option, flattened.
+ */
+export interface OrderLineChoices {
+  productId: number | null;
+  variables: { id: string; value: ConfigurationValue }[];
+  options: { id: string; instanceId: string; quantity: number }[];
 }
 
 /** Where and as whom the merchant-api backend asks. */
@@ -158,6 +169,15 @@ export interface ConfiguratorBackend {
     publicOrderId: string,
     ctx: ConfiguratorContext,
   ): Promise<Map<number, OrderLineRead>>;
+  /**
+   * The choices one order row was committed with, read only when a replay
+   * starts; null when the row carries none.
+   */
+  orderLineChoices(
+    publicOrderId: string,
+    row: number,
+    ctx: ConfiguratorContext,
+  ): Promise<OrderLineChoices | null>;
 }
 
 /**
@@ -245,6 +265,7 @@ function rejectingBackend(
     addToCart: reject,
     reopen: reject,
     replaceLine: reject,
+    orderLineChoices: reject,
     // Asked of every cart and order, not of a request to configure: no lines,
     // no error.
     cartLineConfigurations: async () => new Map(),

@@ -39,6 +39,8 @@ const REAL_LINES = new Map([
 
 const REAL_ORDER_LINES = new Map([[0, { productId: 1359, summary: [] }]]);
 
+const REAL_CHOICES = { productId: 1359, variables: [], options: [] };
+
 let clock = Date.parse('2026-01-01T09:00:00.000Z');
 let fixture: ReturnType<typeof createFixtureConfiguratorBackend>;
 let real: { [K in keyof ConfiguratorBackend]: ReturnType<typeof vi.fn> };
@@ -60,6 +62,7 @@ beforeEach(() => {
     replaceLine: vi.fn(async () => ({ itemId: 'real-line' })),
     cartLineConfigurations: vi.fn(async () => REAL_LINES),
     orderLineConfigurations: vi.fn(async () => REAL_ORDER_LINES),
+    orderLineChoices: vi.fn(async () => REAL_CHOICES),
   };
   composite = createCompositeConfiguratorBackend(
     fixture,
@@ -274,6 +277,15 @@ describe('orderLineConfigurations', () => {
       composite.orderLineConfigurations('order-1', CTX),
     ).resolves.toBe(REAL_ORDER_LINES);
     expect(real.orderLineConfigurations).toHaveBeenCalledWith('order-1', CTX);
+  });
+});
+
+describe('orderLineChoices', () => {
+  it("answers the real backend's row: the fixture's orders carry no configuration", async () => {
+    await expect(composite.orderLineChoices('order-1', 2, CTX)).resolves.toBe(
+      REAL_CHOICES,
+    );
+    expect(real.orderLineChoices).toHaveBeenCalledWith('order-1', 2, CTX);
   });
 });
 

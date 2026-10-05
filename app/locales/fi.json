@@ -346,6 +346,7 @@
     "add_not_added": "Kokoonpanoa ei voitu lisätä ostoskoriin. Se voi olla loppunut varastosta.",
     "add_retry": "Yritä uudelleen",
     "not_reopened": "Valintojasi ei voitu ladata uudelleen. Kokoonpano on ostoskorissa.",
+    "not_replayed": "Tilauksen valintoja ei voitu ladata. Näet oletusvalinnat.",
     "starting": "Ladataan tuotekonfiguraattoria",
     "failed": "Jokin meni vikaan. Lataa sivu uudelleen ja yritä uudestaan.",
     "change_refused_value": "Arvoa ei hyväksytty. Kokeile toista arvoa.",

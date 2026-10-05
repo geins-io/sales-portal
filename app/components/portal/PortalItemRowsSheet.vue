@@ -61,7 +61,7 @@ const open = ref(false);
               <div class="min-w-0 flex-1">
                 <NuxtLink
                   v-if="item.alias"
-                  :to="localePath(productPath(item.alias))"
+                  :to="item.href ?? localePath(productPath(item.alias))"
                   class="font-medium hover:underline"
                 >
                   {{ item.name }}

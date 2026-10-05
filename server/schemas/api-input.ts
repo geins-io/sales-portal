@@ -412,3 +412,10 @@ export const CartLineRefSchema = z.object({
   cartId: z.string().min(1),
   itemId: z.string().min(1),
 });
+
+/** An order row by its order's public id and its position in the order's rows. */
+export const ReplayOrderLineSchema = z.object({
+  productId: z.string().min(1),
+  publicOrderId: z.guid(),
+  row: z.number().int().min(0),
+});

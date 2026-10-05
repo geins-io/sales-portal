@@ -10,6 +10,8 @@ export interface PortalItemRow {
   totalPriceFormatted?: string;
   imageFileName?: string | null;
   alias?: string | null;
+  /** Where the name links instead of the product page: a configured order row's replay. */
+  href?: string;
   /** Set on a configured order row. */
   configuration?: LineConfigurationSummary;
 }

@@ -17,14 +17,19 @@ import type {
   ValueSource,
 } from '#shared/types/configurator';
 import { logger } from '../../utils/logger';
+import type { OrderLineChoices } from '../configurator';
 import type {
   WireCartLines,
   WireCommittedConfiguration,
+  WireCommittedOptionGroup,
+  WireCommittedSection,
+  WireCommittedVariable,
   WireConfiguration,
   WireDecimal,
   WireMessage,
   WireOption,
   WireOptionGroup,
+  WireOrderChoiceLines,
   WireOrderLines,
   WireSection,
   WireSummaryLine,
@@ -331,4 +336,62 @@ export function mapOrderLineConfigurations(
     });
   });
   return lines;
+}
+
+/** A committed value is a string in invariant culture, typed by `valueType`. */
+function committedValue(variable: WireCommittedVariable): ConfigurationValue {
+  const type = VALUE_TYPES.find((known) => known === camel(variable.valueType));
+  return type ? valueOf(type, variable.value) : variable.value;
+}
+
+function committedOptions(
+  groups: WireCommittedOptionGroup['optionGroups'],
+  into: OrderLineChoices['options'],
+): void {
+  for (const group of nodes(groups ?? null, (group) => group)) {
+    for (const option of nodes(group.options, (option) => option)) {
+      if (option.id === null) continue;
+      into.push({
+        id: option.id,
+        instanceId: option.instanceId ?? '',
+        quantity: Number(option.quantity),
+      });
+    }
+    committedOptions(group.optionGroups, into);
+  }
+}
+
+function committedChoices(
+  sections: WireCommittedSection['sections'],
+  into: Pick<OrderLineChoices, 'variables' | 'options'>,
+): void {
+  for (const section of nodes(sections ?? null, (section) => section)) {
+    for (const variable of nodes(section.variables, (variable) => variable)) {
+      if (variable.id === null) continue;
+      into.variables.push({ id: variable.id, value: committedValue(variable) });
+    }
+    committedOptions(section.optionGroups, into.options);
+    committedChoices(section.sections, into);
+  }
+}
+
+/**
+ * The choices the order row at a position was committed with, flattened; null
+ * for a plain row and for one committed before the structure was recorded.
+ */
+export function mapOrderLineChoices(
+  order: WireOrderChoiceLines | null,
+  row: number,
+): OrderLineChoices | null {
+  const line = order?.cart?.items?.[row];
+  const sections = line?.configuration?.sections;
+  if (!line || !sections) return null;
+
+  const choices: OrderLineChoices = {
+    productId: line.product?.productId ?? null,
+    variables: [],
+    options: [],
+  };
+  committedChoices(sections, choices);
+  return choices;
 }

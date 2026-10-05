@@ -1039,6 +1039,127 @@ describe('useConfiguratorSession', () => {
     });
   });
 
+  describe('replaying an order row', () => {
+    const ROW = {
+      publicOrderId: '6f1c2a9e-0b8d-4e3f-9a51-2c7d8e4b1f03',
+      row: 1,
+    };
+
+    it('opens no session on the server', async () => {
+      browser.value = false;
+      const session = open();
+
+      await session.replay(PRODUCT_ID, ROW);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(session.status.value).toBe('idle');
+    });
+
+    it('asks the server to replay the row into a new session, and holds it', async () => {
+      const replayed = makeCascadedConfiguration();
+      mockFetch.mockResolvedValue({ configuration: replayed, replayed: true });
+      const session = open();
+
+      await session.replay(PRODUCT_ID, ROW);
+
+      const { url, options } = lastRequest();
+      expect(url).toBe('/api/configurations/from-order');
+      expect(options.method).toBe('POST');
+      expect(options.body).toEqual({ productId: PRODUCT_ID, ...ROW });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(session.configuration.value).toEqual(replayed);
+      expect(session.status.value).toBe('active');
+      expect(session.notReplayed.value).toBe(false);
+    });
+
+    it("holds the session it is given and says the order's choices did not come back", async () => {
+      const fresh = makeInitialConfiguration();
+      mockFetch.mockResolvedValue({ configuration: fresh, replayed: false });
+      const session = open();
+
+      await session.replay(PRODUCT_ID, ROW);
+
+      expect(session.configuration.value).toEqual(fresh);
+      expect(session.status.value).toBe('active');
+      expect(session.notReplayed.value).toBe(true);
+      expect(session.error.value).toBeNull();
+    });
+
+    it('fails as a start fails when no session could be created', async () => {
+      mockFetch.mockRejectedValue(fetchError(403, 'No customer number'));
+      const session = open();
+
+      await session.replay(PRODUCT_ID, ROW);
+
+      expect(session.status.value).toBe('idle');
+      expect(session.error.value).toEqual({
+        status: 403,
+        message: 'No customer number',
+      });
+      expect(session.notReplayed.value).toBe(false);
+    });
+
+    it('starts a fresh session of one for the same product when the line added from it cannot be reopened', async () => {
+      const replayed = makeInitialConfiguration();
+      const fresh = makeCascadedConfiguration();
+      const scope = effectScope();
+      const session = scope.run(() =>
+        useConfiguratorSession({
+          addLine: async () => ({ cartId: 'cart-1', itemId: 'item-1' }),
+        }),
+      );
+      if (!session) throw new Error('The scope produced no session');
+      scopes.push(scope);
+      mockFetch.mockResolvedValue({ configuration: replayed, replayed: true });
+      await session.replay(PRODUCT_ID, ROW);
+      mockFetch.mockReset();
+      mockFetch.mockImplementation(async (url) => {
+        if (url.endsWith('/commit')) return committedFrom(replayed);
+        if (url === '/api/configurations/reopen') throw fetchError(503, 'no');
+        if (url === '/api/configurations') return fresh;
+        throw new Error(`unexpected request to ${url}`);
+      });
+
+      await session.commit();
+
+      expect(lastRequest().url).toBe('/api/configurations');
+      expect(lastRequest().options.body).toEqual({
+        productId: PRODUCT_ID,
+        quantity: 1,
+      });
+      expect(session.configuration.value).toEqual(fresh);
+    });
+
+    it('replays nothing while a session is active', async () => {
+      mockFetch.mockResolvedValue(makeInitialConfiguration());
+      const session = open();
+      await session.start(PRODUCT_ID);
+      mockFetch.mockReset();
+
+      await session.replay(PRODUCT_ID, ROW);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('stops saying so once the buyer commits, and once the session is released', async () => {
+      const fresh = makeInitialConfiguration();
+      mockFetch.mockResolvedValue({ configuration: fresh, replayed: false });
+      const session = open();
+      await session.replay(PRODUCT_ID, ROW);
+
+      mockFetch.mockResolvedValue(committedFrom(fresh));
+      await session.commit();
+      expect(session.notReplayed.value).toBe(false);
+
+      mockFetch.mockResolvedValue({ configuration: fresh, replayed: false });
+      const other = open();
+      await other.replay(PRODUCT_ID, ROW);
+      mockFetch.mockResolvedValue(null);
+      await other.release();
+      expect(other.notReplayed.value).toBe(false);
+    });
+  });
+
   describe('editing a configured cart line', () => {
     const LINE = { cartId: 'cart-1', itemId: 'item-1' };
     const addLine =
