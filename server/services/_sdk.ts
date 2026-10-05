@@ -10,6 +10,10 @@ import type {
 import type { H3Event } from 'h3';
 import { LRUCache } from 'lru-cache';
 import { storefrontCacheKey, storefrontKey } from '../utils/tenant';
+import {
+  readConfiguratorBackendValue,
+  readConfiguratorMerchantApiUrl,
+} from './configurator-config';
 import type { GeinsSettings as TenantGeinsSettings } from '#shared/types/tenant-config';
 
 export interface TenantSDK {
@@ -17,6 +21,8 @@ export interface TenantSDK {
   crm: GeinsCRM;
   cms: GeinsCMS;
   oms: GeinsOMS;
+  /** The GraphQL endpoint the instance was built for; undefined is the SDK default. */
+  apiUrl?: string;
 }
 
 /**
@@ -59,9 +65,27 @@ export function clearSdkCache(storefrontKey: string): void {
 }
 
 /**
- * Creates a Geins SDK instance from tenant Geins settings.
+ * The merchant-api GraphQL URL the SDK talks to. On a CPQ backend
+ * (`merchant-api` or `composite`) it is the configurator's URL, because the
+ * ordinary endpoint drops a configured line's configuration on every cart
+ * write. Otherwise undefined, and the SDK keeps its default. The backend is
+ * matched strictly, as `resolveConfiguratorBackendName` does.
  */
-export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
+export function resolveSdkApiUrl(event: H3Event): string | undefined {
+  const backend = readConfiguratorBackendValue(event);
+  if (backend !== 'merchant-api' && backend !== 'composite') return undefined;
+  const url = readConfiguratorMerchantApiUrl(event);
+  return typeof url === 'string' && url !== '' ? url : undefined;
+}
+
+/**
+ * Creates a Geins SDK instance from tenant Geins settings. `apiUrl` is only
+ * set on the SDK when given, so without it the settings are what they were.
+ */
+export function createTenantSDK(
+  geinsSettings: TenantGeinsSettings,
+  apiUrl?: string,
+): TenantSDK {
   // Use the first availableLocale as SDK default. The admin's configured
   // locale (e.g., en-US) may not match product data (sv-SE). This ensures
   // getRequestChannelVariables falls back to the right locale when no
@@ -78,6 +102,7 @@ export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
     locale: effectiveLocale,
     market: geinsSettings.market,
     environment: mapEnvironment(geinsSettings.environment),
+    ...(apiUrl ? { apiUrl } : {}),
   };
 
   const core = new GeinsCore(sdkSettings);
@@ -87,7 +112,7 @@ export function createTenantSDK(geinsSettings: TenantGeinsSettings): TenantSDK {
     omsSettings: { context: RuntimeContext.SERVER },
   });
 
-  return { core, crm, cms, oms };
+  return { core, crm, cms, oms, ...(apiUrl ? { apiUrl } : {}) };
 }
 
 /**
@@ -199,8 +224,13 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
   // Falls back to the request hostname for API routes where the config may
   // not be resolved yet
   const cacheKey = storefrontCacheKey(event);
+  // A cached instance counts only when it talks to the same endpoint, so the
+  // key format, and `clearSdkCache` with it, stays as it is.
+  const apiUrl = resolveSdkApiUrl(event);
+  const onEndpoint = (sdk: TenantSDK | undefined) =>
+    sdk?.apiUrl === apiUrl ? sdk : undefined;
 
-  const cached = tenants.get(cacheKey);
+  const cached = onEndpoint(tenants.get(cacheKey));
   if (cached) {
     return cached;
   }
@@ -218,14 +248,14 @@ export async function getTenantSDK(event: H3Event): Promise<TenantSDK> {
   // Check again with the resolved storefront — another hostname for
   // the same storefront may have already created the SDK instance
   const tid = storefrontKey(tenant, hostname);
-  const existing = tenants.get(tid);
+  const existing = onEndpoint(tenants.get(tid));
   if (existing) {
     // Also cache under the current lookup key for fast path next time
     if (cacheKey !== tid) tenants.set(cacheKey, existing);
     return existing;
   }
 
-  const sdk = createTenantSDK(tenant.geinsSettings);
+  const sdk = createTenantSDK(tenant.geinsSettings, apiUrl);
   // Cache under both the storefront key and the lookup key
   tenants.set(tid, sdk);
   if (cacheKey !== tid) tenants.set(cacheKey, sdk);

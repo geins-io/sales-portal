@@ -84,6 +84,16 @@ vi.stubGlobal('getAuthCookies', mockGetAuthCookies);
 const mockGetSessionToken = vi.fn();
 vi.stubGlobal('getSessionToken', mockGetSessionToken);
 
+// The configurator's runtime keys; undefined reads as `off`.
+const mockBackendValue = vi.fn((): unknown => undefined);
+const mockMerchantApiUrl = vi.fn((): unknown => undefined);
+vi.mock('../../../server/services/configurator-config', () => ({
+  readConfiguratorBackendValue: () => mockBackendValue(),
+  readConfiguratorMerchantApiUrl: () => mockMerchantApiUrl(),
+}));
+
+const CPQ_API_URL = 'https://cpq-merchant-api.example.test/graphql';
+
 const MOCK_GEINS_SETTINGS: GeinsSettings = {
   apiKey: 'test-api-key',
   accountName: 'test-account',
@@ -110,6 +120,7 @@ describe('server/services/_sdk', () => {
   let getChannelVariables: typeof import('../../../server/services/_sdk').getChannelVariables;
   let getRequestChannelVariables: typeof import('../../../server/services/_sdk').getRequestChannelVariables;
   let buildRequestContext: typeof import('../../../server/services/_sdk').buildRequestContext;
+  let resolveSdkApiUrl: typeof import('../../../server/services/_sdk').resolveSdkApiUrl;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -121,7 +132,10 @@ describe('server/services/_sdk', () => {
     getChannelVariables = mod.getChannelVariables;
     getRequestChannelVariables = mod.getRequestChannelVariables;
     buildRequestContext = mod.buildRequestContext;
+    resolveSdkApiUrl = mod.resolveSdkApiUrl;
     mockGetAuthCookies.mockReturnValue({});
+    mockBackendValue.mockReturnValue(undefined);
+    mockMerchantApiUrl.mockReturnValue(undefined);
   });
 
   describe('createTenantSDK', () => {
@@ -294,6 +308,97 @@ describe('server/services/_sdk', () => {
 
       expect(sdk1).toBe(sdk2);
       expect(mockGeinsCore).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('SDK endpoint', () => {
+    it('leaves apiUrl out of the SDK settings when none is given', () => {
+      createTenantSDK(MOCK_GEINS_SETTINGS);
+
+      expect(mockGeinsCore.mock.calls[0]![0]).not.toHaveProperty('apiUrl');
+    });
+
+    it('passes apiUrl to GeinsCore when given', () => {
+      createTenantSDK(MOCK_GEINS_SETTINGS, CPQ_API_URL);
+
+      expect(mockGeinsCore).toHaveBeenCalledWith(
+        expect.objectContaining({ apiUrl: CPQ_API_URL }),
+      );
+    });
+
+    it.each([undefined, '', 'off', 'fixture', 'sdk'])(
+      'resolves no endpoint for backend %j, even with a URL set',
+      (backend) => {
+        mockBackendValue.mockReturnValue(backend);
+        mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
+
+        expect(resolveSdkApiUrl(createEvent('test.com'))).toBeUndefined();
+      },
+    );
+
+    it.each(['merchant-api', 'composite'])(
+      'resolves the configurator URL for backend %s',
+      (backend) => {
+        mockBackendValue.mockReturnValue(backend);
+        mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
+
+        expect(resolveSdkApiUrl(createEvent('test.com'))).toBe(CPQ_API_URL);
+      },
+    );
+
+    it('resolves no endpoint on a CPQ backend with an empty URL', () => {
+      mockBackendValue.mockReturnValue('composite');
+      mockMerchantApiUrl.mockReturnValue('');
+
+      expect(resolveSdkApiUrl(createEvent('test.com'))).toBeUndefined();
+    });
+
+    it('builds the tenant SDK on the configurator URL on a CPQ backend', async () => {
+      mockBackendValue.mockReturnValue('composite');
+      mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
+      mockResolveTenant.mockResolvedValue({
+        tenantId: 'test-tenant',
+        hostname: 'test.com',
+        geinsSettings: MOCK_GEINS_SETTINGS,
+      });
+
+      await getTenantSDK(createEvent('test.com'));
+
+      expect(mockGeinsCore).toHaveBeenCalledWith(
+        expect.objectContaining({ apiUrl: CPQ_API_URL }),
+      );
+    });
+
+    it('builds the tenant SDK without apiUrl when the configurator is off', async () => {
+      mockBackendValue.mockReturnValue('off');
+      mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
+      mockResolveTenant.mockResolvedValue({
+        tenantId: 'test-tenant',
+        hostname: 'test.com',
+        geinsSettings: MOCK_GEINS_SETTINGS,
+      });
+
+      await getTenantSDK(createEvent('test.com'));
+
+      expect(mockGeinsCore.mock.calls[0]![0]).not.toHaveProperty('apiUrl');
+    });
+
+    it('does not reuse a cached SDK built for another endpoint', async () => {
+      mockResolveTenant.mockResolvedValue({
+        tenantId: 'test-tenant',
+        hostname: 'test.com',
+        geinsSettings: MOCK_GEINS_SETTINGS,
+      });
+
+      const onDefault = await getTenantSDK(createEvent('test.com'));
+      mockBackendValue.mockReturnValue('composite');
+      mockMerchantApiUrl.mockReturnValue(CPQ_API_URL);
+      const onCpq = await getTenantSDK(createEvent('test.com'));
+      const onCpqAgain = await getTenantSDK(createEvent('test.com'));
+
+      expect(onCpq).not.toBe(onDefault);
+      expect(onCpqAgain).toBe(onCpq);
+      expect(mockGeinsCore).toHaveBeenCalledTimes(2);
     });
   });
 
