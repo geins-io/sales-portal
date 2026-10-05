@@ -6,10 +6,13 @@ import type {
 } from '#shared/types/commerce';
 import { formatPrice } from '#shared/types/commerce';
 import { BADGE_DESTRUCTIVE, BADGE_INFO } from '~/lib/badge-styles';
+import { isShownAsDiscount } from '~/utils/price-discount';
 
 const props = withDefaults(
   defineProps<{
     price?: PriceType;
+    /** The line's quantity when `price` is a line total; widens the rounding threshold. */
+    quantity?: number;
     showVat?: boolean;
     showDiscount?: boolean;
     fromPrice?: boolean;
@@ -75,7 +78,7 @@ const regularPrice = computed(() => {
 });
 
 const isDiscounted = computed(
-  () => props.showDiscount && props.price?.isDiscounted,
+  () => props.showDiscount && isShownAsDiscount(props.price, props.quantity),
 );
 
 const discountPercentage = computed(() => props.price?.discountPercentage ?? 0);

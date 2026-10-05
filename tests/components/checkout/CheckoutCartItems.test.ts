@@ -168,6 +168,25 @@ describe('CheckoutCartItems', () => {
     expect(prices[0]?.text()).toContain('100.00 SEK');
   });
 
+  it('passes the line quantity with the total', () => {
+    const item = createItem();
+    const wrapper = mountComponent(CheckoutCartItems, {
+      props: { items: [item] },
+      global: {
+        stubs: {
+          ...stubs,
+          PriceDisplay: {
+            template:
+              '<span :data-testid="testid" :data-quantity="quantity" />',
+            props: ['price', 'quantity', 'testid'],
+          },
+        },
+      },
+    });
+    const total = wrapper.find('[data-testid="checkout-line-total"]');
+    expect(total.attributes('data-quantity')).toBe(String(item.quantity));
+  });
+
   it('handles item with missing product data gracefully', () => {
     const item = createItem({
       product: undefined as unknown as CartItemType['product'],
