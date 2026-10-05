@@ -41,6 +41,7 @@ export const backend: Record<
   addToCart: vi.fn(),
   reopen: vi.fn(),
   cartLineConfigurations: vi.fn(),
+  orderLineConfigurations: vi.fn(),
 };
 
 export const getFeatures = vi.fn();

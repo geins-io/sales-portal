@@ -1,3 +1,5 @@
+import type { LineConfigurationSummary } from './commerce';
+
 /** A single order/quotation line item, normalised for the mobile rows sheet. */
 export interface PortalItemRow {
   key: string;
@@ -8,6 +10,8 @@ export interface PortalItemRow {
   totalPriceFormatted?: string;
   imageFileName?: string | null;
   alias?: string | null;
+  /** Set on a configured order row. */
+  configuration?: LineConfigurationSummary;
 }
 
 /** A totals row shown beneath the items in the mobile rows sheet. */

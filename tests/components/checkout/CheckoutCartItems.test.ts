@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, assert } from 'vitest';
 import { mountComponent } from '../../utils/component';
 import CheckoutCartItems from '../../../app/components/checkout/CheckoutCartItems.vue';
 import type { CartItemType } from '@geins/types';
+import type { CartLineConfiguration } from '../../../shared/types/commerce';
 
 // Mock the cart store
 const mockUpdateQuantity = vi.fn();
@@ -296,5 +297,112 @@ describe('CheckoutCartItems', () => {
     expect(wrapper.find('[data-testid="checkout-unit-price"]').exists()).toBe(
       false,
     );
+  });
+
+  describe('a configured line', () => {
+    const CONFIGURATION: CartLineConfiguration = {
+      configurationId: 'committed-1',
+      summary: [
+        { label: 'Machine weight (7-20)', value: '12 t' },
+        { label: 'Adapter', value: 'S45' },
+      ],
+    };
+
+    // The cart's line, with the configuration the cart service merged in.
+    function configuredItem(configuration = CONFIGURATION) {
+      return { ...createItem(), configuration } as CartItemType;
+    }
+
+    it('says it is a configured product instead of the article line', () => {
+      const wrapper = mountItems([configuredItem()]);
+
+      expect(
+        wrapper.find('[data-testid="checkout-cart-item-configured"]').text(),
+      ).toBe('cart.configured_product');
+      expect(wrapper.text()).not.toContain('Art nr.');
+      expect(wrapper.text()).not.toContain('Size M');
+    });
+
+    it('shows the line total only', () => {
+      const wrapper = mountItems([configuredItem()]);
+
+      expect(
+        wrapper
+          .findAll('[data-testid="price-stub"]')
+          .map((price) => price.text()),
+      ).toEqual(['100.00 SEK']);
+      expect(wrapper.find('[data-testid="checkout-unit-price"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('shows its summary, collapsed, under the line', async () => {
+      const wrapper = mountItems([configuredItem()]);
+
+      const row = wrapper.find('[data-testid="checkout-cart-item"]');
+      const toggle = row.find('[data-testid="cart-item-configuration-toggle"]');
+      expect(toggle.text()).toBe('cart.show_configuration');
+      expect(toggle.attributes('aria-expanded')).toBe('false');
+
+      await toggle.trigger('click');
+
+      expect(
+        row
+          .findAll('[data-testid="cart-item-configuration-row"]')
+          .map((line) => [line.find('dt').text(), line.find('dd').text()]),
+      ).toEqual([
+        ['Machine weight (7-20)', '12 t'],
+        ['Adapter', 'S45'],
+      ]);
+    });
+
+    it('gives each line its own summary block', () => {
+      const wrapper = mountItems([
+        { ...configuredItem(), id: 'a' } as CartItemType,
+        { ...configuredItem(), id: 'b' } as CartItemType,
+      ]);
+
+      const ids = wrapper
+        .findAll('[data-testid="cart-item-configuration"]')
+        .map((block) => block.attributes('id'));
+      expect(ids).toHaveLength(2);
+      expect(new Set(ids).size).toBe(2);
+    });
+
+    it('keeps the quantity stepper and the remove button', () => {
+      const wrapper = mountItems([configuredItem()], { isEditable: true });
+
+      expect(
+        wrapper.find('[data-testid="checkout-quantity-stepper"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="checkout-remove-item"]').exists(),
+      ).toBe(true);
+    });
+
+    it('renders a configured line without a summary without the block', () => {
+      const wrapper = mountItems([
+        configuredItem({ configurationId: 'committed-1', summary: [] }),
+      ]);
+
+      expect(
+        wrapper.find('[data-testid="checkout-cart-item-configured"]').exists(),
+      ).toBe(true);
+      expect(
+        wrapper.find('[data-testid="cart-item-configuration-toggle"]').exists(),
+      ).toBe(false);
+    });
+
+    it('leaves a plain line as it was', () => {
+      const wrapper = mountItems([createItem()]);
+
+      expect(
+        wrapper.find('[data-testid="checkout-cart-item-configured"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="cart-item-configuration-toggle"]').exists(),
+      ).toBe(false);
+      expect(wrapper.text()).toContain('Art nr. ART-001');
+    });
   });
 });

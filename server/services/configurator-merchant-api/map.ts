@@ -1,4 +1,8 @@
-import type { CartLineConfiguration, PriceType } from '#shared/types/commerce';
+import type {
+  CartLineConfiguration,
+  OrderLineConfiguration,
+  PriceType,
+} from '#shared/types/commerce';
 import type {
   CommittedConfiguration,
   Configuration,
@@ -21,6 +25,7 @@ import type {
   WireMessage,
   WireOption,
   WireOptionGroup,
+  WireOrderLines,
   WireSection,
   WireSummaryLine,
   WireValue,
@@ -303,5 +308,23 @@ export function mapCartLineConfigurations(
       summary: summaryLines(line.configuration?.summary ?? null),
     });
   }
+  return lines;
+}
+
+/**
+ * The configured rows of an order by position; a plain row is not in it. A
+ * null row keeps its place, so positions match the order's own rows.
+ */
+export function mapOrderLineConfigurations(
+  order: WireOrderLines | null,
+): Map<number, OrderLineConfiguration> {
+  const lines = new Map<number, OrderLineConfiguration>();
+  (order?.cart?.items ?? []).forEach((line, position) => {
+    if (!line?.configuration) return;
+    lines.set(position, {
+      productId: line.product?.productId ?? null,
+      summary: summaryLines(line.configuration.summary),
+    });
+  });
   return lines;
 }

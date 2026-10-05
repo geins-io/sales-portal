@@ -1,5 +1,8 @@
 import type { H3Event } from 'h3';
-import type { CartLineConfiguration } from '#shared/types/commerce';
+import type {
+  CartLineConfiguration,
+  OrderLineConfiguration,
+} from '#shared/types/commerce';
 import type {
   CommittedConfiguration,
   Configuration,
@@ -135,6 +138,14 @@ export interface ConfiguratorBackend {
     cartId: string,
     ctx: ConfiguratorContext,
   ): Promise<Map<string, CartLineConfiguration>>;
+  /**
+   * What each configured row of an order was committed with, by its position
+   * in the order's rows. The order itself is the portal's ordinary read.
+   */
+  orderLineConfigurations(
+    publicOrderId: string,
+    ctx: ConfiguratorContext,
+  ): Promise<Map<number, OrderLineConfiguration>>;
 }
 
 /**
@@ -221,8 +232,10 @@ function rejectingBackend(
     commit: reject,
     addToCart: reject,
     reopen: reject,
-    // Asked of every cart, not of a request to configure: no lines, no error.
+    // Asked of every cart and order, not of a request to configure: no lines,
+    // no error.
     cartLineConfigurations: async () => new Map(),
+    orderLineConfigurations: async () => new Map(),
   };
 }
 

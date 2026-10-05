@@ -151,3 +151,14 @@ export interface WireCartLine {
 export interface WireCartLines {
   items: WireList<WireCartLine>;
 }
+
+/** An order's `CartItemType`, as far as the order-row read selects it. */
+export interface WireOrderLine {
+  product?: { productId: number | null } | null;
+  configuration: { summary: WireList<WireSummaryLine> } | null;
+}
+
+/** `OrderType`, as far as the order-row read selects it. */
+export interface WireOrderLines {
+  cart: { items: WireList<WireOrderLine> } | null;
+}

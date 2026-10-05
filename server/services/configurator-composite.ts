@@ -40,6 +40,8 @@ export function createCompositeConfiguratorBackend(
     // The fixture's lines are plain lines, which carry no configuration.
     cartLineConfigurations: (cartId, ctx) =>
       real.cartLineConfigurations(cartId, ctx),
+    orderLineConfigurations: (publicOrderId, ctx) =>
+      real.orderLineConfigurations(publicOrderId, ctx),
     reopen: (cartId, itemId, ctx) =>
       (fixture.ownsLine(cartId, itemId, ctx) ? fixture : real).reopen(
         cartId,
