@@ -126,6 +126,34 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
+  /**
+   * A committed configuration onto a configured line, which keeps its id. It
+   * throws like `addConfiguredItem`: the configurator says at its own action
+   * that the line kept its old choices.
+   */
+  async function replaceConfiguredItem(
+    committedConfigurationId: string,
+    line: { cartId: string; itemId: string },
+  ): Promise<{ cartId: string; itemId: string }> {
+    isLoading.value = true;
+    try {
+      const answer = await $fetch<{
+        cart: CartType | null;
+        itemId: string;
+      }>(`/api/configurations/${committedConfigurationId}/cart`, {
+        method: 'PUT',
+        body: line,
+      });
+      // The line is swapped even when the route could not read the cart back.
+      if (answer.cart) setCart(answer.cart);
+      else await fetchCart();
+      isOpen.value = true;
+      return { cartId: line.cartId, itemId: answer.itemId };
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   async function updateQuantity(itemId: string, quantity: number) {
     if (!cartId.value) return;
     isLoading.value = true;
@@ -206,6 +234,7 @@ export const useCartStore = defineStore('cart', () => {
     fetchCart,
     addItem,
     addConfiguredItem,
+    replaceConfiguredItem,
     updateQuantity,
     removeItem,
     applyPromoCode,

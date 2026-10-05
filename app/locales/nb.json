@@ -121,6 +121,7 @@
     "configured_product": "Konfigurert produkt",
     "show_configuration": "Vis konfigurasjon",
     "hide_configuration": "Skjul konfigurasjon",
+    "edit_configuration": "Endre konfigurasjon",
     "items_short": "varer"
   },
   "checkout": {
@@ -370,7 +371,6 @@
       "unit_price": "Pris per enhet"
     },
     "panel": {
-      "recomputing": "Regner om…",
       "time_left": "{time} igjen",
       "renew": "Forleng økten",
       "renew_failed": "Økten kunne ikke forlenges.",
@@ -387,6 +387,17 @@
       "copied": "Kopiert",
       "expand": "Åpne spesifikasjonen i en større visning",
       "copy_quantity": "Antall: {count} stk."
+    },
+    "edit": {
+      "marker": "Redigerer en linje i handlekurven",
+      "update": "Oppdater i handlekurven",
+      "revert": "Angre endringer",
+      "cancel": "Avbryt redigering",
+      "expired": "Økten har utløpt. Linjen i handlekurven er uendret.",
+      "not_reopenable": "Konfigurasjonen kan ikke åpnes igjen. Konfigurer den på nytt – linjen i handlekurven er uendret til du oppdaterer.",
+      "line_gone": "Linjen finnes ikke lenger i handlekurven.",
+      "open_failed": "Linjen kunne ikke åpnes akkurat nå.",
+      "update_failed": "Linjen kunne ikke oppdateres. Linjen i handlekurven beholder sine tidligere valg."
     }
   },
   "account": {

@@ -42,6 +42,11 @@ export function createCompositeConfiguratorBackend(
       real.cartLineConfigurations(cartId, ctx),
     orderLineConfigurations: (publicOrderId, ctx) =>
       real.orderLineConfigurations(publicOrderId, ctx),
+    replaceLine: (cartId, itemId, committedConfigurationId, ctx) =>
+      (fixture.readCommitted(committedConfigurationId, ctx)
+        ? fixture
+        : real
+      ).replaceLine(cartId, itemId, committedConfigurationId, ctx),
     reopen: (cartId, itemId, ctx) =>
       (fixture.ownsLine(cartId, itemId, ctx) ? fixture : real).reopen(
         cartId,

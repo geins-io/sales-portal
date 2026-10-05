@@ -299,6 +299,80 @@ describe('useCartStore', () => {
     });
   });
 
+  describe('replaceConfiguredItem', () => {
+    const COMMITTED_ID = 'committed-2';
+    const LINE = { cartId: 'cart-123', itemId: 'item-1' };
+
+    it('puts the committed id on the line, takes the answer as the cart and opens the drawer', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockResolvedValueOnce({ cart: mockCart, itemId: 'item-1' });
+
+      const store = useCartStore();
+      await expect(
+        store.replaceConfiguredItem(COMMITTED_ID, LINE),
+      ).resolves.toEqual(LINE);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `/api/configurations/${COMMITTED_ID}/cart`,
+        { method: 'PUT', body: LINE },
+      );
+      expect(store.cart).toEqual(mockCart);
+      expect(store.isOpen).toBe(true);
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('reads the cart itself when the swap went through without one', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch
+        .mockResolvedValueOnce({ cart: null, itemId: 'item-1' })
+        .mockResolvedValueOnce(mockCart);
+
+      const store = useCartStore();
+      await store.replaceConfiguredItem(COMMITTED_ID, LINE);
+
+      expect(mockFetch).toHaveBeenLastCalledWith('/api/cart', {
+        query: { cartId: 'cart-123' },
+      });
+      expect(store.cart).toEqual(mockCart);
+      expect(store.isOpen).toBe(true);
+    });
+
+    it('is loading while the swap is in flight', async () => {
+      mockCartIdRef.value = 'cart-123';
+      let answer!: (cart: unknown) => void;
+      mockFetch.mockReturnValueOnce(
+        new Promise((settle) => {
+          answer = settle;
+        }),
+      );
+
+      const store = useCartStore();
+      const swapping = store.replaceConfiguredItem(COMMITTED_ID, LINE);
+
+      expect(store.isLoading).toBe(true);
+      answer({ cart: mockCart, itemId: 'item-1' });
+      await swapping;
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('throws the failure to its caller and leaves the drawer and the cart as they were', async () => {
+      mockCartIdRef.value = 'cart-123';
+      const failure = Object.assign(new Error('not updated'), {
+        statusCode: 409,
+      });
+      mockFetch.mockRejectedValueOnce(failure);
+
+      const store = useCartStore();
+      await expect(
+        store.replaceConfiguredItem(COMMITTED_ID, LINE),
+      ).rejects.toBe(failure);
+
+      expect(store.isOpen).toBe(false);
+      expect(store.cart).toBeNull();
+      expect(store.isLoading).toBe(false);
+    });
+  });
+
   describe('updateQuantity', () => {
     it('calls DELETE when quantity is 0', async () => {
       mockCartIdRef.value = 'cart-123';
@@ -534,6 +608,20 @@ describe('useCartStore', () => {
       });
       await store.addConfiguredItem('conf-1', 100, 1);
       expect(ids(store)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('keeps an edited configured line where it was, which the cart answers last', async () => {
+      const store = await shownWith([line('a'), line('b'), line('c')]);
+      mockFetch.mockResolvedValueOnce({
+        cart: cartOf('cart-123', [line('a'), line('c'), line('b', 3)]),
+        itemId: 'b',
+      });
+      await store.replaceConfiguredItem('conf-2', {
+        cartId: 'cart-123',
+        itemId: 'b',
+      });
+      expect(ids(store)).toEqual(['a', 'b', 'c']);
+      expect(store.cart?.items?.[1]?.quantity).toBe(3);
     });
 
     it.each([

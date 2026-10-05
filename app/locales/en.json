@@ -121,6 +121,7 @@
     "configured_product": "Configured product",
     "show_configuration": "Show configuration",
     "hide_configuration": "Hide configuration",
+    "edit_configuration": "Change configuration",
     "items_short": "Items"
   },
   "checkout": {
@@ -370,7 +371,6 @@
       "unit_price": "Unit price"
     },
     "panel": {
-      "recomputing": "Recalculating…",
       "time_left": "{time} left",
       "renew": "Extend session",
       "renew_failed": "The session could not be extended.",
@@ -387,6 +387,17 @@
       "copied": "Copied",
       "expand": "Open the specification in a larger view",
       "copy_quantity": "Quantity: {count} pcs"
+    },
+    "edit": {
+      "marker": "Editing a line in the cart",
+      "update": "Update in cart",
+      "revert": "Undo changes",
+      "cancel": "Cancel editing",
+      "expired": "The session has expired. The line in the cart is unchanged.",
+      "not_reopenable": "The configuration cannot be opened again. Configure it from the start – the line in the cart stays as it is until you update it.",
+      "line_gone": "The line is no longer in the cart.",
+      "open_failed": "The line could not be opened right now.",
+      "update_failed": "The line could not be updated. The line in the cart keeps its previous choices."
     }
   },
   "account": {

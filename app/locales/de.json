@@ -121,6 +121,7 @@
     "configured_product": "Konfiguriertes Produkt",
     "show_configuration": "Konfiguration anzeigen",
     "hide_configuration": "Konfiguration ausblenden",
+    "edit_configuration": "Konfiguration ändern",
     "items_short": "Artikel"
   },
   "checkout": {
@@ -370,7 +371,6 @@
       "unit_price": "Preis pro Einheit"
     },
     "panel": {
-      "recomputing": "Wird neu berechnet…",
       "time_left": "{time} verbleibend",
       "renew": "Sitzung verlängern",
       "renew_failed": "Die Sitzung konnte nicht verlängert werden.",
@@ -387,6 +387,17 @@
       "copied": "Kopiert",
       "expand": "Spezifikation in größerer Ansicht öffnen",
       "copy_quantity": "Menge: {count} Stk."
+    },
+    "edit": {
+      "marker": "Eine Position im Warenkorb wird bearbeitet",
+      "update": "Im Warenkorb aktualisieren",
+      "revert": "Änderungen verwerfen",
+      "cancel": "Bearbeitung abbrechen",
+      "expired": "Die Sitzung ist abgelaufen. Die Position im Warenkorb ist unverändert.",
+      "not_reopenable": "Die Konfiguration kann nicht erneut geöffnet werden. Konfigurieren Sie sie neu – die Position im Warenkorb bleibt unverändert, bis Sie aktualisieren.",
+      "line_gone": "Die Position ist nicht mehr im Warenkorb.",
+      "open_failed": "Die Position konnte gerade nicht geöffnet werden.",
+      "update_failed": "Die Position konnte nicht aktualisiert werden. Die Position im Warenkorb behält ihre bisherige Auswahl."
     }
   },
   "account": {

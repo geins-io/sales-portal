@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { useCartStore } from '../../../app/stores/cart';
 import { mountComponent } from '../../utils/component';
 import CartItem from '../../../app/components/cart/CartItem.vue';
 import type { CartItemType } from '../../../shared/types/commerce';
@@ -277,12 +278,69 @@ describe('CartItem', () => {
     });
 
     it('names the product without a link, since editing a line is its own action', () => {
+      useCartStore().cartId = 'cart-1';
       const wrapper = mountLine(configuredItem);
 
       const name = wrapper.find('[data-testid="cart-item-name"]');
       expect(name.text()).toBe('Test Product');
       expect(name.element.tagName).not.toBe('A');
-      expect(wrapper.find('a').exists()).toBe(false);
+      expect(
+        wrapper.findAll('a').map((link) => link.attributes('data-testid')),
+      ).toEqual(['cart-item-edit']);
+    });
+
+    describe('editing the line', () => {
+      const editOf = (wrapper: ReturnType<typeof mountLine>) =>
+        wrapper.find('[data-testid="cart-item-edit"]');
+
+      beforeEach(() => {
+        const cart = useCartStore();
+        cart.cartId = 'cart-1';
+        cart.isOpen = true;
+      });
+
+      it('offers to change the configuration at the foot of the expanded block, as the design reference does', () => {
+        const wrapper = mountLine(configuredItem);
+
+        const edit = editOf(wrapper);
+        expect(edit.text()).toBe('cart.edit_configuration');
+        const foot = blockOf(wrapper).element.lastElementChild;
+        expect(foot?.getAttribute('data-testid')).toBe(
+          'cart-item-configuration-foot',
+        );
+        expect(foot?.contains(edit.element)).toBe(true);
+      });
+
+      it("links to the product's canonical page with the cart and the line, so the canonical redirect cannot drop them", () => {
+        const wrapper = mountLine(configuredItem);
+
+        expect(editOf(wrapper).attributes('href')).toBe(
+          '/se/en/p/test-product?cart=cart-1&line=item-1',
+        );
+      });
+
+      it('closes the drawer on the way', async () => {
+        const wrapper = mountLine(configuredItem);
+
+        await editOf(wrapper).trigger('click');
+
+        expect(useCartStore().isOpen).toBe(false);
+      });
+
+      it('offers nothing to change without a cart or a product page', () => {
+        useCartStore().cartId = null;
+        expect(editOf(mountLine(configuredItem)).exists()).toBe(false);
+
+        useCartStore().cartId = 'cart-1';
+        const product = { ...mockItem.product, canonicalUrl: '', alias: '' };
+        expect(editOf(mountLine({ ...configuredItem, product })).exists()).toBe(
+          false,
+        );
+      });
+
+      it('offers nothing to change on an ordinary line', () => {
+        expect(editOf(mountLine(mockItem)).exists()).toBe(false);
+      });
     });
 
     it('shows the line total only', () => {

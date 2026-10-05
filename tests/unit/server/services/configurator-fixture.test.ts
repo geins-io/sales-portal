@@ -1830,3 +1830,131 @@ describe('reopen', () => {
     expect(backend.ownsLine('cart-1', 'line-42', OTHER_TENANT)).toBe(false);
   });
 });
+
+describe('replaceLine', () => {
+  const WITH_CART = (ctx: ConfiguratorContext): ConfiguratorContext => ({
+    ...ctx,
+    cart: {
+      addPlainItem: async () => ({ items: [{ id: 'line-42', skuId: 42 }] }),
+    },
+  });
+
+  async function committedWith(shelves: number, ctx = CTX) {
+    const created = await backend.create(
+      { productId: ARBETSBORD_PRO_GEINS_ID, quantity: 2 },
+      ctx,
+    );
+    const config = await backend.applyChanges(
+      created.configurationId,
+      [
+        selectOption('legs-electric'),
+        selectOption('ral-9005'),
+        setVariable('shelves', shelves),
+      ],
+      ctx,
+    );
+    return (await backend.commit(config.configurationId, ctx))
+      .committedConfigurationId;
+  }
+
+  async function addedLine(ctx = CTX) {
+    await backend.addToCart(
+      'cart-1',
+      {
+        committedConfigurationId: await committedWith(2, ctx),
+        skuId: 42,
+        quantity: 2,
+      },
+      WITH_CART(ctx),
+    );
+  }
+
+  it('makes the line reopen as the new record, keeping its id', async () => {
+    await addedLine();
+    const next = await committedWith(3);
+
+    await expect(
+      backend.replaceLine('cart-1', 'line-42', next, CTX),
+    ).resolves.toEqual({ itemId: 'line-42' });
+
+    const reopened = await backend.reopen('cart-1', 'line-42', CTX);
+    expect(findVariable(reopened, 'shelves').value).toBe(3);
+  });
+
+  it('answers 404 for a record it never committed, and leaves the line as it was', async () => {
+    await addedLine();
+
+    expect(
+      await statusOf(() =>
+        backend.replaceLine('cart-1', 'line-42', 'no-record', CTX),
+      ),
+    ).toBe(404);
+    const reopened = await backend.reopen('cart-1', 'line-42', CTX);
+    expect(findVariable(reopened, 'shelves').value).toBe(2);
+  });
+
+  it('answers 404 for a line it never added', async () => {
+    await addedLine();
+    const next = await committedWith(3);
+
+    expect(
+      await statusOf(() => backend.replaceLine('cart-1', 'no-line', next, CTX)),
+    ).toBe(404);
+    expect(backend.ownsLine('cart-1', 'no-line', CTX)).toBe(false);
+  });
+
+  it("answers 404 for another storefront's line", async () => {
+    await addedLine();
+    const next = await committedWith(3, OTHER_TENANT);
+
+    expect(
+      await statusOf(() =>
+        backend.replaceLine('cart-1', 'line-42', next, OTHER_TENANT),
+      ),
+    ).toBe(404);
+  });
+});
+
+describe('the line refusals, by code', () => {
+  async function codeOf(call: () => Promise<unknown>) {
+    try {
+      await call();
+    } catch (error) {
+      return (error as { data?: { code?: string } }).data?.code;
+    }
+    throw new Error('expected the call to fail');
+  }
+
+  it('codes a line it never added as gone, for a reopen and for a swap', async () => {
+    expect(await codeOf(() => backend.reopen('cart-1', 'no-line', CTX))).toBe(
+      'CART_LINE_GONE',
+    );
+    const created = await start();
+    const committed = await backend.applyChanges(
+      created.configurationId,
+      [
+        selectOption('legs-electric'),
+        selectOption('ral-9005'),
+        setVariable('shelves', 2),
+      ],
+      CTX,
+    );
+    const { committedConfigurationId } = await backend.commit(
+      committed.configurationId,
+      CTX,
+    );
+    expect(
+      await codeOf(() =>
+        backend.replaceLine('cart-1', 'no-line', committedConfigurationId, CTX),
+      ),
+    ).toBe('CART_LINE_GONE');
+  });
+
+  it('codes a record it never committed as not found, not as a gone line', async () => {
+    expect(
+      await codeOf(() =>
+        backend.replaceLine('cart-1', 'line-42', 'no-record', CTX),
+      ),
+    ).toBe('NOT_FOUND');
+  });
+});

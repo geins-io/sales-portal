@@ -218,7 +218,7 @@ export function createFixtureConfiguratorBackend({
       );
       if (!from) {
         throw createAppError(
-          ErrorCode.NOT_FOUND,
+          ErrorCode.CART_LINE_GONE,
           'No configured line to reopen',
         );
       }
@@ -230,6 +230,29 @@ export function createFixtureConfiguratorBackend({
       };
       store.put(ctx.hostname, id, session);
       return documentOf(id, session);
+    },
+
+    // The line is a plain one, so the cart itself does not change: only which
+    // record it reopens as.
+    async replaceLine(
+      cartId: string,
+      itemId: string,
+      committedConfigurationId: string,
+      ctx: ConfiguratorContext,
+    ): Promise<{ itemId: string }> {
+      const key = `${ctx.hostname}|${committedConfigurationId}`;
+      if (!committed.has(key)) {
+        throw createAppError(
+          ErrorCode.NOT_FOUND,
+          'No such committed configuration',
+        );
+      }
+      const line = lineKey(ctx, cartId, itemId);
+      if (!lines.has(line)) {
+        throw createAppError(ErrorCode.CART_LINE_GONE, 'No configured line');
+      }
+      lines.set(line, key);
+      return { itemId };
     },
 
     // Its lines are plain lines in the cart, which carry no configuration.

@@ -137,6 +137,29 @@ export function addFailureKey(
 }
 
 /**
+ * The copy for a failed swap onto an edited line, told apart by the portal's
+ * code: a line that is gone has no old choices to keep.
+ */
+export function replaceFailureKey(
+  error: ConfiguratorSessionError | null,
+): 'configurator.edit.line_gone' | 'configurator.edit.update_failed' {
+  return error?.code === 'CART_LINE_GONE'
+    ? 'configurator.edit.line_gone'
+    : 'configurator.edit.update_failed';
+}
+
+/**
+ * Whether a failed swap onto an edited line is worth sending again. A 404 is a
+ * record or a line that is gone, and would be gone on the retry too; anything
+ * else may have been a moment, and the swap is safe to repeat.
+ */
+export function replaceRetryable(
+  error: ConfiguratorSessionError | null,
+): boolean {
+  return error?.status !== 404;
+}
+
+/**
  * The error the header may render, which is only ever a failed renew.
  *
  * The session holds one `error` for every verb, and the header's message names

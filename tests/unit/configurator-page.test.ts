@@ -3,6 +3,8 @@ import {
   addError,
   addFailureKey,
   canCommit,
+  replaceFailureKey,
+  replaceRetryable,
   canRetryAdd,
   configuratorStage,
   showsAddRetry,
@@ -437,5 +439,46 @@ describe('showsAddRetry', () => {
 
   it('does not show it when nothing failed and nothing is running', () => {
     expect(showsAddRetry({ ...base, error: null })).toBe(false);
+  });
+});
+
+describe('replaceRetryable', () => {
+  it.each([
+    [409, true],
+    [502, true],
+    [0, true],
+  ])('sends the record again after a %i', (status, retryable) => {
+    expect(replaceRetryable({ status, message: 'x' })).toBe(retryable);
+  });
+
+  it('does not after a 404: the record or the line is gone, and would be again', () => {
+    expect(replaceRetryable({ status: 404, message: 'x' })).toBe(false);
+  });
+
+  it('does with no failure held, which is a retry under way', () => {
+    expect(replaceRetryable(null)).toBe(true);
+  });
+});
+
+describe('replaceFailureKey', () => {
+  it('says the line kept its choices with no failure held', () => {
+    expect(replaceFailureKey(null)).toBe('configurator.edit.update_failed');
+  });
+
+  it('says the line is gone when the cart says so, by its code', () => {
+    expect(
+      replaceFailureKey({ status: 404, message: 'x', code: 'CART_LINE_GONE' }),
+    ).toBe('configurator.edit.line_gone');
+  });
+
+  it.each([
+    ['a committed id that is gone', { status: 404, code: 'NOT_FOUND' }],
+    ['a line not updated', { status: 409, code: 'CONFLICT' }],
+    ['an upstream failure', { status: 502, code: 'EXTERNAL_API_ERROR' }],
+    ['a failure with no code', { status: 0 }],
+  ])('says the line kept its choices for %s', (_case, error) => {
+    expect(replaceFailureKey({ message: 'x', ...error })).toBe(
+      'configurator.edit.update_failed',
+    );
   });
 });

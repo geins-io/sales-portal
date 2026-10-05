@@ -13,6 +13,10 @@ import { isBrowser } from '~/utils/client-helpers';
 // committed configuration in the cart and carries on in a session reopened from
 // that line, so the page stays a live configurator after every add.
 //
+// A session can also edit a configured line: it is reopened from the line, and
+// a commit then puts the new configuration on that same line instead of adding
+// one. The line keeps its old configuration until that swap has answered.
+//
 // The rule engine runs server-side and is not on the wire, so nothing here
 // interprets a document. A change response is the whole re-evaluated state and
 // replaces what is held; patching it locally would invent an outcome the
@@ -80,10 +84,44 @@ export interface ConfiguratorSessionOptions {
    * when the cart does not say. Throws when the add fails.
    */
   addLine?: (committed: CommittedConfiguration) => Promise<CartLineRef | null>;
+  /**
+   * Puts a committed configuration on the line being edited and answers it.
+   * Throws when the swap fails, which leaves the line as it was.
+   */
+  replaceLine?: (
+    committed: CommittedConfiguration,
+    line: CartLineRef,
+  ) => Promise<CartLineRef | null>;
+}
+
+/**
+ * Why an edit is not on the line's own choices: the line's configuration
+ * cannot be reopened, so the buyer configures it again from nothing; or the
+ * line is not one this buyer can edit any more, so the page is an ordinary one.
+ */
+export type ConfiguratorEditNotice = 'not_reopenable' | 'line_gone';
+
+/**
+ * What a failed reopen for an edit means. The line is read as gone only by the
+ * portal's codes for the line and the cart: a 404 or a 403 alone could be an
+ * unknown configuration, a buyer the provider refuses or a catalogue tenant.
+ * Anything else — the provider's replay budget, a timeout, an unreachable
+ * backend — is worth another try, so it stays an error the page offers a retry
+ * for.
+ */
+export function reopenFailure(
+  failure: ConfiguratorSessionError,
+): ConfiguratorEditNotice | null {
+  if (failure.status === 422) return 'not_reopenable';
+  if (failure.code === 'CART_LINE_GONE' || failure.code === 'CART_NOT_OWN') {
+    return 'line_gone';
+  }
+  return null;
 }
 
 export function useConfiguratorSession({
   addLine,
+  replaceLine,
 }: ConfiguratorSessionOptions = {}) {
   const configuration = ref<Configuration | null>(null);
   /**
@@ -96,6 +134,9 @@ export function useConfiguratorSession({
    * reopened, so the page can say the buyer's choices did not come back.
    */
   const notReopened = ref(false);
+  /** The cart line being edited, while the page edits one. */
+  const editing = ref<CartLineRef | null>(null);
+  const editNotice = ref<ConfiguratorEditNotice | null>(null);
   const status = ref<ConfiguratorSessionStatus>('idle');
   const busy = ref(false);
   const error = ref<ConfiguratorSessionError | null>(null);
@@ -205,6 +246,64 @@ export function useConfiguratorSession({
     if (created) hold(created);
   }
 
+  /**
+   * The line being edited, reopened with its committed choices. Not on the
+   * server, for the same reason as `start`.
+   */
+  async function edit(productId: string, line: CartLineRef): Promise<void> {
+    if (!isBrowser() || status.value === 'active') return;
+    started = { productId, quantity: 1 };
+    editing.value = line;
+    editNotice.value = null;
+    await reopenLine();
+  }
+
+  /**
+   * Opens the line being edited again: first, after a failed try, after the
+   * session expired, and to revert. The line itself is untouched until a swap.
+   */
+  async function reopenLine(): Promise<void> {
+    const line = editing.value;
+    if (!line) return;
+    // The page shows loading rather than the expired face while it reopens.
+    if (status.value === 'expired') status.value = 'closed';
+
+    const result = await run(
+      async (
+        signal,
+      ): Promise<
+        { document: Configuration } | { notice: ConfiguratorEditNotice }
+      > => {
+        try {
+          return {
+            document: await $fetch<Configuration>(
+              '/api/configurations/reopen',
+              {
+                method: 'POST',
+                body: line,
+                signal,
+              },
+            ),
+          };
+        } catch (cause) {
+          const notice = wasAborted(cause)
+            ? null
+            : reopenFailure(describe(cause));
+          if (!notice) throw cause;
+          return { notice };
+        }
+      },
+    );
+    if (!result) return;
+    if ('document' in result) {
+      editNotice.value = null;
+      return hold(result.document);
+    }
+    editNotice.value = result.notice;
+    if (result.notice === 'line_gone') editing.value = null;
+    if (started) await start(started.productId, started.quantity);
+  }
+
   /** The caller decides when — a measurement field on blur, an option at once. */
   async function applyChanges(changes: ConfigurationChange[]): Promise<void> {
     const id = liveId();
@@ -259,6 +358,37 @@ export function useConfiguratorSession({
     }
   }
 
+  /** `add`'s counterpart for an edit: the record goes onto the edited line. */
+  async function swap(
+    record: CommittedConfiguration,
+    line: CartLineRef,
+    swapOnto: NonNullable<ConfiguratorSessionOptions['replaceLine']>,
+  ): Promise<{ line: CartLineRef | null }> {
+    try {
+      const swapped = await swapOnto(record, line);
+      committed.value = null;
+      configuration.value = null;
+      editing.value = null;
+      editNotice.value = null;
+      close();
+      return { line: swapped ?? line };
+    } catch (cause) {
+      committed.value = record;
+      close();
+      throw cause;
+    }
+  }
+
+  /** What a commit does with its record: onto the edited line, or a new one. */
+  function place(
+    record: CommittedConfiguration,
+  ): Promise<{ line: CartLineRef | null }> | undefined {
+    const line = editing.value;
+    if (line && replaceLine) return swap(record, line, replaceLine);
+    if (addLine) return add(record, addLine);
+    return undefined;
+  }
+
   /**
    * The page after an add: the session reopened from the new line, with the
    * buyer's choices, or a fresh one when there is no line or the reopen fails.
@@ -298,7 +428,8 @@ export function useConfiguratorSession({
         `/api/configurations/${id}/commit`,
         { method: 'POST', signal },
       );
-      if (addLine) return add(result, addLine);
+      const placed = place(result);
+      if (placed) return placed;
       committed.value = result;
       close();
       return undefined;
@@ -306,12 +437,40 @@ export function useConfiguratorSession({
     if (added) await carryOn(added.line);
   }
 
+  /** Sends the kept record again, onto the edited line or as a new one. */
   async function retryAdd(): Promise<void> {
     const record = committed.value;
-    if (!addLine || !record) return;
+    if (!record) return;
 
-    const added = await run(() => add(record, addLine));
+    const added = await run(() => place(record) ?? Promise.resolve(undefined));
     if (added) await carryOn(added.line);
+  }
+
+  /** Back to the line's own choices, still editing it. */
+  async function revertEdit(): Promise<void> {
+    if (!editing.value) return;
+    if (liveId()) {
+      await release();
+      if (status.value !== 'closed') return;
+    }
+    await reopenLine();
+  }
+
+  /**
+   * Leaves the line as it is: the session is released, and the page carries on
+   * from the line as after an add, no longer editing it.
+   */
+  async function cancelEdit(): Promise<void> {
+    const line = editing.value;
+    if (!line) return;
+    if (liveId()) {
+      await release();
+      if (status.value !== 'closed') return;
+    }
+    editing.value = null;
+    editNotice.value = null;
+    committed.value = null;
+    await carryOn(line);
   }
 
   async function release(): Promise<void> {
@@ -338,12 +497,18 @@ export function useConfiguratorSession({
     configuration,
     committed,
     notReopened,
+    editing,
+    editNotice,
     status,
     busy,
     error,
     expiresAt,
     remainingMs,
     start,
+    edit,
+    reopenLine,
+    revertEdit,
+    cancelEdit,
     applyChanges,
     renew,
     commit,

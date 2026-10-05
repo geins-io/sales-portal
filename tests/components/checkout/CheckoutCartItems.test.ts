@@ -356,6 +356,19 @@ describe('CheckoutCartItems', () => {
       ]);
     });
 
+    it("offers no way to edit the line, which is the cart's alone", async () => {
+      const wrapper = mountItems([configuredItem()]);
+
+      await wrapper
+        .find('[data-testid="cart-item-configuration-toggle"]')
+        .trigger('click');
+
+      expect(wrapper.find('[data-testid="cart-item-edit"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.text()).not.toContain('cart.edit_configuration');
+    });
+
     it('gives each line its own summary block', () => {
       const wrapper = mountItems([
         { ...configuredItem(), id: 'a' } as CartItemType,

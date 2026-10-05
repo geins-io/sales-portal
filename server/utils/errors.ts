@@ -18,6 +18,10 @@ export enum ErrorCode {
   PAYLOAD_TOO_LARGE = 'PAYLOAD_TOO_LARGE',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   GONE = 'GONE',
+  /** A cart line named for an edit is not in the cart, or carries no configuration. */
+  CART_LINE_GONE = 'CART_LINE_GONE',
+  /** The cart named is another company's. */
+  CART_NOT_OWN = 'CART_NOT_OWN',
   TENANT_NOT_FOUND = 'TENANT_NOT_FOUND',
   TENANT_INACTIVE = 'TENANT_INACTIVE',
 
@@ -46,6 +50,10 @@ const ERROR_STATUS_CODES: Record<ErrorCode, number> = {
   [ErrorCode.PAYLOAD_TOO_LARGE]: 413,
   [ErrorCode.VALIDATION_ERROR]: 422,
   [ErrorCode.GONE]: 410,
+  // Their own codes rather than 404 and 403: the page tells a line it cannot
+  // edit from an unknown configuration or a buyer the provider refuses by code.
+  [ErrorCode.CART_LINE_GONE]: 404,
+  [ErrorCode.CART_NOT_OWN]: 403,
   [ErrorCode.TENANT_NOT_FOUND]: 404,
   [ErrorCode.TENANT_INACTIVE]: 403,
   [ErrorCode.INTERNAL_ERROR]: 500,
@@ -70,6 +78,8 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.PAYLOAD_TOO_LARGE]: 'Payload too large',
   [ErrorCode.VALIDATION_ERROR]: 'Validation failed',
   [ErrorCode.GONE]: 'Resource is no longer available',
+  [ErrorCode.CART_LINE_GONE]: 'Cart line not found',
+  [ErrorCode.CART_NOT_OWN]: 'Cart belongs to another company',
   [ErrorCode.TENANT_NOT_FOUND]: 'Tenant not found',
   [ErrorCode.TENANT_INACTIVE]: 'Tenant is inactive',
   [ErrorCode.INTERNAL_ERROR]: 'Internal server error',

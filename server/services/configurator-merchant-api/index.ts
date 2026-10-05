@@ -57,7 +57,7 @@ function documentOf(wire: WireConfiguration | null): Configuration {
   return mapConfiguration(wire);
 }
 
-async function cartLines(cartId: string, ctx: ConfiguratorContext) {
+async function readCartLines(cartId: string, ctx: ConfiguratorContext) {
   const target = targetOf(ctx);
   const data = await requestMerchantApi<{ getCart: WireCartLines | null }>(
     target,
@@ -66,7 +66,11 @@ async function cartLines(cartId: string, ctx: ConfiguratorContext) {
     { id: cartId, ...channelOf(target) },
     { timeoutMs: LINE_READ_TIMEOUT_MS },
   );
-  return mapCartLineConfigurations(data.getCart);
+  return data.getCart;
+}
+
+async function cartLines(cartId: string, ctx: ConfiguratorContext) {
+  return mapCartLineConfigurations(await readCartLines(cartId, ctx));
 }
 
 async function orderLines(publicOrderId: string, ctx: ConfiguratorContext) {
@@ -233,6 +237,59 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
 
     cartLineConfigurations: cartLines,
     orderLineConfigurations: orderLines,
+
+    async replaceLine(cartId, itemId, committedConfigurationId, ctx) {
+      const target = targetOf(ctx);
+      // The quantity is the line's as it is now, not the session's. A failed
+      // read fails the swap, which leaves the line as it was.
+      const line = (await readCartLines(cartId, ctx))?.items?.find(
+        (item) => item?.id === itemId,
+      );
+      if (!line) {
+        throw createAppError(ErrorCode.CART_LINE_GONE, 'The cart line is gone');
+      }
+      // A retry after an answer lost on the way finds the swap already made.
+      if (line.configurationId === committedConfigurationId) return { itemId };
+      // Sent upstream, a missing quantity would be the provider's to guess.
+      if (line.quantity === null) {
+        throw createAppError(
+          ErrorCode.CONFLICT,
+          'The cart line has no quantity',
+        );
+      }
+
+      const data = await requestMerchantApi<{
+        updateCartItem: {
+          items?:
+            | ({ id: string; configurationId?: string | null } | null)[]
+            | null;
+        } | null;
+      }>(
+        target,
+        ctx.userToken,
+        loadQuery('configurator/update-configured-cart-item.graphql'),
+        {
+          id: cartId,
+          item: {
+            id: itemId,
+            quantity: line.quantity,
+            configurationId: committedConfigurationId,
+          },
+          ...channelOf(target),
+        },
+      );
+      // Only the same line carrying the new id is a swap; anything else could
+      // be a second line passing as one.
+      const swapped = (data.updateCartItem?.items ?? []).some(
+        (item) =>
+          item?.id === itemId &&
+          item.configurationId === committedConfigurationId,
+      );
+      if (!swapped) {
+        throw createAppError(ErrorCode.CONFLICT, 'The line was not updated');
+      }
+      return { itemId };
+    },
 
     async reopen(cartId, itemId, ctx) {
       const target = targetOf(ctx);

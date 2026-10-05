@@ -194,12 +194,10 @@ describe('ConfigurationPanel', () => {
     it('puts the price on top, then the slot, then the specification', () => {
       const wrapper = mountPanel({ busy: true }, SLOT);
       const price = wrapper.find('[data-testid="configurator-panel-price"]');
-      const busy = wrapper.find('[data-testid="configurator-panel-busy"]');
       const probe = wrapper.find('[data-testid="slot-probe"]');
       const spec = wrapper.find('[data-testid="configurator-panel-spec"]');
 
-      expect(follows(price.element, busy.element)).toBe(true);
-      expect(follows(busy.element, probe.element)).toBe(true);
+      expect(follows(price.element, probe.element)).toBe(true);
       expect(follows(probe.element, spec.element)).toBe(true);
       // The slot is the page's: the panel only gives it its place.
       expect(spec.element.contains(probe.element)).toBe(false);
@@ -649,18 +647,13 @@ describe('ConfigurationPanel', () => {
   });
 
   describe('recomputing', () => {
-    it('renders no indicator while nothing is in flight', () => {
-      const wrapper = mountPanel();
+    // The action says it is busy; a line of its own above it was clutter.
+    it.each([false, true])('renders no recomputing line, busy: %s', (busy) => {
+      const wrapper = mountPanel({ busy });
       expect(
         wrapper.find('[data-testid="configurator-panel-busy"]').exists(),
       ).toBe(false);
-    });
-
-    it('renders the indicator while a batch is in flight', () => {
-      const wrapper = mountPanel({ busy: true });
-      expect(
-        wrapper.find('[data-testid="configurator-panel-busy"]').text(),
-      ).toContain('configurator.panel.recomputing');
+      expect(wrapper.text()).not.toContain('configurator.panel.recomputing');
     });
   });
 
@@ -792,6 +785,16 @@ describe('ConfigurationPanel', () => {
       // A session that expired before its first response has none.
       const wrapper = mountPanel({ configuration: null, status: 'expired' });
       expect(wrapper.text()).toContain('configurator.panel.expired');
+    });
+
+    it('says the cart line is unchanged when the session of an edit expired', () => {
+      const wrapper = mountPanel({ status: 'expired', editing: true });
+      const expired = wrapper.find(
+        '[data-testid="configurator-panel-expired"]',
+      );
+      expect(expired.text()).toContain('configurator.edit.expired');
+      expect(expired.text()).not.toContain('configurator.panel.expired');
+      expect(expired.text()).toContain('configurator.panel.start_over');
     });
 
     it('emits restart when start over is pressed', async () => {

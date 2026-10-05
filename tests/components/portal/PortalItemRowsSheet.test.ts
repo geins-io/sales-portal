@@ -110,6 +110,19 @@ describe('PortalItemRowsSheet', () => {
       items[1]!,
     ];
 
+    it("offers no way to edit an order row, which is the cart's alone", async () => {
+      const wrapper = mountSheet({ items: configured });
+
+      await wrapper
+        .find('[data-testid="cart-item-configuration-toggle"]')
+        .trigger('click');
+
+      expect(wrapper.find('[data-testid="cart-item-edit"]').exists()).toBe(
+        false,
+      );
+      expect(wrapper.text()).not.toContain('cart.edit_configuration');
+    });
+
     it('shows its summary, collapsed, and none on a plain row', async () => {
       const wrapper = mountSheet({ items: configured });
 

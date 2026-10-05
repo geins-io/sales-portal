@@ -408,7 +408,7 @@ export const ConfiguredCartItemSchema = z.object({
 });
 
 /** A configured cart line, named by its cart and its own id. */
-export const ReopenCartItemSchema = z.object({
+export const CartLineRefSchema = z.object({
   cartId: z.string().min(1),
   itemId: z.string().min(1),
 });

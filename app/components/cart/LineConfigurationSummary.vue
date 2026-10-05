@@ -2,7 +2,11 @@
 import { ChevronDown } from 'lucide-vue-next';
 import type { CartLineConfigurationRow } from '#shared/types/commerce';
 
-/** What a configured line was committed with, collapsed under the line. */
+/**
+ * What a configured line was committed with, collapsed under the line. The
+ * default slot sits at the foot of the rows, for what only one place offers:
+ * the cart fills it with the way to edit the line.
+ */
 const { summary, id } = defineProps<{
   summary: CartLineConfigurationRow[];
   /** The block's id, which the toggle controls. Unique on the page. */
@@ -45,6 +49,11 @@ const expanded = ref(false);
       >
         <dt class="text-muted-foreground">{{ row.label }}</dt>
         <dd class="text-foreground text-right">{{ row.value }}</dd>
+      </div>
+      <!-- A <dl> holds only groups of <dt> and <dd>, so the slot gets a
+           <div> of its own. -->
+      <div v-if="$slots.default" data-testid="cart-item-configuration-foot">
+        <slot />
       </div>
     </dl>
   </template>

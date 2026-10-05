@@ -131,6 +131,17 @@ export interface ConfiguratorBackend {
     ctx: ConfiguratorContext,
   ): Promise<Configuration>;
   /**
+   * Puts a committed configuration on an existing configured line, which keeps
+   * its id and its quantity. A commit does not touch the cart; this is the step
+   * that does.
+   */
+  replaceLine(
+    cartId: string,
+    itemId: string,
+    committedConfigurationId: string,
+    ctx: ConfiguratorContext,
+  ): Promise<{ itemId: string }>;
+  /**
    * What each configured line of a cart was committed with, by item id. The
    * cart itself is the portal's ordinary read; this is merged into it.
    */
@@ -232,6 +243,7 @@ function rejectingBackend(
     commit: reject,
     addToCart: reject,
     reopen: reject,
+    replaceLine: reject,
     // Asked of every cart and order, not of a request to configure: no lines,
     // no error.
     cartLineConfigurations: async () => new Map(),
