@@ -7,7 +7,7 @@ import type {
 import { loadQuery } from '../graphql/loader';
 import { toWireChange } from './changes';
 import {
-  CART_READ_TIMEOUT_MS,
+  LINE_READ_TIMEOUT_MS,
   REOPEN_TIMEOUT_MS,
   requestMerchantApi,
 } from './client';
@@ -15,11 +15,13 @@ import {
   mapCartLineConfigurations,
   mapCommittedConfiguration,
   mapConfiguration,
+  mapOrderLineConfigurations,
 } from './map';
 import type {
   WireCartLines,
   WireCommittedConfiguration,
   WireConfiguration,
+  WireOrderLines,
 } from './wire';
 
 // ---------------------------------------------------------------------------
@@ -62,9 +64,23 @@ async function cartLines(cartId: string, ctx: ConfiguratorContext) {
     ctx.userToken,
     loadQuery('configurator/get-cart-line-configurations.graphql'),
     { id: cartId, ...channelOf(target) },
-    { timeoutMs: CART_READ_TIMEOUT_MS },
+    { timeoutMs: LINE_READ_TIMEOUT_MS },
   );
   return mapCartLineConfigurations(data.getCart);
+}
+
+async function orderLines(publicOrderId: string, ctx: ConfiguratorContext) {
+  const target = targetOf(ctx);
+  const data = await requestMerchantApi<{
+    getOrderPublic: WireOrderLines | null;
+  }>(
+    target,
+    ctx.userToken,
+    loadQuery('configurator/get-order-line-configurations.graphql'),
+    { publicOrderId, ...channelOf(target) },
+    { timeoutMs: LINE_READ_TIMEOUT_MS },
+  );
+  return mapOrderLineConfigurations(data.getOrderPublic);
 }
 
 export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
@@ -216,6 +232,7 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
     },
 
     cartLineConfigurations: cartLines,
+    orderLineConfigurations: orderLines,
 
     async reopen(cartId, itemId, ctx) {
       const target = targetOf(ctx);

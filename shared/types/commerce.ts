@@ -2,6 +2,7 @@ import type {
   BrandType,
   CartItemType as SdkCartItemType,
   CartType as SdkCartType,
+  OrderSummaryType,
   PriceType,
   ProductImageType,
   ProductType,
@@ -101,10 +102,22 @@ export interface CartLineConfigurationRow {
   value: string;
 }
 
-/** What a configured line was committed with, as the cart carries it. */
-export interface CartLineConfiguration {
-  configurationId: string;
+/** What a configured line was committed with, as the buyer reads it. */
+export interface LineConfigurationSummary {
   summary: CartLineConfigurationRow[];
+}
+
+/** What a configured line was committed with, as the cart carries it. */
+export interface CartLineConfiguration extends LineConfigurationSummary {
+  configurationId: string;
+}
+
+/**
+ * A configured order row, as the configurator backend reads it: by position,
+ * with the product it was read for, since an order row's id is the nil GUID.
+ */
+export interface OrderLineConfiguration extends LineConfigurationSummary {
+  productId: number | null;
 }
 
 export type CartItemType = SdkCartItemType & {
@@ -387,6 +400,17 @@ export interface OrderListItem {
     } | null;
   } | null;
 }
+
+// ---------------------------------------------------------------------------
+// Order detail (the SDK's order, a row extended with its configuration)
+// ---------------------------------------------------------------------------
+export type OrderDetailItem = SdkCartItemType & {
+  configuration?: LineConfigurationSummary;
+};
+
+export type OrderDetailType = Omit<OrderSummaryType, 'cart'> & {
+  cart?: Omit<SdkCartType, 'items'> & { items: OrderDetailItem[] };
+};
 
 // ---------------------------------------------------------------------------
 // Purchased product (aggregated from order history)

@@ -237,6 +237,11 @@ export function createFixtureConfiguratorBackend({
       return new Map();
     },
 
+    // So are the rows of an order placed from them.
+    async orderLineConfigurations() {
+      return new Map();
+    },
+
     ownsLine(cartId: string, itemId: string, ctx: ConfiguratorContext) {
       return lines.has(lineKey(ctx, cartId, itemId));
     },

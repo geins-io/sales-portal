@@ -1,7 +1,12 @@
 import type { OrderSummaryType } from '@geins/types';
 import { OrderError } from '@geins/core';
 import type { H3Event } from 'h3';
-import type { OrderListItem } from '#shared/types/commerce';
+import type {
+  OrderDetailType,
+  OrderLineConfiguration,
+  OrderListItem,
+} from '#shared/types/commerce';
+import { logger } from '../utils/logger';
 import {
   getTenantSDK,
   buildRequestContext,
@@ -10,18 +15,68 @@ import {
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 import { getCompany } from './company';
+import {
+  buildConfiguratorRequestContext,
+  getConfiguratorBackend,
+} from './configurator';
+
+/** Never throws: without the read, the rows render without a configuration. */
+async function orderLineConfigurations(
+  publicOrderId: string,
+  event: H3Event,
+): Promise<Map<number, OrderLineConfiguration>> {
+  try {
+    return await getConfiguratorBackend(event).orderLineConfigurations(
+      publicOrderId,
+      await buildConfiguratorRequestContext(event),
+    );
+  } catch {
+    logger.warn('[configurator] order line configurations unavailable');
+    return new Map();
+  }
+}
+
+/**
+ * Puts each configuration on the row at its position, and only when that row
+ * is the product the configuration was read for: a wrong summary on a row is
+ * worse than none.
+ */
+export function withOrderLineConfigurations(
+  order: OrderSummaryType,
+  lines: Map<number, OrderLineConfiguration>,
+): OrderDetailType {
+  if (!order.cart?.items || lines.size === 0) return order;
+  return {
+    ...order,
+    cart: {
+      ...order.cart,
+      items: order.cart.items.map((item, position) => {
+        const line = lines.get(position);
+        if (!item || !line || line.productId === null) return item;
+        if (String(line.productId) !== String(item.product?.productId)) {
+          return item;
+        }
+        return { ...item, configuration: { summary: line.summary } };
+      }),
+    },
+  };
+}
 
 export async function getOrder(
   args: { publicOrderId: string; checkoutMarketId?: string },
   event: H3Event,
-): Promise<OrderSummaryType | undefined> {
+): Promise<OrderDetailType | undefined> {
   const { oms } = await getTenantSDK(event);
   const requestContext = buildRequestContext(event);
-  return wrapServiceCall(
-    () => oms.order.get(args, requestContext),
-    'order',
-    OrderError,
-  );
+  const [order, lines] = await Promise.all([
+    wrapServiceCall(
+      () => oms.order.get(args, requestContext),
+      'order',
+      OrderError,
+    ),
+    orderLineConfigurations(args.publicOrderId, event),
+  ]);
+  return order ? withOrderLineConfigurations(order, lines) : undefined;
 }
 
 export async function listOrders(

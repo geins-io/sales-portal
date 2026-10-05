@@ -247,8 +247,15 @@ async function addConfiguredLine(
   };
 }
 
-/** The checkout summary and lines, against the cart the API computed. */
-async function expectCheckoutMatchesCart(page: Page, cart: ApiCart) {
+/**
+ * The checkout summary and lines, against the cart the API computed. A
+ * configured line shows its line total only, as in the cart.
+ */
+async function expectCheckoutMatchesCart(
+  page: Page,
+  cart: ApiCart,
+  configured: ConfiguredLine | null,
+) {
   // Checkout is pinned to inc-VAT: it reads `sellingPriceIncVatFormatted` and
   // passes `show-vat="true"` to every price, with no `useVatDisplay` in it. So
   // the inc-VAT side of the cart is what must reach this screen.
@@ -269,18 +276,29 @@ async function expectCheckoutMatchesCart(page: Page, cart: ApiCart) {
   for (const [index, line] of cart.items.entries()) {
     const item = rows.nth(index);
     const where = `checkout row ${index} (SKU ${line.skuId})`;
-    const unitPrice = await readPrice(
-      item.locator('[data-testid="checkout-unit-price"]'),
-    );
     const lineTotal = await readPrice(
       item.locator('[data-testid="checkout-line-total"]'),
     );
-    expect(unitPrice, `${where}: unit price`).toBeCloseTo(
-      line.unitPriceIncVat,
-      2,
-    );
     expect(lineTotal, `${where}: line total`).toBeCloseTo(
       line.totalPriceIncVat,
+      2,
+    );
+    if (line.skuId === configured?.skuId) {
+      await expect(
+        item.locator('[data-testid="checkout-unit-price"]'),
+        `${where}: a configured line shows no unit price`,
+      ).toHaveCount(0);
+      expect(lineTotal, `${where}: not quantity x unit price`).toBeCloseTo(
+        line.unitPriceIncVat * line.quantity,
+        2,
+      );
+      continue;
+    }
+    const unitPrice = await readPrice(
+      item.locator('[data-testid="checkout-unit-price"]'),
+    );
+    expect(unitPrice, `${where}: unit price`).toBeCloseTo(
+      line.unitPriceIncVat,
       2,
     );
     expect(lineTotal, `${where}: not quantity x unit price`).toBeCloseTo(
@@ -348,7 +366,7 @@ test('a placed order carries the cart it was built from all the way to the porta
     'the custom checkout summary did not render — hosted mode, or /api/checkout failed',
   ).toBeVisible({ timeout: PAGE_TIMEOUT });
 
-  await expectCheckoutMatchesCart(page, cart);
+  await expectCheckoutMatchesCart(page, cart, configured);
 
   // ---------- 3. The click ----------
 

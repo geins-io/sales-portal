@@ -1541,6 +1541,148 @@ describe('the merchant-api backend', () => {
     });
   });
 
+  describe('orderLineConfigurations', () => {
+    function orderRows(items: unknown) {
+      return answer({ data: { getOrderPublic: { cart: { items } } } });
+    }
+
+    it('reads the rows of the order, with the channel and the buyer', async () => {
+      fetchMock.mockResolvedValue(orderRows([]));
+
+      await backend.orderLineConfigurations('order-1', CTX);
+
+      const { url, body, headers } = sentRequest();
+      expect(url).toBe(URL);
+      expect(body.query).toBe(
+        loadQuery('configurator/get-order-line-configurations.graphql'),
+      );
+      expect(body.variables).toEqual({
+        publicOrderId: 'order-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+    });
+
+    it('gives the read 2 s, since the order waits for it', async () => {
+      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      fetchMock.mockResolvedValue(orderRows([]));
+
+      await backend.orderLineConfigurations('order-1', CTX);
+
+      expect(timeout.mock.calls).toEqual([[2_000]]);
+      timeout.mockRestore();
+    });
+
+    it('answers the configured rows by position, with the product and the summary in the order sent', async () => {
+      fetchMock.mockResolvedValue(
+        orderRows([
+          { product: { productId: 7 }, configuration: null },
+          {
+            product: { productId: 1359 },
+            configuration: {
+              summary: [
+                { label: 'Adapter', value: 'S45' },
+                { label: 'Width (500-1500)', value: '1200 mm' },
+              ],
+            },
+          },
+        ]),
+      );
+
+      const lines = await backend.orderLineConfigurations('order-1', CTX);
+
+      expect([...lines]).toEqual([
+        [
+          1,
+          {
+            productId: 1359,
+            summary: [
+              { label: 'Adapter', value: 'S45' },
+              { label: 'Width (500-1500)', value: '1200 mm' },
+            ],
+          },
+        ],
+      ]);
+    });
+
+    it('counts a null row as a position', async () => {
+      fetchMock.mockResolvedValue(
+        orderRows([
+          null,
+          { product: { productId: 1359 }, configuration: { summary: [] } },
+        ]),
+      );
+
+      const lines = await backend.orderLineConfigurations('order-1', CTX);
+
+      expect([...lines.keys()]).toEqual([1]);
+    });
+
+    it('reads a missing product as no product id, and a null summary as empty', async () => {
+      fetchMock.mockResolvedValue(
+        orderRows([
+          { product: null, configuration: { summary: null } },
+          { configuration: { summary: [] } },
+        ]),
+      );
+
+      const lines = await backend.orderLineConfigurations('order-1', CTX);
+
+      expect([...lines]).toEqual([
+        [0, { productId: null, summary: [] }],
+        [1, { productId: null, summary: [] }],
+      ]);
+    });
+
+    it('reads a missing label or value as empty and skips a null summary row', async () => {
+      fetchMock.mockResolvedValue(
+        orderRows([
+          {
+            product: { productId: 1359 },
+            configuration: {
+              summary: [
+                null,
+                { label: 'Finish', value: null },
+                { label: null, value: '12 t' },
+              ],
+            },
+          },
+        ]),
+      );
+
+      const lines = await backend.orderLineConfigurations('order-1', CTX);
+
+      expect(lines.get(0)?.summary).toEqual([
+        { label: 'Finish', value: '' },
+        { label: '', value: '12 t' },
+      ]);
+    });
+
+    it.each([
+      // The order is read before it exists for a while after it is placed.
+      ['no order', () => answer({ data: { getOrderPublic: null } })],
+      ['no cart', () => answer({ data: { getOrderPublic: { cart: null } } })],
+      ['no items', () => orderRows(null)],
+    ])('answers no rows for %s', async (_case, respond) => {
+      fetchMock.mockResolvedValue(respond());
+
+      const lines = await backend.orderLineConfigurations('order-1', CTX);
+
+      expect(lines.size).toBe(0);
+    });
+
+    it('passes a failure on', async () => {
+      fetchMock.mockResolvedValue(answer({}, 503));
+
+      expect(
+        (await failureOf(() => backend.orderLineConfigurations('order-1', CTX)))
+          .statusCode,
+      ).toBe(502);
+    });
+  });
+
   describe('addToCart', () => {
     const COMMITTED_ID = 'committed-1';
     const LINE = {
@@ -1998,6 +2140,18 @@ describe('the configuration queries', () => {
     // (VARIABLES_IN_ALLOWED_POSITION) before the provider sees the batch.
     const query = loadQuery('configurator/apply-configuration-changes.graphql');
     expect(query).toContain('$changes: [CpqConfigurationChangeInputType!]!');
+  });
+
+  it('reads an order row by its product and its configuration summary only', () => {
+    const query = loadQuery(
+      'configurator/get-order-line-configurations.graphql',
+    );
+    expect(query).toContain('getOrderPublic(');
+    expect(query).toContain('$publicOrderId: Guid!');
+    expect(query).toContain('productId');
+    expect(query).toContain('summary');
+    // Both ids are null on an order row by design.
+    expect(query).not.toContain('configurationId');
   });
 
   it('creates by product id, not by article number', () => {

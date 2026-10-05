@@ -1,0 +1,29 @@
+# Each row's configuration, which the SDK's order fragment does not select.
+# Rows are matched to the SDK's by position: an order row's id is the nil GUID.
+query getOrderLineConfigurations(
+  $publicOrderId: Guid!
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  getOrderPublic(
+    publicOrderId: $publicOrderId
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    cart {
+      items {
+        product {
+          productId
+        }
+        configuration {
+          summary {
+            label
+            value
+          }
+        }
+      }
+    }
+  }
+}

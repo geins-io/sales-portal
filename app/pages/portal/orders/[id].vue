@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowLeft, LoaderCircle, RotateCw } from 'lucide-vue-next';
-import type { AddressType, OrderSummaryType } from '#shared/types/commerce';
+import type { AddressType, OrderDetailType } from '#shared/types/commerce';
 import type { QuoteAddress } from '#shared/types/quote';
 import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { Button } from '~/components/ui/button';
@@ -42,7 +42,7 @@ async function handleReorder() {
 
 const orderId = computed(() => route.params.id as string);
 
-const { data, error, pending } = useFetch<{ order: OrderSummaryType }>(
+const { data, error, pending } = useFetch<{ order: OrderDetailType }>(
   () => `/api/orders/${orderId.value}`,
   { dedupe: 'defer' },
 );
@@ -139,7 +139,8 @@ const deliveryDate = computed(() => {
 // does not work on small screens).
 const orderItemRows = computed<PortalItemRow[]>(() =>
   (order.value?.cart?.items ?? []).map((item, index) => ({
-    key: item?.skuId != null ? String(item.skuId) : `row-${index}`,
+    // By position: two rows of an order can carry one SKU.
+    key: `row-${index}`,
     name: item?.product?.name ?? '',
     articleNumber: item?.product?.articleNumber ?? undefined,
     quantity: item?.quantity ?? 0,
@@ -149,6 +150,7 @@ const orderItemRows = computed<PortalItemRow[]>(() =>
       item?.totalPrice?.sellingPriceIncVatFormatted ?? undefined,
     imageFileName: item?.product?.productImages?.[0]?.fileName ?? null,
     alias: item?.product?.alias ?? null,
+    configuration: item?.configuration,
   })),
 );
 
@@ -256,8 +258,8 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                 </thead>
                 <tbody class="divide-border divide-y">
                   <tr
-                    v-for="item in order?.cart?.items"
-                    :key="item?.skuId"
+                    v-for="(item, index) in order?.cart?.items"
+                    :key="index"
                     data-testid="order-item-row"
                   >
                     <td class="h-24 px-4 py-2">
@@ -282,6 +284,15 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                           class="font-medium"
                           >{{ item?.product?.name }}</span
                         >
+                      </div>
+                      <div
+                        v-if="item?.configuration?.summary.length"
+                        class="mt-2 pl-13"
+                      >
+                        <LineConfigurationSummary
+                          :id="`order-item-configuration-${index}`"
+                          :summary="item.configuration.summary"
+                        />
                       </div>
                     </td>
                     <td

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, Trash2 } from 'lucide-vue-next';
+import { Trash2 } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import type { CartItemType } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
@@ -46,7 +46,6 @@ const skuName = computed(() => {
 
 /** Set on a configured line, which shows what it was committed with instead of the article line. */
 const configuration = computed(() => props.item.configuration);
-const expanded = ref(false);
 const configurationId = computed(
   () => `cart-item-configuration-${props.item.id}`,
 );
@@ -188,38 +187,10 @@ const maxQuantity = computed(() => {
 
     <!-- Row 3: what a configured line was committed with, collapsed -->
     <div v-if="configuration?.summary.length" class="pl-16">
-      <button
-        type="button"
-        class="text-primary flex items-center gap-1 text-xs font-medium"
-        :aria-expanded="expanded"
-        :aria-controls="configurationId"
-        data-testid="cart-item-configuration-toggle"
-        @click="expanded = !expanded"
-      >
-        <ChevronDown
-          class="size-3.5 transition-transform"
-          :class="{ '-rotate-90': !expanded }"
-        />
-        {{
-          expanded ? t('cart.hide_configuration') : t('cart.show_configuration')
-        }}
-      </button>
-      <dl
-        v-show="expanded"
+      <LineConfigurationSummary
         :id="configurationId"
-        class="bg-muted/40 mt-2 space-y-1 rounded-md p-3 text-xs"
-        data-testid="cart-item-configuration"
-      >
-        <div
-          v-for="(row, index) in configuration.summary"
-          :key="index"
-          class="flex justify-between gap-3"
-          data-testid="cart-item-configuration-row"
-        >
-          <dt class="text-muted-foreground">{{ row.label }}</dt>
-          <dd class="text-foreground text-right">{{ row.value }}</dd>
-        </div>
-      </dl>
+        :summary="configuration.summary"
+      />
     </div>
   </div>
 </template>

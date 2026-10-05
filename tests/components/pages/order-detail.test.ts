@@ -11,6 +11,7 @@ import type { AuthUser } from '@geins/types';
 import type { PublicTenantConfig } from '#shared/types/tenant-config';
 import { shallowMountComponent } from '../../utils/component';
 import OrderDetail from '../../../app/pages/portal/orders/[id].vue';
+import LineConfigurationSummary from '../../../app/components/cart/LineConfigurationSummary.vue';
 import { useTenant } from '../../../app/composables/useTenant';
 import { useAuthStore } from '../../../app/stores/auth';
 import { mockIsCatalogMode } from '../../setup-components';
@@ -683,6 +684,109 @@ describe('OrderDetail', () => {
       const table = wrapper.find('[data-testid="order-items-table"]');
       // The i18n mock renders the key — verify it's present in headers
       expect(table.text()).toContain('portal.orders.detail.items.unit_price');
+    });
+  });
+
+  describe('a configured row', () => {
+    const SUMMARY = [
+      { label: 'Machine weight (7-20)', value: '12 t' },
+      { label: 'Adapter', value: 'S45' },
+    ];
+    const OTHER_SUMMARY = [{ label: 'Adapter', value: 'S60' }];
+
+    /** Two configured rows of one product and SKU, after a plain one. */
+    function configuredOrder() {
+      const base = makeOrder();
+      const [plain] = base.order.cart.items;
+      const configured = {
+        product: {
+          productId: 1359,
+          name: 'Tiltrotator',
+          articleNumber: 'TR-1',
+          alias: 'tiltrotator',
+          productImages: [],
+        },
+        skuId: 2001,
+        quantity: 1,
+        unitPrice: {
+          sellingPriceIncVat: 2711.08,
+          sellingPriceIncVatFormatted: '2 711,08 kr',
+        },
+        totalPrice: {
+          sellingPriceIncVat: 2711.08,
+          sellingPriceIncVatFormatted: '2 711,08 kr',
+        },
+      };
+      return makeOrder({
+        cart: {
+          ...base.order.cart,
+          items: [
+            plain,
+            { ...configured, configuration: { summary: SUMMARY } },
+            { ...configured, configuration: { summary: OTHER_SUMMARY } },
+          ],
+        },
+      });
+    }
+
+    function mountOrder() {
+      mockData.value = configuredOrder();
+      return shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+    }
+
+    it('shows each row its own summary in the table, and none on a plain row', () => {
+      const wrapper = mountOrder();
+
+      const rows = wrapper.findAll('[data-testid="order-item-row"]');
+      expect(rows).toHaveLength(3);
+      /** The props of each summary block in a row. */
+      const summaryOf = (index: number): Record<string, unknown>[] =>
+        rows[index]!.findAllComponents(LineConfigurationSummary).map(
+          (block: { props: () => Record<string, unknown> }) => block.props(),
+        );
+      expect(summaryOf(0)).toEqual([]);
+      expect(summaryOf(1).map((props) => props.summary)).toEqual([SUMMARY]);
+      expect(summaryOf(2).map((props) => props.summary)).toEqual([
+        OTHER_SUMMARY,
+      ]);
+      expect(summaryOf(1)[0]!.id).not.toBe(summaryOf(2)[0]!.id);
+    });
+
+    it('renders two rows of one SKU without a duplicate key', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const wrapper = mountOrder();
+      // Vue checks keys when it moves rows in a patch, not on the first
+      // render, so the same rows arrive again in another order.
+      const reordered = configuredOrder();
+      reordered.order.cart.items.reverse();
+      mockData.value = reordered;
+      await wrapper.vm.$nextTick();
+
+      expect(
+        warn.mock.calls.filter(([message]) =>
+          String(message).includes('Duplicate keys'),
+        ),
+      ).toEqual([]);
+      warn.mockRestore();
+    });
+
+    it('hands the mobile sheet one row per order row, each with its own key and summary', () => {
+      const wrapper = mountOrder();
+
+      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+      const items = sheet.props('items') as {
+        key: string;
+        configuration?: { summary: unknown };
+      }[];
+      expect(items.map((item) => item.configuration)).toEqual([
+        undefined,
+        { summary: SUMMARY },
+        { summary: OTHER_SUMMARY },
+      ]);
+      expect(new Set(items.map((item) => item.key)).size).toBe(3);
     });
   });
 

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { H3Event } from 'h3';
+import { OrderError } from '@geins/core';
+import { logger } from '../../../server/utils/logger';
 
 // Mock the SDK module
 const mockOrderGet = vi.fn();
@@ -27,6 +29,13 @@ vi.mock('../../../server/services/_sdk', () => ({
     languageId: 'sv-SE',
     marketId: 'se',
   }),
+}));
+
+const orderLineConfigurations = vi.fn();
+
+vi.mock('../../../server/services/configurator', () => ({
+  getConfiguratorBackend: () => ({ orderLineConfigurations }),
+  buildConfiguratorRequestContext: async () => ({ configuratorContext: true }),
 }));
 
 vi.mock('../../../server/services/graphql/loader', () => ({
@@ -86,6 +95,7 @@ describe('orders service', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    orderLineConfigurations.mockResolvedValue(new Map());
     ordersService = await import('../../../server/services/orders');
   });
 
@@ -103,7 +113,203 @@ describe('orders service', () => {
         { publicOrderId: 'abc-123' },
         { languageId: 'sv-SE', marketId: 'se', userToken: 'test-user-token' },
       );
+      expect(vi.mocked(wrapServiceCall).mock.calls[0]?.slice(1)).toEqual([
+        'order',
+        OrderError,
+      ]);
       expect(result).toEqual(orderData);
+    });
+
+    describe('a configured row', () => {
+      const SUMMARY = [
+        { label: 'Adapter', value: 'S45' },
+        { label: 'Width (500-1500)', value: '1200 mm' },
+      ];
+      const OTHER_SUMMARY = [{ label: 'Adapter', value: 'S60' }];
+
+      function sdkOrder() {
+        return {
+          publicId: 'abc-123',
+          cart: {
+            items: [
+              { skuId: 10, quantity: 2, product: { productId: 7 } },
+              { skuId: 20, quantity: 1, product: { productId: 1359 } },
+              { skuId: 20, quantity: 1, product: { productId: 1359 } },
+            ],
+          },
+        };
+      }
+
+      let warn: ReturnType<typeof vi.spyOn>;
+      beforeEach(() => {
+        warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+      });
+
+      it('reads the rows of the order it was asked for', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+
+        await ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent);
+
+        expect(orderLineConfigurations).toHaveBeenCalledWith('abc-123', {
+          configuratorContext: true,
+        });
+      });
+
+      it('puts each configuration on the row at its position, two rows of one SKU each their own', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([
+            [1, { productId: 1359, summary: SUMMARY }],
+            [2, { productId: 1359, summary: OTHER_SUMMARY }],
+          ]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order?.cart?.items).toEqual([
+          { skuId: 10, quantity: 2, product: { productId: 7 } },
+          {
+            skuId: 20,
+            quantity: 1,
+            product: { productId: 1359 },
+            configuration: { summary: SUMMARY },
+          },
+          {
+            skuId: 20,
+            quantity: 1,
+            product: { productId: 1359 },
+            configuration: { summary: OTHER_SUMMARY },
+          },
+        ]);
+        expect(order?.publicId).toBe('abc-123');
+      });
+
+      it('leaves a row bare when the product at that position is another', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([[0, { productId: 1359, summary: SUMMARY }]]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order).toEqual(sdkOrder());
+      });
+
+      it('leaves a row bare when the read names no product', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([[1, { productId: null, summary: SUMMARY }]]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order).toEqual(sdkOrder());
+      });
+
+      it.each([
+        ['the row has no product', { skuId: 20 }],
+        [
+          'neither names a product',
+          { skuId: 20, product: { productId: null } },
+        ],
+      ])('leaves a row bare when %s', async (_case, row) => {
+        const order = { publicId: 'abc-123', cart: { items: [row] } };
+        mockOrderGet.mockResolvedValueOnce(order);
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([[0, { productId: null, summary: SUMMARY }]]),
+        );
+
+        await expect(
+          ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent),
+        ).resolves.toEqual(order);
+      });
+
+      it('leaves a row without a product bare when the read names one', async () => {
+        const order = { publicId: 'abc-123', cart: { items: [{ skuId: 20 }] } };
+        mockOrderGet.mockResolvedValueOnce(order);
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([[0, { productId: 1359, summary: SUMMARY }]]),
+        );
+
+        await expect(
+          ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent),
+        ).resolves.toEqual(order);
+      });
+
+      it('answers the order unchanged, with one warning, when the read fails', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockRejectedValueOnce(new Error('timed out'));
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order).toEqual(sdkOrder());
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith(
+          '[configurator] order line configurations unavailable',
+        );
+      });
+
+      it('answers no order while the order does not exist yet', async () => {
+        mockOrderGet.mockResolvedValueOnce(undefined);
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([[0, { productId: 7, summary: SUMMARY }]]),
+        );
+
+        await expect(
+          ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent),
+        ).resolves.toBeUndefined();
+      });
+
+      it.each([
+        ['no cart', null],
+        ['no rows', { items: null }],
+      ])('answers an order with %s as it came', async (_case, cart) => {
+        const bare = { publicId: 'abc-123', cart };
+        mockOrderGet.mockResolvedValueOnce(bare);
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([[0, { productId: 7, summary: SUMMARY }]]),
+        );
+
+        await expect(
+          ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent),
+        ).resolves.toEqual(bare);
+      });
+
+      it('skips a null row and keeps its position', async () => {
+        mockOrderGet.mockResolvedValueOnce({
+          publicId: 'abc-123',
+          cart: { items: [null, { skuId: 20, product: { productId: 1359 } }] },
+        });
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([[1, { productId: 1359, summary: SUMMARY }]]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order?.cart?.items).toEqual([
+          null,
+          {
+            skuId: 20,
+            product: { productId: 1359 },
+            configuration: { summary: SUMMARY },
+          },
+        ]);
+      });
     });
   });
 

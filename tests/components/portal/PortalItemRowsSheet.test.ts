@@ -95,4 +95,50 @@ describe('PortalItemRowsSheet', () => {
       'Order items',
     );
   });
+
+  describe('a configured row', () => {
+    const configured = [
+      {
+        ...items[0]!,
+        configuration: {
+          summary: [
+            { label: 'Machine weight (7-20)', value: '12 t' },
+            { label: 'Adapter', value: 'S45' },
+          ],
+        },
+      },
+      items[1]!,
+    ];
+
+    it('shows its summary, collapsed, and none on a plain row', async () => {
+      const wrapper = mountSheet({ items: configured });
+
+      const [first, second] = wrapper.findAll('[data-testid="item-rows-row"]');
+      const toggle = first!.find(
+        '[data-testid="cart-item-configuration-toggle"]',
+      );
+      expect(toggle.attributes('aria-expanded')).toBe('false');
+      expect(
+        second!.find('[data-testid="cart-item-configuration-toggle"]').exists(),
+      ).toBe(false);
+
+      await toggle.trigger('click');
+
+      expect(
+        first!
+          .findAll('[data-testid="cart-item-configuration-row"]')
+          .map((row) => [row.find('dt').text(), row.find('dd').text()]),
+      ).toEqual([
+        ['Machine weight (7-20)', '12 t'],
+        ['Adapter', 'S45'],
+      ]);
+    });
+
+    it('keeps the quantity and unit price line', () => {
+      const wrapper = mountSheet({ items: configured });
+
+      const first = wrapper.findAll('[data-testid="item-rows-row"]')[0]!;
+      expect(first.find('[data-testid="item-rows-quantity"]').text()).toBe('2');
+    });
+  });
 });

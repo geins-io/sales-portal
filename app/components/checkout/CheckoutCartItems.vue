@@ -82,7 +82,14 @@ function handleRemove(item: CartItemType) {
               {{ item.product?.name ?? item.title ?? '' }}
             </span>
             <p
-              v-if="item.product?.articleNumber || getSkuName(item)"
+              v-if="item.configuration"
+              class="text-muted-foreground text-xs"
+              data-testid="checkout-cart-item-configured"
+            >
+              {{ t('cart.configured_product') }}
+            </p>
+            <p
+              v-else-if="item.product?.articleNumber || getSkuName(item)"
               class="text-muted-foreground text-xs"
             >
               <template v-if="item.product?.articleNumber">
@@ -102,6 +109,12 @@ function handleRemove(item: CartItemType) {
                 :disabled="!props.isEditable"
                 data-testid="checkout-quantity-stepper"
                 @update:model-value="handleQuantityUpdate(item, $event)"
+              />
+            </div>
+            <div v-if="item.configuration?.summary.length" class="mt-3">
+              <LineConfigurationSummary
+                :id="`checkout-cart-item-configuration-${item.id}`"
+                :summary="item.configuration.summary"
               />
             </div>
           </div>
@@ -129,7 +142,7 @@ function handleRemove(item: CartItemType) {
               class="text-base font-semibold"
             />
             <p
-              v-if="item.unitPrice"
+              v-if="item.unitPrice && !item.configuration"
               class="text-muted-foreground text-sm"
               data-testid="checkout-unit-price"
             >

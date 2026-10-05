@@ -82,6 +82,12 @@ const open = ref(false);
                     item.unitPriceFormatted
                   }}</span>
                 </p>
+                <div v-if="item.configuration?.summary.length" class="mt-2">
+                  <LineConfigurationSummary
+                    :id="`item-rows-configuration-${item.key}`"
+                    :summary="item.configuration.summary"
+                  />
+                </div>
               </div>
               <div
                 data-testid="item-rows-total-price"
