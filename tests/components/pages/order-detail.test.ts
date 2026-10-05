@@ -87,9 +87,9 @@ const {
 });
 
 // Mock cart store
-const mockAddItem = vi.fn().mockResolvedValue(undefined);
+const mockAddItems = vi.fn().mockResolvedValue(undefined);
 const mockCartStore = {
-  addItem: mockAddItem,
+  addItems: mockAddItems,
   isLoading: false,
 };
 
@@ -278,6 +278,7 @@ function makeOrder(overrides: Record<string, unknown> = {}) {
       },
       paymentDetails: [{ name: 'Invoice' }],
       shippingDetails: [{ name: 'Standard Delivery' }],
+      reorderable: true,
       ...overrides,
     },
   };
@@ -325,9 +326,9 @@ describe('OrderDetail', () => {
     mockUseFetch.mockClear();
     mockShowError.mockClear();
     mockUseHead.mockClear();
-    mockAddItem.mockClear();
+    mockAddItems.mockClear();
     mockNavigateTo.mockClear();
-    mockAddItem.mockResolvedValue(undefined);
+    mockAddItems.mockResolvedValue(undefined);
   });
 
   // canReorder is `canAccess('reorder') && !isCatalogMode`, so each test has to
@@ -764,6 +765,23 @@ describe('OrderDetail', () => {
       }
     });
 
+    it('marks a configured row "Konfigurerad produkt" under its name, and no plain row', () => {
+      const rows = mountOrder().findAll('[data-testid="order-item-row"]');
+
+      expect(
+        rows.map((row) =>
+          row.find('[data-testid="order-item-configured"]').exists(),
+        ),
+      ).toEqual([false, true, true]);
+      const cell = rows[1]!.find('td');
+      expect(cell.find('[data-testid="order-item-configured"]').text()).toBe(
+        'cart.configured_product',
+      );
+      expect(cell.html().indexOf('order-item-name')).toBeLessThan(
+        cell.html().indexOf('order-item-configured'),
+      );
+    });
+
     it('renders two rows of one SKU without a duplicate key', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -925,92 +943,127 @@ describe('OrderDetail', () => {
   });
 
   describe('reorder action', () => {
-    it('adds all order items to cart when reorder button is clicked', async () => {
-      mockData.value = makeOrder();
-
-      const wrapper = shallowMountComponent(OrderDetail, {
+    function mountOrder(order = makeOrder()) {
+      mockData.value = order;
+      return shallowMountComponent(OrderDetail, {
         global: { stubs: defaultStubs },
       });
+    }
 
-      const reorderButton = wrapper.find('[data-testid="reorder-button"]');
-      expect(reorderButton.exists()).toBe(true);
-
-      await reorderButton.trigger('click');
-      // Wait for async reorder to complete
-      await vi.dynamicImportSettled();
-
-      expect(mockAddItem).toHaveBeenCalledTimes(2);
-      expect(mockAddItem).toHaveBeenCalledWith(1001, 3);
-      expect(mockAddItem).toHaveBeenCalledWith(1002, 1);
-    });
-
-    it('navigates to cart page after reorder', async () => {
-      mockData.value = makeOrder();
-
-      const wrapper = shallowMountComponent(OrderDetail, {
-        global: { stubs: defaultStubs },
-      });
-
+    async function reorder(wrapper: ReturnType<typeof mountOrder>) {
       await wrapper.find('[data-testid="reorder-button"]').trigger('click');
       await vi.dynamicImportSettled();
+    }
 
-      expect(mockNavigateTo).toHaveBeenCalled();
+    it('adds all order items to cart in one bulk add when reorder button is clicked', async () => {
+      const wrapper = mountOrder();
+      expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
+        true,
+      );
+
+      await reorder(wrapper);
+
+      expect(mockAddItems.mock.calls).toEqual([
+        [
+          [
+            { skuId: 1001, quantity: 3 },
+            { skuId: 1002, quantity: 1 },
+          ],
+          0,
+        ],
+      ]);
+    });
+
+    it('stays on the order after reorder, and the store opens the cart drawer', async () => {
+      await reorder(mountOrder());
+
+      expect(mockAddItems).toHaveBeenCalledTimes(1);
+      expect(mockNavigateTo).not.toHaveBeenCalled();
     });
 
     it('shows loading state on reorder button while adding items', async () => {
-      // Make addItem hang so we can check loading state
       let resolveAdd!: () => void;
-      mockAddItem.mockImplementation(
+      mockAddItems.mockImplementation(
         () => new Promise<void>((r) => (resolveAdd = r)),
       );
-      mockData.value = makeOrder();
+      const wrapper = mountOrder();
 
-      const wrapper = shallowMountComponent(OrderDetail, {
-        global: { stubs: defaultStubs },
-      });
-
-      const btn = wrapper.find('[data-testid="reorder-button"]');
-      btn.trigger('click');
+      wrapper.find('[data-testid="reorder-button"]').trigger('click');
       await wrapper.vm.$nextTick();
 
       expect(
         wrapper.find('[data-testid="reorder-button"]').attributes('disabled'),
       ).toBeDefined();
 
-      // Resolve all pending adds
-      resolveAdd();
       resolveAdd();
       await vi.dynamicImportSettled();
     });
 
     it('skips items without skuId', async () => {
-      mockData.value = makeOrder({
-        cart: {
-          items: [
-            {
-              product: { name: 'No SKU' },
-              skuId: undefined,
-              quantity: 1,
-            },
-            {
-              product: { name: 'Has SKU' },
-              skuId: 2001,
-              quantity: 2,
-            },
-          ],
-          summary: {},
-        },
+      const wrapper = mountOrder(
+        makeOrder({
+          cart: {
+            items: [
+              { product: { name: 'No SKU' }, skuId: undefined, quantity: 1 },
+              { product: { name: 'Has SKU' }, skuId: 2001, quantity: 2 },
+            ],
+            summary: {},
+          },
+        }),
+      );
+
+      await reorder(wrapper);
+
+      expect(mockAddItems.mock.calls).toEqual([
+        [[{ skuId: 2001, quantity: 2 }], 0],
+      ]);
+    });
+
+    it('leaves out a configured row and a configurable one, and hands the cart the count', async () => {
+      setFeatures({
+        reorder: { enabled: true },
+        configurator: { enabled: true, access: 'all' },
       });
+      const base = makeOrder();
+      const [plain] = base.order.cart.items;
+      const configurable = {
+        product: { productId: 1359, name: 'Bucket', configurable: true },
+        skuId: 1652,
+        quantity: 1,
+      };
+      const wrapper = mountOrder(
+        makeOrder({
+          cart: {
+            ...base.order.cart,
+            items: [
+              plain,
+              configurable,
+              {
+                ...configurable,
+                configuration: { summary: [{ label: 'A', value: 'B' }] },
+              },
+            ],
+          },
+        }),
+      );
 
-      const wrapper = shallowMountComponent(OrderDetail, {
-        global: { stubs: defaultStubs },
-      });
+      await reorder(wrapper);
 
-      await wrapper.find('[data-testid="reorder-button"]').trigger('click');
-      await vi.dynamicImportSettled();
+      expect(mockAddItems.mock.calls).toEqual([
+        [[{ skuId: 1001, quantity: 3 }], 2],
+      ]);
+      expect(mockNavigateTo).not.toHaveBeenCalled();
+    });
 
-      expect(mockAddItem).toHaveBeenCalledTimes(1);
-      expect(mockAddItem).toHaveBeenCalledWith(2001, 2);
+    it.each([
+      ['the server could not read the rows', false],
+      ['the order does not say', undefined],
+    ])('offers no reorder when %s', (_case, reorderable) => {
+      const wrapper = mountOrder(makeOrder({ reorderable }));
+
+      expect(wrapper.find('[data-testid="reorder-button"]').exists()).toBe(
+        false,
+      );
     });
   });
 

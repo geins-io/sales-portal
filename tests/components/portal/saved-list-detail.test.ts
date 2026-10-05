@@ -56,7 +56,7 @@ vi.mock('../../../app/stores/favorites', () => ({
 // ---------------------------------------------------------------------------
 // Cart store mock
 // ---------------------------------------------------------------------------
-const mockCartStore = { addItem: vi.fn(), error: null };
+const mockCartStore = { addItem: vi.fn(), addItems: vi.fn(), error: null };
 
 vi.mock('../../../app/stores/cart', () => ({
   useCartStore: () => mockCartStore,
@@ -254,6 +254,7 @@ describe('Saved list detail quantities', () => {
     mockCanAccess.mockReturnValue(true);
     mockQuantities.value = {};
     mockCartStore.addItem.mockClear();
+    mockCartStore.addItems.mockClear();
   });
 
   function stepper(wrapper: ReturnType<typeof mountPage>, index: number) {
@@ -291,17 +292,23 @@ describe('Saved list detail quantities', () => {
     expect(totalText(wrapper)).toBe(asTotal(1500 + 730 * 2));
   });
 
-  it('adds every row to the cart with its stored quantity', async () => {
+  it('adds every row to the cart with its stored quantity, in one bulk add', async () => {
     mockQuantities.value = { alpha: 3 };
     const wrapper = mountPage();
 
     await wrapper.find('[data-testid="add-all-to-cart-btn"]').trigger('click');
     await nextTick();
 
-    expect(mockCartStore.addItem.mock.calls).toEqual([
-      [11, 3],
-      [22, 1],
+    expect(mockCartStore.addItems.mock.calls).toEqual([
+      [
+        [
+          { skuId: 11, quantity: 3 },
+          { skuId: 22, quantity: 1 },
+        ],
+        0,
+      ],
     ]);
+    expect(mockCartStore.addItem).not.toHaveBeenCalled();
   });
 
   it('adds a single row to the cart with its stored quantity', async () => {
@@ -376,6 +383,7 @@ describe('Saved list detail with a configurable product', () => {
     mockCanAccess.mockReturnValue(true);
     mockQuantities.value = {};
     mockCartStore.addItem.mockClear();
+    mockCartStore.addItems.mockClear();
     mockFetchProducts.push(BOOKCASE);
   });
 
@@ -459,22 +467,23 @@ describe('Saved list detail with a configurable product', () => {
     }
   });
 
-  it('adds only the ordinary rows on add all and says how many it skipped', async () => {
+  it('adds only the ordinary rows on add all and hands the cart the count it skipped', async () => {
     const wrapper = mountPage();
-    expect(
-      wrapper.find('[data-testid="add-all-skipped-configurable"]').exists(),
-    ).toBe(false);
 
     await wrapper.find('[data-testid="add-all-to-cart-btn"]').trigger('click');
     await nextTick();
 
-    expect(mockCartStore.addItem.mock.calls).toEqual([
-      [11, 1],
-      [22, 1],
+    expect(mockCartStore.addItems.mock.calls).toEqual([
+      [
+        [
+          { skuId: 11, quantity: 1 },
+          { skuId: 22, quantity: 1 },
+        ],
+        1,
+      ],
     ]);
-    expect(
-      wrapper.find('[data-testid="add-all-skipped-configurable"]').text(),
-    ).toBe('portal.saved_list_detail.add_all_skipped_configurable {"count":1}');
+    // The note is the cart's, not the list page's.
+    expect(wrapper.text()).not.toContain('skipped_configurable');
   });
 
   it('treats a configurable product as ordinary for a buyer the configurator refuses', async () => {
@@ -493,13 +502,15 @@ describe('Saved list detail with a configurable product', () => {
     await wrapper.find('[data-testid="add-all-to-cart-btn"]').trigger('click');
     await nextTick();
 
-    expect(mockCartStore.addItem.mock.calls).toEqual([
-      [11, 1],
-      [22, 1],
-      [33, 1],
+    expect(mockCartStore.addItems.mock.calls).toEqual([
+      [
+        [
+          { skuId: 11, quantity: 1 },
+          { skuId: 22, quantity: 1 },
+          { skuId: 33, quantity: 1 },
+        ],
+        0,
+      ],
     ]);
-    expect(
-      wrapper.find('[data-testid="add-all-skipped-configurable"]').exists(),
-    ).toBe(false);
   });
 });

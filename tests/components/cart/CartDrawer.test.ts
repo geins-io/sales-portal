@@ -208,6 +208,58 @@ describe('CartDrawer', () => {
     expect(wrapper.findAll('[data-testid="cart-item"]').length).toBe(1);
   });
 
+  describe('skip note', () => {
+    const stubs = {
+      Sheet: { template: '<div><slot /></div>', props: ['open'] },
+      SheetContent: { template: '<div><slot /></div>' },
+      SheetHeader: { template: '<div><slot /></div>' },
+      SheetTitle: { template: '<div><slot /></div>' },
+      SheetDescription: { template: '<div><slot /></div>' },
+      SheetFooter: { template: '<div><slot /></div>' },
+      CartItem: {
+        template: '<div data-testid="cart-item" />',
+        props: ['item'],
+      },
+      CartSkippedNote: { template: '<p data-testid="skipped-note" />' },
+      CartPromoCodeInput: true,
+    };
+
+    it('sits above the cart lines', () => {
+      const store = useCartStore();
+      store.isOpen = true;
+      store.cart = {
+        id: 'cart-123',
+        items: [{ id: 'item-1', skuId: 100, quantity: 1 }],
+        appliedCampaigns: [],
+        summary: {},
+      } as unknown as CartType;
+
+      const html = shallowMountComponent(CartDrawer, {
+        global: { stubs },
+      }).html();
+
+      expect(html).toContain('data-testid="skipped-note"');
+      expect(html.indexOf('data-testid="skipped-note"')).toBeLessThan(
+        html.indexOf('data-testid="cart-item"'),
+      );
+    });
+
+    it('sits above the empty state, for a bulk add that added nothing', () => {
+      const store = useCartStore();
+      store.isOpen = true;
+
+      const html = shallowMountComponent(CartDrawer, {
+        global: { stubs },
+      }).html();
+
+      expect(html).toContain('data-testid="cart-empty"');
+      expect(html.indexOf('data-testid="skipped-note"')).toBeGreaterThan(-1);
+      expect(html.indexOf('data-testid="skipped-note"')).toBeLessThan(
+        html.indexOf('data-testid="cart-empty"'),
+      );
+    });
+  });
+
   it('hands a configured line its configuration, next to an ordinary line', () => {
     const store = useCartStore();
     store.isOpen = true;

@@ -160,22 +160,23 @@ const filteredProducts = computed(() => {
 
 // --- Add all to cart ---
 const isAddingAll = ref(false);
-const skippedConfigurable = ref(0);
 async function addAllToCart() {
   if (isAddingAll.value || products.value.length === 0) return;
   isAddingAll.value = true;
-  skippedConfigurable.value = 0;
   try {
+    const lines: { skuId: number; quantity: number }[] = [];
+    let skipped = 0;
     for (const product of products.value) {
       if (isConfigurable(product)) {
-        skippedConfigurable.value++;
+        skipped++;
         continue;
       }
       const firstSku = product.skus?.find((s) => s?.skuId != null);
       if (firstSku?.skuId) {
-        await cartStore.addItem(firstSku.skuId, getQty(product.alias));
+        lines.push({ skuId: firstSku.skuId, quantity: getQty(product.alias) });
       }
     }
+    await cartStore.addItems(lines, skipped);
   } finally {
     isAddingAll.value = false;
   }
@@ -296,18 +297,6 @@ function addToCart(product: ListProduct) {
               </Button>
             </div>
           </div>
-
-          <p
-            v-if="skippedConfigurable > 0"
-            data-testid="add-all-skipped-configurable"
-            class="text-muted-foreground px-6 pb-4 text-right text-sm"
-          >
-            {{
-              t('portal.saved_list_detail.add_all_skipped_configurable', {
-                count: skippedConfigurable,
-              })
-            }}
-          </p>
 
           <!-- List name + list total -->
           <div

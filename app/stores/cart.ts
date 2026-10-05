@@ -35,6 +35,19 @@ export const useCartStore = defineStore('cart', () => {
   const isOpen = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  /**
+   * How many configurable products the last bulk add left out, for the note
+   * above the cart's lines. It holds until the next add or another cart, not
+   * through quantity changes: the buyer reads the cart while adjusting it.
+   */
+  const skippedConfigurable = ref(0);
+  watch(
+    cartId,
+    () => {
+      skippedConfigurable.value = 0;
+    },
+    { flush: 'sync' },
+  );
 
   const itemCount = computed(
     () =>
@@ -71,6 +84,7 @@ export const useCartStore = defineStore('cart', () => {
   }
 
   async function addItem(skuId: number, quantity: number) {
+    skippedConfigurable.value = 0;
     isLoading.value = true;
     error.value = null;
     try {
@@ -102,6 +116,7 @@ export const useCartStore = defineStore('cart', () => {
     skuId: number,
     quantity: number,
   ): Promise<{ cartId: string; itemId: string } | null> {
+    skippedConfigurable.value = 0;
     isLoading.value = true;
     try {
       let id = cartId.value;
@@ -152,6 +167,22 @@ export const useCartStore = defineStore('cart', () => {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /**
+   * A bulk add (reorder, a saved list's "add all") that left `skipped`
+   * configurable products out. The drawer opens on a skip even when nothing
+   * was added, since the note in it is the only place the buyer reads why.
+   */
+  async function addItems(
+    lines: { skuId: number; quantity: number }[],
+    skipped: number,
+  ) {
+    for (const line of lines) {
+      await addItem(line.skuId, line.quantity);
+    }
+    skippedConfigurable.value = skipped;
+    if (skipped > 0) isOpen.value = true;
   }
 
   async function updateQuantity(itemId: string, quantity: number) {
@@ -227,12 +258,14 @@ export const useCartStore = defineStore('cart', () => {
     isOpen,
     isLoading,
     error,
+    skippedConfigurable,
     itemCount,
     isEmpty,
     discountAmount,
     visibleCartCampaigns,
     fetchCart,
     addItem,
+    addItems,
     addConfiguredItem,
     replaceConfiguredItem,
     updateQuantity,

@@ -84,6 +84,9 @@ async function orderLines(publicOrderId: string, ctx: ConfiguratorContext) {
     { publicOrderId, ...channelOf(target) },
     { timeoutMs: LINE_READ_TIMEOUT_MS },
   );
+  // Reorder reads no rows as "nothing configured", so an order this read
+  // cannot see must fail rather than look empty.
+  if (!data.getOrderPublic) throw upstream('answered without the order');
   return mapOrderLineConfigurations(data.getOrderPublic);
 }
 

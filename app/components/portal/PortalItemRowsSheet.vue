@@ -68,6 +68,13 @@ const open = ref(false);
                 </NuxtLink>
                 <span v-else class="font-medium">{{ item.name }}</span>
                 <p
+                  v-if="item.configuration"
+                  data-testid="item-rows-configured"
+                  class="text-muted-foreground text-xs"
+                >
+                  {{ $t('cart.configured_product') }}
+                </p>
+                <p
                   v-if="item.articleNumber"
                   class="text-muted-foreground text-xs"
                 >

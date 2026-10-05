@@ -1,5 +1,6 @@
-# Each row's configuration, which the SDK's order fragment does not select.
-# Rows are matched to the SDK's by position: an order row's id is the nil GUID.
+# Each row's product type and configuration, which the SDK's order fragment
+# does not select. Rows are matched to the SDK's by position: an order row's id
+# is the nil GUID.
 query getOrderLineConfigurations(
   $publicOrderId: Guid!
   $channelId: String
@@ -16,6 +17,7 @@ query getOrderLineConfigurations(
       items {
         product {
           productId
+          type
         }
         configuration {
           summary {

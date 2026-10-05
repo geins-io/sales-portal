@@ -138,6 +138,7 @@ const defaultStubs = {
     template: '<div><slot /></div>',
     props: ['section'],
   },
+  CartSkippedNote: { template: '<p data-testid="skipped-note" />' },
   GeinsImage: true,
   PriceDisplay: true,
   QuantityInput: true,
@@ -199,6 +200,33 @@ describe('CartPage', () => {
       false,
     );
     expect(wrapper.findAll('[data-testid="cart-item"]').length).toBe(2);
+  });
+
+  it('puts the skip note above the cart lines', () => {
+    const store = useCartStore();
+    store.cart = mockCart;
+
+    const html = shallowMountComponent(CartPage, {
+      global: { stubs: defaultStubs },
+    }).html();
+
+    expect(html).toContain('data-testid="skipped-note"');
+    expect(html.indexOf('data-testid="skipped-note"')).toBeLessThan(
+      html.indexOf('data-testid="cart-item"'),
+    );
+  });
+
+  it('puts the skip note above the empty state, for a bulk add that added nothing', () => {
+    const wrapper = shallowMountComponent(CartPage, {
+      global: { stubs: defaultStubs },
+    });
+    const html = wrapper.html();
+
+    expect(wrapper.find('[data-testid="cart-page-empty"]').exists()).toBe(true);
+    expect(html.indexOf('data-testid="skipped-note"')).toBeGreaterThan(-1);
+    expect(html.indexOf('data-testid="skipped-note"')).toBeLessThan(
+      html.indexOf('data-testid="cart-page-empty"'),
+    );
   });
 
   it('hands a configured line its configuration, next to an ordinary line', () => {

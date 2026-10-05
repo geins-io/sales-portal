@@ -1575,12 +1575,12 @@ describe('the merchant-api backend', () => {
       timeout.mockRestore();
     });
 
-    it('answers the configured rows by position, with the product and the summary in the order sent', async () => {
+    it('answers every row by position, with its product, type and configuration in the order sent', async () => {
       fetchMock.mockResolvedValue(
         orderRows([
-          { product: { productId: 7 }, configuration: null },
+          { product: { productId: 7, type: 'product' }, configuration: null },
           {
-            product: { productId: 1359 },
+            product: { productId: 1359, type: 'configurable' },
             configuration: {
               summary: [
                 { label: 'Adapter', value: 'S45' },
@@ -1594,14 +1594,18 @@ describe('the merchant-api backend', () => {
       const lines = await backend.orderLineConfigurations('order-1', CTX);
 
       expect([...lines]).toEqual([
+        [0, { productId: 7, type: 'product', configuration: null }],
         [
           1,
           {
             productId: 1359,
-            summary: [
-              { label: 'Adapter', value: 'S45' },
-              { label: 'Width (500-1500)', value: '1200 mm' },
-            ],
+            type: 'configurable',
+            configuration: {
+              summary: [
+                { label: 'Adapter', value: 'S45' },
+                { label: 'Width (500-1500)', value: '1200 mm' },
+              ],
+            },
           },
         ],
       ]);
@@ -1620,7 +1624,7 @@ describe('the merchant-api backend', () => {
       expect([...lines.keys()]).toEqual([1]);
     });
 
-    it('reads a missing product as no product id, and a null summary as empty', async () => {
+    it('reads a missing product as no product id and no type, and a null summary as empty', async () => {
       fetchMock.mockResolvedValue(
         orderRows([
           { product: null, configuration: { summary: null } },
@@ -1631,8 +1635,8 @@ describe('the merchant-api backend', () => {
       const lines = await backend.orderLineConfigurations('order-1', CTX);
 
       expect([...lines]).toEqual([
-        [0, { productId: null, summary: [] }],
-        [1, { productId: null, summary: [] }],
+        [0, { productId: null, type: null, configuration: { summary: [] } }],
+        [1, { productId: null, type: null, configuration: { summary: [] } }],
       ]);
     });
 
@@ -1654,15 +1658,22 @@ describe('the merchant-api backend', () => {
 
       const lines = await backend.orderLineConfigurations('order-1', CTX);
 
-      expect(lines.get(0)?.summary).toEqual([
+      expect(lines.get(0)?.configuration?.summary).toEqual([
         { label: 'Finish', value: '' },
         { label: '', value: '12 t' },
       ]);
     });
 
+    it('answers 502 when the order comes back empty, so reorder cannot trust the rows', async () => {
+      fetchMock.mockResolvedValue(answer({ data: { getOrderPublic: null } }));
+
+      const failure = await failureOf(() =>
+        backend.orderLineConfigurations('order-1', CTX),
+      );
+      expect(failure.statusCode).toBe(502);
+    });
+
     it.each([
-      // The order is read before it exists for a while after it is placed.
-      ['no order', () => answer({ data: { getOrderPublic: null } })],
       ['no cart', () => answer({ data: { getOrderPublic: { cart: null } } })],
       ['no items', () => orderRows(null)],
     ])('answers no rows for %s', async (_case, respond) => {
@@ -2361,13 +2372,13 @@ describe('the configuration queries', () => {
     expect(query).toContain('$changes: [CpqConfigurationChangeInputType!]!');
   });
 
-  it('reads an order row by its product and its configuration summary only', () => {
+  it('reads an order row by its product, its type and its configuration summary only', () => {
     const query = loadQuery(
       'configurator/get-order-line-configurations.graphql',
     );
     expect(query).toContain('getOrderPublic(');
     expect(query).toContain('$publicOrderId: Guid!');
-    expect(query).toContain('productId');
+    expect(query).toMatch(/product\s*\{\s*productId\s+type\s*\}/);
     expect(query).toContain('summary');
     // Both ids are null on an order row by design.
     expect(query).not.toContain('configurationId');

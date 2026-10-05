@@ -6,6 +6,7 @@ import type { PortalItemRow, PortalItemTotal } from '#shared/types/portal-rows';
 import { Button } from '~/components/ui/button';
 import { useCartStore } from '~/stores/cart';
 import { getOrderStatusPillClass } from '~/utils/order-status';
+import { reorderLines } from '~/utils/reorder';
 import { productPath } from '#shared/utils/route-helpers';
 
 definePageMeta({
@@ -20,7 +21,12 @@ const { formatLocale } = useFormatLocale();
 const cartStore = useCartStore();
 const { isCatalogMode, timezone } = useTenant();
 const { canAccess } = useFeatureAccess();
-const canReorder = computed(() => canAccess('reorder') && !isCatalogMode.value);
+const canReorder = computed(
+  () =>
+    canAccess('reorder') &&
+    !isCatalogMode.value &&
+    order.value?.reorderable === true,
+);
 
 const isReordering = ref(false);
 
@@ -30,11 +36,8 @@ async function handleReorder() {
 
   isReordering.value = true;
   try {
-    for (const item of items) {
-      if (!item?.skuId) continue;
-      await cartStore.addItem(item.skuId, item.quantity ?? 1);
-    }
-    navigateTo(localePath('/cart'));
+    const { lines, skipped } = reorderLines(items, canAccess('configurator'));
+    await cartStore.addItems(lines, skipped);
   } finally {
     isReordering.value = false;
   }
@@ -270,20 +273,29 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                           "
                           :alt="item?.product?.name ?? ''"
                         />
-                        <NuxtLink
-                          v-if="item?.product?.alias"
-                          :to="localePath(productPath(item.product.alias))"
-                          data-testid="order-item-name-link"
-                          class="font-medium hover:underline"
-                        >
-                          {{ item?.product?.name }}
-                        </NuxtLink>
-                        <span
-                          v-else
-                          data-testid="order-item-name"
-                          class="font-medium"
-                          >{{ item?.product?.name }}</span
-                        >
+                        <div>
+                          <NuxtLink
+                            v-if="item?.product?.alias"
+                            :to="localePath(productPath(item.product.alias))"
+                            data-testid="order-item-name-link"
+                            class="font-medium hover:underline"
+                          >
+                            {{ item?.product?.name }}
+                          </NuxtLink>
+                          <span
+                            v-else
+                            data-testid="order-item-name"
+                            class="font-medium"
+                            >{{ item?.product?.name }}</span
+                          >
+                          <p
+                            v-if="item?.configuration"
+                            data-testid="order-item-configured"
+                            class="text-muted-foreground text-xs"
+                          >
+                            {{ t('cart.configured_product') }}
+                          </p>
+                        </div>
                       </div>
                       <div
                         v-if="item?.configuration?.summary.length"
