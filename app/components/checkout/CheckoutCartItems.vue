@@ -123,6 +123,7 @@ function handleRemove(item: CartItemType) {
             <PriceDisplay
               v-if="item.totalPrice"
               :price="item.totalPrice"
+              :quantity="item.quantity"
               :show-vat="true"
               testid="checkout-line-total"
               class="text-base font-semibold"

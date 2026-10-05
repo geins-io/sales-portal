@@ -152,6 +152,28 @@ describe('CartItem', () => {
     expect(wrapper.text()).toContain('Art nr. ART-001');
   });
 
+  it('passes the line quantity with the total', () => {
+    const wrapper = mountComponent(CartItem, {
+      props: { item: mockItem },
+      global: {
+        stubs: {
+          GeinsImage: true,
+          PriceDisplay: {
+            template:
+              '<span :data-testid="testid" :data-quantity="quantity" />',
+            props: ['price', 'quantity', 'testid'],
+          },
+          QuantityInput: {
+            template: '<div />',
+            props: ['modelValue', 'min', 'max'],
+          },
+        },
+      },
+    });
+    const total = wrapper.find('[data-testid="cart-item-total-price"]');
+    expect(total.attributes('data-quantity')).toBe(String(mockItem.quantity));
+  });
+
   describe('campaign badges', () => {
     const stubs = {
       GeinsImage: true,

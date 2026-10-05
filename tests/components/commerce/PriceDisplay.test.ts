@@ -158,6 +158,106 @@ describe('PriceDisplay', () => {
     expect(wrapper.text()).toContain('-33%');
   });
 
+  describe('a flag raised by rounding alone', () => {
+    // Measured on a CPQ-enabled account: the regular price with more decimals,
+    // the selling price inc VAT one öre lower, the flag up, no campaign.
+    const roundingOnly = () =>
+      makePrice({
+        regularPriceExVat: 86.74170868,
+        sellingPriceExVat: 86.74,
+        regularPriceIncVat: 108.43,
+        sellingPriceIncVat: 108.42,
+        regularPriceExVatFormatted: '86,74 kr',
+        sellingPriceExVatFormatted: '86,74 kr',
+        regularPriceIncVatFormatted: '108,43 kr',
+        sellingPriceIncVatFormatted: '108,42 kr',
+        discountPercentage: 0,
+      });
+
+    it.each([
+      ['inc', true],
+      ['ex', false],
+    ])('renders an ordinary price %s VAT', (_mode, showVat) => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: {
+          price: roundingOnly(),
+          showVat,
+          discountType: 'SALE_PRICE',
+          testid: 'amount',
+        },
+      });
+      expect(wrapper.find('.line-through').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="amount"]').classes()).not.toContain(
+        'text-destructive',
+      );
+      expect(wrapper.find('[data-testid="discount-type-label"]').exists()).toBe(
+        false,
+      );
+    });
+
+    it('still shows a real discount in red with the regular price struck', () => {
+      const wrapper = mountComponent(PriceDisplay, {
+        props: { price: makePrice(), testid: 'amount' },
+      });
+      expect(wrapper.find('[data-testid="amount"]').classes()).toContain(
+        'text-destructive',
+      );
+      expect(wrapper.find('.line-through').text()).toContain('299,00 kr');
+    });
+  });
+
+  describe('a line total, with the threshold widened by its quantity', () => {
+    // The measured unit price times 3: the regular price's extra decimals make
+    // the total's gap 0.00513, over one unit's threshold, under three units'.
+    const roundingTotal = () =>
+      makePrice({
+        regularPriceExVat: 260.22512604,
+        sellingPriceExVat: 260.22,
+        regularPriceExVatFormatted: '260,23 kr',
+        sellingPriceExVatFormatted: '260,22 kr',
+        discountPercentage: 0,
+      });
+    const mountTotal = (
+      price: ReturnType<typeof makePrice>,
+      quantity?: number,
+    ) =>
+      mountComponent(PriceDisplay, {
+        props: { price, quantity, showVat: false, testid: 'amount' },
+      });
+
+    it('renders an ordinary total when the gap is rounding on 3 units', () => {
+      const wrapper = mountTotal(roundingTotal(), 3);
+      expect(wrapper.find('.line-through').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="amount"]').classes()).not.toContain(
+        'text-destructive',
+      );
+    });
+
+    it('shows a discount the total carries on its own', () => {
+      // A quantity campaign: the total discounted, the unit price not.
+      const wrapper = mountTotal(
+        makePrice({
+          regularPriceExVat: 260.22,
+          sellingPriceExVat: 240,
+          regularPriceExVatFormatted: '260,22 kr',
+          sellingPriceExVatFormatted: '240,00 kr',
+        }),
+        3,
+      );
+      expect(wrapper.find('[data-testid="amount"]').classes()).toContain(
+        'text-destructive',
+      );
+      expect(wrapper.find('.line-through').text()).toContain('260,22 kr');
+    });
+
+    it('judges one unit without a quantity, as before', () => {
+      const wrapper = mountTotal(roundingTotal());
+      expect(wrapper.find('[data-testid="amount"]').classes()).toContain(
+        'text-destructive',
+      );
+    });
+  });
+
   it('shows "From" prefix when fromPrice is true', () => {
     const wrapper = mountComponent(PriceDisplay, {
       props: { price: makePrice(), fromPrice: true },
