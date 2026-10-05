@@ -139,3 +139,15 @@ export interface WireCommittedConfiguration {
   weightPerUnit: WireDecimal | null;
   summary: WireList<WireSummaryLine>;
 }
+
+/** `CartItemType`, as far as the cart-line read selects it. */
+export interface WireCartLine {
+  id: string | null;
+  configurationId: string | null;
+  configuration: { summary: WireList<WireSummaryLine> } | null;
+}
+
+/** `CartType`, as far as the cart-line read selects it. */
+export interface WireCartLines {
+  items: WireList<WireCartLine>;
+}

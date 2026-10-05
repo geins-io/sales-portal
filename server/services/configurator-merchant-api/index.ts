@@ -6,9 +6,21 @@ import type {
 } from '../configurator';
 import { loadQuery } from '../graphql/loader';
 import { toWireChange } from './changes';
-import { REOPEN_TIMEOUT_MS, requestMerchantApi } from './client';
-import { mapCommittedConfiguration, mapConfiguration } from './map';
-import type { WireCommittedConfiguration, WireConfiguration } from './wire';
+import {
+  CART_READ_TIMEOUT_MS,
+  REOPEN_TIMEOUT_MS,
+  requestMerchantApi,
+} from './client';
+import {
+  mapCartLineConfigurations,
+  mapCommittedConfiguration,
+  mapConfiguration,
+} from './map';
+import type {
+  WireCartLines,
+  WireCommittedConfiguration,
+  WireConfiguration,
+} from './wire';
 
 // ---------------------------------------------------------------------------
 // The real backend: the CPQ area of merchant-api, over GraphQL.
@@ -41,6 +53,18 @@ function upstream(reason: string) {
 function documentOf(wire: WireConfiguration | null): Configuration {
   if (!wire) throw upstream('answered without a document');
   return mapConfiguration(wire);
+}
+
+async function cartLines(cartId: string, ctx: ConfiguratorContext) {
+  const target = targetOf(ctx);
+  const data = await requestMerchantApi<{ getCart: WireCartLines | null }>(
+    target,
+    ctx.userToken,
+    loadQuery('configurator/get-cart-line-configurations.graphql'),
+    { id: cartId, ...channelOf(target) },
+    { timeoutMs: CART_READ_TIMEOUT_MS },
+  );
+  return mapCartLineConfigurations(data.getCart);
 }
 
 export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
@@ -148,6 +172,16 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
 
     async addToCart(cartId, line, ctx) {
       const target = targetOf(ctx);
+      // A retry after an answer lost on the way would add the committed id
+      // again, and one id added twice is two lines. A failed read fails the add.
+      for (const [itemId, { configurationId }] of await cartLines(
+        cartId,
+        ctx,
+      )) {
+        if (configurationId === line.committedConfigurationId) {
+          return { itemId };
+        }
+      }
       const data = await requestMerchantApi<{
         addToCart: {
           items?:
@@ -180,6 +214,8 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
       }
       return { itemId: added.id };
     },
+
+    cartLineConfigurations: cartLines,
 
     async reopen(cartId, itemId, ctx) {
       const target = targetOf(ctx);

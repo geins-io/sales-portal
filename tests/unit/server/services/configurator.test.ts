@@ -206,6 +206,26 @@ describe('getConfiguratorBackend', () => {
     }
   });
 
+  it.each([
+    ['off', 'off'],
+    ['an absent key', undefined],
+    ['fixture', 'fixture'],
+  ])(
+    'answers no configured cart lines on %s, without a request',
+    async (_label, value) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+      const lines = await withBackend(value).cartLineConfigurations(
+        'cart-1',
+        CTX,
+      );
+
+      expect(lines.size).toBe(0);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      fetchSpy.mockRestore();
+    },
+  );
+
   it.each(['merchant-api', 'composite'])(
     'answers 500 on %s when the context carries no merchant-api target',
     async (value) => {

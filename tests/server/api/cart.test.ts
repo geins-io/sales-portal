@@ -36,6 +36,11 @@ vi.mock('../../../server/services/_sdk', () => ({
   buildRequestContext: vi.fn().mockReturnValue(undefined),
 }));
 
+// A tenant without the configurator: the cart is the SDK's alone.
+vi.mock('../../../server/utils/feature-access', () => ({
+  canAccessFeatureServer: vi.fn().mockResolvedValue(false),
+}));
+
 // Rate limiter — uses useStorage('kv'), must stay mocked
 vi.mock('../../../server/utils/rate-limiter', () => ({
   promoCodeRateLimiter: {
@@ -91,6 +96,7 @@ vi.stubGlobal('readValidatedBody', vi.fn());
 vi.stubGlobal('readBody', vi.fn());
 vi.stubGlobal('defineEventHandler', (fn: AnyFn) => fn);
 vi.stubGlobal('wrapServiceCall', async (fn: () => Promise<unknown>) => fn());
+vi.stubGlobal('getSessionToken', () => undefined);
 
 const mockEvent = {
   context: {

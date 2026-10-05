@@ -118,6 +118,9 @@
     "item_count": "{count} Artikel | {count} Artikel",
     "your_cart_description": "Ihr Warenkorb",
     "unit_price_prefix": "à",
+    "configured_product": "Konfiguriertes Produkt",
+    "show_configuration": "Konfiguration anzeigen",
+    "hide_configuration": "Konfiguration ausblenden",
     "items_short": "Artikel"
   },
   "checkout": {

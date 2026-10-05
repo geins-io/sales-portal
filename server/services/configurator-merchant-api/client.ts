@@ -14,6 +14,13 @@ import type { MerchantApiTarget } from '../configurator';
 const TIMEOUT_MS = 15_000;
 
 /**
+ * The read of a cart's lines, measured at 60–300 ms warm and about 400 ms cold.
+ * Past this the cart answers without their configurations, and a configured
+ * add, which reads the lines first, fails rather than risk a second line.
+ */
+export const CART_READ_TIMEOUT_MS = 2_000;
+
+/**
  * A reopen replays the session's change log, measured at 2 s for one change
  * and 17 s for forty. The provider gives up itself at about 35 s with a 503, so
  * this waits past that and the provider's answer always arrives first.

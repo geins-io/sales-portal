@@ -232,6 +232,11 @@ export function createFixtureConfiguratorBackend({
       return documentOf(id, session);
     },
 
+    // Its lines are plain lines in the cart, which carry no configuration.
+    async cartLineConfigurations() {
+      return new Map();
+    },
+
     ownsLine(cartId: string, itemId: string, ctx: ConfiguratorContext) {
       return lines.has(lineKey(ctx, cartId, itemId));
     },

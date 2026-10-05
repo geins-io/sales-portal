@@ -1,5 +1,7 @@
 import type {
   BrandType,
+  CartItemType as SdkCartItemType,
+  CartType as SdkCartType,
   PriceType,
   ProductImageType,
   ProductType,
@@ -86,15 +88,30 @@ export function formatPrice(
 }
 
 // ---------------------------------------------------------------------------
-// Cart types (re-exported from SDK)
+// Cart types (re-exported from SDK, a line extended with its configuration)
 // ---------------------------------------------------------------------------
 export type {
-  CartType,
-  CartItemType,
   CartItemInputType,
   CartItemProductType,
   CartSummaryType,
 } from '@geins/types';
+
+export interface CartLineConfigurationRow {
+  label: string;
+  value: string;
+}
+
+/** What a configured line was committed with, as the cart carries it. */
+export interface CartLineConfiguration {
+  configurationId: string;
+  summary: CartLineConfigurationRow[];
+}
+
+export type CartItemType = SdkCartItemType & {
+  configuration?: CartLineConfiguration;
+};
+
+export type CartType = Omit<SdkCartType, 'items'> & { items: CartItemType[] };
 
 // ---------------------------------------------------------------------------
 // Discount & lowest-price types (from enriched pricing GraphQL fragments)
