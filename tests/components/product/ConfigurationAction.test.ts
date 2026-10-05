@@ -164,4 +164,66 @@ describe('ConfigurationAction', () => {
       true,
     );
   });
+
+  describe('editing a cart line', () => {
+    const editMount = (props: Record<string, unknown> = {}) =>
+      mountAction({ editing: true, ...props });
+
+    it('updates the line instead of adding one, as the design reference does', async () => {
+      const wrapper = editMount();
+      const update = wrapper.find('[data-testid="configurator-commit"]');
+
+      expect(update.text()).toBe('configurator.edit.update');
+      expect(update.text()).not.toContain('product.add_to_cart');
+      await update.trigger('click');
+      expect(wrapper.emitted('submit')).toHaveLength(1);
+    });
+
+    it('says required choices remain, and stays shut, while the provider says so', () => {
+      const update = editMount({ canCommit: false, incomplete: true }).find(
+        '[data-testid="configurator-commit"]',
+      );
+
+      expect(update.text()).toBe('configurator.commit_incomplete');
+      expect(update.attributes('disabled')).toBeDefined();
+    });
+
+    it('offers to revert and to cancel, under the update', async () => {
+      const wrapper = editMount();
+      const revert = wrapper.find('[data-testid="configurator-edit-revert"]');
+      const cancel = wrapper.find('[data-testid="configurator-edit-cancel"]');
+
+      expect(revert.text()).toBe('configurator.edit.revert');
+      expect(cancel.text()).toBe('configurator.edit.cancel');
+      await revert.trigger('click');
+      await cancel.trigger('click');
+      expect(wrapper.emitted('revert')).toHaveLength(1);
+      expect(wrapper.emitted('cancel')).toHaveLength(1);
+      expect(wrapper.emitted('submit')).toBeUndefined();
+    });
+
+    it('lets nothing else be pressed while a request is under way', () => {
+      const wrapper = editMount({ canCommit: false, busy: true });
+
+      for (const id of [
+        'configurator-edit-revert',
+        'configurator-edit-cancel',
+      ]) {
+        expect(
+          wrapper.find(`[data-testid="${id}"]`).attributes('disabled'),
+        ).toBeDefined();
+      }
+    });
+
+    it('offers neither outside edit mode', () => {
+      const wrapper = mountAction();
+
+      expect(
+        wrapper.find('[data-testid="configurator-edit-revert"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="configurator-edit-cancel"]').exists(),
+      ).toBe(false);
+    });
+  });
 });

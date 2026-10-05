@@ -794,6 +794,16 @@ describe('ConfigurationPanel', () => {
       expect(wrapper.text()).toContain('configurator.panel.expired');
     });
 
+    it('says the cart line is unchanged when the session of an edit expired', () => {
+      const wrapper = mountPanel({ status: 'expired', editing: true });
+      const expired = wrapper.find(
+        '[data-testid="configurator-panel-expired"]',
+      );
+      expect(expired.text()).toContain('configurator.edit.expired');
+      expect(expired.text()).not.toContain('configurator.panel.expired');
+      expect(expired.text()).toContain('configurator.panel.start_over');
+    });
+
     it('emits restart when start over is pressed', async () => {
       const wrapper = mountPanel({ status: 'expired' });
       await wrapper

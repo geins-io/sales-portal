@@ -65,4 +65,15 @@ describe('ConfiguratorAddRetry', () => {
         .exists(),
     ).toBe(false);
   });
+
+  it('offers no second try when one cannot succeed, but still says why', () => {
+    const wrapper = mountRetry({ retryable: false });
+
+    expect(
+      wrapper.find('[data-testid="configurator-add-retry"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapper.find('[data-testid="configurator-add-error"]').exists(),
+    ).toBe(true);
+  });
 });

@@ -70,4 +70,28 @@ describe('LineConfigurationSummary', () => {
     expect(toggleOf(wrapper).exists()).toBe(false);
     expect(blockOf(wrapper).exists()).toBe(false);
   });
+
+  it('puts what its owner slots in at the foot of the rows, and nothing without it', () => {
+    const slotted = mountComponent(LineConfigurationSummary, {
+      props: { summary: SUMMARY, id: 'line-configuration-1' },
+      slots: { default: '<a data-testid="slot-probe" />' },
+    });
+    // In a <div> of its own: a <dl> holds only groups of <dt> and <dd>.
+    const foot = blockOf(slotted).element.lastElementChild;
+    expect(foot?.tagName).toBe('DIV');
+    expect(foot?.getAttribute('data-testid')).toBe(
+      'cart-item-configuration-foot',
+    );
+    expect(foot?.firstElementChild).toBe(
+      slotted.find('[data-testid="slot-probe"]').element,
+    );
+
+    const plain = mountSummary();
+    expect(
+      plain.find('[data-testid="cart-item-configuration-foot"]').exists(),
+    ).toBe(false);
+    expect(
+      blockOf(plain).element.lastElementChild?.getAttribute('data-testid'),
+    ).toBe('cart-item-configuration-row');
+  });
 });

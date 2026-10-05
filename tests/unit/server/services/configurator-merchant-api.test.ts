@@ -1860,6 +1860,30 @@ describe('the merchant-api backend', () => {
       timeout.mockRestore();
     });
 
+    it('codes a line removed from the cart as gone, which is how the canary answers it', async () => {
+      // Measured 2026-10-05 on the monitor account: add, remove, then reopen
+      // the stale item id.
+      fetchMock.mockResolvedValue(
+        answer({
+          data: { reopenCartItemConfiguration: null },
+          errors: [
+            {
+              message:
+                'The cart has no configured item with the ID fc6abfee-10ff-4edd-8656-954b5fc2aa7d.',
+              extensions: { code: 'CartItemNotConfigured' },
+            },
+          ],
+        }),
+      );
+
+      const failure = await failureOf(() =>
+        backend.reopen('cart-1', 'fc6abfee-10ff-4edd-8656-954b5fc2aa7d', CTX),
+      );
+
+      expect(failure.statusCode).toBe(404);
+      expect((failure.data as { code?: string }).code).toBe('CART_LINE_GONE');
+    });
+
     it('answers 502 when the reopen comes back without a document', async () => {
       fetchMock.mockResolvedValue(
         answer({ data: { reopenCartItemConfiguration: null } }),
@@ -1868,6 +1892,185 @@ describe('the merchant-api backend', () => {
         (await failureOf(() => backend.reopen('cart-1', 'item-1', CTX)))
           .statusCode,
       ).toBe(502);
+    });
+  });
+
+  describe('replaceLine', () => {
+    const NEW_ID = 'committed-2';
+
+    function lines(
+      ...items: { id: string; quantity: number; configurationId: string }[]
+    ) {
+      return answer({
+        data: {
+          getCart: {
+            items: items.map((item) => ({ ...item, configuration: null })),
+          },
+        },
+      });
+    }
+
+    function swapped(
+      ...items: { id: string; configurationId: string | null }[]
+    ) {
+      return answer({ data: { updateCartItem: { id: 'cart-1', items } } });
+    }
+
+    const LINE = { id: 'item-1', quantity: 3, configurationId: 'committed-1' };
+
+    it("reads the line, then swaps its configuration at the line's own quantity", async () => {
+      fetchMock
+        .mockResolvedValueOnce(lines({ ...LINE, id: 'other' }, LINE))
+        .mockResolvedValueOnce(
+          swapped({ id: 'item-1', configurationId: NEW_ID }),
+        );
+
+      await expect(
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
+      ).resolves.toEqual({ itemId: 'item-1' });
+
+      expect(sentRequest(0).body.query).toBe(
+        loadQuery('configurator/get-cart-line-configurations.graphql'),
+      );
+      const { url, body, headers } = sentRequest(1);
+      expect(url).toBe(URL);
+      expect(body.query).toBe(
+        loadQuery('configurator/update-configured-cart-item.graphql'),
+      );
+      expect(body.variables).toEqual({
+        id: 'cart-1',
+        item: { id: 'item-1', quantity: 3, configurationId: NEW_ID },
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+    });
+
+    it('answers the line without sending the swap when it already carries the new id', async () => {
+      fetchMock.mockResolvedValueOnce(
+        lines({ ...LINE, configurationId: NEW_ID }),
+      );
+
+      await expect(
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
+      ).resolves.toEqual({ itemId: 'item-1' });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('answers 404, coded as a line that is gone, without swapping when the line is not in the cart', async () => {
+      fetchMock.mockResolvedValueOnce(lines({ ...LINE, id: 'other' }));
+
+      const failure = await failureOf(() =>
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
+      );
+
+      expect(failure.statusCode).toBe(404);
+      expect((failure.data as { code?: string }).code).toBe('CART_LINE_GONE');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails the swap without sending it when the cart cannot be read first', async () => {
+      fetchMock.mockResolvedValueOnce(answer({}, 503));
+
+      const failure = await failureOf(() =>
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
+      );
+
+      expect(failure.statusCode).toBe(502);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      [
+        'the line still on its old id',
+        () => swapped({ id: 'item-1', configurationId: 'committed-1' }),
+      ],
+      [
+        'the new id on another line',
+        () =>
+          swapped(
+            { id: 'item-1', configurationId: 'committed-1' },
+            { id: 'item-9', configurationId: NEW_ID },
+          ),
+      ],
+      ['an empty cart', () => swapped()],
+      ['no cart', () => answer({ data: { updateCartItem: null } })],
+    ])('answers 409 for %s', async (_case, respond) => {
+      fetchMock
+        .mockResolvedValueOnce(lines(LINE))
+        .mockResolvedValueOnce(respond());
+
+      const failure = await failureOf(() =>
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
+      );
+      expect(failure.statusCode).toBe(409);
+    });
+
+    it.each([
+      ['no cart', () => answer({ data: { getCart: null } })],
+      [
+        'a cart without items',
+        () => answer({ data: { getCart: { items: null } } }),
+      ],
+    ])('answers 404 without swapping for %s', async (_case, respond) => {
+      fetchMock.mockResolvedValueOnce(respond());
+
+      const failure = await failureOf(() =>
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
+      );
+
+      expect(failure.statusCode).toBe(404);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('reads past a null entry, in the cart and in the answer', async () => {
+      fetchMock
+        .mockResolvedValueOnce(
+          answer({
+            data: {
+              getCart: { items: [null, { ...LINE, configuration: null }] },
+            },
+          }),
+        )
+        .mockResolvedValueOnce(
+          answer({
+            data: {
+              updateCartItem: {
+                id: 'cart-1',
+                items: [null, { id: 'item-1', configurationId: NEW_ID }],
+              },
+            },
+          }),
+        );
+
+      await expect(
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
+      ).resolves.toEqual({ itemId: 'item-1' });
+    });
+
+    it('fails on its own side, sending nothing, for a line with no quantity', async () => {
+      fetchMock.mockResolvedValueOnce(
+        lines({ ...LINE, quantity: null as unknown as number }),
+      );
+
+      const failure = await failureOf(() =>
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
+      );
+
+      expect(failure.statusCode).toBe(409);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('answers 404 when the committed id is unknown upstream', async () => {
+      fetchMock
+        .mockResolvedValueOnce(lines(LINE))
+        .mockResolvedValueOnce(graphqlError('ConfigurationNotFound'));
+
+      const failure = await failureOf(() =>
+        backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
+      );
+      expect(failure.statusCode).toBe(404);
     });
   });
 
@@ -1916,6 +2119,22 @@ describe('the merchant-api backend', () => {
         expect((await failureOf(call)).statusCode, name).toBe(status);
       }
     });
+
+    it.each([
+      ['CartItemNotConfigured', 'CART_LINE_GONE'],
+      ['CartBelongsToAnotherCompany', 'CART_NOT_OWN'],
+      ['MissingCustomerNumber', 'FORBIDDEN'],
+      ['ConfigurationNotFound', 'NOT_FOUND'],
+    ])(
+      "answers %s with the portal's own code %s, which tells the line's refusals from the rest",
+      async (upstream, code) => {
+        fetchMock.mockResolvedValueOnce(graphqlError(upstream));
+        const failure = await failureOf(calls[calls.length - 1]![1]);
+        expect((failure.data as { code?: string } | undefined)?.code).toBe(
+          code,
+        );
+      },
+    );
 
     it.each([
       'ConfigurationNotFound',
@@ -2158,5 +2377,28 @@ describe('the configuration queries', () => {
     const query = loadQuery('configurator/create-configuration.graphql');
     expect(query).toContain('productId: $productId');
     expect(query).not.toContain('$articleNumber');
+  });
+});
+
+describe('the cart line swap', () => {
+  it("sends the cart, the line's input and the channel, and reads back every line's id and configuration", () => {
+    const query = loadQuery('configurator/update-configured-cart-item.graphql');
+    expect(query).toContain('updateCartItem(');
+    for (const needle of [
+      '$id: String!',
+      '$item: CartItemInputType!',
+      '$channelId: String',
+      '$languageId: String',
+      '$marketId: String',
+      'configurationId',
+    ]) {
+      expect(query, needle).toContain(needle);
+    }
+  });
+
+  it("reads each line's quantity, which the swap sends back", () => {
+    expect(
+      loadQuery('configurator/get-cart-line-configurations.graphql'),
+    ).toMatch(/items\s*\{[^}]*\bquantity\b/);
   });
 });

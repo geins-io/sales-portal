@@ -121,6 +121,7 @@
     "configured_product": "Konfigurerad produkt",
     "show_configuration": "Visa konfiguration",
     "hide_configuration": "Dölj konfiguration",
+    "edit_configuration": "Ändra konfiguration",
     "items_short": "varor"
   },
   "checkout": {
@@ -387,6 +388,17 @@
       "copied": "Kopierad",
       "expand": "Öppna specifikationen i större vy",
       "copy_quantity": "Antal: {count} st"
+    },
+    "edit": {
+      "marker": "Redigerar en rad i varukorgen",
+      "update": "Uppdatera i varukorgen",
+      "revert": "Ångra ändringar",
+      "cancel": "Avbryt redigering",
+      "expired": "Sessionen har gått ut. Raden i varukorgen är oförändrad.",
+      "not_reopenable": "Konfigurationen kan inte öppnas igen. Gör om den från början – raden i varukorgen är oförändrad tills du uppdaterar.",
+      "line_gone": "Raden finns inte längre i varukorgen.",
+      "open_failed": "Raden kunde inte öppnas just nu.",
+      "update_failed": "Raden kunde inte uppdateras. Raden i varukorgen har kvar sina tidigare val."
     }
   },
   "account": {

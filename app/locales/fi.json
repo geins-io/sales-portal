@@ -121,6 +121,7 @@
     "configured_product": "Konfiguroitu tuote",
     "show_configuration": "Näytä kokoonpano",
     "hide_configuration": "Piilota kokoonpano",
+    "edit_configuration": "Muuta kokoonpanoa",
     "items_short": "tuotetta"
   },
   "checkout": {
@@ -387,6 +388,17 @@
       "copied": "Kopioitu",
       "expand": "Avaa erittely suuremmassa näkymässä",
       "copy_quantity": "Määrä: {count} kpl"
+    },
+    "edit": {
+      "marker": "Muokkaat ostoskorin riviä",
+      "update": "Päivitä ostoskoriin",
+      "revert": "Kumoa muutokset",
+      "cancel": "Peruuta muokkaus",
+      "expired": "Istunto on vanhentunut. Ostoskorin rivi on ennallaan.",
+      "not_reopenable": "Kokoonpanoa ei voi avata uudelleen. Tee se alusta – ostoskorin rivi pysyy ennallaan, kunnes päivität.",
+      "line_gone": "Riviä ei ole enää ostoskorissa.",
+      "open_failed": "Riviä ei voitu avata juuri nyt.",
+      "update_failed": "Riviä ei voitu päivittää. Ostoskorin rivi säilyttää aiemmat valintansa."
     }
   },
   "account": {

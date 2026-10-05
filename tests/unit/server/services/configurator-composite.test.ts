@@ -57,6 +57,7 @@ beforeEach(() => {
     commit: vi.fn(async () => ({})),
     addToCart: vi.fn(async () => ({ itemId: 'real-line' })),
     reopen: vi.fn(async () => REAL_DOCUMENT),
+    replaceLine: vi.fn(async () => ({ itemId: 'real-line' })),
     cartLineConfigurations: vi.fn(async () => REAL_LINES),
     orderLineConfigurations: vi.fn(async () => REAL_ORDER_LINES),
   };
@@ -336,5 +337,72 @@ describe('reopen', () => {
       REAL_DOCUMENT,
     );
     expect(real.reopen).toHaveBeenCalledWith('cart-1', 'real-line', CTX);
+  });
+});
+
+describe('replaceLine', () => {
+  async function fixtureCommittedId(): Promise<string> {
+    const { configurationId: id } = await composite.create(
+      { productId: ARBETSBORD_PRO_GEINS_ID, quantity: 1 },
+      CTX,
+    );
+    await composite.applyChanges(
+      id,
+      [
+        {
+          type: 'option',
+          optionId: 'legs-electric',
+          instanceId: '0',
+          selected: true,
+          quantity: 1,
+          lock: 'none',
+        },
+        {
+          type: 'option',
+          optionId: 'ral-9005',
+          instanceId: '0',
+          selected: true,
+          quantity: 1,
+          lock: 'none',
+        },
+        { type: 'variable', variableId: 'shelves', value: 2 },
+      ],
+      CTX,
+    );
+    const { committedConfigurationId } = await composite.commit(id, CTX);
+    await composite.addToCart(
+      'cart-1',
+      { committedConfigurationId, skuId: 42, quantity: 1 },
+      {
+        ...CTX,
+        cart: {
+          addPlainItem: async () => ({
+            items: [{ id: 'fixture-line', skuId: 42 }],
+          }),
+        },
+      },
+    );
+    return committedConfigurationId;
+  }
+
+  it('sends an id the fixture committed to the fixture', async () => {
+    const id = await fixtureCommittedId();
+
+    await expect(
+      composite.replaceLine('cart-1', 'fixture-line', id, CTX),
+    ).resolves.toEqual({ itemId: 'fixture-line' });
+    expect(real.replaceLine).not.toHaveBeenCalled();
+  });
+
+  it('sends every other committed id to the real backend', async () => {
+    await expect(
+      composite.replaceLine('cart-1', 'item-1', 'real-committed-2', CTX),
+    ).resolves.toEqual({ itemId: 'real-line' });
+    expect(real.replaceLine).toHaveBeenCalledWith(
+      'cart-1',
+      'item-1',
+      'real-committed-2',
+      CTX,
+    );
   });
 });

@@ -1,25 +1,21 @@
-query getCartLineConfigurations(
-  $id: String
+mutation updateConfiguredCartItem(
+  $id: String!
+  $item: CartItemInputType!
   $channelId: String
   $languageId: String
   $marketId: String
 ) {
-  getCart(
+  updateCartItem(
     id: $id
+    item: $item
     channelId: $channelId
     languageId: $languageId
     marketId: $marketId
   ) {
+    id
     items {
       id
-      quantity
       configurationId
-      configuration {
-        summary {
-          label
-          value
-        }
-      }
     }
   }
 }

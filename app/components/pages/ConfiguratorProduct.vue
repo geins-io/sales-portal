@@ -6,10 +6,11 @@ import {
   Download,
   Info,
   Loader2,
+  Pencil,
   RotateCcw,
   SlidersHorizontal,
 } from 'lucide-vue-next';
-import { useElementBounding, useWindowSize } from '@vueuse/core';
+import { until, useElementBounding, useWindowSize } from '@vueuse/core';
 import type { ContentAreaType } from '#shared/types/cms';
 import { CMS_SLOTS } from '#shared/types/cms-slots';
 import type { DetailProduct, ListProduct } from '#shared/types/commerce';
@@ -32,6 +33,8 @@ import {
   formError,
   headerError,
   refusedChange,
+  replaceFailureKey,
+  replaceRetryable,
   showsAddRetry,
   stickyBoxMaxHeight,
   type ConfiguratorAction,
@@ -48,6 +51,7 @@ import {
   stepId,
   visibleChildren,
 } from '~/utils/configurator-sections';
+import { editTarget, withoutEdit } from '~/utils/configurator-edit';
 import {
   CONFIGURATION_TAB_ID,
   configuratorTabs,
@@ -219,11 +223,17 @@ const {
   configuration,
   committed,
   notReopened,
+  editing,
+  editNotice,
   status,
   busy,
   error,
   remainingMs,
   start,
+  edit,
+  reopenLine,
+  revertEdit,
+  cancelEdit,
   applyChanges,
   renew,
   commit,
@@ -239,6 +249,8 @@ const {
       record.quantity,
     );
   },
+  replaceLine: (record, line) =>
+    cart.replaceConfiguredItem(record.committedConfigurationId, line),
 });
 
 /** Which verb failed last; see `headerError`. */
@@ -246,7 +258,70 @@ const lastAction = ref<ConfiguratorAction>('start');
 
 const productId = computed(() => String(product.productId));
 
-onMounted(() => start(productId.value));
+// ---------------------------------------------------------------------------
+// Editing a configured cart line
+//
+// The line is in the URL, as ids only, so a reload keeps editing it. Once the
+// edit is over — updated, cancelled, or the line gone — the query goes too.
+// ---------------------------------------------------------------------------
+const route = useRoute();
+const router = useRouter();
+
+/** A link that named a line this page cannot edit. */
+const staleEdit = ref(false);
+
+const shownEditNotice = computed(() =>
+  staleEdit.value ? 'line_gone' : editNotice.value,
+);
+
+function dropEditQuery(): void {
+  void router.replace({ query: withoutEdit(route.query) });
+}
+
+/** Set while a cancel runs, which ends with the cart open over the line. */
+let cancelling = false;
+
+watch(editing, (now, before) => {
+  if (!before || now) return;
+  dropEditQuery();
+  if (cancelling) cart.isOpen = true;
+});
+
+onMounted(() => {
+  const target = editTarget(route.query, cart.cartId);
+  if (target.line) return void edit(productId.value, target.line);
+  if (target.stale) {
+    staleEdit.value = true;
+    dropEditQuery();
+  }
+  void start(productId.value);
+});
+
+/**
+ * "Ändra" on a line of the product already on screen — the drawer's link after
+ * an add — changes only the query, so the page is not mounted again and has to
+ * follow it. What is on screen is released first, once any request under way,
+ * such as the reopen after the add, has answered.
+ */
+watch(
+  () => route.query,
+  async (query) => {
+    const target = editTarget(query, cart.cartId);
+    const line = target.line;
+    if (!line) return;
+    if (
+      editing.value?.cartId === line.cartId &&
+      editing.value.itemId === line.itemId
+    ) {
+      return;
+    }
+    await until(busy).toBe(false);
+    lastAction.value = 'start';
+    staleEdit.value = false;
+    await release();
+    await edit(productId.value, line);
+  },
+);
 
 const stage = computed(() =>
   configuratorStage({
@@ -467,6 +542,7 @@ function onRenew(): void {
 /** Commit, then add the committed line: one press, one request window. */
 function onSubmit(): void {
   lastAction.value = 'commit';
+  staleEdit.value = false;
   void commit();
 }
 
@@ -480,10 +556,42 @@ function onRetryAdd(): void {
  * a no-op on a session that is already gone, and `start` refuses only an active
  * one, so the same two lines serve both the expired and the committed state.
  */
-async function onRestart(): Promise<void> {
+async function onReset(): Promise<void> {
   lastAction.value = 'start';
+  staleEdit.value = false;
   await release();
   await start(productId.value);
+}
+
+/**
+ * Starting over after an expiry. While a line is edited the line still holds
+ * its choices, so they are what comes back, not the defaults.
+ */
+async function onRestart(): Promise<void> {
+  if (!editing.value) return onReset();
+  lastAction.value = 'start';
+  await release();
+  await reopenLine();
+}
+
+function onRevert(): void {
+  lastAction.value = 'start';
+  void revertEdit();
+}
+
+async function onCancel(): Promise<void> {
+  lastAction.value = 'start';
+  cancelling = true;
+  try {
+    await cancelEdit();
+  } finally {
+    cancelling = false;
+  }
+}
+
+function onRetryOpen(): void {
+  lastAction.value = 'start';
+  void reopenLine();
 }
 </script>
 
@@ -599,7 +707,7 @@ async function onRestart(): Promise<void> {
                   size="sm"
                   class="text-muted-foreground shrink-0 gap-1.5"
                   data-testid="configurator-reset"
-                  @click="onRestart"
+                  @click="onReset"
                 >
                   <RotateCcw class="size-4" />
                   {{ t('configurator.reset') }}
@@ -708,24 +816,65 @@ async function onRestart(): Promise<void> {
                   </p>
 
                   <!-- No retry button: a session that could not be created is a
-                   reload, not a second POST from a page holding half a state. -->
-                  <p
-                    v-else-if="stage === 'error'"
-                    class="text-destructive flex items-start gap-2 text-sm"
-                    data-testid="configurator-error"
-                  >
-                    <AlertCircle class="mt-0.5 size-4 shrink-0" />
-                    {{ t(failureKey(error)) }}
-                  </p>
+                   reload, not a second POST from a page holding half a state.
+                   A line that could not be opened for an edit is different:
+                   the buyer asked for that line, and opening it holds nothing. -->
+                  <div v-else-if="stage === 'error'" class="space-y-3">
+                    <p
+                      class="text-destructive flex items-start gap-2 text-sm"
+                      data-testid="configurator-error"
+                    >
+                      <AlertCircle class="mt-0.5 size-4 shrink-0" />
+                      {{
+                        t(
+                          editing
+                            ? 'configurator.edit.open_failed'
+                            : failureKey(error),
+                        )
+                      }}
+                    </p>
+                    <Button
+                      v-if="editing"
+                      variant="outline"
+                      size="sm"
+                      :disabled="busy"
+                      data-testid="configurator-edit-retry"
+                      @click="onRetryOpen"
+                    >
+                      <RotateCcw class="size-4" />
+                      {{ t('configurator.add_retry') }}
+                    </Button>
+                  </div>
 
                   <template v-else-if="stage === 'committed' && committed">
                     <ConfiguratorAddRetry
                       v-if="addRetryShown"
-                      :message="failedAdd ? t(addFailureKey(failedAdd)) : null"
+                      :message="
+                        failedAdd
+                          ? t(
+                              editing
+                                ? replaceFailureKey(failedAdd)
+                                : addFailureKey(failedAdd),
+                            )
+                          : null
+                      "
                       :can-retry="addRetryEnabled"
                       :busy="busy"
+                      :retryable="!editing || replaceRetryable(error)"
                       @retry="onRetryAdd"
                     />
+                    <!-- The line kept its old choices; leaving the edit is
+                         always a way out of a swap that did not go through. -->
+                    <Button
+                      v-if="editing"
+                      variant="ghost"
+                      class="w-full"
+                      :disabled="busy"
+                      data-testid="configurator-edit-leave"
+                      @click="onCancel"
+                    >
+                      {{ t('configurator.edit.cancel') }}
+                    </Button>
                     <ConfiguratorCommitted :committed="committed" />
                   </template>
 
@@ -739,6 +888,14 @@ async function onRestart(): Promise<void> {
                     >
                       <Info class="mt-0.5 size-4 shrink-0" />
                       {{ t('configurator.not_reopened') }}
+                    </p>
+                    <p
+                      v-if="shownEditNotice"
+                      class="bg-warning/10 text-warning mb-4 flex items-start gap-2 rounded-md px-3 py-2 text-sm"
+                      data-testid="configurator-edit-notice"
+                    >
+                      <Info class="mt-0.5 size-4 shrink-0" />
+                      {{ t(`configurator.edit.${shownEditNotice}`) }}
                     </p>
                     <p
                       v-if="ownError"
@@ -905,6 +1062,15 @@ async function onRestart(): Promise<void> {
                 v-if="stage !== 'error'"
                 class="divide-border min-h-0 gap-0 divide-y p-0 lg:flex-1"
               >
+                <!-- The prototype's marker for an edit, first in the box. -->
+                <div
+                  v-if="editing"
+                  class="bg-primary/5 text-foreground flex shrink-0 items-center gap-2 px-4 py-2 text-xs font-medium"
+                  data-testid="configurator-editing"
+                >
+                  <Pencil class="text-primary size-3.5 shrink-0" />
+                  {{ t('configurator.edit.marker') }}
+                </div>
                 <!-- The session row has no place in the prototype; it stays
                      under the action, in view with it. -->
                 <ConfigurationPanel
@@ -913,6 +1079,7 @@ async function onRestart(): Promise<void> {
                   :busy="busy"
                   :product-name="product.name ?? ''"
                   :article-number="product.articleNumber ?? ''"
+                  :editing="!!editing"
                   @restart="onRestart"
                 >
                   <ConfigurationAction
@@ -922,7 +1089,10 @@ async function onRestart(): Promise<void> {
                     :busy="busy"
                     :incomplete="configuration?.isValid === false"
                     :error="actionError"
+                    :editing="!!editing"
                     @submit="onSubmit"
+                    @revert="onRevert"
+                    @cancel="onCancel"
                   />
 
                   <ConfigurationSession

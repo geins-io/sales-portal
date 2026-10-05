@@ -54,14 +54,22 @@ import {
  * mount without a session for its tests, and a spread object hides which fields
  * it reads.
  */
-const { configuration, status, busy, productName, articleNumber } =
-  defineProps<{
-    configuration: Configuration | null;
-    status: ConfiguratorSessionStatus;
-    busy: boolean;
-    productName: string;
-    articleNumber: string;
-  }>();
+const {
+  configuration,
+  status,
+  busy,
+  productName,
+  articleNumber,
+  editing = false,
+} = defineProps<{
+  configuration: Configuration | null;
+  status: ConfiguratorSessionStatus;
+  busy: boolean;
+  productName: string;
+  articleNumber: string;
+  /** A cart line is being edited, which an expired session leaves unchanged. */
+  editing?: boolean;
+}>();
 
 const emit = defineEmits<{ restart: [] }>();
 
@@ -311,7 +319,11 @@ const netClass = {
     class="bg-muted flex flex-wrap items-center justify-between gap-3 px-4 py-3"
     data-testid="configurator-panel-expired"
   >
-    <p class="text-sm">{{ t('configurator.panel.expired') }}</p>
+    <p class="text-sm">
+      {{
+        t(editing ? 'configurator.edit.expired' : 'configurator.panel.expired')
+      }}
+    </p>
     <Button variant="outline" size="sm" @click="emit('restart')">
       <RotateCcw class="size-4" />
       {{ t('configurator.panel.start_over') }}

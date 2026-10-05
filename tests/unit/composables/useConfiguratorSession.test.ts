@@ -65,12 +65,15 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   return { promise, resolve };
 }
 
-/** What ofetch throws: the status on the error itself, the body under `data`. */
-function fetchError(status: number, message = 'no'): Error {
+/**
+ * What ofetch throws: the status on the error itself, the body under `data`,
+ * and the portal's own code under the body's `data`.
+ */
+function fetchError(status: number, message = 'no', code?: string): Error {
   return Object.assign(new Error(message), {
     status,
     statusCode: status,
-    data: { message },
+    data: { message, ...(code ? { data: { code } } : {}) },
   });
 }
 
@@ -1033,6 +1036,488 @@ describe('useConfiguratorSession', () => {
       expect(session.status.value).toBe('closed');
       expect(session.error.value).toBeNull();
       expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('editing a configured cart line', () => {
+    const LINE = { cartId: 'cart-1', itemId: 'item-1' };
+    const addLine =
+      vi.fn<(committed: CommittedConfiguration) => Promise<unknown>>();
+    const replaceLine =
+      vi.fn<
+        (committed: CommittedConfiguration, line: unknown) => Promise<unknown>
+      >();
+
+    function reopened(id = 'reopened-1'): Configuration {
+      return { ...makeCascadedConfiguration(), configurationId: id };
+    }
+
+    /** Answers by route; every reopen answers the next document in `reopens`. */
+    function answering(routes: {
+      reopen?: () => unknown;
+      create?: () => unknown;
+      commit?: () => unknown;
+      release?: () => unknown;
+      changes?: () => unknown;
+    }): void {
+      mockFetch.mockImplementation(async (url, options) => {
+        if (url === '/api/configurations/reopen')
+          return (routes.reopen ?? never)();
+        if (url === '/api/configurations') return (routes.create ?? never)();
+        if (url.endsWith('/commit')) return (routes.commit ?? never)();
+        if (url.endsWith('/changes')) return (routes.changes ?? never)();
+        if (options?.method === 'DELETE')
+          return (routes.release ?? (() => null))();
+        return never();
+      });
+    }
+
+    function never(): never {
+      throw new Error('unexpected request');
+    }
+
+    function calls(): string[] {
+      return mockFetch.mock.calls.map(
+        ([url, options]) => `${options?.method ?? 'GET'} ${url}`,
+      );
+    }
+
+    function openEditing(): ReturnType<typeof useConfiguratorSession> {
+      const scope = effectScope();
+      const session = scope.run(() =>
+        useConfiguratorSession({
+          addLine: addLine as (
+            committed: CommittedConfiguration,
+          ) => Promise<{ cartId: string; itemId: string } | null>,
+          replaceLine: replaceLine as (
+            committed: CommittedConfiguration,
+            line: { cartId: string; itemId: string },
+          ) => Promise<{ cartId: string; itemId: string } | null>,
+        }),
+      );
+      if (!session) throw new Error('The scope produced no session');
+      scopes.push(scope);
+      return session;
+    }
+
+    async function editing(): Promise<
+      ReturnType<typeof useConfiguratorSession>
+    > {
+      const session = openEditing();
+      answering({ reopen: () => reopened() });
+      await session.edit(PRODUCT_ID, LINE);
+      mockFetch.mockReset();
+      return session;
+    }
+
+    beforeEach(() => {
+      addLine.mockReset().mockResolvedValue(LINE);
+      replaceLine.mockReset().mockResolvedValue(LINE);
+    });
+
+    describe('opening the line', () => {
+      it('reopens the line rather than creating a session, and holds it as the line being edited', async () => {
+        const session = openEditing();
+        answering({ reopen: () => reopened() });
+
+        await session.edit(PRODUCT_ID, LINE);
+
+        expect(calls()).toEqual(['POST /api/configurations/reopen']);
+        expect(lastRequest().options.body).toEqual(LINE);
+        expect(session.configuration.value).toEqual(reopened());
+        expect(session.status.value).toBe('active');
+        expect(session.editing.value).toEqual(LINE);
+        expect(session.editNotice.value).toBeNull();
+      });
+
+      it('opens nothing on the server', async () => {
+        browser.value = false;
+        const session = openEditing();
+
+        await session.edit(PRODUCT_ID, LINE);
+
+        expect(mockFetch).not.toHaveBeenCalled();
+      });
+
+      it('starts afresh, still editing the line, when the configuration cannot be reopened', async () => {
+        const session = openEditing();
+        const fresh = makeInitialConfiguration();
+        answering({
+          reopen: () => {
+            throw fetchError(422, 'The configuration cannot be reopened');
+          },
+          create: () => fresh,
+        });
+
+        await session.edit(PRODUCT_ID, LINE);
+
+        expect(calls()).toEqual([
+          'POST /api/configurations/reopen',
+          'POST /api/configurations',
+        ]);
+        expect(lastRequest().options.body).toEqual({
+          productId: PRODUCT_ID,
+          quantity: 1,
+        });
+        expect(session.configuration.value).toEqual(fresh);
+        expect(session.editing.value).toEqual(LINE);
+        expect(session.editNotice.value).toBe('not_reopenable');
+        expect(session.error.value).toBeNull();
+      });
+
+      it.each([
+        ['the line is gone or carries no configuration', 404, 'CART_LINE_GONE'],
+        ["the cart is another company's", 403, 'CART_NOT_OWN'],
+      ])(
+        'stops editing and starts afresh when %s',
+        async (_case, status, code) => {
+          const session = openEditing();
+          const fresh = makeInitialConfiguration();
+          answering({
+            reopen: () => {
+              throw fetchError(status, 'no', code);
+            },
+            create: () => fresh,
+          });
+
+          await session.edit(PRODUCT_ID, LINE);
+
+          expect(session.configuration.value).toEqual(fresh);
+          expect(session.editing.value).toBeNull();
+          expect(session.editNotice.value).toBe('line_gone');
+          expect(session.error.value).toBeNull();
+        },
+      );
+
+      it.each([
+        ['the replay over budget', 502, undefined],
+        ['a timeout', 504, undefined],
+        ['an unreachable backend', 0, undefined],
+        ['a buyer without a customer number', 403, 'FORBIDDEN'],
+        ['a catalogue-mode tenant', 403, undefined],
+        ['an unknown configuration', 404, 'NOT_FOUND'],
+      ])(
+        'says the line could not be opened, still editing, on %s',
+        async (_case, status, code) => {
+          const session = openEditing();
+          answering({
+            reopen: () => {
+              throw fetchError(status, 'no', code);
+            },
+          });
+
+          await session.edit(PRODUCT_ID, LINE);
+
+          expect(calls()).toEqual(['POST /api/configurations/reopen']);
+          expect(session.configuration.value).toBeNull();
+          expect(session.editing.value).toEqual(LINE);
+          expect(session.error.value).toMatchObject({ status });
+        },
+      );
+
+      it('opens the line again on a retry after it could not be opened', async () => {
+        const session = openEditing();
+        answering({
+          reopen: () => {
+            throw fetchError(502);
+          },
+        });
+        await session.edit(PRODUCT_ID, LINE);
+        answering({ reopen: () => reopened() });
+
+        await session.reopenLine();
+
+        expect(session.configuration.value).toEqual(reopened());
+        expect(session.error.value).toBeNull();
+        expect(session.status.value).toBe('active');
+      });
+
+      it('is not editing after an ordinary start, nor after an add', async () => {
+        const initial = makeInitialConfiguration();
+        const session = openEditing();
+        mockFetch.mockResolvedValue(initial);
+        await session.start(PRODUCT_ID);
+        expect(session.editing.value).toBeNull();
+
+        mockFetch.mockReset();
+        answering({
+          commit: () => committedFrom(initial),
+          reopen: () => reopened(),
+        });
+        await session.commit();
+
+        expect(addLine).toHaveBeenCalled();
+        expect(replaceLine).not.toHaveBeenCalled();
+        expect(session.editing.value).toBeNull();
+      });
+    });
+
+    describe('updating the line', () => {
+      it('commits, puts the record on the line instead of adding one, then carries on from the updated line, no longer editing', async () => {
+        const session = await editing();
+        const committed = committedFrom(reopened());
+        const after = reopened('reopened-2');
+        answering({ commit: () => committed, reopen: () => after });
+
+        await session.commit();
+
+        expect(replaceLine).toHaveBeenCalledWith(committed, LINE);
+        expect(addLine).not.toHaveBeenCalled();
+        expect(calls()).toEqual([
+          'POST /api/configurations/reopened-1/commit',
+          'POST /api/configurations/reopen',
+        ]);
+        expect(lastRequest().options.body).toEqual(LINE);
+        expect(session.configuration.value).toEqual(after);
+        expect(session.editing.value).toBeNull();
+        expect(session.status.value).toBe('active');
+      });
+
+      it('keeps the record, still editing, when the swap fails after the commit', async () => {
+        const session = await editing();
+        const committed = committedFrom(reopened());
+        answering({ commit: () => committed });
+        replaceLine.mockRejectedValue(fetchError(409, 'not updated'));
+
+        await session.commit();
+
+        expect(session.committed.value).toEqual(committed);
+        expect(session.status.value).toBe('closed');
+        expect(session.editing.value).toEqual(LINE);
+        expect(session.error.value).toMatchObject({ status: 409 });
+      });
+
+      it('retries the swap with the record it kept, never commits again', async () => {
+        const session = await editing();
+        const committed = committedFrom(reopened());
+        answering({ commit: () => committed, reopen: () => reopened('r-2') });
+        replaceLine.mockRejectedValueOnce(fetchError(502, 'unreachable'));
+        await session.commit();
+
+        await session.retryAdd();
+
+        expect(replaceLine).toHaveBeenCalledTimes(2);
+        expect(replaceLine).toHaveBeenLastCalledWith(committed, LINE);
+        expect(addLine).not.toHaveBeenCalled();
+        expect(calls().filter((call) => call.endsWith('/commit'))).toHaveLength(
+          1,
+        );
+        expect(session.editing.value).toBeNull();
+        expect(session.configuration.value?.configurationId).toBe('r-2');
+      });
+    });
+
+    describe('reverting and cancelling', () => {
+      it("reverts by releasing the session and opening the line's own choices again, still editing", async () => {
+        const session = await editing();
+        answering({ reopen: () => reopened('reopened-2') });
+
+        await session.revertEdit();
+
+        expect(calls()).toEqual([
+          'DELETE /api/configurations/reopened-1',
+          'POST /api/configurations/reopen',
+        ]);
+        expect(session.configuration.value?.configurationId).toBe('reopened-2');
+        expect(session.editing.value).toEqual(LINE);
+      });
+
+      it('cancels by releasing the session, then carries on from the unchanged line, no longer editing', async () => {
+        const session = await editing();
+        answering({ reopen: () => reopened('reopened-2') });
+
+        await session.cancelEdit();
+
+        expect(calls()).toEqual([
+          'DELETE /api/configurations/reopened-1',
+          'POST /api/configurations/reopen',
+        ]);
+        expect(replaceLine).not.toHaveBeenCalled();
+        expect(session.configuration.value?.configurationId).toBe('reopened-2');
+        expect(session.editing.value).toBeNull();
+      });
+
+      it('cancels a session that has expired without releasing it again', async () => {
+        const session = await editing();
+        answering({
+          changes: () => {
+            throw fetchError(410, 'gone');
+          },
+          reopen: () => reopened('reopened-2'),
+        });
+        await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+        expect(session.status.value).toBe('expired');
+        mockFetch.mockClear();
+
+        await session.cancelEdit();
+
+        expect(calls()).toEqual(['POST /api/configurations/reopen']);
+        expect(session.editing.value).toBeNull();
+      });
+
+      it('cancels after a failed swap, leaving the kept record behind', async () => {
+        const session = await editing();
+        answering({ commit: () => committedFrom(reopened()) });
+        replaceLine.mockRejectedValue(fetchError(409));
+        await session.commit();
+        answering({ reopen: () => reopened('reopened-2') });
+        mockFetch.mockClear();
+
+        await session.cancelEdit();
+
+        expect(calls()).toEqual(['POST /api/configurations/reopen']);
+        expect(session.committed.value).toBeNull();
+        expect(session.editing.value).toBeNull();
+        expect(session.status.value).toBe('active');
+      });
+    });
+
+    describe('an expired session', () => {
+      it("opens the line's choices again on a restart, still editing", async () => {
+        const session = await editing();
+        answering({
+          changes: () => {
+            throw fetchError(410, 'gone');
+          },
+          reopen: () => reopened('reopened-2'),
+        });
+        await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+        expect(session.status.value).toBe('expired');
+
+        await session.reopenLine();
+
+        expect(session.configuration.value?.configurationId).toBe('reopened-2');
+        expect(session.status.value).toBe('active');
+        expect(session.editing.value).toEqual(LINE);
+      });
+    });
+
+    describe('guards', () => {
+      it('opens no line while a session is active', async () => {
+        const session = await editing();
+
+        await session.edit(PRODUCT_ID, { cartId: 'cart-1', itemId: 'item-2' });
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(session.editing.value).toEqual(LINE);
+      });
+
+      it('reopens, reverts and cancels nothing when no line is being edited', async () => {
+        const initial = makeInitialConfiguration();
+        const session = openEditing();
+        mockFetch.mockResolvedValue(initial);
+        await session.start(PRODUCT_ID);
+        mockFetch.mockReset();
+
+        await session.reopenLine();
+        await session.revertEdit();
+        await session.cancelEdit();
+
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(session.configuration.value).toEqual(initial);
+      });
+
+      it.each(['revertEdit', 'cancelEdit'] as const)(
+        '%s stops when the session could not be released',
+        async (verb) => {
+          const session = await editing();
+          answering({
+            release: () => {
+              throw fetchError(502);
+            },
+            reopen: () => reopened('reopened-2'),
+          });
+
+          await session[verb]();
+
+          expect(calls()).toEqual(['DELETE /api/configurations/reopened-1']);
+          expect(session.editing.value).toEqual(LINE);
+          expect(session.error.value).toMatchObject({ status: 502 });
+        },
+      );
+
+      it("reverts an expired session to the line's choices without releasing it", async () => {
+        const session = await editing();
+        answering({
+          changes: () => {
+            throw fetchError(410, 'gone');
+          },
+          reopen: () => reopened('reopened-2'),
+        });
+        await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+        mockFetch.mockClear();
+
+        await session.revertEdit();
+
+        expect(calls()).toEqual(['POST /api/configurations/reopen']);
+        expect(session.configuration.value?.configurationId).toBe('reopened-2');
+      });
+
+      it('leaves the expired face while the line is reopened, which the page shows as loading', async () => {
+        const session = await editing();
+        const reopen = deferred<Configuration>();
+        answering({
+          changes: () => {
+            throw fetchError(410, 'gone');
+          },
+          reopen: () => reopen.promise,
+        });
+        await session.applyChanges([{ type: 'quantity', quantity: 2 }]);
+        expect(session.status.value).toBe('expired');
+
+        const reopening = session.reopenLine();
+        expect(session.status.value).toBe('closed');
+
+        reopen.resolve(reopened('reopened-2'));
+        await reopening;
+        expect(session.status.value).toBe('active');
+      });
+    });
+
+    it('carries on from the edited line when the swap answers no line of its own', async () => {
+      const session = await editing();
+      answering({
+        commit: () => committedFrom(reopened()),
+        reopen: () => reopened('reopened-2'),
+      });
+      replaceLine.mockResolvedValue(null);
+
+      await session.commit();
+
+      expect(lastRequest().url).toBe('/api/configurations/reopen');
+      expect(lastRequest().options.body).toEqual(LINE);
+      expect(session.configuration.value?.configurationId).toBe('reopened-2');
+    });
+
+    it('starts afresh, not editing, when the line cannot be reopened after the update', async () => {
+      const session = await editing();
+      const fresh = makeInitialConfiguration();
+      answering({
+        commit: () => committedFrom(reopened()),
+        reopen: () => {
+          throw fetchError(502);
+        },
+        create: () => fresh,
+      });
+
+      await session.commit();
+
+      expect(session.configuration.value).toEqual(fresh);
+      expect(session.status.value).toBe('active');
+      expect(session.editing.value).toBeNull();
+      expect(session.notReopened.value).toBe(true);
+    });
+
+    it('keeps editing through an ordinary restart, which starts from the defaults', async () => {
+      const session = await editing();
+      const fresh = makeInitialConfiguration();
+      answering({ create: () => fresh });
+
+      await session.release();
+      await session.start(PRODUCT_ID);
+
+      expect(session.configuration.value).toEqual(fresh);
+      expect(session.editing.value).toEqual(LINE);
     });
   });
 

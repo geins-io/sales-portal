@@ -80,12 +80,18 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     configuration: ref<Configuration | null>(null),
     committed: ref<CommittedConfiguration | null>(null),
     notReopened: ref(false),
+    editing: ref<{ cartId: string; itemId: string } | null>(null),
+    editNotice: ref<'not_reopenable' | 'line_gone' | null>(null),
     status: ref<ConfiguratorSessionStatus>('idle'),
     busy: ref(false),
     error: ref<ConfiguratorSessionError | null>(null),
     expiresAt: ref<string | null>(null),
     remainingMs: ref(600_000),
     start: vi.fn(async () => {}),
+    edit: vi.fn(async () => {}),
+    reopenLine: vi.fn(async () => {}),
+    revertEdit: vi.fn(async () => {}),
+    cancelEdit: vi.fn(async () => {}),
     applyChanges: vi.fn(async () => {}),
     renew: vi.fn(async () => {}),
     commit: vi.fn(async () => {}),
@@ -103,8 +109,16 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
 });
 
 const cartStore = vi.hoisted(() => ({
+  cartId: null as string | null,
+  isOpen: false,
   addConfiguredItem: vi.fn(
     async (): Promise<{ cartId: string; itemId: string } | null> => null,
+  ),
+  replaceConfiguredItem: vi.fn(
+    async (
+      _committedId: string,
+      line: { cartId: string; itemId: string },
+    ): Promise<{ cartId: string; itemId: string }> => line,
   ),
 }));
 vi.mock('../../../app/stores/cart', () => ({
@@ -208,11 +222,17 @@ interface MockSession {
   configuration: Ref<Configuration | null>;
   committed: Ref<CommittedConfiguration | null>;
   notReopened: Ref<boolean>;
+  editing: Ref<{ cartId: string; itemId: string } | null>;
+  editNotice: Ref<'not_reopenable' | 'line_gone' | null>;
   status: Ref<ConfiguratorSessionStatus>;
   busy: Ref<boolean>;
   error: Ref<ConfiguratorSessionError | null>;
   remainingMs: Ref<number>;
   start: Mock;
+  edit: Mock;
+  reopenLine: Mock;
+  revertEdit: Mock;
+  cancelEdit: Mock;
   applyChanges: Mock;
   renew: Mock;
   commit: Mock;
@@ -222,10 +242,25 @@ interface MockSession {
     addLine: (
       committed: CommittedConfiguration,
     ) => Promise<{ cartId: string; itemId: string } | null>;
+    replaceLine: (
+      committed: CommittedConfiguration,
+      line: { cartId: string; itemId: string },
+    ) => Promise<{ cartId: string; itemId: string } | null>;
   };
 }
 
 const session = useConfiguratorSession({}) as unknown as MockSession;
+
+/** The tier's router mock, whose current route the page reads its query from. */
+const router = (
+  globalThis as unknown as {
+    useRouter: () => {
+      replace: Mock;
+      currentRoute: Ref<{ query: Record<string, unknown> }>;
+    };
+  }
+).useRouter();
+const route = router.currentRoute;
 
 /** What the status stub hands the page when its missing item is clicked. */
 const goToTarget = ref<BlockingItem | null>(null);
@@ -261,11 +296,18 @@ const stubs = {
   },
   ConfigurationPanel: {
     template: `<div data-testid="panel" :data-status="status"
-      :data-article="articleNumber">
+      :data-article="articleNumber" :data-editing="String(editing)">
       <button data-testid="panel-restart" @click="$emit('restart')"></button>
       <div data-testid="panel-slot"><slot /></div>
     </div>`,
-    props: ['configuration', 'status', 'busy', 'productName', 'articleNumber'],
+    props: [
+      'configuration',
+      'status',
+      'busy',
+      'productName',
+      'articleNumber',
+      'editing',
+    ],
     emits: ['restart'],
   },
   ConfiguratorRequiredStatus: {
@@ -280,19 +322,21 @@ const stubs = {
   },
   ConfigurationAction: {
     template: `<div data-testid="action" :data-incomplete="incomplete"
-      :data-error="error ?? ''">
+      :data-error="error ?? ''" :data-editing="String(editing)">
       <button data-testid="configurator-commit" :disabled="!canCommit"
         @click="$emit('submit')"></button>
+      <button data-testid="action-revert" @click="$emit('revert')"></button>
+      <button data-testid="action-cancel" @click="$emit('cancel')"></button>
     </div>`,
-    props: ['canCommit', 'busy', 'incomplete', 'error'],
-    emits: ['submit'],
+    props: ['canCommit', 'busy', 'incomplete', 'error', 'editing'],
+    emits: ['submit', 'revert', 'cancel'],
   },
   ConfiguratorAddRetry: {
     template: `<div data-testid="add-retry" :data-message="message ?? ''"
-      :data-can-retry="String(canRetry)">
+      :data-can-retry="String(canRetry)" :data-retryable="String(retryable)">
       <button data-testid="add-retry-button" @click="$emit('retry')"></button>
     </div>`,
-    props: ['message', 'canRetry', 'busy'],
+    props: ['message', 'canRetry', 'busy', 'retryable'],
     emits: ['retry'],
   },
   ConfigurationSession: {
@@ -360,11 +404,17 @@ beforeEach(() => {
   session.configuration.value = null;
   session.committed.value = null;
   session.notReopened.value = false;
+  session.editing.value = null;
+  session.editNotice.value = null;
   session.status.value = 'idle';
   session.busy.value = false;
   session.error.value = null;
   for (const verb of [
     'start',
+    'edit',
+    'reopenLine',
+    'revertEdit',
+    'cancelEdit',
     'applyChanges',
     'renew',
     'commit',
@@ -374,6 +424,11 @@ beforeEach(() => {
     session[verb].mockClear();
   }
   cartStore.addConfiguredItem.mockClear();
+  cartStore.replaceConfiguredItem.mockClear();
+  cartStore.cartId = null;
+  cartStore.isOpen = false;
+  route.value.query = {};
+  router.replace.mockClear();
 
   warnings = [];
   warnSpy = vi
@@ -2143,4 +2198,281 @@ describe('ConfiguratorProduct missing items', () => {
       scrolled.map((s) => s.element.getAttribute('data-group-id')),
     ).toEqual(['legs']);
   });
+});
+
+describe('ConfiguratorProduct editing a cart line', () => {
+  const LINE = { cartId: 'cart-1', itemId: 'item-1' };
+
+  function editingLine(): void {
+    session.editing.value = LINE;
+    activeWith(makeValidConfiguration());
+  }
+
+  it("opens the line the query names in the buyer's cart, instead of a fresh session", async () => {
+    cartStore.cartId = 'cart-1';
+    route.value.query = { cart: 'cart-1', line: 'item-1' };
+
+    mountPage();
+    await flushPromises();
+
+    expect(session.edit).toHaveBeenCalledWith('1101', LINE);
+    expect(session.start).not.toHaveBeenCalled();
+  });
+
+  it('starts an ordinary session, says the line is gone and drops the query, for a link to another cart', async () => {
+    cartStore.cartId = 'cart-9';
+    route.value.query = { cart: 'cart-1', line: 'item-1', keep: 'x' };
+
+    const wrapper = mountPage();
+    await flushPromises();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    expect(session.edit).not.toHaveBeenCalled();
+    expect(session.start).toHaveBeenCalledWith('1101');
+    expect(router.replace).toHaveBeenCalledWith({ query: { keep: 'x' } });
+    expect(
+      wrapper.find('[data-testid="configurator-edit-notice"]').text(),
+    ).toBe('configurator.edit.line_gone');
+  });
+
+  it("starts editing when the query comes to name a line on a page already open, which is the drawer's link on the same product", async () => {
+    cartStore.cartId = 'cart-1';
+    mountPage();
+    await flushPromises();
+    activeWith(makeValidConfiguration());
+    session.release.mockClear();
+
+    route.value.query = { cart: 'cart-1', line: 'item-1' };
+    await flushPromises();
+
+    // Every page this file mounted is still mounted and follows the same
+    // route, so the calls are counted by order, not by number.
+    expect(session.edit).toHaveBeenCalledWith('1101', LINE);
+    expect(session.release).toHaveBeenCalled();
+    expect(session.release.mock.invocationCallOrder[0]).toBeLessThan(
+      session.edit.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it('waits for a request under way, such as the reopen after an add, before it opens the line', async () => {
+    cartStore.cartId = 'cart-1';
+    mountPage();
+    await flushPromises();
+    session.busy.value = true;
+
+    route.value.query = { cart: 'cart-1', line: 'item-1' };
+    await flushPromises();
+    expect(session.edit).not.toHaveBeenCalled();
+
+    session.busy.value = false;
+    await flushPromises();
+    expect(session.edit).toHaveBeenCalledWith('1101', LINE);
+  });
+
+  it('opens nothing again when the query names the line already being edited', async () => {
+    cartStore.cartId = 'cart-1';
+    route.value.query = { cart: 'cart-1', line: 'item-1' };
+    mountPage();
+    await flushPromises();
+    editingLine();
+    session.edit.mockClear();
+
+    route.value.query = { cart: 'cart-1', line: 'item-1', tab: 'x' };
+    await flushPromises();
+
+    expect(session.edit).not.toHaveBeenCalled();
+  });
+
+  it("forgets a stale link's notice once the buyer adds", async () => {
+    cartStore.cartId = 'cart-9';
+    route.value.query = { cart: 'cart-1', line: 'item-1' };
+    const wrapper = mountPage();
+    await flushPromises();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    expect(
+      wrapper.find('[data-testid="configurator-edit-notice"]').exists(),
+    ).toBe(true);
+
+    await wrapper.find('[data-testid="configurator-commit"]').trigger('click');
+
+    expect(
+      wrapper.find('[data-testid="configurator-edit-notice"]').exists(),
+    ).toBe(false);
+  });
+
+  it('marks the right column and puts the action in edit mode while a line is edited', async () => {
+    const wrapper = mountPage();
+    editingLine();
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="configurator-editing"]').text()).toBe(
+      'configurator.edit.marker',
+    );
+    expect(
+      wrapper.find('[data-testid="action"]').attributes('data-editing'),
+    ).toBe('true');
+    expect(
+      wrapper.find('[data-testid="panel"]').attributes('data-editing'),
+    ).toBe('true');
+  });
+
+  it('shows neither outside edit mode', async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="configurator-editing"]').exists()).toBe(
+      false,
+    );
+    expect(
+      wrapper.find('[data-testid="action"]').attributes('data-editing'),
+    ).toBe('false');
+  });
+
+  it('puts the committed record on the edited line through the cart', async () => {
+    mountPage();
+
+    await expect(session.options.replaceLine(COMMITTED, LINE)).resolves.toEqual(
+      LINE,
+    );
+    expect(cartStore.replaceConfiguredItem).toHaveBeenCalledWith(
+      'committed-1',
+      LINE,
+    );
+  });
+
+  it('reverts from the action', async () => {
+    const wrapper = mountPage();
+    editingLine();
+    await nextTick();
+
+    await wrapper.find('[data-testid="action-revert"]').trigger('click');
+
+    expect(session.revertEdit).toHaveBeenCalledTimes(1);
+    expect(session.cancelEdit).not.toHaveBeenCalled();
+  });
+
+  it('cancels from the action, then opens the cart over the unchanged line and drops the query', async () => {
+    route.value.query = { cart: 'cart-1', line: 'item-1' };
+    cartStore.cartId = 'cart-1';
+    const wrapper = mountPage();
+    editingLine();
+    await nextTick();
+    session.cancelEdit.mockImplementationOnce(async () => {
+      session.editing.value = null;
+      await nextTick();
+    });
+
+    await wrapper.find('[data-testid="action-cancel"]').trigger('click');
+    await flushPromises();
+
+    expect(session.cancelEdit).toHaveBeenCalledTimes(1);
+    expect(cartStore.isOpen).toBe(true);
+    expect(router.replace).toHaveBeenCalledWith({ query: {} });
+  });
+
+  it('drops the query, and leaves the drawer to the cart, once an update has gone through', async () => {
+    route.value.query = { cart: 'cart-1', line: 'item-1' };
+    mountPage();
+    editingLine();
+    await nextTick();
+
+    session.editing.value = null;
+    await flushPromises();
+
+    expect(router.replace).toHaveBeenCalledWith({ query: {} });
+    expect(cartStore.isOpen).toBe(false);
+  });
+
+  it.each([
+    ['not_reopenable', 'configurator.edit.not_reopenable'],
+    ['line_gone', 'configurator.edit.line_gone'],
+  ] as const)(
+    'says above the form why the line is not on its own choices: %s',
+    async (notice, key) => {
+      const wrapper = mountPage();
+      activeWith(makeValidConfiguration());
+      session.editNotice.value = notice;
+      await nextTick();
+
+      const shown = wrapper.find('[data-testid="configurator-edit-notice"]');
+      expect(shown.text()).toBe(key);
+      expect(
+        wrapper
+          .find('[data-testid="configurator-form-slot"]')
+          .element.contains(shown.element),
+      ).toBe(true);
+    },
+  );
+
+  it('says the line could not be opened and offers to try again, when the reopen failed', async () => {
+    const wrapper = mountPage();
+    session.editing.value = LINE;
+    session.error.value = { status: 502, message: 'x' };
+    await nextTick();
+
+    expect(wrapper.find('[data-testid="configurator-error"]').text()).toBe(
+      'configurator.edit.open_failed',
+    );
+    await wrapper
+      .find('[data-testid="configurator-edit-retry"]')
+      .trigger('click');
+    expect(session.reopenLine).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the line's choices again, rather than a fresh session, when the session expired during the edit", async () => {
+    const wrapper = mountPage();
+    session.editing.value = LINE;
+    session.configuration.value = makeValidConfiguration();
+    session.status.value = 'expired';
+    await nextTick();
+    session.start.mockClear();
+
+    await wrapper.find('[data-testid="panel-restart"]').trigger('click');
+    await flushPromises();
+
+    expect(session.reopenLine).toHaveBeenCalledTimes(1);
+    expect(session.start).not.toHaveBeenCalled();
+  });
+
+  it('starts from the defaults from the reset button, still editing, as the design reference does', async () => {
+    const wrapper = mountPage();
+    editingLine();
+    await nextTick();
+    session.start.mockClear();
+
+    await wrapper.find('[data-testid="configurator-reset"]').trigger('click');
+    await flushPromises();
+
+    expect(session.release).toHaveBeenCalled();
+    expect(session.start).toHaveBeenCalledWith('1101');
+    expect(session.reopenLine).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [409, 'CONFLICT', 'configurator.edit.update_failed', true],
+    [502, 'EXTERNAL_API_ERROR', 'configurator.edit.update_failed', true],
+    [404, 'NOT_FOUND', 'configurator.edit.update_failed', false],
+    [404, 'CART_LINE_GONE', 'configurator.edit.line_gone', false],
+  ])(
+    'says what a %i %s swap did to the line, retryable: %s',
+    async (status, code, key, retryable) => {
+      const wrapper = mountPage();
+      session.editing.value = LINE;
+      session.committed.value = COMMITTED;
+      session.status.value = 'closed';
+      session.error.value = { status, message: 'x', code };
+      await nextTick();
+
+      const retry = wrapper.find('[data-testid="add-retry"]');
+      expect(retry.attributes('data-message')).toBe(key);
+      expect(retry.attributes('data-retryable')).toBe(String(retryable));
+      await wrapper
+        .find('[data-testid="configurator-edit-leave"]')
+        .trigger('click');
+      expect(session.cancelEdit).toHaveBeenCalledTimes(1);
+    },
+  );
 });

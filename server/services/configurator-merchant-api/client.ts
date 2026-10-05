@@ -71,12 +71,12 @@ function knownFailure(code: string) {
       );
     case 'CartItemNotConfigured':
       return createAppError(
-        ErrorCode.NOT_FOUND,
+        ErrorCode.CART_LINE_GONE,
         'The cart line carries no configuration',
       );
     case 'CartBelongsToAnotherCompany':
       return createAppError(
-        ErrorCode.FORBIDDEN,
+        ErrorCode.CART_NOT_OWN,
         "The cart is another company's",
       );
     default:

@@ -40,6 +40,7 @@ export const backend: Record<
   commit: vi.fn(),
   addToCart: vi.fn(),
   reopen: vi.fn(),
+  replaceLine: vi.fn(),
   cartLineConfigurations: vi.fn(),
   orderLineConfigurations: vi.fn(),
 };

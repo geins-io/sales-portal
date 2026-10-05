@@ -101,6 +101,7 @@ function allCalls(
         ),
     ],
     ['reopen', () => backend.reopen('cart-1', 'item-1', CTX)],
+    ['replaceLine', () => backend.replaceLine('cart-1', 'item-1', 'c1', CTX)],
   ];
 }
 

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { Trash2 } from 'lucide-vue-next';
+import { Pencil, Trash2 } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import type { CartItemType } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { productPath } from '#shared/utils/route-helpers';
 import { BADGE_DESTRUCTIVE } from '~/lib/badge-styles';
+import { useCartStore } from '~/stores/cart';
+import { editLineHref } from '~/utils/configurator-edit';
 
 const { t } = useI18n();
 
@@ -49,6 +51,22 @@ const configuration = computed(() => props.item.configuration);
 const configurationId = computed(
   () => `cart-item-configuration-${props.item.id}`,
 );
+
+const cart = useCartStore();
+/**
+ * The product page editing this line. The canonical path, never the alias: the
+ * page's redirect to its canonical drops the query, and with it the edit.
+ */
+const editUrl = computed(() => {
+  const canonical = props.item.product?.canonicalUrl;
+  if (!configuration.value || !canonical || !cart.cartId || !props.item.id) {
+    return null;
+  }
+  return editLineHref(localePath(productPath(canonical)), {
+    cartId: cart.cartId,
+    itemId: props.item.id,
+  });
+});
 
 const visibleItemCampaigns = computed(() =>
   filterVisibleCampaigns(props.item.campaign?.appliedCampaigns ?? []),
@@ -190,7 +208,20 @@ const maxQuantity = computed(() => {
       <LineConfigurationSummary
         :id="configurationId"
         :summary="configuration.summary"
-      />
+      >
+        <!-- The cart's own: checkout and the order rows render the same
+             summary without a way to edit it. -->
+        <NuxtLink
+          v-if="editUrl"
+          :to="editUrl"
+          class="text-primary flex items-center gap-1 pt-1 text-xs font-medium hover:underline"
+          data-testid="cart-item-edit"
+          @click="cart.isOpen = false"
+        >
+          <Pencil class="size-3" />
+          {{ t('cart.edit_configuration') }}
+        </NuxtLink>
+      </LineConfigurationSummary>
     </div>
   </div>
 </template>

@@ -6,11 +6,18 @@ import { Button } from '~/components/ui/button';
  * The second try for a configuration that was committed but did not reach the
  * cart. The commit is not repeated: the committed record is what is sent again.
  */
-const { message, canRetry, busy } = defineProps<{
+const {
+  message,
+  canRetry,
+  busy,
+  retryable = true,
+} = defineProps<{
   /** Why the add failed; none while the retry runs. */
   message: string | null;
   canRetry: boolean;
   busy: boolean;
+  /** False when a second try could not succeed, so none is offered. */
+  retryable?: boolean;
 }>();
 
 const emit = defineEmits<{ retry: [] }>();
@@ -29,6 +36,7 @@ const { t } = useI18n();
       {{ message }}
     </p>
     <Button
+      v-if="retryable"
       class="w-full"
       size="lg"
       variant="purchase"

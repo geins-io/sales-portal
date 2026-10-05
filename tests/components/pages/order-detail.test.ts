@@ -754,6 +754,16 @@ describe('OrderDetail', () => {
       expect(summaryOf(1)[0]!.id).not.toBe(summaryOf(2)[0]!.id);
     });
 
+    it("hands the summaries nothing to put at their foot: editing is the cart's alone", () => {
+      const wrapper = mountOrder();
+
+      const blocks = wrapper.findAllComponents(LineConfigurationSummary);
+      expect(blocks.length).toBeGreaterThan(0);
+      for (const block of blocks) {
+        expect(block.vm.$slots.default).toBeUndefined();
+      }
+    });
+
     it('renders two rows of one SKU without a duplicate key', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
