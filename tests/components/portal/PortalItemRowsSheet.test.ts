@@ -147,6 +147,23 @@ describe('PortalItemRowsSheet', () => {
       ]);
     });
 
+    it('marks it "Konfigurerad produkt" under its name', () => {
+      const [first, second] = mountSheet({ items: configured }).findAll(
+        '[data-testid="item-rows-row"]',
+      );
+
+      expect(first!.find('[data-testid="item-rows-configured"]').text()).toBe(
+        'cart.configured_product',
+      );
+      const html = first!.html();
+      expect(html.indexOf(items[0]!.name)).toBeLessThan(
+        html.indexOf('item-rows-configured'),
+      );
+      expect(
+        second!.find('[data-testid="item-rows-configured"]').exists(),
+      ).toBe(false);
+    });
+
     it('keeps the quantity and unit price line', () => {
       const wrapper = mountSheet({ items: configured });
 

@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3';
 import type {
   CartLineConfiguration,
-  OrderLineConfiguration,
+  OrderLineRead,
 } from '#shared/types/commerce';
 import type {
   CommittedConfiguration,
@@ -150,13 +150,14 @@ export interface ConfiguratorBackend {
     ctx: ConfiguratorContext,
   ): Promise<Map<string, CartLineConfiguration>>;
   /**
-   * What each configured row of an order was committed with, by its position
-   * in the order's rows. The order itself is the portal's ordinary read.
+   * Each row of an order by its position in the order's rows: its product's
+   * type and what a configured row was committed with. The order itself is the
+   * portal's ordinary read.
    */
   orderLineConfigurations(
     publicOrderId: string,
     ctx: ConfiguratorContext,
-  ): Promise<Map<number, OrderLineConfiguration>>;
+  ): Promise<Map<number, OrderLineRead>>;
 }
 
 /**

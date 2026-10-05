@@ -155,7 +155,7 @@ export interface WireCartLines {
 
 /** An order's `CartItemType`, as far as the order-row read selects it. */
 export interface WireOrderLine {
-  product?: { productId: number | null } | null;
+  product?: { productId: number | null; type?: string | null } | null;
   configuration: { summary: WireList<WireSummaryLine> } | null;
 }
 

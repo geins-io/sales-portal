@@ -477,6 +477,131 @@ describe('useCartStore', () => {
     });
   });
 
+  describe('addItems', () => {
+    beforeEach(() => {
+      mockCartIdRef.value = 'cart-123';
+    });
+
+    function postedSkus() {
+      return mockFetch.mock.calls
+        .filter(([url]) => url === '/api/cart/items')
+        .map(([, init]) => [init.body.skuId, init.body.quantity]);
+    }
+
+    it('adds every line in order and counts what was left out', async () => {
+      mockFetch.mockResolvedValue(mockCart);
+      const store = useCartStore();
+
+      await store.addItems(
+        [
+          { skuId: 100, quantity: 2 },
+          { skuId: 200, quantity: 1 },
+        ],
+        1,
+      );
+
+      expect(postedSkus()).toEqual([
+        [100, 2],
+        [200, 1],
+      ]);
+      expect(store.skippedConfigurable).toBe(1);
+      expect(store.isOpen).toBe(true);
+    });
+
+    it('counts nothing when nothing was left out, and opens the drawer as any add does', async () => {
+      mockFetch.mockResolvedValue(mockCart);
+      const store = useCartStore();
+
+      await store.addItems([{ skuId: 100, quantity: 1 }], 0);
+
+      expect(store.skippedConfigurable).toBe(0);
+      expect(store.isOpen).toBe(true);
+    });
+
+    it('opens the drawer with the count when everything was left out', async () => {
+      const store = useCartStore();
+
+      await store.addItems([], 2);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(store.skippedConfigurable).toBe(2);
+      expect(store.isOpen).toBe(true);
+    });
+
+    it('leaves the drawer closed when there was nothing to add or leave out', async () => {
+      const store = useCartStore();
+
+      await store.addItems([], 0);
+
+      expect(store.isOpen).toBe(false);
+      expect(store.skippedConfigurable).toBe(0);
+    });
+
+    it('replaces the count of an earlier bulk add', async () => {
+      mockFetch.mockResolvedValue(mockCart);
+      const store = useCartStore();
+
+      await store.addItems([], 3);
+      await store.addItems([{ skuId: 100, quantity: 1 }], 1);
+
+      expect(store.skippedConfigurable).toBe(1);
+    });
+
+    describe('the count after the bulk add', () => {
+      async function afterSkip() {
+        const store = useCartStore();
+        await store.addItems([], 2);
+        mockFetch.mockReset();
+        mockFetch.mockResolvedValue(mockCart);
+        return store;
+      }
+
+      it('is cleared by the next add', async () => {
+        const store = await afterSkip();
+
+        await store.addItem(100, 1);
+
+        expect(store.skippedConfigurable).toBe(0);
+      });
+
+      it('is cleared by the next add even when it fails', async () => {
+        const store = await afterSkip();
+        mockFetch.mockReset();
+        mockFetch.mockRejectedValue(new Error('fail'));
+
+        await store.addItem(100, 1);
+
+        expect(store.skippedConfigurable).toBe(0);
+      });
+
+      it('is cleared by a configured add', async () => {
+        const store = await afterSkip();
+        mockFetch.mockResolvedValue({ cart: mockCart, itemId: 'item-1' });
+
+        await store.addConfiguredItem('committed-1', 1652, 1);
+
+        expect(store.skippedConfigurable).toBe(0);
+      });
+
+      it('is kept through a quantity change and a removal', async () => {
+        const store = await afterSkip();
+
+        await store.updateQuantity('item-1', 3);
+        await store.removeItem('item-1');
+
+        expect(store.skippedConfigurable).toBe(2);
+      });
+
+      it('is cleared when the cart is replaced', async () => {
+        const store = await afterSkip();
+
+        store.cartId = null;
+
+        expect(store.skippedConfigurable).toBe(0);
+      });
+    });
+  });
+
   describe('line order', () => {
     // On a CPQ-enabled account the cart answers an updated line last; the
     // store keeps the order the buyer has seen. Lines are told apart by id.

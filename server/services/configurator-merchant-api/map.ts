@@ -1,6 +1,6 @@
 import type {
   CartLineConfiguration,
-  OrderLineConfiguration,
+  OrderLineRead,
   PriceType,
 } from '#shared/types/commerce';
 import type {
@@ -312,18 +312,22 @@ export function mapCartLineConfigurations(
 }
 
 /**
- * The configured rows of an order by position; a plain row is not in it. A
- * null row keeps its place, so positions match the order's own rows.
+ * The rows of an order by position, each with its product's type and, when
+ * configured, its summary. A null row keeps its place, so positions match the
+ * order's own rows.
  */
 export function mapOrderLineConfigurations(
   order: WireOrderLines | null,
-): Map<number, OrderLineConfiguration> {
-  const lines = new Map<number, OrderLineConfiguration>();
+): Map<number, OrderLineRead> {
+  const lines = new Map<number, OrderLineRead>();
   (order?.cart?.items ?? []).forEach((line, position) => {
-    if (!line?.configuration) return;
+    if (!line) return;
     lines.set(position, {
       productId: line.product?.productId ?? null,
-      summary: summaryLines(line.configuration.summary),
+      type: line.product?.type ?? null,
+      configuration: line.configuration && {
+        summary: summaryLines(line.configuration.summary),
+      },
     });
   });
   return lines;

@@ -100,15 +100,19 @@ function goToCheckout() {
         <Loader2 class="text-muted-foreground size-6 animate-spin" />
       </div>
 
-      <!-- Empty state -->
-      <div
-        v-else-if="cartStore.isEmpty"
-        class="flex flex-1 flex-col items-center justify-center gap-3 px-4"
-        data-testid="cart-empty"
-      >
-        <ShoppingCart class="text-muted-foreground size-12" />
-        <p class="text-muted-foreground text-sm">{{ $t('cart.empty_cart') }}</p>
-      </div>
+      <!-- Empty state; a bulk add that added nothing still says why -->
+      <template v-else-if="cartStore.isEmpty">
+        <CartSkippedNote class="mx-6 mt-4" />
+        <div
+          class="flex flex-1 flex-col items-center justify-center gap-3 px-4"
+          data-testid="cart-empty"
+        >
+          <ShoppingCart class="text-muted-foreground size-12" />
+          <p class="text-muted-foreground text-sm">
+            {{ $t('cart.empty_cart') }}
+          </p>
+        </div>
+      </template>
 
       <!-- Cart items + summary -->
       <template v-else>
@@ -120,6 +124,7 @@ function goToCheckout() {
                re-render of `<PromoCodeInput>` once design wants it back. -->
           <div class="flex flex-1 flex-col overflow-hidden">
             <div class="flex-1 overflow-y-auto px-6 py-4">
+              <CartSkippedNote class="mb-2" />
               <div class="divide-border divide-y">
                 <CartItem
                   v-for="item in cartStore.cart?.items"

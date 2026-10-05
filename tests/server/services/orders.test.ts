@@ -32,10 +32,15 @@ vi.mock('../../../server/services/_sdk', () => ({
 }));
 
 const orderLineConfigurations = vi.fn();
+// As the merchant-api backend answers: by the product's type.
+const byType = ({ type }: { productId: string; type?: string | null }) =>
+  type === 'configurable';
+const isConfigurable = vi.fn(byType);
 
 vi.mock('../../../server/services/configurator', () => ({
   getConfiguratorBackend: () => ({ orderLineConfigurations }),
   buildConfiguratorRequestContext: async () => ({ configuratorContext: true }),
+  configurableCheck: () => isConfigurable,
 }));
 
 vi.mock('../../../server/services/graphql/loader', () => ({
@@ -96,6 +101,7 @@ describe('orders service', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     orderLineConfigurations.mockResolvedValue(new Map());
+    isConfigurable.mockImplementation(byType);
     ordersService = await import('../../../server/services/orders');
   });
 
@@ -117,10 +123,10 @@ describe('orders service', () => {
         'order',
         OrderError,
       ]);
-      expect(result).toEqual(orderData);
+      expect(result).toEqual({ ...orderData, reorderable: true });
     });
 
-    describe('a configured row', () => {
+    describe('the rows as the configurator reads them', () => {
       const SUMMARY = [
         { label: 'Adapter', value: 'S45' },
         { label: 'Width (500-1500)', value: '1200 mm' },
@@ -138,6 +144,14 @@ describe('orders service', () => {
             ],
           },
         };
+      }
+
+      function line(
+        productId: number | null,
+        type: string | null,
+        summary: { label: string; value: string }[] | null = null,
+      ) {
+        return { productId, type, configuration: summary && { summary } };
       }
 
       let warn: ReturnType<typeof vi.spyOn>;
@@ -159,8 +173,9 @@ describe('orders service', () => {
         mockOrderGet.mockResolvedValueOnce(sdkOrder());
         orderLineConfigurations.mockResolvedValueOnce(
           new Map([
-            [1, { productId: 1359, summary: SUMMARY }],
-            [2, { productId: 1359, summary: OTHER_SUMMARY }],
+            [0, line(7, 'product')],
+            [1, line(1359, 'configurable', SUMMARY)],
+            [2, line(1359, 'configurable', OTHER_SUMMARY)],
           ]),
         );
 
@@ -174,23 +189,24 @@ describe('orders service', () => {
           {
             skuId: 20,
             quantity: 1,
-            product: { productId: 1359 },
+            product: { productId: 1359, configurable: true },
             configuration: { summary: SUMMARY },
           },
           {
             skuId: 20,
             quantity: 1,
-            product: { productId: 1359 },
+            product: { productId: 1359, configurable: true },
             configuration: { summary: OTHER_SUMMARY },
           },
         ]);
         expect(order?.publicId).toBe('abc-123');
+        expect(order?.reorderable).toBe(true);
       });
 
-      it('leaves a row bare when the product at that position is another', async () => {
+      it('flags a configurable row the configurator holds no configuration for', async () => {
         mockOrderGet.mockResolvedValueOnce(sdkOrder());
         orderLineConfigurations.mockResolvedValueOnce(
-          new Map([[0, { productId: 1359, summary: SUMMARY }]]),
+          new Map([[1, line(1359, 'configurable')]]),
         );
 
         const order = await ordersService.getOrder(
@@ -198,13 +214,140 @@ describe('orders service', () => {
           mockEvent,
         );
 
-        expect(order).toEqual(sdkOrder());
+        expect(order?.cart?.items[1]).toEqual({
+          skuId: 20,
+          quantity: 1,
+          product: { productId: 1359, configurable: true },
+        });
+      });
+
+      it('keeps the configuration on a row whose product no longer reads as configurable', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([[1, line(1359, 'product', SUMMARY)]]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order?.cart?.items[1]).toEqual({
+          skuId: 20,
+          quantity: 1,
+          product: { productId: 1359 },
+          configuration: { summary: SUMMARY },
+        });
+      });
+
+      it('asks the seam about every row, by product id and the type read for it', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([[1, line(1359, 'configurable')]]),
+        );
+
+        await ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent);
+
+        expect(isConfigurable.mock.calls).toEqual([
+          [{ productId: '7', type: null }],
+          [{ productId: '1359', type: 'configurable' }],
+          [{ productId: '1359', type: null }],
+        ]);
+      });
+
+      it('flags a row the backend answers for by product id alone, with no row read', async () => {
+        // The fixture: its seeds are ordinary catalogue products, so it reads
+        // no type and answers from the id.
+        isConfigurable.mockImplementation(({ productId }) => productId === '7');
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order?.cart?.items.map((i) => i?.product)).toEqual([
+          { productId: 7, configurable: true },
+          { productId: 1359 },
+          { productId: 1359 },
+        ]);
+      });
+
+      it('never passes the type on', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([
+            [0, line(7, 'product')],
+            [1, line(1359, 'configurable', SUMMARY)],
+          ]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(JSON.stringify(order)).not.toContain('"type"');
+      });
+
+      it('leaves a row bare and unflagged, and the order not reorderable, when the product at that position is another', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([
+            [0, line(1359, 'configurable', SUMMARY)],
+            [1, line(1359, 'configurable')],
+            [2, line(1359, 'configurable')],
+          ]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order?.cart?.items[0]).toEqual(sdkOrder().cart.items[0]);
+        expect(order?.reorderable).toBe(false);
+      });
+
+      it('answers an order not reorderable when the read holds no row at the position of a product row', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([
+            [0, line(7, 'product')],
+            [1, line(1359, 'configurable')],
+          ]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order?.reorderable).toBe(false);
+      });
+
+      it('answers an order reorderable when every product row matches its read', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+        orderLineConfigurations.mockResolvedValueOnce(
+          new Map([
+            [0, line(7, 'product')],
+            [1, line(1359, 'configurable')],
+            [2, line(1359, 'configurable')],
+          ]),
+        );
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order?.reorderable).toBe(true);
       });
 
       it('leaves a row bare when the read names no product', async () => {
         mockOrderGet.mockResolvedValueOnce(sdkOrder());
         orderLineConfigurations.mockResolvedValueOnce(
-          new Map([[1, { productId: null, summary: SUMMARY }]]),
+          new Map([[1, line(null, 'configurable', SUMMARY)]]),
         );
 
         const order = await ordersService.getOrder(
@@ -212,7 +355,7 @@ describe('orders service', () => {
           mockEvent,
         );
 
-        expect(order).toEqual(sdkOrder());
+        expect(order).toEqual({ ...sdkOrder(), reorderable: false });
       });
 
       it.each([
@@ -225,27 +368,27 @@ describe('orders service', () => {
         const order = { publicId: 'abc-123', cart: { items: [row] } };
         mockOrderGet.mockResolvedValueOnce(order);
         orderLineConfigurations.mockResolvedValueOnce(
-          new Map([[0, { productId: null, summary: SUMMARY }]]),
+          new Map([[0, line(null, 'configurable', SUMMARY)]]),
         );
 
         await expect(
           ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent),
-        ).resolves.toEqual(order);
+        ).resolves.toEqual({ ...order, reorderable: true });
       });
 
       it('leaves a row without a product bare when the read names one', async () => {
         const order = { publicId: 'abc-123', cart: { items: [{ skuId: 20 }] } };
         mockOrderGet.mockResolvedValueOnce(order);
         orderLineConfigurations.mockResolvedValueOnce(
-          new Map([[0, { productId: 1359, summary: SUMMARY }]]),
+          new Map([[0, line(1359, 'configurable', SUMMARY)]]),
         );
 
         await expect(
           ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent),
-        ).resolves.toEqual(order);
+        ).resolves.toEqual({ ...order, reorderable: true });
       });
 
-      it('answers the order unchanged, with one warning, when the read fails', async () => {
+      it('answers the order unchanged but not reorderable, with one warning, when the read fails', async () => {
         mockOrderGet.mockResolvedValueOnce(sdkOrder());
         orderLineConfigurations.mockRejectedValueOnce(new Error('timed out'));
 
@@ -254,17 +397,28 @@ describe('orders service', () => {
           mockEvent,
         );
 
-        expect(order).toEqual(sdkOrder());
+        expect(order).toEqual({ ...sdkOrder(), reorderable: false });
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledWith(
           '[configurator] order line configurations unavailable',
         );
       });
 
+      it('answers a reorderable order when the backend reads no rows (configurator off)', async () => {
+        mockOrderGet.mockResolvedValueOnce(sdkOrder());
+
+        const order = await ordersService.getOrder(
+          { publicOrderId: 'abc-123' },
+          mockEvent,
+        );
+
+        expect(order).toEqual({ ...sdkOrder(), reorderable: true });
+      });
+
       it('answers no order while the order does not exist yet', async () => {
         mockOrderGet.mockResolvedValueOnce(undefined);
         orderLineConfigurations.mockResolvedValueOnce(
-          new Map([[0, { productId: 7, summary: SUMMARY }]]),
+          new Map([[0, line(7, 'configurable', SUMMARY)]]),
         );
 
         await expect(
@@ -279,12 +433,22 @@ describe('orders service', () => {
         const bare = { publicId: 'abc-123', cart };
         mockOrderGet.mockResolvedValueOnce(bare);
         orderLineConfigurations.mockResolvedValueOnce(
-          new Map([[0, { productId: 7, summary: SUMMARY }]]),
+          new Map([[0, line(7, 'configurable', SUMMARY)]]),
         );
 
         await expect(
           ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent),
-        ).resolves.toEqual(bare);
+        ).resolves.toEqual({ ...bare, reorderable: true });
+      });
+
+      it('answers an order without rows not reorderable when the read fails', async () => {
+        const bare = { publicId: 'abc-123', cart: null };
+        mockOrderGet.mockResolvedValueOnce(bare);
+        orderLineConfigurations.mockRejectedValueOnce(new Error('timed out'));
+
+        await expect(
+          ordersService.getOrder({ publicOrderId: 'abc-123' }, mockEvent),
+        ).resolves.toEqual({ ...bare, reorderable: false });
       });
 
       it('skips a null row and keeps its position', async () => {
@@ -293,7 +457,7 @@ describe('orders service', () => {
           cart: { items: [null, { skuId: 20, product: { productId: 1359 } }] },
         });
         orderLineConfigurations.mockResolvedValueOnce(
-          new Map([[1, { productId: 1359, summary: SUMMARY }]]),
+          new Map([[1, line(1359, 'configurable', SUMMARY)]]),
         );
 
         const order = await ordersService.getOrder(
@@ -305,7 +469,7 @@ describe('orders service', () => {
           null,
           {
             skuId: 20,
-            product: { productId: 1359 },
+            product: { productId: 1359, configurable: true },
             configuration: { summary: SUMMARY },
           },
         ]);

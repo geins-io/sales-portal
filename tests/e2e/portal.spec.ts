@@ -1043,6 +1043,72 @@ test.describe('Portal Quotation Values', () => {
  * restores carries none. The context is thrown away with the test, so nothing
  * is left behind and no two tests can see each other's list.
  */
+/**
+ * A saved list holding these aliases, created the way a buyer creates one:
+ * the portal's create sheet, then the add-to-list dialog on each PDP. The
+ * sheet navigates straight to the new list, which is where its id comes from.
+ */
+async function createListWith(
+  page: Page,
+  aliases: string[],
+  name: string,
+): Promise<string> {
+  await page.goto('/se/sv/portal/lists');
+  await page.waitForLoadState('load');
+  await waitForHydration(page);
+
+  await page.locator('[data-testid="saved-lists-create"]').click();
+  await page.locator('[data-testid="create-list-name"]').fill(name);
+  await page.locator('[data-testid="create-list-submit"]').click();
+  await page.waitForURL(/\/portal\/saved-lists\/[\w-]+/, {
+    timeout: PAGE_TIMEOUT,
+  });
+  const listId = new URL(page.url()).pathname.split('/').filter(Boolean).pop();
+  expect(listId, `no list id in ${page.url()}`).toBeTruthy();
+
+  for (const alias of aliases) {
+    await page.goto(`/p/${alias}`);
+    await page.waitForLoadState('load');
+    await waitForHydration(page);
+
+    const trigger = page.locator('[data-testid="pdp-add-to-lists"]');
+    await expect(
+      trigger,
+      'the PDP offers no add-to-list button — the tenant has the wishlist feature off',
+    ).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await trigger.click();
+
+    const row = page.locator(
+      `[data-testid="add-to-list-row"][data-list-id="${listId}"]`,
+    );
+    await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
+    await row.click();
+    // The dialog writes to localStorage with no request to wait for, so the
+    // checkbox state is what says the product reached the list.
+    await expect(row.locator('[data-slot="checkbox"]')).toHaveAttribute(
+      'data-state',
+      'checked',
+    );
+    await page.locator('[data-testid="add-to-list-done"]').click();
+  }
+
+  return listId!;
+}
+
+async function openList(page: Page, listId: string) {
+  await page.goto(`/se/sv/portal/saved-lists/${listId}`);
+  await page.waitForLoadState('load');
+  await waitForHydration(page);
+  // The products are fetched client-side after the list loads, so the card
+  // carrying the total is the signal, not the page load.
+  await expect(page.locator('[data-testid="list-loading"]')).toBeHidden({
+    timeout: PAGE_TIMEOUT,
+  });
+  await expect(page.locator('[data-testid="list-total-card"]')).toBeVisible({
+    timeout: PAGE_TIMEOUT,
+  });
+}
+
 test.describe('Portal Saved List Total', () => {
   /** The screen rounds the sum to two decimals; the prices it sums are not rounded. */
   const ROUNDING = 0.005;
@@ -1096,75 +1162,6 @@ test.describe('Portal Saved List Total', () => {
         'the pair cannot tell the two implementations apart',
     ).toBeGreaterThan(0);
     return pair;
-  }
-
-  /**
-   * A saved list holding these aliases, created the way a buyer creates one:
-   * the portal's create sheet, then the add-to-list dialog on each PDP. The
-   * sheet navigates straight to the new list, which is where its id comes from.
-   */
-  async function createListWith(
-    page: Page,
-    aliases: string[],
-    name: string,
-  ): Promise<string> {
-    await page.goto('/se/sv/portal/lists');
-    await page.waitForLoadState('load');
-    await waitForHydration(page);
-
-    await page.locator('[data-testid="saved-lists-create"]').click();
-    await page.locator('[data-testid="create-list-name"]').fill(name);
-    await page.locator('[data-testid="create-list-submit"]').click();
-    await page.waitForURL(/\/portal\/saved-lists\/[\w-]+/, {
-      timeout: PAGE_TIMEOUT,
-    });
-    const listId = new URL(page.url()).pathname
-      .split('/')
-      .filter(Boolean)
-      .pop();
-    expect(listId, `no list id in ${page.url()}`).toBeTruthy();
-
-    for (const alias of aliases) {
-      await page.goto(`/p/${alias}`);
-      await page.waitForLoadState('load');
-      await waitForHydration(page);
-
-      const trigger = page.locator('[data-testid="pdp-add-to-lists"]');
-      await expect(
-        trigger,
-        'the PDP offers no add-to-list button — the tenant has the wishlist feature off',
-      ).toBeVisible({ timeout: PAGE_TIMEOUT });
-      await trigger.click();
-
-      const row = page.locator(
-        `[data-testid="add-to-list-row"][data-list-id="${listId}"]`,
-      );
-      await expect(row).toBeVisible({ timeout: PAGE_TIMEOUT });
-      await row.click();
-      // The dialog writes to localStorage with no request to wait for, so the
-      // checkbox state is what says the product reached the list.
-      await expect(row.locator('[data-slot="checkbox"]')).toHaveAttribute(
-        'data-state',
-        'checked',
-      );
-      await page.locator('[data-testid="add-to-list-done"]').click();
-    }
-
-    return listId!;
-  }
-
-  async function openList(page: Page, listId: string) {
-    await page.goto(`/se/sv/portal/saved-lists/${listId}`);
-    await page.waitForLoadState('load');
-    await waitForHydration(page);
-    // The products are fetched client-side after the list loads, so the card
-    // carrying the total is the signal, not the page load.
-    await expect(page.locator('[data-testid="list-loading"]')).toBeHidden({
-      timeout: PAGE_TIMEOUT,
-    });
-    await expect(page.locator('[data-testid="list-total-card"]')).toBeVisible({
-      timeout: PAGE_TIMEOUT,
-    });
   }
 
   async function readListTotal(page: Page): Promise<number> {
@@ -1288,5 +1285,251 @@ test.describe('Portal Saved List Total', () => {
     });
     await expect(value).toHaveText('2');
     await expectTotal(2);
+  });
+});
+
+/**
+ * Bulk adds that leave a configurable product out
+ *
+ * "Beställ igen" and a saved list's "Lägg alla i varukorgen" cannot put a
+ * configurable product in the cart without a configuration, so they leave it
+ * out and the cart says how many, above its lines, in the drawer and on the
+ * cart page (app/components/cart/CartSkippedNote.vue). The order is discovered
+ * by property, never by id: the first one holding a configured row next to an
+ * ordinary one. Both tests leave the account's cart as they found it.
+ */
+test.describe('Portal bulk adds that leave a configurable product out', () => {
+  interface DetailRow {
+    skuId?: number;
+    quantity?: number;
+    configuration?: unknown;
+    product?: { alias?: string; name?: string; configurable?: boolean };
+  }
+
+  interface CartLine {
+    id: string;
+    skuId: number;
+    quantity: number;
+  }
+
+  // Only a backend that reads order rows from the platform can mark a row
+  // configured; the fixture (CI) reads none, so no order there holds one.
+  const NO_CONFIGURED_ORDER =
+    "no order of the test account holds a configured row next to an ordinary one (the target's configurator backend reads no configured order rows)";
+
+  const ONE_SKIPPED =
+    '1 produkt kräver konfiguration och lades inte i varukorgen';
+
+  function isLeftOut(row: DetailRow): boolean {
+    return !!row.configuration || row.product?.configurable === true;
+  }
+
+  // By SKU, not by line: an add of a SKU the cart already holds is merged into
+  // that line, so a line can be there before and still be the one added to.
+  function quantityBySku(lines: CartLine[]): Map<number, number> {
+    const bySku = new Map<number, number>();
+    for (const line of lines) {
+      bySku.set(line.skuId, (bySku.get(line.skuId) ?? 0) + line.quantity);
+    }
+    return bySku;
+  }
+
+  async function findConfiguredOrder(
+    page: Page,
+  ): Promise<{ publicId: string; rows: DetailRow[] } | null> {
+    const response = await page.request.get('/api/orders');
+    expect(response.ok(), '/api/orders did not answer 200').toBe(true);
+    const orders: { publicId?: string }[] =
+      (await response.json())?.orders ?? [];
+    for (const { publicId } of orders) {
+      if (!publicId) continue;
+      const detail = await page.request.get(`/api/orders/${publicId}`);
+      if (!detail.ok()) continue;
+      const order = (await detail.json())?.order;
+      const rows: DetailRow[] = (order?.cart?.items ?? []).filter(
+        (row: DetailRow | null) => row?.skuId,
+      );
+      // `!== false`: an order the server could not read hides "Beställ
+      // igen" by design, so it cannot serve.
+      if (
+        order?.reorderable !== false &&
+        rows.some((row) => !!row.configuration) &&
+        rows.some((row) => !isLeftOut(row) && row.product?.alias)
+      ) {
+        return { publicId, rows };
+      }
+    }
+    return null;
+  }
+
+  async function readCartLines(page: Page): Promise<{
+    cartId: string | null;
+    lines: CartLine[];
+  }> {
+    const cartId =
+      (await page.context().cookies()).find((c) => c.name === 'cart_id')
+        ?.value ?? null;
+    if (!cartId) return { cartId, lines: [] };
+    const response = await page.request.get('/api/cart', {
+      params: { cartId },
+    });
+    expect(response.ok(), '/api/cart did not answer 200').toBe(true);
+    return { cartId, lines: (await response.json())?.items ?? [] };
+  }
+
+  /**
+   * Back to the quantities read before, by SKU: a merge into an existing line
+   * gives it a new line id, so line ids cannot say which lines a bulk add
+   * touched. A SKU that was not there goes, one that was gets its quantity back.
+   */
+  async function restoreCart(page: Page, before: Map<number, number>) {
+    const after = await readCartLines(page);
+    for (const line of after.cartId ? after.lines : []) {
+      const old = before.get(line.skuId) ?? 0;
+      if (old === line.quantity) continue;
+      if (old === 0) {
+        await page.request.delete('/api/cart/items', {
+          params: { cartId: after.cartId!, itemId: line.id },
+        });
+      } else {
+        await page.request.put('/api/cart/items', {
+          data: { cartId: after.cartId!, itemId: line.id, quantity: old },
+        });
+      }
+    }
+  }
+
+  async function expectCartChange(
+    page: Page,
+    before: Map<number, number>,
+    added: Map<number, number>,
+    untouched: number[],
+  ) {
+    const after = quantityBySku((await readCartLines(page)).lines);
+    for (const [sku, quantity] of added) {
+      expect(after.get(sku) ?? 0, `SKU ${sku}`).toBe(
+        (before.get(sku) ?? 0) + quantity,
+      );
+    }
+    for (const sku of untouched) {
+      expect(after.get(sku) ?? 0, `SKU ${sku} was added`).toBe(
+        before.get(sku) ?? 0,
+      );
+    }
+  }
+
+  const drawerNote = (page: Page) =>
+    page.locator(
+      '[data-testid="cart-drawer"] [data-testid="cart-skipped-configurable"]',
+    );
+
+  test('reorder adds the ordinary rows and stays on the order, and the drawer says how many it left out', async ({
+    page,
+  }) => {
+    await page.goto('/se/sv/portal');
+    await waitForHydration(page);
+
+    const order = await findConfiguredOrder(page);
+    outOfScope(order === null, 'tenant-config', NO_CONFIGURED_ORDER);
+    const leftOut = order!.rows.filter(isLeftOut);
+    const added = new Map<number, number>();
+    for (const row of order!.rows) {
+      if (isLeftOut(row)) continue;
+      added.set(row.skuId!, (added.get(row.skuId!) ?? 0) + (row.quantity ?? 1));
+    }
+    const before = quantityBySku((await readCartLines(page)).lines);
+
+    try {
+      await page.goto(`/se/sv/portal/orders/${order!.publicId}`);
+      await waitForHydration(page);
+      await page.locator('[data-testid="reorder-button"]').click();
+
+      const note =
+        leftOut.length === 1
+          ? ONE_SKIPPED
+          : `${leftOut.length} produkter kräver konfiguration och lades inte i varukorgen`;
+      await expect(drawerNote(page)).toHaveText(note, {
+        timeout: PAGE_TIMEOUT,
+      });
+      await expect(
+        page.locator('[data-testid="reorder-button"]'),
+      ).toBeEnabled();
+      // The buyer stays on the order; the drawer is the cart they see.
+      expect(new URL(page.url()).pathname).toBe(
+        `/se/sv/portal/orders/${order!.publicId}`,
+      );
+      await expectCartChange(
+        page,
+        before,
+        added,
+        leftOut.map((row) => row.skuId!),
+      );
+    } finally {
+      await restoreCart(page, before);
+    }
+  });
+
+  test('a saved list\'s "add all" adds the ordinary product, and the cart says one was left out', async ({
+    page,
+  }) => {
+    await page.goto('/se/sv/portal');
+    await waitForHydration(page);
+
+    // The order supplies one product of each kind, both known to the account.
+    const order = await findConfiguredOrder(page);
+    outOfScope(order === null, 'tenant-config', NO_CONFIGURED_ORDER);
+    const configured = order!.rows.find((row) => !!row.configuration)!;
+    const ordinary = order!.rows.find(
+      (row) => !isLeftOut(row) && row.product?.alias,
+    )!;
+    const listId = await createListWith(
+      page,
+      [ordinary.product!.alias!],
+      'Add all check',
+    );
+
+    // A configurable product's page is the configurator, which has no
+    // add-to-list button; its search card has one.
+    await page.goto(
+      `/se/sv/search?q=${encodeURIComponent(configured.product!.name!)}`,
+    );
+    await waitForHydration(page);
+    const card = page
+      .locator('[data-testid="product-card"]:visible')
+      .filter({
+        has: page.locator(`a[href$="/${configured.product!.alias}"]`),
+      })
+      .first();
+    await card.locator('[data-testid="wishlist-button"]').click();
+    const row = page.locator(
+      `[data-testid="add-to-list-row"][data-list-id="${listId}"]`,
+    );
+    await row.click();
+    await expect(row.locator('[data-slot="checkbox"]')).toHaveAttribute(
+      'data-state',
+      'checked',
+    );
+    await page.locator('[data-testid="add-to-list-done"]').click();
+
+    await openList(page, listId);
+    await expect(page.locator('[data-testid="list-item-row"]')).toHaveCount(2);
+    const before = quantityBySku((await readCartLines(page)).lines);
+
+    try {
+      await page.locator('[data-testid="add-all-to-cart-btn"]').click();
+
+      await expect(drawerNote(page)).toHaveText(ONE_SKIPPED, {
+        timeout: PAGE_TIMEOUT,
+      });
+      const after = quantityBySku((await readCartLines(page)).lines);
+      const addedSkus = [...after].filter(
+        ([sku, quantity]) => quantity > (before.get(sku) ?? 0),
+      );
+      expect(addedSkus, 'one ordinary SKU, one more of it').toHaveLength(1);
+      expect(addedSkus[0]![1] - (before.get(addedSkus[0]![0]) ?? 0)).toBe(1);
+      await expectCartChange(page, before, new Map(), [configured.skuId!]);
+    } finally {
+      await restoreCart(page, before);
+    }
   });
 });

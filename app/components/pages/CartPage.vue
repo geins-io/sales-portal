@@ -94,15 +94,16 @@ function goToCheckout() {
       />
 
       <!-- Empty state -->
-      <CartEmptyState
-        v-else-if="cartStore.isEmpty"
-        data-testid="cart-page-empty"
-      />
+      <template v-else-if="cartStore.isEmpty">
+        <CartSkippedNote />
+        <CartEmptyState data-testid="cart-page-empty" />
+      </template>
 
       <!-- Cart content: items + summary -->
       <div v-else class="flex flex-col gap-8 lg:flex-row lg:items-start">
         <!-- LEFT: Cart items list -->
         <div class="min-w-0 flex-1">
+          <CartSkippedNote class="mb-2" />
           <ErrorBoundary section="cart-items">
             <div class="divide-border divide-y">
               <CartItem

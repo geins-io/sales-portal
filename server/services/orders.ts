@@ -3,7 +3,7 @@ import { OrderError } from '@geins/core';
 import type { H3Event } from 'h3';
 import type {
   OrderDetailType,
-  OrderLineConfiguration,
+  OrderLineRead,
   OrderListItem,
 } from '#shared/types/commerce';
 import { logger } from '../utils/logger';
@@ -15,16 +15,22 @@ import {
 import { loadQuery } from './graphql/loader';
 import { unwrapGraphQL } from './graphql/unwrap';
 import { getCompany } from './company';
+import type { ConfigurableCandidate } from './configurator';
 import {
   buildConfiguratorRequestContext,
+  configurableCheck,
   getConfiguratorBackend,
 } from './configurator';
 
-/** Never throws: without the read, the rows render without a configuration. */
+/**
+ * Never throws. A failed read answers null, unlike a backend with nothing to
+ * read (an empty map): the rows then render without a configuration, and the
+ * order cannot say which of them are configurable.
+ */
 async function orderLineConfigurations(
   publicOrderId: string,
   event: H3Event,
-): Promise<Map<number, OrderLineConfiguration>> {
+): Promise<Map<number, OrderLineRead> | null> {
   try {
     return await getConfiguratorBackend(event).orderLineConfigurations(
       publicOrderId,
@@ -32,33 +38,49 @@ async function orderLineConfigurations(
     );
   } catch {
     logger.warn('[configurator] order line configurations unavailable');
-    return new Map();
+    return null;
   }
 }
 
 /**
- * Puts each configuration on the row at its position, and only when that row
- * is the product the configuration was read for: a wrong summary on a row is
- * worse than none.
+ * Puts each row's configuration and configurable flag on it, by position, and
+ * only when that row is the product the line was read for: a wrong summary on
+ * a row is worse than none. Without a read, or with a read that misses a row,
+ * reorder cannot tell which rows to leave out, so the order is not
+ * reorderable. A backend with nothing to read answers no rows at all.
  */
 export function withOrderLineConfigurations(
   order: OrderSummaryType,
-  lines: Map<number, OrderLineConfiguration>,
+  lines: Map<number, OrderLineRead> | null,
+  isConfigurable: (product: ConfigurableCandidate) => boolean,
 ): OrderDetailType {
-  if (!order.cart?.items || lines.size === 0) return order;
+  if (!order.cart?.items) return { ...order, reorderable: lines !== null };
+  let unmatched = false;
+  const items = order.cart.items.map((item, position) => {
+    if (!item?.product || item.product.productId == null) return item;
+    const productId = String(item.product.productId);
+    const read = lines?.get(position);
+    const line =
+      read && String(read.productId) === productId ? read : undefined;
+    if (!line) unmatched = true;
+    const configurable = isConfigurable({
+      productId,
+      type: line?.type ?? null,
+    });
+    return {
+      ...item,
+      ...(configurable
+        ? { product: { ...item.product, configurable: true as const } }
+        : {}),
+      ...(line?.configuration
+        ? { configuration: { summary: line.configuration.summary } }
+        : {}),
+    };
+  });
   return {
     ...order,
-    cart: {
-      ...order.cart,
-      items: order.cart.items.map((item, position) => {
-        const line = lines.get(position);
-        if (!item || !line || line.productId === null) return item;
-        if (String(line.productId) !== String(item.product?.productId)) {
-          return item;
-        }
-        return { ...item, configuration: { summary: line.summary } };
-      }),
-    },
+    reorderable: lines !== null && !(lines.size > 0 && unmatched),
+    cart: { ...order.cart, items },
   };
 }
 
@@ -76,7 +98,9 @@ export async function getOrder(
     ),
     orderLineConfigurations(args.publicOrderId, event),
   ]);
-  return order ? withOrderLineConfigurations(order, lines) : undefined;
+  return order
+    ? withOrderLineConfigurations(order, lines, configurableCheck(event))
+    : undefined;
 }
 
 export async function listOrders(
