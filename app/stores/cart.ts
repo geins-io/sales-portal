@@ -4,12 +4,34 @@ import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { internalFetch } from '~/utils/internal-fetch';
 
+/**
+ * The new cart with its lines in the order the buyer has seen: lines already
+ * shown keep their place by id, new ones follow in the API's order. On a
+ * CPQ-enabled account the cart answers an updated line last, which would move
+ * the row under the buyer's click. Another cart id is a different cart, taken
+ * as answered.
+ */
+function keepLineOrder(shown: CartType | null, next: CartType): CartType {
+  if (!shown || shown.id !== next.id) return next;
+  const items = next.items ?? [];
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const kept = (shown.items ?? []).flatMap((item) => {
+    const line = item.id === undefined ? undefined : byId.get(item.id);
+    return line ? [line] : [];
+  });
+  const added = items.filter((item) => !kept.includes(item));
+  return { ...next, items: [...kept, ...added] };
+}
+
 export const useCartStore = defineStore('cart', () => {
   const cartId = useCookie<string | null>(COOKIE_NAMES.CART_ID, {
     maxAge: 60 * 60 * 24 * 30,
     path: '/',
   });
   const cart = ref<CartType | null>(null);
+  function setCart(next: CartType) {
+    cart.value = keepLineOrder(cart.value, next);
+  }
   const isOpen = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
@@ -34,9 +56,11 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      cart.value = await internalFetch<CartType>('/api/cart', {
-        query: { cartId: cartId.value },
-      });
+      setCart(
+        await internalFetch<CartType>('/api/cart', {
+          query: { cartId: cartId.value },
+        }),
+      );
     } catch {
       error.value = 'Failed to load cart';
       cart.value = null;
@@ -54,10 +78,12 @@ export const useCartStore = defineStore('cart', () => {
         const newCart = await $fetch<CartType>('/api/cart', { method: 'POST' });
         cartId.value = newCart.id;
       }
-      cart.value = await $fetch<CartType>('/api/cart/items', {
-        method: 'POST',
-        body: { cartId: cartId.value, skuId, quantity },
-      });
+      setCart(
+        await $fetch<CartType>('/api/cart/items', {
+          method: 'POST',
+          body: { cartId: cartId.value, skuId, quantity },
+        }),
+      );
       isOpen.value = true;
     } catch {
       error.value = 'Failed to add item';
@@ -91,7 +117,7 @@ export const useCartStore = defineStore('cart', () => {
         body: { cartId: id, skuId, quantity },
       });
       // The line is in even when the route could not read the cart back.
-      if (answer.cart) cart.value = answer.cart;
+      if (answer.cart) setCart(answer.cart);
       else await fetchCart();
       isOpen.value = true;
       return answer.itemId ? { cartId: id, itemId: answer.itemId } : null;
@@ -106,15 +132,19 @@ export const useCartStore = defineStore('cart', () => {
     error.value = null;
     try {
       if (quantity === 0) {
-        cart.value = await $fetch<CartType>('/api/cart/items', {
-          method: 'DELETE',
-          query: { cartId: cartId.value, itemId },
-        });
+        setCart(
+          await $fetch<CartType>('/api/cart/items', {
+            method: 'DELETE',
+            query: { cartId: cartId.value, itemId },
+          }),
+        );
       } else {
-        cart.value = await $fetch<CartType>('/api/cart/items', {
-          method: 'PUT',
-          body: { cartId: cartId.value, itemId, quantity },
-        });
+        setCart(
+          await $fetch<CartType>('/api/cart/items', {
+            method: 'PUT',
+            body: { cartId: cartId.value, itemId, quantity },
+          }),
+        );
       }
     } catch {
       error.value = 'Failed to update item';
@@ -132,10 +162,12 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      cart.value = await $fetch<CartType>('/api/cart/promo', {
-        method: 'POST',
-        body: { cartId: cartId.value, promoCode: code },
-      });
+      setCart(
+        await $fetch<CartType>('/api/cart/promo', {
+          method: 'POST',
+          body: { cartId: cartId.value, promoCode: code },
+        }),
+      );
     } catch {
       error.value = 'Invalid promo code';
     } finally {
@@ -148,10 +180,12 @@ export const useCartStore = defineStore('cart', () => {
     isLoading.value = true;
     error.value = null;
     try {
-      cart.value = await $fetch<CartType>('/api/cart/promo', {
-        method: 'DELETE',
-        query: { cartId: cartId.value },
-      });
+      setCart(
+        await $fetch<CartType>('/api/cart/promo', {
+          method: 'DELETE',
+          query: { cartId: cartId.value },
+        }),
+      );
     } catch {
       error.value = 'Failed to remove promo code';
     } finally {
