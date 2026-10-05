@@ -4,6 +4,7 @@ import {
   discoverPurchasableProduct,
   fetchCart,
   fetchOrder,
+  noteOutOfScope,
   outOfScope,
   readPrice,
   waitForHydration,
@@ -39,6 +40,13 @@ import { ALLOW_ORDERS_FOR, BASE_URL } from '../target';
  * retry here is a second real order, and `/api/checkout/create-order` rate-limits
  * order creation to 5 per 60 seconds per IP.
  *
+ * Where the target can configure, the cart also holds a configured line, so the
+ * order proves that a configured line keeps the price it was committed at all
+ * the way into the order. A line that loses its configuration on the way also
+ * loses that price (2 711,08 kr ex VAT became 777,00 kr ex VAT when the
+ * checkout still ran on an endpoint that drops it), so the frozen price is the
+ * proof.
+ *
  * What this proves is the cart reaching the order intact. It deliberately does
  * not compare the checkout's rendered numbers with the order detail's: each
  * screen is held to its own API, and the two API views are then held to each
@@ -58,6 +66,24 @@ test.use({ storageState: STORAGE_STATE });
 const QUANTITY = 3;
 
 const PAGE_TIMEOUT = 20000;
+
+/**
+ * The configured line, per tenant `/api/config` resolves to. Named rather than
+ * discovered: the product is left out of the product lists that discovery
+ * reads, and it is valid as created, so it commits without a choice. 1652 is
+ * its only SKU (both measured 2026-10-02). A tenant without an entry places
+ * the plain line alone.
+ */
+const CONFIGURED_LINES: Record<string, { productId: string; skuId: number }> = {
+  monitor: { productId: '1359', skuId: 1652 },
+};
+
+/** A configured line in the cart, and the price its commit froze. */
+interface ConfiguredLine {
+  skuId: number;
+  quantity: number;
+  unitPriceIncVat: number;
+}
 
 /**
  * How long the platform may take to make a placed order readable.
@@ -156,7 +182,72 @@ async function readOrderLines(page: Page): Promise<ScreenOrderLine[]> {
   return lines;
 }
 
-/** The checkout summary and line, against the cart the API computed. */
+/**
+ * Commits the tenant's configured product and adds it to the cart through the
+ * portal's own routes, as the configurator page's action does. `null`, with
+ * the reason declared, where the tenant names no configured product.
+ */
+async function addConfiguredLine(
+  page: Page,
+  tenantId: string,
+  cartId: string,
+): Promise<ConfiguredLine | null> {
+  const named = CONFIGURED_LINES[tenantId];
+  if (!named) {
+    noteOutOfScope(
+      'tenant-config',
+      `no configurable product is named for tenant "${tenantId}", so the order holds the plain line alone`,
+    );
+    return null;
+  }
+
+  const created = await page.request.post('/api/configurations', {
+    data: { productId: named.productId, quantity: 1 },
+  });
+  expect(
+    created.ok(),
+    `POST /api/configurations answered ${created.status()} for product ${named.productId}, which tenant "${tenantId}" names as configurable`,
+  ).toBe(true);
+  const session = (await created.json()) as {
+    configurationId: string;
+    isValid: boolean;
+  };
+  expect(
+    session.isValid,
+    `product ${named.productId} is no longer valid as created, so it cannot be committed without choices`,
+  ).toBe(true);
+
+  const committed = await page.request.post(
+    `/api/configurations/${session.configurationId}/commit`,
+  );
+  expect(committed.ok(), `the commit answered ${committed.status()}`).toBe(
+    true,
+  );
+  const commit = (await committed.json()) as {
+    committedConfigurationId: string;
+    quantity: number;
+    unitPrice: { sellingPriceIncVat: number };
+  };
+
+  const added = await page.request.post(
+    `/api/configurations/${commit.committedConfigurationId}/cart`,
+    { data: { cartId, skuId: named.skuId, quantity: commit.quantity } },
+  );
+  expect(added.ok(), `the configured add answered ${added.status()}`).toBe(
+    true,
+  );
+
+  annotate(
+    `configured line: product ${named.productId}, committed ${commit.committedConfigurationId} at ${commit.unitPrice.sellingPriceIncVat} inc VAT`,
+  );
+  return {
+    skuId: named.skuId,
+    quantity: commit.quantity,
+    unitPriceIncVat: commit.unitPrice.sellingPriceIncVat,
+  };
+}
+
+/** The checkout summary and lines, against the cart the API computed. */
 async function expectCheckoutMatchesCart(page: Page, cart: ApiCart) {
   // Checkout is pinned to inc-VAT: it reads `sellingPriceIncVatFormatted` and
   // passes `show-vat="true"` to every price, with no `useVatDisplay` in it. So
@@ -171,17 +262,32 @@ async function expectCheckoutMatchesCart(page: Page, cart: ApiCart) {
     await readPrice(page.locator('[data-testid="checkout-summary-tax"]')),
   ).toBeCloseTo(cart.vat, 2);
 
-  const line = cart.items[0]!;
-  const item = page.locator('[data-testid="checkout-cart-item"]').first();
-  const unitPrice = await readPrice(
-    item.locator('[data-testid="checkout-unit-price"]'),
-  );
-  const lineTotal = await readPrice(
-    item.locator('[data-testid="checkout-line-total"]'),
-  );
-  expect(unitPrice).toBeCloseTo(line.unitPriceIncVat, 2);
-  expect(lineTotal).toBeCloseTo(line.totalPriceIncVat, 2);
-  expect(lineTotal).toBeCloseTo(unitPrice * QUANTITY, 2);
+  // Paired on position: the checkout renders the cart's own lines in the
+  // cart's order, and its rows carry nothing that names a SKU.
+  const rows = page.locator('[data-testid="checkout-cart-item"]');
+  await expect(rows).toHaveCount(cart.items.length);
+  for (const [index, line] of cart.items.entries()) {
+    const item = rows.nth(index);
+    const where = `checkout row ${index} (SKU ${line.skuId})`;
+    const unitPrice = await readPrice(
+      item.locator('[data-testid="checkout-unit-price"]'),
+    );
+    const lineTotal = await readPrice(
+      item.locator('[data-testid="checkout-line-total"]'),
+    );
+    expect(unitPrice, `${where}: unit price`).toBeCloseTo(
+      line.unitPriceIncVat,
+      2,
+    );
+    expect(lineTotal, `${where}: line total`).toBeCloseTo(
+      line.totalPriceIncVat,
+      2,
+    );
+    expect(lineTotal, `${where}: not quantity x unit price`).toBeCloseTo(
+      unitPrice * line.quantity,
+      2,
+    );
+  }
 }
 
 test('a placed order carries the cart it was built from all the way to the portal', async ({
@@ -200,14 +306,6 @@ test('a placed order carries the cart it was built from all the way to the porta
 
   const product = await discoverPurchasableProduct(page);
   await addToCart(page, product.alias, QUANTITY);
-
-  // Snapshot before the click: placing the order consumes the cart, so
-  // afterwards there is nothing left to compare the order against.
-  const cart = await fetchCart(page);
-  expect(
-    cart.items[0]!.quantity,
-    'the cart holds a different quantity than the one this test asked for',
-  ).toBe(QUANTITY);
   const cartId = (await page.context().cookies()).find(
     (cookie) => cookie.name === 'cart_id',
   )?.value;
@@ -215,6 +313,30 @@ test('a placed order carries the cart it was built from all the way to the porta
     cartId,
     'no cart_id cookie, so there is no cart to place',
   ).toBeTruthy();
+
+  // Last, so no later cart write stands between the configured line and the
+  // checkout.
+  const configured = await addConfiguredLine(page, tenantId, cartId!);
+
+  // Snapshot before the click: placing the order consumes the cart, so
+  // afterwards there is nothing left to compare the order against.
+  const cart = await fetchCart(page);
+  const plainLine = cart.items.find((line) => line.skuId === product.skuId);
+  expect(
+    plainLine?.quantity,
+    'the cart holds a different quantity than the one this test asked for',
+  ).toBe(QUANTITY);
+  expect(
+    cart.items.length,
+    'the cart holds other lines than the ones this test added',
+  ).toBe(configured ? 2 : 1);
+  if (configured) {
+    const line = cart.items.find((item) => item.skuId === configured.skuId);
+    expect(
+      line?.unitPriceIncVat,
+      'the cart does not hold the configured line at the price its commit froze',
+    ).toBeCloseTo(configured.unitPriceIncVat, 2);
+  }
 
   // ---------- 2. The screen the buyer commits from ----------
 
@@ -484,7 +606,24 @@ test('a placed order carries the cart it was built from all the way to the porta
     ).toBeCloseTo(cart.totalIncVat, 2);
   });
 
-  // ---------- 10. The buyer's session no longer holds the cart ----------
+  // ---------- 10. The configured line kept its configuration ----------
+
+  if (configured) {
+    await test.step('the configured line reaches the order at the price its commit froze', async () => {
+      // Against the commit, not the cart: step 9 holds the order to the cart,
+      // and a cart that had already lost the configuration would agree with
+      // an order that lost it too.
+      const line = order.items.find((item) => item.skuId === configured.skuId);
+      expect(line, 'the order holds no configured line').toBeDefined();
+      expect(line!.quantity).toBe(configured.quantity);
+      expect(
+        line!.unitPriceIncVat,
+        'the configured line reached the order at another price than its commit froze, so it lost its configuration on the way',
+      ).toBeCloseTo(configured.unitPriceIncVat, 2);
+    });
+  }
+
+  // ---------- 11. The buyer's session no longer holds the cart ----------
 
   // `placeOrder` nulls `cartStore.cartId`, which is a `useCookie` ref, so this
   // is our own code and our own guarantee: the session that placed the order
