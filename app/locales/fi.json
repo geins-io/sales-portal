@@ -118,6 +118,9 @@
     "item_count": "{count} tuote | {count} tuotetta",
     "your_cart_description": "Ostoskorisi",
     "unit_price_prefix": "à",
+    "configured_product": "Konfiguroitu tuote",
+    "show_configuration": "Näytä kokoonpano",
+    "hide_configuration": "Piilota kokoonpano",
     "items_short": "tuotetta"
   },
   "checkout": {

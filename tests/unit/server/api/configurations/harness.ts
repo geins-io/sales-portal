@@ -40,6 +40,7 @@ export const backend: Record<
   commit: vi.fn(),
   addToCart: vi.fn(),
   reopen: vi.fn(),
+  cartLineConfigurations: vi.fn(),
 };
 
 export const getFeatures = vi.fn();

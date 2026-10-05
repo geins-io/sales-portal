@@ -208,6 +208,51 @@ describe('CartDrawer', () => {
     expect(wrapper.findAll('[data-testid="cart-item"]').length).toBe(1);
   });
 
+  it('hands a configured line its configuration, next to an ordinary line', () => {
+    const store = useCartStore();
+    store.isOpen = true;
+    const line = { skuId: 100, quantity: 1 };
+    store.cart = {
+      id: 'cart-123',
+      items: [
+        {
+          ...line,
+          id: 'item-1',
+          configuration: {
+            configurationId: 'committed-1',
+            summary: [{ label: 'Adapter', value: 'S45' }],
+          },
+        },
+        { ...line, id: 'item-2' },
+      ],
+      appliedCampaigns: [],
+      summary: {},
+    } as unknown as CartType;
+
+    const wrapper = shallowMountComponent(CartDrawer, {
+      global: {
+        stubs: {
+          Sheet: { template: '<div><slot /></div>', props: ['open'] },
+          SheetContent: { template: '<div><slot /></div>' },
+          SheetHeader: { template: '<div><slot /></div>' },
+          SheetTitle: { template: '<div><slot /></div>' },
+          SheetDescription: { template: '<div><slot /></div>' },
+          SheetFooter: { template: '<div><slot /></div>' },
+          CartItem: {
+            template:
+              '<div data-testid="cart-item">{{ item.configuration?.summary[0]?.value ?? "-" }}</div>',
+            props: ['item'],
+          },
+          CartPromoCodeInput: true,
+        },
+      },
+    });
+
+    expect(
+      wrapper.findAll('[data-testid="cart-item"]').map((item) => item.text()),
+    ).toEqual(['S45', '-']);
+  });
+
   describe('checkout button', () => {
     const buttonStub = {
       template:

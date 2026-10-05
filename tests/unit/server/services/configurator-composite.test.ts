@@ -33,6 +33,10 @@ const REAL_DOCUMENT = {
   articleNumber: '001-2',
 } as Configuration;
 
+const REAL_LINES = new Map([
+  ['item-1', { configurationId: 'committed-1', summary: [] }],
+]);
+
 let clock = Date.parse('2026-01-01T09:00:00.000Z');
 let fixture: ReturnType<typeof createFixtureConfiguratorBackend>;
 let real: { [K in keyof ConfiguratorBackend]: ReturnType<typeof vi.fn> };
@@ -51,6 +55,7 @@ beforeEach(() => {
     commit: vi.fn(async () => ({})),
     addToCart: vi.fn(async () => ({ itemId: 'real-line' })),
     reopen: vi.fn(async () => REAL_DOCUMENT),
+    cartLineConfigurations: vi.fn(async () => REAL_LINES),
   };
   composite = createCompositeConfiguratorBackend(
     fixture,
@@ -247,6 +252,15 @@ describe('addToCart', () => {
     await composite.addToCart('cart-1', line, WITH_CART);
 
     expect(real.addToCart).toHaveBeenCalledWith('cart-1', line, WITH_CART);
+  });
+});
+
+describe('cartLineConfigurations', () => {
+  it("answers the real backend's lines, whatever the fixture added", async () => {
+    await expect(composite.cartLineConfigurations('cart-1', CTX)).resolves.toBe(
+      REAL_LINES,
+    );
+    expect(real.cartLineConfigurations).toHaveBeenCalledWith('cart-1', CTX);
   });
 });
 

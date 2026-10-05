@@ -118,6 +118,9 @@
     "item_count": "{count} artikel | {count} artiklar",
     "your_cart_description": "Din varukorg",
     "unit_price_prefix": "à",
+    "configured_product": "Konfigurerad produkt",
+    "show_configuration": "Visa konfiguration",
+    "hide_configuration": "Dölj konfiguration",
     "items_short": "varor"
   },
   "checkout": {

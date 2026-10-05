@@ -118,6 +118,9 @@
     "item_count": "{count} item | {count} items",
     "your_cart_description": "Your shopping cart",
     "unit_price_prefix": "à",
+    "configured_product": "Configured product",
+    "show_configuration": "Show configuration",
+    "hide_configuration": "Hide configuration",
     "items_short": "Items"
   },
   "checkout": {

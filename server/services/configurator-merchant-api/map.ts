@@ -1,4 +1,4 @@
-import type { PriceType } from '#shared/types/commerce';
+import type { CartLineConfiguration, PriceType } from '#shared/types/commerce';
 import type {
   CommittedConfiguration,
   Configuration,
@@ -14,6 +14,7 @@ import type {
 } from '#shared/types/configurator';
 import { logger } from '../../utils/logger';
 import type {
+  WireCartLines,
   WireCommittedConfiguration,
   WireConfiguration,
   WireDecimal,
@@ -21,6 +22,7 @@ import type {
   WireOption,
   WireOptionGroup,
   WireSection,
+  WireSummaryLine,
   WireValue,
   WireVariable,
 } from './wire';
@@ -278,9 +280,28 @@ export function mapCommittedConfiguration(
     unitPrice: price(wire.unitPrice),
     discountPercent: decimal(wire.discountPercent) ?? 0,
     ...optional('weightPerUnit', decimal(wire.weightPerUnit)),
-    summary: nodes(wire.summary, (line) => ({
-      label: line.label ?? '',
-      value: line.value ?? '',
-    })),
+    summary: summaryLines(wire.summary),
   };
+}
+
+function summaryLines(list: (WireSummaryLine | null)[] | null) {
+  return nodes(list, (line) => ({
+    label: line.label ?? '',
+    value: line.value ?? '',
+  }));
+}
+
+/** The configured lines of a cart by item id; a plain line is not in it. */
+export function mapCartLineConfigurations(
+  cart: WireCartLines | null,
+): Map<string, CartLineConfiguration> {
+  const lines = new Map<string, CartLineConfiguration>();
+  for (const line of nodes(cart?.items ?? null, (line) => line)) {
+    if (!line.id || !line.configurationId) continue;
+    lines.set(line.id, {
+      configurationId: line.configurationId,
+      summary: summaryLines(line.configuration?.summary ?? null),
+    });
+  }
+  return lines;
 }

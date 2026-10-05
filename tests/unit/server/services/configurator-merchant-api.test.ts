@@ -1399,6 +1399,148 @@ describe('the merchant-api backend', () => {
     });
   });
 
+  describe('cartLineConfigurations', () => {
+    function cartLines(items: unknown) {
+      return answer({ data: { getCart: { items } } });
+    }
+
+    it('reads the lines of the cart, with the channel and the buyer', async () => {
+      fetchMock.mockResolvedValue(cartLines([]));
+
+      await backend.cartLineConfigurations('cart-1', CTX);
+
+      const { url, body, headers } = sentRequest();
+      expect(url).toBe(URL);
+      expect(body.query).toBe(
+        loadQuery('configurator/get-cart-line-configurations.graphql'),
+      );
+      expect(body.variables).toEqual({
+        id: 'cart-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+    });
+
+    it('gives the read 2 s, since the cart waits for it', async () => {
+      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      fetchMock.mockResolvedValue(cartLines([]));
+
+      await backend.cartLineConfigurations('cart-1', CTX);
+
+      expect(timeout.mock.calls).toEqual([[2_000]]);
+      timeout.mockRestore();
+    });
+
+    it('answers the configured lines by item id, with their summary in the order sent', async () => {
+      fetchMock.mockResolvedValue(
+        cartLines([
+          {
+            id: 'item-1',
+            configurationId: 'committed-1',
+            configuration: {
+              summary: [
+                { label: 'Adapter', value: 'S45' },
+                { label: 'Width (500-1500)', value: '1200 mm' },
+              ],
+            },
+          },
+          { id: 'item-2', configurationId: null, configuration: null },
+        ]),
+      );
+
+      const lines = await backend.cartLineConfigurations('cart-1', CTX);
+
+      expect([...lines]).toEqual([
+        [
+          'item-1',
+          {
+            configurationId: 'committed-1',
+            summary: [
+              { label: 'Adapter', value: 'S45' },
+              { label: 'Width (500-1500)', value: '1200 mm' },
+            ],
+          },
+        ],
+      ]);
+    });
+
+    it('keeps a configured line whose configuration is null, with an empty summary', async () => {
+      fetchMock.mockResolvedValue(
+        cartLines([
+          { id: 'item-1', configurationId: 'committed-1', configuration: null },
+        ]),
+      );
+
+      const lines = await backend.cartLineConfigurations('cart-1', CTX);
+
+      expect(lines.get('item-1')).toEqual({
+        configurationId: 'committed-1',
+        summary: [],
+      });
+    });
+
+    it('reads a missing label or value as empty and skips a null row', async () => {
+      fetchMock.mockResolvedValue(
+        cartLines([
+          {
+            id: 'item-1',
+            configurationId: 'committed-1',
+            configuration: {
+              summary: [
+                null,
+                { label: 'Finish', value: null },
+                { label: null, value: '12 t' },
+              ],
+            },
+          },
+        ]),
+      );
+
+      const lines = await backend.cartLineConfigurations('cart-1', CTX);
+
+      expect(lines.get('item-1')?.summary).toEqual([
+        { label: 'Finish', value: '' },
+        { label: '', value: '12 t' },
+      ]);
+    });
+
+    it('skips a null entry and a line without an id', async () => {
+      fetchMock.mockResolvedValue(
+        cartLines([
+          null,
+          { id: null, configurationId: 'committed-1', configuration: null },
+          { id: 'item-2', configurationId: 'committed-2', configuration: null },
+        ]),
+      );
+
+      const lines = await backend.cartLineConfigurations('cart-1', CTX);
+
+      expect([...lines.keys()]).toEqual(['item-2']);
+    });
+
+    it.each([
+      ['no cart', () => answer({ data: { getCart: null } })],
+      ['no items', () => cartLines(null)],
+    ])('answers no lines for %s', async (_case, respond) => {
+      fetchMock.mockResolvedValue(respond());
+
+      const lines = await backend.cartLineConfigurations('cart-1', CTX);
+
+      expect(lines.size).toBe(0);
+    });
+
+    it('passes a failure on', async () => {
+      fetchMock.mockResolvedValue(answer({}, 503));
+
+      expect(
+        (await failureOf(() => backend.cartLineConfigurations('cart-1', CTX)))
+          .statusCode,
+      ).toBe(502);
+    });
+  });
+
   describe('addToCart', () => {
     const COMMITTED_ID = 'committed-1';
     const LINE = {
@@ -1406,6 +1548,20 @@ describe('the merchant-api backend', () => {
       skuId: 1652,
       quantity: 2,
     };
+
+    function linesWith(...configurationIds: (string | null)[]) {
+      return answer({
+        data: {
+          getCart: {
+            items: configurationIds.map((configurationId, index) => ({
+              id: `line-${index}`,
+              configurationId,
+              configuration: null,
+            })),
+          },
+        },
+      });
+    }
 
     function cartWith(...configurationIds: (string | null)[]) {
       return answer({
@@ -1421,12 +1577,23 @@ describe('the merchant-api backend', () => {
       });
     }
 
-    it('adds the line by its committed id, with the channel and the buyer', async () => {
-      fetchMock.mockResolvedValue(cartWith(COMMITTED_ID));
+    it('reads the cart first, then adds the line by its committed id, with the channel and the buyer', async () => {
+      fetchMock
+        .mockResolvedValueOnce(linesWith(null, 'another'))
+        .mockResolvedValueOnce(cartWith(COMMITTED_ID));
 
       await backend.addToCart('cart-1', LINE, CTX);
 
-      const { url, body, headers } = sentRequest();
+      expect(sentRequest(0).body.query).toBe(
+        loadQuery('configurator/get-cart-line-configurations.graphql'),
+      );
+      expect(sentRequest(0).body.variables).toEqual({
+        id: 'cart-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      const { url, body, headers } = sentRequest(1);
       expect(url).toBe(URL);
       expect(body.query).toBe(
         loadQuery('configurator/add-configured-cart-item.graphql'),
@@ -1441,8 +1608,30 @@ describe('the merchant-api backend', () => {
       expect(headers.Authorization).toBe('Bearer user-token-1');
     });
 
+    it('answers the line already carrying the committed id without adding it again', async () => {
+      fetchMock.mockResolvedValueOnce(linesWith('another', COMMITTED_ID));
+
+      await expect(backend.addToCart('cart-1', LINE, CTX)).resolves.toEqual({
+        itemId: 'line-1',
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails the add without adding when the cart cannot be read first', async () => {
+      fetchMock.mockResolvedValueOnce(answer({}, 503));
+
+      const failure = await failureOf(() =>
+        backend.addToCart('cart-1', LINE, CTX),
+      );
+
+      expect(failure.statusCode).toBe(502);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('answers the id of the line that carries the committed id, among others', async () => {
-      fetchMock.mockResolvedValue(cartWith(null, 'another', COMMITTED_ID));
+      fetchMock
+        .mockResolvedValueOnce(linesWith())
+        .mockResolvedValueOnce(cartWith(null, 'another', COMMITTED_ID));
 
       await expect(backend.addToCart('cart-1', LINE, CTX)).resolves.toEqual({
         itemId: 'item-2',
@@ -1450,7 +1639,7 @@ describe('the merchant-api backend', () => {
     });
 
     it('reads past a null entry in the items', async () => {
-      fetchMock.mockResolvedValue(
+      fetchMock.mockResolvedValueOnce(linesWith()).mockResolvedValueOnce(
         answer({
           data: {
             addToCart: {
@@ -1473,7 +1662,9 @@ describe('the merchant-api backend', () => {
     ])(
       'answers 409 for %s, which is how a line dropped for stock arrives',
       async (_case, respond) => {
-        fetchMock.mockResolvedValue(respond());
+        fetchMock
+          .mockResolvedValueOnce(linesWith())
+          .mockResolvedValueOnce(respond());
 
         const failure = await failureOf(() =>
           backend.addToCart('cart-1', LINE, CTX),

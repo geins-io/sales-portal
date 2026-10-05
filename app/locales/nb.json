@@ -118,6 +118,9 @@
     "item_count": "{count} vare | {count} varer",
     "your_cart_description": "Handlekurven din",
     "unit_price_prefix": "à",
+    "configured_product": "Konfigurert produkt",
+    "show_configuration": "Vis konfigurasjon",
+    "hide_configuration": "Skjul konfigurasjon",
     "items_short": "varer"
   },
   "checkout": {

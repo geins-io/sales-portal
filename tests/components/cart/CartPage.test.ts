@@ -201,6 +201,42 @@ describe('CartPage', () => {
     expect(wrapper.findAll('[data-testid="cart-item"]').length).toBe(2);
   });
 
+  it('hands a configured line its configuration, next to an ordinary line', () => {
+    const store = useCartStore();
+    const [ordinary] = mockCart.items;
+    store.cart = {
+      ...mockCart,
+      items: [
+        {
+          ...ordinary!,
+          id: 'item-1',
+          configuration: {
+            configurationId: 'committed-1',
+            summary: [{ label: 'Adapter', value: 'S45' }],
+          },
+        },
+        { ...ordinary!, id: 'item-2' },
+      ],
+    };
+
+    const wrapper = shallowMountComponent(CartPage, {
+      global: {
+        stubs: {
+          ...defaultStubs,
+          CartItem: {
+            template:
+              '<div data-testid="cart-item">{{ item.configuration?.summary[0]?.value ?? "-" }}</div>',
+            props: ['item'],
+          },
+        },
+      },
+    });
+
+    expect(
+      wrapper.findAll('[data-testid="cart-item"]').map((item) => item.text()),
+    ).toEqual(['S45', '-']);
+  });
+
   it('renders order summary with subtotal and total', () => {
     const store = useCartStore();
     store.cart = mockCart;

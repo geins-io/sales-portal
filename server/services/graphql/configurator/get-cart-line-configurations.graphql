@@ -1,0 +1,24 @@
+query getCartLineConfigurations(
+  $id: String
+  $channelId: String
+  $languageId: String
+  $marketId: String
+) {
+  getCart(
+    id: $id
+    channelId: $channelId
+    languageId: $languageId
+    marketId: $marketId
+  ) {
+    items {
+      id
+      configurationId
+      configuration {
+        summary {
+          label
+          value
+        }
+      }
+    }
+  }
+}

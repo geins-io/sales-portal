@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Trash2 } from 'lucide-vue-next';
+import { ChevronDown, Trash2 } from 'lucide-vue-next';
 import { Button } from '~/components/ui/button';
 import type { CartItemType } from '#shared/types/commerce';
 import { filterVisibleCampaigns } from '#shared/types/commerce';
@@ -44,6 +44,13 @@ const skuName = computed(() => {
   return sku?.name ?? '';
 });
 
+/** Set on a configured line, which shows what it was committed with instead of the article line. */
+const configuration = computed(() => props.item.configuration);
+const expanded = ref(false);
+const configurationId = computed(
+  () => `cart-item-configuration-${props.item.id}`,
+);
+
 const visibleItemCampaigns = computed(() =>
   filterVisibleCampaigns(props.item.campaign?.appliedCampaigns ?? []),
 );
@@ -74,7 +81,7 @@ const maxQuantity = computed(() => {
       <!-- Info: name + article number -->
       <div class="min-w-0 flex-1">
         <NuxtLink
-          v-if="productUrl"
+          v-if="productUrl && !configuration"
           :to="productUrl"
           class="hover:text-primary text-sm font-medium"
           data-testid="cart-item-name"
@@ -85,7 +92,14 @@ const maxQuantity = computed(() => {
           {{ item.product?.name ?? item.title ?? '' }}
         </span>
         <p
-          v-if="item.product?.articleNumber || skuName"
+          v-if="configuration"
+          class="text-muted-foreground text-xs"
+          data-testid="cart-item-configured"
+        >
+          {{ t('cart.configured_product') }}
+        </p>
+        <p
+          v-else-if="item.product?.articleNumber || skuName"
           class="text-muted-foreground text-xs"
         >
           <template v-if="item.product?.articleNumber">
@@ -145,7 +159,7 @@ const maxQuantity = computed(() => {
 
       <!-- Unit price with "à" prefix -->
       <div
-        v-if="showPrice && item.unitPrice"
+        v-if="showPrice && item.unitPrice && !configuration"
         class="text-muted-foreground shrink-0 text-sm whitespace-nowrap"
       >
         <span>
@@ -169,6 +183,42 @@ const maxQuantity = computed(() => {
           class="text-sm font-semibold"
         />
       </div>
+    </div>
+
+    <!-- Row 3: what a configured line was committed with, collapsed -->
+    <div v-if="configuration?.summary.length" class="pl-16">
+      <button
+        type="button"
+        class="text-primary flex items-center gap-1 text-xs font-medium"
+        :aria-expanded="expanded"
+        :aria-controls="configurationId"
+        data-testid="cart-item-configuration-toggle"
+        @click="expanded = !expanded"
+      >
+        <ChevronDown
+          class="size-3.5 transition-transform"
+          :class="{ '-rotate-90': !expanded }"
+        />
+        {{
+          expanded ? t('cart.hide_configuration') : t('cart.show_configuration')
+        }}
+      </button>
+      <dl
+        v-show="expanded"
+        :id="configurationId"
+        class="bg-muted/40 mt-2 space-y-1 rounded-md p-3 text-xs"
+        data-testid="cart-item-configuration"
+      >
+        <div
+          v-for="(row, index) in configuration.summary"
+          :key="index"
+          class="flex justify-between gap-3"
+          data-testid="cart-item-configuration-row"
+        >
+          <dt class="text-muted-foreground">{{ row.label }}</dt>
+          <dd class="text-foreground text-right">{{ row.value }}</dd>
+        </div>
+      </dl>
     </div>
   </div>
 </template>
