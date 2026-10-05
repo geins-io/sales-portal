@@ -371,7 +371,6 @@
       "unit_price": "Pris per enhet"
     },
     "panel": {
-      "recomputing": "Räknar om…",
       "time_left": "{time} kvar",
       "renew": "Förläng sessionen",
       "renew_failed": "Sessionen kunde inte förlängas.",

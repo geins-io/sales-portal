@@ -50,6 +50,19 @@ describe('ConfigurationAction', () => {
     expect(wrapper.emitted('submit')).toHaveLength(1);
   });
 
+  it('says it is busy while a request is under way, which is what a recompute shows', () => {
+    expect(
+      mountAction()
+        .find('[data-testid="configurator-commit"]')
+        .attributes('aria-busy'),
+    ).toBe('false');
+    expect(
+      mountAction({ canCommit: false, busy: true })
+        .find('[data-testid="configurator-commit"]')
+        .attributes('aria-busy'),
+    ).toBe('true');
+  });
+
   it('shows the cart icon at rest and the spinner in its place while busy', () => {
     const rest = mountAction().find('[data-testid="configurator-commit"]');
     expect(rest.find('[data-testid="configurator-cart-icon"]').exists()).toBe(

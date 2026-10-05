@@ -152,6 +152,14 @@ async function openColourSheet(page: Page) {
   return sheet;
 }
 
+/**
+ * The action, which says it is busy while a batch is in flight: the signal
+ * that a recompute has finished, waited for rather than slept through.
+ */
+function action(page: Page) {
+  return page.getByTestId('configurator-commit');
+}
+
 function changeResponse(page: Page) {
   return page.waitForResponse(
     (response) =>
@@ -214,7 +222,7 @@ test.describe('Configurator', () => {
       .locator(`[data-option-id="${PRICED_COLOUR}"]`)
       .click();
     await changed;
-    await expect(page.getByTestId('configurator-panel-busy')).toBeHidden();
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
 
     await expect(
       colourGroup(page).locator(`[data-option-id="${PRICED_COLOUR}"]`),
@@ -355,7 +363,7 @@ test.describe('Configurator', () => {
     await (await openColourSheet(page))
       .locator(`[data-option-id="${PRICED_COLOUR}"]`)
       .click();
-    await expect(page.getByTestId('configurator-panel-busy')).toBeVisible();
+    await expect(action(page)).toHaveAttribute('aria-busy', 'true');
 
     // The sheet closed behind the first choice and opens again while the batch
     // is in flight. `force` because the row is disabled until it comes back,
@@ -367,7 +375,7 @@ test.describe('Configurator', () => {
 
     release();
     await changed;
-    await expect(page.getByTestId('configurator-panel-busy')).toBeHidden();
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
 
     // Deliberately a network assertion. Two layers can stop the second choice
     // — the row's own guard and the session's `busy` check — and what matters
@@ -409,7 +417,7 @@ test.describe('Configurator group message', () => {
     const changed = changeResponse(page);
     await sheet.locator('[data-option-id="top-steel"]').click();
     await changed;
-    await expect(page.getByTestId('configurator-panel-busy')).toBeHidden();
+    await expect(action(page)).toHaveAttribute('aria-busy', 'false');
 
     await openSection(page, 'edge');
     const info = page
@@ -474,7 +482,7 @@ test.describe('Configurator refused change', () => {
     );
     const input = field.locator('input');
     const refused = field.getByTestId('configurator-change-refused');
-    const busy = page.getByTestId('configurator-panel-busy');
+    const busy = action(page);
     await expect(input).toHaveValue('');
 
     // The first step from empty is one step up from zero, not zero itself.
@@ -485,7 +493,7 @@ test.describe('Configurator refused change', () => {
     expect(response.request().postDataJSON()).toEqual({
       changes: [{ type: 'variable', variableId: TRANSPORT_TIME, value: 1 }],
     });
-    await expect(busy).toBeHidden();
+    await expect(busy).toHaveAttribute('aria-busy', 'false');
     await expect(input).toHaveAttribute('aria-valuenow', '1');
     await expect(page.getByTestId('configurator-form-error')).toBeHidden();
 
@@ -495,7 +503,7 @@ test.describe('Configurator refused change', () => {
     await input.press('Enter');
     response = await changed;
     expect(response.status()).toBe(422);
-    await expect(busy).toBeHidden();
+    await expect(busy).toHaveAttribute('aria-busy', 'false');
     await expect(refused).toBeVisible();
     await expect(input).toHaveAttribute('aria-valuenow', '1');
     await expect(page.getByTestId('configurator-form-error')).toBeHidden();
@@ -506,7 +514,7 @@ test.describe('Configurator refused change', () => {
     await input.press('Enter');
     response = await changed;
     expect(response.status()).toBe(200);
-    await expect(busy).toBeHidden();
+    await expect(busy).toHaveAttribute('aria-busy', 'false');
     await expect(input).toHaveAttribute('aria-valuenow', '2');
     await expect(refused).toBeHidden();
   });

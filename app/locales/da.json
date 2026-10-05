@@ -371,7 +371,6 @@
       "unit_price": "Pris pr. enhed"
     },
     "panel": {
-      "recomputing": "Beregner igen…",
       "time_left": "{time} tilbage",
       "renew": "Forlæng session",
       "renew_failed": "Sessionen kunne ikke forlænges.",

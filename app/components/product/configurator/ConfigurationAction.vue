@@ -55,6 +55,7 @@ const auth = useAuthStore();
       size="lg"
       variant="purchase"
       :disabled="!canCommit"
+      :aria-busy="busy"
       data-testid="configurator-commit"
       @click="emit('submit')"
     >

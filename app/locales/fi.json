@@ -371,7 +371,6 @@
       "unit_price": "Yksikköhinta"
     },
     "panel": {
-      "recomputing": "Lasketaan uudelleen…",
       "time_left": "{time} jäljellä",
       "renew": "Jatka istuntoa",
       "renew_failed": "Istuntoa ei voitu jatkaa.",

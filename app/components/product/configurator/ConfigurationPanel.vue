@@ -3,7 +3,6 @@ import {
   ClipboardCheck,
   Copy,
   FileText,
-  Loader2,
   PanelRightOpen,
   RotateCcw,
 } from 'lucide-vue-next';
@@ -339,15 +338,6 @@ const netClass = {
       >
         <ReusePrice prefix="configurator-panel" size="summary" />
       </div>
-
-      <p
-        v-if="busy"
-        class="text-muted-foreground flex shrink-0 items-center gap-2 px-4 py-2 text-sm"
-        data-testid="configurator-panel-busy"
-      >
-        <Loader2 class="size-4 animate-spin" />
-        {{ t('configurator.panel.recomputing') }}
-      </p>
     </template>
 
     <!-- While the session starts, the space the price, the action and the

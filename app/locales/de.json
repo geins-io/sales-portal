@@ -371,7 +371,6 @@
       "unit_price": "Preis pro Einheit"
     },
     "panel": {
-      "recomputing": "Wird neu berechnet…",
       "time_left": "{time} verbleibend",
       "renew": "Sitzung verlängern",
       "renew_failed": "Die Sitzung konnte nicht verlängert werden.",

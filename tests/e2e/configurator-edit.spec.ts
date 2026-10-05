@@ -204,7 +204,11 @@ async function chooseOther(
   );
   await sheet.locator(`[data-option-id="${where.optionId}"]`).click();
   const response = await changed;
-  await expect(page.getByTestId('configurator-panel-busy')).toBeHidden();
+  // The action says it is busy until the answer is in. Counted rather than
+  // read: a session that answered 410 takes the action off the page.
+  await expect(
+    page.locator('[data-testid="configurator-commit"][aria-busy="true"]'),
+  ).toHaveCount(0);
   // The sheet is modal; the action sits behind it.
   if (await sheet.isVisible()) await page.keyboard.press('Escape');
   return response;

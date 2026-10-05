@@ -371,7 +371,6 @@
       "unit_price": "Unit price"
     },
     "panel": {
-      "recomputing": "Recalculating…",
       "time_left": "{time} left",
       "renew": "Extend session",
       "renew_failed": "The session could not be extended.",

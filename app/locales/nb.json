@@ -371,7 +371,6 @@
       "unit_price": "Pris per enhet"
     },
     "panel": {
-      "recomputing": "Regner om…",
       "time_left": "{time} igjen",
       "renew": "Forleng økten",
       "renew_failed": "Økten kunne ikke forlenges.",
