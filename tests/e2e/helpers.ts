@@ -1,5 +1,13 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
-import { e2eCredentials, hasE2ECredentials } from './target';
+import {
+  expect,
+  test,
+  type BrowserContextOptions,
+  type Locator,
+  type Page,
+  type PlaywrightWorkerArgs,
+} from '@playwright/test';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { e2eCredentials, hasE2ECredentials, PRODUCTION_BUILD } from './target';
 
 export { e2eCredentials, hasE2ECredentials };
 
@@ -441,8 +449,164 @@ export async function discoverCategory(
 
 // ---------- Authentication ----------
 
-/** Session persisted by the preflight session layer. Opt in via `test.use`. */
+/** Session persisted by the preflight session layer. Specs read it through `signedInState`. */
 export const STORAGE_STATE = 'playwright/.auth/user.json';
+
+type StoredState = Exclude<
+  BrowserContextOptions['storageState'],
+  string | undefined
+>;
+
+/**
+ * Renew the stored pair when its auth token has less than this left. Auth
+ * tokens live 15 minutes and refresh tokens are single use: a context that
+ * loads a page in the token's last 90 s rotates the pair for itself only, and
+ * every context after it carries a consumed refresh token and renders as a
+ * guest. The margin keeps a context's token outside those 90 s for
+ * the longest test that reads the state (the orders project, 300 s).
+ */
+const RENEW_MARGIN_SECONDS = 7 * 60;
+
+/** A lock older than this was left by a worker that died mid-renewal. */
+const LOCK_STALE_MS = 30_000;
+/** Longer than LOCK_STALE_MS, so a waiter outlives an abandoned lock. */
+const LOCK_WAIT_MS = 45_000;
+const LOCK_DIR = `${STORAGE_STATE}.lock`;
+
+function secondsLeft(state: StoredState): number {
+  const token = state.cookies.find((c) => c.name === 'auth_token')?.value;
+  const payload = token?.split('.')[1];
+  if (!payload) return Number.NEGATIVE_INFINITY;
+  const { exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
+  return Number(exp) - Math.floor(Date.now() / 1000);
+}
+
+async function readStoredState(): Promise<StoredState> {
+  try {
+    return JSON.parse(await readFile(STORAGE_STATE, 'utf8'));
+  } catch (error) {
+    throw new Error(
+      `no stored session at ${STORAGE_STATE}; preflight L4 writes it`,
+      { cause: error },
+    );
+  }
+}
+
+/**
+ * Takes the renewal lock: an mkdir, so one worker process holds it. An
+ * abandoned lock is renamed aside before it is removed, so two waiters cannot
+ * both remove it. If two holders still overlap, the server answers the same
+ * refresh token with the same pair for 10 s (`ROTATION_GRACE_MS`).
+ */
+async function acquireRenewalLock(): Promise<void> {
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (;;) {
+    try {
+      await mkdir(LOCK_DIR);
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+    const held = await stat(LOCK_DIR).catch(() => null);
+    if (held && Date.now() - held.mtimeMs > LOCK_STALE_MS) {
+      const aside = `${LOCK_DIR}.stale-${process.pid}-${Date.now()}`;
+      if (
+        await rename(LOCK_DIR, aside).then(
+          () => true,
+          () => false,
+        )
+      ) {
+        await rm(aside, { recursive: true, force: true });
+      }
+      continue;
+    }
+    if (Date.now() > deadline) {
+      throw new Error(
+        `stored session: waited ${LOCK_WAIT_MS / 1000} s for ${LOCK_DIR}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+async function renewStoredState(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  baseURL: string | undefined,
+  stored: StoredState,
+): Promise<StoredState> {
+  const request = await playwright.request.newContext({
+    baseURL,
+    storageState: stored,
+    ignoreHTTPSErrors: PRODUCTION_BUILD,
+  });
+  try {
+    const response = await request.post('/api/auth/refresh');
+    if (!response.ok()) {
+      throw new Error(
+        `stored session could not be renewed: HTTP ${response.status()} ` +
+          `from /api/auth/refresh (${secondsLeft(stored)} s left on its token)`,
+      );
+    }
+    // A request context keeps no localStorage: the consent entry stays.
+    const renewed = {
+      ...stored,
+      cookies: (await request.storageState()).cookies,
+    };
+    const partial = `${STORAGE_STATE}.${process.pid}.tmp`;
+    await writeFile(partial, JSON.stringify(renewed, null, 2));
+    await rename(partial, STORAGE_STATE);
+    // Written first: the old refresh token is spent either way. A pair that
+    // starts inside the margin would make every test renew, and the run would
+    // end on the refresh rate limit instead of this cause.
+    if (secondsLeft(renewed) < RENEW_MARGIN_SECONDS) {
+      throw new Error(
+        `stored session: a renewed token has ${secondsLeft(renewed)} s left, ` +
+          `less than the ${RENEW_MARGIN_SECONDS} s renewal margin`,
+      );
+    }
+    return renewed;
+  } finally {
+    await request.dispose();
+  }
+}
+
+/**
+ * The stored session, renewed first when it is close to expiry. Use it in
+ * place of the file path:
+ * ```ts
+ * test.use({ storageState: signedInState });
+ * ```
+ * A function given to `test.use` is a fixture, so this runs before every
+ * test's context is created. Playwright reads the fixtures it needs from the
+ * destructured first parameter, which therefore has to stay destructured.
+ * Contexts that already hold the previous pair keep working: an auth token
+ * stays valid after its refresh token was rotated.
+ */
+export async function signedInState(
+  {
+    playwright,
+    baseURL,
+  }: {
+    playwright: PlaywrightWorkerArgs['playwright'];
+    baseURL: string | undefined;
+  },
+  use: (state: StoredState) => Promise<void>,
+): Promise<void> {
+  let state = await readStoredState();
+  if (secondsLeft(state) < RENEW_MARGIN_SECONDS) {
+    await acquireRenewalLock();
+    try {
+      // Another worker may have renewed while this one waited.
+      state = await readStoredState();
+      if (secondsLeft(state) < RENEW_MARGIN_SECONDS) {
+        state = await renewStoredState(playwright, baseURL, state);
+      }
+    } finally {
+      await rm(LOCK_DIR, { recursive: true, force: true });
+    }
+  }
+  await use(state);
+}
 
 /** Sign in. Asserts the response so a bad credential fails here, not later. */
 export async function login(

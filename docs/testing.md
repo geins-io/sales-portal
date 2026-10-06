@@ -256,7 +256,15 @@ A permanently skipped test is deleted, not parked; the decision it was waiting o
 > (`server/utils/rate-limiter.ts`) and every test shares `127.0.0.1`. The preflight session layer
 > (`tests/e2e/preflight/l4-session.spec.ts`) authenticates **once** and persists the session to
 > `playwright/.auth/user.json` (gitignored); specs opt in with
-> `test.use({ storageState: STORAGE_STATE })`.
+> `test.use({ storageState: signedInState })`.
+>
+> That session lives 15 minutes, and its refresh token is single use. A context that loads a page in
+> the token's last 90 seconds rotates the pair for itself only; every context after it carries a
+> consumed refresh token and renders as a guest, with no prices and no add-to-cart button. So
+> `signedInState` (`tests/e2e/helpers.ts`) renews the file through `/api/auth/refresh` before a
+> test starts once less than 7 minutes are left, under a lock shared by the workers, and fails the
+> test naming the cause when the renewal does not work. A long run, or a single browser project
+> past about 13 minutes, keeps a signed-in session that way.
 
 #### Preflight: which layer broke
 

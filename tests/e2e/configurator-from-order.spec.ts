@@ -3,7 +3,7 @@ import {
   hasE2ECredentials,
   isConfigurable,
   outOfScope,
-  STORAGE_STATE,
+  signedInState,
   waitForHydration,
 } from './helpers';
 
@@ -38,7 +38,7 @@ outOfScope(
   'opening an order row needs a signed-in buyer (set E2E_USERNAME / E2E_PASSWORD in .env)',
 );
 
-test.use({ storageState: STORAGE_STATE });
+test.use({ storageState: signedInState });
 
 interface SummaryRow {
   label: string;

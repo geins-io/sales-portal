@@ -8,7 +8,7 @@ import {
   outOfScope,
   readPrice,
   waitForHydration,
-  STORAGE_STATE,
+  signedInState,
   type ApiCart,
 } from '../helpers';
 import { ALLOW_ORDERS_FOR, BASE_URL } from '../target';
@@ -60,7 +60,7 @@ outOfScope(
   'E2E_ALLOW_ORDERS_FOR is unset, so this run places no order (set it to the tenant name the target resolves to)',
 );
 
-test.use({ storageState: STORAGE_STATE });
+test.use({ storageState: signedInState });
 
 /** More than one, or "quantity x unit price" is not a multiplication. */
 const QUANTITY = 3;

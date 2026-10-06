@@ -6,7 +6,7 @@ import { hasE2ECredentials } from '../target';
  * Preflight L4. The configured account signs in. Authenticates once and
  * persists the session: per-test login returns 429 (`loginRateLimiter`
  * allows 5/minute per IP and every test shares 127.0.0.1). Specs opt in via
- * `test.use({ storageState: STORAGE_STATE })`.
+ * `test.use({ storageState: signedInState })`, which renews it near expiry.
  */
 
 test('L4 session: the configured account signs in', async ({ page }) => {
