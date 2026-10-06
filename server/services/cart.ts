@@ -219,7 +219,13 @@ export async function copyCart(
               skuId: item.skuId,
               quantity: item.quantity,
             },
-            configuratorCtx,
+            {
+              ...configuratorCtx,
+              // With the new token: the request carries no session yet.
+              cart: {
+                addPlainItem: (id, line) => oms.cart.addItem(id, line, ctx),
+              },
+            },
           );
           continue;
         }

@@ -263,10 +263,19 @@ describe('addToCart', () => {
 });
 
 describe('cartLineConfigurations', () => {
-  it("answers the real backend's lines, whatever the fixture added", async () => {
-    await expect(composite.cartLineConfigurations('cart-1', CTX)).resolves.toBe(
-      REAL_LINES,
-    );
+  it("answers the fixture's lines and the real backend's together", async () => {
+    const fixtureLine = { configurationId: 'fixture-committed', summary: [] };
+    const fromFixture = vi
+      .spyOn(fixture, 'cartLineConfigurations')
+      .mockResolvedValue(new Map([['fixture-line', fixtureLine]]));
+
+    const lines = await composite.cartLineConfigurations('cart-1', CTX);
+
+    expect(Object.fromEntries(lines)).toEqual({
+      'fixture-line': fixtureLine,
+      'item-1': REAL_LINES.get('item-1'),
+    });
+    expect(fromFixture).toHaveBeenCalledWith('cart-1', CTX);
     expect(real.cartLineConfigurations).toHaveBeenCalledWith('cart-1', CTX);
   });
 });
