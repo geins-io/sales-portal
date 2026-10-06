@@ -743,8 +743,8 @@ then every spec on its one project:
 --no-deps --project="Mobile Chrome"   # the matrix value of this job
 ```
 
-Each job uploads its own `preview-log-<project>`, `playwright-report-<project>` and
-`test-results-<project>`, where `<project>` is `chromium`, `mobile-chrome` or `webkit`.
+Each job uploads its own `preview-log-<project>`, `playwright-report-<project>` and, when a test
+failed, `test-results-<project>`, where `<project>` is `chromium`, `mobile-chrome` or `webkit`.
 
 Within a job, a red step stops it at the layer or project that broke and the later steps are
 skipped, so the step view names it. Across jobs nothing stops: the matrix runs with
