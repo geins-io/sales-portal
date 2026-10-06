@@ -1,4 +1,4 @@
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeHtml from 'sanitize-html';
 import type {
   ContentPageType,
   ContentAreaType,
@@ -61,13 +61,69 @@ const ALLOWED_ATTR = [
   'rowspan',
 ];
 
+// Schemes DOMPurify allows by default, kept for parity. Relative URLs pass too.
+const ALLOWED_SCHEMES = [
+  'http',
+  'https',
+  'ftp',
+  'ftps',
+  'mailto',
+  'tel',
+  'callto',
+  'sms',
+  'cid',
+  'xmpp',
+  'matrix',
+];
+
+// Elements whose content is dropped along with the tag; any other removed
+// element keeps its text. DOMPurify's FORBID_CONTENTS, plus object, whose
+// fallback text must not leak through as plain text.
+const DROP_CONTENT_TAGS = [
+  'annotation-xml',
+  'audio',
+  'colgroup',
+  'desc',
+  'foreignobject',
+  'head',
+  'iframe',
+  'math',
+  'mi',
+  'mn',
+  'mo',
+  'ms',
+  'mtext',
+  'noembed',
+  'noframes',
+  'noscript',
+  'object',
+  'plaintext',
+  'script',
+  'style',
+  'svg',
+  'template',
+  'title',
+  'video',
+  'xmp',
+];
+
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: ALLOWED_TAGS,
+  allowedAttributes: { '*': [...ALLOWED_ATTR, 'aria-*'] },
+  allowedSchemes: ALLOWED_SCHEMES,
+  allowedSchemesByTag: { img: [...ALLOWED_SCHEMES, 'data'] },
+  allowProtocolRelative: true,
+  // Pass style through as written; CSS is not filtered here.
+  parseStyleAttributes: false,
+  nonTextTags: DROP_CONTENT_TAGS,
+};
+
 export function sanitizeWidgetHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    ALLOW_DATA_ATTR: false,
-  });
+  return sanitizeHtml(html, SANITIZE_OPTIONS);
 }
+
+// Widget types whose `text` field TextWidget.vue renders through v-html.
+const TEXT_WIDGET_TYPES = new Set(['TextPageWidget', 'Rich textPageWidget']);
 
 function sanitizeWidgetData(widget: ContentType): ContentType {
   const type = widget.config?.type;
@@ -77,7 +133,7 @@ function sanitizeWidgetData(widget: ContentType): ContentType {
 
   const sanitized = { ...data };
 
-  if (type === 'TextPageWidget' && typeof sanitized.text === 'string') {
+  if (TEXT_WIDGET_TYPES.has(type) && typeof sanitized.text === 'string') {
     sanitized.text = sanitizeWidgetHtml(sanitized.text);
   }
 
