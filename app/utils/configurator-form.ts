@@ -6,7 +6,7 @@ import type {
   ConfigurationValue,
   ConfigurationVariable,
 } from '#shared/types/configurator';
-import { formatPrice, type ProductImageType } from '#shared/types/commerce';
+import { formatPrice } from '#shared/types/commerce';
 import {
   isOptionReadOnly,
   isSingleSelect,
@@ -179,13 +179,13 @@ export function usesChooser(rowCount: number): boolean {
 }
 
 /**
- * The first image of the option's product, as the product card: the list
- * fragment selects no `isPrimary`. Typed for what the API may send, which is
- * no image list at all, rather than for `ListProduct`'s promise of one.
+ * The first image of the option's product, as the product card: the option's
+ * product selects no `isPrimary`. Typed for what the API may send, which is no
+ * image list at all.
  */
 export function optionImage(option: {
   product: {
-    productImages?: Pick<ProductImageType, 'fileName'>[] | null;
+    productImages?: { fileName?: string | null }[] | null;
   } | null;
 }): string | undefined {
   return option.product?.productImages?.[0]?.fileName || undefined;

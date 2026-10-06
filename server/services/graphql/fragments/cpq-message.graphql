@@ -1,4 +1,0 @@
-fragment CpqMessage on CpqMessageType {
-  severity
-  text
-}

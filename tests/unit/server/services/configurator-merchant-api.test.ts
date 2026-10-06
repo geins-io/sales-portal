@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { GeinsCore } from '@geins/core';
+import { GeinsOMS } from '@geins/oms';
+import { RuntimeContext } from '@geins/types';
 import { createAppError, ErrorCode } from '../../../../server/utils/errors';
 import { logger } from '../../../../server/utils/logger';
 import type { ConfiguratorContext } from '../../../../server/services/configurator';
 import { createMerchantApiConfiguratorBackend } from '../../../../server/services/configurator-merchant-api';
 import { toWireChange } from '../../../../server/services/configurator-merchant-api/changes';
-import {
-  mapCommittedConfiguration,
-  mapConfiguration,
-} from '../../../../server/services/configurator-merchant-api/map';
 import type {
   WireCommittedConfiguration,
   WireConfiguration,
@@ -15,11 +14,12 @@ import type {
   WireOptionGroup,
   WireSection,
   WireVariable,
-} from '../../../../server/services/configurator-merchant-api/wire';
-import { loadQuery } from '../../../../server/services/graphql/loader';
+} from '../../../fixtures/configurator/wire';
 
 // ---------------------------------------------------------------------------
-// The merchant-api backend: the CPQ area over GraphQL.
+// The merchant-api backend: the CPQ area through the SDK's configuration
+// service, against a stubbed fetch, so every answer below travels the whole
+// path the real one does: wire, SDK parser, the portal's mapping.
 //
 // Every response below is hand-written in the shape the canary's schema
 // declares (introspected 2026-09-24): upper-case enums, nullable ids, Decimal
@@ -32,17 +32,75 @@ vi.stubGlobal('ErrorCode', ErrorCode);
 const URL = 'https://cpq-canary.example.test/graphql';
 const API_KEY = 'secret-api-key-123';
 
+const CHANNEL = { channelId: '1|se', languageId: 'sv-SE', marketId: 'SE|SEK' };
+
+// ChannelStore's NodeCache starts a check interval that would hold the worker.
+vi.mock('@cacheable/node-cache', () => ({
+  NodeCache: class {
+    private data = new Map<string, unknown>();
+    get = (key: string) => this.data.get(key);
+    set = (key: string, value: unknown) => this.data.set(key, value);
+    keys = () => [...this.data.keys()];
+    flushAll = () => this.data.clear();
+    close = () => undefined;
+  },
+}));
+
+const OMS = new GeinsOMS(
+  new GeinsCore({
+    apiKey: API_KEY,
+    accountName: 'tenant',
+    channel: '1',
+    tld: 'se',
+    locale: 'sv-SE',
+    market: 'SE|SEK',
+    environment: 'prod',
+    apiUrl: URL,
+  }),
+  { omsSettings: { context: RuntimeContext.SERVER } },
+);
+
 const CTX: ConfiguratorContext = {
   hostname: 'tenant.example.com',
   userToken: 'user-token-1',
-  merchantApi: {
-    url: URL,
-    apiKey: API_KEY,
-    channelId: '1|se',
-    languageId: 'sv-SE',
-    marketId: 'SE|SEK',
-  },
+  sdk: { configuration: OMS.configuration, channel: CHANNEL },
 };
+
+const fetchMock = vi.fn();
+const logSpies: ReturnType<typeof vi.spyOn>[] = [];
+
+beforeEach(() => {
+  fetchMock.mockReset();
+  vi.stubGlobal('fetch', fetchMock);
+  for (const level of ['debug', 'info', 'warn', 'error'] as const) {
+    logSpies.push(vi.spyOn(logger, level).mockImplementation(() => {}));
+  }
+});
+
+afterEach(() => {
+  for (const spy of logSpies.splice(0)) spy.mockRestore();
+});
+
+function answer(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+/** The portal's document for a wire answer, through the SDK as a read gets it. */
+async function mapped(wire: WireConfiguration) {
+  fetchMock.mockResolvedValueOnce(answer({ data: { getConfiguration: wire } }));
+  return createMerchantApiConfiguratorBackend().get(wire.configurationId, CTX);
+}
+
+/** The portal's committed record for a wire answer, through the SDK as a commit gets it. */
+async function mappedCommitted(wire: WireCommittedConfiguration, id: string) {
+  fetchMock.mockResolvedValueOnce(
+    answer({ data: { commitConfiguration: wire } }),
+  );
+  return createMerchantApiConfiguratorBackend().commit(id, CTX);
+}
 
 const PRICE = {
   sellingPriceExVat: 50.25,
@@ -172,8 +230,8 @@ describe('mapConfiguration', () => {
     warn.mockRestore();
   });
 
-  it('maps the document fields', () => {
-    const config = mapConfiguration(wireConfiguration());
+  it('maps the document fields', async () => {
+    const config = await mapped(wireConfiguration());
 
     expect(config).toMatchObject({
       configurationId: 'cfg-1',
@@ -190,8 +248,8 @@ describe('mapConfiguration', () => {
     });
   });
 
-  it('reads a Decimal sent as a string as a number', () => {
-    const config = mapConfiguration(
+  it('reads a Decimal sent as a string as a number', async () => {
+    const config = await mapped(
       wireConfiguration({
         quantity: '2',
         discountPercent: '12.5',
@@ -237,8 +295,8 @@ describe('mapConfiguration', () => {
     });
   });
 
-  it('fills the nullable text and number fields with their resting values', () => {
-    const config = mapConfiguration(
+  it('fills the nullable text and number fields with their resting values', async () => {
+    const config = await mapped(
       wireConfiguration({
         articleNumber: null,
         discountPercent: null,
@@ -334,8 +392,8 @@ describe('mapConfiguration', () => {
     });
   });
 
-  it('keeps an empty list where the wire sends none', () => {
-    const config = mapConfiguration(
+  it('keeps an empty list where the wire sends none', async () => {
+    const config = await mapped(
       wireConfiguration({
         sections: [wireSection({ variables: null, optionGroups: null })],
       }),
@@ -345,12 +403,12 @@ describe('mapConfiguration', () => {
       optionGroups: [],
     });
     expect(
-      mapConfiguration(wireConfiguration({ sections: null })).sections,
+      (await mapped(wireConfiguration({ sections: null }))).sections,
     ).toEqual([]);
   });
 
-  it('carries the node fields through', () => {
-    const config = mapConfiguration(wireConfiguration());
+  it('carries the node fields through', async () => {
+    const config = await mapped(wireConfiguration());
     const section = config.sections[0]!;
 
     expect(section).toMatchObject({
@@ -404,8 +462,8 @@ describe('mapConfiguration', () => {
     });
   });
 
-  it('maps nested sections and nested groups', () => {
-    const config = mapConfiguration(
+  it('maps nested sections and nested groups', async () => {
+    const config = await mapped(
       wireConfiguration({
         sections: [
           wireSection({
@@ -440,8 +498,8 @@ describe('mapConfiguration', () => {
       ['LOCKED', 'locked'],
       ['TEMPORARILY_LOCKED', 'temporarilyLocked'],
       ['UNKNOWN', 'unknown'],
-    ])('maps %s to %s on options and variables', (wire, ours) => {
-      const config = mapConfiguration(
+    ])('maps %s to %s on options and variables', async (wire, ours) => {
+      const config = await mapped(
         wireConfiguration({
           sections: [
             wireSection({
@@ -462,8 +520,8 @@ describe('mapConfiguration', () => {
       ).toBeUndefined();
     });
 
-    it('keeps a value it does not know as unknown, with the raw value beside it', () => {
-      const config = mapConfiguration(
+    it('keeps a value it does not know as unknown, with the raw value beside it', async () => {
+      const config = await mapped(
         wireConfiguration({
           sections: [
             wireSection({
@@ -497,8 +555,8 @@ describe('mapConfiguration', () => {
       ['LINKED', 'linked'],
       ['FALLBACK', 'fallback'],
       ['UNKNOWN', 'unknown'],
-    ])('maps %s to %s', (wire, ours) => {
-      const config = mapConfiguration(
+    ])('maps %s to %s', async (wire, ours) => {
+      const config = await mapped(
         wireConfiguration({
           sections: [
             wireSection({ variables: [wireVariable({ valueSource: wire })] }),
@@ -509,8 +567,8 @@ describe('mapConfiguration', () => {
       expect(config.sections[0]!.variables[0]!.valueSourceRaw).toBeUndefined();
     });
 
-    it('keeps a value it does not know as unknown, with the raw value beside it', () => {
-      const config = mapConfiguration(
+    it('keeps a value it does not know as unknown, with the raw value beside it', async () => {
+      const config = await mapped(
         wireConfiguration({
           sections: [
             wireSection({
@@ -527,39 +585,51 @@ describe('mapConfiguration', () => {
   });
 
   describe('value type and value', () => {
-    function variableOf(over: Partial<WireVariable>) {
-      return mapConfiguration(
-        wireConfiguration({
-          sections: [wireSection({ variables: [wireVariable(over)] })],
-        }),
+    async function variableOf(over: Partial<WireVariable>) {
+      return (
+        await mapped(
+          wireConfiguration({
+            sections: [wireSection({ variables: [wireVariable(over)] })],
+          }),
+        )
       ).sections[0]!.variables[0]!;
     }
 
-    it('reads a number, sent as a number or as a string', () => {
-      expect(variableOf({ valueType: 'NUMBER', value: 12.5 })).toMatchObject({
+    it('reads a number, sent as a number or as a string', async () => {
+      expect(
+        await variableOf({ valueType: 'NUMBER', value: 12.5 }),
+      ).toMatchObject({
         valueType: 'number',
         value: 12.5,
       });
       expect(
-        variableOf({ valueType: 'NUMBER', value: '12.5', defaultValue: '3' }),
+        await variableOf({
+          valueType: 'NUMBER',
+          value: '12.5',
+          defaultValue: '3',
+        }),
       ).toMatchObject({ value: 12.5, defaultValue: 3 });
     });
 
-    it('reads a string', () => {
-      expect(variableOf({ valueType: 'STRING', value: 'abc' })).toMatchObject({
+    it('reads a string', async () => {
+      expect(
+        await variableOf({ valueType: 'STRING', value: 'abc' }),
+      ).toMatchObject({
         valueType: 'string',
         value: 'abc',
       });
       expect(warn).not.toHaveBeenCalled();
     });
 
-    it('reads a boolean, sent as a boolean or as a string', () => {
-      expect(variableOf({ valueType: 'BOOLEAN', value: true })).toMatchObject({
+    it('reads a boolean, sent as a boolean or as a string', async () => {
+      expect(
+        await variableOf({ valueType: 'BOOLEAN', value: true }),
+      ).toMatchObject({
         valueType: 'boolean',
         value: true,
       });
       expect(
-        variableOf({
+        await variableOf({
           valueType: 'BOOLEAN',
           value: 'false',
           defaultValue: 'true',
@@ -567,39 +637,41 @@ describe('mapConfiguration', () => {
       ).toMatchObject({ value: false, defaultValue: true });
     });
 
-    it('keeps a boolean that does not read as one as unset', () => {
-      expect(variableOf({ valueType: 'BOOLEAN', value: 'yes' }).value).toBe(
-        null,
-      );
+    it('keeps a boolean that does not read as one as unset', async () => {
+      expect(
+        (await variableOf({ valueType: 'BOOLEAN', value: 'yes' })).value,
+      ).toBe(null);
     });
 
-    it('reads a date as its ISO string', () => {
+    it('reads a date as its ISO string', async () => {
       expect(
-        variableOf({ valueType: 'DATE', value: '2026-10-01' }),
+        await variableOf({ valueType: 'DATE', value: '2026-10-01' }),
       ).toMatchObject({ valueType: 'date', value: '2026-10-01' });
     });
 
-    it('keeps an unset value as null, whatever the type', () => {
+    it('keeps an unset value as null, whatever the type', async () => {
       for (const valueType of ['NUMBER', 'STRING', 'BOOLEAN', 'DATE']) {
         expect(
-          variableOf({ valueType, value: null, defaultValue: null }),
+          await variableOf({ valueType, value: null, defaultValue: null }),
           valueType,
         ).toMatchObject({ value: null, defaultValue: null });
       }
     });
 
-    it('keeps a number that does not parse as unset rather than NaN', () => {
-      expect(variableOf({ valueType: 'NUMBER', value: 'abc' }).value).toBe(
-        null,
-      );
+    it('keeps a number that does not parse as unset rather than NaN', async () => {
+      expect(
+        (await variableOf({ valueType: 'NUMBER', value: 'abc' })).value,
+      ).toBe(null);
     });
 
-    it('keeps a boolean sent for a number as unset rather than 1', () => {
-      expect(variableOf({ valueType: 'NUMBER', value: true }).value).toBe(null);
+    it('keeps a boolean sent for a number as unset rather than 1', async () => {
+      expect(
+        (await variableOf({ valueType: 'NUMBER', value: true })).value,
+      ).toBe(null);
     });
 
-    it('renders an UNKNOWN type as a string field and says so', () => {
-      const variable = variableOf({ valueType: 'UNKNOWN', value: 'x' });
+    it('renders an UNKNOWN type as a string field and says so', async () => {
+      const variable = await variableOf({ valueType: 'UNKNOWN', value: 'x' });
 
       expect(variable).toMatchObject({ valueType: 'string', value: 'x' });
       expect(warn).toHaveBeenCalledTimes(1);
@@ -608,8 +680,8 @@ describe('mapConfiguration', () => {
   });
 
   describe('messages', () => {
-    it('keeps errors and warnings, lower-cased', () => {
-      const config = mapConfiguration(
+    it('keeps errors and warnings, lower-cased', async () => {
+      const config = await mapped(
         wireConfiguration({
           messages: [
             { severity: 'ERROR', text: 'e' },
@@ -623,15 +695,15 @@ describe('mapConfiguration', () => {
       ]);
     });
 
-    it('keeps INFO as info', () => {
-      const config = mapConfiguration(
+    it('keeps INFO as info', async () => {
+      const config = await mapped(
         wireConfiguration({ messages: [{ severity: 'INFO', text: 'i' }] }),
       );
       expect(config.messages).toEqual([{ severity: 'info', text: 'i' }]);
     });
 
-    it('drops UNKNOWN and any severity it does not know', () => {
-      const config = mapConfiguration(
+    it('drops UNKNOWN and any severity it does not know', async () => {
+      const config = await mapped(
         wireConfiguration({
           messages: [
             { severity: 'UNKNOWN', text: 'u' },
@@ -643,8 +715,8 @@ describe('mapConfiguration', () => {
       expect(config.messages).toEqual([{ severity: 'error', text: 'e' }]);
     });
 
-    it('reads a missing text as empty and skips a null entry', () => {
-      const config = mapConfiguration(
+    it('reads a missing text as empty and skips a null entry', async () => {
+      const config = await mapped(
         wireConfiguration({
           messages: [null, { severity: 'WARNING', text: null }],
         }),
@@ -652,9 +724,9 @@ describe('mapConfiguration', () => {
       expect(config.messages).toEqual([{ severity: 'warning', text: '' }]);
     });
 
-    it('maps the messages on every node kind', () => {
+    it('maps the messages on every node kind', async () => {
       const messages = [{ severity: 'ERROR', text: 'x' }];
-      const config = mapConfiguration(
+      const config = await mapped(
         wireConfiguration({
           sections: [
             wireSection({
@@ -677,16 +749,16 @@ describe('mapConfiguration', () => {
   });
 
   describe('prices', () => {
-    it('passes the Geins price through as it is sent', () => {
-      const config = mapConfiguration(wireConfiguration());
+    it('passes the Geins price through as it is sent', async () => {
+      const config = await mapped(wireConfiguration());
       expect(config.unitPrice).toEqual(PRICE);
       expect(
         config.sections[0]!.optionGroups[0]!.options[0]!.unitPrice,
       ).toEqual(PRICE);
     });
 
-    it('carries a missing price as an empty one, never as invented numbers', () => {
-      const config = mapConfiguration(
+    it('carries a missing price as an empty one, never as invented numbers', async () => {
+      const config = await mapped(
         wireConfiguration({
           unitPrice: null,
           sections: [
@@ -706,16 +778,16 @@ describe('mapConfiguration', () => {
   });
 
   describe('the embedded product', () => {
-    it('keeps a missing product as null', () => {
-      const config = mapConfiguration(wireConfiguration());
+    it('keeps a missing product as null', async () => {
+      const config = await mapped(wireConfiguration());
       expect(
         config.sections[0]!.optionGroups[0]!.options[0]!.product,
       ).toBeNull();
     });
 
-    it('passes a present product through', () => {
+    it('keeps the fields the row reads of a present product', async () => {
       const product = { productId: 42, name: 'Tooth', alias: 'tooth' };
-      const config = mapConfiguration(
+      const config = await mapped(
         wireConfiguration({
           sections: [
             wireSection({
@@ -732,15 +804,21 @@ describe('mapConfiguration', () => {
           ],
         }),
       );
-      expect(config.sections[0]!.optionGroups[0]!.options[0]!.product).toBe(
-        product,
-      );
+      // The option's product selects only what the row reads.
+      expect(config.sections[0]!.optionGroups[0]!.options[0]!.product).toEqual({
+        productId: 42,
+        name: 'Tooth',
+        articleNumber: null,
+        alias: 'tooth',
+        canonicalUrl: null,
+        productImages: [],
+      });
     });
   });
 
   describe('a node without an id', () => {
-    it('drops a section and its subtree, keeping its siblings', () => {
-      const config = mapConfiguration(
+    it('drops a section and its subtree, keeping its siblings', async () => {
+      const config = await mapped(
         wireConfiguration({
           sections: [
             wireSection({ id: null, name: 'Hidden base' }),
@@ -755,8 +833,8 @@ describe('mapConfiguration', () => {
       expect(String(warn.mock.calls[0]![0])).toContain('Hidden base');
     });
 
-    it('drops a variable', () => {
-      const config = mapConfiguration(
+    it('drops a variable', async () => {
+      const config = await mapped(
         wireConfiguration({
           sections: [
             wireSection({
@@ -773,8 +851,8 @@ describe('mapConfiguration', () => {
       expect(String(warn.mock.calls[0]![0])).toContain('Depth');
     });
 
-    it('drops an option group, nested or not', () => {
-      const config = mapConfiguration(
+    it('drops an option group, nested or not', async () => {
+      const config = await mapped(
         wireConfiguration({
           sections: [
             wireSection({
@@ -797,8 +875,8 @@ describe('mapConfiguration', () => {
       expect(String(warn.mock.calls[0]![0])).toContain('Loose');
     });
 
-    it('drops an option', () => {
-      const config = mapConfiguration(
+    it('drops an option', async () => {
+      const config = await mapped(
         wireConfiguration({
           sections: [
             wireSection({
@@ -821,8 +899,8 @@ describe('mapConfiguration', () => {
       expect(String(warn.mock.calls[0]![0])).toContain('Nameless part');
     });
 
-    it('names a node that has neither id nor name as such', () => {
-      mapConfiguration(
+    it('names a node that has neither id nor name as such', async () => {
+      await mapped(
         wireConfiguration({
           sections: [wireSection({ id: null, name: null })],
         }),
@@ -830,8 +908,8 @@ describe('mapConfiguration', () => {
       expect(String(warn.mock.calls[0]![0])).toContain('(no name)');
     });
 
-    it('skips a null entry in a list without a warning', () => {
-      const config = mapConfiguration(
+    it('skips a null entry in a list without a warning', async () => {
+      const config = await mapped(
         wireConfiguration({
           sections: [
             null,
@@ -861,7 +939,7 @@ describe('mapConfiguration', () => {
 // ---------------------------------------------------------------------------
 
 describe('toWireChange', () => {
-  it('sends a variable change with its value as it is', () => {
+  it('sends a variable change with its value as it is', async () => {
     // 1359's "Machine weight (7–20)", a NUMBER.
     expect(
       toWireChange({ type: 'variable', variableId: 'MW', value: 12 }),
@@ -873,7 +951,7 @@ describe('toWireChange', () => {
     ['a boolean', true],
     ['a date', '2026-10-01'],
     ['an unset value', null],
-  ])('passes %s through as the CpqValue', (_label, value) => {
+  ])('passes %s through as the CpqValue', async (_label, value) => {
     expect(toWireChange({ type: 'variable', variableId: 'V', value })).toEqual({
       type: 'VARIABLE',
       variableId: 'V',
@@ -881,7 +959,7 @@ describe('toWireChange', () => {
     });
   });
 
-  it('sends an option change with the selection and the lock in one', () => {
+  it('sends an option change with the selection and the lock in one', async () => {
     // A select and a lock travel in one change (transcript step 6b).
     expect(
       toWireChange({
@@ -920,7 +998,7 @@ describe('toWireChange', () => {
 
   // Measured on a row whose quantity is 0: the provider refuses 0 and a 1 makes
   // the configuration invalid; left out, the row keeps its own quantity.
-  it('leaves the quantity out of an option change that carries none', () => {
+  it('leaves the quantity out of an option change that carries none', async () => {
     const change = toWireChange({
       type: 'option',
       optionId: 'o',
@@ -938,7 +1016,7 @@ describe('toWireChange', () => {
     expect(change).not.toHaveProperty('quantity');
   });
 
-  it("sends the configuration's own quantity", () => {
+  it("sends the configuration's own quantity", async () => {
     expect(toWireChange({ type: 'quantity', quantity: 3 })).toEqual({
       type: 'QUANTITY',
       quantity: 3,
@@ -970,8 +1048,8 @@ function wireCommitted(
 }
 
 describe('mapCommittedConfiguration', () => {
-  it('maps the record the commit froze', () => {
-    expect(mapCommittedConfiguration(wireCommitted(), 'cfg-1')).toEqual({
+  it('maps the record the commit froze', async () => {
+    expect(await mappedCommitted(wireCommitted(), 'cfg-1')).toEqual({
       committedConfigurationId: 'committed-1',
       configurationId: 'cfg-1',
       articleNumber: '001-2',
@@ -986,8 +1064,8 @@ describe('mapCommittedConfiguration', () => {
     });
   });
 
-  it('reads a Decimal discount and weight sent as strings', () => {
-    const committed = mapCommittedConfiguration(
+  it('reads a Decimal discount and weight sent as strings', async () => {
+    const committed = await mappedCommitted(
       wireCommitted({ discountPercent: '7.5', weightPerUnit: '38.25' }),
       'cfg-1',
     );
@@ -995,26 +1073,26 @@ describe('mapCommittedConfiguration', () => {
     expect(committed.weightPerUnit).toBe(38.25);
   });
 
-  it('keeps the summary in the order it was sent', () => {
+  it('keeps the summary in the order it was sent', async () => {
     const summary = [
       { label: 'b', value: '2' },
       { label: 'a', value: '1' },
       { label: 'c', value: '3' },
     ];
     expect(
-      mapCommittedConfiguration(wireCommitted({ summary }), 'cfg-1').summary,
+      (await mappedCommitted(wireCommitted({ summary }), 'cfg-1')).summary,
     ).toEqual(summary);
   });
 
-  it('reads a Decimal quantity sent as a string', () => {
+  it('reads a Decimal quantity sent as a string', async () => {
     expect(
-      mapCommittedConfiguration(wireCommitted({ quantity: '2' }), 'cfg-1')
+      (await mappedCommitted(wireCommitted({ quantity: '2' }), 'cfg-1'))
         .quantity,
     ).toBe(2);
   });
 
-  it('fills the nullable fields with their resting values', () => {
-    const committed = mapCommittedConfiguration(
+  it('fills the nullable fields with their resting values', async () => {
+    const committed = await mappedCommitted(
       wireCommitted({
         configurationId: null,
         articleNumber: null,
@@ -1030,14 +1108,14 @@ describe('mapCommittedConfiguration', () => {
     expect(committed.configurationId).toBe('cfg-asked');
     expect(committed.articleNumber).toBe('');
     expect(committed.unitPrice).toEqual(
-      mapConfiguration(wireConfiguration({ unitPrice: null })).unitPrice,
+      (await mapped(wireConfiguration({ unitPrice: null }))).unitPrice,
     );
     expect(committed.summary).toEqual([{ label: '', value: '' }]);
   });
 
-  it('keeps an absent summary as an empty one', () => {
+  it('keeps an absent summary as an empty one', async () => {
     expect(
-      mapCommittedConfiguration(wireCommitted({ summary: null }), 'cfg-1')
+      (await mappedCommitted(wireCommitted({ summary: null }), 'cfg-1'))
         .summary,
     ).toEqual([]);
   });
@@ -1046,13 +1124,6 @@ describe('mapCommittedConfiguration', () => {
 // ---------------------------------------------------------------------------
 // The backend over the wire
 // ---------------------------------------------------------------------------
-
-function answer(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
 
 function graphqlError(code: string) {
   return answer({
@@ -1077,22 +1148,50 @@ async function failureOf(call: () => Promise<unknown>) {
 }
 
 describe('the merchant-api backend', () => {
-  const fetchMock = vi.fn();
   let backend: ReturnType<typeof createMerchantApiConfiguratorBackend>;
-  const logSpies: ReturnType<typeof vi.spyOn>[] = [];
 
   beforeEach(() => {
-    fetchMock.mockReset();
-    vi.stubGlobal('fetch', fetchMock);
     backend = createMerchantApiConfiguratorBackend();
-    for (const level of ['debug', 'info', 'warn', 'error'] as const) {
-      logSpies.push(vi.spyOn(logger, level).mockImplementation(() => {}));
-    }
   });
 
   afterEach(() => {
-    for (const spy of logSpies.splice(0)) spy.mockRestore();
+    vi.useRealTimers();
   });
+
+  const SERVICE_METHODS = [
+    'create',
+    'get',
+    'applyChanges',
+    'renew',
+    'commit',
+    'delete',
+    'reopenCartItem',
+    'addCartItem',
+    'updateCartItem',
+    'getCartLines',
+    'getOrderLines',
+    'getOrderLineChoices',
+  ] as const;
+
+  /** The deadline the backend gave each SDK call, in the order it called. */
+  function watchDeadlines() {
+    const spies = SERVICE_METHODS.map((name) =>
+      vi.spyOn(OMS.configuration, name),
+    );
+    return () => {
+      const calls = spies.flatMap((spy) =>
+        spy.mock.calls.map((args, index) => ({
+          order: spy.mock.invocationCallOrder[index]!,
+          timeoutMs: (args.at(-1) as { timeoutMs?: number } | undefined)
+            ?.timeoutMs,
+        })),
+      );
+      for (const spy of spies) spy.mockRestore();
+      return calls
+        .sort((a, b) => a.order - b.order)
+        .map(({ timeoutMs }) => timeoutMs);
+    };
+  }
 
   function sentRequest(call = 0) {
     const [url, init] = fetchMock.mock.calls[call] as [string, RequestInit];
@@ -1143,10 +1242,10 @@ describe('the merchant-api backend', () => {
       expect(url).toBe(URL);
       expect(init.method).toBe('POST');
       expect(headers).toMatchObject({
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
+        accept: 'application/json',
+        'content-type': 'application/json',
         'x-apikey': API_KEY,
-        Authorization: 'Bearer user-token-1',
+        authorization: 'Bearer user-token-1',
       });
       expect(body.query).toContain('createConfiguration(');
       expect(body.variables).toEqual({
@@ -1168,7 +1267,7 @@ describe('the merchant-api backend', () => {
 
       await backend.create({ productId: '1359', quantity: 1 }, anonymous);
 
-      expect('Authorization' in sentRequest().headers).toBe(false);
+      expect('authorization' in sentRequest().headers).toBe(false);
     });
 
     it.each([
@@ -1200,8 +1299,8 @@ describe('the merchant-api backend', () => {
         languageId: 'sv-SE',
         marketId: 'SE|SEK',
       });
-      expect(headers.Authorization).toBe('Bearer user-token-1');
-      expect(config).toEqual(mapConfiguration(wireConfiguration()));
+      expect(headers.authorization).toBe('Bearer user-token-1');
+      expect(config).toEqual(await mapped(wireConfiguration()));
     });
   });
 
@@ -1230,9 +1329,7 @@ describe('the merchant-api backend', () => {
       );
 
       const { body, headers } = sentRequest();
-      expect(body.query).toBe(
-        loadQuery('configurator/apply-configuration-changes.graphql'),
-      );
+      expect(body.query).toContain('applyConfigurationChanges(');
       expect(body.variables).toEqual({
         configurationId: 'cfg-7',
         changes: [
@@ -1251,8 +1348,8 @@ describe('the merchant-api backend', () => {
         languageId: 'sv-SE',
         marketId: 'SE|SEK',
       });
-      expect(headers.Authorization).toBe('Bearer user-token-1');
-      expect(config).toEqual(mapConfiguration(wire));
+      expect(headers.authorization).toBe('Bearer user-token-1');
+      expect(config).toEqual(await mapped(wire));
     });
 
     it('answers 502 when the batch returns no document', async () => {
@@ -1320,16 +1417,14 @@ describe('the merchant-api backend', () => {
       });
 
       const { body, headers } = sentRequest();
-      expect(body.query).toBe(
-        loadQuery('configurator/renew-configuration.graphql'),
-      );
+      expect(body.query).toContain('renewConfiguration(');
       expect(body.variables).toEqual({
         configurationId: 'cfg-1',
         channelId: '1|se',
         languageId: 'sv-SE',
         marketId: 'SE|SEK',
       });
-      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(headers.authorization).toBe('Bearer user-token-1');
     });
 
     it('answers 502 when the renewal comes back empty', async () => {
@@ -1351,9 +1446,7 @@ describe('the merchant-api backend', () => {
       await expect(backend.release('cfg-1', CTX)).resolves.toBeUndefined();
 
       const { body } = sentRequest();
-      expect(body.query).toBe(
-        loadQuery('configurator/delete-configuration.graphql'),
-      );
+      expect(body.query).toContain('deleteConfiguration(');
       expect(body.variables).toEqual({
         configurationId: 'cfg-1',
         channelId: '1|se',
@@ -1387,18 +1480,16 @@ describe('the merchant-api backend', () => {
       const committed = await backend.commit('cfg-1', CTX);
 
       const { body, headers } = sentRequest();
-      expect(body.query).toBe(
-        loadQuery('configurator/commit-configuration.graphql'),
-      );
+      expect(body.query).toContain('commitConfiguration(');
       expect(body.variables).toEqual({
         configurationId: 'cfg-1',
         channelId: '1|se',
         languageId: 'sv-SE',
         marketId: 'SE|SEK',
       });
-      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(headers.authorization).toBe('Bearer user-token-1');
       expect(committed).toEqual(
-        mapCommittedConfiguration(wireCommitted(), 'cfg-1'),
+        await mappedCommitted(wireCommitted(), 'cfg-1'),
       );
     });
 
@@ -1431,26 +1522,23 @@ describe('the merchant-api backend', () => {
 
       const { url, body, headers } = sentRequest();
       expect(url).toBe(URL);
-      expect(body.query).toBe(
-        loadQuery('configurator/get-cart-line-configurations.graphql'),
-      );
+      expect(body.query).toContain('getCart(');
       expect(body.variables).toEqual({
         id: 'cart-1',
         channelId: '1|se',
         languageId: 'sv-SE',
         marketId: 'SE|SEK',
       });
-      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(headers.authorization).toBe('Bearer user-token-1');
     });
 
     it('gives the read 2 s, since the cart waits for it', async () => {
-      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      const deadlines = watchDeadlines();
       fetchMock.mockResolvedValue(cartLines([]));
 
       await backend.cartLineConfigurations('cart-1', CTX);
 
-      expect(timeout.mock.calls).toEqual([[2_000]]);
-      timeout.mockRestore();
+      expect(deadlines()).toEqual([2_000]);
     });
 
     it('answers the configured lines by item id, with their summary in the order sent', async () => {
@@ -1580,26 +1668,23 @@ describe('the merchant-api backend', () => {
 
       const { url, body, headers } = sentRequest();
       expect(url).toBe(URL);
-      expect(body.query).toBe(
-        loadQuery('configurator/get-order-line-configurations.graphql'),
-      );
+      expect(body.query).toContain('getOrderPublic(');
       expect(body.variables).toEqual({
         publicOrderId: 'order-1',
         channelId: '1|se',
         languageId: 'sv-SE',
         marketId: 'SE|SEK',
       });
-      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(headers.authorization).toBe('Bearer user-token-1');
     });
 
     it('gives the read 2 s, since the order waits for it', async () => {
-      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      const deadlines = watchDeadlines();
       fetchMock.mockResolvedValue(orderRows([]));
 
       await backend.orderLineConfigurations('order-1', CTX);
 
-      expect(timeout.mock.calls).toEqual([[2_000]]);
-      timeout.mockRestore();
+      expect(deadlines()).toEqual([2_000]);
     });
 
     it('answers every row by position, with its product, type and configuration in the order sent', async () => {
@@ -1806,9 +1891,7 @@ describe('the merchant-api backend', () => {
 
       const { url, body, headers } = sentRequest();
       expect(url).toBe(URL);
-      expect(body.query).toBe(
-        loadQuery('configurator/get-order-line-choices.graphql'),
-      );
+      expect(body.query).toContain('getOrderPublic(');
       expect(body.query).toContain('instanceId');
       expect(body.variables).toEqual({
         publicOrderId: 'order-1',
@@ -1816,7 +1899,7 @@ describe('the merchant-api backend', () => {
         languageId: 'sv-SE',
         marketId: 'SE|SEK',
       });
-      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(headers.authorization).toBe('Bearer user-token-1');
     });
 
     it('answers the row at the position, every nested choice flattened in document order, values typed', async () => {
@@ -1871,8 +1954,7 @@ describe('the merchant-api backend', () => {
         'v3',
         'v4',
       ]);
-      const query = loadQuery('configurator/get-order-line-choices.graphql');
-      expect(query.match(/sections \{/g)).toHaveLength(4);
+      expect(sentRequest().body.query.match(/sections \{/g)).toHaveLength(4);
     });
 
     it.each([
@@ -1963,13 +2045,12 @@ describe('the merchant-api backend', () => {
     });
 
     it('gives the read 2 s, as the order-row read', async () => {
-      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      const deadlines = watchDeadlines();
       fetchMock.mockResolvedValue(orderRows([]));
 
       await backend.orderLineChoices('order-1', 0, CTX);
 
-      expect(timeout.mock.calls).toEqual([[2_000]]);
-      timeout.mockRestore();
+      expect(deadlines()).toEqual([2_000]);
     });
 
     it('passes a failure on', async () => {
@@ -2025,9 +2106,7 @@ describe('the merchant-api backend', () => {
 
       await backend.addToCart('cart-1', LINE, CTX);
 
-      expect(sentRequest(0).body.query).toBe(
-        loadQuery('configurator/get-cart-line-configurations.graphql'),
-      );
+      expect(sentRequest(0).body.query).toContain('getCart(');
       expect(sentRequest(0).body.variables).toEqual({
         id: 'cart-1',
         channelId: '1|se',
@@ -2036,9 +2115,7 @@ describe('the merchant-api backend', () => {
       });
       const { url, body, headers } = sentRequest(1);
       expect(url).toBe(URL);
-      expect(body.query).toBe(
-        loadQuery('configurator/add-configured-cart-item.graphql'),
-      );
+      expect(body.query).toContain('addToCart(');
       expect(body.variables).toEqual({
         id: 'cart-1',
         item: { skuId: 1652, quantity: 2, configurationId: COMMITTED_ID },
@@ -2046,7 +2123,7 @@ describe('the merchant-api backend', () => {
         languageId: 'sv-SE',
         marketId: 'SE|SEK',
       });
-      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(headers.authorization).toBe('Bearer user-token-1');
     });
 
     it('answers the line already carrying the committed id without adding it again', async () => {
@@ -2127,9 +2204,7 @@ describe('the merchant-api backend', () => {
 
       const { url, body, headers } = sentRequest();
       expect(url).toBe(URL);
-      expect(body.query).toBe(
-        loadQuery('configurator/reopen-cart-item-configuration.graphql'),
-      );
+      expect(body.query).toContain('reopenCartItemConfiguration(');
       expect(body.variables).toEqual({
         cartId: 'cart-1',
         itemId: 'item-1',
@@ -2137,12 +2212,12 @@ describe('the merchant-api backend', () => {
         languageId: 'sv-SE',
         marketId: 'SE|SEK',
       });
-      expect(headers.Authorization).toBe('Bearer user-token-1');
-      expect(config).toEqual(mapConfiguration(wireConfiguration()));
+      expect(headers.authorization).toBe('Bearer user-token-1');
+      expect(config).toEqual(await mapped(wireConfiguration()));
     });
 
     it("gives the reopen 45 s, past the provider's own replay budget, and every other call 15 s", async () => {
-      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      const deadlines = watchDeadlines();
       fetchMock.mockImplementation(async () =>
         answer({
           data: {
@@ -2155,8 +2230,7 @@ describe('the merchant-api backend', () => {
       await backend.reopen('cart-1', 'item-1', CTX);
       await backend.get('cfg-1', CTX);
 
-      expect(timeout.mock.calls).toEqual([[45_000], [15_000]]);
-      timeout.mockRestore();
+      expect(deadlines()).toEqual([45_000, 15_000]);
     });
 
     it('codes a line removed from the cart as gone, which is how the canary answers it', async () => {
@@ -2228,14 +2302,10 @@ describe('the merchant-api backend', () => {
         backend.replaceLine('cart-1', 'item-1', NEW_ID, CTX),
       ).resolves.toEqual({ itemId: 'item-1' });
 
-      expect(sentRequest(0).body.query).toBe(
-        loadQuery('configurator/get-cart-line-configurations.graphql'),
-      );
+      expect(sentRequest(0).body.query).toContain('getCart(');
       const { url, body, headers } = sentRequest(1);
       expect(url).toBe(URL);
-      expect(body.query).toBe(
-        loadQuery('configurator/update-configured-cart-item.graphql'),
-      );
+      expect(body.query).toContain('updateCartItem(');
       expect(body.variables).toEqual({
         id: 'cart-1',
         item: { id: 'item-1', quantity: 3, configurationId: NEW_ID },
@@ -2243,7 +2313,7 @@ describe('the merchant-api backend', () => {
         languageId: 'sv-SE',
         marketId: 'SE|SEK',
       });
-      expect(headers.Authorization).toBe('Bearer user-token-1');
+      expect(headers.authorization).toBe('Bearer user-token-1');
     });
 
     it('answers the line without sending the swap when it already carries the new id', async () => {
@@ -2559,25 +2629,129 @@ describe('the merchant-api backend', () => {
       expect(logged).not.toContain(API_KEY);
     });
 
+    /** The server log line the failure wrote, which is where its reason goes. */
+    function loggedReason() {
+      return [
+        ...vi.mocked(logger.error).mock.calls,
+        ...vi.mocked(logger.warn).mock.calls,
+      ]
+        .map(([line]) => String(line))
+        .filter((line) => line.includes('The configurator backend'));
+    }
+
+    it.each([
+      [
+        'a request that fails before any answer',
+        () => Promise.reject(new TypeError('fetch failed')),
+        'The configurator backend could not be reached',
+      ],
+      [
+        'a 500 with no code',
+        () => Promise.resolve(answer({ message: 'boom' }, 500)),
+        'The configurator backend answered 500, codes []',
+      ],
+      [
+        'a 2xx answer with an error that carries no code',
+        () => Promise.resolve(answer({ errors: [{ message: 'x' }] })),
+        'The configurator backend answered with errors, codes []',
+      ],
+      [
+        'a 2xx answer with a code the portal does not know',
+        () =>
+          Promise.resolve(
+            answer({
+              errors: [
+                { message: 'x', extensions: { code: 'SomethingElse' } },
+                { message: 'y' },
+              ],
+            }),
+          ),
+        'The configurator backend answered with errors, codes [SomethingElse]',
+      ],
+    ])('logs %s with what it knows', async (_label, respond, reason) => {
+      fetchMock.mockImplementation(respond);
+
+      await failureOf(calls[1]![1]);
+
+      expect(loggedReason()).toEqual([`Server error: ${reason}`]);
+    });
+
+    it('answers 502 for a failure that is not the SDK answering', async () => {
+      const get = vi
+        .spyOn(OMS.configuration, 'get')
+        .mockRejectedValue(new Error('boom'));
+
+      const failure = await failureOf(calls[1]![1]);
+
+      expect(failure.statusCode).toBe(502);
+      expect(loggedReason()).toEqual([
+        'Server error: The configurator backend could not be reached',
+      ]);
+      get.mockRestore();
+    });
+
+    it("logs the refused change's own reason, not another error's", async () => {
+      fetchMock.mockResolvedValue(
+        answer({
+          errors: [
+            { message: 'noise', extensions: { code: 'SomethingElse' } },
+            {
+              message: 'Variable MW is read-only',
+              extensions: { code: 'ConfigurationFailed' },
+            },
+          ],
+        }),
+      );
+
+      expect((await failureOf(calls[1]![1])).statusCode).toBe(422);
+      const warned = vi
+        .mocked(logger.warn)
+        .mock.calls.map(([line]) => String(line));
+      expect(warned).toContain(
+        '[configurator] ConfigurationFailed: Variable MW is read-only',
+      );
+      expect(warned.join('\n')).not.toContain('noise');
+    });
+
+    it('answers 500 for a create without an SDK, before reading the product id', async () => {
+      const { sdk: _dropped, ...narrow } = CTX;
+      const failure = await failureOf(() =>
+        backend.create({ productId: 'abc', quantity: 1 }, narrow),
+      );
+      expect(failure.statusCode).toBe(500);
+    });
+
     it('answers 500 without calling out when the context has no target', async () => {
-      const { merchantApi: _dropped, ...narrow } = CTX;
+      const { sdk: _dropped, ...narrow } = CTX;
       const failure = await failureOf(() => backend.get('cfg-1', narrow));
       expect(failure.statusCode).toBe(500);
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('gives up on a request that does not answer', async () => {
-      fetchMock.mockResolvedValue(
-        answer({ data: { getConfiguration: wireConfiguration() } }),
+    it('gives up on a request that does not answer, after its deadline', async () => {
+      vi.useFakeTimers();
+      fetchMock.mockImplementation(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () =>
+              reject(new DOMException('aborted', 'AbortError')),
+            );
+          }),
       );
-      await backend.get('cfg-1', CTX);
-      expect(sentRequest().init.signal).toBeInstanceOf(AbortSignal);
+
+      const pending = failureOf(() => backend.get('cfg-1', CTX));
+      await vi.advanceTimersByTimeAsync(14_999);
+      expect(sentRequest().init.signal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect((await pending).statusCode).toBe(502);
+      expect(sentRequest().init.signal?.aborted).toBe(true);
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// The queries
+// The documents, as the SDK sends them
 //
 // GraphQL fragments cannot recurse, so the tree is unrolled to a fixed depth.
 // Nodes below it are not selected and cannot be told apart from absent ones.
@@ -2586,58 +2760,108 @@ describe('the merchant-api backend', () => {
 const SECTION_DEPTH = 4;
 const GROUP_DEPTH = 3;
 
-describe('the configuration queries', () => {
+describe('the documents the SDK sends', () => {
   const count = (text: string, needle: string) => text.split(needle).length - 1;
 
+  /** The document and variables of one call, `__typename` (Apollo's) left out. */
+  async function sent(
+    call: (
+      backend: ReturnType<typeof createMerchantApiConfiguratorBackend>,
+    ) => Promise<unknown>,
+    data: unknown = null,
+  ) {
+    fetchMock.mockResolvedValue(answer({ data }));
+    await call(createMerchantApiConfiguratorBackend()).catch(() => undefined);
+    const [, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as {
+      query: string;
+      variables: Record<string, unknown>;
+    };
+    return { ...body, query: body.query.replace(/\s*__typename/g, '') };
+  }
+
   it.each([
-    ['configurator/create-configuration.graphql', 'createConfiguration('],
-    ['configurator/get-configuration.graphql', 'getConfiguration('],
     [
-      'configurator/apply-configuration-changes.graphql',
-      'applyConfigurationChanges(',
+      'create',
+      'createConfiguration(',
+      (b: ReturnType<typeof createMerchantApiConfiguratorBackend>) =>
+        b.create({ productId: '1359', quantity: 1 }, CTX),
     ],
-  ])('%s selects the document to the agreed depth', (path, operation) => {
-    const query = loadQuery(path);
+    [
+      'get',
+      'getConfiguration(',
+      (b: ReturnType<typeof createMerchantApiConfiguratorBackend>) =>
+        b.get('cfg-1', CTX),
+    ],
+    [
+      'applyChanges',
+      'applyConfigurationChanges(',
+      (b: ReturnType<typeof createMerchantApiConfiguratorBackend>) =>
+        b.applyChanges('cfg-1', [{ type: 'quantity', quantity: 1 }], CTX),
+    ],
+  ])(
+    '%s selects the document to the agreed depth',
+    async (_name, operation, call) => {
+      const { query } = await sent(call);
 
-    expect(query).toContain(operation);
-    expect(count(query, '...CpqSectionFields')).toBe(SECTION_DEPTH);
-    expect(count(query, '...CpqGroupFields')).toBe(GROUP_DEPTH);
-    expect(count(query, '...CpqGroupTree')).toBe(SECTION_DEPTH);
-    // The embedded product in the portal's ordinary list shape.
-    expect(query).toContain('fragment ListProduct on ProductType');
-    expect(query).toContain('fragment Price on PriceType');
-    for (const fragment of [
-      'CpqConfiguration on CpqConfigurationType',
-      'CpqSectionFields on CpqSectionType',
-      'CpqGroupTree on CpqOptionGroupType',
-      'CpqGroupFields on CpqOptionGroupType',
-      'CpqVariable on CpqVariableType',
-      'CpqOption on CpqOptionType',
-      'CpqMessage on CpqMessageType',
-    ]) {
-      expect(query, fragment).toContain(`fragment ${fragment}`);
-    }
+      expect(query).toContain(operation);
+      expect(count(query, '...CpqSectionFields')).toBe(SECTION_DEPTH);
+      expect(count(query, '...CpqGroupFields')).toBe(GROUP_DEPTH);
+      // Spread inside the section fields, so every section level reaches it.
+      expect(count(query, '...CpqGroupTree')).toBe(1);
+      for (const fragment of [
+        'CpqConfiguration on CpqConfigurationType',
+        'CpqSectionFields on CpqSectionType',
+        'CpqGroupTree on CpqOptionGroupType',
+        'CpqGroupFields on CpqOptionGroupType',
+        'CpqVariable on CpqVariableType',
+        'CpqOption on CpqOptionType',
+        'CpqMessage on CpqMessageType',
+        'OmsPrice on PriceType',
+      ]) {
+        expect(query, fragment).toContain(`fragment ${fragment}`);
+      }
+    },
+  );
+
+  it("selects only the option product's fields the row reads", async () => {
+    const { query } = await sent((b) => b.get('cfg-1', CTX));
+
+    expect(query).toMatch(
+      /product \{\s*productId\s+name\s+articleNumber\s+alias\s+canonicalUrl\s+productImages \{\s*fileName\s*\}\s*\}/,
+    );
+    expect(query).not.toContain('skus');
   });
 
   it.each([
-    ['configurator/renew-configuration.graphql', 'renewConfiguration('],
-    ['configurator/delete-configuration.graphql', 'deleteConfiguration('],
-    ['configurator/commit-configuration.graphql', 'commitConfiguration('],
-  ])('%s sends the session and the channel', (path, operation) => {
-    const query = loadQuery(path);
+    [
+      'renew',
+      'renewConfiguration(',
+      (b: ReturnType<typeof createMerchantApiConfiguratorBackend>) =>
+        b.renew('cfg-1', CTX),
+    ],
+    [
+      'release',
+      'deleteConfiguration(',
+      (b: ReturnType<typeof createMerchantApiConfiguratorBackend>) =>
+        b.release('cfg-1', CTX),
+    ],
+    [
+      'commit',
+      'commitConfiguration(',
+      (b: ReturnType<typeof createMerchantApiConfiguratorBackend>) =>
+        b.commit('cfg-1', CTX),
+    ],
+  ])('%s sends the session and the channel', async (_name, operation, call) => {
+    const { query, variables } = await sent(call);
+
     expect(query).toContain(operation);
-    for (const variable of [
-      '$configurationId: String!',
-      '$channelId: String',
-      '$languageId: String',
-      '$marketId: String',
-    ]) {
-      expect(query, variable).toContain(variable);
-    }
+    expect(query).toContain('$configurationId: String!');
+    expect(variables).toEqual({ configurationId: 'cfg-1', ...CHANNEL });
   });
 
-  it('selects every field of the committed record', () => {
-    const query = loadQuery('configurator/commit-configuration.graphql');
+  it('selects every field of the committed record', async () => {
+    const { query } = await sent((b) => b.commit('cfg-1', CTX));
     for (const field of [
       'committedConfigurationId',
       'configurationId',
@@ -2650,38 +2874,63 @@ describe('the configuration queries', () => {
     ]) {
       expect(query, field).toContain(field);
     }
-    expect(query).toContain('fragment Price on PriceType');
+    expect(query).toContain('fragment OmsPrice on PriceType');
   });
 
-  it('declares the change list as the schema does', () => {
+  it('declares the change list as the schema does', async () => {
     // A variable typed looser than the argument fails GraphQL validation
     // (VARIABLES_IN_ALLOWED_POSITION) before the provider sees the batch.
-    const query = loadQuery('configurator/apply-configuration-changes.graphql');
+    const { query } = await sent((b) =>
+      b.applyChanges('cfg-1', [{ type: 'quantity', quantity: 1 }], CTX),
+    );
     expect(query).toContain('$changes: [CpqConfigurationChangeInputType!]!');
   });
 
-  it('reads an order row by its product, its type and its configuration summary only', () => {
-    const query = loadQuery(
-      'configurator/get-order-line-configurations.graphql',
+  it('reads an order row by its product, its type and its configuration summary only', async () => {
+    const { query } = await sent((b) =>
+      b.orderLineConfigurations('order-1', CTX),
     );
     expect(query).toContain('getOrderPublic(');
     expect(query).toContain('$publicOrderId: Guid!');
-    expect(query).toMatch(/product\s*\{\s*productId\s+type\s*\}/);
+    expect(query).toMatch(/product \{\s*productId\s+type\s*\}/);
     expect(query).toContain('summary');
     // Both ids are null on an order row by design.
     expect(query).not.toContain('configurationId');
   });
 
-  it('creates by product id, not by article number', () => {
-    const query = loadQuery('configurator/create-configuration.graphql');
+  it('creates by product id, not by article number', async () => {
+    const { query, variables } = await sent((b) =>
+      b.create({ productId: '1359', quantity: 1 }, CTX),
+    );
     expect(query).toContain('productId: $productId');
-    expect(query).not.toContain('$articleNumber');
+    expect(variables).toEqual({ productId: 1359, quantity: 1, ...CHANNEL });
   });
 });
 
 describe('the cart line swap', () => {
-  it("sends the cart, the line's input and the channel, and reads back every line's id and configuration", () => {
-    const query = loadQuery('configurator/update-configured-cart-item.graphql');
+  it("sends the cart, the line's input and the channel, and reads back every line's id and configuration", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        answer({
+          data: {
+            getCart: {
+              id: 'cart-1',
+              items: [{ id: 'item-1', quantity: 2, configurationId: 'old' }],
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(answer({ data: { updateCartItem: null } }));
+
+    await createMerchantApiConfiguratorBackend()
+      .replaceLine('cart-1', 'item-1', 'new', CTX)
+      .catch(() => undefined);
+
+    const [, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    const { query, variables } = JSON.parse(String(init.body)) as {
+      query: string;
+      variables: Record<string, unknown>;
+    };
     expect(query).toContain('updateCartItem(');
     for (const needle of [
       '$id: String!',
@@ -2693,11 +2942,23 @@ describe('the cart line swap', () => {
     ]) {
       expect(query, needle).toContain(needle);
     }
+    expect(variables).toEqual({
+      id: 'cart-1',
+      item: { id: 'item-1', quantity: 2, configurationId: 'new' },
+      ...CHANNEL,
+    });
   });
 
-  it("reads each line's quantity, which the swap sends back", () => {
-    expect(
-      loadQuery('configurator/get-cart-line-configurations.graphql'),
-    ).toMatch(/items\s*\{[^}]*\bquantity\b/);
+  it("reads each line's quantity, which the swap sends back", async () => {
+    fetchMock.mockResolvedValue(answer({ data: { getCart: null } }));
+    await createMerchantApiConfiguratorBackend()
+      .cartLineConfigurations('cart-1', CTX)
+      .catch(() => undefined);
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const { query } = JSON.parse(String(init.body)) as { query: string };
+    expect(query.replace(/\s*__typename/g, '')).toMatch(
+      /items\s*\{[^}]*\bquantity\b/,
+    );
   });
 });

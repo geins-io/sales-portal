@@ -74,7 +74,7 @@ function headingText(wrapper: ReturnType<typeof mountGroup>): string {
 }
 
 function withImage(option: ConfigurationOption, fileName: string) {
-  option.product!.productImages = [{ fileName, isPrimary: false, url: '' }];
+  option.product!.productImages = [{ fileName }];
   return option;
 }
 

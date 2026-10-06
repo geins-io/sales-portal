@@ -10,12 +10,10 @@ import type {
   ConfigurationValue,
   CreateConfigurationInput,
 } from '#shared/types/configurator';
+import type { GeinsOMS } from '@geins/oms';
 import { getRequestChannelVariables, getTenantSDK } from './_sdk';
 import { createCompositeConfiguratorBackend } from './configurator-composite';
-import {
-  readConfiguratorBackendValue,
-  readConfiguratorMerchantApiUrl,
-} from './configurator-config';
+import { readConfiguratorBackendValue } from './configurator-config';
 import { fixtureConfiguratorBackend } from './configurator-fixture';
 import { merchantApiConfiguratorBackend } from './configurator-merchant-api';
 import { withoutRestatedRequirements } from './configurator-messages';
@@ -23,9 +21,8 @@ import { withoutRestatedRequirements } from './configurator-messages';
 // ---------------------------------------------------------------------------
 // The seam between the portal and whatever produces a configuration.
 //
-// Routes and UI never learn which implementation answered. The Geins SDK does
-// not carry the CPQ area: the real backend speaks GraphQL to merchant-api
-// itself, and the SDK is used here only to read the request's channel.
+// Routes and UI never learn which implementation answered. The real backend
+// reaches the CPQ area through the Geins SDK's configuration service.
 // ---------------------------------------------------------------------------
 
 /**
@@ -40,7 +37,7 @@ export interface ConfiguratorContext {
    * Set on the configuration routes only. The product route asks
    * `isConfigurable` with the narrow context, which never reaches the wire.
    */
-  merchantApi?: MerchantApiTarget;
+  sdk?: ConfiguratorSdk;
   /**
    * Set on the cart route only: the portal's ordinary add, for a backend with
    * no configured cart behind it.
@@ -73,14 +70,10 @@ export interface OrderLineChoices {
   options: { id: string; instanceId: string; quantity: number }[];
 }
 
-/** Where and as whom the merchant-api backend asks. */
-export interface MerchantApiTarget {
-  url: string;
-  /** The account's own key from the tenant config; never logged. */
-  apiKey: string;
-  channelId: string;
-  languageId: string;
-  marketId: string;
+/** What the merchant-api backend asks through: the tenant's SDK, and the request's channel. */
+export interface ConfiguratorSdk {
+  configuration: GeinsOMS['configuration'];
+  channel: { channelId: string; languageId: string; marketId: string };
 }
 
 /**
@@ -210,19 +203,6 @@ export function resolveConfiguratorBackendName(
   return IMPLEMENTED.find((name) => name === value) ?? 'off';
 }
 
-/** The endpoint the SDK itself talks to, where the CPQ area ships eventually. */
-export const MERCHANT_API_DEFAULT_URL = 'https://merchantapi.geins.io/graphql';
-
-/**
- * The CPQ area is on its own host until it ships in the ordinary endpoint, so
- * an environment may point elsewhere. Empty for the same reason as above.
- */
-export function resolveMerchantApiUrl(value: unknown): string {
-  return typeof value === 'string' && value !== ''
-    ? value
-    : MERCHANT_API_DEFAULT_URL;
-}
-
 export function buildConfiguratorContext(event: H3Event): ConfiguratorContext {
   const authToken = getSessionToken(event);
   return {
@@ -238,10 +218,9 @@ export async function buildConfiguratorRequestContext(
   const sdk = await getTenantSDK(event);
   return {
     ...buildConfiguratorContext(event),
-    merchantApi: {
-      url: resolveMerchantApiUrl(readConfiguratorMerchantApiUrl(event)),
-      apiKey: event.context.tenant?.config?.geinsSettings?.apiKey ?? '',
-      ...getRequestChannelVariables(sdk, event),
+    sdk: {
+      configuration: sdk.oms.configuration,
+      channel: getRequestChannelVariables(sdk, event),
     },
   };
 }

@@ -19,26 +19,25 @@ import type {
 import { logger } from '../../utils/logger';
 import type { OrderLineChoices } from '../configurator';
 import type {
-  WireCartLines,
-  WireCommittedConfiguration,
-  WireCommittedOptionGroup,
-  WireCommittedSection,
-  WireCommittedVariable,
-  WireConfiguration,
-  WireDecimal,
-  WireMessage,
-  WireOption,
-  WireOptionGroup,
-  WireOrderChoiceLines,
-  WireOrderLines,
-  WireSection,
-  WireSummaryLine,
-  WireValue,
-  WireVariable,
-} from './wire';
+  CommittedConfigurationOptionGroupType,
+  CommittedConfigurationSectionType,
+  CommittedConfigurationType,
+  CommittedConfigurationVariableType,
+  CommittedOrderLinesType,
+  ConfigurationMessageType,
+  ConfigurationOptionGroupType,
+  ConfigurationOptionType,
+  ConfigurationSectionType,
+  ConfigurationSummaryLineType,
+  ConfigurationType,
+  ConfigurationValue as SdkConfigurationValue,
+  ConfigurationVariableType,
+  ConfiguredCartLinesType,
+  ConfiguredOrderLinesType,
+} from '@geins/types';
 
 // ---------------------------------------------------------------------------
-// From the wire to the portal's document. Pure apart from the warnings.
+// From the SDK's document to the portal's. Pure apart from the warnings.
 //
 // A node without an id cannot be addressed by a change batch, so it is dropped
 // with its subtree rather than rendered as something the buyer cannot answer.
@@ -88,10 +87,8 @@ function source<T extends string>(
   return value ? { value } : { value: 'unknown', raw: wire };
 }
 
-function decimal(value: WireDecimal | null): number | undefined {
-  if (value === null) return undefined;
-  const number = Number(value);
-  return Number.isNaN(number) ? undefined : number;
+function decimal(value: number | null): number | undefined {
+  return value ?? undefined;
 }
 
 /** Spread only when present, so an absent bound stays absent. */
@@ -105,12 +102,8 @@ function optional<K extends string, V>(
     : ({ [key]: value } as Record<K, V>);
 }
 
-function nodes<W, T>(
-  list: (W | null)[] | null,
-  map: (node: W) => T | undefined,
-): T[] {
-  return (list ?? []).flatMap((node) => {
-    if (node === null) return [];
+function nodes<W, T>(list: W[], map: (node: W) => T | undefined): T[] {
+  return list.flatMap((node) => {
     const mapped = map(node);
     return mapped === undefined ? [] : [mapped];
   });
@@ -127,7 +120,7 @@ function addressable<W extends { id: string | null; name: string | null }>(
   return false;
 }
 
-function messages(list: (WireMessage | null)[] | null): ConfigurationMessage[] {
+function messages(list: ConfigurationMessageType[]): ConfigurationMessage[] {
   return nodes(list, (message) => {
     const severity = camel(message.severity);
     return severity === 'error' || severity === 'warning' || severity === 'info'
@@ -142,7 +135,7 @@ function price(value: PriceType | null): PriceType {
 
 function valueOf(
   type: ConfigurationValueType,
-  value: WireValue,
+  value: SdkConfigurationValue,
 ): ConfigurationValue {
   if (value === null) return null;
   switch (type) {
@@ -158,7 +151,9 @@ function valueOf(
   }
 }
 
-function variable(wire: WireVariable): ConfigurationVariable | undefined {
+function variable(
+  wire: ConfigurationVariableType,
+): ConfigurationVariable | undefined {
   if (!addressable('variable', wire)) return undefined;
 
   const valueType = VALUE_TYPES.find((type) => type === camel(wire.valueType));
@@ -195,7 +190,9 @@ function variable(wire: WireVariable): ConfigurationVariable | undefined {
   };
 }
 
-function option(wire: WireOption): ConfigurationOption | undefined {
+function option(
+  wire: ConfigurationOptionType,
+): ConfigurationOption | undefined {
   if (!addressable('option', wire)) return undefined;
   const selection = source(SELECTION_SOURCES, wire.selectionSource);
 
@@ -222,7 +219,7 @@ function option(wire: WireOption): ConfigurationOption | undefined {
 }
 
 function optionGroup(
-  wire: WireOptionGroup,
+  wire: ConfigurationOptionGroupType,
 ): ConfigurationOptionGroup | undefined {
   if (!addressable('option group', wire)) return undefined;
 
@@ -244,7 +241,9 @@ function optionGroup(
   };
 }
 
-function section(wire: WireSection): ConfigurationSection | undefined {
+function section(
+  wire: ConfigurationSectionType,
+): ConfigurationSection | undefined {
   if (!addressable('section', wire)) return undefined;
 
   return {
@@ -260,7 +259,7 @@ function section(wire: WireSection): ConfigurationSection | undefined {
   };
 }
 
-export function mapConfiguration(wire: WireConfiguration): Configuration {
+export function mapConfiguration(wire: ConfigurationType): Configuration {
   return {
     configurationId: wire.configurationId,
     expiresAt: wire.expiresAt,
@@ -279,7 +278,7 @@ export function mapConfiguration(wire: WireConfiguration): Configuration {
 
 /** `id` is the session the commit was asked for, should the record omit it. */
 export function mapCommittedConfiguration(
-  wire: WireCommittedConfiguration,
+  wire: CommittedConfigurationType,
   id: string,
 ): CommittedConfiguration {
   return {
@@ -294,8 +293,8 @@ export function mapCommittedConfiguration(
   };
 }
 
-function summaryLines(list: (WireSummaryLine | null)[] | null) {
-  return nodes(list, (line) => ({
+function summaryLines(list: ConfigurationSummaryLineType[]) {
+  return list.map((line) => ({
     label: line.label ?? '',
     value: line.value ?? '',
   }));
@@ -303,14 +302,14 @@ function summaryLines(list: (WireSummaryLine | null)[] | null) {
 
 /** The configured lines of a cart by item id; a plain line is not in it. */
 export function mapCartLineConfigurations(
-  cart: WireCartLines | null,
+  cart: ConfiguredCartLinesType,
 ): Map<string, CartLineConfiguration> {
   const lines = new Map<string, CartLineConfiguration>();
-  for (const line of nodes(cart?.items ?? null, (line) => line)) {
+  for (const line of cart.items) {
     if (!line.id || !line.configurationId) continue;
     lines.set(line.id, {
       configurationId: line.configurationId,
-      summary: summaryLines(line.configuration?.summary ?? null),
+      summary: summaryLines(line.configuration?.summary ?? []),
     });
   }
   return lines;
@@ -322,10 +321,10 @@ export function mapCartLineConfigurations(
  * order's own rows.
  */
 export function mapOrderLineConfigurations(
-  order: WireOrderLines | null,
+  order: ConfiguredOrderLinesType,
 ): Map<number, OrderLineRead> {
   const lines = new Map<number, OrderLineRead>();
-  (order?.cart?.items ?? []).forEach((line, position) => {
+  order.items.forEach((line, position) => {
     if (!line) return;
     lines.set(position, {
       productId: line.product?.productId ?? null,
@@ -339,17 +338,19 @@ export function mapOrderLineConfigurations(
 }
 
 /** A committed value is a string in invariant culture, typed by `valueType`. */
-function committedValue(variable: WireCommittedVariable): ConfigurationValue {
+function committedValue(
+  variable: CommittedConfigurationVariableType,
+): ConfigurationValue {
   const type = VALUE_TYPES.find((known) => known === camel(variable.valueType));
   return type ? valueOf(type, variable.value) : variable.value;
 }
 
 function committedOptions(
-  groups: WireCommittedOptionGroup['optionGroups'],
+  groups: CommittedConfigurationOptionGroupType['optionGroups'],
   into: OrderLineChoices['options'],
 ): void {
-  for (const group of nodes(groups ?? null, (group) => group)) {
-    for (const option of nodes(group.options, (option) => option)) {
+  for (const group of groups) {
+    for (const option of group.options) {
       if (option.id === null) continue;
       into.push({
         id: option.id,
@@ -362,11 +363,11 @@ function committedOptions(
 }
 
 function committedChoices(
-  sections: WireCommittedSection['sections'],
+  sections: CommittedConfigurationSectionType['sections'],
   into: Pick<OrderLineChoices, 'variables' | 'options'>,
 ): void {
-  for (const section of nodes(sections ?? null, (section) => section)) {
-    for (const variable of nodes(section.variables, (variable) => variable)) {
+  for (const section of sections) {
+    for (const variable of section.variables) {
       if (variable.id === null) continue;
       into.variables.push({ id: variable.id, value: committedValue(variable) });
     }
@@ -380,10 +381,10 @@ function committedChoices(
  * for a plain row and for one committed before the structure was recorded.
  */
 export function mapOrderLineChoices(
-  order: WireOrderChoiceLines | null,
+  order: CommittedOrderLinesType | null,
   row: number,
 ): OrderLineChoices | null {
-  const line = order?.cart?.items?.[row];
+  const line = order?.items[row];
   const sections = line?.configuration?.sections;
   if (!line || !sections) return null;
 

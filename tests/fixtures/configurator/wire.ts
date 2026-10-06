@@ -1,7 +1,8 @@
-import type { ListProduct, PriceType } from '#shared/types/commerce';
+import type { PriceType } from '#shared/types/commerce';
 
 // ---------------------------------------------------------------------------
-// The CPQ area as merchant-api's schema declares it (introspected 2026-09-24).
+// The CPQ area as merchant-api's schema declares it (introspected 2026-09-24),
+// for the hand-written answers the seam's tests send through the SDK.
 //
 // Every id and most fields are nullable on the wire. Enums are typed as open
 // strings: a value added upstream must reach the mapper, which keeps it as
@@ -60,8 +61,14 @@ export interface WireOption {
   maxQuantity: WireDecimal | null;
   unitPrice: PriceType | null;
   discountPercent: WireDecimal | null;
-  /** Selected with the `ListProduct` fragment. */
-  product: ListProduct | null;
+  product: {
+    productId: number | null;
+    name: string | null;
+    articleNumber: string | null;
+    alias: string | null;
+    canonicalUrl: string | null;
+    productImages: ({ fileName: string | null } | null)[] | null;
+  } | null;
   messages: WireList<WireMessage>;
 }
 
