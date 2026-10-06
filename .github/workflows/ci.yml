@@ -94,13 +94,75 @@ jobs:
   # ---------------------------------------------------------------------------
   # E2E Tests
   # ---------------------------------------------------------------------------
-  test-e2e:
-    name: E2E Suite
-    # e2e is the heavier gate, reserved for the PR into main (the prod gate).
-    # Pushes to dev run the light lint/types/unit jobs only.
+  # e2e is the heavier gate, reserved for the PR into main (the prod gate).
+  # Pushes to dev run the light lint/types/unit jobs only.
+  #
+  # One build, then one job per browser project in parallel.
+
+  e2e-build:
+    name: E2E · build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Nuxt build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .nuxt
+            .output
+          key: nuxt-build-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'nuxt.config.ts', 'app/**', 'server/**', 'shared/**') }}
+
+      - name: Build application
+        run: pnpm build
+
+      # A tarball, not the folder: `.output/server/node_modules` holds
+      # directory symlinks, which upload-artifact does not keep, and the
+      # folder is several thousand files where this is one.
+      - name: Pack the build
+        run: tar -czf e2e-build.tgz .output
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-build
+          path: e2e-build.tgz
+          retention-days: 1
+
+  test-e2e:
+    name: E2E · ${{ matrix.project }}
+    needs: e2e-build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      # Each project is its own answer: a red webkit leaves chromium and
+      # Mobile Chrome running to the end.
+      fail-fast: false
+      matrix:
+        # `slug` names the artifacts, which should not carry a space.
+        include:
+          - project: chromium
+            slug: chromium
+          - project: Mobile Chrome
+            slug: mobile-chrome
+          - project: webkit
+            slug: webkit
     env:
       # Empty repository variables fall through to the committed defaults in
       # tests/e2e/target-defaults.mjs, the one place the target is spelled out.
@@ -126,7 +188,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # The browser set is in the key, and what that buys is in
-      # docs/testing.md under "The manual run".
+      # docs/testing.md under "The manual run". Every leg installs the same
+      # set: the legs share one cache entry, and whichever saves it first
+      # decides what it holds for all of them.
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
@@ -154,16 +218,13 @@ jobs:
       - name: Generate TLS cert for the preview server
         run: ./infra/scripts/local-cert.sh
 
-      - name: Cache Nuxt build
-        uses: actions/cache@v4
+      - name: Download the build
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            .nuxt
-            .output
-          key: nuxt-build-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'nuxt.config.ts', 'app/**', 'server/**', 'shared/**') }}
+          name: e2e-build
 
-      - name: Build application
-        run: pnpm build
+      - name: Unpack the build
+        run: tar -xzf e2e-build.tgz
 
       # Output goes to a file: an open stdout would keep the step from ending.
       # NUXT_CONFIGURATOR_BACKEND: the configurator suite runs against the
@@ -179,6 +240,8 @@ jobs:
             NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }--import=$PWD/tests/e2e/preview-keepalive.mjs" \
             pnpm preview > preview.log 2>&1 &
 
+      # Every leg runs the five layers against its own server, L4's sign-in
+      # included: the session file it writes is this leg's.
       - name: Preflight L0 · reachability
         run: pnpm test:e2e --no-deps --project "L0 reachability"
 
@@ -194,26 +257,16 @@ jobs:
       - name: Preflight L4 · session
         run: pnpm test:e2e --no-deps --project "L4 session"
 
-      # One step per browser project, every spec. No `continue-on-error`: this
-      # gate answers whether the branch is safe to merge, and the answer is
-      # settled once the first project goes red — unlike e2e-full.yml, which
-      # continues because three wall-clock numbers are its deliverable.
-      # `--no-deps` because the preflight layers above already ran; L4 wrote
-      # the session file every project reads, so the job signs in once.
-      - name: Project · chromium
-        run: pnpm test:e2e --no-deps --project=chromium
-
-      - name: Project · Mobile Chrome
-        run: pnpm test:e2e --no-deps --project="Mobile Chrome"
-
-      - name: Project · webkit
-        run: pnpm test:e2e --no-deps --project=webkit
+      # This leg's one browser project, every spec. `--no-deps` because the
+      # preflight layers above already ran.
+      - name: Project · ${{ matrix.project }}
+        run: pnpm test:e2e --no-deps --project="${{ matrix.project }}"
 
       - name: Upload preview server log
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: preview-log
+          name: preview-log-${{ matrix.slug }}
           path: preview.log
           retention-days: 7
 
@@ -221,7 +274,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.slug }}
           path: playwright-report/
           retention-days: 7
 
@@ -229,6 +282,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
+          name: test-results-${{ matrix.slug }}
           path: test-results/
           retention-days: 7
