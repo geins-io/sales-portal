@@ -13,7 +13,7 @@ import {
   isConfigurable,
   parsePrice,
   readPrice,
-  STORAGE_STATE,
+  signedInState,
   type ApiOrder,
   type ApiQuote,
   type ProductListRow,
@@ -36,7 +36,7 @@ outOfScope(
 );
 
 // Per-test login would exceed the 5-per-minute login rate limit.
-test.use({ storageState: STORAGE_STATE });
+test.use({ storageState: signedInState });
 
 const PAGE_TIMEOUT = 20000;
 

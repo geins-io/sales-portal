@@ -9,7 +9,7 @@ import {
   waitForHydration,
   hasE2ECredentials,
   outOfScope,
-  STORAGE_STATE,
+  signedInState,
   type ApiCart,
 } from './helpers';
 
@@ -34,7 +34,7 @@ outOfScope(
   'cart flows need an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
 );
 
-test.use({ storageState: STORAGE_STATE });
+test.use({ storageState: signedInState });
 
 test.describe('Cart', () => {
   // Every test starts with an empty cart: Playwright gives each test a fresh

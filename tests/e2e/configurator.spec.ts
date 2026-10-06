@@ -4,7 +4,7 @@ import {
   isConfigurable,
   outOfScope,
   readPrice,
-  STORAGE_STATE,
+  signedInState,
   waitForHydration,
 } from './helpers';
 
@@ -57,7 +57,7 @@ outOfScope(
 
 // Preflight L4 signs in once and writes the session; a per-test login would
 // exceed the 5-per-minute rate limit.
-test.use({ storageState: STORAGE_STATE });
+test.use({ storageState: signedInState });
 
 /**
  * Why this target cannot run the flow, or `null`.

@@ -8,7 +8,7 @@ import {
   parsePrice,
   readPrice,
   waitForHydration,
-  STORAGE_STATE,
+  signedInState,
 } from './helpers';
 
 /**
@@ -37,7 +37,7 @@ outOfScope(
   'checkout is gated on orderPlacement, which is authenticated-only here (set E2E_USERNAME / E2E_PASSWORD in .env)',
 );
 
-test.use({ storageState: STORAGE_STATE });
+test.use({ storageState: signedInState });
 
 test.describe('Checkout summary', () => {
   // More than one, or "quantity x unit price" is not a multiplication.

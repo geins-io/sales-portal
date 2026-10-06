@@ -7,7 +7,7 @@ import {
   outOfScope,
   waitForHydration,
   setMobileViewport,
-  STORAGE_STATE,
+  signedInState,
 } from './helpers';
 
 /**
@@ -268,7 +268,7 @@ test.describe('Search results add to cart', () => {
   // resolved during fixture setup, which happens before the body runs. A
   // check inside the body is therefore too late to prevent the login state
   // from being read, and without credentials that file was never written —
-  // the test fails on ENOENT instead of reporting itself out of scope. Same
+  // the test fails on the missing file instead of reporting itself out of scope. Same
   // order as cart.spec.ts.
   outOfScope(
     !hasE2ECredentials(),
@@ -276,7 +276,7 @@ test.describe('Search results add to cart', () => {
     'add-to-cart needs an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
   );
 
-  test.use({ storageState: STORAGE_STATE });
+  test.use({ storageState: signedInState });
 
   test('a search result card adds its product to the cart', async ({
     page,

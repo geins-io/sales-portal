@@ -3,7 +3,7 @@ import {
   fetchCart,
   hasE2ECredentials,
   outOfScope,
-  STORAGE_STATE,
+  signedInState,
   waitForHydration,
 } from './helpers';
 
@@ -245,7 +245,7 @@ test.describe('Variant selector and the cart', () => {
     'no-credentials',
     'adding to cart needs an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
   );
-  test.use({ storageState: STORAGE_STATE });
+  test.use({ storageState: signedInState });
 
   /** A variant on another value of the first dimension, and its article. */
   async function cartTarget(page: Page) {

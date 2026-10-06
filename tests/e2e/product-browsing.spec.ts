@@ -9,7 +9,7 @@ import {
   waitForHydration,
   hasE2ECredentials,
   outOfScope,
-  STORAGE_STATE,
+  signedInState,
 } from './helpers';
 import { BASE_URL } from './target';
 
@@ -192,7 +192,7 @@ test.describe('Product Browsing', () => {
       'no-credentials',
       'add-to-cart needs an authenticated customer (set E2E_USERNAME / E2E_PASSWORD in .env)',
     );
-    test.use({ storageState: STORAGE_STATE });
+    test.use({ storageState: signedInState });
 
     test('should show add-to-cart button on PDP', async ({ page }) => {
       const product = await discoverPurchasableProduct(page);
@@ -225,7 +225,7 @@ test.describe('Product Browsing', () => {
       'no-credentials',
       'priceVisibility is authenticated-only here (set E2E_USERNAME / E2E_PASSWORD in .env)',
     );
-    test.use({ storageState: STORAGE_STATE });
+    test.use({ storageState: signedInState });
 
     test('PDP shows the ex-VAT amount the API returned', async ({ page }) => {
       const product = await discoverProduct(page);
