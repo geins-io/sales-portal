@@ -9,8 +9,6 @@ import {
   groupSummary,
   hasImageColumn,
   hasNothingToChoose,
-  isReadOnly,
-  isSingleSelect,
   matchesOptionQuery,
   NONE_ROW_VALUE,
   offersNoneRow,
@@ -19,6 +17,11 @@ import {
   showsRequiredMark,
   usesChooser,
 } from '~/utils/configurator-form';
+import {
+  isOptionReadOnly,
+  isSingleSelect,
+  singleChoiceChanges,
+} from '#shared/utils/configurator-choice';
 import { Input } from '~/components/ui/input';
 import { RadioGroup } from '~/components/ui/radio-group';
 import {
@@ -70,7 +73,8 @@ const {
   refused?: ConfigurationChange | null;
 }>();
 
-const emit = defineEmits<{ change: [ConfigurationChange] }>();
+/** A batch: everything one interaction sends, in the order it is sent. */
+const emit = defineEmits<{ change: [ConfigurationChange[]] }>();
 
 const { t } = useI18n();
 
@@ -137,13 +141,24 @@ const sheetValue = computed(
 
 /** A choice the provider holds cannot be undone from here. */
 const noneLocked = computed(
-  () => locked.value || (!!chosen.value[0] && isReadOnly(chosen.value[0])),
+  () =>
+    locked.value || (!!chosen.value[0] && isOptionReadOnly(chosen.value[0])),
 );
+
+/** A row's change as the group sends it: a single-choice pick replaces. */
+function onRowChange(change: ConfigurationChange) {
+  emit(
+    'change',
+    single.value && change.type === 'option' && change.selected
+      ? singleChoiceChanges(group, change)
+      : [change],
+  );
+}
 
 function onPick(value: unknown) {
   const picked = group.options.find((option) => option.id === value);
   if (!picked) return;
-  emit('change', {
+  onRowChange({
     type: 'option',
     optionId: picked.id,
     instanceId: picked.instanceId,
@@ -157,7 +172,7 @@ function onPick(value: unknown) {
  * made in a row, so it stays open.
  */
 function onSheetChange(change: ConfigurationChange) {
-  emit('change', change);
+  onRowChange(change);
   if (single.value) sheetOpen.value = false;
 }
 
@@ -166,13 +181,15 @@ function pickNone() {
   const current = chosen.value[0];
   sheetOpen.value = false;
   if (!current || noneLocked.value) return;
-  emit('change', {
-    type: 'option',
-    optionId: current.id,
-    instanceId: current.instanceId,
-    selected: false,
-    lock: 'none',
-  });
+  emit('change', [
+    {
+      type: 'option',
+      optionId: current.id,
+      instanceId: current.instanceId,
+      selected: false,
+      lock: 'none',
+    },
+  ]);
 }
 
 function onSheetPick(value: unknown) {
@@ -236,7 +253,7 @@ function onSheetPick(value: unknown) {
           :image-column="imageColumn"
           :disabled="disabled"
           :unavailable="unavailable"
-          @change="emit('change', $event)"
+          @change="onRowChange"
         />
 
         <button
@@ -276,7 +293,7 @@ function onSheetPick(value: unknown) {
           :image-column="imageColumn"
           :disabled="disabled"
           :unavailable="unavailable"
-          @change="emit('change', $event)"
+          @change="onRowChange"
         />
       </RadioGroup>
 
@@ -290,7 +307,7 @@ function onSheetPick(value: unknown) {
           :image-column="imageColumn"
           :disabled="disabled"
           :unavailable="unavailable"
-          @change="emit('change', $event)"
+          @change="onRowChange"
         />
       </div>
 

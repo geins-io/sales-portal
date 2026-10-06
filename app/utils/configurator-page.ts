@@ -191,8 +191,9 @@ export function failureKey(
 /**
  * The change the provider refused, when the last change batch was refused.
  *
- * The page sends one change per batch, so a refusal is always about the change
- * it sent last. The status alone does not say the provider refused: the code
+ * The page sends one interaction per batch, so a refusal is about the change
+ * it sent last; a single-choice switch puts its deselect first, in the same
+ * group. The status alone does not say the provider refused: the code
  * does, and survives the production error body. A quantity change has no node
  * on the form to carry the message, so it stays a general failure.
  */

@@ -13,7 +13,7 @@ import {
 //
 //   logistics    -> a section with `visible: false`, holding a `string` variable
 //   front-area   -> a variable the provider computes, `selectionSource: locked`
-//   mount-wall   -> a row selected and locked, with the reason on it
+//   mount-wall   -> a row selected and read-only, with the reason on it
 //
 // Built from the engine's own seed for the same reason `initial` is: one
 // Skåpsektion Pro in the repo, and this document fails the day the seed's

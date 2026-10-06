@@ -31,6 +31,7 @@ import {
   everyVariable,
   optionKey,
 } from '../../../../server/services/configurator-fixture/document';
+import { applyChangeBatch } from '../../../../server/services/configurator-fixture/changes';
 import { arbetsbordPro } from '../../../../server/services/configurator-fixture/seed/arbetsbord-pro';
 import { monteringsstationPro } from '../../../../server/services/configurator-fixture/seed/monteringsstation-pro';
 import { skapsektionPro } from '../../../../server/services/configurator-fixture/seed/skapsektion-pro';
@@ -612,7 +613,7 @@ describe('a batch of changes', () => {
     expect(findOption(after, 'ral-9005').selected).toBe(false);
   });
 
-  it('rejects a change aimed at a locked option', async () => {
+  it('rejects a change aimed at a read-only option', async () => {
     const config = await start(SKAPSEKTION_PRO_GEINS_ID);
 
     expect(
@@ -624,6 +625,33 @@ describe('a batch of changes', () => {
         ),
       ),
     ).toBe(422);
+  });
+
+  // As the provider: `locked` stops a sibling pick, not the buyer.
+  it('takes a deselect and a pick aimed at a locked option', () => {
+    const seed = {
+      ...arbetsbordPro,
+      cascades: [
+        ...arbetsbordPro.cascades,
+        (document: Configuration) => {
+          findOption(document, 'top-laminate').selectionSource = 'locked';
+        },
+      ],
+    };
+    const session = {
+      configurationId: 'test',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+    };
+    const { quantity: _quantity, ...pick } = selectOption('top-steel');
+
+    const next = applyChangeBatch(seed, createSessionState(1), session, [
+      { ...pick, optionId: 'top-laminate', selected: false },
+      pick,
+    ]);
+    const config = evaluate(seed, next, session);
+
+    expect(findOption(config, 'top-laminate').selected).toBe(false);
+    expect(findOption(config, 'top-steel').selected).toBe(true);
   });
 
   it('rejects a change aimed at a row a rule made unavailable', async () => {
@@ -1145,6 +1173,7 @@ describe('the second seeded product', () => {
 
     expect(mount.selected).toBe(true);
     expect(mount.selectionSource).toBe('locked');
+    expect(mount.readOnly).toBe(true);
   });
 
   it('has a string variable the buyer may set', async () => {
@@ -1195,6 +1224,24 @@ describe('the second seeded product', () => {
 // ---------------------------------------------------------------------------
 
 describe('the third seeded product', () => {
+  it('holds its crate type read-only, so no change can move it', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+
+    expect(findOption(config, 'crate-ply')).toMatchObject({
+      selected: true,
+      readOnly: true,
+    });
+    expect(
+      await statusOf(() =>
+        backend.applyChanges(
+          config.configurationId,
+          [deselectOption('crate-ply')],
+          CTX,
+        ),
+      ),
+    ).toBe(422);
+  });
+
   it('carries a row with no catalogue product, named from the option itself', async () => {
     const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
     const withoutProduct = everyOption(config.sections).filter(

@@ -7,6 +7,10 @@ import type {
   ConfigurationVariable,
 } from '#shared/types/configurator';
 import { formatPrice, type ProductImageType } from '#shared/types/commerce';
+import {
+  isOptionReadOnly,
+  isSingleSelect,
+} from '#shared/utils/configurator-choice';
 
 // ---------------------------------------------------------------------------
 // The decisions the configurator form makes about a document node.
@@ -39,24 +43,14 @@ export function variableControl(
  * The provider owns the value and the buyer may not change it. Both sources
  * mean the same thing to the UI; only the provider knows which one it is.
  */
-export function isReadOnly(
-  node: Pick<
-    ConfigurationOption | ConfigurationVariable,
-    'selectionSource' | 'readOnly'
-  >,
+export function isVariableReadOnly(
+  variable: Pick<ConfigurationVariable, 'selectionSource' | 'readOnly'>,
 ): boolean {
   return (
-    node.readOnly ||
-    node.selectionSource === 'locked' ||
-    node.selectionSource === 'temporarilyLocked'
+    variable.readOnly ||
+    variable.selectionSource === 'locked' ||
+    variable.selectionSource === 'temporarilyLocked'
   );
-}
-
-/** An absent `maxSelections` is an unbounded group, not a single-choice one. */
-export function isSingleSelect(
-  group: Pick<ConfigurationOptionGroup, 'maxSelections'>,
-): boolean {
-  return group.maxSelections === 1;
 }
 
 function isRequiredGroup(
@@ -221,15 +215,12 @@ export type OptionBlockReason =
  * row. A row of an unavailable group is unavailable whatever it says itself.
  */
 export function optionBlockReason(
-  option: Pick<
-    ConfigurationOption,
-    'available' | 'messages' | 'readOnly' | 'selectionSource'
-  >,
+  option: Pick<ConfigurationOption, 'available' | 'messages' | 'readOnly'>,
   formLocked: boolean,
   groupUnavailable = false,
 ): OptionBlockReason | undefined {
   if (formLocked) return undefined;
-  const readOnly = isReadOnly(option);
+  const readOnly = isOptionReadOnly(option);
   if (!readOnly && option.available && !groupUnavailable) return undefined;
   const message = blockingMessage(option.messages);
   if (message) return { kind: 'message', message };

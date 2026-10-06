@@ -77,6 +77,7 @@ function group(
   id: string,
   options: ConfigurationOption[],
   optionGroups: ConfigurationOptionGroup[] = [],
+  quantityEditable = true,
 ): ConfigurationOptionGroup {
   return {
     id,
@@ -84,7 +85,7 @@ function group(
     name: id,
     description: '',
     available: true,
-    quantityEditable: false,
+    quantityEditable,
     optionGroups,
     options,
     messages: [],
@@ -202,9 +203,9 @@ describe('replayChanges', () => {
     ],
     ['a readOnly option', { adapter: { readOnly: true } }, 'adapter'],
     [
-      'a temporarily locked option',
-      { trim: { selectionSource: 'temporarilyLocked' as const } },
-      'trim',
+      'a temporarily locked variable',
+      { width: { selectionSource: 'temporarilyLocked' as const } },
+      'width',
     ],
   ])(
     'leaves out %s, which the provider sets and would refuse',
@@ -221,6 +222,102 @@ describe('replayChanges', () => {
       ).toBe(false);
     },
   );
+
+  // Measured: the provider takes a change to a locked row; `locked` only says
+  // why it is selected. Left out, the order's choice would silently be lost.
+  it.each(['locked', 'temporarilyLocked'] as const)(
+    'sends an option the fresh session shows as %s',
+    (selectionSource) => {
+      const changes =
+        replayChanges(
+          CHOICES,
+          freshSession({
+            adapter: { selectionSource },
+            trim: { selectionSource },
+          }),
+        ) ?? [];
+
+      expect(changes).toHaveLength(4);
+      expect(
+        changes
+          .filter((change) => change.type === 'option')
+          .map((change) => change.optionId),
+      ).toEqual(['adapter', 'trim']);
+    },
+  );
+
+  // Measured: a plain select beside a locked default leaves both selected and
+  // the configuration invalid ("Max. 1 val"). The UI's rule: deselect first.
+  describe('a single-choice group', () => {
+    function boxes(
+      defaultOver: Partial<ConfigurationOption> = {},
+    ): Configuration {
+      const box = group(
+        'box',
+        [
+          option('no-box', {
+            selected: true,
+            selectionSource: 'locked',
+            ...defaultOver,
+          }),
+          option('standard-box'),
+        ],
+        [],
+        false,
+      );
+      box.maxSelections = 1;
+      return document('fresh-1', [
+        section('shipping', { optionGroups: [box] }),
+      ]);
+    }
+    const choose = (id: string): OrderLineChoices => ({
+      productId: 1359,
+      variables: [],
+      options: [{ id, instanceId: '0', quantity: 1 }],
+    });
+
+    it("deselects the group's current row first, then selects the order's", () => {
+      expect(replayChanges(choose('standard-box'), boxes())).toEqual([
+        {
+          type: 'option',
+          optionId: 'no-box',
+          instanceId: '0',
+          selected: false,
+          lock: 'none',
+        },
+        {
+          type: 'option',
+          optionId: 'standard-box',
+          instanceId: '0',
+          selected: true,
+          lock: 'none',
+        },
+      ]);
+    });
+
+    it("sends the order's row alone when it is already the group's choice", () => {
+      expect(replayChanges(choose('no-box'), boxes())).toEqual([
+        {
+          type: 'option',
+          optionId: 'no-box',
+          instanceId: '0',
+          selected: true,
+          lock: 'none',
+        },
+      ]);
+    });
+
+    it('leaves a current row the provider holds read-only where it is', () => {
+      const changes = replayChanges(
+        choose('standard-box'),
+        boxes({ readOnly: true }),
+      );
+
+      expect(changes).toMatchObject([
+        { optionId: 'standard-box', selected: true },
+      ]);
+    });
+  });
 
   it('answers an empty batch when the provider sets everything', () => {
     const fresh = freshSession({
@@ -287,6 +384,22 @@ describe('replayChanges', () => {
     });
     expect(zero).not.toHaveProperty('quantity');
     expect(three).toMatchObject({ optionId: 'trim', quantity: 3 });
+  });
+
+  // The platform side's rule: a quantity goes only on the buyer's own change,
+  // and the buyer can change one only in a quantity-editable group.
+  it("leaves the quantity out of a row whose group's quantity the buyer cannot change", () => {
+    const fresh = freshSession();
+    const edges =
+      fresh.sections[0]!.sections[0]!.optionGroups[0]!.optionGroups[0]!;
+    edges.quantityEditable = false;
+
+    const trim = (replayChanges(CHOICES, fresh) ?? []).find(
+      (change) => change.type === 'option' && change.optionId === 'trim',
+    );
+
+    expect(trim).toMatchObject({ optionId: 'trim', selected: true });
+    expect(trim).not.toHaveProperty('quantity');
   });
 
   it('sends a choice that matches the default, since the provider accepts it', () => {

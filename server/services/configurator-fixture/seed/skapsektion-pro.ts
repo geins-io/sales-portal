@@ -124,6 +124,7 @@ function buildSections(): ConfigurationSection[] {
             option('mount-wall', 'Wall mounting rail', 450, 906_001, {
               selected: true,
               selectionSource: 'locked',
+              readOnly: true,
               messages: [
                 {
                   severity: 'warning',

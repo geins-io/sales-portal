@@ -57,7 +57,8 @@ function checkOption(
 ): ConfigurationOption {
   const option = findOption(config, change.optionId, change.instanceId);
   if (!option) refuse(`No option '${change.optionId}'`);
-  if (option.selectionSource === 'locked') refuse(`'${option.id}' is locked`);
+  // As the provider: `locked` stops a sibling pick, not the buyer's change.
+  if (option.readOnly) refuse(`'${option.id}' is read-only`);
   if (!option.available) refuse(`'${option.id}' is not available`);
   // The provider lets a buyer pin a row against the rules. The fixture does
   // not, and says so rather than dropping the flag silently.

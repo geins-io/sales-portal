@@ -251,6 +251,7 @@ function logisticsSection(): ConfigurationSection {
               option('crate-ply', 'Plywood crate', 0, 907_020, {
                 selected: true,
                 selectionSource: 'locked',
+                readOnly: true,
               }),
               option('crate-steel', 'Returnable steel rack', 0, 907_021),
             ],

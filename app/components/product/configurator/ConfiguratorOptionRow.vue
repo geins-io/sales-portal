@@ -5,12 +5,12 @@ import type {
 } from '#shared/types/configurator';
 import { Lock } from 'lucide-vue-next';
 import {
-  isReadOnly,
   messagesBesides,
   optionBlockReason,
   optionImage,
   quantityIsFixed,
 } from '~/utils/configurator-form';
+import { isOptionReadOnly } from '#shared/utils/configurator-choice';
 import { Checkbox } from '~/components/ui/checkbox';
 import { RadioGroupItem } from '~/components/ui/radio-group';
 
@@ -52,7 +52,7 @@ const emit = defineEmits<{ change: [ConfigurationChange] }>();
 
 const { t } = useI18n();
 
-const readOnly = computed(() => isReadOnly(option));
+const readOnly = computed(() => isOptionReadOnly(option));
 
 const available = computed(() => option.available && !unavailable);
 

@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import type { ConfigurationOption } from '#shared/types/configurator';
 import { ChevronRight, Lock } from 'lucide-vue-next';
-import {
-  isReadOnly,
-  optionBlockReason,
-  optionImage,
-} from '~/utils/configurator-form';
+import { optionBlockReason, optionImage } from '~/utils/configurator-form';
+import { isOptionReadOnly } from '#shared/utils/configurator-choice';
 
 /**
  * The one row a long single-choice group shows in place of its rows: what to
@@ -48,7 +45,7 @@ const emit = defineEmits<{ open: [] }>();
 
 const { t } = useI18n();
 
-const readOnly = computed(() => !!chosen && isReadOnly(chosen));
+const readOnly = computed(() => !!chosen && isOptionReadOnly(chosen));
 
 const showsNothing = computed(() => !chosen && nothingToChoose);
 
