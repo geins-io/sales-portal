@@ -466,6 +466,41 @@ describe('sanitizeWidgetData guards', () => {
     expect(firstWidget(result).data).toEqual({ html: '<script>x</script>' });
   });
 
+  describe('Rich text widget', () => {
+    function richText(text: string): unknown {
+      const result = sanitizeCmsArea(
+        areaWith([makeWidget('Rich textPageWidget', { text })]),
+      );
+      return firstWidget(result).data.text;
+    }
+
+    it('removes <script> elements', () => {
+      expect(richText('<p>Terms</p><script>steal()</script>')).toBe(
+        '<p>Terms</p>',
+      );
+    });
+
+    it('removes on* event handlers', () => {
+      expect(
+        richText(
+          '<p onclick="steal()">Terms</p><img src="x.jpg" onerror="steal()">',
+        ),
+      ).toBe('<p>Terms</p><img src="x.jpg" />');
+    });
+
+    it('removes javascript: links', () => {
+      expect(richText('<a href="javascript:steal()">Terms</a>')).toBe(
+        '<a>Terms</a>',
+      );
+    });
+
+    it('keeps benign markup', () => {
+      const html =
+        '<h2>Terms</h2><p>Read <strong>all</strong> of <a href="/se/sv/villkor" target="_blank" rel="noopener">this</a>.</p><ul><li>One</li></ul>';
+      expect(richText(html)).toBe(html);
+    });
+  });
+
   it('leaves non-string text, html and css fields as they are', () => {
     const text = sanitizeCmsArea(
       areaWith([makeWidget('TextPageWidget', { text: 5 })]),

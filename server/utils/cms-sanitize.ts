@@ -122,6 +122,9 @@ export function sanitizeWidgetHtml(html: string): string {
   return sanitizeHtml(html, SANITIZE_OPTIONS);
 }
 
+// Widget types whose `text` field TextWidget.vue renders through v-html.
+const TEXT_WIDGET_TYPES = new Set(['TextPageWidget', 'Rich textPageWidget']);
+
 function sanitizeWidgetData(widget: ContentType): ContentType {
   const type = widget.config?.type;
   const data = widget.data as Record<string, unknown>;
@@ -130,7 +133,7 @@ function sanitizeWidgetData(widget: ContentType): ContentType {
 
   const sanitized = { ...data };
 
-  if (type === 'TextPageWidget' && typeof sanitized.text === 'string') {
+  if (TEXT_WIDGET_TYPES.has(type) && typeof sanitized.text === 'string') {
     sanitized.text = sanitizeWidgetHtml(sanitized.text);
   }
 
