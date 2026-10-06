@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { CartLineConfiguration } from '#shared/types/commerce';
 import type {
   CommittedConfiguration,
   Configuration,
@@ -164,7 +165,7 @@ export function createFixtureConfiguratorBackend({
         unitPrice: config.unitPrice,
         discountPercent: config.discountPercent,
         weightPerUnit: config.weightPerUnit,
-        summary: buildSummary(config, session.seed),
+        summary: buildSummary(config),
       };
       const key = `${ctx.hostname}|${record.committedConfigurationId}`;
       committed.set(key, record);
@@ -255,12 +256,23 @@ export function createFixtureConfiguratorBackend({
       return { itemId };
     },
 
-    // Its lines are plain lines in the cart, which carry no configuration.
-    async cartLineConfigurations() {
-      return new Map();
+    // The SDK line carries no configuration, so the record each line was added
+    // or replaced with is read back from here.
+    async cartLineConfigurations(cartId: string, ctx: ConfiguratorContext) {
+      const prefix = lineKey(ctx, cartId, '');
+      const read = new Map<string, CartLineConfiguration>();
+      for (const [line, key] of lines) {
+        const record = committed.get(key);
+        if (!line.startsWith(prefix) || !record) continue;
+        read.set(line.slice(prefix.length), {
+          configurationId: record.committedConfigurationId,
+          summary: record.summary,
+        });
+      }
+      return read;
     },
 
-    // So are the rows of an order placed from them.
+    // An order placed from them is the platform's, which carries none.
     async orderLineConfigurations() {
       return new Map();
     },

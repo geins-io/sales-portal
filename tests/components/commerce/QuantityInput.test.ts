@@ -59,3 +59,34 @@ describe('QuantityInput', () => {
     expect(wrapper.find('.number-field').exists()).toBe(true);
   });
 });
+
+// The real field, not the stubs: the blur that re-applies the input's value is
+// reka-ui's own behaviour.
+describe('QuantityInput with the real number field', () => {
+  // A step leaves the focus in the field, so the next press anywhere blurs it
+  // with the value the parent already holds.
+  it('emits nothing when the field loses focus with its value unchanged', async () => {
+    const wrapper = mountComponent(QuantityInput, {
+      props: { modelValue: 2 },
+      attachTo: document.body,
+    });
+
+    await wrapper.find('input').trigger('blur');
+
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it('still emits a value typed into the field when it loses focus', async () => {
+    const wrapper = mountComponent(QuantityInput, {
+      props: { modelValue: 1 },
+      attachTo: document.body,
+    });
+    const input = wrapper.find('input');
+    await input.setValue('3');
+    await input.trigger('blur');
+
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([3]);
+    wrapper.unmount();
+  });
+});

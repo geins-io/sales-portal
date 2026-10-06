@@ -561,3 +561,327 @@ test.describe('Configurator refused change', () => {
     await expect(refused).toBeHidden();
   });
 });
+
+/**
+ * The fixture's seed that commits as created and has stock for a second unit.
+ * The workbench above needs a colour first and has one unit in stock.
+ */
+const CART_SEED_ALIAS = 'skapsektion-pro';
+
+/** How many list rows a target without the seed is searched for a product. */
+const CANDIDATES = 20;
+
+interface WireOption {
+  id: string;
+  name: string;
+  selected: boolean;
+  available: boolean;
+  readOnly: boolean;
+}
+interface WireGroup {
+  id: string;
+  name: string;
+  available: boolean;
+  maxSelections?: number;
+  options: WireOption[];
+}
+interface WireSection {
+  id: string;
+  visible: boolean;
+  optionGroups: WireGroup[];
+  sections: WireSection[];
+}
+interface WireDocument {
+  configurationId: string;
+  isValid: boolean;
+  sections: WireSection[];
+}
+
+/** One choice the buyer can switch to in a single-choice group. */
+interface EditTarget {
+  sectionId: string;
+  groupId: string;
+  groupName: string;
+  current: string;
+  optionId: string;
+  next: string;
+}
+
+/** The first visible single-choice group holding a choice and an alternative. */
+function editTarget(document: WireDocument): EditTarget | null {
+  const walk = (sections: WireSection[]): EditTarget | null => {
+    for (const section of sections) {
+      if (!section.visible) continue;
+      for (const group of section.optionGroups) {
+        if (!group.available || group.maxSelections !== 1) continue;
+        const current = group.options.find((option) => option.selected);
+        const next = group.options.find(
+          (option) =>
+            !option.selected &&
+            option.available &&
+            !option.readOnly &&
+            option.name.trim() !== '',
+        );
+        if (current && next) {
+          return {
+            sectionId: section.id,
+            groupId: group.id,
+            groupName: group.name.trim(),
+            current: current.name.trim(),
+            optionId: next.id,
+            next: next.name.trim(),
+          };
+        }
+      }
+      const nested = walk(section.sections);
+      if (nested) return nested;
+    }
+    return null;
+  };
+  return walk(document.sections);
+}
+
+/**
+ * Whether a product carries the whole flow: stock for two, valid as created
+ * and a choice to change. Asked of a session that is released straight away.
+ */
+async function suitsTheCart(page: Page, alias: string): Promise<boolean> {
+  const response = await page.request.get(`/api/products/${alias}`);
+  if (!response.ok()) return false;
+  const product = (await response.json()) as {
+    productId?: number;
+    configurable?: boolean;
+    skus?: { stock?: { totalStock?: number } }[];
+  };
+  const stock = product.skus?.[0]?.stock?.totalStock ?? 0;
+  if (!product.configurable || stock < 2) return false;
+
+  const created = await page.request.post('/api/configurations', {
+    data: { productId: String(product.productId), quantity: 1 },
+  });
+  if (!created.ok()) return false;
+  const document = (await created.json()) as WireDocument;
+  await page.request.delete(`/api/configurations/${document.configurationId}`);
+  return document.isValid && editTarget(document) !== null;
+}
+
+/**
+ * The fixture's seed where the fixture serves, otherwise the first configurable
+ * product in the list that suits the flow, so no account's catalogue is named.
+ */
+async function cartProduct(page: Page): Promise<string | null> {
+  if (await isConfigurable(page, CART_SEED_ALIAS)) {
+    return (await suitsTheCart(page, CART_SEED_ALIAS)) ? CART_SEED_ALIAS : null;
+  }
+  const response = await page.request.get('/api/product-lists/products', {
+    params: {
+      take: String(CANDIDATES),
+      filter: JSON.stringify({ sort: 'ALPHABETICAL' }),
+    },
+  });
+  if (!response.ok()) return null;
+  const { products = [] } = (await response.json()) as {
+    products?: { alias?: string; configurable?: boolean }[];
+  };
+  for (const { alias, configurable } of products) {
+    if (alias && configurable && (await suitsTheCart(page, alias))) {
+      return alias;
+    }
+  }
+  return null;
+}
+
+interface CartLine {
+  id: string;
+  quantity: number;
+  configuration?: {
+    configurationId: string;
+    summary: { label: string; value: string }[];
+  };
+}
+
+/** This host's cart only: the stored session may hold other tenants' cookies. */
+async function cartIdOf(page: Page): Promise<string | undefined> {
+  return (await page.context().cookies(page.url())).find(
+    (cookie) => cookie.name === 'cart_id',
+  )?.value;
+}
+
+async function readLines(page: Page, cartId: string): Promise<CartLine[]> {
+  const response = await page.request.get('/api/cart', { params: { cartId } });
+  expect(response.ok(), 'the cart could not be read').toBe(true);
+  return ((await response.json()) as { items?: CartLine[] }).items ?? [];
+}
+
+/** The summary rows trimmed, as the buyer reads them. */
+function rowsOf(line: CartLine | undefined) {
+  return (line?.configuration?.summary ?? []).map((row) => ({
+    label: row.label.trim(),
+    value: row.value.trim(),
+  }));
+}
+
+test.describe('Configured line through the cart', () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test('adds a configured line, edits it, changes its quantity and removes it', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForHydration(page);
+    const alias = await cartProduct(page);
+    outOfScope(
+      !alias,
+      'tenant-config',
+      'no configurable product here commits as created with stock for two and a choice to change (the configurator is off, or the catalogue has none)',
+    );
+
+    let cartId: string | undefined;
+    try {
+      // ---------- Add ----------
+      await openConfigurator(page, alias!);
+      const commit = action(page);
+      await expect(commit).toBeEnabled({ timeout: 30_000 });
+      await expect(commit).toHaveAttribute('aria-busy', 'false');
+      const added = page.waitForResponse(
+        (response) =>
+          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          response.request().method() === 'POST',
+      );
+      await commit.click();
+      const addResponse = await added;
+      expect(addResponse.status()).toBe(200);
+      const { itemId } = (await addResponse.json()) as { itemId: string };
+      cartId = await cartIdOf(page);
+      expect(cartId, 'the add left no cart').toBeTruthy();
+
+      const [line] = await readLines(page, cartId!);
+      expect(line?.id).toBe(itemId);
+      expect(line?.configuration).toBeDefined();
+
+      // ---------- The line in the drawer ----------
+      const drawer = page.getByTestId('cart-drawer');
+      await expect(drawer).toBeVisible();
+      const lineIn = (scope: ReturnType<Page['getByTestId']>) =>
+        scope
+          .getByTestId('cart-item')
+          .filter({ has: page.locator(`#cart-item-configuration-${itemId}`) });
+      await expect(
+        lineIn(drawer).getByTestId('cart-item-configured'),
+      ).toBeVisible();
+      await lineIn(drawer)
+        .getByTestId('cart-item-configuration-toggle')
+        .click();
+      await expect(
+        lineIn(drawer).getByTestId('cart-item-configuration-row'),
+      ).toHaveCount(rowsOf(line).length);
+
+      // ---------- Edit from the cart page ----------
+      await page.goto('/cart');
+      await waitForHydration(page);
+      const cartPage = page.getByTestId('cart-page');
+      await lineIn(cartPage)
+        .getByTestId('cart-item-configuration-toggle')
+        .click();
+      const reopened = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/configurations/reopen') &&
+          response.request().method() === 'POST',
+      );
+      await lineIn(cartPage).getByTestId('cart-item-edit').click();
+      const reopenResponse = await reopened;
+      expect(reopenResponse.status()).toBe(200);
+      const edit = editTarget((await reopenResponse.json()) as WireDocument);
+      expect(edit, 'the reopened line has no choice to change').not.toBeNull();
+      expect(rowsOf(line)).toContainEqual({
+        label: edit!.groupName,
+        value: edit!.current,
+      });
+      await expect(page.getByTestId('configurator-editing')).toBeVisible({
+        timeout: 30_000,
+      });
+
+      await openSection(page, edit!.sectionId);
+      await page
+        .locator(
+          `[data-testid="configurator-group"][data-group-id="${edit!.groupId}"]`,
+        )
+        .getByTestId('configurator-group-chooser')
+        .click();
+      const sheet = page.getByTestId('configurator-group-sheet');
+      await expect(sheet).toBeInViewport({ ratio: 1 });
+      const changed = changeResponse(page);
+      await sheet.locator(`[data-option-id="${edit!.optionId}"]`).click();
+      expect((await changed).status()).toBe(200);
+      // The action sits behind the sheet, and is live again once the
+      // re-evaluated document is in.
+      if (await sheet.isVisible()) await page.keyboard.press('Escape');
+      await expect(sheet).toBeHidden();
+      await expect(commit).toHaveAttribute('aria-busy', 'false');
+      await expect(commit).toBeEnabled();
+
+      const swapped = page.waitForResponse(
+        (response) =>
+          /\/api\/configurations\/[^/]+\/cart$/.test(response.url()) &&
+          response.request().method() === 'PUT',
+      );
+      await commit.click();
+      expect((await swapped).status()).toBe(200);
+      await expect(drawer).toBeVisible();
+
+      // One line, the same one, carrying the new choice.
+      const afterEdit = await readLines(page, cartId!);
+      expect(afterEdit.map((l) => l.id)).toEqual([itemId]);
+      const edited = afterEdit[0];
+      expect(edited?.configuration?.configurationId).not.toBe(
+        line?.configuration?.configurationId,
+      );
+      expect(rowsOf(edited)).toContainEqual({
+        label: edit!.groupName,
+        value: edit!.next,
+      });
+      expect(rowsOf(edited)).not.toContainEqual({
+        label: edit!.groupName,
+        value: edit!.current,
+      });
+
+      // ---------- Quantity ----------
+      const quantity = lineIn(drawer).getByTestId('quantity-input');
+      const updated = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/cart/items' &&
+          response.request().method() === 'PUT',
+      );
+      await quantity.getByRole('button', { name: 'Increase' }).click();
+      expect((await updated).status()).toBe(200);
+      await expect(quantity.locator('input')).toHaveValue('2');
+
+      const afterQuantity = await readLines(page, cartId!);
+      expect(afterQuantity.map((l) => [l.id, l.quantity])).toEqual([
+        [itemId, 2],
+      ]);
+      expect(afterQuantity[0]?.configuration?.configurationId).toBe(
+        edited?.configuration?.configurationId,
+      );
+
+      // ---------- Remove ----------
+      const removed = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/cart/items' &&
+          response.request().method() === 'DELETE',
+      );
+      await lineIn(drawer).getByTestId('cart-item-remove').click();
+      expect((await removed).status()).toBe(200);
+      await expect(drawer.getByTestId('cart-empty')).toBeVisible();
+      expect(await readLines(page, cartId!)).toEqual([]);
+    } finally {
+      if (cartId) {
+        for (const { id } of await readLines(page, cartId)) {
+          await page.request.delete('/api/cart/items', {
+            params: { cartId, itemId: id },
+          });
+        }
+      }
+    }
+  });
+});

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-withDefaults(
+const props = withDefaults(
   defineProps<{
     modelValue: number;
     min?: number;
@@ -13,7 +13,10 @@ const emit = defineEmits<{
   'update:modelValue': [value: number];
 }>();
 
+// The field re-applies its value on blur, so a press elsewhere after a step
+// would send the same quantity again, racing whatever that press does.
 function onUpdate(value: number) {
+  if (value === props.modelValue) return;
   emit('update:modelValue', value);
 }
 </script>

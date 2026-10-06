@@ -35,10 +35,14 @@ import { applyChangeBatch } from '../../../../server/services/configurator-fixtu
 import { arbetsbordPro } from '../../../../server/services/configurator-fixture/seed/arbetsbord-pro';
 import { monteringsstationPro } from '../../../../server/services/configurator-fixture/seed/monteringsstation-pro';
 import { skapsektionPro } from '../../../../server/services/configurator-fixture/seed/skapsektion-pro';
+import { buildSummary } from '../../../../server/services/configurator-fixture/summary';
 import {
   findOption,
   findOptionGroup,
   findVariable,
+  makeNestedGroupConfiguration,
+  makeSectionTreeConfiguration,
+  makeValidConfiguration,
 } from '../../../fixtures/configurator';
 
 // ---------------------------------------------------------------------------
@@ -1030,38 +1034,58 @@ describe('commit', () => {
     expect(committed.weightPerUnit).toBe(arbetsbordPro.weightPerUnit);
   });
 
-  it('summarises every selected option and every changed variable', async () => {
+  // The rows merchant-api sends; what was measured and what was chosen is in
+  // the summary module.
+  it('summarises a group by its choices and a variable by its value, as merchant-api does', async () => {
     const committed = await backend.commit(
       (await completed()).configurationId,
       CTX,
     );
-    const labels = committed.summary.map((line) => line.label);
 
-    expect(labels).toContain('Electric height legs');
-    expect(labels).toContain('Power strip');
-    expect(labels).toContain('Black (RAL 9005)');
-    expect(labels).toContain('Shelves');
-    // Untouched variables are not part of what was configured.
-    expect(labels).not.toContain('Depth');
+    expect(committed.summary).toEqual([
+      { label: 'Leg frame', value: 'Electric height legs' },
+      { label: 'Width', value: '1200.00 mm' },
+      { label: 'Depth', value: '700.00 mm' },
+      { label: 'Shelves', value: '2.00 pcs' },
+      { label: 'Oversize margin', value: '0.00 %' },
+      { label: 'Table top', value: 'Laminate top' },
+      { label: 'Colour', value: 'Black (RAL 9005)' },
+      { label: 'Accessories', value: 'Power strip' },
+    ]);
+  });
 
-    // An untouched row is not part of what was configured either.
-    expect(labels).not.toContain('LED light bar');
-
-    const shelves = committed.summary.find((line) => line.label === 'Shelves');
-    expect(shelves?.value).toBe('2 pcs');
-    expect(shelves?.price).toMatchObject({
-      sellingPriceExVat: 2 * 450,
-      currency: { code: 'SEK' },
-    });
-
-    const power = committed.summary.find(
-      (line) => line.label === 'Power strip',
+  it('names every choice of a group in one row, without their quantities', async () => {
+    const config = await start();
+    const ready = await backend.applyChanges(
+      config.configurationId,
+      [
+        selectOption('ral-9005'),
+        { ...selectOption('acc-pegboard'), quantity: 2 },
+        selectOption('acc-power'),
+      ],
+      CTX,
     );
-    expect(power?.value).toBe('1');
-    expect(power?.price).toMatchObject({
-      sellingPriceExVat: 550,
-      currency: { code: 'SEK' },
-    });
+    expect(ready.isValid).toBe(true);
+
+    const committed = await backend.commit(config.configurationId, CTX);
+
+    expect(
+      committed.summary.find((line) => line.label === 'Accessories'),
+    ).toEqual({ label: 'Accessories', value: 'Tool pegboard, Power strip' });
+  });
+
+  it('leaves out a hidden section and a group with nothing chosen', async () => {
+    const config = await start(SKAPSEKTION_PRO_GEINS_ID);
+    const committed = await backend.commit(config.configurationId, CTX);
+
+    expect(committed.summary).toEqual([
+      { label: 'Mounting', value: 'Wall mounting rail' },
+      { label: 'Width', value: '800.00 mm' },
+      { label: 'Height', value: '2000.00 mm' },
+      { label: 'Doors', value: 'Glass doors' },
+      { label: 'Front area', value: '1.60 m²' },
+      { label: 'Shelving', value: 'Three shelves' },
+    ]);
   });
 
   it('keeps the frozen record readable after the session is gone', async () => {
@@ -1075,58 +1099,6 @@ describe('commit', () => {
     expect(
       backend.readCommitted(committed.committedConfigurationId, OTHER_TENANT),
     ).toBeUndefined();
-  });
-
-  it('leaves a variable the provider computes without a price', async () => {
-    const config = await start(SKAPSEKTION_PRO_GEINS_ID);
-    const committed = await backend.commit(config.configurationId, CTX);
-    const area = committed.summary.find((line) => line.label === 'Front area');
-
-    expect(area?.value).toBe('1.6 m²');
-    expect(area?.price).toBeUndefined();
-  });
-
-  it('prices a summary row by quantity and by distance from the default', async () => {
-    const config = await start();
-    const ready = await backend.applyChanges(
-      config.configurationId,
-      [
-        { ...selectOption('acc-pegboard'), quantity: 2 },
-        selectOption('ral-9005'),
-        setVariable('width', 1400),
-      ],
-      CTX,
-    );
-    expect(ready.isValid).toBe(true);
-
-    const committed = await backend.commit(config.configurationId, CTX);
-    const pegboard = committed.summary.find(
-      (line) => line.label === 'Tool pegboard',
-    );
-    const width = committed.summary.find((line) => line.label === 'Width');
-
-    expect(pegboard?.value).toBe('2');
-    expect(pegboard?.price).toEqual({
-      sellingPriceExVat: 2 * 900,
-      sellingPriceIncVat: 2 * 1125,
-      regularPriceExVat: 2 * 1200,
-      regularPriceIncVat: 2 * 1500,
-      vat: 2 * 225,
-      isDiscounted: true,
-      discountPercentage: 25,
-      currency: { code: 'SEK', symbol: 'kr' },
-    });
-    expect(width?.value).toBe('1400 mm');
-    expect(width?.price).toEqual({
-      sellingPriceExVat: 300,
-      sellingPriceIncVat: 375,
-      regularPriceExVat: 300,
-      regularPriceIncVat: 375,
-      vat: 75,
-      isDiscounted: false,
-      discountPercentage: 0,
-      currency: { code: 'SEK', symbol: 'kr' },
-    });
   });
 
   it('departs the session, so the id answers 410 afterwards', async () => {
@@ -1147,6 +1119,63 @@ describe('commit', () => {
     expect(
       await statusOf(() => backend.commit(config.configurationId, CTX)),
     ).toBe(422);
+  });
+});
+
+describe('buildSummary', () => {
+  const labels = (config: Configuration) =>
+    buildSummary(config).map((line) => line.label);
+
+  it('leaves out a variable that is unavailable or has no value', () => {
+    const config = makeValidConfiguration();
+    findVariable(config, 'depth').available = false;
+    findVariable(config, 'width').value = null;
+    findVariable(config, 'shelves').value = '';
+
+    expect(buildSummary(config)).toEqual([
+      { label: 'Leg frame', value: 'Fixed height legs' },
+      { label: 'Oversize margin', value: '0.00 %' },
+      { label: 'Table top', value: 'Laminate top' },
+      { label: 'Colour', value: 'Black (RAL 9005)' },
+    ]);
+  });
+
+  it('shows a value that is not a number as it is, with its unit when it has one', () => {
+    const config = makeValidConfiguration();
+    const oversize = findVariable(config, 'oversize');
+    oversize.value = 'PAL-80';
+    oversize.unit = undefined;
+    findVariable(config, 'width').value = 'wide';
+
+    const rows = buildSummary(config);
+    expect(rows).toContainEqual({ label: 'Oversize margin', value: 'PAL-80' });
+    expect(rows).toContainEqual({ label: 'Width', value: 'wide mm' });
+  });
+
+  it('summarises a group nested in a group after its parent', () => {
+    const config = makeNestedGroupConfiguration();
+    findOption(config, 'ral-9005').selected = true;
+    findOption(config, 'ind-esd').selected = true;
+
+    expect(labels(config).slice(0, 2)).toEqual([
+      'Leg frame',
+      'Industrial options',
+    ]);
+    expect(buildSummary(config)).toContainEqual({
+      label: 'Industrial options',
+      value: 'ESD earthing kit',
+    });
+  });
+
+  it('leaves out the whole subtree of a hidden section', () => {
+    const config = makeSectionTreeConfiguration();
+    const accessories = findOptionGroup(config, 'accessories');
+    findOption(config, 'acc-castors').selected = true;
+    const warehouse = config.sections.find((s) => s.id === 'warehouse')!;
+    warehouse.sections[0]!.optionGroups = [accessories];
+    config.sections = config.sections.filter((s) => s.id !== 'extras');
+
+    expect(labels(config)).not.toContain('Accessories');
   });
 });
 
@@ -2018,6 +2047,88 @@ describe('replaceLine', () => {
         backend.replaceLine('cart-1', 'line-42', next, OTHER_TENANT),
       ),
     ).toBe(404);
+  });
+});
+
+describe('cartLineConfigurations', () => {
+  const withCart = (ctx: ConfiguratorContext): ConfiguratorContext => ({
+    ...ctx,
+    cart: {
+      addPlainItem: async () => ({ items: [{ id: 'line-42', skuId: 42 }] }),
+    },
+  });
+
+  async function committed(shelves: number, ctx = CTX) {
+    const created = await backend.create(
+      { productId: ARBETSBORD_PRO_GEINS_ID, quantity: 1 },
+      ctx,
+    );
+    const config = await backend.applyChanges(
+      created.configurationId,
+      [
+        selectOption('legs-electric'),
+        selectOption('ral-9005'),
+        setVariable('shelves', shelves),
+      ],
+      ctx,
+    );
+    return backend.commit(config.configurationId, ctx);
+  }
+
+  async function added(ctx = CTX) {
+    const record = await committed(2, ctx);
+    await backend.addToCart(
+      'cart-1',
+      {
+        committedConfigurationId: record.committedConfigurationId,
+        skuId: 42,
+        quantity: 1,
+      },
+      withCart(ctx),
+    );
+    return record;
+  }
+
+  it('reads a line it added back with the record it carries', async () => {
+    const record = await added();
+
+    const lines = await backend.cartLineConfigurations('cart-1', CTX);
+
+    expect([...lines.keys()]).toEqual(['line-42']);
+    expect(lines.get('line-42')).toEqual({
+      configurationId: record.committedConfigurationId,
+      summary: record.summary,
+    });
+  });
+
+  it('reads a replaced line as the new record', async () => {
+    await added();
+    const next = await committed(3);
+    await backend.replaceLine(
+      'cart-1',
+      'line-42',
+      next.committedConfigurationId,
+      CTX,
+    );
+
+    const line = (await backend.cartLineConfigurations('cart-1', CTX)).get(
+      'line-42',
+    );
+
+    expect(line?.configurationId).toBe(next.committedConfigurationId);
+    expect(line?.summary).toContainEqual({
+      label: 'Shelves',
+      value: '3.00 pcs',
+    });
+  });
+
+  it("reads nothing for another cart or another storefront's cart", async () => {
+    await added();
+
+    expect((await backend.cartLineConfigurations('cart-2', CTX)).size).toBe(0);
+    expect(
+      (await backend.cartLineConfigurations('cart-1', OTHER_TENANT)).size,
+    ).toBe(0);
   });
 });
 

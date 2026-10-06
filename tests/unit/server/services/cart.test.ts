@@ -301,6 +301,10 @@ describe('the cart service', () => {
       configuratorContext: true,
       userToken: 'new-token',
     };
+    const CARRY_CTX = {
+      ...CONFIGURATOR_CTX,
+      cart: { addPlainItem: expect.any(Function) },
+    };
 
     beforeEach(() => {
       oms.cart.get
@@ -322,7 +326,7 @@ describe('the cart service', () => {
       expect(addToCart).toHaveBeenCalledWith(
         'new-cart',
         { committedConfigurationId: 'committed-1', skuId: 1652, quantity: 1 },
-        CONFIGURATOR_CTX,
+        CARRY_CTX,
       );
       expect(
         oms.cart.addItem.mock.calls.map(([id, item]) => [id, item]),
@@ -339,6 +343,38 @@ describe('the cart service', () => {
       expect(oms.cart.get).toHaveBeenLastCalledWith(
         'new-cart',
         false,
+        expect.objectContaining({ userToken: 'new-token' }),
+      );
+    });
+
+    // The fixture adds a configured line as a plain one through `ctx.cart`.
+    it("carries a line through a backend that adds it to the cart as a plain one, with the buyer's new token", async () => {
+      addToCart.mockImplementation(
+        async (
+          cartId: string,
+          line: { skuId: number; quantity: number },
+          ctx: {
+            cart?: {
+              addPlainItem(
+                id: string,
+                item: { skuId: number; quantity: number },
+              ): Promise<unknown>;
+            };
+          },
+        ) => {
+          await ctx.cart!.addPlainItem(cartId, {
+            skuId: line.skuId,
+            quantity: line.quantity,
+          });
+          return { itemId: 'carried' };
+        },
+      );
+
+      await expect(copy()).resolves.toEqual(COPIED);
+
+      expect(oms.cart.addItem).toHaveBeenCalledWith(
+        'new-cart',
+        { skuId: 1652, quantity: 1 },
         expect.objectContaining({ userToken: 'new-token' }),
       );
     });
@@ -365,7 +401,7 @@ describe('the cart service', () => {
       expect(addToCart).toHaveBeenCalledWith(
         'new-cart',
         expect.objectContaining({ quantity: 3 }),
-        CONFIGURATOR_CTX,
+        CARRY_CTX,
       );
     });
 

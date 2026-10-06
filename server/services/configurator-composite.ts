@@ -37,9 +37,12 @@ export function createCompositeConfiguratorBackend(
         ? fixture
         : real
       ).addToCart(cartId, line, ctx),
-    // The fixture's lines are plain lines, which carry no configuration.
-    cartLineConfigurations: (cartId, ctx) =>
-      real.cartLineConfigurations(cartId, ctx),
+    // A cart can hold lines from both; their item ids never collide.
+    cartLineConfigurations: async (cartId, ctx) =>
+      new Map([
+        ...(await fixture.cartLineConfigurations(cartId, ctx)),
+        ...(await real.cartLineConfigurations(cartId, ctx)),
+      ]),
     orderLineConfigurations: (publicOrderId, ctx) =>
       real.orderLineConfigurations(publicOrderId, ctx),
     orderLineChoices: (publicOrderId, row, ctx) =>
