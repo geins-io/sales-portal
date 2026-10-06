@@ -68,7 +68,10 @@ ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
 
 # Build the Nuxt application
 # This creates the .output directory with the production build
-RUN pnpm build
+# V8's default heap limit follows the machine's memory (about 2.1 GB in a
+# 12 GB Docker VM, measured 2026-10-06) and the build's live heap sits at it.
+# An explicit limit makes the build machine-independent; peak RSS 4.2–4.6 GB.
+RUN NODE_OPTIONS=--max-old-space-size=4096 pnpm build
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Runtime
