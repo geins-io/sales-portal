@@ -20,20 +20,20 @@ importers:
   .:
     dependencies:
       '@geins/cms':
-        specifier: 0.10.5
-        version: 0.10.5(@geins/core@0.10.5(graphql@16.12.0))
+        specifier: 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747
+        version: 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(@geins/core@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0))
       '@geins/core':
-        specifier: 0.10.5
-        version: 0.10.5(graphql@16.12.0)
+        specifier: 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747
+        version: 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0)
       '@geins/crm':
-        specifier: 0.10.5
-        version: 0.10.5(@geins/core@0.10.5(graphql@16.12.0))
+        specifier: 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747
+        version: 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(@geins/core@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0))
       '@geins/oms':
-        specifier: 0.10.5
-        version: 0.10.5(@geins/core@0.10.5(graphql@16.12.0))
+        specifier: 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747
+        version: 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(@geins/core@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0))
       '@geins/types':
-        specifier: 0.10.5
-        version: 0.10.5
+        specifier: 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747
+        version: 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747
       '@nuxt/fonts':
         specifier: 0.12.1
         version: 0.12.1(db0@0.3.4)(ioredis@5.9.2)(magicast@0.5.2)(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1)(stylus@0.57.0)(terser@5.46.0)(yaml@2.8.2))
@@ -1463,26 +1463,26 @@ packages:
   '@floating-ui/vue@1.1.10':
     resolution: {integrity: sha512-vdf8f6rHnFPPLRsmL4p12wYl+Ux4mOJOkjzKEMYVnwdf7UFdvBtHlLvQyx8iKG5vhPRbDRgZxdtpmyigDPjzYg==}
 
-  '@geins/cms@0.10.5':
-    resolution: {integrity: sha512-AVe1j4v2U9FT6sYapxBy21p/vf4cXVMMlb0uEVdCEH8SYKNUww/yee7YHmCXbZ0uK+v3y2RFxxhig6hmxX8H5A==}
+  '@geins/cms@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747':
+    resolution: {integrity: sha512-mJY0I8ycnxvqBfT6EpC9hQX4VNdGJIwoIYR+gul48GMg1JfYy/CnquTZMxJKNLWVsL7PHnjGXWvucxexNFe9ZA==}
     peerDependencies:
-      '@geins/core': '*'
+      '@geins/core': 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747
 
-  '@geins/core@0.10.5':
-    resolution: {integrity: sha512-YAG7oRmIVB6Cbm3vr9krpbbTKZTzm4cdMcSxfH1EfUcvNkxWL9g/sSjKzkZ/5edNVD9dwVplIJr0mstrwsl3Ng==}
+  '@geins/core@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747':
+    resolution: {integrity: sha512-/hrVvODTS38oGXv7yVfEgs4lW9aekenzj7k/G04UkV0bEvoGLnN0dMfc5aLndyeyKHfk9dv82rBWm+J8WI0TlQ==}
 
-  '@geins/crm@0.10.5':
-    resolution: {integrity: sha512-Jxplx36B4V8CnkcI6ic62ZNfyjVXTbFmb2b1CwX9Ij0fwi+N2YKShXmu5ohdBoo34tLi+PdcBCydSEkNgk2FhA==}
+  '@geins/crm@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747':
+    resolution: {integrity: sha512-VEHKVjwBk7iRfqrpv3BuCSrfoB+THu+sO55iN11Rj9+MxN5F4um5IJiroMeYWZn2mUidOsZXEEq2H0UHqqjFVQ==}
     peerDependencies:
-      '@geins/core': '*'
+      '@geins/core': 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747
 
-  '@geins/oms@0.10.5':
-    resolution: {integrity: sha512-tAZwFdIhkyTVfSE6q2MEyODPvf9g5DBdRP82xd52bpoUp2to96vviUHbUTVjznun13bnQzN7/JGhM3cQ227K7g==}
+  '@geins/oms@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747':
+    resolution: {integrity: sha512-zLWVueec2CyetjhBLbGzWbX3kRZ1qbC0ve/oZMzdFBtdUenaq3Hq3bzpU5+Vdt+5nU9crMNPtGJrFp21brLioQ==}
     peerDependencies:
-      '@geins/core': '*'
+      '@geins/core': 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747
 
-  '@geins/types@0.10.5':
-    resolution: {integrity: sha512-7cBC/rG0PpHHtPMWIcB6d7w4VFVeA1iGLJ/Lajex3I5+20wS7J3/IE1Iwewbqd/JAfnFKsASYXfRjIQASJbixg==}
+  '@geins/types@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747':
+    resolution: {integrity: sha512-fPWq0l1L1vOEvcPWBvN2NYO+ZWjWzsWgUyajRN+VtqAwrZRgTve7GUaLCo4z/eQjU43a+c7hMR02Co3lQ3ItkQ==}
 
   '@graphql-typed-document-node/core@3.2.0':
     resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
@@ -10804,11 +10804,11 @@ snapshots:
       - '@vue/composition-api'
       - vue
 
-  '@geins/cms@0.10.5(@geins/core@0.10.5(graphql@16.12.0))':
+  '@geins/cms@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(@geins/core@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0))':
     dependencies:
-      '@geins/core': 0.10.5(graphql@16.12.0)
+      '@geins/core': 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0)
 
-  '@geins/core@0.10.5(graphql@16.12.0)':
+  '@geins/core@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0)':
     dependencies:
       '@apollo/client': 3.14.0(graphql@16.12.0)
       '@cacheable/node-cache': 1.7.6
@@ -10822,15 +10822,15 @@ snapshots:
       - react-dom
       - subscriptions-transport-ws
 
-  '@geins/crm@0.10.5(@geins/core@0.10.5(graphql@16.12.0))':
+  '@geins/crm@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(@geins/core@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0))':
     dependencies:
-      '@geins/core': 0.10.5(graphql@16.12.0)
+      '@geins/core': 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0)
 
-  '@geins/oms@0.10.5(@geins/core@0.10.5(graphql@16.12.0))':
+  '@geins/oms@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(@geins/core@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0))':
     dependencies:
-      '@geins/core': 0.10.5(graphql@16.12.0)
+      '@geins/core': 0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747(graphql@16.12.0)
 
-  '@geins/types@0.10.5': {}
+  '@geins/types@0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747': {}
 
   '@graphql-typed-document-node/core@3.2.0(graphql@16.12.0)':
     dependencies:

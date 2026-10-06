@@ -6,9 +6,7 @@ import {
   configurableCheck,
   getConfiguratorBackend,
   isConfigurableProduct,
-  MERCHANT_API_DEFAULT_URL,
   resolveConfiguratorBackendName,
-  resolveMerchantApiUrl,
   type ConfiguratorBackend,
   type ConfiguratorContext,
   withConfigurableFlags,
@@ -32,7 +30,6 @@ import {
 // ---------------------------------------------------------------------------
 
 const mockReadBackendValue = vi.fn();
-const mockReadMerchantApiUrl = vi.fn();
 const mockGetAuthCookies = vi.fn();
 const mockGetTenantSDK = vi.fn();
 const mockGetRequestChannelVariables = vi.fn();
@@ -40,8 +37,6 @@ const mockGetRequestChannelVariables = vi.fn();
 vi.mock('../../../../server/services/configurator-config', () => ({
   readConfiguratorBackendValue: (...args: unknown[]) =>
     mockReadBackendValue(...args),
-  readConfiguratorMerchantApiUrl: (...args: unknown[]) =>
-    mockReadMerchantApiUrl(...args),
 }));
 
 vi.mock('../../../../server/services/_sdk', () => ({
@@ -150,29 +145,6 @@ describe('resolveConfiguratorBackendName', () => {
     ['a padded value', ' fixture '],
   ])('reads %s as off', (_label, value) => {
     expect(resolveConfiguratorBackendName(value)).toBe('off');
-  });
-});
-
-describe('resolveMerchantApiUrl', () => {
-  it('takes a set URL as it is', () => {
-    expect(resolveMerchantApiUrl('https://cpq.example.test/graphql')).toBe(
-      'https://cpq.example.test/graphql',
-    );
-  });
-
-  it.each([
-    ['an empty string', ''],
-    ['undefined', undefined],
-    ['null', null],
-    ['a non-string', 42],
-  ])('reads %s as the ordinary merchant-api endpoint', (_label, value) => {
-    expect(resolveMerchantApiUrl(value)).toBe(MERCHANT_API_DEFAULT_URL);
-  });
-
-  it('defaults to the endpoint the SDK itself talks to', () => {
-    expect(MERCHANT_API_DEFAULT_URL).toBe(
-      'https://merchantapi.geins.io/graphql',
-    );
   });
 });
 
@@ -342,9 +314,9 @@ describe('buildConfiguratorContext', () => {
 // ---------------------------------------------------------------------------
 
 describe('buildConfiguratorRequestContext', () => {
-  const SDK = { sdk: true };
+  const CONFIGURATION = { create: () => undefined };
+  const SDK = { oms: { configuration: CONFIGURATION } };
   const CHANNEL = { channelId: '1|se', languageId: 'sv-SE', marketId: 'se' };
-  const TARGET_URL = 'https://cpq.example.test/graphql';
 
   function eventWith(tenant?: Record<string, unknown>) {
     return { context: tenant ? { tenant } : {} } as unknown as Parameters<
@@ -352,61 +324,32 @@ describe('buildConfiguratorRequestContext', () => {
     >[0];
   }
 
-  const TENANT = {
-    hostname: 'tenant.example.com',
-    config: { geinsSettings: { apiKey: 'key-1' } },
-  };
+  const TENANT = { hostname: 'tenant.example.com' };
 
   beforeEach(() => {
-    mockReadMerchantApiUrl.mockReset();
-    mockReadMerchantApiUrl.mockReturnValue(TARGET_URL);
     mockGetTenantSDK.mockReset();
     mockGetTenantSDK.mockResolvedValue(SDK);
     mockGetRequestChannelVariables.mockReset();
     mockGetRequestChannelVariables.mockReturnValue(CHANNEL);
   });
 
-  it('carries the narrow context plus the merchant-api target', async () => {
+  it("carries the narrow context plus the tenant SDK's configuration service and the channel", async () => {
     mockGetAuthCookies.mockReturnValue({ authToken: 'token-1' });
     const event = eventWith(TENANT);
 
     expect(await buildConfiguratorRequestContext(event)).toEqual({
       hostname: 'tenant.example.com',
       userToken: 'token-1',
-      merchantApi: { url: TARGET_URL, apiKey: 'key-1', ...CHANNEL },
+      sdk: { configuration: CONFIGURATION, channel: CHANNEL },
     });
-    expect(mockReadMerchantApiUrl).toHaveBeenCalledWith(event);
+    expect(mockGetTenantSDK).toHaveBeenCalledWith(event);
     expect(mockGetRequestChannelVariables).toHaveBeenCalledWith(SDK, event);
   });
 
-  it("uses the tenant's own API key, with no secret of its own", async () => {
-    const ctx = await buildConfiguratorRequestContext(
-      eventWith({
-        ...TENANT,
-        config: { geinsSettings: { apiKey: 'another-key' } },
-      }),
-    );
-    expect(ctx.merchantApi?.apiKey).toBe('another-key');
-  });
-
-  it('falls back to the ordinary endpoint when the key is empty', async () => {
-    mockReadMerchantApiUrl.mockReturnValue('');
+  it('carries no token for a buyer who is not signed in', async () => {
     const ctx = await buildConfiguratorRequestContext(eventWith(TENANT));
-    expect(ctx.merchantApi?.url).toBe(MERCHANT_API_DEFAULT_URL);
-  });
-
-  it('carries an empty key rather than failing when the tenant has none', async () => {
-    const ctx = await buildConfiguratorRequestContext(
-      eventWith({ hostname: 'tenant.example.com' }),
-    );
-    expect(ctx.merchantApi?.apiKey).toBe('');
-  });
-
-  it('carries an empty key when the config has no Geins settings', async () => {
-    const ctx = await buildConfiguratorRequestContext(
-      eventWith({ hostname: 'tenant.example.com', config: {} }),
-    );
-    expect(ctx.merchantApi?.apiKey).toBe('');
+    expect('userToken' in ctx).toBe(false);
+    expect(ctx.sdk?.configuration).toBe(CONFIGURATION);
   });
 });
 

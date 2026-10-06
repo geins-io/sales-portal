@@ -494,8 +494,8 @@ describe('optionImage', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'top-wood');
     option.product!.productImages = [
-      { fileName: 'beech-front.jpg', isPrimary: false, url: '' },
-      { fileName: 'beech-side.jpg', isPrimary: false, url: '' },
+      { fileName: 'beech-front.jpg' },
+      { fileName: 'beech-side.jpg' },
     ];
 
     expect(optionImage(option)).toBe('beech-front.jpg');
@@ -517,9 +517,7 @@ describe('optionImage', () => {
   it('has none for an image without a file name', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'top-wood');
-    option.product!.productImages = [
-      { fileName: '', isPrimary: false, url: '' },
-    ];
+    option.product!.productImages = [{ fileName: '' }];
 
     expect(optionImage(option)).toBeUndefined();
   });
@@ -537,9 +535,7 @@ describe('hasImageColumn', () => {
   it('is true when one option in the group has an image', () => {
     const workbench = makeInitialConfiguration();
     const top = findOptionGroup(workbench, 'top');
-    top.options[1]!.product!.productImages = [
-      { fileName: 'beech.jpg', isPrimary: false, url: '' },
-    ];
+    top.options[1]!.product!.productImages = [{ fileName: 'beech.jpg' }];
 
     expect(hasImageColumn(top.options)).toBe(true);
   });

@@ -1,12 +1,14 @@
 import type { ConfigurationChange } from '#shared/types/configurator';
-import type { WireChange } from './wire';
+import type { ConfigurationChangeInputType } from '@geins/types';
 
 /**
- * Our change as the canary's input type takes it. Each kind sends only its own
+ * Our change as the SDK's input type takes it. Each kind sends only its own
  * fields, and a variable's value goes as it is: `CpqValue` takes the same
  * string, number, boolean or null the document reads back.
  */
-export function toWireChange(change: ConfigurationChange): WireChange {
+export function toWireChange(
+  change: ConfigurationChange,
+): ConfigurationChangeInputType {
   switch (change.type) {
     case 'variable':
       return {

@@ -13,7 +13,7 @@
 // `messages`. Every change returns the whole re-evaluated document — replace
 // local state, never patch it.
 // ---------------------------------------------------------------------------
-import type { ListProduct, PriceType } from './commerce';
+import type { PriceType } from './commerce';
 
 // ---------------------------------------------------------------------------
 // Provenance
@@ -121,7 +121,17 @@ export interface ConfigurationOption {
    * The catalogue product, embedded so no second lookup is needed. Null when
    * the part is not a sellable article, which is most rows on a real product.
    */
-  product: ListProduct | null;
+  product: ConfigurationOptionProduct | null;
+}
+
+/** The fields of an option's catalogue product the row reads. */
+export interface ConfigurationOptionProduct {
+  productId?: number | null;
+  name?: string | null;
+  articleNumber?: string | null;
+  alias?: string | null;
+  canonicalUrl?: string | null;
+  productImages?: { fileName?: string | null }[] | null;
 }
 
 export interface ConfigurationOptionGroup {

@@ -28,7 +28,7 @@ const LINE = '[data-testid="configurator-option"] > div';
 const PLACEHOLDER = '[data-testid="configurator-option-image-placeholder"]';
 
 function withImage(option: ConfigurationOption, fileName: string) {
-  option.product!.productImages = [{ fileName, isPrimary: false, url: '' }];
+  option.product!.productImages = [{ fileName }];
   return option;
 }
 
@@ -711,13 +711,13 @@ describe('ConfiguratorOptionRow', () => {
   });
 
   it('renders the first image of the product, as the product card does', () => {
-    // The list fragment the option's product arrives through selects no
-    // `isPrimary`, so a lookup on the flag would never match.
+    // The option's product arrives without `isPrimary`, so a lookup on the
+    // flag would never match.
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'top-wood');
     option.product!.productImages = [
-      { fileName: 'beech-front.jpg', isPrimary: false, url: '' },
-      { fileName: 'beech-side.jpg', isPrimary: false, url: '' },
+      { fileName: 'beech-front.jpg' },
+      { fileName: 'beech-side.jpg' },
     ];
 
     const wrapper = mountRow(option, { imageColumn: true });

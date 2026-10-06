@@ -31,15 +31,6 @@ const FRAGMENT_NAMES: Record<string, string> = {
   QuotationCartSummary: './fragments/quotation-cart-summary.graphql',
   QuotationCore: './fragments/quotation-core.graphql',
   QuotationWithAddresses: './fragments/quotation-with-addresses.graphql',
-  CpqConfiguration: './fragments/cpq-configuration.graphql',
-  CpqSectionFields: './fragments/cpq-section-fields.graphql',
-  CpqGroupTree: './fragments/cpq-group-tree.graphql',
-  CpqGroupFields: './fragments/cpq-group-fields.graphql',
-  CpqVariable: './fragments/cpq-variable.graphql',
-  CpqOption: './fragments/cpq-option.graphql',
-  CpqMessage: './fragments/cpq-message.graphql',
-  CpqCommittedSectionFields: './fragments/cpq-committed-section-fields.graphql',
-  CpqCommittedGroupFields: './fragments/cpq-committed-group-fields.graphql',
 };
 
 function loadFragments(): void {
