@@ -36,7 +36,8 @@ const {
   refused?: ConfigurationChange | null;
 }>();
 
-const emit = defineEmits<{ change: [ConfigurationChange] }>();
+/** A batch, as a group sends it; a field's change is a batch of one. */
+const emit = defineEmits<{ change: [ConfigurationChange[]] }>();
 
 const members = computed(() => shownMembers(section));
 </script>
@@ -79,7 +80,7 @@ const members = computed(() => shownMembers(section));
           :variable="member.variable"
           :disabled="disabled"
           :refused="refusesVariable(refused, member.variable.id)"
-          @change="emit('change', $event)"
+          @change="emit('change', [$event])"
         />
       </div>
     </template>

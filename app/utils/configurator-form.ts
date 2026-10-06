@@ -39,17 +39,54 @@ export function variableControl(
  * The provider owns the value and the buyer may not change it. Both sources
  * mean the same thing to the UI; only the provider knows which one it is.
  */
-export function isReadOnly(
-  node: Pick<
-    ConfigurationOption | ConfigurationVariable,
-    'selectionSource' | 'readOnly'
-  >,
+export function isVariableReadOnly(
+  variable: Pick<ConfigurationVariable, 'selectionSource' | 'readOnly'>,
 ): boolean {
   return (
-    node.readOnly ||
-    node.selectionSource === 'locked' ||
-    node.selectionSource === 'temporarilyLocked'
+    variable.readOnly ||
+    variable.selectionSource === 'locked' ||
+    variable.selectionSource === 'temporarilyLocked'
   );
+}
+
+/**
+ * The provider refuses the buyer's change to the row. `locked` is not that: it
+ * says why a row is selected, and the provider takes the buyer's change to it.
+ */
+export function isOptionReadOnly(
+  option: Pick<ConfigurationOption, 'readOnly'>,
+): boolean {
+  return option.readOnly;
+}
+
+/**
+ * A pick in a single-choice group as one batch: every other chosen row out
+ * first, then the pick. The provider does not release a locked row for a
+ * sibling pick, and applies a batch in order. A row it refuses to change is
+ * left to it.
+ */
+export function singleChoiceChanges(
+  group: Pick<ConfigurationOptionGroup, 'options'>,
+  pick: Extract<ConfigurationChange, { type: 'option' }>,
+): ConfigurationChange[] {
+  const others = group.options.filter(
+    (option) =>
+      option.selected &&
+      !isOptionReadOnly(option) &&
+      !(option.id === pick.optionId && option.instanceId === pick.instanceId),
+  );
+  return [
+    ...others.map(
+      (option): ConfigurationChange => ({
+        type: 'option',
+        optionId: option.id,
+        instanceId: option.instanceId,
+        selected: false,
+        lock: 'none',
+      }),
+    ),
+    pick,
+  ];
 }
 
 /** An absent `maxSelections` is an unbounded group, not a single-choice one. */
@@ -221,15 +258,12 @@ export type OptionBlockReason =
  * row. A row of an unavailable group is unavailable whatever it says itself.
  */
 export function optionBlockReason(
-  option: Pick<
-    ConfigurationOption,
-    'available' | 'messages' | 'readOnly' | 'selectionSource'
-  >,
+  option: Pick<ConfigurationOption, 'available' | 'messages' | 'readOnly'>,
   formLocked: boolean,
   groupUnavailable = false,
 ): OptionBlockReason | undefined {
   if (formLocked) return undefined;
-  const readOnly = isReadOnly(option);
+  const readOnly = isOptionReadOnly(option);
   if (!readOnly && option.available && !groupUnavailable) return undefined;
   const message = blockingMessage(option.messages);
   if (message) return { kind: 'message', message };

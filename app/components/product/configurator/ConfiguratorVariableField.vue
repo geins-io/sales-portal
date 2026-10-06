@@ -11,7 +11,7 @@ import {
   dateChangeValue,
   dateInputValue,
   emptyStep,
-  isReadOnly,
+  isVariableReadOnly,
   variableControl,
   type StepDirection,
 } from '~/utils/configurator-form';
@@ -54,7 +54,7 @@ const { t } = useI18n();
 const { formatLocale } = useFormatLocale();
 
 const control = computed(() => variableControl(variable));
-const readOnly = computed(() => isReadOnly(variable));
+const readOnly = computed(() => isVariableReadOnly(variable));
 const blocked = computed(
   () => disabled || readOnly.value || !variable.available,
 );

@@ -200,7 +200,7 @@ describe('ConfiguratorSection', () => {
     ).toHaveLength(1);
   });
 
-  it('passes a change from a group up untouched', async () => {
+  it('passes a batch from a group up untouched', async () => {
     const workbench = makeInitialConfiguration();
     // A chosen multi row stays on the page, where a click unticks it.
     findOption(workbench, 'ind-esd').selected = true;
@@ -210,11 +210,22 @@ describe('ConfiguratorSection', () => {
       .find('[data-option-id="ind-esd"] button[role="checkbox"]')
       .trigger('click');
 
-    expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
-      type: 'option',
-      optionId: 'ind-esd',
-      selected: false,
-    });
+    expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject([
+      { type: 'option', optionId: 'ind-esd', selected: false },
+    ]);
+  });
+
+  it("sends a field's change as a batch of one", async () => {
+    const workbench = makeInitialConfiguration();
+
+    const wrapper = mountSection(sectionOf(workbench.sections, 'frame'));
+    const input = wrapper.find('[data-variable-id="width"] input');
+    await input.setValue('1500');
+    await input.trigger('keydown.enter');
+
+    expect(wrapper.emitted('change')?.[0]?.[0]).toEqual([
+      { type: 'variable', variableId: 'width', value: 1500 },
+    ]);
   });
 
   it('hands a refused change to the field and the group it was aimed at', () => {

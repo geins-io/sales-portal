@@ -2,7 +2,7 @@
 import type { ConfigurationOption } from '#shared/types/configurator';
 import { ChevronRight, Lock } from 'lucide-vue-next';
 import {
-  isReadOnly,
+  isOptionReadOnly,
   optionBlockReason,
   optionImage,
 } from '~/utils/configurator-form';
@@ -48,7 +48,7 @@ const emit = defineEmits<{ open: [] }>();
 
 const { t } = useI18n();
 
-const readOnly = computed(() => !!chosen && isReadOnly(chosen));
+const readOnly = computed(() => !!chosen && isOptionReadOnly(chosen));
 
 const showsNothing = computed(() => !chosen && nothingToChoose);
 

@@ -146,7 +146,7 @@ describe('ConfiguratorOptionRow', () => {
     );
   });
 
-  it('disables a row the provider locked and shows its reason', () => {
+  it('disables a row the provider holds read-only and shows its reason', () => {
     const cabinet = makeCabinetConfiguration();
 
     // Rendered as a checkbox: a RadioGroupItem needs its RadioGroup, and the
@@ -160,6 +160,33 @@ describe('ConfiguratorOptionRow', () => {
       'This cabinet is always wall mounted.',
     );
   });
+
+  // `locked` says why a row is selected, not that the buyer may not change it.
+  it.each(['locked', 'temporarilyLocked'] as const)(
+    'leaves a %s row clickable, with no lock and no note',
+    async (selectionSource) => {
+      const option = {
+        ...findOption(makeInitialConfiguration(), 'top-laminate'),
+        selectionSource,
+      };
+
+      const wrapper = mountRow(option);
+      const checkbox = wrapper.find('[role="checkbox"]');
+      expect(checkbox.attributes('disabled')).toBeUndefined();
+      expect(
+        wrapper.find('[data-testid="configurator-option-lock"]').exists(),
+      ).toBe(false);
+      expect(
+        wrapper.find('[data-testid="configurator-option-reason"]').exists(),
+      ).toBe(false);
+
+      await checkbox.trigger('click');
+      expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
+        optionId: 'top-laminate',
+        selected: false,
+      });
+    },
+  );
 
   it('falls back to a translated reason when the provider gave none', () => {
     const workbench = makeInitialConfiguration();
@@ -467,7 +494,7 @@ describe('ConfiguratorOptionRow', () => {
     ).toBe(false);
   });
 
-  it('marks a row the provider owns with a lock and a note, not a refusal', () => {
+  it('marks a row the provider holds read-only with a lock and a note, not a refusal', () => {
     const cabinet = makeCabinetConfiguration();
 
     const wrapper = mountRow(findOption(cabinet, 'mount-wall'));
@@ -480,7 +507,7 @@ describe('ConfiguratorOptionRow', () => {
     expect(reason.classes()).toContain('text-muted-foreground');
   });
 
-  it('calls a row that is both locked and unavailable a refusal', () => {
+  it('calls a row that is both read-only and unavailable a refusal', () => {
     const cabinet = makeCabinetConfiguration();
     const option = findOption(cabinet, 'mount-wall');
     option.available = false;

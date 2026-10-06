@@ -54,6 +54,12 @@ const CHANGE: ConfigurationChange = {
   lock: 'none',
 };
 
+/** What a single-choice switch sends: the current row out first. */
+const SWITCH: ConfigurationChange[] = [
+  { ...CHANGE, optionId: 'top-laminate', selected: false },
+  CHANGE,
+];
+
 const COMMITTED: CommittedConfiguration = {
   committedConfigurationId: 'committed-1',
   configurationId: 'session-1',
@@ -362,7 +368,7 @@ const stubs = {
     </section>`,
     props: ['section', 'disabled', 'refused'],
     emits: ['change'],
-    setup: () => ({ change: CHANGE }),
+    setup: () => ({ change: SWITCH }),
   },
   ConfiguratorCommitted: {
     template:
@@ -728,14 +734,15 @@ describe('ConfiguratorProduct session', () => {
     ).toEqual(['frame']);
   });
 
-  it('sends a change from the form as a batch of one', async () => {
+  it('sends what the form emits as one batch, in its order', async () => {
     const wrapper = mountPage();
     activeWith(makeValidConfiguration());
     await nextTick();
 
     await wrapper.find('[data-testid="section-change"]').trigger('click');
 
-    expect(session.applyChanges).toHaveBeenCalledWith([CHANGE]);
+    expect(session.applyChanges).toHaveBeenCalledTimes(1);
+    expect(session.applyChanges).toHaveBeenCalledWith(SWITCH);
   });
 
   it('locks the form while a batch is in flight', async () => {
@@ -1098,7 +1105,8 @@ describe('ConfiguratorProduct errors', () => {
 
   const REFUSAL = { status: 422, message: 'x', code: 'VALIDATION_ERROR' };
 
-  it('hands a refused change to the form and reports no failure above it', async () => {
+  // A switch is two changes in one group; the pick names the node to mark.
+  it('hands the last change of a refused batch to the form and reports no failure above it', async () => {
     const wrapper = mountPage();
     activeWith(makeValidConfiguration());
     await nextTick();

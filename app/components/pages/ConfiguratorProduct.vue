@@ -556,11 +556,14 @@ function step(delta: number): void {
   );
 }
 
-/** One change, one batch: the response is the whole document either way. */
-function onChange(change: ConfigurationChange): void {
+/**
+ * One interaction, one batch: the response is the whole document either way.
+ * The last change is the one the buyer made; a switch's deselect comes first.
+ */
+function onChange(changes: ConfigurationChange[]): void {
   lastAction.value = 'change';
-  lastChange.value = change;
-  void applyChanges([change]);
+  lastChange.value = changes.at(-1) ?? null;
+  void applyChanges(changes);
 }
 
 function onRenew(): void {

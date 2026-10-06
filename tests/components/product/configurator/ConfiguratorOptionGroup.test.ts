@@ -3,6 +3,7 @@ import { mountComponent } from '../../../utils/component';
 import ConfiguratorOptionChooser from '../../../../app/components/product/configurator/ConfiguratorOptionChooser.vue';
 import ConfiguratorOptionGroup from '../../../../app/components/product/configurator/ConfiguratorOptionGroup.vue';
 import type {
+  ConfigurationChange,
   ConfigurationOption,
   ConfigurationOptionGroup,
 } from '#shared/types/configurator';
@@ -47,6 +48,15 @@ vi.mock('../../../../app/components/ui/tooltip', () => ({
 
 function mountGroup(group: ConfigurationOptionGroup) {
   return mountComponent(ConfiguratorOptionGroup, { props: { group } });
+}
+
+/** The group emits a batch: everything one interaction sends, in order. */
+function firstBatch(
+  wrapper: ReturnType<typeof mountGroup>,
+): ConfigurationChange[] | undefined {
+  return wrapper.emitted('change')?.[0]?.[0] as
+    | ConfigurationChange[]
+    | undefined;
 }
 
 const CHOOSER = '[data-testid="configurator-group-chooser"]';
@@ -178,7 +188,9 @@ describe('ConfiguratorOptionGroup', () => {
     expect(message.element.closest('li.rounded-md')).toBeNull();
   });
 
-  it('emits one change for the row picked, not a deselect for the one it replaces', async () => {
+  // The provider forwards a batch to Monitor in order, and Monitor does not
+  // release a locked choice for a sibling pick: the deselect goes first.
+  it('deselects the row it replaces first, then picks, in one batch', async () => {
     const workbench = makeInitialConfiguration();
     const top = findOptionGroup(workbench, 'top');
 
@@ -189,13 +201,53 @@ describe('ConfiguratorOptionGroup', () => {
       .trigger('click');
 
     expect(wrapper.emitted('change')).toHaveLength(1);
-    expect(wrapper.emitted('change')?.[0]?.[0]).toEqual({
-      type: 'option',
-      optionId: 'top-steel',
-      instanceId: '0',
-      selected: true,
-      lock: 'none',
-    });
+    expect(firstBatch(wrapper)).toEqual([
+      {
+        type: 'option',
+        optionId: 'top-laminate',
+        instanceId: '0',
+        selected: false,
+        lock: 'none',
+      },
+      {
+        type: 'option',
+        optionId: 'top-steel',
+        instanceId: '0',
+        selected: true,
+        lock: 'none',
+      },
+    ]);
+  });
+
+  it('sends the same batch from a click anywhere on a row of the panel', async () => {
+    const workbench = makeInitialConfiguration();
+    findOption(workbench, 'top-laminate').selectionSource = 'locked';
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    await wrapper.find(CHOOSER).trigger('click');
+    await wrapper
+      .find(`${SHEET} [data-option-id="top-steel"]`)
+      .trigger('click');
+
+    expect(wrapper.emitted('change')).toHaveLength(1);
+    expect(firstBatch(wrapper)).toMatchObject([
+      { optionId: 'top-laminate', selected: false },
+      { optionId: 'top-steel', selected: true },
+    ]);
+  });
+
+  it('leaves a locked row in the panel open to the buyer', async () => {
+    const workbench = makeInitialConfiguration();
+    findOption(workbench, 'top-wood').selectionSource = 'locked';
+
+    const wrapper = mountGroup(findOptionGroup(workbench, 'top'));
+    await wrapper.find(CHOOSER).trigger('click');
+
+    expect(
+      wrapper
+        .find(`${SHEET} [data-option-id="top-wood"] [role="radio"]`)
+        .attributes('disabled'),
+    ).toBeUndefined();
   });
 
   // "No extended warranty": quantity, minimum and maximum all 0. The provider
@@ -216,9 +268,12 @@ describe('ConfiguratorOptionGroup', () => {
       .find(`${SHEET} [data-option-id="top-steel"] [role="radio"]`)
       .trigger('click');
 
-    const change = wrapper.emitted('change')?.[0]?.[0];
-    expect(change).toMatchObject({ optionId: 'top-steel', selected: true });
-    expect(change).not.toHaveProperty('quantity');
+    const batch = firstBatch(wrapper) ?? [];
+    expect(batch.at(-1)).toMatchObject({
+      optionId: 'top-steel',
+      selected: true,
+    });
+    for (const change of batch) expect(change).not.toHaveProperty('quantity');
   });
 
   it('checks the row the document says is selected', async () => {
@@ -241,7 +296,7 @@ describe('ConfiguratorOptionGroup', () => {
     ).toBe('top-laminate');
   });
 
-  it('disables the radio of a row the provider locked', () => {
+  it('disables the radio of a row the provider holds read-only', () => {
     const cabinet = makeCabinetConfiguration();
 
     const wrapper = mountGroup(findOptionGroup(cabinet, 'mount'));
@@ -276,10 +331,9 @@ describe('ConfiguratorOptionGroup', () => {
       )
       .trigger('click');
 
-    expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
-      optionId: 'ind-heavy',
-      selected: true,
-    });
+    expect(firstBatch(wrapper)).toMatchObject([
+      { optionId: 'ind-heavy', selected: true },
+    ]);
   });
 
   // ---------------------------------------------------------------------
@@ -554,11 +608,11 @@ describe('ConfiguratorOptionGroup', () => {
     expect(price.text()).not.toContain('%');
   });
 
-  it('marks a chosen row the provider owns, and says why, in the chooser', () => {
+  it('marks a chosen row the provider holds read-only, and says why, in the chooser', () => {
     const workbench = makeInitialConfiguration();
     const chosen = findOption(workbench, 'ral-7016');
     chosen.selected = true;
-    chosen.selectionSource = 'locked';
+    chosen.readOnly = true;
 
     const wrapper = mountGroup(findOptionGroup(workbench, 'color'));
 
@@ -569,6 +623,23 @@ describe('ConfiguratorOptionGroup', () => {
     expect(
       chooser.find('[data-testid="configurator-chooser-reason"]').text(),
     ).toBe('configurator.read_only');
+  });
+
+  it('marks nothing on a chosen row that is only locked, in the chooser', () => {
+    const workbench = makeInitialConfiguration();
+    const chosen = findOption(workbench, 'ral-7016');
+    chosen.selected = true;
+    chosen.selectionSource = 'locked';
+
+    const chooser = mountGroup(findOptionGroup(workbench, 'color')).find(
+      CHOOSER,
+    );
+    expect(
+      chooser.find('[data-testid="configurator-chooser-lock"]').exists(),
+    ).toBe(false);
+    expect(
+      chooser.find('[data-testid="configurator-chooser-reason"]').exists(),
+    ).toBe(false);
   });
 
   it("gives a chosen row's blocking message as its reason in the chooser", () => {
@@ -653,9 +724,9 @@ describe('ConfiguratorOptionGroup', () => {
       .find('[data-option-id="acc-light"] [role="checkbox"]')
       .trigger('click');
 
-    const change = wrapper.emitted('change')?.[0]?.[0];
-    expect(change).toMatchObject({ optionId: 'acc-light', selected: false });
-    expect(change).not.toHaveProperty('quantity');
+    const batch = firstBatch(wrapper);
+    expect(batch).toMatchObject([{ optionId: 'acc-light', selected: false }]);
+    expect(batch?.[0]).not.toHaveProperty('quantity');
   });
 
   it('keeps the stepper on a chosen row of a quantity-editable group', () => {
@@ -765,10 +836,9 @@ describe('ConfiguratorOptionGroup', () => {
     await wrapper.find(CHOOSER).trigger('click');
     await wrapper.find(`${SHEET} [data-option-id="ral-4008"]`).trigger('click');
 
-    expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
-      optionId: 'ral-4008',
-      selected: true,
-    });
+    expect(firstBatch(wrapper)).toMatchObject([
+      { optionId: 'ral-4008', selected: true },
+    ]);
     // One choice is made once: the panel has done its job.
     expect(wrapper.find(SHEET).exists()).toBe(false);
   });
@@ -1284,13 +1354,15 @@ describe('ConfiguratorOptionGroup', () => {
       await wrapper.find(`${NONE} [role="radio"]`).trigger('click');
 
       expect(wrapper.emitted('change')).toHaveLength(1);
-      expect(wrapper.emitted('change')?.[0]?.[0]).toEqual({
-        type: 'option',
-        optionId: 'top-wood',
-        instanceId: '0',
-        selected: false,
-        lock: 'none',
-      });
+      expect(firstBatch(wrapper)).toEqual([
+        {
+          type: 'option',
+          optionId: 'top-wood',
+          instanceId: '0',
+          selected: false,
+          lock: 'none',
+        },
+      ]);
       // A single choice is made once, "nothing chosen" included.
       expect(wrapper.find(SHEET).exists()).toBe(false);
     });
@@ -1303,15 +1375,27 @@ describe('ConfiguratorOptionGroup', () => {
       await wrapper.find(NONE).trigger('click');
 
       expect(wrapper.emitted('change')).toHaveLength(1);
-      expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
-        optionId: 'top-wood',
-        selected: false,
-      });
+      expect(firstBatch(wrapper)).toMatchObject([
+        { optionId: 'top-wood', selected: false },
+      ]);
     });
 
-    it('cannot deselect an option the provider holds', async () => {
+    it('deselects a locked choice, which the provider lets the buyer undo', async () => {
       const { top } = optionalTop('top-wood');
       top.options[1]!.selectionSource = 'locked';
+
+      const wrapper = mountGroup(top);
+      await wrapper.find(CHOOSER).trigger('click');
+      await wrapper.find(`${NONE} [role="radio"]`).trigger('click');
+
+      expect(firstBatch(wrapper)).toMatchObject([
+        { optionId: 'top-wood', selected: false },
+      ]);
+    });
+
+    it('cannot deselect an option the provider holds read-only', async () => {
+      const { top } = optionalTop('top-wood');
+      top.options[1]!.readOnly = true;
 
       const wrapper = mountGroup(top);
       await wrapper.find(CHOOSER).trigger('click');

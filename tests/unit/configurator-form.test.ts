@@ -13,8 +13,9 @@ import {
   groupSummary,
   hasImageColumn,
   hasNothingToChoose,
-  isReadOnly,
+  isOptionReadOnly,
   isSingleSelect,
+  isVariableReadOnly,
   matchesOptionQuery,
   messagesBesides,
   NONE_ROW_VALUE,
@@ -29,6 +30,7 @@ import {
   shownOptions,
   showsRequiredMark,
   signedOptionPrice,
+  singleChoiceChanges,
   usesChooser,
   variableControl,
 } from '../../app/utils/configurator-form';
@@ -56,34 +58,142 @@ describe('variableControl', () => {
   });
 });
 
-describe('isReadOnly', () => {
+describe('isVariableReadOnly', () => {
   it('is true for the provider-owned variable in the cabinet', () => {
     const cabinet = makeCabinetConfiguration();
-    expect(isReadOnly(findVariable(cabinet, 'front-area'))).toBe(true);
+    expect(isVariableReadOnly(findVariable(cabinet, 'front-area'))).toBe(true);
   });
 
   it('covers temporarilyLocked, which no seed produces', () => {
     expect(
-      isReadOnly({ selectionSource: 'temporarilyLocked', readOnly: false }),
+      isVariableReadOnly({
+        selectionSource: 'temporarilyLocked',
+        readOnly: false,
+      }),
     ).toBe(true);
   });
 
-  it('is true for a node the provider marks read-only, whatever its source', () => {
-    expect(isReadOnly({ selectionSource: 'none', readOnly: true })).toBe(true);
-    expect(isReadOnly({ selectionSource: 'manual', readOnly: true })).toBe(
-      true,
-    );
+  it('is true for a variable the provider marks read-only, whatever its source', () => {
+    expect(
+      isVariableReadOnly({ selectionSource: 'none', readOnly: true }),
+    ).toBe(true);
+    expect(
+      isVariableReadOnly({ selectionSource: 'manual', readOnly: true }),
+    ).toBe(true);
   });
 
   it('is false for every other source', () => {
     const workbench = makeInitialConfiguration();
-    expect(isReadOnly(findVariable(workbench, 'width'))).toBe(false);
-    expect(isReadOnly({ selectionSource: 'groupRule', readOnly: false })).toBe(
-      false,
-    );
-    expect(isReadOnly({ selectionSource: 'manual', readOnly: false })).toBe(
-      false,
-    );
+    expect(isVariableReadOnly(findVariable(workbench, 'width'))).toBe(false);
+    expect(
+      isVariableReadOnly({ selectionSource: 'groupRule', readOnly: false }),
+    ).toBe(false);
+    expect(
+      isVariableReadOnly({ selectionSource: 'manual', readOnly: false }),
+    ).toBe(false);
+  });
+});
+
+// The contract: no option is read-only under Monitor, every selection state
+// lets a manual change through, and `locked` only says why a row is selected.
+describe('isOptionReadOnly', () => {
+  it('follows readOnly alone', () => {
+    expect(isOptionReadOnly({ readOnly: true })).toBe(true);
+    expect(isOptionReadOnly({ readOnly: false })).toBe(false);
+  });
+
+  it.each(['locked', 'temporarilyLocked'] as const)(
+    'leaves a %s row the buyer can change',
+    (selectionSource) => {
+      const option = findOption(makeInitialConfiguration(), 'top-wood');
+      option.selectionSource = selectionSource;
+      expect(isOptionReadOnly(option)).toBe(false);
+    },
+  );
+});
+
+describe('singleChoiceChanges', () => {
+  function top() {
+    return findOptionGroup(makeInitialConfiguration(), 'top');
+  }
+  const select = (optionId: string) => ({
+    type: 'option' as const,
+    optionId,
+    instanceId: '0',
+    selected: true,
+    lock: 'none' as const,
+  });
+  const deselect = (optionId: string) => ({
+    ...select(optionId),
+    selected: false,
+  });
+
+  it('deselects the current choice first, then selects the new one', () => {
+    expect(singleChoiceChanges(top(), select('top-steel'))).toEqual([
+      deselect('top-laminate'),
+      select('top-steel'),
+    ]);
+  });
+
+  it('deselects a locked current choice too, which a sibling pick does not release', () => {
+    const group = top();
+    group.options[0]!.selectionSource = 'locked';
+
+    expect(singleChoiceChanges(group, select('top-steel'))).toEqual([
+      deselect('top-laminate'),
+      select('top-steel'),
+    ]);
+  });
+
+  it('deselects every other chosen row of a group left holding two', () => {
+    const group = top();
+    group.options[1]!.selected = true;
+
+    expect(singleChoiceChanges(group, select('top-steel'))).toEqual([
+      deselect('top-laminate'),
+      deselect('top-wood'),
+      select('top-steel'),
+    ]);
+  });
+
+  it('sends the pick alone when it is the current choice or nothing is chosen', () => {
+    const empty = top();
+    for (const option of empty.options) option.selected = false;
+
+    expect(singleChoiceChanges(top(), select('top-laminate'))).toEqual([
+      select('top-laminate'),
+    ]);
+    expect(singleChoiceChanges(empty, select('top-steel'))).toEqual([
+      select('top-steel'),
+    ]);
+  });
+
+  it('leaves out a current choice the provider will not let go', () => {
+    const group = top();
+    group.options[0]!.readOnly = true;
+
+    expect(singleChoiceChanges(group, select('top-steel'))).toEqual([
+      select('top-steel'),
+    ]);
+  });
+
+  it('tells two rows of one option apart by their instance', () => {
+    const group = top();
+    group.options[2] = {
+      ...group.options[0]!,
+      instanceId: '1',
+      selected: false,
+    };
+
+    expect(
+      singleChoiceChanges(group, {
+        ...select('top-laminate'),
+        instanceId: '1',
+      }),
+    ).toEqual([
+      deselect('top-laminate'),
+      { ...select('top-laminate'), instanceId: '1' },
+    ]);
   });
 });
 
@@ -453,9 +563,17 @@ describe('optionBlockReason', () => {
   it('names a read-only row as read only', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'top-wood');
-    option.selectionSource = 'locked';
+    option.readOnly = true;
 
     expect(optionBlockReason(option, false)).toEqual({ kind: 'read_only' });
+  });
+
+  it('does not block a locked row: locked only says why it is selected', () => {
+    const workbench = makeInitialConfiguration();
+    const option = findOption(workbench, 'top-wood');
+    option.selectionSource = 'locked';
+
+    expect(optionBlockReason(option, false)).toBeUndefined();
   });
 
   it('names a row the rules refuse as unavailable', () => {
@@ -487,7 +605,7 @@ describe('optionBlockReason', () => {
   it('keeps a read-only row read only inside an unavailable group', () => {
     const workbench = makeInitialConfiguration();
     const option = findOption(workbench, 'top-wood');
-    option.selectionSource = 'locked';
+    option.readOnly = true;
 
     expect(optionBlockReason(option, false, true)).toEqual({
       kind: 'read_only',

@@ -5,7 +5,7 @@ import type {
 } from '#shared/types/configurator';
 import { Lock } from 'lucide-vue-next';
 import {
-  isReadOnly,
+  isOptionReadOnly,
   messagesBesides,
   optionBlockReason,
   optionImage,
@@ -52,7 +52,7 @@ const emit = defineEmits<{ change: [ConfigurationChange] }>();
 
 const { t } = useI18n();
 
-const readOnly = computed(() => isReadOnly(option));
+const readOnly = computed(() => isOptionReadOnly(option));
 
 const available = computed(() => option.available && !unavailable);
 
