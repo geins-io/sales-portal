@@ -30,28 +30,37 @@ flowchart LR
         U3["nuxt — full Nuxt environment"]
     end
 
-    subgraph E2E["Job: E2E Suite · pull requests only"]
+    subgraph E2E["E2E · pull requests only"]
         direction TB
-        P0["L0 reachability · the target is this machine, and it answers"] --> P1["L1 liveness · the server is alive"]
-        P1 --> P2["L2 identity · the right tenant answers"]
-        P2 --> P3["L3 delivery · the bundle loads and Vue mounts"]
-        P3 --> P4["L4 session · the configured account signs in"]
+        BUILD["Job: E2E · build · one production build"]
 
-        subgraph SUITE["Three browser projects · same specs"]
-            direction TB
-            B1["chromium"]
-            B2["Mobile Chrome"]
-            B3["webkit"]
+        subgraph LEGS["Three jobs in parallel · same specs, one browser project each"]
+            direction LR
+            B1["Job: E2E · chromium"]
+            B2["Job: E2E · Mobile Chrome"]
+            B3["Job: E2E · webkit"]
         end
 
-        P4 --> SUITE
+        BUILD --> LEGS
     end
 ```
 
+Each of the three browser jobs runs the same chain against its own server before its one project:
+
+```mermaid
+flowchart LR
+    P0["L0 reachability · the target is this machine, and it answers"] --> P1["L1 liveness · the server is alive"]
+    P1 --> P2["L2 identity · the right tenant answers"]
+    P2 --> P3["L3 delivery · the bundle loads and Vue mounts"]
+    P3 --> P4["L4 session · the configured account signs in"]
+    P4 --> PROJ["this job's browser project · every spec"]
+```
+
 **The five checks before the browsers.** L0 to L4 are _preflight_: cheap checks that run before
-any spec, each depending on the one below it. In CI each is a step of its own, invoked with
-`--no-deps`, so a red layer fails the job and the steps after it never start. The step view
-names the check that broke instead of showing a wall of red specs.
+any spec, each depending on the one below it. In CI each is a step of its own in every browser
+job, invoked with `--no-deps`, so a red layer fails that job and the steps after it never start.
+The step view names the check that broke instead of showing a wall of red specs. The three jobs
+do not stop one another: a red webkit leaves chromium and Mobile Chrome running to the end.
 
 **"Blocked" belongs to a different kind of run.** Where the dependencies are resolved inside one
 invocation — a bare `pnpm test:e2e` locally, or the order workflow, which does not pass
@@ -70,8 +79,8 @@ flowchart TD
     HAND --> M2["E2E Order Placement (mutating) · places one real order · never on a pull request"]
 ```
 
-_E2E Suite (manual)_ runs the identical steps and continues past a red project, because three
-wall-clock numbers are its deliverable where the gate's answer is settled by the first failure.
+_E2E Suite (manual)_ runs the same steps in one job, every project one after another, and
+continues past a red project, because three wall-clock numbers are its deliverable.
 _E2E Order Placement (mutating)_ runs a separate Playwright project that the three browser
 projects exclude, behind a gate that has to name the tenant it may write to.
 
@@ -283,8 +292,8 @@ covers, since every workflow here tests the production build.
 **Where to look when it is red.** The step view names the layer — a red preflight step says the
 environment broke before any spec ran. Below that, the scope report lists what declared itself
 out of scope, what ran with assertions off, and what is simply unknown. When a spec
-times out, read the `preview-log` artifact before touching the spec: the server may not have
-answered at all.
+times out, read that job's `preview-log-<project>` artifact before touching the spec: the
+server may not have answered at all.
 
 ## See also
 

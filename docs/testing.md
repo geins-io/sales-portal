@@ -713,13 +713,14 @@ nothing deletes — every run leaves carts behind, see
 | ---------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------- |
 | `ci.yml` · Lint & Type Check                               | PRs into `main`/`production`, pushes to `dev` | `pnpm lint`, `pnpm typecheck` (app, `tests/`, `tests/e2e/`)      |
 | `ci.yml` · Unit & Component                                | same                                          | `pnpm test:coverage` (full vitest suite)                         |
-| `ci.yml` · E2E Suite                                       | PRs only                                      | **Preflight, then every spec on all three projects**             |
+| `ci.yml` · E2E · build                                     | PRs only                                      | `pnpm build`, handed to the three jobs below                     |
+| `ci.yml` · E2E · chromium / Mobile Chrome / webkit         | PRs only, in parallel after the build         | **Preflight, then every spec on that one project**               |
 | `e2e-full.yml` · E2E Suite (manual)                        | `workflow_dispatch`, any branch               | **Preflight, then every spec on all three projects**             |
 | `e2e-order-placement.yml` · E2E Order Placement (mutating) | `workflow_dispatch` only, with a tenant name  | **Preflight, then the `orders` project — places one real order** |
 
 `retries` is zero everywhere (`playwright.config.ts`), so a red run in either workflow is a real
 failure rather than one that survived three attempts. Both run the production build, so before a
-PR run `pnpm test:e2e` locally in dev mode — the one mode nothing else covers; the PR job covers
+PR run `pnpm test:e2e` locally in dev mode — the one mode nothing else covers; the PR jobs cover
 the production build.
 
 All three workflows that start `pnpm preview` (`ci.yml`, `e2e-full.yml`,
@@ -728,25 +729,35 @@ All three workflows that start `pnpm preview` (`ci.yml`, `e2e-full.yml`,
 that Playwright's API client still holds, and a request sent at that moment is reset. Preflight L1
 fails when it is missing.
 
-### The PR job (`ci.yml`)
+### The PR jobs (`ci.yml`)
 
-The E2E job builds the production build, starts `pnpm preview` once (over https, output in the
-`preview-log` artifact), then runs one step per preflight layer against it with
+**E2E · build** builds the production build once and hands it on as the `e2e-build` artifact: one
+tarball of `.output`, because `.output/server/node_modules` holds directory symlinks that a folder
+upload would not keep. Then three jobs start in parallel, one per browser project — **E2E ·
+chromium**, **E2E · Mobile Chrome**, **E2E · webkit**. Each unpacks the build, starts its own
+`pnpm preview` (over https), runs one step per preflight layer against that server with
 `E2E_EXTERNAL_SERVER=1` and `--no-deps` — `Preflight L0 · reachability` … `L4 · session` — and
-then every spec, one step per browser project:
+then every spec on its one project:
 
 ```
---no-deps --project=chromium        # then "Mobile Chrome", then webkit
+--no-deps --project="Mobile Chrome"   # the matrix value of this job
 ```
 
-A red run stops at the layer or project that broke and the later steps are skipped, so the step
-view names it. The target and account come from repository variables (`E2E_BASE_URL`,
-`E2E_EXPECTED_TENANT_ID`) and secrets (`E2E_USERNAME`, `E2E_PASSWORD`), with the committed
-defaults when unset.
+Each job uploads its own `preview-log-<project>`, `playwright-report-<project>` and
+`test-results-<project>`, where `<project>` is `chromium`, `mobile-chrome` or `webkit`.
 
-**The gate stops at the first failing browser project; the manual workflow continues.** The
-gate answers one question — is the branch safe to merge — and the answer is settled once a
-project goes red, while the manual run exists to measure and needs all three numbers.
+Within a job, a red step stops it at the layer or project that broke and the later steps are
+skipped, so the step view names it. Across jobs nothing stops: the matrix runs with
+`fail-fast: false`, so a red webkit leaves chromium and Mobile Chrome running to the end, and the
+run reports every project's answer. A red build skips all three browser jobs; they show as
+skipped, not red, and the build job is the red one. The target and account come from repository
+variables (`E2E_BASE_URL`, `E2E_EXPECTED_TENANT_ID`) and secrets (`E2E_USERNAME`,
+`E2E_PASSWORD`), with the committed defaults when unset.
+
+**Each browser job signs in once, so a run signs in three times.** Preflight L4 in each job signs
+in against that job's own server and writes the session file only that job reads. The login rate
+limit (`loginRateLimiter`, 5 per minute per IP) lives in each preview server's own memory, so the
+three sign-ins do not count against one another.
 
 A green run is still not evidence that the Geins backend is healthy: the identity layer fails
 against an unreachable merchant API (503) or an unregistered hostname, but the specs run
@@ -756,15 +767,15 @@ against whatever that API returns.
 
 `workflow_dispatch` only, on any branch: `gh workflow run e2e-full.yml --ref <branch>`.
 
-Same target as the PR job — a production build on the runner — with chromium, webkit and the
+Same target as the PR jobs — a production build on the runner — with chromium, webkit and the
 Mobile Chrome device profile. Each preflight layer and each browser project is its own step, and
 wall-clock per project goes to the job summary. This workflow needs no mutation gate, but not
 because the suite writes nothing — see [What a run leaves behind](#what-a-run-leaves-behind). It
 needs none because the three browser projects cannot collect the one spec that places an order.
 
-A run signs in once however many browsers it drives — preflight L4 writes the session, every
-auth-dependent spec reads that file — so splitting the projects across jobs, or sharding, repeats
-the preflight and with it the sign-in against a rate-limited endpoint.
+Unlike the PR jobs, this run drives all three projects from one job and one sign-in — preflight L4
+writes the session, every auth-dependent spec reads that file — and continues past a red project,
+because three wall-clock numbers are its deliverable.
 
 ### What a run leaves behind
 
@@ -801,8 +812,8 @@ Two structural locks make an accidental order impossible, which is why this can 
 open-source repository:
 
 1. **The spec has its own project in its own folder** (`tests/e2e/orders/`), which the `chromium`,
-   `Mobile Chrome` and `webkit` projects ignore exactly as they ignore `preflight/`. The PR job and
-   the manual workflow both select projects by name, so neither can collect it. An invocation
+   `Mobile Chrome` and `webkit` projects ignore exactly as they ignore `preflight/`. The PR jobs and
+   the manual workflow all select projects by name, so none of them can collect it. An invocation
    that names no project — a bare `pnpm test:e2e` — runs every project and does collect it, which
    is what the second lock is for.
 2. **`E2E_ALLOW_ORDERS_FOR` carries a tenant name, not a boolean.** This is the lock that matters
@@ -829,7 +840,9 @@ number rather than widening the wait.
 Every workflow names its browser set in its Playwright cache key, because cache entries are
 immutable: a key that cannot express which browsers an entry holds would restore a chromium-only
 cache forever and pay the webkit download on every run. That is also why the order workflow, which
-needs chromium alone, carries a key of its own rather than sharing the other two's. Two things that cache does not buy —
+needs chromium alone, carries a key of its own rather than sharing the other two's, and why all
+three PR jobs install chromium and webkit although only one of them drives webkit: they share one
+entry, and the first green job to finish is the one that saves it. Two things that cache does not buy —
 `--with-deps` runs `apt-get` every time and that is never cached, and an entry only saves from a
 green job, so the first runs after a key changes look slower than the steady state.
 
