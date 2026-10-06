@@ -4,6 +4,12 @@ import { filterVisibleCampaigns } from '#shared/types/commerce';
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { internalFetch } from '~/utils/internal-fetch';
 
+/** The portal's own error code on a failed call to an `/api` route. */
+function errorCodeOf(failure: unknown): unknown {
+  return (failure as { data?: { data?: { code?: unknown } } } | null)?.data
+    ?.data?.code;
+}
+
 export const useCartStore = defineStore('cart', () => {
   const cartId = useCookie<string | null>(COOKIE_NAMES.CART_ID, {
     maxAge: 60 * 60 * 24 * 30,
@@ -19,10 +25,17 @@ export const useCartStore = defineStore('cart', () => {
    * through quantity changes: the buyer reads the cart while adjusting it.
    */
   const skippedConfigurable = ref(0);
+  /**
+   * The cart is there but answers only to the buyer signed in, so it is kept
+   * by id and the cart asks for sign-in in place of its lines. Set by the
+   * read's answer alone.
+   */
+  const needsSignIn = ref(false);
   watch(
     cartId,
     () => {
       skippedConfigurable.value = 0;
+      needsSignIn.value = false;
     },
     { flush: 'sync' },
   );
@@ -50,9 +63,14 @@ export const useCartStore = defineStore('cart', () => {
       cart.value = await internalFetch<CartType>('/api/cart', {
         query: { cartId: cartId.value },
       });
-    } catch {
-      error.value = 'Failed to load cart';
+      needsSignIn.value = false;
+    } catch (failure) {
       cart.value = null;
+      if (errorCodeOf(failure) === 'CART_LOGIN_REQUIRED') {
+        needsSignIn.value = true;
+        return;
+      }
+      error.value = 'Failed to load cart';
       cartId.value = null;
     } finally {
       isLoading.value = false;
@@ -61,6 +79,11 @@ export const useCartStore = defineStore('cart', () => {
 
   async function addItem(skuId: number, quantity: number) {
     skippedConfigurable.value = 0;
+    // An add would be refused too, and a new cart would orphan this one.
+    if (needsSignIn.value) {
+      isOpen.value = true;
+      return;
+    }
     isLoading.value = true;
     error.value = null;
     try {
@@ -91,6 +114,10 @@ export const useCartStore = defineStore('cart', () => {
     quantity: number,
   ): Promise<{ cartId: string; itemId: string } | null> {
     skippedConfigurable.value = 0;
+    if (needsSignIn.value) {
+      isOpen.value = true;
+      throw new Error('The cart needs the buyer signed in');
+    }
     isLoading.value = true;
     try {
       let id = cartId.value;
@@ -225,6 +252,7 @@ export const useCartStore = defineStore('cart', () => {
     isLoading,
     error,
     skippedConfigurable,
+    needsSignIn,
     itemCount,
     isEmpty,
     discountAmount,

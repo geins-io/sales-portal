@@ -13,7 +13,7 @@ const { showIncVat } = useVatDisplay();
 
 // Fetch cart on mount if we have a cartId but no cart data
 onMounted(() => {
-  if (cartStore.cartId && !cartStore.cart) {
+  if (cartStore.cartId && !cartStore.cart && !cartStore.needsSignIn) {
     cartStore.fetchCart();
   }
 });
@@ -91,6 +91,12 @@ function goToCheckout() {
       <CartPageSkeleton
         v-if="cartStore.isLoading && !cartStore.cart"
         data-testid="cart-page-loading"
+      />
+
+      <CartSignInPrompt
+        v-else-if="cartStore.needsSignIn"
+        class="py-24"
+        data-testid="cart-page-sign-in"
       />
 
       <!-- Empty state -->

@@ -89,3 +89,31 @@ export function describeSdkError(error: unknown): Record<string, unknown> {
 export function isSdkClientFault(error: unknown): boolean {
   return isObject(error) && CLIENT_FAULT_CODES.has(Reflect.get(error, 'code'));
 }
+
+function carriesLoginRequired(value: unknown): boolean {
+  if (!isObject(value)) return false;
+  const graphQLErrors: unknown = Reflect.get(value, 'graphQLErrors');
+  return (
+    Array.isArray(graphQLErrors) &&
+    graphQLErrors.some((graphQLError: unknown) => {
+      if (!isObject(graphQLError)) return false;
+      const extensions: unknown = Reflect.get(graphQLError, 'extensions');
+      return (
+        isObject(extensions) &&
+        Reflect.get(extensions, 'code') === 'LoginRequired'
+      );
+    })
+  );
+}
+
+/**
+ * True when Geins refused a cart until the buyer signs in: a cart holding a
+ * configured line answers `LoginRequired` to a request without a user token.
+ * A write throws the GraphQL error as it is; the read rewraps it as `cause`.
+ */
+export function isSdkLoginRequired(error: unknown): boolean {
+  return (
+    carriesLoginRequired(error) ||
+    (isObject(error) && carriesLoginRequired(Reflect.get(error, 'cause')))
+  );
+}

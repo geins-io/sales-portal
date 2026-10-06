@@ -101,6 +101,7 @@
     "add_failed": "Epäonnistui",
     "add": "Lisää",
     "empty_cart": "Ostoskorisi on tyhjä",
+    "sign_in_to_see_cart": "Kirjaudu sisään nähdäksesi ostoskorisi",
     "empty_cart_message": "Näyttää siltä, ettet ole vielä lisännyt mitään ostoskoriin.",
     "continue_shopping": "Jatka ostoksia",
     "remove_item": "Poista tuote",

@@ -100,6 +100,12 @@ function goToCheckout() {
         <Loader2 class="text-muted-foreground size-6 animate-spin" />
       </div>
 
+      <CartSignInPrompt
+        v-else-if="cartStore.needsSignIn"
+        class="flex-1"
+        data-testid="cart-sign-in"
+      />
+
       <!-- Empty state; a bulk add that added nothing still says why -->
       <template v-else-if="cartStore.isEmpty">
         <CartSkippedNote class="mx-6 mt-4" />

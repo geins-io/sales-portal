@@ -6,8 +6,10 @@ import type {
   CartLineConfiguration,
   CartType,
 } from '#shared/types/commerce';
+import { createAppError, ErrorCode } from '../utils/errors';
 import { canAccessFeatureServer } from '../utils/feature-access';
 import { logger } from '../utils/logger';
+import { isSdkLoginRequired } from '../utils/sdk-error';
 import { getTenantSDK, buildRequestContext } from './_sdk';
 import {
   buildConfiguratorRequestContext,
@@ -63,6 +65,18 @@ function withLineConfigurations(
   };
 }
 
+/**
+ * A refusal to read until the buyer signs in is the buyer's state, not an
+ * outage. Signed in, it is another buyer's cart, which sign-in cannot open, so
+ * it fails as before and the buyer gets a cart of their own.
+ */
+function signInRequired(error: unknown, signedIn: boolean): never {
+  if (!signedIn && isSdkLoginRequired(error)) {
+    throw createAppError(ErrorCode.CART_LOGIN_REQUIRED);
+  }
+  throw error;
+}
+
 async function readCart(
   cartId: string,
   event: H3Event,
@@ -70,8 +84,16 @@ async function readCart(
 ): Promise<CartType> {
   const { oms } = await getTenantSDK(event);
   const ctx = buildRequestContext(event);
+  const signedIn = !!getSessionToken(event);
   const [cart, lines] = await Promise.all([
-    wrapServiceCall(() => oms.cart.get(cartId, false, ctx), 'cart', CartError),
+    wrapServiceCall(
+      () =>
+        oms.cart
+          .get(cartId, false, ctx)
+          .catch((error: unknown) => signInRequired(error, signedIn)),
+      'cart',
+      CartError,
+    ),
     lineConfigurations(cartId, event, backend),
   ]);
   return withLineConfigurations(cart, lines);
@@ -164,18 +186,43 @@ export async function copyCart(
 ): Promise<SdkCartType> {
   const { oms } = await getTenantSDK(event);
   const ctx = { ...buildRequestContext(event), userToken };
+  // Not `configuratorFor`: the cart may hold a configured line whatever the
+  // gate says now, and the request carries no session yet.
+  const backend = getConfiguratorBackend(event);
+  const configuratorCtx = {
+    ...(await buildConfiguratorRequestContext(event)),
+    userToken,
+  };
   // Geins does not reprice items in cartCopy and forceRefresh on cartGet
   // doesn't help either — prices in those mutations are locked at the
   // moment the line was originally added (guest context). The only way
   // to get pricelist prices applied is to re-resolve each line through
   // addItem under the authenticated context, which runs the full SKU
-  // pricing pipeline.
+  // pricing pipeline. A configured line is carried by its committed id
+  // instead: added by SKU it would lose its configuration and its price.
+  // A configured line that cannot be carried fails the copy.
   return wrapServiceCall(
     async () => {
-      const guest = await oms.cart.get(cartId, false, ctx);
+      const [guest, configured] = await Promise.all([
+        oms.cart.get(cartId, false, ctx),
+        backend.cartLineConfigurations(cartId, configuratorCtx),
+      ]);
       const authed = await oms.cart.create(ctx);
       for (const item of guest.items ?? []) {
         if (item.skuId == null || item.quantity <= 0) continue;
+        const configuration = item.id ? configured.get(item.id) : undefined;
+        if (configuration) {
+          await backend.addToCart(
+            authed.id,
+            {
+              committedConfigurationId: configuration.configurationId,
+              skuId: item.skuId,
+              quantity: item.quantity,
+            },
+            configuratorCtx,
+          );
+          continue;
+        }
         try {
           await oms.cart.addItem(
             authed.id,

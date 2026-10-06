@@ -101,6 +101,7 @@
     "add_failed": "Mislykkedes",
     "add": "Tilføj",
     "empty_cart": "Din kurv er tom",
+    "sign_in_to_see_cart": "Log ind for at se din kurv",
     "empty_cart_message": "Det ser ud til, at du ikke har lagt noget i kurven endnu.",
     "continue_shopping": "Fortsæt med at handle",
     "remove_item": "Fjern vare",

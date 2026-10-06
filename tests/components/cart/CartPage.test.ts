@@ -174,6 +174,21 @@ describe('CartPage', () => {
     );
   });
 
+  it('asks the buyer to sign in, in place of the empty state, when the cart needs it', () => {
+    useCartStore().needsSignIn = true;
+
+    const wrapper = shallowMountComponent(CartPage, {
+      global: { stubs: defaultStubs },
+    });
+
+    expect(wrapper.find('[data-testid="cart-page-sign-in"]').exists()).toBe(
+      true,
+    );
+    expect(wrapper.find('[data-testid="cart-page-empty"]').exists()).toBe(
+      false,
+    );
+  });
+
   it('renders the page title with item count', () => {
     const store = useCartStore();
     store.cart = mockCart;

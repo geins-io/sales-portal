@@ -14,6 +14,7 @@ import {
 import { GeinsOMS } from '@geins/oms';
 import { RuntimeContext } from '@geins/types';
 import { ErrorCode, wrapServiceCall } from '../../server/utils/errors';
+import { isSdkLoginRequired } from '../../server/utils/sdk-error';
 import { logger } from '../../server/utils/logger';
 
 vi.mock('../../server/utils/logger', () => ({
@@ -64,6 +65,22 @@ const INVALID_API_KEY = {
   ],
   data: { checkout: null },
 };
+
+// What the CPQ-capable merchant API answered on 2026-10-06 to a cart read
+// without a user token, for a cart holding a configured line. HTTP 200.
+function loginRequired(path: string) {
+  return {
+    errors: [
+      {
+        message: 'You need to be logged in to retrieve this cart',
+        locations: [{ line: 1, column: 19 }],
+        path: [path],
+        extensions: { code: 'LoginRequired', codes: ['LoginRequired'] },
+      },
+    ],
+    data: { [path]: null },
+  };
+}
 
 const ORDER_ID = '00000000-0000-4000-8000-000000000000';
 
@@ -287,6 +304,79 @@ describe('wrapServiceCall with errors from the real Geins SDK', () => {
         code: 'CART_OPERATION_FAILED',
         cause: { name: 'CartError', code: 'CART_NOT_FOUND' },
       },
+    });
+  });
+
+  describe('a cart that needs the buyer signed in', () => {
+    async function rejection(call: () => Promise<unknown>): Promise<unknown> {
+      try {
+        await call();
+      } catch (error) {
+        return error;
+      }
+      throw new Error('expected the call to throw');
+    }
+
+    it('is recognised on the read, which the SDK rewraps', async () => {
+      const oms = omsAnswering(async () => json(loginRequired('getCart')));
+
+      const error = await rejection(() => oms.cart.get(ORDER_ID));
+
+      expect(error).toMatchObject({ code: 'CART_OPERATION_FAILED' });
+      expect(isSdkLoginRequired(error)).toBe(true);
+    });
+
+    it('is recognised on a write, which the SDK throws as it is', async () => {
+      const oms = omsAnswering(async () => json(loginRequired('addToCart')));
+
+      const error = await rejection(() =>
+        oms.cart.addItem(ORDER_ID, { skuId: 1, quantity: 1 }),
+      );
+
+      expect(isSdkLoginRequired(error)).toBe(true);
+    });
+
+    it('is not any other GraphQL error, or a failure without one', async () => {
+      const oms = omsAnswering(async () => json(INVALID_PAYMENT_TYPE));
+      const invalid = await rejection(() =>
+        oms.checkout.summary({ orderId: ORDER_ID, paymentMethod: 'invoice' }),
+      );
+      const missing = await rejection(() =>
+        omsAnswering(async () => json({ data: { getCart: null } })).cart.get(
+          ORDER_ID,
+        ),
+      );
+
+      expect(isSdkLoginRequired(invalid)).toBe(false);
+      expect(isSdkLoginRequired(missing)).toBe(false);
+      expect(isSdkLoginRequired(new Error('LoginRequired'))).toBe(false);
+      expect(isSdkLoginRequired(null)).toBe(false);
+    });
+
+    it('finds it among other GraphQL errors, past any that is not an object', () => {
+      const loginRequired = { extensions: { code: 'LoginRequired' } };
+      const other = { extensions: { code: 'INVALID_VALUE' } };
+
+      expect(
+        isSdkLoginRequired({ graphQLErrors: [other, null, loginRequired] }),
+      ).toBe(true);
+      expect(
+        isSdkLoginRequired({ cause: { graphQLErrors: [null, 'text', other] } }),
+      ).toBe(false);
+    });
+
+    it('keeps a write at 502: only the read is mapped', async () => {
+      const oms = omsAnswering(async () => json(loginRequired('addToCart')));
+
+      const error = await caught(
+        wrapServiceCall(
+          () => oms.cart.addItem(ORDER_ID, { skuId: 1, quantity: 1 }),
+          'cart',
+          CartError,
+        ),
+      );
+
+      expect(error.statusCode).toBe(502);
     });
   });
 
