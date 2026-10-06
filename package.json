@@ -45,11 +45,11 @@
     "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
-    "@geins/cms": "0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747",
-    "@geins/core": "0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747",
-    "@geins/crm": "0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747",
-    "@geins/oms": "0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747",
-    "@geins/types": "0.11.0-canary-626d8bb7d81dccc505bd1eb36fe4686bd1edc747",
+    "@geins/cms": "0.11.0",
+    "@geins/core": "0.11.0",
+    "@geins/crm": "0.11.0",
+    "@geins/oms": "0.11.0",
+    "@geins/types": "0.11.0",
     "@nuxt/fonts": "0.12.1",
     "@nuxt/hints": "1.0.0-alpha.2",
     "@nuxt/icon": "2.1.0",
