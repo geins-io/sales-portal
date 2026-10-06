@@ -1,5 +1,6 @@
 import { COOKIE_NAMES } from '#shared/constants/storage';
 import { hasLocaleMarketPrefix } from '#shared/utils/locale-market';
+import { routeLocaleMarket } from '~/utils/locale-prefix';
 
 /**
  * Composable for URL-based locale and market routing.
@@ -46,10 +47,30 @@ export function useLocaleMarket() {
     return new Set(Array.isArray(markets) ? markets : []);
   });
 
-  /** Current market code (from cookie, falling back to tenant default). */
-  const currentMarket = computed(
-    () => marketCookie.value || tenantMarket.value || 'se',
-  );
+  /**
+   * Current market code: the route's market when the tenant serves it, else
+   * the cookie, else the tenant default.
+   *
+   * The route comes first because SSR and the client must agree on it. On the
+   * server `useCookie` reads the REQUEST header, so a first visit to `/de/...`
+   * (no cookie, or a stale `market=se`) would fetch under the tenant default
+   * while the hydrating client, holding the `market=de` the response just set,
+   * asks for `de`. The `localeQuery` keys then miss the payload and the page's
+   * content load comes back empty.
+   *
+   * Route middleware must read the market from `to`, not from this: in a
+   * middleware `useRoute()` can still hold the route being left.
+   */
+  const currentMarket = computed(() => {
+    const routeMarket = routeLocaleMarket(route)?.market;
+    if (
+      routeMarket &&
+      (validMarkets.value.size === 0 || validMarkets.value.has(routeMarket))
+    ) {
+      return routeMarket;
+    }
+    return marketCookie.value || tenantMarket.value || 'se';
+  });
 
   /** Current locale code (from i18n state). */
   const currentLocale = computed(() => i18nLocale.value);

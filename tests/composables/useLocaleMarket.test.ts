@@ -8,6 +8,7 @@ const mockMarketCookieValue = ref<string | null>('se');
 const mockLocaleRef = ref('sv');
 const mockRouteFullPath = ref('/se/sv/foder');
 const mockRouteName = ref<string>('slug');
+const mockRouteParams = ref<Record<string, unknown>>({});
 const mockTenantMarket = ref('se');
 const mockAvailableLocales = ref<string[]>(['sv', 'en']);
 const mockAvailableMarkets = ref<string[]>(['se', 'no', 'dk']);
@@ -33,6 +34,8 @@ vi.mock('~/composables/useTenant', () => ({
 vi.mock('#app/composables/router', () => ({
   useRoute: () => ({
     fullPath: mockRouteFullPath.value,
+    path: mockRouteFullPath.value.split('?')[0],
+    params: mockRouteParams.value,
     name: mockRouteName.value,
   }),
   navigateTo: (...args: unknown[]) => mockNavigateTo(...args),
@@ -85,6 +88,7 @@ describe('useLocaleMarket', () => {
     mockLocaleRef.value = 'sv';
     mockRouteFullPath.value = '/se/sv/foder';
     mockRouteName.value = 'slug';
+    mockRouteParams.value = {};
     mockTenantMarket.value = 'se';
     mockAvailableLocales.value = ['sv', 'en'];
     mockAvailableMarkets.value = ['se', 'no', 'dk'];
@@ -94,6 +98,8 @@ describe('useLocaleMarket', () => {
     vi.stubGlobal('computed', computed);
     vi.stubGlobal('useRoute', () => ({
       fullPath: mockRouteFullPath.value,
+      path: mockRouteFullPath.value.split('?')[0],
+      params: mockRouteParams.value,
       name: mockRouteName.value,
     }));
     vi.stubGlobal('useCookie', () => mockMarketCookieValue);
@@ -211,7 +217,39 @@ describe('useLocaleMarket', () => {
   });
 
   describe('currentMarket', () => {
-    it('should return market from cookie', () => {
+    it('should prefer the route market over a disagreeing cookie', () => {
+      // A stale cookie must not decide the market SSR fetches under; the
+      // hydrating client derives it from the same route.
+      mockRouteFullPath.value = '/no/sv/c/kategori';
+      mockMarketCookieValue.value = 'se';
+      const { currentMarket } = useLocaleMarket();
+      expect(currentMarket.value).toBe('no');
+    });
+
+    it('should prefer the market param over the path', () => {
+      mockRouteParams.value = { market: 'dk', locale: 'sv' };
+      mockRouteFullPath.value = '/no/sv/c/kategori';
+      const { currentMarket } = useLocaleMarket();
+      expect(currentMarket.value).toBe('dk');
+    });
+
+    it('should fall back to the cookie when the tenant does not list the route market', () => {
+      mockRouteFullPath.value = '/de/sv/c/kategori';
+      mockMarketCookieValue.value = 'no';
+      const { currentMarket } = useLocaleMarket();
+      expect(currentMarket.value).toBe('no');
+    });
+
+    it('should accept a two-letter route market while the tenant markets are not loaded', () => {
+      mockAvailableMarkets.value = [];
+      mockRouteFullPath.value = '/de/sv/c/kategori';
+      mockMarketCookieValue.value = 'se';
+      const { currentMarket } = useLocaleMarket();
+      expect(currentMarket.value).toBe('de');
+    });
+
+    it('should return market from cookie on an unprefixed route', () => {
+      mockRouteFullPath.value = '/contact';
       mockMarketCookieValue.value = 'no';
       const { currentMarket } = useLocaleMarket();
       expect(currentMarket.value).toBe('no');
@@ -219,6 +257,7 @@ describe('useLocaleMarket', () => {
 
     it('should fall back to the tenant default market when no cookie', () => {
       // 'dk', not 'se', so this actually discriminates from the last resort.
+      mockRouteFullPath.value = '/contact';
       mockMarketCookieValue.value = null;
       mockTenantMarket.value = 'dk';
       const { currentMarket } = useLocaleMarket();
@@ -226,6 +265,7 @@ describe('useLocaleMarket', () => {
     });
 
     it('should prefer the cookie over the tenant default market', () => {
+      mockRouteFullPath.value = '/contact';
       mockMarketCookieValue.value = 'no';
       mockTenantMarket.value = 'dk';
       const { currentMarket } = useLocaleMarket();
@@ -233,10 +273,20 @@ describe('useLocaleMarket', () => {
     });
 
     it('should fall back to "se" when both cookie and tenant empty', () => {
+      mockRouteFullPath.value = '/contact';
       mockMarketCookieValue.value = null;
       mockTenantMarket.value = '';
       const { currentMarket } = useLocaleMarket();
       expect(currentMarket.value).toBe('se');
+    });
+  });
+
+  describe('localeQuery', () => {
+    it('should carry the route market, not a stale cookie', () => {
+      mockRouteFullPath.value = '/no/sv/c/kategori';
+      mockMarketCookieValue.value = 'se';
+      const { localeQuery } = useLocaleMarket();
+      expect(localeQuery.value).toEqual({ locale: 'sv', market: 'no' });
     });
   });
 
