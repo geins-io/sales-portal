@@ -173,7 +173,9 @@ describe('ConfiguratorOptionRow', () => {
     );
   });
 
-  it('emits a selection when the checkbox is clicked', async () => {
+  // A pick carries no quantity: the provider keeps the row's own, and refuses
+  // the 0 a row like "No extended warranty" carries.
+  it('emits a selection with no quantity when the checkbox is clicked', async () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountRow(findOption(workbench, 'ind-esd'));
@@ -184,21 +186,52 @@ describe('ConfiguratorOptionRow', () => {
       optionId: 'ind-esd',
       instanceId: '0',
       selected: true,
-      quantity: 1,
       lock: 'none',
     });
   });
 
-  it('emits a deselection for a row that was selected', async () => {
+  it('emits a deselection with no quantity for a row that was selected', async () => {
     const workbench = makeInitialConfiguration();
 
     const wrapper = mountRow(findOption(workbench, 'top-laminate'));
     await wrapper.find('[role="checkbox"]').trigger('click');
 
-    expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
+    const change = wrapper.emitted('change')?.[0]?.[0];
+    expect(change).toMatchObject({
       optionId: 'top-laminate',
       selected: false,
     });
+    expect(change).not.toHaveProperty('quantity');
+  });
+
+  it('picks a row of quantity 0 with no quantity, from the checkbox and from the row', async () => {
+    const option = {
+      ...findOption(makeInitialConfiguration(), 'ind-esd'),
+      quantity: 0,
+      defaultQuantity: 0,
+      minQuantity: 0,
+      maxQuantity: 0,
+    };
+
+    const multi = mountRow(option);
+    await multi.find('[role="checkbox"]').trigger('click');
+    const single = mountComponent(ConfiguratorOptionRow, {
+      props: { option, single: true, imageColumn: false },
+      global: {
+        stubs: {
+          RadioGroupItem: {
+            template: '<button role="radio" v-bind="$attrs" />',
+          },
+        },
+      },
+    });
+    await single.find('[data-testid="configurator-option"]').trigger('click');
+
+    for (const wrapper of [multi, single]) {
+      const change = wrapper.emitted('change')?.[0]?.[0];
+      expect(change).toMatchObject({ optionId: 'ind-esd', selected: true });
+      expect(change).not.toHaveProperty('quantity');
+    }
   });
 
   it('emits nothing when a disabled row is clicked', async () => {
@@ -299,6 +332,25 @@ describe('ConfiguratorOptionRow', () => {
       expect(wrapper.find(STEPPER).exists()).toBe(false);
       expect(wrapper.find(FIXED).exists()).toBe(false);
     });
+
+    // "No extended warranty": the quantity field goes, the choice stays.
+    it('shows no quantity on a chosen row whose maximum is 0, and keeps it a choice', () => {
+      const wrapper = mountRow(
+        chosen({
+          minQuantity: 0,
+          maxQuantity: 0,
+          quantity: 0,
+          defaultQuantity: 0,
+        }),
+        { quantityEditable: true },
+      );
+
+      expect(wrapper.find(STEPPER).exists()).toBe(false);
+      expect(wrapper.find(FIXED).exists()).toBe(false);
+      expect(
+        wrapper.find('[role="checkbox"]').attributes('disabled'),
+      ).toBeUndefined();
+    });
   });
 
   it('emits the new quantity, keeping the row selected', async () => {
@@ -368,6 +420,22 @@ describe('ConfiguratorOptionRow', () => {
     await wrapper.find('[data-testid="configurator-option"]').trigger('click');
 
     expect(wrapper.emitted('change')).toBeUndefined();
+  });
+
+  it('never lets the stepper reach 0, whatever minimum the provider sends', () => {
+    const option = {
+      ...findOption(makeInitialConfiguration(), 'acc-power'),
+      selected: true,
+      quantity: 1,
+      minQuantity: 0,
+      maxQuantity: 4,
+    };
+
+    const wrapper = mountRow(option, { quantityEditable: true });
+
+    expect(
+      wrapper.find('[data-testid="qty-decrement"]').attributes('disabled'),
+    ).toBeDefined();
   });
 
   it('changes the quantity without toggling the row it sits on', async () => {

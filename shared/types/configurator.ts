@@ -190,7 +190,8 @@ export type ConfigurationChange =
       optionId: string;
       instanceId: string;
       selected: boolean;
-      quantity: number;
+      /** Left out, the provider keeps the row's own quantity. */
+      quantity?: number;
       lock: 'none' | 'lock' | 'unlock';
     }
   | { type: 'quantity'; quantity: number };

@@ -918,6 +918,26 @@ describe('toWireChange', () => {
     expect(change).toMatchObject({ type: 'OPTION', lock: wire });
   });
 
+  // Measured on a row whose quantity is 0: the provider refuses 0 and a 1 makes
+  // the configuration invalid; left out, the row keeps its own quantity.
+  it('leaves the quantity out of an option change that carries none', () => {
+    const change = toWireChange({
+      type: 'option',
+      optionId: 'o',
+      instanceId: '0',
+      selected: true,
+      lock: 'none',
+    });
+    expect(change).toEqual({
+      type: 'OPTION',
+      optionId: 'o',
+      instanceId: '0',
+      selected: true,
+      lock: 'NONE',
+    });
+    expect(change).not.toHaveProperty('quantity');
+  });
+
   it("sends the configuration's own quantity", () => {
     expect(toWireChange({ type: 'quantity', quantity: 3 })).toEqual({
       type: 'QUANTITY',

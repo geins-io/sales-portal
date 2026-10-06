@@ -96,7 +96,8 @@ export function replayChanges(
         optionId: option.id,
         instanceId: option.instanceId,
         selected: true,
-        quantity: option.quantity,
+        // The provider refuses a 0; left out, it keeps the row's own.
+        ...(option.quantity > 0 && { quantity: option.quantity }),
         lock: 'none',
       });
     }

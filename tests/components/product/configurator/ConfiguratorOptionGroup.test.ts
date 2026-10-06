@@ -194,9 +194,31 @@ describe('ConfiguratorOptionGroup', () => {
       optionId: 'top-steel',
       instanceId: '0',
       selected: true,
-      quantity: 1,
       lock: 'none',
     });
+  });
+
+  // "No extended warranty": quantity, minimum and maximum all 0. The provider
+  // refuses a 0 and is made invalid by a 1, so the pick sends none.
+  it('picks a row of quantity 0 with no quantity', async () => {
+    const workbench = makeInitialConfiguration();
+    const top = findOptionGroup(workbench, 'top');
+    Object.assign(findOption(workbench, 'top-steel'), {
+      quantity: 0,
+      defaultQuantity: 0,
+      minQuantity: 0,
+      maxQuantity: 0,
+    });
+
+    const wrapper = mountGroup(top);
+    await wrapper.find(CHOOSER).trigger('click');
+    await wrapper
+      .find(`${SHEET} [data-option-id="top-steel"] [role="radio"]`)
+      .trigger('click');
+
+    const change = wrapper.emitted('change')?.[0]?.[0];
+    expect(change).toMatchObject({ optionId: 'top-steel', selected: true });
+    expect(change).not.toHaveProperty('quantity');
   });
 
   it('checks the row the document says is selected', async () => {
@@ -631,10 +653,9 @@ describe('ConfiguratorOptionGroup', () => {
       .find('[data-option-id="acc-light"] [role="checkbox"]')
       .trigger('click');
 
-    expect(wrapper.emitted('change')?.[0]?.[0]).toMatchObject({
-      optionId: 'acc-light',
-      selected: false,
-    });
+    const change = wrapper.emitted('change')?.[0]?.[0];
+    expect(change).toMatchObject({ optionId: 'acc-light', selected: false });
+    expect(change).not.toHaveProperty('quantity');
   });
 
   it('keeps the stepper on a chosen row of a quantity-editable group', () => {
@@ -1268,7 +1289,6 @@ describe('ConfiguratorOptionGroup', () => {
         optionId: 'top-wood',
         instanceId: '0',
         selected: false,
-        quantity: 1,
         lock: 'none',
       });
       // A single choice is made once, "nothing chosen" included.

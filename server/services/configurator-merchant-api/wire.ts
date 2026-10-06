@@ -117,7 +117,7 @@ export type WireChange =
       optionId: string;
       instanceId: string;
       selected: boolean;
-      quantity: number;
+      quantity?: number;
       lock: 'NONE' | 'LOCK' | 'UNLOCK';
     }
   | { type: 'QUANTITY'; quantity: number };

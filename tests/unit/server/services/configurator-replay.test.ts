@@ -266,6 +266,29 @@ describe('replayChanges', () => {
     expect(replayChanges(choices, fresh)).toBeNull();
   });
 
+  it('leaves the quantity out of a row committed at 0, which the provider refuses, and keeps one above it', () => {
+    const choices = {
+      ...CHOICES,
+      variables: [],
+      options: [
+        { id: 'adapter', instanceId: '0', quantity: 0 },
+        { id: 'trim', instanceId: '2', quantity: 3 },
+      ],
+    };
+
+    const [zero, three] = replayChanges(choices, freshSession()) ?? [];
+
+    expect(zero).toEqual({
+      type: 'option',
+      optionId: 'adapter',
+      instanceId: '0',
+      selected: true,
+      lock: 'none',
+    });
+    expect(zero).not.toHaveProperty('quantity');
+    expect(three).toMatchObject({ optionId: 'trim', quantity: 3 });
+  });
+
   it('sends a choice that matches the default, since the provider accepts it', () => {
     const fresh = freshSession({
       width: { value: 1200 },

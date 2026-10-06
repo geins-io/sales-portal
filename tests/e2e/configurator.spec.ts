@@ -462,6 +462,48 @@ test.describe('Configurator group message', () => {
 });
 
 /**
+ * The same seed's "No extended warranty": quantity, minimum and maximum all 0,
+ * preselected, as the real provider sends it. A pick that carried its 0 was
+ * refused before it reached the provider.
+ */
+const WARRANTY_GROUP = 'warranty';
+
+test.describe('Configurator option of quantity 0', () => {
+  test('chooses the option of quantity 0 again after another one', async ({
+    page,
+  }) => {
+    const unavailable = await unavailableReason(page, DEEP_ALIAS);
+    outOfScope(!!unavailable, 'tenant-config', unavailable ?? '');
+
+    await openConfigurator(page, DEEP_ALIAS);
+    await openSection(page, 'power');
+
+    const group = page.locator(
+      `[data-testid="configurator-group"][data-group-id="${WARRANTY_GROUP}"]`,
+    );
+    const pick = async (optionId: string) => {
+      await group.getByTestId('configurator-group-chooser').click();
+      const sheet = page.getByTestId('configurator-group-sheet');
+      await expect(sheet).toBeInViewport({ ratio: 1 });
+      const changed = changeResponse(page);
+      await sheet.locator(`[data-option-id="${optionId}"]`).click();
+      expect((await changed).status()).toBe(200);
+      await expect(action(page)).toHaveAttribute('aria-busy', 'false');
+      await expect(
+        group.locator(`[data-option-id="${optionId}"]`),
+      ).toHaveAttribute('data-selected', 'true');
+    };
+
+    await expect(
+      group.locator('[data-option-id="warranty-none"]'),
+    ).toHaveAttribute('data-selected', 'true');
+    await pick('warranty-1y');
+    await pick('warranty-none');
+    await expect(page.getByTestId('configurator-commit')).toBeEnabled();
+  });
+});
+
+/**
  * The same seed's open number with a refusal the range cannot say: zero is
  * refused, as the real provider refuses it beside a length.
  */

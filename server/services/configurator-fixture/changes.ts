@@ -64,7 +64,11 @@ function checkOption(
   if (change.lock !== 'none') refuse('The fixture cannot pin a row');
   const min = option.minQuantity ?? 1;
   const max = option.maxQuantity;
-  if (change.quantity < min || (max !== undefined && change.quantity > max)) {
+  const { quantity } = change;
+  if (
+    quantity !== undefined &&
+    (quantity < min || (max !== undefined && quantity > max))
+  ) {
     refuse(`'${option.id}' cannot be ordered in that quantity`);
   }
   return option;
@@ -114,11 +118,13 @@ function check(
     return { kind: 'variable', id: variable.id, value: change.value };
   }
   if (change.type === 'option') {
+    const option = checkOption(config, change);
+    // Left out, the row keeps its own quantity, as the provider does.
     return {
       kind: 'option',
-      option: checkOption(config, change),
+      option,
       selected: change.selected,
-      quantity: change.quantity,
+      quantity: change.quantity ?? option.quantity,
     };
   }
   if (change.quantity < 1) refuse('A quantity starts at one');

@@ -95,19 +95,23 @@ const shownQuantity = computed(
     option.quantity > 1,
 );
 
-function change(selected: boolean, quantity: number): ConfigurationChange {
+/**
+ * Only the stepper sends a quantity. A pick or a deselect leaves it out and the
+ * provider keeps the row's own: sent back, a row's 0 is refused.
+ */
+function change(selected: boolean, quantity?: number): ConfigurationChange {
   return {
     type: 'option',
     optionId: option.id,
     instanceId: option.instanceId,
     selected,
-    quantity,
+    ...(quantity !== undefined && { quantity }),
     lock: 'none',
   };
 }
 
 function onToggle(checked: boolean | 'indeterminate') {
-  emit('change', change(checked === true, option.quantity));
+  emit('change', change(checked === true));
 }
 
 function onQuantity(quantity: number) {
@@ -121,7 +125,7 @@ function onQuantity(quantity: number) {
  */
 function onRow() {
   if (blocked.value) return;
-  emit('change', change(single ? true : !option.selected, option.quantity));
+  emit('change', change(single ? true : !option.selected));
 }
 </script>
 
@@ -221,7 +225,7 @@ function onRow() {
         v-if="steppable"
         data-testid="configurator-option-quantity"
         :model-value="option.quantity"
-        :min="option.minQuantity ?? 1"
+        :min="Math.max(1, option.minQuantity ?? 1)"
         :max="option.maxQuantity"
         :disabled="blocked"
         :aria-label="t('configurator.quantity')"
