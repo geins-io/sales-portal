@@ -148,7 +148,6 @@ function onPick(value: unknown) {
     optionId: picked.id,
     instanceId: picked.instanceId,
     selected: true,
-    quantity: picked.quantity,
     lock: 'none',
   });
 }
@@ -172,7 +171,6 @@ function pickNone() {
     optionId: current.id,
     instanceId: current.instanceId,
     selected: false,
-    quantity: current.quantity,
     lock: 'none',
   });
 }

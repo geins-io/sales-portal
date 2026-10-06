@@ -469,6 +469,33 @@ describe('a batch of changes', () => {
     expect(findOption(changed, 'top-laminate').selectionSource).toBe('initial');
   });
 
+  // A multi-choice row, so no sibling reset is involved: that path puts the
+  // seed's default back, which the provider does not.
+  it("keeps a row's own quantity through a deselect and a pick that carry none", async () => {
+    const config = await start();
+    const { quantity: _quantity, ...pick } = selectOption('acc-pegboard');
+    await backend.applyChanges(
+      config.configurationId,
+      [{ ...pick, quantity: 2 }],
+      CTX,
+    );
+    await backend.applyChanges(
+      config.configurationId,
+      [{ ...pick, selected: false }],
+      CTX,
+    );
+    const changed = await backend.applyChanges(
+      config.configurationId,
+      [pick],
+      CTX,
+    );
+
+    expect(findOption(changed, 'acc-pegboard')).toMatchObject({
+      selected: true,
+      quantity: 2,
+    });
+  });
+
   it('carries the new document quantity', async () => {
     const config = await start();
     const changed = await backend.applyChanges(
@@ -1189,6 +1216,38 @@ describe('the third seeded product', () => {
     );
     expect(optional.map((group) => group.id)).toEqual(['top-treatment']);
     expect(optional[0]!.options.some((option) => option.selected)).toBe(false);
+  });
+
+  it('carries a chosen row of quantity 0 that a pick with no quantity chooses again, valid', async () => {
+    const config = await start(MONTERINGSSTATION_PRO_GEINS_ID);
+    expect(
+      findOptionGroup(config, 'warranty').options.map((option) => option.id),
+    ).toEqual(['warranty-none', 'warranty-1y']);
+    const none = findOption(config, 'warranty-none');
+    expect(none).toMatchObject({
+      selected: true,
+      selectionSource: 'groupRule',
+      quantity: 0,
+      defaultQuantity: 0,
+      minQuantity: 0,
+      maxQuantity: 0,
+    });
+    expect(config.isValid).toBe(true);
+
+    const { quantity: _quantity, ...pick } = selectOption('warranty-1y');
+    await backend.applyChanges(config.configurationId, [pick], CTX);
+    const back = await backend.applyChanges(
+      config.configurationId,
+      [{ ...pick, optionId: 'warranty-none' }],
+      CTX,
+    );
+
+    expect(findOption(back, 'warranty-none')).toMatchObject({
+      selected: true,
+      quantity: 0,
+    });
+    expect(findOption(back, 'warranty-1y').selected).toBe(false);
+    expect(back.isValid).toBe(true);
   });
 
   it('marks one variable read-only', async () => {

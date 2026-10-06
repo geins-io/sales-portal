@@ -89,6 +89,20 @@ describe('POST /api/configurations/:id/changes', () => {
     expect(backend.applyChanges).toHaveBeenCalledWith(ID, batch, CTX);
   });
 
+  it('passes an option change with no quantity on without one, leaving it to the provider', async () => {
+    backend.applyChanges.mockResolvedValue(CONFIGURATION);
+    const { quantity: _quantity, ...pick } = OPTION as Extract<
+      ConfigurationChange,
+      { type: 'option' }
+    >;
+
+    await handler(eventWith([pick]));
+
+    const [, [passed]] = backend.applyChanges.mock.calls[0]!;
+    expect(passed).toEqual(pick);
+    expect(passed).not.toHaveProperty('quantity');
+  });
+
   it('accepts a variable set to each value type the contract allows', async () => {
     backend.applyChanges.mockResolvedValue(CONFIGURATION);
     const batch: ConfigurationChange[] = [

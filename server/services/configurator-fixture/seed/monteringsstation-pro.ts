@@ -626,6 +626,27 @@ function buildSections(): ConfigurationSection[] {
             }),
           ],
         }),
+        // A real provider's "no" row: quantity, minimum and maximum all 0. It
+        // refuses a 0 sent back, and a 1 leaves the configuration invalid.
+        seedGroup({
+          id: 'warranty',
+          code: 'WARRANTY',
+          name: 'Extended warranty',
+          sortIndex: 39,
+          minSelections: 1,
+          maxSelections: 1,
+          options: [
+            option('warranty-none', 'No extended warranty', 0, 907_076, {
+              selected: true,
+              selectionSource: 'groupRule',
+              quantity: 0,
+              defaultQuantity: 0,
+              minQuantity: 0,
+              maxQuantity: 0,
+            }),
+            option('warranty-1y', 'One year extended warranty', 990, 907_077),
+          ],
+        }),
       ],
     },
     logisticsSection(),

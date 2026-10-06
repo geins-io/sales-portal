@@ -381,7 +381,7 @@ const ConfigurationChangeSchema: z.ZodType<ConfigurationChange> =
       optionId: z.string().min(1),
       instanceId: z.string().min(1),
       selected: z.boolean(),
-      quantity: configurationQuantity,
+      quantity: configurationQuantity.optional(),
       lock: z.enum(['none', 'lock', 'unlock']),
     }),
     z.object({

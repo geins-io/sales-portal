@@ -20,7 +20,7 @@ export function toWireChange(change: ConfigurationChange): WireChange {
         optionId: change.optionId,
         instanceId: change.instanceId,
         selected: change.selected,
-        quantity: change.quantity,
+        ...(change.quantity !== undefined && { quantity: change.quantity }),
         lock: LOCKS[change.lock],
       };
     case 'quantity':
