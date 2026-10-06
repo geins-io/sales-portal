@@ -97,6 +97,30 @@ describe('CartDrawer', () => {
     expect(wrapper.find('[data-testid="cart-sheet"]').exists()).toBe(false);
   });
 
+  it('asks the buyer to sign in, in place of the empty state, when the cart needs it', () => {
+    const store = useCartStore();
+    store.isOpen = true;
+    store.needsSignIn = true;
+
+    const wrapper = shallowMountComponent(CartDrawer, {
+      global: {
+        stubs: {
+          Sheet: { template: '<div><slot /></div>', props: ['open'] },
+          SheetContent: { template: '<div><slot /></div>' },
+          SheetHeader: { template: '<div><slot /></div>' },
+          SheetTitle: { template: '<div><slot /></div>' },
+          SheetDescription: { template: '<div><slot /></div>' },
+          SheetFooter: { template: '<div><slot /></div>' },
+          CartItem: true,
+          CartPromoCodeInput: true,
+        },
+      },
+    });
+
+    expect(wrapper.find('[data-testid="cart-sign-in"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="cart-empty"]').exists()).toBe(false);
+  });
+
   it('renders empty state when cart is empty', () => {
     const store = useCartStore();
     store.isOpen = true;

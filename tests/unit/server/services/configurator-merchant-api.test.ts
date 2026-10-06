@@ -1520,15 +1520,22 @@ describe('the merchant-api backend', () => {
       expect([...lines.keys()]).toEqual(['item-2']);
     });
 
-    it.each([
-      ['no cart', () => answer({ data: { getCart: null } })],
-      ['no items', () => cartLines(null)],
-    ])('answers no lines for %s', async (_case, respond) => {
-      fetchMock.mockResolvedValue(respond());
+    it('answers no lines for a cart without items', async () => {
+      fetchMock.mockResolvedValue(cartLines(null));
 
       const lines = await backend.cartLineConfigurations('cart-1', CTX);
 
       expect(lines.size).toBe(0);
+    });
+
+    it('fails when it answers without the cart', async () => {
+      fetchMock.mockResolvedValue(answer({ data: { getCart: null } }));
+
+      const failure = await failureOf(() =>
+        backend.cartLineConfigurations('cart-1', CTX),
+      );
+
+      expect(failure.statusCode).toBe(502);
     });
 
     it('passes a failure on', async () => {

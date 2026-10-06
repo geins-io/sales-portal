@@ -21,6 +21,7 @@ const oms = {
   },
 };
 const cartLineConfigurations = vi.fn();
+const addToCart = vi.fn();
 const canAccessFeatureServer = vi.fn();
 const sessionToken = vi.fn();
 
@@ -30,7 +31,7 @@ vi.mock('../../../../server/services/_sdk', () => ({
 }));
 
 vi.mock('../../../../server/services/configurator', () => ({
-  getConfiguratorBackend: () => ({ cartLineConfigurations }),
+  getConfiguratorBackend: () => ({ cartLineConfigurations, addToCart }),
   buildConfiguratorRequestContext: async () => ({ configuratorContext: true }),
 }));
 
@@ -44,6 +45,18 @@ vi.stubGlobal('wrapServiceCall', wrapServiceCall);
 vi.stubGlobal('getSessionToken', () => sessionToken());
 
 const EVENT = {} as H3Event;
+
+/** A cart read refused because the cart needs the buyer signed in, as the SDK throws it. */
+function loginRequiredRead() {
+  return Object.assign(new Error('Error getting cart'), {
+    name: 'CartError',
+    code: 'CART_OPERATION_FAILED',
+    cause: {
+      name: 'ApolloError',
+      graphQLErrors: [{ extensions: { code: 'LoginRequired' } }],
+    },
+  });
+}
 
 const CONFIGURATION: CartLineConfiguration = {
   configurationId: 'committed-1',
@@ -110,6 +123,7 @@ type Service = typeof import('../../../../server/services/cart');
 describe('the cart service', () => {
   let service: Service;
   let warn: ReturnType<typeof vi.spyOn>;
+  let error: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
     wrapServiceCall.mockClear();
@@ -119,14 +133,17 @@ describe('the cart service', () => {
     cartLineConfigurations
       .mockReset()
       .mockResolvedValue(new Map([['item-1', CONFIGURATION]]));
+    addToCart.mockReset().mockResolvedValue({ itemId: 'carried-1' });
     canAccessFeatureServer.mockReset().mockResolvedValue(true);
     sessionToken.mockReset().mockReturnValue('user-token-1');
     warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    error = vi.spyOn(logger, 'error').mockImplementation(() => {});
     service = await import('../../../../server/services/cart');
   });
 
   afterEach(() => {
     warn.mockRestore();
+    error.mockRestore();
   });
 
   describe.each(CALLS)('%s', (_name, sdkCall, call) => {
@@ -239,5 +256,152 @@ describe('the cart service', () => {
 
     expect(cartLineConfigurations).not.toHaveBeenCalled();
     expect(canAccessFeatureServer).not.toHaveBeenCalled();
+  });
+
+  describe('a read refused until the buyer signs in', () => {
+    it('answers 401 CART_LOGIN_REQUIRED to a buyer signed out, logged as a client error', async () => {
+      sessionToken.mockReturnValue(undefined);
+      oms.cart.get.mockRejectedValue(loginRequiredRead());
+
+      await expect(service.getCart('cart-1', EVENT)).rejects.toMatchObject({
+        statusCode: 401,
+        data: { code: 'CART_LOGIN_REQUIRED' },
+      });
+      expect(error).not.toHaveBeenCalled();
+    });
+
+    it("passes it on as thrown to a buyer signed in, for whom it is another buyer's cart", async () => {
+      const failure = loginRequiredRead();
+      oms.cart.get.mockRejectedValue(failure);
+
+      await expect(service.getCart('cart-1', EVENT)).rejects.toBe(failure);
+    });
+
+    it('passes every other failed read on as it was thrown', async () => {
+      const failure = new Error('fetch failed');
+      oms.cart.get.mockRejectedValue(failure);
+
+      await expect(service.getCart('cart-1', EVENT)).rejects.toBe(failure);
+    });
+
+    it('leaves a write as it was thrown', async () => {
+      const failure = loginRequiredRead();
+      oms.cart.addItem.mockRejectedValue(failure);
+
+      await expect(
+        service.addItem('cart-1', { skuId: 1, quantity: 1 }, EVENT),
+      ).rejects.toBe(failure);
+    });
+  });
+
+  describe('copyCart, at sign-in', () => {
+    const NEW_CART = { id: 'new-cart', items: [] };
+    const COPIED = { id: 'new-cart', items: [{ id: 'copied' }] };
+    const CONFIGURATOR_CTX = {
+      configuratorContext: true,
+      userToken: 'new-token',
+    };
+
+    beforeEach(() => {
+      oms.cart.get
+        .mockReset()
+        .mockResolvedValueOnce(sdkCart())
+        .mockResolvedValueOnce(COPIED);
+      oms.cart.create.mockReset().mockResolvedValue(NEW_CART);
+      oms.cart.addItem.mockReset().mockResolvedValue(NEW_CART);
+      // The login request carries no session yet.
+      sessionToken.mockReturnValue(undefined);
+    });
+
+    const copy = () => service.copyCart('cart-1', EVENT, 'new-token');
+
+    it('re-adds a plain line by its SKU and carries a configured line by its committed id', async () => {
+      await expect(copy()).resolves.toEqual(COPIED);
+
+      expect(addToCart).toHaveBeenCalledTimes(1);
+      expect(addToCart).toHaveBeenCalledWith(
+        'new-cart',
+        { committedConfigurationId: 'committed-1', skuId: 1652, quantity: 1 },
+        CONFIGURATOR_CTX,
+      );
+      expect(
+        oms.cart.addItem.mock.calls.map(([id, item]) => [id, item]),
+      ).toEqual([
+        ['new-cart', { skuId: 100, quantity: 2 }],
+        ['new-cart', { skuId: 7, quantity: 1 }],
+      ]);
+      expect(oms.cart.get).toHaveBeenNthCalledWith(
+        1,
+        'cart-1',
+        false,
+        expect.objectContaining({ userToken: 'new-token' }),
+      );
+      expect(oms.cart.get).toHaveBeenLastCalledWith(
+        'new-cart',
+        false,
+        expect.objectContaining({ userToken: 'new-token' }),
+      );
+    });
+
+    it("reads the lines with the buyer's new token, whatever the configurator gate says", async () => {
+      canAccessFeatureServer.mockResolvedValue(false);
+
+      await copy();
+
+      expect(cartLineConfigurations).toHaveBeenCalledWith(
+        'cart-1',
+        CONFIGURATOR_CTX,
+      );
+    });
+
+    it('carries a configured line at the quantity the line has', async () => {
+      oms.cart.get.mockReset().mockResolvedValueOnce({
+        id: 'cart-1',
+        items: [{ id: 'item-1', skuId: 1652, quantity: 3 }],
+      });
+
+      await copy();
+
+      expect(addToCart).toHaveBeenCalledWith(
+        'new-cart',
+        expect.objectContaining({ quantity: 3 }),
+        CONFIGURATOR_CTX,
+      );
+    });
+
+    it('copies as before when no line is configured', async () => {
+      cartLineConfigurations.mockResolvedValue(new Map());
+
+      await copy();
+
+      expect(addToCart).not.toHaveBeenCalled();
+      expect(oms.cart.addItem).toHaveBeenCalledTimes(3);
+    });
+
+    it('gives up before a new cart when the lines cannot be read', async () => {
+      cartLineConfigurations.mockRejectedValue(new Error('timed out'));
+
+      await expect(copy()).rejects.toThrow('timed out');
+      expect(oms.cart.create).not.toHaveBeenCalled();
+      expect(oms.cart.addItem).not.toHaveBeenCalled();
+    });
+
+    it('gives up when a configured line cannot be carried, and never adds it by its SKU', async () => {
+      addToCart.mockRejectedValue(new Error('carry refused'));
+
+      await expect(copy()).rejects.toThrow('carry refused');
+      expect(oms.cart.addItem).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ skuId: 1652 }),
+        expect.anything(),
+      );
+    });
+
+    it('still skips a plain line that fails to re-add', async () => {
+      oms.cart.addItem.mockRejectedValueOnce(new Error('SKU unavailable'));
+
+      await expect(copy()).resolves.toEqual(COPIED);
+      expect(oms.cart.addItem).toHaveBeenCalledTimes(2);
+    });
   });
 });

@@ -6,6 +6,7 @@ type CartLike = { id: string; items: unknown[] } | null;
 interface MockStore {
   cartId: string | null;
   cart: CartLike;
+  needsSignIn: boolean;
   fetchCart: ReturnType<typeof vi.fn>;
 }
 
@@ -13,6 +14,7 @@ function makeStore(overrides: Partial<MockStore> = {}): MockStore {
   return {
     cartId: 'cid-1',
     cart: null,
+    needsSignIn: false,
     fetchCart: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -53,6 +55,12 @@ describe('cart-init plugin / initCart', () => {
     const store = makeStore({
       cart: { id: 'cid-1', items: [] },
     });
+    await initCart(store, 'client');
+    expect(store.fetchCart).not.toHaveBeenCalled();
+  });
+
+  it('skips fetchCart on the client when the server read was refused until sign-in', async () => {
+    const store = makeStore({ needsSignIn: true });
     await initCart(store, 'client');
     expect(store.fetchCart).not.toHaveBeenCalled();
   });

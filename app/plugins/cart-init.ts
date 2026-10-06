@@ -20,6 +20,7 @@ type Mode = 'server' | 'client';
 interface CartStoreInitContract {
   cartId: string | null;
   cart: unknown;
+  needsSignIn: boolean;
   fetchCart: () => Promise<void>;
 }
 
@@ -41,7 +42,8 @@ export async function initCart(
   // Client: payload-hydrated path. If the SSR-serialized state already
   // includes the cart, do nothing. Otherwise (SPA-only navigations, cookie
   // set after initial paint), fire-and-forget so we don't stall hydration.
-  if (store.cart) return;
+  // A read the server was refused until sign-in is refused here too.
+  if (store.cart || store.needsSignIn) return;
   void store.fetchCart();
 }
 

@@ -101,6 +101,7 @@
     "add_failed": "Misslyckades",
     "add": "Lägg till",
     "empty_cart": "Din varukorg är tom",
+    "sign_in_to_see_cart": "Logga in för att se din varukorg",
     "empty_cart_message": "Det ser ut som att du inte har lagt till något i varukorgen ännu.",
     "continue_shopping": "Fortsätt handla",
     "remove_item": "Ta bort artikel",

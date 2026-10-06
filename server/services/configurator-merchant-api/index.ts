@@ -72,7 +72,11 @@ async function readCartLines(cartId: string, ctx: ConfiguratorContext) {
 }
 
 async function cartLines(cartId: string, ctx: ConfiguratorContext) {
-  return mapCartLineConfigurations(await readCartLines(cartId, ctx));
+  const cart = await readCartLines(cartId, ctx);
+  // The copy at sign-in reads no lines as "nothing configured", so a cart this
+  // read cannot see must fail rather than look empty.
+  if (!cart) throw upstream('answered without the cart');
+  return mapCartLineConfigurations(cart);
 }
 
 async function orderLines(publicOrderId: string, ctx: ConfiguratorContext) {

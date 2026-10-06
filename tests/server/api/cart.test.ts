@@ -40,6 +40,14 @@ vi.mock('../../../server/services/_sdk', () => ({
 vi.mock('../../../server/utils/feature-access', () => ({
   canAccessFeatureServer: vi.fn().mockResolvedValue(false),
 }));
+// The copy at sign-in asks the backend whatever the gate says; with the
+// configurator off it answers no configured lines.
+vi.mock('../../../server/services/configurator', () => ({
+  getConfiguratorBackend: () => ({
+    cartLineConfigurations: async () => new Map(),
+  }),
+  buildConfiguratorRequestContext: async () => ({ hostname: '' }),
+}));
 
 // Rate limiter — uses useStorage('kv'), must stay mocked
 vi.mock('../../../server/utils/rate-limiter', () => ({

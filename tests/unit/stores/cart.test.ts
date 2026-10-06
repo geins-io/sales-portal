@@ -130,6 +130,106 @@ describe('useCartStore', () => {
     });
   });
 
+  /** What `$fetch` throws for `/api/cart` answering 401 with a code. */
+  function refused(code: string) {
+    return Object.assign(new Error('[GET] "/api/cart": 401'), {
+      statusCode: 401,
+      data: { statusCode: 401, data: { code } },
+    });
+  }
+
+  describe('a cart that needs the buyer signed in', () => {
+    async function readRefused() {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockRejectedValueOnce(refused('CART_LOGIN_REQUIRED'));
+      const store = useCartStore();
+      await store.fetchCart();
+      return store;
+    }
+
+    it('keeps the cart id and says sign-in is needed, not that the read failed', async () => {
+      const store = await readRefused();
+
+      expect(mockCartIdRef.value).toBe('cart-123');
+      expect(store.needsSignIn).toBe(true);
+      expect(store.cart).toBeNull();
+      expect(store.error).toBeNull();
+      expect(store.isLoading).toBe(false);
+    });
+
+    it('drops the cart id on any other 401, as on any other failure', async () => {
+      mockCartIdRef.value = 'cart-123';
+      mockFetch.mockRejectedValueOnce(refused('UNAUTHORIZED'));
+      const store = useCartStore();
+      await store.fetchCart();
+
+      expect(mockCartIdRef.value).toBeNull();
+      expect(store.needsSignIn).toBe(false);
+      expect(store.error).toBe('Failed to load cart');
+    });
+
+    it('drops the cart id on a failure with no code to read', async () => {
+      const store = useCartStore();
+      for (const failure of [
+        undefined,
+        Object.assign(new Error('[GET] "/api/cart": 502'), {
+          data: 'Bad Gateway',
+        }),
+      ]) {
+        mockCartIdRef.value = 'cart-123';
+        mockFetch.mockRejectedValueOnce(failure);
+
+        await store.fetchCart();
+
+        expect(mockCartIdRef.value).toBeNull();
+        expect(store.needsSignIn).toBe(false);
+      }
+    });
+
+    it('is not needed once a read answers the cart', async () => {
+      const store = await readRefused();
+      mockFetch.mockResolvedValueOnce(mockCart);
+
+      await store.fetchCart();
+
+      expect(store.needsSignIn).toBe(false);
+      expect(store.cart).toEqual(mockCart);
+    });
+
+    it('is not needed for another cart', async () => {
+      const store = await readRefused();
+
+      mockCartIdRef.value = 'cart-456';
+
+      expect(store.needsSignIn).toBe(false);
+    });
+
+    it('turns an add into the sign-in prompt and sends nothing', async () => {
+      const store = await readRefused();
+      mockFetch.mockClear();
+
+      await store.addItem(100, 1);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(store.isOpen).toBe(true);
+      expect(store.error).toBeNull();
+      expect(mockCartIdRef.value).toBe('cart-123');
+    });
+
+    it('turns a configured add into the sign-in prompt, sends nothing and fails to its caller', async () => {
+      const store = await readRefused();
+      mockFetch.mockClear();
+
+      await expect(
+        store.addConfiguredItem('committed-1', 1652, 1),
+      ).rejects.toThrow('The cart needs the buyer signed in');
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(store.isOpen).toBe(true);
+      expect(store.isLoading).toBe(false);
+    });
+  });
+
   describe('SSR payload hydration', () => {
     it('derives itemCount and isEmpty from $state patched via Pinia payload bridging', () => {
       const store = useCartStore();
