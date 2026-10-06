@@ -98,7 +98,7 @@ describe('sanitizeWidgetHtml', () => {
     expect(result).toContain('<strong>bold</strong>');
     expect(result).toContain('<em>italic</em>');
     expect(result).toContain('<a href="/link">link</a>');
-    expect(result).toContain('<img src="pic.jpg" alt="pic">');
+    expect(result).toContain('<img src="pic.jpg" alt="pic" />');
   });
 
   it('strips event handlers (onclick, onerror)', () => {
@@ -108,6 +108,175 @@ describe('sanitizeWidgetHtml', () => {
     expect(result).not.toContain('onclick');
     expect(result).not.toContain('onerror');
     expect(result).toContain('<p>click</p>');
+  });
+
+  it.each([
+    'p',
+    'strong',
+    'em',
+    'b',
+    'i',
+    'u',
+    'a',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'ul',
+    'ol',
+    'li',
+    'div',
+    'span',
+    'table',
+    'thead',
+    'tbody',
+    'tr',
+    'th',
+    'td',
+    'blockquote',
+    'figure',
+    'figcaption',
+    'sup',
+    'sub',
+    'small',
+    'pre',
+    'code',
+  ])('keeps <%s>', (tag) => {
+    expect(sanitizeWidgetHtml(`<${tag}>x</${tag}>`)).toBe(`<${tag}>x</${tag}>`);
+  });
+
+  it.each(['br', 'hr', 'img'])('keeps void <%s>', (tag) => {
+    expect(sanitizeWidgetHtml(`<${tag}>`)).toBe(`<${tag} />`);
+  });
+
+  it.each([
+    'href',
+    'target',
+    'rel',
+    'src',
+    'alt',
+    'title',
+    'class',
+    'id',
+    'style',
+    'width',
+    'height',
+    'colspan',
+    'rowspan',
+  ])('keeps the %s attribute', (attr) => {
+    expect(sanitizeWidgetHtml(`<td ${attr}="v">x</td>`)).toBe(
+      `<td ${attr}="v">x</td>`,
+    );
+  });
+
+  it('passes the style attribute through verbatim', () => {
+    const result = sanitizeWidgetHtml(
+      '<p style="color:red; margin: 0 4px">styled</p>',
+    );
+    expect(result).toContain('style="color:red; margin: 0 4px"');
+  });
+
+  it('keeps data:image sources on img', () => {
+    const result = sanitizeWidgetHtml(
+      '<img src="data:image/png;base64,AAAA" alt="inline">',
+    );
+    expect(result).toContain('src="data:image/png;base64,AAAA"');
+  });
+
+  it.each([
+    'https://example.test/',
+    'http://example.test/',
+    'mailto:sales@example.test',
+    'tel:+4612345',
+    'ftp://example.test/file',
+    'ftps://example.test/file',
+    'sms:+4612345',
+    'callto:sales',
+    'cid:part1',
+    'xmpp:sales@example.test',
+    'matrix:u/sales:example.test',
+    '/link',
+    '#top',
+    '?q=1',
+    '//cdn.example.test/file',
+    'page.html',
+  ])('keeps href %s', (href) => {
+    const result = sanitizeWidgetHtml(`<a href="${href}">link</a>`);
+    expect(result).toContain(`href="${href}"`);
+  });
+
+  it.each([
+    'javascript:alert(1)',
+    '  JaVaScRiPt:alert(1)',
+    'java&#x09;script:alert(1)',
+    'vbscript:msgbox(1)',
+    'data:text/html,x',
+    'file:///etc/passwd',
+  ])('strips href %s', (href) => {
+    const result = sanitizeWidgetHtml(`<a href="${href}">link</a>`);
+    expect(result).not.toContain('href');
+    expect(result).toContain('link');
+  });
+
+  it('keeps aria-* attributes and drops data-* attributes', () => {
+    const result = sanitizeWidgetHtml(
+      '<p aria-label="label" data-track="x">text</p>',
+    );
+    expect(result).toContain('aria-label="label"');
+    expect(result).not.toContain('data-track');
+  });
+
+  it.each([
+    'annotation-xml',
+    'audio',
+    'colgroup',
+    'desc',
+    'foreignobject',
+    'head',
+    'iframe',
+    'math',
+    'mi',
+    'mn',
+    'mo',
+    'ms',
+    'mtext',
+    'noembed',
+    'noframes',
+    'noscript',
+    'object',
+    'plaintext',
+    'script',
+    'style',
+    'svg',
+    'template',
+    'title',
+    'video',
+    'xmp',
+  ])('drops the content of <%s>', (tag) => {
+    const result = sanitizeWidgetHtml(
+      `<p>ok</p><${tag}><p>secret</p></${tag}>`,
+    );
+    expect(result).not.toContain('secret');
+    expect(result).toContain('<p>ok</p>');
+  });
+
+  it('drops object fallback text next to an embed', () => {
+    const result = sanitizeWidgetHtml(
+      '<p>ok</p><object data="movie.swf">secret</object><embed src="movie.swf">',
+    );
+    expect(result).toBe('<p>ok</p>');
+  });
+
+  it('keeps the text of other removed elements', () => {
+    const result = sanitizeWidgetHtml(
+      '<custom>custom</custom><textarea>area</textarea><select><option>choice</option></select><button>press</button>',
+    );
+    for (const text of ['custom', 'area', 'choice', 'press']) {
+      expect(result).toContain(text);
+    }
+    expect(result).not.toMatch(/<(custom|textarea|select|option|button)/);
   });
 });
 
@@ -231,5 +400,101 @@ describe('sanitizeCmsArea', () => {
 
     const result = sanitizeCmsArea(area) as CmsContentArea;
     expect(result.containers[0]?.visibility).toBe('mobile');
+  });
+});
+
+describe('sanitizeWidgetData guards', () => {
+  function areaWith(content: ContentType[]): ContentAreaType {
+    return {
+      meta: { title: '', description: '' },
+      tags: [],
+      containers: [makeContainer(content)],
+    };
+  }
+
+  function firstWidget(result: ContentAreaType): ContentType {
+    const widget = result.containers[0]?.content[0];
+    assert.isDefined(widget);
+    return widget;
+  }
+
+  it('returns a widget without config unchanged', () => {
+    const widget = {
+      data: { text: '<script>x</script>' },
+    } as unknown as ContentType;
+    expect(firstWidget(sanitizeCmsArea(areaWith([widget])))).toBe(widget);
+  });
+
+  it('returns a widget without a type unchanged', () => {
+    const widget: ContentType = {
+      config: makeConfig({ type: '' }),
+      data: { text: '<script>x</script>' },
+    };
+    expect(firstWidget(sanitizeCmsArea(areaWith([widget])))).toBe(widget);
+  });
+
+  it('returns a widget without data unchanged', () => {
+    const widget = {
+      config: makeConfig({ type: 'TextPageWidget' }),
+    } as unknown as ContentType;
+    expect(firstWidget(sanitizeCmsArea(areaWith([widget])))).toBe(widget);
+  });
+
+  it('leaves the fields of other widget types untouched', () => {
+    const data = {
+      text: '<script>x</script>',
+      html: '<script>y</script>',
+      css: '<script>z</script>',
+    };
+    const result = sanitizeCmsArea(
+      areaWith([makeWidget('ImagePageWidget', data)]),
+    );
+    expect(firstWidget(result).data).toEqual(data);
+  });
+
+  it('only sanitizes the html field of an HTMLPageWidget, not its text', () => {
+    const result = sanitizeCmsArea(
+      areaWith([makeWidget('HTMLPageWidget', { text: '<script>x</script>' })]),
+    );
+    expect(firstWidget(result).data).toEqual({ text: '<script>x</script>' });
+  });
+
+  it('only sanitizes the text field of a TextPageWidget, not its html', () => {
+    const result = sanitizeCmsArea(
+      areaWith([makeWidget('TextPageWidget', { html: '<script>x</script>' })]),
+    );
+    expect(firstWidget(result).data).toEqual({ html: '<script>x</script>' });
+  });
+
+  it('leaves non-string text, html and css fields as they are', () => {
+    const text = sanitizeCmsArea(
+      areaWith([makeWidget('TextPageWidget', { text: 5 })]),
+    );
+    expect(firstWidget(text).data).toEqual({ text: 5 });
+
+    const html = sanitizeCmsArea(
+      areaWith([makeWidget('HTMLPageWidget', { html: 5, css: 6 })]),
+    );
+    expect(firstWidget(html).data).toEqual({ html: 5, css: 6 });
+  });
+
+  it('treats a container without content as empty', () => {
+    const container = { ...makeContainer([]), content: undefined };
+    const area = {
+      meta: { title: '', description: '' },
+      tags: [],
+      containers: [container],
+    } as unknown as ContentAreaType;
+    expect(sanitizeCmsArea(area).containers[0]?.content).toEqual([]);
+  });
+
+  it('treats a page or area without containers as empty', () => {
+    const page = { meta: { title: '', description: '' }, tags: [] };
+    expect(
+      sanitizeCmsPage(page as unknown as ContentPageType).containers,
+    ).toEqual([]);
+    expect(
+      sanitizeCmsArea(page as unknown as ContentAreaType).containers,
+    ).toEqual([]);
   });
 });
