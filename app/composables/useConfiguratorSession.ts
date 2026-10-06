@@ -6,6 +6,7 @@ import type {
   ConfigurationChange,
 } from '#shared/types/configurator';
 import { isBrowser } from '~/utils/client-helpers';
+import type { OrderRowRef } from '~/utils/configurator-replay';
 
 // ---------------------------------------------------------------------------
 // One configuration session: create it, post every choice as a batch, renew it,
@@ -134,6 +135,11 @@ export function useConfiguratorSession({
    * reopened, so the page can say the buyer's choices did not come back.
    */
   const notReopened = ref(false);
+  /**
+   * Set when a session opened from an order row is on the defaults rather than
+   * the order's choices.
+   */
+  const notReplayed = ref(false);
   /** The cart line being edited, while the page edits one. */
   const editing = ref<CartLineRef | null>(null);
   const editNotice = ref<ConfiguratorEditNotice | null>(null);
@@ -244,6 +250,25 @@ export function useConfiguratorSession({
       }),
     );
     if (created) hold(created);
+  }
+
+  /**
+   * A new session holding an order row's choices, which the server replays.
+   * Not on the server, for the same reason as `start`.
+   */
+  async function replay(productId: string, row: OrderRowRef): Promise<void> {
+    if (!isBrowser() || status.value === 'active') return;
+    started = { productId, quantity: 1 };
+
+    const result = await run((signal) =>
+      $fetch<{ configuration: Configuration; replayed: boolean }>(
+        '/api/configurations/from-order',
+        { method: 'POST', body: { productId, ...row }, signal },
+      ),
+    );
+    if (!result) return;
+    notReplayed.value = !result.replayed;
+    hold(result.configuration);
   }
 
   /**
@@ -422,6 +447,7 @@ export function useConfiguratorSession({
     const id = liveId();
     if (!id) return;
     notReopened.value = false;
+    notReplayed.value = false;
 
     const added = await run(async (signal) => {
       const result = await $fetch<CommittedConfiguration>(
@@ -489,6 +515,7 @@ export function useConfiguratorSession({
     });
     if (released) {
       notReopened.value = false;
+      notReplayed.value = false;
       close();
     }
   }
@@ -497,6 +524,7 @@ export function useConfiguratorSession({
     configuration,
     committed,
     notReopened,
+    notReplayed,
     editing,
     editNotice,
     status,
@@ -506,6 +534,7 @@ export function useConfiguratorSession({
     remainingMs,
     start,
     edit,
+    replay,
     reopenLine,
     revertEdit,
     cancelEdit,

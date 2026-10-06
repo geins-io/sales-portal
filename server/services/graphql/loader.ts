@@ -38,6 +38,8 @@ const FRAGMENT_NAMES: Record<string, string> = {
   CpqVariable: './fragments/cpq-variable.graphql',
   CpqOption: './fragments/cpq-option.graphql',
   CpqMessage: './fragments/cpq-message.graphql',
+  CpqCommittedSectionFields: './fragments/cpq-committed-section-fields.graphql',
+  CpqCommittedGroupFields: './fragments/cpq-committed-group-fields.graphql',
 };
 
 function loadFragments(): void {

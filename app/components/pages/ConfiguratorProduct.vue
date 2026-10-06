@@ -52,6 +52,7 @@ import {
   visibleChildren,
 } from '~/utils/configurator-sections';
 import { editTarget, withoutEdit } from '~/utils/configurator-edit';
+import { replayTarget, withoutReplay } from '~/utils/configurator-replay';
 import {
   CONFIGURATION_TAB_ID,
   configuratorTabs,
@@ -223,6 +224,7 @@ const {
   configuration,
   committed,
   notReopened,
+  notReplayed,
   editing,
   editNotice,
   status,
@@ -231,6 +233,7 @@ const {
   remainingMs,
   start,
   edit,
+  replay,
   reopenLine,
   revertEdit,
   cancelEdit,
@@ -240,14 +243,16 @@ const {
   retryAdd,
   release,
 } = useConfiguratorSession({
-  addLine: (record) => {
+  addLine: async (record) => {
     // Unreachable: `canCommit` refuses a commit without a SKU.
     if (skuId.value === null) throw new Error('No SKU to add the line as');
-    return cart.addConfiguredItem(
+    const line = await cart.addConfiguredItem(
       record.committedConfigurationId,
       skuId.value,
       record.quantity,
     );
+    dropReplayQuery();
+    return line;
   },
   replaceLine: (record, line) =>
     cart.replaceConfiguredItem(record.committedConfigurationId, line),
@@ -287,12 +292,36 @@ watch(editing, (now, before) => {
   if (cancelling) cart.isOpen = true;
 });
 
+// ---------------------------------------------------------------------------
+// Opening a configured order row
+//
+// The row is in the URL, as ids only, until its line is in the cart: a reload
+// before that replays the row again, one after it would replay over the line.
+// ---------------------------------------------------------------------------
+
+/** A link that named an order row this page cannot replay. */
+const staleReplay = ref(false);
+
+const shownNotReplayed = computed(() => staleReplay.value || notReplayed.value);
+
+function dropReplayQuery(): void {
+  const target = replayTarget(route.query);
+  if (!target.row && !target.stale) return;
+  void router.replace({ query: withoutReplay(route.query) });
+}
+
 onMounted(() => {
   const target = editTarget(route.query, cart.cartId);
   if (target.line) return void edit(productId.value, target.line);
   if (target.stale) {
     staleEdit.value = true;
     dropEditQuery();
+  }
+  const order = replayTarget(route.query);
+  if (order.row) return void replay(productId.value, order.row);
+  if (order.stale) {
+    staleReplay.value = true;
+    dropReplayQuery();
   }
   void start(productId.value);
 });
@@ -543,6 +572,7 @@ function onRenew(): void {
 function onSubmit(): void {
   lastAction.value = 'commit';
   staleEdit.value = false;
+  staleReplay.value = false;
   void commit();
 }
 
@@ -559,19 +589,24 @@ function onRetryAdd(): void {
 async function onReset(): Promise<void> {
   lastAction.value = 'start';
   staleEdit.value = false;
+  staleReplay.value = false;
+  dropReplayQuery();
   await release();
   await start(productId.value);
 }
 
 /**
  * Starting over after an expiry. While a line is edited the line still holds
- * its choices, so they are what comes back, not the defaults.
+ * its choices, and while an order row is named the order does, so they are
+ * what comes back, not the defaults.
  */
 async function onRestart(): Promise<void> {
-  if (!editing.value) return onReset();
+  const order = replayTarget(route.query).row;
+  if (!editing.value && !order) return onReset();
   lastAction.value = 'start';
   await release();
-  await reopenLine();
+  if (editing.value) await reopenLine();
+  else if (order) await replay(productId.value, order);
 }
 
 function onRevert(): void {
@@ -888,6 +923,15 @@ function onRetryOpen(): void {
                     >
                       <Info class="mt-0.5 size-4 shrink-0" />
                       {{ t('configurator.not_reopened') }}
+                    </p>
+                    <!-- Opened from an order row, but on the defaults. -->
+                    <p
+                      v-if="shownNotReplayed"
+                      class="bg-warning/10 text-warning mb-4 flex items-start gap-2 rounded-md px-3 py-2 text-sm"
+                      data-testid="configurator-not-replayed"
+                    >
+                      <Info class="mt-0.5 size-4 shrink-0" />
+                      {{ t('configurator.not_replayed') }}
                     </p>
                     <p
                       v-if="shownEditNotice"

@@ -705,6 +705,7 @@ describe('OrderDetail', () => {
           name: 'Tiltrotator',
           articleNumber: 'TR-1',
           alias: 'tiltrotator',
+          canonicalUrl: '/se/sv/redskap/tiltrotator',
           productImages: [],
         },
         skuId: 2001,
@@ -799,6 +800,56 @@ describe('OrderDetail', () => {
         ),
       ).toEqual([]);
       warn.mockRestore();
+    });
+
+    it("links a configured row's name to its configurator page with that row's choices, and a plain row's as before", () => {
+      const wrapper = mountOrder();
+
+      const links = wrapper
+        .findAll('[data-testid="order-item-row"]')
+        .map((row) =>
+          row.find('[data-testid="order-item-name-link"]').attributes('href'),
+        );
+      expect(links[0]).not.toContain('?');
+      expect(links[1]).toBe(
+        `/se/en/p/redskap/tiltrotator?order=${TEST_ORDER_ID}&row=1`,
+      );
+      expect(links[2]).toBe(
+        `/se/en/p/redskap/tiltrotator?order=${TEST_ORDER_ID}&row=2`,
+      );
+    });
+
+    it('links a configured row without a canonical path to its product page as before, since the redirect would drop the replay', () => {
+      const order = configuredOrder();
+      const row = order.order.cart.items[1] as {
+        product: { canonicalUrl?: string };
+      };
+      delete row.product.canonicalUrl;
+      mockData.value = order;
+      const wrapper = shallowMountComponent(OrderDetail, {
+        global: { stubs: defaultStubs },
+      });
+
+      const link = wrapper
+        .findAll('[data-testid="order-item-row"]')[1]!
+        .find('[data-testid="order-item-name-link"]');
+      expect(link.attributes('href')).toBe('/se/en/p/tiltrotator');
+      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+      expect((sheet.props('items') as { href?: string }[])[1]!.href).toBe(
+        undefined,
+      );
+    });
+
+    it('hands the mobile sheet the same links, and none for a plain row', () => {
+      const wrapper = mountOrder();
+
+      const sheet = wrapper.findComponent({ name: 'PortalItemRowsSheet' });
+      const items = sheet.props('items') as { href?: string }[];
+      expect(items.map((item) => item.href)).toEqual([
+        undefined,
+        `/se/en/p/redskap/tiltrotator?order=${TEST_ORDER_ID}&row=1`,
+        `/se/en/p/redskap/tiltrotator?order=${TEST_ORDER_ID}&row=2`,
+      ]);
     });
 
     it('hands the mobile sheet one row per order row, each with its own key and summary', () => {

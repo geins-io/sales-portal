@@ -1,0 +1,17 @@
+fragment CpqCommittedSectionFields on CpqCommittedSectionType {
+  id
+  variables {
+    id
+    valueType
+    value
+  }
+  optionGroups {
+    ...CpqCommittedGroupFields
+    optionGroups {
+      ...CpqCommittedGroupFields
+      optionGroups {
+        ...CpqCommittedGroupFields
+      }
+    }
+  }
+}

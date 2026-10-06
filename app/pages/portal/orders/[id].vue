@@ -8,6 +8,7 @@ import { useCartStore } from '~/stores/cart';
 import { getOrderStatusPillClass } from '~/utils/order-status';
 import { reorderLines } from '~/utils/reorder';
 import { productPath } from '#shared/utils/route-helpers';
+import { replayLineHref } from '~/utils/configurator-replay';
 
 definePageMeta({
   middleware: ['auth', 'feature'],
@@ -138,6 +139,22 @@ const deliveryDate = computed(() => {
   return match ? match[0] : raw;
 });
 
+/**
+ * A configured row's product page, with that row's choices replayed from the
+ * order. The canonical path, never the alias: the page's redirect to its
+ * canonical drops the query, and with it the replay.
+ */
+function replayHref(
+  canonical: string | null | undefined,
+  row: number,
+): string | undefined {
+  if (!canonical) return undefined;
+  return replayLineHref(localePath(productPath(canonical)), {
+    publicOrderId: orderId.value,
+    row,
+  });
+}
+
 // Normalised line items + totals for the mobile rows sheet (the desktop table
 // does not work on small screens).
 const orderItemRows = computed<PortalItemRow[]>(() =>
@@ -153,6 +170,9 @@ const orderItemRows = computed<PortalItemRow[]>(() =>
       item?.totalPrice?.sellingPriceIncVatFormatted ?? undefined,
     imageFileName: item?.product?.productImages?.[0]?.fileName ?? null,
     alias: item?.product?.alias ?? null,
+    href: item?.configuration
+      ? replayHref(item.product?.canonicalUrl, index)
+      : undefined,
     configuration: item?.configuration,
   })),
 );
@@ -276,7 +296,11 @@ const orderTotals = computed<PortalItemTotal[]>(() => [
                         <div>
                           <NuxtLink
                             v-if="item?.product?.alias"
-                            :to="localePath(productPath(item.product.alias))"
+                            :to="
+                              (item.configuration &&
+                                replayHref(item.product.canonicalUrl, index)) ||
+                              localePath(productPath(item.product.alias))
+                            "
                             data-testid="order-item-name-link"
                             class="font-medium hover:underline"
                           >

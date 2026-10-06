@@ -80,6 +80,7 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     configuration: ref<Configuration | null>(null),
     committed: ref<CommittedConfiguration | null>(null),
     notReopened: ref(false),
+    notReplayed: ref(false),
     editing: ref<{ cartId: string; itemId: string } | null>(null),
     editNotice: ref<'not_reopenable' | 'line_gone' | null>(null),
     status: ref<ConfiguratorSessionStatus>('idle'),
@@ -89,6 +90,7 @@ vi.mock('../../../app/composables/useConfiguratorSession', async () => {
     remainingMs: ref(600_000),
     start: vi.fn(async () => {}),
     edit: vi.fn(async () => {}),
+    replay: vi.fn(async () => {}),
     reopenLine: vi.fn(async () => {}),
     revertEdit: vi.fn(async () => {}),
     cancelEdit: vi.fn(async () => {}),
@@ -222,6 +224,7 @@ interface MockSession {
   configuration: Ref<Configuration | null>;
   committed: Ref<CommittedConfiguration | null>;
   notReopened: Ref<boolean>;
+  notReplayed: Ref<boolean>;
   editing: Ref<{ cartId: string; itemId: string } | null>;
   editNotice: Ref<'not_reopenable' | 'line_gone' | null>;
   status: Ref<ConfiguratorSessionStatus>;
@@ -230,6 +233,7 @@ interface MockSession {
   remainingMs: Ref<number>;
   start: Mock;
   edit: Mock;
+  replay: Mock;
   reopenLine: Mock;
   revertEdit: Mock;
   cancelEdit: Mock;
@@ -404,6 +408,7 @@ beforeEach(() => {
   session.configuration.value = null;
   session.committed.value = null;
   session.notReopened.value = false;
+  session.notReplayed.value = false;
   session.editing.value = null;
   session.editNotice.value = null;
   session.status.value = 'idle';
@@ -412,6 +417,7 @@ beforeEach(() => {
   for (const verb of [
     'start',
     'edit',
+    'replay',
     'reopenLine',
     'revertEdit',
     'cancelEdit',
@@ -2475,4 +2481,126 @@ describe('ConfiguratorProduct editing a cart line', () => {
       expect(session.cancelEdit).toHaveBeenCalledTimes(1);
     },
   );
+});
+
+describe('ConfiguratorProduct replaying an order row', () => {
+  const ORDER_ID = '6f1c2a9e-0b8d-4e3f-9a51-2c7d8e4b1f03';
+  const ROW = { publicOrderId: ORDER_ID, row: 1 };
+
+  it('replays the order row the query names, instead of a fresh session', async () => {
+    route.value.query = { order: ORDER_ID, row: '1' };
+
+    mountPage();
+    await flushPromises();
+
+    expect(session.replay).toHaveBeenCalledWith('1101', ROW);
+    expect(session.start).not.toHaveBeenCalled();
+  });
+
+  it('edits the cart line rather than replaying, when the query names both', async () => {
+    cartStore.cartId = 'cart-1';
+    route.value.query = {
+      cart: 'cart-1',
+      line: 'item-1',
+      order: ORDER_ID,
+      row: '1',
+    };
+
+    mountPage();
+    await flushPromises();
+
+    expect(session.edit).toHaveBeenCalled();
+    expect(session.replay).not.toHaveBeenCalled();
+  });
+
+  it("starts from the defaults, says the order's choices did not come back and drops the query, for a link it cannot replay", async () => {
+    route.value.query = { order: 'not-a-guid', row: '1', keep: 'x' };
+
+    const wrapper = mountPage();
+    await flushPromises();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    expect(session.replay).not.toHaveBeenCalled();
+    expect(session.start).toHaveBeenCalledWith('1101');
+    expect(router.replace).toHaveBeenCalledWith({ query: { keep: 'x' } });
+    expect(
+      wrapper.find('[data-testid="configurator-not-replayed"]').text(),
+    ).toBe('configurator.not_replayed');
+  });
+
+  it("says at the top of the form that the order's choices did not come back, when they did not", async () => {
+    const wrapper = mountPage();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+    expect(
+      wrapper.find('[data-testid="configurator-not-replayed"]').exists(),
+    ).toBe(false);
+
+    session.notReplayed.value = true;
+    await nextTick();
+
+    const notice = wrapper.find('[data-testid="configurator-not-replayed"]');
+    expect(notice.text()).toBe('configurator.not_replayed');
+    const slot = wrapper.find('[data-testid="configurator-form-slot"]');
+    expect(slot.element.contains(notice.element)).toBe(true);
+  });
+
+  it('drops the query once the line is in the cart, so a reload does not replay over it', async () => {
+    route.value.query = { order: ORDER_ID, row: '1', keep: 'x' };
+    mountPage(makeProduct({ skus: [{ skuId: 1652 }] }));
+    await flushPromises();
+    cartStore.addConfiguredItem.mockResolvedValueOnce({
+      cartId: 'cart-1',
+      itemId: 'item-1',
+    });
+
+    await session.options.addLine(COMMITTED);
+
+    expect(router.replace).toHaveBeenCalledWith({ query: { keep: 'x' } });
+  });
+
+  it('keeps the query when the add fails, so the order row is still named', async () => {
+    route.value.query = { order: ORDER_ID, row: '1' };
+    mountPage(makeProduct({ skus: [{ skuId: 1652 }] }));
+    await flushPromises();
+    cartStore.addConfiguredItem.mockRejectedValueOnce(new Error('no'));
+
+    router.replace.mockClear();
+
+    await expect(session.options.addLine(COMMITTED)).rejects.toThrow('no');
+
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('replays the order row again, rather than the defaults, when the session expired', async () => {
+    route.value.query = { order: ORDER_ID, row: '1' };
+    const wrapper = mountPage();
+    await flushPromises();
+    session.configuration.value = makeValidConfiguration();
+    session.status.value = 'expired';
+    await nextTick();
+    session.replay.mockClear();
+
+    await wrapper.find('[data-testid="panel-restart"]').trigger('click');
+    await flushPromises();
+
+    expect(session.release).toHaveBeenCalledTimes(1);
+    expect(session.replay).toHaveBeenCalledWith('1101', ROW);
+    expect(session.start).not.toHaveBeenCalled();
+  });
+
+  it('starts from the defaults from the reset button and drops the query', async () => {
+    route.value.query = { order: ORDER_ID, row: '1' };
+    const wrapper = mountPage();
+    await flushPromises();
+    activeWith(makeValidConfiguration());
+    await nextTick();
+
+    await wrapper.find('[data-testid="configurator-reset"]').trigger('click');
+    await flushPromises();
+
+    expect(session.start).toHaveBeenCalledWith('1101');
+    expect(router.replace).toHaveBeenCalledWith({ query: {} });
+  });
 });

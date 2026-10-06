@@ -43,6 +43,7 @@ export const backend: Record<
   replaceLine: vi.fn(),
   cartLineConfigurations: vi.fn(),
   orderLineConfigurations: vi.fn(),
+  orderLineChoices: vi.fn(),
 };
 
 export const getFeatures = vi.fn();

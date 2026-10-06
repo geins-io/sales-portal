@@ -346,6 +346,7 @@
     "add_not_added": "The configuration could not be added to the cart. It may be out of stock.",
     "add_retry": "Try again",
     "not_reopened": "Your choices could not be loaded again. The configuration is in the cart.",
+    "not_replayed": "The choices from the order could not be loaded. You are seeing the default choices.",
     "starting": "Loading the product configurator",
     "failed": "Something went wrong. Reload the page and try again.",
     "change_refused_value": "The value was not accepted. Try another value.",

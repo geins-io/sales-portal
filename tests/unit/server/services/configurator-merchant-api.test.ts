@@ -1694,6 +1694,267 @@ describe('the merchant-api backend', () => {
     });
   });
 
+  describe('orderLineChoices', () => {
+    function orderRows(items: unknown) {
+      return answer({ data: { getOrderPublic: { cart: { items } } } });
+    }
+
+    function committedVariable(
+      id: string | null,
+      valueType: string,
+      value: string | null,
+    ) {
+      return {
+        id,
+        name: id,
+        sortIndex: 1,
+        valueType,
+        value,
+        unit: null,
+        decimals: null,
+      };
+    }
+
+    function committedOption(
+      id: string | null,
+      instanceId: string | null,
+      quantity: number | string,
+    ) {
+      return {
+        id,
+        instanceId,
+        articleNumber: id,
+        name: id,
+        quantity,
+      };
+    }
+
+    const SECTIONS = [
+      {
+        id: 'machine',
+        name: 'Machine',
+        sortIndex: 1,
+        variables: [committedVariable('width', 'NUMBER', '1200.50')],
+        optionGroups: [
+          {
+            id: 'adapters',
+            code: 'A',
+            name: 'Adapters',
+            sortIndex: 2,
+            options: [committedOption('adapter', '0', 1)],
+            optionGroups: [
+              {
+                id: 'edges',
+                code: 'E',
+                name: 'Edges',
+                sortIndex: 1,
+                options: [committedOption('trim', '2', '3')],
+                optionGroups: null,
+              },
+            ],
+          },
+        ],
+        sections: [
+          {
+            id: 'frame',
+            name: 'Frame',
+            sortIndex: 3,
+            variables: [
+              committedVariable('painted', 'BOOLEAN', 'false'),
+              committedVariable('delivery', 'DATE', '2026-10-05'),
+              committedVariable('label', 'STRING', 'Hall 2'),
+              committedVariable('code', 'UNKNOWN', '7'),
+            ],
+            optionGroups: null,
+            sections: null,
+          },
+        ],
+      },
+    ];
+
+    it('reads the order with the channel and the buyer, selecting the committed structure', async () => {
+      fetchMock.mockResolvedValue(orderRows([]));
+
+      await backend.orderLineChoices('order-1', 0, CTX);
+
+      const { url, body, headers } = sentRequest();
+      expect(url).toBe(URL);
+      expect(body.query).toBe(
+        loadQuery('configurator/get-order-line-choices.graphql'),
+      );
+      expect(body.query).toContain('instanceId');
+      expect(body.variables).toEqual({
+        publicOrderId: 'order-1',
+        channelId: '1|se',
+        languageId: 'sv-SE',
+        marketId: 'SE|SEK',
+      });
+      expect(headers.Authorization).toBe('Bearer user-token-1');
+    });
+
+    it('answers the row at the position, every nested choice flattened in document order, values typed', async () => {
+      fetchMock.mockResolvedValue(
+        orderRows([
+          { product: { productId: 7 }, configuration: null },
+          {
+            product: { productId: 1359 },
+            configuration: { sections: SECTIONS },
+          },
+        ]),
+      );
+
+      await expect(
+        backend.orderLineChoices('order-1', 1, CTX),
+      ).resolves.toEqual({
+        productId: 1359,
+        variables: [
+          { id: 'width', value: 1200.5 },
+          { id: 'painted', value: false },
+          { id: 'delivery', value: '2026-10-05' },
+          { id: 'label', value: 'Hall 2' },
+          { id: 'code', value: '7' },
+        ],
+        options: [
+          { id: 'adapter', instanceId: '0', quantity: 1 },
+          { id: 'trim', instanceId: '2', quantity: 3 },
+        ],
+      });
+    });
+
+    it('reads sections four levels down', async () => {
+      const nest = (depth: number): unknown => ({
+        id: `s${depth}`,
+        name: `s${depth}`,
+        sortIndex: 1,
+        variables: [committedVariable(`v${depth}`, 'NUMBER', String(depth))],
+        optionGroups: null,
+        sections: depth < 4 ? [nest(depth + 1)] : null,
+      });
+      fetchMock.mockResolvedValue(
+        orderRows([
+          { product: { productId: 1 }, configuration: { sections: [nest(1)] } },
+        ]),
+      );
+
+      const choices = await backend.orderLineChoices('order-1', 0, CTX);
+
+      expect(choices?.variables.map((v) => v.id)).toEqual([
+        'v1',
+        'v2',
+        'v3',
+        'v4',
+      ]);
+      const query = loadQuery('configurator/get-order-line-choices.graphql');
+      expect(query.match(/sections \{/g)).toHaveLength(4);
+    });
+
+    it.each([
+      ['a plain row', [{ product: { productId: 7 }, configuration: null }]],
+      [
+        'a row committed before the structure was recorded',
+        [{ product: { productId: 7 }, configuration: { sections: null } }],
+      ],
+      ['a null row', [null]],
+      ['no row at the position', []],
+    ])('answers nothing for %s', async (_case, items) => {
+      fetchMock.mockResolvedValue(orderRows(items));
+
+      await expect(
+        backend.orderLineChoices('order-1', 0, CTX),
+      ).resolves.toBeNull();
+    });
+
+    it.each([
+      ['no order', () => answer({ data: { getOrderPublic: null } })],
+      ['no cart', () => answer({ data: { getOrderPublic: { cart: null } } })],
+      ['no items', () => orderRows(null)],
+    ])('answers nothing for %s', async (_case, respond) => {
+      fetchMock.mockResolvedValue(respond());
+
+      await expect(
+        backend.orderLineChoices('order-1', 0, CTX),
+      ).resolves.toBeNull();
+    });
+
+    it('reads a missing product as no product id', async () => {
+      fetchMock.mockResolvedValue(
+        orderRows([{ product: null, configuration: { sections: [] } }]),
+      );
+
+      await expect(
+        backend.orderLineChoices('order-1', 0, CTX),
+      ).resolves.toEqual({ productId: null, variables: [], options: [] });
+    });
+
+    it('skips null nodes and choices without an id, and reads a missing instance as empty', async () => {
+      fetchMock.mockResolvedValue(
+        orderRows([
+          {
+            product: { productId: 1 },
+            configuration: {
+              sections: [
+                null,
+                {
+                  id: 'machine',
+                  name: 'Machine',
+                  sortIndex: 1,
+                  variables: [
+                    null,
+                    committedVariable(null, 'NUMBER', '1'),
+                    committedVariable('width', 'NUMBER', null),
+                  ],
+                  optionGroups: [
+                    null,
+                    {
+                      id: 'g',
+                      code: 'g',
+                      name: 'g',
+                      sortIndex: 1,
+                      options: [
+                        null,
+                        committedOption(null, '0', 1),
+                        committedOption('adapter', null, 2),
+                      ],
+                      optionGroups: [null],
+                    },
+                  ],
+                  sections: [null],
+                },
+              ],
+            },
+          },
+        ]),
+      );
+
+      await expect(
+        backend.orderLineChoices('order-1', 0, CTX),
+      ).resolves.toEqual({
+        productId: 1,
+        variables: [{ id: 'width', value: null }],
+        options: [{ id: 'adapter', instanceId: '', quantity: 2 }],
+      });
+    });
+
+    it('gives the read 2 s, as the order-row read', async () => {
+      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      fetchMock.mockResolvedValue(orderRows([]));
+
+      await backend.orderLineChoices('order-1', 0, CTX);
+
+      expect(timeout.mock.calls).toEqual([[2_000]]);
+      timeout.mockRestore();
+    });
+
+    it('passes a failure on', async () => {
+      fetchMock.mockResolvedValue(answer({}, 503));
+
+      expect(
+        (await failureOf(() => backend.orderLineChoices('order-1', 0, CTX)))
+          .statusCode,
+      ).toBe(502);
+    });
+  });
+
   describe('addToCart', () => {
     const COMMITTED_ID = 'committed-1';
     const LINE = {

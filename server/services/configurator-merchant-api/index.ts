@@ -15,12 +15,14 @@ import {
   mapCartLineConfigurations,
   mapCommittedConfiguration,
   mapConfiguration,
+  mapOrderLineChoices,
   mapOrderLineConfigurations,
 } from './map';
 import type {
   WireCartLines,
   WireCommittedConfiguration,
   WireConfiguration,
+  WireOrderChoiceLines,
   WireOrderLines,
 } from './wire';
 
@@ -88,6 +90,24 @@ async function orderLines(publicOrderId: string, ctx: ConfiguratorContext) {
   // cannot see must fail rather than look empty.
   if (!data.getOrderPublic) throw upstream('answered without the order');
   return mapOrderLineConfigurations(data.getOrderPublic);
+}
+
+async function orderLineChoices(
+  publicOrderId: string,
+  row: number,
+  ctx: ConfiguratorContext,
+) {
+  const target = targetOf(ctx);
+  const data = await requestMerchantApi<{
+    getOrderPublic: WireOrderChoiceLines | null;
+  }>(
+    target,
+    ctx.userToken,
+    loadQuery('configurator/get-order-line-choices.graphql'),
+    { publicOrderId, ...channelOf(target) },
+    { timeoutMs: LINE_READ_TIMEOUT_MS },
+  );
+  return mapOrderLineChoices(data.getOrderPublic, row);
 }
 
 export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
@@ -240,6 +260,7 @@ export function createMerchantApiConfiguratorBackend(): ConfiguratorBackend {
 
     cartLineConfigurations: cartLines,
     orderLineConfigurations: orderLines,
+    orderLineChoices,
 
     async replaceLine(cartId, itemId, committedConfigurationId, ctx) {
       const target = targetOf(ctx);

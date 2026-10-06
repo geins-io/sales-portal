@@ -346,6 +346,7 @@
     "add_not_added": "Konfigurasjonen kunne ikke legges i handlekurven. Den kan være utsolgt.",
     "add_retry": "Prøv igjen",
     "not_reopened": "Valgene dine kunne ikke lastes inn på nytt. Konfigurasjonen ligger i handlekurven.",
+    "not_replayed": "Valgene fra ordren kunne ikke lastes inn. Du ser standardvalgene.",
     "starting": "Laster inn produktkonfiguratoren",
     "failed": "Noe gikk galt. Last inn siden på nytt og prøv igjen.",
     "change_refused_value": "Verdien ble ikke godtatt. Prøv en annen verdi.",

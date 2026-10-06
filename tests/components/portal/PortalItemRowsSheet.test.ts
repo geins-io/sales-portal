@@ -83,6 +83,26 @@ describe('PortalItemRowsSheet', () => {
     expect(rows[1]!.find('a').exists()).toBe(false);
   });
 
+  it('links the name to the href the row carries, before its product page', () => {
+    const rows = mountSheet({
+      items: [
+        { ...items[0]!, href: '/se/sv/p/widget-a?order=o-1&row=0' },
+        {
+          ...items[1]!,
+          alias: 'widget-b',
+          href: '/se/sv/p/widget-b?order=o-1&row=1',
+        },
+      ],
+    }).findAll('[data-testid="item-rows-row"]');
+
+    expect(rows[0]!.find('a').attributes('href')).toBe(
+      '/se/sv/p/widget-a?order=o-1&row=0',
+    );
+    expect(rows[1]!.find('a').attributes('href')).toBe(
+      '/se/sv/p/widget-b?order=o-1&row=1',
+    );
+  });
+
   it('renders the totals including an emphasised grand total', () => {
     const text = mountSheet().text();
     expect(text).toContain('Subtotal (3 items)');

@@ -1,0 +1,8 @@
+fragment CpqCommittedGroupFields on CpqCommittedOptionGroupType {
+  id
+  options {
+    id
+    instanceId
+    quantity
+  }
+}
