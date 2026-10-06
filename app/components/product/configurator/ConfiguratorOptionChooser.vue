@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import type { ConfigurationOption } from '#shared/types/configurator';
 import { ChevronRight, Lock } from 'lucide-vue-next';
-import {
-  isOptionReadOnly,
-  optionBlockReason,
-  optionImage,
-} from '~/utils/configurator-form';
+import { optionBlockReason, optionImage } from '~/utils/configurator-form';
+import { isOptionReadOnly } from '#shared/utils/configurator-choice';
 
 /**
  * The one row a long single-choice group shows in place of its rows: what to

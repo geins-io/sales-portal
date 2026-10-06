@@ -13,8 +13,6 @@ import {
   groupSummary,
   hasImageColumn,
   hasNothingToChoose,
-  isOptionReadOnly,
-  isSingleSelect,
   isVariableReadOnly,
   matchesOptionQuery,
   messagesBesides,
@@ -30,10 +28,14 @@ import {
   shownOptions,
   showsRequiredMark,
   signedOptionPrice,
-  singleChoiceChanges,
   usesChooser,
   variableControl,
 } from '../../app/utils/configurator-form';
+import {
+  isOptionReadOnly,
+  isSingleSelect,
+  singleChoiceChanges,
+} from '../../shared/utils/configurator-choice';
 import {
   findOption,
   findOptionGroup,

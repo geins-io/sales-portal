@@ -9,17 +9,19 @@ import {
   groupSummary,
   hasImageColumn,
   hasNothingToChoose,
-  isOptionReadOnly,
-  isSingleSelect,
   matchesOptionQuery,
   NONE_ROW_VALUE,
   offersNoneRow,
   refusesOptionIn,
   shownOptions,
   showsRequiredMark,
-  singleChoiceChanges,
   usesChooser,
 } from '~/utils/configurator-form';
+import {
+  isOptionReadOnly,
+  isSingleSelect,
+  singleChoiceChanges,
+} from '#shared/utils/configurator-choice';
 import { Input } from '~/components/ui/input';
 import { RadioGroup } from '~/components/ui/radio-group';
 import {

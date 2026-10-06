@@ -4,6 +4,11 @@ import type {
   ConfigurationOptionGroup,
   ConfigurationSection,
 } from '#shared/types/configurator';
+import {
+  isOptionReadOnly,
+  isSingleSelect,
+  singleChoiceChanges,
+} from '#shared/utils/configurator-choice';
 import type {
   ConfiguratorBackend,
   ConfiguratorContext,
@@ -25,22 +30,28 @@ export interface ReplayedConfiguration {
 }
 
 /** The provider sets these, and refuses a change to one. */
-function settable(node: { readOnly: boolean; selectionSource: string }) {
+function settableVariable(variable: {
+  readOnly: boolean;
+  selectionSource: string;
+}) {
   return (
-    !node.readOnly &&
-    node.selectionSource !== 'locked' &&
-    node.selectionSource !== 'temporarilyLocked'
+    !variable.readOnly &&
+    variable.selectionSource !== 'locked' &&
+    variable.selectionSource !== 'temporarilyLocked'
   );
 }
 
-/** Every variable and option of the fresh session, by key: whether it is settable. */
+/**
+ * Every variable of the fresh session by id, whether it is settable; every
+ * option by key, its group when it is settable, false when it is not.
+ */
 function targetsOf(fresh: Configuration) {
   const variables = new Map<string, boolean>();
-  const options = new Map<string, boolean>();
+  const options = new Map<string, ConfigurationOptionGroup | false>();
   const visitGroups = (groups: ConfigurationOptionGroup[]): void => {
     for (const group of groups) {
       for (const option of group.options) {
-        options.set(optionKey(option), settable(option));
+        options.set(optionKey(option), !isOptionReadOnly(option) && group);
       }
       visitGroups(group.optionGroups);
     }
@@ -48,7 +59,7 @@ function targetsOf(fresh: Configuration) {
   const visitSections = (sections: ConfigurationSection[]): void => {
     for (const section of sections) {
       for (const variable of section.variables) {
-        variables.set(variable.id, settable(variable));
+        variables.set(variable.id, settableVariable(variable));
       }
       visitGroups(section.optionGroups);
       visitSections(section.sections);
@@ -91,15 +102,23 @@ export function replayChanges(
     const target = targets.options.get(optionKey(option));
     if (target === undefined) return null;
     if (target) {
-      changes.push({
+      const pick: Extract<ConfigurationChange, { type: 'option' }> = {
         type: 'option',
         optionId: option.id,
         instanceId: option.instanceId,
         selected: true,
-        // The provider refuses a 0; left out, it keeps the row's own.
-        ...(option.quantity > 0 && { quantity: option.quantity }),
+        // Only a buyer's own change carries a quantity, and only an editable
+        // group takes one; left out, the provider keeps the row's own.
+        ...(target.quantityEditable &&
+          option.quantity > 0 && { quantity: option.quantity }),
         lock: 'none',
-      });
+      };
+      // Beside a locked current row a plain select leaves two selected.
+      changes.push(
+        ...(isSingleSelect(target)
+          ? singleChoiceChanges(target, pick)
+          : [pick]),
+      );
     }
   }
   return changes;

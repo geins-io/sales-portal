@@ -5,12 +5,12 @@ import type {
 } from '#shared/types/configurator';
 import { Lock } from 'lucide-vue-next';
 import {
-  isOptionReadOnly,
   messagesBesides,
   optionBlockReason,
   optionImage,
   quantityIsFixed,
 } from '~/utils/configurator-form';
+import { isOptionReadOnly } from '#shared/utils/configurator-choice';
 import { Checkbox } from '~/components/ui/checkbox';
 import { RadioGroupItem } from '~/components/ui/radio-group';
 
