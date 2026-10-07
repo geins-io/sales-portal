@@ -998,6 +998,7 @@ function onRetryOpen(): void {
                     <div v-if="activeEntry" :key="activeEntry.section.id">
                       <header class="mb-6 flex items-center gap-3">
                         <span
+                          v-if="railEntries.length > 1"
                           class="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums"
                           data-testid="configurator-section-number"
                         >

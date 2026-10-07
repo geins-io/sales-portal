@@ -1683,6 +1683,34 @@ describe('ConfiguratorProduct section trail', () => {
     ).toBe('1.1.1');
   });
 
+  it('draws no number before the title of a single visible section, and keeps it in the rail', async () => {
+    const single = makeCabinetConfiguration();
+    single.sections = single.sections.filter(
+      (section) => section.id !== 'interior',
+    );
+
+    const wrapper = mountPage();
+    activeWith(single);
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="configurator-section-number"]').exists(),
+    ).toBe(false);
+    expect(
+      wrapper.find('[data-testid="configurator-rail-number"]').text(),
+    ).toBe('1');
+  });
+
+  it('numbers the title when there are two visible sections', async () => {
+    const wrapper = mountPage();
+    activeWith(makeCabinetConfiguration());
+    await nextTick();
+
+    expect(
+      wrapper.find('[data-testid="configurator-section-number"]').text(),
+    ).toBe('1');
+  });
+
   it('keeps the position line a flat count of the rail', async () => {
     const wrapper = await mountTree();
 
